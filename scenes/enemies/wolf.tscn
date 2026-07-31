@@ -1,0 +1,24 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/wolf.gd" id="1_wolf"]
+[ext_resource type="Script" path="res://scripts/wolf_rig.gd" id="2_rig"]
+[ext_resource type="PackedScene" path="res://assets/wolfmen/wolf-monster.glb" id="3_model"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_wolf"]
+radius = 0.45
+height = 1.6
+
+[node name="Wolf" type="CharacterBody3D" groups=["enemy"]]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource("1_wolf")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("CapsuleShape3D_wolf")
+
+[node name="Visuals" type="Node3D" parent="."]
+transform = Transform3D(-1.4, 0, 0, 0, 1.4, 0, 0, 0, -1.4, 0, 0, 0)
+script = ExtResource("2_rig")
+
+[node name="wolf-monster" parent="Visuals" instance=ExtResource("3_model")]
