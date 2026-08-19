@@ -5,20 +5,25 @@ This repo currently holds the **placeholder third-person controller** used for
 greyboxing while the Blender models are in production.
 
 ```
-godot --path .                                        # open the editor
+godot --path .                                        # run the game
+godot -e --path .                                     # open the editor instead
 godot --path . --headless --script res://tests/smoke_test.gd   # movement checks
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 ```
+
+`INSTRUCTION.md` has the same thing in Georgian, with the control scheme and the
+usual first-run problems.
 
 Stretch is **disabled**, so the viewport always matches the window exactly and
 nothing is ever letterboxed — `canvas_items` with the default `keep` aspect puts
 black bars around the game on any display that is not 16:9. F11 toggles
 fullscreen.
 
-`res://scenes/world/greybox_world.tscn` is the main scene: flat ground, a 15°
-ramp, a 6-step staircase up to a platform, pillars to test camera collision, and
-a watchtower, a medieval house and cart, boulders, scattered grass and rocks,
-and a few creatures wandering about.
+`res://scenes/world/greybox_world.tscn` is the main scene: 120 × 120 m of flat
+ground walled in at the edges, a 15° ramp, a 55° face that cannot be stood on, a
+6-step staircase up to a platform, pillars to test camera collision, and a
+watchtower, a medieval house and cart, boulders, meadows of grass and stone
+clusters, and a handful of creatures wandering about.
 
 ## Node structure
 
@@ -91,6 +96,24 @@ lost between physics ticks and simulated input works in tests.
   speed, so changing these never makes the feet skate — and the stride *length*
   grows with speed (`run_stride_bonus`), because otherwise the legs would just
   churn faster and faster instead of reaching further per step.
+- **Slopes.** `floor_constant_speed` keeps the solver from trading speed for
+  height on a ramp, and `_slope_factor()` then applies a deliberate cost on top:
+  running straight uphill loses up to `slope_climb_penalty` of the gait at the
+  steepest walkable angle, running down gains a smaller `slope_descend_bonus`.
+  Anything past `floor_max_angle` is not floor at all — `_slide_off_steep_ground()`
+  redirects gravity along the face and cancels the component driving into it, so
+  the player slithers off a boulder instead of juddering against its side.
+- **In the air.** Air control steers the arc, it does not power it: the jump is
+  capped at the speed it launched with (`_air_speed_cap`), and with no input the
+  horizontal speed only bleeds off at `air_drag`, far gentler than the ground
+  figure. Falls are capped at `max_fall_speed` so a long drop cannot tunnel, a
+  ceiling kills the climb rather than scraping along it, and coming down faster
+  than `hard_landing_speed` costs momentum on touchdown — `landed` carries the
+  impact speed for the rig and the sound to use.
+- **Contacts.** `_resolve_contacts()` reads back what the move actually hit:
+  the steepest un-standable normal (for the slide above), the ceiling, and any
+  `RigidBody3D` in the way, which takes an impulse scaled by how hard the
+  capsule drove into it.
 - **Stairs.** `CharacterBody3D` has no built-in stair stepping in 4.7, so
   `_step_up()` does the classic up → forward → down sweep with `test_move()`.
   It only fires against wall-like normals, so real walls still block, and the
@@ -152,9 +175,21 @@ chains for the cape (`cape_j0…j5`) and the ponytail (`tail_j0…j4`).
 - **Air-cut streak.** `scripts/sword_trail.gd` keeps a short ring of world
   positions for the blade's base and tip and stitches them into a triangle
   strip, so the ribbon is the surface the edge actually swept — it follows any
-  swing without being authored per attack. Samples fade by age, which trails the
-  streak off behind the blade rather than snapping it away. It only emits while
-  the blade is travelling. `sample_count`, `fade_time` and `tint` are exported.
+  swing without being authored per attack. The streak fades off behind the blade
+  rather than snapping away. It only emits while the blade is travelling.
+  `sample_count`, `fade_time` and `tint` are exported.
+
+  The mesh is allocated **once** and only its vertex positions are rewritten
+  after that. Building a fresh surface every frame — `ImmediateMesh`, or
+  re-adding one to an `ArrayMesh` — costs tens of milliseconds a frame on this
+  renderer *no matter how few vertices are in it*: with two claw trails on one
+  wolf it put 15% of frames over 50 ms, which hitched the whole game every time
+  anything swung. Writing into the buffer that is already there costs nothing
+  measurable. Two things follow from allocating up front: the ribbon always has
+  `sample_count` slots and the samples are spread across all of them (repeats
+  give zero-area triangles, which do not draw), and the fade is baked into the
+  vertex colours once with the overall fade-out riding on the material alpha, so
+  no attribute buffer is ever touched.
 - **Sprint.** Not just faster: the lean deepens, the elbows pump in and the
   shoulders swing wider (`Sprint` group in the inspector). The sword arm keeps
   more of its extension than the shield arm and is carried further out from the
@@ -225,12 +260,33 @@ up by name, since the replacement has no `blade_tip` node.
 
 ### Scatter
 
-`Level/Scatter` holds 942 instances — 87 wild-grass clumps (`grass2.glb`), 837
-small tufts (`grass.glb`) and 18 stone clusters (`rock.glb`), spread on a
-jittered 1.4 m grid across the whole ground so it reads as a field. Lanes are kept
-clear where they read as paths: out from the spawn to the tower, the stairs and
-the ramp, plus one running north-south, and nothing is placed inside a structure
-footprint.
+`Level/Scatter` holds ~1 700 grass clumps (`grass2.glb`) and 32 stone clusters
+(`rock.glb`), and it is generated, not placed by hand:
+`tools/build_scatter.py` rewrites that block of the scene.
+
+The meadows are built out of `grass2.glb` alone. The other grass asset,
+`grass.glb`, is a tenth of the triangles, but it ships untextured and reads as
+flat green leaf cards rather than blades, so mixing it in makes the field look
+worse rather than cheaper — `TUFTS_PER_CLUMP` is there if a textured version
+ever arrives.
+
+Grass is laid down as **meadows** rather than as an even scatter. A single tuft
+every metre or so across the whole ground reads as noise; instead the script
+fills a set of meandering ribbons and blobs (`RIBBONS`, `BLOBS`) on a jittered
+hex lattice at `SPACING`, which is tight enough that neighbours overlap and the
+patch merges into one continuous mat. Density and blade height both follow the
+distance to the middle of the patch, so a meadow is deep in its core and thins
+out to a soft border instead of ending on a hard circle. Everything else is left
+as open ground.
+
+`NO_GRASS` and `NO_ROCK` keep both out of the structures, and rocks additionally
+out of the spawn clearing and the corridors the headless tests dash through. The
+seed is fixed, so the same parameters always produce the same field:
+
+```
+python3 tools/build_scatter.py --dry-run   # report the counts
+python3 tools/build_scatter.py             # rewrite the scene
+```
 
 The stones are solid: `rock.glb.import` carries a `_subresources` entry per rock
 mesh (`PATH:Rocks/rock_big_1` and friends) with `generate/physics` and
@@ -240,13 +296,46 @@ cheaper and smoother to walk over — they are about 0.4 m tall, so the
 controller's step-up carries the player onto them. Grass has no collision; it is
 meant to be walked through.
 
-The scatter node runs `scripts/grass_field.gd`, which bends grass out of the
-way. Each clump keeps the orientation it was placed with; the bend is layered on
-top as a rotation about a horizontal axis through the clump's base, so blades
-lean away from the player and spring back once they have passed. Rocks are left
-alone — only children whose name starts with `grass_prefix` are touched. The
-player is found through the `player` group, and `reach` / `max_bend` /
-`bend_speed` / `recover_speed` are exported.
+The scatter node runs `scripts/grass_field.gd`, which bends grass out of the way
+and keeps the field swaying. Each clump keeps the orientation it was placed with;
+the lean is layered on top as a rotation about a horizontal axis through the
+clump's base, so blades tip away from whatever is pushing them and spring back
+once it has passed. Rocks are left alone — only children whose name starts with
+`grass_prefix` are touched.
+
+Thousands of clumps cannot all be integrated every frame, so they are bucketed
+into a uniform grid at startup and the work is split by what is actually needed:
+clumps under a pusher run every frame, clumps still standing back up stay awake
+until they have, everything else within `wind_radius` only gets the wind and is
+spread over `wind_slices` frames, and anything further out is left alone. The
+wind itself is a travelling wave — a pure function of position and time, which
+is what lets a clump be skipped for a frame and pick the gust up where it is.
+Beyond `draw_distance` the meshes stop being drawn at all.
+
+The player is not the only thing that flattens grass: every body in the `enemy`
+group pushes too, over a wider radius (`enemy_reach_scale`) since the creatures
+are bigger.
+
+### What the grass costs
+
+`grass2.glb` is **8 256 triangles a clump**, so a meadow of them is by far the
+most expensive thing in the scene and the settings that hold it down matter more
+than they look:
+
+- `casts_shadows` is **off**. Every clump would otherwise be re-drawn once per
+  directional shadow cascade on top of the visible pass — measured at roughly
+  half the frame, for shadows that at this size of blade are nearly invisible.
+  The grass still *receives* shadows.
+- `lod_bias` is **0.06**, so the LODs the importer generates are used far
+  sooner than the default. Set per clump rather than through the viewport, so
+  the buildings and creatures keep their detail. This alone halves the triangle
+  count with no visible difference.
+- `SPACING` in the generator is the count dial — instances go as 1/spacing², so
+  it is the first thing to raise if the field has to get cheaper.
+
+Standing in the deepest meadow with the creatures fighting, on an M1: 62 fps at
+1600×900, 46 fps at 1080p, no frame over 25 ms. Before these three, the same
+spot ran at 19 fps.
 
 `grass.glb` ships with a `Leaf` material but no texture, so it renders as white
 cards out of the box. `assets/grass/leaf_material.tres` is wired in through the
@@ -356,7 +445,7 @@ the creature a static collider inside itself that shoved it around the map.
 Replace the scene under `Visuals` with the imported knight, keep the origin at
 the feet, and either keep driving it with `TarielRig` (if the joints are named
 the same) or swap in an `AnimationTree` fed by the `state` enum plus the
-`jumped` / `landed` / `dash_started` / `attack_started` signals. Resize the
+`jumped` / `landed(impact_speed)` / `dash_started` / `attack_started` signals. Resize the
 `CollisionShape3D` to the model and keep `max_step_height` below the capsule
 radius.
 
@@ -366,11 +455,14 @@ radius.
 project.godot            input map, physics layers, gravity
 icon.svg
 scripts/player.gd        the controller
+scripts/grass_field.gd   grass bending, wind, LOD and culling
+scripts/sword_trail.gd   the streak a blade leaves, on a fixed vertex buffer
+tools/build_scatter.py   generates the meadows in the world scene
 scripts/tariel_rig.gd    procedural animation for the character
 assets/tariel/tariel.glb the Tariel model
 scenes/player/player.tscn
 scenes/world/greybox_world.tscn
-tests/smoke_test.gd      headless checks: movement, jump, dash, stairs, camera
+tests/smoke_test.gd      headless checks: movement, jump, dash, slopes, camera
 tests/combat_test.gd     creature facing, arena bounds, blocking, dismemberment
 tests/pose_shots.gd      renders one PNG per animation state
 tests/screenshot.gd      renders a single frame to a PNG

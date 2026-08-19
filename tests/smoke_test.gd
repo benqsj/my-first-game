@@ -94,6 +94,53 @@ func _initialize() -> void:
 			"stopped at %v" % player.global_position)
 	await _settle(player)
 
+	# --- Climbing costs speed -----------------------------------------------
+	player.global_position = Vector3(10.0, 0.2, 2.0)
+	player.velocity = Vector3.ZERO
+	await _wait(10)
+	Input.action_press("move_forward")
+	await _wait(45)
+	var uphill := Vector3(player.velocity.x, 0.0, player.velocity.z).length()
+	Input.action_release("move_forward")
+	_check("running uphill is slower than running on the flat", uphill < player.run_speed * 0.95,
+			"%.2f of %.2f m/s" % [uphill, player.run_speed])
+	await _settle(player)
+
+	# --- A face too steep to stand on ---------------------------------------
+	# Dropped onto the 55 degree slab, the player must end up at the bottom of
+	# it rather than perched on the side.
+	player.global_position = Vector3(16.0, 4.5, 2.0)
+	player.velocity = Vector3.ZERO
+	await _wait(120)
+	_check("a steep face cannot be stood on", player.global_position.y < 0.6,
+			"y = %.2f" % player.global_position.y)
+	await _settle(player)
+
+	# --- Falls are capped ---------------------------------------------------
+	player.global_position = Vector3(0.0, 200.0, 26.0)
+	player.velocity = Vector3.ZERO
+	await _wait(180)
+	_check("the fall reaches a terminal velocity",
+			player.velocity.y > -player.max_fall_speed - 0.5 and player.velocity.y < -1.0,
+			"%.1f m/s" % player.velocity.y)
+
+	# --- A heavy landing costs momentum -------------------------------------
+	# Air drag off, so what the landing takes is all that is being measured.
+	var drag := player.air_drag
+	player.air_drag = 0.0
+	player.global_position = Vector3(0.0, 12.0, 26.0)
+	player.velocity = Vector3(player.run_speed, 0.0, 0.0)
+	var carried := player.velocity.x
+	for i in 240:
+		await physics_frame
+		if player.is_on_floor():
+			break
+	var kept := Vector3(player.velocity.x, 0.0, player.velocity.z).length()
+	_check("a heavy landing bleeds off speed", kept < carried * 0.95,
+			"kept %.2f of %.2f m/s" % [kept, carried])
+	player.air_drag = drag
+	await _settle(player)
+
 	# --- Walls are not climbed ----------------------------------------------
 	player.global_position = Vector3(4.0, 0.2, 5.5)
 	player.velocity = Vector3.ZERO
@@ -150,6 +197,14 @@ func _initialize() -> void:
 	var field := world.get_node_or_null("Level/Scatter") as GrassField
 	var clump: Node3D = null
 	if field != null:
+		# The wind keeps every blade leaning a few degrees, and the creatures
+		# flatten grass of their own accord — a wolf prowling past the test
+		# clump is not what these checks are about. Both off, so what is
+		# measured is the knight's own push and nothing else.
+		field.wind_enabled = false
+		field.enemy_reach_scale = 0.0
+		# Long enough for anything already trampled to stand back up.
+		await _wait(90)
 		for c in field.get_children():
 			var n := c as Node3D
 			if n != null and n.name.begins_with("GrassClump"):

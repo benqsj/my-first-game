@@ -16,9 +16,14 @@ func _initialize() -> void:
 	var wolf: Wolf = world.get_node("Enemies/Wolf1")
 	var golem: Golem = world.get_node("Enemies/Golem1")
 	var hunter: Wolf = world.get_node("Enemies/Wolf2")
-	# Kept blind until its own section: a second wolf wandering into the swings
-	# meant for the first one is not what any of these checks are about.
+	# Kept blind *and* still until its own section, and parked out on the far
+	# plain: a second wolf wandering into the swings meant for the first one is
+	# not what any of these checks are about, and blinding it alone still leaves
+	# it prowling around its spawn, which is within reach of them.
 	hunter.sight_range = 0.0
+	var hunter_prowl := hunter.prowl_speed
+	hunter.prowl_speed = 0.0
+	hunter.global_position = Vector3(40.0, 0.5, 40.0)
 	_camera = Camera3D.new()
 	_camera.fov = 42.0
 	world.add_child(_camera)
@@ -31,7 +36,8 @@ func _initialize() -> void:
 	await _facing_check("golem", golem, Vector3(-6.0, 0.5, -6.0), Vector3(-6.0, 0.0, 4.0))
 
 	# --- The arena is walled in ---------------------------------------------
-	wolf.global_position = Vector3(26.0, 0.5, 0.0)
+	# The ground runs to x = 60 and the wall sits just inside it.
+	wolf.global_position = Vector3(50.0, 0.5, 0.0)
 	wolf.sight_range = 0.0
 	wolf.prowl_speed = 0.0
 	for i in 20:
@@ -40,7 +46,7 @@ func _initialize() -> void:
 	for i in 90:
 		await physics_frame
 		wolf.velocity.x = 30.0
-	_check("the wolf cannot run off the edge", wolf.global_position.x < 29.0 and wolf.global_position.y > -1.0,
+	_check("the wolf cannot run off the edge", wolf.global_position.x < 59.0 and wolf.global_position.y > -1.0,
 			"at %v" % wolf.global_position)
 
 	# --- The knight cannot walk through them --------------------------------
@@ -119,6 +125,7 @@ func _initialize() -> void:
 
 	# --- It chases and keeps chasing ----------------------------------------
 	hunter.sight_range = 20.0
+	hunter.prowl_speed = hunter_prowl
 	# One of the cleared corridors: the scattered rocks are solid, and a chase
 	# that starts wedged against one is not testing the chase.
 	hunter.global_position = Vector3(6.0, 0.5, -14.0)

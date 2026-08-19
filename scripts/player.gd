@@ -8,7 +8,7 @@ extends CharacterBody3D
 ## The capsule mesh is a stand-in for the Blender knight models.
 
 signal jumped
-signal landed
+signal landed(impact_speed: float)
 signal dash_started(direction: Vector3)
 signal dash_ended
 signal attack_started
@@ -33,14 +33,32 @@ const STEP_PROBE_SAMPLES := 4
 @export var ground_deceleration: float = 75.0
 ## How much control the player keeps mid-air (0 = none, 1 = full).
 @export_range(0.0, 1.0) var air_control: float = 0.35
-## How fast the body turns to face its movement direction.
+## How fast a jump bleeds off with no stick input, in m/s². Much gentler than
+## the ground figure: a jump should carry you, not stop dead in mid-air.
+@export var air_drag: float = 3.0
+## How fast the body turns to face its movement direction at a full run.
 @export var turn_speed: float = 12.0
+## Turn rate while barely moving. Higher than `turn_speed` so a standing turn
+## is crisp while a sprinting one still has to carve.
+@export var turn_speed_still: float = 22.0
 ## Tallest ledge the player walks up without jumping. CharacterBody3D has no
 ## built-in stair stepping, so this is resolved manually in _step_up().
 @export var max_step_height: float = 0.4
 ## How far ahead the step-up sweep reaches. Must exceed the capsule radius or
 ## the sweep lands on the ledge's edge instead of its top face.
 @export var step_forward_probe: float = 0.55
+
+@export_group("Slopes")
+## Speed lost running straight up a slope at the steepest walkable angle.
+@export_range(0.0, 0.9) var slope_climb_penalty: float = 0.35
+## Speed gained running straight down one. Kept small so downhills do not turn
+## into a luge run.
+@export_range(0.0, 0.9) var slope_descend_bonus: float = 0.15
+## Pull down a surface too steep to stand on, in m/s². This is what stops the
+## player from parking on the side of a boulder.
+@export var slide_acceleration: float = 26.0
+## Drag along that surface while sliding, so the slide reaches a terminal speed.
+@export var slide_friction: float = 1.5
 
 @export_group("Jump")
 ## Apex height in metres, converted to an impulse using the project gravity.
@@ -53,6 +71,14 @@ const STEP_PROBE_SAMPLES := 4
 @export var coyote_time: float = 0.12
 ## How long a jump press is remembered before landing.
 @export var jump_buffer_time: float = 0.12
+## Terminal velocity. Without it a long drop builds up enough speed to tunnel
+## through thin floors.
+@export var max_fall_speed: float = 34.0
+## Landing faster than this counts as a heavy landing.
+@export var hard_landing_speed: float = 14.0
+## Fraction of the run that survives a heavy landing, so a big drop costs you
+## some momentum instead of letting you sprint straight out of it.
+@export_range(0.0, 1.0) var hard_landing_grip: float = 0.55
 
 @export_group("Dash")
 @export var dash_speed: float = 11.0
@@ -62,6 +88,13 @@ const STEP_PROBE_SAMPLES := 4
 @export var dash_iframes: float = 0.3
 ## Dashes are ignored while airborne when false.
 @export var allow_air_dash: bool = false
+## Cut the roll short when it runs into a wall rather than grinding along it.
+@export var dash_cancels_on_wall: bool = true
+
+@export_group("Physics")
+## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
+## makes the player pass them by without disturbing them.
+@export var push_force: float = 2.5
 
 @export_group("Camera")
 @export var mouse_sensitivity: float = 0.0025
@@ -94,13 +127,36 @@ var _dash_timer: float = 0.0
 var _dash_cooldown_timer: float = 0.0
 var _dash_direction: Vector3 = Vector3.ZERO
 var _was_on_floor: bool = true
+## Fastest the player may travel horizontally while airborne: whatever it left
+## the ground with. Air control steers the jump, it does not accelerate it.
+var _air_speed_cap: float = 0.0
+## Downward speed going into the last move, kept so the landing knows how hard
+## it was — move_and_slide() has already flattened velocity by then.
+var _impact_speed: float = 0.0
+## Normal of the steepest un-standable surface touched last tick, if any.
+var _steep_normal: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
 	_jump_velocity = sqrt(2.0 * _gravity * jump_height)
+	_air_speed_cap = run_speed
 
 	# Snap far enough to hug the stairs on the way down, matching the step-up.
 	floor_snap_length = maxf(floor_snap_length, max_step_height)
+	# Hold the run speed while climbing or descending a ramp instead of letting
+	# the solver trade it for height, then layer our own slope cost on top.
+	floor_constant_speed = true
+	# Stop a wall from acting as a ramp when it is hit at a shallow angle, and
+	# keep glancing hits sliding instead of catching.
+	floor_block_on_wall = true
+	wall_min_slide_angle = deg_to_rad(12.0)
+	slide_on_ceiling = true
+	# Room for a few contacts: floor plus wall plus a step edge in one tick.
+	max_slides = 6
+	safe_margin = 0.002
+	# Leaving a moving platform hands its velocity over, but only upwards, so
+	# riding one sideways does not fling the player.
+	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY
 
 	# The camera rig lives in world space so that rotating the body never
 	# drags the camera with it. It is re-positioned every frame in _process().
@@ -155,8 +211,13 @@ func _physics_process(delta: float) -> void:
 	else:
 		_process_locomotion(delta)
 
+	_slide_off_steep_ground(delta)
+	velocity.y = maxf(velocity.y, -max_fall_speed)
+	_impact_speed = maxf(-velocity.y, 0.0)
+
 	_step_up(delta)
 	move_and_slide()
+	_resolve_contacts()
 	_update_floor_state()
 
 
@@ -182,16 +243,28 @@ func _process_locomotion(delta: float) -> void:
 	var direction := get_movement_direction()
 	var speed := walk_speed if Input.is_action_pressed("walk") else run_speed
 	var on_floor := is_on_floor()
-
-	# Horizontal movement.
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
-	if direction.is_zero_approx():
-		var decel := ground_deceleration if on_floor else ground_deceleration * air_control
-		horizontal = horizontal.move_toward(Vector3.ZERO, decel * delta)
+
+	if on_floor:
+		# Climbing costs speed, dropping gives a little back.
+		speed *= _slope_factor(direction)
+		if direction.is_zero_approx():
+			horizontal = horizontal.move_toward(Vector3.ZERO, ground_deceleration * delta)
+		else:
+			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
+			_face_direction(direction, delta)
 	else:
-		var accel := ground_acceleration if on_floor else ground_acceleration * air_control
-		horizontal = horizontal.move_toward(direction * speed, accel * delta)
-		_face_direction(direction, delta)
+		# In the air the stick steers the arc rather than driving it: the jump
+		# keeps the speed it launched with and control only redirects it.
+		if direction.is_zero_approx():
+			horizontal = horizontal.move_toward(Vector3.ZERO, air_drag * delta)
+		else:
+			horizontal = horizontal.move_toward(direction * speed,
+					ground_acceleration * air_control * delta)
+			_face_direction(direction, delta)
+		var cap := maxf(_air_speed_cap, speed)
+		if horizontal.length() > cap:
+			horizontal = horizontal.limit_length(cap)
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -202,6 +275,40 @@ func _process_locomotion(delta: float) -> void:
 
 	if _jump_buffer_timer > 0.0 and (on_floor or _coyote_timer > 0.0):
 		_do_jump()
+
+
+## Speed multiplier for running along `direction` on the current floor: below 1
+## uphill, above 1 downhill, 1 on the flat or in the air.
+func _slope_factor(direction: Vector3) -> float:
+	if not is_on_floor() or direction.is_zero_approx():
+		return 1.0
+	var normal := get_floor_normal()
+	if normal.y <= 0.001:
+		return 1.0
+	# Metres of height per metre travelled: the floor normal leans downhill, so
+	# heading against it is a climb.
+	var grade := -direction.dot(Vector3(normal.x, 0.0, normal.z)) / normal.y
+	var steepest := tan(floor_max_angle)
+	var t := clampf(grade / maxf(steepest, 0.01), -1.0, 1.0)
+	return 1.0 - t * (slope_climb_penalty if t > 0.0 else slope_descend_bonus)
+
+
+## Surfaces past `floor_max_angle` are not standable, so gravity is redirected
+## along them: the player slithers down instead of hanging on the side.
+func _slide_off_steep_ground(delta: float) -> void:
+	if is_on_floor() or _steep_normal == Vector3.ZERO:
+		return
+
+	var downhill := Vector3.DOWN.slide(_steep_normal)
+	if downhill.is_zero_approx():
+		return
+	velocity += downhill.normalized() * slide_acceleration * delta
+	# Nothing is gained by driving into the surface, and keeping that component
+	# is what makes a body judder against a slope.
+	var into := velocity.dot(_steep_normal)
+	if into < 0.0:
+		velocity -= _steep_normal * into
+	velocity -= velocity.slide(_steep_normal) * clampf(slide_friction * delta, 0.0, 1.0)
 
 
 func get_movement_direction() -> Vector3:
@@ -217,8 +324,11 @@ func get_movement_direction() -> Vector3:
 
 
 func _face_direction(direction: Vector3, delta: float) -> void:
+	# Pivoting on the spot is instant-ish; at a sprint the turn has to carve.
+	var pace := clampf(Vector3(velocity.x, 0.0, velocity.z).length() / maxf(run_speed, 0.01), 0.0, 1.0)
+	var rate := lerpf(turn_speed_still, turn_speed, pace)
 	var target_yaw := atan2(-direction.x, -direction.z)
-	rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-turn_speed * delta))
+	rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-rate * delta))
 
 
 ## Places the body on top of a low ledge, the classic up -> forward -> down
@@ -282,6 +392,8 @@ func _do_jump() -> void:
 	velocity.y = _jump_velocity
 	_jump_buffer_timer = 0.0
 	_coyote_timer = 0.0
+	# Whatever ground speed the jump was taken at is the budget for the arc.
+	_air_speed_cap = maxf(Vector3(velocity.x, 0.0, velocity.z).length(), run_speed)
 	state = State.AIRBORNE
 	jumped.emit()
 #endregion
@@ -324,6 +436,11 @@ func _process_dash(delta: float) -> void:
 	if dash_iframes > 0.0 and dash_duration - _dash_timer >= dash_iframes:
 		is_invulnerable = false
 
+	# Rolling face-first into a wall should stop the roll, not scrape along it.
+	if dash_cancels_on_wall and is_on_wall() and get_wall_normal().dot(_dash_direction) < -0.6:
+		_end_dash()
+		return
+
 	if _dash_timer <= 0.0:
 		_end_dash()
 
@@ -358,19 +475,66 @@ func _tick_timers(delta: float) -> void:
 	_dash_cooldown_timer = maxf(_dash_cooldown_timer - delta, 0.0)
 
 
+## Reads back what the move actually hit: the steep ground the next tick has to
+## slide off, a ceiling to stop dead against, and any loose body to shove.
+func _resolve_contacts() -> void:
+	_steep_normal = Vector3.ZERO
+	var floor_cos := cos(floor_max_angle)
+
+	for i in get_slide_collision_count():
+		var contact := get_slide_collision(i)
+		var normal := contact.get_normal()
+
+		# Faces up, but not enough to stand on.
+		var facing := normal.dot(up_direction)
+		if facing > 0.05 and facing < floor_cos and facing > _steep_normal.dot(up_direction):
+			_steep_normal = normal
+
+		if push_force > 0.0:
+			var body := contact.get_collider() as RigidBody3D
+			if body != null:
+				var push := -normal
+				push.y = 0.0
+				if not push.is_zero_approx():
+					push = push.normalized()
+					var into := velocity.dot(push)
+					if into > 0.0:
+						body.apply_impulse(push * into * push_force,
+								contact.get_position() - body.global_position)
+
+	if is_on_ceiling() and velocity.y > 0.0:
+		velocity.y = 0.0
+
+
 func _update_floor_state() -> void:
 	var on_floor := is_on_floor()
 
 	if on_floor:
 		_coyote_timer = coyote_time
 		if not _was_on_floor:
-			landed.emit()
+			_land()
 		if state != State.DASHING:
 			state = State.GROUNDED
 	elif state != State.DASHING:
+		if _was_on_floor:
+			# Walked off an edge: the arc keeps the speed it left with.
+			_air_speed_cap = maxf(Vector3(velocity.x, 0.0, velocity.z).length(), run_speed)
 		state = State.AIRBORNE
 
 	_was_on_floor = on_floor
+
+
+func _land() -> void:
+	# Coming down hard costs some of the run — a drop should be felt.
+	if _impact_speed > hard_landing_speed and state != State.DASHING:
+		velocity.x *= hard_landing_grip
+		velocity.z *= hard_landing_grip
+	# The fall is over; anything left on the vertical axis only fights the floor
+	# snap on the next tick.
+	velocity.y = 0.0
+	_air_speed_cap = run_speed
+	landed.emit(_impact_speed)
+	_impact_speed = 0.0
 
 
 func _toggle_fullscreen() -> void:
