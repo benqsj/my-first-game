@@ -388,6 +388,16 @@ func halt() -> void:
 	_clip = &""
 
 
+## Drops the layer where it stands: no fade, nothing left running, nothing left
+## to chain from. For transitions the body does not ease into — catching hold of
+## a wall in mid-jump is one, and a take-off clip fading out over it for even a
+## tenth of a second reads as the jump carrying on up the wall.
+func cut() -> void:
+	_target_weight = 0.0
+	_weight = 0.0
+	halt()
+
+
 ## Freezes the library on one frame of a clip, at full strength and full body.
 ## For tooling: the game never wants a pose that does not move, but a screenshot
 ## has to be taken at a time somebody chose rather than whenever the frame fell.

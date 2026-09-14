@@ -152,6 +152,14 @@ const CLIP_CLIMB := &"ClimbUp_1m"
 @export var shield_scene: PackedScene
 @export var shield_scale: float = 0.75
 
+@export_group("Stowing")
+## Where the slung sword and shield sit relative to the chest, in metres, in the
+## model's own frame. Negative Z is behind the body.
+@export var sword_back_offset: Vector3 = Vector3(0.06, -0.04, -0.17)
+@export var shield_back_offset: Vector3 = Vector3(-0.02, -0.06, -0.21)
+## How fast they go over the shoulder and come back off it.
+@export var stow_speed: float = 7.0
+
 @export_group("Shield")
 ## How far the stowed shield stands off the arm. Raise it if the plate clips
 ## the hip or thigh.
@@ -272,11 +280,18 @@ var attack_serial: int = 0
 ## How bloodied the blade is, 0 to 1.
 var blade_blood: float = 0.0
 var _sword_model: Node3D
-## The node the weapon hangs off, and where it sits when it is being carried.
-## Climbing slides it up the forearm so the grip stops sticking out of the fist
-## into whatever the hand is holding onto.
+## The node the weapon hangs off.
 var _sword_mount: Node3D
-var _sword_mount_rest: Vector3 = Vector3.ZERO
+## Whichever node actually carries the sword — the replacement model if there is
+## one, the mount itself if the modelled blade is being used — and where it sits
+## when the sword is in the hand rather than on the back.
+var _sword_carrier: Node3D
+var _sword_carry: Transform3D = Transform3D.IDENTITY
+## How far the weapons are over the shoulder: 0 in the hands, 1 on the back.
+var _stow_blend: float = 0.0
+## Whether the player has asked for them to be put away. Climbing overrides it
+## and hands it back afterwards.
+var _stowed: bool = false
 var _attack_rng := RandomNumberGenerator.new()
 var _blade_base: Node3D
 var _blade_tip: Node3D
@@ -482,11 +497,7 @@ func _settle_on_ground() -> void:
 ## replacement props off the same attachment points, so every pose, swing and
 ## block keeps working untouched.
 func _swap_weapons() -> void:
-	# Kept whether or not the weapon is replaced: the climb slides the mount,
-	# which carries the modelled sword and the replacement alike.
 	_sword_mount = find_child("sword", true, false) as Node3D
-	if _sword_mount != null:
-		_sword_mount_rest = _sword_mount.position
 
 	if sword_scene != null:
 		var hand := _sword_mount
@@ -504,6 +515,12 @@ func _swap_weapons() -> void:
 			blade.transform = Transform3D(
 					aim.scaled(Vector3.ONE * sword_scale),
 					Vector3(0.0, sword_grip_offset * sword_scale, 0.0))
+
+	# Whichever node ends up holding the blade is the one stowing moves, so the
+	# modelled sword goes on the back just as the replacement does.
+	_sword_carrier = _sword_model if _sword_model != null else _sword_mount
+	if _sword_carrier != null:
+		_sword_carry = _sword_carrier.transform
 
 	if shield_scene != null:
 		var arm := find_child("shield", true, false) as Node3D
@@ -629,6 +646,10 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			1.0 - exp(-crouch_blend_speed * delta))
 	_climb_blend = lerpf(_climb_blend, 1.0 if _wall_climbing else 0.0,
 			1.0 - exp(-climb_blend_speed * delta))
+	# Climbing needs both hands, so it puts the weapons away whether or not the
+	# player asked; letting go hands the choice back.
+	_stow_blend = lerpf(_stow_blend, 1.0 if _stowed or _wall_climbing else 0.0,
+			1.0 - exp(-stow_speed * delta))
 
 	# One cycle per stride keeps the feet in step with the ground speed. How long
 	# that stride is has to answer to the gait as well as the pace: dawdling and
@@ -668,6 +689,9 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	_pose_torso(t)
 	_pose_arms(t)
 	_pose_climb()
+	# After the arms: the shield's carried placement is theirs to set, and this
+	# is what takes it off them.
+	_sling_weapons()
 	_pose_cloth(delta, vertical_speed)
 	_apply_pose()
 
@@ -792,6 +816,28 @@ func slide(active: bool) -> void:
 		_play_clip(CLIP_SLIDE_OUT, ClipRole.SLIDE_OUT, clip_fade_in)
 
 
+## Puts the sword and shield over the shoulder, or takes them back off it.
+##
+## There is no draw or sheathe clip in the library, so this is what there is:
+## the props cross to the back and back again over `stow_speed`. It is a
+## carrying choice rather than a state — nothing else in the rig asks whether
+## the weapons are away, and anything that needs them simply takes them back.
+func stow_weapons(away: bool) -> void:
+	_stowed = away
+
+
+## True while the player has asked for the weapons to be put away. Climbing
+## stows them too, and that does not show up here: it is not the player's doing
+## and it is given back the moment they let go of the wall.
+func weapons_stowed() -> bool:
+	return _stowed
+
+
+## How far the weapons are actually over the shoulder, 0 to 1, whoever asked.
+func weapons_slung() -> float:
+	return _stow_blend
+
+
 ## Takes hold of a wall, or lets go of it.
 ##
 ## Procedural, like the crouch and for the same reason: the library ships a
@@ -814,9 +860,17 @@ func wall_climb(active: bool) -> void:
 	# very wall they are reaching for. What is left of the blend reads as the
 	# body settling onto its holds, which is the part worth easing.
 	_climb_blend = maxf(_climb_blend, 0.8)
-	# Nothing that was playing means anything on a wall.
+	# Nothing that was playing means anything on a wall, and it has to go *now*
+	# rather than over a fade: a wall caught in mid-jump would otherwise spend
+	# the first tenth of a second with the take-off clip still at full strength
+	# on top of the climb, which reads as the jump carrying on up the wall. The
+	# role goes with it, so nothing chains off the clip when it reaches its end
+	# either — that is what used to hand over to the falling loop, at full
+	# weight, halfway up a building.
+	_clip_role = ClipRole.NONE
+	_clip_window = Vector2.ZERO
 	if _action != null:
-		_action.stop(0.12)
+		_action.cut()
 	if _gait != null:
 		_gait.stop(0.12)
 
@@ -866,6 +920,14 @@ func hold_clip(clip: StringName, through: float) -> bool:
 ## and the walk cycle have it to themselves.
 func current_clip() -> StringName:
 	return _action.current_clip() if _action != null else &""
+
+
+## How strongly the one-shot layer is showing, 0 to 1. A clip can still be
+## running at no weight at all — stopping a layer fades it, it does not rewind
+## it — so this, and not the clip's name, is what says whether anything of it is
+## on the body.
+func clip_weight() -> float:
+	return _action.weight() if _action != null else 0.0
 
 
 ## Everything the library has to offer, for tooling.
@@ -996,19 +1058,28 @@ func _release_landing() -> void:
 
 
 func _on_clip_finished(_clip: StringName) -> void:
-	match _clip_role:
-		ClipRole.SLIDE_IN:
-			if _play_clip(CLIP_SLIDE, ClipRole.SLIDE, 0.1):
-				return
-		ClipRole.TAKEOFF:
-			if _was_airborne and _play_clip(CLIP_FALL, ClipRole.FALL, 0.12):
-				return
+	# On a wall nothing follows anything: the body is being posed by hand and a
+	# clip chaining into its own sequel would take it straight back off again.
+	if not _wall_climbing:
+		match _clip_role:
+			ClipRole.SLIDE_IN:
+				if _play_clip(CLIP_SLIDE, ClipRole.SLIDE, 0.1):
+					return
+			ClipRole.TAKEOFF:
+				if _was_airborne and _play_clip(CLIP_FALL, ClipRole.FALL, 0.12):
+					return
 	# Held poses — the slide and the fall — loop, so they never arrive here;
 	# they are ended by slide(false) or by touching the ground.
+	_drop_clip(clip_fade_out)
+
+
+## Hands the body back to the procedural pose and forgets what was playing, so
+## that nothing chains off it afterwards.
+func _drop_clip(fade: float) -> void:
 	_clip_role = ClipRole.NONE
 	_clip_window = Vector2.ZERO
 	if _action != null:
-		_action.stop(clip_fade_out)
+		_action.stop(fade)
 #endregion
 
 
@@ -1293,10 +1364,6 @@ func _pose_arms(t: float) -> void:
 ## Written as absolute orientations rather than offsets: this is a pose the
 ## authored stance has nothing to say about, so there is nothing to preserve.
 func _pose_climb() -> void:
-	# Both props hang off hands that are on the wall, so both are turned to hang
-	# *along* it rather than through it. Set before the early out, so that
-	# letting go puts them back the way they are carried.
-	_stow_against_wall()
 	if _climb_blend <= 0.001:
 		return
 	var w := _climb_blend
@@ -1344,44 +1411,60 @@ func _pose_climb() -> void:
 
 
 
-## Hangs the sword and the shield along the face instead of through it.
+## Slings the sword and the shield across the back, or brings them back to the
+## hands. `_stow_blend` decides which, and it answers both to the stow button
+## and to the climb: a wall is held with the hands, and a metre of blade in one
+## of them goes straight through the masonry whatever the arm does.
 ##
-## Both are carried in hands that a climb puts flat on the wall, and both are
-## far wider than the hand holding them: a metre of blade and a shield boss will
-## be inside the masonry whatever the arm does. So while climbing they are given
-## an orientation in the *model's* own frame — blade straight down, shield flat,
-## both edge-on to the face — rather than one relative to the fist. Solved the
-## same way the stowed shield is, so it survives any change to either pose.
-func _stow_against_wall() -> void:
-	# Blade down the body, crossguard across it: the flat of the sword is what
-	# faces the wall, and the flat is 8 cm thick.
-	if _sword_model != null:
-		var carry := (Basis(Vector3.UP, sword_roll) * Basis(Vector3.RIGHT, PI * 0.5)).orthonormalized()
-		# Columns: where the model's own x, y and z end up. The blade runs along
-		# its -z, so sending z up points the blade down.
-		var hung := _orient_in_model(_sword_model,
-				Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP))
-		_sword_model.transform.basis = carry.slerp(hung, _climb_blend).scaled(
-				Vector3.ONE * sword_scale)
+## Neither prop is re-parented. Both are placed *in the model's own frame* —
+## behind the chest, at the chest's own height — and that placement is then
+## expressed in whatever frame the hand they hang off happens to be in this
+## frame. So they sit still on the back while the arms work, without a second
+## attachment point to keep in step with the first, and every swing, block and
+## stow the rest of the rig does still drives the same node it always did.
+func _sling_weapons() -> void:
+	var chest := _joints.get("chest") as Node3D
+	if chest == null:
+		return
+	var back := to_local(chest.global_position)
 
-	# The shield turns its face to the wall, so only its thickness is against it.
+	if _sword_carrier != null:
+		# Columns: where the prop's own x, y and z end up. The blade runs along
+		# its -z, so sending z up and over points the blade down across the back.
+		var slung := _place_in_model(_sword_carrier,
+				Basis(Vector3(0.95, 0.3, 0.0), Vector3.FORWARD, Vector3(-0.3, 0.95, 0.0)),
+				back + sword_back_offset)
+		_sword_carrier.transform = _blend_transform(
+				_sword_carry, slung, _stow_blend, Vector3.ONE * sword_scale)
+
 	if _shield != null:
-		# The disc's normal is its own +z, so sending z out of the wall lays the
-		# face of the shield against it.
-		var flat := _orient_in_model(_shield, Basis(Vector3.RIGHT, Vector3.DOWN, Vector3.FORWARD))
-		_shield.transform.basis = _shield.transform.basis.orthonormalized().slerp(
-				flat, _climb_blend).scaled(_shield_scale)
+		# The disc's normal is its own +z, so sending z backwards lays the face
+		# of the shield across the back.
+		var slung := _place_in_model(_shield,
+				Basis(Vector3.LEFT, Vector3.UP, Vector3.FORWARD),
+				back + shield_back_offset)
+		_shield.transform = _blend_transform(
+				_shield.transform, slung, _stow_blend, _shield_scale)
 
 
-## The local basis that makes a node hold `wanted` in the model's own frame,
-## whatever the joint it hangs off is doing.
-func _orient_in_model(node: Node3D, wanted: Basis) -> Basis:
+## The local transform that puts `node` at `origin` holding `wanted`, both given
+## in the model's own frame, whatever the joint it hangs off is doing.
+func _place_in_model(node: Node3D, wanted: Basis, origin: Vector3) -> Transform3D:
 	var parent := node.get_parent() as Node3D
+	var here := Transform3D(wanted.orthonormalized(), origin)
 	if parent == null:
-		return wanted.orthonormalized()
-	var parent_in_model := (global_transform.basis.inverse()
-			* parent.global_transform.basis).orthonormalized()
-	return (parent_in_model.inverse() * wanted).orthonormalized()
+		return here
+	var parent_in_model := global_transform.affine_inverse() * parent.global_transform
+	return parent_in_model.affine_inverse() * here
+
+
+## Eases one placement into another, keeping the prop's own scale out of the
+## blend: Basis.slerp() only accepts orthonormal bases.
+static func _blend_transform(from: Transform3D, to: Transform3D, weight: float,
+		scale: Vector3) -> Transform3D:
+	return Transform3D(
+			from.basis.orthonormalized().slerp(to.basis.orthonormalized(), weight).scaled(scale),
+			from.origin.lerp(to.origin, weight))
 
 
 ## Puts one hand on the wall. `reach` is 0 for the hand that is pulling and 1

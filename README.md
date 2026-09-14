@@ -65,6 +65,7 @@ add actions in **Project → Project Settings → Input Map**. All keys are boun
 | `dash`         | Shift       | B / Circle       | 0.5      |
 | `walk`         | Ctrl        | Left shoulder    | 0.5      |
 | `crouch`       | C           | Left stick click | 0.5      |
+| `stow`         | Q           | Y / Triangle     | 0.5      |
 | double-tap `dash` | Shift Shift | B / Circle ×2 | 0.5      |
 | `attack`       | Left mouse  | X / Square       | 0.5      |
 | `block`        | Right mouse | Right shoulder   | 0.5      |
@@ -75,6 +76,11 @@ Escape releases the mouse; click-free re-capture is on the same key.
 
 Nothing new is bound for climbing: on a wall, the move actions drive the body
 along the face, `jump` pushes off it and `crouch` lets go.
+
+`stow` puts the sword and shield over the shoulder and takes them back off it.
+Anything that needs them takes them back by itself — attacking, or raising the
+shield — and climbing stows them of its own accord and hands the choice back
+when the player lets go of the wall.
 
 Mouse-look is read from `_unhandled_input()` because it needs the relative
 motion of the event. Everything else is polled with
@@ -226,11 +232,23 @@ chains for the cape (`cape_j0…j5`) and the ponytail (`tail_j0…j4`).
   shoulder's own parent frame, because a target written in the model's frame
   adds the chest's lean to the reach.
 
-  The sword and the shield are **turned to hang along the face** while climbing
-  (`_stow_against_wall()`). Both are carried in hands that a climb puts flat on
-  the wall and both are far wider than the hand holding them, so they are given
-  an orientation in the model's own frame — blade straight down, shield face-on,
-  both edge-on to the wall — solved the same way the stowed shield is.
+  The sword and the shield go **over the shoulder** while climbing
+  (`_sling_weapons()`), which is also what the `stow` button does. Both are
+  carried in hands that a climb puts flat on the wall, and both are far wider
+  than the hand holding them: a metre of blade in a fist on a wall is a metre of
+  blade inside the wall. Neither is re-parented — both are *placed in the
+  model's own frame*, behind the chest, and that placement is expressed in
+  whatever frame the hand they hang off is in this frame. So they sit still on
+  the back while the arms work, without a second attachment point to keep in
+  step with the first, and every swing, block and stow the rest of the rig does
+  still drives the same node it always did.
+
+  Taking hold of a wall **cuts** whatever clip was playing rather than fading
+  it. A wall caught in mid-jump has the take-off clip on the body at the moment
+  it is caught, and a tenth of a second of it at full strength on top of the
+  climb reads as the jump carrying on up the wall — and when it runs out it
+  hands over to the falling loop, which comes back at full weight and rides up
+  and down the building. `AnimRetarget.cut()` is that: stop, zero, forget.
 - **Shield.** The authored guard — shield up and across the chest — is only
   reached while `block` is held. Otherwise the arm blends down to
   `SHIELD_LOWERED` and the shield stows on the wrist, lying flat along the

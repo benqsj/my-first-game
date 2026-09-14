@@ -20,6 +20,7 @@ signal slide_ended
 signal climb_started(ledge: Vector3)
 signal wall_grabbed(normal: Vector3)
 signal wall_released
+signal weapons_stowed_changed(away: bool)
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
 
@@ -359,8 +360,14 @@ func _physics_process(delta: float) -> void:
 ## Action buttons are polled rather than read from _unhandled_input() so that a
 ## press is never lost between physics ticks and so simulated input works.
 func _read_actions() -> void:
+	if Input.is_action_just_pressed("stow"):
+		_set_weapons_stowed(not weapons_stowed())
+
 	# The shield is only up while the button is held; rolling and sliding drop it.
 	var raised := Input.is_action_pressed("block") and state == State.GROUNDED
+	if raised:
+		# Raising a shield that is on your back takes it off your back first.
+		_set_weapons_stowed(false)
 	if raised != is_blocking:
 		is_blocking = raised
 		block_changed.emit(is_blocking)
@@ -679,6 +686,20 @@ func _set_crouching(down: bool) -> void:
 
 func is_crouching() -> bool:
 	return _crouching
+
+
+## Puts the sword and shield over the shoulder, or takes them back off it.
+## Climbing does the same of its own accord and gives the choice back after.
+func _set_weapons_stowed(away: bool) -> void:
+	if rig == null or rig.weapons_stowed() == away:
+		return
+	rig.stow_weapons(away)
+	weapons_stowed_changed.emit(away)
+
+
+## True while the player has put the weapons away.
+func weapons_stowed() -> bool:
+	return rig != null and rig.weapons_stowed()
 #endregion
 
 
@@ -1137,6 +1158,10 @@ func is_wall_climbing() -> bool:
 func _attack() -> void:
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
+	# Swinging a sword that is on your back takes it off your back first. There
+	# is no draw clip in the library, so the blade crosses back to the hand over
+	# the same beat as the wind-up rather than being drawn during it.
+	_set_weapons_stowed(false)
 	attack_started.emit()
 	if rig != null:
 		rig.attack()

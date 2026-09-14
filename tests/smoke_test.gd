@@ -14,6 +14,15 @@ func _initialize() -> void:
 	root.add_child(world)
 	var player: Player = world.get_node("Player")
 
+	# The creatures are sent away before anything is measured. They hunt on
+	# sight, and a wolf shouldering the knight into a boulder is a real thing
+	# that happens in the game — but it is not what any of this is about, and it
+	# never happens on the same frame twice. Their own behaviour is checked in
+	# combat_test, which is where they belong.
+	for creature in world.find_children("*", "CharacterBody3D", true, false):
+		if creature != player:
+			creature.queue_free()
+
 	await _wait(30)
 	_check("lands on the ground", player.is_on_floor())
 	_check("rests at the correct height", absf(player.global_position.y) < 0.05,
@@ -339,15 +348,6 @@ func _initialize() -> void:
 	await _settle(player)
 
 	# --- Wall climbing ------------------------------------------------------
-	# The creatures are sent away first. They hunt on sight, and a wolf shoving
-	# the knight off the wall it is holding is a real thing that happens in the
-	# game — but it is not what these checks are about, and it does not happen
-	# on the same frame twice.
-	for creature in world.find_children("*", "CharacterBody3D", true, false):
-		if creature != player:
-			creature.queue_free()
-	await _wait(2)
-
 	# Built here for the same reason the ledge was: what is being checked is the
 	# band of heights a face has to fall in, which wants a wall of a known size.
 	var wall := StaticBody3D.new()
@@ -393,6 +393,13 @@ func _initialize() -> void:
 			break
 	_check("jumping at a tall face in mid-air catches it",
 			player.state == Player.State.WALLCLIMB, "state = %d" % player.state)
+
+	await _wait(90)
+	_check("nothing brings the jump clip back while climbing",
+			player.rig.clip_weight() < 0.01,
+			"%s at %.2f" % [player.rig.current_clip(), player.rig.clip_weight()])
+	_check("and the weapons are off the hands", player.rig.weapons_slung() > 0.9,
+			"%.2f slung" % player.rig.weapons_slung())
 	Input.action_release("move_forward")
 	await _wait(10)
 
@@ -408,6 +415,30 @@ func _initialize() -> void:
 	Input.action_release("jump")
 	_check("and from the ground it still takes hold",
 			player.state == Player.State.WALLCLIMB, "state = %d" % player.state)
+
+	# A wall caught in mid-jump has the take-off clip running on the body at the
+	# moment it is caught, and a clip is *faded* out, not cut: left to fade, the
+	# jump goes on playing up the wall for a tenth of a second, and when it runs
+	# out it hands over to the falling loop at full strength and keeps going.
+	# Started by hand here rather than jumped into, so what is being checked is
+	# the handover and not how long a particular jump happens to take.
+	player.state = Player.State.AIRBORNE
+	player.rig.wall_climb(false)
+	await _wait(6)
+	player.rig.play_clip(&"NinjaJump_Start", 0.0)
+	await _wait(6)
+	_check("a clip is on the body to begin with", player.rig.clip_weight() > 0.9,
+			"%.2f" % player.rig.clip_weight())
+	Input.action_press("jump")
+	await _wait(2)
+	Input.action_release("jump")
+	await process_frame
+	_check("taking hold of a wall cuts whatever was playing",
+			player.state == Player.State.WALLCLIMB and player.rig.clip_weight() < 0.01,
+			"state %d, %s at %.2f" % [player.state, player.rig.current_clip(),
+					player.rig.clip_weight()])
+	_check("and the climbing pose has the body straight away",
+			player.rig.is_wall_climbing())
 
 	var grabbed_at := player.global_position.y
 	Input.action_release("move_forward")
@@ -502,6 +533,50 @@ func _initialize() -> void:
 	await _wait(120)
 	wall.queue_free()
 	await _settle(player)
+
+	# --- Putting the weapons away -------------------------------------------
+	player.global_position = Vector3(6.0, 0.2, 12.0)
+	player.velocity = Vector3.ZERO
+	await _settle(player)
+	_check("the weapons start in the hands", not player.weapons_stowed())
+
+	Input.action_press("stow")
+	await _wait(2)
+	Input.action_release("stow")
+	await _wait(40)
+	_check("stow puts them over the shoulder",
+			player.weapons_stowed() and player.rig.weapons_slung() > 0.9,
+			"%.2f slung" % player.rig.weapons_slung())
+
+	Input.action_press("stow")
+	await _wait(2)
+	Input.action_release("stow")
+	await _wait(40)
+	_check("and takes them back off it",
+			not player.weapons_stowed() and player.rig.weapons_slung() < 0.1,
+			"%.2f slung" % player.rig.weapons_slung())
+
+	# Anything that needs a weapon takes it back without being asked.
+	Input.action_press("stow")
+	await _wait(2)
+	Input.action_release("stow")
+	await _wait(10)
+	Input.action_press("attack")
+	await _wait(2)
+	Input.action_release("attack")
+	_check("swinging takes the sword back off the back", not player.weapons_stowed())
+	await _wait(40)
+
+	Input.action_press("stow")
+	await _wait(2)
+	Input.action_release("stow")
+	await _wait(10)
+	Input.action_press("block")
+	await _wait(3)
+	_check("raising the shield takes it back too",
+			not player.weapons_stowed() and player.is_blocking)
+	Input.action_release("block")
+	await _wait(20)
 
 	# --- Camera rig ---------------------------------------------------------
 	await _settle(player)
