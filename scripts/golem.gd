@@ -18,6 +18,10 @@ extends CharacterBody3D
 ## Seconds it stands still between walks.
 @export var rest_time: float = 2.5
 
+## Tallest step it trudges up rather than into.
+@export var step_height: float = 0.5
+@export var step_probe: float = 0.7
+
 @export_group("Gait")
 ## Distance covered per full two-step cycle, in metres.
 @export var stride_length: float = 2.4
@@ -84,6 +88,7 @@ func _physics_process(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, direction.x * speed * alignment, acceleration * delta)
 			velocity.z = move_toward(velocity.z, direction.z * speed * alignment, acceleration * delta)
 
+	StepUp.climb(self, delta, step_height, step_probe)
 	move_and_slide()
 
 

@@ -122,10 +122,59 @@ func _check_lock() -> void:
 			strafed.dot(still.normalized()) > 0.9,
 			"%.2f" % strafed.dot(still.normalized()))
 
+	# Back to a known spot before the next lot: the checks above walked him
+	# around, and which enemy is "to the left" depends on where he is standing.
+	_player.global_position = Vector3(6.0, 0.2, 12.0)
+	_player.rotation.y = 0.0
+	_player.camera_rig.rotation.y = 0.0
+	_player.velocity = Vector3.ZERO
+	quarry.global_position = Vector3(9.0, 0.5, 6.0)
+	quarry.sight_range = 0.0
+	quarry.prowl_speed = 0.0
+	await _wait(20)
+	if _player.target == null:
+		Input.action_press("lock_on")
+		await _wait(3)
+		Input.action_release("lock_on")
+	await _wait(20)
+
+	# The mark has to say *which*, or with two wolves in front of you the lock is
+	# a guess.
+	var marker := _player.find_child("TargetMarker", true, false) as Node3D
+	_check("the marked enemy is shown", marker != null and marker.visible)
+	_check("and the mark is over the one being fought",
+			marker != null
+					and Vector2(marker.global_position.x - quarry.global_position.x,
+							marker.global_position.z - quarry.global_position.z).length() < 0.6
+					and marker.global_position.y > quarry.global_position.y + 1.0,
+			"mark at %v, target at %v" % [marker.global_position if marker != null else Vector3.ZERO,
+					quarry.global_position])
+
+	# A second one to swap to.
+	var other := _wolf_at(Vector3(2.0, 0.5, 6.0))
+	other.sight_range = 0.0
+	other.prowl_speed = 0.0
+	await _wait(20)
+	_player._switch_target(-1.0)
+	await _wait(10)
+	_check("a flick to the side takes the next enemy along", _player.target == other,
+			"holding %s" % _player.target)
+	_player._switch_target(1.0)
+	await _wait(10)
+	_check("and a flick back takes the first one again", _player.target == quarry)
+	await _wait(20)
+	_check("the mark moved with it",
+			Vector2(marker.global_position.x - quarry.global_position.x,
+					marker.global_position.z - quarry.global_position.z).length() < 0.6)
+	other.queue_free()
+	await _wait(5)
+
 	Input.action_press("lock_on")
 	await _wait(3)
 	Input.action_release("lock_on")
 	_check("E again lets go", _player.target == null)
+	await _wait(5)
+	_check("and the mark goes with it", marker == null or not marker.visible)
 
 	# A dead target is no target.
 	Input.action_press("lock_on")

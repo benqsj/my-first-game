@@ -82,13 +82,17 @@ add actions in **Project → Project Settings → Input Map**. All keys are boun
 | `toggle_fullscreen` | F11    | —                | 0.5      |
 | `ui_cancel`    | Escape      | —                | built-in |
 
-Escape releases the mouse; click-free re-capture is on the same key.
+Escape pauses: resume, settings, or out to the main menu. It is also what goes
+back a page in a menu, and out of the game from the front one.
 
 Nothing new is bound for climbing: on a wall, the move actions drive the body
 along the face, `jump` pushes off it and `crouch` lets go.
 
 `lock_on` takes the enemy in front of the camera and holds it. Both characters
-have it: the knight circles what he is fighting, the archer shoots it.
+have it: the knight circles what he is fighting, the archer shoots it. While
+locked, a **flick of the mouse to one side takes the next enemy that way** —
+accumulated over `target_switch_flick` pixels, so aiming never does it by
+accident.
 
 `stow` puts the sword and shield over the shoulder and takes them back off it.
 Anything that needs them takes them back by itself — attacking, or raising the
@@ -196,10 +200,19 @@ lost between physics ticks and simulated input works in tests.
   upward puts the body back where its hands still had something and stops: a
   climber who runs out of wall stops climbing, they do not fall off.
 - **Stairs.** `CharacterBody3D` has no built-in stair stepping in 4.7, so
-  `_step_up()` does the classic up → forward → down sweep with `test_move()`.
+  [StepUp] does the classic up → forward → down sweep with `test_move()`.
   It only fires against wall-like normals, so real walls still block, and the
   forward probe (`step_forward_probe`, 0.55) must stay larger than the capsule
   radius or the sweep lands on the ledge's edge instead of its top face.
+
+  **The creatures use it too.** A wolf that cannot follow you up six greybox
+  steps is a wolf you beat by standing on a step, which is not a fight. It is
+  called before `move_and_slide()`, from the velocity the body is *about* to
+  move with — afterwards that velocity has already been flattened against the
+  step it failed to climb.
+- **Bodies get in each other's way.** Everything with legs collides with
+  everything else with legs: the enemy mask includes the enemy layer, so two
+  wolves cannot stand in the same place and neither can walk through the player.
 - All tuning is exported and grouped in the inspector.
 
 ## Characters
@@ -264,6 +277,13 @@ Drawing costs most of the run (`draw_speed_scale`), because an archer at a
 sprint cannot aim and being able to would make every other approach pointless.
 Rolling or climbing loses the draw — it is not banked.
 
+Arrows fly slowly enough to be seen and stepped out of — 34 m/s off a full draw,
+21 off a snap — and leave a **streak** behind them, the same ribbon the sword
+leaves given a segment lying across the flight instead of along it. Without one
+an arrow is a centimetre across crossing half a metre a frame: a thing that is
+never on screen where you are looking. Both matter for a fight between two
+players, where a shot nobody can see coming is a shot nobody can answer.
+
 Arrows are **not** physics bodies. One crosses more ground in a tick than it is
 long, so a collider would fly through a wolf as often as it hit one; instead
 each tick draws a line from where the arrow was to where it is going and asks
@@ -275,9 +295,21 @@ it sticks in what it hit and rides it until it sinks away.
 The animation is procedural, like the crouch and the climb and for the same
 reason: the library has forty-three clips and not one of them touches a bow. The
 bow hand and the drawing hand are *solved* to where the bow and the string have
-to be, through the same two-bone solve the legs use, and the string is pointed
-at wherever the drawing hand actually ended up rather than at where a number
-says it should be.
+to be, and the string is pointed at wherever the drawing hand actually ended up
+rather than at where a number says it should be.
+
+Two things had to be right before it looked like archery rather than like a man
+holding a stick:
+
+- **The shoulders need a yaw, not just a pitch.** The legs' solve swings a limb
+  in one plane, which is all a knee ever needs. A bow arm out in front and a
+  drawing arm back past the jaw are nowhere near the same plane, and a shoulder
+  that can only pitch reaches neither — it lands short and below, which is
+  exactly what a badly drawn bow looks like. `_solve_aim()` adds the yaw.
+- **The bow is placed after the body, not before.** It hangs off a hand whose
+  orientation `_apply_pose()` has not written yet, so standing it upright before
+  that used last frame's arm. `_place_props()` runs after, which is also where
+  the string is pointed and the arrow slid back.
 
 ### Target lock
 
@@ -299,6 +331,10 @@ out nearly level and everything reads as a silhouette. Aimed the other way round
 the camera ends up on the floor looking up the target's nose, which is the one
 thing a lock-on camera must never do.
 
+What is being fought is **marked**: a red sight over its head, drawn over
+everything so it is never hidden behind the thing it is marking. With two wolves
+in front of you a lock that shows nothing is a lock you have to guess at.
+
 A locked shot **leads** its target. An arrow takes a beat to arrive and a wolf
 does not wait where it was standing, so the aim is offset by where the target
 will be, and lifted by the drop over the same flight. Without it a slow shot at
@@ -317,9 +353,15 @@ roll distance, crit chance, whether there is a shield to put up, and the blurb,
 with a "— faster" or "— further" against the knight wherever the numbers differ.
 So a card cannot drift from the numbers the game actually uses.
 
-**Co-op is on the screen and is not wired up.** Two players needs per-device
-input routing and a split viewport, neither of which exists. Choosing it says so
-in the character screen and starts a solo game, rather than pretending.
+**Multiplayer is on the screen and is not wired up.** More than one player needs
+per-device input routing and either a split viewport or a network, none of which
+exists. Choosing it says so on the character screen and starts a solo game,
+rather than pretending.
+
+`scripts/pause_menu.gd` is the same widgets again, in the level rather than in
+front of it: resume, settings, or out to the main menu. It runs while the tree
+is paused — it is the one thing that has to — and unpauses on the way out, or
+the front menu would load paused and nothing on it could be clicked.
 
 ## Graphics
 
@@ -910,6 +952,10 @@ scripts/player.gd        the controller, and the target lock and bow it drives
 scripts/game.gd          autoload: which character is being played, and settings
 scripts/main_menu.gd     the front end, built in code
 scripts/graphics.gd      what low and high actually change
+scripts/menu_style.gd    the widgets and the palette both menus are made of
+scripts/pause_menu.gd    the in-game menu
+scripts/target_marker.gd the sight over whatever is being fought
+scripts/step_up.gd       walking up a step, for anything on legs
 scripts/character_profile.gd  one playable character, as a resource
 scripts/arrow.gd         an arrow in flight, swept rather than collided
 scripts/archer_rig.gd    the bow: draw, aim, loose

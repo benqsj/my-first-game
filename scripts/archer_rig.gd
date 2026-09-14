@@ -28,18 +28,17 @@ const DRAW_ELBOW := "upperarm_l_end"
 ## How fast the body settles into and out of the aim.
 @export var aim_blend_speed: float = 11.0
 ## Where the bow hand is held while aiming, relative to the shoulder it hangs
-## off, in metres: out in front and a little across the body.
-@export var bow_hand_reach: Vector3 = Vector3(0.0, 0.02, 0.52)
-## Where the drawing hand sits at full draw, relative to *its* shoulder. Back
-## past the jaw is what makes a draw read as a draw.
-@export var draw_hand_home: Vector3 = Vector3(0.0, 0.10, 0.20)
-@export var draw_hand_full: Vector3 = Vector3(0.0, 0.16, -0.26)
+## off, in metres: out in front at shoulder height and a little across the body,
+## which is where a bow arm actually goes.
+@export var bow_hand_reach: Vector3 = Vector3(-0.13, 0.01, 0.48)
+## Where the drawing hand starts and where it ends up, relative to *its*
+## shoulder. Ending behind the shoulder is what makes a draw read as a draw —
+## anything in front of it is a man holding a bow, not one drawing it.
+@export var draw_hand_home: Vector3 = Vector3(0.10, 0.06, 0.22)
+@export var draw_hand_full: Vector3 = Vector3(0.09, 0.16, -0.24)
 ## How far the shoulders turn side-on at full draw, radians. An archer square to
 ## the target cannot get the string past their own chest.
-@export var aim_torso_turn: float = 0.38
-## How far the string is pulled clear of the bow at full draw, in metres. Only
-## the look of it — what a shot is worth is the controller's business.
-@export var draw_length: float = 0.42
+@export var aim_torso_turn: float = 0.52
 #endregion
 
 ## How far the bow is drawn, 0 to 1, and where it is being pointed.
@@ -121,11 +120,14 @@ func _pose_weapon(delta: float) -> void:
 	# back past the jaw. Both are solved rather than posed, so the reach does not
 	# have to be re-tuned every time the model's proportions change.
 	var reach := bow_hand_reach.rotated(Vector3.RIGHT, -_aim_pitch)
-	_reach_with(BOW_ARM, BOW_ELBOW, reach, -0.12, up, 1.0)
+	_reach_with(BOW_ARM, BOW_ELBOW, reach, up, 1.0)
 	var home := draw_hand_home.lerp(draw_hand_full, _draw)
-	_reach_with(DRAW_ARM, DRAW_ELBOW, home.rotated(Vector3.RIGHT, -_aim_pitch), 0.55, up, -1.0)
+	_reach_with(DRAW_ARM, DRAW_ELBOW, home.rotated(Vector3.RIGHT, -_aim_pitch), up, -1.0)
 
-	_hold_bow_upright(up)
+
+## The bow and its string, once the arms holding them are final.
+func _place_props() -> void:
+	_hold_bow_upright(_draw)
 	_string_to_hand()
 
 
@@ -150,10 +152,13 @@ func _hold_bow_upright(weight: float) -> void:
 
 
 ## Puts one hand where it has to be. `target` is relative to the shoulder in the
-## model's own frame; `splay` holds the elbow out of the way, and `fold` picks
-## which side of the line it bends to.
+## model's own frame, and `fold` picks which side of the line the elbow bends to.
+##
+## Solved with a yaw as well as a pitch, because a bow arm and a drawing arm are
+## nowhere near the same plane and a shoulder that can only pitch reaches
+## neither of them.
 func _reach_with(root_name: String, elbow_name: String, target: Vector3,
-		splay: float, weight: float, fold: float) -> void:
+		weight: float, fold: float) -> void:
 	var root := _joints.get(root_name) as Node3D
 	if root == null or _upperarm_length <= 0.0:
 		return
@@ -162,10 +167,9 @@ func _reach_with(root_name: String, elbow_name: String, target: Vector3,
 	if parent != null:
 		var in_model := global_transform.basis.inverse() * parent.global_transform.basis
 		aim = in_model.orthonormalized().inverse() * target
-		aim.x = 0.0
-	var solved := _solve_limb(aim, _upperarm_length, _forearm_length, fold)
-	_blend_to(root_name, Vector3(solved.x, 0.0, splay), weight)
-	_blend_to(elbow_name, Vector3(solved.y, 0.0, 0.0), weight)
+	var solved := _solve_aim(aim, _upperarm_length, _forearm_length, fold)
+	_blend_to(root_name, Vector3(solved.x, solved.y, 0.0), weight)
+	_blend_to(elbow_name, Vector3(solved.z, 0.0, 0.0), weight)
 
 
 ## Pulls both halves of the string onto the drawing hand, and the arrow with it.
@@ -182,6 +186,7 @@ func _string_to_hand() -> void:
 	var pull := _nock.position
 	if _draw_hand != null:
 		pull = _bow.to_local(_draw_hand.global_position)
+
 	for half in _string:
 		var along := pull - half.position
 		if along.length_squared() < 1e-6:

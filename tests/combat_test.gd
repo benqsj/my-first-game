@@ -174,6 +174,39 @@ func _initialize() -> void:
 			break
 	_check("the corpse is cleared away", not is_instance_valid(wolf))
 
+	# --- Creatures get about the world ---------------------------------------
+	# The greybox staircase, at x = -10 and climbing towards -z. A hunter that
+	# cannot follow you up six steps is one you beat by standing on a step.
+	player.global_position = Vector3(-10.0, 1.6, -6.3)
+	player.velocity = Vector3.ZERO
+	var climber := _spawn_wolf(world, Vector3(-10.0, 0.4, 3.0))
+	climber.sight_range = 40.0
+	climber.lose_range = 60.0
+	await _wait(10)
+	var started := climber.global_position.y
+	for i in 420:
+		await physics_frame
+		if climber.global_position.y > started + 1.2:
+			break
+	_check("a wolf follows the knight up the stairs",
+			climber.global_position.y > started + 1.0,
+			"climbed %.2f m" % (climber.global_position.y - started))
+	climber.queue_free()
+
+	# And they take up room: two of them cannot stand in the same place.
+	var one := _spawn_wolf(world, Vector3(6.0, 0.4, 12.0))
+	var two := _spawn_wolf(world, Vector3(6.35, 0.4, 12.0))
+	for pair in [one, two]:
+		pair.sight_range = 0.0
+		pair.prowl_speed = 0.0
+	player.global_position = Vector3(6.0, 0.2, 20.0)
+	await _wait(90)
+	_check("wolves get in each other's way",
+			one.global_position.distance_to(two.global_position) > 0.8,
+			"%.2f m apart" % one.global_position.distance_to(two.global_position))
+	one.queue_free()
+	two.queue_free()
+
 	print("")
 	print("All checks passed." if _failures == 0 else "%d check(s) FAILED." % _failures)
 	quit(1 if _failures > 0 else 0)
@@ -223,6 +256,18 @@ func _shot(path: String, target: Node3D, offset: Vector3) -> void:
 		await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(path)
+
+
+func _spawn_wolf(world: Node3D, where: Vector3) -> Wolf:
+	var wolf: Wolf = load("res://scenes/enemies/wolf.tscn").instantiate()
+	world.add_child(wolf)
+	wolf.global_position = where
+	return wolf
+
+
+func _wait(frames: int) -> void:
+	for i in frames:
+		await physics_frame
 
 
 func _check(label: String, condition: bool, detail: String = "") -> void:

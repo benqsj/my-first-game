@@ -8,35 +8,19 @@ extends Control
 ## at the top of this file, so tuning the look is editing a constant rather than
 ## hunting through a scene tree.
 ##
-## Four pages, one visible at a time: the root, the choice of solo or co-op, the
+## Four pages, one visible at a time: the root, the choice of solo or multiplayer, the
 ## character select, and the settings. Nothing here knows how the game works —
 ## it sets what the player picked on the `Game` autoload and loads the level.
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
 
-#region Look
-const GOLD := Color("d0a044")
-const GOLD_DIM := Color("8a6a2c")
-const CREAM := Color("ece4d6")
-const SLATE := Color("15181d")
-const SLATE_DEEP := Color("0a0c0f")
-const PANEL := Color("1d222a")
-const PANEL_HOT := Color("272e39")
-const CRIMSON := Color("76202a")
-
-const TITLE_SIZE := 92
-const HEADING_SIZE := 34
-const BUTTON_SIZE := 26
-const BODY_SIZE := 17
-const BUTTON_WIDTH := 340.0
-const BUTTON_HEIGHT := 58.0
-#endregion
 
 enum Page { ROOT, MODE, CHARACTERS, SETTINGS }
 
-## Two players is a mode the menu offers and the game cannot yet honour. It is
-## on the screen because the flow is the flow; it says so rather than pretending.
-var _co_op: bool = false
+## More than one player is a mode the menu offers and the game cannot yet
+## honour. It is on the screen because the flow is the flow; it says so rather
+## than pretending.
+var _multiplayer: bool = false
 var _page: Page = Page.ROOT
 var _pages: Dictionary = {}
 var _chosen: StringName = &""
@@ -50,15 +34,15 @@ var _game: Node
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	_build_background()
+	MenuStyle.background(self)
 
 	_game = get_node_or_null("/root/Game")
 	_chosen = _game.character() if _game != null else &"tariel"
 
-	_pages[Page.ROOT] = _build_root()
-	_pages[Page.MODE] = _build_mode()
-	_pages[Page.CHARACTERS] = _build_characters()
-	_pages[Page.SETTINGS] = _build_settings()
+	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS]:
+		var built := _build(page)
+		add_child(built)
+		_pages[page] = built
 	_show(Page.ROOT)
 
 
@@ -77,38 +61,49 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 #region Pages
+func _build(page: Page) -> Control:
+	match page:
+		Page.MODE:
+			return _build_mode()
+		Page.CHARACTERS:
+			return _build_characters()
+		Page.SETTINGS:
+			return _build_settings()
+	return _build_root()
+
+
 func _build_root() -> Control:
-	var page := _page_column()
-	page.add_child(_title())
-	var buttons := _button_column()
-	buttons.add_child(_button("PLAY", func() -> void: _show(Page.MODE)))
-	buttons.add_child(_button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
-	buttons.add_child(_button("EXIT", func() -> void: get_tree().quit()))
+	var page := MenuStyle.page_column()
+	page.add_child(MenuStyle.title())
+	var buttons := MenuStyle.button_column()
+	buttons.add_child(MenuStyle.button("PLAY", func() -> void: _show(Page.MODE)))
+	buttons.add_child(MenuStyle.button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
+	buttons.add_child(MenuStyle.button("EXIT", func() -> void: get_tree().quit()))
 	page.add_child(buttons)
 	return page
 
 
 func _build_mode() -> Control:
-	var page := _page_column()
-	page.add_child(_heading("HOW MANY OF YOU"))
-	var buttons := _button_column()
-	buttons.add_child(_button("SOLO PLAY", func() -> void:
-			_co_op = false
+	var page := MenuStyle.page_column()
+	page.add_child(MenuStyle.heading("HOW MANY OF YOU"))
+	var buttons := MenuStyle.button_column()
+	buttons.add_child(MenuStyle.button("SOLO PLAY", func() -> void:
+			_multiplayer = false
 			_show(Page.CHARACTERS)))
-	buttons.add_child(_button("CO-OP PLAY", func() -> void:
-			_co_op = true
+	buttons.add_child(MenuStyle.button("MULTIPLAYER", func() -> void:
+			_multiplayer = true
 			_show(Page.CHARACTERS)))
-	buttons.add_child(_button("BACK", func() -> void: _show(Page.ROOT), true))
+	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	page.add_child(buttons)
 	return page
 
 
 func _build_characters() -> Control:
-	var page := _page_column()
-	page.add_child(_heading("WHO ARE YOU"))
+	var page := MenuStyle.page_column()
+	page.add_child(MenuStyle.heading("WHO ARE YOU"))
 
-	var note := _label("", BODY_SIZE, GOLD_DIM)
-	note.name = "CoOpNote"
+	var note := MenuStyle.label("", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM)
+	note.name = "ModeNote"
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	page.add_child(note)
 
@@ -126,36 +121,36 @@ func _build_characters() -> Control:
 	gap.custom_minimum_size = Vector2(0.0, 10.0)
 	page.add_child(gap)
 
-	var buttons := _button_column()
-	buttons.add_child(_button("START", func() -> void: _start()))
-	buttons.add_child(_button("BACK", func() -> void: _show(Page.MODE), true))
+	var buttons := MenuStyle.button_column()
+	buttons.add_child(MenuStyle.button("START", func() -> void: _start()))
+	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.MODE), true))
 	page.add_child(buttons)
 	return page
 
 
 func _build_settings() -> Control:
-	var page := _page_column()
-	page.add_child(_heading("SETTINGS"))
+	var page := MenuStyle.page_column()
+	page.add_child(MenuStyle.heading("SETTINGS"))
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 18)
-	row.add_child(_label("GRAPHICS", BUTTON_SIZE, CREAM))
+	row.add_child(MenuStyle.label("GRAPHICS", MenuStyle.BUTTON_SIZE, MenuStyle.CREAM))
 	for level: int in [Graphics.Level.LOW, Graphics.Level.HIGH]:
-		var button := _button("LOW" if level == Graphics.Level.LOW else "HIGH",
+		var button := MenuStyle.button("LOW" if level == Graphics.Level.LOW else "HIGH",
 				func() -> void: _set_graphics(level as Graphics.Level))
-		button.custom_minimum_size = Vector2(160.0, BUTTON_HEIGHT)
+		button.custom_minimum_size = Vector2(160.0, MenuStyle.BUTTON_HEIGHT)
 		_graphics_buttons[level] = button
 		row.add_child(button)
 	page.add_child(row)
 
-	page.add_child(_label(
+	page.add_child(MenuStyle.label(
 			"Low turns shadows off, draws at seven tenths of the resolution and\n"
 			+ "softens the textures. It is for machines that are short of frames.",
-			BODY_SIZE, GOLD_DIM))
+			MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
 
-	var buttons := _button_column()
-	buttons.add_child(_button("BACK", func() -> void: _show(Page.ROOT), true))
+	var buttons := MenuStyle.button_column()
+	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	page.add_child(buttons)
 	return page
 
@@ -166,10 +161,10 @@ func _show(page: Page) -> void:
 		(_pages[key] as Control).visible = key == page
 	if page == Page.CHARACTERS:
 		_refresh_cards()
-		var note := (_pages[page] as Control).find_child("CoOpNote", true, false) as Label
+		var note := (_pages[page] as Control).find_child("ModeNote", true, false) as Label
 		if note != null:
-			note.text = "Co-op is not wired up yet — this will start a solo game." \
-					if _co_op else ""
+			note.text = "Multiplayer is not wired up yet — this will start a solo game." \
+					if _multiplayer else ""
 	elif page == Page.SETTINGS:
 		_refresh_graphics()
 #endregion
@@ -197,15 +192,15 @@ func _character_card(id: StringName) -> Control:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(column)
 
-	column.add_child(_label(profile.display_name.to_upper(), HEADING_SIZE, GOLD))
-	column.add_child(_label(
+	column.add_child(MenuStyle.label(profile.display_name.to_upper(), MenuStyle.HEADING_SIZE, MenuStyle.GOLD))
+	column.add_child(MenuStyle.label(
 			"BOW" if profile.weapon == CharacterProfile.Weapon.BOW else "SWORD AND SHIELD",
-			BODY_SIZE, CRIMSON.lightened(0.35)))
-	column.add_child(_rule())
+			MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.35)))
+	column.add_child(MenuStyle.rule())
 	for line in _stat_lines(profile):
-		column.add_child(_label(line, BODY_SIZE, CREAM))
-	column.add_child(_rule())
-	var blurb := _label(profile.blurb, BODY_SIZE, GOLD_DIM)
+		column.add_child(MenuStyle.label(line, MenuStyle.BODY_SIZE, MenuStyle.CREAM))
+	column.add_child(MenuStyle.rule())
+	var blurb := MenuStyle.label(profile.blurb, MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM)
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(blurb)
@@ -238,8 +233,8 @@ func _refresh_cards() -> void:
 	for id: StringName in _cards:
 		var card := _cards[id] as Button
 		var picked := id == _chosen
-		var style := _panel_style(PANEL_HOT if picked else PANEL)
-		style.border_color = GOLD if picked else Color(0.0, 0.0, 0.0, 0.0)
+		var style := MenuStyle.panel_style(MenuStyle.PANEL_HOT if picked else MenuStyle.PANEL)
+		style.border_color = MenuStyle.GOLD if picked else Color(0.0, 0.0, 0.0, 0.0)
 		style.set_border_width_all(2 if picked else 0)
 		for slot in ["normal", "hover", "pressed", "focus"]:
 			card.add_theme_stylebox_override(slot, style)
@@ -269,132 +264,7 @@ func _set_graphics(level: Graphics.Level) -> void:
 func _refresh_graphics() -> void:
 	var current: Graphics.Level = _game.graphics() if _game != null else Graphics.Level.HIGH
 	for level: int in _graphics_buttons:
-		_style_button(_graphics_buttons[level] as Button, level == current)
+		MenuStyle.style_button(_graphics_buttons[level] as Button, level == current)
 #endregion
 
 
-#region Widgets
-## A dark ground with a warm bloom behind the title, so the gold has something
-## to sit on rather than floating on flat black.
-func _build_background() -> void:
-	var sky := ColorRect.new()
-	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sky.color = SLATE_DEEP
-	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(sky)
-
-	var glow := TextureRect.new()
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ramp := GradientTexture2D.new()
-	ramp.width = 8
-	ramp.height = 256
-	ramp.fill = GradientTexture2D.FILL_LINEAR
-	ramp.fill_from = Vector2(0.0, 0.0)
-	ramp.fill_to = Vector2(0.0, 1.0)
-	var colours := Gradient.new()
-	colours.set_color(0, SLATE)
-	colours.set_color(1, SLATE_DEEP)
-	colours.add_point(0.42, CRIMSON.darkened(0.62))
-	ramp.gradient = colours
-	glow.texture = ramp
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	add_child(glow)
-
-
-func _page_column() -> Control:
-	var page := VBoxContainer.new()
-	page.set_anchors_preset(Control.PRESET_FULL_RECT)
-	page.alignment = BoxContainer.ALIGNMENT_CENTER
-	page.add_theme_constant_override("separation", 26)
-	add_child(page)
-	return page
-
-
-func _button_column() -> VBoxContainer:
-	var column := VBoxContainer.new()
-	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", 12)
-	return column
-
-
-func _title() -> Control:
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 2)
-	var title := _label("VEPXIS", TITLE_SIZE, GOLD)
-	title.add_theme_constant_override("outline_size", 0)
-	stack.add_child(title)
-	stack.add_child(_rule(280.0))
-	stack.add_child(_label("THE KNIGHT IN THE PANTHER'S SKIN", BODY_SIZE, GOLD_DIM))
-	return stack
-
-
-func _heading(text: String) -> Control:
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 6)
-	stack.add_child(_label(text, HEADING_SIZE, CREAM))
-	stack.add_child(_rule(180.0))
-	return stack
-
-
-func _label(text: String, size: int, colour: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", colour)
-	return label
-
-
-## A hairline of gold. Cheap, and it does more for the look than anything else
-## on the screen.
-func _rule(width: float = 0.0) -> Control:
-	var line := ColorRect.new()
-	line.color = GOLD_DIM
-	line.custom_minimum_size = Vector2(width, 1.0)
-	line.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if width > 0.0 \
-			else Control.SIZE_FILL
-	return line
-
-
-func _button(text: String, pressed: Callable, quiet: bool = false) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.add_theme_font_size_override("font_size", BUTTON_SIZE)
-	button.pressed.connect(pressed)
-	_style_button(button, false, quiet)
-	return button
-
-
-## The one piece of styling everything else leans on: a flat panel with a gold
-## edge down one side that fills in when the mouse is over it.
-func _style_button(button: Button, chosen: bool, quiet: bool = false) -> void:
-	var idle := _panel_style(PANEL if not chosen else PANEL_HOT)
-	idle.border_width_left = 4 if chosen else 2
-	idle.border_color = GOLD if chosen else GOLD_DIM
-
-	var hot := _panel_style(PANEL_HOT)
-	hot.border_width_left = 4
-	hot.border_color = GOLD
-
-	button.add_theme_stylebox_override("normal", idle)
-	button.add_theme_stylebox_override("hover", hot)
-	button.add_theme_stylebox_override("pressed", hot)
-	button.add_theme_stylebox_override("focus", hot)
-	button.add_theme_color_override("font_color", GOLD_DIM if quiet else CREAM)
-	button.add_theme_color_override("font_hover_color", GOLD)
-	button.add_theme_color_override("font_pressed_color", GOLD)
-
-
-func _panel_style(fill: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.set_corner_radius_all(3)
-	style.content_margin_left = 20.0
-	style.content_margin_right = 20.0
-	style.content_margin_top = 10.0
-	style.content_margin_bottom = 10.0
-	return style
-#endregion

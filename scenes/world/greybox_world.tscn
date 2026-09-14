@@ -1,6 +1,7 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=31 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="9_pause"]
 [ext_resource type="PackedScene" path="res://assets/tower/tower1.glb" id="2_tower"]
 [ext_resource type="PackedScene" path="res://assets/grass/grass2.glb" id="3_grass2"]
 [ext_resource type="PackedScene" path="res://assets/grass/grass.glb" id="4_grass"]
@@ -5551,3 +5552,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
 
 [node name="PipelineWarmup" type="Node" parent="."]
 script = ExtResource("12_warmup")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("9_pause")

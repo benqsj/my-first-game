@@ -27,11 +27,6 @@ signal arrow_loosed(power: float, damage: float, critical: bool)
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
 
-## Extra distance used when probing for an obstacle ahead of the capsule.
-const STEP_PROBE_SKIN := 0.05
-## How many forward samples the step-up sweep takes before giving up.
-const STEP_PROBE_SAMPLES := 4
-
 #region Exported tuning
 @export_group("Movement")
 ## Speed while the walk modifier is held.
@@ -186,6 +181,9 @@ const STEP_PROBE_SAMPLES := 4
 @export var lock_break_range: float = 34.0
 ## How fast the camera swings round onto a target and then keeps it there.
 @export var lock_camera_speed: float = 6.0
+## How far the mouse has to be swept sideways to change target, in pixels. Big
+## enough that aiming never does it by accident.
+@export var target_switch_flick: float = 240.0
 ## How far above the target the camera rides while locked, in degrees. Looking
 ## *down* on a fight is what shows the ground between the two of you; aimed flat
 ## at a target, that ground is a sliver and everything reads as a silhouette.
@@ -285,6 +283,10 @@ var _wall_cooldown_timer: float = 0.0
 ## What is being fought, if anything. Everyone can hold a target; what they do
 ## with it is the difference between a sword and a bow.
 var target: Node3D = null
+## The dot over whatever is being fought.
+var _marker: TargetMarker
+## Mouse travel banked towards changing target.
+var _flick: float = 0.0
 ## How long the string has been held, and whether it is being held at all.
 var _draw_timer: float = 0.0
 var _drawing: bool = false
@@ -343,6 +345,16 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var motion := event as InputEventMouseMotion
+		# Locked on, the camera belongs to the target and the mouse is free to
+		# say *which* target: a flick to one side takes the next enemy that way.
+		# Accumulated rather than read per event, so it takes a deliberate sweep
+		# and not the twitch of aiming.
+		if target != null:
+			_flick += motion.relative.x
+			if absf(_flick) > target_switch_flick:
+				_switch_target(signf(_flick))
+				_flick = 0.0
+			return
 		camera_rig.rotate_y(-motion.relative.x * mouse_sensitivity)
 		camera_rig.rotation.y = wrapf(camera_rig.rotation.y, -PI, PI)
 
@@ -354,9 +366,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 		return
 
-	if event.is_action_pressed("ui_cancel"):
-		_toggle_mouse_capture()
-	elif event.is_action_pressed("toggle_fullscreen"):
+	if event.is_action_pressed("toggle_fullscreen"):
 		_toggle_fullscreen()
 
 
@@ -603,54 +613,11 @@ func _face_direction(direction: Vector3, delta: float) -> void:
 	rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-rate * delta))
 
 
-## Places the body on top of a low ledge, the classic up -> forward -> down
-## sweep. Any failed probe aborts and the obstacle stays a plain wall.
+## Places the body on top of a low ledge. The move itself lives in [StepUp],
+## because the creatures need it too — a wolf that cannot follow you up a
+## staircase is a wolf you beat by standing on a step.
 func _step_up(delta: float) -> void:
-	if max_step_height <= 0.0 or not is_on_floor():
-		return
-
-	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
-	if horizontal.length_squared() < 0.0001:
-		return
-	var direction := horizontal.normalized()
-	var from := global_transform
-	var floor_cos := cos(floor_max_angle)
-
-	# 1. Is a wall-like surface actually in the way this frame?
-	var blocker := KinematicCollision3D.new()
-	var reach := horizontal.length() * delta + STEP_PROBE_SKIN
-	if not test_move(from, direction * reach, blocker):
-		return
-	if blocker.get_normal().dot(up_direction) > floor_cos:
-		return  # A walkable slope: move_and_slide() already handles it.
-
-	# 2. Is there room to lift the body?
-	var lift := up_direction * max_step_height
-	if test_move(from, lift):
-		return
-	var raised := from.translated(lift)
-
-	# 3. Push outwards until the capsule has cleared the ledge, otherwise the
-	#    downward probe catches the step's edge and reports an unwalkable
-	#    normal. Land on the first sample that gives a real floor.
-	var drop := KinematicCollision3D.new()
-	for i in STEP_PROBE_SAMPLES:
-		var ahead := direction * (step_forward_probe * float(i + 1) / STEP_PROBE_SAMPLES)
-		if test_move(raised, ahead):
-			return  # A real wall, not a ledge.
-
-		var landing := raised.translated(ahead)
-		if not test_move(landing, -lift, drop):
-			continue  # Still hanging over the void: probe further out.
-		if drop.get_normal().dot(up_direction) < floor_cos:
-			continue  # Caught the edge: probe further out.
-
-		if max_step_height - drop.get_travel().length() <= 0.001:
-			return  # The surface is level with our feet, nothing to climb.
-
-		global_transform = landing.translated(drop.get_travel())
-		velocity.y = 0.0
-		return
+	StepUp.climb(self, delta, max_step_height, step_forward_probe)
 
 
 func _current_gravity() -> float:
@@ -1282,7 +1249,12 @@ func _toggle_lock() -> void:
 	var found := _best_target()
 	if found == null:
 		return
-	target = found
+	_hold_target(found)
+
+
+func _hold_target(who: Node3D) -> void:
+	target = who
+	_show_marker()
 	target_locked.emit(target)
 
 
@@ -1290,7 +1262,59 @@ func _drop_target() -> void:
 	if target == null:
 		return
 	target = null
+	_flick = 0.0
+	_show_marker()
 	target_lost.emit()
+
+
+## Puts the dot on the target, building it the first time it is needed. Built
+## here rather than in the scene because it belongs to the lock, not to the body
+## — and because a marker with nothing to mark is a node doing nothing.
+func _show_marker() -> void:
+	if _marker == null:
+		if target == null:
+			return
+		_marker = TargetMarker.new()
+		_marker.name = "TargetMarker"
+		add_child(_marker)
+	_marker.mark(target, camera)
+
+
+## Swaps to the next target to one side of the one held. Which side is the sign
+## of `towards`: negative for left, positive for right.
+##
+## Ordered by *angle round the camera* rather than by distance, so flicking
+## right takes the next one along the line of the horizon — which is what the
+## player means by it and what they can see before they do it.
+func _switch_target(towards: float) -> void:
+	if target == null or absf(towards) < 0.01:
+		return
+	var eye := camera.global_position
+	var right := camera.global_transform.basis.x
+	var held := _bearing(target, eye, right)
+
+	var best: Node3D = null
+	var best_gap := INF
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or who == target or not _targetable(who):
+			continue
+		if eye.distance_to(_aim_point(who)) > lock_range:
+			continue
+		# Only what lies the way the stick was pushed, and the nearest of those.
+		var gap := (_bearing(who, eye, right) - held) * signf(towards)
+		if gap <= 0.01 or gap >= best_gap:
+			continue
+		best_gap = gap
+		best = who
+	if best != null:
+		_hold_target(best)
+
+
+## How far round to the right of the camera something sits, in radians.
+static func _bearing(who: Node3D, eye: Vector3, right: Vector3) -> float:
+	var to_them := who.global_position - eye
+	return atan2(to_them.dot(right), to_them.dot(-right.cross(Vector3.UP)))
 
 
 ## The enemy nearest the middle of the view, of those close enough and roughly
@@ -1347,6 +1371,7 @@ func _track_target(delta: float) -> void:
 			or global_position.distance_to(target.global_position) > lock_break_range:
 		_drop_target()
 		return
+	_show_marker()
 
 	# The camera is swung round rather than snapped: a lock that jumps the view
 	# is a lock that loses the player.
@@ -1595,9 +1620,4 @@ func _toggle_fullscreen() -> void:
 			DisplayServer.WINDOW_MODE_FULLSCREEN if windowed else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
-func _toggle_mouse_capture() -> void:
-	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	else:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 #endregion

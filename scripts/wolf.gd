@@ -25,6 +25,11 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var reach: float = 2.3
 
 @export_group("Movement")
+## Tallest step it walks up without being stopped by it. Kept below the body's
+## own radius, as the sweep needs room to put it down again.
+@export var step_height: float = 0.45
+## How far ahead that sweep reaches. Must exceed the body's radius.
+@export var step_probe: float = 0.6
 @export var prowl_speed: float = 2.4
 @export var charge_speed: float = 9.0
 @export var acceleration: float = 22.0
@@ -119,6 +124,9 @@ func _physics_process(delta: float) -> void:
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 
 	_think(delta)
+	# Up a kerb or a stair rather than into it. A hunter that loses you to six
+	# greybox steps is not hunting you.
+	StepUp.climb(self, delta, step_height, step_probe)
 	move_and_slide()
 	_watch_for_snags(delta)
 	_take_hits()

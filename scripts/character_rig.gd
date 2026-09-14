@@ -709,6 +709,9 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	_sling_weapons()
 	_pose_cloth(delta, vertical_speed)
 	_apply_pose()
+	# Anything hanging off a hand is placed *after* the body is written, because
+	# until then the hand it hangs from is still where it was last frame.
+	_place_props()
 
 
 ## Starts a one-shot sword swing.
@@ -1258,6 +1261,38 @@ func _solve_leg(track: Vector3, leg: float, amount: float, pelvis: float) -> Vec
 	return Vector3(solved.x, solved.y, track.z * amount - (solved.x + solved.y) - tilt)
 
 
+## Puts the far end of a limb *at* a point rather than in the plane of one.
+##
+## [_solve_limb] swings a limb in one plane, which is all a leg ever needs: a
+## knee does not travel sideways. An arm does. A bow held out in front and a
+## string drawn back past the jaw are not in the same plane as each other, let
+## alone in the shoulder's, and a limb that can only pitch reaches neither —
+## it lands somewhere below and short, which is what a badly drawn bow looks
+## like.
+##
+## So the root gets a yaw as well: point the whole limb at the target, then
+## pitch it back by the angle the bend opens up. Returns (pitch, yaw, bend),
+## Euler components for a joint whose rest hangs down its own -Y.
+static func _solve_aim(target: Vector3, upper: float, lower: float,
+		fold: float) -> Vector3:
+	if upper <= 0.0 or lower <= 0.0 or target.length_squared() < 1e-8:
+		return Vector3.ZERO
+	var reach := clampf(target.length(), 0.05, (upper + lower) * 0.9999)
+	var to := target.normalized()
+
+	# Where the limb has to point. Straight down is pitch zero, and the yaw is
+	# which way round the body that plane lies.
+	var line := acos(clampf(-to.y, -1.0, 1.0))
+	var yaw := atan2(-to.x, -to.z)
+	var bend := PI - acos(clampf(
+			(upper * upper + lower * lower - reach * reach) / (2.0 * upper * lower), -1.0, 1.0))
+	# The bend shortens the limb, so the upper bone has to sit this much off the
+	# line to the target for the far end to land on it.
+	var off := acos(clampf(
+			(upper * upper + reach * reach - lower * lower) / (2.0 * upper * reach), -1.0, 1.0))
+	return Vector3(line - fold * off, yaw, fold * bend)
+
+
 ## Two bones and a target is a triangle, so the joint angle comes straight out
 ## of the law of cosines rather than out of a curve shaped by hand.
 ##
@@ -1528,6 +1563,13 @@ func _reach_for_wall(root_name: String, elbow_name: String, reach: float,
 ## sword and shield are handled in here because they came first; anything with a
 ## pose of its own — a drawn bow — overrides this.
 func _pose_weapon(_delta: float) -> void:
+	pass
+
+
+## Whatever has to be put somewhere once the body is final — a bow that has to
+## stand upright in a hand whose orientation was only just decided, a string
+## that has to reach the hand drawing it.
+func _place_props() -> void:
 	pass
 
 

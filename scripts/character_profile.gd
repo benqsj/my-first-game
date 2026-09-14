@@ -54,8 +54,8 @@ enum Weapon {
 ## floor under tapping: fast, but never free.
 @export_range(0.0, 1.0) var snap_share: float = 0.25
 ## How fast the arrow leaves the bow at a full draw, in m/s.
-@export var arrow_speed: float = 46.0
+@export var arrow_speed: float = 34.0
 ## And off a snap shot, which drops further and reaches less far.
-@export var arrow_speed_snap: float = 26.0
+@export var arrow_speed_snap: float = 21.0
 ## Shortest gap between loosing one arrow and drawing the next.
 @export var shot_cooldown: float = 0.18

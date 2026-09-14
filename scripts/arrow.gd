@@ -23,6 +23,11 @@ signal struck(what: Node3D, where: Vector3, critical: bool)
 @export var lifetime: float = 6.0
 ## How far past the surface it buries itself.
 @export var bite: float = 0.12
+## How wide the streak behind it is, in metres. An arrow is a centimetre across
+## and crosses half a metre between one frame and the next, so on its own it is
+## a thing that is never actually on screen where you are looking. The streak is
+## what makes a shot something an opponent can see coming — and duck.
+@export var trail_width: float = 0.05
 
 var _velocity: Vector3 = Vector3.ZERO
 var _gravity: float = 6.0
@@ -30,6 +35,7 @@ var _damage: float = 0.0
 var _critical: bool = false
 var _shooter: Node3D = null
 var _spent: bool = false
+var _trail: SwordTrail
 var _age: float = 0.0
 var _rested: float = 0.0
 
@@ -48,6 +54,7 @@ func launch(velocity: Vector3, damage: float, critical: bool, gravity: float,
 	_gravity = gravity
 	_shooter = shooter
 	_point_along(velocity)
+	_lay_trail()
 	set_physics_process(true)
 
 
@@ -58,6 +65,8 @@ func _physics_process(delta: float) -> void:
 
 	_age += delta
 	if _age > lifetime:
+		if _trail != null:
+			_trail.queue_free()
 		queue_free()
 		return
 
@@ -89,6 +98,12 @@ func _sweep(from: Vector3, to: Vector3) -> Dictionary:
 func _strike(what: Node3D, where: Vector3) -> void:
 	_spent = true
 	_velocity = Vector3.ZERO
+	if _trail != null:
+		# Stops feeding the ribbon; it fades itself out from there and then goes.
+		_trail.emitting = false
+		_trail.get_tree().create_timer(_trail.fade_time + 0.1).timeout.connect(
+				_trail.queue_free)
+		_trail = null
 	struck.emit(what, where, _critical)
 
 	if what != null and what.has_method("take_hit"):
@@ -111,6 +126,33 @@ func _settle(delta: float) -> void:
 		queue_free()
 		return
 	global_position += Vector3.DOWN * delta * 0.35
+
+
+## Hangs a streak off the arrow.
+##
+## The same ribbon the sword leaves, given a segment that lies *across* the
+## flight rather than along it — so what it sweeps out is a flat band down the
+## arrow's path. It writes world positions, so it lives in the world beside the
+## arrow rather than on it, and it outlives the arrow by a fade.
+func _lay_trail() -> void:
+	var into := get_parent()
+	if into == null or trail_width <= 0.0:
+		return
+	var left := Marker3D.new()
+	left.position = Vector3(-trail_width * 0.5, 0.0, 0.0)
+	add_child(left)
+	var right := Marker3D.new()
+	right.position = Vector3(trail_width * 0.5, 0.0, 0.0)
+	add_child(right)
+
+	_trail = SwordTrail.new()
+	_trail.name = "ArrowTrail"
+	_trail.sample_count = 10
+	_trail.fade_time = 0.16
+	_trail.tint = Color(1.0, 0.94, 0.78, 0.6)
+	into.add_child(_trail)
+	_trail.setup(left, right)
+	_trail.emitting = true
 
 
 ## Points the shaft along the way it is going. The model is built running up its

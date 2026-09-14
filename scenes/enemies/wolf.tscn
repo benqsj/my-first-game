@@ -10,7 +10,7 @@ height = 1.6
 
 [node name="Wolf" type="CharacterBody3D" groups=["enemy"]]
 collision_layer = 4
-collision_mask = 3
+collision_mask = 7
 script = ExtResource("1_wolf")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

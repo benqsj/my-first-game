@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_game = root.get_node_or_null("Game")
 	await _check_menu()
 	await _check_graphics()
+	await _check_pause()
 
 	print("")
 	if _failures == 0:
@@ -40,7 +41,7 @@ func _check_menu() -> void:
 
 	menu.call("_show", 1)
 	await _wait(2)
-	_check("play opens the choice of solo or co-op", _visible_pages(pages) == 1)
+	_check("play opens the choice of solo or multiplayer", _visible_pages(pages) == 1)
 
 	menu.call("_show", 2)
 	await _wait(2)
@@ -49,13 +50,13 @@ func _check_menu() -> void:
 			cards.size() == _game.roster().size(), "%d cards" % cards.size())
 
 	# Co-op says what it is rather than pretending.
-	menu.set("_co_op", true)
+	menu.set("_multiplayer", true)
 	menu.call("_show", 2)
 	await _wait(2)
-	var note := (pages[2] as Control).find_child("CoOpNote", true, false) as Label
-	_check("co-op says it is not ready yet", note != null and not note.text.is_empty(),
+	var note := (pages[2] as Control).find_child("ModeNote", true, false) as Label
+	_check("multiplayer says it is not ready yet", note != null and not note.text.is_empty(),
 			"'%s'" % (note.text if note != null else "<missing>"))
-	menu.set("_co_op", false)
+	menu.set("_multiplayer", false)
 	menu.call("_show", 2)
 	await _wait(2)
 	_check("and solo says nothing at all", note.text.is_empty())
@@ -111,6 +112,45 @@ func _check_graphics() -> void:
 	_check("the choice is written down", FileAccess.file_exists(_game.get("SETTINGS")))
 	_game.set_graphics(Graphics.Level.HIGH)
 	world.queue_free()
+	await _wait(3)
+
+
+## The menu that comes up mid-game. It has to stop the world, let it go again,
+## and be able to end the game — the last of which is the only way back to the
+## front once you are in one.
+func _check_pause() -> void:
+	var world: Node3D = load(WORLD).instantiate()
+	root.add_child(world)
+	current_scene = world
+	await _wait(5)
+
+	var pause := world.get_node_or_null("PauseMenu")
+	_check("the level carries a pause menu", pause != null)
+	if pause == null:
+		return
+	var screen := pause.get_child(0) as Control
+	_check("which starts out of the way", not screen.visible)
+	_check("and the game is running", not paused)
+
+	pause.call("open")
+	await _wait(3)
+	_check("it comes up when asked", screen.visible)
+	_check("and the world holds still behind it", paused)
+	_check("with the mouse given back", Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
+
+	pause.call("resume")
+	await _wait(3)
+	_check("resume hands the game back", not screen.visible and not paused)
+
+	# Leaving has to unpause on the way out, or the front menu loads paused and
+	# nothing on it can be clicked.
+	pause.call("open")
+	await _wait(2)
+	pause.call("quit_to_menu")
+	await _wait(5)
+	_check("exit to main menu unpauses", not paused)
+	_check("and leaves the level", not is_instance_valid(world)
+			or current_scene != world)
 	await _wait(3)
 
 
