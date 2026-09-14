@@ -1,0 +1,14 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/character_rig.gd" id="1_rig"]
+[ext_resource type="PackedScene" path="res://assets/tariel/tariel.glb" id="2_model"]
+[ext_resource type="PackedScene" path="res://assets/sword/sword.glb" id="3_sword"]
+[ext_resource type="PackedScene" path="res://assets/shield/shield.glb" id="4_shield"]
+
+[node name="Visuals" type="Node3D"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+script = ExtResource("1_rig")
+sword_scene = ExtResource("3_sword")
+shield_scene = ExtResource("4_shield")
+
+[node name="Tariel" parent="." instance=ExtResource("2_model")]

@@ -1,4 +1,4 @@
-class_name TarielRig
+class_name CharacterRig
 extends Node3D
 
 ## Procedural animation for the Tariel model.
@@ -386,7 +386,11 @@ func _ready() -> void:
 	for joint_name in wanted:
 		var node := find_child(joint_name, true, false) as Node3D
 		if node == null:
-			push_warning("TarielRig: joint '%s' is missing from the model." % joint_name)
+			# The body has to be there; the cloth does not. A cape and a
+			# ponytail are things a character may or may not have, and a hooded
+			# archer has neither — that is not a broken model.
+			if joint_name in BODY_JOINTS:
+				push_warning("CharacterRig: joint '%s' is missing from the model." % joint_name)
 			continue
 		_joints[joint_name] = node
 		# Authored stance for everything except the legs, which start neutral.
@@ -431,10 +435,15 @@ func _setup_layers() -> void:
 			* (hips.get_parent() as Node3D).global_transform).basis.orthonormalized()
 
 	# The clips are measured against a plain standing pose, so the shield arm is
-	# taken as hanging rather than in the authored guard, matching the legs.
+	# taken as hanging rather than in the authored guard, matching the legs. A
+	# body with no shield has no guard to undo — its arm is already authored
+	# hanging, and forcing it into the knight's correction would only bend it.
 	var neutral := {}
 	for joint_name in AnimRetarget.JOINT_ORDER:
-		neutral[joint_name] = SHIELD_LOWERED.get(joint_name, _base.get(joint_name, Vector3.ZERO))
+		var rest: Vector3 = _base.get(joint_name, Vector3.ZERO)
+		if _shield != null:
+			rest = SHIELD_LOWERED.get(joint_name, rest)
+		neutral[joint_name] = rest
 
 	_action = _make_layer("Actions", neutral)
 	if _action == null:
@@ -452,7 +461,7 @@ func _setup_layers() -> void:
 		return
 	_gait_stride = _gait.measure_stride(walk_clip)
 	if _gait_stride <= 0.01:
-		push_warning("TarielRig: '%s' has no usable stride, keeping the procedural walk."
+		push_warning("CharacterRig: '%s' has no usable stride, keeping the procedural walk."
 				% walk_clip)
 		_gait.queue_free()
 		_gait = null
@@ -561,7 +570,10 @@ func _setup_trail() -> void:
 		blade_tip = find_child("blade_tip", true, false) as Node3D
 
 	if blade_base == null or blade_tip == null:
-		push_warning("TarielRig: blade ends unknown, no sword trail.")
+		# Only a problem for someone carrying a sword. An archer has no blade to
+		# leave a streak behind, which is not something to warn about.
+		if _sword_mount != null:
+			push_warning("CharacterRig: blade ends unknown, no sword trail.")
 		return
 	_blade_base = blade_base
 	_blade_tip = blade_tip
@@ -689,8 +701,11 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	_pose_torso(t)
 	_pose_arms(t)
 	_pose_climb()
-	# After the arms: the shield's carried placement is theirs to set, and this
-	# is what takes it off them.
+	# After the arms, because a weapon moves the arms it is held in, and before
+	# the cloth, which trails whatever the body ended up doing.
+	_pose_weapon(delta)
+	# The shield's carried placement is the arms' to set, and this is what takes
+	# it off them.
 	_sling_weapons()
 	_pose_cloth(delta, vertical_speed)
 	_apply_pose()
@@ -1331,11 +1346,16 @@ func _pose_arms(t: float) -> void:
 
 	# Shield arm. The captured base pose is the guard — shield up and across the
 	# chest — so it is only reached at full block. Otherwise the arm blends down
-	# to its resting position with the shield hanging at the side.
-	for joint_name: String in SHIELD_LOWERED:
-		var lowered: Vector3 = SHIELD_LOWERED[joint_name]
-		var down: Vector3 = lowered - (_base[joint_name] as Vector3)
-		_pose_joint(joint_name, down * (1.0 - _block_blend))
+	# to its resting position with the shield hanging at the side. With no
+	# shield there is no guard pose to come out of: the arm hangs as authored.
+	if _shield != null:
+		for joint_name: String in SHIELD_LOWERED:
+			var lowered: Vector3 = SHIELD_LOWERED[joint_name]
+			var down: Vector3 = lowered - (_base[joint_name] as Vector3)
+			_pose_joint(joint_name, down * (1.0 - _block_blend))
+	else:
+		for joint_name: String in SHIELD_LOWERED:
+			_pose_joint(joint_name, Vector3.ZERO)
 
 	# A little counter-swing and dash tuck, but only while the shield is down —
 	# a raised guard should stay rock steady.
@@ -1502,6 +1522,13 @@ func _reach_for_wall(root_name: String, elbow_name: String, reach: float,
 	var solved := _solve_limb(target, _upperarm_length, _forearm_length, -1.0)
 	_blend_to(root_name, Vector3(solved.x, 0.0, splay), weight)
 	_blend_to(elbow_name, Vector3(solved.y, 0.0, 0.0), weight)
+
+
+## What this particular character is carrying, posed over the body. The knight's
+## sword and shield are handled in here because they came first; anything with a
+## pose of its own — a drawn bow — overrides this.
+func _pose_weapon(_delta: float) -> void:
+	pass
 
 
 ## Blends a joint towards an orientation of its own rather than towards an

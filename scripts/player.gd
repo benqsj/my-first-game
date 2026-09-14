@@ -21,6 +21,9 @@ signal climb_started(ledge: Vector3)
 signal wall_grabbed(normal: Vector3)
 signal wall_released
 signal weapons_stowed_changed(away: bool)
+signal target_locked(who: Node3D)
+signal target_lost
+signal arrow_loosed(power: float, damage: float, critical: bool)
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
 
@@ -172,6 +175,37 @@ const STEP_PROBE_SAMPLES := 4
 ## caught by the same wall on the way past.
 @export var wall_regrab_delay: float = 0.35
 
+@export_group("Target lock")
+## How far off a target can be taken.
+@export var lock_range: float = 26.0
+## And how far round from where the camera is looking, in degrees. Wide, because
+## the point of the button is not having to aim it.
+@export_range(0.0, 180.0) var lock_cone: float = 70.0
+## How much further than `lock_range` a target may get before it is let go. The
+## gap between the two is what stops a lock flickering at the edge of its reach.
+@export var lock_break_range: float = 34.0
+## How fast the camera swings round onto a target and then keeps it there.
+@export var lock_camera_speed: float = 6.0
+## How far above the target the camera rides while locked, in degrees. Looking
+## *down* on a fight is what shows the ground between the two of you; aimed flat
+## at a target, that ground is a sliver and everything reads as a silhouette.
+@export_range(0.0, 60.0) var lock_camera_tilt: float = 14.0
+## How fast the body turns to face one. Quicker than a running turn: facing the
+## thing you are fighting is not something to carve into.
+@export var lock_turn_speed: float = 16.0
+
+@export_group("Bow")
+## How much of the run survives while the string is being held. An archer at a
+## full sprint cannot aim, and being able to would make every other approach
+## pointless.
+@export_range(0.1, 1.0) var draw_speed_scale: float = 0.55
+## Where the arrow leaves from, measured up the body.
+@export var arrow_height: float = 1.35
+## How far a shot drops, as a share of the world's gravity. Arrows are fast and
+## an arc the player cannot read is not a skill shot, it is a guess.
+@export_range(0.0, 1.0) var arrow_drop: float = 0.35
+@export var arrow_scene: PackedScene
+
 @export_group("Physics")
 ## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
 ## makes the player pass them by without disturbing them.
@@ -191,9 +225,14 @@ const STEP_PROBE_SAMPLES := 4
 @onready var camera_rig: Node3D = $CameraRig
 @onready var spring_arm: SpringArm3D = $CameraRig/SpringArm3D
 @onready var camera: Camera3D = $CameraRig/SpringArm3D/Camera3D
-## The Tariel model and its procedural animation. Swap the scene under Visuals
-## when the rigged Blender knight lands; the controller only calls animate().
-@onready var rig: TarielRig = $Visuals as TarielRig
+## The model and its procedural animation, built in _ready() from whichever
+## character is being played. Not `@onready`, because there is nothing under
+## Visuals until the profile says what should be: the controller is the same
+## code for all of them and the character is the thing that varies.
+var rig: CharacterRig
+## Who is being played. Taken from the Game autoload on spawn unless something
+## has set it first, which is what the tests do.
+var profile: CharacterProfile
 @onready var _collider: CollisionShape3D = $CollisionShape3D
 
 var state: State = State.AIRBORNE
@@ -243,9 +282,24 @@ var _wall_point: Vector3 = Vector3.ZERO
 ## Smoothed climbing input, so the reaches do not snap when the stick does.
 var _wall_drive: Vector2 = Vector2.ZERO
 var _wall_cooldown_timer: float = 0.0
+## What is being fought, if anything. Everyone can hold a target; what they do
+## with it is the difference between a sword and a bow.
+var target: Node3D = null
+## How long the string has been held, and whether it is being held at all.
+var _draw_timer: float = 0.0
+var _drawing: bool = false
+var _shot_timer: float = 0.0
+var _shot_rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	_spawn_character()
+	# The level has just loaded, so this is the moment the graphics setting has
+	# something to be applied to. The world knows nothing about settings; the
+	# thing that spawns into it asks for them.
+	var game := get_node_or_null("/root/Game")
+	if game != null:
+		game.call_deferred("apply_graphics")
 	_jump_velocity = sqrt(2.0 * _gravity * jump_height)
 	_air_speed_cap = run_speed
 
@@ -323,6 +377,9 @@ func _process(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
+	_track_target(delta)
+	if has_bow():
+		_tick_bow(delta)
 
 	# A pull-up is played out by hand: the body is carried along an arc that no
 	# amount of velocity would produce, so nothing else runs while it does.
@@ -356,15 +413,53 @@ func _physics_process(delta: float) -> void:
 	_update_floor_state()
 
 
+#region Character
+## Hangs the chosen character's model under the body and takes their numbers.
+##
+## The controller is one piece of code for every character; what differs between
+## them is a model, a weapon and a handful of figures. Keeping that in a profile
+## resource rather than in four copies of this script is what makes the fourth
+## character a file rather than a fork.
+func _spawn_character() -> void:
+	if profile == null:
+		var game := get_node_or_null("/root/Game")
+		profile = game.profile() if game != null else null
+	if profile == null or profile.visuals == null:
+		push_error("Player: no character to spawn.")
+		return
+
+	var body: Node3D = profile.visuals.instantiate()
+	body.name = "Visuals"
+	add_child(body)
+	rig = body as CharacterRig
+
+	run_speed = profile.run_speed
+	walk_speed = profile.walk_speed
+	dash_speed = profile.dash_speed
+	dash_duration = profile.dash_duration
+	dodge_speed = profile.dodge_speed
+	dodge_duration = profile.dodge_duration
+
+
+## True for a character who shoots rather than swings.
+func has_bow() -> bool:
+	return profile != null and profile.weapon == CharacterProfile.Weapon.BOW
+#endregion
+
+
 #region Locomotion
 ## Action buttons are polled rather than read from _unhandled_input() so that a
 ## press is never lost between physics ticks and so simulated input works.
 func _read_actions() -> void:
 	if Input.is_action_just_pressed("stow"):
 		_set_weapons_stowed(not weapons_stowed())
+	if Input.is_action_just_pressed("lock_on"):
+		_toggle_lock()
 
 	# The shield is only up while the button is held; rolling and sliding drop it.
-	var raised := Input.is_action_pressed("block") and state == State.GROUNDED
+	# A character with no shield has nothing to raise.
+	var raised := Input.is_action_pressed("block") and state == State.GROUNDED \
+			and (profile == null or profile.can_block)
 	if raised:
 		# Raising a shield that is on your back takes it off your back first.
 		_set_weapons_stowed(false)
@@ -385,7 +480,9 @@ func _read_actions() -> void:
 	_set_crouching(Input.is_action_pressed("crouch"))
 	if Input.is_action_just_pressed("crouch"):
 		_try_slide()
-	if Input.is_action_just_pressed("attack"):
+	# One button, two weapons: the sword goes on the press, the bow on the
+	# release, because what the bow is worth is how long the press lasted.
+	if not has_bow() and Input.is_action_just_pressed("attack"):
 		_attack()
 
 
@@ -394,6 +491,10 @@ func _process_locomotion(delta: float) -> void:
 	var speed := walk_speed if Input.is_action_pressed("walk") else run_speed
 	if _crouching:
 		speed = crouch_speed
+	# Nobody aims at a sprint. Holding the string costs most of the run, which is
+	# what makes choosing when to draw a decision rather than a formality.
+	if _drawing:
+		speed *= draw_speed_scale
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
 
@@ -414,6 +515,12 @@ func _process_locomotion(delta: float) -> void:
 			horizontal = horizontal.move_toward(Vector3.ZERO, ground_deceleration * delta)
 		else:
 			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
+		# Locked on, the body keeps facing what it is fighting however it moves,
+		# so the stick strafes round it and backs away from it instead of
+		# turning to run. Otherwise it faces the way it is going, as ever.
+		if target != null:
+			_face_target(delta)
+		elif not direction.is_zero_approx():
 			_face_direction(direction, delta)
 	else:
 		# In the air the stick steers the arc rather than driving it: the jump
@@ -423,6 +530,9 @@ func _process_locomotion(delta: float) -> void:
 		else:
 			horizontal = horizontal.move_toward(direction * speed,
 					ground_acceleration * air_control * delta)
+		if target != null:
+			_face_target(delta)
+		elif not direction.is_zero_approx():
 			_face_direction(direction, delta)
 		var cap := maxf(_air_speed_cap, speed)
 		if horizontal.length() > cap:
@@ -1151,6 +1261,239 @@ func _release_wall(impulse: Vector3) -> void:
 ## True while the body is hanging off a face.
 func is_wall_climbing() -> bool:
 	return state == State.WALLCLIMB
+#endregion
+
+
+#region Target lock
+## Holding a target is the controller's business, not a weapon's: the knight
+## circles what he is fighting and the archer shoots it, but both of them want
+## the same thing from the button — pick the obvious enemy, keep the camera on
+## it, and face it until told otherwise.
+##
+## Movement stays camera-relative while locked, which is what lets the player
+## strafe round a target and back away from one without ever turning their back.
+
+
+## Takes the best target in front of the camera, or lets go of the one held.
+func _toggle_lock() -> void:
+	if target != null:
+		_drop_target()
+		return
+	var found := _best_target()
+	if found == null:
+		return
+	target = found
+	target_locked.emit(target)
+
+
+func _drop_target() -> void:
+	if target == null:
+		return
+	target = null
+	target_lost.emit()
+
+
+## The enemy nearest the middle of the view, of those close enough and roughly
+## in front. Angle first and distance second: what the player is looking at
+## matters more than what happens to be nearest.
+func _best_target() -> Node3D:
+	var eye := camera.global_position
+	var looking := -camera.global_transform.basis.z
+	var widest := cos(deg_to_rad(lock_cone))
+	var best: Node3D = null
+	var best_score := -INF
+
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or not _targetable(who):
+			continue
+		var to_them: Vector3 = _aim_point(who) - eye
+		var range_to := to_them.length()
+		if range_to > lock_range or range_to < 0.01:
+			continue
+		var facing := looking.dot(to_them / range_to)
+		if facing < widest:
+			continue
+		# Straight ahead beats close by, but not by so much that something on
+		# the far side of the field wins for being centred.
+		var score := facing - range_to / lock_range * 0.25
+		if score > best_score:
+			best_score = score
+			best = who
+	return best
+
+
+## Whether something is worth holding on to. Anything that has died stops being
+## a target the moment it does, which is what keeps the camera off a corpse.
+func _targetable(who: Node3D) -> bool:
+	if not is_instance_valid(who) or not who.is_inside_tree():
+		return false
+	if who.get("is_dead") == true:
+		return false
+	return true
+
+
+## Where on a body the camera looks and an arrow goes: the middle of it rather
+## than the floor it stands on.
+func _aim_point(who: Node3D) -> Vector3:
+	return who.global_position + Vector3.UP * 0.8
+
+
+## Keeps the camera on the target and lets go when there is nothing left to hold.
+func _track_target(delta: float) -> void:
+	if target == null:
+		return
+	if not _targetable(target) \
+			or global_position.distance_to(target.global_position) > lock_break_range:
+		_drop_target()
+		return
+
+	# The camera is swung round rather than snapped: a lock that jumps the view
+	# is a lock that loses the player.
+	var to_them := _aim_point(target) - camera_rig.global_position
+	if to_them.length_squared() < 0.01:
+		return
+	var weight := 1.0 - exp(-lock_camera_speed * delta)
+	camera_rig.rotation.y = lerp_angle(camera_rig.rotation.y,
+			atan2(-to_them.x, -to_them.z), weight)
+	# Pitch: negative puts the camera up and looks down, which is the way to
+	# watch a fight. Aiming straight at the target is not enough on its own —
+	# the rig already sits above it, so a pure aim is nearly level and the
+	# ground between the two disappears. `lock_camera_tilt` is what lifts it.
+	var flat := Vector2(to_them.x, to_them.z).length()
+	var aimed := atan2(to_them.y, flat) - deg_to_rad(lock_camera_tilt)
+	spring_arm.rotation.x = lerp_angle(spring_arm.rotation.x,
+			clampf(aimed, deg_to_rad(min_pitch_deg), deg_to_rad(max_pitch_deg)),
+			weight * 0.7)
+
+
+## Turns the body to face the target instead of the way it is travelling, which
+## is the whole difference between strafing round something and running past it.
+func _face_target(delta: float) -> void:
+	var to_them := _aim_point(target) - global_position
+	to_them.y = 0.0
+	if to_them.length_squared() < 0.0001:
+		return
+	rotation.y = lerp_angle(rotation.y, atan2(-to_them.x, -to_them.z),
+			1.0 - exp(-lock_turn_speed * delta))
+
+
+## True while something is being fought.
+func has_target() -> bool:
+	return target != null
+#endregion
+
+
+#region Bow
+## Hold to draw, let go to loose. How long it was held is the whole of it: a
+## tapped shot leaves at once and lands for a fraction, a held one takes a beat
+## and lands for all of it. Nothing else about the shot changes, so the player
+## is choosing between rate and weight rather than between two buttons.
+func _tick_bow(delta: float) -> void:
+	_shot_timer = maxf(_shot_timer - delta, 0.0)
+	var holding := Input.is_action_pressed("attack")
+	var busy := state != State.GROUNDED and state != State.AIRBORNE
+
+	if busy:
+		# Rolling or climbing with a drawn bow is not a thing. The draw is lost,
+		# not banked: it has to be earned again.
+		_drawing = false
+		_draw_timer = 0.0
+	elif holding and not _drawing:
+		if _shot_timer <= 0.0:
+			_drawing = true
+			_draw_timer = 0.0
+			_set_weapons_stowed(false)
+	elif holding and _drawing:
+		_draw_timer += delta
+	elif _drawing:
+		_loose_arrow()
+
+	var archer := rig as ArcherRig
+	if archer != null:
+		archer.aim_bow(draw_power() if _drawing else 0.0, _aim_pitch())
+
+
+## How far the string has come back, 0 to 1. Everything a shot is worth is this
+## number, so it is the one the HUD would draw.
+func draw_power() -> float:
+	if profile == null or profile.draw_time <= 0.0:
+		return 1.0
+	return clampf(_draw_timer / profile.draw_time, 0.0, 1.0)
+
+
+## True while the string is being held.
+func is_drawing() -> bool:
+	return _drawing
+
+
+## Lets the arrow go.
+func _loose_arrow() -> void:
+	var power := draw_power()
+	_drawing = false
+	_draw_timer = 0.0
+	_shot_timer = profile.shot_cooldown if profile != null else 0.2
+
+	var from := global_position + up_direction * arrow_height
+	var speed := lerpf(profile.arrow_speed_snap, profile.arrow_speed, power)
+	var heading := _aim_direction(from, speed)
+	# A tap is worth `snap_share` of a full draw and no less; the rest of the
+	# scale is earned by holding.
+	var carry := lerpf(profile.snap_share, 1.0, power)
+	var critical := _shot_rng.randf() < profile.crit_chance
+	var damage := profile.damage * carry * (profile.crit_damage if critical else 1.0)
+
+	# Loose in the world rather than under the body, so the arrow does not ride
+	# the archer's own movement after it has left the string. `world_of` is the
+	# same answer blood and severed limbs use for the same question.
+	var into := Blood.world_of(self)
+	if arrow_scene != null and into != null:
+		var arrow: Node3D = arrow_scene.instantiate()
+		into.add_child(arrow)
+		arrow.global_position = from
+		arrow.call("launch", heading * speed, damage, critical, _gravity * arrow_drop, self)
+	arrow_loosed.emit(power, damage, critical)
+
+
+## Where the shot goes: at whatever is being fought, or at whatever the camera
+## is pointing at when nothing is.
+##
+## A locked shot leads its target. An arrow takes a beat to arrive and a wolf
+## does not wait where it was standing, so aiming at where it *is* means a slow
+## shot at a moving target is a miss the player did nothing wrong to earn. What
+## the lock is for is not having to solve that by hand.
+func _aim_direction(from: Vector3, speed: float = 40.0) -> Vector3:
+	if target != null and _targetable(target):
+		var at := _aim_point(target)
+		var moving: Variant = target.get("velocity")
+		if moving is Vector3:
+			var flight := from.distance_to(at) / maxf(speed, 1.0)
+			at += (moving as Vector3) * flight
+			# And the drop over that flight, so the arc is aimed through rather
+			# than along.
+			at.y += 0.5 * _gravity * arrow_drop * flight * flight
+		var to_them := at - from
+		if to_them.length_squared() > 0.0001:
+			return to_them.normalized()
+
+	# Down the middle of the view, at whatever it lands on — so the arrow goes
+	# where the crosshair is rather than parallel to it.
+	var eye := camera.global_position
+	var looking := -camera.global_transform.basis.z
+	var space := get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(
+			eye, eye + looking * lock_range * 2.0, collision_mask, [get_rid()])
+	var hit := space.intersect_ray(query)
+	var at: Vector3 = hit["position"] if not hit.is_empty() else eye + looking * lock_range * 2.0
+	var heading := at - from
+	return heading.normalized() if heading.length_squared() > 0.0001 else looking
+
+
+## How far off the level the shot is aimed, in radians, for the rig to lean on.
+func _aim_pitch() -> float:
+	var from := global_position + up_direction * arrow_height
+	var heading := _aim_direction(from)
+	return asin(clampf(heading.y, -1.0, 1.0))
 #endregion
 
 

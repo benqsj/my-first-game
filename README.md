@@ -5,9 +5,11 @@ This repo currently holds the **placeholder third-person controller** used for
 greyboxing while the Blender models are in production.
 
 ```
-godot --path .                                        # run the game
+godot --path .                                        # the menu, then the game
 godot -e --path .                                     # open the editor instead
 godot --path . --headless --script res://tests/smoke_test.gd   # movement checks
+godot --path . --headless --script res://tests/archer_test.gd  # bow + target lock
+godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 ```
 
@@ -19,7 +21,11 @@ nothing is ever letterboxed — `canvas_items` with the default `keep` aspect pu
 black bars around the game on any display that is not 16:9. F11 toggles
 fullscreen.
 
-`res://scenes/world/greybox_world.tscn` is the main scene: 120 × 120 m of flat
+`res://scenes/ui/main_menu.tscn` is the main scene — play, settings, out. Play
+asks solo or co-op, then who you are, then loads the level.
+
+`res://scenes/ui/main_menu.tscn
+scenes/world/greybox_world.tscn` is that level: 120 × 120 m of flat
 ground walled in at the edges, a 15° ramp, a 55° face that cannot be stood on, a
 6-step staircase up to a platform, pillars to test camera collision, and a
 watchtower, a medieval house and cart, boulders, meadows of grass and stone
@@ -30,15 +36,18 @@ clusters, and a handful of creatures wandering about.
 ```
 Player (CharacterBody3D)          scripts/player.gd, collision layer "player"
 ├── CollisionShape3D              CapsuleShape3D, r 0.4 / h 1.85, offset y +0.925
-├── Visuals (Node3D)              scripts/tariel_rig.gd, yawed 180°
-│   └── Tariel                    assets/tariel/tariel.glb
+├── Visuals (Node3D)              built in _ready() from the chosen character
+│   └── Tariel | Avtandil         the model, under its rig script
 └── CameraRig (Node3D)            top_level = true — yaw lives here
     └── SpringArm3D               spring_length 4.5, margin 0.3, mask "world"
         └── Camera3D              pitch lives on the arm
 ```
 
-`Visuals` is yawed 180° because the model faces **+Z** while Godot's forward is
-**-Z**.
+`Visuals` is not in `player.tscn`: the controller builds it on spawn from
+whichever [character](#characters) is being played, because the body, the camera
+and every move are shared and the model is the thing that differs. Whatever is
+built there is yawed 180°, because the models face **+Z** while Godot's forward
+is **-Z**.
 
 The camera rig is `top_level`, so it never inherits the body's rotation: the
 body turns to face where it is moving while the camera keeps its own yaw. The
@@ -66,6 +75,7 @@ add actions in **Project → Project Settings → Input Map**. All keys are boun
 | `walk`         | Ctrl        | Left shoulder    | 0.5      |
 | `crouch`       | C           | Left stick click | 0.5      |
 | `stow`         | Q           | Y / Triangle     | 0.5      |
+| `lock_on`      | E           | Right stick click | 0.5     |
 | double-tap `dash` | Shift Shift | B / Circle ×2 | 0.5      |
 | `attack`       | Left mouse  | X / Square       | 0.5      |
 | `block`        | Right mouse | Right shoulder   | 0.5      |
@@ -76,6 +86,9 @@ Escape releases the mouse; click-free re-capture is on the same key.
 
 Nothing new is bound for climbing: on a wall, the move actions drive the body
 along the face, `jump` pushes off it and `crouch` lets go.
+
+`lock_on` takes the enemy in front of the camera and holds it. Both characters
+have it: the knight circles what he is fighting, the archer shoots it.
 
 `stow` puts the sword and shield over the shoulder and takes them back off it.
 Anything that needs them takes them back by itself — attacking, or raising the
@@ -188,6 +201,144 @@ lost between physics ticks and simulated input works in tests.
   forward probe (`step_forward_probe`, 0.55) must stay larger than the capsule
   radius or the sweep lands on the ledge's edge instead of its top face.
 - All tuning is exported and grouped in the inspector.
+
+## Characters
+
+Two so far, and the number is meant to grow. A character is a
+`CharacterProfile` resource — `scenes/player/*.tres` — holding a model, a weapon
+and the handful of figures that differ:
+
+| | Tariel | Avtandil |
+| --- | ------ | -------- |
+| weapon | sword and shield | bow |
+| run | 9 m/s | 10.4 m/s |
+| roll | 11 m/s × 0.45 s = 4.9 m | 13.5 m/s × 0.5 s = 6.8 m |
+| crit | 10% | 30% |
+
+Everything else — walking, jumping, dodging, crouching, sliding, climbing, the
+target lock — is the same code for both, which is the point. The controller
+takes the profile's numbers on spawn, hangs its model under `Visuals`, and
+carries on. The fourth character is a fourth `.tres` and a fourth model, not a
+fourth controller.
+
+Who is played is held by the `Game` autoload, which the character-select screen
+sets. It also reads the command line, which is how a test — or anyone who would
+rather not click through — plays somebody without the menu:
+
+    godot --path . -- avtandil
+
+`scripts/character_rig.gd` is the shared rig (it was `tariel_rig.gd`; the knight
+is no longer the only one wearing it) and `scripts/archer_rig.gd` extends it
+with the bow. A model only has to name its joints the way the rig expects —
+`hips`, `spine`, `chest`, `shoulder_l`, and the rest — to get the stride, the
+climb and the jumps for nothing.
+
+### Avtandil, and building a character in code
+
+He is built by `tools/build_avtandil.gd`, which writes
+`assets/avtandil/avtandil.tscn`:
+
+    godot --path . --headless --script res://tools/build_avtandil.gd
+
+That is the same shape of thing Tariel is — primitives on named joints, no
+skeleton, no skinning — because that is what the rig drives. The output is a
+`.tscn` rather than a `.glb` on purpose: it is text, so it reads in a diff, and
+nothing has to be imported before it can be used. Re-running it is how his
+proportions, palette or kit change; there is no binary to hand-edit.
+
+He is leaner through the shoulders and longer in the leg than the knight, hooded
+rather than helmeted, and dressed in greens and leather, with a quiver on his
+back and a recurve in his hand. Same height, so the same capsule fits.
+
+### The bow
+
+Hold to draw, let go to loose, and how long it was held is the whole of it:
+
+- a **tap** is away at once and lands for `snap_share` of a full draw (25%);
+- a **full draw** takes `draw_time` (0.85 s) and lands for all of it, and the
+  arrow leaves faster, so it drops less on the way;
+- anything between is between.
+
+So the choice is rate against weight rather than one button against another.
+Drawing costs most of the run (`draw_speed_scale`), because an archer at a
+sprint cannot aim and being able to would make every other approach pointless.
+Rolling or climbing loses the draw — it is not banked.
+
+Arrows are **not** physics bodies. One crosses more ground in a tick than it is
+long, so a collider would fly through a wolf as often as it hit one; instead
+each tick draws a line from where the arrow was to where it is going and asks
+what that line crossed, which cannot be tunnelled. What it hits it tells, via
+`take_hit(damage, at, blow, critical)` — the same door the sword now goes
+through, so a hit does not read differently for the weapon that landed it. Then
+it sticks in what it hit and rides it until it sinks away.
+
+The animation is procedural, like the crouch and the climb and for the same
+reason: the library has forty-three clips and not one of them touches a bow. The
+bow hand and the drawing hand are *solved* to where the bow and the string have
+to be, through the same two-bone solve the legs use, and the string is pointed
+at wherever the drawing hand actually ended up rather than at where a number
+says it should be.
+
+### Target lock
+
+`lock_on` takes the enemy nearest the middle of the view — angle first, distance
+second, because what the player is looking at matters more than what happens to
+be nearest — and holds it until it dies, leaves `lock_break_range`, or the
+button is pressed again.
+
+While locked the body faces the target however it moves, so the stick strafes
+round it and **backs away from it** instead of turning to run. The camera swings
+onto the target and follows, rather than snapping: a lock that jumps the view is
+a lock that loses the player.
+
+It watches from **above** the fight. The pitch it takes is the aim at the target
+*minus* `lock_camera_tilt`, and both halves matter: negative pitch is what puts
+the camera up and looks down, and the tilt is what keeps the ground between the
+two of you on screen — the rig already rides above a wolf, so a pure aim comes
+out nearly level and everything reads as a silhouette. Aimed the other way round
+the camera ends up on the floor looking up the target's nose, which is the one
+thing a lock-on camera must never do.
+
+A locked shot **leads** its target. An arrow takes a beat to arrive and a wolf
+does not wait where it was standing, so the aim is offset by where the target
+will be, and lifted by the drop over the same flight. Without it a slow shot at
+a moving target is a miss the player did nothing wrong to earn.
+
+## The menu
+
+`scripts/main_menu.gd` builds all four pages — the front, solo-or-co-op,
+character select, settings — in code rather than in the editor, because almost
+all of it is the same three widgets with the same styling and a script that
+makes one button well makes twenty. Everything that decides how it looks is a
+constant at the top of that file.
+
+The character cards are generated from the profiles: name, weapon, run speed,
+roll distance, crit chance, whether there is a shield to put up, and the blurb,
+with a "— faster" or "— further" against the knight wherever the numbers differ.
+So a card cannot drift from the numbers the game actually uses.
+
+**Co-op is on the screen and is not wired up.** Two players needs per-device
+input routing and a split viewport, neither of which exists. Choosing it says so
+in the character screen and starts a solo game, rather than pretending.
+
+## Graphics
+
+One setting, two positions, because a greybox does not need twelve. `Graphics`
+applies it to the viewport and to whatever scene is loaded, so it can be changed
+before a level exists and again from inside one; `Game` remembers it in
+`user://settings.cfg`.
+
+| | High | Low |
+| --- | ---- | --- |
+| shadows | on | **off** — the single most expensive thing in the scene |
+| render scale | 1.0 | **0.7** — roughly half the pixels |
+| texture mipmap bias | 0 | **+1.0** — a smaller mip than the distance calls for, so surfaces go soft |
+| MSAA | 2× | off |
+| SSAO, glow, fog | on | off |
+| grass draw distance | 130 m | 60 m |
+
+The grass reads its three knobs once as it is built, so `refresh_meshes()` is
+what pushes them back down when the setting changes underneath it.
 
 ## The character: Tariel
 
@@ -755,11 +906,18 @@ radius.
 ```
 project.godot            input map, physics layers, gravity
 icon.svg
-scripts/player.gd        the controller
+scripts/player.gd        the controller, and the target lock and bow it drives
+scripts/game.gd          autoload: which character is being played, and settings
+scripts/main_menu.gd     the front end, built in code
+scripts/graphics.gd      what low and high actually change
+scripts/character_profile.gd  one playable character, as a resource
+scripts/arrow.gd         an arrow in flight, swept rather than collided
+scripts/archer_rig.gd    the bow: draw, aim, loose
+tools/build_avtandil.gd  writes assets/avtandil/avtandil.tscn
 scripts/grass_field.gd   grass bending, wind, LOD and culling
 scripts/sword_trail.gd   the streak a blade leaves, on a fixed vertex buffer
 tools/build_scatter.py   generates the meadows in the world scene
-scripts/tariel_rig.gd    procedural animation, and the clip layers on top of it
+scripts/character_rig.gd procedural animation, and the clip layers on top of it
 scripts/anim_retarget.gd replays the animation library on the skeleton-less model
 scripts/pipeline_warmup.gd draws the level once at startup so it need not stall later
 assets/tariel/tariel.glb the Tariel model
@@ -773,6 +931,8 @@ tests/clip_shots.gd      renders any library clip on Tariel; A_TPose is the chec
 tests/debug_retarget.gd  prints mannequin vs Tariel limb angles, and the walk stride
 tests/crouch_shots.gd    renders just the crouch and the double-tapped dodge
 tests/climb_shots.gd     renders the wall climb, and a stride sampled right round
+tests/archer_test.gd     headless checks: the archer, the bow, the target lock
+tests/menu_test.gd       headless checks: the menu's pages and the graphics setting
 tests/perf_probe.gd      frame-time distribution, one configuration at a time
 tests/inspect_ual2.gd    dumps the library's bones, rests and clip list
 tests/screenshot.gd      renders a single frame to a PNG

@@ -3,7 +3,7 @@ extends Node3D
 
 ## Procedural animation for the wolf monster.
 ##
-## Same shape of problem as [TarielRig]: the model is a hierarchy of named joint
+## Same shape of problem as [CharacterRig]: the model is a hierarchy of named joint
 ## nodes with no skeleton and no clips, so every pose is a rotation applied on
 ## top of the joint's rest orientation (its `extras.rest` in the source file).
 ##

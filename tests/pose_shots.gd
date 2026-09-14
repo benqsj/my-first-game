@@ -62,14 +62,14 @@ func _initialize() -> void:
 
 	# The two swings, caught at their wind-up and at the moment of impact.
 	await _place(-4.0)
-	_player.rig.attack(TarielRig.AttackStyle.OVERHEAD)
+	_player.rig.attack(CharacterRig.AttackStyle.OVERHEAD)
 	await _wait(4)
 	await _shot("swing_overhead_wind")
 	await _wait(9)
 	await _shot("swing_overhead_hit")
 	await _wait(30)
 
-	_player.rig.attack(TarielRig.AttackStyle.SIDE)
+	_player.rig.attack(CharacterRig.AttackStyle.SIDE)
 	await _wait(4)
 	await _shot("swing_side_wind")
 	await _wait(7)

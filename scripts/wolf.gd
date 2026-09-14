@@ -284,38 +284,70 @@ func _take_hits() -> void:
 		return
 	_last_hit_serial = serial
 
-	health = maxf(health - damage_per_hit, 0.0)
+	# Bleed from where the limb actually came away, thrown along the blow.
+	var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
+	take_hit(damage_per_hit, rig.last_cut_point, blow, false)
+	knight.rig.bloody()
+
+
+## Takes a blow from anything at all — a blade that has already decided what it
+## cut off, or an arrow that simply arrived.
+##
+## The sword path above works by *severing*: it reads the blade as a line and
+## takes off whatever it passed through, and the creature dies of losing enough
+## of itself. An arrow has nothing to sever, so this is the other way in, and it
+## is health that ends it. Both share what a hit means — blood, a shove, a bar
+## that goes down — because a hit should not read differently for the weapon
+## that landed it.
+func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false) -> void:
+	if is_dead:
+		return
+
+	health = maxf(health - damage, 0.0)
 	if _bar != null:
 		_bar.set_fraction(health / maxf(max_health, 0.001))
 	hurt.emit(health)
 
-	# Bleed from where the limb actually came away, thrown along the blow.
-	var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
-	Blood.splatter(Blood.world_of(self), rig.last_cut_point, blow)
-	knight.rig.bloody()
-	# Knocked back by the blow.
-	var away := (global_position - knight.global_position)
-	away.y = 0.0
-	if away.length_squared() > 0.0001:
-		velocity += away.normalized() * 4.0
+	var thrown := blow
+	if thrown.length_squared() < 0.0001:
+		thrown = Vector3.UP
+	Blood.splatter(Blood.world_of(self), at, thrown.normalized())
+	# A critical goes in hard enough to move it.
+	var shove := thrown
+	shove.y = 0.0
+	if shove.length_squared() > 0.0001:
+		velocity += shove.normalized() * (6.0 if critical else 4.0)
+
+	# Being shot at is a good enough reason to come and find out who did it.
+	if state == State.PROWL:
+		state = State.CHASE
+
+	if health <= 0.0:
+		_die()
 
 
 func _on_severed(part: String) -> void:
 	# Taking the head is fatal on its own; otherwise it is losing enough of
 	# itself that puts it down.
 	if part == "head" or rig.lost_parts() >= limbs_before_death:
-		is_dead = true
-		state = State.DOWN
-		health = 0.0
-		# An empty bar over a corpse is just clutter: there is nothing left to
-		# read off it, and the body is about to topple out from under it anyway.
-		if _bar != null:
-			_bar.hide()
-		# A corpse should not go on blocking the way like a wall. Clearing its
-		# layer hides it from everything else while it keeps its own mask, so it
-		# still rests on the ground instead of falling through the world.
-		collision_layer = 0
-		died.emit()
+		_die()
+
+
+func _die() -> void:
+	if is_dead:
+		return
+	is_dead = true
+	state = State.DOWN
+	health = 0.0
+	# An empty bar over a corpse is just clutter: there is nothing left to
+	# read off it, and the body is about to topple out from under it anyway.
+	if _bar != null:
+		_bar.hide()
+	# A corpse should not go on blocking the way like a wall. Clearing its
+	# layer hides it from everything else while it keeps its own mask, so it
+	# still rests on the ground instead of falling through the world.
+	collision_layer = 0
+	died.emit()
 
 
 ## Topples the body over once it is dead.

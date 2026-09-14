@@ -1,10 +1,7 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
-[ext_resource type="Script" path="res://scripts/tariel_rig.gd" id="2_rig"]
-[ext_resource type="PackedScene" path="res://assets/tariel/tariel.glb" id="3_tariel"]
-[ext_resource type="PackedScene" path="res://assets/sword/sword.glb" id="4_sword"]
-[ext_resource type="PackedScene" path="res://assets/shield/shield.glb" id="5_shield"]
+[ext_resource type="PackedScene" path="res://scenes/props/arrow.tscn" id="2_arrow"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
@@ -14,18 +11,11 @@ height = 1.85
 collision_layer = 2
 collision_mask = 5
 script = ExtResource("1_player")
+arrow_scene = ExtResource("2_arrow")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.925, 0)
 shape = SubResource("CapsuleShape3D_body")
-
-[node name="Visuals" type="Node3D" parent="."]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
-script = ExtResource("2_rig")
-sword_scene = ExtResource("4_sword")
-shield_scene = ExtResource("5_shield")
-
-[node name="Tariel" parent="Visuals" instance=ExtResource("3_tariel")]
 
 [node name="CameraRig" type="Node3D" parent="."]
 top_level = true

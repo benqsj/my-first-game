@@ -126,6 +126,14 @@ func _ready() -> void:
 		push_warning("GrassField: no node in the \"player\" group, grass will not react.")
 
 
+## Pushes the three performance settings back down onto every clump. They are
+## normally applied once, as the field is built; this is for when they change
+## afterwards, which is what a graphics setting does.
+func refresh_meshes() -> void:
+	for clump in _clumps:
+		_prepare_meshes(clump)
+
+
 ## Settings that have to be reached through to the meshes inside an instanced
 ## clump: how far away it is still worth drawing, and whether it goes into the
 ## shadow map at all.
@@ -138,8 +146,8 @@ func _prepare_meshes(clump: Node3D) -> void:
 		var mesh := node as GeometryInstance3D
 		if mesh == null:
 			continue
-		if not casts_shadows:
-			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts_shadows \
+				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if lod_bias > 0.0:
 			mesh.lod_bias = lod_bias
 		if draw_distance <= 0.0:

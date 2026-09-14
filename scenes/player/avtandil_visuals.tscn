@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/archer_rig.gd" id="1_rig"]
+[ext_resource type="PackedScene" path="res://assets/avtandil/avtandil.tscn" id="2_model"]
+
+[node name="Visuals" type="Node3D"]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+script = ExtResource("1_rig")
+
+[node name="Avtandil" parent="." instance=ExtResource("2_model")]

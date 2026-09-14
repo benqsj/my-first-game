@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CharacterProfile" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/character_profile.gd" id="1_profile"]
+[ext_resource type="PackedScene" path="res://scenes/player/tariel_visuals.tscn" id="2_visuals"]
+
+[resource]
+script = ExtResource("1_profile")
+display_name = "Tariel"
+blurb = "The knight in the panther's skin. Sword and shield, and armour enough to stand in the way of things."
+visuals = ExtResource("2_visuals")
+can_block = true
+weapon = 0
+run_speed = 9.0
+walk_speed = 4.5
+dash_speed = 11.0
+dash_duration = 0.45
+dodge_speed = 8.5
+dodge_duration = 0.7
+crit_chance = 0.1
+crit_damage = 2.0
+damage = 26.0
