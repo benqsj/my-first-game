@@ -11,10 +11,17 @@ signal jumped
 signal landed(impact_speed: float)
 signal dash_started(direction: Vector3)
 signal dash_ended
+signal dodge_started(direction: Vector3)
+signal dodge_ended
 signal attack_started
 signal block_changed(raised: bool)
+signal slide_started
+signal slide_ended
+signal climb_started(ledge: Vector3)
+signal wall_grabbed(normal: Vector3)
+signal wall_released
 
-enum State { GROUNDED, AIRBORNE, DASHING }
+enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
 
 ## Extra distance used when probing for an obstacle ahead of the capsule.
 const STEP_PROBE_SKIN := 0.05
@@ -90,6 +97,79 @@ const STEP_PROBE_SAMPLES := 4
 @export var allow_air_dash: bool = false
 ## Cut the roll short when it runs into a wall rather than grinding along it.
 @export var dash_cancels_on_wall: bool = true
+## A second tap inside this window turns the roll into the library's dodge —
+## slower, wider, and animated rather than tumbled.
+@export var double_tap_time: float = 0.28
+@export var dodge_duration: float = 0.7
+@export var dodge_speed: float = 8.5
+## Invulnerability window measured from the start of the dodge. Longer than the
+## roll's, because the dodge is the deliberate, committed one.
+@export var dodge_iframes: float = 0.45
+
+@export_group("Crouch")
+## Speed while crouched. Creeping is the point of it.
+@export var crouch_speed: float = 2.4
+## Height of the capsule while crouched.
+@export var crouch_height: float = 1.15
+
+@export_group("Slide")
+## A slide has to be launched off a run; below this it would just be a squat.
+@export var slide_min_speed: float = 5.0
+## How much of the entry speed the slide starts with. Above 1 it is a burst.
+@export var slide_boost: float = 1.12
+@export var slide_duration: float = 0.85
+## How fast the slide bleeds off, in m/s².
+@export var slide_drag: float = 8.0
+## Height of the capsule while sliding, which is what lets the player under a
+## low gap. Standing back up waits until there is room again.
+@export var slide_height: float = 0.9
+@export var slide_cooldown: float = 0.3
+
+@export_group("Climb")
+## Ledges this far above the feet and no higher can be pulled up onto. The
+## floor of the band sits above max_step_height, so anything that can simply be
+## walked up is not turned into a climb.
+@export var climb_min_height: float = 0.55
+@export var climb_max_height: float = 1.7
+## How far in front of the body the ledge is felt for.
+@export var climb_reach: float = 0.75
+## How long the pull-up takes. The clip is stretched to match.
+@export var climb_duration: float = 0.55
+## Vertical room the top of the ledge needs before it counts as somewhere to
+## stand rather than a slot to be wedged into.
+@export var climb_headroom: float = 1.9
+
+@export_group("Wall climb")
+## Free climbing on faces too tall to be mantled — a house wall, a tower, the
+## side of a boulder. Off leaves only the low pull-up.
+@export var wall_climb_enabled: bool = true
+## Faces steeper than this, measured from the horizontal, can be gripped. It has
+## to sit above `floor_max_angle` or a walkable slope would be climbed rather
+## than run up.
+@export_range(0.0, 89.0) var wall_min_angle: float = 60.0
+## How far in front of the chest a face is felt for.
+@export var wall_grip_reach: float = 0.9
+## Gap left between the body and the face it is hanging off.
+@export var wall_gap: float = 0.06
+## Climbing pace up and down a face.
+@export var wall_climb_speed: float = 2.1
+## Pace sideways along one, which is quicker: a climber shuffles faster than
+## they haul themselves upwards.
+@export var wall_shimmy_speed: float = 2.4
+## How fast the body swings round and settles against a face as it changes.
+@export var wall_settle_speed: float = 14.0
+## Push-off away from the face when jumping off it.
+@export var wall_jump_back: float = 5.0
+@export var wall_jump_up: float = 6.0
+## How much wall there has to be above the grip before climbing is worth
+## starting. Anything shorter is a mantle, and mantling is always tried first.
+@export var wall_min_face: float = 1.0
+## How long after letting go the face is ignored, so a jump off it is not
+## caught by the same wall on the way past.
+@export var wall_regrab_delay: float = 0.35
+## Horizontal speed into a face needed for a mid-air grab. Brushing past one is
+## not an attempt to climb it; running at it is.
+@export var wall_catch_speed: float = 1.0
 
 @export_group("Physics")
 ## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
@@ -113,6 +193,7 @@ const STEP_PROBE_SAMPLES := 4
 ## The Tariel model and its procedural animation. Swap the scene under Visuals
 ## when the rigged Blender knight lands; the controller only calls animate().
 @onready var rig: TarielRig = $Visuals as TarielRig
+@onready var _collider: CollisionShape3D = $CollisionShape3D
 
 var state: State = State.AIRBORNE
 var is_invulnerable: bool = false
@@ -135,11 +216,46 @@ var _air_speed_cap: float = 0.0
 var _impact_speed: float = 0.0
 ## Normal of the steepest un-standable surface touched last tick, if any.
 var _steep_normal: Vector3 = Vector3.ZERO
+var _dodge_timer: float = 0.0
+## When the dash button was last pressed, so a second tap can be told from a
+## first one.
+var _last_dash_press: float = -100.0
+var _crouching: bool = false
+var _slide_timer: float = 0.0
+var _slide_cooldown_timer: float = 0.0
+var _slide_direction: Vector3 = Vector3.ZERO
+var _slide_speed: float = 0.0
+## Standing height of the capsule and where its centre sits, so the slide can
+## put both back when there is room again.
+var _stand_height: float = 0.0
+var _stand_centre: float = 0.0
+## Radius of the capsule, which is what decides how far off a face the body
+## hangs while climbing it.
+var _stand_radius: float = 0.4
+var _climb_timer: float = 0.0
+var _climb_from: Vector3 = Vector3.ZERO
+var _climb_to: Vector3 = Vector3.ZERO
+## Outward normal of the face being climbed, and the point on it the chest is
+## holding onto.
+var _wall_normal: Vector3 = Vector3.ZERO
+var _wall_point: Vector3 = Vector3.ZERO
+## Smoothed climbing input, so the reaches do not snap when the stick does.
+var _wall_drive: Vector2 = Vector2.ZERO
+var _wall_cooldown_timer: float = 0.0
 
 
 func _ready() -> void:
 	_jump_velocity = sqrt(2.0 * _gravity * jump_height)
 	_air_speed_cap = run_speed
+
+	# The capsule is resized by the slide, so it must not be shared with anything
+	# else that happens to instance this scene.
+	var capsule := _collider.shape as CapsuleShape3D
+	if capsule != null:
+		_collider.shape = capsule.duplicate()
+		_stand_height = capsule.height
+		_stand_centre = _collider.position.y
+		_stand_radius = capsule.radius
 
 	# Snap far enough to hug the stairs on the way down, matching the step-up.
 	floor_snap_length = maxf(floor_snap_length, max_step_height)
@@ -197,6 +313,8 @@ func _process(delta: float) -> void:
 	camera_rig.global_position = camera_rig.global_position.lerp(target, weight)
 
 	if rig != null:
+		if state == State.WALLCLIMB:
+			rig.climb_drive(_wall_drive, velocity.length())
 		var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 		rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), not is_on_floor(),
 				state == State.DASHING, velocity.y, is_blocking)
@@ -204,10 +322,26 @@ func _process(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
+
+	# A pull-up is played out by hand: the body is carried along an arc that no
+	# amount of velocity would produce, so nothing else runs while it does.
+	if state == State.CLIMBING:
+		_process_climb(delta)
+		return
+
+	# Hanging off a face is its own kind of movement — no gravity, no friction,
+	# and the surface rather than the camera decides which way is forward — so it
+	# runs its own move rather than falling through to the walking one.
+	if state == State.WALLCLIMB:
+		_process_wall_climb(delta)
+		return
+
 	_read_actions()
 
-	if state == State.DASHING:
+	if state == State.DASHING or state == State.DODGING:
 		_process_dash(delta)
+	elif state == State.SLIDING:
+		_process_slide(delta)
 	else:
 		_process_locomotion(delta)
 
@@ -225,16 +359,25 @@ func _physics_process(delta: float) -> void:
 ## Action buttons are polled rather than read from _unhandled_input() so that a
 ## press is never lost between physics ticks and so simulated input works.
 func _read_actions() -> void:
-	# The shield is only up while the button is held; dashing drops it.
-	var raised := Input.is_action_pressed("block") and state != State.DASHING
+	# The shield is only up while the button is held; rolling and sliding drop it.
+	var raised := Input.is_action_pressed("block") and state == State.GROUNDED
 	if raised != is_blocking:
 		is_blocking = raised
 		block_changed.emit(is_blocking)
 
 	if Input.is_action_just_pressed("jump"):
-		_jump_buffer_timer = jump_buffer_time
+		# A ledge in reach turns the jump into a pull-up, so a wall a little too
+		# tall to walk up is climbed rather than bounced off. Anything taller than
+		# that is taken hold of and climbed instead.
+		if not _try_climb() and not _try_wall_climb():
+			_jump_buffer_timer = jump_buffer_time
 	if Input.is_action_just_pressed("dash"):
-		_try_dash()
+		_press_dash()
+	# Held down at a run this is a slide; held down otherwise it is a crouch, and
+	# the slide drops into one when it ends if the button is still down.
+	_set_crouching(Input.is_action_pressed("crouch"))
+	if Input.is_action_just_pressed("crouch"):
+		_try_slide()
 	if Input.is_action_just_pressed("attack"):
 		_attack()
 
@@ -242,8 +385,21 @@ func _read_actions() -> void:
 func _process_locomotion(delta: float) -> void:
 	var direction := get_movement_direction()
 	var speed := walk_speed if Input.is_action_pressed("walk") else run_speed
+	if _crouching:
+		speed = crouch_speed
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+
+	# A ledge met in mid-air is taken without asking, so running at a wall and
+	# jumping is enough to get over it. A face too tall to be mantled is caught
+	# hold of instead — which is what makes a house something to go up rather
+	# than something to bounce off.
+	if not on_floor:
+		if _try_climb():
+			return
+		var into := -get_wall_normal()
+		if is_on_wall() and horizontal.dot(into) > wall_catch_speed and _try_wall_climb(into):
+			return
 
 	if on_floor:
 		# Climbing costs speed, dropping gives a little back.
@@ -400,8 +556,29 @@ func _do_jump() -> void:
 
 
 #region Dash
+## The dash button does two things depending on how it is pressed. One tap is
+## the quick tumbling roll it has always been; a second tap inside
+## `double_tap_time` upgrades the roll in progress into the library's dodge,
+## which is slower, travels further and is animated rather than tumbled.
+##
+## The upgrade converts the roll rather than waiting to see which is coming,
+## because holding the first press back until the window closed would put a
+## visible stall on every single tap.
+func _press_dash() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var doubled := now - _last_dash_press <= double_tap_time
+	_last_dash_press = now
+
+	if doubled and state == State.DASHING:
+		_upgrade_to_dodge()
+		return
+	_try_dash()
+
+
 func _try_dash() -> void:
-	if state == State.DASHING or _dash_cooldown_timer > 0.0:
+	if state != State.GROUNDED and state != State.AIRBORNE:
+		return
+	if _dash_cooldown_timer > 0.0:
 		return
 	if not is_on_floor() and not allow_air_dash:
 		return
@@ -424,40 +601,512 @@ func _try_dash() -> void:
 	dash_started.emit(_dash_direction)
 
 
+## Turns the roll already under way into the longer, animated dodge, keeping the
+## direction it was thrown in.
+func _upgrade_to_dodge() -> void:
+	if rig != null and not rig.dodge_clip(dodge_duration):
+		return  # No clip to upgrade to; the roll carries on as it is.
+	state = State.DODGING
+	_dodge_timer = dodge_duration
+	_dash_cooldown_timer = dash_cooldown + dodge_duration
+	is_invulnerable = dodge_iframes > 0.0
+	dodge_started.emit(_dash_direction)
 
+
+## Drives both evades. They differ in how long they last, how fast they travel
+## and what the rig is doing, not in how the body is moved.
 func _process_dash(delta: float) -> void:
-	# Ease the dash out so it does not end with a hard velocity cut.
-	var t := clampf(_dash_timer / maxf(dash_duration, 0.001), 0.0, 1.0)
-	var speed := dash_speed * lerpf(0.55, 1.0, t)
+	var dodging := state == State.DODGING
+	var length := dodge_duration if dodging else dash_duration
+	var left := _dodge_timer if dodging else _dash_timer
+	var iframes := dodge_iframes if dodging else dash_iframes
+
+	# Ease the evade out so it does not end with a hard velocity cut.
+	var t := clampf(left / maxf(length, 0.001), 0.0, 1.0)
+	var speed := (dodge_speed if dodging else dash_speed) * lerpf(0.55, 1.0, t)
 	velocity.x = _dash_direction.x * speed
 	velocity.z = _dash_direction.z * speed
 	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
 
-	if dash_iframes > 0.0 and dash_duration - _dash_timer >= dash_iframes:
+	if iframes > 0.0 and length - left >= iframes:
 		is_invulnerable = false
 
-	# Rolling face-first into a wall should stop the roll, not scrape along it.
+	# Going face-first into a wall should stop the evade, not scrape along it.
 	if dash_cancels_on_wall and is_on_wall() and get_wall_normal().dot(_dash_direction) < -0.6:
 		_end_dash()
 		return
 
-	if _dash_timer <= 0.0:
+	if left <= 0.0:
 		_end_dash()
 
 
 func _end_dash() -> void:
+	var dodging := state == State.DODGING
 	is_invulnerable = false
 	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
-	# Bleed off the dash so the player keeps a bit of momentum.
+	# Bleed off the evade so the player keeps a bit of momentum.
 	velocity.x *= 0.4
 	velocity.z *= 0.4
-	dash_ended.emit()
+	if dodging:
+		dodge_ended.emit()
+	else:
+		dash_ended.emit()
+#endregion
+
+
+#region Crouch
+## Holds the body down, or lets it back up. Standing waits until there is room:
+## under a low gap the crouch simply carries on.
+func _set_crouching(down: bool) -> void:
+	if state == State.SLIDING or state == State.CLIMBING:
+		return
+	# Taking hold of a wall drops the crouch on the way in, which is the one time
+	# it is set from this state; nothing else may touch it while hanging.
+	if state == State.WALLCLIMB and down:
+		return
+	# Wanting to stand and being able to are different things, so the body is
+	# only up once the full capsule fits. `or` short-circuits, which is what
+	# keeps the stand-up probe out of the way while the button is still held.
+	var held := down or not _stand_up()
+	if held == _crouching:
+		return
+
+	_crouching = held
+	if held:
+		_set_capsule(crouch_height)
+	if rig != null:
+		rig.crouch(held)
+
+
+func is_crouching() -> bool:
+	return _crouching
+#endregion
+
+
+#region Slide
+## How tall the capsule is when the player is upright, read off the scene rather
+## than exported so there is one place it is set.
+func stand_height() -> float:
+	return _stand_height
+
+
+## Drops into a slide, which only makes sense off a run: it keeps the momentum
+## that was already there, adds a little, and shrinks the capsule so the player
+## goes under whatever a standing body would not.
+func _try_slide() -> bool:
+	if state != State.GROUNDED or _slide_cooldown_timer > 0.0:
+		return false
+	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+	if horizontal.length() < slide_min_speed:
+		return false
+
+	_slide_direction = horizontal.normalized()
+	_slide_speed = horizontal.length() * slide_boost
+	_slide_timer = slide_duration
+	state = State.SLIDING
+	_set_capsule(slide_height)
+	if rig != null:
+		rig.crouch(false)
+		rig.slide(true)
+	slide_started.emit()
+	return true
+
+
+func _process_slide(delta: float) -> void:
+	_slide_speed = maxf(_slide_speed - slide_drag * delta, 0.0)
+	velocity.x = _slide_direction.x * _slide_speed
+	velocity.z = _slide_direction.z * _slide_speed
+	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
+
+	# Held down, the slide keeps going as long as it is still going somewhere;
+	# released, it ends there and then.
+	var holding := Input.is_action_pressed("crouch")
+	var spent := _slide_timer <= 0.0 or _slide_speed < slide_min_speed * 0.45
+	if is_on_wall() or not is_on_floor() or spent or not holding:
+		_end_slide()
+
+
+## Comes out of the slide. Still holding the button leaves the player crouched
+## rather than standing straight back up, which is also what happens under a low
+## gap whether they asked for it or not.
+func _end_slide() -> void:
+	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
+	_slide_cooldown_timer = slide_cooldown
+	if rig != null:
+		rig.slide(false)
+	slide_ended.emit()
+
+	_crouching = false
+	_set_crouching(Input.is_action_pressed("crouch"))
+
+
+## Resizes the capsule about the feet, so shrinking it never lifts the body off
+## the ground or drops it through it.
+func _set_capsule(height: float) -> void:
+	var capsule := _collider.shape as CapsuleShape3D
+	if capsule == null:
+		return
+	capsule.height = height
+	_collider.position.y = _stand_centre - (_stand_height - height) * 0.5
+
+
+## True once the capsule is back to its standing size. False means something is
+## in the way and the player has to stay down.
+func _stand_up() -> bool:
+	var capsule := _collider.shape as CapsuleShape3D
+	if capsule == null or is_equal_approx(capsule.height, _stand_height):
+		return true
+
+	var crouched := capsule.height
+	var crouched_centre := _collider.position.y
+	_set_capsule(_stand_height)
+	if not test_move(global_transform, Vector3.ZERO):
+		return true
+
+	capsule.height = crouched
+	_collider.position.y = crouched_centre
+	return false
+#endregion
+
+
+#region Climb
+## Pulls the body up over a ledge in front of it, if there is one within reach
+## and something to stand on when it gets there.
+func _try_climb() -> bool:
+	if state != State.GROUNDED and state != State.AIRBORNE:
+		return false
+	var landing := _find_ledge()
+	if landing == Vector3.ZERO:
+		return false
+	_begin_mantle(landing)
+	return true
+
+
+## Hands the body over to the pull-up, wherever it was called from: off the
+## ground, out of a jump, or off the top of a face that has just been climbed.
+func _begin_mantle(landing: Vector3) -> void:
+	if state == State.WALLCLIMB and rig != null:
+		rig.wall_climb(false)
+	_climb_from = global_position
+	_climb_to = landing
+	_climb_timer = climb_duration
+	state = State.CLIMBING
+	velocity = Vector3.ZERO
+	_jump_buffer_timer = 0.0
+	if rig != null:
+		rig.climb(climb_duration)
+	climb_started.emit(landing)
+
+
+## Where the body would end up after mantling whatever is in front of it, or
+## ZERO if there is nothing to mantle.
+##
+## Three questions, in the order that rules the most out soonest: is there a
+## face to grab, does it have a top edge within reach, and is there room to
+## stand on it.
+func _find_ledge() -> Vector3:
+	var facing := -global_transform.basis.z
+	facing.y = 0.0
+	if facing.is_zero_approx():
+		return Vector3.ZERO
+	facing = facing.normalized()
+
+	var space := get_world_3d().direct_space_state
+	var exclude: Array[RID] = [get_rid()]
+
+	var chest := global_position + up_direction * climb_min_height
+	var face := PhysicsRayQueryParameters3D.create(
+			chest, chest + facing * climb_reach, collision_mask, exclude)
+	if space.intersect_ray(face).is_empty():
+		return Vector3.ZERO
+
+	# Feel down for the top from above the tallest ledge that can be taken.
+	var above := global_position + up_direction * (climb_max_height + 0.4) + facing * climb_reach
+	var top := PhysicsRayQueryParameters3D.create(
+			above, above - up_direction * (climb_max_height + 0.4), collision_mask, exclude)
+	var hit := space.intersect_ray(top)
+	if hit.is_empty():
+		return Vector3.ZERO
+
+	var lip: Vector3 = hit.position
+	var rise := (lip - global_position).dot(up_direction)
+	if rise < climb_min_height or rise > climb_max_height:
+		return Vector3.ZERO
+	if (hit.normal as Vector3).dot(up_direction) < cos(floor_max_angle):
+		return Vector3.ZERO  # The top is too steep to be a landing.
+
+	# Far enough in from the edge that the capsule is not left overhanging it.
+	var landing: Vector3 = lip + facing * 0.25
+	var headroom := PhysicsRayQueryParameters3D.create(
+			landing + up_direction * 0.05, landing + up_direction * climb_headroom,
+			collision_mask, exclude)
+	if not space.intersect_ray(headroom).is_empty():
+		return Vector3.ZERO
+	return landing
+
+
+## Carries the body up and then in, rather than straight at the corner: a lerp
+## between the two ends would drag it through the wall on the way.
+func _process_climb(delta: float) -> void:
+	_climb_timer = maxf(_climb_timer - delta, 0.0)
+	var through := 1.0 - _climb_timer / maxf(climb_duration, 0.001)
+	var lift := smoothstep(0.0, 0.7, through)
+	var reach := smoothstep(0.35, 1.0, through)
+
+	var here := _climb_from.lerp(_climb_to, reach)
+	here.y = lerpf(_climb_from.y, _climb_to.y, lift)
+	global_position = here
+	velocity = Vector3.ZERO
+
+	if _climb_timer <= 0.0:
+		state = State.GROUNDED
+		_was_on_floor = true
+		_coyote_timer = coyote_time
+		_air_speed_cap = run_speed
+#endregion
+
+
+#region Wall climb
+## Free climbing. Where the mantle is one move that ends on top of something,
+## this is a state the player lives in: the body hangs off a face, gravity is
+## off, and the stick drives it up, down and along the surface until it reaches
+## the top, climbs back down, or lets go.
+##
+## Everything is resolved against the face's own normal rather than the camera,
+## so rounding a corner or following a wall that leans does not need the view to
+## be re-aimed — which is what makes a building climbable as one surface instead
+## of as four flat walls.
+
+## Height up the body the grip is felt from. Roughly chest height, which is
+## where a climber's hands are when their feet are on the same face.
+func _grip_height() -> float:
+	return _stand_height * 0.6
+
+
+## How far the body's centre line sits off the face it is on.
+func _wall_hold_distance() -> float:
+	return _stand_radius + wall_gap
+
+
+## Takes hold of whatever steep face is in front of the body. `direction` is the
+## way to feel in, defaulting to whichever way the body is facing.
+func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
+	if not wall_climb_enabled or _wall_cooldown_timer > 0.0:
+		return false
+	if state != State.GROUNDED and state != State.AIRBORNE:
+		return false
+
+	var facing := direction
+	if facing.is_zero_approx():
+		facing = -global_transform.basis.z
+	facing.y = 0.0
+	if facing.is_zero_approx():
+		return false
+	facing = facing.normalized()
+
+	var grip := _feel_wall(facing)
+	if grip.is_empty():
+		return false
+
+	# Something with its top already in reach is a mantle, and a mantle is the
+	# better move: it puts the player on top rather than leaving them hanging.
+	var normal: Vector3 = grip["normal"]
+	var above := global_position + up_direction * (_grip_height() + wall_min_face)
+	if _scan_wall(above, -normal).is_empty():
+		return false
+
+	_grab_wall(grip["position"], normal)
+	return true
+
+
+## The face in front of the body, felt for the way a climber would: straight
+## ahead first, then higher and lower, then round to either side.
+##
+## Scenery is not made of flat slabs. A window at chest height, a beam, the
+## corner of a building — any of them would lose a single probe a wall that is
+## plainly still there, and every one of them is a thing a player will try to
+## climb.
+func _feel_wall(facing: Vector3) -> Dictionary:
+	for height: float in [_grip_height(), _stand_height * 0.3, _stand_height * 0.85]:
+		var grip := _scan_wall(global_position + up_direction * height, facing)
+		if not grip.is_empty():
+			return grip
+
+	var chest := global_position + up_direction * _grip_height()
+	for sweep: float in [0.5, -0.5, 1.0, -1.0, 1.6, -1.6]:
+		var grip := _scan_wall(chest, facing.rotated(up_direction, sweep))
+		if not grip.is_empty():
+			return grip
+	return {}
+
+
+## The face in front of `origin`, or an empty dictionary if there is nothing
+## there worth holding onto.
+func _scan_wall(origin: Vector3, facing: Vector3) -> Dictionary:
+	var space := get_world_3d().direct_space_state
+	var exclude: Array[RID] = [get_rid()]
+	var query := PhysicsRayQueryParameters3D.create(
+			origin, origin + facing * wall_grip_reach, collision_mask, exclude)
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		return {}
+
+	var normal: Vector3 = hit["normal"]
+	# Only faces too steep to walk up are worth gripping, and never a ceiling or
+	# an overhang: there is nothing for the feet to push against on either.
+	if absf(normal.dot(up_direction)) > cos(deg_to_rad(wall_min_angle)):
+		return {}
+	# The face has to be turned towards the body rather than brushed edge-on,
+	# which is also what keeps the back side of a wall from being caught.
+	if normal.dot(facing) > -0.35:
+		return {}
+	return {"position": hit["position"] as Vector3, "normal": normal}
+
+
+func _grab_wall(point: Vector3, normal: Vector3) -> void:
+	state = State.WALLCLIMB
+	_wall_point = point
+	_wall_normal = normal
+	_wall_drive = Vector2.ZERO
+	velocity = Vector3.ZERO
+	_jump_buffer_timer = 0.0
+	_coyote_timer = 0.0
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	# Nothing else the body was doing survives taking hold of a wall.
+	_set_crouching(false)
+	if rig != null:
+		rig.wall_climb(true)
+	wall_grabbed.emit(normal)
+
+
+func _process_wall_climb(delta: float) -> void:
+	# Three ways off: let go and drop, push off backwards, or reach the top.
+	if Input.is_action_just_pressed("crouch"):
+		_release_wall(Vector3.ZERO)
+		return
+	if Input.is_action_just_pressed("jump"):
+		_release_wall(_wall_normal * wall_jump_back + up_direction * wall_jump_up)
+		return
+
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	# Read in the face's frame, not the camera's: forward on the stick is up the
+	# wall however the view happens to be pointing.
+	var drive := Vector2(input.x, -input.y)
+	_wall_drive = _wall_drive.lerp(drive, 1.0 - exp(-14.0 * delta))
+
+	# Checked before the move, because the face runs out at exactly the moment
+	# there is somewhere to stand: losing it here is arriving, not falling.
+	if drive.y > 0.1:
+		var landing := _find_wall_top()
+		if landing != Vector3.ZERO:
+			_begin_mantle(landing)
+			return
+
+	var held := global_position
+	var right := up_direction.cross(_wall_normal).normalized()
+	var up_face := _wall_normal.cross(right).normalized()
+	velocity = right * drive.x * wall_shimmy_speed + up_face * drive.y * wall_climb_speed
+	move_and_slide()
+
+	if not _hold_wall(delta):
+		# Climbed off the end of the face with nowhere to go. Coming back to
+		# where the hands still had something beats letting go of a wall that is
+		# still there — a climber who runs out of holds stops, they do not drop.
+		global_position = held
+		velocity = Vector3.ZERO
+		if not _hold_wall(delta):
+			_release_wall(Vector3.ZERO)
+			return
+
+	# Climbing back down onto the ground steps off by itself.
+	if drive.y < 0.0 and is_on_floor():
+		_release_wall(Vector3.ZERO)
+
+
+## Re-fits the body against the face and turns it to look at it. False means the
+## face is gone and there is nothing left to hang off.
+func _hold_wall(delta: float) -> bool:
+	var chest := global_position + up_direction * _grip_height()
+	var grip := _feel_wall(-_wall_normal)
+	if grip.is_empty():
+		return false
+
+	_wall_point = grip["position"]
+	var weight := 1.0 - exp(-wall_settle_speed * delta)
+	_wall_normal = _wall_normal.slerp(grip["normal"] as Vector3, weight).normalized()
+
+	# Only the distance to the face is corrected. Sliding along it is what the
+	# stick is for, and pulling the body sideways would fight it.
+	var wanted := (_wall_point + _wall_normal * _wall_hold_distance()) - chest
+	var depth := _wall_normal * wanted.dot(_wall_normal)
+	global_position += depth.limit_length(wall_shimmy_speed * delta + 0.02)
+
+	rotation.y = lerp_angle(rotation.y, atan2(_wall_normal.x, _wall_normal.z), weight)
+	return true
+
+
+## Where the body would end up after pulling over the top of the face it is on,
+## or ZERO while there is still wall above it.
+func _find_wall_top() -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var exclude: Array[RID] = [get_rid()]
+	var facing := -_wall_normal
+	var head := global_position + up_direction * (_stand_height + 0.55)
+
+	# Still wall in front of the face? Then this is not the top of it, and any
+	# floor found above would be one *inside* the building — mantling onto which
+	# would post the player through the wall of the house they were climbing.
+	if not _scan_wall(global_position + up_direction * (_stand_height * 0.95), facing).is_empty():
+		return Vector3.ZERO
+
+	# Feel down for a top face from above the head, a step in past the lip. How
+	# far in has to clear the body's own standoff from the wall — probe any
+	# closer and the ray comes down in front of the face it is looking for. The
+	# nearest depth that works wins, so a ledge a plank wide still counts.
+	for depth: float in [0.15, 0.45, 0.9]:
+		var over := head + facing * (_wall_hold_distance() + depth)
+		var top := PhysicsRayQueryParameters3D.create(
+				over, over - up_direction * 1.3, collision_mask, exclude)
+		var hit := space.intersect_ray(top)
+		if hit.is_empty():
+			continue
+		if (hit["normal"] as Vector3).dot(up_direction) < cos(floor_max_angle):
+			continue
+
+		var landing: Vector3 = hit["position"]
+		var headroom := PhysicsRayQueryParameters3D.create(
+				landing + up_direction * 0.05, landing + up_direction * climb_headroom,
+				collision_mask, exclude)
+		if space.intersect_ray(headroom).is_empty():
+			return landing
+	return Vector3.ZERO
+
+
+## Lets go of the face. `impulse` is whatever the body leaves with — nothing at
+## all when it simply drops, or a push off the wall when it jumps.
+func _release_wall(impulse: Vector3) -> void:
+	state = State.AIRBORNE
+	velocity = impulse
+	_wall_normal = Vector3.ZERO
+	_wall_drive = Vector2.ZERO
+	_wall_cooldown_timer = wall_regrab_delay
+	_air_speed_cap = maxf(Vector3(impulse.x, 0.0, impulse.z).length(), run_speed)
+	if rig != null:
+		rig.wall_climb(false)
+	wall_released.emit()
+
+
+## True while the body is hanging off a face.
+func is_wall_climbing() -> bool:
+	return state == State.WALLCLIMB
 #endregion
 
 
 #region Combat placeholder
 func _attack() -> void:
-	if state == State.DASHING:
+	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
 	attack_started.emit()
 	if rig != null:
@@ -472,7 +1121,11 @@ func _tick_timers(delta: float) -> void:
 	_coyote_timer = maxf(_coyote_timer - delta, 0.0)
 	_jump_buffer_timer = maxf(_jump_buffer_timer - delta, 0.0)
 	_dash_timer = maxf(_dash_timer - delta, 0.0)
+	_dodge_timer = maxf(_dodge_timer - delta, 0.0)
 	_dash_cooldown_timer = maxf(_dash_cooldown_timer - delta, 0.0)
+	_slide_timer = maxf(_slide_timer - delta, 0.0)
+	_slide_cooldown_timer = maxf(_slide_cooldown_timer - delta, 0.0)
+	_wall_cooldown_timer = maxf(_wall_cooldown_timer - delta, 0.0)
 
 
 ## Reads back what the move actually hit: the steep ground the next tick has to
@@ -508,14 +1161,16 @@ func _resolve_contacts() -> void:
 
 func _update_floor_state() -> void:
 	var on_floor := is_on_floor()
+	# States that run their own course own the state field until they are done.
+	var held := state != State.GROUNDED and state != State.AIRBORNE
 
 	if on_floor:
 		_coyote_timer = coyote_time
 		if not _was_on_floor:
 			_land()
-		if state != State.DASHING:
+		if not held:
 			state = State.GROUNDED
-	elif state != State.DASHING:
+	elif not held:
 		if _was_on_floor:
 			# Walked off an edge: the arc keeps the speed it left with.
 			_air_speed_cap = maxf(Vector3(velocity.x, 0.0, velocity.z).length(), run_speed)

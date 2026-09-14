@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://assets/tower/tower1.glb" id="2_tower"]
@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://assets/bigRock/rockrrr.glb" id="9_bigrock"]
 [ext_resource type="PackedScene" path="res://scenes/enemies/wolf.tscn" id="10_wolf"]
 [ext_resource type="PackedScene" path="res://scenes/enemies/golem.tscn" id="11_golem"]
+[ext_resource type="Script" path="res://scripts/pipeline_warmup.gd" id="12_warmup"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_horizon_color = Color(0.65, 0.65, 0.68, 1)
@@ -5547,3 +5548,6 @@ transform = Transform3D(-0.7, 0, 0.714, 0, 1, 0, -0.714, 0, -0.7, 30, 0.2, 26)
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+
+[node name="PipelineWarmup" type="Node" parent="."]
+script = ExtResource("12_warmup")

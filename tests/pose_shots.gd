@@ -77,6 +77,83 @@ func _initialize() -> void:
 	await _wait(4)
 	await _shot("swing_side_trail")
 
+	# A plain attack() with no style throws one of the library's cuts, which is
+	# what the attack button does; the two above force the procedural swings.
+	await _place(-12.0)
+	_player.rig.attack()
+	await _wait(5)
+	await _shot("swing_clip_wind")
+	await _wait(6)
+	await _shot("swing_clip_hit")
+	await _wait(8)
+	await _shot("swing_clip_recover")
+	await _wait(40)
+
+	# The crouch, standing and creeping. Built by hand: the library has none.
+	await _place(8.0)
+	Input.action_press("crouch")
+	await _wait(20)
+	await _shot("crouch_idle")
+	Input.action_press("move_forward")
+	await _wait(30)
+	await _shot("crouch_walk")
+	Input.action_release("move_forward")
+	Input.action_release("crouch")
+	await _wait(25)
+
+	# The double-tapped dodge, which is the library's evade rather than the roll.
+	await _place(4.0)
+	Input.action_press("dash")
+	await _wait(2)
+	Input.action_release("dash")
+	await _wait(2)
+	Input.action_press("dash")
+	await _wait(2)
+	Input.action_release("dash")
+	await _wait(6)
+	await _shot("dodge_clip_a")
+	await _wait(12)
+	await _shot("dodge_clip_b")
+	await _wait(40)
+
+	# The slide, which has to be launched off a run.
+	await _place(12.0)
+	Input.action_press("move_forward")
+	await _wait(45)
+	Input.action_press("crouch")
+	await _wait(8)
+	await _shot("slide_a")
+	await _wait(22)
+	await _shot("slide_b")
+	Input.action_release("crouch")
+	Input.action_release("move_forward")
+	await _wait(40)
+
+	# The pull-up, over a block put there for it.
+	var ledge := StaticBody3D.new()
+	var block := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(4.0, 1.1, 4.0)
+	block.shape = box
+	ledge.add_child(block)
+	world.add_child(ledge)
+	ledge.global_position = Vector3(6.0, 0.55, 16.0)
+
+	_player.global_position = Vector3(6.0, 0.2, 18.5)
+	_player.rotation.y = 0.0
+	_player.velocity = Vector3.ZERO
+	await _wait(30)
+	Input.action_press("jump")
+	await _wait(2)
+	Input.action_release("jump")
+	await _wait(8)
+	await _shot("climb_a", Vector3(2.8, 0.8, 3.0))
+	await _wait(10)
+	await _shot("climb_b", Vector3(2.8, 0.8, 3.0))
+	await _wait(20)
+	await _shot("climb_c", Vector3(2.8, 0.8, 3.0))
+	ledge.queue_free()
+
 	# The dodge roll, sampled through the somersault.
 	await _place(-8.0)
 	Input.action_press("move_forward")

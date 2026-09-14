@@ -46,6 +46,15 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var flee_speed: float = 7.0
 ## How close the blade has to pass a limb to take it off, in metres.
 @export var hit_tolerance: float = 1.0
+
+@export_group("Corpse")
+## Seconds a body lies where it fell before it is cleared away. Long enough to
+## see it land and read the kill, short enough that the ground stays clear.
+@export var corpse_linger: float = 3.0
+## How long it takes to sink out of sight once the linger is up.
+@export var corpse_sink_time: float = 1.0
+## How far it sinks, in metres. Deep enough that nothing shows through.
+@export var corpse_sink_depth: float = 2.0
 #endregion
 
 @onready var rig: WolfRig = $Visuals as WolfRig
@@ -73,6 +82,8 @@ var _last_position: Vector3 = Vector3.ZERO
 var _stuck_for: float = 0.0
 ## Speed it asked for this frame, before anything got in the way.
 var _intent: float = 0.0
+## Seconds since it went down, counted only once it is dead.
+var _corpse_age: float = 0.0
 
 
 func _ready() -> void:
@@ -101,6 +112,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * 3.0 * delta)
 		move_and_slide()
 		_collapse(delta)
+		_clear_away(delta)
 		return
 
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
@@ -295,8 +307,10 @@ func _on_severed(part: String) -> void:
 		is_dead = true
 		state = State.DOWN
 		health = 0.0
+		# An empty bar over a corpse is just clutter: there is nothing left to
+		# read off it, and the body is about to topple out from under it anyway.
 		if _bar != null:
-			_bar.set_fraction(0.0)
+			_bar.hide()
 		# A corpse should not go on blocking the way like a wall. Clearing its
 		# layer hides it from everything else while it keeps its own mask, so it
 		# still rests on the ground instead of falling through the world.
@@ -311,4 +325,23 @@ func _collapse(delta: float) -> void:
 	var fallen := rig.rotation.x
 	rig.rotation.x = lerpf(fallen, -PI * 0.5, 1.0 - exp(-6.0 * delta))
 	rig.position.y = lerpf(rig.position.y, 0.35, 1.0 - exp(-6.0 * delta))
+
+
+## Takes the body out of the world once it has lain there long enough. Corpses
+## that never leave pile up into clutter, and each one keeps a rig posing every
+## frame. It sinks into the ground rather than blinking out, so the removal is
+## something that happens in the world instead of to it. The sink is written
+## after _collapse so it wins over the settling the collapse is still doing.
+func _clear_away(delta: float) -> void:
+	_corpse_age += delta
+	if _corpse_age < corpse_linger:
+		return
+
+	var sunk := (_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001)
+	if sunk >= 1.0:
+		queue_free()
+		return
+	if rig != null:
+		# Eased in: it lingers a moment longer at the surface, then goes.
+		rig.position.y = 0.35 - sunk * sunk * corpse_sink_depth
 #endregion

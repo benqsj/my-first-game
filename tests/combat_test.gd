@@ -65,6 +65,11 @@ func _initialize() -> void:
 	_check("the knight is stopped by a golem", gap > 0.8, "gap %.2f m" % gap)
 
 	# --- A swing takes the limb it passes through ---------------------------
+	# The body has to still be there for everything checked below it and for the
+	# screenshot at the end of the run, and it goes down partway through the
+	# swings — so the linger is pinned open here, before it can start counting.
+	# Clearing it away gets a check of its own once that screenshot is taken.
+	wolf.corpse_linger = 1000.0
 	wolf.global_position = Vector3(-14.0, 0.5, 20.0)
 	player.global_position = Vector3(-14.0, 0.2, 21.6)
 	player.velocity = Vector3.ZERO
@@ -80,7 +85,7 @@ func _initialize() -> void:
 		for i in 3:
 			await physics_frame
 		player.rig.attack()
-		styles[player.rig.current_attack_style()] = true
+		styles[player.rig.current_swing()] = true
 		for i in 34:
 			await physics_frame
 	# Which limb goes is random, and taking the head ends it there and then, so
@@ -157,6 +162,17 @@ func _initialize() -> void:
 			hunter.global_position.distance_to(player.global_position) < gap_before + 3.0,
 			"gap %.1f m" % hunter.global_position.distance_to(player.global_position))
 	await _shot("%s/combat_severed.png" % dir, wolf, Vector3(2.4, 1.2, 2.8))
+
+	# --- The body does not lie there forever --------------------------------
+	# Cut the linger short rather than waiting out the real one: what is being
+	# checked is that the body sinks and leaves, not how long it waits first.
+	wolf.corpse_linger = 0.0
+	wolf.corpse_sink_time = 0.25
+	for i in 120:
+		await physics_frame
+		if not is_instance_valid(wolf):
+			break
+	_check("the corpse is cleared away", not is_instance_valid(wolf))
 
 	print("")
 	print("All checks passed." if _failures == 0 else "%d check(s) FAILED." % _failures)

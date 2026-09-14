@@ -64,12 +64,17 @@ add actions in **Project → Project Settings → Input Map**. All keys are boun
 | `jump`         | Space       | A / Cross        | 0.5      |
 | `dash`         | Shift       | B / Circle       | 0.5      |
 | `walk`         | Ctrl        | Left shoulder    | 0.5      |
+| `crouch`       | C           | Left stick click | 0.5      |
+| double-tap `dash` | Shift Shift | B / Circle ×2 | 0.5      |
 | `attack`       | Left mouse  | X / Square       | 0.5      |
 | `block`        | Right mouse | Right shoulder   | 0.5      |
 | `toggle_fullscreen` | F11    | —                | 0.5      |
 | `ui_cancel`    | Escape      | —                | built-in |
 
 Escape releases the mouse; click-free re-capture is on the same key.
+
+Nothing new is bound for climbing: on a wall, the move actions drive the body
+along the face, `jump` pushes off it and `crouch` lets go.
 
 Mouse-look is read from `_unhandled_input()` because it needs the relative
 motion of the event. Everything else is polled with
@@ -83,12 +88,25 @@ lost between physics ticks and simulated input works in tests.
 - **Jump.** `jump_height` is in metres and converted to an impulse from the
   project gravity (18 m/s², tuned for an action game). Coyote time (0.12 s) and
   a jump buffer (0.12 s) are in; releasing the button early cuts the arc short.
-- **Dodge.** Fixed-duration state, not an impulse: rolls towards the input or
-  straight ahead when standing still — 0.45 s at 11 m/s, i-frames for the first
-  0.3 s via `is_invulnerable`, then a 0.22 s cooldown, and an eased exit that
-  leaves a little momentum. It is deliberately *slower* than sprinting: a dodge
-  buys invulnerability, not distance. It drives the somersault on the rig, and
-  drops the shield.
+- **Dodge.** Fixed-duration state, not an impulse: towards the input, or
+  straight ahead when standing still. It is deliberately *slower* than
+  sprinting — a dodge buys invulnerability, not distance — and it drops the
+  shield. The button does two things depending on how it is pressed:
+  - **one tap** is the quick tumbling roll, 0.45 s at 11 m/s with 0.3 s of
+    i-frames, animated procedurally as a somersault;
+  - **two taps** inside `double_tap_time` upgrade the roll already under way
+    into the library's `Sword_Dash`, 0.7 s at 8.5 m/s with 0.45 s of i-frames.
+
+  The second tap *converts* the roll rather than the first tap waiting to see
+  whether another is coming: holding the first press back until the window
+  closed would put a visible stall on every single tap.
+- **Crouch.** Held on `crouch`, at `crouch_speed` with the capsule at
+  `crouch_height`. The pose is procedural — the library has no crouch of any
+  kind — and folds under the walk cycle rather than replacing it, so creeping
+  forward is the same stride, only lower and shorter. The hips are dropped by
+  exactly as much as the folded legs shorten, worked out from the model's own
+  thigh and shin, so the boots stay on the ground without a second number that
+  has to be kept in step with the knee angle.
 - **Speeds.** Running is the default gait: 9 m/s with nothing held, 4.5 m/s
   while `walk` is held. Acceleration and deceleration are high (60 / 75) on
   purpose — at speed, low values read as ice: the character keeps sliding after
@@ -114,6 +132,46 @@ lost between physics ticks and simulated input works in tests.
   the steepest un-standable normal (for the slide above), the ceiling, and any
   `RigidBody3D` in the way, which takes an impulse scaled by how hard the
   capsule drove into it.
+- **Slide.** `crouch` off a run only: below `slide_min_speed` (5 m/s) there is
+  nothing to slide on and it would just be a squat. It keeps the momentum that
+  was already there plus `slide_boost`, bleeds off at `slide_drag`, and shrinks
+  the capsule to `slide_height` about the **feet**, so going low never lifts the
+  body or drops it through the floor. Standing back up is gated on there being
+  room for the full capsule — under a low gap the slide simply carries on until
+  the player is out from under it.
+- **Ledge climb.** A ledge in front turns into a pull-up: on `jump` from the
+  ground, and **on its own in mid-air**, so running at a wall and jumping is
+  enough to get over it without timing a second button.
+  `_find_ledge()` asks three questions in the order that rules the most out
+  soonest: is there a face to grab at chest height, does it have a top edge
+  between `climb_min_height` and `climb_max_height`, and is there `climb_headroom`
+  to stand there. The floor of that band sits above `max_step_height`, so
+  anything that can simply be walked up never becomes a climb. The body is then
+  carried up *and then* in over `climb_duration` — a straight lerp between the
+  two ends would drag it through the wall — with the clip stretched to match.
+- **Wall climb.** Anything too tall to be mantled is climbed instead. `jump`
+  against a face steeper than `wall_min_angle` takes hold of it, and so does
+  running into one in mid-air with `wall_catch_speed` of horizontal speed behind
+  it — so a house is something to go *up* rather than something to bounce off.
+  The mantle is always tried first: if the top is already in reach, pulling over
+  it beats hanging off it.
+
+  Hanging is its own state. Gravity is off, the stick is read in the *face's*
+  frame rather than the camera's — forward is up the wall however the view is
+  pointed — and the body is re-fitted against the surface every tick: the face
+  is felt for at chest, hip and shoulder height and then round to either side,
+  so a window, a beam or the corner of a building is worked across rather than
+  dropped. Only the distance to the face is corrected, never the position along
+  it, because sliding along it is what the stick is for.
+
+  Three ways off. `jump` pushes away from the face; `crouch` lets go; and
+  climbing to the top hands over to the mantle, which is checked *before* each
+  upward move, because the face runs out at exactly the moment there is
+  somewhere to stand. A top only counts when there is no wall left in front of
+  the head — otherwise a first floor found inside a building would post the
+  player through the wall they were climbing. Running out of holds sideways or
+  upward puts the body back where its hands still had something and stops: a
+  climber who runs out of wall stops climbing, they do not fall off.
 - **Stairs.** `CharacterBody3D` has no built-in stair stepping in 4.7, so
   `_step_up()` does the classic up → forward → down sweep with `test_move()`.
   It only fires against wall-like normals, so real walls still block, and the
@@ -140,12 +198,23 @@ chains for the cape (`cape_j0…j5`) and the ponytail (`tail_j0…j4`).
   offsets, so the silhouette that was tuned in the design is preserved. Only the
   leg joints are reset to their true rest values (from `extras.rest` in the
   file) — the shipped stance is a static contrapposto that would bias the walk.
-- **Locomotion.** One stride cycle per `stride_length` of ground covered, so the
-  feet keep pace at any speed. Hips and shoulders counter-swing, knees fold only
-  on the back half of the stride, hips bob twice per cycle, and the torso leans
-  in with speed.
+- **Locomotion.** The legs are posed from **where the feet have to be**, not by
+  swinging the joints and hoping the feet land somewhere. Each foot is given a
+  path — planted, with the body travelling over it, then picked up, carried
+  through and set back down — and hip, knee and ankle come out of the law of
+  cosines on the model's own thigh and shin. That is what a stride is: the
+  ground holds the foot still while the body moves past it. See
+  [The stride](#the-stride) below for what falls out of that.
 - **States.** Airborne swaps the stride for a tuck; dashing adds a hard forward
-  lean.
+  lean. Both are what shows through wherever a clip is not playing.
+- **Climbing.** A procedural pose, like the crouch and for the same reason: the
+  library has a one-metre mantle and nothing else that touches a vertical face.
+  Hands and feet work in diagonal pairs — the left hand reaches as the right
+  knee comes up — paced by how much face the body has actually covered, so a
+  slow haul reaches slowly and a body hanging still holds the grip it is on.
+  The whole model is slid `climb_close` towards the wall while it hangs there,
+  because the capsule the controller moves is a good deal fatter than the body
+  drawn inside it and the hands would otherwise grip thin air.
 - **Shield.** The authored guard — shield up and across the chest — is only
   reached while `block` is held. Otherwise the arm blends down to
   `SHIELD_LOWERED` and the shield stows on the wrist, lying flat along the
@@ -206,6 +275,157 @@ lean, cloth stiffness.
 
 > The model's own axes are used throughout: it faces +Z, so a *positive* X
 > rotation on a limb swings that limb **backwards**.
+
+## The animation library
+
+`assets/anim/ual2.glb` is Quaternius' **Universal Animation Library 2
+(Standard)** — a UE-style mannequin with 65 bones and 43 hand-authored clips,
+CC0 (`assets/anim/LICENSE.txt`). `scripts/anim_retarget.gd` replays those clips
+on Tariel, who has no skeleton at all.
+
+### How the transfer works
+
+Tariel is rigid parts on a joint hierarchy, so nothing can be skinned to the
+mannequin's bones, and copying the mannequin's joint *positions* would tear the
+parts apart — the two bodies are not the same proportions. **Only rotation is
+transferred:** each joint takes the orientation its counterpart holds, expressed
+in the model's own frame, which leaves every limb exactly as long as it was
+authored.
+
+The rest poses disagree — the mannequin ships T-posed, Tariel in a
+sword-and-shield stance — so a constant per-joint correction is solved once at
+load: swing each of Tariel's limbs onto the direction its counterpart points in
+the mannequin's rest (that *is* Tariel's T-pose), and the correction is the gap
+between that and the mannequin's own rest. Only the swing is solved, never the
+twist, so the authored grip on the sword and the roll of the shoulders survive.
+Nothing here is hand-tuned; the numbers come out of the two rest poses.
+
+Sides are **crossed** on purpose. Tariel's `*_l` nodes sit on the model's -X
+side, and with the model facing +Z that is the mannequin's *right*. Matching the
+names instead of the anatomy would put the sword in the wrong hand.
+
+Playing `A_TPose` is the calibration check: it is the pose the correction is
+solved against, so if the arms do not come out level and the legs straight, the
+mapping is wrong and nothing else is worth looking at.
+
+    godot --path . --script res://tests/clip_shots.gd -- /tmp/shots A_TPose
+
+### Blending, not switching
+
+Clips and the procedural poses are blended **per joint**, and a joint is
+resolved against the pose its *parent* was actually given — not the clip's — so
+a half-faded clip never leaves the chain hinged in the middle. That is what lets
+`Mask.UPPER` hand a sword swing to the arms while the legs keep striding, which
+is what a swing thrown at a run uses.
+
+### The stride
+
+The procedural gait is described by two numbers that mean something — how much
+of the cycle a foot spends on the ground (`walk_duty` 0.62, `run_duty` 0.34) and
+how far it is picked up (`foot_lift`, `run_foot_lift`) — rather than by half a
+dozen joint amplitudes that have to be balanced against each other by eye. Given
+a foot path, `_solve_leg()` produces the angles, and the rest follows:
+
+- **The knee folds on its own.** During the swing the ankle is carried nearer
+  the hip than a straight leg would put it, and a two-bone solve has nowhere
+  else to bend. Peak flexion comes out at ~55° at a walk and ~100° at a sprint,
+  which is roughly what a person does, from no curve shaped by hand.
+- **The hips bob because the legs pull them down.** `_hip_drop()` asks how far
+  the pelvis has to come down before a straight leg could reach the foot, and
+  the hips go down by exactly that. A walk therefore dips at its double support
+  and a run rides high through its flight — neither animated, both a consequence
+  of where the feet are. The stride blends *out* of the feet's way through the
+  same number, so the planted foot stays where it was put instead of being
+  dragged off the ground.
+- **Stride length answers to the gait, not only the pace.** `_stride_span` is
+  the ground one cycle covers; dawdling and creeping both shorten it, so the
+  cadence rises to make up the difference instead of the feet sliding to cover
+  ground the legs never crossed. A crouch-walk is the same stride, shorter and
+  quicker.
+- **A foot can only be planted as far out as the leg reaches.** Anything asked
+  for beyond `leg × foot_reach` has to come out of the flight phase — which is
+  how a run lengthens in the first place, and why each foot's time on the ground
+  drops from ~40 % of the cycle at a walk to ~13 % at a sprint. A walker sets the foot down
+  well in front and pushes off behind; a runner lands much closer to underneath
+  and drives much further back.
+- **The pelvis is not the ground.** The authored stance pitches the hips forward
+  and the somersault turns them right over, so the foot targets are rotated back
+  out of whatever the pelvis is doing before they are solved, and the sole's
+  tilt has it taken off again. Without that the feet sink at one end of the
+  stance and float at the other.
+
+Measured on a treadmill (the body held still while the rig is driven at a given
+speed), the procedural legs put the boots **0 mm** through the ground at a
+sprint and hold the planted foot to within about a centimetre of the ground
+right through the stance, travelling backwards at 4.6 m/s while the body goes
+forwards at 4.5.
+
+Two knobs were retuned when this went in: `run_stride_bonus` came down from 3.5
+to 2.2, because a 5.5 m cycle at 9 m/s is a cadence no sprint has, and
+`crouch_stride_scale` went from 0.45 to 0.55, because it now shortens the stride
+itself rather than just the swing of the legs.
+
+### The walk cycle, and why it is not simply played
+
+The library's only forward cycle is `Walk_Carry`, and measuring it settles what
+can be done with it: **1.34 m of ground per 2 s cycle**, an authored 0.67 m/s.
+This game walks at 4.5 and runs at 9. Played at rate that is 6.7× and 13.4× —
+the legs would blur — and slowed down to look right the feet would skate.
+
+So the cycle is **seeked from the procedural stride phase** instead of played.
+The phase is already one cycle per stride of ground covered, so the feet stay
+planted at any speed, and the stride *lengthens* with pace rather than only
+turning over faster. What the borrowed phase cannot fix is amplitude — the clip
+swings a walk's legs and a sprint reaches much further — so the clip's share is
+wound down as the pace rises (`walk_clip_sprint_share`, 25 % at a full sprint)
+and the procedural stride takes the difference. Walking is mostly the clip;
+sprinting is mostly procedural.
+
+`AnimRetarget.measure_stride()` is what produces that 1.34 m, off the clip
+itself: the feet are furthest apart at mid-stride, which is one step, and a
+cycle is two of them, scaled by the ratio of Tariel's leg length to the
+mannequin's. Drop a real run cycle into `walk_clip` and none of this needs
+touching.
+
+    godot --path . --headless --script res://tests/debug_retarget.gd
+
+prints the measurement, and the retarget's per-limb error against the mannequin.
+
+### What comes from where
+
+The library ships **no idle, run or crouch**, so those stay procedural and the
+clips cover the one-shots:
+
+| In game                    | Clip                                        |
+| -------------------------- | ------------------------------------------- |
+| attack                     | `Sword_Regular_A` / `_B` / `_C`, in turn    |
+| walk / run legs            | `Walk_Carry`, lower body, seeked by stride phase |
+| take-off / fall / land     | `NinjaJump_Start` / `_Idle` / `_Land`       |
+| double-tapped dodge        | `Sword_Dash`                                |
+| slide (`crouch` at a run)  | `Slide_Start` → `Slide` → `Slide_Exit`      |
+| crouch                     | *procedural — the pack has none*            |
+| ledge climb (`jump`)       | `ClimbUp_1m`, stretched to `climb_duration` |
+| wall climb                 | *procedural — the pack has none*            |
+| `rig.hit()`                | `Hit_Knockback`                             |
+
+Anything else in the library is reachable with `rig.play_clip(name)`;
+`rig.clip_names()` lists all 43. Not covered by the pack, and therefore still
+procedural: **idle, run, crouch, free climbing, block and the single-tap roll**.
+There is no sword-draw clip in it at all.
+
+Clips play on **two layers**, because a walk has to keep running underneath
+whatever one-shot is over it and one mixer cannot do that. `Gait` holds the walk
+cycle on the lower body; `Actions` holds the one-shots. Three sources stack in
+`_apply_pose()`, weakest first — procedural, then gait, then action — each a
+slerp, so a layer that is only half in leaves the one under it showing through.
+
+The blade's cutting window is **measured** from each swing clip at load —
+`AnimRetarget.measure_travel()` samples the sword hand and takes the span where
+it is moving fastest — so retiming a swing or dropping a different clip in needs
+no numbers changed anywhere.
+
+Everything degrades cleanly: if the library fails to load, `AnimRetarget.setup()`
+returns false and every pose falls back to the procedural one.
 
 ### Import note
 
@@ -387,6 +607,13 @@ corpse has its `collision_layer` cleared rather than its shapes disabled: that
 hides it from everything else while it keeps its own mask, so it stops blocking
 the way but still rests on the ground instead of falling through the world.
 
+Bodies do not stay. After `corpse_linger` seconds the body sinks into the ground
+over `corpse_sink_time` and the node is freed. Sinking rather than blinking out
+keeps the removal something that happens *in* the world, and it costs nothing:
+the sink is written to the rig after `_collapse()` has run, so it wins over the
+settling that is still going on. Left alone, corpses are both clutter and a
+drain — every one of them keeps posing a rig every frame.
+
 A `HealthBar` floats over its head — two billboarded quads, the fill parented to
 an offset pivot so it drains from one end rather than shrinking towards its
 middle.
@@ -440,12 +667,52 @@ the importer's `_col` suffix rule exactly as the knight's `neck_col` did, giving
 the creature a static collider inside itself that shoved it around the map.
 `nodes/use_name_suffixes` is off for that file too now.
 
+## Stutter, and where it actually comes from
+
+`tests/perf_probe.gd` measures this, and it measures every configuration **in
+one process, back to back** — separate runs on a laptop are not comparable,
+because thermal state and whatever else the machine is doing move the numbers
+further than the thing being measured does. It reports a distribution, never an
+average: a stutter is a tail problem, and the mean is exactly the statistic that
+hides it.
+
+    godot --path . --script res://tests/perf_probe.gd    # not --headless
+
+What it found:
+
+- **Steady state is fine.** ~7.6 ms a frame with vsync off, which is 130 fps on
+  an M1; the 60 Hz budget is 16.6 ms. Turning off the grass, the enemies, the
+  player model, every shadow, or the whole shadow pass moves this **not at all**
+  once the scene has settled. There is no bottleneck to find.
+- **The stalls are first-time pipeline compilation.** Godot builds a render
+  pipeline the first time it draws a given material in a given pass, and that
+  costs anywhere from a few ms to most of a second. The frame times are spiky
+  for the first stretch of play and flat afterwards, and the spikes track *new
+  scenery entering the frustum*, not any subsystem. 58 distinct materials over
+  2400 mesh instances is a lot of first times.
+
+`scripts/pipeline_warmup.gd` pays that bill up front: nine vantage points that
+between them see the whole level, two frames each, behind a black screen, before
+the player gets control. About 0.3 s of startup. Set `enabled = false` on the
+`PipelineWarmup` node to measure without it.
+
+> **The machine matters more than any of this.** While these numbers were being
+> taken, `iCloudDriveCore` was sitting at 82 % of a core, the load average was
+> 6.8, free memory was down to ~60 MB and the machine had swapped 16.7 million
+> pages. Four *identical* runs produced between 0 and 29 hitches. Before
+> concluding the game stutters, check `uptime` and Activity Monitor — a runaway
+> background process will out-stutter anything in here.
+
 ## Swapping in the real models
 
 Replace the scene under `Visuals` with the imported knight, keep the origin at
 the feet, and either keep driving it with `TarielRig` (if the joints are named
-the same) or swap in an `AnimationTree` fed by the `state` enum plus the
-`jumped` / `landed(impact_speed)` / `dash_started` / `attack_started` signals. Resize the
+the same — retarget the animation library onto them by editing `BONE_MAP` in
+`anim_retarget.gd`, which is the only place the two rigs are tied together), or,
+for a properly skinned model, retarget the library onto its `Skeleton3D` at
+import time and feed an `AnimationTree` from the `state` enum plus the
+`jumped` / `landed(impact_speed)` / `dash_started` / `attack_started` /
+`slide_started` / `climb_started` signals. Resize the
 `CollisionShape3D` to the model and keep `max_step_height` below the capsule
 radius.
 
@@ -458,16 +725,28 @@ scripts/player.gd        the controller
 scripts/grass_field.gd   grass bending, wind, LOD and culling
 scripts/sword_trail.gd   the streak a blade leaves, on a fixed vertex buffer
 tools/build_scatter.py   generates the meadows in the world scene
-scripts/tariel_rig.gd    procedural animation for the character
+scripts/tariel_rig.gd    procedural animation, and the clip layers on top of it
+scripts/anim_retarget.gd replays the animation library on the skeleton-less model
+scripts/pipeline_warmup.gd draws the level once at startup so it need not stall later
 assets/tariel/tariel.glb the Tariel model
+assets/anim/ual2.glb     Quaternius Universal Animation Library 2, CC0
 scenes/player/player.tscn
 scenes/world/greybox_world.tscn
-tests/smoke_test.gd      headless checks: movement, jump, dash, slopes, camera
+tests/smoke_test.gd      headless checks: movement, jump, dash, slide, climb, camera
 tests/combat_test.gd     creature facing, arena bounds, blocking, dismemberment
 tests/pose_shots.gd      renders one PNG per animation state
+tests/clip_shots.gd      renders any library clip on Tariel; A_TPose is the check
+tests/debug_retarget.gd  prints mannequin vs Tariel limb angles, and the walk stride
+tests/crouch_shots.gd    renders just the crouch and the double-tapped dodge
+tests/climb_shots.gd     renders the wall climb, and a stride sampled right round
+tests/perf_probe.gd      frame-time distribution, one configuration at a time
+tests/inspect_ual2.gd    dumps the library's bones, rests and clip list
 tests/screenshot.gd      renders a single frame to a PNG
 ```
 
 ```
 godot --script res://tests/pose_shots.gd -- /tmp/poses   # idle, walk, run, jump, attack
+godot --script res://tests/clip_shots.gd -- /tmp/clips   # the library, on Tariel
+godot --script res://tests/climb_shots.gd -- /tmp/climb  # the wall climb, and the stride
+godot --headless --script res://tests/inspect_ual2.gd    # what the library contains
 ```
