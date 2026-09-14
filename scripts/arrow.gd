@@ -27,7 +27,7 @@ signal struck(what: Node3D, where: Vector3, critical: bool)
 ## and crosses half a metre between one frame and the next, so on its own it is
 ## a thing that is never actually on screen where you are looking. The streak is
 ## what makes a shot something an opponent can see coming — and duck.
-@export var trail_width: float = 0.05
+@export var trail_width: float = 0.085
 
 var _velocity: Vector3 = Vector3.ZERO
 var _gravity: float = 6.0
@@ -147,9 +147,9 @@ func _lay_trail() -> void:
 
 	_trail = SwordTrail.new()
 	_trail.name = "ArrowTrail"
-	_trail.sample_count = 10
-	_trail.fade_time = 0.16
-	_trail.tint = Color(1.0, 0.94, 0.78, 0.6)
+	_trail.sample_count = 14
+	_trail.fade_time = 0.22
+	_trail.tint = Color(1.0, 0.96, 0.84, 0.75)
 	into.add_child(_trail)
 	_trail.setup(left, right)
 	_trail.emitting = true

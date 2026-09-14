@@ -199,6 +199,19 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB 
 @export_range(0.1, 1.0) var draw_speed_scale: float = 0.55
 ## Where the arrow leaves from, measured up the body.
 @export var arrow_height: float = 1.35
+## Where the camera settles while the string is held, in degrees below level.
+##
+## The running camera sits twenty degrees above the player looking down, which
+## puts the middle of the screen — the crosshair — on the ground a few metres
+## ahead. Shot from there an arrow noses straight into the dirt at your feet,
+## which reads as no arrow at all. Aiming brings the view towards level; the
+## mouse still moves it from there.
+@export_range(-40.0, 40.0) var aim_camera_pitch: float = -4.0
+## How fast it comes up, and back down again once the string is loosed.
+@export var aim_camera_speed: float = 6.0
+## Ground closer than this under the crosshair is not what the player is
+## shooting at — it is the ground they are standing on.
+@export var aim_min_range: float = 6.0
 ## How far a shot drops, as a share of the world's gravity. Arrows are fast and
 ## an arc the player cannot read is not a skill shot, it is a guess.
 @export_range(0.0, 1.0) var arrow_drop: float = 0.35
@@ -390,6 +403,7 @@ func _physics_process(delta: float) -> void:
 	_track_target(delta)
 	if has_bow():
 		_tick_bow(delta)
+		_level_camera(delta)
 
 	# A pull-up is played out by hand: the body is carried along an arc that no
 	# amount of velocity would produce, so nothing else runs while it does.
@@ -1509,9 +1523,28 @@ func _aim_direction(from: Vector3, speed: float = 40.0) -> Vector3:
 	var query := PhysicsRayQueryParameters3D.create(
 			eye, eye + looking * lock_range * 2.0, collision_mask, [get_rid()])
 	var hit := space.intersect_ray(query)
-	var at: Vector3 = hit["position"] if not hit.is_empty() else eye + looking * lock_range * 2.0
+	var at := eye + looking * lock_range * 2.0
+	if not hit.is_empty():
+		var landed: Vector3 = hit["position"]
+		# Anything this close under the crosshair is the ground at your feet.
+		# Shooting at it is how an arrow ends up buried three paces away.
+		if eye.distance_to(landed) > aim_min_range:
+			at = landed
 	var heading := at - from
 	return heading.normalized() if heading.length_squared() > 0.0001 else looking
+
+
+## Brings the view towards level while the string is held.
+##
+## Only while there is nothing locked: a lock already points the camera at what
+## is being shot at, and two things steering the same camera fight each other.
+func _level_camera(delta: float) -> void:
+	if not _drawing or target != null:
+		return
+	spring_arm.rotation.x = lerp_angle(spring_arm.rotation.x,
+			clampf(deg_to_rad(aim_camera_pitch), deg_to_rad(min_pitch_deg),
+					deg_to_rad(max_pitch_deg)),
+			1.0 - exp(-aim_camera_speed * delta))
 
 
 ## How far off the level the shot is aimed, in radians, for the rig to lean on.

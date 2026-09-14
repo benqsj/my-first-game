@@ -17,15 +17,15 @@ roughness = 0.9
 
 [sub_resource type="BoxMesh" id="Mesh_shaft"]
 material = SubResource("Mat_shaft")
-size = Vector3(0.011, 0.62, 0.011)
+size = Vector3(0.018, 0.64, 0.018)
 
 [sub_resource type="BoxMesh" id="Mesh_head"]
 material = SubResource("Mat_head")
-size = Vector3(0.022, 0.07, 0.006)
+size = Vector3(0.034, 0.10, 0.010)
 
 [sub_resource type="BoxMesh" id="Mesh_fletch"]
 material = SubResource("Mat_fletch")
-size = Vector3(0.001, 0.09, 0.028)
+size = Vector3(0.002, 0.11, 0.042)
 
 [node name="Arrow" type="Node3D"]
 script = ExtResource("1_arrow")

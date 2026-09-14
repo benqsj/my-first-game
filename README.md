@@ -281,8 +281,18 @@ Arrows fly slowly enough to be seen and stepped out of — 34 m/s off a full dra
 21 off a snap — and leave a **streak** behind them, the same ribbon the sword
 leaves given a segment lying across the flight instead of along it. Without one
 an arrow is a centimetre across crossing half a metre a frame: a thing that is
-never on screen where you are looking. Both matter for a fight between two
-players, where a shot nobody can see coming is a shot nobody can answer.
+never on screen where you are looking, least of all from directly behind it,
+which is where the camera is. Both matter for a fight between two players, where
+a shot nobody can see coming is a shot nobody can answer.
+
+**Aiming levels the camera.** The running camera sits twenty degrees above the
+player looking down, which puts the middle of the screen — the crosshair — on
+the ground a few metres ahead. Shot from there an arrow went into the dirt three
+paces away, in a tenth of a second: it read as no arrow at all. While the string
+is held the view eases towards level (`aim_camera_pitch`), and the mouse moves it
+from there; with something locked the lock already owns the camera and this
+stays out of it. A hit under the crosshair closer than `aim_min_range` is also
+ignored, because that is the floor you are standing on rather than a target.
 
 Arrows are **not** physics bodies. One crosses more ground in a tick than it is
 long, so a collider would fly through a wolf as often as it hit one; instead
@@ -331,9 +341,14 @@ out nearly level and everything reads as a silhouette. Aimed the other way round
 the camera ends up on the floor looking up the target's nose, which is the one
 thing a lock-on camera must never do.
 
-What is being fought is **marked**: a red sight over its head, drawn over
+What is being fought is **marked**: one white dot on its body, drawn over
 everything so it is never hidden behind the thing it is marking. With two wolves
 in front of you a lock that shows nothing is a lock you have to guess at.
+
+The dot is brighter than white — past 1 the colour runs into the glow pass, so
+it reads as lit rather than as a sticker — with a small, faint halo. The halo
+has to be small: one that reaches the edge of its quad puts a white wash over
+the very thing the mark is meant to point at.
 
 A locked shot **leads** its target. An arrow takes a beat to arrive and a wolf
 does not wait where it was standing, so the aim is offset by where the target

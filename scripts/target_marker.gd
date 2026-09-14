@@ -12,19 +12,21 @@ extends MeshInstance3D
 ## sit *in* the world — over that wolf, at that height — and a screen-space
 ## reticle has to be told where that is every frame anyway.
 
-## How far over the target's own origin the dot floats.
-@export var height: float = 2.35
+## How far up the target the dot sits. Its middle, not over its head: the mark
+## should be on the thing being fought.
+@export var height: float = 0.85
 ## How big it is, in metres, and how much bigger it gets with distance so that
 ## it stays readable across a field.
-@export var size: float = 0.17
-@export var grow_with_range: float = 0.013
-## The colour of the thing you are about to hit.
-@export var tint: Color = Color(0.95, 0.22, 0.22)
+@export var size: float = 0.13
+@export var grow_with_range: float = 0.010
+## Brighter than white on purpose. Past 1 the colour runs into the glow pass, so
+## the mark reads as lit rather than as a sticker.
+@export var tint: Color = Color(1.35, 1.35, 1.35)
 ## How fast it slides onto a new target when the lock changes.
 @export var settle_speed: float = 18.0
-## How fast it spins, in turns per second. Slow: it should read as *marked*,
-## not as a loading spinner.
-@export var spin: float = 0.25
+## How fast it spins, in turns per second. A plain dot has nothing to show for
+## spinning, so this is off unless the mark is given a shape again.
+@export var spin: float = 0.0
 
 var _target: Node3D
 var _camera: Camera3D
@@ -53,8 +55,11 @@ func _ready() -> void:
 	material_override = _material
 
 
-## The mark itself: a filled centre inside a ring, drawn here rather than
-## imported. A plain square reads as a missing texture; this reads as a sight.
+## The mark itself: one dot, drawn here rather than imported.
+##
+## A hard core with a halo fading out around it, so it reads as something giving
+## off light rather than as a circle stuck to the screen. The falloff is most of
+## that — an edge that simply stops looks like a sticker.
 static func _pip() -> ImageTexture:
 	const SIDE := 64
 	var image := Image.create(SIDE, SIDE, false, Image.FORMAT_RGBA8)
@@ -63,18 +68,14 @@ static func _pip() -> ImageTexture:
 	for y in SIDE:
 		for x in SIDE:
 			var out := Vector2(x - middle, y - middle).length() / middle
-			# Solid dot in the middle, a gap, then a ring round the outside.
-			var ink := _band(out, 0.0, 0.26) + _band(out, 0.62, 0.92)
+			var core := 1.0 - smoothstep(0.22, 0.30, out)
+			# Faint, and not far: a halo that reaches the edge of the quad puts a
+			# white wash over the very thing the mark is meant to point at.
+			var halo := (1.0 - smoothstep(0.26, 0.62, out)) * 0.18
+			var ink := clampf(core + halo, 0.0, 1.0)
 			if ink > 0.0:
-				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, clampf(ink, 0.0, 1.0)))
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, ink))
 	return ImageTexture.create_from_image(image)
-
-
-## One soft-edged band of ink, so nothing on the mark has a staircase edge.
-static func _band(at: float, from: float, to: float) -> float:
-	const EDGE := 0.06
-	return smoothstep(from - EDGE, from + EDGE, at) * (1.0 - smoothstep(to - EDGE, to + EDGE, at)) \
-			if from > 0.0 else 1.0 - smoothstep(to - EDGE, to + EDGE, at)
 
 
 ## Marks `who`, or nothing at all. The camera is needed for the sizing, which is
@@ -98,7 +99,8 @@ func _process(delta: float) -> void:
 	visible = true
 	var wanted := _over(_target)
 	global_position = global_position.lerp(wanted, 1.0 - exp(-settle_speed * delta))
-	rotate_object_local(Vector3.FORWARD, TAU * spin * delta)
+	if spin != 0.0:
+		rotate_object_local(Vector3.FORWARD, TAU * spin * delta)
 
 	var range_to := _camera.global_position.distance_to(global_position)
 	var across := size + grow_with_range * range_to

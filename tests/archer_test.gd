@@ -142,11 +142,13 @@ func _check_lock() -> void:
 	# a guess.
 	var marker := _player.find_child("TargetMarker", true, false) as Node3D
 	_check("the marked enemy is shown", marker != null and marker.visible)
-	_check("and the mark is over the one being fought",
+	# On the body, not over its head: the mark is meant to be on the thing being
+	# fought.
+	_check("and the mark sits on the one being fought",
 			marker != null
 					and Vector2(marker.global_position.x - quarry.global_position.x,
 							marker.global_position.z - quarry.global_position.z).length() < 0.6
-					and marker.global_position.y > quarry.global_position.y + 1.0,
+					and absf(marker.global_position.y - quarry.global_position.y - 0.85) < 0.3,
 			"mark at %v, target at %v" % [marker.global_position if marker != null else Vector3.ZERO,
 					quarry.global_position])
 
