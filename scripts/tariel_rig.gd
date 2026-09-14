@@ -207,12 +207,14 @@ const CLIP_CLIMB := &"ClimbUp_1m"
 @export var climb_blend_speed: float = 8.0
 ## How far the chest is pressed in towards the face, radians.
 @export var climb_hug: float = 0.22
-## How far each arm swings between its high reach and its low pull, radians.
-@export var climb_reach: float = 0.45
-## How far the model is slid towards the face it is holding, in metres. The
-## capsule the controller moves is a good deal fatter than the body drawn inside
-## it, so without this the hands grip thin air a hand's width off the wall.
-@export var climb_close: float = 0.26
+## Where the reaching hand sits above the shoulder, and where the pulling one
+## sits, in metres. How far *forward* they go is not a number here: it is the
+## wall, which is what they are solved onto.
+@export var climb_reach_high: float = 0.46
+@export var climb_reach_low: float = 0.1
+## Hand and forearm thickness, near enough. The wrist is aimed this far short of
+## the face, so that the hand lands on the wall rather than in it.
+@export var climb_grip_inset: float = 0.11
 
 @export_group("Clips")
 ## Swing the sword with the library's clips rather than the procedural poses.
@@ -270,6 +272,11 @@ var attack_serial: int = 0
 ## How bloodied the blade is, 0 to 1.
 var blade_blood: float = 0.0
 var _sword_model: Node3D
+## The node the weapon hangs off, and where it sits when it is being carried.
+## Climbing slides it up the forearm so the grip stops sticking out of the fist
+## into whatever the hand is holding onto.
+var _sword_mount: Node3D
+var _sword_mount_rest: Vector3 = Vector3.ZERO
 var _attack_rng := RandomNumberGenerator.new()
 var _blade_base: Node3D
 var _blade_tip: Node3D
@@ -347,6 +354,12 @@ var _climb_phase: float = 0.0
 var _climb_drive: Vector2 = Vector2.ZERO
 ## How fast the body is travelling over the face, in m/s.
 var _climb_speed: float = 0.0
+## Distance from the model's own centre line out to the face being climbed, as
+## the controller measures it. The hands are solved onto that plane.
+var _climb_face: float = 0.5
+## Upper arm and forearm lengths, read off the model like the leg's are.
+var _upperarm_length: float = 0.0
+var _forearm_length: float = 0.0
 
 
 func _ready() -> void:
@@ -378,6 +391,12 @@ func _ready() -> void:
 	if knee != null and ankle != null:
 		_thigh_length = knee.position.length()
 		_shin_length = ankle.position.length()
+
+	var elbow := _joints.get("upperarm_l_end") as Node3D
+	var wrist := _joints.get("forearm_l_end") as Node3D
+	if elbow != null and wrist != null:
+		_upperarm_length = elbow.position.length()
+		_forearm_length = wrist.position.length()
 
 	_settle_on_ground()
 	_swap_weapons()
@@ -463,8 +482,14 @@ func _settle_on_ground() -> void:
 ## replacement props off the same attachment points, so every pose, swing and
 ## block keeps working untouched.
 func _swap_weapons() -> void:
+	# Kept whether or not the weapon is replaced: the climb slides the mount,
+	# which carries the modelled sword and the replacement alike.
+	_sword_mount = find_child("sword", true, false) as Node3D
+	if _sword_mount != null:
+		_sword_mount_rest = _sword_mount.position
+
 	if sword_scene != null:
-		var hand := find_child("sword", true, false) as Node3D
+		var hand := _sword_mount
 		if hand != null:
 			_hide_meshes(hand)
 			var blade: Node3D = sword_scene.instantiate()
@@ -784,6 +809,11 @@ func wall_climb(active: bool) -> void:
 	if not active:
 		return
 	_climb_phase = 0.0
+	# Most of the way into the pose at once. A grab is a snatch, not a settle,
+	# and the arms sweeping across from a run would otherwise pass through the
+	# very wall they are reaching for. What is left of the blend reads as the
+	# body settling onto its holds, which is the part worth easing.
+	_climb_blend = maxf(_climb_blend, 0.8)
 	# Nothing that was playing means anything on a wall.
 	if _action != null:
 		_action.stop(0.12)
@@ -793,10 +823,12 @@ func wall_climb(active: bool) -> void:
 
 ## How the body is working its way along the face this frame: `drive` is the
 ## stick in the wall's own frame (x sideways, y up), `speed` how fast the body
-## is actually travelling, which is what paces the reaches.
-func climb_drive(drive: Vector2, speed: float) -> void:
+## is actually travelling, which is what paces the reaches, and `face` how far
+## the face is from the model's centre line, which is where the hands go.
+func climb_drive(drive: Vector2, speed: float, face: float) -> void:
 	_climb_drive = drive
 	_climb_speed = speed
+	_climb_face = face
 
 
 ## True once the body is far enough into the climbing pose to read as being on
@@ -1123,9 +1155,6 @@ static func _hip_drop(track: Vector3, leg: float) -> float:
 ## Hip, knee and ankle angles that put the foot on `track`, as offsets from the
 ## straight-legged rest pose — so a stride of no amplitude leaves the model
 ## standing exactly as it was authored.
-##
-## Two bones and a target is a triangle, so the knee comes straight out of the
-## law of cosines rather than out of a curve shaped by hand.
 func _solve_leg(track: Vector3, leg: float, amount: float, pelvis: float) -> Vector3:
 	if leg <= 0.0 or amount <= 0.001 or _thigh_length <= 0.0 or _shin_length <= 0.0:
 		return Vector3.ZERO
@@ -1136,19 +1165,32 @@ func _solve_leg(track: Vector3, leg: float, amount: float, pelvis: float) -> Vec
 	# authored in rather than snapping out of it the moment it moves.
 	var tilt := pelvis * amount
 	var target := Vector3(0.0, -leg - _hips_rise + track.y, track.x).rotated(Vector3.RIGHT, -tilt)
-	var reach := clampf(target.length(), 0.05, leg * 0.9999)
-	var thigh := _thigh_length
-	var shin := _shin_length
-
-	var knee := PI - acos(clampf(
-			(thigh * thigh + shin * shin - reach * reach) / (2.0 * thigh * shin), -1.0, 1.0))
-	# Straight down is zero, and the knee leads, so the thigh sits that much in
-	# front of the line from the hip to the foot.
-	var hip := atan2(-target.z, -target.y) - acos(clampf(
-			(thigh * thigh + reach * reach - shin * shin) / (2.0 * thigh * reach), -1.0, 1.0))
+	# The knee leads, so the thigh sits in front of the line from hip to foot.
+	var solved := _solve_limb(target, _thigh_length, _shin_length, 1.0)
 	# The sole's tilt is measured against the ground, so everything above it —
 	# the pelvis included — has to be taken back off.
-	return Vector3(hip, knee, track.z * amount - (hip + knee) - tilt)
+	return Vector3(solved.x, solved.y, track.z * amount - (solved.x + solved.y) - tilt)
+
+
+## Two bones and a target is a triangle, so the joint angle comes straight out
+## of the law of cosines rather than out of a curve shaped by hand.
+##
+## Returns (root pitch, joint bend) for a limb that hangs straight down at rest,
+## which both the legs and the arms do on this model. `target` is where the far
+## end has to be, relative to the root, in the plane the limb swings in. `fold`
+## picks which side of the straight line the middle joint ends up on: +1 puts it
+## in front — a knee — and -1 behind, which is the way an elbow goes when the
+## hand is reaching out in front of the shoulder.
+static func _solve_limb(target: Vector3, upper: float, lower: float, fold: float) -> Vector2:
+	if upper <= 0.0 or lower <= 0.0:
+		return Vector2.ZERO
+	var reach := clampf(target.length(), 0.05, (upper + lower) * 0.9999)
+	var bend := PI - acos(clampf(
+			(upper * upper + lower * lower - reach * reach) / (2.0 * upper * lower), -1.0, 1.0))
+	# Straight down is zero, so the line to the target is measured from there.
+	var root := atan2(-target.z, -target.y) - fold * acos(clampf(
+			(upper * upper + reach * reach - lower * lower) / (2.0 * upper * reach), -1.0, 1.0))
+	return Vector2(root, fold * bend)
 
 
 func _pose_torso(t: float) -> void:
@@ -1251,10 +1293,10 @@ func _pose_arms(t: float) -> void:
 ## Written as absolute orientations rather than offsets: this is a pose the
 ## authored stance has nothing to say about, so there is nothing to preserve.
 func _pose_climb() -> void:
-	# The whole model is slid up against the face, because the capsule it lives
-	# in stands a good deal further off the wall than a body ever would. Set
-	# before the early out so that letting go puts it back.
-	position.z = -climb_close * _climb_blend
+	# Both props hang off hands that are on the wall, so both are turned to hang
+	# *along* it rather than through it. Set before the early out, so that
+	# letting go puts them back the way they are carried.
+	_stow_against_wall()
 	if _climb_blend <= 0.001:
 		return
 	var w := _climb_blend
@@ -1264,12 +1306,13 @@ func _pose_climb() -> void:
 	# face reads as reaching rather than sliding.
 	var drift := clampf(_climb_drive.x, -1.0, 1.0)
 
-	# Arms: high and nearly straight on the reach, folded on the pull.
-	_blend_to("shoulder_l", Vector3(lerpf(-2.45, -2.85, reach_l), 0.0, -0.2), w)
-	_blend_to("upperarm_l_end", Vector3(lerpf(1.05, 0.2, reach_l), 0.0, 0.0), w)
+	# Arms: solved onto the face rather than posed at it, so the hands land on
+	# the wall however far off it the body happens to hang. Angles picked by eye
+	# put the hands somewhere near the surface and then through it the moment
+	# anything about the fit changes — which is exactly what they did.
+	_reach_for_wall("shoulder_l", "upperarm_l_end", reach_l, -0.2, w)
 	_blend_to("forearm_l_end", Vector3(-0.1, 0.0, 0.0), w)
-	_blend_to("shoulder_r", Vector3(lerpf(-2.45, -2.85, reach_r), 0.0, 0.2), w)
-	_blend_to("upperarm_r_end", Vector3(lerpf(1.05, 0.2, reach_r), 0.0, 0.0), w)
+	_reach_for_wall("shoulder_r", "upperarm_r_end", reach_r, 0.2, w)
 	_blend_to("forearm_r_end", Vector3(-0.1, 0.0, 0.0), w)
 
 	# Legs: the knee opposite the reaching hand comes up onto a hold while the
@@ -1298,6 +1341,84 @@ func _pose_climb() -> void:
 	if hips != null:
 		hips.position.y = lerpf(hips.position.y, _hips_base_y - 0.04, w)
 		hips.position.z = lerpf(hips.position.z, 0.05, w)
+
+
+
+## Hangs the sword and the shield along the face instead of through it.
+##
+## Both are carried in hands that a climb puts flat on the wall, and both are
+## far wider than the hand holding them: a metre of blade and a shield boss will
+## be inside the masonry whatever the arm does. So while climbing they are given
+## an orientation in the *model's* own frame — blade straight down, shield flat,
+## both edge-on to the face — rather than one relative to the fist. Solved the
+## same way the stowed shield is, so it survives any change to either pose.
+func _stow_against_wall() -> void:
+	# Blade down the body, crossguard across it: the flat of the sword is what
+	# faces the wall, and the flat is 8 cm thick.
+	if _sword_model != null:
+		var carry := (Basis(Vector3.UP, sword_roll) * Basis(Vector3.RIGHT, PI * 0.5)).orthonormalized()
+		# Columns: where the model's own x, y and z end up. The blade runs along
+		# its -z, so sending z up points the blade down.
+		var hung := _orient_in_model(_sword_model,
+				Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP))
+		_sword_model.transform.basis = carry.slerp(hung, _climb_blend).scaled(
+				Vector3.ONE * sword_scale)
+
+	# The shield turns its face to the wall, so only its thickness is against it.
+	if _shield != null:
+		# The disc's normal is its own +z, so sending z out of the wall lays the
+		# face of the shield against it.
+		var flat := _orient_in_model(_shield, Basis(Vector3.RIGHT, Vector3.DOWN, Vector3.FORWARD))
+		_shield.transform.basis = _shield.transform.basis.orthonormalized().slerp(
+				flat, _climb_blend).scaled(_shield_scale)
+
+
+## The local basis that makes a node hold `wanted` in the model's own frame,
+## whatever the joint it hangs off is doing.
+func _orient_in_model(node: Node3D, wanted: Basis) -> Basis:
+	var parent := node.get_parent() as Node3D
+	if parent == null:
+		return wanted.orthonormalized()
+	var parent_in_model := (global_transform.basis.inverse()
+			* parent.global_transform.basis).orthonormalized()
+	return (parent_in_model.inverse() * wanted).orthonormalized()
+
+
+## Puts one hand on the wall. `reach` is 0 for the hand that is pulling and 1
+## for the one stretched up for the next hold; `splay` holds the elbow out.
+##
+## The target is a point on the face itself, worked out from where the shoulder
+## actually is this frame, so the grip follows the torso's lean and any change
+## to how far off the wall the body hangs without a second number to keep in
+## step with it.
+func _reach_for_wall(root_name: String, elbow_name: String, reach: float,
+		splay: float, weight: float) -> void:
+	var root := _joints.get(root_name) as Node3D
+	if root == null or _upperarm_length <= 0.0:
+		return
+	# The model's own frame: +Z is the way it faces, which on a wall is into it.
+	var shoulder := to_local(root.global_position)
+	var target := Vector3(
+			0.0,
+			lerpf(climb_reach_low, climb_reach_high, reach),
+			_climb_face - climb_grip_inset - shoulder.z)
+
+	# The shoulder's angles are read in the chest's frame, and the chest is
+	# leaning into the wall — so a target written in the model's frame has to be
+	# turned into the parent's before it is solved, or the lean is added to the
+	# reach and the hands go straight through the wall by however far the body
+	# happens to be pitched.
+	var parent := root.get_parent() as Node3D
+	if parent != null:
+		var in_model := (global_transform.basis.inverse() * parent.global_transform.basis)
+		target = in_model.orthonormalized().inverse() * target
+		# The arm swings in a plane; whatever the twist pushed sideways is not
+		# something two angles can answer, and keeping it would only cost reach.
+		target.x = 0.0
+
+	var solved := _solve_limb(target, _upperarm_length, _forearm_length, -1.0)
+	_blend_to(root_name, Vector3(solved.x, 0.0, splay), weight)
+	_blend_to(elbow_name, Vector3(solved.y, 0.0, 0.0), weight)
 
 
 ## Blends a joint towards an orientation of its own rather than towards an

@@ -151,8 +151,12 @@ lost between physics ticks and simulated input works in tests.
   two ends would drag it through the wall — with the clip stretched to match.
 - **Wall climb.** Anything too tall to be mantled is climbed instead. `jump`
   against a face steeper than `wall_min_angle` takes hold of it, and so does
-  running into one in mid-air with `wall_catch_speed` of horizontal speed behind
-  it — so a house is something to go *up* rather than something to bounce off.
+  meeting one in mid-air — so a house is something to go *up* rather than
+  something to bounce off. The mid-air catch asks for *intent*, not speed: the
+  stick pointing at the face, or the capsule already touching one. Asking how
+  fast the body was travelling into it does not work, because by the time it is
+  against a wall `move_and_slide()` has already cancelled the speed that drove
+  it there, and a jump at a wall reads as having no interest in it.
   The mantle is always tried first: if the top is already in reach, pulling over
   it beats hanging off it.
 
@@ -212,9 +216,21 @@ chains for the cape (`cape_j0…j5`) and the ponytail (`tail_j0…j4`).
   Hands and feet work in diagonal pairs — the left hand reaches as the right
   knee comes up — paced by how much face the body has actually covered, so a
   slow haul reaches slowly and a body hanging still holds the grip it is on.
-  The whole model is slid `climb_close` towards the wall while it hangs there,
-  because the capsule the controller moves is a good deal fatter than the body
-  drawn inside it and the hands would otherwise grip thin air.
+
+  The arms are **solved onto the wall**, not posed at it: the controller passes
+  the distance to the face and `_reach_for_wall()` aims each wrist at a point on
+  it, through the same two-bone solve the legs use. Angles picked by eye put the
+  hands near the surface and then a forearm's length through it the moment
+  anything about the fit changes — the torso leaning in, the body hanging
+  further off — which is exactly what they did. The solve is done in the
+  shoulder's own parent frame, because a target written in the model's frame
+  adds the chest's lean to the reach.
+
+  The sword and the shield are **turned to hang along the face** while climbing
+  (`_stow_against_wall()`). Both are carried in hands that a climb puts flat on
+  the wall and both are far wider than the hand holding them, so they are given
+  an orientation in the model's own frame — blade straight down, shield face-on,
+  both edge-on to the wall — solved the same way the stowed shield is.
 - **Shield.** The authored guard — shield up and across the chest — is only
   reached while `block` is held. Otherwise the arm blends down to
   `SHIELD_LOWERED` and the shield stows on the wrist, lying flat along the

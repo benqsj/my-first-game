@@ -149,8 +149,11 @@ const STEP_PROBE_SAMPLES := 4
 @export_range(0.0, 89.0) var wall_min_angle: float = 60.0
 ## How far in front of the chest a face is felt for.
 @export var wall_grip_reach: float = 0.9
-## Gap left between the body and the face it is hanging off.
-@export var wall_gap: float = 0.06
+## Gap left between the capsule and the face it is hanging off. It is not just
+## clearance: the body is narrow but what it carries is not, and a sword and a
+## shield held against a wall go through it. The arms are solved onto the face,
+## so hanging further off it costs nothing — the hands still land on the stone.
+@export var wall_gap: float = 0.18
 ## Climbing pace up and down a face.
 @export var wall_climb_speed: float = 2.1
 ## Pace sideways along one, which is quicker: a climber shuffles faster than
@@ -167,9 +170,6 @@ const STEP_PROBE_SAMPLES := 4
 ## How long after letting go the face is ignored, so a jump off it is not
 ## caught by the same wall on the way past.
 @export var wall_regrab_delay: float = 0.35
-## Horizontal speed into a face needed for a mid-air grab. Brushing past one is
-## not an attempt to climb it; running at it is.
-@export var wall_catch_speed: float = 1.0
 
 @export_group("Physics")
 ## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
@@ -314,7 +314,7 @@ func _process(delta: float) -> void:
 
 	if rig != null:
 		if state == State.WALLCLIMB:
-			rig.climb_drive(_wall_drive, velocity.length())
+			rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
 		var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 		rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), not is_on_floor(),
 				state == State.DASHING, velocity.y, is_blocking)
@@ -397,8 +397,7 @@ func _process_locomotion(delta: float) -> void:
 	if not on_floor:
 		if _try_climb():
 			return
-		var into := -get_wall_normal()
-		if is_on_wall() and horizontal.dot(into) > wall_catch_speed and _try_wall_climb(into):
+		if _try_catch_wall(direction):
 			return
 
 	if on_floor:
@@ -919,6 +918,27 @@ func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
 	return true
 
 
+## Catches a face in mid-air. This is the move that makes jumping at a house
+## work: nothing is pressed, the jump simply ends on the wall.
+##
+## It deliberately does not ask how fast the body is travelling into the face.
+## By the time the capsule is *against* a wall, move_and_slide() has already
+## cancelled the speed that drove it there, so a jump at a wall reads as having
+## no interest in it — which is exactly the bug that made a run-up bounce off.
+## What is asked instead is intent: the stick pointing at the face, or the body
+## already touching one.
+func _try_catch_wall(steer: Vector3) -> bool:
+	if not wall_climb_enabled or _wall_cooldown_timer > 0.0:
+		return false
+
+	# Touching one is intent enough; otherwise the stick has to be pointing at it.
+	if is_on_wall() and _try_wall_climb(-get_wall_normal()):
+		return true
+	if steer.is_zero_approx():
+		return false
+	return _try_wall_climb(steer)
+
+
 ## The face in front of the body, felt for the way a climber would: straight
 ## ahead first, then higher and lower, then round to either side.
 ##
@@ -969,6 +989,15 @@ func _grab_wall(point: Vector3, normal: Vector3) -> void:
 	_wall_normal = normal
 	_wall_drive = Vector2.ZERO
 	velocity = Vector3.ZERO
+
+	# Stand off the face properly *now* rather than easing out to it. A grab
+	# usually happens with the capsule already pressed against the wall, and the
+	# body is narrower than the arms are long: a few frames spent too close is a
+	# few frames with the hands inside the masonry. Moved rather than teleported,
+	# so backing off a wall in a narrow gap stops at whatever is behind.
+	var chest := global_position + up_direction * _grip_height()
+	var gap := (_wall_point + _wall_normal * _wall_hold_distance()) - chest
+	move_and_collide(_wall_normal * gap.dot(_wall_normal))
 	_jump_buffer_timer = 0.0
 	_coyote_timer = 0.0
 	if is_blocking:

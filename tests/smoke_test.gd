@@ -375,6 +375,40 @@ func _initialize() -> void:
 	_check("the body faces the face it is on",
 			(-player.global_transform.basis.z).dot(Vector3.FORWARD) > 0.9)
 
+	# The same thing again, but with the jump taken early: the wall is met in
+	# mid-air, nothing else is pressed, and the arc has to end on the face
+	# rather than bouncing off it.
+	player.global_position = Vector3(6.0, 0.2, 21.0)
+	player.rotation.y = 0.0
+	player.velocity = Vector3.ZERO
+	await _settle(player)
+	Input.action_press("move_forward")
+	await _wait(14)
+	Input.action_press("jump")
+	await _wait(2)
+	Input.action_release("jump")
+	for i in 60:
+		await physics_frame
+		if player.state == Player.State.WALLCLIMB:
+			break
+	_check("jumping at a tall face in mid-air catches it",
+			player.state == Player.State.WALLCLIMB, "state = %d" % player.state)
+	Input.action_release("move_forward")
+	await _wait(10)
+
+	# And back to the ground for the rest, from the same spot as before.
+	player.global_position = Vector3(6.0, 0.2, 18.5)
+	player.rotation.y = 0.0
+	player.velocity = Vector3.ZERO
+	await _settle(player)
+	Input.action_press("move_forward")
+	await _wait(40)
+	Input.action_press("jump")
+	await _wait(2)
+	Input.action_release("jump")
+	_check("and from the ground it still takes hold",
+			player.state == Player.State.WALLCLIMB, "state = %d" % player.state)
+
 	var grabbed_at := player.global_position.y
 	Input.action_release("move_forward")
 	await _wait(30)
