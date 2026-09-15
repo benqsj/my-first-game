@@ -95,6 +95,9 @@ var _awake: Dictionary = {}
 var _pushed: Dictionary = {}
 
 var _player: Node3D
+## Counts up to `WATCH_EVERY`, at which point the nearest player is asked for
+## again.
+var _watch_tick: int = 0
 var _time: float = 0.0
 var _slice: int = 0
 var _wind_dir: Vector3 = Vector3.FORWARD
@@ -121,9 +124,11 @@ func _ready() -> void:
 	var flat := Vector3(wind_direction.x, 0.0, wind_direction.y)
 	_wind_dir = flat.normalized() if not flat.is_zero_approx() else Vector3.FORWARD
 
-	_player = get_tree().get_first_node_in_group("player") as Node3D
-	if _player == null:
-		push_warning("GrassField: no node in the \"player\" group, grass will not react.")
+	# Not looked up here any more: players are spawned into the level rather than
+	# baked into it, so at this moment there may be none — and with more than one
+	# there is no single right answer anyway. `_find_watcher()` asks again, every
+	# so often, for whichever is nearest.
+	_find_watcher()
 
 
 ## Pushes the three performance settings back down onto every clump. They are
@@ -204,10 +209,34 @@ func _process(delta: float) -> void:
 	_slice = (_slice + 1) % maxi(wind_slices, 1)
 
 
+## Which player the grass is reacting to: the nearest one to the field's own
+## centre. Re-asked every `WATCH_EVERY` frames rather than every frame — grass
+## bending does not need sixty-hertz accuracy about whose boots are nearest, and
+## the group walk is not free.
+const WATCH_EVERY := 20
+
+func _find_watcher() -> void:
+	var best: Node3D = null
+	var closest := INF
+	for node in get_tree().get_nodes_in_group("player"):
+		var who := node as Node3D
+		if who == null:
+			continue
+		var gap := global_position.distance_squared_to(who.global_position)
+		if gap < closest:
+			closest = gap
+			best = who
+	_player = best
+
+
 ## Works out how hard every pusher leans on the clumps around it, and wakes the
 ## ones it touches.
 func _collect_pushes() -> void:
 	_pushed.clear()
+	_watch_tick += 1
+	if _watch_tick >= WATCH_EVERY or _player == null or not is_instance_valid(_player):
+		_watch_tick = 0
+		_find_watcher()
 	if _player != null:
 		_push_from(_player.global_position, reach)
 

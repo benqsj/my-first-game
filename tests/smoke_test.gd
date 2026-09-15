@@ -10,9 +10,13 @@ var _failures := 0
 
 
 func _initialize() -> void:
-	var world: Node3D = load(WORLD).instantiate()
+	var world: World = load(WORLD).instantiate()
 	root.add_child(world)
-	var player: Player = world.get_node("Player")
+	# One frame before anyone is asked for: a script main loop adds the level to
+	# a root that is not in the tree yet, so the level's own `_ready()` — and the
+	# spawn it does — is queued rather than immediate.
+	await _wait(1)
+	var player: Player = world.player()
 
 	# The creatures are sent away before anything is measured. They hunt on
 	# sight, and a wolf shouldering the knight into a boulder is a real thing

@@ -59,10 +59,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 #region Opening and closing
 ## Stops the game and puts the menu up.
+##
+## **Online it does not stop the game.** A paused tree stops that peer's
+## `MultiplayerSynchronizer`s and its ENet polling, so one player opening a menu
+## would freeze their knight in everyone else's window and eventually time the
+## connection out. Nobody else agreed to be paused. What the menu keeps either
+## way is the mouse: releasing it is the only way out of capture, and that half
+## has to work whether or not the world is holding still.
 func open() -> void:
 	_screen.visible = true
 	_show(Page.ROOT)
-	get_tree().paused = true
+	get_tree().paused = not _online()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -74,11 +81,21 @@ func resume() -> void:
 
 
 ## Ends the game and goes back to the front. Unpausing first, because a tree
-## that changes scene while paused loads the next one paused as well.
+## that changes scene while paused loads the next one paused as well — and
+## hanging up, because leaving a game means leaving the people in it.
 func quit_to_menu() -> void:
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	var net := get_node_or_null("/root/Net")
+	if net != null:
+		net.call("leave")
 	get_tree().change_scene_to_file(MENU)
+
+
+## True while there are other people in the game to consider.
+func _online() -> bool:
+	var net := get_node_or_null("/root/Net")
+	return net != null and bool(net.call("is_online"))
 #endregion
 
 

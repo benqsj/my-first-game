@@ -8,9 +8,10 @@ extends Control
 ## at the top of this file, so tuning the look is editing a constant rather than
 ## hunting through a scene tree.
 ##
-## Four pages, one visible at a time: the root, the choice of solo or multiplayer, the
-## character select, and the settings. Nothing here knows how the game works —
-## it sets what the player picked on the `Game` autoload and loads the level.
+## Five pages, one visible at a time: the root, the choice of solo or together,
+## the character select, the settings, and — when it is together — hosting or
+## joining. Nothing here knows how the game works: it writes what the player
+## picked onto the `Game` autoload and hands the connection to [Net].
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
 
@@ -20,11 +21,14 @@ const TILE := Vector2(196.0, 178.0)
 const STAGE := Vector2(400.0, 560.0)
 
 
-enum Page { ROOT, MODE, CHARACTERS, SETTINGS }
+## Appended rather than inserted: the pages are addressed by number from the
+## tests, and renumbering them to make room in the middle is a change nobody
+## asked for.
+enum Page { ROOT, MODE, CHARACTERS, SETTINGS, CONNECT }
 
-## More than one player is a mode the menu offers and the game cannot yet
-## honour. It is on the screen because the flow is the flow; it says so rather
-## than pretending.
+## Whether the character page leads to a game or to the host/join page. The
+## character has to be picked either way and *first*, because it is sent with
+## the announcement the moment a peer connects.
 var _multiplayer: bool = false
 var _page: Page = Page.ROOT
 var _pages: Dictionary = {}
@@ -37,6 +41,15 @@ var _graphics_buttons: Dictionary = {}
 ## The autoload, looked up once. It holds what was chosen last time and is what
 ## the choices made here are written to.
 var _game: Node
+## The connection, when there is one to make. Looked up the same way as `_game`
+## so a menu built on its own in a test still works with neither present.
+var _net: Node
+## Where a join is typed, and where anything that went wrong is said.
+var _address: LineEdit
+var _trouble: Label
+## The button at the bottom of the character page, which says different things
+## depending on whether there is anyone else to wait for.
+var _go: Button
 
 
 func _ready() -> void:
@@ -45,9 +58,16 @@ func _ready() -> void:
 	MenuStyle.background(self)
 
 	_game = get_node_or_null("/root/Game")
+	_net = get_node_or_null("/root/Net")
+	if _net != null:
+		# Coming back from a game, or from a join that did not take. Either way
+		# there is no connection to be holding on to on the front screen.
+		_net.call("leave")
+		_net.connect("hosting_failed", _on_net_trouble)
+		_net.connect("join_failed", _on_net_trouble)
 	_chosen = _game.character() if _game != null else &"tariel"
 
-	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS]:
+	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS, Page.CONNECT]:
 		var built := _build(page)
 		add_child(built)
 		_pages[page] = built
@@ -77,6 +97,8 @@ func _build(page: Page) -> Control:
 			return _build_characters()
 		Page.SETTINGS:
 			return _build_settings()
+		Page.CONNECT:
+			return _build_connect()
 	return _build_root()
 
 
@@ -146,9 +168,60 @@ func _build_characters() -> Control:
 	page.add_child(gap)
 
 	var buttons := MenuStyle.button_column()
-	buttons.add_child(MenuStyle.button("START", func() -> void: _start()))
+	# One button, two destinations. Solo starts the game; together, the choice
+	# still has to be made *first* — it is sent with the announcement, and a peer
+	# whose character is unknown is a peer with nothing to spawn.
+	_go = MenuStyle.button("START", func() -> void:
+			if _multiplayer:
+				_show(Page.CONNECT)
+			else:
+				_start())
+	buttons.add_child(_go)
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.MODE), true))
 	page.add_child(buttons)
+	return page
+
+
+## Host or join. Nothing here decides who you are — that is already settled by
+## the time this page is up.
+func _build_connect() -> Control:
+	var page := MenuStyle.page_column()
+	page.add_child(MenuStyle.heading("PLAY TOGETHER"))
+
+	_trouble = MenuStyle.label("", MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.45))
+	_trouble.name = "Trouble"
+	_trouble.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	page.add_child(_trouble)
+
+	var buttons := MenuStyle.button_column()
+	buttons.add_child(MenuStyle.button("HOST GAME", func() -> void: _host()))
+	page.add_child(buttons)
+
+	page.add_child(MenuStyle.label("or join one:", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	_address = LineEdit.new()
+	_address.name = "Address"
+	_address.text = "127.0.0.1"
+	_address.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_address.custom_minimum_size = Vector2(240.0, MenuStyle.BUTTON_HEIGHT)
+	_address.add_theme_font_size_override("font_size", MenuStyle.BUTTON_SIZE - 4)
+	_address.text_submitted.connect(func(_typed: String) -> void: _join())
+	row.add_child(_address)
+	var join := MenuStyle.button("JOIN", func() -> void: _join())
+	join.custom_minimum_size = Vector2(180.0, MenuStyle.BUTTON_HEIGHT)
+	row.add_child(join)
+	page.add_child(row)
+
+	page.add_child(MenuStyle.label(
+			"Everyone fights the same wolves. Nobody can hurt anybody else yet.",
+			MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+
+	var back := MenuStyle.button_column()
+	back.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.CHARACTERS), true))
+	page.add_child(back)
 	return page
 
 
@@ -187,8 +260,13 @@ func _show(page: Page) -> void:
 		_refresh_cards()
 		var note := (_pages[page] as Control).find_child("ModeNote", true, false) as Label
 		if note != null:
-			note.text = "Multiplayer is not wired up yet — this will start a solo game." \
+			note.text = "Pick who you are first — it is sent to the others when you connect." \
 					if _multiplayer else ""
+		if _go != null:
+			_go.text = "CONTINUE" if _multiplayer else "START"
+	elif page == Page.CONNECT:
+		if _trouble != null:
+			_trouble.text = ""
 	elif page == Page.SETTINGS:
 		_refresh_graphics()
 #endregion
@@ -344,7 +422,40 @@ func _profile(id: StringName) -> CharacterProfile:
 func _start() -> void:
 	if _game != null:
 		_game.choose(_chosen)
+	# A solo game is a game with nobody else in it, which is not the same as a
+	# game with a peer left over from last time still holding a socket open.
+	if _net != null:
+		_net.call("leave")
 	get_tree().change_scene_to_file(WORLD)
+
+
+## Opens the game to others and goes straight in. The host is a player.
+func _host() -> void:
+	if _game != null:
+		_game.choose(_chosen)
+	if _net == null:
+		_on_net_trouble("Networking is not available in this build.")
+		return
+	_net.call("host", _chosen)
+
+
+## Connects to whatever was typed. The world is loaded by [Net] once the
+## handshake is through — a client that changes scene before that has nothing to
+## be in the world with.
+func _join() -> void:
+	if _game != null:
+		_game.choose(_chosen)
+	if _net == null or _address == null:
+		_on_net_trouble("Networking is not available in this build.")
+		return
+	if _trouble != null:
+		_trouble.text = "Connecting to %s..." % _address.text.strip_edges()
+	_net.call("join", _address.text, _chosen)
+
+
+func _on_net_trouble(why: String) -> void:
+	if _trouble != null:
+		_trouble.text = why
 
 
 func _set_graphics(level: Graphics.Level) -> void:

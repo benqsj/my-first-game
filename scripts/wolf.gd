@@ -65,7 +65,15 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @onready var rig: WolfRig = $Visuals as WolfRig
 
 var state: State = State.PROWL
-var is_dead: bool = false
+## Replicated. A client never decides that a wolf has died — it is told, and the
+## setter runs the half of `_die()` that is only about how a corpse looks.
+var is_dead: bool = false:
+	set(value):
+		if is_dead == value:
+			return
+		is_dead = value
+		if is_dead:
+			_lie_down()
 var health: float = 0.0
 
 var _bar: HealthBar
@@ -75,9 +83,11 @@ var _home: Vector3
 var _prowl_target: Vector3
 var _prowl_timer: float = 0.0
 var _swipe_timer: float = 0.0
-var _player: Node3D
 var _rng := RandomNumberGenerator.new()
-var _last_hit_serial: int = -1
+## The last swing taken from each attacker, keyed by their node name. A single
+## number here would let two players swinging in the same tick collapse into one
+## hit — the second one's serial would already look seen.
+var _last_hit_serial: Dictionary = {}
 ## The line this creature patrols along, as an offset from home.
 var _beat: Vector3 = Vector3.ZERO
 ## Set while shouldering past something it has walked into.
@@ -95,7 +105,9 @@ func _ready() -> void:
 	_home = global_position
 	_rng.randomize()
 	_pick_prowl_target()
-	_player = get_tree().get_first_node_in_group("player") as Node3D
+	# Only the host thinks. `_process` stays on everywhere — that is what
+	# animates the body and moves the bar from replicated state.
+	set_physics_process(_decides())
 	if rig != null:
 		rig.severed.connect(_on_severed)
 
@@ -135,6 +147,10 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	if _bar != null:
 		_bar.global_position = global_position + Vector3.UP * bar_height
+		# Read off `health` every frame rather than written when a hit lands:
+		# the hit lands on the host, and what reaches everyone else is the
+		# replicated number.
+		_bar.set_fraction(health / maxf(max_health, 0.001))
 	if rig == null:
 		return
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
@@ -146,11 +162,39 @@ func _process(delta: float) -> void:
 
 
 #region Behaviour
+## True when this peer is the one that decides things. Offline that is everyone,
+## which is what keeps a solo game a single code path.
+func _decides() -> bool:
+	var net := get_node_or_null("/root/Net")
+	return net == null or bool(net.call("is_host"))
+
+
+## The closest player there is, or null while there are none. Worked out fresh
+## each time: which one is nearest changes as they move, and a wolf that picked
+## its quarry once at load would keep chasing a body that has gone home.
+func _nearest_player() -> Node3D:
+	var best: Node3D = null
+	var closest := INF
+	for node in get_tree().get_nodes_in_group("player"):
+		var who := node as Node3D
+		if who == null:
+			continue
+		var gap := global_position.distance_squared_to(who.global_position)
+		if gap < closest:
+			closest = gap
+			best = who
+	return best
+
+
 func _think(delta: float) -> void:
+	# Asked for again every think rather than cached at `_ready()`: with more
+	# than one player the nearest one changes as they move, and with none spawned
+	# yet a cache would hold null for the rest of the game.
+	var quarry := _nearest_player()
 	var to_player := Vector3.ZERO
 	var distance := INF
-	if _player != null:
-		to_player = _player.global_position - global_position
+	if quarry != null:
+		to_player = quarry.global_position - global_position
 		to_player.y = 0.0
 		distance = to_player.length()
 
@@ -175,7 +219,7 @@ func _think(delta: float) -> void:
 				_move_towards(global_position + to_player, charge_speed, delta)
 		State.FLEE:
 			# Nothing left to fight with: get away and stay away.
-			if _player != null:
+			if quarry != null:
 				_move_towards(global_position - to_player, flee_speed, delta)
 		State.DOWN:
 			_slow(delta)
@@ -274,28 +318,53 @@ func _face(direction: Vector3, delta: float) -> void:
 ## the swing is *where* it lands on the creature, and a segment gives that
 ## directly without wrapping every limb in its own collider.
 func _take_hits() -> void:
-	if _player == null or is_dead:
+	if is_dead:
 		return
-	var knight := _player as Player
-	if knight == null or knight.rig == null:
-		return
+	# Every player, not the one that happened to be first in the group at load.
+	# Two people swinging at the same wolf in the same tick both land — which is
+	# also why the serial is remembered per attacker.
+	for node in get_tree().get_nodes_in_group("player"):
+		var knight := node as Player
+		if knight == null or knight.rig == null:
+			continue
 
-	var serial := knight.rig.attack_serial
-	if serial == _last_hit_serial:
-		return
-	var edge := knight.rig.get_cutting_edge()
-	if edge.is_empty():
-		return
+		var serial: int = knight.rig.attack_serial
+		if serial == _last_hit_serial.get(knight.name, -1):
+			continue
+		var edge := knight.rig.get_cutting_edge()
+		if edge.is_empty():
+			continue
 
-	var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance)
-	if part == "":
-		return
-	_last_hit_serial = serial
+		var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance)
+		if part == "":
+			continue
+		_last_hit_serial[knight.name] = serial
 
-	# Bleed from where the limb actually came away, thrown along the blow.
-	var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
-	take_hit(damage_per_hit, rig.last_cut_point, blow, false)
-	knight.rig.bloody()
+		# Bleed from where the limb actually came away, thrown along the blow.
+		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
+		# The host decided *which* limb; everyone else is told, so the piece that
+		# comes off is the same piece in every window. Re-running the geometry
+		# there would disagree — their copy of the blade is in a slightly
+		# different place, a frame of interpolation behind.
+		net_sever.rpc(part, rig.last_cut_point, blow)
+		# `net_sever` has already spilled the blood, on every peer.
+		take_hit(damage_per_hit, rig.last_cut_point, blow, false, false)
+		knight.rig.bloody()
+		if is_dead:
+			return
+
+
+## The limb, everywhere. The host has already taken it off its own copy, so this
+## only detaches on the peers that have not — and spills the blood on all of
+## them, which is the half that has to be seen.
+@rpc("authority", "call_local", "reliable")
+func net_sever(part: String, at: Vector3, blow: Vector3) -> void:
+	if rig != null and not _decides():
+		rig.detach(part)
+	var thrown := blow
+	if thrown.length_squared() < 0.0001:
+		thrown = Vector3.UP
+	Blood.splatter(Blood.world_of(self), at, thrown.normalized())
 
 
 ## Takes a blow from anything at all — a blade that has already decided what it
@@ -307,19 +376,26 @@ func _take_hits() -> void:
 ## is health that ends it. Both share what a hit means — blood, a shove, a bar
 ## that goes down — because a hit should not read differently for the weapon
 ## that landed it.
-func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false) -> void:
-	if is_dead:
+func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
+		spill: bool = true) -> void:
+	# Only the host decides what a hit is worth. `health` and `is_dead` are
+	# replicated from here, so a client that scored one says nothing and waits to
+	# be told — which is what keeps one wolf from dying twice.
+	if is_dead or not _decides():
 		return
 
 	health = maxf(health - damage, 0.0)
-	if _bar != null:
-		_bar.set_fraction(health / maxf(max_health, 0.001))
 	hurt.emit(health)
 
 	var thrown := blow
 	if thrown.length_squared() < 0.0001:
 		thrown = Vector3.UP
-	Blood.splatter(Blood.world_of(self), at, thrown.normalized())
+	# Blood for a hit that severed nothing — an arrow, most often. A hit that did
+	# sever asks for `spill = false`, because `net_sever` has already bled on
+	# every peer and doing it twice on the host is a darker stain there than
+	# anywhere else.
+	if spill:
+		Blood.splatter(Blood.world_of(self), at, thrown.normalized())
 	# A critical goes in hard enough to move it.
 	var shove := thrown
 	shove.y = 0.0
@@ -336,7 +412,10 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false)
 
 func _on_severed(part: String) -> void:
 	# Taking the head is fatal on its own; otherwise it is losing enough of
-	# itself that puts it down.
+	# itself that puts it down. The host's answer is the only one that counts —
+	# everyone else hears about it through `is_dead`.
+	if not _decides():
+		return
 	if part == "head" or rig.lost_parts() >= limbs_before_death:
 		_die()
 
@@ -344,9 +423,18 @@ func _on_severed(part: String) -> void:
 func _die() -> void:
 	if is_dead:
 		return
-	is_dead = true
 	state = State.DOWN
 	health = 0.0
+	# The setter does the rest, here and on every other peer once `is_dead` has
+	# been replicated — so there is one description of what a corpse is.
+	is_dead = true
+
+
+## What being dead *looks* like, as opposed to what decides it. Runs from the
+## `is_dead` setter, which means it runs on the host when it kills the thing and
+## on everyone else when they are told.
+func _lie_down() -> void:
+	state = State.DOWN
 	# An empty bar over a corpse is just clutter: there is nothing left to
 	# read off it, and the body is about to topple out from under it anyway.
 	if _bar != null:

@@ -10,9 +10,13 @@ var _failures := 0
 
 func _initialize() -> void:
 	var dir := OS.get_cmdline_user_args()[0]
-	var world: Node3D = load("res://scenes/world/greybox_world.tscn").instantiate()
+	var world: World = load("res://scenes/world/greybox_world.tscn").instantiate()
 	root.add_child(world)
-	var player: Player = world.get_node("Player")
+	# One frame first: a script main loop adds the level to a root that is not in
+	# the tree yet, so the level's `_ready()` — and the spawn it does — is queued
+	# rather than immediate.
+	await physics_frame
+	var player: Player = world.player()
 	var wolf: Wolf = world.get_node("Enemies/Wolf1")
 	var golem: Golem = world.get_node("Enemies/Golem1")
 	var hunter: Wolf = world.get_node("Enemies/Wolf2")
@@ -75,8 +79,24 @@ func _initialize() -> void:
 	player.velocity = Vector3.ZERO
 	for i in 20:
 		await physics_frame
-	var before := wolf.rig.lost_parts()
+	# Variety first, and on its own. Which cut comes out next is a property of
+	# `attack()` and has nothing to do with the wolf — and the loop below stops
+	# the moment the wolf dies, which can be on the first swing if the head goes.
+	# Counting styles in there made this a question about how lucky the first cut
+	# was.
+	# Swung at nothing: the wolf is put out of reach for this, or the variety
+	# loop cuts it apart before the loop that is supposed to.
 	var styles := {}
+	wolf.global_position = Vector3(-40.0, 0.5, 40.0)
+	for i in 5:
+		await physics_frame
+	for swing in 6:
+		player.rig.attack()
+		styles[player.rig.current_swing()] = true
+		for i in 34:
+			await physics_frame
+
+	var before := wolf.rig.lost_parts()
 	# Swung until it goes down rather than a fixed eight times. Which limb a cut
 	# takes is random and taking the head ends it on the spot, so a fixed count
 	# is a coin flip: eight swings kills it most of the time, which is exactly
@@ -93,7 +113,6 @@ func _initialize() -> void:
 		for i in 3:
 			await physics_frame
 		player.rig.attack()
-		styles[player.rig.current_swing()] = true
 		for i in 34:
 			await physics_frame
 	# Which limb goes is random, and taking the head ends it there and then, so
@@ -116,6 +135,12 @@ func _initialize() -> void:
 	_check("blood marks the ground", patches >= 3, "%d patches" % patches)
 
 	# --- Severed limbs fall instead of hanging in the air --------------------
+	# Given time to land first. The swings above stop the moment the wolf goes
+	# down, so the last limb off may be a handful of frames old — and a piece
+	# still in the air a tenth of a second after it was thrown is not the bug
+	# this is looking for.
+	for i in 90:
+		await physics_frame
 	var airborne := 0
 	var landed := 0
 	for n in Blood.world_of(world).get_children():

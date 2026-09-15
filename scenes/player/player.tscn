@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/props/arrow.tscn" id="2_arrow"]
@@ -6,6 +6,38 @@
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.4
 height = 1.85
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_body"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 2
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 2
+properties/2/path = NodePath(".:velocity")
+properties/2/spawn = true
+properties/2/replication_mode = 2
+properties/3/path = NodePath(".:net_state")
+properties/3/spawn = true
+properties/3/replication_mode = 2
+properties/4/path = NodePath(".:net_blocking")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:net_crouching")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:net_airborne")
+properties/6/spawn = true
+properties/6/replication_mode = 1
+properties/7/path = NodePath(".:net_stowed")
+properties/7/spawn = true
+properties/7/replication_mode = 1
+properties/8/path = NodePath(".:net_draw")
+properties/8/spawn = true
+properties/8/replication_mode = 2
+properties/9/path = NodePath(".:net_aim")
+properties/9/spawn = true
+properties/9/replication_mode = 2
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2
@@ -28,5 +60,8 @@ spring_length = 4.5
 margin = 0.3
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
-current = true
 fov = 70.0
+
+[node name="Body" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.033
+replication_config = SubResource("SceneReplicationConfig_body")

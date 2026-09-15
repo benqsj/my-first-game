@@ -58,6 +58,16 @@ func _ready() -> void:
 		_body_rest_rotation = body.rotation
 		_settle_on_ground()
 	_pick_target()
+	# Only the host walks it. `_process` stays on everywhere: that is what
+	# animates the body from the replicated position and velocity.
+	set_physics_process(_decides())
+
+
+## True when this peer is the one that decides things. Offline that is everyone,
+## which is what keeps a solo game a single code path.
+func _decides() -> bool:
+	var net := get_node_or_null("/root/Net")
+	return net == null or bool(net.call("is_host"))
 
 
 func _physics_process(delta: float) -> void:

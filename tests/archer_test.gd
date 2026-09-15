@@ -15,11 +15,16 @@ var _player: Player
 
 
 func _initialize() -> void:
+	# Chosen before the level is built rather than assigned to a node afterwards:
+	# players are spawned into the world now, and the world asks `Game` who the
+	# local one is. There is nothing to reach into until it has done that.
+	var game := root.get_node_or_null("Game")
+	if game != null:
+		game.call("choose", &"avtandil")
 	_world = load(WORLD).instantiate()
-	_player = _world.get_node("Player")
-	_player.profile = load(ARCHER) as CharacterProfile
 	root.add_child(_world)
 	await _wait(2)
+	_player = (_world as World).player()
 
 	# The creatures wander and hunt; every check here is about the archer, so
 	# the only one in the world is the one put there on purpose.

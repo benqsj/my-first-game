@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 Game="*res://scripts/game.gd"
+Net="*res://scripts/net.gd"
 
 [display]
 

@@ -11,6 +11,8 @@ godot --path . --headless --script res://tests/smoke_test.gd   # movement checks
 godot --path . --headless --script res://tests/archer_test.gd  # bow + target lock
 godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
+godot --path . --headless --script res://tests/multiplayer_test.gd  # who owns what
+sh tools/two_peers.sh                                  # two processes, one world
 ```
 
 `INSTRUCTION.md` has the same thing in Georgian, with the control scheme and the
@@ -597,15 +599,165 @@ the model so what the game spawns stays exactly what the game spawns. And the
 fill light is cool and weak: a warm fill as strong as the key turns anything
 broad, like the knight's cape, into a flat gold slab with no shape left in it.
 
-**Multiplayer is on the screen and is not wired up.** More than one player needs
-per-device input routing and either a split viewport or a network, none of which
-exists. Choosing it says so on the character screen and starts a solo game,
-rather than pretending.
+Choosing **MULTIPLAYER** goes to one more page after the character select —
+host, or type an address and join. The character has to be picked first because
+it is sent with the announcement; see [Multiplayer](#multiplayer).
 
 `scripts/pause_menu.gd` is the same widgets again, in the level rather than in
 front of it: resume, settings, or out to the main menu. It runs while the tree
 is paused — it is the one thing that has to — and unpauses on the way out, or
 the front menu would load paused and nothing on it could be clicked.
+
+## Multiplayer
+
+Two to four people, one world, PvE. A **listen server**: the host is peer 1 and
+is also playing, so there is no dedicated server, no matchmaking and no lobby
+browser. [`scripts/net.gd`](scripts/net.gd) is the whole of the connection.
+
+    godot --path . -- --host tariel
+    godot --path . -- --join 127.0.0.1 avtandil
+
+or **PLAY → MULTIPLAYER →** pick who you are **→ HOST GAME** / type an address
+and **JOIN**. In the editor, `Debug → Run Multiple Instances → 2`, then
+`Debug → Customize Run Instances…` and give the two the arguments above.
+
+### Who simulates what
+
+| | |
+| --- | --- |
+| your own body and camera | your own client |
+| somebody else's body | nobody — it arrives over the wire and is interpolated |
+| wolves, golems | the host |
+| "did this sword cut this wolf?" | the host |
+| blood, severed limbs, corpses | decided by the host, replayed everywhere |
+
+Movement is **client-authoritative**: you are trusted about where you are. A
+malicious client can lie, and that is accepted for now — there is no prediction,
+no reconciliation and no rollback, and there is no tick buffer to write.
+
+### The one thing combat needed
+
+**Hit detection here is enemy-driven, not player-driven.** A player's swing
+never looks for a target; the wolf does. `Wolf._take_hits()` notices a new
+`attack_serial` on an attacker, asks that attacker's rig for the blade as a line
+segment, and severs whatever it passed through.
+
+That turns out to be exactly the right shape. Gate the wolves' thinking to the
+host, replicate the *swing* so that the host's copy of a remote knight throws
+the same cut at the same moment, and hit detection becomes host-authoritative
+**with no change to the combat logic at all**. One RPC does it:
+
+```gdscript
+@rpc("any_peer", "call_local", "reliable")
+func net_attack(style: int) -> void
+```
+
+`call_local` because the attacker has to play its own swing too; `reliable`
+because a dropped swing is a missed kill.
+
+**The bow is the same trick twice.** An arrow here is not a physics body — it is
+a start, a velocity and a sweep, which is deterministic — so `net_loose` tells
+every peer where one left and how fast, and every peer builds the same flight
+and draws the same streak. What they do not all do is the damage:
+`Wolf.take_hit()` is the host's, so a client's copy of an arrow flies and sticks
+and hurts nobody, while the host's copy of that same arrow is the one that
+counts. The *draw* is replicated separately (`net_draw`, `net_aim`), because it
+is worked out in `_tick_bow()` — which is physics, which a body somebody else is
+driving never runs. Without it a remote archer stands with his bow down and an
+arrow appears out of him.
+
+Two things did have to change, and both were real single-player assumptions
+rather than tidying:
+
+- `Wolf` cached **one** player at `_ready()` — looked up before anybody had
+  spawned, and only ever one of them. It asks for the nearest one now, every
+  think.
+- `_last_hit_serial` was a single number, so **two players swinging in the same
+  tick collapsed into one hit**: the second attacker's serial already looked
+  seen. It is a dictionary keyed by attacker now.
+
+The consequences of a hit are replicated rather than re-derived. The host
+decides *which* limb came away and tells everyone (`Wolf.net_sever`); a client
+that re-ran the geometry would disagree, because its copy of the blade is a
+frame of interpolation behind, and the two windows would end up missing
+different legs. `WolfRig.sever_along_edge()` is split for exactly this: deciding
+is the host's, `detach()` is everyone's. Death goes the other way — `is_dead` is
+replicated and its **setter** runs the cosmetic half, so there is one
+description of what a corpse is.
+
+### Spawning
+
+The player used to be baked into `greybox_world.tscn`. It cannot be: there may
+be four, each a different character, and which ones exist is not known until
+people have connected. [`scripts/world.gd`](scripts/world.gd) holds a
+`MultiplayerSpawner`, four marks, and a spawn function whose data carries the
+**character** — which is the whole answer to "why does everyone look like the
+host". The profile is assigned before the body enters the tree, so
+`Player._spawn_character()` uses it instead of asking the local `Game`.
+
+Offline this is the same path with one peer in it. A solo game is a multiplayer
+game with nobody else in it, not a second way of working.
+
+Two things that bite, written down because they cost time:
+
+- **`leave()` puts back an `OfflineMultiplayerPeer`, not null.** A tree with no
+  peer at all is not "not networked", it is broken: `MultiplayerSpawner.spawn()`
+  refuses to run without one, so a solo game loads a level with nobody in it.
+- **Authority is gated by turning `_physics_process` off**, not by guards. Every
+  one of the twenty `Input.` call sites in `player.gd` is reached from there, so
+  one line covers all of them and there is nothing to forget at the twentieth.
+  `_process` stays on for everyone — that is what animates the other knights,
+  off the replicated mirrors (`net_state`, `net_airborne`, …) rather than off an
+  `is_on_floor()` that is the answer from a tick that body never took.
+
+### Pausing
+
+Escape does **not** stop the world when there is anyone else in it. A paused
+tree stops that peer's synchronizers and its ENet polling, so one player opening
+a menu would freeze their knight in everybody else's window and eventually time
+the connection out — and nobody else agreed to be paused. What the menu keeps
+either way is the mouse: releasing it is the only way out of capture.
+
+### Not in this phase
+
+- **PvP.** Players cannot damage each other; there is no player health at all.
+- *(The bow **was** on this list. It is not any more — see above. The first
+  person to join as Avtandil could not scratch anything, and the first answer
+  was to grey the archer out of multiplayer. That was the wrong answer: barring
+  characters to work around a missing feature does not scale to the four
+  characters this is heading for, so the feature got built instead.)*
+- Prediction, reconciliation, rollback, dedicated servers, matchmaking,
+  anti-cheat, and a readiness handshake for joining mid-load.
+
+### Testing it
+
+`tests/multiplayer_test.gd` checks everything one process can: that bodies are
+spawned rather than baked, that a second peer is built with *its* character,
+that somebody else's body takes no physics ticks and steals no camera, that the
+mirrors are on the wire, that the wolves are gated, and that two attackers in
+one tick both land.
+
+Two peers talking to each other cannot be tested in one process — one
+`SceneTree`, one `multiplayer`. `tools/two_peers.sh` runs two Godots, one
+hosting and one joining, and reads the two logs together. **Each side cuts its
+own wolf**, and both report both:
+
+The host plays the **knight** and cuts its wolf; the client plays the **archer**
+and shoots its own, through the real input path — press, hold, release:
+
+```
+HOST   mywolf health 0 lost 4 dead true   theirwolf health 0 lost 0 dead true
+CLIENT mywolf health 0 lost 0 dead true   theirwolf health 0 lost 4 dead true
+HOST   saw them drawing for 449 frame(s)
+```
+
+The same wolves in the same state in both windows, each killed from the other
+end — and the host saw the client's bow actually drawn rather than arrows
+appearing out of a man standing at ease. The script fails if the two disagree,
+**if either wolf comes through untouched**, or **if the draw never arrived**.
+Those last two are the checks that were missing: the first version only had the
+host attack with a sword, and a client archer who could not hurt anything walked
+straight past it.
 
 ## Graphics
 
@@ -1234,6 +1386,8 @@ icon.svg
 scripts/player.gd        the controller, and the target lock and bow it drives
 scripts/game.gd          autoload: which character is being played, and settings
 scripts/main_menu.gd     the front end, built in code
+scripts/net.gd           autoload: the connection and who is in it
+scripts/world.gd         the level, and spawning the bodies that stand in it
 scripts/character_portrait.gd  the model on its card, lit and turning
 scripts/graphics.gd      what low and high actually change
 scripts/menu_style.gd    the widgets and the palette both menus are made of
@@ -1266,6 +1420,10 @@ tests/debug_retarget.gd  prints mannequin vs Tariel limb angles, and the walk st
 tests/crouch_shots.gd    renders just the crouch and the double-tapped dodge
 tests/climb_shots.gd     renders the wall climb, and a stride sampled right round
 tests/archer_test.gd     headless checks: the archer, the bow, the target lock
+tests/multiplayer_test.gd  headless checks: who owns what, who is spawned
+tests/net_host.gd        one half of the live two-process check
+tests/net_client.gd      the other half
+tools/two_peers.sh       runs both and reads the two logs together
 tests/menu_test.gd       headless checks: the menu's pages and the graphics setting
 tests/perf_probe.gd      frame-time distribution, one configuration at a time
 tests/inspect_ual2.gd    dumps the library's bones, rests and clip list

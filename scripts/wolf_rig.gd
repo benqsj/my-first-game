@@ -248,7 +248,7 @@ func sever_along_edge(from: Vector3, to: Vector3, tolerance: float) -> String:
 			remaining.append(part)
 	if remaining.is_empty():
 		return ""
-	return _take(remaining[_rng.randi() % remaining.size()])
+	return detach(remaining[_rng.randi() % remaining.size()])
 
 
 ## True when the blade passed close enough to any limb still attached.
@@ -273,6 +273,19 @@ func _blade_reaches(from: Vector3, to: Vector3, tolerance: float) -> bool:
 
 
 ## Detaches a limb: it stops following the body and drops where it was cut.
+## Takes a named part off, wherever it is told to.
+##
+## Split out from `sever_along_edge()` on purpose: **deciding** which limb came
+## away is the host's job and **doing** it is everyone's. A client re-running the
+## geometric test would disagree — its copy of the blade is a frame of
+## interpolation behind the host's — and two windows would end up missing
+## different legs.
+func detach(part: String) -> String:
+	if part == "" or _lost.has(part) or not SEVERABLE.has(part):
+		return ""
+	return _take(part)
+
+
 func _take(part: String) -> String:
 	_lost[part] = true
 	var joint := _joints[SEVERABLE[part]] as Node3D

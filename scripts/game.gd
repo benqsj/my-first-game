@@ -29,12 +29,47 @@ var _graphics: Graphics.Level = Graphics.Level.HIGH
 
 func _ready() -> void:
 	_load_settings()
-	for word in OS.get_cmdline_user_args():
+	var argv := OS.get_cmdline_user_args()
+	var connect_as := ""
+	var address := "127.0.0.1"
+	for at in argv.size():
+		var word: String = argv[at]
 		var id := StringName(word.to_lower())
 		if CHARACTERS.has(id):
 			_chosen = id
-			break
+		elif word == "--host":
+			connect_as = "host"
+		elif word == "--join":
+			connect_as = "join"
+			# The next word is the address, unless it is a character name or
+			# another switch — `--join avtandil` means "join the default address
+			# playing the archer", which is the shorter thing to type.
+			if at + 1 < argv.size():
+				var next: String = argv[at + 1]
+				if not next.begins_with("--") and not CHARACTERS.has(StringName(next.to_lower())):
+					address = next
 	Graphics.apply(get_tree(), _graphics)
+	if connect_as != "":
+		# Deferred: the other autoloads are not up yet, and neither is anything
+		# to change scene *to*.
+		_auto_connect.call_deferred(connect_as, address)
+
+
+## Straight into a game from the command line, skipping the menu. This is how
+## two windows on one machine become a host and a client without anybody
+## clicking anything:
+##
+##     godot --path . -- --host tariel
+##     godot --path . -- --join 127.0.0.1 avtandil
+func _auto_connect(how: String, address: String) -> void:
+	var net := get_node_or_null("/root/Net")
+	if net == null:
+		push_error("Game: asked to %s, but there is no Net autoload." % how)
+		return
+	if how == "host":
+		net.call("host", _chosen)
+	else:
+		net.call("join", address, _chosen)
 
 
 ## Who is being played, as an id.

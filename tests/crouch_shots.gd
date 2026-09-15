@@ -19,7 +19,7 @@ func _initialize() -> void:
 
 	var world: Node3D = load(WORLD).instantiate()
 	root.add_child(world)
-	_player = world.get_node("Player")
+	_player = (world as World).player()
 	_camera = Camera3D.new()
 	_camera.fov = 40.0
 	world.add_child(_camera)

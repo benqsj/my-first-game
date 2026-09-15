@@ -45,7 +45,7 @@ func _initialize() -> void:
 
 	var built := Time.get_ticks_msec()
 	root.add_child(_world)
-	_player = _world.get_node("Player")
+	_player = (_world as World).player()
 	_field = _world.get_node_or_null("Level/Scatter") as GrassField
 
 	await process_frame

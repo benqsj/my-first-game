@@ -144,7 +144,12 @@ func _strike(what: Node3D, where: Vector3) -> void:
 
 	if what != null and what.has_method("take_hit"):
 		var blow := -global_transform.basis.y
-		what.call("take_hit", _damage, where, blow, _critical)
+		# Blood here rather than inside the hit. Every peer builds this arrow and
+		# every peer's copy arrives, but only the host's counts for damage — so
+		# the wound is spilled locally, where it is seen, and the hit is asked
+		# for without it.
+		Blood.splatter(Blood.world_of(self), where, blow.normalized())
+		what.call("take_hit", _damage, where, blow, _critical, false)
 		# Arrows that land in something ride it rather than hanging in the air
 		# where it used to be. Deferred, because moving a node between parents
 		# in the middle of a physics step is asking the tree to change under the

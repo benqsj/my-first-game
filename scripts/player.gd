@@ -340,6 +340,25 @@ var _draw_timer: float = 0.0
 var _drawing: bool = false
 var _shot_timer: float = 0.0
 var _shot_rng := RandomNumberGenerator.new()
+
+## Mirrors of internal state, published for the synchronizer.
+##
+## Written by the authority at the end of its own frame and read by everyone
+## else, because a body somebody else is driving takes no physics ticks here and
+## so knows none of this first hand. Public and plainly named on purpose: the
+## replication list in `player.tscn` has to be readable, and `_crouching` and
+## `state` are this class's own business.
+var net_state: int = 0
+var net_blocking: bool = false
+var net_crouching: bool = false
+var net_airborne: bool = false
+var net_stowed: bool = false
+## How far the string is back and where it is pointed. Without these a remote
+## archer stands with his bow down and an arrow simply appears — the draw is
+## worked out in `_tick_bow()`, which is physics, which a body somebody else is
+## driving never runs.
+var net_draw: float = 0.0
+var net_aim: float = 0.0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -400,7 +419,22 @@ func _ready() -> void:
 	# Stop the spring arm from colliding with our own capsule.
 	spring_arm.add_excluded_object(get_rid())
 
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Whose body is this?
+	#
+	# Every peer builds every player, so all four of these exist in all four
+	# windows — but only one of them in each is *driven*. Turning the physics
+	# callback off is what makes the other three inert, and it is the whole of
+	# it: every `Input.` call in this file is reached from `_physics_process`,
+	# so none of them runs for a body that is not yours. One line, and nothing
+	# to forget at the twentieth call site.
+	#
+	# `_process` stays on for everyone — that is what animates the others.
+	var mine := is_multiplayer_authority()
+	camera.current = mine
+	set_physics_process(mine)
+	set_process_unhandled_input(mine)
+	if mine:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -431,19 +465,51 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_fullscreen()
 
 
+## Split in two: the camera is only your own body's business, the animation is
+## everybody's. A knight standing in someone else's window has no physics ticks
+## of its own — its position and velocity arrive over the wire — so the rig is
+## driven from the replicated mirrors rather than from anything it works out
+## for itself.
 func _process(delta: float) -> void:
-	# Smooth follow keeps the camera stable even though the body only moves on
-	# physics ticks. Framerate-independent exponential damping.
-	var target := global_position + Vector3.UP * camera_height
-	var weight := 1.0 - exp(-camera_follow_speed * delta)
-	camera_rig.global_position = camera_rig.global_position.lerp(target, weight)
+	var mine := is_multiplayer_authority()
+	if mine:
+		# Smooth follow keeps the camera stable even though the body only moves
+		# on physics ticks. Framerate-independent exponential damping.
+		var follow := global_position + Vector3.UP * camera_height
+		var weight := 1.0 - exp(-camera_follow_speed * delta)
+		camera_rig.global_position = camera_rig.global_position.lerp(follow, weight)
+		_publish_net_state()
 
-	if rig != null:
-		if state == State.WALLCLIMB:
-			rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
-		var planar := Vector3(velocity.x, 0.0, velocity.z).length()
-		rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), not is_on_floor(),
-				state == State.DASHING, velocity.y, is_blocking)
+	if rig == null:
+		return
+	if state == State.WALLCLIMB:
+		rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
+	# `velocity` is replicated, so the pace is right for everyone. `is_on_floor()`
+	# is not: it is the answer from a physics tick this body never took.
+	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
+	var airborne := not is_on_floor() if mine else net_airborne
+	var dashing := (state if mine else net_state) == State.DASHING
+	# Somebody else's archer draws from the replicated numbers. His own
+	# `_tick_bow()` is physics and never runs here.
+	if not mine:
+		var theirs := rig as ArcherRig
+		if theirs != null:
+			theirs.aim_bow(net_draw, net_aim)
+	rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), airborne,
+			dashing, velocity.y, is_blocking if mine else net_blocking)
+
+
+## Copies the parts of the internal state that other peers have to see into the
+## plain vars the synchronizer carries. Called once a frame by the authority and
+## by nobody else.
+func _publish_net_state() -> void:
+	net_state = state
+	net_blocking = is_blocking
+	net_crouching = _crouching
+	net_airborne = not is_on_floor()
+	net_stowed = weapons_stowed()
+	net_draw = draw_power() if _drawing else 0.0
+	net_aim = _aim_pitch() if has_bow() else 0.0
 
 
 func _physics_process(delta: float) -> void:
@@ -1607,6 +1673,30 @@ func _loose_arrow() -> void:
 	var critical := _shot_rng.randf() < profile.crit_chance
 	var damage := profile.damage * carry * (profile.crit_damage if critical else 1.0)
 
+	# Everywhere, not just here.
+	net_loose.rpc(from, heading * speed, damage, critical)
+	# The shot is thrown; now it has to be lived with. The string going is the
+	# same kind of commitment a swing is — the difference is that the archer
+	# chooses when, because the draw itself can be held or let go of.
+	_commit(loose_recovery)
+	arrow_loosed.emit(power, damage, critical)
+
+
+## The arrow, on every peer.
+##
+## The same trick the sword uses, for the same reason: replicate the **act**,
+## and let the code that was already there land in the right place. An arrow
+## here is not a physics body — it is a start, a velocity and a sweep, which is
+## deterministic — so every peer that is told where it left and how fast builds
+## the same flight and draws the same streak. What they do *not* all do is the
+## damage: `Wolf.take_hit()` is the host's, so a client's copy of an arrow flies
+## and sticks and hurts nobody, while the host's copy of the same arrow is the
+## one that counts. Loosed by a client or by the host, it works out the same.
+##
+## `call_local` because the archer has to see his own shot; `reliable` because a
+## dropped arrow is a missed kill.
+@rpc("any_peer", "call_local", "reliable")
+func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool) -> void:
 	# Loose in the world rather than under the body, so the arrow does not ride
 	# the archer's own movement after it has left the string. `world_of` is the
 	# same answer blood and severed limbs use for the same question.
@@ -1615,15 +1705,10 @@ func _loose_arrow() -> void:
 		var arrow: Node3D = arrow_scene.instantiate()
 		into.add_child(arrow)
 		arrow.global_position = from
-		arrow.call("launch", heading * speed, damage, critical, _gravity * arrow_drop, self)
+		arrow.call("launch", flight, damage, critical, _gravity * arrow_drop, self)
 	var archer := rig as ArcherRig
 	if archer != null:
 		archer.loose_bow()
-	# The shot is thrown; now it has to be lived with. The string going is the
-	# same kind of commitment a swing is — the difference is that the archer
-	# chooses when, because the draw itself can be held or let go of.
-	_commit(loose_recovery)
-	arrow_loosed.emit(power, damage, critical)
 
 
 ## Where the shot goes.
@@ -1754,9 +1839,27 @@ func _attack() -> void:
 		# In the air the blade comes down from over the head. Nothing else reads
 		# as a jumping attack: a horizontal cut thrown off a jump is a man
 		# swinging at the air he is passing through.
-		rig.attack(CharacterRig.AttackStyle.OVERHEAD if airborne else -1)
+		net_attack.rpc(CharacterRig.AttackStyle.OVERHEAD if airborne else -1)
 		_commit(rig.swing_time())
 	_attack_buffer = 0.0
+
+
+## The swing, everywhere.
+##
+## This is the **only** piece of combat that goes over the wire, and it is
+## enough. Hit detection in this game is enemy-driven: a wolf reads the
+## attacker's `attack_serial` and asks its rig where the blade is
+## ([CharacterRig.get_cutting_edge]). So if every peer's copy of every player
+## throws the same swing, the host's copy of a remote knight has a real blade in
+## a real place, and the existing severing code lands host-authoritative without
+## a line of it changing.
+##
+## `call_local` because the attacker has to play its own swing too. `reliable`
+## because a dropped swing is a missed kill.
+@rpc("any_peer", "call_local", "reliable")
+func net_attack(style: int) -> void:
+	if rig != null:
+		rig.attack(style)
 	# TODO: enable the weapon hitbox for the active frames.
 
 

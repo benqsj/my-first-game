@@ -27,7 +27,7 @@ func _initialize() -> void:
 
 	var world: Node3D = load(WORLD).instantiate()
 	root.add_child(world)
-	var player: Player = world.get_node("Player")
+	var player: Player = (world as World).player()
 
 	await process_frame
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

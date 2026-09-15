@@ -30,12 +30,19 @@ func _initialize() -> void:
 
 func _check_menu() -> void:
 	var menu: Control = load(MENU).instantiate()
+	# Loudly, and first. A menu whose script failed to parse instantiates as a
+	# bare Control and every check below it reads null — which is how a broken
+	# menu once got a clean run out of this suite.
+	_check("the menu scene builds at all",
+			menu != null and menu.get_script() != null and menu.get("_pages") != null)
+	if menu == null or menu.get_script() == null:
+		return
 	root.add_child(menu)
 	await _wait(3)
 
 	# Every page exists and exactly one of them is up.
 	var pages: Dictionary = menu.get("_pages")
-	_check("the menu builds all four pages", pages.size() == 4, "%d" % pages.size())
+	_check("the menu builds every page", pages.size() == 5, "%d" % pages.size())
 	_check("it opens on the front page", _visible_pages(pages) == 1,
 			"%d visible" % _visible_pages(pages))
 
@@ -91,13 +98,25 @@ func _check_menu() -> void:
 	_check("the description is the picked character's", named == "AVTANDIL",
 			"'%s'" % named)
 
-	# Co-op says what it is rather than pretending.
+	# Every character can be taken into a game with other people — including the
+	# archer. He was briefly barred while the bow did not cross the wire, and
+	# barring characters is the wrong answer to a missing feature: there are two
+	# more of them coming.
+	menu.set("_chosen", &"avtandil")
 	menu.set("_multiplayer", true)
 	menu.call("_show", 2)
 	await _wait(2)
+	_check("the archer can be taken into a game with other people",
+			menu.get("_chosen") == &"avtandil", "ended up on %s" % menu.get("_chosen"))
+	var archer := (menu.get("_cards") as Dictionary).get(&"avtandil") as Control
+	_check("and nothing is greyed out", archer != null and archer.modulate.a > 0.99,
+			"alpha %.2f" % (archer.modulate.a if archer != null else 0.0))
+
 	var note := (pages[2] as Control).find_child("ModeNote", true, false) as Label
-	_check("multiplayer says it is not ready yet", note != null and not note.text.is_empty(),
+	_check("multiplayer says what it is", note != null and not note.text.is_empty(),
 			"'%s'" % (note.text if note != null else "<missing>"))
+	_check("and there is a page for hosting and joining",
+			(pages[4] as Control).find_child("Address", true, false) is LineEdit)
 	menu.set("_multiplayer", false)
 	menu.call("_show", 2)
 	await _wait(2)
