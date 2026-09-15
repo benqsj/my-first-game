@@ -77,7 +77,15 @@ func _initialize() -> void:
 		await physics_frame
 	var before := wolf.rig.lost_parts()
 	var styles := {}
-	for swing in 8:
+	# Swung until it goes down rather than a fixed eight times. Which limb a cut
+	# takes is random and taking the head ends it on the spot, so a fixed count
+	# is a coin flip: eight swings kills it most of the time, which is exactly
+	# the kind of test that fails once a fortnight and teaches everyone to ignore
+	# it. The bound is what is being asserted — it dies inside a dozen and a half
+	# cuts, not that it dies on the eighth.
+	for swing in 18:
+		if wolf.is_dead:
+			break
 		wolf.global_position = player.global_position + Vector3(0.0, 0.2, -1.3)
 		wolf.velocity = Vector3.ZERO
 		var aim := wolf.global_position - player.global_position
@@ -275,6 +283,81 @@ func _initialize() -> void:
 		await physics_frame
 		if player.is_on_floor() and not player.is_committed():
 			break
+
+	# Choosing the chop is not the same as playing it. A procedural swing is
+	# written into the pose and a running clip overrules it joint by joint — in
+	# the air that clip is the fall loop, at full weight over the whole body, so
+	# the chop was computed every frame and then painted straight over. What came
+	# out was a man falling with his sword held still while something invisible
+	# took a limb off a wolf: the blade tip moved 7 cm through the whole swing.
+	#
+	# Dropped from a height rather than jumped, because a jump's airtime is
+	# shorter than a swing and the landing clip would answer for it.
+	var tip := player.rig.find_child("blade_tip", true, false) as Node3D
+	_check("the blade has a tip to follow", tip != null)
+	if tip != null:
+		player.global_position = Vector3(0.0, 26.0, 30.0)
+		player.velocity = Vector3.ZERO
+		for i in 24:
+			await physics_frame
+		_check("dropping leaves real air under him", not player.is_on_floor())
+		Input.action_press("attack")
+		await physics_frame
+		Input.action_release("attack")
+		var low := 99.0
+		var high := -99.0
+		for i in 34:
+			await physics_frame
+			var at := player.rig.to_local(tip.global_position).y
+			low = minf(low, at)
+			high = maxf(high, at)
+		_check("and the blade actually swings through it", high - low > 0.8,
+				"tip swept %.2f m" % (high - low))
+
+		# --- And a plunge is owed its landing ----------------------------------
+		# A jumping attack that ends with the character on his feet and ready
+		# costs nothing, so there would be no reason ever to throw anything else
+		# and nothing for an opponent to punish. This is what it is paid for
+		# with: the blade goes into the ground and he has to get it back out.
+		player.global_position = Vector3(0.0, 6.0, 30.0)
+		player.velocity = Vector3.ZERO
+		for i in 14:
+			await physics_frame
+		Input.action_press("attack")
+		await physics_frame
+		Input.action_release("attack")
+		# Falling, and already committed: there is no rolling out of a plunge
+		# halfway down.
+		_check("a plunge holds him through the fall",
+				player.is_committed() and not player.is_on_floor())
+		var deepest := 99.0
+		var planted := false
+		var dust := 0
+		for i in 60:
+			await physics_frame
+			if not player.is_on_floor():
+				continue
+			planted = planted or player.rig.is_planted()
+			deepest = minf(deepest, tip.global_position.y)
+			dust = maxi(dust, world.find_children("*", "DustRing", true, false).size())
+		_check("and ends with the blade in the ground", planted)
+		_check("the point actually reaches it", deepest < 0.25,
+				"lowest tip %.2f m" % deepest)
+		_check("and it throws up dirt where it goes in", dust > 0)
+		_check("he is still committed while it is there",
+				player.is_committed() or not player.rig.is_planted())
+
+		for i in 150:
+			await physics_frame
+			if not player.is_committed() and not player.rig.is_planted():
+				break
+		_check("and gets up again afterwards",
+				not player.is_committed() and not player.rig.is_planted())
+
+		player.global_position = Vector3(0.0, 0.3, 30.0)
+		player.velocity = Vector3.ZERO
+		for i in 60:
+			await physics_frame
 	Input.action_press("dash")
 	await physics_frame
 	Input.action_release("dash")

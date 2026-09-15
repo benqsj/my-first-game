@@ -24,6 +24,7 @@ signal weapons_stowed_changed(away: bool)
 signal target_locked(who: Node3D)
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
+signal blade_planted(where: Vector3)
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
 
@@ -212,6 +213,15 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB 
 ## How long an attack pressed during one already running is remembered for, so
 ## the next swing comes out the moment this one ends rather than being eaten.
 @export var attack_buffer_time: float = 0.22
+## How long the blade stays in the ground at the end of a jumping attack, in
+## seconds. This is the price of the move: a plunge that ends with the character
+## on his feet and ready costs nothing, so there would be no reason ever to
+## throw anything else — and nothing for an opponent to punish.
+@export var plunge_recovery: float = 0.85
+## How far in front of the feet the blade goes in, in metres, and how wide the
+## dirt it throws up is.
+@export var plunge_reach: float = 0.36
+@export var plunge_dust: float = 1.0
 ## How long after the last cut a flurry is still running, in seconds. Inside it
 ## the next swing is a follow-up and is slowed; outside it the next swing is a
 ## first one again and keeps its run.
@@ -338,6 +348,8 @@ var _attack_buffer: float = 0.0
 ## The first swing does; the ones chained off it do not.
 var _swing_chain: int = 0
 var _free_swing: bool = false
+## True while a cut thrown in the air still owes the ground its landing.
+var _plunging: bool = false
 ## How long is left before a flurry is considered over and the next swing counts
 ## as a first one again.
 var _chain_timer: float = 0.0
@@ -1731,14 +1743,18 @@ func _attack() -> void:
 	# A swing out of a run, or out of a jump, keeps the speed it was thrown at.
 	# Only the cuts after it are slowed: the first one is the one the player
 	# committed their momentum to, and damping it turns a charge into a shuffle.
-	_free_swing = _swing_chain == 0 or not is_on_floor()
+	var airborne := not is_on_floor()
+	_free_swing = _swing_chain == 0 or airborne
 	_swing_chain += 1
+	# A cut thrown in the air is a **plunge**, and a plunge is owed its landing:
+	# whatever it passes through on the way down, it finishes in the ground.
+	_plunging = airborne
 	attack_started.emit()
 	if rig != null:
 		# In the air the blade comes down from over the head. Nothing else reads
 		# as a jumping attack: a horizontal cut thrown off a jump is a man
 		# swinging at the air he is passing through.
-		rig.attack(CharacterRig.AttackStyle.OVERHEAD if not is_on_floor() else -1)
+		rig.attack(CharacterRig.AttackStyle.OVERHEAD if airborne else -1)
 		_commit(rig.swing_time())
 	_attack_buffer = 0.0
 	# TODO: enable the weapon hitbox for the active frames.
@@ -1755,6 +1771,32 @@ func _commit(seconds: float) -> void:
 ## True while an attack is playing out and nothing else may be started.
 func is_committed() -> bool:
 	return _commit_timer > 0.0
+
+
+## The end of a plunge: the blade goes into the ground and the man behind it
+## has to get it back out.
+##
+## This is what the move is **paid for with**. A jumping attack that ends with
+## the character back on his feet and ready costs nothing, so there would be no
+## reason to throw anything else — and there would be nothing for an opponent to
+## punish, which is the half that matters once there are two players. Burying
+## the sword and pulling it out is the price, and it is the same price every
+## Souls-like charges for the same move.
+##
+## Everything stops: the run, the input, and any way out of it, for
+## `plunge_recovery`. The rig does the standing back up.
+func _plant_blade() -> void:
+	_plunging = false
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_commit(plunge_recovery)
+	if rig != null:
+		rig.plunge(plunge_recovery)
+	# Where the blade went in: in front of the feet, which is where the arm put
+	# it. Dust rather than a flash — a sword going into dirt throws dirt.
+	var at := global_position - global_transform.basis.z * plunge_reach
+	DustRing.burst(Blood.world_of(self), at, plunge_dust)
+	blade_planted.emit(at)
 
 
 ## Puts the body on the target at once, without easing. Nothing to do when there
@@ -1784,6 +1826,10 @@ func _tick_timers(delta: float) -> void:
 	# A flurry is over once nothing has been swung for a beat, and the next cut
 	# counts as a first one again — so running in and hitting something is always
 	# the fast swing, however many were thrown a moment ago.
+	# A plunge holds the commitment open for as long as the fall lasts. There is
+	# no rolling out of one halfway down: the move is thrown and then landed.
+	if _plunging:
+		_commit_timer = maxf(_commit_timer, delta * 2.0)
 	if _commit_timer > 0.0 or _attack_buffer > 0.0:
 		_chain_timer = chain_window
 	else:
@@ -1854,6 +1900,8 @@ func _land() -> void:
 	_air_speed_cap = run_speed
 	landed.emit(_impact_speed)
 	_impact_speed = 0.0
+	if _plunging:
+		_plant_blade()
 
 
 func _toggle_fullscreen() -> void:

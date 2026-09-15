@@ -181,6 +181,22 @@ const CLIP_CLIMB := &"ClimbUp_1m"
 ## The tail of a cut: long enough that a swing has a price, short enough that
 ## the character is not standing to attention through the clip's own settle.
 @export var swing_recovery: float = 0.18
+@export_subgroup("Plunge")
+## Where a jumping attack ends: the blade driven into the ground and the beat it
+## takes to get it back out. How far the sword arm comes down and forward, how
+## deep the knees fold under the landing, and how far the torso comes over it —
+## all radians.
+@export var plunge_arm: float = 0.25
+@export var plunge_knee: float = 1.25
+@export var plunge_lean: float = 0.58
+## How far the wrist rolls the blade over, radians. The sword leaves the hand
+## pointing forward and down, so this is what turns the point at the ground
+## rather than at the horizon.
+@export var plunge_wrist: float = 0.8
+## How much of the beat is the impact itself. The rest is standing back up, and
+## it is the part that is supposed to be felt: a blade buried to the hilt is not
+## something a man snaps out of.
+@export_range(0.05, 0.6) var plunge_hold: float = 0.24
 ## How fast the shield comes up and drops again, radians per second of blend.
 @export var block_speed: float = 16.0
 ## How fast poses cross-fade when the movement state changes.
@@ -315,6 +331,11 @@ var _attack_cutting: bool = false
 ## the back foot planted, the weight between them. Written by `_pose_stance()`,
 ## which is why it is here rather than in whichever rig has a use for it.
 var _brace: float = 0.0
+## The end of a plunging attack: how long is left of it, how long it was, and how
+## much of the planted pose is showing.
+var _plunge_timer: float = 0.0
+var _plunge_length: float = 0.0
+var _plunge_blend: float = 0.0
 
 var _trail: SwordTrail = null
 
@@ -697,6 +718,10 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		_roll_tuck = 0.0
 
 	_update_attack()
+	# After the swing, and over the top of it: a plunge is what *follows* the
+	# chop, so it overwrites whatever the swing left in the pose rather than
+	# being added to it.
+	_update_plunge(delta)
 	if _trail != null:
 		_trail.emitting = _attack_cutting
 
@@ -757,6 +782,52 @@ func attack(style: int = -1) -> void:
 	else:
 		_attack_style = style as AttackStyle
 	_attack_timer = attack_duration
+
+	# Whatever clip is holding the body has to let go of it.
+	#
+	# A procedural swing is written into `_pose`, and `_apply_pose()` lets a
+	# running clip overrule that joint by joint. In the air that clip is the fall
+	# loop, at full weight over the whole body — so the chop was being computed
+	# every frame and then painted over, and what came out was a man falling with
+	# his sword held still while something invisible took a limb off a wolf.
+	# Cutting it hands the arms back; `_track_airborne()` puts the fall loop on
+	# again by itself once the swing is done.
+	if _clip_role != ClipRole.SWING:
+		_cut_action_clip()
+
+
+## Ends a jumping attack: the blade goes into the ground and stays there for a
+## moment before the man behind it can stand back up.
+##
+## This is the landing of a plunge, not the swing — the chop happened in the air.
+## What it is for is the **cost**: a jumping attack that ends with the character
+## back on his feet and ready is a free one, and there would be no reason to
+## throw anything else. Burying the sword and then pulling it out is what the
+## move is paid for with, which is the shape every Souls-like plunging attack
+## has and the shape this one is copied from.
+func plunge(seconds: float) -> void:
+	_plunge_length = maxf(seconds, 0.1)
+	_plunge_timer = _plunge_length
+	# The swing is over; this is what happens instead of its recovery.
+	_attack_timer = 0.0
+	_attack_cutting = false
+	_cut_action_clip()
+
+
+## True while the blade is in the ground.
+func is_planted() -> bool:
+	return _plunge_timer > 0.0
+
+
+## Lets go of whatever one-shot is driving the body, so a pose written into
+## `_pose` is the one that actually shows.
+func _cut_action_clip() -> void:
+	if _clip_role == ClipRole.NONE:
+		return
+	_clip_role = ClipRole.NONE
+	_clip_window = Vector2.ZERO
+	if _action != null:
+		_action.cut()
 
 
 ## How long the swing just started holds the body, in seconds.
@@ -1007,13 +1078,21 @@ func _play_clip(clip: StringName, role: ClipRole, fade: float, speed: float = 1.
 ## flag, so jumping needs nothing wired up on the controller side.
 func _track_airborne(airborne: bool, vertical_speed: float) -> void:
 	if airborne == _was_airborne:
-		# A take-off that ends while still in the air hands over to the fall loop.
-		if airborne and _clip_role == ClipRole.NONE and use_clip_jumps:
+		# A take-off that ends while still in the air hands over to the fall loop
+		# — but not over a swing. An attack thrown in the air cuts whatever was
+		# holding the body so the chop can be seen; putting the fall loop
+		# straight back would paint over it again on the very next frame.
+		if airborne and _clip_role == ClipRole.NONE and use_clip_jumps \
+				and _attack_timer <= 0.0:
 			_play_clip(CLIP_FALL, ClipRole.FALL, 0.14)
 		return
 	_was_airborne = airborne
 
-	if not use_clip_jumps or _clip_role in [ClipRole.SWING, ClipRole.CLIMB, ClipRole.DODGE]:
+	# A plunge lands *on purpose*. The landing clip would come in at full weight
+	# over the whole body and paint the planted pose out — the same way the fall
+	# loop was painting out the chop on the way down, one beat later.
+	if not use_clip_jumps or is_planted() \
+			or _clip_role in [ClipRole.SWING, ClipRole.CLIMB, ClipRole.DODGE]:
 		return
 	if airborne:
 		# Stepping off a ledge is a fall, not a jump; only an upward push is one.
@@ -1037,10 +1116,18 @@ func _fit(clip: StringName, seconds: float) -> float:
 ## Solved from the leg the model actually has rather than dialled in by hand: a
 ## depth typed in beside the knee angle drifts out of step with it the moment
 ## either is touched, and the feet start floating or sinking.
+## How far the knees are bent this frame, radians. Creeping and coming down on a
+## plunge are the same shape held for different reasons, so they are the same
+## number — and everything that has to answer for it, the hip drop most of all,
+## only has one thing to read.
+func _knee_fold() -> float:
+	return crouch_knee * _crouch_blend + plunge_knee * _plunge_blend
+
+
 func _crouch_sink() -> float:
-	if _crouch_blend <= 0.001 or _thigh_length <= 0.0:
+	if _thigh_length <= 0.0 or _knee_fold() <= 0.001:
 		return 0.0
-	var knee := crouch_knee * _crouch_blend
+	var knee := _knee_fold()
 	var thigh := -knee * crouch_hip_ratio
 	var standing := _thigh_length + _shin_length
 	return standing - (_thigh_length * cos(thigh) + _shin_length * cos(thigh + knee))
@@ -1174,7 +1261,10 @@ func _pose_legs() -> void:
 
 	# The crouch folds both legs the same way underneath everything else, so a
 	# crouch-walk is still a walk, only lower.
-	var knee := crouch_knee * _crouch_blend * ground
+	# Crouching and landing a plunge fold the legs the same way, and the hips are
+	# dropped by exactly what that costs — so the boots stay on the ground for
+	# both without a second number to keep in step.
+	var knee := _knee_fold() * ground
 	var thigh := -knee * crouch_hip_ratio
 	var ankle := -(thigh + knee)
 
@@ -1647,6 +1737,37 @@ func _blend_to(joint_name: String, pose: Vector3, weight: float) -> void:
 ## out of the hand — right for a chop, but it makes a horizontal swing read as
 ## waving the arm about. The side cut rolls the wrist so the blade lies out
 ## along the arm and the edge leads.
+## The blade in the ground, and the climb back out of it.
+##
+## One curve, not two: the pose is **full on the frame of impact** — the body is
+## already at the bottom of the chop when it lands, so there is nothing to ease
+## into — held for `plunge_hold` of the beat, and then eased off over the rest.
+## What that reads as is a man who has hit the ground hard and has to gather
+## himself, which is the whole point of the move having an ending at all.
+func _update_plunge(delta: float) -> void:
+	if _plunge_timer <= 0.0:
+		_plunge_blend = 0.0
+		return
+	_plunge_timer = maxf(_plunge_timer - delta, 0.0)
+	var through := 1.0 - _plunge_timer / maxf(_plunge_length, 0.001)
+	_plunge_blend = 1.0 - smoothstep(plunge_hold, 1.0, through)
+	if _plunge_blend <= 0.001:
+		return
+
+	# Sword arm straight down and a little forward, wrist neutral: the blade
+	# comes out of the hand pointing that way already, so this is what puts the
+	# tip in the ground in front of him.
+	_attack_arm = _attack_arm.lerp(
+			Vector4(plunge_arm, 0.06, 0.08, plunge_wrist), _plunge_blend)
+	# Over the top of it, and turned a little towards the blade.
+	_attack_body = _attack_body.lerp(
+			Vector3(plunge_lean, -0.14, -0.08), _plunge_blend)
+	# The shoulder comes in rather than staying held out wide: this is a man
+	# leaning on his sword, not mid-swing.
+	_attack_roll = lerpf(_attack_roll, 0.0, _plunge_blend)
+	_attack_step = maxf(_attack_step, _plunge_blend * 0.35)
+
+
 func _update_attack() -> void:
 	if _clip_role == ClipRole.SWING:
 		# The swing is coming from a clip, so the blade is live over the slice of

@@ -496,12 +496,49 @@ something is always the fast swing however many were thrown a moment ago.
 | `attacks_commit` | the rule itself, so it can be turned off to measure against |
 | `commit_speed_scale` | 0.18 — what is left of the run, **for the cuts after the first** |
 | `chain_window` | 0.5 s — how long a flurry is still running, after which the next cut is a first one again |
+| `plunge_recovery` | 0.85 s — the blade in the ground at the end of a jumping attack, and the climb back out of it |
 | `loose_recovery` | 0.34 s — the archer's equivalent, after the string goes |
 | `attack_buffer_time` | 0.22 s — a press during a swing is *remembered*, not eaten, so a flurry is one press per cut at the player's own rhythm rather than a timing test |
 
 **An attack off a jump comes down from over the head.** `AttackStyle.OVERHEAD`,
 forced rather than taken in turn: a horizontal cut thrown off a jump is a man
 swinging at the air he is passing through.
+
+**And a plunge is owed its landing.** The chop happens in the air; what ends it
+is the ground. The blade goes in in front of the feet, the knees fold under the
+landing, the body comes over it — and then it takes `plunge_recovery` (0.85 s)
+to pull it out and stand back up, committed the whole way. The fall is committed
+too: there is no rolling out of a plunge halfway down.
+
+That last part is the whole move. A jumping attack that ends with the character
+on his feet and ready **costs nothing**, so there would be no reason ever to
+throw anything else and nothing for an opponent to punish. Burying the sword and
+getting it back out is what it is paid for with — the same price every
+Souls-like charges for the same move. There is no stamina yet; this is the
+stamina.
+
+Measured: the tip comes down to **0.08 m** in front of the boots and is back at
+the carry 0.85 s later. `plunge_arm` / `plunge_wrist` are what put it there —
+the sword leaves the hand pointing forward and down, so the wrist is what turns
+the point at the ground rather than at the horizon. The knee fold goes through
+the same `_knee_fold()` the crouch uses, so the hips drop by exactly what the
+folded legs cost and the boots stay on the floor without a second number.
+[`DustRing`](scripts/dust_ring.gd) throws up dirt where it goes in: a ring lying
+*on* the ground rather than a billboard facing the camera, dull and
+alpha-blended, because displaced earth does not shine.
+
+Choosing the chop turned out not to be the same as *playing* it. A procedural
+swing is written into `_pose`, and `_apply_pose()` lets a running clip overrule
+that joint by joint — and in the air the running clip is the fall loop, at full
+weight over the whole body. The chop was being computed every frame and painted
+straight over: the blade tip moved **7 cm** through an entire swing while the
+damage landed on schedule, which is a man falling with his sword held still
+while something invisible takes a limb off a wolf. `attack()` now **cuts**
+whatever clip is holding the body, and `_track_airborne()` knows not to put the
+fall loop back until the swing is done. Same measurement afterwards: **1.47 m**.
+`combat_test.gd` drops him from a height — a jump's airtime is shorter than a
+swing, so the landing clip would otherwise answer for it — and checks the tip
+sweeps at least 0.8 m.
 
 How long a swing commits for is the rig's answer, not a number in the
 controller: `CharacterRig.swing_time()` reports the length of whichever clip it
@@ -1213,6 +1250,7 @@ tools/build_scatter.py   generates the meadows in the world scene
 scripts/character_rig.gd procedural animation, and the clip layers on top of it
 scripts/anim_retarget.gd replays the animation library on the skeleton-less model
 scripts/pipeline_warmup.gd draws the level once at startup so it need not stall later
+scripts/dust_ring.gd         the dirt a blade throws up going into the ground
 scripts/simple_collision.gd  swaps the scenery's trimesh colliders for hulls
 scripts/collider_bake.gd     the hulls, worked out once and kept
 tools/bake_colliders.gd      writes those out; re-run when a model changes
