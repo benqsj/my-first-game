@@ -14,6 +14,11 @@ extends Control
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
 
+## The three columns of the character screen, in pixels: a roster tile, and the
+## stage the picked one stands on. The dossier takes what is left.
+const TILE := Vector2(196.0, 178.0)
+const STAGE := Vector2(400.0, 560.0)
+
 
 enum Page { ROOT, MODE, CHARACTERS, SETTINGS }
 
@@ -24,7 +29,10 @@ var _multiplayer: bool = false
 var _page: Page = Page.ROOT
 var _pages: Dictionary = {}
 var _chosen: StringName = &""
+## The roster tiles down the left, and the full-length portrait of each in the
+## middle — one is built per character and only the picked one is shown.
 var _cards: Dictionary = {}
+var _stages: Dictionary = {}
 var _graphics_buttons: Dictionary = {}
 ## The autoload, looked up once. It holds what was chosen last time and is what
 ## the choices made here are written to.
@@ -98,6 +106,13 @@ func _build_mode() -> Control:
 	return page
 
 
+## Three columns: who there is, who is picked, and what picking them means.
+##
+## The roster down the left is a face each with a name over it, small enough
+## that four of them fit and nothing has to be read to use it. The middle is the
+## one picked, full length and turning. The right is everything the old cards
+## crammed under their own portraits — with one character on screen there is
+## room to lay it out instead of stacking it.
 func _build_characters() -> Control:
 	var page := MenuStyle.page_column()
 	page.add_child(MenuStyle.heading("WHO ARE YOU"))
@@ -109,16 +124,25 @@ func _build_characters() -> Control:
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 28)
+	row.add_theme_constant_override("separation", 34)
+
 	var roster: Array = _game.roster() if _game != null else []
+	var faces := VBoxContainer.new()
+	faces.add_theme_constant_override("separation", 14)
+	faces.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for id: StringName in roster:
-		var card := _character_card(id)
-		_cards[id] = card
-		row.add_child(card)
+		var tile := _roster_tile(id)
+		_cards[id] = tile
+		faces.add_child(tile)
+	row.add_child(faces)
+
+	var stage := _stage(roster)
+	row.add_child(stage)
+	row.add_child(_dossier())
 	page.add_child(row)
 
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0.0, 10.0)
+	gap.custom_minimum_size = Vector2(0.0, 12.0)
 	page.add_child(gap)
 
 	var buttons := MenuStyle.button_column()
@@ -171,43 +195,105 @@ func _show(page: Page) -> void:
 
 
 #region Characters
-## One card per character, with what makes them different read straight off
-## their profile — so the card cannot drift from the numbers the game uses.
-func _character_card(id: StringName) -> Control:
+## One tile in the roster: the character's face, with their name over it.
+##
+## A face rather than a figure, because at this size a whole man is a shape.
+## Kept small on purpose — the roster is for *choosing*, and everything there is
+## to know about the choice is already on screen to the right of it.
+func _roster_tile(id: StringName) -> Control:
 	var profile := _profile(id)
-	var card := Button.new()
-	card.custom_minimum_size = Vector2(340.0, 592.0)
-	card.focus_mode = Control.FOCUS_NONE
-	card.pressed.connect(func() -> void:
+	var tile := Button.new()
+	tile.custom_minimum_size = Vector2(TILE.x, TILE.y)
+	tile.focus_mode = Control.FOCUS_NONE
+	tile.pressed.connect(func() -> void:
 		_chosen = id
 		_refresh_cards())
 
 	var column := VBoxContainer.new()
 	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 10)
-	column.offset_left = 22.0
-	column.offset_right = -22.0
-	column.offset_top = 18.0
-	column.offset_bottom = -18.0
+	column.add_theme_constant_override("separation", 2)
+	column.offset_left = 8.0
+	column.offset_right = -8.0
+	column.offset_top = 8.0
+	column.offset_bottom = -8.0
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(column)
+	tile.add_child(column)
 
-	# The character before the paragraph about them: nobody picks who to play out
-	# of a table of numbers.
-	column.add_child(CharacterPortrait.of(profile, Vector2(296.0, 206.0)))
-	column.add_child(MenuStyle.label(profile.display_name.to_upper(), MenuStyle.HEADING_SIZE, MenuStyle.GOLD))
+	column.add_child(MenuStyle.label(profile.display_name.to_upper(),
+			MenuStyle.BODY_SIZE + 3, MenuStyle.GOLD))
+	column.add_child(CharacterPortrait.of(profile,
+			Vector2(TILE.x - 16.0, TILE.y - 46.0), CharacterPortrait.Frame.FACE))
+	return tile
+
+
+## The middle: whoever is picked, full length and turning. One portrait per
+## character, built once and shown one at a time — a `SubViewport` is not a
+## thing to throw away and rebuild every time the player moves down a list.
+func _stage(roster: Array) -> Control:
+	var stage := PanelContainer.new()
+	stage.name = "Stage"
+	stage.custom_minimum_size = Vector2(STAGE.x, STAGE.y)
+	stage.add_theme_stylebox_override("panel", MenuStyle.panel_style(MenuStyle.PANEL))
+	var slot := Control.new()
+	slot.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(slot)
+	for id: StringName in roster:
+		var full := CharacterPortrait.of(_profile(id), STAGE)
+		full.name = "Full_%s" % id
+		_stages[id] = full
+		slot.add_child(full)
+	return stage
+
+
+## The right: what picking them means. The same lines the old cards carried,
+## with room to be read now that only one character's are on screen.
+func _dossier() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "Dossier"
+	panel.custom_minimum_size = Vector2(380.0, STAGE.y)
+	panel.add_theme_stylebox_override("panel", MenuStyle.panel_style(MenuStyle.PANEL))
+
+	var column := VBoxContainer.new()
+	column.name = "Lines"
+	column.add_theme_constant_override("separation", 10)
+	column.offset_left = 24.0
+	column.offset_right = -24.0
+	column.offset_top = 24.0
+	column.offset_bottom = -24.0
+	panel.add_child(column)
+	return panel
+
+
+## Fills the dossier in for whoever is picked. Rebuilt rather than updated: it is
+## eight labels, and eight labels are cheaper to make than to keep in step.
+func _fill_dossier() -> void:
+	var page := _pages.get(Page.CHARACTERS) as Control
+	if page == null:
+		return
+	var column := page.find_child("Lines", true, false) as VBoxContainer
+	if column == null:
+		return
+	for old in column.get_children():
+		old.queue_free()
+
+	var profile := _profile(_chosen)
+	column.add_child(MenuStyle.label(profile.display_name.to_upper(),
+			MenuStyle.HEADING_SIZE, MenuStyle.GOLD))
 	column.add_child(MenuStyle.label(
 			"BOW" if profile.weapon == CharacterProfile.Weapon.BOW else "SWORD AND SHIELD",
 			MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.35)))
 	column.add_child(MenuStyle.rule())
 	for line in _stat_lines(profile):
-		column.add_child(MenuStyle.label(line, MenuStyle.BODY_SIZE, MenuStyle.CREAM))
+		var stat := MenuStyle.label(line, MenuStyle.BODY_SIZE, MenuStyle.CREAM)
+		stat.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		column.add_child(stat)
 	column.add_child(MenuStyle.rule())
 	var blurb := MenuStyle.label(profile.blurb, MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM)
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	blurb.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(blurb)
-	return card
 
 
 ## What actually differs between them, in the words a player would use.
@@ -241,6 +327,9 @@ func _refresh_cards() -> void:
 		style.set_border_width_all(2 if picked else 0)
 		for slot in ["normal", "hover", "pressed", "focus"]:
 			card.add_theme_stylebox_override(slot, style)
+	for id: StringName in _stages:
+		(_stages[id] as Control).visible = id == _chosen
+	_fill_dossier()
 
 
 func _profile(id: StringName) -> CharacterProfile:

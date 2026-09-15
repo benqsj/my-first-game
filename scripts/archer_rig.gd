@@ -44,9 +44,12 @@ const DRAW_ELBOW := "upperarm_l_end"
 ## the drawing elbow goes back and out behind the hand, level with the arrow.
 @export var bow_elbow_pole: Vector3 = Vector3(0.45, -1.0, -0.15)
 @export var draw_elbow_pole: Vector3 = Vector3(-0.55, 0.15, -1.0)
-## How far the shoulders turn side-on at full draw, radians. An archer square to
-## the target cannot get the string past their own chest.
-@export var aim_torso_turn: float = 0.52
+## How far the body turns side-on at full draw, radians. An archer square to the
+## target cannot get the string past his own chest, and has nowhere to put the
+## drawing elbow but out sideways — which is what a wrong-looking draw *is*.
+## Split across the hips, the spine and the chest, so what turns is the whole
+## man and not his shoulders on top of a body still facing front.
+@export var aim_torso_turn: float = 0.86
 ## How long the bow arm takes to come up, in seconds — on its own clock, not on
 ## the draw's. The bow goes to the target and *then* gets pulled; an arm that
 ## rises in step with the string spends the whole draw being winched into place,
@@ -143,7 +146,15 @@ func is_aiming() -> bool:
 
 
 #region The aim
-func _pose_weapon(delta: float) -> void:
+## The shot's own clock, and the feet it is taken from.
+##
+## An archer draws from a **set stance**: the bow-side foot forward, the weight
+## between the feet, the body turned side-on to the shot. That last one is not
+## decoration — square to the target there is nowhere for the drawing hand to go
+## but out sideways, and the elbow ends up sticking off the body instead of
+## sitting in behind the arrow. Turning the body is what puts it in line, and it
+## is why this runs with the legs rather than with the arms.
+func _pose_stance(delta: float) -> void:
 	var weight := 1.0 - exp(-aim_blend_speed * delta)
 	_draw = lerpf(_draw, _draw_target, weight)
 	_aim_pitch = lerpf(_aim_pitch, _aim_pitch_target, weight)
@@ -161,7 +172,12 @@ func _pose_weapon(delta: float) -> void:
 		# On the string from the moment the hand is on it, and gone the moment it
 		# is loosed — the arrow in the air is a different arrow entirely.
 		_bow_arrow.visible = _draw > 0.02 and _loose <= 0.0
+	# The feet are set as soon as the bow comes up, not as the string comes back:
+	# they go first, which is the order anyone shooting a bow does it in.
+	_brace = _grip
 
+
+func _pose_weapon(_delta: float) -> void:
 	# `_grip` as well as the draw: the arm is still on its way down after a draw
 	# that was let go of, and dropping out here would snap it to his side.
 	if _draw <= 0.001 and _loose <= 0.0 and _grip <= 0.001:

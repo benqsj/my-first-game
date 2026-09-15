@@ -302,6 +302,17 @@ capped at white on every channel, because past one they run into the glow pass;
 same air, only a little warmer. All of this matters most for a fight between two
 players, where a shot nobody can see coming is a shot nobody can answer.
 
+**The arrow leaves along the body, not along the camera.** The camera can be
+looking anywhere; an arrow that leaves at forty degrees to the bow held on
+screen is an arrow the player cannot aim, however correct the maths behind it.
+`_shot_heading()` takes the *pitch* from the aim — so a shot can still be lofted
+or put into something below without the body leaning — and the *bearing* from
+the character. `_face_aim()` is the other half: while the string is held the
+body turns onto the shot, at the target if there is one and down the camera if
+there is not, so by the time it is loosed the two are one line. The rig leans on
+the same number (`_aim_pitch()`), so what the body does and what the arrow does
+are one figure rather than two that happen to agree.
+
 **Aiming levels the camera.** The running camera sits twenty degrees above the
 player looking down, which puts the middle of the screen — the crosshair — on
 the ground a few metres ahead. Shot from there an arrow went into the dirt three
@@ -325,7 +336,7 @@ bow hand and the drawing hand are *solved* to where the bow and the string have
 to be, and the string is pointed at wherever the drawing hand actually ended up
 rather than at where a number says it should be.
 
-A shot is three beats, not one pose, and the first two run on **different
+A shot is four beats, not one pose, and the first three run on **different
 clocks** — which is the whole of what makes it read as archery:
 
 1. **Raise.** The bow arm goes straight out at the target and the drawing hand
@@ -338,8 +349,17 @@ clocks** — which is the whole of what makes it read as archery:
    than the draw. So does the follow-through: the arm stays up through the
    loose, because an arm that drops the moment the string goes has not shot
    anything.
-2. **Draw.** The hand takes the string back to the jaw on an eased curve, the
-   shoulders turn side-on (`aim_torso_turn`), the body leans back into it
+2. **Set.** The feet go with the bow, not with the string: the bow-side foot
+   steps forward, the weight settles between them, and the whole body turns
+   side-on to the shot (`aim_torso_turn`, split across hips, spine and chest so
+   what turns is the man and not his shoulders on top of a body still facing
+   front). This is posture *and* mechanics. Square to the target there is
+   nowhere for the drawing hand to go but out sideways, and the elbow ends up
+   sticking off the ribs — which is what a wrong-looking draw **is**. Turning
+   the body is what puts the elbow in behind the arrow, and it is why the stance
+   is solved in `_pose_stance()`, with the legs, rather than with the arms.
+3. **Draw.** The hand takes the string back to the jaw on an eased curve, the
+   body leans back into it
    (`draw_lean`), the head stays on the arrow whatever the shoulders do under
    it, and the hands shake a little at the top (`draw_strain`) — a pose that is
    perfectly still does not read as effort. All of it is scaled by the draw
@@ -349,7 +369,7 @@ clocks** — which is the whole of what makes it read as archery:
    drawn bow *is*: the limbs give and the string is straight between two ends
    that have moved. With rigid limbs the string bends round a shape that is not
    giving, which is exactly the thing that looks wrong.
-3. **Loose.** `loose_bow()` snaps the limbs straight, throws the drawing hand
+4. **Loose.** `loose_bow()` snaps the limbs straight, throws the drawing hand
    open behind the ear and unwinds the torso over `loose_time`. That is the half
    of a shot that says it happened.
 
@@ -402,10 +422,22 @@ second, because what the player is looking at matters more than what happens to
 be nearest — and holds it until it dies, leaves `lock_break_range`, or the
 button is pressed again.
 
-While locked the body faces the target however it moves, so the stick strafes
-round it and **backs away from it** instead of turning to run. The camera swings
-onto the target and follows, rather than snapping: a lock that jumps the view is
-a lock that loses the player.
+The camera swings onto the target and follows, rather than snapping: a lock that
+jumps the view is a lock that loses the player.
+
+What the **body** does under a lock is three rules, and they are what decide
+where a shot and a cut go, because both leave along the way the character is
+facing:
+
+- **Standing, walking, or backing straight off** — faces the target. Holding
+  ground is what a lock is for, and backing away from something while watching
+  it is a thing people do.
+- **Running anywhere else** — faces the way it is *going* (`lock_run_turns`).
+  Once the player is running they are going somewhere, and a character
+  sprinting sideways with his head over his shoulder is not going there.
+- **Attacking** — snaps onto the target, instantly, before the swing or the
+  shot is thrown. So running past something and cutting at it is not a free
+  miss: movement belongs to the player, the attack belongs to the fight.
 
 It watches from **above** the fight. The pitch it takes is the aim at the target
 *minus* `lock_camera_tilt`, and both halves matter: negative pitch is what puts
@@ -430,6 +462,53 @@ does not wait where it was standing, so the aim is offset by where the target
 will be, and lifted by the drop over the same flight. Without it a slow shot at
 a moving target is a miss the player did nothing wrong to earn.
 
+## Commitment
+
+**Once an attack is thrown it plays out.** No dodging out of it, no jumping out
+of it, no cancelling it, no running out of it, and no second attack until the
+first has finished. This is the Souls rule, and it is the single decision that
+makes the rest of a fight mean anything.
+
+The reason is worth stating, because the alternative looks generous and is not.
+An attack that can be called off the instant it starts going wrong **costs
+nothing to throw** — so there is no reason not to throw one at every opportunity,
+and no reason for an opponent to read anything, because nothing they read can be
+punished. Committing the swing is what puts a price on it, and the price is what
+turns a fight into a sequence of decisions: *is this the moment, and can I afford
+to be wrong about it?* It is also the half of this that will matter most when
+there is a second player on the other end, which is where this is going.
+
+**The first cut keeps its feet.** Committed does not mean slowed: the swing a
+player ran in with is the one they meant to throw, and damping it the instant
+the button goes down reads as slow motion rather than as weight. So the first
+cut of a flurry — and anything thrown in the air, where the arc belongs to the
+jump — moves at the speed it was thrown at. Everything chained off it is damped,
+which is where the weight belongs: standing there hitting something is not a way
+to cross ground. A flurry lapses after `chain_window`, so running in and hitting
+something is always the fast swing however many were thrown a moment ago.
+
+| | |
+| --- | --- |
+| `attacks_commit` | the rule itself, so it can be turned off to measure against |
+| `commit_speed_scale` | 0.18 — what is left of the run, **for the cuts after the first** |
+| `chain_window` | 0.5 s — how long a flurry is still running, after which the next cut is a first one again |
+| `loose_recovery` | 0.34 s — the archer's equivalent, after the string goes |
+| `attack_buffer_time` | 0.22 s — a press during a swing is *remembered*, not eaten, so a flurry is one press per cut at the player's own rhythm rather than a timing test |
+
+**An attack off a jump comes down from over the head.** `AttackStyle.OVERHEAD`,
+forced rather than taken in turn: a horizontal cut thrown off a jump is a man
+swinging at the air he is passing through.
+
+How long a swing commits for is the rig's answer, not a number in the
+controller: `CharacterRig.swing_time()` reports the length of whichever clip it
+chose to play, or the procedural swing's own duration when there is no library.
+So a longer cut commits you for longer without anything being kept in step by
+hand.
+
+The draw is **not** committed — it can be held or let go of, which is the whole
+of what a bow is — but the shot is: `_tick_bow()` treats the recovery as busy,
+so the next draw cannot start until the arm has come down.
+
 ## The menu
 
 `scripts/main_menu.gd` builds all four pages — the front, solo-or-co-op,
@@ -438,16 +517,29 @@ all of it is the same three widgets with the same styling and a script that
 makes one button well makes twenty. Everything that decides how it looks is a
 constant at the top of that file.
 
-The character cards are generated from the profiles: name, weapon, run speed,
-roll distance, crit chance, whether there is a shield to put up, and the blurb,
-with a "— faster" or "— further" against the knight wherever the numbers differ.
-So a card cannot drift from the numbers the game actually uses.
+**Character select is three columns**: the roster down the left, whoever is
+picked in the middle, and what picking them means on the right.
 
-Each card also **shows the character**
-([`CharacterPortrait`](scripts/character_portrait.gd)): the model in its own
-`SubViewport`, lit, turning slowly, framed from the shins up. What a player
-chooses between is a hooded archer and an armoured knight, and neither of those
-is a table of numbers.
+- The **roster** is a tile each — the character's *face*, with their name over
+  it. A face rather than a figure because at that size a whole man is a shape,
+  and small on purpose: the roster is for choosing, and everything there is to
+  know about the choice is already on screen beside it. Four of them fit.
+- The **stage** is the one picked, head to boots, turning. One portrait per
+  character is built and only the picked one is shown — a `SubViewport` is not a
+  thing to throw away and rebuild every time the player moves down a list, and
+  the hidden ones neither draw nor pose anyone
+  (`UPDATE_WHEN_VISIBLE`, plus an `is_visible_in_tree()` guard on `_process`).
+- The **dossier** is generated from the profile: name, weapon, run speed, roll
+  distance, crit chance, whether there is a shield to put up, and the blurb,
+  with a "— faster" or "— further" against the knight wherever the numbers
+  differ. So it cannot drift from the numbers the game actually uses. With one
+  character on screen there is room to lay it out instead of stacking it under a
+  portrait.
+
+All three portraits are the same node ([`CharacterPortrait`](scripts/character_portrait.gd)),
+with the camera in one of two places — `Frame.FULL` or `Frame.FACE`. What a
+player chooses between is a hooded archer and an armoured knight, and neither of
+those is a table of numbers.
 
 It is the **same model the game spawns**, under the **same rig**, with
 `animate()` called once a frame at a standstill — so the breathing, the weight

@@ -191,6 +191,31 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB 
 ## How fast the body turns to face one. Quicker than a running turn: facing the
 ## thing you are fighting is not something to carve into.
 @export var lock_turn_speed: float = 16.0
+## Whether running while locked turns the body the way it is going, instead of
+## strafing round the target. Backing straight off still watches the target —
+## walking away from something is not the same as breaking off from it.
+@export var lock_run_turns: bool = true
+
+@export_group("Commitment")
+## Once a swing or a shot is thrown, nothing else runs until it is finished: no
+## dodge, no jump, no second attack, no cancelling out of it. This is the whole
+## of what makes a fight a series of decisions rather than a mash — an attack
+## that can be called off mid-swing costs nothing to start.
+@export var attacks_commit: bool = true
+## How much of the run survives the commitment. Not zero: a swing that nails the
+## feet to the floor reads as a cutscene. Elden Ring lets the step-through carry
+## you, and no more than that.
+@export_range(0.0, 1.0) var commit_speed_scale: float = 0.18
+## How long after the string goes before anything else may be done, in seconds —
+## the archer's equivalent of a swing's recovery.
+@export var loose_recovery: float = 0.34
+## How long an attack pressed during one already running is remembered for, so
+## the next swing comes out the moment this one ends rather than being eaten.
+@export var attack_buffer_time: float = 0.22
+## How long after the last cut a flurry is still running, in seconds. Inside it
+## the next swing is a follow-up and is slowed; outside it the next swing is a
+## first one again and keeps its run.
+@export var chain_window: float = 0.5
 
 @export_group("Bow")
 ## How much of the run survives while the string is being held. An archer at a
@@ -305,6 +330,17 @@ var _draw_timer: float = 0.0
 var _drawing: bool = false
 var _shot_timer: float = 0.0
 var _shot_rng := RandomNumberGenerator.new()
+## How long is left of the attack currently being committed to, and an attack
+## pressed while it runs, waiting for it to end.
+var _commit_timer: float = 0.0
+var _attack_buffer: float = 0.0
+## How many cuts into the current flurry, and whether *this* one keeps its run.
+## The first swing does; the ones chained off it do not.
+var _swing_chain: int = 0
+var _free_swing: bool = false
+## How long is left before a flurry is considered over and the next swing counts
+## as a first one again.
+var _chain_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -475,10 +511,21 @@ func has_bow() -> bool:
 ## Action buttons are polled rather than read from _unhandled_input() so that a
 ## press is never lost between physics ticks and so simulated input works.
 func _read_actions() -> void:
-	if Input.is_action_just_pressed("stow"):
-		_set_weapons_stowed(not weapons_stowed())
+	# Looking around, letting go of a target and putting the weapons away are
+	# always allowed: none of them moves the body, so none of them is a way out
+	# of a swing.
 	if Input.is_action_just_pressed("lock_on"):
 		_toggle_lock()
+
+	# Mid-swing, the only thing the buttons do is queue the next one. Everything
+	# below this line is a way of *not* finishing the attack.
+	if is_committed():
+		if Input.is_action_just_pressed("attack"):
+			_attack_buffer = attack_buffer_time
+		return
+
+	if Input.is_action_just_pressed("stow"):
+		_set_weapons_stowed(not weapons_stowed())
 
 	# The shield is only up while the button is held; rolling and sliding drop it.
 	# A character with no shield has nothing to raise.
@@ -508,6 +555,10 @@ func _read_actions() -> void:
 	# release, because what the bow is worth is how long the press lasted.
 	if not has_bow() and Input.is_action_just_pressed("attack"):
 		_attack()
+	elif not has_bow() and _attack_buffer > 0.0:
+		# The swing that was asked for during the last one. Taken the moment the
+		# last one lets go, so a flurry is one press per cut.
+		_attack()
 
 
 func _process_locomotion(delta: float) -> void:
@@ -519,6 +570,14 @@ func _process_locomotion(delta: float) -> void:
 	# what makes choosing when to draw a decision rather than a formality.
 	if _drawing:
 		speed *= draw_speed_scale
+	# And nobody runs out of the *second* swing. The first one keeps whatever it
+	# was thrown at — a charge that turns into a shuffle the instant the button
+	# goes down reads as slow motion, not as weight — and so does anything thrown
+	# in the air, where the arc is the jump's and not the sword's. What follows is
+	# damped, which is where the weight belongs: standing there hitting something
+	# is not a way to cross ground.
+	if is_committed() and not _free_swing:
+		speed *= commit_speed_scale
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
 
@@ -539,13 +598,7 @@ func _process_locomotion(delta: float) -> void:
 			horizontal = horizontal.move_toward(Vector3.ZERO, ground_deceleration * delta)
 		else:
 			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
-		# Locked on, the body keeps facing what it is fighting however it moves,
-		# so the stick strafes round it and backs away from it instead of
-		# turning to run. Otherwise it faces the way it is going, as ever.
-		if target != null:
-			_face_target(delta)
-		elif not direction.is_zero_approx():
-			_face_direction(direction, delta)
+		_aim_body(direction, delta)
 	else:
 		# In the air the stick steers the arc rather than driving it: the jump
 		# keeps the speed it launched with and control only redirects it.
@@ -554,10 +607,7 @@ func _process_locomotion(delta: float) -> void:
 		else:
 			horizontal = horizontal.move_toward(direction * speed,
 					ground_acceleration * air_control * delta)
-		if target != null:
-			_face_target(delta)
-		elif not direction.is_zero_approx():
-			_face_direction(direction, delta)
+		_aim_body(direction, delta)
 		var cap := maxf(_air_speed_cap, speed)
 		if horizontal.length() > cap:
 			horizontal = horizontal.limit_length(cap)
@@ -617,6 +667,62 @@ func get_movement_direction() -> Vector3:
 	var direction := cam_basis.x * input.x + cam_basis.z * input.y
 	direction.y = 0.0
 	return direction.normalized()
+
+
+## Which way the body is pointed this frame, and the one rule everything else
+## about fighting hangs off: **the character shoots and cuts where he is facing**,
+## so where he is facing has to be somewhere the player chose.
+##
+## Four cases, in order:
+##
+## * **Mid-attack** — held on whatever it was thrown at. A swing does not steer.
+## * **Drawing** — the body turns to the shot. Without this the bow points one
+##   way and the arrow leaves another, which is the only thing worse than an
+##   arrow you cannot see.
+## * **Locked and running** — the body turns the way it is *going*. Strafing in
+##   a circle is for holding ground; once the player is running they are going
+##   somewhere, and a character sprinting sideways with his head over his
+##   shoulder is not going there. Backing straight off is the exception: walking
+##   away from something while watching it is a thing people do.
+## * **Otherwise** — the way it is going, as ever.
+func _aim_body(direction: Vector3, delta: float) -> void:
+	if is_committed():
+		return
+	if _drawing:
+		_face_aim(delta)
+		return
+	if target != null:
+		if not lock_run_turns or direction.is_zero_approx() or _backing_off(direction):
+			_face_target(delta)
+			return
+	if not direction.is_zero_approx():
+		_face_direction(direction, delta)
+
+
+## True when the stick is pointed away from what is being fought — backing off
+## rather than breaking off.
+func _backing_off(direction: Vector3) -> bool:
+	if target == null:
+		return true
+	var to_them := target.global_position - global_position
+	to_them.y = 0.0
+	if to_them.length_squared() < 0.0001:
+		return true
+	return direction.dot(to_them.normalized()) < -0.35
+
+
+## Turns the body onto the shot: at the target when there is one, down the
+## camera otherwise. The arrow leaves along this, so this is the aim.
+func _face_aim(delta: float) -> void:
+	if target != null and _targetable(target):
+		_face_target(delta)
+		return
+	var looking := -camera.global_transform.basis.z
+	looking.y = 0.0
+	if looking.length_squared() < 0.0001:
+		return
+	rotation.y = lerp_angle(rotation.y, atan2(-looking.x, -looking.z),
+			1.0 - exp(-lock_turn_speed * delta))
 
 
 func _face_direction(direction: Vector3, delta: float) -> void:
@@ -1431,7 +1537,10 @@ func has_target() -> bool:
 func _tick_bow(delta: float) -> void:
 	_shot_timer = maxf(_shot_timer - delta, 0.0)
 	var holding := Input.is_action_pressed("attack")
-	var busy := state != State.GROUNDED and state != State.AIRBORNE
+	# Committed as well as rolling: the beat after the string goes belongs to the
+	# shot that was just taken, and an archer who can start the next draw before
+	# his arm has come down is an archer with no rate of fire to manage.
+	var busy := (state != State.GROUNDED and state != State.AIRBORNE) or is_committed()
 
 	if busy:
 		# Rolling or climbing with a drawn bow is not a thing. The draw is lost,
@@ -1473,9 +1582,13 @@ func _loose_arrow() -> void:
 	_draw_timer = 0.0
 	_shot_timer = profile.shot_cooldown if profile != null else 0.2
 
+	# Where the shot is pointed is decided *before* the body is turned onto the
+	# target, so a shot loosed while running sideways goes at what is being
+	# fought rather than past it.
+	_turn_to_target()
 	var from := global_position + up_direction * arrow_height
 	var speed := lerpf(profile.arrow_speed_snap, profile.arrow_speed, power)
-	var heading := _aim_direction(from, speed)
+	var heading := _shot_heading(from, speed)
 	# A tap is worth `snap_share` of a full draw and no less; the rest of the
 	# scale is earned by holding.
 	var carry := lerpf(profile.snap_share, 1.0, power)
@@ -1494,11 +1607,38 @@ func _loose_arrow() -> void:
 	var archer := rig as ArcherRig
 	if archer != null:
 		archer.loose_bow()
+	# The shot is thrown; now it has to be lived with. The string going is the
+	# same kind of commitment a swing is — the difference is that the archer
+	# chooses when, because the draw itself can be held or let go of.
+	_commit(loose_recovery)
 	arrow_loosed.emit(power, damage, critical)
 
 
-## Where the shot goes: at whatever is being fought, or at whatever the camera
-## is pointing at when nothing is.
+## Where the shot goes.
+##
+## Down the line the **body** is facing, at the pitch the aim asks for. Not down
+## the camera: the camera can be looking anywhere, and an arrow that leaves at
+## forty degrees to the bow held on screen is an arrow the player cannot aim,
+## however correct the maths behind it. `_face_aim()` is the other half — while
+## the string is held the body turns onto the shot, so by the time it is loosed
+## the two are the same line.
+func _shot_heading(from: Vector3, speed: float = 40.0) -> Vector3:
+	var wanted := _aim_direction(from, speed)
+	var forward := -global_transform.basis.z
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		return wanted
+	forward = forward.normalized()
+	# The pitch is the aim's; the bearing is the body's. Keeping the pitch is
+	# what lets a shot be lofted or put into something below without the body
+	# having to lean.
+	var rise := clampf(wanted.y, -1.0, 1.0)
+	return (forward * sqrt(maxf(1.0 - rise * rise, 0.0)) + Vector3.UP * rise).normalized()
+
+
+## Where the shot is *asked* to go: at whatever is being fought, or at whatever
+## the camera is pointing at when nothing is. What actually leaves the bow is
+## `_shot_heading()`, which keeps this pitch and takes its bearing off the body.
 ##
 ## A locked shot leads its target. An arrow takes a beat to arrive and a wolf
 ## does not wait where it was standing, so aiming at where it *is* means a slow
@@ -1551,26 +1691,81 @@ func _level_camera(delta: float) -> void:
 
 
 ## How far off the level the shot is aimed, in radians, for the rig to lean on.
+## The same heading the arrow will leave on, so what the body does and what the
+## arrow does are one number rather than two that happen to agree.
 func _aim_pitch() -> float:
 	var from := global_position + up_direction * arrow_height
-	var heading := _aim_direction(from)
-	return asin(clampf(heading.y, -1.0, 1.0))
+	return asin(clampf(_shot_heading(from).y, -1.0, 1.0))
 #endregion
 
 
-#region Combat placeholder
+#region Combat
+## Throws a cut, and **commits to it**.
+##
+## The commitment is the point. An attack you can call off the instant it starts
+## going wrong costs nothing to throw, so there is no reason not to throw it at
+## every opportunity, and a fight becomes a mash. Souls games answer that by
+## making the swing a decision you have already made: once it is out, it plays,
+## and dodging, jumping and swinging again all have to wait. What that buys is
+## the other half — reading an opponent's commitment and punishing it — which is
+## the whole of the fight and the whole of what will matter in PvP.
+##
+## A press during a swing is remembered rather than eaten, so a flurry is one
+## press per cut at the player's own rhythm instead of a timing test.
 func _attack() -> void:
+	if is_committed():
+		_attack_buffer = attack_buffer_time
+		return
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
 	# Swinging a sword that is on your back takes it off your back first. There
 	# is no draw clip in the library, so the blade crosses back to the hand over
 	# the same beat as the wind-up rather than being drawn during it.
 	_set_weapons_stowed(false)
+	# Facing is part of the commitment: a cut thrown while running sideways round
+	# something goes where the fighter is *pointed*, and the fighter points at
+	# what he is fighting. It snaps here rather than easing, because the swing
+	# starts now and an attack that turns into the target halfway through it is a
+	# cut that misses.
+	_turn_to_target()
+	# A swing out of a run, or out of a jump, keeps the speed it was thrown at.
+	# Only the cuts after it are slowed: the first one is the one the player
+	# committed their momentum to, and damping it turns a charge into a shuffle.
+	_free_swing = _swing_chain == 0 or not is_on_floor()
+	_swing_chain += 1
 	attack_started.emit()
 	if rig != null:
-		rig.attack()
-	# TODO: promote this to a real attack state that locks movement and enables
-	# the weapon hitbox for the active frames.
+		# In the air the blade comes down from over the head. Nothing else reads
+		# as a jumping attack: a horizontal cut thrown off a jump is a man
+		# swinging at the air he is passing through.
+		rig.attack(CharacterRig.AttackStyle.OVERHEAD if not is_on_floor() else -1)
+		_commit(rig.swing_time())
+	_attack_buffer = 0.0
+	# TODO: enable the weapon hitbox for the active frames.
+
+
+## Holds everything else off for `seconds`. Zero or a shorter time than is
+## already left never shortens a commitment already running.
+func _commit(seconds: float) -> void:
+	if not attacks_commit:
+		return
+	_commit_timer = maxf(_commit_timer, seconds)
+
+
+## True while an attack is playing out and nothing else may be started.
+func is_committed() -> bool:
+	return _commit_timer > 0.0
+
+
+## Puts the body on the target at once, without easing. Nothing to do when there
+## is nothing being fought: a free swing goes where the fighter already faces.
+func _turn_to_target() -> void:
+	if target == null or not _targetable(target):
+		return
+	var to_them := _aim_point(target) - global_position
+	to_them.y = 0.0
+	if to_them.length_squared() > 0.0001:
+		rotation.y = atan2(-to_them.x, -to_them.z)
 #endregion
 
 
@@ -1584,6 +1779,17 @@ func _tick_timers(delta: float) -> void:
 	_slide_timer = maxf(_slide_timer - delta, 0.0)
 	_slide_cooldown_timer = maxf(_slide_cooldown_timer - delta, 0.0)
 	_wall_cooldown_timer = maxf(_wall_cooldown_timer - delta, 0.0)
+	_commit_timer = maxf(_commit_timer - delta, 0.0)
+	_attack_buffer = maxf(_attack_buffer - delta, 0.0)
+	# A flurry is over once nothing has been swung for a beat, and the next cut
+	# counts as a first one again — so running in and hitting something is always
+	# the fast swing, however many were thrown a moment ago.
+	if _commit_timer > 0.0 or _attack_buffer > 0.0:
+		_chain_timer = chain_window
+	else:
+		_chain_timer = maxf(_chain_timer - delta, 0.0)
+		if _chain_timer <= 0.0:
+			_swing_chain = 0
 
 
 ## Reads back what the move actually hit: the steep ground the next tick has to

@@ -181,6 +181,112 @@ func _initialize() -> void:
 				break
 	_check("the corpse is cleared away", not is_instance_valid(wolf))
 
+	# --- A swing is a decision already made ----------------------------------
+	# The Souls rule, and the one thing that stops a fight being a mash: once a
+	# cut is thrown it plays, and dodging, jumping and swinging again all have to
+	# wait for it. An attack that can be called off the instant it starts going
+	# wrong costs nothing to throw — so there would be no reason not to throw one
+	# at every opportunity, and nothing to read or punish. It is also the half of
+	# this that will matter when there is a second player on the other end of it.
+	player.global_position = Vector3(0.0, 0.2, 30.0)
+	player.velocity = Vector3.ZERO
+	player.target = null
+	for i in 20:
+		await physics_frame
+	var standing := player.global_position
+
+	Input.action_press("attack")
+	await physics_frame
+	Input.action_release("attack")
+	await physics_frame
+	_check("a swing commits the whole of itself", player.is_committed())
+
+	# Every way out of it, tried in the middle of the cut.
+	var was_state := player.state
+	Input.action_press("dash")
+	await physics_frame
+	Input.action_release("dash")
+	Input.action_press("jump")
+	await physics_frame
+	Input.action_release("jump")
+	await physics_frame
+	_check("and cannot be dodged out of", player.state == was_state,
+			"state %d" % player.state)
+	_check("or jumped out of", player.is_on_floor(), "y %.2f" % player.global_position.y)
+
+	# But the *first* cut keeps its feet. A charge that turns into a shuffle the
+	# instant the button goes down reads as slow motion rather than as weight —
+	# the swing you ran in with is the one you meant to throw.
+	Input.action_press("move_forward")
+	for i in 12:
+		await physics_frame
+	var carried := standing.distance_to(player.global_position)
+	Input.action_release("move_forward")
+	_check("but the first cut keeps its run",
+			carried > player.run_speed * 0.2 * 0.5,
+			"%.2f m in a fifth of a second" % carried)
+
+	# And then it all comes back.
+	for i in 90:
+		await physics_frame
+		if not player.is_committed():
+			break
+	_check("the commitment ends with the swing", not player.is_committed())
+
+	# The cut after it is the one that is slowed. Standing there hitting
+	# something is not a way to cross ground, and by the second swing the player
+	# has stopped charging and started fighting.
+	player.velocity = Vector3.ZERO
+	var second := player.global_position
+	Input.action_press("attack")
+	await physics_frame
+	Input.action_release("attack")
+	Input.action_press("move_forward")
+	for i in 12:
+		await physics_frame
+	var chained := second.distance_to(player.global_position)
+	Input.action_release("move_forward")
+	_check("and the cut after it is the one that is slowed",
+			chained < carried * 0.5, "%.2f m against %.2f" % [chained, carried])
+	for i in 120:
+		await physics_frame
+		if not player.is_committed():
+			break
+
+	# An attack off a jump comes down from over the head. Nothing else reads as a
+	# jumping attack: a horizontal cut thrown off a jump is a man swinging at the
+	# air he is passing through.
+	for i in 40:
+		await physics_frame
+	Input.action_press("jump")
+	await physics_frame
+	Input.action_release("jump")
+	for i in 8:
+		await physics_frame
+	_check("a jump gets off the ground", not player.is_on_floor())
+	Input.action_press("attack")
+	await physics_frame
+	Input.action_release("attack")
+	await physics_frame
+	_check("and an attack in the air chops straight down",
+			player.rig.current_attack_style() == CharacterRig.AttackStyle.OVERHEAD,
+			"style %d" % player.rig.current_attack_style())
+	for i in 120:
+		await physics_frame
+		if player.is_on_floor() and not player.is_committed():
+			break
+	Input.action_press("dash")
+	await physics_frame
+	Input.action_release("dash")
+	await physics_frame
+	_check("and everything works again",
+			player.state == Player.State.DASHING or player.state == Player.State.DODGING,
+			"state %d" % player.state)
+	for i in 90:
+		await physics_frame
+		if player.state == Player.State.GROUNDED:
+			break
+
 	# --- Creatures get about the world ---------------------------------------
 	# The greybox staircase, at x = -10 and climbing towards -z. A hunter that
 	# cannot follow you up six steps is one you beat by standing on a step.

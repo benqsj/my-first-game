@@ -50,40 +50,46 @@ func _check_menu() -> void:
 			cards.size() == _game.roster().size(), "%d cards" % cards.size())
 
 	# And shows them. Choosing between a hooded archer and an armoured knight out
-	# of a table of numbers is choosing a spreadsheet row.
+	# of a table of numbers is choosing a spreadsheet row. The roster tile down
+	# the left is a face each; the middle is whoever is picked, full length.
 	var shown := 0
-	var turning := 0
-	var angles: Array[float] = []
 	for id: StringName in cards:
-		var found := (cards[id] as Control).find_children("*", "CharacterPortrait",
-				true, false)
-		if found.is_empty():
-			continue
-		var portrait := found[0] as CharacterPortrait
-		var stand := portrait.find_child("Stand", true, false) as Node3D
-		var eye := not portrait.find_children("*", "Camera3D", true, false).is_empty()
-		# The model itself, not a picture of one: a mesh under the stand, from the
-		# same scene the game spawns.
-		var model := stand != null and not stand.find_children("*", "MeshInstance3D",
-				true, false).is_empty()
-		if stand != null and eye and model:
+		if _has_model(cards[id] as Control):
 			shown += 1
-			angles.append(stand.rotation.y)
-	_check("every card shows the character it is offering", shown == cards.size(),
+	_check("every roster tile shows the face it is offering", shown == cards.size(),
 			"%d of %d" % [shown, cards.size()])
 
+	var stages: Dictionary = menu.get("_stages")
+	_check("and there is a full-length one of each to stand in the middle",
+			stages.size() == cards.size(), "%d of %d" % [stages.size(), cards.size()])
+
+	# One at a time: the others are built but hidden, and a hidden `SubViewport`
+	# should not be drawing or posing anyone.
+	menu.set("_chosen", &"avtandil")
+	menu.call("_refresh_cards")
+	await _wait(2)
+	var up := 0
+	for id: StringName in stages:
+		if (stages[id] as Control).visible:
+			up += 1
+	_check("with only the one picked on the stage", up == 1, "%d up" % up)
+
+	# And it turns, so the player sees more of them than one side.
+	var stage := stages[&"avtandil"] as CharacterPortrait
+	var stand := stage.find_child("Stand", true, false) as Node3D
+	var angle: float = stand.rotation.y
 	await _wait(20)
-	var i := 0
-	for id: StringName in cards:
-		var found := (cards[id] as Control).find_children("*", "CharacterPortrait",
-				true, false)
-		var stand := (found[0] as Node).find_child("Stand", true, false) as Node3D \
-				if not found.is_empty() else null
-		if stand != null and i < angles.size() and not is_equal_approx(stand.rotation.y, angles[i]):
-			turning += 1
-		i += 1
-	_check("and turns them so both sides can be seen", turning == shown,
-			"%d of %d turning" % [turning, shown])
+	_check("and turns so both sides can be seen",
+			not is_equal_approx(stand.rotation.y, angle),
+			"%.2f -> %.2f" % [angle, stand.rotation.y])
+
+	# The description belongs to whoever is on the stage.
+	var lines := (pages[2] as Control).find_child("Lines", true, false) as VBoxContainer
+	var named := ""
+	if lines != null and lines.get_child_count() > 0:
+		named = (lines.get_child(0) as Label).text
+	_check("the description is the picked character's", named == "AVTANDIL",
+			"'%s'" % named)
 
 	# Co-op says what it is rather than pretending.
 	menu.set("_multiplayer", true)
@@ -188,6 +194,19 @@ func _check_pause() -> void:
 	_check("and leaves the level", not is_instance_valid(world)
 			or current_scene != world)
 	await _wait(3)
+
+
+## True when `where` carries a portrait with a camera and an actual model under
+## it — the thing the game spawns, not a picture of one.
+func _has_model(where: Control) -> bool:
+	var found := where.find_children("*", "CharacterPortrait", true, false)
+	if found.is_empty():
+		return false
+	var portrait := found[0] as Control
+	var stand := portrait.find_child("Stand", true, false) as Node3D
+	return stand != null \
+			and not portrait.find_children("*", "Camera3D", true, false).is_empty() \
+			and not stand.find_children("*", "MeshInstance3D", true, false).is_empty()
 
 
 func _visible_pages(pages: Dictionary) -> int:

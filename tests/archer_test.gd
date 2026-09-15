@@ -111,16 +111,53 @@ func _check_lock() -> void:
 					_player.global_position.distance_to(quarry.global_position),
 					facing_now.dot(away.normalized())])
 
-	# Sideways is a strafe, not a turn.
+	# Running sideways is going somewhere, and a man going somewhere faces it.
+	# Holding ground and backing off both keep watching the target; a run does
+	# not, because a character sprinting with his head over his shoulder is not
+	# running anywhere.
+	#
+	# A fresh wolf that has never seen anyone, because the one above has been
+	# hunting for two hundred ticks and a wolf already chasing does not stop
+	# because its sight is taken away. Which way "right" points relative to
+	# something that has walked round behind you is not a thing to assert on.
+	quarry.queue_free()
+	_drop_lock()
+	quarry = _wolf_at(Vector3(9.0, 0.5, 6.0))
+	quarry.sight_range = 0.0
+	quarry.prowl_speed = 0.0
+	_player.global_position = Vector3(6.0, 0.2, 12.0)
+	_player.rotation.y = 0.0
+	_player.camera_rig.rotation.y = 0.0
+	_player.velocity = Vector3.ZERO
+	await _wait(10)
+	await _take_lock()
+	await _wait(25)
 	Input.action_press("move_right")
-	await _wait(30)
-	Input.action_release("move_right")
+	await _wait(35)
 	var strafed := -_player.global_transform.basis.z
-	var still := (quarry.global_position - _player.global_position)
-	still.y = 0.0
-	_check("and going sideways strafes round it",
-			strafed.dot(still.normalized()) > 0.9,
-			"%.2f" % strafed.dot(still.normalized()))
+	var going := _player.get_movement_direction()
+	Input.action_release("move_right")
+	_check("running sideways turns him the way he is going",
+			strafed.dot(going) > 0.9, "%.2f" % strafed.dot(going))
+
+	# And shooting turns him straight back onto it. This is the other half of the
+	# rule: movement is the player's, but an attack goes at what is being fought,
+	# so running past something and loosing is not a free miss.
+	Input.action_press("move_right")
+	await _wait(20)
+	Input.action_press("attack")
+	await _wait(6)
+	Input.action_release("attack")
+	await _wait(2)
+	Input.action_release("move_right")
+	var shot := -_player.global_transform.basis.z
+	var at_it := quarry.global_position - _player.global_position
+	at_it.y = 0.0
+	_check("and loosing turns him back onto the target",
+			shot.dot(at_it.normalized()) > 0.9, "%.2f" % shot.dot(at_it.normalized()))
+	# That arrow is not part of anything counted later.
+	await _wait(40)
+	await _clear_arrows()
 
 	# Back to a known spot before the next lot: the checks above walked him
 	# around, and which enemy is "to the left" depends on where he is standing.
@@ -236,6 +273,17 @@ func _check_bow() -> void:
 	await _wait(2)
 	_check("letting go looses the arrow", _arrows() == 1, "%d in the air" % _arrows())
 	_check("and the bow is no longer drawn", not _player.is_drawing())
+
+	# The string going is a commitment the same way a swing is. The difference is
+	# that the archer chooses *when*, because the draw itself can be held — but
+	# once it is away he lives with it, and cannot roll out of the recovery.
+	_check("the shot commits him to it", _player.is_committed())
+	var stood := _player.state
+	Input.action_press("dash")
+	await _wait(2)
+	Input.action_release("dash")
+	_check("and he cannot roll out of the recovery", _player.state == stood,
+			"state %d" % _player.state)
 
 	var flying := _first_arrow()
 	var was := flying.global_position
@@ -412,6 +460,29 @@ func _wolf_at(where: Vector3) -> Wolf:
 	_world.add_child(wolf)
 	wolf.global_position = where
 	return wolf
+
+
+## Presses E, or lets go of it — the button is a toggle, so taking a lock means
+## knowing whether one is already held.
+func _take_lock() -> void:
+	if _player.target != null:
+		return
+	Input.action_press("lock_on")
+	await _wait(3)
+	Input.action_release("lock_on")
+	await _wait(3)
+
+
+func _drop_lock() -> void:
+	_player.target = null
+
+
+## Clears the sky. Arrows linger where they land, and a check that counts them
+## has to start from none.
+func _clear_arrows() -> void:
+	for arrow in root.find_children("*", "Arrow", true, false):
+		arrow.queue_free()
+	await _wait(3)
 
 
 func _arrows() -> int:

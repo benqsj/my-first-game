@@ -174,6 +174,13 @@ const CLIP_CLIMB := &"ClimbUp_1m"
 
 @export_group("Actions")
 @export var attack_duration: float = 0.55
+## How far a held brace steps the lead foot forward, as a share of the step a
+## swing throws. Under one: setting your feet is not lunging.
+@export var brace_step: float = 0.75
+## How long the body is held after the blade has stopped travelling, in seconds.
+## The tail of a cut: long enough that a swing has a price, short enough that
+## the character is not standing to attention through the clip's own settle.
+@export var swing_recovery: float = 0.18
 ## How fast the shield comes up and drops again, radians per second of blend.
 @export var block_speed: float = 16.0
 ## How fast poses cross-fade when the movement state changes.
@@ -304,6 +311,10 @@ var _attack_roll: float = 0.0
 var _attack_step: float = 0.0
 ## True only while the blade is actually travelling, which is when it streaks.
 var _attack_cutting: bool = false
+## How far the feet are set into a braced stance, 0 to 1 — the lead foot forward,
+## the back foot planted, the weight between them. Written by `_pose_stance()`,
+## which is why it is here rather than in whichever rig has a use for it.
+var _brace: float = 0.0
 
 var _trail: SwordTrail = null
 
@@ -695,6 +706,10 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			0.0, TAU)
 
 	var t := Time.get_ticks_msec() / 1000.0
+	# Before the legs, because what a weapon asks of the *stance* — an archer
+	# setting his feet to draw — has to be known by the time the legs are posed.
+	# Anything a weapon does to the arms happens later, after they exist.
+	_pose_stance(delta)
 	# Legs first: how far the hips have to come down for the feet to stay on the
 	# ground is worked out there, and the torso hangs off the answer.
 	_pose_legs()
@@ -742,6 +757,26 @@ func attack(style: int = -1) -> void:
 	else:
 		_attack_style = style as AttackStyle
 	_attack_timer = attack_duration
+
+
+## How long the swing just started holds the body, in seconds.
+##
+## The controller needs it because a swing is a **commitment**: once it is thrown
+## nothing else may run until it is finished with, and the only thing that knows
+## how long that is is whatever the rig chose to play.
+##
+## Not the clip's length. `Sword_Regular_C` runs two full seconds and the blade
+## has stopped travelling a third of the way in — the rest is the knight settling
+## — and holding the player still through all of it would read as a freeze rather
+## than as a swing. What is committed to is **the cut plus a recovery**: the end
+## of the window the edge is actually live for, and `swing_recovery` after it.
+func swing_time() -> float:
+	if _clip_role == ClipRole.SWING and _action != null:
+		var length := _action.clip_length(_action.loaded_clip())
+		if length > 0.0:
+			var travelled := length * maxf(_clip_window.y, 0.2)
+			return minf(travelled + swing_recovery, length)
+	return maxf(_attack_timer, attack_duration)
 
 
 ## The procedural swing currently being thrown. Meaningless while a clip is
@@ -1130,7 +1165,12 @@ func _pose_legs() -> void:
 	# A swing steps through: the shield-side leg goes forward and takes the
 	# weight while the sword-side leg braces behind. Damped while already
 	# striding so it does not fight the walk cycle.
-	var step := _attack_step * (1.0 - 0.65 * _stride_blend)
+	#
+	# A brace is the same shape held rather than thrown — an archer sets his feet
+	# the way a swordsman ends a step-through, and stays there while the string is
+	# back — so it rides the same number rather than a second set of offsets that
+	# would have to be balanced against the first.
+	var step := (_attack_step + brace_step * _brace) * (1.0 - 0.65 * _stride_blend)
 
 	# The crouch folds both legs the same way underneath everything else, so a
 	# crouch-walk is still a walk, only lower.
@@ -1321,7 +1361,8 @@ func _pose_torso(t: float) -> void:
 		# pull the hips down to keep the planted foot on the ground, worked out
 		# in _pose_legs() and already damped by whatever share of them the walk
 		# clip has taken.
-		var step_drop := _attack_step * (1.0 - 0.65 * _stride_blend)
+		var step_drop := (_attack_step + brace_step * _brace) \
+				* (1.0 - 0.65 * _stride_blend)
 		# A clip that crouches or leaves the ground carries the hips with it; the
 		# travel is already scaled down to this body.
 		var shift := _clip_hips_offset()
@@ -1557,6 +1598,19 @@ func _reach_for_wall(root_name: String, elbow_name: String, reach: float,
 	var solved := _solve_limb(target, _upperarm_length, _forearm_length, -1.0)
 	_blend_to(root_name, Vector3(solved.x, 0.0, splay), weight)
 	_blend_to(elbow_name, Vector3(solved.y, 0.0, 0.0), weight)
+
+
+## How the feet are set, before they are posed.
+##
+## Separate from `_pose_weapon()` and earlier than it because a stance is a leg
+## thing and the legs go first. An archer at full draw is not standing the way he
+## walks: one foot is forward, the weight is between them and the whole body is
+## turned side-on to the shot. Anything with a stance of its own sets `_brace`
+## here; whatever advances the weapon's own clock belongs here too, so the arms
+## and the legs are working off the same frame's numbers rather than one being a
+## frame behind the other.
+func _pose_stance(_delta: float) -> void:
+	pass
 
 
 ## What this particular character is carrying, posed over the body. The knight's

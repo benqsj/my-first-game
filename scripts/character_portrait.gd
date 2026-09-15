@@ -24,22 +24,43 @@ extends SubViewportContainer
 ## Which way it is facing when the page opens, in radians — three-quarters on, so
 ## the silhouette reads and the weapon is not hidden behind the body.
 @export var start_angle: float = -0.55
-## Where the camera looks and how far back it stands, in metres. Framed from
-## about the shins up rather than head to toe: the card is wider than it is tall,
-## and a whole standing figure in it is a thumbnail with air either side.
-@export var eye_height: float = 1.05
-@export var eye_back: float = 2.95
+## Where the camera looks, how far back it stands (metres) and how wide it sees
+## (degrees). Set from the framing rather than by hand — see `Frame`.
+@export var eye_height: float = 1.0
+@export var eye_back: float = 3.45
+@export var eye_fov: float = 34.0
 
 var _stand: Node3D
 var _rig: Node3D
 
 
+## How it is framed. A roster of faces to pick from and the one picked standing
+## in the middle are the same node with the camera in two places.
+enum Frame {
+	FULL, ## Head to boots — the whole character, their build and what they carry.
+	FACE, ## Head and shoulders, for a thumbnail too small to read a figure in.
+}
+
 ## Builds one for `profile` at `size` pixels. Hands back an empty container if
 ## the profile has no model, rather than a broken one.
-static func of(profile: CharacterProfile, size: Vector2) -> CharacterPortrait:
+static func of(profile: CharacterProfile, size: Vector2,
+		framing: Frame = Frame.FULL) -> CharacterPortrait:
 	var portrait := CharacterPortrait.new()
 	portrait.custom_minimum_size = size
 	portrait.stretch = true
+	if framing == Frame.FULL:
+		# Standing back far enough that head and boots both fit a frame that is
+		# taller than it is wide.
+		portrait.eye_height = 1.0
+		portrait.eye_back = 3.45
+	elif framing == Frame.FACE:
+		# Close enough that the head fills it, and squarer on: a thumbnail of a
+		# man in three-quarter profile at this size is a shape, not a face.
+		portrait.eye_height = 1.74
+		portrait.eye_back = 1.02
+		portrait.eye_fov = 32.0
+		portrait.start_angle = -0.3
+		portrait.turn_speed = 0.0
 	# The card underneath is the button: a portrait that eats the click is a
 	# character that cannot be picked by clicking on their own face.
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -50,7 +71,9 @@ static func of(profile: CharacterProfile, size: Vector2) -> CharacterPortrait:
 	view.size = Vector2i(size)
 	view.own_world_3d = true
 	view.transparent_bg = true
-	view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# Only while it is on screen. The select page keeps one of these per
+	# character and shows one at a time; the hidden ones should cost nothing.
+	view.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 	# No shadows to cast and nothing behind to receive them; this is a figure on
 	# a plain ground, and the lighting is the two lamps below.
 	view.positional_shadow_atlas_size = 0
@@ -75,7 +98,9 @@ static func of(profile: CharacterProfile, size: Vector2) -> CharacterPortrait:
 
 
 func _process(delta: float) -> void:
-	if _stand == null:
+	# Hidden portraits are not being looked at, and posing a body nobody can see
+	# is a rig's worth of work per character per frame for nothing.
+	if _stand == null or not is_visible_in_tree():
 		return
 	_stand.rotation.y = wrapf(_stand.rotation.y + turn_speed * delta, -PI, PI)
 	# Standing still, on the ground, not jumping, not rolling, not blocking. The
@@ -112,7 +137,7 @@ func _lights() -> Node3D:
 
 func _eye() -> Camera3D:
 	var camera := Camera3D.new()
-	camera.fov = 34.0
+	camera.fov = eye_fov
 	camera.position = Vector3(0.0, eye_height + 0.14, eye_back)
 	camera.look_at_from_position(camera.position, Vector3(0.0, eye_height, 0.0),
 			Vector3.UP)
