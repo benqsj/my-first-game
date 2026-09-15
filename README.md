@@ -395,10 +395,14 @@ holding a stick:
   three angles: an arm held out level sits on the euler singularity, where two
   sets of angles that mean the same orientation interpolate to something that
   means nothing at all.
-- **A draw stops at the face.** The string comes back to the jaw — `0.62 m` from
+- **A draw stops at the face.** The string comes back to the jaw — `0.71 m` from
   grip to hand on this model. Past that is not a longer draw, it is an arm
-  coming out of its socket, and it was the other half of why the pose looked
-  wrong. `archer_test.gd` measures the draw length and where the elbow ends up.
+  coming out of its socket.
+- **And it stops on its *own side* of the face.** The anchor reached 9 cm past
+  the head's centre line and sat under the far cheek, and what that reads as is
+  an arm wrapped round the archer's own neck. `archer_test.gd` measures all
+  three: the draw length, where the elbow ends up, and that the hand never
+  crosses the centre line.
 - **The bow is placed after the body, not before.** It hangs off a hand whose
   orientation `_apply_pose()` has not written yet, so standing it upright before
   that used last frame's arm. `_place_props()` runs after, which is also where
@@ -1133,6 +1137,45 @@ the player gets control. About 0.3 s of startup. Set `enabled = false` on the
 > concluding the game stutters, check `uptime` and Activity Monitor — a runaway
 > background process will out-stutter anything in here.
 
+### The stutter near the house was not the rendering
+
+A second, unrelated one, found later and worth writing down because the shape of
+the mistake repeats. Walking towards the house hitched, and the obvious suspects
+— the 68 MB house model, its twelve materials — were all innocent.
+
+Godot's GLB importer gives **every mesh in a model its own `StaticBody3D` with a
+`ConcavePolygonShape3D` cut from that mesh**. What arrived was:
+
+| | |
+| --- | --- |
+| the house | 43 bodies, 31,032 triangles of collision |
+| the cart | **2 bodies, 13,416 triangles** |
+
+The player's tick is a `move_and_slide()`, three `test_move()`s for the step-up
+and a contact pass, and each of them has to ask that geometry whether a capsule
+has touched it. Measured with the player walking past the house wall:
+
+| | physics, a tick |
+| --- | --- |
+| as imported | **8.9 ms** |
+| cart simplified | 3.1 ms |
+| both simplified | **1.5 ms** |
+
+8.9 ms is half a 60 Hz frame spent deciding whether a capsule has touched a
+cart — and the cart was two thirds of it, for a prop you walk around. The fix is
+[`SimpleCollision`](scripts/simple_collision.gd) on the `House` and `Cart` nodes:
+one convex hull per mesh instead of a trimesh. Hulls keep the shape of things
+that have one — a box over a sloped roof is a block the player stands on in
+mid-air — but QuickHull takes a second over forty-five meshes, so they are baked:
+
+    godot --path . --headless --script res://tools/bake_colliders.gd
+
+Run that again whenever one of the models is re-exported. Without a bake nothing
+breaks: `SimpleCollision` falls back to per-mesh bounding boxes, which are wrong
+in detail and right in kind. `smoke_test.gd` checks the shapes were replaced,
+that the cart is still solid, and that a tick beside the house still costs less
+than 6 ms — the three ways this can quietly come undone.
+
 ## Swapping in the real models
 
 Replace the scene under `Visuals` with the imported knight, keep the origin at
@@ -1170,6 +1213,9 @@ tools/build_scatter.py   generates the meadows in the world scene
 scripts/character_rig.gd procedural animation, and the clip layers on top of it
 scripts/anim_retarget.gd replays the animation library on the skeleton-less model
 scripts/pipeline_warmup.gd draws the level once at startup so it need not stall later
+scripts/simple_collision.gd  swaps the scenery's trimesh colliders for hulls
+scripts/collider_bake.gd     the hulls, worked out once and kept
+tools/bake_colliders.gd      writes those out; re-run when a model changes
 assets/tariel/tariel.glb the Tariel model
 assets/anim/ual2.glb     Quaternius Universal Animation Library 2, CC0
 scenes/player/player.tscn

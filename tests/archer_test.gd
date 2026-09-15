@@ -349,6 +349,15 @@ func _check_string() -> void:
 	var elbow := rig.find_child("upperarm_l_end", true, false) as Node3D
 	var here := rig.to_local(elbow.global_position)
 	var upper := here - rig.to_local(shoulder.global_position)
+	# On its own side of the head, not across it. Reaching past the centre line
+	# puts the hand under the far cheek, and what that reads as is an arm
+	# wrapped round the archer's own neck.
+	var skull := rig.find_child("head", true, false) as Node3D
+	var at_hand := rig.to_local(hand.global_position)
+	_check("the drawing hand anchors beside the jaw, not across the neck",
+			at_hand.x < rig.to_local(skull.global_position).x + 0.03,
+			"hand x %.2f, head x %.2f" % [at_hand.x, rig.to_local(skull.global_position).x])
+
 	_check("the drawing elbow is behind the hand",
 			here.z < rig.to_local(hand.global_position).z - 0.15,
 			"elbow %.2f, hand %.2f" % [here.z, rig.to_local(hand.global_position).z])

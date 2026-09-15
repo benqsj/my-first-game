@@ -32,12 +32,14 @@ const DRAW_ELBOW := "upperarm_l_end"
 ## which is where a bow arm actually goes.
 @export var bow_hand_reach: Vector3 = Vector3(-0.13, 0.01, 0.46)
 ## Where the drawing hand starts and where it ends up, relative to *its*
-## shoulder. It starts out on the string beside the bow and finishes **at the
-## jaw** — across the face and a little above the shoulder, which on this model
-## is where the head is. Further back than that is not a longer draw, it is an
-## arm dislocating: the string has to stop somewhere a hand can hold it.
+## shoulder. It starts out on the string beside the bow and finishes **beside
+## the jaw on its own side of the head** — not across it. Reaching past the
+## centre line puts the hand under the far cheek, and what that reads as is an
+## arm wrapped round the archer's own neck. Further back is not a longer draw
+## either, it is a shoulder coming out of its socket: the string has to stop
+## somewhere a hand can actually hold it.
 @export var draw_hand_home: Vector3 = Vector3(0.18, 0.04, 0.34)
-@export var draw_hand_full: Vector3 = Vector3(0.17, 0.11, 0.01)
+@export var draw_hand_full: Vector3 = Vector3(0.065, 0.15, 0.03)
 ## Which way each elbow is pushed, in the model's frame. This is the one thing a
 ## shoulder and an elbow leave free once the hand is pinned, and for an arm it is
 ## most of the pose: the bow arm's elbow rolls down and out of the string's way,

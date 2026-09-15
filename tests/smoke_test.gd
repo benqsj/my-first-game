@@ -644,6 +644,61 @@ func _initialize() -> void:
 		var back := rad_to_deg(upright.angle_to(clump.transform.basis.y.normalized()))
 		_check("grass springs back up", back < 1.0, "%.1f deg" % back)
 
+	# --- Scenery is collided against, but not to the nearest plank -----------
+	# The importer gives every mesh in a model its own trimesh collider. The
+	# cart arrived as two shapes holding 13,416 triangles and the house as
+	# forty-three holding 31,032, and walking past them cost most of a frame:
+	# 8.9 ms of physics a tick against 0.5 ms out on the plain. That is the
+	# stutter near the house, and it has nothing to do with the rendering.
+	for group_name in ["Level/House", "Level/Cart"]:
+		var group := world.get_node_or_null(group_name) as SimpleCollision
+		_check("%s has its colliders simplified" % group_name.get_file(),
+				group != null and group.swapped > 0,
+				"%d shapes" % (group.swapped if group != null else -1))
+		var trimesh := 0
+		var shapes := 0
+		if group != null:
+			for node in group.find_children("*", "CollisionShape3D", true, false):
+				shapes += 1
+				if (node as CollisionShape3D).shape is ConcavePolygonShape3D:
+					trimesh += 1
+		_check("and none of them is still a trimesh", trimesh == 0,
+				"%d of %d" % [trimesh, shapes])
+
+	# Simplified is not the same as absent. A cart you can walk through is a
+	# cheaper cart and a worse one.
+	var cart := world.get_node_or_null("Level/Cart") as Node3D
+	if cart != null:
+		player.global_position = cart.global_position + Vector3(0.0, 0.3, 4.0)
+		player.velocity = Vector3.ZERO
+		await _wait(30)
+		var before_cart := player.global_position
+		for i in 70:
+			player.velocity.x = -8.0 * (cart.global_position - before_cart).normalized().x
+			player.velocity.z = -8.0
+			await physics_frame
+		_check("and the cart is still solid",
+				player.global_position.distance_to(cart.global_position) > 0.9,
+				"%.2f m from it" % player.global_position.distance_to(cart.global_position))
+
+	# And the whole point of it: what a tick costs beside the house.
+	player.global_position = Vector3(-16.0, 0.3, -13.0)
+	player.velocity = Vector3.ZERO
+	await _wait(40)
+	var ticks: Array[float] = []
+	for i in 90:
+		player.velocity.x = 3.0
+		player.velocity.z = 3.0
+		await physics_frame
+		ticks.append(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0)
+	ticks.sort()
+	var median: float = ticks[ticks.size() / 2]
+	# Generous: it measured 1.5 ms against 8.9 before, and this has to survive a
+	# loaded machine without crying wolf. What it catches is the collider
+	# simplification quietly coming undone.
+	_check("a physics tick beside the house is affordable", median < 6.0,
+			"%.2f ms" % median)
+
 	print("")
 	if _failures == 0:
 		print("All checks passed.")

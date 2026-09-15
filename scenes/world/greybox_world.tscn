@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="9_pause"]
@@ -13,6 +13,9 @@
 [ext_resource type="PackedScene" path="res://scenes/enemies/wolf.tscn" id="10_wolf"]
 [ext_resource type="PackedScene" path="res://scenes/enemies/golem.tscn" id="11_golem"]
 [ext_resource type="Script" path="res://scripts/pipeline_warmup.gd" id="12_warmup"]
+[ext_resource type="Script" path="res://scripts/simple_collision.gd" id="13_simple_col"]
+[ext_resource type="Resource" path="res://assets/house/house_hulls.tres" id="14_house_hulls"]
+[ext_resource type="Resource" path="res://assets/uremi /cart_hulls.tres" id="15_cart_hulls"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_horizon_color = Color(0.65, 0.65, 0.68, 1)
@@ -261,12 +264,18 @@ shape = SubResource("BoxShape3D_pillar")
 
 [node name="House" type="Node3D" parent="Level"]
 transform = Transform3D(0.906, 0, -0.423, 0, 1, 0, 0.423, 0, 0.906, -18, 0, -16)
+script = ExtResource("13_simple_col")
+mode = 1
+bake = ExtResource("14_house_hulls")
 
 [node name="house22" parent="Level/House" instance=ExtResource("7_house")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.52, 0, 0.13)
 
 [node name="Cart" type="Node3D" parent="Level"]
 transform = Transform3D(0.564, 0, 0.826, 0, 1, 0, -0.826, 0, 0.564, -13, 0, -11)
+script = ExtResource("13_simple_col")
+mode = 1
+bake = ExtResource("15_cart_hulls")
 
 [node name="uremi" parent="Level/Cart" instance=ExtResource("8_cart")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.02, 0, -0.34)
