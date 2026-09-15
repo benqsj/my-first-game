@@ -16,9 +16,10 @@ extends MeshInstance3D
 ## should be on the thing being fought.
 @export var height: float = 0.85
 ## How big it is, in metres, and how much bigger it gets with distance so that
-## it stays readable across a field.
-@export var size: float = 0.13
-@export var grow_with_range: float = 0.010
+## it stays readable across a field. Small: it says *which*, and anything past
+## the size it takes to say that is sitting on top of the thing being fought.
+@export var size: float = 0.091
+@export var grow_with_range: float = 0.007
 ## Brighter than white on purpose. Past 1 the colour runs into the glow pass, so
 ## the mark reads as lit rather than as a sticker.
 @export var tint: Color = Color(1.35, 1.35, 1.35)

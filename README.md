@@ -278,12 +278,29 @@ sprint cannot aim and being able to would make every other approach pointless.
 Rolling or climbing loses the draw — it is not banked.
 
 Arrows fly slowly enough to be seen and stepped out of — 34 m/s off a full draw,
-21 off a snap — and leave a **streak** behind them, the same ribbon the sword
-leaves given a segment lying across the flight instead of along it. Without one
-an arrow is a centimetre across crossing half a metre a frame: a thing that is
-never on screen where you are looking, least of all from directly behind it,
-which is where the camera is. Both matter for a fight between two players, where
-a shot nobody can see coming is a shot nobody can answer.
+21 off a snap. That is necessary and nowhere near sufficient. An arrow is a
+centimetre across crossing half a metre a frame, seen mostly end-on because that
+is where the camera is; at that size the shaft is never actually on screen where
+anyone is looking. What carries the shot is **the air it cuts**:
+
+- a thin **line** down the flight path — the same ribbon the sword leaves, given
+  a segment lying across the flight instead of along it. It is hung off a node
+  that undoes the roll, so the band stays a flat sheet instead of winding into a
+  corkscrew and pinching to nothing twice a turn;
+- a wider, fainter **wake** around it, gone sooner. Two ribbons rather than one
+  wide one because that is the difference between air parting and a searchlight:
+  the edge of the wake has to be soft where the line down the middle is not;
+- the shaft **rolls** as it goes, at `spin` turns a second, because fletching
+  spins an arrow and a shaft that never turns over reads as a decal sliding
+  across the screen.
+
+**None of it is light.** An earlier pass gave the head a glow and put a flare at
+each end of the flight, and what that read as was an explosion crossing the
+field — the shot stopped looking like an arrow at all. Every colour in here is
+capped at white on every channel, because past one they run into the glow pass;
+`archer_test.gd` checks that and checks nothing flares. A critical shot cuts the
+same air, only a little warmer. All of this matters most for a fight between two
+players, where a shot nobody can see coming is a shot nobody can answer.
 
 **Aiming levels the camera.** The running camera sits twenty degrees above the
 player looking down, which puts the middle of the screen — the crosshair — on
@@ -308,18 +325,75 @@ bow hand and the drawing hand are *solved* to where the bow and the string have
 to be, and the string is pointed at wherever the drawing hand actually ended up
 rather than at where a number says it should be.
 
-Two things had to be right before it looked like archery rather than like a man
+A shot is three beats, not one pose, and the first two run on **different
+clocks** — which is the whole of what makes it read as archery:
+
+1. **Raise.** The bow arm goes straight out at the target and the drawing hand
+   comes onto the string beside it, both in `aim_raise_time` (0.17 s) however
+   long the draw is going to take. An archer puts the bow on the target and
+   *then* pulls; an arm that comes up in step with the string spends the whole
+   0.85 s of a draw being winched into place and at a quarter draw is still
+   somewhere near the hip. Everything that is *held* — the bow, the hand on the
+   string, the arrow across the rest, the bow's orientation — rides this rather
+   than the draw. So does the follow-through: the arm stays up through the
+   loose, because an arm that drops the moment the string goes has not shot
+   anything.
+2. **Draw.** The hand takes the string back to the jaw on an eased curve, the
+   shoulders turn side-on (`aim_torso_turn`), the body leans back into it
+   (`draw_lean`), the head stays on the arrow whatever the shoulders do under
+   it, and the hands shake a little at the top (`draw_strain`) — a pose that is
+   perfectly still does not read as effort. All of it is scaled by the draw
+   *squared*, so a snap shot barely leaves the run and a full draw commits the
+   whole body. The bow is built as a chain — grip → limb → horn → string — and
+   the limbs bend back by `limb_flex` as the string comes in. That is what a
+   drawn bow *is*: the limbs give and the string is straight between two ends
+   that have moved. With rigid limbs the string bends round a shape that is not
+   giving, which is exactly the thing that looks wrong.
+3. **Loose.** `loose_bow()` snaps the limbs straight, throws the drawing hand
+   open behind the ear and unwinds the torso over `loose_time`. That is the half
+   of a shot that says it happened.
+
+There is no reach-over-the-shoulder to fetch an arrow. It was built and then
+taken out: it put a beat of rummaging in front of every shot, including the
+tapped ones the archer is supposed to be fast at, and what the hands do while
+aiming matters more than where the arrow came from. The model still carries the
+spare (`bow_spare`); it is simply never shown.
+
+Four things had to be right before it looked like archery rather than like a man
 holding a stick:
 
-- **The shoulders need a yaw, not just a pitch.** The legs' solve swings a limb
-  in one plane, which is all a knee ever needs. A bow arm out in front and a
-  drawing arm back past the jaw are nowhere near the same plane, and a shoulder
-  that can only pitch reaches neither — it lands short and below, which is
-  exactly what a badly drawn bow looks like. `_solve_aim()` adds the yaw.
+- **The elbow has to be told where to go.** Two bones and a pinned hand leave
+  exactly one thing free — which way round the shoulder-to-hand axis the elbow
+  swings — and for an arm that one thing is most of the pose. Solved without
+  choosing it, the drawing arm came out with the upper arm pointing at the sky
+  and the forearm folded back down it: the hand in the right place and the arm
+  a chicken wing. `_reach_with()` takes a **pole** per arm — the bow elbow rolls
+  down and out of the string's way, the drawing elbow goes back and out behind
+  the hand, level with the arrow — and gives the shoulder a whole basis rather
+  than a pitch and a yaw, because a pitch and a yaw *are* the version with no
+  elbow control. The basis is eased in by `slerp`, not by interpolating its
+  three angles: an arm held out level sits on the euler singularity, where two
+  sets of angles that mean the same orientation interpolate to something that
+  means nothing at all.
+- **A draw stops at the face.** The string comes back to the jaw — `0.62 m` from
+  grip to hand on this model. Past that is not a longer draw, it is an arm
+  coming out of its socket, and it was the other half of why the pose looked
+  wrong. `archer_test.gd` measures the draw length and where the elbow ends up.
 - **The bow is placed after the body, not before.** It hangs off a hand whose
   orientation `_apply_pose()` has not written yet, so standing it upright before
   that used last frame's arm. `_place_props()` runs after, which is also where
   the string is pointed and the arrow slid back.
+- **The string is aimed in the horn's frame, not the bow's.** Each half hangs
+  off the horn the limb flex has just moved, so a pull point measured in the
+  bow's frame and compared against a position in the horn's is two different
+  rooms. It still looked like a string from some angles — it just also trailed
+  off to a point near the archer's feet, 1.76 m from the hand that was supposedly
+  holding it. `archer_test.gd` measures that gap now.
+- **The bow is upright at rest too, not only when aimed.** Left to hang off the
+  wrist it goes wherever the arm does, which lays it flat across the hip when he
+  walks. Both ends of the carry are given in the model's frame instead: canted
+  out from the leg while carried (`carry_cant`, `carry_lean`), square to the
+  target while drawn.
 
 ### Target lock
 
@@ -346,9 +420,10 @@ everything so it is never hidden behind the thing it is marking. With two wolves
 in front of you a lock that shows nothing is a lock you have to guess at.
 
 The dot is brighter than white — past 1 the colour runs into the glow pass, so
-it reads as lit rather than as a sticker — with a small, faint halo. The halo
-has to be small: one that reaches the edge of its quad puts a white wash over
-the very thing the mark is meant to point at.
+it reads as lit rather than as a sticker — with a small, faint halo, and it is
+small itself (`size` 0.091, `grow_with_range` 0.007). Both have to be: its job
+is to say *which*, and anything past the size that takes is sitting on top of
+the thing being fought rather than pointing at it.
 
 A locked shot **leads** its target. An arrow takes a beat to arrive and a wolf
 does not wait where it was standing, so the aim is offset by where the target
@@ -367,6 +442,27 @@ The character cards are generated from the profiles: name, weapon, run speed,
 roll distance, crit chance, whether there is a shield to put up, and the blurb,
 with a "— faster" or "— further" against the knight wherever the numbers differ.
 So a card cannot drift from the numbers the game actually uses.
+
+Each card also **shows the character**
+([`CharacterPortrait`](scripts/character_portrait.gd)): the model in its own
+`SubViewport`, lit, turning slowly, framed from the shins up. What a player
+chooses between is a hooded archer and an armoured knight, and neither of those
+is a table of numbers.
+
+It is the **same model the game spawns**, under the **same rig**, with
+`animate()` called once a frame at a standstill — so the breathing, the weight
+on the feet and where the weapons hang all come for free, and a change to the
+archer's bow or the way he carries it shows up on his card without the menu
+knowing anything about it. A rendered portrait would be a second thing to keep
+in step, out of date the first time the model changed. Each portrait owns its
+own `World3D`, so two of them side by side neither light nor see each other.
+
+Two things the portrait has to undo: the `Visuals` scene carries a half turn —
+the models face +Z and the body they hang off faces Godot's -Z — so left in
+front of a camera it presents its back, and the *stand* is turned rather than
+the model so what the game spawns stays exactly what the game spawns. And the
+fill light is cool and weak: a warm fill as strong as the key turns anything
+broad, like the knight's cape, into a flat gold slab with no shape left in it.
 
 **Multiplayer is on the screen and is not wired up.** More than one player needs
 per-device input routing and either a split viewport or a network, none of which
@@ -966,6 +1062,7 @@ icon.svg
 scripts/player.gd        the controller, and the target lock and bow it drives
 scripts/game.gd          autoload: which character is being played, and settings
 scripts/main_menu.gd     the front end, built in code
+scripts/character_portrait.gd  the model on its card, lit and turning
 scripts/graphics.gd      what low and high actually change
 scripts/menu_style.gd    the widgets and the palette both menus are made of
 scripts/pause_menu.gd    the in-game menu
@@ -973,7 +1070,7 @@ scripts/target_marker.gd the sight over whatever is being fought
 scripts/step_up.gd       walking up a step, for anything on legs
 scripts/character_profile.gd  one playable character, as a resource
 scripts/arrow.gd         an arrow in flight, swept rather than collided
-scripts/archer_rig.gd    the bow: draw, aim, loose
+scripts/archer_rig.gd    the bow: raise, draw, flex, loose
 tools/build_avtandil.gd  writes assets/avtandil/avtandil.tscn
 scripts/grass_field.gd   grass bending, wind, LOD and culling
 scripts/sword_trail.gd   the streak a blade leaves, on a fixed vertex buffer

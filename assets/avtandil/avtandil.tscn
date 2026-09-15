@@ -183,23 +183,23 @@ roughness = 0.85
 
 [sub_resource type="BoxMesh" id="BoxMesh_unx4x"]
 material = SubResource("StandardMaterial3D_6cwbe")
-size = Vector3(0.225, 0.1, 0.235)
+size = Vector3(0.215, 0.055, 0.215)
 
 [sub_resource type="BoxMesh" id="BoxMesh_vop0y"]
 material = SubResource("StandardMaterial3D_6cwbe")
-size = Vector3(0.025, 0.17, 0.235)
+size = Vector3(0.022, 0.19, 0.215)
 
 [sub_resource type="BoxMesh" id="BoxMesh_5pwdg"]
 material = SubResource("StandardMaterial3D_6cwbe")
-size = Vector3(0.025, 0.17, 0.235)
+size = Vector3(0.022, 0.19, 0.215)
 
 [sub_resource type="BoxMesh" id="BoxMesh_33i01"]
 material = SubResource("StandardMaterial3D_6cwbe")
-size = Vector3(0.225, 0.22, 0.04)
+size = Vector3(0.215, 0.24, 0.035)
 
 [sub_resource type="BoxMesh" id="BoxMesh_8ht3t"]
 material = SubResource("StandardMaterial3D_6cwbe")
-size = Vector3(0.235, 0.035, 0.09)
+size = Vector3(0.225, 0.03, 0.06)
 
 [sub_resource type="BoxMesh" id="BoxMesh_7pvfb"]
 material = SubResource("StandardMaterial3D_hnfp7")
@@ -308,7 +308,7 @@ size = Vector3(0.032, 0.14, 0.026)
 
 [sub_resource type="BoxMesh" id="BoxMesh_0fkwm"]
 material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.012, 1, 0.012)
+size = Vector3(0.009, 1, 0.009)
 
 [sub_resource type="BoxMesh" id="BoxMesh_fnt13"]
 material = SubResource("StandardMaterial3D_vmwul")
@@ -320,59 +320,61 @@ size = Vector3(0.032, 0.14, 0.026)
 
 [sub_resource type="BoxMesh" id="BoxMesh_vn2ok"]
 material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.012, 1, 0.012)
+size = Vector3(0.009, 1, 0.009)
 
 [sub_resource type="BoxMesh" id="BoxMesh_c7gnx"]
-material = SubResource("StandardMaterial3D_hnfp7")
-size = Vector3(0.15, 0.45, 0.15)
+material = SubResource("StandardMaterial3D_vmwul")
+size = Vector3(0.013, 0.66, 0.013)
 
-[sub_resource type="BoxMesh" id="BoxMesh_k4g8t"]
-material = SubResource("StandardMaterial3D_be0u3")
-size = Vector3(0.14, 0.08, 0.14)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k4g8t"]
+resource_name = "steel"
+albedo_color = Color(0.65882355, 0.6901961, 0.72156864, 1)
+metallic = 0.6
+roughness = 0.85
 
 [sub_resource type="BoxMesh" id="BoxMesh_mpqw4"]
-material = SubResource("StandardMaterial3D_p1gcr")
-size = Vector3(0.12, 0.44, 0.12)
+material = SubResource("StandardMaterial3D_k4g8t")
+size = Vector3(0.026, 0.08, 0.007)
 
 [sub_resource type="BoxMesh" id="BoxMesh_f1cl0"]
 material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.135, 0.05, 0.135)
+size = Vector3(0.002, 0.1, 0.034)
 
 [sub_resource type="BoxMesh" id="BoxMesh_lc6w4"]
 material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.135, 0.05, 0.135)
+size = Vector3(0.034, 0.1, 0.002)
 
 [sub_resource type="BoxMesh" id="BoxMesh_mfart"]
-material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.135, 0.05, 0.135)
+material = SubResource("StandardMaterial3D_vmwul")
+size = Vector3(0.013, 0.66, 0.013)
 
 [sub_resource type="BoxMesh" id="BoxMesh_1hrdn"]
-material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.135, 0.05, 0.135)
+material = SubResource("StandardMaterial3D_k4g8t")
+size = Vector3(0.026, 0.08, 0.007)
 
 [sub_resource type="BoxMesh" id="BoxMesh_5727v"]
-material = SubResource("StandardMaterial3D_iwb02")
-size = Vector3(0.11, 0.08, 0.23)
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.002, 0.1, 0.034)
 
 [sub_resource type="BoxMesh" id="BoxMesh_bvw1h"]
-material = SubResource("StandardMaterial3D_iwb02")
-size = Vector3(0.1, 0.06, 0.07)
-
-[sub_resource type="BoxMesh" id="BoxMesh_wxrnw"]
-material = SubResource("StandardMaterial3D_be0u3")
-size = Vector3(0.125, 0.07, 0.13)
-
-[sub_resource type="BoxMesh" id="BoxMesh_qxdgd"]
 material = SubResource("StandardMaterial3D_hnfp7")
 size = Vector3(0.15, 0.45, 0.15)
 
-[sub_resource type="BoxMesh" id="BoxMesh_xvs1h"]
+[sub_resource type="BoxMesh" id="BoxMesh_wxrnw"]
 material = SubResource("StandardMaterial3D_be0u3")
 size = Vector3(0.14, 0.08, 0.14)
 
-[sub_resource type="BoxMesh" id="BoxMesh_1y5sb"]
+[sub_resource type="BoxMesh" id="BoxMesh_qxdgd"]
 material = SubResource("StandardMaterial3D_p1gcr")
 size = Vector3(0.12, 0.44, 0.12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xvs1h"]
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.135, 0.05, 0.135)
+
+[sub_resource type="BoxMesh" id="BoxMesh_1y5sb"]
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.135, 0.05, 0.135)
 
 [sub_resource type="BoxMesh" id="BoxMesh_kqfjw"]
 material = SubResource("StandardMaterial3D_luq7t")
@@ -383,451 +385,527 @@ material = SubResource("StandardMaterial3D_luq7t")
 size = Vector3(0.135, 0.05, 0.135)
 
 [sub_resource type="BoxMesh" id="BoxMesh_onlye"]
-material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.135, 0.05, 0.135)
-
-[sub_resource type="BoxMesh" id="BoxMesh_v03g2"]
-material = SubResource("StandardMaterial3D_luq7t")
-size = Vector3(0.135, 0.05, 0.135)
-
-[sub_resource type="BoxMesh" id="BoxMesh_bnob7"]
 material = SubResource("StandardMaterial3D_iwb02")
 size = Vector3(0.11, 0.08, 0.23)
 
-[sub_resource type="BoxMesh" id="BoxMesh_wmwxt"]
+[sub_resource type="BoxMesh" id="BoxMesh_v03g2"]
 material = SubResource("StandardMaterial3D_iwb02")
 size = Vector3(0.1, 0.06, 0.07)
 
-[sub_resource type="BoxMesh" id="BoxMesh_t2lib"]
+[sub_resource type="BoxMesh" id="BoxMesh_bnob7"]
 material = SubResource("StandardMaterial3D_be0u3")
 size = Vector3(0.125, 0.07, 0.13)
 
-[node name="avtandil" type="Node3D" unique_id=1169729541]
+[sub_resource type="BoxMesh" id="BoxMesh_wmwxt"]
+material = SubResource("StandardMaterial3D_hnfp7")
+size = Vector3(0.15, 0.45, 0.15)
 
-[node name="hips" type="Node3D" parent="." unique_id=996710935]
+[sub_resource type="BoxMesh" id="BoxMesh_t2lib"]
+material = SubResource("StandardMaterial3D_be0u3")
+size = Vector3(0.14, 0.08, 0.14)
+
+[sub_resource type="BoxMesh" id="BoxMesh_x0auj"]
+material = SubResource("StandardMaterial3D_p1gcr")
+size = Vector3(0.12, 0.44, 0.12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8koq6"]
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.135, 0.05, 0.135)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ty6j2"]
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.135, 0.05, 0.135)
+
+[sub_resource type="BoxMesh" id="BoxMesh_bt6qa"]
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.135, 0.05, 0.135)
+
+[sub_resource type="BoxMesh" id="BoxMesh_dby6a"]
+material = SubResource("StandardMaterial3D_luq7t")
+size = Vector3(0.135, 0.05, 0.135)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ox22y"]
+material = SubResource("StandardMaterial3D_iwb02")
+size = Vector3(0.11, 0.08, 0.23)
+
+[sub_resource type="BoxMesh" id="BoxMesh_o5qyp"]
+material = SubResource("StandardMaterial3D_iwb02")
+size = Vector3(0.1, 0.06, 0.07)
+
+[sub_resource type="BoxMesh" id="BoxMesh_v2f76"]
+material = SubResource("StandardMaterial3D_be0u3")
+size = Vector3(0.125, 0.07, 0.13)
+
+[node name="avtandil" type="Node3D" unique_id=71858692]
+
+[node name="hips" type="Node3D" parent="." unique_id=696624372]
 transform = Transform3D(1, 0, 0, 0, 0.99875027, -0.04997917, 0, 0.04997917, 0.99875027, 0, 0.95, 0)
 
-[node name="pelvis" type="MeshInstance3D" parent="hips" unique_id=1108982406]
+[node name="pelvis" type="MeshInstance3D" parent="hips" unique_id=1218758054]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0)
 mesh = SubResource("BoxMesh_m1kxq")
 
-[node name="belt" type="MeshInstance3D" parent="hips" unique_id=1941657558]
+[node name="belt" type="MeshInstance3D" parent="hips" unique_id=1242857987]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 0)
 mesh = SubResource("BoxMesh_sfj2y")
 
-[node name="belt_buckle" type="MeshInstance3D" parent="hips" unique_id=1941283516]
+[node name="belt_buckle" type="MeshInstance3D" parent="hips" unique_id=1115844708]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 0.11)
 mesh = SubResource("BoxMesh_x0i2d")
 
-[node name="knife" type="MeshInstance3D" parent="hips" unique_id=1858212643]
+[node name="knife" type="MeshInstance3D" parent="hips" unique_id=390258938]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13, -0.08, 0.02)
 mesh = SubResource("BoxMesh_886yh")
 
-[node name="kilt_0" type="MeshInstance3D" parent="hips" unique_id=939668817]
+[node name="kilt_0" type="MeshInstance3D" parent="hips" unique_id=2022007136]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.13, -0.14, 0.11)
 mesh = SubResource("BoxMesh_1b00i")
 
-[node name="kilt_back_0" type="MeshInstance3D" parent="hips" unique_id=1468624899]
+[node name="kilt_back_0" type="MeshInstance3D" parent="hips" unique_id=134648322]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.13, -0.13, -0.11)
 mesh = SubResource("BoxMesh_vxgu7")
 
-[node name="kilt_1" type="MeshInstance3D" parent="hips" unique_id=206926224]
+[node name="kilt_1" type="MeshInstance3D" parent="hips" unique_id=467644148]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.078, -0.14, 0.11)
 mesh = SubResource("BoxMesh_0sq78")
 
-[node name="kilt_back_1" type="MeshInstance3D" parent="hips" unique_id=1332614955]
+[node name="kilt_back_1" type="MeshInstance3D" parent="hips" unique_id=1322808987]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.078, -0.13, -0.11)
 mesh = SubResource("BoxMesh_gyd3i")
 
-[node name="kilt_2" type="MeshInstance3D" parent="hips" unique_id=1025024013]
+[node name="kilt_2" type="MeshInstance3D" parent="hips" unique_id=1027615174]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.026, -0.14, 0.11)
 mesh = SubResource("BoxMesh_c1gr6")
 
-[node name="kilt_back_2" type="MeshInstance3D" parent="hips" unique_id=396491894]
+[node name="kilt_back_2" type="MeshInstance3D" parent="hips" unique_id=1505453785]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.026, -0.13, -0.11)
 mesh = SubResource("BoxMesh_2rtka")
 
-[node name="kilt_3" type="MeshInstance3D" parent="hips" unique_id=183330258]
+[node name="kilt_3" type="MeshInstance3D" parent="hips" unique_id=1622435857]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.026, -0.14, 0.11)
 mesh = SubResource("BoxMesh_7d6w2")
 
-[node name="kilt_back_3" type="MeshInstance3D" parent="hips" unique_id=257164975]
+[node name="kilt_back_3" type="MeshInstance3D" parent="hips" unique_id=2087422222]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.026, -0.13, -0.11)
 mesh = SubResource("BoxMesh_5sinu")
 
-[node name="kilt_4" type="MeshInstance3D" parent="hips" unique_id=1810542179]
+[node name="kilt_4" type="MeshInstance3D" parent="hips" unique_id=875347444]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.078, -0.14, 0.11)
 mesh = SubResource("BoxMesh_aofrf")
 
-[node name="kilt_back_4" type="MeshInstance3D" parent="hips" unique_id=1085843858]
+[node name="kilt_back_4" type="MeshInstance3D" parent="hips" unique_id=902597091]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.078, -0.13, -0.11)
 mesh = SubResource("BoxMesh_l7iw0")
 
-[node name="kilt_5" type="MeshInstance3D" parent="hips" unique_id=2070871960]
+[node name="kilt_5" type="MeshInstance3D" parent="hips" unique_id=1491165777]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13, -0.14, 0.11)
 mesh = SubResource("BoxMesh_ystm6")
 
-[node name="kilt_back_5" type="MeshInstance3D" parent="hips" unique_id=208226109]
+[node name="kilt_back_5" type="MeshInstance3D" parent="hips" unique_id=592043684]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.13, -0.13, -0.11)
 mesh = SubResource("BoxMesh_8ygw8")
 
-[node name="spine" type="Node3D" parent="hips" unique_id=1281238005]
+[node name="spine" type="Node3D" parent="hips" unique_id=32177038]
 transform = Transform3D(1, 0, 0, 0, 0.9959527, -0.08987855, 0, 0.08987855, 0.9959527, 0, 0.13, 0)
 
-[node name="waist" type="MeshInstance3D" parent="hips/spine" unique_id=1850947470]
+[node name="waist" type="MeshInstance3D" parent="hips/spine" unique_id=1815722197]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0)
 mesh = SubResource("BoxMesh_h64i8")
 
-[node name="chest" type="Node3D" parent="hips/spine" unique_id=74804529]
+[node name="chest" type="Node3D" parent="hips/spine" unique_id=1230394021]
 transform = Transform3D(1, 0, 0, 0, 0.9998, -0.019998666, 0, 0.019998666, 0.9998, 0, 0.19, 0)
 
-[node name="ribs" type="MeshInstance3D" parent="hips/spine/chest" unique_id=2052993778]
+[node name="ribs" type="MeshInstance3D" parent="hips/spine/chest" unique_id=301120739]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
 mesh = SubResource("BoxMesh_bq8c5")
 
-[node name="jerkin" type="MeshInstance3D" parent="hips/spine/chest" unique_id=1206051589]
+[node name="jerkin" type="MeshInstance3D" parent="hips/spine/chest" unique_id=2073980387]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0.1)
 mesh = SubResource("BoxMesh_fmhl0")
 
-[node name="baldric" type="MeshInstance3D" parent="hips/spine/chest" unique_id=1677782464]
+[node name="baldric" type="MeshInstance3D" parent="hips/spine/chest" unique_id=413677277]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.06, 0.1, 0.1)
 mesh = SubResource("BoxMesh_ptao2")
 
-[node name="baldric_back" type="MeshInstance3D" parent="hips/spine/chest" unique_id=320780059]
+[node name="baldric_back" type="MeshInstance3D" parent="hips/spine/chest" unique_id=1653244497]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.06, 0.1, -0.1)
 mesh = SubResource("BoxMesh_g4fho")
 
-[node name="quiver" type="Node3D" parent="hips/spine/chest" unique_id=708319469]
+[node name="quiver" type="Node3D" parent="hips/spine/chest" unique_id=185348872]
 transform = Transform3D(0.9553365, 0.29552022, 0, -0.2863332, 0.9256374, 0.24740396, 0.073112875, -0.23635404, 0.9689124, 0.09, 0.14, -0.13)
 
-[node name="quiver_body" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=722805528]
+[node name="quiver_body" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=523873021]
 mesh = SubResource("BoxMesh_lhwmg")
 
-[node name="quiver_rim" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=273729895]
+[node name="quiver_rim" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1261758122]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17, 0)
 mesh = SubResource("BoxMesh_ed1xp")
 
-[node name="arrow_0" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=188650036]
+[node name="arrow_0" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=724901687]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03, 0.24, 0.02)
 mesh = SubResource("BoxMesh_fetrk")
 
-[node name="fletch_0" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1410634365]
+[node name="fletch_0" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1642146743]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.03, 0.29, 0.02)
 mesh = SubResource("BoxMesh_qjv2j")
 
-[node name="arrow_1" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=79271091]
+[node name="arrow_1" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1272069225]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.015, 0.24, -0.02)
 mesh = SubResource("BoxMesh_3d5jo")
 
-[node name="fletch_1" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1720635484]
+[node name="fletch_1" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1831843820]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.015, 0.29, -0.02)
 mesh = SubResource("BoxMesh_4s086")
 
-[node name="arrow_2" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=649541207]
+[node name="arrow_2" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=920129445]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.24, 0.02)
 mesh = SubResource("BoxMesh_uqs5f")
 
-[node name="fletch_2" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=514063282]
+[node name="fletch_2" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1016139426]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.29, 0.02)
 mesh = SubResource("BoxMesh_xfgx0")
 
-[node name="arrow_3" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=712109449]
+[node name="arrow_3" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1374703986]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.015, 0.24, -0.02)
 mesh = SubResource("BoxMesh_45jft")
 
-[node name="fletch_3" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=41712275]
+[node name="fletch_3" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=2120652948]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.015, 0.29, -0.02)
 mesh = SubResource("BoxMesh_rcjix")
 
-[node name="arrow_4" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=270259445]
+[node name="arrow_4" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=4183001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03, 0.24, 0.02)
 mesh = SubResource("BoxMesh_ms6q6")
 
-[node name="fletch_4" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=1448570961]
+[node name="fletch_4" type="MeshInstance3D" parent="hips/spine/chest/quiver" unique_id=2088628029]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03, 0.29, 0.02)
 mesh = SubResource("BoxMesh_brrnv")
 
-[node name="neck" type="Node3D" parent="hips/spine/chest" unique_id=727501640]
+[node name="neck" type="Node3D" parent="hips/spine/chest" unique_id=1546948647]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.27, 0)
 
-[node name="throat" type="MeshInstance3D" parent="hips/spine/chest/neck" unique_id=1437432383]
+[node name="throat" type="MeshInstance3D" parent="hips/spine/chest/neck" unique_id=912167471]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, 0)
 mesh = SubResource("BoxMesh_u835w")
 
-[node name="head" type="Node3D" parent="hips/spine/chest/neck" unique_id=688616328]
+[node name="head" type="Node3D" parent="hips/spine/chest/neck" unique_id=848958293]
 transform = Transform3D(1, 0, 0, 0, 0.99875027, -0.04997917, 0, 0.04997917, 0.99875027, 0, 0.13, 0)
 
-[node name="skull" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=579673348]
+[node name="skull" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1675195351]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0.005)
 mesh = SubResource("BoxMesh_rdm3c")
 
-[node name="hood_crown" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=920577300]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.14, -0.01)
+[node name="hood_crown" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=466133869]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.155, -0.005)
 mesh = SubResource("BoxMesh_unx4x")
 
-[node name="hood_side_l" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=864992077]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.1, 0.06, -0.01)
+[node name="hood_side_l" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1014786069]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.098, 0.055, -0.005)
 mesh = SubResource("BoxMesh_vop0y")
 
-[node name="hood_side_r" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1056122687]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1, 0.06, -0.01)
+[node name="hood_side_r" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1236989939]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.098, 0.055, -0.005)
 mesh = SubResource("BoxMesh_5pwdg")
 
-[node name="hood_back" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1569421843]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -0.11)
+[node name="hood_back" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=86914175]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.04, -0.1)
 mesh = SubResource("BoxMesh_33i01")
 
-[node name="hood_brim" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1522470806]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.155, 0.09)
+[node name="hood_brim" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1184620920]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.165, 0.075)
 mesh = SubResource("BoxMesh_8ht3t")
 
-[node name="cowl" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=420065662]
+[node name="cowl" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=962968451]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, -0.05)
 mesh = SubResource("BoxMesh_7pvfb")
 
-[node name="hair" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1548442831]
+[node name="hair" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=2018094847]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.01, -0.09)
 mesh = SubResource("BoxMesh_v52ba")
 
-[node name="eye_l" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=1969702337]
+[node name="eye_l" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=461096952]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.048, 0.075, 0.1)
 mesh = SubResource("BoxMesh_wvwlo")
 
-[node name="eye_r" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=193733063]
+[node name="eye_r" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=659203096]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.048, 0.075, 0.1)
 mesh = SubResource("BoxMesh_xiulx")
 
-[node name="beard" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=916817335]
+[node name="beard" type="MeshInstance3D" parent="hips/spine/chest/neck/head" unique_id=533399189]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.025, 0.055)
 mesh = SubResource("BoxMesh_gv05b")
 
-[node name="shoulder_l" type="Node3D" parent="hips/spine/chest" unique_id=1831121814]
+[node name="shoulder_l" type="Node3D" parent="hips/spine/chest" unique_id=1337038838]
 transform = Transform3D(0.99280864, 0.119712204, 0, -0.119496785, 0.9910221, -0.059964005, -0.007178423, 0.059532784, 0.99820054, -0.2, 0.18, 0)
 
-[node name="shoulder_cap_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l" unique_id=819410235]
+[node name="shoulder_cap_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l" unique_id=118271144]
 mesh = SubResource("BoxMesh_qgthw")
 
-[node name="upperarm_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l" unique_id=272074152]
+[node name="upperarm_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l" unique_id=1834584243]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.14, 0)
 mesh = SubResource("BoxMesh_q5dxn")
 
-[node name="sleeve_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l" unique_id=1957107707]
+[node name="sleeve_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l" unique_id=156616833]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 mesh = SubResource("BoxMesh_w6jxo")
 
-[node name="upperarm_l_end" type="Node3D" parent="hips/spine/chest/shoulder_l" unique_id=2139112004]
+[node name="upperarm_l_end" type="Node3D" parent="hips/spine/chest/shoulder_l" unique_id=1905295526]
 transform = Transform3D(1, 0, 0, 0, 0.94923544, 0.31456655, 0, -0.31456655, 0.94923544, 0, -0.28, 0)
 
-[node name="forearm_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=2102913850]
+[node name="forearm_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=1984952972]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.13, 0)
 mesh = SubResource("BoxMesh_1luro")
 
-[node name="bracer_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=2117569291]
+[node name="bracer_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=952670007]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
 mesh = SubResource("BoxMesh_lng3k")
 
-[node name="bracer_band_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=1366439480]
+[node name="bracer_band_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=201307145]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 mesh = SubResource("BoxMesh_73nu1")
 
-[node name="forearm_l_end" type="Node3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=567356564]
+[node name="forearm_l_end" type="Node3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end" unique_id=2065863554]
 transform = Transform3D(1, 0, 0, 0, 0.99680173, 0.07991469, 0, -0.07991469, 0.99680173, 0, -0.26, 0)
 
-[node name="hand_l" type="Node3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end" unique_id=748200874]
+[node name="hand_l" type="Node3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end" unique_id=2089471538]
 
-[node name="hand_l_palm" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end/hand_l" unique_id=957088351]
+[node name="hand_l_palm" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end/hand_l" unique_id=1991913131]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 mesh = SubResource("BoxMesh_35p4e")
 
-[node name="hand_l_thumb" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end/hand_l" unique_id=334874082]
+[node name="hand_l_thumb" type="MeshInstance3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end/hand_l" unique_id=1694943026]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.04, -0.03, 0.01)
 mesh = SubResource("BoxMesh_klqye")
 
-[node name="draw" type="Node3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end/hand_l" unique_id=1774363040]
+[node name="draw" type="Node3D" parent="hips/spine/chest/shoulder_l/upperarm_l_end/forearm_l_end/hand_l" unique_id=1116991824]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.07, 0.02)
 
-[node name="shoulder_r" type="Node3D" parent="hips/spine/chest" unique_id=966111116]
+[node name="shoulder_r" type="Node3D" parent="hips/spine/chest" unique_id=1075615525]
 transform = Transform3D(0.99280864, -0.119712204, 0, 0.119496785, 0.9910221, -0.059964005, 0.007178423, 0.059532784, 0.99820054, 0.2, 0.18, 0)
 
-[node name="shoulder_cap_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r" unique_id=768255825]
+[node name="shoulder_cap_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r" unique_id=236525172]
 mesh = SubResource("BoxMesh_bts3p")
 
-[node name="upperarm_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r" unique_id=660566687]
+[node name="upperarm_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r" unique_id=1248306216]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.14, 0)
 mesh = SubResource("BoxMesh_riqtv")
 
-[node name="sleeve_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r" unique_id=1844413528]
+[node name="sleeve_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r" unique_id=1112358340]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 mesh = SubResource("BoxMesh_fnkyj")
 
-[node name="upperarm_r_end" type="Node3D" parent="hips/spine/chest/shoulder_r" unique_id=937514814]
+[node name="upperarm_r_end" type="Node3D" parent="hips/spine/chest/shoulder_r" unique_id=1792705045]
 transform = Transform3D(1, 0, 0, 0, 0.94923544, 0.31456655, 0, -0.31456655, 0.94923544, 0, -0.28, 0)
 
-[node name="forearm_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=595079249]
+[node name="forearm_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=2050523572]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.13, 0)
 mesh = SubResource("BoxMesh_nfdik")
 
-[node name="bracer_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=108187014]
+[node name="bracer_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=2134990401]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
 mesh = SubResource("BoxMesh_5j2qo")
 
-[node name="bracer_band_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=1269237237]
+[node name="bracer_band_r" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=1888516430]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 mesh = SubResource("BoxMesh_jgod1")
 
-[node name="forearm_r_end" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=730795774]
+[node name="forearm_r_end" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end" unique_id=27711851]
 transform = Transform3D(1, 0, 0, 0, 0.99680173, 0.07991469, 0, -0.07991469, 0.99680173, 0, -0.26, 0)
 
-[node name="hand_r" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end" unique_id=1709849697]
+[node name="hand_r" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end" unique_id=315720874]
 
-[node name="hand_r_palm" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r" unique_id=1057968416]
+[node name="hand_r_palm" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r" unique_id=1523805809]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 mesh = SubResource("BoxMesh_8f47p")
 
-[node name="hand_r_thumb" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r" unique_id=1123919096]
+[node name="hand_r_thumb" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r" unique_id=1130412374]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.04, -0.03, 0.01)
 mesh = SubResource("BoxMesh_yo6hr")
 
-[node name="bow" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r" unique_id=679689457]
+[node name="bow" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r" unique_id=577364472]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, 0)
 
-[node name="bow_grip" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=1027501082]
+[node name="bow_grip" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=788628033]
 mesh = SubResource("BoxMesh_javhr")
 
-[node name="bow_grip_bind" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=387932359]
+[node name="bow_grip_bind" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=684627925]
 mesh = SubResource("BoxMesh_ws6gh")
 
-[node name="bow_limb_u" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=655365347]
-transform = Transform3D(1, 0, 0, 0, 0.9553365, -0.29552022, 0, 0.29552022, 0.9553365, 0, 0.24240722, 0.050238438)
+[node name="bow_limb_u" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=1095490060]
+transform = Transform3D(1, 0, 0, 0, 0.9553365, -0.29552022, 0, 0.29552022, 0.9553365, 0, 0.08, 0)
+
+[node name="bow_stave_u" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_u" unique_id=306679422]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.17, 0)
 mesh = SubResource("BoxMesh_jeg7p")
 
-[node name="bow_horn_u" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=1524077426]
-transform = Transform3D(1, 0, 0, 0, 0.7648422, 0.64421767, 0, -0.64421767, 0.7648422, 0, 0.45835337, 0.055381637)
+[node name="bow_horn_u" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_u" unique_id=1203147658]
+transform = Transform3D(1, 0, 0, 0, 0.5403023, 0.84147096, 0, -0.84147096, 0.5403023, 0, 0.34, 0)
+
+[node name="bow_tip_u" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_u/bow_horn_u" unique_id=807439444]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
 mesh = SubResource("BoxMesh_t1e0l")
 
-[node name="bow_string_u" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=566218816]
-transform = Transform3D(1, 0, 0, 0, 0.5118923, 0, 0, 0, 1, 0, 0.5118923, 0.010286398)
+[node name="bow_string_u" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_u/bow_horn_u" unique_id=538570375]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.14, 0)
 
-[node name="bow_cord_u" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_string_u" unique_id=1671415559]
+[node name="bow_cord_u" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_u/bow_horn_u/bow_string_u" unique_id=1490978202]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 mesh = SubResource("BoxMesh_0fkwm")
 
-[node name="bow_limb_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=1923879716]
-transform = Transform3D(1, 0, 0, 0, 0.9553365, 0.29552022, 0, -0.29552022, 0.9553365, 0, -0.24240722, 0.050238438)
+[node name="bow_limb_l" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=1387792365]
+transform = Transform3D(1, 0, 0, 0, 0.9553365, 0.29552022, 0, -0.29552022, 0.9553365, 0, -0.08, 0)
+
+[node name="bow_stave_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_l" unique_id=1157452146]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.17, 0)
 mesh = SubResource("BoxMesh_fnt13")
 
-[node name="bow_horn_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=1578298338]
-transform = Transform3D(1, 0, 0, 0, 0.7648422, -0.64421767, 0, 0.64421767, 0.7648422, 0, -0.45835337, 0.055381637)
+[node name="bow_horn_l" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_l" unique_id=109030775]
+transform = Transform3D(1, 0, 0, 0, 0.5403023, -0.84147096, 0, 0.84147096, 0.5403023, 0, -0.34, 0)
+
+[node name="bow_tip_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_l/bow_horn_l" unique_id=520103037]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.07, 0)
 mesh = SubResource("BoxMesh_2fdb4")
 
-[node name="bow_string_l" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=929925399]
-transform = Transform3D(1, 0, 0, 0, 0.5118923, 0, 0, 0, 1, 0, -0.5118923, 0.010286398)
+[node name="bow_string_l" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_l/bow_horn_l" unique_id=1534212598]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.14, 0)
 
-[node name="bow_cord_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_string_l" unique_id=1760976301]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+[node name="bow_cord_l" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_limb_l/bow_horn_l/bow_string_l" unique_id=1645231688]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 mesh = SubResource("BoxMesh_vn2ok")
 
-[node name="bow_nock" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=882268402]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.010286398)
+[node name="bow_nock" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=624104063]
 
-[node name="hip_l" type="Node3D" parent="hips" unique_id=1463271759]
-transform = Transform3D(0.99875027, 0.04997917, 0, -0.04829937, 0.96518224, -0.25708055, -0.012848672, 0.2567593, 0.96638995, -0.1, -0.06, 0)
+[node name="bow_arrow" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=729669910]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0)
 
-[node name="thigh_l" type="MeshInstance3D" parent="hips/hip_l" unique_id=1044134998]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.225, 0)
+[node name="shaft" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_arrow" unique_id=46834507]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.33, 0)
 mesh = SubResource("BoxMesh_c7gnx")
 
-[node name="thigh_l_end" type="Node3D" parent="hips/hip_l" unique_id=857790241]
-transform = Transform3D(1, 0, 0, 0, 0.9427547, -0.3334871, 0, 0.3334871, 0.9427547, 0, -0.45, 0)
-
-[node name="knee_l" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=1911918807]
-mesh = SubResource("BoxMesh_k4g8t")
-
-[node name="shin_l" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=887910652]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, 0)
+[node name="head" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_arrow" unique_id=755402470]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.69, 0)
 mesh = SubResource("BoxMesh_mpqw4")
 
-[node name="wrap_l_0" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=79711758]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.09, 0)
+[node name="fletch_a" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_arrow" unique_id=1829389116]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
 mesh = SubResource("BoxMesh_f1cl0")
 
-[node name="wrap_l_1" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=1549851158]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.18, 0)
+[node name="fletch_b" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_arrow" unique_id=1293004637]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
 mesh = SubResource("BoxMesh_lc6w4")
 
-[node name="wrap_l_2" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=1340452144]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.27, 0)
+[node name="bow_spare" type="Node3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow" unique_id=477497013]
+
+[node name="spare_shaft" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_spare" unique_id=336213632]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.33, 0)
 mesh = SubResource("BoxMesh_mfart")
 
-[node name="wrap_l_3" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=1050584129]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.36, 0)
+[node name="spare_head" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_spare" unique_id=1978779702]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.69, 0)
 mesh = SubResource("BoxMesh_1hrdn")
 
-[node name="shin_l_end" type="Node3D" parent="hips/hip_l/thigh_l_end" unique_id=1411326141]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.44, 0)
-
-[node name="foot_l" type="Node3D" parent="hips/hip_l/thigh_l_end/shin_l_end" unique_id=550196227]
-transform = Transform3D(1, 0, 0, 0, 0.9992001, 0.039989334, 0, -0.039989334, 0.9992001, 0, 0, 0)
-
-[node name="boot_l" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end/shin_l_end/foot_l" unique_id=2146275639]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0.045)
+[node name="spare_fletch" type="MeshInstance3D" parent="hips/spine/chest/shoulder_r/upperarm_r_end/forearm_r_end/hand_r/bow/bow_spare" unique_id=1088954668]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.06, 0)
 mesh = SubResource("BoxMesh_5727v")
 
-[node name="boot_l_toe" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end/shin_l_end/foot_l" unique_id=2089847973]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0.15)
+[node name="hip_l" type="Node3D" parent="hips" unique_id=439647389]
+transform = Transform3D(0.99875027, 0.04997917, 0, -0.04829937, 0.96518224, -0.25708055, -0.012848672, 0.2567593, 0.96638995, -0.1, -0.06, 0)
+
+[node name="thigh_l" type="MeshInstance3D" parent="hips/hip_l" unique_id=943039907]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.225, 0)
 mesh = SubResource("BoxMesh_bvw1h")
 
-[node name="boot_l_cuff" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end/shin_l_end/foot_l" unique_id=342845636]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.01)
-mesh = SubResource("BoxMesh_wxrnw")
-
-[node name="hip_r" type="Node3D" parent="hips" unique_id=1622628459]
-transform = Transform3D(0.99875027, -0.04997917, 0, 0.04829937, 0.96518224, -0.25708055, 0.012848672, 0.2567593, 0.96638995, 0.1, -0.06, 0)
-
-[node name="thigh_r" type="MeshInstance3D" parent="hips/hip_r" unique_id=1419529377]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.225, 0)
-mesh = SubResource("BoxMesh_qxdgd")
-
-[node name="thigh_r_end" type="Node3D" parent="hips/hip_r" unique_id=1198730673]
+[node name="thigh_l_end" type="Node3D" parent="hips/hip_l" unique_id=164615210]
 transform = Transform3D(1, 0, 0, 0, 0.9427547, -0.3334871, 0, 0.3334871, 0.9427547, 0, -0.45, 0)
 
-[node name="knee_r" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=197956580]
+[node name="knee_l" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=728165381]
+mesh = SubResource("BoxMesh_wxrnw")
+
+[node name="shin_l" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=2031895423]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, 0)
+mesh = SubResource("BoxMesh_qxdgd")
+
+[node name="wrap_l_0" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=2109137453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.09, 0)
 mesh = SubResource("BoxMesh_xvs1h")
 
-[node name="shin_r" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=986612520]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, 0)
+[node name="wrap_l_1" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=1615563535]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.18, 0)
 mesh = SubResource("BoxMesh_1y5sb")
 
-[node name="wrap_r_0" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=1276134442]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.09, 0)
+[node name="wrap_l_2" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=814596781]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.27, 0)
 mesh = SubResource("BoxMesh_kqfjw")
 
-[node name="wrap_r_1" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=1827186120]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.18, 0)
+[node name="wrap_l_3" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end" unique_id=69398028]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.36, 0)
 mesh = SubResource("BoxMesh_c66q8")
 
-[node name="wrap_r_2" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=568676081]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.27, 0)
-mesh = SubResource("BoxMesh_onlye")
-
-[node name="wrap_r_3" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=661630963]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.36, 0)
-mesh = SubResource("BoxMesh_v03g2")
-
-[node name="shin_r_end" type="Node3D" parent="hips/hip_r/thigh_r_end" unique_id=1555290267]
+[node name="shin_l_end" type="Node3D" parent="hips/hip_l/thigh_l_end" unique_id=556537651]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.44, 0)
 
-[node name="foot_r" type="Node3D" parent="hips/hip_r/thigh_r_end/shin_r_end" unique_id=2146378120]
+[node name="foot_l" type="Node3D" parent="hips/hip_l/thigh_l_end/shin_l_end" unique_id=417449066]
 transform = Transform3D(1, 0, 0, 0, 0.9992001, 0.039989334, 0, -0.039989334, 0.9992001, 0, 0, 0)
 
-[node name="boot_r" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end/shin_r_end/foot_r" unique_id=517992392]
+[node name="boot_l" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end/shin_l_end/foot_l" unique_id=389436357]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0.045)
+mesh = SubResource("BoxMesh_onlye")
+
+[node name="boot_l_toe" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end/shin_l_end/foot_l" unique_id=323401197]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0.15)
+mesh = SubResource("BoxMesh_v03g2")
+
+[node name="boot_l_cuff" type="MeshInstance3D" parent="hips/hip_l/thigh_l_end/shin_l_end/foot_l" unique_id=805950423]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.01)
 mesh = SubResource("BoxMesh_bnob7")
 
-[node name="boot_r_toe" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end/shin_r_end/foot_r" unique_id=1797189853]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0.15)
+[node name="hip_r" type="Node3D" parent="hips" unique_id=694783508]
+transform = Transform3D(0.99875027, -0.04997917, 0, 0.04829937, 0.96518224, -0.25708055, 0.012848672, 0.2567593, 0.96638995, 0.1, -0.06, 0)
+
+[node name="thigh_r" type="MeshInstance3D" parent="hips/hip_r" unique_id=403484126]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.225, 0)
 mesh = SubResource("BoxMesh_wmwxt")
 
-[node name="boot_r_cuff" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end/shin_r_end/foot_r" unique_id=139014383]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.01)
+[node name="thigh_r_end" type="Node3D" parent="hips/hip_r" unique_id=1956099080]
+transform = Transform3D(1, 0, 0, 0, 0.9427547, -0.3334871, 0, 0.3334871, 0.9427547, 0, -0.45, 0)
+
+[node name="knee_r" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=1329958657]
 mesh = SubResource("BoxMesh_t2lib")
+
+[node name="shin_r" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=720751841]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, 0)
+mesh = SubResource("BoxMesh_x0auj")
+
+[node name="wrap_r_0" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=440476641]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.09, 0)
+mesh = SubResource("BoxMesh_8koq6")
+
+[node name="wrap_r_1" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=873857262]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.18, 0)
+mesh = SubResource("BoxMesh_ty6j2")
+
+[node name="wrap_r_2" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=767906317]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.27, 0)
+mesh = SubResource("BoxMesh_bt6qa")
+
+[node name="wrap_r_3" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end" unique_id=1483683888]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.36, 0)
+mesh = SubResource("BoxMesh_dby6a")
+
+[node name="shin_r_end" type="Node3D" parent="hips/hip_r/thigh_r_end" unique_id=629858083]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.44, 0)
+
+[node name="foot_r" type="Node3D" parent="hips/hip_r/thigh_r_end/shin_r_end" unique_id=1764281926]
+transform = Transform3D(1, 0, 0, 0, 0.9992001, 0.039989334, 0, -0.039989334, 0.9992001, 0, 0, 0)
+
+[node name="boot_r" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end/shin_r_end/foot_r" unique_id=2140784096]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0.045)
+mesh = SubResource("BoxMesh_ox22y")
+
+[node name="boot_r_toe" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end/shin_r_end/foot_r" unique_id=871746516]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0.15)
+mesh = SubResource("BoxMesh_o5qyp")
+
+[node name="boot_r_cuff" type="MeshInstance3D" parent="hips/hip_r/thigh_r_end/shin_r_end/foot_r" unique_id=494867651]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.01)
+mesh = SubResource("BoxMesh_v2f76")

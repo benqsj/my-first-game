@@ -212,12 +212,15 @@ func _build_leg(hips: Node3D, side: String, sign: float) -> void:
 ## the nocks come out level with the grip and the string is straight — which is
 ## what makes the shape read as a bow rather than a stick.
 ##
-## The nock positions are *solved* rather than typed in, so changing the lean of
-## a limb moves the string with it instead of leaving it hanging in the air.
+## Built as a *chain* rather than as a pile of meshes on the mount: grip → limb →
+## horn → string, each hanging off the last. That is what lets the rig flex it.
+## A bow whose limbs do not bend as the string comes back is the thing that
+## makes a draw look wrong — the string bends round a shape that is not giving,
+## which no bow on earth does. Flex the limb and the horn goes with it, and the
+## string, which hangs off the horn, follows for nothing.
 ##
-## The string is two halves, each hanging from its own nock, because a drawn bow
-## has a bend in it. Each is a full metre of cord scaled down to the length it
-## needs; the rig aims them at the drawing hand and scales them to suit.
+## Each cord is a full metre scaled down to the length it needs, so the rig only
+## has to point it at the drawing hand and set one number.
 func _build_bow(mount: Node3D) -> void:
 	const LIMB := 0.34
 	const HORN := 0.14
@@ -230,37 +233,42 @@ func _build_bow(mount: Node3D) -> void:
 	_box(mount, "bow_grip", Vector3(0.045, 0.17, 0.05), Vector3.ZERO, "leather")
 	_box(mount, "bow_grip_bind", Vector3(0.05, 0.05, 0.055), Vector3.ZERO, "strap")
 
-	var along := func(angle: float) -> Vector3:
-		return Vector3(0.0, cos(angle), sin(angle))
-	var nock := Vector3.ZERO
 	for side: float in [1.0, -1.0]:
 		var tag := "u" if side > 0.0 else "l"
 		# Mirrored about the grip: upwards is +Y, and the lean is the same lean.
-		var lean := LEAN * side
-		var curl := (LEAN + CURL) * side
-		var root := Vector3(0.0, GRIP * side, 0.0)
-		var tip: Vector3 = root + along.call(lean) * LIMB * side
-		nock = tip + along.call(curl) * HORN * side
+		var limb := _joint(mount, "bow_limb_%s" % tag,
+				Vector3(0.0, GRIP * side, 0.0), Vector3(LEAN * side, 0.0, 0.0))
+		_box(limb, "bow_stave_%s" % tag, Vector3(0.038, LIMB, 0.030),
+				Vector3(0.0, LIMB * 0.5 * side, 0.0), "wood")
 
-		_box(mount, "bow_limb_%s" % tag, Vector3(0.038, LIMB, 0.030),
-				root.lerp(tip, 0.5), "wood", Vector3(lean, 0.0, 0.0))
-		_box(mount, "bow_horn_%s" % tag, Vector3(0.032, HORN, 0.026),
-				tip.lerp(nock, 0.5), "wood", Vector3(curl, 0.0, 0.0))
+		var horn := _joint(limb, "bow_horn_%s" % tag,
+				Vector3(0.0, LIMB * side, 0.0), Vector3(CURL * side, 0.0, 0.0))
+		_box(horn, "bow_tip_%s" % tag, Vector3(0.032, HORN, 0.026),
+				Vector3(0.0, HORN * 0.5 * side, 0.0), "wood")
 
-		# The cord hangs from the nock down its own -Y, so the rig only has to
-		# point the joint at the drawing hand and scale it to reach.
-		var cord := _joint(mount, "bow_string_%s" % tag, nock, Vector3.ZERO)
-		cord.scale = Vector3(1.0, nock.y * side, 1.0)
-		_box(cord, "bow_cord_%s" % tag, Vector3(0.012, 1.0, 0.012),
-				Vector3(0.0, -0.5 * side, 0.0), "linen")
+		# The cord hangs from the nock towards the grip. Its length is set by the
+		# rig, which is the only thing that knows where the string is being held.
+		var cord := _joint(horn, "bow_string_%s" % tag,
+				Vector3(0.0, HORN * side, 0.0), Vector3.ZERO)
+		_box(cord, "bow_cord_%s" % tag, Vector3(0.009, 1.0, 0.009),
+				Vector3(0.0, -0.5, 0.0), "linen")
 
-	# The arrow on the string. It hangs off its own joint so the rig can slide it
-	# back with the draw and take it away when it is loosed.
-	var arrow := _joint(mount, "bow_arrow", Vector3(0.0, 0.0, nock.z), Vector3(PI * 0.5, 0.0, 0.0))
-	_box(arrow, "shaft", Vector3(0.011, 0.62, 0.011), Vector3(0.0, 0.31, 0.0), "wood")
-	_box(arrow, "head", Vector3(0.022, 0.07, 0.006), Vector3(0.0, 0.64, 0.0), "steel")
-	_box(arrow, "fletch_a", Vector3(0.001, 0.09, 0.028), Vector3(0.0, 0.055, 0.0), "linen")
-	_box(arrow, "fletch_b", Vector3(0.028, 0.09, 0.001), Vector3(0.0, 0.055, 0.0), "linen")
+	# Where the string sits when nothing is pulling on it, and the arrow that is
+	# put on it. Both hang off the mount: the arrow is held by the archer, not by
+	# the bow, so it must not move when the limbs flex.
+	_joint(mount, "bow_nock", Vector3.ZERO, Vector3.ZERO)
+	var arrow := _joint(mount, "bow_arrow", Vector3.ZERO, Vector3(PI * 0.5, 0.0, 0.0))
+	_box(arrow, "shaft", Vector3(0.013, 0.66, 0.013), Vector3(0.0, 0.33, 0.0), "wood")
+	_box(arrow, "head", Vector3(0.026, 0.08, 0.007), Vector3(0.0, 0.69, 0.0), "steel")
+	_box(arrow, "fletch_a", Vector3(0.002, 0.10, 0.034), Vector3(0.0, 0.06, 0.0), "linen")
+	_box(arrow, "fletch_b", Vector3(0.034, 0.10, 0.002), Vector3(0.0, 0.06, 0.0), "linen")
+	# One spare in the drawing hand, shown while it is being carried to the string.
+	var held := _joint(mount, "bow_spare", Vector3.ZERO, Vector3.ZERO)
+	_box(held, "spare_shaft", Vector3(0.013, 0.66, 0.013), Vector3(0.0, 0.33, 0.0), "wood")
+	_box(held, "spare_head", Vector3(0.026, 0.08, 0.007), Vector3(0.0, 0.69, 0.0), "steel")
+	_box(held, "spare_fletch", Vector3(0.002, 0.10, 0.034), Vector3(0.0, 0.06, 0.0), "linen")
+
+
 #endregion
 
 

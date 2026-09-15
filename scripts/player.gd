@@ -1491,6 +1491,9 @@ func _loose_arrow() -> void:
 		into.add_child(arrow)
 		arrow.global_position = from
 		arrow.call("launch", heading * speed, damage, critical, _gravity * arrow_drop, self)
+	var archer := rig as ArcherRig
+	if archer != null:
+		archer.loose_bow()
 	arrow_loosed.emit(power, damage, critical)
 
 

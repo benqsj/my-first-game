@@ -176,7 +176,7 @@ func _show(page: Page) -> void:
 func _character_card(id: StringName) -> Control:
 	var profile := _profile(id)
 	var card := Button.new()
-	card.custom_minimum_size = Vector2(340.0, 380.0)
+	card.custom_minimum_size = Vector2(340.0, 592.0)
 	card.focus_mode = Control.FOCUS_NONE
 	card.pressed.connect(func() -> void:
 		_chosen = id
@@ -187,11 +187,14 @@ func _character_card(id: StringName) -> Control:
 	column.add_theme_constant_override("separation", 10)
 	column.offset_left = 22.0
 	column.offset_right = -22.0
-	column.offset_top = 22.0
-	column.offset_bottom = -22.0
+	column.offset_top = 18.0
+	column.offset_bottom = -18.0
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(column)
 
+	# The character before the paragraph about them: nobody picks who to play out
+	# of a table of numbers.
+	column.add_child(CharacterPortrait.of(profile, Vector2(296.0, 206.0)))
 	column.add_child(MenuStyle.label(profile.display_name.to_upper(), MenuStyle.HEADING_SIZE, MenuStyle.GOLD))
 	column.add_child(MenuStyle.label(
 			"BOW" if profile.weapon == CharacterProfile.Weapon.BOW else "SWORD AND SHIELD",

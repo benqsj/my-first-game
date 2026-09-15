@@ -49,6 +49,42 @@ func _check_menu() -> void:
 	_check("character select offers every character",
 			cards.size() == _game.roster().size(), "%d cards" % cards.size())
 
+	# And shows them. Choosing between a hooded archer and an armoured knight out
+	# of a table of numbers is choosing a spreadsheet row.
+	var shown := 0
+	var turning := 0
+	var angles: Array[float] = []
+	for id: StringName in cards:
+		var found := (cards[id] as Control).find_children("*", "CharacterPortrait",
+				true, false)
+		if found.is_empty():
+			continue
+		var portrait := found[0] as CharacterPortrait
+		var stand := portrait.find_child("Stand", true, false) as Node3D
+		var eye := not portrait.find_children("*", "Camera3D", true, false).is_empty()
+		# The model itself, not a picture of one: a mesh under the stand, from the
+		# same scene the game spawns.
+		var model := stand != null and not stand.find_children("*", "MeshInstance3D",
+				true, false).is_empty()
+		if stand != null and eye and model:
+			shown += 1
+			angles.append(stand.rotation.y)
+	_check("every card shows the character it is offering", shown == cards.size(),
+			"%d of %d" % [shown, cards.size()])
+
+	await _wait(20)
+	var i := 0
+	for id: StringName in cards:
+		var found := (cards[id] as Control).find_children("*", "CharacterPortrait",
+				true, false)
+		var stand := (found[0] as Node).find_child("Stand", true, false) as Node3D \
+				if not found.is_empty() else null
+		if stand != null and i < angles.size() and not is_equal_approx(stand.rotation.y, angles[i]):
+			turning += 1
+		i += 1
+	_check("and turns them so both sides can be seen", turning == shown,
+			"%d of %d turning" % [turning, shown])
+
 	# Co-op says what it is rather than pretending.
 	menu.set("_multiplayer", true)
 	menu.call("_show", 2)

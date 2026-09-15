@@ -198,13 +198,27 @@ func _check_bow() -> void:
 	_player.velocity = Vector3.ZERO
 	await _wait(20)
 
+	var down := _bow_hand_reach()
 	Input.action_press("attack")
 	await _wait(6)
 	_check("holding the button draws the bow", _player.is_drawing())
 	var early := _player.draw_power()
-	await _wait(40)
+	# A fifth of a second in: the bow should be out at the target already, with
+	# most of the draw still to come.
+	await _wait(8)
+	var lifted := _bow_hand_reach()
+	var quarter := _player.draw_power()
+	await _wait(32)
 	_check("and holding it longer draws it further", _player.draw_power() > early + 0.3,
 			"%.2f -> %.2f" % [early, _player.draw_power()])
+
+	# The bow arm leads. An archer puts the bow on the target and *then* pulls;
+	# an arm that comes up in step with the string spends the whole draw being
+	# winched into place and at a quarter draw is still somewhere near the hip.
+	var out := _bow_hand_reach()
+	_check("the bow arm is up before the string has come back",
+			lifted - down > (out - down) * 0.8,
+			"%.2f of %.2f m out at %.0f%% draw" % [lifted - down, out - down, quarter * 100.0])
 	_check("nothing is loosed while it is held", _arrows() == 0, "%d in the air" % _arrows())
 
 	# Drawing costs most of the run.
@@ -216,6 +230,8 @@ func _check_bow() -> void:
 	_check("drawing slows him down", drawn_pace < _player.run_speed * 0.8,
 			"%.1f of %.1f m/s" % [drawn_pace, _player.run_speed])
 
+	await _check_string()
+
 	Input.action_release("attack")
 	await _wait(2)
 	_check("letting go looses the arrow", _arrows() == 1, "%d in the air" % _arrows())
@@ -225,6 +241,7 @@ func _check_bow() -> void:
 	var was := flying.global_position
 	await _wait(6)
 	_check("the arrow flies", flying == null or was.distance_to(flying.global_position) > 1.0)
+	await _check_visible_shot(flying)
 	await _wait(120)
 
 	# Tapping shoots quickly, and each tap is worth less than a full draw.
@@ -238,6 +255,94 @@ func _check_bow() -> void:
 	_check("tapping gets shots away quickly", _arrows() >= 3,
 			"%d arrows from %d taps" % [_arrows(), quick])
 	await _wait(60)
+
+
+## --- The bow itself, at full draw -----------------------------------------
+##
+## Called with the string held back. Both halves have to run from their own horn
+## to the hand pulling them and stop there. Aimed in the wrong frame they still
+## *look* like a string from some angles — they just also trail off to somewhere
+## near the archer's feet, which is what this catches.
+func _check_string() -> void:
+	var rig := _player.rig as ArcherRig
+	var hand := rig.find_child("draw", true, false) as Node3D
+	var arrow := rig.find_child("bow_arrow", true, false) as Node3D
+	var worst := 0.0
+	var longest := 0.0
+	for tag in ["bow_string_u", "bow_string_l"]:
+		var half := rig.find_child(tag, true, false) as Node3D
+		if half == null:
+			continue
+		# The cord is built hanging down its own -Y and scaled to reach, so its
+		# far end is one unit down in its own frame whatever the scale is.
+		var tip := half.to_global(Vector3(0.0, -1.0, 0.0))
+		worst = maxf(worst, tip.distance_to(hand.global_position))
+		longest = maxf(longest, half.scale.y)
+	_check("both halves of the string end on the drawing hand", worst < 0.12,
+			"worst end is %.2f m off" % worst)
+	# A bow is about a metre and a half tip to tip, so no half of its string can
+	# be much over a metre without having been pointed at something else.
+	_check("and neither half runs off somewhere else", longest < 1.0,
+			"longest half is %.2f m" % longest)
+	_check("there is an arrow on the string", arrow != null and arrow.visible)
+
+	# How far the string actually comes back. A bow is drawn to the face; past
+	# that it is not a longer draw, it is an arm coming out of its socket.
+	var bow := rig.find_child("bow", true, false) as Node3D
+	var pull := bow.global_position.distance_to(hand.global_position)
+	_check("the string is drawn to the face, not past it",
+			pull > 0.45 and pull < 0.85, "%.2f m from grip to hand" % pull)
+
+	# And where the elbow ends up, which is the whole of whether it looks like
+	# archery. Two bones and a pinned hand leave one thing free; solved without
+	# choosing it, the upper arm points at the sky and the forearm folds back
+	# down it — the hand is in the right place and the arm is a chicken wing.
+	var shoulder := rig.find_child("shoulder_l", true, false) as Node3D
+	var elbow := rig.find_child("upperarm_l_end", true, false) as Node3D
+	var here := rig.to_local(elbow.global_position)
+	var upper := here - rig.to_local(shoulder.global_position)
+	_check("the drawing elbow is behind the hand",
+			here.z < rig.to_local(hand.global_position).z - 0.15,
+			"elbow %.2f, hand %.2f" % [here.z, rig.to_local(hand.global_position).z])
+	_check("and its upper arm is not pointing at the sky",
+			upper.y < upper.length() * 0.75,
+			"%.0f%% of the way to vertical" % (upper.y / maxf(upper.length(), 0.001) * 100.0))
+
+
+## --- Whether a shot can be seen -------------------------------------------
+##
+## The arrow is eighteen millimetres across and crosses three quarters of a metre
+## a tick. On its own it is never on screen where anyone is looking, which is
+## what "I cannot see the arrow" means. What makes it readable is the air it
+## cuts: a line down the flight path and a wider wake around it.
+##
+## And what it must *not* be is bright. A pass that lit the head and flared at
+## both ends read as an explosion crossing the field, so the colours are checked
+## for staying under white — past one they run into the glow pass.
+func _check_visible_shot(flying: Node3D) -> void:
+	if flying == null or not is_instance_valid(flying):
+		_check("the shot cuts a line through the air", false, "no arrow to look at")
+		return
+	var streak := root.find_children("ArrowTrail", "MeshInstance3D", true, false)
+	var wake := root.find_children("ArrowWake", "MeshInstance3D", true, false)
+	_check("the shot cuts a line through the air", not streak.is_empty())
+	_check("with a wider wake around it", not wake.is_empty())
+	var hottest := 0.0
+	for ribbon in streak + wake:
+		var tint := (ribbon as SwordTrail).tint
+		hottest = maxf(hottest, maxf(tint.r, maxf(tint.g, tint.b)))
+	_check("and none of it glows", hottest <= 1.0,
+			"brightest channel is %.2f" % hottest)
+	_check("nothing flares at either end of the flight",
+			root.find_children("ShotFlash*", "", true, false).is_empty())
+	# It has to turn over in the air as well: a shaft that never rolls reads as a
+	# decal sliding across the screen.
+	var facing := flying.global_transform.basis.x
+	await _wait(4)
+	if is_instance_valid(flying):
+		_check("and the shaft rolls as it goes",
+				facing.angle_to(flying.global_transform.basis.x) > 0.05,
+				"%.2f rad in four ticks" % facing.angle_to(flying.global_transform.basis.x))
 
 
 ## --- What a shot is worth -------------------------------------------------
@@ -293,6 +398,15 @@ func _shoot_at(hold: float) -> float:
 
 
 #region Scaffolding
+## How far in front of himself the bow hand is, in metres. The bow hangs off
+## `hand_r` — the model's `*_l` nodes are on its -X side, so that is the archer's
+## left — and the model faces its own +Z.
+func _bow_hand_reach() -> float:
+	var rig := _player.rig as Node3D
+	var hand := rig.find_child("hand_r", true, false) as Node3D
+	return rig.to_local(hand.global_position).z if hand != null else 0.0
+
+
 func _wolf_at(where: Vector3) -> Wolf:
 	var wolf: Wolf = load("res://scenes/enemies/wolf.tscn").instantiate()
 	_world.add_child(wolf)
