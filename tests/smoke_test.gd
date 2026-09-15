@@ -685,8 +685,39 @@ func _initialize() -> void:
 				player.global_position.distance_to(cart.global_position) > 0.9,
 				"%.2f m from it" % player.global_position.distance_to(cart.global_position))
 
-	# And the whole point of it: what a tick costs beside the house.
-	player.global_position = Vector3(-16.0, 0.3, -13.0)
+	# And the whole point of it: what a tick actually costs.
+	#
+	# Measured in two places, because the first thing that had to be learnt about
+	# this cost is that it is **not local**. Forty-five concave bodies are
+	# expensive to have in the world at all, not only to stand next to: with the
+	# trimesh colliders in place a tick cost ~10 ms out on the empty plain and
+	# ~9 ms at the house wall. So a ratio between the two says nothing; the
+	# absolute number is the measurement, and four milliseconds sits well clear
+	# of both sides of it — hulls give 0.7 and 1.5, trimeshes give 9 and 10.
+	#
+	# It is the one check here that can be moved by the machine rather than by
+	# the code. If it fails on its own while the shape checks above pass, look at
+	# what else is running before looking at this repository.
+	var plain := await _tick_cost(player, Vector3(20.0, 0.3, 20.0))
+	var house := await _tick_cost(player, Vector3(-16.0, 0.3, -13.0))
+	_check("a physics tick is affordable, at the house and away from it",
+			house < 4.0 and plain < 4.0,
+			"%.2f ms at the house, %.2f on the open plain" % [house, plain])
+
+	print("")
+	if _failures == 0:
+		print("All checks passed.")
+	else:
+		print("%d check(s) FAILED." % _failures)
+	quit(1 if _failures > 0 else 0)
+
+
+## What a physics tick costs with the player walking on the spot at `where`, in
+## milliseconds. The median of ninety, because a stutter is a tail and a mean
+## hides it — and because the first tick after a teleport rebuilds broadphase
+## state and is not representative of anything.
+func _tick_cost(player: Player, where: Vector3) -> float:
+	player.global_position = where
 	player.velocity = Vector3.ZERO
 	await _wait(40)
 	var ticks: Array[float] = []
@@ -696,19 +727,7 @@ func _initialize() -> void:
 		await physics_frame
 		ticks.append(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0)
 	ticks.sort()
-	var median: float = ticks[ticks.size() / 2]
-	# Generous: it measured 1.5 ms against 8.9 before, and this has to survive a
-	# loaded machine without crying wolf. What it catches is the collider
-	# simplification quietly coming undone.
-	_check("a physics tick beside the house is affordable", median < 6.0,
-			"%.2f ms" % median)
-
-	print("")
-	if _failures == 0:
-		print("All checks passed.")
-	else:
-		print("%d check(s) FAILED." % _failures)
-	quit(1 if _failures > 0 else 0)
+	return ticks[ticks.size() / 2]
 
 
 func _capsule(player: Player) -> CapsuleShape3D:

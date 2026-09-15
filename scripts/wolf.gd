@@ -30,8 +30,8 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var step_height: float = 0.45
 ## How far ahead that sweep reaches. Must exceed the body's radius.
 @export var step_probe: float = 0.6
-@export var prowl_speed: float = 2.4
-@export var charge_speed: float = 9.0
+@export var prowl_speed: float = 1.9
+@export var charge_speed: float = 7.2
 @export var acceleration: float = 22.0
 @export var turn_speed: float = 9.0
 ## How far from where it started it will wander.
@@ -48,7 +48,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var swipe_interval: float = 1.1
 ## Losing this many limbs puts it down.
 @export var limbs_before_death: int = 4
-@export var flee_speed: float = 7.0
+@export var flee_speed: float = 5.6
 ## How close the blade has to pass a limb to take it off, in metres.
 @export var hit_tolerance: float = 1.0
 
@@ -88,6 +88,9 @@ var _rng := RandomNumberGenerator.new()
 ## number here would let two players swinging in the same tick collapse into one
 ## hit — the second one's serial would already look seen.
 var _last_hit_serial: Dictionary = {}
+## How much each attacker has taken off it in total, keyed the same way. This is
+## what it goes after: the one hurting it most, not the one standing nearest.
+var _threat: Dictionary = {}
 ## The line this creature patrols along, as an offset from home.
 var _beat: Vector3 = Vector3.ZERO
 ## Set while shouldering past something it has walked into.
@@ -169,6 +172,33 @@ func _decides() -> bool:
 	return net == null or bool(net.call("is_host"))
 
 
+## Who it is after.
+##
+## **Whoever has hurt it most**, and the nearest one only while nobody has hurt
+## it at all. A creature that always goes for the closest body is a creature you
+## beat by standing one step further back than your friend, and it makes the
+## archer's whole way of fighting free: shoot from the trees, let the knight be
+## nearest, never be answered for it.
+##
+## Cumulative and undecayed on purpose. If the knight has taken a hundred off it
+## and the archer fifty, it wants the knight — and it goes on wanting the knight
+## until the archer has done more than a hundred. That is the rule as asked for,
+## and it is also the one a player can hold in their head: *hurt it more than
+## they did, and it is yours.*
+func _quarry() -> Node3D:
+	var owed: Node3D = null
+	var worst := 0.0
+	for node in get_tree().get_nodes_in_group("player"):
+		var who := node as Node3D
+		if who == null:
+			continue
+		var done := float(_threat.get(who.name, 0.0))
+		if done > worst:
+			worst = done
+			owed = who
+	return owed if owed != null else _nearest_player()
+
+
 ## The closest player there is, or null while there are none. Worked out fresh
 ## each time: which one is nearest changes as they move, and a wolf that picked
 ## its quarry once at load would keep chasing a body that has gone home.
@@ -187,10 +217,10 @@ func _nearest_player() -> Node3D:
 
 
 func _think(delta: float) -> void:
-	# Asked for again every think rather than cached at `_ready()`: with more
-	# than one player the nearest one changes as they move, and with none spawned
-	# yet a cache would hold null for the rest of the game.
-	var quarry := _nearest_player()
+	# Asked for again every think rather than cached at `_ready()`: who it is
+	# after changes as they hurt it, and with none spawned yet a cache would hold
+	# null for the rest of the game.
+	var quarry := _quarry()
 	var to_player := Vector3.ZERO
 	var distance := INF
 	if quarry != null:
@@ -348,7 +378,7 @@ func _take_hits() -> void:
 		# different place, a frame of interpolation behind.
 		net_sever.rpc(part, rig.last_cut_point, blow)
 		# `net_sever` has already spilled the blood, on every peer.
-		take_hit(damage_per_hit, rig.last_cut_point, blow, false, false)
+		take_hit(damage_per_hit, rig.last_cut_point, blow, false, false, knight)
 		knight.rig.bloody()
 		if is_dead:
 			return
@@ -377,7 +407,7 @@ func net_sever(part: String, at: Vector3, blow: Vector3) -> void:
 ## that goes down — because a hit should not read differently for the weapon
 ## that landed it.
 func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
-		spill: bool = true) -> void:
+		spill: bool = true, from: Node = null) -> void:
 	# Only the host decides what a hit is worth. `health` and `is_dead` are
 	# replicated from here, so a client that scored one says nothing and waits to
 	# be told — which is what keeps one wolf from dying twice.
@@ -385,6 +415,12 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 		return
 
 	health = maxf(health - damage, 0.0)
+	# Who is owed for it. Kept here rather than at the call sites: this is the
+	# one door every kind of damage comes through, and a tally that has to be
+	# remembered separately by each weapon is a tally that will be wrong the
+	# first time a weapon is added.
+	if from != null:
+		_threat[from.name] = float(_threat.get(from.name, 0.0)) + damage
 	hurt.emit(health)
 
 	var thrown := blow
@@ -402,7 +438,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	if shove.length_squared() > 0.0001:
 		velocity += shove.normalized() * (6.0 if critical else 4.0)
 
-	# Being shot at is a good enough reason to come and find out who did it.
+	# Being shot at is a good enough reason to come and find out who did it —
+	# and if somebody else has just taken the lead, to go after them instead.
 	if state == State.PROWL:
 		state = State.CHASE
 
@@ -446,6 +483,15 @@ func _lie_down() -> void:
 	died.emit()
 
 
+## Takes the body out of every window at once.
+##
+## `queue_free()` does not replicate — it is a local decision about a local
+## node — so the peer that decided has to say so out loud.
+@rpc("authority", "call_local", "reliable")
+func net_clear() -> void:
+	queue_free()
+
+
 ## Topples the body over once it is dead.
 func _collapse(delta: float) -> void:
 	if rig == null:
@@ -467,7 +513,11 @@ func _clear_away(delta: float) -> void:
 
 	var sunk := (_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001)
 	if sunk >= 1.0:
-		queue_free()
+		# Everywhere, not only here. This runs in `_physics_process`, which only
+		# the host has, so freeing it locally would leave a wolf lying in every
+		# other window for the rest of the game — kept alive by nothing, posing a
+		# rig every frame, and never coming back.
+		net_clear.rpc()
 		return
 	if rig != null:
 		# Eased in: it lingers a moment longer at the surface, then goes.

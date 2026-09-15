@@ -31,9 +31,9 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB 
 #region Exported tuning
 @export_group("Movement")
 ## Speed while the walk modifier is held.
-@export var walk_speed: float = 4.5
+@export var walk_speed: float = 3.6
 ## Speed with no modifier held — running is the default gait.
-@export var run_speed: float = 9.0
+@export var run_speed: float = 7.2
 ## How hard the character can change its ground velocity. High values are what
 ## keep a fast run from sliding on through a turn or a release.
 @export var ground_acceleration: float = 60.0
@@ -108,7 +108,7 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB 
 
 @export_group("Crouch")
 ## Speed while crouched. Creeping is the point of it.
-@export var crouch_speed: float = 2.4
+@export var crouch_speed: float = 1.9
 ## Height of the capsule while crouched.
 @export var crouch_height: float = 1.15
 

@@ -132,8 +132,11 @@ lost between physics ticks and simulated input works in tests.
   exactly as much as the folded legs shorten, worked out from the model's own
   thigh and shin, so the boots stay on the ground without a second number that
   has to be kept in step with the knee angle.
-- **Speeds.** Running is the default gait: 9 m/s with nothing held, 4.5 m/s
-  while `walk` is held. Acceleration and deceleration are high (60 / 75) on
+- **Speeds.** Running is the default gait: 7.2 m/s with nothing held, 3.6 m/s
+  while `walk` is held. Everything that *travels* — both characters, the wolves
+  and the golems — was taken down by a fifth from what it was, because the whole
+  level read as being on fast-forward. The evades were left where they were: a
+  roll is a burst and the complaint was about running. Acceleration and deceleration are high (60 / 75) on
   purpose — at speed, low values read as ice: the character keeps sliding after
   the key is released and drifts the old way through a turn. The rig derives its stride rate from the actual ground
   speed, so changing these never makes the feet skate — and the stride *length*
@@ -226,7 +229,7 @@ and the handful of figures that differ:
 | | Tariel | Avtandil |
 | --- | ------ | -------- |
 | weapon | sword and shield | bow |
-| run | 9 m/s | 10.4 m/s |
+| run | 7.2 m/s | 8.3 m/s |
 | roll | 11 m/s × 0.45 s = 4.9 m | 13.5 m/s × 0.5 s = 6.8 m |
 | crit | 10% | 30% |
 
@@ -666,7 +669,25 @@ is worked out in `_tick_bow()` — which is physics, which a body somebody else 
 driving never runs. Without it a remote archer stands with his bow down and an
 arrow appears out of him.
 
-Two things did have to change, and both were real single-player assumptions
+**A creature goes after whoever is hurting it most.** `Wolf` keeps a tally of
+what each attacker has taken off it and chases the top of it, falling back to
+the nearest player only while nobody has touched it. A creature that always goes
+for the closest body is one you beat by standing a step further back than your
+friend, and it makes the archer's whole way of fighting free: shoot from the
+trees, let the knight be nearest, never be answered for it. The tally is
+cumulative and undecayed, which is the rule as asked for and also one a player
+can hold in their head — *hurt it more than they did, and it is yours*. It lives
+in `take_hit()` because that is the one door every kind of damage comes through;
+a tally each weapon had to remember separately would be wrong the first time a
+weapon was added.
+
+**A corpse leaves every window.** `queue_free()` is a local decision about a
+local node and does not replicate, and the sinking runs in `_physics_process`,
+which only the host has — so a wolf cleared away on the host lay in every other
+window for the rest of the game, posing a rig every frame and never coming back.
+`Wolf.net_clear()` says it out loud.
+
+Two more things did have to change, and both were real single-player assumptions
 rather than tidying:
 
 - `Wolf` cached **one** player at `_ready()` — looked up before anybody had
@@ -1351,7 +1372,17 @@ has touched it. Measured with the player walking past the house wall:
 | both simplified | **1.5 ms** |
 
 8.9 ms is half a 60 Hz frame spent deciding whether a capsule has touched a
-cart — and the cart was two thirds of it, for a prop you walk around. The fix is
+cart — and the cart was two thirds of it, for a prop you walk around.
+
+**And the cost is not local.** That was the second thing learnt, later and the
+hard way: with the trimesh colliders in place a tick cost ~10 ms out on the
+*empty plain* as well, forty metres from the house. Forty-five concave bodies
+are expensive to have in the world at all, not only to stand next to — which is
+why `smoke_test.gd` measures both places and asserts an absolute figure rather
+than a ratio between them. A ratio looked like the load-independent choice and
+was worthless: 0.88 before the fix against 2.3 after it, the wrong way round.
+
+The fix is
 [`SimpleCollision`](scripts/simple_collision.gd) on the `House` and `Cart` nodes:
 one convex hull per mesh instead of a trimesh. Hulls keep the shape of things
 that have one — a box over a sloped roof is a block the player stands on in

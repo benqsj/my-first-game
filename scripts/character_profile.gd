@@ -29,8 +29,8 @@ enum Weapon {
 
 @export_group("Movement")
 ## Overrides the controller's own. The knight is the yardstick at 9 m/s.
-@export var run_speed: float = 9.0
-@export var walk_speed: float = 4.5
+@export var run_speed: float = 7.2
+@export var walk_speed: float = 3.6
 ## How far the tumbling roll carries. The archer trades armour for ground.
 @export var dash_speed: float = 11.0
 @export var dash_duration: float = 0.45

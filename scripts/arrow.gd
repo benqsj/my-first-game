@@ -149,7 +149,9 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# the wound is spilled locally, where it is seen, and the hit is asked
 		# for without it.
 		Blood.splatter(Blood.world_of(self), where, blow.normalized())
-		what.call("take_hit", _damage, where, blow, _critical, false)
+		# The shooter goes with it: an arrow that hurts something anonymously
+		# leaves the creature no reason to come and find out who fired it.
+		what.call("take_hit", _damage, where, blow, _critical, false, _shooter)
 		# Arrows that land in something ride it rather than hanging in the air
 		# where it used to be. Deferred, because moving a node between parents
 		# in the middle of a physics step is asking the tree to change under the

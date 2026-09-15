@@ -10,7 +10,7 @@ extends CharacterBody3D
 ## wander any idle creature does — pick a spot, walk to it, wait, pick another.
 
 @export_group("Movement")
-@export var speed: float = 1.8
+@export var speed: float = 1.44
 @export var acceleration: float = 4.0
 @export var turn_speed: float = 5.0
 ## How far from where it started it will wander.

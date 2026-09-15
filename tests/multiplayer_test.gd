@@ -170,27 +170,91 @@ func _check_two_attackers() -> void:
 		(knight as Player).rotation.y = 0.0
 	await _wait(4)
 
-	var before := wolf.rig.lost_parts()
+	# Put back on its feet between rounds. Which limb a cut takes is random and
+	# the head ends it on the spot, so without this the check is really asking
+	# "did the first swing happen to take the head" — and what it is *for* is
+	# whether the second attacker registers at all.
 	var landed := 0
-	for round_at in 10:
-		if wolf.is_dead:
-			break
+	for round_at in 8:
+		_revive(wolf)
+		var before := wolf.rig.lost_parts()
 		for knight in [mine, other]:
 			(knight as Player).global_position = wolf.global_position + Vector3(0.0, 0.0, 1.3)
+			(knight as Player).velocity = Vector3.ZERO
 			(knight as Player).rig.attack(CharacterRig.AttackStyle.SIDE)
 		await _wait(20)
-		landed = wolf.rig.lost_parts() - before
-	_check("two players swinging at one wolf both land", landed >= 2,
-			"%d limbs between them" % landed)
+		landed = maxi(landed, wolf.rig.lost_parts() - before)
 
 	var serials: Dictionary = wolf.get("_last_hit_serial")
-	_check("and each is remembered separately", serials.size() >= 2,
+	_check("two players swinging at one wolf both land", serials.size() >= 2,
 			"%d attackers on the books" % serials.size())
+	_check("and both cuts come off it in the same round", landed >= 2,
+			"%d limbs in the best round" % landed)
+
+	# --- And it goes after whoever is hurting it most ----------------------
+	#
+	# A creature that always goes for the closest body is one you beat by
+	# standing a step further back than your friend, and it makes the archer's
+	# whole way of fighting free.
+	#
+	# Asked of `take_hit()` directly: the tally is a property of the door every
+	# kind of damage comes through, and driving it with swings would make this a
+	# question about which limb the dice picked.
+	_revive(wolf)
+	wolf.set("_threat", {})
+	wolf.take_hit(40.0, wolf.global_position, Vector3.UP, false, false, mine)
+	wolf.take_hit(25.0, wolf.global_position, Vector3.UP, false, false, other)
+	var threat: Dictionary = wolf.get("_threat")
+	_check("a wolf keeps a tally of who has hurt it", threat.size() == 2,
+			"%d attackers on the books" % threat.size())
+	_check("and the tally is what each of them did",
+			is_equal_approx(threat.get(mine.name, 0.0), 40.0)
+					and is_equal_approx(threat.get(other.name, 0.0), 25.0),
+			"%s" % threat)
+
+	wolf.set("_threat", {mine.name: 100.0, other.name: 50.0})
+	_check("and goes after the one who has done the most",
+			wolf.call("_quarry") == mine,
+			"chasing %s" % wolf.call("_quarry"))
+	wolf.set("_threat", {mine.name: 100.0, other.name: 150.0})
+	_check("changing its mind when somebody overtakes them",
+			wolf.call("_quarry") == other,
+			"chasing %s" % wolf.call("_quarry"))
+	wolf.set("_threat", {mine.name: 160.0, other.name: 150.0})
+	_check("and back again when they are overtaken in turn",
+			wolf.call("_quarry") == mine)
+	# Nobody has touched it: the nearest one, as before.
+	wolf.set("_threat", {})
+	other.global_position = wolf.global_position + Vector3(2.0, 0.0, 0.0)
+	mine.global_position = wolf.global_position + Vector3(40.0, 0.0, 0.0)
+	await _wait(3)
+	_check("an untouched one still goes for the nearest",
+			wolf.call("_quarry") == other, "chasing %s" % wolf.call("_quarry"))
+
+	# --- A corpse leaves every window ---------------------------------------
+	# `queue_free()` does not replicate, and the sinking runs in
+	# `_physics_process`, which only the host has. Without the call the body
+	# would lie in every other window for the rest of the game.
+	_check("clearing a corpse away is a replicated call", wolf.has_method("net_clear"))
+
 	other.queue_free()
 	await _wait(2)
 
 
 #region Scaffolding
+## Back on its feet. Test scaffolding, and said plainly: the checks above are
+## about bookkeeping, and a wolf that dies to a lucky head shot halfway through
+## turns them into a question about the dice.
+func _revive(wolf: Wolf) -> void:
+	wolf.is_dead = false
+	wolf.health = wolf.max_health
+	wolf.state = Wolf.State.PROWL
+	wolf.collision_layer = 4
+	wolf.velocity = Vector3.ZERO
+	if wolf._bar != null:
+		wolf._bar.show()
+
+
 func _wait(frames: int) -> void:
 	for i in frames:
 		await physics_frame
