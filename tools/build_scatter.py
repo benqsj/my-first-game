@@ -11,6 +11,12 @@ patches have a soft border instead of a hard circle.
 Everything outside a meadow is left as bare ground, and rocks are dropped along
 the meadow edges and out on the open plain.
 
+The grass is not written as nodes. `GrassField` draws the whole field out of a
+handful of multimeshes, so what goes into the scene is a flat `PackedFloat32Array`
+— five numbers a clump, x/z/yaw/width/height — and the field turns it into
+instances at load. The rocks stay as instanced scenes: there are thirty of them,
+they are solid, and they are not what was costing anything.
+
 Deterministic: same seed in, same scatter out.
 
     python3 tools/build_scatter.py            # rewrite the scene in place
@@ -22,6 +28,7 @@ from __future__ import annotations
 import argparse
 import math
 import random
+import re
 from pathlib import Path
 
 SCENE = Path(__file__).resolve().parent.parent / "scenes/world/greybox_world.tscn"
@@ -146,6 +153,28 @@ TEST_CLUMP = (-6.0, 30.0)
 TEST_ROCK = (-2.0, 30.5, 1.0)
 
 
+SCATTER_HEADER = '[node name="Scatter" type="Node3D" parent="Level"]'
+
+# Every line that opens a node, so the end of the scatter can be found by
+# reading the headers rather than by naming whatever happens to follow it.
+NODE_HEADER = re.compile(r'^\[node name="[^"]+"', re.M)
+
+
+def _end_of_scatter(text: str, start: int) -> int:
+    """Where the `Level/Scatter` block stops, in characters into the scene.
+
+    The first node after it that is not one of its own children. Found this way
+    rather than by looking for the node that used to come next: this script
+    rewrites whatever lies between the two points, and a marker that goes stale
+    when somebody adds a node to the level deletes their work silently.
+    """
+    for match in NODE_HEADER.finditer(text, start + len(SCATTER_HEADER)):
+        line = text[match.start():text.index("\n", match.start())]
+        if 'parent="Level/Scatter"' not in line:
+            return match.start()
+    raise SystemExit("build_scatter: no node follows Level/Scatter; refusing to guess.")
+
+
 def _fmt(value: float) -> str:
     """Godot writes floats without a trailing `.0`; match that to keep diffs small."""
     text = f"{value:.6g}"
@@ -156,6 +185,11 @@ def _transform(x: float, z: float, yaw: float, scale: float, y_scale: float) -> 
     cos_y, sin_y = math.cos(yaw) * scale, math.sin(yaw) * scale
     parts = [cos_y, 0.0, -sin_y, 0.0, y_scale, 0.0, sin_y, 0.0, cos_y, x, 0.0, z]
     return "transform = Transform3D(%s)" % ", ".join(_fmt(p) for p in parts)
+
+
+def _placement(x: float, z: float, yaw: float, width: float, height: float) -> list[str]:
+    """One clump, in the five numbers `GrassField.clumps` is read five at a time."""
+    return [_fmt(v) for v in (x, z, yaw, width, height)]
 
 
 def _blocked(x: float, z: float, zones) -> bool:
@@ -234,37 +268,32 @@ def build_scatter() -> tuple[str, int, int]:
             placed = len(tufts) + len(clumps)
             if TUFTS_PER_CLUMP > 0 and placed % (TUFTS_PER_CLUMP + 1) != 0:
                 scale = (2.15 + 1.15 * cover) * rng.uniform(0.9, 1.12)
-                tufts.append(_transform(px, pz, yaw, scale, scale * height * rng.uniform(0.94, 1.08)))
+                tufts.append(_placement(px, pz, yaw, scale,
+                        scale * height * rng.uniform(0.94, 1.08)))
             else:
                 scale = (0.95 + 0.55 * cover) * rng.uniform(0.85, 1.15)
-                clumps.append(_transform(px, pz, yaw, scale,
+                clumps.append(_placement(px, pz, yaw, scale,
                         scale * (0.8 + 0.25 * cover) * rng.uniform(0.9, 1.1)))
         z += row_step
         row += 1
 
+    # The test anchor goes first: the headless tests take clump 0 and the first
+    # `Rocks*` child, and both need room around them.
+    clumps.insert(0, _placement(TEST_CLUMP[0], TEST_CLUMP[1], 0.4, 1.0, 1.0))
+
     lines: list[str] = []
     lines.append('[node name="Scatter" type="Node3D" parent="Level"]')
     lines.append('script = ExtResource("6_grass_field")')
+    lines.append("clumps = PackedFloat32Array(%s)"
+                 % ", ".join(v for record in clumps for v in record))
+    if tufts:
+        lines.append("tufts = PackedFloat32Array(%s)"
+                     % ", ".join(v for record in tufts for v in record))
     lines.append("")
 
-    # Test anchors first: the headless tests pick the first clump and the first
-    # rock, and both need room around them.
-    lines.append('[node name="GrassClump1" parent="Level/Scatter" instance=ExtResource("3_grass2")]')
-    lines.append(_transform(TEST_CLUMP[0], TEST_CLUMP[1], 0.4, 1.0, 1.0))
-    lines.append("")
     lines.append('[node name="Rocks1" parent="Level/Scatter" instance=ExtResource("5_rock")]')
     lines.append(_transform(TEST_ROCK[0], TEST_ROCK[1], 0.9, TEST_ROCK[2], TEST_ROCK[2]))
     lines.append("")
-
-    for i, transform in enumerate(tufts, start=1):
-        lines.append('[node name="GrassTuft%d" parent="Level/Scatter" instance=ExtResource("4_grass")]' % i)
-        lines.append(transform)
-        lines.append("")
-
-    for i, transform in enumerate(clumps, start=2):
-        lines.append('[node name="GrassClump%d" parent="Level/Scatter" instance=ExtResource("3_grass2")]' % i)
-        lines.append(transform)
-        lines.append("")
 
     rock_index = 2
     for x, z, scale in ROCK_SPOTS:
@@ -275,7 +304,7 @@ def build_scatter() -> tuple[str, int, int]:
         lines.append("")
         rock_index += 1
 
-    return "\n".join(lines), len(tufts) + len(clumps) + 1, rock_index - 1
+    return "\n".join(lines), len(tufts) + len(clumps), rock_index - 1
 
 
 def main() -> None:
@@ -284,14 +313,13 @@ def main() -> None:
     args = parser.parse_args()
 
     block, grass_count, rock_count = build_scatter()
-    print("%d grass instances, %d rock clusters" % (grass_count, rock_count))
+    print("%d grass clumps, %d rock clusters" % (grass_count, rock_count))
     if args.dry_run:
         return
 
     text = SCENE.read_text()
-    start = text.index('[node name="Scatter" type="Node3D" parent="Level"]')
-    end = text.index('[node name="WallEast"')
-    SCENE.write_text(text[:start] + block + "\n" + text[end:])
+    start = text.index(SCATTER_HEADER)
+    SCENE.write_text(text[:start] + block + "\n" + text[_end_of_scatter(text, start):])
     print("rewrote %s" % SCENE)
 
 

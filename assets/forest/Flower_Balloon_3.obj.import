@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://5xi3e34iumuy"
+path="res://.godot/imported/Flower_Balloon_3.obj-6fa6e07d53511d800f4542a0f9d06bec.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Flower_Balloon_3.obj-6fa6e07d53511d800f4542a0f9d06bec.mesh"]
+
+source_file="res://assets/forest/Flower_Balloon_3.obj"
+dest_files=["res://.godot/imported/Flower_Balloon_3.obj-6fa6e07d53511d800f4542a0f9d06bec.mesh", "res://.godot/imported/Flower_Balloon_3.obj-6fa6e07d53511d800f4542a0f9d06bec.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

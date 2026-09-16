@@ -22,9 +22,20 @@ extends Node
 
 ## Distance from the middle of the level for the ground-level poses. Wide enough
 ## to hold the far side in shot at `field_of_view`.
-@export var ring_radius: float = 62.0
-## Height of the overhead poses.
-@export var ceiling: float = 55.0
+##
+## Zero works it out from the level instead, which is what it is left at: a
+## number typed in here goes stale the moment the ground changes size, and it
+## goes stale *silently* — the warm-up still runs, it simply stops seeing the
+## outer half of the map, and the stalls it was there to prevent come back.
+@export var ring_radius: float = 0.0
+## Height of the overhead poses. Zero works it out from the level.
+@export var ceiling: float = 0.0
+## What the level is measured by, when the two above are left to work themselves
+## out. The ground plane, not everything visible — the mountains on the skyline
+## are two hundred metres further out than anything that is ever walked on, and
+## measuring against them would put every pose out where the whole level is a
+## smudge in the distance.
+@export var measure_from: NodePath = ^"Level/Ground"
 ## Deliberately wide: what matters is how much is inside the frustum, not
 ## whether the framing looks like anything.
 @export var field_of_view: float = 100.0
@@ -68,9 +79,21 @@ func _ready() -> void:
 	_restore = get_viewport().get_camera_3d()
 	_camera = Camera3D.new()
 	_camera.fov = field_of_view
-	# The level is 120 m across and the poses stand off the edge of it.
-	_camera.far = 400.0
-	world.add_child(_camera)
+	# The level is 240 m across and the poses stand off the edge of it.
+	_camera.far = 600.0
+	# Hung off *this* node, not off the level.
+	#
+	# `_ready()` runs while the level is still handing readiness down to its
+	# children, and a node in the middle of that refuses to take another one:
+	# `world.add_child()` here fails outright with "parent node is busy setting
+	# up children". It failed silently, too — an unparented camera cannot be
+	# made current and cannot be moved, so the warm-up spent its frames drawing
+	# nothing and every pipeline it was supposed to compile got compiled on the
+	# first frame the player saw instead.
+	#
+	# This node is a plain `Node`, so the camera is the root of its own transform
+	# chain and the poses below are already in world space. Nothing else changes.
+	add_child(_camera)
 	_camera.current = true
 
 	_left = frames_per_pose
@@ -107,16 +130,21 @@ func _finish() -> void:
 ## catches whatever the ring had hidden behind something else.
 func _plan(box: AABB) -> Array[Transform3D]:
 	var middle := box.get_center()
+	# Half the ground's longer side, plus enough to stand off the edge of it.
+	var reach := maxf(box.size.x, box.size.z) * 0.5
+	var ring := ring_radius if ring_radius > 0.0 else reach * 0.55
+	var high := ceiling if ceiling > 0.0 else reach * 0.75
+
 	var poses: Array[Transform3D] = []
 	const AROUND := 6
 	for i in AROUND:
 		var angle := TAU * float(i) / AROUND
-		var at := middle + Vector3(cos(angle), 0.0, sin(angle)) * ring_radius
+		var at := middle + Vector3(cos(angle), 0.0, sin(angle)) * ring
 		at.y = box.position.y + 2.0
 		poses.append(_looking(at, middle))
-	poses.append(_looking(middle + Vector3.UP * ceiling, middle + Vector3(0.1, 0.0, 0.0)))
-	poses.append(_looking(middle + Vector3(ring_radius * 0.5, ceiling, ring_radius * 0.5), middle))
-	poses.append(_looking(middle + Vector3(-ring_radius * 0.5, ceiling, -ring_radius * 0.5), middle))
+	poses.append(_looking(middle + Vector3.UP * high, middle + Vector3(0.1, 0.0, 0.0)))
+	poses.append(_looking(middle + Vector3(ring * 0.5, high, ring * 0.5), middle))
+	poses.append(_looking(middle + Vector3(-ring * 0.5, high, -ring * 0.5), middle))
 	return poses
 
 
@@ -127,11 +155,25 @@ func _looking(from: Vector3, at: Vector3) -> Transform3D:
 ## How far the level actually reaches, so the poses do not have to be numbers
 ## that go stale the moment anything is moved.
 func _bounds(world: Node3D) -> AABB:
-	var box := AABB()
+	# The ground alone, when the level says which node that is. Everything else
+	# visible includes the skyline, which is nowhere near the part being warmed.
+	var ground := world.get_node_or_null(measure_from) as Node3D
+	if ground != null:
+		var box := AABB()
+		var found := false
+		for node in ground.find_children("*", "VisualInstance3D", true, true):
+			var mesh := node as VisualInstance3D
+			var here := mesh.global_transform * mesh.get_aabb()
+			box = here if not found else box.merge(here)
+			found = true
+		if found:
+			return box
+
+	var whole := AABB()
 	var started := false
 	for node in world.find_children("*", "VisualInstance3D", true, false):
 		var instance := node as VisualInstance3D
 		var here := instance.global_transform * instance.get_aabb()
-		box = here if not started else box.merge(here)
+		whole = here if not started else whole.merge(here)
 		started = true
-	return box if started else AABB(Vector3(-60.0, 0.0, -60.0), Vector3(120.0, 12.0, 120.0))
+	return whole if started else AABB(Vector3(-120.0, 0.0, -120.0), Vector3(240.0, 12.0, 240.0))

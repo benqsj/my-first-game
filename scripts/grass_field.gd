@@ -4,14 +4,29 @@ extends Node3D
 ## Bends grass out of the way as something walks or rolls through it, and keeps
 ## the whole field swaying in the wind.
 ##
-## Every child whose name starts with `grass_prefix` is treated as a clump. Each
-## clump keeps the orientation it was placed with; the lean is a rotation
-## layered on top of that, about a horizontal axis through the clump's base, so
-## the blades tip away from whatever is pushing them and spring back once it has
-## passed.
+## The field is **one mesh drawn many times**, not many meshes. The clump model
+## is 8 256 triangles and there are the better part of two thousand of them; as
+## instanced scenes that was seventeen hundred draw calls and most of the frame,
+## and it is what `Graphics._apply_grass()` means when it calls the grass "most
+## of the cost of the world". So the placement arrives as a flat array of
+## numbers — written by `tools/build_scatter.py`, five floats to a clump — and is
+## turned at load into [MultiMeshInstance3D]s, a couple of dozen of them, split
+## on a grid:
 ##
-## Clumps are bucketed into a uniform grid at startup, so a field of several
-## thousand only ever costs a handful of cell lookups per pusher per frame:
+## * a chunk is one draw call however many clumps stand in it;
+## * a chunk is culled, faded and dropped to a coarser level of detail on its
+##   own, which is why the grid is tight — the renderer picks one detail level
+##   per multimesh, so a big chunk would hold the near clumps back;
+## * only a chunk that something has actually walked through is re-uploaded, so
+##   the field costs a buffer write where the player is and nothing anywhere
+##   else.
+##
+## Everything above that is unchanged. Each clump keeps the orientation it was
+## placed with; the lean is a rotation layered on top of that, about a horizontal
+## axis through the clump's base, so the blades tip away from whatever is pushing
+## them and spring back once it has passed. Clumps are bucketed into a uniform
+## grid at startup, so a field of several thousand only ever costs a handful of
+## cell lookups per pusher per frame:
 ##
 ## * clumps near a pusher are integrated every frame — that is the part the
 ##   player feels;
@@ -22,10 +37,36 @@ extends Node3D
 ##
 ## The player is not the only thing that flattens grass: every body in the
 ## "enemy" group pushes too, with a wider radius since the creatures are bigger.
+##
+## Children that are not clumps — the stone clusters that share this node — are
+## left exactly as they are. They are solid, there are thirty of them, and they
+## are not what was costing anything.
+
+## Floats per clump in `clumps`: x, z, yaw, width, height.
+const STRIDE := 5
+
+@export_group("Field")
+## The clump model. Its first mesh is what gets drawn, once per clump.
+@export var clump_scene: String = "res://assets/grass/grass2.glb"
+## Placement, five floats to a clump: x and z in the field's own frame, the yaw
+## it stands at, and the width and height it is scaled to. Written by
+## `tools/build_scatter.py`; not meant to be edited by hand.
+@export var clumps: PackedFloat32Array = PackedFloat32Array()
+## A second, cheaper model, laid out the same way. `grass.glb` is a tenth of the
+## triangles of the clump but ships untextured and reads as flat green leaf cards
+## rather than blades, so it is only worth mixing in where the grass is small and
+## sparse. Left empty by the scatter as it stands.
+@export var tuft_scene: String = "res://assets/grass/grass.glb"
+@export var tufts: PackedFloat32Array = PackedFloat32Array()
+## Side of a drawing chunk, in metres. Small on purpose: one level of detail is
+## picked per chunk, so a large chunk keeps the clumps at the player's feet at
+## the same detail as the ones at its far corner.
+@export var draw_chunk: float = 16.0
 
 @export_group("Bending")
-## Only children whose name starts with this are bent. Rocks and other props
-## sitting in the same scatter node are left alone.
+## Kept for the scenes that still set it. Children are no longer searched for
+## clumps — the placement comes from `clumps` — but a name prefix is still what
+## tells a stone cluster from a tuft in the scatter that produces both.
 @export var grass_prefix: String = "Grass"
 ## How far from a pusher a clump starts to feel it, in metres.
 @export var reach: float = 1.5
@@ -56,36 +97,54 @@ extends Node3D
 @export var draw_distance: float = 130.0
 ## Whether the blades cast shadows into the sun's shadow map.
 ##
-## Off by default, and it is the single biggest thing on this node: a field of a
-## few thousand clumps has to be re-drawn once per shadow cascade on top of the
-## visible pass, which measured as roughly half the frame on an M1 — for shadows
-## that, at this size of blade, are almost impossible to see. Grass still
+## Off by default, and still the single biggest switch on this node: the field
+## has to be re-drawn once per shadow cascade on top of the visible pass, for
+## shadows that at this size of blade are almost impossible to see. Grass still
 ## *receives* the shadows of everything around it.
 @export var casts_shadows: bool = false
-## How eagerly a clump drops to a coarser level of detail, as a multiplier on
-## the viewport's threshold — *below* 1 means sooner. The clump mesh is 8 256
-## triangles and there are well over a thousand of them, so leaning on the LODs
-## the importer generated is what keeps the triangle count sane; a blade twenty
-## metres off does not need its full silhouette. Applied per clump rather than
+## How eagerly a chunk drops to a coarser level of detail, as a multiplier on the
+## viewport's threshold — *below* 1 means sooner. Leaning on the LODs the
+## importer generated is what keeps the triangle count sane; a blade twenty
+## metres off does not need its full silhouette. Applied per chunk rather than
 ## through the viewport so the buildings and creatures keep their detail.
 @export var lod_bias: float = 0.06
-## Clumps further than this from the player are not swayed at all. Kept short
-## on purpose: writing a transform per clump per frame is the expensive part of
-## this script, and a blade of grass 25 m out is not visibly moving anyway.
+## Clumps further than this from the player are not swayed at all. Kept short on
+## purpose: writing a transform per clump per frame is the expensive part of this
+## script, and a blade of grass 25 m out is not visibly moving anyway.
 @export var wind_radius: float = 22.0
 ## The wind pass is split across this many frames. A gust cycle lasts about a
 ## second, so a clump updated every fifth frame still reads as smooth.
 @export var wind_slices: int = 5
-## Side of a grid bucket, in metres. Wants to be a little over `reach`.
+## Side of a bending bucket, in metres. Wants to be a little over `reach`.
 @export var cell_size: float = 2.5
 
-var _clumps: Array[Node3D] = []
+## The orientation each clump was placed with. The lean is layered on top.
 var _rest: Array[Basis] = []
+## Where each clump stands, in the field's own frame.
 var _home: PackedVector3Array = PackedVector3Array()
 ## Random per-clump offset so neighbours do not sway in lockstep.
 var _phase: PackedFloat32Array = PackedFloat32Array()
 ## Current lean per clump: direction is which way it leans, length is how far.
 var _bend: Array[Vector3] = []
+
+## Which multimesh each clump is drawn by, and its slot inside it.
+var _multi: Array[MultiMesh] = []
+var _slot: PackedInt32Array = PackedInt32Array()
+## What each clump is currently drawn with, kept on this side of the rendering
+## server. A multimesh is write-only in a headless run — `get_instance_transform`
+## comes back as the identity when there is no renderer behind it — so anything
+## that needs to *read* the pose, which is every test and the blood, has to read
+## it from here rather than from the buffer it was written into.
+var _pose: Array[Basis] = []
+## Each clump's position inside its own chunk. Constant: a clump tips, it does
+## not move.
+var _local: PackedVector3Array = PackedVector3Array()
+## How bloodied each clump is. White is clean.
+var _tint: PackedColorArray = PackedColorArray()
+## The nodes that do the drawing, one per occupied chunk.
+var _chunks: Array[MultiMeshInstance3D] = []
+## Model index -> the mesh that draws it. Held only while the field is built.
+var _built_meshes: Dictionary = {}
 
 ## Grid cell -> indices of the clumps standing in it.
 var _grid: Dictionary = {}
@@ -108,18 +167,7 @@ var _was_windy: bool = false
 
 
 func _ready() -> void:
-	for child in get_children():
-		var node := child as Node3D
-		if node == null or not node.name.begins_with(grass_prefix):
-			continue
-		_clumps.append(node)
-		_rest.append(node.transform.basis)
-		_bend.append(Vector3.ZERO)
-		_home.append(node.global_position)
-		_phase.append(randf() * TAU)
-		_prepare_meshes(node)
-
-	_build_grid()
+	_build()
 
 	var flat := Vector3(wind_direction.x, 0.0, wind_direction.y)
 	_wind_dir = flat.normalized() if not flat.is_zero_approx() else Vector3.FORWARD
@@ -131,40 +179,155 @@ func _ready() -> void:
 	_find_watcher()
 
 
-## Pushes the three performance settings back down onto every clump. They are
-## normally applied once, as the field is built; this is for when they change
-## afterwards, which is what a graphics setting does.
-func refresh_meshes() -> void:
-	for clump in _clumps:
-		_prepare_meshes(clump)
+## How many clumps are standing. For anything checking the field was built.
+func clump_count() -> int:
+	return _rest.size()
 
 
-## Settings that have to be reached through to the meshes inside an instanced
-## clump: how far away it is still worth drawing, and whether it goes into the
-## shadow map at all.
-func _prepare_meshes(clump: Node3D) -> void:
-	var stack: Array[Node] = [clump]
-	while not stack.is_empty():
-		var node: Node = stack.pop_back()
-		for child in node.get_children():
-			stack.append(child)
-		var mesh := node as GeometryInstance3D
+## Where a clump stands, in the field's own frame.
+func clump_home(index: int) -> Vector3:
+	return _home[index] if index >= 0 and index < _home.size() else Vector3.ZERO
+
+
+## The orientation a clump is holding this frame, lean and all. What a test that
+## wants to know whether the grass gave way should be reading.
+func clump_basis(index: int) -> Basis:
+	if index < 0 or index >= _pose.size():
+		return Basis.IDENTITY
+	return _pose[index]
+
+
+## The clump nearest a point, or -1 if the field is empty. For placing a test
+## somewhere there is actually grass to tread on.
+func clump_near(point: Vector3) -> int:
+	var best := -1
+	var closest := INF
+	for i in _home.size():
+		var gap := _home[i].distance_squared_to(point)
+		if gap < closest:
+			closest = gap
+			best = i
+	return best
+
+
+#region Building
+## Turns the placement numbers into the meshes that draw them.
+##
+## Both models share one index space — a clump is a clump whichever mesh draws
+## it, as far as the bending and the wind are concerned — but a chunk only ever
+## holds one model, since a multimesh draws one mesh.
+func _build() -> void:
+	var groups: Array = [[clump_scene, clumps], [tuft_scene, tufts]]
+	var total := (clumps.size() + tufts.size()) / STRIDE
+	if total == 0:
+		return
+
+	_rest.resize(total)
+	_bend.resize(total)
+	_home.resize(total)
+	_phase.resize(total)
+	_multi.resize(total)
+	_slot.resize(total)
+	_pose.resize(total)
+	_local.resize(total)
+	_tint.resize(total)
+
+	# (model, chunk) -> the clumps drawn there.
+	var buckets: Dictionary = {}
+	var next := 0
+	for group in groups.size():
+		var path: String = groups[group][0]
+		var placement: PackedFloat32Array = groups[group][1]
+		if placement.size() < STRIDE:
+			continue
+		var mesh := _model_mesh(path)
 		if mesh == null:
+			push_warning("GrassField: no mesh in '%s', so it is not drawn." % path)
+			next += placement.size() / STRIDE
 			continue
-		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts_shadows \
-				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		if lod_bias > 0.0:
-			mesh.lod_bias = lod_bias
-		if draw_distance <= 0.0:
-			continue
-		mesh.visibility_range_end = draw_distance
-		mesh.visibility_range_end_margin = maxf(draw_distance * 0.12, 2.0)
-		mesh.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+		for n in placement.size() / STRIDE:
+			var at := n * STRIDE
+			var i := next + n
+			_home[i] = Vector3(placement[at], 0.0, placement[at + 1])
+			_rest[i] = Basis(Vector3.UP, placement[at + 2]).scaled(
+					Vector3(placement[at + 3], placement[at + 4], placement[at + 3]))
+			_bend[i] = Vector3.ZERO
+			_phase[i] = randf() * TAU
+
+			var key := Vector3i(group, floori(_home[i].x / draw_chunk),
+					floori(_home[i].z / draw_chunk))
+			var list: PackedInt32Array = buckets.get(key, PackedInt32Array())
+			list.append(i)
+			buckets[key] = list
+		next += placement.size() / STRIDE
+		_built_meshes[group] = mesh
+
+	for key: Vector3i in buckets:
+		_build_chunk(_built_meshes[key.x], key, buckets[key])
+
+	_build_grid()
+
+
+func _build_chunk(mesh: Mesh, key: Vector3i, members: PackedInt32Array) -> void:
+	var centre := Vector3((key.y + 0.5) * draw_chunk, 0.0, (key.z + 0.5) * draw_chunk)
+
+	var multi := MultiMesh.new()
+	multi.transform_format = MultiMesh.TRANSFORM_3D
+	# Carries the blood a fight leaves on the ground. White is clean, so an
+	# unstained field looks exactly as it did before there was a channel for it.
+	multi.use_colors = true
+	multi.mesh = mesh
+	multi.instance_count = members.size()
+
+	for slot in members.size():
+		var i := members[slot]
+		_multi[i] = multi
+		_slot[i] = slot
+		_pose[i] = _rest[i]
+		_local[i] = _home[i] - centre
+		_tint[i] = Color.WHITE
+		multi.set_instance_color(slot, Color.WHITE)
+		multi.set_instance_transform(slot, Transform3D(_rest[i], _local[i]))
+
+	var node := MultiMeshInstance3D.new()
+	node.name = "Chunk_%d_%d_%d" % [key.x, key.y, key.z]
+	node.multimesh = multi
+	node.position = centre
+	_prepare(node)
+	add_child(node)
+	_chunks.append(node)
+
+
+## The mesh inside one of the models. Taken once and shared by every chunk that
+## draws it.
+func _model_mesh(path: String) -> Mesh:
+	if not ResourceLoader.exists(path):
+		push_warning("GrassField: '%s' is missing." % path)
+		return null
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return null
+	var root := scene.instantiate()
+	var mesh: Mesh = null
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		mesh = (node as MeshInstance3D).mesh
+		if mesh != null:
+			break
+	if mesh != null:
+		# The stain is a per-instance colour, and a material that ignores vertex
+		# colour would throw it away.
+		for s in mesh.get_surface_count():
+			var material := mesh.surface_get_material(s) as BaseMaterial3D
+			if material != null:
+				material.vertex_color_use_as_albedo = true
+	root.free()
+	return mesh
 
 
 func _build_grid() -> void:
 	_grid.clear()
-	for i in _clumps.size():
+	for i in _home.size():
 		var key := _cell(_home[i])
 		var bucket: PackedInt32Array = _grid.get(key, PackedInt32Array())
 		bucket.append(i)
@@ -175,11 +338,76 @@ func _cell(position: Vector3) -> Vector2i:
 	return Vector2i(floori(position.x / cell_size), floori(position.z / cell_size))
 
 
+## Pushes the three performance settings back down onto every chunk. They are
+## normally applied once, as the field is built; this is for when they change
+## afterwards, which is what a graphics setting does.
+func refresh_meshes() -> void:
+	for node in _chunks:
+		_prepare(node)
+
+
+func _prepare(node: MultiMeshInstance3D) -> void:
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts_shadows \
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if lod_bias > 0.0:
+		node.lod_bias = lod_bias
+	if draw_distance <= 0.0:
+		node.visibility_range_end = 0.0
+		return
+	node.visibility_range_end = draw_distance
+	node.visibility_range_end_margin = maxf(draw_distance * 0.12, 2.0)
+	node.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+#endregion
+
+
+#region Staining
+## Darkens the clumps within `radius` of a point, for the blood a fight leaves
+## behind. Cumulative: a patch fought over twice ends up darker than one fought
+## over once.
+##
+## A tint rather than an overlay material. Every clump is drawn out of one
+## multimesh, so there is no per-clump material to swap any more — but the
+## multimesh already carries a colour per instance, and the clump's own texture
+## showing through a darkened tint is what a bloodied patch of grass looks like
+## anyway.
+func stain(point: Vector3, radius: float, tint: Color, strength: float = 0.5) -> void:
+	if _multi.is_empty():
+		return
+	var at := to_local(point)
+	var span := ceili(radius / cell_size)
+	var centre := _cell(at)
+	var radius_squared := radius * radius
+	for cx in range(centre.x - span, centre.x + span + 1):
+		for cz in range(centre.y - span, centre.y + span + 1):
+			for i in _grid.get(Vector2i(cx, cz), PackedInt32Array()) as PackedInt32Array:
+				var offset := _home[i] - at
+				offset.y = 0.0
+				if offset.length_squared() >= radius_squared:
+					continue
+				# Closer means bloodier, and a clump already stained only gets
+				# darker rather than being re-tinted from clean.
+				var falloff := 1.0 - sqrt(offset.length_squared()) / radius
+				_tint[i] = _tint[i].lerp(tint, clampf(strength * falloff, 0.0, 1.0))
+				if _multi[i] != null:
+					_multi[i].set_instance_color(_slot[i], _tint[i])
+
+
+## Puts every clump back to clean.
+func clear_stains() -> void:
+	for i in _multi.size():
+		_tint[i] = Color.WHITE
+		if _multi[i] != null:
+			_multi[i].set_instance_color(_slot[i], Color.WHITE)
+#endregion
+
+
 func _process(delta: float) -> void:
+	if _rest.is_empty():
+		return
 	_time += delta
 
-	var origin := _player.global_position if _player != null else Vector3.ZERO
-	_collect_pushes()
+	var origin := to_local(_player.global_position) if _player != null else Vector3.ZERO
+	_collect_pushes(origin)
 
 	# 1. Everything a pusher is standing in, plus everything still standing back
 	#    up from the last time one went through.
@@ -231,22 +459,21 @@ func _find_watcher() -> void:
 
 ## Works out how hard every pusher leans on the clumps around it, and wakes the
 ## ones it touches.
-func _collect_pushes() -> void:
+func _collect_pushes(origin: Vector3) -> void:
 	_pushed.clear()
 	_watch_tick += 1
 	if _watch_tick >= WATCH_EVERY or _player == null or not is_instance_valid(_player):
 		_watch_tick = 0
 		_find_watcher()
 	if _player != null:
-		_push_from(_player.global_position, reach)
+		_push_from(origin, reach)
 
 	var cull := wind_radius * wind_radius
-	var origin := _player.global_position if _player != null else Vector3.ZERO
 	for node in get_tree().get_nodes_in_group("enemy"):
 		var enemy := node as Node3D
 		if enemy == null:
 			continue
-		var at := enemy.global_position
+		var at := to_local(enemy.global_position)
 		if _player != null and at.distance_squared_to(origin) > cull:
 			continue
 		_push_from(at, reach * enemy_reach_scale)
@@ -314,11 +541,20 @@ func _wind_at(index: int) -> Vector3:
 func _lean(index: int, lean: Vector3) -> void:
 	var amount := lean.length()
 	if amount < 0.0005:
-		_clumps[index].transform.basis = _rest[index]
+		_write(index, _rest[index])
 		return
 	# Rotating about the horizontal axis square to the lean tips the clump over
 	# in that direction.
 	var axis := Vector3.UP.cross(lean)
 	if axis.length_squared() < 0.000001:
 		return
-	_clumps[index].transform.basis = Basis(axis.normalized(), amount) * _rest[index]
+	_write(index, Basis(axis.normalized(), amount) * _rest[index])
+
+
+## Puts one clump's orientation into the chunk that draws it, and remembers it.
+## The origin does not change: a clump never moves, it only tips.
+func _write(index: int, basis: Basis) -> void:
+	_pose[index] = basis
+	var multi := _multi[index]
+	if multi != null:
+		multi.set_instance_transform(_slot[index], Transform3D(basis, _local[index]))

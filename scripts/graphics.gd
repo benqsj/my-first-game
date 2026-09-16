@@ -54,7 +54,7 @@ static func _apply_lights(scene: Node, low: bool) -> void:
 		var light := node as Light3D
 		light.shadow_enabled = not low
 		if light is DirectionalLight3D and not low:
-			(light as DirectionalLight3D).directional_shadow_max_distance = 140.0
+			(light as DirectionalLight3D).directional_shadow_max_distance = 95.0
 
 
 ## Screen-space effects: worth having, never worth a frame on a machine that is

@@ -151,21 +151,32 @@ static func _stain_ground(world: Node, point: Vector3) -> void:
 
 ## Tints whatever is standing in the splatter — grass, stones, props.
 ##
-## An overlay material is used rather than replacing the surface: the object
-## keeps its own texture and simply reads as wet, and nothing has to be put back
-## afterwards.
+## Two ways round, because the scatter holds two kinds of thing. The grass is
+## drawn out of multimeshes and has no per-clump material to hang an overlay on,
+## so the field is asked to darken the instances itself; a tint on the clump's
+## own texture is what bloodied grass looks like anyway. Everything else in the
+## scatter is still a node, and gets an overlay material — the object keeps its
+## own texture and simply reads as wet, and nothing has to be put back after.
 static func _stain_nearby(world: Node, point: Vector3) -> void:
+	var scatter := world.get_node_or_null("Level/Scatter")
+	if scatter == null:
+		return
+
+	var field := scatter as GrassField
+	if field != null:
+		field.stain(point, SPLATTER_RADIUS, STAIN, 0.65)
+
 	var overlay := StandardMaterial3D.new()
 	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	overlay.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.5)
 	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-
-	var scatter := world.get_node_or_null("Level/Scatter")
-	if scatter == null:
-		return
 	for child in scatter.get_children():
 		var node := child as Node3D
-		if node == null or node.global_position.distance_to(point) > SPLATTER_RADIUS:
+		# The field's own chunks are not props standing in the blood; they *are*
+		# the grass, and they have already been tinted.
+		if node == null or node is MultiMeshInstance3D:
+			continue
+		if node.global_position.distance_to(point) > SPLATTER_RADIUS:
 			continue
 		for m in node.find_children("*", "MeshInstance3D", true, false):
 			(m as MeshInstance3D).material_overlay = overlay

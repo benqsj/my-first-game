@@ -18,6 +18,39 @@ extends Node3D
 ## Offline this is the same code path with one peer in it, so a solo game is a
 ## multiplayer game with nobody else in it rather than a second way of working.
 
+## How far a creature is still drawn, in metres. Zero draws all of them, always.
+##
+## This is the level's business rather than each creature's, because it is the
+## level that got bigger. A creature is a hierarchy of rigid parts — some ninety
+## draw calls once the sun has drawn each of them again per shadow cascade, and
+## the six standing around the greybox core are 562 of the level's 2 106. There
+## are thirteen of them now, spread over two hundred and forty metres, and the
+## far ones are drawn through fog at a size nobody can make anything out of.
+##
+## This buys nothing at the spawn, where every creature is close: it is for
+## everywhere else, and for however many more get added to a map this size.
+##
+## Ninety metres is chosen against the creatures themselves rather than against
+## what looks far — a wolf notices the player at twenty and gives up at
+## twenty-eight, so nothing this far out has any bearing on a fight. The last few
+## metres are faded rather than cut.
+@export var creature_draw_distance: float = 90.0
+
+## How near a player a creature has to be before it thinks at all, in metres.
+## Zero leaves every one of them thinking all the time.
+##
+## The measurement this exists for: with the wood grown and thirteen creatures in
+## it, a physics tick out on the open ground cost 2.3 ms, and 1.9 ms of that was
+## creatures — none of them within eighty metres of the knight, all of them
+## running a wander, a step-up probe and a `move_and_slide` sixty times a second
+## for nobody. Asleep they cost nothing, and the wolf that matters is the one you
+## can see. A wolf notices a player at twenty metres, so seventy is a long way
+## clear of anything that could be noticed being asleep.
+@export var creature_think_distance: float = 70.0
+## How often that is re-checked, in frames. Distances between things that walk do
+## not change fast enough to be worth asking every frame.
+@export var creature_think_interval: int = 15
+
 ## Where the spawned bodies live, and the marks they are put on.
 @onready var _players: Node3D = $Players
 @onready var _points: Node3D = $SpawnPoints
@@ -27,8 +60,15 @@ extends Node3D
 ## top of each other.
 var _taken: Dictionary = {}
 
+## Where the creatures live, and the ones this node has sent to sleep.
+var _creatures: Node
+var _dozing: Dictionary = {}
+var _think_tick: int = 0
+
 
 func _ready() -> void:
+	_cull_distant_creatures()
+	_creatures = get_node_or_null("Enemies")
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
 	if net != null:
@@ -42,6 +82,39 @@ func _ready() -> void:
 		var mine: StringName = net.call("character_of", 1) if net != null \
 				else (game.call("character") if game != null else &"tariel")
 		_spawn_for(1, mine)
+
+
+## Wakes the creatures near a player and puts the far ones back to sleep.
+##
+## Only ever re-wakes something this put to sleep. Whether a creature simulates
+## at all is the host's business — `Wolf._decides()` turns `_physics_process` off
+## on every peer that is not the host — and a distance check that switched it
+## back on would have every client simulating its own private wolves.
+func _process(_delta: float) -> void:
+	if _creatures == null or creature_think_distance <= 0.0:
+		return
+	_think_tick += 1
+	if _think_tick < maxi(creature_think_interval, 1):
+		return
+	_think_tick = 0
+
+	var watchers: Array[Player] = players()
+	var reach := creature_think_distance * creature_think_distance
+	for node in _creatures.get_children():
+		var creature := node as Node3D
+		if creature == null:
+			continue
+		var near := false
+		for who in watchers:
+			if creature.global_position.distance_squared_to(who.global_position) <= reach:
+				near = true
+				break
+		if near:
+			if _dozing.erase(creature):
+				creature.set_physics_process(true)
+		elif creature.is_physics_processing():
+			creature.set_physics_process(false)
+			_dozing[creature] = true
 
 
 #region Bodies
@@ -126,6 +199,26 @@ func _on_left(peer: int) -> void:
 	if net != null and net.call("is_host"):
 		_despawn(peer)
 #endregion
+
+
+## Stops drawing the creatures that are too far off to matter, shadows included.
+##
+## Set on the meshes rather than by hiding the body: a hidden node stops being
+## simulated as well, and a wolf that only exists while it is on screen is a
+## different game. `visibility_range_end` is a *drawing* cull — the creature goes
+## on prowling, it is simply not drawn, and it is not drawn into the sun's shadow
+## map either, which is where most of the saving is.
+func _cull_distant_creatures() -> void:
+	if creature_draw_distance <= 0.0:
+		return
+	var creatures := get_node_or_null("Enemies")
+	if creatures == null:
+		return
+	for node in creatures.find_children("*", "GeometryInstance3D", true, false):
+		var mesh := node as GeometryInstance3D
+		mesh.visibility_range_end = creature_draw_distance
+		mesh.visibility_range_end_margin = maxf(creature_draw_distance * 0.12, 3.0)
+		mesh.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 
 
 ## The resource for a character id. Asked of [Game], which is the one place

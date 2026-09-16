@@ -40,8 +40,11 @@ func _initialize() -> void:
 	await _facing_check("golem", golem, Vector3(-6.0, 0.5, -6.0), Vector3(-6.0, 0.0, 4.0))
 
 	# --- The arena is walled in ---------------------------------------------
-	# The ground runs to x = 60 and the wall sits just inside it.
-	wolf.global_position = Vector3(50.0, 0.5, 0.0)
+	# The ground runs to x = 120 and the wall sits just inside it. Started close
+	# to the wall rather than out in the middle: the run is 90 ticks long, and
+	# from the old spawn the wolf now simply runs out of frames before it gets
+	# there, which is a test that passes for the wrong reason.
+	wolf.global_position = Vector3(108.0, 0.5, 0.0)
 	wolf.sight_range = 0.0
 	wolf.prowl_speed = 0.0
 	for i in 20:
@@ -50,7 +53,8 @@ func _initialize() -> void:
 	for i in 90:
 		await physics_frame
 		wolf.velocity.x = 30.0
-	_check("the wolf cannot run off the edge", wolf.global_position.x < 59.0 and wolf.global_position.y > -1.0,
+	_check("the wolf cannot run off the edge",
+			wolf.global_position.x < 119.0 and wolf.global_position.y > -1.0,
 			"at %v" % wolf.global_position)
 
 	# --- The knight cannot walk through them --------------------------------

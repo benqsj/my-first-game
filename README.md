@@ -12,6 +12,8 @@ godot --path . --headless --script res://tests/archer_test.gd  # bow + target lo
 godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 godot --path . --headless --script res://tests/multiplayer_test.gd  # who owns what
+godot --path . --script res://tests/draw_budget.gd             # where the draw calls go
+godot --path . --headless --script res://tests/physics_budget.gd  # where the physics tick goes
 sh tools/two_peers.sh                                  # two processes, one world
 ```
 
@@ -27,11 +29,20 @@ fullscreen.
 asks solo or co-op, then who you are, then loads the level.
 
 `res://scenes/ui/main_menu.tscn
-scenes/world/greybox_world.tscn` is that level: 120 × 120 m of flat
+scenes/world/greybox_world.tscn` is that level: 240 × 240 m of flat
 ground walled in at the edges, a 15° ramp, a 55° face that cannot be stood on, a
 6-step staircase up to a platform, pillars to test camera collision, and a
 watchtower, a medieval house and cart, boulders, meadows of grass and stone
 clusters, and a handful of creatures wandering about.
+
+The greybox proper is the clearing in the middle, about 30 m out from the spawn.
+Past that the map is **divided**: a thousand trees of **woodland** filling the
+west, a **settlement** of thatched huts along a street to the east with its
+fields and hedgerows around it, and open meadow between the two. A ring of
+**mountains** stands behind the boundary wall so the map ends in a skyline rather
+than in thin air. None of that is in the scene file: the wood, the hedgerows, the
+skyline and the meadows are each grown at load from a seed and a table of
+numbers.
 
 ## Node structure
 
@@ -1128,6 +1139,20 @@ up by name, since the replacement has no `blade_tip` node.
 (`rock.glb`), and it is generated, not placed by hand:
 `tools/build_scatter.py` rewrites that block of the scene.
 
+The grass is **not nodes**. The clumps arrive as one flat `PackedFloat32Array`
+on the node — five numbers each, x/z/yaw/width/height — and `GrassField` turns
+them at load into a couple of dozen `MultiMeshInstance3D`s on a 16 m grid. That
+is the single largest thing that was costing frames: as instanced scenes the
+field was seventeen hundred draw calls, and it is now about forty. It also took
+the scene file from 5 600 lines to 500. The stones stay as instanced scenes —
+there are thirty of them, they are solid, and they were never the problem.
+
+The grid is deliberately tight. A multimesh is picked one level of detail at a
+time, so a large chunk would hold the clumps at the player's feet back to the
+detail of the ones at its far corner; and only a chunk something has actually
+walked through gets re-uploaded, so bending costs a buffer write where the
+player is and nothing anywhere else.
+
 The meadows are built out of `grass2.glb` alone. The other grass asset,
 `grass.glb`, is a tenth of the triangles, but it ships untextured and reads as
 flat green leaf cards rather than blades, so mixing it in makes the field look
@@ -1164,8 +1189,16 @@ The scatter node runs `scripts/grass_field.gd`, which bends grass out of the way
 and keeps the field swaying. Each clump keeps the orientation it was placed with;
 the lean is layered on top as a rotation about a horizontal axis through the
 clump's base, so blades tip away from whatever is pushing them and spring back
-once it has passed. Rocks are left alone — only children whose name starts with
-`grass_prefix` are touched.
+once it has passed. Rocks are left alone — they are children, and the grass is
+not.
+
+What each clump is currently drawn with is kept **on this side of the rendering
+server** as well as in the multimesh. A multimesh is write-only without a
+renderer behind it — `get_instance_transform` comes back as the identity in a
+headless run — so anything that has to *read* a pose reads the mirror:
+`clump_basis(i)`, which is what the smoke test checks the bend with, and the
+blood, which tints clumps through `stain()` rather than hanging an overlay
+material on a node that no longer exists.
 
 Thousands of clumps cannot all be integrated every frame, so they are bucketed
 into a uniform grid at startup and the work is split by what is actually needed:
@@ -1183,8 +1216,9 @@ are bigger.
 ### What the grass costs
 
 `grass2.glb` is **8 256 triangles a clump**, so a meadow of them is by far the
-most expensive thing in the scene and the settings that hold it down matter more
-than they look:
+most expensive thing in the scene. Drawing the field out of multimeshes is what
+took the draw calls off it; the settings below are what hold the triangles down,
+and they matter more than they look:
 
 - `casts_shadows` is **off**. Every clump would otherwise be re-drawn once per
   directional shadow cascade on top of the visible pass — measured at roughly
@@ -1196,19 +1230,196 @@ than they look:
   count with no visible difference.
 - `SPACING` in the generator is the count dial — instances go as 1/spacing², so
   it is the first thing to raise if the field has to get cheaper.
+- `draw_chunk` trades culling against node count: smaller chunks cull and pick
+  detail more finely, and cost a node each.
 
-Standing in the deepest meadow with the creatures fighting, on an M1: 62 fps at
-1600×900, 46 fps at 1080p, no frame over 25 ms. Before these three, the same
-spot ran at 19 fps.
+Drawing it out of multimeshes is what took the draw calls off it. Standing at the
+spawn, looking out over the meadow into the treeline — the busiest view in the
+level — the field went from **about 1 700 draw calls to 117**.
+
+That is also why the level can now afford a wood, a hamlet and a skyline on top
+of it. Measured by `tests/draw_budget.gd` from that same spot:
+
+| | draw calls | triangles |
+| --- | --- | --- |
+| before any of this — greybox, meadows, six creatures | 2 235 | 1 670 000 |
+| now — plus 1 000 plants, 38 buildings, a skyline, 17 creatures | **1 616** | **482 000** |
+
+Where the 1 616 go: 894 of them are the sun's shadow map, 399 the creatures (a
+rigid-part rig is forty-odd draw calls, and the sun draws every one of them again
+per cascade), 359 the wood's canopy and 111 the grass.
+
+The sun went from four shadow cascades over 175 m to **two over 95 m**, which is
+most of the difference. Four cascades spread the same shadow map over twice the
+ground when the map doubled, so they were both dimmer and dearer; two over a
+shorter reach put the detail back where it is looked at and took 400 draw calls
+off the frame.
 
 `grass.glb` ships with a `Leaf` material but no texture, so it renders as white
 cards out of the box. `assets/grass/leaf_material.tres` is wired in through the
 import's `use_external` material override to make it plain green until the real
 texture arrives — the clumps in `grass2.glb` are textured and need nothing.
 
+## The wood
+
+`Forest` (`scripts/forest.gd`, at `Forest` in the world) grows about six hundred
+trees, two hundred bushes and two hundred pieces of ground litter at load, out of
+one seed, and plants ninety more along the hedgerows. None of it is in the scene
+file.
+
+The counts came down on purpose. Twelve hundred bushes read as moss rather than
+as undergrowth, and at 3.9 m apart the crowns closed into a ceiling at head
+height — from inside, the whole view was leaves and the trees stopped reading as
+trees. Five metres apart with the crowns lifted is a wood you can walk through
+and see across, which is what a wood is.
+
+Three thousand plants cannot be three thousand nodes, so the wood is built the
+other way round from the props beside it:
+
+- **Drawn** by `MultiMeshInstance3D` — one per species per chunk, which is one
+  draw call for every oak in a forty-metre square rather than one per oak.
+- **Chunked** on a 64 m grid, so whole squares are culled behind the camera, and
+  a species that does not grow in a square costs nothing there. The chunk size is
+  a trade that was measured rather than guessed: smaller chunks cull more finely,
+  larger ones are fewer draw calls, and every visible chunk costs one more per
+  shadow cascade. At 44 m the level drew 300 more times for no gain anywhere.
+- **Collided** through shape owners on static bodies laid out on a 22 m grid. A
+  trunk needs a cylinder, not a node; a thousand nodes that never process are
+  still a thousand nodes to build and tear down. The cylinders are pooled by
+  radius to the nearest five centimetres, so a thousand trees share about seventy
+  shapes between them.
+
+  **Not one body for all of them**, which is what it was first. The broadphase
+  culls by body: once a query touches a body at all, every shape that body owns
+  is looked at — so seven hundred trunks on one body cost two milliseconds of
+  physics a tick *standing on the open plain with no tree within eighty metres*.
+  On a grid, a query looks at the twenty in one cell. It is the same trap the
+  house's trimesh colliders were, one level up.
+- **Placed** from a seeded `RandomNumberGenerator` and two noise fields, so
+  every peer in a multiplayer game grows the identical wood without a byte of it
+  crossing the network.
+
+**The wood is one wood, on one side of the map.** It was a ring around the play
+area to begin with, thinning outwards, and a ring reads as trees having been
+sprinkled over the ground rather than as a forest — you are never in it and never
+out of it. So the map is divided instead: everything past a line running
+north-west to south-east is wood, everything before it is the settlement and its
+fields. The line has a long-wavelength noise wobble on it, which is what gives a
+treeline with bays and headlands in it rather than a ruled edge.
+
+Glades inside it are *holes*, not a thinning. Multiplying the whole wood by a
+noise field — the first version — made every tree a coin toss, so nowhere was
+properly dense and nowhere was properly open. A threshold leaves the wood at full
+density and takes distinct bites out of it.
+
+Species are **regional**, not sprinkled. A low-frequency noise field decides
+which conifer or which broadleaf grows where, so the wood has a pine end and an
+oak end and stands of dead timber between them. That is a look, and it is also
+what keeps the per-chunk draw call count down: a chunk holds two or three
+species, not every species in the kit.
+
+`min_trunk_gap` stops the wood becoming a wall: it drops any tree that lands
+closer than 2.3 m to one already standing, since the jitter that keeps the wood
+from looking planted will otherwise put two trunks a foot apart. `CLEARINGS` is
+the list of places nothing grows whatever the treeline says — the greybox core,
+the buildings standing in it, the settlement, and the glades the creatures are
+met in. Each has a soft rim, so a glade has a ragged edge rather than a shaved
+circle.
+
+### Hedgerows
+
+The open half would be bare, and filling it by loosening the treeline would put
+the wood back where it had just been taken from. So the trees out there were
+*planted*: `HEDGEROWS` is a set of polylines — field boundaries, a windbreak, the
+lane down to the greybox core — walked at a fixed spacing with a little wander
+off the line. A hedgerow says something a wood does not, which is that somebody
+marked this field out, and it is what makes the east read as farmed rather than
+as empty. It shares everything else with the wood: the same multimeshes, the same
+pooled trunks, the same chunk grid.
+
+`collider_shrink` is under 1 on purpose. A cylinder cut to the widest point of a
+flared base catches the player a foot away from the bark; the radius itself is
+measured off the mesh — the widest point of the bottom eighth of its vertices —
+so swapping a species for another gets the right collider with no number changed
+anywhere.
+
+### The art
+
+`assets/forest/` is a curated copy of the Quaternius Nature Kit: 115 `.obj`
+models and their textures, lifted out of `assets/trees/` so Godot never has to
+scan the whole pack (there is a `.gdignore` in the original). `.obj` is what is
+wanted here — Godot imports it as a plain `ArrayMesh` rather than a
+`PackedScene`, which is exactly what a `MultiMesh` takes. The kit's `.mtl`
+files reference their textures with Windows separators (`textures\Bark Oak.png`),
+which resolve to nothing on macOS or Linux; the copies have them fixed.
+
+## The settlement
+
+`Level/Village` is thirty-eight pieces of the HighLands Fantasy Buildings kit laid
+out as a place somebody lives: a street running east with eight thatched huts
+facing each other across it, a town centre at its head, a barracks, a watchtower,
+a windmill out where the wind is, a walled gate at the western approach, crop
+fields beyond the houses and the fences, barrels and crates of a working village.
+Each piece is a `Node3D` running `scripts/building.gd` with the `.fbx` instanced
+under it.
+
+It is laid out on a street on purpose. Buildings dropped around a clearing read
+as a camp; buildings facing each other across a line read as a village, and the
+gate at one end of that line tells you which way in is.
+
+That script exists because two of the kit's Unreal conventions do not survive
+the import:
+
+- **Textures.** The `.fbx` names a material — `M_Hut` — but not the files that
+  dress it, so everything arrives flat off-white. The files are there, in a
+  `TextureMaps` folder beside the model, named after the same material, so the
+  material name is the whole of the lookup: `M_Hut` wants `T_Hut_diffuse.png`,
+  `T_Hut_normal.png` and the rest. Nothing is wired by hand per building, and
+  the materials are shared, so ten crates are one material.
+- **Collision.** Unreal reads a mesh named `UCX_*` as the convex hull to collide
+  against; Godot reads it as a second thing to draw. So the `UCX_` meshes are
+  taken out of the drawing and put back as `ConvexPolygonShape3D`s on a
+  `StaticBody3D`. That is both correct and the cheap way round — the
+  alternative is the trimesh the importer would otherwise cut from the building
+  itself, and `SimpleCollision` on the house in this same level already measured
+  what that costs.
+
+A building with no hull — the crop fields, the axe — gets `build_collision =
+false` in the scene, since it is decoration and saying otherwise is a warning
+every time the level loads.
+
+Where a piece of the kit runs from its own origin rather than being centred on
+it, the placement was **measured rather than reasoned about**: a wall span turns
+out to run six and a half metres back along its local -Z and to sit 2.5 m to one
+side of its origin, so the two spans of the gate were put where a print of their
+world bounding boxes said they had to go to meet the towers. Two minutes with a
+probe beat twenty of sign-flipping.
+
+The windmill's sails hang off the mill rather than standing beside it, so moving
+the mill moves them, and they turn: `scripts/spinner.gd` is a function of the
+clock, which means every peer sees the same sails in the same place without a
+word being said about it, and a dropped frame changes nothing.
+
+## The skyline
+
+`Horizon` (`scripts/horizon.gd`) rings the map with two offset rings of the
+kit's mountains, standing well behind the boundary wall. The boundary is four
+invisible boxes; walk up to one in an open field and the illusion is over. A
+ridge behind it answers the question the player was about to ask — the map does
+not end there, it just does not go any further.
+
+Cheap on purpose, because none of it is ever reached: seventy-five triangles a
+peak, drawn through one multimesh per model per ring, no collision at all, no
+shadows (the sun's shadow map does not reach out there), and `lod_bias` low
+enough that a ridge drops to its coarsest mesh immediately.
+
+
 ## Creatures
 
-`scenes/enemies/` holds two, both placed under `Enemies` in the world.
+`scenes/enemies/` holds four kinds and the level holds seventeen of them, all
+under `Enemies`: the wolf and the golem that were always here, and two out of the
+Bestiary kit that animate a different way — each of those in three colourways, so
+seventeen creatures are four meshes.
 
 **Wolf** (`wolf.gd` + `wolf_rig.gd`) — the model is the same kind of thing as
 Tariel: a joint hierarchy with no skeleton and no clips, so it is animated the
@@ -1231,6 +1442,56 @@ well their heading matches where they want to go. Turning and moving at once is
 what made them crab sideways and back out of a turn. The wolf's gait is measured
 against its *prowl* speed rather than its charge speed too; against the charge
 speed a walk came out at 18% amplitude, which is a slide, not a step.
+
+**Imp and Puglin** (`monster.gd` + `skeleton_anim.gd`) — the opposite problem
+from the wolf, and a much easier one. The Bestiary kit ships *rigged*: a real
+`Skeleton3D`, skinned, built to the Unreal mannequin's bone names — `pelvis`,
+`spine_01`, `upperarm_l`, `thigh_l`, `foot_l`, the lot. Which is also what the
+Quaternius library the rest of the game animates from uses. So there is nothing
+to solve and nothing to author. Every bone is matched by name and the pose is
+carried across as a **delta from rest**:
+
+```
+target_pose = target_rest · (source_rest⁻¹ · source_pose)
+```
+
+Because it is relative to each rig's own rest, proportions survive: the Imp is
+1.4 m tall and the Puglin 0.75 m against the mannequin's 1.6 m, and both walk
+with their own legs rather than being stretched onto the mannequin's. The kit's
+rigs are missing the pinky chain and the toe leaves; those are skipped, and a
+bone with no counterpart keeps its rest pose, which for a finger nobody will
+ever see is exactly right. Fingers are skipped on purpose as well — twenty bones
+per creature per frame, below the size of a pixel at the distance these are
+fought at.
+
+This is the sibling of `AnimRetarget`, and the two exist for opposite reasons:
+that one has to solve a correction per joint because Tariel has no skeleton at
+all; this one has to solve nothing because the kit already agrees with the
+library.
+
+**Skins.** The Bestiary ships three base-colour maps per creature and one mesh,
+which is the cheapest variety there is: a green imp and a grey one are two
+creatures as far as anybody looking at them is concerned, and one mesh and one
+skeleton as far as the engine is concerned. `Monster.skin` picks one, and the
+file it wants is worked out from the material name — `MI_Imp` wants
+`T_Imp_BaseColor_2.png` — so nothing is wired per scene and the materials are
+shared between creatures wearing the same one.
+
+**Which way they face.** Both arrived walking backwards, and it took two goes to
+see it, because *eyeballing a render cannot answer this*: a camera standing in
+front of a creature and a creature standing in front of a camera produce the same
+picture. The answer is in the model. On any biped the ball of the foot is in
+front of the ankle, and a creature in Godot travels down its own -Z, so
+`monster_shots.gd` reads `ball_l` against `foot_l` and says which way the model
+is actually built to face. With the check in place it was one line in each scene.
+
+The wander is the golem's — pick a spot, walk to it, wait, pick another, out and
+back along a line so it reads as patrolling rather than drifting. What is new is
+that the legs are real, so the playback rate is tied to the ground speed: a
+stride is measured off the clip at load (the feet are furthest apart at
+mid-stride, which is one step, and a cycle is two of them, brought onto the
+creature by leg length) and the cycle is retimed every frame. That is what keeps
+the feet from skating.
 
 **Dismemberment.** The knight's blade is exposed as a world-space line segment
 while it is travelling (`TarielRig.get_cutting_edge()`). If it passed within
@@ -1337,8 +1598,66 @@ What it found:
 
 `scripts/pipeline_warmup.gd` pays that bill up front: nine vantage points that
 between them see the whole level, two frames each, behind a black screen, before
-the player gets control. About 0.3 s of startup. Set `enabled = false` on the
-`PipelineWarmup` node to measure without it.
+the player gets control. Set `enabled = false` on the `PipelineWarmup` node to
+measure without it.
+
+### The stutter was the creatures, not the scenery
+
+The one that actually made the game hitch, and the one the draw call count said
+nothing about. Standing in the wood, a **physics tick cost 24 ms** — a guaranteed
+dropped frame at 60 Hz, every frame, for as long as you were in the trees.
+
+`tests/physics_budget.gd` found it by switching things off one at a time, and it
+was not the trees: with their colliders disabled the tick still cost 22 ms. It
+was the creatures. Two things were wrong at once.
+
+- **Four of them were standing inside trees.** The wood had been re-laid out and
+  their spawn points had not moved with it, so they spent every tick walking into
+  a trunk — `move_and_slide` running out its iterations, `StepUp.climb` taking all
+  ten of its probes and failing, sixty times a second, each. Creatures are placed
+  in the glades now, and the glades are the same list the wood keeps out of.
+- **All seventeen were thinking all the time.** On a 120 m map with six creatures
+  that was free. On a 240 m map with seventeen it is a wander, a step-up probe
+  and a `move_and_slide` per creature per tick for creatures nobody can see.
+  `World.creature_think_distance` stops any of them thinking past seventy metres
+  — well clear of the twenty at which a wolf notices anybody — and wakes them
+  again on approach.
+
+Together: **24 ms to 1.0 ms** in among the trees, 1.9 at the house and 2.6 out on
+the open ground.
+
+The probe that found it loads a **fresh level for every configuration it
+measures**. The first version reused one, and its numbers were nonsense: walking
+the knight into the wood to take a reading leaves eight wolves chasing him, and
+everything measured afterwards is of a fight rather than of the thing being
+measured. It also frees each level outright rather than queueing it, because a
+queued free leaves a thousand static bodies in the physics server for another
+frame and they pile up across runs.
+
+### The warm-up was not running
+
+Worth writing down, because it failed in the way that is hardest to notice: it
+did all of its work and produced nothing, silently.
+
+The node hung its camera off the level — `get_parent().add_child(_camera)` — and
+`_ready()` runs while the level is still handing readiness down to its children.
+A node in the middle of that refuses to take another one, so `add_child` failed
+outright with *parent node is busy setting up children*. What was left was a
+camera with no parent: it cannot be made current and it cannot be moved, so the
+warm-up spent its eighteen frames drawing the ordinary view, compiled nothing,
+and freed itself looking exactly as though it had worked. Every pipeline it was
+there to build got built on the first frame the player saw instead.
+
+The camera now hangs off the warm-up node itself, which is a plain `Node` and so
+leaves the camera at the root of its own transform chain — the poses were always
+in world space, so nothing else changed. Warming the level properly takes **7.1 s
+on an M1**, which is the size of the bill that was previously being paid in front
+of the player.
+
+Its vantage points are worked out from the ground plane now rather than typed
+in. The two numbers that placed them were sized for a 120 m map, and when the
+ground doubled they went stale without complaint: the warm-up still ran, it
+simply stopped seeing the outer half of the level.
 
 > **The machine matters more than any of this.** While these numbers were being
 > taken, `iCloudDriveCore` was sitting at 82 % of a core, the load average was
@@ -1438,6 +1757,18 @@ scripts/pipeline_warmup.gd draws the level once at startup so it need not stall 
 scripts/dust_ring.gd         the dirt a blade throws up going into the ground
 scripts/simple_collision.gd  swaps the scenery's trimesh colliders for hulls
 scripts/collider_bake.gd     the hulls, worked out once and kept
+scripts/forest.gd            grows the wood: multimeshes, pooled trunks, wind
+scripts/horizon.gd           the mountains standing behind the boundary wall
+scripts/building.gd          gives a kit .fbx its textures and its UCX hull back
+scripts/spinner.gd           turns whatever hangs off it, off the clock
+scripts/monster.gd           a Bestiary creature, wandering its patch of wood
+scripts/skeleton_anim.gd     replays the animation library on a skinned rig
+tools/inspect_assets.gd      what an imported model actually contains
+tools/inspect_skeletons.gd   whether a kit's rig can take the library's clips
+tests/world_shots.gd         photographs the level from fixed vantage points
+tests/monster_shots.gd       photographs each creature, walking
+tests/draw_budget.gd         says where the draw calls go, one subsystem at a time
+tests/physics_budget.gd      the same for the physics tick, on a fresh level each time
 tools/bake_colliders.gd      writes those out; re-run when a model changes
 assets/tariel/tariel.glb the Tariel model
 assets/anim/ual2.glb     Quaternius Universal Animation Library 2, CC0
