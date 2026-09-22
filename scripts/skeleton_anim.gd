@@ -59,6 +59,9 @@ var _dst_rest_rotation: Array[Quaternion] = []
 ## Clip -> the widest the mannequin's feet get in it, before `_limb_scale`.
 ## Pure mannequin, so shared by every creature instead of re-swept per spawn.
 static var _stride_cache: Dictionary = {}
+## Clip + bones -> the moments, 0 to 1, the given bones are moving fastest.
+## Pure mannequin, like the stride, so worked out once per clip for everyone.
+static var _peak_cache: Dictionary = {}
 
 var _src_pelvis: int = -1
 var _dst_pelvis: int = -1
@@ -173,10 +176,10 @@ static func _is_skipped(bone_name: String) -> bool:
 ## Starts a clip. `fade` is the cross-fade in seconds; `weight` caps how far the
 ## clip overrides the skeleton's rest pose.
 func play(clip: StringName, fade: float = 0.15, speed: float = 1.0,
-		weight: float = 1.0) -> bool:
+		weight: float = 1.0, restart: bool = false) -> bool:
 	if not _ready_to_play or not _player.has_animation(clip):
 		return false
-	if _clip == clip and _player.is_playing():
+	if _clip == clip and _player.is_playing() and not restart:
 		# Already running: only the strength and the rate are being changed, and
 		# restarting would snap the cycle back to its first frame.
 		_target_weight = clampf(weight, 0.0, 1.0)
@@ -186,8 +189,80 @@ func play(clip: StringName, fade: float = 0.15, speed: float = 1.0,
 	_clip = clip
 	_target_weight = clampf(weight, 0.0, 1.0)
 	_fade_speed = 1.0 / maxf(fade, 0.01)
-	_player.play(clip, -1.0, speed)
+	# Cross-faded by the mixer itself, so one clip gives way to the next over
+	# `fade` instead of snapping — the idle into a swing, a swing into a block.
+	if restart and _player.current_animation == String(clip):
+		_player.stop()
+	_player.play(clip, fade if _weight > 0.001 else 0.0, speed)
 	return true
+
+
+## How far through the running clip it is, 0 to 1. A one-shot that has finished
+## reads 1 until something else is played.
+func clip_progress() -> float:
+	if not _ready_to_play or _clip.is_empty():
+		return 0.0
+	var anim := _player.get_animation(_clip)
+	if anim == null or anim.length <= 0.0:
+		return 0.0
+	if not _player.is_playing():
+		return 1.0
+	return clampf(_player.current_animation_position / anim.length, 0.0, 1.0)
+
+
+## The moments in `clip`, as fractions of its length, when `bones` are moving
+## fastest — for a sword combo, the instants each blow lands. Read off the clip
+## so a retimed or swapped attack needs no numbers changed. Peaks closer than
+## `spacing` are one blow.
+func measure_peaks(clip: StringName, bones: PackedStringArray,
+		threshold: float = 0.55, spacing: float = 0.08) -> PackedFloat32Array:
+	var key := "%s|%s|%s|%s" % [clip, ",".join(bones), threshold, spacing]
+	if _peak_cache.has(key):
+		return _peak_cache[key]
+	var peaks := PackedFloat32Array()
+	if not has_clip(clip):
+		return peaks
+	var anim := _player.get_animation(clip)
+	var ids := PackedInt32Array()
+	for bone_name in bones:
+		var idx := _skeleton.find_bone(bone_name)
+		if idx >= 0:
+			ids.append(idx)
+	if ids.is_empty() or anim.length <= 0.0:
+		return peaks
+
+	const STEPS := 90
+	var was := _player.current_animation
+	var track: Array[PackedVector3Array] = []
+	_player.play(clip)
+	for i in STEPS + 1:
+		_player.seek(anim.length * float(i) / STEPS, true)
+		var at := PackedVector3Array()
+		for idx in ids:
+			at.append(_skeleton.get_bone_global_pose(idx).origin)
+		track.append(at)
+	_player.stop()
+	if not was.is_empty():
+		_player.play(was)
+
+	var speed := PackedFloat32Array()
+	speed.resize(STEPS)
+	var top := 0.0
+	for i in STEPS:
+		var fastest := 0.0
+		for b in ids.size():
+			fastest = maxf(fastest, track[i + 1][b].distance_to(track[i][b]))
+		speed[i] = fastest
+		top = maxf(top, fastest)
+	for i in range(1, STEPS - 1):
+		if speed[i] < top * threshold or speed[i] < speed[i - 1] or speed[i] < speed[i + 1]:
+			continue
+		var t := (float(i) + 0.5) / STEPS
+		if not peaks.is_empty() and t - peaks[peaks.size() - 1] < spacing:
+			continue
+		peaks.append(t)
+	_peak_cache[key] = peaks
+	return peaks
 
 
 ## Retimes the running clip without restarting it — what a walk cycle needs so
@@ -271,8 +346,13 @@ func advance(delta: float) -> void:
 			_rest_pose()
 		return
 
+	# Only a cycle starts over by itself. A one-shot that has run out holds its
+	# last frame until the owner plays something else — restarting it here made
+	# a single scratch repeat for ever, and would make a death fall over and over.
 	if not _player.is_playing() and not _clip.is_empty():
-		_player.play(_clip)
+		var anim := _player.get_animation(_clip)
+		if anim != null and anim.loop_mode != Animation.LOOP_NONE:
+			_player.play(_clip)
 	_player.advance(delta)
 
 	for i in _src_bone.size():

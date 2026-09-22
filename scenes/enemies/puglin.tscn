@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/monster.gd" id="1_monster"]
+[ext_resource type="Script" path="res://scripts/fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Exports/GLB (Godot-Unreal)/Puglin.glb" id="2_model"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_puglin"]
@@ -17,15 +17,49 @@ properties/1/replication_mode = 2
 properties/2/path = NodePath(".:velocity")
 properties/2/spawn = true
 properties/2/replication_mode = 2
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath(".:stamina")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:is_dead")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:mode")
+properties/6/spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:act")
+properties/7/spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath(".:act_serial")
+properties/8/spawn = true
+properties/8/replication_mode = 2
 
 [node name="Puglin" type="CharacterBody3D" groups=["enemy"]]
 collision_layer = 4
 collision_mask = 7
-script = ExtResource("1_monster")
+script = ExtResource("1_fighter")
 speed = 1.25
-roam_radius = 6.0
+roam_radius = 3.5
 rest_time = 2.6
 visual_scale = 1.25
+sight_range = 12.0
+chase_speed = 2.4
+chase_retime_max = 2.6
+max_health = 150.0
+bar_height = 1.0
+body_radius = 0.28
+body_height = 0.85
+max_stamina = 120.0
+block_cost = 30.0
+block_chance = 0.55
+dash_chance = 0.15
+dash_speed = 5.0
+reach = 1.6
+hit_damage = 16.0
+attack_speed = 0.85
+attack_cooldown = Vector2(1.8, 3.4)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.525, 0)

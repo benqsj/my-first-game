@@ -232,7 +232,10 @@ func _process(delta: float) -> void:
 		if fidget_interval > 0.0 and _fidget_in <= 0.0 and _anim.has_clip(fidget_clip):
 			_anim.play(fidget_clip, 0.3, 1.0)
 			_fidget_in = fidget_interval + _rng.randf_range(-2.0, 4.0)
-		elif _anim.current_clip() != fidget_clip or not _anim.has_clip(fidget_clip):
+		# Back to the idle once the scratch has played out: a one-shot now holds
+		# its last frame rather than starting over.
+		elif _anim.current_clip() != fidget_clip or not _anim.has_clip(fidget_clip) \
+				or _anim.clip_progress() >= 1.0:
 			_anim.play(idle_clip, 0.3, 1.0)
 
 	_anim.advance(delta)

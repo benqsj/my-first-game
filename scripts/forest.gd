@@ -157,6 +157,18 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(-72.0, -58.0, 13.0),
 	Vector3(-26.0, -74.0, 13.0),
 	Vector3(-100.0, 76.0, 12.0),
+	# Camps the imps hold (World.CAMPS). The two above at (-72, -58) and
+	# (-100, 76) are theirs too.
+	Vector3(-96.0, -8.0, 10.0),
+	Vector3(-72.0, 96.0, 10.0),
+	Vector3(-104.0, -50.0, 9.0),
+	Vector3(-50.0, -100.0, 9.0),
+	Vector3(-92.0, 50.0, 10.0),
+	Vector3(-58.0, -36.0, 10.0),
+	# And the puglins', out on the open side, clear of the hedgerows.
+	Vector3(40.0, -70.0, 9.0),
+	Vector3(88.0, -68.0, 9.0),
+	Vector3(40.0, 108.0, 9.0),
 	# The settlement. It sits on the open side and the treeline would not reach
 	# it anyway, but the hedgerows are planted by hand and would run straight
 	# through the street without this.

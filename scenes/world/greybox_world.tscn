@@ -762,27 +762,6 @@ transform = Transform3D(-0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, -0.866025, -26, 0.2
 [node name="Golem3" parent="Enemies" instance=ExtResource("11_golem")]
 transform = Transform3D(0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, 0.906308, -84, 0.2, 26)
 
-[node name="Imp1" parent="Enemies" instance=ExtResource("21_imp")]
-transform = Transform3D(-0.34202, 0, -0.939693, 0, 1, 0, 0.939693, 0, -0.34202, -72, 0.2, -58)
-
-[node name="Imp2" parent="Enemies" instance=ExtResource("21_imp")]
-transform = Transform3D(0.766044, 0, 0.642788, 0, 1, 0, -0.642788, 0, 0.766044, -100, 0.2, 76)
-skin = 2
-
-[node name="Imp3" parent="Enemies" instance=ExtResource("21_imp")]
-transform = Transform3D(-0.0871557, 0, -0.996195, 0, 1, 0, 0.996195, 0, -0.0871557, 72, 0.2, -68)
-skin = 3
-
-[node name="Puglin1" parent="Enemies" instance=ExtResource("22_puglin")]
-transform = Transform3D(0.819152, 0, 0.573576, 0, 1, 0, -0.573576, 0, 0.819152, 64, 0.2, -52)
-
-[node name="Puglin2" parent="Enemies" instance=ExtResource("22_puglin")]
-transform = Transform3D(0.34202, 0, -0.939693, 0, 1, 0, 0.939693, 0, 0.34202, -56, 0.2, -18)
-skin = 2
-
-[node name="Puglin3" parent="Enemies" instance=ExtResource("22_puglin")]
-transform = Transform3D(-0.939693, 0, -0.34202, 0, 1, 0, 0.34202, 0, -0.939693, 104, 0.2, -24)
-skin = 3
 [node name="Forest" type="Node3D" parent="."]
 script = ExtResource("17_forest")
 

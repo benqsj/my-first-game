@@ -51,6 +51,35 @@ extends Node3D
 ## not change fast enough to be worth asking every frame.
 @export var creature_think_interval: int = 15
 
+## The bands of imps and puglins, and the ground each one holds: which
+## creature, the middle of the camp (x, z), and how many stand there.
+##
+## Built here rather than placed in the scene so the numbers read as one table.
+## Every peer builds the same bands with the same names from it in `_ready()`,
+## before anything is synchronised, which is what a creature placed in the
+## scene gets too. Each camp has a clearing cut for it in `Forest.CLEARINGS`.
+const CAMPS: Array[Array] = [
+	# Imps: twenty, in the wood, in bands of two, two, three, three.
+	[&"imp", Vector2(-72.0, -58.0), 2],
+	[&"imp", Vector2(-100.0, 76.0), 2],
+	[&"imp", Vector2(-96.0, -8.0), 3],
+	[&"imp", Vector2(-72.0, 96.0), 3],
+	[&"imp", Vector2(-104.0, -50.0), 2],
+	[&"imp", Vector2(-50.0, -100.0), 2],
+	[&"imp", Vector2(-92.0, 50.0), 3],
+	[&"imp", Vector2(-58.0, -36.0), 3],
+	# Puglins: ten, out on the farmland, in bands of three, three and four.
+	[&"puglin", Vector2(40.0, -70.0), 3],
+	[&"puglin", Vector2(88.0, -68.0), 3],
+	[&"puglin", Vector2(40.0, 108.0), 4],
+]
+const CAMP_SCENES := {
+	&"imp": "res://scenes/enemies/imp.tscn",
+	&"puglin": "res://scenes/enemies/puglin.tscn",
+}
+## How far from the middle of its camp each member stands.
+const CAMP_SPREAD := 2.6
+
 ## Where the spawned bodies live, and the marks they are put on.
 @onready var _players: Node3D = $Players
 @onready var _points: Node3D = $SpawnPoints
@@ -67,6 +96,7 @@ var _think_tick: int = 0
 
 
 func _ready() -> void:
+	_build_camps()
 	_cull_distant_creatures()
 	_creatures = get_node_or_null("Enemies")
 	_spawner.spawn_function = _build_player
@@ -230,6 +260,36 @@ func _on_left(peer: int) -> void:
 ## different game. `visibility_range_end` is a *drawing* cull — the creature goes
 ## on prowling, it is simply not drawn, and it is not drawn into the sun's shadow
 ## map either, which is where most of the saving is.
+## Puts every band from `CAMPS` into the level. Deterministic — no random
+## numbers — so the same creature has the same name and place on every peer.
+func _build_camps() -> void:
+	var creatures := get_node_or_null("Enemies")
+	if creatures == null:
+		return
+	for i in CAMPS.size():
+		var camp: Array = CAMPS[i]
+		var kind: StringName = camp[0]
+		var centre: Vector2 = camp[1]
+		var count: int = camp[2]
+		var scene := load(CAMP_SCENES[kind]) as PackedScene
+		if scene == null:
+			continue
+		var band := StringName("camp_%d" % i)
+		for k in count:
+			var body := scene.instantiate()
+			body.name = "%s_%d_%d" % [String(kind).capitalize(), i, k]
+			var angle := TAU * float(k) / float(count) + float(i)
+			var at := Vector3(centre.x + cos(angle) * CAMP_SPREAD, 0.2,
+					centre.y + sin(angle) * CAMP_SPREAD)
+			body.position = at
+			# Facing out from the fire, each watching its own way in.
+			body.rotation.y = atan2(-cos(angle), -sin(angle))
+			body.set("band", band)
+			body.set("camp_centre", Vector3(centre.x, 0.0, centre.y))
+			body.set("skin", 1 + (i + k) % 3)
+			creatures.add_child(body)
+
+
 func _cull_distant_creatures() -> void:
 	if creature_draw_distance <= 0.0:
 		return

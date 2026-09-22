@@ -12,6 +12,7 @@ godot --path . --headless --script res://tests/archer_test.gd  # bow + target lo
 godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 godot --path . --headless --script res://tests/multiplayer_test.gd  # who owns what
+godot --path . --headless --script res://tests/fighter_test.gd     # imps and puglins: bands, block, dash, combo, death
 godot --path . --script res://tests/draw_budget.gd             # where the draw calls go
 godot --path . --headless --script res://tests/physics_budget.gd  # where the physics tick goes
 sh tools/two_peers.sh                                  # two processes, one world

@@ -25,6 +25,10 @@ signal target_locked(who: Node3D)
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
 signal blade_planted(where: Vector3)
+## A creature's blow reached this body. `damage` is what it was worth; nothing
+## takes it off anything yet — players have no health (MULTIPLAYER_PVE.md §8) —
+## but the number travels with the hit so a health bar has something to read.
+signal struck(damage: float, blocked: bool)
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
 
@@ -1863,6 +1867,61 @@ func _attack() -> void:
 ##
 ## `call_local` because the attacker has to play its own swing too. `reliable`
 ## because a dropped swing is a missed kill.
+#region Being hit
+## How hard a blow shoves, per point of damage, on top of a base shove. A heavier
+## hitter moves the knight further and holds him longer — which is all "hits
+## harder" can mean while players cannot be hurt.
+@export var blow_shove: float = 0.28
+## Seconds the knight is held after an unguarded blow, per point of damage.
+@export var blow_stagger: float = 0.03
+
+## A creature landed a blow. Called on the host, which is the only peer whose
+## creatures think; applied on the peer that drives this body, because that is
+## the one that knows whether the shield was up at the time.
+func receive_blow(damage: float, from: Node3D) -> void:
+	if from == null:
+		return
+	var away := global_position - from.global_position
+	away.y = 0.0
+	if away.length_squared() < 0.0001:
+		away = global_transform.basis.z
+	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position)
+
+
+## Only the host deals creatures' blows. A local call reports sender 0.
+@rpc("any_peer", "call_local", "reliable")
+func net_blow(damage: float, away: Vector3, source: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_invulnerable:
+		return
+	var toward := source - global_position
+	toward.y = 0.0
+	var facing := -global_transform.basis.z
+	facing.y = 0.0
+	var guarded := is_blocking and facing.normalized().dot(toward.normalized()) > 0.2
+	if guarded:
+		# Caught on the shield: a step back and nothing more.
+		velocity += away * (1.0 + damage * blow_shove * 0.25)
+		struck.emit(damage, true)
+		return
+	velocity += away * (2.0 + damage * blow_shove)
+	_free_swing = false
+	_commit(0.2 + damage * blow_stagger)
+	struck.emit(damage, false)
+	net_bleed.rpc(global_position + Vector3.UP * 1.2, (away + Vector3.UP * 0.3).normalized())
+
+
+## The flinch and the blood, in every window.
+@rpc("authority", "call_local", "reliable")
+func net_bleed(at: Vector3, blow: Vector3) -> void:
+	if rig != null:
+		rig.hit()
+	Blood.splatter(Blood.world_of(self), at, blow)
+#endregion
+
+
 @rpc("any_peer", "call_local", "reliable")
 func net_attack(style: int) -> void:
 	if rig != null:
