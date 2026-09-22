@@ -19,6 +19,22 @@ const SPLATTER_RADIUS := 2.6
 const PATCH_COUNT := 9
 ## Height above the ground the patches sit, to keep them out of the floor.
 const PATCH_LIFT := 0.02
+## Most ground patches alive at once. Past this the oldest is picked up and
+## laid down again under the new blow, so a long fight costs the same number of
+## draws as a short one instead of growing without end.
+const MAX_PATCHES := 144
+## Physics layer the ground is on ("world" in the project settings).
+const GROUND_MASK := 1
+
+## Shared by every splatter. A new material per hit meant a new draw per patch
+## that could never be batched with the others.
+static var _stain_material: StandardMaterial3D
+static var _overlay_material: StandardMaterial3D
+static var _spray_mesh: SphereMesh
+static var _spray_material: StandardMaterial3D
+static var _patch_mesh: QuadMesh
+## Every ground patch laid so far, oldest first, up to `MAX_PATCHES`.
+static var _patches: Array[MeshInstance3D] = []
 
 
 ## The node new effects should be parented to.
@@ -56,17 +72,17 @@ static func _spray(world: Node, point: Vector3, direction: Vector3) -> void:
 	particles.explosiveness = 1.0
 	particles.emitting = true
 
-	var shape := SphereMesh.new()
-	shape.radius = 0.035
-	shape.height = 0.07
-	shape.radial_segments = 6
-	shape.rings = 3
-	particles.draw_pass_1 = shape
-
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = SPRAY
-	particles.material_override = material
+	if _spray_mesh == null:
+		_spray_mesh = SphereMesh.new()
+		_spray_mesh.radius = 0.035
+		_spray_mesh.height = 0.07
+		_spray_mesh.radial_segments = 6
+		_spray_mesh.rings = 3
+		_spray_material = StandardMaterial3D.new()
+		_spray_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_spray_material.albedo_color = SPRAY
+	particles.draw_pass_1 = _spray_mesh
+	particles.material_override = _spray_material
 
 	var behaviour := ParticleProcessMaterial.new()
 	behaviour.direction = direction.normalized() if direction.length_squared() > 0.001 else Vector3.UP
@@ -124,29 +140,84 @@ static func _stain_ground(world: Node, point: Vector3) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(Vector3i(point * 100.0))
 
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.9)
-	material.albedo_texture = splat_texture()
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if _stain_material == null:
+		_stain_material = StandardMaterial3D.new()
+		_stain_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_stain_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_stain_material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.9)
+		_stain_material.albedo_texture = splat_texture()
+		_stain_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		# One unit quad for every patch; the size lives in the node's scale.
+		_patch_mesh = QuadMesh.new()
+		_patch_mesh.size = Vector2.ONE
 
+	var space := _space_of(world)
 	for i in PATCH_COUNT:
-		var patch := MeshInstance3D.new()
-		var quad := QuadMesh.new()
 		var size := rng.randf_range(0.4, 1.5)
 		# Squashed a little and spun below, so no two pools share an outline.
-		quad.size = Vector2(size, size * rng.randf_range(0.7, 1.0))
-		patch.mesh = quad
-		patch.material_override = material
-		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		world.add_child(patch)
-
+		var squash := rng.randf_range(0.7, 1.0)
 		var offset := Vector3(rng.randfn(0.0, SPLATTER_RADIUS * 0.4), 0.0,
 				rng.randfn(0.0, SPLATTER_RADIUS * 0.4))
-		patch.global_position = Vector3(point.x + offset.x, PATCH_LIFT, point.z + offset.z)
-		# Lay it flat, then spin it so repeated hits do not tile.
-		patch.rotation = Vector3(-PI * 0.5, rng.randf() * TAU, 0.0)
+		var spin := rng.randf() * TAU
+
+		# Laid on whatever is actually under the spot — a stair, the ramp, a
+		# rock — rather than at the height of the flat ground, which put blood
+		# spilt on the steps underneath them.
+		var at := Vector3(point.x + offset.x, 0.0, point.z + offset.z)
+		var normal := Vector3.UP
+		var ground := _ground_under(space, at, point.y)
+		if ground.is_empty():
+			at.y = PATCH_LIFT
+		else:
+			normal = ground["normal"]
+			at = ground["position"] + normal * PATCH_LIFT
+
+		# Lay it flat, spin it so repeated hits do not tile, then tip it onto
+		# the slope it landed on.
+		var basis := Basis(Quaternion(Vector3.UP, normal)) \
+				* Basis(Vector3.UP, spin) * Basis(Vector3.RIGHT, -PI * 0.5) \
+				* Basis.from_scale(Vector3(size, size * squash, 1.0))
+		var patch := _take_patch(world)
+		patch.global_transform = Transform3D(basis, at)
+
+
+## A ground patch to lay down: a new one while there is room under
+## `MAX_PATCHES`, otherwise the oldest one, moved.
+static func _take_patch(world: Node) -> MeshInstance3D:
+	# Patches go when their level does; drop the ones that went with it.
+	while not _patches.is_empty() and not is_instance_valid(_patches[0]):
+		_patches.pop_front()
+	var patch: MeshInstance3D
+	if _patches.size() >= MAX_PATCHES:
+		patch = _patches.pop_front()
+		if patch.get_parent() != world:
+			patch.reparent(world, false)
+	else:
+		patch = MeshInstance3D.new()
+		patch.mesh = _patch_mesh
+		patch.material_override = _stain_material
+		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(patch)
+	_patches.append(patch)
+	return patch
+
+
+static func _space_of(world: Node) -> PhysicsDirectSpaceState3D:
+	var spatial := world as Node3D
+	if spatial == null or spatial.get_world_3d() == null:
+		return null
+	return spatial.get_world_3d().direct_space_state
+
+
+## The ground straight below `at`, searched from a little above the height of
+## the blow down to well below it. Empty if there is nothing there.
+static func _ground_under(space: PhysicsDirectSpaceState3D, at: Vector3, from_height: float) -> Dictionary:
+	if space == null:
+		return {}
+	var query := PhysicsRayQueryParameters3D.create(
+			Vector3(at.x, from_height + 1.0, at.z),
+			Vector3(at.x, from_height - 4.0, at.z), GROUND_MASK)
+	return space.intersect_ray(query)
 
 
 ## Tints whatever is standing in the splatter — grass, stones, props.
@@ -166,10 +237,12 @@ static func _stain_nearby(world: Node, point: Vector3) -> void:
 	if field != null:
 		field.stain(point, SPLATTER_RADIUS, STAIN, 0.65)
 
-	var overlay := StandardMaterial3D.new()
-	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	overlay.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.5)
-	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if _overlay_material == null:
+		_overlay_material = StandardMaterial3D.new()
+		_overlay_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_overlay_material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.5)
+		_overlay_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var overlay := _overlay_material
 	for child in scatter.get_children():
 		var node := child as Node3D
 		# The field's own chunks are not props standing in the blood; they *are*

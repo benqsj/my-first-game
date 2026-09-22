@@ -443,7 +443,15 @@ func _pose_tail(delta: float) -> void:
 	for i in TAIL_CHAIN.size():
 		var target := (drive + flutter) * (0.4 + 0.6 * float(i) / last)
 		_tail_angles[i] = lerpf(_tail_angles[i], target, weight * (1.0 - 0.1 * i))
-		_add_offset(TAIL_CHAIN[i], Vector3(_tail_angles[i], 0.0, 0.0))
+		var link := TAIL_CHAIN[i]
+		var bend := Vector3(_tail_angles[i], 0.0, 0.0)
+		# Only the root is in REST, so only the root is reset by `_pose_stance`
+		# each frame. Adding onto the other links would wind them up a little
+		# more every frame — they are set from their base instead.
+		if REST.has(link):
+			_add_offset(link, bend)
+		else:
+			_pose_joint(link, bend)
 #endregion
 
 

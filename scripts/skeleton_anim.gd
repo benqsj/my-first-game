@@ -50,6 +50,15 @@ var _src_bone := PackedInt32Array()
 var _dst_bone := PackedInt32Array()
 var _src_rest_inverse: Array[Basis] = []
 var _dst_rest: Array[Basis] = []
+## The two rests folded into one, `dst_rest · src_rest⁻¹`, so a frame costs one
+## multiply per bone instead of two; and the target's rest as a quaternion, for
+## the fades. Neither changes after setup.
+var _rest_delta: Array[Basis] = []
+var _dst_rest_rotation: Array[Quaternion] = []
+
+## Clip -> the widest the mannequin's feet get in it, before `_limb_scale`.
+## Pure mannequin, so shared by every creature instead of re-swept per spawn.
+static var _stride_cache: Dictionary = {}
 
 var _src_pelvis: int = -1
 var _dst_pelvis: int = -1
@@ -95,9 +104,10 @@ func setup(target: Skeleton3D) -> bool:
 		scene.queue_free()
 		return false
 
-	# The mannequin is a source of angles, not a thing in the world.
+	# The mannequin is a source of angles, not a thing in the world. Freed rather
+	# than hidden, so the skeleton has no skin left to push its pose into.
 	for mesh in scene.find_children("*", "MeshInstance3D", true, false):
-		(mesh as MeshInstance3D).visible = false
+		mesh.queue_free()
 	_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	_player.animation_finished.connect(_on_clip_finished)
 
@@ -123,6 +133,8 @@ func _pair_bones() -> void:
 		_dst_bone.append(dst)
 		_src_rest_inverse.append(_skeleton.get_bone_rest(src).basis.orthonormalized().inverse())
 		_dst_rest.append(_target.get_bone_rest(dst).basis.orthonormalized())
+		_rest_delta.append(_dst_rest[-1] * _src_rest_inverse[-1])
+		_dst_rest_rotation.append(_target.get_bone_rest(dst).basis.get_rotation_quaternion())
 
 	_src_pelvis = _skeleton.find_bone("pelvis")
 	_dst_pelvis = _target.find_bone("pelvis")
@@ -215,6 +227,8 @@ func measure_stride(clip: StringName) -> float:
 	var anim := _player.get_animation(clip)
 	if anim == null or anim.length <= 0.0:
 		return 0.0
+	if _stride_cache.has(clip):
+		return float(_stride_cache[clip]) * 2.0 * _limb_scale
 	var left := _skeleton.find_bone("foot_l")
 	var right := _skeleton.find_bone("foot_r")
 	if left < 0 or right < 0:
@@ -232,6 +246,7 @@ func measure_stride(clip: StringName) -> float:
 	_player.stop()
 	if not was.is_empty():
 		_player.play(was)
+	_stride_cache[clip] = step
 	return step * 2.0 * _limb_scale
 
 
@@ -262,14 +277,13 @@ func advance(delta: float) -> void:
 
 	for i in _src_bone.size():
 		var pose := _skeleton.get_bone_pose_rotation(_src_bone[i])
-		var wanted := Quaternion(_dst_rest[i] * (_src_rest_inverse[i] * Basis(pose)))
+		var wanted := Quaternion(_rest_delta[i] * Basis(pose))
 		if _weight >= 0.999:
 			_target.set_bone_pose_rotation(_dst_bone[i], wanted)
 		else:
 			# Fading in or out: blend against the model's own rest, which is the
 			# pose it holds when nothing is driving it.
-			var rest := _target.get_bone_rest(_dst_bone[i]).basis.get_rotation_quaternion()
-			_target.set_bone_pose_rotation(_dst_bone[i], rest.slerp(wanted, _weight))
+			_target.set_bone_pose_rotation(_dst_bone[i], _dst_rest_rotation[i].slerp(wanted, _weight))
 
 	if _dst_pelvis >= 0:
 		var travel := _skeleton.get_bone_pose_position(_src_pelvis) - _pelvis_rest

@@ -109,12 +109,34 @@ func _process(_delta: float) -> void:
 			if creature.global_position.distance_squared_to(who.global_position) <= reach:
 				near = true
 				break
-		if near:
-			if _dozing.erase(creature):
-				creature.set_physics_process(true)
-		elif creature.is_physics_processing():
-			creature.set_physics_process(false)
-			_dozing[creature] = true
+		# A corpse is kept awake: its own `_physics_process` is what topples it,
+		# sinks it and finally clears it away, and asleep it would lie there
+		# until somebody wandered back.
+		if near or creature.get("is_dead") == true:
+			if _dozing.has(creature):
+				creature.set_process(true)
+				# Only physics this node switched off goes back on — on a client
+				# it was never on (see above).
+				if _dozing[creature]:
+					creature.set_physics_process(true)
+				_dozing.erase(creature)
+		elif not _dozing.has(creature):
+			# Asleep means asleep: the rig is posed from `_process`, so leaving
+			# that running kept every far creature animating (and, holding its
+			# last velocity, walking on the spot) for nobody to see.
+			var was_thinking := creature.is_physics_processing()
+			_dozing[creature] = was_thinking
+			if was_thinking:
+				creature.set_physics_process(false)
+			creature.set_process(false)
+			var body := creature as CharacterBody3D
+			if body != null:
+				body.velocity = Vector3.ZERO
+
+	# Forget creatures that have been freed since they were put to sleep.
+	for sleeper in _dozing.keys():
+		if not is_instance_valid(sleeper):
+			_dozing.erase(sleeper)
 
 
 #region Bodies

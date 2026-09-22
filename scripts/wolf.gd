@@ -148,7 +148,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if _bar != null:
+	# A dead wolf's bar stays hidden: `set_fraction` shows the bar whenever it
+	# is below full, and a corpse is always below full.
+	if _bar != null and not is_dead:
 		_bar.global_position = global_position + Vector3.UP * bar_height
 		# Read off `health` every frame rather than written when a hit lands:
 		# the hit lands on the host, and what reaches everyone else is the

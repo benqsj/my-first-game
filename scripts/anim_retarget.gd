@@ -171,6 +171,16 @@ var _mask: Mask = Mask.FULL
 var _clip: StringName = &""
 var _ready_to_play: bool = false
 
+## What `measure_travel()` and `measure_stride()` read off the library, shared
+## by every instance. Both measure the *mannequin* — nothing about the body the
+## layer is driving goes into them (the stride is brought to this body's legs
+## only afterwards) — so every layer on every character was sweeping the same
+## clips to get the same numbers, 200-odd seeks of a full skeleton per spawn.
+## Keyed by clip, bone and threshold; cleared only when the game exits.
+static var _travel_cache: Dictionary = {}
+## Clip -> the widest the mannequin's feet get in it, before `_limb_scale`.
+static var _stride_cache: Dictionary = {}
+
 
 ## Loads the animation library and solves the rest correction for every mapped
 ## joint. `joints` maps joint name to node; `neutral` gives the orientation each
@@ -194,8 +204,10 @@ func setup(rig: Node3D, joints: Dictionary, neutral: Dictionary) -> bool:
 		return false
 
 	# The mannequin itself is never drawn; only its joint angles are wanted.
+	# Freed rather than hidden: a hidden skinned mesh is still bound to the
+	# skeleton, which keeps pushing the pose into its skin every frame.
 	for mesh in scene.find_children("*", "MeshInstance3D", true, false):
-		(mesh as MeshInstance3D).visible = false
+		mesh.queue_free()
 
 	# Stepped by hand from animate(), so the pose is always the one belonging to
 	# the frame being drawn rather than whatever the mixer last left behind.
@@ -515,14 +527,22 @@ func _on_clip_finished(clip: StringName) -> void:
 ## Read off the clip instead of hand-tuned, so retiming a swing or dropping in a
 ## different one needs no numbers changed anywhere.
 func measure_travel(clip: StringName, joint_name: String, threshold: float = 0.45) -> Vector2:
-	const STEPS := 48
 	if not has_clip(clip) or not _bone.has(joint_name):
 		return Vector2(0.3, 0.7)
 	var anim := _player.get_animation(clip)
 	if anim == null or anim.length <= 0.0:
 		return Vector2(0.3, 0.7)
 
-	var idx: int = _bone[joint_name]
+	var key := "%s|%s|%s" % [clip, _skeleton.get_bone_name(_bone[joint_name]), threshold]
+	if _travel_cache.has(key):
+		return _travel_cache[key]
+	var window := _sweep_travel(anim, clip, _bone[joint_name], threshold)
+	_travel_cache[key] = window
+	return window
+
+
+func _sweep_travel(anim: Animation, clip: StringName, idx: int, threshold: float) -> Vector2:
+	const STEPS := 48
 	var track := PackedVector3Array()
 	track.resize(STEPS + 1)
 	_player.play(clip)
@@ -564,6 +584,8 @@ func measure_stride(clip: StringName) -> float:
 	var anim := _player.get_animation(clip)
 	if anim == null or anim.length <= 0.0:
 		return 0.0
+	if _stride_cache.has(clip):
+		return float(_stride_cache[clip]) * 2.0 * _limb_scale
 	var left := _skeleton.find_bone("foot_l")
 	var right := _skeleton.find_bone("foot_r")
 	if left < 0 or right < 0:
@@ -578,5 +600,6 @@ func measure_stride(clip: StringName) -> float:
 		gap.y = 0.0
 		step = maxf(step, gap.length())
 	_player.stop()
+	_stride_cache[clip] = step
 	return step * 2.0 * _limb_scale
 #endregion

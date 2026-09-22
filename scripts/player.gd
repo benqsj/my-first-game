@@ -1087,6 +1087,10 @@ func _begin_mantle(landing: Vector3) -> void:
 	_climb_timer = climb_duration
 	state = State.CLIMBING
 	velocity = Vector3.ZERO
+	# A plunge only ends in `_land()`, and a mantle finishes standing without
+	# ever passing through it — so a jump-attack that catches a ledge would hold
+	# the commitment open forever. The pull-up takes the fall's place.
+	_plunging = false
 	_jump_buffer_timer = 0.0
 	if rig != null:
 		rig.climb(climb_duration)
@@ -1281,6 +1285,9 @@ func _scan_wall(origin: Vector3, facing: Vector3) -> Dictionary:
 
 func _grab_wall(point: Vector3, normal: Vector3) -> void:
 	state = State.WALLCLIMB
+	# Same as a mantle: catching a face mid-plunge never lands, so it must not
+	# leave the plunge (and its endless commitment) behind.
+	_plunging = false
 	_wall_point = point
 	_wall_normal = normal
 	_wall_drive = Vector2.ZERO
