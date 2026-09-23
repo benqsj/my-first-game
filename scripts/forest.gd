@@ -185,6 +185,12 @@ const CLEARINGS: Array[Vector3] = [
 	# a clearing inside the square would re-roll the whole square's wood.
 	Vector3(28.0, -130.0, 9.0),
 	Vector3(24.0, -142.0, 10.0),
+	# The bay: where the harbour's pier comes ashore, and the way to it from
+	# the mere, down the east side of the marsh.
+	Vector3(0.0, -282.0, 22.0),
+	Vector3(0.0, -302.0, 34.0),
+	Vector3(14.0, -255.0, 12.0),
+	Vector3(36.0, -232.0, 10.0),
 ]
 
 @export_group("Layout")
@@ -197,6 +203,19 @@ const CLEARINGS: Array[Vector3] = [
 ## How much further the ground runs to the south (towards -z) than
 ## `half_extent`, in metres: the marsh strip. The wood grows into it too.
 @export var south_extent: float = 0.0
+## And past that, the bay strip, planted last of all.
+@export var bay_extent: float = 0.0
+## Ground that dips under water ([Marsh] nodes): nothing is planted where any of
+## them is below its dry level. A tree standing in a lake is a tree nobody
+## planted.
+@export var wet_ground: Array[NodePath] = []
+## The worn tracks ([Paths]): nothing grows on them or within a metre and a half
+## of their edges, so a track through the wood is a way through it.
+@export var paths: NodePath
+## How the kit's leaves are toned, as a multiplier on their colour. The kit's
+## broadleaf greens are a flat lime that reads as plastic next to anything
+## textured; this takes them down to something a leaf could be.
+@export var leaf_tone: Color = Color(0.62, 0.74, 0.5)
 ## How far in from the boundary the wood stops, so no trunk grows through a wall.
 @export var edge_margin: float = 3.0
 
@@ -319,6 +338,12 @@ func _ready() -> void:
 		_grow("Canopy South", CANOPY, tree_draw_distance, trees_cast_shadows, true, from, to)
 		_grow("Undergrowth South", UNDERGROWTH, undergrowth_draw_distance, false, false, from, to)
 		_grow("Litter South", LITTER, litter_draw_distance, false, false, from, to)
+	if bay_extent > 0.0:
+		var from := -(half_extent + south_extent + bay_extent) + edge_margin
+		var to := -(half_extent + south_extent) - edge_margin * 0.5
+		_grow("Canopy Bay", CANOPY, tree_draw_distance, trees_cast_shadows, true, from, to)
+		_grow("Undergrowth Bay", UNDERGROWTH, undergrowth_draw_distance, false, false, from, to)
+		_grow("Litter Bay", LITTER, litter_draw_distance, false, false, from, to)
 
 	print("Forest: %s, %d trunks over %d bodies (%d distinct shapes), in %.1f ms" % [
 			counts, trunk_count(), _bodies.size(), _shape_pool.size(),
@@ -461,7 +486,7 @@ func _grow_lines(group_name: String, group: Dictionary, lines: Array[Array]) -> 
 					continue
 				# A hedgerow that runs into the wood or through a building is a
 				# hedgerow nobody planted.
-				if _wood(at) > 0.0 or is_clear(at) or _too_close(at):
+				if _wood(at) > 0.0 or is_clear(at) or _too_close(at) or _on_path(at):
 					continue
 
 				var pick := _rng.randi_range(0, models.size() - 1)
@@ -487,6 +512,8 @@ func _grow_lines(group_name: String, group: Dictionary, lines: Array[Array]) -> 
 
 ## 0 where nothing grows, 1 in the deepest part of the wood.
 func _coverage(at: Vector2) -> float:
+	if _is_wet(at) or _on_path(at):
+		return 0.0
 	for zone in CLEARINGS:
 		var gap := at.distance_to(Vector2(zone.x, zone.y))
 		if gap < zone.z:
@@ -633,8 +660,31 @@ func _mesh(path: String) -> Mesh:
 		mesh = load(path) as Mesh
 	if mesh == null:
 		push_warning("Forest: '%s' is missing; that species will not grow." % path)
+	else:
+		mesh = _toned(mesh)
 	_meshes[path] = mesh
 	return mesh
+
+
+## The mesh again, with any bright green surface taken down by `leaf_tone`.
+## Trunks, bark and the conifers' own darker greens are left as they are.
+func _toned(mesh: Mesh) -> Mesh:
+	var array_mesh := mesh as ArrayMesh
+	if array_mesh == null or leaf_tone == Color.WHITE:
+		return mesh
+	var copy: ArrayMesh = null
+	for s in array_mesh.get_surface_count():
+		var material := array_mesh.surface_get_material(s) as BaseMaterial3D
+		if material == null:
+			continue
+		var c := material.albedo_color
+		if c.g > 0.45 and c.g > c.r * 1.25 and c.g > c.b * 1.25:
+			if copy == null:
+				copy = array_mesh.duplicate() as ArrayMesh
+			var toned := material.duplicate() as BaseMaterial3D
+			toned.albedo_color = Color(c.r * leaf_tone.r, c.g * leaf_tone.g, c.b * leaf_tone.b, c.a)
+			copy.surface_set_material(s, toned)
+	return copy if copy != null else mesh
 #endregion
 
 
@@ -766,3 +816,19 @@ func _trunk_base(mesh: Mesh) -> Array:
 	_radius_cache[mesh.resource_path] = result
 	return result
 #endregion
+
+
+## Whether a point is under (or at the edge of) water somebody put there.
+func _is_wet(at: Vector2) -> bool:
+	for path in wet_ground:
+		var ground := get_node_or_null(path) as Marsh
+		if ground != null and ground.height_at(at.x, at.y) < -0.05:
+			return true
+	return false
+
+
+func _on_path(at: Vector2) -> bool:
+	if paths.is_empty():
+		return false
+	var tracks := get_node_or_null(paths) as Paths
+	return tracks != null and tracks.near(at, 1.5)

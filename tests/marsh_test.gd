@@ -57,14 +57,15 @@ func _initialize() -> void:
 			player.is_on_floor() and absf(player.global_position.y) < 0.1,
 			"y = %.3f" % player.global_position.y)
 
-	# The new south wall, at the far end of the marsh.
-	player.global_position = Vector3(-60.0, 0.3, -243.0)
+	# The south wall, past the bay at the far end of the map. Along its east
+	# edge the bay's shore is dry land, so there is ground up to the wall.
+	player.global_position = Vector3(116.0, 0.3, -446.0)
 	player.velocity = Vector3.ZERO
 	await _settle(player)
 	for i in 90:
 		player.velocity.z = -7.0
 		await physics_frame
-	_check("the map still ends somewhere", player.global_position.z > -250.5,
+	_check("the map still ends somewhere", player.global_position.z > -455.5,
 			"got to z = %.1f" % player.global_position.z)
 
 	# --- The mere ------------------------------------------------------------

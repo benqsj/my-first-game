@@ -29,8 +29,11 @@ extends Node3D
 ##   volumetric fog: fog is a setting for the whole world and a per-pixel cost
 ##   everywhere in it, and the mist is wanted in one place.
 ##
-## The village itself is an instanced scene under this node (see
-## `scenes/world/mist_village.tscn`); this only makes the ground it stands in.
+## The same node makes the bay further south, where the harbour is: a wider
+## body of water, reaching past the south wall, with a sandier shore and a
+## sea-coloured surface. What stands in either (`scenes/world/mist_village.tscn`,
+## `scenes/world/harbour.tscn`) is instanced under it; this only makes the
+## ground and the water.
 
 @export_group("Extent")
 ## The strip's corners in the level's own frame, (x, z). The north edge meets
@@ -56,6 +59,11 @@ extends Node3D
 ## The old ground's material. The strip draws with a copy of it, so the seam
 ## does not show; the copy is darkened towards the water with vertex colours.
 @export var ground_material: Material
+## What the ground turns to towards the water: mud for the mere, sand and
+## shingle for the bay.
+@export var shore_tint: Color = Color(0.42, 0.4, 0.33)
+## The water's surface. Left empty, the mere's still dark water.
+@export var water_material: Material
 @export var mist_cards: int = 26
 @export var mist_enabled: bool = true
 
@@ -121,7 +129,7 @@ func _build_ground() -> void:
 			var h := heights[iz * nx + ix]
 			# Wet ground darkens towards the water, and the bed is mud.
 			var wet := clampf(-h / maxf(bed_depth, 0.01), 0.0, 1.0)
-			st.set_color(Color(1.0, 1.0, 1.0).lerp(Color(0.42, 0.4, 0.33), wet))
+			st.set_color(Color(1.0, 1.0, 1.0).lerp(shore_tint, wet))
 			# Same repeat as the old box, and the same phase at the seam: the box
 			# runs its texture from x = -120, z = -120.
 			st.set_uv(Vector2((x + 120.0) / 240.0, (z + 120.0) / 240.0))
@@ -192,7 +200,8 @@ func _build_water() -> void:
 	water.name = "Water"
 	water.mesh = plane
 	water.position = Vector3(mere_centre.x, water_level, mere_centre.y)
-	water.material_override = load("res://assets/world/water.tres")
+	water.material_override = water_material if water_material != null \
+			else load("res://assets/world/water.tres") as Material
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(water)
 #endregion

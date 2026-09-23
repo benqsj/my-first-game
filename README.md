@@ -30,9 +30,10 @@ fullscreen.
 asks solo or co-op, then who you are, then loads the level.
 
 `res://scenes/ui/main_menu.tscn
-scenes/world/greybox_world.tscn` is that level: 240 × 370 m of
-ground walled in at the edges — the old 240 m square, and a marsh strip south of
-it with a mere and a misty village on an island in it — a 15° ramp, a 55° face that cannot be stood on, a
+scenes/world/greybox_world.tscn` is that level: 240 × 575 m of
+ground walled in at the edges — the old 240 m square, a marsh strip south of it
+with a mere and a misty village on an island in it, and past that a bay with a
+harbour — a 15° ramp, a 55° face that cannot be stood on, a
 6-step staircase up to a platform, pillars to test camera collision, and a
 watchtower, a medieval house and cart, boulders, meadows of grass and stone
 clusters, and a handful of creatures wandering about.
@@ -1504,6 +1505,72 @@ village against one out on the plain. `tests/world_shots.gd` has four vantages
 on it (`mere_*`), the first at the angle of the reference picture.
 
 
+## The bay and the harbour
+
+South of the marsh the map runs on another 205 m to a **bay** (the south wall
+is at z = -455.5 now, and the mountains' oval is centred on the middle of the
+whole length). It is a second [Marsh] node, `Bay`, with a much bigger body of
+water — an ellipse centred beyond the south wall, so what the player sees is a
+coast rather than a pond — a sandier shore, and a sea-coloured surface
+(`assets/world/sea.tres`, the same shader as the mere). It is shallow enough to
+wade, like the mere: the bed is 1.25 m down and the water 0.6 m.
+
+In it stands the **harbour**: `assets/place7/harbour.glb`, rebuilt from the
+delivered `mall1.glb` the same way the misty village was (its six hundred
+sheared pieces solved back with the same solver, the white procedural materials
+given colours, the model's own water plane dropped for the bay's, merged per
+material into fifty-odd meshes, 2.2×). A dock with a house and a crane tower on
+it, a walkway out to a wreck, silos and snow-capped cliffs out to sea. Collision
+is hulls: the cliffs sliced into bands a few metres high so each band's hull
+hugs its rock, everything else hulled in 2.5 m cells. It is turned so its
+cliffs stand out to sea behind the dock, and the dock is the first thing the
+track from the mere comes down to.
+
+## Tracks and ruins
+
+The old ground was a set of places dropped on a plain, each the same distance
+from nowhere, with the greybox's grey and pink test boxes standing in the middle
+of it. Two things change that:
+
+* **Tracks** (`scripts/paths.gd`): worn dirt ribbons from the spawn to the
+  settlement's gate and down its street, into the wood to the first glade, and
+  south past Arkdeva's glade and the puglins to the mere, round it and on to the
+  bay. Each is drawn soft-edged and a little uneven in width, follows the
+  ground where it dips, and the wood keeps off it (`Forest.paths`), so a track
+  through the trees is a way through them. They also tell a player where to go.
+* **Ruins**: the stairs, ramp, platform, steep face and pillars keep every
+  measurement the smoke test depends on, but are drawn in weathered stone
+  (world-space triplanar, so a block's texture runs on across the next) and
+  mossy stone, instead of flat beige and pink.
+
+The kit's broadleaf trees were a flat lime that read as plastic beside anything
+textured; `Forest.leaf_tone` takes their greens down to something a leaf could
+be, leaving bark and the conifers alone.
+
+## Quests
+
+Three people with jobs, each with a mark over their head — a gold `!` for a job
+on offer, a green `?` when it is done and waiting to be handed in:
+
+| who | where | job |
+| --- | --- | --- |
+| Datvi the Woodcutter (the bear with the log) | the settlement's street | kill 4 wolves |
+| Ali of the Embers (the fire spirit) | the mere's north shore, where the track comes out | kill 6 imps |
+| Old Baqaq the Fisherman (the frog with the rod) | the harbour's dock | kill Arkdeva |
+
+Walk up to one and **F** (`interact`) talks; F again takes the job on, walking
+away declines it. A taken job sits in the top-right corner with its count. Kills
+are counted by watching the creatures (`QuestBook` polls the `enemy` group and
+counts each new corpse by its scene's name), so any creature is a kind without
+registering it, and in co-op a kill counts for everyone who has the job.
+Players have no health or purse yet, so the reward is the giver's thanks and a
+burst of warm light.
+
+`scripts/quest_book.gd` is the book and the on-screen text; `scripts/quest_giver.gd`
+is a person: the model scaled to a height, dropped on to whatever is under it,
+breathing and turning to face whoever talks to them. `tests/quest_test.gd`
+checks all of it.
+
 ## Creatures
 
 `scenes/enemies/` holds four kinds and the level holds seventeen of them, all
@@ -1626,6 +1693,39 @@ physically cannot move: there is nothing in the file to rotate. What it does
 instead is carry the walk in the body — rocking side to side in time with its
 steps, dipping on each footfall, leaning into turns. If the legs need to move,
 the model has to come back rigged.
+
+### The orc warrior
+
+The orcs are twice Tariel's height (3.8 m; they were five) and fight with an
+axe, with their own clips: Mixamo's axe set (idle, walk, run, a guard, the
+horizontal, backhand and overhead blows, three combos, the spin, a kick, a
+running leap, a battle cry, a death) plus Mixamo's orc idle and walk for when
+they are only wandering. `tools/retarget_orc.py` in the art folder puts them on
+the orc's rig. His rig carries Mixamo's bone names already but rests in an A
+where the source rests in a T, so every limb is first swung into the source's
+rest before the source's motion is laid on top; his trunk and head are left
+alone, because they stand upright in both and his Head bone just happens to
+point out of his face. The delivered mesh also had his fists modelled resting
+against his belt, fused to it and skinned a little to each other, so any swing
+pulled a web of belt after his hands; the script splits those vertices by
+which side they mostly belong to and cuts the few faces that joined them.
+
+The blows land where his right hand is moving fastest in each clip, measured
+once; he opens with a roar the first time he sees somebody; a player beside or
+behind him gets the spin; from further off he runs and leaps and comes down in
+the overhead slam, which splits the ground in a run of spikes. His guard against
+a drawn bow is the guard clip laid over his upper body while his legs keep
+walking.
+
+### Arkdeva's poison
+
+`scripts/venom.gd` draws it, from modelled shapes (`assets/fx/venom.glb`, from
+`fx/venom.blend`): a teardrop gob that flies nose first, wobbles, glows at its
+rim and sheds drops that fall; a splash of droplets where it lands; and a pool
+that lies on the ground as the ground lies (laid along the surface under it,
+found with a ray), runs out from the middle with a ragged front, bubbles, and
+dries from its edges inwards before it goes (`assets/fx/venom_pool.gdshader`).
+It replaces a sphere and a flat, unlit green disc stamped at one height.
 
 ## Blood
 
@@ -1922,7 +2022,13 @@ scripts/simple_collision.gd  swaps the scenery's trimesh colliders for hulls
 scripts/collider_bake.gd     the hulls, worked out once and kept
 scripts/forest.gd            grows the wood: multimeshes, pooled trunks, wind
 scripts/horizon.gd           the mountains standing behind the boundary wall
-scripts/marsh.gd             the marsh strip: ground, the mere, the mist
+scripts/marsh.gd             the marsh strip and the bay: ground, water, mist
+scripts/paths.gd             the worn tracks between the places on the map
+scripts/quest_book.gd        the quests: who gives what, counting, the on-screen text
+scripts/quest_giver.gd       a person with a job: model, mark, breathing, facing
+scripts/venom.gd             Arkdeva's poison: the gob, the splash, the pool
+tests/quest_test.gd          headless checks: the givers, talking, counting, handing in
+tests/venom_shots.gd         photographs the poison in flight, landing and drying
 scripts/mist_village.gd      the misty village's materials, fixed up at load
 tests/marsh_test.gd          headless checks: the marsh, the mere, the village
 scripts/building.gd          gives a kit .fbx its textures and its UCX hull back

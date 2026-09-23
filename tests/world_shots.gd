@@ -31,6 +31,10 @@ const VANTAGES := {
 	"mere_shore": [Vector3(16, 1.9, -138), Vector3(8, 5.0, -188), 62.0],
 	"mere_on_island": [Vector3(4, 4.0, -178), Vector3(22, 3.0, -196), 70.0],
 	"mere_above": [Vector3(10, 120, -120), Vector3(10, 0, -188), 50.0],
+	# The bay at the south end, and the harbour in it.
+	"bay_harbour": [Vector3(4, 16, -262), Vector3(0, 1.5, -345), 60.0],
+	"bay_pier": [Vector3(-7, 2.0, -276), Vector3(2, 1.2, -330), 65.0],
+	"bay_above": [Vector3(0, 170, -250), Vector3(0, 0, -370), 55.0],
 }
 
 var _dir := "res://"
@@ -115,10 +119,10 @@ func _map(camera: Camera3D, world: Node3D) -> void:
 		mesh.visibility_range_end = 0.0
 
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	# The whole of the ground: the square, and the marsh strip south of it.
-	camera.size = 380.0
+	# The whole of the ground: the square, and the marsh and the bay south of it.
+	camera.size = 600.0
 	camera.far = 900.0
-	camera.position = Vector3(0.0, 300.0, -65.0)
+	camera.position = Vector3(0.0, 300.0, -167.5)
 	camera.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
 	for i in 20:
 		await process_frame

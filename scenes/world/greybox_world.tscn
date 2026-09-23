@@ -1,4 +1,4 @@
-[gd_scene load_steps=64 format=3]
+[gd_scene load_steps=84 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="9_pause"]
@@ -38,6 +38,14 @@
 [ext_resource type="PackedScene" path="res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_Axe.fbx" id="42_axe"]
 [ext_resource type="Script" path="res://scripts/marsh.gd" id="43_marsh"]
 [ext_resource type="PackedScene" path="res://scenes/world/mist_village.tscn" id="44_mist_village"]
+[ext_resource type="PackedScene" path="res://assets/place7/harbour.glb" id="45_harbour"]
+[ext_resource type="Material" path="res://assets/world/sea.tres" id="46_sea"]
+[ext_resource type="Script" path="res://scripts/paths.gd" id="47_paths"]
+[ext_resource type="Script" path="res://scripts/quest_book.gd" id="48_quests"]
+[ext_resource type="Script" path="res://scripts/quest_giver.gd" id="49_giver"]
+[ext_resource type="PackedScene" path="res://assets/bearnpc/bear1.glb" id="50_bear"]
+[ext_resource type="PackedScene" path="res://assets/firenpc/cecxli .glb" id="51_fire"]
+[ext_resource type="PackedScene" path="res://assets/frog-npc/frog1.glb" id="52_frog"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.36, 0.5, 0.72, 1)
@@ -117,6 +125,83 @@ uv1_scale = Vector3(48, 48, 48)
 albedo_color = Color(0.55, 0.5, 0.45, 1)
 roughness = 0.85
 
+[sub_resource type="FastNoiseLite" id="Noise_stone"]
+noise_type = 2
+frequency = 0.06
+fractal_octaves = 3
+fractal_gain = 0.45
+
+[sub_resource type="Gradient" id="Grad_stone"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.27, 0.26, 0.24, 1, 0.45, 0.43, 0.39, 1, 0.6, 0.58, 0.53, 1)
+
+[sub_resource type="NoiseTexture2D" id="Tex_stone"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("Grad_stone")
+noise = SubResource("Noise_stone")
+
+[sub_resource type="NoiseTexture2D" id="Tex_stone_bump"]
+width = 256
+height = 256
+seamless = true
+as_normal_map = true
+bump_strength = 6.0
+noise = SubResource("Noise_stone")
+
+[sub_resource type="StandardMaterial3D" id="Mat_stone"]
+albedo_texture = SubResource("Tex_stone")
+roughness = 0.95
+normal_enabled = true
+normal_texture = SubResource("Tex_stone_bump")
+uv1_scale = Vector3(0.3, 0.3, 0.3)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="Gradient" id="Grad_moss"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(0.24, 0.27, 0.18, 1, 0.38, 0.41, 0.3, 1, 0.52, 0.52, 0.44, 1)
+
+[sub_resource type="NoiseTexture2D" id="Tex_moss"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("Grad_moss")
+noise = SubResource("Noise_stone")
+
+[sub_resource type="StandardMaterial3D" id="Mat_stone_moss"]
+albedo_texture = SubResource("Tex_moss")
+roughness = 0.97
+normal_enabled = true
+normal_texture = SubResource("Tex_stone_bump")
+uv1_scale = Vector3(0.3, 0.3, 0.3)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="FastNoiseLite" id="Noise_path"]
+noise_type = 3
+frequency = 0.04
+fractal_octaves = 4
+
+[sub_resource type="Gradient" id="Grad_path"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.26, 0.21, 0.15, 1, 0.4, 0.33, 0.24, 1, 0.52, 0.46, 0.36, 1)
+
+[sub_resource type="NoiseTexture2D" id="Tex_path"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("Grad_path")
+noise = SubResource("Noise_path")
+
+[sub_resource type="StandardMaterial3D" id="Mat_path"]
+transparency = 1
+cull_mode = 2
+vertex_color_use_as_albedo = true
+albedo_texture = SubResource("Tex_path")
+roughness = 1.0
+
 [sub_resource type="StandardMaterial3D" id="Mat_accent"]
 albedo_color = Color(0.5, 0.28, 0.26, 1)
 roughness = 0.8
@@ -155,7 +240,7 @@ size = Vector3(5, 0.4, 5)
 size = Vector3(1, 10, 240)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_long"]
-size = Vector3(1, 10, 372)
+size = Vector3(1, 10, 577)
 
 [sub_resource type="BoxMesh" id="BoxMesh_pillar"]
 size = Vector3(1.2, 4, 1.2)
@@ -196,7 +281,7 @@ transform = Transform3D(1, 0, 0, 0, 0.965926, -0.258819, 0, 0.258819, 0.965926, 
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Ramp"]
 mesh = SubResource("BoxMesh_ramp")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Ramp"]
 shape = SubResource("BoxShape3D_ramp")
@@ -209,7 +294,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.25, 0)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Stairs/Step1"]
 mesh = SubResource("BoxMesh_step")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Stairs/Step1"]
 shape = SubResource("BoxShape3D_step")
@@ -219,7 +304,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -0.6)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Stairs/Step2"]
 mesh = SubResource("BoxMesh_step")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Stairs/Step2"]
 shape = SubResource("BoxShape3D_step")
@@ -229,7 +314,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.75, -1.2)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Stairs/Step3"]
 mesh = SubResource("BoxMesh_step")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Stairs/Step3"]
 shape = SubResource("BoxShape3D_step")
@@ -239,7 +324,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -1.8)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Stairs/Step4"]
 mesh = SubResource("BoxMesh_step")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Stairs/Step4"]
 shape = SubResource("BoxShape3D_step")
@@ -249,7 +334,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -2.4)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Stairs/Step5"]
 mesh = SubResource("BoxMesh_step")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Stairs/Step5"]
 shape = SubResource("BoxShape3D_step")
@@ -259,7 +344,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Stairs/Step6"]
 mesh = SubResource("BoxMesh_step")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Stairs/Step6"]
 shape = SubResource("BoxShape3D_step")
@@ -269,7 +354,7 @@ transform = Transform3D(1, 0, 0, 0, 0.573576, -0.819152, 0, 0.819152, 0.573576, 
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/SteepFace"]
 mesh = SubResource("BoxMesh_steep")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/SteepFace"]
 shape = SubResource("BoxShape3D_steep")
@@ -279,7 +364,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.75, -6.3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Platform"]
 mesh = SubResource("BoxMesh_platform")
-surface_material_override/0 = SubResource("Mat_accent")
+surface_material_override/0 = SubResource("Mat_stone_moss")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Platform"]
 shape = SubResource("BoxShape3D_platform")
@@ -295,7 +380,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 2, 4)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Pillar1"]
 mesh = SubResource("BoxMesh_pillar")
-surface_material_override/0 = SubResource("Mat_accent")
+surface_material_override/0 = SubResource("Mat_stone_moss")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Pillar1"]
 shape = SubResource("BoxShape3D_pillar")
@@ -305,7 +390,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 2, 6)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Pillar2"]
 mesh = SubResource("BoxMesh_pillar")
-surface_material_override/0 = SubResource("Mat_accent")
+surface_material_override/0 = SubResource("Mat_stone_moss")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Pillar2"]
 shape = SubResource("BoxShape3D_pillar")
@@ -315,7 +400,7 @@ transform = Transform3D(2.5, 0, 0, 0, 0.75, 0, 0, 0, 1, 0, 1.5, 10)
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Pillar3"]
 mesh = SubResource("BoxMesh_pillar")
-surface_material_override/0 = SubResource("Mat_prop")
+surface_material_override/0 = SubResource("Mat_stone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/Pillar3"]
 shape = SubResource("BoxShape3D_pillar")
@@ -682,13 +767,13 @@ script = ExtResource("20_spinner")
 
 [node name="SM_sails" parent="Level/Village/Windmill/Sails" instance=ExtResource("35_sails")]
 [node name="WallEast" type="StaticBody3D" parent="Level"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 119.5, 4, -65)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 119.5, 4, -167.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallEast"]
 shape = SubResource("BoxShape3D_wall_long")
 
 [node name="WallWest" type="StaticBody3D" parent="Level"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.5, 4, -65)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.5, 4, -167.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallWest"]
 shape = SubResource("BoxShape3D_wall_long")
@@ -700,7 +785,7 @@ transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, 119.5)
 shape = SubResource("BoxShape3D_wall")
 
 [node name="WallSouth" type="StaticBody3D" parent="Level"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, -250.5)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, -455.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallSouth"]
 shape = SubResource("BoxShape3D_wall")
@@ -767,16 +852,28 @@ transform = Transform3D(-0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, -0.866025, -26, 0.2
 [node name="Golem3" parent="Enemies" instance=ExtResource("11_golem")]
 transform = Transform3D(0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, 0.906308, -84, 0.2, 26)
 
+[node name="Paths" type="Node3D" parent="."]
+script = ExtResource("47_paths")
+tracks = Array[PackedVector2Array]([PackedVector2Array(2, 4, 10, 16, 20, 32, 29, 44, 45, 44.5, 60, 44, 78, 44.5, 94, 44), PackedVector2Array(-4, 2, -22, -4, -40, -10, -56, -14), PackedVector2Array(2, -6, 14, -22, 24, -40, 28, -64, 31, -90, 29, -116, 24, -138, 22, -148), PackedVector2Array(22, -148, 44, -160, 58, -188, 50, -220, 34, -240, 16, -258, 4, -272, 0, -284)])
+material = SubResource("Mat_path")
+ground = Array[NodePath]([NodePath("../Marsh"), NodePath("../Bay")])
+
+[node name="Quests" type="Node" parent="."]
+script = ExtResource("48_quests")
+
 [node name="Forest" type="Node3D" parent="."]
 script = ExtResource("17_forest")
+paths = NodePath("../Paths")
 south_extent = 130.0
+bay_extent = 205.0
+wet_ground = Array[NodePath]([NodePath("../Marsh"), NodePath("../Bay")])
 
 [node name="Horizon" type="Node3D" parent="."]
 script = ExtResource("18_horizon")
-inner_count = 21
-outer_count = 27
-centre = Vector2(0, -65)
-stretch = Vector2(1, 1.37)
+inner_count = 27
+outer_count = 34
+centre = Vector2(0, -167.5)
+stretch = Vector2(1, 1.94)
 
 [node name="Marsh" type="Node3D" parent="."]
 script = ExtResource("43_marsh")
@@ -784,6 +881,49 @@ ground_material = SubResource("Mat_ground")
 
 [node name="MistVillage" parent="Marsh" instance=ExtResource("44_mist_village")]
 transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 10, -0.35, -188)
+
+[node name="Bay" type="Node3D" parent="."]
+script = ExtResource("43_marsh")
+strip_min = Vector2(-120, -455)
+strip_max = Vector2(120, -250)
+mere_centre = Vector2(0, -400)
+mere_radii = Vector2(130, 110)
+bed_depth = 1.25
+shore_width = 14.0
+water_level = -0.6
+ground_material = SubResource("Mat_ground")
+shore_tint = Color(0.78, 0.72, 0.58, 1)
+water_material = ExtResource("46_sea")
+mist_cards = 10
+
+[node name="Harbour" parent="Bay" instance=ExtResource("45_harbour")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0, -0.6, -330)
+
+[node name="People" type="Node3D" parent="."]
+
+[node name="Datvi" type="Node3D" parent="People"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 66, 0, 40.5)
+script = ExtResource("49_giver")
+npc_name = "Datvi the Woodcutter"
+quest = &"wolves"
+model = ExtResource("50_bear")
+height = 2.1
+
+[node name="Ali" type="Node3D" parent="People"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -147)
+script = ExtResource("49_giver")
+npc_name = "Ali of the Embers"
+quest = &"imps"
+model = ExtResource("51_fire")
+height = 1.7
+
+[node name="Baqaq" type="Node3D" parent="People"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.6, -333.5)
+script = ExtResource("49_giver")
+npc_name = "Old Baqaq the Fisherman"
+quest = &"arkdeva"
+model = ExtResource("52_frog")
+height = 2.2
 
 [node name="Players" type="Node3D" parent="."]
 
