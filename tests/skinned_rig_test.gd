@@ -120,6 +120,52 @@ func _initialize() -> void:
 		await physics_frame
 	_check("back to idle after it all", anim.current_animation == "SS_Idle", anim.current_animation)
 
+	# --- Jumping: height, and a cut thrown off it that lands as one movement --
+	var ground_y := player.global_position.y
+	Input.action_press("jump")
+	var peak := ground_y
+	var cut_thrown := false
+	var clip_in_air := ""
+	var clip_changed := false
+	var last_pos := -1.0
+	var went_back := false
+	for i in 90:
+		await physics_frame
+		peak = maxf(peak, player.global_position.y)
+		if i == 20:
+			Input.action_release("jump")
+		if not cut_thrown and i == 12:
+			Input.action_press("attack")
+			await physics_frame
+			await physics_frame
+			Input.action_release("attack")
+			cut_thrown = true
+			clip_in_air = anim.current_animation
+			last_pos = anim.current_animation_position
+		elif cut_thrown and i > 9 and i < 60:
+			if anim.current_animation != clip_in_air:
+				clip_changed = true
+			elif anim.current_animation_position + 0.001 < last_pos:
+				went_back = true
+			last_pos = anim.current_animation_position
+	_check("a jump is about a metre, not more", peak - ground_y < 1.15 and peak - ground_y > 0.8, "%.2f m" % (peak - ground_y))
+	_check("a cut off a jump is the jump attack", clip_in_air == "SS_Jump_Attack", clip_in_air)
+	_check("and the landing carries the same clip on, no cut", not clip_changed and not went_back,
+			"changed %s, rewound %s" % [clip_changed, went_back])
+	for i in 40:
+		await physics_frame
+
+	# --- Crouched, he walks ----------------------------------------------------
+	Input.action_press("crouch")
+	await _wait_frames(8)
+	Input.action_press("move_forward")
+	await _wait_frames(30)
+	_check("crouched and moving, the legs walk", String(anim.current_animation).begins_with("SS_Crouch_Walk"),
+			"%s at %.1f m/s" % [anim.current_animation, Vector3(player.velocity.x, 0, player.velocity.z).length()])
+	Input.action_release("move_forward")
+	Input.action_release("crouch")
+	await _wait_frames(30)
+
 	# --- The knight does not climb -----------------------------------------
 	_check("the knight's profile says he cannot climb", not player.profile.can_climb, "")
 	var wall := StaticBody3D.new()
@@ -150,6 +196,11 @@ func _initialize() -> void:
 
 	print("skinned_rig_test: %s" % ("PASS" if _failures == 0 else "%d FAILED" % _failures))
 	quit(_failures)
+
+
+func _wait_frames(n: int) -> void:
+	for i in n:
+		await physics_frame
 
 
 func _shot(player: Node3D, name: String) -> void:

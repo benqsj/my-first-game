@@ -241,7 +241,7 @@ and the handful of figures that differ:
 | | Tariel | Avtandil |
 | --- | ------ | -------- |
 | weapon | sword and shield | bow |
-| run | 5.6 m/s | 7.6 m/s |
+| run | 5.6 m/s | 6.4 m/s |
 | roll | 11 m/s × 0.45 s = 4.9 m | 13.5 m/s × 0.5 s = 6.8 m |
 | crit | 10% | 30% |
 

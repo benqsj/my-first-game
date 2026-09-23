@@ -49,7 +49,7 @@ func _initialize() -> void:
 
 	Input.action_press("move_forward")
 	await _wait(50)
-	_check("at full pace he sprints", anim.current_animation == "AV_Sprint_Forward",
+	_check("at full pace he runs the straightened sprint", anim.current_animation == "AV_Sprint_Upright",
 			"%s at %.1f m/s" % [anim.current_animation, _pace(player)])
 	await _shot(player, "a02_sprint")
 	Input.action_release("move_forward")
@@ -68,6 +68,23 @@ func _initialize() -> void:
 	Input.action_release("attack")
 	await _wait(4)
 	await _shot(player, "a05_loose")
+	await _wait(40)
+
+	# Backing off and drawing: no standing draw clip may play while he moves,
+	# or he slides across the ground for the length of it.
+	Input.action_press("move_back")
+	await _wait(15)
+	Input.action_press("attack")
+	var standing_draw_while_moving := 0
+	for i in 40:
+		await physics_frame
+		if anim.current_animation == "AV_Nock_Draw" and _pace(player) > 0.3:
+			standing_draw_while_moving += 1
+	_check("drawing while backing off never plays the standing draw", standing_draw_while_moving == 0,
+			"%d frame(s)" % standing_draw_while_moving)
+	_check("and he walks back with it drawn", String(anim.current_animation).begins_with("AV_Aim_Walk"), anim.current_animation)
+	Input.action_release("attack")
+	Input.action_release("move_back")
 	await _wait(40)
 
 	Input.action_press("crouch")

@@ -73,7 +73,7 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 
 @export_group("Jump")
 ## Apex height in metres, converted to an impulse using the project gravity.
-@export var jump_height: float = 1.4
+@export var jump_height: float = 1.05
 ## Gravity is multiplied by this while falling, for a snappier arc.
 @export var fall_gravity_multiplier: float = 1.5
 ## Gravity multiplier applied while the jump button is released early.

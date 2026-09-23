@@ -30,6 +30,8 @@ var clips := {
 	&"block_walk_back": &"SS_Block_Walk_Back", &"block_walk_left": &"SS_Block_Walk_Left",
 	&"block_walk_right": &"SS_Block_Walk_Right",
 	&"crouch": &"SS_Crouch_Block_Idle", &"air": &"SS_Running_Jump",
+	&"crouch_walk": &"SS_Crouch_Walk", &"crouch_walk_back": &"SS_Crouch_Walk_Back",
+	&"crouch_walk_left": &"SS_Crouch_Walk_Left", &"crouch_walk_right": &"SS_Crouch_Walk_Right",
 	&"roll": &"Roll_Quick_To_Run", &"down": &"SS_Falling_Back_Death",
 	&"hit": &"SS_Head_Impact", &"hit_blocked": &"SS_Blocked_Impact",
 	&"mantle": &"SS_Mantle", &"plunge": &"SS_Jump_Attack",
@@ -45,6 +47,8 @@ var ground_speed := {
 	&"SS_Left_Run_Strafe": 2.56, &"SS_Right_Run_Strafe": 2.45,
 	&"SS_Block_Walk": 1.42, &"SS_Block_Walk_Back": 1.12,
 	&"SS_Block_Walk_Left": 1.08, &"SS_Block_Walk_Right": 1.21,
+	&"SS_Crouch_Walk": 1.5, &"SS_Crouch_Walk_Back": 1.14,
+	&"SS_Crouch_Walk_Left": 1.3, &"SS_Crouch_Walk_Right": 1.32,
 }
 var looping: Array[StringName] = [
 	&"SS_Idle", &"SS_Walk", &"SS_Run", &"SS_Backward_Walk", &"SS_Backward_Run",
@@ -52,6 +56,7 @@ var looping: Array[StringName] = [
 	&"SS_Right_Run_Strafe", &"SS_Block_Idle", &"SS_Crouch_Block_Idle",
 	&"SS_Left_Crouch_Idle_Loop", &"SS_Sword_Play_Idle", &"SS_Look_Around_Idle",
 	&"SS_Block_Walk", &"SS_Block_Walk_Back", &"SS_Block_Walk_Left", &"SS_Block_Walk_Right",
+	&"SS_Crouch_Walk", &"SS_Crouch_Walk_Back", &"SS_Crouch_Walk_Left", &"SS_Crouch_Walk_Right",
 ]
 ## The cuts a flurry cycles through, in order.
 var flurry: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Downward_Slash"]
@@ -65,9 +70,14 @@ var cut_window := {
 }
 ## How far into the roll clip the body is back on its feet (pelvis lowest at 0.64).
 var roll_share := 0.8
-## The landing half of the jump attack: the blade goes into the ground at 56–76%
-## of it (tip down to 0.14 m, measured in Blender) and he stands back up after.
-var plunge_from := 0.5
+## The jump attack, re-baked in Blender with the clip's own jump taken out (the
+## controller does the jumping): the sword goes up from 0.40, the chop reaches
+## the ground at 0.56, the blade stays in it to 0.77 and he stands after that.
+## Thrown in the air it plays `air_cut_from`..`plunge_from` and holds the chop
+## until the feet land; the landing (`plunge()`) carries on from there, so the
+## two are one movement rather than a cut into another clip.
+var air_cut_from := 0.40
+var plunge_from := 0.56
 
 ## Blade, measured from the fist along the blade (m).
 const BLADE_BASE := 0.18
@@ -119,6 +129,8 @@ var _airborne_now: bool = false
 var _blocking_now: bool = false
 var _plunge_left: float = 0.0
 var _swing_commit: float = 0.0
+var _air_cut: bool = false
+var _sliding: bool = false
 
 
 func _ready() -> void:
@@ -239,9 +251,11 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 		_attack_cutting = _role == Role.SWING and _in_window(through)
 		# A swing that has done its work gives the body back as soon as the
 		# player moves off; standing still, it plays out its follow-through.
-		var released := _role == Role.SWING and _swing_commit <= 0.0 and planar_speed > idle_threshold
+		var released := _role == Role.SWING and not _air_cut and _swing_commit <= 0.0 and planar_speed > idle_threshold
 		if _role == Role.DOWN:
 			pass  # held until get_up() or leave_ground()
+		elif _air_cut and _action_left <= 0.0 and airborne:
+			_anim.speed_scale = 0.0  # the chop, held until the ground arrives
 		elif _action_left <= 0.0 or released:
 			_end_action()
 	else:
@@ -267,8 +281,13 @@ func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, block
 			_set_base(bclip, 0.15, brate)
 		return
 	if _crouching or _wall_climbing:
-		# No crouch-walk or climb in the library: the crouched guard stands in.
-		_set_base(clips[&"crouch"], loco_blend, 1.0)
+		if _sliding or _wall_climbing or planar < idle_threshold or not clips.has(&"crouch_walk"):
+			# A slide is carried, not walked: the crouched pose held while the
+			# body goes along the ground.
+			_set_base(clips[&"crouch"], loco_blend, 1.0)
+		else:
+			var cclip := _dir4(&"crouch_walk", &"crouch_walk_back", &"crouch_walk_left", &"crouch_walk_right")
+			_set_base(cclip, loco_blend, _rate(cclip, planar))
 		return
 	if planar < idle_threshold:
 		_set_base(clips[&"idle"], loco_blend, 1.0)
@@ -307,6 +326,20 @@ func _block_walk_clip() -> StringName:
 	return clips[&"block_walk_back"] if local.z > 0.0 else clips[&"block_walk"]
 
 
+func _dir4(fwd: StringName, back: StringName, left: StringName, right: StringName) -> StringName:
+	var body := _body as CharacterBody3D
+	if body == null:
+		return clips[fwd]
+	var local := body.global_transform.basis.inverse() * body.velocity
+	if absf(local.x) > absf(local.z) * 1.2:
+		return clips[right] if local.x > 0.0 else clips[left]
+	return clips[back] if local.z > 0.0 else clips[fwd]
+
+
+func _rate(clip: StringName, planar: float) -> float:
+	return clampf(planar / float(ground_speed.get(clip, 1.4)), min_play_rate, max_play_rate)
+
+
 func _set_base(clip: StringName, blend: float, rate: float) -> void:
 	if not _anim.has_animation(clip):
 		return
@@ -335,6 +368,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 
 func _end_action() -> void:
+	_air_cut = false
 	_role = Role.NONE
 	_act_clip = &""
 	_attack_cutting = false
@@ -356,7 +390,15 @@ func _in_window(through: float) -> bool:
 func attack(style: int = -1) -> void:
 	attack_serial += 1
 	var clip: StringName
-	if style == AttackStyle.OVERHEAD or _airborne_now:
+	if _airborne_now and _anim.has_animation(clips[&"plunge"]):
+		# Off a jump: the jump attack's own raise and chop, held at the bottom
+		# until the landing takes it on (see `plunge()`).
+		_attack_style = AttackStyle.OVERHEAD
+		if _play_action(clips[&"plunge"], Role.SWING, swing_rate, 0.08, air_cut_from, plunge_from):
+			_air_cut = true
+			_swing_commit = swing_time()
+		return
+	if style == AttackStyle.OVERHEAD:
 		clip = clips[&"overhead"]
 		_attack_style = AttackStyle.OVERHEAD
 	else:
@@ -381,6 +423,18 @@ func current_swing() -> StringName:
 func plunge(seconds: float) -> void:
 	_plunge_left = maxf(seconds, 0.1)
 	var length := _anim.get_animation(clips[&"plunge"]).length if _anim.has_animation(clips[&"plunge"]) else 1.0
+	if _anim.current_animation == clips[&"plunge"]:
+		# Already the jump attack, from the air: carry on from wherever the chop
+		# has got to — no new clip, no blend, no jump in the pose.
+		var at := clampf(_anim.current_animation_position / length, 0.0, 1.0)
+		_air_cut = false
+		_role = Role.PLUNGE
+		_act_clip = clips[&"plunge"]
+		_action_len = length
+		_action_rate = maxf(length * (1.0 - at) / _plunge_left, 0.05)
+		_action_left = _plunge_left
+		_anim.speed_scale = _action_rate
+		return
 	# The landing of the jump attack — the blade going in and the body coming
 	# back up over it — stretched over however long the recovery is.
 	_play_action(clips[&"plunge"], Role.PLUNGE, length * (1.0 - plunge_from) / _plunge_left, 0.06, plunge_from, 1.0)
@@ -455,8 +509,9 @@ func is_down() -> bool:
 
 
 func slide(active: bool) -> void:
-	# No slide in the library; the crouched guard reads well enough at speed.
+	# No slide in the library; the crouched guard, held, reads well enough at speed.
 	_crouching = active
+	_sliding = active
 
 
 func wall_climb(active: bool) -> void:

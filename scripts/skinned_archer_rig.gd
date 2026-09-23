@@ -37,12 +37,13 @@ var _pitch: float = 0.0
 var _aim_phase: float = 0.0   # 0 idle, 0..1 through the draw clip, 1 holding
 var _drawing_clip: bool = false
 var _loose_left: float = 0.0
+var _draw_time: float = 0.85
 
 
 func _configure() -> void:
 	clips = {
 		&"idle": &"AV_Idle_01", &"walk": &"AV_Walk_Forward", &"run": &"AV_Run_Forward",
-		&"sprint": &"AV_Sprint_Forward",
+		&"sprint": &"AV_Sprint_Upright",
 		&"walk_back": &"AV_Walk_Back", &"run_back": &"AV_Run_Back",
 		&"walk_left": &"AV_Walk_Left", &"walk_right": &"AV_Walk_Right",
 		&"run_left": &"AV_Run_Left", &"run_right": &"AV_Run_Right",
@@ -64,7 +65,7 @@ func _configure() -> void:
 		&"hang": &"AV_Hanging_Idle",
 	}
 	ground_speed = {
-		&"AV_Walk_Forward": 1.16, &"AV_Run_Forward": 3.25, &"AV_Sprint_Forward": 4.09,
+		&"AV_Walk_Forward": 1.16, &"AV_Run_Forward": 3.25, &"AV_Sprint_Upright": 4.09,
 		&"AV_Walk_Back": 0.94, &"AV_Run_Back": 2.65, &"AV_Walk_Left": 1.51,
 		&"AV_Walk_Right": 1.52, &"AV_Run_Left": 2.49, &"AV_Run_Right": 2.96,
 		&"AV_Aim_Walk_Forward": 1.16, &"AV_Aim_Walk_Back": 0.94,
@@ -73,7 +74,7 @@ func _configure() -> void:
 		&"AV_Crouch_Walk_Left": 1.34, &"AV_Crouch_Walk_Right": 1.39,
 	}
 	looping = [
-		&"AV_Idle_01", &"AV_Walk_Forward", &"AV_Run_Forward", &"AV_Sprint_Forward",
+		&"AV_Idle_01", &"AV_Walk_Forward", &"AV_Run_Forward", &"AV_Sprint_Upright",
 		&"AV_Walk_Back", &"AV_Run_Back", &"AV_Walk_Left", &"AV_Walk_Right", &"AV_Run_Left",
 		&"AV_Run_Right", &"AV_Aim_Idle_01", &"AV_Aim_Walk_Forward", &"AV_Aim_Walk_Back",
 		&"AV_Aim_Walk_Left", &"AV_Aim_Walk_Right", &"AV_Crouch_Idle_01",
@@ -84,8 +85,9 @@ func _configure() -> void:
 	flurry = [&"AV_Melee_Punch", &"AV_Melee_Kick"]
 	cut_window = {}
 	roll_share = 0.75
-	# He runs at 7.6 m/s; the pack's sprint is authored at 4.1.
-	max_play_rate = 2.2
+	# He runs at 6.4 m/s on the pack's sprint (authored at 4.1), straightened
+	# up 28 degrees in Blender — as shipped it runs bent nearly double.
+	max_play_rate = 2.0
 	idle_threshold = 0.25
 
 
@@ -198,8 +200,19 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		return
 	_loose_left = maxf(_loose_left - delta, 0.0)
 	var drawing := _draw_target > 0.001 and not _wall_climbing
+	var body_p := _body as Player
+	if body_p != null and body_p.profile != null:
+		_draw_time = maxf(body_p.profile.draw_time, 0.2)
+	var moving := planar_speed > idle_threshold
+	if _drawing_clip and moving:
+		# The draw clip is a standing one. Moving, it would slide him across the
+		# ground; the aiming walk takes over and brings the bow up on the way.
+		_drawing_clip = false
+		_base_clip = &""
+	if drawing and _role == Role.NONE and not _drawing_clip and moving:
+		_aim_phase = minf(maxf(_aim_phase, 0.0) + delta / _draw_time, 1.0)
 	if drawing and _role == Role.NONE:
-		if _aim_phase <= 0.0 and not _drawing_clip and _anim.has_animation(DRAW_CLIP):
+		if _aim_phase <= 0.0 and not _drawing_clip and not moving and _anim.has_animation(DRAW_CLIP):
 			# Up out of whatever he was doing: the draw clip fitted to the draw
 			# time the profile gives, so the string is back when the power is.
 			var draw_time := 0.85
@@ -246,19 +259,12 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 	if _wall_climbing:
 		_pick_climb()
 		return
-	if _aim_phase >= 1.0 and not airborne:
+	if _aim_phase > 0.0 and _draw_target > 0.001 and not airborne:
 		if planar < idle_threshold:
 			_set_base(AIM_IDLE, 0.12, 1.0)
 		else:
 			var clip := _dir4(&"aim_walk", &"aim_walk_back", &"aim_walk_left", &"aim_walk_right")
 			_set_base(clip, 0.15, _rate(clip, planar))
-		return
-	if _crouching and not airborne:
-		if planar < idle_threshold:
-			_set_base(clips[&"crouch"], loco_blend, 1.0)
-		else:
-			var clip := _dir4(&"crouch_walk", &"crouch_walk_back", &"crouch_walk_left", &"crouch_walk_right")
-			_set_base(clip, loco_blend, _rate(clip, planar))
 		return
 	super(planar, airborne, dashing, vy, blocking)
 
@@ -284,20 +290,6 @@ func _pick_climb() -> void:
 	else:
 		_set_base(clips[&"shimmy_right"] if drive.x > 0.0 else clips[&"shimmy_left"], 0.2,
 				clampf(_climb_speed / SHIMMY_SPEED, 0.4, 3.0))
-
-
-func _dir4(fwd: StringName, back: StringName, left: StringName, right: StringName) -> StringName:
-	var body := _body as CharacterBody3D
-	if body == null:
-		return clips[fwd]
-	var local := body.global_transform.basis.inverse() * body.velocity
-	if absf(local.x) > absf(local.z) * 1.2:
-		return clips[right] if local.x > 0.0 else clips[left]
-	return clips[back] if local.z > 0.0 else clips[fwd]
-
-
-func _rate(clip: StringName, planar: float) -> float:
-	return clampf(planar / float(ground_speed.get(clip, 1.4)), min_play_rate, max_play_rate)
 
 
 func dodge_clip(duration: float) -> bool:
