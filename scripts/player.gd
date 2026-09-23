@@ -339,6 +339,9 @@ var target: Node3D = null
 var _marker: TargetMarker
 ## Mouse travel banked towards changing target.
 var _flick: float = 0.0
+var _flick_up: float = 0.0
+## Which part of the target the lock is on, lowest first (see [TargetPoints]).
+var target_part: int = 0
 ## How long the string has been held, and whether it is being held at all.
 var _draw_timer: float = 0.0
 var _drawing: bool = false
@@ -453,6 +456,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			if absf(_flick) > target_switch_flick:
 				_switch_target(signf(_flick))
 				_flick = 0.0
+				_flick_up = 0.0
+			# Up and down moves the lock along a big creature: legs, belly, head.
+			_flick_up -= motion.relative.y
+			if absf(_flick_up) > target_switch_flick * 0.6:
+				_switch_part(int(signf(_flick_up)))
+				_flick_up = 0.0
 			return
 		camera_rig.rotate_y(-motion.relative.x * mouse_sensitivity)
 		camera_rig.rotation.y = wrapf(camera_rig.rotation.y, -PI, PI)
@@ -1475,6 +1484,8 @@ func _toggle_lock() -> void:
 
 func _hold_target(who: Node3D) -> void:
 	target = who
+	target_part = TargetPoints.default_index(who)
+	_flick_up = 0.0
 	_show_marker()
 	target_locked.emit(target)
 
@@ -1498,7 +1509,16 @@ func _show_marker() -> void:
 		_marker = TargetMarker.new()
 		_marker.name = "TargetMarker"
 		add_child(_marker)
+		_marker.aim_at = func() -> Vector3: return _aim_point(target) if target != null else global_position
 	_marker.mark(target, camera)
+
+
+## Moves the lock one part up (+1) or down (-1) the creature it is on.
+func _switch_part(step: int) -> void:
+	if target == null:
+		return
+	var parts := TargetPoints.of(target).size()
+	target_part = clampi(target_part + step, 0, parts - 1)
 
 
 ## Swaps to the next target to one side of the one held. Which side is the sign
@@ -1581,7 +1601,10 @@ func _targetable(who: Node3D) -> bool:
 ## Where on a body the camera looks and an arrow goes: the middle of it rather
 ## than the floor it stands on.
 func _aim_point(who: Node3D) -> Vector3:
-	return who.global_position + Vector3.UP * 0.8
+	var points := TargetPoints.of(who)
+	if who == target:
+		return points[clampi(target_part, 0, points.size() - 1)]
+	return points[TargetPoints.default_index(who)]
 
 
 ## Keeps the camera on the target and lets go when there is nothing left to hold.

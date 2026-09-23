@@ -18,8 +18,8 @@ extends MeshInstance3D
 ## How big it is, in metres, and how much bigger it gets with distance so that
 ## it stays readable across a field. Small: it says *which*, and anything past
 ## the size it takes to say that is sitting on top of the thing being fought.
-@export var size: float = 0.091
-@export var grow_with_range: float = 0.007
+@export var size: float = 0.03
+@export var grow_with_range: float = 0.0023
 ## Brighter than white on purpose. Past 1 the colour runs into the glow pass, so
 ## the mark reads as lit rather than as a sticker.
 @export var tint: Color = Color(1.35, 1.35, 1.35)
@@ -30,6 +30,9 @@ extends MeshInstance3D
 @export var spin: float = 0.0
 
 var _target: Node3D
+## Where on the target the mark sits, when the one holding it says; otherwise
+## `height` over its origin.
+var aim_at: Callable
 var _camera: Camera3D
 var _material: StandardMaterial3D
 
@@ -109,4 +112,6 @@ func _process(delta: float) -> void:
 
 
 func _over(who: Node3D) -> Vector3:
+	if aim_at.is_valid():
+		return aim_at.call()
 	return who.global_position + Vector3.UP * height

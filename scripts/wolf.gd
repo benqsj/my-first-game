@@ -148,6 +148,15 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	# The host topples and sinks its body from `_physics_process`, which the
+	# other peers never run. They get `is_dead` and nothing else, so they play
+	# the same fall and the same sink here, off their own clock.
+	if is_dead and not _decides():
+		_collapse(delta)
+		_corpse_age += delta
+		var sunk := (_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001)
+		if sunk > 0.0 and rig != null:
+			rig.position.y = 0.35 - minf(sunk, 1.0) * minf(sunk, 1.0) * corpse_sink_depth
 	# A dead wolf's bar stays hidden: `set_fraction` shows the bar whenever it
 	# is below full, and a corpse is always below full.
 	if _bar != null and not is_dead:
@@ -266,6 +275,10 @@ func _think(delta: float) -> void:
 				if _swipe_timer <= 0.0:
 					_swipe_timer = swipe_interval
 					rig.swipe()
+					# Only the host thinks, so only the host would ever swing:
+					# the others are told, or they see a wolf standing up to
+					# fight and doing nothing while their health goes down.
+					net_swipe.rpc()
 					attacked.emit()
 
 
@@ -503,6 +516,13 @@ func _lie_down() -> void:
 ##
 ## `queue_free()` does not replicate — it is a local decision about a local
 ## node — so the peer that decided has to say so out loud.
+## A swipe, on the peers that did not decide it (the host has already thrown it).
+@rpc("authority", "call_remote", "unreliable")
+func net_swipe() -> void:
+	if rig != null and not is_dead:
+		rig.swipe()
+
+
 @rpc("authority", "call_local", "reliable")
 func net_clear() -> void:
 	queue_free()

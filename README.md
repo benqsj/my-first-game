@@ -241,7 +241,7 @@ and the handful of figures that differ:
 | | Tariel | Avtandil |
 | --- | ------ | -------- |
 | weapon | sword and shield | bow |
-| run | 5.6 m/s | 8.3 m/s |
+| run | 5.6 m/s | 7.6 m/s |
 | roll | 11 m/s × 0.45 s = 4.9 m | 13.5 m/s × 0.5 s = 6.8 m |
 | crit | 10% | 30% |
 
@@ -482,6 +482,18 @@ A locked shot **leads** its target. An arrow takes a beat to arrive and a wolf
 does not wait where it was standing, so the aim is offset by where the target
 will be, and lifted by the drop over the same flight. Without it a slow shot at
 a moving target is a miss the player did nothing wrong to earn.
+
+
+**Parts of a big creature.** Anything taller than 1.9 m has three places a
+lock can sit — its legs, its belly and its head (`TargetPoints`, measured once
+off the creature's own meshes; a head bone, where there is one, carries the top
+point). A lock lands on the belly; a **flick of the mouse up or down** moves it
+along the body, the same way a flick to the side changes creature. The camera,
+the mark and the archer's shot all go to the part the lock is on. Anything
+smaller keeps the single point it always had. The mark itself is a third of
+the size it was.
+
+    godot --path . --headless --script res://tests/target_parts_test.gd
 
 ## Commitment
 
@@ -761,6 +773,19 @@ either way is the mouse: releasing it is the only way out of capture.
   characters this is heading for, so the feature got built instead.)*
 - Prediction, reconciliation, rollback, dedicated servers, matchmaking,
   anti-cheat, and a readiness handshake for joining mid-load.
+
+### What the other windows see of a creature
+
+Only the host thinks for creatures, so anything that happens in their thinking
+has to be told to the others. The imp, puglin, orc and Arkdeva say what they are
+doing through `act` / `act_serial`, and every peer plays it and sinks the
+corpse in `_process`. The wolf predates that: its swipe was only ever played on
+the host, and its fall and sink ran in `_physics_process`, which only the host
+has — so in every other window it stood up to fight, did nothing while health
+went down, and died standing. The swipe now goes out as `net_swipe()`, and the
+other peers play the fall and the sink themselves once `is_dead` arrives.
+
+    sh tools/two_peers_monsters.sh    # the client sees the wolf swipe, fall and sink; the others die and sink
 
 ### Testing it
 
