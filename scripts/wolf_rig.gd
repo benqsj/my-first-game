@@ -322,6 +322,20 @@ func lost_parts() -> int:
 	return _lost.size()
 
 
+## Every part that has come off, by name.
+func lost_list() -> Array:
+	return _lost.keys()
+
+
+## Takes a part off without the show: no falling limb, no signal. For a peer that
+## joined after the cut and only needs the wolf to *look* like it did.
+func hide_part(part: String) -> void:
+	if part == "" or _lost.has(part) or not SEVERABLE.has(part):
+		return
+	_lost[part] = true
+	(_joints[SEVERABLE[part]] as Node3D).visible = false
+
+
 func has_lost(part: String) -> bool:
 	return _lost.has(part)
 

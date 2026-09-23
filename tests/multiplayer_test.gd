@@ -97,9 +97,21 @@ func _check_ownership() -> void:
 	if sync != null and sync.replication_config != null:
 		for path in sync.replication_config.get_properties():
 			carried[String(path).get_slice(":", 1)] = true
-	for field in ["position", "rotation", "velocity", "net_state", "net_blocking",
-			"net_crouching", "net_airborne", "net_stowed", "net_draw", "net_aim"]:
+	# Position and rotation travel through [NetSmooth], which draws the other
+	# knight a moment in the past and slides it between snapshots instead of
+	# snapping it onto each one.
+	for field in ["net_position", "net_rotation", "net_stamp", "velocity", "net_state",
+			"net_blocking", "net_crouching", "net_airborne", "net_stowed", "net_draw", "net_aim"]:
 		_check("  %s goes over the wire" % field, carried.has(field))
+	# Anything that changes every tick goes unreliable. Sent reliably, one packet
+	# lost on Wi-Fi holds up everything queued behind it — the swings included.
+	if sync != null and sync.replication_config != null:
+		var config := sync.replication_config
+		for path in config.get_properties():
+			var field := String(path).get_slice(":", 1)
+			if field in ["net_position", "net_rotation", "net_stamp", "velocity", "net_draw", "net_aim"]:
+				_check("  %s is sent unreliably, every interval" % field,
+						config.property_get_replication_mode(path) == SceneReplicationConfig.REPLICATION_MODE_ALWAYS)
 
 	_check("the swing is a replicated call", mine.has_method("net_attack"))
 	# And so is the shot. Without it an arrow is built on whichever peer loosed

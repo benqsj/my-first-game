@@ -30,7 +30,7 @@ signal blade_planted(where: Vector3)
 ## but the number travels with the hit so a health bar has something to read.
 signal struck(damage: float, blocked: bool)
 
-enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB }
+enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB, DOWNED }
 
 #region Exported tuning
 @export_group("Movement")
@@ -534,6 +534,12 @@ func _physics_process(delta: float) -> void:
 	# runs its own move rather than falling through to the walking one.
 	if state == State.WALLCLIMB:
 		_process_wall_climb(delta)
+		return
+
+	# Knocked flat: no walking, no swinging, nothing but lying there — or rolling
+	# out of it.
+	if state == State.DOWNED:
+		_process_downed(delta)
 		return
 
 	_read_actions()
@@ -1869,56 +1875,176 @@ func _attack() -> void:
 ## because a dropped swing is a missed kill.
 #region Being hit
 ## How hard a blow shoves, per point of damage, on top of a base shove. A heavier
-## hitter moves the knight further and holds him longer — which is all "hits
-## harder" can mean while players cannot be hurt.
+## hitter moves the knight further and holds him longer — which is most of what
+## "hits harder" can mean while players cannot be hurt.
 @export var blow_shove: float = 0.28
 ## Seconds the knight is held after an unguarded blow, per point of damage.
 @export var blow_stagger: float = 0.03
+@export_group("Knockdown")
+## Seconds spent lying on the ground once the fall has played, before getting up.
+@export var down_time: float = 0.7
+## How long getting back up takes.
+@export var get_up_time: float = 1.1
+## A roll out of a knockdown is allowed this long after hitting the ground.
+@export var roll_out_after: float = 0.25
+
+## Seconds left of the current part of a knockdown, which part it is, and how
+## long he has been down.
+var _down_timer: float = 0.0
+var _getting_up: bool = false
+var _down_for: float = 0.0
+## How many blows of each creature's current combo have landed clean, by
+## attacker and combo. A combo only knocks him down if every blow of it did.
+var _combo_landed: Dictionary = {}
 
 ## A creature landed a blow. Called on the host, which is the only peer whose
 ## creatures think; applied on the peer that drives this body, because that is
-## the one that knows whether the shield was up at the time.
-func receive_blow(damage: float, from: Node3D) -> void:
+## the one that knows whether the shield was up or a roll was under way.
+##
+## `blow` of `blows` says where in its combo this one falls, and `combo` tells
+## one combo from the next: the last blow of a combo that has landed every time
+## puts him on the ground. Anything short of that is a flinch.
+func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, combo: int = 0) -> void:
 	if from == null:
 		return
 	var away := global_position - from.global_position
 	away.y = 0.0
 	if away.length_squared() < 0.0001:
 		away = global_transform.basis.z
-	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position)
+	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position,
+			"%s#%d" % [from.get_path(), combo], blow, blows)
 
 
 ## Only the host deals creatures' blows. A local call reports sender 0.
 @rpc("any_peer", "call_local", "reliable")
-func net_blow(damage: float, away: Vector3, source: Vector3) -> void:
+func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
+		blow: int, blows: int) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1:
 		return
-	if not is_multiplayer_authority() or is_invulnerable:
+	if not is_multiplayer_authority():
+		return
+	# A fresh combo from this attacker forgets the last one.
+	if blow == 0 or not _combo_landed.has(combo):
+		_forget_combos_from(combo)
+		_combo_landed[combo] = 0
+
+	# Rolling, dashing or already on the ground: the blow goes through empty air.
+	# The whole evade counts, not only its first few frames.
+	if is_invulnerable or state == State.DASHING or state == State.DODGING \
+			or state == State.DOWNED:
+		_combo_landed[combo] = -999
 		return
 	var toward := source - global_position
 	toward.y = 0.0
 	var facing := -global_transform.basis.z
 	facing.y = 0.0
-	var guarded := is_blocking and facing.normalized().dot(toward.normalized()) > 0.2
-	if guarded:
-		# Caught on the shield: a step back and nothing more.
+	if is_blocking and facing.normalized().dot(toward.normalized()) > 0.2:
+		# Caught on the shield: a step back, and the combo no longer counts.
+		_combo_landed[combo] = -999
 		velocity += away * (1.0 + damage * blow_shove * 0.25)
 		struck.emit(damage, true)
+		return
+
+	_combo_landed[combo] = int(_combo_landed[combo]) + 1
+	struck.emit(damage, false)
+	var at := global_position + Vector3.UP * 1.2
+	var spray := (away + Vector3.UP * 0.3).normalized()
+	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
+		_knock_down(away, damage)
+		net_react.rpc(Reaction.KNOCKDOWN, at, spray)
 		return
 	velocity += away * (2.0 + damage * blow_shove)
 	_free_swing = false
 	_commit(0.2 + damage * blow_stagger)
-	struck.emit(damage, false)
-	net_bleed.rpc(global_position + Vector3.UP * 1.2, (away + Vector3.UP * 0.3).normalized())
+	net_react.rpc(Reaction.FLINCH, at, spray)
 
 
-## The flinch and the blood, in every window.
+func _forget_combos_from(combo: String) -> void:
+	var attacker := combo.get_slice("#", 0)
+	for key: String in _combo_landed.keys():
+		if key.get_slice("#", 0) == attacker:
+			_combo_landed.erase(key)
+
+
+enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT }
+
+## What a blow did to him, shown in every window: a flinch or a fall with
+## blood, or the end of lying there.
 @rpc("authority", "call_local", "reliable")
-func net_bleed(at: Vector3, blow: Vector3) -> void:
-	if rig != null:
-		rig.hit()
-	Blood.splatter(Blood.world_of(self), at, blow)
+func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
+	match reaction:
+		Reaction.FLINCH:
+			if rig != null:
+				rig.flinch()
+			Blood.splatter(Blood.world_of(self), at, blow)
+		Reaction.KNOCKDOWN:
+			if rig != null:
+				rig.knock_down()
+			Blood.splatter(Blood.world_of(self), at, blow)
+		Reaction.GET_UP:
+			if rig != null:
+				rig.get_up(get_up_time)
+		Reaction.ROLL_OUT:
+			if rig != null:
+				rig.leave_ground()
+				if not is_multiplayer_authority():
+					rig.dodge(dash_duration)
+
+
+## Off his feet. Everything else stops; he slides back with the blow and lies
+## there, out of reach of anything else, until he gets up or rolls clear.
+func _knock_down(away: Vector3, damage: float) -> void:
+	state = State.DOWNED
+	_down_timer = down_time + 0.8
+	_getting_up = false
+	_down_for = 0.0
+	is_invulnerable = true
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	_commit_timer = 0.0
+	_attack_buffer = 0.0
+	velocity = away * (2.5 + damage * blow_shove * 0.5)
+
+
+func _process_downed(delta: float) -> void:
+	_down_for += delta
+	velocity.x = move_toward(velocity.x, 0.0, 9.0 * delta)
+	velocity.z = move_toward(velocity.z, 0.0, 9.0 * delta)
+	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
+	move_and_slide()
+	_update_floor_state()
+
+	# The way up that is always open: a roll, the moment he has hit the ground.
+	if _down_for >= roll_out_after and Input.is_action_just_pressed("dash"):
+		_roll_out()
+		return
+	_down_timer -= delta
+	if _down_timer > 0.0:
+		return
+	if not _getting_up:
+		_getting_up = true
+		_down_timer = get_up_time
+		net_react.rpc(Reaction.GET_UP, Vector3.ZERO, Vector3.ZERO)
+	else:
+		_stand_up_from_down()
+
+
+func _stand_up_from_down() -> void:
+	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
+	is_invulnerable = false
+
+
+## Up and away in one move: the roll, thrown the way the stick points (or back
+## out of the fight if it points nowhere), with the whole of it untouchable.
+func _roll_out() -> void:
+	_stand_up_from_down()
+	net_react.rpc(Reaction.ROLL_OUT, Vector3.ZERO, Vector3.ZERO)
+	_dash_cooldown_timer = 0.0
+	if get_movement_direction().is_zero_approx():
+		rotation.y += PI
+	_try_dash()
 #endregion
 
 

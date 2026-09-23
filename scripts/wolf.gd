@@ -399,6 +399,20 @@ func net_sever(part: String, at: Vector3, blow: Vector3) -> void:
 	Blood.splatter(Blood.world_of(self), at, thrown.normalized())
 
 
+## What a peer that arrived late needs in order to see this wolf as it is: the
+## parts it has already lost. Health and death arrive through the synchronizer.
+func net_census() -> Array:
+	return rig.lost_list() if rig != null else []
+
+
+## The other half of `net_census()`, on the peer that arrived late.
+func net_restore(parts: Array) -> void:
+	if rig == null:
+		return
+	for part in parts:
+		rig.hide_part(String(part))
+
+
 ## Takes a blow from anything at all — a blade that has already decided what it
 ## cut off, or an arrow that simply arrived.
 ##

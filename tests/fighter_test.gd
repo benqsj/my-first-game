@@ -38,7 +38,11 @@ func _initialize() -> void:
 	var pug_sizes := []
 	for i in World.CAMPS.size():
 		var n: int = bands.get(StringName("camp_%d" % i), 0)
-		(imp_sizes if World.CAMPS[i][0] == &"imp" else pug_sizes).append(n)
+		match World.CAMPS[i][0]:
+			&"imp":
+				imp_sizes.append(n)
+			&"puglin":
+				pug_sizes.append(n)
 	_check("imp bands are 2, 2, 3, 3 ...", imp_sizes == [2, 2, 3, 3, 2, 2, 3, 3], str(imp_sizes))
 	_check("puglin bands are 3, 3, 4", pug_sizes == [3, 3, 4], str(pug_sizes))
 	var smallest := 99
@@ -104,6 +108,74 @@ func _initialize() -> void:
 	_check("the combo lands blows on the player", _struck.size() >= 2, "%d blows" % _struck.size())
 	_check("an imp's blow is worth 8", not _struck.is_empty() and is_equal_approx(_struck[0], 8.0), str(_struck))
 	_check("the combo has several blows in it", imp._blows.size() >= 2, str(imp._blows))
+
+	# --- Only a whole combo puts him down -----------------------------------------
+	# The first blows of it were only flinches.
+	_check("a single blow does not knock him down", _struck.size() < imp._blows.size()
+			or player.state == Player.State.DOWNED, "%d of %d" % [_struck.size(), imp._blows.size()])
+	var downed := false
+	for i in 400:
+		await physics_frame
+		if player.state == Player.State.DOWNED:
+			downed = true
+			break
+	_check("the last blow of a combo that landed whole knocks him down", downed,
+			"%d blows landed of %d" % [_struck.size(), imp._blows.size()])
+	# Lying there he goes nowhere, whatever the stick says.
+	await _wait(50)
+	var lying_at := player.global_position
+	Input.action_press("move_forward")
+	await _wait(30)
+	Input.action_release("move_forward")
+	_check("on the ground the stick does not move him",
+			player.global_position.distance_to(lying_at) < 0.15,
+			"%.2f m" % player.global_position.distance_to(lying_at))
+	_check("and nothing hits him while he is down", player.is_invulnerable)
+	Input.action_press("dash")
+	await physics_frame
+	await physics_frame
+	Input.action_release("dash")
+	_check("a roll gets him straight up off the ground", player.state == Player.State.DASHING,
+			"state %d" % player.state)
+	await _wait(60)
+
+	# A combo that is blocked part of the way through only ever flinches him.
+	imp._cooldown = 0.0
+	_struck.clear()
+	var partial_down := false
+	var attack_seen := false
+	var guarding := false
+	for i in 600:
+		# Guard up (facing it) for the first blow only, then down for the rest.
+		var aim := imp.global_position - player.global_position
+		player.rotation.y = atan2(-aim.x, -aim.z)
+		var want := imp.act == Fighter.Act.ATTACK and _struck.is_empty()
+		if want != guarding:
+			guarding = want
+			if want:
+				Input.action_press("block")
+			else:
+				Input.action_release("block")
+		await physics_frame
+		if player.state == Player.State.DOWNED:
+			partial_down = true
+		if imp.act == Fighter.Act.ATTACK:
+			attack_seen = true
+		if attack_seen and imp.act == Fighter.Act.NONE:
+			break
+	Input.action_release("block")
+	_check("the first blow is caught on the shield", attack_seen and not _struck.is_empty(),
+			"%d blows" % _struck.size())
+	_check("a combo that was not taken whole never puts him down", not partial_down)
+
+	# A blow thrown into a roll finds nobody.
+	_struck.clear()
+	player.state = Player.State.DODGING
+	player.receive_blow(8.0, imp, 0, 3, 999)
+	await _wait(2)
+	player.state = Player.State.GROUNDED
+	_check("a blow thrown into a dodge does not land", _struck.is_empty())
+	_check("its guard is slow to come back", imp.stamina_regen <= 12.0 and imp.regen_delay >= 1.5)
 
 	# --- Blocks a swing, and the guard costs stamina --------------------------------
 	imp.block_chance = 1.0

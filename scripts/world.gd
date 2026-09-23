@@ -72,10 +72,18 @@ const CAMPS: Array[Array] = [
 	[&"puglin", Vector2(40.0, -70.0), 3],
 	[&"puglin", Vector2(88.0, -68.0), 3],
 	[&"puglin", Vector2(40.0, 108.0), 4],
+	# Two orc warriors, together on the lane out east, sixty metres from spawn.
+	[&"orc", Vector2(60.0, -12.0), 2],
+	# And Arkdeva, alone, in a glade of its own in the wood fifty metres
+	# south of spawn, as far from every other creature as that part of the map
+	# allows.
+	[&"arkdeva", Vector2(5.0, -50.0), 1],
 ]
 const CAMP_SCENES := {
 	&"imp": "res://scenes/enemies/imp.tscn",
 	&"puglin": "res://scenes/enemies/puglin.tscn",
+	&"orc": "res://scenes/enemies/orc.tscn",
+	&"arkdeva": "res://scenes/enemies/arkdeva.tscn",
 }
 ## How far from the middle of its camp each member stands.
 const CAMP_SPREAD := 2.6
@@ -112,6 +120,11 @@ func _ready() -> void:
 		var mine: StringName = net.call("character_of", 1) if net != null \
 				else (game.call("character") if game != null else &"tariel")
 		_spawn_for(1, mine)
+	if net != null:
+		if net.call("is_online"):
+			add_child(NetHud.new())
+		# A client says who it is only now that there is a level to be put in.
+		net.call("entered_world")
 
 
 ## Wakes the creatures near a player and puts the far ones back to sleep.
@@ -228,6 +241,9 @@ func _build_player(data: Variant) -> Node:
 	# only falls back to asking `/root/Game` when nothing has been handed to it.
 	body.profile = _profile(id)
 	body.position = _mark(int(sent.get("point", 0)))
+	# Before the tree as well: the spawner decides who to tell about this body
+	# the moment it arrives, and a peer still loading must not be one of them.
+	NetSmooth.guard(body.get_node_or_null("Body") as MultiplayerSynchronizer)
 	return body
 
 
@@ -244,6 +260,41 @@ func _on_announced(peer: int, character: StringName) -> void:
 	var net := get_node_or_null("/root/Net")
 	if net != null and net.call("is_host"):
 		_spawn_for(peer, character)
+		if peer != 1:
+			net_census.rpc_id(peer, _census())
+
+
+## Which creatures are still here, and what each has lost. Somebody who joins
+## late built every camp fresh — including the wolves that have since died and
+## been cleared away, and whole wolves that are missing legs here.
+func _census() -> Dictionary:
+	var here := {}
+	var creatures := get_node_or_null("Enemies")
+	if creatures == null:
+		return here
+	for node in creatures.get_children():
+		if node.get("is_dead") == null:
+			continue
+		here[String(node.name)] = node.call("net_census") if node.has_method("net_census") else []
+	return here
+
+
+## Sent by the host to a peer that has just arrived: makes its creatures match.
+@rpc("authority", "call_remote", "reliable")
+func net_census(here: Dictionary) -> void:
+	var creatures := get_node_or_null("Enemies")
+	if creatures == null:
+		return
+	for node in creatures.get_children():
+		if node.get("is_dead") == null:
+			continue
+		var key := String(node.name)
+		if not here.has(key):
+			# Gone on the host — killed and cleared before we arrived.
+			_dozing.erase(node)
+			node.queue_free()
+		elif node.has_method("net_restore"):
+			node.call("net_restore", here[key])
 
 
 func _on_left(peer: int) -> void:
@@ -279,8 +330,10 @@ func _build_camps() -> void:
 			var body := scene.instantiate()
 			body.name = "%s_%d_%d" % [String(kind).capitalize(), i, k]
 			var angle := TAU * float(k) / float(count) + float(i)
-			var at := Vector3(centre.x + cos(angle) * CAMP_SPREAD, 0.2,
-					centre.y + sin(angle) * CAMP_SPREAD)
+			# One alone stands in the middle of its ground.
+			var spread := CAMP_SPREAD if count > 1 else 0.0
+			var at := Vector3(centre.x + cos(angle) * spread, 0.2,
+					centre.y + sin(angle) * spread)
 			body.position = at
 			# Facing out from the fire, each watching its own way in.
 			body.rotation.y = atan2(-cos(angle), -sin(angle))

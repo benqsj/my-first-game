@@ -1,0 +1,82 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/arkdeva.gd" id="1_arkdeva"]
+[ext_resource type="PackedScene" path="res://assets/spider/ArcdevaPoisoner.fbx" id="2_model"]
+[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_arkdeva"]
+radius = 3.0
+height = 7.8
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_arkdeva"]
+properties/0/path = NodePath("NetSmooth:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("NetSmooth:net_rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:velocity")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath(".:is_dead")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:mode")
+properties/5/spawn = true
+properties/5/replication_mode = 2
+properties/6/path = NodePath(".:act")
+properties/6/spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:act_serial")
+properties/7/spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath("NetSmooth:net_stamp")
+properties/8/spawn = true
+properties/8/replication_mode = 1
+
+[node name="Arkdeva" type="CharacterBody3D" groups=["enemy"]]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_arkdeva")
+speed = 1.8
+chase_speed = 4.6
+turn_speed = 2.6
+roam_radius = 7.0
+step_height = 1.0
+sight_range = 24.0
+leash_radius = 40.0
+max_health = 420.0
+armour = 0.75
+body_radius = 3.3
+body_height = 7.8
+hit_tolerance = 0.4
+bar_height = 9.8
+bar_width = 3.0
+visual_scale = 2.43
+corpse_sink_depth = 7.0
+melee_range = 8.6
+spit_range = Vector2(11, 28)
+strike_radius = 4.0
+thorn_length = 16.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.9, 0)
+shape = SubResource("CapsuleShape3D_arkdeva")
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="Tilt" type="Node3D" parent="Visuals"]
+
+[node name="Yaw" type="Node3D" parent="Visuals/Tilt"]
+
+[node name="ArcdevaPoisoner" parent="Visuals/Tilt/Yaw" instance=ExtResource("2_model")]
+
+[node name="Body" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.033
+replication_config = SubResource("SceneReplicationConfig_arkdeva")
+
+[node name="NetSmooth" type="Node" parent="."]
+script = ExtResource("net_smooth")

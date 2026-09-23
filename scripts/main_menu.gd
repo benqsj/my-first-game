@@ -14,6 +14,7 @@ extends Control
 ## picked onto the `Game` autoload and hands the connection to [Net].
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
+const NetScript := preload("res://scripts/net.gd")
 
 ## The three columns of the character screen, in pixels: a roster tile, and the
 ## stage the picked one stands on. The dossier takes what is left.
@@ -47,6 +48,9 @@ var _net: Node
 ## Where a join is typed, and where anything that went wrong is said.
 var _address: LineEdit
 var _trouble: Label
+## The games heard on this network, one button each, and the line under them.
+var _found: VBoxContainer
+var _found_note: Label
 ## The button at the bottom of the character page, which says different things
 ## depending on whether there is anyone else to wait for.
 var _go: Button
@@ -65,6 +69,7 @@ func _ready() -> void:
 		_net.call("leave")
 		_net.connect("hosting_failed", _on_net_trouble)
 		_net.connect("join_failed", _on_net_trouble)
+		_net.connect("games_changed", _refresh_found)
 	_chosen = _game.character() if _game != null else &"tariel"
 
 	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS, Page.CONNECT]:
@@ -197,7 +202,18 @@ func _build_connect() -> Control:
 	buttons.add_child(MenuStyle.button("HOST GAME", func() -> void: _host()))
 	page.add_child(buttons)
 
-	page.add_child(MenuStyle.label("or join one:", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+	# Hosts on this Wi-Fi call out once a second; each one heard is a button.
+	page.add_child(MenuStyle.label("games on your network:", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+	_found = VBoxContainer.new()
+	_found.name = "Found"
+	_found.alignment = BoxContainer.ALIGNMENT_CENTER
+	_found.add_theme_constant_override("separation", 8)
+	page.add_child(_found)
+	_found_note = MenuStyle.label("", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM)
+	_found_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	page.add_child(_found_note)
+
+	page.add_child(MenuStyle.label("or type the host's address:", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -215,8 +231,11 @@ func _build_connect() -> Control:
 	row.add_child(join)
 	page.add_child(row)
 
+	var mine: Array[String] = NetScript.lan_addresses() if _net != null else []
 	page.add_child(MenuStyle.label(
-			"Everyone fights the same wolves. Nobody can hurt anybody else yet.",
+			"Everyone fights the same wolves. Nobody can hurt anybody else yet.\n"
+			+ ("If you host, the others join at: %s" % ", ".join(mine) if not mine.is_empty()
+				else "This computer is not on a network — only this machine can join."),
 			MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
 
 	var back := MenuStyle.button_column()
@@ -267,6 +286,13 @@ func _show(page: Page) -> void:
 	elif page == Page.CONNECT:
 		if _trouble != null:
 			_trouble.text = ""
+	# Listen for hosts only while the page that lists them is up.
+	if _net != null:
+		if page == Page.CONNECT:
+			_net.call("start_looking")
+			_refresh_found()
+		else:
+			_net.call("stop_looking")
 	elif page == Page.SETTINGS:
 		_refresh_graphics()
 #endregion
@@ -451,6 +477,32 @@ func _join() -> void:
 	if _trouble != null:
 		_trouble.text = "Connecting to %s..." % _address.text.strip_edges()
 	_net.call("join", _address.text, _chosen)
+
+
+## Rebuilds the list of games heard on the network.
+func _refresh_found() -> void:
+	if _found == null or _net == null:
+		return
+	for child in _found.get_children():
+		child.queue_free()
+	var games: Dictionary = _net.get("games")
+	for address: String in games:
+		var game: Dictionary = games[address]
+		var full := int(game["players"]) >= int(game["max"])
+		var text := "JOIN %s  ·  %d/%d  ·  %s" % [String(game["name"]).to_upper(),
+				int(game["players"]), int(game["max"]), address]
+		var button := MenuStyle.button(text, func() -> void:
+				_address.text = address
+				_join())
+		button.custom_minimum_size = Vector2(520.0, MenuStyle.BUTTON_HEIGHT)
+		if not bool(game["same_version"]):
+			button.text = "%s  ·  %s (different version)" % [String(game["name"]), address]
+			button.disabled = true
+		elif full:
+			button.disabled = true
+		_found.add_child(button)
+	if _found_note != null:
+		_found_note.text = "Looking... (the host must press HOST GAME first)" if games.is_empty() else ""
 
 
 func _on_net_trouble(why: String) -> void:

@@ -82,6 +82,8 @@ const CLIP_JUMP := &"NinjaJump_Start"
 const CLIP_FALL := &"NinjaJump_Idle"
 const CLIP_LAND := &"NinjaJump_Land"
 const CLIP_HIT := &"Hit_Knockback"
+## Up off the ground after a knockdown.
+const CLIP_GET_UP := &"LayToIdle"
 ## The library's own evade, used by the double-tapped dodge. The single-press
 ## roll stays procedural — see dodge().
 const CLIP_DODGE := &"Sword_Dash"
@@ -336,6 +338,9 @@ var _brace: float = 0.0
 var _plunge_timer: float = 0.0
 var _plunge_length: float = 0.0
 var _plunge_blend: float = 0.0
+## Seconds left of a flinch, and how long a flinch lasts.
+var _flinch_timer: float = 0.0
+@export var flinch_time: float = 0.32
 
 var _trail: SwordTrail = null
 
@@ -360,7 +365,7 @@ var _tail_angles: PackedFloat32Array = PackedFloat32Array()
 
 ## What the clip currently faded in is doing, so the rig knows when the blade is
 ## live and what should follow when the clip runs out.
-enum ClipRole { NONE, SWING, TAKEOFF, FALL, LAND, HIT, SLIDE_IN, SLIDE, SLIDE_OUT, DODGE, CLIMB, FREE }
+enum ClipRole { NONE, SWING, TAKEOFF, FALL, LAND, HIT, SLIDE_IN, SLIDE, SLIDE_OUT, DODGE, CLIMB, FREE, DOWN, GET_UP }
 
 ## One-shots — swings, jumps, the slide, the pull-up. Owns the whole body while
 ## it plays, unless masked.
@@ -741,6 +746,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	_pose_torso(t)
 	_pose_arms(t)
 	_pose_climb()
+	_pose_flinch(delta)
 	# After the arms, because a weapon moves the arms it is held in, and before
 	# the cloth, which trails whatever the body ended up doing.
 	_pose_weapon(delta)
@@ -906,8 +912,56 @@ func dodge_clip(duration: float) -> bool:
 
 #region Clips
 ## Takes the flinch when something lands a hit.
+##
+## A jolt through the torso, not the knockback clip: that clip ends flat on the
+## ground, and a single blow is not supposed to put anybody there. Being knocked
+## off his feet is `knock_down()`, and it is kept for a combo that lands whole.
 func hit() -> void:
-	_play_clip(CLIP_HIT, ClipRole.HIT, 0.05)
+	flinch()
+
+
+func flinch() -> void:
+	_flinch_timer = flinch_time
+
+
+## Off his feet: the knockback clip, and then *held* on its last frame, lying
+## there, until `get_up()` or a roll takes over.
+func knock_down() -> void:
+	_flinch_timer = 0.0
+	_play_clip(CLIP_HIT, ClipRole.DOWN, 0.06)
+
+
+## Back up off the ground over `duration` seconds.
+func get_up(duration: float) -> void:
+	var length := _action.clip_length(CLIP_GET_UP) if _action != null else 0.0
+	if length <= 0.0 or not _play_clip(CLIP_GET_UP, ClipRole.GET_UP, 0.15,
+			length / maxf(duration, 0.05)):
+		_drop_clip(0.3)
+
+
+## Lets go of the ground at once, for a roll out of a knockdown.
+func leave_ground() -> void:
+	if _clip_role == ClipRole.DOWN or _clip_role == ClipRole.GET_UP:
+		_drop_clip(0.08)
+
+
+func is_down() -> bool:
+	return _clip_role == ClipRole.DOWN or _clip_role == ClipRole.GET_UP
+
+
+## The flinch itself: the chest thrown back and turned a little, the head
+## snapping forward over it, in and out again inside `flinch_time`.
+func _pose_flinch(delta: float) -> void:
+	if _flinch_timer <= 0.0:
+		return
+	_flinch_timer = maxf(_flinch_timer - delta, 0.0)
+	var p := 1.0 - _flinch_timer / maxf(flinch_time, 0.01)
+	# Hits hard and lets go slowly: the peak comes a fifth of the way in.
+	var f := sin(PI * pow(p, 0.45))
+	_add_offset("spine", Vector3(-0.28 * f, 0.0, 0.0))
+	_add_offset("chest", Vector3(-0.22 * f, 0.14 * f, 0.0))
+	_add_offset("neck", Vector3(0.18 * f, 0.0, 0.0))
+	_add_offset("head", Vector3(0.12 * f, 0.0, 0.0))
 
 
 ## Drops into or comes out of a crouch, and stays there for as long as `down`
@@ -1208,6 +1262,9 @@ func _on_clip_finished(_clip: StringName) -> void:
 			ClipRole.TAKEOFF:
 				if _was_airborne and _play_clip(CLIP_FALL, ClipRole.FALL, 0.12):
 					return
+			ClipRole.DOWN:
+				# Lying there: the last frame is held until he gets up.
+				return
 	# Held poses — the slide and the fall — loop, so they never arrive here;
 	# they are ended by slide(false) or by touching the ground.
 	_drop_clip(clip_fade_out)

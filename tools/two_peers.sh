@@ -68,6 +68,12 @@ if [ "${drew:-0}" -lt 10 ] 2>/dev/null; then
 	echo "the draw did not reach the other window — the archer would pop arrows out of nowhere"
 	host_code=1
 fi
+stutter=$(grep -E '^CLIENT stutter' "$log/client.txt" | awk '{print $3}')
+echo "the other knight froze mid-run in ${stutter:-?} frame(s) (smoothing working: 0-5)"
+if [ "${stutter:-99}" -gt 5 ] 2>/dev/null; then
+	echo "the other knight jumps from packet to packet instead of gliding"
+	host_code=1
+fi
 if [ "${left:-0}" != "1" ]; then
 	echo "the knight that left is still standing there"
 	host_code=1

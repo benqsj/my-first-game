@@ -27,6 +27,10 @@ window/size/viewport_width=1600
 window/size/viewport_height=900
 window/stretch/aspect="expand"
 
+[filesystem]
+
+import/blender/enabled=false
+
 [input]
 
 move_forward={

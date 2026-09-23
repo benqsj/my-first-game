@@ -36,6 +36,9 @@ var _holding := false
 var _their_start := Vector3.ZERO
 var _their_travel := 0.0
 var _their_swings := 0
+## Frame-to-frame steps of the other knight, to see whether it glides or jumps.
+var _steps: Array[float] = []
+var _prev_at := Vector3.INF
 
 
 func _initialize() -> void:
@@ -129,6 +132,10 @@ func _watch() -> void:
 	if not is_instance_valid(_theirs):
 		return
 	_their_travel = maxf(_their_travel, _their_start.distance_to(_theirs.global_position))
+	var at := _theirs.global_position
+	if _prev_at != Vector3.INF:
+		_steps.append(at.distance_to(_prev_at))
+	_prev_at = at
 	if _theirs.rig != null:
 		_their_swings = maxi(_their_swings, _theirs.rig.attack_serial)
 
@@ -141,6 +148,14 @@ func _report() -> void:
 			% [_wolf.health, _wolf.rig.lost_parts(), _wolf.is_dead])
 	print("CLIENT theirwolf health %.0f lost %d dead %s"
 			% [_their_wolf.health, _their_wolf.rig.lost_parts(), _their_wolf.is_dead])
+	# A gliding body moves a little every frame. A jumping one stands still for
+	# a frame or two between packets and then leaps: frozen frames in the middle
+	# of a run are the stutter, counted.
+	var frozen := 0
+	for i in range(1, _steps.size() - 1):
+		if _steps[i] < 0.0005 and _steps[i - 1] > 0.0005 and _steps[i + 1] > 0.0005:
+			frozen += 1
+	print("CLIENT stutter %d" % frozen)
 	print("CLIENT OK")
 
 

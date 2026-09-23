@@ -579,3 +579,52 @@ Each step should leave the game runnable.
   godot --path . --headless --script res://tests/smoke_test.gd
   godot --path . --script res://tests/combat_test.gd -- /tmp
   ```
+
+---
+
+## 11. Playing on one Wi-Fi (LAN) — what was added after Phase 1
+
+**Finding a game.** A host calls out on UDP port `7778` once a second
+(`Net._call_out`). The join page listens while it is open and lists every game
+it hears as a button (`Net.start_looking`, `Net.games`). Typing an address still
+works. The host's own addresses are shown on the join page and in the corner of
+the game (`NetHud`), next to the player count; a client sees its ping there.
+
+**Loading before announcing.** A client used to announce itself the moment it
+connected and *then* load the level. The host answered at once — bodies,
+wolves, sync — into a client that had no level yet, and what it dropped it never
+got again: in the two-process check nothing crossed at all. Now the client
+loads first and the level calls `Net.entered_world()`, which announces. Every
+synchronizer carries a visibility filter (`Net.sees`) so nothing is sent to a
+peer until it has done that — which is also what hands a late joiner everyone
+already there.
+
+**Late joiners.** On arrival the host sends `World.net_census()`: which
+creatures still exist, and which parts each wolf has lost. Creatures that were
+killed and cleared before the joiner arrived are removed; maimed wolves are
+maimed to match.
+
+**Smooth remote bodies.** Position and rotation no longer replicate onto the
+body directly. Each synced scene has a `NetSmooth` child: the driving peer
+copies its transform into `net_position` / `net_rotation` / `net_stamp`, and
+every other peer draws the body ~50 ms in the past, sliding between snapshots
+(the delay grows by itself on a jittery network, up to 250 ms).
+
+**Reliable vs unreliable.** Everything that changes every tick —
+`net_position`, `net_rotation`, `net_stamp`, `velocity`, `net_draw`, `net_aim` —
+is `REPLICATION_MODE_ALWAYS` (unreliable, 30 Hz). They used to be `ON_CHANGE`,
+which Godot sends *reliably, every frame*; on Wi-Fi a single lost packet then
+stalls everything queued behind it, swings and blows included. Events that must
+not be missed (`act_serial`, `mode`, `act`, `net_state`) stay `ON_CHANGE`.
+
+**Checks.**
+
+```
+sh tools/two_peers.sh     # also fails if the other knight stutters
+sh tools/late_join.sh     # finds the host by listening, joins late
+```
+
+**Before playing on two computers:** same build on both; allow the game through
+the firewall (UDP 7777 and 7778) — on macOS answer "Allow" to the incoming
+connections prompt, on Windows mark the Wi-Fi as a Private network; guest and
+café networks often block devices from seeing each other.

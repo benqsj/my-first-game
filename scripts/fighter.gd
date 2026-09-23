@@ -71,8 +71,9 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export_group("Stamina")
 @export var max_stamina: float = 100.0
 ## Won back per second, once `regen_delay` has passed since it last spent any.
-@export var stamina_regen: float = 18.0
-@export var regen_delay: float = 1.0
+## Slow enough that a guard worn down stays down for a while.
+@export var stamina_regen: float = 10.0
+@export var regen_delay: float = 1.6
 ## Spent by every cut caught on the guard. Three, at the default, and the guard
 ## is gone.
 @export var block_cost: float = 34.0
@@ -454,7 +455,7 @@ func _run_act(delta: float) -> void:
 			var through := _act_time / maxf(_act_length, 0.001)
 			while _blows_done < _blows.size() and through >= _blows[_blows_done]:
 				_blows_done += 1
-				_strike()
+				_strike(_blows_done - 1)
 		Act.BLOCK, Act.BREAK:
 			_slow(delta, 3.0)
 		Act.DASH:
@@ -467,8 +468,10 @@ func _run_act(delta: float) -> void:
 		_start(Act.NONE)
 
 
-## One blow of the combo: everyone in front of it and within reach is hit.
-func _strike() -> void:
+## One blow of the combo: everyone in front of it and within reach is hit. Which
+## blow it is goes along, so a player can tell a combo that landed whole — the
+## only thing that knocks him down — from one that did not.
+func _strike(blow: int) -> void:
 	var ahead := _forward()
 	var span := reach + 0.5
 	for node in get_tree().get_nodes_in_group("player"):
@@ -479,7 +482,7 @@ func _strike() -> void:
 		to_them.y = 0.0
 		if to_them.length() > span or ahead.dot(to_them.normalized()) < 0.3:
 			continue
-		who.call("receive_blow", hit_damage, self)
+		who.call("receive_blow", hit_damage, self, blow, _blows.size(), act_serial)
 
 
 ## A knight within reach has just started a swing at it: guard, sidestep, or

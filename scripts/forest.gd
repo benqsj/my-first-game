@@ -169,6 +169,10 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(40.0, -70.0, 9.0),
 	Vector3(88.0, -68.0, 9.0),
 	Vector3(40.0, 108.0, 9.0),
+	# The orcs, on the lane out to the east, and Arkdeva's glade in the wood,
+	# which is wide: its thorns run eleven metres.
+	Vector3(60.0, -12.0, 13.0),
+	Vector3(5.0, -50.0, 22.0),
 	# The settlement. It sits on the open side and the treeline would not reach
 	# it anyway, but the hedgerows are planted by hand and would run straight
 	# through the street without this.
@@ -238,11 +242,11 @@ const CLEARINGS: Array[Vector3] = [
 @export var collider_chunk: float = 22.0
 ## Trunks thinner than this are not given a collider: a sapling the player can
 ## brush past reads better than a bollard.
-@export var min_collider_radius: float = 0.22
+@export var min_collider_radius: float = 0.15
 ## How much of the measured trunk a collider covers. Under 1 on purpose — a
 ## cylinder cut to the widest point of a flared base catches the player a foot
 ## away from the bark.
-@export var collider_shrink: float = 0.78
+@export var collider_shrink: float = 0.9
 
 ## How many of each group were planted, for anything that wants to check.
 var counts: Dictionary = {}
@@ -390,7 +394,7 @@ func _grow(group_name: String, group: Dictionary, draw_distance: float,
 			planted += 1
 
 			if solid:
-				_add_trunk(models[pick]["path"], at, size)
+				_add_trunk(models[pick]["path"], at, size, basis)
 				_remember_trunk(at)
 		z += row_step
 		row += 1
@@ -451,7 +455,7 @@ func _grow_lines(group_name: String, group: Dictionary, lines: Array[Array]) -> 
 				chunks[key] = bucket
 				planted += 1
 
-				_add_trunk(models[pick]["path"], at, size)
+				_add_trunk(models[pick]["path"], at, size, basis)
 				_remember_trunk(at)
 
 	counts[group_name] = planted
@@ -627,13 +631,22 @@ func _mesh(path: String) -> Mesh:
 ## Shapes themselves are still pooled by radius to the nearest five centimetres,
 ## which is a different saving: a thousand trees want a dozen *shapes* between
 ## them, however many bodies those are spread over.
-func _add_trunk(path: String, at: Vector2, size: float) -> void:
+func _add_trunk(path: String, at: Vector2, size: float, turn: Basis = Basis.IDENTITY) -> void:
 	var mesh := _mesh(path)
 	if mesh == null:
 		return
-	var radius := _trunk_radius(mesh) * size * collider_shrink
+	var base := _trunk_base(mesh)
+	var radius := float(base[1]) * size * collider_shrink
+	# Where the trunk actually stands, which is not always the model's origin:
+	# turned and scaled the way the tree was drawn.
+	var foot: Vector2 = base[0]
+	var offset := turn * Vector3(foot.x, 0.0, foot.y)
+	at += Vector2(offset.x, offset.z)
 	if radius < min_collider_radius:
 		return
+	# Never thinner than this, even round a thin trunk: a capsule walked
+	# head-on into a pencil-thin cylinder slides round it rather than stopping.
+	radius = maxf(radius, TRUNK_FLOOR)
 
 	var key := maxf(snappedf(radius, 0.05), 0.05)
 	var shape: CylinderShape3D = _shape_pool.get(key)
@@ -680,29 +693,53 @@ func _body_for(at: Vector2) -> StaticBody3D:
 ## enough that nothing gets on top of one, deep enough that nothing catches on
 ## the bottom edge.
 const TRUNK_HEIGHT := 9.0
+## The thinnest a trunk collider is made.
+const TRUNK_FLOOR := 0.3
 const TRUNK_SINK := 1.5
 
 
-## How thick a model is at its base, in the model's own units.
+## How thick a model is at its base, in the model's own units, and where on
+## the ground that base stands.
 ##
-## Measured off the mesh rather than typed in per species: the widest point of
-## the bottom eighth of the vertices is the trunk, and everything above it is
-## canopy the player walks under. Swap a species for another and its collider is
-## right without a number being changed anywhere.
+## Measured off the mesh rather than typed in per species: the vertices in the
+## lowest few percent of the model are the foot of the trunk, their middle is
+## where it stands and the furthest of them from that middle is how thick it
+## is. Everything above is canopy the player walks under.
+##
+## It used to take the bottom *eighth* and measure from the middle of the whole
+## model's box. Both were wrong for some species: the big pine's lowest boughs
+## sweep down into its bottom eighth, which gave it a collider five metres
+## across, and a tree whose crown leans one way has the middle of its box off
+## to that side, so a trunk thirty centimetres thick measured eighty. Either
+## way the player met a wall under branches he could see daylight through.
 func _trunk_radius(mesh: Mesh) -> float:
+	return float(_trunk_base(mesh)[1])
+
+
+## [centre of the trunk's foot as (x, z), its radius], cached per model.
+func _trunk_base(mesh: Mesh) -> Array:
 	var cached: Variant = _radius_cache.get(mesh.resource_path)
 	if cached != null:
 		return cached
 
 	var bounds := mesh.get_aabb()
-	var ceiling := bounds.position.y + maxf(bounds.size.y * 0.12, 0.05)
-	var middle := Vector2(bounds.get_center().x, bounds.get_center().z)
-	var widest := 0.0
+	# The foot: the bottom 4 %, but never more than half a unit — a tall tree
+	# has low boughs well inside 4 % of its height.
+	var ceiling := bounds.position.y + clampf(bounds.size.y * 0.04, 0.05, 0.5)
+	var foot := PackedVector2Array()
 	for s in mesh.get_surface_count():
 		var verts: PackedVector3Array = mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]
 		for v in verts:
 			if v.y <= ceiling:
-				widest = maxf(widest, Vector2(v.x, v.z).distance_to(middle))
-	_radius_cache[mesh.resource_path] = widest
-	return widest
+				foot.append(Vector2(v.x, v.z))
+	var middle := Vector2.ZERO
+	for v in foot:
+		middle += v
+	middle = middle / foot.size() if not foot.is_empty() else Vector2.ZERO
+	var widest := 0.0
+	for v in foot:
+		widest = maxf(widest, v.distance_to(middle))
+	var result := [middle, widest]
+	_radius_cache[mesh.resource_path] = result
+	return result
 #endregion

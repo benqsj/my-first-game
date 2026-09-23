@@ -1,22 +1,23 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Exports/GLB (Godot-Unreal)/Puglin.glb" id="2_model"]
+[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_puglin"]
 radius = 0.34
 height = 1.05
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_puglin"]
-properties/0/path = NodePath(".:position")
+properties/0/path = NodePath("NetSmooth:net_position")
 properties/0/spawn = true
-properties/0/replication_mode = 2
-properties/1/path = NodePath(".:rotation")
+properties/0/replication_mode = 1
+properties/1/path = NodePath("NetSmooth:net_rotation")
 properties/1/spawn = true
-properties/1/replication_mode = 2
+properties/1/replication_mode = 1
 properties/2/path = NodePath(".:velocity")
 properties/2/spawn = true
-properties/2/replication_mode = 2
+properties/2/replication_mode = 1
 properties/3/path = NodePath(".:health")
 properties/3/spawn = true
 properties/3/replication_mode = 1
@@ -35,6 +36,9 @@ properties/7/replication_mode = 2
 properties/8/path = NodePath(".:act_serial")
 properties/8/spawn = true
 properties/8/replication_mode = 2
+properties/9/path = NodePath("NetSmooth:net_stamp")
+properties/9/spawn = true
+properties/9/replication_mode = 1
 
 [node name="Puglin" type="CharacterBody3D" groups=["enemy"]]
 collision_layer = 4
@@ -73,3 +77,6 @@ transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 [node name="Body" type="MultiplayerSynchronizer" parent="."]
 replication_interval = 0.033
 replication_config = SubResource("SceneReplicationConfig_puglin")
+
+[node name="NetSmooth" type="Node" parent="."]
+script = ExtResource("net_smooth")
