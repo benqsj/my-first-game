@@ -48,7 +48,7 @@ func _initialize() -> void:
 
 	var orc_tall := _height(orcs[0])
 	var ark_tall := _height(ark)
-	_check("an orc is about five metres", orc_tall > 4.6 and orc_tall < 5.4, "%.2f m" % orc_tall)
+	_check("an orc is twice Tariel's height, about 3.8 m", orc_tall > 3.4 and orc_tall < 4.3, "%.2f m" % orc_tall)
 	_check("Arkdeva is about nine metres", ark_tall > 8.0 and ark_tall < 10.0, "%.2f m" % ark_tall)
 
 	var space := world.get_world_3d().direct_space_state
@@ -103,18 +103,20 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	mate.set_physics_process(true)
 	_player.global_position = orc._home + Vector3(0.0, 0.3, 40.0)
 	await _wait(30)
-	_check("the library drives his rig", orc._rt != null and orc._rt.has_clip(OrcWarrior.IDLE))
+	_check("his own axe clips drive his rig", orc._own != null and orc._own.has_animation(OrcWarrior.IDLE)
+			and orc._own.has_animation(OrcWarrior.HEAVY_CLIP) and orc._own.has_animation(&"OR_Combo_2"))
 	var sk := orc._skeleton
 	var head := (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("Head")).origin).y - orc.global_position.y
 	var foot := (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("LeftFoot")).origin).y - orc.global_position.y
-	_check("standing, head up and feet down", head > 3.8 and foot < 0.9, "head %.2f foot %.2f" % [head, foot])
+	_check("standing, head up and feet down", head > 2.8 and foot < 0.7, "head %.2f foot %.2f" % [head, foot])
 	var hand := sk.global_transform * sk.get_bone_global_pose(sk.find_bone("RightHand")).origin
 	_check("the axe is in his right fist", orc._axe != null and orc._axe.global_position.distance_to(hand) < 0.8,
 			"%.2f m" % (orc._axe.global_position.distance_to(hand) if orc._axe != null else -1.0))
-	_check("the combos have their blows", (orc._blows[OrcWarrior.Act.COMBO] as PackedFloat32Array).size() >= 2
-			and (orc._blows[OrcWarrior.Act.HEAVY] as PackedFloat32Array).size() >= 2,
-			"%s / %s" % [orc._blows[OrcWarrior.Act.COMBO], orc._blows[OrcWarrior.Act.HEAVY]])
-	_check("the slam is late in the heavy combo", orc._slam_at > 0.55, "%.2f" % orc._slam_at)
+	_check("the combos have their blows", (orc._blows[OrcWarrior.Act.COMBO] as PackedFloat32Array).size() == 2
+			and (orc._blows[OrcWarrior.Act.COMBO_THREE] as PackedFloat32Array).size() == 3,
+			"%s / %s" % [orc._blows[OrcWarrior.Act.COMBO], orc._blows[OrcWarrior.Act.COMBO_THREE]])
+	_check("the overhead blow comes down partway through, not at the ends", orc._slam_at > 0.2 and orc._slam_at < 0.85,
+			"%.2f" % orc._slam_at)
 
 	# Roused, both of them, and he comes and fights.
 	_player.global_position = orc.camp_centre + Vector3(0.0, 0.3, 8.0)
@@ -146,12 +148,19 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 		orc.global_position = Vector3(spot.x, orc.global_position.y, spot.z)
 		_player.velocity = Vector3.ZERO
 		await physics_frame
+		if orc._slammed and not slammed:
+			print("  (slam: waves %d, player %.1f m off, state %d, invulnerable %s, y %.2f vs %.2f)" % [
+					orc._waves.size(), _player.global_position.distance_to(spot), _player.state,
+					_player.is_invulnerable, _player.global_position.y, orc._slam_point.y])
 		slammed = slammed or orc._slammed
 		if orc.act == Brute.ACT_NONE:
 			break
 	await _wait(20)
 	_check("the heavy combo ends in the slam", slammed)
-	_check("the spikes out of the ground reach nine metres off", _struck.has(orc.wave_damage), str(_struck))
+	var landed := orc._slam_point - spot
+	_check("the spikes out of the ground reach six and a half metres off", _struck.has(orc.wave_damage),
+			"%s; the axe came down %.1f m ahead, %.1f to the side" % [str(_struck),
+			landed.dot(orc._forward()), landed.dot(orc._forward().cross(Vector3.UP))])
 	_check("and nothing else did", _struck.size() == 1, str(_struck))
 	await _stand_up()
 
