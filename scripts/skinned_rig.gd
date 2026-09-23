@@ -18,10 +18,27 @@ extends CharacterRig
 ## What the library does not cover — climbing, the slide, sheathing — falls back
 ## to the nearest pose it does have. Those are marked below.
 
+## Which clip plays for what. Everything the rig decides is looked up here, so a
+## second character is a second table (see `SkinnedArcherRig`), not a second rig.
+## Set by `_configure()`; these are Tariel's.
+var clips := {
+	&"idle": &"SS_Idle", &"walk": &"SS_Walk", &"run": &"SS_Run",
+	&"walk_back": &"SS_Backward_Walk", &"run_back": &"SS_Backward_Run",
+	&"walk_left": &"SS_Left_Strafe_Walk", &"walk_right": &"SS_Right_Strafe_Walk",
+	&"run_left": &"SS_Left_Run_Strafe", &"run_right": &"SS_Right_Run_Strafe",
+	&"block_idle": &"SS_Block_Idle", &"block_walk": &"SS_Block_Walk",
+	&"block_walk_back": &"SS_Block_Walk_Back", &"block_walk_left": &"SS_Block_Walk_Left",
+	&"block_walk_right": &"SS_Block_Walk_Right",
+	&"crouch": &"SS_Crouch_Block_Idle", &"air": &"SS_Running_Jump",
+	&"roll": &"Roll_Quick_To_Run", &"down": &"SS_Falling_Back_Death",
+	&"hit": &"SS_Head_Impact", &"hit_blocked": &"SS_Blocked_Impact",
+	&"mantle": &"SS_Jump_From_Idle", &"plunge": &"SS_Jump_Attack",
+	&"overhead": &"SS_Downward_Slash",
+}
 ## Ground speed each in-place cycle was authored at, measured in Blender off the
 ## planted foot (m/s). The play rate is the body's speed over this, so the feet
 ## keep up with the ground instead of skating.
-const GROUND_SPEED := {
+var ground_speed := {
 	&"SS_Walk": 1.42, &"SS_Run": 3.2,
 	&"SS_Backward_Walk": 1.12, &"SS_Backward_Run": 3.22,
 	&"SS_Left_Strafe_Walk": 1.08, &"SS_Right_Strafe_Walk": 1.21,
@@ -29,7 +46,7 @@ const GROUND_SPEED := {
 	&"SS_Block_Walk": 1.42, &"SS_Block_Walk_Back": 1.12,
 	&"SS_Block_Walk_Left": 1.08, &"SS_Block_Walk_Right": 1.21,
 }
-const LOOPING: Array[StringName] = [
+var looping: Array[StringName] = [
 	&"SS_Idle", &"SS_Walk", &"SS_Run", &"SS_Backward_Walk", &"SS_Backward_Run",
 	&"SS_Left_Strafe_Walk", &"SS_Right_Strafe_Walk", &"SS_Left_Run_Strafe",
 	&"SS_Right_Run_Strafe", &"SS_Block_Idle", &"SS_Crouch_Block_Idle",
@@ -37,24 +54,20 @@ const LOOPING: Array[StringName] = [
 	&"SS_Block_Walk", &"SS_Block_Walk_Back", &"SS_Block_Walk_Left", &"SS_Block_Walk_Right",
 ]
 ## The cuts a flurry cycles through, in order.
-const FLURRY: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Downward_Slash"]
+var flurry: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Downward_Slash"]
 ## Where each swing's blade is actually travelling, as a fraction of the clip —
 ## measured in Blender as the span the tip moves faster than 55% of its peak.
-const CUT_WINDOW := {
+var cut_window := {
 	&"SS_High_Attack": Vector2(0.41, 0.487), &"SS_Cross_Slash": Vector2(0.44, 0.52),
 	&"SS_Downward_Slash": Vector2(0.378, 0.467), &"SS_Low_Attack": Vector2(0.404, 0.462),
 	&"SS_Power_Slash": Vector2(0.548, 0.575), &"SS_Jump_Attack": Vector2(0.471, 0.543),
 	&"SS_Crouch_Slash": Vector2(0.366, 0.488),
 }
-const CLIP_ROLL := &"Roll_Quick_To_Run"
 ## How far into the roll clip the body is back on its feet (pelvis lowest at 0.64).
-const ROLL_SHARE := 0.8
-const CLIP_AIR := &"SS_Running_Jump"
-const CLIP_DOWN := &"SS_Falling_Back_Death"
+var roll_share := 0.8
 ## The landing half of the jump attack: the blade goes into the ground at 56–76%
 ## of it (tip down to 0.14 m, measured in Blender) and he stands back up after.
-const CLIP_PLUNGE := &"SS_Jump_Attack"
-const PLUNGE_FROM := 0.5
+var plunge_from := 0.5
 
 ## Blade, measured from the fist along the blade (m).
 const BLADE_BASE := 0.18
@@ -116,7 +129,8 @@ func _ready() -> void:
 		push_error("SkinnedRig: the model has no AnimationPlayer or Skeleton3D.")
 		return
 	_body = get_parent() as Node3D
-	for n in LOOPING:
+	_configure()
+	for n in looping:
 		if _anim.has_animation(n):
 			_anim.get_animation(n).loop_mode = Animation.LOOP_LINEAR
 	# The clips carry their travel on the `root` bone. The controller moves the
@@ -127,7 +141,12 @@ func _ready() -> void:
 	if cloth_enabled:
 		_setup_cloth()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
-	_set_base(&"SS_Idle", 0.0, 1.0)
+	_set_base(clips[&"idle"], 0.0, 1.0)
+
+
+## Override to swap in another character's clip table (see `clips`).
+func _configure() -> void:
+	pass
 
 
 ## Markers for the blade's base and tip on the weapon socket, so the swing trail
@@ -236,26 +255,26 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 
 func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, blocking: bool) -> void:
 	if airborne:
-		_set_base(CLIP_AIR, loco_blend, 0.8)
+		_set_base(clips[&"air"], loco_blend, 0.8)
 		return
 	if blocking:
 		if planar < idle_threshold:
-			_set_base(&"SS_Block_Idle", 0.12, 1.0)
+			_set_base(clips[&"block_idle"], 0.12, 1.0)
 		else:
 			# Legs from the walk, the guard held up over them (baked in Blender).
 			var bclip := _block_walk_clip()
-			var brate := clampf(planar / float(GROUND_SPEED.get(bclip, 1.4)), min_play_rate, max_play_rate)
+			var brate := clampf(planar / float(ground_speed.get(bclip, 1.4)), min_play_rate, max_play_rate)
 			_set_base(bclip, 0.15, brate)
 		return
 	if _crouching or _wall_climbing:
 		# No crouch-walk or climb in the library: the crouched guard stands in.
-		_set_base(&"SS_Crouch_Block_Idle", loco_blend, 1.0)
+		_set_base(clips[&"crouch"], loco_blend, 1.0)
 		return
 	if planar < idle_threshold:
-		_set_base(&"SS_Idle", loco_blend, 1.0)
+		_set_base(clips[&"idle"], loco_blend, 1.0)
 		return
 	var clip := _direction_clip(planar)
-	var rate := clampf(planar / float(GROUND_SPEED.get(clip, 1.4)), min_play_rate, max_play_rate)
+	var rate := clampf(planar / float(ground_speed.get(clip, 1.4)), min_play_rate, max_play_rate)
 	_set_base(clip, loco_blend, rate)
 
 
@@ -265,27 +284,27 @@ func _direction_clip(planar: float) -> StringName:
 	var run := planar > run_threshold
 	var body := _body as CharacterBody3D
 	if body == null:
-		return &"SS_Run" if run else &"SS_Walk"
+		return clips[&"run"] if run else clips[&"walk"]
 	var local := body.global_transform.basis.inverse() * body.velocity
 	var fwd := -local.z
 	var side := local.x
 	if absf(side) > absf(fwd) * 1.2:
 		if side > 0.0:
-			return &"SS_Right_Run_Strafe" if run else &"SS_Right_Strafe_Walk"
-		return &"SS_Left_Run_Strafe" if run else &"SS_Left_Strafe_Walk"
+			return clips[&"run_right"] if run else clips[&"walk_right"]
+		return clips[&"run_left"] if run else clips[&"walk_left"]
 	if fwd < 0.0:
-		return &"SS_Backward_Run" if run else &"SS_Backward_Walk"
-	return &"SS_Run" if run else &"SS_Walk"
+		return clips[&"run_back"] if run else clips[&"walk_back"]
+	return clips[&"run"] if run else clips[&"walk"]
 
 
 func _block_walk_clip() -> StringName:
 	var body := _body as CharacterBody3D
 	if body == null:
-		return &"SS_Block_Walk"
+		return clips[&"block_walk"]
 	var local := body.global_transform.basis.inverse() * body.velocity
 	if absf(local.x) > absf(local.z) * 1.2:
-		return &"SS_Block_Walk_Right" if local.x > 0.0 else &"SS_Block_Walk_Left"
-	return &"SS_Block_Walk_Back" if local.z > 0.0 else &"SS_Block_Walk"
+		return clips[&"block_walk_right"] if local.x > 0.0 else clips[&"block_walk_left"]
+	return clips[&"block_walk_back"] if local.z > 0.0 else clips[&"block_walk"]
 
 
 func _set_base(clip: StringName, blend: float, rate: float) -> void:
@@ -329,7 +348,7 @@ func _progress() -> float:
 
 
 func _in_window(through: float) -> bool:
-	var w: Vector2 = CUT_WINDOW.get(_act_clip, Vector2.ZERO)
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
 	return w != Vector2.ZERO and through >= w.x - cut_margin and through <= w.y + cut_margin
 
 
@@ -338,12 +357,12 @@ func attack(style: int = -1) -> void:
 	attack_serial += 1
 	var clip: StringName
 	if style == AttackStyle.OVERHEAD or _airborne_now:
-		clip = &"SS_Downward_Slash"
+		clip = clips[&"overhead"]
 		_attack_style = AttackStyle.OVERHEAD
 	else:
 		_attack_style = AttackStyle.SIDE
-		_flurry_slot = (_flurry_slot + 1) % FLURRY.size()
-		clip = FLURRY[_flurry_slot]
+		_flurry_slot = (_flurry_slot + 1) % flurry.size()
+		clip = flurry[_flurry_slot]
 	if _play_action(clip, Role.SWING, swing_rate):
 		_swing_commit = swing_time()
 
@@ -351,7 +370,7 @@ func attack(style: int = -1) -> void:
 func swing_time() -> float:
 	if _role != Role.SWING or _action_len <= 0.0:
 		return attack_duration
-	var w: Vector2 = CUT_WINDOW.get(_act_clip, Vector2(0.5, 0.5))
+	var w: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
 	return minf(_action_len * w.y / _action_rate + swing_recovery, _action_len / _action_rate)
 
 
@@ -361,10 +380,10 @@ func current_swing() -> StringName:
 
 func plunge(seconds: float) -> void:
 	_plunge_left = maxf(seconds, 0.1)
-	var length := _anim.get_animation(CLIP_PLUNGE).length if _anim.has_animation(CLIP_PLUNGE) else 1.0
+	var length := _anim.get_animation(clips[&"plunge"]).length if _anim.has_animation(clips[&"plunge"]) else 1.0
 	# The landing of the jump attack — the blade going in and the body coming
 	# back up over it — stretched over however long the recovery is.
-	_play_action(CLIP_PLUNGE, Role.PLUNGE, length * (1.0 - PLUNGE_FROM) / _plunge_left, 0.06, PLUNGE_FROM, 1.0)
+	_play_action(clips[&"plunge"], Role.PLUNGE, length * (1.0 - plunge_from) / _plunge_left, 0.06, plunge_from, 1.0)
 
 
 func is_planted() -> bool:
@@ -386,15 +405,15 @@ func dodge(duration: float) -> void:
 	# The roll part of the clip, fitted to the dash so the tumble and the
 	# movement finish together; what is left of the clip is the run-out, which
 	# the locomotion picks up instead.
-	var length := _anim.get_animation(CLIP_ROLL).length if _anim.has_animation(CLIP_ROLL) else 1.0
-	_play_action(CLIP_ROLL, Role.ROLL, length * ROLL_SHARE / maxf(duration, 0.05), 0.05, 0.0, ROLL_SHARE)
+	var length := _anim.get_animation(clips[&"roll"]).length if _anim.has_animation(clips[&"roll"]) else 1.0
+	_play_action(clips[&"roll"], Role.ROLL, length * roll_share / maxf(duration, 0.05), 0.05, 0.0, roll_share)
 
 
 func dodge_clip(duration: float) -> bool:
-	var length := _anim.get_animation(CLIP_ROLL).length if _anim.has_animation(CLIP_ROLL) else 0.0
+	var length := _anim.get_animation(clips[&"roll"]).length if _anim.has_animation(clips[&"roll"]) else 0.0
 	if length <= 0.0:
 		return false
-	return _play_action(CLIP_ROLL, Role.ROLL, length / maxf(duration, 0.05), 0.06)
+	return _play_action(clips[&"roll"], Role.ROLL, length / maxf(duration, 0.05), 0.06)
 
 
 func hit() -> void:
@@ -404,25 +423,25 @@ func hit() -> void:
 func flinch() -> void:
 	if _role == Role.SWING or _role == Role.DOWN:
 		return
-	_play_action(&"SS_Blocked_Impact" if _blocking_now else &"SS_Head_Impact", Role.HIT, 1.3, 0.05)
+	_play_action(clips[&"hit_blocked"] if _blocking_now else clips[&"hit"], Role.HIT, 1.3, 0.05)
 
 
 func knock_down() -> void:
-	_play_action(CLIP_DOWN, Role.DOWN, 1.4, 0.06)
+	_play_action(clips[&"down"], Role.DOWN, 1.4, 0.06)
 
 
 func get_up(duration: float) -> void:
 	# No stand-up clip in the pack: the fall, played back to front.
-	if not _anim.has_animation(CLIP_DOWN):
+	if not _anim.has_animation(clips[&"down"]):
 		_end_action()
 		return
-	var length := _anim.get_animation(CLIP_DOWN).length
+	var length := _anim.get_animation(clips[&"down"]).length
 	_role = Role.GET_UP
-	_act_clip = CLIP_DOWN
+	_act_clip = clips[&"down"]
 	_action_len = length
 	_action_rate = length / maxf(duration, 0.05)
 	_action_left = maxf(duration, 0.05)
-	_anim.play_backwards(CLIP_DOWN, 0.1)
+	_anim.play_backwards(clips[&"down"], 0.1)
 	_anim.speed_scale = _action_rate
 
 
@@ -447,8 +466,8 @@ func wall_climb(active: bool) -> void:
 
 
 func climb(duration: float) -> void:
-	_play_action(&"SS_Jump_From_Idle", Role.CLIMB,
-			_anim.get_animation(&"SS_Jump_From_Idle").length / maxf(duration, 0.05), 0.06)
+	_play_action(clips[&"mantle"], Role.CLIMB,
+			_anim.get_animation(clips[&"mantle"]).length / maxf(duration, 0.05), 0.06)
 
 
 func is_crouched() -> bool:

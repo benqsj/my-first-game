@@ -10,6 +10,12 @@ extends RefCounted
 static func use() -> void:
 	var tariel := load("res://scenes/player/tariel.tres") as CharacterProfile
 	tariel.visuals = load("res://scenes/player/tariel_visuals.tscn")
+	# And the tuning the controller checks were written against. The knight in
+	# the game is slower now and does not climb; what these tests exercise is
+	# the controller — ramps, slides, the wall climb — not him.
+	tariel.can_climb = true
+	tariel.run_speed = 7.2
+	tariel.walk_speed = 3.6
 	# Held on to for the rest of the run: once nothing references the profile
 	# it drops out of the cache, and the next load() reads the file again.
 	Engine.set_meta(&"procedural_tariel", tariel)

@@ -1758,6 +1758,37 @@ how to redo any of it).
 
     godot --path . --script res://tests/skinned_rig_test.gd -- /tmp/shots
 
+## Avtandil, skinned
+
+The hunter went the same way as the knight:
+`assets/avtandil_rigged/avtandil_rigged.glb` is his model on a skeleton with
+the same bone names, his bow on its own bones (`bow_l` grip, `bow_limb_u` /
+`bow_limb_l` so the limbs can bend, `bow_tip_u` / `bow_tip_l` for the string
+ends) and `draw_r` where the fingers hold the string — plus 75 clips: Mixamo's
+Pro Longbow pack and seven climbing clips. `scripts/skinned_archer_rig.gd`
+(`SkinnedArcherRig`) is `SkinnedRig` with his clip table, and the controller
+reaches the bow through `aim_bow()` / `loose_bow()` by name, so either archer
+rig answers.
+
+| In game | Clip |
+| --- | --- |
+| idle / walk / run / full pace | `AV_Idle_01`, `AV_Walk_*`, `AV_Run_*`, `AV_Sprint_Forward` over 5.5 m/s |
+| draw | `AV_Nock_Draw` — the back half of the pack's draw (the quiver reach dropped), bow arm held on the target throughout, baked in Blender |
+| holding / walking drawn | `AV_Aim_Idle_01`, `AV_Aim_Walk_*` |
+| loose | `AV_Shooting_Arrow`, the snap after the string goes |
+| crouch | `AV_Crouch_Idle_01`, `AV_Crouch_Walk_*` |
+| wall: up / down / sideways / still | `AV_Climbing_Up_Wall`, `AV_Climbing_Down_Wall`, `AV_Shimmy_*`, `AV_Hanging_Idle`, picked from the climb drive and rate-matched to it |
+| over a ledge | `AV_Braced_Hang_To_Crouch` |
+| dash / dodge | `AV_Dive_Forward`, `AV_Dodge_Forward` |
+
+The bow itself is `scripts/bow_modifier.gd` (`BowModifier`), a
+`SkeletonModifier3D` that runs after the clips: the chest tilts onto the aim
+pitch, the limbs bend towards the string hand as the draw builds, the string
+runs from each tip to the fingers (nodes `bow_string_u` / `bow_string_l`, as
+the procedural bow had them), and an arrow sits on it while drawn.
+
+    godot --path . --script res://tests/skinned_archer_test.gd -- /tmp/shots avtandil
+
 ## Swapping in the real models
 
 Replace the scene under `Visuals` with the imported knight, keep the origin at

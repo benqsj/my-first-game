@@ -48,7 +48,7 @@ func _initialize() -> void:
 
 ## --- The character itself -------------------------------------------------
 func _check_character() -> void:
-	_check("the archer spawns with his own rig", _player.rig is ArcherRig)
+	_check("the archer spawns with his own rig", _player.rig.has_method(&"aim_bow"))
 	_check("and carries a bow", _player.has_bow())
 	_check("the bow is on the model",
 			_player.rig.find_child("bow", true, false) != null)
@@ -317,7 +317,7 @@ func _check_bow() -> void:
 ## *look* like a string from some angles — they just also trail off to somewhere
 ## near the archer's feet, which is what this catches.
 func _check_string() -> void:
-	var rig := _player.rig as ArcherRig
+	var rig := _player.rig as Node3D
 	var hand := rig.find_child("draw", true, false) as Node3D
 	var arrow := rig.find_child("bow_arrow", true, false) as Node3D
 	var worst := 0.0

@@ -496,9 +496,9 @@ func _process(delta: float) -> void:
 	# Somebody else's archer draws from the replicated numbers. His own
 	# `_tick_bow()` is physics and never runs here.
 	if not mine:
-		var theirs := rig as ArcherRig
-		if theirs != null:
-			theirs.aim_bow(net_draw, net_aim)
+		# Either archer rig — the procedural one or the skinned one — takes this.
+		if rig.has_method(&"aim_bow"):
+			rig.call(&"aim_bow", net_draw, net_aim)
 	rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), airborne,
 			dashing, velocity.y, is_blocking if mine else net_blocking)
 
@@ -1658,9 +1658,8 @@ func _tick_bow(delta: float) -> void:
 	elif _drawing:
 		_loose_arrow()
 
-	var archer := rig as ArcherRig
-	if archer != null:
-		archer.aim_bow(draw_power() if _drawing else 0.0, _aim_pitch())
+	if rig != null and rig.has_method(&"aim_bow"):
+		rig.call(&"aim_bow", draw_power() if _drawing else 0.0, _aim_pitch())
 
 
 ## How far the string has come back, 0 to 1. Everything a shot is worth is this
@@ -1729,9 +1728,8 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool) ->
 		into.add_child(arrow)
 		arrow.global_position = from
 		arrow.call("launch", flight, damage, critical, _gravity * arrow_drop, self)
-	var archer := rig as ArcherRig
-	if archer != null:
-		archer.loose_bow()
+	if rig != null and rig.has_method(&"loose_bow"):
+		rig.call(&"loose_bow")
 
 
 ## Where the shot goes.
