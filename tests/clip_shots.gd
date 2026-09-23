@@ -49,6 +49,7 @@ var _dir := "res://"
 
 
 func _initialize() -> void:
+	preload("res://tests/procedural_tariel.gd").use()
 	var argv := OS.get_cmdline_user_args()
 	if argv.size() > 0:
 		_dir = argv[0]

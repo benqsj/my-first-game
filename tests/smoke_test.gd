@@ -10,6 +10,7 @@ var _failures := 0
 
 
 func _initialize() -> void:
+	preload("res://tests/procedural_tariel.gd").use()
 	var world: World = load(WORLD).instantiate()
 	root.add_child(world)
 	# One frame before anyone is asked for: a script main loop adds the level to

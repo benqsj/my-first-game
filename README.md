@@ -1716,6 +1716,41 @@ in detail and right in kind. `smoke_test.gd` checks the shapes were replaced,
 that the cart is still solid, and that a tick beside the house still costs less
 than 6 ms — the three ways this can quietly come undone.
 
+## Tariel, skinned
+
+Tariel is now a real skinned character: `assets/tariel_rigged/tariel_rigged.glb`
+holds one 36-bone skeleton (UE mannequin names — `pelvis`, `spine_01`,
+`upperarm_l`, `thigh_r`…), the body bound to it with every armour plate rigid on
+a single bone so nothing stretches, his own sword and shield on the `weapon_r`
+and `shield_l` sockets, and 47 clips from Mixamo's Pro Sword and Shield pack
+retargeted onto it in Blender. It is driven by `scripts/skinned_rig.gd`
+(`SkinnedRig`), which extends `CharacterRig` and answers every call the
+controller makes, so `player.gd` is unchanged. `tariel.tres` points at
+`scenes/player/tariel_rigged_visuals.tscn`; pointing it back at
+`tariel_visuals.tscn` restores the procedural knight, which Avtandil still uses.
+
+| In game | Clip |
+| --- | --- |
+| idle / walk / run | `SS_Idle`, `SS_Walk`, `SS_Run`, rate matched to ground speed |
+| backwards, strafing while locked on | `SS_Backward_*`, `SS_*_Strafe_Walk`, `SS_*_Run_Strafe` |
+| flurry | `SS_High_Attack` → `SS_Cross_Slash` → `SS_Downward_Slash` |
+| air / plunge | `SS_Downward_Slash` |
+| block, blocked hit | `SS_Block_Idle`, `SS_Blocked_Impact` |
+| hit | `SS_Head_Impact` |
+| dash / dodge | `Roll_Quick_To_Run` |
+| knocked down / get up | `SS_Falling_Back_Death` (and back to front) |
+| airborne | `SS_Running_Jump` |
+| crouch, slide, wall climb | `SS_Crouch_Block_Idle` — *stand-in, the pack has none* |
+
+The clips' travel sits on the `root` bone and is taken out as root motion
+(`AnimationPlayer.root_motion_track`), so the controller still moves the body.
+Each swing's cutting window was measured in Blender off the blade tip and is in
+`SkinnedRig.CUT_WINDOW`. The Blender source, the Mixamo files and the retarget
+scripts live outside the repo in `~/Desktop/vepxis-art/` (its `NOTES.md` says
+how to redo any of it).
+
+    godot --path . --script res://tests/skinned_rig_test.gd -- /tmp/shots
+
 ## Swapping in the real models
 
 Replace the scene under `Visuals` with the imported knight, keep the origin at

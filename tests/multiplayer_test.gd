@@ -194,7 +194,9 @@ func _check_two_attackers() -> void:
 			(knight as Player).global_position = wolf.global_position + Vector3(0.0, 0.0, 1.3)
 			(knight as Player).velocity = Vector3.ZERO
 			(knight as Player).rig.attack(CharacterRig.AttackStyle.SIDE)
-		await _wait(20)
+		# Long enough for the blade to get there: a clip has a wind-up before the
+		# cut, so the swing's own commitment time is what to wait on.
+		await _wait(maxi(20, int(ceil((mine as Player).rig.swing_time() * Engine.physics_ticks_per_second)) + 4))
 		landed = maxi(landed, wolf.rig.lost_parts() - before)
 
 	var serials: Dictionary = wolf.get("_last_hit_serial")

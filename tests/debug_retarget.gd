@@ -22,6 +22,7 @@ const LIMBS := [
 
 
 func _initialize() -> void:
+	preload("res://tests/procedural_tariel.gd").use()
 	var argv := OS.get_cmdline_user_args()
 	var clip := StringName(argv[0]) if argv.size() > 0 else &"A_TPose"
 
