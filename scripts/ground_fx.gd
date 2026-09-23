@@ -9,8 +9,8 @@ extends Node3D
 ##   they do not sink back. Arkdeva's is long and thin; the orc's is squat
 ##   earth.
 ## * [method eruption]: rocks and grit flung up where a heavy blow lands.
-## * [method spit]: a gob of poison lobbed on an arc, which bursts and leaves a
-##   green pool.
+##
+## Arkdeva's poison used to be here too; it is [Venom] now.
 ##
 ## All of it is looks. Who is hurt is decided by the host, from the same
 ## numbers ([method wave_front], [method wave_width]).
@@ -21,13 +21,11 @@ const WAVE_SPEED := 25.0
 const WAVE_HOLD := 1.0
 const WAVE_FADE := 0.45
 
-enum Kind { WAVE, DEBRIS, BLOB, POOL }
+enum Kind { WAVE, DEBRIS }
 
 static var _thorn_mesh: Mesh
 static var _spike_mesh: Mesh
 static var _rock_mesh: Mesh
-static var _blob_mesh: Mesh
-static var _pool_mesh: Mesh
 
 var _kind: int = Kind.WAVE
 var _t: float = 0.0
@@ -36,14 +34,6 @@ var _mm: MultiMesh
 var _material: StandardMaterial3D
 var _items: Array = []
 var _base_y: float = 0.0
-var _from := Vector3.ZERO
-var _to := Vector3.ZERO
-var _flight: float = 0.6
-var _arc: float = 0.8
-var _mesh: MeshInstance3D
-var _into: Node
-var _radius: float = 1.0
-var _gob: float = 1.0
 
 
 ## Metres from the start the front of a wave has reached after `t` seconds.
@@ -146,88 +136,11 @@ static func eruption(into: Node, at: Vector3, size: float = 1.0) -> GroundFx:
 	return fx
 
 
-## A gob from `from` to `to`, `flight` seconds in the air.
-static func spit(into: Node, from: Vector3, to: Vector3, flight: float = 0.6, arc: float = 0.8) -> GroundFx:
-	if into == null:
-		return null
-	var fx := GroundFx.new()
-	fx._kind = Kind.BLOB
-	fx._from = from
-	fx._to = to
-	fx._flight = flight
-	fx._arc = arc
-	fx._end = flight
-	fx._into = into
-	fx._mesh = MeshInstance3D.new()
-	fx._mesh.mesh = _blob()
-	fx._mesh.material_override = poison_material()
-	fx._mesh.scale = Vector3.ONE * 0.2
-	fx._gob = 1.0
-	fx.add_child(fx._mesh)
-	fx.top_level = true
-	into.add_child(fx)
-	fx.global_position = from
-	return fx
-
-
-## How big the gob and the pool it leaves are drawn.
-func set_scale_of_gob(size: float) -> void:
-	_gob = maxf(size, 0.1)
-
-
-static func pool(into: Node, at: Vector3, radius: float = 1.1, life: float = 3.5) -> GroundFx:
-	var fx := GroundFx.new()
-	fx._kind = Kind.POOL
-	fx._end = life
-	fx._mesh = MeshInstance3D.new()
-	fx._mesh.mesh = _pool()
-	fx._material = StandardMaterial3D.new()
-	fx._material.albedo_color = Color(0.31, 0.88, 0.16, 0.8)
-	fx._material.emission_enabled = true
-	fx._material.emission = Color(0.18, 0.55, 0.08)
-	fx._material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fx._material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fx._mesh.material_override = fx._material
-	fx._mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	fx._radius = radius
-	fx._mesh.scale = Vector3(radius * 0.3, 1.0, radius * 0.3)
-	fx.add_child(fx._mesh)
-	fx.top_level = true
-	into.add_child(fx)
-	fx.global_position = at + Vector3.UP * 0.03
-	return fx
-
-
-static var _poison: StandardMaterial3D
-
-static func poison_material() -> StandardMaterial3D:
-	if _poison == null:
-		_poison = StandardMaterial3D.new()
-		_poison.albedo_color = Color(0.36, 0.92, 0.2)
-		_poison.emission_enabled = true
-		_poison.emission = Color(0.25, 0.7, 0.1)
-		_poison.roughness = 0.3
-	return _poison
-
-
 func _process(delta: float) -> void:
 	_t += delta
 	match _kind:
 		Kind.WAVE, Kind.DEBRIS:
 			_place()
-		Kind.BLOB:
-			var p := clampf(_t / maxf(_flight, 0.01), 0.0, 1.0)
-			var at := _from.lerp(_to, p)
-			at.y += _arc * 4.0 * p * (1.0 - p)
-			global_position = at
-			_mesh.scale = Vector3(0.18, 0.18, 0.18 + 0.1 * sin(p * PI)) * _gob
-			if p >= 1.0:
-				GroundFx.pool(_into, _to, 1.1 * _gob, 3.5)
-				DustRing.burst(_into, _to, 0.5 * _gob)
-		Kind.POOL:
-			var grow := lerpf(0.3, 1.0, clampf(_t / 0.25, 0.0, 1.0)) * _radius
-			_mesh.scale = Vector3(grow, 1.0, grow)
-			_material.albedo_color.a = 0.8 * clampf((_end - _t) / 0.8, 0.0, 1.0)
 	if _t >= _end:
 		queue_free()
 
@@ -303,26 +216,3 @@ static func _rock() -> Mesh:
 		box.size = Vector3.ONE
 		_rock_mesh = box
 	return _rock_mesh
-
-
-static func _blob() -> Mesh:
-	if _blob_mesh == null:
-		var ball := SphereMesh.new()
-		ball.radius = 0.5
-		ball.height = 1.0
-		ball.radial_segments = 10
-		ball.rings = 6
-		_blob_mesh = ball
-	return _blob_mesh
-
-
-static func _pool() -> Mesh:
-	if _pool_mesh == null:
-		var disc := CylinderMesh.new()
-		disc.top_radius = 1.0
-		disc.bottom_radius = 1.0
-		disc.height = 0.02
-		disc.radial_segments = 20
-		disc.rings = 1
-		_pool_mesh = disc
-	return _pool_mesh

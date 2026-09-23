@@ -19,7 +19,7 @@ extends Brute
 ##   stone thorns out of the ground ahead of it, eleven metres long and wider
 ##   the further it runs: a hit of its own, apart from the scythes'.
 ## * **Poison** — spat forward, once or twice, at whoever it is fighting. It
-##   bursts where it lands and leaves a green pool.
+##   bursts where it lands and leaves a pool that burns ([Venom] draws it).
 ##
 ## Only the combo can knock a player down, and only if all three scythes land.
 
@@ -382,9 +382,7 @@ func net_thorns(from: Vector3, direction: Vector3) -> void:
 
 @rpc("authority", "call_local", "reliable")
 func net_spit(from: Vector3, to: Vector3) -> void:
-	var fx := GroundFx.spit(Blood.world_of(self), from, to, spit_flight, 0.8 * visual_scale)
-	if fx != null:
-		fx.set_scale_of_gob(visual_scale)
+	Venom.spit(Blood.world_of(self), from, to, spit_flight, 0.8 * visual_scale, visual_scale)
 
 
 ## Where it is in its act, on this peer: the move, and how far through it.
