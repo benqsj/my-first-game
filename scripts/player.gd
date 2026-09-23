@@ -658,6 +658,10 @@ func _process_locomotion(delta: float) -> void:
 	# what makes choosing when to draw a decision rather than a formality.
 	if _drawing:
 		speed *= draw_speed_scale
+	# Behind a raised shield he walks, he does not run: the guard is paid for with
+	# pace, the same way the draw is.
+	if is_blocking:
+		speed = minf(speed, walk_speed)
 	# And nobody runs out of the *second* swing. The first one keeps whatever it
 	# was thrown at — a charge that turns into a shuffle the instant the button
 	# goes down reads as slow motion, not as weight — and so does anything thrown
@@ -1201,6 +1205,8 @@ func _wall_hold_distance() -> float:
 ## way to feel in, defaulting to whichever way the body is facing.
 func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
 	if not wall_climb_enabled or _wall_cooldown_timer > 0.0:
+		return false
+	if profile != null and not profile.can_climb:
 		return false
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return false

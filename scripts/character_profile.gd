@@ -26,6 +26,10 @@ enum Weapon {
 ## Whether there is a shield to put up. Without one the block button does
 ## nothing, which the character-select screen says out loud.
 @export var can_block: bool = true
+## Whether he can take hold of a wall and climb it. The hunter can; the knight,
+## in plate and carrying a shield, runs into the wall and stays on the ground.
+## Hauling himself over a waist-high ledge is not this — everybody can do that.
+@export var can_climb: bool = true
 
 @export_group("Movement")
 ## Overrides the controller's own. The knight is the yardstick at 9 m/s.

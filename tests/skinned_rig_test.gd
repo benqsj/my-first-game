@@ -33,7 +33,7 @@ func _initialize() -> void:
 	if rig == null:
 		quit(1)
 		return
-	_check("all clips loaded", rig.clip_names().size() >= 47, "%d" % rig.clip_names().size())
+	_check("all clips loaded", rig.clip_names().size() >= 51, "%d" % rig.clip_names().size())
 	var anim: AnimationPlayer = rig._anim
 
 	for i in 40:
@@ -47,6 +47,16 @@ func _initialize() -> void:
 	_check("running plays the run cycle", anim.current_animation == "SS_Run",
 			"%s at %.1f m/s" % [anim.current_animation, Vector3(player.velocity.x, 0, player.velocity.z).length()])
 	await _shot(player, "02_run")
+	var cloth := rig.find_child("Cloth", true, false) as SpringBoneSimulator3D
+	_check("the cape hangs off spring bones", cloth != null and cloth.get_setting_count() == 2, "")
+	if cloth != null:
+		var skel: Skeleton3D = rig._skel
+		var tip := skel.find_bone("cape_05")
+		var anim_pose := skel.get_bone_pose(tip).basis.get_rotation_quaternion()
+		var rest := skel.get_bone_rest(tip).basis.get_rotation_quaternion()
+		# While running, the simulated cape should have swung off its rest.
+		var swing := rad_to_deg((skel.get_bone_global_pose(tip).basis.get_rotation_quaternion() * skel.get_bone_global_rest(tip).basis.get_rotation_quaternion().inverse()).get_angle())
+		_check("running swings the cape", swing > 5.0, "%.1f°" % swing)
 	Input.action_release("move_forward")
 	for i in 40:
 		await physics_frame
@@ -76,6 +86,16 @@ func _initialize() -> void:
 		await physics_frame
 	_check("holding block plays the guard", anim.current_animation == "SS_Block_Idle", anim.current_animation)
 	await _shot(player, "04_block")
+	Input.action_press("move_forward")
+	for i in 30:
+		await physics_frame
+	var moving := Vector3(player.velocity.x, 0, player.velocity.z).length()
+	_check("walking behind the shield plays the guarded walk", moving < 0.2 or String(anim.current_animation).begins_with("SS_Block_Walk"),
+			"%s at %.1f m/s" % [anim.current_animation, moving])
+	await _shot(player, "04b_block_walk")
+	Input.action_release("move_forward")
+	for i in 20:
+		await physics_frame
 	rig.flinch()
 	for i in 6:
 		await physics_frame
@@ -99,6 +119,34 @@ func _initialize() -> void:
 	for i in 60:
 		await physics_frame
 	_check("back to idle after it all", anim.current_animation == "SS_Idle", anim.current_animation)
+
+	# --- The knight does not climb -----------------------------------------
+	_check("the knight's profile says he cannot climb", not player.profile.can_climb, "")
+	var wall := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(6.0, 6.0, 0.6)
+	shape.shape = box
+	wall.add_child(shape)
+	wall.collision_layer = 1
+	player.get_parent().add_child(wall)
+	wall.global_position = player.global_position + (-player.global_transform.basis.z) * 3.0 + Vector3.UP * 3.0
+	wall.look_at(player.global_position + Vector3.UP * 3.0)
+	for i in 5:
+		await physics_frame
+	Input.action_press("move_forward")
+	var climbed := false
+	for i in 90:
+		await physics_frame
+		climbed = climbed or player.is_wall_climbing()
+	Input.action_press("jump")
+	for i in 30:
+		await physics_frame
+		climbed = climbed or player.is_wall_climbing()
+	Input.action_release("jump")
+	Input.action_release("move_forward")
+	_check("running into a wall does not start a climb", not climbed, "")
+	wall.queue_free()
 
 	print("skinned_rig_test: %s" % ("PASS" if _failures == 0 else "%d FAILED" % _failures))
 	quit(_failures)

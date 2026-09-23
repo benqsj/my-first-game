@@ -26,12 +26,15 @@ const GROUND_SPEED := {
 	&"SS_Backward_Walk": 1.12, &"SS_Backward_Run": 3.22,
 	&"SS_Left_Strafe_Walk": 1.08, &"SS_Right_Strafe_Walk": 1.21,
 	&"SS_Left_Run_Strafe": 2.56, &"SS_Right_Run_Strafe": 2.45,
+	&"SS_Block_Walk": 1.42, &"SS_Block_Walk_Back": 1.12,
+	&"SS_Block_Walk_Left": 1.08, &"SS_Block_Walk_Right": 1.21,
 }
 const LOOPING: Array[StringName] = [
 	&"SS_Idle", &"SS_Walk", &"SS_Run", &"SS_Backward_Walk", &"SS_Backward_Run",
 	&"SS_Left_Strafe_Walk", &"SS_Right_Strafe_Walk", &"SS_Left_Run_Strafe",
 	&"SS_Right_Run_Strafe", &"SS_Block_Idle", &"SS_Crouch_Block_Idle",
 	&"SS_Left_Crouch_Idle_Loop", &"SS_Sword_Play_Idle", &"SS_Look_Around_Idle",
+	&"SS_Block_Walk", &"SS_Block_Walk_Back", &"SS_Block_Walk_Left", &"SS_Block_Walk_Right",
 ]
 ## The cuts a flurry cycles through, in order.
 const FLURRY: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Downward_Slash"]
@@ -60,7 +63,7 @@ const BLADE_TIP := 1.03
 @export_group("Skinned")
 ## Under this speed the body stands; over `run_threshold` it runs.
 @export var idle_threshold: float = 0.25
-@export var run_threshold: float = 2.4
+@export var run_threshold: float = 3.2
 ## Clamp on how far a cycle is sped up or slowed down to match the ground. Past
 ## the top of it the feet slide a little rather than blur.
 @export var min_play_rate: float = 0.6
@@ -71,6 +74,20 @@ const BLADE_TIP := 1.03
 @export var cut_margin: float = 0.03
 ## Swings play at this rate. Mixamo's are unhurried; the game is not.
 @export var swing_rate: float = 1.35
+
+@export_group("Cloth")
+## The cape and the ponytail hang off spring bones: they lag behind the body and
+## swing back, and the cape is kept off the legs by capsules on them.
+@export var cloth_enabled: bool = true
+## Pull back towards the way the cloth hangs at rest. Lower is floppier.
+@export var cape_stiffness: float = 1.3
+@export var cape_drag: float = 0.55
+@export var cape_gravity: float = 2.2
+## How thick the cape is treated as being when it meets the legs.
+@export var cape_radius: float = 0.04
+@export var hair_stiffness: float = 0.8
+@export var hair_drag: float = 0.4
+@export var hair_gravity: float = 0.4
 
 enum Role { NONE, SWING, ROLL, HIT, DOWN, GET_UP, PLUNGE, CLIMB, FREE }
 
@@ -107,6 +124,8 @@ func _ready() -> void:
 	var holder := _anim.get_node(_anim.root_node)
 	_anim.root_motion_track = NodePath(String(holder.get_path_to(_skel)) + ":root")
 	_setup_blade()
+	if cloth_enabled:
+		_setup_cloth()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
 	_set_base(&"SS_Idle", 0.0, 1.0)
 
@@ -137,6 +156,53 @@ func _setup_blade() -> void:
 	_trail.name = "SwordTrail"
 	add_child(_trail)
 	_trail.setup(_blade_base, _blade_tip)
+
+
+## Spring bones for the cape (`cape_00`..`cape_06`) and the ponytail
+## (`hair_00`..`hair_04`), and the capsules that keep the cape out of the legs
+## and the body. The clips leave both chains at rest; this runs after them.
+func _setup_cloth() -> void:
+	var sim := SpringBoneSimulator3D.new()
+	sim.name = "Cloth"
+	var chains := [
+		[&"cape_00", &"cape_06", cape_stiffness, cape_drag, cape_gravity, cape_radius],
+		[&"hair_00", &"hair_04", hair_stiffness, hair_drag, hair_gravity, 0.03],
+	]
+	var usable: Array = []
+	for c in chains:
+		if _skel.find_bone(c[0]) >= 0 and _skel.find_bone(c[1]) >= 0:
+			usable.append(c)
+	if usable.is_empty():
+		return
+	_skel.add_child(sim)
+	sim.set_setting_count(usable.size())
+	for i in usable.size():
+		var c: Array = usable[i]
+		sim.set_root_bone_name(i, c[0])
+		sim.set_end_bone_name(i, c[1])
+		sim.set_extend_end_bone(i, true)
+		sim.set_end_bone_length(i, 0.12)
+		sim.set_stiffness(i, c[2])
+		sim.set_drag(i, c[3])
+		sim.set_gravity(i, c[4])
+		sim.set_radius(i, c[5])
+	# Capsules along the legs, the hips and the back: bone, radius, length.
+	for spec in [[&"thigh_l", 0.1, 0.44], [&"thigh_r", 0.1, 0.44], [&"calf_l", 0.08, 0.42],
+			[&"calf_r", 0.08, 0.42], [&"pelvis", 0.17, 0.3], [&"spine_01", 0.17, 0.25],
+			[&"spine_02", 0.17, 0.28], [&"head", 0.13, 0.22]]:
+		if _skel.find_bone(spec[0]) < 0:
+			continue
+		var cap := SpringBoneCollisionCapsule3D.new()
+		cap.name = "Col_%s" % spec[0]
+		sim.add_child(cap)
+		cap.set_bone_name(spec[0])
+		cap.set_radius(spec[1])
+		cap.set_height(spec[2] + spec[1] * 2.0)
+		# Capsules run along their own Y, as bones do; centred halfway down it.
+		cap.set_position_offset(Vector3(0.0, spec[2] * 0.5, 0.0))
+	sim.set_enable_all_child_collisions(0, true)
+	if usable.size() > 1:
+		sim.set_enable_all_child_collisions(1, true)
 
 
 func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: bool,
@@ -173,7 +239,13 @@ func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, block
 		_set_base(CLIP_AIR, loco_blend, 0.8)
 		return
 	if blocking:
-		_set_base(&"SS_Block_Idle", 0.12, 1.0)
+		if planar < idle_threshold:
+			_set_base(&"SS_Block_Idle", 0.12, 1.0)
+		else:
+			# Legs from the walk, the guard held up over them (baked in Blender).
+			var bclip := _block_walk_clip()
+			var brate := clampf(planar / float(GROUND_SPEED.get(bclip, 1.4)), min_play_rate, max_play_rate)
+			_set_base(bclip, 0.15, brate)
 		return
 	if _crouching or _wall_climbing:
 		# No crouch-walk or climb in the library: the crouched guard stands in.
@@ -204,6 +276,16 @@ func _direction_clip(planar: float) -> StringName:
 	if fwd < 0.0:
 		return &"SS_Backward_Run" if run else &"SS_Backward_Walk"
 	return &"SS_Run" if run else &"SS_Walk"
+
+
+func _block_walk_clip() -> StringName:
+	var body := _body as CharacterBody3D
+	if body == null:
+		return &"SS_Block_Walk"
+	var local := body.global_transform.basis.inverse() * body.velocity
+	if absf(local.x) > absf(local.z) * 1.2:
+		return &"SS_Block_Walk_Right" if local.x > 0.0 else &"SS_Block_Walk_Left"
+	return &"SS_Block_Walk_Back" if local.z > 0.0 else &"SS_Block_Walk"
 
 
 func _set_base(clip: StringName, blend: float, rate: float) -> void:

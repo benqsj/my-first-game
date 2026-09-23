@@ -241,7 +241,7 @@ and the handful of figures that differ:
 | | Tariel | Avtandil |
 | --- | ------ | -------- |
 | weapon | sword and shield | bow |
-| run | 7.2 m/s | 8.3 m/s |
+| run | 5.6 m/s | 8.3 m/s |
 | roll | 11 m/s × 0.45 s = 4.9 m | 13.5 m/s × 0.5 s = 6.8 m |
 | crit | 10% | 30% |
 
@@ -1736,11 +1736,18 @@ controller makes, so `player.gd` is unchanged. `tariel.tres` points at
 | flurry | `SS_High_Attack` → `SS_Cross_Slash` → `SS_Downward_Slash` |
 | air / plunge | `SS_Downward_Slash` |
 | block, blocked hit | `SS_Block_Idle`, `SS_Blocked_Impact` |
+| walking behind the shield | `SS_Block_Walk`, `_Back`, `_Left`, `_Right` — legs from the walk, the guard from `SS_Block_Idle`, baked in Blender; blocking caps the pace at `walk_speed` |
 | hit | `SS_Head_Impact` |
 | dash / dodge | `Roll_Quick_To_Run` |
 | knocked down / get up | `SS_Falling_Back_Death` (and back to front) |
 | airborne | `SS_Running_Jump` |
-| crouch, slide, wall climb | `SS_Crouch_Block_Idle` — *stand-in, the pack has none* |
+| crouch, slide | `SS_Crouch_Block_Idle` — *stand-in, the pack has none* |
+
+He does not climb walls (`can_climb = false` in `tariel.tres`): only the hunter
+does. The cape (`cape_00`–`cape_06`) and the ponytail (`hair_00`–`hair_04`) are
+`SpringBoneSimulator3D` chains built by the rig, kept off the legs and body by
+capsules on the thighs, calves, pelvis, spine and head — `Cloth` in the
+inspector for stiffness, drag and gravity.
 
 The clips' travel sits on the `root` bone and is taken out as root motion
 (`AnimationPlayer.root_motion_track`), so the controller still moves the body.
