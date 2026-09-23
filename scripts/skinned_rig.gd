@@ -32,7 +32,7 @@ var clips := {
 	&"crouch": &"SS_Crouch_Block_Idle", &"air": &"SS_Running_Jump",
 	&"roll": &"Roll_Quick_To_Run", &"down": &"SS_Falling_Back_Death",
 	&"hit": &"SS_Head_Impact", &"hit_blocked": &"SS_Blocked_Impact",
-	&"mantle": &"SS_Jump_From_Idle", &"plunge": &"SS_Jump_Attack",
+	&"mantle": &"SS_Mantle", &"plunge": &"SS_Jump_Attack",
 	&"overhead": &"SS_Downward_Slash",
 }
 ## Ground speed each in-place cycle was authored at, measured in Blender off the
@@ -86,7 +86,7 @@ const BLADE_TIP := 1.03
 ## Widens the measured cutting window a little each side, as a fraction of the clip.
 @export var cut_margin: float = 0.03
 ## Swings play at this rate. Mixamo's are unhurried; the game is not.
-@export var swing_rate: float = 1.35
+@export var swing_rate: float = 1.6
 
 @export_group("Cloth")
 ## The cape and the ponytail hang off spring bones: they lag behind the body and

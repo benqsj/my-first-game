@@ -54,7 +54,7 @@ func _configure() -> void:
 		&"block_idle": &"AV_Block", &"block_walk": &"AV_Walk_Forward",
 		&"block_walk_back": &"AV_Walk_Back", &"block_walk_left": &"AV_Walk_Left",
 		&"block_walk_right": &"AV_Walk_Right",
-		&"air": &"AV_Fall_A_Loop", &"roll": &"AV_Dive_Forward", &"dodge": &"AV_Dodge_Forward",
+		&"air": &"AV_Jump_Air", &"roll": &"AV_Dive_Forward", &"dodge": &"AV_Dodge_Forward",
 		&"down": &"AV_Death_Backward_01", &"hit": &"AV_React_Small_From_Front",
 		&"hit_blocked": &"AV_React_Small_From_Front",
 		&"mantle": &"AV_Braced_Hang_To_Crouch", &"plunge": &"AV_Melee_Kick",
@@ -78,14 +78,14 @@ func _configure() -> void:
 		&"AV_Run_Right", &"AV_Aim_Idle_01", &"AV_Aim_Walk_Forward", &"AV_Aim_Walk_Back",
 		&"AV_Aim_Walk_Left", &"AV_Aim_Walk_Right", &"AV_Crouch_Idle_01",
 		&"AV_Crouch_Walk_Forward", &"AV_Crouch_Walk_Back", &"AV_Crouch_Walk_Left",
-		&"AV_Crouch_Walk_Right", &"AV_Fall_A_Loop", &"AV_Climbing_Up_Wall",
+		&"AV_Crouch_Walk_Right", &"AV_Climbing_Up_Wall",
 		&"AV_Climbing_Down_Wall", &"AV_Shimmy_Left", &"AV_Shimmy_Right", &"AV_Hanging_Idle",
 	]
 	flurry = [&"AV_Melee_Punch", &"AV_Melee_Kick"]
 	cut_window = {}
 	roll_share = 0.75
-	# He runs at 8.3 m/s; the pack's sprint is authored at 4.1.
-	max_play_rate = 2.6
+	# He runs at 7.6 m/s; the pack's sprint is authored at 4.1.
+	max_play_rate = 2.2
 	idle_threshold = 0.25
 
 
