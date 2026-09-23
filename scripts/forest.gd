@@ -177,6 +177,14 @@ const CLEARINGS: Array[Vector3] = [
 	# it anyway, but the hedgerows are planted by hand and would run straight
 	# through the street without this.
 	Vector3(64.0, 43.0, 26.0),
+	# The mere in the marsh and the village on its island (Marsh.mere_centre),
+	# wider than the water so the wood stands back from the shore.
+	Vector3(10.0, -188.0, 52.0),
+	# And a gap in the trees on its north side, where the ride down from the
+	# open ground east of the core comes out. Only south of the old boundary:
+	# a clearing inside the square would re-roll the whole square's wood.
+	Vector3(28.0, -130.0, 9.0),
+	Vector3(24.0, -142.0, 10.0),
 ]
 
 @export_group("Layout")
@@ -186,6 +194,9 @@ const CLEARINGS: Array[Vector3] = [
 @export var random_seed: int = 90238411
 ## Half the side of the ground plane. Nothing is planted beyond this.
 @export var half_extent: float = 116.0
+## How much further the ground runs to the south (towards -z) than
+## `half_extent`, in metres: the marsh strip. The wood grows into it too.
+@export var south_extent: float = 0.0
 ## How far in from the boundary the wood stops, so no trunk grows through a wall.
 @export var edge_margin: float = 3.0
 
@@ -300,6 +311,14 @@ func _ready() -> void:
 	_grow("Undergrowth", UNDERGROWTH, undergrowth_draw_distance, false, false)
 	_grow("Litter", LITTER, litter_draw_distance, false, false)
 	_grow_lines("Hedgerows", HEDGEROW, HEDGEROWS)
+	# The strip the map grew by, planted after everything else so the square's
+	# wood comes out of the same seed exactly as it did before the strip existed.
+	if south_extent > 0.0:
+		var from := -(half_extent + south_extent) + edge_margin
+		var to := -half_extent - edge_margin * 0.5
+		_grow("Canopy South", CANOPY, tree_draw_distance, trees_cast_shadows, true, from, to)
+		_grow("Undergrowth South", UNDERGROWTH, undergrowth_draw_distance, false, false, from, to)
+		_grow("Litter South", LITTER, litter_draw_distance, false, false, from, to)
 
 	print("Forest: %s, %d trunks over %d bodies (%d distinct shapes), in %.1f ms" % [
 			counts, trunk_count(), _bodies.size(), _shape_pool.size(),
@@ -345,7 +364,7 @@ func trunk_near(point: Vector3) -> Vector3:
 #region Planting
 ## Scatters one group over the map and builds the nodes that draw and collide it.
 func _grow(group_name: String, group: Dictionary, draw_distance: float,
-		shadows: bool, solid: bool) -> void:
+		shadows: bool, solid: bool, z_from: float = NAN, z_to: float = NAN) -> void:
 	var models: Array = group["models"]
 	var spacing: float = group["spacing"]
 	var chance: float = group["chance"]
@@ -359,17 +378,21 @@ func _grow(group_name: String, group: Dictionary, draw_distance: float,
 	var planted := 0
 
 	var limit := half_extent - edge_margin
+	# The rows to sample: the square by default, or a strip of the ground beyond
+	# it (see `south_extent`).
+	var z_low := -limit if is_nan(z_from) else z_from
+	var z_high := limit if is_nan(z_to) else z_to
 	# Hexagonal rows pack more evenly than a square lattice at the same spacing.
 	var row_step := spacing * sqrt(3.0) / 2.0
 	var row := 0
-	var z := -limit
-	while z <= limit:
+	var z := z_low
+	while z <= z_high:
 		var x := -limit + (spacing * 0.5 if row % 2 else 0.0)
 		while x <= limit:
 			var at := Vector2(x + _rng.randf_range(-0.42, 0.42) * spacing,
 					z + _rng.randf_range(-0.42, 0.42) * spacing)
 			x += spacing
-			if absf(at.x) > limit or absf(at.y) > limit:
+			if absf(at.x) > limit or at.y < z_low or at.y > z_high:
 				continue
 			var cover := _coverage(at)
 			if cover <= 0.0 or _rng.randf() > cover * chance:

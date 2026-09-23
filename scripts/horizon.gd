@@ -34,6 +34,13 @@ const MODELS: PackedStringArray = [
 ## poke through into the play area.
 @export var inner_radius: float = 178.0
 @export var outer_radius: float = 268.0
+## Where the rings are centred, (x, z). The map is no longer square about the
+## origin — it runs further south, into the marsh — so the ring is moved to the
+## middle of what is there rather than left round the spawn.
+@export var centre: Vector2 = Vector2.ZERO
+## How much each ring is drawn out along x and z. An oblong map wants an
+## oval of mountains, or the long sides run straight into them.
+@export var stretch: Vector2 = Vector2.ONE
 ## How many peaks go round each ring. The kit's mountains are about eighty-five
 ## metres across, so a ring wants roughly its circumference divided by sixty.
 @export var inner_count: int = 17
@@ -64,7 +71,8 @@ func _ring(ring_name: String, radius: float, count: int, span: Vector2) -> void:
 		# purely random angles clump and leave holes in the skyline.
 		var angle := TAU * (float(i) + _rng.randf_range(-0.28, 0.28)) / float(count)
 		var out := radius + _rng.randf_range(-jitter, jitter)
-		var at := Vector3(cos(angle) * out, -sink, sin(angle) * out)
+		var at := Vector3(centre.x + cos(angle) * out * stretch.x, -sink,
+				centre.y + sin(angle) * out * stretch.y)
 		var size := _rng.randf_range(span.x, span.y)
 		var basis := Basis(Vector3.UP, _rng.randf() * TAU).scaled(
 				Vector3(size, size * _rng.randf_range(0.75, 1.35), size))

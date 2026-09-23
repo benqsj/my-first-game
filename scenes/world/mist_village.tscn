@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/mist_village.gd" id="1_village"]
+[ext_resource type="PackedScene" path="res://assets/world/mist_village.glb" id="2_model"]
+
+[node name="MistVillage" type="Node3D"]
+script = ExtResource("1_village")
+
+[node name="Model" parent="." instance=ExtResource("2_model")]

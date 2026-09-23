@@ -1,0 +1,20 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/world/mist.gdshader" id="1_mist"]
+
+[sub_resource type="FastNoiseLite" id="Noise_wisp"]
+noise_type = 3
+frequency = 0.012
+fractal_octaves = 4
+fractal_gain = 0.55
+
+[sub_resource type="NoiseTexture2D" id="Wisp"]
+width = 256
+height = 256
+seamless = true
+noise = SubResource("Noise_wisp")
+
+[resource]
+render_priority = 1
+shader = ExtResource("1_mist")
+shader_parameter/wisp = SubResource("Wisp")

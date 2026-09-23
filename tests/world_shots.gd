@@ -25,6 +25,12 @@ const VANTAGES := {
 	"windmill": [Vector3(84, 5, 48), Vector3(96, 5, 62), 50.0],
 	"gate_above": [Vector3(30, 42, 42), Vector3(30.01, 0, 42), 45.0],
 	"horizon_east": [Vector3(70, 6, 10), Vector3(180, 26, 10), 65.0],
+	# The marsh the map grew by, and the village on the island in its mere. The
+	# first is the angle of the picture the village was built to.
+	"mere_village": [Vector3(10, 13, -146), Vector3(10, 3.5, -190), 58.0],
+	"mere_shore": [Vector3(16, 1.9, -138), Vector3(8, 5.0, -188), 62.0],
+	"mere_on_island": [Vector3(4, 4.0, -178), Vector3(22, 3.0, -196), 70.0],
+	"mere_above": [Vector3(10, 120, -120), Vector3(10, 0, -188), 50.0],
 }
 
 var _dir := "res://"
@@ -109,9 +115,10 @@ func _map(camera: Camera3D, world: Node3D) -> void:
 		mesh.visibility_range_end = 0.0
 
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = 250.0
+	# The whole of the ground: the square, and the marsh strip south of it.
+	camera.size = 380.0
 	camera.far = 900.0
-	camera.position = Vector3(0.0, 300.0, 0.0)
+	camera.position = Vector3(0.0, 300.0, -65.0)
 	camera.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
 	for i in 20:
 		await process_frame

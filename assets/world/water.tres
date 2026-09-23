@@ -1,0 +1,36 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/world/water.gdshader" id="1_water"]
+
+[sub_resource type="FastNoiseLite" id="Noise_a"]
+noise_type = 3
+frequency = 0.035
+fractal_octaves = 3
+
+[sub_resource type="NoiseTexture2D" id="Ripple_a"]
+width = 256
+height = 256
+seamless = true
+as_normal_map = true
+bump_strength = 6.0
+noise = SubResource("Noise_a")
+
+[sub_resource type="FastNoiseLite" id="Noise_b"]
+noise_type = 3
+seed = 91
+frequency = 0.06
+fractal_octaves = 2
+
+[sub_resource type="NoiseTexture2D" id="Ripple_b"]
+width = 256
+height = 256
+seamless = true
+as_normal_map = true
+bump_strength = 4.0
+noise = SubResource("Noise_b")
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_water")
+shader_parameter/ripple_a = SubResource("Ripple_a")
+shader_parameter/ripple_b = SubResource("Ripple_b")

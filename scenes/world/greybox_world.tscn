@@ -1,4 +1,4 @@
-[gd_scene load_steps=61 format=3]
+[gd_scene load_steps=64 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="9_pause"]
@@ -36,6 +36,8 @@
 [ext_resource type="PackedScene" path="res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx" id="40_fence"]
 [ext_resource type="PackedScene" path="res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_CropField.fbx" id="41_crop"]
 [ext_resource type="PackedScene" path="res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_Axe.fbx" id="42_axe"]
+[ext_resource type="Script" path="res://scripts/marsh.gd" id="43_marsh"]
+[ext_resource type="PackedScene" path="res://scenes/world/mist_village.tscn" id="44_mist_village"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.36, 0.5, 0.72, 1)
@@ -151,6 +153,9 @@ size = Vector3(5, 0.4, 5)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall"]
 size = Vector3(1, 10, 240)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_long"]
+size = Vector3(1, 10, 372)
 
 [sub_resource type="BoxMesh" id="BoxMesh_pillar"]
 size = Vector3(1.2, 4, 1.2)
@@ -677,16 +682,16 @@ script = ExtResource("20_spinner")
 
 [node name="SM_sails" parent="Level/Village/Windmill/Sails" instance=ExtResource("35_sails")]
 [node name="WallEast" type="StaticBody3D" parent="Level"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 119.5, 4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 119.5, 4, -65)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallEast"]
-shape = SubResource("BoxShape3D_wall")
+shape = SubResource("BoxShape3D_wall_long")
 
 [node name="WallWest" type="StaticBody3D" parent="Level"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.5, 4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.5, 4, -65)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallWest"]
-shape = SubResource("BoxShape3D_wall")
+shape = SubResource("BoxShape3D_wall_long")
 
 [node name="WallNorth" type="StaticBody3D" parent="Level"]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, 119.5)
@@ -695,7 +700,7 @@ transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, 119.5)
 shape = SubResource("BoxShape3D_wall")
 
 [node name="WallSouth" type="StaticBody3D" parent="Level"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, -119.5)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, -250.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallSouth"]
 shape = SubResource("BoxShape3D_wall")
@@ -764,9 +769,21 @@ transform = Transform3D(0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, 0.906308, 
 
 [node name="Forest" type="Node3D" parent="."]
 script = ExtResource("17_forest")
+south_extent = 130.0
 
 [node name="Horizon" type="Node3D" parent="."]
 script = ExtResource("18_horizon")
+inner_count = 21
+outer_count = 27
+centre = Vector2(0, -65)
+stretch = Vector2(1, 1.37)
+
+[node name="Marsh" type="Node3D" parent="."]
+script = ExtResource("43_marsh")
+ground_material = SubResource("Mat_ground")
+
+[node name="MistVillage" parent="Marsh" instance=ExtResource("44_mist_village")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 10, -0.35, -188)
 
 [node name="Players" type="Node3D" parent="."]
 

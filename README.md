@@ -30,8 +30,9 @@ fullscreen.
 asks solo or co-op, then who you are, then loads the level.
 
 `res://scenes/ui/main_menu.tscn
-scenes/world/greybox_world.tscn` is that level: 240 × 240 m of flat
-ground walled in at the edges, a 15° ramp, a 55° face that cannot be stood on, a
+scenes/world/greybox_world.tscn` is that level: 240 × 370 m of
+ground walled in at the edges — the old 240 m square, and a marsh strip south of
+it with a mere and a misty village on an island in it — a 15° ramp, a 55° face that cannot be stood on, a
 6-step staircase up to a platform, pillars to test camera collision, and a
 watchtower, a medieval house and cart, boulders, meadows of grass and stone
 clusters, and a handful of creatures wandering about.
@@ -1439,6 +1440,69 @@ peak, drawn through one multimesh per model per ring, no collision at all, no
 shadows (the sun's shadow map does not reach out there), and `lod_bias` low
 enough that a ridge drops to its coarsest mesh immediately.
 
+Since the marsh was added the map is longer than it is wide, so the rings are an
+oval centred on the middle of the whole ground (`centre`, `stretch`) rather than
+circles round the spawn, with a few more peaks to go round.
+
+
+## The marsh and the misty village
+
+The map grew by a strip 130 m deep south of the old south wall (which moved to
+z = -250.5; the east and west walls were lengthened to match). In it is a
+**mere** with the **misty village** standing on a C-shaped island in the
+middle, set out as in the reference picture the model came with
+(`assets/world/lasha-egutidze-lasha-egutidze-mist1.webp`): the C open to the
+north, which is the side a player arrives from, so the first sight of it is the
+picture.
+
+**The ground** is `Marsh` (`scripts/marsh.gd`), built at load from a height
+function like the wood is: flat at y = 0 where it meets the old box, dished down
+a metre into the mere. Drawn as one grid mesh with the old ground's material
+(darkened towards the water), collided as a `HeightMapShape3D` from the same
+numbers. The water (`assets/world/water.gdshader`) is one plane 0.35 m below
+the old ground: the bed is under it, so the mere is **waded**, not swum and not
+walled off — about 0.65 m of it. Mist is a few dozen upright cards
+(`assets/world/mist.gdshader`) turned to the camera, softened where they meet
+anything and faded as the camera walks into them; volumetric fog would have been
+a cost across the whole world for something wanted in one place.
+
+**The wood** grows into the strip as well (`Forest.south_extent`), planted
+*after* the old square so the square's wood comes out of the seed exactly as it
+did before. A clearing keeps it back from the mere, and a smaller one on the
+north shore is where the ride from the open ground comes out.
+
+**The village** is `assets/world/mist_village.glb`, rebuilt from the model it
+was delivered as (`assets/world/mist2.glb`) by `tools/mist_village.py` in the
+art folder:
+
+- **Transforms solved back.** Several houses in the delivered file had been
+  parented to squashed objects in Blender — a whole house hangs off a pipe
+  scaled 0.009 × 0.15 × 0.009 — and a glTF node cannot hold the shear a rotated
+  child of such a parent has. The exporter dropped it and the shingles came out
+  as shards tens of metres long. Each piece's world transform is solved for
+  from what was written, and where more than one fits, the one that keeps the
+  piece its own size wins.
+- **Eight thousand pieces merged** into one mesh per material: twenty-odd draw
+  calls, 115 k triangles.
+- **Colours** for the materials that were procedural in the source and arrived
+  white, picked off the picture; the shingles multiplied down to slate.
+- **Scaled 2.2×**, which puts a barrel at hip height next to the characters and
+  the tallest house at fourteen metres.
+- **Collision by name**, which Godot's importer understands: the island's own
+  ground is a trimesh (`island-colonly`), and everything else is hulls
+  (`-convcolonly`) — a handful per house, clustered by k-means over its pieces,
+  one per tree trunk, rock, barrel and step. About a hundred hulls in all. A
+  trimesh per plank would be the house in the old level again.
+
+`MistVillage` (`scripts/mist_village.gd`) does the rest at load: the grass
+cards come in alpha-*blended* and are switched to alpha-scissor (sorts
+correctly, costs less, and they are kept out of the shadow map).
+
+`tests/marsh_test.gd` walks across where the old wall was, wades the mere,
+stands on the island, runs into a house, and times a physics tick in the
+village against one out on the plain. `tests/world_shots.gd` has four vantages
+on it (`mere_*`), the first at the angle of the reference picture.
+
 
 ## Creatures
 
@@ -1858,6 +1922,9 @@ scripts/simple_collision.gd  swaps the scenery's trimesh colliders for hulls
 scripts/collider_bake.gd     the hulls, worked out once and kept
 scripts/forest.gd            grows the wood: multimeshes, pooled trunks, wind
 scripts/horizon.gd           the mountains standing behind the boundary wall
+scripts/marsh.gd             the marsh strip: ground, the mere, the mist
+scripts/mist_village.gd      the misty village's materials, fixed up at load
+tests/marsh_test.gd          headless checks: the marsh, the mere, the village
 scripts/building.gd          gives a kit .fbx its textures and its UCX hull back
 scripts/spinner.gd           turns whatever hangs off it, off the clock
 scripts/monster.gd           a Bestiary creature, wandering its patch of wood
