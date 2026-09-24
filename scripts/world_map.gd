@@ -136,17 +136,48 @@ func is_open() -> bool:
 
 
 #region The photograph
-## Takes the picture: one frame from straight above, then the viewport goes.
+## Takes the picture, once the renderer can draw the ground as well as the sky.
 func _photograph() -> void:
 	for node in get_tree().root.find_children("*", "Node3D", true, false):
 		if node is QuestGiver:
 			_givers.append(node)
 	if DisplayServer.get_name() == "headless":
 		return
+	# Not on the first frame: on a machine meeting the level for the first time
+	# the renderer is still compiling its shaders, and anything whose shader is
+	# not ready yet is simply not drawn — the photograph comes out as nothing
+	# but sky. So it waits, and takes it again until the ground is in it.
+	for attempt in 8:
+		await get_tree().create_timer(2.0 if attempt == 0 else 3.0).timeout
+		if not is_inside_tree():
+			return
+		var image := await _take_photograph()
+		if image == null or image.is_empty():
+			continue
+		_texture = ImageTexture.create_from_image(image)
+		if not _only_sky(image):
+			return
+
+
+## True when the picture is (nearly) all sky: blue over green.
+static func _only_sky(image: Image) -> bool:
+	var small := image.duplicate() as Image
+	small.resize(24, 48, Image.INTERPOLATE_BILINEAR)
+	var skyish := 0
+	for y in small.get_height():
+		for x in small.get_width():
+			var c := small.get_pixel(x, y)
+			if c.b > c.g + 0.04 and c.b > c.r + 0.1:
+				skyish += 1
+	return skyish > small.get_width() * small.get_height() * 0.6
+
+
+## One frame from straight above, then the viewport goes.
+func _take_photograph() -> Image:
 	var pixels := (WORLD_MAX - WORLD_MIN) * PIXELS_PER_METRE
 	var view := SubViewport.new()
 	view.size = Vector2i(int(pixels.x), int(pixels.y))
-	view.world_3d = get_viewport().world_3d
+	view.world_3d = get_viewport().find_world_3d()
 	view.render_target_update_mode = SubViewport.UPDATE_ONCE
 	view.msaa_3d = Viewport.MSAA_2X
 	add_child(view)
@@ -176,9 +207,8 @@ func _photograph() -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var image := view.get_texture().get_image()
-	if image != null and not image.is_empty():
-		_texture = ImageTexture.create_from_image(image)
 	view.queue_free()
+	return image
 
 
 ## Where a point of the world is on the photograph, in its pixels. Straight

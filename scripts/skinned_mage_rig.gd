@@ -63,8 +63,9 @@ func _configure() -> void:
 		&"overhead": &"MG_Cast_Ground",
 	}
 	ground_speed = {
-		&"MG_Walk": 1.19, &"MG_Run": 1.99, &"MG_Walk_Back": 0.81, &"MG_Run_Back": 1.7,
-		&"MG_Walk_Left": 0.92, &"MG_Walk_Right": 0.96, &"MG_Run_Left": 1.85, &"MG_Run_Right": 1.88,
+		# Mixamo's walks and runs, the staff arm kept from his own clips.
+		&"MG_Walk": 0.79, &"MG_Run": 3.19, &"MG_Walk_Back": 0.4, &"MG_Run_Back": 2.29,
+		&"MG_Walk_Left": 1.25, &"MG_Walk_Right": 1.25, &"MG_Run_Left": 3.27, &"MG_Run_Right": 2.61,
 		&"MG_Crouch_Walk": 0.96, &"MG_Crouch_Walk_Back": 0.69, &"MG_Crouch_Walk_Left": 0.9,
 		&"MG_Crouch_Walk_Right": 0.93,
 	}
@@ -155,7 +156,8 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if _wind != null:
 		var body := _body as Player
 		var floating := body != null and body.is_levitating()
-		_wind.amount = (1.35 if floating else 1.0) if airborne else 0.0
+		# Only while he floats (the jump held): a plain jump is just a jump.
+		_wind.amount = 1.35 if floating and airborne else 0.0
 	super(delta, planar_speed, speed_ratio, airborne, dashing, vertical_speed, blocking)
 
 
