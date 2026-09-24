@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cklhpxw5laeil"
-path="res://.godot/imported/model_1.jpg-85c5bdb6e092e48d3af6ffbcdc7c41df.ctex"
+path.s3tc="res://.godot/imported/model_1.jpg-85c5bdb6e092e48d3af6ffbcdc7c41df.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f7e20a0bded01a86a86e1d545da85f8d"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/green-monster/model_1.jpg"
-dest_files=["res://.godot/imported/model_1.jpg-85c5bdb6e092e48d3af6ffbcdc7c41df.ctex"]
+dest_files=["res://.godot/imported/model_1.jpg-85c5bdb6e092e48d3af6ffbcdc7c41df.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

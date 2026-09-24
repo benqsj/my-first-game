@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dvuunx86qinlg"
-path="res://.godot/imported/dager_871850c8-5225-469a-beb2-0ce292769a94.png-ea2ff6e8c3e96d1aefa58ce44e7fa2e7.ctex"
+path.s3tc="res://.godot/imported/dager_871850c8-5225-469a-beb2-0ce292769a94.png-ea2ff6e8c3e96d1aefa58ce44e7fa2e7.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "99169ad4c7c1dc4e0dd4230b6212be66"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/dager-person/dager_871850c8-5225-469a-beb2-0ce292769a94.png"
-dest_files=["res://.godot/imported/dager_871850c8-5225-469a-beb2-0ce292769a94.png-ea2ff6e8c3e96d1aefa58ce44e7fa2e7.ctex"]
+dest_files=["res://.godot/imported/dager_871850c8-5225-469a-beb2-0ce292769a94.png-ea2ff6e8c3e96d1aefa58ce44e7fa2e7.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

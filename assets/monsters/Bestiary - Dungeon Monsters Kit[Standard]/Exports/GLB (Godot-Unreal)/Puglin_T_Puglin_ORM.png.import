@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://brhiip1vds5vw"
-path="res://.godot/imported/Puglin_T_Puglin_ORM.png-89aae1bbdd25c24273b7d87a20997e7c.ctex"
+path.s3tc="res://.godot/imported/Puglin_T_Puglin_ORM.png-89aae1bbdd25c24273b7d87a20997e7c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9605784a4978f93d07da5f64bd3070c0"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Exports/GLB (Godot-Unreal)/Puglin_T_Puglin_ORM.png"
-dest_files=["res://.godot/imported/Puglin_T_Puglin_ORM.png-89aae1bbdd25c24273b7d87a20997e7c.ctex"]
+dest_files=["res://.godot/imported/Puglin_T_Puglin_ORM.png-89aae1bbdd25c24273b7d87a20997e7c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

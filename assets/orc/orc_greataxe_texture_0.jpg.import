@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsukklp8l0eji"
-path="res://.godot/imported/orc_greataxe_texture_0.jpg-cba9e7bdf678a346439d5819942de050.ctex"
+path.s3tc="res://.godot/imported/orc_greataxe_texture_0.jpg-cba9e7bdf678a346439d5819942de050.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "317db349028c94f8745ff0ef2846970a"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/orc/orc_greataxe_texture_0.jpg"
-dest_files=["res://.godot/imported/orc_greataxe_texture_0.jpg-cba9e7bdf678a346439d5819942de050.ctex"]
+dest_files=["res://.godot/imported/orc_greataxe_texture_0.jpg-cba9e7bdf678a346439d5819942de050.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

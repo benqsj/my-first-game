@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://vv4jqqp5bs85"
-path="res://.godot/imported/T_Puglin_BaseColor_3.png-f6bbb0f50d292b816f7e1e5497abe1ce.ctex"
+path.s3tc="res://.godot/imported/T_Puglin_BaseColor_3.png-f6bbb0f50d292b816f7e1e5497abe1ce.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Textures/T_Puglin_BaseColor_3.png"
-dest_files=["res://.godot/imported/T_Puglin_BaseColor_3.png-f6bbb0f50d292b816f7e1e5497abe1ce.ctex"]
+dest_files=["res://.godot/imported/T_Puglin_BaseColor_3.png-f6bbb0f50d292b816f7e1e5497abe1ce.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -23,7 +24,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
