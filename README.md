@@ -2771,3 +2771,11 @@ button no longer does anything. Locked on, his steps keep facing the target —
 backward too: backing off is a step back, and a second press is the flip.
 `heroes_test` checks the step–flip–step run, the locked back-step then flip,
 and the chaining for Tariel, the mage and Avtandil.
+
+**A second assassin** (`assassin2`, "Assassin 2" in the roster): the same
+man in every way that plays — `assassin2.tres` is `rogue.tres` to the number,
+`SkinnedRogueRig`, all of his clips — in a new body built in the house style
+(`vepxis-art/tools/dg3_build.py`): a chokha with gazyri over a crimson
+arkhaluki, a short cape, tall boots, hands with fingers, a kinjal in the right
+fist and its scabbard on the belt. Picked beside the first so the two can be
+compared in play.
