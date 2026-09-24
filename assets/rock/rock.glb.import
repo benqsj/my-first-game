@@ -42,32 +42,67 @@ materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Rocks/rock_big_1": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 },
 "PATH:Rocks/rock_big_2": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 },
 "PATH:Rocks/rock_big_3": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 },
 "PATH:Rocks/rock_big_4": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 },
 "PATH:Rocks/rock_medium_1": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 },
 "PATH:Rocks/rock_medium_2": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 },
 "PATH:Rocks/rock_medium_3": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 1.0,
+"decomposition/max_convex_hulls": 1,
+"decomposition/max_num_vertices_per_convex_hull": 24,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 1
+"physics/shape_type": 0
 }
 }
 }

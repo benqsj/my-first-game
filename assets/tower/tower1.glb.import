@@ -42,8 +42,13 @@ materials/extract_path=""
 _subresources={
 "nodes": {
 "PATH:Tower/tower": {
+"decomposition/advanced": true,
+"decomposition/max_concavity": 0.01,
+"decomposition/max_convex_hulls": 6,
+"decomposition/max_num_vertices_per_convex_hull": 32,
+"decomposition/resolution": 100000,
 "generate/physics": true,
-"physics/shape_type": 2
+"physics/shape_type": 0
 }
 }
 }
