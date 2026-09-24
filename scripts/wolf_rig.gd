@@ -108,6 +108,9 @@ signal severed(part: String)
 ## Share of the swipe spent winding up — the arm high and back, the chest
 ## rearing, a red glint at the claws: the tell to roll on.
 @export var swipe_windup: float = 0.55
+## The pounce: how long, and the share of it spent gathering.
+@export var lunge_duration: float = 1.0
+@export var lunge_windup: float = 0.5
 ## How far the arm carries through the swipe, in radians.
 @export var swipe_reach: float = 2.1
 
@@ -128,6 +131,7 @@ var _phase: float = 0.0
 var _speed_blend: float = 0.0
 var _stance: float = 1.0
 var _swipe_timer: float = 0.0
+var _lunge_timer: float = 0.0
 var _swipe_left: bool = true
 var _tail_angles: PackedFloat32Array = PackedFloat32Array()
 
@@ -207,6 +211,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, stance_targe
 		return
 
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
+	_lunge_timer = maxf(_lunge_timer - delta, 0.0)
 	_speed_blend = lerpf(_speed_blend, clampf(speed_ratio, 0.0, 1.0), 1.0 - exp(-10.0 * delta))
 	_stance = lerpf(_stance, clampf(stance_target, 0.0, 1.0), 1.0 - exp(-stance_speed * delta))
 
@@ -264,7 +269,27 @@ func _glint(on: bool, through: float, side: float) -> void:
 ## Starts a claw swipe, alternating paws so it never rakes with the same one twice.
 func swipe() -> void:
 	_swipe_left = not _swipe_left
+	# Never with an arm it no longer has.
+	if _swipe_left and has_lost("left arm"):
+		_swipe_left = false
+	elif not _swipe_left and has_lost("right arm"):
+		_swipe_left = true
 	_swipe_timer = swipe_duration
+
+
+## A pounce: down and back on its haunches with both arms drawn up, then
+## thrown forward with its jaws open and both claws raking down.
+func lunge() -> void:
+	_lunge_timer = lunge_duration
+
+
+func is_lunging() -> bool:
+	return _lunge_timer > 0.0
+
+
+## Both legs gone: it can only lie there.
+func is_legless() -> bool:
+	return _lost.has("left leg") and _lost.has("right leg")
 
 
 func is_swiping() -> bool:
@@ -454,6 +479,9 @@ func _pose_arms(t: float) -> void:
 	var breathe := sin(t * breath_rate) * breath_amount * (1.0 - _speed_blend)
 	_add_offset("m_chest", Vector3(breathe, 0.0, 0.0))
 
+	if _lunge_timer > 0.0:
+		_pose_lunge()
+		return
 	if _swipe_timer <= 0.0:
 		_glint(false, 0.0, 1.0)
 		return
@@ -490,6 +518,47 @@ func _pose_arms(t: float) -> void:
 	_add_offset(elbow, Vector3(fold, 0.0, 0.0))
 	_add_offset("m_chest", Vector3(rear, across * 0.3, 0.0))
 	_add_offset("m_jaw", Vector3(0.35 * sin(a * PI), 0.0, 0.0))
+
+
+func _pose_lunge() -> void:
+	var a := 1.0 - _lunge_timer / maxf(lunge_duration, 0.001)
+	var wind := lunge_windup
+	var reach := 0.0
+	var fold := 0.0
+	var lean := 0.0
+	var jaw := 0.0
+	if a < wind:
+		var w := smoothstep(0.0, 1.0, minf(a / (wind * 0.7), 1.0))
+		reach = -1.6 * w
+		fold = -1.2 * w
+		lean = -0.35 * w
+		jaw = 0.2 * w
+	else:
+		var e := 1.0 - pow(1.0 - (a - wind) / (1.0 - wind), 3.0)
+		reach = lerpf(-1.6, -0.1, e)
+		fold = lerpf(-1.2, 0.3, e)
+		lean = lerpf(-0.35, 0.45, minf(e * 1.6, 1.0)) * (1.0 - 0.6 * maxf(e - 0.6, 0.0) / 0.4)
+		jaw = lerpf(0.9, 0.2, e)
+	for side: float in [-1.0, 1.0]:
+		var arm := "m_shoulder_l" if side < 0.0 else "m_shoulder_r"
+		var elbow := "m_upperarm_l_end" if side < 0.0 else "m_upperarm_r_end"
+		_add_offset(arm, Vector3(reach, -0.5 * side * (1.0 if a < wind else 0.3), 0.0))
+		_add_offset(elbow, Vector3(fold, 0.0, 0.0))
+	_add_offset("m_chest", Vector3(lean, 0.0, 0.0))
+	_add_offset("m_jaw", Vector3(jaw, 0.0, 0.0))
+	# Both claws glint as it gathers.
+	_glint(a < wind, a / wind, -1.0)
+	_glint_both(a < wind, a / wind)
+
+
+func _glint_both(on: bool, through: float) -> void:
+	var k := clampf(through, 0.0, 1.0) if on else 0.0
+	for key: String in ["m_claw_l1", "m_claw_r1"]:
+		var g := _glints.get(key) as MeshInstance3D
+		if g == null:
+			continue
+		(g.material_override as StandardMaterial3D).albedo_color.a = 0.9 * k * k
+		g.scale = Vector3.ONE * lerpf(0.15, 0.55, k)
 
 
 func _pose_tail(delta: float) -> void:

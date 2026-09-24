@@ -37,7 +37,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## How far ahead that sweep reaches. Must exceed the body's radius.
 @export var step_probe: float = 0.6
 @export var prowl_speed: float = 2.2
-@export var charge_speed: float = 8.3
+@export var charge_speed: float = 5.6
 @export var acceleration: float = 22.0
 @export var turn_speed: float = 9.0
 ## How far from where it started it will wander.
@@ -60,7 +60,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var parried_stagger: float = 1.6
 ## Losing this many limbs puts it down.
 @export var limbs_before_death: int = 4
-@export var flee_speed: float = 5.6
+@export var flee_speed: float = 4.5
 ## How close the blade has to pass a limb to take it off, in metres.
 @export var hit_tolerance: float = 1.0
 
@@ -126,6 +126,12 @@ var _reel_clock: float = 99.0
 var _provoked: float = 0.0
 ## Which way it went over when it died: onto its left side or its right.
 var _fall_side: float = 1.0
+## The pounce under way: seconds until it throws itself forward, and whether
+## the claws landing now are a pounce's (a longer reach).
+var _pounce_in: float = -1.0
+var _pouncing: bool = false
+## Share of attacks that are a pounce rather than a swipe.
+@export var pounce_chance: float = 0.35
 
 
 func _ready() -> void:
@@ -164,10 +170,17 @@ func _physics_process(delta: float) -> void:
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_reeling = maxf(_reeling - delta, 0.0)
 	_provoked = maxf(_provoked - delta, 0.0)
+	if _pounce_in >= 0.0:
+		_pounce_in -= delta
+		if _pounce_in < 0.0 and not is_dead:
+			var ahead := -global_transform.basis.z
+			ahead.y = 0.0
+			velocity += ahead.normalized() * 9.0
 	if _swipe_lands >= 0.0:
 		_swipe_lands -= delta
 		if _swipe_lands < 0.0:
 			_land_swipe()
+			_pouncing = false
 
 	_think(delta)
 	# Up a kerb or a stair rather than into it. A hunter that loses you to six
@@ -200,7 +213,7 @@ func _process(delta: float) -> void:
 		return
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 	# On all fours to cover ground, upright to fight.
-	var stance := 0.0 if state == State.FIGHT and not is_dead else 1.0
+	var stance := 0.0 if state == State.FIGHT and not is_dead and not rig.is_legless() else 1.0
 	if is_dead:
 		planar = 0.0
 	_reel_clock += delta
@@ -217,6 +230,10 @@ func _process(delta: float) -> void:
 		var give := Recoil.fold(_reel_clock)
 		rig.rotation.x = 0.55 * jolt - 0.28 * give
 		rig.position.z = 0.35 * jolt
+	elif not is_dead and rig.is_legless():
+		# Down on its belly, dragging itself: pitched forward, low.
+		rig.rotation.x = lerpf(rig.rotation.x, -0.12, 1.0 - exp(-6.0 * delta))
+		rig.position.y = lerpf(rig.position.y, -0.45, 1.0 - exp(-6.0 * delta))
 	elif not is_dead and rig.rotation.x != 0.0:
 		rig.rotation.x = move_toward(rig.rotation.x, 0.0, delta * 3.0)
 		rig.position.z = move_toward(rig.position.z, 0.0, delta * 2.0)
@@ -286,7 +303,10 @@ func _think(delta: float) -> void:
 		to_player.y = 0.0
 		distance = to_player.length()
 
-	if state == State.FLEE or state == State.DOWN:
+	if rig.is_legless():
+		# Both legs gone: down, and it stays down.
+		state = State.DOWN
+	elif state == State.FLEE or state == State.DOWN:
 		pass
 	elif rig.is_disarmed():
 		state = State.FLEE
@@ -320,14 +340,25 @@ func _think(delta: float) -> void:
 				_face(to_player, delta)
 				_slow(delta)
 				if _swipe_timer <= 0.0 and _reeling <= 0.0:
-					_swipe_timer = swipe_interval
-					_swipe_lands = swipe_lands_after
 					_swipe_count += 1
-					rig.swipe()
-					# Only the host thinks, so only the host would ever swing:
-					# the others are told, or they see a wolf standing up to
-					# fight and doing nothing while their health goes down.
-					net_swipe.rpc()
+					var both_arms := not rig.has_lost("left arm") and not rig.has_lost("right arm")
+					if both_arms and _rng.randf() < pounce_chance:
+						# A pounce: gathers, throws itself at you, both claws.
+						_swipe_timer = swipe_interval + 0.5
+						_swipe_lands = rig.lunge_duration * (rig.lunge_windup + 0.12)
+						_pounce_in = rig.lunge_duration * rig.lunge_windup
+						_pouncing = true
+						rig.lunge()
+						net_lunge.rpc()
+					else:
+						_swipe_timer = swipe_interval
+						_swipe_lands = swipe_lands_after
+						rig.swipe()
+						# Only the host thinks, so only the host would ever
+						# swing: the others are told, or they see a wolf
+						# standing up to fight and doing nothing while their
+						# health goes down.
+						net_swipe.rpc()
 					attacked.emit()
 
 
@@ -348,7 +379,7 @@ func _land_swipe() -> void:
 		if absf(to_them.y) > 2.0:
 			continue
 		to_them.y = 0.0
-		if to_them.length() > reach + 0.6 or ahead.dot(to_them.normalized()) < 0.25:
+		if to_them.length() > reach + (1.6 if _pouncing else 0.6) or ahead.dot(to_them.normalized()) < 0.25:
 			continue
 		who.call("receive_blow", swipe_damage, self, 0, 2, _swipe_count)
 
@@ -637,6 +668,13 @@ func _lie_down() -> void:
 @rpc("authority", "call_local", "reliable")
 func net_reel() -> void:
 	_reel_clock = 0.0
+
+
+## A pounce, on the peers that did not decide it.
+@rpc("authority", "call_remote", "unreliable")
+func net_lunge() -> void:
+	if rig != null and not is_dead:
+		rig.lunge()
 
 
 ## A swipe, on the peers that did not decide it (the host has already thrown it).
