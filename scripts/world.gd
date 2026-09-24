@@ -109,6 +109,9 @@ var _think_tick: int = 0
 
 
 func _ready() -> void:
+	var music := get_node_or_null("/root/Music")
+	if music != null:
+		music.call("play", &"world")
 	_build_camps()
 	_cull_distant_creatures()
 	_creatures = get_node_or_null("Enemies")

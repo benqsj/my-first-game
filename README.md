@@ -829,6 +829,17 @@ Those last two are the checks that were missing: the first version only had the
 host attack with a sword, and a client archer who could not hurt anything walked
 straight past it.
 
+## Music
+
+`scripts/music.gd`, autoloaded as `Music`: one track at a time, looped,
+crossfaded over two seconds when a scene asks for another — the menu asks for
+`menu` (`sounds/tower-music/safe_haven_mini.mp3`), the world for `world`
+(`safe_haven.mp3`). Being an autoload it carries across the scene change, so
+the menu's track fades into the world's rather than cutting off. The MP3s are
+imported as they are; the loop is switched on in code, so a new file needs only
+a line in `TRACKS`. (The files arrived as `Safe Haven.mp3` and `safe haven mini `
+with no extension, which Godot would not import; renamed.)
+
 ## Graphics
 
 One setting, two positions, because a greybox does not need twelve. `Graphics`
@@ -1793,6 +1804,19 @@ animation had it in and turns upper arm and forearm by the shortest arc only —
 twist about a limb's own length is what tears the skin at elbow and wrist. The
 axe is skinned wholly to a `weapon_axe` bone under the right hand, keyed to the
 haft's frame, so it arrives with the rig and nothing places it in the game.
+
+**His ground is the water.** An orc's leash is not a ring round his camp but
+the whole mere his camp stands in (`holds_the_water`, `OrcWarrior._holds()`,
+using the Marsh node's `in_mere()`): he follows anyone anywhere in the bay's
+water and lets go of whoever climbs out onto the land, and walks home.
+Left alone twenty seconds (`regen_after`, a Brute setting the orc scenes
+turn on) he mends to full over a second and a half.
+
+**Specials floor you.** Every creature's special blow is sent as a combo of
+one (`Brute._floor()`), so landing clean it knocks the player down: the orc's
+slam, spin, kick and leap, the spikes out of the ground (anyone's — the wave
+does it, so Arkdeva's thorns too), and Arkdeva's stamp and chop. Blocked or
+rolled, it still does nothing.
 
 **The cut in the air.** Both kinds of axe carry a [BladeArc](#the-cut-in-the-air)
 along their head, emitting while an attack has the head moving faster than

@@ -63,6 +63,9 @@ func _ready() -> void:
 
 	_game = get_node_or_null("/root/Game")
 	_net = get_node_or_null("/root/Net")
+	var music := get_node_or_null("/root/Music")
+	if music != null:
+		music.call("play", &"menu")
 	if _net != null:
 		# Coming back from a game, or from a join that did not take. Either way
 		# there is no connection to be holding on to on the front screen.
