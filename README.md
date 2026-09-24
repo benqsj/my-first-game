@@ -2666,3 +2666,28 @@ nose-up into the air.
 beyond their sight — a wolf comes for whoever hurt it and keeps coming for
 `provoked_time` (14 s) however far; every wolf within `pack_call` (14 m) of it
 comes too (`Wolf.provoke()`).
+
+## The seventh round: a quicker assassin, the mage's pace and strike, holding costs breath
+
+**The assassin's blows** are cut tight in Blender, so the knife is moving from
+the first frame, and played quicker (`swing_rate` 2.1). The combo is eight
+blows long and turns: the five of the one-handed sword combo, a spinning cut
+(`DG_Spin_Cut`) and a backhand (`DG_Backhand_Cut`) from Mixamo's axe set, and
+a last big blow off its three-hit combo (`DG_Finisher`).
+
+**His flips** are only their jump — the run-up and the getting up cut off
+(`DG_Flip`, `DG_Twist`) — and have more time: the roll 0.6 s, the double-tap
+dodge 1.1 s, so the twisting flip is no longer a blur.
+
+**The mage** runs at 5.4 m/s with a quicker cadence (`MG_Run` taken as 2.7 m/s
+of ground a cycle).
+
+**Holding costs breath.** `CharacterProfile.draw_stamina`: the mage's charge
+takes 14 stamina a second, Avtandil's draw 9; run dry and the shot goes as it
+is.
+
+**The bolt's strike** is lightning letting go instead of a ball swelling: a
+white-hot spark gone in a tenth of a second, a thin ring of light running
+out, forks of lightning cracking from the point, a crown of sparks thrown out
+and falling, and the lamp flaring — in the bolt's colours, all bigger for a
+full charge (`SpellBolt._burst`).
