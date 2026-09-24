@@ -139,6 +139,9 @@ var _sliding: bool = false
 var _stride: StrideModifier
 var _stride_clip: StringName = &""
 var _stride_time: float = 0.0
+## The cut the blade leaves in the air ([BladeArc]); it stands in for the
+## ribbon [CharacterRig] hangs off the procedural rig.
+var _arc: BladeArc
 
 
 func _ready() -> void:
@@ -196,10 +199,10 @@ func _setup_blade() -> void:
 	_blade_tip.position = along * BLADE_TIP
 	mount.add_child(_blade_tip)
 	_sword_mount = mount
-	_trail = SwordTrail.new()
-	_trail.name = "SwordTrail"
-	add_child(_trail)
-	_trail.setup(_blade_base, _blade_tip)
+	_arc = BladeArc.new()
+	_arc.name = "BladeArc"
+	add_child(_arc)
+	_arc.setup(_blade_base, _blade_tip)
 
 
 ## Spring bones for the cape (`cape_00`..`cape_06`) and the ponytail
@@ -273,8 +276,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			_end_action()
 	else:
 		_attack_cutting = false
-	if _trail != null:
-		_trail.emitting = _attack_cutting
+	if _arc != null:
+		_arc.emitting = _attack_cutting
 
 	if _role == Role.NONE:
 		_pick_base(planar_speed, airborne, dashing, vertical_speed, blocking)
