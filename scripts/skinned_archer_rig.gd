@@ -85,7 +85,7 @@ func _configure() -> void:
 	flurry = [&"AV_Melee_Punch", &"AV_Melee_Kick"]
 	cut_window = {}
 	roll_share = 0.75
-	# He runs at 6.4 m/s on the pack's sprint (authored at 4.1), straightened
+	# He runs at 5.9 m/s on the pack's sprint (authored at 4.1), straightened
 	# up 28 degrees in Blender — as shipped it runs bent nearly double.
 	max_play_rate = 2.0
 	idle_threshold = 0.25
@@ -272,8 +272,10 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 func _direction_clip(planar: float) -> StringName:
 	var clip := super(planar)
 	# Straight ahead there are three gears: his walk, the pack's run, and its
-	# sprint for the 8 m/s he actually covers ground at.
-	if clip == clips[&"run"] and planar > 5.5:
+	# sprint for the pace he actually covers ground at. It is played no more
+	# than half as fast again as it was authored: much quicker than that and
+	# his legs blur.
+	if clip == clips[&"run"] and planar > 4.6:
 		return clips[&"sprint"]
 	return clip
 
