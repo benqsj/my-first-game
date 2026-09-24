@@ -777,7 +777,8 @@ either way is the mouse: releasing it is the only way out of capture.
 
 ### Not in this phase
 
-- **PvP.** Players cannot damage each other; there is no player health at all.
+- **PvP.** Players cannot damage each other. (They do have health now — see
+  *Health, stamina and the parry* — but only creatures take it.)
 - *(The bow **was** on this list. It is not any more — see above. The first
   person to join as Avtandil could not scratch anything, and the first answer
   was to grey the archer out of multiplayer. That was the wrong answer: barring
@@ -2263,9 +2264,23 @@ seconds sinking no faster than `levitate_fall`, 2.1 m/s), on Mixamo's float.
   `cast_lead()` says how long the staff takes to come through (0.23 s), and the
   controller sends the cast (`net_cast`) at once and the bolt (`net_loose`)
   after that lead, from `spell_origin()`, the crystal.
-- **Slow, then fast.** It leaves the crystal at `start_share` (15 %) of its
-  speed as a spark that swells to full size, and gathers pace on the square of
-  `build_time` (0.5 s).
+- **Slow, then fast — over the whole flight.** It leaves the crystal at
+  `start_share` (30 %) of its speed as a spark that swells to full size, and
+  gathers pace with the distance it has covered, reaching full speed only near
+  the end: over `ramp_share` (90 %) of the way to a locked quarry, or
+  `ramp_distance` (16 m) thrown at nothing, kept between `ramp_min` and
+  `ramp_max`. The pace follows the way through raised to `ramp_curve` (1.3), so
+  most of it comes late. (It used to be at full speed half a second after
+  leaving, whatever it was thrown at.)
+- **Its tail** is its own, not the arrow's two flat bands: four
+  [GlowTail](scripts/glow_tail.gd)s fed the head's position every tick — a wide
+  soft glow, a hot white core that cools to gold down its length, and two fine
+  strands wound round the line of flight (a helix, opening out as it speeds
+  up) — plus embers shed along the way. A `GlowTail` is a strip through the
+  points the head has passed, turned every frame to face the camera, tapering
+  to nothing at the tail and soft across its width, so it has the same body
+  seen from the side, from behind or end-on; points live `life` seconds, so the
+  tail is short while the bolt is slow and long at full speed.
 - **It hunts what is locked.** `net_loose` carries the locked target's path
   and the bolt `hunt()`s it, bending towards it no harder than `steer` (36 m/s²
   sideways). That is a tight curve just off the staff and a gentle one at full
@@ -2281,8 +2296,81 @@ seconds sinking no faster than `levitate_fall`, 2.1 m/s), on Mixamo's float.
 `tests/heroes_test.gd` checks both: their rigs and clips, the charge, the bolt
 leaving the crystal slowly and gathering pace, flying straight unlocked,
 following a body walking across it, losing one that breaks sideways or rolls
-and going out once past, the high jump and the float, the stab cutting with
-both hands.
+and going out once past, the jump clip following the arc, the high jump and
+the float, the stab cutting with both hands.
+
+### The mage's jump
+
+`MG_Jump` was keyed by hand in Blender (`heroes.blend`, on `mage_rig`, from
+`MG_Idle`'s pose): the push off with one knee driven up, both knees up and the
+staff raised on the way up, open at the top with the free arm out, legs
+reaching down and the arm up for balance on the way down. It is not played at
+its own pace. `SkinnedMageRig` seeks it every frame to `0.5 - 0.5 · vy / v0`
+(`v0` the take-off speed), so rising at full speed is its start, the top of the
+arc its middle and falling as fast again its end — the top of the clip is the
+top of the jump however high it goes. Holding the jump on the way down still
+floats him (`MG_Float`); `MG_Fall` is no longer used.
+
+## Health, stamina and the parry
+
+Every character has **health** and **stamina** (`max_health`, `max_stamina`
+in the profile: Tariel 160, Avtandil 120, the mage 100, the rogue 110; stamina
+100, the rogue's 110). `PlayerHud` (`scripts/player_hud.gd`) draws your own two
+bars in the top-left, each as long as its pool, with the chunk a blow took
+lingering pale for a beat before it drains, and the stamina bar dimmed while it
+is spent.
+
+**Stamina** pays for the roll (`roll_stamina`), stretching it into the dodge
+(`dodge_stamina`), every attack — a swing, an arrow, a spell
+(`attack_stamina`) — and every blow caught on the shield (`block_stamina` per
+point of damage, 2.4). As in every Souls game what matters is that there is
+*some* left: the last of it buys one more roll and the bar runs out under it;
+at zero nothing that costs stamina can be done. It comes back at
+`stamina_regen` (40/s, 12/s behind the shield) once `stamina_delay` (0.55 s)
+has passed — `stamina_empty_delay` (1.1 s) if it was run all the way out — and
+never mid-roll, mid-swing or while drawing.
+
+**Blocking** (Tariel only) takes a blow on the shield for stamina instead of
+health. A blow that lands on a shield with no stamina left **breaks the
+guard**: he is held for `guard_break_time` and half the blow comes through.
+
+**The parry.** A blow that arrives within `parry_window` (0.22 s) of the shield
+going up is **thrown back**: it costs nothing, the shield punches out
+(`SkinnedRig.parry()`, the guard's jolt played fast), sparks fly off it
+([ParryFlash](scripts/parry_flash.gd): a star, a fan of sparks falling back
+towards whoever struck, a lamp flaring) with a clang
+(`sounds/parry/clang.wav`, made in code: the inharmonic ring of struck steel
+over a thud), and whoever threw it is told on the host (`net_parried`) and
+**reels** ([Recoil](scripts/recoil.gd)):
+
+1. *The rebound* (0.3 s): its weapon goes back the way it came — the attack
+   clip that threw it is run **backwards**, fast (the orc's AnimationPlayer at
+   −2.4; `SkeletonAnim.rewind()` for the imps and puglins) — while the swinging
+   arm is thrown up and back and the chest and head go back with it.
+2. *The fold*: its force spent, the body doubles forward over itself, head
+   down, and hangs there open.
+3. *The recovery*, back to its guard, `Recoil.STAGGER` (1.6 s) after the parry.
+
+Both are laid over whatever the clip says, bone by bone, as turns about the
+creature's own side-to-side axis, so the same numbers read the same on the
+orc's skeleton and the Bestiary's. Arkdeva, posed limb by limb, has its own
+move for it (`Act.PARRIED`): up on its hind legs with both scythes flung high
+and wide, then down low with them hanging. The rest of a parried combo is not
+thrown, and while it reels a creature takes **half as much again**
+(`Recoil.RIPOSTE`) from every blow. Only ordinary blows can be parried: a slam,
+a stamp, a spin, the ground coming up — the blows that floor you (a combo of
+one) — are only ever blocked.
+
+**Falling.** At no health he goes down (`Reaction.DEATH`), "YOU HAVE FALLEN"
+comes up across the screen, the creatures leave him be (`net_dead` is
+replicated and `Brute._fallen()` is checked when they pick someone to fight
+and when their blows land), and after `respawn_time` (4 s) he is back on his
+feet, whole, where he first stood. Until there are potions and fires to rest
+at, health also comes back slowly on its own (`mend_rate`, 4/s) once nothing
+has hurt him for `mend_after` (10 s). `immortal` (health stops at 1) is for
+tests that are about something else.
+
+    godot --path . --headless --script res://tests/vitals_test.gd
 
 ## Swapping in the real models
 
