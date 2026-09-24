@@ -14,6 +14,7 @@ extends Resource
 enum Weapon {
 	MELEE, ## Sword in hand, swung at whatever is in front of it.
 	BOW, ## Drawn and loosed, and worth more the longer it is held.
+	STAFF, ## A spell: charged and cast like a draw, flying straight.
 }
 
 @export var display_name: String = ""
@@ -50,6 +51,13 @@ enum Weapon {
 ## figure; a snap shot is worth a fraction of it.
 @export var damage: float = 26.0
 
+## How high a jump goes, in metres. 0 keeps the controller's own.
+@export var jump_height: float = 0.0
+## Seconds a held jump can hang in the air on the way down, sinking no faster
+## than `levitate_fall`. 0 for anyone who cannot.
+@export var levitation: float = 0.0
+@export var levitate_fall: float = 1.2
+
 @export_group("Bow")
 ## How long the string takes to come all the way back. Anything loosed before
 ## that is worth proportionally less.
@@ -63,3 +71,7 @@ enum Weapon {
 @export var arrow_speed_snap: float = 21.0
 ## Shortest gap between loosing one arrow and drawing the next.
 @export var shot_cooldown: float = 0.18
+## What is loosed, if not the controller's arrow — the mage's bolt.
+@export var projectile: PackedScene
+## How much of the world's gravity pulls on it; below 0 keeps the arrow's.
+@export var projectile_drop: float = -1.0

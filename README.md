@@ -2100,6 +2100,47 @@ the procedural bow had them), and an arrow sits on it while drawn.
 
     godot --path . --script res://tests/skinned_archer_test.gd -- /tmp/shots avtandil
 
+## The mage and the rogue
+
+Two more characters on the select screen, from block-built models the user
+made (`assets/magic-person/mage1.glb`, `assets/dager-person/dager.glb`).
+
+**Rigged and dressed in Blender** (`~/Desktop/vepxis-art/heroes/heroes.blend`):
+`tools/hero_rig.py` turns each into one mesh rigidly skinned to a Tariel-style
+skeleton (UE names, `weapon_l`/`weapon_r` sockets), turned to face -Y and
+scaled to 1.8 m; the mage's sleeves are split at the elbow and his robe is
+shared between hips and thighs so it follows the legs. `tools/hero_dress.py`
+adds the house style as boxes bound to bones — for the rogue Avtandil's
+leather: a baldric, bracers with gold bands, pauldrons, wrapped shins, thigh
+sheaths, a cowl, a mask, eyes and brows; for the mage a leather belt with a
+gold buckle, a gold hem and front band, gold cuffs, eyes and white brows, and
+a glowing crystal in a gold ring on the staff. His book is gone. Clips are
+Mixamo's (`mixamo_heroes/`: the magic pack, knife stabs, the dual combo,
+ninja idle and run, flips, falling, floating) plus Avtandil's crouch set and
+mantle, retargeted with `tools/retarget_mixamo.py`.
+
+**The rogue** (`rogue.tres`, `SkinnedRogueRig`) is the knight's controller and
+rig with his own table: three stabs in a flurry at `swing_rate` 2.1, the dual
+combo as the heavy, the double stab off a jump, a backflip for the evade. Both
+daggers cut the air (`SkinnedRig.off_hand_blade`; the blade length and its
+rest direction are per character now). No shield: 6.8 m/s, the longest roll,
+35% crits.
+
+**The mage** (`mage.tres`, `SkinnedMageRig`) fights from afar. His weapon is
+`CharacterProfile.Weapon.STAFF`, which the controller treats as it treats the
+bow — hold to charge, let go to cast, a tap is a quick weaker cast — but the
+profile's `projectile` is `scenes/fx/spell_bolt.tscn` (`SpellBolt`, an
+`Arrow` that flies straight with `projectile_drop` 0, glows, trails gold and
+bursts where it lands; the model is the user's `skill1.glb`). Charging holds
+the sustained two-handed cast and brightens a light in the staff's crystal;
+casting plays the one-handed throw. He jumps 3 m (`jump_height`) and, holding
+the jump on the way down, levitates (`levitation` seconds sinking no faster
+than `levitate_fall`), on Mixamo's float.
+
+`tests/heroes_test.gd` checks both: their rigs and clips, the charge and the
+bolt flying straight, the high jump and the float, the stab cutting with both
+hands.
+
 ## Swapping in the real models
 
 Replace the scene under `Visuals` with the imported knight, keep the origin at

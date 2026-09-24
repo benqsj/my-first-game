@@ -82,6 +82,14 @@ var plunge_from := 0.56
 ## Blade, measured from the fist along the blade (m).
 const BLADE_BASE := 0.18
 const BLADE_TIP := 1.03
+## The same, per character (a dagger is a third of a sword), and which way the
+## blade points in the socket at rest, in the skeleton's frame: the knight's
+## sword lies forward in the T, the rogue's daggers stand up.
+var blade_base := BLADE_BASE
+var blade_tip := BLADE_TIP
+var blade_rest_dir := Vector3(0, 0, 1)
+## A blade in the other hand too, which cuts the air as the right one does.
+var off_hand_blade := false
 
 @export_group("Skinned")
 ## Under this speed the body stands; over `run_threshold` it runs.
@@ -142,6 +150,7 @@ var _stride_time: float = 0.0
 ## The cut the blade leaves in the air ([BladeArc]); it stands in for the
 ## ribbon [CharacterRig] hangs off the procedural rig.
 var _arc: BladeArc
+var _arc_l: BladeArc
 
 
 func _ready() -> void:
@@ -189,20 +198,37 @@ func _setup_blade() -> void:
 	mount.name = "WeaponMount"
 	_skel.add_child(mount)
 	mount.bone_name = "weapon_r"
-	var along := (_skel.get_bone_global_rest(bone).basis.inverse() * Vector3(0, 0, 1)).normalized()
+	var along := (_skel.get_bone_global_rest(bone).basis.inverse() * blade_rest_dir).normalized()
 	_blade_base = Marker3D.new()
 	_blade_base.name = "blade_base"
-	_blade_base.position = along * BLADE_BASE
+	_blade_base.position = along * blade_base
 	mount.add_child(_blade_base)
 	_blade_tip = Marker3D.new()
 	_blade_tip.name = "blade_tip"
-	_blade_tip.position = along * BLADE_TIP
+	_blade_tip.position = along * blade_tip
 	mount.add_child(_blade_tip)
 	_sword_mount = mount
 	_arc = BladeArc.new()
 	_arc.name = "BladeArc"
 	add_child(_arc)
 	_arc.setup(_blade_base, _blade_tip)
+	var left := _skel.find_bone("weapon_l")
+	if off_hand_blade and left >= 0:
+		var mount_l := BoneAttachment3D.new()
+		mount_l.name = "WeaponMountL"
+		_skel.add_child(mount_l)
+		mount_l.bone_name = "weapon_l"
+		var along_l := (_skel.get_bone_global_rest(left).basis.inverse() * blade_rest_dir).normalized()
+		var base_l := Marker3D.new()
+		base_l.position = along_l * blade_base
+		mount_l.add_child(base_l)
+		var tip_l := Marker3D.new()
+		tip_l.position = along_l * blade_tip
+		mount_l.add_child(tip_l)
+		_arc_l = BladeArc.new()
+		_arc_l.name = "BladeArcL"
+		add_child(_arc_l)
+		_arc_l.setup(base_l, tip_l)
 
 
 ## Spring bones for the cape (`cape_00`..`cape_06`) and the ponytail
@@ -278,6 +304,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 		_attack_cutting = false
 	if _arc != null:
 		_arc.emitting = _attack_cutting
+	if _arc_l != null:
+		_arc_l.emitting = _attack_cutting
 
 	if _role == Role.NONE:
 		_pick_base(planar_speed, airborne, dashing, vertical_speed, blocking)

@@ -13,6 +13,8 @@ extends Node
 const CHARACTERS := {
 	&"tariel": "res://scenes/player/tariel.tres",
 	&"avtandil": "res://scenes/player/avtandil.tres",
+	&"mage": "res://scenes/player/mage.tres",
+	&"rogue": "res://scenes/player/rogue.tres",
 }
 const DEFAULT := &"tariel"
 

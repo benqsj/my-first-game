@@ -387,9 +387,7 @@ func _fill_dossier() -> void:
 	var profile := _profile(_chosen)
 	column.add_child(MenuStyle.label(profile.display_name.to_upper(),
 			MenuStyle.HEADING_SIZE, MenuStyle.GOLD))
-	column.add_child(MenuStyle.label(
-			"BOW" if profile.weapon == CharacterProfile.Weapon.BOW else "SWORD AND SHIELD",
-			MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.35)))
+	column.add_child(MenuStyle.label(_arms(profile), MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.35)))
 	column.add_child(MenuStyle.rule())
 	for line in _stat_lines(profile):
 		var stat := MenuStyle.label(line, MenuStyle.BODY_SIZE, MenuStyle.CREAM)
@@ -415,7 +413,19 @@ func _stat_lines(profile: CharacterProfile) -> Array[String]:
 	lines.append("Crit   %.0f%%%s" % [profile.crit_chance * 100.0,
 			_compare(profile.crit_chance, knight.crit_chance, "more often", "less often")])
 	lines.append("Block  %s" % ("yes, behind a shield" if profile.can_block else "no shield"))
+	if profile.levitation > 0.0:
+		lines.append("Float  %.1f s in the air" % profile.levitation)
 	return lines
+
+
+## What they fight with, in a word or three.
+func _arms(profile: CharacterProfile) -> String:
+	match profile.weapon:
+		CharacterProfile.Weapon.BOW:
+			return "BOW"
+		CharacterProfile.Weapon.STAFF:
+			return "STAFF AND LIGHTNING"
+	return "SWORD AND SHIELD" if profile.can_block else "TWIN DAGGERS"
 
 
 ## " — faster" and the like, but only when there is something to say.

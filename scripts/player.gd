@@ -345,6 +345,9 @@ var target_part: int = 0
 ## How long the string has been held, and whether it is being held at all.
 var _draw_timer: float = 0.0
 var _drawing: bool = false
+## Levitation left in this jump, in seconds, and whether it is being used now.
+var _levitate_left: float = 0.0
+var _levitating: bool = false
 var _shot_timer: float = 0.0
 var _shot_rng := RandomNumberGenerator.new()
 
@@ -596,11 +599,27 @@ func _spawn_character() -> void:
 	dash_duration = profile.dash_duration
 	dodge_speed = profile.dodge_speed
 	dodge_duration = profile.dodge_duration
+	if profile.jump_height > 0.0:
+		jump_height = profile.jump_height
+	_levitate_left = profile.levitation
 
 
-## True for a character who shoots rather than swings.
+## True for a character who shoots rather than swings — the bow, or the staff,
+## which charges and casts the same way.
 func has_bow() -> bool:
-	return profile != null and profile.weapon == CharacterProfile.Weapon.BOW
+	return profile != null and profile.weapon != CharacterProfile.Weapon.MELEE
+
+
+## True while a held jump is holding the body up on the way down.
+func is_levitating() -> bool:
+	return _levitating
+
+
+## How much of the world's gravity the shot falls with.
+func _shot_drop() -> float:
+	if profile != null and profile.projectile_drop >= 0.0:
+		return profile.projectile_drop
+	return arrow_drop
 #endregion
 
 
@@ -719,9 +738,27 @@ func _process_locomotion(delta: float) -> void:
 	# Vertical movement.
 	if not on_floor:
 		velocity.y -= _current_gravity() * delta
+		_levitate(delta)
+	else:
+		_levitating = false
+		_levitate_left = profile.levitation if profile != null else 0.0
 
 	if _jump_buffer_timer > 0.0 and (on_floor or _coyote_timer > 0.0):
 		_do_jump()
+
+
+## A character who can levitate (the mage) hangs in the air while the jump is
+## held on the way down: the fall is held to `levitate_fall` until the
+## profile's seconds of it run out, and they come back on landing.
+func _levitate(delta: float) -> void:
+	_levitating = false
+	if profile == null or profile.levitation <= 0.0 or _levitate_left <= 0.0:
+		return
+	if velocity.y >= 0.0 or not Input.is_action_pressed("jump"):
+		return
+	_levitating = true
+	_levitate_left = maxf(_levitate_left - delta, 0.0)
+	velocity.y = maxf(velocity.y, -profile.levitate_fall)
 
 
 ## Speed multiplier for running along `direction` on the current floor: below 1
@@ -1746,11 +1783,14 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool) ->
 	# the archer's own movement after it has left the string. `world_of` is the
 	# same answer blood and severed limbs use for the same question.
 	var into := Blood.world_of(self)
-	if arrow_scene != null and into != null:
-		var arrow: Node3D = arrow_scene.instantiate()
+	var scene := arrow_scene
+	if profile != null and profile.projectile != null:
+		scene = profile.projectile
+	if scene != null and into != null:
+		var arrow: Node3D = scene.instantiate()
 		into.add_child(arrow)
 		arrow.global_position = from
-		arrow.call("launch", flight, damage, critical, _gravity * arrow_drop, self)
+		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 	if rig != null and rig.has_method(&"loose_bow"):
 		rig.call(&"loose_bow")
 
@@ -1794,7 +1834,7 @@ func _aim_direction(from: Vector3, speed: float = 40.0) -> Vector3:
 			at += (moving as Vector3) * flight
 			# And the drop over that flight, so the arc is aimed through rather
 			# than along.
-			at.y += 0.5 * _gravity * arrow_drop * flight * flight
+			at.y += 0.5 * _gravity * _shot_drop() * flight * flight
 		var to_them := at - from
 		if to_them.length_squared() > 0.0001:
 			return to_them.normalized()

@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CharacterProfile" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/character_profile.gd" id="1_profile"]
+[ext_resource type="PackedScene" path="res://scenes/player/mage_rigged_visuals.tscn" id="2_visuals"]
+[ext_resource type="PackedScene" path="res://scenes/fx/spell_bolt.tscn" id="3_bolt"]
+
+[resource]
+script = ExtResource("1_profile")
+display_name = "The Mage"
+blurb = "Fights from afar: hold to gather a bolt of lightning, let go to throw it. Jumps higher than anyone and, holding the jump, floats down."
+visuals = ExtResource("2_visuals")
+weapon = 2
+can_block = false
+can_climb = false
+run_speed = 4.6
+walk_speed = 2.6
+dash_speed = 10.0
+dash_duration = 0.45
+dodge_speed = 8.0
+dodge_duration = 0.7
+crit_chance = 0.15
+crit_damage = 1.8
+damage = 38.0
+jump_height = 3.0
+levitation = 4.0
+levitate_fall = 1.1
+draw_time = 1.1
+snap_share = 0.3
+arrow_speed = 42.0
+arrow_speed_snap = 30.0
+shot_cooldown = 0.35
+projectile = ExtResource("3_bolt")
+projectile_drop = 0.0
