@@ -97,6 +97,11 @@ const BLADE_TIP := 1.03
 @export var cut_margin: float = 0.03
 ## Swings play at this rate. Mixamo's are unhurried; the game is not.
 @export var swing_rate: float = 1.6
+## A swing thrown on the move keeps running legs under it (see
+## [StrideModifier]) instead of skating on the clip's planted feet.
+@export var swing_strides: bool = true
+## How quickly the legs go over to the stride and back, in seconds.
+@export var stride_blend: float = 0.12
 
 @export_group("Cloth")
 ## The cape and the ponytail hang off spring bones: they lag behind the body and
@@ -131,6 +136,9 @@ var _plunge_left: float = 0.0
 var _swing_commit: float = 0.0
 var _air_cut: bool = false
 var _sliding: bool = false
+var _stride: StrideModifier
+var _stride_clip: StringName = &""
+var _stride_time: float = 0.0
 
 
 func _ready() -> void:
@@ -150,6 +158,11 @@ func _ready() -> void:
 	var holder := _anim.get_node(_anim.root_node)
 	_anim.root_motion_track = NodePath(String(holder.get_path_to(_skel)) + ":root")
 	_setup_blade()
+	# Before the cloth, so the cape's spring bones hang over the legs as they
+	# end up, stride and all.
+	_stride = StrideModifier.new()
+	_stride.name = "Stride"
+	_skel.add_child(_stride)
 	if cloth_enabled:
 		_setup_cloth()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
@@ -265,6 +278,33 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 
 	if _role == Role.NONE:
 		_pick_base(planar_speed, airborne, dashing, vertical_speed, blocking)
+	_update_stride(delta, planar_speed, airborne)
+
+
+## Running legs under a swing thrown on the move: the cycle that fits the way
+## the body is going, carried on from the phase the run was at, faded in over
+## `stride_blend` and back out when the swing ends or the body stops.
+func _update_stride(delta: float, planar: float, airborne: bool) -> void:
+	if _stride == null:
+		return
+	var want := swing_strides and _role == Role.SWING and not _air_cut and not airborne \
+			and planar > idle_threshold
+	if want:
+		var clip := _direction_clip(planar)
+		if _anim.has_animation(clip):
+			if clip != _stride_clip:
+				# Same foot forward in the new cycle: keep the phase as a share.
+				var from_len := _stride.cycle.length if _stride.cycle != null else 1.0
+				var share := fposmod(_stride_time, maxf(from_len, 0.01)) / maxf(from_len, 0.01)
+				_stride_clip = clip
+				_stride.cycle = _anim.get_animation(clip)
+				_stride_time = share * _stride.cycle.length
+			_stride_time += delta * _rate(clip, planar)
+			_stride.time = _stride_time
+		else:
+			want = false
+	_stride.weight = move_toward(_stride.weight, 1.0 if want else 0.0,
+			delta / maxf(stride_blend, 0.01))
 
 
 func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, blocking: bool) -> void:
@@ -360,6 +400,13 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_action_rate = maxf(rate, 0.01)
 	_action_left = length * (until - from) / _action_rate
 	_base_clip = &""
+	# Where the legs were in their cycle, for a stride carried on under the swing.
+	var was := StringName(_anim.current_animation)
+	if ground_speed.has(was) and _anim.has_animation(was):
+		_stride_clip = was
+		_stride_time = _anim.current_animation_position
+		if _stride != null:
+			_stride.cycle = _anim.get_animation(was)
 	_anim.play(clip, action_blend if blend < 0.0 else blend)
 	_anim.speed_scale = _action_rate
 	if from > 0.0:

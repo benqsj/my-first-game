@@ -522,16 +522,15 @@ which is where the weight belongs: standing there hitting something is not a way
 to cross ground. A flurry lapses after `chain_window`, so running in and hitting
 something is always the fast swing however many were thrown a moment ago.
 
-**But a grounded swing moves by its step, not by the stick.** It used to keep the
-run's velocity under a swing clip played on the spot, so a cut thrown out of a
-sprint slid him across the ground like a skater — and, depending on the frame
-the button went down in, sometimes slid and sometimes stopped dead. Now every
-grounded swing takes one step and plants: the run it was thrown out of carries
-into a stride along the way he faces (at most `swing_step_speed`, 3.4 m/s,
-easing out over `swing_step_time`, 0.36 s), a cut from standing leans into a
-small step if the stick is pushed, a chained cut takes almost none, and for the
-rest of the swing the feet stay where they are. The stick counts again the
-moment the swing ends.
+**And the legs run under it.** Mixamo's swings are played on the spot, so a cut
+thrown out of a run kept the run's pace on a pair of planted feet and he skated
+across the ground under the swing. `StrideModifier` (`scripts/stride_modifier.gd`),
+a skeleton modifier the skinned rig adds, puts the stride back: while a swing
+plays and the body is moving, the thighs, calves, feet and toes come from the
+walk or run cycle that fits the way he is going, carried on from the phase the
+run was at when the button went down, and the swing keeps the hips, the trunk
+and the arms. It fades in and out over `stride_blend` (0.12 s);
+`SkinnedRig.swing_strides` turns it off.
 
 | | |
 | --- | --- |
