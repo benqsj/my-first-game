@@ -161,12 +161,26 @@ func _check_graphics() -> void:
 	_check("and pulls the grass in", grass == null or grass.draw_distance < 100.0,
 			"%.0f m" % (grass.draw_distance if grass != null else 0.0))
 
+	Graphics.apply(self, Graphics.Level.MEDIUM)
+	await _wait(2)
+	_check("medium keeps the sun's shadow", sun.shadow_enabled)
+	_check("but in one short cascade",
+			sun.directional_shadow_mode == DirectionalLight3D.SHADOW_ORTHOGONAL
+			and sun.directional_shadow_max_distance < 80.0,
+			"mode %d, %.0f m" % [sun.directional_shadow_mode, sun.directional_shadow_max_distance])
+	_check("and draws between the two", root.scaling_3d_scale > 0.75 and root.scaling_3d_scale < 1.0,
+			"%.2f" % root.scaling_3d_scale)
+
 	# The setting survives being asked for again, which is what a menu does.
 	Graphics.apply(self, Graphics.Level.HIGH)
 	await _wait(2)
 	_check("and it all comes back", sun.shadow_enabled
 			and is_equal_approx(root.scaling_3d_scale, 1.0)
 			and (grass == null or grass.draw_distance > 100.0))
+	_check("the sun's own cascades and reach included",
+			sun.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			and is_equal_approx(sun.directional_shadow_max_distance, 95.0),
+			"mode %d, %.0f m" % [sun.directional_shadow_mode, sun.directional_shadow_max_distance])
 
 	# What the player picked is remembered between runs.
 	_game.set_graphics(Graphics.Level.LOW)

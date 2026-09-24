@@ -255,17 +255,17 @@ func _build_settings() -> Control:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 18)
 	row.add_child(MenuStyle.label("GRAPHICS", MenuStyle.BUTTON_SIZE, MenuStyle.CREAM))
-	for level: int in [Graphics.Level.LOW, Graphics.Level.HIGH]:
-		var button := MenuStyle.button("LOW" if level == Graphics.Level.LOW else "HIGH",
-				func() -> void: _set_graphics(level as Graphics.Level))
+	for level: Graphics.Level in Graphics.ORDER:
+		var button := MenuStyle.button(Graphics.label(level),
+				func() -> void: _set_graphics(level))
 		button.custom_minimum_size = Vector2(160.0, MenuStyle.BUTTON_HEIGHT)
 		_graphics_buttons[level] = button
 		row.add_child(button)
 	page.add_child(row)
 
 	page.add_child(MenuStyle.label(
-			"Low turns shadows off, draws at seven tenths of the resolution and\n"
-			+ "softens the textures. It is for machines that are short of frames.",
+			"Medium keeps a shorter shadow and draws at 85% of the resolution.\n"
+			+ "Low turns shadows off, draws at seven tenths and softens the textures.",
 			MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
 
 	var buttons := MenuStyle.button_column()

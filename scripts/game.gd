@@ -133,7 +133,7 @@ func _load_settings() -> void:
 	if file.load(SETTINGS) != OK:
 		return
 	var level := int(file.get_value("video", "graphics", Graphics.Level.HIGH))
-	_graphics = Graphics.Level.LOW if level == Graphics.Level.LOW else Graphics.Level.HIGH
+	_graphics = Graphics.from_int(level)
 
 
 func _save_settings() -> void:
