@@ -2537,3 +2537,66 @@ godot --script res://tests/clip_shots.gd -- /tmp/clips   # the library, on Tarie
 godot --script res://tests/climb_shots.gd -- /tmp/climb  # the wall climb, and the stride
 godot --headless --script res://tests/inspect_ual2.gd    # what the library contains
 ```
+
+## The fourth round: the parry move, recoil, the bag, the village, the menus
+
+**The parry is a move now.** Raising the round shield *is* the parry: the
+guard goes up as `SS_Parry` (re-keyed in `tariel.blend`, stronger — a coil, the
+shield swept out across the blow with the body behind it, a hold, and back) and
+only then settles into `SS_Block_Idle`. A blow that lands within
+`parry_window` (0.3 s) of that move is parried; later it is an ordinary block.
+The move has its own cooldown (`parry_cooldown`, 0.7 s) so the guard cannot be
+fluttered for a permanent parry. `Player.net_parry_move` plays it on every peer.
+
+**Parried wolves recoil.** `Wolf.parried()` → `net_reel()` on every peer: for
+`Recoil.STAGGER` the wolf rears back off its forelegs (`rig.rotation.x`) and is
+jolted away, then eases back into its stance. Orcs, imps, puglins and the golem
+already had their recoil; the wolf was the one that just stood there.
+
+**The bag** (**I**, `scripts/inventory.gd`) is laid out like Elden Ring's:
+tabs (Weapons, Shields, Goods; Q / E), a grid of slots with drawn icons, the
+chosen item's name, kind, picture, attributes and effect in the middle, and the
+character's status down the right (HP, stamina, attack, critical, run, roll,
+what is equipped). Arrows / mouse to choose, Enter / 1 / 2 to put on.
+
+**The big map** (**M**) is full-screen now, lit, with the photograph taken
+without fog: the wheel zooms about the mouse, dragging moves it, C brings it
+back to you, M or Escape closes it; a legend and the keys along the top.
+
+**The assassin.** One knife, not two cleavers: both big blades removed from
+`heroes.blend` and a long knife built on `weapon_r` (tapered blade, crimson guard
+with silver ends, wrapped grip, silver pommel). Every stab of the combo is the
+knife hand's (`DG_Stab_Lead_R` is `DG_Stab_Lead` mirrored), played at 2.5×. His
+face boxes were moved onto the atlas's eyes. He runs at the hunter's 5.9 m/s,
+and upright: `DG_Run` and its back / left / right were rebuilt from the ninja
+run (kept in the blend as `DG_RunNinja*`) — the upper body rotated about the
+pelvis to 8° off vertical, the head keeping its old facing, the legs their old
+world pose, and the arms taken from the mage's run (the right one mirrored half
+a cycle on).
+
+**The mage** was brought to the others' proportions: hands, forearms, upper
+arms, head and feet scaled down.
+
+**The perfect dodge** leaves a shadow and a whoosh (`sounds/dodge/shadow.wav`)
+only for the characters with `CharacterProfile.shadow_dodge` — the assassin and
+Avtandil. Tariel's is still perfect (stamina back), just without the flourish.
+
+**The village.** The music plays only inside it (`World._play_music_in_village`,
+checked every 20 frames). The huts are 1.3× bigger and spread out along the
+street; a wooden fence (the kit's `SM_WoodFence`, dressed by [Building], its own
+box colliders) goes round `World.VILLAGE` with a gap for the gate on the west.
+Seven villagers ([Villager], `assets/villager/villager.glb` — the mage's body in
+everyday chokhas, black or white papakha, no staff) walk the street, stop,
+fidget, and turn to watch a player who comes near. The test blocks (ramp,
+stairs, steep face, platform, pillars) moved out of the world into
+`scenes/world/test_course.tscn`, which the tests that climb bring in; the big
+rocks are gone, the grass is thinner (`Meadows` spacing 3.4) and the daisies are
+off (`Meadows.flowers`).
+
+**The menus.** Behind every page is [MenuBackdrop]: dusk over three drifting
+ranges, the moon, stars, sparks rising, the left sunk into shadow. The front is
+a column on the left; the other pages are dark gold-edged cards. The hero
+select is laid out the way the big games do it: the picked one large in the
+middle in a pool of their own colour on a lit stone, a dossier on the right
+(name, epithet, weapon, six bars against the best of the roster, what only
+they can do, the blurb) and the roster along the bottom.
