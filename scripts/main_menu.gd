@@ -39,6 +39,14 @@ var _chosen: StringName = &""
 var _cards: Dictionary = {}
 var _stages: Dictionary = {}
 var _graphics_buttons: Dictionary = {}
+var _display_buttons: Dictionary = {}
+## Seconds the menu has been up: what the stage's light breathes by.
+var _stage_clock: float = 0.0
+## The display choices on the settings page, in order: [Game]'s keys.
+const DISPLAY_NAMES := {
+	"window": "WINDOW", "1280x720": "1280×720", "1920x1080": "1920×1080",
+	"2560x1440": "2560×1440", "fullscreen": "FULL SCREEN",
+}
 ## The autoload, looked up once. It holds what was chosen last time and is what
 ## the choices made here are written to.
 var _game: Node
@@ -365,6 +373,19 @@ func _build_settings() -> Control:
 		row.add_child(button)
 	page.add_child(row)
 
+	var screen_row := HBoxContainer.new()
+	screen_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	screen_row.add_theme_constant_override("separation", 10)
+	screen_row.add_child(MenuStyle.label("SCREEN", MenuStyle.BUTTON_SIZE - 2, MenuStyle.CREAM))
+	for key: String in DISPLAY_NAMES:
+		var button := MenuStyle.button(String(DISPLAY_NAMES[key]), func() -> void: _set_display(key))
+		button.custom_minimum_size = Vector2(128.0, MenuStyle.BUTTON_HEIGHT - 8.0)
+		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE)
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_display_buttons[key] = button
+		screen_row.add_child(button)
+	page.add_child(screen_row)
+
 	page.add_child(MenuStyle.label(
 			"Medium keeps a shorter shadow and draws at 85% of the resolution.\n"
 			+ "Low turns shadows off, draws at seven tenths and softens the textures.",
@@ -397,7 +418,7 @@ func _show(page: Page) -> void:
 			_refresh_found()
 		else:
 			_net.call("stop_looking")
-	elif page == Page.SETTINGS:
+	if page == Page.SETTINGS:
 		_refresh_graphics()
 #endregion
 
@@ -462,6 +483,9 @@ func _stage(roster: Array) -> Control:
 	var stage := Control.new()
 	stage.name = "Stage"
 	stage.custom_minimum_size = Vector2(STAGE.x, STAGE.y)
+	# Its own size, whatever the window: taller windows get more room round
+	# it, not a stretched stage with the figure left standing at its top.
+	stage.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.draw.connect(func() -> void: _draw_stage(stage))
 	for id: StringName in roster:
@@ -469,6 +493,7 @@ func _stage(roster: Array) -> Control:
 		full.name = "Full_%s" % id
 		_stages[id] = full
 		stage.add_child(full)
+		full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return stage
 
 
@@ -476,24 +501,48 @@ func _draw_stage(stage: Control) -> void:
 	var light := _accent(_chosen)
 	var w := stage.size.x
 	var h := stage.size.y
-	# A column of light from above, widening to the floor.
-	for i in 14:
-		var a := float(i) / 14.0
-		var half := lerpf(w * 0.08, w * 0.42, a)
-		stage.draw_rect(Rect2(w * 0.5 - half, h * a, half * 2.0, h / 14.0 + 1.0),
-				Color(light, 0.018 + 0.03 * a))
-	# The glow behind them.
-	var heart := Vector2(w * 0.5, h * 0.48)
-	for r in range(12, 0, -1):
-		stage.draw_circle(heart, w * 0.045 * r, Color(light, 0.028))
-	# The stone they stand on: an ellipse, lit on its rim.
-	var ground := Vector2(w * 0.5, h * 0.93)
+	var pulse := 0.5 + 0.5 * sin(_stage_clock * 1.6)
+	# A soft shaft of light from above, widening to the floor: one polygon
+	# with its colours faded top to bottom, so there are no bands in it.
+	var top_half := w * 0.07
+	var foot_half := w * 0.4
+	var floor_y := h * 0.93
+	stage.draw_polygon(PackedVector2Array([
+			Vector2(w * 0.5 - top_half, -h * 0.1), Vector2(w * 0.5 + top_half, -h * 0.1),
+			Vector2(w * 0.5 + foot_half, floor_y), Vector2(w * 0.5 - foot_half, floor_y)]),
+			PackedColorArray([Color(light, 0.0), Color(light, 0.0),
+			Color(light, 0.16 + 0.04 * pulse), Color(light, 0.16 + 0.04 * pulse)]))
+	# The glow behind them, breathing.
+	var heart := Vector2(w * 0.5, h * 0.5)
+	for r in range(14, 0, -1):
+		stage.draw_circle(heart, w * 0.042 * r, Color(light, 0.018 + 0.008 * pulse))
+	# The stone they stand on, lit on its rim, with a halo on the ground.
+	var ground := Vector2(w * 0.5, floor_y)
 	stage.draw_set_transform(ground, 0.0, Vector2(1.0, 0.22))
-	stage.draw_circle(Vector2.ZERO, w * 0.36, Color(0.02, 0.02, 0.03, 0.85))
-	stage.draw_arc(Vector2.ZERO, w * 0.36, 0.0, TAU, 64, Color(light, 0.9), 3.0, true)
-	stage.draw_arc(Vector2.ZERO, w * 0.42, 0.0, TAU, 64, Color(light, 0.35), 1.5, true)
-	stage.draw_circle(Vector2.ZERO, w * 0.3, Color(light, 0.12))
+	for r in range(8, 0, -1):
+		stage.draw_circle(Vector2.ZERO, w * (0.36 + 0.035 * r), Color(light, 0.025 * (1.0 - r / 9.0) + 0.01 * pulse))
+	stage.draw_circle(Vector2.ZERO, w * 0.36, Color(0.02, 0.02, 0.03, 0.9))
+	stage.draw_circle(Vector2.ZERO, w * 0.3, Color(light, 0.1 + 0.05 * pulse))
+	stage.draw_arc(Vector2.ZERO, w * 0.36, 0.0, TAU, 72, Color(light.lightened(0.2), 0.95), 3.0, true)
+	stage.draw_arc(Vector2.ZERO, w * 0.43, 0.0, TAU, 72, Color(light, 0.3 + 0.2 * pulse), 1.5, true)
 	stage.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Motes drifting up in the light.
+	for i in 16:
+		var hashed := float(i) * 12.9898
+		var x := w * 0.5 + (fmod(sin(hashed) * 43758.5453, 1.0)) * foot_half * 0.8
+		var rise := fmod(_stage_clock * (0.06 + 0.02 * (i % 4)) + float(i) / 16.0, 1.0)
+		var y := floor_y - rise * h * 0.8
+		stage.draw_circle(Vector2(x, y), 1.6 + (i % 3), Color(light.lightened(0.4), 0.5 * (1.0 - rise)))
+
+
+func _process(delta: float) -> void:
+	_stage_clock += delta
+	if _page != Page.CHARACTERS:
+		return
+	var page := _pages.get(Page.CHARACTERS) as Control
+	var stage := page.find_child("Stage", true, false) as Control if page != null else null
+	if stage != null:
+		stage.queue_redraw()
 
 
 ## The right: who they are and what picking them means, on a dark plate.
@@ -761,6 +810,17 @@ func _refresh_graphics() -> void:
 	var current: Graphics.Level = _game.graphics() if _game != null else Graphics.Level.HIGH
 	for level: int in _graphics_buttons:
 		MenuStyle.style_button(_graphics_buttons[level] as Button, level == current)
+	var shown: String = _game.display() if _game != null else "window"
+	for key: String in _display_buttons:
+		var button := _display_buttons[key] as Button
+		MenuStyle.style_button(button, key == shown)
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+
+func _set_display(key: String) -> void:
+	if _game != null:
+		_game.set_display(key)
+	_refresh_graphics()
 #endregion
 
 

@@ -27,10 +27,24 @@ signal graphics_changed(level: Graphics.Level)
 
 var _chosen: StringName = DEFAULT
 var _graphics: Graphics.Level = Graphics.Level.HIGH
+## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
+var _display: String = "window"
+
+## The choices: a window of the size it opened at, bigger windows, or the whole
+## screen. The pictures scale with the window (stretch mode `canvas_items`), so
+## these decide how many pixels the game has, not how big the menus are.
+const DISPLAYS := {
+	"window": Vector2i(1600, 900),
+	"1280x720": Vector2i(1280, 720),
+	"1920x1080": Vector2i(1920, 1080),
+	"2560x1440": Vector2i(2560, 1440),
+	"fullscreen": Vector2i.ZERO,
+}
 
 
 func _ready() -> void:
 	_load_settings()
+	_apply_display()
 	var argv := OS.get_cmdline_user_args()
 	var connect_as := ""
 	var address := "127.0.0.1"
@@ -128,16 +142,56 @@ func apply_graphics() -> void:
 	Graphics.apply(get_tree(), _graphics)
 
 
+## Which display setting is in force, as a key of [constant DISPLAYS].
+func display() -> String:
+	return _display
+
+
+func set_display(key: String) -> void:
+	if not DISPLAYS.has(key):
+		return
+	_display = key
+	_apply_display()
+	_save_settings()
+
+
+func _apply_display() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var window := get_window()
+	if window == null:
+		return
+	if _display == "fullscreen":
+		window.mode = Window.MODE_FULLSCREEN
+		return
+	if window.mode == Window.MODE_FULLSCREEN or window.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
+		window.mode = Window.MODE_WINDOWED
+	# "window" is the window as it opened, left alone (the editor may be
+	# holding it); only a size the player picked moves it.
+	if _display == "window":
+		return
+	window.mode = Window.MODE_WINDOWED
+	var want: Vector2i = DISPLAYS[_display]
+	# Never bigger than the screen it is on.
+	var screen := DisplayServer.screen_get_usable_rect(window.current_screen)
+	want = Vector2i(mini(want.x, screen.size.x), mini(want.y, screen.size.y))
+	window.size = want
+	window.position = screen.position + Vector2i(Vector2(screen.size - want) * 0.5)
+
+
 func _load_settings() -> void:
 	var file := ConfigFile.new()
 	if file.load(SETTINGS) != OK:
 		return
 	var level := int(file.get_value("video", "graphics", Graphics.Level.HIGH))
 	_graphics = Graphics.from_int(level)
+	var shown := String(file.get_value("video", "display", "window"))
+	_display = shown if DISPLAYS.has(shown) else "window"
 
 
 func _save_settings() -> void:
 	var file := ConfigFile.new()
 	file.set_value("video", "graphics", int(_graphics))
+	file.set_value("video", "display", _display)
 	file.save(SETTINGS)
 #endregion
