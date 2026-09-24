@@ -2817,3 +2817,9 @@ materials, no textures; every piece rigid on one bone.
 step, 0.66 of the flip for the assassin) the travel brakes to nothing, and
 the evade hands on no leftover speed, so a flip lands where it lands. The other
 heroes keep 1.0, the old glide.
+
+**Evades chain with no pause** (`Player._evade_landed`): once the clip has put
+his feet down, what is left of the evade is only the getting up, so a press
+from then on — or one kept from earlier — starts the next evade at once
+instead of waiting the recovery out. Pressed over and over: step, flip, step,
+flip, not a frame stood still between them.
