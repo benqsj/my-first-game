@@ -15,6 +15,7 @@ const CHARACTERS := {
 	&"avtandil": "res://scenes/player/avtandil.tres",
 	&"mage": "res://scenes/player/mage.tres",
 	&"rogue": "res://scenes/player/rogue.tres",
+	&"assassin2": "res://scenes/player/assassin2.tres",
 }
 const DEFAULT := &"tariel"
 
