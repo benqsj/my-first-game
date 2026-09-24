@@ -46,6 +46,13 @@ static func play_any(owner: Node, paths: Array, where: Node3D = null, pitch: flo
 	play(owner, String(paths[randi() % paths.size()]), where, Vector3.ZERO, pitch, volume_db)
 
 
+## Loads `paths` into the cache now, so the first swing or twang plays from
+## memory rather than stalling on a disk read in the middle of a fight.
+static func warm(paths: Array) -> void:
+	for path in paths:
+		_stream(String(path))
+
+
 static func _stream(path: String) -> AudioStream:
 	if _cache.has(path):
 		return _cache[path]

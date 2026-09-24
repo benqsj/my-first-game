@@ -174,6 +174,13 @@ func _place() -> void:
 				_mm.set_instance_transform(i, Transform3D(Basis.from_euler(spin).scaled(Vector3.ONE * float(it[2])), pos))
 
 
+## Builds the shared meshes now rather than on the first slam.
+static func prewarm() -> void:
+	_thorn()
+	_spike()
+	_rock()
+
+
 static func _thorn() -> Mesh:
 	if _thorn_mesh == null:
 		_thorn_mesh = _cone(0.09, 1.2)

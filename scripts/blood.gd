@@ -37,6 +37,23 @@ static var _patch_mesh: QuadMesh
 static var _patches: Array[MeshInstance3D] = []
 
 
+## Builds, ahead of time, what a blow would otherwise build in the middle of a
+## fight, and lays the spray emitters out in `world`.
+##
+## Measured at the orc camp, a blow that drew blood cost the physics step it
+## landed in 10 to 25 ms — every blow, not only the first. Nearly all of it was
+## the spray: a new [GPUParticles3D] and a new [ParticleProcessMaterial] per
+## hit. The emitters are now a small ring kept in the level and restarted (see
+## [method _spray]), and they, the splat image (worked out a pixel at a time in
+## script) and the shared materials are all made here, while the level loads.
+static func prewarm(world: Node = null) -> void:
+	splat_texture()
+	_spray_assets()
+	if world != null and world.is_inside_tree():
+		while _live_sprays() < SPRAY_POOL:
+			_add_spray(world)
+
+
 ## The node new effects should be parented to.
 ##
 ## `current_scene` is the obvious answer but it is null whenever the scene was
@@ -64,14 +81,32 @@ static func splatter(world: Node, point: Vector3, direction: Vector3) -> void:
 
 
 ## A short-lived burst of droplets thrown out along the blow.
+##
+## Taken from a ring of `SPRAY_POOL` emitters that live in the level and are
+## restarted, oldest first. They share one process material that throws along
+## the emitter's own -Z, so the emitter is turned to face the blow instead of
+## being given a material of its own: the process material moves the droplets'
+## start and velocity by the emitter's transform, and gravity stays world-down.
 static func _spray(world: Node, point: Vector3, direction: Vector3) -> void:
-	var particles := GPUParticles3D.new()
-	particles.amount = 24
-	particles.lifetime = 0.7
-	particles.one_shot = true
-	particles.explosiveness = 1.0
-	particles.emitting = true
+	var particles := _take_spray(world)
+	if particles == null:
+		return
+	var along := direction.normalized() if direction.length_squared() > 0.001 else Vector3.UP
+	var up := Vector3.UP if absf(along.dot(Vector3.UP)) < 0.98 else Vector3.RIGHT
+	particles.global_transform = Transform3D(Basis.looking_at(along, up), point)
+	particles.restart()
 
+
+## Six is more blows than land inside one spray's 0.7 s, so a spray is almost
+## never cut short by being reused.
+const SPRAY_POOL := 6
+
+static var _spray_process: ParticleProcessMaterial
+static var _sprays: Array[GPUParticles3D] = []
+static var _next_spray: int = 0
+
+
+static func _spray_assets() -> void:
 	if _spray_mesh == null:
 		_spray_mesh = SphereMesh.new()
 		_spray_mesh.radius = 0.035
@@ -81,22 +116,52 @@ static func _spray(world: Node, point: Vector3, direction: Vector3) -> void:
 		_spray_material = StandardMaterial3D.new()
 		_spray_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_spray_material.albedo_color = SPRAY
+	if _spray_process == null:
+		_spray_process = ParticleProcessMaterial.new()
+		_spray_process.direction = Vector3.FORWARD
+		_spray_process.spread = 55.0
+		_spray_process.initial_velocity_min = 2.0
+		_spray_process.initial_velocity_max = 5.5
+		_spray_process.gravity = Vector3(0.0, -9.0, 0.0)
+		_spray_process.scale_min = 0.5
+		_spray_process.scale_max = 1.4
+
+
+## How many emitters are still in a level. Ones that went with an old level are
+## dropped from the ring.
+static func _live_sprays() -> int:
+	for i in range(_sprays.size() - 1, -1, -1):
+		if not is_instance_valid(_sprays[i]):
+			_sprays.remove_at(i)
+	return _sprays.size()
+
+
+static func _add_spray(world: Node) -> GPUParticles3D:
+	_spray_assets()
+	var particles := GPUParticles3D.new()
+	particles.name = "BloodSpray"
+	particles.amount = 24
+	particles.lifetime = 0.7
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.emitting = false
 	particles.draw_pass_1 = _spray_mesh
 	particles.material_override = _spray_material
-
-	var behaviour := ParticleProcessMaterial.new()
-	behaviour.direction = direction.normalized() if direction.length_squared() > 0.001 else Vector3.UP
-	behaviour.spread = 55.0
-	behaviour.initial_velocity_min = 2.0
-	behaviour.initial_velocity_max = 5.5
-	behaviour.gravity = Vector3(0.0, -9.0, 0.0)
-	behaviour.scale_min = 0.5
-	behaviour.scale_max = 1.4
-	particles.process_material = behaviour
-
+	particles.process_material = _spray_process
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world.add_child(particles)
-	particles.global_position = point
-	_free_after(particles, 1.6)
+	_sprays.append(particles)
+	return particles
+
+
+static func _take_spray(world: Node) -> GPUParticles3D:
+	if _live_sprays() < SPRAY_POOL:
+		return _add_spray(world)
+	var particles := _sprays[_next_spray % _sprays.size()]
+	_next_spray += 1
+	if particles.get_parent() != world:
+		particles.reparent(world, false)
+	return particles
 
 
 ## A soft, ragged blob used for every ground splat.

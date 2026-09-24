@@ -388,6 +388,8 @@ var _chain_timer: float = 0.0
 
 func _ready() -> void:
 	_spawn_character()
+	# The bow's two sounds, read off the disk now rather than on the first draw.
+	Sfx.warm([DRAW_SOUND, RELEASE_SOUND])
 	# The level has just loaded, so this is the moment the graphics setting has
 	# something to be applied to. The world knows nothing about settings; the
 	# thing that spawns into it asks for them.

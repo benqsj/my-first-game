@@ -34,6 +34,12 @@ var _material: StandardMaterial3D
 static var _shared: ImageTexture = null
 
 
+## Builds the shared ring texture now rather than on the first landing. See
+## [method Blood.prewarm] for why.
+static func prewarm() -> void:
+	_cloud()
+
+
 ## Throws one at `where`, in `into`'s world, scaled by `size`. Hands it back in
 ## case the caller wants to colour it; it runs and frees itself either way.
 static func burst(into: Node, where: Vector3, size: float = 1.0) -> DustRing:

@@ -188,6 +188,8 @@ func _ready() -> void:
 		_setup_cloth()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
 	_set_base(clips[&"idle"], 0.0, 1.0)
+	# Read off the disk now, not on the first swing.
+	Sfx.warm(swing_sounds)
 
 
 ## Override to swap in another character's clip table (see `clips`).

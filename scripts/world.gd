@@ -114,6 +114,7 @@ func _ready() -> void:
 		music.call("play", &"world")
 	_build_camps()
 	_cull_distant_creatures()
+	_prewarm_effects()
 	_creatures = get_node_or_null("Enemies")
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
@@ -350,6 +351,17 @@ func _build_camps() -> void:
 			body.set("camp_centre", Vector3(centre.x, 0.0, centre.y))
 			body.set("skin", 1 + (i + k) % 3)
 			creatures.add_child(body)
+
+
+## Builds everything a blow in a fight would otherwise build in the middle of
+## it: the blood spray's emitters and materials, the splat and dust-ring images
+## (worked out a pixel at a time in script) and the ground wave's spikes.
+## Measured at the orc camp, a blow that drew blood cost the physics step it
+## landed in 10 to 37 ms; paid here, it is part of the load.
+func _prewarm_effects() -> void:
+	Blood.prewarm(self)
+	DustRing.prewarm()
+	GroundFx.prewarm()
 
 
 func _cull_distant_creatures() -> void:
