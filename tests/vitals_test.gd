@@ -207,7 +207,7 @@ func _initialize() -> void:
 		for node in enemies.get_children():
 			if node is Wolf and node != wolf:
 				ws.append((node as Node3D).global_position)
-				all_near = all_near and (node as Node3D).global_position.distance_to(den) < 16.0
+				all_near = all_near and (node as Node3D).global_position.distance_to(den) < 24.0
 		for i in ws.size():
 			for j in range(i + 1, ws.size()):
 				closest = minf(closest, ws[i].distance_to(ws[j]))

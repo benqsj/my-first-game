@@ -24,6 +24,11 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var lose_range: float = 18.0
 ## Close enough to stand up and swing.
 @export var reach: float = 2.3
+## Hurt from further off than it can see — an arrow out of the trees — it
+## comes anyway, and keeps coming for this long whatever the distance.
+@export var provoked_time: float = 14.0
+## The pack: wolves this close to one that is hurt come too.
+@export var pack_call: float = 14.0
 
 @export_group("Movement")
 ## Tallest step it walks up without being stopped by it. Kept below the body's
@@ -31,8 +36,8 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var step_height: float = 0.45
 ## How far ahead that sweep reaches. Must exceed the body's radius.
 @export var step_probe: float = 0.6
-@export var prowl_speed: float = 1.9
-@export var charge_speed: float = 7.2
+@export var prowl_speed: float = 2.2
+@export var charge_speed: float = 8.3
 @export var acceleration: float = 22.0
 @export var turn_speed: float = 9.0
 ## How far from where it started it will wander.
@@ -116,9 +121,15 @@ var _swipe_count: int = 0
 var _reeling: float = 0.0
 ## How far into its reel this peer's copy is, drawn on every peer.
 var _reel_clock: float = 99.0
+## Seconds left of coming after whoever hurt it (or its pack), whatever the
+## distance.
+var _provoked: float = 0.0
+## Which way it went over when it died: onto its left side or its right.
+var _fall_side: float = 1.0
 
 
 func _ready() -> void:
+	add_to_group(&"wolf")
 	_home = global_position
 	_rng.randomize()
 	_pick_prowl_target()
@@ -152,6 +163,7 @@ func _physics_process(delta: float) -> void:
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_reeling = maxf(_reeling - delta, 0.0)
+	_provoked = maxf(_provoked - delta, 0.0)
 	if _swipe_lands >= 0.0:
 		_swipe_lands -= delta
 		if _swipe_lands < 0.0:
@@ -175,7 +187,7 @@ func _process(delta: float) -> void:
 		_corpse_age += delta
 		var sunk := (_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001)
 		if sunk > 0.0 and rig != null:
-			rig.position.y = 0.35 - minf(sunk, 1.0) * minf(sunk, 1.0) * corpse_sink_depth
+			rig.position.y = LIE_Y - minf(sunk, 1.0) * minf(sunk, 1.0) * corpse_sink_depth
 	# A dead wolf's bar stays hidden: `set_fraction` shows the bar whenever it
 	# is below full, and a corpse is always below full.
 	if _bar != null and not is_dead:
@@ -188,7 +200,9 @@ func _process(delta: float) -> void:
 		return
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 	# On all fours to cover ground, upright to fight.
-	var stance := 0.0 if state == State.FIGHT else 1.0
+	var stance := 0.0 if state == State.FIGHT and not is_dead else 1.0
+	if is_dead:
+		planar = 0.0
 	_reel_clock += delta
 	var reeling := _reel_clock < Recoil.STAGGER and not is_dead
 	if reeling:
@@ -284,7 +298,7 @@ func _think(delta: float) -> void:
 			else:
 				_prowl(delta)
 		State.CHASE:
-			if distance > lose_range:
+			if distance > lose_range and (_provoked <= 0.0 or distance > 90.0):
 				state = State.PROWL
 				_pick_prowl_target()
 			elif distance < reach:
@@ -353,6 +367,19 @@ func parried(by: Node3D) -> void:
 		away.y = 0.0
 		if away.length_squared() > 0.0001:
 			velocity += away.normalized() * 5.0
+
+
+## Sets it after `who`: it comes, and keeps coming for `provoked_time` however
+## far off they are. A wolf of the pack that was not hurt itself owes `who` a
+## token of threat, so that is who it goes for.
+func provoke(who: Node3D) -> void:
+	if is_dead or who == null or not _decides():
+		return
+	_provoked = provoked_time
+	if not _threat.has(who.name):
+		_threat[who.name] = 0.01
+	if state == State.PROWL or state == State.FIGHT and _quarry() != who:
+		state = State.CHASE
 
 
 func is_reeling() -> bool:
@@ -548,7 +575,15 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 
 	# Being shot at is a good enough reason to come and find out who did it —
 	# and if somebody else has just taken the lead, to go after them instead.
-	if state == State.PROWL:
+	# From however far off the shot came, and the pack with it.
+	if from is Node3D:
+		provoke(from as Node3D)
+		for node in get_tree().get_nodes_in_group("wolf"):
+			var mate := node as Wolf
+			if mate != null and mate != self and not mate.is_dead \
+					and mate.global_position.distance_to(global_position) < pack_call:
+				mate.provoke(from as Node3D)
+	elif state == State.PROWL:
 		state = State.CHASE
 
 	if health <= 0.0:
@@ -580,6 +615,9 @@ func _die() -> void:
 ## on everyone else when they are told.
 func _lie_down() -> void:
 	state = State.DOWN
+	# The side it goes over on, the same in every window: from its name.
+	_fall_side = 1.0 if hash(name) % 2 == 0 else -1.0
+	_corpse_age = 0.0
 	# An empty bar over a corpse is just clutter: there is nothing left to
 	# read off it, and the body is about to topple out from under it anyway.
 	if _bar != null:
@@ -613,13 +651,23 @@ func net_clear() -> void:
 	queue_free()
 
 
-## Topples the body over once it is dead.
-func _collapse(delta: float) -> void:
+## Where the body lies once it has fallen, and how long the fall takes.
+const LIE_Y := 0.12
+const FALL_TIME := 0.55
+
+
+## Once it is dead: down onto all fours if it was standing, and over onto its
+## side — a quick fall with a small bounce as it hits the ground, then still.
+func _collapse(_delta: float) -> void:
 	if rig == null:
 		return
-	var fallen := rig.rotation.x
-	rig.rotation.x = lerpf(fallen, -PI * 0.5, 1.0 - exp(-6.0 * delta))
-	rig.position.y = lerpf(rig.position.y, 0.35, 1.0 - exp(-6.0 * delta))
+	var t := clampf(_corpse_age / FALL_TIME, 0.0, 1.0)
+	# Falls, hits, rocks back a little and settles.
+	var over := pow(t / 0.7, 2.0) * 1.06 if t < 0.7 else lerpf(1.06, 1.0, (t - 0.7) / 0.3)
+	rig.rotation.x = lerpf(rig.rotation.x, 0.0, 0.25)
+	rig.rotation.z = _fall_side * PI * 0.5 * over
+	rig.position.y = LIE_Y * minf(t * 2.0, 1.0)
+	rig.position.z = lerpf(rig.position.z, 0.0, 0.2)
 
 
 ## Takes the body out of the world once it has lain there long enough. Corpses
@@ -642,5 +690,5 @@ func _clear_away(delta: float) -> void:
 		return
 	if rig != null:
 		# Eased in: it lingers a moment longer at the surface, then goes.
-		rig.position.y = 0.35 - sunk * sunk * corpse_sink_depth
+		rig.position.y = LIE_Y - sunk * sunk * corpse_sink_depth
 #endregion

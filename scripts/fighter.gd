@@ -238,9 +238,10 @@ func _process(delta: float) -> void:
 		# Every peer counts its own corpse time, so the body sinks in every
 		# window and not just the host's.
 		_corpse_age += delta
+		_topple()
 		if _corpse_age > corpse_linger and body != null:
 			var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
-			body.position.y = _body_rest_y - sunk * sunk * corpse_sink_depth
+			body.position.y = _body_rest_y + FALL_LIFT * visual_scale - sunk * sunk * corpse_sink_depth
 
 	if _anim == null:
 		return
@@ -255,7 +256,10 @@ func _process(delta: float) -> void:
 			# The blow knocked back, it stands reeling in the guard-broken clip.
 			_reel_settled = true
 			_anim.play(break_clip, 0.15, 1.2, 1.0, true)
-	_anim.advance(delta)
+	# Dead, the knock back plays only as far as the blow throwing it back; the
+	# fall itself is the body going over (`_topple`).
+	if not is_dead or _corpse_age < FREEZE_AT:
+		_anim.advance(delta)
 	if act == Act.REEL and not is_dead and _skeleton != null:
 		Recoil.pose(_skeleton, self, _reel_bones, _reel_clock)
 
@@ -675,6 +679,31 @@ func _lie_down() -> void:
 	# Out of the way of the living, but still resting on the ground.
 	collision_layer = 0
 	died.emit()
+
+
+## How a body falls once it is dead: the knock back plays for `FREEZE_AT`
+## seconds, then it goes over backwards onto the ground in `FALL_TIME`, hits,
+## rocks back a little and lies still, `FALL_LIFT` up so it lies on the ground
+## rather than in it.
+const FREEZE_AT := 0.06
+const FALL_TIME := 0.6
+const FALL_LIFT := 0.12
+var _stood: Basis = Basis.IDENTITY
+var _stood_taken: bool = false
+
+
+func _topple() -> void:
+	if body == null:
+		return
+	if not _stood_taken:
+		_stood_taken = true
+		_stood = body.transform.basis
+	var t := clampf(_corpse_age / FALL_TIME, 0.0, 1.0)
+	var over := pow(t / 0.7, 2.0) * 1.05 if t < 0.7 else lerpf(1.05, 1.0, (t - 0.7) / 0.3)
+	# About the body's own left-right axis, head going back (+Z is behind it).
+	body.transform.basis = Basis(Vector3.RIGHT, PI * 0.5 * over) * _stood
+	if _corpse_age <= corpse_linger:
+		body.position.y = _body_rest_y + FALL_LIFT * visual_scale * minf(t * 1.5, 1.0)
 
 
 ## `queue_free()` does not replicate, so the host says it out loud.
