@@ -53,6 +53,10 @@ const ACT_DEAD := 99
 @export var hit_tolerance: float = 0.3
 @export var bar_height: float = 2.8
 @export var bar_width: float = 1.2
+## Left alone this long — nobody chased, nothing struck — it mends to full
+## health over `regen_fill` seconds. 0 leaves it to heal only when it gets home.
+@export var regen_after: float = 0.0
+@export var regen_fill: float = 1.5
 
 @export_group("Appearance")
 ## Size the model is drawn at. The collider is sized in the scene to match.
@@ -101,6 +105,8 @@ var _body_rest_y: float = 0.0
 ## Waves of thorns in the ground, host side: each catches a player once as its
 ## front runs under them.
 var _waves: Array[Dictionary] = []
+## Seconds since it last fought or was struck, for `regen_after`.
+var _calm: float = 0.0
 
 
 func _ready() -> void:
@@ -176,6 +182,7 @@ func _physics_process(delta: float) -> void:
 
 	_act_time += delta
 	_cooldown = maxf(_cooldown - delta, 0.0)
+	_mend(delta)
 	_run_waves(delta)
 	_watch_blades()
 	if is_dead:
@@ -186,6 +193,17 @@ func _physics_process(delta: float) -> void:
 	_think(delta)
 	StepUp.climb(self, delta, step_height, step_probe)
 	move_and_slide()
+
+
+## Left alone long enough, it mends.
+func _mend(delta: float) -> void:
+	if regen_after <= 0.0 or health >= max_health or mode == Mode.CHASE or mode == Mode.FIGHT \
+			or act != ACT_NONE:
+		_calm = 0.0
+		return
+	_calm += delta
+	if _calm >= regen_after:
+		health = minf(health + max_health * delta / maxf(regen_fill, 0.01), max_health)
 
 
 func _after_act_rest() -> float:
@@ -255,10 +273,15 @@ func _turn_while_acting() -> float:
 	return 0.3
 
 
+## Whether a point is on the ground it holds: whoever leaves it is let go.
+## A ring of `leash_radius` round its camp, unless a kind says otherwise.
+func _holds(point: Vector3) -> bool:
+	return point.distance_squared_to(camp_centre) < leash_radius * leash_radius
+
+
 func _pick_quarry() -> Node3D:
-	var reach2 := leash_radius * leash_radius
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
-			and _quarry.global_position.distance_squared_to(camp_centre) < reach2:
+			and _holds(_quarry.global_position):
 		return _quarry
 	if mode == Mode.RETURN:
 		return null
@@ -266,7 +289,7 @@ func _pick_quarry() -> Node3D:
 	var closest := INF
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or who.global_position.distance_squared_to(camp_centre) >= reach2:
+		if who == null or not _holds(who.global_position):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:
@@ -396,6 +419,13 @@ func _hit(who: Node3D, damage: float, blow: int = 0, blows: int = 2, combo: int 
 	who.call("receive_blow", damage, self, blow, blows, act_serial if combo < 0 else combo)
 
 
+## A special blow — a slam, a spin, a stamp, the ground erupting — floors
+## whoever it lands on clean (a blocked or rolled one still does not): it is
+## sent as a combo of one.
+func _floor(who: Node3D, damage: float, combo: int = -1) -> void:
+	_hit(who, damage, 0, 1, combo)
+
+
 ## Starts the damage of a wave laid out as [method GroundFx.wave] draws it.
 func _launch_wave(from: Vector3, direction: Vector3, length: float, size: float, damage: float) -> void:
 	var ahead := Vector3(direction.x, 0.0, direction.z).normalized()
@@ -426,7 +456,8 @@ func _run_waves(delta: float) -> void:
 			if absf(rel.dot(side)) > GroundFx.wave_width(d, wave.size) * 0.5 + 0.4:
 				continue
 			caught[who] = true
-			_hit(who, wave.damage, 0, 2, wave.id)
+			# The ground coming up under him puts him down.
+			_floor(who, wave.damage, wave.id)
 		if front > float(wave.length) + 1.0:
 			_waves.remove_at(i)
 #endregion
@@ -482,6 +513,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 		return false
 	if from != null:
 		_rouse(from)
+	_calm = 0.0
 	health = maxf(health - damage * (1.0 - armour), 0.0)
 	hurt.emit(health)
 	if bleed:

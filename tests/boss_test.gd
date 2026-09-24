@@ -170,6 +170,7 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	_struck.clear()
 	orc._begin(OrcWarrior.Act.HEAVY, OrcWarrior.HEAVY_CLIP, 1.0)
 	var slammed := false
+	var downed := false
 	for i in 400:
 		orc.global_position = Vector3(spot.x, orc.global_position.y, spot.z)
 		_player.velocity = Vector3.ZERO
@@ -179,6 +180,7 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 					orc._waves.size(), _player.global_position.distance_to(spot), _player.state,
 					_player.is_invulnerable, _player.global_position.y, orc._slam_point.y])
 		slammed = slammed or orc._slammed
+		downed = downed or _player.state == Player.State.DOWNED
 		if orc.act == Brute.ACT_NONE:
 			break
 	await _wait(20)
@@ -188,6 +190,7 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 			"%s; the axe came down %.1f m ahead, %.1f to the side" % [str(_struck),
 			landed.dot(orc._forward()), landed.dot(orc._forward().cross(Vector3.UP))])
 	_check("and nothing else did", _struck.size() == 1, str(_struck))
+	_check("the spikes put him on the ground", downed)
 	await _stand_up()
 
 	# The guard: only a drawn bow on him raises it.
@@ -227,6 +230,22 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	_check("open, an arrow does all of it, less his armour",
 			is_equal_approx(before - orc.health, open_expected), "%.1f" % (before - orc.health))
 
+	# His ground is the whole of the bay's water, and none of the land.
+	_check("the water is his ground, all of it", orc._holds(orc._home + Vector3(60.0, 0.0, -40.0))
+			and orc._holds(orc._home + Vector3(-70.0, 0.0, -30.0)))
+	_check("the land is not", not orc._holds(Vector3(0.0, 0.0, -200.0)) and not orc._holds(Vector3(0.0, 0.0, -150.0)))
+	# Left alone twenty seconds, he mends.
+	var was_mode := orc.mode
+	orc.mode = Brute.Mode.GUARD
+	orc.health = orc.max_health * 0.4
+	orc._calm = 0.0
+	orc._mend(15.0)
+	_check("not mended before twenty seconds", orc.health < orc.max_health * 0.5, "%.0f" % orc.health)
+	orc._mend(6.0)
+	orc._mend(2.0)
+	_check("and whole again after", is_equal_approx(orc.health, orc.max_health), "%.0f of %.0f" % [orc.health, orc.max_health])
+	orc.mode = was_mode
+
 	# And he dies.
 	for i in 40:
 		if orc.is_dead:
@@ -234,9 +253,15 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 		orc.take_hit(160.0, orc.global_position + Vector3.UP * 1.5, Vector3.FORWARD, false, true, _player)
 		await _wait(2)
 	_check("enough arrows kill an orc", orc.is_dead)
-	# Mixamo's death staggers for a good second before he falls.
-	await _wait(110)
-	var hips := (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("Hips")).origin).y - orc.global_position.y
+	# Mixamo's death staggers for a good second before he falls. The clip runs
+	# on frames and the wait on physics ticks, which a loaded machine catches
+	# up in bursts, so wait for the fall rather than a fixed count.
+	var hips := INF
+	for i in 300:
+		await physics_frame
+		hips = (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("Hips")).origin).y - orc.global_position.y
+		if hips < orc.body_height * 0.5:
+			break
 	_check("and he goes down", hips < orc.body_height * 0.5, "hips %.2f m up" % hips)
 	var gone := false
 	for i in 60 * 9:

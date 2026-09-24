@@ -155,6 +155,10 @@ const GREAT_AXE_HEAD := Vector3(0.0, 62.0, 0.0)
 @export var slam_range: float = 9.0
 ## How fast he walks in behind a chain, to stay on whoever backs off from it.
 @export var chain_advance: float = 2.2
+## His ground is the water his camp stands in — all of it, shore to shore —
+## rather than a ring round the camp: he follows anyone in it, and lets go of
+## whoever climbs out.
+@export var holds_the_water: bool = true
 
 @export_group("Looks")
 ## How fast the axe head must be going, metres a second, to cut the air.
@@ -208,6 +212,9 @@ var _head_mark: Node3D
 var _arc: BladeArc
 var _arc_tip: Node3D
 var _arc_last := Vector3.ZERO
+## The water that is his ground (a node with `in_mere()`), found once.
+var _water: Node
+var _water_found: bool = false
 
 
 func _ready() -> void:
@@ -486,6 +493,28 @@ func _stand_off() -> float:
 	return reach * 0.8
 
 
+func _holds(point: Vector3) -> bool:
+	var water := _home_water()
+	if water != null:
+		return bool(water.call("in_mere", Vector2(point.x, point.z)))
+	return super(point)
+
+
+## The first mere up the tree whose water his camp stands in.
+func _home_water() -> Node:
+	if _water_found or not holds_the_water:
+		return _water
+	_water_found = true
+	var at := get_parent()
+	while at != null:
+		for child in at.get_children():
+			if child.has_method("in_mere") and bool(child.call("in_mere", Vector2(camp_centre.x, camp_centre.z))):
+				_water = child
+				return _water
+		at = at.get_parent()
+	return null
+
+
 ## The first sight of somebody: a roar before the chase.
 func _rouse(who: Node3D) -> void:
 	var was_idle := mode == Mode.GUARD
@@ -584,10 +613,10 @@ func _land(index: int, count: int) -> void:
 			_slam(leap_damage if act == Act.LEAP else slam_damage)
 		Act.SPIN:
 			for who in _players_near(global_position, reach + 0.6):
-				_hit(who, spin_damage, 0, 2)
+				_floor(who, spin_damage)
 		Act.KICK:
 			for who in _players_ahead(reach * 0.7, 0.4):
-				_hit(who, kick_damage, 0, 2)
+				_floor(who, kick_damage)
 		_:
 			var spec: Array = _acts[act]
 			if spec.size() > 3 and bool(spec[3]) and index == count - 1:
@@ -608,11 +637,12 @@ func _slam(damage: float) -> void:
 	_slammed = true
 	var at := axe_head()
 	_slam_point = at
+	# The overhead into the ground floors anyone under it, as the spikes do.
 	for who in _players_near(at, 1.8):
-		_hit(who, damage, 1, 2)
+		_floor(who, damage)
 	for who in _players_ahead(reach + 0.4, 0.5):
 		if who.global_position.distance_to(at) > 1.8:
-			_hit(who, damage, 1, 2)
+			_floor(who, damage)
 	_launch_wave(at, _forward(), wave_length, wave_size, wave_damage)
 	net_slam.rpc(at, _forward())
 #endregion

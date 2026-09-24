@@ -272,7 +272,7 @@ func _land(kind: StringName, side: StringName, index: int) -> void:
 			at.y = ground
 			net_ground.rpc(at, 0.7 * reach)
 			for who in _players_ahead(3.4 * reach, 0.3):
-				_hit(who, stamp_damage)
+				_floor(who, stamp_damage)
 		&"strike":
 			var sides: Array = [&"L", &"R"] if side == &"B" else [side]
 			var struck := {}
@@ -301,7 +301,7 @@ func _land(kind: StringName, side: StringName, index: int) -> void:
 			for who in _players_near(mid, strike_radius):
 				struck[who] = true
 			for who in struck:
-				_hit(who, chop_damage)
+				_floor(who, chop_damage)
 		&"thorns":
 			var from := global_position + _forward() * 1.2 * reach
 			from.y = ground

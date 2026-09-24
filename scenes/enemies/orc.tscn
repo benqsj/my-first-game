@@ -57,6 +57,7 @@ body_height = 3.7
 bar_height = 4.4
 bar_width = 1.8
 visual_scale = 2.24
+regen_after = 20.0
 reach = 4.0
 wave_length = 10.0
 wave_size = 1.6
