@@ -23,6 +23,8 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 ## Every subclass keeps these two numbers for "nothing" and "dead".
 const ACT_NONE := 0
 const ACT_DEAD := 99
+## Reeling from a parried blow ([Recoil]), open to a riposte.
+const ACT_REEL := 98
 
 @export_group("Movement")
 @export var speed: float = 1.3
@@ -165,6 +167,12 @@ func _arrow_factor(_from: Node3D) -> float:
 ## Closest a fight wants to be: inside this it stops and turns to face.
 func _stand_off() -> float:
 	return 2.2
+
+
+## Starts the reel. A kind whose acts are a list of moves (Arkdeva) starts its
+## own; the rest stand in `ACT_REEL`.
+func _reel() -> void:
+	_start(ACT_REEL, Recoil.STAGGER)
 #endregion
 
 
@@ -255,7 +263,7 @@ func _think(delta: float) -> void:
 					mode = Mode.FIGHT
 					_face(_quarry.global_position - global_position, delta, turn_speed)
 					_slow(delta, 2.0)
-			else:
+			elif not is_reeling():
 				_face(_quarry.global_position - global_position, delta, turn_speed * _turn_while_acting())
 		Mode.RETURN:
 			var home := _home - global_position
@@ -281,7 +289,7 @@ func _holds(point: Vector3) -> bool:
 
 func _pick_quarry() -> Node3D:
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
-			and _holds(_quarry.global_position):
+			and _holds(_quarry.global_position) and not _fallen(_quarry):
 		return _quarry
 	if mode == Mode.RETURN:
 		return null
@@ -289,13 +297,18 @@ func _pick_quarry() -> Node3D:
 	var closest := INF
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or not _holds(who.global_position):
+		if who == null or not _holds(who.global_position) or _fallen(who):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:
 			closest = gap
 			best = who
 	return best
+
+
+## A player who has fallen and is waiting to be put back: left alone.
+static func _fallen(who: Node3D) -> bool:
+	return who != null and bool(who.get("net_dead"))
 
 
 func _rouse(who: Node3D) -> void:
@@ -390,7 +403,7 @@ func _players_near(at: Vector3, radius: float) -> Array[Node3D]:
 	var found: Array[Node3D] = []
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or not who.has_method("receive_blow"):
+		if who == null or not who.has_method("receive_blow") or _fallen(who):
 			continue
 		var gap := who.global_position - at
 		if absf(gap.y) > 2.5:
@@ -464,6 +477,26 @@ func _run_waves(delta: float) -> void:
 
 
 #region Taking hits
+## A player met one of its blows on the shield at the last moment. Host only:
+## whatever it was doing stops — the rest of a combo is not thrown — and it
+## reels, its weapon knocked back, open for `Recoil.STAGGER` seconds.
+func parried(_by: Node3D) -> void:
+	if is_dead or not _decides():
+		return
+	_calm = 0.0
+	_reel()
+
+
+## True while it reels from a parry.
+func is_reeling() -> bool:
+	return act == ACT_REEL or _reel_act()
+
+
+## A kind with its own reel act says so.
+func _reel_act() -> bool:
+	return false
+
+
 func _watch_blades() -> void:
 	for node in get_tree().get_nodes_in_group("player"):
 		var knight := node as Player
@@ -514,6 +547,9 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 	if from != null:
 		_rouse(from)
 	_calm = 0.0
+	# Reeling from a parry, it is wide open: the riposte bites deeper.
+	if is_reeling():
+		damage *= Recoil.RIPOSTE
 	health = maxf(health - damage * (1.0 - armour), 0.0)
 	hurt.emit(health)
 	if bleed:

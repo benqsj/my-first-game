@@ -35,7 +35,7 @@ signal guard_broken
 
 ## What the body is doing right now. Replicated, and each new one bumps
 ## `act_serial`, which is what tells the other peers to play it.
-enum Act { NONE, ATTACK, BLOCK, DASH, BREAK, DEAD }
+enum Act { NONE, ATTACK, BLOCK, DASH, BREAK, DEAD, REEL }
 ## What it is about, which only decides the idle it stands in on other peers.
 enum Mode { GUARD, CHASE, FIGHT, RETURN }
 
@@ -156,6 +156,10 @@ var _seen_swing: Dictionary = {}
 var _last_cut: Dictionary = {}
 var _corpse_age: float = 0.0
 var _cleared: bool = false
+## The bones the reel from a parry bends, and how far into it this peer is.
+var _reel_bones: Dictionary = {}
+var _reel_clock: float = 0.0
+var _reel_settled: bool = false
 
 
 func _ready() -> void:
@@ -174,6 +178,8 @@ func _ready() -> void:
 	_health_bar.position = Vector3.UP * bar_height * s
 	_stamina_bar.position = Vector3.UP * (bar_height * s - 0.1)
 
+	if _skeleton != null:
+		_reel_bones = Recoil.bones_of(_skeleton)
 	if _anim != null:
 		_blows = _anim.measure_peaks(attack_clip, PackedStringArray(["hand_r", "hand_l"]))
 		if _blows.is_empty():
@@ -243,7 +249,15 @@ func _process(delta: float) -> void:
 		_play_act()
 	if act == Act.NONE:
 		_play_locomotion(delta)
+	elif act == Act.REEL:
+		_reel_clock += delta
+		if _reel_clock >= Recoil.REBOUND and not _reel_settled:
+			# The blow knocked back, it stands reeling in the guard-broken clip.
+			_reel_settled = true
+			_anim.play(break_clip, 0.15, 1.2, 1.0, true)
 	_anim.advance(delta)
+	if act == Act.REEL and not is_dead and _skeleton != null:
+		Recoil.pose(_skeleton, self, _reel_bones, _reel_clock)
 
 
 ## The clip for the action that has just started, on every peer.
@@ -259,6 +273,11 @@ func _play_act() -> void:
 			_anim.play(break_clip, 0.08, 1.0, 1.0, true)
 		Act.DEAD:
 			_anim.play(death_clip, 0.08, 1.0, 1.0, true)
+		Act.REEL:
+			# The combo that threw the blow, run back the way it came.
+			_reel_clock = 0.0
+			_reel_settled = false
+			_anim.rewind(2.4)
 
 
 ## Idle or walking, retimed to the ground like the [Monster]'s — in a fighting
@@ -322,7 +341,8 @@ func _think(delta: float) -> void:
 func _pick_quarry() -> Node3D:
 	var reach2 := leash_radius * leash_radius
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
-			and _quarry.global_position.distance_squared_to(camp_centre) < reach2:
+			and _quarry.global_position.distance_squared_to(camp_centre) < reach2 \
+			and not Brute._fallen(_quarry):
 		return _quarry
 	if mode == Mode.RETURN:
 		return null
@@ -330,7 +350,8 @@ func _pick_quarry() -> Node3D:
 	var closest := INF
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or who.global_position.distance_squared_to(camp_centre) >= reach2:
+		if who == null or who.global_position.distance_squared_to(camp_centre) >= reach2 \
+				or Brute._fallen(who):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:
@@ -434,6 +455,8 @@ func _start(what: Act) -> void:
 				length = _anim.clip_length(dash_clip) / 1.4 * 0.6
 			Act.BREAK:
 				length = guard_break_time
+	if what == Act.REEL:
+		length = Recoil.STAGGER
 	_act_length = length
 
 
@@ -456,7 +479,7 @@ func _run_act(delta: float) -> void:
 			while _blows_done < _blows.size() and through >= _blows[_blows_done]:
 				_blows_done += 1
 				_strike(_blows_done - 1)
-		Act.BLOCK, Act.BREAK:
+		Act.BLOCK, Act.BREAK, Act.REEL:
 			_slow(delta, 3.0)
 		Act.DASH:
 			var push := clampf(1.0 - _act_time / 0.4, 0.0, 1.0)
@@ -476,7 +499,7 @@ func _strike(blow: int) -> void:
 	var span := reach + 0.5
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or not who.has_method("receive_blow"):
+		if who == null or not who.has_method("receive_blow") or Brute._fallen(who):
 			continue
 		var to_them := who.global_position - global_position
 		to_them.y = 0.0
@@ -489,7 +512,7 @@ func _strike(blow: int) -> void:
 ## take it. Never in the middle of its own swing — a creature that can cancel
 ## its combo into a block cannot be punished for attacking.
 func _answer_swing(knight: Node3D) -> void:
-	if act == Act.ATTACK or act == Act.BREAK or act == Act.DASH:
+	if act == Act.ATTACK or act == Act.BREAK or act == Act.DASH or act == Act.REEL:
 		return
 	var to_me := global_position - knight.global_position
 	to_me.y = 0.0
@@ -518,6 +541,18 @@ func _answer_swing(knight: Node3D) -> void:
 
 
 #region Taking hits
+## A player met one of its blows on the shield at the last moment. Host only:
+## the rest of the combo is not thrown, and it reels open ([Recoil]).
+func parried(_by: Node3D) -> void:
+	if is_dead or not _decides():
+		return
+	_start(Act.REEL)
+
+
+func is_reeling() -> bool:
+	return act == Act.REEL
+
+
 ## Watches every knight's blade. A new swing is a chance to defend; a blade
 ## that passes through the body is a cut, taken once per swing per attacker.
 func _watch_blades() -> void:
@@ -593,6 +628,9 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
 				_act_time = 0.0
 			return false
 
+	if act == Act.REEL:
+		# Reeling from a parry, it is wide open: the riposte bites deeper.
+		damage *= Recoil.RIPOSTE
 	health = maxf(health - damage, 0.0)
 	stamina = maxf(stamina - hit_cost, 0.0)
 	_regen_wait = regen_delay

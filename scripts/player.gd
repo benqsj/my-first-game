@@ -25,10 +25,13 @@ signal target_locked(who: Node3D)
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
 signal blade_planted(where: Vector3)
-## A creature's blow reached this body. `damage` is what it was worth; nothing
-## takes it off anything yet — players have no health (MULTIPLAYER_PVE.md §8) —
-## but the number travels with the hit so a health bar has something to read.
+## A creature's blow reached this body: what it was worth, and whether the
+## shield caught it. A parried blow is reported as caught, for nothing.
 signal struck(damage: float, blocked: bool)
+## A blow met on the shield at the last moment and thrown back ([method _parry]).
+signal parried(attacker: Node3D)
+signal died
+signal respawned
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB, DOWNED }
 
@@ -256,6 +259,34 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 @export_range(0.0, 1.0) var arrow_drop: float = 0.35
 @export var arrow_scene: PackedScene
 
+@export_group("Vitals")
+## Stamina won back a second, once `stamina_delay` has passed since any was
+## spent. Holding the shield up slows it to `stamina_regen_guarded`.
+@export var stamina_regen: float = 40.0
+@export var stamina_regen_guarded: float = 12.0
+@export var stamina_delay: float = 0.55
+## Run it all the way out and it waits this long instead before it starts back.
+@export var stamina_empty_delay: float = 1.1
+## Stamina a blow caught on the shield costs, per point of the blow's damage.
+@export var block_stamina: float = 2.4
+## How soon after the shield goes up a blow has to arrive to be **parried**
+## rather than blocked, in seconds. A parry costs nothing, turns the blow back
+## and leaves whoever threw it open.
+@export var parry_window: float = 0.22
+## Held this long when a blow breaks the guard (the shield taken with no
+## stamina left to hold it).
+@export var guard_break_time: float = 0.9
+## How long the body lies there after falling before it is back on its feet at
+## the start, in seconds.
+@export var respawn_time: float = 4.0
+## Until there are potions and a fire to rest at, health comes back slowly on
+## its own once nothing has hurt him for `mend_after` seconds.
+@export var mend_after: float = 10.0
+@export var mend_rate: float = 4.0
+## Hurt but never killed: health stops at 1. For tests that are about
+## something other than dying.
+@export var immortal: bool = false
+
 @export_group("Physics")
 ## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
 ## makes the player pass them by without disturbing them.
@@ -287,6 +318,24 @@ var profile: CharacterProfile
 
 var state: State = State.AIRBORNE
 var is_invulnerable: bool = false
+## Health and stamina, taken from the profile on spawn. Everything that hurts or
+## tires the body goes through [method _take_damage] and [method _spend].
+var health: float = 120.0
+var max_health: float = 120.0
+var stamina: float = 100.0
+var max_stamina: float = 100.0
+## Fallen, and waiting to be put back at the start.
+var is_dead: bool = false
+var _stamina_wait: float = 0.0
+var _winded: bool = false
+var _since_hurt: float = 0.0
+var _respawn_left: float = 0.0
+var _spawn_point: Vector3 = Vector3.ZERO
+var _spawn_known: bool = false
+## When the shield last came up, in seconds of engine time: a blow that lands
+## within `parry_window` of it is parried.
+var _guard_raised_at: float = -100.0
+var _hud: PlayerHud
 ## True while the block button is held and the shield is up.
 var is_blocking: bool = false
 
@@ -371,6 +420,10 @@ var net_stowed: bool = false
 ## driving never runs.
 var net_draw: float = 0.0
 var net_aim: float = 0.0
+## Health as a share of the whole, and whether he is down for good: creatures
+## on the host leave a fallen player alone.
+var net_health: float = 1.0
+var net_dead: bool = false
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -389,7 +442,7 @@ var _chain_timer: float = 0.0
 func _ready() -> void:
 	_spawn_character()
 	# The bow's two sounds, read off the disk now rather than on the first draw.
-	Sfx.warm([DRAW_SOUND, RELEASE_SOUND])
+	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND])
 	# The level has just loaded, so this is the moment the graphics setting has
 	# something to be applied to. The world knows nothing about settings; the
 	# thing that spawns into it asks for them.
@@ -449,6 +502,10 @@ func _ready() -> void:
 	set_process_unhandled_input(mine)
 	if mine:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_hud = PlayerHud.new()
+		_hud.name = "Hud"
+		_hud.player = self
+		add_child(_hud)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -530,10 +587,17 @@ func _publish_net_state() -> void:
 	net_stowed = weapons_stowed()
 	net_draw = draw_power() if _drawing else 0.0
 	net_aim = _aim_pitch() if has_bow() else 0.0
+	net_health = health / maxf(max_health, 1.0)
+	net_dead = is_dead
 
 
 func _physics_process(delta: float) -> void:
+	if not _spawn_known and is_on_floor():
+		# Wherever the body first stands is where it comes back to.
+		_spawn_known = true
+		_spawn_point = global_position
 	_tick_timers(delta)
+	_tick_vitals(delta)
 	_track_target(delta)
 	if has_bow():
 		_tick_bow(delta)
@@ -606,6 +670,10 @@ func _spawn_character() -> void:
 	if profile.jump_height > 0.0:
 		jump_height = profile.jump_height
 	_levitate_left = profile.levitation
+	max_health = profile.max_health
+	health = max_health
+	max_stamina = profile.max_stamina
+	stamina = max_stamina
 
 
 ## True for a character who shoots rather than swings — the bow, or the staff,
@@ -661,6 +729,8 @@ func _read_actions() -> void:
 		_set_weapons_stowed(false)
 	if raised != is_blocking:
 		is_blocking = raised
+		if raised:
+			_guard_raised_at = _now()
 		block_changed.emit(is_blocking)
 
 	if Input.is_action_just_pressed("jump"):
@@ -932,6 +1002,8 @@ func _try_dash() -> void:
 		return
 	if not is_on_floor() and not allow_air_dash:
 		return
+	if not _spend(profile.roll_stamina if profile != null else 20.0):
+		return
 
 	# Dash towards the stick/WASD input, or straight ahead when standing still.
 	_dash_direction = get_movement_direction()
@@ -954,8 +1026,11 @@ func _try_dash() -> void:
 ## Turns the roll already under way into the longer, animated dodge, keeping the
 ## direction it was thrown in.
 func _upgrade_to_dodge() -> void:
+	if stamina <= 0.0:
+		return  # Nothing left to stretch the roll into a dodge with.
 	if rig != null and not rig.dodge_clip(dodge_duration):
 		return  # No clip to upgrade to; the roll carries on as it is.
+	_spend(profile.dodge_stamina if profile != null else 8.0)
 	state = State.DODGING
 	_dodge_timer = dodge_duration
 	_dash_cooldown_timer = dash_cooldown + dodge_duration
@@ -1718,7 +1793,7 @@ func _tick_bow(delta: float) -> void:
 		_drawing = false
 		_draw_timer = 0.0
 	elif holding and not _drawing:
-		if _shot_timer <= 0.0:
+		if _shot_timer <= 0.0 and stamina > 0.0:
 			_drawing = true
 			_draw_timer = 0.0
 			_set_weapons_stowed(false)
@@ -1752,6 +1827,7 @@ func _loose_arrow() -> void:
 	_drawing = false
 	_draw_timer = 0.0
 	_shot_timer = profile.shot_cooldown if profile != null else 0.2
+	_spend(profile.attack_stamina if profile != null else 12.0)
 
 	# Where the shot is pointed is decided *before* the body is turned onto the
 	# target, so a shot loosed while running sideways goes at what is being
@@ -1946,6 +2022,9 @@ func _attack() -> void:
 		return
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
+	if not _spend(profile.attack_stamina if profile != null else 16.0):
+		_attack_buffer = 0.0
+		return
 	# Swinging a sword that is on your back takes it off your back first. There
 	# is no draw clip in the library, so the blade crosses back to the hand over
 	# the same beat as the wind-up rather than being drawn during it.
@@ -2036,7 +2115,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1:
 		return
-	if not is_multiplayer_authority():
+	if not is_multiplayer_authority() or is_dead:
 		return
 	# A fresh combo from this attacker forgets the last one.
 	if blow == 0 or not _combo_landed.has(combo):
@@ -2054,9 +2133,28 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	var facing := -global_transform.basis.z
 	facing.y = 0.0
 	if is_blocking and facing.normalized().dot(toward.normalized()) > 0.2:
-		# Caught on the shield: a step back, and the combo no longer counts.
 		_combo_landed[combo] = -999
+		# Met the moment the shield came up: thrown back. Only an ordinary blow
+		# can be — a slam, a stamp or the ground coming up (a combo of one) is
+		# too much to turn aside, and is only ever blocked.
+		if blows > 1 and _now() - _guard_raised_at <= parry_window:
+			_parry(combo.get_slice("#", 0), source)
+			return
+		# Caught on the shield: a step back, and it costs stamina to hold.
+		_spend(damage * block_stamina)
 		velocity += away * (1.0 + damage * blow_shove * 0.25)
+		if stamina <= 0.0:
+			# Nothing left to hold it with: the guard breaks, and half the blow
+			# comes through it.
+			is_blocking = false
+			block_changed.emit(false)
+			_free_swing = false
+			_commit(guard_break_time)
+			struck.emit(damage * 0.5, false)
+			var knock := global_position + Vector3.UP * 1.2
+			net_react.rpc(Reaction.FLINCH, knock, (away + Vector3.UP * 0.3).normalized())
+			_take_damage(damage * 0.5)
+			return
 		struck.emit(damage, true)
 		return
 
@@ -2064,6 +2162,10 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	struck.emit(damage, false)
 	var at := global_position + Vector3.UP * 1.2
 	var spray := (away + Vector3.UP * 0.3).normalized()
+	if _take_damage(damage):
+		# That one was the last: he goes down and does not get up.
+		velocity = away * (2.5 + damage * blow_shove * 0.5)
+		return
 	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
 		_knock_down(away, damage)
 		net_react.rpc(Reaction.KNOCKDOWN, at, spray)
@@ -2081,7 +2183,7 @@ func _forget_combos_from(combo: String) -> void:
 			_combo_landed.erase(key)
 
 
-enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT }
+enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN }
 
 ## What a blow did to him, shown in every window: a flinch or a fall with
 ## blood, or the end of lying there.
@@ -2104,6 +2206,18 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				rig.leave_ground()
 				if not is_multiplayer_authority():
 					rig.dodge(dash_duration)
+		Reaction.PARRY:
+			if rig != null and rig.has_method(&"parry"):
+				rig.call(&"parry")
+			ParryFlash.burst(Blood.world_of(self), at, blow)
+			Sfx.play(self, PARRY_SOUND, self, at - global_position, randf_range(0.93, 1.07), 2.0)
+		Reaction.DEATH:
+			if rig != null:
+				rig.knock_down()
+			Blood.splatter(Blood.world_of(self), at, blow)
+		Reaction.RESPAWN:
+			if rig != null:
+				rig.leave_ground()
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
@@ -2129,6 +2243,13 @@ func _process_downed(delta: float) -> void:
 	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
 	move_and_slide()
 	_update_floor_state()
+
+	# Fallen for good: no rolling out and no getting up — only the wait.
+	if is_dead:
+		_respawn_left -= delta
+		if _respawn_left <= 0.0:
+			_respawn()
+		return
 
 	# The way up that is always open: a roll, the moment he has hit the ground.
 	if _down_for >= roll_out_after and Input.is_action_just_pressed("dash"):
@@ -2217,6 +2338,134 @@ func _turn_to_target() -> void:
 	to_them.y = 0.0
 	if to_them.length_squared() > 0.0001:
 		rotation.y = atan2(-to_them.x, -to_them.z)
+#endregion
+
+
+#region Vitals
+const PARRY_SOUND := "res://sounds/parry/clang.wav"
+
+
+func _now() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
+
+## Takes `cost` off the stamina, if there is any to take it from.
+##
+## As in every Souls game, what matters is that there is *some* left, not that
+## there is enough: the last of it buys one more roll, and the bar runs out
+## under it. Returns false, spending nothing, when it is already empty.
+func _spend(cost: float) -> bool:
+	if stamina <= 0.0 and cost > 0.0:
+		return false
+	stamina = maxf(stamina - cost, 0.0)
+	_stamina_wait = stamina_delay
+	if stamina <= 0.0:
+		_winded = true
+		_stamina_wait = stamina_empty_delay
+	return true
+
+
+## True from the moment the stamina runs out until it has started back.
+func is_winded() -> bool:
+	return _winded
+
+
+func _tick_vitals(delta: float) -> void:
+	if is_dead:
+		return
+	_stamina_wait = maxf(_stamina_wait - delta, 0.0)
+	# Nothing comes back while something is being spent: mid-roll, mid-swing.
+	var busy := state == State.DASHING or state == State.DODGING or is_committed() or _drawing
+	if _stamina_wait <= 0.0 and not busy and stamina < max_stamina:
+		stamina = minf(stamina + (stamina_regen_guarded if is_blocking else stamina_regen) * delta,
+				max_stamina)
+		if stamina > max_stamina * 0.2:
+			_winded = false
+	_since_hurt += delta
+	if _since_hurt >= mend_after and health < max_health:
+		health = minf(health + mend_rate * delta, max_health)
+
+
+## Takes a blow's worth off the health. Returns true if that was the end of him.
+func _take_damage(amount: float) -> bool:
+	if is_dead or amount <= 0.0:
+		return false
+	health = maxf(health - amount, 1.0 if immortal else 0.0)
+	_since_hurt = 0.0
+	if health <= 0.0:
+		_die()
+		return true
+	return false
+
+
+## The blow thrown back.
+##
+## The shield met it the moment it came up, so it costs nothing and does
+## nothing to him; everything happens to the other side. Whoever threw it is
+## told — on the host, which is where creatures think — and reels, open, with
+## its weapon knocked back the way it came ([method Brute.parried],
+## [method Fighter.parried]).
+func _parry(attacker: String, source: Vector3) -> void:
+	var toward := source - global_position
+	toward.y = 0.0
+	var ahead := toward.normalized() if toward.length_squared() > 0.0001 else -global_transform.basis.z
+	var at := global_position + Vector3.UP * 1.25 + ahead * 0.55
+	struck.emit(0.0, true)
+	net_react.rpc(Reaction.PARRY, at, ahead)
+	net_parried.rpc_id(1, NodePath(attacker))
+	var who := get_node_or_null(NodePath(attacker)) as Node3D
+	parried.emit(who)
+
+
+## On the host: the creature whose blow was parried is told so.
+@rpc("any_peer", "call_local", "reliable")
+func net_parried(attacker: NodePath) -> void:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		return
+	var who := get_node_or_null(attacker)
+	if who != null and who.has_method(&"parried"):
+		who.call(&"parried", self)
+
+
+## Fallen. He lies where he fell until `respawn_time` is up and is then put back
+## on his feet where he started, whole.
+func _die() -> void:
+	if is_dead:
+		return
+	is_dead = true
+	health = 0.0
+	state = State.DOWNED
+	_respawn_left = respawn_time
+	_down_for = 0.0
+	is_invulnerable = true
+	_drawing = false
+	_draw_timer = 0.0
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	_commit_timer = 0.0
+	_attack_buffer = 0.0
+	_plunging = false
+	if target != null:
+		_drop_target()
+	net_react.rpc(Reaction.DEATH, global_position + Vector3.UP * 1.1, Vector3.UP)
+	died.emit()
+
+
+func _respawn() -> void:
+	is_dead = false
+	health = max_health
+	stamina = max_stamina
+	_winded = false
+	_since_hurt = 0.0
+	velocity = Vector3.ZERO
+	if _spawn_known:
+		global_position = _spawn_point
+	state = State.AIRBORNE
+	is_invulnerable = false
+	_combo_landed.clear()
+	net_react.rpc(Reaction.RESPAWN, Vector3.ZERO, Vector3.ZERO)
+	respawned.emit()
 #endregion
 
 

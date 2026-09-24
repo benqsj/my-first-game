@@ -18,6 +18,7 @@ func _initialize() -> void:
 	# spawn it does — is queued rather than immediate.
 	await _wait(1)
 	var player: Player = world.player()
+	player.immortal = true
 
 	# The creatures are sent away before anything is measured. They hunt on
 	# sight, and a wolf shouldering the knight into a boulder is a real thing

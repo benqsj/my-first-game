@@ -23,7 +23,7 @@ extends Brute
 ##
 ## Only the combo can knock a player down, and only if all three scythes land.
 
-enum Act { NONE = 0, STAMP = 1, STRIKE_L = 2, STRIKE_R = 3, CHOP = 4, COMBO = 5, SPIT_ONE = 6, SPIT_TWO = 7, DEAD = 99 }
+enum Act { NONE = 0, STAMP = 1, STRIKE_L = 2, STRIKE_R = 3, CHOP = 4, COMBO = 5, SPIT_ONE = 6, SPIT_TWO = 7, PARRIED = 20, DEAD = 99 }
 
 const DIFFUSE := "res://assets/spider/textures/arcdeva_diff.png"
 const NORMAL := "res://assets/spider/textures/arcdeva_norm.png"
@@ -38,9 +38,13 @@ const MOVES := {
 	Act.COMBO: [[&"strike", 0.85, &"L"], [&"strike", 0.85, &"R"], [&"strike", 1.25, &"B"], [&"thorns", 1.2, &""]],
 	Act.SPIT_ONE: [[&"spit", 0.8, &""]],
 	Act.SPIT_TWO: [[&"spit", 0.5, &""], [&"spit", 0.8, &""]],
+	## A scythe thrown back off a shield ([Recoil]): it rears, scythes flung
+	## up and wide, then sags open.
+	Act.PARRIED: [[&"parried", Recoil.STAGGER, &""]],
 }
 ## How far through each kind of move its blow lands.
-const LANDS := { &"stamp": 0.7, &"strike": 0.66, &"chop": 0.6, &"thorns": 0.15, &"spit": 0.4 }
+const LANDS := { &"stamp": 0.7, &"strike": 0.66, &"chop": 0.6, &"thorns": 0.15, &"spit": 0.4,
+		&"parried": 2.0 }
 
 @export_group("Attack")
 ## Close enough for the legs and scythes.
@@ -241,6 +245,14 @@ func _begin(what: int) -> void:
 		_events.append([at + float(move[1]) * float(LANDS[move[0]]), move[0], move[2], _events.size()])
 		at += float(move[1])
 	_start(what, at)
+
+
+func _reel() -> void:
+	_begin(Act.PARRIED)
+
+
+func _reel_act() -> bool:
+	return act == Act.PARRIED
 
 
 func _after_act_rest() -> float:
@@ -455,6 +467,17 @@ func _animate(delta: float) -> void:
 				recoil = -0.4 * maxf(0.0, -v) / 0.9 + 0.35 * maxf(0.0, v) / 2.3
 			&"thorns":
 				recoil = sin(minf(p / 0.5, 1.0) * PI) * 0.35
+			&"parried":
+				var t := p * Recoil.STAGGER
+				var jolt := Recoil.back(t)
+				var give := Recoil.fold(t)
+				# Up on its hind legs with both scythes flung high and wide, then
+				# down low with them hanging.
+				rear = 1.3 * jolt - 0.45 * give
+				for sd in [&"L", &"R"]:
+					lift[sd] = -1.6 * jolt + 0.55 * give
+					turn[sd] = -0.6 * jolt
+				recoil = -0.9 * jolt + 0.35 * give
 			&"spit":
 				recoil = -_ss(p, 0.0, 0.35) * 0.25 if p < 0.35 else sin(minf((p - 0.35) / 0.4, 1.0) * PI) * 0.3
 

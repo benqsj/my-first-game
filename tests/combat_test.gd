@@ -17,6 +17,7 @@ func _initialize() -> void:
 	# rather than immediate.
 	await physics_frame
 	var player: Player = world.player()
+	player.immortal = true
 	var wolf: Wolf = world.get_node("Enemies/Wolf1")
 	var golem: Golem = world.get_node("Enemies/Golem1")
 	var hunter: Wolf = world.get_node("Enemies/Wolf2")

@@ -215,6 +215,9 @@ var _arc_last := Vector3.ZERO
 ## The water that is his ground (a node with `in_mere()`), found once.
 var _water: Node
 var _water_found: bool = false
+## The bones the reel from a parry bends, and how far into it he is.
+var _reel_bones: Dictionary = {}
+var _reel_clock: float = 0.0
 
 
 func _ready() -> void:
@@ -250,6 +253,7 @@ func _ready() -> void:
 			_blows[what] = _measure_blows(spec[0], int(spec[1]))
 	_slam_at = (_blows[Act.HEAVY] as PackedFloat32Array)[0] if _blows.has(Act.HEAVY) else 0.5
 	_find_guard_tracks()
+	_reel_bones = Recoil.bones_of(_skeleton)
 	_own.play(_calm_idle if _own.has_animation(_calm_idle) else _idle)
 	_own.advance(0.0)
 	if great_axe:
@@ -657,6 +661,10 @@ func net_slam(at: Vector3, direction: Vector3) -> void:
 
 
 func _show_act() -> void:
+	if act == ACT_REEL:
+		# The clip that threw the blow is left where it is, and run back.
+		_reel_clock = 0.0
+		return
 	if _own == null or not _acts.has(act):
 		return
 	var spec: Array = _acts[act]
@@ -679,6 +687,16 @@ func _animate(delta: float) -> void:
 	if is_dead:
 		if _own.current_animation != String(_death) and _own.has_animation(_death):
 			_own.play(_death, 0.1)
+	elif act == ACT_REEL:
+		# The axe goes back the way it came, then he stands reeling over the
+		# idle while the fold (below) doubles him up.
+		_reel_clock += delta
+		if _reel_clock < Recoil.REBOUND:
+			_own.speed_scale = -2.4
+		else:
+			if _own.current_animation != String(_idle):
+				_own.play(_idle, 0.35)
+			_own.speed_scale = 1.0
 	elif act == ACT_NONE:
 		var roused := mode != Mode.GUARD
 		var clip: StringName
@@ -705,6 +723,8 @@ func _animate(delta: float) -> void:
 	if _hips >= 0:
 		var at := _skeleton.get_bone_pose_position(_hips)
 		_skeleton.set_bone_pose_position(_hips, Vector3(_hips_rest.x, at.y, _hips_rest.z))
+	if act == ACT_REEL and not is_dead:
+		Recoil.pose(_skeleton, self, _reel_bones, _reel_clock, great_axe)
 	# The guard over a walking lower body.
 	if guarding and moving and act == ACT_NONE and not _guard_tracks.is_empty():
 		var anim := _own.get_animation(_guard)

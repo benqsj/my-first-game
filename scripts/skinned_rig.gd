@@ -580,6 +580,14 @@ func flinch() -> void:
 	_play_action(clips[&"hit_blocked"] if _blocking_now else clips[&"hit"], Role.HIT, 1.3, 0.05)
 
 
+## A blow thrown back off the shield: the guard's own jolt, played fast — the
+## shield punched out into the blow and brought back.
+func parry() -> void:
+	if _role == Role.DOWN or _role == Role.GET_UP:
+		return
+	_play_action(clips[&"hit_blocked"], Role.HIT, 2.0, 0.04)
+
+
 func knock_down() -> void:
 	_play_action(clips[&"down"], Role.DOWN, 1.4, 0.06)
 

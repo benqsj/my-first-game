@@ -272,6 +272,13 @@ func set_speed(speed: float) -> void:
 		_player.speed_scale = maxf(speed, 0.0)
 
 
+## Runs the clip playing now backwards at `rate`, from wherever it has got to:
+## a blow knocked back the way it came ([Recoil]).
+func rewind(rate: float) -> void:
+	if _player != null:
+		_player.speed_scale = -absf(rate)
+
+
 func stop(fade: float = 0.2) -> void:
 	_target_weight = 0.0
 	_fade_speed = 1.0 / maxf(fade, 0.01)

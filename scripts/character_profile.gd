@@ -43,6 +43,19 @@ enum Weapon {
 @export var dodge_speed: float = 8.5
 @export var dodge_duration: float = 0.7
 
+@export_group("Vitals")
+## How much punishment the body takes before it falls. The knight in his plate
+## is the yardstick; the mage in his robe is the least of them.
+@export var max_health: float = 120.0
+## Every roll, swing, shot and blow caught on the shield draws on this.
+@export var max_stamina: float = 100.0
+## What one attack costs: a swing, an arrow let go, a spell thrown.
+@export var attack_stamina: float = 16.0
+## What the tumbling roll costs. The longer dodge a double tap turns it into
+## costs `dodge_stamina` on top.
+@export var roll_stamina: float = 20.0
+@export var dodge_stamina: float = 8.0
+
 @export_group("Combat")
 ## How often a hit lands for `crit_damage` times its worth, 0 to 1.
 @export_range(0.0, 1.0) var crit_chance: float = 0.1

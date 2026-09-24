@@ -42,6 +42,12 @@ properties/9/replication_mode = 1
 properties/10/path = NodePath("NetSmooth:net_stamp")
 properties/10/spawn = true
 properties/10/replication_mode = 1
+properties/11/path = NodePath(".:net_health")
+properties/11/spawn = true
+properties/11/replication_mode = 1
+properties/12/path = NodePath(".:net_dead")
+properties/12/spawn = true
+properties/12/replication_mode = 2
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2

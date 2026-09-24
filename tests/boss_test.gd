@@ -21,6 +21,8 @@ func _initialize() -> void:
 	await _wait(2)
 	world.creature_think_distance = 0.0
 	_player = world.player()
+	# The blows are what is being checked, not the dying.
+	_player.immortal = true
 	_player.struck.connect(func(damage: float, _blocked: bool) -> void: _struck.append(damage))
 	var enemies := world.get_node("Enemies")
 
