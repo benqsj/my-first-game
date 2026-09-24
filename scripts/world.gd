@@ -107,7 +107,9 @@ var _creatures: Node
 var _dozing: Dictionary = {}
 var _think_tick: int = 0
 var _music_tick: int = 0
-var _music_on: bool = false
+var _music_on: StringName = &""
+## Until when the orcs' fight music keeps going after the last orc lets go.
+var _fight_music_until: float = 0.0
 
 
 func _ready() -> void:
@@ -548,22 +550,44 @@ func _settle_villagers(village: Node3D) -> void:
 		village.add_child(one)
 
 
-## The music is the village's: it plays while a player of this peer is inside
-## the fence and fades out when he leaves.
+## The music: the orcs' fight track while this peer's player is fighting an
+## orc (and for a few seconds after), the village's while he is inside the
+## fence, and nothing out in the wild.
 func _play_music_in_village() -> void:
 	var music := get_node_or_null("/root/Music")
 	if music == null:
 		return
-	var inside := false
+	var me: Node3D = null
 	for who in players():
 		if who.is_multiplayer_authority():
-			var at := Vector2(who.global_position.x, who.global_position.z)
-			inside = VILLAGE.grow(6.0).has_point(at)
-	if inside == _music_on:
+			me = who
+	var want := &""
+	if me != null:
+		var now := Time.get_ticks_msec() / 1000.0
+		if _orcs_on(me):
+			_fight_music_until = now + 5.0
+		if now < _fight_music_until:
+			want = &"orc_fight"
+		elif VILLAGE.grow(6.0).has_point(Vector2(me.global_position.x, me.global_position.z)):
+			want = &"world"
+	if want == _music_on:
 		return
-	_music_on = inside
-	if inside:
-		music.call("play", &"world")
-	else:
+	_music_on = want
+	if want.is_empty():
 		music.call("stop")
+	else:
+		music.call("play", want)
+
+
+## True while an orc is after `me`: chasing or fighting, alive and near.
+func _orcs_on(me: Node3D) -> bool:
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var orc := node as OrcWarrior
+		if orc == null or orc.is_dead:
+			continue
+		if orc.global_position.distance_to(me.global_position) > 35.0:
+			continue
+		if orc.mode == Brute.Mode.CHASE or orc.mode == Brute.Mode.FIGHT:
+			return true
+	return false
 #endregion

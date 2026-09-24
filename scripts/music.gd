@@ -17,6 +17,8 @@ extends Node
 const TRACKS := {
 	&"menu": ["res://sounds/tower-music/safe_haven_mini.mp3"],
 	&"world": ["res://sounds/tower-music/safe_haven.mp3", "res://sounds/tower-music/kind-of-year.mp3"],
+	## When the orcs come for you.
+	&"orc_fight": ["res://sounds/fight/orc_fight.mp3"],
 }
 
 ## Loudness of the music, in decibels, under everything else.
