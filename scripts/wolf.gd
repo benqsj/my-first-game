@@ -17,10 +17,11 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 
 #region Exported tuning
 @export_group("Senses")
-## How far away the knight is noticed.
-@export var sight_range: float = 20.0
+## How far away the knight is noticed. Close: a wolf in the grass is met, not
+## seen coming from across the field.
+@export var sight_range: float = 11.0
 ## Once chasing, it keeps coming until the knight is this far away.
-@export var lose_range: float = 28.0
+@export var lose_range: float = 18.0
 ## Close enough to stand up and swing.
 @export var reach: float = 2.3
 
@@ -35,7 +36,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var acceleration: float = 22.0
 @export var turn_speed: float = 9.0
 ## How far from where it started it will wander.
-@export var prowl_radius: float = 9.0
+@export var prowl_radius: float = 4.0
 
 @export_group("Health")
 @export var max_health: float = 100.0
@@ -46,6 +47,12 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 
 @export_group("Combat")
 @export var swipe_interval: float = 1.1
+## What a swipe that lands takes off, and how far into the swipe the claws
+## arrive — the player has that long to roll or raise a shield.
+@export var swipe_damage: float = 38.0
+@export var swipe_lands_after: float = 0.32
+## How long it stands open after a swipe is parried.
+@export var parried_stagger: float = 1.6
 ## Losing this many limbs puts it down.
 @export var limbs_before_death: int = 4
 @export var flee_speed: float = 5.6
@@ -102,6 +109,11 @@ var _stuck_for: float = 0.0
 var _intent: float = 0.0
 ## Seconds since it went down, counted only once it is dead.
 var _corpse_age: float = 0.0
+## Seconds until the swipe under way lands, below zero when none is.
+var _swipe_lands: float = -1.0
+var _swipe_count: int = 0
+## Seconds left reeling from a parried swipe.
+var _reeling: float = 0.0
 
 
 func _ready() -> void:
@@ -137,6 +149,11 @@ func _physics_process(delta: float) -> void:
 
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
+	_reeling = maxf(_reeling - delta, 0.0)
+	if _swipe_lands >= 0.0:
+		_swipe_lands -= delta
+		if _swipe_lands < 0.0:
+			_land_swipe()
 
 	_think(delta)
 	# Up a kerb or a stair rather than into it. A hunter that loses you to six
@@ -201,7 +218,7 @@ func _quarry() -> Node3D:
 	var worst := 0.0
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null:
+		if who == null or Brute._fallen(who):
 			continue
 		var done := float(_threat.get(who.name, 0.0))
 		if done > worst:
@@ -218,7 +235,7 @@ func _nearest_player() -> Node3D:
 	var closest := INF
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null:
+		if who == null or Brute._fallen(who):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:
@@ -272,14 +289,57 @@ func _think(delta: float) -> void:
 			else:
 				_face(to_player, delta)
 				_slow(delta)
-				if _swipe_timer <= 0.0:
+				if _swipe_timer <= 0.0 and _reeling <= 0.0:
 					_swipe_timer = swipe_interval
+					_swipe_lands = swipe_lands_after
+					_swipe_count += 1
 					rig.swipe()
 					# Only the host thinks, so only the host would ever swing:
 					# the others are told, or they see a wolf standing up to
 					# fight and doing nothing while their health goes down.
 					net_swipe.rpc()
 					attacked.emit()
+
+
+## The claws arrive: whoever is in reach and in front of it is struck. Sent as
+## one blow of two, so a swipe is a flinch, never a knockdown, and can be
+## parried.
+func _land_swipe() -> void:
+	if is_dead or rig == null or rig.is_disarmed():
+		return
+	var ahead := -global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
+	for node in get_tree().get_nodes_in_group("player"):
+		var who := node as Node3D
+		if who == null or not who.has_method("receive_blow") or Brute._fallen(who):
+			continue
+		var to_them := who.global_position - global_position
+		if absf(to_them.y) > 2.0:
+			continue
+		to_them.y = 0.0
+		if to_them.length() > reach + 0.6 or ahead.dot(to_them.normalized()) < 0.25:
+			continue
+		who.call("receive_blow", swipe_damage, self, 0, 2, _swipe_count)
+
+
+## A swipe met on a shield at the last moment: it is knocked back on its haunches
+## and cannot swipe again for a while.
+func parried(by: Node3D) -> void:
+	if is_dead or not _decides():
+		return
+	_swipe_lands = -1.0
+	_reeling = parried_stagger
+	_swipe_timer = maxf(_swipe_timer, parried_stagger)
+	if by != null:
+		var away := global_position - by.global_position
+		away.y = 0.0
+		if away.length_squared() > 0.0001:
+			velocity += away.normalized() * 5.0
+
+
+func is_reeling() -> bool:
+	return _reeling > 0.0
 
 
 func _prowl(delta: float) -> void:
@@ -443,6 +503,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	if is_dead or not _decides():
 		return
 
+	if _reeling > 0.0:
+		damage *= Recoil.RIPOSTE
 	health = maxf(health - damage, 0.0)
 	# Who is owed for it. Kept here rather than at the call sites: this is the
 	# one door every kind of damage comes through, and a tally that has to be

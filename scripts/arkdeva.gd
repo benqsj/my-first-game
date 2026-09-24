@@ -51,17 +51,18 @@ const LANDS := { &"stamp": 0.7, &"strike": 0.66, &"chop": 0.6, &"thorns": 0.15, 
 @export var melee_range: float = 3.8
 ## Where it spits from, and how far.
 @export var spit_range: Vector2 = Vector2(5.0, 14.0)
-@export var stamp_damage: float = 14.0
-@export var strike_damage: float = 10.0
-@export var both_damage: float = 16.0
-@export var chop_damage: float = 18.0
-@export var thorn_damage: float = 22.0
+## A raid boss: every blow of its is enough to kill a player outright.
+@export var stamp_damage: float = 220.0
+@export var strike_damage: float = 220.0
+@export var both_damage: float = 220.0
+@export var chop_damage: float = 220.0
+@export var thorn_damage: float = 220.0
 @export var thorn_length: float = 11.0
 ## How much bigger than the bestiary's the thorns are drawn. Left at zero it
 ## follows `visual_scale`, so they grow with the creature.
 @export var thorn_size: float = 0.0
-@export var poison_damage: float = 12.0
-@export var pool_damage: float = 5.0
+@export var poison_damage: float = 220.0
+@export var pool_damage: float = 30.0
 ## Around where a scythe comes down, how far its blow reaches.
 @export var strike_radius: float = 1.7
 @export var spit_flight: float = 0.6

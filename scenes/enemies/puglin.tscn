@@ -61,7 +61,7 @@ block_chance = 0.55
 dash_chance = 0.15
 dash_speed = 5.0
 reach = 1.6
-hit_damage = 16.0
+hit_damage = 48.0
 attack_speed = 0.85
 attack_cooldown = Vector2(1.8, 3.4)
 

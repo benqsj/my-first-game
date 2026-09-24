@@ -308,7 +308,7 @@ func _pick_quarry() -> Node3D:
 
 ## A player who has fallen and is waiting to be put back: left alone.
 static func _fallen(who: Node3D) -> bool:
-	return who != null and bool(who.get("net_dead"))
+	return who != null and who.get("net_dead") == true
 
 
 func _rouse(who: Node3D) -> void:
