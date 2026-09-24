@@ -16,6 +16,9 @@ func _initialize() -> void:
 	_dir = args[0] if args.size() > 0 else ""
 	var world: World = load("res://scenes/world/greybox_world.tscn").instantiate()
 	root.add_child(world)
+	# The ramp, the stairs, the steep face and the pillars live in their own
+	# scene now, out of the game's world; the tests that walk on them bring it.
+	world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	await physics_frame
 	var player: Player = world.player()
 	# Nothing else wanders into the shots.
@@ -82,8 +85,13 @@ func _initialize() -> void:
 	for i in 30:
 		await physics_frame
 	Input.action_press("block")
-	for i in 30:
+	# With the round shield the guard goes up as a parry first — the shield
+	# flung across the blow — and settles into the block after it.
+	var flung := false
+	for i in 70:
 		await physics_frame
+		flung = flung or anim.current_animation == "SS_Parry"
+	_check("raising the round shield parries first", flung, "")
 	_check("holding block plays the guard", anim.current_animation == "SS_Block_Idle", anim.current_animation)
 	await _shot(player, "04_block")
 	Input.action_press("move_forward")

@@ -69,7 +69,8 @@ func _initialize() -> void:
 	await _wait(30)
 
 	_player.is_blocking = true
-	_player._guard_raised_at = _player._now() - 5.0
+	_player._guard_raised_at = _player._now()
+	_player._last_parry_move = _player._now() - 5.0
 	var before := _player.health
 	_in_front(imp)
 	_player.net_blow(10.0, away, imp.global_position, "%s#2" % path, 0, 3)
@@ -82,6 +83,7 @@ func _initialize() -> void:
 	_player.parried.connect(func(who: Node3D) -> void: thrown_back.append(who))
 	_player.stamina = _player.max_stamina
 	_player._guard_raised_at = _player._now()
+	_player._last_parry_move = _player._now()
 	_in_front(imp)
 	_player.net_blow(10.0, away, imp.global_position, "%s#3" % path, 0, 3)
 	_check("met as the shield comes up, it is parried", thrown_back.size() == 1 and thrown_back[0] == imp,
@@ -102,12 +104,14 @@ func _initialize() -> void:
 	# (The shield is only up while the button is held; ticks have gone by.)
 	_player.is_blocking = true
 	_player._guard_raised_at = _player._now()
+	_player._last_parry_move = _player._now()
 	_in_front(imp)
 	_player.net_blow(10.0, away, imp.global_position, "%s#4" % path, 0, 1)
 	_check("a slam (a combo of one) is only ever blocked", thrown_back.is_empty())
 
 	_player.is_blocking = false
 	_player._guard_raised_at = -100.0
+	_player._last_parry_move = -100.0
 
 	orc.parried(_player)
 	_check("a parried orc reels", orc.act == Brute.ACT_REEL and orc.is_reeling())
@@ -133,6 +137,7 @@ func _initialize() -> void:
 	_player.stamina = _player.max_stamina
 	_player.is_blocking = true
 	_player._guard_raised_at = _player._now()
+	_player._last_parry_move = _player._now()
 	_in_front(imp)
 	before = _player.health
 	_player.net_blow(10.0, away, imp.global_position, "%s#t1" % path, 0, 3)
@@ -154,7 +159,8 @@ func _initialize() -> void:
 	_check("a blow in the first moments of a roll is dodged perfectly", perfect[0] and _player.health == before)
 	_check("and the roll's stamina comes back", _player.stamina >= 50.0 - 0.01, "%.1f" % _player.stamina)
 	await _wait(3)
-	_check("he leaves a shadow behind him", _player.get_node_or_null("ShadowTrail") is ShadowTrail)
+	_check("the knight leaves no shadow: that is the light-footed ones' own",
+			_player.get_node_or_null("ShadowTrail") == null)
 	await _wait(80)
 
 	# --- The inventory and the map ----------------------------------------------

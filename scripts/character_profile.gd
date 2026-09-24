@@ -31,6 +31,9 @@ enum Weapon {
 ## in plate and carrying a shield, runs into the wall and stays on the ground.
 ## Hauling himself over a waist-high ledge is not this — everybody can do that.
 @export var can_climb: bool = true
+## Whether a perfectly timed roll leaves his shadow behind him — the light-
+## footed ones, the hunter and the assassin.
+@export var shadow_dodge: bool = false
 
 @export_group("Movement")
 ## Overrides the controller's own. The knight is the yardstick at 9 m/s.

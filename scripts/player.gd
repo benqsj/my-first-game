@@ -274,7 +274,10 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 ## How soon after the shield goes up a blow has to arrive to be **parried**
 ## rather than blocked, in seconds. A parry costs nothing, turns the blow back
 ## and leaves whoever threw it open.
-@export var parry_window: float = 0.22
+@export var parry_window: float = 0.3
+## Shortest gap between two parry moves: a guard raised again sooner than this
+## goes straight up as a block, so the parry cannot be spammed.
+@export var parry_cooldown: float = 0.7
 ## What a blow on the tower shield costs, as a share of what the round one pays.
 @export_range(0.1, 1.0) var tower_block_share: float = 0.55
 ## Held this long when a blow breaks the guard (the shield taken with no
@@ -343,6 +346,7 @@ var _spawn_known: bool = false
 ## When the shield last came up, in seconds of engine time: a blow that lands
 ## within `parry_window` of it is parried.
 var _guard_raised_at: float = -100.0
+var _last_parry_move: float = -100.0
 ## When the current roll started, and whether it has already been perfect.
 var _evade_started_at: float = -100.0
 var _evade_was_perfect: bool = false
@@ -461,7 +465,7 @@ var _chain_timer: float = 0.0
 func _ready() -> void:
 	_spawn_character()
 	# The bow's two sounds, read off the disk now rather than on the first draw.
-	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND])
+	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND, SHADOW_SOUND])
 	# The level has just loaded, so this is the moment the graphics setting has
 	# something to be applied to. The world knows nothing about settings; the
 	# thing that spawns into it asks for them.
@@ -766,6 +770,12 @@ func _read_actions() -> void:
 		is_blocking = raised
 		if raised:
 			_guard_raised_at = _now()
+			# With the round shield the guard goes up *as a parry*: the shield
+			# is flung out across whatever is coming, and only then settles
+			# into the block. The parry window is that fling.
+			if shield_kind == Inventory.Shields.ROUND and _now() - _last_parry_move > parry_cooldown:
+				_last_parry_move = _now()
+				net_parry_move.rpc()
 		block_changed.emit(is_blocking)
 
 	if Input.is_action_just_pressed("jump"):
@@ -2186,7 +2196,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		# can be — a slam, a stamp or the ground coming up (a combo of one) is
 		# too much to turn aside, and is only ever blocked.
 		if blows > 1 and shield_kind == Inventory.Shields.ROUND \
-				and _now() - _guard_raised_at <= parry_window:
+				and _now() - _last_parry_move <= parry_window:
 			_parry(combo.get_slice("#", 0), source)
 			return
 		# Caught on the shield: a step back, and it costs stamina to hold — never
@@ -2266,8 +2276,6 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				if not is_multiplayer_authority():
 					rig.dodge(dash_duration)
 		Reaction.PARRY:
-			if rig != null and rig.has_method(&"parry"):
-				rig.call(&"parry")
 			ParryFlash.burst(Blood.world_of(self), at, blow)
 			Sfx.play(self, PARRY_SOUND, self, at - global_position, randf_range(0.93, 1.07), 2.0)
 		Reaction.DEATH:
@@ -2278,7 +2286,9 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			if rig != null:
 				rig.leave_ground()
 		Reaction.PERFECT_DODGE:
-			ShadowTrail.start(self)
+			if profile != null and profile.shadow_dodge:
+				ShadowTrail.start(self)
+				Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.0, -1.0)
 			perfect_dodged.emit()
 
 
@@ -2413,6 +2423,7 @@ func set_shield(kind: int) -> void:
 
 
 const PARRY_SOUND := "res://sounds/parry/clang.wav"
+const SHADOW_SOUND := "res://sounds/dodge/shadow.wav"
 
 
 func _now() -> float:
@@ -2485,6 +2496,13 @@ func _parry(attacker: String, source: Vector3) -> void:
 	net_parried.rpc_id(1, NodePath(attacker))
 	var who := get_node_or_null(NodePath(attacker)) as Node3D
 	parried.emit(who)
+
+
+## The parry move, on every peer: the shield flung out across the blow.
+@rpc("any_peer", "call_local", "reliable")
+func net_parry_move() -> void:
+	if rig != null and rig.has_method(&"parry"):
+		rig.call(&"parry")
 
 
 ## On the host: the creature whose blow was parried is told so.

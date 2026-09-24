@@ -114,6 +114,8 @@ var _swipe_lands: float = -1.0
 var _swipe_count: int = 0
 ## Seconds left reeling from a parried swipe.
 var _reeling: float = 0.0
+## How far into its reel this peer's copy is, drawn on every peer.
+var _reel_clock: float = 99.0
 
 
 func _ready() -> void:
@@ -187,9 +189,23 @@ func _process(delta: float) -> void:
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 	# On all fours to cover ground, upright to fight.
 	var stance := 0.0 if state == State.FIGHT else 1.0
+	_reel_clock += delta
+	var reeling := _reel_clock < Recoil.STAGGER and not is_dead
+	if reeling:
+		# Thrown back up on its hind legs by the parry.
+		stance = 0.0
 	# A prowl is a full walk cycle, not a fraction of a sprint: measuring the
 	# gait against the charge speed left it barely lifting its feet.
 	rig.animate(delta, planar, planar / maxf(prowl_speed, 0.01), stance)
+	if reeling:
+		# Reared right back with the jolt, then sagging, head down, open.
+		var jolt := Recoil.back(_reel_clock)
+		var give := Recoil.fold(_reel_clock)
+		rig.rotation.x = 0.55 * jolt - 0.28 * give
+		rig.position.z = 0.35 * jolt
+	elif not is_dead and rig.rotation.x != 0.0:
+		rig.rotation.x = move_toward(rig.rotation.x, 0.0, delta * 3.0)
+		rig.position.z = move_toward(rig.position.z, 0.0, delta * 2.0)
 
 
 #region Behaviour
@@ -330,6 +346,7 @@ func parried(by: Node3D) -> void:
 		return
 	_swipe_lands = -1.0
 	_reeling = parried_stagger
+	net_reel.rpc()
 	_swipe_timer = maxf(_swipe_timer, parried_stagger)
 	if by != null:
 		var away := global_position - by.global_position
@@ -578,6 +595,12 @@ func _lie_down() -> void:
 ##
 ## `queue_free()` does not replicate — it is a local decision about a local
 ## node — so the peer that decided has to say so out loud.
+## The reel from a parried swipe, on every peer.
+@rpc("authority", "call_local", "reliable")
+func net_reel() -> void:
+	_reel_clock = 0.0
+
+
 ## A swipe, on the peers that did not decide it (the host has already thrown it).
 @rpc("authority", "call_remote", "unreliable")
 func net_swipe() -> void:

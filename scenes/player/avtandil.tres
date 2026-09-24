@@ -9,6 +9,7 @@ display_name = "Avtandil"
 blurb = "The hunter. No armour to speak of, but he covers ground, rolls further out of trouble, and picks his shot from where the fighting is not."
 visuals = ExtResource("2_visuals")
 can_block = false
+shadow_dodge = true
 weapon = 1
 run_speed = 5.9
 walk_speed = 4.0

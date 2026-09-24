@@ -602,7 +602,7 @@ func parry() -> void:
 	if _role == Role.DOWN or _role == Role.GET_UP:
 		return
 	if clips.has(&"parry") and _anim.has_animation(clips[&"parry"]):
-		_play_action(clips[&"parry"], Role.HIT, 1.25, 0.04)
+		_play_action(clips[&"parry"], Role.HIT, 1.5, 0.03)
 	else:
 		_play_action(clips[&"hit_blocked"], Role.HIT, 2.0, 0.04)
 
