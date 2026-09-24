@@ -856,22 +856,34 @@ turn, `safe_haven.mp3` and `kind-of-year.mp3`.
 
 ## Graphics
 
-One setting, two positions, because a greybox does not need twelve. `Graphics`
-applies it to the viewport and to whatever scene is loaded, so it can be changed
-before a level exists and again from inside one; `Game` remembers it in
-`user://settings.cfg`.
+One setting, three positions. `Graphics` applies it to the viewport and to
+whatever scene is loaded, so it can be changed before a level exists and again
+from inside one; `Game` remembers it in `user://settings.cfg`. The enum's values
+are what is written there, so Medium went on the end (`LOW, HIGH, MEDIUM`) and
+`Graphics.ORDER` is the order the menus show them in.
 
-| | High | Low |
-| --- | ---- | --- |
-| shadows | on | **off** — the single most expensive thing in the scene |
-| render scale | 1.0 | **0.7** — roughly half the pixels |
-| texture mipmap bias | 0 | **+1.0** — a smaller mip than the distance calls for, so surfaces go soft |
-| MSAA | 2× | off |
-| SSAO, glow, fog | on | off |
-| grass draw distance | 130 m | 60 m |
+| | High | Medium | Low |
+| --- | ---- | ------ | --- |
+| sun's shadow | 2 cascades, 95 m | **1 cascade, 55 m** | **off** |
+| render scale | 1.0 | **0.85**, FSR | **0.7**, FSR |
+| edges | SMAA | FXAA | none |
+| texture mipmap bias | 0 | 0 | **+1.0** — surfaces go soft |
+| SSAO | on | off | off |
+| glow, fog | on | on | off |
+| grass: draw distance, LOD bias | 130 m, 0.06 | 95 m, 0.04 | 60 m, 0.02 |
+| wood and meadow plants | as laid out | 80 % of the distance | 60 % |
+| loose stones, people | 110 m, 80 m | 80 m, 60 m | 55 m, 45 m |
+
+High was 2× MSAA until September 2026. Over the wood and the pier that cost 3.5–4
+ms a frame on an M1 — most of the way from 60 fps to 50 — and SMAA gets the
+edges nearly as clean for a fraction of that. Nothing else on High changed; the
+figures are in "Performance, September 2026" below.
 
 The grass reads its three knobs once as it is built, so `refresh_meshes()` is
-what pushes them back down when the setting changes underneath it.
+what pushes them back down when the setting changes underneath it. The wood's
+and the meadows' own draw distances are scaled from what they were built with,
+kept on each node as `designed_range` metadata, so the setting can be changed
+back and forth without them creeping.
 
 ## The character: Tariel
 
@@ -1166,9 +1178,12 @@ medieval house at `Level/House` (-18, 0, -16) and a cart at `Level/Cart`
   carries a counter-offset and the parent node is what you actually move.
 - **Collision comes from the importer, not the scene.** `tower1.glb.import`
   carries a `_subresources` entry for `PATH:Tower/tower` with
-  `generate/physics` and `physics/shape_type = 2` (trimesh), which builds a
-  `StaticBody3D` with a concave shape around the model. That is the right tool
-  for static level geometry — unlike the character, where the same mechanism
+  `generate/physics`, which builds a `StaticBody3D` around the model. It was a
+  trimesh (`physics/shape_type = 2`) until September 2026, when a capsule
+  `test_move` against its 4 300 triangles was measured at 8 ms; it is now a
+  convex decomposition of at most six 32-point hulls (see "Performance,
+  September 2026"). The importer is the right tool for static level geometry —
+  unlike the character, where the same mechanism
   firing on the `neck_col` mesh put a static body inside a moving body. The node
   path in that key is relative to the imported scene root and includes the
   intermediate node; `PATH:tower` alone silently does nothing.
@@ -2024,6 +2039,96 @@ breaks: `SimpleCollision` falls back to per-mesh bounding boxes, which are wrong
 in detail and right in kind. `smoke_test.gd` checks the shapes were replaced,
 that the cart is still solid, and that a tick beside the house still costs less
 than 6 ms — the three ways this can quietly come undone.
+
+## Performance, September 2026
+
+A pass over the whole map after the bay, the orcs and the heroes went in.
+`tests/perf_tour.gd` is the tool it left behind: it walks the camera round six
+places found from the level itself (spawn, the wood, the hamlet, the mist
+village, the pier, the orc camp), and at each one reads the frame, the draw
+calls, the sun's share of them and the primitives at every graphics setting,
+then the physics tick with the knight walking.
+
+    godot --path . --script res://tests/perf_tour.gd    # not --headless
+
+Measured on the M1 (while `iCloudDriveCore` held most of a core — the numbers are
+only comparable within one run), in ms a frame:
+
+| place | High before | High after | Medium | Low |
+| --- | --- | --- | --- | --- |
+| spawn, looking into the wood | 19.5 | 16.2 | 10.8 | 8.3 |
+| in the wood | 14.2 | 11.4 | 8.4 | 4.2 |
+| the hamlet | 17.2 | 12.8 | 10.4 | 4.9 |
+| the mist village | 17.5 | 14.0 | 10.4 | 5.6 |
+| the pier | — | 11.8 | 8.7 | 3.9 |
+| the orc camp | 15.6 | 11.3 | 8.4 | 4.0 |
+
+(The pier has no "before": the first version of the tour looked at the pier's
+origin, which is in the middle of the map.) The load, warm-up included, went
+from 9.3 s to 2.5 s, video memory from 2.7 GB to 0.6 GB, and Low from 6.5–10 ms
+to 4–8. The physics tick, knight walking, is 0.7–4 ms everywhere, 6.6 at worst
+in a fight at the orc camp.
+
+### Textures
+
+62 textures had been imported **lossless and without mipmaps** — the village's
+38 maps at 4096², the imps', the puglins', Arkdeva's, the tree's. They are set
+up from script (`Building`, `Monster`, `Arkdeva` load them by name), so the
+importer never saw them used in 3D and never switched them to VRAM compression
+on its own. At 4 bytes a pixel that was ~1.9 GB of video memory, and with no
+mips every distant wall read the whole 4K map — which is also why Low's mipmap
+bias did nothing for them.
+
+They are all VRAM-compressed with mipmaps now; normal maps use the importer's
+normal-map mode; the village's diffuse and normal maps are limited to 2048 and
+its roughness and metalness to 1024. The kit's `_alpha` maps are left alone
+because nothing loads them. The small palette textures in `assets/forest` are
+left alone too: mipmaps would bleed one swatch into the next.
+
+### The stall in every fight
+
+A blow that drew blood cost the physics step it landed in **10–25 ms, every
+time**. `Blood._spray` made a new `GPUParticles3D` and a new
+`ParticleProcessMaterial` per hit, and that was nearly all of it. The spray now
+comes from a ring of six emitters kept in the level and restarted; they share
+one process material that throws along the emitter's -Z, and the emitter is
+turned to face the blow. `World._prewarm_effects()` makes the ring, the blood
+splat and dust ring images (both worked out a pixel at a time in script) and the
+ground wave's meshes while the level loads, and `Sfx.warm()` reads the swing and
+bow sounds off the disk before the first swing rather than during it. A fight at
+the orc camp went from a worst step of 23–26 ms to about 6.
+
+Finding it took timing *bands*. `Performance.TIME_PHYSICS_PROCESS` is the worst
+step of the last whole second, refreshed once a second, so it cannot say which
+step was slow or whose it was; nodes at fixed `process_physics_priority` values
+reading the clock between the knight, the creatures and everything else can.
+
+### Colliders with hundreds of points
+
+A creature walking into something runs `StepUp.climb`, which is up to ten
+`test_move`s a tick, and each of those is as dear as the shape it is pressed
+against. The importer's *Simple Convex* had given the loose stones hulls of up to
+471 points and the big rocks 330, and the watchtower was a 4 300-triangle
+trimesh. A golem leaning on a big rock cost 10–20 ms a tick; a capsule
+`test_move` against the tower cost 8 ms.
+
+The three imports now ask for a convex *decomposition* with a cap on the hull:
+one hull of at most 24 points per stone, one of 32 per big rock, and up to six of
+32 for the tower (a column and its roof, so it can still be climbed). The same
+`test_move` is now 0.1–0.3 ms. `physics/shape_type` is 0 with
+`decomposition/advanced` in each file's `_subresources`.
+
+### What was looked at and left
+
+- **The creatures' thinking.** In a windowed run the physics tick is 1–4 ms
+  everywhere once the two things above were fixed; the 4–6 ms first read in
+  headless runs was the once-a-second maximum, not the typical step.
+- **Draw calls.** The dearest views are ~2 000 draw calls on High, ~40 % of them
+  the sun's shadow, but switching whole groups' shadows off moved the frame by
+  under a millisecond: High is bound by filling pixels, which is why MSAA and
+  SSAO were the things worth touching.
+- **The wolves' rigs** (68 pieces each) and the 8 256-triangle grass clump are
+  still the biggest things left, and both are Blender work.
 
 ## Tariel, skinned
 
