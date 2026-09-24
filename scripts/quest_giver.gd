@@ -3,7 +3,7 @@ extends Node3D
 
 ## Somebody who stands in the level with a job for the player: Datvi the
 ## woodcutter in the settlement, Ali of the Embers on the mere's shore, old
-## Baqaq fishing off the harbour's dock. The talking and the counting are the
+## Baqaq fishing off the end of the pier. The talking and the counting are the
 ## [QuestBook]'s; this is the person.
 ##
 ## The models are single meshes with no skeleton, so they are brought to life

@@ -58,6 +58,11 @@ const STRIDE := 5
 ## sparse. Left empty by the scatter as it stands.
 @export var tuft_scene: String = "res://assets/grass/grass.glb"
 @export var tufts: PackedFloat32Array = PackedFloat32Array()
+## Each clump's own colour, multiplied over its texture, in the order of
+## `clumps` then `tufts`. Empty leaves them all as the model was coloured. This
+## is what the meadows use to tone the kit's lime down and to vary one drift
+## from the next; blood is laid on top of it and washes back to it.
+@export var tints: PackedColorArray = PackedColorArray()
 ## Side of a drawing chunk, in metres. Small on purpose: one level of detail is
 ## picked per chunk, so a large chunk keeps the clumps at the player's feet at
 ## the same detail as the ones at its far corner.
@@ -141,6 +146,8 @@ var _pose: Array[Basis] = []
 var _local: PackedVector3Array = PackedVector3Array()
 ## How bloodied each clump is. White is clean.
 var _tint: PackedColorArray = PackedColorArray()
+## What each clump is when clean.
+var _base: PackedColorArray = PackedColorArray()
 ## The nodes that do the drawing, one per occupied chunk.
 var _chunks: Array[MultiMeshInstance3D] = []
 ## Model index -> the mesh that draws it. Held only while the field is built.
@@ -177,6 +184,30 @@ func _ready() -> void:
 	# there is no single right answer anyway. `_find_watcher()` asks again, every
 	# so often, for whichever is nearest.
 	_find_watcher()
+
+
+## Throws the field away and plants this one instead: the placement and the
+## colours, laid out as `clumps` and `tints` are. For a field grown at load
+## ([Meadows]) rather than written into the scene.
+func replace(new_clumps: PackedFloat32Array, new_tints: PackedColorArray) -> void:
+	for node in _chunks:
+		node.queue_free()
+	_chunks.clear()
+	_built_meshes.clear()
+	_awake.clear()
+	_pushed.clear()
+	for list in [_rest, _bend, _multi, _pose]:
+		(list as Array).clear()
+	_home = PackedVector3Array()
+	_phase = PackedFloat32Array()
+	_slot = PackedInt32Array()
+	_local = PackedVector3Array()
+	_tint = PackedColorArray()
+	_base = PackedColorArray()
+	clumps = new_clumps
+	tufts = PackedFloat32Array()
+	tints = new_tints
+	_build()
 
 
 ## How many clumps are standing. For anything checking the field was built.
@@ -231,6 +262,9 @@ func _build() -> void:
 	_pose.resize(total)
 	_local.resize(total)
 	_tint.resize(total)
+	_base.resize(total)
+	for i in total:
+		_base[i] = tints[i] if i < tints.size() else Color.WHITE
 
 	# (model, chunk) -> the clumps drawn there.
 	var buckets: Dictionary = {}
@@ -286,8 +320,8 @@ func _build_chunk(mesh: Mesh, key: Vector3i, members: PackedInt32Array) -> void:
 		_slot[i] = slot
 		_pose[i] = _rest[i]
 		_local[i] = _home[i] - centre
-		_tint[i] = Color.WHITE
-		multi.set_instance_color(slot, Color.WHITE)
+		_tint[i] = _base[i]
+		multi.set_instance_color(slot, _base[i])
 		multi.set_instance_transform(slot, Transform3D(_rest[i], _local[i]))
 
 	var node := MultiMeshInstance3D.new()
@@ -395,9 +429,9 @@ func stain(point: Vector3, radius: float, tint: Color, strength: float = 0.5) ->
 ## Puts every clump back to clean.
 func clear_stains() -> void:
 	for i in _multi.size():
-		_tint[i] = Color.WHITE
+		_tint[i] = _base[i]
 		if _multi[i] != null:
-			_multi[i].set_instance_color(_slot[i], Color.WHITE)
+			_multi[i].set_instance_color(_slot[i], _base[i])
 #endregion
 
 

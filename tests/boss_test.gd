@@ -208,7 +208,8 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 		orc.take_hit(160.0, orc.global_position + Vector3.UP * 1.5, Vector3.FORWARD, false, true, _player)
 		await _wait(2)
 	_check("enough arrows kill an orc", orc.is_dead)
-	await _wait(60)
+	# Mixamo's death staggers for a good second before he falls.
+	await _wait(110)
 	var hips := (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("Hips")).origin).y - orc.global_position.y
 	_check("and he goes down", hips < orc.body_height * 0.5, "hips %.2f m up" % hips)
 	var gone := false

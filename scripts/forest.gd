@@ -169,8 +169,8 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(40.0, -70.0, 9.0),
 	Vector3(88.0, -68.0, 9.0),
 	Vector3(40.0, 108.0, 9.0),
-	# The orcs, on the lane out to the east, and Arkdeva's glade in the wood,
-	# which is wide: its thorns run eleven metres.
+	# The lane out to the east, and Arkdeva's glade in the wood, which is wide:
+	# its thorns run eleven metres.
 	Vector3(60.0, -12.0, 13.0),
 	Vector3(5.0, -50.0, 22.0),
 	# The settlement. It sits on the open side and the treeline would not reach
@@ -216,6 +216,10 @@ const CLEARINGS: Array[Vector3] = [
 ## broadleaf greens are a flat lime that reads as plastic next to anything
 ## textured; this takes them down to something a leaf could be.
 @export var leaf_tone: Color = Color(0.62, 0.74, 0.5)
+## The same for the textured broadleaf leaves (oak, bush), whose lime is in the
+## texture: a stronger pull, down and towards olive, so the wood reads as a
+## summer wood rather than as a toy one.
+@export var broadleaf_tone: Color = Color(0.86, 0.7, 0.56)
 ## How far in from the boundary the wood stops, so no trunk grows through a wall.
 @export var edge_margin: float = 3.0
 
@@ -668,6 +672,10 @@ func _mesh(path: String) -> Mesh:
 
 ## The mesh again, with any bright green surface taken down by `leaf_tone`.
 ## Trunks, bark and the conifers' own darker greens are left as they are.
+##
+## Two kinds of bright green: a flat green colour, and the broadleaf kit's
+## leaves, which are a white material over a lime texture — those are known by
+## the material's name, since their colour says nothing.
 func _toned(mesh: Mesh) -> Mesh:
 	var array_mesh := mesh as ArrayMesh
 	if array_mesh == null or leaf_tone == Color.WHITE:
@@ -678,11 +686,15 @@ func _toned(mesh: Mesh) -> Mesh:
 		if material == null:
 			continue
 		var c := material.albedo_color
-		if c.g > 0.45 and c.g > c.r * 1.25 and c.g > c.b * 1.25:
+		var named := material.resource_name + " " + array_mesh.surface_get_name(s)
+		var leaves := named.contains("Leaves") and not named.contains("Pine") \
+				and not named.contains("Cedar")
+		if leaves or (c.g > 0.45 and c.g > c.r * 1.25 and c.g > c.b * 1.25):
 			if copy == null:
 				copy = array_mesh.duplicate() as ArrayMesh
 			var toned := material.duplicate() as BaseMaterial3D
-			toned.albedo_color = Color(c.r * leaf_tone.r, c.g * leaf_tone.g, c.b * leaf_tone.b, c.a)
+			var tone := broadleaf_tone if leaves else leaf_tone
+			toned.albedo_color = Color(c.r * tone.r, c.g * tone.g, c.b * tone.b, c.a)
 			copy.surface_set_material(s, toned)
 	return copy if copy != null else mesh
 #endregion

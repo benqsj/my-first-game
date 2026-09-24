@@ -613,8 +613,7 @@ func _initialize() -> void:
 
 	# --- Grass reacts to the player -----------------------------------------
 	# The field is drawn out of multimeshes, so there is no node per clump to
-	# read — the orientation comes back off the field by index instead. Clump 0
-	# is the anchor `tools/build_scatter.py` puts down first, on clear ground.
+	# read — the orientation comes back off the field by index instead.
 	var field := world.get_node_or_null("Level/Scatter") as GrassField
 	var clump := -1
 	if field != null and field.clump_count() > 0:
@@ -626,7 +625,9 @@ func _initialize() -> void:
 		field.enemy_reach_scale = 0.0
 		# Long enough for anything already trampled to stand back up.
 		await _wait(90)
-		clump = 0
+		# The field is grown at load ([Meadows]), so there is no clump laid
+		# down for the test: the one nearest a patch of open ground will do.
+		clump = field.clump_near(field.to_local(Vector3(14.0, 0.0, 24.0)))
 	if clump < 0:
 		_check("a grass clump exists to test", false)
 	else:

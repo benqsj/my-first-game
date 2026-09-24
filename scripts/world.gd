@@ -72,8 +72,9 @@ const CAMPS: Array[Array] = [
 	[&"puglin", Vector2(40.0, -70.0), 3],
 	[&"puglin", Vector2(88.0, -68.0), 3],
 	[&"puglin", Vector2(40.0, 108.0), 4],
-	# Two orc warriors, together on the lane out east, sixty metres from spawn.
-	[&"orc", Vector2(60.0, -12.0), 2],
+	# Two orc warriors, wading in the bay off the end of the fishermen's pier —
+	# the first thing met at the far end of the map.
+	[&"orc", Vector2(0.0, -342.0), 2],
 	# And Arkdeva, alone, in a glade of its own in the wood fifty metres
 	# south of spawn, as far from every other creature as that part of the map
 	# allows.

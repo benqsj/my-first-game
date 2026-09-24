@@ -29,10 +29,10 @@ extends Node3D
 ##   volumetric fog: fog is a setting for the whole world and a per-pixel cost
 ##   everywhere in it, and the mist is wanted in one place.
 ##
-## The same node makes the bay further south, where the harbour is: a wider
+## The same node makes the bay further south, where the pier is: a wider
 ## body of water, reaching past the south wall, with a sandier shore and a
 ## sea-coloured surface. What stands in either (`scenes/world/mist_village.tscn`,
-## `scenes/world/harbour.tscn`) is instanced under it; this only makes the
+## `assets/place7/pier.glb`) is instanced under it; this only makes the
 ## ground and the water.
 
 @export_group("Extent")

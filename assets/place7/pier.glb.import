@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bxj2kovjjtdxx"
-path="res://.godot/imported/harbour.glb-6000db9aa0af283571bfc3c78d476c68.scn"
+uid="uid://bsgty3kdwn6b"
+path="res://.godot/imported/pier.glb-a1fe671b2153a68df20f6ce34b0924a2.scn"
 
 [deps]
 
-source_file="res://assets/place7/harbour.glb"
-dest_files=["res://.godot/imported/harbour.glb-6000db9aa0af283571bfc3c78d476c68.scn"]
+source_file="res://assets/place7/pier.glb"
+dest_files=["res://.godot/imported/pier.glb-a1fe671b2153a68df20f6ce34b0924a2.scn"]
 
 [params]
 

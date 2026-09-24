@@ -33,7 +33,7 @@ asks solo or co-op, then who you are, then loads the level.
 scenes/world/greybox_world.tscn` is that level: 240 × 575 m of
 ground walled in at the edges — the old 240 m square, a marsh strip south of it
 with a mere and a misty village on an island in it, and past that a bay with a
-harbour — a 15° ramp, a 55° face that cannot be stood on, a
+plank pier and orcs in the shallows — a 15° ramp, a 55° face that cannot be stood on, a
 6-step staircase up to a platform, pillars to test camera collision, and a
 watchtower, a medieval house and cart, boulders, meadows of grass and stone
 clusters, and a handful of creatures wandering about.
@@ -521,6 +521,17 @@ jump — moves at the speed it was thrown at. Everything chained off it is dampe
 which is where the weight belongs: standing there hitting something is not a way
 to cross ground. A flurry lapses after `chain_window`, so running in and hitting
 something is always the fast swing however many were thrown a moment ago.
+
+**But a grounded swing moves by its step, not by the stick.** It used to keep the
+run's velocity under a swing clip played on the spot, so a cut thrown out of a
+sprint slid him across the ground like a skater — and, depending on the frame
+the button went down in, sometimes slid and sometimes stopped dead. Now every
+grounded swing takes one step and plants: the run it was thrown out of carries
+into a stride along the way he faces (at most `swing_step_speed`, 3.4 m/s,
+easing out over `swing_step_time`, 0.36 s), a cut from standing leans into a
+small step if the stick is pushed, a chained cut takes almost none, and for the
+rest of the swing the feet stay where they are. The stick counts again the
+moment the swing ends.
 
 | | |
 | --- | --- |
@@ -1288,6 +1299,32 @@ cards out of the box. `assets/grass/leaf_material.tres` is wired in through the
 import's `use_external` material override to make it plain green until the real
 texture arrives — the clumps in `grass2.glb` are textured and need nothing.
 
+### Meadows
+
+The scatter's field has been replaced: `Meadows` (`scripts/meadows.gd`) grows
+the grass for the whole map at load, seeded so every peer grows the same one,
+and hands it to the same `GrassField` with `replace()`. It asks the ground what
+a walker would:
+
+* **drifts** on the open ground, from a slow noise field with a hard enough edge
+  that the meadow lies in sweeps and bare patches rather than an even sprinkle,
+  planted in knots of two to four clumps, taller in the middle of a drift;
+* thick along the **edges** — the treeline and the shoulders of the tracks —
+  and none on the tracks themselves;
+* a band of **reeds** round the mere and along the bay's shore, just above the
+  water, with bulrushes (the kit's `Cattail_*`) standing in them;
+* only the odd tuft **under the trees**;
+* **flowers** in patches of one kind at a time (daisies, violets, bellflowers,
+  balloon flowers) inside the drifts;
+* nothing where something solid stands, found with a ray.
+
+Each clump is tinted (`GrassField.tints`, the multimesh's instance colour, which
+blood is laid over): the kit's lime taken down to grass green, drier and more
+golden where a second noise says the ground is dry, darker by the water and in
+the wood. Over `budget` (9 000) the field is thinned evenly. The flowers and
+bulrushes are multimeshes in 48 m squares, drawn out to 80 m. Growing it all
+takes about a fifth of a second.
+
 ## The wood
 
 `Forest` (`scripts/forest.gd`, at `Forest` in the world) grows about six hundred
@@ -1515,16 +1552,17 @@ coast rather than a pond — a sandier shore, and a sea-coloured surface
 (`assets/world/sea.tres`, the same shader as the mere). It is shallow enough to
 wade, like the mere: the bed is 1.25 m down and the water 0.6 m.
 
-In it stands the **harbour**: `assets/place7/harbour.glb`, rebuilt from the
-delivered `mall1.glb` the same way the misty village was (its six hundred
-sheared pieces solved back with the same solver, the white procedural materials
-given colours, the model's own water plane dropped for the bay's, merged per
-material into fifty-odd meshes, 2.2×). A dock with a house and a crane tower on
-it, a walkway out to a wreck, silos and snow-capped cliffs out to sea. Collision
-is hulls: the cliffs sliced into bands a few metres high so each band's hull
-hugs its rock, everything else hulled in 2.5 m cells. It is turned so its
-cliffs stand out to sea behind the dock, and the dock is the first thing the
-track from the mere comes down to.
+Nothing else stands in it but a **pier**: `assets/place7/pier.glb`, modelled
+in the art folder's `world/pier.blend` — a plank walkway 2.6 m wide and 32 m
+long out from the end of the track, on to an 8 m landing stage, on posts, with a
+rope rail, a couple of barrels and a crate. The planks are three weathered tones
+and the waterline ones darker and wet. The walkway, the stage, the barrels and
+the crate are hulls (`-convcolonly`). Old Baqaq fishes off the end of it.
+
+The **orcs** stand in the water off the pier: their camp is at (0, -342), so
+two of them wade the shallows either side of the walkway. (The harbour town
+built from `mall1.glb` stood here before; it was too much for the place and has
+gone.)
 
 ## Tracks and ruins
 
@@ -1545,7 +1583,9 @@ of it. Two things change that:
 
 The kit's broadleaf trees were a flat lime that read as plastic beside anything
 textured; `Forest.leaf_tone` takes their greens down to something a leaf could
-be, leaving bark and the conifers alone.
+be, leaving bark and the conifers alone. The oak and bush leaves carry their
+lime in a texture under a white material, so they are found by the material's
+name and toned harder, towards olive (`Forest.broadleaf_tone`).
 
 ## Quests
 
@@ -1556,7 +1596,7 @@ on offer, a green `?` when it is done and waiting to be handed in:
 | --- | --- | --- |
 | Datvi the Woodcutter (the bear with the log) | the settlement's street | kill 4 wolves |
 | Ali of the Embers (the fire spirit) | the mere's north shore, where the track comes out | kill 6 imps |
-| Old Baqaq the Fisherman (the frog with the rod) | the harbour's dock | kill Arkdeva |
+| Old Baqaq the Fisherman (the frog with the rod) | the end of the pier | kill Arkdeva |
 
 Walk up to one and **F** (`interact`) talks; F again takes the job on, walking
 away declines it. A taken job sits in the top-right corner with its count. Kills

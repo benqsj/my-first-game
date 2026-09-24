@@ -3,7 +3,7 @@ extends Node3D
 
 ## The tracks people have worn between the places on the map: from the spawn to
 ## the settlement's gate and down its street, into the wood to the first glade,
-## and south past Arkdeva's glade to the mere and on to the harbour.
+## and south past Arkdeva's glade to the mere and on to the bay's pier.
 ##
 ## The map was a set of places dropped onto one green plain — every one of them
 ## the same distance from nowhere. A worn track says somebody walks from here
