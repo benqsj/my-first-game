@@ -322,6 +322,8 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 ## Visuals until the profile says what should be: the controller is the same
 ## code for all of them and the character is the thing that varies.
 var rig: CharacterRig
+## Footfall sounds off the rig's feet (`Footsteps`); null on a rig with no skeleton.
+var footsteps: Footsteps
 ## Who is being played. Taken from the Game autoload on spawn unless something
 ## has set it first, which is what the tests do.
 var profile: CharacterProfile
@@ -612,6 +614,9 @@ func _process(delta: float) -> void:
 			rig.call(&"aim_bow", net_draw, net_aim)
 	rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), airborne,
 			dashing, velocity.y, is_blocking if mine else net_blocking)
+	if footsteps != null:
+		var climbing := (state if mine else net_state) == State.WALLCLIMB
+		footsteps.tick(delta, planar, not airborne and not dashing and not climbing, self)
 
 
 ## Copies the parts of the internal state that other peers have to see into the
@@ -699,6 +704,12 @@ func _spawn_character() -> void:
 	body.name = "Visuals"
 	add_child(body)
 	rig = body as CharacterRig
+	footsteps = Footsteps.new()
+	footsteps.name = "Footsteps"
+	add_child(footsteps)
+	if not footsteps.attach(body):
+		footsteps.queue_free()
+		footsteps = null
 
 	run_speed = profile.run_speed
 	walk_speed = profile.walk_speed

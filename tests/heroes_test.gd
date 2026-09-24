@@ -19,8 +19,14 @@ func _initialize() -> void:
 		_check("%s is there to play" % path.get_file(), load(path) is AudioStream)
 	await _spawn(&"mage")
 	await _check_mage()
+	await _spawn(&"mage")
+	await _check_steps("the mage")
 	await _spawn(&"rogue")
 	await _check_rogue()
+	await _spawn(&"rogue")
+	await _check_steps("the rogue")
+	await _spawn(&"tariel")
+	await _check_steps("Tariel")
 	print("")
 	if _failures == 0:
 		print("All checks passed.")
@@ -229,6 +235,29 @@ func _check_rogue() -> void:
 	_check("and held, it turns into the flip", dodging and held_into == "DG_Twist", held_into)
 	await _wait(80)
 	_check("and he climbs", _player.profile.can_climb and rig._anim.has_animation(&"DG_Climb_Up"))
+
+
+## Running a couple of seconds puts a footfall under each foot as it lands:
+## a steady beat, two or three a second, and none standing still.
+func _check_steps(who: String) -> void:
+	var steps := _player.footsteps
+	_check("%s has feet to hear" % who, steps != null)
+	if steps == null:
+		return
+	var before := steps.steps_played
+	await _wait(60)
+	_check("%s standing makes no sound" % who, steps.steps_played == before)
+	Input.action_press("move_forward")
+	await _wait(40)
+	before = steps.steps_played
+	var start := Time.get_ticks_msec()
+	await _wait(120)
+	var heard := steps.steps_played - before
+	Input.action_release("move_forward")
+	var game_seconds := 120.0 / Engine.physics_ticks_per_second
+	_check("%s running steps on each foot" % who, heard >= 3 and heard <= 12,
+			"%d steps in %.1f s (%d ms real)" % [heard, game_seconds, Time.get_ticks_msec() - start])
+	await _wait(30)
 
 
 func _find_bolt() -> SpellBolt:
