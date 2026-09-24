@@ -23,6 +23,9 @@ func _initialize() -> void:
 
 	var world: Node3D = load(WORLD).instantiate()
 	root.add_child(world)
+	# The ramp, the stairs, the steep face and the pillars live in their own
+	# scene now, out of the game's world; the tests that walk on them bring it.
+	world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	_player = (world as World).player()
 
 	_camera = Camera3D.new()

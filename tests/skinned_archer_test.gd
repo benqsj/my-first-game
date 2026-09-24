@@ -18,6 +18,9 @@ func _initialize() -> void:
 	# Game autoload reads before the level asks it who to spawn.
 	var world: World = load("res://scenes/world/greybox_world.tscn").instantiate()
 	root.add_child(world)
+	# The ramp, the stairs, the steep face and the pillars live in their own
+	# scene now, out of the game's world; the tests that walk on them bring it.
+	world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	await physics_frame
 	var player: Player = world.player()
 	for e in world.get_node("Enemies").get_children():

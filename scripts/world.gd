@@ -106,12 +106,12 @@ var _taken: Dictionary = {}
 var _creatures: Node
 var _dozing: Dictionary = {}
 var _think_tick: int = 0
+var _music_tick: int = 0
+var _music_on: bool = false
 
 
 func _ready() -> void:
-	var music := get_node_or_null("/root/Music")
-	if music != null:
-		music.call("play", &"world")
+	_dress_village()
 	_build_camps()
 	_cull_distant_creatures()
 	_prewarm_effects()
@@ -143,6 +143,10 @@ func _ready() -> void:
 ## on every peer that is not the host — and a distance check that switched it
 ## back on would have every client simulating its own private wolves.
 func _process(_delta: float) -> void:
+	_music_tick += 1
+	if _music_tick >= 20:
+		_music_tick = 0
+		_play_music_in_village()
 	if _creatures == null or creature_think_distance <= 0.0:
 		return
 	_think_tick += 1
@@ -418,4 +422,148 @@ func _mark(slot: int) -> Vector3:
 		return Vector3(0.0, 0.3, 0.0)
 	var at := _points.get_child(clampi(slot, 0, _points.get_child_count() - 1)) as Node3D
 	return at.position if at != null else Vector3(0.0, 0.3, 0.0)
+#endregion
+
+
+#region The village
+## The ground the village stands on, inside its fence (x, z, width, depth).
+const VILLAGE := Rect2(20.0, 14.0, 92.0, 62.0)
+## The huts are spread out from this line and made this much bigger, so they
+## stand at the size of a house next to a man rather than a shed.
+const HUT_GROWTH := 1.3
+const HUT_SPREAD_FROM := 62.0
+const FENCE_SCENE := "res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx"
+## Where the gap in the fence is: the west side, between the gate towers, where
+## the track comes in.
+const GATE := Vector2(34.0, 52.0)
+## Where the villagers walk: along the street between the rows and round the
+## square.
+const STREET := [
+	Vector3(36, 0, 42), Vector3(46, 0, 41.5), Vector3(56, 0, 42.5), Vector3(66, 0, 42),
+	Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(90, 0, 40), Vector3(90, 0, 47),
+	Vector3(60, 0, 44), Vector3(50, 0, 43.5),
+]
+const VILLAGERS := 7
+
+
+## Bigger houses, spread along the street to make room for it; a fence round
+## the lot with its gate where the track comes in; people.
+func _dress_village() -> void:
+	var village := get_node_or_null("Level/Village") as Node3D
+	if village == null:
+		return
+	for child in village.get_children():
+		var house := child as Node3D
+		if house == null:
+			continue
+		var kind := String(house.name)
+		if not (kind.begins_with("Hut") or kind == "Barracks"):
+			continue
+		var at := house.position
+		at.x = HUT_SPREAD_FROM + (at.x - HUT_SPREAD_FROM) * 1.28
+		# Each row steps back off the street as it grows.
+		at.z += -3.2 if at.z < 42.0 else 3.2
+		house.position = at
+		house.basis = house.basis.scaled(Vector3.ONE * HUT_GROWTH)
+	_build_fence(village)
+	_settle_villagers(village)
+
+
+func _build_fence(village: Node3D) -> void:
+	var scene := load(FENCE_SCENE) as PackedScene
+	if scene == null:
+		return
+	var probe := scene.instantiate() as Node3D
+	var box := _bounds(probe)
+	probe.free()
+	# The fence piece runs along its longer side.
+	var along_x := box.size.x >= box.size.z
+	var length := maxf(box.size.x, box.size.z) * 1.9
+	if length <= 0.1:
+		return
+	var fence := Node3D.new()
+	fence.name = "Fence"
+	village.add_child(fence)
+	var body := StaticBody3D.new()
+	body.name = "FenceBody"
+	body.collision_layer = 1
+	fence.add_child(body)
+	var r := VILLAGE
+	var corners := [Vector2(r.position.x, r.position.y), Vector2(r.end.x, r.position.y),
+			Vector2(r.end.x, r.end.y), Vector2(r.position.x, r.end.y)]
+	for side in 4:
+		var a: Vector2 = corners[side]
+		var b: Vector2 = corners[(side + 1) % 4]
+		var span := a.distance_to(b)
+		var dir := (b - a).normalized()
+		var pieces := int(ceil(span / length))
+		for k in pieces:
+			var mid := a + dir * (length * (float(k) + 0.5))
+			if (mid - a).length() > span:
+				mid = a + dir * (span - length * 0.5)
+			# The gate: the west side, between the towers.
+			if side == 3 and mid.y > GATE.x and mid.y < GATE.y:
+				continue
+			# In a [Building], as every piece of the kit is: it is what finds the
+			# textures the .fbx only names, without which the fence is white.
+			var piece := Building.new()
+			piece.build_collision = false
+			piece.add_child(scene.instantiate())
+			fence.add_child(piece)
+			var yaw := atan2(-dir.y, dir.x) + (0.0 if along_x else PI * 0.5)
+			piece.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * 1.9), Vector3(mid.x, 0.0, mid.y))
+			var shape := CollisionShape3D.new()
+			var slab := BoxShape3D.new()
+			slab.size = Vector3(length, 1.3, 0.25)
+			shape.shape = slab
+			shape.transform = Transform3D(Basis(Vector3.UP, atan2(-dir.y, dir.x)), Vector3(mid.x, 0.65, mid.y))
+			body.add_child(shape)
+
+
+func _bounds(node: Node3D) -> AABB:
+	var out := AABB()
+	var first := true
+	for m in node.find_children("*", "MeshInstance3D", true, false):
+		var mesh := m as MeshInstance3D
+		if mesh.mesh == null:
+			continue
+		var box := mesh.transform * mesh.mesh.get_aabb()
+		out = box if first else out.merge(box)
+		first = false
+	return out
+
+
+func _settle_villagers(village: Node3D) -> void:
+	if not ResourceLoader.exists(Villager.MODEL):
+		return
+	var spots: Array[Vector3] = []
+	for p: Vector3 in STREET:
+		spots.append(p)
+	for i in VILLAGERS:
+		var one := Villager.new()
+		one.name = "Villager%d" % i
+		one.variant = i
+		one.spots = spots
+		one.position = spots[(i * 3) % spots.size()] + Vector3(0.8 * (i % 2), 0.0, 0.6 * (i % 3))
+		village.add_child(one)
+
+
+## The music is the village's: it plays while a player of this peer is inside
+## the fence and fades out when he leaves.
+func _play_music_in_village() -> void:
+	var music := get_node_or_null("/root/Music")
+	if music == null:
+		return
+	var inside := false
+	for who in players():
+		if who.is_multiplayer_authority():
+			var at := Vector2(who.global_position.x, who.global_position.z)
+			inside = VILLAGE.grow(6.0).has_point(at)
+	if inside == _music_on:
+		return
+	_music_on = inside
+	if inside:
+		music.call("play", &"world")
+	else:
+		music.call("stop")
 #endregion

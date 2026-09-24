@@ -13,6 +13,9 @@ func _initialize() -> void:
 	preload("res://tests/procedural_tariel.gd").use()
 	var world: World = load(WORLD).instantiate()
 	root.add_child(world)
+	# The ramp, the stairs, the steep face and the pillars live in their own
+	# scene now, out of the game's world; the tests that walk on them bring it.
+	world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	# One frame before anyone is asked for: a script main loop adds the level to
 	# a root that is not in the tree yet, so the level's own `_ready()` — and the
 	# spawn it does — is queued rather than immediate.

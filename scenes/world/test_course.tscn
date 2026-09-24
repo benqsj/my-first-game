@@ -1,0 +1,210 @@
+[gd_scene format=3]
+
+[sub_resource type="FastNoiseLite" id="Noise_stone"]
+noise_type = 2
+frequency = 0.06
+fractal_octaves = 3
+fractal_gain = 0.45
+
+[sub_resource type="Gradient" id="Grad_stone"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.27, 0.26, 0.24, 1, 0.45, 0.43, 0.39, 1, 0.6, 0.58, 0.53, 1)
+
+[sub_resource type="NoiseTexture2D" id="Tex_stone"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("Grad_stone")
+noise = SubResource("Noise_stone")
+
+[sub_resource type="NoiseTexture2D" id="Tex_stone_bump"]
+width = 256
+height = 256
+seamless = true
+as_normal_map = true
+bump_strength = 6.0
+noise = SubResource("Noise_stone")
+
+[sub_resource type="StandardMaterial3D" id="Mat_stone"]
+albedo_texture = SubResource("Tex_stone")
+roughness = 0.95
+normal_enabled = true
+normal_texture = SubResource("Tex_stone_bump")
+uv1_scale = Vector3(0.3, 0.3, 0.3)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="Gradient" id="Grad_moss"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(0.24, 0.27, 0.18, 1, 0.38, 0.41, 0.3, 1, 0.52, 0.52, 0.44, 1)
+
+[sub_resource type="NoiseTexture2D" id="Tex_moss"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("Grad_moss")
+noise = SubResource("Noise_stone")
+
+[sub_resource type="StandardMaterial3D" id="Mat_stone_moss"]
+albedo_texture = SubResource("Tex_moss")
+roughness = 0.97
+normal_enabled = true
+normal_texture = SubResource("Tex_stone_bump")
+uv1_scale = Vector3(0.3, 0.3, 0.3)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_step"]
+size = Vector3(5, 3, 0.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_step"]
+size = Vector3(5, 3, 0.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ramp"]
+size = Vector3(5, 0.4, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ramp"]
+size = Vector3(5, 0.4, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_platform"]
+size = Vector3(6, 1.5, 6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_platform"]
+size = Vector3(6, 1.5, 6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_steep"]
+size = Vector3(5, 0.4, 5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_steep"]
+size = Vector3(5, 0.4, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pillar"]
+size = Vector3(1.2, 4, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_pillar"]
+size = Vector3(1.2, 4, 1.2)
+
+[node name="TestCourse" type="Node3D"]
+
+[node name="Ramp" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.965926, -0.258819, 0, 0.258819, 0.965926, 10, 0.78, -4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Ramp"]
+mesh = SubResource("BoxMesh_ramp")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ramp"]
+shape = SubResource("BoxShape3D_ramp")
+
+[node name="Stairs" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, 0)
+
+[node name="Step1" type="StaticBody3D" parent="Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.25, 0)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stairs/Step1"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stairs/Step1"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="Step2" type="StaticBody3D" parent="Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -0.6)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stairs/Step2"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stairs/Step2"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="Step3" type="StaticBody3D" parent="Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.75, -1.2)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stairs/Step3"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stairs/Step3"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="Step4" type="StaticBody3D" parent="Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -1.8)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stairs/Step4"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stairs/Step4"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="Step5" type="StaticBody3D" parent="Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -2.4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stairs/Step5"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stairs/Step5"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="Step6" type="StaticBody3D" parent="Stairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stairs/Step6"]
+mesh = SubResource("BoxMesh_step")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Stairs/Step6"]
+shape = SubResource("BoxShape3D_step")
+
+[node name="SteepFace" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.573576, -0.819152, 0, 0.819152, 0.573576, 16, 1.5, 2)
+
+[node name="Mesh" type="MeshInstance3D" parent="SteepFace"]
+mesh = SubResource("BoxMesh_steep")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SteepFace"]
+shape = SubResource("BoxShape3D_steep")
+
+[node name="Platform" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0.75, -6.3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Platform"]
+mesh = SubResource("BoxMesh_platform")
+surface_material_override/0 = SubResource("Mat_stone_moss")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Platform"]
+shape = SubResource("BoxShape3D_platform")
+
+[node name="Pillar1" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 2, 4)
+
+[node name="Mesh" type="MeshInstance3D" parent="Pillar1"]
+mesh = SubResource("BoxMesh_pillar")
+surface_material_override/0 = SubResource("Mat_stone_moss")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pillar1"]
+shape = SubResource("BoxShape3D_pillar")
+
+[node name="Pillar2" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 2, 6)
+
+[node name="Mesh" type="MeshInstance3D" parent="Pillar2"]
+mesh = SubResource("BoxMesh_pillar")
+surface_material_override/0 = SubResource("Mat_stone_moss")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pillar2"]
+shape = SubResource("BoxShape3D_pillar")
+
+[node name="Pillar3" type="StaticBody3D" parent="."]
+transform = Transform3D(2.5, 0, 0, 0, 0.75, 0, 0, 0, 1, 0, 1.5, 10)
+
+[node name="Mesh" type="MeshInstance3D" parent="Pillar3"]
+mesh = SubResource("BoxMesh_pillar")
+surface_material_override/0 = SubResource("Mat_stone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pillar3"]
+shape = SubResource("BoxShape3D_pillar")

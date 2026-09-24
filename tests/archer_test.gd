@@ -23,6 +23,9 @@ func _initialize() -> void:
 		game.call("choose", &"avtandil")
 	_world = load(WORLD).instantiate()
 	root.add_child(_world)
+	# The ramp, the stairs, the steep face and the pillars live in their own
+	# scene now, out of the game's world; the tests that walk on them bring it.
+	_world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	await _wait(2)
 	_player = (_world as World).player()
 

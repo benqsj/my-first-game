@@ -55,10 +55,12 @@ const REEDS: PackedStringArray = [
 @export var bounds: Rect2 = Rect2(-116.0, -452.0, 232.0, 568.0)
 ## Metres between the points the field is sampled on. Each point that takes
 ## grows a knot of clumps, not one.
-@export var spacing: float = 2.6
+@export var spacing: float = 3.4
 ## Most clumps it will plant, however lush the numbers come out.
 @export var budget: int = 9000
 @export var random_seed: int = 40711
+## Whether the meadows flower. Off: the daisies and the rest were clutter.
+@export var flowers: bool = false
 ## Past this the flowers and bulrushes are not drawn.
 @export var decor_draw_distance: float = 80.0
 
@@ -239,7 +241,7 @@ func _decorate(at: Vector2, site: Dictionary, ponds: Array[Marsh], tracks: Paths
 					_add(REEDS[_rng.randi() % REEDS.size()], spot, _rng.randf_range(2.2, 3.2))
 					counts["bulrushes"] = int(counts["bulrushes"]) + 1
 		return
-	if kind != &"meadow":
+	if kind != &"meadow" or not flowers:
 		return
 	var bloom := _bloom.get_noise_2d(at.x, at.y)
 	if bloom < 0.25 or _rng.randf() > 0.7:
