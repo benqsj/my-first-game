@@ -2714,7 +2714,7 @@ full charge (`SpellBolt._burst`).
 
 ## The eighth round: the assassin's evade and climbing, the wolf's tell
 
-**The assassin's evade** (`CharacterProfile.hold_to_flip`, `Player._press_dash_flipper`):
+**The assassin's evade** (superseded by *Evades in a row* below; was `hold_to_flip`):
 a tap of the dash is a quick step — Mixamo's standing dodges, the same the
 archer's double tap uses, forward, back, left or right as the body sees it
 (`SkinnedRogueRig.step_dodge`); with an enemy locked he keeps facing it, so it
@@ -2751,3 +2751,23 @@ forward and brings both arms through, reaching 1.6 m further than a swipe.
 watched; a foot that has been lifted and comes back to the ground plays one, so
 the sound lands with the foot at any pace and on any clip. Quieter walking,
 silent standing, in the air, dashing or climbing.
+
+## Evades in a row
+
+Every hero can evade again and again (`Player._press_dash`, `_start_evade`,
+`_end_dash`): a press of the dash while an evade is going is kept and the next
+starts the moment it ends; a press within `chain_grace` (0.25 s) after one
+ends follows on without the cooldown. Each hero's evade is his own — the
+knight's and the mage's roll, the hunter's dive. For them a second tap inside
+`double_tap_time` still turns the roll in progress into the longer dodge; a
+press later in the roll is the next roll. `SkinnedRig._play_action` now starts
+a clip over when it is asked for the one already playing (a roll straight
+after a roll would otherwise carry on from the end).
+
+The assassin (`CharacterProfile.step_then_flip`, was `hold_to_flip`)
+alternates: a step, then the twisting flip if another press follows, then a
+step again, and so on (`_evade_chain` even = step, odd = flip). Holding the
+button no longer does anything. Locked on, his steps keep facing the target —
+backward too: backing off is a step back, and a second press is the flip.
+`heroes_test` checks the step–flip–step run, the locked back-step then flip,
+and the chaining for Tariel, the mage and Avtandil.
