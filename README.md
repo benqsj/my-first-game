@@ -2372,6 +2372,79 @@ tests that are about something else.
 
     godot --path . --headless --script res://tests/vitals_test.gd
 
+## The second round of combat: balance, two shields, the perfect dodge
+
+**What things hit for.** Creatures now hurt: an imp's blow is 40, a
+puglin's 48, a wolf's swipe 38 — three or four of them fell anyone — and the
+raid bosses (both orcs, Arkdeva) hit for 220, more than any character has, so
+every blow of theirs is a kill unless it is rolled, blocked or parried. A blow
+on a shield never costs more than 70 % of the stamina bar, so even a boss's can
+be taken on it once.
+
+**Wolves** fight now: `Wolf._land_swipe()` lands `swipe_lands_after` (0.32 s)
+into a swipe on whoever is in reach and in front, as one blow of two (a flinch,
+parryable — a parried wolf is knocked back and cannot swipe for
+`parried_stagger`). They notice a player at 11 m (`sight_range`, was 20) and
+give up at 18. All eight live in one den east of the settlement, round
+(74, -16), each on its own spot 6 or 10.5 m from the middle and patrolling only
+4 m of it (`prowl_radius`), so they are together but never in a heap.
+
+**The parry, animated.** `SS_Parry` was keyed in Blender off `SS_Block_Idle`
+(`tariel.blend`): a small wind-up, then the shield swept out across the blow to
+his left with the body opening behind it and the sword drawn back for the
+answer, held a moment, and back to the guard. `SkinnedRig.parry()` plays it.
+
+**The inventory** (**I**, `scripts/inventory.gd`) holds the shields. Tariel has
+two and carries one:
+
+| | round shield | tower shield |
+| --- | --- | --- |
+| parry | yes | no |
+| a blow on it costs | stamina × 1 | × `tower_block_share` (0.55) |
+| guard | `SS_Block_Idle` | `SS_Tower_Block` — lower, knees bent, leaning into it |
+
+Both are in `tariel_rigged.glb` (`tariel_shield`, `tariel_tower_shield`, the
+tower one modelled in Blender: crimson, iron-rimmed, a gold Bolnisi-style
+cross and boss, bound to `shield_l`); `SkinnedRig.set_shield()` shows one and
+hides the other, and `Player.net_shield` tells the other peers. While a screen
+of his own is open (`Player.menu_open`) the body stands still and takes no
+buttons — the world is not paused, since the game may be online. Characters
+with no shield see their weapon and a note that they carry none. 1 / 2 or a
+click puts one on.
+
+**The map** (`scripts/world_map.gd`). The level photographed once, from 300 m
+straight up with an orthographic camera over its 240 × 575 m, when the map is
+made (without the fog, which from up there turns everything grey). A small map
+in the bottom-right corner turns with the camera — what is ahead on screen is up
+— and shows 90 m of it; **M** opens the whole of it, north up. On both: you (a
+gold arrow), the other players (blue), creatures (red; on the small map only
+those within reach of it) and the people with work (gold).
+
+**The perfect dodge.** A blow that arrives within `perfect_dodge_window`
+(0.3 s) of a roll starting goes through a body that is already out of the way
+**perfectly**: the roll's stamina comes back, and for a second the body sheds
+copies of itself ([ShadowTrail](scripts/shadow_trail.gd)) — its own skeleton and
+meshes duplicated with the pose they hold, cut loose from everything that moves
+them, in a dark shadow rimmed with violet, each fading and sinking as it goes.
+Every peer sees it (`Reaction.PERFECT_DODGE`).
+
+**The mage in the air.** [MageWind](scripts/mage_wind.gd): two discs of
+spiralling light turning opposite ways under his feet and a ring of wisps that
+orbit and stream down off them, faded in when he leaves the ground and stronger
+while he floats. **His bolt** no longer rolls (a spinning orb with a crackling
+tail read as a thing tumbling), and is drawn between physics ticks
+(`Engine.get_physics_interpolation_fraction()`), so at forty metres a second it
+glides instead of stepping.
+
+**New looks** (`~/Desktop/vepxis-art/tools/hero_style.py`, in `heroes.blend`).
+The mage in Georgian dress: a burgundy chokha, rows of ivory gazyri with silver
+caps across the chest, a black belt with silver plates and a khanjali, a black
+papakha where the pointed hat was, and no scroll on his back. The rogue in
+black, with dark leather, steel, and crimson at the bracers, the sheaths and a
+sash. The models are UV'd onto a palette atlas; the script reads each face's
+colour off it and moves the face to a flat material of its new colour, so the
+atlas is left alone (`heroes_before_style.blend` is the file before).
+
 ## Swapping in the real models
 
 Replace the scene under `Visuals` with the imported knight, keep the origin at
