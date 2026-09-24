@@ -73,7 +73,7 @@ func _configure() -> void:
 	}
 	ground_speed = {
 		# Mixamo's walks and runs, the staff arm kept from his own clips.
-		&"MG_Walk": 0.79, &"MG_Run": 3.19, &"MG_Walk_Back": 0.4, &"MG_Run_Back": 2.29,
+		&"MG_Walk": 0.79, &"MG_Run": 2.7, &"MG_Walk_Back": 0.4, &"MG_Run_Back": 2.29,
 		&"MG_Walk_Left": 1.25, &"MG_Walk_Right": 1.25, &"MG_Run_Left": 3.27, &"MG_Run_Right": 2.61,
 		&"MG_Crouch_Walk": 0.96, &"MG_Crouch_Walk_Back": 0.69, &"MG_Crouch_Walk_Left": 0.9,
 		&"MG_Crouch_Walk_Right": 0.93,

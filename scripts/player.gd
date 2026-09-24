@@ -1850,6 +1850,12 @@ func _tick_bow(delta: float) -> void:
 				Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -6.0)
 	elif holding and _drawing:
 		_draw_timer += delta
+		# Held, a draw or a charge costs breath as it goes; run out and it goes.
+		var drain := profile.draw_stamina if profile != null else 0.0
+		if drain > 0.0:
+			_spend(drain * delta)
+			if stamina <= 0.0:
+				_loose_arrow()
 	elif _drawing:
 		_loose_arrow()
 
