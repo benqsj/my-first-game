@@ -34,9 +34,9 @@ enum Weapon {
 ## Whether a perfectly timed roll leaves his shadow behind him — the light-
 ## footed ones, the hunter and the assassin.
 @export var shadow_dodge: bool = false
-## The assassin's evade: a tap steps, held it flips, away from a lock it is a
-## backflip (see `Player._press_dash_flipper`).
-@export var hold_to_flip: bool = false
+## The assassin's evades in a row: a step, then a twisting flip, then a step
+## again (see `Player._press_dash`).
+@export var step_then_flip: bool = false
 
 @export_group("Movement")
 ## Overrides the controller's own. The knight is the yardstick at 9 m/s.

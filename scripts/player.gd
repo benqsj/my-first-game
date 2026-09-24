@@ -383,11 +383,17 @@ var _dodge_timer: float = 0.0
 ## When the dash button was last pressed, so a second tap can be told from a
 ## first one.
 var _last_dash_press: float = -100.0
-## The assassin's step waiting to see whether the button is held into a flip.
-var _flip_armed: bool = false
-var _dash_pressed_at: float = 0.0
-## How long the dash button has to be held for his step to become the flip.
-@export var hold_flip_after: float = 0.16
+## A press of the dash while an evade is still going: the next one, started
+## the moment this one ends.
+var _evade_queued: bool = false
+## How many evades in a row so far (0 for the first). The assassin steps on the
+## even ones and flips on the odd.
+var _evade_chain: int = 0
+## Until when a fresh press still counts as following on from the last evade,
+## rather than starting a new run of them after the cooldown.
+var _chain_open_until: float = -100.0
+## After an evade ends, how long a press still chains on from it.
+@export var chain_grace: float = 0.25
 var _crouching: bool = false
 var _slide_timer: float = 0.0
 var _slide_cooldown_timer: float = 0.0
@@ -802,7 +808,6 @@ func _read_actions() -> void:
 			_jump_buffer_timer = jump_buffer_time
 	if Input.is_action_just_pressed("dash"):
 		_press_dash()
-	_watch_hold_flip()
 	# Held down at a run this is a slide; held down otherwise it is a crouch, and
 	# the slide drops into one when it ends if the button is still down.
 	_set_crouching(Input.is_action_pressed("crouch"))
@@ -1040,78 +1045,63 @@ func _do_jump() -> void:
 
 
 #region Dash
-## The dash button does two things depending on how it is pressed. One tap is
-## the quick tumbling roll it has always been; a second tap inside
-## `double_tap_time` upgrades the roll in progress into the library's dodge,
-## which is slower, travels further and is animated rather than tumbled.
+## The dash button. One tap is the hero's own evade — the knight's and the
+## mage's roll, the hunter's step, the assassin's step. Evades chain: a press
+## while one is going is kept and the next starts the moment it ends, and a
+## press just after it ends ([member chain_grace]) follows on without waiting
+## out the cooldown. So one can go on evading as long as the stamina lasts.
 ##
-## The upgrade converts the roll rather than waiting to see which is coming,
-## because holding the first press back until the window closed would put a
-## visible stall on every single tap.
+## For everyone but the assassin a second tap within `double_tap_time` of the
+## first still upgrades the roll in progress into the library's longer dodge;
+## a press later in the roll is the next roll.
+##
+## The assassin (`CharacterProfile.step_then_flip`) alternates: a step, then
+## a twisting flip if another press follows, then a step again, and so on.
+## With an enemy locked his steps keep facing it — backward too.
 func _press_dash() -> void:
-	if profile != null and profile.hold_to_flip:
-		_press_dash_flipper()
-		return
-	var now := Time.get_ticks_msec() / 1000.0
-	var doubled := now - _last_dash_press <= double_tap_time
-	_last_dash_press = now
-
-	if doubled and state == State.DASHING:
-		_upgrade_to_dodge()
-		return
-	_try_dash()
-
-
-## The assassin's evade (`CharacterProfile.hold_to_flip`):
-##
-## * **a tap** is a quick step out of the way, the archer's dodge, in whatever
-##   direction is pushed — and with an enemy locked he keeps facing it, so it
-##   is a step to the side or back, not a turn and a run;
-## * **held**, the step turns into the twisting flip once `hold_flip_after` has
-##   gone by with the button still down (two quick taps do the same);
-## * **away from what he has locked**, it is that flip straight off, however
-##   short the press.
-func _press_dash_flipper() -> void:
 	var now := _now()
+	var alternating := profile != null and profile.step_then_flip
 	var doubled := now - _last_dash_press <= double_tap_time
 	_last_dash_press = now
-	if doubled and state == State.DASHING:
-		_flip_armed = false
-		_upgrade_to_dodge()
+	if state == State.DASHING or state == State.DODGING:
+		if not alternating and doubled and state == State.DASHING:
+			_upgrade_to_dodge()
+		else:
+			_evade_queued = true
 		return
-	var locked := target != null and _targetable(target)
-	var push := get_movement_direction()
-	push.y = 0.0
-	if locked and push.length_squared() > 0.01:
-		var to_it := target.global_position - global_position
-		to_it.y = 0.0
-		if to_it.length_squared() > 0.01 and push.normalized().dot(to_it.normalized()) < -0.5:
-			# Straight into the flip, however short the press: the same
-			# twisting flip a held press becomes, carried away from it.
-			if _try_dash(false, true):
-				_flip_armed = false
-				_upgrade_to_dodge()
-			return
-	if _try_dash(locked, true):
-		_flip_armed = true
-		_dash_pressed_at = now
+	_evade_queued = false
+	var follows := now <= _chain_open_until
+	_evade_chain = _evade_chain + 1 if follows else 0
+	if not _start_evade(follows):
+		_evade_chain = 0
 
 
-## The button still down after the step began: it becomes the flip.
-func _watch_hold_flip() -> void:
-	if not _flip_armed:
-		return
-	if state != State.DASHING or not Input.is_action_pressed("dash"):
-		_flip_armed = false
-	elif _now() - _dash_pressed_at >= hold_flip_after:
-		_flip_armed = false
-		_upgrade_to_dodge()
+## Starts the evade that is next in the run: `chained` skips the cooldown.
+func _start_evade(chained: bool) -> bool:
+	if profile != null and profile.step_then_flip:
+		if _evade_chain % 2 == 1:
+			return _start_flip(chained)
+		var locked := target != null and _targetable(target)
+		return _try_dash(locked, true, chained)
+	return _try_dash(false, false, chained)
 
 
-func _try_dash(keep_facing: bool = false, step: bool = false) -> bool:
+## The assassin's flip on its own, as the second of a pair: the twisting flip
+## the way he is pushing (or on the way he was going), turning to it.
+func _start_flip(chained: bool) -> bool:
+	var before := _dash_direction
+	if not _try_dash(false, false, chained):
+		return false
+	if get_movement_direction().is_zero_approx() and not before.is_zero_approx():
+		_dash_direction = before
+	_upgrade_to_dodge()
+	return true
+
+
+func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = false) -> bool:
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return false
-	if _dash_cooldown_timer > 0.0:
+	if _dash_cooldown_timer > 0.0 and not chained:
 		return false
 	if not is_on_floor() and not allow_air_dash:
 		return false
@@ -1147,17 +1137,14 @@ func _try_dash(keep_facing: bool = false, step: bool = false) -> bool:
 
 ## Turns the roll already under way into the longer, animated dodge, keeping the
 ## direction it was thrown in.
-func _upgrade_to_dodge(backflip: bool = false) -> void:
+func _upgrade_to_dodge() -> void:
 	if stamina <= 0.0:
 		return  # Nothing left to stretch the roll into a dodge with.
-	if backflip and rig != null and rig.has_method(&"backflip"):
-		rig.call(&"backflip", dodge_duration)
-	else:
-		if not backflip and profile != null and profile.hold_to_flip:
-			# A flip goes the way he is going, whichever way he was facing.
-			rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
-		if rig != null and not rig.dodge_clip(dodge_duration):
-			return  # No clip to upgrade to; the roll carries on as it is.
+	if profile != null and profile.step_then_flip:
+		# A flip goes the way he is going, whichever way he was facing.
+		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
+	if rig != null and not rig.dodge_clip(dodge_duration):
+		return  # No clip to upgrade to; the roll carries on as it is.
 	_spend(profile.dodge_stamina if profile != null else 8.0)
 	state = State.DODGING
 	_dodge_timer = dodge_duration
@@ -1204,6 +1191,13 @@ func _end_dash() -> void:
 		dodge_ended.emit()
 	else:
 		dash_ended.emit()
+	_chain_open_until = _now() + chain_grace
+	if _evade_queued:
+		# Pressed while this one was going: the next follows straight on.
+		_evade_queued = false
+		_evade_chain += 1
+		if not _start_evade(true):
+			_evade_chain = 0
 #endregion
 
 

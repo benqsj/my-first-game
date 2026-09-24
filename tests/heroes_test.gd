@@ -27,6 +27,11 @@ func _initialize() -> void:
 	await _check_steps("the rogue")
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
+	await _check_chain("Tariel")
+	await _spawn(&"mage")
+	await _check_chain("the mage")
+	await _spawn(&"avtandil")
+	await _check_chain("Avtandil")
 	print("")
 	if _failures == 0:
 		print("All checks passed.")
@@ -214,26 +219,52 @@ func _check_rogue() -> void:
 	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Flip"
 			and rig._anim.has_animation(&"DG_Flip") and rig._anim.has_animation(&"DG_Twist"))
 
-	# The evade: a tap is a step, held it becomes the flip.
+	# The evades in a row: a step, then the flip, then a step again.
 	await _wait(60)
 	_player.stamina = _player.max_stamina
 	_player._dash_cooldown_timer = 0.0
-	Input.action_press("dash")
+	await _tap_dash()
 	await _wait(2)
-	Input.action_release("dash")
-	await _wait(3)
 	_check("a tap of the dash is a quick step", String(rig._act_clip).begins_with("DG_Dodge")
 			and _player.state == Player.State.DASHING, String(rig._act_clip))
+	await _wait(20)
+	_check("holding the button no longer turns it into a flip", _player.state == Player.State.DASHING)
+	await _tap_dash()
+	var flip := await _until(func() -> bool: return _player.state == Player.State.DODGING, 40)
+	_check("a second press follows the step with the flip", flip and String(rig._act_clip) == "DG_Twist",
+			String(rig._act_clip))
+	await _wait(20)
+	await _tap_dash()
+	var step := await _until(func() -> bool: return _player.state == Player.State.DASHING, 90)
+	_check("and a third, after the flip, is a step again", step and String(rig._act_clip).begins_with("DG_Dodge"),
+			String(rig._act_clip))
 	await _wait(80)
+
+	# Locked on, backing away: the same — a step back facing it, then the flip.
+	var foe := _dummy()
+	_world.add_child(foe)
+	foe.global_position = _player.global_position - _player.global_transform.basis.z * 5.0
+	_player.target = foe
+	await _wait(30)
 	_player.stamina = _player.max_stamina
 	_player._dash_cooldown_timer = 0.0
-	Input.action_press("dash")
-	await _wait(20)
-	var held_into := String(rig._act_clip)
-	var dodging := _player.state == Player.State.DODGING
-	Input.action_release("dash")
-	_check("and held, it turns into the flip", dodging and held_into == "DG_Twist", held_into)
-	await _wait(80)
+	var facing := _player.rotation.y
+	Input.action_press("move_back")
+	await _wait(2)
+	await _tap_dash()
+	await _wait(2)
+	_check("locked, backing off is a step first", _player.state == Player.State.DASHING
+			and String(rig._act_clip).begins_with("DG_Dodge"), String(rig._act_clip))
+	_check("still facing what he has locked", absf(angle_difference(_player.rotation.y, facing)) < 0.35,
+			"turned %.2f rad" % angle_difference(_player.rotation.y, facing))
+	await _wait(15)
+	await _tap_dash()
+	flip = await _until(func() -> bool: return _player.state == Player.State.DODGING, 40)
+	Input.action_release("move_back")
+	_check("and the flip after it", flip and String(rig._act_clip) == "DG_Twist", String(rig._act_clip))
+	_player.target = null
+	foe.queue_free()
+	await _wait(90)
 	_check("and he climbs", _player.profile.can_climb and rig._anim.has_animation(&"DG_Climb_Up"))
 
 
@@ -258,6 +289,62 @@ func _check_steps(who: String) -> void:
 	_check("%s running steps on each foot" % who, heard >= 3 and heard <= 12,
 			"%d steps in %.1f s (%d ms real)" % [heard, game_seconds, Time.get_ticks_msec() - start])
 	await _wait(30)
+
+
+## Evades one after another: a press during a roll is the next roll, straight
+## on, and a press just after one ends follows on without the cooldown.
+func _check_chain(who: String) -> void:
+	await _wait(30)
+	_player.stamina = _player.max_stamina
+	_player._dash_cooldown_timer = 0.0
+	var starts: Array[int] = []
+	var ends: Array[int] = []
+	var frame := [0]
+	var on_start := func(_d: Vector3) -> void: starts.append(frame[0])
+	var on_end := func() -> void: ends.append(frame[0])
+	_player.dash_started.connect(on_start)
+	_player.dash_ended.connect(on_end)
+	await _tap_dash()
+	var first_clip := String(_player.rig._act_clip)
+	await _wait(22)  # past the double tap, well inside the roll
+	await _tap_dash()
+	for i in 90:
+		frame[0] += 1
+		await physics_frame
+		if starts.size() >= 2 and ends.size() >= 2:
+			break
+	_check("%s: a press during a roll is the next one" % who, starts.size() >= 2,
+			"%d rolls" % starts.size())
+	if starts.size() >= 2 and ends.size() >= 1:
+		_check("%s: straight on from the first" % who, starts[1] - ends[0] <= 1,
+				"ended %d, next %d" % [ends[0], starts[1]])
+	_check("%s: each one his own" % who, first_clip != "" , first_clip)
+	# Just after it ends, inside the grace: no cooldown to wait out.
+	await _until(func() -> bool: return _player.state != Player.State.DASHING and _player.state != Player.State.DODGING, 60)
+	await _wait(4)
+	_player.stamina = _player.max_stamina
+	var before := starts.size()
+	await _tap_dash()
+	_check("%s: pressed just after, it follows on at once" % who, starts.size() == before + 1,
+			"cooldown %.2f" % _player._dash_cooldown_timer)
+	_player.dash_started.disconnect(on_start)
+	_player.dash_ended.disconnect(on_end)
+	await _wait(60)
+
+
+func _tap_dash() -> void:
+	Input.action_press("dash")
+	await physics_frame
+	await physics_frame
+	Input.action_release("dash")
+
+
+func _until(done: Callable, frames: int) -> bool:
+	for i in frames:
+		if done.call():
+			return true
+		await physics_frame
+	return done.call()
 
 
 func _find_bolt() -> SpellBolt:

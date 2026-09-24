@@ -473,6 +473,10 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_anim.speed_scale = _action_rate
 	if from > 0.0:
 		_anim.seek(length * from, true)
+	elif was == clip:
+		# The same clip again — a roll straight after a roll: play() would carry
+		# on from where it is, so start it over.
+		_anim.seek(0.0, true)
 	return true
 
 
