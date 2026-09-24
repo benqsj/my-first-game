@@ -431,7 +431,6 @@ const ACCENT := {
 	&"avtandil": Color("6fae4a"),
 	&"mage": Color("4f8ee8"),
 	&"rogue": Color("a04ad8"),
-	&"assassin2": Color("c0304a"),
 }
 ## What they are called, under their name.
 const EPITHET := {
@@ -439,7 +438,6 @@ const EPITHET := {
 	&"avtandil": "Hunter of Arabia, Tariel's sworn brother",
 	&"mage": "Keeper of the storm",
 	&"rogue": "The blade in the dark",
-	&"assassin2": "The kinjal in the chokha",
 }
 
 

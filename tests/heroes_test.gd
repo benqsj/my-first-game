@@ -25,11 +25,6 @@ func _initialize() -> void:
 	await _check_rogue()
 	await _spawn(&"rogue")
 	await _check_steps("the rogue")
-	# the second assassin: the same man in a chokha, the same everything else
-	await _spawn(&"assassin2")
-	await _check_rogue()
-	await _spawn(&"assassin2")
-	await _check_steps("assassin 2")
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
 	await _check_chain("Tariel")
