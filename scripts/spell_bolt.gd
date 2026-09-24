@@ -8,10 +8,15 @@ extends Arrow
 ## nothing fast tunnels through it, the same `take_hit()` on whatever it meets,
 ## the same launch from the controller — and its own thing in how it flies:
 ##
-## * **It gathers pace.** It leaves the staff's crystal at a walk, a small light
-##   swelling to full size, and builds to full speed over `build_time`, slowly
-##   and then all at once. The throw reads as a spell let go of rather than a
-##   shot fired.
+## * **It gathers pace over the whole flight.** It leaves the staff's crystal
+##   at a walk, a small light swelling to full size, and speeds up all the way
+##   to what it was thrown at, reaching full speed only near the end — over
+##   `ramp_share` of the distance to its quarry, or `ramp_distance` when it has
+##   none. Slowly at first and harder towards the end, so the throw reads as a
+##   spell let go of and building rather than a shot fired.
+## * **A tail of light** ([GlowTail]) runs behind it — hot white at the head
+##   cooling to gold, as long as it is fast — with two fine strands winding
+##   round it and embers shed along the way.
 ## * **It hunts what it was thrown at.** A bolt thrown with something locked
 ##   bends towards it as it flies, as hard as `steer` lets it — a thing walking
 ##   or running on across the line is followed and hit.
@@ -33,9 +38,19 @@ const MODEL_SCALE := 0.14
 @export var burst_time: float = 0.3
 @export var glow_colour: Color = Color(1.0, 0.82, 0.38)
 ## It leaves the staff at this share of its full speed...
-@export var start_share: float = 0.15
-## ...and is at full speed this long after, gathering pace all the way.
-@export var build_time: float = 0.5
+@export var start_share: float = 0.3
+## ...and reaches full speed this far into the way to its quarry...
+@export_range(0.3, 1.0) var ramp_share: float = 0.9
+## ...or this many metres out, thrown at nothing — never less than
+## `ramp_min` nor more than `ramp_max`.
+@export var ramp_distance: float = 16.0
+@export var ramp_min: float = 8.0
+@export var ramp_max: float = 40.0
+## Above 1 the pace comes on late: most of it in the last part of the ramp.
+@export var ramp_curve: float = 1.3
+## The strands that wind round the tail: how far out, and how fast they turn.
+@export var strand_radius: float = 0.16
+@export var strand_turns: float = 2.2
 ## How hard it can bend towards its quarry: the most it may be pushed sideways,
 ## in m/s². Slow, just off the staff, that is a tight curve; at full speed it
 ## is a gentle one, which is what leaves a dodge room to work.
@@ -63,6 +78,11 @@ var _was_ahead: bool = false
 ## The quarry's recent velocity, smoothed: a dodge is a break from it.
 var _quarry_pace: Vector3 = Vector3.ZERO
 var _fading: bool = false
+## The distance over which it gathers pace, worked out on its first tick —
+## the quarry is handed over after the launch.
+var _ramp: float = 0.0
+var _tails: Array[GlowTail] = []
+var _embers: GPUParticles3D
 
 
 func _ready() -> void:
@@ -70,8 +90,8 @@ func _ready() -> void:
 	streak_tint = Color(1.0, 0.86, 0.45, 0.8)
 	wake_tint = Color(1.0, 0.75, 0.3, 0.22)
 	crit_tint = Color(1.0, 0.95, 0.75, 0.9)
-	trail_width = 0.12
-	wake_spread = 3.0
+	# The arrow's flat bands are not used: the bolt lays its own tail.
+	trail_width = 0.0
 	spin = 5.0
 	bite = 0.0
 	if ResourceLoader.exists(MODEL):
@@ -130,7 +150,7 @@ func _process(delta: float) -> void:
 	# Swells from a spark at the crystal to its full size as it gathers pace,
 	# and breathes a little once it is there.
 	_flicker += delta * 30.0
-	var grown := clampf(_age / (build_time * 0.6), 0.0, 1.0)
+	var grown := clampf(_ramp_through() / 0.45, 0.0, 1.0)
 	grown = 1.0 - (1.0 - grown) * (1.0 - grown)
 	var breath := 1.0 + 0.07 * sin(_flicker * 0.45)
 	if _model != null:
@@ -148,9 +168,14 @@ func _physics_process(delta: float) -> void:
 		_fade()
 		return
 
-	# Slowly and then all at once: the square of the way through the build.
-	var through := clampf(_age / maxf(build_time, 0.01), 0.0, 1.0)
-	var pace := _top_speed * lerpf(start_share, 1.0, through * through)
+	if _ramp <= 0.0:
+		_ramp = ramp_distance
+		if _quarry != null and is_instance_valid(_quarry):
+			_ramp = global_position.distance_to(_mark(_quarry)) * ramp_share
+		_ramp = clampf(_ramp, ramp_min, ramp_max)
+	# Slowly and then harder: the pace follows the way through the ramp raised
+	# to `ramp_curve`, so full speed comes towards the end.
+	var pace := _top_speed * lerpf(start_share, 1.0, pow(_ramp_through(), ramp_curve))
 
 	if _quarry != null:
 		if not is_instance_valid(_quarry) or not _quarry.is_inside_tree():
@@ -188,9 +213,135 @@ func _physics_process(delta: float) -> void:
 		global_position += step
 		_travelled += step.length()
 		_point_along(_heading)
+		_feed_tails()
 		return
 	global_position = hit["position"] as Vector3
 	_strike(hit["collider"] as Node3D, hit["position"] as Vector3)
+
+
+## How far through its ramp to full speed it is, 0 to 1.
+func _ramp_through() -> float:
+	if _ramp <= 0.0:
+		return 0.0
+	return clampf(_travelled / _ramp, 0.0, 1.0)
+
+
+## The tail: a hot core, a wider soft glow round it, and two fine strands that
+## wind round both. All of them are fed the head's position each frame.
+func _lay_trail() -> void:
+	var into := get_parent()
+	if into == null:
+		return
+	_tails.append(_tail(into, 0.55, 0.26, 1.3, Color(1.0, 0.78, 0.35, 0.5), Color(1.0, 0.4, 0.06, 0.0)))
+	_tails.append(_tail(into, 0.14, 0.36, 1.6, Color(1.0, 0.96, 0.8, 1.0), Color(1.0, 0.55, 0.12, 0.0)))
+	for i in 2:
+		_tails.append(_tail(into, 0.035, 0.3, 0.7, Color(1.0, 0.92, 0.7, 0.95), Color(1.0, 0.6, 0.2, 0.0)))
+	# The glow and the core are joined to the orb itself between ticks; the
+	# strands wind round the line and are left to their own samples.
+	for i in 2:
+		_tails[i].head = self
+	_embers = _make_embers()
+	add_child(_embers)
+
+
+func _tail(into: Node, across: float, seconds: float, shape: float, head: Color,
+		tail: Color) -> GlowTail:
+	var t := GlowTail.new()
+	t.width = across
+	t.life = seconds
+	t.taper = shape
+	t.head_colour = head
+	t.tail_colour = tail
+	into.add_child(t)
+	t.global_position = Vector3.ZERO
+	return t
+
+
+## Sparks shed along the way: they fall back off the bolt and cool as they go.
+func _make_embers() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.name = "Embers"
+	p.amount = 70
+	p.lifetime = 0.55
+	p.local_coords = false
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	m.emission_sphere_radius = 0.06
+	m.direction = Vector3.UP
+	m.spread = 180.0
+	m.initial_velocity_min = 0.3
+	m.initial_velocity_max = 1.4
+	m.gravity = Vector3(0.0, -2.5, 0.0)
+	m.damping_min = 1.0
+	m.damping_max = 3.0
+	m.scale_min = 0.5
+	m.scale_max = 1.2
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.97, 0.85, 1.0))
+	ramp.set_color(1, Color(1.0, 0.4, 0.05, 0.0))
+	var ramp_tex := GradientTexture1D.new()
+	ramp_tex.gradient = ramp
+	m.color_ramp = ramp_tex
+	p.process_material = m
+	var dot := QuadMesh.new()
+	dot.size = Vector2(0.07, 0.07)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	var disc := GradientTexture2D.new()
+	disc.fill = GradientTexture2D.FILL_RADIAL
+	disc.fill_from = Vector2(0.5, 0.5)
+	disc.fill_to = Vector2(1.0, 0.5)
+	var fall := Gradient.new()
+	fall.set_color(0, Color(1, 1, 1, 1))
+	fall.set_color(1, Color(1, 1, 1, 0))
+	disc.gradient = fall
+	disc.width = 32
+	disc.height = 32
+	mat.albedo_texture = disc
+	dot.material = mat
+	p.draw_pass_1 = dot
+	p.emitting = true
+	return p
+
+
+## Feeds the tails where the head is now. The strands are offset round the
+## line of flight, turning as it goes, so what they leave behind is a helix.
+func _feed_tails() -> void:
+	if _tails.is_empty():
+		return
+	var head := global_position
+	var ahead := _heading.normalized()
+	var side := ahead.cross(Vector3.UP)
+	if side.length_squared() < 1e-6:
+		side = ahead.cross(Vector3.RIGHT)
+	side = side.normalized()
+	var up := side.cross(ahead).normalized()
+	# The strands open out as it speeds up.
+	var r := strand_radius * lerpf(0.4, 1.0, _ramp_through())
+	var turn := _travelled * strand_turns
+	for i in _tails.size():
+		var tail := _tails[i]
+		if not is_instance_valid(tail):
+			continue
+		if i < 2:
+			tail.push(head)
+		else:
+			var a := turn + PI * float(i - 2)
+			tail.push(head + (side * cos(a) + up * sin(a)) * r)
+
+
+func _let_go_of_tails() -> void:
+	for tail in _tails:
+		if is_instance_valid(tail):
+			tail.emitting = false
+	_tails.clear()
+	if _embers != null:
+		_embers.emitting = false
 
 
 ## Where on `who` it goes for: the middle of the body, as the lock sees it.
@@ -252,6 +403,7 @@ func _strike(what: Node3D, where: Vector3) -> void:
 
 
 func _let_go_of_trails() -> void:
+	_let_go_of_tails()
 	for ribbon in [_trail, _wake]:
 		if ribbon == null:
 			continue
