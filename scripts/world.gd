@@ -117,6 +117,7 @@ func _ready() -> void:
 	_build_camps()
 	_cull_distant_creatures()
 	_prewarm_effects()
+	_add_marsh_song()
 	_creatures = get_node_or_null("Enemies")
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
@@ -368,6 +369,17 @@ func _prewarm_effects() -> void:
 	Blood.prewarm(self)
 	DustRing.prewarm()
 	GroundFx.prewarm()
+
+
+## The woman's voice over the misty mere (see [MarshSong]).
+func _add_marsh_song() -> void:
+	var marsh := get_node_or_null("Marsh") as Marsh
+	if marsh == null:
+		return
+	var song := MarshSong.new()
+	song.name = "MarshSong"
+	song.marsh = marsh
+	add_child(song)
 
 
 func _cull_distant_creatures() -> void:

@@ -32,6 +32,29 @@ func _initialize() -> void:
 	var village := marsh.get_node_or_null("MistVillage") as MistVillage
 	_check("and a village in it", village != null)
 
+	# --- The song over the mere -----------------------------------------------
+	var song := world.get_node_or_null("MarshSong") as MarshSong
+	_check("the mere has its song", song != null)
+	if song != null and village != null:
+		var music := root.get_node_or_null("Music")
+		_check("quieter than the music", music == null or song.volume_db < float(music.get("volume_db")),
+				"%.1f dB" % song.volume_db)
+		_check("silent away from the marsh", song.step == MarshSong.Step.WAITING and not song.is_inside())
+		player.global_position = _find_open_water(marsh, village) + Vector3(0.0, 1.0, 0.0)
+		await _wait(30)
+		_check("the first passage plays on coming into the marsh",
+				song.is_inside() and song.step == MarshSong.Step.FIRST, "step %d" % song.step)
+		song.call("_on_finished")
+		_check("then a pause of 5 to 10 s", song.step == MarshSong.Step.GAP
+				and song.get("_gap_left") >= 5.0 and song.get("_gap_left") <= 10.0)
+		song.set("_gap_left", 0.05)
+		await _wait(10)
+		_check("then the second", song.step == MarshSong.Step.SECOND, "step %d" % song.step)
+		player.global_position = Vector3(20.0, 0.3, 20.0)
+		await _wait(30)
+		_check("it fades out on leaving and does not start again at once",
+				not song.is_inside() and song.step == MarshSong.Step.DONE, "step %d" % song.step)
+
 	# --- The map is bigger ---------------------------------------------------
 	# The old south wall stood at z = -119.5. Run south across where it was.
 	# Down the ride that comes out on the mere's north shore, where the wood
