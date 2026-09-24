@@ -2305,6 +2305,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			_take_damage(damage * 0.5)
 			return
 		struck.emit(damage, true)
+		net_react.rpc(Reaction.BLOCK, global_position + Vector3.UP * 1.2 + facing.normalized() * 0.5, toward.normalized())
 		return
 
 	_combo_landed[combo] = int(_combo_landed[combo]) + 1
@@ -2337,7 +2338,7 @@ func _forget_combos_from(combo: String) -> void:
 			_combo_landed.erase(key)
 
 
-enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE }
+enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE, BLOCK }
 
 ## What a blow did to him, shown in every window: a flinch or a fall with
 ## blood, or the end of lying there.
@@ -2347,10 +2348,13 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.FLINCH:
 			if rig != null:
 				rig.flinch()
+			_rig_says(&"hurt")
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
 			if rig != null:
 				rig.knock_down()
+			_rig_says(&"hurt")
+			_thud()
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.GET_UP:
 			if rig != null:
@@ -2366,6 +2370,8 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.DEATH:
 			if rig != null:
 				rig.knock_down()
+			_rig_says(&"hurt")
+			_thud()
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.RESPAWN:
 			if rig != null:
@@ -2375,6 +2381,34 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				ShadowTrail.start(self)
 				Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.0, -1.0)
 			perfect_dodged.emit()
+		Reaction.BLOCK:
+			Sfx.play(self, BLOCK_SOUND, self, at - global_position, randf_range(0.92, 1.08), -14.0)
+
+
+## A sound of the rig's own (`hurt`), if it has it.
+func _rig_says(what: StringName) -> void:
+	if rig != null and rig.has_method(what):
+		rig.call(what)
+
+
+## The body hitting the ground, a moment after it starts to go over.
+func _thud() -> void:
+	get_tree().create_timer(0.45).timeout.connect(_play_thud)
+
+
+func _play_thud() -> void:
+	if is_inside_tree():
+		Sfx.play(self, FALL_SOUND, self, Vector3.ZERO, randf_range(0.95, 1.05), -15.0)
+
+
+## His blade has gone into a creature — told by the host, which is where the
+## creatures decide what a swing hit; heard on every peer.
+@rpc("any_peer", "call_local", "unreliable")
+func net_blade_landed() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
+		return
+	_rig_says(&"blade_landed")
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
@@ -2508,6 +2542,8 @@ func set_shield(kind: int) -> void:
 
 
 const PARRY_SOUND := "res://sounds/parry/clang.wav"
+const BLOCK_SOUND := "res://sounds/all/block_1.wav"
+const FALL_SOUND := "res://sounds/all/fall_1.wav"
 const SHADOW_SOUND := "res://sounds/dodge/shadow.wav"
 
 

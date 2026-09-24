@@ -530,6 +530,7 @@ func _take_hits() -> void:
 		# `net_sever` has already spilled the blood, on every peer.
 		take_hit(damage_per_hit, rig.last_cut_point, blow, false, false, knight)
 		knight.rig.bloody()
+		knight.net_blade_landed.rpc()
 		if is_dead:
 			return
 
@@ -657,7 +658,12 @@ func _lie_down() -> void:
 	# layer hides it from everything else while it keeps its own mask, so it
 	# still rests on the ground instead of falling through the world.
 	collision_layer = 0
+	Sfx.play(self, LOOT_SOUND, null, global_position + Vector3.UP * 0.3, 1.0, -18.0)
 	died.emit()
+
+## Something falling from it as it goes down: every creature drops a little,
+## heard where it lies.
+const LOOT_SOUND := "res://sounds/all/loot_1.wav"
 
 
 ## Takes the body out of every window at once.

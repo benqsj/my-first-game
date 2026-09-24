@@ -25,7 +25,7 @@ const STEPS: Array[String] = [
 @export var min_speed: float = 1.2
 ## Speed at which the step is at full loudness; slower is quieter.
 @export var run_speed: float = 5.0
-@export var volume_db: float = -7.0
+@export var volume_db: float = -16.0
 ## Two steps closer than this are one (a foot bouncing on the plant).
 @export var min_gap: float = 0.16
 

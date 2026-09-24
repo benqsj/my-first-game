@@ -223,6 +223,7 @@ var _reel_clock: float = 0.0
 
 func _ready() -> void:
 	super()
+	roar_sound = "res://sounds/orc/roar_1.wav"
 	_skeleton = body.find_child("Skeleton3D", true, false) as Skeleton3D
 	_own = body.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if _skeleton == null or _own == null:

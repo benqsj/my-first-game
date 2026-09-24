@@ -55,6 +55,8 @@ var _orb_clock: float = 0.0
 
 
 func _configure() -> void:
+	swing_sounds = LIGHT_SWINGS.duplicate()
+	swing_volume = -4.0
 	clips = {
 		&"idle": &"MG_Idle", &"walk": &"MG_Walk", &"run": &"MG_Run",
 		&"walk_back": &"MG_Walk_Back", &"run_back": &"MG_Run_Back",

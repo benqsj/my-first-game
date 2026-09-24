@@ -41,6 +41,8 @@ var _draw_time: float = 0.85
 
 
 func _configure() -> void:
+	swing_sounds = LIGHT_SWINGS.duplicate()
+	swing_volume = -4.0
 	clips = {
 		&"idle": &"AV_Idle_01", &"walk": &"AV_Walk_Forward", &"run": &"AV_Run_Forward",
 		&"sprint": &"AV_Sprint_Upright",

@@ -317,6 +317,9 @@ func _rouse(who: Node3D) -> void:
 	_quarry = who
 	if mode == Mode.GUARD or mode == Mode.RETURN:
 		mode = Mode.CHASE
+		if not roar_sound.is_empty() and Time.get_ticks_msec() / 1000.0 >= _roar_again_at:
+			_roar_again_at = Time.get_ticks_msec() / 1000.0 + 8.0
+			net_roar.rpc()
 	if band.is_empty():
 		return
 	for node in get_tree().get_nodes_in_group(band):
@@ -525,6 +528,7 @@ func _watch_blades() -> void:
 		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.3
 		if _receive(sword_damage, near[1], blow, knight):
 			knight.rig.bloody()
+			knight.net_blade_landed.rpc()
 		if is_dead:
 			return
 
@@ -583,7 +587,22 @@ func _lie_down() -> void:
 	if _health_bar != null:
 		_health_bar.hide()
 	collision_layer = 0
+	Sfx.play(self, LOOT_SOUND, null, global_position + Vector3.UP * 0.3, 1.0, -18.0)
 	died.emit()
+
+## Something falling from it as it goes down: every creature drops a little,
+## heard where it lies.
+const LOOT_SOUND := "res://sounds/all/loot_1.wav"
+
+
+## Its war cry as it comes for someone, if it has one (the orcs).
+var roar_sound: String = ""
+var _roar_again_at: float = 0.0
+
+
+@rpc("authority", "call_local", "unreliable")
+func net_roar() -> void:
+	Sfx.play(self, roar_sound, self, Vector3.UP * 1.6, randf_range(0.94, 1.04), -16.0)
 
 
 @rpc("authority", "call_local", "reliable")

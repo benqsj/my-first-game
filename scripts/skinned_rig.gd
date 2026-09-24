@@ -97,13 +97,27 @@ var blade_rest_dir := Vector3(0, 0, 1)
 ## A blade in the other hand too, which cuts the air as the right one does.
 var off_hand_blade := false
 ## What a swing sounds like: one of these, at random, at `swing_pitch`. The
-## knight's sword; the rogue's daggers are the same air cut higher.
+## knight's sword; the rogue sets his own knife's (`SkinnedRogueRig`).
 var swing_sounds: Array[String] = [
+	"res://sounds/tariel/air_1.wav", "res://sounds/tariel/air_2.wav",
+	"res://sounds/tariel/air_3.wav", "res://sounds/tariel/air_4.wav",
+	"res://sounds/tariel/air_5.wav", "res://sounds/tariel/air_6.wav",
+]
+## The older, lighter whooshes: the staff and the hunter's knife keep these.
+const LIGHT_SWINGS: Array[String] = [
 	"res://sounds/tariel/swing_1.wav", "res://sounds/tariel/swing_2.wav",
 	"res://sounds/tariel/swing_3.wav", "res://sounds/tariel/swing_4.wav",
 	"res://sounds/tariel/swing_5.wav", "res://sounds/tariel/swing_6.wav",
 	"res://sounds/tariel/swing_7.wav",
 ]
+## How loud the swing plays, dB.
+var swing_volume := -11.0
+## The blade going into a creature: one of these at random.
+var hit_sounds: Array[String] = ["res://sounds/tariel/hit_1.wav"]
+var hit_volume := -19.0
+## Being hurt.
+var hurt_sounds: Array[String] = ["res://sounds/all/hurt_1.wav"]
+var hurt_volume := -19.0
 var swing_pitch := 1.0
 
 @export_group("Skinned")
@@ -206,7 +220,7 @@ func _ready() -> void:
 	set_shield(shield_kind)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
-	Sfx.warm(swing_sounds)
+	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
 
 
 ## Override to swap in another character's clip table (see `clips`).
@@ -535,7 +549,7 @@ func _whoosh() -> void:
 	var at: Node3D = self
 	if _sword_mount != null:
 		at = _sword_mount
-	Sfx.play_any(self, swing_sounds, at, swing_pitch, -4.0)
+	Sfx.play_any(self, swing_sounds, at, swing_pitch, swing_volume)
 
 
 func swing_time() -> float:
@@ -571,6 +585,19 @@ func plunge(seconds: float) -> void:
 
 func is_planted() -> bool:
 	return _plunge_left > 0.0
+
+
+## The blade has gone into something: its sound, at the point it went in.
+func blade_landed() -> void:
+	var at: Node3D = self
+	if _sword_mount != null:
+		at = _sword_mount
+	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06), hit_volume)
+
+
+## Hurt: a grunt.
+func hurt() -> void:
+	Sfx.play_any(self, hurt_sounds, self, randf_range(0.95, 1.05), hurt_volume)
 
 
 func bloody() -> void:

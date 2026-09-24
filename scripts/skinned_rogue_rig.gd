@@ -83,8 +83,20 @@ func _configure() -> void:
 	blade_tip = 0.42
 	blade_rest_dir = Vector3.UP
 	off_hand_blade = false
-	# The sword's whoosh, a dagger's worth higher.
-	swing_pitch = 1.45
+	# His own knife: its whooshes, its bite, his grunt.
+	swing_sounds = [
+		"res://sounds/assassin/swing_1.wav", "res://sounds/assassin/swing_2.wav",
+		"res://sounds/assassin/swing_3.wav", "res://sounds/assassin/swing_4.wav",
+	]
+	swing_pitch = 1.0
+	swing_volume = -17.0
+	hit_sounds = [
+		"res://sounds/assassin/hit_1.wav", "res://sounds/assassin/hit_2.wav",
+		"res://sounds/assassin/hit_3.wav",
+	]
+	hit_volume = -13.0
+	hurt_sounds = ["res://sounds/assassin/hurt_1.wav"]
+	hurt_volume = -15.0
 	cloth_enabled = false
 
 

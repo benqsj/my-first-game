@@ -587,6 +587,7 @@ func _watch_blades() -> void:
 		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.3
 		if _receive(sword_damage, near[1], blow, knight):
 			knight.rig.bloody()
+			knight.net_blade_landed.rpc()
 		if is_dead:
 			return
 
@@ -678,7 +679,12 @@ func _lie_down() -> void:
 		_stamina_bar.hide()
 	# Out of the way of the living, but still resting on the ground.
 	collision_layer = 0
+	Sfx.play(self, LOOT_SOUND, null, global_position + Vector3.UP * 0.3, 1.0, -18.0)
 	died.emit()
+
+## Something falling from it as it goes down: every creature drops a little,
+## heard where it lies.
+const LOOT_SOUND := "res://sounds/all/loot_1.wav"
 
 
 ## How a body falls once it is dead: the knock back plays for `FREEZE_AT`

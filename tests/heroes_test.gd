@@ -15,7 +15,12 @@ var _player: Player
 
 func _initialize() -> void:
 	for path in ["res://sounds/tariel/swing_1.wav", "res://sounds/bow/draw.wav", "res://sounds/bow/release.wav",
-			"res://sounds/tower-music/kind-of-year.mp3"]:
+			"res://sounds/tower-music/kind-of-year.mp3",
+			"res://sounds/tariel/air_1.wav", "res://sounds/tariel/air_6.wav", "res://sounds/tariel/hit_1.wav",
+			"res://sounds/assassin/swing_1.wav", "res://sounds/assassin/swing_4.wav",
+			"res://sounds/assassin/hit_3.wav", "res://sounds/assassin/hurt_1.wav",
+			"res://sounds/all/hurt_1.wav", "res://sounds/all/fall_1.wav", "res://sounds/all/block_1.wav",
+			"res://sounds/all/loot_1.wav", "res://sounds/orc/roar_1.wav"]:
 		_check("%s is there to play" % path.get_file(), load(path) is AudioStream)
 	await _spawn(&"mage")
 	await _check_mage()
@@ -28,6 +33,11 @@ func _initialize() -> void:
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
 	await _check_chain("Tariel")
+	var trig := _player.rig as SkinnedRig
+	_check("Tariel's sword has the new air and its bite", trig != null
+			and trig.swing_sounds[0] == "res://sounds/tariel/air_1.wav"
+			and trig.hit_sounds[0] == "res://sounds/tariel/hit_1.wav"
+			and trig.hurt_sounds[0] == "res://sounds/all/hurt_1.wav")
 	await _spawn(&"mage")
 	await _check_chain("the mage")
 	await _spawn(&"avtandil")
@@ -218,6 +228,16 @@ func _check_rogue() -> void:
 			and rig.flurry.all(func(c: StringName) -> bool: return rig._anim.has_animation(c)))
 	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Flip"
 			and rig._anim.has_animation(&"DG_Flip") and rig._anim.has_animation(&"DG_Twist"))
+
+	_check("his knife has its own sounds", rig.swing_sounds[0].begins_with("res://sounds/assassin/")
+			and rig.hit_sounds[0].begins_with("res://sounds/assassin/")
+			and rig.hurt_sounds[0] == "res://sounds/assassin/hurt_1.wav")
+	var voices := rig.find_children("*", "AudioStreamPlayer3D", true, false).size()
+	_player.net_blade_landed()
+	_player.net_react(Player.Reaction.FLINCH, _player.global_position + Vector3.UP, Vector3.UP)
+	_check("his knife is heard going in, and he is heard hurt",
+			rig.find_children("*", "AudioStreamPlayer3D", true, false).size() + _player.find_children("*", "AudioStreamPlayer3D", false, false).size() >= voices + 2)
+	await _wait(40)
 
 	# The evades in a row: a step, then the flip, then a step again.
 	await _wait(60)
