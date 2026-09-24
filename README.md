@@ -841,6 +841,19 @@ imported as they are; the loop is switched on in code, so a new file needs only
 a line in `TRACKS`. (The files arrived as `Safe Haven.mp3` and `safe haven mini `
 with no extension, which Godot would not import; renamed.)
 
+### The mere's song
+
+`scripts/marsh_song.gd` (`MarshSong`, added by `World._add_marsh_song` under
+the level): two passages of a woman's voice cut from the user's recording —
+`sounds/moments/short-women-voice-1.mp3` (0:48–1:02) and `-2.mp3`
+(1:41–1:55), each 14 s with a short fade in and out. When this peer's player
+walks into the marsh round the misty village (the mere's ellipse widened by
+8 m) the first plays; 5–10 s after it ends, the second; then nothing. Leaving
+(20 m past the rim) fades it out; it can play again only after 30 s away. It
+fades out too if the orcs' fight music starts. At -16 dB (the music is -10),
+with a ±1 dB trim so the two passages sound alike — heard, not announced.
+Local only; each peer hears his own. `marsh_test` checks the sequence.
+
 ### Sounds
 
 `scripts/sfx.gd` (`Sfx`): a one-shot `AudioStreamPlayer3D` placed on whatever
