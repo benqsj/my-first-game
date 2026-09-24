@@ -188,7 +188,7 @@ func _check_rogue() -> void:
 	if rig == null:
 		return
 	_check("and swings rather than shoots", not _player.has_bow())
-	_check("he is the quickest on his feet", _player.run_speed > 6.5, "%.1f m/s" % _player.run_speed)
+	_check("he runs at the hunter's pace", is_equal_approx(_player.run_speed, 5.9), "%.1f m/s" % _player.run_speed)
 	Input.action_press("attack")
 	await physics_frame
 	await physics_frame
@@ -196,14 +196,14 @@ func _check_rogue() -> void:
 	_check("a click is a stab", String(rig.current_swing()).begins_with("DG_Stab"), String(rig.current_swing()))
 	_check("and it whooshes", rig.find_children("*", "AudioStreamPlayer3D", true, false).size() > 0)
 	var cut := false
-	var both := false
 	for i in 60:
 		await physics_frame
 		if not rig.get_cutting_edge().is_empty():
 			cut = true
-			both = both or (rig._arc_l != null and rig._arc_l.emitting)
-	_check("the dagger cuts", cut)
-	_check("and the other hand's cuts the air with it", both)
+	_check("the knife cuts", cut)
+	_check("one knife, in one hand", not rig.off_hand_blade and rig._arc_l == null)
+	_check("and every stab of the combo is the knife hand's", not rig.flurry.has(&"DG_Stab_Lead")
+			and rig._anim.has_animation(&"DG_Stab_Lead_R"))
 
 
 func _find_bolt() -> SpellBolt:

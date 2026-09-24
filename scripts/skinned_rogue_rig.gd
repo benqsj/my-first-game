@@ -1,10 +1,10 @@
 class_name SkinnedRogueRig
 extends SkinnedRig
 
-## The rogue: two daggers, quick and light. Everything is the knight's rig; this
-## is his clip table — Mixamo's knife stabs, the double stab and the dual combo,
-## a ninja's idle and run, flips to get out of trouble — and a blade in each
-## hand, both cutting the air.
+## The assassin: one long knife, quick and light. Everything is the knight's
+## rig; this is his clip table — Mixamo's knife stabs, the double stab and the
+## dual combo, a ninja's idle and run, flips to get out of trouble — and the
+## knife in his right hand, built in Blender (`tools/hero_round3.py`).
 ##
 ## Source: `~/Desktop/vepxis-art/heroes/heroes.blend` (`dagger_rig`), built by
 ## `tools/hero_rig.py` and dressed by `tools/hero_dress.py`; the cut windows and
@@ -41,10 +41,13 @@ func _configure() -> void:
 		&"DG_Sneak", &"DG_Crouch_Walk_Back", &"DG_Crouch_Walk_Left", &"DG_Crouch_Walk_Right",
 		&"DG_Fall",
 	]
-	# Three stabs, round and round: lead hand, rear hand, reverse grip.
-	flurry = [&"DG_Stab_Lead", &"DG_Stab_Rear", &"DG_Stab_Reverse"]
+	# Three stabs, round and round, all with the knife hand: the rear-hand
+	# thrust, the lead stab mirrored onto the right (DG_Stab_Lead_R, flipped
+	# in Blender), and the reverse-grip cut.
+	flurry = [&"DG_Stab_Rear", &"DG_Stab_Lead_R", &"DG_Stab_Reverse"]
 	cut_window = {
-		&"DG_Stab_Lead": Vector2(0.211, 0.324), &"DG_Stab_Rear": Vector2(0.469, 0.531),
+		&"DG_Stab_Lead": Vector2(0.211, 0.324), &"DG_Stab_Lead_R": Vector2(0.211, 0.324),
+		&"DG_Stab_Rear": Vector2(0.469, 0.531),
 		&"DG_Stab_Reverse": Vector2(0.241, 0.354), &"DG_Double_Stab": Vector2(0.326, 0.37),
 		&"DG_Dual_Combo": Vector2(0.257, 0.743),
 	}
@@ -53,15 +56,15 @@ func _configure() -> void:
 	plunge_from = 0.35
 	roll_share = 0.8
 	# Quick hands.
-	swing_rate = 2.1
+	swing_rate = 2.5
 	swing_recovery = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.4
-	# The daggers: short, standing up out of the fists at rest.
-	blade_base = 0.08
-	blade_tip = 0.34
+	# The knife: standing up out of the right fist at rest.
+	blade_base = 0.075
+	blade_tip = 0.42
 	blade_rest_dir = Vector3.UP
-	off_hand_blade = true
+	off_hand_blade = false
 	# The sword's whoosh, a dagger's worth higher.
 	swing_pitch = 1.45
 	cloth_enabled = false

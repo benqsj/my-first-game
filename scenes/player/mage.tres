@@ -6,7 +6,7 @@
 
 [resource]
 script = ExtResource("1_profile")
-display_name = "The Mage"
+display_name = "Magic"
 blurb = "Fights from afar: hold to gather a bolt of lightning, let go to throw it. Jumps higher than anyone and, holding the jump, floats down."
 visuals = ExtResource("2_visuals")
 weapon = 2
