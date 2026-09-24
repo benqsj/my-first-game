@@ -80,11 +80,22 @@ func _check_mage() -> void:
 				"%.2f m off it" % bolt.global_position.distance_to(crystal))
 		var from := bolt.global_position
 		var first := bolt.speed()
-		await _wait(40)
-		if is_instance_valid(bolt) and not bolt.is_fading():
-			var went := bolt.global_position - from
-			_check("it leaves slowly and gathers pace", first < bolt._top_speed * 0.35 and bolt.speed() > bolt._top_speed * 0.95,
-					"%.1f then %.1f of %.1f m/s" % [first, bolt.speed(), bolt._top_speed])
+		var middle := 0.0
+		var peak := 0.0
+		var top := bolt._top_speed
+		var went := Vector3.ZERO
+		for i in 70:
+			await physics_frame
+			if not is_instance_valid(bolt) or bolt.is_fading() or bolt._spent:
+				break
+			if i == 20:
+				middle = bolt.speed()
+			peak = maxf(peak, bolt.speed())
+			went = bolt.global_position - from
+		if went != Vector3.ZERO:
+			_check("it leaves slowly and gathers pace over the flight",
+					first < top * 0.35 and middle < top * 0.7 and peak > top * 0.95,
+					"%.1f, %.1f, then %.1f of %.1f m/s" % [first, middle, peak, top])
 			_check("and, nothing locked, flies straight", went.length() > 8.0 and absf(went.y) < went.length() * 0.15,
 					"%.1f m, %.2f m up" % [went.length(), went.y])
 		else:
@@ -124,6 +135,29 @@ func _check_mage() -> void:
 	_check("and strikes it", int(dummy.get("hits")) >= 1, "%d hits" % int(dummy.get("hits")))
 	_player.call("_drop_target")
 	dummy.queue_free()
+	await _wait(20)
+
+	# A tapped jump plays his own jump clip, by how fast he is rising or falling.
+	Input.action_press("jump")
+	await _wait(2)
+	Input.action_release("jump")
+	var seen := ""
+	var rising := -1.0
+	var falling := -1.0
+	for i in 150:
+		await physics_frame
+		if not _player.is_on_floor() and rig._anim.has_animation(SkinnedMageRig.JUMP_CLIP):
+			seen = String(rig._anim.current_animation)
+			var at := rig._anim.current_animation_position / rig._anim.get_animation(SkinnedMageRig.JUMP_CLIP).length
+			if _player.velocity.y > 3.0 and rising < 0.0:
+				rising = at
+			if _player.velocity.y < -3.0:
+				falling = at
+		if _player.is_on_floor() and i > 10:
+			break
+	_check("in the air he plays his own jump", seen == String(SkinnedMageRig.JUMP_CLIP), seen)
+	_check("its first half going up and its second coming down", rising >= 0.0 and rising < 0.45 and falling > 0.55,
+			"%.2f up, %.2f down" % [rising, falling])
 	await _wait(20)
 
 	# The jump, and the float down.

@@ -15,6 +15,12 @@ extends SkinnedRig
 ##   free hand's push the clip also has, which is why only this part of it is
 ##   played.
 ## * **Levitating** — the jump held on the way down — is Mixamo's float.
+## * **Jumping** is `MG_Jump`, keyed by hand in Blender: the push off, the
+##   knees driven up and the staff raised on the way up, open at the top, legs
+##   reaching down and the free arm out for balance on the way down. It is not
+##   played through at its own pace — how far in it is follows the body's
+##   vertical speed, so the top of the clip is always the top of the jump
+##   however high or long it is.
 ##
 ## Source: `~/Desktop/vepxis-art/heroes/heroes.blend` (`mage_rig`).
 
@@ -29,6 +35,7 @@ const CAST_RELEASE := 0.70
 const CAST_TO := 0.84
 const CAST_RATE := 2.0
 const FLOAT_CLIP := &"MG_Float"
+const JUMP_CLIP := &"MG_Jump"
 ## Where the crystal sits up the staff from the hand, in metres.
 const CRYSTAL_UP := 1.02
 
@@ -148,6 +155,14 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 	var body := _body as Player
 	if airborne and body != null and body.is_levitating() and _anim.has_animation(FLOAT_CLIP):
 		_set_base(FLOAT_CLIP, 0.3, 1.0)
+		return
+	if airborne and _anim.has_animation(JUMP_CLIP):
+		# Rising at full jump speed is the start of the clip, the top of the
+		# arc is its middle, falling as fast again is its end.
+		var v0 := body._jump_velocity if body != null and body._jump_velocity > 0.1 else 8.0
+		var through := clampf(0.5 - 0.5 * vy / v0, 0.0, 1.0)
+		_set_base(JUMP_CLIP, 0.12, 1.0)
+		_anim.seek(_anim.get_animation(JUMP_CLIP).length * through, false)
 		return
 	if _charge > 0.05 and not airborne and planar < idle_threshold and _anim.has_animation(CHARGE_CLIP):
 		_set_base(CHARGE_CLIP, 0.15, 1.0)
