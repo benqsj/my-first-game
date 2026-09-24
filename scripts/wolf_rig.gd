@@ -104,7 +104,10 @@ signal severed(part: String)
 @export var hip_bob: float = 0.06
 
 @export_group("Attack")
-@export var swipe_duration: float = 0.5
+@export var swipe_duration: float = 0.85
+## Share of the swipe spent winding up — the arm high and back, the chest
+## rearing, a red glint at the claws: the tell to roll on.
+@export var swipe_windup: float = 0.55
 ## How far the arm carries through the swipe, in radians.
 @export var swipe_reach: float = 2.1
 
@@ -222,6 +225,40 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, stance_targe
 		_trail_l.emitting = swiping and _swipe_left
 	if _trail_r != null:
 		_trail_r.emitting = swiping and not _swipe_left
+
+
+## The tell: a red glint gathering on the claws that are about to come
+## through, brightest just before they do.
+var _glints: Dictionary = {}
+
+
+func _glint(on: bool, through: float, side: float) -> void:
+	for key: String in ["m_claw_l1", "m_claw_r1"]:
+		var g := _glints.get(key) as MeshInstance3D
+		if g == null:
+			var claw := find_child(key, true, false) as Node3D
+			if claw == null:
+				continue
+			g = MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			quad.size = Vector2.ONE
+			g.mesh = quad
+			var glow := StandardMaterial3D.new()
+			glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			glow.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+			glow.albedo_texture = SpellBolt._disc_texture(false)
+			glow.albedo_color = Color(1.0, 0.25, 0.1, 0.0)
+			g.material_override = glow
+			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			claw.add_child(g)
+			_glints[key] = g
+		var mine: bool = (key == "m_claw_l1") == (side < 0.0)
+		var mat := g.material_override as StandardMaterial3D
+		var k := clampf(through, 0.0, 1.0) if on and mine else 0.0
+		mat.albedo_color.a = 0.9 * k * k
+		g.scale = Vector3.ONE * lerpf(0.15, 0.55, k)
 
 
 ## Starts a claw swipe, alternating paws so it never rakes with the same one twice.
@@ -418,6 +455,7 @@ func _pose_arms(t: float) -> void:
 	_add_offset("m_chest", Vector3(breathe, 0.0, 0.0))
 
 	if _swipe_timer <= 0.0:
+		_glint(false, 0.0, 1.0)
 		return
 
 	# A rake across the body: wind the arm back and out, then drive it through
@@ -430,20 +468,27 @@ func _pose_arms(t: float) -> void:
 	var reach := 0.0
 	var across := 0.0
 	var fold := 0.0
-	if a < 0.3:
-		var w := smoothstep(0.0, 1.0, a / 0.3)
-		reach = -1.0 * w
-		across = -0.9 * side * w
-		fold = -0.9 * w
+	var rear := 0.0
+	var wind := swipe_windup
+	if a < wind:
+		# Slowly up and back, and held there a beat: plain to see coming.
+		var w := smoothstep(0.0, 1.0, minf(a / (wind * 0.75), 1.0))
+		reach = -1.5 * w
+		across = -1.1 * side * w
+		fold = -1.1 * w
+		rear = -0.25 * w
 	else:
-		var e := 1.0 - pow(1.0 - (a - 0.3) / 0.7, 3.0)
-		reach = lerpf(-1.0, -0.2, e)
-		across = lerpf(-0.9 * side, swipe_reach * side * 0.55, e)
-		fold = lerpf(-0.9, 0.25, e)
+		# Then fast through.
+		var e := 1.0 - pow(1.0 - (a - wind) / (1.0 - wind), 3.0)
+		reach = lerpf(-1.5, -0.2, e)
+		across = lerpf(-1.1 * side, swipe_reach * side * 0.55, e)
+		fold = lerpf(-1.1, 0.25, e)
+		rear = lerpf(-0.25, 0.15, e)
+	_glint(a < wind, a / wind, side)
 
 	_add_offset(arm, Vector3(reach, across, 0.0))
 	_add_offset(elbow, Vector3(fold, 0.0, 0.0))
-	_add_offset("m_chest", Vector3(0.0, across * 0.3, 0.0))
+	_add_offset("m_chest", Vector3(rear, across * 0.3, 0.0))
 	_add_offset("m_jaw", Vector3(0.35 * sin(a * PI), 0.0, 0.0))
 
 

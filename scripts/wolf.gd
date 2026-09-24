@@ -51,11 +51,11 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var bar_height: float = 2.15
 
 @export_group("Combat")
-@export var swipe_interval: float = 1.1
+@export var swipe_interval: float = 1.5
 ## What a swipe that lands takes off, and how far into the swipe the claws
 ## arrive — the player has that long to roll or raise a shield.
 @export var swipe_damage: float = 38.0
-@export var swipe_lands_after: float = 0.32
+@export var swipe_lands_after: float = 0.58
 ## How long it stands open after a swipe is parried.
 @export var parried_stagger: float = 1.6
 ## Losing this many limbs puts it down.
