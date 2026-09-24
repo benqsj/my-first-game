@@ -2713,3 +2713,15 @@ root so the body's own movement is not doubled.
 55 % of a 0.85 s swipe: the arm high and back, the chest rearing) with a red
 glint gathering on the claws about to come through, then goes fast; the claws
 land 0.58 s in (`swipe_lands_after`), a swipe every 1.5 s.
+
+## The ninth round: the backward flip, the wolf that loses its limbs
+
+**Locked and dodging back** the assassin now does the same twisting flip a held
+dash gives, even on the quickest tap (`Player._press_dash_flipper`).
+
+**Wolves run like Tariel** (`charge_speed` 5.6, `flee_speed` 4.5). A cut-off
+arm no longer swipes (`WolfRig.swipe` picks the arm that is left); with both
+legs cut the wolf drops to the ground, chest low (`WolfRig.is_legless`,
+`State.DOWN`). A new attack, the pounce (`WolfRig.lunge`, a 0.35 chance while
+it has both arms): it gathers low, both claws glinting red, then springs
+forward and brings both arms through, reaching 1.6 m further than a swipe.
