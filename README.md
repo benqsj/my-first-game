@@ -2798,3 +2798,22 @@ The blade landing is decided on the host, in the creature (`Wolf`, `Brute`,
 `Player.net_blade_landed`; hurt, fall and block ride on `net_react`.
 Levels, by the user's ask: footsteps low (`Footsteps.volume_db` -16), swings
 and hits in the middle (about -30 dB mean once played), the rest under them.
+
+## The assassin's new body, and landing where he lands
+
+**His look** (`assets/rogue_rigged/rogue_rigged.glb`, built by
+`vepxis-art/tools/r4_build.py` into `heroes.blend` as `rogue_v4` on
+`dagger_rig`): the same box-built man as before, the same proportions, the
+boxes' edges softly rounded as Tariel's are, and a good deal more to him — a
+hood with a brim and a fallen point, eyes with pupils, a crimson scarf with its
+tails down the back, a short cape, a leather vest in three plates, a strap of
+throwing knives, a sash and a buckled belt, pouches, flaps, a layered left
+pauldron, studded bracers, fingers (the right hand a fist round the knife, the
+left open), knee pads, cuffed boots and a better knife. Seventeen flat
+materials, no textures; every piece rigid on one bone.
+
+**No slide after an evade** (`CharacterProfile.dash_land_at`,
+`dodge_land_at`): where in the evade the clip puts his feet down (0.72 of the
+step, 0.66 of the flip for the assassin) the travel brakes to nothing, and
+the evade hands on no leftover speed, so a flip lands where it lands. The other
+heroes keep 1.0, the old glide.
