@@ -25,10 +25,26 @@ extends Brute
 ##   does `guard_factor` of its damage.
 ## * **The axe** is the village's, set in his fist by a grip read off his own
 ##   mesh: where the fist's vertices gather, and the line their knuckles make.
+## * **The chains.** Besides the combos Mixamo ships, three long ones of his
+##   own: clips run together in Blender (`tools/orc_chains.py`), each cut short
+##   of its settle and cross-faded into the next — a combo into the spin, three
+##   blows ending in the overhead, a kick into a combo. He steps in behind them
+##   while they last, and a chain that ends overhead ends in the slam.
+## * **The cut in the air.** A [BladeArc] follows the axe's head whenever it
+##   moves fast in an attack.
+##
+## **The great-axe orc** (`great_axe`, scenes/enemies/orc_greataxe.tscn) is the
+## same warrior with a topknot and a braid, and a double-bitted axe held in both
+## fists: Mixamo's great-sword set (`tools/great_axe.py`), with the left arm
+## solved onto the haft every frame and the axe skinned to a `weapon_axe` bone,
+## so it comes with the rig rather than being placed here. His braid swings on
+## spring bones. Everything else — the acts, the slam, the guard — is shared,
+## played from his own clips (see `GREAT_ACTS`).
 
 enum Act {
 	NONE = 0, SWING = 1, COMBO = 2, HEAVY = 3, KICK = 4, SPIN = 5, LEAP = 6, ROAR = 7,
-	BACKHAND = 8, COMBO_THREE = 9, COMBO_SHORT = 10, DEAD = 99,
+	BACKHAND = 8, COMBO_THREE = 9, COMBO_SHORT = 10,
+	CHAIN_A = 11, CHAIN_B = 12, CHAIN_C = 13, DEAD = 99,
 }
 
 ## The clips, by what they are for.
@@ -36,12 +52,13 @@ const IDLE := &"OR_Axe_Idle"
 const CALM_IDLE := &"OR_Orc_Idle"
 const CALM_WALK := &"OR_Orc_Walk"
 const WALK := &"OR_Axe_Walk"
-const RUN := &"OR_Axe_Run"
+const RUN := &"OR_Mutant_Run"
 const GUARD := &"OR_Block_Idle"
 const SWING_CLIP := &"OR_Attack_Horizontal"
 const HEAVY_CLIP := &"OR_Attack_Downward"
 const DEATH_CLIP := &"OR_Death"
-## act -> [clip, how many blows it lands, rate]
+## act -> [clip, how many blows it lands, rate, whether its last blow is the
+## overhead that slams into the ground]
 const ACTS := {
 	Act.SWING: [&"OR_Attack_Horizontal", 1, 1.15],
 	Act.BACKHAND: [&"OR_Attack_Backhand", 1, 1.15],
@@ -53,16 +70,46 @@ const ACTS := {
 	Act.SPIN: [&"OR_Attack_360", 1, 1.15],
 	Act.LEAP: [&"OR_Run_Jump_Attack", 1, 1.15],
 	Act.ROAR: [&"OR_Battlecry", 0, 1.1],
+	Act.CHAIN_A: [&"OR_Chain_Berserk", 3, 1.15],
+	Act.CHAIN_B: [&"OR_Chain_Breaker", 3, 1.1, true],
+	Act.CHAIN_C: [&"OR_Chain_Brawler", 3, 1.15],
 	Act.DEAD: [&"OR_Death", 0, 1.0],
 }
 const LOOPS: Array[StringName] = [
-	&"OR_Axe_Idle", &"OR_Orc_Idle", &"OR_Orc_Walk", &"OR_Axe_Walk", &"OR_Axe_Run", &"OR_Block_Idle",
+	&"OR_Axe_Idle", &"OR_Orc_Idle", &"OR_Orc_Walk", &"OR_Axe_Walk", &"OR_Axe_Run", &"OR_Mutant_Run",
+	&"OR_Block_Idle",
 ]
+
+## The great-axe orc's clips.
+const GREAT_CLIPS := {
+	&"idle": &"GA_Idle", &"calm_idle": &"OR_Mutant_Breathing_Idle", &"calm_walk": &"GA_Walk",
+	&"walk": &"GA_Walk", &"run": &"GA_Run", &"guard": &"GA_Block_Idle", &"death": &"OR_Death",
+}
+const GREAT_ACTS := {
+	Act.SWING: [&"GA_Power_Slash", 1, 1.1],
+	Act.BACKHAND: [&"GA_Low_Slash", 1, 1.1],
+	Act.HEAVY: [&"GA_Downward_Slash", 1, 1.0],
+	Act.COMBO: [&"GA_Combo_Slash", 3, 1.1],
+	Act.COMBO_THREE: [&"GA_Combo_Slash", 3, 1.2],
+	Act.COMBO_SHORT: [&"GA_Chain_Crush", 2, 1.1, true],
+	Act.KICK: [&"GA_Spin_Kick", 1, 1.15],
+	Act.SPIN: [&"GA_High_Spin_Attack", 1, 1.1],
+	Act.LEAP: [&"GA_Jump_Attack", 1, 1.1],
+	Act.ROAR: [&"OR_Mutant_Roar", 0, 1.15],
+	Act.CHAIN_A: [&"GA_Chain_Fury", 4, 1.1],
+	Act.CHAIN_B: [&"GA_Chain_Crush", 2, 1.05, true],
+	Act.CHAIN_C: [&"GA_Chain_Reaper", 3, 1.1, true],
+	Act.DEAD: [&"OR_Death", 0, 1.0],
+}
+const GREAT_LOOPS: Array[StringName] = [
+	&"GA_Idle", &"OR_Mutant_Breathing_Idle", &"GA_Walk", &"GA_Run", &"GA_Block_Idle",
+]
+const CHAINS: Array[int] = [Act.CHAIN_A, Act.CHAIN_B, Act.CHAIN_C]
 
 ## What the guard moves while his legs walk.
 const GUARD_BONES: PackedStringArray = [
 	"Spine01", "Spine", "neck", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand",
-	"RightShoulder", "RightArm", "RightForeArm", "RightHand",
+	"RightShoulder", "RightArm", "RightForeArm", "RightHand", "weapon_axe",
 ]
 ## The grip in his right hand's own frame: the middle of the fist, and the turn
 ## that runs the haft along the knuckles with the blade out. Read off the mesh
@@ -75,6 +122,18 @@ const AXE_DROP := 0.18
 const AXE_HEAD := Vector3(0.12, 0.62, 0.0)
 const AXE_SCENE := "res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_Axe.fbx"
 const AXE_TEXTURES := "res://assets/area/HighLandsFantasyBuildings/MiscProps/TextureMaps"
+## The stretch of the village axe the cut in the air is drawn along, in the
+## axe's own frame: up the haft to the far corner of the bit.
+const ARC_BASE := Vector3(0.0, 0.3, 0.0)
+const ARC_TIP := Vector3(0.16, 0.68, 0.0)
+## The same on the great axe, in its bone's frame (centimetres, Y up the haft):
+## from below the bits to the top spike.
+const GREAT_ARC_BASE := Vector3(0.0, 38.0, 0.0)
+const GREAT_ARC_TIP := Vector3(0.0, 84.0, 0.0)
+const GREAT_AXE_HEAD := Vector3(0.0, 62.0, 0.0)
+
+## Two-handed, the great-sword clips and the double-bitted axe (see above).
+@export var great_axe: bool = false
 
 @export_group("Attack")
 @export var reach: float = 2.7
@@ -94,6 +153,12 @@ const AXE_TEXTURES := "res://assets/area/HighLandsFantasyBuildings/MiscProps/Tex
 @export var wave_damage: float = 20.0
 ## How far off he may open with the leap, for it to land on somebody.
 @export var slam_range: float = 9.0
+## How fast he walks in behind a chain, to stay on whoever backs off from it.
+@export var chain_advance: float = 2.2
+
+@export_group("Looks")
+## How fast the axe head must be going, metres a second, to cut the air.
+@export var arc_speed: float = 10.0
 
 @export_group("Guard")
 @export_range(0.0, 1.0) var guard_factor: float = 0.35
@@ -128,6 +193,21 @@ var _roared: bool = false
 ## The guard clip's rotation tracks for the upper body: [track, bone].
 var _guard_tracks: Array[Vector2i] = []
 var _guard_time: float = 0.0
+## This warrior's acts and clips: [ACTS] and the axe-and-fist set, or the
+## great axe's.
+var _acts: Dictionary = ACTS
+var _idle: StringName = IDLE
+var _calm_idle: StringName = CALM_IDLE
+var _calm_walk: StringName = CALM_WALK
+var _walk: StringName = WALK
+var _run: StringName = RUN
+var _guard: StringName = GUARD
+var _death: StringName = DEATH_CLIP
+## Where the slam lands from.
+var _head_mark: Node3D
+var _arc: BladeArc
+var _arc_tip: Node3D
+var _arc_last := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -142,21 +222,35 @@ func _ready() -> void:
 	if _hips >= 0:
 		_hips_rest = _skeleton.get_bone_rest(_hips).origin
 	_own.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
-	for clip in LOOPS:
+	if great_axe:
+		_acts = GREAT_ACTS
+		_idle = GREAT_CLIPS[&"idle"]
+		_calm_idle = GREAT_CLIPS[&"calm_idle"]
+		_calm_walk = GREAT_CLIPS[&"calm_walk"]
+		_walk = GREAT_CLIPS[&"walk"]
+		_run = GREAT_CLIPS[&"run"]
+		_guard = GREAT_CLIPS[&"guard"]
+		_death = GREAT_CLIPS[&"death"]
+	for clip in (GREAT_LOOPS if great_axe else LOOPS):
 		if _own.has_animation(clip):
 			_own.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-	for clip in [CALM_WALK, WALK, RUN]:
+	for clip in [_calm_walk, _walk, _run]:
 		if _own.has_animation(clip):
 			_natural[clip] = _measure_pace(clip)
-	for what: int in ACTS:
-		var spec: Array = ACTS[what]
+	for what: int in _acts:
+		var spec: Array = _acts[what]
 		if int(spec[1]) > 0:
 			_blows[what] = _measure_blows(spec[0], int(spec[1]))
 	_slam_at = (_blows[Act.HEAVY] as PackedFloat32Array)[0] if _blows.has(Act.HEAVY) else 0.5
 	_find_guard_tracks()
-	_own.play(CALM_IDLE if _own.has_animation(CALM_IDLE) else IDLE)
+	_own.play(_calm_idle if _own.has_animation(_calm_idle) else _idle)
 	_own.advance(0.0)
-	_make_axe()
+	if great_axe:
+		_mount_great_axe()
+		_make_braid()
+	else:
+		_make_axe()
+	_make_arc()
 
 
 ## Metres a second one of his own cycles would carry him at rate 1: two
@@ -226,9 +320,9 @@ func _measure_blows(clip: StringName, count: int) -> PackedFloat32Array:
 
 
 func _find_guard_tracks() -> void:
-	if not _own.has_animation(GUARD):
+	if not _own.has_animation(_guard):
 		return
-	var anim := _own.get_animation(GUARD)
+	var anim := _own.get_animation(_guard)
 	for t in anim.get_track_count():
 		if anim.track_get_type(t) != Animation.TYPE_ROTATION_3D:
 			continue
@@ -258,8 +352,71 @@ func _make_axe() -> void:
 	head.name = "Head"
 	head.position = AXE_HEAD + Vector3.DOWN * AXE_DROP
 	_axe.add_child(head)
+	_head_mark = head
 	add_child(_axe)
 	_place_axe()
+
+
+## The great axe is in the model already, skinned to `weapon_axe`; this only
+## hangs the marks off that bone.
+func _mount_great_axe() -> void:
+	if _skeleton.find_bone("weapon_axe") < 0:
+		return
+	var mount := BoneAttachment3D.new()
+	mount.name = "GreatAxeMount"
+	_skeleton.add_child(mount)
+	mount.bone_name = "weapon_axe"
+	var head := Marker3D.new()
+	head.name = "Head"
+	head.position = GREAT_AXE_HEAD
+	mount.add_child(head)
+	_head_mark = head
+
+
+## The cut in the air, laid along the axe's head.
+func _make_arc() -> void:
+	var holder: Node3D = _axe
+	var base_at := ARC_BASE + Vector3.DOWN * AXE_DROP
+	var tip_at := ARC_TIP + Vector3.DOWN * AXE_DROP
+	if great_axe:
+		holder = _head_mark.get_parent() as Node3D if _head_mark != null else null
+		base_at = GREAT_ARC_BASE
+		tip_at = GREAT_ARC_TIP
+	if holder == null:
+		return
+	var base := Marker3D.new()
+	base.name = "ArcBase"
+	base.position = base_at
+	holder.add_child(base)
+	_arc_tip = Marker3D.new()
+	_arc_tip.name = "ArcTip"
+	_arc_tip.position = tip_at
+	holder.add_child(_arc_tip)
+	_arc = BladeArc.new()
+	_arc.name = "BladeArc"
+	_arc.life = 0.22
+	_arc.taper = 0.7
+	_arc.intensity = 0.9
+	_arc.glow_color = Color(0.86, 0.88, 0.92)
+	add_child(_arc)
+	_arc.setup(base, _arc_tip)
+
+
+## The braid, on spring bones, so it swings as he runs and swings.
+func _make_braid() -> void:
+	if _skeleton.find_bone("hair_00") < 0 or _skeleton.find_bone("hair_03") < 0:
+		return
+	var sim := SpringBoneSimulator3D.new()
+	sim.name = "Braid"
+	_skeleton.add_child(sim)
+	sim.set_setting_count(1)
+	sim.set_root_bone_name(0, &"hair_00")
+	sim.set_end_bone_name(0, &"hair_03")
+	sim.set_extend_end_bone(0, true)
+	sim.set_end_bone_length(0, 10.0)
+	sim.set_stiffness(0, 0.9)
+	sim.set_drag(0, 0.45)
+	sim.set_gravity(0, 0.6)
 
 
 func _place_axe() -> void:
@@ -274,8 +431,7 @@ func _place_axe() -> void:
 
 ## Where the slam lands, on the ground.
 func axe_head() -> Vector3:
-	var head := _axe.get_node_or_null("Head") as Node3D if _axe != null else null
-	var at := head.global_position if head != null else global_position + _forward() * reach
+	var at := _head_mark.global_position if _head_mark != null else global_position + _forward() * reach
 	at.y = global_position.y + 0.03
 	return at
 
@@ -334,10 +490,11 @@ func _stand_off() -> float:
 func _rouse(who: Node3D) -> void:
 	var was_idle := mode == Mode.GUARD
 	super(who)
+	var cry: StringName = _acts[Act.ROAR][0]
 	if was_idle and not _roared and not is_dead and act == ACT_NONE and _decides() \
-			and _own != null and _own.has_animation(&"OR_Battlecry"):
+			and _own != null and _own.has_animation(cry):
 		_roared = true
-		_begin(Act.ROAR, &"OR_Battlecry", float(ACTS[Act.ROAR][2]))
+		_begin(Act.ROAR, cry, float(_acts[Act.ROAR][2]))
 
 
 func _choose_attack(gap: float) -> void:
@@ -350,10 +507,12 @@ func _choose_attack(gap: float) -> void:
 			_open(Act.SPIN)
 		elif gap < reach * 0.45 and roll < 0.2:
 			_open(Act.KICK)
-		elif roll < 0.4:
+		elif roll < 0.3:
 			_open([Act.SWING, Act.BACKHAND][_rng.randi() % 2])
-		elif roll < 0.75:
+		elif roll < 0.55:
 			_open([Act.COMBO, Act.COMBO_THREE, Act.COMBO_SHORT][_rng.randi() % 3])
+		elif roll < 0.85:
+			_open(CHAINS[_rng.randi() % CHAINS.size()])
 		else:
 			_open(Act.HEAVY)
 		return
@@ -375,7 +534,7 @@ func _someone_behind() -> bool:
 
 
 func _open(what: int) -> void:
-	var spec: Array = ACTS[what]
+	var spec: Array = _acts[what]
 	_begin(what, spec[0], float(spec[2]))
 
 
@@ -386,7 +545,9 @@ func _begin(what: int, clip: StringName, rate: float) -> void:
 
 
 func _turn_while_acting() -> float:
-	return 0.9 if act == Act.LEAP else 0.3
+	if act == Act.LEAP:
+		return 0.9
+	return 0.5 if act in CHAINS else 0.3
 
 
 func _run_act(delta: float) -> bool:
@@ -400,6 +561,11 @@ func _run_act(delta: float) -> bool:
 			velocity.z = ahead.z
 		else:
 			_slow(delta, 4.0)
+	elif act in CHAINS and _quarry != null and _distance_to(_quarry) > reach * 0.7:
+		# Behind a chain he keeps coming.
+		var ahead := _forward() * chain_advance
+		velocity.x = ahead.x
+		velocity.z = ahead.z
 	else:
 		_slow(delta, 2.0)
 	if _blows.has(act):
@@ -423,7 +589,13 @@ func _land(index: int, count: int) -> void:
 			for who in _players_ahead(reach * 0.7, 0.4):
 				_hit(who, kick_damage, 0, 2)
 		_:
-			var combo := act == Act.COMBO or act == Act.COMBO_THREE or act == Act.COMBO_SHORT
+			var spec: Array = _acts[act]
+			if spec.size() > 3 and bool(spec[3]) and index == count - 1:
+				# A chain or combo that ends overhead ends in the slam.
+				_slam(slam_damage)
+				return
+			var combo := act == Act.COMBO or act == Act.COMBO_THREE or act == Act.COMBO_SHORT \
+					or act in CHAINS
 			var damage := combo_damage if combo else swing_damage
 			# A single blow is sent as the first of two: it never floors.
 			var blows := count if combo else 2
@@ -455,9 +627,9 @@ func net_slam(at: Vector3, direction: Vector3) -> void:
 
 
 func _show_act() -> void:
-	if _own == null or not ACTS.has(act):
+	if _own == null or not _acts.has(act):
 		return
-	var spec: Array = ACTS[act]
+	var spec: Array = _acts[act]
 	var clip: StringName = spec[0]
 	if not _own.has_animation(clip):
 		return
@@ -475,24 +647,24 @@ func _animate(delta: float) -> void:
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 	var moving := planar > 0.2
 	if is_dead:
-		if _own.current_animation != String(DEATH_CLIP) and _own.has_animation(DEATH_CLIP):
-			_own.play(DEATH_CLIP, 0.1)
+		if _own.current_animation != String(_death) and _own.has_animation(_death):
+			_own.play(_death, 0.1)
 	elif act == ACT_NONE:
 		var roused := mode != Mode.GUARD
 		var clip: StringName
 		if moving:
 			if planar > 2.6:
-				clip = RUN
+				clip = _run
 			elif roused or guarding:
-				clip = WALK
+				clip = _walk
 			else:
-				clip = CALM_WALK
+				clip = _calm_walk
 		elif guarding:
-			clip = GUARD
+			clip = _guard
 		else:
-			clip = IDLE if roused else CALM_IDLE
+			clip = _idle if roused else _calm_idle
 		if not _own.has_animation(clip):
-			clip = IDLE
+			clip = _idle
 		if _own.current_animation != String(clip):
 			_own.play(clip, 0.25)
 		_own.speed_scale = clampf(planar / float(_natural.get(clip, 1.5)), 0.6, 1.8) if moving else 1.0
@@ -505,9 +677,21 @@ func _animate(delta: float) -> void:
 		_skeleton.set_bone_pose_position(_hips, Vector3(_hips_rest.x, at.y, _hips_rest.z))
 	# The guard over a walking lower body.
 	if guarding and moving and act == ACT_NONE and not _guard_tracks.is_empty():
-		var anim := _own.get_animation(GUARD)
+		var anim := _own.get_animation(_guard)
 		_guard_time = fmod(_guard_time + delta, maxf(anim.length, 0.01))
 		for tb in _guard_tracks:
 			_skeleton.set_bone_pose_rotation(tb.y, anim.rotation_track_interpolate(tb.x, _guard_time))
 	_place_axe()
+	_feed_arc(delta)
+
+
+## The axe cuts the air while it moves fast in an attack.
+func _feed_arc(delta: float) -> void:
+	if _arc == null or _arc_tip == null:
+		return
+	var at := _arc_tip.global_position
+	var speed := at.distance_to(_arc_last) / maxf(delta, 0.001)
+	_arc_last = at
+	var striking := act != ACT_NONE and act != Act.ROAR and act != Act.DEAD and not is_dead
+	_arc.emitting = striking and speed > arc_speed
 #endregion

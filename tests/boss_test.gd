@@ -117,6 +117,27 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 			"%s / %s" % [orc._blows[OrcWarrior.Act.COMBO], orc._blows[OrcWarrior.Act.COMBO_THREE]])
 	_check("the overhead blow comes down partway through, not at the ends", orc._slam_at > 0.2 and orc._slam_at < 0.85,
 			"%.2f" % orc._slam_at)
+	_check("he has his own long chains", orc._blows.has(OrcWarrior.Act.CHAIN_A)
+			and (orc._blows[OrcWarrior.Act.CHAIN_B] as PackedFloat32Array).size() == 3)
+
+	# His mate is the other kind: the great axe, in both fists.
+	_check("his mate carries the great axe", mate.great_axe and mate._own != null
+			and mate._own.has_animation(&"GA_Chain_Fury") and mate._own.has_animation(&"GA_Idle"))
+	var msk := mate._skeleton
+	var wb := msk.find_bone("weapon_axe")
+	_check("the great axe rides its own bone", wb >= 0)
+	if wb >= 0:
+		var haft := msk.global_transform * msk.get_bone_global_pose(wb)
+		var axis := haft.basis.y.normalized()
+		for fist: Array in [["RightHand", Vector3(-0.65376, 13.47461, 0.47799)], ["LeftHand", Vector3(0.65376, 13.47461, 0.47799)]]:
+			var at := msk.global_transform * (msk.get_bone_global_pose(msk.find_bone(fist[0])) * (fist[1] as Vector3))
+			var off := at - haft.origin
+			var miss := (off - axis * off.dot(axis)).length()
+			_check("his %s is on the haft" % fist[0], miss < 0.3, "%.2f m off it" % miss)
+	_check("the great axe's chains have their blows", (mate._blows[OrcWarrior.Act.CHAIN_A] as PackedFloat32Array).size() == 4
+			and (mate._blows[OrcWarrior.Act.CHAIN_C] as PackedFloat32Array).size() == 3)
+	var braid := msk.find_child("Braid", false, false) as SpringBoneSimulator3D
+	_check("his braid hangs off spring bones", braid != null)
 
 	# Roused, both of them, and he comes and fights.
 	_player.global_position = orc.camp_centre + Vector3(0.0, 0.3, 8.0)
@@ -127,18 +148,23 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	mate.global_position += Vector3(0.0, -50.0, 0.0)
 	_struck.clear()
 	var attacked := false
+	var cut_air := false
 	for i in 900:
 		await physics_frame
 		attacked = attacked or orc.act != Brute.ACT_NONE
+		cut_air = cut_air or (orc._arc != null and orc._arc.emitting)
 		if not _struck.is_empty():
 			break
 	_check("he closes in and swings", attacked)
 	_check("his axe lands", not _struck.is_empty(), str(_struck))
+	_check("and cuts the air as it goes", cut_air)
 	await _stand_up()
 
 	# The heavy combo from out of reach: the spikes carry to where the axe cannot.
 	orc._cooldown = 999.0
 	await _until_idle(orc)
+	# A chain he was still in may have floored the player again meanwhile.
+	await _stand_up()
 	var spot := orc.global_position
 	_player.global_position = spot + orc._forward() * 6.5 + Vector3.UP * 0.2
 	_struck.clear()

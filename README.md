@@ -1756,6 +1756,49 @@ the overhead slam, which splits the ground in a run of spikes. His guard against
 a drawn bow is the guard clip laid over his upper body while his legs keep
 walking.
 
+He runs with Mixamo's mutant run now — heavy, wide, arms loose — in place of
+the axe set's jog, which looked like somebody late for a bus.
+
+**The chains.** Besides Mixamo's combos he has three long ones of his own,
+built in Blender by `tools/orc_chains.py`: his clips run together, each cut
+short of the settle back to idle at its end (and past the wind-up at its
+start), the seams cross-faded over six frames. The berserk is a combo into the
+spin; the breaker is horizontal, backhand, overhead — and a chain whose last
+blow is the overhead ends in the slam and the spikes; the brawler is a kick
+into a combo. While a chain lasts he walks in behind it (`chain_advance`) and
+turns more freely, so stepping back from the first blow does not end it. Their
+blows are found like any clip's, where the right hand moves fastest, and, as a
+combo's, only the whole chain landing floors a player.
+
+**The great-axe orc.** Every second orc of a band (`World.ORC_MIX`) is the other
+kind: `scenes/enemies/orc_greataxe.tscn`, the same script with `great_axe` on,
+the model `assets/orc/orc_greataxe.glb`. He has a topknot, a mohawk of spikes
+and a braid bound in iron rings (modelled on his head in Blender; the braid is
+four bones on a `SpringBoneSimulator3D`), and a double-bitted axe in both
+fists. His clips are Mixamo's great-sword set — idle, walk, run, guard, the
+power, low, downward and combo slashes, the high spin, the jump attack, the spin
+kick — with the mutant's roar and breathing idle, and three chains of his own
+(fury: the combo slash into the high spin; crush: the power slash into the
+downward, which slams; reaper: low slash, spin kick, downward). `GREAT_ACTS`
+maps each act onto them.
+
+Two hands on one haft is the part a retarget cannot do on its own: his
+shoulders are twice as broad as the source's, so the copied arms leave his
+fists apart and off any common line. `tools/great_axe.py` fixes it per frame.
+The haft runs the way the source's two palms run on its sword grip, set in his
+right fist, edge the way his knuckles face; his left fist goes to the point on
+the haft nearest where the retarget had it, between one and three fists below
+the right, by an analytic two-bone solve that keeps the elbow in the plane the
+animation had it in and turns upper arm and forearm by the shortest arc only —
+twist about a limb's own length is what tears the skin at elbow and wrist. The
+axe is skinned wholly to a `weapon_axe` bone under the right hand, keyed to the
+haft's frame, so it arrives with the rig and nothing places it in the game.
+
+**The cut in the air.** Both kinds of axe carry a [BladeArc](#the-cut-in-the-air)
+along their head, emitting while an attack has the head moving faster than
+`arc_speed` (10 m/s). The world's creature culling leaves trails alone: their
+bounds are world-space and would be measured from the middle of the map.
+
 ### Arkdeva's poison
 
 `scripts/venom.gd` draws it, from modelled shapes (`assets/fx/venom.glb`, from
@@ -1985,6 +2028,22 @@ scripts live outside the repo in `~/Desktop/vepxis-art/` (its `NOTES.md` says
 how to redo any of it).
 
     godot --path . --script res://tests/skinned_rig_test.gd -- /tmp/shots
+
+### The cut in the air
+
+His blade's streak is a `BladeArc` (`scripts/blade_arc.gd`,
+`assets/fx/blade_arc.gdshader`) rather than the [SwordTrail] ribbon the
+procedural rig and the wolves' claws still use. The ribbon joined the blade's
+position frame to frame with straight segments, and a fast swing turns a long
+way between two frames, so its outline had corners. The arc keeps each sample
+with the time it was taken, drops frames where the pose has not moved (the
+pose only changes on physics ticks), blurs the samples lightly along their
+length — the clips are keyed at 30 a second and the blade changes direction at
+every key — and lays its rows along a Catmull-Rom curve through them at even
+steps of *time*. Its inner edge draws in toward the outer as it ages, so it
+reads as a crescent that sharpens behind the blade. The shader draws a bright
+hairline where the tip went, a paler sheet behind it, wind streaks drifting
+back along it, a slight warp of the air behind, and a tail that frays away.
 
 ## Avtandil, skinned
 

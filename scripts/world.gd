@@ -73,7 +73,8 @@ const CAMPS: Array[Array] = [
 	[&"puglin", Vector2(88.0, -68.0), 3],
 	[&"puglin", Vector2(40.0, 108.0), 4],
 	# Two orc warriors, wading in the bay off the end of the fishermen's pier —
-	# the first thing met at the far end of the map.
+	# the first thing met at the far end of the map. Every second orc of a band
+	# is the great-axe one (`ORC_MIX`).
 	[&"orc", Vector2(0.0, -342.0), 2],
 	# And Arkdeva, alone, in a glade of its own in the wood fifty metres
 	# south of spawn, as far from every other creature as that part of the map
@@ -84,8 +85,11 @@ const CAMP_SCENES := {
 	&"imp": "res://scenes/enemies/imp.tscn",
 	&"puglin": "res://scenes/enemies/puglin.tscn",
 	&"orc": "res://scenes/enemies/orc.tscn",
+	&"orc_greataxe": "res://scenes/enemies/orc_greataxe.tscn",
 	&"arkdeva": "res://scenes/enemies/arkdeva.tscn",
 }
+## Kinds whose bands are mixed: every second member is the other scene.
+const ORC_MIX := {&"orc": &"orc_greataxe"}
 ## How far from the middle of its camp each member stands.
 const CAMP_SPREAD := 2.6
 
@@ -327,8 +331,9 @@ func _build_camps() -> void:
 		if scene == null:
 			continue
 		var band := StringName("camp_%d" % i)
+		var other: PackedScene = load(CAMP_SCENES[ORC_MIX[kind]]) if ORC_MIX.has(kind) else null
 		for k in count:
-			var body := scene.instantiate()
+			var body := (other if other != null and k % 2 == 1 else scene).instantiate()
 			body.name = "%s_%d_%d" % [String(kind).capitalize(), i, k]
 			var angle := TAU * float(k) / float(count) + float(i)
 			# One alone stands in the middle of its ground.
@@ -351,6 +356,10 @@ func _cull_distant_creatures() -> void:
 	if creatures == null:
 		return
 	for node in creatures.find_children("*", "GeometryInstance3D", true, false):
+		# Trails are drawn in world space under a box round the whole level, so
+		# the range would be measured from the middle of the map, not from them.
+		if node is SwordTrail or node is BladeArc:
+			continue
 		var mesh := node as GeometryInstance3D
 		mesh.visibility_range_end = creature_draw_distance
 		mesh.visibility_range_end_margin = maxf(creature_draw_distance * 0.12, 3.0)
