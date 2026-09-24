@@ -2631,3 +2631,38 @@ Tariel's). The mage keeps his own staff arm, phase for phase, from his old
 clips, and his old idle. `ground_speed` in both rigs is measured off the root
 bone. The old clips stay in `heroes.blend` as `DGOld_*` / `MGOld_*` and are not
 exported.
+
+## The sixth round: the mage's full charge, the assassin's combo and flips, orc music, deaths, wolves
+
+**The mage's full charge.** Held to its end (`draw_time`, 1.4 s) the spell is
+a different thing: `SpellBolt.empower()` makes it nearly twice the size, blue-
+violet instead of gold (orb, light, tail, strands and embers), with a wider
+burst, and `CharacterProfile.full_charge_bonus` (1.8 for the mage) puts that
+much more on its damage. While charging, the staff is drawn back as the charge
+builds (the cast clip held at its wind-up, `WIND_FROM` → `CAST_FROM`) and the
+magic gathers at the crystal as a ball of light that grows with it and turns
+blue-violet when full — which is where the bolt leaves from.
+
+**The assassin.** His combo is Mixamo's one-handed sword combo cut in Blender
+into its five blows (`DG_Combo_1..5`), each starting where the last left the
+blade, so clicking runs one flowing string; after a second without a click it
+starts again from the first (`SkinnedRig.flurry_reset_after`). One tap of the
+roll is a forward flip (`DG_Run_Flip`), two quick taps a twisting flip
+(`DG_Twist_Flip2`) — both carry him the way he is going. (Two taps used to be a
+*backflip* played while the body flew forwards, which is what looked mad.)
+
+**Orc music.** `sounds/fight/orc_fight.mp3` plays (`Music` track `orc_fight`)
+while an orc within 35 m is chasing or fighting this peer's player, and for 5 s
+after; otherwise the village's music inside the fence and nothing outside.
+
+**Deaths.** Imps and puglins no longer end in their knock-back clip: the
+clip stops a moment in and the body goes over backwards onto the ground,
+lands with a small rock and lies there (`Fighter._topple`). Wolves go down on
+all fours and over onto their side (`Wolf._collapse`) instead of being pitched
+nose-up into the air.
+
+**Wolves.** Spread out across the den (1.8× further apart), a little quicker
+(`prowl_speed` 2.2, `charge_speed` 8.3). Hurt from any distance — an arrow from
+beyond their sight — a wolf comes for whoever hurt it and keeps coming for
+`provoked_time` (14 s) however far; every wolf within `pack_call` (14 m) of it
+comes too (`Wolf.provoke()`).
