@@ -2771,3 +2771,30 @@ button no longer does anything. Locked on, his steps keep facing the target —
 backward too: backing off is a step back, and a second press is the flip.
 `heroes_test` checks the step–flip–step run, the locked back-step then flip,
 and the chaining for Tariel, the mage and Avtandil.
+
+## Sounds of the fight
+
+The user's recordings, cut with ffmpeg into single mono clips with a few
+milliseconds' fade at either end (the sources stay where they were dropped:
+`sounds/sword-sound/`, `sounds/dager-sound/`, `sounds/all/*-sound1.wav`,
+`sounds/orc/orc-aggressive-sound1.wav`, `sounds/assassin/feel-hit-sound1.wav`):
+
+| Clip | Cut from | Heard when |
+|---|---|---|
+| `tariel/air_1..6` | `sword-air-effect.wav` (six of its seven) | Tariel swings (`SkinnedRig.swing_sounds`) |
+| `tariel/hit_1` | `sword-hit-sound1.wav` | his blade goes into a creature |
+| `assassin/swing_1..4` | `combo.wav` (three) + `single-hit-dager.wav` | the assassin's knife cuts |
+| `assassin/hit_1..3` | `monster-hit-sound1.wav` | his knife goes in |
+| `assassin/hurt_1` | `feel-hit-sound1.wav` | he is hurt |
+| `all/hurt_1` | `take-damage-sound1.wav` | anyone else is hurt |
+| `all/fall_1` | `dropped-person-sound1.wav` | a hero is knocked down or dies (0.45 s after) |
+| `all/block_1` | `hit-mount.wav` | a blow lands on a raised shield (`Reaction.BLOCK`) |
+| `all/loot_1` | `drop-item.wav` | a creature dies (something falls from it) |
+| `orc/roar_1` | `orc-aggressive-sound1.wav` | an orc is roused (`Brute.net_roar`, at most every 8 s) |
+
+The mage and the hunter keep the old, lighter `swing_1..7` (`LIGHT_SWINGS`).
+The blade landing is decided on the host, in the creature (`Wolf`, `Brute`,
+`Fighter`), which tells the player's every copy through
+`Player.net_blade_landed`; hurt, fall and block ride on `net_react`.
+Levels, by the user's ask: footsteps low (`Footsteps.volume_db` -16), swings
+and hits in the middle (about -30 dB mean once played), the rest under them.
