@@ -840,6 +840,20 @@ imported as they are; the loop is switched on in code, so a new file needs only
 a line in `TRACKS`. (The files arrived as `Safe Haven.mp3` and `safe haven mini `
 with no extension, which Godot would not import; renamed.)
 
+### Sounds
+
+`scripts/sfx.gd` (`Sfx`): a one-shot `AudioStreamPlayer3D` placed on whatever
+made the sound and freed when it ends, the pitch nudged a few percent so a
+repeat does not sound like a recording. The files the user added are trimmed
+to single clips with ffmpeg: the sword pack's eight-second take cut at its
+silences into `sounds/tariel/swing_1..7.wav`, the bowstring pull and release
+cut to their first third of a second (`sounds/bow/draw.wav`, `release.wav`).
+The knight's swing whooshes (one of the seven at random, from the sword's
+socket, on every peer, since every peer plays the swing); the rogue's daggers
+use the same air cut higher (`swing_pitch` 1.45); Avtandil's string sounds as
+the draw starts and again as it goes. The world's music is now two tracks in
+turn, `safe_haven.mp3` and `kind-of-year.mp3`.
+
 ## Graphics
 
 One setting, two positions, because a greybox does not need twelve. `Graphics`

@@ -14,6 +14,9 @@ var _player: Player
 
 
 func _initialize() -> void:
+	for path in ["res://sounds/tariel/swing_1.wav", "res://sounds/bow/draw.wav", "res://sounds/bow/release.wav",
+			"res://sounds/tower-music/kind-of-year.mp3"]:
+		_check("%s is there to play" % path.get_file(), load(path) is AudioStream)
 	await _spawn(&"mage")
 	await _check_mage()
 	await _spawn(&"rogue")
@@ -110,6 +113,7 @@ func _check_rogue() -> void:
 	await physics_frame
 	Input.action_release("attack")
 	_check("a click is a stab", String(rig.current_swing()).begins_with("DG_Stab"), String(rig.current_swing()))
+	_check("and it whooshes", rig.find_children("*", "AudioStreamPlayer3D", true, false).size() > 0)
 	var cut := false
 	var both := false
 	for i in 60:

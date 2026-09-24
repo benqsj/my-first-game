@@ -345,6 +345,8 @@ var target_part: int = 0
 ## How long the string has been held, and whether it is being held at all.
 var _draw_timer: float = 0.0
 var _drawing: bool = false
+const DRAW_SOUND := "res://sounds/bow/draw.wav"
+const RELEASE_SOUND := "res://sounds/bow/release.wav"
 ## Levitation left in this jump, in seconds, and whether it is being used now.
 var _levitate_left: float = 0.0
 var _levitating: bool = false
@@ -608,6 +610,11 @@ func _spawn_character() -> void:
 ## which charges and casts the same way.
 func has_bow() -> bool:
 	return profile != null and profile.weapon != CharacterProfile.Weapon.MELEE
+
+
+## The bow itself, not the staff: what the bowstring sounds are for.
+func _is_bow() -> bool:
+	return profile != null and profile.weapon == CharacterProfile.Weapon.BOW
 
 
 ## True while a held jump is holding the body up on the way down.
@@ -1713,6 +1720,8 @@ func _tick_bow(delta: float) -> void:
 			_drawing = true
 			_draw_timer = 0.0
 			_set_weapons_stowed(false)
+			if _is_bow():
+				Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -6.0)
 	elif holding and _drawing:
 		_draw_timer += delta
 	elif _drawing:
@@ -1791,6 +1800,8 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool) ->
 		into.add_child(arrow)
 		arrow.global_position = from
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
+	if _is_bow():
+		Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.0, -2.0)
 	if rig != null and rig.has_method(&"loose_bow"):
 		rig.call(&"loose_bow")
 

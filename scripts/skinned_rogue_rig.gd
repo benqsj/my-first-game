@@ -62,6 +62,8 @@ func _configure() -> void:
 	blade_tip = 0.34
 	blade_rest_dir = Vector3.UP
 	off_hand_blade = true
+	# The sword's whoosh, a dagger's worth higher.
+	swing_pitch = 1.45
 	cloth_enabled = false
 
 

@@ -90,6 +90,15 @@ var blade_tip := BLADE_TIP
 var blade_rest_dir := Vector3(0, 0, 1)
 ## A blade in the other hand too, which cuts the air as the right one does.
 var off_hand_blade := false
+## What a swing sounds like: one of these, at random, at `swing_pitch`. The
+## knight's sword; the rogue's daggers are the same air cut higher.
+var swing_sounds: Array[String] = [
+	"res://sounds/tariel/swing_1.wav", "res://sounds/tariel/swing_2.wav",
+	"res://sounds/tariel/swing_3.wav", "res://sounds/tariel/swing_4.wav",
+	"res://sounds/tariel/swing_5.wav", "res://sounds/tariel/swing_6.wav",
+	"res://sounds/tariel/swing_7.wav",
+]
+var swing_pitch := 1.0
 
 @export_group("Skinned")
 ## Under this speed the body stands; over `run_threshold` it runs.
@@ -475,6 +484,7 @@ func attack(style: int = -1) -> void:
 		if _play_action(clips[&"plunge"], Role.SWING, swing_rate, 0.08, air_cut_from, plunge_from):
 			_air_cut = true
 			_swing_commit = swing_time()
+			_whoosh()
 		return
 	if style == AttackStyle.OVERHEAD:
 		clip = clips[&"overhead"]
@@ -485,6 +495,16 @@ func attack(style: int = -1) -> void:
 		clip = flurry[_flurry_slot]
 	if _play_action(clip, Role.SWING, swing_rate):
 		_swing_commit = swing_time()
+		_whoosh()
+
+
+## The sword going through the air — every peer plays the swing, so every peer
+## hears it.
+func _whoosh() -> void:
+	var at: Node3D = self
+	if _sword_mount != null:
+		at = _sword_mount
+	Sfx.play_any(self, swing_sounds, at, swing_pitch, -4.0)
 
 
 func swing_time() -> float:
