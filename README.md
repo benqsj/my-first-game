@@ -2725,3 +2725,9 @@ legs cut the wolf drops to the ground, chest low (`WolfRig.is_legless`,
 `State.DOWN`). A new attack, the pounce (`WolfRig.lunge`, a 0.35 chance while
 it has both arms): it gathers low, both claws glinting red, then springs
 forward and brings both arms through, reaching 1.6 m further than a swipe.
+
+**Footsteps** (`Footsteps`, on every hero's rig): ten footfalls cut from
+`sounds/persons/run/run.wav` (`step_1..10.wav`). Each foot bone's height is
+watched; a foot that has been lifted and comes back to the ground plays one, so
+the sound lands with the foot at any pace and on any clip. Quieter walking,
+silent standing, in the air, dashing or climbing.
