@@ -1164,6 +1164,11 @@ func _process_dash(delta: float) -> void:
 	# Ease the evade out so it does not end with a hard velocity cut.
 	var t := clampf(left / maxf(length, 0.001), 0.0, 1.0)
 	var speed := (dodge_speed if dodging else dash_speed) * lerpf(0.55, 1.0, t)
+	# Where the clip puts the feet down, the travel stops: no skating on after
+	# the landing.
+	var land := _land_at(dodging)
+	if land < 1.0:
+		speed *= 1.0 - smoothstep(land - 0.1, land + 0.04, 1.0 - t)
 	velocity.x = _dash_direction.x * speed
 	velocity.z = _dash_direction.z * speed
 	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
@@ -1180,13 +1185,22 @@ func _process_dash(delta: float) -> void:
 		_end_dash()
 
 
+## Where in this evade the feet land ([member CharacterProfile.dodge_land_at]).
+func _land_at(dodging: bool) -> float:
+	if profile == null:
+		return 1.0
+	return profile.dodge_land_at if dodging else profile.dash_land_at
+
+
 func _end_dash() -> void:
 	var dodging := state == State.DODGING
 	is_invulnerable = false
 	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
-	# Bleed off the evade so the player keeps a bit of momentum.
-	velocity.x *= 0.4
-	velocity.z *= 0.4
+	# Bleed off the evade so the player keeps a bit of momentum — unless the
+	# clip has already landed him, when there is none left to keep.
+	var keep := 0.0 if _land_at(dodging) < 1.0 else 0.4
+	velocity.x *= keep
+	velocity.z *= keep
 	if dodging:
 		dodge_ended.emit()
 	else:

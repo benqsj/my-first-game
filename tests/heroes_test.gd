@@ -260,6 +260,18 @@ func _check_rogue() -> void:
 			String(rig._act_clip))
 	await _wait(80)
 
+	# Where the flip lands him, he stops: no sliding on after the feet are down.
+	_player.stamina = _player.max_stamina
+	_player._dash_cooldown_timer = 0.0
+	await _tap_dash()
+	await _wait(4)
+	await _tap_dash()
+	var flipping := await _until(func() -> bool: return _player.state == Player.State.DODGING, 40)
+	var landed := await _until(func() -> bool: return _player.state != Player.State.DODGING, 120)
+	var drift := Vector2(_player.velocity.x, _player.velocity.z).length()
+	_check("the flip lands him where it lands, no slide", flipping and landed and drift < 0.6, "%.2f m/s" % drift)
+	await _wait(60)
+
 	# Locked on, backing away: the same — a step back facing it, then the flip.
 	var foe := _dummy()
 	_world.add_child(foe)

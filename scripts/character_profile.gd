@@ -48,6 +48,11 @@ enum Weapon {
 ## And the longer, animated evade.
 @export var dodge_speed: float = 8.5
 @export var dodge_duration: float = 0.7
+## Where in the evade (0..1) the feet come back to the ground in its clip: the
+## body brakes to a stop there and carries nothing on, so a flip lands where it
+## lands instead of sliding on. 1.0 keeps the old glide to the end.
+@export_range(0.0, 1.0) var dash_land_at: float = 1.0
+@export_range(0.0, 1.0) var dodge_land_at: float = 1.0
 
 @export_group("Vitals")
 ## How much punishment the body takes before it falls. The knight in his plate
