@@ -2,9 +2,10 @@ class_name SkinnedRogueRig
 extends SkinnedRig
 
 ## The assassin: one long knife, quick and light. Everything is the knight's
-## rig; this is his clip table — Mixamo's knife stabs, the double stab and the
-## dual combo, a ninja's idle and run, flips to get out of trouble — and the
-## knife in his right hand, built in Blender (`tools/hero_round3.py`).
+## rig; this is his clip table — a five-blow combo cut out of Mixamo's
+## one-handed sword combo, a fighter's idle, a man's walk and run, a forward
+## flip and a twisting flip to get out of trouble — and the knife in his right
+## hand, built in Blender (`tools/hero_round3.py`).
 ##
 ## Source: `~/Desktop/vepxis-art/heroes/heroes.blend` (`dagger_rig`), built by
 ## `tools/hero_rig.py` and dressed by `tools/hero_dress.py`; the cut windows and
@@ -24,7 +25,9 @@ func _configure() -> void:
 		&"crouch": &"DG_Crouch", &"air": &"DG_Fall",
 		&"crouch_walk": &"DG_Sneak", &"crouch_walk_back": &"DG_Crouch_Walk_Back",
 		&"crouch_walk_left": &"DG_Crouch_Walk_Left", &"crouch_walk_right": &"DG_Crouch_Walk_Right",
-		&"roll": &"DG_Roll", &"dodge": &"DG_Backflip", &"down": &"DG_Death",
+		# One tap is a forward flip out of trouble, two a twisting one: both
+		# carry him the way he is going, as the body does.
+		&"roll": &"DG_Run_Flip", &"dodge": &"DG_Twist_Flip2", &"down": &"DG_Death",
 		&"hit": &"DG_Hit", &"hit_blocked": &"DG_Hit",
 		&"mantle": &"DG_Mantle", &"plunge": &"DG_Double_Stab",
 		&"overhead": &"DG_Dual_Combo",
@@ -43,11 +46,16 @@ func _configure() -> void:
 		&"DG_Sneak", &"DG_Crouch_Walk_Back", &"DG_Crouch_Walk_Left", &"DG_Crouch_Walk_Right",
 		&"DG_Fall",
 	]
-	# Three stabs, round and round, all with the knife hand: the rear-hand
-	# thrust, the lead stab mirrored onto the right (DG_Stab_Lead_R, flipped
-	# in Blender), and the reverse-grip cut.
-	flurry = [&"DG_Stab_Rear", &"DG_Stab_Lead_R", &"DG_Stab_Reverse"]
+	# Five cuts that run into each other: Mixamo's one-handed sword combo cut
+	# into its five blows in Blender (DG_Combo_1..5), each from where the last
+	# left the blade, so a string of clicks is one flowing combo. Left alone
+	# for a second it starts again from the first.
+	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Combo_3", &"DG_Combo_4", &"DG_Combo_5"]
+	flurry_reset_after = 1.0
 	cut_window = {
+		&"DG_Combo_1": Vector2(0.54, 0.88), &"DG_Combo_2": Vector2(0.12, 0.75),
+		&"DG_Combo_3": Vector2(0.21, 0.74), &"DG_Combo_4": Vector2(0.54, 0.83),
+		&"DG_Combo_5": Vector2(0.07, 0.69),
 		&"DG_Stab_Lead": Vector2(0.211, 0.324), &"DG_Stab_Lead_R": Vector2(0.211, 0.324),
 		&"DG_Stab_Rear": Vector2(0.469, 0.531),
 		&"DG_Stab_Reverse": Vector2(0.241, 0.354), &"DG_Double_Stab": Vector2(0.326, 0.37),
@@ -57,8 +65,8 @@ func _configure() -> void:
 	air_cut_from = 0.2
 	plunge_from = 0.35
 	roll_share = 0.8
-	# Quick hands.
-	swing_rate = 2.5
+	# Quick hands, but each blow played through: the combo's flow is the point.
+	swing_rate = 1.7
 	swing_recovery = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.4

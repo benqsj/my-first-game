@@ -114,6 +114,10 @@ var swing_pitch := 1.0
 ## the top of it the feet slide a little rather than blur.
 @export var min_play_rate: float = 0.6
 @export var max_play_rate: float = 2.1
+## Seconds without a click after which the flurry starts again from its first
+## swing; 0 keeps it going round wherever it was.
+@export var flurry_reset_after: float = 0.0
+var _last_attack_at: float = -100.0
 @export var loco_blend: float = 0.2
 @export var action_blend: float = 0.1
 ## Widens the measured cutting window a little each side, as a fraction of the clip.
@@ -509,6 +513,11 @@ func attack(style: int = -1) -> void:
 		_attack_style = AttackStyle.OVERHEAD
 	else:
 		_attack_style = AttackStyle.SIDE
+		# A combo left alone for a while starts again from its first cut.
+		var now := Time.get_ticks_msec() / 1000.0
+		if flurry_reset_after > 0.0 and now - _last_attack_at > flurry_reset_after:
+			_flurry_slot = -1
+		_last_attack_at = now
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
 		clip = flurry[_flurry_slot]
 	if _play_action(clip, Role.SWING, swing_rate):

@@ -193,7 +193,8 @@ func _check_rogue() -> void:
 	await physics_frame
 	await physics_frame
 	Input.action_release("attack")
-	_check("a click is a stab", String(rig.current_swing()).begins_with("DG_Stab"), String(rig.current_swing()))
+	_check("a click is the first blow of the combo", String(rig.current_swing()) == "DG_Combo_1",
+			String(rig.current_swing()))
 	_check("and it whooshes", rig.find_children("*", "AudioStreamPlayer3D", true, false).size() > 0)
 	var cut := false
 	for i in 60:
@@ -202,8 +203,10 @@ func _check_rogue() -> void:
 			cut = true
 	_check("the knife cuts", cut)
 	_check("one knife, in one hand", not rig.off_hand_blade and rig._arc_l == null)
-	_check("and every stab of the combo is the knife hand's", not rig.flurry.has(&"DG_Stab_Lead")
-			and rig._anim.has_animation(&"DG_Stab_Lead_R"))
+	_check("the combo is five blows, each one there", rig.flurry.size() == 5
+			and rig.flurry.all(func(c: StringName) -> bool: return rig._anim.has_animation(c)))
+	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Run_Flip"
+			and rig._anim.has_animation(&"DG_Run_Flip") and rig._anim.has_animation(&"DG_Twist_Flip2"))
 
 
 func _find_bolt() -> SpellBolt:
