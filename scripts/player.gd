@@ -1058,7 +1058,8 @@ func _press_dash() -> void:
 ##   is a step to the side or back, not a turn and a run;
 ## * **held**, the step turns into the twisting flip once `hold_flip_after` has
 ##   gone by with the button still down (two quick taps do the same);
-## * **away from what he has locked**, it is a backflip straight off, facing it.
+## * **away from what he has locked**, it is that flip straight off, however
+##   short the press.
 func _press_dash_flipper() -> void:
 	var now := _now()
 	var doubled := now - _last_dash_press <= double_tap_time
@@ -1074,8 +1075,11 @@ func _press_dash_flipper() -> void:
 		var to_it := target.global_position - global_position
 		to_it.y = 0.0
 		if to_it.length_squared() > 0.01 and push.normalized().dot(to_it.normalized()) < -0.5:
-			if _try_dash(true, true):
-				_upgrade_to_dodge(true)
+			# Straight into the flip, however short the press: the same
+			# twisting flip a held press becomes, carried away from it.
+			if _try_dash(false, true):
+				_flip_armed = false
+				_upgrade_to_dodge()
 			return
 	if _try_dash(locked, true):
 		_flip_armed = true
