@@ -82,6 +82,10 @@ var _fading: bool = false
 ## the quarry is handed over after the launch.
 var _ramp: float = 0.0
 var _tails: Array[GlowTail] = []
+## Where it was at the last physics tick, so what is drawn can be placed
+## between ticks rather than jumping from one to the next.
+var _prev_at: Vector3 = Vector3.ZERO
+var _placed: bool = false
 var _embers: GPUParticles3D
 
 
@@ -92,7 +96,9 @@ func _ready() -> void:
 	crit_tint = Color(1.0, 0.95, 0.75, 0.9)
 	# The arrow's flat bands are not used: the bolt lays its own tail.
 	trail_width = 0.0
-	spin = 5.0
+	# It does not roll. A spinning orb with a crackling tail read as a thing
+	# tumbling, not a thing thrown.
+	spin = 0.0
 	bite = 0.0
 	if ResourceLoader.exists(MODEL):
 		_model = (load(MODEL) as PackedScene).instantiate() as Node3D
@@ -150,6 +156,14 @@ func _process(delta: float) -> void:
 	# Swells from a spark at the crystal to its full size as it gathers pace,
 	# and breathes a little once it is there.
 	_flicker += delta * 30.0
+	# Drawn where it is between two ticks, not where the last one left it: at
+	# forty metres a second a tick is most of a metre, and a thing that jumps
+	# that far each tick is seen to judder.
+	if _placed and _model != null:
+		var between := _prev_at.lerp(global_position, Engine.get_physics_interpolation_fraction())
+		_model.global_position = between
+		if _light != null:
+			_light.global_position = between
 	var grown := clampf(_ramp_through() / 0.45, 0.0, 1.0)
 	grown = 1.0 - (1.0 - grown) * (1.0 - grown)
 	var breath := 1.0 + 0.07 * sin(_flicker * 0.45)
@@ -173,6 +187,8 @@ func _physics_process(delta: float) -> void:
 		if _quarry != null and is_instance_valid(_quarry):
 			_ramp = global_position.distance_to(_mark(_quarry)) * ramp_share
 		_ramp = clampf(_ramp, ramp_min, ramp_max)
+	_prev_at = global_position
+	_placed = true
 	# Slowly and then harder: the pace follows the way through the ramp raised
 	# to `ramp_curve`, so full speed comes towards the end.
 	var pace := _top_speed * lerpf(start_share, 1.0, pow(_ramp_through(), ramp_curve))
@@ -239,7 +255,7 @@ func _lay_trail() -> void:
 	# The glow and the core are joined to the orb itself between ticks; the
 	# strands wind round the line and are left to their own samples.
 	for i in 2:
-		_tails[i].head = self
+		_tails[i].head = _model if _model != null else self
 	_embers = _make_embers()
 	add_child(_embers)
 

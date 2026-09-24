@@ -54,6 +54,7 @@ func _check_mage() -> void:
 	_check("with his clips", rig.clip_names().has("MG_Cast_1H") and rig.clip_names().has("MG_Float"),
 			"%d clips" % rig.clip_names().size())
 	_check("and fights from afar", _player.has_bow())
+	_check("the air that carries him is under his feet", rig.get_node_or_null("Wind") is MageWind)
 	_check("standing still he stands", String(rig._anim.current_animation) == "MG_Idle",
 			String(rig._anim.current_animation))
 

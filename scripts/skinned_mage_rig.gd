@@ -40,6 +40,7 @@ const JUMP_CLIP := &"MG_Jump"
 const CRYSTAL_UP := 1.02
 
 var _charge: float = 0.0
+var _wind: MageWind
 var _cast_left: float = 0.0
 var _glow: OmniLight3D
 
@@ -86,6 +87,9 @@ func _ready() -> void:
 	super()
 	if _skel == null:
 		return
+	_wind = MageWind.new()
+	_wind.name = "Wind"
+	add_child(_wind)
 	var bone := _skel.find_bone("weapon_l")
 	if bone < 0:
 		return
@@ -148,6 +152,10 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if _glow != null:
 		var want := 0.15 + 2.6 * _charge + (1.6 if _cast_left > 0.0 else 0.0)
 		_glow.light_energy = lerpf(_glow.light_energy, want, clampf(delta * 12.0, 0.0, 1.0))
+	if _wind != null:
+		var body := _body as Player
+		var floating := body != null and body.is_levitating()
+		_wind.amount = (1.35 if floating else 1.0) if airborne else 0.0
 	super(delta, planar_speed, speed_ratio, airborne, dashing, vertical_speed, blocking)
 
 
