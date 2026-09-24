@@ -841,6 +841,13 @@ imported as they are; the loop is switched on in code, so a new file needs only
 a line in `TRACKS`. (The files arrived as `Safe Haven.mp3` and `safe haven mini `
 with no extension, which Godot would not import; renamed.)
 
+**The menu's track in the level.** `World._play_music_in_village` compared
+what it wanted with what it had last asked for, which starts empty; out in the
+wild it wants nothing, so "nothing == nothing" and the menu's track, still on
+from the menu, played on for the whole game. It now compares with
+`Music.current_track()`. `marsh_test` starts the menu's track and checks it is
+gone.
+
 ### The mere's song
 
 `scripts/marsh_song.gd` (`MarshSong`, added by `World._add_marsh_song` under

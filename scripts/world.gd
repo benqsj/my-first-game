@@ -582,7 +582,10 @@ func _play_music_in_village() -> void:
 			want = &"orc_fight"
 		elif VILLAGE.grow(6.0).has_point(Vector2(me.global_position.x, me.global_position.z)):
 			want = &"world"
-	if want == _music_on:
+	# Against what is actually on, not what this last asked for: the menu's
+	# track is still playing when the level loads, and out in the wild "want
+	# nothing" would otherwise equal "asked for nothing" and leave it on.
+	if want == music.call("current_track"):
 		return
 	_music_on = want
 	if want.is_empty():

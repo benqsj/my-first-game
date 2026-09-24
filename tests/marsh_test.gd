@@ -18,6 +18,11 @@ func _initialize() -> void:
 	var world: World = load(WORLD).instantiate()
 	root.add_child(world)
 	await _wait(1)
+	# As if come from the main menu, whose track is still on as the level loads
+	# (the level first looks at the music 20 frames in).
+	var jukebox := root.get_node_or_null("Music")
+	if jukebox != null:
+		jukebox.call("play", &"menu")
 	var player: Player = world.player()
 	for creature in world.find_children("*", "CharacterBody3D", true, false):
 		if creature != player:
@@ -42,6 +47,9 @@ func _initialize() -> void:
 		_check("silent away from the marsh", song.step == MarshSong.Step.WAITING and not song.is_inside())
 		player.global_position = _find_open_water(marsh, village) + Vector3(0.0, 1.0, 0.0)
 		await _wait(30)
+		_check("the menu's track does not follow into the level",
+				music == null or music.call("current_track") != &"menu",
+				"still on: %s" % (music.call("current_track") if music != null else &""))
 		_check("the first passage plays on coming into the marsh",
 				song.is_inside() and song.step == MarshSong.Step.FIRST, "step %d" % song.step)
 		song.call("_on_finished")
