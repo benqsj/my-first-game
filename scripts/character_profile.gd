@@ -66,6 +66,9 @@ enum Weapon {
 ## What a hit is worth before any of that. For the bow this is the *full draw*
 ## figure; a snap shot is worth a fraction of it.
 @export var damage: float = 26.0
+## What a shot held to its full charge is worth on top of the draw's own
+## scale. The mage's: a full charge is a bigger, blue bolt that hits harder.
+@export var full_charge_bonus: float = 1.0
 
 ## How high a jump goes, in metres. 0 keeps the controller's own.
 @export var jump_height: float = 0.0

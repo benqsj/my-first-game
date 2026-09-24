@@ -1888,6 +1888,10 @@ func _loose_arrow() -> void:
 	var carry := lerpf(profile.snap_share, 1.0, power)
 	var critical := _shot_rng.randf() < profile.crit_chance
 	var damage := profile.damage * carry * (profile.crit_damage if critical else 1.0)
+	# Held all the way: the mage's full charge is a bigger bolt, and hits harder
+	# than the draw's scale alone would make it.
+	if power >= 0.97:
+		damage *= profile.full_charge_bonus
 	# The shot is thrown; now it has to be lived with. The string going is the
 	# same kind of commitment a swing is — the difference is that the archer
 	# chooses when, because the draw itself can be held or let go of.
@@ -1913,7 +1917,7 @@ func _loose_arrow() -> void:
 	var quarry := NodePath()
 	if target != null and _targetable(target):
 		quarry = target.get_path()
-	net_loose.rpc(from, heading * speed, damage, critical, quarry)
+	net_loose.rpc(from, heading * speed, damage, critical, quarry, power)
 
 
 ## The cast, on every peer: the staff drawn back and brought through. The bolt
@@ -1945,7 +1949,7 @@ func is_evading() -> bool:
 ## dropped arrow is a missed kill.
 @rpc("any_peer", "call_local", "reliable")
 func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
-		quarry: NodePath = NodePath()) -> void:
+		quarry: NodePath = NodePath(), power: float = 0.0) -> void:
 	# Loose in the world rather than under the body, so the arrow does not ride
 	# the archer's own movement after it has left the string. `world_of` is the
 	# same answer blood and severed limbs use for the same question.
@@ -1957,6 +1961,8 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		var arrow: Node3D = scene.instantiate()
 		into.add_child(arrow)
 		arrow.global_position = from
+		if arrow.has_method(&"empower"):
+			arrow.call(&"empower", power)
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)

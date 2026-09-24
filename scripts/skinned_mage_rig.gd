@@ -6,9 +6,11 @@ extends SkinnedRig
 ## interface — `aim_bow()` / `loose_bow()` — so the controller charges and
 ## casts his spell exactly as it draws and looses Avtandil's arrow.
 ##
-## * **Charging** holds the sustained two-handed cast while he stands, and lets
-##   the legs walk while he moves. The staff's crystal brightens with the
-##   charge: a light at its tip.
+## * **Charging** draws the staff back over his shoulder, as far as the charge
+##   has come (the cast clip held at its wind-up), and the magic gathers at
+##   the crystal as a ball of light that grows with the charge and turns from
+##   gold to blue-violet when it is full — where the bolt will leave from. The
+##   legs walk while he moves.
 ## * **Casting** is a throw with the staff: drawn back over the shoulder and
 ##   brought round to the front, and the bolt leaves the crystal as it comes
 ##   through (`cast_lead()` after the button, from `spell_origin()`) — not the
@@ -24,7 +26,10 @@ extends SkinnedRig
 ##
 ## Source: `~/Desktop/vepxis-art/heroes/heroes.blend` (`mage_rig`).
 
-const CHARGE_CLIP := &"MG_Cast_Sustained"
+## Charging holds the cast clip at its wind-up: the staff drawn back.
+const CHARGE_CLIP := &"MG_Cast_1H"
+## How far into the cast clip the staff sits at no charge and at full charge.
+const WIND_FROM := 0.3
 const CAST_CLIP := &"MG_Cast_1H"
 ## The staff's throw in the cast clip: drawn back from here, round to the front
 ## by `CAST_RELEASE`, where the bolt leaves it, and settled by `CAST_TO`.
@@ -43,6 +48,10 @@ var _charge: float = 0.0
 var _wind: MageWind
 var _cast_left: float = 0.0
 var _glow: OmniLight3D
+## The charge gathering at the crystal.
+var _orb: MeshInstance3D
+var _orb_mat: StandardMaterial3D
+var _orb_clock: float = 0.0
 
 
 func _configure() -> void:
@@ -107,6 +116,22 @@ func _ready() -> void:
 	_glow.light_energy = 0.15
 	_glow.shadow_enabled = false
 	mount.add_child(_glow)
+	_orb = MeshInstance3D.new()
+	_orb.name = "Gathering"
+	var ball := SphereMesh.new()
+	ball.radius = 0.5
+	ball.height = 1.0
+	ball.radial_segments = 16
+	ball.rings = 8
+	_orb.mesh = ball
+	_orb_mat = StandardMaterial3D.new()
+	_orb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_orb_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_orb_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_orb.material_override = _orb_mat
+	_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_orb.visible = false
+	_glow.add_child(_orb)
 
 
 #region The spell, as the controller calls it (the bow's interface)
@@ -153,6 +178,17 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if _glow != null:
 		var want := 0.15 + 2.6 * _charge + (1.6 if _cast_left > 0.0 else 0.0)
 		_glow.light_energy = lerpf(_glow.light_energy, want, clampf(delta * 12.0, 0.0, 1.0))
+		var full := _charge >= 0.97
+		_glow.light_color = Color(0.62, 0.55, 1.0) if full else Color(1.0, 0.82, 0.4)
+	if _orb != null:
+		_orb_clock += delta
+		_orb.visible = _charge > 0.05
+		if _orb.visible:
+			var full := _charge >= 0.97
+			var pulse := 1.0 + (0.18 if full else 0.06) * sin(_orb_clock * (14.0 if full else 8.0))
+			_orb.scale = Vector3.ONE * lerpf(0.06, 0.34, _charge) * pulse
+			var tint := Color(0.62, 0.55, 1.0) if full else Color(1.0, 0.8, 0.4)
+			_orb_mat.albedo_color = Color(tint, lerpf(0.35, 0.85, _charge))
 	if _wind != null:
 		var body := _body as Player
 		var floating := body != null and body.is_levitating()
@@ -175,6 +211,9 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 		_anim.seek(_anim.get_animation(JUMP_CLIP).length * through, false)
 		return
 	if _charge > 0.05 and not airborne and planar < idle_threshold and _anim.has_animation(CHARGE_CLIP):
-		_set_base(CHARGE_CLIP, 0.15, 1.0)
+		# Held, not played: the staff comes back as the charge builds.
+		_set_base(CHARGE_CLIP, 0.15, 0.0)
+		var length := _anim.get_animation(CHARGE_CLIP).length
+		_anim.seek(length * lerpf(WIND_FROM, CAST_FROM, _charge), false)
 		return
 	super(planar, airborne, dashing, vy, blocking)

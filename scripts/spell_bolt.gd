@@ -87,6 +87,10 @@ var _tails: Array[GlowTail] = []
 var _prev_at: Vector3 = Vector3.ZERO
 var _placed: bool = false
 var _embers: GPUParticles3D
+## A full charge: bigger, blue-violet instead of gold, and a wider burst.
+var _charged: bool = false
+var _size: float = 1.0
+const CHARGED_GLOW := Color(0.62, 0.55, 1.0)
 
 
 func _ready() -> void:
@@ -121,6 +125,40 @@ func _ready() -> void:
 	_light.light_energy = 3.5
 	_light.omni_range = 4.5
 	add_child(_light)
+
+
+## A spell held to its full charge: called before `launch`, which lays the
+## tail in its colours.
+func empower(power: float) -> void:
+	if power < 0.97:
+		return
+	_charged = true
+	_size = 1.9
+	glow_colour = CHARGED_GLOW
+	streak_tint = _tint(streak_tint)
+	wake_tint = _tint(wake_tint)
+	if _model != null:
+		for node in _model.find_children("*", "MeshInstance3D", true, false):
+			var mat := (node as MeshInstance3D).material_override as StandardMaterial3D
+			if mat != null:
+				mat.albedo_color = glow_colour
+				mat.emission = glow_colour
+				mat.emission_energy_multiplier = 3.5
+	if _light != null:
+		_light.light_color = glow_colour
+		_light.omni_range = 7.0
+
+
+## Whether it was thrown at full charge.
+func is_charged() -> bool:
+	return _charged
+
+
+## A gold of the ordinary bolt, turned to the charged one's blue-violet.
+func _tint(c: Color) -> Color:
+	if not _charged:
+		return c
+	return Color(c.b * 0.7 + 0.25, c.g * 0.8, 1.0, c.a)
 
 
 ## As an arrow's, and then held back to the walk it leaves the staff at.
@@ -168,7 +206,7 @@ func _process(delta: float) -> void:
 	grown = 1.0 - (1.0 - grown) * (1.0 - grown)
 	var breath := 1.0 + 0.07 * sin(_flicker * 0.45)
 	if _model != null:
-		_model.scale = Vector3.ONE * MODEL_SCALE * lerpf(0.3, 1.0, grown) * breath
+		_model.scale = Vector3.ONE * MODEL_SCALE * _size * lerpf(0.3, 1.0, grown) * breath
 	if _light != null:
 		# A crackle rather than a steady lamp, bright as it leaves.
 		_light.light_energy = lerpf(3.5, 2.0, grown) + 0.6 * sin(_flicker) * sin(_flicker * 0.37)
@@ -248,10 +286,13 @@ func _lay_trail() -> void:
 	var into := get_parent()
 	if into == null:
 		return
-	_tails.append(_tail(into, 0.55, 0.26, 1.3, Color(1.0, 0.78, 0.35, 0.5), Color(1.0, 0.4, 0.06, 0.0)))
-	_tails.append(_tail(into, 0.14, 0.36, 1.6, Color(1.0, 0.96, 0.8, 1.0), Color(1.0, 0.55, 0.12, 0.0)))
+	_tails.append(_tail(into, 0.55 * _size, 0.26, 1.3, _tint(Color(1.0, 0.78, 0.35, 0.5)),
+			_tint(Color(1.0, 0.4, 0.06, 0.0))))
+	_tails.append(_tail(into, 0.14 * _size, 0.36, 1.6, _tint(Color(1.0, 0.96, 0.8, 1.0)),
+			_tint(Color(1.0, 0.55, 0.12, 0.0))))
 	for i in 2:
-		_tails.append(_tail(into, 0.035, 0.3, 0.7, Color(1.0, 0.92, 0.7, 0.95), Color(1.0, 0.6, 0.2, 0.0)))
+		_tails.append(_tail(into, 0.035 * _size, 0.3, 0.7, _tint(Color(1.0, 0.92, 0.7, 0.95)),
+				_tint(Color(1.0, 0.6, 0.2, 0.0))))
 	# The glow and the core are joined to the orb itself between ticks; the
 	# strands wind round the line and are left to their own samples.
 	for i in 2:
@@ -294,8 +335,8 @@ func _make_embers() -> GPUParticles3D:
 	m.scale_min = 0.5
 	m.scale_max = 1.2
 	var ramp := Gradient.new()
-	ramp.set_color(0, Color(1.0, 0.97, 0.85, 1.0))
-	ramp.set_color(1, Color(1.0, 0.4, 0.05, 0.0))
+	ramp.set_color(0, _tint(Color(1.0, 0.97, 0.85, 1.0)))
+	ramp.set_color(1, _tint(Color(1.0, 0.4, 0.05, 0.0)))
 	var ramp_tex := GradientTexture1D.new()
 	ramp_tex.gradient = ramp
 	m.color_ramp = ramp_tex
@@ -338,7 +379,7 @@ func _feed_tails() -> void:
 	side = side.normalized()
 	var up := side.cross(ahead).normalized()
 	# The strands open out as it speeds up.
-	var r := strand_radius * lerpf(0.4, 1.0, _ramp_through())
+	var r := strand_radius * _size * lerpf(0.4, 1.0, _ramp_through())
 	var turn := _travelled * strand_turns
 	for i in _tails.size():
 		var tail := _tails[i]
@@ -475,12 +516,12 @@ func _burst(where: Vector3) -> void:
 	flash.global_position = where
 	flash.scale = Vector3.ONE * 0.2
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property(flash, "scale", Vector3.ONE * (1.6 if _critical else 1.1), burst_time) \
+	tween.tween_property(flash, "scale", Vector3.ONE * (1.6 if _critical else 1.1) * _size, burst_time) \
 			.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	tween.tween_property(mat, "albedo_color:a", 0.0, burst_time)
 	if _light != null:
-		_light.light_energy = 6.0
-		tween.tween_property(_light, "light_energy", 0.0, burst_time)
+		_light.light_energy = 6.0 * _size
+		tween.tween_property(_light, "light_energy", 0.0, burst_time * _size)
 	tween.chain().tween_callback(queue_free)
 
 
