@@ -2600,3 +2600,34 @@ select is laid out the way the big games do it: the picked one large in the
 middle in a pool of their own colour on a lit stone, a dossier on the right
 (name, epithet, weapon, six bars against the best of the roster, what only
 they can do, the blurb) and the roster along the bottom.
+
+## The fifth round: any window size, the map photograph, Mixamo locomotion
+
+**Any window.** `window/stretch/mode` is `canvas_items`: menus, HUD, map and
+bag scale with the window from the 1600 × 900 they are laid out at. Settings
+has a SCREEN row (`Game.set_display`, saved in `user://settings.cfg`): the
+window as it opened, 1280 × 720, 1920 × 1080, 2560 × 1440 or full screen. The
+hero-select stage keeps its size and stands in the middle of whatever room it
+gets, with a soft shaft of light, a breathing glow, a lit stone and motes.
+
+**The map photograph** is taken 2 s after the level loads, not on its first
+frame, and taken again (up to eight times) while it comes out as nothing but
+sky: on a first run the renderer is still compiling shaders and simply does not
+draw what is not ready, which gave a map of pale blue.
+
+**The mage's wind** shows only while he floats (the jump held), not on a
+plain jump.
+
+**The assassin's head.** The cowl was weighted to the chest and sat behind the
+head, so the face box stuck out of it and every turn of the head left it
+behind. It now follows the head, is deep enough to hold it, has an opening
+for the face, and the eyes and mask sit on the face instead of in front of it.
+
+**Mixamo locomotion.** The assassin's idle (a fight stance), walks and runs
+(forward, back, left, right) and the mage's walks and runs are Mixamo's
+(`vepxis-art/mixamo/assassin`, `.../mage`), retargeted with
+`tools/retarget_mixamo.py` onto `dagger_rig` / `mage_rig` (same bone names as
+Tariel's). The mage keeps his own staff arm, phase for phase, from his old
+clips, and his old idle. `ground_speed` in both rigs is measured off the root
+bone. The old clips stay in `heroes.blend` as `DGOld_*` / `MGOld_*` and are not
+exported.
