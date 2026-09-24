@@ -18,8 +18,8 @@ const NetScript := preload("res://scripts/net.gd")
 
 ## The three columns of the character screen, in pixels: a roster tile, and the
 ## stage the picked one stands on. The dossier takes what is left.
-const TILE := Vector2(196.0, 178.0)
-const STAGE := Vector2(400.0, 560.0)
+const TILE := Vector2(124.0, 140.0)
+const STAGE := Vector2(440.0, 590.0)
 
 
 ## Appended rather than inserted: the pages are addressed by number from the
@@ -110,72 +110,144 @@ func _build(page: Page) -> Control:
 	return _build_root()
 
 
+## The front: the name of the game and three words under it, down the left
+## where the backdrop is darkest, with the mountains and the moon to the right.
 func _build_root() -> Control:
-	var page := MenuStyle.page_column()
-	page.add_child(MenuStyle.title())
+	var page := Control.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	column.offset_left = 110.0
+	column.offset_right = 110.0 + 520.0
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 44)
+	page.add_child(column)
+
+	column.add_child(MenuStyle.title())
 	var buttons := MenuStyle.button_column()
+	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	buttons.add_child(MenuStyle.button("PLAY", func() -> void: _show(Page.MODE)))
 	buttons.add_child(MenuStyle.button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
 	buttons.add_child(MenuStyle.button("EXIT", func() -> void: get_tree().quit()))
-	page.add_child(buttons)
+	column.add_child(buttons)
+
+	var foot := MenuStyle.label("1 – 4 players  ·  LAN co-op  ·  early build", MenuStyle.BODY_SIZE - 3,
+			Color(MenuStyle.GOLD_DIM, 0.8))
+	foot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	foot.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	foot.offset_right = -36.0
+	foot.offset_bottom = -26.0
+	page.add_child(foot)
 	return page
+
+
+## A page that is a card in the middle of the screen: a dark, gold-edged plate
+## over the backdrop, with a heading, and the column the caller fills.
+func _card_page(heading: String) -> Array:
+	var page := CenterContainer.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var card := PanelContainer.new()
+	var plate := MenuStyle.panel_style(Color(0.035, 0.035, 0.05, 0.82))
+	plate.border_color = Color(MenuStyle.GOLD_DIM, 0.7)
+	plate.set_border_width_all(1)
+	plate.shadow_color = Color(0, 0, 0, 0.55)
+	plate.shadow_size = 30
+	plate.content_margin_left = 64.0
+	plate.content_margin_right = 64.0
+	plate.content_margin_top = 44.0
+	plate.content_margin_bottom = 44.0
+	card.add_theme_stylebox_override("panel", plate)
+	page.add_child(card)
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 22)
+	card.add_child(column)
+	column.add_child(MenuStyle.heading(heading))
+	return [page, column]
 
 
 func _build_mode() -> Control:
-	var page := MenuStyle.page_column()
-	page.add_child(MenuStyle.heading("HOW MANY OF YOU"))
+	var made := _card_page("HOW WILL YOU RIDE")
+	var column := made[1] as VBoxContainer
 	var buttons := MenuStyle.button_column()
-	buttons.add_child(MenuStyle.button("SOLO PLAY", func() -> void:
+	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	buttons.add_child(MenuStyle.button("ALONE", func() -> void:
 			_multiplayer = false
 			_show(Page.CHARACTERS)))
-	buttons.add_child(MenuStyle.button("MULTIPLAYER", func() -> void:
+	buttons.add_child(MenuStyle.button("WITH COMPANIONS", func() -> void:
 			_multiplayer = true
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
-	page.add_child(buttons)
-	return page
+	column.add_child(buttons)
+	column.add_child(MenuStyle.label("Up to four of you, on the same network, against the same monsters.",
+			MenuStyle.BODY_SIZE - 1, MenuStyle.GOLD_DIM))
+	return made[0]
 
 
-## Three columns: who there is, who is picked, and what picking them means.
-##
-## The roster down the left is a face each with a name over it, small enough
-## that four of them fit and nothing has to be read to use it. The middle is the
-## one picked, full length and turning. The right is everything the old cards
-## crammed under their own portraits — with one character on screen there is
-## room to lay it out instead of stacking it.
+## The hero select, the way the big games lay it out: whoever is picked large in
+## the middle, standing in a pool of their own colour and turning; everything
+## there is to know about them on a plate to the right; and the others along the
+## bottom, a face each, to pick from.
 func _build_characters() -> Control:
-	var page := MenuStyle.page_column()
-	page.add_child(MenuStyle.heading("WHO ARE YOU"))
+	var page := Control.new()
+	page.set_anchors_preset(Control.PRESET_FULL_RECT)
 
+	var frame := MarginContainer.new()
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right"]:
+		frame.add_theme_constant_override("margin_" + side, 56)
+	frame.add_theme_constant_override("margin_top", 30)
+	frame.add_theme_constant_override("margin_bottom", 26)
+	page.add_child(frame)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	frame.add_child(column)
+
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 26)
+	var head := MenuStyle.heading("CHOOSE YOUR HERO")
+	top.add_child(head)
 	var note := MenuStyle.label("", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM)
 	note.name = "ModeNote"
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	page.add_child(note)
-
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 34)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	top.add_child(note)
+	column.add_child(top)
 
 	var roster: Array = _game.roster() if _game != null else []
-	var faces := VBoxContainer.new()
-	faces.add_theme_constant_override("separation", 14)
-	faces.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var middle := HBoxContainer.new()
+	middle.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	middle.add_theme_constant_override("separation", 20)
+	var left_gap := Control.new()
+	left_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.add_child(left_gap)
+	middle.add_child(_stage(roster))
+	var mid_gap := Control.new()
+	mid_gap.custom_minimum_size = Vector2(60.0, 0.0)
+	middle.add_child(mid_gap)
+	middle.add_child(_dossier())
+	var right_gap := Control.new()
+	right_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.add_child(right_gap)
+	column.add_child(middle)
+
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 14)
 	for id: StringName in roster:
 		var tile := _roster_tile(id)
 		_cards[id] = tile
-		faces.add_child(tile)
-	row.add_child(faces)
+		bottom.add_child(tile)
+	var spring := Control.new()
+	spring.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom.add_child(spring)
 
-	var stage := _stage(roster)
-	row.add_child(stage)
-	row.add_child(_dossier())
-	page.add_child(row)
-
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0.0, 12.0)
-	page.add_child(gap)
-
-	var buttons := MenuStyle.button_column()
+	var buttons := VBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_END
+	buttons.add_theme_constant_override("separation", 10)
 	# One button, two destinations. Solo starts the game; together, the choice
 	# still has to be made *first* — it is sent with the announcement, and a peer
 	# whose character is unknown is a peer with nothing to spawn.
@@ -184,17 +256,35 @@ func _build_characters() -> Control:
 				_show(Page.CONNECT)
 			else:
 				_start())
+	_go.custom_minimum_size = Vector2(300.0, 60.0)
+	_go.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_go.add_theme_font_size_override("font_size", MenuStyle.BUTTON_SIZE + 2)
+	var bright := MenuStyle.panel_style(Color(0.46, 0.13, 0.12, 0.92))
+	bright.border_color = MenuStyle.GOLD
+	bright.set_border_width_all(1)
+	var brighter := bright.duplicate() as StyleBoxFlat
+	brighter.bg_color = Color(0.62, 0.19, 0.14, 0.97)
+	brighter.shadow_color = Color(0.95, 0.5, 0.2, 0.35)
+	brighter.shadow_size = 14
+	_go.add_theme_stylebox_override("normal", bright)
+	for slot in ["hover", "pressed", "focus"]:
+		_go.add_theme_stylebox_override(slot, brighter)
+	_go.add_theme_color_override("font_color", MenuStyle.CREAM)
 	buttons.add_child(_go)
-	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.MODE), true))
-	page.add_child(buttons)
+	var back := MenuStyle.button("BACK", func() -> void: _show(Page.MODE), true)
+	back.custom_minimum_size = Vector2(300.0, 44.0)
+	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	buttons.add_child(back)
+	bottom.add_child(buttons)
+	column.add_child(bottom)
 	return page
 
 
 ## Host or join. Nothing here decides who you are — that is already settled by
 ## the time this page is up.
 func _build_connect() -> Control:
-	var page := MenuStyle.page_column()
-	page.add_child(MenuStyle.heading("PLAY TOGETHER"))
+	var made := _card_page("PLAY TOGETHER")
+	var page := made[1] as VBoxContainer
 
 	_trouble = MenuStyle.label("", MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.45))
 	_trouble.name = "Trouble"
@@ -202,7 +292,10 @@ func _build_connect() -> Control:
 	page.add_child(_trouble)
 
 	var buttons := MenuStyle.button_column()
-	buttons.add_child(MenuStyle.button("HOST GAME", func() -> void: _host()))
+	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var host := MenuStyle.button("HOST GAME", func() -> void: _host())
+	host.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	buttons.add_child(host)
 	page.add_child(buttons)
 
 	# Hosts on this Wi-Fi call out once a second; each one heard is a button.
@@ -225,40 +318,49 @@ func _build_connect() -> Control:
 	_address.name = "Address"
 	_address.text = "127.0.0.1"
 	_address.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_address.custom_minimum_size = Vector2(240.0, MenuStyle.BUTTON_HEIGHT)
+	_address.custom_minimum_size = Vector2(260.0, MenuStyle.BUTTON_HEIGHT)
 	_address.add_theme_font_size_override("font_size", MenuStyle.BUTTON_SIZE - 4)
+	var field := MenuStyle.panel_style(Color(0.0, 0.0, 0.0, 0.5))
+	field.border_color = MenuStyle.GOLD_DIM
+	field.border_width_bottom = 1
+	_address.add_theme_stylebox_override("normal", field)
+	_address.add_theme_stylebox_override("focus", field)
+	_address.add_theme_color_override("font_color", MenuStyle.CREAM)
 	_address.text_submitted.connect(func(_typed: String) -> void: _join())
 	row.add_child(_address)
 	var join := MenuStyle.button("JOIN", func() -> void: _join())
 	join.custom_minimum_size = Vector2(180.0, MenuStyle.BUTTON_HEIGHT)
+	join.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(join)
 	page.add_child(row)
 
 	var mine: Array[String] = NetScript.lan_addresses() if _net != null else []
 	page.add_child(MenuStyle.label(
-			"Everyone fights the same wolves. Nobody can hurt anybody else yet.\n"
+			"Everyone fights the same monsters. Nobody can hurt anybody else yet.\n"
 			+ ("If you host, the others join at: %s" % ", ".join(mine) if not mine.is_empty()
 				else "This computer is not on a network — only this machine can join."),
-			MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+			MenuStyle.BODY_SIZE - 1, MenuStyle.GOLD_DIM))
 
 	var back := MenuStyle.button_column()
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.CHARACTERS), true))
 	page.add_child(back)
-	return page
+	return made[0]
 
 
 func _build_settings() -> Control:
-	var page := MenuStyle.page_column()
-	page.add_child(MenuStyle.heading("SETTINGS"))
+	var made := _card_page("SETTINGS")
+	var page := made[1] as VBoxContainer
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 18)
-	row.add_child(MenuStyle.label("GRAPHICS", MenuStyle.BUTTON_SIZE, MenuStyle.CREAM))
+	row.add_theme_constant_override("separation", 14)
+	row.add_child(MenuStyle.label("GRAPHICS", MenuStyle.BUTTON_SIZE - 2, MenuStyle.CREAM))
 	for level: Graphics.Level in Graphics.ORDER:
 		var button := MenuStyle.button(Graphics.label(level),
 				func() -> void: _set_graphics(level))
-		button.custom_minimum_size = Vector2(160.0, MenuStyle.BUTTON_HEIGHT)
+		button.custom_minimum_size = Vector2(150.0, MenuStyle.BUTTON_HEIGHT)
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_graphics_buttons[level] = button
 		row.add_child(button)
 	page.add_child(row)
@@ -266,14 +368,13 @@ func _build_settings() -> Control:
 	page.add_child(MenuStyle.label(
 			"Medium keeps a shorter shadow and draws at 85% of the resolution.\n"
 			+ "Low turns shadows off, draws at seven tenths and softens the textures.",
-			MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+			MenuStyle.BODY_SIZE - 1, MenuStyle.GOLD_DIM))
 
 	var buttons := MenuStyle.button_column()
+	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	page.add_child(buttons)
-	return page
-
-
+	return made[0]
 func _show(page: Page) -> void:
 	_page = page
 	for key: Page in _pages:
@@ -302,14 +403,32 @@ func _show(page: Page) -> void:
 
 
 #region Characters
-## One tile in the roster: the character's face, with their name over it.
-##
-## A face rather than a figure, because at this size a whole man is a shape.
-## Kept small on purpose — the roster is for *choosing*, and everything there is
-## to know about the choice is already on screen to the right of it.
+## Each hero's own colour: the light they stand in on the stage, the edge of
+## their tile when picked, the fill of their bars.
+const ACCENT := {
+	&"tariel": Color("d0892e"),
+	&"avtandil": Color("6fae4a"),
+	&"mage": Color("4f8ee8"),
+	&"rogue": Color("a04ad8"),
+}
+## What they are called, under their name.
+const EPITHET := {
+	&"tariel": "The Knight in the Panther's Skin",
+	&"avtandil": "Hunter of Arabia, Tariel's sworn brother",
+	&"mage": "Keeper of the storm",
+	&"rogue": "The blade in the dark",
+}
+
+
+func _accent(id: StringName) -> Color:
+	return ACCENT.get(id, MenuStyle.GOLD)
+
+
+## One tile along the bottom: the character's face, their name under it.
 func _roster_tile(id: StringName) -> Control:
 	var profile := _profile(id)
 	var tile := Button.new()
+	tile.name = "Tile_%s" % id
 	tile.custom_minimum_size = Vector2(TILE.x, TILE.y)
 	tile.focus_mode = Control.FOCUS_NONE
 	tile.pressed.connect(func() -> void:
@@ -318,62 +437,91 @@ func _roster_tile(id: StringName) -> Control:
 
 	var column := VBoxContainer.new()
 	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 2)
-	column.offset_left = 8.0
-	column.offset_right = -8.0
-	column.offset_top = 8.0
-	column.offset_bottom = -8.0
+	column.add_theme_constant_override("separation", 0)
+	column.offset_left = 5.0
+	column.offset_right = -5.0
+	column.offset_top = 5.0
+	column.offset_bottom = -5.0
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tile.add_child(column)
 
-	column.add_child(MenuStyle.label(profile.display_name.to_upper(),
-			MenuStyle.BODY_SIZE + 3, MenuStyle.GOLD))
-	column.add_child(CharacterPortrait.of(profile,
-			Vector2(TILE.x - 16.0, TILE.y - 46.0), CharacterPortrait.Frame.FACE))
+	var face := CharacterPortrait.of(profile,
+			Vector2(TILE.x - 10.0, TILE.y - 34.0), CharacterPortrait.Frame.BUST)
+	face.name = "Face"
+	column.add_child(face)
+	var caption := MenuStyle.label(profile.display_name.to_upper(), MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	caption.name = "Name"
+	column.add_child(caption)
 	return tile
 
 
-## The middle: whoever is picked, full length and turning. One portrait per
-## character, built once and shown one at a time — a `SubViewport` is not a
-## thing to throw away and rebuild every time the player moves down a list.
+## The middle: whoever is picked, full length and turning, in a pool of their
+## own light on a round stone. One portrait per character, built once and shown
+## one at a time — a `SubViewport` is not a thing to rebuild every click.
 func _stage(roster: Array) -> Control:
-	var stage := PanelContainer.new()
+	var stage := Control.new()
 	stage.name = "Stage"
 	stage.custom_minimum_size = Vector2(STAGE.x, STAGE.y)
-	stage.add_theme_stylebox_override("panel", MenuStyle.panel_style(MenuStyle.PANEL))
-	var slot := Control.new()
-	slot.set_anchors_preset(Control.PRESET_FULL_RECT)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(slot)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.draw.connect(func() -> void: _draw_stage(stage))
 	for id: StringName in roster:
 		var full := CharacterPortrait.of(_profile(id), STAGE)
 		full.name = "Full_%s" % id
 		_stages[id] = full
-		slot.add_child(full)
+		stage.add_child(full)
 	return stage
 
 
-## The right: what picking them means. The same lines the old cards carried,
-## with room to be read now that only one character's are on screen.
+func _draw_stage(stage: Control) -> void:
+	var light := _accent(_chosen)
+	var w := stage.size.x
+	var h := stage.size.y
+	# A column of light from above, widening to the floor.
+	for i in 14:
+		var a := float(i) / 14.0
+		var half := lerpf(w * 0.08, w * 0.42, a)
+		stage.draw_rect(Rect2(w * 0.5 - half, h * a, half * 2.0, h / 14.0 + 1.0),
+				Color(light, 0.018 + 0.03 * a))
+	# The glow behind them.
+	var heart := Vector2(w * 0.5, h * 0.48)
+	for r in range(12, 0, -1):
+		stage.draw_circle(heart, w * 0.045 * r, Color(light, 0.028))
+	# The stone they stand on: an ellipse, lit on its rim.
+	var ground := Vector2(w * 0.5, h * 0.93)
+	stage.draw_set_transform(ground, 0.0, Vector2(1.0, 0.22))
+	stage.draw_circle(Vector2.ZERO, w * 0.36, Color(0.02, 0.02, 0.03, 0.85))
+	stage.draw_arc(Vector2.ZERO, w * 0.36, 0.0, TAU, 64, Color(light, 0.9), 3.0, true)
+	stage.draw_arc(Vector2.ZERO, w * 0.42, 0.0, TAU, 64, Color(light, 0.35), 1.5, true)
+	stage.draw_circle(Vector2.ZERO, w * 0.3, Color(light, 0.12))
+	stage.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## The right: who they are and what picking them means, on a dark plate.
 func _dossier() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "Dossier"
-	panel.custom_minimum_size = Vector2(380.0, STAGE.y)
-	panel.add_theme_stylebox_override("panel", MenuStyle.panel_style(MenuStyle.PANEL))
+	panel.custom_minimum_size = Vector2(430.0, 0.0)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var plate := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.84))
+	plate.border_color = Color(MenuStyle.GOLD_DIM, 0.6)
+	plate.set_border_width_all(1)
+	plate.shadow_color = Color(0, 0, 0, 0.5)
+	plate.shadow_size = 24
+	plate.content_margin_left = 30.0
+	plate.content_margin_right = 30.0
+	plate.content_margin_top = 26.0
+	plate.content_margin_bottom = 26.0
+	panel.add_theme_stylebox_override("panel", plate)
 
 	var column := VBoxContainer.new()
 	column.name = "Lines"
-	column.add_theme_constant_override("separation", 10)
-	column.offset_left = 24.0
-	column.offset_right = -24.0
-	column.offset_top = 24.0
-	column.offset_bottom = -24.0
+	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
 	return panel
 
 
 ## Fills the dossier in for whoever is picked. Rebuilt rather than updated: it is
-## eight labels, and eight labels are cheaper to make than to keep in step.
+## a dozen small things, cheaper to make than to keep in step.
 func _fill_dossier() -> void:
 	var page := _pages.get(Page.CHARACTERS) as Control
 	if page == null:
@@ -382,70 +530,150 @@ func _fill_dossier() -> void:
 	if column == null:
 		return
 	for old in column.get_children():
+		column.remove_child(old)
 		old.queue_free()
 
 	var profile := _profile(_chosen)
-	column.add_child(MenuStyle.label(profile.display_name.to_upper(),
-			MenuStyle.HEADING_SIZE, MenuStyle.GOLD))
-	column.add_child(MenuStyle.label(_arms(profile), MenuStyle.BODY_SIZE, MenuStyle.CRIMSON.lightened(0.35)))
+	var light := _accent(_chosen)
+	var called := MenuStyle.label(profile.display_name.to_upper(), MenuStyle.HEADING_SIZE + 10, MenuStyle.CREAM)
+	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	called.add_theme_color_override("font_shadow_color", Color(light, 0.55))
+	called.add_theme_constant_override("shadow_outline_size", 12)
+	called.add_theme_constant_override("shadow_offset_x", 0)
+	called.add_theme_constant_override("shadow_offset_y", 0)
+	column.add_child(called)
+	var epithet := MenuStyle.label(EPITHET.get(_chosen, ""), MenuStyle.BODY_SIZE, light.lightened(0.25))
+	epithet.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	column.add_child(epithet)
+	var arms := MenuStyle.label(_arms(profile), MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM)
+	arms.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	column.add_child(arms)
 	column.add_child(MenuStyle.rule())
-	for line in _stat_lines(profile):
-		var stat := MenuStyle.label(line, MenuStyle.BODY_SIZE, MenuStyle.CREAM)
-		stat.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		column.add_child(stat)
+	for stat: Array in _stats(profile):
+		column.add_child(_bar(stat[0], stat[1], stat[2], light))
 	column.add_child(MenuStyle.rule())
-	var blurb := MenuStyle.label(profile.blurb, MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM)
+	var traits := MenuStyle.label(_traits(profile), MenuStyle.BODY_SIZE - 2, MenuStyle.GOLD)
+	traits.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	traits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(traits)
+	var blurb := MenuStyle.label(profile.blurb, MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM.darkened(0.2))
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	blurb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	blurb.custom_minimum_size = Vector2(370.0, 0.0)
 	column.add_child(blurb)
 
 
-## What actually differs between them, in the words a player would use.
-func _stat_lines(profile: CharacterProfile) -> Array[String]:
-	var knight := _profile(&"tariel")
-	var lines: Array[String] = []
-	lines.append("Run    %.1f m/s%s" % [profile.run_speed,
-			_compare(profile.run_speed, knight.run_speed, "faster", "slower")])
-	var roll := profile.dash_speed * profile.dash_duration
-	lines.append("Roll   %.1f m%s" % [roll,
-			_compare(roll, knight.dash_speed * knight.dash_duration, "further", "shorter")])
-	lines.append("Crit   %.0f%%%s" % [profile.crit_chance * 100.0,
-			_compare(profile.crit_chance, knight.crit_chance, "more often", "less often")])
-	lines.append("Block  %s" % ("yes, behind a shield" if profile.can_block else "no shield"))
+## Six bars, each against the best of the roster at it: [name, share, figure].
+func _stats(profile: CharacterProfile) -> Array:
+	var rows := [
+		["POWER", func(p: CharacterProfile) -> float: return p.damage, "%.0f"],
+		["VITALITY", func(p: CharacterProfile) -> float: return p.max_health, "%.0f"],
+		["STAMINA", func(p: CharacterProfile) -> float: return p.max_stamina, "%.0f"],
+		["SPEED", func(p: CharacterProfile) -> float: return p.run_speed, "%.1f m/s"],
+		["EVASION", func(p: CharacterProfile) -> float: return p.dash_speed * p.dash_duration, "%.1f m"],
+		["CRITICAL", func(p: CharacterProfile) -> float: return p.crit_chance * 100.0, "%.0f%%"],
+	]
+	var everyone: Array[CharacterProfile] = []
+	for id: StringName in (_game.roster() if _game != null else []):
+		everyone.append(_profile(id))
+	if everyone.is_empty():
+		everyone.append(profile)
+	var out := []
+	for row: Array in rows:
+		var measure: Callable = row[1]
+		var best := 0.0001
+		for other in everyone:
+			best = maxf(best, float(measure.call(other)))
+		var mine := float(measure.call(profile))
+		out.append([row[0], clampf(mine / best, 0.05, 1.0), row[2] % mine])
+	return out
+
+
+## One stat: its name, a bar filled as far as they have of it, and the figure.
+func _bar(what: String, share: float, figure: String, light: Color) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	var called := MenuStyle.label(what, MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM)
+	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	called.custom_minimum_size = Vector2(92.0, 0.0)
+	row.add_child(called)
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(190.0, 20.0)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.draw.connect(func() -> void:
+		var y := bar.size.y * 0.5 - 4.0
+		var width := bar.size.x
+		bar.draw_rect(Rect2(0, y, width, 8), Color(1, 1, 1, 0.07))
+		bar.draw_rect(Rect2(0, y, width * share, 8), light.darkened(0.15))
+		bar.draw_rect(Rect2(0, y, width * share, 3), light.lightened(0.3))
+		for i in range(1, 5):
+			bar.draw_line(Vector2(width * i / 5.0, y), Vector2(width * i / 5.0, y + 8), Color(0, 0, 0, 0.6), 2.0))
+	row.add_child(bar)
+	var value := MenuStyle.label(figure, MenuStyle.BODY_SIZE - 3, MenuStyle.CREAM)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.custom_minimum_size = Vector2(76.0, 0.0)
+	row.add_child(value)
+	return row
+
+
+## What they can do that the others cannot, in a line.
+func _traits(profile: CharacterProfile) -> String:
+	var bits: Array[String] = []
+	if profile.can_block:
+		bits.append("blocks and parries")
+	if profile.shadow_dodge:
+		bits.append("a perfect roll leaves his shadow")
 	if profile.levitation > 0.0:
-		lines.append("Float  %.1f s in the air" % profile.levitation)
-	return lines
+		bits.append("floats %.1f s" % profile.levitation)
+	if profile.weapon != CharacterProfile.Weapon.MELEE:
+		bits.append("fights from afar")
+	if not profile.can_block and profile.weapon == CharacterProfile.Weapon.MELEE:
+		bits.append("the quickest hands")
+	return "◆  " + "   ◆  ".join(bits)
 
 
 ## What they fight with, in a word or three.
 func _arms(profile: CharacterProfile) -> String:
 	match profile.weapon:
 		CharacterProfile.Weapon.BOW:
-			return "BOW"
+			return "LONGBOW"
 		CharacterProfile.Weapon.STAFF:
 			return "STAFF AND LIGHTNING"
-	return "SWORD AND SHIELD" if profile.can_block else "TWIN DAGGERS"
-
-
-## " — faster" and the like, but only when there is something to say.
-func _compare(mine: float, theirs: float, better: String, worse: String) -> String:
-	if is_equal_approx(mine, theirs):
-		return ""
-	return "   — %s" % (better if mine > theirs else worse)
+	return "SWORD AND SHIELD" if profile.can_block else "ONE LONG KNIFE"
 
 
 func _refresh_cards() -> void:
 	for id: StringName in _cards:
 		var card := _cards[id] as Button
 		var picked := id == _chosen
-		var style := MenuStyle.panel_style(MenuStyle.PANEL_HOT if picked else MenuStyle.PANEL)
-		style.border_color = MenuStyle.GOLD if picked else Color(0.0, 0.0, 0.0, 0.0)
-		style.set_border_width_all(2 if picked else 0)
-		for slot in ["normal", "hover", "pressed", "focus"]:
-			card.add_theme_stylebox_override(slot, style)
+		var light := _accent(id)
+		var style := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.85) if not picked
+				else Color(light.darkened(0.7), 0.92))
+		style.set_content_margin_all(0.0)
+		style.border_color = light if picked else Color(MenuStyle.GOLD_DIM, 0.35)
+		style.set_border_width_all(2 if picked else 1)
+		if picked:
+			style.shadow_color = Color(light, 0.45)
+			style.shadow_size = 16
+		var hover := style.duplicate() as StyleBoxFlat
+		hover.border_color = light
+		card.add_theme_stylebox_override("normal", style)
+		card.add_theme_stylebox_override("focus", style)
+		card.add_theme_stylebox_override("hover", hover)
+		card.add_theme_stylebox_override("pressed", hover)
+		var face := card.find_child("Face", true, false) as Control
+		if face != null:
+			face.modulate = Color.WHITE if picked else Color(0.62, 0.62, 0.66)
+		var caption := card.find_child("Name", true, false) as Label
+		if caption != null:
+			caption.add_theme_color_override("font_color", light.lightened(0.35) if picked else MenuStyle.GOLD_DIM)
 	for id: StringName in _stages:
 		(_stages[id] as Control).visible = id == _chosen
+	var page := _pages.get(Page.CHARACTERS) as Control
+	if page != null:
+		var stage := page.find_child("Stage", true, false) as Control
+		if stage != null:
+			stage.queue_redraw()
 	_fill_dossier()
 
 

@@ -39,6 +39,7 @@ var _rig: Node3D
 enum Frame {
 	FULL, ## Head to boots — the whole character, their build and what they carry.
 	FACE, ## Head and shoulders, for a thumbnail too small to read a figure in.
+	BUST, ## Head to belt: the roster tiles, where the weapon says who it is.
 }
 
 ## Builds one for `profile` at `size` pixels. Hands back an empty container if
@@ -51,8 +52,14 @@ static func of(profile: CharacterProfile, size: Vector2,
 	if framing == Frame.FULL:
 		# Standing back far enough that head and boots both fit a frame that is
 		# taller than it is wide.
-		portrait.eye_height = 1.0
-		portrait.eye_back = 3.45
+		portrait.eye_height = 1.05
+		portrait.eye_back = 4.0
+	elif framing == Frame.BUST:
+		portrait.eye_height = 1.3
+		portrait.eye_back = 2.3
+		portrait.eye_fov = 34.0
+		portrait.start_angle = -0.45
+		portrait.turn_speed = 0.0
 	elif framing == Frame.FACE:
 		# Close enough that the head fills it, and squarer on: a thumbnail of a
 		# man in three-quarter profile at this size is a shape, not a face.

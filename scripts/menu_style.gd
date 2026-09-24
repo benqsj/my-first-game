@@ -26,32 +26,15 @@ const BODY_SIZE := 17
 const BUTTON_WIDTH := 340.0
 const BUTTON_HEIGHT := 58.0
 
-## A dark ground with a warm bloom behind the title, so the gold has something
-## to sit on rather than floating on flat black.
+## Dusk over the mountains ([MenuBackdrop]): a sky, the moon, three ranges
+## drifting and sparks rising, the left side sunk into shadow for the menu.
 static func background(onto: Control) -> void:
 	var sky := ColorRect.new()
 	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
 	sky.color = SLATE_DEEP
 	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	onto.add_child(sky)
-
-	var glow := TextureRect.new()
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ramp := GradientTexture2D.new()
-	ramp.width = 8
-	ramp.height = 256
-	ramp.fill = GradientTexture2D.FILL_LINEAR
-	ramp.fill_from = Vector2(0.0, 0.0)
-	ramp.fill_to = Vector2(0.0, 1.0)
-	var colours := Gradient.new()
-	colours.set_color(0, SLATE)
-	colours.set_color(1, SLATE_DEEP)
-	colours.add_point(0.42, CRIMSON.darkened(0.62))
-	ramp.gradient = colours
-	glow.texture = ramp
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	onto.add_child(glow)
+	onto.add_child(MenuBackdrop.new())
 
 
 static func page_column() -> Control:
@@ -71,20 +54,45 @@ static func button_column() -> VBoxContainer:
 
 static func title() -> Control:
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 2)
-	var title := label("VEPXIS", TITLE_SIZE, GOLD)
-	title.add_theme_constant_override("outline_size", 0)
+	stack.add_theme_constant_override("separation", 4)
+	var title := label("VEPXIS", TITLE_SIZE + 24, GOLD)
+	title.add_theme_color_override("font_shadow_color", Color(0.85, 0.45, 0.1, 0.45))
+	title.add_theme_constant_override("shadow_offset_x", 0)
+	title.add_theme_constant_override("shadow_offset_y", 0)
+	title.add_theme_constant_override("shadow_outline_size", 18)
 	stack.add_child(title)
-	stack.add_child(rule(280.0))
-	stack.add_child(label("THE KNIGHT IN THE PANTHER'S SKIN", BODY_SIZE, GOLD_DIM))
+	stack.add_child(ornament(360.0))
+	var sub := label("THE KNIGHT IN THE PANTHER'S SKIN", BODY_SIZE + 1, GOLD_DIM)
+	sub.add_theme_constant_override("line_spacing", 4)
+	stack.add_child(sub)
 	return stack
+
+
+## A gold rule with a diamond in the middle and a dot at each end.
+static func ornament(width: float) -> Control:
+	var line := Control.new()
+	line.custom_minimum_size = Vector2(width, 14.0)
+	line.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	line.draw.connect(func() -> void:
+		var y := line.size.y * 0.5
+		var mid := line.size.x * 0.5
+		line.draw_line(Vector2(0, y), Vector2(mid - 12, y), GOLD_DIM, 1.0)
+		line.draw_line(Vector2(mid + 12, y), Vector2(line.size.x, y), GOLD_DIM, 1.0)
+		line.draw_colored_polygon(PackedVector2Array([Vector2(mid, y - 6), Vector2(mid + 7, y),
+				Vector2(mid, y + 6), Vector2(mid - 7, y)]), GOLD)
+		line.draw_circle(Vector2(2, y), 2.0, GOLD_DIM)
+		line.draw_circle(Vector2(line.size.x - 2, y), 2.0, GOLD_DIM))
+	return line
 
 
 static func heading(text: String) -> Control:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 6)
-	stack.add_child(label(text, HEADING_SIZE, CREAM))
-	stack.add_child(rule(180.0))
+	var head := label(text, HEADING_SIZE, CREAM)
+	head.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+	head.add_theme_constant_override("shadow_offset_y", 2)
+	stack.add_child(head)
+	stack.add_child(ornament(240.0))
 	return stack
 
 
@@ -119,24 +127,43 @@ static func button(text: String, pressed: Callable, quiet: bool = false) -> Butt
 	return button
 
 
-## The one piece of styling everything else leans on: a flat panel with a gold
-## edge down one side that fills in when the mouse is over it.
+## The one piece of styling everything else leans on: a word on the dark,
+## underlined by a hairline, that lights up into a gold-edged plate when the
+## mouse is on it — the way the old games' menus did it, not a web form's.
 static func style_button(button: Button, chosen: bool, quiet: bool = false) -> void:
-	var idle := panel_style(PANEL if not chosen else PANEL_HOT)
-	idle.border_width_left = 4 if chosen else 2
-	idle.border_color = GOLD if chosen else GOLD_DIM
+	var idle := StyleBoxFlat.new()
+	idle.bg_color = Color(0.05, 0.05, 0.07, 0.35) if not chosen else Color(0.2, 0.14, 0.06, 0.6)
+	idle.border_width_bottom = 1
+	idle.border_width_left = 3 if chosen else 0
+	idle.border_color = Color(GOLD_DIM, 0.55) if not chosen else GOLD
+	idle.content_margin_left = 22.0
+	idle.content_margin_right = 22.0
+	idle.content_margin_top = 10.0
+	idle.content_margin_bottom = 10.0
 
-	var hot := panel_style(PANEL_HOT)
+	var hot := StyleBoxFlat.new()
+	hot.bg_color = Color(0.22, 0.15, 0.06, 0.78)
 	hot.border_width_left = 4
+	hot.border_width_bottom = 1
 	hot.border_color = GOLD
+	hot.shadow_color = Color(0.95, 0.6, 0.2, 0.22)
+	hot.shadow_size = 10
+	hot.content_margin_left = 30.0
+	hot.content_margin_right = 22.0
+	hot.content_margin_top = 10.0
+	hot.content_margin_bottom = 10.0
 
 	button.add_theme_stylebox_override("normal", idle)
 	button.add_theme_stylebox_override("hover", hot)
 	button.add_theme_stylebox_override("pressed", hot)
 	button.add_theme_stylebox_override("focus", hot)
+	button.add_theme_stylebox_override("disabled", idle)
 	button.add_theme_color_override("font_color", GOLD_DIM if quiet else CREAM)
-	button.add_theme_color_override("font_hover_color", GOLD)
+	button.add_theme_color_override("font_hover_color", Color("f3c766"))
 	button.add_theme_color_override("font_pressed_color", GOLD)
+	button.add_theme_color_override("font_focus_color", Color("f3c766"))
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT if button.custom_minimum_size.x >= BUTTON_WIDTH else \
+			HORIZONTAL_ALIGNMENT_CENTER
 
 
 static func panel_style(fill: Color) -> StyleBoxFlat:
