@@ -2691,3 +2691,25 @@ white-hot spark gone in a tenth of a second, a thin ring of light running
 out, forks of lightning cracking from the point, a crown of sparks thrown out
 and falling, and the lamp flaring — in the bolt's colours, all bigger for a
 full charge (`SpellBolt._burst`).
+
+## The eighth round: the assassin's evade and climbing, the wolf's tell
+
+**The assassin's evade** (`CharacterProfile.hold_to_flip`, `Player._press_dash_flipper`):
+a tap of the dash is a quick step — Mixamo's standing dodges, the same the
+archer's double tap uses, forward, back, left or right as the body sees it
+(`SkinnedRogueRig.step_dodge`); with an enemy locked he keeps facing it, so it
+is a step to the side or back. Held past `hold_flip_after` (0.16 s) the step
+becomes the twisting flip; two quick taps do the same. Pushed away from what is
+locked, it is a backflip straight off, still facing it
+(`SkinnedRogueRig.backflip`). Everything costs him less: a step 7, the flip 3
+more, a blow 7.
+
+**He climbs**: `can_climb` on, and Mixamo's wall climbs, shimmies, hang and
+hang-to-crouch retargeted onto his rig (`DG_Climb_Up/Down`, `DG_Shimmy_*`,
+`DG_Hang`, `DG_Hang_To_Crouch` as his mantle), their vertical travel on the
+root so the body's own movement is not doubled.
+
+**The wolf's tell**: the swipe winds up for longer and plainer (`swipe_windup`,
+55 % of a 0.85 s swipe: the arm high and back, the chest rearing) with a red
+glint gathering on the claws about to come through, then goes fast; the claws
+land 0.58 s in (`swipe_lands_after`), a swipe every 1.5 s.
