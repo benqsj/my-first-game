@@ -22,7 +22,7 @@ extends CanvasLayer
 const WORLD_MIN := Vector2(-120.0, -455.5)
 const WORLD_MAX := Vector2(120.0, 119.5)
 ## Pixels a metre in the photograph.
-const PIXELS_PER_METRE := 2.0
+const PIXELS_PER_METRE := 4.0
 ## The corner map: its size on screen, and how many metres across it shows.
 const MINI_SIZE := 210.0
 const MINI_SPAN := 90.0
@@ -41,6 +41,11 @@ var _mini: Control
 var _big_root: Control
 var _big: Control
 var _givers: Array[Node3D] = []
+## The big map's zoom (screen pixels per map pixel; 0 until first drawn) and
+## the map point at the middle of the screen.
+var _zoom: float = 0.0
+var _centre: Vector2 = Vector2.INF
+var _dragging: bool = false
 
 
 func _ready() -> void:
@@ -64,11 +69,6 @@ func _ready() -> void:
 	_big_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_big_root.visible = false
 	add_child(_big_root)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_big_root.add_child(dim)
 	_big = Control.new()
 	_big.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_big.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -92,11 +92,43 @@ func _input(event: InputEvent) -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	if event.is_action_pressed("map"):
-		_big_root.visible = not _big_root.visible
+		_open(not _big_root.visible)
 		get_viewport().set_input_as_handled()
-	elif _big_root.visible and event.is_action_pressed("ui_cancel"):
-		_big_root.visible = false
+		return
+	if not _big_root.visible:
+		return
+	if event.is_action_pressed("ui_cancel"):
+		_open(false)
 		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton:
+		var b := event as InputEventMouseButton
+		if b.button_index == MOUSE_BUTTON_WHEEL_UP or b.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			if b.pressed:
+				# Zoomed about the point under the mouse, which stays under it.
+				var before := _centre + (b.position - _big.size * 0.5) / maxf(_zoom, 0.0001)
+				_zoom *= 1.15 if b.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.15
+				_big.queue_redraw()
+				var z := _zoom
+				_centre = before - (b.position - _big.size * 0.5) / maxf(z, 0.0001)
+		elif b.button_index == MOUSE_BUTTON_LEFT:
+			_dragging = b.pressed
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and _dragging:
+		_centre -= (event as InputEventMouseMotion).relative / maxf(_zoom, 0.0001)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and (event as InputEventKey).physical_keycode == KEY_C:
+		_centre = _to_map(player.global_position)
+		get_viewport().set_input_as_handled()
+
+
+func _open(on: bool) -> void:
+	_big_root.visible = on
+	_dragging = false
+	player.menu_open = on
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if on else Input.MOUSE_MODE_CAPTURED
+	if on:
+		# Opens on where you are.
+		_centre = _to_map(player.global_position)
 
 
 func is_open() -> bool:
@@ -190,25 +222,48 @@ func _draw_mini() -> void:
 func _draw_big() -> void:
 	var screen := _big.size
 	var whole := (WORLD_MAX - WORLD_MIN) * PIXELS_PER_METRE
-	var zoom := minf(screen.y * 0.88 / whole.y, screen.x * 0.9 / whole.x)
-	var shown := whole * zoom
-	var corner := (screen - shown) * 0.5
-	var frame := Rect2(corner, shown)
-	_big.draw_rect(frame.grow(6.0), Color(0.05, 0.05, 0.05, 0.95))
+	# The whole screen is the map's window: the map under it, moved by
+	# dragging and zoomed by the wheel, never so far out that it floats in it.
+	var fit := maxf(screen.x / whole.x, screen.y / whole.y) * 0.62
+	_zoom = clampf(_zoom if _zoom > 0.0 else fit * 1.6, fit, fit * 6.0)
+	if _centre == Vector2.INF:
+		_centre = _to_map(player.global_position)
+	var half := screen * 0.5 / _zoom
+	_centre.x = clampf(_centre.x, minf(half.x, whole.x * 0.5), maxf(whole.x - half.x, whole.x * 0.5))
+	_centre.y = clampf(_centre.y, minf(half.y, whole.y * 0.5), maxf(whole.y - half.y, whole.y * 0.5))
+	var corner := screen * 0.5 - _centre * _zoom
+	var frame := Rect2(corner, whole * _zoom)
+	_big.draw_rect(Rect2(Vector2.ZERO, screen), Color(0.06, 0.07, 0.06, 1.0))
 	if _texture != null:
-		_big.draw_texture_rect(_texture, frame, false)
+		_big.draw_texture_rect(_texture, frame, false, Color(1.25, 1.25, 1.2))
 	else:
 		_big.draw_rect(frame, Color(0.2, 0.26, 0.16))
 	var place := func(at: Vector3) -> Vector2:
-		return corner + _to_map(at) * zoom
-	_marks_on(_big, place, frame, 4.5, false)
-	_arrow(_big, place.call(player.global_position), _heading_on_map(-player.global_transform.basis.z), 11.0)
-	_big.draw_rect(frame.grow(6.0), EDGE, false, 2.0)
+		return corner + _to_map(at) * _zoom
+	var view := Rect2(Vector2.ZERO, screen)
+	_marks_on(_big, place, view, 6.0, false)
+	_arrow(_big, place.call(player.global_position), _heading_on_map(-player.global_transform.basis.z), 15.0)
+	# A band across the top with the title and the keys.
+	_big.draw_rect(Rect2(0, 0, screen.x, 46), Color(0.03, 0.03, 0.03, 0.78))
+	_big.draw_rect(Rect2(0, 46, screen.x, 1), EDGE)
 	var font := ThemeDB.fallback_font
-	_big.draw_string(font, corner + Vector2(0, -16), "MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, GOLD)
-	_big.draw_string(font, corner + Vector2(shown.x - 90, -16), "M  close", HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
-			Color(GOLD, 0.7))
-	_big.draw_string(font, corner + Vector2(shown.x * 0.5 - 5, 14), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, GOLD)
+	_big.draw_string(font, Vector2(24, 31), "MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, GOLD)
+	_big.draw_string(font, Vector2(110, 30),
+			"wheel  zoom      drag  move      C  back to you      M  close",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(GOLD, 0.75))
+	var legend := [["you", GOLD], ["players", ALLY], ["creatures", FOE], ["people with work", GIVER]]
+	var x := screen.x - 470.0
+	for item: Array in legend:
+		_big.draw_circle(Vector2(x, 25), 6.0, item[1])
+		_big.draw_string(font, Vector2(x + 12, 30), String(item[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
+				Color(1, 1, 1, 0.8))
+		x += 26.0 + font.get_string_size(String(item[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 16.0
+	# North, top right under the band.
+	var n_at := Vector2(screen.x - 40, 90)
+	_big.draw_circle(n_at, 18.0, Color(0, 0, 0, 0.55))
+	_big.draw_colored_polygon(PackedVector2Array([n_at + Vector2(0, -14), n_at + Vector2(6, 2),
+			n_at + Vector2(-6, 2)]), GOLD)
+	_big.draw_string(font, n_at + Vector2(-5, 16), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, GOLD)
 
 
 func _marks(place: Callable, inside: Rect2, dot: float) -> void:
