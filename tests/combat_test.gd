@@ -224,7 +224,9 @@ func _initialize() -> void:
 			behind < hunter.lose_range
 					and (hunter.state == Wolf.State.CHASE or hunter.state == Wolf.State.FIGHT),
 			"%.1f m behind, state %d" % [behind, hunter.state])
-	await _shot("%s/combat_severed.png" % dir, wolf, Vector3(2.4, 1.2, 2.8))
+	# (The body may already have gone on a slow run; see below.)
+	if is_instance_valid(wolf):
+		await _shot("%s/combat_severed.png" % dir, wolf, Vector3(2.4, 1.2, 2.8))
 
 	# --- The body does not lie there forever --------------------------------
 	# Cut the linger short rather than waiting out the real one: what is being
@@ -285,9 +287,47 @@ func _initialize() -> void:
 		await physics_frame
 	var carried := standing.distance_to(player.global_position)
 	Input.action_release("move_forward")
-	_check("but the first cut keeps its run",
-			carried > player.run_speed * 0.2 * 0.5,
-			"%.2f m in a fifth of a second" % carried)
+	_check("a cut from standing does not skate off on the stick",
+			carried < player.run_speed * 0.2 * 0.6, "%.2f m in a fifth of a second" % carried)
+
+	# Thrown out of a full run, the step carries the run into one stride and
+	# plants — the body does not keep sliding at a run under a swing played on
+	# the spot.
+	for i in 90:
+		await physics_frame
+		if not player.is_committed():
+			break
+	Input.action_press("move_forward")
+	for i in 60:
+		await physics_frame
+	var run_before := Vector3(player.velocity.x, 0.0, player.velocity.z).length()
+	Input.action_press("attack")
+	await physics_frame
+	Input.action_release("attack")
+	# The press is read on the tick after this one resumes.
+	for i in 3:
+		await physics_frame
+		if player.is_committed():
+			break
+	var thrown_at := player.global_position
+	var took := player.is_committed()
+	var elapsed := 0.0
+	var planted_speed := 0.0
+	var stepped := 0.0
+	while player.is_committed() and elapsed < 2.0:
+		await physics_frame
+		elapsed += 1.0 / 60.0
+		if elapsed <= player.swing_step_time:
+			stepped = thrown_at.distance_to(player.global_position)
+		elif elapsed > player.swing_step_time + 0.05 and player.is_committed():
+			# (Only while still committed: the tick the swing lets go, the stick
+			# has the body back, and that is the point.)
+			planted_speed = maxf(planted_speed, Vector3(player.velocity.x, 0.0, player.velocity.z).length())
+	Input.action_release("move_forward")
+	_check("a cut out of a run carries it into a step", stepped > 0.3 and stepped < 1.4,
+			"%.2f m; running %.2f m/s, committed %s" % [stepped, run_before, took])
+	_check("and then the feet are planted for the rest of the swing", planted_speed < 0.4,
+			"%.2f m/s" % planted_speed)
 
 	# And then it all comes back.
 	for i in 90:
@@ -309,8 +349,8 @@ func _initialize() -> void:
 		await physics_frame
 	var chained := second.distance_to(player.global_position)
 	Input.action_release("move_forward")
-	_check("and the cut after it is the one that is slowed",
-			chained < carried * 0.5, "%.2f m against %.2f" % [chained, carried])
+	_check("and the cut after it barely moves",
+			chained < 0.3, "%.2f m" % chained)
 	for i in 120:
 		await physics_frame
 		if not player.is_committed():

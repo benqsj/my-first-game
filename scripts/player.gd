@@ -230,6 +230,14 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 ## the next swing is a follow-up and is slowed; outside it the next swing is a
 ## first one again and keeps its run.
 @export var chain_window: float = 0.5
+## The step a grounded swing takes. A swing thrown out of a run used to keep the
+## whole run, and the clip is swung on the spot: the feet stood still while the
+## body skated on under them. Now the first cut carries the run into one step
+## forward along the blade — fastest as the swing starts, gone by the time the
+## blade comes through — and plants there. `swing_step_speed` caps how fast
+## that step starts, in metres a second; `swing_step_time` is how long it lasts.
+@export var swing_step_speed: float = 3.4
+@export var swing_step_time: float = 0.36
 
 @export_group("Bow")
 ## How much of the run survives while the string is being held. An archer at a
@@ -379,6 +387,12 @@ var _plunging: bool = false
 ## How long is left before a flurry is considered over and the next swing counts
 ## as a first one again.
 var _chain_timer: float = 0.0
+## The step the current swing is taking: how fast it began, and how long ago.
+var _step_speed: float = 0.0
+var _step_age: float = 0.0
+## True from a sword swing's press until its commitment runs out. A shot or a
+## stagger commits too, and they keep their own movement.
+var _swinging: bool = false
 
 
 func _ready() -> void:
@@ -681,6 +695,29 @@ func _process_locomotion(delta: float) -> void:
 		speed *= commit_speed_scale
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+
+	# A grounded swing moves the body only by the step it takes (see
+	# `swing_step_speed`), straight along the way the blade is going, and not by
+	# the stick: the stick asks for the run, and the run is exactly what made
+	# him skate. The feet plant when the step is over.
+	# Not gated on the floor: a tick where the floor check blinks would hand
+	# the body back to the stick, at a run, for one frame — and that frame is
+	# exactly the slide this was written to stop.
+	if is_committed() and not _plunging and _is_swinging():
+		_step_age += delta
+		var along := -global_transform.basis.z
+		along.y = 0.0
+		along = along.normalized()
+		var left := clampf(1.0 - _step_age / maxf(swing_step_time, 0.01), 0.0, 1.0)
+		var step := along * _step_speed * left * left
+		horizontal = horizontal.move_toward(step, ground_deceleration * 3.0 * delta)
+		velocity.x = horizontal.x
+		velocity.z = horizontal.z
+		if on_floor:
+			velocity.y = minf(velocity.y, 0.0)
+		else:
+			velocity.y -= _current_gravity() * delta
+		return
 
 	# A ledge met in mid-air is taken without asking, so running at a wall and
 	# jumping is enough to get over it. A face too tall to be mantled is caught
@@ -1723,6 +1760,7 @@ func _loose_arrow() -> void:
 	# The shot is thrown; now it has to be lived with. The string going is the
 	# same kind of commitment a swing is — the difference is that the archer
 	# chooses when, because the draw itself can be held or let go of.
+	_swinging = false
 	_commit(loose_recovery)
 	arrow_loosed.emit(power, damage, critical)
 
@@ -1878,6 +1916,17 @@ func _attack() -> void:
 	# A cut thrown in the air is a **plunge**, and a plunge is owed its landing:
 	# whatever it passes through on the way down, it finishes in the ground.
 	_plunging = airborne
+	# The step this swing takes: the run it was thrown out of, down to a
+	# stride; a cut thrown from standing still leans into one, a small one, if
+	# the stick is pushed; a cut chained off the last takes almost none.
+	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
+	var pushing := not get_movement_direction().is_zero_approx()
+	if _free_swing:
+		_step_speed = minf(maxf(planar, 2.2 if pushing else 0.0), swing_step_speed)
+	else:
+		_step_speed = 1.2 if pushing else 0.0
+	_step_age = 0.0
+	_swinging = true
 	attack_started.emit()
 	if rig != null:
 		# In the air the blade comes down from over the head. Nothing else reads
@@ -1983,6 +2032,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		return
 	velocity += away * (2.0 + damage * blow_shove)
 	_free_swing = false
+	_swinging = false
 	_commit(0.2 + damage * blow_stagger)
 	net_react.rpc(Reaction.FLINCH, at, spray)
 
@@ -2093,6 +2143,12 @@ func _commit(seconds: float) -> void:
 ## True while an attack is playing out and nothing else may be started.
 func is_committed() -> bool:
 	return _commit_timer > 0.0
+
+
+func _is_swinging() -> bool:
+	if _commit_timer <= 0.0:
+		_swinging = false
+	return _swinging
 
 
 ## The end of a plunge: the blade goes into the ground and the man behind it
