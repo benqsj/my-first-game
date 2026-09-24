@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://rbgsh1kurs17"
+path="res://.godot/imported/მთვარის შუქზე2.mp3-b0165e2a046e01f6ea9d8ff9be9d97f6.mp3str"
+
+[deps]
+
+source_file="res://sounds/menu-test/მთვარის შუქზე2.mp3"
+dest_files=["res://.godot/imported/მთვარის შუქზე2.mp3-b0165e2a046e01f6ea9d8ff9be9d97f6.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

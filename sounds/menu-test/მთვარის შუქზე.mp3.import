@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dlwxgc5omj54s"
+path="res://.godot/imported/მთვარის შუქზე.mp3-6f8561dcfc169ae86d6462be1cf592af.mp3str"
+
+[deps]
+
+source_file="res://sounds/menu-test/მთვარის შუქზე.mp3"
+dest_files=["res://.godot/imported/მთვარის შუქზე.mp3-6f8561dcfc169ae86d6462be1cf592af.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
