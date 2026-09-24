@@ -122,6 +122,92 @@ func _initialize() -> void:
 	_check("and takes a riposte deeper too", is_equal_approx(hp - ark.health, 20.0 * Recoil.RIPOSTE * (1.0 - ark.armour)),
 			"%.1f" % (hp - ark.health))
 
+	# --- The tower shield --------------------------------------------------------
+	await _wait(30)
+	_player.set_shield(Inventory.Shields.TOWER)
+	var skinned := _player.rig as SkinnedRig
+	_check("the tower shield goes on his arm, the round one off it", skinned != null
+			and skinned._shield_meshes.size() == 2 and skinned._shield_meshes[1] != null
+			and skinned._shield_meshes[1].visible and not skinned._shield_meshes[0].visible)
+	thrown_back.clear()
+	_player.stamina = _player.max_stamina
+	_player.is_blocking = true
+	_player._guard_raised_at = _player._now()
+	_in_front(imp)
+	before = _player.health
+	_player.net_blow(10.0, away, imp.global_position, "%s#t1" % path, 0, 3)
+	_check("it cannot parry", thrown_back.is_empty() and _player.health == before)
+	_check("but a blow on it costs little more than half the stamina", is_equal_approx(_player.stamina,
+			_player.max_stamina - 10.0 * _player.block_stamina * _player.tower_block_share), "%.1f" % _player.stamina)
+	_player.set_shield(Inventory.Shields.ROUND)
+	_player.is_blocking = false
+
+	# --- A perfect dodge -------------------------------------------------------
+	await _wait(20)
+	var perfect := [false]
+	_player.perfect_dodged.connect(func() -> void: perfect[0] = true)
+	_player.stamina = 50.0
+	_player._dash_cooldown_timer = 0.0
+	_player._try_dash()
+	before = _player.health
+	_player.net_blow(10.0, away, imp.global_position, "%s#pd" % path, 0, 3)
+	_check("a blow in the first moments of a roll is dodged perfectly", perfect[0] and _player.health == before)
+	_check("and the roll's stamina comes back", _player.stamina >= 50.0 - 0.01, "%.1f" % _player.stamina)
+	await _wait(3)
+	_check("he leaves a shadow behind him", _player.get_node_or_null("ShadowTrail") is ShadowTrail)
+	await _wait(80)
+
+	# --- The inventory and the map ----------------------------------------------
+	var bag := _player.get_node_or_null("Inventory") as Inventory
+	_check("he has an inventory", bag != null)
+	_check("and a map", _player.get_node_or_null("Map") is WorldMap)
+	if bag != null:
+		bag.toggle()
+		_check("open, it holds him still", _player.menu_open and bag.is_open())
+		bag.equip(Inventory.Shields.TOWER)
+		_check("and a shield chosen in it goes on", _player.shield_kind == Inventory.Shields.TOWER)
+		bag.equip(Inventory.Shields.ROUND)
+		bag.toggle()
+		_check("closed, he is free again", not _player.menu_open)
+
+	# --- A wolf --------------------------------------------------------------------
+	var wolf: Wolf = null
+	for node in enemies.get_children():
+		if node is Wolf:
+			wolf = node
+			break
+	_check("wolves notice a player close, not across the field", wolf != null and wolf.sight_range <= 12.0)
+	if wolf != null:
+		wolf.global_position = _player.global_position - _player.global_transform.basis.z * 1.8
+		var at_him := _player.global_position - wolf.global_position
+		wolf.rotation.y = atan2(-at_him.x, -at_him.z)
+		before = _player.health
+		wolf._swipe_count += 1
+		wolf._land_swipe()
+		_check("and a wolf's claws hurt", is_equal_approx(_player.health, before - wolf.swipe_damage),
+				"%.0f -> %.0f" % [before, _player.health])
+		wolf.global_position += Vector3(0.0, -50.0, 0.0)
+	var den := Vector3.ZERO
+	var wolves := 0
+	var closest := INF
+	for node in enemies.get_children():
+		if node is Wolf and node != wolf:
+			den += (node as Node3D).global_position
+			wolves += 1
+	if wolves > 0:
+		den /= float(wolves)
+		var all_near := true
+		var ws: Array[Vector3] = []
+		for node in enemies.get_children():
+			if node is Wolf and node != wolf:
+				ws.append((node as Node3D).global_position)
+				all_near = all_near and (node as Node3D).global_position.distance_to(den) < 16.0
+		for i in ws.size():
+			for j in range(i + 1, ws.size()):
+				closest = minf(closest, ws[i].distance_to(ws[j]))
+		_check("the wolves keep to one den", all_near)
+		_check("but not on top of each other", closest > 3.0, "%.1f m" % closest)
+
 	# --- Falling -----------------------------------------------------------------
 	await _wait(30)
 	var fell := [false]

@@ -36,6 +36,11 @@ var clips := {
 	&"hit": &"SS_Head_Impact", &"hit_blocked": &"SS_Blocked_Impact",
 	&"mantle": &"SS_Mantle", &"plunge": &"SS_Jump_Attack",
 	&"overhead": &"SS_Downward_Slash",
+	# Keyed in Blender off the guard: the shield swept out across the blow and
+	# the body opened behind it, the sword drawn back for the answer.
+	&"parry": &"SS_Parry",
+	# The same guard behind the tower shield: lower, knees bent, leaning in.
+	&"tower_block": &"SS_Tower_Block",
 }
 ## Ground speed each in-place cycle was authored at, measured in Blender off the
 ## planted foot (m/s). The play rate is the body's speed over this, so the feet
@@ -57,6 +62,7 @@ var looping: Array[StringName] = [
 	&"SS_Left_Crouch_Idle_Loop", &"SS_Sword_Play_Idle", &"SS_Look_Around_Idle",
 	&"SS_Block_Walk", &"SS_Block_Walk_Back", &"SS_Block_Walk_Left", &"SS_Block_Walk_Right",
 	&"SS_Crouch_Walk", &"SS_Crouch_Walk_Back", &"SS_Crouch_Walk_Left", &"SS_Crouch_Walk_Right",
+	&"SS_Tower_Block",
 ]
 ## The cuts a flurry cycles through, in order.
 var flurry: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Downward_Slash"]
@@ -160,6 +166,10 @@ var _stride_time: float = 0.0
 ## ribbon [CharacterRig] hangs off the procedural rig.
 var _arc: BladeArc
 var _arc_l: BladeArc
+## Which shield is on the arm (see [enum Shields] in `inventory.gd`): 0 the
+## round one, 1 the tower shield. The model carries both; one is shown.
+var shield_kind: int = 0
+var _shield_meshes: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -187,6 +197,9 @@ func _ready() -> void:
 	if cloth_enabled:
 		_setup_cloth()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
+	for mesh_name in ["tariel_shield", "tariel_tower_shield"]:
+		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
+	set_shield(shield_kind)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
 	Sfx.warm(swing_sounds)
@@ -355,7 +368,10 @@ func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, block
 		return
 	if blocking:
 		if planar < idle_threshold:
-			_set_base(clips[&"block_idle"], 0.12, 1.0)
+			var guard: StringName = clips[&"block_idle"]
+			if shield_kind == 1 and clips.has(&"tower_block") and _anim.has_animation(clips[&"tower_block"]):
+				guard = clips[&"tower_block"]
+			_set_base(guard, 0.12, 1.0)
 		else:
 			# Legs from the walk, the guard held up over them (baked in Blender).
 			var bclip := _block_walk_clip()
@@ -585,7 +601,19 @@ func flinch() -> void:
 func parry() -> void:
 	if _role == Role.DOWN or _role == Role.GET_UP:
 		return
-	_play_action(clips[&"hit_blocked"], Role.HIT, 2.0, 0.04)
+	if clips.has(&"parry") and _anim.has_animation(clips[&"parry"]):
+		_play_action(clips[&"parry"], Role.HIT, 1.25, 0.04)
+	else:
+		_play_action(clips[&"hit_blocked"], Role.HIT, 2.0, 0.04)
+
+
+## Shows the shield that is carried and hides the other.
+func set_shield(kind: int) -> void:
+	shield_kind = kind
+	for i in _shield_meshes.size():
+		if _shield_meshes[i] != null:
+			_shield_meshes[i].visible = i == kind
+	_base_clip = &""
 
 
 func knock_down() -> void:

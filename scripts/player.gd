@@ -32,6 +32,8 @@ signal struck(damage: float, blocked: bool)
 signal parried(attacker: Node3D)
 signal died
 signal respawned
+## A blow went through the roll in its first moments ([member perfect_dodge_window]).
+signal perfect_dodged
 
 enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB, DOWNED }
 
@@ -273,12 +275,18 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 ## rather than blocked, in seconds. A parry costs nothing, turns the blow back
 ## and leaves whoever threw it open.
 @export var parry_window: float = 0.22
+## What a blow on the tower shield costs, as a share of what the round one pays.
+@export_range(0.1, 1.0) var tower_block_share: float = 0.55
 ## Held this long when a blow breaks the guard (the shield taken with no
 ## stamina left to hold it).
 @export var guard_break_time: float = 0.9
 ## How long the body lies there after falling before it is back on its feet at
 ## the start, in seconds.
 @export var respawn_time: float = 4.0
+## A blow that arrives within this long of a roll starting is dodged
+## **perfectly**: the body leaves a shadow trail for a second
+## ([ShadowTrail]) and the roll's stamina comes back.
+@export var perfect_dodge_window: float = 0.3
 ## Until there are potions and a fire to rest at, health comes back slowly on
 ## its own once nothing has hurt him for `mend_after` seconds.
 @export var mend_after: float = 10.0
@@ -335,7 +343,17 @@ var _spawn_known: bool = false
 ## When the shield last came up, in seconds of engine time: a blow that lands
 ## within `parry_window` of it is parried.
 var _guard_raised_at: float = -100.0
+## When the current roll started, and whether it has already been perfect.
+var _evade_started_at: float = -100.0
+var _evade_was_perfect: bool = false
 var _hud: PlayerHud
+var _inventory: Inventory
+## Which shield is carried ([enum Inventory.Shields]). Only the round one
+## parries; the tower one blocks for less stamina.
+var shield_kind: int = Inventory.Shields.ROUND
+## True while a screen of his own (the inventory, the big map) is open: the
+## body stands still and takes no buttons.
+var menu_open: bool = false
 ## True while the block button is held and the shield is up.
 var is_blocking: bool = false
 
@@ -424,6 +442,7 @@ var net_aim: float = 0.0
 ## on the host leave a fallen player alone.
 var net_health: float = 1.0
 var net_dead: bool = false
+var net_shield: int = 0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -506,6 +525,14 @@ func _ready() -> void:
 		_hud.name = "Hud"
 		_hud.player = self
 		add_child(_hud)
+		_inventory = Inventory.new()
+		_inventory.name = "Inventory"
+		_inventory.player = self
+		add_child(_inventory)
+		var chart := WorldMap.new()
+		chart.name = "Map"
+		chart.player = self
+		add_child(chart)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -559,6 +586,8 @@ func _process(delta: float) -> void:
 
 	if rig == null:
 		return
+	if not mine and rig.has_method(&"set_shield") and int(rig.get(&"shield_kind")) != net_shield:
+		rig.call(&"set_shield", net_shield)
 	if state == State.WALLCLIMB:
 		rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
 	# `velocity` is replicated, so the pace is right for everyone. `is_on_floor()`
@@ -589,6 +618,7 @@ func _publish_net_state() -> void:
 	net_aim = _aim_pitch() if has_bow() else 0.0
 	net_health = health / maxf(max_health, 1.0)
 	net_dead = is_dead
+	net_shield = shield_kind
 
 
 func _physics_process(delta: float) -> void:
@@ -704,6 +734,11 @@ func _shot_drop() -> float:
 ## Action buttons are polled rather than read from _unhandled_input() so that a
 ## press is never lost between physics ticks and so simulated input works.
 func _read_actions() -> void:
+	if menu_open:
+		if is_blocking:
+			is_blocking = false
+			block_changed.emit(false)
+		return
 	# Looking around, letting go of a target and putting the weapons away are
 	# always allowed: none of them moves the body, so none of them is a way out
 	# of a swing.
@@ -875,6 +910,8 @@ func _slide_off_steep_ground(delta: float) -> void:
 
 
 func get_movement_direction() -> Vector3:
+	if menu_open:
+		return Vector3.ZERO
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if input.is_zero_approx():
 		return Vector3.ZERO
@@ -1013,6 +1050,8 @@ func _try_dash() -> void:
 	_dash_direction = _dash_direction.normalized()
 
 	state = State.DASHING
+	_evade_started_at = _now()
+	_evade_was_perfect = false
 	_dash_timer = dash_duration
 	_dash_cooldown_timer = dash_cooldown + dash_duration
 	is_invulnerable = dash_iframes > 0.0
@@ -1781,7 +1820,7 @@ func has_target() -> bool:
 ## is choosing between rate and weight rather than between two buttons.
 func _tick_bow(delta: float) -> void:
 	_shot_timer = maxf(_shot_timer - delta, 0.0)
-	var holding := Input.is_action_pressed("attack")
+	var holding := Input.is_action_pressed("attack") and not menu_open
 	# Committed as well as rolling: the beat after the string goes belongs to the
 	# shot that was just taken, and an archer who can start the next draw before
 	# his arm has come down is an archer with no rate of fire to manage.
@@ -2073,6 +2112,9 @@ func _attack() -> void:
 @export var blow_shove: float = 0.28
 ## Seconds the knight is held after an unguarded blow, per point of damage.
 @export var blow_stagger: float = 0.03
+## Past this much damage a blow shoves and staggers no further: it hurts more,
+## it does not throw him across the field.
+@export var blow_heft_cap: float = 16.0
 @export_group("Knockdown")
 ## Seconds spent lying on the ground once the fall has played, before getting up.
 @export var down_time: float = 0.7
@@ -2127,6 +2169,12 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	if is_invulnerable or state == State.DASHING or state == State.DODGING \
 			or state == State.DOWNED:
 		_combo_landed[combo] = -999
+		if (state == State.DASHING or state == State.DODGING) and not _evade_was_perfect \
+				and _now() - _evade_started_at <= perfect_dodge_window:
+			_evade_was_perfect = true
+			stamina = minf(stamina + (profile.roll_stamina if profile != null else 20.0), max_stamina)
+			_winded = false
+			net_react.rpc(Reaction.PERFECT_DODGE, global_position, Vector3.ZERO)
 		return
 	var toward := source - global_position
 	toward.y = 0.0
@@ -2137,12 +2185,18 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		# Met the moment the shield came up: thrown back. Only an ordinary blow
 		# can be — a slam, a stamp or the ground coming up (a combo of one) is
 		# too much to turn aside, and is only ever blocked.
-		if blows > 1 and _now() - _guard_raised_at <= parry_window:
+		if blows > 1 and shield_kind == Inventory.Shields.ROUND \
+				and _now() - _guard_raised_at <= parry_window:
 			_parry(combo.get_slice("#", 0), source)
 			return
-		# Caught on the shield: a step back, and it costs stamina to hold.
-		_spend(damage * block_stamina)
-		velocity += away * (1.0 + damage * blow_shove * 0.25)
+		# Caught on the shield: a step back, and it costs stamina to hold — never
+		# more than most of the bar, so even a raid boss's blow can be taken on
+		# the shield once.
+		var cost := minf(damage * block_stamina, max_stamina * 0.7)
+		if shield_kind == Inventory.Shields.TOWER:
+			cost *= tower_block_share
+		_spend(cost)
+		velocity += away * (1.0 + _heft(damage) * blow_shove * 0.25)
 		if stamina <= 0.0:
 			# Nothing left to hold it with: the guard breaks, and half the blow
 			# comes through it.
@@ -2164,16 +2218,21 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	var spray := (away + Vector3.UP * 0.3).normalized()
 	if _take_damage(damage):
 		# That one was the last: he goes down and does not get up.
-		velocity = away * (2.5 + damage * blow_shove * 0.5)
+		velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 		return
 	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
 		_knock_down(away, damage)
 		net_react.rpc(Reaction.KNOCKDOWN, at, spray)
 		return
-	velocity += away * (2.0 + damage * blow_shove)
+	velocity += away * (2.0 + _heft(damage) * blow_shove)
 	_free_swing = false
-	_commit(0.2 + damage * blow_stagger)
+	_commit(0.2 + _heft(damage) * blow_stagger)
 	net_react.rpc(Reaction.FLINCH, at, spray)
+
+
+## How hard a blow of `damage` shoves: the damage, up to `blow_heft_cap`.
+func _heft(damage: float) -> float:
+	return minf(damage, blow_heft_cap)
 
 
 func _forget_combos_from(combo: String) -> void:
@@ -2183,7 +2242,7 @@ func _forget_combos_from(combo: String) -> void:
 			_combo_landed.erase(key)
 
 
-enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN }
+enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE }
 
 ## What a blow did to him, shown in every window: a flinch or a fall with
 ## blood, or the end of lying there.
@@ -2218,6 +2277,9 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.RESPAWN:
 			if rig != null:
 				rig.leave_ground()
+		Reaction.PERFECT_DODGE:
+			ShadowTrail.start(self)
+			perfect_dodged.emit()
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
@@ -2233,7 +2295,7 @@ func _knock_down(away: Vector3, damage: float) -> void:
 		block_changed.emit(false)
 	_commit_timer = 0.0
 	_attack_buffer = 0.0
-	velocity = away * (2.5 + damage * blow_shove * 0.5)
+	velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 
 
 func _process_downed(delta: float) -> void:
@@ -2342,6 +2404,14 @@ func _turn_to_target() -> void:
 
 
 #region Vitals
+## Puts on a shield ([enum Inventory.Shields]); every peer sees it through
+## `net_shield`.
+func set_shield(kind: int) -> void:
+	shield_kind = kind
+	if rig != null and rig.has_method(&"set_shield"):
+		rig.call(&"set_shield", kind)
+
+
 const PARRY_SOUND := "res://sounds/parry/clang.wav"
 
 
