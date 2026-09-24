@@ -492,37 +492,170 @@ func is_fading() -> bool:
 	return _fading
 
 
-## The flash where it lands: a ball of light that swells and goes, and the lamp
-## flaring with it. The bolt itself goes with the flash.
+## Where it lands: not a ball swelling over the target but lightning letting
+## go — a white-hot spark that flares and is gone at once, a ring of light
+## running out along the ground-plane of the blow, a crown of sparks thrown
+## out and falling, a few forks of lightning cracking out from the point, and
+## the lamp flaring with it. All in the bolt's colours, all bigger for a full
+## charge. The bolt's own orb goes with the flash.
 func _burst(where: Vector3) -> void:
 	for child in get_children():
 		if child is Node3D and child != _light and child != _steady:
 			(child as Node3D).visible = false
-	var flash := MeshInstance3D.new()
-	var ball := SphereMesh.new()
-	ball.radius = 0.5
-	ball.height = 1.0
-	ball.radial_segments = 16
-	ball.rings = 8
-	flash.mesh = ball
+	var into := get_parent()
+	if into == null:
+		queue_free()
+		return
+	var fx := Node3D.new()
+	fx.name = "BoltStrike"
+	into.add_child(fx)
+	fx.global_position = where
+	var hot := glow_colour.lerp(Color.WHITE, 0.55)
+	var life := 0.55 * sqrt(_size)
+
+	# The spark at the heart: flares and is gone in a tenth of a second.
+	var core := _billboard(_disc_texture(false), Color(hot, 1.0), 0.35 * _size)
+	fx.add_child(core)
+	var tween := fx.create_tween().set_parallel(true)
+	tween.tween_property(core, "scale", Vector3.ONE * 1.4 * _size, 0.09).set_ease(Tween.EASE_OUT)
+	tween.tween_property(core.material_override, "albedo_color:a", 0.0, 0.16).set_delay(0.05)
+
+	# The ring running out, facing whoever looks at it.
+	var ring := _billboard(_disc_texture(true), Color(glow_colour, 0.95), 0.2 * _size)
+	fx.add_child(ring)
+	tween.tween_property(ring, "scale", Vector3.ONE * 2.6 * _size, life * 0.6) \
+			.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring.material_override, "albedo_color:a", 0.0, life * 0.6) \
+			.set_ease(Tween.EASE_IN)
+
+	# Forks of lightning cracking out and gone.
+	var forks := _forks(4 + int(3.0 * (_size - 1.0)), 0.9 * _size, hot)
+	fx.add_child(forks)
+	tween.tween_property(forks.material_override, "albedo_color:a", 0.0, 0.22).set_delay(0.06)
+
+	# Sparks thrown out, falling and cooling.
+	var sparks := _strike_sparks(int(36 * _size), hot)
+	fx.add_child(sparks)
+	sparks.emitting = true
+
+	if _light != null:
+		_light.global_position = where
+		_light.light_energy = 7.0 * _size
+		tween.tween_property(_light, "light_energy", 0.0, life)
+	tween.chain().tween_interval(0.5)
+	tween.chain().tween_callback(fx.queue_free)
+	get_tree().create_timer(life + 0.05).timeout.connect(queue_free)
+
+
+## A quad that always faces the camera, additive, in `colour`.
+func _billboard(tex: Texture2D, colour: Color, size: float) -> MeshInstance3D:
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.albedo_color = Color(glow_colour.r, glow_colour.g, glow_colour.b, 0.9)
-	flash.material_override = mat
-	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(flash)
-	flash.global_position = where
-	flash.scale = Vector3.ONE * 0.2
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(flash, "scale", Vector3.ONE * (1.6 if _critical else 1.1) * _size, burst_time) \
-			.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	tween.tween_property(mat, "albedo_color:a", 0.0, burst_time)
-	if _light != null:
-		_light.light_energy = 6.0 * _size
-		tween.tween_property(_light, "light_energy", 0.0, burst_time * _size)
-	tween.chain().tween_callback(queue_free)
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.no_depth_test = false
+	mat.albedo_texture = tex
+	mat.albedo_color = colour
+	var m := MeshInstance3D.new()
+	m.mesh = quad
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.scale = Vector3.ONE * size
+	return m
+
+
+## A soft round spot, or a thin bright ring with nothing in the middle.
+static func _disc_texture(ring: bool) -> GradientTexture2D:
+	var g := Gradient.new()
+	if ring:
+		g.offsets = PackedFloat32Array([0.0, 0.62, 0.8, 0.9, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 0), Color(1, 1, 1, 0), Color(1, 1, 1, 1),
+				Color(1, 1, 1, 0.35), Color(1, 1, 1, 0)])
+	else:
+		g.offsets = PackedFloat32Array([0.0, 0.25, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.7), Color(1, 1, 1, 0)])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	t.width = 64
+	t.height = 64
+	return t
+
+
+## A handful of jagged lines out from the point, drawn once.
+func _forks(count: int, reach: float, colour: Color) -> MeshInstance3D:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var im := ImmediateMesh.new()
+	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	for f in count:
+		var dir := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.4, 1), rng.randf_range(-1, 1)).normalized()
+		var at := Vector3.ZERO
+		var steps := 5
+		for k in steps:
+			var next := dir * reach * float(k + 1) / steps \
+					+ Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * 0.09 * reach
+			im.surface_add_vertex(at)
+			im.surface_add_vertex(next)
+			at = next
+	im.surface_end()
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.albedo_color = Color(colour, 1.0)
+	var m := MeshInstance3D.new()
+	m.mesh = im
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return m
+
+
+## Sparks thrown out from the strike: fast, falling, cooling as they go.
+func _strike_sparks(amount: int, colour: Color) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = maxi(amount, 8)
+	p.lifetime = 0.6
+	p.one_shot = true
+	p.explosiveness = 0.95
+	p.local_coords = false
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	m.emission_sphere_radius = 0.05
+	m.direction = Vector3.UP
+	m.spread = 180.0
+	m.initial_velocity_min = 2.5 * _size
+	m.initial_velocity_max = 6.5 * _size
+	m.gravity = Vector3(0.0, -9.0, 0.0)
+	m.damping_min = 2.0
+	m.damping_max = 4.0
+	m.scale_min = 0.6
+	m.scale_max = 1.4
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(Color.WHITE.lerp(colour, 0.3), 1.0))
+	ramp.set_color(1, Color(glow_colour, 0.0))
+	var ramp_tex := GradientTexture1D.new()
+	ramp_tex.gradient = ramp
+	m.color_ramp = ramp_tex
+	p.process_material = m
+	var dot := QuadMesh.new()
+	dot.size = Vector2(0.06, 0.06)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_texture = _disc_texture(false)
+	dot.material = mat
+	p.draw_pass_1 = dot
+	return p
 
 
 func _settle(_delta: float) -> void:
