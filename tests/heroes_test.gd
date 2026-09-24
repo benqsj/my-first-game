@@ -272,6 +272,35 @@ func _check_rogue() -> void:
 	_check("the flip lands him where it lands, no slide", flipping and landed and drift < 0.6, "%.2f m/s" % drift)
 	await _wait(60)
 
+	# Pressed over and over, the evades follow one another with no standing
+	# about between them: step, flip, step, flip.
+	_player.stamina = _player.max_stamina
+	_player._dash_cooldown_timer = 0.0
+	var starts := [0]
+	var count := func(_d: Vector3) -> void: starts[0] += 1
+	_player.dash_started.connect(count)
+	var started := 0
+	var gap := 0
+	var worst := 0
+	for i in 150:
+		if i % 9 == 0:
+			Input.action_press("dash")
+		elif i % 9 == 2:
+			Input.action_release("dash")
+		await physics_frame
+		var now := _player.state == Player.State.DASHING or _player.state == Player.State.DODGING
+		started = starts[0]
+		if not now and started > 0 and started < 4:
+			gap += 1
+			worst = maxi(worst, gap)
+		elif now:
+			gap = 0
+	Input.action_release("dash")
+	_player.dash_started.disconnect(count)
+	_check("evades follow one another without a pause", started >= 4 and worst <= 3,
+			"%d evades, longest stand %d frames" % [started, worst])
+	await _wait(60)
+
 	# Locked on, backing away: the same — a step back facing it, then the flip.
 	var foe := _dummy()
 	_world.add_child(foe)

@@ -1063,14 +1063,21 @@ func _press_dash() -> void:
 	var alternating := profile != null and profile.step_then_flip
 	var doubled := now - _last_dash_press <= double_tap_time
 	_last_dash_press = now
+	var landed := false
 	if state == State.DASHING or state == State.DODGING:
 		if not alternating and doubled and state == State.DASHING:
 			_upgrade_to_dodge()
-		else:
+			return
+		if not _evade_landed():
 			_evade_queued = true
-		return
+			return
+		# Feet already down: what is left of this one is only standing up out
+		# of it, so the next starts now, with no pause between.
+		_evade_queued = false
+		_end_dash()
+		landed = true
 	_evade_queued = false
-	var follows := now <= _chain_open_until
+	var follows := landed or now <= _chain_open_until
 	_evade_chain = _evade_chain + 1 if follows else 0
 	if not _start_evade(follows):
 		_evade_chain = 0
@@ -1176,6 +1183,12 @@ func _process_dash(delta: float) -> void:
 	if iframes > 0.0 and length - left >= iframes:
 		is_invulnerable = false
 
+	# A press kept from earlier goes the moment the feet are down, rather than
+	# waiting out the clip's recovery.
+	if _evade_queued and _evade_landed():
+		_end_dash()
+		return
+
 	# Going face-first into a wall should stop the evade, not scrape along it.
 	if dash_cancels_on_wall and is_on_wall() and get_wall_normal().dot(_dash_direction) < -0.6:
 		_end_dash()
@@ -1183,6 +1196,20 @@ func _process_dash(delta: float) -> void:
 
 	if left <= 0.0:
 		_end_dash()
+
+
+## Whether the evade under way has put the feet back down already (past its
+## [method _land_at] point): from there on the next evade may cut in.
+func _evade_landed() -> bool:
+	var dodging := state == State.DODGING
+	if state != State.DODGING and state != State.DASHING:
+		return false
+	var land := _land_at(dodging)
+	if land >= 1.0:
+		return false
+	var length := dodge_duration if dodging else dash_duration
+	var left := _dodge_timer if dodging else _dash_timer
+	return 1.0 - left / maxf(length, 0.001) >= land + 0.02
 
 
 ## Where in this evade the feet land ([member CharacterProfile.dodge_land_at]).
