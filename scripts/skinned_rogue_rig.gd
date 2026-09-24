@@ -29,7 +29,13 @@ func _configure() -> void:
 		# carry him the way he is going, as the body does.
 		&"roll": &"DG_Flip", &"dodge": &"DG_Twist", &"down": &"DG_Death",
 		&"hit": &"DG_Hit", &"hit_blocked": &"DG_Hit",
-		&"mantle": &"DG_Mantle", &"plunge": &"DG_Double_Stab",
+		&"mantle": &"DG_Hang_To_Crouch", &"plunge": &"DG_Double_Stab",
+		&"climb_up": &"DG_Climb_Up", &"climb_down": &"DG_Climb_Down",
+		&"shimmy_left": &"DG_Shimmy_Left", &"shimmy_right": &"DG_Shimmy_Right",
+		&"hang": &"DG_Hang",
+		&"step_fwd": &"DG_Dodge_Fwd", &"step_back": &"DG_Dodge_Back",
+		&"step_left": &"DG_Dodge_Left", &"step_right": &"DG_Dodge_Right",
+		&"backflip": &"DG_Backflip",
 		&"overhead": &"DG_Dual_Combo",
 	}
 	ground_speed = {
@@ -44,7 +50,8 @@ func _configure() -> void:
 		&"DG_Idle", &"DG_Idle_Knife", &"DG_Walk", &"DG_Run", &"DG_Walk_Back", &"DG_Run_Back",
 		&"DG_Walk_Left", &"DG_Walk_Right", &"DG_Run_Left", &"DG_Run_Right", &"DG_Crouch",
 		&"DG_Sneak", &"DG_Crouch_Walk_Back", &"DG_Crouch_Walk_Left", &"DG_Crouch_Walk_Right",
-		&"DG_Fall",
+		&"DG_Fall", &"DG_Climb_Up", &"DG_Climb_Down", &"DG_Shimmy_Left", &"DG_Shimmy_Right",
+		&"DG_Hang",
 	]
 	# Eight blows that run into each other, all cut tight to the blow itself
 	# in Blender so the knife is moving from the first frame: the five of
@@ -86,3 +93,46 @@ func dodge_clip(duration: float) -> bool:
 	if not _anim.has_animation(clip):
 		return false
 	return _play_action(clip, Role.ROLL, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.06)
+
+
+## A tap of the dash: the archer's quick step, whichever way it goes as the
+## body sees it (+x its right, -y ahead).
+func step_dodge(local: Vector2, duration: float) -> void:
+	var key := &"step_fwd"
+	if absf(local.x) > absf(local.y):
+		key = &"step_right" if local.x > 0.0 else &"step_left"
+	elif local.y > 0.0:
+		key = &"step_back"
+	var clip: StringName = clips[key]
+	if not _anim.has_animation(clip):
+		dodge(duration)
+		return
+	_play_action(clip, Role.ROLL, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.05)
+
+
+## Away from what he is facing: a backflip, still facing it.
+func backflip(duration: float) -> void:
+	var clip: StringName = clips[&"backflip"]
+	if _anim.has_animation(clip):
+		_play_action(clip, Role.ROLL, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.05)
+
+
+## On a wall: hanging, climbing up or down, or shimmying along — the archer's
+## way, off Mixamo's climbs retargeted onto his rig.
+const CLIMB_UP_SPEED := 0.53
+const SHIMMY_SPEED := 0.25
+
+
+func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blocking: bool) -> void:
+	if _wall_climbing:
+		var drive := _climb_drive
+		if drive.length() < 0.15 or _climb_speed < 0.05:
+			_set_base(clips[&"hang"], 0.2, 1.0)
+		elif absf(drive.y) >= absf(drive.x):
+			_set_base(clips[&"climb_up"] if drive.y > 0.0 else clips[&"climb_down"], 0.2,
+					clampf(_climb_speed / CLIMB_UP_SPEED, 0.4, 3.0))
+		else:
+			_set_base(clips[&"shimmy_right"] if drive.x > 0.0 else clips[&"shimmy_left"], 0.2,
+					clampf(_climb_speed / SHIMMY_SPEED, 0.4, 3.0))
+		return
+	super(planar, airborne, dashing, vy, blocking)

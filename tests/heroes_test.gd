@@ -208,6 +208,28 @@ func _check_rogue() -> void:
 	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Flip"
 			and rig._anim.has_animation(&"DG_Flip") and rig._anim.has_animation(&"DG_Twist"))
 
+	# The evade: a tap is a step, held it becomes the flip.
+	await _wait(60)
+	_player.stamina = _player.max_stamina
+	_player._dash_cooldown_timer = 0.0
+	Input.action_press("dash")
+	await _wait(2)
+	Input.action_release("dash")
+	await _wait(3)
+	_check("a tap of the dash is a quick step", String(rig._act_clip).begins_with("DG_Dodge")
+			and _player.state == Player.State.DASHING, String(rig._act_clip))
+	await _wait(80)
+	_player.stamina = _player.max_stamina
+	_player._dash_cooldown_timer = 0.0
+	Input.action_press("dash")
+	await _wait(20)
+	var held_into := String(rig._act_clip)
+	var dodging := _player.state == Player.State.DODGING
+	Input.action_release("dash")
+	_check("and held, it turns into the flip", dodging and held_into == "DG_Twist", held_into)
+	await _wait(80)
+	_check("and he climbs", _player.profile.can_climb and rig._anim.has_animation(&"DG_Climb_Up"))
+
 
 func _find_bolt() -> SpellBolt:
 	for node in _world.find_children("*", "Node3D", true, false):

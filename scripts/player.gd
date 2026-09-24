@@ -381,6 +381,11 @@ var _dodge_timer: float = 0.0
 ## When the dash button was last pressed, so a second tap can be told from a
 ## first one.
 var _last_dash_press: float = -100.0
+## The assassin's step waiting to see whether the button is held into a flip.
+var _flip_armed: bool = false
+var _dash_pressed_at: float = 0.0
+## How long the dash button has to be held for his step to become the flip.
+@export var hold_flip_after: float = 0.16
 var _crouching: bool = false
 var _slide_timer: float = 0.0
 var _slide_cooldown_timer: float = 0.0
@@ -786,6 +791,7 @@ func _read_actions() -> void:
 			_jump_buffer_timer = jump_buffer_time
 	if Input.is_action_just_pressed("dash"):
 		_press_dash()
+	_watch_hold_flip()
 	# Held down at a run this is a slide; held down otherwise it is a crouch, and
 	# the slide drops into one when it ends if the button is still down.
 	_set_crouching(Input.is_action_pressed("crouch"))
@@ -1032,6 +1038,9 @@ func _do_jump() -> void:
 ## because holding the first press back until the window closed would put a
 ## visible stall on every single tap.
 func _press_dash() -> void:
+	if profile != null and profile.hold_to_flip:
+		_press_dash_flipper()
+		return
 	var now := Time.get_ticks_msec() / 1000.0
 	var doubled := now - _last_dash_press <= double_tap_time
 	_last_dash_press = now
@@ -1042,15 +1051,57 @@ func _press_dash() -> void:
 	_try_dash()
 
 
-func _try_dash() -> void:
+## The assassin's evade (`CharacterProfile.hold_to_flip`):
+##
+## * **a tap** is a quick step out of the way, the archer's dodge, in whatever
+##   direction is pushed — and with an enemy locked he keeps facing it, so it
+##   is a step to the side or back, not a turn and a run;
+## * **held**, the step turns into the twisting flip once `hold_flip_after` has
+##   gone by with the button still down (two quick taps do the same);
+## * **away from what he has locked**, it is a backflip straight off, facing it.
+func _press_dash_flipper() -> void:
+	var now := _now()
+	var doubled := now - _last_dash_press <= double_tap_time
+	_last_dash_press = now
+	if doubled and state == State.DASHING:
+		_flip_armed = false
+		_upgrade_to_dodge()
+		return
+	var locked := target != null and _targetable(target)
+	var push := get_movement_direction()
+	push.y = 0.0
+	if locked and push.length_squared() > 0.01:
+		var to_it := target.global_position - global_position
+		to_it.y = 0.0
+		if to_it.length_squared() > 0.01 and push.normalized().dot(to_it.normalized()) < -0.5:
+			if _try_dash(true, true):
+				_upgrade_to_dodge(true)
+			return
+	if _try_dash(locked, true):
+		_flip_armed = true
+		_dash_pressed_at = now
+
+
+## The button still down after the step began: it becomes the flip.
+func _watch_hold_flip() -> void:
+	if not _flip_armed:
+		return
+	if state != State.DASHING or not Input.is_action_pressed("dash"):
+		_flip_armed = false
+	elif _now() - _dash_pressed_at >= hold_flip_after:
+		_flip_armed = false
+		_upgrade_to_dodge()
+
+
+func _try_dash(keep_facing: bool = false, step: bool = false) -> bool:
 	if state != State.GROUNDED and state != State.AIRBORNE:
-		return
+		return false
 	if _dash_cooldown_timer > 0.0:
-		return
+		return false
 	if not is_on_floor() and not allow_air_dash:
-		return
+		return false
 	if not _spend(profile.roll_stamina if profile != null else 20.0):
-		return
+		return false
 
 	# Dash towards the stick/WASD input, or straight ahead when standing still.
 	_dash_direction = get_movement_direction()
@@ -1066,19 +1117,32 @@ func _try_dash() -> void:
 	_dash_cooldown_timer = dash_cooldown + dash_duration
 	is_invulnerable = dash_iframes > 0.0
 
-	rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
+	if not keep_facing:
+		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
 	if rig != null:
-		rig.dodge(dash_duration)
+		if step and rig.has_method(&"step_dodge"):
+			# Which way the step goes, seen from the body: +x its right, -z ahead.
+			var local := global_transform.basis.inverse() * _dash_direction
+			rig.call(&"step_dodge", Vector2(local.x, local.z), dash_duration)
+		else:
+			rig.dodge(dash_duration)
 	dash_started.emit(_dash_direction)
+	return true
 
 
 ## Turns the roll already under way into the longer, animated dodge, keeping the
 ## direction it was thrown in.
-func _upgrade_to_dodge() -> void:
+func _upgrade_to_dodge(backflip: bool = false) -> void:
 	if stamina <= 0.0:
 		return  # Nothing left to stretch the roll into a dodge with.
-	if rig != null and not rig.dodge_clip(dodge_duration):
-		return  # No clip to upgrade to; the roll carries on as it is.
+	if backflip and rig != null and rig.has_method(&"backflip"):
+		rig.call(&"backflip", dodge_duration)
+	else:
+		if not backflip and profile != null and profile.hold_to_flip:
+			# A flip goes the way he is going, whichever way he was facing.
+			rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
+		if rig != null and not rig.dodge_clip(dodge_duration):
+			return  # No clip to upgrade to; the roll carries on as it is.
 	_spend(profile.dodge_stamina if profile != null else 8.0)
 	state = State.DODGING
 	_dodge_timer = dodge_duration
