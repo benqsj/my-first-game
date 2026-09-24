@@ -9,17 +9,25 @@ extends SkinnedRig
 ## * **Charging** holds the sustained two-handed cast while he stands, and lets
 ##   the legs walk while he moves. The staff's crystal brightens with the
 ##   charge: a light at its tip.
-## * **Casting** is the one-handed cast forward, from the gathering to the
-##   throw, fast.
+## * **Casting** is a throw with the staff: drawn back over the shoulder and
+##   brought round to the front, and the bolt leaves the crystal as it comes
+##   through (`cast_lead()` after the button, from `spell_origin()`) — not the
+##   free hand's push the clip also has, which is why only this part of it is
+##   played.
 ## * **Levitating** — the jump held on the way down — is Mixamo's float.
 ##
 ## Source: `~/Desktop/vepxis-art/heroes/heroes.blend` (`mage_rig`).
 
 const CHARGE_CLIP := &"MG_Cast_Sustained"
 const CAST_CLIP := &"MG_Cast_1H"
-## The throw in the cast clip: the hand comes through from here to here.
-const CAST_FROM := 0.28
-const CAST_TO := 0.62
+## The staff's throw in the cast clip: drawn back from here, round to the front
+## by `CAST_RELEASE`, where the bolt leaves it, and settled by `CAST_TO`.
+## Measured on the crystal: at 0.50 it is behind the head, at 0.70 a metre in
+## front at shoulder height.
+const CAST_FROM := 0.50
+const CAST_RELEASE := 0.70
+const CAST_TO := 0.84
+const CAST_RATE := 2.0
 const FLOAT_CLIP := &"MG_Float"
 ## Where the crystal sits up the staff from the hand, in metres.
 const CRYSTAL_UP := 1.02
@@ -95,10 +103,24 @@ func aim_bow(draw: float, _pitch: float) -> void:
 
 
 func loose_bow() -> void:
-	_cast_left = 0.35
+	_cast_left = 0.45
 	_charge = 0.0
 	if _anim.has_animation(CAST_CLIP):
-		_play_action(CAST_CLIP, Role.FREE, 1.6, 0.05, CAST_FROM, CAST_TO)
+		_play_action(CAST_CLIP, Role.FREE, CAST_RATE, 0.08, CAST_FROM, CAST_TO)
+
+
+## How long after the button the staff comes through and the bolt goes.
+func cast_lead() -> float:
+	if _anim == null or not _anim.has_animation(CAST_CLIP):
+		return 0.0
+	return _anim.get_animation(CAST_CLIP).length * (CAST_RELEASE - CAST_FROM) / CAST_RATE
+
+
+## Where the bolt leaves from: the staff's crystal.
+func spell_origin() -> Vector3:
+	if _glow != null and _glow.is_inside_tree():
+		return _glow.global_position
+	return global_position + Vector3.UP * 1.6
 
 
 func is_aiming() -> bool:

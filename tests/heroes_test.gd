@@ -64,21 +64,67 @@ func _check_mage() -> void:
 			String(rig._anim.current_animation))
 	Input.action_release("attack")
 	var bolt: SpellBolt = null
-	for i in 10:
+	var crystal := rig.spell_origin()
+	var waited := 0
+	for i in 40:
+		crystal = rig.spell_origin()
 		await physics_frame
-		for node in _world.find_children("*", "Node3D", true, false):
-			if node is SpellBolt:
-				bolt = node
-	_check("letting go throws a bolt", bolt != null)
+		waited += 1
+		bolt = _find_bolt()
+		if bolt != null:
+			break
+	_check("letting go throws a bolt, as the staff comes round", bolt != null and waited > 6,
+			"after %d ticks" % waited)
 	if bolt != null:
+		_check("from the staff's crystal", bolt.global_position.distance_to(crystal) < 0.8,
+				"%.2f m off it" % bolt.global_position.distance_to(crystal))
 		var from := bolt.global_position
-		await _wait(10)
-		if is_instance_valid(bolt):
+		var first := bolt.speed()
+		await _wait(40)
+		if is_instance_valid(bolt) and not bolt.is_fading():
 			var went := bolt.global_position - from
-			# Straight: no drop beyond the aim's own slope.
-			_check("and it flies straight", went.length() > 3.0 and absf(went.y) < went.length() * 0.12,
+			_check("it leaves slowly and gathers pace", first < bolt._top_speed * 0.35 and bolt.speed() > bolt._top_speed * 0.95,
+					"%.1f then %.1f of %.1f m/s" % [first, bolt.speed(), bolt._top_speed])
+			_check("and, nothing locked, flies straight", went.length() > 8.0 and absf(went.y) < went.length() * 0.15,
 					"%.1f m, %.2f m up" % [went.length(), went.y])
+		else:
+			_check("the bolt was still flying", false)
 	await _wait(40)
+
+	# Hunting: the bolt alone, high over everything, at a body 22 m off.
+	var walked := await _hunt_case(Vector3(0.0, 0.0, 3.0), Vector3.ZERO, false, true)
+	_check("a locked bolt follows a body walking across it, and hits", walked["hits"] == 1, str(walked))
+	var loose := await _hunt_case(Vector3(0.0, 0.0, 3.0), Vector3.ZERO, false, false)
+	_check("(an unlocked one misses it)", loose["hits"] == 0 and loose["faded"], str(loose))
+	var dodged := await _hunt_case(Vector3.ZERO, Vector3(0.0, 0.0, 9.0), false, true)
+	_check("one that breaks sideways at the last shakes it off", dodged["hits"] == 0 and dodged["let_go"], str(dodged))
+	_check("and the bolt goes out once it is past", dodged["faded"], str(dodged))
+	var rolled := await _hunt_case(Vector3.ZERO, Vector3.ZERO, true, true)
+	_check("one rolling out of its way is gone through, not hit", rolled["hits"] == 0 and rolled["faded"], str(rolled))
+
+	# And the controller: a lock is what it hunts.
+	var dummy := _dummy()
+	var ahead := -_player.global_transform.basis.z
+	ahead.y = 0.0
+	dummy.position = _player.global_position + ahead.normalized() * 12.0
+	_world.add_child(dummy)
+	await _wait(2)
+	_player.call("_hold_target", dummy)
+	Input.action_press("attack")
+	await _wait(40)
+	Input.action_release("attack")
+	var hunting := false
+	for i in 40:
+		await physics_frame
+		var found := _find_bolt()
+		if found != null:
+			hunting = hunting or found.is_hunting()
+	await _wait(30)
+	_check("a bolt thrown with a lock hunts what is locked", hunting)
+	_check("and strikes it", int(dummy.get("hits")) >= 1, "%d hits" % int(dummy.get("hits")))
+	_player.call("_drop_target")
+	dummy.queue_free()
+	await _wait(20)
 
 	# The jump, and the float down.
 	var ground := _player.global_position.y
@@ -95,7 +141,7 @@ func _check_mage() -> void:
 		if _player.is_on_floor() and i > 20:
 			break
 	Input.action_release("jump")
-	_check("he jumps high", peak - ground > 2.6, "%.2f m" % (peak - ground))
+	_check("he jumps high", peak - ground > 3.2, "%.2f m" % (peak - ground))
 	_check("and, the jump held, floats down", floated and slowest_fall > -_player.profile.levitate_fall - 0.05,
 			"falling at %.2f m/s at most while floating" % -slowest_fall)
 	await _wait(30)
@@ -123,6 +169,76 @@ func _check_rogue() -> void:
 			both = both or (rig._arc_l != null and rig._arc_l.emitting)
 	_check("the dagger cuts", cut)
 	_check("and the other hand's cuts the air with it", both)
+
+
+func _find_bolt() -> SpellBolt:
+	for node in _world.find_children("*", "Node3D", true, false):
+		if node is SpellBolt and not (node as SpellBolt).is_fading():
+			return node
+	return null
+
+
+var _dummy_script: GDScript
+
+
+## A body to throw at: a capsule on the enemies' layer that counts its hits and
+## says, when told to, that it is rolling out of the way.
+func _dummy() -> CharacterBody3D:
+	if _dummy_script == null:
+		_dummy_script = GDScript.new()
+		_dummy_script.source_code = "extends CharacterBody3D\nvar hits := 0\nvar evading := false\n" \
+				+ "func take_hit(_d: float, _at: Vector3, _b: Vector3, _c: bool = false, _h: bool = false, _f: Node3D = null) -> void:\n\thits += 1\n" \
+				+ "func is_evading() -> bool:\n\treturn evading\n"
+		_dummy_script.reload()
+	var body := CharacterBody3D.new()
+	body.set_script(_dummy_script)
+	body.collision_layer = 4
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.4
+	capsule.height = 1.8
+	shape.shape = capsule
+	shape.position = Vector3(0.0, 0.9, 0.0)
+	body.add_child(shape)
+	return body
+
+
+## A bolt thrown at a body 22 m off, high in the air: the body walks at `walk`
+## from the start, and at 8 m breaks at `dodge` or says it is `rolling`.
+func _hunt_case(walk: Vector3, dodge: Vector3, rolling: bool, hunt: bool) -> Dictionary:
+	var start := _player.global_position + Vector3.UP * 30.0
+	var dummy := _dummy()
+	# Placed before it is in the world: a body that appears at the origin for a
+	# tick carries whoever is standing there along with it when it moves.
+	dummy.position = start + Vector3(22.0, -0.8, 0.0)
+	_world.add_child(dummy)
+	dummy.velocity = walk
+	await _wait(2)
+	var bolt: SpellBolt = (load("res://scenes/fx/spell_bolt.tscn") as PackedScene).instantiate()
+	_world.add_child(bolt)
+	bolt.global_position = start
+	bolt.launch(Vector3(42.0, 0.0, 0.0), 10.0, false, 0.0, _player)
+	if hunt:
+		bolt.hunt(dummy)
+	var out := {"hits": 0, "faded": false, "let_go": false}
+	for i in 150:
+		await physics_frame
+		dummy.global_position += dummy.velocity * (1.0 / 60.0)
+		if not is_instance_valid(bolt):
+			break
+		out["faded"] = out["faded"] or bolt.is_fading()
+		out["let_go"] = out["let_go"] or (hunt and not bolt.is_hunting())
+		var gap := (dummy.global_position - bolt.global_position).length()
+		if gap < 8.0:
+			if dodge != Vector3.ZERO:
+				dummy.velocity = dodge
+			if rolling:
+				dummy.set("evading", true)
+	out["hits"] = int(dummy.get("hits"))
+	dummy.queue_free()
+	await _wait(2)
+	return out
 
 
 func _wait(n: int) -> void:

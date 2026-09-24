@@ -563,6 +563,11 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	_receive(damage * (1.5 if critical else 1.0), at, blow, shooter)
 
 
+## True while dashing aside: a spell that was hunting it lets go.
+func is_evading() -> bool:
+	return act == Act.DASH
+
+
 ## Returns true when the hit drew blood, false when it was caught or dodged.
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
 	if is_dead or not _decides():

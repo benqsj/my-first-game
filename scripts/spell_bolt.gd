@@ -2,14 +2,28 @@ class_name SpellBolt
 extends Arrow
 
 ## The mage's bolt: a ball of light with lightning crackling off the back of it
-## (`assets/magic-person/magic-attack/skill1.glb`), flying straight.
+## (`assets/magic-person/magic-attack/skill1.glb`).
 ##
-## An [Arrow] in everything that matters — the same sweep from one tick to the
-## next so nothing fast tunnels through it, the same `take_hit()` on whatever it
-## meets, the same launch from the controller — and different in how it looks
-## and ends: it glows and lights what it passes, trails gold rather than cut
-## air, and where it strikes it bursts in a flash and is gone instead of
-## sticking.
+## An [Arrow] in what matters — the same sweep from one tick to the next so
+## nothing fast tunnels through it, the same `take_hit()` on whatever it meets,
+## the same launch from the controller — and its own thing in how it flies:
+##
+## * **It gathers pace.** It leaves the staff's crystal at a walk, a small light
+##   swelling to full size, and builds to full speed over `build_time`, slowly
+##   and then all at once. The throw reads as a spell let go of rather than a
+##   shot fired.
+## * **It hunts what it was thrown at.** A bolt thrown with something locked
+##   bends towards it as it flies, as hard as `steer` lets it — a thing walking
+##   or running on across the line is followed and hit.
+## * **It can be dodged.** A quarry that rolls, dashes or sidesteps — anything
+##   that says `is_evading()`, or breaks sideways off the way it was going
+##   faster than `dodge_kick` — shakes it off. From then on the bolt flies
+##   straight, and it goes through a body that is rolling out of its way.
+## * **It does not come round again.** The moment it is past what it was thrown
+##   at, hit or not, it fades out where it is. Without a quarry it fades at
+##   the end of its `reach`.
+##
+## Where it strikes it bursts in a flash and is gone instead of sticking.
 
 const MODEL := "res://assets/magic-person/magic-attack/skill1.glb"
 ## The model's orb is 1.24 across its radius; this makes it a hand's width.
@@ -18,9 +32,37 @@ const MODEL_SCALE := 0.14
 ## How long the burst lasts.
 @export var burst_time: float = 0.3
 @export var glow_colour: Color = Color(1.0, 0.82, 0.38)
+## It leaves the staff at this share of its full speed...
+@export var start_share: float = 0.15
+## ...and is at full speed this long after, gathering pace all the way.
+@export var build_time: float = 0.5
+## How hard it can bend towards its quarry: the most it may be pushed sideways,
+## in m/s². Slow, just off the staff, that is a tight curve; at full speed it
+## is a gentle one, which is what leaves a dodge room to work.
+@export var steer: float = 36.0
+## A quarry whose velocity jumps sideways off the bolt's line by more than this
+## (m/s) against what it was doing a moment ago has got out of the way.
+@export var dodge_kick: float = 4.0
+## How far it goes before it has spent itself, in metres.
+@export var reach: float = 70.0
+## How long the fading out takes.
+@export var fade_out: float = 0.22
 
+var _model: Node3D
 var _light: OmniLight3D
 var _flicker: float = 0.0
+## Full speed, and which way it is going.
+var _top_speed: float = 0.0
+var _heading: Vector3 = Vector3.FORWARD
+var _travelled: float = 0.0
+## What it was thrown at, whether it is still after it, and whether it has
+## been ahead of it yet (a bolt thrown from beside its quarry has not).
+var _quarry: Node3D
+var _hunting: bool = false
+var _was_ahead: bool = false
+## The quarry's recent velocity, smoothed: a dodge is a break from it.
+var _quarry_pace: Vector3 = Vector3.ZERO
+var _fading: bool = false
 
 
 func _ready() -> void:
@@ -33,39 +75,183 @@ func _ready() -> void:
 	spin = 5.0
 	bite = 0.0
 	if ResourceLoader.exists(MODEL):
-		var model := (load(MODEL) as PackedScene).instantiate() as Node3D
+		_model = (load(MODEL) as PackedScene).instantiate() as Node3D
 		# The orb leads: its tail runs off down the model's +Z, the flight is
 		# this node's +Y.
-		model.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-		model.scale = Vector3.ONE * MODEL_SCALE
-		add_child(model)
+		_model.rotation = Vector3(PI * 0.5, 0.0, 0.0)
+		_model.scale = Vector3.ONE * MODEL_SCALE * 0.3
+		add_child(_model)
 		var glow := StandardMaterial3D.new()
 		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		glow.albedo_color = glow_colour
 		glow.emission_enabled = true
 		glow.emission = glow_colour
 		glow.emission_energy_multiplier = 2.5
-		for node in model.find_children("*", "MeshInstance3D", true, false):
+		for node in _model.find_children("*", "MeshInstance3D", true, false):
 			(node as MeshInstance3D).material_override = glow
 			(node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_light = OmniLight3D.new()
 	_light.light_color = glow_colour
-	_light.light_energy = 2.2
+	_light.light_energy = 3.5
 	_light.omni_range = 4.5
 	add_child(_light)
 
 
+## As an arrow's, and then held back to the walk it leaves the staff at.
+func launch(velocity: Vector3, damage: float, critical: bool, gravity: float,
+		shooter: Node3D) -> void:
+	_top_speed = velocity.length()
+	_heading = velocity.normalized() if _top_speed > 0.001 else Vector3.FORWARD
+	super(_heading * _top_speed * start_share, damage, critical, gravity, shooter)
+
+
+## Sets it after `who`. Null, or never called, and it flies straight.
+func hunt(who: Node3D) -> void:
+	_quarry = who
+	_hunting = who != null
+	_was_ahead = false
+	var pace: Variant = who.get("velocity") if who != null else null
+	_quarry_pace = pace if pace is Vector3 else Vector3.ZERO
+
+
+## Whether it is still bending towards its quarry.
+func is_hunting() -> bool:
+	return _hunting
+
+
+## The pace it is at now, in m/s.
+func speed() -> float:
+	return _velocity.length()
+
+
 func _process(delta: float) -> void:
-	if _light == null or _spent:
+	if _spent or _fading:
 		return
-	# A crackle rather than a steady lamp.
+	# Swells from a spark at the crystal to its full size as it gathers pace,
+	# and breathes a little once it is there.
 	_flicker += delta * 30.0
-	_light.light_energy = 2.0 + 0.6 * sin(_flicker) * sin(_flicker * 0.37)
+	var grown := clampf(_age / (build_time * 0.6), 0.0, 1.0)
+	grown = 1.0 - (1.0 - grown) * (1.0 - grown)
+	var breath := 1.0 + 0.07 * sin(_flicker * 0.45)
+	if _model != null:
+		_model.scale = Vector3.ONE * MODEL_SCALE * lerpf(0.3, 1.0, grown) * breath
+	if _light != null:
+		# A crackle rather than a steady lamp, bright as it leaves.
+		_light.light_energy = lerpf(3.5, 2.0, grown) + 0.6 * sin(_flicker) * sin(_flicker * 0.37)
+
+
+func _physics_process(delta: float) -> void:
+	if _spent or _fading:
+		return
+	_age += delta
+	if _age > lifetime or _travelled > reach:
+		_fade()
+		return
+
+	# Slowly and then all at once: the square of the way through the build.
+	var through := clampf(_age / maxf(build_time, 0.01), 0.0, 1.0)
+	var pace := _top_speed * lerpf(start_share, 1.0, through * through)
+
+	if _quarry != null:
+		if not is_instance_valid(_quarry) or not _quarry.is_inside_tree():
+			_quarry = null
+			_hunting = false
+		else:
+			var to_it := _mark(_quarry) - global_position
+			if to_it.dot(_heading) < 0.0:
+				# Gone by. It does not turn round for another go.
+				if _was_ahead:
+					_fade()
+					return
+			else:
+				_was_ahead = true
+			if _hunting and _got_away(_quarry, delta):
+				_hunting = false
+			if _hunting and _was_ahead and to_it.length_squared() > 0.0001:
+				var most := minf(steer / maxf(pace, 1.0), 8.0) * delta
+				_heading = _turn(_heading, to_it.normalized(), most)
+
+	if _gravity > 0.0:
+		_heading = (_heading * pace + Vector3.DOWN * _gravity * delta).normalized()
+	_velocity = _heading * pace
+	_roll += TAU * spin * delta
+	var step := _velocity * delta
+	var from := global_position
+	var hit := _sweep(from, from + step)
+	# A body rolling out of the way is not there to be hit: the bolt goes on
+	# through where it was.
+	var through_them: Array[RID] = []
+	while not hit.is_empty() and _is_evading(hit["collider"] as Node3D) and through_them.size() < 3:
+		through_them.append((hit["collider"] as CollisionObject3D).get_rid())
+		hit = _sweep_past(from, from + step, through_them)
+	if hit.is_empty():
+		global_position += step
+		_travelled += step.length()
+		_point_along(_heading)
+		return
+	global_position = hit["position"] as Vector3
+	_strike(hit["collider"] as Node3D, hit["position"] as Vector3)
+
+
+## Where on `who` it goes for: the middle of the body, as the lock sees it.
+func _mark(who: Node3D) -> Vector3:
+	var points := TargetPoints.of(who)
+	if points.is_empty():
+		return who.global_position + Vector3.UP
+	return points[clampi(TargetPoints.default_index(who), 0, points.size() - 1)]
+
+
+## Whether the quarry has just got out of the way: it says it is dodging, or its
+## velocity has broken sideways off the bolt's line, hard, against what it was
+## doing a moment ago. Steady running across the line is not that — it is
+## followed.
+func _got_away(who: Node3D, delta: float) -> bool:
+	if _is_evading(who):
+		return true
+	var now: Variant = who.get("velocity")
+	if not now is Vector3:
+		return false
+	var kick := (now as Vector3) - _quarry_pace
+	_quarry_pace = _quarry_pace.lerp(now as Vector3, clampf(delta * 3.0, 0.0, 1.0))
+	var across := kick - _heading * kick.dot(_heading)
+	across.y = 0.0
+	return across.length() > dodge_kick
+
+
+static func _is_evading(who: Node3D) -> bool:
+	return who != null and who.has_method(&"is_evading") and bool(who.call(&"is_evading"))
+
+
+## `from` turned towards `to` by at most `most` radians.
+static func _turn(from: Vector3, to: Vector3, most: float) -> Vector3:
+	var angle := from.angle_to(to)
+	if angle <= most:
+		return to
+	var axis := from.cross(to)
+	if axis.length_squared() < 1e-8:
+		return from
+	return from.rotated(axis.normalized(), most).normalized()
+
+
+func _sweep_past(from: Vector3, to: Vector3, past: Array[RID]) -> Dictionary:
+	var exclude: Array[RID] = past.duplicate()
+	if _shooter is CollisionObject3D:
+		exclude.append((_shooter as CollisionObject3D).get_rid())
+	var query := PhysicsRayQueryParameters3D.create(from, to, 5, exclude)
+	return get_world_3d().direct_space_state.intersect_ray(query)
 
 
 func _strike(what: Node3D, where: Vector3) -> void:
 	_spent = true
 	_velocity = Vector3.ZERO
+	_let_go_of_trails()
+	struck.emit(what, where, _critical)
+	if what != null and what.has_method("take_hit"):
+		what.call("take_hit", _damage, where, _heading, _critical, false, _shooter)
+	_burst(where)
+
+
+func _let_go_of_trails() -> void:
 	for ribbon in [_trail, _wake]:
 		if ribbon == null:
 			continue
@@ -73,11 +259,28 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		ribbon.get_tree().create_timer(ribbon.fade_time + 0.1).timeout.connect(ribbon.queue_free)
 	_trail = null
 	_wake = null
-	struck.emit(what, where, _critical)
-	if what != null and what.has_method("take_hit"):
-		var blow := global_transform.basis.y
-		what.call("take_hit", _damage, where, blow, _critical, false, _shooter)
-	_burst(where)
+
+
+## Missed, or spent: it goes out where it is — shrinks to a spark and its light
+## with it.
+func _fade() -> void:
+	if _fading:
+		return
+	_fading = true
+	_velocity = Vector3.ZERO
+	_let_go_of_trails()
+	var tween := create_tween().set_parallel(true)
+	if _model != null:
+		tween.tween_property(_model, "scale", Vector3.ONE * 0.001, fade_out) \
+				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	if _light != null:
+		tween.tween_property(_light, "light_energy", 0.0, fade_out)
+	tween.chain().tween_callback(queue_free)
+
+
+## Whether it has gone out without hitting anything.
+func is_fading() -> bool:
+	return _fading
 
 
 ## The flash where it lands: a ball of light that swells and goes, and the lamp

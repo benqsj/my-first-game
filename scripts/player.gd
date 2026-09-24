@@ -1755,22 +1755,52 @@ func _loose_arrow() -> void:
 	# target, so a shot loosed while running sideways goes at what is being
 	# fought rather than past it.
 	_turn_to_target()
-	var from := global_position + up_direction * arrow_height
 	var speed := lerpf(profile.arrow_speed_snap, profile.arrow_speed, power)
-	var heading := _shot_heading(from, speed)
 	# A tap is worth `snap_share` of a full draw and no less; the rest of the
 	# scale is earned by holding.
 	var carry := lerpf(profile.snap_share, 1.0, power)
 	var critical := _shot_rng.randf() < profile.crit_chance
 	var damage := profile.damage * carry * (profile.crit_damage if critical else 1.0)
-
-	# Everywhere, not just here.
-	net_loose.rpc(from, heading * speed, damage, critical)
 	# The shot is thrown; now it has to be lived with. The string going is the
 	# same kind of commitment a swing is — the difference is that the archer
 	# chooses when, because the draw itself can be held or let go of.
 	_commit(loose_recovery)
 	arrow_loosed.emit(power, damage, critical)
+
+	# A spell is thrown with the staff, and leaves it from the crystal when the
+	# staff comes through — a beat after the button, which the rig says.
+	var lead := 0.0
+	if rig != null and rig.has_method(&"cast_lead"):
+		lead = float(rig.call(&"cast_lead"))
+	if lead > 0.0:
+		net_cast.rpc()
+		await get_tree().create_timer(lead, false).timeout
+		if not is_inside_tree() or state == State.DOWNED:
+			return
+	var from := global_position + up_direction * arrow_height
+	if rig != null and rig.has_method(&"spell_origin"):
+		from = rig.call(&"spell_origin")
+	var heading := _shot_heading(from, speed)
+	# Everywhere, not just here. A locked shot is told what it was loosed at,
+	# which a bolt hunts.
+	var quarry := NodePath()
+	if target != null and _targetable(target):
+		quarry = target.get_path()
+	net_loose.rpc(from, heading * speed, damage, critical, quarry)
+
+
+## The cast, on every peer: the staff drawn back and brought through. The bolt
+## itself follows by `net_loose` when the staff is round.
+@rpc("any_peer", "call_local", "reliable")
+func net_cast() -> void:
+	if rig != null and rig.has_method(&"loose_bow"):
+		rig.call(&"loose_bow")
+
+
+## True while rolling or dashing out of the way of something: a spell that was
+## hunting this body lets go of it.
+func is_evading() -> bool:
+	return state == State.DODGING or state == State.DASHING
 
 
 ## The arrow, on every peer.
@@ -1787,7 +1817,8 @@ func _loose_arrow() -> void:
 ## `call_local` because the archer has to see his own shot; `reliable` because a
 ## dropped arrow is a missed kill.
 @rpc("any_peer", "call_local", "reliable")
-func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool) -> void:
+func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
+		quarry: NodePath = NodePath()) -> void:
 	# Loose in the world rather than under the body, so the arrow does not ride
 	# the archer's own movement after it has left the string. `world_of` is the
 	# same answer blood and severed limbs use for the same question.
@@ -1800,9 +1831,12 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool) ->
 		into.add_child(arrow)
 		arrow.global_position = from
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
+		if not quarry.is_empty() and arrow.has_method(&"hunt"):
+			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
 	if _is_bow():
 		Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.0, -2.0)
-	if rig != null and rig.has_method(&"loose_bow"):
+	# A cast has already been played, by `net_cast`.
+	if rig != null and rig.has_method(&"loose_bow") and not rig.has_method(&"cast_lead"):
 		rig.call(&"loose_bow")
 
 

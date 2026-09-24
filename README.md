@@ -2144,16 +2144,40 @@ rest direction are per character now). No shield: 6.8 m/s, the longest roll,
 `CharacterProfile.Weapon.STAFF`, which the controller treats as it treats the
 bow — hold to charge, let go to cast, a tap is a quick weaker cast — but the
 profile's `projectile` is `scenes/fx/spell_bolt.tscn` (`SpellBolt`, an
-`Arrow` that flies straight with `projectile_drop` 0, glows, trails gold and
-bursts where it lands; the model is the user's `skill1.glb`). Charging holds
-the sustained two-handed cast and brightens a light in the staff's crystal;
-casting plays the one-handed throw. He jumps 3 m (`jump_height`) and, holding
-the jump on the way down, levitates (`levitation` seconds sinking no faster
-than `levitate_fall`), on Mixamo's float.
+`Arrow` with `projectile_drop` 0 that glows, trails gold and bursts where it
+lands; the model is the user's `skill1.glb`). Charging holds the sustained
+two-handed cast and brightens a light in the staff's crystal. He jumps 3.6 m
+(`jump_height`) and, holding the jump on the way down, levitates (`levitation`
+seconds sinking no faster than `levitate_fall`, 2.1 m/s), on Mixamo's float.
 
-`tests/heroes_test.gd` checks both: their rigs and clips, the charge and the
-bolt flying straight, the high jump and the float, the stab cutting with both
-hands.
+### The bolt
+
+- **Thrown with the staff.** Letting go plays the staff's half of
+  `MG_Cast_1H` (0.50–0.84 of it): drawn back over the shoulder and brought
+  round to the front. The clip's free-hand push is not played. The rig's
+  `cast_lead()` says how long the staff takes to come through (0.23 s), and the
+  controller sends the cast (`net_cast`) at once and the bolt (`net_loose`)
+  after that lead, from `spell_origin()`, the crystal.
+- **Slow, then fast.** It leaves the crystal at `start_share` (15 %) of its
+  speed as a spark that swells to full size, and gathers pace on the square of
+  `build_time` (0.5 s).
+- **It hunts what is locked.** `net_loose` carries the locked target's path
+  and the bolt `hunt()`s it, bending towards it no harder than `steer` (36 m/s²
+  sideways). That is a tight curve just off the staff and a gentle one at full
+  speed, so walking or running on across the line is followed and hit.
+- **It can be dodged.** A quarry that says `is_evading()` (a player rolling or
+  dashing, a Fighter dashing aside), or whose velocity breaks sideways off the
+  bolt's line by more than `dodge_kick` (4 m/s) against its recent pace, shakes
+  it off. From then on it flies straight, and it goes through a body rolling
+  out of its way.
+- **It does not come back.** Once it is past its quarry, hit or not, it fades
+  out where it is. Unlocked, it flies straight and fades at `reach` (70 m).
+
+`tests/heroes_test.gd` checks both: their rigs and clips, the charge, the bolt
+leaving the crystal slowly and gathering pace, flying straight unlocked,
+following a body walking across it, losing one that breaks sideways or rolls
+and going out once past, the high jump and the float, the stab cutting with
+both hands.
 
 ## Swapping in the real models
 
