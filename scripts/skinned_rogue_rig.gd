@@ -30,8 +30,10 @@ func _configure() -> void:
 		&"overhead": &"DG_Dual_Combo",
 	}
 	ground_speed = {
-		&"DG_Walk": 1.36, &"DG_Run": 3.11, &"DG_Walk_Back": 1.0, &"DG_Run_Back": 2.15,
-		&"DG_Walk_Left": 1.08, &"DG_Walk_Right": 1.13, &"DG_Run_Left": 2.24, &"DG_Run_Right": 2.58,
+		# Mixamo's walks and runs (tools/retarget_mixamo.py), measured off the
+		# root bone: a man's walk and run, upright, rather than a ninja's.
+		&"DG_Walk": 0.92, &"DG_Run": 3.72, &"DG_Walk_Back": 0.47, &"DG_Run_Back": 2.67,
+		&"DG_Walk_Left": 1.46, &"DG_Walk_Right": 1.46, &"DG_Run_Left": 3.81, &"DG_Run_Right": 3.05,
 		&"DG_Sneak": 1.98, &"DG_Crouch_Walk_Back": 0.89, &"DG_Crouch_Walk_Left": 1.14,
 		&"DG_Crouch_Walk_Right": 1.17,
 	}
