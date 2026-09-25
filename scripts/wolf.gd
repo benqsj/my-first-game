@@ -2,7 +2,11 @@ class_name Wolf
 extends CharacterBody3D
 
 ## The wolf monster: prowls until it notices the knight, runs him down on all
-## fours, then rears onto its hind legs to fight with its claws.
+## fours, then rears onto its hind legs to fight with its claws — how well, and
+## how cunningly, is its `intellect` and its [WolfMind]: dodges, hops back out
+## of reach, circles, backs off and comes again, combos, a leap from out of
+## reach. It never runs away for good. A leg cut off puts it down on its belly,
+## and it comes on crawling.
 ##
 ## Gait is not a separate decision from the AI — it falls out of what the
 ## creature is doing. Covering ground means all fours; being within reach means
@@ -133,8 +137,37 @@ var _fall_side: float = 1.0
 ## the claws landing now are a pounce's (a longer reach).
 var _pounce_in: float = -1.0
 var _pouncing: bool = false
-## Share of attacks that are a pounce rather than a swipe.
+## Share of attacks that are a pounce rather than a swipe (the old fight; the
+## mind chooses now).
 @export var pounce_chance: float = 0.35
+
+@export_group("Fighting")
+## How cunning a fighter it is, 0 to 1 (see [WolfMind]). Below zero it is drawn
+## at birth, between `wit_range`.
+@export var intellect: float = -1.0
+@export var wit_range: Vector2 = Vector2(0.2, 0.9)
+## Paces in a fight: stepping in upright, circling, backing off, crawling on
+## its belly with a leg gone.
+@export var fight_speed: float = 2.4
+@export var circle_speed: float = 1.8
+@export var back_speed: float = 1.7
+@export var crawl_speed: float = 1.2
+## The throw of a dodge, a hop back, a bite and a lunge from the ground.
+@export var dodge_speed: float = 6.5
+@export var hop_speed: float = 7.0
+@export var bite_speed: float = 5.0
+@export var ground_lunge_speed: float = 4.2
+
+## Its fighting mind (host).
+var mind: WolfMind
+## Seconds left of a move of its own under way (an attack, a dodge, a hop).
+var _busy: float = 0.0
+## Seconds left in which a blade goes through the air it has just left.
+var _evading: float = 0.0
+## Seconds left of a throw it keeps going through (the velocity is left alone).
+var _burst: float = 0.0
+## Who it is fighting now.
+var _fighting: Node3D
 
 ## The claws as their blows see them ([WeaponSweep]), host side, on a clock
 ## that starts with each attack. A swipe's claws come through from the end of
@@ -159,6 +192,9 @@ func _ready() -> void:
 
 	_last_position = global_position
 	health = max_health
+	if intellect < 0.0:
+		intellect = _rng.randf_range(wit_range.x, wit_range.y)
+	mind = WolfMind.new(self, intellect)
 	_bar = HealthBar.new()
 	_bar.position = Vector3(0.0, bar_height, 0.0)
 	# Kept out of the body's rotation so it never turns edge-on to the camera.
@@ -179,6 +215,9 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
+	_busy = maxf(_busy - delta, 0.0)
+	_evading = maxf(_evading - delta, 0.0)
+	_burst = maxf(_burst - delta, 0.0)
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_reeling = maxf(_reeling - delta, 0.0)
 	_provoked = maxf(_provoked - delta, 0.0)
@@ -188,6 +227,8 @@ func _physics_process(delta: float) -> void:
 			var ahead := -global_transform.basis.z
 			ahead.y = 0.0
 			velocity += ahead.normalized() * 9.0
+			# Carried through the leap, not stopped by its own feet.
+			_burst = 0.4
 	if _swipe_lands >= 0.0:
 		_swipe_lands -= delta
 		if _swipe_lands < 0.0:
@@ -225,7 +266,9 @@ func _process(delta: float) -> void:
 		return
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
 	# On all fours to cover ground, upright to fight.
-	var stance := 0.0 if state == State.FIGHT and not is_dead and not rig.is_legless() else 1.0
+	var stance := 0.0 if state == State.FIGHT and not is_dead and not rig.is_crippled() else 1.0
+	# Which way it is going, in its own frame: backing off, circling, coming on.
+	rig.move_local = global_transform.basis.inverse() * Vector3(velocity.x, 0.0, velocity.z)
 	if is_dead:
 		planar = 0.0
 	_reel_clock += delta
@@ -307,13 +350,10 @@ func _think(delta: float) -> void:
 		to_player.y = 0.0
 		distance = to_player.length()
 
-	if rig.is_legless():
-		# Both legs gone: down, and it stays down.
-		state = State.DOWN
-	elif state == State.FLEE or state == State.DOWN:
-		pass
-	elif rig.is_disarmed():
-		state = State.FLEE
+	# It never runs for good: a wolf with no arms left bites, and one with a leg
+	# gone crawls at him. (FLEE and DOWN are no longer entered.)
+	if state == State.FLEE or state == State.DOWN:
+		state = State.CHASE
 
 	match state:
 		State.PROWL:
@@ -325,10 +365,13 @@ func _think(delta: float) -> void:
 			if distance > lose_range and (_provoked <= 0.0 or distance > 90.0):
 				state = State.PROWL
 				_pick_prowl_target()
-			elif distance < reach:
+			elif distance < fight_from():
 				state = State.FIGHT
+				_fighting = quarry
+				mind.engage(quarry)
 			else:
-				_move_towards(global_position + to_player, charge_speed, delta)
+				_move_towards(global_position + to_player,
+						crawl_speed if rig.is_crippled() else charge_speed, delta)
 		State.FLEE:
 			# Nothing left to fight with: get away and stay away.
 			if quarry != null:
@@ -336,42 +379,222 @@ func _think(delta: float) -> void:
 		State.DOWN:
 			_slow(delta)
 		State.FIGHT:
-			# Give a little ground back before chasing again, so it does not
-			# flicker between standing and running on the edge of reach.
-			if distance > reach * 1.6:
+			# Well out of it: after him again, on all fours.
+			if quarry == null or distance > fight_from() * 1.6:
 				state = State.CHASE
 			else:
-				_face(to_player, delta)
-				_slow(delta)
-				# Into the swipe it steps up, so the claws come through where he
-				# stands rather than short of him.
+				_fighting = quarry
+				mind.fight(delta, quarry, to_player, distance)
+				# A throw it is in the middle of carries it; otherwise a move
+				# of its own lets it come to a stop.
+				if _busy > 0.0 and _burst <= 0.0 and not rig.is_swiping():
+					_slow(delta)
+				# Into the swipe it steps up, so the claws come through where
+				# he stands rather than short of him.
 				if rig.is_swiping() and distance > claw_reach:
 					var step := to_player.normalized() * minf((distance - claw_reach) * 4.0, charge_speed)
 					velocity.x = step.x
 					velocity.z = step.z
-				if _swipe_timer <= 0.0 and _reeling <= 0.0:
-					_swipe_count += 1
-					var both_arms := not rig.has_lost("left arm") and not rig.has_lost("right arm")
-					if both_arms and _rng.randf() < pounce_chance:
-						# A pounce: gathers, throws itself at you, both claws.
-						_swipe_timer = swipe_interval + 0.5
-						_swipe_lands = rig.lunge_duration * (rig.lunge_windup + 0.12)
-						_pounce_in = rig.lunge_duration * rig.lunge_windup
-						_pouncing = true
-						rig.lunge()
-						net_lunge.rpc()
-						_arm_claws(POUNCE_LIVE, true)
-					else:
-						_swipe_timer = swipe_interval
-						_swipe_lands = swipe_lands_after
-						rig.swipe()
-						_arm_claws(SWIPE_LIVE, false)
-						# Only the host thinks, so only the host would ever
-						# swing: the others are told, or they see a wolf
-						# standing up to fight and doing nothing while their
-						# health goes down.
-						net_swipe.rpc()
-					attacked.emit()
+
+
+#region What the mind can make it do
+## How close it has to be before it fights rather than chases: near enough to
+## circle and to leap.
+func fight_from() -> float:
+	return 4.5 if not rig.is_crippled() else 3.0
+
+
+## Close enough for the claws, after the step in.
+func strike_range() -> float:
+	return claw_reach + 0.45
+
+
+## From how far a pounce carries it on to him.
+func pounce_range() -> float:
+	return 4.4
+
+
+func lunge_range() -> float:
+	return 1.9
+
+
+func is_crippled() -> bool:
+	return rig != null and rig.is_crippled()
+
+
+func is_busy() -> bool:
+	return _busy > 0.0 or _reeling > 0.0
+
+
+## Early in its own windup, still able to break it off.
+func winding_up() -> bool:
+	return (rig.is_swiping() and _swipe_lands > swipe_lands_after * 0.4) or _pounce_in > 0.2
+
+
+## It can throw itself about: legs under it and not reeling.
+func can_leap() -> bool:
+	return not is_crippled() and _reeling <= 0.0
+
+
+func arms_left() -> int:
+	var n := 2
+	for arm in ["left arm", "right arm"]:
+		if rig.has_lost(arm):
+			n -= 1
+	return n
+
+
+## Who it is fighting, for its pack.
+func fighting() -> Node3D:
+	return _fighting if state == State.FIGHT else null
+
+
+func face(direction: Vector3, delta: float) -> void:
+	_face(direction, delta)
+
+
+func hold(delta: float) -> void:
+	_slow(delta)
+
+
+## Upright, at him.
+func run_at(direction: Vector3, delta: float) -> void:
+	_move_towards(global_position + direction, fight_speed, delta)
+
+
+## Round him, face on.
+func strafe(direction: Vector3, look: Vector3, delta: float) -> void:
+	_face(look, delta)
+	_steer(direction * circle_speed, delta)
+
+
+## Backing away from him, face on.
+func back_off(towards: Vector3, delta: float) -> void:
+	_face(towards, delta)
+	_steer(-towards * back_speed, delta)
+
+
+## On its belly, at him.
+func crawl_at(direction: Vector3, delta: float) -> void:
+	_move_towards(global_position + direction, crawl_speed, delta)
+
+
+func _steer(wanted: Vector3, delta: float) -> void:
+	_intent = wanted.length()
+	velocity.x = move_toward(velocity.x, wanted.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, wanted.z, acceleration * delta)
+
+
+## One move of a fight: an attack (`swipe`, `pounce`, `bite`, `ground_lunge`)
+## or a way out of one (`hop`, `dodge_left`, `dodge_right`).
+func attack(move: StringName) -> void:
+	if is_dead or rig == null:
+		return
+	var ahead := -global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
+	match move:
+		&"swipe":
+			if arms_left() == 0:
+				return
+			_swipe_count += 1
+			_busy = rig.swipe_duration
+			_swipe_timer = rig.swipe_duration
+			_swipe_lands = swipe_lands_after
+			rig.swipe()
+			_arm_claws(SWIPE_LIVE, false)
+			net_swipe.rpc()
+			attacked.emit()
+		&"pounce":
+			_swipe_count += 1
+			_busy = rig.lunge_duration
+			_swipe_timer = rig.lunge_duration
+			_swipe_lands = rig.lunge_duration * (rig.lunge_windup + 0.12)
+			_pounce_in = rig.lunge_duration * rig.lunge_windup
+			_pouncing = true
+			rig.lunge()
+			net_lunge.rpc()
+			_arm_claws(POUNCE_LIVE, true)
+			attacked.emit()
+		&"bite":
+			_swipe_count += 1
+			_busy = 0.9
+			rig.bite(0.4)
+			net_move.rpc(move)
+			_arm_jaws(Vector2(0.25, 0.6))
+			# Thrown at him as it bites.
+			velocity += ahead * bite_speed
+			_burst = 0.35
+			attacked.emit()
+		&"ground_lunge":
+			_swipe_count += 1
+			_busy = 0.8
+			rig.ground_lunge()
+			net_move.rpc(move)
+			_arm_claws(Vector2(0.05, 0.55), true)
+			velocity += ahead * ground_lunge_speed
+			_burst = 0.4
+			attacked.emit()
+		&"hop":
+			_break_off()
+			_busy = 0.6
+			_evading = 0.35
+			rig.hop_back()
+			net_move.rpc(move)
+			velocity = -ahead * hop_speed + Vector3.UP * 2.0
+			_burst = 0.35
+			_sweeps.clear()
+		&"dodge_left", &"dodge_right":
+			var side := -1.0 if move == &"dodge_left" else 1.0
+			_break_off()
+			_busy = 0.55
+			_evading = 0.35
+			rig.dodge(side)
+			net_move.rpc(move)
+			var across := ahead.cross(Vector3.UP) * side
+			velocity = across * dodge_speed
+			_burst = 0.3
+			_sweeps.clear()
+
+
+## Whatever attack it was winding up, dropped.
+func _break_off() -> void:
+	_swipe_lands = -1.0
+	_pounce_in = -1.0
+	_pouncing = false
+	_swipe_timer = 0.0
+	_sweeps.clear()
+
+
+## A move of its own, on the peers that did not decide it.
+@rpc("authority", "call_remote", "unreliable")
+func net_move(move: StringName) -> void:
+	if rig == null or is_dead:
+		return
+	match move:
+		&"bite":
+			rig.bite(0.4)
+		&"ground_lunge":
+			rig.ground_lunge()
+		&"hop":
+			rig.hop_back()
+		&"dodge_left":
+			rig.dodge(-1.0)
+		&"dodge_right":
+			rig.dodge(1.0)
+
+
+## A bite: only the jaws strike.
+func _arm_jaws(live: Vector2) -> void:
+	_attack_clock = 0.0
+	_sweeps.clear()
+	var serial := _swipe_count
+	_sweeps.append(WeaponSweep.blow(func() -> Array: return rig.claw_parts(false, true), 2.0,
+			live.x, live.y, serial,
+			func(who: Node3D) -> void:
+				if not is_dead:
+					who.call("receive_blow", swipe_damage, self, 0, 2, serial)))
+#endregion
 
 
 ## The moment the claws arrive. They strike through their sweep (`_arm_claws`),
@@ -389,7 +612,7 @@ func _arm_claws(live: Vector2, pounce: bool) -> void:
 	var serial := _swipe_count
 	_sweeps.append(WeaponSweep.blow(_claw_parts.bind(pounce), 2.5, live.x, live.y, serial,
 			func(who: Node3D) -> void:
-				if not is_dead and rig != null and not rig.is_disarmed():
+				if not is_dead and rig != null:
 					who.call("receive_blow", swipe_damage, self, 0, 2, serial)))
 
 
@@ -407,6 +630,7 @@ func parried(by: Node3D) -> void:
 	_swipe_lands = -1.0
 	_sweeps.clear()
 	_reeling = parried_stagger
+	_busy = 0.0
 	net_reel.rpc()
 	_swipe_timer = maxf(_swipe_timer, parried_stagger)
 	if by != null:
@@ -514,7 +738,7 @@ func _face(direction: Vector3, delta: float) -> void:
 ## the swing is *where* it lands on the creature, and a segment gives that
 ## directly without wrapping every limb in its own collider.
 func _take_hits() -> void:
-	if is_dead:
+	if is_dead or _evading > 0.0:
 		return
 	# Every player, not the one that happened to be first in the group at load.
 	# Two people swinging at the same wolf in the same tick both land — which is
@@ -608,6 +832,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	if from != null:
 		_threat[from.name] = float(_threat.get(from.name, 0.0)) + damage
 	hurt.emit(health)
+	if mind != null and not is_dead:
+		mind.hurt()
 
 	var thrown := blow
 	if thrown.length_squared() < 0.0001:

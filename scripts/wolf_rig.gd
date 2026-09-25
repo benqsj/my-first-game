@@ -42,8 +42,15 @@ const SWIPE_R := &"WF_Swipe_R"
 const POUNCE := &"WF_Pounce"
 const STAGGER := &"WF_Stagger"
 const DEATH := &"WF_Death"
+const BACK := &"WF_Back"
+const STRAFE_L := &"WF_Strafe_L"
+const STRAFE_R := &"WF_Strafe_R"
+const DODGE_L := &"WF_Dodge_L"
+const DODGE_R := &"WF_Dodge_R"
+const HOP_BACK := &"WF_Hop_Back"
+const BITE := &"WF_Bite"
 const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_Drag", &"WF_Run",
-		&"WF_Crawl_Walk"]
+		&"WF_Crawl_Walk", &"WF_Back", &"WF_Strafe_L", &"WF_Strafe_R"]
 
 #region Exported tuning
 @export_group("Attack")
@@ -61,6 +68,8 @@ const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_
 @export var walk_pace: float = 1.25
 @export var run_pace: float = 4.2
 @export var drag_pace: float = 0.5
+@export var back_pace: float = 1.1
+@export var strafe_pace: float = 1.6
 ## Faster than this it drops to all fours.
 @export var run_from: float = 2.8
 #endregion
@@ -77,6 +86,11 @@ var last_cut_point: Vector3 = Vector3.ZERO
 var _swipe_timer: float = 0.0
 var _lunge_timer: float = 0.0
 var _reel_timer: float = 0.0
+## A dodge, a hop back, a bite or a lunge from the ground under way.
+var _move_timer: float = 0.0
+## How it is moving over the ground, in its own frame (-Z ahead, +X to its
+## right), set by [Wolf] each frame: what picks walking, backing and circling.
+var move_local := Vector3.ZERO
 var _swipe_left: bool = true
 var _dead: bool = false
 var _stance: float = 1.0
@@ -200,6 +214,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_lunge_timer = maxf(_lunge_timer - delta, 0.0)
 	_reel_timer = maxf(_reel_timer - delta, 0.0)
+	_move_timer = maxf(_move_timer - delta, 0.0)
 	_stance = stance_target
 	if not _dead:
 		_choose(planar_speed)
@@ -207,7 +222,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	# The clips are kept on the spot; the body is what moves it.
 	if _root_bone >= 0:
 		_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_rest(_root_bone).origin)
-		if is_legless() and not _dead:
+		if is_crippled() and not _dead:
 			_rest_on_ground()
 	_overlay(delta)
 	var swiping := _swipe_timer > 0.0 and _swipe_timer < swipe_duration * (1.0 - swipe_windup)
@@ -243,13 +258,23 @@ func _lunging_through() -> bool:
 
 ## The clip for what it is doing now, when no attack or stagger is playing.
 func _choose(planar: float) -> void:
-	if _swipe_timer > 0.0 or _lunge_timer > 0.0 or _reel_timer > 0.0:
+	if _swipe_timer > 0.0 or _lunge_timer > 0.0 or _reel_timer > 0.0 or _move_timer > 0.0:
 		return
 	var clip := IDLE
 	var pace := 1.0
-	if is_legless():
+	var side := move_local.x
+	var ahead := -move_local.z
+	if is_crippled():
 		clip = DRAG
-		pace = clampf(planar / drag_pace, 0.3, 2.0) if planar > 0.1 else 0.3
+		pace = clampf(planar / drag_pace, 0.3, 2.2) if planar > 0.1 else 0.3
+	elif planar > 0.25 and absf(side) > absf(ahead) * 1.2 and _stance < 0.5:
+		# Circling him, face on.
+		clip = STRAFE_R if side > 0.0 else STRAFE_L
+		pace = clampf(absf(side) / strafe_pace, 0.6, 1.8)
+	elif planar > 0.25 and ahead < -0.3 and _stance < 0.5:
+		# Backing off, face on.
+		clip = BACK
+		pace = clampf(-ahead / back_pace, 0.6, 1.8)
 	elif planar > run_from and _stance > 0.5:
 		clip = RUN
 		pace = clampf(planar / run_pace, 0.7, 1.6)
@@ -309,6 +334,44 @@ func reel(length: float = Recoil.STAGGER) -> void:
 		_anim.speed_scale = _anim.get_animation(STAGGER).length / maxf(length, 0.2) * 0.8
 
 
+## A move of its own, not an attack's timing: plays `clip` from `from` at
+## `rate`, and nothing else is chosen over it for `length` seconds.
+func _move(clip: StringName, length: float, rate: float = 1.0, from: float = 0.0) -> void:
+	if _anim == null or _dead or not _anim.has_animation(clip):
+		return
+	_swipe_timer = 0.0
+	_lunge_timer = 0.0
+	_move_timer = length
+	_anim.play(clip, 0.08)
+	_anim.seek(from, true)
+	_anim.speed_scale = rate
+
+
+## Thrown aside, out of a blow's way: -1 to its left, 1 to its right.
+func dodge(side: float) -> void:
+	_move(DODGE_R if side > 0.0 else DODGE_L, 0.55, 1.5)
+
+
+## A hop back out of reach.
+func hop_back() -> void:
+	var clip_len := _anim.get_animation(HOP_BACK).length if _anim != null and _anim.has_animation(HOP_BACK) else 1.0
+	# The clip crouches first; the spring is a little way in.
+	_move(HOP_BACK, 0.6, 1.9, clip_len * 0.12)
+
+
+## A lunge with its jaws: the bite comes `arrive` seconds from now.
+func bite(arrive: float = 0.4) -> void:
+	_strike(BITE, arrive)
+	_move_timer = 0.9
+	_lunge_timer = 0.0
+	_swipe_timer = 0.0
+
+
+## Down on its belly, it throws itself forward: the crawl sped up, the jaws wide.
+func ground_lunge() -> void:
+	_move(DRAG, 0.7, 2.6)
+
+
 ## Dead: it falls onto its back, and stays there.
 func fall() -> void:
 	if _dead or _anim == null:
@@ -348,6 +411,8 @@ func _overlay(delta: float) -> void:
 		if a < lunge_windup:
 			glint = a / lunge_windup
 			glint_side = 2.0
+	elif _move_timer > 0.0 and (_anim.current_animation == String(BITE) or _anim.current_animation == String(DRAG)):
+		gape = 0.65 * sin(clampf(1.0 - _move_timer / 0.8, 0.0, 1.0) * PI)
 	elif not _dead:
 		gape = 0.06 + 0.04 * sin(_clock * 2.3)
 	if _jaw >= 0 and not has_lost("head"):
@@ -401,20 +466,20 @@ func _glint(amount: float, side: float) -> void:
 ## What its blows are made of this frame, for a [WeaponSweep]: each arm it still
 ## has from the elbow to the paw and the paw out to its claws, and in a pounce
 ## its head and jaws.
-func claw_parts(pounce: bool) -> Array:
+func claw_parts(pounce: bool, jaws_only: bool = false) -> Array:
 	var out := []
 	if _skeleton == null:
 		return out
 	var frame := _skeleton.global_transform
 	for side in ["l", "r"]:
-		if has_lost("left arm" if side == "l" else "right arm") or not _claw_tips.has(side):
+		if jaws_only or has_lost("left arm" if side == "l" else "right arm") or not _claw_tips.has(side):
 			continue
 		var elbow := frame * _skeleton.get_bone_global_pose(_skeleton.find_bone("lowerarm_" + side)).origin
 		var wrist := (_wrists[side] as Node3D).global_position
 		var tip := (_claw_tips[side] as Node3D).global_position
 		out.append([elbow, wrist, 0.1])
 		out.append([wrist, tip, 0.12])
-	if pounce and not has_lost("head"):
+	if (pounce or jaws_only) and not has_lost("head"):
 		var head := frame * _skeleton.get_bone_global_pose(_skeleton.find_bone("head")).origin
 		var jaw := frame * (_skeleton.get_bone_global_pose(_jaw) * Vector3(0.0, 0.26, 0.0)) if _jaw >= 0 else head
 		out.append([head, jaw, 0.16])
@@ -531,7 +596,16 @@ func has_lost(part: String) -> bool:
 	return _lost.has(part)
 
 
-## Both legs gone: it can only drag itself.
+## A leg gone: it is down, dragging itself on its belly.
+func is_crippled() -> bool:
+	return _lost.has("left leg") or _lost.has("right leg")
+
+
+func is_moving_itself() -> bool:
+	return _move_timer > 0.0
+
+
+## Both legs gone.
 func is_legless() -> bool:
 	return _lost.has("left leg") and _lost.has("right leg")
 
