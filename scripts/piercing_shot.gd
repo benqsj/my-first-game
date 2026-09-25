@@ -27,7 +27,7 @@ const BLAST_RADIUS := 1.1
 ## How far down the line the bands and the mist go, and how often.
 const BLAST_REACH := 30.0
 const BAND_EVERY := 2.2
-const MIST_EVERY := 1.1
+const MIST_EVERY := 1.6
 
 var _shooter: Node3D
 var _dir := Vector3.FORWARD
@@ -143,7 +143,7 @@ func _physics_process(delta: float) -> void:
 		_next_ring += BAND_EVERY
 	while _travel >= _next_mist and _next_mist < BLAST_REACH:
 		var fade := 1.0 - _next_mist / BLAST_REACH
-		WindBlast.mist(into, _start + _dir * _next_mist, 5, 0.8 + 0.9 * fade,
+		WindBlast.mist(into, _start + _dir * _next_mist, 3, 0.8 + 0.9 * fade,
 				Vector2(1.4, 2.2 + 1.4 * fade), 1.4 + 0.8 * fade)
 		_next_mist += MIST_EVERY
 	_draw_at(_start + _dir * _travel)

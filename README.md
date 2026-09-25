@@ -3101,8 +3101,10 @@ a step (`pierce_recoil`, 5 m/s) with dust off his feet and the camera jolts
 (`WindBlast.shake`, `h_offset`/`v_offset` only); the arrow goes as a white
 streak with speed lines racing beside it; bands of air (a ribbon partway round
 the line, twisting forward, `WindBlast.band`) wind round it every 2.2 m and
-open out, and mist is left hanging along the first 30 m (`WindBlast.mist`,
-alpha 0.13 — thicker reads as cotton wool). Its wind is wide: anything within
+open out, and a thin mist is left hanging along the first 30 m
+(`WindBlast.mist`, alpha 0.06 — thicker reads as cotton wool). While it is
+held, a little whirl of air turns at the arrowhead (`AirSwirl`: three pale
+bands round the head and a few motes drawn in, following `arrow_tip()`). Its wind is wide: anything within
 `BLAST_RADIUS` (1.1 m) of the line is struck and thrown down, not only what
 the arrow goes through (a capsule query per step on the creatures' layer).
 Nothing is blue and nothing lights anything. The Fire Arrow is unchanged in

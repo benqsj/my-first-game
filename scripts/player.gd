@@ -3216,8 +3216,12 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	await get_tree().create_timer(nock, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
-	# Held at full, as still as an ordinary aim: nothing gathers on it. What
-	# the shot is shows once it has gone ([PiercingShot]).
+	# Held at full, as still as an ordinary aim, with only a little whirl of
+	# air at the arrowhead ([AirSwirl]); the great wind is the shot's
+	# ([PiercingShot]).
+	var swirl := AirSwirl.new()
+	swirl.start(rig, pierce_hold + 0.05)
+	into.add_child(swirl)
 	await get_tree().create_timer(pierce_hold, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
