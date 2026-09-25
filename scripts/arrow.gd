@@ -28,8 +28,8 @@ signal struck(what: Node3D, where: Vector3, critical: bool)
 
 ## How long a spent arrow stays in the world before it goes.
 @export var linger: float = 6.0
-## And how long it takes to sink out of sight once that is up.
-@export var sink_time: float = 1.0
+## And how long it takes to fade out of sight once that is up.
+@export var sink_time: float = 1.6
 ## Longest an arrow may be in the air before it is given up on, in seconds.
 @export var lifetime: float = 6.0
 ## How far past the surface it buries itself.
@@ -153,22 +153,66 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# leaves the creature no reason to come and find out who fired it.
 		what.call("take_hit", _damage, where, blow, _critical, false, _shooter)
 		# Arrows that land in something ride it rather than hanging in the air
-		# where it used to be. Deferred, because moving a node between parents
-		# in the middle of a physics step is asking the tree to change under the
-		# solver that is walking it.
-		reparent.call_deferred(what, true)
+		# where it used to be — on the bone nearest where it went in, so it goes
+		# with the leg or the head it is in, and down with the body when it
+		# falls. Deferred, because moving a node between parents in the middle
+		# of a physics step is asking the tree to change under the solver that
+		# is walking it.
+		_stick_in.call_deferred(what, where)
 
 
-## Sits in whatever it landed in, then sinks away. Arrows that never leave carve
+## Where in `what` the arrow stays: the bone of its skeleton nearest the hit
+## (on a mount made for that bone, shared by every arrow in it), else the piece
+## of it the point is in or nearest, else the body itself.
+func _stick_in(what: Node3D, where: Vector3) -> void:
+	if not is_instance_valid(what) or not is_inside_tree():
+		return
+	var holder: Node3D = what
+	var skels := what.find_children("*", "Skeleton3D", true, false)
+	if not skels.is_empty():
+		var skel := skels[0] as Skeleton3D
+		var best := -1
+		var best_d := INF
+		for b in skel.get_bone_count():
+			var d := (skel.global_transform * skel.get_bone_global_pose(b).origin).distance_squared_to(where)
+			if d < best_d:
+				best_d = d
+				best = b
+		if best >= 0:
+			var mount_name := "ArrowMount_%d" % best
+			var mount := skel.get_node_or_null(mount_name) as BoneAttachment3D
+			if mount == null:
+				mount = BoneAttachment3D.new()
+				mount.name = mount_name
+				skel.add_child(mount)
+				mount.bone_idx = best
+			holder = mount
+	else:
+		var best_d := INF
+		for m in what.find_children("*", "MeshInstance3D", true, false):
+			var mesh := m as MeshInstance3D
+			if not mesh.is_visible_in_tree() or mesh is SwordTrail:
+				continue
+			var box := mesh.global_transform * mesh.get_aabb()
+			var d := 0.0 if box.grow(0.05).has_point(where) else box.get_center().distance_squared_to(where)
+			if d < best_d:
+				best_d = d
+				holder = mesh
+	reparent(holder, true)
+
+
+## Sits in whatever it landed in, then fades away. Arrows that never leave carve
 ## the ground up into a pincushion and cost a draw call each.
 func _settle(delta: float) -> void:
 	_rested += delta
 	if _rested < linger:
 		return
-	if _rested - linger >= sink_time:
+	var gone := (_rested - linger) / maxf(sink_time, 0.01)
+	if gone >= 1.0:
 		queue_free()
 		return
-	global_position += Vector3.DOWN * delta * 0.35
+	for m in find_children("*", "GeometryInstance3D", true, false):
+		(m as GeometryInstance3D).transparency = gone
 
 
 ## Hangs the cut air off the arrow.
