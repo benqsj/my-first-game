@@ -5,10 +5,6 @@ extends Node3D
 ## ground — on what he has locked, following it, or ahead of him. Nothing marks
 ## the ground: what is seen is the arrow he sends up and the rain after it.
 ##
-## It comes in three waves (`waves`), each a quick handful, so it reads as
-## volleys rather than a drizzle; every arrow trails gold and throws up dust
-## and a spark where it comes down.
-##
 ## The arrows are ordinary [Arrow]s — they sweep for what they cross, stick in
 ## what they hit and sink away — so a rain hurts exactly as arrows do: only the
 ## host's copies count for damage, every peer sees them all. Every peer builds
@@ -23,13 +19,10 @@ extends Node3D
 
 ## How wide the rain falls, in metres.
 @export var radius: float = 3.8
-## How many arrows, over how long, after how long, in how many waves.
+## How many arrows, over how long, after how long.
 @export var count: int = 36
 @export var delay: float = 0.75
 @export var duration: float = 1.3
-@export var waves: int = 3
-## Of each wave's share of `duration`, how much the arrows are spread over.
-@export_range(0.05, 1.0) var wave_spread: float = 0.35
 ## Where they come from: this high over the ground, and this far back towards
 ## the archer.
 @export var height: float = 17.0
@@ -37,10 +30,6 @@ extends Node3D
 @export var speed: float = 30.0
 ## The share of the arrows that come down on a body in the ring.
 @export_range(0.0, 1.0) var aimed: float = 0.3
-
-const GOLD := Color(1.0, 0.78, 0.3)
-const GOLD_TRAIL := Color(1.0, 0.84, 0.48, 0.85)
-const DUST := Color(0.62, 0.52, 0.38, 0.9)
 
 const WHISTLES: Array[String] = [
 	"res://unverified/sounds/tariel/air_1.wav", "res://unverified/sounds/tariel/air_3.wav", "res://unverified/sounds/tariel/air_5.wav",
@@ -87,7 +76,8 @@ func _process(delta: float) -> void:
 	if _follow != null and is_instance_valid(_follow) and _clock < end:
 		var at := _follow.global_position
 		global_position = Vector3(at.x, global_position.y + (at.y - global_position.y) * 0.2, at.z)
-	var due := _due(_clock - delay)
+	# The arrows, spread evenly over the fall.
+	var due := int(ceil(float(count) * clampf((_clock - delay) / duration, 0.0, 1.0)))
 	if due > 0 and _sent == 0:
 		_find_marks()
 		if _follow != null and is_instance_valid(_follow) and not _marks.has(_follow):
@@ -101,42 +91,6 @@ func _process(delta: float) -> void:
 		Sfx.play(self, WHISTLES[_sent % WHISTLES.size()], null, at, 1.55, -12.0)
 	if _clock > end + 1.2:
 		queue_free()
-
-
-## How many arrows should be down `t` seconds into the fall: `waves` waves,
-## each let go over the first `wave_spread` of its slot.
-func _due(t: float) -> int:
-	if t <= 0.0:
-		return 0
-	var n := maxi(waves, 1)
-	var slot := duration / float(n)
-	var per := float(count) / float(n)
-	var done := 0.0
-	for w in n:
-		var into_wave := clampf((t - slot * w) / maxf(slot * wave_spread, 0.001), 0.0, 1.0)
-		done += per * into_wave
-	return mini(int(ceil(done - 0.001)), count)
-
-
-## The top of the shot into the sky: a gold flash, a ring opening flat, and
-## sparks thrown out — the volley breaking up into the rain.
-static func burst_at(into: Node, at: Vector3) -> void:
-	if into == null or not is_instance_valid(into) or not into.is_inside_tree():
-		return
-	SkillFx.flash(into, at, GOLD, 1.1, 0.3, 4.0)
-	SkillFx.ring(into, at, Vector3.UP, GOLD, 0.3, 3.2, 0.45, 0.06, 3.0)
-	SkillFx.burst(into, at, GOLD, 36, Vector2(3.0, 8.0), Vector3.DOWN, 70.0,
-			Vector2(0.03, 0.07), Vector3(0, -9, 0), 0.6)
-	SkillFx.light(into, at, GOLD, 4.0, 14.0, 0.4)
-
-
-## Where an arrow comes down on the ground: a puff of dust and a spark.
-static func land_at(into: Node, at: Vector3) -> void:
-	if into == null or not is_instance_valid(into) or not into.is_inside_tree():
-		return
-	SkillFx.burst(into, at + Vector3.UP * 0.05, DUST, 10, Vector2(0.8, 2.2), Vector3.UP, 60.0,
-			Vector2(0.05, 0.11), Vector3(0, -3, 0), 0.5)
-	SkillFx.flash(into, at + Vector3.UP * 0.08, GOLD, 0.18, 0.12, 2.5)
 
 
 ## What stands in the ring: anything on the creatures' layer.
@@ -183,16 +137,10 @@ func _drop() -> void:
 	arrow.set(&"linger", 5.0)
 	arrow.set(&"lifetime", 3.0)
 	arrow.set(&"wake_spread", 0.0)
-	arrow.set(&"trail_width", 0.1)
-	arrow.set(&"streak_tint", GOLD_TRAIL)
+	arrow.set(&"trail_width", 0.035)
 	into.add_child(arrow)
 	arrow.global_position = from
 	var critical := _rng.randf() < _crit_chance
 	arrow.call(&"launch", (land - from).normalized() * speed, _damage * (_crit_damage if critical else 1.0),
 			critical, 6.0, _shooter)
 	arrows.append(arrow)
-	# Where it comes down, once it has: dust and a spark (into the world, so
-	# nothing hangs off the rain itself).
-	var ground := Vector3(land.x, global_position.y, land.z)
-	get_tree().create_timer(from.distance_to(land) / speed, false).timeout.connect(
-			func() -> void: ArrowRain.land_at(into, ground))

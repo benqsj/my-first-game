@@ -63,7 +63,7 @@ func _check_rain() -> void:
 	_check("pressing 1 lets it go", used[0] == 1, "%d" % used[0])
 	_check("it costs stamina", _player.stamina < _player.max_stamina - 20.0, "%.0f" % _player.stamina)
 	_check("and it has to come back", _player.skill_cooldown_left(0) > 11.0, "%.1f s" % _player.skill_cooldown_left(0))
-	_check("he nocks and draws first, to shoot into the sky", String(_player.rig._act_clip) == "AV_Nock_Draw",
+	_check("he shoots into the sky first", String(_player.rig._act_clip) == "AV_Sky_Shot",
 			String(_player.rig._act_clip))
 	var rain := await _find_rain(200)
 	_check("when the string goes, the rain comes, ahead of him", rain != null)
