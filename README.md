@@ -2897,3 +2897,40 @@ CC0 photographs (`assets/terrain_real/SOURCES.md`). **F8** swaps them in play;
 `-- ground_b` starts in the second. `tests/terrain_test.gd` checks the relief,
 the flat places, that the floor is what is drawn, the tracks' gradient, the
 seam, the trunks and a walk up the tallest open hill.
+
+## Tariel's new body, and capes of cloth
+
+**Tariel** (`assets/tariel_rigged/tariel_rigged.glb`, built by
+`vepxis-art/tools/t6_build.py` into `tariel.blend` as `tariel_v6` on
+`tariel_rig`) is now box-built like the assassin and the mage: the edges
+softly rounded, every piece rigid on one bone, flat materials (17, `t6_*`).
+The knight in the panther's skin: a steel cuirass with a ridge and gold edges
+over a crimson tunic, lames at the belly, a gorget, a tiger's head on the right
+shoulder looking forward with its hide and paws down the arm, a sash of the
+skin across the chest, three steel plates on the left shoulder, vambraces with
+gold bands, fists round the sword's and the shield's grips, a belt with gold
+studs, leather straps (the front ones on the thighs, so they walk), knee cops,
+greaves and tall boots; a gold diadem with a ruby, black hair in a tail with a
+gold band (on the `hair_` spring bones as before), a curled moustache and a
+short beard. The trunk's pieces lean with his spine. The sword and both
+shields are the old ones. Same 58 clips.
+
+**Capes are cloth** (`ClothCape`, `scripts/cloth_cape.gd`): a sheet of points
+hung from a bone that swings with the body, streams back on a run, is kicked by
+the legs and ripples in a light wind. Verlet at a fixed 60 steps a second with
+the sheet's lengths put back six times a step (along, across, the diagonals and
+every other point down), capsules round the trunk and the legs pushing it out,
+and each point drawn a little towards where it hangs at rest — strongly at the
+top, not at all at the hem — so it keeps its drape and never flies apart. The
+rest shape curves round the back (`wrap`), so from the side it is not a flat
+board. Drawn as one double-sided sheet in world space, its colours from a
+small texture (ground, hem, trim; a tiger's stripes or a row of runes).
+
+Each rig names its capes in `_configure()` (`SkinnedRig.capes`, specs in the
+Blender model's coordinates): Tariel his tiger's skin off the fur across his
+shoulders, the mage his long wine cape with gold runes at the hem, the assassin
+a short dark cape with a crimson hem and the two tails of his scarf. The rigid
+capes are gone from the models (`CLOTH` in `r4_build.py`/`m5_build.py`), and
+Tariel's cape spring bones are left alone when he has cloth. Purely for show:
+every peer hangs its own. `heroes_test` checks each has his cloth, that it
+hangs behind him standing and trails behind on a run.
