@@ -2845,3 +2845,9 @@ and the evades with the fight's other sounds, under the blades. A double-tap
 that turns Tariel's roll into the long dodge adds nothing — the roll's sound
 is already playing. `heroes_test` jumps and evades each hero and counts
 `move_sounds_heard`.
+
+**A neck for the assassin**: his head sat down on his shoulders, the hood
+reaching to them. Now the head rides 6 cm higher (`HEAD_LIFT` in
+`vepxis-art/tools/r4_build.py`) on a neck wrapped in the mask's dark cloth, the
+hood stops short above the shoulders and the crimson scarf is a low collar
+round the base of the neck — as Avtandil's head stands on his.
