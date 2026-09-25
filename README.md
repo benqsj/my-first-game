@@ -3134,3 +3134,32 @@ The Rain of Arrows is as it was (`AV_Sky_Shot`, `ArrowRain`) — a round that
 changed it was undone at the user's word. Avtandil's bar: **1** the mark,
 **2** the fire arrow, **3** the rain, **4** the piercing arrow; four slots. `new_skills_test` checks he stands
 still through the draw and that the string is drawn with the arrow on it.
+
+## Seven fixes after play: the head, fast arrows, planted skills, the lock, the evades
+
+1. **Avtandil ran looking at the sky.** The sprint clip, straightened up 28° in
+   Blender, left the head thrown back ~20° (measured: head −17° from upright
+   running, +11° standing). `BowModifier.head_level` brings the head to
+   `head_lean` (6°) forward of upright while he runs and is not aiming; the rig
+   eases it on and off (`SkinnedArcherRig`). The skeleton's own forward is +Z —
+   the first try measured against −Z and threw the head further back.
+   (Modifier results only show in `Skeleton3D.skeleton_updated`; a probe that
+   reads bone poses anywhere else sees the pose without them.)
+2. **Arrows fly at 72 m/s** at full draw (46 off a snap), up from 34/21: at
+   twenty metres the arrow is there in under a third of a second, so the evade
+   has to go as the string does.
+3. **The skills are taken standing.** `Player._root(seconds)` stops him dead
+   (velocity zeroed, then no walking) for the mark's point, and for the fire and
+   piercing draws — the mark no longer slides out of a run.
+4. **The Fire Arrow is quick:** drawn at twice the pace (`FIRE_QUICK`) and held
+   0.25 s (`FIRE_HOLD`).
+5. **The Piercing Arrow follows what it was drawn at.** Through the draw
+   `_track_pierce` turns him on the quarry (fast, not a snap), so the lock
+   camera goes with it; the aim is settled at the release by the body's owner
+   (`net_pierce_loose`, sent to every peer) — at the quarry wherever it has got
+   to, even behind him.
+6. **No blow lands through an evade**, even one cut short by running into a
+   body or a wall: `_safe_until` covers the whole roll or dodge from its start.
+7. **A perfect dodge with a shadow** (the assassin, Avtandil) covers him while
+   the shadow is shed: `ShadowTrail.GUARD` (1.2 s). `tests/evade_guard_test.gd`
+   checks both, for Tariel, Avtandil and the assassin.

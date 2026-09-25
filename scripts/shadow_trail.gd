@@ -15,6 +15,9 @@ extends Node3D
 
 ## How long it keeps shedding, how often, and how long each copy lasts.
 @export var shedding: float = 1.0
+## How long after a perfect dodge nothing lands on the body that sheds it
+## (read by [Player]): the shedding and the last copies fading.
+const GUARD := 1.2
 @export var every: float = 0.07
 @export var copy_life: float = 0.5
 

@@ -331,6 +331,10 @@ var profile: CharacterProfile
 
 var state: State = State.AIRBORNE
 var is_invulnerable: bool = false
+## Until when (in [method _now] seconds) no blow lands: the whole length of an
+## evade — even one cut short by running into a wall or a body — and, after a
+## perfect dodge with its shadow, as long as the shadow is shed.
+var _safe_until: float = 0.0
 ## Health and stamina, taken from the profile on spawn. Everything that hurts or
 ## tires the body goes through [method _take_damage] and [method _spend].
 var health: float = 120.0
@@ -465,6 +469,8 @@ var net_shield: int = 0
 var _commit_timer: float = 0.0
 ## While above 0 he stands where he is (a skill shot being drawn and loosed).
 var _root_timer: float = 0.0
+## What the Piercing Arrow was drawn at: he turns with it until the release.
+var _pierce_quarry: Node3D = null
 var _attack_buffer: float = 0.0
 ## How many cuts into the current flurry, and whether *this* one keeps its run.
 ## The first swing does; the ones chained off it do not.
@@ -651,6 +657,7 @@ func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
 	_tick_vitals(delta)
 	_track_target(delta)
+	_track_pierce(delta)
 	if has_bow():
 		_tick_bow(delta)
 		_level_camera(delta)
@@ -1148,6 +1155,7 @@ func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = fa
 	_dash_timer = dash_duration
 	_dash_cooldown_timer = dash_cooldown + dash_duration
 	is_invulnerable = dash_iframes > 0.0
+	_safe_until = maxf(_safe_until, _now() + dash_duration)
 
 	if not keep_facing:
 		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
@@ -1177,6 +1185,7 @@ func _upgrade_to_dodge() -> void:
 	_dodge_timer = dodge_duration
 	_dash_cooldown_timer = dash_cooldown + dodge_duration
 	is_invulnerable = dodge_iframes > 0.0
+	_safe_until = maxf(_safe_until, _now() + dodge_duration)
 	dodge_started.emit(_dash_direction)
 
 
@@ -2324,12 +2333,17 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 
 	# Rolling, dashing or already on the ground: the blow goes through empty air.
 	# The whole evade counts, not only its first few frames.
-	if is_invulnerable or state == State.DASHING or state == State.DODGING \
-			or state == State.DOWNED:
+	var evading := state == State.DASHING or state == State.DODGING \
+			or _now() - _evade_started_at <= maxf(dash_duration, 0.0) and _now() < _safe_until
+	if is_invulnerable or evading or state == State.DOWNED or _now() < _safe_until:
 		_combo_landed[combo] = -999
-		if (state == State.DASHING or state == State.DODGING) and not _evade_was_perfect \
+		if evading and not _evade_was_perfect \
 				and _now() - _evade_started_at <= perfect_dodge_window:
 			_evade_was_perfect = true
+			# With the shadow (the assassin, Avtandil) nothing lands while it
+			# is being shed.
+			if profile != null and profile.shadow_dodge:
+				_safe_until = maxf(_safe_until, _now() + ShadowTrail.GUARD)
 			stamina = minf(stamina + (profile.roll_stamina if profile != null else 20.0), max_stamina)
 			_winded = false
 			net_react.rpc(Reaction.PERFECT_DODGE, global_position, Vector3.ZERO)
@@ -3134,6 +3148,8 @@ func _hunters_mark() -> bool:
 	_face_point(quarry.global_position)
 	var lead := float(rig.call(&"point_lead")) if rig != null and rig.has_method(&"point_lead") else 0.4
 	_commit(lead + 0.35)
+	# Planted for the whole point, not sliding on from a run.
+	_root(lead + 0.9)
 	net_hunters_mark.rpc(quarry.get_path())
 	return true
 
@@ -3185,11 +3201,13 @@ func _piercing_arrow() -> bool:
 	_drawing = false
 	_draw_timer = 0.0
 	var quarry := _skill_quarry(pierce_reach)
+	# Followed through the draw: body (and so the camera's lock) turn with it.
+	_pierce_quarry = quarry
 	if quarry != null:
 		_face_point(quarry.global_position)
 	var nock := float(rig.call(&"nock_lead", 1.0)) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + pierce_hold + 0.45)
-	_root_timer = nock + pierce_hold + 0.45
+	_root(nock + pierce_hold + 0.45)
 	var from := global_position + up_direction * arrow_height
 	var dir := -global_transform.basis.z
 	if quarry != null:
@@ -3225,6 +3243,31 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	await get_tree().create_timer(pierce_hold, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
+	# Where it goes is decided at the release, by whoever drives this body: at
+	# the quarry wherever it has got to (behind him, even — he has turned with
+	# it), else the way he faces now.
+	if is_multiplayer_authority():
+		var aim := dir
+		var quarry := _pierce_quarry
+		_pierce_quarry = null
+		var tip := _arrow_tip()
+		if quarry != null and is_instance_valid(quarry) and _targetable(quarry):
+			aim = (HuntingLight._aim_of(quarry) - tip).normalized()
+		else:
+			var face := -global_transform.basis.z
+			aim = Vector3(face.x, dir.y, face.z).normalized()
+		net_pierce_loose.rpc(aim, damage, critical)
+
+
+## The Piercing Arrow let go, on every peer, the way its owner decided.
+@rpc("any_peer", "call_local", "reliable")
+func net_pierce_loose(dir: Vector3, damage: float, critical: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var into := Blood.world_of(self)
+	if into == null or is_dead:
+		return
 	# Off the string: from the head of the arrow he has drawn.
 	var from := _arrow_tip()
 	var shot := PiercingShot.new()
@@ -3243,6 +3286,31 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	if rig != null and rig.has_method(&"loose_skill_shot"):
 		rig.call(&"loose_skill_shot")
 #endregion
+
+
+## Through the Piercing Arrow's draw, keeps him turned on what it was drawn at
+## — quickly, but not in a snap — so a quarry that leaps past him or behind
+## him is still what the shot goes at. The lock camera follows it as ever.
+func _track_pierce(delta: float) -> void:
+	if _pierce_quarry == null:
+		return
+	if not is_instance_valid(_pierce_quarry) or not is_committed() or is_dead:
+		_pierce_quarry = null
+		return
+	var toward := _pierce_quarry.global_position - global_position
+	toward.y = 0.0
+	if toward.length_squared() < 0.01:
+		return
+	var want := atan2(-toward.x, -toward.z)
+	rotation.y = lerp_angle(rotation.y, want, 1.0 - exp(-14.0 * delta))
+
+
+## Stands him where he is for `seconds`: the way he was going stops now,
+## rather than sliding out.
+func _root(seconds: float) -> void:
+	_root_timer = maxf(_root_timer, seconds)
+	velocity.x = 0.0
+	velocity.z = 0.0
 
 
 ## Where a skill shot leaves from: the head of the arrow on the string, or the
@@ -3267,16 +3335,18 @@ func _fire_arrow() -> bool:
 	_draw_timer = 0.0
 	var at := _fire_point()
 	_face_point(at)
-	var nock := float(rig.call(&"nock_lead")) if rig != null and rig.has_method(&"nock_lead") else 0.3
+	var nock := float(rig.call(&"nock_lead", 0.0, FIRE_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + FIRE_HOLD + 0.45)
-	_root_timer = nock + FIRE_HOLD + 0.45
+	_root(nock + FIRE_HOLD + 0.45)
 	var damage := (profile.damage if profile != null else 30.0) * fire_share
 	net_fire_arrow.rpc(at, damage)
 	return true
 
 
-## How long the burning arrow is held before it goes.
-const FIRE_HOLD := 0.55
+## How long the burning arrow is held before it goes, and how many times
+## faster than an ordinary shot it is drawn: a quick shot.
+const FIRE_HOLD := 0.25
+const FIRE_QUICK := 2.0
 
 
 ## Where the fire goes: on what is locked in range, else ahead; on the ground.
@@ -3308,7 +3378,7 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 		# Lobbed: aimed up over the line to the point, more the further it is.
 		var off := at - global_position
 		var span := Vector2(off.x, off.z).length()
-		nock = float(rig.call(&"charged_shot", FIRE_HOLD, clampf(0.12 + span * 0.012, 0.12, 0.5)))
+		nock = float(rig.call(&"charged_shot", FIRE_HOLD, clampf(0.12 + span * 0.012, 0.12, 0.5), 0.0, FIRE_QUICK))
 	# Drawn and held like any shot; the fire shows once the arrow has gone.
 	await get_tree().create_timer(nock + FIRE_HOLD, false).timeout
 	if not is_inside_tree() or is_dead:
