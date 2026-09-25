@@ -429,6 +429,27 @@ func stain(point: Vector3, radius: float, tint: Color, strength: float = 0.5) ->
 					_multi[i].set_instance_color(_slot[i], _tint[i])
 
 
+## Puts the clumps within `radius` of `point` back to clean — the blood there
+## has dried off.
+func unstain(point: Vector3, radius: float) -> void:
+	if _multi.is_empty():
+		return
+	var at := to_local(point)
+	var span := ceili(radius / cell_size)
+	var centre := _cell(at)
+	var radius_squared := radius * radius
+	for cx in range(centre.x - span, centre.x + span + 1):
+		for cz in range(centre.y - span, centre.y + span + 1):
+			for i in _grid.get(Vector2i(cx, cz), PackedInt32Array()) as PackedInt32Array:
+				var offset := _home[i] - at
+				offset.y = 0.0
+				if offset.length_squared() >= radius_squared:
+					continue
+				_tint[i] = _base[i]
+				if _multi[i] != null:
+					_multi[i].set_instance_color(_slot[i], _base[i])
+
+
 ## Puts every clump back to clean.
 func clear_stains() -> void:
 	for i in _multi.size():

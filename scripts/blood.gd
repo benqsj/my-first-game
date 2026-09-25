@@ -25,6 +25,13 @@ const PATCH_LIFT := 0.02
 const MAX_PATCHES := 144
 ## Physics layer the ground is on ("world" in the project settings).
 const GROUND_MASK := 1
+## How long what a blow leaves lies there — on the ground, the grass and the
+## props — before it fades (between these two, so a fight's blood does not all
+## go at once), and how long the fade takes. Then it is gone for good: a long
+## fight must not leave a field of patches behind it.
+const LINGER_MIN := 30.0
+const LINGER_MAX := 40.0
+const FADE_TIME := 4.0
 
 ## Shared by every splatter. A new material per hit meant a new draw per patch
 ## that could never be batched with the others.
@@ -78,6 +85,27 @@ static func splatter(world: Node, point: Vector3, direction: Vector3) -> void:
 	_spray(world, point, direction)
 	_stain_ground(world, point)
 	_stain_nearby(world, point)
+
+
+## How long this blow's blood stays, between `LINGER_MIN` and `LINGER_MAX`.
+static func _linger() -> float:
+	return randf_range(LINGER_MIN, LINGER_MAX)
+
+
+## Lets a ground patch lie for a while, then fades it out and frees it. A patch
+## picked up and laid again under a newer blow starts its wait again.
+static func _fade_later(patch: MeshInstance3D) -> void:
+	var old: Variant = patch.get_meta(&"fade", null)
+	if old is Tween and (old as Tween).is_valid():
+		(old as Tween).kill()
+	patch.transparency = 0.0
+	var tween := patch.create_tween()
+	tween.tween_interval(_linger())
+	tween.tween_property(patch, "transparency", 1.0, FADE_TIME)
+	tween.tween_callback(func() -> void:
+		_patches.erase(patch)
+		patch.queue_free())
+	patch.set_meta(&"fade", tween)
 
 
 ## A short-lived burst of droplets thrown out along the blow.
@@ -244,6 +272,7 @@ static func _stain_ground(world: Node, point: Vector3) -> void:
 				* Basis.from_scale(Vector3(size, size * squash, 1.0))
 		var patch := _take_patch(world)
 		patch.global_transform = Transform3D(basis, at)
+		_fade_later(patch)
 
 
 ## A ground patch to lay down: a new one while there is room under
@@ -301,6 +330,7 @@ static func _stain_nearby(world: Node, point: Vector3) -> void:
 	var field := scatter as GrassField
 	if field != null:
 		field.stain(point, SPLATTER_RADIUS, STAIN, 0.65)
+	var wet: Array[MeshInstance3D] = []
 
 	if _overlay_material == null:
 		_overlay_material = StandardMaterial3D.new()
@@ -318,6 +348,14 @@ static func _stain_nearby(world: Node, point: Vector3) -> void:
 			continue
 		for m in node.find_children("*", "MeshInstance3D", true, false):
 			(m as MeshInstance3D).material_overlay = overlay
+			wet.append(m as MeshInstance3D)
+	# The grass and the props dry off when the ground does.
+	world.get_tree().create_timer(_linger() + FADE_TIME, false).timeout.connect(func() -> void:
+		if field != null and is_instance_valid(field):
+			field.unstain(point, SPLATTER_RADIUS)
+		for m in wet:
+			if is_instance_valid(m) and m.material_overlay == overlay:
+				m.material_overlay = null)
 
 
 ## Darkens a blade as it is used. `amount` climbs from 0 to 1 over several cuts.
