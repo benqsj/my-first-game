@@ -32,6 +32,11 @@ var crouch: float = 0.0
 ## forward the waist leans (radians; the chest takes it back).
 var crouch_drop: float = 0.16
 var crouch_lean: float = 0.32
+## How much to bring the head level (0..1): the sprint clip, straightened up
+## in Blender, leaves the head thrown back ~20° — he ran looking at the sky.
+## Brought to `head_lean` forward of upright.
+var head_level: float = 0.0
+var head_lean: float = deg_to_rad(6.0)
 
 var string_u: Node3D
 var string_l: Node3D
@@ -57,6 +62,7 @@ func _process_modification() -> void:
 		return
 	_brace(skel)
 	_tilt(skel)
+	_level_head(skel)
 	_flex(skel)
 	_place_string(skel)
 
@@ -69,6 +75,20 @@ func _turn(skel: Skeleton3D, b: int, angle: float) -> void:
 	var parent_global := skel.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
 	var local_axis := (parent_global.basis * skel.get_bone_pose(b).basis).inverse() * Vector3.RIGHT
 	skel.set_bone_pose_rotation(b, skel.get_bone_pose_rotation(b) * Quaternion(local_axis.normalized(), angle))
+
+
+## Brings the head to `head_lean` forward of upright, by `head_level`.
+func _level_head(skel: Skeleton3D) -> void:
+	if head_level < 0.001:
+		return
+	var head := _bone(&"head")
+	if head < 0:
+		return
+	var y := skel.get_bone_global_pose(head).basis.y.normalized()
+	# Measured against the skeleton's own forward, which is +Z here (the
+	# armature is turned about in the glb): checked with the head probe.
+	var lean := atan2(y.dot(Vector3.BACK), y.dot(Vector3.UP))
+	_turn(skel, head, clampf(head_lean - lean, -0.8, 0.8) * head_level)
 
 
 ## The braced stance: hips down, thighs forward, shins back, feet flat; the

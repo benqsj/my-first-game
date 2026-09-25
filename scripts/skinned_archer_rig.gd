@@ -267,8 +267,10 @@ var _skill_brace: float = 0.0
 var _brace_now: float = 0.0
 
 
-func nock_lead(brace: float = 0.0) -> float:
-	return _draw_time * (1.0 + 0.25 * clampf(brace, 0.0, 1.0))
+## How long a skill shot's draw takes: braced, a quarter slower; `quick`
+## times faster.
+func nock_lead(brace: float = 0.0, quick: float = 1.0) -> float:
+	return _draw_time * (1.0 + 0.25 * clampf(brace, 0.0, 1.0)) / maxf(quick, 0.1)
 
 
 ## Draws exactly as for an ordinary shot — the same clip over the same
@@ -277,14 +279,14 @@ func nock_lead(brace: float = 0.0) -> float:
 ## lets go with the ordinary release. Returns how long the draw takes. `pitch`
 ## is how far up (+) or down the shot goes, radians: the chest tilts onto it as
 ## the string comes back.
-func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0) -> float:
+func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0, quick: float = 1.0) -> float:
 	_drawing_clip = false
 	_aim_phase = 0.0
 	if _anim == null or not _anim.has_animation(DRAW_CLIP):
 		return 0.3
 	var clip_len := _anim.get_animation(DRAW_CLIP).length
 	# A braced shot is drawn heavier: a quarter slower.
-	var nock := play_part(DRAW_CLIP, clip_len / (_draw_time * (1.0 + 0.25 * clampf(brace, 0.0, 1.0))), 0.0, 1.0, 0.1)
+	var nock := play_part(DRAW_CLIP, clip_len / nock_lead(brace, quick), 0.0, 1.0, 0.1)
 	if nock <= 0.0:
 		return 0.3
 	# The string is drawn by hand for a skill shot: [method animate] brings it
@@ -416,6 +418,11 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		var brace_to := _skill_brace if _skill_t >= 0.0 else 0.0
 		_brace_now = move_toward(_brace_now, brace_to, delta * (2.2 if brace_to > _brace_now else 1.6))
 		_bow_mod.crouch = _brace_now
+		# Running, not aiming: the head level, not thrown back.
+		var running := String(_anim.current_animation).contains("Run") \
+				or String(_anim.current_animation).contains("Sprint")
+		var level_to := 1.0 if running and _aim_phase < 0.1 and _skill_t < 0.0 else 0.0
+		_bow_mod.head_level = move_toward(_bow_mod.head_level, level_to, delta * 4.0)
 	if _drawing_clip:
 		# The draw clip owns the body until it is through; the base cycle must
 		# not be picked over it.
