@@ -44,7 +44,9 @@ func _check_keys() -> void:
 
 func _check_rain() -> void:
 	_check("Avtandil's first skill is the Rain of Arrows", _player.skill_in(0) == &"arrow_rain")
-	_check("the other four slots are empty", _player.skill_in(1) == &"" and _player.skill_in(4) == &"")
+	_check("then the mark, the piercing arrow, the fire arrow, and the last slot empty",
+			_player.skill_in(1) == &"hunters_mark" and _player.skill_in(2) == &"piercing_arrow"
+			and _player.skill_in(3) == &"fire_arrow" and _player.skill_in(4) == &"")
 	await _wait(30)
 	var fwd := -_player.global_transform.basis.z
 	fwd.y = 0.0
