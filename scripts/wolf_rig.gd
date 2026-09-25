@@ -144,6 +144,8 @@ var _trail_l: SwordTrail
 var _trail_r: SwordTrail
 var _glints: Dictionary = {}
 var _clock: float = 0.0
+## The claw wave: its clips and its tell ([WolfClaw]).
+var claw: WolfClaw
 
 
 func _ready() -> void:
@@ -174,6 +176,7 @@ func _ready() -> void:
 	for clip in [SWIPE_L, SWIPE_R, POUNCE, &"WF_Punch"]:
 		_strike_at[clip] = _fastest(clip)
 	_mark_claws()
+	claw = WolfClaw.new(self, _anim, _skeleton)
 	_anim.play(IDLE)
 	_anim.advance(0.0)
 	_look_phase = _rng.randf() * TAU
@@ -307,6 +310,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	_stance = stance_target
 	if not _dead:
 		_choose(planar_speed)
+	if claw != null:
+		claw.drive(delta)
 	_anim.advance(delta)
 	# The clips are kept on the spot; the body is what moves it.
 	if _root_bone >= 0:
@@ -314,11 +319,13 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 		if is_crippled() and not _dead:
 			_rest_on_ground(delta)
 	_overlay(delta)
+	if claw != null:
+		claw.overlay(delta)
 	var swiping := _swipe_timer > 0.0 and _swipe_timer < swipe_duration * (1.0 - swipe_windup)
 	if _trail_l != null:
-		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through()
+		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through() or (claw != null and claw.slashing("l"))
 	if _trail_r != null:
-		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through()
+		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through() or (claw != null and claw.slashing("r"))
 
 
 ## Down on its belly, the body is let down until the lowest joint left on it is
@@ -354,6 +361,8 @@ func _lunging_through() -> bool:
 
 ## The clip for what it is doing now, when no attack or stagger is playing.
 func _choose(planar: float) -> void:
+	if claw != null and claw.active():
+		return
 	if _swipe_timer > 0.0 or _lunge_timer > 0.0 or _reel_timer > 0.0 or _move_timer > 0.0:
 		return
 	var clip := IDLE
@@ -437,6 +446,8 @@ func reel(length: float = Recoil.STAGGER) -> void:
 	_swipe_timer = 0.0
 	_lunge_timer = 0.0
 	_reel_timer = length
+	if claw != null:
+		claw.cancel()
 	if _anim.has_animation(STAGGER):
 		_anim.play(STAGGER, 0.08)
 		_anim.seek(0.0, true)
@@ -451,6 +462,8 @@ func _move(clip: StringName, length: float, rate: float = 1.0, from: float = 0.0
 	_swipe_timer = 0.0
 	_lunge_timer = 0.0
 	_move_timer = length
+	if claw != null:
+		claw.cancel()
 	_anim.play(clip, 0.08)
 	_anim.seek(from, true)
 	_anim.speed_scale = rate
@@ -486,6 +499,8 @@ func fall() -> void:
 	if _dead or _anim == null:
 		return
 	_dead = true
+	if claw != null:
+		claw.cancel()
 	_swipe_timer = 0.0
 	_lunge_timer = 0.0
 	if _anim.has_animation(DEATH):
@@ -495,6 +510,11 @@ func fall() -> void:
 
 func is_lunging() -> bool:
 	return _lunge_timer > 0.0
+
+
+## Rearing up to throw a claw wave, or throwing it.
+func is_clawing() -> bool:
+	return claw != null and claw.active()
 
 
 func is_swiping() -> bool:

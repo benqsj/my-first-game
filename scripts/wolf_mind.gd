@@ -149,7 +149,7 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 				_after_combo()
 			elif _gap <= 0.0:
 				var move: StringName = _combo.pop_front()
-				if move != &"pounce" and move != &"hop" and gap > wolf.strike_range() + 0.8:
+				if move != &"pounce" and move != &"hop" and move != &"claw_wave" and gap > wolf.strike_range() + 0.8:
 					# He got away between blows: after him.
 					_combo.push_front(move)
 					_begin(Tactic.CLOSE)
@@ -253,6 +253,12 @@ func _after_combo() -> void:
 ## Out of the circle or the wait: straight in, or — from out of reach, with
 ## both arms — the sudden leap.
 func _next_from_range(gap: float) -> void:
+	# Now and then, from where it stands: the claw wave.
+	if wolf.can_claw(gap) and _rng.randf() < 0.3 + 0.3 * intellect:
+		tactic = Tactic.STRIKE
+		_combo.assign([&"claw_wave"])
+		_gap = 0.0
+		return
 	if gap > wolf.strike_range() + 0.6 and gap < wolf.pounce_range() and wolf.arms_left() == 2 \
 			and _rng.randf() < 0.35 + 0.4 * intellect:
 		tactic = Tactic.STRIKE

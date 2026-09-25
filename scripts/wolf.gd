@@ -171,6 +171,14 @@ var _pouncing: bool = false
 
 ## Its fighting mind (host).
 var mind: WolfMind
+
+## The claw wave ([WolfClaw], [ClawWave]): not always — once in a while, from
+## out of reach: seconds between one and the next, and from how near to how
+## far off it is thrown.
+@export var claw_cooldown: Vector2 = Vector2(9.0, 15.0)
+@export var claw_range: Vector2 = Vector2(3.2, 11.0)
+## Seconds until it may throw one again (the first a little after it notices).
+var _claw_wait: float = 0.0
 ## Seconds left standing on its beat, looking about.
 var _linger: float = 0.0
 ## Missiles already judged, by instance id.
@@ -212,6 +220,9 @@ func _ready() -> void:
 	if intellect < 0.0:
 		intellect = _rng.randf_range(wit_range.x, wit_range.y)
 	mind = WolfMind.new(self, intellect)
+	_claw_wait = _rng.randf_range(2.5, 5.0)
+	if rig != null and rig.claw != null:
+		rig.claw.on_release = _claw_released
 	if rig != null:
 		# Its coat and whether it goes on four legs or two: from its name, so the
 		# same on every peer.
@@ -240,6 +251,7 @@ func _physics_process(delta: float) -> void:
 
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
 	_busy = maxf(_busy - delta, 0.0)
+	_claw_wait = maxf(_claw_wait - delta, 0.0)
 	_evading = maxf(_evading - delta, 0.0)
 	if _slipping > 0.0:
 		_slipping -= delta
@@ -401,9 +413,15 @@ func _think(delta: float) -> void:
 				state = State.FIGHT
 				_fighting = quarry
 				mind.engage(quarry)
+			elif can_claw(distance) and _rng.randf() < delta * (0.35 + 0.4 * intellect):
+				# Kept at a distance, it throws the claws' cut at him.
+				attack(&"claw_wave")
 			elif _busy > 0.0:
+				if rig.is_clawing():
+					_face(to_player, delta)
+					_slow(delta)
 				# Thrown aside out of a missile's way: let it carry.
-				if _burst <= 0.0:
+				elif _burst <= 0.0:
 					_slow(delta)
 			else:
 				_move_towards(global_position + to_player,
@@ -625,6 +643,17 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 			velocity += ahead * ground_lunge_speed
 			_burst = 0.4
 			attacked.emit()
+		&"claw_wave":
+			if not can_claw(-1.0):
+				return
+			var moves := claw_combo()
+			var tell := lerpf(0.85, 0.55, intellect)
+			_break_off()
+			_busy = WolfClaw.duration(moves, tell)
+			_claw_wait = _rng.randf_range(claw_cooldown.x, claw_cooldown.y) * lerpf(1.2, 0.8, intellect)
+			rig.claw.begin(moves, tell)
+			net_claw.rpc(moves, tell)
+			attacked.emit()
 		&"hop":
 			_break_off()
 			_busy = 0.6
@@ -651,11 +680,74 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 
 ## Whatever attack it was winding up, dropped.
 func _break_off() -> void:
+	if rig != null and rig.claw != null:
+		rig.claw.cancel()
 	_swipe_lands = -1.0
 	_pounce_in = -1.0
 	_pouncing = false
 	_swipe_timer = 0.0
 	_sweeps.clear()
+
+
+#region Claw wave
+## Whether it may throw a claw wave now, at a quarry `gap` metres off (below
+## zero: whatever the distance): both arms and both legs, its clips there, not
+## busy, and the wait since the last one over.
+func can_claw(gap: float) -> bool:
+	if rig == null or rig.claw == null or not rig.claw.has_clips() or is_dead:
+		return false
+	if is_crippled() or arms_left() < 2 or _reeling > 0.0 or _claw_wait > 0.0 or rig.is_clawing():
+		return false
+	return gap < 0.0 or (gap >= claw_range.x and gap <= claw_range.y)
+
+
+## The blows it throws, as many as its wit runs to ([method WolfMind.combo_max]):
+## the rake always first — the one with the long tell — then the sweep or the
+## slam, and a clever one all three.
+func claw_combo() -> Array[StringName]:
+	var most := mind.combo_max() if mind != null else 1
+	var out: Array[StringName] = [&"rake"]
+	if most >= 3:
+		out.append_array([&"sweep", &"slam"])
+	elif most == 2:
+		out.append(&"slam" if _rng.randf() < 0.4 else &"sweep")
+	return out
+
+
+## The wave leaving the paw, on every peer: the host's is the one that hurts.
+## At its quarry if he is anywhere ahead of it, else straight ahead.
+func _claw_released(_blow: StringName, spec: Dictionary) -> void:
+	if is_dead:
+		return
+	var dir := -global_transform.basis.z
+	dir.y = 0.0
+	dir = dir.normalized()
+	var quarry := _quarry() if _decides() else _nearest_player()
+	if quarry != null:
+		var at_him := quarry.global_position - global_position
+		at_him.y = 0.0
+		if at_him.length_squared() > 0.01 and at_him.normalized().dot(dir) > 0.5:
+			dir = at_him.normalized()
+	var world := Blood.world_of(self)
+	if world == null:
+		world = get_parent()
+	var from := global_position + dir * 0.8 + Vector3.UP * float(spec.get("height", 1.0))
+	ClawWave.throw(world, from, dir, deg_to_rad(float(spec.get("roll", 0.0))), float(spec.get("size", 1.0)),
+			bool(spec.get("ground", false)), _decides(), self, float(spec.get("damage", 30.0)))
+	if bool(spec.get("ground", false)):
+		WindBlast.shake(self, 0.1, 0.3, 16.0)
+
+
+## A claw wave, on the peers that did not decide it.
+@rpc("authority", "call_remote", "reliable")
+func net_claw(moves: Array, tell: float) -> void:
+	if rig == null or rig.claw == null or is_dead:
+		return
+	var list: Array[StringName] = []
+	for m in moves:
+		list.append(StringName(m))
+	rig.claw.begin(list, tell)
+#endregion
 
 
 ## A move of its own, on the peers that did not decide it.
