@@ -2872,3 +2872,28 @@ round an ice-blue crystal with motes about it. `SkinnedMageRig.CRYSTAL_UP` is
 0.83 m (the crystal sits lower than the old one's), and the crystal's light at
 rest is its own blue (`CRYSTAL_LIGHT`); the charge still gathers gold and
 turns violet when full, as before. The same 31 `MG_` clips.
+
+## The land rolls (branch `terrain`)
+
+The old square is no longer one flat box (`scripts/terrain.gd`, on
+`Level/Ground`). One function, `Terrain.height_at`, answers for all of it on
+every peer: a slow roll of a couple of metres, a handful of hills and hollows
+placed by hand (`features` — the tallest about 10 m), the land rising towards
+the north, east and west walls to meet the mountains, and fading to nothing
+before the marsh strip's seam so the two meet at y = 0. Wherever something was
+put down on the old box it stays dead level — every mesh in `Level`, the spawn
+marks, the people, the creatures, the camps, the wood's clearings — and a worn
+track keeps only a fifth of the roll. The drawn ground is a one-metre grid in
+8 × 8 chunks; the floor is a `HeightMapShape3D` on the same grid.
+
+Trees, their trunks' colliders, the grass, the tracks and the settlement's fence
+are put down at `Terrain.height`/`height_under` instead of 0.
+
+**Two looks for the ground**, one shader (`shaders/terrain_ground.gdshader`),
+blending grass, hay-coloured dry patches, bare earth on tracks and steep banks,
+rock on steeper ground and mud where the marsh darkens it: `styles[0]` the house
+style, painted in flat colours over the old ground's noise; `styles[1]` from
+CC0 photographs (`assets/terrain_real/SOURCES.md`). **F8** swaps them in play;
+`-- ground_b` starts in the second. `tests/terrain_test.gd` checks the relief,
+the flat places, that the floor is what is drawn, the tracks' gradient, the
+seam, the trunks and a walk up the tallest open hill.
