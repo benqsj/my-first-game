@@ -71,9 +71,9 @@ func _ready() -> void:
 	_arrow = _make_arrow()
 	add_child(_arrow)
 	# The arrow goes as a white streak: the wake is the last few metres of it.
-	_wake = SkillFx.rod(self, _start, _start, WindBlast.AIR, 0.018, 1.6)
+	_wake = SkillFx.rod(self, _start, _start, WindBlast.AIR, 0.012, 1.2)
 	_wake_mat = _wake.material_override as StandardMaterial3D
-	_wake_mat.albedo_color.a = 0.85
+	_wake_mat.albedo_color.a = 0.45
 	var into := get_parent()
 	WindBlast.release(into, _start, _dir)
 	WindBlast.speed_lines(into, _start, _dir, 14.0)
@@ -227,7 +227,7 @@ func _strike(what: Node3D, at: Vector3) -> void:
 func _draw_at(at: Vector3) -> void:
 	_arrow.global_transform = Transform3D(Basis.looking_at(_dir, _up()), at)
 	# The streak: the last few metres of air it went through.
-	SkillFx.place_rod(_wake, at - _dir * minf(9.0, at.distance_to(_start)), at)
+	SkillFx.place_rod(_wake, at - _dir * minf(4.0, at.distance_to(_start)), at)
 
 
 func _up() -> Vector3:

@@ -267,8 +267,8 @@ var _skill_brace: float = 0.0
 var _brace_now: float = 0.0
 
 
-func nock_lead() -> float:
-	return _draw_time
+func nock_lead(brace: float = 0.0) -> float:
+	return _draw_time * (1.0 + 0.25 * clampf(brace, 0.0, 1.0))
 
 
 ## Draws exactly as for an ordinary shot — the same clip over the same
@@ -283,7 +283,8 @@ func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0) -> float:
 	if _anim == null or not _anim.has_animation(DRAW_CLIP):
 		return 0.3
 	var clip_len := _anim.get_animation(DRAW_CLIP).length
-	var nock := play_part(DRAW_CLIP, clip_len / _draw_time, 0.0, 1.0, 0.1)
+	# A braced shot is drawn heavier: a quarter slower.
+	var nock := play_part(DRAW_CLIP, clip_len / (_draw_time * (1.0 + 0.25 * clampf(brace, 0.0, 1.0))), 0.0, 1.0, 0.1)
 	if nock <= 0.0:
 		return 0.3
 	# The string is drawn by hand for a skill shot: [method animate] brings it

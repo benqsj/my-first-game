@@ -3094,6 +3094,18 @@ the arrow while it is held (`BowCharge` is no longer used): what the skill is
 shows once it has gone. From the press to the release he does not walk
 (`Player._root_timer`; turning is unchanged).
 
+**Where the wind's weight is** (a pass against the reference, side by side):
+the reference puts the mass of the blast *at the archer* — a big, soft bell of
+air bursting off the bow that fills half the frame and then thins — where ours
+had been small, far off and drawn in thin wire-like lines. So: `WindBlast.cone`
+at the release (an open bell of air, 9 m, opening to 2.6 m in a fifth of a
+second, with two broad soft swirls round its mouth); every ribbon soft across
+its width (`_soft_quad`: clear at both edges, brightest down the middle); a
+field-of-view kick (`WindBlast.kick`, +7°) with the shake; the recoil 7 m/s;
+the braced draw a quarter slower, the whirl at the head tightening and
+quickening as the release comes and a glint on the head just before it; the
+streak behind the arrow 4 m and faint.
+
 **The Piercing Arrow is a great shot of wind** (key 4), after Ironeye's
 Single Shot in Elden Ring Nightreign (`PiercingShot`, the pieces in
 `WindBlast`): at the release white shards burst off the bow, he is shoved back

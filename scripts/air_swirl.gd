@@ -15,6 +15,7 @@ var _bands: Array[MeshInstance3D] = []
 var _mats: Array[StandardMaterial3D] = []
 var _motes: GPUParticles3D
 var _inflow: GPUParticles3D
+var _glinted: bool = false
 
 
 func start(rig: Node, time: float) -> void:
@@ -73,11 +74,17 @@ func _process(delta: float) -> void:
 	_motes.global_position = tip
 	_inflow.global_position = tip
 	var fade := clampf(_age / 0.3, 0.0, 1.0) * clampf((_time - _age) / 0.1, 0.0, 1.0)
+	# Tension: the whirl tightens and quickens as the release comes, and the
+	# head catches a glint just before it goes.
+	var tense := clampf(_age / maxf(_time, 0.01), 0.0, 1.0)
+	if not _glinted and _time - _age < 0.14:
+		_glinted = true
+		SkillFx.flash(get_parent(), tip, WindBlast.AIR, 0.28, 0.14, 4.0)
 	var up := Vector3.RIGHT if absf(dir.dot(Vector3.UP)) > 0.95 else Vector3.UP
 	var base := Basis.looking_at(dir, up)
 	for k in _bands.size():
-		var r := 0.11 + 0.06 * float(k)
-		var turn := _age * (13.0 - 2.0 * float(k)) + float(k) * 1.6
+		var r := (0.11 + 0.06 * float(k)) * (1.15 - 0.4 * tense)
+		var turn := _age * (13.0 - 2.0 * float(k)) * (1.0 + 1.2 * tense) + float(k) * 1.6
 		# Each band a little behind the last, winding back along the shaft.
 		var at := tip + dir * (0.08 - 0.08 * float(k))
 		_bands[k].global_transform = Transform3D(base.rotated(dir, turn).scaled(Vector3(r, r, 0.16)), at)

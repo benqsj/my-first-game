@@ -3073,7 +3073,7 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 ## How hard what it goes through is thrown back, in m/s.
 @export var pierce_knock: float = 6.0
 ## How hard the shot shoves him back, in m/s.
-@export var pierce_recoil: float = 5.0
+@export var pierce_recoil: float = 7.0
 
 @export_group("Fire Arrow")
 ## The shot itself, as a share of a full draw.
@@ -3187,7 +3187,7 @@ func _piercing_arrow() -> bool:
 	var quarry := _skill_quarry(pierce_reach)
 	if quarry != null:
 		_face_point(quarry.global_position)
-	var nock := float(rig.call(&"nock_lead")) if rig != null and rig.has_method(&"nock_lead") else 0.3
+	var nock := float(rig.call(&"nock_lead", 1.0)) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + pierce_hold + 0.45)
 	_root_timer = nock + pierce_hold + 0.45
 	var from := global_position + up_direction * arrow_height
@@ -3233,7 +3233,8 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.8, 0.0)
 	# The kick of it: he is shoved back a step, dust off his feet, the camera
 	# jolts.
-	WindBlast.shake(self, 0.14, 0.4)
+	WindBlast.shake(self, 0.2, 0.45)
+	WindBlast.kick(self, 7.0, 0.45)
 	DustRing.burst(into, global_position, 0.9)
 	if is_multiplayer_authority():
 		var back := Vector3(-dir.x, 0.0, -dir.z)
