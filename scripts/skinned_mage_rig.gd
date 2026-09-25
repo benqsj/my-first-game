@@ -6,16 +6,17 @@ extends SkinnedRig
 ## interface — `aim_bow()` / `loose_bow()` — so the controller charges and
 ## casts his spell exactly as it draws and looses Avtandil's arrow.
 ##
-## * **Charging** draws the staff back over his shoulder, as far as the charge
-##   has come (the cast clip held at its wind-up), and the magic gathers at
-##   the crystal as a ball of light that grows with the charge and turns from
-##   gold to blue-violet when it is full — where the bolt will leave from. The
-##   legs walk while he moves.
-## * **Casting** is a throw with the staff: drawn back over the shoulder and
-##   brought round to the front, and the bolt leaves the crystal as it comes
-##   through (`cast_lead()` after the button, from `spell_origin()`) — not the
-##   free hand's push the clip also has, which is why only this part of it is
-##   played.
+## * **Charging** swings the staff round — down, back behind him and up
+##   (`MG_Charge_In`, cut from Mixamo's Two Hand Spell Casting) — and then holds
+##   it high while the button is (`MG_Charge_Hold`, looped), and the magic
+##   gathers at the crystal as a ball of light that grows with the charge and
+##   turns from gold to blue-violet when it is full — where the bolt will leave
+##   from. The legs walk while he moves.
+## * **Casting** is a throw with the staff (`MG_Cast_Throw`, cut from Standing
+##   2H Magic Attack 01): swung back behind him and brought through to the
+##   front, and the bolt leaves the crystal as it comes past his shoulder
+##   (`cast_lead()` after the button, from `spell_origin()`), with a burst of
+##   sparks and the crystal flaring there.
 ## * **Levitating** — the jump held on the way down — is Mixamo's float.
 ## * **Jumping** is `MG_Jump`, keyed by hand in Blender: the push off, the
 ##   knees driven up and the staff raised on the way up, open at the top, legs
@@ -26,19 +27,17 @@ extends SkinnedRig
 ##
 ## Source: `~/Desktop/vepxis-art/heroes/heroes.blend` (`mage_rig`).
 
-## Charging holds the cast clip at its wind-up: the staff drawn back.
-const CHARGE_CLIP := &"MG_Cast_1H"
-## How far into the cast clip the staff sits at no charge and at full charge.
-const WIND_FROM := 0.3
-const CAST_CLIP := &"MG_Cast_1H"
-## The staff's throw in the cast clip: drawn back from here, round to the front
-## by `CAST_RELEASE`, where the bolt leaves it, and settled by `CAST_TO`.
-## Measured on the crystal: at 0.50 it is behind the head, at 0.70 a metre in
-## front at shoulder height.
-const CAST_FROM := 0.50
-const CAST_RELEASE := 0.70
-const CAST_TO := 0.84
-const CAST_RATE := 2.0
+## Charging: the staff swung round once, then held high for as long as the
+## button is.
+const CHARGE_CLIP := &"MG_Charge_In"
+const CHARGE_HOLD := &"MG_Charge_Hold"
+const CAST_CLIP := &"MG_Cast_Throw"
+## The throw: from here, round to the front by `CAST_RELEASE` — measured on the
+## crystal, frame 19 of 46, in front of his shoulder — and settled by `CAST_TO`.
+const CAST_FROM := 0.04
+const CAST_RELEASE := 0.40
+const CAST_TO := 0.8
+const CAST_RATE := 1.35
 const FLOAT_CLIP := &"MG_Float"
 const JUMP_CLIP := &"MG_Jump"
 ## Where the crystal sits up the staff from the hand, in metres.
@@ -54,6 +53,10 @@ var _glow: OmniLight3D
 var _orb: MeshInstance3D
 var _orb_mat: StandardMaterial3D
 var _orb_clock: float = 0.0
+## How long the charge has been held (for the swing and then the hold), and
+## the countdown to the flash at the crystal as the bolt leaves it.
+var _charge_time: float = 0.0
+var _flash_in: float = -1.0
 
 
 func _configure() -> void:
@@ -95,7 +98,7 @@ func _configure() -> void:
 		&"MG_Idle", &"MG_Walk", &"MG_Run", &"MG_Walk_Back", &"MG_Run_Back", &"MG_Walk_Left",
 		&"MG_Walk_Right", &"MG_Run_Left", &"MG_Run_Right", &"MG_Crouch", &"MG_Crouch_Walk",
 		&"MG_Crouch_Walk_Back", &"MG_Crouch_Walk_Left", &"MG_Crouch_Walk_Right", &"MG_Fall",
-		&"MG_Float", &"MG_Cast_Sustained", &"MG_Block",
+		&"MG_Float", &"MG_Cast_Sustained", &"MG_Block", CHARGE_HOLD,
 	]
 	# A press with nothing charged is a quick shove of the staff.
 	flurry = [&"MG_Cast_Sweep"]
@@ -153,10 +156,11 @@ func aim_bow(draw: float, _pitch: float) -> void:
 
 
 func loose_bow() -> void:
-	_cast_left = 0.45
+	_cast_left = 0.45 + cast_lead()
 	_charge = 0.0
+	_flash_in = cast_lead()
 	if _anim.has_animation(CAST_CLIP):
-		_play_action(CAST_CLIP, Role.FREE, CAST_RATE, 0.08, CAST_FROM, CAST_TO)
+		_play_action(CAST_CLIP, Role.FREE, CAST_RATE, 0.1, CAST_FROM, CAST_TO)
 
 
 ## How long after the button the staff comes through and the bolt goes.
@@ -188,6 +192,15 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if _anim == null:
 		return
 	_cast_left = maxf(_cast_left - delta, 0.0)
+	if _flash_in >= 0.0:
+		_flash_in -= delta
+		if _flash_in < 0.0 and _glow != null and _glow.is_inside_tree():
+			# The bolt leaves the crystal: a burst of sparks there, thrown the
+			# way he faces, and the stone flares.
+			var ahead := -(_body as Node3D).global_transform.basis.z if _body is Node3D else Vector3.FORWARD
+			ParryFlash.burst(Blood.world_of(self), _glow.global_position, ahead)
+			_glow.light_energy = 6.0
+	_charge_time = _charge_time + delta if _charge > 0.05 else 0.0
 	if _glow != null:
 		var want := 0.15 + 2.6 * _charge + (1.6 if _cast_left > 0.0 else 0.0)
 		_glow.light_energy = lerpf(_glow.light_energy, want, clampf(delta * 12.0, 0.0, 1.0))
@@ -224,9 +237,11 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 		_anim.seek(_anim.get_animation(JUMP_CLIP).length * through, false)
 		return
 	if _charge > 0.05 and not airborne and planar < idle_threshold and _anim.has_animation(CHARGE_CLIP):
-		# Held, not played: the staff comes back as the charge builds.
-		_set_base(CHARGE_CLIP, 0.15, 0.0)
-		var length := _anim.get_animation(CHARGE_CLIP).length
-		_anim.seek(length * lerpf(WIND_FROM, CAST_FROM, _charge), false)
+		# The staff swung round once, then held high while the button is.
+		var swing := _anim.get_animation(CHARGE_CLIP).length
+		if _charge_time < swing or not _anim.has_animation(CHARGE_HOLD):
+			_set_base(CHARGE_CLIP, 0.15, 1.0)
+		else:
+			_set_base(CHARGE_HOLD, 0.2, 1.0)
 		return
 	super(planar, airborne, dashing, vy, blocking)
