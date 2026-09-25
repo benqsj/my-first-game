@@ -625,7 +625,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
-	health = maxf(health - damage * Afflictions.factor(self), 0.0)
+	health = maxf(health - damage * Afflictions.factor(self, from), 0.0)
 	hurt.emit(health)
 	if health <= 0.0:
 		_die()
@@ -725,7 +725,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
 		# bites deeper.
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.
-	damage *= Afflictions.factor(self)
+	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
 	stamina = maxf(stamina - hit_cost, 0.0)
 	_regen_wait = regen_delay

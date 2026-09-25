@@ -571,7 +571,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 	if is_reeling():
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.
-	damage *= Afflictions.factor(self)
+	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage * (1.0 - armour), 0.0)
 	hurt.emit(health)
 	if bleed:
@@ -590,7 +590,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 	if from != null and is_instance_valid(from):
 		_rouse(from)
 	_calm = 0.0
-	health = maxf(health - damage * Afflictions.factor(self) * (1.0 - armour * 0.5), 0.0)
+	health = maxf(health - damage * Afflictions.factor(self, from) * (1.0 - armour * 0.5), 0.0)
 	hurt.emit(health)
 	if health <= 0.0:
 		_die()

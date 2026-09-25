@@ -583,7 +583,7 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	if _reeling > 0.0:
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.
-	damage *= Afflictions.factor(self)
+	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
 	# Who is owed for it. Kept here rather than at the call sites: this is the
 	# one door every kind of damage comes through, and a tally that has to be
@@ -677,7 +677,7 @@ const LOOT_SOUND := "res://unverified/sounds/all/loot_1.wav"
 func take_dot(damage: float, from: Node3D = null) -> void:
 	if is_dead or not _decides():
 		return
-	damage *= Afflictions.factor(self)
+	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
 	if from != null and is_instance_valid(from):
 		_threat[from.name] = float(_threat.get(from.name, 0.0)) + damage

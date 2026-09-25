@@ -10,11 +10,13 @@ extends Node3D
 ## same thing. **The host decides** what it costs: only there do the burn and
 ## the poison tick health away ([method take_dot] on the creature, which does
 ## not bleed or shove), and only there does the mark make blows bite deeper
-## ([method factor], read where each kind takes its hits).
+## ([method factor], read where each kind takes its hits, with who struck).
 ##
-## * **The mark** — a sigil over the head, turning, always facing the camera;
-##   a blood-red outline round the body; a ring on the ground under it. For
-##   its time every blow on it, from anyone, does `MARK_FACTOR` of itself.
+## * **The mark** — a sigil over the head, turning, always facing the camera,
+##   and nothing else: the body and the ground are left as they are. It sits
+##   on the head bone of whatever wears it. For its time a bow's blows on it
+##   (arrows, the skill shots, the fire they leave) do `MARK_BOW` of
+##   themselves; anyone else's do `MARK_OTHER`.
 ## * **Burning** — flames licking up off the body, embers, a light that
 ##   flickers, the skin charring with glowing cracks. `burn_dps` a second.
 ## * **Poison** — stacks, up to `POISON_MAX`, each on its own clock; drops over
@@ -23,7 +25,9 @@ extends Node3D
 ##
 ## Everything it draws goes when its time is up or the creature dies.
 
-const MARK_FACTOR := 1.2
+## What the mark adds: to a bow's blows, and to everyone else's.
+const MARK_BOW := 1.05
+const MARK_OTHER := 1.02
 const POISON_MAX := 3
 const TICK := 0.5
 
@@ -46,19 +50,16 @@ var _clock: float = 0.0
 # Drawing.
 var _meshes: Array[MeshInstance3D] = []
 var _old_overlays: Dictionary = {}
-var _outline: ShaderMaterial
 var _skin: ShaderMaterial
 var _overhead: Node3D              # top level, over the head, facing the camera
 var _sigil: Node3D
 var _icons: Array[MeshInstance3D] = []
-var _circle: MeshInstance3D
 var _fire: GPUParticles3D
 var _embers: GPUParticles3D
 var _fire_light: OmniLight3D
 var _bubbles: GPUParticles3D
 var _shown: int = -1
 
-static var _outline_shader: Shader = null
 static var _skin_shader: Shader = null
 static var _noise: NoiseTexture2D = null
 
@@ -75,10 +76,23 @@ static func of(creature: Node, make: bool = true) -> Afflictions:
 	return a
 
 
-## How much harder every blow on `creature` lands right now.
-static func factor(creature: Node) -> float:
+## How much harder a blow from `from` on `creature` lands right now: nothing
+## unless it is marked; marked, more for a bow than for anything else.
+static func factor(creature: Node, from: Node = null) -> float:
 	var a := of(creature, false)
-	return MARK_FACTOR if a != null and a.mark_left > 0.0 else 1.0
+	if a == null or a.mark_left <= 0.0:
+		return 1.0
+	return MARK_BOW if is_bow(from) else MARK_OTHER
+
+
+## Whether `who` fights with a bow (its profile says so).
+static func is_bow(who: Node) -> bool:
+	if who == null or not is_instance_valid(who):
+		return false
+	var prof: Variant = who.get(&"profile")
+	if prof is CharacterProfile:
+		return (prof as CharacterProfile).weapon == CharacterProfile.Weapon.BOW
+	return false
 
 
 ## Puts `kind` on: &"mark" for `seconds`; &"burn" for `seconds` at `amount` a
@@ -192,6 +206,53 @@ func _state() -> int:
 
 
 #region Sizes
+var _skel: Skeleton3D
+var _head_bone: int = -2
+
+
+## Just over the top of the head: over the head bone when the creature has one
+## (so it rides a stooping orc or a spider's rider where the head is), else
+## over its bar height.
+func _over_head() -> Vector3:
+	var lift := Vector3.UP * (0.45 * _size())
+	if _head_bone == -2:
+		_find_head()
+	if _head_bone >= 0 and is_instance_valid(_skel):
+		var head := _skel.global_transform * _skel.get_bone_global_pose(_head_bone).origin
+		# The bone sits at the base of the skull; the crown is a head's height on.
+		return head + Vector3.UP * (0.3 * _scale_of() * _skel.global_transform.basis.get_scale().y) + lift
+	return _creature.global_position + Vector3.UP * _top() + lift
+
+
+func _find_head() -> void:
+	_head_bone = -1
+	_skel = _first_skeleton(_creature)
+	if _skel == null:
+		return
+	var best := -1
+	for i in _skel.get_bone_count():
+		var n := _skel.get_bone_name(i).to_lower()
+		if n.ends_with("headtop_end") or n.ends_with("head_end"):
+			continue
+		if n == "head" or n.ends_with(":head") or n.ends_with("_head") or n.ends_with(".head") or n == "mixamorig_head":
+			best = i
+			break
+		if best < 0 and n.contains("head"):
+			best = i
+	_head_bone = best
+
+
+static func _first_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node
+	for c in node.get_children():
+		if c is Afflictions:
+			continue
+		var s := _first_skeleton(c)
+		if s != null:
+			return s
+	return null
+
 func _scale_of() -> float:
 	var s := 1.0
 	if _creature is Fighter:
@@ -244,17 +305,14 @@ func _refresh() -> void:
 	var burning := burn_left > 0.0
 	var poisoned := not poison.is_empty()
 
-	# The body: a skin effect (fire or poison) and, over it, the mark's outline.
+	# The body: a skin effect for fire or poison. The mark leaves it alone.
 	var skin: ShaderMaterial = null
 	if burning or poisoned:
 		skin = _skin_material()
 		skin.set_shader_parameter(&"glow_color", FIRE if burning else VENOM)
 		skin.set_shader_parameter(&"dark_color",
 				Color(0.05, 0.03, 0.02, 0.55) if burning else Color(0.1, 0.28, 0.05, 0.3))
-	var outline: ShaderMaterial = _outline_material() if marked else null
-	if skin != null:
-		skin.next_pass = outline
-	var top_mat: Material = skin if skin != null else outline
+	var top_mat: Material = skin
 	for mi in _meshes:
 		if not is_instance_valid(mi):
 			continue
@@ -268,7 +326,6 @@ func _refresh() -> void:
 	_show_overhead(marked or poisoned)
 	if _sigil != null:
 		_sigil.visible = marked
-	_show_circle(marked)
 	_show_fire(burning)
 	_show_bubbles(poisoned)
 	for i in _icons.size():
@@ -277,7 +334,7 @@ func _refresh() -> void:
 
 func _draw(_delta: float) -> void:
 	if _overhead != null and _overhead.visible:
-		_overhead.global_position = _creature.global_position + Vector3.UP * (_top() + 0.55 * _size())
+		_overhead.global_position = _over_head()
 		var cam := get_viewport().get_camera_3d()
 		if cam != null:
 			var to := cam.global_position
@@ -287,10 +344,6 @@ func _draw(_delta: float) -> void:
 			_sigil.rotation.z = _clock * 0.9
 			var breathe := 1.0 + 0.06 * sin(_clock * 3.2)
 			_sigil.scale = _sigil.scale.lerp(Vector3.ONE * breathe, 0.12)
-	if _outline != null:
-		_outline.set_shader_parameter(&"alpha", 0.75 + 0.25 * sin(_clock * 5.0))
-	if _circle != null and _circle.visible:
-		_circle.rotation.y = -_clock * 0.6
 	if _fire_light != null and _fire_light.visible:
 		_fire_light.light_energy = 2.2 + 0.6 * sin(_clock * 13.0) + 0.4 * sin(_clock * 7.3)
 		_fire_light.position = Vector3.UP * _height() * 0.6
@@ -315,7 +368,7 @@ func _show_overhead(on: bool) -> void:
 		_overhead.top_level = true
 		add_child(_overhead)
 	_overhead.visible = on
-	_overhead.scale = Vector3.ONE * _size()
+	_overhead.scale = Vector3.ONE * _size() * 0.8
 
 
 func _pop_sigil() -> void:
@@ -331,7 +384,7 @@ func _pop_sigil() -> void:
 	tw.tween_property(_sigil, "scale", Vector3.ONE, 0.1)
 	var into := Blood.world_of(_creature)
 	if into != null:
-		var at := _creature.global_position + Vector3.UP * (_top() + 0.55 * _size())
+		var at := _over_head()
 		SkillFx.ring(into, at, _overhead.global_basis.z, GOLD, 0.4 * _size(), 1.6 * _size(), 0.4, 0.04, 2.5)
 
 
@@ -406,36 +459,6 @@ func _torus(inner: float, outer: float, mat: Material) -> MeshInstance3D:
 	return mi
 
 
-func _show_circle(on: bool) -> void:
-	if not on and _circle == null:
-		return
-	if _circle == null:
-		_circle = MeshInstance3D.new()
-		var t := TorusMesh.new()
-		var r := _radius() * 1.9 + 0.3
-		t.inner_radius = r - 0.035
-		t.outer_radius = r
-		t.rings = 64
-		t.ring_segments = 4
-		_circle.mesh = t
-		_circle.scale = Vector3(1.0, 0.2, 1.0)
-		_circle.position = Vector3.UP * 0.05
-		_circle.material_override = SkillFx.glow(CRIMSON, 2.2, true, 0.8)
-		_circle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(_circle)
-		var ticks := Node3D.new()
-		_circle.add_child(ticks)
-		for k in 12:
-			var a := TAU * k / 12.0
-			var b := BoxMesh.new()
-			b.size = Vector3(0.05, 0.02, 0.28)
-			var mi := MeshInstance3D.new()
-			mi.mesh = b
-			mi.material_override = _circle.material_override
-			mi.position = Vector3(sin(a), 0.0, cos(a)) * (r + 0.2)
-			mi.rotation.y = a
-			ticks.add_child(mi)
-	_circle.visible = on
 
 
 func _show_fire(on: bool) -> void:
@@ -524,16 +547,6 @@ func _clear_all() -> void:
 		_overhead = null
 
 
-func _outline_material() -> ShaderMaterial:
-	if _outline == null:
-		if _outline_shader == null:
-			_outline_shader = Shader.new()
-			_outline_shader.code = OUTLINE_CODE
-		_outline = ShaderMaterial.new()
-		_outline.shader = _outline_shader
-		_outline.set_shader_parameter(&"color", CRIMSON)
-		_outline.set_shader_parameter(&"width", 0.022 * clampf(_top() / 2.0, 0.8, 2.5))
-	return _outline
 
 
 func _skin_material() -> ShaderMaterial:
@@ -559,23 +572,6 @@ func _skin_material() -> ShaderMaterial:
 	return _skin
 #endregion
 
-
-const OUTLINE_CODE := """
-shader_type spatial;
-render_mode unshaded, cull_front, depth_draw_never, blend_mix;
-uniform vec4 color : source_color = vec4(1.0, 0.12, 0.06, 1.0);
-uniform float width = 0.03;
-uniform float energy = 2.2;
-uniform float alpha = 1.0;
-void vertex() {
-	float s = length(MODEL_MATRIX[0].xyz);
-	VERTEX += NORMAL * width / max(s, 0.0001);
-}
-void fragment() {
-	ALBEDO = color.rgb * energy;
-	ALPHA = alpha;
-}
-"""
 
 const SKIN_CODE := """
 shader_type spatial;
