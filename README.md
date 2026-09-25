@@ -1678,7 +1678,9 @@ under `Enemies`: the wolf and the golem that were always here, and two out of th
 Bestiary kit that animate a different way — each of those in three colourways, so
 seventeen creatures are four meshes.
 
-**Wolf** (`wolf.gd` + `wolf_rig.gd`) — the model is the same kind of thing as
+**Wolf** (`wolf.gd` + `wolf_rig.gd`) — *now the wolf-man with a skeleton and
+Mixamo's clips: see "The wolf-man" at the end. What follows is how the first
+one, joint by joint in code, was made.* The model is the same kind of thing as
 Tariel: a joint hierarchy with no skeleton and no clips, so it is animated the
 same way. What it adds is a change of gait. Running on all fours and rearing up
 to fight are two poses of the same joints, written out as offsets from rest
@@ -3221,3 +3223,77 @@ hits too); `heroes_test` now checks no swing, hit, draw or release clip is
 silent. Levels brought down: the draw −12 dB, the release −8, the arrow going
 in −14, Tariel's swing −18, the Piercing Arrow's cast and swell −11, its shot
 −7 and wind −14.
+
+
+## Blows that have to land
+
+A creature's blow used to be a patch of ground: at one moment of the clip,
+everyone within a reach of its middle and inside a cone in front of it was
+hit — the orc's 4.6 m and ±72°, whether the axe got there or not, and anyone
+within 0.8 m of him whatever way he faced; Arkdeva's scythes a four-metre ring
+round where they were meant to come down; the wolf's claws 2.9 m. So a blow
+that visibly missed still hurt.
+
+**Now the weapon is followed** (`scripts/weapon_sweep.gd`, `WeaponSweep`).
+While a blow is live, a few stretches of the weapon or limb — each a capsule,
+end to end and so thick — are read off the pose every frame, and a player is
+struck only if one of them passes through his body (an upright capsule, 0.3 m
+round, 0.12–1.78 m up, plus 8 cm of graze) on the way from the last frame. The
+step between two frames is cut small enough that a fast swing cannot skip over
+him, and a stretch whose end moves slower than `min_speed` is only being carried
+(an axe held up, a scythe settling) and hurts nobody. Each sweep meets a player
+once; a parry or a knock that ends the act takes its sweeps with it.
+
+* **The orc**: the haft and the bit of his axe (`Hit0..2` marks on the axe, on
+  the great axe's bone), live from 0.16 s before to 0.12 s after each moment his
+  hand moves fastest (the spin ±0.35, the overhead from 0.28 before); the kick is
+  his shins and feet. His clips were made for a man's height, and twice that his
+  flat swings sailed over a man's head — so he **stoops into them**
+  (`stoop`, 17° at the waist, easing in and out round each blow). He opens from
+  `reach` (4 m) but **steps in** (`close_speed`) until whoever he is after is
+  `strike_reach` (2.9 m) off by the time the blow comes. The overhead's stones
+  burst up only 0.9 m round where the axe hits; the spikes are still their own
+  hit.
+* **Arkdeva**: each scythe from its last joint round the blade's curve to its
+  point (read off its mesh: `_find_blades`), the front legs knee to foot in the
+  stamp, live only while they come down. Its body collider is 1.5 m round now
+  (was 3.0; 1.5 now): a player can get in under the front of it, where the scythes land.
+  It closes to 2.2 m before a scythe, 2.0 before the chop, 3.6 before a stamp, and opens from 4.4 m
+  (`melee_range`, was 8.6).
+* **The wolf**: forearms, paws and claws, and the jaws in a pounce; it steps into
+  a swipe until the claws reach (`claw_reach`).
+* **The imp and puglin**: forearms and fists out to the fingertips; they step in
+  to `fist_reach`.
+
+`WeaponSweep.show = true` draws every live stretch in red, for looking at blows
+in the game. `tests/sweep_test.gd` throws each blow once with nobody near,
+records where its weapon went and prints a map of where it can land; then a
+player stood where it went is struck, and one just past its furthest reach is
+not — even where the old reach-and-cone would have hit him.
+
+## The wolf-man
+
+`assets/wolf/wolf_beast.glb` replaces the old joint-by-joint wolf. Built in
+Blender by script (vepxis-art `tools/wolf_build.py`): metaball blobs turned to
+low-poly meshes — a barrel chest and a hump of shoulders over a lean waist, a
+long muzzle, tall ears, amber eyes, big clawed hands, heavy thighs over raised
+heels, a bushy tail — and locks of fur raked back along it, darker in the mane.
+One mesh per bone, each **parented to its bone whole** (a `BoneAttachment3D` in
+Godot), so a limb the blade takes is hidden and dropped as a piece of its own.
+
+The skeleton is Tariel's naming plus a jaw and four tail bones, so Mixamo's
+X Bot clips go on through `tools/retarget_mixamo.py` (vepxis-art
+`tools/wolf_export.py` does model, clips and export in one go). The clips
+(`mixamo_wolf/`): **Running Crawl** (running on all fours — its chase), Mutant
+Walking (prowl and fighting steps), Mutant Breathing Idle, **Mutant Swiping**
+(and mirrored, for the other paw), Mutant Jump Attack (the pounce), Zombie
+Reaction Hit Stumble Back (a swipe thrown back), Zombie Crawl (dragging itself
+on its belly once both legs are gone), Mutant Dying; Roar, Hit, Punch, Crawl
+Walk and the upright Mutant Run are in the file unused.
+
+`WolfRig` keeps the old API for `Wolf`: `animate()` picks the clip from speed
+and stance and paces it to the ground; `swipe()`/`lunge()` play the attack so
+its fastest moment arrives when the old timings said the claws land; `reel()`,
+`fall()`. Over the clips: the jaws open as it strikes, the tail swings, and the
+red glint gathers on the claws about to come through.
+
