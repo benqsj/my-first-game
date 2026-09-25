@@ -2,8 +2,8 @@ class_name AirSwirl
 extends Node3D
 
 ## A little whirl of air at the head of the drawn arrow while the Piercing
-## Arrow is held: three pale bands turning round the arrowhead and a few
-## motes drawn round and in. Small and see-through — the shot itself is the
+## Arrow is held: five white bands turning round the arrowhead, motes whirling
+## round it and air drawn in to it from round him. Small and see-through — the shot itself is the
 ## big wind ([WindBlast]); this is the breath before it. Follows the arrow on
 ## the string ([method SkinnedArcherRig.arrow_tip]); shows only while there is
 ## one, fades in, and goes after `time`.
@@ -14,6 +14,7 @@ var _age: float = 0.0
 var _bands: Array[MeshInstance3D] = []
 var _mats: Array[StandardMaterial3D] = []
 var _motes: GPUParticles3D
+var _inflow: GPUParticles3D
 
 
 func start(rig: Node, time: float) -> void:
@@ -23,7 +24,7 @@ func start(rig: Node, time: float) -> void:
 
 func _ready() -> void:
 	top_level = true
-	for k in 4:
+	for k in 5:
 		var mi := MeshInstance3D.new()
 		mi.mesh = WindBlast._band_mesh(3.0)
 		var mat := WindBlast._band_material().duplicate() as StandardMaterial3D
@@ -42,6 +43,15 @@ func _ready() -> void:
 			Color(WindBlast.AIR.r, WindBlast.AIR.g, WindBlast.AIR.b, 0.0)],
 	})
 	_motes.emitting = false
+	# Air drawn in from round him to the arrowhead, spiralling.
+	_inflow = SkillFx.particles(self, global_position, {
+		"amount": 70, "life": 0.5, "speed": Vector2(0.0, 0.05), "sphere": 0.9, "orbit": -12.0,
+		"tangent": 7.0, "damping": 0.5, "size": Vector2(0.02, 0.045), "grow": 0.3, "local": true,
+		"add": false,
+		"colors": [Color(1, 1, 1, 0.0), Color(WindBlast.AIR.r, WindBlast.AIR.g, WindBlast.AIR.b, 0.7),
+			Color(1, 1, 1, 0.0)],
+	})
+	_inflow.emitting = false
 
 
 func _process(delta: float) -> void:
@@ -54,19 +64,21 @@ func _process(delta: float) -> void:
 		dir = _rig.call(&"arrow_dir")
 	var on := dir.length_squared() > 0.5
 	_motes.emitting = on
+	_inflow.emitting = on
 	for mi in _bands:
 		mi.visible = on
 	if not on:
 		return
 	var tip: Vector3 = _rig.call(&"arrow_tip")
 	_motes.global_position = tip
+	_inflow.global_position = tip
 	var fade := clampf(_age / 0.3, 0.0, 1.0) * clampf((_time - _age) / 0.1, 0.0, 1.0)
 	var up := Vector3.RIGHT if absf(dir.dot(Vector3.UP)) > 0.95 else Vector3.UP
 	var base := Basis.looking_at(dir, up)
 	for k in _bands.size():
-		var r := 0.1 + 0.05 * float(k)
+		var r := 0.11 + 0.06 * float(k)
 		var turn := _age * (13.0 - 2.0 * float(k)) + float(k) * 1.6
 		# Each band a little behind the last, winding back along the shaft.
 		var at := tip + dir * (0.08 - 0.08 * float(k))
 		_bands[k].global_transform = Transform3D(base.rotated(dir, turn).scaled(Vector3(r, r, 0.16)), at)
-		_mats[k].albedo_color.a = (0.95 - 0.12 * float(k)) * fade
+		_mats[k].albedo_color.a = (1.0 - 0.1 * float(k)) * fade

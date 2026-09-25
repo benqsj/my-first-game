@@ -76,6 +76,34 @@ static func band(into: Node, at: Vector3, dir: Vector3, from_r: float, to_r: flo
 	tw.tween_callback(mi.queue_free)
 
 
+## A stretch of the tornado the arrow leaves: `strands` ribbons wound round
+## the line from `at` on for `length` metres, spinning about it fast, opening
+## from `from_r` to `to_r` and fading over `life`. Laid end to end as the
+## arrow goes they make one twisting funnel of air.
+static func twister(into: Node, at: Vector3, dir: Vector3, length: float, from_r: float, to_r: float,
+		life: float, phase: float, spin: float = 14.0) -> void:
+	if into == null:
+		return
+	var mi := MeshInstance3D.new()
+	mi.mesh = _helix_mesh(length, 1.25, 3)
+	var mat := _band_material().duplicate() as StandardMaterial3D
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	into.add_child(mi)
+	var base := Basis.looking_at(dir, Vector3.RIGHT if absf(dir.dot(Vector3.UP)) > 0.95 else Vector3.UP)
+	var place := func(u: float) -> void:
+		if not is_instance_valid(mi):
+			return
+		var r := lerpf(from_r, to_r, 1.0 - pow(1.0 - u, 2.0))
+		var b := base.rotated(dir, phase + u * life * spin)
+		mi.global_transform = Transform3D(Basis(b.x * r, b.y * r, b.z), at)
+		mat.albedo_color.a = 0.6 * minf(u * 6.0, 1.0) * (1.0 - u * u)
+	place.call(0.0)
+	var tw := mi.create_tween()
+	tw.tween_method(place, 0.0, 1.0, life)
+	tw.tween_callback(mi.queue_free)
+
+
 ## Mist left hanging: `count` big soft puffs round `at`, drifting out and up.
 static func mist(into: Node, at: Vector3, count: int, spread: float, size: Vector2, life: float) -> void:
 	if into == null:
@@ -142,6 +170,35 @@ static func _band_mesh(sweep: float) -> ArrayMesh:
 		st.add_vertex(ring + ahead + Vector3(0.0, 0.0, width * 0.5))
 		st.set_color(Color(1, 1, 1, alpha * 0.2))
 		st.add_vertex(ring + ahead - Vector3(0.0, 0.0, width * 0.5))
+	return st.commit()
+
+
+## `strands` ribbons wound `turns` times round a unit circle in XY while
+## running `length` along -Z; each ribbon thins and fades at its ends and is
+## brighter on its leading edge.
+static func _helix_mesh(length: float, turns: float, strands: int) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 40
+	var width := 0.22
+	for k in strands:
+		var off := TAU * float(k) / float(strands)
+		for i in n:
+			var quad: Array[Vector3] = []
+			var cols: Array[Color] = []
+			for step in [0, 1]:
+				var t := float(i + step) / float(n)
+				var a := off + t * turns * TAU
+				var ring := Vector3(cos(a), sin(a), 0.0)
+				var along := Vector3(0.0, 0.0, -t * length)
+				var fade := sin(t * PI)
+				quad.append(ring * (1.0 + width * 0.5) + along)
+				quad.append(ring * (1.0 - width * 0.5) + along)
+				cols.append(Color(1, 1, 1, fade))
+				cols.append(Color(1, 1, 1, fade * 0.25))
+			for idx in [0, 1, 2, 1, 3, 2]:
+				st.set_color(cols[idx])
+				st.add_vertex(quad[idx])
 	return st.commit()
 
 

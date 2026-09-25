@@ -26,7 +26,8 @@ const DUST := Color(0.66, 0.6, 0.5)
 const BLAST_RADIUS := 1.1
 ## How far down the line the bands and the mist go, and how often.
 const BLAST_REACH := 30.0
-const BAND_EVERY := 2.2
+## How long each stretch of the tornado is.
+const TWIST_LEN := 2.4
 const MIST_EVERY := 1.6
 
 var _shooter: Node3D
@@ -73,7 +74,7 @@ func _ready() -> void:
 	var into := get_parent()
 	WindBlast.release(into, _start, _dir)
 	WindBlast.speed_lines(into, _start, _dir, 14.0)
-	_next_ring = 1.2
+	_next_ring = TWIST_LEN
 	_draw_at(_start)
 
 
@@ -135,12 +136,19 @@ func _physics_process(delta: float) -> void:
 	var into := get_parent()
 	# Bands of air winding round the line as the arrow passes, opening out;
 	# mist left hanging behind it.
+	# A tornado of air laid down behind the arrow, stretch by stretch: each
+	# stretch spins about the line and opens out, the funnel widening the
+	# further it goes; a band of air opens round it now and then.
 	while _travel >= _next_ring and _next_ring < BLAST_REACH:
 		var fade := 1.0 - _next_ring / BLAST_REACH
-		WindBlast.band(into, _start + _dir * _next_ring, _dir, 0.35, 1.2 + 1.6 * fade,
-				0.45 + 0.35 * fade, float(_band_n) * 2.1)
+		var at := _start + _dir * (_next_ring - TWIST_LEN)
+		var r0 := 0.18 + 0.02 * _next_ring
+		WindBlast.twister(into, at, _dir, TWIST_LEN + 0.4, r0, r0 * 2.6 + 0.4,
+				0.7 + 0.4 * fade, float(_band_n) * 1.3)
+		if _band_n % 3 == 1:
+			WindBlast.band(into, at, _dir, r0, r0 * 3.0 + 0.6, 0.5, float(_band_n) * 2.1)
 		_band_n += 1
-		_next_ring += BAND_EVERY
+		_next_ring += TWIST_LEN
 	while _travel >= _next_mist and _next_mist < BLAST_REACH:
 		var fade := 1.0 - _next_mist / BLAST_REACH
 		WindBlast.mist(into, _start + _dir * _next_mist, 3, 0.8 + 0.9 * fade,

@@ -261,6 +261,10 @@ var _skill_t: float = -1.0
 var _skill_nock: float = 0.3
 var _skill_hold: float = 0.5
 var _skill_pitch: float = 0.0
+## How far a skill shot braces the body (hips down, leaning on; see
+## [member BowModifier.crouch]), and where the brace is now.
+var _skill_brace: float = 0.0
+var _brace_now: float = 0.0
 
 
 func nock_lead() -> float:
@@ -273,7 +277,7 @@ func nock_lead() -> float:
 ## lets go with the ordinary release. Returns how long the draw takes. `pitch`
 ## is how far up (+) or down the shot goes, radians: the chest tilts onto it as
 ## the string comes back.
-func charged_shot(hold: float, pitch: float = 0.0) -> float:
+func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0) -> float:
 	_drawing_clip = false
 	_aim_phase = 0.0
 	if _anim == null or not _anim.has_animation(DRAW_CLIP):
@@ -288,6 +292,7 @@ func charged_shot(hold: float, pitch: float = 0.0) -> float:
 	_skill_nock = nock
 	_skill_hold = hold
 	_skill_pitch = clampf(pitch, -0.9, 1.1)
+	_skill_brace = clampf(brace, 0.0, 1.0)
 	# Held at full: the draw's last frames, stretched over the hold, so the
 	# bow stays up and the string at the cheek (the aim idle drops the bow).
 	get_tree().create_timer(nock * 0.97, false).timeout.connect(func() -> void:
@@ -405,6 +410,11 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			string *= maxf(_draw_target, 0.6)
 		_bow_mod.draw = string
 		_bow_mod.pitch = _pitch * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
+	if _bow_mod != null:
+		# The brace comes on with the draw and goes a little after the release.
+		var brace_to := _skill_brace if _skill_t >= 0.0 else 0.0
+		_brace_now = move_toward(_brace_now, brace_to, delta * (2.2 if brace_to > _brace_now else 1.6))
+		_bow_mod.crouch = _brace_now
 	if _drawing_clip:
 		# The draw clip owns the body until it is through; the base cycle must
 		# not be picked over it.

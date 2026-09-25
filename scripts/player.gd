@@ -3212,7 +3212,7 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 		return
 	var nock := 0.3
 	if rig != null and rig.has_method(&"charged_shot"):
-		nock = float(rig.call(&"charged_shot", pierce_hold, asin(clampf(dir.y, -1.0, 1.0))))
+		nock = float(rig.call(&"charged_shot", pierce_hold, asin(clampf(dir.y, -1.0, 1.0)), 1.0))
 	await get_tree().create_timer(nock, false).timeout
 	if not is_inside_tree() or is_dead:
 		return

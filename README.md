@@ -3100,10 +3100,13 @@ Single Shot in Elden Ring Nightreign (`PiercingShot`, the pieces in
 a step (`pierce_recoil`, 5 m/s) with dust off his feet and the camera jolts
 (`WindBlast.shake`, `h_offset`/`v_offset` only); the arrow goes as a white
 streak with speed lines racing beside it; bands of air (a ribbon partway round
-the line, twisting forward, `WindBlast.band`) wind round it every 2.2 m and
-open out, and a thin mist is left hanging along the first 30 m
+the line, `WindBlast.band`) open round it now and then, inside a tornado laid
+down stretch by stretch behind the arrow (`WindBlast.twister`: three ribbons
+wound round the line, spinning, the funnel widening with distance), and a thin mist is left hanging along the first 30 m
 (`WindBlast.mist`, alpha 0.03 — thicker reads as cotton wool). While it is
-held, a little whirl of air turns at the arrowhead (`AirSwirl`: four white
+held he braces — hips down, knees bent, leaning on from the waist while the
+chest keeps the aim (`BowModifier.crouch`, `charged_shot(..., brace)`) — and a
+whirl of air turns at the arrowhead (`AirSwirl`: four white
 bands round the head and a few motes drawn in, following `arrow_tip()`). Its wind is wide: anything within
 `BLAST_RADIUS` (1.1 m) of the line is struck and thrown down, not only what
 the arrow goes through (a capsule query per step on the creatures' layer).

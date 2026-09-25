@@ -24,6 +24,14 @@ var limb_flex: float = 0.32
 ## How much of the pitch the chest takes, and the neck on top of it.
 var chest_share: float = 0.7
 var neck_share: float = 0.3
+## A braced shot (0..1): the hips drop and the knees give, the body leans on
+## into the shot from the waist while the chest keeps the aim — the stance of
+## a skill shot rather than an ordinary one.
+var crouch: float = 0.0
+## At full crouch: how far the hips drop, as a share of the leg, and how far
+## forward the waist leans (radians; the chest takes it back).
+var crouch_drop: float = 0.16
+var crouch_lean: float = 0.32
 
 var string_u: Node3D
 var string_l: Node3D
@@ -47,14 +55,53 @@ func _process_modification() -> void:
 	var skel := get_skeleton()
 	if skel == null:
 		return
+	_brace(skel)
 	_tilt(skel)
 	_flex(skel)
 	_place_string(skel)
 
 
-## Pitches the chest and neck about the body's own left–right axis.
+## Turns bone `b` by `angle` about the skeleton's own left–right axis.
+func _turn(skel: Skeleton3D, b: int, angle: float) -> void:
+	if b < 0:
+		return
+	var parent := skel.get_bone_parent(b)
+	var parent_global := skel.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
+	var local_axis := (parent_global.basis * skel.get_bone_pose(b).basis).inverse() * Vector3.RIGHT
+	skel.set_bone_pose_rotation(b, skel.get_bone_pose_rotation(b) * Quaternion(local_axis.normalized(), angle))
+
+
+## The braced stance: hips down, thighs forward, shins back, feet flat; the
+## waist leaning on. The knee angle is worked out from the leg's own length so
+## the feet stay where they were.
+func _brace(skel: Skeleton3D) -> void:
+	if crouch < 0.001:
+		return
+	var pelvis := _bone(&"pelvis")
+	var thigh := _bone(&"thigh_l")
+	var foot := _bone(&"foot_l")
+	if pelvis < 0 or thigh < 0 or foot < 0:
+		return
+	var leg := skel.get_bone_global_pose(thigh).origin.distance_to(skel.get_bone_global_pose(foot).origin)
+	var drop := leg * crouch_drop * crouch
+	var knee := acos(clampf((leg - drop) / maxf(leg, 0.0001), -1.0, 1.0))
+	var parent := skel.get_bone_parent(pelvis)
+	var down := Vector3.DOWN * drop
+	if parent >= 0:
+		down = skel.get_bone_global_pose(parent).basis.inverse() * down
+	skel.set_bone_pose_position(pelvis, skel.get_bone_pose_position(pelvis) + down)
+	for side in [&"_l", &"_r"]:
+		_turn(skel, _bone(StringName("thigh" + side)), -knee)
+		_turn(skel, _bone(StringName("calf" + side)), 2.0 * knee)
+		_turn(skel, _bone(StringName("foot" + side)), -knee)
+	_turn(skel, _bone(&"spine_01"), crouch_lean * crouch)
+
+
+## Pitches the chest and neck about the body's own left–right axis (and gives
+## back what the braced stance's waist took, so the aim holds).
 func _tilt(skel: Skeleton3D) -> void:
-	if absf(pitch) < 0.001:
+	var tilt := pitch + crouch_lean * crouch
+	if absf(tilt) < 0.001:
 		return
 	var side := Vector3.RIGHT  # the skeleton's own right; the model faces its -Z
 	for pair in [[&"spine_02", chest_share], [&"neck_01", neck_share]]:
@@ -64,7 +111,7 @@ func _tilt(skel: Skeleton3D) -> void:
 		var parent := skel.get_bone_parent(b)
 		var parent_global := skel.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
 		var local_axis := (parent_global.basis * skel.get_bone_pose(b).basis).inverse() * side
-		var q := Quaternion(local_axis.normalized(), -pitch * float(pair[1]))
+		var q := Quaternion(local_axis.normalized(), -tilt * float(pair[1]))
 		skel.set_bone_pose_rotation(b, skel.get_bone_pose_rotation(b) * q)
 
 
