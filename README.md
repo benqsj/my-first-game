@@ -3037,7 +3037,8 @@ videos (vepxis-art `skills/videos/`) and then built here to match.
 **Hunter's Mark** (Avtandil, key 2; 12 stamina, 14 s): he points at what he has
 locked, or the best thing in front within 32 m (`AV_Point_Charge`, from
 Mixamo, frames 36–132 at 1.4×). For 10 s it wears a red outline and a turning
-sigil over its head, and every blow on it — anyone's — does 20% more. If there
+sigil over its head, and every blow on it does more: 5% from a bow, 2% from
+anyone else (see below). If there
 is nothing to mark, the skill does not go and costs nothing.
 
 **Piercing Arrow** (key 3; 30 stamina, 10 s): a full draw with wind and light
@@ -3067,3 +3068,37 @@ fire (`RX_Swat_Bugs`, `RX_Agony_Head`) and stumble with poison
 (`RX_Injured_Stumble`) — Mixamo clips retargeted onto both orc glbs. Imps and
 the other fighters are knocked back, scratch at the flames and sway; wolves
 reel and are shoved. `tests/new_skills_test.gd`.
+
+## The mark only over the head; skill shots off the string; the rain in volleys
+
+**The mark's numbers** (`Afflictions.factor(creature, from)`): a marked
+creature takes `MARK_BOW` (×1.05) from anyone fighting with a bow — the
+ordinary arrows, the skill shots, the fire they leave (`take_dot` carries who
+lit it) — and `MARK_OTHER` (×1.02) from everyone else. `Afflictions.is_bow()`
+reads the striker's `CharacterProfile.weapon`. Wolves, brutes (orcs, Arkdeva)
+and fighters (imps and the rest) all pass `from` in.
+
+**The mark's look**: the sigil over the head and nothing else — the red outline
+round the body and the ring on the ground are gone, on every creature. It sits
+over the creature's head bone (`Afflictions._over_head()`: the first bone
+called `head`, else anything with "head" in it, else `bar_height`), so it rides
+a stooping orc or a spider's rider.
+
+**Skill shots leave from the bow.** For the Piercing and Fire Arrows (and now
+the rain) `SkinnedArcherRig.charged_shot(hold, pitch)` draws the string by hand
+over the nock's second half and holds it at full, with the arrow on the string
+and the chest turned onto the shot, until `loose_skill_shot()`; the shot leaves
+from `arrow_tip()` — the head of the drawn arrow — and `BowCharge` gathers its
+wind or fire there, not round the bow hand. Its light is smaller and dimmer
+(range 1.6), so the hero is no longer washed cyan.
+
+**Rain of Arrows.** The leaning-back `AV_Sky_Shot` is no longer played (still
+in the glb): the sky shot is his own nock and draw with the chest turned 60°
+up (`SKY_PITCH` 1.05 rad), a breath at full (`SKY_HOLD`), and the release.
+Three arrows go up, fanned, trailing gold; where they top out
+(`ArrowRain.burst_at`, 0.6 s) a gold flash, a ring and sparks; then the
+volley comes down in three waves (`waves`, each spread over `wave_spread` of
+its slot) with gold streaks twice as wide, and each arrow throws up dust and a
+spark where it lands (`ArrowRain.land_at`, into the world so the rain itself
+still draws nothing on the ground). `skills_test`, `new_skills_test`.
+

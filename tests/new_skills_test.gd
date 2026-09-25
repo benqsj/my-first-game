@@ -2,7 +2,7 @@ extends SceneTree
 
 ## The skills after the Rain of Arrows — Avtandil's Hunter's Mark, Piercing
 ## Arrow and Fire Arrow, the Assassin's Poisoned Blade — and the creatures
-## taking them: marked blows biting a fifth deeper, bodies thrown back by the
+## taking them: marked blows biting deeper (5% for a bow, 2% for the rest), bodies thrown back by the
 ## piercing shot, burning in the fire, poison stacking and ticking, and the
 ## orcs' own reactions (RX_* clips) in both their glbs.
 ##
@@ -54,13 +54,26 @@ func _check_mark() -> void:
 	await _wait(100)
 	var marks := Afflictions.of(imp, false)
 	_check("the prey is marked", marks != null and marks.is_marked())
-	_check("blows on it bite a fifth deeper", is_equal_approx(Afflictions.factor(imp), 1.2),
-			"%.2f" % Afflictions.factor(imp))
+	_check("a bow's blows on it bite 5% deeper", is_equal_approx(Afflictions.factor(imp, _player), 1.05),
+			"%.3f" % Afflictions.factor(imp, _player))
+	_check("anyone else's 2%", is_equal_approx(Afflictions.factor(imp, null), 1.02),
+			"%.3f" % Afflictions.factor(imp, null))
 	var before: float = imp.health
+	imp.take_dot(10.0, _player)
+	_check("so 10 from the archer costs it 10.5", absf(before - float(imp.health) - 10.5) < 0.01,
+			"%.2f" % (before - float(imp.health)))
+	before = imp.health
 	imp.take_dot(10.0, null)
-	_check("so 10 costs it 12", absf(before - float(imp.health) - 12.0) < 0.01, "%.2f" % (before - float(imp.health)))
-	_check("it wears the red outline", _overlaid(imp))
-	_check("and the sigil hangs over it", marks != null and not marks.find_children("Sigil", "", true, false).is_empty())
+	_check("and 10 from anyone else 10.2", absf(before - float(imp.health) - 10.2) < 0.01,
+			"%.2f" % (before - float(imp.health)))
+	_check("the body is left as it was: no outline", not _overlaid(imp))
+	_check("nothing on the ground under it", marks != null
+			and marks.find_children("*", "MeshInstance3D", true, false).all(
+				func(m: Node) -> bool: return m.is_inside_tree() and (m as Node3D).global_position.y > imp.global_position.y + 0.8))
+	_check("and the sigil hangs over its head", marks != null and not marks.find_children("Sigil", "", true, false).is_empty())
+	var sig := marks.find_children("Sigil", "", true, false)[0] as Node3D if marks != null else null
+	var above := sig.global_position.y - imp.global_position.y if sig != null else 0.0
+	_check("just over the head, not floating off", above > 1.2 and above < 3.0, "%.2f m over its feet" % above)
 	imp.queue_free()
 	await _wait(5)
 	var none := _creature(IMP, _ahead(60.0))
@@ -76,6 +89,11 @@ func _check_mark() -> void:
 func _check_pierce() -> void:
 	var near := _creature(IMP, _ahead(7.0)) as Fighter
 	var far := _creature(IMP, _ahead(12.0)) as Fighter
+	# Enough health to live through a critical piercing shot, which would
+	# otherwise kill them before they could be seen thrown down.
+	for c: Fighter in [near, far]:
+		c.max_health = 500.0
+		c.health = 500.0
 	await _wait(10)
 	var was_near := _along(near)
 	var was_far := _along(far)
@@ -91,7 +109,9 @@ func _check_pierce() -> void:
 			knocked[1] = true
 	_check("it goes through the first", is_instance_valid(near) and float(near.health) < float(near.max_health))
 	_check("and on into the second", is_instance_valid(far) and float(far.health) < float(far.max_health))
-	_check("both are thrown down", knocked[0] and knocked[1], str(knocked))
+	_check("both are thrown down", knocked[0] and knocked[1], "%s near %s far %s" % [str(knocked),
+			"%.0f/%.0f dead %s" % [near.health, near.max_health, near.is_dead] if is_instance_valid(near) else "gone",
+			"%.0f/%.0f dead %s" % [far.health, far.max_health, far.is_dead] if is_instance_valid(far) else "gone"])
 	if is_instance_valid(near):
 		_check("and back", _along(near) > was_near + 0.4, "%.2f -> %.2f" % [was_near, _along(near)])
 	if is_instance_valid(far):
@@ -203,11 +223,13 @@ func _check_orc(scene: String, who: String) -> void:
 	var marks := Afflictions.of(orc)
 	marks.apply(&"mark", 5.0, _player)
 	var before: float = orc.health
-	orc.take_dot(10.0, null)
+	orc.take_dot(10.0, _player)
 	var armour: float = orc.get("armour")
-	_check("marked, the fire bites through half his hide and a fifth deeper",
-			absf(before - float(orc.health) - 12.0 * (1.0 - armour * 0.5)) < 0.01,
-			"%.2f" % (before - float(orc.health)))
+	# 5% deeper from a bow, 2% from anyone else (this hero may be either).
+	var deeper := 1.05 if Afflictions.is_bow(_player) else 1.02
+	_check("marked, the fire bites through half his hide and a little deeper",
+			absf(before - float(orc.health) - 10.0 * deeper * (1.0 - armour * 0.5)) < 0.01,
+			"%.2f (want %.2f, armour %.2f)" % [before - float(orc.health), 10.0 * deeper * (1.0 - armour * 0.5), armour])
 	orc.queue_free()
 	await _wait(10)
 
