@@ -440,7 +440,7 @@ func _grow(group_name: String, group: Dictionary, draw_distance: float,
 			var key := _chunk_of(at)
 			var bucket: Dictionary = chunks.get(key, {})
 			var list: Array = bucket.get(pick, [])
-			list.append(Transform3D(basis, Vector3(at.x, 0.0, at.y)))
+			list.append(Transform3D(basis, Vector3(at.x, Terrain.height_under(at.x, at.y, 0.35), at.y)))
 			bucket[pick] = list
 			chunks[key] = bucket
 			planted += 1
@@ -502,7 +502,7 @@ func _grow_lines(group_name: String, group: Dictionary, lines: Array[Array]) -> 
 				var key := _chunk_of(at)
 				var bucket: Dictionary = chunks.get(key, {})
 				var list: Array = bucket.get(pick, [])
-				list.append(Transform3D(basis, Vector3(at.x, 0.0, at.y)))
+				list.append(Transform3D(basis, Vector3(at.x, Terrain.height_under(at.x, at.y, 0.35), at.y)))
 				bucket[pick] = list
 				chunks[key] = bucket
 				planted += 1
@@ -751,7 +751,8 @@ func _add_trunk(path: String, at: Vector2, size: float, turn: Basis = Basis.IDEN
 	# tree is something the player trips over on the way past. The offset is
 	# relative to the body, which sits at the middle of its own cell.
 	body.shape_owner_set_transform(owner_id, Transform3D(Basis.IDENTITY,
-			Vector3(at.x, TRUNK_HEIGHT * 0.5 - TRUNK_SINK, at.y) - body.position))
+			Vector3(at.x, Terrain.height_under(at.x, at.y, 0.35) + TRUNK_HEIGHT * 0.5 - TRUNK_SINK, at.y)
+			- body.position))
 
 
 ## The body covering the ground a point stands on, made the first time something

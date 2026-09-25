@@ -259,7 +259,7 @@ func _decorate(at: Vector2, site: Dictionary, ponds: Array[Marsh], tracks: Paths
 func _add(path: String, spot: Vector2, size: float) -> void:
 	var list: Array = _decor.get(path, [])
 	var basis := Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * size)
-	list.append(Transform3D(basis, Vector3(spot.x, 0.0, spot.y)))
+	list.append(Transform3D(basis, Vector3(spot.x, Terrain.height(spot.x, spot.y), spot.y)))
 	_decor[path] = list
 
 

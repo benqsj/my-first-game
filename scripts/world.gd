@@ -525,7 +525,7 @@ func _build_fence(village: Node3D) -> void:
 			piece.add_child(scene.instantiate())
 			fence.add_child(piece)
 			var yaw := atan2(-dir.y, dir.x) + (0.0 if along_x else PI * 0.5)
-			piece.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * 1.9), Vector3(mid.x, 0.0, mid.y))
+			piece.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * 1.9), Vector3(mid.x, Terrain.height_under(mid.x, mid.y, 0.5), mid.y))
 			var shape := CollisionShape3D.new()
 			var slab := BoxShape3D.new()
 			slab.size = Vector3(length, 1.3, 0.25)

@@ -283,7 +283,10 @@ func _build() -> void:
 		for n in placement.size() / STRIDE:
 			var at := n * STRIDE
 			var i := next + n
-			_home[i] = Vector3(placement[at], 0.0, placement[at + 1])
+			# Standing on the land where it rolls ([Terrain]), not on a flat floor.
+			var world_at := global_transform * Vector3(placement[at], 0.0, placement[at + 1])
+			_home[i] = Vector3(placement[at], Terrain.height(world_at.x, world_at.z) - global_position.y,
+					placement[at + 1])
 			_rest[i] = Basis(Vector3.UP, placement[at + 2]).scaled(
 					Vector3(placement[at + 3], placement[at + 4], placement[at + 3]))
 			_bend[i] = Vector3.ZERO

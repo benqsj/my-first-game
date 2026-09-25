@@ -1,4 +1,4 @@
-[gd_scene load_steps=85 format=3]
+[gd_scene load_steps=86 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="9_pause"]
@@ -47,6 +47,7 @@
 [ext_resource type="PackedScene" path="res://assets/bearnpc/bear1.glb" id="50_bear"]
 [ext_resource type="PackedScene" path="res://assets/firenpc/cecxli .glb" id="51_fire"]
 [ext_resource type="PackedScene" path="res://assets/frog-npc/frog1.glb" id="52_frog"]
+[ext_resource type="Script" path="res://scripts/terrain.gd" id="60_terrain"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.36, 0.5, 0.72, 1)
@@ -269,6 +270,7 @@ directional_shadow_blend_splits = true
 
 [node name="Ground" type="StaticBody3D" parent="Level"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+script = ExtResource("60_terrain")
 
 [node name="Mesh" type="MeshInstance3D" parent="Level/Ground"]
 mesh = SubResource("BoxMesh_ground")
