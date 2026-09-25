@@ -64,6 +64,14 @@ func launch(from: Vector3, dir: Vector3, speed: float, reach: float, damage: flo
 	_critical = critical
 	_shooter = shooter
 	_knock = knock
+	add_to_group(&"missile")
+
+
+## For a creature watching it come ([Wolf]).
+func flight() -> Array:
+	if _done:
+		return []
+	return [_start + _dir * _travel, _dir * _speed, _shooter]
 
 
 func _ready() -> void:

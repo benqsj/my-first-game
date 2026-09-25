@@ -94,6 +94,15 @@ func launch(velocity: Vector3, damage: float, critical: bool, gravity: float,
 	_point_along(velocity)
 	_lay_trail()
 	set_physics_process(true)
+	add_to_group(&"missile")
+
+
+## For a creature watching it come ([Wolf]): where it is, where it is going,
+## and who loosed it — nothing once it has struck.
+func flight() -> Array:
+	if _spent or not is_physics_processing():
+		return []
+	return [global_position, _velocity, _shooter]
 
 
 func _physics_process(delta: float) -> void:

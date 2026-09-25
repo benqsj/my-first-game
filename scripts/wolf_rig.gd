@@ -49,6 +49,24 @@ const DODGE_L := &"WF_Dodge_L"
 const DODGE_R := &"WF_Dodge_R"
 const HOP_BACK := &"WF_Hop_Back"
 const BITE := &"WF_Bite"
+const CRAWL_WALK := &"WF_Crawl_Walk"
+const RUN_UPRIGHT := &"WF_Run"
+const GROWL := "res://unverified/sounds/orc/orc-aggressive-sound1.wav"
+
+## The coats a wolf can be born with — the colour of each fur material — and
+## how often each comes up.
+const COATS := [
+	{"name": "black", "weight": 25, "wolf_fur": Color(0.06, 0.058, 0.062), "wolf_fur_mid": Color(0.04, 0.038, 0.042),
+		"wolf_fur_dark": Color(0.018, 0.017, 0.02), "wolf_fur_light": Color(0.2, 0.19, 0.19)},
+	{"name": "dark grey", "weight": 30, "wolf_fur": Color(0.15, 0.155, 0.165), "wolf_fur_mid": Color(0.1, 0.1, 0.11),
+		"wolf_fur_dark": Color(0.045, 0.045, 0.05), "wolf_fur_light": Color(0.4, 0.4, 0.42)},
+	{"name": "grey-brown", "weight": 25, "wolf_fur": Color(0.3, 0.265, 0.23), "wolf_fur_mid": Color(0.21, 0.185, 0.16),
+		"wolf_fur_dark": Color(0.13, 0.115, 0.105), "wolf_fur_light": Color(0.64, 0.58, 0.5)},
+	{"name": "pale grey", "weight": 10, "wolf_fur": Color(0.32, 0.32, 0.33), "wolf_fur_mid": Color(0.23, 0.23, 0.24),
+		"wolf_fur_dark": Color(0.12, 0.12, 0.13), "wolf_fur_light": Color(0.6, 0.59, 0.57)},
+	{"name": "russet", "weight": 10, "wolf_fur": Color(0.32, 0.2, 0.12), "wolf_fur_mid": Color(0.22, 0.14, 0.09),
+		"wolf_fur_dark": Color(0.1, 0.07, 0.05), "wolf_fur_light": Color(0.62, 0.52, 0.4)},
+]
 const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_Drag", &"WF_Run",
 		&"WF_Crawl_Walk", &"WF_Back", &"WF_Strafe_L", &"WF_Strafe_R"]
 
@@ -59,8 +77,12 @@ const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_
 @export var swipe_duration: float = 0.85
 @export var swipe_windup: float = 0.55
 ## The pounce: how long, and the share of it spent gathering.
-@export var lunge_duration: float = 1.0
-@export var lunge_windup: float = 0.5
+## A long gather before it — crouched low, eyes flaring, a growl — so the leap
+## can be seen coming.
+@export var lunge_duration: float = 1.35
+@export var lunge_windup: float = 0.6
+## How low it crouches in that gather, metres.
+@export var crouch: float = 0.28
 
 @export_group("Pace")
 ## Metres a second each cycle carries it at rate 1: what the clips are sped up
@@ -70,6 +92,8 @@ const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_
 @export var drag_pace: float = 0.5
 @export var back_pace: float = 1.1
 @export var strafe_pace: float = 1.6
+@export var crawl_walk_pace: float = 0.75
+@export var upright_run_pace: float = 4.4
 ## Faster than this it drops to all fours.
 @export var run_from: float = 2.8
 #endregion
@@ -91,6 +115,18 @@ var _move_timer: float = 0.0
 ## How it is moving over the ground, in its own frame (-Z ahead, +X to its
 ## right), set by [Wolf] each frame: what picks walking, backing and circling.
 var move_local := Vector3.ZERO
+## 1: it goes about on all fours; 0: on its hind legs. Set by [Wolf].
+var gait: float = 1.0
+## Looking about, 0 to 1, while it stands on its beat (set by [Wolf]).
+var look_about: float = 0.0
+## How far the belly-crawl has let the body down, smoothed.
+var _ground_drop: float = 0.0
+var _neck: int = -1
+var _head: int = -1
+var _eye_mat: StandardMaterial3D
+var _eye_base: float = 1.0
+var _look_phase: float = 0.0
+var _growled: bool = false
 var _swipe_left: bool = true
 var _dead: bool = false
 var _stance: float = 1.0
@@ -128,6 +164,8 @@ func _ready() -> void:
 		_parts[String(at.bone_name)] = list
 	_root_bone = _skeleton.find_bone("root")
 	_jaw = _skeleton.find_bone("jaw")
+	_neck = _skeleton.find_bone("neck_01")
+	_head = _skeleton.find_bone("head")
 	for n in ["tail_01", "tail_02", "tail_03", "tail_04"]:
 		var b := _skeleton.find_bone(n)
 		if b >= 0:
@@ -138,6 +176,57 @@ func _ready() -> void:
 	_mark_claws()
 	_anim.play(IDLE)
 	_anim.advance(0.0)
+	_look_phase = _rng.randf() * TAU
+
+
+## Its coat, the same on every peer: from its name. Each fur material is
+## swapped for the coat's colour (one set of copies per coat, shared by every
+## wolf wearing it), and the eyes get a copy of their own to flare.
+static var _coat_sets: Dictionary = {}
+
+
+func dress(key: String) -> void:
+	if _skeleton == null:
+		return
+	var total := 0
+	for c: Dictionary in COATS:
+		total += int(c.weight)
+	var pick := RandomNumberGenerator.new()
+	pick.seed = hash(key + "/coat")
+	var roll := pick.randi() % total
+	var coat: Dictionary = COATS[0]
+	for c: Dictionary in COATS:
+		roll -= int(c.weight)
+		if roll < 0:
+			coat = c
+			break
+	var copies: Dictionary = _coat_sets.get(coat.name, {})
+	_coat_sets[coat.name] = copies
+	for node in _skeleton.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if mesh.mesh == null:
+			continue
+		for i in mesh.mesh.get_surface_count():
+			var mat := mesh.mesh.surface_get_material(i) as StandardMaterial3D
+			if mat == null:
+				continue
+			var key_name := mat.resource_name
+			if coat.has(key_name):
+				if not copies.has(key_name):
+					var tinted := mat.duplicate() as StandardMaterial3D
+					tinted.albedo_color = coat[key_name] as Color
+					copies[key_name] = tinted
+				mesh.set_surface_override_material(i, copies[key_name])
+			elif key_name == "wolf_eye":
+				if _eye_mat == null:
+					_eye_mat = mat.duplicate() as StandardMaterial3D
+					_eye_mat.emission_enabled = true
+					_eye_base = maxf(_eye_mat.emission_energy_multiplier, 1.0)
+				mesh.set_surface_override_material(i, _eye_mat)
+	coat_name = String(coat.name)
+
+
+var coat_name: String = ""
 
 
 ## When a clip's claws move fastest — the moment a swipe arrives.
@@ -223,7 +312,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	if _root_bone >= 0:
 		_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_rest(_root_bone).origin)
 		if is_crippled() and not _dead:
-			_rest_on_ground()
+			_rest_on_ground(delta)
 	_overlay(delta)
 	var swiping := _swipe_timer > 0.0 and _swipe_timer < swipe_duration * (1.0 - swipe_windup)
 	if _trail_l != null:
@@ -232,23 +321,30 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through()
 
 
-## With no legs its belly is what it lies on: the body is let down until the
-## lowest part left on it touches the ground under it.
-func _rest_on_ground() -> void:
-	var lowest := INF
-	for bone_name: String in _parts:
-		for at: BoneAttachment3D in _parts[bone_name]:
-			if not at.visible:
-				continue
-			for m in at.get_children():
-				var mesh := m as MeshInstance3D
-				if mesh != null:
-					lowest = minf(lowest, (mesh.global_transform * mesh.get_aabb()).position.y)
+## Down on its belly, the body is let down until the lowest joint left on it is
+## just off the ground. Measured from the bones as posed this frame (the parts
+## hanging off them follow a frame later, and measuring those set it bobbing),
+## and eased, so it settles rather than twitches.
+func _rest_on_ground(delta: float) -> void:
 	var body := get_parent() as Node3D
-	if is_inf(lowest) or body == null:
+	if body == null:
 		return
-	var drop := lowest - body.global_position.y
-	var down := _skeleton.global_transform.basis.inverse() * Vector3(0.0, -drop, 0.0)
+	var lowest := INF
+	var frame := _skeleton.global_transform
+	for bone_name: String in _parts:
+		var shown := false
+		for at: BoneAttachment3D in _parts[bone_name]:
+			shown = shown or at.visible
+		if not shown:
+			continue
+		var b := _skeleton.find_bone(bone_name)
+		lowest = minf(lowest, (frame * _skeleton.get_bone_global_pose(b).origin).y)
+	if is_inf(lowest):
+		return
+	# Joints sit inside the flesh: about a hand's depth of it below them.
+	var want := lowest - 0.1 - body.global_position.y
+	_ground_drop = lerpf(_ground_drop, want, 1.0 - exp(-8.0 * delta))
+	var down := _skeleton.global_transform.basis.inverse() * Vector3(0.0, -_ground_drop, 0.0)
 	_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_rest(_root_bone).origin + down)
 
 
@@ -275,12 +371,21 @@ func _choose(planar: float) -> void:
 		# Backing off, face on.
 		clip = BACK
 		pace = clampf(-ahead / back_pace, 0.6, 1.8)
+	elif _stance > 0.5 and gait > 0.5:
+		# About the world on all fours: a slow crawl on its beat, the run after him,
+		# and standing it holds the crawl's pose, low on its four feet.
+		if planar > run_from:
+			clip = RUN
+			pace = clampf(planar / run_pace, 0.7, 1.6)
+		else:
+			clip = CRAWL_WALK
+			pace = clampf(planar / crawl_walk_pace, 0.6, 1.6) if planar > 0.2 else 0.0
 	elif planar > run_from and _stance > 0.5:
-		clip = RUN
-		pace = clampf(planar / run_pace, 0.7, 1.6)
+		clip = RUN_UPRIGHT
+		pace = clampf(planar / upright_run_pace, 0.7, 1.5)
 	elif planar > 0.25:
 		clip = WALK
-		pace = clampf(planar / walk_pace, 0.6, 1.8)
+		pace = clampf(planar / walk_pace, 0.6, 1.5)
 	if not _anim.has_animation(clip):
 		clip = IDLE
 	if _anim.current_animation != String(clip):
@@ -319,6 +424,10 @@ func swipe() -> void:
 func lunge() -> void:
 	_lunge_timer = lunge_duration
 	_strike(POUNCE, lunge_duration * lunge_windup)
+	# The tell, heard as well as seen.
+	var body := get_parent() as Node3D
+	if body != null and ResourceLoader.exists(GROWL):
+		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.45, -8.0)
 
 
 ## Thrown back off a shield, or knocked by a skill: it staggers.
@@ -415,6 +524,8 @@ func _overlay(delta: float) -> void:
 		gape = 0.65 * sin(clampf(1.0 - _move_timer / 0.8, 0.0, 1.0) * PI)
 	elif not _dead:
 		gape = 0.06 + 0.04 * sin(_clock * 2.3)
+	_tell(delta)
+	_look(delta)
 	if _jaw >= 0 and not has_lost("head"):
 		var rest := _skeleton.get_bone_pose_rotation(_jaw)
 		_skeleton.set_bone_pose_rotation(_jaw, rest * Quaternion(Vector3.RIGHT, gape))
@@ -427,6 +538,38 @@ func _overlay(delta: float) -> void:
 		var rot := _skeleton.get_bone_pose_rotation(bone)
 		_skeleton.set_bone_pose_rotation(bone, rot * Quaternion(Vector3.FORWARD, _tail_swing[i]))
 	_glint(glint, glint_side)
+
+
+## Before a pounce: down low on its haunches, trembling, eyes flaring.
+func _tell(_delta: float) -> void:
+	var gather := 0.0
+	if _lunge_timer > 0.0:
+		var a := 1.0 - _lunge_timer / maxf(lunge_duration, 0.001)
+		if a < lunge_windup:
+			# Down fast, held, and up into the spring at the very end.
+			gather = smoothstep(0.0, 0.35, a / lunge_windup) * (1.0 - smoothstep(0.85, 1.0, a / lunge_windup))
+	if _eye_mat != null:
+		_eye_mat.emission_energy_multiplier = _eye_base * (1.0 + 3.0 * gather)
+	if gather <= 0.001 or _root_bone < 0:
+		return
+	var shiver := Vector3(sin(_clock * 71.0), 0.0, cos(_clock * 53.0)) * 0.012 * gather
+	var down := _skeleton.global_transform.basis.inverse() * (Vector3.DOWN * crouch * gather + shiver)
+	_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_pose_position(_root_bone) + down)
+
+
+## Standing on its beat it looks about: the head turned slowly one way and the
+## other, now and then down to the ground as if at a scent.
+func _look(delta: float) -> void:
+	if look_about <= 0.01 or _dead or _neck < 0 or _head < 0 or has_lost("head"):
+		return
+	_look_phase += delta
+	var yaw := sin(_look_phase * 0.55) * 0.75 + sin(_look_phase * 1.3) * 0.15
+	var sniff := maxf(0.0, sin(_look_phase * 0.23 + 1.0) - 0.6) * 1.6
+	var w := look_about
+	for bone in [_neck, _head]:
+		var rot := _skeleton.get_bone_pose_rotation(bone)
+		_skeleton.set_bone_pose_rotation(bone, rot * Quaternion(Vector3.UP, yaw * 0.5 * w)
+				* Quaternion(Vector3.RIGHT, sniff * 0.35 * w))
 
 
 ## The tell: a red glint gathering on the claws about to come through.

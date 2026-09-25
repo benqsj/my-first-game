@@ -49,7 +49,10 @@ func _initialize() -> void:
 		w.health = w.max_health
 	_spot = _flat()
 
+	_looks()
 	await _dodging()
+	await _missiles()
+	await _tell()
 	await _fighting()
 	await _pack()
 	await _crippled()
@@ -57,10 +60,90 @@ func _initialize() -> void:
 	_finish()
 
 
+## Coats and gaits: not all alike.
+func _looks() -> void:
+	var coats := {}
+	var gaits := {}
+	for w in _wolves:
+		coats[w.rig.coat_name] = true
+		gaits[w.rig.gait] = true
+	_check("the wolves are not all one colour", coats.size() >= 2, str(coats.keys()))
+	_check("some go on four legs, some on two", gaits.size() == 2, str(gaits.keys()))
+
+
+## Arrows loosed at it: from far off it gets out of the way of most; coming in
+## close, of few.
+func _shots(wolf: Wolf, gap: float, shots: int) -> int:
+	var dodged := 0
+	for k in shots:
+		_reset_player(_spot)
+		wolf.global_position = _spot + Vector3(0.0, 0.3, -gap)
+		wolf.velocity = Vector3.ZERO
+		wolf._busy = 0.0
+		wolf._judged.clear()
+		await _wait(8)
+		var arrow: Arrow = (load("res://scenes/props/arrow.tscn") as PackedScene).instantiate()
+		_world.add_child(arrow)
+		var from := _player.global_position + Vector3.UP * 1.5
+		arrow.global_position = from
+		var aim := (wolf.global_position + Vector3.UP * 0.9) - from
+		arrow.launch(aim.normalized() * 60.0, 1.0, false, 0.0, _player)
+		for i in 30:
+			await physics_frame
+			_hold_player()
+			wolf.global_position.x = _spot.x
+			if wolf._slipping > 0.0:
+				dodged += 1
+				break
+		await _wait(20)
+	return dodged
+
+
+func _missiles() -> void:
+	var wolf := _wolves[0]
+	wolf.intellect = 0.7
+	wolf.mind.intellect = 0.7
+	_bring(wolf, _spot + Vector3(0.0, 0.0, -12.0))
+	var charge := wolf.charge_speed
+	wolf.charge_speed = 0.0
+	var far := await _shots(wolf, 12.0, 20)
+	var near := await _shots(wolf, 3.0, 20)
+	wolf.charge_speed = charge
+	_check("from far off it gets out of the way of most arrows", far >= 9 and far <= 19, "%d of 20" % far)
+	_check("close in, of few", near <= 8 and near < far, "%d of 20" % near)
+	_park(wolf)
+
+
+## Before a pounce, a tell: down low, eyes flaring.
+func _tell() -> void:
+	var wolf := _wolves[1]
+	_bring(wolf, _spot + Vector3(0.0, 0.0, -30.0))
+	wolf.set_physics_process(false)
+	await _wait(5)
+	var rig := wolf.rig
+	var rest_y := rig._skeleton.get_bone_pose_position(rig._root_bone).y
+	var base := rig._eye_mat.emission_energy_multiplier if rig._eye_mat != null else 1.0
+	rig.lunge()
+	var lowest := rest_y
+	var brightest := base
+	for i in 40:
+		await process_frame
+		wolf.rig.animate(1.0 / 60.0, 0.0, 0.0, 0.0)
+		lowest = minf(lowest, rig._skeleton.get_bone_pose_position(rig._root_bone).y)
+		if rig._eye_mat != null:
+			brightest = maxf(brightest, rig._eye_mat.emission_energy_multiplier)
+	_check("before a pounce it crouches down", rest_y - lowest > 0.1, "%.2f" % (rest_y - lowest))
+	_check("and its eyes flare", brightest > base * 2.0, "%.1f -> %.1f" % [base, brightest])
+	_park(wolf)
+
+
 #region Trials
 ## A wolf stood by him while he swings, again and again: how many it gets out of.
 func _dodges(wolf: Wolf, swings: int) -> int:
 	wolf.mind.intellect = wolf.intellect
+	# Its limbs stay on for this: a head taken off ends the count, not a dodge.
+	var tolerance := wolf.hit_tolerance
+	wolf.hit_tolerance = -1.0
 	_reset_player(_spot)
 	_bring(wolf, _spot + Vector3(0.0, 0.0, -1.6))
 	var dodged := 0
@@ -73,11 +156,18 @@ func _dodges(wolf: Wolf, swings: int) -> int:
 		Input.action_press("attack")
 		await _wait(3)
 		Input.action_release("attack")
+		var serial_before: Variant = _player.rig.get("attack_serial")
+		var saw := false
 		for i in 50:
 			await physics_frame
 			_hold_player()
+			# Only watching him: none of its own attacks in between.
+			if wolf.mind.tactic != WolfMind.Tactic.WAIT:
+				wolf.mind.tactic = WolfMind.Tactic.WAIT
+			wolf.mind._left = 999.0
 			if wolf._evading > 0.0 and was <= 0.0:
 				dodged += 1
+				saw = true
 			was = wolf._evading
 		# Back where it was, and whole again, for the next swing: a leg the
 		# blade took would leave it unable to leap at all.
@@ -88,6 +178,7 @@ func _dodges(wolf: Wolf, swings: int) -> int:
 		wolf.global_position = _spot + Vector3(0.0, 0.3, -1.6)
 		wolf.velocity = Vector3.ZERO
 		await _wait(20)
+	wolf.hit_tolerance = tolerance
 	_park(wolf)
 	return dodged
 
@@ -183,6 +274,17 @@ func _crippled() -> void:
 	await _wait(10)
 	wolf.rig.detach("left leg")
 	await _wait(10)
+	var ys: Array[float] = []
+	var hold := wolf.global_position
+	for i in 40:
+		await physics_frame
+		wolf.global_position = hold
+		wolf.velocity = Vector3.ZERO
+		ys.append(wolf.rig._skeleton.get_bone_pose_position(wolf.rig._root_bone).y)
+	var jump := 0.0
+	for i in range(20, ys.size()):
+		jump = maxf(jump, absf(ys[i] - ys[i - 1]))
+	_check("down on its belly it lies still, not bobbing", jump < 0.02, "%.3f m a frame" % jump)
 	_check("a leg off puts it down", wolf.is_crippled()
 			and wolf.rig._anim.current_animation == String(WolfRig.DRAG), wolf.rig._anim.current_animation)
 	var start := wolf.global_position.distance_to(_player.global_position)
@@ -202,7 +304,7 @@ func _crippled() -> void:
 		if node is SeveredLimb:
 			piece = node
 	_check("the leg that came off lies on the ground, not in the air", piece != null and piece._resting
-			and absf(piece._lowest() - piece._ground_under()) < 0.1,
+			and absf(piece._lowest() - piece._ground_under()) < 0.05,
 			"%s" % ("none" if piece == null else "%.2f over the ground" % (piece._lowest() - piece._ground_under())))
 	_park(wolf)
 

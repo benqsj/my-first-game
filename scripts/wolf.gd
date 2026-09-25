@@ -43,7 +43,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var step_height: float = 0.45
 ## How far ahead that sweep reaches. Must exceed the body's radius.
 @export var step_probe: float = 0.6
-@export var prowl_speed: float = 2.2
+@export var prowl_speed: float = 1.1
 @export var charge_speed: float = 5.6
 @export var acceleration: float = 22.0
 @export var turn_speed: float = 9.0
@@ -158,8 +158,25 @@ var _pouncing: bool = false
 @export var bite_speed: float = 5.0
 @export var ground_lunge_speed: float = 4.2
 
+## On its beat it stops a while where it gets to, and now and then on the way,
+## and looks about: seconds.
+@export var linger: Vector2 = Vector2(3.0, 8.0)
+## Missiles (arrows, bolts, fire) it sees coming at it: how often it gets out of
+## one loosed from far off once it is after somebody, and from close in, while
+## it comes at him.
+@export var missile_dodge_far: float = 0.65
+@export var missile_dodge_near: float = 0.12
+@export var missile_near: float = 5.0
+@export var missile_far: float = 10.0
+
 ## Its fighting mind (host).
 var mind: WolfMind
+## Seconds left standing on its beat, looking about.
+var _linger: float = 0.0
+## Missiles already judged, by instance id.
+var _judged: Dictionary = {}
+## Out of the missile's line: its body is not there to be struck.
+var _slipping: float = 0.0
 ## Seconds left of a move of its own under way (an attack, a dodge, a hop).
 var _busy: float = 0.0
 ## Seconds left in which a blade goes through the air it has just left.
@@ -195,6 +212,13 @@ func _ready() -> void:
 	if intellect < 0.0:
 		intellect = _rng.randf_range(wit_range.x, wit_range.y)
 	mind = WolfMind.new(self, intellect)
+	if rig != null:
+		# Its coat and whether it goes on four legs or two: from its name, so the
+		# same on every peer.
+		rig.dress(String(name))
+		rig.gait = 1.0 if absi(hash(String(name) + "/gait")) % 2 == 0 else 0.0
+		if rig.gait > 0.5:
+			prowl_speed *= 0.75
 	_bar = HealthBar.new()
 	_bar.position = Vector3(0.0, bar_height, 0.0)
 	# Kept out of the body's rotation so it never turns edge-on to the camera.
@@ -217,6 +241,11 @@ func _physics_process(delta: float) -> void:
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
 	_busy = maxf(_busy - delta, 0.0)
 	_evading = maxf(_evading - delta, 0.0)
+	if _slipping > 0.0:
+		_slipping -= delta
+		if _slipping <= 0.0 and not is_dead:
+			collision_layer = 4
+	_watch_missiles()
 	_burst = maxf(_burst - delta, 0.0)
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_reeling = maxf(_reeling - delta, 0.0)
@@ -269,6 +298,9 @@ func _process(delta: float) -> void:
 	var stance := 0.0 if state == State.FIGHT and not is_dead and not rig.is_crippled() else 1.0
 	# Which way it is going, in its own frame: backing off, circling, coming on.
 	rig.move_local = global_transform.basis.inverse() * Vector3(velocity.x, 0.0, velocity.z)
+	# Standing about on its beat, it looks about.
+	var looking := 1.0 if state == State.PROWL and planar < 0.2 and not is_dead else 0.0
+	rig.look_about = lerpf(rig.look_about, looking, 1.0 - exp(-2.0 * delta))
 	if is_dead:
 		planar = 0.0
 	_reel_clock += delta
@@ -369,6 +401,10 @@ func _think(delta: float) -> void:
 				state = State.FIGHT
 				_fighting = quarry
 				mind.engage(quarry)
+			elif _busy > 0.0:
+				# Thrown aside out of a missile's way: let it carry.
+				if _burst <= 0.0:
+					_slow(delta)
 			else:
 				_move_towards(global_position + to_player,
 						crawl_speed if rig.is_crippled() else charge_speed, delta)
@@ -395,6 +431,59 @@ func _think(delta: float) -> void:
 					var step := to_player.normalized() * minf((distance - claw_reach) * 4.0, charge_speed)
 					velocity.x = step.x
 					velocity.z = step.z
+
+
+#region Missiles
+## Arrows, bolts and fire coming at it (host). Each is judged once, the moment
+## it is seen on a line that passes through it: from far off — it after somebody
+## and him shooting from out of reach — it gets out of the way of most; while
+## it runs at him and is nearly on him, of few. Unaware on its beat, of none.
+func _watch_missiles() -> void:
+	if is_dead or state == State.PROWL or not can_leap() or _busy > 0.0 and not winding_up():
+		return
+	var centre := global_position + Vector3.UP * 0.9
+	for node in get_tree().get_nodes_in_group(&"missile"):
+		var id := node.get_instance_id()
+		if _judged.has(id) or not node.has_method("flight"):
+			continue
+		var flight: Array = node.call("flight")
+		if flight.is_empty():
+			continue
+		var at: Vector3 = flight[0]
+		var going: Vector3 = flight[1]
+		var shooter: Node3D = null
+		if flight.size() > 2 and is_instance_valid(flight[2]):
+			shooter = flight[2] as Node3D
+		var speed2 := going.length_squared()
+		if speed2 < 1.0:
+			continue
+		var when := (centre - at).dot(going) / speed2
+		if when < 0.0 or when > 0.9:
+			continue
+		var miss := (at + going * when).distance_to(centre)
+		if miss > 1.3:
+			continue
+		_judged[id] = true
+		var from := shooter.global_position.distance_to(global_position) if shooter != null \
+				else at.distance_to(global_position)
+		var far := clampf((from - missile_near) / maxf(missile_far - missile_near, 0.1), 0.0, 1.0)
+		var chance := lerpf(missile_dodge_near, missile_dodge_far, far) * lerpf(0.8, 1.15, intellect)
+		if _rng.randf() >= chance:
+			continue
+		# Aside from its line, whichever way is shorter.
+		var line := Vector3(going.x, 0.0, going.z).normalized()
+		var aside := line.cross(Vector3.UP)
+		var off := (centre - at) - going.normalized() * (centre - at).dot(going.normalized())
+		if off.dot(aside) < 0.0 or (off.length() < 0.2 and _rng.randf() < 0.5):
+			aside = -aside
+		attack(&"dodge_right" if aside.dot(global_transform.basis.x) > 0.0 else &"dodge_left", aside)
+		# Out of the line before it arrives: the shaft finds nothing there.
+		_slipping = 0.35
+		collision_layer = 0
+		return
+	if _judged.size() > 64:
+		_judged.clear()
+#endregion
 
 
 #region What the mind can make it do
@@ -487,7 +576,7 @@ func _steer(wanted: Vector3, delta: float) -> void:
 
 ## One move of a fight: an attack (`swipe`, `pounce`, `bite`, `ground_lunge`)
 ## or a way out of one (`hop`, `dodge_left`, `dodge_right`).
-func attack(move: StringName) -> void:
+func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 	if is_dead or rig == null:
 		return
 	var ahead := -global_transform.basis.z
@@ -514,7 +603,8 @@ func attack(move: StringName) -> void:
 			_pouncing = true
 			rig.lunge()
 			net_lunge.rpc()
-			_arm_claws(POUNCE_LIVE, true)
+			var leap := rig.lunge_duration * rig.lunge_windup
+			_arm_claws(Vector2(leap - 0.02, leap + 0.4), true)
 			attacked.emit()
 		&"bite":
 			_swipe_count += 1
@@ -552,6 +642,8 @@ func attack(move: StringName) -> void:
 			rig.dodge(side)
 			net_move.rpc(move)
 			var across := ahead.cross(Vector3.UP) * side
+			if aside.length_squared() > 0.01:
+				across = aside.normalized()
 			velocity = across * dodge_speed
 			_burst = 0.3
 			_sweeps.clear()
@@ -658,10 +750,20 @@ func is_reeling() -> bool:
 
 
 func _prowl(delta: float) -> void:
+	if _linger > 0.0:
+		_linger -= delta
+		_slow(delta)
+		return
 	var to_target := _prowl_target - global_position
 	to_target.y = 0.0
 	if to_target.length() < 1.0 or _prowl_timer <= 0.0:
+		# Got there: it stands a while and looks about before it moves on.
+		_linger = _rng.randf_range(linger.x, linger.y)
 		_pick_prowl_target()
+		return
+	# And now and then it stops on the way.
+	if _rng.randf() < delta * 0.08:
+		_linger = _rng.randf_range(linger.x * 0.5, linger.y * 0.6)
 		return
 	_move_towards(_prowl_target, prowl_speed, delta)
 

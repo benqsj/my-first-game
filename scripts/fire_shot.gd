@@ -35,6 +35,12 @@ func launch(from: Vector3, velocity: Vector3, gravity: float, damage: float, sho
 	_shooter = shooter
 	_zone = zone
 	global_position = from
+	add_to_group(&"missile")
+
+
+## For a creature watching it come ([Wolf]).
+func flight() -> Array:
+	return [] if _done else [global_position, _velocity, _shooter]
 
 
 func _ready() -> void:
