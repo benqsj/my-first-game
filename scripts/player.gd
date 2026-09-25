@@ -463,6 +463,8 @@ var net_shield: int = 0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
+## While above 0 he stands where he is (a skill shot being drawn and loosed).
+var _root_timer: float = 0.0
 var _attack_buffer: float = 0.0
 ## How many cuts into the current flurry, and whether *this* one keeps its run.
 ## The first swing does; the ones chained off it do not.
@@ -848,6 +850,10 @@ func _process_locomotion(delta: float) -> void:
 	# is not a way to cross ground.
 	if is_committed() and not _free_swing:
 		speed *= commit_speed_scale
+	# A skill shot is taken standing: from the draw to the release he does not
+	# walk (turning to the shot is still the controller's).
+	if _root_timer > 0.0:
+		speed = 0.0
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
 
@@ -2481,6 +2487,7 @@ func _knock_down(away: Vector3, damage: float) -> void:
 		is_blocking = false
 		block_changed.emit(false)
 	_commit_timer = 0.0
+	_root_timer = 0.0
 	_attack_buffer = 0.0
 	velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 
@@ -2752,6 +2759,7 @@ func _die() -> void:
 		is_blocking = false
 		block_changed.emit(false)
 	_commit_timer = 0.0
+	_root_timer = 0.0
 	_attack_buffer = 0.0
 	_plunging = false
 	if target != null:
@@ -2788,6 +2796,7 @@ func _tick_timers(delta: float) -> void:
 	_slide_cooldown_timer = maxf(_slide_cooldown_timer - delta, 0.0)
 	_wall_cooldown_timer = maxf(_wall_cooldown_timer - delta, 0.0)
 	_commit_timer = maxf(_commit_timer - delta, 0.0)
+	_root_timer = maxf(_root_timer - delta, 0.0)
 	_attack_buffer = maxf(_attack_buffer - delta, 0.0)
 	# A flurry is over once nothing has been swung for a beat, and the next cut
 	# counts as a first one again — so running in and hitting something is always
@@ -2976,7 +2985,7 @@ func _arrow_rain() -> bool:
 	# Stood still through the shot, until just after the string goes.
 	_commit(lead + 0.35 if lead > 0.0 else 0.55)
 	var from := global_position + up_direction * arrow_height
-	var up := (toward.normalized() * 0.45 + Vector3.UP).normalized() * 38.0
+	var up := (toward.normalized() * 0.3 + Vector3.UP).normalized() * 38.0
 	var quarry := NodePath()
 	if target != null and _targetable(target) and centre.distance_to(target.global_position) < 3.0:
 		quarry = target.get_path()
@@ -3023,30 +3032,17 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 	var into := Blood.world_of(self)
 	if into == null or arrow_scene == null:
 		return
-	var shot_from := _arrow_tip() if lead > 0.0 else from
-	# Three off the string at once, fanned a little, each trailing gold; where
-	# they top out they burst, and the rain comes out of the burst.
-	for k in 3:
-		var turn := (float(k) - 1.0) * 0.11
-		var shot := arrow_scene.instantiate() as Node3D
-		shot.set(&"lifetime", 0.9)
-		shot.set(&"trail_width", 0.07)
-		shot.set(&"wake_spread", 0.0)
-		shot.set(&"streak_tint", ArrowRain.GOLD_TRAIL)
-		into.add_child(shot)
-		shot.global_position = shot_from
-		shot.call(&"launch", up.rotated(Vector3.UP, turn) * (1.0 - 0.04 * absf(float(k) - 1.0)),
-				0.0, false, _gravity, self)
+	var shot_from := from
+	if rig != null and rig.has_method(&"bow_hand"):
+		shot_from = rig.call(&"bow_hand")
+	var shot := arrow_scene.instantiate() as Node3D
+	shot.set(&"lifetime", 0.8)
+	into.add_child(shot)
+	shot.global_position = shot_from
+	shot.call(&"launch", up, 0.0, false, _gravity, self)
 	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
-	SkillFx.flash(into, shot_from, ArrowRain.GOLD, 0.35, 0.18, 3.0)
-	if rig != null:
-		if lead > 0.0 and rig.has_method(&"loose_skill_shot"):
-			rig.call(&"loose_skill_shot")
-		elif rig.has_method(&"loose_bow"):
-			rig.call(&"loose_bow")
-	var apex_t := 0.6
-	var apex := shot_from + up * apex_t + Vector3.DOWN * 0.5 * _gravity * apex_t * apex_t
-	get_tree().create_timer(apex_t, false).timeout.connect(func() -> void: ArrowRain.burst_at(into, apex))
+	if lead <= 0.0 and rig != null and rig.has_method(&"loose_bow"):
+		rig.call(&"loose_bow")
 	var rain := ArrowRain.new()
 	rain.name = "ArrowRain"
 	into.add_child(rain)
@@ -3191,6 +3187,7 @@ func _piercing_arrow() -> bool:
 		_face_point(quarry.global_position)
 	var nock := float(rig.call(&"nock_lead")) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + pierce_hold + 0.45)
+	_root_timer = nock + pierce_hold + 0.45
 	var from := global_position + up_direction * arrow_height
 	var dir := -global_transform.basis.z
 	if quarry != null:
@@ -3217,9 +3214,8 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	await get_tree().create_timer(nock, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
-	var charge := BowCharge.new()
-	charge.start(rig, &"wind", pierce_hold)
-	into.add_child(charge)
+	# Held at full, as still as an ordinary aim: nothing gathers on it. What
+	# the shot is shows once it has gone ([PiercingShot]).
 	await get_tree().create_timer(pierce_hold, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
@@ -3258,6 +3254,7 @@ func _fire_arrow() -> bool:
 	_face_point(at)
 	var nock := float(rig.call(&"nock_lead")) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + FIRE_HOLD + 0.45)
+	_root_timer = nock + FIRE_HOLD + 0.45
 	var damage := (profile.damage if profile != null else 30.0) * fire_share
 	net_fire_arrow.rpc(at, damage)
 	return true
@@ -3297,13 +3294,8 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 		var off := at - global_position
 		var span := Vector2(off.x, off.z).length()
 		nock = float(rig.call(&"charged_shot", FIRE_HOLD, clampf(0.12 + span * 0.012, 0.12, 0.5)))
-	await get_tree().create_timer(nock * 0.6, false).timeout
-	if not is_inside_tree() or is_dead:
-		return
-	var charge := BowCharge.new()
-	charge.start(rig, &"fire", nock * 0.4 + FIRE_HOLD)
-	into.add_child(charge)
-	await get_tree().create_timer(nock * 0.4 + FIRE_HOLD, false).timeout
+	# Drawn and held like any shot; the fire shows once the arrow has gone.
+	await get_tree().create_timer(nock + FIRE_HOLD, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
 	var from := _arrow_tip()

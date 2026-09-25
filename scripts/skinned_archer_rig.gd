@@ -197,23 +197,27 @@ func is_aiming() -> bool:
 	return _aim_phase > 0.3
 
 
-## The Rain of Arrows' shot: his own nock and draw, the chest turned up onto
-## the sky (`SKY_PITCH`) as the string comes back — an archer's high shot,
-## feet planted, not a lean back — held a breath at full, and let go with the
-## shooting clip's release ([method loose_skill_shot], called by the
-## controller when the arrows leave). Returns how long until the string goes.
-## (`AV_Sky_Shot`, the old leaning-back clip, is still in the glb, unused.)
-const SKY_HOLD := 0.16
-const SKY_PITCH := 1.05
-
-
+## The Rain of Arrows' shot (`AV_Sky_Shot`, built in Blender from his
+## shooting clip): a hand to the quiver, the arrow nocked, the body leaning
+## back until the bow points at the sky, the string drawn and let go, and
+## upright again after. Returns how long until the string goes (0 with no
+## clip), when the arrow has to leave the bow.
 func sky_shot() -> float:
-	return charged_shot(SKY_HOLD, SKY_PITCH) + SKY_HOLD
+	if _anim == null or not _anim.has_animation(SKY_CLIP):
+		return 0.0
+	_drawing_clip = false
+	_aim_phase = 0.0
+	_play_action(SKY_CLIP, Role.FREE, SKY_RATE, 0.12)
+	_sky_len = _anim.get_animation(SKY_CLIP).length / SKY_RATE
+	_sky_left = _sky_len
+	return sky_lead()
 
 
 ## How long after it starts the sky shot lets the string go.
 func sky_lead() -> float:
-	return nock_lead() + SKY_HOLD
+	if _anim == null or not _anim.has_animation(SKY_CLIP):
+		return 0.0
+	return _anim.get_animation(SKY_CLIP).length / SKY_RATE * SKY_RELEASE
 
 
 ## Hunter's Mark (`AV_Point_Charge`, Mixamo's "Pointing Onward Charge"): a
@@ -241,9 +245,10 @@ func point_mark() -> float:
 	return point_lead()
 
 
-## The skill shots (Piercing and Fire Arrow): nocked and drawn (`AV_Nock_Draw`),
-## then held past full (`AV_Aim_Overdraw`) for `hold` seconds, then let go
-## ([method loose_skill_shot]).
+## The skill shots (Piercing and Fire Arrow): drawn as an ordinary shot is
+## (`AV_Nock_Draw` over `draw_time`), held at full aim for `hold` seconds, then
+## let go with the ordinary release ([method loose_skill_shot]).
+## (`NOCK_RATE` and `AV_Aim_Overdraw` are no longer used.)
 const NOCK_RATE := 1.25
 const OVERDRAW_CLIP := &"AV_Aim_Overdraw"
 ## The release of `AV_Shooting_Arrow` and its follow-through, in frames of 151.
@@ -259,36 +264,44 @@ var _skill_pitch: float = 0.0
 
 
 func nock_lead() -> float:
-	if _anim == null or not _anim.has_animation(DRAW_CLIP):
-		return 0.3
-	return _anim.get_animation(DRAW_CLIP).length / NOCK_RATE
+	return _draw_time
 
 
-## Nocks and starts the hold; returns how long the nock takes. `pitch` is how
-## far up (+) or down the shot goes, radians: the chest tilts onto it as the
-## string comes back, as it does for an ordinary shot.
+## Draws exactly as for an ordinary shot — the same clip over the same
+## `draw_time`, the string coming back with it — then holds at full (the
+## draw's last frames, slowed right down) for `hold` seconds, until [method loose_skill_shot]
+## lets go with the ordinary release. Returns how long the draw takes. `pitch`
+## is how far up (+) or down the shot goes, radians: the chest tilts onto it as
+## the string comes back.
 func charged_shot(hold: float, pitch: float = 0.0) -> float:
 	_drawing_clip = false
 	_aim_phase = 0.0
-	var nock := play_part(DRAW_CLIP, NOCK_RATE, 0.0, 1.0, 0.1)
+	if _anim == null or not _anim.has_animation(DRAW_CLIP):
+		return 0.3
+	var clip_len := _anim.get_animation(DRAW_CLIP).length
+	var nock := play_part(DRAW_CLIP, clip_len / _draw_time, 0.0, 1.0, 0.1)
 	if nock <= 0.0:
 		return 0.3
 	# The string is drawn by hand for a skill shot: [method animate] brings it
-	# back with the nock and holds it at full until [method loose_skill_shot].
+	# back with the draw and holds it at full until [method loose_skill_shot].
 	_skill_t = 0.0
 	_skill_nock = nock
 	_skill_hold = hold
 	_skill_pitch = clampf(pitch, -0.9, 1.1)
-	var over := _anim.get_animation(OVERDRAW_CLIP).length if _anim.has_animation(OVERDRAW_CLIP) else 0.0
-	get_tree().create_timer(nock, false).timeout.connect(func() -> void:
-		if over > 0.0 and _act_clip == DRAW_CLIP:
-			play_part(OVERDRAW_CLIP, over / maxf(hold, 0.05), 0.0, 1.0, 0.08))
+	# Held at full: the draw's last frames, stretched over the hold, so the
+	# bow stays up and the string at the cheek (the aim idle drops the bow).
+	get_tree().create_timer(nock * 0.97, false).timeout.connect(func() -> void:
+		if _act_clip == DRAW_CLIP and _skill_t >= 0.0:
+			play_part(DRAW_CLIP, clip_len * 0.03 / maxf(hold + 0.25, 0.05), 0.97, 1.0, 0.02))
 	return nock
 
 
+## Lets the skill shot go: the ordinary release.
 func loose_skill_shot() -> void:
 	_skill_t = -1.0
-	play_part(LOOSE_CLIP, 1.1, LOOSE_PART.x, LOOSE_PART.y, 0.05)
+	_loose_left = 0.35
+	if _anim != null and _anim.has_animation(LOOSE_CLIP):
+		_play_action(LOOSE_CLIP, Role.FREE, 1.3, 0.05, LOOSE_FROM, LOOSE_TO)
 
 
 ## Where the arrow on the string has its head right now — where a shot leaves
@@ -379,7 +392,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		# went (the hero was hit, say) lets go of itself.
 		_skill_t += delta
 		var u := clampf(_skill_t / maxf(_skill_nock, 0.01), 0.0, 1.0)
-		var d := smoothstep(0.4, 0.95, u)
+		var d := u
 		_bow_mod.draw = d
 		# The chest comes onto the line first, the string after it.
 		_bow_mod.pitch = _skill_pitch * smoothstep(0.1, 0.7, u)
