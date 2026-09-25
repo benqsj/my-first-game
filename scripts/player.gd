@@ -475,6 +475,9 @@ var net_shield: int = 0
 var _commit_timer: float = 0.0
 ## While above 0 he stands where he is (a skill shot being drawn and loosed).
 var _root_timer: float = 0.0
+## The draw's creak while the string comes back: cut off the moment the draw
+## ends, however it ends (loosed, let down, rolled out of, hit).
+var _draw_sound: AudioStreamPlayer3D = null
 ## What the Piercing Arrow was drawn at: he turns with it until the release.
 var _pierce_quarry: Node3D = null
 ## Bumped whenever a skill under way is cut short: each skill's steps (on every
@@ -2002,6 +2005,9 @@ func has_target() -> bool:
 ## is choosing between rate and weight rather than between two buttons.
 func _tick_bow(delta: float) -> void:
 	_shot_timer = maxf(_shot_timer - delta, 0.0)
+	if _draw_sound != null and not _drawing:
+		Sfx.stop(_draw_sound)
+		_draw_sound = null
 	var holding := Input.is_action_pressed("attack") and not menu_open
 	# Committed as well as rolling: the beat after the string goes belongs to the
 	# shot that was just taken, and an archer who can start the next draw before
@@ -2019,7 +2025,7 @@ func _tick_bow(delta: float) -> void:
 			_draw_timer = 0.0
 			_set_weapons_stowed(false)
 			if _is_bow():
-				Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -6.0)
+				_draw_sound = Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -6.0)
 	elif holding and _drawing:
 		_draw_timer += delta
 		# Held, a draw or a charge costs breath as it goes; run out and it goes.

@@ -15,12 +15,12 @@ static var _cache: Dictionary = {}
 ## and `at` is given). `pitch` is scaled by a small random amount so a sound
 ## heard again is not heard as a recording.
 static func play(owner: Node, path: String, where: Node3D = null, at: Vector3 = Vector3.ZERO,
-		pitch: float = 1.0, volume_db: float = 0.0, spread: float = 0.06) -> void:
+		pitch: float = 1.0, volume_db: float = 0.0, spread: float = 0.06) -> AudioStreamPlayer3D:
 	if owner == null or not owner.is_inside_tree():
-		return
+		return null
 	var stream := _stream(path)
 	if stream == null:
-		return
+		return null
 	var player := AudioStreamPlayer3D.new()
 	player.stream = stream
 	player.volume_db = volume_db
@@ -36,6 +36,17 @@ static func play(owner: Node, path: String, where: Node3D = null, at: Vector3 = 
 		player.global_position = at
 	player.finished.connect(player.queue_free)
 	player.play()
+	return player
+
+
+## Fades a sound out over `time` and frees it (for one cut short: a draw let
+## go before it was done).
+static func stop(player: AudioStreamPlayer3D, time: float = 0.06) -> void:
+	if player == null or not is_instance_valid(player) or not player.is_inside_tree():
+		return
+	var tw := player.create_tween()
+	tw.tween_property(player, "volume_db", -60.0, time)
+	tw.tween_callback(player.queue_free)
 
 
 ## One of several, at random.

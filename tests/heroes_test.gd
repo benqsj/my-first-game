@@ -226,7 +226,14 @@ func _check_rogue() -> void:
 	Input.action_release("attack")
 	_check("a click is the first blow of the combo", String(rig.current_swing()) == "DG_Combo_1",
 			String(rig.current_swing()))
-	_check("and it whooshes", rig.find_children("*", "AudioStreamPlayer3D", true, false).size() > 0)
+	# The whoosh comes with the cut, a moment into the swing.
+	var heard := false
+	for i in 40:
+		if rig.find_children("*", "AudioStreamPlayer3D", true, false).size() > 0:
+			heard = true
+			break
+		await physics_frame
+	_check("and it whooshes, as the blade comes", heard)
 	var cut := false
 	for i in 60:
 		await physics_frame

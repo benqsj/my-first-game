@@ -573,7 +573,28 @@ func attack(style: int = -1) -> void:
 
 ## The sword going through the air — every peer plays the swing, so every peer
 ## hears it.
+##
+## The sounds are short slashes now, so they are timed to the cut itself —
+## where the clip's cut window opens — not to the start of the wind-up, where
+## a short one was over before the blade moved and seemed not to play.
 func _whoosh() -> void:
+	var serial := attack_serial
+	var clip := _act_clip
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	var lead := 0.0
+	if w != Vector2.ZERO and _action_len > 0.0 and _action_rate > 0.0:
+		# A touch before the window opens: a slash is heard as the blade comes.
+		lead = maxf(_action_len * w.x / _action_rate - 0.06, 0.0)
+	if lead <= 0.01:
+		_whoosh_now()
+		return
+	get_tree().create_timer(lead, false).timeout.connect(func() -> void:
+		# Only if it is still that swing (not cut short by a hit or a roll).
+		if is_inside_tree() and attack_serial == serial and _act_clip == clip:
+			_whoosh_now())
+
+
+func _whoosh_now() -> void:
 	var at: Node3D = self
 	if _sword_mount != null:
 		at = _sword_mount

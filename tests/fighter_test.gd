@@ -101,7 +101,10 @@ func _initialize() -> void:
 	imp.dash_chance = 0.0
 	_struck.clear()
 	var attacked := false
-	for i in 400:
+	# Long enough for two combos: which blows it throws, and whether it opens
+	# with one, is down to the dice (the global RNG, which any sound's pitch
+	# also draws on), so one short combo is not a failure.
+	for i in 900:
 		await physics_frame
 		attacked = attacked or imp.act == Fighter.Act.ATTACK
 		if _struck.size() >= 2:

@@ -3201,3 +3201,15 @@ hold, `ult-shoot-1.wav` at the release with `last-ult.wav` under it for the wind
 **The mark's glint flies straight**, like a shot, at `mark_speed` (75 m/s),
 no arc. **Footsteps** start louder: the ramp with speed goes from −3 dB, not
 −9, so the first steps of a run are heard.
+
+**The draw's creak stops with the draw.** `Sfx.play` returns the player it
+made; the bow keeps the draw's (`Player._draw_sound`) and `Sfx.stop` fades it
+out (60 ms) the frame the draw ends, however it ends — so a quick loose is the
+release alone, not the release over the rest of the creak.
+
+**A swing is heard with the cut.** The slashes are short, so `_whoosh` waits
+for the clip's cut window (less 60 ms) rather than sounding at the start of
+the wind-up, where one was over before the blade moved — and only if it is
+still that swing. (`fighter_test` waits longer for an imp's two blows: the
+sound's pitch draws on the global RNG, and so moved the dice the imp's choices
+come from.)
