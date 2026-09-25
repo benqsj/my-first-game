@@ -5,10 +5,14 @@ extends Node3D
 ## stop in the first body it meets. Everything on its line is struck and thrown
 ## back; only the ground or a wall ends it.
 ##
-## It looks like wind, not light: a real arrow with two pale streams of air
-## spiralling round it, a thin wake of disturbed air behind, puffs of air
-## thrown off along the way, a puff where it leaves the string and a gust
-## where it strikes. Nothing is blue and nothing glows.
+## It looks like a great shot of wind, after Ironeye's Single Shot in Elden
+## Ring Nightreign ([WindBlast]): white shards burst off the bow and the
+## archer is thrown back a step, the camera jolts; the arrow goes as a white
+## streak with speed lines racing beside it; bands of air wind round the line
+## and open out behind it, and a wall of mist is left hanging along it for a
+## second before it thins. Its wind is wide: anything within `blast_radius`
+## of the line is struck, not only what the arrow itself goes through.
+## Nothing is blue and nothing lights anything.
 ##
 ## Every peer flies the same shot from the same numbers (it is sent to all of
 ## them by [method Player.net_piercing]); only the host's `take_hit` and
@@ -18,9 +22,12 @@ extends Node3D
 const AIR := Color(0.9, 0.94, 0.97)
 const CORE := Color(1.0, 0.99, 0.96)
 const DUST := Color(0.66, 0.6, 0.5)
-## The streams' radius round the shaft and how fast they wind (rad/s).
-const SPIRAL_R := 0.16
-const SPIRAL_SPIN := 28.0
+## How far either side of the line the blast still strikes.
+const BLAST_RADIUS := 1.1
+## How far down the line the bands and the mist go, and how often.
+const BLAST_REACH := 30.0
+const BAND_EVERY := 2.2
+const MIST_EVERY := 1.1
 
 var _shooter: Node3D
 var _dir := Vector3.FORWARD
@@ -38,8 +45,8 @@ var _done: bool = false
 var _arrow: Node3D
 var _wake: MeshInstance3D
 var _wake_mat: StandardMaterial3D
-var _streams: Array[GPUParticles3D] = []
-var _spin: float = 0.0
+var _next_mist: float = 0.8
+var _band_n: int = 0
 
 
 ## Sets it going from `from` along `dir`.
@@ -59,18 +66,14 @@ func _ready() -> void:
 	top_level = true
 	_arrow = _make_arrow()
 	add_child(_arrow)
-	_wake = SkillFx.rod(self, _start, _start, AIR, 0.01, 0.25)
+	# The arrow goes as a white streak: the wake is the last few metres of it.
+	_wake = SkillFx.rod(self, _start, _start, WindBlast.AIR, 0.018, 1.6)
 	_wake_mat = _wake.material_override as StandardMaterial3D
-	_wake_mat.albedo_color.a = 0.35
-	for k in 2:
-		_streams.append(SkillFx.particles(self, _start, {
-			"amount": 220, "life": 0.7, "speed": Vector2(0.0, 0.3), "spread": 180.0, "damping": 2.0,
-			"size": Vector2(0.08, 0.16), "grow": 1.0, "add": false,
-			"colors": [Color(1, 1, 1, 0.0), Color(AIR.r, AIR.g, AIR.b, 0.62), Color(AIR.r, AIR.g, AIR.b, 0.0)],
-		}))
-	# The puff off the string.
+	_wake_mat.albedo_color.a = 0.85
 	var into := get_parent()
-	_puff(into, _start, _dir, 22, Vector2(1.0, 3.0), 45.0, Vector2(0.18, 0.36), 0.5)
+	WindBlast.release(into, _start, _dir)
+	WindBlast.speed_lines(into, _start, _dir, 14.0)
+	_next_ring = 1.2
 	_draw_at(_start)
 
 
@@ -81,7 +84,7 @@ static func _puff(into: Node, at: Vector3, dir: Vector3, count: int, speed: Vect
 		return
 	SkillFx.particles(into, at, {
 		"amount": count, "life": life, "one_shot": true, "explosiveness": 0.9,
-		"speed": speed, "dir": dir, "spread": spread, "damping": 3.0, "size": size, "grow": 1.2,
+		"speed": speed, "dir": dir, "spread": spread, "damping": 3.0, "size": size, "grow": 0.7,
 		"add": false,
 		"colors": [Color(1, 1, 1, 0.0), Color(AIR.r, AIR.g, AIR.b, 0.55), Color(AIR.r, AIR.g, AIR.b, 0.0)],
 	})
@@ -129,12 +132,20 @@ func _physics_process(delta: float) -> void:
 	if _done:
 		return
 	_travel += step
-	_spin += SPIRAL_SPIN * delta
-	while _travel >= _next_ring:
-		# Air thrown off to the sides as it cuts through.
-		_puff(get_parent(), _start + _dir * _next_ring, -_dir, 10, Vector2(0.6, 1.6), 80.0,
-				Vector2(0.18, 0.34), 0.6)
-		_next_ring += 2.0
+	var into := get_parent()
+	# Bands of air winding round the line as the arrow passes, opening out;
+	# mist left hanging behind it.
+	while _travel >= _next_ring and _next_ring < BLAST_REACH:
+		var fade := 1.0 - _next_ring / BLAST_REACH
+		WindBlast.band(into, _start + _dir * _next_ring, _dir, 0.35, 1.2 + 1.6 * fade,
+				0.45 + 0.35 * fade, float(_band_n) * 2.1)
+		_band_n += 1
+		_next_ring += BAND_EVERY
+	while _travel >= _next_mist and _next_mist < BLAST_REACH:
+		var fade := 1.0 - _next_mist / BLAST_REACH
+		WindBlast.mist(into, _start + _dir * _next_mist, 5, 0.8 + 0.9 * fade,
+				Vector2(1.4, 2.2 + 1.4 * fade), 1.4 + 0.8 * fade)
+		_next_mist += MIST_EVERY
 	_draw_at(_start + _dir * _travel)
 	if _travel >= _reach - 0.001:
 		_end(_start + _dir * _travel, false)
@@ -147,6 +158,27 @@ func _sweep(from: Vector3, to: Vector3) -> void:
 	var exclude: Array[RID] = _struck.duplicate()
 	if _shooter is CollisionObject3D:
 		exclude.append((_shooter as CollisionObject3D).get_rid())
+	# The wind round the arrow: whatever stands within the blast's radius of
+	# this stretch of the line.
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = BLAST_RADIUS
+	capsule.height = from.distance_to(to) + BLAST_RADIUS * 2.0
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = capsule
+	var mid := (from + to) * 0.5
+	var y := _dir
+	var x := y.cross(_up()).normalized()
+	q.transform = Transform3D(Basis(x, y, x.cross(y)), mid)
+	q.collision_mask = 4
+	q.exclude = exclude
+	for hit in space.intersect_shape(q, 16):
+		var body := hit["collider"] as Node3D
+		var rid: RID = hit["rid"]
+		if body != null and body.has_method(&"take_hit") and not _struck.has(rid):
+			exclude.append(rid)
+			_struck.append(rid)
+			var at := body.global_position + Vector3.UP * 0.9
+			_strike(body, mid + _dir * _dir.dot(at - mid))
 	for _i in 12:
 		var ray := PhysicsRayQueryParameters3D.create(from, to, 5, exclude)
 		var hit := space.intersect_ray(ray)
@@ -168,8 +200,9 @@ func _sweep(from: Vector3, to: Vector3) -> void:
 
 func _strike(what: Node3D, at: Vector3) -> void:
 	var into := get_parent()
-	# A gust through it: air bursting on out the far side, a ring of it.
-	_puff(into, at, _dir, 24, Vector2(2.0, 6.0), 55.0, Vector2(0.14, 0.3), 0.45)
+	# A gust through it: air bursting on out the far side, a band round it.
+	_puff(into, at, _dir, 24, Vector2(2.0, 6.0), 55.0, Vector2(0.18, 0.36), 0.5)
+	WindBlast.band(into, at, _dir, 0.4, 1.6, 0.4, randf() * TAU, 4.2)
 	Blood.splatter(into, at, _dir)
 	if not _decides():
 		return
@@ -182,14 +215,8 @@ func _strike(what: Node3D, at: Vector3) -> void:
 
 func _draw_at(at: Vector3) -> void:
 	_arrow.global_transform = Transform3D(Basis.looking_at(_dir, _up()), at)
-	# The wake: the last few metres of air it went through.
-	SkillFx.place_rod(_wake, at - _dir * minf(6.0, at.distance_to(_start)), at)
-	# Two streams winding round the shaft, half a turn apart.
-	var side := _dir.cross(_up()).normalized()
-	var up := side.cross(_dir).normalized()
-	for k in _streams.size():
-		var a := _spin + PI * float(k)
-		_streams[k].global_position = at + _dir * 0.25 + (side * cos(a) + up * sin(a)) * SPIRAL_R
+	# The streak: the last few metres of air it went through.
+	SkillFx.place_rod(_wake, at - _dir * minf(9.0, at.distance_to(_start)), at)
 
 
 func _up() -> Vector3:
@@ -199,8 +226,6 @@ func _up() -> Vector3:
 func _end(at: Vector3, hit_world: bool) -> void:
 	_done = true
 	_arrow.hide()
-	for p in _streams:
-		p.emitting = false
 	if hit_world:
 		var into := get_parent()
 		SkillFx.burst(into, at, DUST, 26, Vector2(1.0, 4.0), -_dir, 70.0,

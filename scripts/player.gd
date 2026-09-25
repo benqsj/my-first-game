@@ -3072,6 +3072,8 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 @export var pierce_reach: float = 40.0
 ## How hard what it goes through is thrown back, in m/s.
 @export var pierce_knock: float = 6.0
+## How hard the shot shoves him back, in m/s.
+@export var pierce_recoil: float = 5.0
 
 @export_group("Fire Arrow")
 ## The shot itself, as a share of a full draw.
@@ -3225,6 +3227,14 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	shot.launch(from, dir, pierce_speed, pierce_reach, damage, critical, self, pierce_knock)
 	into.add_child(shot)
 	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.8, 0.0)
+	# The kick of it: he is shoved back a step, dust off his feet, the camera
+	# jolts.
+	WindBlast.shake(self, 0.14, 0.4)
+	DustRing.burst(into, global_position, 0.9)
+	if is_multiplayer_authority():
+		var back := Vector3(-dir.x, 0.0, -dir.z)
+		if back.length_squared() > 0.0001:
+			velocity += back.normalized() * pierce_recoil
 	if rig != null and rig.has_method(&"loose_skill_shot"):
 		rig.call(&"loose_skill_shot")
 #endregion

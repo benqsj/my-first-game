@@ -3094,12 +3094,25 @@ the arrow while it is held (`BowCharge` is no longer used): what the skill is
 shows once it has gone. From the press to the release he does not walk
 (`Player._root_timer`; turning is unchanged).
 
-**The Piercing Arrow looks like wind** (`PiercingShot`): a real arrow, two
-pale streams of air spiralling round it, a faint wake behind, puffs of air
-thrown off every 2 m, a puff off the string and a gust through what it
-strikes — soft, see-through, alpha-blended; nothing blue, nothing glowing, no
-light. The Fire Arrow is unchanged in flight (`FireShot`).
+**The Piercing Arrow is a great shot of wind** (key 4), after Ironeye's
+Single Shot in Elden Ring Nightreign (`PiercingShot`, the pieces in
+`WindBlast`): at the release white shards burst off the bow, he is shoved back
+a step (`pierce_recoil`, 5 m/s) with dust off his feet and the camera jolts
+(`WindBlast.shake`, `h_offset`/`v_offset` only); the arrow goes as a white
+streak with speed lines racing beside it; bands of air (a ribbon partway round
+the line, twisting forward, `WindBlast.band`) wind round it every 2.2 m and
+open out, and mist is left hanging along the first 30 m (`WindBlast.mist`,
+alpha 0.13 — thicker reads as cotton wool). Its wind is wide: anything within
+`BLAST_RADIUS` (1.1 m) of the line is struck and thrown down, not only what
+the arrow goes through (a capsule query per step on the creatures' layer).
+Nothing is blue and nothing lights anything. The Fire Arrow is unchanged in
+flight (`FireShot`).
+
+!! `SkillFx.swell(grow)` puts the size peak at `grow` of the life: above 1 the
+peak is past the end and the particles stay near nothing — that is why the
+first mist could not be seen.
 
 The Rain of Arrows is as it was (`AV_Sky_Shot`, `ArrowRain`) — a round that
-changed it was undone at the user's word. `new_skills_test` checks he stands
+changed it was undone at the user's word. Avtandil's bar: **1** the mark,
+**2** the fire arrow, **3** the rain, **4** the piercing arrow; four slots. `new_skills_test` checks he stands
 still through the draw and that the string is drawn with the arrow on it.
