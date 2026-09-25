@@ -20,6 +20,12 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 
 ## Where the ground under it is, found again as it moves.
 var _ground_y: float = -INF
 var _probe_at := Vector3(INF, INF, INF)
+## Down, it falls over onto its length rather than standing on its end: the
+## turn that lays it flat, and how far through it is.
+var _toppling: bool = false
+var _lie_from: Basis
+var _lie_to: Basis
+var _lie_t: float = 0.0
 
 
 ## Throws the piece clear of the body. Called right after it is added to the
@@ -40,6 +46,9 @@ func _process(delta: float) -> void:
 		return
 	if _resting:
 		return
+	if _toppling:
+		_topple(delta)
+		return
 
 	_velocity.y -= _gravity * delta
 	global_position += _velocity * delta
@@ -49,11 +58,55 @@ func _process(delta: float) -> void:
 	var low := _lowest()
 	if low <= ground + 0.02 and _velocity.y < 0.0:
 		global_position.y += ground + 0.02 - low
-		_resting = true
 		Blood.splatter(get_parent(), Vector3(global_position.x, ground, global_position.z), Vector3.UP)
+		_begin_topple()
 	elif global_position.y < ground - 30.0:
 		# Fell through a hole in the world: nothing to show.
 		queue_free()
+
+
+## Its length, as it lies now: between the two points of it furthest apart.
+func _length_axis() -> Vector3:
+	if _points.is_empty():
+		return Vector3.UP
+	var a := _points[0]
+	var b := a
+	for p in _points:
+		if p.distance_squared_to(a) > b.distance_squared_to(a):
+			b = p
+	var c := b
+	for p in _points:
+		if p.distance_squared_to(b) > c.distance_squared_to(b):
+			c = p
+	var axis := global_transform.basis * (c - b)
+	return axis.normalized() if axis.length() > 0.01 else Vector3.UP
+
+
+func _begin_topple() -> void:
+	var axis := _length_axis()
+	var flat := Vector3(axis.x, 0.0, axis.z)
+	if flat.length() < 0.05:
+		var turn := randf() * TAU
+		flat = Vector3(cos(turn), 0.0, sin(turn))
+	flat = flat.normalized()
+	_lie_from = global_transform.basis
+	var tilt := Quaternion(axis, flat) if absf(axis.dot(flat)) < 0.9999 else Quaternion.IDENTITY
+	_lie_to = Basis(tilt) * _lie_from
+	_lie_t = 0.0
+	_toppling = true
+
+
+func _topple(delta: float) -> void:
+	_lie_t = minf(_lie_t + delta / 0.3, 1.0)
+	var e := _lie_t * _lie_t
+	var q := Quaternion(_lie_from.orthonormalized()).slerp(Quaternion(_lie_to.orthonormalized()), e)
+	var grow := _lie_from.get_scale()
+	global_transform.basis = Basis(q).scaled(grow)
+	# Kept with its lowest point on the ground as it goes over.
+	global_position.y += _ground_under() + 0.02 - _lowest()
+	if _lie_t >= 1.0:
+		_toppling = false
+		_resting = true
 
 
 ## The height of the ground straight below, looked up again once it has moved
@@ -74,11 +127,29 @@ func _ground_under() -> float:
 	return _ground_y
 
 
+## Points on the piece's surface, in its own frame, taken once: what its lowest
+## point is measured from. (The box round a turned mesh reaches lower than the
+## mesh does, and stopping on that left pieces hanging a hand over the ground.)
+var _points: PackedVector3Array = PackedVector3Array()
+
+
 ## The lowest point of the piece as it hangs now.
 func _lowest() -> float:
+	if _points.is_empty():
+		var mine := global_transform.affine_inverse()
+		for node in find_children("*", "MeshInstance3D", true, false):
+			var mesh := node as MeshInstance3D
+			if mesh.mesh == null:
+				continue
+			var into := mine * mesh.global_transform
+			var faces := mesh.mesh.get_faces()
+			var step := maxi(1, faces.size() / 400)
+			for i in range(0, faces.size(), step):
+				_points.append(into * faces[i])
+		if _points.is_empty():
+			return global_position.y
 	var low := INF
-	for node in find_children("*", "MeshInstance3D", true, false):
-		var mesh := node as MeshInstance3D
-		if mesh.mesh != null:
-			low = minf(low, (mesh.global_transform * mesh.get_aabb()).position.y)
-	return low if low < INF else global_position.y
+	var frame := global_transform
+	for p in _points:
+		low = minf(low, (frame * p).y)
+	return low
