@@ -20,18 +20,23 @@ func _initialize() -> void:
 			"res://sounds/assassin/swing_1.wav", "res://sounds/assassin/swing_4.wav",
 			"res://sounds/assassin/hit_3.wav", "res://sounds/assassin/hurt_1.wav",
 			"res://sounds/all/hurt_1.wav", "res://sounds/all/fall_1.wav", "res://sounds/all/block_1.wav",
-			"res://sounds/all/loot_1.wav", "res://sounds/orc/roar_1.wav"]:
+			"res://sounds/all/loot_1.wav", "res://sounds/orc/roar_1.wav",
+			"res://sounds/all/jump.wav", "res://sounds/all/land.wav", "res://sounds/dodge/roll.wav",
+			"res://sounds/assassin/step.wav", "res://sounds/assassin/flip.wav"]:
 		_check("%s is there to play" % path.get_file(), load(path) is AudioStream)
 	await _spawn(&"mage")
 	await _check_mage()
 	await _spawn(&"mage")
 	await _check_steps("the mage")
+	await _check_moves("the mage", Player.MoveSound.ROLL)
 	await _spawn(&"rogue")
 	await _check_rogue()
 	await _spawn(&"rogue")
 	await _check_steps("the rogue")
+	await _check_moves("the rogue", Player.MoveSound.STEP)
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
+	await _check_moves("Tariel", Player.MoveSound.ROLL)
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig
 	_check("Tariel's sword has the new air and its bite", trig != null
@@ -42,6 +47,7 @@ func _initialize() -> void:
 	await _check_chain("the mage")
 	await _spawn(&"avtandil")
 	await _check_chain("Avtandil")
+	await _check_moves("Avtandil", Player.MoveSound.ROLL)
 	print("")
 	if _failures == 0:
 		print("All checks passed.")
@@ -350,6 +356,36 @@ func _check_steps(who: String) -> void:
 	_check("%s running steps on each foot" % who, heard >= 3 and heard <= 12,
 			"%d steps in %.1f s (%d ms real)" % [heard, game_seconds, Time.get_ticks_msec() - start])
 	await _wait(30)
+
+
+## A jump is heard going up and again coming down, and a tap of the evade has
+## the hero's own sound (the roll, or the assassin's step, then his flip).
+func _check_moves(who: String, evade: Player.MoveSound) -> void:
+	await _wait(20)
+	var heard: Array[int] = _player.move_sounds_heard.duplicate()
+	var jump := Player.MoveSound.JUMP
+	var land := Player.MoveSound.LAND
+	Input.action_press("jump")
+	await _wait(10)
+	Input.action_release("jump")
+	await _until(func() -> bool: return _player.move_sounds_heard[land] > heard[land], 150)
+	_check("%s: a jump is heard" % who, _player.move_sounds_heard[jump] == heard[jump] + 1)
+	_check("%s: and its landing" % who, _player.move_sounds_heard[land] == heard[land] + 1)
+	await _wait(20)
+	_player.stamina = _player.max_stamina
+	_player._dash_cooldown_timer = 0.0
+	await _tap_dash()
+	_check("%s: the evade is heard" % who, _player.move_sounds_heard[evade] == heard[evade] + 1,
+			str(_player.move_sounds_heard))
+	if evade == Player.MoveSound.STEP:
+		await _wait(8)
+		_player.stamina = _player.max_stamina
+		await _tap_dash()
+		await _until(func() -> bool: return _player.move_sounds_heard[Player.MoveSound.FLIP] > heard[Player.MoveSound.FLIP], 60)
+		_check("%s: and the flip after it" % who,
+				_player.move_sounds_heard[Player.MoveSound.FLIP] == heard[Player.MoveSound.FLIP] + 1,
+				str(_player.move_sounds_heard))
+	await _wait(80)
 
 
 ## Evades one after another: a press during a roll is the next roll, straight

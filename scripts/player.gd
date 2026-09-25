@@ -478,7 +478,7 @@ var _chain_timer: float = 0.0
 func _ready() -> void:
 	_spawn_character()
 	# The bow's two sounds, read off the disk now rather than on the first draw.
-	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND, SHADOW_SOUND])
+	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND, SHADOW_SOUND] + MOVE_SOUNDS)
 	# The level has just loaded, so this is the moment the graphics setting has
 	# something to be applied to. The world knows nothing about settings; the
 	# thing that spawns into it asks for them.
@@ -1041,6 +1041,7 @@ func _do_jump() -> void:
 	_air_speed_cap = maxf(Vector3(velocity.x, 0.0, velocity.z).length(), run_speed)
 	state = State.AIRBORNE
 	jumped.emit()
+	_move_sound(MoveSound.JUMP)
 #endregion
 
 
@@ -1085,12 +1086,21 @@ func _press_dash() -> void:
 
 ## Starts the evade that is next in the run: `chained` skips the cooldown.
 func _start_evade(chained: bool) -> bool:
+	var kind := MoveSound.ROLL
+	var started := false
 	if profile != null and profile.step_then_flip:
 		if _evade_chain % 2 == 1:
-			return _start_flip(chained)
-		var locked := target != null and _targetable(target)
-		return _try_dash(locked, true, chained)
-	return _try_dash(false, false, chained)
+			kind = MoveSound.FLIP
+			started = _start_flip(chained)
+		else:
+			kind = MoveSound.STEP
+			var locked := target != null and _targetable(target)
+			started = _try_dash(locked, true, chained)
+	else:
+		started = _try_dash(false, false, chained)
+	if started:
+		_move_sound(kind)
+	return started
 
 
 ## The assassin's flip on its own, as the second of a pair: the twisting flip
@@ -1737,6 +1747,8 @@ func _release_wall(impulse: Vector3) -> void:
 	if rig != null:
 		rig.wall_climb(false)
 	wall_released.emit()
+	if impulse.y > 0.0:
+		_move_sound(MoveSound.JUMP)  # Pushed off the face, not let go.
 
 
 ## True while the body is hanging off a face.
@@ -2401,6 +2413,7 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			if rig != null:
 				rig.get_up(get_up_time)
 		Reaction.ROLL_OUT:
+			Sfx.play(self, ROLL_SOUND, self, Vector3.ZERO, 1.0, MOVE_VOLUME[MoveSound.ROLL])
 			if rig != null:
 				rig.leave_ground()
 				if not is_multiplayer_authority():
@@ -2586,6 +2599,47 @@ const PARRY_SOUND := "res://sounds/parry/clang.wav"
 const BLOCK_SOUND := "res://sounds/all/block_1.wav"
 const FALL_SOUND := "res://sounds/all/fall_1.wav"
 const SHADOW_SOUND := "res://sounds/dodge/shadow.wav"
+const ROLL_SOUND := "res://sounds/dodge/roll.wav"
+
+## The body's own moves that are heard: the push off the ground, coming down
+## on it, and the evades — the roll, and the assassin's step and flip.
+enum MoveSound { JUMP, LAND, ROLL, STEP, FLIP }
+const MOVE_SOUNDS: Array[String] = [
+	"res://sounds/all/jump.wav",
+	"res://sounds/all/land.wav",
+	ROLL_SOUND,
+	"res://sounds/assassin/step.wav",
+	"res://sounds/assassin/flip.wav",
+]
+## Each one's loudness, set so a jump is a little over a footfall and the
+## evades sit with the fight's other sounds, under the blades.
+const MOVE_VOLUME: Array[float] = [-13.0, -12.0, -20.0, -22.0, -20.0]
+## A landing is heard from this fall speed up (a jump comes down at about 4.5
+## m/s; a curb at 2); louder towards [member hard_landing_speed].
+@export var land_sound_speed: float = 3.2
+## How many of each [enum MoveSound] this body has made heard, for the tests.
+var move_sounds_heard: Array[int] = [0, 0, 0, 0, 0]
+
+
+## Called by the body's own peer when it jumps, lands or evades; every peer
+## plays it (the moves themselves run only where the body is driven).
+func _move_sound(kind: MoveSound, strength: float = 1.0) -> void:
+	if is_multiplayer_authority():
+		net_move_sound.rpc(kind, strength)
+
+
+@rpc("any_peer", "call_local", "unreliable")
+func net_move_sound(kind: int, strength: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if kind < 0 or kind >= MOVE_SOUNDS.size() or not is_inside_tree():
+		return
+	move_sounds_heard[kind] += 1
+	var volume := MOVE_VOLUME[kind]
+	if kind == MoveSound.LAND:
+		volume += lerpf(0.0, 7.0, clampf(strength, 0.0, 1.0))
+	Sfx.play(self, MOVE_SOUNDS[kind], self, Vector3.ZERO, 1.0, volume)
 
 
 func _now() -> float:
@@ -2806,6 +2860,9 @@ func _land() -> void:
 	# snap on the next tick.
 	velocity.y = 0.0
 	_air_speed_cap = run_speed
+	if _impact_speed >= land_sound_speed:
+		_move_sound(MoveSound.LAND, clampf(
+				inverse_lerp(land_sound_speed, hard_landing_speed, _impact_speed), 0.0, 1.0))
 	landed.emit(_impact_speed)
 	_impact_speed = 0.0
 	if _plunging:
