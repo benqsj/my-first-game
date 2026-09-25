@@ -471,6 +471,10 @@ var _commit_timer: float = 0.0
 var _root_timer: float = 0.0
 ## What the Piercing Arrow was drawn at: he turns with it until the release.
 var _pierce_quarry: Node3D = null
+## Bumped whenever a skill under way is cut short: each skill's steps (on every
+## peer) check it after every wait and stop if it has moved on.
+var _skill_serial: int = 0
+var _air_swirl: Node3D = null
 var _attack_buffer: float = 0.0
 ## How many cuts into the current flurry, and whether *this* one keeps its run.
 ## The first swing does; the ones chained off it do not.
@@ -2423,11 +2427,13 @@ enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERF
 func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 	match reaction:
 		Reaction.FLINCH:
+			_interrupt_skill()
 			if rig != null:
 				rig.flinch()
 			_rig_says(&"hurt")
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
+			_interrupt_skill()
 			if rig != null:
 				rig.knock_down()
 			_rig_says(&"hurt")
@@ -2446,6 +2452,7 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			ParryFlash.burst(Blood.world_of(self), at, blow)
 			Sfx.play(self, PARRY_SOUND, self, at - global_position, randf_range(0.93, 1.07), 2.0)
 		Reaction.DEATH:
+			_interrupt_skill()
 			if rig != null:
 				rig.knock_down()
 			_rig_says(&"hurt")
@@ -3036,11 +3043,15 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
+	# Cut short if he is hit before it goes ([method _interrupt_skill]).
+	var serial := _skill_serial
 	var lead := 0.0
 	if rig != null and rig.has_method(&"sky_shot"):
 		lead = float(rig.call(&"sky_shot"))
 	if lead > 0.0:
 		await get_tree().create_timer(lead, false).timeout
+		if serial != _skill_serial:
+			return
 		if not is_inside_tree() or is_dead:
 			return
 	var into := Blood.world_of(self)
@@ -3143,13 +3154,11 @@ func _hunters_mark() -> bool:
 		return false
 	if not _spend(float(SKILLS[&"hunters_mark"]["stamina"])):
 		return false
+	# On the run: he does not stop or turn; the string hand flicks out at the
+	# prey and the glint goes ([method SkinnedArcherRig.point_mark]). A draw
+	# under way is let down — that hand is busy.
 	_drawing = false
 	_draw_timer = 0.0
-	_face_point(quarry.global_position)
-	var lead := float(rig.call(&"point_lead")) if rig != null and rig.has_method(&"point_lead") else 0.4
-	_commit(lead + 0.35)
-	# Planted for the whole point, not sliding on from a run.
-	_root(lead + 0.9)
 	net_hunters_mark.rpc(quarry.get_path())
 	return true
 
@@ -3159,11 +3168,15 @@ func net_hunters_mark(quarry_path: NodePath) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
+	# Cut short if he is hit before it goes ([method _interrupt_skill]).
+	var serial := _skill_serial
 	var quarry := get_node_or_null(quarry_path) as Node3D
 	var lead := 0.4
 	if rig != null and rig.has_method(&"point_mark"):
-		lead = float(rig.call(&"point_mark"))
+		lead = float(rig.call(&"point_mark", quarry))
 	await get_tree().create_timer(lead, false).timeout
+	if serial != _skill_serial:
+		return
 	if not is_inside_tree() or is_dead or quarry == null or not is_instance_valid(quarry):
 		return
 	var into := Blood.world_of(self)
@@ -3225,6 +3238,8 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
+	# Cut short if he is hit before it goes ([method _interrupt_skill]).
+	var serial := _skill_serial
 	var into := Blood.world_of(self)
 	if into == null:
 		return
@@ -3232,6 +3247,8 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	if rig != null and rig.has_method(&"charged_shot"):
 		nock = float(rig.call(&"charged_shot", pierce_hold, asin(clampf(dir.y, -1.0, 1.0)), 1.0))
 	await get_tree().create_timer(nock, false).timeout
+	if serial != _skill_serial:
+		return
 	if not is_inside_tree() or is_dead:
 		return
 	# Held at full, as still as an ordinary aim, with only a little whirl of
@@ -3240,7 +3257,10 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	var swirl := AirSwirl.new()
 	swirl.start(rig, pierce_hold + 0.05)
 	into.add_child(swirl)
+	_air_swirl = swirl
 	await get_tree().create_timer(pierce_hold, false).timeout
+	if serial != _skill_serial:
+		return
 	if not is_inside_tree() or is_dead:
 		return
 	# Where it goes is decided at the release, by whoever drives this body: at
@@ -3286,6 +3306,20 @@ func net_pierce_loose(dir: Vector3, damage: float, critical: bool) -> void:
 	if rig != null and rig.has_method(&"loose_skill_shot"):
 		rig.call(&"loose_skill_shot")
 #endregion
+
+
+## A blow landed while a skill was being taken (every peer, from
+## [method net_react]): whatever skill is under way stops here — no shot, no
+## glint, no rain — and the string and the stance let go.
+func _interrupt_skill() -> void:
+	_skill_serial += 1
+	_pierce_quarry = null
+	_root_timer = 0.0
+	if rig != null and rig.has_method(&"cancel_skill_shot"):
+		rig.call(&"cancel_skill_shot")
+	if _air_swirl != null and is_instance_valid(_air_swirl):
+		_air_swirl.queue_free()
+	_air_swirl = null
 
 
 ## Through the Piercing Arrow's draw, keeps him turned on what it was drawn at
@@ -3370,6 +3404,8 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
+	# Cut short if he is hit before it goes ([method _interrupt_skill]).
+	var serial := _skill_serial
 	var into := Blood.world_of(self)
 	if into == null:
 		return
@@ -3381,6 +3417,8 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 		nock = float(rig.call(&"charged_shot", FIRE_HOLD, clampf(0.12 + span * 0.012, 0.12, 0.5), 0.0, FIRE_QUICK))
 	# Drawn and held like any shot; the fire shows once the arrow has gone.
 	await get_tree().create_timer(nock + FIRE_HOLD, false).timeout
+	if serial != _skill_serial:
+		return
 	if not is_inside_tree() or is_dead:
 		return
 	var from := _arrow_tip()

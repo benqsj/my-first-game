@@ -27,6 +27,7 @@ func _initialize() -> void:
 	await _check_mark()
 	await _check_pierce()
 	await _check_fire()
+	await _check_interrupt()
 	await _spawn(&"rogue")
 	_check("the Assassin's first slot is the poisoned blade", _player.skill_in(0) == &"poison_blade")
 	await _check_poison()
@@ -49,8 +50,12 @@ func _check_mark() -> void:
 			_player.is_committed(), _player.stamina, _player.skill_cooldown_left(0), _player._skill_quarry(32.0),
 			_player.target, imp, _player._targetable(imp), _player.global_position.distance_to(imp.global_position)]
 	_check("the mark goes on something in front", _player.use_skill(0), why)
-	_check("he points at it", String(_player.rig._act_clip) == "AV_Point_Charge", String(_player.rig._act_clip))
-	await _wait(100)
+	await _wait(6)
+	_check("he flings his free arm out at it, no lunge", _player.rig._bow_mod.point > 0.5
+			and String(_player.rig._act_clip) != "AV_Point_Charge",
+			"point %.2f clip %s" % [_player.rig._bow_mod.point, _player.rig._act_clip])
+	_check("and is not held up by it", not _player.is_committed())
+	await _wait(94)
 	var marks := Afflictions.of(imp, false)
 	_check("the prey is marked", marks != null and marks.is_marked())
 	_check("a bow's blows on it bite 5% deeper", is_equal_approx(Afflictions.factor(imp, _player), 1.05),
@@ -128,6 +133,26 @@ func _check_pierce() -> void:
 		if is_instance_valid(c):
 			(c as Node).queue_free()
 	await _wait(60)
+
+
+## Hit while drawing the Piercing Arrow: the shot never goes.
+func _check_interrupt() -> void:
+	var imp := _creature(IMP, _ahead(9.0)) as Fighter
+	await _wait(10)
+	await _ready_up()
+	_player.call("_hold_target", imp)
+	_check("the piercing arrow is drawn", _player.use_skill(3))
+	await _wait(30)
+	_player.net_react(Player.Reaction.FLINCH, _player.global_position + Vector3.UP, Vector3.BACK)
+	var shots := 0
+	for i in 150:
+		await physics_frame
+		shots += _world.find_children("*", "", true, false).filter(
+				func(n: Node) -> bool: return n is PiercingShot).size()
+	_check("hit mid-draw, the shot never goes", shots == 0, "%d frames with a shot" % shots)
+	_check("and the string is let down", _player.rig._bow_mod.draw < 0.05, "%.2f" % _player.rig._bow_mod.draw)
+	imp.queue_free()
+	await _wait(10)
 
 
 func _check_fire() -> void:

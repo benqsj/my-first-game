@@ -37,6 +37,10 @@ var crouch_lean: float = 0.32
 ## Brought to `head_lean` forward of upright.
 var head_level: float = 0.0
 var head_lean: float = deg_to_rad(6.0)
+## The free arm flung out at something (0..1), and at what (world space): the
+## Hunter's Mark, thrown on the run.
+var point: float = 0.0
+var point_at: Vector3 = Vector3.ZERO
 
 var string_u: Node3D
 var string_l: Node3D
@@ -63,6 +67,7 @@ func _process_modification() -> void:
 	_brace(skel)
 	_tilt(skel)
 	_level_head(skel)
+	_point_arm(skel)
 	_flex(skel)
 	_place_string(skel)
 
@@ -75,6 +80,31 @@ func _turn(skel: Skeleton3D, b: int, angle: float) -> void:
 	var parent_global := skel.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
 	var local_axis := (parent_global.basis * skel.get_bone_pose(b).basis).inverse() * Vector3.RIGHT
 	skel.set_bone_pose_rotation(b, skel.get_bone_pose_rotation(b) * Quaternion(local_axis.normalized(), angle))
+
+
+## Swings the free arm (upper arm, then forearm) round to point at
+## `point_at`, by `point`: straight from the shoulder, whatever the legs are
+## doing.
+func _point_arm(skel: Skeleton3D) -> void:
+	if point < 0.001:
+		return
+	var target := skel.global_transform.affine_inverse() * point_at
+	for pair in [[&"upperarm_r", &"lowerarm_r"], [&"lowerarm_r", &"hand_r"]]:
+		var b := _bone(pair[0])
+		var c := _bone(pair[1])
+		if b < 0 or c < 0:
+			continue
+		var gb := skel.get_bone_global_pose(b)
+		var gc := skel.get_bone_global_pose(c)
+		var d0 := (gc.origin - gb.origin).normalized()
+		var d1 := (target - gb.origin).normalized()
+		if d0.length_squared() < 0.5 or d1.length_squared() < 0.5 or d0.dot(d1) > 0.9999:
+			continue
+		var q := Quaternion.IDENTITY.slerp(Quaternion(d0, d1), point)
+		var parent := skel.get_bone_parent(b)
+		var pg := skel.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
+		var turned := Basis(q) * gb.basis
+		skel.set_bone_pose_rotation(b, (pg.inverse() * turned).get_rotation_quaternion())
 
 
 ## Brings the head to `head_lean` forward of upright, by `head_level`.

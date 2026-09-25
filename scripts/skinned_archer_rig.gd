@@ -220,29 +220,36 @@ func sky_lead() -> float:
 	return _anim.get_animation(SKY_CLIP).length / SKY_RATE * SKY_RELEASE
 
 
-## Hunter's Mark (`AV_Point_Charge`, Mixamo's "Pointing Onward Charge"): a
-## lunge and an arm flung out at the prey. The part of it that is played, and
-## the moment the glint leaves his fingers, are in clip frames of 172.
-const POINT_CLIP := &"AV_Point_Charge"
-const POINT_FROM := 36.0 / 172.0
-const POINT_TO := 132.0 / 172.0
-const POINT_AT := 32.0 / 172.0
-const POINT_RATE := 1.4
+## Hunter's Mark: thrown on the run. No clip — the legs go on with whatever
+## they were doing — only the free arm flung out at the prey
+## ([member BowModifier.point]): up in `POINT_UP`, held `POINT_HOLD`, down in
+## `POINT_DOWN`. (`AV_Point_Charge`, the lunge it used to be, is still in the
+## glb, unused.)
+const POINT_UP := 0.09
+const POINT_HOLD := 0.14
+const POINT_DOWN := 0.2
+var _point_t: float = -1.0
+var _point_node: Node3D = null
+var _point_last := Vector3.ZERO
 
 
 func point_lead() -> float:
-	if _anim == null or not _anim.has_animation(POINT_CLIP):
-		return 0.3
-	return _anim.get_animation(POINT_CLIP).length * POINT_AT / POINT_RATE
+	return POINT_UP
 
 
-## Plays the point; returns how long until the glint goes.
-func point_mark() -> float:
-	_drawing_clip = false
-	_aim_phase = 0.0
-	if play_part(POINT_CLIP, POINT_RATE, POINT_FROM, POINT_TO, 0.15) <= 0.0:
-		return 0.3
-	return point_lead()
+## Flings the arm out at `at`; returns how long until the glint goes.
+func point_mark(at: Node3D = null) -> float:
+	_point_node = at
+	if at != null:
+		_point_last = at.global_position + Vector3.UP * 1.2
+	_point_t = 0.0
+	return POINT_UP
+
+
+## A blow landed while a skill was under way: let the string and the arm go.
+func cancel_skill_shot() -> void:
+	_skill_t = -1.0
+	_point_t = -1.0
 
 
 ## The skill shots (Piercing and Fire Arrow): drawn as an ordinary shot is
@@ -414,6 +421,22 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		_bow_mod.draw = string
 		_bow_mod.pitch = _pitch * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
 	if _bow_mod != null:
+		# The mark's flung arm.
+		var w := 0.0
+		if _point_t >= 0.0:
+			_point_t += delta
+			if _point_node != null and is_instance_valid(_point_node):
+				_point_last = _point_node.global_position + Vector3.UP * 1.2
+			if _point_t < POINT_UP:
+				w = smoothstep(0.0, 1.0, _point_t / POINT_UP)
+			elif _point_t < POINT_UP + POINT_HOLD:
+				w = 1.0
+			elif _point_t < POINT_UP + POINT_HOLD + POINT_DOWN:
+				w = 1.0 - smoothstep(0.0, 1.0, (_point_t - POINT_UP - POINT_HOLD) / POINT_DOWN)
+			else:
+				_point_t = -1.0
+		_bow_mod.point = w
+		_bow_mod.point_at = _point_last
 		# The brace comes on with the draw and goes a little after the release.
 		var brace_to := _skill_brace if _skill_t >= 0.0 else 0.0
 		_brace_now = move_toward(_brace_now, brace_to, delta * (2.2 if brace_to > _brace_now else 1.6))

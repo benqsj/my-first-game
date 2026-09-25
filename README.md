@@ -3163,3 +3163,17 @@ still through the draw and that the string is drawn with the arrow on it.
 7. **A perfect dodge with a shadow** (the assassin, Avtandil) covers him while
    the shadow is shed: `ShadowTrail.GUARD` (1.2 s). `tests/evade_guard_test.gd`
    checks both, for Tariel, Avtandil and the assassin.
+
+**The mark on the run.** No lunge (`AV_Point_Charge` is no longer played) and
+no stop: the legs go on with whatever they were doing and only the string arm
+is flung out at the prey — `BowModifier.point`/`point_at` swing the upper arm
+and forearm round to it (up 0.09 s, held 0.14, down 0.2); the glint goes as the
+arm comes up. Not committed, not rooted; a draw under way is let down (that
+hand is busy).
+
+**Hit mid-skill, the skill stops.** A flinch, a knock-down or death
+(`net_react`, every peer) calls `Player._interrupt_skill()`: `_skill_serial`
+moves on, and every skill's steps (`net_arrow_rain`, `net_hunters_mark`,
+`net_piercing`, `net_fire_arrow`) check it after each wait and stop — no
+shot, no glint, no rain; the string and the brace let go
+(`SkinnedArcherRig.cancel_skill_shot`), the whirl at the head goes.
