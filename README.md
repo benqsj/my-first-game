@@ -2851,3 +2851,24 @@ reaching to them. Now the head rides 6 cm higher (`HEAD_LIFT` in
 `vepxis-art/tools/r4_build.py`) on a neck wrapped in the mask's dark cloth, the
 hood stops short above the shoulders and the crimson scarf is a low collar
 round the base of the neck — as Avtandil's head stands on his.
+
+## The mage's new body
+
+`assets/mage_rigged/mage_rigged.glb`, built by `vepxis-art/tools/m5_build.py`
+into `heroes.blend` as `mage_v5` on `mage_rig`, in the assassin's manner:
+box-built, the edges softly rounded, every piece rigid on one bone, flat
+materials and no textures (24, `m5_*`; the old atlas is gone). Still the old
+Georgian wizard, with more to him: a black fur papakha in ridges with a gold
+badge and a glowing stone, a long white beard in steps, a drooping moustache
+and bushy brows, eyes with pupils; a wine chokha with gazyri, gold lapels, a
+high collar behind the head, a mantle and a back cape with runes at the hem;
+bell sleeves rimmed in gold; a belt of silver plaques and a khanjali; a
+grimoire on the right hip and two glowing vials on the left; a fist round the
+staff and an open hand for the spells; soft boots. The skirt is in two: the
+top on the pelvis, a panel on each thigh, so the legs walk under it.
+
+The staff is new too: gnarled, leather at the grip, three prongs curling up
+round an ice-blue crystal with motes about it. `SkinnedMageRig.CRYSTAL_UP` is
+0.83 m (the crystal sits lower than the old one's), and the crystal's light at
+rest is its own blue (`CRYSTAL_LIGHT`); the charge still gathers gold and
+turns violet when full, as before. The same 31 `MG_` clips.
