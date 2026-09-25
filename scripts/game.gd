@@ -43,6 +43,9 @@ const DISPLAYS := {
 
 
 func _ready() -> void:
+	Controls.apply()
+	# Closing is ours to decide: see `_notification`.
+	get_tree().set_auto_accept_quit(false)
 	_load_settings()
 	_apply_display()
 	var argv := OS.get_cmdline_user_args()
@@ -69,6 +72,18 @@ func _ready() -> void:
 		# Deferred: the other autoloads are not up yet, and neither is anything
 		# to change scene *to*.
 		_auto_connect.call_deferred(connect_as, address)
+
+
+## Command is the evade on a Mac, and Q puts the weapons away — so Command-Q
+## happens in a fight, and must not quit the game from under the player. Out of
+## a fight, or any other way of closing the window, closes it.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_CLOSE_REQUEST:
+		return
+	var in_play := get_tree().current_scene is World
+	if in_play and Controls.is_mac() and Input.is_key_pressed(KEY_META) and Input.is_physical_key_pressed(KEY_Q):
+		return
+	get_tree().quit()
 
 
 ## Straight into a game from the command line, skipping the menu. This is how
