@@ -3177,3 +3177,12 @@ moves on, and every skill's steps (`net_arrow_rain`, `net_hunters_mark`,
 `net_piercing`, `net_fire_arrow`) check it after each wait and stop — no
 shot, no glint, no rain; the string and the brace let go
 (`SkinnedArcherRig.cancel_skill_shot`), the whirl at the head goes.
+
+**The hunter's evades.** Locked on and pushing left or right, the dodge key
+gives the long dodge at once (`_sideways_on_lock`, then `_upgrade_to_dodge`);
+any other way, or not locked, a roll. He has no double tap any more. The
+others keep theirs.
+
+**The mark's glint** is a comet now — a bright head, a 0.6 m tail, sparks
+twinkling out behind — with no line left hanging from where he threw it
+(thrown on the run, that line stretched back to where he had been).

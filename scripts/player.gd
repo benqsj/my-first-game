@@ -1087,7 +1087,9 @@ func _press_dash() -> void:
 	_last_dash_press = now
 	var landed := false
 	if state == State.DASHING or state == State.DODGING:
-		if not alternating and doubled and state == State.DASHING:
+		# The hunter has no double tap: his dodge comes of itself, sideways
+		# on a lock ([method _start_evade]).
+		if not alternating and doubled and state == State.DASHING and not _is_bow():
 			_upgrade_to_dodge()
 			return
 		if not _evade_landed():
@@ -1117,11 +1119,25 @@ func _start_evade(chained: bool) -> bool:
 			kind = MoveSound.STEP
 			var locked := target != null and _targetable(target)
 			started = _try_dash(locked, true, chained)
+	elif _is_bow() and _sideways_on_lock():
+		# The hunter, locked on and going left or right: straight into the
+		# long dodge, as a double tap used to give; any other way, a roll.
+		started = _try_dash(false, false, chained)
+		if started:
+			_upgrade_to_dodge()
 	else:
 		started = _try_dash(false, false, chained)
 	if started:
 		_move_sound(kind)
 	return started
+
+
+## Locked on something and pushing mostly left or right.
+func _sideways_on_lock() -> bool:
+	if target == null or not _targetable(target) or menu_open:
+		return false
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	return absf(input.x) > 0.3 and absf(input.x) > absf(input.y)
 
 
 ## The assassin's flip on its own, as the second of a pair: the twisting flip

@@ -28,6 +28,7 @@ func _initialize() -> void:
 	await _check_pierce()
 	await _check_fire()
 	await _check_interrupt()
+	await _check_bow_dodge()
 	await _spawn(&"rogue")
 	_check("the Assassin's first slot is the poisoned blade", _player.skill_in(0) == &"poison_blade")
 	await _check_poison()
@@ -133,6 +134,46 @@ func _check_pierce() -> void:
 		if is_instance_valid(c):
 			(c as Node).queue_free()
 	await _wait(60)
+
+
+## The hunter's evades: locked on and going left or right, the long dodge at
+## once; any other way, a roll; and no double tap.
+func _check_bow_dodge() -> void:
+	var imp := _creature(IMP, _ahead(9.0)) as Fighter
+	await _wait(10)
+	await _ready_up()
+	_player.call("_hold_target", imp)
+	Input.action_press("move_right")
+	await _wait(2)
+	_player.call("_press_dash")
+	await _wait(2)
+	_check("locked, going right: the dodge at once", _player.state == Player.State.DODGING, "state %d" % _player.state)
+	Input.action_release("move_right")
+	await _wait(80)
+	await _ready_up()
+	_player.set("_dash_cooldown_timer", 0.0)
+	Input.action_press("move_back")
+	await _wait(2)
+	_player.call("_press_dash")
+	await _wait(2)
+	_check("locked, going back: a roll", _player.state == Player.State.DASHING, "state %d" % _player.state)
+	_player.call("_press_dash")
+	await _wait(2)
+	_check("and a second tap does not make it a dodge", _player.state != Player.State.DODGING,
+			"state %d" % _player.state)
+	Input.action_release("move_back")
+	await _wait(80)
+	_player.target = null
+	await _ready_up()
+	_player.set("_dash_cooldown_timer", 0.0)
+	Input.action_press("move_left")
+	await _wait(2)
+	_player.call("_press_dash")
+	await _wait(2)
+	_check("not locked, going left: a roll", _player.state == Player.State.DASHING, "state %d" % _player.state)
+	Input.action_release("move_left")
+	imp.queue_free()
+	await _wait(80)
 
 
 ## Hit while drawing the Piercing Arrow: the shot never goes.
