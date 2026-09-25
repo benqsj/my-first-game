@@ -3297,3 +3297,56 @@ its fastest moment arrives when the old timings said the claws land; `reel()`,
 `fall()`. Over the clips: the jaws open as it strikes, the tail swings, and the
 red glint gathers on the claws about to come through.
 
+### How the wolf fights: intellect
+
+`scripts/wolf_mind.gd` (`WolfMind`) is its fighting mind; `Wolf` carries out
+what it decides. Once it is within 4.5 m it is always doing one of five things:
+**close** (in to its claws' reach), **strike** (a combo, one move after the
+other), **circle** (side-stepping round him face on, drifting towards his back),
+**retreat** (backing off, often with a hop back first) and **wait** (holding out
+of reach a moment). From the circle or the wait it comes again — straight in, or
+from out of reach in a sudden **pounce**. It never runs away for good.
+
+Whatever it is doing it **watches his blade**: when a swing starts within reach
+it may throw itself aside (Dodging Right, and mirrored) or hop back (Jumping
+Backwards Dodge); for the moment it is getting away the blade goes through air
+(`_evading`). A cunning one breaks off its own windup to do it, and goes in
+while he is still coming out of a swing that found nothing.
+
+**Intellect** is 0 to 1, each wolf its own (drawn between `wit_range` unless set):
+
+| | dull (0.2) | middling (0.5) | cunning (0.9) |
+|---|---|---|---|
+| sees a swing coming | 0.38 s | 0.26 s | 0.14 s |
+| gets out of one | 1 in 4 | 1 in 2 | 3 in 4 |
+| longest combo | 1 | 2 | 3 |
+| circles, feints, flanks | no | some | often |
+| backs off after a combo | 1 in 3 | 1 in 2 | 3 in 4 |
+| punishes a miss | no | yes | yes, at once |
+| waits its turn in a pack | no | yes | yes |
+
+Hurt, it grows careful: it backs off and dodges more — and comes back. A pack
+takes turns: no more than two wolves with the wit to wait go in at one player at
+once (`PACK_ATTACKERS`); the rest circle.
+
+**Combos**, from what it has left: *rake* (a swipe), *double rake* (left,
+right), *rake and leap* (left, right, pounce), *feint* (a hop back and the pounce
+straight after); with one arm a swipe or a swipe and a bite; with none the
+*bite* (Vampiric Bite: a lunge with its jaws). **A leg cut off puts it down**:
+it drags itself on its belly at him (Zombie Crawl) and its attack is the
+*ground lunge* — thrown forward, claws and jaws. It cannot dodge any more.
+
+New clips (mixamo_wolf/): Dodging Right (+ mirrored), Jumping Backwards Dodge,
+Walking Backwards, Strafe Walking left and right, Vampiric Bite.
+
+**Cut limbs land on the ground.** A severed piece used to stop at a height of
+zero: under the rolling land it sank out of sight, over the bay it hung in the
+air. It now finds the ground by a ray straight down and stops when its lowest
+mesh, not its joint, reaches it.
+
+`tests/wolf_mind_test.gd`: the table; a cunning wolf getting out of most of a
+dozen swings and a dull one out of fewer; blows landing; backing off and coming
+again; a clever pack never more than two in at once; a wolf with a leg off
+crawling in, lunging and getting him, the leg lying on the ground; one with no
+arms biting.
+
