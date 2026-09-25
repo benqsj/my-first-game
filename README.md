@@ -3383,3 +3383,63 @@ and eased. **Cut pieces** stop on the ground by their true lowest point (points
 on their surface, not the box round them, which reached lower when turned and
 left them a hand over the ground).
 
+
+### The claw wave
+
+Now and then — not always — a wolf **cuts the air with its claws and throws the
+cut at you**: three sickle blades of torn air side by side, the marks of three
+claws, flying at 15 m/s for 17 m, leaving the air they tore hanging behind them
+in fraying slashes (`scripts/claw_wave.gd`, `ClawWave`). The swing itself is
+`scripts/wolf_claw.gd` (`WolfClaw`), hung on the rig as `WolfRig.claw`.
+
+**The tell comes first, and it is long.** It rears up, a paw raised over its
+head and held there, trembling, while its claws gather a red glow and embers
+are drawn in to them, its eyes flare, its jaws open and it growls — 0.55 to
+0.85 s of it (shorter for a clever one), over a second from the start to the
+first wave. Then the paw comes down and the wave leaves it.
+
+A clever wolf follows on (its combo length is `WolfMind.combo_max()`):
+
+| blow | the swing (Mixamo) | the wave | get out of it by |
+|---|---|---|---|
+| **rake** (always first) | Standing Melee Combo Attack Ver. 2, the raised paw brought down | slanting | a step aside or a roll |
+| **sweep** | Standing Melee Attack Horizontal: arms wide, raked across | flat, the blades one over another from knee to head | a roll through it |
+| **slam** | Zombie Attack: both paws overhead, held, brought down to the ground | on end, bigger, three furrows torn in the ground, the camera jolted | a step aside |
+
+A rake or sweep that lands staggers (a blow of two: a round shield met with it
+at the last moment turns it and shatters it); the slam's knocks you down. A
+shield held towards it catches it; a roll or a dodge goes through it; a wall
+breaks it. It strikes by where its blades go (`WeaponSweep`), each player once.
+
+**When.** Only with both arms and both legs, from 3.2 to 11 m, and then
+`claw_cooldown` (9–15 s, less for a clever wolf) before the next; the first no
+sooner than 2.5–5 s after it is born. Chasing somebody who keeps out of reach
+(an archer) it stops and throws it; in a fight it comes out of the circle or
+the wait now and then as the claw wave instead of coming in.
+
+**How the swing is played.** Each blow is four beats of its clip — rise, hold
+(the tell), strike, recovery — each over a time of its own
+(`WolfClaw.BLOWS`), so the hold can be stretched without the swing going slack.
+The clip is driven to where it should be each frame by its speed, so the
+crossfades between blows still blend. The paw raised in each blow is found from
+the clip itself.
+
+**Blender.** A file of its own, `vepxis-art/wolf/wolf_claw.blend` (wolf.blend is
+left alone), built and exported by `tools/wolf_claw.py` in a background Blender:
+`build` (the rig appended from wolf.blend, `mixamo_wolf_claw/*.fbx` laid on it),
+`cut` (WFC_Rake, WFC_Sweep, WFC_Slam cut from the takes), `wave` (the blades:
+three sickles side by side, the tips swept back, UV along and across →
+`assets/fx/claw_wave.glb`), `export` (the rig with only the WFC_ clips →
+`assets/wolf/wolf_claw_anims.glb`, taken into the wolf's AnimationPlayer as the
+library `claw`), `shots` (contact sheets of clips).
+
+Multiplayer: the host decides and throws the wave that hurts; `net_claw` has
+every other peer play the same swing, and their waves are its likeness.
+
+`tests/claw_wave_test.gd`: the clips are there; the tell is over 0.9 s, with the
+paw over its head, the claws burning and the eyes flaring; a cunning wolf
+throws three waves and they land on a knight standing there; rolled through as
+each comes, none lands; a step aside gets out of the rake and the slam; a
+shield catches it; a wall breaks it; kept at a distance for 30 s it throws it
+one to three times; with an arm gone, never. `tests/claw_wave_shots.gd` takes
+pictures of it.
