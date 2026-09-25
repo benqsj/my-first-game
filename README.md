@@ -2934,3 +2934,24 @@ capes are gone from the models (`CLOTH` in `r4_build.py`/`m5_build.py`), and
 Tariel's cape spring bones are left alone when he has cloth. Purely for show:
 every peer hangs its own. `heroes_test` checks each has his cloth, that it
 hangs behind him standing and trails behind on a run.
+
+## Avtandil's new body and bow
+
+`assets/avtandil_rigged/avtandil_rigged.glb`, built by
+`vepxis-art/tools/a7_build.py` into `avtandil.blend` as `avtandil_v7` on
+`avtandil_rig`, in the manner of the others (22 flat materials, `a7_*`; the
+old body and bow stay in the file, unexported). Still the hunter in green: a
+hood up and open at the face with a point down the back, its cowl on the
+shoulders cut into leaves, a laced leather jerkin over the tunic, the quiver's
+strap across the chest and the quiver on his back with its arrows over the
+right shoulder, a long guard on the bow arm and a glove on the drawing hand, a
+hunting knife on the right hip and a horn and a pouch on the left, a split
+skirt with a light hem, the calves wound in linen, soft boots with the tops
+turned down; brown hair under the brim, a thin moustache and a tuft on the
+chin. His head sits down on his shoulders as Tariel's now does.
+
+The bow is a horn-and-wood recurve: a wrapped grip and a riser with gold at
+its ends on `bow_l`, each limb tapered and bowed a little away from him, a
+horn belly on the string side and a gold band, the ears turned forward at the
+tips — all on the `bow_limb_` bones, so `BowModifier` bends them as before
+(the `bow_tip_` bones are only where the string is tied). Same 77 clips.
