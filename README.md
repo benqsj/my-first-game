@@ -2962,3 +2962,30 @@ its ends on `bow_l`, each limb tapered and bowed a little away from him, a
 horn belly on the string side and a gold band, the ears turned forward at the
 tips — all on the `bow_limb_` bones, so `BowModifier` bends them as before
 (the `bow_tip_` bones are only where the string is tied). Same 77 clips.
+
+## Skills, the skill bar, and the evade's key
+
+**The bar.** Four squares at the bottom centre of the screen (`PlayerHud`),
+keys **1, 2, 3, 4** (`skill_1`..`skill_4`): the skill's picture, its key in the
+corner, a shade over it that drains down with the seconds left while it comes
+back, a flash when it is ready again, and its name over the bar for a moment
+when it is used. An empty slot is a dark square. Which skill sits in which slot
+is the hero's profile (`CharacterProfile.skills`, ids from `Player.SKILLS`,
+each with its name, stamina and cooldown). Skills are used from the ground,
+never mid-swing; there is no mana yet, so they cost stamina.
+
+**Rain of Arrows** (Avtandil, key 1; 25 stamina, 12 s): he shoots one arrow up
+into the sky, and a ring lights on the ground — on what he has locked if it is
+within 18 m, else 9 m ahead of him. After 0.75 s, 36 arrows come down over the
+ring for 1.3 s (`ArrowRain`), slanted from his side of it, each worth 35% of a
+full draw (crits as his shots do). They are ordinary `Arrow`s: they stick in
+what they hit and sink away, and only the host's copies count for damage — every
+peer builds the same rain from the same seed (`net_arrow_rain`). A third of them
+come down on the bodies standing in the ring when it starts to fall; spread
+evenly, a volley over a wolf would mostly miss it. `tests/skills_test.gd`.
+
+**The evade's key** (`Controls`, applied by `Game` at start): **Command** on a
+Mac, **Control** everywhere else; walking goes to Shift off a Mac (on a Mac it
+stays on Control). The gamepad is untouched. Command-Q during play does not
+quit (Q puts the weapons away, and is pressed while evading); any other way of
+closing the window does.
