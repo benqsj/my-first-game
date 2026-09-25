@@ -3102,7 +3102,8 @@ a step (`pierce_recoil`, 5 m/s) with dust off his feet and the camera jolts
 streak with speed lines racing beside it; bands of air (a ribbon partway round
 the line, `WindBlast.band`) open round it now and then, inside a tornado laid
 down stretch by stretch behind the arrow (`WindBlast.twister`: two ribbons
-wound loosely round the line, half a turn per 3.2 m, spinning, the funnel widening with distance), and a thin mist is left hanging along the first 30 m
+wound loosely round the line, a third of a turn per 4 m, fading when
+seen down the line (`WindBlast.end_on`) so from behind it is no target of rings, spinning, the funnel widening with distance), and a thin mist is left hanging along the first 30 m
 (`WindBlast.mist`, alpha 0.03 — thicker reads as cotton wool). While it is
 held he braces — hips down, knees bent, leaning on from the waist while the
 chest keeps the aim (`BowModifier.crouch`, `charged_shot(..., brace)`) — and a

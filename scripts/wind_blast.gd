@@ -69,7 +69,7 @@ static func band(into: Node, at: Vector3, dir: Vector3, from_r: float, to_r: flo
 			return
 		var r := lerpf(from_r, to_r, 1.0 - pow(1.0 - u, 3.0))
 		mi.global_transform = Transform3D(base.rotated(dir, start_angle + u * 1.6).scaled(Vector3.ONE * r), at)
-		mat.albedo_color.a = 0.5 * (1.0 - u * u)
+		mat.albedo_color.a = 0.35 * (1.0 - u * u) * end_on(mi, dir)
 	place.call(0.0)
 	var tw := mi.create_tween()
 	tw.tween_method(place, 0.0, 1.0, life)
@@ -85,7 +85,7 @@ static func twister(into: Node, at: Vector3, dir: Vector3, length: float, from_r
 	if into == null:
 		return
 	var mi := MeshInstance3D.new()
-	mi.mesh = _helix_mesh(length, 0.55, 2)
+	mi.mesh = _helix_mesh(length, 0.35, 2)
 	var mat := _band_material().duplicate() as StandardMaterial3D
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -97,7 +97,7 @@ static func twister(into: Node, at: Vector3, dir: Vector3, length: float, from_r
 		var r := lerpf(from_r, to_r, 1.0 - pow(1.0 - u, 2.0))
 		var b := base.rotated(dir, phase + u * life * spin)
 		mi.global_transform = Transform3D(Basis(b.x * r, b.y * r, b.z), at)
-		mat.albedo_color.a = 0.6 * minf(u * 6.0, 1.0) * (1.0 - u * u)
+		mat.albedo_color.a = 0.4 * minf(u * 6.0, 1.0) * (1.0 - u * u) * end_on(mi, dir)
 	place.call(0.0)
 	var tw := mi.create_tween()
 	tw.tween_method(place, 0.0, 1.0, life)
@@ -135,14 +135,26 @@ static func shake(near: Node3D, strength: float = 0.12, time: float = 0.35, reac
 
 
 static func _streak(into: Node, a: Vector3, b: Vector3, radius: float, life: float, drift: Vector3) -> void:
-	var rod := SkillFx.rod(into, a, b, AIR, radius, 1.4)
+	var rod := SkillFx.rod(into, a, b, AIR, radius, 0.9)
 	if rod == null:
 		return
 	var mat := rod.material_override as StandardMaterial3D
+	mat.albedo_color.a = 0.55
 	var tw := rod.create_tween().set_parallel(true)
 	tw.tween_property(rod, "global_position", rod.global_position + drift * life, life)
 	tw.tween_property(mat, "albedo_color:a", 0.0, life)
 	tw.chain().tween_callback(rod.queue_free)
+
+
+## How much of a ring round the line to show from where the camera is: all
+## of it seen from the side, little of it seen down the line (from behind the
+## archer, where rings stack into a target of circles).
+static func end_on(node: Node3D, dir: Vector3) -> float:
+	var cam := node.get_viewport().get_camera_3d() if node.is_inside_tree() else null
+	if cam == null:
+		return 1.0
+	var look := -cam.global_basis.z
+	return lerpf(1.0, 0.15, smoothstep(0.55, 0.92, absf(look.dot(dir))))
 
 
 static func _side(dir: Vector3) -> Vector3:

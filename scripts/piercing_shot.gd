@@ -27,7 +27,7 @@ const BLAST_RADIUS := 1.1
 ## How far down the line the bands and the mist go, and how often.
 const BLAST_REACH := 30.0
 ## How long each stretch of the tornado is.
-const TWIST_LEN := 3.2
+const TWIST_LEN := 4.0
 const MIST_EVERY := 1.6
 
 var _shooter: Node3D
