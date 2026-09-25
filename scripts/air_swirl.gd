@@ -23,9 +23,9 @@ func start(rig: Node, time: float) -> void:
 
 func _ready() -> void:
 	top_level = true
-	for k in 3:
+	for k in 4:
 		var mi := MeshInstance3D.new()
-		mi.mesh = WindBlast._band_mesh(2.4)
+		mi.mesh = WindBlast._band_mesh(3.0)
 		var mat := WindBlast._band_material().duplicate() as StandardMaterial3D
 		mat.albedo_color.a = 0.0
 		mi.material_override = mat
@@ -35,10 +35,10 @@ func _ready() -> void:
 		_bands.append(mi)
 		_mats.append(mat)
 	_motes = SkillFx.particles(self, global_position, {
-		"amount": 26, "life": 0.35, "speed": Vector2(0.0, 0.1), "sphere": 0.14, "orbit": -4.0,
-		"tangent": 6.0, "damping": 1.0, "size": Vector2(0.012, 0.028), "grow": 0.4, "local": true,
+		"amount": 60, "life": 0.4, "speed": Vector2(0.0, 0.15), "sphere": 0.22, "orbit": -5.0,
+		"tangent": 8.0, "damping": 1.0, "size": Vector2(0.018, 0.04), "grow": 0.4, "local": true,
 		"add": false,
-		"colors": [Color(1, 1, 1, 0.0), Color(WindBlast.AIR.r, WindBlast.AIR.g, WindBlast.AIR.b, 0.55),
+		"colors": [Color(1, 1, 1, 0.0), Color(WindBlast.AIR.r, WindBlast.AIR.g, WindBlast.AIR.b, 0.85),
 			Color(WindBlast.AIR.r, WindBlast.AIR.g, WindBlast.AIR.b, 0.0)],
 	})
 	_motes.emitting = false
@@ -64,9 +64,9 @@ func _process(delta: float) -> void:
 	var up := Vector3.RIGHT if absf(dir.dot(Vector3.UP)) > 0.95 else Vector3.UP
 	var base := Basis.looking_at(dir, up)
 	for k in _bands.size():
-		var r := 0.07 + 0.035 * float(k)
-		var turn := _age * (11.0 - 2.0 * float(k)) + float(k) * 2.1
+		var r := 0.1 + 0.05 * float(k)
+		var turn := _age * (13.0 - 2.0 * float(k)) + float(k) * 1.6
 		# Each band a little behind the last, winding back along the shaft.
-		var at := tip + dir * (0.06 - 0.07 * float(k))
-		_bands[k].global_transform = Transform3D(base.rotated(dir, turn).scaled(Vector3(r, r, 0.12)), at)
-		_mats[k].albedo_color.a = (0.5 - 0.1 * float(k)) * fade
+		var at := tip + dir * (0.08 - 0.08 * float(k))
+		_bands[k].global_transform = Transform3D(base.rotated(dir, turn).scaled(Vector3(r, r, 0.16)), at)
+		_mats[k].albedo_color.a = (0.95 - 0.12 * float(k)) * fade

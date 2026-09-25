@@ -84,7 +84,7 @@ static func mist(into: Node, at: Vector3, count: int, spread: float, size: Vecto
 		"amount": count, "life": life, "one_shot": true, "explosiveness": 0.85,
 		"speed": Vector2(1.0, 3.0), "spread": 180.0, "dir": Vector3.UP, "damping": 1.2,
 		"gravity": Vector3(0, 0.25, 0), "sphere": spread, "size": size, "grow": 0.85, "add": false,
-		"colors": [Color(1, 1, 1, 0.0), Color(MIST.r, MIST.g, MIST.b, 0.06), Color(MIST.r, MIST.g, MIST.b, 0.0)],
+		"colors": [Color(1, 1, 1, 0.0), Color(MIST.r, MIST.g, MIST.b, 0.03), Color(MIST.r, MIST.g, MIST.b, 0.0)],
 	})
 
 
