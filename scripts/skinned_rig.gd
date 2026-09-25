@@ -99,9 +99,8 @@ var off_hand_blade := false
 ## What a swing sounds like: one of these, at random, at `swing_pitch`. The
 ## knight's sword; the rogue sets his own knife's (`SkinnedRogueRig`).
 var swing_sounds: Array[String] = [
-	"res://unverified/sounds/tariel/air_1.wav", "res://unverified/sounds/tariel/air_2.wav",
-	"res://unverified/sounds/tariel/air_3.wav", "res://unverified/sounds/tariel/air_4.wav",
-	"res://unverified/sounds/tariel/air_5.wav", "res://unverified/sounds/tariel/air_6.wav",
+	"res://unverified/sounds/tariel/slash_1.wav", "res://unverified/sounds/tariel/slash_2.wav",
+	"res://unverified/sounds/tariel/slash_3.wav", "res://unverified/sounds/tariel/slash_4.wav",
 ]
 ## The older, lighter whooshes: the staff and the hunter's knife keep these.
 const LIGHT_SWINGS: Array[String] = [

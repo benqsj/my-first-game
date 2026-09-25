@@ -53,6 +53,13 @@ signal struck(what: Node3D, where: Vector3, critical: bool)
 ## A shot that lands hard cuts the same air, only a little warmer.
 @export var crit_tint: Color = Color(1.0, 0.85, 0.62, 0.7)
 
+## An arrow going into a body (the user's recordings, cut).
+const HITS: Array[String] = [
+	"res://unverified/sounds/bow/arrow_hit_1.wav", "res://unverified/sounds/bow/arrow_hit_2.wav",
+	"res://unverified/sounds/bow/arrow_hit_3.wav", "res://unverified/sounds/bow/arrow_hit_4.wav",
+	"res://unverified/sounds/bow/arrow_hit_5.wav",
+]
+
 var _velocity: Vector3 = Vector3.ZERO
 var _gravity: float = 6.0
 var _damage: float = 0.0
@@ -149,6 +156,7 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# the wound is spilled locally, where it is seen, and the hit is asked
 		# for without it.
 		Blood.splatter(Blood.world_of(self), where, blow.normalized())
+		Sfx.play(self, HITS[randi() % HITS.size()], null, where, randf_range(0.94, 1.06), -8.0)
 		# The shooter goes with it: an arrow that hurts something anonymously
 		# leaves the creature no reason to come and find out who fired it.
 		what.call("take_hit", _damage, where, blow, _critical, false, _shooter)

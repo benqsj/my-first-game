@@ -42,8 +42,8 @@ func _initialize() -> void:
 	await _check_moves("Tariel", Player.MoveSound.ROLL)
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig
-	_check("Tariel's sword has the new air and its bite", trig != null
-			and trig.swing_sounds[0] == "res://unverified/sounds/tariel/air_1.wav"
+	_check("Tariel's sword has the user's slashes and its bite", trig != null
+			and trig.swing_sounds[0] == "res://unverified/sounds/tariel/slash_1.wav"
 			and trig.hit_sounds[0] == "res://unverified/sounds/tariel/hit_1.wav"
 			and trig.hurt_sounds[0] == "res://unverified/sounds/all/hurt_1.wav")
 	await _spawn(&"mage")

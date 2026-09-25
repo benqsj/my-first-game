@@ -101,5 +101,5 @@ func _step(speed: float, body: Node3D) -> void:
 	_last_index = i
 	var loud := clampf(inverse_lerp(min_speed, run_speed, speed), 0.0, 1.0)
 	Sfx.play(body, STEPS[i], body, Vector3.ZERO, lerpf(0.95, 1.05, randf()),
-			volume_db + lerpf(-9.0, 0.0, loud))
+			volume_db + lerpf(-3.0, 0.0, loud))
 

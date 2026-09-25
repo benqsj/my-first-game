@@ -3186,3 +3186,18 @@ others keep theirs.
 **The mark's glint** is a comet now — a bright head, a 0.6 m tail, sparks
 twinkling out behind — with no line left hanging from where he threw it
 (thrown on the run, that line stretched back to where he had been).
+
+**The user's own sounds, in.** Cut with ffmpeg (mono, a few ms of fade):
+`unverified/sounds/bow/draw_2.wav` (the first second of `pulling-bow/pulling-bow-sound3.wav`)
+and `release_2.wav` (`shot-arrow/shot-arrow-sound1.wav`) are the bow's draw and
+release now; `arrow_hit_1..5` (from `damaged-arrow/`) play where an arrow goes
+into a body (`Arrow.HITS`); `unverified/sounds/tariel/slash_1..4` (the four
+swings in `sword-sound/last-sword-sound.wav`) are Tariel's swings. The
+Piercing Arrow has the ones recorded for it in `sounds/bow/`: `ult_cast.wav`
+(`bow-ult-cast.mp4`, which is a wav, trimmed) as the draw starts, `ult.wav` through the
+hold, `ult-shoot-1.wav` at the release with `last-ult.wav` under it for the wind.
+`full.wav` is not used.
+
+**The mark's glint flies straight**, like a shot, at `mark_speed` (75 m/s),
+no arc. **Footsteps** start louder: the ramp with speed goes from −3 dB, not
+−9, so the first steps of a run are heard.

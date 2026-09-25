@@ -29,7 +29,8 @@ func throw(from: Vector3, quarry: Node3D, aim: Vector3, time: float = 0.3) -> vo
 	_quarry = quarry
 	_to = aim
 	_time = maxf(time, 0.05)
-	_arc = clampf(from.distance_to(aim) * 0.05, 0.2, 1.0)
+	# Straight at it: no arc.
+	_arc = 0.0
 
 
 func _ready() -> void:
@@ -66,8 +67,8 @@ func _process(delta: float) -> void:
 	if _quarry != null and is_instance_valid(_quarry):
 		_to = _aim_of(_quarry)
 	var u := clampf(_age / _time, 0.0, 1.0)
-	var at := _from.lerp(_to, pow(u, 1.15)) + Vector3.UP * _arc * sin(PI * u)
-	var ahead := _from.lerp(_to, pow(minf(u + 0.05, 1.0), 1.15)) + Vector3.UP * _arc * sin(PI * minf(u + 0.05, 1.0))
+	var at := _from.lerp(_to, u) + Vector3.UP * _arc * sin(PI * u)
+	var ahead := _from.lerp(_to, minf(u + 0.05, 1.0)) + Vector3.UP * _arc * sin(PI * minf(u + 0.05, 1.0))
 	var length := minf(0.6, _from.distance_to(at) + 0.1)
 	var dir := (ahead - at).normalized() if ahead.distance_squared_to(at) > 0.00001 else (_to - _from).normalized()
 	SkillFx.place_rod(_streak, at - dir * length, at)

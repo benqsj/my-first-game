@@ -433,8 +433,14 @@ var target_part: int = 0
 ## How long the string has been held, and whether it is being held at all.
 var _draw_timer: float = 0.0
 var _drawing: bool = false
-const DRAW_SOUND := "res://unverified/sounds/bow/draw.wav"
-const RELEASE_SOUND := "res://unverified/sounds/bow/release.wav"
+const DRAW_SOUND := "res://unverified/sounds/bow/draw_2.wav"
+const RELEASE_SOUND := "res://unverified/sounds/bow/release_2.wav"
+## The Piercing Arrow's own (the user's recordings in sounds/bow): the cast as
+## the draw starts, the swell through the hold, the shot, and the wind after.
+const ULT_CAST := "res://sounds/bow/ult_cast.wav"
+const ULT_CHARGE := "res://sounds/bow/ult.wav"
+const ULT_SHOT := "res://sounds/bow/ult-shoot-1.wav"
+const ULT_WIND := "res://sounds/bow/last-ult.wav"
 ## Levitation left in this jump, in seconds, and whether it is being used now.
 var _levitate_left: float = 0.0
 var _levitating: bool = false
@@ -490,7 +496,8 @@ var _chain_timer: float = 0.0
 func _ready() -> void:
 	_spawn_character()
 	# The bow's two sounds, read off the disk now rather than on the first draw.
-	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND, SHADOW_SOUND] + MOVE_SOUNDS)
+	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND, SHADOW_SOUND, ULT_CAST, ULT_CHARGE, ULT_SHOT,
+			ULT_WIND] + MOVE_SOUNDS + Arrow.HITS)
 	# The level has just loaded, so this is the moment the graphics setting has
 	# something to be applied to. The world knows nothing about settings; the
 	# thing that spawns into it asks for them.
@@ -3101,8 +3108,8 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 @export var mark_range: float = 32.0
 ## How long the prey stays marked: a bow's blows on it do `Afflictions.MARK_BOW`, anyone else's `MARK_OTHER`.
 @export var mark_time: float = 10.0
-## How long the glint takes to reach it.
-@export var mark_flight: float = 0.32
+## How fast the glint flies at it, m/s (straight, like an arrow).
+@export var mark_speed: float = 75.0
 
 @export_group("Piercing Arrow")
 ## How long the string is held past full, gathering the wind.
@@ -3202,7 +3209,9 @@ func net_hunters_mark(quarry_path: NodePath) -> void:
 	if rig != null and rig.has_method(&"bone_position"):
 		from = rig.call(&"bone_position", &"hand_r")
 	var light := HuntingLight.new()
-	light.throw(from, quarry, HuntingLight._aim_of(quarry), mark_flight)
+	# Straight and fast, like a shot: no arc, at `mark_speed`.
+	var aim := HuntingLight._aim_of(quarry)
+	light.throw(from, quarry, aim, clampf(from.distance_to(aim) / mark_speed, 0.05, 0.5))
 	into.add_child(light)
 	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.35, -8.0)
 	light.arrived.connect(func(at: Vector3) -> void:
@@ -3262,6 +3271,7 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	var nock := 0.3
 	if rig != null and rig.has_method(&"charged_shot"):
 		nock = float(rig.call(&"charged_shot", pierce_hold, asin(clampf(dir.y, -1.0, 1.0)), 1.0))
+	Sfx.play(self, ULT_CAST, self, Vector3.ZERO, 1.0, -6.0, 0.0)
 	await get_tree().create_timer(nock, false).timeout
 	if serial != _skill_serial:
 		return
@@ -3270,6 +3280,7 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	# Held at full, as still as an ordinary aim, with only a little whirl of
 	# air at the arrowhead ([AirSwirl]); the great wind is the shot's
 	# ([PiercingShot]).
+	Sfx.play(self, ULT_CHARGE, self, Vector3.ZERO, 1.0, -6.0, 0.0)
 	var swirl := AirSwirl.new()
 	swirl.start(rig, pierce_hold + 0.05)
 	into.add_child(swirl)
@@ -3309,7 +3320,8 @@ func net_pierce_loose(dir: Vector3, damage: float, critical: bool) -> void:
 	var shot := PiercingShot.new()
 	shot.launch(from, dir, pierce_speed, pierce_reach, damage, critical, self, pierce_knock)
 	into.add_child(shot)
-	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.8, 0.0)
+	Sfx.play(self, ULT_SHOT, self, Vector3.ZERO, 1.0, -2.0, 0.0)
+	Sfx.play(self, ULT_WIND, self, Vector3.ZERO, 1.0, -9.0, 0.0)
 	# The kick of it: he is shoved back a step, dust off his feet, the camera
 	# jolts.
 	WindBlast.shake(self, 0.2, 0.45)
