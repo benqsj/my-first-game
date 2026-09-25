@@ -157,6 +157,11 @@ var _last_attack_at: float = -100.0
 @export var hair_stiffness: float = 0.8
 @export var hair_drag: float = 0.4
 @export var hair_gravity: float = 0.4
+## Capes of cloth ([ClothCape]), one spec each, set by `_configure()`. When
+## there are any the cape's spring bones are left alone: the cloth is the cape.
+var capes: Array[Dictionary] = []
+## The capes hung, for the tests.
+var cloth_capes: Array[ClothCape] = []
 
 enum Role { NONE, SWING, ROLL, HIT, DOWN, GET_UP, PLUNGE, CLIMB, FREE }
 
@@ -214,6 +219,8 @@ func _ready() -> void:
 	_skel.add_child(_stride)
 	if cloth_enabled:
 		_setup_cloth()
+	# The capes are the rig's own cloth, not spring bones: hung on every rig.
+	_setup_capes()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
 	for mesh_name in ["tariel_shield", "tariel_tower_shield"]:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
@@ -223,9 +230,29 @@ func _ready() -> void:
 	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
 
 
-## Override to swap in another character's clip table (see `clips`).
+## Override to swap in another character's clip table (see `clips`). The
+## knight's own: his tiger's skin, hung from the fur across his shoulders.
 func _configure() -> void:
-	pass
+	capes = [{
+		"bone": "spine_02", "left": [0.21, 0.095, 1.565], "right": [-0.21, 0.095, 1.565],
+		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
+		"base": Color.html("d98a2b"), "hem": Color.html("f2c27a"), "trim": Color.html("1b1310"),
+		"pattern": "tiger", "hold": 0.5, "wind": 1.0, "drag": 0.6,
+		"colliders": [["pelvis", "neck_01", 0.17], ["thigh_l", "calf_l", 0.11], ["thigh_r", "calf_r", 0.11],
+				["calf_l", "foot_l", 0.09], ["calf_r", "foot_r", 0.09]],
+	}]
+
+
+## The cloth capes, each on its own node that draws itself in world space.
+func _setup_capes() -> void:
+	for spec in capes:
+		var cape := ClothCape.new()
+		cape.name = "Cape%d" % cloth_capes.size()
+		add_child(cape)
+		if cape.setup(_skel, spec):
+			cloth_capes.append(cape)
+		else:
+			cape.queue_free()
 
 
 ## Markers for the blade's base and tip on the weapon socket, so the swing trail
@@ -285,6 +312,8 @@ func _setup_cloth() -> void:
 	]
 	var usable: Array = []
 	for c in chains:
+		if c[0] == &"cape_00" and not capes.is_empty():
+			continue
 		if _skel.find_bone(c[0]) >= 0 and _skel.find_bone(c[1]) >= 0:
 			usable.append(c)
 	if usable.is_empty():

@@ -50,16 +50,14 @@ func _initialize() -> void:
 	_check("running plays the run cycle", anim.current_animation == "SS_Run",
 			"%s at %.1f m/s" % [anim.current_animation, Vector3(player.velocity.x, 0, player.velocity.z).length()])
 	await _shot(player, "02_run")
+	# The ponytail still hangs off spring bones; the cape is cloth now.
 	var cloth := rig.find_child("Cloth", true, false) as SpringBoneSimulator3D
-	_check("the cape hangs off spring bones", cloth != null and cloth.get_setting_count() == 2, "")
-	if cloth != null:
-		var skel: Skeleton3D = rig._skel
-		var tip := skel.find_bone("cape_05")
-		var anim_pose := skel.get_bone_pose(tip).basis.get_rotation_quaternion()
-		var rest := skel.get_bone_rest(tip).basis.get_rotation_quaternion()
-		# While running, the simulated cape should have swung off its rest.
-		var swing := rad_to_deg((skel.get_bone_global_pose(tip).basis.get_rotation_quaternion() * skel.get_bone_global_rest(tip).basis.get_rotation_quaternion().inverse()).get_angle())
-		_check("running swings the cape", swing > 5.0, "%.1f°" % swing)
+	_check("the ponytail hangs off spring bones", cloth != null and cloth.get_setting_count() == 1, "")
+	_check("the cape is cloth", rig.cloth_capes.size() == 1, "%d" % rig.cloth_capes.size())
+	if not rig.cloth_capes.is_empty():
+		var fwd := -player.global_transform.basis.z
+		var hem := rig.cloth_capes[0].hem() - player.global_position
+		_check("running streams the cape out behind", hem.dot(fwd) < -0.25, "%.2f m behind" % -hem.dot(fwd))
 	Input.action_release("move_forward")
 	for i in 40:
 		await physics_frame

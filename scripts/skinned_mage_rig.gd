@@ -57,6 +57,15 @@ var _orb_clock: float = 0.0
 
 
 func _configure() -> void:
+	# The long wine cape from under the high collar, gold at the hem, runes.
+	capes = [{
+		"bone": "spine_02", "left": [0.2, 0.155, 1.44], "right": [-0.2, 0.155, 1.44],
+		"length": 1.08, "spread": 1.35, "flare": 0.1, "wrap": 0.12, "cols": 7, "rows": 11,
+		"base": Color.html("3f0d18"), "hem": Color.html("c8a04a"), "trim": Color.html("c8a04a"),
+		"pattern": "runes", "hold": 0.5, "wind": 1.0, "drag": 0.6,
+		"colliders": [["pelvis", "neck_01", 0.17], ["thigh_l", "calf_l", 0.14], ["thigh_r", "calf_r", 0.14],
+				["calf_l", "foot_l", 0.1], ["calf_r", "foot_r", 0.1]],
+	}]
 	swing_sounds = LIGHT_SWINGS.duplicate()
 	swing_volume = -4.0
 	clips = {

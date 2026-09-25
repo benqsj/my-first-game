@@ -13,6 +13,20 @@ extends SkinnedRig
 
 
 func _configure() -> void:
+	# A short dark cape with a crimson hem, and the scarf's two tails over it.
+	var body := [["pelvis", "neck_01", 0.16], ["thigh_l", "calf_l", 0.1], ["thigh_r", "calf_r", 0.1],
+			["calf_l", "foot_l", 0.085], ["calf_r", "foot_r", 0.085]]
+	capes = [{
+		"bone": "spine_02", "left": [0.22, 0.15, 1.52], "right": [-0.22, 0.15, 1.52],
+		"length": 0.72, "spread": 1.25, "flare": 0.08, "wrap": 0.1, "cols": 6, "rows": 8,
+		"base": Color.html("30333f"), "hem": Color.html("8e1222"), "trim": Color.html("5c0b16"),
+		"hold": 0.5, "wind": 1.0, "drag": 0.6, "colliders": body,
+	}, {
+		"bone": "spine_02", "left": [0.13, 0.17, 1.5], "right": [0.03, 0.17, 1.5],
+		"length": 0.32, "spread": 0.9, "flare": 0.03, "wrap": 0.0, "cols": 2, "rows": 5,
+		"base": Color.html("8e1222"), "hem": Color.html("5c0b16"), "trim": Color.html("8e1222"),
+		"hold": 0.35, "wind": 1.4, "drag": 0.7, "colliders": [["pelvis", "neck_01", 0.17]],
+	}]
 	clips = {
 		&"idle": &"DG_Idle", &"walk": &"DG_Walk", &"run": &"DG_Run",
 		&"walk_back": &"DG_Walk_Back", &"run_back": &"DG_Run_Back",

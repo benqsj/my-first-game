@@ -28,14 +28,17 @@ func _initialize() -> void:
 	await _check_mage()
 	await _spawn(&"mage")
 	await _check_steps("the mage")
+	await _check_cape("the mage", 1)
 	await _check_moves("the mage", Player.MoveSound.ROLL)
 	await _spawn(&"rogue")
 	await _check_rogue()
 	await _spawn(&"rogue")
 	await _check_steps("the rogue")
+	await _check_cape("the rogue", 2)
 	await _check_moves("the rogue", Player.MoveSound.STEP)
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
+	await _check_cape("Tariel", 1)
 	await _check_moves("Tariel", Player.MoveSound.ROLL)
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig
@@ -47,6 +50,7 @@ func _initialize() -> void:
 	await _check_chain("the mage")
 	await _spawn(&"avtandil")
 	await _check_chain("Avtandil")
+	_check("Avtandil has no cape", (_player.rig as SkinnedRig).cloth_capes.is_empty())
 	await _check_moves("Avtandil", Player.MoveSound.ROLL)
 	print("")
 	if _failures == 0:
@@ -356,6 +360,39 @@ func _check_steps(who: String) -> void:
 	_check("%s running steps on each foot" % who, heard >= 3 and heard <= 12,
 			"%d steps in %.1f s (%d ms real)" % [heard, game_seconds, Time.get_ticks_msec() - start])
 	await _wait(30)
+
+
+## The cape is cloth: it hangs behind him standing, and running it trails
+## back and moves, and it never comes round in front or up over his head.
+func _check_cape(who: String, count: int) -> void:
+	var rig := _player.rig as SkinnedRig
+	_check("%s has his cloth" % who, rig != null and rig.cloth_capes.size() == count,
+			"%d" % (rig.cloth_capes.size() if rig != null else -1))
+	if rig == null or rig.cloth_capes.is_empty():
+		return
+	var cape := rig.cloth_capes[0]
+	await _wait(40)
+	var fwd := -_player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var hem := cape.hem() - _player.global_position
+	_check("%s: standing, it hangs behind him" % who, hem.dot(fwd) < 0.05 and hem.y < 1.3,
+			"%.2f ahead, %.2f up" % [hem.dot(fwd), hem.y])
+	var travel := cape.hem_travel
+	Input.action_press("move_forward")
+	var worst := -10.0
+	for i in 80:
+		await physics_frame
+		fwd = -_player.global_transform.basis.z
+		fwd.y = 0.0
+		fwd = fwd.normalized()
+		var h := cape.hem() - _player.global_position
+		if i > 30:
+			worst = maxf(worst, h.dot(fwd))
+	Input.action_release("move_forward")
+	_check("%s: running, it trails behind" % who, worst < 0.05, "furthest ahead %.2f" % worst)
+	_check("%s: and it moves" % who, cape.hem_travel - travel > 1.0, "%.2f m" % (cape.hem_travel - travel))
+	await _wait(40)
 
 
 ## A jump is heard going up and again coming down, and a tap of the evade has
