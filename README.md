@@ -2947,8 +2947,15 @@ strap across the chest and the quiver on his back with its arrows over the
 right shoulder, a long guard on the bow arm and a glove on the drawing hand, a
 hunting knife on the right hip and a horn and a pouch on the left, a split
 skirt with a light hem, the calves wound in linen, soft boots with the tops
-turned down; brown hair under the brim, a thin moustache and a tuft on the
-chin. His head sits down on his shoulders as Tariel's now does.
+turned down. His head sits down on his shoulders as Tariel's now does.
+
+His head, picked by the user from a set of trials (`HEADWEAR`, `FACE` and
+`FACE_LOOKS` in the build script keep them all): the hood thrown back and
+lying round his neck with its point down his back, brown hair out, swept to
+one side; and the first Avtandil's plain face — two light eyes on a flat face
+— with a little more to it: a hunter's squint with dark pupils and a lid
+line, angled brows, a small nose and mouth, stubble along the jaw and a scar
+on the right cheek.
 
 The bow is a horn-and-wood recurve: a wrapped grip and a riser with gold at
 its ends on `bow_l`, each limb tapered and bowed a little away from him, a
