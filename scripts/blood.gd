@@ -95,7 +95,8 @@ static func _linger() -> float:
 ## Lets a ground patch lie for a while, then fades it out and frees it. A patch
 ## picked up and laid again under a newer blow starts its wait again.
 static func _fade_later(patch: MeshInstance3D) -> void:
-	var old: Variant = patch.get_meta(&"fade", null)
+	# get_meta with a null default still errors when the key is missing
+	var old: Variant = patch.get_meta(&"fade") if patch.has_meta(&"fade") else null
 	if old is Tween and (old as Tween).is_valid():
 		(old as Tween).kill()
 	patch.transparency = 0.0
