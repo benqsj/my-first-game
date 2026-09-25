@@ -808,6 +808,10 @@ func _read_actions() -> void:
 			_jump_buffer_timer = jump_buffer_time
 	if Input.is_action_just_pressed("dash"):
 		_press_dash()
+	for slot in SKILL_SLOTS:
+		var action := StringName("skill_%d" % (slot + 1))
+		if InputMap.has_action(action) and Input.is_action_just_pressed(action):
+			use_skill(slot)
 	# Held down at a run this is a slide; held down otherwise it is a crouch, and
 	# the slide drops into one when it ends if the button is still down.
 	_set_crouching(Input.is_action_pressed("crouch"))
@@ -2875,4 +2879,136 @@ func _toggle_fullscreen() -> void:
 			DisplayServer.WINDOW_MODE_FULLSCREEN if windowed else DisplayServer.WINDOW_MODE_WINDOWED)
 
 
+#endregion
+
+
+#region Skills
+## The skills, by id: the name on the bar, the stamina one costs, and how long
+## before it can be used again. Which of them a hero has, and in which slot, is
+## his profile's (`CharacterProfile.skills`).
+const SKILLS := {
+	&"arrow_rain": {"name": "Rain of Arrows", "stamina": 25.0, "cooldown": 12.0},
+}
+const SKILL_SLOTS := 4
+
+## A skill went off, from `slot` (0..3).
+signal skill_used(slot: int, id: StringName)
+
+## Rain of Arrows: how far off it may fall, where it falls with nothing locked,
+## and what each arrow is worth as a share of a full draw's damage.
+@export_group("Rain of Arrows")
+@export var rain_range: float = 18.0
+@export var rain_ahead: float = 9.0
+@export var rain_share: float = 0.35
+
+## When each skill may be used again, by id, on the clock `_now()` reads.
+var _skill_ready_at: Dictionary = {}
+
+
+## The skill in `slot`, or `&""` for an empty one.
+func skill_in(slot: int) -> StringName:
+	if profile == null or slot < 0 or slot >= profile.skills.size():
+		return &""
+	var id := StringName(profile.skills[slot])
+	return id if SKILLS.has(id) else &""
+
+
+## Seconds before the skill in `slot` can be used again (0 when it can).
+func skill_cooldown_left(slot: int) -> float:
+	var id := skill_in(slot)
+	if id == &"":
+		return 0.0
+	return maxf(float(_skill_ready_at.get(id, 0.0)) - _now(), 0.0)
+
+
+## Its whole cooldown, for the bar to draw the rest against.
+func skill_cooldown(slot: int) -> float:
+	var id := skill_in(slot)
+	return float(SKILLS[id]["cooldown"]) if id != &"" else 0.0
+
+
+## Uses the skill in `slot`, if there is one, it is ready and the body is free
+## to. True if it went off.
+func use_skill(slot: int) -> bool:
+	var id := skill_in(slot)
+	if id == &"" or is_dead or skill_cooldown_left(slot) > 0.0:
+		return false
+	if state != State.GROUNDED or is_committed():
+		return false
+	var went := false
+	match id:
+		&"arrow_rain":
+			went = _arrow_rain()
+	if not went:
+		return false
+	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
+	skill_used.emit(slot, id)
+	return true
+
+
+## Rain of Arrows: one arrow up into the sky, and a moment later a volley down
+## over a ring — on what is locked, if it is in reach, or ahead of him.
+func _arrow_rain() -> bool:
+	if not _is_bow() or arrow_scene == null:
+		return false
+	if not _spend(float(SKILLS[&"arrow_rain"]["stamina"])):
+		return false
+	_drawing = false
+	_draw_timer = 0.0
+	var centre := _rain_centre()
+	var toward := centre - global_position
+	toward.y = 0.0
+	if toward.length_squared() > 0.01:
+		rotation.y = atan2(-toward.x, -toward.z)
+	_commit(0.55)
+	var from := global_position + up_direction * arrow_height
+	var up := (toward.normalized() * 0.3 + Vector3.UP).normalized() * 38.0
+	net_arrow_rain.rpc(from, up, centre, randi())
+	return true
+
+
+## Where the rain falls: on the locked target in reach, else ahead; on the
+## ground under that point.
+func _rain_centre() -> Vector3:
+	var forward := -global_transform.basis.z
+	forward.y = 0.0
+	forward = forward.normalized() if forward.length_squared() > 0.0001 else Vector3.FORWARD
+	var at := global_position + forward * rain_ahead
+	if target != null and _targetable(target):
+		var off := target.global_position - global_position
+		off.y = 0.0
+		at = global_position + off.limit_length(rain_range)
+	var space := get_world_3d().direct_space_state
+	var ray := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 12.0, at + Vector3.DOWN * 20.0, 1)
+	var hit := space.intersect_ray(ray)
+	if not hit.is_empty():
+		at = hit["position"]
+	return at
+
+
+## The rain, on every peer, from the same seed: the arrow up, the ring and the
+## volley ([ArrowRain]). Only the host's arrows count for damage, as always.
+@rpc("any_peer", "call_local", "reliable")
+func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var into := Blood.world_of(self)
+	if into == null or arrow_scene == null:
+		return
+	var shot := arrow_scene.instantiate() as Node3D
+	shot.set(&"lifetime", 0.8)
+	into.add_child(shot)
+	shot.global_position = from
+	shot.call(&"launch", up, 0.0, false, _gravity, self)
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
+	if rig != null and rig.has_method(&"loose_bow"):
+		rig.call(&"loose_bow")
+	var rain := ArrowRain.new()
+	rain.name = "ArrowRain"
+	into.add_child(rain)
+	rain.global_position = centre
+	var each := (profile.damage if profile != null else 26.0) * rain_share
+	rain.start(self, arrow_scene, rain_seed, each, profile.crit_chance if profile != null else 0.1,
+			profile.crit_damage if profile != null else 2.0)
 #endregion

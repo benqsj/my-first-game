@@ -77,6 +77,9 @@ enum Weapon {
 ## What a shot held to its full charge is worth on top of the draw's own
 ## scale. The mage's: a full charge is a bigger, blue bolt that hits harder.
 @export var full_charge_bonus: float = 1.0
+## The skills on the bar at the bottom of the screen, slot by slot (keys 1 to
+## 4): ids from [constant Player.SKILLS]. An empty slot is shown empty.
+@export var skills: PackedStringArray = PackedStringArray()
 ## Stamina a second that holding a draw or a charge costs. Run dry and the
 ## shot goes as it is.
 @export var draw_stamina: float = 0.0
