@@ -44,7 +44,22 @@ extends Brute
 enum Act {
 	NONE = 0, SWING = 1, COMBO = 2, HEAVY = 3, KICK = 4, SPIN = 5, LEAP = 6, ROAR = 7,
 	BACKHAND = 8, COMBO_THREE = 9, COMBO_SHORT = 10,
-	CHAIN_A = 11, CHAIN_B = 12, CHAIN_C = 13, DEAD = 99,
+	CHAIN_A = 11, CHAIN_B = 12, CHAIN_C = 13,
+	REACT_MARK = 40, REACT_KNOCK = 41, REACT_BURN = 42, REACT_POISON = 43, DEAD = 99,
+}
+
+## How he takes the heroes' skills: act -> clips played one after another,
+## each [clip, rate, share of it played]. From Mixamo (vepxis-art/mixamo_skills,
+## RX_*), in both his glbs.
+const REACTS := {
+	Act.REACT_MARK: [[&"RX_Flinch", 1.3, 0.7], [&"OR_Mutant_Roar", 1.15, 1.0]],
+	Act.REACT_KNOCK: [[&"RX_Falling_Down", 1.15, 1.0], [&"RX_Getting_Up", 1.25, 1.0]],
+	Act.REACT_BURN: [[&"RX_Swat_Bugs", 1.2, 0.55], [&"RX_Agony_Head", 1.1, 0.5]],
+	Act.REACT_POISON: [[&"RX_Injured_Stumble", 1.0, 0.45]],
+}
+const REACT_OF := {
+	&"mark": Act.REACT_MARK, &"knock": Act.REACT_KNOCK, &"burn": Act.REACT_BURN,
+	&"poison": Act.REACT_POISON,
 }
 
 ## The clips, by what they are for.
@@ -579,7 +594,30 @@ func _begin(what: int, clip: StringName, rate: float) -> void:
 	_start(what, clip_length(clip) / maxf(rate, 0.05))
 
 
+## A skill landing: the orc's own reactions. Only a knock stops what he is
+## doing; the rest wait for him to be free.
+func _react(kind: StringName) -> void:
+	if not REACT_OF.has(kind):
+		return
+	var what: int = REACT_OF[kind]
+	if kind != &"knock" and act != ACT_NONE:
+		return
+	var total := 0.0
+	for seg: Array in REACTS[what]:
+		if _own == null or not _own.has_animation(seg[0]):
+			return
+		total += clip_length(seg[0]) * float(seg[2]) / float(seg[1])
+	_start(what, total)
+
+
+## Knocked down he is open, as when reeling from a parry.
+func _reel_act() -> bool:
+	return act == Act.REACT_KNOCK
+
+
 func _turn_while_acting() -> float:
+	if REACTS.has(act):
+		return 0.0
 	if act == Act.LEAP:
 		return 0.9
 	return 0.5 if act in CHAINS else 0.3
@@ -667,6 +705,9 @@ func _show_act() -> void:
 		# The clip that threw the blow is left where it is, and run back.
 		_reel_clock = 0.0
 		return
+	if REACTS.has(act):
+		_react_seg = -1
+		return
 	if _own == null or not _acts.has(act):
 		return
 	var spec: Array = _acts[act]
@@ -699,6 +740,8 @@ func _animate(delta: float) -> void:
 			if _own.current_animation != String(_idle):
 				_own.play(_idle, 0.35)
 			_own.speed_scale = 1.0
+	elif REACTS.has(act):
+		_play_react()
 	elif act == ACT_NONE:
 		var roused := mode != Mode.GUARD
 		var clip: StringName
@@ -718,7 +761,7 @@ func _animate(delta: float) -> void:
 		if _own.current_animation != String(clip):
 			_own.play(clip, 0.25)
 		_own.speed_scale = clampf(planar / float(_natural.get(clip, 1.5)), 0.6, 1.8) if moving else 1.0
-	else:
+	elif not REACTS.has(act):
 		_own.speed_scale = 1.0
 	_own.advance(delta)
 	# His clips are kept on the spot; the body is what moves him.
@@ -735,6 +778,32 @@ func _animate(delta: float) -> void:
 			_skeleton.set_bone_pose_rotation(tb.y, anim.rotation_track_interpolate(tb.x, _guard_time))
 	_place_axe()
 	_feed_arc(delta)
+
+
+## The reaction's clips, one after another, by the time since it started.
+var _react_seg: int = -1
+
+
+func _play_react() -> void:
+	var segs: Array = REACTS[act]
+	var t := _shown_time
+	var i := 0
+	while i < segs.size() - 1:
+		var seg: Array = segs[i]
+		var span := clip_length(seg[0]) * float(seg[2]) / float(seg[1])
+		if t < span:
+			break
+		t -= span
+		i += 1
+	if i != _react_seg:
+		_react_seg = i
+		var seg: Array = segs[i]
+		if _own.has_animation(seg[0]):
+			var again := _own.current_animation == String(seg[0])
+			_own.play(seg[0], 0.12 if i == 0 else 0.25, float(seg[1]))
+			if again:
+				_own.seek(0.0, true)
+	_own.speed_scale = float((segs[_react_seg] as Array)[1])
 
 
 ## The axe cuts the air while it moves fast in an attack.

@@ -248,6 +248,12 @@ func _begin(what: int) -> void:
 	_start(what, at)
 
 
+## Arkdeva takes only the knock as a blow: it rears as if parried.
+func _react(kind: StringName) -> void:
+	if kind == &"knock" and act != Act.DEAD:
+		_reel()
+
+
 func _reel() -> void:
 	_begin(Act.PARRIED)
 

@@ -531,6 +531,7 @@ func _take_hits() -> void:
 		take_hit(damage_per_hit, rig.last_cut_point, blow, false, false, knight)
 		knight.rig.bloody()
 		knight.net_blade_landed.rpc()
+		knight.blade_hit(self, rig.last_cut_point)
 		if is_dead:
 			return
 
@@ -581,6 +582,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 
 	if _reeling > 0.0:
 		damage *= Recoil.RIPOSTE
+	# Marked by the hunter, everything bites deeper.
+	damage *= Afflictions.factor(self)
 	health = maxf(health - damage, 0.0)
 	# Who is owed for it. Kept here rather than at the call sites: this is the
 	# one door every kind of damage comes through, and a tally that has to be
@@ -670,6 +673,43 @@ const LOOT_SOUND := "res://sounds/all/loot_1.wav"
 ##
 ## `queue_free()` does not replicate — it is a local decision about a local
 ## node — so the peer that decided has to say so out loud.
+## Fire and poison (host, from [Afflictions]): health off, no blood, no shove.
+func take_dot(damage: float, from: Node3D = null) -> void:
+	if is_dead or not _decides():
+		return
+	damage *= Afflictions.factor(self)
+	health = maxf(health - damage, 0.0)
+	if from != null and is_instance_valid(from):
+		_threat[from.name] = float(_threat.get(from.name, 0.0)) + damage
+		provoke(from)
+	hurt.emit(health)
+	if health <= 0.0:
+		_die()
+
+
+var _reacted: Dictionary = {}
+
+
+## A hero's skill landed on it (host): thrown by the Piercing Arrow it reels
+## back on its haunches as from a parry; fire, poison and the mark make it
+## flinch.
+func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
+	if is_dead or not _decides():
+		return
+	if push.length_squared() > 0.0001:
+		velocity += Vector3(push.x, 0.0, push.z) * 1.3
+	if from != null and is_instance_valid(from):
+		provoke(from)
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < float(_reacted.get(kind, -1000.0)) + 4.0:
+		return
+	_reacted[kind] = now
+	_swipe_lands = -1.0
+	_reeling = parried_stagger if kind == &"knock" else parried_stagger * 0.4
+	_swipe_timer = maxf(_swipe_timer, _reeling)
+	net_reel.rpc()
+
+
 ## The reel from a parried swipe, on every peer.
 @rpc("authority", "call_local", "reliable")
 func net_reel() -> void:

@@ -35,7 +35,14 @@ signal guard_broken
 
 ## What the body is doing right now. Replicated, and each new one bumps
 ## `act_serial`, which is what tells the other peers to play it.
-enum Act { NONE, ATTACK, BLOCK, DASH, BREAK, DEAD, REEL }
+enum Act { NONE, ATTACK, BLOCK, DASH, BREAK, DEAD, REEL, REACT_KNOCK, REACT_BURN, REACT_POISON }
+## How it takes the heroes' skills: act -> clips from the animation library
+## one after another, each [clip, rate, share of it played].
+const REACTS := {
+	Act.REACT_KNOCK: [[&"Hit_Knockback", 1.3, 0.85], [&"LayToIdle", 1.5, 1.0]],
+	Act.REACT_BURN: [[&"Zombie_Scratch", 1.6, 1.0]],
+	Act.REACT_POISON: [[&"Zombie_Idle", 1.2, 0.5]],
+}
 ## What it is about, which only decides the idle it stands in on other peers.
 enum Mode { GUARD, CHASE, FIGHT, RETURN }
 
@@ -250,6 +257,8 @@ func _process(delta: float) -> void:
 		_play_act()
 	if act == Act.NONE:
 		_play_locomotion(delta)
+	elif REACTS.has(act):
+		_play_react(delta)
 	elif act == Act.REEL:
 		_reel_clock += delta
 		if _reel_clock >= Recoil.REBOUND and not _reel_settled:
@@ -282,6 +291,9 @@ func _play_act() -> void:
 			_reel_clock = 0.0
 			_reel_settled = false
 			_anim.rewind(2.4)
+		Act.REACT_KNOCK, Act.REACT_BURN, Act.REACT_POISON:
+			_react_clock = 0.0
+			_react_seg = -1
 
 
 ## Idle or walking, retimed to the ground like the [Monster]'s — in a fighting
@@ -461,6 +473,8 @@ func _start(what: Act) -> void:
 				length = guard_break_time
 	if what == Act.REEL:
 		length = Recoil.STAGGER
+	if REACTS.has(what):
+		length = _react_length(what)
 	_act_length = length
 
 
@@ -483,7 +497,7 @@ func _run_act(delta: float) -> void:
 			while _blows_done < _blows.size() and through >= _blows[_blows_done]:
 				_blows_done += 1
 				_strike(_blows_done - 1)
-		Act.BLOCK, Act.BREAK, Act.REEL:
+		Act.BLOCK, Act.BREAK, Act.REEL, Act.REACT_KNOCK, Act.REACT_BURN, Act.REACT_POISON:
 			_slow(delta, 3.0)
 		Act.DASH:
 			var push := clampf(1.0 - _act_time / 0.4, 0.0, 1.0)
@@ -588,6 +602,7 @@ func _watch_blades() -> void:
 		if _receive(sword_damage, near[1], blow, knight):
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
+			knight.blade_hit(self, near[1])
 		if is_dead:
 			return
 
@@ -601,6 +616,78 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	# The archer may have left while the arrow was in the air.
 	var shooter := from as Node3D if is_instance_valid(from) else null
 	_receive(damage * (1.5 if critical else 1.0), at, blow, shooter)
+
+
+## Fire and poison (host, from [Afflictions]): health off with no blood and
+## no shove, and no guard against it.
+func take_dot(damage: float, from: Node3D = null) -> void:
+	if is_dead or not _decides():
+		return
+	if from != null and is_instance_valid(from):
+		_rouse(from)
+	health = maxf(health - damage * Afflictions.factor(self), 0.0)
+	hurt.emit(health)
+	if health <= 0.0:
+		_die()
+
+
+## When each kind of skill last made it react.
+var _reacted: Dictionary = {}
+var _react_clock: float = 0.0
+var _react_seg: int = -1
+
+
+## A hero's skill landed on it (host). Thrown back and down by the Piercing
+## Arrow; flailing in fire; retching on poison; the mark only makes it reel.
+## The same kind does not set it off again for 5 s.
+func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
+	if is_dead or not _decides():
+		return
+	if from != null and is_instance_valid(from):
+		_rouse(from)
+	if push.length_squared() > 0.0001:
+		velocity += Vector3(push.x, 0.0, push.z)
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < float(_reacted.get(kind, -1000.0)) + 5.0:
+		return
+	_reacted[kind] = now
+	match kind:
+		&"knock":
+			_start(Act.REACT_KNOCK)
+		&"mark":
+			if act == Act.NONE:
+				_start(Act.REEL)
+		&"burn":
+			if act == Act.NONE or act == Act.BLOCK:
+				_start(Act.REACT_BURN)
+		&"poison":
+			if act == Act.NONE or act == Act.BLOCK:
+				_start(Act.REACT_POISON)
+
+
+func _react_length(what: Act) -> float:
+	var total := 0.0
+	for seg: Array in REACTS[what]:
+		total += _anim.clip_length(seg[0]) * float(seg[2]) / float(seg[1])
+	return total
+
+
+func _play_react(delta: float) -> void:
+	_react_clock += delta
+	var segs: Array = REACTS[act]
+	var t := _react_clock
+	var i := 0
+	while i < segs.size() - 1:
+		var seg: Array = segs[i]
+		var span := _anim.clip_length(seg[0]) * float(seg[2]) / float(seg[1])
+		if t < span:
+			break
+		t -= span
+		i += 1
+	if i != _react_seg:
+		_react_seg = i
+		var seg: Array = segs[i]
+		_anim.play(seg[0], 0.1 if i == 0 else 0.25, float(seg[1]), 1.0, true)
 
 
 ## True while dashing aside: a spell that was hunting it lets go.
@@ -633,9 +720,12 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
 				_act_time = 0.0
 			return false
 
-	if act == Act.REEL:
-		# Reeling from a parry, it is wide open: the riposte bites deeper.
+	if act == Act.REEL or act == Act.REACT_KNOCK:
+		# Reeling from a parry, or thrown down, it is wide open: the riposte
+		# bites deeper.
 		damage *= Recoil.RIPOSTE
+	# Marked by the hunter, everything bites deeper.
+	damage *= Afflictions.factor(self)
 	health = maxf(health - damage, 0.0)
 	stamina = maxf(stamina - hit_cost, 0.0)
 	_regen_wait = regen_delay

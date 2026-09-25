@@ -109,6 +109,15 @@ var _body_rest_y: float = 0.0
 var _waves: Array[Dictionary] = []
 ## Seconds since it last fought or was struck, for `regen_after`.
 var _calm: float = 0.0
+## A skill's shove (the Piercing Arrow), host side: added to the move each
+## frame and dying away.
+var _shove := Vector3.ZERO
+## When each kind of skill last made it react, so one cannot be kept reeling.
+var _reacted: Dictionary = {}
+## How long before the same kind of skill makes it react again.
+@export var react_again: float = 6.0
+## How much of a skill's shove it takes (a big body moves less).
+@export var shove_taken: float = 0.6
 
 
 func _ready() -> void:
@@ -200,7 +209,13 @@ func _physics_process(delta: float) -> void:
 		_start(ACT_NONE, 0.0)
 	_think(delta)
 	StepUp.climb(self, delta, step_height, step_probe)
+	var own := velocity
+	if _shove.length_squared() > 0.0001:
+		velocity += _shove
+		_shove *= exp(-4.0 * delta)
 	move_and_slide()
+	if _shove.length_squared() > 0.0001:
+		velocity = Vector3(own.x, velocity.y, own.z)
 
 
 ## Left alone long enough, it mends.
@@ -529,6 +544,7 @@ func _watch_blades() -> void:
 		if _receive(sword_damage, near[1], blow, knight):
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
+			knight.blade_hit(self, near[1])
 		if is_dead:
 			return
 
@@ -554,6 +570,8 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 	# Reeling from a parry, it is wide open: the riposte bites deeper.
 	if is_reeling():
 		damage *= Recoil.RIPOSTE
+	# Marked by the hunter, everything bites deeper.
+	damage *= Afflictions.factor(self)
 	health = maxf(health - damage * (1.0 - armour), 0.0)
 	hurt.emit(health)
 	if bleed:
@@ -562,6 +580,43 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 	if health <= 0.0:
 		_die()
 	return true
+
+
+## Fire and poison (host, from [Afflictions]): health off with no blood, no
+## shove, through half the hide.
+func take_dot(damage: float, from: Node3D = null) -> void:
+	if is_dead or not _decides():
+		return
+	if from != null and is_instance_valid(from):
+		_rouse(from)
+	_calm = 0.0
+	health = maxf(health - damage * Afflictions.factor(self) * (1.0 - armour * 0.5), 0.0)
+	hurt.emit(health)
+	if health <= 0.0:
+		_die()
+
+
+## A hero's skill landed on it (host): `kind` is &"mark", &"knock", &"burn" or
+## &"poison"; `push` is a shove. A kind says how it shows it ([method _react]);
+## the same kind does not set it off again for `react_again` seconds.
+func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
+	if is_dead or not _decides():
+		return
+	if from != null and is_instance_valid(from):
+		_rouse(from)
+	if push.length_squared() > 0.0001:
+		_shove += Vector3(push.x, 0.0, push.z) * shove_taken
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < float(_reacted.get(kind, -1000.0)) + react_again:
+		return
+	_reacted[kind] = now
+	_react(kind)
+
+
+## How it shows a skill. The plain one: thrown back, it reels.
+func _react(kind: StringName) -> void:
+	if kind == &"knock":
+		_reel()
 
 
 @rpc("authority", "call_local", "unreliable")
