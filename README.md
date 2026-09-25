@@ -3022,3 +3022,48 @@ brought through, and the bolt leaves the crystal as it comes past his shoulder
 (frame 19 of 46, measured on the crystal), with a burst of sparks there and the
 stone flaring. Downloaded without anyone pressing Save: the page's own API
 (export, monitor, the job's URL), and curl on the Mac.
+
+## Hunter's Mark, the Piercing Arrow, the Fire Arrow, the Poisoned Blade
+
+Four skills more on the bar, each with the creature's answer to it. What stays
+on a creature (the mark, burning, poison) is an `Afflictions` node under it
+(`scripts/afflictions.gd`): it keeps the timers, draws the look, and — on the
+host only — ticks damage every 0.5 s through the creature's `take_dot` (which
+ignores half the armour). `Afflictions.factor(creature)` is what a blow's
+damage is multiplied by. Flashes, rings, sparks and flames are built by
+`SkillFx` (`scripts/skill_fx.gd`). The effects were shown first as Blender
+videos (vepxis-art `skills/videos/`) and then built here to match.
+
+**Hunter's Mark** (Avtandil, key 2; 12 stamina, 14 s): he points at what he has
+locked, or the best thing in front within 32 m (`AV_Point_Charge`, from
+Mixamo, frames 36–132 at 1.4×). For 10 s it wears a red outline and a turning
+sigil over its head, and every blow on it — anyone's — does 20% more. If there
+is nothing to mark, the skill does not go and costs nothing.
+
+**Piercing Arrow** (key 3; 30 stamina, 10 s): a full draw with wind and light
+gathering at the arrowhead (`BowCharge`), then a shot that goes on through
+everything on its line for 40 m (`PiercingShot`, a sweep through the
+creatures' layer that leaves out what it already went through), hurting each
+and throwing it back and down.
+
+**Fire Arrow** (key 4; 25 stamina, 12 s): the head catches while he draws; the
+arrow flies in an arc to where he aims (`FireShot`) and where it lands the
+ground burns for 5 s (`FireZone`: flames, embers, smoke, a glow and a scorch
+mark that stays a while). Whatever stands in it burns, and goes on burning
+1.5 s after it steps out. The flames are alpha-blended, not added — added over
+the bright meadow they washed out to cream.
+
+**Poisoned Blade** (the Assassin, key 1; 15 stamina, 18 s): he takes a vial
+out, pours it along the blade and tosses it away (`DG_Poison_Coat`, baked in
+Blender with IK — Mixamo had nothing for it). For 10 s the blade is green and
+drips (`VenomBlade`), and each cut adds a stack of poison, three at most, each
+ticking on its own; the poisoned body's veins show green.
+
+**What the creatures do** (`react(kind, from, push)`, called on the host and
+replicated as an act): the orcs flinch and roar when marked (`RX_Flinch`,
+`OR_Mutant_Roar`), fall and get up when the piercing arrow hits them
+(`RX_Falling_Down`, `RX_Getting_Up` — open to blows while down), swat at the
+fire (`RX_Swat_Bugs`, `RX_Agony_Head`) and stumble with poison
+(`RX_Injured_Stumble`) — Mixamo clips retargeted onto both orc glbs. Imps and
+the other fighters are knocked back, scratch at the flames and sway; wolves
+reel and are shoved. `tests/new_skills_test.gd`.
