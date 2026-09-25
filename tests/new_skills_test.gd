@@ -100,9 +100,18 @@ func _check_pierce() -> void:
 	await _ready_up()
 	_player.call("_hold_target", near)
 	_check("the piercing arrow goes", _player.use_skill(2))
+	# Held forward through the draw: he stays where he is.
+	var stood := _player.global_position
+	Input.action_press("move_forward")
 	var knocked := [false, false]
 	for i in 160:
 		await physics_frame
+		if i == 70:
+			var moved := Vector2(_player.global_position.x - stood.x, _player.global_position.z - stood.z).length()
+			Input.action_release("move_forward")
+			_check("drawing the skill shot he does not walk", moved < 0.05, "%.2f m" % moved)
+			_check("the string is drawn, the arrow on it", _player.rig._bow_mod.draw > 0.9
+					and _player.rig._bow_mod.arrow.visible, "draw %.2f" % _player.rig._bow_mod.draw)
 		if is_instance_valid(near) and int(near.act) == Fighter.Act.REACT_KNOCK:
 			knocked[0] = true
 		if is_instance_valid(far) and int(far.act) == Fighter.Act.REACT_KNOCK:

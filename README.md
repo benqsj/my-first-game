@@ -3069,7 +3069,7 @@ fire (`RX_Swat_Bugs`, `RX_Agony_Head`) and stumble with poison
 the other fighters are knocked back, scratch at the flames and sway; wolves
 reel and are shoved. `tests/new_skills_test.gd`.
 
-## The mark only over the head; skill shots off the string; the rain in volleys
+## The mark only over the head; skill shots drawn like any shot, wind after
 
 **The mark's numbers** (`Afflictions.factor(creature, from)`): a marked
 creature takes `MARK_BOW` (×1.05) from anyone fighting with a bow — the
@@ -3084,21 +3084,22 @@ over the creature's head bone (`Afflictions._over_head()`: the first bone
 called `head`, else anything with "head" in it, else `bar_height`), so it rides
 a stooping orc or a spider's rider.
 
-**Skill shots leave from the bow.** For the Piercing and Fire Arrows (and now
-the rain) `SkinnedArcherRig.charged_shot(hold, pitch)` draws the string by hand
-over the nock's second half and holds it at full, with the arrow on the string
-and the chest turned onto the shot, until `loose_skill_shot()`; the shot leaves
-from `arrow_tip()` — the head of the drawn arrow — and `BowCharge` gathers its
-wind or fire there, not round the bow hand. Its light is smaller and dimmer
-(range 1.6), so the hero is no longer washed cyan.
+**Piercing and Fire Arrow are drawn as an ordinary shot is.**
+`SkinnedArcherRig.charged_shot(hold, pitch)` plays the ordinary draw
+(`AV_Nock_Draw` over the profile's `draw_time`), brings the string back with
+it, and holds at full (the draw's last frames slowed right down — the aim idle
+drops the bow) until `loose_skill_shot()`, which is the ordinary release. The
+shot leaves from `arrow_tip()`, the head of the drawn arrow. Nothing gathers on
+the arrow while it is held (`BowCharge` is no longer used): what the skill is
+shows once it has gone. From the press to the release he does not walk
+(`Player._root_timer`; turning is unchanged).
 
-**Rain of Arrows.** The leaning-back `AV_Sky_Shot` is no longer played (still
-in the glb): the sky shot is his own nock and draw with the chest turned 60°
-up (`SKY_PITCH` 1.05 rad), a breath at full (`SKY_HOLD`), and the release.
-Three arrows go up, fanned, trailing gold; where they top out
-(`ArrowRain.burst_at`, 0.6 s) a gold flash, a ring and sparks; then the
-volley comes down in three waves (`waves`, each spread over `wave_spread` of
-its slot) with gold streaks twice as wide, and each arrow throws up dust and a
-spark where it lands (`ArrowRain.land_at`, into the world so the rain itself
-still draws nothing on the ground). `skills_test`, `new_skills_test`.
+**The Piercing Arrow looks like wind** (`PiercingShot`): a real arrow, two
+pale streams of air spiralling round it, a faint wake behind, puffs of air
+thrown off every 2 m, a puff off the string and a gust through what it
+strikes — soft, see-through, alpha-blended; nothing blue, nothing glowing, no
+light. The Fire Arrow is unchanged in flight (`FireShot`).
 
+The Rain of Arrows is as it was (`AV_Sky_Shot`, `ArrowRain`) — a round that
+changed it was undone at the user's word. `new_skills_test` checks he stands
+still through the draw and that the string is drawn with the arrow on it.
