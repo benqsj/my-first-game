@@ -151,8 +151,13 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	_struck.clear()
 	var attacked := false
 	var cut_air := false
-	for i in 900:
+	var last_act := -1
+	for i in 1800:
 		await physics_frame
+		if orc.act != last_act:
+			last_act = orc.act
+			print("    (act %d at %.1f m, player y %.2f, orc y %.2f, player state %d)" % [orc.act,
+					orc._distance_to(_player), _player.global_position.y, orc.global_position.y, _player.state])
 		attacked = attacked or orc.act != Brute.ACT_NONE
 		cut_air = cut_air or (orc._arc != null and orc._arc.emitting)
 		if not _struck.is_empty():
@@ -304,15 +309,17 @@ func _check_arkdeva(ark: Arkdeva) -> void:
 	ark.velocity = Vector3.ZERO
 
 	ark._cooldown = 999.0
-	await _attack(ark, Arkdeva.Act.STAMP, 5.5, "the stamp", ark.stamp_damage)
-	await _attack(ark, Arkdeva.Act.STRIKE_L, 5.2, "the left scythe", ark.strike_damage)
-	await _attack(ark, Arkdeva.Act.STRIKE_R, 5.2, "the right scythe", ark.strike_damage)
-	await _attack(ark, Arkdeva.Act.CHOP, 5.4, "the chop from over the top", ark.chop_damage)
+	# Each blow lands only where its leg or scythe comes down (tests/sweep_test.gd
+	# maps them): the front legs out to either side, the scythes just ahead.
+	await _attack(ark, Arkdeva.Act.STAMP, Vector2(3.4, 2.6), "the stamp", ark.stamp_damage)
+	await _attack(ark, Arkdeva.Act.STRIKE_L, Vector2(2.4, 0.0), "the left scythe", ark.strike_damage)
+	await _attack(ark, Arkdeva.Act.STRIKE_R, Vector2(2.4, 0.0), "the right scythe", ark.strike_damage)
+	await _attack(ark, Arkdeva.Act.CHOP, Vector2(2.0, 0.0), "the chop from over the top", ark.chop_damage)
 
 	# The combo: close, the three scythes; far, only the thorns.
 	await _stand_up()
 	var spot := ark.global_position
-	_player.global_position = spot + ark._forward() * 5.2 + Vector3.UP * 0.2
+	_player.global_position = spot + ark._forward() * 2.4 + Vector3.UP * 0.2
 	_struck.clear()
 	ark._begin(Arkdeva.Act.COMBO)
 	var downed := false
@@ -392,11 +399,15 @@ func _check_arkdeva(ark: Arkdeva) -> void:
 	_check("and it collapses", ark._tilt.position.y < -0.5 * ark.visual_scale, "%.2f" % ark._tilt.position.y)
 
 
-func _attack(ark: Arkdeva, what: int, gap: float, label: String, damage: float) -> void:
+func _attack(ark: Arkdeva, what: int, at: Vector2, label: String, damage: float) -> void:
 	await _stand_up()
 	await _until_idle(ark)
 	var spot := ark.global_position
-	_player.global_position = spot + ark._forward() * gap + Vector3.UP * 0.2
+	var right := ark._forward().cross(Vector3.UP)
+	_player.global_position = spot + ark._forward() * at.x + right * at.y + Vector3.UP * 0.2
+	# Held facing ahead, so the blow comes down where it was measured.
+	var turn := ark.turn_speed
+	ark.turn_speed = 0.0
 	_struck.clear()
 	ark._begin(what)
 	for i in 300:
@@ -405,6 +416,7 @@ func _attack(ark: Arkdeva, what: int, gap: float, label: String, damage: float) 
 		await physics_frame
 		if ark.act == Brute.ACT_NONE:
 			break
+	ark.turn_speed = turn
 	_check("%s lands for %d" % [label, damage], _struck.has(damage), str(_struck))
 #endregion
 

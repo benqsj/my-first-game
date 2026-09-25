@@ -118,6 +118,9 @@ var _reacted: Dictionary = {}
 @export var react_again: float = 6.0
 ## How much of a skill's shove it takes (a big body moves less).
 @export var shove_taken: float = 0.6
+## The blows under way, as the weapon or limb that throws each ([WeaponSweep]):
+## host side, run once a frame after the pose is set.
+var _sweeps: Array[WeaponSweep] = []
 
 
 func _ready() -> void:
@@ -249,6 +252,11 @@ func _process(delta: float) -> void:
 	else:
 		_shown_time += delta
 	_animate(delta)
+	# A blow lands only where the weapon has actually been: checked against the
+	# pose just set, from where it was a frame ago.
+	if _decides() and not is_dead:
+		WeaponSweep.run(_sweeps, _act_time, act_serial, get_tree(), delta)
+	WeaponSweep.draw(self, _sweeps)
 #endregion
 
 
@@ -409,6 +417,7 @@ func _forward() -> Vector3:
 func _start(what: int, length: float) -> void:
 	act = what
 	act_serial += 1
+	_sweeps.clear()
 	_act_time = 0.0
 	_act_length = length
 #endregion
@@ -441,6 +450,15 @@ func _players_ahead(span: float, cone: float) -> Array[Node3D]:
 		if to_them.length() < 0.8 or ahead.dot(to_them.normalized()) >= cone:
 			found.append(who)
 	return found
+
+
+## Arms one blow of the act just started: `stretches` is the weapon or limb as
+## [WeaponSweep] wants it, live from `start` to `end` seconds into the act, and
+## `effect` what it does to whoever it passes through.
+func _sweep(stretches: Callable, slowest: float, start: float, end: float, effect: Callable) -> WeaponSweep:
+	var sweep := WeaponSweep.blow(stretches, slowest, start, end, act_serial, effect)
+	_sweeps.append(sweep)
+	return sweep
 
 
 ## One blow on one player. `blow` of `blows`: a combo that lands every blow is

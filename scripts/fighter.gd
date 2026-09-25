@@ -165,6 +165,17 @@ var _corpse_age: float = 0.0
 var _cleared: bool = false
 ## The bones the reel from a parry bends, and how far into it this peer is.
 var _reel_bones: Dictionary = {}
+## The combo's blows as its fists ([WeaponSweep]), host side.
+var _sweeps: Array[WeaponSweep] = []
+## How long either side of the moment a hand moves fastest its blow is live.
+const BLOW_BEFORE := 0.14
+const BLOW_AFTER := 0.1
+## A forearm and fist, in metres at scale 1.
+const FIST_RADIUS := 0.11
+## How far off its fists land (measured: about 1.4 m round it at scale 1),
+## and how fast it steps in to bring them there.
+@export var fist_reach: float = 1.05
+@export var close_speed: float = 3.0
 var _reel_clock: float = 0.0
 var _reel_settled: bool = false
 
@@ -269,6 +280,9 @@ func _process(delta: float) -> void:
 	# fall itself is the body going over (`_topple`).
 	if not is_dead or _corpse_age < FREEZE_AT:
 		_anim.advance(delta)
+	if _decides() and not is_dead:
+		WeaponSweep.run(_sweeps, _act_time, act_serial, get_tree(), delta)
+	WeaponSweep.draw(self, _sweeps)
 	if act == Act.REEL and not is_dead and _skeleton != null:
 		Recoil.pose(_skeleton, self, _reel_bones, _reel_clock)
 
@@ -459,6 +473,7 @@ func _forward() -> Vector3:
 func _start(what: Act) -> void:
 	act = what
 	act_serial += 1
+	_sweeps.clear()
 	_act_time = 0.0
 	var length := 0.0
 	if _anim != null:
@@ -483,6 +498,47 @@ func _begin_attack() -> void:
 	_regen_wait = regen_delay
 	_blows_done = 0
 	_start(Act.ATTACK)
+	if _skeleton == null:
+		return
+	for i in _blows.size():
+		var moment := _blows[i] * _act_length
+		var blow := i
+		_sweeps.append(WeaponSweep.blow(_fists, 2.5, moment - BLOW_BEFORE, moment + BLOW_AFTER,
+				act_serial, func(who: Node3D) -> void:
+					who.call("receive_blow", hit_damage, self, blow, _blows.size(), act_serial)))
+
+
+## Up to each blow of the combo it steps in, so its fists land where they are
+## aimed: true while it is stepping.
+func _close_in() -> bool:
+	if _quarry == null or _blows_done >= _blows.size():
+		return false
+	var gap := _distance_to(_quarry)
+	var want := fist_reach * visual_scale
+	if gap <= want:
+		return false
+	var left := _blows[_blows_done] * _act_length - _act_time
+	var pace := minf((gap - want) / maxf(left, 0.15), close_speed)
+	var ahead := _forward() * pace
+	velocity.x = ahead.x
+	velocity.z = ahead.z
+	return true
+
+
+## Both forearms and fists, out to the fingertips, as they are this frame.
+func _fists() -> Array:
+	var out := []
+	var r := FIST_RADIUS * visual_scale
+	for side in ["l", "r"]:
+		var elbow := _skeleton.find_bone("lowerarm_" + side)
+		var wrist := _skeleton.find_bone("hand_" + side)
+		var tip := _skeleton.find_bone("middle_04_leaf_" + side)
+		if elbow < 0 or wrist < 0:
+			continue
+		out.append(WeaponSweep.bones(_skeleton, elbow, wrist, r))
+		if tip >= 0:
+			out.append(WeaponSweep.bones(_skeleton, wrist, tip, r))
+	return out
 
 
 ## Moves an action on: lands the combo's blows, carries the dash, and hands
@@ -492,11 +548,11 @@ func _run_act(delta: float) -> void:
 		Act.NONE, Act.DEAD:
 			return
 		Act.ATTACK:
-			_slow(delta, 2.0)
+			if not _close_in():
+				_slow(delta, 2.0)
 			var through := _act_time / maxf(_act_length, 0.001)
 			while _blows_done < _blows.size() and through >= _blows[_blows_done]:
 				_blows_done += 1
-				_strike(_blows_done - 1)
 		Act.BLOCK, Act.BREAK, Act.REEL, Act.REACT_KNOCK, Act.REACT_BURN, Act.REACT_POISON:
 			_slow(delta, 3.0)
 		Act.DASH:
@@ -507,23 +563,6 @@ func _run_act(delta: float) -> void:
 		_cooldown = maxf(_cooldown, 0.3) if act != Act.ATTACK \
 				else _rng.randf_range(attack_cooldown.x, attack_cooldown.y)
 		_start(Act.NONE)
-
-
-## One blow of the combo: everyone in front of it and within reach is hit. Which
-## blow it is goes along, so a player can tell a combo that landed whole — the
-## only thing that knocks him down — from one that did not.
-func _strike(blow: int) -> void:
-	var ahead := _forward()
-	var span := reach + 0.5
-	for node in get_tree().get_nodes_in_group("player"):
-		var who := node as Node3D
-		if who == null or not who.has_method("receive_blow") or Brute._fallen(who):
-			continue
-		var to_them := who.global_position - global_position
-		to_them.y = 0.0
-		if to_them.length() > span or ahead.dot(to_them.normalized()) < 0.3:
-			continue
-		who.call("receive_blow", hit_damage, self, blow, _blows.size(), act_serial)
 
 
 ## A knight within reach has just started a swing at it: guard, sidestep, or

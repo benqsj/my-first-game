@@ -146,6 +146,32 @@ const ARC_TIP := Vector3(0.16, 0.68, 0.0)
 const GREAT_ARC_BASE := Vector3(0.0, 38.0, 0.0)
 const GREAT_ARC_TIP := Vector3(0.0, 84.0, 0.0)
 const GREAT_AXE_HEAD := Vector3(0.0, 62.0, 0.0)
+## The axe as its blows see it ([WeaponSweep]): the haft from the fist up to the
+## head, and the head out to the far corner of the bit, each a capsule this
+## thick — in the axe's own units (the village axe's, and the great axe's
+## centimetres).
+const HAFT_RADIUS := 0.035
+const BIT_RADIUS := 0.08
+const GREAT_HAFT_RADIUS := 3.0
+const GREAT_BIT_RADIUS := 20.0
+## A foot in the kick, in metres.
+const FOOT_RADIUS := 0.2
+## How long either side of the moment his hand moves fastest a blow is live,
+## in seconds: the swing coming through, and a little of its follow-through.
+const BLOW_BEFORE := 0.16
+const BLOW_AFTER := 0.12
+## The spin carries the axe right round him, the kick is a leg's whole swing,
+## and the overhead is the axe coming all the way down.
+const SPIN_BEFORE := 0.35
+const SPIN_AFTER := 0.3
+const KICK_BEFORE := 0.22
+const KICK_AFTER := 0.15
+const OVERHEAD_BEFORE := 0.28
+const OVERHEAD_AFTER := 0.06
+## Slower than this at the bit, metres a second, the axe is only being carried.
+const CUTTING_SPEED := 4.0
+## Around where the overhead hits the ground, the stones that burst up.
+const SLAM_BURST := 0.9
 
 ## Two-handed, the great-sword clips and the double-bitted axe (see above).
 @export var great_axe: bool = false
@@ -171,6 +197,20 @@ const GREAT_AXE_HEAD := Vector3(0.0, 62.0, 0.0)
 @export var slam_range: float = 9.0
 ## How fast he walks in behind a chain, to stay on whoever backs off from it.
 @export var chain_advance: float = 2.2
+## How far from him his axe really lands (measured: 3.1 to 4 m round him), and
+## his foot in the kick. He opens from further off than that (`reach`), so up
+## to each blow he steps in — no faster than `close_speed` — until whoever he
+## is after is this far off: a blow thrown from too far away is a miss.
+@export var strike_reach: float = 2.9
+@export var kick_reach: float = 1.6
+@export var close_speed: float = 3.6
+## His clips were made for a man's height. Twice that, his flat swings would
+## sail over a man's head — and now that a blow has to touch, they would miss —
+## so around each blow he stoops into it: this far forward at the waist, in
+## degrees, bringing the axe down to a man's chest.
+@export var stoop: float = 17.0
+## How long either side of a blow the stoop takes to come and go, seconds.
+@export var stoop_ease: float = 0.35
 ## His ground is the water his camp stands in — all of it, shore to shore —
 ## rather than a ring round the camp: he follows anyone in it, and lets go of
 ## whoever climbs out.
@@ -381,6 +421,7 @@ func _make_axe() -> void:
 	head.position = AXE_HEAD + Vector3.DOWN * AXE_DROP
 	_axe.add_child(head)
 	_head_mark = head
+	_mark_edge(_axe, Vector3.ZERO, ARC_BASE + Vector3.DOWN * AXE_DROP, ARC_TIP + Vector3.DOWN * AXE_DROP)
 	add_child(_axe)
 	_place_axe()
 
@@ -399,6 +440,49 @@ func _mount_great_axe() -> void:
 	head.position = GREAT_AXE_HEAD
 	mount.add_child(head)
 	_head_mark = head
+	_mark_edge(mount, Vector3.ZERO, GREAT_ARC_BASE, GREAT_ARC_TIP)
+
+
+## The three marks the axe's blows are measured between: the fist, where the
+## head starts, and the far corner of the bit.
+var _hit_marks: Array[Node3D] = []
+
+
+func _mark_edge(holder: Node3D, grip: Vector3, neck: Vector3, tip: Vector3) -> void:
+	_hit_marks.clear()
+	for at in [grip, neck, tip]:
+		var mark := Marker3D.new()
+		mark.name = "Hit%d" % _hit_marks.size()
+		mark.position = at
+		holder.add_child(mark)
+		_hit_marks.append(mark)
+
+
+## The axe as it is this frame, for a [WeaponSweep].
+func _axe_parts() -> Array:
+	if _hit_marks.size() < 3:
+		# No axe: his right forearm and fist.
+		return [WeaponSweep.bones(_skeleton, _skeleton.find_bone("RightForeArm"), _hand, 0.3)]
+	var haft := GREAT_HAFT_RADIUS if great_axe else HAFT_RADIUS
+	var bit := GREAT_BIT_RADIUS if great_axe else BIT_RADIUS
+	return [
+		WeaponSweep.between(_hit_marks[0], _hit_marks[1], haft),
+		WeaponSweep.between(_hit_marks[1], _hit_marks[2], bit),
+	]
+
+
+## Both legs from the knee to the toes, for the kick.
+func _feet_parts() -> Array:
+	var out := []
+	for side in ["Left", "Right"]:
+		var knee := _skeleton.find_bone(side + "Leg")
+		var ankle := _skeleton.find_bone(side + "Foot")
+		var toe := _skeleton.find_bone(side + "ToeBase")
+		if knee < 0 or ankle < 0 or toe < 0:
+			continue
+		out.append(WeaponSweep.bones(_skeleton, knee, ankle, FOOT_RADIUS))
+		out.append(WeaponSweep.bones(_skeleton, ankle, toe, FOOT_RADIUS))
+	return out
 
 
 ## The cut in the air, laid along the axe's head.
@@ -592,6 +676,44 @@ func _begin(what: int, clip: StringName, rate: float) -> void:
 	_blows_done = 0
 	_slammed = false
 	_start(what, clip_length(clip) / maxf(rate, 0.05))
+	_arm_blows(what)
+
+
+## Every blow of the act just begun, as the axe (or the foot) it is: each one
+## lands only on whoever it actually passes through, around the moment his hand
+## moves fastest.
+func _arm_blows(what: int) -> void:
+	if not _blows.has(what) or _skeleton == null:
+		return
+	var at: PackedFloat32Array = _blows[what]
+	var spec: Array = _acts[what]
+	var count := at.size()
+	var combo := what == Act.COMBO or what == Act.COMBO_THREE or what == Act.COMBO_SHORT \
+			or what in CHAINS
+	_slam_sweep = null
+	for i in count:
+		var moment := at[i] * _act_length
+		var overhead := what == Act.HEAVY or what == Act.LEAP \
+				or (spec.size() > 3 and bool(spec[3]) and i == count - 1)
+		var sweep: WeaponSweep
+		if what == Act.KICK:
+			sweep = _sweep(_feet_parts, CUTTING_SPEED * 0.75, moment - KICK_BEFORE, moment + KICK_AFTER,
+					func(who: Node3D) -> void: _floor(who, kick_damage))
+		elif what == Act.SPIN:
+			sweep = _sweep(_axe_parts, CUTTING_SPEED, moment - SPIN_BEFORE, moment + SPIN_AFTER,
+					func(who: Node3D) -> void: _floor(who, spin_damage))
+		elif overhead:
+			var damage := leap_damage if what == Act.LEAP else slam_damage
+			sweep = _sweep(_axe_parts, CUTTING_SPEED, moment - OVERHEAD_BEFORE, moment + OVERHEAD_AFTER,
+					func(who: Node3D) -> void: _floor(who, damage))
+			_slam_sweep = sweep
+		else:
+			var damage := combo_damage if combo else swing_damage
+			# A single blow is sent as the first of two: it never floors.
+			var blows := count if combo else 2
+			var index := i
+			sweep = _sweep(_axe_parts, CUTTING_SPEED, moment - BLOW_BEFORE, moment + BLOW_AFTER,
+					func(who: Node3D) -> void: _hit(who, damage, index, blows))
 
 
 ## A skill landing: the orc's own reactions. Only a knock stops what he is
@@ -634,12 +756,7 @@ func _run_act(delta: float) -> bool:
 			velocity.z = ahead.z
 		else:
 			_slow(delta, 4.0)
-	elif act in CHAINS and _quarry != null and _distance_to(_quarry) > reach * 0.7:
-		# Behind a chain he keeps coming.
-		var ahead := _forward() * chain_advance
-		velocity.x = ahead.x
-		velocity.z = ahead.z
-	else:
+	elif not _close_in(delta):
 		_slow(delta, 2.0)
 	if _blows.has(act):
 		var blows: PackedFloat32Array = _blows[act]
@@ -650,42 +767,57 @@ func _run_act(delta: float) -> bool:
 	return _act_time < _act_length
 
 
-## One blow of the act under way landing.
+## Steps in towards the next blow of the act, so it lands where it is aimed
+## rather than short of it: true while he is stepping.
+func _close_in(_delta: float) -> bool:
+	if _quarry == null or not _blows.has(act) or act == Act.SPIN or act == Act.ROAR:
+		return false
+	var blows: PackedFloat32Array = _blows[act]
+	if _blows_done >= blows.size():
+		return false
+	var gap := _distance_to(_quarry)
+	var want := kick_reach if act == Act.KICK else strike_reach
+	if gap <= want:
+		return false
+	var left := blows[_blows_done] * _act_length - _act_time
+	var pace := minf((gap - want) / maxf(left, 0.15), close_speed)
+	if act in CHAINS:
+		pace = maxf(pace, chain_advance)
+	var ahead := _forward() * pace
+	velocity.x = ahead.x
+	velocity.z = ahead.z
+	return true
+
+
+## One blow of the act under way at its moment. The blows themselves are the
+## axe's sweeps (`_arm_blows`); what is left here is the overhead meeting the
+## ground.
 func _land(index: int, count: int) -> void:
 	match act:
 		Act.HEAVY, Act.LEAP:
 			_slam(leap_damage if act == Act.LEAP else slam_damage)
-		Act.SPIN:
-			for who in _players_near(global_position, reach + 0.6):
-				_floor(who, spin_damage)
-		Act.KICK:
-			for who in _players_ahead(reach * 0.7, 0.4):
-				_floor(who, kick_damage)
+		Act.SPIN, Act.KICK:
+			pass
 		_:
 			var spec: Array = _acts[act]
 			if spec.size() > 3 and bool(spec[3]) and index == count - 1:
 				# A chain or combo that ends overhead ends in the slam.
 				_slam(slam_damage)
-				return
-			var combo := act == Act.COMBO or act == Act.COMBO_THREE or act == Act.COMBO_SHORT \
-					or act in CHAINS
-			var damage := combo_damage if combo else swing_damage
-			# A single blow is sent as the first of two: it never floors.
-			var blows := count if combo else 2
-			for who in _players_ahead(reach + 0.6, 0.3):
-				_hit(who, damage, index, blows)
 
 
-## The overhead blow into the ground: whoever is under it, and the spikes.
+## The overhead's own sweep, so the ground bursting under it does not strike
+## twice whoever the axe already went through.
+var _slam_sweep: WeaponSweep
+
+
+## The overhead blow into the ground: the stones bursting up right where it
+## hit, and the spikes running on from there.
 func _slam(damage: float) -> void:
 	_slammed = true
 	var at := axe_head()
 	_slam_point = at
-	# The overhead into the ground floors anyone under it, as the spikes do.
-	for who in _players_near(at, 1.8):
-		_floor(who, damage)
-	for who in _players_ahead(reach + 0.4, 0.5):
-		if who.global_position.distance_to(at) > 1.8:
+	for who in _players_near(at, SLAM_BURST * visual_scale / 2.24):
+		if _slam_sweep == null or not _slam_sweep.caught.has(who):
 			_floor(who, damage)
 	_launch_wave(at, _forward(), wave_length, wave_size, wave_damage)
 	net_slam.rpc(at, _forward())
@@ -776,8 +908,42 @@ func _animate(delta: float) -> void:
 		_guard_time = fmod(_guard_time + delta, maxf(anim.length, 0.01))
 		for tb in _guard_tracks:
 			_skeleton.set_bone_pose_rotation(tb.y, anim.rotation_track_interpolate(tb.x, _guard_time))
+	_stoop_into_blows()
 	_place_axe()
 	_feed_arc(delta)
+
+
+## Acts whose blows come round flat, at his own chest: the ones he stoops into.
+func _flat_blows() -> bool:
+	return act in [Act.SWING, Act.BACKHAND, Act.COMBO, Act.COMBO_THREE, Act.COMBO_SHORT, Act.SPIN] \
+			or act in CHAINS
+
+
+## Bends him forward at the waist around each flat blow, so the axe comes
+## through at a man's height (see `stoop`). On every peer, off the act's own
+## clock; the last blow of a chain that ends overhead is left as it is.
+func _stoop_into_blows() -> void:
+	if stoop <= 0.0 or is_dead or not _flat_blows() or not _blows.has(act):
+		return
+	var waist := _skeleton.find_bone("Spine02")
+	if waist < 0:
+		return
+	var spec: Array = _acts[act]
+	var length := clip_length(spec[0]) / maxf(float(spec[2]), 0.05)
+	var blows: PackedFloat32Array = _blows[act]
+	var bend := 0.0
+	for i in blows.size():
+		if spec.size() > 3 and bool(spec[3]) and i == blows.size() - 1:
+			continue
+		var off := absf(_shown_time - blows[i] * length)
+		bend = maxf(bend, 1.0 - smoothstep(0.0, stoop_ease, off - 0.08))
+	if bend <= 0.0:
+		return
+	# Forward about his own right, in the skeleton's space.
+	var right := (_skeleton.global_transform.basis.inverse() * global_transform.basis.x).normalized()
+	var pose := _skeleton.get_bone_global_pose(waist)
+	var lean := Basis(right, -deg_to_rad(stoop) * bend)
+	_skeleton.set_bone_global_pose(waist, Transform3D(lean * pose.basis, pose.origin))
 
 
 ## The reaction's clips, one after another, by the time since it started.

@@ -63,8 +63,16 @@ const LANDS := { &"stamp": 0.7, &"strike": 0.66, &"chop": 0.6, &"thorns": 0.15, 
 @export var thorn_size: float = 0.0
 @export var poison_damage: float = 220.0
 @export var pool_damage: float = 30.0
-## Around where a scythe comes down, how far its blow reaches.
+## Around where a scythe comes down, how far the ground it throws up reaches.
+## Only the scythes and the legs themselves strike ([WeaponSweep]); this is
+## kept for anything asking how big the burst is.
 @export var strike_radius: float = 1.7
+## The scythe-limbs and the legs as their blows see them, in metres at the
+## scale it is drawn: how thick the limb up to the blade is, the blade, and a
+## front leg.
+@export var limb_thickness: float = 0.28
+@export var blade_thickness: float = 0.3
+@export var leg_thickness: float = 0.3
 @export var spit_flight: float = 0.6
 
 var _skeleton: Skeleton3D
@@ -76,6 +84,9 @@ var _to_body := Quaternion.IDENTITY
 var _to_skeleton := Quaternion.IDENTITY
 var _legs: Array[Dictionary] = []
 var _arms: Dictionary = {}
+## Each scythe's blade past its last bone, in that bone's own frame: the belly
+## of the curve and the point. Read off the mesh once.
+var _blades: Dictionary = {}
 
 var _phase: float = 0.0
 var _walk: float = 0.0
@@ -101,6 +112,7 @@ func _ready() -> void:
 	_dress()
 	_face_forward()
 	_find_limbs()
+	_find_blades()
 
 
 ## The textures ship loose, beside the model, as DDS the importer never linked.
@@ -193,6 +205,99 @@ func _find_limbs() -> void:
 	_mouth = _skeleton.find_bone("Mouth")
 
 
+## Where each scythe's blade reaches past its last bone: the vertex of that
+## bone's own furthest from it is the point, and the one furthest off the line
+## out to the point is the belly of the curve.
+func _find_blades() -> void:
+	var tips := {}
+	for side: StringName in _arms:
+		tips[int((_arms[side] as Dictionary).tip)] = side
+	var found := {}
+	for node in body.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if mesh.mesh == null or mesh.skin == null:
+			continue
+		var skin := mesh.skin
+		var bind_of := {}
+		for b in skin.get_bind_count():
+			var bone := skin.get_bind_bone(b)
+			if bone < 0:
+				bone = _skeleton.find_bone(skin.get_bind_name(b))
+			if tips.has(bone):
+				bind_of[b] = bone
+		if bind_of.is_empty():
+			continue
+		for s in mesh.mesh.get_surface_count():
+			var arrays := mesh.mesh.surface_get_arrays(s)
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var bones = arrays[Mesh.ARRAY_BONES]
+			var weights = arrays[Mesh.ARRAY_WEIGHTS]
+			if bones == null or weights == null or verts.is_empty():
+				continue
+			var per := int(bones.size() / verts.size())
+			for v in verts.size():
+				var best := -1
+				var most := 0.5
+				for k in per:
+					if float(weights[v * per + k]) > most:
+						most = float(weights[v * per + k])
+						best = int(bones[v * per + k])
+				if not bind_of.has(best):
+					continue
+				var side: StringName = tips[bind_of[best]]
+				var list: PackedVector3Array = found.get(side, PackedVector3Array())
+				list.append(skin.get_bind_pose(best) * verts[v])
+				found[side] = list
+	for side: StringName in found:
+		var local: PackedVector3Array = found[side]
+		var tip := Vector3.ZERO
+		for p in local:
+			if p.length() > tip.length():
+				tip = p
+		var belly := tip * 0.5
+		var off := 0.0
+		for p in local:
+			var d := Geometry3D.get_closest_point_to_segment(p, Vector3.ZERO, tip).distance_to(p)
+			if d > off:
+				off = d
+				belly = p
+		_blades[side] = [belly, tip]
+
+
+## A scythe as it is this frame: the limb up to the blade, and the blade round
+## its curve to the point.
+func _scythe_parts(sides: Array) -> Array:
+	var out := []
+	var grow := visual_scale / 2.43
+	for side: StringName in sides:
+		if not _arms.has(side):
+			continue
+		var arm: Dictionary = _arms[side]
+		var elbow := _skeleton.get_bone_parent(int(arm.tip))
+		out.append(WeaponSweep.bones(_skeleton, elbow, arm.tip, limb_thickness * grow))
+		if _blades.has(side):
+			var blade: Array = _blades[side]
+			var frame := _skeleton.global_transform * _skeleton.get_bone_global_pose(arm.tip)
+			var root := frame.origin
+			var belly := frame * (blade[0] as Vector3)
+			var point := frame * (blade[1] as Vector3)
+			out.append([root, belly, blade_thickness * grow])
+			out.append([belly, point, blade_thickness * grow])
+	return out
+
+
+## The front legs from the knee down to the foot, for the stamp.
+func _stamp_parts() -> Array:
+	var out := []
+	for leg in _legs:
+		if not bool(leg.front):
+			continue
+		var foot := int(leg.tip)
+		var knee := _skeleton.get_bone_parent(foot)
+		out.append(WeaponSweep.bones(_skeleton, knee, foot, leg_thickness * visual_scale / 2.43))
+	return out
+
+
 ## A limb turned from the pose it was built in: about straight up, about the
 ## line across it, and — for the chop — about the creature's own side to side.
 func _turn(limb: Dictionary, swing: float, lift: float, pitch: float = 0.0) -> void:
@@ -246,6 +351,77 @@ func _begin(what: int) -> void:
 		_events.append([at + float(move[1]) * float(LANDS[move[0]]), move[0], move[2], _events.size()])
 		at += float(move[1])
 	_start(what, at)
+	_arm_blows(what)
+
+
+## How far through each kind of move its limbs are coming down: the stretch of
+## the move in which a scythe or a leg can land on someone.
+const STRIKING := { &"stamp": Vector2(0.6, 0.8), &"strike": Vector2(0.55, 0.8),
+		&"chop": Vector2(0.58, 0.74) }
+## Slower than this at its point, metres a second, a limb is only being held.
+const STRIKING_SPEED := 2.5
+## How far off it wants whoever it is striking at when each kind of blow comes
+## down, at the scale it was measured (2.43): the scythes land a couple of
+## metres ahead, the front legs further out.
+const STRIKES_AT := { &"stamp": 3.6, &"strike": 2.2, &"chop": 2.0 }
+## How fast it closes that distance while it rears for a blow.
+@export var close_speed: float = 3.0
+
+
+## Steps in towards the next blow while it rears for it, so the scythes come
+## down where its quarry stands and not short of him: true while stepping.
+func _close_in() -> bool:
+	if _quarry == null or _events_done >= _events.size():
+		return false
+	var next: Array = _events[_events_done]
+	var kind: StringName = next[1]
+	if not STRIKES_AT.has(kind):
+		return false
+	var want := float(STRIKES_AT[kind]) * visual_scale / 2.43
+	var gap := _distance_to(_quarry)
+	if gap <= want:
+		return false
+	var pace := minf((gap - want) / maxf(float(next[0]) - _act_time, 0.2), close_speed)
+	var ahead := _forward() * pace
+	velocity.x = ahead.x
+	velocity.z = ahead.z
+	return true
+
+
+## The blows of the act just begun, as the scythes and legs themselves: each
+## lands only on whoever it passes through while it comes down.
+func _arm_blows(what: int) -> void:
+	var at := 0.0
+	var index := 0
+	var in_combo := what == Act.COMBO
+	for move: Array in MOVES[what]:
+		var kind: StringName = move[0]
+		var length := float(move[1])
+		if STRIKING.has(kind):
+			var span: Vector2 = STRIKING[kind]
+			var start := at + length * span.x
+			var end := at + length * span.y
+			match kind:
+				&"stamp":
+					_sweep(_stamp_parts, STRIKING_SPEED, start, end,
+							func(who: Node3D) -> void: _floor(who, stamp_damage))
+				&"chop":
+					_sweep(_scythe_parts.bind([&"L", &"R"]), STRIKING_SPEED, start, end,
+							func(who: Node3D) -> void: _floor(who, chop_damage))
+				&"strike":
+					var side: StringName = move[2]
+					var sides: Array = [&"L", &"R"] if side == &"B" else [side]
+					var damage := both_damage if side == &"B" else strike_damage
+					var blow := index
+					_sweep(_scythe_parts.bind(sides), STRIKING_SPEED, start, end,
+							func(who: Node3D) -> void:
+								if in_combo:
+									# Left, right, both: all three have to land to floor him.
+									_hit(who, damage, blow, 3)
+								else:
+									_hit(who, damage))
+		at += length
+		index += 1
 
 
 ## Arkdeva takes only the knock as a blow: it rears as if parried.
@@ -267,7 +443,8 @@ func _after_act_rest() -> float:
 
 
 func _run_act(delta: float) -> bool:
-	_slow(delta, 3.0)
+	if not _close_in():
+		_slow(delta, 3.0)
 	while _events_done < _events.size() and _act_time >= float(_events[_events_done][0]):
 		var e: Array = _events[_events_done]
 		_events_done += 1
@@ -281,46 +458,23 @@ func _physics_process(delta: float) -> void:
 
 
 ## One move's blow, on the host.
-func _land(kind: StringName, side: StringName, index: int) -> void:
+func _land(kind: StringName, side: StringName, _index: int) -> void:
 	var ground := global_position.y + 0.03
-	var in_combo := act == Act.COMBO
 	var reach := visual_scale
 	match kind:
+		# The legs and scythes strike as they come down (`_arm_blows`); here they
+		# only meet the ground.
 		&"stamp":
 			var at := global_position + _forward() * 2.0 * reach
 			at.y = ground
 			net_ground.rpc(at, 0.7 * reach)
-			for who in _players_ahead(3.4 * reach, 0.3):
-				_floor(who, stamp_damage)
 		&"strike":
 			var sides: Array = [&"L", &"R"] if side == &"B" else [side]
-			var struck := {}
 			for sd in sides:
-				var at := _scythe_point(sd)
-				net_ground.rpc(at, (0.8 if side == &"B" else 0.6) * reach)
-				for who in _players_near(at, strike_radius):
-					if struck.has(who):
-						continue
-					struck[who] = true
-					var damage := both_damage if side == &"B" else strike_damage
-					if in_combo:
-						# Left, right, both: all three have to land to floor him.
-						_hit(who, damage, index, 3)
-					else:
-						_hit(who, damage)
+				net_ground.rpc(_scythe_point(sd), (0.8 if side == &"B" else 0.6) * reach)
 		&"chop":
-			var mid := global_position + _forward() * 2.2 * reach
-			mid.y = ground
-			var struck := {}
 			for sd in [&"L", &"R"]:
-				var at := _scythe_point(sd)
-				net_ground.rpc(at, 0.75 * reach)
-				for who in _players_near(at, strike_radius):
-					struck[who] = true
-			for who in _players_near(mid, strike_radius):
-				struck[who] = true
-			for who in struck:
-				_floor(who, chop_damage)
+				net_ground.rpc(_scythe_point(sd), 0.75 * reach)
 		&"thorns":
 			var from := global_position + _forward() * 1.2 * reach
 			from.y = ground
@@ -338,6 +492,11 @@ func _scythe_point(side: StringName) -> Vector3:
 			+ global_transform.basis.x * (-0.9 if side == &"L" else 0.9) * reach
 	if _arms.has(side):
 		at = _tip(_arms[side])
+		if _blades.has(side):
+			# Where the blade's point is, not where its bone ends.
+			var arm: Dictionary = _arms[side]
+			at = _skeleton.global_transform * (_skeleton.get_bone_global_pose(arm.tip)
+					* ((_blades[side] as Array)[1] as Vector3))
 		# Never behind it, whatever the pose says.
 		var rel := at - global_position
 		var least := 0.8 * reach

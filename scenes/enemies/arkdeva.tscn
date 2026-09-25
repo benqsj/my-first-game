@@ -5,7 +5,7 @@
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_arkdeva"]
-radius = 3.0
+radius = 1.5
 height = 7.8
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_arkdeva"]
@@ -57,7 +57,7 @@ bar_height = 9.8
 bar_width = 3.0
 visual_scale = 2.43
 corpse_sink_depth = 7.0
-melee_range = 8.6
+melee_range = 4.4
 spit_range = Vector2(11, 28)
 strike_radius = 4.0
 thorn_length = 16.0
