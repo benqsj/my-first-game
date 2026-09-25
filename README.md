@@ -2974,18 +2974,51 @@ is the hero's profile (`CharacterProfile.skills`, ids from `Player.SKILLS`,
 each with its name, stamina and cooldown). Skills are used from the ground,
 never mid-swing; there is no mana yet, so they cost stamina.
 
-**Rain of Arrows** (Avtandil, key 1; 25 stamina, 12 s): he shoots one arrow up
-into the sky, and a ring lights on the ground — on what he has locked if it is
-within 18 m, else 9 m ahead of him. After 0.75 s, 36 arrows come down over the
-ring for 1.3 s (`ArrowRain`), slanted from his side of it, each worth 35% of a
-full draw (crits as his shots do). They are ordinary `Arrow`s: they stick in
-what they hit and sink away, and only the host's copies count for damage — every
-peer builds the same rain from the same seed (`net_arrow_rain`). A third of them
-come down on the bodies standing in the ring when it starts to fall; spread
-evenly, a volley over a wolf would mostly miss it. `tests/skills_test.gd`.
+**Rain of Arrows** (Avtandil, key 1; 25 stamina, 12 s): he shoots into the sky
+(`AV_Sky_Shot`, built in Blender from Mixamo's Shooting Arrow: a hand to the
+quiver, the arrow nocked, the body leaning back until the bow points some 60°
+up, the string drawn and let go, upright again after; played at double speed,
+the string goes 1.5 s in and he is held still until just after). The arrow
+goes up, and 0.75 s later 36 arrows come down for 1.3 s (`ArrowRain`) on what he
+has locked if it is within 18 m — following it while they fall — or 9 m ahead
+of him. Nothing is drawn on the ground. They come slanted from his side, each
+worth 35% of a full draw (crits as his shots do). They are ordinary `Arrow`s,
+and only the host's copies count for damage — every peer builds the same rain
+from the same seed (`net_arrow_rain`). A third of them come down on the bodies
+standing where it falls, the locked one first; spread evenly, a volley over a
+wolf would mostly miss it. `tests/skills_test.gd`.
 
 **The evade's key** (`Controls`, applied by `Game` at start): **Command** on a
 Mac, **Control** everywhere else; walking goes to Shift off a Mac (on a Mac it
 stays on Control). The gamepad is untouched. Command-Q during play does not
 quit (Q puts the weapons away, and is pressed while evading); any other way of
 closing the window does.
+
+
+## Arrows stay in what they hit; blood dries; the corner map
+
+**Arrows** (`Arrow._stick_in`) go into the bone of the body's skeleton nearest
+where they hit (a `BoneAttachment3D` per bone, shared by every arrow in it), so
+they move with the leg or the head they are in and go down with the body; a
+body with no skeleton (the wolves) takes them in the piece of it they hit.
+After `linger` they fade out (`GeometryInstance3D.transparency`) rather than
+sinking.
+
+**Blood** (`Blood`) lies 30 to 40 s — the ground patches, the grass it darkened
+(`GrassField.unstain`) and the props it wetted — and then fades over 4 s and is
+freed, so a long fight does not leave a field of patches behind it.
+
+**The corner map** is now in the top-right, round (a `Panel` with a rounded
+style that clips the map drawn inside it, and a gilt rim), at 78% opacity.
+
+## The mage's charge and throw
+
+Holding the button, he swings the staff round — down, back behind him and up
+(`MG_Charge_In`, cut from Mixamo's Two Hand Spell Casting, frames 1–43) — and
+then holds it high for as long as the button is (`MG_Charge_Hold`, 43–67,
+looped), the magic gathering at the crystal as before. Let go, he throws it
+(`MG_Cast_Throw`, Standing 2H Magic Attack 01, 19–64): swung back behind him and
+brought through, and the bolt leaves the crystal as it comes past his shoulder
+(frame 19 of 46, measured on the crystal), with a burst of sparks there and the
+stone flaring. Downloaded without anyone pressing Save: the page's own API
+(export, monitor, the job's URL), and curl on the Mac.
