@@ -2976,7 +2976,7 @@ func _arrow_rain() -> bool:
 	# Stood still through the shot, until just after the string goes.
 	_commit(lead + 0.35 if lead > 0.0 else 0.55)
 	var from := global_position + up_direction * arrow_height
-	var up := (toward.normalized() * 0.3 + Vector3.UP).normalized() * 38.0
+	var up := (toward.normalized() * 0.45 + Vector3.UP).normalized() * 38.0
 	var quarry := NodePath()
 	if target != null and _targetable(target) and centre.distance_to(target.global_position) < 3.0:
 		quarry = target.get_path()
@@ -3023,17 +3023,30 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 	var into := Blood.world_of(self)
 	if into == null or arrow_scene == null:
 		return
-	var shot_from := from
-	if rig != null and rig.has_method(&"bow_hand"):
-		shot_from = rig.call(&"bow_hand")
-	var shot := arrow_scene.instantiate() as Node3D
-	shot.set(&"lifetime", 0.8)
-	into.add_child(shot)
-	shot.global_position = shot_from
-	shot.call(&"launch", up, 0.0, false, _gravity, self)
+	var shot_from := _arrow_tip() if lead > 0.0 else from
+	# Three off the string at once, fanned a little, each trailing gold; where
+	# they top out they burst, and the rain comes out of the burst.
+	for k in 3:
+		var turn := (float(k) - 1.0) * 0.11
+		var shot := arrow_scene.instantiate() as Node3D
+		shot.set(&"lifetime", 0.9)
+		shot.set(&"trail_width", 0.07)
+		shot.set(&"wake_spread", 0.0)
+		shot.set(&"streak_tint", ArrowRain.GOLD_TRAIL)
+		into.add_child(shot)
+		shot.global_position = shot_from
+		shot.call(&"launch", up.rotated(Vector3.UP, turn) * (1.0 - 0.04 * absf(float(k) - 1.0)),
+				0.0, false, _gravity, self)
 	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
-	if lead <= 0.0 and rig != null and rig.has_method(&"loose_bow"):
-		rig.call(&"loose_bow")
+	SkillFx.flash(into, shot_from, ArrowRain.GOLD, 0.35, 0.18, 3.0)
+	if rig != null:
+		if lead > 0.0 and rig.has_method(&"loose_skill_shot"):
+			rig.call(&"loose_skill_shot")
+		elif rig.has_method(&"loose_bow"):
+			rig.call(&"loose_bow")
+	var apex_t := 0.6
+	var apex := shot_from + up * apex_t + Vector3.DOWN * 0.5 * _gravity * apex_t * apex_t
+	get_tree().create_timer(apex_t, false).timeout.connect(func() -> void: ArrowRain.burst_at(into, apex))
 	var rain := ArrowRain.new()
 	rain.name = "ArrowRain"
 	into.add_child(rain)
@@ -3049,7 +3062,7 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 @export_group("Hunter's Mark")
 ## How far off it can be put on something.
 @export var mark_range: float = 32.0
-## How long the prey stays marked. Every blow on it does `Afflictions.MARK_FACTOR`.
+## How long the prey stays marked: a bow's blows on it do `Afflictions.MARK_BOW`, anyone else's `MARK_OTHER`.
 @export var mark_time: float = 10.0
 ## How long the glint takes to reach it.
 @export var mark_flight: float = 0.32
@@ -3200,7 +3213,7 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 		return
 	var nock := 0.3
 	if rig != null and rig.has_method(&"charged_shot"):
-		nock = float(rig.call(&"charged_shot", pierce_hold))
+		nock = float(rig.call(&"charged_shot", pierce_hold, asin(clampf(dir.y, -1.0, 1.0))))
 	await get_tree().create_timer(nock, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
@@ -3210,9 +3223,8 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	await get_tree().create_timer(pierce_hold, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
-	var from := global_position + up_direction * arrow_height
-	if rig != null and rig.has_method(&"bow_hand"):
-		from = rig.call(&"bow_hand")
+	# Off the string: from the head of the arrow he has drawn.
+	var from := _arrow_tip()
 	var shot := PiercingShot.new()
 	shot.launch(from, dir, pierce_speed, pierce_reach, damage, critical, self, pierce_knock)
 	into.add_child(shot)
@@ -3220,6 +3232,16 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	if rig != null and rig.has_method(&"loose_skill_shot"):
 		rig.call(&"loose_skill_shot")
 #endregion
+
+
+## Where a skill shot leaves from: the head of the arrow on the string, or the
+## bow hand, or his chest, whichever the rig can say.
+func _arrow_tip() -> Vector3:
+	if rig != null and rig.has_method(&"arrow_tip"):
+		return rig.call(&"arrow_tip")
+	if rig != null and rig.has_method(&"bow_hand"):
+		return rig.call(&"bow_hand")
+	return global_position + up_direction * arrow_height
 
 
 #region Fire Arrow
@@ -3271,7 +3293,10 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 		return
 	var nock := 0.3
 	if rig != null and rig.has_method(&"charged_shot"):
-		nock = float(rig.call(&"charged_shot", FIRE_HOLD))
+		# Lobbed: aimed up over the line to the point, more the further it is.
+		var off := at - global_position
+		var span := Vector2(off.x, off.z).length()
+		nock = float(rig.call(&"charged_shot", FIRE_HOLD, clampf(0.12 + span * 0.012, 0.12, 0.5)))
 	await get_tree().create_timer(nock * 0.6, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
@@ -3281,9 +3306,7 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 	await get_tree().create_timer(nock * 0.4 + FIRE_HOLD, false).timeout
 	if not is_inside_tree() or is_dead:
 		return
-	var from := global_position + up_direction * arrow_height
-	if rig != null and rig.has_method(&"bow_hand"):
-		from = rig.call(&"bow_hand")
+	var from := _arrow_tip()
 	# A lob: up and over, coming down on the point in `flight` seconds.
 	var gap := at - from
 	var flat := Vector3(gap.x, 0.0, gap.z)

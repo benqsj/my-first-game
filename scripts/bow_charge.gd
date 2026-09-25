@@ -35,7 +35,7 @@ func _ready() -> void:
 	var at := _hand()
 	_light = OmniLight3D.new()
 	_light.light_color = WIND if _kind == &"wind" else FIRE
-	_light.omni_range = 3.0
+	_light.omni_range = 1.6
 	_light.light_energy = 0.0
 	add_child(_light)
 	if _kind == &"wind":
@@ -49,7 +49,7 @@ func _ready() -> void:
 		_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(_orb)
 		_inflow = SkillFx.particles(self, at, {
-			"amount": 70, "life": 0.5, "speed": Vector2(0.0, 0.1), "sphere": 0.9,
+			"amount": 60, "life": 0.45, "speed": Vector2(0.0, 0.1), "sphere": 0.55,
 			"orbit": -9.0, "tangent": 5.0, "damping": 1.0, "size": Vector2(0.015, 0.035),
 			"local": true, "grow": 0.3,
 			"colors": [Color(1, 1, 1, 0.0), WIND, Color(1, 1, 1, 1.0)],
@@ -78,24 +78,33 @@ func _process(delta: float) -> void:
 		var r := 0.02 + 0.08 * u + 0.012 * sin(_age * 25.0)
 		_orb.global_transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * r), at)
 		_inflow.global_position = at
-		_light.light_energy = 1.0 + 3.0 * u
+		_light.light_energy = 0.4 + 1.0 * u
 		if _age >= _next_ring:
 			_next_ring = _age + 0.16
 			var ahead := _ahead()
 			SkillFx.ring(get_parent(), at + ahead * 0.25, ahead, WIND, 0.45, 0.04, 0.2, 0.05, 2.0)
 	else:
-		_flame.global_position = at + _ahead() * 0.12
-		_light.light_energy = 1.5 + 0.5 * sin(_age * 22.0)
+		_flame.global_position = at
+		_light.light_energy = 0.6 + 0.25 * sin(_age * 22.0)
 
 
+## Where it gathers: on the head of the drawn arrow (the bow hand before the
+## arrow is on the string).
 func _hand() -> Vector3:
-	if _rig != null and is_instance_valid(_rig) and _rig.has_method(&"bow_hand"):
-		return _rig.call(&"bow_hand")
+	if _rig != null and is_instance_valid(_rig):
+		if _rig.has_method(&"arrow_tip"):
+			return _rig.call(&"arrow_tip")
+		if _rig.has_method(&"bow_hand"):
+			return _rig.call(&"bow_hand")
 	return global_position
 
 
 ## Which way the arrow points: from the draw hand past the bow hand.
 func _ahead() -> Vector3:
+	if _rig != null and is_instance_valid(_rig) and _rig.has_method(&"arrow_dir"):
+		var along: Vector3 = _rig.call(&"arrow_dir")
+		if along.length_squared() > 0.5:
+			return along
 	var fwd := Vector3.FORWARD
 	var n3 := _rig as Node3D
 	if n3 != null:

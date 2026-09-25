@@ -197,27 +197,23 @@ func is_aiming() -> bool:
 	return _aim_phase > 0.3
 
 
-## The Rain of Arrows' shot (`AV_Sky_Shot`, built in Blender from his
-## shooting clip): a hand to the quiver, the arrow nocked, the body leaning
-## back until the bow points at the sky, the string drawn and let go, and
-## upright again after. Returns how long until the string goes (0 with no
-## clip), when the arrow has to leave the bow.
+## The Rain of Arrows' shot: his own nock and draw, the chest turned up onto
+## the sky (`SKY_PITCH`) as the string comes back — an archer's high shot,
+## feet planted, not a lean back — held a breath at full, and let go with the
+## shooting clip's release ([method loose_skill_shot], called by the
+## controller when the arrows leave). Returns how long until the string goes.
+## (`AV_Sky_Shot`, the old leaning-back clip, is still in the glb, unused.)
+const SKY_HOLD := 0.16
+const SKY_PITCH := 1.05
+
+
 func sky_shot() -> float:
-	if _anim == null or not _anim.has_animation(SKY_CLIP):
-		return 0.0
-	_drawing_clip = false
-	_aim_phase = 0.0
-	_play_action(SKY_CLIP, Role.FREE, SKY_RATE, 0.12)
-	_sky_len = _anim.get_animation(SKY_CLIP).length / SKY_RATE
-	_sky_left = _sky_len
-	return sky_lead()
+	return charged_shot(SKY_HOLD, SKY_PITCH) + SKY_HOLD
 
 
 ## How long after it starts the sky shot lets the string go.
 func sky_lead() -> float:
-	if _anim == null or not _anim.has_animation(SKY_CLIP):
-		return 0.0
-	return _anim.get_animation(SKY_CLIP).length / SKY_RATE * SKY_RELEASE
+	return nock_lead() + SKY_HOLD
 
 
 ## Hunter's Mark (`AV_Point_Charge`, Mixamo's "Pointing Onward Charge"): a
@@ -252,6 +248,14 @@ const NOCK_RATE := 1.25
 const OVERDRAW_CLIP := &"AV_Aim_Overdraw"
 ## The release of `AV_Shooting_Arrow` and its follow-through, in frames of 151.
 const LOOSE_PART := Vector2(116.0 / 151.0, 1.0)
+## How far from the nock the arrowhead is (the arrow [method _make_arrow] makes).
+const ARROW_HEAD := 0.8
+## A skill shot's string: seconds since the nock began (-1 when none is
+## drawn), how long the nock and the hold are, and the pitch it is aimed at.
+var _skill_t: float = -1.0
+var _skill_nock: float = 0.3
+var _skill_hold: float = 0.5
+var _skill_pitch: float = 0.0
 
 
 func nock_lead() -> float:
@@ -260,13 +264,21 @@ func nock_lead() -> float:
 	return _anim.get_animation(DRAW_CLIP).length / NOCK_RATE
 
 
-## Nocks and starts the hold; returns how long the nock takes.
-func charged_shot(hold: float) -> float:
+## Nocks and starts the hold; returns how long the nock takes. `pitch` is how
+## far up (+) or down the shot goes, radians: the chest tilts onto it as the
+## string comes back, as it does for an ordinary shot.
+func charged_shot(hold: float, pitch: float = 0.0) -> float:
 	_drawing_clip = false
 	_aim_phase = 0.0
 	var nock := play_part(DRAW_CLIP, NOCK_RATE, 0.0, 1.0, 0.1)
 	if nock <= 0.0:
 		return 0.3
+	# The string is drawn by hand for a skill shot: [method animate] brings it
+	# back with the nock and holds it at full until [method loose_skill_shot].
+	_skill_t = 0.0
+	_skill_nock = nock
+	_skill_hold = hold
+	_skill_pitch = clampf(pitch, -0.9, 1.1)
 	var over := _anim.get_animation(OVERDRAW_CLIP).length if _anim.has_animation(OVERDRAW_CLIP) else 0.0
 	get_tree().create_timer(nock, false).timeout.connect(func() -> void:
 		if over > 0.0 and _act_clip == DRAW_CLIP:
@@ -275,7 +287,23 @@ func charged_shot(hold: float) -> float:
 
 
 func loose_skill_shot() -> void:
+	_skill_t = -1.0
 	play_part(LOOSE_CLIP, 1.1, LOOSE_PART.x, LOOSE_PART.y, 0.05)
+
+
+## Where the arrow on the string has its head right now — where a shot leaves
+## the bow from. The bow hand when no arrow is on the string.
+func arrow_tip() -> Vector3:
+	if _bow_mod != null and _bow_mod.arrow != null and _bow_mod.arrow.visible:
+		return _bow_mod.arrow.global_transform * Vector3(0.0, 0.0, -ARROW_HEAD)
+	return bow_hand()
+
+
+## The way the arrow on the string points (zero when there is none).
+func arrow_dir() -> Vector3:
+	if _bow_mod != null and _bow_mod.arrow != null and _bow_mod.arrow.visible:
+		return -_bow_mod.arrow.global_transform.basis.z.normalized()
+	return Vector3.ZERO
 
 
 ## Where the arrow leaves the bow: his bow hand.
@@ -345,6 +373,18 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		var through := 1.0 - _sky_left / maxf(_sky_len, 0.01)
 		_bow_mod.draw = smoothstep(SKY_DRAW_FROM, SKY_RELEASE - 0.02, through) if through < SKY_RELEASE else 0.0
 		_bow_mod.pitch = 0.0
+	elif _bow_mod != null and _skill_t >= 0.0:
+		# A skill shot: the string comes back over the nock's second half, is
+		# held at full, and goes at [method loose_skill_shot]. A shot that never
+		# went (the hero was hit, say) lets go of itself.
+		_skill_t += delta
+		var u := clampf(_skill_t / maxf(_skill_nock, 0.01), 0.0, 1.0)
+		var d := smoothstep(0.4, 0.95, u)
+		_bow_mod.draw = d
+		# The chest comes onto the line first, the string after it.
+		_bow_mod.pitch = _skill_pitch * smoothstep(0.1, 0.7, u)
+		if _skill_t > _skill_nock + _skill_hold + 1.5:
+			_skill_t = -1.0
 	elif _bow_mod != null:
 		var string := 0.0
 		if drawing:
