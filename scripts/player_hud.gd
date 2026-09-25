@@ -17,7 +17,7 @@ extends CanvasLayer
 ## * **Stamina says when it is spent.** Emptied, the bar dims until it has
 ##   started coming back, which is the stretch in which nothing costing stamina
 ##   can be done.
-## * **The skills are four squares at the bottom**, keys 1 to 4: the skill's
+## * **The skills are five squares at the bottom**, keys 1 to 5: the skill's
 ##   picture, its key in the corner, and while it is coming back a shade that
 ##   drains down off it with the seconds left. It flashes when it is ready again;
 ##   used, its name shows over the bar for a moment. An empty slot is a dark one.
@@ -47,8 +47,8 @@ var _band: ColorRect
 var _death_time: float = 0.0
 ## Per slot: how long ago it came ready (for the flash), and what was left of
 ## its cooldown last frame.
-var _ready_flash: PackedFloat32Array = PackedFloat32Array([9.0, 9.0, 9.0, 9.0])
-var _last_left: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
+var _ready_flash: PackedFloat32Array = PackedFloat32Array([9.0, 9.0, 9.0, 9.0, 9.0])
+var _last_left: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
 var _said: String = ""
 var _said_time: float = 9.0
 
@@ -108,7 +108,7 @@ func _process(delta: float) -> void:
 		_lost_wait += delta
 		if _lost_wait > 0.6:
 			_lost = move_toward(_lost, player.health, player.max_health * 0.6 * delta)
-	for slot in 4:
+	for slot in Player.SKILL_SLOTS:
 		var left := player.skill_cooldown_left(slot)
 		if _last_left[slot] > 0.0 and left <= 0.0:
 			_ready_flash[slot] = 0.0
@@ -146,13 +146,14 @@ func _on_skill_used(_slot: int, id: StringName) -> void:
 	_said_time = 0.0
 
 
-## The four squares, bottom centre.
+## The five squares, bottom centre.
 func _draw_skills() -> void:
 	var view := _bars.size
-	var width := SLOT * 4.0 + SLOT_GAP * 3.0
+	var n := Player.SKILL_SLOTS
+	var width := SLOT * n + SLOT_GAP * (n - 1)
 	var origin := Vector2((view.x - width) * 0.5, view.y - SLOT_BOTTOM - SLOT)
 	var font := ThemeDB.fallback_font
-	for slot in 4:
+	for slot in n:
 		var at := origin + Vector2((SLOT + SLOT_GAP) * slot, 0.0)
 		var rect := Rect2(at, Vector2(SLOT, SLOT))
 		var id := player.skill_in(slot)

@@ -2889,9 +2889,9 @@ func _toggle_fullscreen() -> void:
 const SKILLS := {
 	&"arrow_rain": {"name": "Rain of Arrows", "stamina": 25.0, "cooldown": 12.0},
 }
-const SKILL_SLOTS := 4
+const SKILL_SLOTS := 5
 
-## A skill went off, from `slot` (0..3).
+## A skill went off, from `slot` (0..4).
 signal skill_used(slot: int, id: StringName)
 
 ## Rain of Arrows: how far off it may fall, where it falls with nothing locked,

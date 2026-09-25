@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## The skills: the keys (the evade on Command on a Mac and Control elsewhere,
-## the skills on 1 to 4), the bar's slots, and Avtandil's Rain of Arrows — a
+## the skills on 1 to 5), the bar's slots, and Avtandil's Rain of Arrows — a
 ## ring where he is facing, a volley over it that hurts what stands in it, the
 ## stamina it costs and the cooldown after it.
 ##
@@ -36,14 +36,15 @@ func _check_keys() -> void:
 	_check("the evade is on %s" % Controls.dodge_name(), _has_key(&"dash", dodge))
 	_check("and on nothing else on the keyboard", _key_count(&"dash") == 1)
 	_check("walking is off the evade's key", not _has_key(&"walk", dodge) and _has_key(&"walk", Controls.walk_key()))
-	for i in 4:
+	_check("there are five skill slots", Player.SKILL_SLOTS == 5 and Controls.SKILL_KEYS.size() == 5)
+	for i in 5:
 		_check("skill %d is on key %d" % [i + 1, i + 1], _has_key(StringName("skill_%d" % (i + 1)), Controls.SKILL_KEYS[i]))
 	_check("the gamepad still evades", _pad_count(&"dash") > 0)
 
 
 func _check_rain() -> void:
 	_check("Avtandil's first skill is the Rain of Arrows", _player.skill_in(0) == &"arrow_rain")
-	_check("the other three slots are empty", _player.skill_in(1) == &"" and _player.skill_in(3) == &"")
+	_check("the other four slots are empty", _player.skill_in(1) == &"" and _player.skill_in(4) == &"")
 	await _wait(30)
 	var fwd := -_player.global_transform.basis.z
 	fwd.y = 0.0
