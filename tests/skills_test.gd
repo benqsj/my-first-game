@@ -60,10 +60,11 @@ func _check_rain() -> void:
 	_check("pressing 1 lets it go", used[0] == 1, "%d" % used[0])
 	_check("it costs stamina", _player.stamina < _player.max_stamina - 20.0, "%.0f" % _player.stamina)
 	_check("and it has to come back", _player.skill_cooldown_left(0) > 11.0, "%.1f s" % _player.skill_cooldown_left(0))
-	var rain: ArrowRain = null
-	for n in _world.find_children("*", "ArrowRain", true, false):
-		rain = n
-	_check("a ring goes down ahead of him", rain != null)
+	_check("he shoots into the sky first", String(_player.rig._act_clip) == "AV_Sky_Shot",
+			String(_player.rig._act_clip))
+	var rain := await _find_rain(200)
+	_check("when the string goes, the rain comes, ahead of him", rain != null)
+	_check("and nothing is drawn on the ground for it", rain == null or rain.find_children("*", "MeshInstance3D", true, false).is_empty())
 	if rain != null:
 		var off := rain.global_position - _player.global_position
 		off.y = 0.0
@@ -97,7 +98,34 @@ func _check_rain() -> void:
 	_player.stamina = _player.max_stamina
 	_check("ready again, it goes", _player.use_skill(0))
 	_player.skill_used.disconnect(on_used)
-	await _wait(200)
+	await _wait(300)
+	# Locked on something in reach, the rain goes to it and follows it.
+	var quarry := _dummy()
+	_world.add_child(quarry)
+	quarry.global_position = _player.global_position + fwd * 13.0 + side * 3.0
+	await _wait(3)
+	_player.call("_hold_target", quarry)
+	_player._skill_ready_at.clear()
+	_player.stamina = _player.max_stamina
+	_check("locked, it goes", _player.use_skill(0))
+	var locked_rain := await _find_rain(200)
+	quarry.global_position += side * 2.5
+	await _wait(20)
+	if locked_rain != null and is_instance_valid(locked_rain):
+		var gap := locked_rain.global_position - quarry.global_position
+		gap.y = 0.0
+		_check("it falls on what he has locked, and follows it", gap.length() < 0.5, "%.2f m off" % gap.length())
+	await _wait(150)
+	_check("and hurts it", int(quarry.get("hits")) >= 2, "%d hits" % int(quarry.get("hits")))
+
+
+func _find_rain(frames: int) -> ArrowRain:
+	for i in frames:
+		for n in _world.find_children("*", "ArrowRain", true, false):
+			if not (n as ArrowRain).is_queued_for_deletion() and (n as ArrowRain)._sent == 0:
+				return n as ArrowRain
+		await physics_frame
+	return null
 
 
 func _has_key(action: StringName, key: Key) -> bool:

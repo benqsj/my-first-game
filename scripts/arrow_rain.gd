@@ -1,8 +1,9 @@
 class_name ArrowRain
 extends Node3D
 
-## Avtandil's Rain of Arrows: a ring on the ground where it will fall, and a
-## moment later a volley of arrows coming down over it.
+## Avtandil's Rain of Arrows: a volley of arrows coming down over a patch of
+## ground — on what he has locked, following it, or ahead of him. Nothing marks
+## the ground: what is seen is the arrow he sends up and the rain after it.
 ##
 ## The arrows are ordinary [Arrow]s — they sweep for what they cross, stick in
 ## what they hit and sink away — so a rain hurts exactly as arrows do: only the
@@ -10,11 +11,11 @@ extends Node3D
 ## the same rain from the same seed, so the arrows fall in the same places for
 ## everyone without one of them being sent over the wire.
 ##
-## They come down a little slanted, from the archer's side of the ring, the way
-## a volley shot high over a line would, and the ring stays lit while they fall
-## so it is clear where not to stand. A share of them (`aimed`) comes down on
-## the bodies standing in the ring when it starts to fall — spread evenly, a
-## volley over a wolf would mostly miss the wolf.
+## They come down a little slanted, from the archer's side, the way a volley
+## shot high over a line would. A share of them (`aimed`) comes down on the
+## bodies standing in the patch — the locked one above all — and the patch
+## goes with the locked one while it falls, so running out from under it does
+## not save it: spread evenly, a volley over a wolf would mostly miss the wolf.
 
 ## How wide the rain falls, in metres.
 @export var radius: float = 3.8
@@ -33,7 +34,6 @@ extends Node3D
 const WHISTLES: Array[String] = [
 	"res://sounds/tariel/air_1.wav", "res://sounds/tariel/air_3.wav", "res://sounds/tariel/air_5.wav",
 ]
-const RING := Color(1.0, 0.86, 0.55)
 
 var _shooter: Node3D
 var _scene: PackedScene
@@ -44,10 +44,8 @@ var _crit_damage: float = 2.0
 var _clock: float = 0.0
 var _sent: int = 0
 var _next_whistle: float = 0.0
-var _ring: MeshInstance3D
-var _disc: MeshInstance3D
-var _ring_mat: StandardMaterial3D
-var _disc_mat: StandardMaterial3D
+## What it was loosed at, if anything: the rain follows it.
+var _follow: Node3D
 ## The bodies in the ring when the arrows start to fall.
 var _marks: Array[Node3D] = []
 ## The arrows sent down so far, for the tests.
@@ -67,56 +65,23 @@ func start(shooter: Node3D, scene: PackedScene, rain_seed: int, damage: float, c
 	Sfx.warm(WHISTLES)
 
 
-func _ready() -> void:
-	_ring_mat = _glow(RING)
-	_ring = MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = radius - 0.09
-	torus.outer_radius = radius
-	torus.rings = 48
-	torus.ring_segments = 6
-	_ring.mesh = torus
-	_ring.scale = Vector3(1.0, 0.25, 1.0)
-	_ring.position = Vector3.UP * 0.06
-	_ring.material_override = _ring_mat
-	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_ring)
-	_disc_mat = _glow(Color(RING, 0.0))
-	_disc = MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = radius
-	disc.bottom_radius = radius
-	disc.height = 0.01
-	disc.radial_segments = 48
-	disc.rings = 1
-	_disc.mesh = disc
-	_disc.position = Vector3.UP * 0.04
-	_disc.material_override = _disc_mat
-	_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_disc)
-
-
-func _glow(colour: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = colour
-	m.no_depth_test = false
-	return m
+## Makes the rain fall on `who` wherever it goes while the arrows come down.
+func follow(who: Node3D) -> void:
+	_follow = who
 
 
 func _process(delta: float) -> void:
 	_clock += delta
 	var end := delay + duration
-	# The ring: comes up at once, pulses while the arrows fall, fades after.
-	var shown := clampf(_clock / 0.15, 0.0, 1.0) * (1.0 - clampf((_clock - end - 0.3) / 0.8, 0.0, 1.0))
-	var pulse := 0.75 + 0.25 * sin(_clock * 12.0)
-	_ring_mat.albedo_color = Color(RING, 0.85 * shown * pulse)
-	_disc_mat.albedo_color = Color(RING, 0.13 * shown)
+	if _follow != null and is_instance_valid(_follow) and _clock < end:
+		var at := _follow.global_position
+		global_position = Vector3(at.x, global_position.y + (at.y - global_position.y) * 0.2, at.z)
 	# The arrows, spread evenly over the fall.
 	var due := int(ceil(float(count) * clampf((_clock - delay) / duration, 0.0, 1.0)))
 	if due > 0 and _sent == 0:
 		_find_marks()
+		if _follow != null and is_instance_valid(_follow) and not _marks.has(_follow):
+			_marks.push_front(_follow)
 	while _sent < due:
 		_drop()
 		_sent += 1
@@ -169,7 +134,7 @@ func _drop() -> void:
 	var arrow := _scene.instantiate() as Node3D
 	if arrow == null:
 		return
-	arrow.set(&"linger", 2.5)
+	arrow.set(&"linger", 5.0)
 	arrow.set(&"lifetime", 3.0)
 	arrow.set(&"wake_spread", 0.0)
 	arrow.set(&"trail_width", 0.035)

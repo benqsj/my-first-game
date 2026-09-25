@@ -2956,14 +2956,19 @@ func _arrow_rain() -> bool:
 	_drawing = false
 	_draw_timer = 0.0
 	var centre := _rain_centre()
+	var lead := float(rig.call(&"sky_lead")) if rig != null and rig.has_method(&"sky_lead") else 0.0
 	var toward := centre - global_position
 	toward.y = 0.0
 	if toward.length_squared() > 0.01:
 		rotation.y = atan2(-toward.x, -toward.z)
-	_commit(0.55)
+	# Stood still through the shot, until just after the string goes.
+	_commit(lead + 0.35 if lead > 0.0 else 0.55)
 	var from := global_position + up_direction * arrow_height
 	var up := (toward.normalized() * 0.3 + Vector3.UP).normalized() * 38.0
-	net_arrow_rain.rpc(from, up, centre, randi())
+	var quarry := NodePath()
+	if target != null and _targetable(target) and centre.distance_to(target.global_position) < 3.0:
+		quarry = target.get_path()
+	net_arrow_rain.rpc(from, up, centre, randi(), quarry)
 	return true
 
 
@@ -2986,23 +2991,36 @@ func _rain_centre() -> Vector3:
 	return at
 
 
-## The rain, on every peer, from the same seed: the arrow up, the ring and the
-## volley ([ArrowRain]). Only the host's arrows count for damage, as always.
+## The rain, on every peer, from the same seed: the shot into the sky, the
+## arrow up when the string goes, and the volley ([ArrowRain]) after it,
+## following what it was loosed at if anything. Only the host's arrows count
+## for damage, as always.
 @rpc("any_peer", "call_local", "reliable")
-func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int) -> void:
+func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
+		quarry: NodePath = NodePath()) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
+	var lead := 0.0
+	if rig != null and rig.has_method(&"sky_shot"):
+		lead = float(rig.call(&"sky_shot"))
+	if lead > 0.0:
+		await get_tree().create_timer(lead, false).timeout
+		if not is_inside_tree() or is_dead:
+			return
 	var into := Blood.world_of(self)
 	if into == null or arrow_scene == null:
 		return
+	var shot_from := from
+	if rig != null and rig.has_method(&"bow_hand"):
+		shot_from = rig.call(&"bow_hand")
 	var shot := arrow_scene.instantiate() as Node3D
 	shot.set(&"lifetime", 0.8)
 	into.add_child(shot)
-	shot.global_position = from
+	shot.global_position = shot_from
 	shot.call(&"launch", up, 0.0, false, _gravity, self)
 	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
-	if rig != null and rig.has_method(&"loose_bow"):
+	if lead <= 0.0 and rig != null and rig.has_method(&"loose_bow"):
 		rig.call(&"loose_bow")
 	var rain := ArrowRain.new()
 	rain.name = "ArrowRain"
@@ -3011,4 +3029,6 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int)
 	var each := (profile.damage if profile != null else 26.0) * rain_share
 	rain.start(self, arrow_scene, rain_seed, each, profile.crit_chance if profile != null else 0.1,
 			profile.crit_damage if profile != null else 2.0)
+	if not quarry.is_empty():
+		rain.follow(get_node_or_null(quarry) as Node3D)
 #endregion

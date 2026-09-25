@@ -18,6 +18,15 @@ extends SkinnedRig
 ## the draw; the reach to the quiver is dropped), with the bow arm held on the
 ## target throughout — the bow goes up first and the string comes back to it,
 ## which is the order an archer does it in.
+## The Rain of Arrows' shot into the sky, how fast it is played, and where in
+## it the string comes back and is let go (frame 91 of 121).
+const SKY_CLIP := &"AV_Sky_Shot"
+const SKY_RATE := 2.0
+const SKY_DRAW_FROM := 0.5
+const SKY_RELEASE := 0.75
+var _sky_left: float = 0.0
+var _sky_len: float = 0.0
+
 const DRAW_CLIP := &"AV_Nock_Draw"
 const DRAW_STRING_FROM := 0.0
 const DRAW_FROM := 0.0
@@ -188,6 +197,38 @@ func is_aiming() -> bool:
 	return _aim_phase > 0.3
 
 
+## The Rain of Arrows' shot (`AV_Sky_Shot`, built in Blender from his
+## shooting clip): a hand to the quiver, the arrow nocked, the body leaning
+## back until the bow points at the sky, the string drawn and let go, and
+## upright again after. Returns how long until the string goes (0 with no
+## clip), when the arrow has to leave the bow.
+func sky_shot() -> float:
+	if _anim == null or not _anim.has_animation(SKY_CLIP):
+		return 0.0
+	_drawing_clip = false
+	_aim_phase = 0.0
+	_play_action(SKY_CLIP, Role.FREE, SKY_RATE, 0.12)
+	_sky_len = _anim.get_animation(SKY_CLIP).length / SKY_RATE
+	_sky_left = _sky_len
+	return sky_lead()
+
+
+## How long after it starts the sky shot lets the string go.
+func sky_lead() -> float:
+	if _anim == null or not _anim.has_animation(SKY_CLIP):
+		return 0.0
+	return _anim.get_animation(SKY_CLIP).length / SKY_RATE * SKY_RELEASE
+
+
+## Where the arrow leaves the bow: his bow hand.
+func bow_hand() -> Vector3:
+	if _skel != null:
+		var hand := _skel.find_bone("hand_l")
+		if hand >= 0:
+			return _skel.global_transform * _skel.get_bone_global_pose(hand).origin
+	return global_position + Vector3.UP * 1.5
+
+
 func attack(style: int = -1) -> void:
 	# A bow has no cut; a melee press is a kick or a punch, no blade to track.
 	attack_serial += 1
@@ -239,7 +280,14 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	elif not drawing and _loose_left <= 0.0:
 		_drawing_clip = false
 		_aim_phase = 0.0
-	if _bow_mod != null:
+	_sky_left = maxf(_sky_left - delta, 0.0)
+	if _bow_mod != null and _sky_left > 0.0:
+		# The sky shot draws its own string: back over the stretch the hand is
+		# on it, let go at the release.
+		var through := 1.0 - _sky_left / maxf(_sky_len, 0.01)
+		_bow_mod.draw = smoothstep(SKY_DRAW_FROM, SKY_RELEASE - 0.02, through) if through < SKY_RELEASE else 0.0
+		_bow_mod.pitch = 0.0
+	elif _bow_mod != null:
 		var string := 0.0
 		if drawing:
 			string = clampf((_aim_phase - DRAW_STRING_FROM) / (1.0 - DRAW_STRING_FROM), 0.0, 1.0)
