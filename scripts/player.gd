@@ -2888,6 +2888,10 @@ func _toggle_fullscreen() -> void:
 ## his profile's (`CharacterProfile.skills`).
 const SKILLS := {
 	&"arrow_rain": {"name": "Rain of Arrows", "stamina": 25.0, "cooldown": 12.0},
+	&"hunters_mark": {"name": "Hunter's Mark", "stamina": 12.0, "cooldown": 14.0},
+	&"piercing_arrow": {"name": "Piercing Arrow", "stamina": 30.0, "cooldown": 10.0},
+	&"fire_arrow": {"name": "Fire Arrow", "stamina": 25.0, "cooldown": 12.0},
+	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
 }
 const SKILL_SLOTS := 5
 
@@ -2939,6 +2943,14 @@ func use_skill(slot: int) -> bool:
 	match id:
 		&"arrow_rain":
 			went = _arrow_rain()
+		&"hunters_mark":
+			went = _hunters_mark()
+		&"piercing_arrow":
+			went = _piercing_arrow()
+		&"fire_arrow":
+			went = _fire_arrow()
+		&"poison_blade":
+			went = _poison_blade()
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -3031,4 +3043,335 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 			profile.crit_damage if profile != null else 2.0)
 	if not quarry.is_empty():
 		rain.follow(get_node_or_null(quarry) as Node3D)
+
+
+## The skills' own numbers.
+@export_group("Hunter's Mark")
+## How far off it can be put on something.
+@export var mark_range: float = 32.0
+## How long the prey stays marked. Every blow on it does `Afflictions.MARK_FACTOR`.
+@export var mark_time: float = 10.0
+## How long the glint takes to reach it.
+@export var mark_flight: float = 0.32
+
+@export_group("Piercing Arrow")
+## How long the string is held past full, gathering the wind.
+@export var pierce_hold: float = 0.9
+## What the arrow is worth, as a share of a full draw's damage.
+@export var pierce_share: float = 1.8
+@export var pierce_speed: float = 70.0
+@export var pierce_reach: float = 40.0
+## How hard what it goes through is thrown back, in m/s.
+@export var pierce_knock: float = 6.0
+
+@export_group("Fire Arrow")
+## The shot itself, as a share of a full draw.
+@export var fire_share: float = 0.6
+## Where it lands with nothing locked: this far ahead.
+@export var fire_ahead: float = 13.0
+@export var fire_range: float = 26.0
+@export var fire_radius: float = 2.6
+@export var fire_time: float = 5.0
+## Burn a second on whatever stands in it.
+@export var fire_dps: float = 14.0
+
+@export_group("Poisoned Blade")
+## Rate the coat is played at.
+@export var coat_rate: float = 1.4
+## How long the blade stays poisoned once coated.
+@export var venom_time: float = 10.0
+## Each stack on a creature lasts this long and costs it this much a second.
+@export var venom_stack_time: float = 6.0
+@export var venom_dps: float = 7.0
+
+## Until when (on `_now()`) this hero's blade poisons what it cuts.
+var _venom_until: float = 0.0
+
+
+## Something to aim a skill at: what is locked, if it is in `reach`, else the
+## best thing in front.
+func _skill_quarry(reach: float) -> Node3D:
+	if target != null and _targetable(target) and global_position.distance_to(target.global_position) <= reach:
+		return target
+	var best := _best_target()
+	if best != null and global_position.distance_to(best.global_position) <= reach:
+		return best
+	return null
+
+
+func _face_point(at: Vector3) -> void:
+	var toward := at - global_position
+	toward.y = 0.0
+	if toward.length_squared() > 0.01:
+		rotation.y = atan2(-toward.x, -toward.z)
+
+
+#region Hunter's Mark
+## Hunter's Mark: he points at the prey and a glint flies from his fingers
+## onto it. For `mark_time` it is marked — the sigil over it, an outline, a
+## ring on the ground — and every blow on it, anyone's, bites deeper.
+func _hunters_mark() -> bool:
+	if not _is_bow():
+		return false
+	var quarry := _skill_quarry(mark_range)
+	if quarry == null:
+		return false
+	if not _spend(float(SKILLS[&"hunters_mark"]["stamina"])):
+		return false
+	_drawing = false
+	_draw_timer = 0.0
+	_face_point(quarry.global_position)
+	var lead := float(rig.call(&"point_lead")) if rig != null and rig.has_method(&"point_lead") else 0.4
+	_commit(lead + 0.35)
+	net_hunters_mark.rpc(quarry.get_path())
+	return true
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_hunters_mark(quarry_path: NodePath) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var quarry := get_node_or_null(quarry_path) as Node3D
+	var lead := 0.4
+	if rig != null and rig.has_method(&"point_mark"):
+		lead = float(rig.call(&"point_mark"))
+	await get_tree().create_timer(lead, false).timeout
+	if not is_inside_tree() or is_dead or quarry == null or not is_instance_valid(quarry):
+		return
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var from := global_position + Vector3.UP * 1.5
+	if rig != null and rig.has_method(&"bone_position"):
+		from = rig.call(&"bone_position", &"hand_r")
+	var light := HuntingLight.new()
+	light.throw(from, quarry, HuntingLight._aim_of(quarry), mark_flight)
+	into.add_child(light)
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.35, -8.0)
+	light.arrived.connect(func(at: Vector3) -> void:
+		if not is_instance_valid(quarry) or quarry.get(&"is_dead") == true:
+			return
+		SkillFx.flash(into, at, Afflictions.CRIMSON, 0.7, 0.22, 3.0)
+		SkillFx.burst(into, at, Afflictions.GOLD, 40, Vector2(2.0, 5.0), Vector3.UP, 180.0,
+				Vector2(0.02, 0.05), Vector3(0, -3, 0), 0.5)
+		var marks := Afflictions.of(quarry)
+		if marks != null:
+			marks.apply(&"mark", mark_time, self)
+		if _decides_here() and quarry.has_method(&"react"):
+			quarry.call(&"react", &"mark", self, Vector3.ZERO))
+#endregion
+
+
+#region Piercing Arrow
+## Piercing Arrow: the string held past full while the wind gathers on the
+## head, then one arrow, flat and fast, through everything on its line.
+func _piercing_arrow() -> bool:
+	if not _is_bow():
+		return false
+	if not _spend(float(SKILLS[&"piercing_arrow"]["stamina"])):
+		return false
+	_drawing = false
+	_draw_timer = 0.0
+	var quarry := _skill_quarry(pierce_reach)
+	if quarry != null:
+		_face_point(quarry.global_position)
+	var nock := float(rig.call(&"nock_lead")) if rig != null and rig.has_method(&"nock_lead") else 0.3
+	_commit(nock + pierce_hold + 0.45)
+	var from := global_position + up_direction * arrow_height
+	var dir := -global_transform.basis.z
+	if quarry != null:
+		dir = HuntingLight._aim_of(quarry) - from
+	dir = dir.normalized()
+	var critical := _shot_rng.randf() < (profile.crit_chance if profile != null else 0.1)
+	var damage := (profile.damage if profile != null else 30.0) * pierce_share \
+			* ((profile.crit_damage if profile != null else 2.0) if critical else 1.0)
+	net_piercing.rpc(dir, damage, critical)
+	return true
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var nock := 0.3
+	if rig != null and rig.has_method(&"charged_shot"):
+		nock = float(rig.call(&"charged_shot", pierce_hold))
+	await get_tree().create_timer(nock, false).timeout
+	if not is_inside_tree() or is_dead:
+		return
+	var charge := BowCharge.new()
+	charge.start(rig, &"wind", pierce_hold)
+	into.add_child(charge)
+	await get_tree().create_timer(pierce_hold, false).timeout
+	if not is_inside_tree() or is_dead:
+		return
+	var from := global_position + up_direction * arrow_height
+	if rig != null and rig.has_method(&"bow_hand"):
+		from = rig.call(&"bow_hand")
+	var shot := PiercingShot.new()
+	shot.launch(from, dir, pierce_speed, pierce_reach, damage, critical, self, pierce_knock)
+	into.add_child(shot)
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.8, 0.0)
+	if rig != null and rig.has_method(&"loose_skill_shot"):
+		rig.call(&"loose_skill_shot")
+#endregion
+
+
+#region Fire Arrow
+## Fire Arrow: the head catches as he draws, the arrow is lobbed to come down
+## where he aims, and the ground there burns for `fire_time`.
+func _fire_arrow() -> bool:
+	if not _is_bow():
+		return false
+	if not _spend(float(SKILLS[&"fire_arrow"]["stamina"])):
+		return false
+	_drawing = false
+	_draw_timer = 0.0
+	var at := _fire_point()
+	_face_point(at)
+	var nock := float(rig.call(&"nock_lead")) if rig != null and rig.has_method(&"nock_lead") else 0.3
+	_commit(nock + FIRE_HOLD + 0.45)
+	var damage := (profile.damage if profile != null else 30.0) * fire_share
+	net_fire_arrow.rpc(at, damage)
+	return true
+
+
+## How long the burning arrow is held before it goes.
+const FIRE_HOLD := 0.55
+
+
+## Where the fire goes: on what is locked in range, else ahead; on the ground.
+func _fire_point() -> Vector3:
+	var forward := -global_transform.basis.z
+	forward.y = 0.0
+	forward = forward.normalized() if forward.length_squared() > 0.0001 else Vector3.FORWARD
+	var at := global_position + forward * fire_ahead
+	var quarry := _skill_quarry(fire_range)
+	if quarry != null:
+		at = quarry.global_position + (global_position - quarry.global_position).normalized() * 0.4
+	var space := get_world_3d().direct_space_state
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3.UP * 12.0, at + Vector3.DOWN * 20.0, 1))
+	if not hit.is_empty():
+		at = hit["position"]
+	return at
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_fire_arrow(at: Vector3, damage: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var nock := 0.3
+	if rig != null and rig.has_method(&"charged_shot"):
+		nock = float(rig.call(&"charged_shot", FIRE_HOLD))
+	await get_tree().create_timer(nock * 0.6, false).timeout
+	if not is_inside_tree() or is_dead:
+		return
+	var charge := BowCharge.new()
+	charge.start(rig, &"fire", nock * 0.4 + FIRE_HOLD)
+	into.add_child(charge)
+	await get_tree().create_timer(nock * 0.4 + FIRE_HOLD, false).timeout
+	if not is_inside_tree() or is_dead:
+		return
+	var from := global_position + up_direction * arrow_height
+	if rig != null and rig.has_method(&"bow_hand"):
+		from = rig.call(&"bow_hand")
+	# A lob: up and over, coming down on the point in `flight` seconds.
+	var gap := at - from
+	var flat := Vector3(gap.x, 0.0, gap.z)
+	var flight := clampf(flat.length() / 22.0, 0.35, 1.2)
+	var velocity := flat / flight
+	velocity.y = (gap.y + 0.5 * _gravity * flight * flight) / flight
+	var shot := FireShot.new()
+	into.add_child(shot)
+	shot.launch(from, velocity, _gravity, damage, self,
+			{"radius": fire_radius, "seconds": fire_time, "dps": fire_dps})
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
+	if rig != null and rig.has_method(&"loose_skill_shot"):
+		rig.call(&"loose_skill_shot")
+#endregion
+
+
+#region Poisoned Blade
+## Poisoned Blade: the Assassin coats his blade from a vial. For `venom_time`
+## every cut that lands puts a stack of poison on what it cuts
+## ([method blade_hit]).
+func _poison_blade() -> bool:
+	if rig == null or not rig.has_method(&"coat_blade"):
+		return false
+	if not _spend(float(SKILLS[&"poison_blade"]["stamina"])):
+		return false
+	var coat := float(rig.call(&"coat_length", coat_rate))
+	_commit(coat)
+	net_poison_blade.rpc()
+	return true
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_poison_blade() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var coat := 1.6
+	if rig != null and rig.has_method(&"coat_blade"):
+		coat = float(rig.call(&"coat_blade", coat_rate))
+	_venom_until = _now() + coat + venom_time
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var fx := VenomBlade.new()
+	fx.name = "VenomBlade"
+	fx.start(rig, coat_rate, venom_time)
+	into.add_child(fx)
+
+
+## Whether the blade is poisoned now.
+func is_venomous() -> bool:
+	return _now() < _venom_until
+
+
+## A cut of this hero's has landed on `creature` at `at`. Host only (the
+## creatures call it where they take the cut). A poisoned blade adds a stack.
+func blade_hit(creature: Node3D, at: Vector3) -> void:
+	if not _decides_here() or not is_venomous() or creature == null:
+		return
+	var marks := Afflictions.of(creature, false)
+	var first := marks == null or marks.poison_stacks() == 0
+	net_afflict.rpc(creature.get_path(), &"poison", venom_stack_time, venom_dps, at)
+	if first and creature.has_method(&"react"):
+		creature.call(&"react", &"poison", self, Vector3.ZERO)
+#endregion
+
+
+## Puts an affliction on a creature on every peer, with a burst where it
+## landed. Sent by the host, or by this hero's own peer.
+@rpc("any_peer", "call_local", "reliable")
+func net_afflict(path: NodePath, kind: StringName, seconds: float, amount: float, at: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and sender != get_multiplayer_authority():
+		return
+	var creature := get_node_or_null(path) as Node3D
+	if creature == null:
+		return
+	var marks := Afflictions.of(creature)
+	if marks != null:
+		marks.apply(kind, seconds, self, amount)
+	var into := Blood.world_of(self)
+	if kind == &"poison" and into != null:
+		SkillFx.burst(into, at, Afflictions.VENOM, 22, Vector2(1.0, 3.5), Vector3.UP, 120.0,
+				Vector2(0.012, 0.03), Vector3(0, -7, 0), 0.45)
+		SkillFx.ring(into, at, Vector3.UP, Afflictions.VENOM, 0.05, 0.5, 0.25, 0.04, 2.0)
+
+
+func _decides_here() -> bool:
+	var net := get_node_or_null(^"/root/Net")
+	return net == null or bool(net.call(&"is_host"))
 #endregion

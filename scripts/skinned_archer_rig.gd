@@ -220,6 +220,64 @@ func sky_lead() -> float:
 	return _anim.get_animation(SKY_CLIP).length / SKY_RATE * SKY_RELEASE
 
 
+## Hunter's Mark (`AV_Point_Charge`, Mixamo's "Pointing Onward Charge"): a
+## lunge and an arm flung out at the prey. The part of it that is played, and
+## the moment the glint leaves his fingers, are in clip frames of 172.
+const POINT_CLIP := &"AV_Point_Charge"
+const POINT_FROM := 36.0 / 172.0
+const POINT_TO := 132.0 / 172.0
+const POINT_AT := 32.0 / 172.0
+const POINT_RATE := 1.4
+
+
+func point_lead() -> float:
+	if _anim == null or not _anim.has_animation(POINT_CLIP):
+		return 0.3
+	return _anim.get_animation(POINT_CLIP).length * POINT_AT / POINT_RATE
+
+
+## Plays the point; returns how long until the glint goes.
+func point_mark() -> float:
+	_drawing_clip = false
+	_aim_phase = 0.0
+	if play_part(POINT_CLIP, POINT_RATE, POINT_FROM, POINT_TO, 0.15) <= 0.0:
+		return 0.3
+	return point_lead()
+
+
+## The skill shots (Piercing and Fire Arrow): nocked and drawn (`AV_Nock_Draw`),
+## then held past full (`AV_Aim_Overdraw`) for `hold` seconds, then let go
+## ([method loose_skill_shot]).
+const NOCK_RATE := 1.25
+const OVERDRAW_CLIP := &"AV_Aim_Overdraw"
+## The release of `AV_Shooting_Arrow` and its follow-through, in frames of 151.
+const LOOSE_PART := Vector2(116.0 / 151.0, 1.0)
+
+
+func nock_lead() -> float:
+	if _anim == null or not _anim.has_animation(DRAW_CLIP):
+		return 0.3
+	return _anim.get_animation(DRAW_CLIP).length / NOCK_RATE
+
+
+## Nocks and starts the hold; returns how long the nock takes.
+func charged_shot(hold: float) -> float:
+	_drawing_clip = false
+	_aim_phase = 0.0
+	var nock := play_part(DRAW_CLIP, NOCK_RATE, 0.0, 1.0, 0.1)
+	if nock <= 0.0:
+		return 0.3
+	var over := _anim.get_animation(OVERDRAW_CLIP).length if _anim.has_animation(OVERDRAW_CLIP) else 0.0
+	get_tree().create_timer(nock, false).timeout.connect(func() -> void:
+		if over > 0.0 and _act_clip == DRAW_CLIP:
+			play_part(OVERDRAW_CLIP, over / maxf(hold, 0.05), 0.0, 1.0, 0.08))
+	return nock
+
+
+func loose_skill_shot() -> void:
+	play_part(LOOSE_CLIP, 1.1, LOOSE_PART.x, LOOSE_PART.y, 0.05)
+
+
 ## Where the arrow leaves the bow: his bow hand.
 func bow_hand() -> Vector3:
 	if _skel != null:

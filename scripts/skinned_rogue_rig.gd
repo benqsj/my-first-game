@@ -114,6 +114,23 @@ func _configure() -> void:
 	cloth_enabled = false
 
 
+## The Poisoned Blade's coat (`DG_Poison_Coat`, baked in Blender from the
+## preview): a vial from the belt, poured down the blade, tossed, the blade
+## flicked clean. Returns how long it takes at `rate`.
+const COAT_CLIP := &"DG_Poison_Coat"
+
+
+func coat_length(rate: float) -> float:
+	if _anim == null or not _anim.has_animation(COAT_CLIP):
+		return 1.2
+	return _anim.get_animation(COAT_CLIP).length / maxf(rate, 0.01)
+
+
+func coat_blade(rate: float) -> float:
+	var t := play_part(COAT_CLIP, rate, 0.0, 1.0, 0.12)
+	return t if t > 0.0 else 1.2
+
+
 func dodge_clip(duration: float) -> bool:
 	var clip: StringName = clips[&"dodge"]
 	if not _anim.has_animation(clip):

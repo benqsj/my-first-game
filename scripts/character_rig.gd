@@ -881,6 +881,14 @@ func bloody() -> void:
 ## empty otherwise. Anything that wants to know what the swing hit reads this:
 ## the segment says *where* along the edge contact happened, which a collision
 ## body would not.
+## The blade from guard to tip, whether it is cutting or not (empty with no
+## blade). What the Poisoned Blade's venom is drawn along.
+func blade_points() -> PackedVector3Array:
+	if _blade_base == null or _blade_tip == null:
+		return PackedVector3Array()
+	return PackedVector3Array([_blade_base.global_position, _blade_tip.global_position])
+
+
 func get_cutting_edge() -> PackedVector3Array:
 	if not _attack_cutting or _blade_base == null or _blade_tip == null:
 		return PackedVector3Array()

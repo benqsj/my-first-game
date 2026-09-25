@@ -742,6 +742,24 @@ func weapons_slung() -> float:
 	return 0.0  # no sheathing yet — the sword stays in hand
 
 
+## Plays `clip` from `from` to `until` (shares of its length) at `rate`, as a
+## free action. Returns how long that takes (0 without the clip).
+func play_part(clip: StringName, rate: float, from: float = 0.0, until: float = 1.0,
+		blend: float = -1.0) -> float:
+	if _anim == null or not _play_action(clip, Role.FREE, rate, blend, from, until):
+		return 0.0
+	return _anim.get_animation(clip).length * (until - from) / maxf(rate, 0.01)
+
+
+## Where `bone` is in the world right now.
+func bone_position(bone: StringName) -> Vector3:
+	if _skel != null:
+		var i := _skel.find_bone(bone)
+		if i >= 0:
+			return _skel.global_transform * _skel.get_bone_global_pose(i).origin
+	return global_position + Vector3.UP * 1.2
+
+
 func play_clip(clip: StringName, fade: float = -1.0, speed: float = 1.0) -> bool:
 	return _play_action(clip, Role.FREE, speed, fade)
 

@@ -27,3 +27,4 @@ max_stamina = 110.0
 attack_stamina = 7.0
 roll_stamina = 7.0
 dodge_stamina = 3.0
+skills = PackedStringArray("poison_blade")

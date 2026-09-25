@@ -206,6 +206,57 @@ func _icon(id: StringName, rect: Rect2) -> void:
 						tip - along * 4.0 - side * 3.5]), ICON)
 				_bars.draw_line(tail, tail + along * 5.0 + side * 3.0, Color(0.85, 0.3, 0.25), 2.0)
 				_bars.draw_line(tail, tail + along * 5.0 - side * 3.0, Color(0.85, 0.3, 0.25), 2.0)
+		&"hunters_mark":
+			# The mark: a ring, four points in, an eye.
+			var red := Color(0.95, 0.25, 0.18)
+			_bars.draw_arc(c, 17.0, 0.0, TAU, 32, ICON, 2.0)
+			for k in 4:
+				var a := PI * 0.5 * k
+				var d := Vector2(sin(a), -cos(a))
+				var s := Vector2(-d.y, d.x)
+				_bars.draw_colored_polygon(PackedVector2Array([c + d * 12.0, c + d * 21.0 + s * 4.0,
+						c + d * 21.0 - s * 4.0]), ICON)
+			var eye := PackedVector2Array()
+			for k in 21:
+				var t := TAU * k / 20.0
+				eye.append(c + Vector2(cos(t) * 9.0, sin(t) * 4.5))
+			_bars.draw_polyline(eye, red, 2.0)
+			_bars.draw_line(c + Vector2(0, -4), c + Vector2(0, 4), red, 2.5)
+		&"piercing_arrow":
+			# One arrow straight through two bodies, rings along it.
+			var wind := Color(0.45, 0.85, 1.0)
+			for k in 2:
+				var x := -4.0 + 12.0 * k
+				_bars.draw_rect(Rect2(c + Vector2(x - 3.0, -12.0), Vector2(6.0, 24.0)), Color(0.55, 0.5, 0.42, 0.9))
+			_bars.draw_line(c + Vector2(-21, 0), c + Vector2(17, 0), ICON, 2.0)
+			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(22, 0), c + Vector2(15, -4),
+					c + Vector2(15, 4)]), ICON)
+			for k in 3:
+				_bars.draw_arc(c + Vector2(-14.0 + 12.0 * k, 0), 5.0 + k, 0.0, TAU, 16, Color(wind, 0.8), 1.2)
+		&"fire_arrow":
+			# An arrow coming down with its head alight.
+			var tip := c + Vector2(9, 11)
+			var tail := c + Vector2(-12, -14)
+			_bars.draw_line(tail, tip, ICON, 2.0)
+			var along := (tip - tail).normalized()
+			var side := Vector2(-along.y, along.x)
+			_bars.draw_colored_polygon(PackedVector2Array([tip + along * 6.0 + side * 0.0, tip - along * 2.0 + side * 6.0,
+					tip - side * 6.0 - along * 2.0, ]), Color(1.0, 0.55, 0.12))
+			_bars.draw_colored_polygon(PackedVector2Array([tip + along * 2.0, tip - along * 1.0 + side * 3.0,
+					tip - side * 3.0 - along * 1.0]), Color(1.0, 0.9, 0.5))
+			for k in 3:
+				_bars.draw_circle(tip - along * (8.0 + 6.0 * k) + side * (3.0 - 3.0 * k), 1.6, Color(1.0, 0.5, 0.1, 0.7))
+		&"poison_blade":
+			# A dagger point up, a green drop running off it.
+			var venom := Color(0.45, 1.0, 0.25)
+			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -20), c + Vector2(4, 4),
+					c + Vector2(-4, 4)]), Color(0.8, 0.85, 0.85))
+			_bars.draw_line(c + Vector2(0, -16), c + Vector2(0, 3), venom, 2.0)
+			_bars.draw_line(c + Vector2(-9, 5), c + Vector2(9, 5), ICON, 3.0)
+			_bars.draw_line(c + Vector2(0, 6), c + Vector2(0, 17), Color(0.55, 0.12, 0.12), 3.5)
+			_bars.draw_circle(c + Vector2(9, 12), 3.5, venom)
+			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(9, 5), c + Vector2(12, 11),
+					c + Vector2(6, 11)]), venom)
 
 
 ## One bar: a dark frame with a thin gilt edge, what is left, and — if asked —
