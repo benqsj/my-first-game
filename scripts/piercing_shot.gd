@@ -27,7 +27,10 @@ const BLAST_RADIUS := 1.1
 ## How far down the line the bands and the mist go, and how often.
 const BLAST_REACH := 30.0
 ## How long each stretch of the tornado is.
-const TWIST_LEN := 4.0
+const TWIST_LEN := 3.0
+## The gap left between one stretch of the tornado and the next, so it comes
+## in gusts here and there rather than one unbroken tube.
+const TWIST_GAP := Vector2(1.2, 3.4)
 const MIST_EVERY := 1.6
 
 var _shooter: Node3D
@@ -148,7 +151,7 @@ func _physics_process(delta: float) -> void:
 		if _band_n % 4 == 2:
 			WindBlast.band(into, at, _dir, r0, r0 * 3.0 + 0.6, 0.5, float(_band_n) * 2.1)
 		_band_n += 1
-		_next_ring += TWIST_LEN
+		_next_ring += TWIST_LEN + randf_range(TWIST_GAP.x, TWIST_GAP.y)
 	while _travel >= _next_mist and _next_mist < BLAST_REACH:
 		var fade := 1.0 - _next_mist / BLAST_REACH
 		WindBlast.mist(into, _start + _dir * _next_mist, 3, 0.8 + 0.9 * fade,

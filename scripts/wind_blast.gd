@@ -97,7 +97,7 @@ static func twister(into: Node, at: Vector3, dir: Vector3, length: float, from_r
 		var r := lerpf(from_r, to_r, 1.0 - pow(1.0 - u, 2.0))
 		var b := base.rotated(dir, phase + u * life * spin)
 		mi.global_transform = Transform3D(Basis(b.x * r, b.y * r, b.z), at)
-		mat.albedo_color.a = 0.4 * minf(u * 6.0, 1.0) * (1.0 - u * u) * end_on(mi, dir)
+		mat.albedo_color.a = 0.6 * minf(u * 6.0, 1.0) * (1.0 - u * u) * end_on(mi, dir)
 	place.call(0.0)
 	var tw := mi.create_tween()
 	tw.tween_method(place, 0.0, 1.0, life)
@@ -154,7 +154,7 @@ static func end_on(node: Node3D, dir: Vector3) -> float:
 	if cam == null:
 		return 1.0
 	var look := -cam.global_basis.z
-	return lerpf(1.0, 0.15, smoothstep(0.55, 0.92, absf(look.dot(dir))))
+	return lerpf(1.0, 0.3, smoothstep(0.55, 0.92, absf(look.dot(dir))))
 
 
 static func _side(dir: Vector3) -> Vector3:
