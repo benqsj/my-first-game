@@ -85,7 +85,7 @@ static func twister(into: Node, at: Vector3, dir: Vector3, length: float, from_r
 	if into == null:
 		return
 	var mi := MeshInstance3D.new()
-	mi.mesh = _helix_mesh(length, 1.25, 3)
+	mi.mesh = _helix_mesh(length, 0.55, 2)
 	var mat := _band_material().duplicate() as StandardMaterial3D
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
