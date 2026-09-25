@@ -16,9 +16,9 @@ const PATHS: PackedStringArray = [
 	"res://assets/forest/Tree_Pine_1.obj",
 	"res://assets/forest/Mountain_1.obj",
 	"res://assets/grass/grass2.glb",
-	"res://assets/rock/rock.glb",
+	"res://unverified/assets/rock/rock.glb",
 	"res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Exports/GLB (Godot-Unreal)/Imp.glb",
-	"res://assets/area/HighLandsFantasyBuildings/Hut/SM_Hut.fbx",
+	"res://unverified/assets/area/HighLandsFantasyBuildings/Hut/SM_Hut.fbx",
 ]
 
 

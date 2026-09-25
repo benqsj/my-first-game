@@ -1,0 +1,44 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://hqxqympjayll"
+path.s3tc="res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_-dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_M.png-4f757d4a65669f1d4941ed4a04de8712.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "6fa8996a4416ef5d5cac97498f39024b"
+}
+
+[deps]
+
+source_file="res://unverified/assets/dark-lord/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_-dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_M.png"
+dest_files=["res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_-dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_M.png-4f757d4a65669f1d4941ed4a04de8712.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

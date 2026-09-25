@@ -11,11 +11,11 @@ extends Node
 ## own: it reads only the pose and the speed, both of which every peer has.
 
 const STEPS: Array[String] = [
-	"res://sounds/persons/run/step_1.wav", "res://sounds/persons/run/step_2.wav",
-	"res://sounds/persons/run/step_3.wav", "res://sounds/persons/run/step_4.wav",
-	"res://sounds/persons/run/step_5.wav", "res://sounds/persons/run/step_6.wav",
-	"res://sounds/persons/run/step_7.wav", "res://sounds/persons/run/step_8.wav",
-	"res://sounds/persons/run/step_9.wav", "res://sounds/persons/run/step_10.wav",
+	"res://unverified/sounds/persons/run/step_1.wav", "res://unverified/sounds/persons/run/step_2.wav",
+	"res://unverified/sounds/persons/run/step_3.wav", "res://unverified/sounds/persons/run/step_4.wav",
+	"res://unverified/sounds/persons/run/step_5.wav", "res://unverified/sounds/persons/run/step_6.wav",
+	"res://unverified/sounds/persons/run/step_7.wav", "res://unverified/sounds/persons/run/step_8.wav",
+	"res://unverified/sounds/persons/run/step_9.wav", "res://unverified/sounds/persons/run/step_10.wav",
 ]
 
 ## Height over the lowest a foot has been that counts as lifted, and as down.

@@ -99,24 +99,24 @@ var off_hand_blade := false
 ## What a swing sounds like: one of these, at random, at `swing_pitch`. The
 ## knight's sword; the rogue sets his own knife's (`SkinnedRogueRig`).
 var swing_sounds: Array[String] = [
-	"res://sounds/tariel/air_1.wav", "res://sounds/tariel/air_2.wav",
-	"res://sounds/tariel/air_3.wav", "res://sounds/tariel/air_4.wav",
-	"res://sounds/tariel/air_5.wav", "res://sounds/tariel/air_6.wav",
+	"res://unverified/sounds/tariel/air_1.wav", "res://unverified/sounds/tariel/air_2.wav",
+	"res://unverified/sounds/tariel/air_3.wav", "res://unverified/sounds/tariel/air_4.wav",
+	"res://unverified/sounds/tariel/air_5.wav", "res://unverified/sounds/tariel/air_6.wav",
 ]
 ## The older, lighter whooshes: the staff and the hunter's knife keep these.
 const LIGHT_SWINGS: Array[String] = [
-	"res://sounds/tariel/swing_1.wav", "res://sounds/tariel/swing_2.wav",
-	"res://sounds/tariel/swing_3.wav", "res://sounds/tariel/swing_4.wav",
-	"res://sounds/tariel/swing_5.wav", "res://sounds/tariel/swing_6.wav",
-	"res://sounds/tariel/swing_7.wav",
+	"res://unverified/sounds/tariel/swing_1.wav", "res://unverified/sounds/tariel/swing_2.wav",
+	"res://unverified/sounds/tariel/swing_3.wav", "res://unverified/sounds/tariel/swing_4.wav",
+	"res://unverified/sounds/tariel/swing_5.wav", "res://unverified/sounds/tariel/swing_6.wav",
+	"res://unverified/sounds/tariel/swing_7.wav",
 ]
 ## How loud the swing plays, dB.
 var swing_volume := -11.0
 ## The blade going into a creature: one of these at random.
-var hit_sounds: Array[String] = ["res://sounds/tariel/hit_1.wav"]
+var hit_sounds: Array[String] = ["res://unverified/sounds/tariel/hit_1.wav"]
 var hit_volume := -19.0
 ## Being hurt.
-var hurt_sounds: Array[String] = ["res://sounds/all/hurt_1.wav"]
+var hurt_sounds: Array[String] = ["res://unverified/sounds/all/hurt_1.wav"]
 var hurt_volume := -19.0
 var swing_pitch := 1.0
 

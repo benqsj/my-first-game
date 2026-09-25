@@ -135,8 +135,8 @@ const GRIP := Quaternion(-0.48301, -0.78505, 0.31603, 0.22476)
 const AXE_DROP := 0.18
 ## The head of the axe, in the axe's own frame: where the slam lands.
 const AXE_HEAD := Vector3(0.12, 0.62, 0.0)
-const AXE_SCENE := "res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_Axe.fbx"
-const AXE_TEXTURES := "res://assets/area/HighLandsFantasyBuildings/MiscProps/TextureMaps"
+const AXE_SCENE := "res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/SM_Axe.fbx"
+const AXE_TEXTURES := "res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/TextureMaps"
 ## The stretch of the village axe the cut in the air is drawn along, in the
 ## axe's own frame: up the haft to the far corner of the bit.
 const ARC_BASE := Vector3(0.0, 0.3, 0.0)
@@ -238,7 +238,7 @@ var _reel_clock: float = 0.0
 
 func _ready() -> void:
 	super()
-	roar_sound = "res://sounds/orc/roar_1.wav"
+	roar_sound = "res://unverified/sounds/orc/roar_1.wav"
 	_skeleton = body.find_child("Skeleton3D", true, false) as Skeleton3D
 	_own = body.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if _skeleton == null or _own == null:

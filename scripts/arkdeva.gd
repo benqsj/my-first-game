@@ -25,9 +25,9 @@ extends Brute
 
 enum Act { NONE = 0, STAMP = 1, STRIKE_L = 2, STRIKE_R = 3, CHOP = 4, COMBO = 5, SPIT_ONE = 6, SPIT_TWO = 7, PARRIED = 20, DEAD = 99 }
 
-const DIFFUSE := "res://assets/spider/textures/arcdeva_diff.png"
-const NORMAL := "res://assets/spider/textures/arcdeva_norm.png"
-const EMISSION := "res://assets/spider/textures/arcdeva_emis.png"
+const DIFFUSE := "res://unverified/assets/spider/textures/arcdeva_diff.png"
+const NORMAL := "res://unverified/assets/spider/textures/arcdeva_norm.png"
+const EMISSION := "res://unverified/assets/spider/textures/arcdeva_emis.png"
 
 ## The moves each act is made of, in order: [kind, seconds, side].
 const MOVES := {

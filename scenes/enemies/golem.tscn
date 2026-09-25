@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/golem.gd" id="1_golem"]
-[ext_resource type="PackedScene" path="res://assets/rockMen/M.glb" id="2_model"]
+[ext_resource type="PackedScene" path="res://unverified/assets/rockMen/M.glb" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_golem"]

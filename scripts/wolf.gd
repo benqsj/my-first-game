@@ -666,7 +666,7 @@ func _lie_down() -> void:
 
 ## Something falling from it as it goes down: every creature drops a little,
 ## heard where it lies.
-const LOOT_SOUND := "res://sounds/all/loot_1.wav"
+const LOOT_SOUND := "res://unverified/sounds/all/loot_1.wav"
 
 
 ## Takes the body out of every window at once.

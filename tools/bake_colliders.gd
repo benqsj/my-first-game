@@ -19,12 +19,12 @@ const MODELS := [
 	{
 		"scene": "res://scenes/world/greybox_world.tscn",
 		"under": "Level/House",
-		"into": "res://assets/house/house_hulls.tres",
+		"into": "res://unverified/assets/house/house_hulls.tres",
 	},
 	{
 		"scene": "res://scenes/world/greybox_world.tscn",
 		"under": "Level/Cart",
-		"into": "res://assets/uremi /cart_hulls.tres",
+		"into": "res://unverified/assets/uremi /cart_hulls.tres",
 	},
 ]
 

@@ -17,8 +17,8 @@ extends Node
 ## Only local: nothing here is networked, each peer hears his own.
 
 const PASSAGES: Array[String] = [
-	"res://sounds/moments/short-women-voice-1.mp3",
-	"res://sounds/moments/short-women-voice-2.mp3",
+	"res://unverified/sounds/moments/short-women-voice-1.mp3",
+	"res://unverified/sounds/moments/short-women-voice-2.mp3",
 ]
 ## Per-passage loudness, dB. The second is recorded ~2 dB louder than the first.
 const TRIM: Array[float] = [1.0, -1.0]

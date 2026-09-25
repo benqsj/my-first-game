@@ -30,7 +30,7 @@ extends Arrow
 ##
 ## Where it strikes it bursts in a flash and is gone instead of sticking.
 
-const MODEL := "res://assets/magic-person/magic-attack/skill1.glb"
+const MODEL := "res://unverified/assets/magic-person/magic-attack/skill1.glb"
 ## The model's orb is 1.24 across its radius; this makes it a hand's width.
 const MODEL_SCALE := 0.14
 

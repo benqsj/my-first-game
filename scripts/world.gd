@@ -446,7 +446,7 @@ const VILLAGE := Rect2(20.0, 14.0, 92.0, 62.0)
 ## stand at the size of a house next to a man rather than a shed.
 const HUT_GROWTH := 1.3
 const HUT_SPREAD_FROM := 62.0
-const FENCE_SCENE := "res://assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx"
+const FENCE_SCENE := "res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx"
 ## Where the gap in the fence is: the west side, between the gate towers, where
 ## the track comes in.
 const GATE := Vector2(34.0, 52.0)

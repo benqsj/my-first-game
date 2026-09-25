@@ -32,7 +32,7 @@ extends Node3D
 @export_range(0.0, 1.0) var aimed: float = 0.3
 
 const WHISTLES: Array[String] = [
-	"res://sounds/tariel/air_1.wav", "res://sounds/tariel/air_3.wav", "res://sounds/tariel/air_5.wav",
+	"res://unverified/sounds/tariel/air_1.wav", "res://unverified/sounds/tariel/air_3.wav", "res://unverified/sounds/tariel/air_5.wav",
 ]
 
 var _shooter: Node3D

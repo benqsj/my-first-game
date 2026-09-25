@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://tpnl5irvg63i"
+path="res://.godot/imported/ფოლადის შუქი.mp3-a74ade279319033a203b6a1648b851ee.mp3str"
+
+[deps]
+
+source_file="res://unverified/sounds/menu-test/ფოლადის შუქი.mp3"
+dest_files=["res://.godot/imported/ფოლადის შუქი.mp3-a74ade279319033a203b6a1648b851ee.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -14,15 +14,15 @@ var _player: Player
 
 
 func _initialize() -> void:
-	for path in ["res://sounds/tariel/swing_1.wav", "res://sounds/bow/draw.wav", "res://sounds/bow/release.wav",
-			"res://sounds/tower-music/kind-of-year.mp3",
-			"res://sounds/tariel/air_1.wav", "res://sounds/tariel/air_6.wav", "res://sounds/tariel/hit_1.wav",
-			"res://sounds/assassin/swing_1.wav", "res://sounds/assassin/swing_4.wav",
-			"res://sounds/assassin/hit_3.wav", "res://sounds/assassin/hurt_1.wav",
-			"res://sounds/all/hurt_1.wav", "res://sounds/all/fall_1.wav", "res://sounds/all/block_1.wav",
-			"res://sounds/all/loot_1.wav", "res://sounds/orc/roar_1.wav",
-			"res://sounds/all/jump.wav", "res://sounds/all/land.wav", "res://sounds/dodge/roll.wav",
-			"res://sounds/assassin/step.wav", "res://sounds/assassin/flip.wav"]:
+	for path in ["res://unverified/sounds/tariel/swing_1.wav", "res://unverified/sounds/bow/draw.wav", "res://unverified/sounds/bow/release.wav",
+			"res://unverified/sounds/tower-music/kind-of-year.mp3",
+			"res://unverified/sounds/tariel/air_1.wav", "res://unverified/sounds/tariel/air_6.wav", "res://unverified/sounds/tariel/hit_1.wav",
+			"res://unverified/sounds/assassin/swing_1.wav", "res://unverified/sounds/assassin/swing_4.wav",
+			"res://unverified/sounds/assassin/hit_3.wav", "res://unverified/sounds/assassin/hurt_1.wav",
+			"res://unverified/sounds/all/hurt_1.wav", "res://unverified/sounds/all/fall_1.wav", "res://unverified/sounds/all/block_1.wav",
+			"res://unverified/sounds/all/loot_1.wav", "res://unverified/sounds/orc/roar_1.wav",
+			"res://unverified/sounds/all/jump.wav", "res://unverified/sounds/all/land.wav", "res://unverified/sounds/dodge/roll.wav",
+			"res://unverified/sounds/assassin/step.wav", "res://unverified/sounds/assassin/flip.wav"]:
 		_check("%s is there to play" % path.get_file(), load(path) is AudioStream)
 	await _spawn(&"mage")
 	await _check_mage()
@@ -43,9 +43,9 @@ func _initialize() -> void:
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig
 	_check("Tariel's sword has the new air and its bite", trig != null
-			and trig.swing_sounds[0] == "res://sounds/tariel/air_1.wav"
-			and trig.hit_sounds[0] == "res://sounds/tariel/hit_1.wav"
-			and trig.hurt_sounds[0] == "res://sounds/all/hurt_1.wav")
+			and trig.swing_sounds[0] == "res://unverified/sounds/tariel/air_1.wav"
+			and trig.hit_sounds[0] == "res://unverified/sounds/tariel/hit_1.wav"
+			and trig.hurt_sounds[0] == "res://unverified/sounds/all/hurt_1.wav")
 	await _spawn(&"mage")
 	await _check_chain("the mage")
 	await _spawn(&"avtandil")
@@ -239,9 +239,9 @@ func _check_rogue() -> void:
 	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Flip"
 			and rig._anim.has_animation(&"DG_Flip") and rig._anim.has_animation(&"DG_Twist"))
 
-	_check("his knife has its own sounds", rig.swing_sounds[0].begins_with("res://sounds/assassin/")
-			and rig.hit_sounds[0].begins_with("res://sounds/assassin/")
-			and rig.hurt_sounds[0] == "res://sounds/assassin/hurt_1.wav")
+	_check("his knife has its own sounds", rig.swing_sounds[0].begins_with("res://unverified/sounds/assassin/")
+			and rig.hit_sounds[0].begins_with("res://unverified/sounds/assassin/")
+			and rig.hurt_sounds[0] == "res://unverified/sounds/assassin/hurt_1.wav")
 	var voices := rig.find_children("*", "AudioStreamPlayer3D", true, false).size()
 	_player.net_blade_landed()
 	_player.net_react(Player.Reaction.FLINCH, _player.global_position + Vector3.UP, Vector3.UP)

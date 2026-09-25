@@ -429,8 +429,8 @@ var target_part: int = 0
 ## How long the string has been held, and whether it is being held at all.
 var _draw_timer: float = 0.0
 var _drawing: bool = false
-const DRAW_SOUND := "res://sounds/bow/draw.wav"
-const RELEASE_SOUND := "res://sounds/bow/release.wav"
+const DRAW_SOUND := "res://unverified/sounds/bow/draw.wav"
+const RELEASE_SOUND := "res://unverified/sounds/bow/release.wav"
 ## Levitation left in this jump, in seconds, and whether it is being used now.
 var _levitate_left: float = 0.0
 var _levitating: bool = false
@@ -2600,20 +2600,20 @@ func set_shield(kind: int) -> void:
 
 
 const PARRY_SOUND := "res://sounds/parry/clang.wav"
-const BLOCK_SOUND := "res://sounds/all/block_1.wav"
-const FALL_SOUND := "res://sounds/all/fall_1.wav"
-const SHADOW_SOUND := "res://sounds/dodge/shadow.wav"
-const ROLL_SOUND := "res://sounds/dodge/roll.wav"
+const BLOCK_SOUND := "res://unverified/sounds/all/block_1.wav"
+const FALL_SOUND := "res://unverified/sounds/all/fall_1.wav"
+const SHADOW_SOUND := "res://unverified/sounds/dodge/shadow.wav"
+const ROLL_SOUND := "res://unverified/sounds/dodge/roll.wav"
 
 ## The body's own moves that are heard: the push off the ground, coming down
 ## on it, and the evades — the roll, and the assassin's step and flip.
 enum MoveSound { JUMP, LAND, ROLL, STEP, FLIP }
 const MOVE_SOUNDS: Array[String] = [
-	"res://sounds/all/jump.wav",
-	"res://sounds/all/land.wav",
+	"res://unverified/sounds/all/jump.wav",
+	"res://unverified/sounds/all/land.wav",
 	ROLL_SOUND,
-	"res://sounds/assassin/step.wav",
-	"res://sounds/assassin/flip.wav",
+	"res://unverified/sounds/assassin/step.wav",
+	"res://unverified/sounds/assassin/flip.wav",
 ]
 ## Each one's loudness, set so a jump is a little over a footfall and the
 ## evades sit with the fight's other sounds, under the blades.
