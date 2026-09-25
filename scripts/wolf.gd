@@ -24,6 +24,9 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var lose_range: float = 18.0
 ## Close enough to stand up and swing.
 @export var reach: float = 2.3
+## How far off its claws land (measured: about 1.1 m round it); swiping from
+## further, it steps in to that.
+@export var claw_reach: float = 0.8
 ## Hurt from further off than it can see — an arrow out of the trees — it
 ## comes anyway, and keeps coming for this long whatever the distance.
 @export var provoked_time: float = 14.0
@@ -133,6 +136,15 @@ var _pouncing: bool = false
 ## Share of attacks that are a pounce rather than a swipe.
 @export var pounce_chance: float = 0.35
 
+## The claws as their blows see them ([WeaponSweep]), host side, on a clock
+## that starts with each attack. A swipe's claws come through from the end of
+## its windup; a pounce's from when it throws itself forward. Only a paw — or,
+## in a pounce, the jaws — that passes through a player strikes him.
+var _sweeps: Array[WeaponSweep] = []
+var _attack_clock: float = 0.0
+const SWIPE_LIVE := Vector2(0.44, 0.74)
+const POUNCE_LIVE := Vector2(0.5, 0.86)
+
 
 func _ready() -> void:
 	add_to_group(&"wolf")
@@ -224,19 +236,11 @@ func _process(delta: float) -> void:
 	# A prowl is a full walk cycle, not a fraction of a sprint: measuring the
 	# gait against the charge speed left it barely lifting its feet.
 	rig.animate(delta, planar, planar / maxf(prowl_speed, 0.01), stance)
-	if reeling:
-		# Reared right back with the jolt, then sagging, head down, open.
-		var jolt := Recoil.back(_reel_clock)
-		var give := Recoil.fold(_reel_clock)
-		rig.rotation.x = 0.55 * jolt - 0.28 * give
-		rig.position.z = 0.35 * jolt
-	elif not is_dead and rig.is_legless():
-		# Down on its belly, dragging itself: pitched forward, low.
-		rig.rotation.x = lerpf(rig.rotation.x, -0.12, 1.0 - exp(-6.0 * delta))
-		rig.position.y = lerpf(rig.position.y, -0.45, 1.0 - exp(-6.0 * delta))
-	elif not is_dead and rig.rotation.x != 0.0:
-		rig.rotation.x = move_toward(rig.rotation.x, 0.0, delta * 3.0)
-		rig.position.z = move_toward(rig.position.z, 0.0, delta * 2.0)
+	# The stagger, the belly-crawl and the fall are the rig's own clips now.
+	if _decides() and not is_dead:
+		_attack_clock += delta
+		WeaponSweep.run(_sweeps, _attack_clock, _swipe_count, get_tree(), delta)
+	WeaponSweep.draw(self, _sweeps)
 
 
 #region Behaviour
@@ -339,6 +343,12 @@ func _think(delta: float) -> void:
 			else:
 				_face(to_player, delta)
 				_slow(delta)
+				# Into the swipe it steps up, so the claws come through where he
+				# stands rather than short of him.
+				if rig.is_swiping() and distance > claw_reach:
+					var step := to_player.normalized() * minf((distance - claw_reach) * 4.0, charge_speed)
+					velocity.x = step.x
+					velocity.z = step.z
 				if _swipe_timer <= 0.0 and _reeling <= 0.0:
 					_swipe_count += 1
 					var both_arms := not rig.has_lost("left arm") and not rig.has_lost("right arm")
@@ -350,10 +360,12 @@ func _think(delta: float) -> void:
 						_pouncing = true
 						rig.lunge()
 						net_lunge.rpc()
+						_arm_claws(POUNCE_LIVE, true)
 					else:
 						_swipe_timer = swipe_interval
 						_swipe_lands = swipe_lands_after
 						rig.swipe()
+						_arm_claws(SWIPE_LIVE, false)
 						# Only the host thinks, so only the host would ever
 						# swing: the others are told, or they see a wolf
 						# standing up to fight and doing nothing while their
@@ -362,26 +374,29 @@ func _think(delta: float) -> void:
 					attacked.emit()
 
 
-## The claws arrive: whoever is in reach and in front of it is struck. Sent as
-## one blow of two, so a swipe is a flinch, never a knockdown, and can be
-## parried.
+## The moment the claws arrive. They strike through their sweep (`_arm_claws`),
+## not here.
 func _land_swipe() -> void:
-	if is_dead or rig == null or rig.is_disarmed():
-		return
-	var ahead := -global_transform.basis.z
-	ahead.y = 0.0
-	ahead = ahead.normalized()
-	for node in get_tree().get_nodes_in_group("player"):
-		var who := node as Node3D
-		if who == null or not who.has_method("receive_blow") or Brute._fallen(who):
-			continue
-		var to_them := who.global_position - global_position
-		if absf(to_them.y) > 2.0:
-			continue
-		to_them.y = 0.0
-		if to_them.length() > reach + (1.6 if _pouncing else 0.6) or ahead.dot(to_them.normalized()) < 0.25:
-			continue
-		who.call("receive_blow", swipe_damage, self, 0, 2, _swipe_count)
+	pass
+
+
+## Arms the attack just begun: its claws are live for `live` seconds of it, and
+## land on whoever they pass through. Sent as one blow of two, so a swipe is a
+## flinch, never a knockdown, and can be parried.
+func _arm_claws(live: Vector2, pounce: bool) -> void:
+	_attack_clock = 0.0
+	_sweeps.clear()
+	var serial := _swipe_count
+	_sweeps.append(WeaponSweep.blow(_claw_parts.bind(pounce), 2.5, live.x, live.y, serial,
+			func(who: Node3D) -> void:
+				if not is_dead and rig != null and not rig.is_disarmed():
+					who.call("receive_blow", swipe_damage, self, 0, 2, serial)))
+
+
+## Both forearms and paws out to the claws, as posed this frame — an arm it has
+## lost strikes nobody — and in a pounce its head ([method WolfRig.claw_parts]).
+func _claw_parts(pounce: bool) -> Array:
+	return rig.claw_parts(pounce) if rig != null else []
 
 
 ## A swipe met on a shield at the last moment: it is knocked back on its haunches
@@ -390,6 +405,7 @@ func parried(by: Node3D) -> void:
 	if is_dead or not _decides():
 		return
 	_swipe_lands = -1.0
+	_sweeps.clear()
 	_reeling = parried_stagger
 	net_reel.rpc()
 	_swipe_timer = maxf(_swipe_timer, parried_stagger)
@@ -714,6 +730,8 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 @rpc("authority", "call_local", "reliable")
 func net_reel() -> void:
 	_reel_clock = 0.0
+	if rig != null and not is_dead:
+		rig.reel()
 
 
 ## A pounce, on the peers that did not decide it.
@@ -735,23 +753,14 @@ func net_clear() -> void:
 	queue_free()
 
 
-## Where the body lies once it has fallen, and how long the fall takes.
-const LIE_Y := 0.12
-const FALL_TIME := 0.55
+## Where the body lies once it has fallen: its death clip lays it on the ground.
+const LIE_Y := 0.0
 
 
-## Once it is dead: down onto all fours if it was standing, and over onto its
-## side — a quick fall with a small bounce as it hits the ground, then still.
+## Once it is dead: it falls onto its back (the rig's death clip), and lies there.
 func _collapse(_delta: float) -> void:
-	if rig == null:
-		return
-	var t := clampf(_corpse_age / FALL_TIME, 0.0, 1.0)
-	# Falls, hits, rocks back a little and settles.
-	var over := pow(t / 0.7, 2.0) * 1.06 if t < 0.7 else lerpf(1.06, 1.0, (t - 0.7) / 0.3)
-	rig.rotation.x = lerpf(rig.rotation.x, 0.0, 0.25)
-	rig.rotation.z = _fall_side * PI * 0.5 * over
-	rig.position.y = LIE_Y * minf(t * 2.0, 1.0)
-	rig.position.z = lerpf(rig.position.z, 0.0, 0.2)
+	if rig != null:
+		rig.fall()
 
 
 ## Takes the body out of the world once it has lain there long enough. Corpses

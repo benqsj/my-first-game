@@ -65,7 +65,8 @@ func _watch_wolf() -> void:
 	if _wolf.is_dead:
 		if _wolf_dead_at < 0.0:
 			_wolf_dead_at = _since
-		_wolf_fell = minf(_wolf_fell, _wolf.rig.rotation.x)
+		# Its fall is the rig's death clip: -1 once that is playing here.
+		_wolf_fell = minf(_wolf_fell, -1.0 if _wolf.rig._dead else 0.0)
 		_wolf_sank = minf(_wolf_sank, _wolf.rig.position.y)
 
 
@@ -86,7 +87,7 @@ func _watch_others() -> void:
 
 func _report() -> void:
 	print("CLIENT wolf swipes seen %d" % _swipes)
-	print("CLIENT wolf died %s fell %.2f rad sank %.2f m gone %s" % [_wolf_dead_at >= 0.0, _wolf_fell, _wolf_sank, _wolf_gone])
+	print("CLIENT wolf died %s fell %.0f sank %.2f m gone %s" % [_wolf_dead_at >= 0.0, _wolf_fell, _wolf_sank, _wolf_gone])
 	for n in _others:
 		print("CLIENT other %s dead sank %.2f m" % [n, _others[n]["sank"]])
 	print("CLIENT done")

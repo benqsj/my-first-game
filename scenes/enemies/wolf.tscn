@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/wolf.gd" id="1_wolf"]
 [ext_resource type="Script" path="res://scripts/wolf_rig.gd" id="2_rig"]
-[ext_resource type="PackedScene" path="res://assets/wolfmen/wolf-monster.glb" id="3_model"]
+[ext_resource type="PackedScene" path="res://assets/wolf/wolf_beast.glb" id="3_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_wolf"]
@@ -42,10 +42,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_wolf")
 
 [node name="Visuals" type="Node3D" parent="."]
-transform = Transform3D(-1.4, 0, 0, 0, 1.4, 0, 0, 0, -1.4, 0, 0, 0)
+transform = Transform3D(-1.1, 0, 0, 0, 1.1, 0, 0, 0, -1.1, 0, 0, 0)
 script = ExtResource("2_rig")
 
-[node name="wolf-monster" parent="Visuals" instance=ExtResource("3_model")]
+[node name="wolf_beast" parent="Visuals" instance=ExtResource("3_model")]
 
 [node name="Body" type="MultiplayerSynchronizer" parent="."]
 replication_interval = 0.033

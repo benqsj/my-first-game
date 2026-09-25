@@ -1,249 +1,376 @@
 class_name WolfRig
 extends Node3D
 
-## Procedural animation for the wolf monster.
+## The wolf-man's body: `assets/wolf/wolf_beast.glb`, built in Blender
+## (vepxis-art/tools/wolf_build.py) as one mesh per bone on a Tariel-style
+## skeleton, and moved by Mixamo's clips laid onto that skeleton
+## (tools/retarget_mixamo.py): WF_*.
 ##
-## Same shape of problem as [CharacterRig]: the model is a hierarchy of named joint
-## nodes with no skeleton and no clips, so every pose is a rotation applied on
-## top of the joint's rest orientation (its `extras.rest` in the source file).
+## It runs down its quarry on all fours (Running Crawl), rises to fight (the
+## mutant set: a breathing idle, a brutal walk, swipes with either paw, a
+## pounce), staggers when a swipe is thrown back off a shield, drags itself on
+## its belly with both legs gone (Zombie Crawl), and dies falling onto its back.
+## Over the clips: the jaws open as it strikes, the tail swings behind it, and a
+## red glint gathers on the claws about to come through.
 ##
-## The one thing this rig does that the knight's does not is change gait. The
-## creature runs on all fours and rears onto its hind legs to fight, and those
-## are two different poses of the same joints, so both are written out as
-## offsets from rest and cross-faded by a single `stance` value. Everything else
-## — stride, claw swipes, tail — is layered on whatever that blend produced.
+## Every part hangs off its bone whole ([BoneAttachment3D]), so a limb the
+## knight's blade takes is hidden here and dropped as a piece of its own, and a
+## blow is measured against the parts themselves.
 ##
-## Angles follow the model's own axes: it faces +Z, so a positive X rotation on
-## a limb swings that limb backwards.
-
-const REST := {
-	"m_hips": Vector3(0.0, 0.0, 0.0),
-	"m_spine": Vector3(0.62, 0.0, 0.0),
-	"m_chest": Vector3(0.0, 0.0, 0.0),
-	"m_neck": Vector3(-0.5, 0.0, 0.0),
-	"m_head": Vector3(0.0, 0.0, 0.0),
-	"m_jaw": Vector3(0.0, 0.0, 0.0),
-	"m_shoulder_l": Vector3(0.2, 0.0, -0.35),
-	"m_upperarm_l_end": Vector3(-0.95, 0.0, 0.0),
-	"m_forearm_l_end": Vector3(-0.3, 0.0, 0.0),
-	"m_hand_l": Vector3(0.0, 0.0, 0.0),
-	"m_shoulder_r": Vector3(0.2, 0.0, 0.35),
-	"m_upperarm_r_end": Vector3(-0.95, 0.0, 0.0),
-	"m_forearm_r_end": Vector3(-0.3, 0.0, 0.0),
-	"m_hand_r": Vector3(0.0, 0.0, 0.0),
-	"m_hip_l": Vector3(-0.55, 0.0, -0.05),
-	"m_thigh_l_end": Vector3(1.15, 0.0, 0.0),
-	"m_shin_l_end": Vector3(-0.62, 0.0, 0.0),
-	"m_foot_l": Vector3(0.0, 0.0, 0.0),
-	"m_hip_r": Vector3(-0.55, 0.0, 0.05),
-	"m_thigh_r_end": Vector3(1.15, 0.0, 0.0),
-	"m_shin_r_end": Vector3(-0.62, 0.0, 0.0),
-	"m_foot_r": Vector3(0.0, 0.0, 0.0),
-	"m_tail_root": Vector3(-0.9, 0.0, 0.0),
-}
-
-const TAIL_CHAIN: Array[String] = ["m_tail_root", "m_tail_j0", "m_tail_j1", "m_tail_j2", "m_tail_j3", "m_tail_j4"]
-
-## Offsets from rest that put the creature down on all fours: torso levelled
-## out, neck lifted so it still looks ahead, front legs straightened to reach
-## the ground.
-const ON_ALL_FOURS := {
-	"m_spine": Vector3(0.2, 0.0, 0.0),
-	"m_neck": Vector3(-0.45, 0.0, 0.0),
-	"m_head": Vector3(-0.2, 0.0, 0.0),
-	"m_shoulder_l": Vector3(-0.95, 0.0, 0.0),
-	"m_shoulder_r": Vector3(-0.95, 0.0, 0.0),
-	"m_upperarm_l_end": Vector3(0.85, 0.0, 0.0),
-	"m_upperarm_r_end": Vector3(0.85, 0.0, 0.0),
-	"m_hip_l": Vector3(0.15, 0.0, 0.0),
-	"m_hip_r": Vector3(0.15, 0.0, 0.0),
-	"m_tail_root": Vector3(0.35, 0.0, 0.0),
-}
-
-## Offsets from rest for the upright fighting stance: spine stood up, arms
-## carried forward with the claws ready.
-const REARED := {
-	"m_spine": Vector3(-0.5, 0.0, 0.0),
-	"m_neck": Vector3(0.2, 0.0, 0.0),
-	"m_shoulder_l": Vector3(-0.25, 0.0, -0.2),
-	"m_shoulder_r": Vector3(-0.25, 0.0, 0.2),
-	"m_upperarm_l_end": Vector3(-0.25, 0.0, 0.0),
-	"m_upperarm_r_end": Vector3(-0.25, 0.0, 0.0),
-	"m_hip_l": Vector3(0.3, 0.0, 0.0),
-	"m_hip_r": Vector3(0.3, 0.0, 0.0),
-	"m_tail_root": Vector3(-0.2, 0.0, 0.0),
-}
-
-## Limbs that come off when the knight cuts one. The value is the joint whose
-## subtree is hidden; the key is only there to read back in a log.
-const SEVERABLE := {
-	"head": "m_head",
-	"left arm": "m_shoulder_l",
-	"right arm": "m_shoulder_r",
-	"left leg": "m_hip_l",
-	"right leg": "m_hip_r",
-	"tail": "m_tail_root",
-}
+## [Wolf] drives it: `animate()` once a frame with how fast it is going and
+## whether it is fighting, `swipe()` and `lunge()` to attack, `reel()` when a
+## swipe is thrown back, `fall()` once it is dead.
 
 signal severed(part: String)
 
+## Limbs that come off, by the bone their subtree starts at.
+const SEVERABLE := {
+	"head": "head",
+	"left arm": "upperarm_l",
+	"right arm": "upperarm_r",
+	"left leg": "thigh_l",
+	"right leg": "thigh_r",
+	"tail": "tail_01",
+}
+
+const IDLE := &"WF_Idle"
+const WALK := &"WF_Walk"
+const RUN := &"WF_Crawl_Run"
+const DRAG := &"WF_Drag"
+const SWIPE_L := &"WF_Swipe_L"
+const SWIPE_R := &"WF_Swipe_R"
+const POUNCE := &"WF_Pounce"
+const STAGGER := &"WF_Stagger"
+const DEATH := &"WF_Death"
+const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_Drag", &"WF_Run",
+		&"WF_Crawl_Walk"]
+
 #region Exported tuning
-@export_group("Stance")
-## How far the hips drop between reared and on all fours, in metres.
-@export var crouch_drop: float = 0.18
-## How fast the creature changes gait.
-@export var stance_speed: float = 5.0
-
-@export_group("Stride")
-@export var stride_length: float = 1.9
-@export var run_stride_bonus: float = 1.6
-@export var hip_swing: float = 0.62
-@export var knee_bend: float = 0.55
-## Front-leg reach while running on all fours.
-@export var foreleg_swing: float = 0.7
-@export var hip_bob: float = 0.06
-
 @export_group("Attack")
+## How long a swipe takes, and the share of it spent winding up: the claws come
+## through at the end of the windup.
 @export var swipe_duration: float = 0.85
-## Share of the swipe spent winding up — the arm high and back, the chest
-## rearing, a red glint at the claws: the tell to roll on.
 @export var swipe_windup: float = 0.55
 ## The pounce: how long, and the share of it spent gathering.
 @export var lunge_duration: float = 1.0
 @export var lunge_windup: float = 0.5
-## How far the arm carries through the swipe, in radians.
-@export var swipe_reach: float = 2.1
 
-@export_group("Idle")
-@export var breath_rate: float = 2.2
-@export var breath_amount: float = 0.035
-
-@export_group("Secondary motion")
-@export var tail_stiffness: float = 7.0
-@export var tail_swing: float = 0.5
+@export_group("Pace")
+## Metres a second each cycle carries it at rate 1: what the clips are sped up
+## or slowed against so the feet do not skate.
+@export var walk_pace: float = 1.25
+@export var run_pace: float = 4.2
+@export var drag_pace: float = 0.5
+## Faster than this it drops to all fours.
+@export var run_from: float = 2.8
 #endregion
 
-var _joints: Dictionary = {}
-var _base: Dictionary = {}
-var _hips_base_y: float = 0.0
-
-var _phase: float = 0.0
-var _speed_blend: float = 0.0
-var _stance: float = 1.0
-var _swipe_timer: float = 0.0
-var _lunge_timer: float = 0.0
-var _swipe_left: bool = true
-var _tail_angles: PackedFloat32Array = PackedFloat32Array()
-
-## Mesh nodes making up each severable limb, so a hit can be tested against
-## where the limb actually is rather than where its joint happens to sit.
-var _limb_meshes: Dictionary = {}
-
-var _trail_l: SwordTrail
-var _trail_r: SwordTrail
+var _anim: AnimationPlayer
+var _skeleton: Skeleton3D
+## bone name -> the attachments hanging off it.
+var _parts: Dictionary = {}
 var _lost: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 ## Where the last limb came off, so the blow can bleed from the right place.
 var last_cut_point: Vector3 = Vector3.ZERO
 
+var _swipe_timer: float = 0.0
+var _lunge_timer: float = 0.0
+var _reel_timer: float = 0.0
+var _swipe_left: bool = true
+var _dead: bool = false
+var _stance: float = 1.0
+var _one_shot: StringName = &""
+## The moment in each attack clip its claws move fastest, seconds from its start.
+var _strike_at: Dictionary = {}
+
+var _root_bone: int = -1
+var _jaw: int = -1
+var _tail: Array[int] = []
+var _tail_swing: PackedFloat32Array = PackedFloat32Array()
+var _claw_tips: Dictionary = {}
+var _wrists: Dictionary = {}
+var _trail_l: SwordTrail
+var _trail_r: SwordTrail
+var _glints: Dictionary = {}
+var _clock: float = 0.0
+
 
 func _ready() -> void:
-	for joint_name: String in REST:
-		var node := find_child(joint_name, true, false) as Node3D
-		if node == null:
-			push_warning("WolfRig: joint '%s' is missing." % joint_name)
-			continue
-		_joints[joint_name] = node
-		_base[joint_name] = REST[joint_name]
-		node.rotation = REST[joint_name]
-	for joint_name in TAIL_CHAIN:
-		if _joints.has(joint_name):
-			continue
-		var node := find_child(joint_name, true, false) as Node3D
-		if node != null:
-			_joints[joint_name] = node
-			_base[joint_name] = REST.get(joint_name, Vector3.ZERO)
-			node.rotation = _base[joint_name]
-
-	_tail_angles.resize(TAIL_CHAIN.size())
-	var hips := _joints.get("m_hips") as Node3D
-	if hips != null:
-		_hips_base_y = hips.position.y
-
-	for part: String in SEVERABLE:
-		var joint := _joints.get(SEVERABLE[part]) as Node3D
-		if joint == null:
-			continue
-		var meshes: Array[MeshInstance3D] = []
-		for m in joint.find_children("*", "MeshInstance3D", true, false):
-			meshes.append(m as MeshInstance3D)
-		_limb_meshes[part] = meshes
-
 	_rng.randomize()
-	_setup_trails()
+	_skeleton = find_child("Skeleton3D", true, false) as Skeleton3D
+	_anim = find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if _skeleton == null or _anim == null:
+		push_warning("WolfRig: no skeleton or no clips.")
+		return
+	_anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	for clip in LOOPS:
+		if _anim.has_animation(clip):
+			_anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+	for node in _skeleton.find_children("*", "BoneAttachment3D", true, false):
+		var at := node as BoneAttachment3D
+		var list: Array = _parts.get(String(at.bone_name), [])
+		list.append(at)
+		_parts[String(at.bone_name)] = list
+	_root_bone = _skeleton.find_bone("root")
+	_jaw = _skeleton.find_bone("jaw")
+	for n in ["tail_01", "tail_02", "tail_03", "tail_04"]:
+		var b := _skeleton.find_bone(n)
+		if b >= 0:
+			_tail.append(b)
+	_tail_swing.resize(_tail.size())
+	for clip in [SWIPE_L, SWIPE_R, POUNCE, &"WF_Punch"]:
+		_strike_at[clip] = _fastest(clip)
+	_mark_claws()
+	_anim.play(IDLE)
+	_anim.advance(0.0)
 
 
-## Hangs an air-cutting streak off each paw, so the claws read the same way the
-## knight's blade does.
-func _setup_trails() -> void:
-	_trail_l = _make_trail("m_hand_l", "m_claw_l1")
-	_trail_r = _make_trail("m_hand_r", "m_claw_r1")
+## When a clip's claws move fastest — the moment a swipe arrives.
+func _fastest(clip: StringName) -> float:
+	if not _anim.has_animation(clip):
+		return 0.5
+	var anim := _anim.get_animation(clip)
+	var hands := [_skeleton.find_bone("hand_l"), _skeleton.find_bone("hand_r")]
+	var best := 0.0
+	var when := anim.length * 0.5
+	var last := []
+	_anim.play(clip)
+	var steps := 60
+	for i in steps + 1:
+		var t := anim.length * i / steps
+		_anim.seek(t, true)
+		var now := []
+		for h in hands:
+			now.append(_skeleton.get_bone_global_pose(h).origin if h >= 0 else Vector3.ZERO)
+		if not last.is_empty():
+			for k in now.size():
+				var v: float = (now[k] as Vector3).distance_to(last[k])
+				if v > best:
+					best = v
+					when = t
+		last = now
+	_anim.stop()
+	return when
 
 
-func _make_trail(wrist_name: String, claw_name: String) -> SwordTrail:
-	var wrist := find_child(wrist_name, true, false) as Node3D
-	var claw := find_child(claw_name, true, false) as Node3D
-	if wrist == null or claw == null:
+## Marks on each paw: the wrist, and the points of the claws.
+func _mark_claws() -> void:
+	for side in ["l", "r"]:
+		var list: Array = _parts.get("hand_" + side, [])
+		if list.is_empty():
+			continue
+		var holder := list[0] as Node3D
+		var hand := _skeleton.find_bone("hand_" + side)
+		var rest := _skeleton.get_bone_global_rest(hand)
+		# The claws run on out along the bone, about 0.28 m past the wrist.
+		var wrist := Marker3D.new()
+		wrist.name = "Wrist"
+		holder.add_child(wrist)
+		var tip := Marker3D.new()
+		tip.name = "ClawTip"
+		tip.position = Vector3(0.0, 0.28, 0.0) / maxf(rest.basis.get_scale().y, 0.001)
+		holder.add_child(tip)
+		_wrists[side] = wrist
+		_claw_tips[side] = tip
+	_trail_l = _make_trail("l")
+	_trail_r = _make_trail("r")
+
+
+func _make_trail(side: String) -> SwordTrail:
+	if not _wrists.has(side):
 		return null
 	var trail := SwordTrail.new()
 	trail.tint = Color(0.85, 0.92, 1.0, 0.4)
 	trail.sample_count = 12
 	trail.fade_time = 0.18
 	add_child(trail)
-	trail.setup(wrist, claw)
+	trail.setup(_wrists[side], _claw_tips[side])
 	return trail
 
 
-## Driven once a frame by the controller. `stance_target` is 1 on all fours and
-## 0 reared up on the hind legs.
-func animate(delta: float, planar_speed: float, speed_ratio: float, stance_target: float) -> void:
-	if _joints.is_empty():
+#region Driving it
+## Once a frame from [Wolf]: how fast it is going over the ground, that against
+## its prowl (unused: the clips are timed to the ground itself), and 1 to run on
+## all fours or 0 to stand and fight.
+func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_target: float) -> void:
+	if _anim == null:
 		return
-
+	_clock += delta
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_lunge_timer = maxf(_lunge_timer - delta, 0.0)
-	_speed_blend = lerpf(_speed_blend, clampf(speed_ratio, 0.0, 1.0), 1.0 - exp(-10.0 * delta))
-	_stance = lerpf(_stance, clampf(stance_target, 0.0, 1.0), 1.0 - exp(-stance_speed * delta))
-
-	var stride := stride_length + run_stride_bonus * _speed_blend
-	_phase = wrapf(_phase + TAU * planar_speed / maxf(stride, 0.01) * delta, 0.0, TAU)
-
-	var t := Time.get_ticks_msec() / 1000.0
-	_pose_stance()
-	_pose_gait()
-	_pose_arms(t)
-	_pose_tail(delta)
-	_plant_feet()
-
-	var swiping := _swipe_timer > 0.0
+	_reel_timer = maxf(_reel_timer - delta, 0.0)
+	_stance = stance_target
+	if not _dead:
+		_choose(planar_speed)
+	_anim.advance(delta)
+	# The clips are kept on the spot; the body is what moves it.
+	if _root_bone >= 0:
+		_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_rest(_root_bone).origin)
+		if is_legless() and not _dead:
+			_rest_on_ground()
+	_overlay(delta)
+	var swiping := _swipe_timer > 0.0 and _swipe_timer < swipe_duration * (1.0 - swipe_windup)
 	if _trail_l != null:
-		_trail_l.emitting = swiping and _swipe_left
+		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through()
 	if _trail_r != null:
-		_trail_r.emitting = swiping and not _swipe_left
+		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through()
 
 
-## The tell: a red glint gathering on the claws that are about to come
-## through, brightest just before they do.
-var _glints: Dictionary = {}
+## With no legs its belly is what it lies on: the body is let down until the
+## lowest part left on it touches the ground under it.
+func _rest_on_ground() -> void:
+	var lowest := INF
+	for bone_name: String in _parts:
+		for at: BoneAttachment3D in _parts[bone_name]:
+			if not at.visible:
+				continue
+			for m in at.get_children():
+				var mesh := m as MeshInstance3D
+				if mesh != null:
+					lowest = minf(lowest, (mesh.global_transform * mesh.get_aabb()).position.y)
+	var body := get_parent() as Node3D
+	if is_inf(lowest) or body == null:
+		return
+	var drop := lowest - body.global_position.y
+	var down := _skeleton.global_transform.basis.inverse() * Vector3(0.0, -drop, 0.0)
+	_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_rest(_root_bone).origin + down)
 
 
-func _glint(on: bool, through: float, side: float) -> void:
-	for key: String in ["m_claw_l1", "m_claw_r1"]:
+func _lunging_through() -> bool:
+	return _lunge_timer > 0.0 and _lunge_timer < lunge_duration * (1.0 - lunge_windup)
+
+
+## The clip for what it is doing now, when no attack or stagger is playing.
+func _choose(planar: float) -> void:
+	if _swipe_timer > 0.0 or _lunge_timer > 0.0 or _reel_timer > 0.0:
+		return
+	var clip := IDLE
+	var pace := 1.0
+	if is_legless():
+		clip = DRAG
+		pace = clampf(planar / drag_pace, 0.3, 2.0) if planar > 0.1 else 0.3
+	elif planar > run_from and _stance > 0.5:
+		clip = RUN
+		pace = clampf(planar / run_pace, 0.7, 1.6)
+	elif planar > 0.25:
+		clip = WALK
+		pace = clampf(planar / walk_pace, 0.6, 1.8)
+	if not _anim.has_animation(clip):
+		clip = IDLE
+	if _anim.current_animation != String(clip):
+		_anim.play(clip, 0.25)
+	_anim.speed_scale = pace
+
+
+## Plays `clip` so that its fastest moment comes `arrive` seconds from now.
+func _strike(clip: StringName, arrive: float) -> void:
+	if _anim == null or not _anim.has_animation(clip):
+		return
+	var peak: float = _strike_at.get(clip, 0.5)
+	var rate := 1.0
+	var start := peak - arrive * rate
+	if start < 0.0:
+		# The clip's own windup is shorter than asked for: slowed to fit.
+		rate = peak / maxf(arrive, 0.05)
+		start = 0.0
+	_anim.play(clip, 0.1)
+	_anim.seek(start, true)
+	_anim.speed_scale = rate
+
+
+## Starts a claw swipe, alternating paws so it never rakes with the same one twice.
+func swipe() -> void:
+	_swipe_left = not _swipe_left
+	if _swipe_left and has_lost("left arm"):
+		_swipe_left = false
+	elif not _swipe_left and has_lost("right arm"):
+		_swipe_left = true
+	_swipe_timer = swipe_duration
+	_strike(SWIPE_L if _swipe_left else SWIPE_R, swipe_duration * swipe_windup)
+
+
+## A pounce: down on its haunches, then thrown forward, both claws raking.
+func lunge() -> void:
+	_lunge_timer = lunge_duration
+	_strike(POUNCE, lunge_duration * lunge_windup)
+
+
+## Thrown back off a shield, or knocked by a skill: it staggers.
+func reel(length: float = Recoil.STAGGER) -> void:
+	if _anim == null or _dead:
+		return
+	_swipe_timer = 0.0
+	_lunge_timer = 0.0
+	_reel_timer = length
+	if _anim.has_animation(STAGGER):
+		_anim.play(STAGGER, 0.08)
+		_anim.seek(0.0, true)
+		_anim.speed_scale = _anim.get_animation(STAGGER).length / maxf(length, 0.2) * 0.8
+
+
+## Dead: it falls onto its back, and stays there.
+func fall() -> void:
+	if _dead or _anim == null:
+		return
+	_dead = true
+	_swipe_timer = 0.0
+	_lunge_timer = 0.0
+	if _anim.has_animation(DEATH):
+		_anim.play(DEATH, 0.12)
+		_anim.speed_scale = 1.3
+
+
+func is_lunging() -> bool:
+	return _lunge_timer > 0.0
+
+
+func is_swiping() -> bool:
+	return _swipe_timer > 0.0
+#endregion
+
+
+#region Over the clips
+## The jaws, the tail, and the glint on the claws, laid over whatever is playing.
+func _overlay(delta: float) -> void:
+	var gape := 0.0
+	var glint_side := 0.0
+	var glint := 0.0
+	if _swipe_timer > 0.0:
+		var a := 1.0 - _swipe_timer / maxf(swipe_duration, 0.001)
+		gape = 0.45 * sin(a * PI)
+		if a < swipe_windup:
+			glint = a / swipe_windup
+			glint_side = -1.0 if _swipe_left else 1.0
+	elif _lunge_timer > 0.0:
+		var a := 1.0 - _lunge_timer / maxf(lunge_duration, 0.001)
+		gape = 0.6 * sin(minf(a * 1.3, 1.0) * PI)
+		if a < lunge_windup:
+			glint = a / lunge_windup
+			glint_side = 2.0
+	elif not _dead:
+		gape = 0.06 + 0.04 * sin(_clock * 2.3)
+	if _jaw >= 0 and not has_lost("head"):
+		var rest := _skeleton.get_bone_pose_rotation(_jaw)
+		_skeleton.set_bone_pose_rotation(_jaw, rest * Quaternion(Vector3.RIGHT, gape))
+	# The tail swings behind it, each link lagging the one before.
+	var sway := sin(_clock * (7.0 if _stance > 0.5 else 2.2)) * (0.35 if _stance > 0.5 else 0.2)
+	for i in _tail.size():
+		var want := sway * (0.5 + 0.5 * i)
+		_tail_swing[i] = lerpf(_tail_swing[i], want, 1.0 - exp(-(8.0 - i) * delta))
+		var bone := _tail[i]
+		var rot := _skeleton.get_bone_pose_rotation(bone)
+		_skeleton.set_bone_pose_rotation(bone, rot * Quaternion(Vector3.FORWARD, _tail_swing[i]))
+	_glint(glint, glint_side)
+
+
+## The tell: a red glint gathering on the claws about to come through.
+func _glint(amount: float, side: float) -> void:
+	for key: String in ["l", "r"]:
+		if not _claw_tips.has(key):
+			continue
 		var g := _glints.get(key) as MeshInstance3D
 		if g == null:
-			var claw := find_child(key, true, false) as Node3D
-			if claw == null:
-				continue
 			g = MeshInstance3D.new()
 			var quad := QuadMesh.new()
 			quad.size = Vector2.ONE
@@ -253,47 +380,64 @@ func _glint(on: bool, through: float, side: float) -> void:
 			glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 			glow.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+			glow.no_depth_test = false
 			glow.albedo_texture = SpellBolt._disc_texture(false)
 			glow.albedo_color = Color(1.0, 0.25, 0.1, 0.0)
 			g.material_override = glow
 			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			claw.add_child(g)
+			g.top_level = true
+			(_claw_tips[key] as Node3D).add_child(g)
 			_glints[key] = g
-		var mine: bool = (key == "m_claw_l1") == (side < 0.0)
-		var mat := g.material_override as StandardMaterial3D
-		var k := clampf(through, 0.0, 1.0) if on and mine else 0.0
-		mat.albedo_color.a = 0.9 * k * k
+		var mine: bool = side > 1.5 or (key == "l") == (side < 0.0)
+		var k := clampf(amount, 0.0, 1.0) if mine and side != 0.0 else 0.0
+		g.global_position = (_claw_tips[key] as Node3D).global_position
+		(g.material_override as StandardMaterial3D).albedo_color.a = 0.9 * k * k
 		g.scale = Vector3.ONE * lerpf(0.15, 0.55, k)
+		g.visible = k > 0.01
+#endregion
 
 
-## Starts a claw swipe, alternating paws so it never rakes with the same one twice.
-func swipe() -> void:
-	_swipe_left = not _swipe_left
-	# Never with an arm it no longer has.
-	if _swipe_left and has_lost("left arm"):
-		_swipe_left = false
-	elif not _swipe_left and has_lost("right arm"):
-		_swipe_left = true
-	_swipe_timer = swipe_duration
+#region Blows
+## What its blows are made of this frame, for a [WeaponSweep]: each arm it still
+## has from the elbow to the paw and the paw out to its claws, and in a pounce
+## its head and jaws.
+func claw_parts(pounce: bool) -> Array:
+	var out := []
+	if _skeleton == null:
+		return out
+	var frame := _skeleton.global_transform
+	for side in ["l", "r"]:
+		if has_lost("left arm" if side == "l" else "right arm") or not _claw_tips.has(side):
+			continue
+		var elbow := frame * _skeleton.get_bone_global_pose(_skeleton.find_bone("lowerarm_" + side)).origin
+		var wrist := (_wrists[side] as Node3D).global_position
+		var tip := (_claw_tips[side] as Node3D).global_position
+		out.append([elbow, wrist, 0.1])
+		out.append([wrist, tip, 0.12])
+	if pounce and not has_lost("head"):
+		var head := frame * _skeleton.get_bone_global_pose(_skeleton.find_bone("head")).origin
+		var jaw := frame * (_skeleton.get_bone_global_pose(_jaw) * Vector3(0.0, 0.26, 0.0)) if _jaw >= 0 else head
+		out.append([head, jaw, 0.16])
+	return out
+#endregion
 
 
-## A pounce: down and back on its haunches with both arms drawn up, then
-## thrown forward with its jaws open and both claws raking down.
-func lunge() -> void:
-	_lunge_timer = lunge_duration
-
-
-func is_lunging() -> bool:
-	return _lunge_timer > 0.0
-
-
-## Both legs gone: it can only lie there.
-func is_legless() -> bool:
-	return _lost.has("left leg") and _lost.has("right leg")
-
-
-func is_swiping() -> bool:
-	return _swipe_timer > 0.0
+#region Limbs
+## Every attachment of a limb: those off its bone and every bone below it.
+func _limb(part: String) -> Array[BoneAttachment3D]:
+	var out: Array[BoneAttachment3D] = []
+	if _skeleton == null or not SEVERABLE.has(part):
+		return out
+	var top := _skeleton.find_bone(SEVERABLE[part])
+	for bone_name: String in _parts:
+		var b := _skeleton.find_bone(bone_name)
+		var walk := b
+		while walk >= 0 and walk != top:
+			walk = _skeleton.get_bone_parent(walk)
+		if walk == top:
+			for at in _parts[bone_name]:
+				out.append(at)
+	return out
 
 
 ## Takes a limb off if the blade passed within `tolerance` of the creature.
@@ -313,51 +457,33 @@ func sever_along_edge(from: Vector3, to: Vector3, tolerance: float) -> String:
 	return detach(remaining[_rng.randi() % remaining.size()])
 
 
-## True when the blade passed close enough to any limb still attached.
+## True when the blade passed close enough to any part still on it.
 func _blade_reaches(from: Vector3, to: Vector3, tolerance: float) -> bool:
-	for part: String in SEVERABLE:
-		if _lost.has(part):
-			continue
-		var joint := _joints.get(SEVERABLE[part]) as Node3D
-		if joint == null:
-			continue
-		# Measure to the limb itself: an arm is a metre long, and judging it by
-		# its shoulder pivot alone would miss a cut through the middle of it.
-		var distance := INF
-		for m: MeshInstance3D in _limb_meshes.get(part, []):
-			var centre := m.global_transform * m.get_aabb().get_center()
-			distance = minf(distance, Geometry3D.get_closest_point_to_segment(centre, from, to).distance_to(centre))
-		var pivot := joint.global_position
-		distance = minf(distance, Geometry3D.get_closest_point_to_segment(pivot, from, to).distance_to(pivot))
-		if distance <= tolerance:
-			return true
+	for bone_name: String in _parts:
+		for at: BoneAttachment3D in _parts[bone_name]:
+			if not at.visible:
+				continue
+			for m in at.find_children("*", "MeshInstance3D", true, false):
+				var mesh := m as MeshInstance3D
+				var centre := mesh.global_transform * mesh.get_aabb().get_center()
+				if Geometry3D.get_closest_point_to_segment(centre, from, to).distance_to(centre) <= tolerance:
+					return true
 	return false
 
 
-## Detaches a limb: it stops following the body and drops where it was cut.
-## Takes a named part off, wherever it is told to.
-##
-## Split out from `sever_along_edge()` on purpose: **deciding** which limb came
-## away is the host's job and **doing** it is everyone's. A client re-running the
-## geometric test would disagree — its copy of the blade is a frame of
-## interpolation behind the host's — and two windows would end up missing
-## different legs.
+## Takes a named part off, wherever it is told to. Deciding which is the host's
+## job, doing it everyone's (see [Wolf]).
 func detach(part: String) -> String:
 	if part == "" or _lost.has(part) or not SEVERABLE.has(part):
 		return ""
-	return _take(part)
-
-
-func _take(part: String) -> String:
 	_lost[part] = true
-	var joint := _joints[SEVERABLE[part]] as Node3D
-	var where := joint.global_transform
-	joint.visible = false
-
-	# Built as a real node with the limb hung under it, rather than the limb
-	# duplicated and given a script afterwards: a script attached after the node
-	# is already in the tree never gets its _ready, so the piece would hang in
-	# the air instead of falling.
+	var limb := _limb(part)
+	if limb.is_empty():
+		severed.emit(part)
+		return part
+	var top := _skeleton.find_bone(SEVERABLE[part])
+	var where := _skeleton.global_transform * _skeleton.get_bone_global_pose(top)
+	where = Transform3D(where.basis.orthonormalized(), where.origin)
 	var world := Blood.world_of(self)
 	if world == null:
 		world = get_parent()
@@ -365,17 +491,19 @@ func _take(part: String) -> String:
 	piece.name = "SeveredLimb"
 	world.add_child(piece)
 	piece.global_transform = where
-
-	var visual := joint.duplicate() as Node3D
-	visual.visible = true
-	visual.transform = Transform3D.IDENTITY
-	piece.add_child(visual)
-
+	for at in limb:
+		for m in at.get_children():
+			var mesh := m as MeshInstance3D
+			if mesh == null:
+				continue
+			var copy := mesh.duplicate() as MeshInstance3D
+			piece.add_child(copy)
+			copy.global_transform = mesh.global_transform
+		at.visible = false
 	var away := where.origin - global_position
 	away.y = 0.0
 	piece.launch(away)
 	last_cut_point = where.origin
-
 	severed.emit(part)
 	return part
 
@@ -395,201 +523,20 @@ func hide_part(part: String) -> void:
 	if part == "" or _lost.has(part) or not SEVERABLE.has(part):
 		return
 	_lost[part] = true
-	(_joints[SEVERABLE[part]] as Node3D).visible = false
+	for at in _limb(part):
+		at.visible = false
 
 
 func has_lost(part: String) -> bool:
 	return _lost.has(part)
 
 
+## Both legs gone: it can only drag itself.
+func is_legless() -> bool:
+	return _lost.has("left leg") and _lost.has("right leg")
+
+
 ## True once both arms are gone: nothing left to fight with.
 func is_disarmed() -> bool:
 	return _lost.has("left arm") and _lost.has("right arm")
-
-
-## Keeps the hind paws on the ground whatever the pose is doing.
-##
-## The creature swaps between two very different gaits and strides in both, and
-## the legs are digitigrade, so where its feet end up is not something worth
-## hand-tuning per pose. Measure the lowest foot after posing and lift the hips
-## by that much: the stance can then be changed freely without it sinking into
-## the floor or hovering over it.
-func _plant_feet() -> void:
-	var hips := _joints.get("m_hips") as Node3D
-	if hips == null:
-		return
-	force_update_transform()
-
-	var lowest := INF
-	for foot_name in ["m_foot_l", "m_foot_r"]:
-		var foot := find_child(foot_name, true, false) as Node3D
-		if foot == null or not foot.visible:
-			continue
-		for m in foot.find_children("*", "MeshInstance3D", true, false):
-			var mi := m as MeshInstance3D
-			if not mi.visible:
-				continue
-			var in_rig := global_transform.affine_inverse() * mi.global_transform
-			lowest = minf(lowest, (in_rig * mi.get_aabb()).position.y)
-	if is_inf(lowest):
-		return
-	hips.position.y -= lowest
-
-
-#region Poses
-func _pose_stance() -> void:
-	# Blend the two gait poses first; everything after this layers on top.
-	for joint_name: String in REST:
-		var down: Vector3 = ON_ALL_FOURS.get(joint_name, Vector3.ZERO)
-		var up: Vector3 = REARED.get(joint_name, Vector3.ZERO)
-		_pose_joint(joint_name, up.lerp(down, _stance))
-
-	var hips := _joints.get("m_hips") as Node3D
-	if hips != null:
-		hips.position.y = _hips_base_y - crouch_drop * _stance
-
-
-func _pose_gait() -> void:
-	var s := sin(_phase)
-	var swing := hip_swing * _speed_blend
-	var bend := knee_bend * _speed_blend
-
-	# Hind legs always stride.
-	_add_offset("m_hip_l", Vector3(swing * s, 0.0, 0.0))
-	_add_offset("m_hip_r", Vector3(-swing * s, 0.0, 0.0))
-	_add_offset("m_thigh_l_end", Vector3(maxf(0.0, sin(_phase - 0.6)) * bend, 0.0, 0.0))
-	_add_offset("m_thigh_r_end", Vector3(maxf(0.0, sin(_phase - 0.6 + PI)) * bend, 0.0, 0.0))
-
-	# On all fours the forelegs stride too, diagonally opposed to the hind legs
-	# the way a real four-legged run works. Reared up they are free for clawing,
-	# so the reach fades out with the stance.
-	var fore := foreleg_swing * _speed_blend * _stance
-	_add_offset("m_shoulder_l", Vector3(-swing * s * _stance * 0.5 - fore * s, 0.0, 0.0))
-	_add_offset("m_shoulder_r", Vector3(swing * s * _stance * 0.5 + fore * s, 0.0, 0.0))
-	_add_offset("m_upperarm_l_end", Vector3(maxf(0.0, sin(_phase + PI)) * bend * _stance, 0.0, 0.0))
-	_add_offset("m_upperarm_r_end", Vector3(maxf(0.0, sin(_phase)) * bend * _stance, 0.0, 0.0))
-
-	var hips := _joints.get("m_hips") as Node3D
-	if hips != null:
-		hips.position.y -= absf(sin(_phase)) * hip_bob * _speed_blend
-	_add_offset("m_hips", Vector3(0.0, 0.0, sin(_phase) * 0.05 * _speed_blend))
-
-
-func _pose_arms(t: float) -> void:
-	var breathe := sin(t * breath_rate) * breath_amount * (1.0 - _speed_blend)
-	_add_offset("m_chest", Vector3(breathe, 0.0, 0.0))
-
-	if _lunge_timer > 0.0:
-		_pose_lunge()
-		return
-	if _swipe_timer <= 0.0:
-		_glint(false, 0.0, 1.0)
-		return
-
-	# A rake across the body: wind the arm back and out, then drive it through
-	# and let the shoulders follow so it is not just the limb moving.
-	var a := 1.0 - _swipe_timer / maxf(swipe_duration, 0.001)
-	var side := -1.0 if _swipe_left else 1.0
-	var arm := "m_shoulder_l" if _swipe_left else "m_shoulder_r"
-	var elbow := "m_upperarm_l_end" if _swipe_left else "m_upperarm_r_end"
-
-	var reach := 0.0
-	var across := 0.0
-	var fold := 0.0
-	var rear := 0.0
-	var wind := swipe_windup
-	if a < wind:
-		# Slowly up and back, and held there a beat: plain to see coming.
-		var w := smoothstep(0.0, 1.0, minf(a / (wind * 0.75), 1.0))
-		reach = -1.5 * w
-		across = -1.1 * side * w
-		fold = -1.1 * w
-		rear = -0.25 * w
-	else:
-		# Then fast through.
-		var e := 1.0 - pow(1.0 - (a - wind) / (1.0 - wind), 3.0)
-		reach = lerpf(-1.5, -0.2, e)
-		across = lerpf(-1.1 * side, swipe_reach * side * 0.55, e)
-		fold = lerpf(-1.1, 0.25, e)
-		rear = lerpf(-0.25, 0.15, e)
-	_glint(a < wind, a / wind, side)
-
-	_add_offset(arm, Vector3(reach, across, 0.0))
-	_add_offset(elbow, Vector3(fold, 0.0, 0.0))
-	_add_offset("m_chest", Vector3(rear, across * 0.3, 0.0))
-	_add_offset("m_jaw", Vector3(0.35 * sin(a * PI), 0.0, 0.0))
-
-
-func _pose_lunge() -> void:
-	var a := 1.0 - _lunge_timer / maxf(lunge_duration, 0.001)
-	var wind := lunge_windup
-	var reach := 0.0
-	var fold := 0.0
-	var lean := 0.0
-	var jaw := 0.0
-	if a < wind:
-		var w := smoothstep(0.0, 1.0, minf(a / (wind * 0.7), 1.0))
-		reach = -1.6 * w
-		fold = -1.2 * w
-		lean = -0.35 * w
-		jaw = 0.2 * w
-	else:
-		var e := 1.0 - pow(1.0 - (a - wind) / (1.0 - wind), 3.0)
-		reach = lerpf(-1.6, -0.1, e)
-		fold = lerpf(-1.2, 0.3, e)
-		lean = lerpf(-0.35, 0.45, minf(e * 1.6, 1.0)) * (1.0 - 0.6 * maxf(e - 0.6, 0.0) / 0.4)
-		jaw = lerpf(0.9, 0.2, e)
-	for side: float in [-1.0, 1.0]:
-		var arm := "m_shoulder_l" if side < 0.0 else "m_shoulder_r"
-		var elbow := "m_upperarm_l_end" if side < 0.0 else "m_upperarm_r_end"
-		_add_offset(arm, Vector3(reach, -0.5 * side * (1.0 if a < wind else 0.3), 0.0))
-		_add_offset(elbow, Vector3(fold, 0.0, 0.0))
-	_add_offset("m_chest", Vector3(lean, 0.0, 0.0))
-	_add_offset("m_jaw", Vector3(jaw, 0.0, 0.0))
-	# Both claws glint as it gathers.
-	_glint(a < wind, a / wind, -1.0)
-	_glint_both(a < wind, a / wind)
-
-
-func _glint_both(on: bool, through: float) -> void:
-	var k := clampf(through, 0.0, 1.0) if on else 0.0
-	for key: String in ["m_claw_l1", "m_claw_r1"]:
-		var g := _glints.get(key) as MeshInstance3D
-		if g == null:
-			continue
-		(g.material_override as StandardMaterial3D).albedo_color.a = 0.9 * k * k
-		g.scale = Vector3.ONE * lerpf(0.15, 0.55, k)
-
-
-func _pose_tail(delta: float) -> void:
-	# The tail trails the body rather than being posed: each link chases the one
-	# in front, so it sweeps in sequence.
-	var drive := -tail_swing * _speed_blend + 0.25 * (1.0 - _stance)
-	var flutter := sin(_phase * 1.5) * 0.12 * _speed_blend
-	var weight := 1.0 - exp(-tail_stiffness * delta)
-	var last := maxf(TAIL_CHAIN.size() - 1.0, 1.0)
-	for i in TAIL_CHAIN.size():
-		var target := (drive + flutter) * (0.4 + 0.6 * float(i) / last)
-		_tail_angles[i] = lerpf(_tail_angles[i], target, weight * (1.0 - 0.1 * i))
-		var link := TAIL_CHAIN[i]
-		var bend := Vector3(_tail_angles[i], 0.0, 0.0)
-		# Only the root is in REST, so only the root is reset by `_pose_stance`
-		# each frame. Adding onto the other links would wind them up a little
-		# more every frame — they are set from their base instead.
-		if REST.has(link):
-			_add_offset(link, bend)
-		else:
-			_pose_joint(link, bend)
 #endregion
-
-
-func _pose_joint(joint_name: String, offset: Vector3) -> void:
-	var node := _joints.get(joint_name) as Node3D
-	if node != null:
-		node.rotation = _base[joint_name] + offset
-
-
-func _add_offset(joint_name: String, offset: Vector3) -> void:
-	var node := _joints.get(joint_name) as Node3D
-	if node != null:
-		node.rotation += offset

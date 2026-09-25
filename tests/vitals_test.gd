@@ -184,12 +184,21 @@ func _initialize() -> void:
 			break
 	_check("wolves notice a player close, not across the field", wolf != null and wolf.sight_range <= 12.0)
 	if wolf != null:
-		wolf.global_position = _player.global_position - _player.global_transform.basis.z * 1.8
+		# Close enough that its claws come through him (they land only where
+		# they actually go — WeaponSweep).
+		wolf.set_physics_process(false)
+		wolf.global_position = _player.global_position - _player.global_transform.basis.z * 0.9
 		var at_him := _player.global_position - wolf.global_position
 		wolf.rotation.y = atan2(-at_him.x, -at_him.z)
 		before = _player.health
+		wolf.state = Wolf.State.FIGHT
 		wolf._swipe_count += 1
-		wolf._land_swipe()
+		wolf.rig.swipe()
+		wolf._arm_claws(Wolf.SWIPE_LIVE, false)
+		for i in 90:
+			await physics_frame
+			if _player.health < before:
+				break
 		_check("and a wolf's claws hurt", is_equal_approx(_player.health, before - wolf.swipe_damage),
 				"%.0f -> %.0f" % [before, _player.health])
 		wolf.global_position += Vector3(0.0, -50.0, 0.0)
