@@ -3350,3 +3350,36 @@ again; a clever pack never more than two in at once; a wolf with a leg off
 crawling in, lunging and getting him, the leg lying on the ground; one with no
 arms biting.
 
+### Wolves as they go about: coats, gaits, a tell, missiles
+
+**Coats.** Each wolf is born with one (`WolfRig.COATS`, from its name so every
+peer agrees): black, dark grey, grey-brown, pale grey, russet — the fur
+materials swapped for the coat's colours, one set of copies per coat.
+
+**Four legs or two.** Also from its name: half go about on all fours (a slow
+crawl on their beat, Running Crawl after you, and standing they hold the crawl's
+pose low on four feet), half upright (the brutal walk, the upright Mutant Run).
+Everyone rises to fight. Its beat is walked slower (`prowl_speed` 1.1, three
+quarters of that on all fours), and where it gets to — and now and then on the
+way — it stops a while (`linger`, 3–8 s) and **looks about**: the head turned
+slowly one way and the other, now and then down to the ground at a scent.
+
+**The tell before a pounce** is longer (`lunge_duration` 1.35, gathering for
+0.8 s): down low on its haunches (`crouch`), trembling, its eyes flaring, the
+claws glinting red, and a growl.
+
+**Missiles.** Arrows, the mage's bolts, fire and the piercing shot are in the
+group `missile` and say where they are going (`flight()`). A wolf that is after
+somebody judges each one once, when it is seen on a line through it: loosed
+from out of reach (10 m and more) it gets out of the way of about two in three
+(`missile_dodge_far`), close in while it runs at him of about one in eight
+(`missile_dodge_near`), a little more or less by its wit; on its beat, unaware,
+of none. Out of the line, for a moment its body is not there to be struck.
+
+**Down on its belly it lies still.** The crawl let the body down by measuring
+the parts hanging off the bones, which follow a frame late — and the body bobbed
+up and down against its own measure. Now it is measured from the bones as posed,
+and eased. **Cut pieces** stop on the ground by their true lowest point (points
+on their surface, not the box round them, which reached lower when turned and
+left them a hand over the ground).
+

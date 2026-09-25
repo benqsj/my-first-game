@@ -48,7 +48,11 @@ func _initialize() -> void:
 	# to the wall rather than out in the middle: the run is 90 ticks long, and
 	# from the old spawn the wolf now simply runs out of frames before it gets
 	# there, which is a test that passes for the wrong reason.
-	wolf.global_position = Vector3(108.0, 0.5, 0.0)
+	# Set on the ground there: the land rolls up towards the edge, and a body
+	# put in at a fixed height starts inside it and drops through.
+	var under := world.get_world_3d().direct_space_state.intersect_ray(
+			PhysicsRayQueryParameters3D.create(Vector3(108.0, 30.0, 0.0), Vector3(108.0, -30.0, 0.0), 1))
+	wolf.global_position = Vector3(108.0, (under.position as Vector3).y + 0.5 if not under.is_empty() else 0.5, 0.0)
 	wolf.sight_range = 0.0
 	wolf.prowl_speed = 0.0
 	for i in 20:
@@ -58,7 +62,8 @@ func _initialize() -> void:
 		await physics_frame
 		wolf.velocity.x = 30.0
 	_check("the wolf cannot run off the edge",
-			wolf.global_position.x < 119.0 and wolf.global_position.y > -1.0,
+			wolf.global_position.x < 119.0 and wolf.global_position.y > (under.position as Vector3).y - 1.0
+			if not under.is_empty() else wolf.global_position.y > -1.0,
 			"at %v" % wolf.global_position)
 
 	# --- The knight cannot walk through them --------------------------------
