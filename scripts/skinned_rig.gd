@@ -109,8 +109,9 @@ const LIGHT_SWINGS: Array[String] = [
 	"res://unverified/sounds/tariel/swing_5.wav", "res://unverified/sounds/tariel/swing_6.wav",
 	"res://unverified/sounds/tariel/swing_7.wav",
 ]
-## How loud the swing plays, dB.
-var swing_volume := -11.0
+## How loud the swing plays, dB. (The user's slashes are ~8 dB hotter than
+## the old air cuts; the rigs that keep those set their own.)
+var swing_volume := -18.0
 ## The blade going into a creature: one of these at random.
 var hit_sounds: Array[String] = ["res://unverified/sounds/tariel/hit_1.wav"]
 var hit_volume := -19.0

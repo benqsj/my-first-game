@@ -46,6 +46,14 @@ func _initialize() -> void:
 			and trig.swing_sounds[0] == "res://unverified/sounds/tariel/slash_1.wav"
 			and trig.hit_sounds[0] == "res://unverified/sounds/tariel/hit_1.wav"
 			and trig.hurt_sounds[0] == "res://unverified/sounds/all/hurt_1.wav")
+	# Every clip actually has sound in it (three of the four slashes were once
+	# cut silent, so Tariel's swings were heard one time in four).
+	if trig != null:
+		var quiet: Array[String] = []
+		for path: String in trig.swing_sounds + trig.hit_sounds + Arrow.HITS + [Player.DRAW_SOUND, Player.RELEASE_SOUND]:
+			if _peak(path) < 0.05:
+				quiet.append(path.get_file())
+		_check("and none of the sounds is silent", quiet.is_empty(), str(quiet))
 	await _spawn(&"mage")
 	await _check_chain("the mage")
 	await _spawn(&"avtandil")
@@ -567,3 +575,15 @@ func _check(what: String, ok: bool, detail: String = "") -> void:
 	print("  %s - %s %s" % ["ok  " if ok else "FAIL", what, detail])
 	if not ok:
 		_failures += 1
+
+
+## The loudest sample of a 16-bit wav, 0..1.
+func _peak(path: String) -> float:
+	var wav := load(path) as AudioStreamWAV
+	if wav == null or wav.format != AudioStreamWAV.FORMAT_16_BITS:
+		return 1.0
+	var data := wav.data
+	var peak := 0
+	for i in range(0, data.size() - 1, 2):
+		peak = maxi(peak, absi(data.decode_s16(i)))
+	return float(peak) / 32768.0

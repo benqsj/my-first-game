@@ -2025,7 +2025,7 @@ func _tick_bow(delta: float) -> void:
 			_draw_timer = 0.0
 			_set_weapons_stowed(false)
 			if _is_bow():
-				_draw_sound = Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -6.0)
+				_draw_sound = Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -12.0)
 	elif holding and _drawing:
 		_draw_timer += delta
 		# Held, a draw or a charge costs breath as it goes; run out and it goes.
@@ -2151,7 +2151,7 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
 	if _is_bow():
-		Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.0, -2.0)
+		Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.0, -8.0)
 	# A cast has already been played, by `net_cast`.
 	if rig != null and rig.has_method(&"loose_bow") and not rig.has_method(&"cast_lead"):
 		rig.call(&"loose_bow")
@@ -3094,7 +3094,7 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 	into.add_child(shot)
 	shot.global_position = shot_from
 	shot.call(&"launch", up, 0.0, false, _gravity, self)
-	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -8.0)
 	if lead <= 0.0 and rig != null and rig.has_method(&"loose_bow"):
 		rig.call(&"loose_bow")
 	var rain := ArrowRain.new()
@@ -3219,7 +3219,7 @@ func net_hunters_mark(quarry_path: NodePath) -> void:
 	var aim := HuntingLight._aim_of(quarry)
 	light.throw(from, quarry, aim, clampf(from.distance_to(aim) / mark_speed, 0.05, 0.5))
 	into.add_child(light)
-	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.35, -8.0)
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.35, -13.0)
 	light.arrived.connect(func(at: Vector3) -> void:
 		if not is_instance_valid(quarry) or quarry.get(&"is_dead") == true:
 			return
@@ -3277,7 +3277,7 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	var nock := 0.3
 	if rig != null and rig.has_method(&"charged_shot"):
 		nock = float(rig.call(&"charged_shot", pierce_hold, asin(clampf(dir.y, -1.0, 1.0)), 1.0))
-	Sfx.play(self, ULT_CAST, self, Vector3.ZERO, 1.0, -6.0, 0.0)
+	Sfx.play(self, ULT_CAST, self, Vector3.ZERO, 1.0, -11.0, 0.0)
 	await get_tree().create_timer(nock, false).timeout
 	if serial != _skill_serial:
 		return
@@ -3286,7 +3286,7 @@ func net_piercing(dir: Vector3, damage: float, critical: bool) -> void:
 	# Held at full, as still as an ordinary aim, with only a little whirl of
 	# air at the arrowhead ([AirSwirl]); the great wind is the shot's
 	# ([PiercingShot]).
-	Sfx.play(self, ULT_CHARGE, self, Vector3.ZERO, 1.0, -6.0, 0.0)
+	Sfx.play(self, ULT_CHARGE, self, Vector3.ZERO, 1.0, -11.0, 0.0)
 	var swirl := AirSwirl.new()
 	swirl.start(rig, pierce_hold + 0.05)
 	into.add_child(swirl)
@@ -3326,8 +3326,8 @@ func net_pierce_loose(dir: Vector3, damage: float, critical: bool) -> void:
 	var shot := PiercingShot.new()
 	shot.launch(from, dir, pierce_speed, pierce_reach, damage, critical, self, pierce_knock)
 	into.add_child(shot)
-	Sfx.play(self, ULT_SHOT, self, Vector3.ZERO, 1.0, -2.0, 0.0)
-	Sfx.play(self, ULT_WIND, self, Vector3.ZERO, 1.0, -9.0, 0.0)
+	Sfx.play(self, ULT_SHOT, self, Vector3.ZERO, 1.0, -7.0, 0.0)
+	Sfx.play(self, ULT_WIND, self, Vector3.ZERO, 1.0, -14.0, 0.0)
 	# The kick of it: he is shoved back a step, dust off his feet, the camera
 	# jolts.
 	WindBlast.shake(self, 0.2, 0.45)
@@ -3466,7 +3466,7 @@ func net_fire_arrow(at: Vector3, damage: float) -> void:
 	into.add_child(shot)
 	shot.launch(from, velocity, _gravity, damage, self,
 			{"radius": fire_radius, "seconds": fire_time, "dps": fire_dps})
-	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -2.0)
+	Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 0.9, -8.0)
 	if rig != null and rig.has_method(&"loose_skill_shot"):
 		rig.call(&"loose_skill_shot")
 #endregion

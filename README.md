@@ -3213,3 +3213,11 @@ the wind-up, where one was over before the blade moved — and only if it is
 still that swing. (`fighter_test` waits longer for an imp's two blows: the
 sound's pitch draws on the global RNG, and so moved the dice the imp's choices
 come from.)
+
+**Three of the four slashes were silent.** The first cut put `-ss` after `-i`,
+so the fade-out, timed from zero, landed before the clip's sound began; only
+`slash_1` (cut from 0.04 s) had any. Re-cut with `-ss` before `-i` (the arrow
+hits too); `heroes_test` now checks no swing, hit, draw or release clip is
+silent. Levels brought down: the draw −12 dB, the release −8, the arrow going
+in −14, Tariel's swing −18, the Piercing Arrow's cast and swell −11, its shot
+−7 and wind −14.
