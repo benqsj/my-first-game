@@ -1,7 +1,8 @@
 class_name WorldMap
 extends CanvasLayer
 
-## The map: a small one in the bottom-right corner that turns with the camera,
+## The map: a small round one in the top-right corner, a little see-through,
+## that turns with the camera,
 ## and the whole of it across the screen on **M** (M again, or Escape, closes
 ## it).
 ##
@@ -27,6 +28,8 @@ const PIXELS_PER_METRE := 4.0
 const MINI_SIZE := 210.0
 const MINI_SPAN := 90.0
 const MINI_MARGIN := 22.0
+## How much of the corner map shows through to the world behind it.
+const MINI_OPACITY := 0.78
 
 const GOLD := Color("d0a044")
 const EDGE := Color(0.83, 0.72, 0.5, 0.7)
@@ -38,6 +41,8 @@ var player: Player
 
 var _texture: Texture2D
 var _mini: Control
+## The round frame the corner map is cut to, and its gilt rim.
+var _mini_frame: Panel
 var _big_root: Control
 var _big: Control
 var _givers: Array[Node3D] = []
@@ -50,19 +55,40 @@ var _dragging: bool = false
 
 func _ready() -> void:
 	layer = 4
+	# A round panel in the top-right corner that the map is cut to: whatever
+	# the map draws outside the circle is not shown.
+	_mini_frame = Panel.new()
+	_mini_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mini_frame.anchor_left = 1.0
+	_mini_frame.anchor_right = 1.0
+	_mini_frame.offset_left = -MINI_SIZE - MINI_MARGIN
+	_mini_frame.offset_right = -MINI_MARGIN
+	_mini_frame.offset_top = MINI_MARGIN
+	_mini_frame.offset_bottom = MINI_MARGIN + MINI_SIZE
+	var round_bg := StyleBoxFlat.new()
+	round_bg.bg_color = Color(0.05, 0.06, 0.05, 0.85)
+	round_bg.set_corner_radius_all(int(MINI_SIZE * 0.5))
+	round_bg.anti_aliasing = true
+	_mini_frame.add_theme_stylebox_override("panel", round_bg)
+	_mini_frame.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	_mini_frame.modulate = Color(1, 1, 1, MINI_OPACITY)
+	add_child(_mini_frame)
 	_mini = Control.new()
-	_mini.clip_contents = true
 	_mini.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_mini.anchor_left = 1.0
-	_mini.anchor_right = 1.0
-	_mini.anchor_top = 1.0
-	_mini.anchor_bottom = 1.0
-	_mini.offset_left = -MINI_SIZE - MINI_MARGIN
-	_mini.offset_right = -MINI_MARGIN
-	_mini.offset_top = -MINI_SIZE - MINI_MARGIN
-	_mini.offset_bottom = -MINI_MARGIN
+	_mini.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_mini.draw.connect(_draw_mini)
-	add_child(_mini)
+	_mini_frame.add_child(_mini)
+	var rim := Panel.new()
+	rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var rim_style := StyleBoxFlat.new()
+	rim_style.draw_center = false
+	rim_style.set_border_width_all(2)
+	rim_style.border_color = EDGE
+	rim_style.set_corner_radius_all(int(MINI_SIZE * 0.5))
+	rim_style.anti_aliasing = true
+	rim.add_theme_stylebox_override("panel", rim_style)
+	_mini_frame.add_child(rim)
 
 	_big_root = Control.new()
 	_big_root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -81,8 +107,8 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if player == null or not is_instance_valid(player):
 		return
-	_mini.visible = not _big_root.visible
-	if _mini.visible:
+	_mini_frame.visible = not _big_root.visible
+	if _mini_frame.visible:
 		_mini.queue_redraw()
 	else:
 		_big.queue_redraw()
@@ -228,7 +254,6 @@ func _heading_on_map(ahead: Vector3) -> float:
 #region Drawing
 func _draw_mini() -> void:
 	var box := Rect2(Vector2.ZERO, _mini.size)
-	_mini.draw_rect(box, Color(0.05, 0.06, 0.05, 0.85))
 	var centre := box.size * 0.5
 	var zoom := MINI_SIZE / (MINI_SPAN * PIXELS_PER_METRE)
 	var ahead := -player.camera_rig.global_transform.basis.z
@@ -244,8 +269,7 @@ func _draw_mini() -> void:
 	_marks(place, box.grow(-4.0), 3.0)
 	var facing := -player.global_transform.basis.z
 	_arrow(_mini, centre, turn + _heading_on_map(facing), 9.0)
-	_mini.draw_rect(box, EDGE, false, 2.0)
-	_mini.draw_string(ThemeDB.fallback_font, Vector2(box.size.x - 20.0, 16.0), "M",
+	_mini.draw_string(ThemeDB.fallback_font, Vector2(box.size.x * 0.5 - 5.0, box.size.y - 12.0), "M",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(GOLD, 0.8))
 
 
