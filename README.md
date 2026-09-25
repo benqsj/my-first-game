@@ -2823,3 +2823,25 @@ his feet down, what is left of the evade is only the getting up, so a press
 from then on — or one kept from earlier — starts the next evade at once
 instead of waiting the recovery out. Pressed over and over: step, flip, step,
 flip, not a frame stood still between them.
+
+## Jumps, landings and evades are heard
+
+`Player.MoveSound` (JUMP, LAND, ROLL, STEP, FLIP), cut in Python from the
+user's recordings into mono clips with short fades, the sources left where
+they were dropped:
+
+| Clip | Cut from | Heard when |
+|---|---|---|
+| `all/jump` | `jumpup-drop.wav` 0.38–0.78 s (the push off) | a jump (`_do_jump`), or a push off a climbed face |
+| `all/land` | `jumpup-drop.wav` 0.77–1.45 s (the feet coming down) | a landing from 3.2 m/s of fall up (`land_sound_speed`), louder by 7 dB towards `hard_landing_speed` |
+| `dodge/roll` | `tariel-avtandil/dodge.wav` from 0.5 s, so its thump falls in the roll | Tariel's, Avtandil's and the mage's roll, and rolling out after a knockdown |
+| `assassin/step` | `dager-sound/normal-dodge.wav` | the assassin's step |
+| `assassin/flip` | `dager-sound/flip-dodge.wav` | his twisting flip |
+
+The moves run only on the body's own peer; `_move_sound` sends the sound to
+every peer through `net_move_sound` (dropped if it comes from anyone but the
+body's owner). Levels (`MOVE_VOLUME`) put a jump a little over a footfall
+and the evades with the fight's other sounds, under the blades. A double-tap
+that turns Tariel's roll into the long dodge adds nothing — the roll's sound
+is already playing. `heroes_test` jumps and evades each hero and counts
+`move_sounds_heard`.
