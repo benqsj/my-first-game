@@ -42,7 +42,9 @@ const CAST_RATE := 2.0
 const FLOAT_CLIP := &"MG_Float"
 const JUMP_CLIP := &"MG_Jump"
 ## Where the crystal sits up the staff from the hand, in metres.
-const CRYSTAL_UP := 1.02
+const CRYSTAL_UP := 0.83
+## The crystal's own light at rest: the ice-blue of the stone.
+const CRYSTAL_LIGHT := Color(0.45, 0.85, 1.0)
 
 var _charge: float = 0.0
 var _wind: MageWind
@@ -113,7 +115,7 @@ func _ready() -> void:
 	_glow = OmniLight3D.new()
 	_glow.name = "Crystal"
 	_glow.position = up * CRYSTAL_UP
-	_glow.light_color = Color(1.0, 0.82, 0.4)
+	_glow.light_color = CRYSTAL_LIGHT
 	_glow.omni_range = 3.0
 	_glow.light_energy = 0.15
 	_glow.shadow_enabled = false
@@ -181,7 +183,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		var want := 0.15 + 2.6 * _charge + (1.6 if _cast_left > 0.0 else 0.0)
 		_glow.light_energy = lerpf(_glow.light_energy, want, clampf(delta * 12.0, 0.0, 1.0))
 		var full := _charge >= 0.97
-		_glow.light_color = Color(0.62, 0.55, 1.0) if full else Color(1.0, 0.82, 0.4)
+		_glow.light_color = Color(0.62, 0.55, 1.0) if full else CRYSTAL_LIGHT
 	if _orb != null:
 		_orb_clock += delta
 		_orb.visible = _charge > 0.05
