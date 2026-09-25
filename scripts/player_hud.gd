@@ -17,7 +17,7 @@ extends CanvasLayer
 ## * **Stamina says when it is spent.** Emptied, the bar dims until it has
 ##   started coming back, which is the stretch in which nothing costing stamina
 ##   can be done.
-## * **The skills are five squares at the bottom**, keys 1 to 5: the skill's
+## * **The skills are four squares at the bottom**, keys 1 to 4: the skill's
 ##   picture, its key in the corner, and while it is coming back a shade that
 ##   drains down off it with the seconds left. It flashes when it is ready again;
 ##   used, its name shows over the bar for a moment. An empty slot is a dark one.
@@ -47,8 +47,8 @@ var _band: ColorRect
 var _death_time: float = 0.0
 ## Per slot: how long ago it came ready (for the flash), and what was left of
 ## its cooldown last frame.
-var _ready_flash: PackedFloat32Array = PackedFloat32Array([9.0, 9.0, 9.0, 9.0, 9.0])
-var _last_left: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0, 0.0])
+var _ready_flash: PackedFloat32Array = PackedFloat32Array([9.0, 9.0, 9.0, 9.0])
+var _last_left: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 var _said: String = ""
 var _said_time: float = 9.0
 
@@ -146,7 +146,7 @@ func _on_skill_used(_slot: int, id: StringName) -> void:
 	_said_time = 0.0
 
 
-## The five squares, bottom centre.
+## The four squares, bottom centre.
 func _draw_skills() -> void:
 	var view := _bars.size
 	var n := Player.SKILL_SLOTS

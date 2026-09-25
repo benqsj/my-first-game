@@ -2965,8 +2965,8 @@ tips — all on the `bow_limb_` bones, so `BowModifier` bends them as before
 
 ## Skills, the skill bar, and the evade's key
 
-**The bar.** Five squares at the bottom centre of the screen (`PlayerHud`,
-`Player.SKILL_SLOTS`), keys **1, 2, 3, 4, 5** (`skill_1`..`skill_5`): the skill's picture, its key in the
+**The bar.** Four squares at the bottom centre of the screen (`PlayerHud`,
+`Player.SKILL_SLOTS`), keys **1, 2, 3, 4** (`skill_1`..`skill_4`): the skill's picture, its key in the
 corner, a shade over it that drains down with the seconds left while it comes
 back, a flash when it is ready again, and its name over the bar for a moment
 when it is used. An empty slot is a dark square. Which skill sits in which slot

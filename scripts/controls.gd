@@ -6,13 +6,13 @@ extends RefCounted
 ## * **The evade** is on the thumb: **Command** on a Mac, **Control**
 ##   everywhere else. Walking, which Control used to do off a Mac, goes to
 ##   Shift there; on a Mac it stays on Control.
-## * **The skills** are on **1, 2, 3, 4, 5** (`skill_1`..`skill_5`), the five
+## * **The skills** are on **1, 2, 3, 4** (`skill_1`..`skill_4`), the four
 ##   squares at the bottom of the screen.
 ##
 ## Only keyboard keys are touched; the gamepad's buttons stay as the project
 ## has them.
 
-const SKILL_KEYS: Array[Key] = [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5]
+const SKILL_KEYS: Array[Key] = [KEY_1, KEY_2, KEY_3, KEY_4]
 
 
 static func is_mac() -> bool:

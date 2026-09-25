@@ -21,10 +21,9 @@ var _player: Player
 func _initialize() -> void:
 	await process_frame
 	await _spawn(&"avtandil")
-	_check("Avtandil's slots: rain, mark, piercing, fire",
-			_player.skill_in(0) == &"arrow_rain" and _player.skill_in(1) == &"hunters_mark"
-			and _player.skill_in(2) == &"piercing_arrow" and _player.skill_in(3) == &"fire_arrow"
-			and _player.skill_in(4) == &"")
+	_check("Avtandil's slots: mark, fire, rain, piercing",
+			_player.skill_in(0) == &"hunters_mark" and _player.skill_in(1) == &"fire_arrow"
+			and _player.skill_in(2) == &"arrow_rain" and _player.skill_in(3) == &"piercing_arrow")
 	await _check_mark()
 	await _check_pierce()
 	await _check_fire()
@@ -47,9 +46,9 @@ func _check_mark() -> void:
 	await _ready_up()
 	_player.call("_hold_target", imp)
 	var why := "state %d committed %s stamina %.0f cd %.1f quarry %s target %s imp %s tgt %s d %.1f" % [_player.state,
-			_player.is_committed(), _player.stamina, _player.skill_cooldown_left(1), _player._skill_quarry(32.0),
+			_player.is_committed(), _player.stamina, _player.skill_cooldown_left(0), _player._skill_quarry(32.0),
 			_player.target, imp, _player._targetable(imp), _player.global_position.distance_to(imp.global_position)]
-	_check("the mark goes on something in front", _player.use_skill(1), why)
+	_check("the mark goes on something in front", _player.use_skill(0), why)
 	_check("he points at it", String(_player.rig._act_clip) == "AV_Point_Charge", String(_player.rig._act_clip))
 	await _wait(100)
 	var marks := Afflictions.of(imp, false)
@@ -80,7 +79,7 @@ func _check_mark() -> void:
 	await _wait(3)
 	_player.target = null
 	await _ready_up()
-	_check("with nothing in reach the mark does not go (and costs nothing)", not _player.use_skill(1)
+	_check("with nothing in reach the mark does not go (and costs nothing)", not _player.use_skill(0)
 			and _player.stamina >= _player.max_stamina - 0.01)
 	none.queue_free()
 	await _wait(60)
@@ -99,7 +98,7 @@ func _check_pierce() -> void:
 	var was_far := _along(far)
 	await _ready_up()
 	_player.call("_hold_target", near)
-	_check("the piercing arrow goes", _player.use_skill(2))
+	_check("the piercing arrow goes", _player.use_skill(3))
 	# Held forward through the draw: he stays where he is.
 	var stood := _player.global_position
 	Input.action_press("move_forward")
@@ -136,7 +135,7 @@ func _check_fire() -> void:
 	await _wait(10)
 	await _ready_up()
 	_player.call("_hold_target", imp)
-	_check("the fire arrow goes", _player.use_skill(3))
+	_check("the fire arrow goes", _player.use_skill(1))
 	var zone: Node = null
 	var burnt := false
 	var reacted := false

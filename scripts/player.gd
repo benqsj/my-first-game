@@ -2902,9 +2902,9 @@ const SKILLS := {
 	&"fire_arrow": {"name": "Fire Arrow", "stamina": 25.0, "cooldown": 12.0},
 	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
 }
-const SKILL_SLOTS := 5
+const SKILL_SLOTS := 4
 
-## A skill went off, from `slot` (0..4).
+## A skill went off, from `slot` (0..3).
 signal skill_used(slot: int, id: StringName)
 
 ## Rain of Arrows: how far off it may fall, where it falls with nothing locked,

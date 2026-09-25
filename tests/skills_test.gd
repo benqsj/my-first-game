@@ -1,7 +1,7 @@
 extends SceneTree
 
 ## The skills: the keys (the evade on Command on a Mac and Control elsewhere,
-## the skills on 1 to 5), the bar's slots, and Avtandil's Rain of Arrows — a
+## the skills on 1 to 4), the bar's slots, and Avtandil's Rain of Arrows — a
 ## ring where he is facing, a volley over it that hurts what stands in it, the
 ## stamina it costs and the cooldown after it.
 ##
@@ -36,17 +36,16 @@ func _check_keys() -> void:
 	_check("the evade is on %s" % Controls.dodge_name(), _has_key(&"dash", dodge))
 	_check("and on nothing else on the keyboard", _key_count(&"dash") == 1)
 	_check("walking is off the evade's key", not _has_key(&"walk", dodge) and _has_key(&"walk", Controls.walk_key()))
-	_check("there are five skill slots", Player.SKILL_SLOTS == 5 and Controls.SKILL_KEYS.size() == 5)
-	for i in 5:
+	_check("there are four skill slots", Player.SKILL_SLOTS == 4 and Controls.SKILL_KEYS.size() == 4)
+	for i in 4:
 		_check("skill %d is on key %d" % [i + 1, i + 1], _has_key(StringName("skill_%d" % (i + 1)), Controls.SKILL_KEYS[i]))
 	_check("the gamepad still evades", _pad_count(&"dash") > 0)
 
 
 func _check_rain() -> void:
-	_check("Avtandil's first skill is the Rain of Arrows", _player.skill_in(0) == &"arrow_rain")
-	_check("then the mark, the piercing arrow, the fire arrow, and the last slot empty",
-			_player.skill_in(1) == &"hunters_mark" and _player.skill_in(2) == &"piercing_arrow"
-			and _player.skill_in(3) == &"fire_arrow" and _player.skill_in(4) == &"")
+	_check("Avtandil's slots: the mark, the fire arrow, the Rain of Arrows (3), the piercing arrow",
+			_player.skill_in(0) == &"hunters_mark" and _player.skill_in(1) == &"fire_arrow"
+			and _player.skill_in(2) == &"arrow_rain" and _player.skill_in(3) == &"piercing_arrow")
 	await _wait(30)
 	var fwd := -_player.global_transform.basis.z
 	fwd.y = 0.0
@@ -56,13 +55,13 @@ func _check_rain() -> void:
 	var used := [0]
 	var on_used := func(_s: int, _id: StringName) -> void: used[0] += 1
 	_player.skill_used.connect(on_used)
-	Input.action_press("skill_1")
+	Input.action_press("skill_3")
 	await physics_frame
 	await physics_frame
-	Input.action_release("skill_1")
+	Input.action_release("skill_3")
 	_check("pressing 1 lets it go", used[0] == 1, "%d" % used[0])
 	_check("it costs stamina", _player.stamina < _player.max_stamina - 20.0, "%.0f" % _player.stamina)
-	_check("and it has to come back", _player.skill_cooldown_left(0) > 11.0, "%.1f s" % _player.skill_cooldown_left(0))
+	_check("and it has to come back", _player.skill_cooldown_left(2) > 11.0, "%.1f s" % _player.skill_cooldown_left(2))
 	_check("he shoots into the sky first", String(_player.rig._act_clip) == "AV_Sky_Shot",
 			String(_player.rig._act_clip))
 	var rain := await _find_rain(200)
@@ -92,14 +91,14 @@ func _check_rain() -> void:
 		hits += int(d.get("hits"))
 	_check("and hurts what stands under it", hits >= 3, "%d hits on four bodies" % hits)
 	_check("but not what stands well outside it", int(far.get("hits")) == 0, "%d" % int(far.get("hits")))
-	Input.action_press("skill_1")
+	Input.action_press("skill_3")
 	await physics_frame
 	await physics_frame
-	Input.action_release("skill_1")
+	Input.action_release("skill_3")
 	_check("pressed again while it comes back, nothing", used[0] == 1)
 	_player._skill_ready_at.clear()
 	_player.stamina = _player.max_stamina
-	_check("ready again, it goes", _player.use_skill(0))
+	_check("ready again, it goes", _player.use_skill(2))
 	_player.skill_used.disconnect(on_used)
 	await _wait(300)
 	# Locked on something in reach, the rain goes to it and follows it.
@@ -110,7 +109,7 @@ func _check_rain() -> void:
 	_player.call("_hold_target", quarry)
 	_player._skill_ready_at.clear()
 	_player.stamina = _player.max_stamina
-	_check("locked, it goes", _player.use_skill(0))
+	_check("locked, it goes", _player.use_skill(2))
 	var locked_rain := await _find_rain(200)
 	quarry.global_position += side * 2.5
 	await _wait(20)
