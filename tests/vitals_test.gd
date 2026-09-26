@@ -64,7 +64,7 @@ func _initialize() -> void:
 	var away := _player.global_transform.basis.z
 	var path := String(imp.get_path())
 	_player.net_blow(10.0, away, imp.global_position, "%s#1" % path, 0, 3)
-	_check("an unguarded blow takes health", is_equal_approx(_player.health, _player.max_health - 10.0),
+	_check("an unguarded blow takes health", is_equal_approx(_player.health, _player.max_health - Defence.taken(10.0, _player.p_def)),
 			"%.1f" % _player.health)
 	await _wait(30)
 
@@ -75,7 +75,7 @@ func _initialize() -> void:
 	_in_front(imp)
 	_player.net_blow(10.0, away, imp.global_position, "%s#2" % path, 0, 3)
 	_check("one caught on the shield takes none", _player.health == before)
-	_check("but holding it costs stamina", is_equal_approx(_player.stamina, _player.max_stamina - 10.0 * _player.block_stamina),
+	_check("but holding it costs stamina", is_equal_approx(_player.stamina, _player.max_stamina - Defence.taken(10.0, _player.p_def) * _player.block_stamina),
 			"%.1f" % _player.stamina)
 
 	# --- The parry ---------------------------------------------------------------
@@ -92,7 +92,7 @@ func _initialize() -> void:
 	_check("and the imp reels", imp.act == Fighter.Act.REEL, "act %d" % imp.act)
 	var hp := imp.health
 	imp._receive(20.0, imp.global_position, Vector3.UP, _player)
-	_check("open, a riposte bites deeper", is_equal_approx(hp - imp.health, 20.0 * Recoil.RIPOSTE),
+	_check("open, a riposte bites deeper", is_equal_approx(hp - imp.health, Defence.taken(20.0, imp.p_def) * Recoil.RIPOSTE),
 			"%.1f" % (hp - imp.health))
 	# Its arm is thrown back: the reel is laid over whatever the clip says.
 	var arm: int = imp._reel_bones.get("arm_r", -1)
@@ -143,7 +143,7 @@ func _initialize() -> void:
 	_player.net_blow(10.0, away, imp.global_position, "%s#t1" % path, 0, 3)
 	_check("it cannot parry", thrown_back.is_empty() and _player.health == before)
 	_check("but a blow on it costs little more than half the stamina", is_equal_approx(_player.stamina,
-			_player.max_stamina - 10.0 * _player.block_stamina * _player.tower_block_share), "%.1f" % _player.stamina)
+			_player.max_stamina - Defence.taken(10.0, _player.p_def) * _player.block_stamina * _player.tower_block_share), "%.1f" % _player.stamina)
 	_player.set_shield(Inventory.Shields.ROUND)
 	_player.is_blocking = false
 
@@ -199,7 +199,7 @@ func _initialize() -> void:
 			await physics_frame
 			if _player.health < before:
 				break
-		_check("and a wolf's claws hurt", is_equal_approx(_player.health, before - wolf.swipe_damage),
+		_check("and a wolf's claws hurt", is_equal_approx(_player.health, maxf(before - Defence.taken(wolf.swipe_damage, _player.p_def), 1.0 if _player.immortal else 0.0)),
 				"%.0f -> %.0f" % [before, _player.health])
 		wolf.global_position += Vector3(0.0, -50.0, 0.0)
 	var den := Vector3.ZERO

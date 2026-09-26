@@ -28,6 +28,9 @@ func _initialize() -> void:
 	_world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	await _wait(2)
 	_player = (_world as World).player()
+	# Two blows of a wolf are the end of a man now, and these wolves are real:
+	# what is asked here is about the bow and the lock, not about surviving them.
+	_player.immortal = true
 
 	# The creatures wander and hunt; every check here is about the archer, so
 	# the only one in the world is the one put there on purpose.
@@ -78,6 +81,10 @@ func _check_lock() -> void:
 	_player.camera_rig.rotation.y = 0.0
 	_player.velocity = Vector3.ZERO
 	var quarry := _wolf_at(Vector3(9.0, 0.5, 6.0))
+	# Left standing: a wolf runs a man down at 8.5 m/s now and leaps on him at
+	# the end of it, and what is asked here is about the lock and the camera.
+	quarry.sight_range = 0.0
+	quarry.prowl_speed = 0.0
 	await _wait(20)
 
 	Input.action_press("lock_on")

@@ -153,6 +153,12 @@ func _dodges(wolf: Wolf, swings: int) -> int:
 		wolf.mind._begin(WolfMind.Tactic.WAIT)
 		wolf.mind._left = 999.0
 		_face_player_to(wolf)
+		# Whatever its last blow did to him (a wolf's blow staggers a man now,
+		# or puts him down), he is on his feet and free to swing.
+		if _player.state == Player.State.DOWNED:
+			_player.state = Player.State.GROUNDED
+		_player.is_invulnerable = false
+		_player._commit_timer = 0.0
 		Input.action_press("attack")
 		await _wait(3)
 		Input.action_release("attack")

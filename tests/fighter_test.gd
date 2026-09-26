@@ -111,8 +111,10 @@ func _initialize() -> void:
 			break
 	_check("it closes in and attacks", attacked)
 	_check("the combo lands blows on the player", _struck.size() >= 2, "%d blows" % _struck.size())
-	_check("an imp's blow is worth what its scene says (40)", not _struck.is_empty()
-			and is_equal_approx(_struck[0], imp.hit_damage) and imp.hit_damage == 40.0, str(_struck))
+	# Taken through the knight's p.def ([Defence]).
+	_check("an imp's blow is worth what its scene says (40), through his p.def", not _struck.is_empty()
+			and is_equal_approx(_struck[0], Defence.taken(imp.hit_damage, player.p_def)) and imp.hit_damage == 40.0,
+			str(_struck))
 	_check("the combo has several blows in it", imp._blows.size() >= 2, str(imp._blows))
 
 	# --- Only a whole combo puts him down -----------------------------------------

@@ -174,6 +174,12 @@ func _check_two_attackers() -> void:
 	}) as Player
 	players.add_child(other)
 	await _wait(5)
+	# Two of its blows are the end of a man now: nobody dies of it here. And it is
+	# cut apart from the first cut on (not only once it is down to half), since
+	# what this asks is whether both cuts land.
+	mine.immortal = true
+	other.immortal = true
+	wolf.sever_below = 1.01
 
 	# Both standing on it, facing it, swinging on the same tick.
 	for knight in [mine, other]:
@@ -222,8 +228,8 @@ func _check_two_attackers() -> void:
 	_check("a wolf keeps a tally of who has hurt it", threat.size() == 2,
 			"%d attackers on the books" % threat.size())
 	_check("and the tally is what each of them did",
-			is_equal_approx(threat.get(mine.name, 0.0), 40.0)
-					and is_equal_approx(threat.get(other.name, 0.0), 25.0),
+			is_equal_approx(threat.get(mine.name, 0.0), Defence.taken(40.0, wolf.p_def))
+					and is_equal_approx(threat.get(other.name, 0.0), Defence.taken(25.0, wolf.p_def)),
 			"%s" % threat)
 
 	wolf.set("_threat", {mine.name: 100.0, other.name: 50.0})

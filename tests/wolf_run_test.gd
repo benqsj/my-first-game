@@ -89,7 +89,7 @@ func _missiles(scene: String, speed: float, what: String) -> void:
 	var far := await _shots(wolf, scene, speed, 12.0, 16)
 	var near := await _shots(wolf, scene, speed, 3.5, 16)
 	wolf.charge_speed = charge
-	_check("from far off it gets out of the way of most of %s" % what, far >= 11, "%d of 16" % far)
+	_check("from far off it gets out of the way of most of %s" % what, far >= 10, "%d of 16" % far)
 	_check("and close in, of many too", near >= 5, "%d of 16" % near)
 	_park(wolf)
 

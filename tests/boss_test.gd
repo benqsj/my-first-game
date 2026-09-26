@@ -193,7 +193,7 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	await _wait(20)
 	_check("the heavy combo ends in the slam", slammed)
 	var landed := orc._slam_point - spot
-	_check("the spikes out of the ground reach six and a half metres off", _struck.has(orc.wave_damage),
+	_check("the spikes out of the ground reach six and a half metres off", _landed(orc.wave_damage),
 			"%s; the axe came down %.1f m ahead, %.1f to the side" % [str(_struck),
 			landed.dot(orc._forward()), landed.dot(orc._forward().cross(Vector3.UP))])
 	_check("and nothing else did", _struck.size() == 1, str(_struck))
@@ -343,7 +343,7 @@ func _check_arkdeva(ark: Arkdeva) -> void:
 		if ark.act == Brute.ACT_NONE:
 			break
 	await _wait(10)
-	_check("the thorns reach twelve metres out, a hit of their own", _struck == [ark.thorn_damage], str(_struck))
+	_check("the thorns reach twelve metres out, a hit of their own", _struck.size() == 1 and _landed(ark.thorn_damage), str(_struck))
 	_player.global_position = spot + ark._forward() * 2.0 + ark.global_transform.basis.x * 14.0 + Vector3.UP * 0.2
 	_struck.clear()
 	# Held facing ahead: left to itself it would turn on him.
@@ -370,7 +370,7 @@ func _check_arkdeva(ark: Arkdeva) -> void:
 		if ark.act == Brute.ACT_NONE and ark._gobs.is_empty():
 			break
 	await _wait(10)
-	_check("the poison flies forward and lands on him", _struck.has(ark.poison_damage), str(_struck))
+	_check("the poison flies forward and lands on him", _landed(ark.poison_damage), str(_struck))
 
 	# It decides for itself, too.
 	await _stand_up()
@@ -417,7 +417,7 @@ func _attack(ark: Arkdeva, what: int, at: Vector2, label: String, damage: float)
 		if ark.act == Brute.ACT_NONE:
 			break
 	ark.turn_speed = turn
-	_check("%s lands for %d" % [label, damage], _struck.has(damage), str(_struck))
+	_check("%s lands for %d" % [label, damage], _landed(damage), str(_struck))
 #endregion
 
 
@@ -451,3 +451,13 @@ func _check(label: String, condition: bool, detail: String = "") -> void:
 	else:
 		_failures += 1
 		print("  FAIL - %s %s" % [label, ("(%s)" % detail) if detail else ""])
+
+
+## Whether a blow of `damage` landed on him — as he takes it, through his p.def
+## ([Defence]).
+func _landed(damage: float) -> bool:
+	var taken := Defence.taken(damage, _player.p_def)
+	for d in _struck:
+		if is_equal_approx(float(d), taken):
+			return true
+	return false
