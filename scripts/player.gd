@@ -147,6 +147,9 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 ## Vertical room the top of the ledge needs before it counts as somewhere to
 ## stand rather than a slot to be wedged into.
 @export var climb_headroom: float = 1.9
+## Over a thin top (a fence) rather than onto it: the height the arc clears,
+## or -INF for an ordinary pull-up.
+var _vault_peak: float = -INF
 
 @export_group("Wall climb")
 ## Free climbing on faces too tall to be mantled — a house wall, a tower, the
@@ -1488,28 +1491,51 @@ func _find_ledge() -> Vector3:
 	if space.intersect_ray(face).is_empty():
 		return Vector3.ZERO
 
-	# Feel down for the top from above the tallest ledge that can be taken.
-	var above := global_position + up_direction * (climb_max_height + 0.4) + facing * climb_reach
-	var top := PhysicsRayQueryParameters3D.create(
-			above, above - up_direction * (climb_max_height + 0.4), collision_mask, exclude)
-	var hit := space.intersect_ray(top)
+	# Feel down for the top from above the tallest ledge that can be taken — at
+	# the face itself first and then further in, so the top of something thin (a
+	# fence rail) is found too, not only the ground beyond it.
+	var hit := {}
+	var rise := 0.0
+	for reach: float in [0.4, 0.55, climb_reach]:
+		var above := global_position + up_direction * (climb_max_height + 0.4) + facing * reach
+		var top := PhysicsRayQueryParameters3D.create(
+				above, above - up_direction * (climb_max_height + 0.4), collision_mask, exclude)
+		hit = space.intersect_ray(top)
+		if hit.is_empty():
+			continue
+		rise = ((hit.position as Vector3) - global_position).dot(up_direction)
+		if rise >= climb_min_height and rise <= climb_max_height:
+			break
+		hit = {}
 	if hit.is_empty():
 		return Vector3.ZERO
 
 	var lip: Vector3 = hit.position
-	var rise := (lip - global_position).dot(up_direction)
-	if rise < climb_min_height or rise > climb_max_height:
-		return Vector3.ZERO
 	if (hit.normal as Vector3).dot(up_direction) < cos(floor_max_angle):
 		return Vector3.ZERO  # The top is too steep to be a landing.
 
 	# Far enough in from the edge that the capsule is not left overhanging it.
 	var landing: Vector3 = lip + facing * 0.25
+	_vault_peak = -INF
 	var headroom := PhysicsRayQueryParameters3D.create(
 			landing + up_direction * 0.05, landing + up_direction * climb_headroom,
 			collision_mask, exclude)
 	if not space.intersect_ray(headroom).is_empty():
 		return Vector3.ZERO
+	# A thin top — a fence rail, the coping of a wall — is nowhere to stand: the
+	# landing past its edge has nothing under it. Over it instead, to the
+	# ground on the far side (a vault), rather than up into the air beyond it.
+	var under := PhysicsRayQueryParameters3D.create(landing + up_direction * 0.3,
+			landing - up_direction * 0.4, collision_mask, exclude)
+	if space.intersect_ray(under).is_empty():
+		var beyond := lip + facing * 1.1
+		var down := PhysicsRayQueryParameters3D.create(beyond + up_direction * 0.3,
+				beyond - up_direction * (rise + 2.0), collision_mask, exclude)
+		var ground := space.intersect_ray(down)
+		if ground.is_empty() or (ground.normal as Vector3).dot(up_direction) < cos(floor_max_angle):
+			return Vector3.ZERO
+		_vault_peak = lip.y + 0.35
+		return ground.position
 	return landing
 
 
@@ -1523,10 +1549,16 @@ func _process_climb(delta: float) -> void:
 
 	var here := _climb_from.lerp(_climb_to, reach)
 	here.y = lerpf(_climb_from.y, _climb_to.y, lift)
+	if _vault_peak > -INF:
+		# Over the top in an arc, clear of the rail, and down the far side.
+		here = _climb_from.lerp(_climb_to, smoothstep(0.0, 1.0, through))
+		var base := lerpf(_climb_from.y, _climb_to.y, through)
+		here.y = base + maxf(_vault_peak - base, 0.0) * sin(PI * through)
 	global_position = here
 	velocity = Vector3.ZERO
 
 	if _climb_timer <= 0.0:
+		_vault_peak = -INF
 		state = State.GROUNDED
 		_was_on_floor = true
 		_coyote_timer = coyote_time
@@ -3152,7 +3184,9 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 @export var venom_time: float = 10.0
 ## Each stack on a creature lasts this long and costs it this much a second.
 @export var venom_stack_time: float = 6.0
-@export var venom_dps: float = 7.0
+## Gentle on purpose: three stacks are 7.5 a second, which with the blade
+## is a help, not the whole of the kill.
+@export var venom_dps: float = 2.5
 
 ## Until when (on `_now()`) this hero's blade poisons what it cuts.
 var _venom_until: float = 0.0
