@@ -51,6 +51,8 @@ extends StaticBody3D
 	Vector4(74.0, 120.0, 42.0, 9.0),
 	Vector4(100.0, 102.0, 22.0, 4.0),
 	Vector4(44.0, 110.0, 22.0, 3.5),
+	# And its shoulder running on west, past the village, into the great wood.
+	Vector4(6.0, 108.0, 30.0, 6.0),
 	Vector4(102.0, -96.0, 24.0, 8.5),    # the south-east rise
 	Vector4(76.0, -40.0, 12.0, -2.4),    # a hollow in the east fields
 	Vector4(-66.0, 76.0, 13.0, -2.2),    # a dip in the wood
