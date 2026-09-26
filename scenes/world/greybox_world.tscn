@@ -674,10 +674,10 @@ shape = SubResource("BoxShape3D_wall")
 [node name="Enemies" type="Node3D" parent="."]
 
 [node name="Wolf1" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(-0.955336, 0, -0.29552, 0, 1, 0, 0.29552, 0, -0.955336, 58, 0.2, 97)
+transform = Transform3D(-0.955336, 0, -0.29552, 0, 1, 0, 0.29552, 0, -0.955336, 34, 0.2, 92)
 
 [node name="Wolf2" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(-0.466561, 0, -0.884489, 0, 1, 0, 0.884489, 0, -0.466561, 65, 0.2, 103)
+transform = Transform3D(-0.466561, 0, -0.884489, 0, 1, 0, 0.884489, 0, -0.466561, 50, 0.2, 100)
 
 [node name="Golem1" parent="Enemies" instance=ExtResource("11_golem")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0.2, 8)
@@ -686,22 +686,34 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -20, 0.2, 8)
 transform = Transform3D(-0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, -0.707107, 14, 0.2, 22)
 
 [node name="Wolf4" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(0.884489, 0, -0.466561, 0, 1, 0, 0.466561, 0, 0.884489, 66, 0.2, 97.5)
+transform = Transform3D(0.884489, 0, -0.466561, 0, 1, 0, 0.466561, 0, 0.884489, 62, 0.2, 92)
 
 [node name="Wolf6" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(0.466561, 0, 0.884489, 0, 1, 0, -0.884489, 0, 0.466561, 100, 0.2, 107.5)
+transform = Transform3D(0.466561, 0, 0.884489, 0, 1, 0, -0.884489, 0, 0.466561, 78, 0.2, 96)
 
 [node name="Wolf8" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(-0.884489, 0, 0.466561, 0, 1, 0, -0.466561, 0, -0.884489, 93, 0.2, 107)
+transform = Transform3D(-0.884489, 0, 0.466561, 0, 1, 0, -0.466561, 0, -0.884489, 94, 0.2, 90)
 
 [node name="Wolf3" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(0.29552, 0, -0.955336, 0, 1, 0, 0.955336, 0, 0.29552, 61, 0.2, 104.5)
+transform = Transform3D(0.29552, 0, -0.955336, 0, 1, 0, 0.955336, 0, 0.29552, 40, 0.2, 112)
 
 [node name="Wolf5" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(0.955336, 0, 0.29552, 0, 1, 0, -0.29552, 0, 0.955336, 92, 0.2, 101)
+transform = Transform3D(0.955336, 0, 0.29552, 0, 1, 0, -0.29552, 0, 0.955336, 66, 0.2, 106)
 
 [node name="Wolf7" parent="Enemies" instance=ExtResource("10_wolf")]
-transform = Transform3D(-0.29552, 0, 0.955336, 0, 1, 0, -0.955336, 0, -0.29552, 99, 0.2, 100)
+transform = Transform3D(-0.29552, 0, 0.955336, 0, 1, 0, -0.955336, 0, -0.29552, 82, 0.2, 112)
+
+[node name="Wolf9" parent="Enemies" instance=ExtResource("10_wolf")]
+transform = Transform3D(0.707107, 0, 0.707107, 0, 1, 0, -0.707107, 0, 0.707107, 98, 0.2, 104)
+
+[node name="Wolf10" parent="Enemies" instance=ExtResource("10_wolf")]
+transform = Transform3D(-0.5, 0, 0.866025, 0, 1, 0, -0.866025, 0, -0.5, 110, 0.2, 94)
+
+[node name="Wolf11" parent="Enemies" instance=ExtResource("10_wolf")]
+transform = Transform3D(0.866025, 0, -0.5, 0, 1, 0, 0.5, 0, 0.866025, 108, 0.2, 112)
+
+[node name="Wolf12" parent="Enemies" instance=ExtResource("10_wolf")]
+transform = Transform3D(-0.965926, 0, -0.258819, 0, 1, 0, 0.258819, 0, -0.965926, 56, 0.2, 114)
 
 [node name="Golem3" parent="Enemies" instance=ExtResource("11_golem")]
 transform = Transform3D(0.906308, 0, -0.422618, 0, 1, 0, 0.422618, 0, 0.906308, -84, 0.2, 26)

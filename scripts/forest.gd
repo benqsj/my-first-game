@@ -117,8 +117,6 @@ const HEDGEROW := {
 ## than [PackedVector2Array]s: the packed one has to be *constructed*, and a
 ## constructor call cannot sit in a `const`.
 const HEDGEROWS: Array[Array] = [
-	# Along the foot of the wolves' hill, outside the village's north fence.
-	[Vector2(24, 81), Vector2(66, 83), Vector2(110, 80)],
 	# The lane down from the settlement to the greybox core.
 	[Vector2(30, 6), Vector2(58, -2), Vector2(92, -8)],
 	# And the rest of the farmed ground, north and south of the settlement.
@@ -195,11 +193,36 @@ const CLEARINGS: Array[Vector3] = [
 ## wall (x, z, width, depth). Planted after everything else, so the rest of
 ## the map's wood comes out of the seed exactly as it did before.
 const GROVE := Rect2(22.0, 80.0, 96.0, 40.0)
-## The wolves' glades in it (x, z, radius).
+## Room kept round each of the wolves on it (x, z, radius): where they stand
+## in the level, so none is born in a trunk.
 const GROVE_GLADES: Array[Vector3] = [
-	Vector3(62.0, 100.0, 7.0),
-	Vector3(96.0, 104.0, 7.0),
+	Vector3(34.0, 92.0, 3.5),
+	Vector3(50.0, 100.0, 3.5),
+	Vector3(40.0, 112.0, 3.5),
+	Vector3(62.0, 92.0, 3.5),
+	Vector3(66.0, 106.0, 3.5),
+	Vector3(78.0, 96.0, 3.5),
+	Vector3(82.0, 112.0, 3.5),
+	Vector3(94.0, 90.0, 3.5),
+	Vector3(98.0, 104.0, 3.5),
+	Vector3(110.0, 94.0, 3.5),
+	Vector3(108.0, 112.0, 3.5),
+	Vector3(56.0, 114.0, 3.5),
 ]
+
+## What grows on it: firs only, and nothing under them — tall, their trunks
+## bare a long way up (`stretch`, on the height alone), and far apart, so it
+## is a wood to walk and fight in between the stems, not a thicket.
+const HILL_FIRS := {
+	"spacing": 6.8,
+	"chance": 0.85,
+	"stretch": Vector2(1.45, 1.85),
+	"models": [
+		{"path": "res://assets/forest/Tree_Pine_2.obj", "scale": Vector2(2.1, 2.9), "biome": 1},
+		{"path": "res://assets/forest/Tree_Pine_5.obj", "scale": Vector2(2.1, 3.0), "biome": 1},
+		{"path": "res://assets/forest/Tree_Cedar_2.obj", "scale": Vector2(2.2, 3.1), "biome": 1},
+	],
+}
 
 @export_group("Layout")
 ## Change this and the whole wood is re-rolled. Fixed rather than randomised: the
@@ -360,9 +383,7 @@ func _ready() -> void:
 		_grow("Litter Bay", LITTER, litter_draw_distance, false, false, from, to)
 	# The wolves' hill, last of all.
 	_on_hill = true
-	_grow("Canopy Hill", CANOPY, tree_draw_distance, trees_cast_shadows, true, GROVE.position.y - 4.0, GROVE.end.y)
-	_grow("Undergrowth Hill", UNDERGROWTH, undergrowth_draw_distance, false, false, GROVE.position.y - 4.0, GROVE.end.y)
-	_grow("Litter Hill", LITTER, litter_draw_distance, false, false, GROVE.position.y - 4.0, GROVE.end.y)
+	_grow("Firs Hill", HILL_FIRS, tree_draw_distance, trees_cast_shadows, true, GROVE.position.y - 4.0, GROVE.end.y)
 	_on_hill = false
 
 	print("Forest: %s, %d trunks over %d bodies (%d distinct shapes), in %.1f ms" % [
@@ -452,6 +473,9 @@ func _grow(group_name: String, group: Dictionary, draw_distance: float,
 			var size := _rng.randf_range(span.x, span.y) * (0.82 + 0.28 * cover)
 			var basis := Basis(Vector3.UP, _rng.randf() * TAU).scaled(
 					Vector3(size, size * _rng.randf_range(0.92, 1.12), size))
+			if group.has("stretch"):
+				var stretch: Vector2 = group["stretch"]
+				basis = basis.scaled(Vector3(1.0, _rng.randf_range(stretch.x, stretch.y), 1.0))
 
 			var key := _chunk_of(at)
 			var bucket: Dictionary = chunks.get(key, {})
@@ -563,10 +587,9 @@ func _hill_wood(at: Vector2) -> float:
 			return 0.0
 		if gap < g.z + 5.0:
 			k *= (gap - g.z) / 5.0
-	var field := _density.get_noise_2d(at.x, at.y)
-	if field < glade_cut:
-		return 0.0
-	return k * clampf((field - glade_cut) / 0.12, 0.0, 1.0)
+	# No glades cut by the density field here: the firs stand far enough apart
+	# that the whole hill is open between them.
+	return k
 
 
 ## The treeline: everything past a wandering line is wood, everything before it
