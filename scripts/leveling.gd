@@ -13,7 +13,7 @@ extends Node
 ##
 ## | to reach | experience | wolves |
 ## |---|---|---|
-## | level 2 | 30 | 3 |
+## | level 2 | 40 | 4 |
 ## | level 3 | 70 more | 7 |
 ## | level 4 | 100 more | 10 |
 ## | 5 … 10 | 140, 180, 230, 280, 340, 400 more | |
@@ -23,7 +23,7 @@ const XP_FOR := {&"wolf": 10, &"imp": 6, &"puglin": 8, &"orc": 30, &"arkdeva": 1
 ## What a creature with no line of its own is worth.
 const XP_OTHER := 5
 ## Experience from each level to the next: `TO_NEXT[0]` takes level 1 to 2.
-const TO_NEXT: Array[int] = [30, 70, 100, 140, 180, 230, 280, 340, 400]
+const TO_NEXT: Array[int] = [40, 70, 100, 140, 180, 230, 280, 340, 400]
 const MAX_LEVEL := 10
 ## Heroes this far from a creature when it dies share in it — each gets it
 ## whole. Alone, that is simply the one who killed it.
@@ -105,10 +105,14 @@ func net_progress(new_level: int, new_xp: int, amount: int) -> void:
 	var sender := multiplayer.get_remote_sender_id() if is_inside_tree() else 0
 	if sender != 0 and sender != 1:
 		return
+	var rose := level < new_level
 	while level < new_level:
 		level += 1
 		_grow()
 		leveled_up.emit(level)
+	# Seen by everyone: the column of light onto him ([LevelBeam]).
+	if rose and _player != null:
+		LevelBeam.on(_player)
 	xp = new_xp
 	gained.emit(amount)
 

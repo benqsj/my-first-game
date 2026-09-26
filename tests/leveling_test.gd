@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Levels ([Leveling]): every hero starts at 1; 3 wolves are level 2, 7 more
+## Levels ([Leveling]): every hero starts at 1; 4 wolves are level 2, 7 more
 ## level 3, 10 more level 4; each level grows the hero along his own line and
 ## heals him; only the heroes near a kill share in it; the hero's profile on
 ## disk is untouched.
@@ -34,7 +34,7 @@ func _initialize() -> void:
 	# The hill has sixteen; more come in the way a camp's would, and are watched
 	# as they arrive.
 	var wolf_scene := load("res://scenes/enemies/wolf.tscn") as PackedScene
-	while wolves.size() < 21:
+	while wolves.size() < 22:
 		var extra := wolf_scene.instantiate() as Wolf
 		extra.name = "ExtraWolf%d" % wolves.size()
 		world.get_node("Enemies").add_child(extra)
@@ -55,7 +55,7 @@ func _initialize() -> void:
 	_check("a wolf killed far away is nothing to him", book.xp == 0 and book.level == 1)
 
 	var at := 0
-	for want: Array in [[3, 2], [7, 3], [10, 4]]:
+	for want: Array in [[4, 2], [7, 3], [10, 4]]:
 		for k in int(want[0]):
 			var w := wolves[at]
 			at += 1
@@ -68,6 +68,7 @@ func _initialize() -> void:
 				"level %d, %d xp" % [book.level, book.xp])
 		_check("  and whole again", is_equal_approx(player.health, player.max_health),
 				"%.0f / %.0f" % [player.health, player.max_health])
+		_check("  and a beam of light comes down on him", player.get_node_or_null(^"LevelBeam") is LevelBeam)
 	_check("three levels gained, one at a time", ups[0] == 3, "%d" % ups[0])
 	var g: Dictionary = Leveling.GROWTH[&"tariel"]
 	_check("Tariel grew by his line: health", is_equal_approx(player.max_health, base_health + 3.0 * float(g["hp"])),
