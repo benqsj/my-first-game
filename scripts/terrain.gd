@@ -74,8 +74,9 @@ extends StaticBody3D
 @export var track_keep: float = 0.2
 ## Resolution of the flatness grid.
 @export var mask_cell: float = 2.0
-## The materials the ground can wear: [0] the house style, [1] realistic. The
-## marsh strips wear the same one.
+## The materials the ground can wear: [0] the house style, [1] realistic,
+## [2] the forest floor ([Looks] picks among them; F8). The marsh strips wear
+## the same one.
 @export var styles: Array[Material] = []
 @export var style: int = 0
 
@@ -156,6 +157,10 @@ func _ready() -> void:
 		set_style(0)
 	else:
 		set_style(style)
+	# The looks the world can be seen in, stepped through with F8.
+	var looks := Looks.new()
+	looks.name = "Looks"
+	add_child(looks)
 
 
 ## The ground's height, worked out from scratch (see the class notes).
@@ -412,6 +417,7 @@ func _dress_marsh() -> void:
 
 
 const SHADER := "res://shaders/terrain_ground.gdshader"
+const FOREST_SHADER := "res://shaders/terrain_forest.gdshader"
 const REAL := "res://assets/terrain_real/"
 ## The realistic set: uniform -> (colour, normal) under [constant REAL].
 const REAL_MAPS := {
@@ -422,10 +428,19 @@ const REAL_MAPS := {
 	"rock": ["aerial_rocks_02_diff.jpg", "aerial_rocks_02_nor_gl.jpg"],
 	"mud": ["brown_mud_02_diff.jpg", "brown_mud_02_nor_gl.jpg"],
 }
+## The forest floor's set, the same way.
+const FOREST_MAPS := {
+	"floor": ["forest_leaves_02_diff.jpg", "forest_leaves_02_nor_gl.jpg"],
+	"grass": ["grass004/Grass004_1K-JPG_Color.jpg", "grass004/Grass004_1K-JPG_NormalGL.jpg"],
+	"bare": ["brown_mud_leaves_01_diff.jpg", "brown_mud_leaves_01_nor_gl.jpg"],
+	"earth": ["forest_ground_04_diff.jpg", "forest_ground_04_nor_gl.jpg"],
+	"rock": ["aerial_rocks_02_diff.jpg", "aerial_rocks_02_nor_gl.jpg"],
+	"mud": ["brown_mud_02_diff.jpg", "brown_mud_02_nor_gl.jpg"],
+}
 
 
-## The two materials, when none are given: the house style, carrying on the old
-## ground's own noise, and the photographed one.
+## The materials, when none are given: the house style, carrying on the old
+## ground's own noise, the photographed one, and the forest floor.
 func _default_styles() -> Array[Material]:
 	var shader := load(SHADER) as Shader
 	var mottle: Texture2D = null
@@ -452,7 +467,16 @@ func _default_styles() -> Array[Material]:
 			b.set_shader_parameter("t_" + key, load(REAL + pair[0]))
 		if ResourceLoader.exists(REAL + pair[1]):
 			b.set_shader_parameter("n_" + key, load(REAL + pair[1]))
-	var out: Array[Material] = [a, b]
+	var c := ShaderMaterial.new()
+	c.shader = load(FOREST_SHADER) as Shader
+	c.set_shader_parameter("mottle", mottle)
+	for key: String in FOREST_MAPS:
+		var pair: Array = FOREST_MAPS[key]
+		if ResourceLoader.exists(REAL + pair[0]):
+			c.set_shader_parameter("t_" + key, load(REAL + pair[0]))
+		if ResourceLoader.exists(REAL + pair[1]):
+			c.set_shader_parameter("n_" + key, load(REAL + pair[1]))
+	var out: Array[Material] = [a, b, c]
 	return out
 
 
@@ -471,10 +495,4 @@ func set_style(which: int) -> void:
 		if ground != null:
 			ground.material_override = mat
 
-
-func _unhandled_key_input(event: InputEvent) -> void:
-	# F8 swaps the ground's material, to compare the two.
-	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and key.keycode == KEY_F8:
-		set_style((style + 1) % maxi(styles.size(), 1))
 #endregion

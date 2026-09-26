@@ -206,7 +206,7 @@ func _initialize() -> void:
 			"reached %.1f m of %.1f, sunk %s" % [climbed, peak, sunk])
 
 	# --- both looks -------------------------------------------------------------
-	_check("the ground has its two looks", land.styles.size() == 2)
+	_check("the ground has its three looks", land.styles.size() == 3)
 	land.set_style(1)
 	var chunk := land.get_node_or_null("Chunk_0_0") as MeshInstance3D
 	_check("and changes into the other", chunk != null and chunk.material_override == land.styles[1])

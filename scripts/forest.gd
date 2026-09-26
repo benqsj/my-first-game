@@ -438,6 +438,14 @@ func is_clear(at: Vector2) -> bool:
 	return false
 
 
+## Where every tree stands, (x, z): what [Looks] lays the forest floor under.
+func trunk_positions() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for here: PackedVector2Array in _standing.values():
+		out.append_array(here)
+	return out
+
+
 ## How many trunks are solid. Zero means the wood is scenery the player walks
 ## straight through, which is a thing worth being able to check for.
 func trunk_count() -> int:

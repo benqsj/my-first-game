@@ -74,6 +74,9 @@ const REEDS: PackedStringArray = [
 @export var reed_tone: Color = Color(0.27, 0.31, 1.0)
 @export var wood_tone: Color = Color(0.24, 0.28, 1.0)
 
+## The field has been grown (or grown again) and handed to the grass.
+signal grown
+
 ## How many were planted, and of what, for anything that wants to check.
 var counts: Dictionary = {}
 
@@ -167,6 +170,7 @@ func _grow() -> void:
 		tints = keep_t
 	field.replace(placed, tints)
 	_build_decor()
+	grown.emit()
 	print("Meadows: %s, %d clumps, in %.0f ms" % [counts, placed.size() / GrassField.STRIDE,
 			(Time.get_ticks_usec() - started) / 1000.0])
 

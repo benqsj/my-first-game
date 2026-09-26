@@ -2900,6 +2900,79 @@ CC0 photographs (`assets/terrain_real/SOURCES.md`). **F8** swaps them in play;
 the flat places, that the floor is what is drawn, the tracks' gradient, the
 seam, the trunks and a walk up the tallest open hill.
 
+## Looks: F8, the forest floor and the light grass
+
+**F8** in play steps through the world's looks (`Looks`, `scripts/looks.gd`, a
+child of the ground that `Terrain` makes), with the look's name at the top of
+the screen for a moment. The level starts in the first, as it always did;
+`-- look_N` starts in another.
+
+| F8 | ground | grass |
+| --- | --- | --- |
+| 1 **old** (default) | the house ground | `grass2.glb`, 8 256 triangles |
+| 2 **new** | the forest floor | `grass_light.glb`, 364 triangles |
+| 3 | the house ground | `grass_light.glb` |
+| 4 | the photographed ground (`styles[1]`) | `grass_light.glb` |
+| 5 | the forest floor | `assets/grass2/gras2.glb`, 6 672 triangles |
+
+A look changes the ground's material (`Terrain.set_style`, the marsh strips
+too) and the clump every chunk of the grass is drawn with
+(`GrassField.set_clump_scene`) — the same clumps where they stand, not a field
+grown again. `tests/looks_test.gd` checks the default, the swap, the mask and
+the round back.
+
+**The forest floor** (`shaders/terrain_forest.gdshader`, `Terrain.styles[2]`) is
+six photographed CC0 grounds (`assets/terrain_real/SOURCES.md`): fallen leaves,
+twigs and moss under the trees; grassy ground under the meadows; bare earth
+with sprigs and the odd leaf on the rest of the open ground, so ground with no
+grass on it reads as ground; worn earth on the tracks and banks, rock on the
+steep, mud by the water. Where two meet they are blended by height — the
+brighter photograph takes the edge — so leaves lie over the earth in drifts
+rather than fading into it. It is cheap on purpose: each pixel reads only the
+grounds that are there (two or three), once each, the relief only within 40 m;
+repetition is broken by a slow wash of brightness and hue from the old noise
+texture rather than by sampling everything twice. Reads inside those branches
+use `textureGrad` with the derivatives taken outside them, or the mip level
+would be wrong at the edges.
+
+Where the trees and the grass are is **the ground mask** (`Looks.ground_mask()`):
+a 120 × 318 picture of the map, two metres a pixel, red where trunks stand
+(`Forest.trunk_positions()`, 5.5 m round each, softened twice so a lone tree
+stands in a smudge of leaves rather than on a disc) and green where the meadows
+planted clumps. It is made the first time the look is worn (about 130 ms) and
+again when `Meadows` grows (`Meadows.grown`). It is the same picture a hand-
+painted mask would be, when the ground comes to be painted.
+
+**The light clump** (`assets/grass/grass_light.glb`, built by
+`vepxis-art/tools/grass_light.py`): 52 curved blades of five sections, the same
+leaf texture as `grass2`, darker at the root through the vertex colour, normals
+bent towards the sky so both faces take the light, opaque rather than
+alpha-dithered. 364 triangles against 8 256.
+
+**The photographed ground stuttered** because its twelve textures had been
+imported lossless and without mipmaps (the same thing "Textures" above found
+in the village): every distant pixel of the whole ground read the full 1K map,
+twelve of them twice. They are VRAM-compressed with mipmaps now, normals in the
+normal-map mode, as are the forest floor's.
+
+What it costs — `perf_tour` on the M1, primitives drawn on High (exact; the
+frame times of these runs moved by 50% between two runs of the same look, as
+Blender was rendering alongside, so they are not given):
+
+| place | old | new |
+| --- | --- | --- |
+| spawn, to the wood | 665 000 | 603 000 |
+| in the wood | 575 000 | 536 000 |
+| the hamlet | 403 000 | 343 000 |
+| mist village | 439 000 | 373 000 |
+| orc camp | 328 000 | 324 000 |
+
+So the grass was already not the dear part: `lod_bias` 0.06 had most of its
+triangles gone at any distance. The light clump takes 10–15% of what is drawn
+off where there are meadows, and the forest floor costs about what the house
+ground does. The frame is now mostly the sun's shadow (560 of 1 500 draw calls
+at the spawn) and the wood.
+
 ## Tariel's new body, and capes of cloth
 
 **Tariel** (`assets/tariel_rigged/tariel_rigged.glb`, built by
