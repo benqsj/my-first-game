@@ -52,16 +52,16 @@ const LANDS := { &"stamp": 0.7, &"strike": 0.66, &"chop": 0.6, &"thorns": 0.15, 
 ## Where it spits from, and how far.
 @export var spit_range: Vector2 = Vector2(5.0, 14.0)
 ## A raid boss: every blow of its is enough to kill a player outright.
-@export var stamp_damage: float = 220.0
-@export var strike_damage: float = 220.0
-@export var both_damage: float = 220.0
-@export var chop_damage: float = 220.0
-@export var thorn_damage: float = 220.0
+@export var stamp_damage: float = 180.0
+@export var strike_damage: float = 130.0
+@export var both_damage: float = 180.0
+@export var chop_damage: float = 180.0
+@export var thorn_damage: float = 150.0
 @export var thorn_length: float = 11.0
 ## How much bigger than the bestiary's the thorns are drawn. Left at zero it
 ## follows `visual_scale`, so they grow with the creature.
 @export var thorn_size: float = 0.0
-@export var poison_damage: float = 220.0
+@export var poison_damage: float = 90.0
 @export var pool_damage: float = 30.0
 ## Around where a scythe comes down, how far the ground it throws up reaches.
 ## Only the scythes and the legs themselves strike ([WeaponSweep]); this is
@@ -528,7 +528,7 @@ func _run_poison(delta: float) -> void:
 		if gob.t > 0.0:
 			continue
 		for who in _players_near(gob.at, 1.4 * visual_scale):
-			_hit(who, poison_damage, 0, 2, act_serial * 1000 + 500 + i)
+			_hit(who, poison_damage, 0, 2, act_serial * 1000 + 500 + i, true)
 		_pools.append({"at": gob.at, "t": 3.5, "caught": {}, "id": act_serial * 1000 + 600 + _pools.size()})
 		_gobs.remove_at(i)
 	for i in range(_pools.size() - 1, -1, -1):
@@ -541,7 +541,7 @@ func _run_poison(delta: float) -> void:
 		for who in _players_near(pool.at, 1.1 * visual_scale):
 			if not caught.has(who):
 				caught[who] = true
-				_hit(who, pool_damage, 0, 2, pool.id)
+				_hit(who, pool_damage, 0, 2, pool.id, true)
 #endregion
 
 

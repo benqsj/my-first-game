@@ -455,7 +455,8 @@ func _strike(what: Node3D, where: Vector3) -> void:
 	_let_go_of_trails()
 	struck.emit(what, where, _critical)
 	if what != null and what.has_method("take_hit"):
-		what.call("take_hit", _damage, where, _heading, _critical, false, _shooter)
+		# A spell: through m.def.
+		what.call("take_hit", _damage, where, _heading, _critical, false, _shooter, true)
 	_burst(where)
 
 

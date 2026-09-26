@@ -60,6 +60,9 @@ enum Weapon {
 @export var max_health: float = 120.0
 ## Physical defence, p.def: how much of a blow his armour takes ([Defence]).
 @export var p_def: float = 0.0
+## Magical defence, m.def: what he takes off fire, poison, spells and the wolf's
+## claw wave ([Defence]).
+@export var m_def: float = 0.0
 ## Every roll, swing, shot and blow caught on the shield draws on this.
 @export var max_stamina: float = 100.0
 ## What one attack costs: a swing, an arrow let go, a spell thrown.
@@ -73,9 +76,12 @@ enum Weapon {
 ## How often a hit lands for `crit_damage` times its worth, 0 to 1.
 @export_range(0.0, 1.0) var crit_chance: float = 0.1
 @export var crit_damage: float = 2.0
-## What a hit is worth before any of that. For the bow this is the *full draw*
-## figure; a snap shot is worth a fraction of it.
+## p.atk: what a cut or an arrow is worth before any of that. For the bow this
+## is the *full draw* figure; a snap shot is worth a fraction of it.
 @export var damage: float = 26.0
+## m.atk: what a spell is worth — the mage's bolt, before its charge. A staff
+## shoots with this instead of `damage`, and it goes through m.def.
+@export var m_atk: float = 0.0
 ## What a shot held to its full charge is worth on top of the draw's own
 ## scale. The mage's: a full charge is a bigger, blue bolt that hits harder.
 @export var full_charge_bonus: float = 1.0
@@ -110,3 +116,15 @@ enum Weapon {
 @export var projectile: PackedScene
 ## How much of the world's gravity pulls on it; below 0 keeps the arrow's.
 @export var projectile_drop: float = -1.0
+
+
+## What a shot is worth at a full draw: m.atk for a staff, p.atk otherwise.
+func shot_power() -> float:
+	return m_atk if weapon == Weapon.STAFF else damage
+
+
+## A cut of the blade as it lands: [worth, critical]. Critical `crit_chance` of
+## the time, for `crit_damage` times its worth.
+func cut(rng: RandomNumberGenerator) -> Array:
+	var critical := rng.randf() < crit_chance
+	return [damage * (crit_damage if critical else 1.0), critical]

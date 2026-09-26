@@ -219,7 +219,7 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	var before := orc.health
 	orc.take_hit(20.0, orc.global_position + Vector3.UP * 2.2, Vector3.FORWARD, false, true, _player)
 	var guarded_loss := before - orc.health
-	var open_expected := 20.0 * (1.0 - orc.armour)
+	var open_expected := Defence.taken(20.0, orc.p_def)
 	_check("and an arrow does much less behind it",
 			guarded_loss > 0.0 and guarded_loss < open_expected * 0.5,
 			"%.1f, against %.1f open" % [guarded_loss, open_expected])
@@ -234,7 +234,7 @@ func _check_orc(orc: OrcWarrior, mate: OrcWarrior) -> void:
 	await _wait(60)
 	before = orc.health
 	orc.take_hit(20.0, orc.global_position + Vector3.UP * 2.2, Vector3.FORWARD, false, true, _player)
-	_check("open, an arrow does all of it, less his armour",
+	_check("open, an arrow does all of it, less his p.def",
 			is_equal_approx(before - orc.health, open_expected), "%.1f" % (before - orc.health))
 
 	# His ground is the whole of the bay's water, and none of the land.

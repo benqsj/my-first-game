@@ -3536,31 +3536,70 @@ most got out of from far and many close in; a bolt it gets out of misses; on
 all fours faster than 7.5 m/s, the run ending in a leap from over 2.5 m off,
 off the ground, its claws landing.
 
-## Balance: p.def, and how hard a wolf is
+## Balance: p.atk, m.atk, p.def, m.def, crit
 
-**p.def** (physical defence, `scripts/defence.gd`) for heroes and creatures
-alike: a blow is taken as `damage × 100 / (100 + p.def)` — 25 takes 80 % of it,
-100 half. Blades, claws and arrows go through it; fire and poison do not.
+Two kinds of attack and two of defence, for heroes and creatures alike
+(`scripts/defence.gd`): a blow is taken as `damage × 100 / (100 + def)` — 25
+takes 80 % of it, 100 half.
 
-| | health | p.def |
-|---|---|---|
-| Tariel | 160 (the most) | 35 (the most) |
-| the Assassin | 110 | 20 |
-| Avtandil | 120 | 15 |
-| the Mage | 100 | 12 |
-| imp, puglin | — | 20 |
-| wolf | 100 | 40 (twice the imp's) |
+* **p.atk / p.def** — blades, claws, fists, arrows. A hero's p.atk is his
+  profile's `damage`, and it is what his cut is worth on *every* creature (an
+  imp, a puglin, an orc and Arkdeva used to take a flat 25 from any blade, so
+  the knife did as much as the sword there).
+* **m.atk / m.def** — the mage's bolt (`CharacterProfile.m_atk`,
+  `shot_power()`), fire, poison, the wolf's claw wave (torn air) and Arkdeva's
+  venom and its pools. `take_hit(..., magic)` and `receive_blow(..., magic)`
+  carry which it is.
+* **Crit** — now on the blade too (`Player.cut_worth()`, `CharacterProfile.cut()`);
+  it used to be only on shots. A critical is counted once: the shooter makes the
+  damage a critical one, and the imp and the orc no longer multiply it by 1.5
+  again. The orc's and Arkdeva's `armour` (0.75 off everything) is gone for
+  p.def and m.def.
 
-A wolf's blow (`swipe_damage` 110 — the swipe, the bite, the pounce and the
-leap) leaves every hero standing and two of them are the end of any, Tariel
-included (81.5 a blow through his p.def). The claw waves are 70 (the rake, the
-sweep) and 90 (the slam).
+**The heroes.** Tariel is the slowest to kill and the slowest to die; the
+mage's bolt is the heaviest single hit, then the hunter's arrow and the
+assassin's knife.
+
+| | HP | p.atk | m.atk | p.def | m.def | crit | ×crit | stamina / a strike |
+|---|---|---|---|---|---|---|---|---|
+| Tariel | 180 | 16 | – | 40 | 20 | 5 % | 1.5 | 100 / 18 |
+| Avtandil | 120 | 30 | – | 15 | 15 | 15 % | 1.8 | 100 / 12 |
+| the Assassin | 110 | 18 | – | 20 | 15 | 25 % | 1.8 | 110 / 9 |
+| the Mage | 105 | – | 44 (×1.8 full charge) | 12 | 40 | 12 % | 1.6 | 110 / 15 |
+
+Fire (14 a second) and poison (2.5 a stack) are magic and go through m.def.
+
+**The creatures.**
+
+| | HP | p.def | m.def | its blows |
+|---|---|---|---|---|
+| imp | 90 | 20 | 10 | 40 |
+| puglin | 150 | 25 | 10 | 48 |
+| wolf | 160 | 40 | 10 | 110; claw waves 70 / 70 / 90 (magic) |
+| orc | 320 | 120 | 40 | swing, combo, kick 115; heavy, slam, spin 170; leap, wave 190 |
+| Arkdeva | 420 | 150 | 60 | strike 130; both, stamp, chop 180; thorns 150; venom 90 and pools 30 (magic) |
+
+**What that makes of a fight** (measured with a probe holding attack for 20 s:
+Tariel 1.05 swings a second, the Assassin 1.4, Avtandil about 0.57 full draws,
+the mage about 0.24 full charges — everyone's stamina runs dry):
+
+| on a wolf, every blow landing | one hit | a wolf dead in | wolf blows to fall |
+|---|---|---|---|
+| Tariel | 11.4 | ~13 s | 3 |
+| Avtandil | 21.4 | ~12 s (from far off it dodges 65 %) | 2 |
+| the Assassin | 12.9 | ~7.5 s + poison | 2 |
+| the Mage | 72 (full bolt) | ~9 s (it dodges bolts too) | 2 |
+
+An orc takes 22–25 s from the Assassin and the mage, ~37 s from Avtandil (his
+arm up against arrows) and ~40 s from Tariel; its ordinary blows leave every
+hero standing, its heavy ones are the end of anyone but Tariel.
 
 **A wolf is whole until it is down to half its health** (`sever_below`): till
 then the blade wounds it — blood, the damage through its p.def, a shove — and
 only after that do limbs come off.
 
 `tests/balance_test.gd`.
+
 
 ## The village grown, and the wolves' hill behind it
 

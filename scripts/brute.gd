@@ -44,11 +44,11 @@ const ACT_REEL := 98
 
 @export_group("Health")
 @export var max_health: float = 260.0
-## What one of the knight's cuts takes off.
+## What a cut takes off when no hero is behind it (a hero's is his p.atk).
 @export var sword_damage: float = 25.0
-## How much of every blow the hide turns away, 0 to 1. At 0.75 a cut does a
-## quarter of what it would: four times the creature to get through.
-@export_range(0.0, 0.95) var armour: float = 0.0
+## Physical and magical defence, p.def and m.def ([Defence]).
+@export var p_def: float = 0.0
+@export var m_def: float = 0.0
 ## The body as the blade sees it: an upright capsule, in metres.
 @export var body_radius: float = 0.55
 @export var body_height: float = 2.4
@@ -464,8 +464,9 @@ func _sweep(stretches: Callable, slowest: float, start: float, end: float, effec
 ## One blow on one player. `blow` of `blows`: a combo that lands every blow is
 ## the only thing that knocks a player down, so a lone hit is sent as the
 ## first of two.
-func _hit(who: Node3D, damage: float, blow: int = 0, blows: int = 2, combo: int = -1) -> void:
-	who.call("receive_blow", damage, self, blow, blows, act_serial if combo < 0 else combo)
+func _hit(who: Node3D, damage: float, blow: int = 0, blows: int = 2, combo: int = -1,
+		magic: bool = false) -> void:
+	who.call("receive_blow", damage, self, blow, blows, act_serial if combo < 0 else combo, magic)
 
 
 ## A special blow — a slam, a spin, a stamp, the ground erupting — floors
@@ -559,7 +560,8 @@ func _watch_blades() -> void:
 			continue
 		_last_cut[knight.name] = serial
 		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.3
-		if _receive(sword_damage, near[1], blow, knight):
+		var worth := knight.cut_worth()
+		if _receive(float(worth[0]), near[1], blow, knight):
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
 			knight.blade_hit(self, near[1])
@@ -568,18 +570,20 @@ func _watch_blades() -> void:
 
 
 ## What `arrow.gd` calls, with the wolf's signature.
-func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
-		_spill: bool = true, from: Node = null) -> void:
+func take_hit(damage: float, at: Vector3, blow: Vector3, _critical: bool = false,
+		_spill: bool = true, from: Node = null, magic: bool = false) -> void:
 	if is_dead or not _decides():
 		return
 	var shooter := from as Node3D if is_instance_valid(from) else null
 	var factor := _arrow_factor(shooter)
 	if factor < 1.0:
 		net_clash.rpc(at)
-	_receive(damage * (1.5 if critical else 1.0) * factor, at, blow, shooter, factor >= 1.0)
+	# A critical is already in `damage`: the shooter made it one.
+	_receive(damage * factor, at, blow, shooter, factor >= 1.0, magic)
 
 
-func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bool = true) -> bool:
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bool = true,
+		magic: bool = false) -> bool:
 	if is_dead or not _decides():
 		return false
 	if from != null:
@@ -590,7 +594,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.
 	damage *= Afflictions.factor(self, from)
-	health = maxf(health - damage * (1.0 - armour), 0.0)
+	health = maxf(health - Defence.against(damage, p_def, m_def, magic), 0.0)
 	hurt.emit(health)
 	if bleed:
 		var thrown := blow if blow.length_squared() > 0.0001 else Vector3.UP
@@ -601,14 +605,14 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 
 
 ## Fire and poison (host, from [Afflictions]): health off with no blood, no
-## shove, through half the hide.
+## shove, through its m.def.
 func take_dot(damage: float, from: Node3D = null) -> void:
 	if is_dead or not _decides():
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
 	_calm = 0.0
-	health = maxf(health - damage * Afflictions.factor(self, from) * (1.0 - armour * 0.5), 0.0)
+	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from), 0.0)
 	hurt.emit(health)
 	if health <= 0.0:
 		_die()

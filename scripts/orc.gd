@@ -179,20 +179,20 @@ const SLAM_BURST := 0.9
 @export_group("Attack")
 @export var reach: float = 2.7
 ## A raid boss: every blow of his is enough to kill a player outright.
-@export var swing_damage: float = 220.0
-@export var combo_damage: float = 220.0
-@export var heavy_damage: float = 220.0
-@export var slam_damage: float = 220.0
-@export var kick_damage: float = 220.0
-@export var spin_damage: float = 220.0
-@export var leap_damage: float = 220.0
+@export var swing_damage: float = 115.0
+@export var combo_damage: float = 115.0
+@export var heavy_damage: float = 170.0
+@export var slam_damage: float = 170.0
+@export var kick_damage: float = 115.0
+@export var spin_damage: float = 170.0
+@export var leap_damage: float = 190.0
 ## How fast he covers the ground in the leap, metres a second.
 @export var leap_speed: float = 7.0
 ## The run of spikes out of the ground after the slam: its length, how much
 ## wider and taller than the bestiary's it is drawn, and what it does.
 @export var wave_length: float = 9.0
 @export var wave_size: float = 1.25
-@export var wave_damage: float = 220.0
+@export var wave_damage: float = 190.0
 ## How far off he may open with the leap, for it to land on somebody.
 @export var slam_range: float = 9.0
 ## How fast he walks in behind a chain, to stay on whoever backs off from it.

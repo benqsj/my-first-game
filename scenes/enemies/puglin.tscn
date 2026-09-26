@@ -64,6 +64,7 @@ reach = 1.6
 hit_damage = 48.0
 attack_speed = 0.85
 attack_cooldown = Vector2(1.8, 3.4)
+p_def = 25.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.525, 0)

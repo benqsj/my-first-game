@@ -123,7 +123,7 @@ func _initialize() -> void:
 	_check("a parried Arkdeva rears back", ark.act == Arkdeva.Act.PARRIED and ark.is_reeling())
 	hp = ark.health
 	ark._receive(20.0, ark.global_position, Vector3.UP, _player)
-	_check("and takes a riposte deeper too", is_equal_approx(hp - ark.health, 20.0 * Recoil.RIPOSTE * (1.0 - ark.armour)),
+	_check("and takes a riposte deeper too", is_equal_approx(hp - ark.health, Defence.taken(20.0 * Recoil.RIPOSTE, ark.p_def)),
 			"%.1f" % (hp - ark.health))
 
 	# --- The tower shield --------------------------------------------------------

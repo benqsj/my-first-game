@@ -94,6 +94,8 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export_group("Defence")
 ## Physical defence, p.def ([Defence]): what its hide takes off a blow.
 @export var p_def: float = 20.0
+## Magical defence, m.def ([Defence]): fire, poison, the mage's bolts.
+@export var m_def: float = 10.0
 ## Chance it raises its guard against a swing, when it has the stamina.
 @export_range(0.0, 1.0) var block_chance: float = 0.5
 ## Chance it throws itself aside instead.
@@ -640,7 +642,8 @@ func _watch_blades() -> void:
 			continue
 		_last_cut[knight.name] = serial
 		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.3
-		if _receive(sword_damage, near[1], blow, knight):
+		var worth := knight.cut_worth()
+		if _receive(float(worth[0]), near[1], blow, knight):
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
 			knight.blade_hit(self, near[1])
@@ -650,13 +653,14 @@ func _watch_blades() -> void:
 
 ## The door every kind of damage comes through, the arrow's included — the same
 ## signature as `Wolf.take_hit()`, which is what `arrow.gd` calls.
-func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
-		_spill: bool = true, from: Node = null) -> void:
+func take_hit(damage: float, at: Vector3, blow: Vector3, _critical: bool = false,
+		_spill: bool = true, from: Node = null, magic: bool = false) -> void:
 	if is_dead or not _decides():
 		return
-	# The archer may have left while the arrow was in the air.
+	# The archer may have left while the arrow was in the air. A critical is
+	# already in `damage`: the shooter made it one.
 	var shooter := from as Node3D if is_instance_valid(from) else null
-	_receive(damage * (1.5 if critical else 1.0), at, blow, shooter)
+	_receive(damage, at, blow, shooter, magic)
 
 
 ## Fire and poison (host, from [Afflictions]): health off with no blood and
@@ -666,7 +670,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
-	health = maxf(health - damage * Afflictions.factor(self, from), 0.0)
+	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from), 0.0)
 	hurt.emit(health)
 	if health <= 0.0:
 		_die()
@@ -737,7 +741,7 @@ func is_evading() -> bool:
 
 
 ## Returns true when the hit drew blood, false when it was caught or dodged.
-func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
 	if is_dead or not _decides():
 		return false
 	if from != null:
@@ -765,7 +769,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
 		# Reeling from a parry, or thrown down, it is wide open: the riposte
 		# bites deeper.
 		damage *= Recoil.RIPOSTE
-	damage = Defence.taken(damage, p_def)
+	damage = Defence.against(damage, p_def, m_def, magic)
 	# Marked by the hunter, everything bites deeper.
 	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)

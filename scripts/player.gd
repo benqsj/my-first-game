@@ -300,8 +300,9 @@ var _vault_peak: float = -INF
 ## Hurt but never killed: health stops at 1. For tests that are about
 ## something other than dying.
 @export var immortal: bool = false
-## Physical defence (p.def), from the profile ([Defence]).
+## Physical and magical defence (p.def, m.def), from the profile ([Defence]).
 var p_def: float = 0.0
+var m_def: float = 0.0
 
 @export_group("Physics")
 ## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
@@ -756,6 +757,7 @@ func _spawn_character() -> void:
 	_levitate_left = profile.levitation
 	max_health = profile.max_health
 	p_def = profile.p_def
+	m_def = profile.m_def
 	health = max_health
 	max_stamina = profile.max_stamina
 	stamina = max_stamina
@@ -2106,7 +2108,7 @@ func _loose_arrow() -> void:
 	# scale is earned by holding.
 	var carry := lerpf(profile.snap_share, 1.0, power)
 	var critical := _shot_rng.randf() < profile.crit_chance
-	var damage := profile.damage * carry * (profile.crit_damage if critical else 1.0)
+	var damage := profile.shot_power() * carry * (profile.crit_damage if critical else 1.0)
 	# Held all the way: the mage's full charge is a bigger bolt, and hits harder
 	# than the draw's scale alone would make it.
 	if power >= 0.97:
@@ -2374,7 +2376,8 @@ var _combo_landed: Dictionary = {}
 ## `blow` of `blows` says where in its combo this one falls, and `combo` tells
 ## one combo from the next: the last blow of a combo that has landed every time
 ## puts him on the ground. Anything short of that is a flinch.
-func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, combo: int = 0) -> void:
+func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, combo: int = 0,
+		magic: bool = false) -> void:
 	if from == null:
 		return
 	var away := global_position - from.global_position
@@ -2382,20 +2385,20 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 	if away.length_squared() < 0.0001:
 		away = global_transform.basis.z
 	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position,
-			"%s#%d" % [from.get_path(), combo], blow, blows)
+			"%s#%d" % [from.get_path(), combo], blow, blows, magic)
 
 
 ## Only the host deals creatures' blows. A local call reports sender 0.
 @rpc("any_peer", "call_local", "reliable")
 func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
-		blow: int, blows: int) -> void:
+		blow: int, blows: int, magic: bool = false) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1:
 		return
 	if not is_multiplayer_authority() or is_dead:
 		return
-	# What his armour takes off it.
-	damage = Defence.taken(damage, p_def)
+	# What his armour takes off it — or, a spell's, his m.def.
+	damage = Defence.against(damage, p_def, m_def, magic)
 	# A fresh combo from this attacker forgets the last one.
 	if blow == 0 or not _combo_landed.has(combo):
 		_forget_combos_from(combo)
@@ -3586,3 +3589,11 @@ func _decides_here() -> bool:
 	var net := get_node_or_null(^"/root/Net")
 	return net == null or bool(net.call(&"is_host"))
 #endregion
+
+
+## What a cut of this hero's blade is worth where it lands (host): p.atk, and
+## `crit_chance` of the time a critical. [worth, critical].
+func cut_worth() -> Array:
+	if profile == null:
+		return [26.0, false]
+	return profile.cut(_shot_rng)

@@ -154,7 +154,8 @@ func _process(delta: float) -> void:
 			if who.has_method("receive_blow") and who.get("net_dead") != true:
 				# One blow of two — a flinch, and a round shield met in time turns it —
 				# but the slam's (a blow of its own) puts him down.
-				who.call("receive_blow", damage, self, 0, 1 if ground else 2, _serial)
+				# Torn air, not claws: through his m.def.
+				who.call("receive_blow", damage, self, 0, 1 if ground else 2, _serial, true)
 				SkillFx.burst(get_parent(), who.global_position + Vector3.UP * 1.1, Color(1.0, 0.2, 0.08),
 						18, Vector2(2.0, 5.0), _dir, 60.0)
 	if spent >= 1.0:

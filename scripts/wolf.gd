@@ -75,6 +75,8 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var hit_tolerance: float = 1.0
 ## Physical defence, p.def ([Defence]): twice the imp's.
 @export var p_def: float = 40.0
+## Magical defence, m.def ([Defence]): a beast, little against spells and fire.
+@export var m_def: float = 10.0
 ## Whole until its health is down to this share: before that the blade only
 ## wounds it, after it limbs come off.
 @export_range(0.0, 1.0) var sever_below: float = 0.5
@@ -1066,7 +1068,8 @@ func _take_hits() -> void:
 		# different place, a frame of interpolation behind.
 		net_sever.rpc(part, rig.last_cut_point, blow)
 		# `net_sever` has already spilled the blood, on every peer.
-		take_hit(_blade_damage(knight), rig.last_cut_point, blow, false, false, knight)
+		var worth := _blade_damage(knight)
+		take_hit(float(worth[0]), rig.last_cut_point, blow, bool(worth[1]), false, knight)
 		knight.rig.bloody()
 		knight.net_blade_landed.rpc()
 		knight.blade_hit(self, rig.last_cut_point)
@@ -1085,19 +1088,20 @@ func _wound(knight: Player, edge: Array, serial: int) -> bool:
 	_last_hit_serial[knight.name] = serial
 	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * 1.1, edge[0], edge[1])
 	var cut: Vector3 = (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
-	take_hit(_blade_damage(knight), at, cut, false, true, knight)
+	var worth := _blade_damage(knight)
+	take_hit(float(worth[0]), at, cut, bool(worth[1]), true, knight)
 	knight.rig.bloody()
 	knight.net_blade_landed.rpc()
 	knight.blade_hit(self, at)
 	return true
 
 
-## What a hero's cut is worth to it: that hero's own damage (the knight's
-## heavy blade more than the assassin's quick knife), before its p.def.
-func _blade_damage(knight: Player) -> float:
+## What a hero's cut is worth to it, before its p.def: that hero's own p.atk,
+## now and then a critical. [worth, critical].
+func _blade_damage(knight: Player) -> Array:
 	if knight != null and knight.profile != null:
-		return knight.profile.damage
-	return damage_per_hit
+		return knight.cut_worth()
+	return [damage_per_hit, false]
 
 
 ## A hero's cut has landed. Too many too fast and it will not stand there and
@@ -1180,14 +1184,14 @@ func net_restore(parts: Array) -> void:
 ## that goes down — because a hit should not read differently for the weapon
 ## that landed it.
 func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
-		spill: bool = true, from: Node = null) -> void:
+		spill: bool = true, from: Node = null, magic: bool = false) -> void:
 	# Only the host decides what a hit is worth. `health` and `is_dead` are
 	# replicated from here, so a client that scored one says nothing and waits to
 	# be told — which is what keeps one wolf from dying twice.
 	if is_dead or not _decides():
 		return
 
-	damage = Defence.taken(damage, p_def)
+	damage = Defence.against(damage, p_def, m_def, magic)
 	if _reeling > 0.0:
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.
@@ -1289,7 +1293,7 @@ const LOOT_SOUND := "res://unverified/sounds/all/loot_1.wav"
 func take_dot(damage: float, from: Node3D = null) -> void:
 	if is_dead or not _decides():
 		return
-	damage *= Afflictions.factor(self, from)
+	damage = Defence.taken(damage, m_def) * Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
 	if from != null and is_instance_valid(from):
 		_threat[from.name] = float(_threat.get(from.name, 0.0)) + damage

@@ -298,12 +298,13 @@ func _check_orc(scene: String, who: String) -> void:
 	marks.apply(&"mark", 5.0, _player)
 	var before: float = orc.health
 	orc.take_dot(10.0, _player)
-	var armour: float = orc.get("armour")
+	var m_def: float = orc.get("m_def")
 	# 5% deeper from a bow, 2% from anyone else (this hero may be either).
 	var deeper := 1.05 if Afflictions.is_bow(_player) else 1.02
-	_check("marked, the fire bites through half his hide and a little deeper",
-			absf(before - float(orc.health) - 10.0 * deeper * (1.0 - armour * 0.5)) < 0.01,
-			"%.2f (want %.2f, armour %.2f)" % [before - float(orc.health), 10.0 * deeper * (1.0 - armour * 0.5), armour])
+	var want := Defence.taken(10.0, m_def) * deeper
+	_check("marked, the fire bites through his m.def and a little deeper",
+			absf(before - float(orc.health) - want) < 0.01,
+			"%.2f (want %.2f, m.def %.0f)" % [before - float(orc.health), want, m_def])
 	orc.queue_free()
 	await _wait(10)
 
