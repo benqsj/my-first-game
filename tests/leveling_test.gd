@@ -1,7 +1,7 @@
 extends SceneTree
 
-## Levels ([Leveling]): every hero starts at 1; 4 wolves are level 2, 7 more
-## level 3, 10 more level 4; each level grows the hero along his own line and
+## Levels ([Leveling]): every hero starts at 1; experience is a share of the
+## level — 3 wolves are level 2, 4 more level 3, 5 more level 4; each level grows the hero along his own line and
 ## heals him; only the heroes near a kill share in it; the hero's profile on
 ## disk is untouched.
 ##
@@ -24,7 +24,7 @@ func _initialize() -> void:
 	if book == null:
 		_finish()
 		return
-	_check("and starts at level 1 with nothing", book.level == 1 and book.xp == 0,
+	_check("and starts at level 1 with nothing", book.level == 1 and is_zero_approx(book.xp),
 			"level %d, %d xp" % [book.level, book.xp])
 	var wolves: Array[Wolf] = []
 	for node in world.get_node("Enemies").get_children():
@@ -52,10 +52,10 @@ func _initialize() -> void:
 	far.global_position = player.global_position + Vector3(60.0, 0.0, 0.0)
 	far._die()
 	await _wait(2)
-	_check("a wolf killed far away is nothing to him", book.xp == 0 and book.level == 1)
+	_check("a wolf killed far away is nothing to him", is_zero_approx(book.xp) and book.level == 1)
 
 	var at := 0
-	for want: Array in [[4, 2], [7, 3], [10, 4]]:
+	for want: Array in [[3, 2], [4, 3], [5, 4]]:
 		for k in int(want[0]):
 			var w := wolves[at]
 			at += 1
@@ -64,7 +64,11 @@ func _initialize() -> void:
 				player.health = player.max_health * 0.4
 			w._die()
 			await _wait(1)
-		_check("%d wolves more: level %d" % [want[0], want[1]], book.level == int(want[1]) and book.xp == 0,
+			if k == 0 and int(want[1]) == 2:
+				_check("one wolf at level 1 is a third of it", absf(book.xp - 100.0 / 3.0) < 0.01, "%.2f" % book.xp)
+			if k == 0 and int(want[1]) == 3:
+				_check("one wolf at level 2 is a quarter", absf(book.xp - 25.0) < 0.01, "%.2f" % book.xp)
+		_check("%d wolves more: level %d" % [want[0], want[1]], book.level == int(want[1]) and book.xp < 0.01,
 				"level %d, %d xp" % [book.level, book.xp])
 		_check("  and whole again", is_equal_approx(player.health, player.max_health),
 				"%.0f / %.0f" % [player.health, player.max_health])
@@ -81,8 +85,13 @@ func _initialize() -> void:
 			and is_equal_approx(disk.max_health, base_health))
 	var imp: Node = load("res://scenes/enemies/imp.tscn").instantiate()
 	var orc: Node = load("res://scenes/enemies/orc_greataxe.tscn").instantiate()
-	_check("a wolf is worth 10, an imp 6, an orc 30", Leveling.worth(wolves[0]) == 10
-			and Leveling.worth(imp) == 6 and Leveling.worth(orc) == 30)
+	_check("in wolves: a wolf 1, an imp 0.6, an orc 3", is_equal_approx(Leveling.worth(wolves[0]), 1.0)
+			and is_equal_approx(Leveling.worth(imp), 0.6) and is_equal_approx(Leveling.worth(orc), 3.0))
+	# An orc at level 4 (a sixth of a level a wolf) is half a level.
+	var before := book.xp
+	book.gain(3.0)
+	await _wait(1)
+	_check("an orc at level 4 is half a level", absf(book.xp - before - 50.0) < 0.01, "%.2f" % book.xp)
 	imp.free()
 	orc.free()
 	_check("the hud shows it", player.get("_hud") == null or (player.get("_hud") as PlayerHud)._book == book)

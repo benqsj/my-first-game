@@ -315,7 +315,7 @@ func _draw_status(c: Control, font: Font, box: Rect2) -> void:
 	var book := player.get_node_or_null(^"Leveling") as Leveling
 	if book != null:
 		rows.append(["Level", "%d" % book.level])
-		rows.append(["Experience", "%d / %d" % [book.xp, book.needed()] if book.needed() > 0 else "max"])
+		rows.append(["Experience", "max" if book.at_top() else "%.2f %%" % book.xp])
 	else:
 		rows.append(["Level", "1"])
 	rows.append(["", ""])

@@ -59,7 +59,7 @@ var _said_time: float = 9.0
 ## The hero's [Leveling], found once it is there; the last experience gained and
 ## the last level reached, and how long ago.
 var _book: Leveling
-var _gain: int = 0
+var _gain: float = 0.0
 var _gain_time: float = 9.0
 var _up_level: int = 0
 var _up_time: float = 9.0
@@ -137,7 +137,7 @@ func _process(delta: float) -> void:
 	if _book == null:
 		_book = player.get_node_or_null(^"Leveling") as Leveling
 		if _book != null:
-			_book.gained.connect(func(amount: int) -> void:
+			_book.gained.connect(func(amount: float) -> void:
 				_gain = amount
 				_gain_time = 0.0)
 			_book.leveled_up.connect(func(level: int) -> void:
@@ -217,8 +217,8 @@ func _draw_level() -> void:
 	_bars.draw_string(font, MARGIN + Vector2(0.0, -7.0), hero_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
 			Color(1.0, 0.93, 0.8))
 	# The experience, along the bottom edge.
-	var need := _book.needed()
-	var share := clampf(float(_book.xp) / float(need), 0.0, 1.0) if need > 0 else 1.0
+	var top := _book.at_top()
+	var share := 1.0 if top else clampf(_book.xp / 100.0, 0.0, 1.0)
 	var line := Rect2(Vector2(0.0, view.y - 7.0), Vector2(view.x, 7.0))
 	_bars.draw_rect(line, Color(0.03, 0.03, 0.03, 0.8))
 	var fill := Rect2(line.position + Vector2(0, 2), Vector2(view.x * share, 4.0))
@@ -230,7 +230,7 @@ func _draw_level() -> void:
 		var tx := view.x * k / 10.0
 		_bars.draw_line(Vector2(tx, line.position.y + 1.0), Vector2(tx, line.end.y), Color(0, 0, 0, 0.7), 1.0)
 	_bars.draw_line(line.position, Vector2(view.x, line.position.y), Color(GOLD, 0.55), 1.0)
-	var label := "EXP  %d / %d   %.1f%%" % [_book.xp, need, share * 100.0] if need > 0 else "EXP  MAX"
+	var label := "EXP  MAX" if top else "EXP  %.2f%%" % _book.xp
 	var lx := 12.0
 	var ly := line.position.y - 6.0
 	_bars.draw_string(font, Vector2(lx + 1.0, ly + 1.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0, 0, 0, 0.8))
@@ -238,7 +238,7 @@ func _draw_level() -> void:
 	if _gain_time < 1.8:
 		var a := 1.0 - clampf((_gain_time - 1.0) / 0.8, 0.0, 1.0)
 		var lw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		var gain := "+%d EXP" % _gain
+		var gain := "+%.2f%%" % _gain
 		var at := Vector2(lx + lw + 14.0, ly - 16.0 * _gain_time)
 		_bars.draw_string(font, at + Vector2(1, 1), gain, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0, 0, 0, 0.7 * a))
 		_bars.draw_string(font, at, gain, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.85, 0.35, a))

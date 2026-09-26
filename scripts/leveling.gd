@@ -11,20 +11,30 @@ extends Node
 ## and experience ([method net_progress]); each peer then grows its copy of the
 ## hero the same way.
 ##
-## | to reach | experience | wolves |
+## **Experience is a share of the level, 0 to 100 %.** A wolf is worth a whole
+## level shared among `level + 2` of them — a third at level 1, a quarter at
+## 2, a fifth at 3 — so each level asks one wolf more than the last, and a wolf
+## is worth less and less:
+##
+## | level | wolves to the next | a wolf gives |
 ## |---|---|---|
-## | level 2 | 40 | 4 |
-## | level 3 | 70 more | 7 |
-## | level 4 | 100 more | 10 |
-## | 5 … 10 | 140, 180, 230, 280, 340, 400 more | |
+## | 1 | 3 | 33.3 % |
+## | 2 | 4 | 25 % |
+## | 3 | 5 | 20 % |
+## | 4 | 6 | 16.7 % |
+## | … 9 | 11 | 9.1 % |
+##
+## Other creatures are worth so many wolves (`WEIGHT`): an imp 0.6, a puglin
+## 0.8, an orc 3, Arkdeva 12. What is left over from a level carries into the
+## next, counted in wolves.
 
-## Wolves are the yardstick: 10 each.
-const XP_FOR := {&"wolf": 10, &"imp": 6, &"puglin": 8, &"orc": 30, &"arkdeva": 120}
-## What a creature with no line of its own is worth.
-const XP_OTHER := 5
-## Experience from each level to the next: `TO_NEXT[0]` takes level 1 to 2.
-const TO_NEXT: Array[int] = [40, 70, 100, 140, 180, 230, 280, 340, 400]
+## What each creature is worth, in wolves.
+const WEIGHT := {&"wolf": 1.0, &"imp": 0.6, &"puglin": 0.8, &"orc": 3.0, &"arkdeva": 12.0}
+## What a creature with no line of its own is worth, in wolves.
+const WEIGHT_OTHER := 0.5
 const MAX_LEVEL := 10
+## A share this close to the whole is the whole (three thirds are 100 %).
+const EPSILON := 0.01
 ## Heroes this far from a creature when it dies share in it — each gets it
 ## whole. Alone, that is simply the one who killed it.
 const SHARE_RANGE := 35.0
@@ -42,12 +52,12 @@ const GROWTH := {
 	&"mage": {"hp": 7.0, "m_atk": 3.5, "p_def": 0.8, "m_def": 3.0, "crit": 0.005, "stamina": 3.0},
 }
 
-signal gained(amount: int)
+signal gained(percent: float)
 signal leveled_up(level: int)
 
 var level: int = 1
-## Experience towards the next level (not in all).
-var xp: int = 0
+## Towards the next level, in per cent.
+var xp: float = 0.0
 
 var _player: Player
 ## The profile is shared by every body of the same hero; the one that grows is
@@ -61,9 +71,19 @@ func _ready() -> void:
 	_player = get_parent() as Player
 
 
-## What `creature` is worth, by what it is.
-static func worth(creature: Node) -> int:
-	return int(XP_FOR.get(kind_of(creature), XP_OTHER))
+## What `creature` is worth, in wolves.
+static func worth(creature: Node) -> float:
+	return float(WEIGHT.get(kind_of(creature), WEIGHT_OTHER))
+
+
+## How many wolves `at_level` asks for the next one.
+static func wolves_for(at_level: int) -> int:
+	return at_level + 2
+
+
+## What a wolf is worth at `at_level`, in per cent of the level.
+static func wolf_share(at_level: int) -> float:
+	return 100.0 / float(wolves_for(at_level))
 
 
 static func kind_of(creature: Node) -> StringName:
@@ -77,31 +97,38 @@ static func kind_of(creature: Node) -> StringName:
 	return &""
 
 
-## Experience still wanted for the next level; 0 at the top.
-func needed() -> int:
-	return TO_NEXT[level - 1] if level < MAX_LEVEL else 0
+## Whether there is a next level at all.
+func at_top() -> bool:
+	return level >= MAX_LEVEL
 
 
-## The host gives experience. Everyone is told the outcome.
-func gain(amount: int) -> void:
-	if amount <= 0 or level >= MAX_LEVEL:
+## The host gives experience, `wolves` worth of it. Everyone is told the outcome.
+func gain(wolves: float) -> void:
+	if wolves <= 0.0 or at_top():
 		return
 	var new_level := level
-	var new_xp := xp + amount
-	while new_level < MAX_LEVEL and new_xp >= TO_NEXT[new_level - 1]:
-		new_xp -= TO_NEXT[new_level - 1]
-		new_level += 1
-	if new_level >= MAX_LEVEL:
-		new_xp = 0
+	var new_xp := xp
+	var left := wolves
+	var first := wolves * wolf_share(level)
+	while left > 0.0 and new_level < MAX_LEVEL:
+		var share := wolf_share(new_level)
+		var room := 100.0 - new_xp
+		if left * share >= room - EPSILON:
+			left -= room / share
+			new_level += 1
+			new_xp = 0.0
+		else:
+			new_xp += left * share
+			left = 0.0
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
-		net_progress.rpc(new_level, new_xp, amount)
+		net_progress.rpc(new_level, new_xp, first)
 	else:
-		net_progress(new_level, new_xp, amount)
+		net_progress(new_level, new_xp, first)
 
 
 ## From the host: where this hero now stands. Each level gained grows him here.
 @rpc("any_peer", "call_local", "reliable")
-func net_progress(new_level: int, new_xp: int, amount: int) -> void:
+func net_progress(new_level: int, new_xp: float, percent: float) -> void:
 	var sender := multiplayer.get_remote_sender_id() if is_inside_tree() else 0
 	if sender != 0 and sender != 1:
 		return
@@ -114,7 +141,7 @@ func net_progress(new_level: int, new_xp: int, amount: int) -> void:
 	if rose and _player != null:
 		LevelBeam.on(_player)
 	xp = new_xp
-	gained.emit(amount)
+	gained.emit(percent)
 
 
 ## One level's worth, onto this body and its own copy of the profile (which is
