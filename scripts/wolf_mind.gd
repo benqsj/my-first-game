@@ -109,6 +109,14 @@ func hurt() -> void:
 		_begin(Tactic.RETREAT)
 
 
+## Broken out of his combo with a hop back: straight back in with a leap as
+## soon as it lands.
+func come_back_leaping() -> void:
+	tactic = Tactic.STRIKE
+	_combo.assign([&"pounce"])
+	_gap = 0.25
+
+
 ## The fight begins (or begins again): in at him, if it is its turn.
 func engage(quarry: Node3D) -> void:
 	_quarry = quarry

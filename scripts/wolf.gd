@@ -53,7 +53,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var prowl_radius: float = 4.0
 
 @export_group("Health")
-@export var max_health: float = 100.0
+@export var max_health: float = 160.0
 ## Taken off per cut. Losing limbs is what kills it; this is the readout.
 @export var damage_per_hit: float = 26.0
 ## How high over its head the bar sits.
@@ -78,6 +78,15 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## Whole until its health is down to this share: before that the blade only
 ## wounds it, after it limbs come off.
 @export_range(0.0, 1.0) var sever_below: float = 0.5
+## Below that, how often a cut takes a limb; the rest only wound it. Limbs are
+## not a way to finish a wolf in four quick cuts.
+@export_range(0.0, 1.0) var sever_chance: float = 0.35
+## Cut this many times inside `combo_window` seconds, it breaks out of the
+## combo: a hop back out of it, and straight back in with a leap.
+@export var combo_break_cuts: int = 3
+@export var combo_window: float = 2.0
+## When the cuts landed on it, for the breaking out.
+var _cut_times: Array[float] = []
 
 @export_group("Corpse")
 ## Seconds a body lies where it fell before it is cleared away. Long enough to
@@ -1055,7 +1064,7 @@ func _take_hits() -> void:
 		# different place, a frame of interpolation behind.
 		net_sever.rpc(part, rig.last_cut_point, blow)
 		# `net_sever` has already spilled the blood, on every peer.
-		take_hit(damage_per_hit, rig.last_cut_point, blow, false, false, knight)
+		take_hit(_blade_damage(knight), rig.last_cut_point, blow, false, false, knight)
 		knight.rig.bloody()
 		knight.net_blade_landed.rpc()
 		knight.blade_hit(self, rig.last_cut_point)
@@ -1067,18 +1076,43 @@ func _take_hits() -> void:
 ## limb off: it wounds it — blood, the damage, a shove. True when that is what
 ## this cut was (whether or not it reached); false once limbs may come off.
 func _wound(knight: Player, edge: Array, serial: int) -> bool:
-	if health <= max_health * sever_below:
+	if health <= max_health * sever_below and _rng.randf() < sever_chance:
 		return false
 	if not rig._blade_reaches(edge[0], edge[1], hit_tolerance):
 		return true
 	_last_hit_serial[knight.name] = serial
 	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * 1.1, edge[0], edge[1])
 	var cut: Vector3 = (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
-	take_hit(damage_per_hit, at, cut, false, true, knight)
+	take_hit(_blade_damage(knight), at, cut, false, true, knight)
 	knight.rig.bloody()
 	knight.net_blade_landed.rpc()
 	knight.blade_hit(self, at)
 	return true
+
+
+## What a hero's cut is worth to it: that hero's own damage (the knight's
+## heavy blade more than the assassin's quick knife), before its p.def.
+func _blade_damage(knight: Player) -> float:
+	if knight != null and knight.profile != null:
+		return knight.profile.damage
+	return damage_per_hit
+
+
+## A hero's cut has landed. Too many too fast and it will not stand there and
+## take them: it hops back out of the combo and comes straight back in with a
+## leap.
+func _count_cut() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	_cut_times.append(now)
+	while not _cut_times.is_empty() and now - _cut_times[0] > combo_window:
+		_cut_times.remove_at(0)
+	if _cut_times.size() < combo_break_cuts or not can_leap() or state != State.FIGHT or rig.is_clawing():
+		return
+	_cut_times.clear()
+	_reeling = 0.0
+	attack(&"hop")
+	if mind != null:
+		mind.come_back_leaping()
 
 
 ## The limb, everywhere. The host has already taken it off its own copy, so this
@@ -1140,6 +1174,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	hurt.emit(health)
 	if mind != null and not is_dead:
 		mind.hurt()
+		if from is Player:
+			_count_cut()
 
 	var thrown := blow
 	if thrown.length_squared() < 0.0001:
