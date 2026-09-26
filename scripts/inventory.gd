@@ -175,7 +175,8 @@ func _items() -> Array[Dictionary]:
 
 
 func _weapon(p: CharacterProfile) -> Dictionary:
-	var crit := [["Attack", "%.0f" % p.damage], ["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)],
+	var worth := float(p.get("m_atk")) if p.weapon == CharacterProfile.Weapon.STAFF and "m_atk" in p else p.damage
+	var crit := [["M.ATK" if p.weapon == CharacterProfile.Weapon.STAFF else "P.ATK", "%.0f" % worth], ["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)],
 			["Critical damage", "× %.1f" % p.crit_damage], ["Stamina per attack", "%.0f" % p.attack_stamina]]
 	match p.weapon:
 		CharacterProfile.Weapon.BOW:
@@ -311,13 +312,24 @@ func _draw_status(c: Control, font: Font, box: Rect2) -> void:
 	c.draw_line(Vector2(x, y), Vector2(x + w, y), Color(GOLD_DIM, 0.6), 1.0)
 	var rows: Array = []
 	rows.append(["Name", p.display_name if p != null else "—"])
-	rows.append(["Level", "0"])
+	var book := player.get_node_or_null(^"Leveling") as Leveling
+	if book != null:
+		rows.append(["Level", "%d" % book.level])
+		rows.append(["Experience", "%d / %d" % [book.xp, book.needed()] if book.needed() > 0 else "max"])
+	else:
+		rows.append(["Level", "1"])
 	rows.append(["", ""])
 	rows.append(["HP", "%.0f / %.0f" % [player.health, player.max_health]])
 	rows.append(["Stamina", "%.0f / %.0f" % [maxf(player.stamina, 0.0), player.max_stamina]])
 	rows.append(["", ""])
 	if p != null:
-		rows.append(["Attack", "%.0f" % p.damage])
+		var m_atk := float(p.get("m_atk")) if "m_atk" in p else 0.0
+		if p.weapon == CharacterProfile.Weapon.STAFF:
+			rows.append(["M.ATK", "%.0f" % m_atk])
+		else:
+			rows.append(["P.ATK", "%.0f" % p.damage])
+		rows.append(["P.DEF  /  M.DEF", "%.0f  /  %.0f" % [player.p_def,
+				float(player.get("m_def")) if "m_def" in player else 0.0]])
 		rows.append(["Critical", "%.0f %%  × %.1f" % [p.crit_chance * 100.0, p.crit_damage]])
 		rows.append(["Run speed", "%.1f m/s" % p.run_speed])
 		rows.append(["Roll", "%.1f m" % (p.dash_speed * p.dash_duration)])

@@ -17,6 +17,10 @@ extends CanvasLayer
 ## * **Stamina says when it is spent.** Emptied, the bar dims until it has
 ##   started coming back, which is the stretch in which nothing costing stamina
 ##   can be done.
+## * **The level is a gilt medallion** over the bars, the hero's name beside it
+##   and a thin gold bar under the name for the experience towards the next
+##   one ([Leveling]). What a kill brought floats up off it ("+10 XP"); a new
+##   level is written across the screen in gold for a moment.
 ## * **The skills are four squares at the bottom**, keys 1 to 4: the skill's
 ##   picture, its key in the corner, and while it is coming back a shade that
 ##   drains down off it with the seconds left. It flashes when it is ready again;
@@ -25,7 +29,7 @@ extends CanvasLayer
 ## Pixels per point of health and of stamina.
 const HEALTH_SCALE := 2.1
 const STAMINA_SCALE := 2.4
-const MARGIN := Vector2(18.0, 40.0)
+const MARGIN := Vector2(18.0, 54.0)
 const HEALTH_HEIGHT := 13.0
 const STAMINA_HEIGHT := 8.0
 const GAP := 6.0
@@ -51,6 +55,17 @@ var _ready_flash: PackedFloat32Array = PackedFloat32Array([9.0, 9.0, 9.0, 9.0])
 var _last_left: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 var _said: String = ""
 var _said_time: float = 9.0
+## The hero's [Leveling], found once it is there; the last experience gained and
+## the last level reached, and how long ago.
+var _book: Leveling
+var _gain: int = 0
+var _gain_time: float = 9.0
+var _up_level: int = 0
+var _up_time: float = 9.0
+
+const GOLD := Color(0.95, 0.78, 0.36)
+const GOLD_DEEP := Color(0.55, 0.38, 0.12)
+const XP_WIDTH := 150.0
 
 const SLOT := 56.0
 const SLOT_GAP := 10.0
@@ -115,6 +130,17 @@ func _process(delta: float) -> void:
 		_last_left[slot] = left
 		_ready_flash[slot] += delta
 	_said_time += delta
+	_gain_time += delta
+	_up_time += delta
+	if _book == null:
+		_book = player.get_node_or_null(^"Leveling") as Leveling
+		if _book != null:
+			_book.gained.connect(func(amount: int) -> void:
+				_gain = amount
+				_gain_time = 0.0)
+			_book.leveled_up.connect(func(level: int) -> void:
+				_up_level = level
+				_up_time = 0.0)
 	_bars.queue_redraw()
 
 	if player.is_dead:
@@ -139,6 +165,69 @@ func _draw_bars() -> void:
 			maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0),
 			STAMINA_SPENT if winded else STAMINA, 0.0, Color.TRANSPARENT)
 	_draw_skills()
+	_draw_level()
+
+
+## The medallion with the level in it, the name, the experience bar; the
+## experience a kill brought floating off it; a new level across the screen.
+func _draw_level() -> void:
+	if _book == null:
+		return
+	var font := ThemeDB.fallback_font
+	# A dark plate under it all, so it reads over sky and snow alike.
+	var plate := Rect2(Vector2(MARGIN.x - 4.0, 5.0), Vector2(XP_WIDTH + 128.0, 40.0))
+	_bars.draw_rect(plate, Color(FRAME, 0.55))
+	_bars.draw_rect(plate, Color(EDGE, 0.35), false, 1.0)
+	var c := Vector2(MARGIN.x + 15.0, 25.0)
+	var glow := 1.0 - clampf(_up_time / 1.5, 0.0, 1.0)
+	if glow > 0.0:
+		_bars.draw_circle(c, 17.0 + 10.0 * glow, Color(1.0, 0.85, 0.4, 0.4 * glow))
+	_bars.draw_circle(c, 16.5, FRAME)
+	_bars.draw_circle(c, 15.0, GOLD_DEEP)
+	_bars.draw_circle(c, 11.0, Color(GOLD_DEEP.darkened(0.25)))
+	_bars.draw_arc(c, 15.0, 0.0, TAU, 32, GOLD, 2.0)
+	_bars.draw_arc(c, 11.0, 0.0, TAU, 32, Color(GOLD, 0.45), 1.0)
+	var lv := str(_book.level)
+	var w := font.get_string_size(lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+	_bars.draw_string(font, c + Vector2(-w * 0.5, 6.5), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
+			Color(1.0, 0.95, 0.8))
+	var x := c.x + 24.0
+	var hero_name := player.profile.display_name if player.profile != null else ""
+	var title := "%s   Lv %d" % [hero_name, _book.level]
+	_bars.draw_string(font, Vector2(x + 1.0, 22.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, Vector2(x, 21.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.93, 0.78))
+	var need := _book.needed()
+	var share := float(_book.xp) / float(need) if need > 0 else 1.0
+	var at := Vector2(x, 29.0)
+	_bars.draw_rect(Rect2(at - Vector2(1, 1), Vector2(XP_WIDTH + 2, 8)), FRAME)
+	_bars.draw_rect(Rect2(at, Vector2(XP_WIDTH * clampf(share, 0.0, 1.0), 6)), GOLD)
+	_bars.draw_rect(Rect2(at, Vector2(XP_WIDTH * clampf(share, 0.0, 1.0), 2)), Color(1, 1, 1, 0.25))
+	_bars.draw_rect(Rect2(at - Vector2(1, 1), Vector2(XP_WIDTH + 2, 8)), Color(EDGE, 0.7), false, 1.0)
+	var label := "%d / %d XP" % [_book.xp, need] if need > 0 else "MAX"
+	_bars.draw_string(font, Vector2(at.x + XP_WIDTH + 8.0, 36.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
+			Color(1.0, 0.9, 0.7, 0.9))
+	if _gain_time < 1.6:
+		var a := 1.0 - clampf((_gain_time - 0.8) / 0.8, 0.0, 1.0)
+		var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		_bars.draw_string(font, Vector2(x + tw + 12.0, 21.0 - 8.0 * _gain_time), "+%d XP" % _gain,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.82, 0.3, a))
+	if _up_time < 3.0:
+		var view := _bars.size
+		var a := clampf(_up_time / 0.25, 0.0, 1.0) * (1.0 - clampf((_up_time - 2.2) / 0.8, 0.0, 1.0))
+		var big := "LEVEL %d" % _up_level
+		var bw := font.get_string_size(big, HORIZONTAL_ALIGNMENT_LEFT, -1, 56).x
+		var y := view.y * 0.28
+		_bars.draw_rect(Rect2(Vector2(0, y - 58.0), Vector2(view.x, 84.0)), Color(0, 0, 0, 0.35 * a))
+		_bars.draw_line(Vector2(view.x * 0.3, y - 56.0), Vector2(view.x * 0.7, y - 56.0), Color(GOLD, 0.6 * a), 1.0)
+		_bars.draw_line(Vector2(view.x * 0.3, y + 24.0), Vector2(view.x * 0.7, y + 24.0), Color(GOLD, 0.6 * a), 1.0)
+		_bars.draw_string(font, Vector2((view.x - bw) * 0.5 + 2.0, y + 3.0), big, HORIZONTAL_ALIGNMENT_LEFT, -1, 56,
+				Color(0, 0, 0, 0.8 * a))
+		_bars.draw_string(font, Vector2((view.x - bw) * 0.5, y), big, HORIZONTAL_ALIGNMENT_LEFT, -1, 56,
+				Color(GOLD, a))
+		var sub := "stronger — health restored"
+		var sw := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		_bars.draw_string(font, Vector2((view.x - sw) * 0.5, y + 18.0), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
+				Color(1.0, 0.93, 0.78, 0.9 * a))
 
 
 func _on_skill_used(_slot: int, id: StringName) -> void:

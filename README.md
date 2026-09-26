@@ -3597,3 +3597,55 @@ posing a full rig every frame gave the spikes. A wolf prowling with no one near
 there: p99 30.8 → 27.0 ms, worst 37 → 27.
 
 Sixteen wolves, moved to the new wood.
+
+
+## Levels
+
+Every hero starts at **level 1**. What he kills is experience; enough of it is
+a level (`scripts/leveling.gd`, class `Leveling`, hung under each player by
+`World._build_player` as `Leveling`, on every peer).
+
+**Experience.** Wolves are the yardstick at 10 each; an imp is 6, a puglin 8,
+an orc 30, Arkdeva 120, anything else 5. Every hero within 35 m of a creature
+when it dies gets it whole — alone, that is simply the one who killed it. The
+host hands it out (`World._on_creature_died` → `Leveling.share`) and tells
+every peer the new level and experience (`net_progress`).
+
+| to reach | experience | wolves |
+|---|---|---|
+| level 2 | 30 | 3 |
+| level 3 | 70 more | 7 |
+| level 4 | 100 more | 10 |
+| 5, 6, 7, 8, 9, 10 | 140, 180, 230, 280, 340, 400 more | |
+
+Level 10 is the top for now.
+
+**What a level gives**, each hero along his own line — about 8 % of where he
+starts, Tariel's in health and armour and least in his blade, the Mage's in his
+spells and m.def, Avtandil's in his arrows, the Assassin's in critical hits
+(no crit chance grows past 40 %). A level also makes him whole again: health
+and stamina full.
+
+| each level | HP | p.atk | m.atk | p.def | m.def | crit | stamina |
+|---|---|---|---|---|---|---|---|
+| Tariel | +15 | +1 | – | +3 | +2 | – | +3 |
+| Avtandil | +9 | +2.4 | – | +1.2 | +1.2 | +1 % | +2 |
+| Assassin | +8 | +1.5 | – | +1.5 | +1.2 | +1.5 % | +3 |
+| Mage | +7 | – | +3.5 | +0.8 | +3 | +0.5 % | +3 |
+
+So at level 4 Tariel has 225 health, p.def 49, p.atk 19; the Mage m.atk 54.5
+and m.def 49. The growth goes onto the hero's own copy of his profile (the
+`.tres` every body of that hero shares is never touched) and onto the
+controller's `max_health`, `p_def`, `m_def`, `max_stamina`, which a respawn
+keeps.
+
+**Where it shows.** A gilt medallion with the level in it over the health bar,
+the hero's name and "Lv" beside it and a thin gold bar for the experience
+towards the next ("10 / 30 XP"); what a kill brought floats up beside the name
+("+10 XP"); a new level is written across the screen in gold — "LEVEL 2,
+stronger — health restored" — for a couple of seconds. The inventory's
+Character Status has the level, the experience, P.ATK or M.ATK, P.DEF / M.DEF.
+
+`tests/leveling_test.gd`: level 1 to start; a wolf far off is nothing; 3, 7
+and 10 wolves are levels 2, 3 and 4, each healing; Tariel grown by his line;
+the shared profile untouched; what an imp and an orc are worth.
