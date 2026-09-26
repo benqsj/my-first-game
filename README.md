@@ -3462,3 +3462,59 @@ out of it; a shield takes it.
 most got out of from far and many close in; a bolt it gets out of misses; on
 all fours faster than 7.5 m/s, the run ending in a leap from over 2.5 m off,
 off the ground, its claws landing.
+
+## Balance: p.def, and how hard a wolf is
+
+**p.def** (physical defence, `scripts/defence.gd`) for heroes and creatures
+alike: a blow is taken as `damage × 100 / (100 + p.def)` — 25 takes 80 % of it,
+100 half. Blades, claws and arrows go through it; fire and poison do not.
+
+| | health | p.def |
+|---|---|---|
+| Tariel | 160 (the most) | 35 (the most) |
+| the Assassin | 110 | 20 |
+| Avtandil | 120 | 15 |
+| the Mage | 100 | 12 |
+| imp, puglin | — | 20 |
+| wolf | 100 | 40 (twice the imp's) |
+
+A wolf's blow (`swipe_damage` 110 — the swipe, the bite, the pounce and the
+leap) leaves every hero standing and two of them are the end of any, Tariel
+included (81.5 a blow through his p.def). The claw waves are 70 (the rake, the
+sweep) and 90 (the slam).
+
+**A wolf is whole until it is down to half its health** (`sever_below`): till
+then the blade wounds it — blood, the damage through its p.def, a shove — and
+only after that do limbs come off.
+
+`tests/balance_test.gd`.
+
+## The village grown, and the wolves' hill behind it
+
+**The village** (`World._dress_village`) is spread over a bigger lot — out from
+the gate towers to the east (`SPREAD` 1.12) and away from the street north and
+south (1.4) — and everything in it grows with it, taller than it is wider
+(`GROWTH`): the huts 1.5 across and 1.9 up (two storeys against a man), the
+barracks, the town centre, the windmill, the towers and the walls. Only the
+model inside a building is scaled; its hulls are scaled point by point to match
+(`_grow_building`), so no body is ever scaled unevenly. The fence runs round the
+bigger lot (`VILLAGE`, 96 × 72 m) and the ground is kept level over all of it.
+The puglins that farmed the north moved out onto the east fields (82, −14), the
+wolves' old ground.
+
+**Behind it, to the north, the wolves' hill**: a broad rise from the village's
+north fence to the north wall, highest to the north-east (about 12 m), gentle
+enough to climb all the way (`Terrain.features`). **A wood grows up it**
+(`Forest.GROVE`), pines and oaks from a ragged foot a little past the fence to
+the wall — planted after the rest of the map's wood so that comes out of its
+seed exactly as it did — with two glades in it (`GROVE_GLADES`), **the wolves'
+dens**, four wolves in each. A hedgerow runs along the foot of it. Wolves are
+not flattened into the ground any more: each is stood on its hill where it was
+put.
+
+**The mountains** north and east used to stand with their feet in the land
+(one on the village's east side, two over where the hill is); those are pushed
+back out along their line (`Horizon._clear_of_the_land`) until they clear it,
+so the hill and its wood stand in front of the range.
+
+`tests/village_shots.gd -- <dir> <tag>` takes pictures of it.
