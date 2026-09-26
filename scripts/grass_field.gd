@@ -336,9 +336,30 @@ func _build_chunk(mesh: Mesh, key: Vector3i, members: PackedInt32Array) -> void:
 	_chunks.append(node)
 
 
+## Draws every clump with the model at `path` instead, where they stand: for
+## changing the clump's detail without growing the field again ([Looks]). The
+## field keeps the model for whatever it grows next.
+func set_clump_scene(path: String) -> void:
+	if path == clump_scene:
+		return
+	var mesh := _model_mesh(path)
+	if mesh == null:
+		return
+	var old: Mesh = _built_meshes.get(0)
+	clump_scene = path
+	if old == null:
+		return
+	_built_meshes[0] = mesh
+	for node in _chunks:
+		if node.multimesh != null and node.multimesh.mesh == old:
+			node.multimesh.mesh = mesh
+
+
 ## The mesh inside one of the models. Taken once and shared by every chunk that
 ## draws it.
 func _model_mesh(path: String) -> Mesh:
+	if _mesh_cache.has(path):
+		return _mesh_cache[path]
 	if not ResourceLoader.exists(path):
 		push_warning("GrassField: '%s' is missing." % path)
 		return null
@@ -359,7 +380,13 @@ func _model_mesh(path: String) -> Mesh:
 			if material != null:
 				material.vertex_color_use_as_albedo = true
 	root.free()
+	if mesh != null:
+		_mesh_cache[path] = mesh
 	return mesh
+
+
+## Model path -> its mesh, so switching back and forth loads each once.
+var _mesh_cache: Dictionary = {}
 
 
 func _build_grid() -> void:
