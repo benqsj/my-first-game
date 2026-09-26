@@ -120,6 +120,7 @@ func _ready() -> void:
 	_prewarm_effects()
 	_add_marsh_song()
 	_creatures = get_node_or_null("Enemies")
+	_watch_kills()
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
 	if net != null:
@@ -258,10 +259,39 @@ func _build_player(data: Variant) -> Node:
 	# only falls back to asking `/root/Game` when nothing has been handed to it.
 	body.profile = _profile(id)
 	body.position = _mark(int(sent.get("point", 0)))
+	# His level and experience, on every peer at the same path ([Leveling]).
+	var book := Leveling.new()
+	book.name = "Leveling"
+	body.add_child(book)
 	# Before the tree as well: the spawner decides who to tell about this body
 	# the moment it arrives, and a peer still loading must not be one of them.
 	NetSmooth.guard(body.get_node_or_null("Body") as MultiplayerSynchronizer)
 	return body
+
+
+## Every creature's death is experience for the heroes near it — handed out by
+## the host alone ([Leveling]). Creatures added later (a camp, a respawn) are
+## watched as they arrive.
+func _watch_kills() -> void:
+	if _creatures == null:
+		return
+	for node in _creatures.get_children():
+		_watch_kill(node)
+	_creatures.child_entered_tree.connect(_watch_kill)
+
+
+func _watch_kill(node: Node) -> void:
+	if node.has_signal(&"died") and not node.has_meta(&"xp_watched"):
+		node.set_meta(&"xp_watched", true)
+		node.connect(&"died", _on_creature_died.bind(node))
+
+
+func _on_creature_died(creature: Node) -> void:
+	var net := get_node_or_null("/root/Net")
+	if net != null and not net.call("is_host"):
+		return
+	if creature is Node3D:
+		Leveling.share(creature as Node3D, players())
 
 
 ## Takes a body away again. The host drops it and the spawner takes it off
