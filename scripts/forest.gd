@@ -186,60 +186,66 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(36.0, -232.0, 10.0),
 ]
 
-## The wood on the hill behind the village, where the wolves live: from the
-## foot of the hill (a little past the village's north fence, the edge ragged)
-## up to the north wall, and on to the west, past the village, down to where it
-## meets the great wood (x, z, width, depth, each). Planted after everything
-## else, so the rest of the map's wood comes out of the seed as it did before.
-const GROVE := Rect2(22.0, 80.0, 96.0, 40.0)
-const GROVE_WEST := Rect2(-24.0, 62.0, 46.0, 58.0)
-## Room kept round each of the wolves on it (x, z, radius): where they stand
-## in the level, so none is born in a trunk.
+## The wolves' wood: north of the village, on the land past the old square's
+## north edge (`north_extent`), from well clear of the village's fence up to
+## the north wall, and on to the west into the great wood (x, z, width, depth,
+## each). It does not start at the fence: a stretch of open ground first, then
+## a young fir or two, then more, and then the giants (`GROVE_RAMP`). Planted
+## after everything else, so the rest of the map's wood comes out of the seed
+## as it did before.
+const GROVE := Rect2(8.0, 98.0, 110.0, 80.0)
+const GROVE_WEST := Rect2(-26.0, 94.0, 34.0, 84.0)
+## Over how many metres from its foot the wood thickens from nothing to full.
+const GROVE_RAMP := 26.0
+## Room kept round each of the wolves in it (x, z, radius), so none is born in a
+## trunk; and a few open places for the light to come down into.
 const GROVE_GLADES: Array[Vector3] = [
-	Vector3(34.0, 92.0, 3.5),
-	Vector3(50.0, 100.0, 3.5),
-	Vector3(40.0, 112.0, 3.5),
-	Vector3(62.0, 92.0, 3.5),
-	Vector3(66.0, 106.0, 3.5),
-	Vector3(78.0, 96.0, 3.5),
-	Vector3(82.0, 112.0, 3.5),
-	Vector3(94.0, 90.0, 3.5),
-	Vector3(98.0, 104.0, 3.5),
-	Vector3(110.0, 94.0, 3.5),
-	Vector3(108.0, 112.0, 3.5),
-	Vector3(56.0, 114.0, 3.5),
-	Vector3(-6.0, 84.0, 3.5),
-	Vector3(8.0, 100.0, 3.5),
-	Vector3(-14.0, 110.0, 3.5),
-	Vector3(20.0, 112.0, 3.5),
-	# And a few open places, for the light to come down into.
-	Vector3(46.0, 96.0, 6.0),
-	Vector3(88.0, 106.0, 6.5),
-	Vector3(4.0, 92.0, 6.0),
+	Vector3(-14.0, 112.0, 4.0),
+	Vector3(4.0, 124.0, 4.0),
+	Vector3(-6.0, 146.0, 4.0),
+	Vector3(12.0, 166.0, 4.0),
+	Vector3(26.0, 132.0, 4.0),
+	Vector3(34.0, 112.0, 4.0),
+	Vector3(42.0, 152.0, 4.0),
+	Vector3(52.0, 170.0, 4.0),
+	Vector3(58.0, 126.0, 4.0),
+	Vector3(66.0, 146.0, 4.0),
+	Vector3(78.0, 114.0, 4.0),
+	Vector3(84.0, 166.0, 4.0),
+	Vector3(92.0, 136.0, 4.0),
+	Vector3(104.0, 118.0, 4.0),
+	Vector3(108.0, 150.0, 4.0),
+	Vector3(100.0, 170.0, 4.0),
+	Vector3(46.0, 128.0, 7.0),
+	Vector3(86.0, 150.0, 7.5),
+	Vector3(10.0, 142.0, 7.0),
+	Vector3(70.0, 168.0, 6.0),
 ]
 
-## What grows on it: firs only, and nothing under them. The old ones tall and
-## straight, their trunks bare well over a man's head (`stretch`, on the height
-## alone) and far apart, so it is a wood to walk and fight in between the stems;
-## and among them, thinner still, young firs at every height, so the wood has an
-## age to it rather than being one planting.
-const HILL_FIRS := {
-	"spacing": 7.0,
-	"chance": 0.85,
-	"stretch": Vector2(1.3, 1.6),
+## The giants: firs of the wood's own making (vepxis-art `tools/giant_fir.py`,
+## `forest/giant_fir.blend`) — a trunk a metre and more across, flaring into
+## roots at the foot and bare for twelve to sixteen metres before the first
+## boughs, the crown in drooping tiers thirty metres up. A few hundred
+## triangles each, far apart, so walking in under them is walking into a hall
+## of stems.
+const HILL_GIANTS := {
+	"spacing": 9.5,
+	"chance": 0.9,
 	"models": [
-		{"path": "res://assets/forest/Tree_Pine_4.obj", "scale": Vector2(1.7, 2.2), "biome": 1},
-		{"path": "res://assets/forest/Tree_Pine_5.obj", "scale": Vector2(1.35, 1.75), "biome": 1},
-		{"path": "res://assets/forest/Tree_Pine_6.obj", "scale": Vector2(1.15, 1.45), "biome": 1},
+		{"path": "res://assets/forest/GiantFir_A.obj", "scale": Vector2(0.9, 1.15), "biome": 1},
+		{"path": "res://assets/forest/GiantFir_B.obj", "scale": Vector2(0.9, 1.2), "biome": 1},
+		{"path": "res://assets/forest/GiantFir_C.obj", "scale": Vector2(0.9, 1.1), "biome": 1},
 	],
 }
+## And young firs among them, thinner, and the first of the wood at its foot.
 const HILL_YOUNG := {
-	"spacing": 10.0,
-	"chance": 0.45,
+	"spacing": 9.0,
+	"chance": 0.5,
 	"models": [
-		{"path": "res://assets/forest/Tree_Pine_1.obj", "scale": Vector2(0.9, 1.7), "biome": 1},
-		{"path": "res://assets/forest/Tree_Pine_2.obj", "scale": Vector2(1.0, 1.8), "biome": 1},
-		{"path": "res://assets/forest/Tree_Pine_3.obj", "scale": Vector2(1.0, 1.6), "biome": 1},
+		{"path": "res://assets/forest/Tree_Pine_1.obj", "scale": Vector2(1.1, 2.0), "biome": 1},
+		{"path": "res://assets/forest/Tree_Pine_2.obj", "scale": Vector2(1.1, 2.1), "biome": 1},
+		{"path": "res://assets/forest/Tree_Pine_3.obj", "scale": Vector2(1.0, 1.8), "biome": 1},
+		{"path": "res://assets/forest/Tree_Pine_4.obj", "scale": Vector2(0.9, 1.5), "biome": 1},
 	],
 }
 
@@ -255,6 +261,9 @@ const HILL_YOUNG := {
 @export var south_extent: float = 0.0
 ## And past that, the bay strip, planted last of all.
 @export var bay_extent: float = 0.0
+## How much further the ground runs to the north than `half_extent`: the
+## wolves' wood behind the village ([member Terrain.north_extra]).
+@export var north_extent: float = 60.0
 ## Ground that dips under water ([Marsh] nodes): nothing is planted where any of
 ## them is below its dry level. A tree standing in a lake is a tree nobody
 ## planted.
@@ -400,10 +409,19 @@ func _ready() -> void:
 		_grow("Canopy Bay", CANOPY, tree_draw_distance, trees_cast_shadows, true, from, to)
 		_grow("Undergrowth Bay", UNDERGROWTH, undergrowth_draw_distance, false, false, from, to)
 		_grow("Litter Bay", LITTER, litter_draw_distance, false, false, from, to)
+	# The land north of the old square: the great wood runs on up its west side
+	# (the wolves' wood, after, takes the rest).
+	if north_extent > 0.0:
+		var from := half_extent + edge_margin * 0.5
+		var to := half_extent + north_extent - edge_margin
+		_grow("Canopy North", CANOPY, tree_draw_distance, trees_cast_shadows, true, from, to)
+		_grow("Undergrowth North", UNDERGROWTH, undergrowth_draw_distance, false, false, from, to)
+		_grow("Litter North", LITTER, litter_draw_distance, false, false, from, to)
 	# The wolves' hill, last of all.
 	_on_hill = true
-	_grow("Firs Hill", HILL_FIRS, tree_draw_distance, trees_cast_shadows, true, GROVE_WEST.position.y - 4.0, GROVE.end.y)
-	_grow("Young Firs Hill", HILL_YOUNG, tree_draw_distance, trees_cast_shadows, true, GROVE_WEST.position.y - 4.0, GROVE.end.y)
+	var north_to := half_extent + north_extent - edge_margin
+	_grow("Giants Hill", HILL_GIANTS, tree_draw_distance, trees_cast_shadows, true, GROVE_WEST.position.y - 4.0, north_to)
+	_grow("Young Firs Hill", HILL_YOUNG, tree_draw_distance, trees_cast_shadows, true, GROVE_WEST.position.y - 4.0, north_to)
 	_on_hill = false
 
 	print("Forest: %s, %d trunks over %d bodies (%d distinct shapes), in %.1f ms" % [
@@ -580,6 +598,10 @@ func _coverage(at: Vector2) -> float:
 		return 0.0
 	if _on_hill:
 		return _hill_wood(at)
+	# North of the old square, only the great wood's own side: the rest is the
+	# wolves' wood's, planted after.
+	if at.y > half_extent and (GROVE.grow(4.0).has_point(at) or GROVE_WEST.grow(4.0).has_point(at)):
+		return 0.0
 	for zone in CLEARINGS:
 		var gap := at.distance_to(Vector2(zone.x, zone.y))
 		if gap < zone.z:
@@ -594,18 +616,18 @@ func _coverage(at: Vector2) -> float:
 ## of it up, with the density field's glades and the wolves' own.
 func _hill_wood(at: Vector2) -> float:
 	var k := 0.0
-	var ragged := _edge.get_noise_2d(at.x * 4.0, 17.0) * 4.0
+	var ragged := _edge.get_noise_2d(at.x * 4.0, 17.0) * 6.0
 	if GROVE.grow(2.0).has_point(at):
-		# Behind the village: from the ragged foot a little past its fence.
-		k = clampf((at.y - GROVE.position.y - ragged) / 6.0, 0.0, 1.0)
+		# North of the village: open ground first, then the wood thickening
+		# slowly up from a ragged foot.
+		k = clampf((at.y - GROVE.position.y - ragged) / GROVE_RAMP, 0.0, 1.0)
 	if GROVE_WEST.grow(2.0).has_point(at):
-		# West of it, past the village: its foot lower, its west edge ragged
-		# too, running into the great wood.
-		var foot := clampf((at.y - GROVE_WEST.position.y - ragged) / 6.0, 0.0, 1.0)
-		var west := clampf((at.x - GROVE_WEST.position.x - ragged) / 8.0, 0.0, 1.0)
+		# West of it, running into the great wood.
+		var foot := clampf((at.y - GROVE_WEST.position.y - ragged) / GROVE_RAMP, 0.0, 1.0)
+		var west := clampf((at.x - GROVE_WEST.position.x - ragged) / 10.0, 0.0, 1.0)
 		k = maxf(k, foot * west)
-	# Not over the village's lot.
-	if World.VILLAGE.grow(3.0).has_point(at):
+	# Nowhere near the village's lot.
+	if World.VILLAGE.grow(12.0).has_point(at):
 		k = 0.0
 	if k <= 0.0:
 		return 0.0

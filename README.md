@@ -3569,3 +3569,31 @@ a man's head) about seven metres apart, young firs of every height among them
 (`HILL_YOUNG`), a few open places for the light to come down into, nothing under
 them. Sixteen wolves on it, spread out, four of them in the west part. The oak
 line west of the village is gone (it is inside the wood now).
+
+## The land north of the village longer, giant firs, the mountains further off
+
+**The world is 60 m longer to the north** (`Terrain.north_extra`; the ground,
+its collider, the walls, the meadows and the map all follow — `Terrain.contains`
+and `north_edge` say where it ends). The mountains on the horizon are pushed
+back to clear the whole of it with a margin (`Horizon._clear_of_the_land`, now
+on every side).
+
+**The wood starts away from the village and comes on gradually.** Past the north
+fence there is open meadow first (nothing planted within 12 m of the village);
+then young firs, few at first and more further in (`GROVE_RAMP`, 26 m), then the
+old wood. The hill is lower and wider and further back (its top at about
+z 160), so the wood climbs slowly.
+
+**Giant firs** (`HILL_GIANTS`, `assets/forest/GiantFir_{A,B,C}.obj`, built by
+`vepxis-art/tools/giant_fir.py`): bare trunks with a root flare, crowns from
+about 12 m up to 35 m, 9–10 m apart. Walking in is walking among columns. Each
+is about 300 triangles. The main wood's canopy, undergrowth and litter carry on
+over the new strip outside the wolves' wood.
+
+**The stutter in the wood was the wolves, not the trees.** Measured standing in
+the wood: the trees cost little (68–330 triangles each), but sixteen wolves each
+posing a full rig every frame gave the spikes. A wolf prowling with no one near
+(`pose_far`, 30 m) now poses every third frame on the gathered time. Frame times
+there: p99 30.8 → 27.0 ms, worst 37 → 27.
+
+Sixteen wolves, moved to the new wood.

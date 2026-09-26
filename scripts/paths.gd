@@ -62,7 +62,7 @@ func near(at: Vector2, margin: float = 0.0) -> bool:
 func _height(x: float, z: float) -> float:
 	# On the old square the land's own relief ([Terrain]); south of it, the
 	# marsh strips' dished ground.
-	if Terrain.current != null and absf(x) <= Terrain.current.half_size and absf(z) <= Terrain.current.half_size:
+	if Terrain.current != null and Terrain.current.contains(x, z):
 		return Terrain.height(x, z)
 	var lowest := 0.0
 	for path in ground:

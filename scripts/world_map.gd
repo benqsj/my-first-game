@@ -19,9 +19,9 @@ extends CanvasLayer
 ## North is up on the big map. On the small one the way the camera looks is up,
 ## so what is ahead on screen is ahead on the map.
 
-## The level's walls, in metres: x from -120 to 120, z from -455.5 to 119.5.
+## The level's walls, in metres: x from -120 to 120, z from -455.5 to 179.5.
 const WORLD_MIN := Vector2(-120.0, -455.5)
-const WORLD_MAX := Vector2(120.0, 119.5)
+const WORLD_MAX := Vector2(120.0, 179.5)
 ## Pixels a metre in the photograph.
 const PIXELS_PER_METRE := 4.0
 ## The corner map: its size on screen, and how many metres across it shows.

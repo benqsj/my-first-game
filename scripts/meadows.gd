@@ -52,7 +52,7 @@ const REEDS: PackedStringArray = [
 ## [Marsh] nodes: the water to keep out of and to line with reeds.
 @export var water: Array[NodePath] = []
 ## The ground to grow on, (min x, min z, size x, size z).
-@export var bounds: Rect2 = Rect2(-116.0, -452.0, 232.0, 568.0)
+@export var bounds: Rect2 = Rect2(-116.0, -452.0, 232.0, 628.0)
 ## Metres between the points the field is sampled on. Each point that takes
 ## grows a knot of clumps, not one.
 @export var spacing: float = 3.4

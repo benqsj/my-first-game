@@ -33,12 +33,12 @@ func _initialize() -> void:
 	_view.add_child(camera)
 	camera.current = true
 	var views := [
-		["over_the_village", Vector3(30.0, 32.0, 30.0), Vector3(60.0, 8.0, 100.0)],
-		["hill_from_fence", Vector3(40.0, 0.0, 76.0), Vector3(72.0, 8.0, 106.0)],
-		["in_the_firs", Vector3(46.0, 0.0, 90.0), Vector3(80.0, 0.0, 104.0)],
-		["west_wood", Vector3(12.0, 0.0, 70.0), Vector3(0.0, 2.0, 104.0)],
-		["glade", Vector3(40.0, 0.0, 92.0), Vector3(50.0, 1.0, 98.0)],
-		["from_the_top", Vector3(84.0, 0.0, 116.0), Vector3(60.0, 0.0, 50.0)],
+		["over_the_village", Vector3(40.0, 36.0, 30.0), Vector3(62.0, 8.0, 130.0)],
+		["north_from_fence", Vector3(56.0, 0.0, 80.0), Vector3(62.0, 6.0, 140.0)],
+		["edge_of_the_wood", Vector3(50.0, 0.0, 104.0), Vector3(62.0, 4.0, 140.0)],
+		["under_the_giants", Vector3(40.0, 0.0, 126.0), Vector3(62.0, 10.0, 150.0)],
+		["up_a_trunk", Vector3(56.0, 0.0, 136.0), Vector3(66.0, 16.0, 150.0)],
+		["from_the_ridge", Vector3(72.0, 0.0, 168.0), Vector3(62.0, 0.0, 60.0)],
 	]
 	for v: Array in views:
 		var eye: Vector3 = v[1]

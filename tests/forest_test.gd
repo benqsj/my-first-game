@@ -28,10 +28,12 @@ func _initialize() -> void:
 					widest = maxf(widest, shape.radius)
 					count += 1
 	_check("the wood still has trunks to walk into", count > 300, "%d" % count)
-	_check("no trunk collider is wider than the biggest trunk", widest < 1.5, "widest %.2f m" % widest)
+	# The biggest trunks are the giant firs in the wolves' wood, flared into
+	# roots at the foot (about 1.8 m out at the widest root).
+	_check("no trunk collider is wider than the biggest trunk", widest < 2.0, "widest %.2f m" % widest)
 
 	# Every species: its collider sits on the foot of its own trunk.
-	for group in [Forest.CANOPY, Forest.HEDGEROW]:
+	for group in [Forest.CANOPY, Forest.HEDGEROW, Forest.HILL_GIANTS, Forest.HILL_YOUNG]:
 		for model: Dictionary in group["models"]:
 			var mesh := load(model["path"]) as Mesh
 			var base: Array = forest._trunk_base(mesh)

@@ -30,6 +30,9 @@ extends StaticBody3D
 
 ## Half the side of the square, metres. The old box was 240 across.
 @export var half_size: float = 120.0
+## How much further the land runs to the north (+z) than the square, metres:
+## the wolves' wood behind the village.
+@export var north_extra: float = 60.0
 ## A cell of the drawn and the collided grid.
 @export var cell: float = 1.0
 ## Chunks per side, for culling.
@@ -45,14 +48,13 @@ extends StaticBody3D
 	Vector4(-108.0, 14.0, 22.0, 8.0),    # a shoulder by the west wall
 	Vector4(-30.0, 104.0, 20.0, 6.0),    # north of the core, over the wood's edge
 	Vector4(104.0, -34.0, 20.0, 8.0),    # the east down, past the puglins' lane
-	# The wolves' hill behind the village, wooded ([Forest.GROVE]): it rises
-	# from the village's north fence to the north wall, highest to the north-east.
-	# Wide and centred up against the wall, so it climbs gently all the way.
-	Vector4(74.0, 120.0, 42.0, 9.0),
-	Vector4(100.0, 102.0, 22.0, 4.0),
-	Vector4(44.0, 110.0, 22.0, 3.5),
-	# And its shoulder running on west, past the village, into the great wood.
-	Vector4(6.0, 108.0, 30.0, 6.0),
+	# The wolves' land north of the village, wooded ([Forest.GROVE]): open and
+	# nearly level for a stretch past the fence, then rising slowly to a long
+	# ridge under the north wall, highest to the north-east.
+	Vector4(72.0, 162.0, 58.0, 10.0),
+	Vector4(104.0, 132.0, 26.0, 4.5),
+	Vector4(18.0, 152.0, 40.0, 7.0),
+	Vector4(-12.0, 138.0, 30.0, 5.0),
 	Vector4(102.0, -96.0, 24.0, 8.5),    # the south-east rise
 	Vector4(76.0, -40.0, 12.0, -2.4),    # a hollow in the east fields
 	Vector4(-66.0, 76.0, 13.0, -2.2),    # a dip in the wood
@@ -84,8 +86,20 @@ var _noise := FastNoiseLite.new()
 var _warp := FastNoiseLite.new()
 var _mask := PackedFloat32Array()
 var _mask_n: int = 0
+## Rows of the flatness grid (it runs further north than it is wide).
+var _mask_nz: int = 0
 var _track := PackedFloat32Array()
 var _meshes: Array[MeshInstance3D] = []
+
+
+## Where the land ends to the north: the north wall.
+func north_edge() -> float:
+	return half_size + north_extra
+
+
+## Whether (x, z) is on the land (the square and its northern stretch).
+func contains(x: float, z: float) -> bool:
+	return absf(x) <= half_size + 0.01 and z >= -half_size - 0.01 and z <= north_edge() + 0.01
 
 
 ## The height of the ground at (x, z), or 0 where there is none.
@@ -146,7 +160,7 @@ func _ready() -> void:
 
 ## The ground's height, worked out from scratch (see the class notes).
 func height_at(x: float, z: float) -> float:
-	if absf(x) > half_size + 0.01 or absf(z) > half_size + 0.01:
+	if not contains(x, z):
 		return 0.0
 	var h := raw_at(x, z)
 	return h * _flat_at(x, z) * _seam(z)
@@ -163,7 +177,7 @@ func raw_at(x: float, z: float) -> float:
 			var t := 0.5 + 0.5 * cos(PI * d / r)
 			h += f.w * t * t * (3.0 - 2.0 * t)
 	# The rise to the walls, north, east and west (the south is the marsh).
-	var edge := maxf(maxf(x - (half_size - edge_band), -half_size + edge_band - x), z - (half_size - edge_band))
+	var edge := maxf(maxf(x - (half_size - edge_band), -half_size + edge_band - x), z - (north_edge() - edge_band))
 	if edge > 0.0:
 		var t := clampf(edge / edge_band, 0.0, 1.0)
 		h += edge_rise * t * t * (1.0 + 0.4 * _warp.get_noise_2d(x * 2.0, z * 2.0))
@@ -178,9 +192,10 @@ func _seam(z: float) -> float:
 #region Flatness
 func _build_mask() -> void:
 	_mask_n = int(round(half_size * 2.0 / mask_cell)) + 1
-	_mask.resize(_mask_n * _mask_n)
+	_mask_nz = int(round((half_size * 2.0 + north_extra) / mask_cell)) + 1
+	_mask.resize(_mask_n * _mask_nz)
 	_mask.fill(1.0)
-	_track.resize(_mask_n * _mask_n)
+	_track.resize(_mask_n * _mask_nz)
 	_track.fill(0.0)
 	var world := _world()
 	var level := get_parent()
@@ -246,8 +261,8 @@ func _index(ix: int, iz: int) -> int:
 func _cells(lo: Vector2, hi: Vector2) -> Rect2i:
 	var a := Vector2i(floori((lo.x + half_size) / mask_cell), floori((lo.y + half_size) / mask_cell))
 	var b := Vector2i(ceili((hi.x + half_size) / mask_cell), ceili((hi.y + half_size) / mask_cell))
-	a = a.clamp(Vector2i.ZERO, Vector2i(_mask_n - 1, _mask_n - 1))
-	b = b.clamp(Vector2i.ZERO, Vector2i(_mask_n - 1, _mask_n - 1))
+	a = a.clamp(Vector2i.ZERO, Vector2i(_mask_n - 1, _mask_nz - 1))
+	b = b.clamp(Vector2i.ZERO, Vector2i(_mask_n - 1, _mask_nz - 1))
 	return Rect2i(a, b - a)
 
 
@@ -299,7 +314,7 @@ func _keep_segment(a: Vector2, b: Vector2, half_width: float) -> void:
 
 func _grid_at(data: PackedFloat32Array, x: float, z: float) -> float:
 	var fx := clampf((x + half_size) / mask_cell, 0.0, _mask_n - 1.001)
-	var fz := clampf((z + half_size) / mask_cell, 0.0, _mask_n - 1.001)
+	var fz := clampf((z + half_size) / mask_cell, 0.0, _mask_nz - 1.001)
 	var ix := int(fx)
 	var iz := int(fz)
 	var tx := fx - ix
@@ -321,21 +336,23 @@ func track_at(x: float, z: float) -> float:
 
 #region Mesh and collision
 func _build_mesh() -> void:
-	var n := int(round(half_size * 2.0 / cell))  # cells per side
+	var n := int(round(half_size * 2.0 / cell))  # cells across
+	var nz := int(round((half_size * 2.0 + north_extra) / cell))  # and down its length
 	var per := n / chunks
-	# Heights once, on the full grid (one more than cells per side).
+	# Heights once, on the full grid (one more than cells each way).
 	var heights := PackedFloat32Array()
-	heights.resize((n + 1) * (n + 1))
-	for iz in n + 1:
+	heights.resize((nz + 1) * (n + 1))
+	for iz in nz + 1:
 		for ix in n + 1:
 			heights[iz * (n + 1) + ix] = height_at(ix * cell - half_size, iz * cell - half_size)
 	_heights = heights
 	_n = n
-	for cz in chunks:
+	_nz = nz
+	for cz in ceili(float(nz) / float(per)):
 		for cx in chunks:
 			var st := SurfaceTool.new()
 			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			for iz in range(cz * per, (cz + 1) * per + 1):
+			for iz in range(cz * per, mini((cz + 1) * per, nz) + 1):
 				for ix in range(cx * per, (cx + 1) * per + 1):
 					var x := ix * cell - half_size
 					var z := iz * cell - half_size
@@ -343,14 +360,14 @@ func _build_mesh() -> void:
 					var hl := heights[iz * (n + 1) + maxi(ix - 1, 0)]
 					var hr := heights[iz * (n + 1) + mini(ix + 1, n)]
 					var hd := heights[maxi(iz - 1, 0) * (n + 1) + ix]
-					var hu := heights[mini(iz + 1, n) * (n + 1) + ix]
+					var hu := heights[mini(iz + 1, nz) * (n + 1) + ix]
 					st.set_normal(Vector3(hl - hr, 2.0 * cell, hd - hu).normalized())
 					# The material reads a worn track in the vertex alpha (1 = none).
 					st.set_color(Color(1.0, 1.0, 1.0, 1.0 - track_at(x, z)))
 					st.set_uv(Vector2(x, z))
 					st.add_vertex(Vector3(x, h, z))
 			var row := per + 1
-			for iz in per:
+			for iz in mini(per, nz - cz * per):
 				for ix in per:
 					var a := iz * row + ix
 					st.add_index(a)
@@ -368,17 +385,20 @@ func _build_mesh() -> void:
 
 var _heights := PackedFloat32Array()
 var _n: int = 0
+var _nz: int = 0
 
 
 func _build_collision() -> void:
 	var shape := HeightMapShape3D.new()
 	shape.map_width = _n + 1
-	shape.map_depth = _n + 1
+	shape.map_depth = _nz + 1
 	shape.map_data = _heights
 	var cs := CollisionShape3D.new()
 	cs.name = "Floor"
 	cs.shape = shape
 	cs.scale = Vector3(cell, 1.0, cell)
+	# A height map is centred on its node; the land is not, north of the square.
+	cs.position.z = north_extra * 0.5
 	add_child(cs)
 
 

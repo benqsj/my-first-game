@@ -362,7 +362,9 @@ func _process(delta: float) -> void:
 		stance = 0.0
 	# A prowl is a full walk cycle, not a fraction of a sprint: measuring the
 	# gait against the charge speed left it barely lifting its feet.
-	rig.animate(delta, planar, planar / maxf(prowl_speed, 0.01), stance)
+	if _pose_now(delta):
+		rig.animate(_pose_delta, planar, planar / maxf(prowl_speed, 0.01), stance)
+		_pose_delta = 0.0
 	# The stagger, the belly-crawl and the fall are the rig's own clips now.
 	if _decides() and not is_dead:
 		_attack_clock += delta
@@ -1126,6 +1128,32 @@ func net_sever(part: String, at: Vector3, blow: Vector3) -> void:
 	if thrown.length_squared() < 0.0001:
 		thrown = Vector3.UP
 	Blood.splatter(Blood.world_of(self), at, thrown.normalized())
+
+
+## Far off and at peace, on its beat with nobody within `pose_far` metres, a
+## wolf is posed one frame in three (with the time of all three): a wood of
+## wolves nobody is near is not worth a full frame each. Asked afresh every
+## twenty frames.
+@export var pose_far: float = 30.0
+var _pose_skip: int = 0
+var _pose_delta: float = 0.0
+var _pose_check: int = 0
+var _pose_far: bool = false
+
+
+func _pose_now(delta: float) -> bool:
+	_pose_check -= 1
+	if _pose_check <= 0:
+		_pose_check = 20
+		var near := _nearest_player()
+		_pose_far = state == State.PROWL and not is_dead and (near == null
+				or near.global_position.distance_to(global_position) > pose_far)
+	_pose_delta += delta
+	if _pose_far:
+		_pose_skip = (_pose_skip + 1) % 3
+		if _pose_skip != 0:
+			return false
+	return true
 
 
 ## What a peer that arrived late needs in order to see this wolf as it is: the
