@@ -3371,10 +3371,13 @@ claws glinting red, and a growl.
 **Missiles.** Arrows, the mage's bolts, fire and the piercing shot are in the
 group `missile` and say where they are going (`flight()`). A wolf that is after
 somebody judges each one once, when it is seen on a line through it: loosed
-from out of reach (10 m and more) it gets out of the way of about two in three
-(`missile_dodge_far`), close in while it runs at him of about one in eight
-(`missile_dodge_near`), a little more or less by its wit; on its beat, unaware,
-of none. Out of the line, for a moment its body is not there to be struck.
+from out of reach (10 m and more) it gets out of the way of most — about
+seven in eight (`missile_dodge_far`) — and close in of about one in two
+(`missile_dodge_near`), a little more or less by its wit; one dodge no sooner
+over than it may throw itself out of the way of the next; on its beat, unaware,
+of none. The same for the mage's bolts (a `SpellBolt` is an `Arrow`): and a
+bolt hunting a wolf that gets out of its way is shaken off (`Wolf.is_evading()`)
+and flies on straight. Out of the line, for a moment its body is not there to be struck.
 
 **Down on its belly it lies still.** The crawl let the body down by measuring
 the parts hanging off the bones, which follow a frame late — and the body bobbed
@@ -3443,3 +3446,19 @@ each comes, none lands; a step aside gets out of the rake and the slam; a
 shield catches it; a wall breaks it; kept at a distance for 30 s it throws it
 one to three times; with an arm gone, never. `tests/claw_wave_shots.gd` takes
 pictures of it.
+
+### Running you down, and the leap at the end of it
+
+On all fours after somebody a wolf runs fast — `charge_speed_on_fours` 8.5 m/s
+(upright 6.4), the Running Crawl sped up to match — and a run that brings it to
+within 3–6.5 m of him (`run_leap_range`) ends in **a leap**: a snarl and a flash
+of its claws as it gathers for a fifth of a second, then straight on at him
+through the air, half a metre up, for 0.65 s, thrown far enough to land on him,
+claws raking as it lands (Mutant Jump Attack); then it fights. Once in 4 s at
+most (`run_leap_cooldown`). A roll or a step aside as it leaves the ground gets
+out of it; a shield takes it.
+
+`tests/wolf_run_test.gd`: arrows and the mage's bolts, from 12 m and from 3.5 m,
+most got out of from far and many close in; a bolt it gets out of misses; on
+all fours faster than 7.5 m/s, the run ending in a leap from over 2.5 m off,
+off the ground, its claws landing.
