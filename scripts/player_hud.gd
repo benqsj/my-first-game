@@ -17,10 +17,11 @@ extends CanvasLayer
 ## * **Stamina says when it is spent.** Emptied, the bar dims until it has
 ##   started coming back, which is the stretch in which nothing costing stamina
 ##   can be done.
-## * **The level is a gilt medallion** over the bars, the hero's name beside it
-##   and a thin gold bar under the name for the experience towards the next
-##   one ([Leveling]). What a kill brought floats up off it ("+10 XP"); a new
-##   level is written across the screen in gold for a moment.
+## * **The level is a gilt shield** at the head of the bars with the number in
+##   it, the hero's name over the bars; the experience towards the next level a
+##   gold line along the whole bottom edge, cut in tenths ([Leveling]). What a
+##   kill brought rises off its count ("+10 EXP"); a new level is "LEVEL UP" at
+##   the top of the screen, and the shield throws out light.
 ## * **The skills are four squares at the bottom**, keys 1 to 4: the skill's
 ##   picture, its key in the corner, and while it is coming back a shade that
 ##   drains down off it with the seconds left. It flashes when it is ready again;
@@ -29,7 +30,7 @@ extends CanvasLayer
 ## Pixels per point of health and of stamina.
 const HEALTH_SCALE := 2.1
 const STAMINA_SCALE := 2.4
-const MARGIN := Vector2(18.0, 54.0)
+const MARGIN := Vector2(74.0, 30.0)
 const HEALTH_HEIGHT := 13.0
 const STAMINA_HEIGHT := 8.0
 const GAP := 6.0
@@ -65,7 +66,8 @@ var _up_time: float = 9.0
 
 const GOLD := Color(0.95, 0.78, 0.36)
 const GOLD_DEEP := Color(0.55, 0.38, 0.12)
-const XP_WIDTH := 150.0
+## The longest a bar grows, however high the level.
+const MAX_BAR := 480.0
 
 const SLOT := 56.0
 const SLOT_GAP := 10.0
@@ -156,78 +158,116 @@ func _draw_bars() -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	var at := MARGIN
-	_bar(at, player.max_health * HEALTH_SCALE, HEALTH_HEIGHT,
+	_bar(at, minf(player.max_health * HEALTH_SCALE, MAX_BAR), HEALTH_HEIGHT,
 			player.health / maxf(player.max_health, 1.0), HEALTH,
 			_lost / maxf(player.max_health, 1.0), HEALTH_LOST)
 	at.y += HEALTH_HEIGHT + GAP
 	var winded := player.is_winded()
-	_bar(at, player.max_stamina * STAMINA_SCALE, STAMINA_HEIGHT,
+	_bar(at, minf(player.max_stamina * STAMINA_SCALE, MAX_BAR), STAMINA_HEIGHT,
 			maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0),
 			STAMINA_SPENT if winded else STAMINA, 0.0, Color.TRANSPARENT)
 	_draw_skills()
 	_draw_level()
 
 
-## The medallion with the level in it, the name, the experience bar; the
-## experience a kill brought floating off it; a new level across the screen.
+## The level: a gilt shield at the head of the bars with the number in it and
+## the hero's name over them; the experience a Lineage-style gold line along
+## the very bottom of the screen, cut in tenths, with the count over its left
+## end and what a kill brought rising off it; a new level "LEVEL UP" at the top
+## of the screen, and the shield throwing out light.
 func _draw_level() -> void:
 	if _book == null:
 		return
 	var font := ThemeDB.fallback_font
-	# A dark plate under it all, so it reads over sky and snow alike.
-	var plate := Rect2(Vector2(MARGIN.x - 4.0, 5.0), Vector2(XP_WIDTH + 128.0, 40.0))
-	_bars.draw_rect(plate, Color(FRAME, 0.55))
-	_bars.draw_rect(plate, Color(EDGE, 0.35), false, 1.0)
-	var c := Vector2(MARGIN.x + 15.0, 25.0)
-	var glow := 1.0 - clampf(_up_time / 1.5, 0.0, 1.0)
+	var view := _bars.size
+	var glow := 1.0 - clampf(_up_time / 2.0, 0.0, 1.0)
+	# The shield.
+	var c := Vector2(38.0, 38.0)
 	if glow > 0.0:
-		_bars.draw_circle(c, 17.0 + 10.0 * glow, Color(1.0, 0.85, 0.4, 0.4 * glow))
-	_bars.draw_circle(c, 16.5, FRAME)
-	_bars.draw_circle(c, 15.0, GOLD_DEEP)
-	_bars.draw_circle(c, 11.0, Color(GOLD_DEEP.darkened(0.25)))
-	_bars.draw_arc(c, 15.0, 0.0, TAU, 32, GOLD, 2.0)
-	_bars.draw_arc(c, 11.0, 0.0, TAU, 32, Color(GOLD, 0.45), 1.0)
+		for k in 12:
+			var t := TAU * k / 12.0 + _up_time * 0.8
+			var d := Vector2(cos(t), sin(t))
+			_bars.draw_line(c + d * 26.0, c + d * (34.0 + 26.0 * glow), Color(1.0, 0.9, 0.55, 0.55 * glow), 2.0)
+		_bars.draw_circle(c, 30.0 + 6.0 * glow, Color(1.0, 0.85, 0.45, 0.25 * glow))
+	var outer := PackedVector2Array([Vector2(12, 10), Vector2(64, 10), Vector2(64, 44), Vector2(38, 68),
+			Vector2(12, 44)])
+	var inner := PackedVector2Array([Vector2(16, 14), Vector2(60, 14), Vector2(60, 42), Vector2(38, 63),
+			Vector2(16, 42)])
+	_bars.draw_colored_polygon(outer, Color(0.06, 0.05, 0.05, 0.88))
+	_bars.draw_colored_polygon(inner, Color(0.16, 0.08, 0.07, 0.9))
+	var ring := outer.duplicate()
+	ring.append(outer[0])
+	_bars.draw_polyline(ring, GOLD.lerp(Color(1, 1, 0.9), glow), 2.0)
+	var ring2 := inner.duplicate()
+	ring2.append(inner[0])
+	_bars.draw_polyline(ring2, Color(GOLD, 0.45), 1.0)
+	var lv_w := font.get_string_size("LEVEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+	_bars.draw_string(font, Vector2(c.x - lv_w * 0.5, 25.0), "LEVEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 9,
+			Color(GOLD, 0.85))
 	var lv := str(_book.level)
-	var w := font.get_string_size(lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-	_bars.draw_string(font, c + Vector2(-w * 0.5, 6.5), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
-			Color(1.0, 0.95, 0.8))
-	var x := c.x + 24.0
+	var w := font.get_string_size(lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+	_bars.draw_string(font, Vector2(c.x - w * 0.5 + 1.0, 50.0), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 26,
+			Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, Vector2(c.x - w * 0.5, 49.0), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 26,
+			Color(1.0, 0.95, 0.82).lerp(Color(1, 1, 1), glow))
+	# The name over the bars.
 	var hero_name := player.profile.display_name if player.profile != null else ""
-	var title := "%s   Lv %d" % [hero_name, _book.level]
-	_bars.draw_string(font, Vector2(x + 1.0, 22.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0, 0, 0, 0.8))
-	_bars.draw_string(font, Vector2(x, 21.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.93, 0.78))
+	_bars.draw_string(font, MARGIN + Vector2(1.0, -6.0), hero_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+			Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, MARGIN + Vector2(0.0, -7.0), hero_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+			Color(1.0, 0.93, 0.8))
+	# The experience, along the bottom edge.
 	var need := _book.needed()
-	var share := float(_book.xp) / float(need) if need > 0 else 1.0
-	var at := Vector2(x, 29.0)
-	_bars.draw_rect(Rect2(at - Vector2(1, 1), Vector2(XP_WIDTH + 2, 8)), FRAME)
-	_bars.draw_rect(Rect2(at, Vector2(XP_WIDTH * clampf(share, 0.0, 1.0), 6)), GOLD)
-	_bars.draw_rect(Rect2(at, Vector2(XP_WIDTH * clampf(share, 0.0, 1.0), 2)), Color(1, 1, 1, 0.25))
-	_bars.draw_rect(Rect2(at - Vector2(1, 1), Vector2(XP_WIDTH + 2, 8)), Color(EDGE, 0.7), false, 1.0)
-	var label := "%d / %d XP" % [_book.xp, need] if need > 0 else "MAX"
-	_bars.draw_string(font, Vector2(at.x + XP_WIDTH + 8.0, 36.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
-			Color(1.0, 0.9, 0.7, 0.9))
-	if _gain_time < 1.6:
-		var a := 1.0 - clampf((_gain_time - 0.8) / 0.8, 0.0, 1.0)
-		var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-		_bars.draw_string(font, Vector2(x + tw + 12.0, 21.0 - 8.0 * _gain_time), "+%d XP" % _gain,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.82, 0.3, a))
-	if _up_time < 3.0:
-		var view := _bars.size
-		var a := clampf(_up_time / 0.25, 0.0, 1.0) * (1.0 - clampf((_up_time - 2.2) / 0.8, 0.0, 1.0))
-		var big := "LEVEL %d" % _up_level
-		var bw := font.get_string_size(big, HORIZONTAL_ALIGNMENT_LEFT, -1, 56).x
-		var y := view.y * 0.28
-		_bars.draw_rect(Rect2(Vector2(0, y - 58.0), Vector2(view.x, 84.0)), Color(0, 0, 0, 0.35 * a))
-		_bars.draw_line(Vector2(view.x * 0.3, y - 56.0), Vector2(view.x * 0.7, y - 56.0), Color(GOLD, 0.6 * a), 1.0)
-		_bars.draw_line(Vector2(view.x * 0.3, y + 24.0), Vector2(view.x * 0.7, y + 24.0), Color(GOLD, 0.6 * a), 1.0)
-		_bars.draw_string(font, Vector2((view.x - bw) * 0.5 + 2.0, y + 3.0), big, HORIZONTAL_ALIGNMENT_LEFT, -1, 56,
-				Color(0, 0, 0, 0.8 * a))
-		_bars.draw_string(font, Vector2((view.x - bw) * 0.5, y), big, HORIZONTAL_ALIGNMENT_LEFT, -1, 56,
-				Color(GOLD, a))
-		var sub := "stronger — health restored"
-		var sw := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-		_bars.draw_string(font, Vector2((view.x - sw) * 0.5, y + 18.0), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
-				Color(1.0, 0.93, 0.78, 0.9 * a))
+	var share := clampf(float(_book.xp) / float(need), 0.0, 1.0) if need > 0 else 1.0
+	var line := Rect2(Vector2(0.0, view.y - 7.0), Vector2(view.x, 7.0))
+	_bars.draw_rect(line, Color(0.03, 0.03, 0.03, 0.8))
+	var fill := Rect2(line.position + Vector2(0, 2), Vector2(view.x * share, 4.0))
+	_bars.draw_rect(fill, Color(0.78, 0.55, 0.16))
+	_bars.draw_rect(Rect2(fill.position, Vector2(fill.size.x, 1.5)), Color(1.0, 0.9, 0.55, 0.9))
+	if share > 0.0 and share < 1.0:
+		_bars.draw_circle(Vector2(view.x * share, line.position.y + 4.0), 3.0, Color(1.0, 0.92, 0.6, 0.9))
+	for k in range(1, 10):
+		var tx := view.x * k / 10.0
+		_bars.draw_line(Vector2(tx, line.position.y + 1.0), Vector2(tx, line.end.y), Color(0, 0, 0, 0.7), 1.0)
+	_bars.draw_line(line.position, Vector2(view.x, line.position.y), Color(GOLD, 0.55), 1.0)
+	var label := "EXP  %d / %d   %.1f%%" % [_book.xp, need, share * 100.0] if need > 0 else "EXP  MAX"
+	var lx := 12.0
+	var ly := line.position.y - 6.0
+	_bars.draw_string(font, Vector2(lx + 1.0, ly + 1.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, Vector2(lx, ly), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.88, 0.6))
+	if _gain_time < 1.8:
+		var a := 1.0 - clampf((_gain_time - 1.0) / 0.8, 0.0, 1.0)
+		var lw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		var gain := "+%d EXP" % _gain
+		var at := Vector2(lx + lw + 14.0, ly - 16.0 * _gain_time)
+		_bars.draw_string(font, at + Vector2(1, 1), gain, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0, 0, 0, 0.7 * a))
+		_bars.draw_string(font, at, gain, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.85, 0.35, a))
+	# A new level, at the top of the screen.
+	if _up_time < 3.2:
+		var a := clampf(_up_time / 0.2, 0.0, 1.0) * (1.0 - clampf((_up_time - 2.4) / 0.8, 0.0, 1.0))
+		var pop := 1.0 + 0.35 * (1.0 - clampf(_up_time / 0.3, 0.0, 1.0))
+		var y := view.y * 0.2
+		var title := "L E V E L   U P"
+		var tw := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x
+		_bars.draw_set_transform(Vector2(view.x * 0.5, y), 0.0, Vector2(pop, pop))
+		_bars.draw_string(font, Vector2(-tw * 0.5 + 2.0, 2.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 40,
+				Color(0, 0, 0, 0.75 * a))
+		_bars.draw_string(font, Vector2(-tw * 0.5, 0.0), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 40,
+				Color(1.0, 0.86, 0.42, a))
+		_bars.draw_set_transform(Vector2.ZERO)
+		var sub := "Level %d" % _up_level
+		var sw := font.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		_bars.draw_string(font, Vector2((view.x - sw) * 0.5 + 1.5, y + 31.5), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 20,
+				Color(0, 0, 0, 0.85 * a))
+		_bars.draw_string(font, Vector2((view.x - sw) * 0.5, y + 30.0), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 20,
+				Color(1.0, 0.9, 0.6, a))
+		var half := tw * 0.5 + 30.0
+		for side: float in [-1.0, 1.0]:
+			var from := Vector2(view.x * 0.5 + side * (sw * 0.5 + 14.0), y + 23.0)
+			var to := Vector2(view.x * 0.5 + side * half, y + 23.0)
+			_bars.draw_line(from, to, Color(GOLD, 0.7 * a), 1.0)
+			_bars.draw_colored_polygon(PackedVector2Array([to + Vector2(side * 5.0, 0), to + Vector2(0, -3),
+					to + Vector2(-side * 5.0, 0), to + Vector2(0, 3)]), Color(GOLD, 0.8 * a))
 
 
 func _on_skill_used(_slot: int, id: StringName) -> void:

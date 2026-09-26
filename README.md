@@ -3613,7 +3613,7 @@ every peer the new level and experience (`net_progress`).
 
 | to reach | experience | wolves |
 |---|---|---|
-| level 2 | 30 | 3 |
+| level 2 | 40 | 4 |
 | level 3 | 70 more | 7 |
 | level 4 | 100 more | 10 |
 | 5, 6, 7, 8, 9, 10 | 140, 180, 230, 280, 340, 400 more | |
@@ -3639,13 +3639,25 @@ and m.def 49. The growth goes onto the hero's own copy of his profile (the
 controller's `max_health`, `p_def`, `m_def`, `max_stamina`, which a respawn
 keeps.
 
-**Where it shows.** A gilt medallion with the level in it over the health bar,
-the hero's name and "Lv" beside it and a thin gold bar for the experience
-towards the next ("10 / 30 XP"); what a kill brought floats up beside the name
-("+10 XP"); a new level is written across the screen in gold — "LEVEL 2,
-stronger — health restored" — for a couple of seconds. The inventory's
+**Where it shows.** A gilt shield at the head of the health and stamina bars
+with the level in it, the hero's name over the bars; the experience a gold
+line along the whole bottom edge of the screen, cut in tenths, with "EXP
+10 / 40  25.0%" over its left end and what a kill brought rising off it
+("+10 EXP"); a new level is "LEVEL UP" at the top of the screen, and the
+shield throws out light. The bars stop growing at 480 px, however high the
+level.
+
+**The beam** (`scripts/level_beam.gd`, `LevelBeam.on(hero)`): a column of white
+light comes down out of the sky onto the hero in a third of a second and
+stands on him — the way a ship's beam takes someone up — then thins and is
+gone after three seconds. Two open cylinders 70 m high (a broad pale one and a
+bright core) with an additive shader, brightest through the middle of the
+column and streaming downward; a disc on the ground with a pool of light, a
+turning circle at the beam's foot and a ring spreading out; motes of light
+rising through it; a light that flashes as it lands. It follows him, upright.
+Every peer makes its own from `Leveling.net_progress`, nothing replicated. The inventory's
 Character Status has the level, the experience, P.ATK or M.ATK, P.DEF / M.DEF.
 
-`tests/leveling_test.gd`: level 1 to start; a wolf far off is nothing; 3, 7
-and 10 wolves are levels 2, 3 and 4, each healing; Tariel grown by his line;
+`tests/leveling_test.gd`: level 1 to start; a wolf far off is nothing; 4, 7
+and 10 wolves are levels 2, 3 and 4, each healing and each with its beam; Tariel grown by his line;
 the shared profile untouched; what an imp and an orc are worth.
