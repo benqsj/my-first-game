@@ -45,7 +45,12 @@ extends StaticBody3D
 	Vector4(-108.0, 14.0, 22.0, 8.0),    # a shoulder by the west wall
 	Vector4(-30.0, 104.0, 20.0, 6.0),    # north of the core, over the wood's edge
 	Vector4(104.0, -34.0, 20.0, 8.0),    # the east down, past the puglins' lane
-	Vector4(84.0, 100.0, 22.0, 7.5),     # the north-east knoll
+	# The wolves' hill behind the village, wooded ([Forest.GROVE]): it rises
+	# from the village's north fence to the north wall, highest to the north-east.
+	# Wide and centred up against the wall, so it climbs gently all the way.
+	Vector4(74.0, 120.0, 42.0, 9.0),
+	Vector4(100.0, 102.0, 22.0, 4.0),
+	Vector4(44.0, 110.0, 22.0, 3.5),
 	Vector4(102.0, -96.0, 24.0, 8.5),    # the south-east rise
 	Vector4(76.0, -40.0, 12.0, -2.4),    # a hollow in the east fields
 	Vector4(-66.0, 76.0, 13.0, -2.2),    # a dip in the wood
@@ -200,11 +205,16 @@ func _build_mask() -> void:
 		if holder == null:
 			continue
 		for node in holder.find_children("*", "Node3D", false, false):
+			# Wolves live on their hill, and are stood on it where they are.
+			if node is Wolf:
+				continue
 			var at := (node as Node3D).global_position
 			_keep_circle(Vector2(at.x, at.z), 3.0)
 	for camp: Array in World.CAMPS:
 		var c: Vector2 = camp[1]
 		_keep_circle(c, 8.0)
+	# The village's lot, all of it, as it stands once it has been spread.
+	_keep_rect(World.VILLAGE)
 	for c: Vector3 in Forest.CLEARINGS:
 		_keep_circle(Vector2(c.x, c.y), c.z * 0.6)
 	# The tracks: a third of the roll left.

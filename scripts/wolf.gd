@@ -228,6 +228,9 @@ const POUNCE_LIVE := Vector2(0.5, 0.86)
 
 func _ready() -> void:
 	add_to_group(&"wolf")
+	# Stood on the ground where it was put: its hill is not flattened for it.
+	if Terrain.current != null:
+		global_position.y = Terrain.height_under(global_position.x, global_position.z, 0.4) + 0.2
 	_home = global_position
 	_rng.randomize()
 	_pick_prowl_target()

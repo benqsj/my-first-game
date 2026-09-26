@@ -117,15 +117,11 @@ const HEDGEROW := {
 ## than [PackedVector2Array]s: the packed one has to be *constructed*, and a
 ## constructor call cannot sit in a `const`.
 const HEDGEROWS: Array[Array] = [
-	# The two long field boundaries the settlement sits between.
-	[Vector2(26, 18), Vector2(62, 15), Vector2(102, 19)],
-	[Vector2(28, 70), Vector2(66, 73), Vector2(104, 69)],
-	# A windbreak along the far side of the fields.
-	[Vector2(106, 22), Vector2(109, 46), Vector2(106, 66)],
+	# Along the foot of the wolves' hill, outside the village's north fence.
+	[Vector2(24, 81), Vector2(66, 83), Vector2(110, 80)],
 	# The lane down from the settlement to the greybox core.
 	[Vector2(30, 6), Vector2(58, -2), Vector2(92, -8)],
 	# And the rest of the farmed ground, north and south of the settlement.
-	[Vector2(6, 84), Vector2(44, 94), Vector2(84, 92)],
 	[Vector2(16, 96), Vector2(20, 72), Vector2(14, 48)],
 	[Vector2(72, -30), Vector2(98, -46), Vector2(108, -74)],
 	[Vector2(24, -46), Vector2(58, -56), Vector2(86, -52)],
@@ -168,7 +164,7 @@ const CLEARINGS: Array[Vector3] = [
 	# And the puglins', out on the open side, clear of the hedgerows.
 	Vector3(40.0, -70.0, 9.0),
 	Vector3(88.0, -68.0, 9.0),
-	Vector3(40.0, 108.0, 9.0),
+	Vector3(82.0, -14.0, 9.0),
 	# The lane out to the east, and Arkdeva's glade in the wood, which is wide:
 	# its thorns run eleven metres.
 	Vector3(60.0, -12.0, 13.0),
@@ -191,6 +187,18 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(0.0, -302.0, 34.0),
 	Vector3(14.0, -255.0, 12.0),
 	Vector3(36.0, -232.0, 10.0),
+]
+
+## The wood on the hill behind the village, where the wolves live: from the
+## foot of the hill (a little past the village's north fence, the edge ragged)
+## up to the north wall, and from the west end of the village to the east
+## wall (x, z, width, depth). Planted after everything else, so the rest of
+## the map's wood comes out of the seed exactly as it did before.
+const GROVE := Rect2(22.0, 80.0, 96.0, 40.0)
+## The wolves' glades in it (x, z, radius).
+const GROVE_GLADES: Array[Vector3] = [
+	Vector3(62.0, 100.0, 7.0),
+	Vector3(96.0, 104.0, 7.0),
 ]
 
 @export_group("Layout")
@@ -307,6 +315,8 @@ var _shape_pool: Dictionary = {}
 var _radius_cache: Dictionary = {}
 ## Gap-grid cell -> where the trunks already planted in it stand.
 var _standing: Dictionary = {}
+## Planting the wolves' hill ([constant GROVE]) rather than the wood at large.
+var _on_hill: bool = false
 
 
 func _ready() -> void:
@@ -348,6 +358,12 @@ func _ready() -> void:
 		_grow("Canopy Bay", CANOPY, tree_draw_distance, trees_cast_shadows, true, from, to)
 		_grow("Undergrowth Bay", UNDERGROWTH, undergrowth_draw_distance, false, false, from, to)
 		_grow("Litter Bay", LITTER, litter_draw_distance, false, false, from, to)
+	# The wolves' hill, last of all.
+	_on_hill = true
+	_grow("Canopy Hill", CANOPY, tree_draw_distance, trees_cast_shadows, true, GROVE.position.y - 4.0, GROVE.end.y)
+	_grow("Undergrowth Hill", UNDERGROWTH, undergrowth_draw_distance, false, false, GROVE.position.y - 4.0, GROVE.end.y)
+	_grow("Litter Hill", LITTER, litter_draw_distance, false, false, GROVE.position.y - 4.0, GROVE.end.y)
+	_on_hill = false
 
 	print("Forest: %s, %d trunks over %d bodies (%d distinct shapes), in %.1f ms" % [
 			counts, trunk_count(), _bodies.size(), _shape_pool.size(),
@@ -518,6 +534,8 @@ func _grow_lines(group_name: String, group: Dictionary, lines: Array[Array]) -> 
 func _coverage(at: Vector2) -> float:
 	if _is_wet(at) or _on_path(at):
 		return 0.0
+	if _on_hill:
+		return _hill_wood(at)
 	for zone in CLEARINGS:
 		var gap := at.distance_to(Vector2(zone.x, zone.y))
 		if gap < zone.z:
@@ -526,6 +544,29 @@ func _coverage(at: Vector2) -> float:
 		if gap < zone.z + 7.0:
 			return _wood(at) * (gap - zone.z) / 7.0
 	return _wood(at)
+
+
+## The wood on the wolves' hill ([constant GROVE]): thick from the ragged foot
+## of it up, with the density field's glades and the wolves' own.
+func _hill_wood(at: Vector2) -> float:
+	if not GROVE.grow(2.0).has_point(at):
+		return 0.0
+	var foot := GROVE.position.y + _edge.get_noise_2d(at.x * 4.0, 17.0) * 4.0
+	var up := clampf((at.y - foot) / 6.0, 0.0, 1.0)
+	var west := clampf((at.x - GROVE.position.x) / 8.0, 0.0, 1.0)
+	if up <= 0.0 or west <= 0.0:
+		return 0.0
+	var k := up * west
+	for g: Vector3 in GROVE_GLADES:
+		var gap := at.distance_to(Vector2(g.x, g.y))
+		if gap < g.z:
+			return 0.0
+		if gap < g.z + 5.0:
+			k *= (gap - g.z) / 5.0
+	var field := _density.get_noise_2d(at.x, at.y)
+	if field < glade_cut:
+		return 0.0
+	return k * clampf((field - glade_cut) / 0.12, 0.0, 1.0)
 
 
 ## The treeline: everything past a wandering line is wood, everything before it

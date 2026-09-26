@@ -71,7 +71,8 @@ const CAMPS: Array[Array] = [
 	# Puglins: ten, out on the farmland, in bands of three, three and four.
 	[&"puglin", Vector2(40.0, -70.0), 3],
 	[&"puglin", Vector2(88.0, -68.0), 3],
-	[&"puglin", Vector2(40.0, 108.0), 4],
+	# (Out on the east fields: the hill behind the village is the wolves'.)
+	[&"puglin", Vector2(82.0, -14.0), 4],
 	# Two orc warriors, wading in the bay off the end of the fishermen's pier —
 	# the first thing met at the far end of the map. Every second orc of a band
 	# is the great-axe one (`ORC_MIX`).
@@ -441,17 +442,32 @@ func _mark(slot: int) -> Vector3:
 
 #region The village
 ## The ground the village stands on, inside its fence (x, z, width, depth).
-const VILLAGE := Rect2(20.0, 14.0, 92.0, 62.0)
-## The huts are spread out from this line and made this much bigger, so they
-## stand at the size of a house next to a man rather than a shed.
-const HUT_GROWTH := 1.3
-const HUT_SPREAD_FROM := 62.0
+## Grown to the north and south and out to the east, so the bigger houses have
+## room round them; behind it, to the north, the wooded hill ([Forest.GROVE]).
+const VILLAGE := Rect2(20.0, 6.0, 96.0, 72.0)
+## Everything in the village is spread out from this line (x, from the gate
+## towers) and from the street (z), this much: the lot grows with the houses.
+const SPREAD_FROM := Vector2(30.0, 42.0)
+const SPREAD := Vector2(1.12, 1.4)
+## How much bigger each kind of building is made, across and up: taller than
+## they are wider, so a hut stands two storeys against a man rather than a shed.
+const GROWTH := {
+	"Hut": Vector2(1.5, 1.9),
+	"Barracks": Vector2(1.3, 1.6),
+	"TownCentre": Vector2(1.3, 1.55),
+	"Windmill": Vector2(1.3, 1.55),
+	"WatchTower": Vector2(1.3, 1.5),
+	"GateTower": Vector2(1.25, 1.45),
+	"Wall": Vector2(1.25, 1.35),
+}
+## And each row of houses steps back off the street this far as it grows.
+const ROW_STEP := 4.0
 const FENCE_SCENE := "res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx"
 ## Where the gap in the fence is: the west side, between the gate towers, where
 ## the track comes in.
-const GATE := Vector2(34.0, 52.0)
+const GATE := Vector2(35.0, 50.0)
 ## Where the villagers walk: along the street between the rows and round the
-## square.
+## square (as the village stood before it was spread; spread with it).
 const STREET := [
 	Vector3(36, 0, 42), Vector3(46, 0, 41.5), Vector3(56, 0, 42.5), Vector3(66, 0, 42),
 	Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(90, 0, 40), Vector3(90, 0, 47),
@@ -460,27 +476,61 @@ const STREET := [
 const VILLAGERS := 7
 
 
-## Bigger houses, spread along the street to make room for it; a fence round
-## the lot with its gate where the track comes in; people.
+## Where a point of the village as it stands in the scene ends up once the
+## village is spread.
+static func spread(at: Vector3) -> Vector3:
+	return Vector3(SPREAD_FROM.x + (at.x - SPREAD_FROM.x) * SPREAD.x, at.y,
+			SPREAD_FROM.y + (at.z - SPREAD_FROM.y) * SPREAD.y)
+
+
+## Bigger and taller houses, spread out over a bigger lot to make room for them;
+## a fence round the lot with its gate where the track comes in; people.
 func _dress_village() -> void:
 	var village := get_node_or_null("Level/Village") as Node3D
 	if village == null:
 		return
 	for child in village.get_children():
-		var house := child as Node3D
-		if house == null:
+		var thing := child as Node3D
+		if thing == null:
 			continue
-		var kind := String(house.name)
-		if not (kind.begins_with("Hut") or kind == "Barracks"):
-			continue
-		var at := house.position
-		at.x = HUT_SPREAD_FROM + (at.x - HUT_SPREAD_FROM) * 1.28
-		# Each row steps back off the street as it grows.
-		at.z += -3.2 if at.z < 42.0 else 3.2
-		house.position = at
-		house.basis = house.basis.scaled(Vector3.ONE * HUT_GROWTH)
+		var kind := String(thing.name)
+		var at := spread(thing.position)
+		var grow := Vector2.ONE
+		for key: String in GROWTH:
+			if kind.begins_with(key):
+				grow = GROWTH[key]
+				break
+		if kind.begins_with("Hut") or kind == "Barracks":
+			at.z += -ROW_STEP if thing.position.z < SPREAD_FROM.y else ROW_STEP
+		thing.position = at
+		if grow != Vector2.ONE:
+			_grow_building(thing, Vector3(grow.x, grow.y, grow.x))
 	_build_fence(village)
 	_settle_villagers(village)
+
+
+## Makes a [Building] bigger by `by` in its own frame: the model inside it
+## scaled (it may be taller than it is wide), and the hulls it collides with
+## scaled to match, point by point — so the body itself is never scaled unevenly,
+## which the physics does not take well.
+static func _grow_building(thing: Node3D, by: Vector3) -> void:
+	for child in thing.get_children():
+		var body := child as StaticBody3D
+		if body != null:
+			for node in body.get_children():
+				var cs := node as CollisionShape3D
+				var hull := cs.shape as ConvexPolygonShape3D if cs != null else null
+				if hull == null:
+					continue
+				var points := hull.points
+				for i in points.size():
+					points[i] = (cs.transform * points[i]) * by
+				hull.points = points
+				cs.transform = Transform3D.IDENTITY
+			continue
+		var part := child as Node3D
+		if part != null:
+			part.transform = Transform3D(Basis.from_scale(by), Vector3.ZERO) * part.transform
 
 
 func _build_fence(village: Node3D) -> void:
@@ -552,7 +602,7 @@ func _settle_villagers(village: Node3D) -> void:
 		return
 	var spots: Array[Vector3] = []
 	for p: Vector3 in STREET:
-		spots.append(p)
+		spots.append(spread(p))
 	for i in VILLAGERS:
 		var one := Villager.new()
 		one.name = "Villager%d" % i

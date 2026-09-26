@@ -78,6 +78,7 @@ func _ring(ring_name: String, radius: float, count: int, span: Vector2) -> void:
 				Vector3(size, size * _rng.randf_range(0.75, 1.35), size))
 
 		var pick := _rng.randi_range(0, MODELS.size() - 1)
+		at = _clear_of_the_land(at, size, pick)
 		var list: Array = placed.get(pick, [])
 		list.append(Transform3D(basis, at))
 		placed[pick] = list
@@ -112,3 +113,31 @@ func _ring(ring_name: String, radius: float, count: int, span: Vector2) -> void:
 		# nothing to have.
 		node.lod_bias = 0.25
 		holder.add_child(node)
+
+
+## The peaks north and east of the old square stood with their feet in it —
+## over the land behind the village where the wolves' wooded hill is, and on
+## the village's east side. One found there is pushed back out along its line
+## from the rings' centre until its foot is clear of the land, so the hill and
+## its wood stand in front of the mountains rather than inside them. Worked out
+## after every number has been drawn, so no other peak moves.
+func _clear_of_the_land(at: Vector3, size: float, pick: int) -> Vector3:
+	if at.x < 0.0 or at.z < -120.0:
+		return at
+	var mesh := load(MODELS[pick]) as Mesh if ResourceLoader.exists(MODELS[pick]) else null
+	if mesh == null:
+		return at
+	var box := mesh.get_aabb()
+	var foot := 0.42 * maxf(box.size.x, box.size.z) * size
+	var out := Vector2(at.x - centre.x, at.z - centre.y).normalized()
+	for i in 100:
+		if at.x - foot >= LAND_EDGE or at.z - foot >= LAND_EDGE:
+			break
+		at.x += out.x * 3.0
+		at.z += out.y * 3.0
+	return at
+
+
+## How far the land runs, north and east, before the peaks may stand.
+const LAND_EDGE := 116.0
+
