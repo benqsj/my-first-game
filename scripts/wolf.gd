@@ -44,7 +44,9 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## How far ahead that sweep reaches. Must exceed the body's radius.
 @export var step_probe: float = 0.6
 @export var prowl_speed: float = 1.1
-@export var charge_speed: float = 5.6
+@export var charge_speed: float = 6.4
+## On all fours after somebody it runs faster than upright.
+@export var charge_speed_on_fours: float = 8.5
 @export var acceleration: float = 22.0
 @export var turn_speed: float = 9.0
 ## How far from where it started it will wander.
@@ -164,10 +166,24 @@ var _pouncing: bool = false
 ## Missiles (arrows, bolts, fire) it sees coming at it: how often it gets out of
 ## one loosed from far off once it is after somebody, and from close in, while
 ## it comes at him.
-@export var missile_dodge_far: float = 0.65
-@export var missile_dodge_near: float = 0.12
+@export var missile_dodge_far: float = 0.85
+@export var missile_dodge_near: float = 0.55
 @export var missile_near: float = 5.0
 @export var missile_far: float = 10.0
+
+## The leap at the end of a run: from how far off him it goes (metres), how
+## long it gathers for, how long it is in the air, and how long before it may
+## leap like that again.
+@export var run_leap_range: Vector2 = Vector2(3.0, 6.5)
+@export var run_leap_gather: float = 0.2
+@export var run_leap_flight: float = 0.65
+@export var run_leap_cooldown: float = 4.0
+var _leap_wait: float = 0.0
+## Seconds until it springs off the ground in a leap under way.
+var _leap_in: float = -1.0
+## The move under way is a dodge or a hop: another missile may be got out of
+## before it is over.
+var _dodge_busy: bool = false
 
 ## Its fighting mind (host).
 var mind: WolfMind
@@ -230,6 +246,7 @@ func _ready() -> void:
 		rig.gait = 1.0 if absi(hash(String(name) + "/gait")) % 2 == 0 else 0.0
 		if rig.gait > 0.5:
 			prowl_speed *= 0.75
+			charge_speed = charge_speed_on_fours
 	_bar = HealthBar.new()
 	_bar.position = Vector3(0.0, bar_height, 0.0)
 	# Kept out of the body's rotation so it never turns edge-on to the camera.
@@ -252,6 +269,11 @@ func _physics_process(delta: float) -> void:
 	_prowl_timer = maxf(_prowl_timer - delta, 0.0)
 	_busy = maxf(_busy - delta, 0.0)
 	_claw_wait = maxf(_claw_wait - delta, 0.0)
+	_leap_wait = maxf(_leap_wait - delta, 0.0)
+	if _leap_in >= 0.0:
+		_leap_in -= delta
+		if _leap_in < 0.0 and not is_dead:
+			_leap_off()
 	_evading = maxf(_evading - delta, 0.0)
 	if _slipping > 0.0:
 		_slipping -= delta
@@ -409,6 +431,9 @@ func _think(delta: float) -> void:
 			if distance > lose_range and (_provoked <= 0.0 or distance > 90.0):
 				state = State.PROWL
 				_pick_prowl_target()
+			elif _can_run_leap(distance):
+				# Nearly on him at a run: straight on at him through the air.
+				attack(&"run_leap")
 			elif distance < fight_from():
 				state = State.FIGHT
 				_fighting = quarry
@@ -457,7 +482,8 @@ func _think(delta: float) -> void:
 ## and him shooting from out of reach — it gets out of the way of most; while
 ## it runs at him and is nearly on him, of few. Unaware on its beat, of none.
 func _watch_missiles() -> void:
-	if is_dead or state == State.PROWL or not can_leap() or _busy > 0.0 and not winding_up():
+	if is_dead or state == State.PROWL or not can_leap() \
+			or _busy > 0.0 and not winding_up() and not (_dodge_busy and _busy < 0.35):
 		return
 	var centre := global_position + Vector3.UP * 0.9
 	for node in get_tree().get_nodes_in_group(&"missile"):
@@ -533,6 +559,44 @@ func is_busy() -> bool:
 	return _busy > 0.0 or _reeling > 0.0
 
 
+## Out of the way of a blow or a missile right now: a mage's bolt shaken off by
+## it flies on straight instead of coming round after it ([SpellBolt]).
+func is_evading() -> bool:
+	return _evading > 0.0 or _slipping > 0.0
+
+
+## A run ending in a leap: at a run, nearly on him, the wait since the last
+## one over, legs under it and a paw to strike with.
+func _can_run_leap(distance: float) -> bool:
+	if _leap_wait > 0.0 or _busy > 0.0 or not can_leap() or arms_left() == 0 or rig.is_clawing():
+		return false
+	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
+	return planar > 5.0 and distance >= run_leap_range.x and distance <= run_leap_range.y
+
+
+## Off the ground: at him if he is anywhere ahead, thrown far enough to land
+## on him and high enough to be in the air for `run_leap_flight`.
+func _leap_off() -> void:
+	var ahead := -global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
+	var reach := 4.5
+	var quarry := _quarry()
+	if quarry != null:
+		var to := quarry.global_position - global_position
+		to.y = 0.0
+		if to.length() > 0.1 and to.normalized().dot(ahead) > 0.3:
+			ahead = to.normalized()
+			reach = to.length()
+	rotation.y = atan2(-ahead.x, -ahead.z)
+	var across := clampf((reach - 0.6) / run_leap_flight, 5.0, 13.0)
+	# Up enough to be in the air the whole flight, a good half metre at the top.
+	velocity = ahead * across + Vector3.UP * (_gravity * run_leap_flight * 0.5)
+	floor_snap_length = 0.0
+	get_tree().create_timer(run_leap_flight, false).timeout.connect(func() -> void: floor_snap_length = 0.1)
+	_burst = run_leap_flight + 0.08
+
+
 ## Early in its own windup, still able to break it off.
 func winding_up() -> bool:
 	return (rig.is_swiping() and _swipe_lands > swipe_lands_after * 0.4) or _pounce_in > 0.2
@@ -600,6 +664,7 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 	var ahead := -global_transform.basis.z
 	ahead.y = 0.0
 	ahead = ahead.normalized()
+	_dodge_busy = move == &"dodge_left" or move == &"dodge_right" or move == &"hop"
 	match move:
 		&"swipe":
 			if arms_left() == 0:
@@ -643,6 +708,18 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 			velocity += ahead * ground_lunge_speed
 			_burst = 0.4
 			attacked.emit()
+		&"run_leap":
+			_swipe_count += 1
+			_break_off()
+			_leap_wait = run_leap_cooldown
+			_busy = run_leap_gather + run_leap_flight + 0.35
+			# Carried on by its run through the gather, and by the leap after.
+			_burst = run_leap_gather + run_leap_flight
+			_leap_in = run_leap_gather
+			rig.run_leap(run_leap_gather, run_leap_flight)
+			net_move.rpc(move)
+			_arm_claws(Vector2(run_leap_gather, run_leap_gather + run_leap_flight + 0.15), true)
+			attacked.emit()
 		&"claw_wave":
 			if not can_claw(-1.0):
 				return
@@ -684,6 +761,7 @@ func _break_off() -> void:
 		rig.claw.cancel()
 	_swipe_lands = -1.0
 	_pounce_in = -1.0
+	_leap_in = -1.0
 	_pouncing = false
 	_swipe_timer = 0.0
 	_sweeps.clear()
@@ -760,6 +838,8 @@ func net_move(move: StringName) -> void:
 			rig.bite(0.4)
 		&"ground_lunge":
 			rig.ground_lunge()
+		&"run_leap":
+			rig.run_leap(run_leap_gather, run_leap_flight)
 		&"hop":
 			rig.hop_back()
 		&"dodge_left":

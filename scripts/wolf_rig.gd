@@ -146,6 +146,11 @@ var _glints: Dictionary = {}
 var _clock: float = 0.0
 ## The claw wave: its clips and its tell ([WolfClaw]).
 var claw: WolfClaw
+## A leap at the end of a run under way: seconds left, how long it all takes
+## and how much of that is the gather.
+var _leap_timer: float = 0.0
+var _leap_len: float = 0.0
+var _leap_gather: float = 0.0
 
 
 func _ready() -> void:
@@ -321,11 +326,16 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	_overlay(delta)
 	if claw != null:
 		claw.overlay(delta)
+	if _leap_timer > 0.0:
+		_leap_timer = maxf(_leap_timer - delta, 0.0)
+		# The claws flash up as it gathers, and stay lit through the leap.
+		var since := _leap_len - _leap_timer
+		_glint(clampf(since / maxf(_leap_gather, 0.01), 0.0, 1.0) if since < _leap_len - 0.3 else 0.0, 2.0)
 	var swiping := _swipe_timer > 0.0 and _swipe_timer < swipe_duration * (1.0 - swipe_windup)
 	if _trail_l != null:
-		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through() or (claw != null and claw.slashing("l"))
+		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through() or (claw != null and claw.slashing("l")) or _leaping_through()
 	if _trail_r != null:
-		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through() or (claw != null and claw.slashing("r"))
+		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through() or (claw != null and claw.slashing("r")) or _leaping_through()
 
 
 ## Down on its belly, the body is let down until the lowest joint left on it is
@@ -385,7 +395,7 @@ func _choose(planar: float) -> void:
 		# and standing it holds the crawl's pose, low on its four feet.
 		if planar > run_from:
 			clip = RUN
-			pace = clampf(planar / run_pace, 0.7, 1.6)
+			pace = clampf(planar / run_pace, 0.7, 2.2)
 		else:
 			clip = CRAWL_WALK
 			pace = clampf(planar / crawl_walk_pace, 0.6, 1.6) if planar > 0.2 else 0.0
@@ -446,6 +456,7 @@ func reel(length: float = Recoil.STAGGER) -> void:
 	_swipe_timer = 0.0
 	_lunge_timer = 0.0
 	_reel_timer = length
+	_leap_timer = 0.0
 	if claw != null:
 		claw.cancel()
 	if _anim.has_animation(STAGGER):
@@ -462,11 +473,34 @@ func _move(clip: StringName, length: float, rate: float = 1.0, from: float = 0.0
 	_swipe_timer = 0.0
 	_lunge_timer = 0.0
 	_move_timer = length
+	_leap_timer = 0.0
 	if claw != null:
 		claw.cancel()
 	_anim.play(clip, 0.08)
 	_anim.seek(from, true)
 	_anim.speed_scale = rate
+
+
+## At the end of a run, straight on at him off all fours, claws out: it gathers
+## for `gather` seconds (a snarl, the claws flashing) and is in the air for
+## `flight`; the claws come through as it lands.
+func run_leap(gather: float, flight: float) -> void:
+	if _anim == null or _dead:
+		return
+	_swipe_timer = 0.0
+	_lunge_timer = 0.0
+	_leap_gather = gather
+	_leap_len = gather + flight + 0.35
+	_strike(POUNCE, gather + flight * 0.8)
+	_move_timer = _leap_len
+	_leap_timer = _leap_len
+	var body := get_parent() as Node3D
+	if body != null and ResourceLoader.exists(GROWL):
+		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.7, -8.0)
+
+
+func _leaping_through() -> bool:
+	return _leap_timer > 0.0 and _leap_len - _leap_timer > _leap_gather
 
 
 ## Thrown aside, out of a blow's way: -1 to its left, 1 to its right.
@@ -499,6 +533,7 @@ func fall() -> void:
 	if _dead or _anim == null:
 		return
 	_dead = true
+	_leap_timer = 0.0
 	if claw != null:
 		claw.cancel()
 	_swipe_timer = 0.0
