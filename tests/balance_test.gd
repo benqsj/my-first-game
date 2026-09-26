@@ -79,8 +79,9 @@ func _initialize() -> void:
 	_check("above half its health the blade only wounds it", w.rig.lost_parts() == 0 and cuts >= 2,
 			"%d cuts, %d limbs off, %.0f health" % [cuts, w.rig.lost_parts(), w.health])
 	_check("and each cut is taken through its p.def",
-			is_equal_approx(w.max_health - Defence.taken(w.damage_per_hit, w.p_def) * cuts, w.health)
+			is_equal_approx(w.max_health - Defence.taken(player.profile.damage, w.p_def) * cuts, w.health)
 			or w.health <= w.max_health * w.sever_below)
+	w.sever_chance = 1.0
 	_check("at half, limbs come off", not w._wound(player, edge, 999)
 			and w.rig.sever_along_edge(edge[0], edge[1], w.hit_tolerance) != "")
 	_finish()

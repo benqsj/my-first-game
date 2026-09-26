@@ -180,6 +180,8 @@ func _check_two_attackers() -> void:
 	mine.immortal = true
 	other.immortal = true
 	wolf.sever_below = 1.01
+	wolf.sever_chance = 1.0
+	wolf.combo_break_cuts = 99
 
 	# Both standing on it, facing it, swinging on the same tick.
 	for knight in [mine, other]:

@@ -3528,3 +3528,44 @@ in between the stems. **Twelve wolves** now, spread over the whole hill — no
 two nearer than about thirteen metres — with a little room kept round each
 (`GROVE_GLADES`), so a pack is met a wolf or two at a time.
 
+
+## Harder wolves, a gentler poison, over the fence, a bigger fir wood
+
+**A wolf is harder to kill** — above all for the Assassin, whose quick cuts
+used to take it apart:
+
+* **Each hero's cut is his own**: a blade takes off the hero's own `damage`
+  (Tariel 26, the Assassin 17), through the wolf's p.def — no longer a flat 26
+  from anyone.
+* **More of it**: 160 health (was 100).
+* **Limbs are not a way to finish it**: below half its health a cut takes a
+  limb only one time in three (`sever_chance`); the rest wound it.
+* **It breaks out of a combo**: cut three times inside two seconds while it is
+  fighting (`combo_break_cuts`, `combo_window`), it hops back out of it and
+  comes straight back in with a leap (`WolfMind.come_back_leaping`). A string
+  of quick cuts is answered, not just taken.
+
+| to kill a wolf (cuts, no crits) | before | now |
+|---|---|---|
+| Tariel | about 5–6 | about 9 |
+| the Assassin | about 5–6 | about 13, broken out of every third |
+
+**The Poisoned Blade** (`venom_dps` 7 → 2.5): three stacks are 7.5 a second —
+a help to the blade, not the whole of the kill.
+
+**Over the fence.** A hero who ran at the village fence and jumped was pulled up
+onto its rail — a 25 cm top with nothing to stand on beyond it — and stood on it
+or dropped off it. The ledge is now felt for at the face and further in (the
+top of something thin is found, not only the ground past it), and a top with
+nothing under the landing is **vaulted**: over in an arc clear of the rail, down
+onto the ground on the far side (`_vault_peak`). `tests/fence_vault_test.gd`:
+every hero, both ways, lands on his feet on the far side (on the old code three
+of the four stood on the rail).
+
+**The fir wood, bigger and older**: it runs on west past the village down to
+the great wood (`Forest.GROVE_WEST`, the hill's shoulder with it), and has an
+age to it — tall old firs (the three biggest pines of the kit, trunks bare over
+a man's head) about seven metres apart, young firs of every height among them
+(`HILL_YOUNG`), a few open places for the light to come down into, nothing under
+them. Sixteen wolves on it, spread out, four of them in the west part. The oak
+line west of the village is gone (it is inside the wood now).

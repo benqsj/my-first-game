@@ -216,12 +216,15 @@ func _initialize() -> void:
 		for node in enemies.get_children():
 			if node is Wolf and node != wolf:
 				ws.append((node as Node3D).global_position)
-				all_near = all_near and (node as Node3D).global_position.distance_to(den) < 24.0
+				# Spread over their wooded hill behind the village, not in one den.
+				var at := (node as Node3D).global_position
+				all_near = all_near and (Forest.GROVE.grow(2.0).has_point(Vector2(at.x, at.z))
+						or Forest.GROVE_WEST.grow(2.0).has_point(Vector2(at.x, at.z)))
 		for i in ws.size():
 			for j in range(i + 1, ws.size()):
 				closest = minf(closest, ws[i].distance_to(ws[j]))
-		_check("the wolves keep to one den", all_near)
-		_check("but not on top of each other", closest > 3.0, "%.1f m" % closest)
+		_check("the wolves keep to their hill", all_near)
+		_check("spread out over it, not on top of each other", closest > 8.0, "%.1f m" % closest)
 
 	# --- Falling -----------------------------------------------------------------
 	await _wait(30)
