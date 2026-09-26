@@ -109,8 +109,8 @@ func _missiles() -> void:
 	var far := await _shots(wolf, 12.0, 20)
 	var near := await _shots(wolf, 3.0, 20)
 	wolf.charge_speed = charge
-	_check("from far off it gets out of the way of most arrows", far >= 9 and far <= 19, "%d of 20" % far)
-	_check("close in, of few", near <= 8 and near < far, "%d of 20" % near)
+	_check("from far off it gets out of the way of most arrows", far >= 14, "%d of 20" % far)
+	_check("and close in, of many too, though fewer", near >= 6 and near <= far, "%d of 20" % near)
 	_park(wolf)
 
 

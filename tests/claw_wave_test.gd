@@ -296,6 +296,8 @@ func _bring(wolf: Wolf, at: Vector3) -> void:
 	wolf.state = Wolf.State.CHASE
 	wolf._provoked = 30.0
 	wolf._busy = 0.0
+	# Only the claw wave here, not the leap at the end of a run.
+	wolf._leap_wait = 999.0
 	wolf.set_physics_process(true)
 
 
