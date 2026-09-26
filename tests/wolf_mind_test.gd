@@ -153,6 +153,13 @@ func _dodges(wolf: Wolf, swings: int) -> int:
 		wolf.mind._begin(WolfMind.Tactic.WAIT)
 		wolf.mind._left = 999.0
 		_face_player_to(wolf)
+		# Not in the middle of a blow of its own (a cunning one goes in on every
+		# miss, and a wolf swiping cannot throw itself aside): the swing is put
+		# to it free.
+		for k in 90:
+			if not wolf.is_busy():
+				break
+			await physics_frame
 		# Whatever its last blow did to him (a wolf's blow staggers a man now,
 		# or puts him down), he is on his feet and free to swing.
 		if _player.state == Player.State.DOWNED:

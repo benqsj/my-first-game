@@ -3518,3 +3518,13 @@ back out along their line (`Horizon._clear_of_the_land`) until they clear it,
 so the hill and its wood stand in front of the range.
 
 `tests/village_shots.gd -- <dir> <tag>` takes pictures of it.
+
+**The wood on the hill, thinned out** (`Forest.HILL_FIRS`): firs only (two
+pines and a cedar), nothing under them — no bushes, no litter — and no hedgerow
+at its foot. Each is stretched up by 1.45–1.85 on its height alone, so the
+trunks stand bare well over a man's head, and they grow on a 6.8 m lattice with
+no glades cut from it: some forty of them, a wood you can see through and fight
+in between the stems. **Twelve wolves** now, spread over the whole hill — no
+two nearer than about thirteen metres — with a little room kept round each
+(`GROVE_GLADES`), so a pack is met a wolf or two at a time.
+
