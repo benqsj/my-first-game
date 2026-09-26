@@ -92,6 +92,8 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var guard_break_time: float = 1.8
 
 @export_group("Defence")
+## Physical defence, p.def ([Defence]): what its hide takes off a blow.
+@export var p_def: float = 20.0
 ## Chance it raises its guard against a swing, when it has the stamina.
 @export_range(0.0, 1.0) var block_chance: float = 0.5
 ## Chance it throws itself aside instead.
@@ -763,6 +765,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D) -> bool:
 		# Reeling from a parry, or thrown down, it is wide open: the riposte
 		# bites deeper.
 		damage *= Recoil.RIPOSTE
+	damage = Defence.taken(damage, p_def)
 	# Marked by the hunter, everything bites deeper.
 	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)

@@ -58,6 +58,8 @@ enum Weapon {
 ## How much punishment the body takes before it falls. The knight in his plate
 ## is the yardstick; the mage in his robe is the least of them.
 @export var max_health: float = 120.0
+## Physical defence, p.def: how much of a blow his armour takes ([Defence]).
+@export var p_def: float = 0.0
 ## Every roll, swing, shot and blow caught on the shield draws on this.
 @export var max_stamina: float = 100.0
 ## What one attack costs: a swing, an arrow let go, a spell thrown.

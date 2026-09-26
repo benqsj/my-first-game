@@ -63,7 +63,8 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var swipe_interval: float = 1.5
 ## What a swipe that lands takes off, and how far into the swipe the claws
 ## arrive — the player has that long to roll or raise a shield.
-@export var swipe_damage: float = 38.0
+## Two of them are the end of Tariel (160 health, p.def 35), and of anyone.
+@export var swipe_damage: float = 110.0
 @export var swipe_lands_after: float = 0.58
 ## How long it stands open after a swipe is parried.
 @export var parried_stagger: float = 1.6
@@ -72,6 +73,11 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 @export var flee_speed: float = 4.5
 ## How close the blade has to pass a limb to take it off, in metres.
 @export var hit_tolerance: float = 1.0
+## Physical defence, p.def ([Defence]): twice the imp's.
+@export var p_def: float = 40.0
+## Whole until its health is down to this share: before that the blade only
+## wounds it, after it limbs come off.
+@export_range(0.0, 1.0) var sever_below: float = 0.5
 
 @export_group("Corpse")
 ## Seconds a body lies where it fell before it is cleared away. Long enough to
@@ -1029,6 +1035,10 @@ func _take_hits() -> void:
 		if edge.is_empty():
 			continue
 
+		if _wound(knight, edge, serial):
+			if is_dead:
+				return
+			continue
 		var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance)
 		if part == "":
 			continue
@@ -1048,6 +1058,24 @@ func _take_hits() -> void:
 		knight.blade_hit(self, rig.last_cut_point)
 		if is_dead:
 			return
+
+
+## While it is above half its health (`sever_below`) the blade does not take a
+## limb off: it wounds it — blood, the damage, a shove. True when that is what
+## this cut was (whether or not it reached); false once limbs may come off.
+func _wound(knight: Player, edge: Array, serial: int) -> bool:
+	if health <= max_health * sever_below:
+		return false
+	if not rig._blade_reaches(edge[0], edge[1], hit_tolerance):
+		return true
+	_last_hit_serial[knight.name] = serial
+	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * 1.1, edge[0], edge[1])
+	var cut: Vector3 = (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
+	take_hit(damage_per_hit, at, cut, false, true, knight)
+	knight.rig.bloody()
+	knight.net_blade_landed.rpc()
+	knight.blade_hit(self, at)
+	return true
 
 
 ## The limb, everywhere. The host has already taken it off its own copy, so this
@@ -1094,6 +1122,7 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	if is_dead or not _decides():
 		return
 
+	damage = Defence.taken(damage, p_def)
 	if _reeling > 0.0:
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.

@@ -41,11 +41,11 @@ const GROWL := "res://unverified/sounds/orc/roar_1.wav"
 ## off the ground. `size`, `damage`.
 const BLOWS := {
 	&"rake": {"clip": &"WFC_Rake", "beats": [0.73, 0.93, 1.2, 1.6], "times": [0.42, 0.7, 0.2, 0.32],
-		"release": 0.55, "roll": 62.0, "height": 1.2, "size": 1.0, "damage": 30.0},
+		"release": 0.55, "roll": 62.0, "height": 1.2, "size": 1.0, "damage": 70.0},
 	&"sweep": {"clip": &"WFC_Sweep", "beats": [0.33, 0.45, 0.75, 1.2], "times": [0.26, 0.3, 0.18, 0.3],
-		"release": 0.67, "roll": 0.0, "height": 1.0, "size": 1.15, "damage": 30.0},
+		"release": 0.67, "roll": 0.0, "height": 1.0, "size": 1.15, "damage": 70.0},
 	&"slam": {"clip": &"WFC_Slam", "beats": [0.4, 0.73, 1.13, 1.73], "times": [0.3, 0.55, 0.26, 0.45],
-		"release": 0.8, "roll": 90.0, "height": 1.0, "size": 1.35, "damage": 40.0, "ground": true},
+		"release": 0.8, "roll": 90.0, "height": 1.0, "size": 1.35, "damage": 90.0, "ground": true},
 }
 ## The first blow's hold is the long tell; this much is taken off it by a
 ## cunning wolf (intellect 1), none by a dull one.

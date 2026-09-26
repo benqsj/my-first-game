@@ -297,6 +297,8 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 ## Hurt but never killed: health stops at 1. For tests that are about
 ## something other than dying.
 @export var immortal: bool = false
+## Physical defence (p.def), from the profile ([Defence]).
+var p_def: float = 0.0
 
 @export_group("Physics")
 ## Impulse scale applied to loose rigid bodies the capsule walks into. Zero
@@ -750,6 +752,7 @@ func _spawn_character() -> void:
 		jump_height = profile.jump_height
 	_levitate_left = profile.levitation
 	max_health = profile.max_health
+	p_def = profile.p_def
 	health = max_health
 	max_stamina = profile.max_stamina
 	stamina = max_stamina
@@ -2359,6 +2362,8 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		return
 	if not is_multiplayer_authority() or is_dead:
 		return
+	# What his armour takes off it.
+	damage = Defence.taken(damage, p_def)
 	# A fresh combo from this attacker forgets the last one.
 	if blow == 0 or not _combo_landed.has(combo):
 		_forget_combos_from(combo)

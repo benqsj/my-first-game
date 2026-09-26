@@ -27,6 +27,7 @@ arrow_speed = 72.0
 arrow_speed_snap = 46.0
 shot_cooldown = 0.18
 max_health = 120.0
+p_def = 15.0
 max_stamina = 100.0
 attack_stamina = 12.0
 roll_stamina = 18.0
