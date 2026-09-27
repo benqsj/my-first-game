@@ -36,9 +36,41 @@ const GRASS2 := "res://assets/grass2/gras2.glb"
 const SHORT_GRASS := "res://assets/grass/grass_short.glb"
 ## The sward's share of the grass's draw distance.
 const SWARD_REACH := 0.3
+## The dark grade ([method _grade]): an overcast, heavier light — lower sun and
+## sky, a thicker grey haze, contrast up and colour drained, the wood's greens
+## taken down — for a brutal fight rather than a fairy tale (the user's words:
+## Lineage 2 with Elden Ring). Property -> value, on the environment, the sky,
+## the sun.
+const DARK_ENV := {
+	"tonemap_mode": Environment.TONE_MAPPER_ACES,
+	"tonemap_exposure": 0.95,
+	"ambient_light_color": Color(0.45, 0.5, 0.52),
+	"ambient_light_energy": 1.6,
+	"fog_light_color": Color(0.4, 0.42, 0.43),
+	"fog_density": 0.0042,
+	"fog_aerial_perspective": 0.6,
+	"fog_sun_scatter": 0.08,
+	"adjustment_enabled": true,
+	"adjustment_brightness": 1.0,
+	"adjustment_contrast": 1.12,
+	"adjustment_saturation": 0.74,
+}
+const DARK_SKY := {
+	"sky_top_color": Color(0.21, 0.26, 0.33),
+	"sky_horizon_color": Color(0.46, 0.47, 0.47),
+	"ground_bottom_color": Color(0.11, 0.11, 0.1),
+	"ground_horizon_color": Color(0.46, 0.47, 0.47),
+}
+const DARK_SUN := {
+	"light_energy": 1.05,
+	"light_color": Color(1.0, 0.9, 0.78),
+	"shadow_opacity": 0.74,
+}
+## How much of their colour the wood's leaves and bark keep in the dark grade.
+const DARK_WOOD := Color(0.76, 0.8, 0.72)
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor.
 const LOOKS: Array[Dictionary] = [
-	{"name": "new: forest floor, low sward, light grass", "ground": 2, "grass": LIGHT_GRASS, "sward": true},
+	{"name": "new: forest floor, low sward, light grass, dark", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "dark": true},
 	{"name": "old", "ground": 0, "grass": OLD_GRASS},
 	{"name": "old ground, light grass", "ground": 0, "grass": LIGHT_GRASS},
 	{"name": "photo ground, light grass", "ground": 1, "grass": LIGHT_GRASS},
@@ -87,6 +119,62 @@ func apply(which: int) -> void:
 	if field != null:
 		field.set_clump_scene(spec["grass"])
 	_show_sward(bool(spec.get("sward", false)))
+	_grade(bool(spec.get("dark", false)))
+
+
+## The light the world is seen in: the dark grade or the level's own. The
+## level's values are kept the first time they are changed, to put back.
+func _grade(dark: bool) -> void:
+	var world := _world()
+	for node in world.find_children("*", "WorldEnvironment", true, false):
+		var env := (node as WorldEnvironment).environment
+		if env == null:
+			continue
+		_set_all(env, DARK_ENV, dark)
+		var sky := env.sky.sky_material if env.sky != null else null
+		if sky is ProceduralSkyMaterial:
+			_set_all(sky, DARK_SKY, dark)
+	for node in world.find_children("*", "DirectionalLight3D", true, false):
+		_set_all(node, DARK_SUN, dark)
+	var forest := world.get_node_or_null("Forest")
+	if forest != null:
+		_tone_wood(forest, DARK_WOOD if dark else Color.WHITE)
+
+
+func _set_all(target: Object, values: Dictionary, dark: bool) -> void:
+	if not target.has_meta(&"looks_own"):
+		var kept := {}
+		for key: String in values:
+			kept[key] = target.get(key)
+		target.set_meta(&"looks_own", kept)
+	var own: Dictionary = target.get_meta(&"looks_own")
+	for key: String in values:
+		target.set(key, values[key] if dark else own[key])
+
+
+## Every material the wood is drawn with, its colour multiplied by `tone`
+## (white puts it back). Shared by every tree of a kind, so this is a few
+## dozen materials, not a walk over the trees.
+func _tone_wood(forest: Node, tone: Color) -> void:
+	var seen := {}
+	for node in forest.find_children("*", "GeometryInstance3D", true, false):
+		var meshes: Array[Mesh] = []
+		if node is MultiMeshInstance3D and (node as MultiMeshInstance3D).multimesh != null:
+			meshes.append((node as MultiMeshInstance3D).multimesh.mesh)
+		elif node is MeshInstance3D:
+			meshes.append((node as MeshInstance3D).mesh)
+		for mesh in meshes:
+			if mesh == null:
+				continue
+			for s in mesh.get_surface_count():
+				var mat := mesh.surface_get_material(s) as BaseMaterial3D
+				if mat == null or seen.has(mat):
+					continue
+				seen[mat] = true
+				if not mat.has_meta(&"looks_own"):
+					mat.set_meta(&"looks_own", mat.albedo_color)
+				var own: Color = mat.get_meta(&"looks_own")
+				mat.albedo_color = Color(own.r * tone.r, own.g * tone.g, own.b * tone.b, own.a)
 
 
 ## The low sward: a second field of short clumps, grown the first time a look

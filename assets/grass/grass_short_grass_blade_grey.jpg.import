@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dr4e18tve1ovn"
-path="res://.godot/imported/grass_short_grass_blade_grey.jpg-af59573057f63e918dbd5e936f831686.ctex"
+path.s3tc="res://.godot/imported/grass_short_grass_blade_grey.jpg-af59573057f63e918dbd5e936f831686.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "31bfdf8bd24e423a8b35cfbca2ad14d8"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/grass/grass_short_grass_blade_grey.jpg"
-dest_files=["res://.godot/imported/grass_short_grass_blade_grey.jpg-af59573057f63e918dbd5e936f831686.ctex"]
+dest_files=["res://.godot/imported/grass_short_grass_blade_grey.jpg-af59573057f63e918dbd5e936f831686.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
