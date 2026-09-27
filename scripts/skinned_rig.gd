@@ -221,6 +221,7 @@ func _ready() -> void:
 		_setup_cloth()
 	# The capes are the rig's own cloth, not spring bones: hung on every rig.
 	_setup_capes()
+	_put_on_dress()
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
 	for mesh_name in ["tariel_shield", "tariel_tower_shield"]:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
@@ -233,6 +234,7 @@ func _ready() -> void:
 ## Override to swap in another character's clip table (see `clips`). The
 ## knight's own: his tiger's skin, hung from the fur across his shoulders.
 func _configure() -> void:
+	wardrobe = TARIEL_WARDROBE
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.095, 1.565], "right": [-0.21, 0.095, 1.565],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
@@ -241,6 +243,123 @@ func _configure() -> void:
 		"colliders": [["pelvis", "neck_01", 0.17], ["thigh_l", "calf_l", 0.11], ["thigh_r", "calf_r", 0.11],
 				["calf_l", "foot_l", 0.09], ["calf_r", "foot_r", 0.09]],
 	}]
+
+
+#region Tariel's colours
+## What Tariel can wear: each a set of colours for the model's materials (by
+## their names in the model, in Blender's linear values) and for his cape (as
+## seen). Kept here rather than baked into the model so they can be tried in
+## the game — F9 steps through them — and cost nothing: the same meshes, the
+## same number of materials. The first is the model as it was made.
+const TARIEL_WARDROBE := {
+	&"crimson": {"name": "crimson and gold (as made)", "mats": {},
+		"cape": {"base": Color("d98a2b"), "hem": Color("f2c27a"), "trim": Color("1b1310")}},
+	&"panther": {"name": "panther: oxblood, tawny skin, old bronze",
+		"mats": {"t6_crimson": Color(0.2, 0.035, 0.03), "t6_tiger": Color(0.30, 0.18, 0.07),
+			"t6_tiger2": Color(0.38, 0.26, 0.12), "t6_stripe": Color(0.05, 0.035, 0.025),
+			"t6_gold": Color(0.34, 0.22, 0.09), "brass_gold": Color(0.34, 0.22, 0.09),
+			"t6_steel": Color(0.36, 0.37, 0.38), "t6_steel2": Color(0.18, 0.19, 0.2),
+			"steel": Color(0.33, 0.34, 0.35), "t6_ruby": Color(0.25, 0.03, 0.03),
+			"t6_tigereye": Color(0.45, 0.32, 0.05), "tower_crimson": Color(0.2, 0.035, 0.03)},
+		"cape": {"base": Color("a8793f"), "hem": Color("d2b37c"), "trim": Color("2a1d14")}},
+	&"black": {"name": "black and steel, dark amber skin",
+		"mats": {"t6_crimson": Color(0.045, 0.045, 0.05), "t6_tiger": Color(0.24, 0.14, 0.05),
+			"t6_tiger2": Color(0.3, 0.21, 0.1), "t6_stripe": Color(0.02, 0.015, 0.01),
+			"t6_gold": Color(0.3, 0.25, 0.15), "brass_gold": Color(0.3, 0.25, 0.15),
+			"t6_steel": Color(0.5, 0.52, 0.55), "t6_steel2": Color(0.22, 0.23, 0.25),
+			"t6_ruby": Color(0.3, 0.02, 0.02), "t6_leather": Color(0.07, 0.035, 0.02),
+			"tower_crimson": Color(0.05, 0.05, 0.055)},
+		"cape": {"base": Color("7d5a2e"), "hem": Color("a88c5c"), "trim": Color("141110")}},
+	&"indigo": {"name": "indigo, tawny skin, muted gold",
+		"mats": {"t6_crimson": Color(0.04, 0.06, 0.14), "t6_tiger": Color(0.30, 0.18, 0.07),
+			"t6_tiger2": Color(0.38, 0.26, 0.12), "t6_stripe": Color(0.05, 0.035, 0.025),
+			"t6_gold": Color(0.4, 0.3, 0.12), "brass_gold": Color(0.4, 0.3, 0.12),
+			"t6_steel": Color(0.42, 0.44, 0.47), "t6_steel2": Color(0.2, 0.21, 0.24),
+			"t6_ruby": Color(0.1, 0.15, 0.35), "tower_crimson": Color(0.05, 0.07, 0.15)},
+		"cape": {"base": Color("ad8246"), "hem": Color("d8bd86"), "trim": Color("22170f")}},
+	&"hunter": {"name": "hunter: olive and leather, like Avtandil",
+		"mats": {"t6_crimson": Color(0.09, 0.12, 0.05), "t6_tiger": Color(0.30, 0.18, 0.07),
+			"t6_tiger2": Color(0.38, 0.26, 0.12), "t6_stripe": Color(0.05, 0.035, 0.025),
+			"t6_gold": Color(0.33, 0.22, 0.1), "brass_gold": Color(0.33, 0.22, 0.1),
+			"t6_steel": Color(0.34, 0.35, 0.35), "t6_steel2": Color(0.16, 0.17, 0.17),
+			"steel": Color(0.33, 0.34, 0.35), "t6_ruby": Color(0.2, 0.3, 0.1),
+			"t6_leather": Color(0.12, 0.055, 0.022), "tower_crimson": Color(0.12, 0.08, 0.04)},
+		"cape": {"base": Color("a67a44"), "hem": Color("cfb07a"), "trim": Color("241a12")}},
+}
+## Which of the wardrobe Tariel wears, for every Tariel in this game.
+static var dress: StringName = &"crimson"
+## This rig's wardrobe; empty for a hero that has none (set by `_configure()`).
+var wardrobe: Dictionary = {}
+var _dress_on: StringName = &""
+var _dress_label: Label
+
+
+## Puts on `dress` (if this rig has a wardrobe and it is not already on): each
+## surface whose material is named in it gets a copy in the new colour; the
+## rest, and anything the last dress changed that this one does not, go back
+## to the model's own.
+func _put_on_dress() -> void:
+	if wardrobe.is_empty() or not wardrobe.has(dress) or _dress_on == dress:
+		return
+	_dress_on = dress
+	var outfit: Dictionary = wardrobe[dress]
+	var mats: Dictionary = outfit.get("mats", {})
+	for node in find_children("*", "MeshInstance3D", true, false):
+		var mesh_node := node as MeshInstance3D
+		if mesh_node.mesh == null:
+			continue
+		for i in mesh_node.mesh.get_surface_count():
+			var own := mesh_node.mesh.surface_get_material(i)
+			if own == null:
+				continue
+			if not mats.has(own.resource_name):
+				mesh_node.set_surface_override_material(i, null)
+				continue
+			var copy := own.duplicate() as BaseMaterial3D
+			if copy == null:
+				continue
+			# The model's colours are Blender's, linear; the material's are as seen.
+			copy.albedo_color = (mats[own.resource_name] as Color).linear_to_srgb()
+			mesh_node.set_surface_override_material(i, copy)
+	for cape in cloth_capes:
+		cape.recolour(outfit.get("cape", {}))
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_F9 or wardrobe.is_empty():
+		return
+	if _body != null and not _body.is_multiplayer_authority():
+		return
+	var names := wardrobe.keys()
+	dress = names[(names.find(dress) + 1) % names.size()]
+	_put_on_dress()
+	_say_dress()
+
+
+## Says which dress is on, for a moment, at the top of the screen.
+func _say_dress() -> void:
+	if _dress_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 50
+		add_child(layer)
+		_dress_label = Label.new()
+		_dress_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_dress_label.position.y = 92.0
+		_dress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_dress_label.add_theme_font_size_override("font_size", 22)
+		_dress_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_dress_label.add_theme_constant_override("outline_size", 6)
+		layer.add_child(_dress_label)
+	var names := wardrobe.keys()
+	_dress_label.text = "Tariel %d/%d: %s" % [names.find(dress) + 1, names.size(), wardrobe[dress]["name"]]
+	_dress_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_dress_label.visible = true
+	var shown := _dress_label.text
+	get_tree().create_timer(2.5).timeout.connect(func() -> void:
+		if is_instance_valid(_dress_label) and _dress_label.text == shown:
+			_dress_label.visible = false)
+#endregion
 
 
 ## The cloth capes, each on its own node that draws itself in world space.

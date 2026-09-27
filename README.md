@@ -4066,3 +4066,21 @@ wood as a flat grey crescent. `strands` draws more than one line side by side.
   a dull red halo over hardly any sheet, lasting 0.26 s (`WolfRig._make_trail`).
 * The orc's axe keeps its own grey arc.
 
+
+## Tariel's colours: F9
+
+Tariel's colours are a wardrobe in `SkinnedRig.TARIEL_WARDROBE`, not baked into
+the model: each dress is a set of colours for the model's materials (by their
+names from Blender, `t6_crimson`, `t6_tiger`, `t6_gold`, … in Blender's linear
+values) and for his cloth cape. `_put_on_dress()` gives each named surface a
+copy of its material in the new colour (`set_surface_override_material`) and
+recolours the cape (`ClothCape.recolour`) — the same meshes and the same number
+of materials, so a dress costs nothing. **F9** steps through them in the game
+and says which is on; `SkinnedRig.dress` is the one worn (the static default
+is the one he starts in). The other heroes have no wardrobe.
+
+* **crimson** — as the model was made: crimson, bright gold, an orange tiger.
+* **panther** — oxblood, a tawny panther skin, old bronze, darker steel.
+* **black** — black and steel, a dark amber skin.
+* **indigo** — deep indigo cloth, tawny skin, muted gold.
+* **hunter** — olive and leather, of a piece with Avtandil.

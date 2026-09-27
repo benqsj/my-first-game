@@ -283,6 +283,14 @@ func _draw() -> void:
 	_imesh.surface_end()
 
 
+## New colours for the cloth (any of "base", "hem", "trim" in `colours`),
+## painted at once.
+func recolour(colours: Dictionary) -> void:
+	for key in colours:
+		spec[key] = colours[key]
+	material_override = _material()
+
+
 ## The cloth's colours as a small texture: the ground colour, a band at the
 ## hem with a thin trim over it, and a tiger's stripes or a row of runes.
 func _material() -> StandardMaterial3D:
