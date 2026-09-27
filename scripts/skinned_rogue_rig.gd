@@ -96,32 +96,38 @@ func _configure() -> void:
 	# axe set, and a last big blow off its three-hit combo. Each starts about
 	# where the last left the blade, so a string of clicks is one long, quick,
 	# turning combo. Left alone for a second it starts again from the first.
-	# A knife's string, quick and turning, each cut starting about where the
-	# last left the blade and each a little quicker than the one before: the
-	# slash down and back up, the low backhand out, the spin, the long sweep
-	# from high right to low left, the backhand, and the big blow down to the
-	# ground to end it.
-	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Slash_Out", &"DG_Spin_Cut", &"DG_Axe_R2L",
-			&"DG_Backhand_Cut", &"DG_Finisher"]
+	# A knife's string, each cut starting where the last one left the knife
+	# (the ends and starts matched by the knife's tip, measured in Blender): the
+	# slash down and back up, the spin, the backhand, the long sweep from high
+	# right to low left, and the blow down to the ground to end it. No cut
+	# faster than `flurry_min_time`, the last no faster than
+	# `finisher_min_time`: the tightest of them were a blur at his pace.
+	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Backhand_Cut", &"DG_Axe_R2L",
+			&"DG_Finisher"]
 	flurry_part = {
-		&"DG_Slash_Out": Vector2(0.279, 0.574),
 		&"DG_Axe_R2L": Vector2(0.236, 0.597),
 	}
-	flurry_quicken = 0.035
+	flurry_quicken = 0.0
+	flurry_min_time = 0.36
+	finisher_min_time = 0.46
 	finisher_weight = 1.35
 	# The heavy blows, on the other button (he has no shield to raise): which
 	# one is what the string has come to (see Player._heavy_blow).
 	#  0 out of nothing: a lunge in with the point and a slash back out;
-	#  1 early in the string: a spinning leap, a kick and the knife coming down;
+	#  1 early in the string: a spinning leap, a kick and the knife coming down,
+	#    down onto the ground and rolling up onto his feet again, whole (the
+	#    getting up is part of it: cut short, he sprang up out of the ground);
+	#    once the cuts are done an evade takes him out of the getting up;
 	#  2 later: three great cuts, the last from over his head to the ground;
 	#  3 at the end of the string: the whirling combo, round and through;
 	#  4 at a run: a flying front flip, the knife coming down as he lands.
 	heavy = [
-		{"clip": &"DG_Thrust_Slash", "part": Vector2(0.144, 0.567), "rate": 1.75, "weight": 1.5, "step": 3.0},
-		{"clip": &"DG_Spin_Flip_Kick", "part": Vector2(0.243, 0.802), "rate": 1.55, "weight": 1.6, "aim": false,
-			"travel": 1.6},
-		{"clip": &"DG_Axe_Three", "part": Vector2(0.135, 0.69), "rate": 1.8, "weight": 1.4},
-		{"clip": &"DG_Dual_Combo", "part": Vector2(0.193, 0.798), "rate": 1.7, "weight": 1.4},
+		{"clip": &"DG_Thrust_Slash", "part": Vector2(0.144, 0.8), "rate": 1.75, "weight": 1.5, "step": 3.0,
+			"rise": 0.55},
+		{"clip": &"DG_Spin_Flip_Kick", "part": Vector2(0.243, 1.0), "rate": 1.7, "weight": 1.6, "aim": false,
+			"travel": 1.6, "rise": 0.56, "hold": 0.93},
+		{"clip": &"DG_Axe_Three", "part": Vector2(0.135, 0.8), "rate": 1.8, "weight": 1.4, "rise": 0.67},
+		{"clip": &"DG_Dual_Combo", "part": Vector2(0.193, 0.9), "rate": 1.7, "weight": 1.4, "rise": 0.78},
 		{"clip": &"DG_Big_Flip", "part": Vector2(0.1, 1.0), "rate": 1.35, "weight": 1.8, "aim": false,
 			"travel": 5.3},
 	]

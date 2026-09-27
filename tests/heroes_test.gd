@@ -256,7 +256,7 @@ func _check_rogue() -> void:
 			cut = true
 	_check("the knife cuts", cut)
 	_check("one knife, in one hand", not rig.off_hand_blade and rig._arc_l == null)
-	_check("the combo is seven blows, each one there", rig.flurry.size() == 7
+	_check("the combo is six blows, each one there", rig.flurry.size() == 6
 			and rig.flurry.all(func(c: StringName) -> bool: return rig._anim.has_animation(c)))
 	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Flip"
 			and rig._anim.has_animation(&"DG_Flip") and rig._anim.has_animation(&"DG_Twist"))

@@ -71,6 +71,10 @@ var flurry: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Down
 var flurry_part: Dictionary = {}
 ## The flurry speeds up as it goes: each cut this share quicker than the last.
 var flurry_quicken: float = 0.0
+## No cut of the flurry is played faster than this (seconds for its part),
+## the last no faster than `finisher_min_time`. Zero: `swing_rate` for all.
+var flurry_min_time: float = 0.0
+var finisher_min_time: float = 0.0
 ## How much the last cut of the flurry is worth against the others.
 var finisher_weight: float = 1.0
 ## Heavy blows, thrown with `attack(HEAVY + i)`: each {clip, part (from, until
@@ -889,7 +893,14 @@ func is_heavy() -> bool:
 ## The cut has done its work and only the follow-through is left: a light cut
 ## may be broken off here (by an evade), a heavy blow may not.
 func in_recovery() -> bool:
-	if _role != Role.SWING or _heavy_now or _air_cut:
+	if _role != Role.SWING or _air_cut:
+		return false
+	if _heavy_now:
+		# A heavy blow plays out — unless what is left of it is only getting
+		# back up (its `rise`), which an evade may take him out of.
+		for h: Dictionary in heavy:
+			if h["clip"] == _act_clip and h.has("rise"):
+				return _progress() > float(h["rise"])
 		return false
 	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
 	return w != Vector2.ZERO and _progress() > w.y + cut_margin
@@ -944,8 +955,13 @@ func attack(style: int = -1) -> void:
 	var rate := swing_rate
 	if _attack_style == AttackStyle.SIDE:
 		rate *= 1.0 + flurry_quicken * maxi(_flurry_slot, 0)
-		if _flurry_slot == flurry.size() - 1:
+		var last := _flurry_slot == flurry.size() - 1
+		if last:
 			cut_weight = finisher_weight
+		var least := finisher_min_time if last else flurry_min_time
+		if least > 0.0 and _anim.has_animation(clip):
+			var span := _anim.get_animation(clip).length * (part.y - part.x)
+			rate = minf(rate, span / least)
 	if _play_action(clip, Role.SWING, rate, -1.0, part.x, part.y):
 		_swing_commit = swing_time()
 		_whoosh()
@@ -995,6 +1011,10 @@ func swing_time() -> float:
 	for h: Dictionary in heavy:
 		if h["clip"] == _act_clip:
 			part = h.get("part", part)
+			# Held to the end of its getting back up (`hold`): let go earlier,
+			# the first step off would snap him from the ground to his feet.
+			if h.has("hold") and _heavy_now:
+				return _action_len * (float(h["hold"]) - _action_from) / _action_rate
 	return minf(_action_len * (w.y - _action_from) / _action_rate + swing_recovery,
 			_action_len * (part.y - _action_from) / _action_rate)
 
