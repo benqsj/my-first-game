@@ -94,10 +94,8 @@ var _cut_times: Array[float] = []
 ## Seconds a body lies where it fell before it is cleared away. Long enough to
 ## see it land and read the kill, short enough that the ground stays clear.
 @export var corpse_linger: float = 3.0
-## How long it takes to sink out of sight once the linger is up.
-@export var corpse_sink_time: float = 1.0
-## How far it sinks, in metres. Deep enough that nothing shows through.
-@export var corpse_sink_depth: float = 2.0
+## How long it takes to fade out of sight once the linger is up.
+@export var corpse_fade_time: float = 1.2
 #endregion
 
 @onready var rig: WolfRig = $Visuals as WolfRig
@@ -329,6 +327,7 @@ func _ready() -> void:
 	set_physics_process(_decides())
 	if rig != null:
 		rig.severed.connect(_on_severed)
+		rig.landed.connect(_body_lands)
 
 	_last_position = global_position
 	health = max_health
@@ -421,9 +420,9 @@ func _process(delta: float) -> void:
 	if is_dead and not _decides():
 		_collapse(delta)
 		_corpse_age += delta
-		var sunk := (_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001)
-		if sunk > 0.0 and rig != null:
-			rig.position.y = LIE_Y - minf(sunk, 1.0) * minf(sunk, 1.0) * corpse_sink_depth
+		var gone := (_corpse_age - corpse_linger) / maxf(corpse_fade_time, 0.001)
+		if gone > 0.0 and rig != null:
+			rig.fade(smoothstep(0.0, 1.0, minf(gone, 1.0)))
 	# A dead wolf's bar stays hidden: `set_fraction` shows the bar whenever it
 	# is below full, and a corpse is always below full.
 	if _bar != null and not is_dead:
@@ -1491,7 +1490,7 @@ func _take_hits() -> void:
 		var serial: int = knight.rig.attack_serial
 		if serial == _last_hit_serial.get(knight.name, -1):
 			continue
-		var edge := knight.rig.get_cutting_edge()
+		var edge := _within_reach(knight.rig.get_cutting_edge())
 		if edge.is_empty():
 			continue
 
@@ -1499,14 +1498,13 @@ func _take_hits() -> void:
 			if is_dead:
 				return
 			continue
-		var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance)
+		# Thrown the way the blade was going: the limb, and the blood after it.
+		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
+		var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance, blow)
 		if part == "":
 			continue
 		_last_hit_serial[knight.name] = serial
 
-		# Bleed from where the limb actually came away, thrown the way the blade
-		# was going.
-		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
 		_by_blade = true
 		# The host decided *which* limb; everyone else is told, so the piece that
 		# comes off is the same piece in every window. Re-running the geometry
@@ -1523,6 +1521,24 @@ func _take_hits() -> void:
 			return
 
 
+## Down on its belly, it lies under a cut swung at a standing man's height: the
+## blade went over it and nothing was ever struck. So a wolf that is down is
+## met where it lies — the edge is let down to the height of its back (a man
+## cuts down at what is at his feet) before it is asked what it reached. How
+## near it is along the ground is still the blade's own.
+func _within_reach(edge: PackedVector3Array) -> PackedVector3Array:
+	if edge.is_empty() or rig == null or not rig.is_crippled():
+		return edge
+	var back := global_position.y + DOWN_BACK * _size() / 1.65
+	var drop := minf(edge[0].y, edge[1].y) - back
+	if drop <= 0.0:
+		return edge
+	return PackedVector3Array([edge[0] + Vector3.DOWN * drop, edge[1] + Vector3.DOWN * drop])
+
+## The height of its back, down on its belly (at the size in `wolf.tscn`).
+const DOWN_BACK := 0.45
+
+
 ## While it is above half its health (`sever_below`) the blade does not take a
 ## limb off: it wounds it — blood, the damage, a shove. True when that is what
 ## this cut was (whether or not it reached); false once limbs may come off.
@@ -1532,7 +1548,8 @@ func _wound(knight: Player, edge: Array, serial: int) -> bool:
 	if not rig._blade_reaches(edge[0], edge[1], hit_tolerance):
 		return true
 	_last_hit_serial[knight.name] = serial
-	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * 1.1, edge[0], edge[1])
+	var chest := 0.35 if rig.is_crippled() else 1.1
+	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * chest * _size() / 1.65, edge[0], edge[1])
 	# Thrown the way the blade was going: cut from its right, it goes left.
 	var cut: Vector3 = knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
 	var worth := _blade_damage(knight)
@@ -1674,7 +1691,7 @@ func _count_cut() -> void:
 @rpc("authority", "call_local", "reliable")
 func net_sever(part: String, at: Vector3, blow: Vector3) -> void:
 	if rig != null and not _decides():
-		rig.detach(part)
+		rig.detach(part, blow)
 	var thrown := blow
 	if thrown.length_squared() < 0.0001:
 		thrown = Vector3.UP
@@ -1914,28 +1931,35 @@ func net_clear() -> void:
 	queue_free()
 
 
-## Where the body lies once it has fallen: its death clip lays it on the ground.
-const LIE_Y := 0.0
-
-
 ## Once it is dead: it falls onto its back (the rig's death clip), and lies there.
 func _collapse(_delta: float) -> void:
 	if rig != null:
-		rig.fall()
+		rig.fall(_fall_side)
+
+
+## Its body strikes the ground as it goes down: dust thrown up where it hits,
+## and the sound of a weight landing. Everywhere: the rig plays the fall on
+## every peer.
+func _body_lands(at: Vector3, weight: float) -> void:
+	var ground := at
+	ground.y = global_position.y
+	DustRing.burst(Blood.world_of(self), ground, 0.9 * weight * _size() / 1.65)
+	Sfx.play(self, THUD_SOUND, null, ground, randf_range(0.8, 0.95), -8.0 + 6.0 * weight)
+
+const THUD_SOUND := "res://unverified/sounds/all/dropped-person-sound1.wav"
 
 
 ## Takes the body out of the world once it has lain there long enough. Corpses
 ## that never leave pile up into clutter, and each one keeps a rig posing every
-## frame. It sinks into the ground rather than blinking out, so the removal is
-## something that happens in the world instead of to it. The sink is written
-## after _collapse so it wins over the settling the collapse is still doing.
+## frame. It fades out where it lies rather than blinking out — or being let
+## down through the ground, which read as the ground swallowing it.
 func _clear_away(delta: float) -> void:
 	_corpse_age += delta
 	if _corpse_age < corpse_linger:
 		return
 
-	var sunk := (_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001)
-	if sunk >= 1.0:
+	var gone := (_corpse_age - corpse_linger) / maxf(corpse_fade_time, 0.001)
+	if gone >= 1.0:
 		# Everywhere, not only here. This runs in `_physics_process`, which only
 		# the host has, so freeing it locally would leave a wolf lying in every
 		# other window for the rest of the game — kept alive by nothing, posing a
@@ -1943,6 +1967,5 @@ func _clear_away(delta: float) -> void:
 		net_clear.rpc()
 		return
 	if rig != null:
-		# Eased in: it lingers a moment longer at the surface, then goes.
-		rig.position.y = LIE_Y - sunk * sunk * corpse_sink_depth
+		rig.fade(smoothstep(0.0, 1.0, gone))
 #endregion

@@ -596,9 +596,13 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	# The clips are kept on the spot; the body is what moves it.
 	if _root_bone >= 0:
 		_skeleton.set_bone_pose_position(_root_bone, _skeleton.get_bone_rest(_root_bone).origin)
-		if is_crippled() and not _dead:
+		if is_crippled() and (not _dead or _limp):
 			_rest_on_ground(delta)
 	_overlay(delta)
+	if not _stumps.is_empty():
+		_bleed(raw)
+	if _dead:
+		_dying(raw)
 	if claw != null:
 		claw.overlay(delta)
 	# Thrown over by a blow, on top of everything else: on the real clock, so
@@ -832,11 +836,33 @@ func ground_lunge() -> void:
 	_move(DRAG, 0.7, 2.6)
 
 
-## Dead: it falls onto its back, and stays there.
-func fall() -> void:
+## Dead. Standing, it goes down through its death clip, from where the clip
+## starts to give (the still moment it opens with is gone: the blow has
+## already landed); on its belly, it goes limp where it lies — the crawl let go
+## at the moment its head is down, rolled a little over onto `side` — and does
+## not get up to die. The ground is struck at the end of either (`landed`).
+signal landed(at: Vector3, weight: float)
+const DEATH_FROM := 0.55
+const DEATH_RATE := 1.2
+## Clip times its body hits the ground (the hips, then the shoulders).
+const DEATH_LANDS := [1.98, 2.48]
+const LIMP := &"WF_Limp"
+## The time in the crawl its head and chest are down on the ground.
+const LIMP_AT := 2.7
+const LIMP_BLEND := 0.55
+var _limp: bool = false
+var _death_clock: float = 0.0
+var _death_lands: Array = []
+var _roll: float = 0.0
+var _roll_side: float = 1.0
+
+
+func fall(side: float = 1.0) -> void:
 	if _dead or _anim == null:
 		return
 	_dead = true
+	_roll_side = side
+	_death_clock = 0.0
 	_leap_timer = 0.0
 	_melee_timer = 0.0
 	_hold_left = 0.0
@@ -844,9 +870,90 @@ func fall() -> void:
 		claw.cancel()
 	_swipe_timer = 0.0
 	_lunge_timer = 0.0
-	if _anim.has_animation(DEATH):
-		_anim.play(DEATH, 0.12)
-		_anim.speed_scale = 1.3
+	if is_crippled() and _anim.has_animation(DRAG):
+		_limp = true
+		if not _anim.has_animation(LIMP):
+			_anim.get_animation_library(&"").add_animation(LIMP, _still_of(_anim.get_animation(DRAG), LIMP_AT))
+		_anim.speed_scale = 1.0
+		_anim.play(LIMP, LIMP_BLEND)
+		_death_lands = [LIMP_BLEND * 0.8]
+	elif _anim.has_animation(DEATH):
+		_anim.play(DEATH, 0.15)
+		_anim.seek(DEATH_FROM, false)
+		_anim.speed_scale = DEATH_RATE
+		_death_lands = []
+		for t: float in DEATH_LANDS:
+			_death_lands.append((t - DEATH_FROM) / DEATH_RATE)
+
+
+## One moment of a clip as a clip of its own, a single key a track: a pose to
+## blend into and stay in. (Held by stopping the clip instead, the blend into it
+## stops with it.)
+static func _still_of(clip: Animation, at: float) -> Animation:
+	var still := Animation.new()
+	still.length = 0.1
+	still.loop_mode = Animation.LOOP_NONE
+	for i in clip.get_track_count():
+		var kind := clip.track_get_type(i)
+		var t := still.add_track(kind)
+		still.track_set_path(t, clip.track_get_path(i))
+		match kind:
+			Animation.TYPE_POSITION_3D:
+				still.position_track_insert_key(t, 0.0, clip.position_track_interpolate(i, at))
+			Animation.TYPE_ROTATION_3D:
+				still.rotation_track_insert_key(t, 0.0, clip.rotation_track_interpolate(i, at))
+			Animation.TYPE_SCALE_3D:
+				still.scale_track_insert_key(t, 0.0, clip.scale_track_interpolate(i, at))
+			_:
+				still.remove_track(t)
+	return still
+
+
+func is_limp() -> bool:
+	return _limp
+
+
+## After death: the moments it strikes the ground, and the roll onto its side
+## of one that died on its belly.
+func _dying(delta: float) -> void:
+	_death_clock += delta
+	while not _death_lands.is_empty() and _death_clock >= float(_death_lands[0]):
+		_death_lands.pop_front()
+		var at := global_position
+		var pelvis := _skeleton.find_bone("pelvis")
+		if pelvis >= 0:
+			at = _skeleton.global_transform * _skeleton.get_bone_global_pose(pelvis).origin
+		landed.emit(at, 1.0 if _death_lands.is_empty() else 0.6)
+	if not _limp or _root_bone < 0:
+		return
+	# Over onto its side as it goes slack, eased, a little past and back.
+	var t := clampf(_death_clock / 0.7, 0.0, 1.0)
+	_roll = _roll_side * 0.42 * (1.0 - pow(1.0 - t, 3.0)) * (1.0 + 0.12 * sin(t * PI))
+	var body := get_parent() as Node3D
+	var ahead := -(body.global_basis.z if body != null else Vector3.FORWARD)
+	var axis := (_skeleton.global_basis.inverse() * ahead).normalized()
+	# From its rest: the clips do not turn the root, so what was set last frame
+	# would still be there to be turned again.
+	var rest := _skeleton.get_bone_rest(_root_bone).basis.get_rotation_quaternion()
+	_skeleton.set_bone_pose_rotation(_root_bone, Quaternion(axis, _roll) * rest)
+
+
+## The body fading out of the world, 0 whole to 1 gone. Cleared away this way
+## rather than let down through the ground, which read as the ground eating it.
+var _fading: Array = []
+
+
+func fade(amount: float) -> void:
+	if _fading.is_empty():
+		for node in find_children("*", "GeometryInstance3D", true, false):
+			_fading.append(node)
+	for node in _fading:
+		var g := node as GeometryInstance3D
+		if not is_instance_valid(g):
+			continue
+		g.transparency = amount
+		if amount > 0.5:
+			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func is_lunging() -> bool:
@@ -996,7 +1103,7 @@ func _overlay(delta: float) -> void:
 		var rest := _skeleton.get_bone_pose_rotation(_jaw)
 		_skeleton.set_bone_pose_rotation(_jaw, rest * Quaternion(Vector3.RIGHT, gape))
 	# The tail swings behind it, each link lagging the one before.
-	var sway := sin(_clock * (7.0 if _stance > 0.5 else 2.2)) * (0.35 if _stance > 0.5 else 0.2)
+	var sway := 0.0 if _dead else sin(_clock * (7.0 if _stance > 0.5 else 2.2)) * (0.35 if _stance > 0.5 else 0.2)
 	for i in _tail.size():
 		var want := sway * (0.5 + 0.5 * i)
 		_tail_swing[i] = lerpf(_tail_swing[i], want, 1.0 - exp(-(8.0 - i) * delta))
@@ -1119,21 +1226,40 @@ func _limb(part: String) -> Array[BoneAttachment3D]:
 	return out
 
 
-## Takes a limb off if the blade passed within `tolerance` of the creature.
-##
-## Which limb goes is picked at random from what is left rather than by what the
-## edge was nearest: a fight where the same cut always lands the same way stops
-## being interesting after the second one.
-func sever_along_edge(from: Vector3, to: Vector3, tolerance: float) -> String:
+## Takes a limb off if the blade passed within `tolerance` of the creature:
+## the limb the edge went nearest, where the blade was. Two about as near (a
+## hand's breadth between them) and it is either. `blow`: the way the blade was
+## going, which the limb is thrown along.
+func sever_along_edge(from: Vector3, to: Vector3, tolerance: float, blow: Vector3 = Vector3.ZERO) -> String:
 	if not _blade_reaches(from, to, tolerance):
 		return ""
-	var remaining: Array[String] = []
+	var near: Array = []
 	for part: String in SEVERABLE:
-		if not _lost.has(part):
-			remaining.append(part)
-	if remaining.is_empty():
+		if _lost.has(part):
+			continue
+		var gap := _limb_gap(part, from, to)
+		if gap < INF:
+			near.append([gap, part])
+	if near.is_empty():
 		return ""
-	return detach(remaining[_rng.randi() % remaining.size()])
+	near.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
+	var pick: String = near[0][1]
+	if near.size() > 1 and float(near[1][0]) - float(near[0][0]) < 0.12 and _rng.randf() < 0.5:
+		pick = near[1][1]
+	return detach(pick, blow)
+
+
+## How near the blade went to a limb: its nearest mesh, by the middle of each.
+func _limb_gap(part: String, from: Vector3, to: Vector3) -> float:
+	var best := INF
+	for at in _limb(part):
+		if not at.visible:
+			continue
+		for m in at.find_children("*", "MeshInstance3D", true, false):
+			var mesh := m as MeshInstance3D
+			var centre := mesh.global_transform * mesh.get_aabb().get_center()
+			best = minf(best, Geometry3D.get_closest_point_to_segment(centre, from, to).distance_to(centre))
+	return best
 
 
 ## True when the blade passed close enough to any part still on it.
@@ -1152,7 +1278,7 @@ func _blade_reaches(from: Vector3, to: Vector3, tolerance: float) -> bool:
 
 ## Takes a named part off, wherever it is told to. Deciding which is the host's
 ## job, doing it everyone's (see [Wolf]).
-func detach(part: String) -> String:
+func detach(part: String, blow: Vector3 = Vector3.ZERO) -> String:
 	if part == "" or _lost.has(part) or not SEVERABLE.has(part):
 		return ""
 	_lost[part] = true
@@ -1181,7 +1307,12 @@ func detach(part: String) -> String:
 		at.visible = false
 	var away := where.origin - global_position
 	away.y = 0.0
-	piece.launch(away)
+	piece.launch(away, blow)
+	var radius := _stump_radius(limb)
+	# The cut end of the piece, and the wound it leaves: raw and wet, not a
+	# clean gap where a mesh used to be.
+	piece.add_child(_stump_cap(radius, piece.global_transform.affine_inverse() * where.origin))
+	_open_stump(top, where.origin, radius)
 	last_cut_point = where.origin
 	severed.emit(part)
 	return part
@@ -1217,6 +1348,78 @@ func is_crippled() -> bool:
 
 func is_moving_itself() -> bool:
 	return _move_timer > 0.0
+
+
+## How thick the cut is: from the top mesh of the limb.
+func _stump_radius(limb: Array[BoneAttachment3D]) -> float:
+	for at in limb:
+		for m in at.find_children("*", "MeshInstance3D", true, false):
+			var mesh := m as MeshInstance3D
+			var box := mesh.get_aabb()
+			var size := mesh.global_transform.basis.get_scale() * box.size
+			var thin := minf(absf(size.x), minf(absf(size.y), absf(size.z)))
+			return clampf(thin * 0.42, 0.05, 0.17)
+	return 0.09
+
+
+static var _stump_mat: StandardMaterial3D
+
+
+## A raw end: a flattened ball of wet red flesh, at `at` in the frame of what
+## it is added to.
+func _stump_cap(radius: float, at: Vector3) -> MeshInstance3D:
+	if _stump_mat == null:
+		_stump_mat = StandardMaterial3D.new()
+		_stump_mat.albedo_color = Color(0.42, 0.03, 0.03)
+		_stump_mat.roughness = 0.3
+		_stump_mat.metallic_specular = 0.7
+	var ball := SphereMesh.new()
+	ball.radius = radius
+	ball.height = radius * 1.3
+	ball.radial_segments = 10
+	ball.rings = 5
+	var cap := MeshInstance3D.new()
+	cap.name = "Stump"
+	cap.mesh = ball
+	cap.material_override = _stump_mat
+	cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cap.position = at
+	return cap
+
+
+## Where a limb came off, on the body: the raw end, hung on the nearest part
+## above it so it moves with the body, and blood pulsing out of it a while.
+var _stumps: Array = []
+
+
+func _open_stump(top: int, at: Vector3, radius: float) -> void:
+	var bone := _skeleton.get_bone_parent(top)
+	while bone >= 0 and not _parts.has(_skeleton.get_bone_name(bone)):
+		bone = _skeleton.get_bone_parent(bone)
+	var holder: Node3D = _skeleton
+	if bone >= 0:
+		holder = (_parts[_skeleton.get_bone_name(bone)] as Array)[0]
+	var cap := _stump_cap(radius, holder.global_transform.affine_inverse() * at)
+	holder.add_child(cap)
+	_stumps.append({"cap": cap, "pulses": 5, "next": 0.12})
+
+
+## The stumps bleed in pulses, thinner each time, and stop.
+func _bleed(delta: float) -> void:
+	for i in range(_stumps.size() - 1, -1, -1):
+		var s: Dictionary = _stumps[i]
+		var cap := s["cap"] as Node3D
+		if not is_instance_valid(cap) or int(s["pulses"]) <= 0:
+			_stumps.remove_at(i)
+			continue
+		s["next"] = float(s["next"]) - delta
+		if float(s["next"]) > 0.0:
+			continue
+		s["next"] = 0.3
+		s["pulses"] = int(s["pulses"]) - 1
+		var out := cap.global_position - (global_position + Vector3.UP * 0.8 * absf(global_basis.get_scale().y))
+		out = out.normalized() + Vector3.UP * 0.5
+		Blood.splatter(Blood.world_of(self), cap.global_position, out, null, 0.18 + 0.07 * int(s["pulses"]))
 
 
 ## Both legs gone.

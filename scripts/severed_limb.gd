@@ -29,14 +29,25 @@ var _lie_t: float = 0.0
 
 
 ## Throws the piece clear of the body. Called right after it is added to the
-## tree, so the limb is already moving on the frame it comes off.
-func launch(away: Vector3) -> void:
+## tree, so the limb is already moving on the frame it comes off. `blow`: the
+## way the blade was going, when it is known — the piece goes with the blade,
+## a little out from the body, and turns end over end about the line the blade
+## cut across rather than spinning every way at once.
+func launch(away: Vector3, blow: Vector3 = Vector3.ZERO) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var sideways := away.normalized() if away.length_squared() > 0.001 else Vector3.FORWARD
-	_velocity = sideways * rng.randf_range(2.0, 4.0) \
-			+ Vector3(rng.randfn(0.0, 0.8), rng.randf_range(1.8, 3.2), rng.randfn(0.0, 0.8))
-	spin = Vector3(rng.randfn(0.0, 6.0), rng.randfn(0.0, 6.0), rng.randfn(0.0, 6.0))
+	var swing := Vector3(blow.x, 0.0, blow.z)
+	if swing.length_squared() > 0.01:
+		swing = swing.normalized()
+		_velocity = swing * rng.randf_range(2.6, 4.2) + sideways * rng.randf_range(0.6, 1.4) \
+				+ Vector3(0.0, rng.randf_range(1.6, 2.8), 0.0)
+		var over := Vector3.UP.cross(swing).normalized()
+		spin = over * rng.randf_range(7.0, 11.0) + Vector3(rng.randfn(0.0, 1.5), rng.randfn(0.0, 1.5), rng.randfn(0.0, 1.5))
+	else:
+		_velocity = sideways * rng.randf_range(2.0, 4.0) \
+				+ Vector3(rng.randfn(0.0, 0.8), rng.randf_range(1.8, 3.2), rng.randfn(0.0, 0.8))
+		spin = Vector3(rng.randfn(0.0, 6.0), rng.randfn(0.0, 6.0), rng.randfn(0.0, 6.0))
 
 
 func _process(delta: float) -> void:
@@ -44,6 +55,11 @@ func _process(delta: float) -> void:
 	if _age > lifetime:
 		queue_free()
 		return
+	# Its last second it fades out, the way the body it came off does.
+	if _age > lifetime - 1.0:
+		var gone := clampf(_age - (lifetime - 1.0), 0.0, 1.0)
+		for node in find_children("*", "GeometryInstance3D", true, false):
+			(node as GeometryInstance3D).transparency = gone
 	if _resting:
 		return
 	if _toppling:
@@ -52,7 +68,10 @@ func _process(delta: float) -> void:
 
 	_velocity.y -= _gravity * delta
 	global_position += _velocity * delta
-	rotation += spin * delta
+	if spin.length_squared() > 0.0001:
+		global_rotate(spin.normalized(), spin.length() * delta)
+		# Slowed by the air a little: it tumbles, it is not a propeller.
+		spin *= exp(-0.4 * delta)
 
 	var ground := _ground_under()
 	var low := _lowest()

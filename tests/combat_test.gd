@@ -239,7 +239,7 @@ func _initialize() -> void:
 
 	# --- The body does not lie there forever --------------------------------
 	# Cut the linger short rather than waiting out the real one: what is being
-	# checked is that the body sinks and leaves, not how long it waits first.
+	# checked is that the body fades and leaves, not how long it waits first.
 	#
 	# Only if it is still there. The chase checks above take as long as the
 	# machine makes them take, and on a loaded one the real linger runs out
@@ -248,7 +248,7 @@ func _initialize() -> void:
 	# it. That is how this suite came to hang rather than fail.
 	if is_instance_valid(wolf):
 		wolf.corpse_linger = 0.0
-		wolf.corpse_sink_time = 0.25
+		wolf.corpse_fade_time = 0.25
 		for i in 120:
 			await physics_frame
 			if not is_instance_valid(wolf):

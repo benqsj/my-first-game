@@ -4184,3 +4184,51 @@ leather jerkin open to the belt, a bear's fur over the shoulders, gold rings on
 the bare arms, the shins bound. In the bag: a Norse wool tunic with a woven
 band and a grey fur mantle, a mail shirt, and the three warrior's tunics, all
 with the same head (`VERSIONS12` vk_* in `t12_build.py`).
+
+## The wolf: cuts, the ground, the fall
+
+**The limb the blade went through.** A cut that takes a limb takes the one the
+edge passed nearest (`WolfRig.sever_along_edge` → `_limb_gap`), no longer one
+drawn at random; two about as near (within 12 cm), either. The piece is thrown
+along the blade and a little out from the body, and turns end over end about
+the line the blade cut across (`SeveredLimb.launch(away, blow)`), slowed by the
+air. Both cut ends are raw: a flattened ball of wet red flesh on the piece and
+on the body (`_stump_cap`, hung on the nearest part above the joint so it moves
+with it), and the stump bleeds in five pulses, thinner each time
+(`WolfRig._bleed`). A piece fades out over its last second instead of blinking
+out.
+
+**Down, it can be cut.** On its belly its back is under half a metre high, and
+a cut swung at a standing man's height went clean over it: nothing was ever
+struck. Now a wolf that is down meets the blade where it lies — the edge is let
+down to the height of its back (`Wolf._within_reach`, `DOWN_BACK`) before it is
+asked what it reached; how near along the ground is still the blade's own.
+
+**It dies where it lies.** Killed on its belly it no longer gets up to play the
+standing death clip: it goes limp where it is — blended over half a second into
+the crawl's pose with its head and chest on the ground (`WF_Limp`, one moment of
+the crawl made a clip of its own by `_still_of`) and rolled a little onto its
+side. Killed standing, the death clip starts where it begins to give (its still
+first half second is gone, 0.55 s) and runs a little faster (1.2). Either way
+the body **strikes the ground**: dust where it lands and the sound of a weight
+dropping (`WolfRig.landed` → `Wolf._body_lands`), the hips and then the
+shoulders. The tail goes slack.
+
+**It fades, it does not sink.** After `corpse_linger` the body fades out where
+it lies over `corpse_fade_time` (1.2 s; `WolfRig.fade`, each mesh's
+`transparency`, its shadow off past half) — let down through the ground it read
+as the ground eating it.
+
+`tests/wolf_mind_test.gd`: a wolf with both legs off is cut where it lies, and
+killed there it goes limp with its head low.
+
+## The map to come: five bosses
+
+A plan, not yet built: the land grows from 240 × 635 m to 600 × 890 m (x −300…300,
+z −470…420), the present land untouched in the middle and five regions round it,
+each with one gate, a ridge, cliff or river between it and the next, and its boss
+in a closed arena at the far end: **Mamberi's wood** (the lord of the wolves; the
+wood carried on to the east), **Ochopintre's beeches** (south-east, across the
+Black River), **the Devis' mountain** (south-west, the orcs of the bay their
+vanguard), and two regions not yet given a boss — **the northern upland** beyond
+the wolves' hill, and **the western plain** beyond the village.

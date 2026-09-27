@@ -58,6 +58,7 @@ func _initialize() -> void:
 	await _fighting()
 	await _pack()
 	await _crippled()
+	await _cut_down()
 	await _disarmed()
 	_finish()
 
@@ -339,6 +340,50 @@ func _crippled() -> void:
 	_check("the leg that came off lies on the ground, not in the air", piece != null and piece._resting
 			and absf(piece._lowest() - piece._ground_under()) < 0.05,
 			"%s" % ("none" if piece == null else "%.2f over the ground" % (piece._lowest() - piece._ground_under())))
+	_park(wolf)
+
+
+## Down on its belly it can still be cut: the blade, swung at a standing
+## man's height, is met low where it lies. And killed there, it goes limp where
+## it lies — it does not get up to die.
+func _cut_down() -> void:
+	var wolf := _wolves[6]
+	_reset_player(_spot)
+	_player.rotation.y = 0.0
+	wolf.global_position = _spot + Vector3(0.0, 0.3, -1.7)
+	wolf.velocity = Vector3.ZERO
+	wolf.rotation.y = PI
+	wolf.set_physics_process(true)
+	wolf.rig.detach("left leg")
+	wolf.rig.detach("right leg")
+	wolf.sever_below = 0.0
+	var hold := wolf.global_position
+	await _wait(30)
+	var before := wolf.health
+	for k in 3:
+		_player._commit_timer = 0.0
+		if _player.state == Player.State.DOWNED:
+			_player.state = Player.State.GROUNDED
+		Input.action_press("attack")
+		await _wait(3)
+		Input.action_release("attack")
+		for i in 45:
+			await physics_frame
+			_hold_player()
+			wolf.global_position = hold
+			wolf.velocity = Vector3.ZERO
+			wolf._busy = 1.0
+	_check("a wolf down on its belly is cut where it lies", wolf.health < before,
+			"%.0f -> %.0f" % [before, wolf.health])
+	wolf.corpse_linger = 9999.0
+	wolf._die()
+	var worst := 0.0
+	for i in 50:
+		await physics_frame
+		var head := wolf.rig._skeleton.global_transform * wolf.rig._skeleton.get_bone_global_pose(wolf.rig._head).origin
+		worst = maxf(worst, head.y - wolf.global_position.y)
+	_check("killed there, it goes limp where it lies", wolf.rig.is_limp() and worst < 1.0,
+			"head up to %.2f m" % worst)
 	_park(wolf)
 
 
