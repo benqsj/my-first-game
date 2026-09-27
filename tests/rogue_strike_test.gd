@@ -105,8 +105,66 @@ func _initialize() -> void:
 			lowest = minf(lowest, minf(e[0].y, e[1].y) - at.y)
 	_check("the knife goes down to a wolf on the ground", lowest < 0.5, "%.2f m" % lowest)
 
+	# The heavy blows, on the other button: which one is what the string has
+	# come to, and the ones that cut more than once cut more than once.
+	wolf.global_position += Vector3(0, -80, 0)
+	wolf.set_physics_process(false)
+	foe.global_position = hold
+	# Long enough after the last cut that the string has started again.
+	for i in 80:
+		await physics_frame
+	await _press(player, "block")
+	_check("out of nothing the heavy is the lunge", rig._act_clip == &"DG_Thrust_Slash" and rig.is_heavy(),
+			String(rig._act_clip))
+	var serial: int = rig.attack_serial
+	for i in 70:
+		await physics_frame
+		foe.global_position = hold
+	_check("and it cuts twice", rig.attack_serial == serial + 1, "%d" % (rig.attack_serial - serial))
+	await _idle(player)
+	await _press(player, "attack")
+	await _idle(player)
+	await _press(player, "block")
+	_check("early in the string it is the spinning leap", rig._act_clip == &"DG_Spin_Flip_Kick",
+			String(rig._act_clip))
+	await _idle(player)
+	for k in 5:
+		await _press(player, "attack")
+		await _idle(player)
+	await _press(player, "block")
+	_check("at the end of it the whirling combo", rig._act_clip == &"DG_Dual_Combo", String(rig._act_clip))
+	await _idle(player)
+	# A light cut's follow-through can be broken off by an evade; a heavy blow's cannot.
+	await _press(player, "attack")
+	var broke := false
+	for i in 40:
+		await physics_frame
+		if rig.in_recovery():
+			Input.action_press("dash")
+			await physics_frame
+			Input.action_release("dash")
+			await physics_frame
+			broke = player.state == Player.State.DASHING or player.state == Player.State.DODGING
+			break
+	_check("an evade breaks off a light cut's follow-through", broke)
+
 	print("\n%s" % ("All checks passed." if _failures == 0 else "%d check(s) failed." % _failures))
 	quit(1 if _failures else 0)
+
+
+func _press(player: Player, action: String) -> void:
+	player.stamina = player.max_stamina
+	Input.action_press(action)
+	await physics_frame
+	Input.action_release(action)
+	await physics_frame
+
+
+func _idle(player: Player) -> void:
+	for i in 180:
+		if not player.is_committed() and player.state == Player.State.GROUNDED:
+			break
+		await physics_frame
 
 
 func _check(what: String, ok: bool, detail: String = "") -> void:

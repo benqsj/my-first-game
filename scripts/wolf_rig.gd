@@ -1239,6 +1239,11 @@ func sever_along_edge(from: Vector3, to: Vector3, tolerance: float, blow: Vector
 			continue
 		var gap := _limb_gap(part, from, to)
 		if gap < INF:
+			# The head ends it on the spot: it is taken only by a cut that
+			# plainly went through the neck, not by every chest-high one that
+			# passed nearer to it than to anything else.
+			if part == "head":
+				gap += HEAD_PENALTY
 			near.append([gap, part])
 	if near.is_empty():
 		return ""
@@ -1247,6 +1252,11 @@ func sever_along_edge(from: Vector3, to: Vector3, tolerance: float, blow: Vector
 	if near.size() > 1 and float(near[1][0]) - float(near[0][0]) < 0.12 and _rng.randf() < 0.5:
 		pick = near[1][1]
 	return detach(pick, blow)
+
+
+## How much nearer than any other limb the blade must pass the head to take it
+## (metres).
+const HEAD_PENALTY := 0.35
 
 
 ## How near the blade went to a limb: its nearest mesh, by the middle of each.

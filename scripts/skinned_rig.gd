@@ -69,6 +69,32 @@ var flurry: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Down
 ## Cuts of the flurry played from a part of their clip only, as shares of its
 ## length (from, until): a thrust out of a longer knife-fighting clip.
 var flurry_part: Dictionary = {}
+## The flurry speeds up as it goes: each cut this share quicker than the last.
+var flurry_quicken: float = 0.0
+## How much the last cut of the flurry is worth against the others.
+var finisher_weight: float = 1.0
+## Heavy blows, thrown with `attack(HEAVY + i)`: each {clip, part (from, until
+## as shares), rate, weight (what it is worth against a light cut), aim (bent
+## down to what it is thrown at), step (how far it may carry him in to it)}.
+## Which one is the controller's to choose.
+var heavy: Array = []
+const HEAVY := 100
+## Clips that cut more than once: every window its own blow (a new attack
+## serial, a new whoosh), as shares of the clip.
+var cut_windows: Dictionary = {}
+## Clips whose own travel carries the body (a flip, a lunge): the controller
+## moves him by `carry_velocity` while one plays.
+var carried: Dictionary = {}
+var carry_velocity := Vector3.ZERO
+## How much of its clip's travel a carried blow covers: set by the controller
+## so a flip lands where what it is thrown at stands (1 on every other peer).
+var carry_scale: float = 1.0
+## What the blow in hand is worth against a light cut.
+var cut_weight: float = 1.0
+var _heavy_now: bool = false
+var _heavy_aim: bool = true
+var _window_at: int = -1
+var _carrying: bool = false
 ## Where each swing's blade is actually travelling, as a fraction of the clip —
 ## measured in Blender as the span the tip moves faster than 55% of its peak.
 var cut_window := {
@@ -602,6 +628,15 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			_end_action()
 	else:
 		_attack_cutting = false
+	# A clip whose own travel carries him: what its root moved by last frame,
+	# as a pace over the ground.
+	_carrying = _role == Role.SWING and carried.has(_act_clip)
+	if _carrying:
+		var moved := _skel.global_basis * _anim.get_root_motion_position()
+		moved.y = 0.0
+		carry_velocity = moved / maxf(delta, 0.001) * carry_scale
+	else:
+		carry_velocity = Vector3.ZERO
 	if _arc != null:
 		_arc.emitting = _attack_cutting
 	if _arc_l != null:
@@ -624,7 +659,7 @@ func aim_strike(at: Vector3, on: bool) -> void:
 func _update_strike(delta: float) -> void:
 	if _strike == null:
 		return
-	var want := _strike_on and _role == Role.SWING and not _air_cut
+	var want := _strike_on and _role == Role.SWING and not _air_cut and (not _heavy_now or _heavy_aim)
 	# In fast, as the swing starts; out more slowly as it gives the body back.
 	_strike.weight = move_toward(_strike.weight, 1.0 if want else 0.0, delta / (0.07 if want else 0.2))
 	_strike.natural = float(strike_heights.get(_act_clip, strike_natural))
@@ -767,6 +802,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_action_len = length
 	_action_rate = maxf(rate, 0.01)
 	_action_from = from
+	_window_at = -1
 	_action_left = length * (until - from) / _action_rate
 	_base_clip = &""
 	# Where the legs were in their cycle, for a stride carried on under the swing.
@@ -803,8 +839,49 @@ func _progress() -> float:
 
 
 func _in_window(through: float) -> bool:
+	var many: Array = cut_windows.get(_act_clip, [])
+	if not many.is_empty():
+		for i in many.size():
+			var span: Vector2 = many[i]
+			if through >= span.x - cut_margin and through <= span.y + cut_margin:
+				if i != _window_at:
+					if _window_at >= 0:
+						# The next blow of the same clip: a new cut, which
+						# whatever it lands on takes afresh.
+						attack_serial += 1
+						_whoosh_now()
+					_window_at = i
+				return true
+		return false
 	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
 	return w != Vector2.ZERO and through >= w.x - cut_margin and through <= w.y + cut_margin
+
+
+## Where in the flurry the last cut was, or -1 if the string has been left
+## long enough to start again.
+func flurry_position() -> int:
+	if flurry_reset_after > 0.0 and Time.get_ticks_msec() / 1000.0 - _last_attack_at > flurry_reset_after:
+		return -1
+	return _flurry_slot
+
+
+## A heavy blow is playing (not a cut of the flurry).
+func is_heavy() -> bool:
+	return _role == Role.SWING and _heavy_now
+
+
+## The cut has done its work and only the follow-through is left: a light cut
+## may be broken off here (by an evade), a heavy blow may not.
+func in_recovery() -> bool:
+	if _role != Role.SWING or _heavy_now or _air_cut:
+		return false
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	return w != Vector2.ZERO and _progress() > w.y + cut_margin
+
+
+## Its travel is carrying him (see `carried`).
+func carrying() -> bool:
+	return _carrying
 
 
 #region The rig's interface, as the controller calls it
@@ -820,6 +897,21 @@ func attack(style: int = -1) -> void:
 			_swing_commit = swing_time()
 			_whoosh()
 		return
+	if style >= HEAVY and style - HEAVY < heavy.size():
+		var h: Dictionary = heavy[style - HEAVY]
+		_attack_style = AttackStyle.THRUST
+		# A heavy blow ends the string: the next click starts it again.
+		_flurry_slot = -1
+		_heavy_now = true
+		cut_weight = float(h.get("weight", 1.5))
+		_heavy_aim = bool(h.get("aim", true))
+		var hp: Vector2 = h.get("part", Vector2(0.0, 1.0))
+		if _play_action(h["clip"], Role.SWING, float(h.get("rate", swing_rate)), 0.08, hp.x, hp.y):
+			_swing_commit = swing_time()
+			_whoosh()
+		return
+	_heavy_now = false
+	cut_weight = 1.0
 	if style == AttackStyle.OVERHEAD:
 		clip = clips[&"overhead"]
 		_attack_style = AttackStyle.OVERHEAD
@@ -833,7 +925,12 @@ func attack(style: int = -1) -> void:
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
 		clip = flurry[_flurry_slot]
 	var part: Vector2 = flurry_part.get(clip, Vector2(0.0, 1.0))
-	if _play_action(clip, Role.SWING, swing_rate, -1.0, part.x, part.y):
+	var rate := swing_rate
+	if _attack_style == AttackStyle.SIDE:
+		rate *= 1.0 + flurry_quicken * maxi(_flurry_slot, 0)
+		if _flurry_slot == flurry.size() - 1:
+			cut_weight = finisher_weight
+	if _play_action(clip, Role.SWING, rate, -1.0, part.x, part.y):
 		_swing_commit = swing_time()
 		_whoosh()
 
@@ -848,6 +945,9 @@ func _whoosh() -> void:
 	var serial := attack_serial
 	var clip := _act_clip
 	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	var many: Array = cut_windows.get(_act_clip, [])
+	if not many.is_empty():
+		w = many[0]
 	var lead := 0.0
 	if w != Vector2.ZERO and _action_len > 0.0 and _action_rate > 0.0:
 		# A touch before the window opens: a slash is heard as the blade comes.
@@ -872,7 +972,13 @@ func swing_time() -> float:
 	if _role != Role.SWING or _action_len <= 0.0:
 		return attack_duration
 	var w: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
+	var many: Array = cut_windows.get(_act_clip, [])
+	if not many.is_empty():
+		w = Vector2((many[0] as Vector2).x, (many[many.size() - 1] as Vector2).y)
 	var part: Vector2 = flurry_part.get(_act_clip, Vector2(0.0, 1.0))
+	for h: Dictionary in heavy:
+		if h["clip"] == _act_clip:
+			part = h.get("part", part)
 	return minf(_action_len * (w.y - _action_from) / _action_rate + swing_recovery,
 			_action_len * (part.y - _action_from) / _action_rate)
 
@@ -913,7 +1019,7 @@ func blade_landed() -> void:
 		at = _sword_mount
 	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06), hit_volume)
 	ImpactFx.thud(self, at.global_position)
-	hitstop(bite_stop)
+	hitstop(bite_stop * (1.8 if cut_weight > 1.2 else 1.0))
 
 
 ## How long the swing is held as it bites (seconds): the blade felt going in.

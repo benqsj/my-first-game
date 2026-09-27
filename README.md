@@ -4300,3 +4300,46 @@ the fingertips, and its light is small and faint (the old one turned his whole
 body green). The vial is gone (`DG_Poison_Coat_Vial` kept in heroes.blend).
 
 `tests/rogue_strike_test.gd`.
+
+### The assassin's heavy blows and a quicker string
+
+**Two buttons.** He has no shield to raise, so the block button (right mouse)
+is his **heavy blow** (`Player._attack(true)`, `SkinnedRig.heavy`, thrown as
+`attack(HEAVY + i)` on every peer). Which one depends on what the light string
+(left mouse) has come to (`Player._heavy_blow`, from `flurry_position()`):
+
+| before it | the heavy blow | clip (part) |
+|---|---|---|
+| nothing (the string left a second) | a lunge in with the point and a slash back out — two cuts, stepping in up to 3 m | `DG_Thrust_Slash` |
+| nothing, at a run | a flying front flip, the knife coming down as he lands, the flip landing where it is thrown | `DG_Big_Flip` |
+| one or two cuts | a spinning leap and kick, the knife coming down after it — two cuts | `DG_Spin_Flip_Kick` |
+| three or four | three great cuts, the last from over his head to the ground | `DG_Axe_Three` |
+| five or more | the whirling combo, round and through — three cuts, carried forward | `DG_Dual_Combo` |
+
+A heavy blow ends the string, costs 1.6 light cuts' stamina, is worth
+1.4–1.8 of one (`cut_weight`, multiplied in `Player.cut_worth`), bites longer
+(the hitstop ×1.8) and shakes the view when it lands. The light string's last
+cut is worth 1.35.
+
+**Blows that cut more than once** (`cut_windows`): each window is its own blow
+— a new `attack_serial`, so what it lands on takes it afresh, and its own
+whoosh.
+
+**Blows that carry him** (`carried`): a flip, a leap, the whirling combo move
+him by their own clip's travel (the root motion, `carry_velocity`), scaled so
+he lands where what he is thrown at stands (`carry_scale`, from the blow's
+`travel`).
+
+**The light string** (Mixamo's, all the assassin's own): the slash down and
+back up, the low backhand out (`DG_Slash_Out`), the spin, the long sweep from
+high right to low left (`DG_Axe_R2L`), the backhand, and the blow down to the
+ground; each cut 3.5% quicker than the one before (`flurry_quicken`).
+
+**Flexible**: a light cut whose cut has done its work can be broken off by
+an evade (`SkinnedRig.in_recovery`): the follow-through is his to give up. A
+heavy blow plays out.
+
+New clips (`vepxis-art/tools/dg10_export.py`, retargeted from
+`mixamo/assassin/`): `DG_Slash_Out`, `DG_Axe_R2L`, `DG_Thrust_Slash`,
+`DG_Axe_Three`, `DG_Big_Flip`. `tests/rogue_strike_test.gd` checks the choice
+of heavy blow, the double cut, and the evade out of a follow-through.

@@ -502,6 +502,8 @@ var _pierce_quarry: Node3D = null
 var _skill_serial: int = 0
 var _air_swirl: Node3D = null
 var _attack_buffer: float = 0.0
+## A heavy blow asked for during a swing, as `_attack_buffer` is for a cut.
+var _heavy_buffer: float = 0.0
 ## How many cuts into the current flurry, and whether *this* one keeps its run.
 ## The first swing does; the ones chained off it do not.
 var _swing_chain: int = 0
@@ -830,7 +832,17 @@ func _read_actions() -> void:
 	if is_committed():
 		if Input.is_action_just_pressed("attack"):
 			_attack_buffer = attack_buffer_time
-		return
+		if _has_heavy() and Input.is_action_just_pressed("block"):
+			_heavy_buffer = attack_buffer_time
+		# A light cut that has done its work may be broken off by an evade: the
+		# follow-through is his to give up. A heavy blow plays out.
+		if Input.is_action_just_pressed("dash") and rig != null and rig.has_method(&"in_recovery") \
+				and bool(rig.call(&"in_recovery")):
+			_commit_timer = 0.0
+			_attack_buffer = 0.0
+			_heavy_buffer = 0.0
+		else:
+			return
 
 	if Input.is_action_just_pressed("stow"):
 		_set_weapons_stowed(not weapons_stowed())
@@ -873,7 +885,11 @@ func _read_actions() -> void:
 		_try_slide()
 	# One button, two weapons: the sword goes on the press, the bow on the
 	# release, because what the bow is worth is how long the press lasted.
-	if not has_bow() and Input.is_action_just_pressed("attack"):
+	if _has_heavy() and Input.is_action_just_pressed("block"):
+		_attack(true)
+	elif _has_heavy() and _heavy_buffer > 0.0:
+		_attack(true)
+	elif not has_bow() and Input.is_action_just_pressed("attack"):
 		_attack()
 	elif not has_bow() and _attack_buffer > 0.0:
 		# The swing that was asked for during the last one. Taken the moment the
@@ -948,6 +964,10 @@ func _process_locomotion(delta: float) -> void:
 		var cap := maxf(_air_speed_cap, speed)
 		if horizontal.length() > cap:
 			horizontal = horizontal.limit_length(cap)
+
+	# A flip or a lunge carries him as far as its own clip goes.
+	if rig != null and rig.has_method(&"carrying") and bool(rig.call(&"carrying")):
+		horizontal = rig.get(&"carry_velocity")
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -2357,15 +2377,24 @@ func _aim_pitch() -> float:
 ##
 ## A press during a swing is remembered rather than eaten, so a flurry is one
 ## press per cut at the player's own rhythm instead of a timing test.
-func _attack() -> void:
+func _attack(heavy: bool = false) -> void:
 	if is_committed():
-		_attack_buffer = attack_buffer_time
+		if heavy:
+			_heavy_buffer = attack_buffer_time
+		else:
+			_attack_buffer = attack_buffer_time
 		return
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
-	if not _spend(profile.attack_stamina if profile != null else 16.0):
+	var cost := profile.attack_stamina if profile != null else 16.0
+	if heavy:
+		cost *= heavy_stamina
+	if not _spend(cost):
 		_attack_buffer = 0.0
+		_heavy_buffer = 0.0
 		return
+	# Which heavy blow, before the rig's string is ended by it.
+	var blow := _heavy_blow() if heavy else -1
 	# Swinging a sword that is on your back takes it off your back first. There
 	# is no draw clip in the library, so the blade crosses back to the hand over
 	# the same beat as the wind-up rather than being drawn during it.
@@ -2387,7 +2416,19 @@ func _attack() -> void:
 			if to_them.length_squared() > 0.0001:
 				rotation.y = atan2(-to_them.x, -to_them.z)
 		net_strike_at.rpc(foe.get_path() if foe != null else NodePath())
-		_step_in(foe)
+		var reach := strike_step_max
+		rig.set(&"carry_scale", 1.0)
+		if blow >= 0:
+			var spec: Dictionary = rig.get(&"heavy")[blow]
+			reach = float(spec.get("step", strike_step_max))
+			# A blow that carries him (a flip) is made to land where the thing
+			# stands, not a fixed distance on past it or short of it.
+			if spec.has("travel") and foe != null:
+				var gap := Vector2(foe.global_position.x - global_position.x,
+						foe.global_position.z - global_position.z).length() - _body_radius(foe) - strike_close
+				rig.set(&"carry_scale", clampf(gap / float(spec["travel"]), 0.35, 1.25))
+				reach = 0.0
+		_step_in(foe, reach)
 	# A swing out of a run, or out of a jump, keeps the speed it was thrown at.
 	# Only the cuts after it are slowed: the first one is the one the player
 	# committed their momentum to, and damping it turns a charge into a shuffle.
@@ -2402,9 +2443,45 @@ func _attack() -> void:
 		# In the air the blade comes down from over the head. Nothing else reads
 		# as a jumping attack: a horizontal cut thrown off a jump is a man
 		# swinging at the air he is passing through.
-		net_attack.rpc(CharacterRig.AttackStyle.OVERHEAD if airborne else -1)
+		var style := CharacterRig.AttackStyle.OVERHEAD if airborne else -1
+		if blow >= 0 and not airborne:
+			style = SkinnedRig.HEAVY + blow
+		net_attack.rpc(style)
 		_commit(rig.swing_time())
 	_attack_buffer = 0.0
+	_heavy_buffer = 0.0
+
+
+## A second attack button for a hero with no shield to raise (the assassin):
+## his heavy blows ([member SkinnedRig.heavy]).
+func _has_heavy() -> bool:
+	if profile == null or profile.can_block or has_bow() or rig == null:
+		return false
+	var blows: Variant = rig.get(&"heavy")
+	return blows is Array and not (blows as Array).is_empty()
+
+
+## Heavy blows cost this many light cuts' stamina.
+@export var heavy_stamina: float = 1.6
+
+
+## Which heavy blow the string has come to: out of nothing a lunge (or, at a
+## run, the flying flip); early in the string the spinning leap; later the
+## three great cuts; at its end the whirling combo.
+func _heavy_blow() -> int:
+	var count := (rig.get(&"heavy") as Array).size()
+	var at: int = int(rig.call(&"flurry_position")) if rig.has_method(&"flurry_position") else -1
+	var pace := Vector2(velocity.x, velocity.z).length()
+	var pick := 0
+	if at < 0:
+		pick = 4 if pace > run_speed * 0.7 else 0
+	elif at <= 1:
+		pick = 1
+	elif at <= 3:
+		pick = 2
+	else:
+		pick = 3
+	return mini(pick, count - 1)
 
 
 ## The swing, everywhere.
@@ -2643,6 +2720,8 @@ func net_blade_landed() -> void:
 	# The blow felt in the hands: his own view knocked the way the blade went.
 	if is_multiplayer_authority() and camera != null and camera.current and rig != null:
 		ImpactFx.nudge(camera, rig.swing_direction(-global_basis.z))
+		if rig.get(&"cut_weight") != null and float(rig.get(&"cut_weight")) > 1.2:
+			WindBlast.shake(self, 0.06, 0.2, 6.0)
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
@@ -2726,17 +2805,18 @@ var _step_velocity := Vector3.ZERO
 var _step_left: float = 0.0
 
 
-## A cut thrown at something out of the knife's reach steps in to it.
-func _step_in(foe: Node3D) -> void:
+## A cut thrown at something out of the knife's reach steps in to it (no
+## further than `reach`).
+func _step_in(foe: Node3D, reach: float) -> void:
 	_step_left = 0.0
-	if foe == null or not is_on_floor():
+	if foe == null or reach <= 0.0 or not is_on_floor():
 		return
 	var to := foe.global_position - global_position
 	to.y = 0.0
 	var gap := to.length() - _body_radius(foe) - strike_close
 	if gap <= 0.05 or to.length() < 0.01:
 		return
-	var go := minf(gap, strike_step_max)
+	var go := minf(gap, reach)
 	_step_velocity = to.normalized() * go / strike_step_time
 	_step_left = strike_step_time
 
@@ -3083,6 +3163,7 @@ func _tick_timers(delta: float) -> void:
 	_commit_timer = maxf(_commit_timer - delta, 0.0)
 	_root_timer = maxf(_root_timer - delta, 0.0)
 	_attack_buffer = maxf(_attack_buffer - delta, 0.0)
+	_heavy_buffer = maxf(_heavy_buffer - delta, 0.0)
 	# A flurry is over once nothing has been swung for a beat, and the next cut
 	# counts as a first one again — so running in and hitting something is always
 	# the fast swing, however many were thrown a moment ago.
@@ -3790,6 +3871,8 @@ func _decides_here() -> bool:
 ## What a cut of this hero's blade is worth where it lands (host): p.atk, and
 ## `crit_chance` of the time a critical. [worth, critical].
 func cut_worth() -> Array:
-	if profile == null:
-		return [26.0, false]
-	return profile.cut(_shot_rng)
+	var worth: Array = [26.0, false] if profile == null else profile.cut(_shot_rng)
+	# A heavy blow, or the last cut of a string, is worth more.
+	if rig != null and rig.get(&"cut_weight") != null:
+		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))
+	return worth

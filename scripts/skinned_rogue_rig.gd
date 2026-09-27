@@ -96,17 +96,43 @@ func _configure() -> void:
 	# axe set, and a last big blow off its three-hit combo. Each starts about
 	# where the last left the blade, so a string of clicks is one long, quick,
 	# turning combo. Left alone for a second it starts again from the first.
-	# Now a knife's string, not a sword's: the slash down and back up, a low
-	# thrust in (the reverse-grip stab of his knife-fighting set, only its
-	# thrust), the spin, the backhand, a quick jab, and the big blow down to the
-	# ground to end it. The one-handed sword combo's overhead cuts (3 to 5) are
-	# gone: they went over anything shorter than a man.
-	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Stab_Reverse", &"DG_Spin_Cut", &"DG_Backhand_Cut",
-			&"DG_Stab_Lead", &"DG_Finisher"]
+	# A knife's string, quick and turning, each cut starting about where the
+	# last left the blade and each a little quicker than the one before: the
+	# slash down and back up, the low backhand out, the spin, the long sweep
+	# from high right to low left, the backhand, and the big blow down to the
+	# ground to end it.
+	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Slash_Out", &"DG_Spin_Cut", &"DG_Axe_R2L",
+			&"DG_Backhand_Cut", &"DG_Finisher"]
 	flurry_part = {
-		&"DG_Stab_Reverse": Vector2(0.243, 0.487),
-		&"DG_Stab_Lead": Vector2(0.06, 0.27),
+		&"DG_Slash_Out": Vector2(0.279, 0.574),
+		&"DG_Axe_R2L": Vector2(0.236, 0.597),
 	}
+	flurry_quicken = 0.035
+	finisher_weight = 1.35
+	# The heavy blows, on the other button (he has no shield to raise): which
+	# one is what the string has come to (see Player._heavy_blow).
+	#  0 out of nothing: a lunge in with the point and a slash back out;
+	#  1 early in the string: a spinning leap, a kick and the knife coming down;
+	#  2 later: three great cuts, the last from over his head to the ground;
+	#  3 at the end of the string: the whirling combo, round and through;
+	#  4 at a run: a flying front flip, the knife coming down as he lands.
+	heavy = [
+		{"clip": &"DG_Thrust_Slash", "part": Vector2(0.144, 0.567), "rate": 1.75, "weight": 1.5, "step": 3.0},
+		{"clip": &"DG_Spin_Flip_Kick", "part": Vector2(0.243, 0.802), "rate": 1.55, "weight": 1.6, "aim": false,
+			"travel": 1.6},
+		{"clip": &"DG_Axe_Three", "part": Vector2(0.135, 0.69), "rate": 1.8, "weight": 1.4},
+		{"clip": &"DG_Dual_Combo", "part": Vector2(0.193, 0.798), "rate": 1.7, "weight": 1.4},
+		{"clip": &"DG_Big_Flip", "part": Vector2(0.1, 1.0), "rate": 1.35, "weight": 1.8, "aim": false,
+			"travel": 5.3},
+	]
+	cut_windows = {
+		&"DG_Thrust_Slash": [Vector2(0.211, 0.267), Vector2(0.456, 0.522)],
+		&"DG_Spin_Flip_Kick": [Vector2(0.369, 0.441), Vector2(0.45, 0.559)],
+		&"DG_Axe_Three": [Vector2(0.175, 0.27), Vector2(0.373, 0.46), Vector2(0.571, 0.651)],
+		&"DG_Dual_Combo": [Vector2(0.248, 0.321), Vector2(0.468, 0.514), Vector2(0.67, 0.761)],
+		&"DG_Big_Flip": [Vector2(0.8, 0.96)],
+	}
+	carried = {&"DG_Spin_Flip_Kick": true, &"DG_Big_Flip": true, &"DG_Dual_Combo": true}
 	flurry_reset_after = 1.0
 	cut_window = {
 		&"DG_Combo_1": Vector2(0.3, 0.8), &"DG_Combo_2": Vector2(0.15, 1.0),
@@ -114,7 +140,9 @@ func _configure() -> void:
 		&"DG_Backhand_Cut": Vector2(0.2, 0.8), &"DG_Combo_4": Vector2(0.31, 0.88),
 		&"DG_Combo_5": Vector2(0.0, 0.89), &"DG_Finisher": Vector2(0.35, 0.8),
 		&"DG_Double_Stab": Vector2(0.326, 0.37), &"DG_Dual_Combo": Vector2(0.257, 0.743),
-		&"DG_Stab_Reverse": Vector2(0.28, 0.41), &"DG_Stab_Lead": Vector2(0.083, 0.2),
+		&"DG_Slash_Out": Vector2(0.377, 0.459), &"DG_Axe_R2L": Vector2(0.319, 0.486),
+		&"DG_Thrust_Slash": Vector2(0.211, 0.267), &"DG_Spin_Flip_Kick": Vector2(0.369, 0.441),
+		&"DG_Axe_Three": Vector2(0.175, 0.27), &"DG_Big_Flip": Vector2(0.8, 0.96),
 	}
 	# Thrown off a jump: the double stab from its raise to the stab going in.
 	air_cut_from = 0.2
@@ -149,7 +177,7 @@ func _configure() -> void:
 	# puglin or a wolf on the ground, a hand longer for the hit than it looks.
 	strike_aim = true
 	strike_natural = 1.25
-	strike_heights = {&"DG_Stab_Reverse": 0.8, &"DG_Finisher": 0.7}
+	strike_heights = {&"DG_Finisher": 0.7, &"DG_Slash_Out": 0.8, &"DG_Axe_R2L": 1.0, &"DG_Thrust_Slash": 0.85}
 	strike_reach = 0.2
 	strike_pull = 0.3
 
