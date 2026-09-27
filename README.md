@@ -3767,12 +3767,11 @@ level.
 **The light** (`scripts/level_beam.gd`, `LevelBeam.on(hero)`), four seconds
 of it: a star kindles overhead and drops towards him, its rays flaring
 (0–0.4 s); a thread of light shoots down from the sky to his feet and opens
-into a broad column (to 0.7 s); where it lands, a flash, a shockwave over the
-ground, a burst of sparks thrown out low, a halo round him; while it stands,
-wisps (value noise) stream down the column, two ribbons of light wind up round
-him, motes rise spiralling and glitter falls from above, and at his feet a
-circle draws itself round — two rings, a six-point star, a band of marks
-turning; from 3 s the column's foot lifts off the ground and it is taken back
+into a broad column (to 0.7 s); where it lands, a flash, a burst of sparks
+thrown out low, a halo round him; while it stands, wisps (value noise) stream
+down the column, two ribbons of light wind up round him, motes rise spiralling
+and glitter falls from above — nothing is drawn on the ground (a circle with a
+star in it and a pool of light under him were tried and taken out); from 3 s the column's foot lifts off the ground and it is taken back
 up into the sky. A chime goes with it, made in code (`_make_chime`, cached): a
 rising rush of air, five bells climbing a major chord, a trembling high chord
 under them. No textures, no sound files. It follows him, upright; every peer

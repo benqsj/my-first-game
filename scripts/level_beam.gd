@@ -8,12 +8,11 @@ extends Node3D
 ## 2. **The beam** (0.35 – 0.7 s): a thread of light shoots down from the sky to
 ##    his feet and opens into a broad column — the way a ship's beam takes
 ##    someone up.
-## 3. **It lands** (0.7 s): a flash; a shockwave runs out over the ground; a
-##    burst of sparks is thrown out low; a halo blooms round him.
+## 3. **It lands** (0.7 s): a flash; a burst of sparks is thrown out low; a
+##    halo blooms round him.
 ## 4. **It stands** (to 3 s): wisps of light stream down the column; two ribbons
 ##    of light wind up round him; motes rise spiralling and glitter falls from
-##    above; at his feet a circle of light draws itself — two rings, a six-point
-##    star, a band of marks turning between the rings.
+##    above. Nothing is drawn on the ground.
 ## 5. **It is taken up** (3 – 4 s): the column's foot lifts off the ground and
 ##    rises back into the sky, and the rest fades after it.
 ##
@@ -68,51 +67,9 @@ void fragment() {
 	vec2 q = vec2(around * 1.6 + along * 6.0, along * height * 0.35 + TIME * 7.0);
 	float w = noise(q) * 0.6 + noise(q * 2.3 + vec2(3.1, TIME * 4.0)) * 0.4;
 	float stream = mix(1.0, 0.45 + 1.1 * w, wisp);
-	float foot = 1.0 + 0.7 * (1.0 - smoothstep(0.0, 0.02, along - lift));
+	float foot = 1.0;
 	ALBEDO = tint.rgb;
 	ALPHA = clamp(core * shown * (high * stream * foot + head + tail) * strength, 0.0, 1.0);
-}
-"""
-
-const GROUND_SHADER := """
-shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
-
-uniform vec4 tint : source_color = vec4(0.85, 0.92, 1.0, 1.0);
-uniform vec4 rune_tint : source_color = vec4(1.0, 0.9, 0.6, 1.0);
-uniform float glow = 0.0;      // the pool of light
-uniform float circle = 0.0;    // the circle's brightness
-uniform float reveal = 0.0;    // how much of the circle has drawn itself, 0..1
-uniform float wave = 0.0;      // the shockwave's radius, 0..1
-uniform float wave_strength = 0.0;
-uniform float turn = 0.0;
-
-float line(float d, float at, float w) { return exp(-pow((d - at) / w, 2.0)); }
-
-// Distance from a point in polar form to a triangle's edge of circumradius r.
-float tri(float a, float d, float r, float rot) {
-	float k = 6.2831853 / 3.0;
-	float m = mod(a - rot, k) - k * 0.5;
-	float edge = r * 0.5 / cos(m);
-	return abs(d - edge);
-}
-
-void fragment() {
-	vec2 p = UV - vec2(0.5);
-	float d = length(p) * 2.0;
-	float a = atan(p.y, p.x);
-	float drawn = step(fract((a + 3.14159265) / 6.2831853 - turn * 0.05), reveal);
-	float pool = pow(max(1.0 - d * 1.15, 0.0), 2.4) * glow;
-	float rings = (line(d, 0.46, 0.008) + line(d, 0.52, 0.006) * 0.8 + line(d, 0.30, 0.006) * 0.7) * drawn;
-	float star = exp(-pow(tri(a, d, 0.46, turn) / 0.006, 2.0)) + exp(-pow(tri(a, d, 0.46, turn + 1.0471976) / 0.006, 2.0));
-	star *= step(d, 0.47) * drawn;
-	float band = step(0.47, d) * step(d, 0.51);
-	float marks = band * step(0.55, fract((a / 6.2831853) * 36.0 + turn * 0.6)) * step(0.3, fract(d * 40.0)) * drawn;
-	float runes = (rings + star * 0.8 + marks * 0.9) * circle;
-	float shock = line(d, wave, 0.03 + 0.05 * wave) * wave_strength;
-	vec3 col = tint.rgb * (pool + shock) + rune_tint.rgb * runes;
-	ALBEDO = col;
-	ALPHA = clamp(pool + shock + runes, 0.0, 1.0);
 }
 """
 
@@ -168,7 +125,6 @@ var _age: float = 0.0
 var _tint: Color
 var _outer: ShaderMaterial
 var _inner: ShaderMaterial
-var _ground: ShaderMaterial
 var _star: ShaderMaterial
 var _halo: ShaderMaterial
 var _ribbon_mat: ShaderMaterial
@@ -207,16 +163,6 @@ func _build(tint: Color) -> void:
 	_inner = _material(BEAM_SHADER, {&"tint": Color(1, 1, 1), &"height": HEIGHT, &"sharpness": 4.0, &"wisp": 0.5})
 	_outer_mesh = _column(1.3, 1.1, _outer)
 	_inner_mesh = _column(0.3, 0.26, _inner)
-
-	var disc := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(8.0, 8.0)
-	disc.mesh = plane
-	_ground = _material(GROUND_SHADER, {&"tint": tint})
-	disc.material_override = _ground
-	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	disc.position = Vector3(0.0, 0.07, 0.0)
-	add_child(disc)
 
 	_star = _material(GLOW_SHADER, {&"tint": Color(1.0, 0.98, 0.92), &"rays": 1.0})
 	_star_node = _billboard(_star, 3.0)
@@ -447,19 +393,12 @@ func _apply(age: float) -> void:
 	_outer.set_shader_parameter(&"strength", (0.06 + 0.2 * open + 0.6 * flash) * breathe)
 	_inner.set_shader_parameter(&"strength", (0.75 - 0.2 * open + 1.2 * flash) * breathe)
 
-	# 3. It lands: the sparks, the shockwave, the halo, the flash.
+	# 3. It lands: the sparks, the halo, the flash.
 	if age >= LAND_AT and not _burst_done:
 		_burst_done = true
 		_burst.restart()
 		_burst.emitting = true
 	var landed := clampf((age - LAND_AT) / 0.2, 0.0, 1.0)
-	var wave := clampf((age - LAND_AT) / 0.7, 0.0, 1.0)
-	_ground.set_shader_parameter(&"wave", _ease_out(wave))
-	_ground.set_shader_parameter(&"wave_strength", landed * (1.0 - wave) * 2.0)
-	_ground.set_shader_parameter(&"glow", landed * standing * (0.9 + flash))
-	_ground.set_shader_parameter(&"reveal", _ease_out((age - LAND_AT) / 0.9))
-	_ground.set_shader_parameter(&"circle", landed * standing * (0.8 + 0.2 * sin(age * 5.0)))
-	_ground.set_shader_parameter(&"turn", age * 0.6)
 	_halo.set_shader_parameter(&"strength", (0.45 * landed * standing + 1.2 * flash) * breathe)
 	_halo_node.scale = Vector3.ONE * (1.0 + 0.4 * flash)
 	_light.light_energy = (3.0 * landed * standing + 9.0 * flash)
