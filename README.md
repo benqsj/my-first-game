@@ -3779,20 +3779,47 @@ line along the whole bottom edge of the screen, cut in tenths, with "EXP
 shield throws out light. The bars stop growing at 480 px, however high the
 level.
 
-**The light** (`scripts/level_beam.gd`, `LevelBeam.on(hero)`), four seconds
-of it: a star kindles overhead and drops towards him, its rays flaring
-(0–0.4 s); a thread of light shoots down from the sky to his feet and opens
-into a broad column (to 0.7 s); where it lands, a flash, a burst of sparks
-thrown out low, a halo round him; while it stands, wisps (value noise) stream
-down the column, two ribbons of light wind up round him, motes rise spiralling
-and glitter falls from above — nothing is drawn on the ground (a circle with a
-star in it and a pool of light under him were tried and taken out); from 3 s the column's foot lifts off the ground and it is taken back
-up into the sky. A chime goes with it, made in code (`_make_chime`, cached): a
-rising rush of air, five bells climbing a major chord, a trembling high chord
-under them. No textures, no sound files. It follows him, upright; every peer
-makes its own from `Leveling.net_progress`, nothing replicated.
+**Taken up into the light** (`scripts/level_beam.gd`, `LevelBeam.on(hero)`),
+3.7 seconds, the way a ship's beam lifts someone off the ground: high overhead
+a light opens and a cone of pale light spreads down from it round him, wide at
+the foot, a haze through it brighter at its edges, rings running up it
+(0–0.8 s); his body is lifted off the ground most of a metre, turning a
+little, and hangs there while motes are drawn up round him into the beam and
+a low hum climbs (to 2.6 s); then he is dropped back to his feet and gold
+bursts out of him — sparks all round, a golden flare and light, a soft thump
+and bells — and the HUD's "LEVEL UP" comes up then (at 2.95 s); the cone
+narrows and closes into the sky. Only his body (`Visuals`) is lifted, never
+his collider. Nothing is drawn on the ground (a circle with a star in it, a
+pool of light, a column from the sky with ribbons round him were tried before
+and taken out). All made in code, the sound too (`_make_sound`, cached); every
+peer makes its own from `Leveling.net_progress`, nothing replicated.
 
 `tests/leveling_test.gd`: level 1 to start; a wolf far off is nothing; a wolf
 a third at level 1 and a quarter at 2; 3, 4 and 5 wolves are levels 2, 3 and
 4, each healing and each with its light; an orc at level 4 half a level; Tariel grown by his line;
 the shared profile untouched; what an imp and an orc are worth in wolves.
+
+## Over the creatures: level and damage
+
+`scripts/combat_text.gd` (class `CombatText`, under the World as
+`CombatText`):
+
+* **Their level**, "Lv 3  Wolf", over the health bar of every creature within
+  24 m, coloured against the hero's own level: grey 3 or more below, green
+  below, white the same, yellow 1–2 above, red 3 or more above. Levels are
+  `Leveling.LEVEL_OF`: imp 1, puglin 2, wolf 3, orc 6, Arkdeva 10.
+* **What each blow took**, a number that jumps up off the creature, pops,
+  slows and fades in a second: white, or for a critical larger, gold and with a
+  "!". It is read, not told: every frame each creature's `health` is compared
+  with last frame's, so every weapon, spell, fire and poison shows without any
+  of them knowing, and on a client too (where `health` arrives replicated). A
+  critical is noted by the creature as it takes the blow
+  (`CombatText.mark_critical`, in `take_hit` and the blade's cut in
+  `Wolf`, `Fighter`, `Brute`) — on the host; a client shows its numbers plain.
+* The words are on their own render layer (`CombatText.LAYER`), which the map's
+  photograph from above leaves out.
+
+`tests/combat_text_test.gd`: a wolf near shows "Lv 3  Wolf" in yellow, one far
+off nothing, an imp "Lv 1  Imp" in white; a blow puts up what it took, a
+critical with a "!", gone after a second; and a new level lifts the hero up in
+the light and sets him down where he was.

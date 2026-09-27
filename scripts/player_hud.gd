@@ -142,7 +142,8 @@ func _process(delta: float) -> void:
 				_gain_time = 0.0)
 			_book.leveled_up.connect(func(level: int) -> void:
 				_up_level = level
-				_up_time = 0.0)
+				# "LEVEL UP" when he is set down out of the light ([LevelBeam]).
+				_up_time = -LevelBeam.LAND_AT)
 	_bars.queue_redraw()
 
 	if player.is_dead:
