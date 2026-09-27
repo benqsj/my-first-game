@@ -4129,3 +4129,16 @@ other peers, as `net_shield` does the shield. The bag (**I**) has an
 icon per mesh name); Enter or a click puts one on, and the status column says
 which is worn. Only one is drawn at a time, so the second costs memory, not
 frames (about 36k triangles each).
+
+## The assassin's and the mage's outfits
+
+Both are dressed in cloth the same way (`vepxis-art/tools/d8_build.py`,
+`m8_build.py`, written to their glbs by `vepxis-art/_garb_export.py`), each
+version its own mesh, chosen in the bag's Attire tab. The assassin: the black
+coat edged in red (worn), Nightblade, the Crimson Hood, the black coat edged
+in ivory, the Sandstrider. The mage: Storm (worn), Ember, Sage, Wine. A hood
+is round cloth whose rim covers the corners of the square face; the black
+coats' hood falls back over the nape. `SkinnedRig.garb_capes` hangs each
+outfit's cloth capes its own way (colour, length, none); `ClothCape` takes a
+`point`, so a hem can be cut to a point at the back (the worn coat's short
+cape).
