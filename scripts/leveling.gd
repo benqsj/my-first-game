@@ -28,6 +28,11 @@ extends Node
 ## 0.8, an orc 3, Arkdeva 12. What is left over from a level carries into the
 ## next, counted in wolves.
 
+## Every creature's level, shown over its head ([CombatText]): what it is,
+## against where the heroes start.
+const LEVEL_OF := {&"imp": 1, &"puglin": 2, &"wolf": 3, &"orc": 6, &"arkdeva": 10}
+const LEVEL_OTHER := 1
+
 ## What each creature is worth, in wolves.
 const WEIGHT := {&"wolf": 1.0, &"imp": 0.6, &"puglin": 0.8, &"orc": 3.0, &"arkdeva": 12.0}
 ## What a creature with no line of its own is worth, in wolves.
@@ -74,6 +79,11 @@ func _ready() -> void:
 ## What `creature` is worth, in wolves.
 static func worth(creature: Node) -> float:
 	return float(WEIGHT.get(kind_of(creature), WEIGHT_OTHER))
+
+
+## A creature's level.
+static func level_of(creature: Node) -> int:
+	return int(LEVEL_OF.get(kind_of(creature), LEVEL_OTHER))
 
 
 ## How many wolves `at_level` asks for the next one.

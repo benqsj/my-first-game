@@ -213,6 +213,8 @@ func _take_photograph() -> Image:
 	eye.size = WORLD_MAX.y - WORLD_MIN.y
 	eye.near = 1.0
 	eye.far = 600.0
+	# Not the levels and numbers over the creatures ([CombatText]).
+	eye.cull_mask &= ~CombatText.LAYER
 	view.add_child(eye)
 	var middle := (WORLD_MIN + WORLD_MAX) * 0.5
 	eye.position = Vector3(middle.x, 300.0, middle.y)

@@ -121,6 +121,10 @@ func _ready() -> void:
 	_add_marsh_song()
 	_creatures = get_node_or_null("Enemies")
 	_watch_kills()
+	# Levels over the creatures, and what each blow took off them.
+	var words := CombatText.new()
+	words.name = "CombatText"
+	add_child(words)
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
 	if net != null:

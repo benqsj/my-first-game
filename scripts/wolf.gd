@@ -1190,6 +1190,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	# be told — which is what keeps one wolf from dying twice.
 	if is_dead or not _decides():
 		return
+	if critical:
+		CombatText.mark_critical(self)
 
 	damage = Defence.against(damage, p_def, m_def, magic)
 	if _reeling > 0.0:

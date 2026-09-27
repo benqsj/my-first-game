@@ -643,6 +643,8 @@ func _watch_blades() -> void:
 		_last_cut[knight.name] = serial
 		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.3
 		var worth := knight.cut_worth()
+		if bool(worth[1]):
+			CombatText.mark_critical(self)
 		if _receive(float(worth[0]), near[1], blow, knight):
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
@@ -653,13 +655,15 @@ func _watch_blades() -> void:
 
 ## The door every kind of damage comes through, the arrow's included — the same
 ## signature as `Wolf.take_hit()`, which is what `arrow.gd` calls.
-func take_hit(damage: float, at: Vector3, blow: Vector3, _critical: bool = false,
+func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 		_spill: bool = true, from: Node = null, magic: bool = false) -> void:
 	if is_dead or not _decides():
 		return
 	# The archer may have left while the arrow was in the air. A critical is
 	# already in `damage`: the shooter made it one.
 	var shooter := from as Node3D if is_instance_valid(from) else null
+	if critical:
+		CombatText.mark_critical(self)
 	_receive(damage, at, blow, shooter, magic)
 
 
