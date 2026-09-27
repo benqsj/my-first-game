@@ -260,7 +260,7 @@ func _configure() -> void:
 ## same number of materials. The first is the model as it was made.
 const TARIEL_WARDROBE := {
 	&"crimson": {"name": "crimson and gold (as made)", "mats": {},
-		"cape": {"base": Color("d98a2b"), "hem": Color("f2c27a"), "trim": Color("1b1310")}},
+		"cape": {"base": Color("d98a2b"), "hem": Color("f2c27a"), "trim": Color("1b1310"), "pattern": "tiger"}},
 	&"panther": {"name": "panther: oxblood, tawny skin, old bronze",
 		"mats": {"t6_crimson": Color(0.2, 0.035, 0.03), "t6_tiger": Color(0.30, 0.18, 0.07),
 			"t6_tiger2": Color(0.38, 0.26, 0.12), "t6_stripe": Color(0.05, 0.035, 0.025),
@@ -268,7 +268,7 @@ const TARIEL_WARDROBE := {
 			"t6_steel": Color(0.36, 0.37, 0.38), "t6_steel2": Color(0.18, 0.19, 0.2),
 			"steel": Color(0.33, 0.34, 0.35), "t6_ruby": Color(0.25, 0.03, 0.03),
 			"t6_tigereye": Color(0.45, 0.32, 0.05), "tower_crimson": Color(0.2, 0.035, 0.03)},
-		"cape": {"base": Color("a8793f"), "hem": Color("d2b37c"), "trim": Color("2a1d14")}},
+		"cape": {"base": Color("a8793f"), "hem": Color("d2b37c"), "trim": Color("2a1d14"), "pattern": "tiger"}},
 	&"black": {"name": "black and steel, dark amber skin",
 		"mats": {"t6_crimson": Color(0.045, 0.045, 0.05), "t6_tiger": Color(0.24, 0.14, 0.05),
 			"t6_tiger2": Color(0.3, 0.21, 0.1), "t6_stripe": Color(0.02, 0.015, 0.01),
@@ -276,14 +276,14 @@ const TARIEL_WARDROBE := {
 			"t6_steel": Color(0.5, 0.52, 0.55), "t6_steel2": Color(0.22, 0.23, 0.25),
 			"t6_ruby": Color(0.3, 0.02, 0.02), "t6_leather": Color(0.07, 0.035, 0.02),
 			"tower_crimson": Color(0.05, 0.05, 0.055)},
-		"cape": {"base": Color("7d5a2e"), "hem": Color("a88c5c"), "trim": Color("141110")}},
+		"cape": {"base": Color("7d5a2e"), "hem": Color("a88c5c"), "trim": Color("141110"), "pattern": "tiger"}},
 	&"indigo": {"name": "indigo, tawny skin, muted gold",
 		"mats": {"t6_crimson": Color(0.04, 0.06, 0.14), "t6_tiger": Color(0.30, 0.18, 0.07),
 			"t6_tiger2": Color(0.38, 0.26, 0.12), "t6_stripe": Color(0.05, 0.035, 0.025),
 			"t6_gold": Color(0.4, 0.3, 0.12), "brass_gold": Color(0.4, 0.3, 0.12),
 			"t6_steel": Color(0.42, 0.44, 0.47), "t6_steel2": Color(0.2, 0.21, 0.24),
 			"t6_ruby": Color(0.1, 0.15, 0.35), "tower_crimson": Color(0.05, 0.07, 0.15)},
-		"cape": {"base": Color("ad8246"), "hem": Color("d8bd86"), "trim": Color("22170f")}},
+		"cape": {"base": Color("ad8246"), "hem": Color("d8bd86"), "trim": Color("22170f"), "pattern": "tiger"}},
 	&"hunter": {"name": "hunter: olive and leather, like Avtandil",
 		"mats": {"t6_crimson": Color(0.09, 0.12, 0.05), "t6_tiger": Color(0.30, 0.18, 0.07),
 			"t6_tiger2": Color(0.38, 0.26, 0.12), "t6_stripe": Color(0.05, 0.035, 0.025),
@@ -291,13 +291,38 @@ const TARIEL_WARDROBE := {
 			"t6_steel": Color(0.34, 0.35, 0.35), "t6_steel2": Color(0.16, 0.17, 0.17),
 			"steel": Color(0.33, 0.34, 0.35), "t6_ruby": Color(0.2, 0.3, 0.1),
 			"t6_leather": Color(0.12, 0.055, 0.022), "tower_crimson": Color(0.12, 0.08, 0.04)},
-		"cape": {"base": Color("a67a44"), "hem": Color("cfb07a"), "trim": Color("241a12")}},
+		"cape": {"base": Color("a67a44"), "hem": Color("cfb07a"), "trim": Color("241a12"), "pattern": "tiger"}},
+## Tariel v8's cloth in colours dark but not black (the t8 materials), each
+## with a plain cape to match; and the cape short, and none.
+	&"oxblood": {"name": "oxblood: dark wine-red cloth, a plain cape to match",
+		"mats": {"t8_cloth": Color(0.107, 0.016, 0.0176), "t8_cloth2": Color(0.0437, 0.0075, 0.0086), "t8_coat2": Color(0.0437, 0.0075, 0.0086)},
+		"cape": {"base": Color("4f1c1e"), "hem": Color("a07f47"), "trim": Color("241012"), "pattern": "plain"}},
+	&"navy": {"name": "navy: deep blue cloth, a plain cape to match",
+		"mats": {"t8_cloth": Color(0.0185, 0.0319, 0.0782), "t8_cloth2": Color(0.0086, 0.0144, 0.0423), "t8_coat2": Color(0.0086, 0.0144, 0.0423)},
+		"cape": {"base": Color("202b45"), "hem": Color("a07f47"), "trim": Color("10141f"), "pattern": "plain"}},
+	&"umber": {"name": "umber: dark brown wool, a plain cape to match",
+		"mats": {"t8_cloth": Color(0.1046, 0.0545, 0.0296), "t8_cloth2": Color(0.0452, 0.0242, 0.0137), "t8_coat2": Color(0.0452, 0.0242, 0.0137)},
+		"cape": {"base": Color("4e3828"), "hem": Color("a07f47"), "trim": Color("1c140e"), "pattern": "plain"}},
+	&"slate": {"name": "slate: blue-grey cloth, a plain cape to match",
+		"mats": {"t8_cloth": Color(0.0497, 0.0612, 0.0908), "t8_cloth2": Color(0.0222, 0.0284, 0.0423), "t8_coat2": Color(0.0222, 0.0284, 0.0423)},
+		"cape": {"base": Color("363c49"), "hem": Color("a07f47"), "trim": Color("15181e"), "pattern": "plain"}},
+	&"plum": {"name": "plum: dark violet cloth, a plain cape to match",
+		"mats": {"t8_cloth": Color(0.0685, 0.0232, 0.0595), "t8_cloth2": Color(0.0284, 0.0103, 0.0252), "t8_coat2": Color(0.0284, 0.0103, 0.0252)},
+		"cape": {"base": Color("3f243b"), "hem": Color("a07f47"), "trim": Color("1a0f18"), "pattern": "plain"}},
+	&"oxblood_short": {"name": "oxblood, the cape short: to the waist",
+		"mats": {"t8_cloth": Color(0.107, 0.016, 0.0176), "t8_cloth2": Color(0.0437, 0.0075, 0.0086), "t8_coat2": Color(0.0437, 0.0075, 0.0086)},
+		"cape": {"base": Color("4f1c1e"), "hem": Color("a07f47"), "trim": Color("241012"), "pattern": "plain", "length": 0.62, "spread": 1.2}},
+	&"oxblood_bare": {"name": "oxblood, no cape",
+		"mats": {"t8_cloth": Color(0.107, 0.016, 0.0176), "t8_cloth2": Color(0.0437, 0.0075, 0.0086), "t8_coat2": Color(0.0437, 0.0075, 0.0086)},
+		"cape": {"base": Color("4f1c1e"), "hem": Color("a07f47"), "trim": Color("241012"), "pattern": "plain", "off": true}},
 }
 ## Which of the wardrobe Tariel wears, for every Tariel in this game.
 static var dress: StringName = &"black"
 ## This rig's wardrobe; empty for a hero that has none (set by `_configure()`).
 var wardrobe: Dictionary = {}
 var _dress_on: StringName = &""
+## Whether the capes hang as a dress reshaped them (longer, shorter, off).
+var _capes_reshaped: bool = false
 var _dress_label: Label
 
 
@@ -328,8 +353,33 @@ func _put_on_dress() -> void:
 			# The model's colours are Blender's, linear; the material's are as seen.
 			copy.albedo_color = (mats[own.resource_name] as Color).linear_to_srgb()
 			mesh_node.set_surface_override_material(i, copy)
+	var cape_look: Dictionary = outfit.get("cape", {})
+	if cape_look.has("off") or cape_look.has("length") or _capes_reshaped:
+		_rehang_capes(cape_look)
+	else:
+		for cape in cloth_capes:
+			cape.recolour(cape_look)
+
+
+## Takes the capes down and hangs them again with `look` laid over each one's
+## spec — for a dress that makes the cape longer or shorter, or leaves it off.
+func _rehang_capes(look: Dictionary) -> void:
 	for cape in cloth_capes:
-		cape.recolour(outfit.get("cape", {}))
+		cape.queue_free()
+	cloth_capes.clear()
+	_capes_reshaped = look.has("off") or look.has("length")
+	if look.get("off", false):
+		return
+	for base in capes:
+		var spec := (base as Dictionary).duplicate()
+		for key in look:
+			spec[key] = look[key]
+		var cape := ClothCape.new()
+		add_child(cape)
+		if cape.setup(_skel, spec):
+			cloth_capes.append(cape)
+		else:
+			cape.queue_free()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
