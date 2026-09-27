@@ -34,9 +34,16 @@ extends MeshInstance3D
 @export var core_color: Color = Color(1.0, 1.0, 1.0)
 @export var glow_color: Color = Color(0.78, 0.87, 1.0)
 ## Overall strength; 0 hides it.
-@export var intensity: float = 1.0
+@export var intensity: float = 1.15
 ## How much the air behind the blade is bent.
 @export var distortion: float = 0.012
+## Lines drawn along the edge the tip swept: 1 for a blade, 3 for a claw (the
+## marks of its claws, side by side), and how far apart, as a share of the
+## arc's width.
+@export var strands: int = 1
+@export var strand_gap: float = 0.11
+## How much of the pale sheet behind the edge shows (0: only the lines).
+@export var sheet: float = 0.45
 
 var emitting: bool = false
 
@@ -73,6 +80,9 @@ func _apply_look() -> void:
 	_material.set_shader_parameter("glow_color", glow_color)
 	_material.set_shader_parameter("intensity", intensity)
 	_material.set_shader_parameter("distortion", distortion)
+	_material.set_shader_parameter("strands", strands)
+	_material.set_shader_parameter("strand_gap", strand_gap)
+	_material.set_shader_parameter("sheet", sheet)
 
 
 func _allocate() -> void:

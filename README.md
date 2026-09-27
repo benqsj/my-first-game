@@ -1898,20 +1898,27 @@ be, which read as a cartoon against the dark grade.
 `Blood.splatter(world, point, direction, on = null, strength = 1)`, where
 `direction` is the way the blow was going (see *Blows that are felt*):
 
-* **The spray** — two pooled emitters restarted per blow (`SPRAY_POOL` pairs,
-  made at load; a new `GPUParticles3D` per hit once cost 10–25 ms): a stream of
-  34 drops thrown along the blow in a narrow fan (`THROW_SPREAD` 17°,
+* **The spray** — three pooled emitters restarted per blow (`SPRAY_POOL` sets,
+  made at load; a new `GPUParticles3D` per hit once cost 10–25 ms): **the
+  gush**, 18 ragged gouts (the pool's blob, turned to the eye, lit, a little
+  of their own red glow so they stay red in the shade) that burst out of the
+  cut along the blow, swell as they tear apart and fall — what says at a glance
+  that the blade went in; a stream of 44 drops thrown along the blow in a narrow fan (`THROW_SPREAD` 17°,
   `THROW_SPEED` 2.2–6.2 m/s), each a thin capsule turned to lie along the way it
   flies (`particle_flag_align_y`) so the arc reads as liquid rather than beads,
   falling under gravity and shrinking away as it reaches the ground; and a puff
   of fine mist at the wound that grows and fades in 0.4 s.
 * **The ground** — no longer nine big patches round the blow (their outline was
   twenty straight lobes, and they read as polygons). A small pool straight
-  under the wound, after a moment, and `DROPS` (10) drops where the spray was
+  under the wound, after a moment, `DROPS` (14) drops where the spray was
   going: each worked out as one drop out of the same fan, followed down its
   parabola to the ground, laid there stretched along the way it was moving
   (faster, longer) and shown only when it would have got there, with a quick
-  splash of scale. Two images: the pool, a blob whose edge is noise (with a
+  splash of scale, and a wider splash where most of them came down. Where
+  the ray finds no ground (the rolling land is not always a body it can hit)
+  the land's own height is used: before, a stain on a hillside was laid at the
+  height of the old flat floor, under the hill — why blood sometimes did not
+  show. Two images: the pool, a blob whose edge is noise (with a
   darker, drier rim and a few loose drops), and the drop, a round head with its
   tail and fine spatter thrown on ahead.
 * **The body** — with `on`, the creature takes a cut where the blade went in
@@ -1920,7 +1927,9 @@ be, which read as a cartoon against the dark grade.
   limb) and projecting only onto the creature's own meshes — they are put on
   `WOUND_LAYER` (1 << 18) the first time — and only on the side the cut is on
   (`normal_fade`). At most `MAX_WOUNDS` (7) on one creature.
-* The grass and props where most of it comes down are tinted (a clump's
+* The grass and props where most of it comes down are tinted strongly (0.8,
+  over 1.9 m) — in a meadow the stains lie under the grass, so the grass itself
+  has to read as bloodied (a clump's
   instance colour, a prop's overlay) and dry off with the ground, 30–40 s.
 
 The blade darkens as it works, a third per cut.
@@ -4045,9 +4054,9 @@ What says a cut went *in*, the way it does in a souls-like:
 * **The swing catches.** Tariel's clip is held all but still for `bite_stop`
   0.075 s as the blade bites (`SkinnedRig.hitstop`, his swing's clock held with
   it), the wolf's for 0.07 s (0.1 on a critical).
-* **A streak of light where it bit** (`ImpactFx.slash`): a hot white core in a
-  red edge, laid along the swing and turned to the eye, drawn on from behind in
-  a few hundredths of a second and gone in 0.16.
+* **Blood out of the cut, not a streak of light**: the red streak laid along
+  the swing where it bit is gone (it read as a laser); the gush above is the
+  mark of the blow.
 * **The view is knocked** a few centimetres the way the blade went, and eased
   back (`ImpactFx.nudge`, his own camera only).
 * **It is heard**: under the ring of the steel, a short deep thump with a wet
@@ -4055,4 +4064,20 @@ What says a cut went *in*, the way it does in a souls-like:
 
 Fighters and orcs get the direction, the wound, the streak and the tipping
 over; breaking off their moves is still the wolf's alone.
+
+## Cuts in the air
+
+Every blade and claw draws its cut with `BladeArc` (`assets/fx/blade_arc.gdshader`):
+a hot hairline where the tip went, a soft halo round it in the glow colour, a
+thin sheet behind it thinning to nothing at the hilt (`sheet`), wind streaks
+running back along it, the air behind it bent, and a tail that frays away —
+added to what is behind it, light rather than paint, so it never covers the
+wood as a flat grey crescent. `strands` draws more than one line side by side.
+
+* Tariel's sword and the assassin's two blades: one line, a pale sheet, a cool
+  white-blue halo (`intensity` 1.15).
+* The wolf's claws: no longer the plain additive `SwordTrail` (a faint white
+  strip), but three lines side by side — the marks of its claws — ash-white in
+  a dull red halo over hardly any sheet, lasting 0.26 s (`WolfRig._make_trail`).
+* The orc's axe keeps its own grey arc.
 

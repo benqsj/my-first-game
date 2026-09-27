@@ -154,8 +154,8 @@ var _tail: Array[int] = []
 var _tail_swing: PackedFloat32Array = PackedFloat32Array()
 var _claw_tips: Dictionary = {}
 var _wrists: Dictionary = {}
-var _trail_l: SwordTrail
-var _trail_r: SwordTrail
+var _trail_l: BladeArc
+var _trail_r: BladeArc
 var _glints: Dictionary = {}
 var _clock: float = 0.0
 ## The claw wave: its clips and its tell ([WolfClaw]).
@@ -544,13 +544,23 @@ func _mark_claws() -> void:
 	_trail_r = _make_trail("r")
 
 
-func _make_trail(side: String) -> SwordTrail:
+## The claws' cut through the air: three hot lines side by side, the marks of
+## the claws, ash-white in a dull red halo, over hardly any sheet.
+func _make_trail(side: String) -> BladeArc:
 	if not _wrists.has(side):
 		return null
-	var trail := SwordTrail.new()
-	trail.tint = Color(0.85, 0.92, 1.0, 0.4)
-	trail.sample_count = 12
-	trail.fade_time = 0.18
+	var trail := BladeArc.new()
+	trail.name = "ClawArc_" + side
+	trail.strands = 3
+	trail.strand_gap = 0.14
+	trail.sheet = 0.16
+	trail.life = 0.26
+	trail.taper = 0.35
+	trail.tip_overshoot = 0.12
+	trail.intensity = 1.7
+	trail.core_color = Color(1.0, 0.94, 0.9)
+	trail.glow_color = Color(0.85, 0.22, 0.16)
+	trail.distortion = 0.008
 	add_child(trail)
 	trail.setup(_wrists[side], _claw_tips[side])
 	return trail
