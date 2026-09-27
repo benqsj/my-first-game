@@ -26,6 +26,9 @@ signal character_changed(id: StringName)
 signal graphics_changed(level: Graphics.Level)
 
 var _chosen: StringName = DEFAULT
+## Each hero's hair, picked on the hero select: id -> an index into the rig's
+## `hairs`. Remembered between runs.
+var _hairs: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
@@ -127,6 +130,17 @@ func choose(id: StringName) -> void:
 	character_changed.emit(id)
 
 
+## Which hair `id` wears (an index into their rig's `hairs`; 0 if never picked).
+func hair(id: StringName) -> int:
+	return int(_hairs.get(id, 0))
+
+
+## Picks `id`'s hair, and remembers it.
+func set_hair(id: StringName, index: int) -> void:
+	_hairs[id] = index
+	_save_settings()
+
+
 ## Every character there is, in the order they should be offered.
 func roster() -> Array[StringName]:
 	var ids: Array[StringName] = []
@@ -202,11 +216,16 @@ func _load_settings() -> void:
 	_graphics = Graphics.from_int(level)
 	var shown := String(file.get_value("video", "display", "window"))
 	_display = shown if DISPLAYS.has(shown) else "window"
+	if file.has_section("hair"):
+		for key in file.get_section_keys("hair"):
+			_hairs[StringName(key)] = int(file.get_value("hair", key, 0))
 
 
 func _save_settings() -> void:
 	var file := ConfigFile.new()
 	file.set_value("video", "graphics", int(_graphics))
 	file.set_value("video", "display", _display)
+	for id: StringName in _hairs:
+		file.set_value("hair", String(id), int(_hairs[id]))
 	file.save(SETTINGS)
 #endregion

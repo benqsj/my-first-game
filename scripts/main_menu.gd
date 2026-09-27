@@ -62,6 +62,10 @@ var _found_note: Label
 ## The button at the bottom of the character page, which says different things
 ## depending on whether there is anyone else to wait for.
 var _go: Button
+## Under the stage: the picked hero's hair, stepped through with two arrows
+## (shown only for a hero who has more than one).
+var _hair_row: HBoxContainer
+var _hair_label: Label
 
 
 func _ready() -> void:
@@ -233,7 +237,12 @@ func _build_characters() -> Control:
 	var left_gap := Control.new()
 	left_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	middle.add_child(left_gap)
-	middle.add_child(_stage(roster))
+	var stage_column := VBoxContainer.new()
+	stage_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	stage_column.add_theme_constant_override("separation", 6)
+	stage_column.add_child(_stage(roster))
+	stage_column.add_child(_hair_picker())
+	middle.add_child(stage_column)
 	var mid_gap := Control.new()
 	mid_gap.custom_minimum_size = Vector2(60.0, 0.0)
 	middle.add_child(mid_gap)
@@ -491,10 +500,81 @@ func _stage(roster: Array) -> Control:
 	for id: StringName in roster:
 		var full := CharacterPortrait.of(_profile(id), STAGE)
 		full.name = "Full_%s" % id
+		# In the hair picked last time; set before the model is in the tree,
+		# so it comes up wearing it.
+		if full.rig() != null and _game != null:
+			full.rig().set(&"hair", int(_game.call(&"hair", id)))
 		_stages[id] = full
 		stage.add_child(full)
 		full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return stage
+
+
+## The row under the stage: an arrow either side of the hair's name.
+func _hair_picker() -> Control:
+	_hair_row = HBoxContainer.new()
+	_hair_row.name = "HairRow"
+	_hair_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_hair_row.add_theme_constant_override("separation", 12)
+	var back := MenuStyle.button("<", func() -> void: _step_hair(-1), true)
+	back.name = "HairBack"
+	back.custom_minimum_size = Vector2(52.0, 40.0)
+	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hair_row.add_child(back)
+	_hair_label = MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	_hair_label.name = "HairName"
+	_hair_label.custom_minimum_size = Vector2(290.0, 0.0)
+	_hair_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hair_row.add_child(_hair_label)
+	var on := MenuStyle.button(">", func() -> void: _step_hair(1), true)
+	on.name = "HairNext"
+	on.custom_minimum_size = Vector2(52.0, 40.0)
+	on.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hair_row.add_child(on)
+	return _hair_row
+
+
+## The picked hero's model on the stage.
+func _chosen_rig() -> Node3D:
+	var full := _stages.get(_chosen) as CharacterPortrait
+	return full.rig() if full != null else null
+
+
+## The picked hero's hair and what each is called (empty for one with none).
+func _hair_list() -> Array:
+	var model := _chosen_rig()
+	if model == null or not model.has_method(&"set_hair"):
+		return []
+	var names: Variant = model.get(&"hair_names")
+	return names as Array if names is Array else []
+
+
+## The next (or last) hair, on the stage and remembered.
+func _step_hair(by: int) -> void:
+	var names := _hair_list()
+	if names.size() < 2:
+		return
+	var model := _chosen_rig()
+	var index := wrapi(int(model.get(&"hair")) + by, 0, names.size())
+	model.call(&"set_hair", index)
+	if _game != null:
+		_game.call(&"set_hair", _chosen, index)
+	_refresh_hair()
+
+
+func _refresh_hair() -> void:
+	if _hair_row == null:
+		return
+	var names := _hair_list()
+	var shown := names.size() > 1
+	# Faded out rather than hidden, so the stage does not jump when a hero
+	# with no choice is picked.
+	_hair_row.modulate.a = 1.0 if shown else 0.0
+	for button in [_hair_row.get_node("HairBack"), _hair_row.get_node("HairNext")]:
+		(button as Button).disabled = not shown
+	if shown:
+		var index := clampi(int(_chosen_rig().get(&"hair")), 0, names.size() - 1)
+		_hair_label.text = "HAIR   %s   %d / %d" % [String(names[index]), index + 1, names.size()]
 
 
 func _draw_stage(stage: Control) -> void:
@@ -724,6 +804,9 @@ func _refresh_cards() -> void:
 		if stage != null:
 			stage.queue_redraw()
 	_fill_dossier()
+	# The rig fills its list of hair in when it enters the tree, which may be
+	# after this.
+	_refresh_hair.call_deferred()
 
 
 func _profile(id: StringName) -> CharacterProfile:

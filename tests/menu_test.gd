@@ -98,6 +98,28 @@ func _check_menu() -> void:
 	_check("the description is the picked character's", named == "AVTANDIL",
 			"'%s'" % named)
 
+	# Under the stage, the hair: for Tariel, who has a choice of it, and not
+	# for the archer, who has none.
+	var hair_row := (pages[2] as Control).find_child("HairRow", true, false) as Control
+	_check("the archer has no hair to pick", hair_row != null and hair_row.modulate.a < 0.01)
+	var hair_was: int = _game.hair(&"tariel")
+	menu.set("_chosen", &"tariel")
+	menu.call("_refresh_cards")
+	await _wait(3)
+	_check("Tariel does", hair_row != null and hair_row.modulate.a > 0.99)
+	var knight := (stages[&"tariel"] as CharacterPortrait).rig() as SkinnedRig
+	var from: int = knight.hair
+	menu.call("_step_hair", 1)
+	var on := 0
+	for hair_mesh: StringName in knight.hairs:
+		var mesh := knight.find_child(String(hair_mesh), true, false) as MeshInstance3D
+		if mesh != null and mesh.visible:
+			on += 1
+	_check("the arrow puts the next on him, and only it", knight.hair == (from + 1) % knight.hairs.size()
+			and on == 1, "%d -> %d, %d shown" % [from, knight.hair, on])
+	_check("and it is remembered for the game", _game.hair(&"tariel") == knight.hair)
+	_game.set_hair(&"tariel", hair_was)
+
 	# Every character can be taken into a game with other people — including the
 	# archer. He was briefly barred while the bow did not cross the wire, and
 	# barring characters is the wrong answer to a missing feature: there are two

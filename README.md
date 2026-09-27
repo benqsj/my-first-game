@@ -4185,6 +4185,22 @@ the bare arms, the shins bound. In the bag: a Norse wool tunic with a woven
 band and a grey fur mantle, a mail shirt, and the three warrior's tunics, all
 with the same head (`VERSIONS12` vk_* in `t12_build.py`).
 
+**His hair is picked on the hero select.** The hair is its own mesh now, one
+per style, worn over whichever outfit is on: each laid lock by lock —
+tapering, slightly twisted ribbons in three browns, combed back from the brow
+over the crown (`hair2(style)` in `t12_build.py`), over a dark close cap, the
+shaved sides and nape in stubble darkening upward. Six, the first the one he
+starts in: a long mohawk falling to the nape; the sides shaved, the top tied
+into a tail; into a braid ringed in gold; into a knot on the crown; all of it
+long and swept back; and the old shoulder-length hair (`classic`).
+`_t12_export.py` builds the garbs bare-headed (`hair_split`) and each hair as
+`tariel_hair_<style>`. `SkinnedRig.hairs` / `hair_names` / `set_hair(i)` show
+one; `Player.set_hair(i)`, replicated in `net_hair`; `Game.hair(id)` /
+`set_hair(id, i)` hold the choice (remembered in settings.cfg, section `hair`),
+and the local player puts it on when he spawns. On the character page, under
+the stage, `<  HAIR  NAME  n / 6  >` steps through them on the turning model
+(faded out for a hero with no choice).
+
 ## The wolf: cuts, the ground, the fall
 
 **The limb the blade went through.** A cut that takes a limb takes the one the

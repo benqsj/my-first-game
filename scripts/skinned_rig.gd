@@ -206,6 +206,13 @@ var garb: int = 0
 ## (its keys laid over the spec — colours, `length`… — or `{"off": true}`
 ## to leave that cape off). Empty: every outfit wears the capes as they are.
 var garb_capes: Array = []
+## Hair the model carries, each its own mesh worn over whichever outfit is on
+## (their names in the model); one is shown. Empty for a hero with only the one.
+var hairs: Array[StringName] = []
+## What each of `hairs` is called on the hero select.
+var hair_names: Array[String] = []
+## Which of `hairs` is on.
+var hair: int = 0
 
 
 func _ready() -> void:
@@ -240,6 +247,7 @@ func _ready() -> void:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
 	set_shield(shield_kind)
 	set_garb(garb)
+	set_hair(hair)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
 	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
@@ -255,6 +263,11 @@ func _configure() -> void:
 			&"tariel_vk_warrior_slate", &"tariel_vk_warrior_hide"]
 	garb_capes = [[{"off": true}], [{"off": true}], [{"off": true}], [{"off": true}], [{"off": true}],
 			[{"off": true}]]
+	# His hair, picked on the hero select: the long mohawk first.
+	hairs = [&"tariel_hair_mohawk_long", &"tariel_hair_undercut_tail", &"tariel_hair_undercut_braid",
+			&"tariel_hair_undercut_knot", &"tariel_hair_full_back", &"tariel_hair_classic"]
+	hair_names = ["LONG MOHAWK", "UNDERCUT AND TAIL", "UNDERCUT AND BRAID", "UNDERCUT AND KNOT",
+			"LONG, SWEPT BACK", "SHOULDER LENGTH"]
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
@@ -939,6 +952,15 @@ func set_garb(index: int) -> void:
 			mesh.visible = i == garb
 	if garb < garb_capes.size() and _skel != null:
 		_hang_capes(garb_capes[garb])
+
+
+## Shows the hair `index` of `hairs` and hides the others.
+func set_hair(index: int) -> void:
+	hair = clampi(index, 0, maxi(hairs.size() - 1, 0))
+	for i in hairs.size():
+		var mesh := find_child(String(hairs[i]), true, false) as MeshInstance3D
+		if mesh != null:
+			mesh.visible = i == hair
 
 
 ## Takes the capes down and hangs them again, each spec in `capes` with its

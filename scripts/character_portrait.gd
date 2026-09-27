@@ -104,6 +104,11 @@ static func of(profile: CharacterProfile, size: Vector2,
 	return portrait
 
 
+## The model on the stand (null for a profile with none).
+func rig() -> Node3D:
+	return _rig
+
+
 func _process(delta: float) -> void:
 	# Hidden portraits are not being looked at, and posing a body nobody can see
 	# is a rig's worth of work per character per frame for nothing.
