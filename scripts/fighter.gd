@@ -648,7 +648,6 @@ func _watch_blades() -> void:
 		if bool(worth[1]):
 			CombatText.mark_critical(self)
 		if _receive(float(worth[0]), near[1], blow, knight):
-			ImpactFx.slash(Blood.world_of(self), near[1], blow, visual_scale, bool(worth[1]))
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
 			knight.blade_hit(self, near[1])

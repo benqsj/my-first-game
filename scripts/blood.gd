@@ -12,13 +12,15 @@ extends Node
 ## light as everything else rather than painted on in flat red.
 
 ## Fresh blood, lit: dark and glossy, not the flat red of a cartoon.
-const SPRAY := Color(0.3, 0.01, 0.01)
-const STAIN := Color(0.24, 0.012, 0.01)
+const SPRAY := Color(0.34, 0.012, 0.01)
+const STAIN := Color(0.3, 0.014, 0.01)
 ## The tint the grass and the props take.
-const TINT := Color(0.28, 0.02, 0.02)
+const TINT := Color(0.34, 0.02, 0.015)
 
-## Radius over which the grass and the props standing in the blood get tinted.
-const SPLATTER_RADIUS := 1.4
+## Radius over which the grass and the props standing in the blood get tinted:
+## the ground stains lie under the grass, and a meadow would hide them, so the
+## grass itself is what has to read as bloodied.
+const SPLATTER_RADIUS := 1.9
 ## Height above the ground the stains sit, to keep them out of the floor.
 const PATCH_LIFT := 0.015
 ## Most ground stains alive at once. Past this the oldest is picked up and laid
@@ -40,7 +42,7 @@ const THROW_SPEED := Vector2(2.2, 6.2)
 const THROW_SPREAD := 17.0
 const GRAVITY := 9.8
 ## Drops that come down per blow (at `strength` 1).
-const DROPS := 10
+const DROPS := 14
 
 ## The render layer a creature's meshes are put on so that a wound (a [Decal])
 ## marks the creature and nothing round it — not the grass it stands in.
@@ -125,14 +127,20 @@ static var _stream_mesh: CapsuleMesh
 static var _stream_material: StandardMaterial3D
 static var _mist_mesh: QuadMesh
 static var _mist_material: StandardMaterial3D
-## Each entry a pair: [the stream of drops, the mist].
+static var _burst_process: ParticleProcessMaterial
+static var _burst_mesh: QuadMesh
+static var _burst_material: StandardMaterial3D
+## Each entry: [the stream of drops, the mist, the gush].
 static var _sprays: Array = []
 static var _next_spray: int = 0
 
 
-## A short spray thrown out along the blow: a stream of drops, each stretched
-## along the way it flies so the arc reads as liquid rather than beads, falling
-## as they go; and a puff of fine mist at the wound that hangs a moment.
+## What comes out of the wound as the blade goes through, all of it thrown the
+## way the blade was going: the gush — a dozen gouts of blood, soft ragged
+## blobs that burst out of the cut, stretch and fall, the thing that says at a
+## glance *that went in*; a stream of fine drops, each stretched along the way
+## it flies so the arc reads as liquid rather than beads; and a puff of mist at
+## the wound that hangs a moment.
 ##
 ## Taken from a ring of `SPRAY_POOL` emitter pairs that live in the level and
 ## are restarted, oldest first. They share process materials that throw along
@@ -148,7 +156,7 @@ static func _spray(world: Node, point: Vector3, along: Vector3, strength: float)
 	var basis := Basis.looking_at(aim, up)
 	for p: GPUParticles3D in pair:
 		p.global_transform = Transform3D(basis, point)
-		p.amount_ratio = clampf(0.55 + 0.35 * strength, 0.3, 1.0)
+		p.amount_ratio = clampf(0.6 + 0.3 * strength, 0.35, 1.0)
 		p.restart()
 
 
@@ -157,8 +165,8 @@ static func _spray_assets() -> void:
 		# One drop: a thin capsule, turned by the particle system to lie along
 		# the way it is flying.
 		_stream_mesh = CapsuleMesh.new()
-		_stream_mesh.radius = 0.016
-		_stream_mesh.height = 0.12
+		_stream_mesh.radius = 0.017
+		_stream_mesh.height = 0.13
 		_stream_mesh.radial_segments = 5
 		_stream_mesh.rings = 1
 		_stream_material = StandardMaterial3D.new()
@@ -169,7 +177,7 @@ static func _spray_assets() -> void:
 		# the wood and in shadow.
 		_stream_material.emission_enabled = true
 		_stream_material.emission = Color(0.22, 0.0, 0.0)
-		_stream_material.emission_energy_multiplier = 0.15
+		_stream_material.emission_energy_multiplier = 0.4
 	if _mist_mesh == null:
 		_mist_mesh = QuadMesh.new()
 		_mist_mesh.size = Vector2(0.13, 0.13)
@@ -183,6 +191,54 @@ static func _spray_assets() -> void:
 		_mist_material.albedo_texture = splat_texture()
 		_mist_material.albedo_color = Color(0.26, 0.01, 0.01)
 		_mist_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if _burst_mesh == null:
+		# A gout: the pool's ragged blob, turned to the eye, lit so it is wet in
+		# the sun and dark in the shade like the rest.
+		_burst_mesh = QuadMesh.new()
+		_burst_mesh.size = Vector2(0.22, 0.22)
+		_burst_material = StandardMaterial3D.new()
+		_burst_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_burst_material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_burst_material.vertex_color_use_as_albedo = true
+		_burst_material.albedo_texture = splat_texture()
+		_burst_material.albedo_color = Color(0.5, 0.02, 0.015)
+		_burst_material.roughness = 0.15
+		_burst_material.metallic_specular = 0.7
+		_burst_material.emission_enabled = true
+		_burst_material.emission = Color(0.3, 0.0, 0.0)
+		_burst_material.emission_energy_multiplier = 0.45
+		_burst_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if _burst_process == null:
+		_burst_process = ParticleProcessMaterial.new()
+		_burst_process.direction = Vector3.FORWARD
+		_burst_process.spread = 26.0
+		_burst_process.flatness = 0.4
+		_burst_process.initial_velocity_min = 1.4
+		_burst_process.initial_velocity_max = 4.6
+		_burst_process.damping_min = 1.5
+		_burst_process.damping_max = 3.0
+		_burst_process.gravity = Vector3(0.0, -7.0, 0.0)
+		_burst_process.scale_min = 0.6
+		_burst_process.scale_max = 1.5
+		_burst_process.angle_min = -180.0
+		_burst_process.angle_max = 180.0
+		_burst_process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		_burst_process.emission_sphere_radius = 0.06
+		# Out of the cut small, swelling as it tears apart, gone as it falls.
+		var swell := Curve.new()
+		swell.add_point(Vector2(0.0, 0.35))
+		swell.add_point(Vector2(0.22, 1.8))
+		swell.add_point(Vector2(1.0, 0.6))
+		var swell_tex := CurveTexture.new()
+		swell_tex.curve = swell
+		_burst_process.scale_curve = swell_tex
+		var thin := Gradient.new()
+		thin.set_color(0, Color(1, 1, 1, 1.0))
+		thin.add_point(0.6, Color(1, 1, 1, 0.9))
+		thin.set_color(thin.get_point_count() - 1, Color(1, 1, 1, 0.0))
+		var thin_tex := GradientTexture1D.new()
+		thin_tex.gradient = thin
+		_burst_process.color_ramp = thin_tex
 	if _stream_process == null:
 		_stream_process = ParticleProcessMaterial.new()
 		_stream_process.direction = Vector3.FORWARD
@@ -237,8 +293,10 @@ static func _spray_assets() -> void:
 static func _live_sprays() -> int:
 	for i in range(_sprays.size() - 1, -1, -1):
 		var pair: Array = _sprays[i]
-		if not is_instance_valid(pair[0]) or not is_instance_valid(pair[1]):
-			_sprays.remove_at(i)
+		for p: Variant in pair:
+			if not is_instance_valid(p):
+				_sprays.remove_at(i)
+				break
 	return _sprays.size()
 
 
@@ -246,7 +304,7 @@ static func _add_spray(world: Node) -> Array:
 	_spray_assets()
 	var stream := GPUParticles3D.new()
 	stream.name = "BloodSpray"
-	stream.amount = 34
+	stream.amount = 44
 	stream.lifetime = 0.62
 	stream.one_shot = true
 	stream.explosiveness = 0.82
@@ -269,7 +327,20 @@ static func _add_spray(world: Node) -> Array:
 	mist.process_material = _mist_process
 	mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world.add_child(mist)
-	var pair := [stream, mist]
+	var gush := GPUParticles3D.new()
+	gush.name = "BloodGush"
+	gush.amount = 18
+	gush.lifetime = 0.5
+	gush.one_shot = true
+	gush.explosiveness = 0.9
+	gush.emitting = false
+	gush.draw_pass_1 = _burst_mesh
+	gush.material_override = _burst_material
+	gush.process_material = _burst_process
+	gush.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gush.visibility_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))
+	world.add_child(gush)
+	var pair := [stream, mist, gush]
 	_sprays.append(pair)
 	return pair
 
@@ -444,12 +515,14 @@ static func _stain_ground(world: Node, point: Vector3, along: Vector3, strength:
 	var lift := aim.cross(side).normalized()
 
 	# The pool under the wound: what runs down off it, after a moment.
-	var pool_size := randf_range(0.3, 0.55) * clampf(0.7 + 0.3 * strength, 0.6, 1.4)
+	var pool_size := randf_range(0.45, 0.8) * clampf(0.7 + 0.3 * strength, 0.6, 1.4)
 	var under := point + Vector3(randfn(0.0, 0.06), 0.0, randfn(0.0, 0.06))
 	_lay(world, space, _pool_material, under, point.y, Vector3.ZERO, pool_size, pool_size * randf_range(0.75, 1.0),
 			randf_range(0.35, 0.6))
 
 	var drops := int(round(DROPS * clampf(strength, 0.4, 2.0)))
+	var landed := Vector3.ZERO
+	var fell := 0.0
 	for i in drops:
 		# One drop out of the same fan as the spray.
 		var turn := deg_to_rad(randf_range(-THROW_SPREAD, THROW_SPREAD))
@@ -464,10 +537,18 @@ static func _stain_ground(world: Node, point: Vector3, along: Vector3, strength:
 		var land := start + Vector3(v.x, 0.0, v.z) * t
 		var flat := Vector3(v.x, 0.0, v.z)
 		var speed := flat.length()
-		var size := randf_range(0.07, 0.16) * (1.0 + 0.18 * speed)
+		var size := randf_range(0.1, 0.22) * (1.0 + 0.18 * speed)
 		# The faster it was going along the ground, the longer the drop smears.
 		var stretch := size * (1.6 + 0.35 * speed)
 		_lay(world, space, _drop_material, land, ground_y + 0.5, flat, stretch, size, t)
+		landed += land
+		fell = maxf(fell, t)
+	# Where most of it came down, a wider splash of it.
+	if drops > 0:
+		var middle := landed / float(drops)
+		var flat_aim := Vector3(aim.x, 0.0, aim.z)
+		var wide := randf_range(0.45, 0.75) * clampf(0.8 + 0.2 * strength, 0.7, 1.4)
+		_lay(world, space, _pool_material, middle, point.y, flat_aim, wide * 1.4, wide, fell * 0.8)
 
 
 ## Lays one stain at `at` (moved onto whatever is there to lie on), `length`
@@ -550,12 +631,23 @@ static func _space_of(world: Node) -> PhysicsDirectSpaceState3D:
 ## The ground straight below `at`, searched from a little above `from_height`
 ## down to well below it. Empty if there is nothing there.
 static func _ground_under(space: PhysicsDirectSpaceState3D, at: Vector3, from_height: float) -> Dictionary:
-	if space == null:
-		return {}
-	var query := PhysicsRayQueryParameters3D.create(
-			Vector3(at.x, from_height + 1.0, at.z),
-			Vector3(at.x, from_height - 4.0, at.z), GROUND_MASK)
-	return space.intersect_ray(query)
+	var hit := {}
+	if space != null:
+		var query := PhysicsRayQueryParameters3D.create(
+				Vector3(at.x, from_height + 1.0, at.z),
+				Vector3(at.x, from_height - 4.0, at.z), GROUND_MASK)
+		hit = space.intersect_ray(query)
+	# Missed (the rolling land is not always a body the ray can find): the
+	# land's own height there. Without this a stain on a hillside was laid at
+	# the height of the old flat floor — under the hill, out of sight.
+	if hit.is_empty() and Terrain.current != null:
+		var y := Terrain.current.height_at(at.x, at.z)
+		var step := 0.3
+		var n := Vector3(Terrain.current.height_at(at.x - step, at.z) - Terrain.current.height_at(at.x + step, at.z),
+				2.0 * step,
+				Terrain.current.height_at(at.x, at.z - step) - Terrain.current.height_at(at.x, at.z + step)).normalized()
+		hit = {"position": Vector3(at.x, y, at.z), "normal": n}
+	return hit
 
 
 ## The height of the ground under `at`, or of the level's floor (0) if there is
@@ -584,13 +676,13 @@ static func _stain_nearby(world: Node, point: Vector3, along: Vector3) -> void:
 
 	var field := scatter as GrassField
 	if field != null:
-		field.stain(centre, SPLATTER_RADIUS, TINT, 0.45)
+		field.stain(centre, SPLATTER_RADIUS, TINT, 0.8)
 	var wet: Array[MeshInstance3D] = []
 
 	if _overlay_material == null:
 		_overlay_material = StandardMaterial3D.new()
 		_overlay_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_overlay_material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.45)
+		_overlay_material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.6)
 		_overlay_material.roughness = 0.2
 	var overlay := _overlay_material
 	for child in scatter.get_children():

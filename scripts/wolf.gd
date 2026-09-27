@@ -1507,7 +1507,6 @@ func _take_hits() -> void:
 		# Bleed from where the limb actually came away, thrown the way the blade
 		# was going.
 		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
-		ImpactFx.slash(Blood.world_of(self), rig.last_cut_point, blow, _size(), true)
 		_by_blade = true
 		# The host decided *which* limb; everyone else is told, so the piece that
 		# comes off is the same piece in every window. Re-running the geometry
@@ -1537,7 +1536,6 @@ func _wound(knight: Player, edge: Array, serial: int) -> bool:
 	# Thrown the way the blade was going: cut from its right, it goes left.
 	var cut: Vector3 = knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
 	var worth := _blade_damage(knight)
-	ImpactFx.slash(Blood.world_of(self), at, cut, _size(), bool(worth[1]))
 	_by_blade = true
 	take_hit(float(worth[0]), at, cut, bool(worth[1]), true, knight)
 	knight.rig.bloody()
