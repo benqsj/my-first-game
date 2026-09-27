@@ -81,13 +81,19 @@ func _check_menu() -> void:
 			up += 1
 	_check("with only the one picked on the stage", up == 1, "%d up" % up)
 
-	# And it turns, so the player sees more of them than one side.
+	# It stands still, and turns when dragged across, so the player sees the
+	# other side when they want to.
 	var stage := stages[&"avtandil"] as CharacterPortrait
 	var stand := stage.find_child("Stand", true, false) as Node3D
 	var angle: float = stand.rotation.y
 	await _wait(20)
-	_check("and turns so both sides can be seen",
-			not is_equal_approx(stand.rotation.y, angle),
+	_check("it stands still on its own", is_equal_approx(stand.rotation.y, angle),
+			"%.2f -> %.2f" % [angle, stand.rotation.y])
+	var drag := InputEventMouseMotion.new()
+	drag.button_mask = MOUSE_BUTTON_MASK_LEFT
+	drag.relative = Vector2(60, 0)
+	menu.call("_on_stage_input", drag)
+	_check("and a drag across it turns it", not is_equal_approx(stand.rotation.y, angle),
 			"%.2f -> %.2f" % [angle, stand.rotation.y])
 
 	# The description belongs to whoever is on the stage.

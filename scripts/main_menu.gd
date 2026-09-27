@@ -495,7 +495,11 @@ func _stage(roster: Array) -> Control:
 	# Its own size, whatever the window: taller windows get more room round
 	# it, not a stretched stage with the figure left standing at its top.
 	stage.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Dragged across, it turns the one standing on it; left alone, they stand
+	# still.
+	stage.mouse_filter = Control.MOUSE_FILTER_STOP
+	stage.mouse_default_cursor_shape = Control.CURSOR_DRAG
+	stage.gui_input.connect(_on_stage_input)
 	stage.draw.connect(func() -> void: _draw_stage(stage))
 	for id: StringName in roster:
 		var full := CharacterPortrait.of(_profile(id), STAGE)
@@ -589,6 +593,23 @@ func _refresh_picks() -> void:
 			var index := clampi(int(_chosen_rig().get(StringName(kind))), 0, names.size() - 1)
 			(row.get_node("Name") as Label).text = "%s   %s   %d / %d" % [
 					kind.to_upper(), String(names[index]), index + 1, names.size()]
+
+
+## Turns whoever is on the stage as the mouse is dragged across it (either
+## button), or a finger across a touch screen.
+func _on_stage_input(event: InputEvent) -> void:
+	var across := 0.0
+	var motion := event as InputEventMouseMotion
+	if motion != null and motion.button_mask & (MOUSE_BUTTON_MASK_LEFT | MOUSE_BUTTON_MASK_RIGHT):
+		across = motion.relative.x
+	var drag := event as InputEventScreenDrag
+	if drag != null:
+		across = drag.relative.x
+	if across == 0.0:
+		return
+	var full := _stages.get(_chosen) as CharacterPortrait
+	if full != null:
+		full.spin(across * 0.012)
 
 
 func _draw_stage(stage: Control) -> void:

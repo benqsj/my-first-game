@@ -4222,6 +4222,9 @@ the block hair is a long parted hair instead). `SkinnedRig.faces` /
 skull: `hair_mesh()`), `Player.set_face` / `net_face`, `Game.face(id)` /
 `set_face(id, i)` (settings.cfg, section `face`).
 
+The one on the stage stands still now; dragging across the stage (mouse, or a
+finger) turns them (`CharacterPortrait.spin`, `_on_stage_input`).
+
 ## The wolf: cuts, the ground, the fall
 
 **The limb the blade went through.** A cut that takes a limb takes the one the

@@ -50,6 +50,9 @@ static func of(profile: CharacterProfile, size: Vector2,
 	portrait.custom_minimum_size = size
 	portrait.stretch = true
 	if framing == Frame.FULL:
+		# Standing still: the player turns it by dragging across it, when
+		# they want to see the other side.
+		portrait.turn_speed = 0.0
 		# Standing back far enough that head and boots both fit a frame that is
 		# taller than it is wide.
 		portrait.eye_height = 1.05
@@ -107,6 +110,13 @@ static func of(profile: CharacterProfile, size: Vector2,
 ## The model on the stand (null for a profile with none).
 func rig() -> Node3D:
 	return _rig
+
+
+## Turns the model on its stand by `by` radians: the hero select turns it when
+## the player drags across it.
+func spin(by: float) -> void:
+	if _stand != null:
+		_stand.rotation.y = wrapf(_stand.rotation.y + by, -PI, PI)
 
 
 func _process(delta: float) -> void:
