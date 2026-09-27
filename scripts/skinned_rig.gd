@@ -253,13 +253,25 @@ var garb: int = 0
 ## (its keys laid over the spec — colours, `length`… — or `{"off": true}`
 ## to leave that cape off). Empty: every outfit wears the capes as they are.
 var garb_capes: Array = []
-## Hair the model carries, each its own mesh worn over whichever outfit is on
-## (their names in the model); one is shown. Empty for a hero with only the one.
+## The hair styles the model carries, worn over whichever outfit is on. Hair
+## is fitted to the skull it grows on, so each style is a mesh per kind of
+## skull: "<mesh_prefix>_hair_<skull>_<style>" (see `hair_mesh()`). Empty for
+## a hero with only the one.
 var hairs: Array[StringName] = []
 ## What each of `hairs` is called on the hero select.
 var hair_names: Array[String] = []
 ## Which of `hairs` is on.
 var hair: int = 0
+## The faces the model carries — the head itself, each its own mesh
+## "<mesh_prefix>_face_<key>" — with what each is called and which kind of
+## skull it is (the hair shown is the set fitted to it). Empty: no choice.
+var faces: Array[StringName] = []
+var face_names: Array[String] = []
+var face_skulls: Array[StringName] = []
+## Which of `faces` is on.
+var face: int = 0
+## What the model's own meshes are named from.
+var mesh_prefix: String = "tariel"
 
 
 func _ready() -> void:
@@ -299,7 +311,7 @@ func _ready() -> void:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
 	set_shield(shield_kind)
 	set_garb(garb)
-	set_hair(hair)
+	set_face(face)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
 	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
@@ -315,11 +327,15 @@ func _configure() -> void:
 			&"tariel_vk_warrior_slate", &"tariel_vk_warrior_hide"]
 	garb_capes = [[{"off": true}], [{"off": true}], [{"off": true}], [{"off": true}], [{"off": true}],
 			[{"off": true}]]
-	# His hair, picked on the hero select: the long mohawk first.
-	hairs = [&"tariel_hair_mohawk_long", &"tariel_hair_undercut_tail", &"tariel_hair_undercut_braid",
-			&"tariel_hair_undercut_knot", &"tariel_hair_full_back", &"tariel_hair_classic"]
+	# His face and his hair, both picked on the hero select: the face he has
+	# always had and the long mohawk first.
+	hairs = [&"mohawk_long", &"undercut_tail", &"undercut_braid", &"undercut_knot", &"full_back", &"classic"]
 	hair_names = ["LONG MOHAWK", "UNDERCUT AND TAIL", "UNDERCUT AND BRAID", "UNDERCUT AND KNOT",
 			"LONG, SWEPT BACK", "SHOULDER LENGTH"]
+	faces = [&"box", &"v3", &"s3", &"v2", &"a2", &"a4", &"a1"]
+	face_skulls = [&"box", &"sot", &"sot", &"sot", &"anime", &"anime", &"anime"]
+	face_names = ["AS HE WAS", "NORSE, LONG BEARD", "SEAFARER, BEARDED", "NORSE, STUBBLE", "FINE, ELVISH",
+			"STERN", "CLEAN"]
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
@@ -1124,13 +1140,41 @@ func set_garb(index: int) -> void:
 		_hang_capes(garb_capes[garb])
 
 
-## Shows the hair `index` of `hairs` and hides the others.
+## The mesh of hair style `style` (an index into `hairs`) for the skull
+## `skull` — the one the face that is on has, if none is named.
+func hair_mesh(style: int, skull: StringName = &"") -> StringName:
+	if skull == &"":
+		skull = face_skulls[face] if face < face_skulls.size() else &"box"
+	return StringName("%s_hair_%s_%s" % [mesh_prefix, skull, hairs[style]])
+
+
+## Shows the hair `index` of `hairs`, the one fitted to the face that is on,
+## and hides every other.
 func set_hair(index: int) -> void:
 	hair = clampi(index, 0, maxi(hairs.size() - 1, 0))
-	for i in hairs.size():
-		var mesh := find_child(String(hairs[i]), true, false) as MeshInstance3D
+	if hairs.is_empty():
+		return
+	var on := hair_mesh(hair)
+	var skulls: Array[StringName] = [&"box"]
+	for skull in face_skulls:
+		if not skulls.has(skull):
+			skulls.append(skull)
+	for skull in skulls:
+		for i in hairs.size():
+			var mesh := find_child(String(hair_mesh(i, skull)), true, false) as MeshInstance3D
+			if mesh != null:
+				mesh.visible = hair_mesh(i, skull) == on
+
+
+## Shows the face `index` of `faces` and hides the others; the hair follows
+## it onto its skull.
+func set_face(index: int) -> void:
+	face = clampi(index, 0, maxi(faces.size() - 1, 0))
+	for i in faces.size():
+		var mesh := find_child("%s_face_%s" % [mesh_prefix, faces[i]], true, false) as MeshInstance3D
 		if mesh != null:
-			mesh.visible = i == hair
+			mesh.visible = i == face
+	set_hair(hair)
 
 
 ## Takes the capes down and hangs them again, each spec in `capes` with its

@@ -110,15 +110,28 @@ func _check_menu() -> void:
 	var knight := (stages[&"tariel"] as CharacterPortrait).rig() as SkinnedRig
 	var from: int = knight.hair
 	menu.call("_step_hair", 1)
-	var on := 0
-	for hair_mesh: StringName in knight.hairs:
-		var mesh := knight.find_child(String(hair_mesh), true, false) as MeshInstance3D
-		if mesh != null and mesh.visible:
-			on += 1
+	var on := _hairs_shown(knight)
 	_check("the arrow puts the next on him, and only it", knight.hair == (from + 1) % knight.hairs.size()
 			and on == 1, "%d -> %d, %d shown" % [from, knight.hair, on])
 	_check("and it is remembered for the game", _game.hair(&"tariel") == knight.hair)
+	# And his face, the same way; the hair goes over onto the new face's skull.
+	var face_row := (pages[2] as Control).find_child("FaceRow", true, false) as Control
+	_check("Tariel has faces to pick from", face_row != null and face_row.modulate.a > 0.99)
+	var face_was: int = _game.face(&"tariel")
+	var face_from: int = knight.face
+	menu.call("_step_face", 4)
+	var faces_on := 0
+	for key: StringName in knight.faces:
+		var face_mesh := knight.find_child("tariel_face_" + String(key), true, false) as MeshInstance3D
+		if face_mesh != null and face_mesh.visible:
+			faces_on += 1
+	_check("the arrow puts on another face, and only it", knight.face == (face_from + 4) % knight.faces.size()
+			and faces_on == 1, "%d -> %d, %d shown" % [face_from, knight.face, faces_on])
+	_check("his hair moves over onto it", _hairs_shown(knight) == 1
+			and (knight.find_child(String(knight.hair_mesh(knight.hair)), true, false) as MeshInstance3D).visible)
+	_check("and the face is remembered too", _game.face(&"tariel") == knight.face)
 	_game.set_hair(&"tariel", hair_was)
+	_game.set_face(&"tariel", face_was)
 
 	# Every character can be taken into a game with other people — including the
 	# archer. He was briefly barred while the bow did not cross the wire, and
@@ -253,6 +266,15 @@ func _check_pause() -> void:
 
 ## True when `where` carries a portrait with a camera and an actual model under
 ## it — the thing the game spawns, not a picture of one.
+## How many hair meshes of every skull are showing on `rig`.
+func _hairs_shown(rig: SkinnedRig) -> int:
+	var on := 0
+	for mesh in rig.find_children("tariel_hair_*", "MeshInstance3D", true, false):
+		if (mesh as MeshInstance3D).visible:
+			on += 1
+	return on
+
+
 func _has_model(where: Control) -> bool:
 	var found := where.find_children("*", "CharacterPortrait", true, false)
 	if found.is_empty():

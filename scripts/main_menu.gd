@@ -19,7 +19,7 @@ const NetScript := preload("res://scripts/net.gd")
 ## The three columns of the character screen, in pixels: a roster tile, and the
 ## stage the picked one stands on. The dossier takes what is left.
 const TILE := Vector2(124.0, 140.0)
-const STAGE := Vector2(440.0, 590.0)
+const STAGE := Vector2(440.0, 540.0)
 
 
 ## Appended rather than inserted: the pages are addressed by number from the
@@ -62,10 +62,9 @@ var _found_note: Label
 ## The button at the bottom of the character page, which says different things
 ## depending on whether there is anyone else to wait for.
 var _go: Button
-## Under the stage: the picked hero's hair, stepped through with two arrows
-## (shown only for a hero who has more than one).
-var _hair_row: HBoxContainer
-var _hair_label: Label
+## Under the stage: the picked hero's face and hair, each stepped through with
+## two arrows (shown only for a hero who has a choice of it): kind -> the row.
+var _pick_rows: Dictionary = {}
 
 
 func _ready() -> void:
@@ -239,9 +238,10 @@ func _build_characters() -> Control:
 	middle.add_child(left_gap)
 	var stage_column := VBoxContainer.new()
 	stage_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	stage_column.add_theme_constant_override("separation", 6)
+	stage_column.add_theme_constant_override("separation", 0)
 	stage_column.add_child(_stage(roster))
-	stage_column.add_child(_hair_picker())
+	stage_column.add_child(_picker("face"))
+	stage_column.add_child(_picker("hair"))
 	middle.add_child(stage_column)
 	var mid_gap := Control.new()
 	mid_gap.custom_minimum_size = Vector2(60.0, 0.0)
@@ -500,9 +500,10 @@ func _stage(roster: Array) -> Control:
 	for id: StringName in roster:
 		var full := CharacterPortrait.of(_profile(id), STAGE)
 		full.name = "Full_%s" % id
-		# In the hair picked last time; set before the model is in the tree,
-		# so it comes up wearing it.
+		# In the face and the hair picked last time; set before the model is
+		# in the tree, so it comes up wearing them.
 		if full.rig() != null and _game != null:
+			full.rig().set(&"face", int(_game.call(&"face", id)))
 			full.rig().set(&"hair", int(_game.call(&"hair", id)))
 		_stages[id] = full
 		stage.add_child(full)
@@ -510,28 +511,31 @@ func _stage(roster: Array) -> Control:
 	return stage
 
 
-## The row under the stage: an arrow either side of the hair's name.
-func _hair_picker() -> Control:
-	_hair_row = HBoxContainer.new()
-	_hair_row.name = "HairRow"
-	_hair_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_hair_row.add_theme_constant_override("separation", 12)
-	var back := MenuStyle.button("<", func() -> void: _step_hair(-1), true)
-	back.name = "HairBack"
-	back.custom_minimum_size = Vector2(52.0, 40.0)
+## A row under the stage: an arrow either side of the name of the face (or
+## the hair) that is on. `kind` is "face" or "hair": the rig's `faces` /
+## `face_names` / `set_face()`, or the same for hair.
+func _picker(kind: String) -> Control:
+	var row := HBoxContainer.new()
+	row.name = kind.capitalize() + "Row"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	var back := MenuStyle.button("<", func() -> void: _step(kind, -1), true)
+	back.name = "Back"
+	back.custom_minimum_size = Vector2(52.0, 34.0)
 	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hair_row.add_child(back)
-	_hair_label = MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
-	_hair_label.name = "HairName"
-	_hair_label.custom_minimum_size = Vector2(290.0, 0.0)
-	_hair_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hair_row.add_child(_hair_label)
-	var on := MenuStyle.button(">", func() -> void: _step_hair(1), true)
-	on.name = "HairNext"
-	on.custom_minimum_size = Vector2(52.0, 40.0)
+	row.add_child(back)
+	var called := MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	called.name = "Name"
+	called.custom_minimum_size = Vector2(330.0, 0.0)
+	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(called)
+	var on := MenuStyle.button(">", func() -> void: _step(kind, 1), true)
+	on.name = "Next"
+	on.custom_minimum_size = Vector2(52.0, 34.0)
 	on.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hair_row.add_child(on)
-	return _hair_row
+	row.add_child(on)
+	_pick_rows[kind] = row
+	return row
 
 
 ## The picked hero's model on the stage.
@@ -540,41 +544,51 @@ func _chosen_rig() -> Node3D:
 	return full.rig() if full != null else null
 
 
-## The picked hero's hair and what each is called (empty for one with none).
-func _hair_list() -> Array:
+## What each face (or hair) of the picked hero is called; empty for one with
+## no choice of it.
+func _pick_list(kind: String) -> Array:
 	var model := _chosen_rig()
-	if model == null or not model.has_method(&"set_hair"):
+	if model == null or not model.has_method(&"set_" + kind):
 		return []
-	var names: Variant = model.get(&"hair_names")
+	var names: Variant = model.get(StringName(kind + "_names"))
 	return names as Array if names is Array else []
 
 
-## The next (or last) hair, on the stage and remembered.
-func _step_hair(by: int) -> void:
-	var names := _hair_list()
+## The next (or last) face or hair, on the stage and remembered.
+func _step(kind: String, by: int) -> void:
+	var names := _pick_list(kind)
 	if names.size() < 2:
 		return
 	var model := _chosen_rig()
-	var index := wrapi(int(model.get(&"hair")) + by, 0, names.size())
-	model.call(&"set_hair", index)
+	var index := wrapi(int(model.get(StringName(kind))) + by, 0, names.size())
+	model.call(&"set_" + kind, index)
 	if _game != null:
-		_game.call(&"set_hair", _chosen, index)
-	_refresh_hair()
+		_game.call(&"set_" + kind, _chosen, index)
+	_refresh_picks()
 
 
-func _refresh_hair() -> void:
-	if _hair_row == null:
-		return
-	var names := _hair_list()
-	var shown := names.size() > 1
-	# Faded out rather than hidden, so the stage does not jump when a hero
-	# with no choice is picked.
-	_hair_row.modulate.a = 1.0 if shown else 0.0
-	for button in [_hair_row.get_node("HairBack"), _hair_row.get_node("HairNext")]:
-		(button as Button).disabled = not shown
-	if shown:
-		var index := clampi(int(_chosen_rig().get(&"hair")), 0, names.size() - 1)
-		_hair_label.text = "HAIR   %s   %d / %d" % [String(names[index]), index + 1, names.size()]
+func _step_hair(by: int) -> void:
+	_step("hair", by)
+
+
+func _step_face(by: int) -> void:
+	_step("face", by)
+
+
+func _refresh_picks() -> void:
+	for kind: String in _pick_rows:
+		var row := _pick_rows[kind] as HBoxContainer
+		var names := _pick_list(kind)
+		var shown := names.size() > 1
+		# Faded out rather than hidden, so the stage does not jump when a
+		# hero with no choice is picked.
+		row.modulate.a = 1.0 if shown else 0.0
+		for button in [row.get_node("Back"), row.get_node("Next")]:
+			(button as Button).disabled = not shown
+		if shown:
+			var index := clampi(int(_chosen_rig().get(StringName(kind))), 0, names.size() - 1)
+			(row.get_node("Name") as Label).text = "%s   %s   %d / %d" % [
+					kind.to_upper(), String(names[index]), index + 1, names.size()]
 
 
 func _draw_stage(stage: Control) -> void:
@@ -806,7 +820,7 @@ func _refresh_cards() -> void:
 	_fill_dossier()
 	# The rig fills its list of hair in when it enters the tree, which may be
 	# after this.
-	_refresh_hair.call_deferred()
+	_refresh_picks.call_deferred()
 
 
 func _profile(id: StringName) -> CharacterProfile:

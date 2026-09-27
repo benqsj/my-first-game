@@ -55,16 +55,24 @@ func _initialize() -> void:
 	_check("the ponytail hangs off spring bones", cloth != null and cloth.get_setting_count() == 1, "")
 	# The warrior's dress he starts in goes without a cape.
 	_check("the warrior goes without a cape", rig.cloth_capes.size() == 0, "%d" % rig.cloth_capes.size())
-	# His hair is its own mesh, one per style; one is worn.
+	# His face and his hair are meshes of their own: a face per face, a hair
+	# per style for each kind of skull; one of each worn.
 	var worn := 0
 	var found := 0
-	for hair_mesh: StringName in rig.hairs:
-		var mesh := rig.find_child(String(hair_mesh), true, false) as MeshInstance3D
-		if mesh != null:
-			found += 1
-			worn += 1 if mesh.visible else 0
-	_check("his hair: every style in the model, one worn", rig.hairs.size() == 6 and found == 6 and worn == 1,
-			"%d styles, %d found, %d worn" % [rig.hairs.size(), found, worn])
+	for mesh in rig.find_children("tariel_hair_*", "MeshInstance3D", true, false):
+		found += 1
+		worn += 1 if (mesh as MeshInstance3D).visible else 0
+	_check("his hair: every style for every skull in the model, one worn", found == 18 and worn == 1,
+			"%d found, %d worn" % [found, worn])
+	var faces_found := 0
+	var faces_worn := 0
+	for key: StringName in rig.faces:
+		var face_mesh := rig.find_child("tariel_face_" + String(key), true, false) as MeshInstance3D
+		if face_mesh != null:
+			faces_found += 1
+			faces_worn += 1 if face_mesh.visible else 0
+	_check("his faces: all seven in the model, one worn", faces_found == 7 and faces_worn == 1,
+			"%d found, %d worn" % [faces_found, faces_worn])
 	if not rig.cloth_capes.is_empty():
 		var fwd := -player.global_transform.basis.z
 		var hem := rig.cloth_capes[0].hem() - player.global_position

@@ -4201,6 +4201,27 @@ and the local player puts it on when he spawns. On the character page, under
 the stage, `<  HAIR  NAME  n / 6  >` steps through them on the turning model
 (faded out for a hero with no choice).
 
+**And his face.** The head itself is a mesh of its own now too, one per face,
+worn over any garb and picked on the hero select the same way (a `FACE` row
+over the `HAIR` one): the face he has always had (the square head), and six
+sculpted ones — Norse and low-poly, flat-shaded, with a long braided beard or
+with stubble (V3, V2); a painted-adventure one, smooth, the features pushed,
+bearded (S3); and three clean ones as in the older fantasy MMOs and anime —
+an oval face, a small straight nose, large almond eyes lined dark along the
+top, thin brows, a quiet mouth (A2 finer and elvish, A4 stern, A1 plain). The
+sculpted heads are signed distance fields (smooth unions of ellipsoids,
+capsules, rounded boxes; the clean ones lofted from a profile) meshed with
+marching cubes and painted face by face (`vepxis-art/tools/heads/sot_sdf.py`
+→ `heads/<key>.json`), brought in and cut down by `sot_head()` in
+`t12_build.py`; the hair grows from the sculpted skull's surface and keeps
+off it, and the scalp under it is painted, not boxed. Hair is fitted to the
+skull it grows on, so there is a set of the six styles per kind of skull
+(`box`, `sot`, `anime`: `tariel_hair_<skull>_<style>`; on a sculpted skull
+the block hair is a long parted hair instead). `SkinnedRig.faces` /
+`face_names` / `face_skulls` / `set_face(i)` (the hair follows onto the new
+skull: `hair_mesh()`), `Player.set_face` / `net_face`, `Game.face(id)` /
+`set_face(id, i)` (settings.cfg, section `face`).
+
 ## The wolf: cuts, the ground, the fall
 
 **The limb the blade went through.** A cut that takes a limb takes the one the

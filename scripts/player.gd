@@ -372,6 +372,8 @@ var shield_kind: int = Inventory.Shields.ROUND
 var garb: int = 0
 ## Which of the rig's hair he wears (see `set_hair()`), picked on the hero select.
 var hair: int = 0
+## And which of its faces (see `set_face()`).
+var face: int = 0
 ## True while a screen of his own (the inventory, the big map) is open: the
 ## body stands still and takes no buttons.
 var menu_open: bool = false
@@ -485,6 +487,8 @@ var net_shield: int = 0
 var net_garb: int = 0
 ## Which of the rig's hair is on, for the other peers.
 var net_hair: int = 0
+## Which of its faces, for the other peers.
+var net_face: int = 0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -648,6 +652,8 @@ func _process(delta: float) -> void:
 		rig.call(&"set_shield", net_shield)
 	if not mine and rig.has_method(&"set_garb") and int(rig.get(&"garb")) != net_garb:
 		rig.call(&"set_garb", net_garb)
+	if not mine and rig.has_method(&"set_face") and int(rig.get(&"face")) != net_face:
+		rig.call(&"set_face", net_face)
 	if not mine and rig.has_method(&"set_hair") and int(rig.get(&"hair")) != net_hair:
 		rig.call(&"set_hair", net_hair)
 	if state == State.WALLCLIMB:
@@ -687,6 +693,7 @@ func _publish_net_state() -> void:
 	net_shield = shield_kind
 	net_garb = garb
 	net_hair = hair
+	net_face = face
 
 
 func _physics_process(delta: float) -> void:
@@ -763,6 +770,7 @@ func _spawn_character() -> void:
 	# comes from `net_hair`.
 	var chooser := get_node_or_null("/root/Game")
 	if chooser != null and is_multiplayer_authority() and chooser.has_method(&"hair"):
+		set_face(int(chooser.call(&"face", chooser.call(&"character"))))
 		set_hair(int(chooser.call(&"hair", chooser.call(&"character"))))
 	footsteps = Footsteps.new()
 	footsteps.name = "Footsteps"
@@ -2954,6 +2962,13 @@ func set_shield(kind: int) -> void:
 	shield_kind = kind
 	if rig != null and rig.has_method(&"set_shield"):
 		rig.call(&"set_shield", kind)
+
+
+## Wears one of the rig's `faces`; every peer sees it through `net_face`.
+func set_face(index: int) -> void:
+	face = index
+	if rig != null and rig.has_method(&"set_face"):
+		rig.call(&"set_face", index)
 
 
 ## Wears one of the rig's `hairs`; every peer sees it through `net_hair`.

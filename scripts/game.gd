@@ -29,6 +29,8 @@ var _chosen: StringName = DEFAULT
 ## Each hero's hair, picked on the hero select: id -> an index into the rig's
 ## `hairs`. Remembered between runs.
 var _hairs: Dictionary = {}
+## And each hero's face: id -> an index into their rig's `faces`.
+var _faces: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
@@ -141,6 +143,17 @@ func set_hair(id: StringName, index: int) -> void:
 	_save_settings()
 
 
+## Which face `id` wears (an index into their rig's `faces`; 0 if never picked).
+func face(id: StringName) -> int:
+	return int(_faces.get(id, 0))
+
+
+## Picks `id`'s face, and remembers it.
+func set_face(id: StringName, index: int) -> void:
+	_faces[id] = index
+	_save_settings()
+
+
 ## Every character there is, in the order they should be offered.
 func roster() -> Array[StringName]:
 	var ids: Array[StringName] = []
@@ -219,6 +232,9 @@ func _load_settings() -> void:
 	if file.has_section("hair"):
 		for key in file.get_section_keys("hair"):
 			_hairs[StringName(key)] = int(file.get_value("hair", key, 0))
+	if file.has_section("face"):
+		for key in file.get_section_keys("face"):
+			_faces[StringName(key)] = int(file.get_value("face", key, 0))
 
 
 func _save_settings() -> void:
@@ -227,5 +243,7 @@ func _save_settings() -> void:
 	file.set_value("video", "display", _display)
 	for id: StringName in _hairs:
 		file.set_value("hair", String(id), int(_hairs[id]))
+	for id: StringName in _faces:
+		file.set_value("face", String(id), int(_faces[id]))
 	file.save(SETTINGS)
 #endregion
