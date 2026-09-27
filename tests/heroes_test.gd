@@ -40,7 +40,8 @@ func _initialize() -> void:
 	await _check_moves("the rogue", Player.MoveSound.STEP)
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
-	await _check_cape("Tariel", 1)
+	# the warrior's dress he starts in goes without a cape
+	await _check_cape("Tariel", 0)
 	await _check_moves("Tariel", Player.MoveSound.ROLL)
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig

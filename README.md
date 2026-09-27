@@ -4161,3 +4161,18 @@ clip's right forearm no longer spins round at the flick (`DG_Poison_Coat`
 eased from frame 49 to 70 in heroes.blend).
 
 Tariel stands taller: his model is scaled 1.2 (was 1.08).
+
+## Tariel v12: a warrior, in Avtandil's style
+
+`vepxis-art/tools/t12_build.py` builds Tariel from Avtandil's own pieces
+(`a7_build.py` / `a8_build.py`: the classic face, with a full beard; the
+cloth tunic) and carries every vertex onto Tariel's skeleton bone by bone
+(`AV` / `TA` bone tables; a little broader across, `BROAD`), so the two heroes
+are of one world. `_t12_export.py` writes the glb. Three dresses
+(`SkinnedRig.garbs`, the bag's Attire tab), all a warrior's: a sleeveless
+tunic to above the knee, the arms bare and bound in white linen from the elbow
+to the knuckles, the shins bound too, a leather guard on the left shoulder, a
+baldric — in earth red (worn), in slate edged in crimson, and in the panther's
+hide. No cape. The round shield is new: boards of wood side by side, an iron
+rim and boss, rivets (`shield12("wood")`); v8's is kept in tariel.blend as
+`tariel_shield_v8`.

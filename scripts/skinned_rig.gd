@@ -249,6 +249,9 @@ func _ready() -> void:
 ## knight's own: his tiger's skin, hung from the fur across his shoulders.
 func _configure() -> void:
 	wardrobe = TARIEL_WARDROBE
+	# His outfits (see [Inventory]), the first worn: the warrior's, no cape.
+	garbs = [&"tariel_warrior", &"tariel_warrior_slate", &"tariel_warrior_hide"]
+	garb_capes = [[{"off": true}], [{"off": true}], [{"off": true}]]
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,

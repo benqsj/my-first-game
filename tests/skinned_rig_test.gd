@@ -53,7 +53,8 @@ func _initialize() -> void:
 	# The ponytail still hangs off spring bones; the cape is cloth now.
 	var cloth := rig.find_child("Cloth", true, false) as SpringBoneSimulator3D
 	_check("the ponytail hangs off spring bones", cloth != null and cloth.get_setting_count() == 1, "")
-	_check("the cape is cloth", rig.cloth_capes.size() == 1, "%d" % rig.cloth_capes.size())
+	# The warrior's dress he starts in goes without a cape.
+	_check("the warrior goes without a cape", rig.cloth_capes.size() == 0, "%d" % rig.cloth_capes.size())
 	if not rig.cloth_capes.is_empty():
 		var fwd := -player.global_transform.basis.z
 		var hem := rig.cloth_capes[0].hem() - player.global_position
