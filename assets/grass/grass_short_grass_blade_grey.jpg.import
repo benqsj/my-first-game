@@ -2,24 +2,23 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c1urv36fyylah"
-path.s3tc="res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.s3tc.ctex"
+uid="uid://dr4e18tve1ovn"
+path="res://.godot/imported/grass_short_grass_blade_grey.jpg-af59573057f63e918dbd5e936f831686.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
-"md5": "3bf4ba8c7c289b011470429acb300c41"
+"md5": "31bfdf8bd24e423a8b35cfbca2ad14d8"
 }
 
 [deps]
 
-source_file="res://assets/grass/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg"
-dest_files=["res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.s3tc.ctex"]
+source_file="res://assets/grass/grass_short_grass_blade_grey.jpg"
+dest_files=["res://.godot/imported/grass_short_grass_blade_grey.jpg-af59573057f63e918dbd5e936f831686.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -41,4 +40,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

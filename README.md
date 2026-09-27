@@ -2910,7 +2910,7 @@ the screen for a moment. The level starts in the first, as it always did;
 | F8 | ground | grass |
 | --- | --- | --- |
 | 1 **old** (default) | the house ground | `grass2.glb`, 8 256 triangles |
-| 2 **new** | the forest floor | `grass_light.glb`, 364 triangles |
+| 2 **new** | the forest floor | `grass_light.glb`, 364 triangles, and the low sward |
 | 3 | the house ground | `grass_light.glb` |
 | 4 | the photographed ground (`styles[1]`) | `grass_light.glb` |
 | 5 | the forest floor | `assets/grass2/gras2.glb`, 6 672 triangles |
@@ -2943,8 +2943,23 @@ planted clumps. It is made the first time the look is worn (about 130 ms) and
 again when `Meadows` grows (`Meadows.grown`). It is the same picture a hand-
 painted mask would be, when the ground comes to be painted.
 
+**The low sward** (the new look only): a second `GrassField`, `Level/Sward`,
+grown the first time the look is worn and hidden and stopped when it is not.
+`Meadows` plans it with the meadows (`Meadows.sward`, its own dice, so the
+meadows come out exactly as before): six short clumps within 1.8 m of every
+meadow and edge clump, up to 32 000. The clump (`grass_short.glb`,
+`vepxis-art/tools/grass_short.py`) is 60 blades of 0.2–0.4 m, 180 triangles;
+its blade texture is the kit's blade turned light grey
+(`grass_blade_grey.jpg`) and each blade carries its own colour — fresh and deep
+green, grey-green, yellow-green, straw, and the odd dead brown one — darker at
+the root; the tint only pulls a patch towards hay where the meadow is dry. It
+is drawn to 30% of the grass's distance (`GrassField.draw_distance_scale`,
+which the graphics setting leaves alone). With it on, `perf_tour` still draws
+fewer primitives in the new look than in the old (spawn 607 000 against
+674 000).
+
 **The light clump** (`assets/grass/grass_light.glb`, built by
-`vepxis-art/tools/grass_light.py`): 52 curved blades of five sections, the same
+`vepxis-art/tools/grass_light.py`): 52 curved blades of five sections, 0.4–0.7 m, the same
 leaf texture as `grass2`, darker at the root through the vertex colour, normals
 bent towards the sky so both faces take the light, opaque rather than
 alpha-dithered. 364 triangles against 8 256.

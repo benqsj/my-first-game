@@ -10,8 +10,11 @@ extends Node
 ##    The default: what the game looked like before any of this.
 ## 1. **new** — the forest-floor ground ([code]terrain_forest.gdshader[/code]):
 ##    fallen leaves and moss under the trees, grassy earth under the meadows,
-##    bare earth with sprigs and leaves in the open, blended by height; and the
-##    light grass clump (364 triangles, opaque).
+##    bare earth with sprigs and leaves in the open, blended by height; the
+##    light grass clump (364 triangles, opaque); and a low sward filling the
+##    meadows ([member Meadows.sward]): short clumps of 180 triangles in mixed
+##    greens, yellow-green, straw and the odd dead blade, six round every
+##    meadow clump, drawn to 30% of the grass's distance.
 ## 2. **old ground, light grass** — only the grass changed, to see that alone.
 ## 3. **photo** — the photographed ground (`Terrain.styles[1]`) with the light
 ##    grass.
@@ -31,10 +34,13 @@ extends Node
 const OLD_GRASS := "res://assets/grass/grass2.glb"
 const LIGHT_GRASS := "res://assets/grass/grass_light.glb"
 const GRASS2 := "res://assets/grass2/gras2.glb"
+const SHORT_GRASS := "res://assets/grass/grass_short.glb"
+## The sward's share of the grass's draw distance.
+const SWARD_REACH := 0.3
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor.
 const LOOKS: Array[Dictionary] = [
 	{"name": "old", "ground": 0, "grass": OLD_GRASS},
-	{"name": "new: forest floor, light grass", "ground": 2, "grass": LIGHT_GRASS},
+	{"name": "new: forest floor, low sward, light grass", "ground": 2, "grass": LIGHT_GRASS, "sward": true},
 	{"name": "old ground, light grass", "ground": 0, "grass": LIGHT_GRASS},
 	{"name": "photo ground, light grass", "ground": 1, "grass": LIGHT_GRASS},
 	{"name": "new ground, gras2", "ground": 2, "grass": GRASS2},
@@ -47,6 +53,7 @@ const TRUNK_REACH := 5.5
 @export var look: int = 0
 
 var _terrain: Terrain
+var _sward: GrassField = null
 var _mask: ImageTexture = null
 var _mask_rect := Rect2()
 var _label: Label = null
@@ -80,6 +87,40 @@ func apply(which: int) -> void:
 	var field := _field()
 	if field != null:
 		field.set_clump_scene(spec["grass"])
+	_show_sward(bool(spec.get("sward", false)))
+
+
+## The low sward: a second field of short clumps, grown the first time a look
+## wants it and hidden (and still) when one does not.
+func sward() -> GrassField:
+	return _sward
+
+
+func _show_sward(on: bool) -> void:
+	if on and _sward == null:
+		_grow_sward()
+	if _sward == null:
+		return
+	_sward.visible = on
+	_sward.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
+
+
+func _grow_sward() -> void:
+	var field := _field()
+	var meadows := _world().get_node_or_null("Meadows") as Meadows
+	if field == null or meadows == null or meadows.sward_tints.is_empty():
+		return
+	_sward = GrassField.new()
+	_sward.name = "Sward"
+	_sward.clump_scene = SHORT_GRASS
+	_sward.draw_chunk = 16.0
+	_sward.draw_distance = field.draw_distance
+	_sward.draw_distance_scale = SWARD_REACH
+	_sward.lod_bias = field.lod_bias
+	_sward.wind_radius = 14.0
+	field.get_parent().add_child(_sward)
+	_sward.transform = field.transform
+	_sward.replace(meadows.sward, meadows.sward_tints)
 
 
 ## Where the trees and the grass are, for the forest floor: red, how much a
@@ -112,6 +153,10 @@ func _on_grown() -> void:
 	# The grass is new: the mask has to follow it, and a light look has to
 	# keep its own clump (the field was rebuilt with whatever it was given).
 	_mask = null
+	if _sward != null:
+		var meadows := _world().get_node_or_null("Meadows") as Meadows
+		if meadows != null:
+			_sward.replace(meadows.sward, meadows.sward_tints)
 	if look != 0:
 		apply(look)
 
@@ -202,9 +247,11 @@ func _cell(at: Vector2, w: int, h: int) -> Vector2i:
 			clampi(int((at.y - _mask_rect.position.y) / MASK_CELL), 0, h - 1))
 
 
+## The meadows' own field (not the sward).
 func _field() -> GrassField:
 	for node in _world().find_children("*", "GrassField", true, false):
-		return node as GrassField
+		if node != _sward:
+			return node as GrassField
 	return null
 
 

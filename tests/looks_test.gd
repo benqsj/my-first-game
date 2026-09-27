@@ -58,6 +58,14 @@ func _initialize() -> void:
 		if multi != null and multi.mesh == old_mesh:
 			every = false
 	_check("every chunk of it", every)
+	var sward := looks.sward()
+	_check("a low sward fills the meadows", sward != null and sward.visible
+			and sward.clump_count() > clumps, "%d short clumps" % (sward.clump_count() if sward != null else 0))
+	var short := _clump_mesh(sward) if sward != null else null
+	_check("of short clumps, lighter still", short != null and _tris(short) < 260
+			and short.get_aabb().size.y < 0.5,
+			"%d triangles, %.2f m" % [_tris(short) if short else 0, short.get_aabb().size.y if short else 0.0])
+	_check("drawn nearer than the grass", sward != null and sward.draw_distance_scale < 0.6)
 
 	var mat := land.styles[2] as ShaderMaterial
 	var mask := looks.ground_mask()
@@ -88,6 +96,7 @@ func _initialize() -> void:
 		looks.apply(looks.look + 1)
 	_check("F8's round comes back to the old look", looks.look == 0
 			and chunk.material_override == land.styles[0] and _clump_mesh(field) == old_mesh)
+	_check("and the sward goes with the new look", sward == null or not sward.visible)
 	_finish()
 
 

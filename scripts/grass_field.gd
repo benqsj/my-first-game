@@ -100,6 +100,9 @@ const STRIDE := 5
 ## Grass beyond this many metres from the camera stops being drawn, fading out
 ## over the last few metres so nothing pops. Zero draws all of it, always.
 @export var draw_distance: float = 130.0
+## This field's share of `draw_distance`, which the graphics setting sets for
+## every field alike: a low sward is not worth drawing as far as tall grass.
+@export var draw_distance_scale: float = 1.0
 ## Whether the blades cast shadows into the sun's shadow map.
 ##
 ## Off by default, and still the single biggest switch on this node: the field
@@ -418,8 +421,9 @@ func _prepare(node: MultiMeshInstance3D) -> void:
 	if draw_distance <= 0.0:
 		node.visibility_range_end = 0.0
 		return
-	node.visibility_range_end = draw_distance
-	node.visibility_range_end_margin = maxf(draw_distance * 0.12, 2.0)
+	var reach := draw_distance * draw_distance_scale
+	node.visibility_range_end = reach
+	node.visibility_range_end_margin = maxf(reach * 0.12, 2.0)
 	node.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 #endregion
 
