@@ -402,6 +402,7 @@ func _build_camps() -> void:
 ## landed in 10 to 37 ms; paid here, it is part of the load.
 func _prewarm_effects() -> void:
 	Blood.prewarm(self)
+	ImpactFx.warm()
 	DustRing.prewarm()
 	GroundFx.prewarm()
 
