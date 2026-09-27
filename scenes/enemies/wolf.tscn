@@ -6,8 +6,8 @@
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_wolf"]
-radius = 0.45
-height = 1.6
+radius = 0.55
+height = 2.0
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_wolf"]
 properties/0/path = NodePath("NetSmooth:net_position")
@@ -38,11 +38,11 @@ collision_mask = 7
 script = ExtResource("1_wolf")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
 shape = SubResource("CapsuleShape3D_wolf")
 
 [node name="Visuals" type="Node3D" parent="."]
-transform = Transform3D(-1.1, 0, 0, 0, 1.1, 0, 0, 0, -1.1, 0, 0, 0)
+transform = Transform3D(-1.4, 0, 0, 0, 1.4, 0, 0, 0, -1.4, 0, 0, 0)
 script = ExtResource("2_rig")
 
 [node name="wolf_beast" parent="Visuals" instance=ExtResource("3_model")]

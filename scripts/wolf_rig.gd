@@ -51,6 +51,14 @@ const HOP_BACK := &"WF_Hop_Back"
 const BITE := &"WF_Bite"
 const CRAWL_WALK := &"WF_Crawl_Walk"
 const RUN_UPRIGHT := &"WF_Run"
+## Its hand-to-hand, beyond the swipes (Mixamo, laid on in wolf_export.py): an
+## overhead two-handed smash, a zombie's raking swipe, a three-blow combo, a
+## grab and a butt of the head, and a quick jab. Driven by [Wolf]'s `MELEE`.
+const SLAM := &"WF_Slam"
+const RAKE := &"WF_Rake"
+const COMBO3 := &"WF_Combo3"
+const GRAB := &"WF_Grab"
+const PUNCH := &"WF_Punch"
 const GROWL := "res://unverified/sounds/orc/orc-aggressive-sound1.wav"
 
 ## The coats a wolf can be born with — the colour of each fur material — and
@@ -82,18 +90,19 @@ const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_
 @export var lunge_duration: float = 1.35
 @export var lunge_windup: float = 0.6
 ## How low it crouches in that gather, metres.
-@export var crouch: float = 0.28
+@export var crouch: float = 0.34
 
 @export_group("Pace")
 ## Metres a second each cycle carries it at rate 1: what the clips are sped up
-## or slowed against so the feet do not skate.
-@export var walk_pace: float = 1.25
-@export var run_pace: float = 4.2
-@export var drag_pace: float = 0.5
-@export var back_pace: float = 1.1
-@export var strafe_pace: float = 1.6
-@export var crawl_walk_pace: float = 0.75
-@export var upright_run_pace: float = 4.4
+## or slowed against so the feet do not skate. At the wolf's size in
+## `wolf.tscn` (1.4; they were measured at 1.1 and scaled with it).
+@export var walk_pace: float = 1.59
+@export var run_pace: float = 5.35
+@export var drag_pace: float = 0.64
+@export var back_pace: float = 1.4
+@export var strafe_pace: float = 2.04
+@export var crawl_walk_pace: float = 0.95
+@export var upright_run_pace: float = 5.6
 ## Faster than this it drops to all fours.
 @export var run_from: float = 2.8
 #endregion
@@ -151,6 +160,18 @@ var claw: WolfClaw
 var _leap_timer: float = 0.0
 var _leap_len: float = 0.0
 var _leap_gather: float = 0.0
+## A hand-to-hand move under way ([method melee]): seconds left, the rate it is
+## played at, and a hold at the top of its windup — the delayed blow, a
+## souls-like's way of making the timing a thing to read, not to learn by rote.
+var _melee_timer: float = 0.0
+var _melee_rate: float = 1.0
+var _hold_at: float = -1.0
+var _hold_left: float = 0.0
+## A blow landing, in either direction: the clip all but stops for this long,
+## so the hit is felt.
+var _hitstop: float = 0.0
+## The clip times a melee move's blows land at: the trails show round them.
+var _melee_hits: Array = []
 
 
 func _ready() -> void:
@@ -424,6 +445,14 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	if _anim == null:
 		return
 	_clock += delta
+	# A blow landing: the whole body all but stops a moment.
+	if _hitstop > 0.0:
+		_hitstop -= delta
+		delta *= 0.06
+	_melee_timer = maxf(_melee_timer - delta, 0.0)
+	if _hold_left > 0.0 and _melee_timer > 0.0 and _anim.current_animation_position >= _hold_at:
+		_hold_left -= delta
+		_anim.speed_scale = 0.03 if _hold_left > 0.0 else _melee_rate
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_lunge_timer = maxf(_lunge_timer - delta, 0.0)
 	_reel_timer = maxf(_reel_timer - delta, 0.0)
@@ -449,9 +478,9 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 		_glint(clampf(since / maxf(_leap_gather, 0.01), 0.0, 1.0) if since < _leap_len - 0.3 else 0.0, 2.0)
 	var swiping := _swipe_timer > 0.0 and _swipe_timer < swipe_duration * (1.0 - swipe_windup)
 	if _trail_l != null:
-		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through() or (claw != null and claw.slashing("l")) or _leaping_through()
+		_trail_l.emitting = (swiping and _swipe_left) or _lunging_through() or (claw != null and claw.slashing("l")) or _leaping_through() or _slashing()
 	if _trail_r != null:
-		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through() or (claw != null and claw.slashing("r")) or _leaping_through()
+		_trail_r.emitting = (swiping and not _swipe_left) or _lunging_through() or (claw != null and claw.slashing("r")) or _leaping_through() or _slashing()
 
 
 ## Down on its belly, the body is let down until the lowest joint left on it is
@@ -489,7 +518,8 @@ func _lunging_through() -> bool:
 func _choose(planar: float) -> void:
 	if claw != null and claw.active():
 		return
-	if _swipe_timer > 0.0 or _lunge_timer > 0.0 or _reel_timer > 0.0 or _move_timer > 0.0:
+	if _swipe_timer > 0.0 or _lunge_timer > 0.0 or _reel_timer > 0.0 or _move_timer > 0.0 \
+			or _melee_timer > 0.0:
 		return
 	var clip := IDLE
 	var pace := 1.0
@@ -577,6 +607,8 @@ func reel(length: float = Recoil.STAGGER) -> void:
 	_lunge_timer = 0.0
 	_reel_timer = length
 	_leap_timer = 0.0
+	_melee_timer = 0.0
+	_hold_left = 0.0
 	if claw != null:
 		claw.cancel()
 	if _anim.has_animation(STAGGER):
@@ -594,6 +626,8 @@ func _move(clip: StringName, length: float, rate: float = 1.0, from: float = 0.0
 	_lunge_timer = 0.0
 	_move_timer = length
 	_leap_timer = 0.0
+	_melee_timer = 0.0
+	_hold_left = 0.0
 	if claw != null:
 		claw.cancel()
 	_anim.play(clip, 0.08)
@@ -659,6 +693,8 @@ func fall() -> void:
 		return
 	_dead = true
 	_leap_timer = 0.0
+	_melee_timer = 0.0
+	_hold_left = 0.0
 	if claw != null:
 		claw.cancel()
 	_swipe_timer = 0.0
@@ -679,6 +715,57 @@ func is_clawing() -> bool:
 
 func is_swiping() -> bool:
 	return _swipe_timer > 0.0
+
+
+## A hand-to-hand move: `clip` from `from` at `rate`, for `length` seconds, and
+## if `hold_for` is more than nothing, held still at `hold_at` (clip time) that
+## long before the blow comes on.
+func melee(clip: StringName, rate: float, from: float, length: float,
+		hold_at: float = -1.0, hold_for: float = 0.0, hits: Array = []) -> void:
+	if _anim == null or _dead or not _anim.has_animation(clip):
+		return
+	_swipe_timer = 0.0
+	_lunge_timer = 0.0
+	_leap_timer = 0.0
+	_move_timer = 0.0
+	if claw != null:
+		claw.cancel()
+	_melee_timer = length
+	_melee_rate = rate
+	_melee_hits = hits
+	_hold_at = hold_at
+	_hold_left = hold_for if hold_at >= 0.0 else 0.0
+	_anim.play(clip, 0.1)
+	_anim.seek(from, true)
+	_anim.speed_scale = rate
+	var body := get_parent() as Node3D
+	if body != null and ResourceLoader.exists(GROWL) and (clip == SLAM or clip == COMBO3):
+		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.3, -9.0)
+
+
+func is_striking() -> bool:
+	return _melee_timer > 0.0
+
+
+## A melee blow coming through now: its claws trail.
+func _slashing() -> bool:
+	if _melee_timer <= 0.0 or _hold_left > 0.0 and _anim.current_animation_position >= _hold_at:
+		return false
+	var now := _anim.current_animation_position
+	for h: float in _melee_hits:
+		if now > h - 0.2 and now < h + 0.12:
+			return true
+	return false
+
+
+## Holding its windup still, the blow not yet come.
+func is_holding() -> bool:
+	return _melee_timer > 0.0 and _hold_left > 0.0 and _anim.current_animation_position >= _hold_at
+
+
+## A blow has landed (its or on it): a beat of stillness.
+func hitstop(seconds: float) -> void:
+	_hitstop = maxf(_hitstop, seconds)
 #endregion
 
 

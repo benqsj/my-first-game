@@ -22,7 +22,9 @@ func _initialize() -> void:
 	var sharp := WolfMind.new(null, 0.9)
 	_check("a cunning wolf sees a swing sooner", sharp.reaction() < dull.reaction(),
 			"%.2f vs %.2f" % [sharp.reaction(), dull.reaction()])
-	_check("and gets out of more of them", sharp.dodge_chance() > dull.dodge_chance() + 0.3)
+	# A brawler now: it trades more than it dodges, but a sharp one still
+	# gets out of far more.
+	_check("and gets out of more of them", sharp.dodge_chance() > dull.dodge_chance() + 0.2)
 	_check("and strings longer combos", sharp.combo_max() == 3 and dull.combo_max() == 1)
 
 	var game := root.get_node_or_null("Game")
@@ -109,7 +111,8 @@ func _missiles() -> void:
 	var far := await _shots(wolf, 12.0, 20)
 	var near := await _shots(wolf, 3.0, 20)
 	wolf.charge_speed = charge
-	_check("from far off it gets out of the way of most arrows", far >= 14, "%d of 20" % far)
+	# Bigger now (a 1.4 wolf), and a bigger mark: most still, not nearly all.
+	_check("from far off it gets out of the way of most arrows", far >= 12, "%d of 20" % far)
 	_check("and close in, of many too, though fewer", near >= 6 and near <= far, "%d of 20" % near)
 	_park(wolf)
 
@@ -203,7 +206,7 @@ func _dodging() -> void:
 	dull.intellect = 0.1
 	var a := await _dodges(cunning, 12)
 	var b := await _dodges(dull, 12)
-	_check("a cunning wolf gets out of most of his swings", a >= 6, "%d of 12" % a)
+	_check("a cunning wolf gets out of a good share of his swings", a >= 3, "%d of 12" % a)
 	_check("a dull one out of fewer", b < a, "%d vs %d" % [b, a])
 
 

@@ -2910,7 +2910,7 @@ another.
 
 | F8 | ground | grass |
 | --- | --- | --- |
-| 1 **new** (default) | the forest floor | `grass_light.glb`, 364 triangles, and the low sward |
+| 1 **new** (default) | the forest floor, the dark grade | `grass_light.glb`, 364 triangles, and the low sward |
 | 2 **old** | the house ground | `grass2.glb`, 8 256 triangles |
 | 3 | the house ground | `grass_light.glb` |
 | 4 | the photographed ground (`styles[1]`) | `grass_light.glb` |
@@ -2943,6 +2943,15 @@ stands in a smudge of leaves rather than on a disc) and green where the meadows
 planted clumps. It is made the first time the look is worn (about 130 ms) and
 again when `Meadows` grows (`Meadows.grown`). It is the same picture a hand-
 painted mask would be, when the ground comes to be painted.
+
+**The dark grade** (the new look only; `Looks._grade`): for a fight that feels
+brutal rather than a fairy tale (Lineage 2 and Elden Ring were the brief).
+ACES, the sky and its haze grey and heavy, the fog thicker, contrast up and
+colour drained (`DARK_ENV`, `DARK_SKY`), a warmer, weaker sun (`DARK_SUN`),
+and every material of the wood multiplied down (`DARK_WOOD`). The level's own
+values are kept on first change and put back by the other looks. A first
+try was too dark: the wood went black and the hero in shadow could not be
+read; the ambient light and the shadows were lifted after.
 
 **The low sward** (the new look only): a second `GrassField`, `Level/Sward`,
 grown the first time the look is worn and hidden and stopped when it is not.
@@ -3564,6 +3573,54 @@ lands a lunge on you. The clip is played from its own start
 leaves the ground is seen: the pounce's tell is that crouch, a quarter of a
 second, then 0.45 s in the air. Both the pounce and the run's leap go this
 way; the old shove and `_leap_off` are gone.
+
+### Hand to hand, souls-like
+
+The wolf used to spend a fight mostly off the ground — hopping back, dodging,
+pouncing, leaping in again after every third cut. It fights hand to hand now:
+
+* **Bigger** — the rig at 1.4 (was 1.1), the capsule 0.55 × 2.0, the claws'
+  reach and its fighting distances, the bar and the clips' paces
+  (`WolfRig.*_pace`) all scaled with it, so its moves read from the
+  camera.
+* **Its moves** (`Wolf.MELEE`, clips from Mixamo laid on in
+  `vepxis-art/tools/_wolf_add_clips.py`): `punch` a quick jab, `rake` a
+  zombie's raking swipe, `combo3` a three-blow combo, `slam` an overhead
+  two-handed smash, `grab` a grab and a butt of the head — with the swipes,
+  the bite and the pounce. Each is a clip, the clip times its blows land
+  (`hits`, measured as the hands' fastest moments), what strikes (claws or
+  jaws), how hard (of `swipe_damage`), how fast and which stretch of the
+  clip. Every blow is its own `WeaponSweep`, live ±`HIT_HALF` round its moment.
+* **Chains** (`WolfMind._choose_combo`): every wolf throws two to four
+  blows at a time — swipe-swipe, jab-swipe, rake-grab, the three-blow
+  combo, the smash, swipe-bite; a cunning one also swipe-swipe-smash,
+  jab-combo, combo-smash, rake-swipe-swipe and the old rake-and-leap. The
+  blows of a chain share one combo on the hero (`begin_chain`): caught by all
+  of them he goes down, and a round shield can still throw the first aside.
+  The smash is one heavy blow: never parried, and down he goes if it lands.
+  In a chain a swipe is 0.72 of a lone one.
+* **Commit** — it turns after him through a windup and stops `COMMIT`
+  (0.24 s) before the blow: from there it goes where it was aimed, and a step
+  aside gets out of it (`Wolf.tracking`).
+* **The delayed blow** — now and then (more often the cleverer it is, and
+  the smash most of all) it holds the top of its windup still for 0.25–0.6 s
+  before the blow comes (`WolfRig.melee`'s hold), so rolling on reflex is
+  punished.
+* **Hit-stop** — a blow landing, its on him or his on it, all but stops its
+  clip for a few hundredths of a second.
+* **Poise** — `max_poise` 150, taken off by every blow's damage (less through
+  a heavy move's windup: `armour`), back at 45 a second once it is let
+  alone; at nothing it staggers for 1.15 s, open, and cuts into it bite deeper
+  (`Recoil.RIPOSTE`).
+* **Less leaping** — dodges `0.06 + 0.42 × intellect` (was 0.12 + 0.68), a
+  hop in one dodge of five, retreats and hops after combos far rarer, the
+  pounce and the claw wave from range less often, circling shorter. Cut three
+  times running, two times in three it trades — straight back at him with a
+  jab and a rake, armoured — instead of hopping out.
+
+`_shots_tmp/fight_film2.gd` (a throwaway) films a wolf against a hero who
+stands and takes it. `wolf_mind_test`'s dodge thresholds and `archer_test`'s
+mark height follow the brawler and the bigger body.
 
 `tests/wolf_run_test.gd`: arrows and the mage's bolts, from 12 m and from 3.5 m,
 most got out of from far and many close in; a bolt it gets out of misses; on

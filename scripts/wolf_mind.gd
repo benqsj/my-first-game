@@ -32,10 +32,15 @@ extends RefCounted
 ## | punishes a miss | no | yes | yes, at once |
 ## | waits its turn in a pack | no | yes | yes |
 ##
-## Its **combos** are made from what it has left:
+## Its **combos** are made from what it has left, and it fights hand to hand
+## (the user asked for a wolf that brawls rather than one that mostly leaps):
 ##
-## * both arms — *rake* (a swipe), *double rake* (left, right), *rake and leap*
-##   (left, right, pounce), *feint* (a hop back and the pounce straight after);
+## * both arms — chains of two to four blows from its swipes, a jab, a
+##   zombie's rake, a grab and a butt of the head, a three-blow combo and an
+##   overhead two-handed smash (see `Wolf.MELEE`); now and then one blow held
+##   at the top of its windup before it comes (the delayed blow), and now and
+##   then the old *rake and leap*. Caught by every blow of a chain a man goes
+##   down; the smash puts him down alone and cannot be turned on a shield;
 ## * one arm — a swipe, or a swipe and a bite;
 ## * no arms — the *bite*: a lunge with its jaws;
 ## * a leg gone — it is down on its belly, crawling at him, and its attack is
@@ -84,7 +89,7 @@ func reaction() -> float:
 
 
 func dodge_chance() -> float:
-	return clampf(0.12 + 0.68 * intellect + 0.2 * _caution, 0.0, 0.92)
+	return clampf(0.06 + 0.42 * intellect + 0.15 * _caution, 0.0, 0.7)
 
 
 func combo_max() -> int:
@@ -96,7 +101,7 @@ func ring() -> float:
 
 
 func retreat_chance() -> float:
-	return clampf(0.3 + 0.45 * intellect + 0.35 * _caution, 0.0, 0.9)
+	return clampf(0.15 + 0.25 * intellect + 0.25 * _caution, 0.0, 0.6)
 #endregion
 
 
@@ -105,7 +110,7 @@ func hurt() -> void:
 	_caution = minf(_caution + 0.35, 1.0)
 	if wolf.is_crippled() or wolf.is_busy():
 		return
-	if _rng.randf() < 0.35 + 0.5 * intellect:
+	if _rng.randf() < 0.1 + 0.25 * intellect:
 		_begin(Tactic.RETREAT)
 
 
@@ -113,8 +118,23 @@ func hurt() -> void:
 ## soon as it lands.
 func come_back_leaping() -> void:
 	tactic = Tactic.STRIKE
-	_combo.assign([&"pounce"])
+	_set_combo([&"pounce"])
 	_gap = 0.25
+
+
+## Cut again and again: it trades, straight back at him through it.
+func counter() -> void:
+	tactic = Tactic.STRIKE
+	_set_combo([&"punch", &"rake"] if _rng.randf() < 0.5 else [&"punch", &"swipe"])
+	_gap = 0.0
+
+
+func _set_combo(moves: Array) -> void:
+	_combo.assign(moves)
+	var blows := 0
+	for m: StringName in _combo:
+		blows += Wolf.blows_in(m)
+	wolf.begin_chain(blows)
 
 
 ## The fight begins (or begins again): in at him, if it is its turn.
@@ -137,7 +157,10 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 		return
 	_watch_blade(quarry, gap)
 	if wolf.is_busy():
-		wolf.face(towards, delta)
+		# It turns after him through the windup, not once the blow is coming:
+		# from there the blow goes where it was aimed.
+		if wolf.tracking():
+			wolf.face(towards, delta)
 		return
 
 	if tactic != Tactic.CLOSE and tactic != Tactic.STRIKE:
@@ -162,8 +185,9 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 					_combo.push_front(move)
 					_begin(Tactic.CLOSE)
 				else:
-					wolf.attack(move)
-					_gap = lerpf(0.35, 0.08, intellect)
+					wolf.attack(move, Vector3.ZERO, _delay_for(move))
+					# Blow after blow: a chain, not a string of single moves.
+					_gap = lerpf(0.16, 0.03, intellect)
 		Tactic.CIRCLE:
 			var round_him := towards.cross(Vector3.UP) * _side
 			# In or out towards the ring as it goes round.
@@ -205,16 +229,16 @@ func _begin(what: int) -> void:
 	tactic = what
 	match what:
 		Tactic.STRIKE:
-			_combo = _choose_combo()
+			_set_combo(_choose_combo())
 			_gap = 0.0
 		Tactic.CIRCLE:
-			_left = _rng.randf_range(0.7, 1.4 + 1.4 * intellect)
+			_left = _rng.randf_range(0.5, 0.9 + 0.8 * intellect)
 			if _rng.randf() < 0.3:
 				_side = -_side
 		Tactic.RETREAT:
 			_left = 1.4
 			# A clever one hops out of reach before backing further.
-			if intellect > 0.35 and _rng.randf() < 0.3 + 0.5 * intellect and wolf.can_leap():
+			if intellect > 0.5 and _rng.randf() < 0.15 + 0.25 * intellect and wolf.can_leap():
 				wolf.attack(&"hop")
 		Tactic.WAIT:
 			_left = _rng.randf_range(0.3, 1.0) * lerpf(1.0, 0.6, intellect)
@@ -235,16 +259,39 @@ func _choose_combo() -> Array[StringName]:
 		if most >= 2 and _rng.randf() < 0.6:
 			out.append(&"bite")
 		return out
-	var roll := _rng.randf()
-	if most >= 3 and roll < 0.35:
-		out.assign([&"swipe", &"swipe", &"pounce"])
-	elif most >= 2 and intellect > 0.45 and roll < 0.55:
-		out.assign([&"hop", &"pounce"])
-	elif most >= 2 and roll < 0.85:
-		out.assign([&"swipe", &"swipe"])
-	else:
-		out.append(&"swipe")
+	# Hand to hand. Every wolf throws chains; a cleverer one longer and more
+	# varied ones, and holds a blow back to catch a man who rolls too soon.
+	var chains: Array = [
+		[&"swipe", &"swipe"],
+		[&"punch", &"swipe"],
+		[&"rake", &"grab"],
+		[&"combo3"],
+		[&"slam"],
+		[&"swipe", &"bite"],
+	]
+	if most >= 3:
+		chains.append_array([
+			[&"swipe", &"swipe", &"slam"],
+			[&"punch", &"combo3"],
+			[&"rake", &"swipe", &"swipe"],
+			[&"combo3", &"slam"],
+			[&"swipe", &"swipe", &"pounce"],
+		])
+	out.assign(chains[_rng.randi() % chains.size()])
 	return out
+
+
+## Whether this blow is held back at the top of its windup, and how long: the
+## opening blow of a chain now and then, the smash more often.
+func _delay_for(move: StringName) -> float:
+	if not Wolf.MELEE.has(move) and move != &"swipe":
+		return 0.0
+	if move == &"swipe":
+		return 0.0
+	var chance := 0.15 + 0.3 * intellect
+	if move == &"slam":
+		chance += 0.2
+	return _rng.randf_range(0.25, 0.6) if _rng.randf() < chance else 0.0
 
 
 func _after_combo() -> void:
@@ -262,15 +309,15 @@ func _after_combo() -> void:
 ## both arms — the sudden leap.
 func _next_from_range(gap: float) -> void:
 	# Now and then, from where it stands: the claw wave.
-	if wolf.can_claw(gap) and _rng.randf() < 0.3 + 0.3 * intellect:
+	if wolf.can_claw(gap) and _rng.randf() < 0.18 + 0.18 * intellect:
 		tactic = Tactic.STRIKE
-		_combo.assign([&"claw_wave"])
+		_set_combo([&"claw_wave"])
 		_gap = 0.0
 		return
 	if gap > wolf.strike_range() + 0.6 and gap < wolf.pounce_range() and wolf.arms_left() == 2 \
-			and _rng.randf() < 0.35 + 0.4 * intellect:
+			and _rng.randf() < 0.15 + 0.2 * intellect:
 		tactic = Tactic.STRIKE
-		_combo.assign([&"pounce"])
+		_set_combo([&"pounce"])
 		_gap = 0.0
 		return
 	_begin(Tactic.CLOSE)
@@ -328,7 +375,7 @@ func _watch_blade(quarry: Node3D, gap: float) -> void:
 		# A cunning wolf will even break off its own windup to get out of the way.
 		var free := not wolf.is_busy() or (intellect > 0.55 and wolf.winding_up())
 		if gap < 3.4 and free and wolf.can_leap() and _rng.randf() < dodge_chance():
-			if _rng.randf() < 0.4:
+			if _rng.randf() < 0.2:
 				wolf.attack(&"hop")
 				_begin(Tactic.WAIT)
 			else:

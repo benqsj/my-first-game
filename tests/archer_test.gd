@@ -200,7 +200,7 @@ func _check_lock() -> void:
 			marker != null
 					and Vector2(marker.global_position.x - quarry.global_position.x,
 							marker.global_position.z - quarry.global_position.z).length() < 0.6
-					and absf(marker.global_position.y - quarry.global_position.y - 0.85) < 0.3,
+					and absf(marker.global_position.y - quarry.global_position.y - 0.85 * _size(quarry)) < 0.3 * _size(quarry) + 0.05,
 			"mark at %v, target at %v" % [marker.global_position if marker != null else Vector3.ZERO,
 					quarry.global_position])
 
@@ -532,3 +532,10 @@ func _check(label: String, condition: bool, detail: String = "") -> void:
 		_failures += 1
 		print("  FAIL - %s %s" % [label, ("(%s)" % detail) if detail else ""])
 #endregion
+
+
+## How big a creature is against the wolf these heights were measured on (its
+## rig at 1.1): the mark sits that much higher on a bigger one.
+func _size(who: Node3D) -> float:
+	var rig := who.get_node_or_null("Visuals") as Node3D
+	return absf(rig.scale.y) / 1.1 if rig != null else 1.0

@@ -27,10 +27,10 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## Once chasing, it keeps coming until the knight is this far away.
 @export var lose_range: float = 18.0
 ## Close enough to stand up and swing.
-@export var reach: float = 2.3
-## How far off its claws land (measured: about 1.1 m round it); swiping from
-## further, it steps in to that.
-@export var claw_reach: float = 0.8
+@export var reach: float = 2.8
+## How far off its claws land (measured: about 1.4 m round it, at its size);
+## swiping from further, it steps in to that.
+@export var claw_reach: float = 1.05
 ## Hurt from further off than it can see — an arrow out of the trees — it
 ## comes anyway, and keeps coming for this long whatever the distance.
 @export var provoked_time: float = 14.0
@@ -42,7 +42,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## own radius, as the sweep needs room to put it down again.
 @export var step_height: float = 0.45
 ## How far ahead that sweep reaches. Must exceed the body's radius.
-@export var step_probe: float = 0.6
+@export var step_probe: float = 0.7
 @export var prowl_speed: float = 1.1
 @export var charge_speed: float = 6.4
 ## On all fours after somebody it runs faster than upright.
@@ -57,7 +57,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## Taken off per cut. Losing limbs is what kills it; this is the readout.
 @export var damage_per_hit: float = 26.0
 ## How high over its head the bar sits.
-@export var bar_height: float = 2.15
+@export var bar_height: float = 2.75
 
 @export_group("Combat")
 @export var swipe_interval: float = 1.5
@@ -243,6 +243,49 @@ var _attack_clock: float = 0.0
 const SWIPE_LIVE := Vector2(0.44, 0.74)
 const POUNCE_LIVE := Vector2(0.5, 0.86)
 
+## Its hand-to-hand, beyond the swipe: each move a clip ([WolfRig]), when in
+## the clip its blows land (`hits`, clip seconds), what strikes (`parts`: the
+## claws, or the head and jaws), how hard (`damage`, of `swipe_damage`), how
+## fast it is played, and the stretch of the clip used (`from`, `to`). A heavy
+## blow cannot be turned aside on a shield and puts a man down; the wolf keeps
+## its feet through the windup of one (`armour`, of the poise a blow takes).
+const MELEE := {
+	&"punch": {"clip": &"WF_Punch", "hits": [0.33], "parts": "claws", "damage": 0.45,
+			"rate": 1.0, "from": 0.05, "to": 0.95, "armour": 1.0},
+	&"rake": {"clip": &"WF_Rake", "hits": [1.0], "parts": "claws", "damage": 0.8,
+			"rate": 1.35, "from": 0.4, "to": 1.85, "armour": 1.0},
+	&"combo3": {"clip": &"WF_Combo3", "hits": [0.95, 1.8, 2.62], "parts": "claws", "damage": 0.55,
+			"rate": 1.2, "from": 0.35, "to": 3.25, "armour": 0.5},
+	&"slam": {"clip": &"WF_Slam", "hits": [1.5], "parts": "claws", "damage": 1.3,
+			"rate": 1.05, "from": 0.35, "to": 2.45, "armour": 0.35, "heavy": true},
+	&"grab": {"clip": &"WF_Grab", "hits": [1.3], "parts": "jaws", "damage": 1.0,
+			"rate": 1.15, "from": 0.45, "to": 2.1, "armour": 0.6},
+}
+## How long before a blow lands it stops turning after him: from here on the
+## blow goes where it was aimed, and a step aside gets out of it.
+const COMMIT := 0.24
+## A melee blow's claws are live this long either side of the moment it lands.
+const HIT_HALF := 0.13
+
+## Poise: how much punishment it takes before a blow staggers it, open to a
+## heavier cut (`Recoil.RIPOSTE`); it comes back once it is let alone.
+@export var max_poise: float = 150.0
+@export var poise_back: float = 45.0
+@export var poise_stagger: float = 1.15
+var poise: float = 150.0
+var _poise_rest: float = 0.0
+## The chain of blows under way (a combo from its mind): which blow of how
+## many, so a man caught by all of them goes down, and one who turns the first
+## aside on a shield throws it off.
+var _chain: int = 0
+var _chain_blow: int = 0
+var _chain_len: int = 1
+## On the act clock: when it stops turning after him (see `COMMIT`), and while
+## a heavy move's armour holds.
+var _commit_at: float = -1.0
+var _armour: float = 1.0
+var _strike_until: float = -1.0
+
 
 func _ready() -> void:
 	add_to_group(&"wolf")
@@ -304,6 +347,13 @@ func _physics_process(delta: float) -> void:
 			collision_layer = 4
 	_watch_missiles()
 	_burst = maxf(_burst - delta, 0.0)
+	_poise_rest = maxf(_poise_rest - delta, 0.0)
+	if _poise_rest <= 0.0:
+		poise = minf(poise + poise_back * delta, max_poise)
+	if _strike_until >= 0.0:
+		_strike_until -= delta
+		if _strike_until < 0.0:
+			_armour = 1.0
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_reeling = maxf(_reeling - delta, 0.0)
 	_provoked = maxf(_provoked - delta, 0.0)
@@ -494,7 +544,7 @@ func _think(delta: float) -> void:
 					_slow(delta)
 				# Into the swipe it steps up, so the claws come through where
 				# he stands rather than short of him.
-				if rig.is_swiping() and distance > claw_reach:
+				if (rig.is_swiping() or rig.is_striking() and not rig.is_holding()) and distance > claw_reach:
 					var step := to_player.normalized() * minf((distance - claw_reach) * 4.0, charge_speed)
 					velocity.x = step.x
 					velocity.z = step.z
@@ -558,7 +608,7 @@ func _watch_missiles() -> void:
 ## How close it has to be before it fights rather than chases: near enough to
 ## circle and to leap.
 func fight_from() -> float:
-	return 4.5 if not rig.is_crippled() else 3.0
+	return 5.2 if not rig.is_crippled() else 3.4
 
 
 ## Close enough for the claws, after the step in.
@@ -568,11 +618,11 @@ func strike_range() -> float:
 
 ## From how far a pounce carries it on to him.
 func pounce_range() -> float:
-	return 4.4
+	return 5.0
 
 
 func lunge_range() -> float:
-	return 1.9
+	return 2.3
 
 
 func is_crippled() -> bool:
@@ -734,8 +784,14 @@ func _steer(wanted: Vector3, delta: float) -> void:
 
 ## One move of a fight: an attack (`swipe`, `pounce`, `bite`, `ground_lunge`)
 ## or a way out of one (`hop`, `dodge_left`, `dodge_right`).
-func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
+func attack(move: StringName, aside: Vector3 = Vector3.ZERO, delay: float = 0.0) -> void:
 	if is_dead or rig == null:
+		return
+	if MELEE.has(move):
+		if arms_left() == 0 and String(MELEE[move]["parts"]) == "claws":
+			return
+		_melee(move, delay)
+		net_melee.rpc(move, delay)
 		return
 	var ahead := -global_transform.basis.z
 	ahead.y = 0.0
@@ -832,6 +888,84 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 
 
 ## Whatever attack it was winding up, dropped.
+## A chain of blows begins: `blows` of them, all in one combo.
+func begin_chain(blows: int) -> void:
+	_chain += 1
+	_chain_blow = 0
+	_chain_len = maxi(blows, 1)
+
+
+## How many blows a move throws, for its chain.
+static func blows_in(move: StringName) -> int:
+	if MELEE.has(move):
+		return (MELEE[move]["hits"] as Array).size()
+	if move == &"hop" or move.begins_with("dodge") or move == &"claw_wave":
+		return 0
+	return 1
+
+
+## A hand-to-hand move ([constant MELEE]): the clip, its blows on the act
+## clock, and — if `delay` — a hold at the top of the windup before the first.
+func _melee(move: StringName, delay: float) -> void:
+	var spec: Dictionary = MELEE[move]
+	var rate: float = spec["rate"]
+	var from: float = spec["from"]
+	var hits: Array = spec["hits"]
+	var first: float = (float(hits[0]) - from) / rate
+	var length := (float(spec["to"]) - from) / rate + delay
+	_swipe_count += 1
+	_break_off()
+	_busy = length
+	_strike_until = length
+	_armour = float(spec["armour"])
+	# The hold: just short of the first blow.
+	var hold_at := float(hits[0]) - HIT_HALF * rate * 1.6 if delay > 0.0 else -1.0
+	rig.melee(StringName(spec["clip"]), rate, from, length, hold_at, delay, hits)
+	_attack_clock = 0.0
+	_sweeps.clear()
+	_commit_at = first + delay - COMMIT
+	var serial := _swipe_count
+	var heavy := bool(spec.get("heavy", false))
+	var jaws := String(spec["parts"]) == "jaws"
+	var hurt_by: float = float(spec["damage"]) * swipe_damage
+	for i in hits.size():
+		var at := (float(hits[i]) - from) / rate + delay
+		var blow := _chain_blow
+		_chain_blow += 1
+		var chain := _chain
+		var blows := 1 if heavy else maxi(_chain_len, 2)
+		_sweeps.append(WeaponSweep.blow(
+				(func() -> Array: return rig.claw_parts(false, true)) if jaws else _claw_parts.bind(false),
+				2.0, at - HIT_HALF, at + HIT_HALF, serial,
+				func(who: Node3D) -> void:
+					if not is_dead and rig != null:
+						rig.hitstop(0.08 if heavy else 0.06)
+						who.call("receive_blow", hurt_by, self, mini(blow, blows - 1), blows, chain)))
+	attacked.emit()
+
+
+## A hand-to-hand move, on the peers that did not decide it.
+@rpc("authority", "call_remote", "unreliable")
+func net_melee(move: StringName, delay: float) -> void:
+	if rig == null or is_dead or not MELEE.has(move):
+		return
+	var spec: Dictionary = MELEE[move]
+	var rate: float = spec["rate"]
+	var from: float = spec["from"]
+	var hits: Array = spec["hits"]
+	var hold_at := float(hits[0]) - HIT_HALF * rate * 1.6 if delay > 0.0 else -1.0
+	rig.melee(StringName(spec["clip"]), rate, from, (float(spec["to"]) - from) / rate + delay, hold_at, delay, hits)
+
+
+## Still turning after him: until a blow is committed (see `COMMIT`).
+func tracking() -> bool:
+	if rig != null and rig.is_striking():
+		return _attack_clock < _commit_at
+	if rig != null and rig.is_swiping():
+		return _swipe_lands > COMMIT
+	return true
+
+
 func _break_off() -> void:
 	if rig != null and rig.claw != null:
 		rig.claw.cancel()
@@ -840,6 +974,8 @@ func _break_off() -> void:
 	_pouncing = false
 	_swipe_timer = 0.0
 	_sweeps.clear()
+	_strike_until = -1.0
+	_armour = 1.0
 
 
 #region Claw wave
@@ -949,10 +1085,18 @@ func _arm_claws(live: Vector2, pounce: bool) -> void:
 	_attack_clock = 0.0
 	_sweeps.clear()
 	var serial := _swipe_count
+	# One blow of the chain it is throwing (a lone swipe: the first of two, a
+	# flinch, never a knockdown). In a chain it is a lighter blow than alone.
+	var blow := _chain_blow
+	_chain_blow += 1
+	var blows := maxi(_chain_len, 2)
+	var chain := _chain if _chain_len > 1 else serial
+	var hurt_by := swipe_damage * (0.72 if _chain_len > 1 else 1.0)
 	_sweeps.append(WeaponSweep.blow(_claw_parts.bind(pounce), 2.5, live.x, live.y, serial,
 			func(who: Node3D) -> void:
 				if not is_dead and rig != null:
-					who.call("receive_blow", swipe_damage, self, 0, 2, serial)))
+					rig.hitstop(0.06)
+					who.call("receive_blow", hurt_by, self, mini(blow, blows - 1), blows, chain)))
 
 
 ## Both forearms and paws out to the claws, as posed this frame — an arm it has
@@ -1157,6 +1301,22 @@ func _blade_damage(knight: Player) -> Array:
 	return [damage_per_hit, false]
 
 
+## What a blow takes off its poise; at nothing it staggers — upright, open, the
+## next cut into it deeper — and the poise comes back whole. Through the windup
+## of a heavy move it has armour: the blow takes less, and it strikes through.
+func _take_poise(damage: float) -> void:
+	_poise_rest = 1.6
+	poise -= damage * _armour
+	if poise > 0.0 or is_dead or rig == null or rig.is_crippled():
+		return
+	poise = max_poise
+	_break_off()
+	_busy = 0.0
+	_reeling = poise_stagger
+	_swipe_timer = maxf(_swipe_timer, poise_stagger)
+	net_reel.rpc()
+
+
 ## A hero's cut has landed. Too many too fast and it will not stand there and
 ## take them: it hops back out of the combo and comes straight back in with a
 ## leap.
@@ -1169,6 +1329,14 @@ func _count_cut() -> void:
 		return
 	_cut_times.clear()
 	_reeling = 0.0
+	# Mostly it will not give ground: it trades, straight back at him through
+	# his combo, a jab and a rake. Now and then it gets out and comes back
+	# through the air.
+	if mind != null and arms_left() == 2 and _rng.randf() < 0.65:
+		_armour = 0.3
+		_strike_until = 1.2
+		mind.counter()
+		return
 	attack(&"hop")
 	if mind != null:
 		mind.come_back_leaping()
@@ -1252,6 +1420,9 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	# Marked by the hunter, everything bites deeper.
 	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
+	if rig != null:
+		rig.hitstop(0.05)
+	_take_poise(damage)
 	# Who is owed for it. Kept here rather than at the call sites: this is the
 	# one door every kind of damage comes through, and a tally that has to be
 	# remembered separately by each weapon is a tally that will be wrong the
