@@ -27,6 +27,8 @@ extends MeshInstance3D
 ##   flare     how far the hem stands off the back at rest, metres
 ##   wrap      how far its sides come round the body, metres, so it has a
 ##             curve to it and is not a flat board seen from the side
+##   point     how much longer the middle of the hem is than its sides (0: a
+##             straight hem; 0.5: half as long again, cut to a point)
 ##   cols, rows    the sheet's points
 ##   base, hem, trim   colours; `pattern` "plain", "tiger" or "runes"
 ##   hold      how hard it keeps its drape (0..1), `wind` how much it ripples
@@ -76,6 +78,7 @@ func setup(skel: Skeleton3D, cape: Dictionary) -> bool:
 	var spread := float(cape.get("spread", 1.2))
 	var flare := float(cape.get("flare", 0.08))
 	var wrap := float(cape.get("wrap", 0.1))
+	var point := float(cape.get("point", 0.0))
 	var mid := (left + right) * 0.5
 	var back := Vector3(0.0, 0.0, -1.0)  # Blender +y, behind the character
 	# The sheet at rest, in skeleton space, then in the bone's rest frame.
@@ -88,7 +91,8 @@ func setup(skel: Skeleton3D, cape: Dictionary) -> bool:
 			var top := left.lerp(right, s)
 			var across := (top - mid) * lerpf(1.0, spread, t)
 			var side := (2.0 * s - 1.0) * (2.0 * s - 1.0)
-			var p := mid + across + Vector3.DOWN * length * t + back * flare * sqrt(t) \
+			var drop := length * (1.0 + point * (1.0 - absf(2.0 * s - 1.0)))
+			var p := mid + across + Vector3.DOWN * drop * t + back * flare * sqrt(t) \
 					- back * wrap * side * lerpf(1.0, 0.55, t)
 			_rest[j * _cols + i] = inv * p
 	var hold := float(cape.get("hold", 0.5))

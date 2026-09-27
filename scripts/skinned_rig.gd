@@ -199,6 +199,10 @@ var _shield_meshes: Array[MeshInstance3D] = []
 var garbs: Array[StringName] = []
 ## Which of `garbs` is on.
 var garb: int = 0
+## How each outfit hangs the capes: per outfit, one look per spec in `capes`
+## (its keys laid over the spec — colours, `length`… — or `{"off": true}`
+## to leave that cape off). Empty: every outfit wears the capes as they are.
+var garb_capes: Array = []
 
 
 func _ready() -> void:
@@ -923,6 +927,29 @@ func set_garb(index: int) -> void:
 		var mesh := find_child(String(garbs[i]), true, false) as MeshInstance3D
 		if mesh != null:
 			mesh.visible = i == garb
+	if garb < garb_capes.size() and _skel != null:
+		_hang_capes(garb_capes[garb])
+
+
+## Takes the capes down and hangs them again, each spec in `capes` with its
+## look from `looks` laid over it (see `garb_capes`).
+func _hang_capes(looks: Array) -> void:
+	for cape in cloth_capes:
+		cape.queue_free()
+	cloth_capes.clear()
+	for i in capes.size():
+		var look: Dictionary = looks[i] if i < looks.size() else {}
+		if look.get("off", false):
+			continue
+		var spec := (capes[i] as Dictionary).duplicate()
+		for key in look:
+			spec[key] = look[key]
+		var cape := ClothCape.new()
+		add_child(cape)
+		if cape.setup(_skel, spec):
+			cloth_capes.append(cape)
+		else:
+			cape.queue_free()
 
 
 func knock_down() -> void:

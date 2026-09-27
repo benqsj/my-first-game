@@ -27,6 +27,22 @@ func _configure() -> void:
 		"base": Color.html("8e1222"), "hem": Color.html("5c0b16"), "trim": Color.html("8e1222"),
 		"hold": 0.35, "wind": 1.4, "drag": 0.7, "colliders": [["pelvis", "neck_01", 0.17]],
 	}]
+	# His outfits (see [Inventory]), the first worn; each hangs the cape and the
+	# scarf's tail its own way.
+	garbs = [&"rogue_wraith_red", &"rogue_nightblade", &"rogue_crimson", &"rogue_wraith_white",
+			&"rogue_sandstrider"]
+	garb_capes = [
+		# a short cape cut to a point at the back, narrower at the shoulders
+		[{"left": [0.17, 0.16, 1.5], "right": [-0.17, 0.16, 1.5], "length": 0.46, "point": 0.55,
+			"spread": 1.1, "flare": 0.06, "wrap": 0.08, "cols": 7, "rows": 8, "base": Color.html("111114"),
+			"hem": Color.html("8e1222"), "trim": Color.html("5c0b16"), "pattern": "plain"}, {"off": true}],
+		[{"base": Color.html("1c202c"), "hem": Color.html("8e1222"), "trim": Color.html("5c0b16")}, {}],
+		[{"length": 0.55, "spread": 1.15, "base": Color.html("701823"), "hem": Color.html("4a0f18"),
+			"trim": Color.html("4a0f18")}, {"off": true}],
+		[{"length": 1.2, "spread": 1.3, "base": Color.html("111114"), "hem": Color.html("e3ded2"),
+			"trim": Color.html("bfb8aa"), "pattern": "plain"}, {"off": true}],
+		[{"off": true}, {"off": true}],
+	]
 	clips = {
 		&"idle": &"DG_Idle", &"walk": &"DG_Walk", &"run": &"DG_Run",
 		&"walk_back": &"DG_Walk_Back", &"run_back": &"DG_Run_Back",

@@ -69,6 +69,14 @@ func _configure() -> void:
 		"colliders": [["pelvis", "neck_01", 0.17], ["thigh_l", "calf_l", 0.14], ["thigh_r", "calf_r", 0.14],
 				["calf_l", "foot_l", 0.1], ["calf_r", "foot_r", 0.1]],
 	}]
+	# His robes (see [Inventory]), the first worn, each with its cape.
+	garbs = [&"mage_storm", &"mage_ember", &"mage_sage", &"mage_wine"]
+	garb_capes = [
+		[{"base": Color.html("172142"), "hem": Color.html("c9ced6"), "trim": Color.html("c9ced6")}],
+		[{"base": Color.html("111114"), "hem": Color.html("8e1222"), "trim": Color.html("8e1222")}],
+		[{"base": Color.html("b9b09c"), "hem": Color.html("c8a04a"), "trim": Color.html("c8a04a")}],
+		[{}],
+	]
 	swing_sounds = LIGHT_SWINGS.duplicate()
 	swing_volume = -4.0
 	clips = {
