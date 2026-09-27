@@ -1900,7 +1900,7 @@ be, which read as a cartoon against the dark grade.
 
 * **The spray** — two pooled emitters restarted per blow (`SPRAY_POOL` pairs,
   made at load; a new `GPUParticles3D` per hit once cost 10–25 ms): a stream of
-  46 drops thrown along the blow in a narrow fan (`THROW_SPREAD` 17°,
+  34 drops thrown along the blow in a narrow fan (`THROW_SPREAD` 17°,
   `THROW_SPEED` 2.2–6.2 m/s), each a thin capsule turned to lie along the way it
   flies (`particle_flag_align_y`) so the arc reads as liquid rather than beads,
   falling under gravity and shrinking away as it reaches the ground; and a puff

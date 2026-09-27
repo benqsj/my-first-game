@@ -12,7 +12,7 @@ extends Node
 ## light as everything else rather than painted on in flat red.
 
 ## Fresh blood, lit: dark and glossy, not the flat red of a cartoon.
-const SPRAY := Color(0.36, 0.015, 0.015)
+const SPRAY := Color(0.3, 0.01, 0.01)
 const STAIN := Color(0.24, 0.012, 0.01)
 ## The tint the grass and the props take.
 const TINT := Color(0.28, 0.02, 0.02)
@@ -157,8 +157,8 @@ static func _spray_assets() -> void:
 		# One drop: a thin capsule, turned by the particle system to lie along
 		# the way it is flying.
 		_stream_mesh = CapsuleMesh.new()
-		_stream_mesh.radius = 0.02
-		_stream_mesh.height = 0.17
+		_stream_mesh.radius = 0.016
+		_stream_mesh.height = 0.12
 		_stream_mesh.radial_segments = 5
 		_stream_mesh.rings = 1
 		_stream_material = StandardMaterial3D.new()
@@ -169,17 +169,19 @@ static func _spray_assets() -> void:
 		# the wood and in shadow.
 		_stream_material.emission_enabled = true
 		_stream_material.emission = Color(0.22, 0.0, 0.0)
-		_stream_material.emission_energy_multiplier = 0.6
+		_stream_material.emission_energy_multiplier = 0.15
 	if _mist_mesh == null:
 		_mist_mesh = QuadMesh.new()
-		_mist_mesh.size = Vector2(0.24, 0.24)
+		_mist_mesh.size = Vector2(0.13, 0.13)
+		# Lit, like the rest: unshaded, the dark red was lifted by the grade and
+		# the glow into an orange ball.
 		_mist_material = StandardMaterial3D.new()
-		_mist_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_mist_material.roughness = 0.6
 		_mist_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_mist_material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		_mist_material.vertex_color_use_as_albedo = true
 		_mist_material.albedo_texture = splat_texture()
-		_mist_material.albedo_color = Color(0.42, 0.02, 0.02)
+		_mist_material.albedo_color = Color(0.26, 0.01, 0.01)
 		_mist_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if _stream_process == null:
 		_stream_process = ParticleProcessMaterial.new()
@@ -190,8 +192,8 @@ static func _spray_assets() -> void:
 		_stream_process.initial_velocity_max = THROW_SPEED.y
 		_stream_process.gravity = Vector3(0.0, -GRAVITY, 0.0)
 		_stream_process.particle_flag_align_y = true
-		_stream_process.scale_min = 0.5
-		_stream_process.scale_max = 1.9
+		_stream_process.scale_min = 0.45
+		_stream_process.scale_max = 1.5
 		# Out of a wound, not a point: the first drops leave from along the cut.
 		_stream_process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 		_stream_process.emission_sphere_radius = 0.05
@@ -218,12 +220,12 @@ static func _spray_assets() -> void:
 		_mist_process.angle_max = 180.0
 		var grow := Curve.new()
 		grow.add_point(Vector2(0.0, 0.5))
-		grow.add_point(Vector2(1.0, 2.2))
+		grow.add_point(Vector2(1.0, 1.6))
 		var grow_tex := CurveTexture.new()
 		grow_tex.curve = grow
 		_mist_process.scale_curve = grow_tex
 		var fade := Gradient.new()
-		fade.set_color(0, Color(1, 1, 1, 0.75))
+		fade.set_color(0, Color(1, 1, 1, 0.55))
 		fade.set_color(1, Color(1, 1, 1, 0.0))
 		var fade_tex := GradientTexture1D.new()
 		fade_tex.gradient = fade
@@ -244,7 +246,7 @@ static func _add_spray(world: Node) -> Array:
 	_spray_assets()
 	var stream := GPUParticles3D.new()
 	stream.name = "BloodSpray"
-	stream.amount = 46
+	stream.amount = 34
 	stream.lifetime = 0.62
 	stream.one_shot = true
 	stream.explosiveness = 0.82
