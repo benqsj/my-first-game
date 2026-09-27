@@ -42,7 +42,9 @@ const SWARD_REACH := 0.3
 ## Lineage 2 with Elden Ring). Property -> value, on the environment, the sky,
 ## the sun.
 const DARK_ENV := {
-	"tonemap_mode": Environment.TONE_MAPPER_ACES,
+	# AgX rather than ACES: it keeps detail in the shadows, where ACES crushed
+	# the wood to black.
+	"tonemap_mode": Environment.TONE_MAPPER_AGX,
 	"tonemap_exposure": 1.2,
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
 	"ambient_light_energy": 2.4,
@@ -50,10 +52,13 @@ const DARK_ENV := {
 	"fog_density": 0.0032,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
+	# Lighter ambient occlusion: under the trees it was what turned the trunks
+	# and the ground between them black.
+	"ssao_intensity": 0.55,
 	"adjustment_enabled": true,
 	"adjustment_brightness": 1.14,
-	"adjustment_contrast": 1.06,
-	"adjustment_saturation": 0.8,
+	"adjustment_contrast": 1.12,
+	"adjustment_saturation": 0.86,
 }
 const DARK_SKY := {
 	"sky_top_color": Color(0.21, 0.26, 0.33),
@@ -71,6 +76,9 @@ const DARK_SUN := {
 const DARK_WOOD := Color(0.8, 0.68, 0.62)
 ## The same for the grass, and for the grassy ground under it.
 const DARK_GRASS := Color(0.86, 0.72, 0.64)
+## And the bark lifted: the kit's dark brown under a canopy's shadow read as
+## black trunks in the wood.
+const DARK_BARK := Color(1.45, 1.4, 1.35)
 const DARK_GROUND_GRASS := Color(0.7, 0.66, 0.5)
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor.
 const LOOKS: Array[Dictionary] = [
@@ -142,7 +150,7 @@ func _grade(dark: bool) -> void:
 		_set_all(node, DARK_SUN, dark)
 	var forest := world.get_node_or_null("Forest")
 	if forest != null:
-		_tone_wood(forest, DARK_WOOD if dark else Color.WHITE)
+		_tone_wood(forest, DARK_WOOD if dark else Color.WHITE, DARK_BARK if dark else Color.WHITE)
 	for node in world.find_children("*", "GrassField", true, false):
 		_tone_wood(node, DARK_GRASS if dark else Color.WHITE)
 	if _terrain != null and _terrain.styles.size() > 2:
@@ -166,8 +174,9 @@ func _set_all(target: Object, values: Dictionary, dark: bool) -> void:
 
 ## Every material the wood is drawn with, its colour multiplied by `tone`
 ## (white puts it back). Shared by every tree of a kind, so this is a few
-## dozen materials, not a walk over the trees.
-func _tone_wood(forest: Node, tone: Color) -> void:
+## dozen materials, not a walk over the trees. `bark`, if given, is what the
+## bark is multiplied by instead (the rest that is not foliage is left alone).
+func _tone_wood(forest: Node, tone: Color, bark: Color = Color(0, 0, 0, 0)) -> void:
 	var seen := {}
 	for node in forest.find_children("*", "GeometryInstance3D", true, false):
 		var meshes: Array[Mesh] = []
@@ -186,7 +195,12 @@ func _tone_wood(forest: Node, tone: Color) -> void:
 				if not mat.has_meta(&"looks_own"):
 					mat.set_meta(&"looks_own", mat.albedo_color)
 				var own: Color = mat.get_meta(&"looks_own")
-				mat.albedo_color = Color(own.r * tone.r, own.g * tone.g, own.b * tone.b, own.a)
+				var k := tone
+				if bark.a > 0.0 and not _is_leaf(mat):
+					if not mat.resource_name.to_lower().contains("bark"):
+						continue
+					k = bark
+				mat.albedo_color = Color(own.r * k.r, own.g * k.g, own.b * k.b, own.a)
 
 
 ## The low sward: a second field of short clumps, grown the first time a look
@@ -216,7 +230,9 @@ func _grow_sward() -> void:
 	_sward.draw_distance = field.draw_distance
 	_sward.draw_distance_scale = SWARD_REACH
 	_sward.lod_bias = field.lod_bias
-	_sward.wind_radius = 14.0
+	# No wind in it: a hand-high sward barely sways, and swaying thousands of
+	# clumps a frame cost more than it showed. It still bends under a foot.
+	_sward.wind_enabled = false
 	field.get_parent().add_child(_sward)
 	_sward.transform = field.transform
 	_sward.replace(meadows.sward, meadows.sward_tints)
@@ -398,3 +414,14 @@ func _process(delta: float) -> void:
 	if _label_left <= 0.0:
 		_label.visible = false
 		set_process(false)
+
+
+## Whether a material of the wood is foliage: by its name, or — for the kit's
+## flat-coloured ones — by being green more than anything else.
+static func _is_leaf(mat: BaseMaterial3D) -> bool:
+	var name := mat.resource_name.to_lower()
+	for word in ["leaf", "leav", "foliage", "needle", "bush", "canopy", "green", "grass", "moss"]:
+		if name.contains(word):
+			return true
+	var c: Color = mat.get_meta(&"looks_own", mat.albedo_color)
+	return c.g > c.r * 1.08 and c.g > c.b * 1.08
