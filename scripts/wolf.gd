@@ -1508,6 +1508,7 @@ func _take_hits() -> void:
 		# was going.
 		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
 		ImpactFx.slash(Blood.world_of(self), rig.last_cut_point, blow, _size(), true)
+		_by_blade = true
 		# The host decided *which* limb; everyone else is told, so the piece that
 		# comes off is the same piece in every window. Re-running the geometry
 		# there would disagree — their copy of the blade is in a slightly
@@ -1537,6 +1538,7 @@ func _wound(knight: Player, edge: Array, serial: int) -> bool:
 	var cut: Vector3 = knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
 	var worth := _blade_damage(knight)
 	ImpactFx.slash(Blood.world_of(self), at, cut, _size(), bool(worth[1]))
+	_by_blade = true
 	take_hit(float(worth[0]), at, cut, bool(worth[1]), true, knight)
 	knight.rig.bloody()
 	knight.net_blade_landed.rpc()
@@ -1564,21 +1566,25 @@ const FLINCH_ARMOURED := 0.35
 ## his cuts (seconds): the counter takes that long to come in.
 const COUNTER_ARMOUR := 1.6
 var _counter_armour: float = 0.0
+## The hit coming through `take_hit` now is a blade's cut (set just before).
+var _by_blade: bool = false
 
 
 ## A blow has landed: its body thrown over the way the blow was going, and —
 ## unless what it is in the middle of has armour — whatever it was doing broken
-## off. That is the trade: in the middle of a cut of his, its ordinary blows
+## off (a cut only). That is the trade: in the middle of a cut of his, its ordinary blows
 ## never land; the heavy ones (the slam, the combos: see `armour` in [constant
 ## MELEE]), a leap, a claw wave, and the counter it throws when it has had
 ## enough, come through his cuts and hit him anyway. True if it broke off.
-func _flinch(blow: Vector3, from: Node, critical: bool) -> bool:
+func _flinch(blow: Vector3, from: Node, critical: bool, blade: bool) -> bool:
 	if rig == null or is_dead:
 		return false
 	var away := Vector3.ZERO
 	if from is Node3D:
 		away = global_position - (from as Node3D).global_position
-	var broke := _breaks_off()
+	# Only a cut breaks it off: an arrow or a bolt only jolts it, or a volley
+	# would hold it where it stands, unable to get out of the next.
+	var broke := blade and _breaks_off()
 	var strength := FLINCH_CRIT if critical else FLINCH_CUT
 	if not broke:
 		strength *= FLINCH_ARMOURED
@@ -1746,7 +1752,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 		rig.hitstop(0.1 if critical else 0.07)
 	# Before its mind hears of it: a counter it decides on now must not be the
 	# thing this blow breaks off.
-	var broke := _flinch(blow, from, critical)
+	var broke := _flinch(blow, from, critical, _by_blade)
+	_by_blade = false
 	_take_poise(damage)
 	# Who is owed for it. Kept here rather than at the call sites: this is the
 	# one door every kind of damage comes through, and a tally that has to be
