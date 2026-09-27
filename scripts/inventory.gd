@@ -18,12 +18,21 @@ extends CanvasLayer
 ## ([member Player.menu_open]).
 ##
 ## The arrow keys or the mouse move the choice, Q / E the tab, Enter or a click
-## puts on what can be put on (a shield), I or Escape closes.
+## puts on what can be put on (a shield, an outfit), I or Escape closes.
 
 enum Shields { ROUND, TOWER }
-enum Tab { WEAPONS, SHIELDS, GOODS }
+enum Tab { WEAPONS, SHIELDS, GOODS, ATTIRE }
 
-const TAB_NAMES := ["Weapons", "Shields", "Goods"]
+const TAB_NAMES := ["Weapons", "Shields", "Goods", "Attire"]
+## The outfits, by the name of their mesh in the model (the rig's `garbs`).
+const GARBS := {
+	&"avtandil_ranger": {"name": "Ranger's Mantle", "kind": "Hooded mantle", "colour": Color("3f5a3a"),
+		"stats": [["Cloth", "wool"], ["Hood", "up"], ["Length", "mid-thigh"]],
+		"text": "A grey-green tunic to mid-thigh under a long mantle of moss wool, its hood up. The hunter's own: it keeps the rain off and the face in shadow."},
+	&"avtandil_wanderer": {"name": "Wanderer's Kaftan", "kind": "Kaftan and cowl", "colour": Color("6a6438"),
+		"stats": [["Cloth", "wool"], ["Hood", "deep cowl"], ["Length", "mid-calf"]],
+		"text": "An olive kaftan to mid-calf wrapped across the chest, bound with a crimson sash, a deep brown cowl drawn forward over the face. For the long roads."},
+}
 const GOLD := Color("d0a044")
 const GOLD_DIM := Color("8a6a2c")
 const CREAM := Color("ece4d6")
@@ -136,6 +145,17 @@ func _use(i: int) -> void:
 	var item: Dictionary = items[i]
 	if item.has("shield"):
 		equip(int(item.shield))
+	elif item.has("garb"):
+		player.set_garb(int(item.garb))
+		_root.queue_redraw()
+
+
+## The outfits his model carries (the rig's `garbs`); empty for a hero with one.
+func _garbs() -> Array:
+	if player.rig == null:
+		return []
+	var list: Variant = player.rig.get(&"garbs")
+	return list if list is Array else []
 
 
 func _has_shield() -> bool:
@@ -170,6 +190,15 @@ func _items() -> Array[Dictionary]:
 							["Stamina per blow", "× %.1f" % (player.block_stamina * player.tower_block_share)],
 							["Parry", "no"], ["Stance", "crouched"]],
 					"text": "Tall, heavy, crimson, with the gold cross. It cannot parry, but a blow on it costs half as much to hold, and he crouches right down behind it.",
+				})
+		Tab.ATTIRE:
+			var garbs := _garbs()
+			for i in garbs.size():
+				var info: Dictionary = GARBS.get(StringName(garbs[i]), {})
+				out.append({
+					"name": info.get("name", String(garbs[i])), "kind": info.get("kind", "Outfit"),
+					"icon": "garb", "colour": info.get("colour", Color(0.4, 0.4, 0.35)), "garb": i,
+					"worn": player.garb == i, "stats": info.get("stats", []), "text": info.get("text", ""),
 				})
 	return out
 
@@ -257,7 +286,7 @@ func _draw_left(c: Control, font: Font, box: Rect2) -> void:
 		c.draw_rect(r, Color(1, 1, 1, 0.06), false, 1.0)
 		if k < items.size():
 			var item: Dictionary = items[k]
-			_icon(c, r.get_center(), String(item.icon), 30.0)
+			_icon(c, r.get_center(), String(item.icon), 30.0, item.get("colour", Color.WHITE))
 			if item.get("worn", false):
 				c.draw_string(font, r.position + Vector2(6, SLOT.y - 8), "E", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, GOLD)
 		if k == _chosen and k < items.size():
@@ -275,7 +304,7 @@ func _draw_item(c: Control, font: Font, box: Rect2, item: Dictionary) -> void:
 	c.draw_rect(pic, Color(0.06, 0.06, 0.06, 0.9))
 	c.draw_rect(pic, Color(GOLD_DIM, 0.7), false, 1.5)
 	c.draw_rect(pic.grow(-6), Color(GOLD_DIM, 0.3), false, 1.0)
-	_icon(c, pic.get_center(), String(item.icon), 56.0)
+	_icon(c, pic.get_center(), String(item.icon), 56.0, item.get("colour", Color.WHITE))
 	# Its numbers.
 	y += 100
 	c.draw_string(font, Vector2(box.position.x, y), "Attributes", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, GOLD)
@@ -294,7 +323,7 @@ func _draw_item(c: Control, font: Font, box: Rect2, item: Dictionary) -> void:
 			box.size.x - 40, 16, -1, Color(CREAM, 0.85))
 	y += 110
 	var worn: bool = item.get("worn", false)
-	var status := "Equipped" if worn else ("Enter / click to put on" if item.has("shield") else "")
+	var status := "Equipped" if worn else ("Enter / click to put on" if item.has("shield") or item.has("garb") else "")
 	if not status.is_empty():
 		c.draw_string(font, Vector2(box.position.x, y), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
 				GOLD if worn else Color(CREAM, 0.7))
@@ -335,6 +364,9 @@ func _draw_status(c: Control, font: Font, box: Rect2) -> void:
 		rows.append(["Roll", "%.1f m" % (p.dash_speed * p.dash_duration)])
 		rows.append(["", ""])
 		rows.append(["Weapon", String(_weapon(p).name)])
+		var garbs := _garbs()
+		if not garbs.is_empty():
+			rows.append(["Attire", String(GARBS.get(StringName(garbs[player.garb]), {}).get("name", garbs[player.garb]))])
 		if _has_shield():
 			rows.append(["Shield", "Round Shield" if player.shield_kind == Shields.ROUND else "Tower Shield"])
 	for r: Array in rows:
@@ -352,7 +384,7 @@ func _bag_icon(c: Control, at: Vector2) -> void:
 
 
 ## The things, drawn: every icon is a few shapes, so none needs a file.
-func _icon(c: Control, at: Vector2, kind: String, r: float) -> void:
+func _icon(c: Control, at: Vector2, kind: String, r: float, tint: Color = Color.WHITE) -> void:
 	var gold := Color(0.85, 0.62, 0.2)
 	var steel := Color(0.8, 0.82, 0.86)
 	var dark := Color(0.14, 0.13, 0.13)
@@ -409,6 +441,19 @@ func _icon(c: Control, at: Vector2, kind: String, r: float) -> void:
 			c.draw_polyline(pts, Color(0.5, 0.3, 0.12), r * 0.12)
 			c.draw_line(pts[0], pts[pts.size() - 1], Color(0.9, 0.88, 0.8), 1.5)
 			c.draw_line(at + Vector2(-r * 0.6, 0), at + Vector2(r * 0.8, 0), Color(0.7, 0.6, 0.4), 2.0)
+		"garb":
+			# A tunic laid flat: sleeves out, a hood at the neck, a belt, a hem.
+			var body := PackedVector2Array([
+				at + Vector2(-r * 0.3, -r * 0.62), at + Vector2(-r * 0.95, -r * 0.3), at + Vector2(-r * 0.8, -r * 0.05),
+				at + Vector2(-r * 0.4, -r * 0.25), at + Vector2(-r * 0.55, r * 0.95), at + Vector2(r * 0.55, r * 0.95),
+				at + Vector2(r * 0.4, -r * 0.25), at + Vector2(r * 0.8, -r * 0.05), at + Vector2(r * 0.95, -r * 0.3),
+				at + Vector2(r * 0.3, -r * 0.62)])
+			c.draw_colored_polygon(body, tint)
+			c.draw_polyline(body + PackedVector2Array([body[0]]), tint.darkened(0.45), maxf(r * 0.05, 1.5))
+			c.draw_circle(at + Vector2(0, -r * 0.66), r * 0.26, tint.darkened(0.3))
+			c.draw_circle(at + Vector2(0, -r * 0.62), r * 0.13, Color(0.08, 0.07, 0.06))
+			c.draw_line(at + Vector2(-r * 0.44, r * 0.15), at + Vector2(r * 0.44, r * 0.15), Color(0.3, 0.18, 0.1), r * 0.1)
+			c.draw_line(at + Vector2(-r * 0.55, r * 0.9), at + Vector2(r * 0.55, r * 0.9), tint.darkened(0.5), r * 0.06)
 		"staff":
 			c.draw_line(at + Vector2(-r * 0.3, r), at + Vector2(r * 0.2, -r * 0.7), Color(0.45, 0.28, 0.14), r * 0.14)
 			c.draw_circle(at + Vector2(r * 0.25, -r * 0.8), r * 0.22, Color(1.0, 0.85, 0.45))

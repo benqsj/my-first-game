@@ -51,6 +51,9 @@ var _draw_time: float = 0.85
 
 func _configure() -> void:
 	swing_sounds = LIGHT_SWINGS.duplicate()
+	# His two outfits (see [Inventory]): the ranger's hooded mantle, worn; the
+	# wanderer's kaftan and cowl, in the bag.
+	garbs = [&"avtandil_ranger", &"avtandil_wanderer"]
 	swing_volume = -4.0
 	clips = {
 		&"idle": &"AV_Idle_01", &"walk": &"AV_Walk_Forward", &"run": &"AV_Run_Forward",

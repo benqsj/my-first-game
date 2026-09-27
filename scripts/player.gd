@@ -367,6 +367,9 @@ var _inventory: Inventory
 ## Which shield is carried ([enum Inventory.Shields]). Only the round one
 ## parries; the tower one blocks for less stamina.
 var shield_kind: int = Inventory.Shields.ROUND
+## Which of his outfits he wears: an index into the rig's `garbs` (0 for a
+## hero who has only the one).
+var garb: int = 0
 ## True while a screen of his own (the inventory, the big map) is open: the
 ## body stands still and takes no buttons.
 var menu_open: bool = false
@@ -476,6 +479,8 @@ var net_aim: float = 0.0
 var net_health: float = 1.0
 var net_dead: bool = false
 var net_shield: int = 0
+## Which of the rig's outfits is on (see `set_garb()`), for the other peers.
+var net_garb: int = 0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -633,6 +638,8 @@ func _process(delta: float) -> void:
 		return
 	if not mine and rig.has_method(&"set_shield") and int(rig.get(&"shield_kind")) != net_shield:
 		rig.call(&"set_shield", net_shield)
+	if not mine and rig.has_method(&"set_garb") and int(rig.get(&"garb")) != net_garb:
+		rig.call(&"set_garb", net_garb)
 	if state == State.WALLCLIMB:
 		rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
 	# `velocity` is replicated, so the pace is right for everyone. `is_on_floor()`
@@ -667,6 +674,7 @@ func _publish_net_state() -> void:
 	net_health = health / maxf(max_health, 1.0)
 	net_dead = is_dead
 	net_shield = shield_kind
+	net_garb = garb
 
 
 func _physics_process(delta: float) -> void:
@@ -2730,6 +2738,14 @@ func set_shield(kind: int) -> void:
 	shield_kind = kind
 	if rig != null and rig.has_method(&"set_shield"):
 		rig.call(&"set_shield", kind)
+
+
+## Puts on one of his outfits (an index into the rig's `garbs`); every peer
+## sees it through `net_garb`.
+func set_garb(index: int) -> void:
+	garb = index
+	if rig != null and rig.has_method(&"set_garb"):
+		rig.call(&"set_garb", index)
 
 
 const PARRY_SOUND := "res://sounds/parry/clang.wav"

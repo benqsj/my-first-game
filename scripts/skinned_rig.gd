@@ -193,6 +193,12 @@ var _arc_l: BladeArc
 ## round one, 1 the tower shield. The model carries both; one is shown.
 var shield_kind: int = 0
 var _shield_meshes: Array[MeshInstance3D] = []
+## Outfits the model carries, each its own mesh on the one skeleton (their
+## names in the model); one is shown. Empty for a hero with only the one
+## (set by `_configure()`).
+var garbs: Array[StringName] = []
+## Which of `garbs` is on.
+var garb: int = 0
 
 
 func _ready() -> void:
@@ -226,6 +232,7 @@ func _ready() -> void:
 	for mesh_name in ["tariel_shield", "tariel_tower_shield"]:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
 	set_shield(shield_kind)
+	set_garb(garb)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
 	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
@@ -857,6 +864,15 @@ func set_shield(kind: int) -> void:
 		if _shield_meshes[i] != null:
 			_shield_meshes[i].visible = i == kind
 	_base_clip = &""
+
+
+## Shows the outfit `index` of `garbs` and hides the others.
+func set_garb(index: int) -> void:
+	garb = clampi(index, 0, maxi(garbs.size() - 1, 0))
+	for i in garbs.size():
+		var mesh := find_child(String(garbs[i]), true, false) as MeshInstance3D
+		if mesh != null:
+			mesh.visible = i == garb
 
 
 func knock_down() -> void:
