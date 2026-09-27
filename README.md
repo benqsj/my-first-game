@@ -2904,13 +2904,14 @@ seam, the trunks and a walk up the tallest open hill.
 
 **F8** in play steps through the world's looks (`Looks`, `scripts/looks.gd`, a
 child of the ground that `Terrain` makes), with the look's name at the top of
-the screen for a moment. The level starts in the first, as it always did;
-`-- look_N` starts in another.
+the screen for a moment. The level starts in the new one (it is put on as the
+ground is built, and again once the meadows have grown); `-- look_N` starts in
+another.
 
 | F8 | ground | grass |
 | --- | --- | --- |
-| 1 **old** (default) | the house ground | `grass2.glb`, 8 256 triangles |
-| 2 **new** | the forest floor | `grass_light.glb`, 364 triangles, and the low sward |
+| 1 **new** (default) | the forest floor | `grass_light.glb`, 364 triangles, and the low sward |
+| 2 **old** | the house ground | `grass2.glb`, 8 256 triangles |
 | 3 | the house ground | `grass_light.glb` |
 | 4 | the photographed ground (`styles[1]`) | `grass_light.glb` |
 | 5 | the forest floor | `assets/grass2/gras2.glb`, 6 672 triangles |
@@ -3545,6 +3546,24 @@ through the air, half a metre up, for 0.65 s, thrown far enough to land on him,
 claws raking as it lands (Mutant Jump Attack); then it fights. Once in 4 s at
 most (`run_leap_cooldown`). A roll or a step aside as it leaves the ground gets
 out of it; a shield takes it.
+
+**The leap is the wolf's, not its hips'.** `WF_Pounce` (the Mutant Jump
+Attack) carries its own throw: the root a metre and eight on, the hips a
+metre and three quarters up. The rig pins the root, so the clip stood still,
+and the hips flew while the body stayed on the ground — and the pounce then
+shoved the body on at 9 m/s along the ground under them: a wolf that slid at
+you with its hips in the air. Now `WolfRig._carry_out` takes the throw out of
+the clip once, at load (the rise above standing out of the hips' track; the
+root's travel kept as the curve), and `Wolf._fly` carries the body along that
+curve while the clip is off the ground: the curve's distance stretched to
+land `LAND_SHORT` (0.9 m) short of whoever it leaps at, its height cut to
+`LEAP_HEIGHT` (45%: a wolf leaps low and long, a mutant high), the ground's
+rise or fall eased in by the landing — motion warping, the way a souls-like
+lands a lunge on you. The clip is played from its own start
+(`_strike(..., whole)`), sped up to arrive on time, so the crouch before it
+leaves the ground is seen: the pounce's tell is that crouch, a quarter of a
+second, then 0.45 s in the air. Both the pounce and the run's leap go this
+way; the old shove and `_leap_off` are gone.
 
 `tests/wolf_run_test.gd`: arrows and the mage's bolts, from 12 m and from 3.5 m,
 most got out of from far and many close in; a bolt it gets out of misses; on

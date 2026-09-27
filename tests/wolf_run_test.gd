@@ -151,7 +151,7 @@ func _run_and_leap() -> void:
 		var planar := Vector3(wolf.velocity.x, 0.0, wolf.velocity.z).length()
 		if not leapt:
 			fastest = maxf(fastest, planar)
-		if wolf._leap_in >= 0.0 and not leapt:
+		if wolf.is_leaping() and not leapt:
 			leapt = true
 			leapt_from = wolf.global_position.distance_to(_player.global_position)
 		if leapt:

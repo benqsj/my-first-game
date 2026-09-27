@@ -196,8 +196,15 @@ var _pouncing: bool = false
 @export var run_leap_flight: float = 0.65
 @export var run_leap_cooldown: float = 4.0
 var _leap_wait: float = 0.0
-## Seconds until it springs off the ground in a leap under way.
-var _leap_in: float = -1.0
+## A leap under way, carried along its clip's own throw ([method WolfRig.carry]):
+## where it left the ground, which way it faces, how far the throw is stretched
+## to land on him; empty when not in the air.
+var _flight: Dictionary = {}
+## Stop this far short of him, so it lands on him rather than through him.
+const LAND_SHORT := 0.9
+## The clip throws itself a metre and three quarters up — a mutant's leap, not a
+## wolf's. A wolf leaps low and long: this much of the height is kept.
+const LEAP_HEIGHT := 0.45
 ## The move under way is a dodge or a hop: another missile may be got out of
 ## before it is over.
 var _dodge_busy: bool = false
@@ -290,10 +297,6 @@ func _physics_process(delta: float) -> void:
 	_busy = maxf(_busy - delta, 0.0)
 	_claw_wait = maxf(_claw_wait - delta, 0.0)
 	_leap_wait = maxf(_leap_wait - delta, 0.0)
-	if _leap_in >= 0.0:
-		_leap_in -= delta
-		if _leap_in < 0.0 and not is_dead:
-			_leap_off()
 	_evading = maxf(_evading - delta, 0.0)
 	if _slipping > 0.0:
 		_slipping -= delta
@@ -307,10 +310,8 @@ func _physics_process(delta: float) -> void:
 	if _pounce_in >= 0.0:
 		_pounce_in -= delta
 		if _pounce_in < 0.0 and not is_dead:
-			var ahead := -global_transform.basis.z
-			ahead.y = 0.0
-			velocity += ahead.normalized() * 9.0
-			# Carried through the leap, not stopped by its own feet.
+			# Carried through the leap, not stopped by its own feet: the leap
+			# itself is the clip's throw ([method _fly]).
 			_burst = 0.4
 	if _swipe_lands >= 0.0:
 		_swipe_lands -= delta
@@ -319,6 +320,7 @@ func _physics_process(delta: float) -> void:
 			_pouncing = false
 
 	_think(delta)
+	_fly(delta)
 	# Up a kerb or a stair rather than into it. A hunter that loses you to six
 	# greybox steps is not hunting you.
 	StepUp.climb(self, delta, step_height, step_probe)
@@ -596,27 +598,79 @@ func _can_run_leap(distance: float) -> bool:
 	return planar > 5.0 and distance >= run_leap_range.x and distance <= run_leap_range.y
 
 
-## Off the ground: at him if he is anywhere ahead, thrown far enough to land
-## on him and high enough to be in the air for `run_leap_flight`.
-func _leap_off() -> void:
+## Through the air along the leap its clip makes: the clip's throw off the
+## ground, forward and up, stretched to come down on him (motion warping, as a
+## souls-like does it). Before the clip leaves the ground the body is left to
+## whatever carries it (a run keeps running into the gather); from the moment
+## it does, the body is where the throw says, and nothing else steers it.
+func _fly(delta: float) -> void:
+	if rig == null or is_dead:
+		_flight.clear()
+		return
+	var now := rig.carry()
+	if now.is_empty():
+		_land()
+		return
+	var throw: Dictionary = now["carry"]
+	var time: float = now["time"]
+	if time < float(throw["off"]):
+		return
+	if time > float(throw["land"]):
+		_land()
+		return
+	if _flight.is_empty() or _flight.get("clip") != now["clip"]:
+		_take_off(now["clip"], throw)
+	var at := WolfRig.carry_at(throw, time)
+	var basis: Basis = _flight["basis"]
+	var from: Vector3 = _flight["from"]
+	var ahead := basis * Vector3(0.0, 0.0, -(at.x - float(_flight["fwd0"])) * float(_flight["warp"]))
+	var target := from + ahead + basis * Vector3(0.0, at.y * LEAP_HEIGHT, 0.0)
+	# Where the ground has gone while it was in the air, eased in by the landing.
+	var fall := Terrain.height(target.x, target.z) - Terrain.height(from.x, from.z)
+	var span := maxf(float(throw["land"]) - float(throw["off"]), 0.01)
+	target.y += fall * clampf((time - float(throw["off"])) / span, 0.0, 1.0)
+	velocity = ((target - global_position) / maxf(delta, 0.001)).limit_length(30.0)
+	_burst = maxf(_burst, 0.1)
+
+
+## In the air on a leap, or gathering for one.
+func is_leaping() -> bool:
+	return not _flight.is_empty() or (rig != null and rig.is_leaping())
+
+
+func _take_off(clip: StringName, throw: Dictionary) -> void:
 	var ahead := -global_transform.basis.z
 	ahead.y = 0.0
 	ahead = ahead.normalized()
-	var reach := 4.5
+	var fwd: PackedFloat32Array = throw["fwd"]
+	var fwd0 := WolfRig.carry_at(throw, float(throw["off"])).x
+	var across := WolfRig.carry_at(throw, float(throw["land"])).x - fwd0
+	var basis := Basis(Vector3.UP, atan2(-ahead.x, -ahead.z)).scaled(global_transform.basis.get_scale())
+	var clip_reach := (basis * Vector3(0.0, 0.0, across)).length()
+	var warp := 1.0
 	var quarry := _quarry()
 	if quarry != null:
 		var to := quarry.global_position - global_position
 		to.y = 0.0
 		if to.length() > 0.1 and to.normalized().dot(ahead) > 0.3:
 			ahead = to.normalized()
-			reach = to.length()
-	rotation.y = atan2(-ahead.x, -ahead.z)
-	var across := clampf((reach - 0.6) / run_leap_flight, 5.0, 13.0)
-	# Up enough to be in the air the whole flight, a good half metre at the top.
-	velocity = ahead * across + Vector3.UP * (_gravity * run_leap_flight * 0.5)
+			rotation.y = atan2(-ahead.x, -ahead.z)
+			basis = Basis(Vector3.UP, rotation.y).scaled(global_transform.basis.get_scale())
+			warp = clampf((to.length() - LAND_SHORT) / maxf(clip_reach, 0.1), 0.35, 2.6)
+	_flight = {"clip": clip, "from": global_position, "basis": basis, "warp": warp, "fwd0": fwd0}
 	floor_snap_length = 0.0
-	get_tree().create_timer(run_leap_flight, false).timeout.connect(func() -> void: floor_snap_length = 0.1)
-	_burst = run_leap_flight + 0.08
+	if fwd.is_empty():
+		_flight.clear()
+
+
+func _land() -> void:
+	if _flight.is_empty():
+		return
+	_flight.clear()
+	floor_snap_length = 0.1
+	# Down the rest of the way at once: the clip's own landing is steep, and a
+	# body left a hand's breadth up would float down on gravity alone.
+	velocity = Vector3(velocity.x * 0.2, minf(velocity.y, 0.0 if is_on_floor() else -7.0), velocity.z * 0.2)
 
 
 ## Early in its own windup, still able to break it off.
@@ -737,7 +791,7 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO) -> void:
 			_busy = run_leap_gather + run_leap_flight + 0.35
 			# Carried on by its run through the gather, and by the leap after.
 			_burst = run_leap_gather + run_leap_flight
-			_leap_in = run_leap_gather
+			# The leap itself is the clip's throw ([method _fly]).
 			rig.run_leap(run_leap_gather, run_leap_flight)
 			net_move.rpc(move)
 			_arm_claws(Vector2(run_leap_gather, run_leap_gather + run_leap_flight + 0.15), true)
@@ -783,7 +837,6 @@ func _break_off() -> void:
 		rig.claw.cancel()
 	_swipe_lands = -1.0
 	_pounce_in = -1.0
-	_leap_in = -1.0
 	_pouncing = false
 	_swipe_timer = 0.0
 	_sweeps.clear()

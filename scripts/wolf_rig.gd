@@ -180,6 +180,8 @@ func _ready() -> void:
 	_tail_swing.resize(_tail.size())
 	for clip in [SWIPE_L, SWIPE_R, POUNCE, &"WF_Punch"]:
 		_strike_at[clip] = _fastest(clip)
+	for clip in CARRIED:
+		_carry_out(clip)
 	_mark_claws()
 	claw = WolfClaw.new(self, _anim, _skeleton)
 	_anim.play(IDLE)
@@ -235,6 +237,120 @@ func dress(key: String) -> void:
 
 
 var coat_name: String = ""
+
+
+## Clips that throw the whole body somewhere — the pounce's leap, up off the
+## ground and a metre and a half on — with that throw in the hips. Left in, the
+## hips fly while the body stays put, or the body is shoved along the ground
+## while the hips fly: a wolf that slides at you rather than leaps. So the
+## throw is taken out of the pose ([method _carry_out]) and handed to [Wolf],
+## which carries the body along it ([method carry]), stretched to land on
+## whoever it is leaping at — the pose and the flight the same moment.
+const CARRIED: Array[StringName] = [POUNCE]
+## Clip -> its throw: {"t": clip times, "fwd": metres on, "up": metres up off
+## the ground, "off": when it leaves the ground, "land": when it is down again},
+## in the wolf body's own frame. The clips are shared by every wolf, so they
+## are worked on once.
+static var _carries: Dictionary = {}
+
+
+## Takes the hips' travel out of `clip` — forward, and up above where they
+## stand — and keeps it as the clip's throw.
+func _carry_out(clip: StringName) -> void:
+	if _carries.has(clip) or not _anim.has_animation(clip):
+		return
+	var anim := _anim.get_animation(clip)
+	var pelvis := _skeleton.find_bone("pelvis")
+	var body := get_parent() as Node3D
+	if pelvis < 0 or body == null:
+		return
+	var track := -1
+	var root_track := -1
+	for i in anim.get_track_count():
+		if anim.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		var path := String(anim.track_get_path(i))
+		if path.ends_with(":pelvis"):
+			track = i
+		elif path.ends_with(":root"):
+			root_track = i
+	if track < 0 or anim.track_get_key_count(track) < 2:
+		return
+	# The throw on is in the root (which [method animate] keeps pinned where it
+	# rests, so the clip already stands still); the throw up is in the hips,
+	# above where they stand, and is taken out of them here. Both in the body's
+	# own frame: through the rig and the skeleton under it, and for the hips
+	# their parent at rest.
+	var parent := _skeleton.get_bone_parent(pelvis)
+	var skel_to_body := body.global_transform.affine_inverse() * _skeleton.global_transform
+	var to_body := skel_to_body
+	if parent >= 0:
+		to_body = to_body * _skeleton.get_bone_global_rest(parent)
+	var from_body := to_body.affine_inverse()
+	var start: Vector3 = to_body * (anim.track_get_key_value(track, 0) as Vector3)
+	var root_start := Vector3.ZERO
+	var axis := Vector3.FORWARD
+	if root_track >= 0:
+		root_start = skel_to_body * anim.position_track_interpolate(root_track, 0.0)
+		var root_end := skel_to_body * anim.position_track_interpolate(root_track, anim.length)
+		var drift := root_end - root_start
+		drift.y = 0.0
+		if drift.length() > 0.2:
+			axis = drift.normalized()
+	var times := PackedFloat32Array()
+	var fwd := PackedFloat32Array()
+	var up := PackedFloat32Array()
+	for k in anim.track_get_key_count(track):
+		var time := anim.track_get_key_time(track, k)
+		var at: Vector3 = to_body * (anim.track_get_key_value(track, k) as Vector3)
+		var rise := maxf(at.y - start.y, 0.0)
+		var on := 0.0
+		if root_track >= 0:
+			on = (skel_to_body * anim.position_track_interpolate(root_track, time) - root_start).dot(axis)
+		times.append(time)
+		fwd.append(on)
+		up.append(rise)
+		anim.track_set_key_value(track, k, from_body * (at - Vector3.UP * rise))
+	var off := -1.0
+	var land := -1.0
+	var top := 0
+	for k in up.size():
+		if up[k] > up[top]:
+			top = k
+	for k in up.size():
+		if off < 0.0 and up[k] > 0.03:
+			off = times[k]
+		if k > top and land < 0.0 and up[k] < 0.03:
+			land = times[k]
+	if off < 0.0 or land < 0.0:
+		return
+	_carries[clip] = {"t": times, "fwd": fwd, "up": up, "off": off, "land": land}
+
+
+## The throw of the clip playing now, if it is one of [constant CARRIED] and
+## still in the air or about to leave the ground: {"clip", "time", "carry"},
+## or empty.
+func carry() -> Dictionary:
+	if _anim == null or _dead or not _anim.is_playing():
+		return {}
+	var clip := StringName(_anim.current_animation)
+	if not _carries.has(clip):
+		return {}
+	return {"clip": clip, "time": _anim.current_animation_position, "carry": _carries[clip]}
+
+
+## Where along its throw a clip is at `time`: (metres on, metres up).
+static func carry_at(throw: Dictionary, time: float) -> Vector2:
+	var t: PackedFloat32Array = throw["t"]
+	var fwd: PackedFloat32Array = throw["fwd"]
+	var up: PackedFloat32Array = throw["up"]
+	if time <= t[0]:
+		return Vector2(fwd[0], up[0])
+	for k in range(1, t.size()):
+		if time <= t[k]:
+			var w := (time - t[k - 1]) / maxf(t[k] - t[k - 1], 0.0001)
+			return Vector2(lerpf(fwd[k - 1], fwd[k], w), lerpf(up[k - 1], up[k], w))
+	return Vector2(fwd[fwd.size() - 1], up[up.size() - 1])
 
 
 ## When a clip's claws move fastest — the moment a swipe arrives.
@@ -413,12 +529,16 @@ func _choose(planar: float) -> void:
 
 
 ## Plays `clip` so that its fastest moment comes `arrive` seconds from now.
-func _strike(clip: StringName, arrive: float) -> void:
+## `whole`: from the clip's own start, sped up to fit — for a leap, whose
+## crouch before it leaves the ground is the tell and must not be skipped.
+func _strike(clip: StringName, arrive: float, whole: bool = false) -> void:
 	if _anim == null or not _anim.has_animation(clip):
 		return
 	var peak: float = _strike_at.get(clip, 0.5)
 	var rate := 1.0
 	var start := peak - arrive * rate
+	if whole:
+		start = -1.0
 	if start < 0.0:
 		# The clip's own windup is shorter than asked for: slowed to fit.
 		rate = peak / maxf(arrive, 0.05)
@@ -442,7 +562,7 @@ func swipe() -> void:
 ## A pounce: down on its haunches, then thrown forward, both claws raking.
 func lunge() -> void:
 	_lunge_timer = lunge_duration
-	_strike(POUNCE, lunge_duration * lunge_windup)
+	_strike(POUNCE, lunge_duration * lunge_windup, true)
 	# The tell, heard as well as seen.
 	var body := get_parent() as Node3D
 	if body != null and ResourceLoader.exists(GROWL):
@@ -491,12 +611,17 @@ func run_leap(gather: float, flight: float) -> void:
 	_lunge_timer = 0.0
 	_leap_gather = gather
 	_leap_len = gather + flight + 0.35
-	_strike(POUNCE, gather + flight * 0.8)
+	_strike(POUNCE, gather + flight * 0.8, true)
 	_move_timer = _leap_len
 	_leap_timer = _leap_len
 	var body := get_parent() as Node3D
 	if body != null and ResourceLoader.exists(GROWL):
 		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.7, -8.0)
+
+
+## A run's leap under way, from the gather to the landing.
+func is_leaping() -> bool:
+	return _leap_timer > 0.0
 
 
 func _leaping_through() -> bool:
