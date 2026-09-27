@@ -35,7 +35,8 @@ func _initialize() -> void:
 	await _spawn(&"rogue")
 	await _check_steps("the rogue")
 	# His first outfit (the wraith's coat) wears the long cloak and no scarf tail.
-	await _check_cape("the rogue", 1)
+	# the outfit he starts in (the Dune Runner) goes without a cape
+	await _check_cape("the rogue", 0)
 	await _check_moves("the rogue", Player.MoveSound.STEP)
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")

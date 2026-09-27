@@ -29,9 +29,11 @@ func _configure() -> void:
 	}]
 	# His outfits (see [Inventory]), the first worn; each hangs the cape and the
 	# scarf's tail its own way.
-	garbs = [&"rogue_wraith_red", &"rogue_nightblade", &"rogue_crimson", &"rogue_wraith_white",
-			&"rogue_sandstrider"]
+	garbs = [&"rogue_sand_shorts", &"rogue_wraith_red", &"rogue_nightblade", &"rogue_crimson",
+			&"rogue_wraith_white", &"rogue_sandstrider", &"rogue_shade_shorts", &"rogue_ash_shorts"]
 	garb_capes = [
+		# the loose sand top and short breeches: no cape, no scarf tail
+		[{"off": true}, {"off": true}],
 		# a short cape cut to a point at the back, narrower at the shoulders
 		[{"left": [0.17, 0.16, 1.5], "right": [-0.17, 0.16, 1.5], "length": 0.46, "point": 0.55,
 			"spread": 1.1, "flare": 0.06, "wrap": 0.08, "cols": 7, "rows": 8, "base": Color.html("111114"),
@@ -41,6 +43,8 @@ func _configure() -> void:
 			"trim": Color.html("4a0f18")}, {"off": true}],
 		[{"length": 1.2, "spread": 1.3, "base": Color.html("111114"), "hem": Color.html("e3ded2"),
 			"trim": Color.html("bfb8aa"), "pattern": "plain"}, {"off": true}],
+		[{"off": true}, {"off": true}],
+		[{"off": true}, {"base": Color.html("8e1222"), "hem": Color.html("5c0b16"), "trim": Color.html("8e1222")}],
 		[{"off": true}, {"off": true}],
 	]
 	clips = {
