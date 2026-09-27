@@ -4101,3 +4101,31 @@ from boxes. Gazyri on the chest, a belt with bronze plates and a khanjali.
 Black for now (`HEX` in the script). The model is scaled 1.08 in
 `tariel_rigged_visuals.tscn`: taller. The wardrobe (F9) now only recolours the
 cape; it starts on `black`.
+
+The long coat (`t8_build("long")`) is the one in the game: to the ankle, heavier
+folds, slit up the back, the calves taking part of its hem.
+
+## Avtandil v8: two outfits, one in the bag
+
+`vepxis-art/tools/a8_build.py` (`a8_build(outfit)` in `avtandil.blend`) dresses
+v7's Avtandil — his face, hands, boots, quiver and bow are v7's
+(`a7_build.py`, run first) — in cloth the way Tariel v8 is: a tunic from the
+neck to the hem with its own thickness, folds deepening to the hem, the skirt
+weighted into the legs; soft sleeves; hoods, a mantle, a sash as cloth. Four
+outfits were drawn (`OUTFITS`: hunter, ranger, khevsur, wanderer); two are in
+the game, **each its own mesh on the one skeleton** in
+`avtandil_rigged.glb` (written by `vepxis-art/_a8_export.py`):
+
+* `avtandil_ranger` — **Ranger's Mantle**, worn: a grey-green tunic to
+  mid-thigh under a long moss mantle, its hood up.
+* `avtandil_wanderer` — **Wanderer's Kaftan**, in the bag: an olive kaftan to
+  mid-calf wrapped across the chest, a crimson sash, a deep brown cowl.
+
+`SkinnedRig.garbs` names the outfit meshes a rig carries (set in
+`_configure()`; empty for a hero with one) and `set_garb(i)` shows one and
+hides the rest. `Player.set_garb(i)` puts one on; `net_garb` carries it to the
+other peers, as `net_shield` does the shield. The bag (**I**) has an
+**Attire** tab listing them (`Inventory.GARBS`: the name, a line and a drawn
+icon per mesh name); Enter or a click puts one on, and the status column says
+which is worn. Only one is drawn at a time, so the second costs memory, not
+frames (about 36k triangles each).
