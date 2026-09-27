@@ -10,14 +10,14 @@ extends Node3D
 ## 2. **He is lifted** (0.8 – 2.6 s): his body rises off the ground, slowly, to
 ##    most of a metre, and hangs there turning a little; motes of light are
 ##    drawn up from the ground round him and gather into the beam; a pale glow
-##    holds him; a low hum climbs.
-## 3. **He is set down** (2.6 – 2.95 s): dropped back to his feet, and where he
-##    lands light bursts out of him in gold — sparks thrown all round, a golden
-##    flare, bells. The HUD's "LEVEL UP" comes up here.
+##    holds him; a deep choir-like chord swells under a rising rush of air.
+## 3. **He is set down** (2.6 – 2.95 s): back on his feet with a deep, soft
+##    boom that rolls away; the glow round him goes out. The HUD's "LEVEL UP"
+##    comes up here.
 ## 4. **The beam closes** (to 3.7 s), drawn up and narrowed away into the sky.
 ##
 ## Nothing is drawn on the ground. Everything is made here in code — the cone's
-## shader, the glows, the sparks, the sound. Only his body (`Visuals`) is lifted,
+## shader, the glows, the motes, the sound (made once, at load: [method warm]). Only his body (`Visuals`) is lifted,
 ## never his collider, so nothing about where he stands changes. Hung under the
 ## hero ([method on]); every peer makes its own ([Leveling] calls it on each).
 
@@ -91,7 +91,7 @@ void fragment() {
 }
 """
 
-static var _hum: AudioStreamWAV
+static var _sound_made: AudioStreamWAV
 
 var _age: float = 0.0
 var _tint: Color
@@ -100,12 +100,8 @@ var _cone_node: MeshInstance3D
 var _opening: ShaderMaterial
 var _hold: ShaderMaterial
 var _hold_node: MeshInstance3D
-var _flare: ShaderMaterial
-var _flare_node: MeshInstance3D
 var _light: OmniLight3D
 var _drawn: GPUParticles3D
-var _burst: GPUParticles3D
-var _burst_done: bool = false
 var _body: Node3D
 var _body_y: float = 0.0
 var _body_turn: float = 0.0
@@ -163,8 +159,6 @@ func _build(tint: Color) -> void:
 	opening.position = Vector3(0.0, HEIGHT, 0.0)
 	_hold = _glow(tint.lerp(Color(1, 1, 1), 0.3), 0.0)
 	_hold_node = _glow_node(_hold, 3.2)
-	_flare = _glow(Color(1.0, 0.82, 0.35), 1.0)
-	_flare_node = _glow_node(_flare, 4.5)
 
 	_light = OmniLight3D.new()
 	_light.light_color = tint
@@ -191,21 +185,6 @@ func _build(tint: Color) -> void:
 	up.radial_accel_max = -0.8
 	up.tangential_accel_min = 0.6
 	up.tangential_accel_max = 1.4
-
-	# The gold thrown out of him as he lands.
-	_burst = _particles(90, 1.0, true, Color(1.0, 0.8, 0.35), 0.08)
-	var out := _burst.process_material as ParticleProcessMaterial
-	out.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	out.emission_sphere_radius = 0.35
-	out.emission_shape_offset = Vector3(0.0, 1.0, 0.0)
-	out.direction = Vector3.UP
-	out.spread = 180.0
-	out.initial_velocity_min = 2.5
-	out.initial_velocity_max = 6.5
-	out.damping_min = 3.0
-	out.damping_max = 5.0
-	out.gravity = Vector3(0.0, -2.0, 0.0)
-	_burst.explosiveness = 1.0
 
 	_sound()
 	_apply(0.0)
@@ -332,64 +311,85 @@ func _apply(age: float) -> void:
 	_hold.set_shader_parameter(&"strength", 0.7 * up * (1.0 - down))
 	_drawn.emitting = age > OPEN * 0.6 and age < DROP_AT
 
-	# The landing: gold.
-	if age >= LAND_AT and not _burst_done:
-		_burst_done = true
-		_burst.restart()
-		_burst.emitting = true
-	var flare := exp(-pow((age - LAND_AT - 0.05) / 0.16, 2.0))
-	_flare_node.position = Vector3(0.0, 1.0, 0.0)
-	_flare_node.scale = Vector3.ONE * (0.6 + 0.8 * clampf((age - LAND_AT) / 0.4, 0.0, 1.0))
-	_flare.set_shader_parameter(&"strength", 1.6 * flare)
-	_light.light_color = _tint.lerp(Color(1.0, 0.8, 0.4), flare)
-	_light.light_energy = 1.8 * opened * (1.0 - closing) + 7.0 * flare
+	_light.light_energy = 1.8 * opened * (1.0 - closing)
 
 
-## The sound, made once and kept: a low hum that climbs as he is lifted, and
-## as he lands a soft thump under bells running up a major chord.
+## The sound: made once and kept, and made early — at load, not at the first
+## level, where making it would be a stall.
+static func warm() -> void:
+	if _sound_made == null:
+		_sound_made = _make_sound()
+
+
 func _sound() -> void:
-	if _hum == null:
-		_hum = _make_sound()
+	warm()
 	var player := AudioStreamPlayer3D.new()
-	player.stream = _hum
-	player.volume_db = -3.0
-	player.unit_size = 8.0
+	player.stream = _sound_made
+	player.volume_db = -2.0
+	player.unit_size = 9.0
 	player.max_distance = 70.0
 	player.position = Vector3(0.0, 1.5, 0.0)
 	add_child(player)
 	player.play()
 
 
+## Deep and grave, not bright: a low chord of open fifths on D (as voices or
+## an organ would hold it — each note a few soft harmonics, two slightly
+## apart so it beats and breathes) swelling while he is lifted, a rush of air
+## climbing under it, and as he is set down a low boom — a drop in pitch and a
+## dark tail of noise rolling away.
 static func _make_sound() -> AudioStreamWAV:
 	var rate := 22050
-	var count := int(rate * 4.0)
+	var count := int(rate * 4.4)
 	var data := PackedByteArray()
 	data.resize(count * 2)
-	var bells := [[523.25, 0.0], [659.26, 0.07], [783.99, 0.14], [1046.5, 0.22], [1318.5, 0.32]]
-	var phase := 0.0
-	var phase2 := 0.0
+	# One cycle of a soft, dark wave: six harmonics falling off fast.
+	var size := 512
+	var table := PackedFloat32Array()
+	table.resize(size)
+	for i in size:
+		var x := TAU * float(i) / float(size)
+		var v := 0.0
+		for n in range(1, 7):
+			v += sin(x * n) / pow(float(n), 1.6)
+		table[i] = v * 0.55
+	var notes := PackedFloat32Array([73.42, 110.0, 146.83, 220.0, 293.66])
+	var loud := PackedFloat32Array([1.0, 0.8, 0.6, 0.35, 0.18])
+	var phases := PackedFloat32Array()
+	phases.resize(notes.size() * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var air := 0.0
+	var dark := 0.0
+	var boom_phase := 0.0
 	for i in count:
 		var t := float(i) / float(rate)
-		# The hum: a tone climbing from low to high as he rises, with a slow
-		# warble and a fifth over it.
-		var rise := smoothstep(OPEN, RISE_END, t)
-		var f := lerpf(110.0, 330.0, rise) * (1.0 + 0.012 * sin(TAU * 5.5 * t))
-		phase += TAU * f / float(rate)
-		phase2 += TAU * f * 1.5 / float(rate)
-		var swell := smoothstep(0.0, 0.8, t) * (1.0 - smoothstep(DROP_AT, LAND_AT + 0.1, t))
-		var v := (sin(phase) * 0.6 + sin(phase2) * 0.25 + sin(phase * 2.0) * 0.12) * swell * 0.22
-		# The landing: a soft thump and bells.
+		var v := 0.0
+		# The chord: in over the opening and the lift, held, gone as he lands.
+		var chord := smoothstep(0.1, 2.2, t) * (1.0 - smoothstep(LAND_AT - 0.1, LAND_AT + 1.2, t))
+		if chord > 0.0:
+			var sum := 0.0
+			for k in notes.size():
+				for d in 2:
+					var f := notes[k] * (1.0 + (0.004 if d == 1 else -0.004)) * (1.0 + 0.002 * sin(TAU * 0.3 * t + k))
+					var p := phases[k * 2 + d] + f / float(rate)
+					p -= floorf(p)
+					phases[k * 2 + d] = p
+					sum += table[int(p * size) % size] * loud[k]
+			v += sum * chord * 0.075
+		# The rush of air, climbing as he rises.
+		var rising := smoothstep(OPEN * 0.5, RISE_END, t) * (1.0 - smoothstep(DROP_AT, LAND_AT, t))
+		air = lerpf(air, rng.randf_range(-1.0, 1.0), 0.02 + 0.12 * rising)
+		v += air * rising * 0.28
+		# The boom: a low note falling, and a dark tail of noise.
 		var dt := t - LAND_AT
 		if dt >= 0.0:
-			v += sin(TAU * 70.0 * dt) * exp(-dt * 9.0) * 0.45
-			for bell: Array in bells:
-				var bt := dt - float(bell[1])
-				if bt < 0.0:
-					continue
-				var fb := float(bell[0])
-				var env := minf(bt / 0.004, 1.0) * exp(-bt * 2.4)
-				v += (sin(TAU * fb * bt) + 0.45 * sin(TAU * fb * 2.0 * bt) + 0.2 * sin(TAU * fb * 3.01 * bt)) * env * 0.12
-		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 32000.0))
+			var fb := lerpf(95.0, 42.0, minf(dt / 0.35, 1.0))
+			boom_phase += TAU * fb / float(rate)
+			v += sin(boom_phase) * exp(-dt * 3.2) * 0.55
+			dark = lerpf(dark, rng.randf_range(-1.0, 1.0), 0.05)
+			v += dark * exp(-dt * 2.2) * 0.35 * minf(dt / 0.02, 1.0)
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 30000.0))
 	var wav := AudioStreamWAV.new()
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
 	wav.mix_rate = rate

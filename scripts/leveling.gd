@@ -74,6 +74,10 @@ var _hero: StringName = &""
 
 func _ready() -> void:
 	_player = get_parent() as Player
+	# The level's sound is made in code; made off to one side now, it is ready
+	# long before the first level instead of stalling it ([LevelBeam]).
+	if LevelBeam._sound_made == null:
+		WorkerThreadPool.add_task(LevelBeam.warm)
 
 
 ## What `creature` is worth, in wolves.

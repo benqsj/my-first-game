@@ -3785,13 +3785,16 @@ a light opens and a cone of pale light spreads down from it round him, wide at
 the foot, a haze through it brighter at its edges, rings running up it
 (0–0.8 s); his body is lifted off the ground most of a metre, turning a
 little, and hangs there while motes are drawn up round him into the beam and
-a low hum climbs (to 2.6 s); then he is dropped back to his feet and gold
-bursts out of him — sparks all round, a golden flare and light, a soft thump
-and bells — and the HUD's "LEVEL UP" comes up then (at 2.95 s); the cone
-narrows and closes into the sky. Only his body (`Visuals`) is lifted, never
+a deep chord swells under a rising rush of air (to 2.6 s); then he is set
+back on his feet with a deep, soft boom rolling away, the glow round him goes
+out, and the HUD's "LEVEL UP" comes up (at 2.95 s); the cone narrows and
+closes into the sky. The sound is grave, not bright: open fifths on D from a
+soft dark wavetable, two voices a hair apart on each note, the air, the boom
+falling in pitch into a dark tail of noise — made in code on a worker thread
+when a hero is spawned (`LevelBeam.warm`), ready long before the first level. Only his body (`Visuals`) is lifted, never
 his collider. Nothing is drawn on the ground (a circle with a star in it, a
-pool of light, a column from the sky with ribbons round him were tried before
-and taken out). All made in code, the sound too (`_make_sound`, cached); every
+pool of light, a column from the sky with ribbons round him, a golden burst
+out of him on landing and bells were tried before and taken out). All made in code; every
 peer makes its own from `Leveling.net_progress`, nothing replicated.
 
 `tests/leveling_test.gd`: level 1 to start; a wolf far off is nothing; a wolf
