@@ -4176,3 +4176,11 @@ baldric — in earth red (worn), in slate edged in crimson, and in the panther's
 hide. No cape. The round shield is new: boards of wood side by side, an iron
 rim and boss, rivets (`shield12("wood")`); v8's is kept in tariel.blend as
 `tariel_shield_v8`.
+
+Tariel now starts as a **berserker** (a Norse look on the same square head:
+clearer eyes with a blue-grey iris, longer hair in locks at the sides and down
+to the nape, thin braids at the temples, no beard): bare-chested under a
+leather jerkin open to the belt, a bear's fur over the shoulders, gold rings on
+the bare arms, the shins bound. In the bag: a Norse wool tunic with a woven
+band and a grey fur mantle, a mail shirt, and the three warrior's tunics, all
+with the same head (`VERSIONS12` vk_* in `t12_build.py`).
