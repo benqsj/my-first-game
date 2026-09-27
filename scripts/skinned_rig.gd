@@ -236,7 +236,7 @@ func _ready() -> void:
 func _configure() -> void:
 	wardrobe = TARIEL_WARDROBE
 	capes = [{
-		"bone": "spine_02", "left": [0.21, 0.095, 1.565], "right": [-0.21, 0.095, 1.565],
+		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
 		"base": Color.html("d98a2b"), "hem": Color.html("f2c27a"), "trim": Color.html("1b1310"),
 		"pattern": "tiger", "hold": 0.5, "wind": 1.0, "drag": 0.6,
@@ -287,7 +287,7 @@ const TARIEL_WARDROBE := {
 		"cape": {"base": Color("a67a44"), "hem": Color("cfb07a"), "trim": Color("241a12")}},
 }
 ## Which of the wardrobe Tariel wears, for every Tariel in this game.
-static var dress: StringName = &"crimson"
+static var dress: StringName = &"black"
 ## This rig's wardrobe; empty for a hero that has none (set by `_configure()`).
 var wardrobe: Dictionary = {}
 var _dress_on: StringName = &""

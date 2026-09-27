@@ -4084,3 +4084,20 @@ is the one he starts in). The other heroes have no wardrobe.
 * **black** — black and steel, a dark amber skin.
 * **indigo** — deep indigo cloth, tawny skin, muted gold.
 * **hunter** — olive and leather, of a piece with Avtandil.
+
+## Tariel v8: dressed in cloth
+
+`vepxis-art/tools/t8_build.py` (`t8_build()` in `tariel.blend`, collection
+`t8`, object `tariel_v8`; the glb written by `tools/export_tariel.py`): the
+same box-built face and body style as v6 — a new face (heavy brows, a hooked
+nose, a scar, a full beard, long hair and a braid, a leather band) — but the
+clothes are **cloth**, not boxes: one smooth surface for the chokha from the
+shoulders to below the knee, open down the front over a mail shirt, folds
+deepening and flaring to a bronze-braided hem; its skirt weighted from the
+hips down into each leg (and shared between the legs at the back), so it
+hangs and swings; soft sleeves flaring to a turned cuff; a soft collar. Leather,
+bronze, the pelt over the shoulders, the pauldrons and the boots stay built
+from boxes. Gazyri on the chest, a belt with bronze plates and a khanjali.
+Black for now (`HEX` in the script). The model is scaled 1.08 in
+`tariel_rigged_visuals.tscn`: taller. The wardrobe (F9) now only recolours the
+cape; it starts on `black`.
