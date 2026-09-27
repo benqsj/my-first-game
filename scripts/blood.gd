@@ -12,8 +12,9 @@ extends Node
 ## light as everything else rather than painted on in flat red.
 
 ## Fresh blood, lit: dark and glossy, not the flat red of a cartoon.
-const SPRAY := Color(0.34, 0.012, 0.01)
-const STAIN := Color(0.3, 0.014, 0.01)
+const SPRAY := Color(0.58, 0.03, 0.03)
+const CHUNK := Color(0.46, 0.02, 0.02)
+const STAIN := Color(0.32, 0.02, 0.02)
 ## The tint the grass and the props take.
 const TINT := Color(0.34, 0.02, 0.015)
 
@@ -69,7 +70,6 @@ static var _patches: Array[MeshInstance3D] = []
 ## loads.
 static func prewarm(world: Node = null) -> void:
 	splat_texture()
-	drop_texture()
 	wound_texture()
 	_spray_assets()
 	_stain_assets()
@@ -122,25 +122,20 @@ static func _linger() -> float:
 const SPRAY_POOL := 6
 
 static var _stream_process: ParticleProcessMaterial
-static var _mist_process: ParticleProcessMaterial
-static var _stream_mesh: CapsuleMesh
+static var _stream_mesh: BoxMesh
 static var _stream_material: StandardMaterial3D
-static var _mist_mesh: QuadMesh
-static var _mist_material: StandardMaterial3D
 static var _burst_process: ParticleProcessMaterial
-static var _burst_mesh: QuadMesh
+static var _burst_mesh: BoxMesh
 static var _burst_material: StandardMaterial3D
-## Each entry: [the stream of drops, the mist, the gush].
+## Each entry: [the stream of drops, the gush].
 static var _sprays: Array = []
 static var _next_spray: int = 0
 
 
 ## What comes out of the wound as the blade goes through, all of it thrown the
-## way the blade was going: the gush — a dozen gouts of blood, soft ragged
-## blobs that burst out of the cut, stretch and fall, the thing that says at a
-## glance *that went in*; a stream of fine drops, each stretched along the way
-## it flies so the arc reads as liquid rather than beads; and a puff of mist at
-## the wound that hangs a moment.
+## way the blade was going, in blocks like the world it falls in: a stream of
+## small bright cubes, tumbling as they fly and fall, and a dozen bigger,
+## darker gouts that burst out of the cut and shrink away as they come down.
 ##
 ## Taken from a ring of `SPRAY_POOL` emitter pairs that live in the level and
 ## are restarted, oldest first. They share process materials that throw along
@@ -162,52 +157,19 @@ static func _spray(world: Node, point: Vector3, along: Vector3, strength: float)
 
 static func _spray_assets() -> void:
 	if _stream_mesh == null:
-		# One drop: a thin capsule, turned by the particle system to lie along
-		# the way it is flying.
-		_stream_mesh = CapsuleMesh.new()
-		_stream_mesh.radius = 0.017
-		_stream_mesh.height = 0.13
-		_stream_mesh.radial_segments = 5
-		_stream_mesh.rings = 1
+		# Blocks, like the world they fall in: a small cube each, flat red.
+		_stream_mesh = BoxMesh.new()
+		_stream_mesh.size = Vector3.ONE * 0.036
 		_stream_material = StandardMaterial3D.new()
+		_stream_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_stream_material.albedo_color = SPRAY
-		_stream_material.roughness = 0.12
-		_stream_material.metallic_specular = 0.7
-		# A touch of its own glow, so the spray still reads against the dark of
-		# the wood and in shadow.
-		_stream_material.emission_enabled = true
-		_stream_material.emission = Color(0.22, 0.0, 0.0)
-		_stream_material.emission_energy_multiplier = 0.4
-	if _mist_mesh == null:
-		_mist_mesh = QuadMesh.new()
-		_mist_mesh.size = Vector2(0.13, 0.13)
-		# Lit, like the rest: unshaded, the dark red was lifted by the grade and
-		# the glow into an orange ball.
-		_mist_material = StandardMaterial3D.new()
-		_mist_material.roughness = 0.6
-		_mist_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_mist_material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		_mist_material.vertex_color_use_as_albedo = true
-		_mist_material.albedo_texture = splat_texture()
-		_mist_material.albedo_color = Color(0.26, 0.01, 0.01)
-		_mist_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if _burst_mesh == null:
-		# A gout: the pool's ragged blob, turned to the eye, lit so it is wet in
-		# the sun and dark in the shade like the rest.
-		_burst_mesh = QuadMesh.new()
-		_burst_mesh.size = Vector2(0.22, 0.22)
+		# A gout: a bigger block, darker, tumbling out of the cut.
+		_burst_mesh = BoxMesh.new()
+		_burst_mesh.size = Vector3.ONE * 0.075
 		_burst_material = StandardMaterial3D.new()
-		_burst_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_burst_material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		_burst_material.vertex_color_use_as_albedo = true
-		_burst_material.albedo_texture = splat_texture()
-		_burst_material.albedo_color = Color(0.5, 0.02, 0.015)
-		_burst_material.roughness = 0.15
-		_burst_material.metallic_specular = 0.7
-		_burst_material.emission_enabled = true
-		_burst_material.emission = Color(0.3, 0.0, 0.0)
-		_burst_material.emission_energy_multiplier = 0.45
-		_burst_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_burst_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_burst_material.albedo_color = CHUNK
 	if _burst_process == null:
 		_burst_process = ParticleProcessMaterial.new()
 		_burst_process.direction = Vector3.FORWARD
@@ -222,23 +184,19 @@ static func _spray_assets() -> void:
 		_burst_process.scale_max = 1.5
 		_burst_process.angle_min = -180.0
 		_burst_process.angle_max = 180.0
+		_burst_process.angular_velocity_min = -360.0
+		_burst_process.angular_velocity_max = 360.0
 		_burst_process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 		_burst_process.emission_sphere_radius = 0.06
-		# Out of the cut small, swelling as it tears apart, gone as it falls.
+		# Out of the cut small, full a moment later, shrinking away as it falls.
 		var swell := Curve.new()
-		swell.add_point(Vector2(0.0, 0.35))
-		swell.add_point(Vector2(0.22, 1.8))
-		swell.add_point(Vector2(1.0, 0.6))
+		swell.add_point(Vector2(0.0, 0.4))
+		swell.add_point(Vector2(0.15, 1.0))
+		swell.add_point(Vector2(0.75, 0.9))
+		swell.add_point(Vector2(1.0, 0.0))
 		var swell_tex := CurveTexture.new()
 		swell_tex.curve = swell
 		_burst_process.scale_curve = swell_tex
-		var thin := Gradient.new()
-		thin.set_color(0, Color(1, 1, 1, 1.0))
-		thin.add_point(0.6, Color(1, 1, 1, 0.9))
-		thin.set_color(thin.get_point_count() - 1, Color(1, 1, 1, 0.0))
-		var thin_tex := GradientTexture1D.new()
-		thin_tex.gradient = thin
-		_burst_process.color_ramp = thin_tex
 	if _stream_process == null:
 		_stream_process = ParticleProcessMaterial.new()
 		_stream_process.direction = Vector3.FORWARD
@@ -247,9 +205,12 @@ static func _spray_assets() -> void:
 		_stream_process.initial_velocity_min = THROW_SPEED.x
 		_stream_process.initial_velocity_max = THROW_SPEED.y
 		_stream_process.gravity = Vector3(0.0, -GRAVITY, 0.0)
-		_stream_process.particle_flag_align_y = true
-		_stream_process.scale_min = 0.45
-		_stream_process.scale_max = 1.5
+		_stream_process.angle_min = -180.0
+		_stream_process.angle_max = 180.0
+		_stream_process.angular_velocity_min = -540.0
+		_stream_process.angular_velocity_max = 540.0
+		_stream_process.scale_min = 0.55
+		_stream_process.scale_max = 1.6
 		# Out of a wound, not a point: the first drops leave from along the cut.
 		_stream_process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 		_stream_process.emission_sphere_radius = 0.05
@@ -261,31 +222,6 @@ static func _spray_assets() -> void:
 		var shrink_tex := CurveTexture.new()
 		shrink_tex.curve = shrink
 		_stream_process.scale_curve = shrink_tex
-	if _mist_process == null:
-		_mist_process = ParticleProcessMaterial.new()
-		_mist_process.direction = Vector3.FORWARD
-		_mist_process.spread = 35.0
-		_mist_process.initial_velocity_min = 0.6
-		_mist_process.initial_velocity_max = 2.2
-		_mist_process.damping_min = 4.0
-		_mist_process.damping_max = 7.0
-		_mist_process.gravity = Vector3(0.0, -1.2, 0.0)
-		_mist_process.scale_min = 0.8
-		_mist_process.scale_max = 1.8
-		_mist_process.angle_min = -180.0
-		_mist_process.angle_max = 180.0
-		var grow := Curve.new()
-		grow.add_point(Vector2(0.0, 0.5))
-		grow.add_point(Vector2(1.0, 1.6))
-		var grow_tex := CurveTexture.new()
-		grow_tex.curve = grow
-		_mist_process.scale_curve = grow_tex
-		var fade := Gradient.new()
-		fade.set_color(0, Color(1, 1, 1, 0.55))
-		fade.set_color(1, Color(1, 1, 1, 0.0))
-		var fade_tex := GradientTexture1D.new()
-		fade_tex.gradient = fade
-		_mist_process.color_ramp = fade_tex
 
 
 ## How many emitter pairs are still in a level. Ones that went with an old
@@ -304,7 +240,7 @@ static func _add_spray(world: Node) -> Array:
 	_spray_assets()
 	var stream := GPUParticles3D.new()
 	stream.name = "BloodSpray"
-	stream.amount = 44
+	stream.amount = 36
 	stream.lifetime = 0.62
 	stream.one_shot = true
 	stream.explosiveness = 0.82
@@ -315,21 +251,9 @@ static func _add_spray(world: Node) -> Array:
 	stream.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	stream.visibility_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))
 	world.add_child(stream)
-	var mist := GPUParticles3D.new()
-	mist.name = "BloodMist"
-	mist.amount = 9
-	mist.lifetime = 0.42
-	mist.one_shot = true
-	mist.explosiveness = 0.95
-	mist.emitting = false
-	mist.draw_pass_1 = _mist_mesh
-	mist.material_override = _mist_material
-	mist.process_material = _mist_process
-	mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	world.add_child(mist)
 	var gush := GPUParticles3D.new()
 	gush.name = "BloodGush"
-	gush.amount = 18
+	gush.amount = 12
 	gush.lifetime = 0.5
 	gush.one_shot = true
 	gush.explosiveness = 0.9
@@ -340,7 +264,7 @@ static func _add_spray(world: Node) -> Array:
 	gush.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	gush.visibility_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))
 	world.add_child(gush)
-	var pair := [stream, mist, gush]
+	var pair := [stream, gush]
 	_sprays.append(pair)
 	return pair
 
@@ -358,14 +282,11 @@ static func _take_spray(world: Node) -> Array:
 
 
 #region Images
-## A pool: a soft blob whose edge wanders (noise, not a handful of lobes — those
-## read as the corners of a polygon), a little darker and thicker at the rim
-## where it has started to dry, and a few loose drops round it. White: the
-## material gives the colour; the image gives the shape and the rim.
+## A pool: a faceted blob — a few straight-sided lobes, cut like the rest of
+## the world — darker in the middle, with square drops thrown round it. White:
+## the material gives the colour. The drops on the ground are the same image,
+## stretched the way they were going.
 static var _splat: ImageTexture
-## One drop that hit the ground moving: a round head, a tail thrown on ahead of
-## it in the way it was going (+x in the image), and a spatter of fine drops.
-static var _drop: ImageTexture
 ## A cut on a hide: a long thin gash, darkest along its middle, bleeding down.
 static var _wound: ImageTexture
 
@@ -375,70 +296,36 @@ static func splat_texture() -> ImageTexture:
 		return _splat
 	const SIZE := 128
 	var image := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
-	var noise := FastNoiseLite.new()
-	noise.seed = 90210
-	noise.frequency = 0.045
-	noise.fractal_octaves = 4
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 4242
+	rng.seed = 90210
+	# A few straight-sided lobes: a faceted blob, cut like the rest of the world.
+	var lobes := PackedFloat32Array()
+	for i in 9:
+		lobes.append(rng.randf_range(0.58, 0.92))
+	# Square drops thrown round it.
 	var spots: Array[Vector3] = []
-	for i in 7:
+	for i in 8:
 		var a := rng.randf() * TAU
-		var r := rng.randf_range(0.7, 0.92)
-		spots.append(Vector3(cos(a) * r, sin(a) * r, rng.randf_range(0.025, 0.07)))
+		var r := rng.randf_range(0.72, 0.95)
+		spots.append(Vector3(cos(a) * r, sin(a) * r, rng.randf_range(0.03, 0.065)))
 	for y in SIZE:
 		for x in SIZE:
 			var u := (x + 0.5) / float(SIZE) * 2.0 - 1.0
 			var v := (y + 0.5) / float(SIZE) * 2.0 - 1.0
 			var radius := sqrt(u * u + v * v)
-			var edge := 0.6 + 0.16 * noise.get_noise_2d(x, y) + 0.05 * noise.get_noise_2d(x * 3.1, y * 3.1)
-			var inside := clampf((edge - radius) / 0.035, 0.0, 1.0)
-			# The rim: a band just inside the edge, drier and so darker.
-			var rim := clampf(1.0 - (edge - radius) / 0.1, 0.0, 1.0) * inside
-			for s in spots:
-				var d := Vector2(u - s.x, v - s.y).length()
-				inside = maxf(inside, clampf((s.z - d) / 0.012, 0.0, 1.0))
-			var shade := 1.0 - 0.35 * rim
+			var around := (atan2(v, u) + PI) / TAU * lobes.size()
+			var first := int(floor(around)) % lobes.size()
+			var edge := lerpf(lobes[first], lobes[(first + 1) % lobes.size()], around - floor(around))
+			var inside := clampf((edge - radius) / 0.02, 0.0, 1.0)
+			for sp in spots:
+				var d := maxf(absf(u - sp.x), absf(v - sp.y))
+				inside = maxf(inside, clampf((sp.z - d) / 0.008, 0.0, 1.0))
+			# A darker core where it lies deepest.
+			var shade := 1.0 - 0.25 * clampf((edge * 0.55 - radius) / 0.1, 0.0, 1.0)
 			image.set_pixel(x, y, Color(shade, shade, shade, inside))
 	image.generate_mipmaps()
 	_splat = ImageTexture.create_from_image(image)
 	return _splat
-
-
-static func drop_texture() -> ImageTexture:
-	if _drop != null:
-		return _drop
-	const W := 128
-	const H := 64
-	var image := Image.create(W, H, false, Image.FORMAT_RGBA8)
-	var noise := FastNoiseLite.new()
-	noise.seed = 777
-	noise.frequency = 0.08
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 31337
-	var fine: Array[Vector3] = []
-	for i in 9:
-		# Thrown on ahead of the drop, mostly: the fine spatter.
-		fine.append(Vector3(rng.randf_range(-0.2, 0.95), rng.randfn(0.0, 0.25),
-				rng.randf_range(0.02, 0.05)))
-	for y in H:
-		for x in W:
-			# u across the length (-1 .. 1, the head at -0.45), v across (-1 .. 1).
-			var u := (x + 0.5) / float(W) * 2.0 - 1.0
-			var v := ((y + 0.5) / float(H) * 2.0 - 1.0) * 0.5
-			var wobble := 0.03 * noise.get_noise_2d(x, y)
-			var head := 0.2 + wobble - Vector2(u + 0.45, v).length()
-			# The tail: narrowing from the head out to a point near +0.8.
-			var along := clampf((u + 0.45) / 1.25, 0.0, 1.0)
-			var tail := (0.12 * (1.0 - along) + wobble) - absf(v) if u > -0.45 and u < 0.8 else -1.0
-			var inside := clampf(maxf(head, tail) / 0.02, 0.0, 1.0)
-			for s in fine:
-				var d := Vector2(u - s.x, v - s.y * 0.5).length()
-				inside = maxf(inside, clampf((s.z - d) / 0.01, 0.0, 1.0))
-			image.set_pixel(x, y, Color(1, 1, 1, inside))
-	image.generate_mipmaps()
-	_drop = ImageTexture.create_from_image(image)
-	return _drop
 
 
 static func wound_texture() -> ImageTexture:
@@ -483,17 +370,16 @@ static func wound_texture() -> ImageTexture:
 static func _stain_assets() -> void:
 	if _pool_material != null:
 		return
-	# Lit and glossy: fresh blood is wet, and catches the light.
+	# Flat red, like the spray: faceted pools that read at a glance.
 	_pool_material = StandardMaterial3D.new()
+	_pool_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_pool_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_pool_material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.94)
+	_pool_material.albedo_color = Color(STAIN.r, STAIN.g, STAIN.b, 0.95)
 	_pool_material.albedo_texture = splat_texture()
-	_pool_material.roughness = 0.14
-	_pool_material.metallic_specular = 0.75
 	_pool_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_pool_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_drop_material = _pool_material.duplicate() as StandardMaterial3D
-	_drop_material.albedo_texture = drop_texture()
+	_drop_material.albedo_texture = splat_texture()
 	# One unit quad for every stain; the size lives in the node's scale.
 	_patch_mesh = QuadMesh.new()
 	_patch_mesh.size = Vector2.ONE
