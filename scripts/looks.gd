@@ -6,15 +6,15 @@ extends Node
 ##
 ## A look is a ground and a grass:
 ##
-## 0. **old** — the house ground and the full grass clump (8 256 triangles).
-##    The default: what the game looked like before any of this.
-## 1. **new** — the forest-floor ground ([code]terrain_forest.gdshader[/code]):
+## 0. **new** (the default) — the forest-floor ground ([code]terrain_forest.gdshader[/code]):
 ##    fallen leaves and moss under the trees, grassy earth under the meadows,
 ##    bare earth with sprigs and leaves in the open, blended by height; the
 ##    light grass clump (364 triangles, opaque); and a low sward filling the
 ##    meadows ([member Meadows.sward]): short clumps of 180 triangles in mixed
 ##    greens, yellow-green, straw and the odd dead blade, six round every
 ##    meadow clump, drawn to 30% of the grass's distance.
+## 1. **old** — the house ground and the full grass clump (8 256 triangles).
+##    What the game looked like before any of this.
 ## 2. **old ground, light grass** — only the grass changed, to see that alone.
 ## 3. **photo** — the photographed ground (`Terrain.styles[1]`) with the light
 ##    grass.
@@ -22,8 +22,7 @@ extends Node
 ##    `assets/grass2/gras2.glb` (6 672 triangles, alpha-dithered): to judge it
 ##    against the light one.
 ##
-## `-- look_1` (or any number) starts in that look. The ground's own
-## `ground_a` / `ground_b` still pick the ground alone.
+## `-- look_1` (or any number) starts in that look.
 ##
 ## The forest floor needs to know where the trees and the grass are. That is a
 ## small picture of the map ([method ground_mask]), red where trunks stand and
@@ -39,8 +38,8 @@ const SHORT_GRASS := "res://assets/grass/grass_short.glb"
 const SWARD_REACH := 0.3
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor.
 const LOOKS: Array[Dictionary] = [
-	{"name": "old", "ground": 0, "grass": OLD_GRASS},
 	{"name": "new: forest floor, low sward, light grass", "ground": 2, "grass": LIGHT_GRASS, "sward": true},
+	{"name": "old", "ground": 0, "grass": OLD_GRASS},
 	{"name": "old ground, light grass", "ground": 0, "grass": LIGHT_GRASS},
 	{"name": "photo ground, light grass", "ground": 1, "grass": LIGHT_GRASS},
 	{"name": "new ground, gras2", "ground": 2, "grass": GRASS2},
@@ -68,10 +67,10 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("look_") and arg.substr(5).is_valid_int():
 			look = int(arg.substr(5))
-	# Only a look other than the old one changes anything at load: the old one
-	# is what the level is already wearing.
-	if look != 0:
-		apply(look)
+	# The level is built wearing the old look; whichever this is, it is put on
+	# now, and again once the meadows have grown (the mask and the sward need
+	# them).
+	apply(look)
 
 
 ## Wears look `which` (wrapped round the list).
@@ -157,8 +156,7 @@ func _on_grown() -> void:
 		var meadows := _world().get_node_or_null("Meadows") as Meadows
 		if meadows != null:
 			_sward.replace(meadows.sward, meadows.sward_tints)
-	if look != 0:
-		apply(look)
+	apply(look)
 
 
 func _build_mask() -> void:

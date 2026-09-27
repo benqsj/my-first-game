@@ -4,11 +4,11 @@ extends SceneTree
 ##
 ##     godot --headless --script res://tests/looks_test.gd
 ##
-## Checks that the level starts in the old look (the house ground and the full
-## grass clump), that the new one puts the forest floor on the ground and the
-## light clump on every clump without growing the field again, that the ground
-## mask has trees and grass in it where they are, that the light clump is
-## light, and that F8's round comes back to the old look.
+## Checks that the level starts in the new look (the forest floor, the light
+## clump and the low sward), that F8 puts the old one back (the house ground and
+## the full clump on every clump, without growing the field again), that the
+## ground mask has trees and grass in it where they are, and that F8's round
+## comes back to the new look.
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
 
@@ -35,29 +35,15 @@ func _initialize() -> void:
 		_finish()
 		return
 	var chunk := land.get_node_or_null("Chunk_0_0") as MeshInstance3D
-	var old_mesh := _clump_mesh(field)
-
-	# --- the old look is the default -----------------------------------------
-	_check("it starts in the old look", looks.look == 0)
-	_check("on the house ground", chunk != null and chunk.material_override == land.styles[0])
-	_check("with the full clump", field.clump_scene == Looks.OLD_GRASS and old_mesh != null
-			and _tris(old_mesh) > 5000, "%d triangles" % (_tris(old_mesh) if old_mesh else 0))
-
-	# --- the new one ----------------------------------------------------------
-	var clumps := field.clump_count()
-	looks.apply(1)
 	var light := _clump_mesh(field)
-	_check("the new look wears the forest floor", chunk.material_override == land.styles[2])
-	_check("and the light clump", light != null and light != old_mesh and field.clump_scene == Looks.LIGHT_GRASS)
+	var clumps := field.clump_count()
+
+	# --- the new look is the default -----------------------------------------
+	_check("it starts in the new look", looks.look == 0)
+	_check("on the forest floor", chunk != null and chunk.material_override == land.styles[2])
+	_check("with the light clump", light != null and field.clump_scene == Looks.LIGHT_GRASS)
 	_check("which is light", light != null and _tris(light) < 600,
 			"%d triangles" % (_tris(light) if light else 0))
-	_check("on the same clumps, not a new field", field.clump_count() == clumps)
-	var every := true
-	for node in field.find_children("*", "MultiMeshInstance3D", false, false):
-		var multi := (node as MultiMeshInstance3D).multimesh
-		if multi != null and multi.mesh == old_mesh:
-			every = false
-	_check("every chunk of it", every)
 	var sward := looks.sward()
 	_check("a low sward fills the meadows", sward != null and sward.visible
 			and sward.clump_count() > clumps, "%d short clumps" % (sward.clump_count() if sward != null else 0))
@@ -66,6 +52,22 @@ func _initialize() -> void:
 			and short.get_aabb().size.y < 0.5,
 			"%d triangles, %.2f m" % [_tris(short) if short else 0, short.get_aabb().size.y if short else 0.0])
 	_check("drawn nearer than the grass", sward != null and sward.draw_distance_scale < 0.6)
+
+	# --- F8: the old one ------------------------------------------------------
+	looks.apply(1)
+	var old_mesh := _clump_mesh(field)
+	_check("F8 puts on the old look", chunk.material_override == land.styles[0])
+	_check("with the full clump", field.clump_scene == Looks.OLD_GRASS and old_mesh != null
+			and old_mesh != light and _tris(old_mesh) > 5000, "%d triangles" % (_tris(old_mesh) if old_mesh else 0))
+	_check("on the same clumps, not a new field", field.clump_count() == clumps)
+	var every := true
+	for node in field.find_children("*", "MultiMeshInstance3D", false, false):
+		var multi := (node as MultiMeshInstance3D).multimesh
+		if multi != null and multi.mesh == light:
+			every = false
+	_check("every chunk of it", every)
+	_check("and no sward", sward != null and not sward.visible)
+	looks.apply(0)
 
 	var mat := land.styles[2] as ShaderMaterial
 	var mask := looks.ground_mask()
@@ -92,11 +94,11 @@ func _initialize() -> void:
 	_check("the marsh's ground goes with it", marsh == null or marsh.material_override == land.styles[2])
 
 	# --- round again --------------------------------------------------------
-	for i in Looks.LOOKS.size() - 1:
+	for i in Looks.LOOKS.size():
 		looks.apply(looks.look + 1)
-	_check("F8's round comes back to the old look", looks.look == 0
-			and chunk.material_override == land.styles[0] and _clump_mesh(field) == old_mesh)
-	_check("and the sward goes with the new look", sward == null or not sward.visible)
+	_check("F8's round comes back to the new look", looks.look == 0
+			and chunk.material_override == land.styles[2] and _clump_mesh(field) == light
+			and sward.visible)
 	_finish()
 
 
