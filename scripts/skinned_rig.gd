@@ -170,6 +170,9 @@ var _skel: Skeleton3D
 var _body: Node3D
 var _sword_mesh: MeshInstance3D
 var _role: Role = Role.NONE
+## Whether the legs walk under the free action now playing (the body moving on
+## while the arms do something else — the assassin coating his blade).
+var walk_under: bool = false
 var _act_clip: StringName = &""
 var _action_left: float = 0.0
 var _action_len: float = 0.0
@@ -570,8 +573,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 	if _stride == null:
 		return
-	var want := swing_strides and _role == Role.SWING and not _air_cut and not airborne \
-			and planar > idle_threshold
+	var under := (swing_strides and _role == Role.SWING and not _air_cut) or (_role == Role.FREE and walk_under)
+	var want := under and not airborne and planar > idle_threshold
 	if want:
 		var clip := _direction_clip(planar)
 		if _anim.has_animation(clip):
@@ -706,6 +709,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 func _end_action() -> void:
 	_air_cut = false
+	walk_under = false
 	_role = Role.NONE
 	_act_clip = &""
 	_attack_cutting = false

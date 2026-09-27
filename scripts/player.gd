@@ -484,6 +484,8 @@ var net_garb: int = 0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
+## Until when the blade is being coated: he walks through it (see `_poison_blade()`).
+var _coat_until: float = -100.0
 ## While above 0 he stands where he is (a skill shot being drawn and loosed).
 var _root_timer: float = 0.0
 ## The draw's creak while the string comes back: cut off the moment the draw
@@ -885,7 +887,11 @@ func _process_locomotion(delta: float) -> void:
 	# in the air, where the arc is the jump's and not the sword's. What follows is
 	# damped, which is where the weight belongs: standing there hitting something
 	# is not a way to cross ground.
-	if is_committed() and not _free_swing:
+	if _now() < _coat_until:
+		# Coating the blade he walks on — slowed to a walk, legs walking —
+		# rather than sliding along in a standing pose.
+		speed = minf(speed, walk_speed)
+	elif is_committed() and not _free_swing:
 		speed *= commit_speed_scale
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
@@ -1019,7 +1025,7 @@ func get_movement_direction() -> Vector3:
 ##   away from something while watching it is a thing people do.
 ## * **Otherwise** — the way it is going, as ever.
 func _aim_body(direction: Vector3, delta: float) -> void:
-	if is_committed():
+	if is_committed() and _now() >= _coat_until:
 		return
 	if _drawing:
 		_face_aim(delta)
@@ -3577,6 +3583,7 @@ func _poison_blade() -> bool:
 		return false
 	var coat := float(rig.call(&"coat_length", coat_rate))
 	_commit(coat)
+	_coat_until = _now() + coat
 	net_poison_blade.rpc()
 	return true
 

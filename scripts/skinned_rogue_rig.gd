@@ -144,6 +144,8 @@ func coat_length(rate: float) -> float:
 
 func coat_blade(rate: float) -> float:
 	var t := play_part(COAT_CLIP, rate, 0.0, 1.0, 0.12)
+	# he walks on while he does it: the legs take the walk under the arms
+	walk_under = t > 0.0
 	return t if t > 0.0 else 1.2
 
 
