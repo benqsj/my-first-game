@@ -2956,7 +2956,12 @@ at the user's word (exposure 1.2, brightness 1.14, ambient 2.4, shadows 0.56),
 with the green taken down harder than the other channels instead — the wood
 (`DARK_WOOD`), the grass clumps and the sward (`DARK_GRASS`) and the grassy
 ground (`DARK_GROUND_GRASS`, the forest floor's `tone_grass`) — so it reads a
-deep olive rather than a bright green.
+deep olive rather than a bright green. In the wood it was still near black:
+ACES crushed the shadows (now AgX), the ambient occlusion was heavy (0.55
+here), and the bark, darkened with the leaves, went black under the canopy —
+only foliage is taken down now (`Looks._is_leaf`) and the bark is lifted
+(`DARK_BARK`). The sward sways no more (a hand-high sward barely moves, and
+swaying thousands of clumps a frame cost the physics tick at the house).
 
 **The low sward** (the new look only): a second `GrassField`, `Level/Sward`,
 grown the first time the look is worn and hidden and stopped when it is not.
@@ -3584,14 +3589,15 @@ way; the old shove and `_leap_off` are gone.
 The wolf used to spend a fight mostly off the ground — hopping back, dodging,
 pouncing, leaping in again after every third cut. It fights hand to hand now:
 
-* **Bigger** — the rig at 1.4 (was 1.1), the capsule 0.55 × 2.0, the claws'
+* **Bigger** — the rig at 1.65 (was 1.1; 1.4 first, then bigger still at the
+  user's word, so its moves read), the capsule 0.62 × 2.35, the claws'
   reach and its fighting distances, the bar and the clips' paces
   (`WolfRig.*_pace`) all scaled with it, so its moves read from the
   camera.
 * **Its moves** (`Wolf.MELEE`, clips from Mixamo laid on in
   `vepxis-art/tools/_wolf_add_clips.py`): `punch` a quick jab, `rake` a
-  zombie's raking swipe, `combo3` a three-blow combo, `slam` an overhead
-  two-handed smash, `grab` a grab and a butt of the head — with the swipes,
+  zombie's raking swipe, `combo2` and `combo3` a two- and a three-blow
+  combo, `slam` an overhead two-handed smash — with the swipes,
   the bite and the pounce. Each is a clip, the clip times its blows land
   (`hits`, measured as the hands' fastest moments), what strikes (claws or
   jaws), how hard (of `swipe_damage`), how fast and which stretch of the
@@ -3611,6 +3617,16 @@ pouncing, leaping in again after every third cut. It fights hand to hand now:
   the smash most of all) it holds the top of its windup still for 0.25–0.6 s
   before the blow comes (`WolfRig.melee`'s hold), so rolling on reflex is
   punished.
+* **Every blow is seen coming** — through the last half second before any
+  hand-to-hand blow lands the claws flare and the jaws open (held, they stay
+  lit); the jab is played slower so it has a windup at all. The grab and
+  headbutt was taken out: it did not read as a blow.
+* **The bite** reaches down: at its size the jaws passed over a man's
+  shoulders, so a bite's reach runs from the jaws down towards his chest.
+* **A leap is committed**: it is aimed as it leaves the ground and not turned
+  in the air, nor while it gathers itself after landing — stepped out of, it
+  comes down where it was going, stops dead (no sliding on) and only turns
+  once it is up again (`Wolf.tracking`, `Wolf._land`).
 * **Hit-stop** — a blow landing, its on him or his on it, all but stops its
   clip for a few hundredths of a second.
 * **Poise** — `max_poise` 150, taken off by every blow's damage (less through

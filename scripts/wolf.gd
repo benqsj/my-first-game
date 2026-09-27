@@ -27,10 +27,10 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## Once chasing, it keeps coming until the knight is this far away.
 @export var lose_range: float = 18.0
 ## Close enough to stand up and swing.
-@export var reach: float = 2.8
-## How far off its claws land (measured: about 1.4 m round it, at its size);
+@export var reach: float = 3.2
+## How far off its claws land (measured: about 1.65 m round it, at its size);
 ## swiping from further, it steps in to that.
-@export var claw_reach: float = 1.05
+@export var claw_reach: float = 1.25
 ## Hurt from further off than it can see — an arrow out of the trees — it
 ## comes anyway, and keeps coming for this long whatever the distance.
 @export var provoked_time: float = 14.0
@@ -42,7 +42,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## own radius, as the sweep needs room to put it down again.
 @export var step_height: float = 0.45
 ## How far ahead that sweep reaches. Must exceed the body's radius.
-@export var step_probe: float = 0.7
+@export var step_probe: float = 0.8
 @export var prowl_speed: float = 1.1
 @export var charge_speed: float = 6.4
 ## On all fours after somebody it runs faster than upright.
@@ -57,7 +57,7 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## Taken off per cut. Losing limbs is what kills it; this is the readout.
 @export var damage_per_hit: float = 26.0
 ## How high over its head the bar sits.
-@export var bar_height: float = 2.75
+@export var bar_height: float = 3.2
 
 @export_group("Combat")
 @export var swipe_interval: float = 1.5
@@ -243,7 +243,8 @@ var _attack_clock: float = 0.0
 const SWIPE_LIVE := Vector2(0.44, 0.74)
 const POUNCE_LIVE := Vector2(0.5, 0.86)
 
-## Its hand-to-hand, beyond the swipe: each move a clip ([WolfRig]), when in
+## Its hand-to-hand, beyond the swipe (the grab and headbutt taken out at the
+## user's word: it did not read): each move a clip ([WolfRig]), when in
 ## the clip its blows land (`hits`, clip seconds), what strikes (`parts`: the
 ## claws, or the head and jaws), how hard (`damage`, of `swipe_damage`), how
 ## fast it is played, and the stretch of the clip used (`from`, `to`). A heavy
@@ -251,15 +252,15 @@ const POUNCE_LIVE := Vector2(0.5, 0.86)
 ## its feet through the windup of one (`armour`, of the poise a blow takes).
 const MELEE := {
 	&"punch": {"clip": &"WF_Punch", "hits": [0.33], "parts": "claws", "damage": 0.45,
-			"rate": 1.0, "from": 0.05, "to": 0.95, "armour": 1.0},
+			"rate": 0.72, "from": 0.0, "to": 0.95, "armour": 1.0},
 	&"rake": {"clip": &"WF_Rake", "hits": [1.0], "parts": "claws", "damage": 0.8,
 			"rate": 1.35, "from": 0.4, "to": 1.85, "armour": 1.0},
 	&"combo3": {"clip": &"WF_Combo3", "hits": [0.95, 1.8, 2.62], "parts": "claws", "damage": 0.55,
 			"rate": 1.2, "from": 0.35, "to": 3.25, "armour": 0.5},
 	&"slam": {"clip": &"WF_Slam", "hits": [1.5], "parts": "claws", "damage": 1.3,
 			"rate": 1.05, "from": 0.35, "to": 2.45, "armour": 0.35, "heavy": true},
-	&"grab": {"clip": &"WF_Grab", "hits": [1.3], "parts": "jaws", "damage": 1.0,
-			"rate": 1.15, "from": 0.45, "to": 2.1, "armour": 0.6},
+	&"combo2": {"clip": &"WF_Combo2", "hits": [2.05, 2.95], "parts": "claws", "damage": 0.7,
+			"rate": 1.15, "from": 1.1, "to": 3.6, "armour": 0.6},
 }
 ## How long before a blow lands it stops turning after him: from here on the
 ## blow goes where it was aimed, and a step aside gets out of it.
@@ -608,7 +609,7 @@ func _watch_missiles() -> void:
 ## How close it has to be before it fights rather than chases: near enough to
 ## circle and to leap.
 func fight_from() -> float:
-	return 5.2 if not rig.is_crippled() else 3.4
+	return 5.8 if not rig.is_crippled() else 3.8
 
 
 ## Close enough for the claws, after the step in.
@@ -618,11 +619,11 @@ func strike_range() -> float:
 
 ## From how far a pounce carries it on to him.
 func pounce_range() -> float:
-	return 5.0
+	return 5.6
 
 
 func lunge_range() -> float:
-	return 2.3
+	return 2.6
 
 
 func is_crippled() -> bool:
@@ -720,7 +721,8 @@ func _land() -> void:
 	floor_snap_length = 0.1
 	# Down the rest of the way at once: the clip's own landing is steep, and a
 	# body left a hand's breadth up would float down on gravity alone.
-	velocity = Vector3(velocity.x * 0.2, minf(velocity.y, 0.0 if is_on_floor() else -7.0), velocity.z * 0.2)
+	# Its feet stop where it lands: no sliding on after it.
+	velocity = Vector3(0.0, minf(velocity.y, 0.0 if is_on_floor() else -7.0), 0.0)
 
 
 ## Early in its own windup, still able to break it off.
@@ -959,6 +961,14 @@ func net_melee(move: StringName, delay: float) -> void:
 
 ## Still turning after him: until a blow is committed (see `COMMIT`).
 func tracking() -> bool:
+	# A leap: aimed as it leaves the ground, and not turned in the air or while
+	# it gathers itself after landing — got out of, it comes down where it was
+	# going, and only turns once it is up again.
+	if not _flight.is_empty():
+		return false
+	var now := rig.carry() if rig != null else {}
+	if not now.is_empty() and float(now["time"]) >= float((now["carry"] as Dictionary)["off"]) - 0.12:
+		return false
 	if rig != null and rig.is_striking():
 		return _attack_clock < _commit_at
 	if rig != null and rig.is_swiping():

@@ -36,8 +36,8 @@ extends RefCounted
 ## (the user asked for a wolf that brawls rather than one that mostly leaps):
 ##
 ## * both arms — chains of two to four blows from its swipes, a jab, a
-##   zombie's rake, a grab and a butt of the head, a three-blow combo and an
-##   overhead two-handed smash (see `Wolf.MELEE`); now and then one blow held
+##   zombie's rake, a two- and a three-blow combo and an overhead two-handed
+##   smash (see `Wolf.MELEE`); now and then one blow held
 ##   at the top of its windup before it comes (the delayed blow), and now and
 ##   then the old *rake and leap*. Caught by every blow of a chain a man goes
 ##   down; the smash puts him down alone and cannot be turned on a shield;
@@ -264,7 +264,8 @@ func _choose_combo() -> Array[StringName]:
 	var chains: Array = [
 		[&"swipe", &"swipe"],
 		[&"punch", &"swipe"],
-		[&"rake", &"grab"],
+		[&"rake", &"combo2"],
+		[&"combo2"],
 		[&"combo3"],
 		[&"slam"],
 		[&"swipe", &"bite"],
@@ -274,6 +275,7 @@ func _choose_combo() -> Array[StringName]:
 			[&"swipe", &"swipe", &"slam"],
 			[&"punch", &"combo3"],
 			[&"rake", &"swipe", &"swipe"],
+			[&"swipe", &"combo2", &"slam"],
 			[&"combo3", &"slam"],
 			[&"swipe", &"swipe", &"pounce"],
 		])

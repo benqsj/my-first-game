@@ -52,12 +52,12 @@ const BITE := &"WF_Bite"
 const CRAWL_WALK := &"WF_Crawl_Walk"
 const RUN_UPRIGHT := &"WF_Run"
 ## Its hand-to-hand, beyond the swipes (Mixamo, laid on in wolf_export.py): an
-## overhead two-handed smash, a zombie's raking swipe, a three-blow combo, a
-## grab and a butt of the head, and a quick jab. Driven by [Wolf]'s `MELEE`.
+## overhead two-handed smash, a zombie's raking swipe, a two- and a three-blow
+## combo, and a quick jab. Driven by [Wolf]'s `MELEE`.
 const SLAM := &"WF_Slam"
 const RAKE := &"WF_Rake"
 const COMBO3 := &"WF_Combo3"
-const GRAB := &"WF_Grab"
+const COMBO2 := &"WF_Combo2"
 const PUNCH := &"WF_Punch"
 const GROWL := "res://unverified/sounds/orc/orc-aggressive-sound1.wav"
 
@@ -90,19 +90,19 @@ const LOOPS: Array[StringName] = [&"WF_Idle", &"WF_Walk", &"WF_Crawl_Run", &"WF_
 @export var lunge_duration: float = 1.35
 @export var lunge_windup: float = 0.6
 ## How low it crouches in that gather, metres.
-@export var crouch: float = 0.34
+@export var crouch: float = 0.4
 
 @export_group("Pace")
 ## Metres a second each cycle carries it at rate 1: what the clips are sped up
 ## or slowed against so the feet do not skate. At the wolf's size in
-## `wolf.tscn` (1.4; they were measured at 1.1 and scaled with it).
-@export var walk_pace: float = 1.59
-@export var run_pace: float = 5.35
-@export var drag_pace: float = 0.64
-@export var back_pace: float = 1.4
-@export var strafe_pace: float = 2.04
-@export var crawl_walk_pace: float = 0.95
-@export var upright_run_pace: float = 5.6
+## `wolf.tscn` (1.65; they were measured at 1.1 and scaled with it).
+@export var walk_pace: float = 1.87
+@export var run_pace: float = 6.31
+@export var drag_pace: float = 0.75
+@export var back_pace: float = 1.65
+@export var strafe_pace: float = 2.4
+@export var crawl_walk_pace: float = 1.12
+@export var upright_run_pace: float = 6.6
 ## Faster than this it drops to all fours.
 @export var run_from: float = 2.8
 #endregion
@@ -787,6 +787,19 @@ func _overlay(delta: float) -> void:
 		if a < lunge_windup:
 			glint = a / lunge_windup
 			glint_side = 2.0
+	elif _melee_timer > 0.0 and not _melee_hits.is_empty():
+		# A hand-to-hand blow coming: the claws flare over the last half second
+		# before it lands (held, they stay lit), and the jaws open with it — so
+		# every blow is seen coming, not only the big ones.
+		var now := _anim.current_animation_position
+		for h: float in _melee_hits:
+			var ahead := (h - now) / maxf(_melee_rate, 0.01)
+			if is_holding():
+				ahead = 0.1
+			if ahead > -0.08 and ahead < 0.55:
+				glint = maxf(glint, 1.0 - maxf(ahead, 0.0) / 0.55)
+		glint_side = 2.0
+		gape = 0.5 * glint
 	elif _move_timer > 0.0 and (_anim.current_animation == String(BITE) or _anim.current_animation == String(DRAG)):
 		gape = 0.65 * sin(clampf(1.0 - _move_timer / 0.8, 0.0, 1.0) * PI)
 	elif not _dead:
@@ -893,6 +906,11 @@ func claw_parts(pounce: bool, jaws_only: bool = false) -> Array:
 		var head := frame * _skeleton.get_bone_global_pose(_skeleton.find_bone("head")).origin
 		var jaw := frame * (_skeleton.get_bone_global_pose(_jaw) * Vector3(0.0, 0.26, 0.0)) if _jaw >= 0 else head
 		out.append([head, jaw, 0.16])
+		if jaws_only:
+			# A bite snaps down at a man a head shorter than it (at its size the
+			# jaws pass over his shoulders otherwise): the reach of the lunge
+			# runs from the jaws down to his chest.
+			out.append([jaw, jaw + Vector3.DOWN * 0.45 * absf(global_transform.basis.get_scale().y) / 1.1, 0.2])
 	return out
 #endregion
 
