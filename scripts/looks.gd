@@ -41,19 +41,21 @@ const SWARD_REACH := 0.3
 ## taken down — for a brutal fight rather than a fairy tale (the user's words:
 ## Lineage 2 with Elden Ring). Property -> value, on the environment, the sky,
 ## the sun. This is the grade on Medium and High (the user's pick, seen on
-## those: the later, lighter one below had been judged on Low).
+## those: the later, lighter one below had been judged on Low). Its shadows
+## and blacks lifted a touch after (more ambient, softer shadows, a little less
+## contrast): "a little lighter, the shadows and the black most of all".
 const DARK_ENV := {
 	"tonemap_mode": Environment.TONE_MAPPER_ACES,
-	"tonemap_exposure": 0.95,
+	"tonemap_exposure": 1.0,
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
-	"ambient_light_energy": 1.6,
+	"ambient_light_energy": 2.25,
 	"fog_light_color": Color(0.4, 0.42, 0.43),
 	"fog_density": 0.0042,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
 	"adjustment_enabled": true,
-	"adjustment_brightness": 1.0,
-	"adjustment_contrast": 1.12,
+	"adjustment_brightness": 1.04,
+	"adjustment_contrast": 1.06,
 	"adjustment_saturation": 0.74,
 }
 const DARK_SKY := {
@@ -65,10 +67,10 @@ const DARK_SKY := {
 const DARK_SUN := {
 	"light_energy": 1.05,
 	"light_color": Color(1.0, 0.9, 0.78),
-	"shadow_opacity": 0.74,
+	"shadow_opacity": 0.64,
 }
 ## How much of their colour the wood's leaves and bark keep in the dark grade.
-const DARK_WOOD := Color(0.76, 0.8, 0.72)
+const DARK_WOOD := Color(0.82, 0.86, 0.78)
 
 ## The same grade on Low. Low has no ambient occlusion, glow or fog and blurs
 ## its textures, and the grade above went murky there: lighter (AgX, which
@@ -79,21 +81,21 @@ const LOW_ENV := {
 	"tonemap_mode": Environment.TONE_MAPPER_AGX,
 	"tonemap_exposure": 1.2,
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
-	"ambient_light_energy": 2.4,
+	"ambient_light_energy": 2.7,
 	"fog_light_color": Color(0.4, 0.42, 0.43),
 	"fog_density": 0.0032,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
 	"ssao_intensity": 0.55,
 	"adjustment_enabled": true,
-	"adjustment_brightness": 1.14,
-	"adjustment_contrast": 1.12,
+	"adjustment_brightness": 1.17,
+	"adjustment_contrast": 1.07,
 	"adjustment_saturation": 0.86,
 }
 const LOW_SUN := {
 	"light_energy": 1.2,
 	"light_color": Color(1.0, 0.9, 0.78),
-	"shadow_opacity": 0.56,
+	"shadow_opacity": 0.5,
 }
 const LOW_WOOD := Color(0.8, 0.68, 0.62)
 const LOW_GRASS := Color(0.86, 0.72, 0.64)
