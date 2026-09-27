@@ -238,7 +238,7 @@ func _check_poison() -> void:
 	await _wait(10)
 	await _ready_up()
 	_check("the blade is coated", _player.use_skill(0))
-	_check("from a vial (DG_Poison_Coat)", String(_player.rig._act_clip) == "DG_Poison_Coat",
+	_check("run down the blade (DG_Poison_Coat)", String(_player.rig._act_clip) == "DG_Poison_Coat",
 			String(_player.rig._act_clip))
 	await _wait(20)
 	_check("the venom is drawn on it", not _world.find_children("VenomBlade", "", true, false).is_empty())

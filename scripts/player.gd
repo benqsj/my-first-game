@@ -661,6 +661,7 @@ func _process(delta: float) -> void:
 		# Either archer rig — the procedural one or the skinned one — takes this.
 		if rig.has_method(&"aim_bow"):
 			rig.call(&"aim_bow", net_draw, net_aim)
+	_aim_strike()
 	rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), airborne,
 			dashing, velocity.y, is_blocking if mine else net_blocking)
 	if footsteps != null:
@@ -930,6 +931,11 @@ func _process_locomotion(delta: float) -> void:
 		else:
 			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
 		_aim_body(direction, delta)
+		if _step_left > 0.0:
+			_step_left -= delta
+			horizontal = _step_velocity
+			if _step_left <= 0.0:
+				horizontal = _step_velocity * 0.15
 	else:
 		# In the air the stick steers the arc rather than driving it: the jump
 		# keeps the speed it launched with and control only redirects it.
@@ -2370,6 +2376,18 @@ func _attack() -> void:
 	# starts now and an attack that turns into the target halfway through it is a
 	# cut that misses.
 	_turn_to_target()
+	# A rig that aims its cuts ([StrikeAim]) is turned to what it is thrown at
+	# and every peer is told what that is: the host's copy of the swing is the
+	# one that cuts.
+	if _aims_strikes():
+		var foe := _strike_candidate()
+		if foe != null and foe != target:
+			var to_them := foe.global_position - global_position
+			to_them.y = 0.0
+			if to_them.length_squared() > 0.0001:
+				rotation.y = atan2(-to_them.x, -to_them.z)
+		net_strike_at.rpc(foe.get_path() if foe != null else NodePath())
+		_step_in(foe)
 	# A swing out of a run, or out of a jump, keeps the speed it was thrown at.
 	# Only the cuts after it are slowed: the first one is the one the player
 	# committed their momentum to, and damping it turns a charge into a shuffle.
@@ -2688,6 +2706,106 @@ func _roll_out() -> void:
 	if get_movement_direction().is_zero_approx():
 		rotation.y += PI
 	_try_dash()
+#endregion
+
+
+#region Aimed cuts
+## How far off, and how far round from where he faces (or is pushed), a cut
+## finds what it is thrown at when nothing is locked.
+@export var strike_assist_range: float = 3.2
+@export var strike_assist_cone: float = 70.0
+## How near the knife wants to be: from his middle to the near side of what he
+## cuts (metres). Further off than this, a cut steps in to it first — quickly,
+## over `strike_step_time`, and no further than `strike_step_max`.
+@export var strike_close: float = 0.42
+@export var strike_step_time: float = 0.13
+@export var strike_step_max: float = 1.8
+## What the cut in hand is thrown at, on every peer.
+var _strike_foe: Node3D = null
+var _step_velocity := Vector3.ZERO
+var _step_left: float = 0.0
+
+
+## A cut thrown at something out of the knife's reach steps in to it.
+func _step_in(foe: Node3D) -> void:
+	_step_left = 0.0
+	if foe == null or not is_on_floor():
+		return
+	var to := foe.global_position - global_position
+	to.y = 0.0
+	var gap := to.length() - _body_radius(foe) - strike_close
+	if gap <= 0.05 or to.length() < 0.01:
+		return
+	var go := minf(gap, strike_step_max)
+	_step_velocity = to.normalized() * go / strike_step_time
+	_step_left = strike_step_time
+
+
+static func _body_radius(who: Node3D) -> float:
+	var r: Variant = who.get(&"body_radius")
+	if r == null:
+		return 0.45
+	var s: Variant = who.get(&"visual_scale")
+	return float(r) * (float(s) if s != null else 1.0)
+
+
+func _aims_strikes() -> bool:
+	return rig != null and bool(rig.get(&"strike_aim"))
+
+
+## The locked target if it is near enough to cut, or else the nearest enemy
+## within `strike_assist_range` in front — in front of the way he is pushed, if
+## he is, or of the way he faces.
+func _strike_candidate() -> Node3D:
+	if target != null and _targetable(target) \
+			and global_position.distance_to(target.global_position) < strike_assist_range + 1.5:
+		return target
+	var ahead := get_movement_direction()
+	if ahead.is_zero_approx():
+		ahead = -global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
+	var widest := cos(deg_to_rad(strike_assist_cone))
+	var best: Node3D = null
+	var best_d := INF
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or not _targetable(who):
+			continue
+		var to := who.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d > strike_assist_range or d < 0.01 or ahead.dot(to / d) < widest:
+			continue
+		if d < best_d:
+			best_d = d
+			best = who
+	return best
+
+
+## Where on it a cut is aimed: its own answer if it has one, the middle of its
+## body if it says how tall it is, else where a lock would sit.
+static func strike_point(who: Node3D) -> Vector3:
+	if who.has_method(&"strike_point"):
+		return who.call(&"strike_point")
+	var tall: Variant = who.get(&"body_height")
+	if tall != null:
+		var s: Variant = who.get(&"visual_scale")
+		return who.global_position + Vector3.UP * float(tall) * (float(s) if s != null else 1.0) * 0.5
+	var points := TargetPoints.of(who)
+	return points[TargetPoints.default_index(who)]
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_strike_at(foe: NodePath) -> void:
+	_strike_foe = get_node_or_null(foe) as Node3D if not foe.is_empty() else null
+
+
+func _aim_strike() -> void:
+	if not _aims_strikes():
+		return
+	var on := _strike_foe != null and _targetable(_strike_foe)
+	rig.call(&"aim_strike", strike_point(_strike_foe) if on else Vector3.ZERO, on)
 #endregion
 
 

@@ -48,7 +48,10 @@ func _configure() -> void:
 		[{"off": true}, {"off": true}],
 	]
 	clips = {
-		&"idle": &"DG_Idle", &"walk": &"DG_Walk", &"run": &"DG_Run",
+		# Standing square, both feet under him and the knife low in his hand
+		# (Mixamo's standing idle, the legs and hips set straight in Blender,
+		# tools/dg9_build.py) — not the fighter's side-on guard he had.
+		&"idle": &"DG_Stand", &"walk": &"DG_Walk", &"run": &"DG_Run",
 		&"walk_back": &"DG_Walk_Back", &"run_back": &"DG_Run_Back",
 		&"walk_left": &"DG_Walk_Left", &"walk_right": &"DG_Walk_Right",
 		&"run_left": &"DG_Run_Left", &"run_right": &"DG_Run_Right",
@@ -81,7 +84,7 @@ func _configure() -> void:
 		&"DG_Crouch_Walk_Right": 1.17,
 	}
 	looping = [
-		&"DG_Idle", &"DG_Idle_Knife", &"DG_Walk", &"DG_Run", &"DG_Walk_Back", &"DG_Run_Back",
+		&"DG_Idle", &"DG_Stand", &"DG_Idle_Knife", &"DG_Walk", &"DG_Run", &"DG_Walk_Back", &"DG_Run_Back",
 		&"DG_Walk_Left", &"DG_Walk_Right", &"DG_Run_Left", &"DG_Run_Right", &"DG_Crouch",
 		&"DG_Sneak", &"DG_Crouch_Walk_Back", &"DG_Crouch_Walk_Left", &"DG_Crouch_Walk_Right",
 		&"DG_Fall", &"DG_Climb_Up", &"DG_Climb_Down", &"DG_Shimmy_Left", &"DG_Shimmy_Right",
@@ -93,8 +96,17 @@ func _configure() -> void:
 	# axe set, and a last big blow off its three-hit combo. Each starts about
 	# where the last left the blade, so a string of clicks is one long, quick,
 	# turning combo. Left alone for a second it starts again from the first.
-	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Combo_3", &"DG_Backhand_Cut",
-			&"DG_Combo_4", &"DG_Combo_5", &"DG_Finisher"]
+	# Now a knife's string, not a sword's: the slash down and back up, a low
+	# thrust in (the reverse-grip stab of his knife-fighting set, only its
+	# thrust), the spin, the backhand, a quick jab, and the big blow down to the
+	# ground to end it. The one-handed sword combo's overhead cuts (3 to 5) are
+	# gone: they went over anything shorter than a man.
+	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Stab_Reverse", &"DG_Spin_Cut", &"DG_Backhand_Cut",
+			&"DG_Stab_Lead", &"DG_Finisher"]
+	flurry_part = {
+		&"DG_Stab_Reverse": Vector2(0.243, 0.487),
+		&"DG_Stab_Lead": Vector2(0.06, 0.27),
+	}
 	flurry_reset_after = 1.0
 	cut_window = {
 		&"DG_Combo_1": Vector2(0.3, 0.8), &"DG_Combo_2": Vector2(0.15, 1.0),
@@ -102,6 +114,7 @@ func _configure() -> void:
 		&"DG_Backhand_Cut": Vector2(0.2, 0.8), &"DG_Combo_4": Vector2(0.31, 0.88),
 		&"DG_Combo_5": Vector2(0.0, 0.89), &"DG_Finisher": Vector2(0.35, 0.8),
 		&"DG_Double_Stab": Vector2(0.326, 0.37), &"DG_Dual_Combo": Vector2(0.257, 0.743),
+		&"DG_Stab_Reverse": Vector2(0.28, 0.41), &"DG_Stab_Lead": Vector2(0.083, 0.2),
 	}
 	# Thrown off a jump: the double stab from its raise to the stab going in.
 	air_cut_from = 0.2
@@ -132,11 +145,19 @@ func _configure() -> void:
 	hurt_sounds = ["res://unverified/sounds/assassin/hurt_1.wav"]
 	hurt_volume = -15.0
 	cloth_enabled = false
+	# A short knife cuts what is in front of him wherever it is: bent down to a
+	# puglin or a wolf on the ground, a hand longer for the hit than it looks.
+	strike_aim = true
+	strike_natural = 1.25
+	strike_heights = {&"DG_Stab_Reverse": 0.8, &"DG_Finisher": 0.7}
+	strike_reach = 0.2
+	strike_pull = 0.3
 
 
-## The Poisoned Blade's coat (`DG_Poison_Coat`, baked in Blender from the
-## preview): a vial from the belt, poured down the blade, tossed, the blade
-## flicked clean. Returns how long it takes at `rate`.
+## The Poisoned Blade's coat (`DG_Poison_Coat`, built in Blender by
+## `tools/dg9_build.py`): the knife brought up before his chest, two fingers of
+## the other hand run along it from the guard to the point, the excess flicked
+## off. Returns how long it takes at `rate`.
 const COAT_CLIP := &"DG_Poison_Coat"
 
 

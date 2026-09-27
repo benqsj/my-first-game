@@ -4248,3 +4248,55 @@ wood carried on to the east), **Ochopintre's beeches** (south-east, across the
 Black River), **the Devis' mountain** (south-west, the orcs of the bay their
 vanguard), and two regions not yet given a boss — **the northern upland** beyond
 the wolves' hill, and **the western plain** beyond the village.
+
+## The assassin: the knife goes where he cuts
+
+**Aimed cuts** (`scripts/strike_aim.gd`, `StrikeAim`, a `SkeletonModifier3D`
+after the stride). A cut has something it is thrown at: the locked target if it
+is near enough, or else the nearest enemy within 3.2 m and 70° of where he is
+pushed or faces (`Player._strike_candidate`). He is turned to it, every peer
+is told what it is (`net_strike_at`, since the host's copy of the swing is the
+one that cuts), and:
+
+- **he steps in to it** — further than `strike_close` (0.42 m from his middle
+  to its near side) the cut first carries him in, over 0.13 s and no more than
+  1.8 m (`_step_in`);
+- **the swing bends down to it** — the knees give (the hips let down, the legs
+  folded so the feet stay), then the trunk leans in over the hips, the head
+  held up, and the waist turns a little to it if it has moved: as far as the
+  gap between where the swing cuts on its own (`strike_natural` 1.25 m; the low
+  thrust 0.8, the finisher 0.7, `strike_heights`) and the middle of the thing
+  (`Player.strike_point`: its `strike_point()` — a wolf's chest, or its back
+  down on its belly — or half its `body_height`). Eased in over 0.07 s as the
+  cut starts, out over 0.2 s;
+- **the edge gives a little** (`SkinnedRig.get_cutting_edge`): the knife is
+  20 cm longer for the hit than it looks (`strike_reach`), and a cut aimed at
+  something is let down to it by up to 30 cm past what the bend made up
+  (`strike_pull`) — a short knife moving fast is past a body between two
+  physics ticks as often as in it.
+
+Only the assassin (`SkinnedRogueRig`: `strike_aim`). At a puglin a pace and a
+half off, a little aside, six of his seven blows now reach it (two of eight
+did); at a wolf on its belly the knife goes down to 0.26 m.
+
+**His string** is a knife's now: the slash down and back up, a low thrust in
+(the reverse-grip stab of his knife-fighting set, only its thrust:
+`flurry_part` plays part of a clip), the spin, the backhand, a quick jab (the
+lead stab's), and the big blow down to the ground to end it. The sword combo's
+overhead cuts (3 to 5) are gone — they went over anything shorter than a man.
+
+**He stands square** (`DG_Stand`, built in Blender by
+`vepxis-art/tools/dg9_build.py`, not retargeted: Mixamo's standing idles are
+all side-on): both feet under him a little apart, knees soft, arms down, the
+knife low with its point ahead, three seconds of breathing, the head turning a
+little. The fighter's side-on guard (`DG_Idle`) is no longer his idle.
+
+**The Poisoned Blade** is a new coat (`DG_Poison_Coat`, the same builder,
+2-bone IK solved per frame over the standing pose): the knife brought up
+before his chest, two fingers of the other hand run along it from the guard to
+the point, then the excess flicked off with a snap of the wrist. `VenomBlade`
+follows it: the blade greens behind the fingers as they go, a green breath off
+the fingertips, and its light is small and faint (the old one turned his whole
+body green). The vial is gone (`DG_Poison_Coat_Vial` kept in heroes.blend).
+
+`tests/rogue_strike_test.gd`.

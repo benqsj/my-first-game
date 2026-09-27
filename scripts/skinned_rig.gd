@@ -66,6 +66,9 @@ var looping: Array[StringName] = [
 ]
 ## The cuts a flurry cycles through, in order.
 var flurry: Array[StringName] = [&"SS_High_Attack", &"SS_Cross_Slash", &"SS_Downward_Slash"]
+## Cuts of the flurry played from a part of their clip only, as shares of its
+## length (from, until): a thrust out of a longer knife-fighting clip.
+var flurry_part: Dictionary = {}
 ## Where each swing's blade is actually travelling, as a fraction of the clip —
 ## measured in Blender as the span the tip moves faster than 55% of its peak.
 var cut_window := {
@@ -173,10 +176,28 @@ var _role: Role = Role.NONE
 ## Whether the legs walk under the free action now playing (the body moving on
 ## while the arms do something else — the assassin coating his blade).
 var walk_under: bool = false
+## Cuts bent down to what they are thrown at ([StrikeAim]); set in `_configure`.
+var strike_aim: bool = false
+## The height over his feet his swings cut at on their own (metres).
+var strike_natural: float = 1.2
+## A cut whose clip strikes lower (or higher) than that, by name.
+var strike_heights: Dictionary = {}
+## How much longer the blade reaches for what it cuts, along its own line
+## (metres), and how far a cut aimed at something is let down to it past what
+## the bend makes up. A short knife moving fast is past a body between two
+## physics ticks as often as it is in it; this is the give that makes the cuts
+## that looked like they landed, land.
+var strike_reach: float = 0.0
+var strike_pull: float = 0.0
+var _strike: StrikeAim
+var _strike_on: bool = false
+var _strike_at: Vector3 = Vector3.ZERO
 var _act_clip: StringName = &""
 var _action_left: float = 0.0
 var _action_len: float = 0.0
 var _action_rate: float = 1.0
+## Where in its clip the action in hand started, as a share of its length.
+var _action_from: float = 0.0
 var _base_clip: StringName = &""
 var _flurry_slot: int = -1
 var _airborne_now: bool = false
@@ -237,6 +258,11 @@ func _ready() -> void:
 	_stride = StrideModifier.new()
 	_stride.name = "Stride"
 	_skel.add_child(_stride)
+	if strike_aim:
+		_strike = StrikeAim.new()
+		_strike.name = "StrikeAim"
+		_strike.natural = strike_natural
+		_skel.add_child(_strike)
 	if cloth_enabled:
 		_setup_cloth()
 	# The capes are the rig's own cloth, not spring bones: hung on every rig.
@@ -584,7 +610,41 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	if _role == Role.NONE:
 		_pick_base(planar_speed, airborne, dashing, vertical_speed, blocking)
 	_update_stride(delta, planar_speed, airborne)
+	_update_strike(delta)
 
+
+## Where the cut in hand is aimed (set by the controller every frame of a swing
+## at something; `on` false when there is nothing to aim it at).
+func aim_strike(at: Vector3, on: bool) -> void:
+	_strike_on = on
+	if on:
+		_strike_at = at
+
+
+func _update_strike(delta: float) -> void:
+	if _strike == null:
+		return
+	var want := _strike_on and _role == Role.SWING and not _air_cut
+	# In fast, as the swing starts; out more slowly as it gives the body back.
+	_strike.weight = move_toward(_strike.weight, 1.0 if want else 0.0, delta / (0.07 if want else 0.2))
+	_strike.natural = float(strike_heights.get(_act_clip, strike_natural))
+	if want:
+		_strike.target = _strike_at if _strike.weight < 0.02 else _strike.target.lerp(_strike_at, 1.0 - exp(-18.0 * delta))
+
+
+func get_cutting_edge() -> PackedVector3Array:
+	var edge := super()
+	if edge.is_empty() or (strike_reach <= 0.0 and strike_pull <= 0.0):
+		return edge
+	var along := edge[1] - edge[0]
+	if along.length_squared() > 0.0001:
+		edge[1] += along.normalized() * strike_reach
+	if _strike_on and strike_pull > 0.0:
+		var near := Geometry3D.get_closest_point_to_segment(_strike_at, edge[0], edge[1])
+		var dy := clampf(_strike_at.y - near.y, -strike_pull, 0.0)
+		edge[0].y += dy
+		edge[1].y += dy
+	return edge
 
 ## Running legs under a swing thrown on the move: the cycle that fits the way
 ## the body is going, carried on from the phase the run was at, faded in over
@@ -706,6 +766,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_act_clip = clip
 	_action_len = length
 	_action_rate = maxf(rate, 0.01)
+	_action_from = from
 	_action_left = length * (until - from) / _action_rate
 	_base_clip = &""
 	# Where the legs were in their cycle, for a stride carried on under the swing.
@@ -771,7 +832,8 @@ func attack(style: int = -1) -> void:
 		_last_attack_at = now
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
 		clip = flurry[_flurry_slot]
-	if _play_action(clip, Role.SWING, swing_rate):
+	var part: Vector2 = flurry_part.get(clip, Vector2(0.0, 1.0))
+	if _play_action(clip, Role.SWING, swing_rate, -1.0, part.x, part.y):
 		_swing_commit = swing_time()
 		_whoosh()
 
@@ -789,7 +851,7 @@ func _whoosh() -> void:
 	var lead := 0.0
 	if w != Vector2.ZERO and _action_len > 0.0 and _action_rate > 0.0:
 		# A touch before the window opens: a slash is heard as the blade comes.
-		lead = maxf(_action_len * w.x / _action_rate - 0.06, 0.0)
+		lead = maxf(_action_len * (w.x - _action_from) / _action_rate - 0.06, 0.0)
 	if lead <= 0.01:
 		_whoosh_now()
 		return
@@ -810,7 +872,9 @@ func swing_time() -> float:
 	if _role != Role.SWING or _action_len <= 0.0:
 		return attack_duration
 	var w: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
-	return minf(_action_len * w.y / _action_rate + swing_recovery, _action_len / _action_rate)
+	var part: Vector2 = flurry_part.get(_act_clip, Vector2(0.0, 1.0))
+	return minf(_action_len * (w.y - _action_from) / _action_rate + swing_recovery,
+			_action_len * (part.y - _action_from) / _action_rate)
 
 
 func current_swing() -> StringName:

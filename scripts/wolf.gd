@@ -1539,6 +1539,13 @@ func _within_reach(edge: PackedVector3Array) -> PackedVector3Array:
 const DOWN_BACK := 0.45
 
 
+## Where a hero's cut is aimed at it ([StrikeAim]): its chest standing, its back
+## when it is down on its belly.
+func strike_point() -> Vector3:
+	var k := _size() / 1.65
+	return global_position + Vector3.UP * (DOWN_BACK * 0.8 if rig != null and rig.is_crippled() else 1.15) * k
+
+
 ## While it is above half its health (`sever_below`) the blade does not take a
 ## limb off: it wounds it — blood, the damage, a shove. True when that is what
 ## this cut was (whether or not it reached); false once limbs may come off.
