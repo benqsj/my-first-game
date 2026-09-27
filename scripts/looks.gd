@@ -43,17 +43,17 @@ const SWARD_REACH := 0.3
 ## the sun.
 const DARK_ENV := {
 	"tonemap_mode": Environment.TONE_MAPPER_ACES,
-	"tonemap_exposure": 0.95,
+	"tonemap_exposure": 1.2,
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
-	"ambient_light_energy": 1.6,
+	"ambient_light_energy": 2.4,
 	"fog_light_color": Color(0.4, 0.42, 0.43),
-	"fog_density": 0.0042,
+	"fog_density": 0.0032,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
 	"adjustment_enabled": true,
-	"adjustment_brightness": 1.0,
-	"adjustment_contrast": 1.12,
-	"adjustment_saturation": 0.74,
+	"adjustment_brightness": 1.14,
+	"adjustment_contrast": 1.06,
+	"adjustment_saturation": 0.8,
 }
 const DARK_SKY := {
 	"sky_top_color": Color(0.21, 0.26, 0.33),
@@ -62,12 +62,16 @@ const DARK_SKY := {
 	"ground_horizon_color": Color(0.46, 0.47, 0.47),
 }
 const DARK_SUN := {
-	"light_energy": 1.05,
+	"light_energy": 1.2,
 	"light_color": Color(1.0, 0.9, 0.78),
-	"shadow_opacity": 0.74,
+	"shadow_opacity": 0.56,
 }
-## How much of their colour the wood's leaves and bark keep in the dark grade.
-const DARK_WOOD := Color(0.76, 0.8, 0.72)
+## How much of their colour the wood's leaves and bark keep in the dark grade:
+## the green taken down most, so the leaves go a deep olive rather than lime.
+const DARK_WOOD := Color(0.8, 0.68, 0.62)
+## The same for the grass, and for the grassy ground under it.
+const DARK_GRASS := Color(0.86, 0.72, 0.64)
+const DARK_GROUND_GRASS := Color(0.7, 0.66, 0.5)
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor.
 const LOOKS: Array[Dictionary] = [
 	{"name": "new: forest floor, low sward, light grass, dark", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "dark": true},
@@ -139,6 +143,14 @@ func _grade(dark: bool) -> void:
 	var forest := world.get_node_or_null("Forest")
 	if forest != null:
 		_tone_wood(forest, DARK_WOOD if dark else Color.WHITE)
+	for node in world.find_children("*", "GrassField", true, false):
+		_tone_wood(node, DARK_GRASS if dark else Color.WHITE)
+	if _terrain != null and _terrain.styles.size() > 2:
+		var ground := _terrain.styles[2] as ShaderMaterial
+		if ground != null:
+			if not ground.has_meta(&"looks_own"):
+				ground.set_meta(&"looks_own", ground.get_shader_parameter("tone_grass"))
+			ground.set_shader_parameter("tone_grass", DARK_GROUND_GRASS if dark else ground.get_meta(&"looks_own"))
 
 
 func _set_all(target: Object, values: Dictionary, dark: bool) -> void:

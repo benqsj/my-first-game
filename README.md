@@ -2951,7 +2951,12 @@ colour drained (`DARK_ENV`, `DARK_SKY`), a warmer, weaker sun (`DARK_SUN`),
 and every material of the wood multiplied down (`DARK_WOOD`). The level's own
 values are kept on first change and put back by the other looks. A first
 try was too dark: the wood went black and the hero in shadow could not be
-read; the ambient light and the shadows were lifted after.
+read; the ambient light and the shadows were lifted after, and lifted again
+at the user's word (exposure 1.2, brightness 1.14, ambient 2.4, shadows 0.56),
+with the green taken down harder than the other channels instead — the wood
+(`DARK_WOOD`), the grass clumps and the sward (`DARK_GRASS`) and the grassy
+ground (`DARK_GROUND_GRASS`, the forest floor's `tone_grass`) — so it reads a
+deep olive rather than a bright green.
 
 **The low sward** (the new look only): a second `GrassField`, `Level/Sward`,
 grown the first time the look is worn and hidden and stopped when it is not.
