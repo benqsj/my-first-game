@@ -4142,3 +4142,22 @@ coats' hood falls back over the nape. `SkinnedRig.garb_capes` hangs each
 outfit's cloth capes its own way (colour, length, none); `ClothCape` takes a
 `point`, so a hem can be cut to a point at the back (the worn coat's short
 cape).
+
+### The mage's bolt always arrives
+
+A locked bolt now bends as hard as it has to: at least as fast as the line to
+its quarry swings round at that pace and distance, so however the mage was
+moving or facing when he let go it comes round and hits. Only a real dodge
+(`is_evading()` — a roll, a dash) shakes it off; a creature merely turning or
+breaking into a run is followed (`dodge_by_swerve`, off). A bolt still hunting
+never fades for having gone past; one shaken off still does.
+
+### The assassin coats his blade on the move
+
+The Poisoned Blade no longer slides him along in a standing pose: while the
+coat plays he is slowed to a walk and can steer, and the legs walk under the
+arms (`SkinnedRig.walk_under`, the same stride the swings use). The coat
+clip's right forearm no longer spins round at the flick (`DG_Poison_Coat`
+eased from frame 49 to 70 in heroes.blend).
+
+Tariel stands taller: his model is scaled 1.2 (was 1.08).

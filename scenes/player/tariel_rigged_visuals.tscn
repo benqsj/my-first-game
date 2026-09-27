@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" path="res://assets/tariel_rigged/tariel_rigged.glb" id="2_model"]
 
 [node name="Visuals" type="Node3D"]
-transform = Transform3D(-1.08, 0, 0, 0, 1.08, 0, 0, 0, -1.08, 0, 0, 0)
+transform = Transform3D(-1.2, 0, 0, 0, 1.2, 0, 0, 0, -1.2, 0, 0, 0)
 script = ExtResource("1_rig")
 
 [node name="Tariel" parent="." instance=ExtResource("2_model")]
