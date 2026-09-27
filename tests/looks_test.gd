@@ -53,6 +53,22 @@ func _initialize() -> void:
 			"%d triangles, %.2f m" % [_tris(short) if short else 0, short.get_aabb().size.y if short else 0.0])
 	_check("drawn nearer than the grass", sward != null and sward.draw_distance_scale < 0.6)
 
+	# --- the grade: its own on Low, the heavier one on Medium and High ---------
+	var env := (world.find_children("*", "WorldEnvironment", true, false)[0] as WorldEnvironment).environment
+	var high_tone := env.tonemap_mode
+	var high_exposure := env.tonemap_exposure
+	current_scene = world
+	Graphics.apply(self, Graphics.Level.LOW)
+	var low_tone := env.tonemap_mode
+	var low_exposure := env.tonemap_exposure
+	Graphics.apply(self, Graphics.Level.MEDIUM)
+	_check("Medium and High wear the heavier grade", high_tone == Environment.TONE_MAPPER_ACES
+			and is_equal_approx(high_exposure, Looks.DARK_ENV["tonemap_exposure"]))
+	_check("Low its lighter own", low_tone == Environment.TONE_MAPPER_AGX
+			and is_equal_approx(low_exposure, Looks.LOW_ENV["tonemap_exposure"]))
+	_check("and back when the setting goes back", env.tonemap_mode == Environment.TONE_MAPPER_ACES)
+	Graphics.apply(self, Graphics.Level.HIGH)
+
 	# --- F8: the old one ------------------------------------------------------
 	looks.apply(1)
 	var old_mesh := _clump_mesh(field)

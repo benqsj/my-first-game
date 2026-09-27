@@ -51,10 +51,16 @@ static func from_int(value: int) -> Level:
 	return value as Level if value in Level.values() else Level.HIGH
 
 
+## The setting last applied, for whatever reads it later ([Looks] grades Low
+## apart from Medium and High).
+static var current: Level = Level.HIGH
+
+
 ## Applies `level` to the viewport and to whatever is in the tree right now.
 static func apply(tree: SceneTree, level: Level) -> void:
 	if tree == null:
 		return
+	current = level
 	_apply_viewport(tree.root, level)
 
 	var scene := tree.current_scene
@@ -64,6 +70,8 @@ static func apply(tree: SceneTree, level: Level) -> void:
 	_apply_environment(scene, level)
 	_apply_grass(scene, level)
 	_apply_detail(scene, level)
+	for looks in scene.find_children("*", "Looks", true, false):
+		(looks as Looks).regrade()
 
 
 ## The viewport itself: how many pixels are drawn and how they are filtered.

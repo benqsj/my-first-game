@@ -2974,18 +2974,24 @@ brutal rather than a fairy tale (Lineage 2 and Elden Ring were the brief).
 ACES, the sky and its haze grey and heavy, the fog thicker, contrast up and
 colour drained (`DARK_ENV`, `DARK_SKY`), a warmer, weaker sun (`DARK_SUN`),
 and every material of the wood multiplied down (`DARK_WOOD`). The level's own
-values are kept on first change and put back by the other looks. A first
-try was too dark: the wood went black and the hero in shadow could not be
-read; the ambient light and the shadows were lifted after, and lifted again
-at the user's word (exposure 1.2, brightness 1.14, ambient 2.4, shadows 0.56),
-with the green taken down harder than the other channels instead — the wood
-(`DARK_WOOD`), the grass clumps and the sward (`DARK_GRASS`) and the grassy
-ground (`DARK_GROUND_GRASS`, the forest floor's `tone_grass`) — so it reads a
-deep olive rather than a bright green. In the wood it was still near black:
-ACES crushed the shadows (now AgX), the ambient occlusion was heavy (0.55
-here), and the bark, darkened with the leaves, went black under the canopy —
-only foliage is taken down now (`Looks._is_leaf`) and the bark is lifted
-(`DARK_BARK`). The sward sways no more (a hand-high sward barely moves, and
+values are kept on first change and put back by the other looks.
+
+It has two settings, by the graphics level (`Graphics.current`, which
+`Graphics.apply` sets and then has every `Looks` regrade): **Medium and High**
+wear the grade above as it was first made (`DARK_*`: ACES, exposure 0.95,
+ambient 1.6, sun 1.05 with shadows 0.74, saturation 0.74, the whole wood at
+`DARK_WOOD`); **Low** has its own (`LOW_*`). The first try had been judged on
+Low, where there is no ambient occlusion, glow or fog and the textures are
+blurred, and there it went murky — the wood black, the hero in shadow unread
+— so it was lifted twice (AgX, which keeps the shadows open; exposure 1.2,
+brightness 1.14, ambient 2.4, shadows 0.56, SSAO 0.55), the green taken down
+harder than the other channels instead so it reads a deep olive — the leaves
+only (`Looks._is_leaf`, `LOW_WOOD`), the grass clumps and the sward
+(`LOW_GRASS`) and the grassy ground (`LOW_GROUND_GRASS`, the forest floor's
+`tone_grass`) — and the bark lifted rather than darkened (`LOW_BARK`). Seen on
+High that was too light, and the user wanted the first grade back there; so
+each keeps its own. `tests/looks_test.gd` switches the setting and checks the
+grade follows. The sward sways no more (a hand-high sward barely moves, and
 swaying thousands of clumps a frame cost the physics tick at the house).
 
 **The low sward** (the new look only): a second `GrassField`, `Level/Sward`,

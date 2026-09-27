@@ -40,25 +40,21 @@ const SWARD_REACH := 0.3
 ## sky, a thicker grey haze, contrast up and colour drained, the wood's greens
 ## taken down — for a brutal fight rather than a fairy tale (the user's words:
 ## Lineage 2 with Elden Ring). Property -> value, on the environment, the sky,
-## the sun.
+## the sun. This is the grade on Medium and High (the user's pick, seen on
+## those: the later, lighter one below had been judged on Low).
 const DARK_ENV := {
-	# AgX rather than ACES: it keeps detail in the shadows, where ACES crushed
-	# the wood to black.
-	"tonemap_mode": Environment.TONE_MAPPER_AGX,
-	"tonemap_exposure": 1.2,
+	"tonemap_mode": Environment.TONE_MAPPER_ACES,
+	"tonemap_exposure": 0.95,
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
-	"ambient_light_energy": 2.4,
+	"ambient_light_energy": 1.6,
 	"fog_light_color": Color(0.4, 0.42, 0.43),
-	"fog_density": 0.0032,
+	"fog_density": 0.0042,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
-	# Lighter ambient occlusion: under the trees it was what turned the trunks
-	# and the ground between them black.
-	"ssao_intensity": 0.55,
 	"adjustment_enabled": true,
-	"adjustment_brightness": 1.14,
+	"adjustment_brightness": 1.0,
 	"adjustment_contrast": 1.12,
-	"adjustment_saturation": 0.86,
+	"adjustment_saturation": 0.74,
 }
 const DARK_SKY := {
 	"sky_top_color": Color(0.21, 0.26, 0.33),
@@ -67,19 +63,42 @@ const DARK_SKY := {
 	"ground_horizon_color": Color(0.46, 0.47, 0.47),
 }
 const DARK_SUN := {
+	"light_energy": 1.05,
+	"light_color": Color(1.0, 0.9, 0.78),
+	"shadow_opacity": 0.74,
+}
+## How much of their colour the wood's leaves and bark keep in the dark grade.
+const DARK_WOOD := Color(0.76, 0.8, 0.72)
+
+## The same grade on Low. Low has no ambient occlusion, glow or fog and blurs
+## its textures, and the grade above went murky there: lighter (AgX, which
+## keeps the shadows open; more exposure and ambient; softer shadows) and less
+## green instead of darker — the leaves (not the bark, which is lifted), the
+## grass and the grassy ground taken to a deep olive.
+const LOW_ENV := {
+	"tonemap_mode": Environment.TONE_MAPPER_AGX,
+	"tonemap_exposure": 1.2,
+	"ambient_light_color": Color(0.45, 0.5, 0.52),
+	"ambient_light_energy": 2.4,
+	"fog_light_color": Color(0.4, 0.42, 0.43),
+	"fog_density": 0.0032,
+	"fog_aerial_perspective": 0.6,
+	"fog_sun_scatter": 0.08,
+	"ssao_intensity": 0.55,
+	"adjustment_enabled": true,
+	"adjustment_brightness": 1.14,
+	"adjustment_contrast": 1.12,
+	"adjustment_saturation": 0.86,
+}
+const LOW_SUN := {
 	"light_energy": 1.2,
 	"light_color": Color(1.0, 0.9, 0.78),
 	"shadow_opacity": 0.56,
 }
-## How much of their colour the wood's leaves and bark keep in the dark grade:
-## the green taken down most, so the leaves go a deep olive rather than lime.
-const DARK_WOOD := Color(0.8, 0.68, 0.62)
-## The same for the grass, and for the grassy ground under it.
-const DARK_GRASS := Color(0.86, 0.72, 0.64)
-## And the bark lifted: the kit's dark brown under a canopy's shadow read as
-## black trunks in the wood.
-const DARK_BARK := Color(1.45, 1.4, 1.35)
-const DARK_GROUND_GRASS := Color(0.7, 0.66, 0.5)
+const LOW_WOOD := Color(0.8, 0.68, 0.62)
+const LOW_GRASS := Color(0.86, 0.72, 0.64)
+const LOW_BARK := Color(1.45, 1.4, 1.35)
+const LOW_GROUND_GRASS := Color(0.7, 0.66, 0.5)
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor.
 const LOOKS: Array[Dictionary] = [
 	{"name": "new: forest floor, low sward, light grass, dark", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "dark": true},
@@ -137,39 +156,59 @@ func apply(which: int) -> void:
 ## The light the world is seen in: the dark grade or the level's own. The
 ## level's values are kept the first time they are changed, to put back.
 func _grade(dark: bool) -> void:
+	# Which of the two dark grades: Low's own, or the one for Medium and High.
+	var low := dark and Graphics.current == Graphics.Level.LOW
 	var world := _world()
 	for node in world.find_children("*", "WorldEnvironment", true, false):
 		var env := (node as WorldEnvironment).environment
 		if env == null:
 			continue
-		_set_all(env, DARK_ENV, dark)
+		_set_all(env, LOW_ENV if low else DARK_ENV, dark, [DARK_ENV, LOW_ENV])
 		var sky := env.sky.sky_material if env.sky != null else null
 		if sky is ProceduralSkyMaterial:
-			_set_all(sky, DARK_SKY, dark)
+			_set_all(sky, DARK_SKY, dark, [DARK_SKY])
 	for node in world.find_children("*", "DirectionalLight3D", true, false):
-		_set_all(node, DARK_SUN, dark)
+		_set_all(node, LOW_SUN if low else DARK_SUN, dark, [DARK_SUN, LOW_SUN])
 	var forest := world.get_node_or_null("Forest")
 	if forest != null:
-		_tone_wood(forest, DARK_WOOD if dark else Color.WHITE, DARK_BARK if dark else Color.WHITE)
+		if low:
+			_tone_wood(forest, LOW_WOOD, LOW_BARK)
+		else:
+			# Everything back first (Low leaves some of it alone), then taken down.
+			_tone_wood(forest, Color.WHITE)
+			_tone_wood(forest, DARK_WOOD if dark else Color.WHITE)
 	for node in world.find_children("*", "GrassField", true, false):
-		_tone_wood(node, DARK_GRASS if dark else Color.WHITE)
+		_tone_wood(node, LOW_GRASS if low else Color.WHITE)
 	if _terrain != null and _terrain.styles.size() > 2:
 		var ground := _terrain.styles[2] as ShaderMaterial
 		if ground != null:
+			# Kept in a dictionary: unset, the parameter reads null, and a null
+			# meta is no meta.
 			if not ground.has_meta(&"looks_own"):
-				ground.set_meta(&"looks_own", ground.get_shader_parameter("tone_grass"))
-			ground.set_shader_parameter("tone_grass", DARK_GROUND_GRASS if dark else ground.get_meta(&"looks_own"))
+				ground.set_meta(&"looks_own", {"tone_grass": ground.get_shader_parameter("tone_grass")})
+			var own: Dictionary = ground.get_meta(&"looks_own")
+			ground.set_shader_parameter("tone_grass", LOW_GROUND_GRASS if low else own["tone_grass"])
 
 
-func _set_all(target: Object, values: Dictionary, dark: bool) -> void:
+## The graphics setting changed ([Graphics.apply]): the grade follows it.
+func regrade() -> void:
+	_grade(bool(LOOKS[look].get("dark", false)))
+
+
+## `values` put on `target` (or, not `dark`, its own put back). `sets` are all
+## the sets it may be given, so a property one sets and another does not goes
+## back to its own when the other is worn.
+func _set_all(target: Object, values: Dictionary, dark: bool, sets: Array) -> void:
 	if not target.has_meta(&"looks_own"):
-		var kept := {}
-		for key: String in values:
-			kept[key] = target.get(key)
-		target.set_meta(&"looks_own", kept)
+		target.set_meta(&"looks_own", {})
 	var own: Dictionary = target.get_meta(&"looks_own")
-	for key: String in values:
-		target.set(key, values[key] if dark else own[key])
+	for set_: Dictionary in sets:
+		for key: String in set_:
+			if not own.has(key):
+				own[key] = target.get(key)
+	for set_: Dictionary in sets:
+		for key: String in set_:
+			target.set(key, values[key] if dark and values.has(key) else own[key])
 
 
 ## Every material the wood is drawn with, its colour multiplied by `tone`
