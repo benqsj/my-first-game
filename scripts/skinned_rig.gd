@@ -355,6 +355,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 		return
 	_airborne_now = airborne
 	_blocking_now = blocking
+	_hold_stop(delta)
 	_plunge_left = maxf(_plunge_left - delta, 0.0)
 	_swing_commit = maxf(_swing_commit - delta, 0.0)
 
@@ -637,12 +638,45 @@ func is_planted() -> bool:
 	return _plunge_left > 0.0
 
 
-## The blade has gone into something: its sound, at the point it went in.
+## The blade has gone into something: its sound, at the point it went in, the
+## wet thump of it under the steel, and the swing caught a moment in the body.
 func blade_landed() -> void:
 	var at: Node3D = self
 	if _sword_mount != null:
 		at = _sword_mount
 	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06), hit_volume)
+	ImpactFx.thud(self, at.global_position)
+	hitstop(bite_stop)
+
+
+## How long the swing is held as it bites (seconds): the blade felt going in.
+var bite_stop: float = 0.075
+var _stop_left: float = 0.0
+var _stop_rate: float = 1.0
+## The rate the clip is held at while stopped: all but still.
+const STOP_RATE := 0.04
+
+
+func hitstop(seconds: float) -> void:
+	if _anim == null or seconds <= 0.0:
+		return
+	if _stop_left <= 0.0:
+		_stop_rate = _anim.speed_scale
+		_anim.speed_scale = _stop_rate * STOP_RATE
+	_stop_left = maxf(_stop_left, seconds)
+	# The swing's clock is held too, or it would end short of its clip.
+	if _role != Role.NONE:
+		_action_left += seconds
+
+
+## The hold over: the clip goes on at the rate it had — unless something else
+## has set a rate of its own in the meantime, which is left alone.
+func _hold_stop(delta: float) -> void:
+	if _stop_left <= 0.0:
+		return
+	_stop_left -= delta
+	if _stop_left <= 0.0 and absf(_anim.speed_scale - _stop_rate * STOP_RATE) < 0.0001:
+		_anim.speed_scale = _stop_rate
 
 
 ## Hurt: a grunt.

@@ -386,6 +386,7 @@ func _physics_process(delta: float) -> void:
 			_armour = 1.0
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_reeling = maxf(_reeling - delta, 0.0)
+	_counter_armour = maxf(_counter_armour - delta, 0.0)
 	_provoked = maxf(_provoked - delta, 0.0)
 	if _pounce_in >= 0.0:
 		_pounce_in -= delta
@@ -1503,8 +1504,10 @@ func _take_hits() -> void:
 			continue
 		_last_hit_serial[knight.name] = serial
 
-		# Bleed from where the limb actually came away, thrown along the blow.
-		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
+		# Bleed from where the limb actually came away, thrown the way the blade
+		# was going.
+		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
+		ImpactFx.slash(Blood.world_of(self), rig.last_cut_point, blow, _size(), true)
 		# The host decided *which* limb; everyone else is told, so the piece that
 		# comes off is the same piece in every window. Re-running the geometry
 		# there would disagree — their copy of the blade is in a slightly
@@ -1530,8 +1533,10 @@ func _wound(knight: Player, edge: Array, serial: int) -> bool:
 		return true
 	_last_hit_serial[knight.name] = serial
 	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * 1.1, edge[0], edge[1])
-	var cut: Vector3 = (edge[1] - edge[0]).normalized() + Vector3.UP * 0.4
+	# Thrown the way the blade was going: cut from its right, it goes left.
+	var cut: Vector3 = knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
 	var worth := _blade_damage(knight)
+	ImpactFx.slash(Blood.world_of(self), at, cut, _size(), bool(worth[1]))
 	take_hit(float(worth[0]), at, cut, bool(worth[1]), true, knight)
 	knight.rig.bloody()
 	knight.net_blade_landed.rpc()
@@ -1545,6 +1550,74 @@ func _blade_damage(knight: Player) -> Array:
 	if knight != null and knight.profile != null:
 		return knight.cut_worth()
 	return [damage_per_hit, false]
+
+
+## How long a flinch that breaks off a move holds it (seconds): long enough
+## that the cut after is in before it can start another.
+const FLINCH := 0.42
+## How hard a blow throws its body over (radians a second, see [HitReact]): a
+## cut, a critical; through armour, this share of it.
+const FLINCH_CUT := 6.5
+const FLINCH_CRIT := 9.0
+const FLINCH_ARMOURED := 0.35
+## How long, once it has had enough and turned on him, it will strike through
+## his cuts (seconds): the counter takes that long to come in.
+const COUNTER_ARMOUR := 1.6
+var _counter_armour: float = 0.0
+
+
+## A blow has landed: its body thrown over the way the blow was going, and —
+## unless what it is in the middle of has armour — whatever it was doing broken
+## off. That is the trade: in the middle of a cut of his, its ordinary blows
+## never land; the heavy ones (the slam, the combos: see `armour` in [constant
+## MELEE]), a leap, a claw wave, and the counter it throws when it has had
+## enough, come through his cuts and hit him anyway. True if it broke off.
+func _flinch(blow: Vector3, from: Node, critical: bool) -> bool:
+	if rig == null or is_dead:
+		return false
+	var away := Vector3.ZERO
+	if from is Node3D:
+		away = global_position - (from as Node3D).global_position
+	var broke := _breaks_off()
+	var strength := FLINCH_CRIT if critical else FLINCH_CUT
+	if not broke:
+		strength *= FLINCH_ARMOURED
+	if broke:
+		# What it was doing is over: it is taken up with the blow, and no longer.
+		_break_off()
+		_busy = FLINCH
+		_swipe_timer = maxf(_swipe_timer, FLINCH)
+	net_flinch.rpc(blow, away, strength, broke)
+	return broke
+
+
+## Whether a blow landing now breaks off what it is doing.
+func _breaks_off() -> bool:
+	if _armour < 1.0 or _counter_armour > 0.0:
+		return false
+	# In the air, or gathered to leave it: the leap goes where it was going.
+	if not _flight.is_empty() or _pounce_in >= 0.0 or _pouncing:
+		return false
+	if rig.is_clawing() or rig.is_crippled() or _reeling > 0.0:
+		return false
+	return true
+
+
+## The flinch, on every peer: the body thrown over, and if it broke off what it
+## was doing, the jolt of a hit taken instead.
+@rpc("authority", "call_local", "unreliable")
+func net_flinch(along: Vector3, away: Vector3, strength: float, broke: bool) -> void:
+	if rig == null or is_dead:
+		return
+	rig.flinch(along, strength, away)
+	if broke:
+		rig.interrupt(along, FLINCH)
+
+
+## Its size against a man, for what is drawn at its wounds.
+func _size() -> float:
+	var body := get_node_or_null(^"Visuals") as Node3D
+	return clampf(body.scale.x, 0.6, 2.5) if body != null else 1.0
 
 
 ## What a blow takes off its poise; at nothing it staggers — upright, open, the
@@ -1581,6 +1654,9 @@ func _count_cut() -> void:
 	if mind != null and arms_left() == 2 and _rng.randf() < 0.65:
 		_armour = 0.3
 		_strike_until = 1.2
+		# The counter goes through whatever he is still swinging: not broken off
+		# by his next cut (see `_flinch`).
+		_counter_armour = COUNTER_ARMOUR
 		mind.counter()
 		return
 	attack(&"hop")
@@ -1598,7 +1674,7 @@ func net_sever(part: String, at: Vector3, blow: Vector3) -> void:
 	var thrown := blow
 	if thrown.length_squared() < 0.0001:
 		thrown = Vector3.UP
-	Blood.splatter(Blood.world_of(self), at, thrown.normalized())
+	Blood.splatter(Blood.world_of(self), at, thrown.normalized(), self, 1.8)
 
 
 ## Far off and at peace, on its beat with nobody within `pose_far` metres, a
@@ -1667,7 +1743,10 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
 	if rig != null:
-		rig.hitstop(0.05)
+		rig.hitstop(0.1 if critical else 0.07)
+	# Before its mind hears of it: a counter it decides on now must not be the
+	# thing this blow breaks off.
+	var broke := _flinch(blow, from, critical)
 	_take_poise(damage)
 	# Who is owed for it. Kept here rather than at the call sites: this is the
 	# one door every kind of damage comes through, and a tally that has to be
@@ -1689,12 +1768,13 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	# every peer and doing it twice on the host is a darker stain there than
 	# anywhere else.
 	if spill:
-		Blood.splatter(Blood.world_of(self), at, thrown.normalized())
-	# A critical goes in hard enough to move it.
+		Blood.splatter(Blood.world_of(self), at, thrown.normalized(), self, 1.5 if critical else 1.0)
+	# Moved by it, the way the blow was going — much less through a move with
+	# armour, which it keeps its feet through.
 	var shove := thrown
 	shove.y = 0.0
 	if shove.length_squared() > 0.0001:
-		velocity += shove.normalized() * (6.0 if critical else 4.0)
+		velocity += shove.normalized() * (6.0 if critical else 4.0) * (1.0 if broke else 0.35)
 
 	# Being shot at is a good enough reason to come and find out who did it —
 	# and if somebody else has just taken the lead, to go after them instead.

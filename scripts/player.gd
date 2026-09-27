@@ -2596,6 +2596,9 @@ func net_blade_landed() -> void:
 	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
 		return
 	_rig_says(&"blade_landed")
+	# The blow felt in the hands: his own view knocked the way the blade went.
+	if is_multiplayer_authority() and camera != null and camera.current and rig != null:
+		ImpactFx.nudge(camera, rig.swing_direction(-global_basis.z))
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies

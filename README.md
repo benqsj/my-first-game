@@ -1889,18 +1889,41 @@ It replaces a sphere and a flat, unlit green disc stamped at one height.
 
 ## Blood
 
-`scripts/blood.gd` is built entirely in code from plain meshes and unshaded
-materials — no texture to author, nothing to keep in sync with an art pass. A
-hit throws a burst of droplets along the blow, lays flat patches on the ground
-around it, and tints anything standing within `SPLATTER_RADIUS` by giving its
-meshes a red `material_overlay` — an overlay rather than a replacement, so the
-grass and stones keep their own texture and simply read as wet. The blade
-darkens as it works, a third per cut.
+`scripts/blood.gd` is built entirely in code — the images worked out a pixel at
+a time while the level loads (`Blood.prewarm`), the meshes plain quads and
+capsules — and all of it is **lit**: fresh blood is dark and glossy
+(`roughness` 0.12–0.14, a strong specular), not the flat unshaded red it used to
+be, which read as a cartoon against the dark grade.
 
-The pool shape is a soft, ragged blob generated once as an image
-(`Blood.splat_texture()`): a radial alpha falloff whose edge wanders in and out
-around the circle. That wandering edge is the whole point — a straight falloff
-still reads as the square quad it is drawn on.
+`Blood.splatter(world, point, direction, on = null, strength = 1)`, where
+`direction` is the way the blow was going (see *Blows that are felt*):
+
+* **The spray** — two pooled emitters restarted per blow (`SPRAY_POOL` pairs,
+  made at load; a new `GPUParticles3D` per hit once cost 10–25 ms): a stream of
+  46 drops thrown along the blow in a narrow fan (`THROW_SPREAD` 17°,
+  `THROW_SPEED` 2.2–6.2 m/s), each a thin capsule turned to lie along the way it
+  flies (`particle_flag_align_y`) so the arc reads as liquid rather than beads,
+  falling under gravity and shrinking away as it reaches the ground; and a puff
+  of fine mist at the wound that grows and fades in 0.4 s.
+* **The ground** — no longer nine big patches round the blow (their outline was
+  twenty straight lobes, and they read as polygons). A small pool straight
+  under the wound, after a moment, and `DROPS` (10) drops where the spray was
+  going: each worked out as one drop out of the same fan, followed down its
+  parabola to the ground, laid there stretched along the way it was moving
+  (faster, longer) and shown only when it would have got there, with a quick
+  splash of scale. Two images: the pool, a blob whose edge is noise (with a
+  darker, drier rim and a few loose drops), and the drop, a round head with its
+  tail and fine spatter thrown on ahead.
+* **The body** — with `on`, the creature takes a cut where the blade went in
+  (`Blood.wound`): a `Decal` laid along the blow, dark, bleeding down, carried
+  by the part of the body nearest (a `BoneAttachment3D`, so it moves with the
+  limb) and projecting only onto the creature's own meshes — they are put on
+  `WOUND_LAYER` (1 << 18) the first time — and only on the side the cut is on
+  (`normal_fade`). At most `MAX_WOUNDS` (7) on one creature.
+* The grass and props where most of it comes down are tinted (a clump's
+  instance colour, a prop's overlay) and dry off with the ground, 30–40 s.
+
+The blade darkens as it works, a third per cut.
 
 `Blood.world_of()` is what everything parents effects to. `current_scene` is the
 obvious answer but it is null whenever a scene was assembled by hand instead of
@@ -3982,4 +4005,48 @@ right distance, it strikes out of the run — whichever fits the gap:
 Its fight has a new tactic, **RUN_UP**: now and then it turns its back and walks
 off to 8 m, then turns and comes at a run. And closing from more than a couple
 of steps it runs, building, instead of walking.
+
+## Blows that are felt
+
+What says a cut went *in*, the way it does in a souls-like:
+
+* **It goes the way the blade was going.** Every blow used to be thrown along
+  the blade itself, hilt to point, whichever way the swing went.
+  `CharacterRig.swing_direction()` reads where a point two thirds up the blade
+  is against where it was two or three ticks ago (seen whenever a creature asks
+  for the cutting edge, which every one in reach does every tick of a swing),
+  and that is the blow now: cut from its right, a creature is shoved, bent and
+  bled to its left.
+* **The body is thrown over.** `scripts/hit_react.gd` (`HitReact`): a spring
+  laid over whatever the clips are playing. On a skeleton the spine is bent a
+  share at each joint from the hips up (the wolf: pelvis to head,
+  `WolfRig.BENDS`); a body with no bones of its own is tipped over its feet
+  (the fighters and orcs, their `Visuals`). A little under-damped, so it goes
+  over, a touch past upright on the way back, and still; blows on a body still
+  thrown over add to it, so a flurry rocks it. It runs on the real clock, so the
+  jolt goes through even while the hitstop holds the clip.
+* **Its move is broken off — unless it has armour.** `Wolf._flinch`: a blow
+  landing while the wolf is in an ordinary move (the punch, the rake, the
+  swipes) breaks it off — the claws never land, the start of the stagger (or
+  `WF_Hit_F/L/R`, once those clips are in) plays for `FLINCH` 0.42 s, and it can
+  do nothing else until that is over. So in the middle of his combo its plain
+  blows never reach him. What has armour goes through: the heavy moves (`slam`,
+  `combo3`, `combo2` — `armour` below 1 in `MELEE`), a leap, a claw wave, and
+  the counter it turns on him when it has had too many cuts too fast
+  (`_count_cut`; `COUNTER_ARMOUR` 1.6 s, long enough for the counter to come
+  in): then the body only gives a little (`FLINCH_ARMOURED`), it is barely
+  moved, and the blow lands on him anyway. `net_flinch` shows it on every peer.
+* **The swing catches.** Tariel's clip is held all but still for `bite_stop`
+  0.075 s as the blade bites (`SkinnedRig.hitstop`, his swing's clock held with
+  it), the wolf's for 0.07 s (0.1 on a critical).
+* **A streak of light where it bit** (`ImpactFx.slash`): a hot white core in a
+  red edge, laid along the swing and turned to the eye, drawn on from behind in
+  a few hundredths of a second and gone in 0.16.
+* **The view is knocked** a few centimetres the way the blade went, and eased
+  back (`ImpactFx.nudge`, his own camera only).
+* **It is heard**: under the ring of the steel, a short deep thump with a wet
+  tear over it (`ImpactFx.thud`, made in code at load).
+
+Fighters and orcs get the direction, the wound, the streak and the tipping
+over; breaking off their moves is still the wolf's alone.
 

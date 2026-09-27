@@ -213,6 +213,7 @@ func _ready() -> void:
 			_travel_out(StringName(clip))
 	_mark_claws()
 	claw = WolfClaw.new(self, _anim, _skeleton)
+	react = HitReact.on_bones(_skeleton, BENDS, BEND_SHARES)
 	_anim.play(IDLE)
 	_anim.advance(0.0)
 	_look_phase = _rng.randf() * TAU
@@ -563,6 +564,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	if _anim == null:
 		return
 	_clock += delta
+	var raw := delta
 	# A blow landing: the whole body all but stops a moment.
 	if _hitstop > 0.0:
 		_hitstop -= delta
@@ -589,6 +591,10 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	_overlay(delta)
 	if claw != null:
 		claw.overlay(delta)
+	# Thrown over by a blow, on top of everything else: on the real clock, so
+	# the jolt goes through the body even while the hitstop holds the clip.
+	if react != null and not _dead:
+		react.drive(raw)
 	if _leap_timer > 0.0:
 		_leap_timer = maxf(_leap_timer - delta, 0.0)
 		# The claws flash up as it gathers, and stay lit through the leap.
@@ -895,6 +901,47 @@ func is_holding() -> bool:
 ## A blow has landed (its or on it): a beat of stillness.
 func hitstop(seconds: float) -> void:
 	_hitstop = maxf(_hitstop, seconds)
+
+
+## The spine from the hips up, and the share of a flinch each joint takes.
+const BENDS := ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "head"]
+const BEND_SHARES := [0.2, 0.42, 0.42, 0.3, 0.26, 0.2]
+## Hit reactions, if the clips are there (Mixamo's, retargeted in Blender):
+## knocked back from the front, and thrown over to its left (by a blow from its
+## right) and to its right. Without them the start of the stagger stands in.
+const HIT_FRONT := &"WF_Hit_F"
+const HIT_LEFT := &"WF_Hit_L"
+const HIT_RIGHT := &"WF_Hit_R"
+## Bent by blows: see [HitReact].
+var react: HitReact
+
+
+## A blow going `along` has landed: the body thrown over with it.
+func flinch(along: Vector3, strength: float, away: Vector3 = Vector3.ZERO) -> void:
+	if react != null and not _dead:
+		react.strike(along, strength, away)
+
+
+## What it was doing broken off by a blow going `along`: the jolt of a hit taken,
+## for `length` seconds — the clip for the side it came from, if there is one.
+func interrupt(along: Vector3, length: float) -> void:
+	if _anim == null or _dead:
+		return
+	var body := get_parent() as Node3D
+	var clip := StringName()
+	if body != null:
+		# Which side it is thrown to, in its own terms: a cut going to its left
+		# came from its right.
+		var local := body.global_basis.inverse() * along
+		if absf(local.x) > absf(local.z) * 0.6:
+			clip = HIT_LEFT if local.x < 0.0 else HIT_RIGHT
+		else:
+			clip = HIT_FRONT
+	if clip != StringName() and _anim.has_animation(clip):
+		var clip_len := _anim.get_animation(clip).length
+		_move(clip, length, clip_len / maxf(length * 1.6, 0.1))
+	else:
+		_move(STAGGER, length, 1.35)
 #endregion
 
 

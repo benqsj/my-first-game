@@ -892,7 +892,54 @@ func blade_points() -> PackedVector3Array:
 func get_cutting_edge() -> PackedVector3Array:
 	if not _attack_cutting or _blade_base == null or _blade_tip == null:
 		return PackedVector3Array()
+	_see_blade()
 	return PackedVector3Array([_blade_base.global_position, _blade_tip.global_position])
+
+
+## Where the blade has been the last few physics ticks: [tick, a point two
+## thirds of the way up it]. Seen whenever something asks where the edge is —
+## every creature in reach does, every tick of a swing — so it is there to be
+## read back the moment one of them is cut.
+var _blade_seen: Array = []
+
+
+func _see_blade() -> void:
+	if _blade_base == null or _blade_tip == null:
+		return
+	var tick := Engine.get_physics_frames()
+	if not _blade_seen.is_empty() and int(_blade_seen[_blade_seen.size() - 1][0]) == tick:
+		return
+	_blade_seen.append([tick, _blade_base.global_position.lerp(_blade_tip.global_position, 0.66)])
+	while _blade_seen.size() > 6:
+		_blade_seen.pop_front()
+
+
+## Which way the blade is going now (unit length): where it is against where it
+## was two or three ticks ago. What a cut is thrown along — a blow from the
+## right sends the body, and its blood, to the left. `fallback` when it has not
+## been seen moving.
+func swing_direction(fallback: Vector3 = Vector3.ZERO) -> Vector3:
+	_see_blade()
+	if _blade_seen.size() < 2:
+		return fallback
+	var now: Array = _blade_seen[_blade_seen.size() - 1]
+	for i in range(_blade_seen.size() - 2, -1, -1):
+		var then: Array = _blade_seen[i]
+		var ticks := int(now[0]) - int(then[0])
+		if ticks > 6:
+			break
+		if ticks >= 3 or i == 0:
+			var moved: Vector3 = (now[1] as Vector3) - (then[1] as Vector3)
+			if moved.length() > 0.02:
+				return moved.normalized()
+			break
+	return fallback
+
+
+## A beat of stillness in the swing as it bites. The procedural rig has no clip
+## to hold; [SkinnedRig] does.
+func hitstop(_seconds: float) -> void:
+	pass
 
 
 ## Starts a forward somersault lasting `duration` seconds. Called by the

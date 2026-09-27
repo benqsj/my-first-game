@@ -237,6 +237,7 @@ func _after_act_rest() -> float:
 
 
 func _process(delta: float) -> void:
+	_drive_flinch(delta)
 	if not is_dead:
 		_health_bar.global_position = global_position + Vector3.UP * bar_height
 		_health_bar.set_fraction(health / maxf(max_health, 0.001))
@@ -559,11 +560,13 @@ func _watch_blades() -> void:
 		if near[0].distance_to(near[1]) > body_radius + hit_tolerance:
 			continue
 		_last_cut[knight.name] = serial
-		var blow := (edge[1] - edge[0]).normalized() + Vector3.UP * 0.3
+		# Thrown the way the blade was going: cut from its right, it goes left.
+		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.3)
 		var worth := knight.cut_worth()
 		if bool(worth[1]):
 			CombatText.mark_critical(self)
 		if _receive(float(worth[0]), near[1], blow, knight):
+			ImpactFx.slash(Blood.world_of(self), near[1], blow, visual_scale, bool(worth[1]))
 			knight.rig.bloody()
 			knight.net_blade_landed.rpc()
 			knight.blade_hit(self, near[1])
@@ -647,7 +650,33 @@ func _react(kind: StringName) -> void:
 
 @rpc("authority", "call_local", "unreliable")
 func net_bleed(at: Vector3, blow: Vector3) -> void:
-	Blood.splatter(Blood.world_of(self), at, blow)
+	Blood.splatter(Blood.world_of(self), at, blow, self)
+	_flinch_body(blow)
+
+
+## Tipped over by blows ([HitReact]): made at the first one, so the pose it
+## springs back to is the one the body really has.
+var _hit_react: HitReact
+## How hard a cut throws it over (radians a second).
+const FLINCH_THROW := 4.2
+
+
+func _flinch_body(blow: Vector3) -> void:
+	if is_dead or body == null:
+		return
+	if _hit_react == null:
+		_hit_react = HitReact.on_body(body)
+	_hit_react.strike(blow, FLINCH_THROW)
+
+
+func _drive_flinch(delta: float) -> void:
+	if _hit_react == null:
+		return
+	if is_dead:
+		_hit_react.settle()
+		_hit_react = null
+		return
+	_hit_react.drive(delta)
 
 
 @rpc("authority", "call_local", "unreliable")
