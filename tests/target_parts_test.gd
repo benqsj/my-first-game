@@ -50,15 +50,51 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 	var marker := player.find_child("TargetMarker", true, false) as TargetMarker
-	_check("the mark is a third of what it was", marker != null and marker.size < 0.035, "")
+	_check("the mark is smaller still", marker != null and marker.size < 0.025, "")
 	if marker != null:
 		for i in 30:
 			await process_frame
 		_check("and it sits on the part the lock is on",
 				marker.global_position.distance_to(TargetPoints.of(big)[0]) < 0.3,
 				"%.2f m off" % marker.global_position.distance_to(TargetPoints.of(big)[0]))
+	await _retarget_on_kill(player)
 	print("target_parts_test: %s" % ("PASS" if _failures == 0 else "%d FAILED" % _failures))
 	quit(_failures)
+
+
+## Three wolves round him, the lock on one: killed, the lock goes on to the
+## one that stood nearest it, not to the one nearest him.
+func _retarget_on_kill(player: Player) -> void:
+	var wolves: Array[Wolf] = []
+	for e in get_nodes_in_group_sorted("enemy"):
+		if e is Wolf and wolves.size() < 3:
+			wolves.append(e)
+	for node in get_nodes_in_group("enemy"):
+		(node as Node).set_physics_process(false)
+		# Everything else well out of reach, under the ground.
+		if not (node is Wolf and wolves.has(node as Wolf)):
+			(node as Node3D).global_position += Vector3(0.0, -120.0, 0.0)
+	_check("three wolves to fight", wolves.size() == 3, "%d" % wolves.size())
+	if wolves.size() < 3:
+		return
+	var at := player.global_position
+	wolves[0].global_position = at + Vector3(0.0, 0.0, -6.0)
+	wolves[1].global_position = at + Vector3(4.0, 0.0, -7.5)
+	wolves[2].global_position = at + Vector3(-2.5, 0.0, -2.0)
+	await physics_frame
+	player.call("_hold_target", wolves[0])
+	await physics_frame
+	wolves[0].call("_die")
+	for i in 3:
+		await physics_frame
+	_check("killed, the lock goes on to the one that stood nearest it",
+			player.target == wolves[1], str(player.target.name if player.target != null else "none"))
+	wolves[1].call("_die")
+	wolves[2].global_position = at + Vector3(0.0, 0.0, -60.0)
+	for i in 3:
+		await physics_frame
+	_check("with none left in reach it lets go", player.target == null,
+			str(player.target.name if player.target != null else "none"))
 
 
 func get_nodes_in_group_sorted(group: String) -> Array[Node]:

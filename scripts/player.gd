@@ -1866,6 +1866,7 @@ func _toggle_lock() -> void:
 
 func _hold_target(who: Node3D) -> void:
 	target = who
+	_last_target_at = who.global_position
 	target_part = TargetPoints.default_index(who)
 	_flick_up = 0.0
 	_show_marker()
@@ -1989,14 +1990,46 @@ func _aim_point(who: Node3D) -> Vector3:
 	return points[TargetPoints.default_index(who)]
 
 
+## Where the held target last stood alive.
+var _last_target_at := Vector3.ZERO
+
+
+## Of the enemies that can be locked, the nearest to `spot`, within lock range
+## of him; null if there are none.
+func _nearest_to(spot: Vector3) -> Node3D:
+	var best: Node3D = null
+	var closest := INF
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or who == target or not _targetable(who):
+			continue
+		if global_position.distance_to(who.global_position) > lock_range:
+			continue
+		var gap := spot.distance_squared_to(who.global_position)
+		if gap < closest:
+			closest = gap
+			best = who
+	return best
+
+
 ## Keeps the camera on the target and lets go when there is nothing left to hold.
 func _track_target(delta: float) -> void:
 	if target == null:
 		return
-	if not _targetable(target) \
-			or global_position.distance_to(target.global_position) > lock_break_range:
+	if not _targetable(target):
+		# Killed (or gone): straight on to whichever of the rest stood nearest
+		# it, so a fight with a pack does not need the lock taken again after
+		# every kill. Only if there is one in reach; otherwise let go.
+		var next := _nearest_to(_last_target_at)
+		if next != null:
+			_hold_target(next)
+			return
 		_drop_target()
 		return
+	if global_position.distance_to(target.global_position) > lock_break_range:
+		_drop_target()
+		return
+	_last_target_at = target.global_position
 	_show_marker()
 
 	# The camera is swung round rather than snapped: a lock that jumps the view

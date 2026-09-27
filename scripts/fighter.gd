@@ -687,7 +687,7 @@ var _react_seg: int = -1
 
 
 ## A hero's skill landed on it (host). Thrown back and down by the Piercing
-## Arrow; flailing in fire; retching on poison; the mark only makes it reel.
+## Arrow; flailing in fire; retching on poison; the mark is only laid on.
 ## The same kind does not set it off again for 5 s.
 func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
 	if is_dead or not _decides():
@@ -703,9 +703,6 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 	match kind:
 		&"knock":
 			_start(Act.REACT_KNOCK)
-		&"mark":
-			if act == Act.NONE:
-				_start(Act.REEL)
 		&"burn":
 			if act == Act.NONE or act == Act.BLOCK:
 				_start(Act.REACT_BURN)

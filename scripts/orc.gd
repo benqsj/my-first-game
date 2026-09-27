@@ -58,7 +58,8 @@ const REACTS := {
 	Act.REACT_POISON: [[&"RX_Injured_Stumble", 1.0, 0.45]],
 }
 const REACT_OF := {
-	&"mark": Act.REACT_MARK, &"knock": Act.REACT_KNOCK, &"burn": Act.REACT_BURN,
+	# The hunter's mark is only laid on: no reaction to it (the user's call).
+	&"knock": Act.REACT_KNOCK, &"burn": Act.REACT_BURN,
 	&"poison": Act.REACT_POISON,
 }
 

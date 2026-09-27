@@ -342,7 +342,7 @@ func _draw(_delta: float) -> void:
 				_overhead.look_at(to, Vector3.UP)
 		if _sigil != null and _sigil.visible:
 			_sigil.rotation.z = _clock * 0.9
-			var breathe := 1.0 + 0.06 * sin(_clock * 3.2)
+			var breathe := (1.0 + 0.06 * sin(_clock * 3.2)) * SIGIL_SCALE
 			_sigil.scale = _sigil.scale.lerp(Vector3.ONE * breathe, 0.12)
 	if _fire_light != null and _fire_light.visible:
 		_fire_light.light_energy = 2.2 + 0.6 * sin(_clock * 13.0) + 0.4 * sin(_clock * 7.3)
@@ -371,6 +371,11 @@ func _show_overhead(on: bool) -> void:
 	_overhead.scale = Vector3.ONE * _size() * 0.8
 
 
+## The hunter's sigil against the rest of what hangs over the head: smaller, so
+## it says *marked* without sitting over the creature like a hat.
+const SIGIL_SCALE := 0.7
+
+
 func _pop_sigil() -> void:
 	_show_overhead(true)
 	if _sigil == null:
@@ -379,13 +384,13 @@ func _pop_sigil() -> void:
 	_sigil.visible = true
 	_sigil.scale = Vector3.ONE * 0.05
 	var tw := _sigil.create_tween()
-	tw.tween_property(_sigil, "scale", Vector3.ONE * 1.3, 0.14).set_ease(Tween.EASE_OUT)
-	tw.tween_property(_sigil, "scale", Vector3.ONE * 0.95, 0.12)
-	tw.tween_property(_sigil, "scale", Vector3.ONE, 0.1)
+	tw.tween_property(_sigil, "scale", Vector3.ONE * 1.3 * SIGIL_SCALE, 0.14).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_sigil, "scale", Vector3.ONE * 0.95 * SIGIL_SCALE, 0.12)
+	tw.tween_property(_sigil, "scale", Vector3.ONE * SIGIL_SCALE, 0.1)
 	var into := Blood.world_of(_creature)
 	if into != null:
 		var at := _over_head()
-		SkillFx.ring(into, at, _overhead.global_basis.z, GOLD, 0.4 * _size(), 1.6 * _size(), 0.4, 0.04, 2.5)
+		SkillFx.ring(into, at, _overhead.global_basis.z, GOLD, 0.4 * _size() * SIGIL_SCALE, 1.6 * _size() * SIGIL_SCALE, 0.4, 0.04, 2.5)
 
 
 ## The hunter's mark: a ring, four arrowheads pointing in, a ring of ticks
