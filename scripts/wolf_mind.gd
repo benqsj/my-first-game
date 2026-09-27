@@ -13,6 +13,12 @@ extends RefCounted
 ## * **WAIT** — …and holding there a moment, watching, before it comes again —
 ##   often all at once, in a pounce from out of reach. It never runs away for
 ##   good: however hurt it is, it comes back.
+## * **RUN_UP** — it turns and walks off a way, then turns and comes at him at
+##   a run that builds, striking out of it: a spinning rake of both claws, a
+##   leap into a two-handed smash, or the pounce.
+##
+## Closing from further off than a step or two it runs rather than walks, and
+## the run builds the longer it goes; fast enough, it strikes out of it.
 ##
 ## And whatever it is doing, it **watches his blade**: when he starts a swing and
 ## it is within reach, it may throw itself aside (a dodge, left or right) or hop
@@ -49,7 +55,7 @@ extends RefCounted
 ##
 ## Hurt, it grows careful: it backs off more and dodges more — and comes back.
 
-enum Tactic { CLOSE, STRIKE, CIRCLE, RETREAT, WAIT }
+enum Tactic { CLOSE, STRIKE, CIRCLE, RETREAT, WAIT, RUN_UP }
 
 ## At most this many wolves go at one player together; the rest of the pack
 ## circles and waits its turn (only wolves with the wit to).
@@ -74,6 +80,9 @@ var _swing_reacted: bool = true
 var _caution: float = 0.0
 var _clock: float = 0.0
 var _quarry: Node3D
+## The combo it is closing in to throw: chosen as it comes in, so it comes in
+## to the distance that combo's first blow is thrown from.
+var _next: Array[StringName] = []
 
 
 func _init(owner: Wolf, wit: float) -> void:
@@ -98,6 +107,15 @@ func combo_max() -> int:
 
 func ring() -> float:
 	return lerpf(2.2, 3.0, intellect)
+
+
+## How far it walks off before it turns to come back at a run: short of
+## where it would give up the fight ([method Wolf.fight_from]).
+const RUN_UP_TO := 8.3
+
+
+func run_up_chance() -> float:
+	return 0.22 + 0.18 * intellect
 
 
 func retreat_chance() -> float:
@@ -169,8 +187,12 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 		Tactic.CLOSE:
 			if not _take_turn(quarry):
 				_begin(Tactic.CIRCLE)
-			elif gap <= wolf.strike_range():
+			elif gap <= _opening_reach():
 				_begin(Tactic.STRIKE)
+			elif wolf.try_run_attack(gap):
+				_begin(Tactic.WAIT)
+			elif gap > wolf.strike_range() + 1.8 or wolf.is_running():
+				wolf.charge_at(towards, delta)
 			else:
 				wolf.run_at(towards, delta)
 		Tactic.STRIKE:
@@ -180,7 +202,7 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 				_after_combo()
 			elif _gap <= 0.0:
 				var move: StringName = _combo.pop_front()
-				if move != &"pounce" and move != &"hop" and move != &"claw_wave" and gap > wolf.strike_range() + 0.8:
+				if move != &"pounce" and move != &"hop" and move != &"claw_wave" and gap > wolf.reach_of(move) + 0.8:
 					# He got away between blows: after him.
 					_combo.push_front(move)
 					_begin(Tactic.CLOSE)
@@ -205,6 +227,20 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 			wolf.hold(delta)
 			if _left <= 0.0:
 				_next_from_range(gap)
+		Tactic.RUN_UP:
+			# Off a way at a walk, its back to him; then round and at him.
+			if gap < RUN_UP_TO and _left > 0.0:
+				wolf.run_at(-towards, delta)
+			else:
+				_begin(Tactic.CLOSE)
+
+
+## How close it closes before it throws what it means to: the reach of the
+## first blow of the combo it has in mind ([method Wolf.reach_of]).
+func _opening_reach() -> float:
+	if _next.is_empty():
+		_next = _choose_combo()
+	return wolf.reach_of(_next[0])
 
 
 ## With a leg gone: down on its belly, dragging itself at him, and when it is
@@ -228,8 +264,11 @@ func _begin(what: int) -> void:
 		_release()
 	tactic = what
 	match what:
+		Tactic.CLOSE:
+			_next = _choose_combo()
 		Tactic.STRIKE:
-			_set_combo(_choose_combo())
+			_set_combo(_next if not _next.is_empty() else _choose_combo())
+			_next = []
 			_gap = 0.0
 		Tactic.CIRCLE:
 			_left = _rng.randf_range(0.5, 0.9 + 0.8 * intellect)
@@ -242,6 +281,8 @@ func _begin(what: int) -> void:
 				wolf.attack(&"hop")
 		Tactic.WAIT:
 			_left = _rng.randf_range(0.3, 1.0) * lerpf(1.0, 0.6, intellect)
+		Tactic.RUN_UP:
+			_left = _rng.randf_range(2.0, 3.2)
 
 
 ## A combo from what it has left, as long as its wit allows.
@@ -315,6 +356,10 @@ func _next_from_range(gap: float) -> void:
 		tactic = Tactic.STRIKE
 		_set_combo([&"claw_wave"])
 		_gap = 0.0
+		return
+	# Off a way, to come back at a run.
+	if wolf.arms_left() == 2 and wolf.can_leap() and _rng.randf() < run_up_chance():
+		_begin(Tactic.RUN_UP)
 		return
 	if gap > wolf.strike_range() + 0.6 and gap < wolf.pounce_range() and wolf.arms_left() == 2 \
 			and _rng.randf() < 0.15 + 0.2 * intellect:

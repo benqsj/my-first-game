@@ -46,6 +46,7 @@ func _initialize() -> void:
 	await _missiles(BOLT, 42.0, "the mage's bolts")
 	await _bolt_shaken_off()
 	await _run_and_leap()
+	await _mark_only()
 	_finish()
 
 
@@ -121,47 +122,76 @@ func _bolt_shaken_off() -> void:
 			missed += 1
 		if is_instance_valid(bolt):
 			bolt.queue_free()
+	wolf.charge_speed = 6.4
 	_check("a bolt it throws itself aside from does not come round after it", missed >= 5, "%d of 6 missed" % missed)
 	_park(wolf)
 
 
-## On all fours after him from 20 m: fast, and the run ends in a leap that
-## lands on him.
+## After him from 20 m, on all fours and upright: the run builds — slow off
+## the mark, flat out after a couple of seconds — and ends in a blow struck out
+## of it (a spinning rake, a leaping smash, or the pounce) that lands on him.
 func _run_and_leap() -> void:
-	var wolf: Wolf = null
-	for w in _wolves:
-		if w.rig.gait > 0.5:
-			wolf = w
-			break
-	_check("there is a wolf that goes on all fours", wolf != null)
-	if wolf == null:
-		return
+	for fours in [true, false]:
+		var wolf: Wolf = null
+		for w in _wolves:
+			if (w.rig.gait > 0.5) == fours:
+				wolf = w
+				break
+		var how := "on all fours" if fours else "upright"
+		_check("there is a wolf that goes %s" % how, wolf != null)
+		if wolf == null:
+			continue
+		_set_wit(wolf, 0.6)
+		_reset_player(_spot)
+		_bring(wolf, _spot + Vector3(0.0, 0.0, -24.0))
+		wolf._run_for = 0.0
+		_struck.clear()
+		var fastest := 0.0
+		var early := 0.0
+		var struck_out := ""
+		var struck_from := 0.0
+		var highest := 0.0
+		var ground_y := wolf.global_position.y
+		for i in 60 * 7:
+			await physics_frame
+			_hold_player()
+			var planar := Vector3(wolf.velocity.x, 0.0, wolf.velocity.z).length()
+			if i == 20:
+				early = planar
+			if struck_out == "":
+				fastest = maxf(fastest, planar)
+				var clip := String(wolf.rig._anim.current_animation)
+				if wolf.is_leaping() or clip == "WF_RunSpin" or clip == "WF_RunAxe":
+					struck_out = "leap" if clip == "WF_Pounce" else clip
+					struck_from = wolf.global_position.distance_to(_player.global_position)
+			else:
+				highest = maxf(highest, wolf.global_position.y - ground_y)
+			if struck_out != "" and not _struck.is_empty():
+				break
+		_check("%s the run builds: slow off the mark" % how, early < 7.0, "%.1f m/s" % early)
+		_check("and flat out, fast", fastest > 8.5, "%.1f m/s" % fastest)
+		_check("and it strikes out of the run", struck_out != "" and struck_from > 2.0,
+				"%s from %.1f m" % [struck_out, struck_from])
+		if struck_out != "WF_RunSpin":
+			_check("off the ground", highest > 0.4, "%.2f m up" % highest)
+		_check("its claws landing on him", not _struck.is_empty(), str(_struck))
+		_park(wolf)
+
+
+## The hunter's mark is only laid on: it does not stagger or stop.
+func _mark_only() -> void:
+	var wolf := _wolves[0]
 	_set_wit(wolf, 0.6)
 	_reset_player(_spot)
-	_bring(wolf, _spot + Vector3(0.0, 0.0, -20.0))
-	_struck.clear()
-	var fastest := 0.0
-	var leapt := false
-	var leapt_from := 0.0
-	var highest := 0.0
-	var ground_y := wolf.global_position.y
-	for i in 60 * 6:
-		await physics_frame
-		_hold_player()
-		var planar := Vector3(wolf.velocity.x, 0.0, wolf.velocity.z).length()
-		if not leapt:
-			fastest = maxf(fastest, planar)
-		if wolf.is_leaping() and not leapt:
-			leapt = true
-			leapt_from = wolf.global_position.distance_to(_player.global_position)
-		if leapt:
-			highest = maxf(highest, wolf.global_position.y - ground_y)
-		if leapt and not _struck.is_empty():
-			break
-	_check("on all fours it runs him down fast", fastest > 7.5, "%.1f m/s" % fastest)
-	_check("and ends the run with a leap", leapt and leapt_from > 2.5, "from %.1f m" % leapt_from)
-	_check("off the ground", highest > 0.4, "%.2f m up" % highest)
-	_check("its claws landing on him", not _struck.is_empty(), str(_struck))
+	_bring(wolf, _spot + Vector3(0.0, 0.0, -15.0))
+	await _wait(30)
+	var before := Vector3(wolf.velocity.x, 0.0, wolf.velocity.z).length()
+	wolf.react(&"mark", _player)
+	await _wait(10)
+	var after := Vector3(wolf.velocity.x, 0.0, wolf.velocity.z).length()
+	_check("the mark does not make it reel", wolf._reeling <= 0.0 and not wolf.rig.is_acting(),
+			"reel %.2f" % wolf._reeling)
+	_check("nor slow it", after >= before * 0.9, "%.1f -> %.1f m/s" % [before, after])
 	_park(wolf)
 
 

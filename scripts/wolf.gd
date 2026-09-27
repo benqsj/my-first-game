@@ -196,6 +196,34 @@ var _pouncing: bool = false
 @export var run_leap_flight: float = 0.65
 @export var run_leap_cooldown: float = 4.0
 var _leap_wait: float = 0.0
+
+@export_group("Running")
+## A run builds: off at `run_start_speed`, and after `run_build` seconds of it
+## flat out at `sprint_speed` (on all fours, `sprint_speed_on_fours`).
+@export var run_start_speed: float = 4.8
+@export var sprint_speed: float = 10.0
+@export var sprint_speed_on_fours: float = 12.5
+@export var run_build: float = 2.2
+## How fast it has to be going before it strikes out of the run.
+@export var run_strike_speed: float = 5.0
+## How long it has been running, for the build.
+var _run_for: float = 0.0
+var _charged: bool = false
+var _top_speed: float = 10.0
+## A running blow's path stretched (or shortened) to meet him: this much, until
+## `_ride_warp_until` seconds into it.
+var _ride_warp: float = 1.0
+var _ride_warp_until: float = -1.0
+
+## Blows struck out of a run ([method try_run_attack]): the clip, the part of
+## it played, its blows (clip time), their weight against `swipe_damage`, and
+## whether one knocks a man down.
+const RUN_STRIKES := {
+	&"run_spin": {"clip": WolfRig.RUN_SPIN, "from": 0.12, "to": 1.75, "hits": [0.68, 1.0],
+			"damage": 0.75, "heavy": false},
+	&"run_axe": {"clip": WolfRig.RUN_AXE, "from": 0.6, "to": 2.45, "hits": [1.62],
+			"damage": 1.3, "heavy": true},
+}
 ## A leap under way, carried along its clip's own throw ([method WolfRig.carry]):
 ## where it left the ground, which way it faces, how far the throw is stretched
 ## to land on him; empty when not in the air.
@@ -318,6 +346,7 @@ func _ready() -> void:
 		if rig.gait > 0.5:
 			prowl_speed *= 0.75
 			charge_speed = charge_speed_on_fours
+		_top_speed = sprint_speed_on_fours if rig.gait > 0.5 else sprint_speed
 	_bar = HealthBar.new()
 	_bar.position = Vector3(0.0, bar_height, 0.0)
 	# Kept out of the body's rotation so it never turns edge-on to the camera.
@@ -370,8 +399,12 @@ func _physics_process(delta: float) -> void:
 			_land_swipe()
 			_pouncing = false
 
+	_charged = false
 	_think(delta)
 	_fly(delta)
+	_ride(delta)
+	if not _charged:
+		_run_for = maxf(_run_for - 3.0 * delta, 0.0)
 	# Up a kerb or a stair rather than into it. A hunter that loses you to six
 	# greybox steps is not hunting you.
 	StepUp.climb(self, delta, step_height, step_probe)
@@ -506,10 +539,10 @@ func _think(delta: float) -> void:
 			if distance > lose_range and (_provoked <= 0.0 or distance > 90.0):
 				state = State.PROWL
 				_pick_prowl_target()
-			elif _can_run_leap(distance):
-				# Nearly on him at a run: straight on at him through the air.
-				attack(&"run_leap")
-			elif distance < fight_from():
+			elif try_run_attack(distance):
+				# Nearly on him at a run: a blow out of it, or a leap.
+				pass
+			elif distance < fight_from() and not (_run_attack_ready() and distance > 2.6):
 				state = State.FIGHT
 				_fighting = quarry
 				mind.engage(quarry)
@@ -523,9 +556,10 @@ func _think(delta: float) -> void:
 				# Thrown aside out of a missile's way: let it carry.
 				elif _burst <= 0.0:
 					_slow(delta)
+			elif rig.is_crippled():
+				_move_towards(global_position + to_player, crawl_speed, delta)
 			else:
-				_move_towards(global_position + to_player,
-						crawl_speed if rig.is_crippled() else charge_speed, delta)
+				charge_at(to_player, delta)
 		State.FLEE:
 			# Nothing left to fight with: get away and stay away.
 			if quarry != null:
@@ -543,12 +577,8 @@ func _think(delta: float) -> void:
 				# of its own lets it come to a stop.
 				if _busy > 0.0 and _burst <= 0.0 and not rig.is_swiping():
 					_slow(delta)
-				# Into the swipe it steps up, so the claws come through where
-				# he stands rather than short of him.
-				if (rig.is_swiping() or rig.is_striking() and not rig.is_holding()) and distance > claw_reach:
-					var step := to_player.normalized() * minf((distance - claw_reach) * 4.0, charge_speed)
-					velocity.x = step.x
-					velocity.z = step.z
+				# No step in under a blow any more: the body goes where the
+				# clip's own feet take it ([method _ride]), or nowhere.
 
 
 #region Missiles
@@ -617,6 +647,31 @@ func strike_range() -> float:
 	return claw_reach + 0.45
 
 
+## From how far `move` is thrown so that its own steps in bring it chest to
+## chest with him as the first blow lands — no further (it would come up
+## short and tread air), no nearer (it would tread on the spot against him).
+func reach_of(move: StringName) -> float:
+	if rig == null:
+		return strike_range()
+	var clip := &""
+	var from := 0.0
+	var hit := -1.0
+	if MELEE.has(move):
+		clip = MELEE[move]["clip"]
+		from = MELEE[move]["from"]
+		hit = (MELEE[move]["hits"] as Array)[0]
+	elif move == &"swipe":
+		clip = WolfRig.SWIPE_L
+		from = maxf(rig.strike_time(clip) - rig.swipe_duration * rig.swipe_windup, 0.0)
+	elif move == &"bite":
+		clip = WolfRig.BITE
+		from = maxf(rig.strike_time(clip) - 0.4, 0.0)
+	else:
+		return strike_range()
+	var on := -rig.travel_between(clip, from, hit if hit >= 0.0 else rig.strike_time(clip)).z
+	return maxf(strike_range(), CONTACT + on)
+
+
 ## From how far a pounce carries it on to him.
 func pounce_range() -> float:
 	return 5.6
@@ -638,15 +693,6 @@ func is_busy() -> bool:
 ## it flies on straight instead of coming round after it ([SpellBolt]).
 func is_evading() -> bool:
 	return _evading > 0.0 or _slipping > 0.0
-
-
-## A run ending in a leap: at a run, nearly on him, the wait since the last
-## one over, legs under it and a paw to strike with.
-func _can_run_leap(distance: float) -> bool:
-	if _leap_wait > 0.0 or _busy > 0.0 or not can_leap() or arms_left() == 0 or rig.is_clawing():
-		return false
-	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
-	return planar > 5.0 and distance >= run_leap_range.x and distance <= run_leap_range.y
 
 
 ## Through the air along the leap its clip makes: the clip's throw off the
@@ -761,6 +807,191 @@ func run_at(direction: Vector3, delta: float) -> void:
 	_move_towards(global_position + direction, fight_speed, delta)
 
 
+## At a run, and faster the longer it runs: off at `run_start_speed`, up to
+## its sprint after `run_build` seconds.
+func charge_at(direction: Vector3, delta: float) -> void:
+	if charge_speed <= 0.0:
+		# Told not to charge (a test holding it where it is).
+		_slow(delta)
+		return
+	_charged = true
+	_run_for += delta
+	var speed := lerpf(run_start_speed, _top_speed, smoothstep(0.0, 1.0, _run_for / maxf(run_build, 0.01)))
+	_move_towards(global_position + direction, speed, delta)
+	# Held up (scenery, a turn): the run starts over.
+	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
+	if planar < run_start_speed * 0.5:
+		_run_for = minf(_run_for, 0.3)
+
+
+## Whatever move is playing carries the body exactly as far as the clip's own
+## feet go ([method WolfRig.ride]) — a stagger stumbles back, a combo steps in,
+## a blow thrown standing stays standing. Nothing skates.
+func _ride(delta: float) -> void:
+	if rig == null or is_dead or not _flight.is_empty():
+		return
+	var along: Variant = rig.ride()
+	if along == null:
+		_ride_warp_until = -1.0
+		_ride_clip = &""
+		return
+	var clip := StringName(rig.playing())
+	if clip != _ride_clip:
+		_ride_clip = clip
+		_ride_short = _short_of_him(clip)
+	var warp := _ride_short
+	if _ride_warp_until > 0.0:
+		_ride_warp_until -= delta
+		warp = _ride_warp
+	var world: Vector3 = global_transform.basis.orthonormalized() * (along as Vector3) * warp
+	velocity.x = world.x
+	velocity.z = world.z
+
+
+## Going at a run (building one or flat out).
+func is_running() -> bool:
+	return _run_for > 0.0 and Vector3(velocity.x, 0.0, velocity.z).length() > rig.run_from
+
+
+var _ride_clip: StringName = &""
+var _ride_short: float = 1.0
+## Chest to chest with him: closer than this a move's steps in would only
+## shove against him, feet treading on the spot.
+const CONTACT := 1.15
+
+
+## How much of a move's own step towards him it takes, so that it stops
+## chest to chest rather than stepping on into him: all of it when there is
+## room, less when he is close, none when it is already on him.
+func _short_of_him(clip: StringName) -> float:
+	var quarry := _quarry()
+	if quarry == null or rig == null:
+		return 1.0
+	var to := quarry.global_position - global_position
+	to.y = 0.0
+	var gap := to.length()
+	if gap < 0.01:
+		return 0.0
+	var now := rig.playing_position()
+	var ahead := global_transform.basis.orthonormalized() * rig.travel_between(clip, now, now + 10.0)
+	var towards := ahead.dot(to / gap)
+	if towards < 0.2:
+		return 1.0
+	return clampf((gap - CONTACT) / towards, 0.0, 1.0)
+
+
+## Fast enough, legs and a paw under it, and the wait since the last one over.
+func _run_attack_ready() -> bool:
+	if _leap_wait > 0.0 or _busy > 0.0 or not can_leap() or arms_left() == 0 or rig.is_clawing():
+		return false
+	return Vector3(velocity.x, 0.0, velocity.z).length() >= run_strike_speed
+
+
+## Out of a run, at `distance` from him: whichever of its running blows fits
+## that distance (the spinning rake, the leaping smash, the pounce), if any.
+func try_run_attack(distance: float) -> bool:
+	if not _run_attack_ready():
+		return false
+	var fits: Array[StringName] = []
+	if distance >= run_leap_range.x and distance <= run_leap_range.y:
+		fits.append(&"run_leap")
+	for move: StringName in RUN_STRIKES:
+		var window := run_window(move)
+		if distance >= window.x and distance <= window.y:
+			fits.append(move)
+			if move == &"run_spin":
+				fits.append(move)
+	if fits.is_empty():
+		return false
+	attack(fits[_rng.randi() % fits.size()])
+	return true
+
+
+## How far off it can be for a running blow to land: the clip's travel to its
+## first blow, stretched from three quarters to half as much again, plus the
+## claws' reach; for the smash, the run up to its leap and the leap stretched.
+func run_window(move: StringName) -> Vector2:
+	var spec: Dictionary = RUN_STRIKES[move]
+	var clip: StringName = spec["clip"]
+	var from: float = spec["from"]
+	var hit: float = (spec["hits"] as Array)[0]
+	if rig == null or not rig.has_clip(clip):
+		return Vector2(INF, -INF)
+	var throw: Dictionary = rig.throw_of(clip)
+	if throw.is_empty():
+		var d := rig.travel_between(clip, from, hit).length()
+		return Vector2(claw_reach + 0.75 * d, claw_reach + 1.5 * d)
+	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
+	var run_up := planar * maxf(float(throw["off"]) - from, 0.0) / _run_rate(clip, from)
+	var reach := rig.travel_between(clip, float(throw["off"]), float(throw["land"])).length()
+	return Vector2(run_up + LAND_SHORT + 0.6 * reach, run_up + LAND_SHORT + 1.8 * reach)
+
+
+## How fast a running blow's clip is played: its run-in matched to the run
+## it comes out of, within reason.
+func _run_rate(clip: StringName, from: float) -> float:
+	var clip_speed := rig.travel_between(clip, from, from + 0.2).length() / 0.2
+	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
+	return clampf(planar / maxf(clip_speed, 0.5), 1.0, 1.5)
+
+
+func _run_strike(move: StringName) -> void:
+	var spec: Dictionary = RUN_STRIKES[move]
+	var clip: StringName = spec["clip"]
+	var from: float = spec["from"]
+	var hits: Array = spec["hits"]
+	var rate := _run_rate(clip, from)
+	var length := (float(spec["to"]) - from) / rate
+	_swipe_count += 1
+	_break_off()
+	_leap_wait = run_leap_cooldown
+	_busy = length
+	_strike_until = length
+	_armour = 0.7
+	var heavy := bool(spec["heavy"])
+	var throw: Dictionary = rig.throw_of(clip)
+	if throw.is_empty():
+		# On the ground: its path stretched to bring the first blow onto him.
+		var quarry := _quarry()
+		var d := rig.travel_between(clip, from, float(hits[0])).length()
+		if quarry != null and d > 0.1:
+			var gap := Vector3(quarry.global_position.x - global_position.x, 0.0,
+					quarry.global_position.z - global_position.z).length()
+			_ride_warp = clampf((gap - claw_reach) / d, 0.6, 1.6)
+			_ride_warp_until = (float(hits[0]) - from) / rate
+	else:
+		# The run carries it into the leap; the leap is the clip's throw.
+		_burst = (float(throw["off"]) - from) / rate + 0.05
+	rig.run_strike(clip, rate, from, length, hits)
+	net_run_strike.rpc(move, rate)
+	_attack_clock = 0.0
+	_sweeps.clear()
+	_commit_at = (float(hits[0]) - from) / rate - COMMIT
+	var serial := _swipe_count
+	var hurt_by: float = float(spec["damage"]) * swipe_damage
+	_chain += 1
+	var chain := _chain
+	for i in hits.size():
+		var at := (float(hits[i]) - from) / rate
+		# A spin's two rakes are not a combo that puts him down; the smash is.
+		var blows := 1 if heavy else 3
+		var blow := i
+		_sweeps.append(WeaponSweep.blow(_claw_parts.bind(false), 2.0, at - HIT_HALF, at + HIT_HALF, serial,
+				func(who: Node3D) -> void:
+					if not is_dead and rig != null:
+						rig.hitstop(0.09 if heavy else 0.06)
+						who.call("receive_blow", hurt_by, self, mini(blow, blows - 1), blows, chain)))
+	attacked.emit()
+
+
+@rpc("authority", "call_remote", "unreliable")
+func net_run_strike(move: StringName, rate: float) -> void:
+	if rig == null or is_dead or not RUN_STRIKES.has(move):
+		return
+	var spec: Dictionary = RUN_STRIKES[move]
+	rig.run_strike(spec["clip"], rate, spec["from"], (float(spec["to"]) - float(spec["from"])) / rate, spec["hits"])
+
+
 ## Round him, face on.
 func strafe(direction: Vector3, look: Vector3, delta: float) -> void:
 	_face(look, delta)
@@ -794,6 +1025,11 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO, delay: float = 0.0)
 			return
 		_melee(move, delay)
 		net_melee.rpc(move, delay)
+		return
+	if RUN_STRIKES.has(move):
+		if arms_left() == 0:
+			return
+		_run_strike(move)
 		return
 	var ahead := -global_transform.basis.z
 	ahead.y = 0.0
@@ -1543,8 +1779,8 @@ var _reacted: Dictionary = {}
 
 
 ## A hero's skill landed on it (host): thrown by the Piercing Arrow it reels
-## back on its haunches as from a parry; fire, poison and the mark make it
-## flinch.
+## back on its haunches as from a parry; fire and poison make it flinch; the
+## mark is only laid on.
 func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
 	if is_dead or not _decides():
 		return
@@ -1552,6 +1788,10 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 		velocity += Vector3(push.x, 0.0, push.z) * 1.3
 	if from != null and is_instance_valid(from):
 		provoke(from)
+	# The hunter's mark is only laid on it: no stagger, nothing that stops it
+	# (a reel at a run had it skating along in the stagger).
+	if kind == &"mark":
+		return
 	var now := Time.get_ticks_msec() / 1000.0
 	if now < float(_reacted.get(kind, -1000.0)) + 4.0:
 		return

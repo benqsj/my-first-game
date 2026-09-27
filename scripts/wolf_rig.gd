@@ -45,8 +45,8 @@ const DEATH := &"WF_Death"
 const BACK := &"WF_Back"
 const STRAFE_L := &"WF_Strafe_L"
 const STRAFE_R := &"WF_Strafe_R"
-const DODGE_L := &"WF_Dodge_L"
-const DODGE_R := &"WF_Dodge_R"
+const DODGE_L := &"WF_SideL"
+const DODGE_R := &"WF_SideR"
 const HOP_BACK := &"WF_Hop_Back"
 const BITE := &"WF_Bite"
 const CRAWL_WALK := &"WF_Crawl_Walk"
@@ -59,6 +59,11 @@ const RAKE := &"WF_Rake"
 const COMBO3 := &"WF_Combo3"
 const COMBO2 := &"WF_Combo2"
 const PUNCH := &"WF_Punch"
+## Out of a run, straight on through him: a spinning rake of both claws
+## (Great Sword High Spin Attack From Run), and a leap off the run coming down
+## in a two-handed smash (Running Jump With Attack With Axe).
+const RUN_SPIN := &"WF_RunSpin"
+const RUN_AXE := &"WF_RunAxe"
 const GROWL := "res://unverified/sounds/orc/orc-aggressive-sound1.wav"
 
 ## The coats a wolf can be born with — the colour of each fur material — and
@@ -199,10 +204,13 @@ func _ready() -> void:
 		if b >= 0:
 			_tail.append(b)
 	_tail_swing.resize(_tail.size())
-	for clip in [SWIPE_L, SWIPE_R, POUNCE, &"WF_Punch"]:
+	for clip in [SWIPE_L, SWIPE_R, POUNCE, &"WF_Punch", BITE]:
 		_strike_at[clip] = _fastest(clip)
 	for clip in CARRIED:
 		_carry_out(clip)
+	for clip in _anim.get_animation_list():
+		if not LOOPS.has(StringName(clip)):
+			_travel_out(StringName(clip))
 	_mark_claws()
 	claw = WolfClaw.new(self, _anim, _skeleton)
 	_anim.play(IDLE)
@@ -267,7 +275,7 @@ var coat_name: String = ""
 ## throw is taken out of the pose ([method _carry_out]) and handed to [Wolf],
 ## which carries the body along it ([method carry]), stretched to land on
 ## whoever it is leaping at — the pose and the flight the same moment.
-const CARRIED: Array[StringName] = [POUNCE]
+const CARRIED: Array[StringName] = [POUNCE, RUN_AXE]
 ## Clip -> its throw: {"t": clip times, "fwd": metres on, "up": metres up off
 ## the ground, "off": when it leaves the ground, "land": when it is down again},
 ## in the wolf body's own frame. The clips are shared by every wolf, so they
@@ -360,6 +368,15 @@ func carry() -> Dictionary:
 	return {"clip": clip, "time": _anim.current_animation_position, "carry": _carries[clip]}
 
 
+## The throw of `clip` if it is one of [constant CARRIED], else empty.
+func throw_of(clip: StringName) -> Dictionary:
+	return _carries.get(clip, {})
+
+
+func has_clip(clip: StringName) -> bool:
+	return _anim != null and _anim.has_animation(clip)
+
+
 ## Where along its throw a clip is at `time`: (metres on, metres up).
 static func carry_at(throw: Dictionary, time: float) -> Vector2:
 	var t: PackedFloat32Array = throw["t"]
@@ -372,6 +389,107 @@ static func carry_at(throw: Dictionary, time: float) -> Vector2:
 			var w := (time - t[k - 1]) / maxf(t[k] - t[k - 1], 0.0001)
 			return Vector2(lerpf(fwd[k - 1], fwd[k], w), lerpf(up[k - 1], up[k], w))
 	return Vector2(fwd[fwd.size() - 1], up[up.size() - 1])
+
+
+## Clip -> where its root goes, in the wolf body's own frame, from where it
+## started: {"t": times, "p": positions}; empty for a clip that stays put.
+## The root is pinned while it plays ([method animate]), so this is the travel
+## [Wolf] carries the body along instead ([method ride]).
+static var _travels: Dictionary = {}
+
+
+func _travel_out(clip: StringName) -> void:
+	if _travels.has(clip) or not _anim.has_animation(clip):
+		return
+	var anim := _anim.get_animation(clip)
+	var body := get_parent() as Node3D
+	var root_track := -1
+	for i in anim.get_track_count():
+		if anim.track_get_type(i) == Animation.TYPE_POSITION_3D and String(anim.track_get_path(i)).ends_with(":root"):
+			root_track = i
+	if root_track < 0 or body == null:
+		_travels[clip] = {}
+		return
+	var basis := (body.global_transform.affine_inverse() * _skeleton.global_transform).basis
+	var start := anim.position_track_interpolate(root_track, 0.0)
+	var times := PackedFloat32Array()
+	var points := PackedVector3Array()
+	var most := 0.0
+	var steps := maxi(int(anim.length * 30.0), 1)
+	for i in steps + 1:
+		var t := anim.length * i / steps
+		var at := basis * (anim.position_track_interpolate(root_track, t) - start)
+		at.y = 0.0
+		times.append(t)
+		points.append(at)
+		most = maxf(most, at.length())
+	_travels[clip] = {"t": times, "p": points} if most > 0.12 else {}
+
+
+static func _travel_at(travel: Dictionary, time: float) -> Vector3:
+	var t: PackedFloat32Array = travel["t"]
+	var p: PackedVector3Array = travel["p"]
+	if time <= t[0]:
+		return p[0]
+	for k in range(1, t.size()):
+		if time <= t[k]:
+			return p[k - 1].lerp(p[k], (time - t[k - 1]) / maxf(t[k] - t[k - 1], 0.0001))
+	return p[p.size() - 1]
+
+
+## How far the root of `clip` goes on, in the body's frame, from clip time
+## `from` to `to`.
+func travel_between(clip: StringName, from: float, to: float) -> Vector3:
+	var travel: Dictionary = _travels.get(clip, {})
+	if travel.is_empty():
+		return Vector3.ZERO
+	return _travel_at(travel, to) - _travel_at(travel, from)
+
+
+## When `clip`'s claws come through, clip time.
+func strike_time(clip: StringName) -> float:
+	return _strike_at.get(clip, 0.5)
+
+
+## The clip playing, and how far into it.
+func playing() -> String:
+	return _anim.current_animation if _anim != null else ""
+
+
+func playing_position() -> float:
+	return _anim.current_animation_position if _anim != null and _anim.is_playing() else 0.0
+
+
+## Playing a move rather than going about on its feet: an attack, a stagger, a
+## dodge, a claw wave.
+func is_acting() -> bool:
+	return (claw != null and claw.active()) or _swipe_timer > 0.0 or _lunge_timer > 0.0 \
+			or _reel_timer > 0.0 or _move_timer > 0.0 or _melee_timer > 0.0
+
+
+## How the body has to move to go with what is playing, in its own frame, m/s:
+## a move's own travel (a combo's steps in, a stagger's stumble back, a dodge),
+## nothing at all for a move that stays put — so no move ever skates. Null
+## while it is going about on its feet (the paces see to that) or in a leap's
+## throw ([method carry]).
+func ride() -> Variant:
+	if _anim == null or _dead or not is_acting():
+		return null
+	var clip := StringName(_anim.current_animation)
+	if _carries.has(clip):
+		return null
+	var slow := 0.06 if _hitstop > 0.0 else 1.0
+	var rate := _anim.speed_scale * slow
+	if LOOPS.has(clip):
+		# A cycle played as a move (the ground lunge's crawl): its own pace.
+		var pace := drag_pace if clip == DRAG else walk_pace
+		return Vector3(0.0, 0.0, -pace * rate)
+	var travel: Dictionary = _travels.get(clip, {})
+	if travel.is_empty():
+		return Vector3.ZERO
+	var now := _anim.current_animation_position
+	var step := 1.0 / 30.0
+	return (_travel_at(travel, now + step) - _travel_at(travel, now)) / step * rate
 
 
 ## When a clip's claws move fastest — the moment a swipe arrives.
@@ -541,16 +659,18 @@ func _choose(planar: float) -> void:
 		# and standing it holds the crawl's pose, low on its four feet.
 		if planar > run_from:
 			clip = RUN
-			pace = clampf(planar / run_pace, 0.7, 2.2)
+			pace = clampf(planar / run_pace, 0.4, 2.2)
 		else:
 			clip = CRAWL_WALK
-			pace = clampf(planar / crawl_walk_pace, 0.6, 1.6) if planar > 0.2 else 0.0
-	elif planar > run_from and _stance > 0.5:
-		clip = RUN_UPRIGHT
-		pace = clampf(planar / upright_run_pace, 0.7, 1.5)
+			pace = clampf(planar / crawl_walk_pace, 0.3, 2.5) if planar > 0.2 else 0.0
+	elif planar > run_from and (ahead > 0.3 or _stance > 0.5):
+		# Running, fighting or not: a fight's walk sped up past its stride would
+		# skate. On all fours if that is how it goes.
+		clip = RUN if gait > 0.5 else RUN_UPRIGHT
+		pace = clampf(planar / (run_pace if gait > 0.5 else upright_run_pace), 0.4, 2.2 if gait > 0.5 else 1.8)
 	elif planar > 0.25:
 		clip = WALK
-		pace = clampf(planar / walk_pace, 0.6, 1.5)
+		pace = clampf(planar / walk_pace, 0.3, 1.5)
 	if not _anim.has_animation(clip):
 		clip = IDLE
 	if _anim.current_animation != String(clip):
@@ -651,6 +771,15 @@ func run_leap(gather: float, flight: float) -> void:
 	var body := get_parent() as Node3D
 	if body != null and ResourceLoader.exists(GROWL):
 		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.7, -8.0)
+
+
+## Out of a run, a blow: `clip` from `from` at `rate`, for `length` seconds;
+## its blows at `hits` (clip time) flare and trail like a melee's.
+func run_strike(clip: StringName, rate: float, from: float, length: float, hits: Array) -> void:
+	melee(clip, rate, from, length, -1.0, 0.0, hits)
+	var body := get_parent() as Node3D
+	if body != null and ResourceLoader.exists(GROWL):
+		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.55, -7.0)
 
 
 ## A run's leap under way, from the gather to the landing.

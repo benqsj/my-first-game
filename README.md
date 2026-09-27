@@ -443,7 +443,9 @@ holding a stick:
 `lock_on` takes the enemy nearest the middle of the view — angle first, distance
 second, because what the player is looking at matters more than what happens to
 be nearest — and holds it until it dies, leaves `lock_break_range`, or the
-button is pressed again.
+button is pressed again. When it dies the lock goes straight on to whichever
+enemy stood nearest *it* (not nearest him), if one is within `lock_range`, so a
+fight with a pack does not need the lock taken again after every kill.
 
 The camera swings onto the target and follows, rather than snapping: a lock that
 jumps the view is a lock that loses the player.
@@ -3923,3 +3925,61 @@ the shared profile untouched; what an imp and an orc are worth in wolves.
 off nothing, an imp "Lv 1  Imp" in white; a blow puts up what it took, a
 critical with a "!", gone after a second; and a new level lifts the hero up in
 the light and sets him down where he was.
+
+
+## The wolf that no longer skates, and runs you down
+
+Four fixes after play, and the wolf's run made a thing to fear.
+
+**The Hunter's Mark is only laid on.** It used to stagger what it marked — a
+wolf at a run then stumbled on in the stagger clip at running speed, skating
+across the grass. Now `react(&"mark")` only provokes: on the wolf, the fighter
+and the orc it does nothing else. The sigil over the head is smaller again
+(`Afflictions.SIGIL_SCALE` 0.7), and so is the lock's dot (`TargetMarker.size`
+0.021, `grow_with_range` 0.0016).
+
+**The lock goes on after a kill** (see *Target lock*): to the enemy that stood
+nearest the dead one.
+
+**Nothing a wolf does skates.** A probe (`_shots_tmp/skate_probe2.gd`, thrown
+away after) ran both kinds of wolf, at each wit, through standing, being swung
+at, being circled, being backed away from, knocks, parries and marks, and a
+prowl, and measured every frame how far the body went against how far the
+clip's feet say it should. What skated, and what it does now:
+
+- *A stagger at a run* (4.8 m/s of skating, the worst): the chase kept driving
+  it on through the reel. And *a claw wave thrown in the chase* went on at
+  6.4 m/s. Both are the one rule below now.
+- *Every move* — a swipe, a combo, the smash, a bite, a dodge, a hop, a stagger —
+  now carries the body exactly as far as the clip's own root goes
+  (`WolfRig.ride()`, from `_travels`: each clip's root path worked out once, in
+  the body's own frame, while the root itself stays pinned). A move that stays
+  put stays put; a stagger stumbles back; a combo steps in. The old step-in
+  under a blow, which dragged the body at up to the charge speed while the clip
+  stood still, is gone. A move's steps towards him are cut short so it stops
+  chest to chest (`Wolf.CONTACT`) rather than treading on the spot against him.
+- *The run and the walks* were clamped to paces their feet could not keep
+  (a run clip played at 0.7 while slowing to a fight, a crawl-walk held at 1.6
+  while going faster). The clamps are wide now, and a wolf running inside a
+  fight runs rather than playing its walk at double speed.
+
+After: every clip's mean error under 0.4 m/s, the loops and the stagger under
+0.1 (the rest is the first frames of a blend and contact with him).
+
+**The run builds, and ends in a blow.** Off the mark at `run_start_speed` (4.8),
+flat out after `run_build` (2.2 s) at `sprint_speed` 10 (on all fours 12.5),
+the clips' paces following. Fast enough (`run_strike_speed` 5) and at the
+right distance, it strikes out of the run — whichever fits the gap:
+
+- **the spinning rake** (`WF_RunSpin`, Mixamo *Great Sword High Spin Attack From
+  Run*): both claws round in two blows, the path stretched (0.6–1.6×) to bring
+  the first onto him; two rakes do not put him down;
+- **the leaping smash** (`WF_RunAxe`, *Running Jump With Attack With Axe*): off
+  the run into the air, carried along the clip's throw like the pounce and
+  warped to come down on him, two-handed; it puts him down;
+- **the pounce**, as before.
+
+Its fight has a new tactic, **RUN_UP**: now and then it turns its back and walks
+off to 8 m, then turns and comes at a run. And closing from more than a couple
+of steps it runs, building, instead of walking.
+

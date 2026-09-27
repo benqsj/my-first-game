@@ -85,6 +85,7 @@ func _check_lock() -> void:
 	# the end of it, and what is asked here is about the lock and the camera.
 	quarry.sight_range = 0.0
 	quarry.prowl_speed = 0.0
+	quarry.charge_speed = 0.0
 	await _wait(20)
 
 	Input.action_press("lock_on")
@@ -140,6 +141,7 @@ func _check_lock() -> void:
 	quarry = _wolf_at(Vector3(9.0, 0.5, 6.0))
 	quarry.sight_range = 0.0
 	quarry.prowl_speed = 0.0
+	quarry.charge_speed = 0.0
 	_player.global_position = Vector3(6.0, 0.2, 12.0)
 	_player.rotation.y = 0.0
 	_player.camera_rig.rotation.y = 0.0
@@ -183,6 +185,7 @@ func _check_lock() -> void:
 	quarry.global_position = Vector3(9.0, 0.5, 6.0)
 	quarry.sight_range = 0.0
 	quarry.prowl_speed = 0.0
+	quarry.charge_speed = 0.0
 	await _wait(20)
 	if _player.target == null:
 		Input.action_press("lock_on")
@@ -208,6 +211,7 @@ func _check_lock() -> void:
 	var other := _wolf_at(Vector3(2.0, 0.5, 6.0))
 	other.sight_range = 0.0
 	other.prowl_speed = 0.0
+	other.charge_speed = 0.0
 	await _wait(20)
 	_player._switch_target(-1.0)
 	await _wait(10)
@@ -448,6 +452,7 @@ func _shoot_at(hold: float) -> float:
 	# Standing still, so what is measured is the draw and not where it wandered.
 	quarry.sight_range = 0.0
 	quarry.prowl_speed = 0.0
+	quarry.charge_speed = 0.0
 	await _wait(20)
 	Input.action_press("lock_on")
 	await _wait(3)
