@@ -148,9 +148,13 @@ func _check_mage() -> void:
 	_check("a locked bolt follows a body walking across it, and hits", walked["hits"] == 1, str(walked))
 	var loose := await _hunt_case(Vector3(0.0, 0.0, 3.0), Vector3.ZERO, false, false)
 	_check("(an unlocked one misses it)", loose["hits"] == 0 and loose["faded"], str(loose))
-	var dodged := await _hunt_case(Vector3.ZERO, Vector3(0.0, 0.0, 9.0), false, true)
-	_check("one that breaks sideways at the last shakes it off", dodged["hits"] == 0 and dodged["let_go"], str(dodged))
-	_check("and the bolt goes out once it is past", dodged["faded"], str(dodged))
+	# Running is not dodging: a body that breaks sideways at the last is still
+	# followed and hit. Only a real dodge (below) gets out of its way.
+	var swerved := await _hunt_case(Vector3.ZERO, Vector3(0.0, 0.0, 9.0), false, true)
+	_check("one that breaks sideways at the last is still hit", swerved["hits"] == 1, str(swerved))
+	# Thrown the wrong way — away from the body — it comes round and hits.
+	var behind := await _hunt_case(Vector3(0.0, 0.0, 3.0), Vector3.ZERO, false, true, Vector3(-42.0, 0.0, 0.0))
+	_check("thrown away from it, it comes round and hits", behind["hits"] == 1, str(behind))
 	var rolled := await _hunt_case(Vector3.ZERO, Vector3.ZERO, true, true)
 	_check("one rolling out of its way is gone through, not hit", rolled["hits"] == 0 and rolled["faded"], str(rolled))
 
@@ -513,7 +517,7 @@ func _dummy() -> CharacterBody3D:
 	if _dummy_script == null:
 		_dummy_script = GDScript.new()
 		_dummy_script.source_code = "extends CharacterBody3D\nvar hits := 0\nvar evading := false\n" \
-				+ "func take_hit(_d: float, _at: Vector3, _b: Vector3, _c: bool = false, _h: bool = false, _f: Node3D = null) -> void:\n\thits += 1\n" \
+				+ "func take_hit(_d: float, _at: Vector3, _b: Vector3, _c: bool = false, _h: bool = false, _f: Node3D = null, _g: Variant = null) -> void:\n\thits += 1\n" \
 				+ "func is_evading() -> bool:\n\treturn evading\n"
 		_dummy_script.reload()
 	var body := CharacterBody3D.new()
@@ -532,7 +536,8 @@ func _dummy() -> CharacterBody3D:
 
 ## A bolt thrown at a body 22 m off, high in the air: the body walks at `walk`
 ## from the start, and at 8 m breaks at `dodge` or says it is `rolling`.
-func _hunt_case(walk: Vector3, dodge: Vector3, rolling: bool, hunt: bool) -> Dictionary:
+func _hunt_case(walk: Vector3, dodge: Vector3, rolling: bool, hunt: bool,
+		throw: Vector3 = Vector3(42.0, 0.0, 0.0)) -> Dictionary:
 	var start := _player.global_position + Vector3.UP * 30.0
 	var dummy := _dummy()
 	# Placed before it is in the world: a body that appears at the origin for a
@@ -544,7 +549,7 @@ func _hunt_case(walk: Vector3, dodge: Vector3, rolling: bool, hunt: bool) -> Dic
 	var bolt: SpellBolt = (load("res://scenes/fx/spell_bolt.tscn") as PackedScene).instantiate()
 	_world.add_child(bolt)
 	bolt.global_position = start
-	bolt.launch(Vector3(42.0, 0.0, 0.0), 10.0, false, 0.0, _player)
+	bolt.launch(throw, 10.0, false, 0.0, _player)
 	if hunt:
 		bolt.hunt(dummy)
 	var out := {"hits": 0, "faded": false, "let_go": false}

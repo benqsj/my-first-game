@@ -58,6 +58,9 @@ const MODEL_SCALE := 0.14
 ## A quarry whose velocity jumps sideways off the bolt's line by more than this
 ## (m/s) against what it was doing a moment ago has got out of the way.
 @export var dodge_kick: float = 4.0
+## Whether a hard swerve (above) counts as a dodge too; off, only a real dodge
+## (`is_evading()`) shakes it off.
+@export var dodge_by_swerve: bool = false
 ## How far it goes before it has spent itself, in metres.
 @export var reach: float = 70.0
 ## How long the fading out takes.
@@ -238,16 +241,22 @@ func _physics_process(delta: float) -> void:
 		else:
 			var to_it := _mark(_quarry) - global_position
 			if to_it.dot(_heading) < 0.0:
-				# Gone by. It does not turn round for another go.
-				if _was_ahead:
+				# Gone by — which a bolt still hunting never is: it comes round.
+				# One that was shaken off does not turn back for another go.
+				if _was_ahead and not _hunting:
 					_fade()
 					return
 			else:
 				_was_ahead = true
 			if _hunting and _got_away(_quarry, delta):
 				_hunting = false
-			if _hunting and _was_ahead and to_it.length_squared() > 0.0001:
-				var most := minf(steer / maxf(pace, 1.0), 8.0) * delta
+			if _hunting and to_it.length_squared() > 0.0001:
+				# Bent hard enough to always arrive: at least as fast as the
+				# line to it swings round at this pace and distance, however
+				# the thrower was moving or facing when he let go. Only a
+				# dodge gets out of its way.
+				var dist := maxf(to_it.length(), 0.3)
+				var most := maxf(minf(steer / maxf(pace, 1.0), 8.0), 2.5 * pace / dist) * delta
 				_heading = _turn(_heading, to_it.normalized(), most)
 
 	if _gravity > 0.0:
@@ -416,6 +425,10 @@ func _mark(who: Node3D) -> Vector3:
 func _got_away(who: Node3D, delta: float) -> bool:
 	if _is_evading(who):
 		return true
+	# Only a body that can dodge gets away, and only by dodging: a creature
+	# turning or breaking into a run is followed and hit.
+	if not who.has_method(&"is_evading") or not dodge_by_swerve:
+		return false
 	var now: Variant = who.get("velocity")
 	if not now is Vector3:
 		return false
