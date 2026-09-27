@@ -4354,10 +4354,19 @@ him by their own clip's travel (the root motion, `carry_velocity`), scaled so
 he lands where what he is thrown at stands (`carry_scale`, from the blow's
 `travel`).
 
-**The light string** (Mixamo's, all the assassin's own): the slash down and
-back up, the low backhand out (`DG_Slash_Out`), the spin, the long sweep from
-high right to low left (`DG_Axe_R2L`), the backhand, and the blow down to the
-ground; each cut 3.5% quicker than the one before (`flurry_quicken`).
+**The light string** (Mixamo's, all the assassin's own) is six cuts, in an
+order where each starts where the last left the knife (matched by the knife's
+tip at each end, measured in Blender): the slash down and back up, the spin,
+the backhand, the long sweep from high right to low left (`DG_Axe_R2L`), and
+the blow down to the ground. No cut is played faster than 0.36 s, the last
+than 0.46 s (`flurry_min_time`, `finisher_min_time`): at his pace the tightest
+of them had been a 0.2 s blur.
+
+**Heavy blows play their recovery.** The spinning leap ends on the ground and
+he rolls up: it was cut before the getting up, and he sprang from the ground to
+his feet. Now each heavy blow plays on past its last cut (to `part.y`), the
+commitment is held to the end of the getting up where there is one (`hold`),
+and from `rise` on an evade may take him out of the rest (`in_recovery`).
 
 **Flexible**: a light cut whose cut has done its work can be broken off by
 an evade (`SkinnedRig.in_recovery`): the follow-through is his to give up. A
