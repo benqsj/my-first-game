@@ -12,7 +12,8 @@ godot --path . --headless --script res://tests/archer_test.gd  # bow + target lo
 godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 godot --path . --headless --script res://tests/multiplayer_test.gd  # who owns what
-godot --path . --headless --script res://tests/fighter_test.gd     # imps and puglins: bands, block, dash, combo, death
+godot --path . --headless --script res://tests/fighter_test.gd     # imps and puglins: bands; on a puglin block, dash, combo, death
+godot --path . --headless --script res://tests/imp_test.gd         # the imp: size, own clips, circling, leap, evade, thrown by a cut, two at a time
 godot --path . --script res://tests/draw_budget.gd             # where the draw calls go
 godot --path . --headless --script res://tests/physics_budget.gd  # where the physics tick goes
 sh tools/two_peers.sh                                  # two processes, one world
@@ -4473,3 +4474,61 @@ capes for a whole figure the way `garb_capes` does for an outfit.
   together, a chain one longer (`_winded`). A man with a bow is come at
   weaving, not down the line of his arrow (`_ranged`). wolf_mind_test:
   `_guard()`.
+
+## The imp grown, with clips and a fight of its own
+
+The small ones were too small: the imp stood 1.68 m to the top of its hair
+against Tariel's ~2 m, the puglin 1.06 m (most of a cut goes over its head —
+next), the golem 1.9 m and never fights. The imp is first.
+
+- **2.1 m, hair and all** (`visual_scale` 1.25). The collider is the body at
+  that size (capsule r 0.375, h 2.0; `body_radius`/`body_height` scaled by
+  `visual_scale` for the blade), the bar over its head with it. Its walk and
+  run are retimed off its own stride *at its drawn size* (the Monster's
+  retime ignored `visual_scale`, so a scaled creature skated).
+- **Its own clips, on its own rig.** Mixamo's, retargeted in Blender onto the
+  Bestiary Imp's skeleton (vepxis-art `tools/imp_build.py`: `build` → imp.blend,
+  `clips` → 33 `IP_*` actions, `export` → `assets/monsters/imp/imp_anims.glb`,
+  the rig and a speck of mesh so Godot builds the Skeleton3D). Most came from
+  the wolf-man's set already on disk (claws, the leap, dodges, strafes, hits,
+  death), the flips and the run from the assassin's, the fall and getting up
+  from the reactions. `SkeletonAnim.setup(target, source)` now takes the file
+  its clips come from (`Monster.clip_source`, `loop_clips`), so the model is
+  still the kit's and keeps its colourways, and the delta from rest is exact
+  (the round trip through Blender moves no rest by more than 0.04°).
+- **Its body goes where its clips go.** How far each clip carries the hips
+  was measured in Blender (`imp_clip_meta.json`); the clips are exported in
+  place and the body is driven along that path, scaled to its size, by
+  `move_and_slide` — into walls and bodies like any walk. A leap is stretched
+  or cut so the head of the mace, not the imp, comes down on him
+  (`land_off` 1.5 m); a blow on foot is stepped in under to `strike_off`. The
+  sidesteps and the backflip, in place in their clips, are carried by hand, fast
+  off the mark and easing out (`dodge_distance` 2.6 m).
+- **How it fights** (`scripts/imp.gd`, `Imp extends Fighter`):
+  - *It circles.* Roused, it runs to a ring round him (3.4–5.4 m) and strafes
+    there face on, working round towards his back, backing out quickly when it
+    finds itself inside the ring and keeping off its own band.
+  - *Two go in at a time* (`Imp.PACK`); the rest circle, and now and then one
+    stops and flexes at him.
+  - *It hits and gets out.* From the ring it leaps in with the mace overhead
+    (`POUNCE`, floors) or flips in feet first (`FLIP`); close in it rakes with the
+    claws (`SWIPE`), swings the mace (`MACE`), runs the two together (`COMBO`,
+    no knockdown) or brings the mace down two-handed (`SLAM`, floors). Then,
+    three times in four, it hops or flips back out of reach.
+  - *It does not block* (`block_chance` 0): a cut coming, it sidesteps either
+    way or, right on top of him, flips or hops back — untouchable for the first
+    `evade_iframes` (0.5 s, long enough for Tariel's blade to pass) — and a cut
+    that met nothing is answered at once (`_counter`).
+  - *A cut throws it the way the blade went*: its hit clip for that side
+    (`IP_Hit_F/L/R`), a stagger for a blow worth more than a fifth of its health,
+    each carrying the body as it carries the hips. Only coming down out of a
+    leap does it not stop.
+  - The blows are its limbs, not a circle round it: the mace from the fist to the
+    spikes (`MACE_TIP`, measured off the mesh), the claws from the forearm to the
+    fingertips, the feet in the flip. Each lands where that limb moves fastest in
+    its clip.
+  - It dies by its own clip (`Fighter.dies_by_clip`) instead of being tipped
+    over.
+- fighter_test's block / break / dash / combo checks are on a puglin now (held
+  to the numbers they were written for); imp_test checks the imp.
+
