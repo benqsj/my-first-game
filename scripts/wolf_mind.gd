@@ -151,7 +151,7 @@ func retreat_chance() -> float:
 ## It was hurt: warier for a while, and a clever one gets out of reach at once.
 func hurt() -> void:
 	_caution = minf(_caution + 0.35, 1.0)
-	if wolf.is_crippled() or wolf.is_busy():
+	if wolf.is_crippled() or wolf.is_busy() or wolf.frenzied:
 		return
 	if _rng.randf() < 0.1 + 0.25 * intellect:
 		_begin(Tactic.RETREAT)
@@ -436,8 +436,8 @@ func _delay_for(move: StringName) -> float:
 
 
 func _after_combo() -> void:
-	# Out of breath, he is pressed: no drawing off.
-	if intellect < 0.2 or (intellect > 0.3 and _winded(_quarry)):
+	# Out of breath, he is pressed: no drawing off. Enraged, it never draws off.
+	if intellect < 0.2 or wolf.frenzied or (intellect > 0.3 and _winded(_quarry)):
 		_begin(Tactic.CLOSE)
 	elif _rng.randf() < retreat_chance():
 		_begin(Tactic.RETREAT)
@@ -460,8 +460,8 @@ func _next_from_range(gap: float) -> void:
 	if _may_shoot() and _rng.randf() < 0.3 + 0.3 * intellect:
 		_begin(Tactic.SHOOT)
 		return
-	# Off a way, to come back at a run.
-	if wolf.arms_left() == 2 and wolf.can_leap() and _rng.randf() < run_up_chance():
+	# Off a way, to come back at a run (not in a rage: straight in).
+	if not wolf.frenzied and wolf.arms_left() == 2 and wolf.can_leap() and _rng.randf() < run_up_chance():
 		_begin(Tactic.RUN_UP)
 		return
 	if gap > wolf.strike_range() + 0.6 and gap < wolf.pounce_range() and wolf.arms_left() == 2 \
@@ -477,7 +477,7 @@ func _next_from_range(gap: float) -> void:
 ## held from closing in until it backs off or circles, and only so many wolves
 ## hold one at the same player. A dull wolf does not wait for anyone.
 func _take_turn(quarry: Node3D) -> bool:
-	if quarry == null:
+	if quarry == null or wolf.frenzied:
 		return true
 	if intellect < 0.3:
 		return true
@@ -507,7 +507,8 @@ func _release() -> void:
 ## it and both arms, another of the pack going in at the same man, and nobody
 ## throwing at him already.
 func _may_shoot() -> bool:
-	if _quarry == null or intellect < 0.35 or wolf.arms_left() < 2 or wolf.is_crippled() or _clock < _no_shot_until:
+	if _quarry == null or intellect < 0.35 or wolf.arms_left() < 2 or wolf.is_crippled() or _clock < _no_shot_until \
+			or wolf.frenzied:
 		return false
 	var key := _quarry.get_instance_id()
 	var shooter: Variant = _shooters.get(key)
@@ -581,7 +582,7 @@ func _watch_blade(quarry: Node3D, gap: float) -> void:
 		_swing_reacted = true
 		# A cunning wolf will even break off its own windup to get out of the way.
 		var free := not wolf.is_busy() or (intellect > 0.55 and wolf.winding_up())
-		if gap < 3.4 and free and wolf.can_leap() and _rng.randf() < dodge_chance():
+		if gap < 3.4 and free and wolf.can_leap() and _rng.randf() < dodge_chance() * (0.5 if wolf.frenzied else 1.0):
 			if _rng.randf() < 0.2:
 				wolf.attack(&"hop")
 				_begin(Tactic.WAIT)
@@ -613,7 +614,7 @@ func _read_him(quarry: Node3D, gap: float) -> void:
 	if tactic == Tactic.SHOOT or tactic == Tactic.FLANK or (tactic == Tactic.STRIKE and not _combo.is_empty()):
 		return
 	_guard_answered = true
-	if wolf.can_leap() and _rng.randf() < 0.35 + 0.4 * intellect:
+	if wolf.can_leap() and not wolf.frenzied and _rng.randf() < 0.35 + 0.4 * intellect:
 		_release()
 		_begin(Tactic.FLANK)
 	elif wolf.arms_left() == 2:

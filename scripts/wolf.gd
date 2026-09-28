@@ -37,6 +37,18 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## The pack: wolves this close to one that is hurt come too.
 @export var pack_call: float = 14.0
 
+@export_group("Pack")
+## Wolves whose homes are this close (one to the next) are one pack; a pack of
+## two or more has a leader — bigger, heavier — and its fall shakes the rest.
+@export var pack_span: float = 22.0
+@export var leader_scale: float = 1.15
+@export var leader_health: float = 1.6
+## The leader fallen: the share of the pack that breaks and runs to another
+## pack (the rest stay, enraged: all at once, harder, faster, reckless).
+@export var desert_chance: float = 0.35
+@export var rage_damage: float = 1.3
+@export var rage_speed: float = 1.15
+
 @export_group("Movement")
 ## Tallest step it walks up without being stopped by it. Kept below the body's
 ## own radius, as the sweep needs room to put it down again.
@@ -116,6 +128,12 @@ var _bar: HealthBar
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 var _home: Vector3
+## Leading its pack; enraged by its leader's fall; running off to another pack.
+var is_leader: bool = false
+var frenzied: bool = false
+var _deserting: bool = false
+var _desert_to: Vector3 = Vector3.ZERO
+var _missile_wait: float = 0.0
 var _prowl_target: Vector3
 var _prowl_timer: float = 0.0
 var _swipe_timer: float = 0.0
@@ -194,8 +212,11 @@ var _open: float = 0.0
 ## Missiles (arrows, bolts, fire) it sees coming at it: how often it gets out of
 ## one loosed from far off once it is after somebody, and from close in, while
 ## it comes at him.
-@export var missile_dodge_far: float = 0.85
-@export var missile_dodge_near: float = 0.55
+@export var missile_dodge_far: float = 0.45
+@export var missile_dodge_near: float = 0.3
+## After getting out of one missile's way, a while before it can again — so a
+## man with a bow (or spells) can bring it down.
+@export var missile_dodge_rest: float = 2.0
 @export var missile_near: float = 5.0
 @export var missile_far: float = 10.0
 
@@ -359,6 +380,8 @@ func _ready() -> void:
 			prowl_speed *= 0.75
 			charge_speed = charge_speed_on_fours
 		_top_speed = sprint_speed_on_fours if rig.gait > 0.5 else sprint_speed
+	# Once every wolf of the level has its home: which of each pack leads.
+	_find_leader.call_deferred()
 	_bar = HealthBar.new()
 	_bar.position = Vector3(0.0, bar_height, 0.0)
 	# Kept out of the body's rotation so it never turns edge-on to the camera.
@@ -400,6 +423,7 @@ func _physics_process(delta: float) -> void:
 	_reeling = maxf(_reeling - delta, 0.0)
 	_counter_armour = maxf(_counter_armour - delta, 0.0)
 	_provoked = maxf(_provoked - delta, 0.0)
+	_missile_wait = maxf(_missile_wait - delta, 0.0)
 	if _open_in >= 0.0:
 		_open_in -= delta
 		if _open_in < 0.0:
@@ -542,6 +566,10 @@ func _think(delta: float) -> void:
 		to_player.y = 0.0
 		distance = to_player.length()
 
+	# Its leader fallen, off to another pack: it runs there and is one of them.
+	if _deserting:
+		_desert(delta)
+		return
 	# It never runs for good: a wolf with no arms left bites, and one with a leg
 	# gone crawls at him. (FLEE and DOWN are no longer entered.)
 	if state == State.FLEE or state == State.DOWN:
@@ -606,6 +634,9 @@ func _think(delta: float) -> void:
 ## and him shooting from out of reach — it gets out of the way of most; while
 ## it runs at him and is nearly on him, of few. Unaware on its beat, of none.
 func _watch_missiles() -> void:
+	# Enraged it does not look; and a dodge wants its breath back.
+	if frenzied or _missile_wait > 0.0:
+		return
 	if is_dead or state == State.PROWL or not can_leap() \
 			or _busy > 0.0 and not winding_up() and not (_dodge_busy and _busy < 0.35):
 		return
@@ -647,6 +678,7 @@ func _watch_missiles() -> void:
 		attack(&"dodge_right" if aside.dot(global_transform.basis.x) > 0.0 else &"dodge_left", aside)
 		# Out of the line before it arrives: the shaft finds nothing there.
 		_slipping = 0.35
+		_missile_wait = missile_dodge_rest
 		collision_layer = 0
 		return
 	if _judged.size() > 64:
@@ -1017,6 +1049,135 @@ func net_run_strike(move: StringName, rate: float) -> void:
 		return
 	var spec: Dictionary = RUN_STRIKES[move]
 	rig.run_strike(spec["clip"], rate, spec["from"], (float(spec["to"]) - float(spec["from"])) / rate, spec["hits"])
+
+
+#region The pack and its leader
+## The pack it belongs to: every living wolf whose home is near its own.
+func pack() -> Array[Wolf]:
+	var out: Array[Wolf] = []
+	if not is_inside_tree() or is_dead:
+		return out
+	var all: Array[Wolf] = []
+	for node in get_tree().get_nodes_in_group(&"wolf"):
+		var w := node as Wolf
+		if w != null and not w.is_dead:
+			all.append(w)
+	# Everyone reachable home to home within `pack_span`: the same set whichever
+	# of them asks.
+	out.append(self)
+	var i := 0
+	while i < out.size():
+		for w in all:
+			if not out.has(w) and w._home.distance_to(out[i]._home) <= pack_span:
+				out.append(w)
+		i += 1
+	return out
+
+
+## Which of the pack leads: the same on every peer (by its path), a pack of
+## two or more. The leader is bigger and harder to bring down.
+func _find_leader() -> void:
+	var mates := pack()
+	if mates.size() < 2 or is_leader:
+		return
+	var first: Wolf = null
+	for w in mates:
+		if w.is_leader:
+			return
+		if first == null or String(w.get_path()) < String(first.get_path()):
+			first = w
+	if first == self:
+		is_leader = true
+		var body := get_node_or_null(^"Visuals") as Node3D
+		if body != null:
+			body.scale *= leader_scale
+		max_health *= leader_health
+		health = max_health
+		if intellect < 0.8:
+			intellect = 0.8
+			if mind != null:
+				mind.intellect = 0.8
+
+
+## The leader down: every one of its pack is shaken — a stagger where it stands
+## — and then either breaks and runs to another pack, or stays, enraged.
+func _leader_fell() -> void:
+	for w in pack():
+		if w != self:
+			w._lose_leader()
+
+
+func _lose_leader() -> void:
+	if is_dead:
+		return
+	if not is_crippled():
+		_stumble(0.9)
+	if rig != null and body_has_growl():
+		Sfx.play(self, WolfRig.GROWL, null, global_position + Vector3.UP, 0.8, -6.0)
+	var other := _other_pack()
+	if other.x < INF and _rng.randf() < desert_chance and not is_crippled():
+		_deserting = true
+		_desert_to = other
+		state = State.CHASE
+		_provoked = 0.0
+		_threat.clear()
+		if mind != null:
+			mind._release()
+			mind._release_shot()
+		return
+	_enrage()
+
+
+func body_has_growl() -> bool:
+	return ResourceLoader.exists(WolfRig.GROWL)
+
+
+## Enraged: every one of them at him at once (no turns to wait), no drawing
+## off or standing back to throw, blows harder, faster on its feet — and
+## reckless: it no longer gets out of an arrow's way.
+func _enrage() -> void:
+	if frenzied:
+		return
+	frenzied = true
+	swipe_damage *= rage_damage
+	fight_speed *= rage_speed
+	charge_speed *= rage_speed
+	run_start_speed *= rage_speed
+	_top_speed *= rage_speed
+	if rig != null and rig._eye_mat != null:
+		rig._eye_base *= 2.5
+	if mind != null:
+		mind._release_shot()
+		mind._begin(WolfMind.Tactic.CLOSE)
+
+
+## The home of the nearest other pack (INF if there is none).
+func _other_pack() -> Vector3:
+	var best := Vector3(INF, INF, INF)
+	var best_d := INF
+	for node in get_tree().get_nodes_in_group(&"wolf"):
+		var w := node as Wolf
+		if w == null or w.is_dead or w._home.distance_to(_home) <= pack_span * 1.5:
+			continue
+		var d := w._home.distance_to(global_position)
+		if d < best_d and d < 260.0:
+			best_d = d
+			best = w._home
+	return best
+
+
+func _desert(delta: float) -> void:
+	var to := _desert_to - global_position
+	to.y = 0.0
+	if to.length() < 4.0:
+		# Among the others now: one of that pack.
+		_deserting = false
+		_home = _desert_to + Vector3(_rng.randf_range(-3.0, 3.0), 0.0, _rng.randf_range(-3.0, 3.0))
+		state = State.PROWL
+		_pick_prowl_target()
+		return
+	charge_at(to.normalized(), delta)
+#endregion
 
 
 ## Sooner ready to throw the claws' cut again ([method WolfMind] standing off).
@@ -1448,7 +1609,7 @@ func parried(by: Node3D) -> void:
 ## far off they are. A wolf of the pack that was not hurt itself owes `who` a
 ## token of threat, so that is who it goes for.
 func provoke(who: Node3D) -> void:
-	if is_dead or who == null or not _decides():
+	if is_dead or who == null or not _decides() or _deserting:
 		return
 	_provoked = provoked_time
 	if not _threat.has(who.name):
@@ -1882,6 +2043,8 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 	if shove.length_squared() > 0.0001:
 		velocity += shove.normalized() * (6.0 if critical else 4.0) * (1.0 if broke else 0.35)
 
+	# Cut while it runs off: it turns and fights after all.
+	_deserting = false
 	# Being shot at is a good enough reason to come and find out who did it —
 	# and if somebody else has just taken the lead, to go after them instead.
 	# From however far off the shot came, and the pack with it.
@@ -1912,6 +2075,8 @@ func _on_severed(part: String) -> void:
 func _die() -> void:
 	if is_dead:
 		return
+	if is_leader and _decides():
+		_leader_fell()
 	state = State.DOWN
 	health = 0.0
 	# The setter does the rest, here and on every other peer once `is_dead` has

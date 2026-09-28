@@ -4532,3 +4532,24 @@ next), the golem 1.9 m and never fights. The imp is first.
 - fighter_test's block / break / dash / combo checks are on a puglin now (held
   to the numbers they were written for); imp_test checks the imp.
 
+
+## The pack's leader, and a bow that can bring a wolf down
+
+- **Every pack has a leader.** Wolves whose homes lie within `pack_span`
+  (22 m) of one another, one to the next, are one pack (`Wolf.pack()`); of a
+  pack of two or more, one leads (`_find_leader`, the same on every peer —
+  by its path): 15% bigger, 60% more health, no duller than 0.8.
+- **Its fall shakes them.** Brought down, every one of its pack staggers where
+  it stands (and is open for that moment) with a growl, and then each either
+  **breaks and runs** to the nearest other pack (`desert_chance` 35%; it goes
+  there at a run and becomes one of that pack — unless it is cut on the way,
+  when it turns and fights) or **stays, enraged** (`_enrage`): no leader, so
+  no taking turns — they all go at him at once — no drawing off, no standing
+  back to throw, no flanking; it hits 30% harder and moves 15% faster, dodges
+  his swings half as often, gets out of no arrow's way at all, and its eyes
+  burn brighter. wolf_mind_test `_leader()`.
+- **A bow or a staff can bring it down.** It got out of the way of most
+  arrows and bolts from far off (85%): now of some — 45% far, 30% close — and
+  after a dodge it wants 2 s before it can dodge another
+  (`missile_dodge_rest`); enraged, none. wolf_run_test and wolf_mind_test
+  expect some dodged, never most.

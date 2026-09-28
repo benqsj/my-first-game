@@ -59,6 +59,7 @@ func _initialize() -> void:
 	await _pack()
 	await _pair()
 	await _guard()
+	await _leader()
 	await _crippled()
 	await _cut_down()
 	await _disarmed()
@@ -76,8 +77,8 @@ func _looks() -> void:
 	_check("some go on four legs, some on two", gaits.size() == 2, str(gaits.keys()))
 
 
-## Arrows loosed at it: from far off it gets out of the way of most; coming in
-## close, of few.
+## Arrows loosed at it: from far off it gets out of the way of some, never most;
+## coming in close, of fewer.
 func _shots(wolf: Wolf, gap: float, shots: int) -> int:
 	var dodged := 0
 	for k in shots:
@@ -114,9 +115,10 @@ func _missiles() -> void:
 	var far := await _shots(wolf, 12.0, 20)
 	var near := await _shots(wolf, 3.0, 20)
 	wolf.charge_speed = charge
-	# Bigger now (a 1.4 wolf), and a bigger mark: most still, not nearly all.
-	_check("from far off it gets out of the way of most arrows", far >= 12, "%d of 20" % far)
-	_check("and close in, of many too, though fewer", near >= 6 and near <= far, "%d of 20" % near)
+	# A bow must be able to bring it down: from far off it gets out of the way
+	# of some, never most (and wants its breath between dodges); close in, fewer.
+	_check("from far off it gets out of the way of some arrows, not most", far >= 2 and far <= 12, "%d of 20" % far)
+	_check("and close in, of fewer", near <= far + 2, "%d of 20" % near)
 	_park(wolf)
 
 
@@ -389,6 +391,57 @@ func _guard() -> void:
 	_check("a guard held up at it is answered: got round, or battered", flanked or heavy,
 			"flank %s, heavy blows %s, struck from his side %s" % [flanked, heavy, behind])
 	_park(wolf)
+
+
+## The pack's leader: bigger than the rest; brought down in front of them, the
+## pack is shaken — a stagger — and each of them then either breaks for another
+## pack or stays, enraged, and they go at him all at once.
+func _leader() -> void:
+	var leader: Wolf = null
+	for node in root.get_tree().get_nodes_in_group(&"wolf"):
+		if (node as Wolf).is_leader and not (node as Wolf).is_dead:
+			leader = node
+			break
+	var sizes := []
+	for node in root.get_tree().get_nodes_in_group(&"wolf"):
+		sizes.append((node as Wolf).pack().size())
+	_check("a pack has a leader", leader != null, "pack sizes %s" % str(sizes))
+	if leader == null:
+		return
+	var mates := leader.pack().filter(func(w: Wolf) -> bool: return w != leader).slice(0, 4)
+	var mate: Wolf = mates[0] if not mates.is_empty() else null
+	_check("bigger than the rest", mate != null and leader.get_node("Visuals").scale.x > mate.get_node("Visuals").scale.x * 1.1,
+			"%.2f vs %.2f" % [leader.get_node("Visuals").scale.x, mate.get_node("Visuals").scale.x if mate else 0.0])
+	_reset_player(_spot)
+	_bring(leader, _spot + Vector3(0.0, 0.0, -3.0))
+	for k in mates.size():
+		_bring(mates[k] as Wolf, _spot + Vector3(-3.0 + 2.0 * k, 0.0, -6.0))
+		(mates[k] as Wolf).provoke(_player)
+	await _wait(30)
+	leader.take_hit(1.0e6, leader.global_position + Vector3.UP, Vector3.BACK, false, true, _player)
+	var shaken := {}
+	for i in 60 * 3:
+		await physics_frame
+		_hold_player()
+		for w: Wolf in mates:
+			if w.is_reeling():
+				shaken[w] = true
+		if _player.state == Player.State.DOWNED:
+			_player.state = Player.State.GROUNDED
+			_player.is_invulnerable = false
+	var raged := 0
+	var ran := 0
+	for w: Wolf in mates:
+		raged += 1 if w.frenzied else 0
+		ran += 1 if w._deserting or w._home.distance_to(leader._home) > leader.pack_span else 0
+	_check("the leader down, the pack is shaken", shaken.size() == mates.size(), "%d of %d" % [shaken.size(), mates.size()])
+	_check("and each breaks for another pack or stays enraged", raged + ran == mates.size(),
+			"%d enraged, %d ran, of %d" % [raged, ran, mates.size()])
+	# Put back as they were for the trials after this one.
+	for w: Wolf in mates:
+		w._deserting = false
+		w.frenzied = false
+		_park(w)
 
 
 ## A leg off: down on its belly, it crawls at him and lunges; and the leg lands.
