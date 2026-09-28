@@ -4653,3 +4653,92 @@ moves as clips, the body carried along each clip's measured path, blows by limb
 `blow_window`, `blow_min_speed` for smaller arms), the step in under a blow, and
 walking picked by direction and retimed to the stride at the drawn size.
 
+
+## The lands round the core (the v4 map in the game)
+
+The world is 600 × 890 m (x −300…300, z −470…420): the old level in its middle,
+untouched, and the five lands of the v4 map round it — the west's golden fields
+and vineyards, the northern upland with its tarn and ruined fortress, Mamberi's
+misty spruce wood, Ochopintre's autumn beeches beyond the Black River, the devs'
+mountains with the glacier lake and the ravine. The map is drawn and baked
+outside the game (`vepxis-art/map/v4`: `design.py` → `raster.py` →
+`export_game.py`), which writes `assets/world/lands/`: the height of every metre,
+the water's level and which way it runs, twelve cover layers, each land's green,
+the grass clumps, the lists of trees, stones and flowers, and all of
+`world_v4.json` (regions with their routes, camps, arenas and moods; landmarks,
+settlements, fires, zones, the city). Change the map there and export again;
+nothing of it is worked out in the game.
+
+- **Ground** (`Lands`, `scripts/lands.gd`). Chunks of one flat grid lifted in the
+  shader from a float texture of the heights (`shaders/lands_ground.gdshader`):
+  a metre a cell near, five metres far, skirts so the two never crack; the whole
+  build is ~0.3 s. The cover is the map's twelve layers (grass, needles, beech
+  litter, heather, rock, scree, snow, dirt, gravel, mud, crops, flowers); grass
+  is painted as the core's house style paints it, in each land's own green. Four
+  `HeightMapShape3D`s round the core are the floor. Where the lands meet the
+  core the lands' edge is eased onto the core's ground (`_meet_the_core`), so
+  there is no step. `Terrain.height_at` answers from the lands outside its square.
+- **Water.** One surface over every wet metre at its own level — down the rivers
+  and down the four falls as sheets — flowing along the river (two phases of the
+  ripple maps slid along a flow map), turquoise where glacial, foam on the falls
+  and rapids, the sky at a grazing look (`shaders/lands_water.gdshader`). The
+  bay's plane is cut at the rim.
+- **No swimming.** Deeper than 1.3 m, the floor rises 2.5 m out of the water: a
+  deep river holds a body on its bank. It is crossed at the fords (their bed
+  brought up to a wade), on the stepping stones and over the bridges.
+- **Crossings** (`Lands.crossings`). The map says where a bridge is, not how long:
+  each is worked out at load as the shortest way over the water near it, bank to
+  bank, and the barrier is let through along it. `LandsPlaces` builds them: plank
+  bridges with rails, the log bridge, the arched stone bridge, the rope bridge,
+  stepping stones, the ferry's jetty.
+- **The rim.** Walls round it, and land running on out under the mountains
+  (`Beyond`); the old four walls round the core are gone and the `Horizon`'s rings
+  stand out past the new rim.
+- **Roads** (`Paths.roads`): each land's way from its gate to its boss, the spurs
+  to its villages and the city's streets, drawn like the tracks and kept clear of
+  trees, not flattened into the core.
+- **Trees, stones, flowers** (`Forest.plant`): 3153 trees where the map put them
+  (spruce as the giant firs and cedars, pine, oak, beech in autumn gold, red
+  maple, yellow birch, dark alder, pale willow, orchard trees, juniper, the great
+  plane, bushes; a model can carry its own colour), 904 stones, 2400 flowers and
+  sunflowers, drawn and collided as the grown wood is; nothing on a bridge's line.
+  21 000 grass clumps on a `GrassField` of the lands' own.
+- **Places** (`LandsPlaces`, `scripts/lands_places.gd`), from the kit and from
+  boxes, as the greybox was — stand-ins where the map put them, at the size it
+  asked: five villages (houses round a square, fences, stone walls or towers by
+  style), the camps (fire, tents, logs; a palisade round the orcs'), the rest
+  fire before each boss with a cairn and a banner, a ring of standing stones
+  round each boss arena, two tall stones at each land's gate, and the landmarks —
+  kurgans, idol, wayside cross, hill-fort, stone circles and pillars, cairns,
+  ruined towers and the northern fortress, the orc lookout, quarry, the devs' cave,
+  the glacier, rock gate and crag, falls' spray, the fallen oak, the giant beeches,
+  maple, hollow oak and plane, light shafts, the glowing mushroom ring, the fern
+  ravine, shrines, huts, the watermill, ruined and burnt farms, treehouses,
+  haystacks.
+- **Gulansharo**, the city on the bay's north shore (in the core, from the map):
+  its wall with crenels, eleven towers, three gates, streets, the market with its
+  stalls, twelve named houses each with its sign (the merchants' guild, temple,
+  smith, armourer, bowyer, apothecary, tailor, inn, store, stables, barracks,
+  harbour house), the moles and lighthouse, three ships. **The land gate is shut**
+  until the orcs in the mist village are dead (`LandsPlaces.open_land_gate`).
+- **The orcs' den.** The mist village is the orcs' now — two with great axes in
+  its yard, four on guard (`World.CAMPS`, `orc_guard`); they no longer wade in
+  the bay. **Two Arkdevas**, each in its own lair cut into the wood: the web
+  ravine (−104, −118) and the marsh lair (−80, −216); the old glade at (5, −50)
+  is wood again.
+- **Travelling fires** (`Waystones`): 21 rings of stones round a fire, in every
+  village, at the ways and before every boss. F lights a cold one (it stays
+  lit); at a lit one F opens the list of the other lit fires, ↑ ↓ pick, F goes.
+  The village square's is lit from the start.
+- **Each land's air** (`LandsMood`): the map's mood for each land mixed by how
+  much of it lies round the hero and eased in — the fog's colour and thickness,
+  the sun's height, bearing and colour — on top of whatever `Looks` and the
+  graphics setting put there (anything they write is the new base; the core is
+  the base itself). And what drifts in the air: dust in the west, motes in the
+  north, mist in Mamberi, falling leaves in Ochopintre, snow in the devs' land.
+- **The spawn** is the village square (62, 44).
+
+`tests/lands_test.gd`: the lands are there and meet the core without a step, the
+floor is the drawn ground, a hero walks out of the core, a deep river holds him
+but every ford and bridge takes him over, the fires light and carry him, the
+city's gate is shut until opened, the air knows the lands.
