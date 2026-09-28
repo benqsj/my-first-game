@@ -423,6 +423,8 @@ func _ready() -> void:
 	_grow("Giants Hill", HILL_GIANTS, tree_draw_distance, trees_cast_shadows, true, GROVE_WEST.position.y - 4.0, north_to)
 	_grow("Young Firs Hill", HILL_YOUNG, tree_draw_distance, trees_cast_shadows, true, GROVE_WEST.position.y - 4.0, north_to)
 	_on_hill = false
+	# And the lands round the core, tree by tree as the map placed them.
+	_plant_lands()
 
 	print("Forest: %s, %d trunks over %d bodies (%d distinct shapes), in %.1f ms" % [
 			counts, trunk_count(), _bodies.size(), _shape_pool.size(),
@@ -748,7 +750,7 @@ func _build_chunks(holder: Node3D, models: Array, chunks: Dictionary,
 		var bucket: Dictionary = chunks[key]
 		for index: int in bucket:
 			var path: String = models[index]["path"]
-			var mesh := _mesh(path)
+			var mesh := _model_mesh(models[index])
 			if mesh == null:
 				continue
 			var list: Array = bucket[index]
@@ -773,6 +775,170 @@ func _build_chunks(holder: Node3D, models: Array, chunks: Dictionary,
 				node.visibility_range_end_margin = maxf(draw_distance * 0.15, 4.0)
 				node.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 			chunk.add_child(node)
+
+
+## The model's mesh, in its own colour when the table gives it one: `tint`
+## over the leaves (a beech's autumn, a maple's red), or over every surface
+## with `tint_all` (a mossy stone). One copy per model and colour.
+func _model_mesh(model: Dictionary) -> Mesh:
+	var path: String = model["path"]
+	if not model.has("tint"):
+		return _mesh(path)
+	var tint: Color = model["tint"]
+	var all: bool = model.get("tint_all", false)
+	var key := "%s|%s|%s" % [path, tint, all]
+	if _meshes.has(key):
+		return _meshes[key]
+	var base := _mesh(path) as ArrayMesh
+	if base == null:
+		_meshes[key] = null
+		return null
+	var copy := base.duplicate() as ArrayMesh
+	for s in copy.get_surface_count():
+		var material := copy.surface_get_material(s) as BaseMaterial3D
+		if material == null:
+			continue
+		var c := material.albedo_color
+		var named := material.resource_name + " " + copy.surface_get_name(s)
+		var leafy := named.contains("Leaves") or named.contains("Leaf") \
+				or (c.g > 0.3 and c.g > c.r * 1.15 and c.g > c.b * 1.15)
+		if all or leafy:
+			var toned := material.duplicate() as BaseMaterial3D
+			toned.albedo_color = Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, c.a)
+			copy.surface_set_material(s, toned)
+	_meshes[key] = copy
+	return copy
+
+
+## What each kind of tree and stone in the lands' lists ([Lands], trees.txt and
+## rocks.txt) grows as: models from the kit, a size that the list's own scale
+## multiplies, and a colour. `solid` ones get a trunk collider.
+const LANDS_KINDS := {
+	"spruce": {"size": 1.0, "models": [
+		{"path": "res://assets/forest/GiantFir_A.obj", "size": 0.62},
+		{"path": "res://assets/forest/GiantFir_B.obj", "size": 0.62},
+		{"path": "res://assets/forest/GiantFir_C.obj", "size": 0.6},
+		{"path": "res://assets/forest/Tree_Cedar_1.obj", "size": 2.6},
+		{"path": "res://assets/forest/Tree_Cedar_3.obj", "size": 2.6}]},
+	"pine": {"size": 2.5, "models": [
+		{"path": "res://assets/forest/Tree_Pine_1.obj"}, {"path": "res://assets/forest/Tree_Pine_3.obj"},
+		{"path": "res://assets/forest/Tree_Pine_4.obj"}, {"path": "res://assets/forest/Tree_Pine_6.obj"}]},
+	"oak": {"size": 2.3, "models": [
+		{"path": "res://assets/forest/Tree_Oak_1.obj"}, {"path": "res://assets/forest/Tree_Oak_4.obj"},
+		{"path": "res://assets/forest/Tree_Oak_7.obj"}]},
+	"beech": {"size": 2.3, "models": [
+		{"path": "res://assets/forest/Tree_Oak_2.obj", "tint": Color(1.55, 0.72, 0.26)},
+		{"path": "res://assets/forest/Tree_Oak_3.obj", "tint": Color(1.45, 0.9, 0.3)},
+		{"path": "res://assets/forest/Tree_Oak_5.obj", "tint": Color(1.6, 0.6, 0.22)},
+		{"path": "res://assets/forest/Tree_Oak_8.obj", "tint": Color(1.25, 0.95, 0.35)}]},
+	"maple": {"size": 2.0, "models": [
+		{"path": "res://assets/forest/Tree_Oak_3.obj", "tint": Color(1.85, 0.36, 0.2)},
+		{"path": "res://assets/forest/Tree_Oak_5.obj", "tint": Color(1.7, 0.5, 0.18)}]},
+	"birch": {"size": 1.8, "models": [
+		{"path": "res://assets/forest/Tree_Oak_2.obj", "tint": Color(1.35, 1.12, 0.42)},
+		{"path": "res://assets/forest/Tree_Oak_8.obj", "tint": Color(1.2, 1.1, 0.5)}]},
+	"alder": {"size": 1.9, "models": [
+		{"path": "res://assets/forest/Tree_Oak_6.obj", "tint": Color(0.6, 0.66, 0.52)}]},
+	"willow": {"size": 1.8, "models": [
+		{"path": "res://assets/forest/Tree_Oak_1.obj", "tint": Color(0.92, 1.0, 0.78)}]},
+	"orchard": {"size": 1.15, "models": [
+		{"path": "res://assets/forest/Tree_Oak_4.obj", "tint": Color(0.95, 1.08, 0.7)}]},
+	"juniper": {"size": 1.0, "models": [{"path": "res://assets/forest/Tree_Cedar_2.obj"}]},
+	"plane": {"size": 3.0, "models": [{"path": "res://assets/forest/Tree_Oak_7.obj"}]},
+	"bush": {"size": 1.6, "solid": false, "models": [
+		{"path": "res://assets/forest/Bush_1.obj"}, {"path": "res://assets/forest/Bush_2.obj"},
+		{"path": "res://assets/forest/Bush_3.obj"}, {"path": "res://assets/forest/Bush_4.obj"},
+		{"path": "res://assets/forest/Bush_5.obj"}]},
+	"granite": {"size": 1.7, "models": [
+		{"path": "res://assets/forest/Rock_1.obj"}, {"path": "res://assets/forest/Rock_3.obj"},
+		{"path": "res://assets/forest/Rock_5.obj"}, {"path": "res://assets/forest/Rock_7.obj"}]},
+	"mossy": {"size": 1.7, "models": [
+		{"path": "res://assets/forest/Rock_2.obj", "tint": Color(0.72, 0.9, 0.62), "tint_all": true},
+		{"path": "res://assets/forest/Rock_4.obj", "tint": Color(0.72, 0.9, 0.62), "tint_all": true},
+		{"path": "res://assets/forest/Rock_6.obj", "tint": Color(0.72, 0.9, 0.62), "tint_all": true}]},
+	"flower": {"size": 1.3, "solid": false, "models": [
+		{"path": "res://assets/forest/Flower_Daisy_1.obj"}, {"path": "res://assets/forest/Flower_Daisy_2.obj"},
+		{"path": "res://assets/forest/Flower_Violet_1.obj"}, {"path": "res://assets/forest/Flower_Violet_2.obj"},
+		{"path": "res://assets/forest/Flower_Bellflower_1.obj"}]},
+	"poppy": {"size": 1.3, "solid": false, "models": [
+		{"path": "res://assets/forest/Flower_Balloon_2.obj", "tint": Color(1.6, 0.45, 0.4), "tint_all": true},
+		{"path": "res://assets/forest/Flower_Balloon_3.obj", "tint": Color(1.6, 0.45, 0.4), "tint_all": true}]},
+	"bell": {"size": 1.3, "solid": false, "models": [
+		{"path": "res://assets/forest/Flower_Bellflower_2.obj"}, {"path": "res://assets/forest/Flower_Bellflower_3.obj"}]},
+	"sunflower": {"size": 1.5, "solid": false, "models": [
+		{"path": "res://assets/forest/Flower_Sunflower_1.obj"}, {"path": "res://assets/forest/Flower_Sunflower_2.obj"},
+		{"path": "res://assets/forest/Flower_Sunflower_3.obj"}]},
+	"field": {"size": 1.5, "models": [
+		{"path": "res://assets/forest/Rock_8.obj", "tint": Color(1.05, 1.0, 0.9), "tint_all": true},
+		{"path": "res://assets/forest/Rock_9.obj", "tint": Color(1.05, 1.0, 0.9), "tint_all": true}]},
+}
+
+
+## Plants the lands' trees, stones and flowers where the map put them.
+func _plant_lands() -> void:
+	var lands := Lands.current
+	if lands == null or not is_instance_valid(lands):
+		return
+	var reach := {"trees": tree_draw_distance, "rocks": undergrowth_draw_distance * 1.4, "flowers": litter_draw_distance * 1.2}
+	for list: String in ["trees", "rocks", "flowers"]:
+		var rows := lands.table(list)
+		if rows.is_empty():
+			continue
+		# one flat model table for the list, and each row's pick in it
+		var models: Array = []
+		var first: Dictionary = {}
+		for kind: String in LANDS_KINDS:
+			first[kind] = models.size()
+			for m: Dictionary in LANDS_KINDS[kind]["models"]:
+				models.append(m)
+		var placed: Array = []
+		for row: Array in rows:
+			var kind: String = row[0]
+			if not LANDS_KINDS.has(kind):
+				continue
+			var spec: Dictionary = LANDS_KINDS[kind]
+			var choices: Array = spec["models"]
+			var x := float(row[1])
+			var z := float(row[2])
+			var turn := float(row[5])
+			# which of the kind's models: from where it stands, so every peer agrees
+			var pick := int(absf(x * 12.9898 + z * 78.233)) % choices.size()
+			var model: Dictionary = choices[pick]
+			var size := float(row[4]) * float(spec["size"]) * float(model.get("size", 1.0))
+			placed.append([int(first[kind]) + pick, x, z, size, turn, spec.get("solid", true)])
+		plant("Lands " + list.capitalize(), models, placed, float(reach[list]), trees_cast_shadows and list == "trees")
+
+
+## The widest collider a planted tree or stone is given, metres (the giant
+## firs' root flare is 1.8).
+const LANDS_WIDEST := 1.8
+
+
+## Plants a list somebody else placed: `placed` is [model index, x, z, size,
+## turn in degrees, solid], drawn and collided exactly as the grown wood is.
+func plant(group_name: String, models: Array, placed: Array, draw_distance: float, shadows: bool) -> void:
+	var holder := Node3D.new()
+	holder.name = group_name
+	add_child(holder)
+	var chunks: Dictionary = {}
+	for p: Array in placed:
+		var pick: int = p[0]
+		var at := Vector2(float(p[1]), float(p[2]))
+		var size := float(p[3])
+		# a little taller or squatter, the same on every peer
+		var stretch := 0.92 + 0.2 * fposmod(at.x * 0.731 + at.y * 0.377, 1.0)
+		var basis := Basis(Vector3.UP, deg_to_rad(float(p[4]))).scaled(Vector3(size, size * stretch, size))
+		var key := _chunk_of(at)
+		var bucket: Dictionary = chunks.get(key, {})
+		var list: Array = bucket.get(pick, [])
+		list.append(Transform3D(basis, Vector3(at.x, Terrain.height_under(at.x, at.y, 0.35), at.y)))
+		bucket[pick] = list
+		chunks[key] = bucket
+		if p[5]:
+			_add_trunk(models[pick]["path"], at, size, basis, LANDS_WIDEST)
+			_remember_trunk(at)
+	counts[group_name] = placed.size()
+	_build_chunks(holder, models, chunks, draw_distance, shadows)
 
 
 ## Loads a model once and remembers it. Missing files are warned about rather
@@ -838,7 +1004,7 @@ func _toned(mesh: Mesh) -> Mesh:
 ## Shapes themselves are still pooled by radius to the nearest five centimetres,
 ## which is a different saving: a thousand trees want a dozen *shapes* between
 ## them, however many bodies those are spread over.
-func _add_trunk(path: String, at: Vector2, size: float, turn: Basis = Basis.IDENTITY) -> void:
+func _add_trunk(path: String, at: Vector2, size: float, turn: Basis = Basis.IDENTITY, widest: float = INF) -> void:
 	var mesh := _mesh(path)
 	if mesh == null:
 		return
@@ -854,6 +1020,8 @@ func _add_trunk(path: String, at: Vector2, size: float, turn: Basis = Basis.IDEN
 	# Never thinner than this, even round a thin trunk: a capsule walked
 	# head-on into a pencil-thin cylinder slides round it rather than stopping.
 	radius = maxf(radius, TRUNK_FLOOR)
+	# (and never fatter than asked: a boulder is kept to a trunk's girth)
+	radius = minf(radius, widest)
 
 	var key := maxf(snappedf(radius, 0.05), 0.05)
 	var shape: CylinderShape3D = _shape_pool.get(key)
