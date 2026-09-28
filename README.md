@@ -4376,3 +4376,23 @@ New clips (`vepxis-art/tools/dg10_export.py`, retargeted from
 `mixamo/assassin/`): `DG_Slash_Out`, `DG_Axe_R2L`, `DG_Thrust_Slash`,
 `DG_Axe_Three`, `DG_Big_Flip`. `tests/rogue_strike_test.gd` checks the choice
 of heavy blow, the double cut, and the evade out of a follow-through.
+
+## Tariel after Ashen: two looks
+
+Tariel is now one of two on the hero select — the `LOOK` row under the stage
+(the rig's `faces`, relabelled): **AS HE WAS**, the square-headed Tariel in
+the berserker's harness with the long mohawk, and **THE WARRIOR**, the
+figure after Ashen — a slim flat-shaded body lofted in few-sided rings, a
+carved bone half-mask with cut eye holes over a bare jaw, the sides of the
+head shaved under a crest of hair braided down the back, a wrap-over wool
+tunic (the lapped edge bound in a woven band, a bronze brooch, gathered
+under the belt, two flaps slit at the hips with a zigzag hem), short breeches
+with turned-up leather cuffs, bare arms in gold rings and linen wraps, a fur
+mantle, a leather guard on the left shoulder, wound calves and furred boots
+(`vepxis-art/tools/t14_body.py`, `t14_dress.py`, look `warrior_earth`;
+exported by `vepxis-art/_t16_export.py`). He is one mesh, body and head and
+dress together (`tariel_face_ashen`), so `SkinnedRig.whole_faces` lists him:
+while he is on, `wearing_whole()` hides the outfit and the hair. The other
+faces, hairs and outfits have left the glb (they stay in `tariel.blend`);
+`garbs` is the berserker's alone and `hairs` the long mohawk alone, so
+neither row is offered. The glb went from 13.6 MB to 4.8 MB.

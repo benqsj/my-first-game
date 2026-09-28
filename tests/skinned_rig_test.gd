@@ -55,14 +55,15 @@ func _initialize() -> void:
 	_check("the ponytail hangs off spring bones", cloth != null and cloth.get_setting_count() == 1, "")
 	# The warrior's dress he starts in goes without a cape.
 	_check("the warrior goes without a cape", rig.cloth_capes.size() == 0, "%d" % rig.cloth_capes.size())
-	# His face and his hair are meshes of their own: a face per face, a hair
-	# per style for each kind of skull; one of each worn.
+	# His face and his hair are meshes of their own: the square head and its
+	# long mohawk, one of each worn; the warrior after Ashen a whole figure.
 	var worn := 0
 	var found := 0
 	for mesh in rig.find_children("tariel_hair_*", "MeshInstance3D", true, false):
 		found += 1
 		worn += 1 if (mesh as MeshInstance3D).visible else 0
-	_check("his hair: every style for every skull in the model, one worn", found == 18 and worn == 1,
+	_check("his hair: the one style in the model, worn on the square head",
+			found == 1 and worn == (0 if rig.wearing_whole() else 1),
 			"%d found, %d worn" % [found, worn])
 	var faces_found := 0
 	var faces_worn := 0
@@ -71,8 +72,21 @@ func _initialize() -> void:
 		if face_mesh != null:
 			faces_found += 1
 			faces_worn += 1 if face_mesh.visible else 0
-	_check("his faces: all seven in the model, one worn", faces_found == 7 and faces_worn == 1,
+	_check("his looks: both in the model, one worn", faces_found == 2 and faces_worn == 1,
 			"%d found, %d worn" % [faces_found, faces_worn])
+	# The warrior worn: he alone shows, no outfit and no hair over him.
+	var face_was := rig.face
+	rig.set_face(rig.faces.find(&"ashen"))
+	var over := 0
+	for mesh in rig.find_children("tariel_hair_*", "MeshInstance3D", true, false):
+		over += 1 if (mesh as MeshInstance3D).visible else 0
+	for key: StringName in rig.garbs:
+		var garb_mesh := rig.find_child(String(key), true, false) as MeshInstance3D
+		over += 1 if garb_mesh != null and garb_mesh.visible else 0
+	var whole := rig.find_child("tariel_face_ashen", true, false) as MeshInstance3D
+	_check("the warrior worn whole, nothing over him", whole != null and whole.visible and over == 0,
+			"%d over" % over)
+	rig.set_face(face_was)
 	if not rig.cloth_capes.is_empty():
 		var fwd := -player.global_transform.basis.z
 		var hem := rig.cloth_capes[0].hem() - player.global_position

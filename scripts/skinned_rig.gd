@@ -274,6 +274,9 @@ var face_names: Array[String] = []
 var face_skulls: Array[StringName] = []
 ## Which of `faces` is on.
 var face: int = 0
+## Faces that are the whole figure — body and dress with the head — so the
+## outfit and the hair are hidden while one is on.
+var whole_faces: Array[StringName] = []
 ## What the model's own meshes are named from.
 var mesh_prefix: String = "tariel"
 
@@ -327,19 +330,19 @@ func _configure() -> void:
 	wardrobe = TARIEL_WARDROBE
 	# His outfits (see [Inventory]), the first worn: the berserker's; none
 	# with a cape.
-	garbs = [&"tariel_vk_berserker", &"tariel_vk_tunic", &"tariel_vk_mail", &"tariel_vk_warrior",
-			&"tariel_vk_warrior_slate", &"tariel_vk_warrior_hide"]
-	garb_capes = [[{"off": true}], [{"off": true}], [{"off": true}], [{"off": true}], [{"off": true}],
-			[{"off": true}]]
-	# His face and his hair, both picked on the hero select: the face he has
-	# always had and the long mohawk first.
-	hairs = [&"mohawk_long", &"undercut_tail", &"undercut_braid", &"undercut_knot", &"full_back", &"classic"]
-	hair_names = ["LONG MOHAWK", "UNDERCUT AND TAIL", "UNDERCUT AND BRAID", "UNDERCUT AND KNOT",
-			"LONG, SWEPT BACK", "SHOULDER LENGTH"]
-	faces = [&"box", &"v3", &"s3", &"v2", &"a2", &"a4", &"a1"]
-	face_skulls = [&"box", &"sot", &"sot", &"sot", &"anime", &"anime", &"anime"]
-	face_names = ["AS HE WAS", "NORSE, LONG BEARD", "SEAFARER, BEARDED", "NORSE, STUBBLE", "FINE, ELVISH",
-			"STERN", "CLEAN"]
+	# His outfit (see [Inventory]): the berserker's, no cape.
+	garbs = [&"tariel_vk_berserker"]
+	garb_capes = [[{"off": true}]]
+	# Who he is, picked on the hero select: the square-headed Tariel he always
+	# was (the berserker's harness, the long mohawk), or the warrior after
+	# Ashen — a whole figure of his own (body, masked head, hair and dress one
+	# mesh), so no outfit or hair is worn with him.
+	hairs = [&"mohawk_long"]
+	hair_names = ["LONG MOHAWK"]
+	faces = [&"box", &"ashen"]
+	face_skulls = [&"box", &"ashen"]
+	face_names = ["AS HE WAS", "THE WARRIOR"]
+	whole_faces = [&"ashen"]
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
@@ -1155,7 +1158,7 @@ func set_garb(index: int) -> void:
 	for i in garbs.size():
 		var mesh := find_child(String(garbs[i]), true, false) as MeshInstance3D
 		if mesh != null:
-			mesh.visible = i == garb
+			mesh.visible = i == garb and not wearing_whole()
 	if garb < garb_capes.size() and _skel != null:
 		_hang_capes(garb_capes[garb])
 
@@ -1183,7 +1186,7 @@ func set_hair(index: int) -> void:
 		for i in hairs.size():
 			var mesh := find_child(String(hair_mesh(i, skull)), true, false) as MeshInstance3D
 			if mesh != null:
-				mesh.visible = hair_mesh(i, skull) == on
+				mesh.visible = hair_mesh(i, skull) == on and not wearing_whole()
 
 
 ## Shows the face `index` of `faces` and hides the others; the hair follows
@@ -1195,6 +1198,12 @@ func set_face(index: int) -> void:
 		if mesh != null:
 			mesh.visible = i == face
 	set_hair(hair)
+	set_garb(garb)
+
+
+## Whether the face that is on is a whole figure (see `whole_faces`).
+func wearing_whole() -> bool:
+	return face < faces.size() and whole_faces.has(faces[face])
 
 
 ## Takes the capes down and hangs them again, each spec in `capes` with its

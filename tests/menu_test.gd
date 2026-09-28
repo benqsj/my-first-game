@@ -104,39 +104,31 @@ func _check_menu() -> void:
 	_check("the description is the picked character's", named == "AVTANDIL",
 			"'%s'" % named)
 
-	# Under the stage, the hair: for Tariel, who has a choice of it, and not
-	# for the archer, who has none.
+	# Under the stage, who he is: for Tariel, the square-headed one he was or
+	# the warrior after Ashen; the archer has no such choice. Neither has a
+	# choice of hair.
+	var face_row := (pages[2] as Control).find_child("FaceRow", true, false) as Control
 	var hair_row := (pages[2] as Control).find_child("HairRow", true, false) as Control
-	_check("the archer has no hair to pick", hair_row != null and hair_row.modulate.a < 0.01)
-	var hair_was: int = _game.hair(&"tariel")
+	_check("the archer has no look to pick", face_row != null and face_row.modulate.a < 0.01)
+	var face_was: int = _game.face(&"tariel")
 	menu.set("_chosen", &"tariel")
 	menu.call("_refresh_cards")
 	await _wait(3)
-	_check("Tariel does", hair_row != null and hair_row.modulate.a > 0.99)
+	_check("Tariel does", face_row != null and face_row.modulate.a > 0.99)
+	_check("but no hair to pick", hair_row != null and hair_row.modulate.a < 0.01)
 	var knight := (stages[&"tariel"] as CharacterPortrait).rig() as SkinnedRig
-	var from: int = knight.hair
-	menu.call("_step_hair", 1)
-	var on := _hairs_shown(knight)
-	_check("the arrow puts the next on him, and only it", knight.hair == (from + 1) % knight.hairs.size()
-			and on == 1, "%d -> %d, %d shown" % [from, knight.hair, on])
-	_check("and it is remembered for the game", _game.hair(&"tariel") == knight.hair)
-	# And his face, the same way; the hair goes over onto the new face's skull.
-	var face_row := (pages[2] as Control).find_child("FaceRow", true, false) as Control
-	_check("Tariel has faces to pick from", face_row != null and face_row.modulate.a > 0.99)
-	var face_was: int = _game.face(&"tariel")
 	var face_from: int = knight.face
-	menu.call("_step_face", 4)
+	menu.call("_step_face", 1)
 	var faces_on := 0
 	for key: StringName in knight.faces:
 		var face_mesh := knight.find_child("tariel_face_" + String(key), true, false) as MeshInstance3D
 		if face_mesh != null and face_mesh.visible:
 			faces_on += 1
-	_check("the arrow puts on another face, and only it", knight.face == (face_from + 4) % knight.faces.size()
+	_check("the arrow puts on the other look, and only it", knight.face == (face_from + 1) % knight.faces.size()
 			and faces_on == 1, "%d -> %d, %d shown" % [face_from, knight.face, faces_on])
-	_check("his hair moves over onto it", _hairs_shown(knight) == 1
-			and (knight.find_child(String(knight.hair_mesh(knight.hair)), true, false) as MeshInstance3D).visible)
-	_check("and the face is remembered too", _game.face(&"tariel") == knight.face)
-	_game.set_hair(&"tariel", hair_was)
+	_check("the hair shows only on the square head",
+			_hairs_shown(knight) == (0 if knight.wearing_whole() else 1))
+	_check("and the look is remembered", _game.face(&"tariel") == knight.face)
 	_game.set_face(&"tariel", face_was)
 
 	# Every character can be taken into a game with other people — including the

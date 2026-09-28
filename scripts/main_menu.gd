@@ -592,7 +592,7 @@ func _refresh_picks() -> void:
 		if shown:
 			var index := clampi(int(_chosen_rig().get(StringName(kind))), 0, names.size() - 1)
 			(row.get_node("Name") as Label).text = "%s   %s   %d / %d" % [
-					kind.to_upper(), String(names[index]), index + 1, names.size()]
+					("LOOK" if kind == "face" else kind.to_upper()), String(names[index]), index + 1, names.size()]
 
 
 ## Turns whoever is on the stage as the mouse is dragged across it (either
