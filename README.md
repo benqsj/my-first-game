@@ -4807,3 +4807,52 @@ yaw 0. `VillageProps.enabled = false` leaves them out (for measuring).
 `tests/village_props_test.gd`: every model in the layout is in the kit, few
 meshes, nothing solid on the villagers' street, the spawn, the gate, a door or a
 quest giver, the square cobbled and grass-free.
+
+
+## The ground of the core: ferns in the woods, grass out in the open
+
+**The open ground greener.** The low sward (the short clumps of the new look)
+grew only round the meadows' clumps; it now grows over the open ground too
+(`Meadows._open_sward`): in broad patches — most of the open, gaps where the
+earth shows — everywhere that is not wood (a clearing cut in one counts as
+open), water, a track, the square's cobbles or, in the village, under
+something standing. A grid 2.1 m fine, two clumps a point, 12 000 clumps
+(`open_sward_spacing`, `open_sward_budget`; the sward's budget went from 32 000
+to 72 000 to hold both). The forest floor lays its grassy ground under the
+sward as well (`Looks._build_mask` adds it to the mask's green), so a patch of
+it stands on grass rather than earth; a lone tree's smudge of leaves is a
+little lighter (0.45 a trunk, was 0.55), so the parkland between the woods
+reads as grass with leaves under the trees rather than as bare litter. The
+shader lets a little more of the open ground be grassy (`open_grass` 0.95,
+the patches' edge 0.14–0.44).
+
+**What lies on the floor** (`scripts/ground_cover.gd`, [GroundCover], laid by
+`World._ready` once the wood has grown): knots of ferns and a broad-leaved plant
+on the floor of the wolves' firs and the great wood, mushrooms in rings and
+knots, the odd mossy stone and small stump, fallen logs in the great wood
+only; in the open, stones lying in the fields with a smaller one or two by
+them, low leaves, pebbles at the edges of the tracks, and at the woods' edges
+small patches of bellflowers and violets (still no daisies). About 3 800
+things, planted through `Forest.plant` so they are drawn as the wood is (a
+multimesh per model per chunk, graded by `Looks` with the wood, no shadows,
+gone past 46 m on the floor and 70 m in the open). Only the 30 logs are solid,
+and there are none on the wolves' hill: it stays open ground to fight on. The
+ferns and plants are the Stylized Nature kit's (CC0), saved out of
+`village_props.glb` as meshes in `assets/village/cover/`, their spring lime
+taken down to the wood's deep green; the rest is the wood's own kit. The same
+on every peer (a fixed seed over a fixed grid).
+
+Tried and dropped: roots at every trunk's foot, twigs, the kit's grass tufts —
+in the dark grade the roots and twigs read as black spikes and the tufts as
+bright green sprouts.
+
+**What it costs** — `perf_tour` with two more places (the wolves' wood, the
+south fields), everything on and off (`GroundCover.enabled = false`, no open
+sward), two runs of each, interleaved, on the M1: draw calls +0 to +130 at a
+place (the most at the orc camp and in the wolves' wood), primitives within
+±5%, frame times and the physics tick inside the run-to-run noise (which on
+this machine was ±10 ms at High), video memory about the same (1051–1082 MB
+off, 1082 on), load +0.4 s (GroundCover 0.25–0.5 s, the open sward ~0.15 s).
+`tests/ground_cover_test.gd`: it grows, every instance drawn, no shadows and a
+draw distance on the litter, nothing in the village, no log on the wolves'
+hill, the open sward there and off the square and the tracks' middles.
