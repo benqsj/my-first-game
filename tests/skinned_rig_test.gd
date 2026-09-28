@@ -54,7 +54,8 @@ func _initialize() -> void:
 	var cloth := rig.find_child("Cloth", true, false) as SpringBoneSimulator3D
 	_check("the ponytail hangs off spring bones", cloth != null and cloth.get_setting_count() == 1, "")
 	# The warrior's dress he starts in goes without a cape.
-	_check("the warrior goes without a cape", rig.cloth_capes.size() == 0, "%d" % rig.cloth_capes.size())
+	_check("the berserker goes without a cape, the wanderer with his cloak",
+			rig.cloth_capes.size() == (1 if rig.wearing_whole() else 0), "%d" % rig.cloth_capes.size())
 	# His face and his hair are meshes of their own: the square head and its
 	# long mohawk, one of each worn; the warrior after Ashen a whole figure.
 	var worn := 0

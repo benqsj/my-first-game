@@ -4411,3 +4411,11 @@ fingers. The warrior, the hooded and masked versions and two knights (after
 Elden Ring's Wylder and Dark Souls' Soul of Cinder) stay in the art tools as
 looks (`warrior_*`, `h_*`, `k_wylder`, `k_cinder`). `vepxis-art/_t16_export.py`
 builds whichever look `T16_LOOK` names (default `a_ashen`).
+
+**His cloak.** The wanderer's capelet hangs as cloth now (look `a_soft`):
+folds that deepen towards the hem, longer at the back, the hem in shallow
+uneven scallops with its lining and thickness showing, its sides weighted
+partly to the shoulders so the sleeves no longer show through it. Under it he
+wears a real cloak of plain brown wool from the back of the shoulders to the
+calf, simulated like Tariel's old tiger skin: `SkinnedRig.whole_capes` hangs
+capes for a whole figure the way `garb_capes` does for an outfit.

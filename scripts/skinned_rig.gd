@@ -277,6 +277,8 @@ var face: int = 0
 ## Faces that are the whole figure — body and dress with the head — so the
 ## outfit and the hair are hidden while one is on.
 var whole_faces: Array[StringName] = []
+## How the capes hang while a whole figure is on (as `garb_capes`, by face).
+var whole_capes: Dictionary = {}
 ## What the model's own meshes are named from.
 var mesh_prefix: String = "tariel"
 
@@ -343,6 +345,11 @@ func _configure() -> void:
 	face_skulls = [&"box", &"ashen"]
 	face_names = ["AS HE WAS", "THE WANDERER"]
 	whole_faces = [&"ashen"]
+	# The wanderer wears a cloak of plain brown wool under his capelet, hung
+	# from the back of the shoulders to the calf: real cloth, in the wind.
+	whole_capes = {&"ashen": [{"base": Color("6b4a33"), "hem": Color("7d5b3f"), "trim": Color("3a2a1c"),
+			"pattern": "plain", "left": [0.23, 0.13, 1.56], "right": [-0.23, 0.13, 1.56], "length": 1.0,
+			"spread": 1.3}]}
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
@@ -1159,7 +1166,11 @@ func set_garb(index: int) -> void:
 		var mesh := find_child(String(garbs[i]), true, false) as MeshInstance3D
 		if mesh != null:
 			mesh.visible = i == garb and not wearing_whole()
-	if garb < garb_capes.size() and _skel != null:
+	if _skel == null:
+		return
+	if wearing_whole() and whole_capes.has(faces[face]):
+		_hang_capes(whole_capes[faces[face]])
+	elif garb < garb_capes.size():
 		_hang_capes(garb_capes[garb])
 
 
