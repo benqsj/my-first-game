@@ -54,6 +54,10 @@ extends Node3D
 @export var shore_width: float = 9.0
 ## Height of the water's surface.
 @export var water_level: float = -0.35
+## Where the water's plane may reach, (x, z) corners; empty for all of the
+## mere. The bay's runs past the level's old south wall and is cut at the rim
+## of the lands ([Lands]) so it does not hang out over nothing.
+@export var water_clip: Rect2 = Rect2()
 
 @export_group("Look")
 ## The old ground's material. The strip draws with a copy of it, so the seam
@@ -191,15 +195,18 @@ func _build_ground() -> void:
 
 #region Water
 func _build_water() -> void:
+	var reach := Rect2(mere_centre - mere_radii - Vector2.ONE * 2.0, mere_radii * 2.0 + Vector2.ONE * 4.0)
+	if water_clip.has_area():
+		reach = reach.intersection(water_clip)
 	var plane := PlaneMesh.new()
-	plane.size = mere_radii * 2.0 + Vector2.ONE * 4.0
+	plane.size = reach.size
 	plane.subdivide_width = 0
 	plane.subdivide_depth = 0
 
 	var water := MeshInstance3D.new()
 	water.name = "Water"
 	water.mesh = plane
-	water.position = Vector3(mere_centre.x, water_level, mere_centre.y)
+	water.position = Vector3(reach.get_center().x, water_level, reach.get_center().y)
 	water.material_override = water_material if water_material != null \
 			else load("res://assets/world/water.tres") as Material
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

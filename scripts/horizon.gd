@@ -50,6 +50,10 @@ const MODELS: PackedStringArray = [
 ## How far a peak is allowed to wander off its ring, in metres, so the skyline is
 ## not a circle of evenly spaced teeth.
 @export var jitter: float = 26.0
+## The land the peaks must stand clear of, (x, z) corners: the lands' rim
+## where there are lands round the core ([Lands]).
+@export var land_min: Vector2 = Vector2(-120.0, -455.5)
+@export var land_max: Vector2 = Vector2(120.0, 179.5)
 ## Sunk into the ground by this much, so no peak shows the flat underside its
 ## model was cut with.
 @export var sink: float = 3.0
@@ -131,8 +135,8 @@ func _clear_of_the_land(at: Vector3, size: float, pick: int) -> Vector3:
 	var out := Vector2(at.x - centre.x, at.z - centre.y).normalized()
 	var reach := foot + LAND_MARGIN
 	for i in 200:
-		var clear := at.x - reach >= LAND_EAST or at.x + reach <= -LAND_EAST \
-				or at.z - reach >= LAND_NORTH or at.z + reach <= LAND_SOUTH
+		var clear := at.x - reach >= land_max.x or at.x + reach <= land_min.x \
+				or at.z - reach >= land_max.y or at.z + reach <= land_min.y
 		if clear:
 			break
 		at.x += out.x * 3.0
@@ -140,10 +144,7 @@ func _clear_of_the_land(at: Vector3, size: float, pick: int) -> Vector3:
 	return at
 
 
-## The land the peaks must stand clear of (x either way, z south and north),
-## and how far clear: the range stands back from the walls, not on them.
-const LAND_EAST := 120.0
-const LAND_SOUTH := -455.5
-const LAND_NORTH := 179.5
+## How far clear of the land a peak stands: the range stands back from the
+## rim, not on it.
 const LAND_MARGIN := 14.0
 

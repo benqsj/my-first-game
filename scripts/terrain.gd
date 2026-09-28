@@ -103,7 +103,8 @@ func contains(x: float, z: float) -> bool:
 	return absf(x) <= half_size + 0.01 and z >= -half_size - 0.01 and z <= north_edge() + 0.01
 
 
-## The height of the ground at (x, z), or 0 where there is none.
+## The height of the ground at (x, z), or 0 where there is none (the marsh
+## strips are 0 but for their water; the lands round the core are [Lands]).
 static func height(x: float, z: float) -> float:
 	if current == null or not is_instance_valid(current):
 		return 0.0
@@ -166,7 +167,8 @@ func _ready() -> void:
 ## The ground's height, worked out from scratch (see the class notes).
 func height_at(x: float, z: float) -> float:
 	if not contains(x, z):
-		return 0.0
+		# Past the square: the lands round it, where there are any.
+		return Lands.height(x, z)
 	var h := raw_at(x, z)
 	return h * _flat_at(x, z) * _seam(z)
 

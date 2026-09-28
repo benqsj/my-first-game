@@ -48,6 +48,7 @@
 [ext_resource type="PackedScene" path="res://unverified/assets/firenpc/cecxli .glb" id="51_fire"]
 [ext_resource type="PackedScene" path="res://unverified/assets/frog-npc/frog1.glb" id="52_frog"]
 [ext_resource type="Script" path="res://scripts/terrain.gd" id="60_terrain"]
+[ext_resource type="Script" path="res://scripts/lands.gd" id="61_lands"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.36, 0.5, 0.72, 1)
@@ -647,29 +648,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.85, -2.95)
 script = ExtResource("20_spinner")
 
 [node name="SM_sails" parent="Level/Village/Windmill/Sails" instance=ExtResource("35_sails")]
-[node name="WallEast" type="StaticBody3D" parent="Level"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 119.5, 4, -137.5)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallEast"]
-shape = SubResource("BoxShape3D_wall_long")
-
-[node name="WallWest" type="StaticBody3D" parent="Level"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.5, 4, -137.5)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallWest"]
-shape = SubResource("BoxShape3D_wall_long")
-
-[node name="WallNorth" type="StaticBody3D" parent="Level"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, 179.5)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallNorth"]
-shape = SubResource("BoxShape3D_wall")
-
-[node name="WallSouth" type="StaticBody3D" parent="Level"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 4, -455.5)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Level/WallSouth"]
-shape = SubResource("BoxShape3D_wall")
 
 [node name="Enemies" type="Node3D" parent="."]
 
@@ -748,10 +726,16 @@ wet_ground = Array[NodePath]([NodePath("../Marsh"), NodePath("../Bay")])
 
 [node name="Horizon" type="Node3D" parent="."]
 script = ExtResource("18_horizon")
-inner_count = 27
-outer_count = 34
-centre = Vector2(0, -167.5)
-stretch = Vector2(1, 1.94)
+inner_radius = 350.0
+outer_radius = 470.0
+centre = Vector2(0, -25)
+stretch = Vector2(1, 1.45)
+inner_count = 44
+outer_count = 52
+inner_scale = Vector2(1.2, 2.0)
+outer_scale = Vector2(2.0, 3.2)
+land_min = Vector2(-300, -470)
+land_max = Vector2(300, 420)
 
 [node name="Marsh" type="Node3D" parent="."]
 script = ExtResource("43_marsh")
@@ -772,9 +756,13 @@ water_level = -0.6
 ground_material = SubResource("Mat_ground")
 shore_tint = Color(0.78, 0.72, 0.58, 1)
 water_material = ExtResource("46_sea")
+water_clip = Rect2(-140, -470, 280, 220)
 mist_cards = 10
 
 [node name="Pier" parent="Bay" instance=ExtResource("45_harbour")]
+
+[node name="Lands" type="StaticBody3D" parent="."]
+script = ExtResource("61_lands")
 
 [node name="Meadows" type="Node" parent="."]
 script = ExtResource("53_meadows")
