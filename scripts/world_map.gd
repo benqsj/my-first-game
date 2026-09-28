@@ -19,11 +19,17 @@ extends CanvasLayer
 ## North is up on the big map. On the small one the way the camera looks is up,
 ## so what is ahead on screen is ahead on the map.
 
-## The level's walls, in metres: x from -120 to 120, z from -455.5 to 179.5.
-const WORLD_MIN := Vector2(-120.0, -455.5)
-const WORLD_MAX := Vector2(120.0, 179.5)
-## Pixels a metre in the photograph.
-const PIXELS_PER_METRE := 4.0
+## The old level's walls, in metres, for a level with no lands round it.
+const CORE_MIN := Vector2(-120.0, -455.5)
+const CORE_MAX := Vector2(120.0, 179.5)
+## What the map covers: the lands' rim where there are lands ([Lands]),
+## 600 × 890 m, or the old level.
+var WORLD_MIN := CORE_MIN
+var WORLD_MAX := CORE_MAX
+## Pixels a metre in the photograph (fewer over the lands: it is big).
+var PIXELS_PER_METRE := 4.0
+## How far in the big map zooms, over the whole map fitted to the screen.
+const MOST_ZOOM := 14.0
 ## The corner map: its size on screen, and how many metres across it shows.
 const MINI_SIZE := 210.0
 const MINI_SPAN := 90.0
@@ -55,6 +61,13 @@ var _dragging: bool = false
 
 func _ready() -> void:
 	layer = 4
+	var lands := Lands.current
+	if lands != null and is_instance_valid(lands) and not lands.info.is_empty():
+		var r := lands.rim()
+		WORLD_MIN = Vector2(r.x, r.y)
+		WORLD_MAX = Vector2(r.z, r.w)
+		PIXELS_PER_METRE = 3.0
+		_names_from(lands)
 	# A round panel in the top-right corner that the map is cut to: whatever
 	# the map draws outside the circle is not shown.
 	_mini_frame = Panel.new()
@@ -130,20 +143,46 @@ func _input(event: InputEvent) -> void:
 		var b := event as InputEventMouseButton
 		if b.button_index == MOUSE_BUTTON_WHEEL_UP or b.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			if b.pressed:
-				# Zoomed about the point under the mouse, which stays under it.
-				var before := _centre + (b.position - _big.size * 0.5) / maxf(_zoom, 0.0001)
-				_zoom *= 1.15 if b.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.15
-				_big.queue_redraw()
-				var z := _zoom
-				_centre = before - (b.position - _big.size * 0.5) / maxf(z, 0.0001)
+				_zoom_about(b.position, 1.15 if b.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.15)
 		elif b.button_index == MOUSE_BUTTON_LEFT:
 			_dragging = b.pressed
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and _dragging:
 		_centre -= (event as InputEventMouseMotion).relative / maxf(_zoom, 0.0001)
 		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and (event as InputEventKey).physical_keycode == KEY_C:
-		_centre = _to_map(player.global_position)
+	elif event is InputEventMagnifyGesture:
+		# a laptop's trackpad: two fingers pinched apart or together
+		var g := event as InputEventMagnifyGesture
+		_zoom_about(g.position, g.factor)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventPanGesture:
+		# and two fingers slid: the map moves under them
+		_centre += (event as InputEventPanGesture).delta * 12.0 / maxf(_zoom, 0.0001)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed:
+		var key := (event as InputEventKey).physical_keycode
+		match key:
+			KEY_C:
+				_centre = _to_map(player.global_position)
+			KEY_EQUAL, KEY_KP_ADD, KEY_E:
+				_zoom_about(_big.size * 0.5, 1.3)
+			KEY_MINUS, KEY_KP_SUBTRACT, KEY_Q:
+				_zoom_about(_big.size * 0.5, 1.0 / 1.3)
+			KEY_0, KEY_KP_0, KEY_F:
+				# the whole map on the screen
+				_zoom = 0.0001
+				_centre = (WORLD_MAX - WORLD_MIN) * PIXELS_PER_METRE * 0.5
+			KEY_W, KEY_UP:
+				_centre.y -= 60.0 / maxf(_zoom, 0.0001)
+			KEY_S, KEY_DOWN:
+				_centre.y += 60.0 / maxf(_zoom, 0.0001)
+			KEY_A, KEY_LEFT:
+				_centre.x -= 60.0 / maxf(_zoom, 0.0001)
+			KEY_D, KEY_RIGHT:
+				_centre.x += 60.0 / maxf(_zoom, 0.0001)
+			_:
+				return
+		_big.queue_redraw()
 		get_viewport().set_input_as_handled()
 
 
@@ -155,6 +194,21 @@ func _open(on: bool) -> void:
 	if on:
 		# Opens on where you are.
 		_centre = _to_map(player.global_position)
+
+
+## Zooms by `factor` about a point of the screen, which stays under it.
+func _zoom_about(at: Vector2, factor: float) -> void:
+	var before := _centre + (at - _big.size * 0.5) / maxf(_zoom, 0.0001)
+	_zoom = clampf(_zoom * factor, _fit(), _fit() * MOST_ZOOM)
+	_centre = before - (at - _big.size * 0.5) / maxf(_zoom, 0.0001)
+	_big.queue_redraw()
+
+
+## The zoom that shows the whole map on the screen.
+func _fit() -> float:
+	var whole := (WORLD_MAX - WORLD_MIN) * PIXELS_PER_METRE
+	var screen := _big.size if _big.size.x > 1.0 else Vector2(1280, 720)
+	return minf(screen.x / whole.x, (screen.y - 50.0) / whole.y) * 0.96
 
 
 func is_open() -> bool:
@@ -232,8 +286,22 @@ func _take_photograph() -> Image:
 			clear.glow_enabled = false
 			eye.environment = clear
 			break
+	# The wood is drawn only so far from a camera, and from up here every tree
+	# is further than that: for this one picture everything is drawn.
+	var ranged: Dictionary = {}
+	for node in get_tree().root.find_children("*", "GeometryInstance3D", true, false):
+		var geo := node as GeometryInstance3D
+		# (not the lands' ground: its near and far chunks share the distance)
+		if Lands.current != null and Lands.current.is_ancestor_of(geo):
+			continue
+		if geo.visibility_range_end > 0.0 and geo.visibility_range_begin <= 0.0:
+			ranged[geo] = geo.visibility_range_end
+			geo.visibility_range_end = 0.0
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
+	for geo: GeometryInstance3D in ranged:
+		if is_instance_valid(geo):
+			geo.visibility_range_end = ranged[geo]
 	var image := view.get_texture().get_image()
 	view.queue_free()
 	return image
@@ -280,13 +348,14 @@ func _draw_big() -> void:
 	var whole := (WORLD_MAX - WORLD_MIN) * PIXELS_PER_METRE
 	# The whole screen is the map's window: the map under it, moved by
 	# dragging and zoomed by the wheel, never so far out that it floats in it.
-	var fit := maxf(screen.x / whole.x, screen.y / whole.y) * 0.62
-	_zoom = clampf(_zoom if _zoom > 0.0 else fit * 1.6, fit, fit * 6.0)
+	var fit := _fit()
+	_zoom = clampf(_zoom if _zoom > 0.0 else fit * 3.0, fit, fit * MOST_ZOOM)
 	if _centre == Vector2.INF:
 		_centre = _to_map(player.global_position)
+	# kept on the map; where the map is narrower than the screen, in its middle
 	var half := screen * 0.5 / _zoom
 	_centre.x = clampf(_centre.x, minf(half.x, whole.x * 0.5), maxf(whole.x - half.x, whole.x * 0.5))
-	_centre.y = clampf(_centre.y, minf(half.y, whole.y * 0.5), maxf(whole.y - half.y, whole.y * 0.5))
+	_centre.y = clampf(_centre.y, minf(half.y - 50.0 / _zoom, whole.y * 0.5), maxf(whole.y - half.y, whole.y * 0.5))
 	var corner := screen * 0.5 - _centre * _zoom
 	var frame := Rect2(corner, whole * _zoom)
 	_big.draw_rect(Rect2(Vector2.ZERO, screen), Color(0.06, 0.07, 0.06, 1.0))
@@ -297,6 +366,7 @@ func _draw_big() -> void:
 	var place := func(at: Vector3) -> Vector2:
 		return corner + _to_map(at) * _zoom
 	var view := Rect2(Vector2.ZERO, screen)
+	_names(place, view)
 	_marks_on(_big, place, view, 6.0, false)
 	_arrow(_big, place.call(player.global_position), _heading_on_map(-player.global_transform.basis.z), 15.0)
 	# A band across the top with the title and the keys.
@@ -305,10 +375,10 @@ func _draw_big() -> void:
 	var font := ThemeDB.fallback_font
 	_big.draw_string(font, Vector2(24, 31), "MAP", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, GOLD)
 	_big.draw_string(font, Vector2(110, 30),
-			"wheel  zoom      drag  move      C  back to you      M  close",
+			"pinch / wheel / + −  zoom      drag / two fingers / WASD  move      0  whole map      C  you      M  close",
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(GOLD, 0.75))
 	var legend := [["you", GOLD], ["players", ALLY], ["creatures", FOE], ["people with work", GIVER]]
-	var x := screen.x - 470.0
+	var x := screen.x - 470.0 if screen.x > 1500.0 else screen.x + 100.0
 	for item: Array in legend:
 		_big.draw_circle(Vector2(x, 25), 6.0, item[1])
 		_big.draw_string(font, Vector2(x + 12, 30), String(item[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
@@ -351,6 +421,62 @@ func _marks_on(on: Control, place: Callable, inside: Rect2, dot: float, near_onl
 		if inside.has_point(at):
 			on.draw_circle(at, dot + 1.0, Color(0, 0, 0, 0.6))
 			on.draw_circle(at, dot, ALLY)
+
+
+## The names written on the big map: the lands, the villages and the city, the
+## travelling fires (bright when lit).
+var _labels: Array = []
+
+
+func _names_from(lands: Lands) -> void:
+	var regions: Dictionary = lands.info.get("regions", {})
+	for key: String in regions:
+		var poly: Array = regions[key].get("polygon", [])
+		if poly.is_empty():
+			continue
+		var mid := Vector2.ZERO
+		for p: Array in poly:
+			mid += Vector2(float(p[0]), float(p[1]))
+		mid /= poly.size()
+		_labels.append({"at": Vector3(mid.x, 0, mid.y), "text": String(regions[key].get("name", key)), "size": 26, "kind": "land"})
+	for st: Dictionary in lands.info.get("settlements", []):
+		_labels.append({"at": Vector3(float(st["x"]), 0, float(st["z"])), "text": String(st.get("name", "")), "size": 16, "kind": "village"})
+	var city: Dictionary = lands.info.get("city", {})
+	if city.has("market"):
+		_labels.append({"at": Vector3(float(city["market"]["x"]), 0, float(city["market"]["z"])), "text": String(city.get("name", "")), "size": 18, "kind": "village"})
+
+
+func _names(place: Callable, view: Rect2) -> void:
+	var font := ThemeDB.fallback_font
+	var near := _zoom > _fit() * 1.8
+	for label: Dictionary in _labels:
+		if label["kind"] == "village" and not near and int(label["size"]) < 20:
+			continue
+		var at: Vector2 = place.call(label["at"])
+		if not view.has_point(at):
+			continue
+		var text := String(label["text"])
+		var size := int(label["size"])
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var p := at - Vector2(w * 0.5, 0)
+		_big.draw_string_outline(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 5, Color(0, 0, 0, 0.75))
+		_big.draw_string(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size,
+				Color(1.0, 0.93, 0.75) if label["kind"] == "land" else Color(1, 1, 1, 0.92))
+	var ways := get_tree().root.find_child("Waystones", true, false) as Waystones
+	if ways == null:
+		return
+	for key: String in ways.fires:
+		var at: Vector2 = place.call(ways.fires[key]["at"])
+		if not view.has_point(at):
+			continue
+		var lit := key in ways.lit_keys
+		_big.draw_circle(at, 6.0, Color(0, 0, 0, 0.6))
+		_big.draw_circle(at, 4.5, Color(0.45, 0.7, 1.0) if lit else Color(0.45, 0.45, 0.5))
+		if _zoom > _fit() * 4.0:
+			var fire_name := String(ways.fires[key]["name"])
+			_big.draw_string_outline(font, at + Vector2(8, 5), fire_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 4, Color(0, 0, 0, 0.7))
+			_big.draw_string(font, at + Vector2(8, 5), fire_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
+					Color(0.7, 0.85, 1.0) if lit else Color(0.75, 0.75, 0.75))
 
 
 ## You: a gold arrowhead pointing along `angle` (radians on the screen).

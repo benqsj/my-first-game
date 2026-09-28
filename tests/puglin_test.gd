@@ -58,6 +58,9 @@ func _initialize() -> void:
 		p.global_position = p._home + Vector3.UP * 0.3
 		p.set(&"roll_every", Vector2(999.0, 999.0))
 		p.throw_range = Vector2.ZERO
+		# The bunch's own way of coming on; walking in to cut is checked below.
+		p.close_in = 0.0
+		p.leaper = false
 		p.set_physics_process(true)
 	Puglin._bands.clear()
 	player.global_position = one.camp_centre + Vector3(0.0, 0.3, 11.0)
@@ -130,12 +133,12 @@ func _initialize() -> void:
 	_check("the balls find him", not _struck.is_empty(), "%d" % _struck.size())
 	_check("steel cannot get into a ball", not steel_in)
 	_check("magic can, and knocks it out of its ball", fire_in and knocked_out)
-	_check("uncurled it stands dizzy a moment", dizzy)
 
 	# --- One ball on its own finds him first time, standing or walking ---------------
 	for p in band:
 		await _until_idle(p)
 	var solo := band[0]
+	solo.leaper = false
 	for p in band.slice(1):
 		p.set_physics_process(false)
 	var first_pass := 0
@@ -183,6 +186,8 @@ func _initialize() -> void:
 	solo._curl_up(player, Puglin._volley_serial, 1, 2)
 	var dodged_through := false
 	var came_again := false
+	var last_act := -1
+	var last_struck := 0
 	for i in 60 * 6:
 		await physics_frame
 		player.velocity = Vector3.ZERO
@@ -200,6 +205,67 @@ func _initialize() -> void:
 	_check("rolled out of its way, a ball goes on through him", dodged_through)
 	_check("swings round and comes again, and finds him", came_again and not _struck.is_empty(),
 			"again %s, struck %d" % [came_again, _struck.size()])
+	# Having found him it stops there, uncurls and cuts at him.
+	var bumped := false
+	var cut_after := false
+	for i in 60 * 3:
+		await physics_frame
+		player.velocity = Vector3.ZERO
+		bumped = bumped or solo.act == Puglin.BUMP
+		cut_after = cut_after or (bumped and Puglin.CUTS.has(solo.act))
+		if cut_after:
+			break
+	_check("a ball that finds him stops, uncurls and cuts at him", bumped and cut_after,
+			"bumped %s cut %s" % [bumped, cut_after])
+
+	# A roll that never finds him (he keeps rolling clear) ends dizzy.
+	for p in band:
+		await _until_idle(p)
+	solo.global_position = solo._home + Vector3.UP * 0.3
+	player.global_position = solo.global_position + Vector3(0.0, 0.3, 7.0)
+	Puglin._volley_serial += 1
+	solo._curl_up(player, Puglin._volley_serial, 1, 1)
+	var dizzy_after := false
+	for i in 60 * 6:
+		await physics_frame
+		player.velocity = Vector3.ZERO
+		player.state = Player.State.DODGING
+		if solo.act == Puglin.DIZZY:
+			dizzy_after = true
+			break
+	player.state = Player.State.GROUNDED
+	_check("a roll that never found him ends in a dizzy moment (the opening)", dizzy_after)
+
+	# --- A leaper springs out of its ball on him, and floors him ---------------------
+	for p in band:
+		await _until_idle(p)
+	solo.leaper = true
+	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
+	solo.global_position = solo._home + Vector3.UP * 0.3
+	player.global_position = solo.global_position + Vector3(0.0, 0.3, 8.5)
+	await _wait(30)
+	_struck.clear()
+	Puglin._volley_serial += 1
+	solo._curl_up(player, Puglin._volley_serial, 1, 1)
+	var leapt := false
+	var lifted := 0.0
+	var floored := false
+	for i in 60 * 5:
+		await physics_frame
+		# Held where he stands, but let down onto the ground.
+		player.velocity.x = 0.0
+		player.velocity.z = 0.0
+		if solo.act == Puglin.LEAP:
+			leapt = true
+			lifted = maxf(lifted, solo.body.position.y - solo._body_rest_y)
+		floored = floored or player.state == Player.State.DOWNED
+		if leapt and solo.act != Puglin.LEAP:
+			break
+	_check("a leaper springs out of its ball at him", leapt)
+	_check("up into the air", lifted > 0.4, "%.2f m" % lifted)
+	_check("and coming down on him, floors him", floored, "struck %d, state %d" % [_struck.size(), player.state])
+	solo.leaper = false
 	for p in band.slice(1):
 		p.set_physics_process(true)
 
@@ -280,6 +346,28 @@ func _initialize() -> void:
 	_check("under the bars and the menus, not over them", mud_layer != null and mud_layer.layer < 4)
 	await _wait(60 * 8)
 	_check("which clears after a few seconds", ScreenMud.cover(self) < 0.001, "%.3f" % ScreenMud.cover(self))
+
+	# --- Near him they walk in and cut, and do not throw -----------------------------
+	thrower.throw_range = Vector2(5.5, 13.0)
+	thrower.close_in = 4.2
+	thrower._next_throw = 0.0
+	await _until_idle(thrower)
+	thrower._cooldown = 0.0
+	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
+	player.global_position = thrower.global_position + Vector3(0.0, 0.3, 3.5)
+	var walked_in := false
+	var threw_close := false
+	for i in 60 * 5:
+		await physics_frame
+		player.velocity = Vector3.ZERO
+		threw_close = threw_close or thrower.act == Puglin.THROW
+		if Puglin.CUTS.has(thrower.act):
+			walked_in = true
+			break
+	_check("near him it walks in and cuts", walked_in)
+	_check("and throws no mud from there", not threw_close)
+	thrower.throw_range = Vector2.ZERO
 
 	# --- One combo, three cuts, all three floor him ---------------------------------
 	thrower.throw_range = Vector2.ZERO

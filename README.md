@@ -4598,7 +4598,7 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
   of the ball as fast as the ground goes by (`_lay_ball`, every peer, from the
   replicated velocity), off walls. Past him it rolls on, swings round in an arc
   (`roll_turn`) and comes again — two or three passes; finding him, it bounces
-  back off and swings round. It comes fast (13 m/s) and steers after him while
+  back off and swings round. It comes fast (10 m/s) and steers after him while
   he is ahead of it (`roll_home` 1.8 rad/s), letting go of him only in the last
   `roll_commit` 2.2 m, so a man standing or walking across it is found on the
   first pass (puglin_test, four of four) and a late sidestep still works. A
@@ -4649,6 +4649,16 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
 - **Tariel's cuts reach down to it**: his rig bends his swing to what it is aimed
   at, as the assassin's does ([StrikeAim]; `strike_natural` 1.3, `strike_pull`
   0.25). Before, most of his cuts went over a puglin's head.
+
+**Up close it fights.** Near him (`close_in` 4.2 m) it walks in and cuts rather
+than throw mud from there. A ball that finds him stops against him, uncurls
+there (`BUMP`) and goes straight into its three cuts; only a roll that never
+found him ends in the dizzy moment. About half of them (`leaper_share`, fixed
+per puglin by its name) are leapers: rolling straight at him and 2.8–4.8 m off,
+one springs out of its ball (`LEAP`, the sword-and-shield set's jump attack,
+`PG_JumpAttack`), the body carried up over the clip's own hop (`leap_lift`) and
+the leap stretched so the sword comes down on him — a blow that floors him if
+he does not get out of the way. Balls roll at 10 m/s (13 was too fast in play).
 
 `ClipFighter` (`scripts/clip_fighter.gd`) is what the imp and the puglin share:
 moves as clips, the body carried along each clip's measured path, blows by limb

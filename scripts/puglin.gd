@@ -44,6 +44,8 @@ const HIT_F := 49
 const HIT_L := 50
 const HIT_R := 51
 const STAGGER := 52
+const BUMP := 55
+const LEAP := 56
 
 const MOVES := {
 	# Three of the sword-and-shield set's slashes run together: across, back
@@ -64,6 +66,11 @@ const MOVES := {
 	HIT_L: [&"PG_Hit_L", 1.3, 0.0, 0.8],
 	HIT_R: [&"PG_Hit_R", 1.3, 0.0, 0.8],
 	STAGGER: [&"PG_Stagger", 1.2, 0.0, 0.85],
+	# Out of the ball where it crashed into him, quickly, to cut at him.
+	BUMP: [&"PG_Roll", 2.0, 0.62, 0.98],
+	# Up out of the ball and down on him, the sword over its head (the clip's
+	# crouch, spring, chop at 0.51 and landing).
+	LEAP: [&"PG_JumpAttack", 1.2, 0.15, 0.8],
 	# Held on the curled frame while it rolls; its length is the roll's.
 	ROLL: [&"PG_Roll", 0.0, 0.2, 0.2],
 }
@@ -73,6 +80,8 @@ const STRIKES := {
 	COMBO: [["hand_r"], ["weapon"], 0.45, 3, 0.6, [0.49]],
 	COMBO_2: [["hand_r"], ["weapon"], 0.45, 3, 0.6, [0.42]],
 	COMBO_3: [["hand_r"], ["weapon"], 0.55, 3, 0.6, [0.57]],
+	# A combo of one: landing, it floors him.
+	LEAP: [["hand_r"], ["weapon"], 0.8, 1, 0.6, [0.51]],
 }
 const HITS := [HIT_F, HIT_L, HIT_R, STAGGER]
 const CUTS := [COMBO, COMBO_2, COMBO_3]
@@ -88,7 +97,7 @@ enum Roll { RUSH, TURN }
 ## How far each stands from the middle of the bunch.
 @export var bunch_radius: float = 0.95
 ## Rolling: top speed, how fast it gets there, how fast it swings round.
-@export var roll_speed: float = 13.0
+@export var roll_speed: float = 10.0
 @export var roll_turn: float = 5.5
 ## How hard a ball steers after him while it comes (rad/s); none in the last
 ## `roll_commit` metres, so a late sidestep still gets out of its way.
@@ -101,9 +110,18 @@ enum Roll { RUSH, TURN }
 ## Seconds between rolls, the band's and its own.
 @export var roll_every: Vector2 = Vector2(7.0, 11.0)
 ## Mud: range, damage, and seconds between one puglin's throws.
-@export var throw_range: Vector2 = Vector2(4.5, 13.0)
+@export var throw_range: Vector2 = Vector2(5.5, 13.0)
 @export var mud_damage: float = 8.0
 @export var throw_every: Vector2 = Vector2(4.0, 7.0)
+## Inside this it walks in on him to cut rather than throw from where it is.
+@export var close_in: float = 4.2
+## Share of puglins that spring out of their ball at him, and from how far.
+@export_range(0.0, 1.0) var leaper_share: float = 0.45
+@export var leap_range: Vector2 = Vector2(2.8, 4.8)
+## How far off him a leap comes down (the sword's reach ahead of it).
+@export var leap_land_off: float = 0.9
+## How high the leap carries the body over what the clip does.
+@export var leap_lift: float = 0.8
 ## A cut this much bigger than the hero's ordinary one breaks the bunch.
 @export var big_blow: float = 1.35
 ## Seconds it stays broken up.
@@ -141,6 +159,10 @@ var _clock: float:
 var _spin: float = 0.0
 var _body_basis: Basis = Basis.IDENTITY
 var _throw_at: float = 0.5
+## This one springs out of its ball at him (a share of them do).
+var leaper: bool = false
+var _leapt: bool = false
+var _leap_clock: float = -1.0
 var _mask_standing: int = 7
 var _mask_rolling: int = 3
 var _passing: Array[Node] = []
@@ -165,6 +187,8 @@ func _ready() -> void:
 	if body != null:
 		_body_basis = body.transform.basis
 	_slot_angle = _rng.randf() * TAU
+	# Which of them spring: the same on every peer, by name.
+	leaper = float(hash(String(name)) % 1000) / 1000.0 < leaper_share
 	_next_throw = _rng.randf_range(1.0, throw_every.y)
 	_next_roll = _rng.randf_range(roll_every.x * 0.5, roll_every.y)
 	if _anim != null:
@@ -180,6 +204,10 @@ func _moves() -> Dictionary:
 
 func _strikes() -> Dictionary:
 	return STRIKES
+
+
+func _leaps() -> Array:
+	return [LEAP]
 
 
 func _fade_in(what: int) -> float:
@@ -340,6 +368,12 @@ func _think(delta: float) -> void:
 		_chain_blow = 0
 		_begin(COMBO)
 		return
+	# Near him it walks in to cut — bunched or not — rather than throw.
+	if gap < close_in and _cooldown <= 0.0:
+		var to_him := _quarry.global_position - global_position
+		to_him.y = 0.0
+		_walk_to(_quarry.global_position - to_him.normalized() * strike_off, speed * 1.4, delta)
+		return
 	# Mud, from the bunch or from anywhere, one throw of the band at a time.
 	if gap > throw_range.x and gap < throw_range.y and _clock >= _next_throw and state != Band.REGROUP \
 			and (b.is_empty() or _clock >= float(b["next_throw"])):
@@ -401,6 +435,20 @@ func _after(what: int) -> void:
 		UNCURL:
 			_begin(DIZZY)
 			_act_length = dizzy_time
+		BUMP:
+			# Up out of the ball against him: straight into the cuts.
+			if _quarry != null and _distance_to(_quarry) < reach * 1.6 and not is_dead:
+				_face(_quarry.global_position - global_position, 1.0, 1000.0)
+				_volley_serial += 1
+				_chain_serial = _volley_serial * 10
+				_chain_blow = 0
+				_begin(COMBO)
+				stamina = maxf(stamina + attack_cost, 0.0)
+			else:
+				_start(Act.NONE)
+		LEAP:
+			_start(Act.NONE)
+			_cooldown = _rng.randf_range(attack_cooldown.x, attack_cooldown.y)
 		COMBO, COMBO_2:
 			# On into the next slash of the three, still the one combo.
 			_chain_blow += 1
@@ -423,17 +471,13 @@ func _start_roll() -> void:
 	_roll_phase = Roll.RUSH
 	_roll_clock = 0.0
 	_pass_hit = false
+	_leapt = false
 	_roll_pace = 6.0
 	_roll_dir = _aim_at_him()
 	# Balls pass through one another (a volley's balls knocking each other off
 	# their line was most of their misses) and through him if he rolls clear.
 	collision_mask = _mask_rolling
-	# And he does not stand on it or get carried by it either way: the pair
-	# is let pass (his body pushed itself off a ball and rode along with it).
-	for node in get_tree().get_nodes_in_group("player"):
-		if node is PhysicsBody3D:
-			add_collision_exception_with(node)
-			_passing.append(node)
+	_let_pass()
 
 
 ## Where to roll to find him: where he will be, not quite where he is.
@@ -489,6 +533,11 @@ func _roll(delta: float) -> void:
 				var to_him := him.global_position - global_position
 				to_him.y = 0.0
 				var dy := absf(him.global_position.y - global_position.y)
+				# Straight at him and near: a leaper springs out of the ball on him.
+				if leaper and not _leapt and to_him.length() > leap_range.x and to_him.length() < leap_range.y \
+						and _roll_dir.dot(to_him.normalized()) > 0.9 and not _evading(him):
+					_leap_at(him)
+					return
 				if to_him.length() < _ball_r + 0.7 and dy < 1.6:
 					# Rolled out of its way: it goes on through, and comes again.
 					if not _evading(him):
@@ -530,20 +579,49 @@ func _crash_into(him: Node3D) -> void:
 	if him.has_method(&"receive_blow"):
 		him.call(&"receive_blow", worth, self, 0, 1 if whole else 2, _volley * 10 + landed)
 	net_thud.rpc(global_position + Vector3.UP * _ball_r)
-	_roll_dir = (-_roll_dir).rotated(Vector3.UP, _rng.randf_range(-0.6, 0.6))
-	_roll_pace *= 0.45
-	_roll_phase = Roll.TURN
-	_roll_clock = 0.0
+	# It stops against him, uncurls and cuts at him (BUMP -> the combo).
+	velocity = Vector3.ZERO
+	_face(him.global_position - global_position, 1.0, 1000.0)
+	_begin(BUMP)
+
+
+## He does not stand on it or get carried by it, either way: the pair is let
+## pass while it rolls or leaps (his body pushed itself off a ball and rode
+## along with it, and coming down on him it set him climbing it).
+func _let_pass() -> void:
+	for node in get_tree().get_nodes_in_group("player"):
+		if node is PhysicsBody3D and not _passing.has(node):
+			# Both ways: his own moving tests his list, not this one's.
+			add_collision_exception_with(node)
+			(node as PhysicsBody3D).add_collision_exception_with(self)
+			_passing.append(node)
+
+
+## Out of the ball, up and down on him: the leap is stretched or cut so the
+## sword comes down where he stands.
+func _leap_at(him: Node3D) -> void:
+	_leapt = true
+	var gap := _distance_to(him)
+	_face(him.global_position - global_position, 1.0, 1000.0)
+	_chain_serial = -1
+	_chain_blow = 0
+	_begin(LEAP)
+	_let_pass()
+	stamina = maxf(stamina + attack_cost, 0.0)
+	var land := _blow_moments(LEAP)[0]
+	var travelled := _hips(_clip_of(LEAP), _clip_time(LEAP, land)).x - _hips(_clip_of(LEAP), _clip_time(LEAP, 0.0)).x
+	_stretch = clampf((gap - leap_land_off) / maxf(travelled, 0.2), 0.3, 12.0)
 
 
 ## Whatever ends a roll — its own end, a spell knocking it out, death — puts
 ## it back among its kind.
 func _start(what: Act) -> void:
-	if what != ROLL:
+	if what != ROLL and what != LEAP:
 		collision_mask = _mask_standing
 		for node in _passing:
 			if is_instance_valid(node):
 				remove_collision_exception_with(node)
+				(node as PhysicsBody3D).remove_collision_exception_with(self)
 		_passing.clear()
 	super(what)
 
@@ -646,7 +724,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 	if act == HOP:
 		return landed
 	var took := before - health
-	var busy := CUTS.has(act) or act == THROW
+	var busy := CUTS.has(act) or act == THROW or act == LEAP or act == BUMP
 	if took >= max_health * stagger_share:
 		_hit_clip(STAGGER, blow)
 	elif not busy and act != SCREAM:
@@ -682,11 +760,14 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 func _play_act() -> void:
 	super()
 	_throw_clock = 0.0 if act == THROW else -1.0
+	if act == LEAP:
+		_leap_clock = 0.0
 
 
 func _process(delta: float) -> void:
 	super(delta)
 	_hold_mud(delta)
+	_lift_leap(delta)
 	if body == null or is_dead:
 		return
 	if act == ROLL:
@@ -699,6 +780,23 @@ func _process(delta: float) -> void:
 	elif _spin != 0.0:
 		_spin = 0.0
 		body.transform = Transform3D(_body_basis, Vector3(0.0, _body_rest_y, 0.0))
+
+
+## The clip's own spring is a hop; the body is carried up over it and down on
+## him, highest just before the chop (0.2 -> 0.51 of the clip), every peer.
+func _lift_leap(delta: float) -> void:
+	if body == null:
+		return
+	if act != LEAP or is_dead:
+		if _leap_clock >= 0.0:
+			_leap_clock = -1.0
+			body.position.y = _body_rest_y
+		return
+	_leap_clock += delta
+	var m: Array = MOVES[LEAP]
+	var f := float(m[2]) + _leap_clock * float(m[1]) / maxf(_anim.clip_length(m[0]) if _anim != null else 1.0, 0.01)
+	var k := clampf((f - 0.2) / 0.31, 0.0, 1.0)
+	body.position.y = _body_rest_y + leap_lift * sin(PI * k)
 
 
 ## Scooped up at the start of a throw and held in the fist, wet and shining,
