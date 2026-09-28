@@ -50,6 +50,12 @@ extends CharacterBody3D
 ## ground. Beyond this the feet slide a little rather than the clip running at a
 ## rate it was never authored for.
 @export var retime_range: Vector2 = Vector2(0.55, 1.8)
+## Where the clips come from: empty for the shared library, or a file of the
+## creature's own made on its own rig (the imp's, `imp_anims.glb`).
+@export_file("*.glb") var clip_source: String = ""
+## Clips in `clip_source` that are cycles (a file out of Blender carries no
+## loop flag).
+@export var loop_clips: PackedStringArray = PackedStringArray()
 
 @export_group("Appearance")
 ## Size the creature is drawn at, on top of whatever the `Visuals` node already
@@ -174,10 +180,11 @@ func _start_animation() -> void:
 	_anim = SkeletonAnim.new()
 	_anim.name = "Anim"
 	add_child(_anim)
-	if not _anim.setup(_skeleton):
+	if not _anim.setup(_skeleton, clip_source):
 		_anim.queue_free()
 		_anim = null
 		return
+	_anim.set_loops(Array(loop_clips))
 
 	_cycle = maxf(_anim.clip_length(walk_clip), 0.01)
 	# A cycle that covers no ground would divide by nothing later; fall back to

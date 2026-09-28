@@ -43,6 +43,9 @@ const REACTS := {
 	Act.REACT_BURN: [[&"Zombie_Scratch", 1.6, 1.0]],
 	Act.REACT_POISON: [[&"Zombie_Idle", 1.2, 0.5]],
 }
+## The table this one reacts by: [constant REACTS], unless a kind with clips of
+## its own sets another in its `_ready()` before calling up.
+var reacts: Dictionary = REACTS
 ## What it is about, which only decides the idle it stands in on other peers.
 enum Mode { GUARD, CHASE, FIGHT, RETURN }
 
@@ -129,6 +132,9 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var guard_idle_clip: StringName = &"Idle_Shield"
 
 @export_group("Corpse")
+## It has a death of its own to play out (the imp's): the clip runs to its end
+## and the body is not tipped over by hand.
+@export var dies_by_clip: bool = false
 @export var corpse_linger: float = 4.0
 @export var corpse_sink_time: float = 1.2
 @export var corpse_sink_depth: float = 1.6
@@ -261,7 +267,8 @@ func _process(delta: float) -> void:
 		# Every peer counts its own corpse time, so the body sinks in every
 		# window and not just the host's.
 		_corpse_age += delta
-		_topple()
+		if not dies_by_clip:
+			_topple()
 		if _corpse_age > corpse_linger and body != null:
 			var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
 			body.position.y = _body_rest_y + FALL_LIFT * visual_scale - sunk * sunk * corpse_sink_depth
@@ -273,7 +280,7 @@ func _process(delta: float) -> void:
 		_play_act()
 	if act == Act.NONE:
 		_play_locomotion(delta)
-	elif REACTS.has(act):
+	elif reacts.has(act):
 		_play_react(delta)
 	elif act == Act.REEL:
 		_reel_clock += delta
@@ -283,7 +290,7 @@ func _process(delta: float) -> void:
 			_anim.play(break_clip, 0.15, 1.2, 1.0, true)
 	# Dead, the knock back plays only as far as the blow throwing it back; the
 	# fall itself is the body going over (`_topple`).
-	if not is_dead or _corpse_age < FREEZE_AT:
+	if not is_dead or dies_by_clip or _corpse_age < FREEZE_AT:
 		_anim.advance(delta)
 	if _decides() and not is_dead:
 		WeaponSweep.run(_sweeps, _act_time, act_serial, get_tree(), delta)
@@ -493,7 +500,7 @@ func _start(what: Act) -> void:
 				length = guard_break_time
 	if what == Act.REEL:
 		length = Recoil.STAGGER
-	if REACTS.has(what):
+	if reacts.has(what):
 		length = _react_length(what)
 	_act_length = length
 
@@ -715,14 +722,14 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 
 func _react_length(what: Act) -> float:
 	var total := 0.0
-	for seg: Array in REACTS[what]:
+	for seg: Array in reacts[what]:
 		total += _anim.clip_length(seg[0]) * float(seg[2]) / float(seg[1])
 	return total
 
 
 func _play_react(delta: float) -> void:
 	_react_clock += delta
-	var segs: Array = REACTS[act]
+	var segs: Array = reacts[act]
 	var t := _react_clock
 	var i := 0
 	while i < segs.size() - 1:

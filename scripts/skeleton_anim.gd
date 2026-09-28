@@ -86,17 +86,23 @@ var _ready_to_play: bool = false
 ## Points the layer at a skeleton and works out the bone pairing. Returns false
 ## if the library is missing or nothing matched, in which case the caller should
 ## carry on without animation rather than crash.
-func setup(target: Skeleton3D) -> bool:
+##
+## `source` is the file the clips come from: the library by default, or a
+## creature's own set — the imp's are retargeted onto its own rig in Blender
+## (`assets/monsters/imp/imp_anims.glb`), so the delta from rest is exact.
+func setup(target: Skeleton3D, source: String = SOURCE_SCENE) -> bool:
 	if target == null:
 		push_warning("SkeletonAnim: no skeleton to drive.")
 		return false
-	if not ResourceLoader.exists(SOURCE_SCENE):
-		push_warning("SkeletonAnim: %s is missing, clips disabled." % SOURCE_SCENE)
+	if source.is_empty():
+		source = SOURCE_SCENE
+	if not ResourceLoader.exists(source):
+		push_warning("SkeletonAnim: %s is missing, clips disabled." % source)
 		return false
 
 	_target = target
 
-	var scene: Node3D = (load(SOURCE_SCENE) as PackedScene).instantiate()
+	var scene: Node3D = (load(source) as PackedScene).instantiate()
 	scene.name = "AnimSource"
 	add_child(scene)
 
@@ -282,6 +288,22 @@ func rewind(rate: float) -> void:
 func stop(fade: float = 0.2) -> void:
 	_target_weight = 0.0
 	_fade_speed = 1.0 / maxf(fade, 0.01)
+
+
+## Jumps the running clip to `seconds` in, so a move can start past a clip's
+## own slow wind-up.
+func seek(seconds: float) -> void:
+	if _ready_to_play and _player.is_playing():
+		_player.seek(seconds, true)
+
+
+## Makes these clips cycles. A clip file out of Blender carries no loop flag.
+func set_loops(clips: Array) -> void:
+	if not _ready_to_play:
+		return
+	for clip in clips:
+		if _player.has_animation(clip):
+			_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 
 
 func has_clip(clip: StringName) -> bool:
