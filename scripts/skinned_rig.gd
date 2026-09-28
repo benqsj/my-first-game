@@ -330,6 +330,11 @@ func _ready() -> void:
 ## knight's own: his tiger's skin, hung from the fur across his shoulders.
 func _configure() -> void:
 	wardrobe = TARIEL_WARDROBE
+	# His sword is swung at a man's chest; a puglin (1.1 m) is under it. Bent
+	# down to what it is thrown at ([StrikeAim]), as the assassin's knife is.
+	strike_aim = true
+	strike_natural = 1.3
+	strike_pull = 0.25
 	# His outfits (see [Inventory]), the first worn: the berserker's; none
 	# with a cape.
 	# His outfit (see [Inventory]): the berserker's, no cape.
