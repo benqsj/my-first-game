@@ -113,6 +113,10 @@ func _load() -> void:
 	_loaded = _h.size() == nx * nz and _w.size() == nx * nz and _block.size() == nx * nz
 	if not _loaded:
 		push_error("Lands: the grids in %s are not %d × %d." % [DIR, nx, nz])
+		return
+	# Worked out as soon as the grids are in, so the wood (grown before the
+	# lands are built) can keep off them.
+	_find_crossings()
 
 
 ## One of the map's lists (`trees`, `rocks`): its rows after the header, each
@@ -195,13 +199,52 @@ func _ready() -> void:
 	var started := Time.get_ticks_usec()
 	collision_layer = 1
 	collision_mask = 0
-	_find_crossings()
+	_meet_the_core()
 	_build_ground()
 	_build_floor()
 	_build_water()
 	_build_edge()
 	_build_grass()
 	print("Lands: %d × %d m round the core, in %.1f ms" % [nx - 1, nz - 1, (Time.get_ticks_usec() - started) / 1000.0])
+
+
+#region The seam
+## How far into the lands their ground is eased to meet the core's, metres.
+@export var seam_blend: float = 8.0
+
+
+## Brings the lands' edge onto the core's ground where they meet ([Terrain]'s
+## square: its east and west sides and its north end), easing the difference
+## out over [member seam_blend]. The map took the core's heights from the game,
+## but the core's ground is worked out at load from what stands on it, so it
+## can have moved a little since; this keeps the seam without a step.
+func _meet_the_core() -> void:
+	var terrain := Terrain.current
+	if terrain == null or not is_instance_valid(terrain):
+		return
+	var reach := int(seam_blend)
+	var north := terrain.north_edge()
+	var half := terrain.half_size
+	# the two long sides
+	for side: int in [-1, 1]:
+		var edge := int(round(side * half - x0))
+		for iz in range(int(round(-half - z0)), int(round(north - z0)) + 1):
+			var z := z0 + iz
+			var diff := terrain.height_at(side * half, z) - _h[iz * nx + edge]
+			for k in range(0, reach + 1):
+				var ix := edge + side * k
+				var t := float(k) / reach
+				_h[iz * nx + ix] += diff * (1.0 - t * t * (3.0 - 2.0 * t))
+	# the north end
+	var top := int(round(north - z0))
+	for ix in range(int(round(-half - x0)) + 1, int(round(half - x0))):
+		var x := x0 + ix
+		var diff := terrain.height_at(x, north) - _h[top * nx + ix]
+		for k in range(0, reach + 1):
+			var iz := top + k
+			var t := float(k) / reach
+			_h[iz * nx + ix] += diff * (1.0 - t * t * (3.0 - 2.0 * t))
+#endregion
 
 
 #region Ground
@@ -351,7 +394,7 @@ func _find_crossings() -> void:
 		var at := Vector2(float(lm["x"]), float(lm["z"]))
 		var c := jetty(at) if kind == "jetty" else span(at, float(lm.get("rot_deg", 0.0)))
 		if c.is_empty():
-			push_warning("Lands: no water found to cross at %s (%s)." % [at, lm["key"]])
+			push_warning("Lands: no way over the water found at %s (%s)." % [at, lm["key"]])
 			continue
 		c["kind"] = kind
 		c["key"] = String(lm["key"])
@@ -362,8 +405,21 @@ func _find_crossings() -> void:
 			_open(Vector2(a.x, a.z), Vector2(b.x, b.z), 2.0 if kind != "stepping_stones" else 1.2)
 
 
+## Whether (x, z) is within `margin` of a way over the water.
+func near_crossing(at: Vector2, margin: float) -> bool:
+	for c: Dictionary in crossings:
+		var a3: Vector3 = c["a"]
+		var b3: Vector3 = c["b"]
+		var a := Vector2(a3.x, a3.z)
+		var ab := Vector2(b3.x, b3.z) - a
+		var t := clampf((at - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+		if at.distance_to(a + ab * t) < margin:
+			return true
+	return false
+
+
 ## The nearest wet metre to `at` within `reach`, or `at` itself when none is.
-func _nearest_water(at: Vector2, reach: int = 10) -> Vector2:
+func _nearest_water(at: Vector2, reach: int = 16) -> Vector2:
 	if water_at(at.x, at.y) > -INF:
 		return at
 	for r in range(1, reach + 1):
@@ -387,9 +443,16 @@ func span(at: Vector2, rot_deg: float) -> Dictionary:
 		var dir := Vector2.from_angle(deg_to_rad(rot_deg + turn))
 		var ends: Array[Vector3] = []
 		for side: float in [-1.0, 1.0]:
+			# out to where the bank stands up to the deck, or three metres onto
+			# dry ground where the far side is low
+			var dry := 0
 			for t in range(1, 50):
 				var p := centre + dir * side * float(t)
-				if water_at(p.x, p.y) == -INF and height_at(p.x, p.y) >= deck - 0.6:
+				if water_at(p.x, p.y) > -INF:
+					dry = 0
+					continue
+				dry += 1
+				if height_at(p.x, p.y) >= deck - 0.6 or dry >= 3:
 					var q := centre + dir * side * (float(t) + 1.0)
 					ends.append(Vector3(q.x, height_at(q.x, q.y), q.y))
 					break
