@@ -2838,7 +2838,7 @@ static func _body_radius(who: Node3D) -> float:
 
 
 func _aims_strikes() -> bool:
-	return rig != null and bool(rig.get(&"strike_aim"))
+	return rig != null and rig.get(&"strike_aim") == true
 
 
 ## The locked target if it is near enough to cut, or else the nearest enemy
