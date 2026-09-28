@@ -12,8 +12,9 @@ godot --path . --headless --script res://tests/archer_test.gd  # bow + target lo
 godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 godot --path . --headless --script res://tests/multiplayer_test.gd  # who owns what
-godot --path . --headless --script res://tests/fighter_test.gd     # imps and puglins: bands; on a puglin block, dash, combo, death
+godot --path . --headless --script res://tests/fighter_test.gd     # imps and puglins: bands, rousing, blows, the whole-combo knockdown, dying, the leash
 godot --path . --headless --script res://tests/imp_test.gd         # the imp: size, own clips, circling, leap, evade, thrown by a cut, two at a time
+godot --path . --headless --script res://tests/puglin_test.gd      # the puglin: a band as one, balls, mud in the eyes, the three-cut combo, scatter and gather
 godot --path . --script res://tests/draw_budget.gd             # where the draw calls go
 godot --path . --headless --script res://tests/physics_budget.gd  # where the physics tick goes
 sh tools/two_peers.sh                                  # two processes, one world
@@ -4578,3 +4579,57 @@ next), the golem 1.9 m and never fights. The imp is first.
   two or three splashes the way the blow was going and a spatter of small
   drops round them; it lies 14–18 s, then fades. The other styles stay
   (`Blood.use_style()`).
+
+## The puglin: a band that rolls
+
+The puglin stays small (1.1 m, as it was) — its strength is that it never
+comes alone. `scripts/puglin.gd` (`Puglin extends ClipFighter`), its model and
+clips `assets/monsters/puglin/puglin.glb` (vepxis-art `tools/puglin_build.py`:
+the kit's Puglin, its stick swapped for a short sword skinned to the right
+hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
+`skin_dir`, and only `MI_*` materials are recoloured).
+
+- **A band is one thing.** Roused, the band walks at him slowly (`bunch_speed`
+  1.3 m/s), bunched round one point that stops `stand_off` 3 m short of him, each
+  in its place round it (`bunch_radius`), faces all on him (`Puglin._bands`, kept
+  by the band's first member).
+- **They roll.** Curled into a ball (the roll clip held on its most curled
+  frame) it comes at him at up to 9 m/s, the body turned over about the middle
+  of the ball as fast as the ground goes by (`_lay_ball`, every peer, from the
+  replicated velocity), off walls. Past him it rolls on, swings round in an arc
+  (`roll_turn`) and comes again — two or three passes; finding him, it bounces
+  back off and swings round. Bunched, the whole band rolls at once every 7–11 s;
+  when every ball of such a volley finds him he goes down (a combo of one on the
+  last ball), a single ball only flinches him. Steel glances off a ball (a puff,
+  no blood); magic gets in and knocks it out of its ball. Uncurled it stands
+  dizzy a second — the opening.
+- **Mud** (`MudBall`, `ScreenMud`, `shaders/screen_mud.gdshader`): thrown in an
+  arc at where he is going, a lump that splashes and leaves a patch that dries.
+  What it hits takes a little and, unless he rolled away from it or met it on a
+  shield, gets mud in his eyes: ragged splats over *his* screen only (the host
+  tells his peer, `net_mudded`), dripping, that hold a moment and thin away over
+  three seconds.
+- **One combo, three cuts**: three of the sword-and-shield set's slashes run
+  together (across, back the other way, a heavy one down into the ground),
+  counted as one combo — all three floor him. `ClipFighter._chain_blow /
+  _chain_serial` let several acts be one combo. The moments are where the point
+  sweeps across in front of it (measured 1.0–1.3 m out; the orc's axe combo tried
+  first swung mostly behind a body this shape).
+- **A big blow breaks it up**: a cut worth 1.35× the hero's ordinary one (a heavy
+  cut, the last of a string, a critical), one knocking it down, or one swing
+  through two of them — they hop off from him every way at once, come at him from
+  all sides for 6.5–9 s each on its own (circling slowly, its own ball, its own
+  mud, its sword), then one of them shouts and they bunch again.
+- **Hard to cut** (p.def 80: a 26 cut takes 14), easy to burn (m.def 5); an
+  ordinary cut does not stop its stroke or its throw — only one worth a fifth of
+  its health staggers it.
+- **Tariel's cuts reach down to it**: his rig bends his swing to what it is aimed
+  at, as the assassin's does ([StrikeAim]; `strike_natural` 1.3, `strike_pull`
+  0.25). Before, most of his cuts went over a puglin's head.
+
+`ClipFighter` (`scripts/clip_fighter.gd`) is what the imp and the puglin share:
+moves as clips, the body carried along each clip's measured path, blows by limb
+(explicit moments and thresholds where the measure runs two swings together;
+`blow_window`, `blow_min_speed` for smaller arms), the step in under a blow, and
+walking picked by direction and retimed to the stride at the drawn size.
+
