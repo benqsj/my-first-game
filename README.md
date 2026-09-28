@@ -4570,3 +4570,11 @@ next), the golem 1.9 m and never fights. The imp is first.
   thin fast streak and one red brush-stroke laid the way the blade went, a few
   drops; 18–24 s) and `mist` (a soft red mist that hangs and thins, small soft
   stains that go in 8–12 s). The game still uses `cubes` until one is chosen.
+
+### Blood: the mist, and a clear mark on the ground
+- **The game now bleeds `mist`** (`Blood.style` defaults to it): a red mist
+  that hangs and thins where the blow landed. What it leaves on the ground is
+  no longer a few faint soft spots but a clear deep-red pool under the wound,
+  two or three splashes the way the blow was going and a spatter of small
+  drops round them; it lies 14–18 s, then fades. The other styles stay
+  (`Blood.use_style()`).

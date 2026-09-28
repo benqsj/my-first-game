@@ -65,9 +65,9 @@ static var _patches: Array[MeshInstance3D] = []
 ##             light (after Arkdeva's venom);
 ##   `trail` — a thin fast streak of drops along the cut and, on the ground,
 ##             one red stroke the way the blade went, and a few drops;
-##   `mist`  — a soft red mist that hangs and thins, and small soft stains
-##             that fade soon.
-static var style: StringName = &"cubes"
+##   `mist`  — a soft red mist that hangs and thins, and on the ground a clear
+##             red pool, splashes and drops (the one the game uses).
+static var style: StringName = &"mist"
 static var _stroke: ImageTexture
 
 
@@ -161,7 +161,7 @@ static func splatter(world: Node, point: Vector3, direction: Vector3, on: Node3D
 ## How long this blow's blood stays, between `LINGER_MIN` and `LINGER_MAX`.
 static func _linger() -> float:
 	if style == &"mist":
-		return randf_range(8.0, 12.0)
+		return randf_range(14.0, 18.0)
 	if style == &"trail":
 		return randf_range(18.0, 24.0)
 	return randf_range(LINGER_MIN, LINGER_MAX)
@@ -599,9 +599,13 @@ static func _stain_assets() -> void:
 				_drop_material = _pool_material.duplicate() as StandardMaterial3D
 				_drop_material.albedo_texture = splat_texture()
 			else:
-				_pool_material.albedo_color = Color(0.36, 0.02, 0.02, 0.7)
-				_pool_material.albedo_texture = splat_texture()
-				_drop_material = _pool_material
+				# Deep red with a clear edge, so it reads on grass and stone alike;
+				# the drops round it keep the mist's soft edge.
+				_pool_material.albedo_color = Color(0.52, 0.02, 0.03, 0.95)
+				_pool_material.albedo_texture = _smooth_splat()
+				_drop_material = _pool_material.duplicate() as StandardMaterial3D
+				_drop_material.albedo_color = Color(0.6, 0.03, 0.04, 0.95)
+				_drop_material.albedo_texture = _soft_dot()
 		_patch_mesh = QuadMesh.new()
 		_patch_mesh.size = Vector2.ONE
 	if _pool_material != null:
@@ -677,7 +681,7 @@ static func _stain_ground(world: Node, point: Vector3, along: Vector3, strength:
 
 
 ## The light styles' ground: a stroke the way the blade went and a few drops
-## (`trail`), or a few small soft stains (`mist`).
+## (`trail`), or a pool, splashes and drops (`mist`).
 static func _stain_light(world: Node, space: PhysicsDirectSpaceState3D, point: Vector3, aim: Vector3,
 		strength: float) -> void:
 	var flat := Vector3(aim.x, 0.0, aim.z)
@@ -694,10 +698,19 @@ static func _stain_light(world: Node, space: PhysicsDirectSpaceState3D, point: V
 			var size := randf_range(0.06, 0.13)
 			_lay(world, space, _drop_material, at, point.y, flat, size * 1.4, size, randf_range(0.3, 0.55))
 		return
-	for i in 3 + int(strength * 2.0):
-		var at := point + flat * randf_range(0.0, 1.2) + Vector3(randfn(0.0, 0.25), 0.0, randfn(0.0, 0.25))
-		var size := randf_range(0.18, 0.4)
-		_lay(world, space, _pool_material, at, point.y, Vector3.ZERO, size, size, randf_range(0.25, 0.7))
+	# A pool under the wound, splashes the way the mist was thrown, and a
+	# spatter of drops round them.
+	var pool := randf_range(0.55, 0.85) * clampf(0.8 + 0.2 * strength, 0.7, 1.4)
+	_lay(world, space, _pool_material, point + Vector3(randfn(0.0, 0.08), 0.0, randfn(0.0, 0.08)), point.y,
+			Vector3.ZERO, pool, pool * randf_range(0.75, 1.0), randf_range(0.2, 0.4))
+	for i in 2 + int(strength):
+		var at := point + flat * randf_range(0.5, 1.4) + Vector3(randfn(0.0, 0.2), 0.0, randfn(0.0, 0.2))
+		var size := randf_range(0.3, 0.5)
+		_lay(world, space, _pool_material, at, point.y, flat, size * 1.3, size, randf_range(0.3, 0.6))
+	for i in 5 + int(strength * 2.0):
+		var at := point + flat * randf_range(0.2, 2.0) + Vector3(randfn(0.0, 0.35), 0.0, randfn(0.0, 0.35))
+		var size := randf_range(0.1, 0.2)
+		_lay(world, space, _drop_material, at, point.y, flat, size * 1.2, size, randf_range(0.3, 0.7))
 
 
 ## Lays one stain at `at` (moved onto whatever is there to lie on), `length`
