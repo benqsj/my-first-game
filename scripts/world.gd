@@ -119,6 +119,7 @@ var _fight_music_until: float = 0.0
 
 func _ready() -> void:
 	_dress_village()
+	GroundCover.lay(get_node_or_null("Forest") as Forest, VILLAGE)
 	_build_camps()
 	_cull_distant_creatures()
 	_prewarm_effects()
