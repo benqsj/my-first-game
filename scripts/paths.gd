@@ -79,6 +79,10 @@ static func lands_roads() -> Array[PackedVector2Array]:
 	var spurs: Dictionary = lands.info.get("spurs", {})
 	for key: String in spurs:
 		lines.append(spurs[key])
+	# and the streets of the city (Gulansharo), [x, z] a point
+	var city: Dictionary = lands.info.get("city", {})
+	for street: Array in city.get("streets", []):
+		lines.append(street)
 	for pts: Array in lines:
 		var line := PackedVector2Array()
 		for p: Array in pts:
