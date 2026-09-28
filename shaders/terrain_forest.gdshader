@@ -62,7 +62,7 @@ uniform float blend_depth = 0.18;
 // covers a hand's breadth and the bumps cannot be seen.
 uniform float normal_distance = 40.0;
 // How much of the open ground grows grass even where no clump stands.
-uniform float open_grass = 0.85;
+uniform float open_grass = 0.95;
 
 varying vec3 wpos;
 varying vec3 wnrm;
@@ -97,7 +97,7 @@ void fragment() {
 	float wet = clamp((1.0 - dot(COLOR.rgb, vec3(0.333))) * 3.0, 0.0, 1.0);
 
 	float w_floor = smoothstep(0.22, 0.7, m.r + (mid - 0.5) * 0.25);
-	float grassy = max(m.g, open_grass * smoothstep(0.22, 0.5, macro + (mid - 0.5) * 0.5));
+	float grassy = max(m.g, open_grass * smoothstep(0.14, 0.44, macro + (mid - 0.5) * 0.5));
 	float w_grass = smoothstep(0.1, 0.55, grassy) * (1.0 - w_floor);
 	float w_bare = (1.0 - w_floor) * (1.0 - w_grass);
 	float keep = (1.0 - earthy) * (1.0 - stony) * (1.0 - wet);

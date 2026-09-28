@@ -64,7 +64,13 @@ const REEDS: PackedStringArray = [
 ## The low sward under the meadows (the new look, [Looks]): how many short
 ## clumps round each meadow or edge clump, and the most there will be.
 @export var sward_per_clump: int = 6
-@export var sward_budget: int = 32000
+@export var sward_budget: int = 72000
+## The sward over the open ground too, not only round the meadows: laid in
+## broad patches (most of the open ground, gaps where the earth shows) on a
+## grid this fine; thinned evenly to [member open_sward_budget] clumps if it
+## comes to more. 0 turns it off.
+@export var open_sward_spacing: float = 2.1
+@export var open_sward_budget: int = 42000
 ## Past this the flowers and bulrushes are not drawn.
 @export var decor_draw_distance: float = 80.0
 
@@ -94,6 +100,7 @@ var counts: Dictionary = {}
 var _drift := FastNoiseLite.new()
 var _dry := FastNoiseLite.new()
 var _bloom := FastNoiseLite.new()
+var _patches := FastNoiseLite.new()
 var _rng := RandomNumberGenerator.new()
 ## Model path -> transforms, for the flowers and reeds.
 var _decor: Dictionary = {}
@@ -108,6 +115,9 @@ func _ready() -> void:
 	_dry.frequency = 0.012
 	_bloom.seed = random_seed + 9
 	_bloom.frequency = 0.05
+	_patches.seed = random_seed + 23
+	_patches.frequency = 0.035
+	_patches.fractal_octaves = 2
 	_rng.seed = random_seed
 	_sward_rng.seed = random_seed + 17
 	# Everything it asks has to have been built first — the wood, the tracks,
@@ -165,7 +175,7 @@ func _grow() -> void:
 				tints.append(Color(tone.r * shade, tone.g * shade, tone.b * shade))
 				counts[site["kind"]] = int(counts[site["kind"]]) + 1
 				if site.has("dry"):
-					_plan_sward(spot, float(site["dry"]), to_field, low, low_tints)
+					_plan_sward(spot, float(site["dry"]), to_field, low, low_tints, tracks)
 			_decorate(at, site, ponds, tracks, space)
 		z += spacing * sqrt(3.0) * 0.5
 		row += 1
@@ -186,6 +196,7 @@ func _grow() -> void:
 		tints = keep_t
 	field.replace(placed, tints)
 	_build_decor()
+	_open_sward(ponds, tracks, wood, space, to_field, low, low_tints)
 	_thin_sward(low, low_tints)
 	grown.emit()
 	print("Meadows: %s, %d clumps, in %.0f ms" % [counts, placed.size() / GrassField.STRIDE,
@@ -241,9 +252,12 @@ func _site(at: Vector2, ponds: Array[Marsh], tracks: Paths, wood: Forest) -> Dic
 ## fills a meadow with. Their colour is in the model (a blade at a time); the
 ## tint only pulls a patch towards hay where the meadow is dry.
 func _plan_sward(spot: Vector2, dryness: float, to_field: Transform3D,
-		low: PackedFloat32Array, low_tints: PackedColorArray) -> void:
+		low: PackedFloat32Array, low_tints: PackedColorArray, tracks: Paths = null) -> void:
 	for k in sward_per_clump:
 		var at := spot + Vector2.from_angle(_sward_rng.randf() * TAU) * _sward_rng.randf_range(0.2, 1.8)
+		# Not on the square's cobbles, nor out in the worn middle of a track.
+		if VillageProps.in_plaza(at) or (tracks != null and tracks.near(at, -0.6)):
+			continue
 		var local := to_field * Vector3(at.x, 0.0, at.y)
 		low.append(local.x)
 		low.append(local.z)
@@ -253,6 +267,79 @@ func _plan_sward(spot: Vector2, dryness: float, to_field: Transform3D,
 		var shade := _sward_rng.randf_range(0.86, 1.06)
 		var tint := Color(1.0, 1.0, 1.0).lerp(Color(1.14, 1.0, 0.7), dryness * 0.8)
 		low_tints.append(Color(tint.r * shade, tint.g * shade, tint.b * shade))
+
+
+## The sward over the open ground, in patches: everywhere that is not wood
+## (a clearing cut in one counts as open), water, track, the square's cobbles or under something standing (looked for
+## only in the village, where the houses are — out in the fields there is
+## nothing to find and a ray a clump would cost the load a second).
+func _open_sward(ponds: Array[Marsh], tracks: Paths, wood: Forest,
+		space: PhysicsDirectSpaceState3D, to_field: Transform3D,
+		low: PackedFloat32Array, low_tints: PackedColorArray) -> void:
+	if open_sward_spacing <= 0.0 or open_sward_budget <= 0:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = random_seed + 29
+	var built := World.VILLAGE.grow(10.0)
+	var laid := 0
+	var z := bounds.position.y
+	while z <= bounds.end.y:
+		var x := bounds.position.x
+		while x <= bounds.end.x:
+			var at := Vector2(x, z) + Vector2(rng.randf(), rng.randf()) * open_sward_spacing
+			x += open_sward_spacing
+			var patch := _patches.get_noise_2d(at.x, at.y)
+			if patch < -0.18 or rng.randf() > 0.55 + patch:
+				continue
+			# (the margins take in the 0.8 m the two clumps spread from the point)
+			if VillageProps.in_plaza(at, 1.3) or (tracks != null and tracks.near(at, 1.1)):
+				continue
+			var cover := 0.0
+			if wood != null and not wood.is_clear(at):
+				cover = maxf(wood._wood(at), wood._hill_wood(at))
+			if cover > 0.3:
+				continue
+			var wet := false
+			for pond in ponds:
+				if pond.height_at(at.x, at.y) < pond.water_level + 0.3:
+					wet = true
+					break
+			if wet:
+				continue
+			if built.has_point(at) and not _dry_and_open(at, ponds, tracks, space):
+				continue
+			# Two clumps a point: half the points looked at for the same sward.
+			var dryness := clampf(_dry.get_noise_2d(at.x, at.y) * 0.9 + 0.3, 0.0, 1.0)
+			var tint := Color(1.0, 1.0, 1.0).lerp(Color(1.14, 1.0, 0.7), dryness * 0.8)
+			for k in 2:
+				var spot := at + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, 0.8)
+				var local := to_field * Vector3(spot.x, 0.0, spot.y)
+				low.append(local.x)
+				low.append(local.z)
+				low.append(rng.randf() * TAU)
+				low.append(rng.randf_range(0.9, 1.45))
+				low.append(rng.randf_range(0.7, 1.15))
+				var shade := rng.randf_range(0.84, 1.04)
+				low_tints.append(Color(tint.r * shade, tint.g * shade, tint.b * shade))
+				laid += 1
+		z += open_sward_spacing
+	# Over its budget, thinned evenly (not cut off at a row).
+	if laid > open_sward_budget:
+		var keep := float(open_sward_budget) / float(laid)
+		var first := low_tints.size() - laid
+		var kept_p := low.slice(0, first * GrassField.STRIDE)
+		var kept_t := low_tints.slice(0, first)
+		for i in range(first, low_tints.size()):
+			if rng.randf() < keep:
+				kept_t.append(low_tints[i])
+				for k in GrassField.STRIDE:
+					kept_p.append(low[i * GrassField.STRIDE + k])
+		low.clear()
+		low.append_array(kept_p)
+		low_tints.clear()
+		low_tints.append_array(kept_t)
+		laid = kept_t.size() - first
+	counts["open sward"] = laid
 
 
 func _thin_sward(low: PackedFloat32Array, low_tints: PackedColorArray) -> void:

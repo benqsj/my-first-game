@@ -347,7 +347,7 @@ func _build_mask() -> void:
 					if d >= 1.0:
 						continue
 					var k := z * w + x
-					wood[k] = minf(wood[k] + (1.0 - d * d) * 0.55, 1.0)
+					wood[k] = minf(wood[k] + (1.0 - d * d) * 0.45, 1.0)
 
 	var field := _field()
 	if field != null:
@@ -363,6 +363,18 @@ func _build_mask() -> void:
 					var k := z * w + x
 					var add := 0.34 if dx == 0 and dz == 0 else 0.1
 					grass[k] = minf(grass[k] + add, 1.0)
+
+	# And the low sward out on the open ground ([member Meadows.sward]): the
+	# grassy ground under it too, so a patch of it stands on grass, not earth.
+	var meadows := _world().get_node_or_null("Meadows") as Meadows
+	if field != null and meadows != null:
+		var low := meadows.sward
+		for i in range(0, low.size(), GrassField.STRIDE):
+			var at := field.to_global(Vector3(low[i], 0.0, low[i + 1]))
+			var c := _cell(Vector2(at.x, at.z), w, h)
+			var k := c.y * w + c.x
+			if k >= 0 and k < w * h:
+				grass[k] = minf(grass[k] + 0.16, 1.0)
 
 	# Softened, so a lone tree stands in a smudge of leaves rather than on a
 	# disc of them, and the thick of the wood is one floor.
