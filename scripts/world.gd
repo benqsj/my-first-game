@@ -547,6 +547,7 @@ func _dress_village() -> void:
 		if grow != Vector2.ONE:
 			_grow_building(thing, Vector3(grow.x, grow.y, grow.x))
 	_build_fence(village)
+	VillageProps.dress(village)
 	_settle_villagers(village)
 
 

@@ -202,6 +202,8 @@ func _site(at: Vector2, ponds: Array[Marsh], tracks: Paths, wood: Forest) -> Dic
 		shore = minf(shore, _to_water(pond, at))
 	if tracks != null and tracks.near(at, 0.35):
 		return {}
+	if VillageProps.in_plaza(at, 0.5):
+		return {}
 	if shore < 5.0:
 		return {"kind": &"reed", "chance": 0.85 - shore * 0.12,
 				"tall": _rng.randf_range(1.4, 1.9), "tone": reed_tone, "knot": Vector2i(3, 5)}

@@ -1,0 +1,13 @@
+The village's props and cobbles. All CC0 (public domain): free to use, change
+and ship, no credit required (given here anyway).
+
+village_props.glb
+  Quaternius, Fantasy Props MegaKit [Standard]    https://quaternius.com/packs/fantasypropsmegakit.html
+  Quaternius, Medieval Village MegaKit [Standard] https://quaternius.com/packs/medievalvillagemegakit.html  (the wagon)
+  Quaternius, Stylized Nature MegaKit [Standard]  https://quaternius.com/packs/stylizednaturemegakit.html   (bushes, flowers, ferns, stepping stones)
+  Cut down, merged onto shared materials and textures at 1024 in
+  ~/Desktop/vepxis-art/village/village_props.blend (the kits' zips are in
+  ~/Desktop/vepxis-art/downloads/).
+
+ground/cobble_*.jpg
+  Poly Haven, "Cobblestone Large 01" by Rob Tuytel, 1k   https://polyhaven.com/a/cobblestone_large_01
