@@ -238,10 +238,18 @@ func _fighting() -> void:
 	var nearest := INF
 	var attacks := 0
 	var was_busy := false
+	var back_turned := 0
 	for i in 60 * 20:
 		await physics_frame
 		_hold_player()
 		tactics[wolf.mind.tactic] = true
+		if not wolf.is_busy() and wolf.state == Wolf.State.FIGHT:
+			var to := _player.global_position - wolf.global_position
+			to.y = 0.0
+			var ahead := -wolf.global_transform.basis.z
+			ahead.y = 0.0
+			if to.length() > 0.5 and ahead.normalized().dot(to.normalized()) < -0.2:
+				back_turned += 1
 		if wolf.is_busy() and not was_busy:
 			attacks += 1
 		was_busy = wolf.is_busy()
@@ -269,6 +277,9 @@ func _fighting() -> void:
 			"%s %s" % [str(tactics.keys()), str(moves.keys())])
 	_check("it does not run away", wolf.state == Wolf.State.FIGHT or wolf.state == Wolf.State.CHASE,
 			"state %d" % wolf.state)
+	# Drawing off to come again, it keeps its face to him: it never turns its
+	# back and walks off in the middle of a fight.
+	_check("it never turns its back on him in the fight", back_turned < 10, "%d frames" % back_turned)
 	_park(wolf)
 
 

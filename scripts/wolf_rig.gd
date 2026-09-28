@@ -582,7 +582,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, stance_targ
 	_melee_timer = maxf(_melee_timer - delta, 0.0)
 	if _hold_left > 0.0 and _melee_timer > 0.0 and _anim.current_animation_position >= _hold_at:
 		_hold_left -= delta
-		_anim.speed_scale = 0.03 if _hold_left > 0.0 else _melee_rate
+		# Held at the top of the windup: coiled, still creeping, not frozen.
+		_anim.speed_scale = _melee_rate * 0.12 if _hold_left > 0.0 else _melee_rate
 	_swipe_timer = maxf(_swipe_timer - delta, 0.0)
 	_lunge_timer = maxf(_lunge_timer - delta, 0.0)
 	_reel_timer = maxf(_reel_timer - delta, 0.0)

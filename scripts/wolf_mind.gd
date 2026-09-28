@@ -109,9 +109,10 @@ func ring() -> float:
 	return lerpf(2.2, 3.0, intellect)
 
 
-## How far it walks off before it turns to come back at a run: short of
-## where it would give up the fight ([method Wolf.fight_from]).
-const RUN_UP_TO := 8.3
+## How far it draws off before it comes back at a run: short of where it
+## would give up the fight ([method Wolf.fight_from]). It draws off facing
+## him, slantwise, never turning its back.
+const RUN_UP_TO := 6.2
 
 
 func run_up_chance() -> float:
@@ -228,9 +229,10 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 			if _left <= 0.0:
 				_next_from_range(gap)
 		Tactic.RUN_UP:
-			# Off a way at a walk, its back to him; then round and at him.
+			# Drawing off a way, slantwise and face on, watching him; then at
+			# him at a run that builds.
 			if gap < RUN_UP_TO and _left > 0.0:
-				wolf.run_at(-towards, delta)
+				wolf.withdraw(towards, towards.cross(Vector3.UP) * _side, delta)
 			else:
 				_begin(Tactic.CLOSE)
 
@@ -282,7 +284,9 @@ func _begin(what: int) -> void:
 		Tactic.WAIT:
 			_left = _rng.randf_range(0.3, 1.0) * lerpf(1.0, 0.6, intellect)
 		Tactic.RUN_UP:
-			_left = _rng.randf_range(2.0, 3.2)
+			_left = _rng.randf_range(1.0, 1.8)
+			if _rng.randf() < 0.5:
+				_side = -_side
 
 
 ## A combo from what it has left, as long as its wit allows.
@@ -331,10 +335,10 @@ func _delay_for(move: StringName) -> float:
 		return 0.0
 	if move == &"swipe":
 		return 0.0
-	var chance := 0.15 + 0.3 * intellect
+	var chance := 0.08 + 0.2 * intellect
 	if move == &"slam":
-		chance += 0.2
-	return _rng.randf_range(0.25, 0.6) if _rng.randf() < chance else 0.0
+		chance += 0.15
+	return _rng.randf_range(0.15, 0.35) if _rng.randf() < chance else 0.0
 
 
 func _after_combo() -> void:

@@ -4419,3 +4419,21 @@ partly to the shoulders so the sleeves no longer show through it. Under it he
 wears a real cloak of plain brown wool from the back of the shoulders to the
 calf, simulated like Tariel's old tiger skin: `SkinnedRig.whole_capes` hangs
 capes for a whole figure the way `garb_capes` does for an outfit.
+
+## The wolf in a fight: no back turned, no wild leaps, quicker blows
+
+- **Drawing off to come again** (`WolfMind.Tactic.RUN_UP`) no longer turns
+  its back and walks off: it draws off slantwise at a trot, face on, watching
+  him (`Wolf.withdraw()`, `withdraw_speed` 3 m/s), to 6.2 m or 1–1.8 s, and
+  then comes at a run that builds. The old one read as the wolf giving up in
+  the middle of a fight — and a hop back thrown while its back was turned
+  went *towards* him. wolf_mind_test checks it never turns its back.
+- **A leap forward is aimed at him however it was turned** (`_take_off`): a
+  pounce or a leap out of a run was aimed only if he stood within ~70° of the
+  way it faced; otherwise it leapt off the way it faced. A hop back still keeps
+  to its own facing.
+- **Quicker blows.** The hand-to-hand clips (Mixamo's, human speed) played
+  slow — the jab at 0.72 — so a chain dragged: now jab 1.05, rake 1.5, three
+  blows 1.45, two blows 1.4, smash 1.25. The blow held at the top of its
+  windup (to catch a roll) is rarer and shorter (0.15–0.35 s) and no longer a
+  freeze: it creeps on at an eighth of its pace, coiled.

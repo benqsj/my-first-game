@@ -195,13 +195,16 @@ func _check_two_attackers() -> void:
 	# "did the first swing happen to take the head" — and what it is *for* is
 	# whether the second attacker registers at all.
 	var landed := 0
-	for round_at in 8:
+	for round_at in 12:
 		_revive(wolf)
 		var before := wolf.rig.lost_parts()
-		for knight in [mine, other]:
-			(knight as Player).global_position = wolf.global_position + Vector3(0.0, 0.0, 1.3)
-			(knight as Player).velocity = Vector3.ZERO
-			(knight as Player).rig.attack(CharacterRig.AttackStyle.SIDE)
+		# Side by side, not in one spot: two blades down the one path take the
+		# one limb, and the second finds it already gone.
+		for k in 2:
+			var knight := [mine, other][k] as Player
+			knight.global_position = wolf.global_position + Vector3(-0.3 + 0.6 * k, 0.0, 1.3)
+			knight.velocity = Vector3.ZERO
+			knight.rig.attack(CharacterRig.AttackStyle.SIDE)
 		# Long enough for the blade to get there: a clip has a wind-up before the
 		# cut, so the swing's own commitment time is what to wait on.
 		await _wait(maxi(20, int(ceil((mine as Player).rig.swing_time() * Engine.physics_ticks_per_second)) + 4))
@@ -273,6 +276,9 @@ func _revive(wolf: Wolf) -> void:
 	wolf.state = Wolf.State.PROWL
 	wolf.collision_layer = 4
 	wolf.velocity = Vector3.ZERO
+	# Not mid-dodge (a dodge lets a blade through) nor still riled from the last.
+	wolf._evading = 0.0
+	wolf._provoked = 0.0
 	if wolf._bar != null:
 		wolf._bar.show()
 

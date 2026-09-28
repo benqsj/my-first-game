@@ -168,6 +168,8 @@ var _pouncing: bool = false
 @export var fight_speed: float = 2.4
 @export var circle_speed: float = 1.8
 @export var back_speed: float = 1.7
+## Drawing off to come again at a run, face on ([method withdraw]).
+@export var withdraw_speed: float = 3.0
 @export var crawl_speed: float = 1.2
 ## The throw of a dodge, a hop back, a bite and a lunge from the ground.
 @export var dodge_speed: float = 6.5
@@ -278,15 +280,15 @@ const POUNCE_LIVE := Vector2(0.5, 0.86)
 ## its feet through the windup of one (`armour`, of the poise a blow takes).
 const MELEE := {
 	&"punch": {"clip": &"WF_Punch", "hits": [0.33], "parts": "claws", "damage": 0.45,
-			"rate": 0.72, "from": 0.0, "to": 0.95, "armour": 1.0},
+			"rate": 1.05, "from": 0.0, "to": 0.95, "armour": 1.0},
 	&"rake": {"clip": &"WF_Rake", "hits": [1.0], "parts": "claws", "damage": 0.8,
-			"rate": 1.35, "from": 0.4, "to": 1.85, "armour": 1.0},
+			"rate": 1.5, "from": 0.4, "to": 1.85, "armour": 1.0},
 	&"combo3": {"clip": &"WF_Combo3", "hits": [0.95, 1.8, 2.62], "parts": "claws", "damage": 0.55,
-			"rate": 1.2, "from": 0.35, "to": 3.25, "armour": 0.5},
+			"rate": 1.45, "from": 0.35, "to": 3.25, "armour": 0.5},
 	&"slam": {"clip": &"WF_Slam", "hits": [1.5], "parts": "claws", "damage": 1.3,
-			"rate": 1.05, "from": 0.35, "to": 2.45, "armour": 0.35, "heavy": true},
+			"rate": 1.25, "from": 0.35, "to": 2.45, "armour": 0.35, "heavy": true},
 	&"combo2": {"clip": &"WF_Combo2", "hits": [2.05, 2.95], "parts": "claws", "damage": 0.7,
-			"rate": 1.15, "from": 1.1, "to": 3.6, "armour": 0.6},
+			"rate": 1.4, "from": 1.1, "to": 3.6, "armour": 0.6},
 }
 ## How long before a blow lands it stops turning after him: from here on the
 ## blow goes where it was aimed, and a step aside gets out of it.
@@ -749,7 +751,9 @@ func _take_off(clip: StringName, throw: Dictionary) -> void:
 	if quarry != null:
 		var to := quarry.global_position - global_position
 		to.y = 0.0
-		if to.length() > 0.1 and to.normalized().dot(ahead) > 0.3:
+		# A leap forward (a pounce, a leap out of a run) is aimed at him however
+		# it was turned; only a hop back keeps to the way it faces.
+		if to.length() > 0.1 and (across > 0.0 or to.normalized().dot(ahead) > 0.3):
 			ahead = to.normalized()
 			rotation.y = atan2(-ahead.x, -ahead.z)
 			basis = Basis(Vector3.UP, rotation.y).scaled(global_transform.basis.get_scale())
@@ -996,6 +1000,13 @@ func net_run_strike(move: StringName, rate: float) -> void:
 func strafe(direction: Vector3, look: Vector3, delta: float) -> void:
 	_face(look, delta)
 	_steer(direction * circle_speed, delta)
+
+
+## Drawing off a way, face on, slantwise (`aside`): back and to one side at a
+## trot, to come again at a run.
+func withdraw(towards: Vector3, aside: Vector3, delta: float) -> void:
+	_face(towards, delta)
+	_steer((-towards * 0.8 + aside * 0.6).normalized() * withdraw_speed, delta)
 
 
 ## Backing away from him, face on.
