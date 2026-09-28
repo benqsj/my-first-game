@@ -334,14 +334,14 @@ func _configure() -> void:
 	garbs = [&"tariel_vk_berserker"]
 	garb_capes = [[{"off": true}]]
 	# Who he is, picked on the hero select: the square-headed Tariel he always
-	# was (the berserker's harness, the long mohawk), or the warrior after
+	# was (the berserker's harness, the long mohawk), or the wanderer after
 	# Ashen — a whole figure of his own (body, masked head, hair and dress one
 	# mesh), so no outfit or hair is worn with him.
 	hairs = [&"mohawk_long"]
 	hair_names = ["LONG MOHAWK"]
 	faces = [&"box", &"ashen"]
 	face_skulls = [&"box", &"ashen"]
-	face_names = ["AS HE WAS", "THE WARRIOR"]
+	face_names = ["AS HE WAS", "THE WANDERER"]
 	whole_faces = [&"ashen"]
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],

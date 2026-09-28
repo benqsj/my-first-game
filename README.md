@@ -4396,3 +4396,18 @@ while he is on, `wearing_whole()` hides the outfit and the hair. The other
 faces, hairs and outfits have left the glb (they stay in `tariel.blend`);
 `garbs` is the berserker's alone and `hairs` the long mohawk alone, so
 neither row is offered. The glb went from 13.6 MB to 4.8 MB.
+
+**Now the wanderer.** The second look is Tariel after Ashen's own hero
+(`THE WANDERER`, look `a_ashen` in `vepxis-art/tools/t14_dress.py`): a blank
+pale mask lying close over the whole face — a smooth sheet curving across it
+(`mask_flat`, the face pressed back behind it, a faint ridge down the nose),
+no eyes cut, a rim you can see; short curly fair hair; an olive wool tunic
+with long sleeves, a stand-up collar and toggles down the chest, big leather
+cuffs, a short capelet of leather cut ragged over the shoulders; slim brown
+breeches tucked into shaped boots (a turned-down cuff, a strap and buckle
+over the instep), the shins bound crosswise over them; a hero's build (the
+shoulders broader, the neck thicker, the head a size up) and hands with
+fingers. The warrior, the hooded and masked versions and two knights (after
+Elden Ring's Wylder and Dark Souls' Soul of Cinder) stay in the art tools as
+looks (`warrior_*`, `h_*`, `k_wylder`, `k_cinder`). `vepxis-art/_t16_export.py`
+builds whichever look `T16_LOOK` names (default `a_ashen`).
