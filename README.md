@@ -4745,3 +4745,55 @@ nothing of it is worked out in the game.
 floor is the drawn ground, a hero walks out of the core, a deep river holds him
 but every ford and bridge takes him over, the fires light and carry him, the
 city's gate is shut until opened, the air knows the lands.
+
+
+## The village dressed: a market, a smithy, gardens and a cobbled square
+
+The village the hero starts in was huts on bare grass. It has a life now
+(`scripts/village_props.gd`, [VillageProps], put up by `World._dress_village`):
+
+* **The square is cobbled** round the spawn, between the stalls — one flat sheet
+  (`shaders/village_plaza.gdshader`) with Poly Haven's *Cobblestone Large 01*
+  (1k, 4 m a tile), its edge following the stones rather than a straight line,
+  cut in the opaque pass. Grass keeps off it (`VillageProps.in_plaza` in
+  `Meadows._site`).
+* **A market** on both sides of the square: stalls and a stall-cart with crates
+  of apples and carrots, barrels, sacks, a vase and a pot, a table with stools.
+* **A smithy and a training yard** in front of the barracks: anvil on its log,
+  weapon stand, workbench, cauldron, two straw dummies.
+* **Tables with stools** in front of the town centre and a barrel rack.
+* **The windmill**: a wagon and flour sacks; **the gate**: a wagon come in on
+  the track, crates off it, a banner on each gate tower.
+* **At every hut's door** a bench, barrels, a bucket, crates or a vase; bushes
+  at its corners, flowers by the door, a fern and stepping stones out to the
+  street. Bushes and flowers along the town centre, the gate and the fence
+  corners.
+
+167 props from three free Quaternius kits (Fantasy Props, Medieval Village,
+Stylized Nature — all CC0; `assets/village/SOURCES.txt`), cut down in
+`vepxis-art/village/village_props.blend` (the heaviest decimated, one material
+per texture sheet, textures at 1024) into one `assets/village/village_props.glb`.
+
+**What it costs.** Every placed prop is baked at load into one mesh per
+material for each 48 m cell (`SurfaceTool.append_from`), so 167 props are some
+seventy meshes, most of them culled from any one view; only the big things cast a shadow (`SHADOWED`: stalls, wagons,
+tables, bushes), small ones are not drawn beyond 70 m and the rest beyond
+110 m. Solid ones (stalls, barrels, crates, tables, wagons, dummies...) get a
+box each in one `StaticBody3D`. Textures are VRAM-compressed with mipmaps
+(normal maps in normal-map mode). Measured in the village, four views, props
+on and off, interleaved runs on the M1:
+
+| | props off | props on |
+|---|---|---|
+| draw calls (High) | 3250–7520 | +60 to +130 (about 2%) |
+| primitives (High) | 0.75–1.44 M | +0.2 M (134 k triangles, drawn in the prepass and main pass) |
+| frame time | — | no difference above the run-to-run noise (±5 ms on this machine) |
+| video memory | 943 MB | 970 MB (+27) |
+| load | — | +90 ms |
+
+The layout is data at the top of the script (`PLACED`, `GREENERY`, and per hut
+`AT_DOOR` / `GREEN` mirrored for the north row), each model's front facing +z at
+yaw 0. `VillageProps.enabled = false` leaves them out (for measuring).
+`tests/village_props_test.gd`: every model in the layout is in the kit, few
+meshes, nothing solid on the villagers' street, the spawn, the gate, a door or a
+quest giver, the square cobbled and grass-free.
