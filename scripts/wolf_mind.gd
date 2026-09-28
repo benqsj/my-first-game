@@ -20,6 +20,13 @@ extends RefCounted
 ##   range and throws the claws' cut at him while the other brawls, and after a
 ##   while they change places — the thrower comes in, the brawler draws off to
 ##   throw.
+## * **FLANK** — he has put his shield up and keeps it there: it runs round
+##   him to get past the shield and strikes from his side or his back.
+##
+## It reads **him**, too: a guard held up at it is got round (a flank) or
+## battered down with the heavy blows that cost a shield the most (the smash,
+## the long combo); a man out of breath is pressed — no drawing off, blows
+## closer together, longer chains; and a man with a bow is come at weaving.
 ##
 ## Closing from further off than a step or two it runs rather than walks, and
 ## the run builds the longer it goes; fast enough, it strikes out of it.
@@ -59,7 +66,7 @@ extends RefCounted
 ##
 ## Hurt, it grows careful: it backs off more and dodges more — and comes back.
 
-enum Tactic { CLOSE, STRIKE, CIRCLE, RETREAT, WAIT, RUN_UP, SHOOT }
+enum Tactic { CLOSE, STRIKE, CIRCLE, RETREAT, WAIT, RUN_UP, SHOOT, FLANK }
 
 ## At most this many wolves go at one player together; the rest of the pack
 ## circles and waits its turn (only wolves with the wit to).
@@ -96,6 +103,10 @@ var _next: Array[StringName] = []
 var _shot_wait: float = 0.0
 ## Just done throwing: it brawls a while before it may throw again.
 var _no_shot_until: float = 0.0
+## His guard: since when he has held it up (-1 down), and whether this spell
+## of it has been answered.
+var _guard_since: float = -1.0
+var _guard_answered: bool = false
 
 
 func _init(owner: Wolf, wit: float) -> void:
@@ -188,6 +199,7 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 		_crawl_fight(delta, towards, gap)
 		return
 	_watch_blade(quarry, gap)
+	_read_him(quarry, gap)
 	if wolf.is_busy():
 		# It turns after him through the windup, not once the blow is coming:
 		# from there the blow goes where it was aimed.
@@ -213,7 +225,11 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 			elif wolf.try_run_attack(gap):
 				_begin(Tactic.WAIT)
 			elif gap > wolf.strike_range() + 1.8 or wolf.is_running():
-				wolf.charge_at(towards, delta)
+				# At a man with a bow, not straight down his arrow: weaving.
+				if gap > 5.0 and intellect > 0.3 and _ranged(quarry):
+					wolf.charge_at(towards.rotated(Vector3.UP, sin(_clock * 2.6 + _side) * 0.6), delta)
+				else:
+					wolf.charge_at(towards, delta)
 			else:
 				wolf.run_at(towards, delta)
 		Tactic.STRIKE:
@@ -229,8 +245,9 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 					_begin(Tactic.CLOSE)
 				else:
 					wolf.attack(move, Vector3.ZERO, _delay_for(move))
-					# Blow after blow: a chain, not a string of single moves.
-					_gap = lerpf(0.16, 0.03, intellect)
+					# Blow after blow: a chain, not a string of single moves —
+					# closer still on a man out of breath.
+					_gap = lerpf(0.16, 0.03, intellect) * (0.5 if _winded(quarry) else 1.0)
 		Tactic.CIRCLE:
 			var round_him := towards.cross(Vector3.UP) * _side
 			# In or out towards the ring as it goes round.
@@ -248,6 +265,25 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 			wolf.hold(delta)
 			if _left <= 0.0:
 				_next_from_range(gap)
+		Tactic.FLANK:
+			# Round him to past his shield: a spot at his side-back, run to.
+			var his := -quarry.global_transform.basis.z
+			his.y = 0.0
+			his = his.normalized() if his.length_squared() > 0.001 else -towards
+			var spot := quarry.global_position - his * 1.8 + his.cross(Vector3.UP) * _side * 1.2
+			var to_spot := spot - wolf.global_position
+			to_spot.y = 0.0
+			var from_him := (wolf.global_position - quarry.global_position)
+			from_him.y = 0.0
+			var past := his.dot(from_him.normalized()) < 0.1
+			if past and gap <= _opening_reach() + 0.5:
+				_begin(Tactic.STRIKE)
+			elif _left <= 0.0:
+				_begin(Tactic.CLOSE)
+			elif to_spot.length() > 0.35:
+				wolf.charge_at(to_spot.normalized(), delta)
+			else:
+				wolf.run_at(towards, delta)
 		Tactic.SHOOT:
 			_shot_wait = maxf(_shot_wait - delta, 0.0)
 			var round_him := towards.cross(Vector3.UP) * _side
@@ -328,6 +364,14 @@ func _begin(what: int) -> void:
 				wolf.attack(&"hop")
 		Tactic.WAIT:
 			_left = _rng.randf_range(0.3, 1.0) * lerpf(1.0, 0.6, intellect)
+		Tactic.FLANK:
+			_left = 2.6
+			_next = _choose_combo()
+			# The short way round: the side of him it is already on.
+			if _quarry != null:
+				var his := -_quarry.global_transform.basis.z
+				var to_me := wolf.global_position - _quarry.global_position
+				_side = 1.0 if his.cross(Vector3.UP).dot(to_me) >= 0.0 else -1.0
 		Tactic.SHOOT:
 			_left = _rng.randf_range(6.0, 9.0)
 			_shot_wait = _rng.randf_range(0.2, 0.8)
@@ -342,7 +386,7 @@ func _begin(what: int) -> void:
 ## A combo from what it has left, as long as its wit allows.
 func _choose_combo() -> Array[StringName]:
 	var arms := wolf.arms_left()
-	var most := combo_max()
+	var most := combo_max() + (1 if _winded(_quarry) and intellect > 0.3 else 0)
 	var out: Array[StringName] = []
 	if arms == 0:
 		out.append(&"bite")
@@ -392,7 +436,8 @@ func _delay_for(move: StringName) -> float:
 
 
 func _after_combo() -> void:
-	if intellect < 0.2:
+	# Out of breath, he is pressed: no drawing off.
+	if intellect < 0.2 or (intellect > 0.3 and _winded(_quarry)):
 		_begin(Tactic.CLOSE)
 	elif _rng.randf() < retreat_chance():
 		_begin(Tactic.RETREAT)
@@ -549,6 +594,52 @@ func _watch_blade(quarry: Node3D, gap: float) -> void:
 			and (tactic == Tactic.WAIT or tactic == Tactic.CIRCLE) and not wolf.is_busy():
 		_swing_at = -100.0
 		_begin(Tactic.STRIKE)
+
+
+## His guard, his breath, his bow — and the answer to a guard held up at it:
+## round it, or through it with the blows that cost a shield the most.
+func _read_him(quarry: Node3D, gap: float) -> void:
+	if _guarding(quarry):
+		if _guard_since < 0.0:
+			_guard_since = _clock
+			_guard_answered = false
+	else:
+		_guard_since = -1.0
+		return
+	if _guard_answered or intellect < 0.25 or wolf.is_busy() or wolf.is_crippled() or gap > 4.5:
+		return
+	if _clock - _guard_since < lerpf(1.1, 0.5, intellect):
+		return
+	if tactic == Tactic.SHOOT or tactic == Tactic.FLANK or (tactic == Tactic.STRIKE and not _combo.is_empty()):
+		return
+	_guard_answered = true
+	if wolf.can_leap() and _rng.randf() < 0.35 + 0.4 * intellect:
+		_release()
+		_begin(Tactic.FLANK)
+	elif wolf.arms_left() == 2:
+		tactic = Tactic.STRIKE
+		_set_combo([&"combo3", &"slam"] if intellect > 0.6 and _rng.randf() < 0.5 else [&"slam"])
+		_gap = 0.0
+
+
+static func _guarding(quarry: Node3D) -> bool:
+	if quarry == null:
+		return false
+	return quarry.get("is_blocking") == true or quarry.get("net_blocking") == true
+
+
+## Out of breath: under a quarter of his stamina.
+static func _winded(quarry: Node3D) -> bool:
+	if quarry == null:
+		return false
+	var s: Variant = quarry.get("stamina")
+	var most: Variant = quarry.get("max_stamina")
+	return s != null and most != null and float(most) > 0.0 and float(s) < 0.25 * float(most)
+
+
+## A man with a bow.
+static func _ranged(quarry: Node3D) -> bool:
+	return quarry != null and quarry.has_method("has_bow") and bool(quarry.call("has_bow"))
 
 
 static func _swing_serial(quarry: Node3D) -> int:

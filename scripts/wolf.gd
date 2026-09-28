@@ -732,7 +732,7 @@ func _fly(delta: float) -> void:
 	if time < float(throw["off"]):
 		return
 	if time > float(throw["land"]):
-		_land()
+		_land(true)
 		return
 	if _flight.is_empty() or _flight.get("clip") != now["clip"]:
 		_take_off(now["clip"], throw)
@@ -781,13 +781,14 @@ func _take_off(clip: StringName, throw: Dictionary) -> void:
 		_flight.clear()
 
 
-func _land() -> void:
+func _land(came_down: bool = false) -> void:
 	if _flight.is_empty():
 		return
 	_flight.clear()
 	if _leap_at_him and _decides() and not is_dead:
 		_leap_at_him = false
-		if not _leap_found and not is_crippled():
+		# Only a leap that came down where it was going, not one broken off.
+		if came_down and not _leap_found and not is_crippled():
 			# Nobody there: it comes down off balance, open a moment.
 			_stumble(open_after_miss)
 	floor_snap_length = 0.1

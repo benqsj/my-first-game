@@ -4463,3 +4463,13 @@ capes for a whole figure the way `garb_capes` does for an outfit.
   (`WolfMind.Tactic.SHOOT`); after 6–9 s they change places — the thrower
   comes in, the brawler draws off to throw (`_swap_shot`, `take_shot`). Never
   both at once. wolf_mind_test: `_pair()`.
+- **It reads him.** A shield held up at it and kept there (0.5–1.1 s, the
+  cleverer the sooner) is answered once per spell of guard: it runs round him
+  past the shield and strikes from his side or back (`WolfMind.Tactic.FLANK`),
+  or — the block being frontal and paid in stamina — it batters it with the
+  blows that cost a shield most (the smash, or the long combo into the smash)
+  to break the guard. Nothing here leans on the parry. A man under a quarter
+  of his stamina is pressed: no drawing off after a chain, blows closer
+  together, a chain one longer (`_winded`). A man with a bow is come at
+  weaving, not down the line of his arrow (`_ranged`). wolf_mind_test:
+  `_guard()`.

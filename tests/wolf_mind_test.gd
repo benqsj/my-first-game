@@ -58,6 +58,7 @@ func _initialize() -> void:
 	await _fighting()
 	await _pack()
 	await _pair()
+	await _guard()
 	await _crippled()
 	await _cut_down()
 	await _disarmed()
@@ -350,6 +351,44 @@ func _pair() -> void:
 	_check("never both throwing at once", both == 0, "%d frames" % both)
 	for w: Wolf in pair:
 		_park(w)
+
+
+## His shield held up at it, and kept there (turning to face it): a clever
+## wolf gets round it or batters it with its heaviest blows.
+func _guard() -> void:
+	var wolf := _wolves[5]
+	wolf.intellect = 0.9
+	wolf.mind.intellect = 0.9
+	_reset_player(_spot)
+	_bring(wolf, _spot + Vector3(0.0, 0.0, -3.5))
+	var flanked := false
+	var heavy := false
+	var behind := false
+	Input.action_press("block")
+	for i in 60 * 12:
+		await physics_frame
+		_hold_player()
+		# He keeps the shield turned on it, slowly (a man can only turn so fast).
+		var d := wolf.global_position - _player.global_position
+		var want := atan2(-d.x, -d.z)
+		_player.rotation.y = lerp_angle(_player.rotation.y, want, 0.04)
+		if wolf.mind.tactic == WolfMind.Tactic.FLANK:
+			flanked = true
+		var clip := String(wolf.rig._anim.current_animation)
+		if clip == "WF_Slam" or clip == "WF_Combo3":
+			heavy = true
+		var his := -_player.global_transform.basis.z
+		var to_w := wolf.global_position - _player.global_position
+		to_w.y = 0.0
+		if wolf.is_busy() and his.dot(to_w.normalized()) < 0.2 and to_w.length() < 3.0:
+			behind = true
+		if _player.state == Player.State.DOWNED:
+			_player.state = Player.State.GROUNDED
+			_player.is_invulnerable = false
+	Input.action_release("block")
+	_check("a guard held up at it is answered: got round, or battered", flanked or heavy,
+			"flank %s, heavy blows %s, struck from his side %s" % [flanked, heavy, behind])
+	_park(wolf)
 
 
 ## A leg off: down on its belly, it crawls at him and lunges; and the leg lands.
