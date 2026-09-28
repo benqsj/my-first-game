@@ -57,6 +57,7 @@ func _initialize() -> void:
 	await _tell()
 	await _fighting()
 	await _pack()
+	await _pair()
 	await _crippled()
 	await _cut_down()
 	await _disarmed()
@@ -307,6 +308,47 @@ func _pack() -> void:
 	_check("a clever pack takes turns: at most two close in at once", worst <= WolfMind.PACK_ATTACKERS,
 			"%d" % worst)
 	for w: Wolf in pack:
+		_park(w)
+
+
+## Two clever wolves on him: now and then one stands off and throws the claws'
+## cut while the other brawls, and they change places; never both throwing.
+func _pair() -> void:
+	_reset_player(_spot)
+	var pair := _wolves.slice(3, 5)
+	for k in pair.size():
+		var w: Wolf = pair[k]
+		w.intellect = 0.9
+		w.mind.intellect = 0.9
+		_bring(w, _spot + Vector3(-2.0 + 4.0 * k, 0.0, -4.0))
+	var shooters := {}
+	var both := 0
+	var thrown := 0
+	var was := {}
+	var fought := 0
+	for i in 60 * 30:
+		await physics_frame
+		_hold_player()
+		var now := 0
+		for w: Wolf in pair:
+			var shooting := w.mind.tactic == WolfMind.Tactic.SHOOT
+			if shooting:
+				now += 1
+				shooters[w] = true
+				if w.rig.is_clawing() and not was.get(w, false):
+					thrown += 1
+			was[w] = w.rig.is_clawing()
+		if now > 1:
+			both += 1
+		if (pair[0] as Wolf).state == Wolf.State.FIGHT and (pair[1] as Wolf).state == Wolf.State.FIGHT:
+			fought += 1
+		if _player.state == Player.State.DOWNED:
+			_player.state = Player.State.GROUNDED
+			_player.is_invulnerable = false
+	_check("two on him: one stands off and throws while the other fights", shooters.size() >= 1 and thrown >= 1,
+			"%d took the part, %d throws, %d frames both fighting" % [shooters.size(), thrown, fought])
+	_check("never both throwing at once", both == 0, "%d frames" % both)
+	for w: Wolf in pair:
 		_park(w)
 
 

@@ -4437,3 +4437,29 @@ capes for a whole figure the way `garb_capes` does for an outfit.
   blows 1.45, two blows 1.4, smash 1.25. The blow held at the top of its
   windup (to catch a roll) is rarer and shorter (0.15–0.35 s) and no longer a
   freeze: it creeps on at an eighth of its pace, coiled.
+
+## The wolf's fight, read and punished
+
+- **Every blow told.** Each chain opens on a sound — a short snarl, a growl
+  for the long three-blow combo, a deep roar for the smash — and as a blow
+  comes its claws glow and its eyes flare. The smash, which no shield turns,
+  has its own tell: the claws burn a deep red and larger and the eyes blaze
+  (`WolfRig._melee_heavy`, `_melee_glint`, `_glint`, `_tell`).
+- **An opening after the big ones.** The smash comes down and its claws stay
+  in the ground 0.7 s (`open_after_slam`); a pounce or a leap out of a run
+  that finds nobody lands it off balance, staggering 0.85 s
+  (`open_after_miss`, `_stumble()`, `net_stumble`). Either way it takes the
+  riposte's half again (`Recoil.RIPOSTE`), as when a parry throws it back.
+- **No stutter under a string of cuts.** The beat of stillness when it is hit
+  is 0.03 s for an ordinary cut (0.09 for a critical), and its own blows
+  landing 0.05 s — a long combo no longer judders it.
+- **The claws' cut** is as big as the wolf that throws it (`_size()`, the
+  scale of its `Visuals`), leaves from as high as its paw, and is thrown at his
+  chest: up at a man on a ledge, down at one below (no steeper than ~35°; the
+  slam's ground wave stays on the ground). One thrown into the ground breaks
+  there. claw_wave_test: "up on a ledge".
+- **Two on one man.** Now and then one of the two stands off at 6–8.5 m and
+  throws the claws' cut at him every 3 s or so while the other brawls
+  (`WolfMind.Tactic.SHOOT`); after 6–9 s they change places — the thrower
+  comes in, the brawler draws off to throw (`_swap_shot`, `take_shot`). Never
+  both at once. wolf_mind_test: `_pair()`.

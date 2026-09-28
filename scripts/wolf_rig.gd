@@ -175,6 +175,9 @@ var _hold_left: float = 0.0
 ## A blow landing, in either direction: the clip all but stops for this long,
 ## so the hit is felt.
 var _hitstop: float = 0.0
+## The blow coming is the smash: its tell is its own (red, the eyes blazing).
+var _melee_heavy: bool = false
+var _melee_glint: float = 0.0
 ## The clip times a melee move's blows land at: the trails show round them.
 var _melee_hits: Array = []
 
@@ -991,9 +994,17 @@ func melee(clip: StringName, rate: float, from: float, length: float,
 	_anim.play(clip, 0.1)
 	_anim.seek(from, true)
 	_anim.speed_scale = rate
+	_melee_heavy = clip == SLAM
 	var body := get_parent() as Node3D
-	if body != null and ResourceLoader.exists(GROWL) and (clip == SLAM or clip == COMBO3):
-		Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.3, -9.0)
+	# Heard coming: the smash (that no shield turns) on a deep roar, the long
+	# combo on a growl, every other chain on a short snarl.
+	if body != null and ResourceLoader.exists(GROWL):
+		if clip == SLAM:
+			Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.0, -4.0)
+		elif clip == COMBO3:
+			Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.3, -9.0)
+		else:
+			Sfx.play(body, GROWL, null, body.global_position + Vector3.UP, 1.85, -14.0)
 
 
 func is_striking() -> bool:
@@ -1094,10 +1105,13 @@ func _overlay(delta: float) -> void:
 				glint = maxf(glint, 1.0 - maxf(ahead, 0.0) / 0.55)
 		glint_side = 2.0
 		gape = 0.5 * glint
+		_melee_glint = glint
 	elif _move_timer > 0.0 and (_anim.current_animation == String(BITE) or _anim.current_animation == String(DRAG)):
 		gape = 0.65 * sin(clampf(1.0 - _move_timer / 0.8, 0.0, 1.0) * PI)
 	elif not _dead:
 		gape = 0.06 + 0.04 * sin(_clock * 2.3)
+	if _melee_timer <= 0.0:
+		_melee_glint = 0.0
 	_tell(delta)
 	_look(delta)
 	if _jaw >= 0 and not has_lost("head"):
@@ -1123,7 +1137,10 @@ func _tell(_delta: float) -> void:
 			# Down fast, held, and up into the spring at the very end.
 			gather = smoothstep(0.0, 0.35, a / lunge_windup) * (1.0 - smoothstep(0.85, 1.0, a / lunge_windup))
 	if _eye_mat != null:
-		_eye_mat.emission_energy_multiplier = _eye_base * (1.0 + 3.0 * gather)
+		# The eyes flare for a pounce and for every blow coming — blazing for
+		# the smash, a glow for the rest.
+		var blaze := _melee_glint * (4.0 if _melee_heavy else 1.2)
+		_eye_mat.emission_energy_multiplier = _eye_base * (1.0 + 3.0 * gather + blaze)
 	if gather <= 0.001 or _root_bone < 0:
 		return
 	var shiver := Vector3(sin(_clock * 71.0), 0.0, cos(_clock * 53.0)) * 0.012 * gather
@@ -1173,8 +1190,11 @@ func _glint(amount: float, side: float) -> void:
 		var mine: bool = side > 1.5 or (key == "l") == (side < 0.0)
 		var k := clampf(amount, 0.0, 1.0) if mine and side != 0.0 else 0.0
 		g.global_position = (_claw_tips[key] as Node3D).global_position
-		(g.material_override as StandardMaterial3D).albedo_color.a = 0.9 * k * k
-		g.scale = Vector3.ONE * lerpf(0.15, 0.55, k)
+		# The smash's claws burn a deep red and bigger: that one is not blocked.
+		var heavy := _melee_heavy and _melee_timer > 0.0
+		var glow := g.material_override as StandardMaterial3D
+		glow.albedo_color = Color(0.85, 0.02, 0.05, 0.95 * k * k) if heavy else Color(1.0, 0.25, 0.1, 0.9 * k * k)
+		g.scale = Vector3.ONE * lerpf(0.15, 0.85 if heavy else 0.55, k)
 		g.visible = k > 0.01
 #endregion
 

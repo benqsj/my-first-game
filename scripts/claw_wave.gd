@@ -68,7 +68,8 @@ var _serial: int = 0
 static var _count: int = 0
 
 
-## A wave from `at`, flying along `dir` (level), lying at `roll` radians round
+## A wave from `at`, flying along `dir` (a slam's level, the others pitched up
+## or down as thrown), lying at `roll` radians round
 ## its line (0: the blades one over another; PI/2: side by side, on end).
 static func throw(into: Node, at: Vector3, dir: Vector3, roll: float, grow: float = 1.0,
 		on_ground: bool = false, hurts: bool = false, from: Node3D = null, blow: float = 30.0) -> ClawWave:
@@ -76,8 +77,12 @@ static func throw(into: Node, at: Vector3, dir: Vector3, roll: float, grow: floa
 		return null
 	var wave := ClawWave.new()
 	wave.name = "ClawWave"
-	wave._dir = Vector3(dir.x, 0.0, dir.z).normalized() if Vector3(dir.x, 0.0, dir.z).length_squared() > 0.0001 \
+	var level := Vector3(dir.x, 0.0, dir.z).normalized() if Vector3(dir.x, 0.0, dir.z).length_squared() > 0.0001 \
 			else Vector3.FORWARD
+	# Along the ground a slam's wave; any other flies where it was thrown, up at
+	# a man on a ledge or down at one below — though never steeper than ~35°.
+	wave._dir = level if on_ground else (level + Vector3.UP * clampf(dir.y / maxf(Vector3(dir.x, 0.0, dir.z).length(), 0.05),
+			-0.7, 0.7)).normalized()
 	wave._roll = roll
 	wave.size = grow
 	wave.ground = on_ground
@@ -131,7 +136,8 @@ func _process(delta: float) -> void:
 	var space := get_world_3d().direct_space_state
 	var ray := PhysicsRayQueryParameters3D.create(from, to + _dir * 0.3, 1)
 	var hit := space.intersect_ray(ray)
-	if not hit.is_empty() and absf((hit["normal"] as Vector3).y) < 0.6:
+	# Walls break it, and so does the ground for one thrown up or down into it.
+	if not hit.is_empty() and (absf((hit["normal"] as Vector3).y) < 0.6 or (not ground and absf(_dir.y) > 0.05)):
 		global_position = hit["position"]
 		_break(hit["position"])
 		return

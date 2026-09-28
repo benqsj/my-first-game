@@ -45,6 +45,7 @@ func _initialize() -> void:
 	await _steps_aside()
 	await _shield()
 	await _wall()
+	await _on_a_ledge()
 	await _now_and_then()
 	await _not_without_arms()
 	_finish()
@@ -197,6 +198,37 @@ func _wall() -> void:
 			break
 	_check("a wall breaks it", gone_at > 0.0 and gone_at < 0.65, "gone after %.2f s" % gone_at)
 	wall.queue_free()
+
+
+## Him up on a ledge three metres over it: the waves are thrown up at him, not
+## level under his feet, and they reach him.
+func _on_a_ledge() -> void:
+	_set_wit(0.95)
+	var ledge := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(3.0, 3.0, 3.0)
+	shape.shape = box
+	ledge.add_child(shape)
+	_world.add_child(ledge)
+	ledge.global_position = _spot + Vector3(0.0, 1.5, 0.0)
+	_reset_player(_spot + Vector3.UP * 3.05)
+	_bring(_wolf, _spot + Vector3(0.0, 0.0, -7.5))
+	await _wait(10)
+	_struck.clear()
+	_wolf._claw_wait = 0.0
+	_wolf.attack(&"claw_wave")
+	var steepest := -1.0
+	for i in 60 * 6:
+		await physics_frame
+		_hold_player()
+		for w in _waves():
+			if not (w as ClawWave).ground:
+				steepest = maxf(steepest, (w as ClawWave)._dir.y)
+	_check("up on a ledge, the waves are thrown up at him", steepest > 0.15, "%.2f" % steepest)
+	_check("and they reach him there", _struck.size() >= 1, str(_struck))
+	ledge.queue_free()
+	await _wait(2)
 
 
 ## Left to fight him from out of reach for 30 s: it throws the claws now and

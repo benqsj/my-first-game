@@ -13,9 +13,13 @@ extends RefCounted
 ## * **WAIT** — …and holding there a moment, watching, before it comes again —
 ##   often all at once, in a pounce from out of reach. It never runs away for
 ##   good: however hurt it is, it comes back.
-## * **RUN_UP** — it turns and walks off a way, then turns and comes at him at
-##   a run that builds, striking out of it: a spinning rake of both claws, a
-##   leap into a two-handed smash, or the pounce.
+## * **RUN_UP** — it draws off a way, face on, then comes at him at a run that
+##   builds, striking out of it: a spinning rake of both claws, a leap into a
+##   two-handed smash, or the pounce.
+## * **SHOOT** — two of a pack on one man, now and then: one stands off at
+##   range and throws the claws' cut at him while the other brawls, and after a
+##   while they change places — the thrower comes in, the brawler draws off to
+##   throw.
 ##
 ## Closing from further off than a step or two it runs rather than walks, and
 ## the run builds the longer it goes; fast enough, it strikes out of it.
@@ -55,13 +59,18 @@ extends RefCounted
 ##
 ## Hurt, it grows careful: it backs off more and dodges more — and comes back.
 
-enum Tactic { CLOSE, STRIKE, CIRCLE, RETREAT, WAIT, RUN_UP }
+enum Tactic { CLOSE, STRIKE, CIRCLE, RETREAT, WAIT, RUN_UP, SHOOT }
 
 ## At most this many wolves go at one player together; the rest of the pack
 ## circles and waits its turn (only wolves with the wit to).
 const PACK_ATTACKERS := 2
 ## Who holds a turn at whom: quarry's instance id -> the wolves going in at him.
 static var _turns: Dictionary = {}
+## The one wolf standing off to throw at whom: quarry's instance id -> Wolf.
+static var _shooters: Dictionary = {}
+## The band it keeps while it throws, metres.
+const SHOOT_NEAR := 6.0
+const SHOOT_FAR := 8.5
 
 var wolf: Wolf
 var intellect: float = 0.5
@@ -83,6 +92,10 @@ var _quarry: Node3D
 ## The combo it is closing in to throw: chosen as it comes in, so it comes in
 ## to the distance that combo's first blow is thrown from.
 var _next: Array[StringName] = []
+## Standing off to throw: till the next throw.
+var _shot_wait: float = 0.0
+## Just done throwing: it brawls a while before it may throw again.
+var _no_shot_until: float = 0.0
 
 
 func _init(owner: Wolf, wit: float) -> void:
@@ -184,6 +197,13 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 
 	if tactic != Tactic.CLOSE and tactic != Tactic.STRIKE:
 		_release()
+	if tactic != Tactic.SHOOT:
+		_release_shot()
+		# Two on him: now and then, out of closing, circling or waiting, this
+		# one draws off to throw while the other brawls.
+		if (tactic == Tactic.CLOSE or tactic == Tactic.CIRCLE or tactic == Tactic.WAIT) and gap > 2.5 \
+				and _rng.randf() < delta * (0.1 + 0.2 * intellect) and _may_shoot():
+			_begin(Tactic.SHOOT)
 	match tactic:
 		Tactic.CLOSE:
 			if not _take_turn(quarry):
@@ -228,6 +248,23 @@ func fight(delta: float, quarry: Node3D, to_quarry: Vector3, gap: float) -> void
 			wolf.hold(delta)
 			if _left <= 0.0:
 				_next_from_range(gap)
+		Tactic.SHOOT:
+			_shot_wait = maxf(_shot_wait - delta, 0.0)
+			var round_him := towards.cross(Vector3.UP) * _side
+			if gap < SHOOT_NEAR:
+				wolf.withdraw(towards, round_him, delta)
+			elif gap > SHOOT_FAR:
+				wolf.run_at(towards, delta)
+			else:
+				wolf.strafe(round_him, towards, delta)
+			if _shot_wait <= 0.0 and wolf.can_claw(gap):
+				wolf.attack(&"claw_wave")
+				# Throwing is its part now: sooner again than a claw wave thrown
+				# out of a brawl.
+				wolf.hurry_claw(_rng.randf_range(2.6, 3.8))
+				_shot_wait = _rng.randf_range(2.6, 3.8)
+			if _left <= 0.0 or wolf.arms_left() < 2:
+				_swap_shot(quarry)
 		Tactic.RUN_UP:
 			# Drawing off a way, slantwise and face on, watching him; then at
 			# him at a run that builds.
@@ -268,6 +305,14 @@ func _begin(what: int) -> void:
 	match what:
 		Tactic.CLOSE:
 			_next = _choose_combo()
+			# Two on him: now and then this one stands off to throw instead.
+			if _may_shoot() and _rng.randf() < 0.25 + 0.2 * intellect and wolf.global_position.distance_to(
+					_quarry.global_position) > 3.0:
+				_release()
+				tactic = Tactic.SHOOT
+				_left = _rng.randf_range(6.0, 9.0)
+				_shot_wait = _rng.randf_range(0.2, 0.8)
+				_shooters[_quarry.get_instance_id()] = wolf
 		Tactic.STRIKE:
 			_set_combo(_next if not _next.is_empty() else _choose_combo())
 			_next = []
@@ -283,6 +328,11 @@ func _begin(what: int) -> void:
 				wolf.attack(&"hop")
 		Tactic.WAIT:
 			_left = _rng.randf_range(0.3, 1.0) * lerpf(1.0, 0.6, intellect)
+		Tactic.SHOOT:
+			_left = _rng.randf_range(6.0, 9.0)
+			_shot_wait = _rng.randf_range(0.2, 0.8)
+			if _quarry != null:
+				_shooters[_quarry.get_instance_id()] = wolf
 		Tactic.RUN_UP:
 			_left = _rng.randf_range(1.0, 1.8)
 			if _rng.randf() < 0.5:
@@ -361,6 +411,10 @@ func _next_from_range(gap: float) -> void:
 		_set_combo([&"claw_wave"])
 		_gap = 0.0
 		return
+	# Two of a pack on him: one stands off and throws, the other brawls.
+	if _may_shoot() and _rng.randf() < 0.3 + 0.3 * intellect:
+		_begin(Tactic.SHOOT)
+		return
 	# Off a way, to come back at a run.
 	if wolf.arms_left() == 2 and wolf.can_leap() and _rng.randf() < run_up_chance():
 		_begin(Tactic.RUN_UP)
@@ -402,6 +456,63 @@ func _take_turn(quarry: Node3D) -> bool:
 func _release() -> void:
 	for key in _turns:
 		(_turns[key] as Array).erase(wolf)
+
+
+## Whether it may be the one to stand off and throw: a wolf with the wit for
+## it and both arms, another of the pack going in at the same man, and nobody
+## throwing at him already.
+func _may_shoot() -> bool:
+	if _quarry == null or intellect < 0.35 or wolf.arms_left() < 2 or wolf.is_crippled() or _clock < _no_shot_until:
+		return false
+	var key := _quarry.get_instance_id()
+	var shooter: Variant = _shooters.get(key)
+	# Somebody throwing at him already — still in the fight, still at it.
+	if shooter != null and is_instance_valid(shooter) and shooter != wolf and not (shooter as Wolf).is_dead \
+			and (shooter as Wolf).is_physics_processing() and (shooter as Wolf).fighting() == _quarry \
+			and (shooter as Wolf).mind != null and (shooter as Wolf).mind.tactic == Tactic.SHOOT:
+		return false
+	return _partner() != null
+
+
+## Another of the pack fighting the same man, near him.
+func _partner() -> Wolf:
+	if _quarry == null or not wolf.is_inside_tree():
+		return null
+	for node in wolf.get_tree().get_nodes_in_group(&"wolf"):
+		var w := node as Wolf
+		if w == null or w == wolf or w.is_dead or w.mind == null or w.fighting() != _quarry:
+			continue
+		if w.global_position.distance_to(_quarry.global_position) < 9.0:
+			return w
+	return null
+
+
+func _release_shot() -> void:
+	for key in _shooters.keys():
+		if _shooters[key] == wolf:
+			_shooters.erase(key)
+
+
+## Its turn at throwing done: in at him itself, and the one that was brawling
+## draws off to throw in its place.
+func _swap_shot(quarry: Node3D) -> void:
+	_release_shot()
+	_quarry = quarry
+	var partner := _partner()
+	_no_shot_until = _clock + 6.0
+	_begin(Tactic.CLOSE)
+	if partner != null and partner.mind._may_take_shot():
+		partner.mind.take_shot()
+
+
+func _may_take_shot() -> bool:
+	return intellect >= 0.35 and wolf.arms_left() == 2 and not wolf.is_crippled()
+
+
+## Told by its partner to stand off and throw.
+func take_shot() -> void:
+	_release()
+	_begin(Tactic.SHOOT)
 
 
 #endregion

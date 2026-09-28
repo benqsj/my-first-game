@@ -154,6 +154,13 @@ var _fall_side: float = 1.0
 ## the claws landing now are a pounce's (a longer reach).
 var _pounce_in: float = -1.0
 var _pouncing: bool = false
+## A leap at him under way, and whether it found him.
+var _leap_at_him: bool = false
+var _leap_found: bool = false
+## Open after its smash: counting down to it, then for how long.
+var _open_in: float = -1.0
+var _open_for: float = 0.0
+var _open: float = 0.0
 ## Share of attacks that are a pounce rather than a swipe (the old fight; the
 ## mind chooses now).
 @export var pounce_chance: float = 0.35
@@ -168,6 +175,10 @@ var _pouncing: bool = false
 @export var fight_speed: float = 2.4
 @export var circle_speed: float = 1.8
 @export var back_speed: float = 1.7
+## Open to a heavier cut ([constant Recoil.RIPOSTE]): stuck a moment after its
+## smash has come down, and stumbling after a leap that found nobody.
+@export var open_after_slam: float = 0.7
+@export var open_after_miss: float = 0.85
 ## Drawing off to come again at a run, face on ([method withdraw]).
 @export var withdraw_speed: float = 3.0
 @export var crawl_speed: float = 1.2
@@ -389,6 +400,11 @@ func _physics_process(delta: float) -> void:
 	_reeling = maxf(_reeling - delta, 0.0)
 	_counter_armour = maxf(_counter_armour - delta, 0.0)
 	_provoked = maxf(_provoked - delta, 0.0)
+	if _open_in >= 0.0:
+		_open_in -= delta
+		if _open_in < 0.0:
+			_open = _open_for
+	_open = maxf(_open - delta, 0.0)
 	if _pounce_in >= 0.0:
 		_pounce_in -= delta
 		if _pounce_in < 0.0 and not is_dead:
@@ -570,7 +586,8 @@ func _think(delta: float) -> void:
 			_slow(delta)
 		State.FIGHT:
 			# Well out of it: after him again, on all fours.
-			if quarry == null or distance > fight_from() * 1.6:
+			var keeps := 2.0 if mind != null and mind.tactic == WolfMind.Tactic.SHOOT else 1.6
+			if quarry == null or distance > fight_from() * keeps:
 				state = State.CHASE
 			else:
 				_fighting = quarry
@@ -768,6 +785,11 @@ func _land() -> void:
 	if _flight.is_empty():
 		return
 	_flight.clear()
+	if _leap_at_him and _decides() and not is_dead:
+		_leap_at_him = false
+		if not _leap_found and not is_crippled():
+			# Nobody there: it comes down off balance, open a moment.
+			_stumble(open_after_miss)
 	floor_snap_length = 0.1
 	# Down the rest of the way at once: the clip's own landing is steep, and a
 	# body left a hand's breadth up would float down on gravity alone.
@@ -996,6 +1018,27 @@ func net_run_strike(move: StringName, rate: float) -> void:
 	rig.run_strike(spec["clip"], rate, spec["from"], (float(spec["to"]) - float(spec["from"])) / rate, spec["hits"])
 
 
+## Sooner ready to throw the claws' cut again ([method WolfMind] standing off).
+func hurry_claw(wait: float) -> void:
+	_claw_wait = minf(_claw_wait, wait)
+
+
+## Knocked off balance: it staggers, open to a heavier cut, for `seconds`.
+func _stumble(seconds: float) -> void:
+	_reeling = seconds
+	_busy = maxf(_busy, seconds)
+	_swipe_timer = maxf(_swipe_timer, seconds)
+	if rig != null:
+		rig.reel(seconds)
+	net_stumble.rpc(seconds)
+
+
+@rpc("authority", "call_remote", "unreliable")
+func net_stumble(seconds: float) -> void:
+	if rig != null and not is_dead:
+		rig.reel(seconds)
+
+
 ## Round him, face on.
 func strafe(direction: Vector3, look: Vector3, delta: float) -> void:
 	_face(look, delta)
@@ -1065,6 +1108,8 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO, delay: float = 0.0)
 			_swipe_lands = rig.lunge_duration * (rig.lunge_windup + 0.12)
 			_pounce_in = rig.lunge_duration * rig.lunge_windup
 			_pouncing = true
+			_leap_at_him = true
+			_leap_found = false
 			rig.lunge()
 			net_lunge.rpc()
 			var leap := rig.lunge_duration * rig.lunge_windup
@@ -1098,6 +1143,8 @@ func attack(move: StringName, aside: Vector3 = Vector3.ZERO, delay: float = 0.0)
 			_burst = run_leap_gather + run_leap_flight
 			# The leap itself is the clip's throw ([method _fly]).
 			rig.run_leap(run_leap_gather, run_leap_flight)
+			_leap_at_him = true
+			_leap_found = false
 			net_move.rpc(move)
 			_arm_claws(Vector2(run_leap_gather, run_leap_gather + run_leap_flight + 0.15), true)
 			attacked.emit()
@@ -1162,6 +1209,11 @@ func _melee(move: StringName, delay: float) -> void:
 	var hits: Array = spec["hits"]
 	var first: float = (float(hits[0]) - from) / rate
 	var length := (float(spec["to"]) - from) / rate + delay
+	if move == &"slam":
+		# The smash come down: its claws in the ground a moment, open.
+		_open_in = first + delay + HIT_HALF
+		_open_for = length - _open_in + open_after_slam
+		length += open_after_slam
 	_swipe_count += 1
 	_break_off()
 	_busy = length
@@ -1188,7 +1240,7 @@ func _melee(move: StringName, delay: float) -> void:
 				2.0, at - HIT_HALF, at + HIT_HALF, serial,
 				func(who: Node3D) -> void:
 					if not is_dead and rig != null:
-						rig.hitstop(0.08 if heavy else 0.06)
+						rig.hitstop(0.08 if heavy else 0.05)
 						who.call("receive_blow", hurt_by, self, mini(blow, blows - 1), blows, chain)))
 	attacked.emit()
 
@@ -1203,7 +1255,8 @@ func net_melee(move: StringName, delay: float) -> void:
 	var from: float = spec["from"]
 	var hits: Array = spec["hits"]
 	var hold_at := float(hits[0]) - HIT_HALF * rate * 1.6 if delay > 0.0 else -1.0
-	rig.melee(StringName(spec["clip"]), rate, from, (float(spec["to"]) - from) / rate + delay, hold_at, delay, hits)
+	var length := (float(spec["to"]) - from) / rate + delay + (open_after_slam if move == &"slam" else 0.0)
+	rig.melee(StringName(spec["clip"]), rate, from, length, hold_at, delay, hits)
 
 
 ## Still turning after him: until a blow is committed (see `COMMIT`).
@@ -1268,18 +1321,26 @@ func _claw_released(_blow: StringName, spec: Dictionary) -> void:
 	var dir := -global_transform.basis.z
 	dir.y = 0.0
 	dir = dir.normalized()
+	# As big as the wolf that throws it, from as high as its paw.
+	var big := _size()
+	var ground := bool(spec.get("ground", false))
 	var quarry := _quarry() if _decides() else _nearest_player()
+	var aim := dir
 	if quarry != null:
 		var at_him := quarry.global_position - global_position
 		at_him.y = 0.0
 		if at_him.length_squared() > 0.01 and at_him.normalized().dot(dir) > 0.5:
 			dir = at_him.normalized()
+	var from := global_position + dir * 0.8 * big + Vector3.UP * float(spec.get("height", 1.0)) * big
+	aim = dir
+	if quarry != null and (quarry.global_position - global_position).normalized().dot(dir) > 0.5:
+		# Up at him on the ledge, down at him below: at his chest, not level.
+		aim = (quarry.global_position + Vector3.UP * 1.0 - from).normalized()
 	var world := Blood.world_of(self)
 	if world == null:
 		world = get_parent()
-	var from := global_position + dir * 0.8 + Vector3.UP * float(spec.get("height", 1.0))
-	ClawWave.throw(world, from, dir, deg_to_rad(float(spec.get("roll", 0.0))), float(spec.get("size", 1.0)),
-			bool(spec.get("ground", false)), _decides(), self, float(spec.get("damage", 30.0)))
+	ClawWave.throw(world, from, dir if ground else aim, deg_to_rad(float(spec.get("roll", 0.0))),
+			float(spec.get("size", 1.0)) * big, ground, _decides(), self, float(spec.get("damage", 30.0)))
 	if bool(spec.get("ground", false)):
 		WindBlast.shake(self, 0.1, 0.3, 16.0)
 
@@ -1352,7 +1413,9 @@ func _arm_claws(live: Vector2, pounce: bool) -> void:
 	_sweeps.append(WeaponSweep.blow(_claw_parts.bind(pounce), 2.5, live.x, live.y, serial,
 			func(who: Node3D) -> void:
 				if not is_dead and rig != null:
-					rig.hitstop(0.06)
+					rig.hitstop(0.05)
+					if pounce:
+						_leap_found = true
 					who.call("receive_blow", hurt_by, self, mini(blow, blows - 1), blows, chain)))
 
 
@@ -1776,13 +1839,15 @@ func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 		CombatText.mark_critical(self)
 
 	damage = Defence.against(damage, p_def, m_def, magic)
-	if _reeling > 0.0:
+	if _reeling > 0.0 or _open > 0.0:
 		damage *= Recoil.RIPOSTE
 	# Marked by the hunter, everything bites deeper.
 	damage *= Afflictions.factor(self, from)
 	health = maxf(health - damage, 0.0)
 	if rig != null:
-		rig.hitstop(0.1 if critical else 0.07)
+		# A beat of stillness only for the big ones: a string of light cuts
+		# should not stutter it.
+		rig.hitstop(0.09 if critical else 0.03)
 	# Before its mind hears of it: a counter it decides on now must not be the
 	# thing this blow breaks off.
 	var broke := _flinch(blow, from, critical, _by_blade)
