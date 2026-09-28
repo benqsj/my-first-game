@@ -1,7 +1,7 @@
 [gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://scripts/fighter.gd" id="1_fighter"]
-[ext_resource type="PackedScene" path="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Exports/GLB (Godot-Unreal)/Puglin.glb" id="2_model"]
+[ext_resource type="Script" path="res://scripts/puglin.gd" id="1_fighter"]
+[ext_resource type="PackedScene" path="res://assets/monsters/puglin/puglin.glb" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_puglin"]
@@ -47,24 +47,46 @@ script = ExtResource("1_fighter")
 speed = 1.25
 roam_radius = 3.5
 rest_time = 2.6
+walk_clip = &"PG_Walk"
+idle_clip = &"PG_Idle"
+fidget_clip = &"PG_Thump"
+clip_source = "res://assets/monsters/puglin/puglin.glb"
+loop_clips = PackedStringArray("PG_Idle", "PG_Walk", "PG_Run", "PG_Strafe_L", "PG_Strafe_R")
 visual_scale = 1.25
+skin_dir = "res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Textures"
 sight_range = 12.0
 chase_speed = 2.4
-chase_retime_max = 2.6
+chase_retime_max = 2.0
 max_health = 150.0
 bar_height = 1.0
 body_radius = 0.28
 body_height = 0.85
 max_stamina = 120.0
 block_cost = 30.0
-block_chance = 0.55
-dash_chance = 0.15
-dash_speed = 5.0
+p_def = 80.0
+m_def = 5.0
+block_chance = 0.0
+dash_chance = 0.0
 reach = 1.6
 hit_damage = 48.0
-attack_speed = 0.85
-attack_cooldown = Vector2(1.8, 3.4)
-p_def = 25.0
+attack_cooldown = Vector2(1.6, 3.0)
+attack_clip = &"PG_Combo_B"
+block_clip = &"PG_Hop"
+dash_clip = &"PG_Hop"
+break_clip = &"PG_Stagger"
+death_clip = &"PG_Death"
+guard_idle_clip = &"PG_Idle"
+dies_by_clip = true
+clip_meta = "res://assets/monsters/puglin/puglin_clip_meta.json"
+run_clip = &"PG_Run"
+strafe_l_clip = &"PG_Strafe_L"
+strafe_r_clip = &"PG_Strafe_R"
+run_above = 2.6
+weapon_tip = Vector3(-0.02, 0.076, 0.572)
+weapon_radius = 0.1
+blow_window = Vector2(0.22, 0.18)
+blow_min_speed = 0.8
+strike_off = 0.85
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.525, 0)

@@ -1,8 +1,9 @@
 extends SceneTree
 
-## Imps and puglins: how many there are and where, and — on a puglin, which
-## still fights the Fighter's way — that they block, dodge, break, attack, hit, go
-## home and die. The imp's own way of fighting is `imp_test.gd`.
+## Imps and puglins: how many there are and where; that a band is roused
+## together, that its blows land and only a whole combo floors him, that his
+## sword reaches down to a puglin, that they die and are cleared away and let a
+## man who runs off go. How each fights is `imp_test.gd` and `puglin_test.gd`.
 ##
 ##     godot --path . --headless --script res://tests/fighter_test.gd
 
@@ -82,73 +83,43 @@ func _initialize() -> void:
 		(node as Node3D).global_position += Vector3(0.0, -50.0, 0.0)
 
 	# --- Roused by a player, with its band --------------------------------------
-	var imp: Fighter = puglins[0]
+	var pug: Fighter = puglins[0]
 	var mate: Fighter = null
 	for f in puglins:
-		if f != imp and f.band == imp.band:
+		if f != pug and f.band == pug.band:
 			mate = f
-	for f in [imp, mate]:
+	for f in [pug, mate]:
 		f.global_position = f._home + Vector3.UP * 0.3
 		f.set_physics_process(true)
-	player.global_position = imp.camp_centre + Vector3(0.0, 0.3, 9.0)
+	player.global_position = pug.camp_centre + Vector3(0.0, 0.3, 9.0)
 	await _wait(40)
-	_check("a player in sight rouses it", imp.mode != Fighter.Mode.GUARD, "mode %d" % imp.mode)
+	_check("a player in sight rouses it", pug.mode != Fighter.Mode.GUARD, "mode %d" % pug.mode)
 	_check("and the rest of its band", mate.mode != Fighter.Mode.GUARD, "mode %d" % mate.mode)
-	mate.set_physics_process(false)
-	mate.global_position += Vector3(0.0, -50.0, 0.0)
-	# What is checked here is the Fighter's way — stamina, guard, break, dash —
-	# so it is held to the numbers the checks were written for.
-	imp.max_health = 90.0
-	imp.health = 90.0
-	imp.max_stamina = 100.0
-	imp.stamina = 100.0
-	imp.block_cost = 34.0
-	imp.dash_speed = 7.0
-	# A puglin is 1.06 m: most of the knight's cuts go over its head, which is the
-	# next thing to change. Here the blade is given the body it was written for.
-	imp.body_radius = 0.36
-	imp.body_height = 1.3
 
-	# --- It attacks, and its blows land ------------------------------------------
-	imp.block_chance = 0.0
-	imp.dash_chance = 0.0
+	# --- Its blows land ------------------------------------------------------------
 	_struck.clear()
-	var attacked := false
-	# Long enough for two combos: which blows it throws, and whether it opens
-	# with one, is down to the dice (the global RNG, which any sound's pitch
-	# also draws on), so one short combo is not a failure.
-	for i in 900:
+	for i in 60 * 20:
 		await physics_frame
-		attacked = attacked or imp.act == Fighter.Act.ATTACK
-		if _struck.size() >= 2:
+		if not _struck.is_empty():
 			break
-	_check("it closes in and attacks", attacked)
-	_check("the combo lands blows on the player", _struck.size() >= 2, "%d blows" % _struck.size())
-	# Taken through the knight's p.def ([Defence]).
-	_check("a puglin's blow is worth what its scene says (48), through his p.def", not _struck.is_empty()
-			and is_equal_approx(_struck[0], Defence.taken(imp.hit_damage, player.p_def)) and imp.hit_damage == 48.0,
-			str(_struck))
-	_check("the combo has several blows in it", imp._blows.size() >= 2, str(imp._blows))
+	_check("the band's blows reach the player", not _struck.is_empty(), "%d" % _struck.size())
+	for f in [pug, mate]:
+		f.set_physics_process(false)
+		f.global_position += Vector3(0.0, -50.0, 0.0)
 
-	# --- Only a whole combo puts him down -----------------------------------------
-	# The first blows of it were only flinches.
-	_check("a single blow does not knock him down", _struck.size() < imp._blows.size()
-			or player.state == Player.State.DOWNED, "%d of %d" % [_struck.size(), imp._blows.size()])
-	# A combo taken whole: sent as its blows one after another, since which of a
-	# creature's blows reach is down to where he happens to be standing.
-	imp._cooldown = 99.0
-	await _until_idle(imp)
+	# --- Only a whole combo puts him down (his side of it) ------------------------
 	player.state = Player.State.GROUNDED
-	await _wait(40)
-	var whole := 777
+	await _wait(60)
+	var downed_early := false
 	var downed := false
 	for b in 3:
-		player.receive_blow(8.0, imp, b, 3, whole)
+		player.receive_blow(8.0, pug, b, 3, 777)
 		await _wait(3)
+		if b < 2:
+			downed_early = downed_early or player.state == Player.State.DOWNED
 		downed = downed or player.state == Player.State.DOWNED
-	_check("the last blow of a combo that landed whole knocks him down", downed,
-			"state %d" % player.state)
-	# Lying there he goes nowhere, whatever the stick says.
+	_check("a single blow of a combo does not knock him down", not downed_early)
+	_check("the last blow of a combo that landed whole knocks him down", downed, "state %d" % player.state)
 	await _wait(50)
 	var lying_at := player.global_position
 	Input.action_press("move_forward")
@@ -166,134 +137,60 @@ func _initialize() -> void:
 			"state %d" % player.state)
 	await _wait(60)
 
-	# A combo that is blocked part of the way through only ever flinches him.
-	imp._cooldown = 0.0
-	_struck.clear()
-	var partial_down := false
-	var attack_seen := false
-	var guarding := false
-	for i in 1500:
-		# Guard up (facing it) for the first blow only, then down for the rest.
-		var aim := imp.global_position - player.global_position
-		player.rotation.y = atan2(-aim.x, -aim.z)
-		var want := imp.act == Fighter.Act.ATTACK and _struck.is_empty()
-		if want != guarding:
-			guarding = want
-			if want:
-				Input.action_press("block")
-			else:
-				Input.action_release("block")
-		await physics_frame
-		if player.state == Player.State.DOWNED:
-			partial_down = true
-		if imp.act == Fighter.Act.ATTACK:
-			attack_seen = true
-		# A combo none of whose blows reached him says nothing: wait for the next.
-		if attack_seen and imp.act == Fighter.Act.NONE and not _struck.is_empty():
-			break
-	Input.action_release("block")
-	_check("the first blow is caught on the shield", attack_seen and not _struck.is_empty(),
-			"%d blows" % _struck.size())
-	_check("a combo that was not taken whole never puts him down", not partial_down)
-
 	# A blow thrown into a roll finds nobody.
 	_struck.clear()
 	player.state = Player.State.DODGING
-	player.receive_blow(8.0, imp, 0, 3, 999)
+	player.receive_blow(8.0, pug, 0, 3, 999)
 	await _wait(2)
 	player.state = Player.State.GROUNDED
 	_check("a blow thrown into a dodge does not land", _struck.is_empty())
-	_check("its guard is slow to come back", imp.stamina_regen <= 12.0 and imp.regen_delay >= 1.5)
 
-	# --- Blocks a swing, and the guard costs stamina --------------------------------
-	imp.block_chance = 1.0
-	await _until_idle(imp)
-	var health_before := imp.health
-	var stamina_before := imp.stamina
-	var blocked_seen := false
-	var broke := false
-	for swing in 8:
-		await _swing_at(player, imp)
-		blocked_seen = blocked_seen or imp.act == Fighter.Act.BLOCK
-		for i in 30:
-			await physics_frame
-			blocked_seen = blocked_seen or imp.act == Fighter.Act.BLOCK
-			broke = broke or imp.act == Fighter.Act.BREAK
-		if broke:
+	# --- Cut down, and cleared away ----------------------------------------------
+	pug.global_position = pug._home + Vector3.UP * 0.3
+	# Whatever it was doing when it was put aside (a ball takes no arrow) is over.
+	pug._start(Fighter.Act.NONE)
+	# Stood there to be cut: nothing of its own thrown back.
+	pug.set(&"roll_every", Vector2(999.0, 999.0))
+	pug.set(&"_next_roll", 999.0)
+	Puglin._bands.erase(pug.band)
+	pug.set(&"throw_range", Vector2.ZERO)
+	pug.attack_cost = 9999.0
+	pug.set_physics_process(true)
+	await _wait(10)
+	var before_arrow := pug.health
+	pug.take_hit(10.0, pug.global_position + Vector3.UP, Vector3.FORWARD, false, true, player)
+	_check("an arrow hurts it", pug.health < before_arrow)
+	var first := pug.health
+	for swing in 60:
+		if pug.is_dead:
 			break
-	_check("it raises its guard against a swing", blocked_seen)
-	_check("cuts on the guard cost stamina, not health",
-			imp.stamina < stamina_before, "stamina %.0f -> %.0f, health %.0f -> %.0f" % [
-			stamina_before, imp.stamina, health_before, imp.health])
-	_check("run out of stamina and the guard breaks", broke)
-	var open_health := imp.health
-	await _swing_at(player, imp)
-	await _wait(25)
-	_check("a broken guard lets the next cut in", imp.health < open_health,
-			"%.0f -> %.0f" % [open_health, imp.health])
-
-	# --- Dodges ----------------------------------------------------------------
-	imp.block_chance = 0.0
-	imp.dash_chance = 1.0
-	imp.stamina = imp.max_stamina
-	await _until_idle(imp)
-	var dashed := false
-	var from_here := imp.global_position
-	await _swing_at(player, imp, false)
-	for i in 30:
-		await physics_frame
-		dashed = dashed or imp.act == Fighter.Act.DASH
-	_check("it throws itself aside from a swing", dashed)
-	_check("and the dash moves it", imp.global_position.distance_to(from_here) > 1.0,
-			"%.2f m" % imp.global_position.distance_to(from_here))
-
-	# --- Arrows count --------------------------------------------------------
-	imp.dash_chance = 0.0
-	await _until_idle(imp)
-	var before_arrow := imp.health
-	imp.take_hit(10.0, imp.global_position + Vector3.UP, Vector3.FORWARD, false, true, player)
-	_check("an arrow hurts it", imp.health < before_arrow)
-
-	# --- It dies, and is cleared away ------------------------------------------
-	for swing in 12:
-		if imp.is_dead:
-			break
-		imp.stamina = 0.0
-		await _swing_at(player, imp)
+		await _swing_at(player, pug)
 		await _wait(20)
-	_check("enough cuts kill a puglin", imp.is_dead, "health %.0f" % imp.health)
-	_check("a dead puglin is out of the target list", not player._targetable(imp))
+	_check("his sword reaches down to a puglin", pug.health < first, "%.0f -> %.0f" % [first, pug.health])
+	_check("enough cuts kill a puglin", pug.is_dead, "health %.0f" % pug.health)
+	_check("a dead puglin is out of the target list", not player._targetable(pug))
 	var gone := false
 	for i in 60 * 7:
 		await physics_frame
-		if not is_instance_valid(imp):
+		if not is_instance_valid(pug):
 			gone = true
 			break
 	_check("and its body is cleared away", gone)
 
-	# --- The puglin hits harder, the imp is faster ---------------------------------
-	var pug := puglins[3]
-	pug.global_position = pug._home + Vector3.UP * 0.3
-	pug.set_physics_process(true)
-	pug.block_chance = 0.0
-	pug.dash_chance = 0.0
-	player.global_position = pug.camp_centre + Vector3(0.0, 0.3, 6.0)
-	_struck.clear()
-	for i in 600:
-		await physics_frame
-		if not _struck.is_empty():
-			break
-	_check("a puglin's blow lands", not _struck.is_empty())
-	_check("and hits harder than an imp's", not _struck.is_empty() and _struck[0] > 8.0
-			and pug.hit_damage > imps[1].hit_damage, str(_struck))
-	_check("the imp is the faster of the two", imps[1].chase_speed > pug.chase_speed and imps[1].speed > pug.speed)
-	_check("the puglin takes more killing", pug.max_health > imps[1].max_health)
+	# --- The imp is quick, the puglin hard to kill -----------------------------------
+	var other := puglins[3]
+	_check("the imp is the faster of the two", imps[1].chase_speed > other.chase_speed and imps[1].speed > other.speed)
+	_check("the puglin takes more killing", other.max_health > imps[1].max_health and other.p_def > imps[1].p_def)
 
 	# --- A player who runs off is let go ---------------------------------------
-	player.global_position = pug.camp_centre + Vector3(0.0, 0.3, 60.0)
-	await _wait(240)
-	_check("past its ground it gives up and goes home", pug.mode == Fighter.Mode.RETURN or pug.mode == Fighter.Mode.GUARD,
-			"mode %d" % pug.mode)
+	other.global_position = other._home + Vector3.UP * 0.3
+	other.set_physics_process(true)
+	player.global_position = other.camp_centre + Vector3(0.0, 0.3, 6.0)
+	await _wait(120)
+	player.global_position = other.camp_centre + Vector3(0.0, 0.3, 60.0)
+	await _wait(300)
+	_check("past its ground it gives up and goes home", other.mode == Fighter.Mode.RETURN or other.mode == Fighter.Mode.GUARD,
+			"mode %d" % other.mode)
 
 	print("\n%s" % ("All checks passed." if _failures == 0 else "%d check(s) failed." % _failures))
 	quit(1 if _failures else 0)
