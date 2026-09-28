@@ -4610,7 +4610,7 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
   last ball), a single ball only flinches him. Steel glances off a ball (a puff,
   no blood); magic gets in and knocks it out of its ball. Uncurled it stands
   dizzy a second — the opening.
-- **Mud** (`MudBall`, `ScreenMud`, `shaders/screen_mud.gdshader`), made to be
+- **Mud** (`MudBall`, `ScreenMud`), made to be
   seen coming and to blind: it scoops a lump and holds it in its fist through the
   wind-up; the lump flies lumpy, spinning and wet-shining with a pale rim that
   stands it off the earth behind it, shedding drops, with a dark spot on the
@@ -4620,13 +4620,16 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
   *his* screen only (the host tells his peer, `net_mudded`): one big slap where
   it hit and eight or so round it and off the edges (under the bars, the bag
   and the menus — `ScreenMud.LAYER` 3 — never over the settings), thick and wet in the middle,
-  running in drips, round drops thrown off, the view round them smeared and
-  blurred as through dirty glass and a brown film over the lot; it holds 2.6 s
-  and thins away over 4. A band's timers all run on one clock (the physics
+  running in drips, round drops thrown off, a brown film over the lot; it holds
+  2.6 s and thins away over 4. Every splat is a picture made once (eight shapes,
+  `ScreenMud._bake`, 0.6 s, in the level's warm-up) laid on the screen as a plain
+  textured rectangle: it had been one full-screen shader working every splat out
+  for every pixel and blurring the view under it, which on a Retina screen took a
+  frame from 28 ms to 93 ms for as long as the mud was on. A band's timers all run on one clock (the physics
   frames), not each member's own. The throw is only the throw: the clip's arm
   drawn back from 0.55, flung at 0.70 (where the hand goes forward fastest,
   measured), held to 0.80 — before 0.55 it waved the hand back and forth once
-  for nothing. The mud's shader, lump, drops and patch are drawn once behind the
+  for nothing. The mud's splat pictures, lump, drops and patch are made once behind the
   level's warm-up black ([PipelineWarmup]) — the first lump to hit used to stall
   the frame while they were built.
 - **One combo, three cuts**: three of the sword-and-shield set's slashes run

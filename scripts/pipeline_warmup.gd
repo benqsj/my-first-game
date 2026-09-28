@@ -105,6 +105,7 @@ func _ready() -> void:
 	_props = MudBall.warm_props()
 	_camera.add_child(_props)
 	_props.position = Vector3(0.0, 0.0, -1.5)
+	ScreenMud.prepare(get_tree())
 	ScreenMud.splat(get_tree(), 1.0)
 
 
