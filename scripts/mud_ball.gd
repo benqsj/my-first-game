@@ -98,6 +98,27 @@ static func drop_mesh() -> SphereMesh:
 	return _drop_mesh
 
 
+## A lump, a drop and a patch to hang in front of the warm-up's camera, so the
+## renderer builds their pipelines behind the black and not on the first throw
+## ([PipelineWarmup]).
+static func warm_props() -> Node3D:
+	var holder := Node3D.new()
+	var lump := MeshInstance3D.new()
+	lump.mesh = lump_mesh()
+	lump.material_override = mud()
+	holder.add_child(lump)
+	var drop := MeshInstance3D.new()
+	drop.mesh = drop_mesh()
+	drop.material_override = mud()
+	drop.scale = Vector3.ONE * 0.05
+	drop.position = Vector3(0.3, 0.0, 0.0)
+	holder.add_child(drop)
+	var patch := MudPatch.new()
+	patch.position = Vector3(-0.3, -0.2, 0.0)
+	holder.add_child(patch)
+	return holder
+
+
 func _ready() -> void:
 	top_level = true
 	_lump = MeshInstance3D.new()

@@ -51,7 +51,9 @@ const MOVES := {
 	COMBO: [&"PG_Slash1", 1.15, 0.3, 0.62],
 	COMBO_2: [&"PG_Slash2", 1.15, 0.27, 0.58],
 	COMBO_3: [&"PG_Slash3", 1.1, 0.4, 0.82],
-	THROW: [&"PG_Throw", 1.7, 0.42, 0.82],
+	# Only the throw itself: the arm drawn back (0.55), flung forward (0.70), held.
+	# Before 0.55 the clip swings its hand back and forth once for nothing.
+	THROW: [&"PG_Throw", 1.35, 0.55, 0.8],
 	CURL: [&"PG_Roll", 1.3, 0.06, 0.3],
 	UNCURL: [&"PG_Roll", 1.2, 0.62, 0.98],
 	DIZZY: [&"PG_Stagger", 0.9, 0.05, 0.85],
@@ -74,6 +76,7 @@ const STRIKES := {
 }
 const HITS := [HIT_F, HIT_L, HIT_R, STAGGER]
 const CUTS := [COMBO, COMBO_2, COMBO_3]
+const THROW_RELEASE := 0.7
 
 enum Band { GATHER, SCATTER, REGROUP }
 enum Roll { RUSH, TURN }
@@ -85,8 +88,12 @@ enum Roll { RUSH, TURN }
 ## How far each stands from the middle of the bunch.
 @export var bunch_radius: float = 0.95
 ## Rolling: top speed, how fast it gets there, how fast it swings round.
-@export var roll_speed: float = 9.0
-@export var roll_turn: float = 3.2
+@export var roll_speed: float = 13.0
+@export var roll_turn: float = 5.5
+## How hard a ball steers after him while it comes (rad/s); none in the last
+## `roll_commit` metres, so a late sidestep still gets out of its way.
+@export var roll_home: float = 1.8
+@export var roll_commit: float = 2.2
 ## Metres it rolls on past him before it swings round.
 @export var roll_overshoot: float = 2.5
 ## Share of `hit_damage` a ball hits for.
@@ -134,6 +141,9 @@ var _clock: float:
 var _spin: float = 0.0
 var _body_basis: Basis = Basis.IDENTITY
 var _throw_at: float = 0.5
+var _mask_standing: int = 7
+var _mask_rolling: int = 3
+var _passing: Array[Node] = []
 ## The lump of mud in its fist while it winds up to throw (every peer).
 var _held: MeshInstance3D
 var _throw_clock: float = -1.0
@@ -146,6 +156,11 @@ func _ready() -> void:
 		Act.REACT_POISON: [[&"PG_Stagger", 1.0, 0.8]],
 	}
 	super()
+	_mask_standing = collision_mask
+	# Rolling it meets only the world (layer 1): its own kind are not knocked
+	# off their line, and one he rolls out of the way of goes on through him —
+	# finding him is measured, not bumped into.
+	_mask_rolling = collision_mask & 1
 	_ball_r = 0.3 * maxf(visual_scale, 0.01)
 	if body != null:
 		_body_basis = body.transform.basis
@@ -154,12 +169,9 @@ func _ready() -> void:
 	_next_roll = _rng.randf_range(roll_every.x * 0.5, roll_every.y)
 	if _anim != null:
 		_tuck_at = _curled_moment()
-		var peaks := _anim.measure_peaks(&"PG_Throw", PackedStringArray(["hand_r"]), 0.7, 0.1)
+		# Where the hand goes forward fastest (measured: 0.70 of the clip).
 		var m: Array = MOVES[THROW]
-		for p in peaks:
-			if p > float(m[2]) and p < float(m[3]):
-				_throw_at = (p - float(m[2])) * _anim.clip_length(&"PG_Throw") / float(m[1])
-				break
+		_throw_at = (THROW_RELEASE - float(m[2])) * _anim.clip_length(&"PG_Throw") / float(m[1])
 
 
 func _moves() -> Dictionary:
@@ -301,6 +313,8 @@ func _slot(b: Dictionary, i: int, n: int, who: Puglin) -> Vector3:
 
 #region Thinking
 func _think(delta: float) -> void:
+	# The band keeps its time whatever this one is doing.
+	_band_think(delta)
 	if mode == Mode.GUARD or mode == Mode.RETURN:
 		super(delta)
 		if mode == Mode.CHASE:
@@ -313,7 +327,6 @@ func _think(delta: float) -> void:
 		_go_home()
 		return
 	mode = Mode.FIGHT
-	_band_think(delta)
 	if act != Act.NONE:
 		return
 	var b := _band()
@@ -410,8 +423,17 @@ func _start_roll() -> void:
 	_roll_phase = Roll.RUSH
 	_roll_clock = 0.0
 	_pass_hit = false
-	_roll_pace = 3.0
+	_roll_pace = 6.0
 	_roll_dir = _aim_at_him()
+	# Balls pass through one another (a volley's balls knocking each other off
+	# their line was most of their misses) and through him if he rolls clear.
+	collision_mask = _mask_rolling
+	# And he does not stand on it or get carried by it either way: the pair
+	# is let pass (his body pushed itself off a ball and rode along with it).
+	for node in get_tree().get_nodes_in_group("player"):
+		if node is PhysicsBody3D:
+			add_collision_exception_with(node)
+			_passing.append(node)
 
 
 ## Where to roll to find him: where he will be, not quite where he is.
@@ -455,13 +477,22 @@ func _roll(delta: float) -> void:
 	var him := _quarry
 	match _roll_phase:
 		Roll.RUSH:
-			_roll_pace = move_toward(_roll_pace, roll_speed, 16.0 * delta)
+			_roll_pace = move_toward(_roll_pace, roll_speed, 32.0 * delta)
 			if him != null and not _pass_hit:
+				# Steers after him while he is ahead of it and not yet close.
+				var lead := _aim_at_him()
+				var off := him.global_position - global_position
+				off.y = 0.0
+				if off.length() > roll_commit and _roll_dir.dot(off.normalized()) > 0.3:
+					var ang := _roll_dir.signed_angle_to(lead, Vector3.UP)
+					_roll_dir = _roll_dir.rotated(Vector3.UP, clampf(ang, -roll_home * delta, roll_home * delta)).normalized()
 				var to_him := him.global_position - global_position
 				to_him.y = 0.0
 				var dy := absf(him.global_position.y - global_position.y)
-				if to_him.length() < _ball_r + 0.55 and dy < 1.6:
-					_crash_into(him)
+				if to_him.length() < _ball_r + 0.7 and dy < 1.6:
+					# Rolled out of its way: it goes on through, and comes again.
+					if not _evading(him):
+						_crash_into(him)
 				elif to_him.length() > roll_overshoot and _roll_dir.dot(to_him.normalized()) < -0.2:
 					_roll_phase = Roll.TURN
 					_roll_clock = 0.0
@@ -469,7 +500,7 @@ func _roll(delta: float) -> void:
 				_roll_phase = Roll.TURN
 				_roll_clock = 0.0
 		Roll.TURN:
-			_roll_pace = move_toward(_roll_pace, roll_speed * 0.6, 12.0 * delta)
+			_roll_pace = move_toward(_roll_pace, roll_speed * 0.75, 20.0 * delta)
 			var want := _aim_at_him()
 			var ang := _roll_dir.signed_angle_to(want, Vector3.UP)
 			_roll_dir = _roll_dir.rotated(Vector3.UP, clampf(ang, -roll_turn * delta, roll_turn * delta)).normalized()
@@ -505,7 +536,27 @@ func _crash_into(him: Node3D) -> void:
 	_roll_clock = 0.0
 
 
+## Whatever ends a roll — its own end, a spell knocking it out, death — puts
+## it back among its kind.
+func _start(what: Act) -> void:
+	if what != ROLL:
+		collision_mask = _mask_standing
+		for node in _passing:
+			if is_instance_valid(node):
+				remove_collision_exception_with(node)
+		_passing.clear()
+	super(what)
+
+
+static func _evading(who: Node3D) -> bool:
+	var st: Variant = who.get(&"state")
+	if st != null and (int(st) == Player.State.DASHING or int(st) == Player.State.DODGING):
+		return true
+	return bool(who.get(&"is_invulnerable"))
+
+
 func _end_roll() -> void:
+	collision_mask = _mask_standing
 	_face(_roll_dir, 1.0, 1000.0)
 	_begin(UNCURL)
 
@@ -544,12 +595,7 @@ func mud_landed(who: Node3D) -> void:
 	if who == null or not who.has_method(&"receive_blow"):
 		return
 	# Rolled away from, or met on a shield: no mud in his eyes.
-	var clean := false
-	var st: Variant = who.get(&"state")
-	if st != null and (int(st) == Player.State.DASHING or int(st) == Player.State.DODGING):
-		clean = true
-	if bool(who.get(&"is_invulnerable")):
-		clean = true
+	var clean := _evading(who)
 	if bool(who.get(&"is_blocking")):
 		var toward := global_position - who.global_position
 		toward.y = 0.0

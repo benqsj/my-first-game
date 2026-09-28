@@ -4598,7 +4598,14 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
   of the ball as fast as the ground goes by (`_lay_ball`, every peer, from the
   replicated velocity), off walls. Past him it rolls on, swings round in an arc
   (`roll_turn`) and comes again — two or three passes; finding him, it bounces
-  back off and swings round. Bunched, the whole band rolls at once every 7–11 s;
+  back off and swings round. It comes fast (13 m/s) and steers after him while
+  he is ahead of it (`roll_home` 1.8 rad/s), letting go of him only in the last
+  `roll_commit` 2.2 m, so a man standing or walking across it is found on the
+  first pass (puglin_test, four of four) and a late sidestep still works. A
+  rolling ball meets only the world: balls of a volley pass through one another
+  (they used to knock each other off their line, which was most of their
+  misses), and one he rolls clear of (dodging, rolling, untouchable) goes on
+  through him — he is neither hit nor carried along on it — and comes again. Bunched, the whole band rolls at once every 7–11 s;
   when every ball of such a volley finds him he goes down (a combo of one on the
   last ball), a single ball only flinches him. Steel glances off a ball (a puff,
   no blood); magic gets in and knocks it out of its ball. Uncurled it stands
@@ -4611,11 +4618,17 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
   a spray of drops and a patch that dries. What it hits takes a little and,
   unless he rolled away from it or met it on a shield, gets mud in his eyes, on
   *his* screen only (the host tells his peer, `net_mudded`): one big slap where
-  it hit and eight or so round it and off the edges, thick and wet in the middle,
+  it hit and eight or so round it and off the edges (under the bars, the bag
+  and the menus — `ScreenMud.LAYER` 3 — never over the settings), thick and wet in the middle,
   running in drips, round drops thrown off, the view round them smeared and
   blurred as through dirty glass and a brown film over the lot; it holds 2.6 s
   and thins away over 4. A band's timers all run on one clock (the physics
-  frames), not each member's own.
+  frames), not each member's own. The throw is only the throw: the clip's arm
+  drawn back from 0.55, flung at 0.70 (where the hand goes forward fastest,
+  measured), held to 0.80 — before 0.55 it waved the hand back and forth once
+  for nothing. The mud's shader, lump, drops and patch are drawn once behind the
+  level's warm-up black ([PipelineWarmup]) — the first lump to hit used to stall
+  the frame while they were built.
 - **One combo, three cuts**: three of the sword-and-shield set's slashes run
   together (across, back the other way, a heavy one down into the ground),
   counted as one combo — all three floor him. `ClipFighter._chain_blow /

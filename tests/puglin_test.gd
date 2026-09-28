@@ -128,15 +128,86 @@ func _initialize() -> void:
 	_check("the whole band curls up and rolls at once", all_rolling, "at most %d of %d" % [most_rolling, band.size()])
 	_check("each a ball, turning over as it goes", spun)
 	_check("the balls find him", not _struck.is_empty(), "%d" % _struck.size())
-	_check("a ball that is past him swings round and comes again", passes_again)
 	_check("steel cannot get into a ball", not steel_in)
 	_check("magic can, and knocks it out of its ball", fire_in and knocked_out)
 	_check("uncurled it stands dizzy a moment", dizzy)
+
+	# --- One ball on its own finds him first time, standing or walking ---------------
+	for p in band:
+		await _until_idle(p)
+	var solo := band[0]
+	for p in band.slice(1):
+		p.set_physics_process(false)
+	var first_pass := 0
+	var tries := 0
+	for k in 4:
+		for p in band:
+			await _until_idle(p)
+		# Stood up by hand after the volley floored him: nothing of the getting
+		# up (its untouchable moments) left over.
+		player.state = Player.State.GROUNDED
+		player.is_invulnerable = false
+		var ang := TAU * k / 4.0 + 0.4
+		solo.global_position = solo._home + Vector3.UP * 0.3
+		player.global_position = solo.global_position + Vector3(sin(ang), 0.0, cos(ang)) * 7.5 + Vector3.UP * 0.3
+		await _wait(5)
+		_struck.clear()
+		Puglin._volley_serial += 1
+		solo._curl_up(player, Puglin._volley_serial, 1, 1)
+		tries += 1
+		var walking := k >= 2
+		var side := Vector3(cos(ang), 0.0, -sin(ang)) * 3.0
+		for i in 60 * 4:
+			await physics_frame
+			# Two of the four he walks across its line at a walk.
+			player.velocity = side if walking else Vector3.ZERO
+			if walking:
+				player.global_position += side / 60.0
+			if not _struck.is_empty() or solo.act != Puglin.ROLL and solo.act != Puglin.CURL:
+				break
+		if not _struck.is_empty():
+			first_pass += 1
+	_check("a ball finds a man on its first pass, standing or walking across it", first_pass == tries,
+			"%d of %d" % [first_pass, tries])
+	# Rolled out of its way, it goes on through him, swings round and comes again.
+	for p in band:
+		await _until_idle(p)
+	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
+	# Back on its own ground: far from its camp he would be let go.
+	solo.global_position = solo._home + Vector3.UP * 0.3
+	player.global_position = solo.global_position + Vector3(0.0, 0.3, 7.5)
+	await _wait(5)
+	_struck.clear()
+	Puglin._volley_serial += 1
+	solo._curl_up(player, Puglin._volley_serial, 1, 2)
+	var dodged_through := false
+	var came_again := false
+	for i in 60 * 6:
+		await physics_frame
+		player.velocity = Vector3.ZERO
+		var close := solo.act == Puglin.ROLL and solo._passes_left > 0 and solo._distance_to(player) < 2.5
+		player.state = Player.State.DODGING if close else Player.State.GROUNDED
+		if close:
+			dodged_through = true
+		if dodged_through and solo._passes_left == 0 and solo.act == Puglin.ROLL:
+			came_again = true
+
+		if not _struck.is_empty():
+			break
+	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
+	_check("rolled out of its way, a ball goes on through him", dodged_through)
+	_check("swings round and comes again, and finds him", came_again and not _struck.is_empty(),
+			"again %s, struck %d" % [came_again, _struck.size()])
+	for p in band.slice(1):
+		p.set_physics_process(true)
 
 	# --- A big blow breaks the band up, and it gathers again ------------------------
 	for p in band:
 		await _until_idle(p)
 	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
 	for p in band:
 		p.scatter_time = Vector2(2.0, 2.0)
 	var b1: Dictionary = Puglin._bands[one.band]
@@ -158,8 +229,12 @@ func _initialize() -> void:
 			gathered = true
 			break
 	_check("and they gather again after", gathered, "state %d" % int(b1["state"]))
-	# Two of them in one swing does the same.
-	await _wait(30)
+	# Two of them in one swing does the same. (Scattered, each rolls on its
+	# own; a ball takes no cut, so they are let uncurl first.)
+	for p in band:
+		p._next_roll = 9999.0
+	for p in band:
+		await _until_idle(p)
 	b1["state"] = Puglin.Band.GATHER
 	band[0]._receive(10.0, band[0].global_position, Vector3.FORWARD, player)
 	band[1]._receive(10.0, band[1].global_position, Vector3.FORWARD, player)
@@ -178,6 +253,7 @@ func _initialize() -> void:
 	thrower.band = &"alone_for_the_test"
 	player.global_position = thrower.global_position + Vector3(0.0, 0.3, 8.0)
 	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
 	_struck.clear()
 	var threw := false
 	var held := false
@@ -200,6 +276,8 @@ func _initialize() -> void:
 	_check("and in the air on its way", flying)
 	_check("the mud hits him", not _struck.is_empty(), "%d" % _struck.size())
 	_check("and gets well into his eyes", mudded > 0.2, "%.3f" % mudded)
+	var mud_layer := root.get_node_or_null("ScreenMud") as CanvasLayer
+	_check("under the bars and the menus, not over them", mud_layer != null and mud_layer.layer < 4)
 	await _wait(60 * 8)
 	_check("which clears after a few seconds", ScreenMud.cover(self) < 0.001, "%.3f" % ScreenMud.cover(self))
 
@@ -210,6 +288,7 @@ func _initialize() -> void:
 	thrower.stamina = thrower.max_stamina
 	player.global_position = thrower.global_position + Vector3(0.0, 0.3, 1.2)
 	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
 	await _wait(10)
 	_struck.clear()
 	var combo := false

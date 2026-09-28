@@ -47,6 +47,7 @@ extends Node
 
 var _camera: Camera3D
 var _cover: CanvasLayer
+var _props: Node3D
 var _restore: Camera3D
 var _poses: Array[Transform3D] = []
 var _pose: int = 0
@@ -99,6 +100,13 @@ func _ready() -> void:
 	_left = frames_per_pose
 	_camera.global_transform = _poses[0]
 
+	# What only shows up in a fight — a puglin's mud in the air and over the
+	# eyes — built now too: the first lump to hit used to stall the frame.
+	_props = MudBall.warm_props()
+	_camera.add_child(_props)
+	_props.position = Vector3(0.0, 0.0, -1.5)
+	ScreenMud.splat(get_tree(), 1.0)
+
 
 func _process(_delta: float) -> void:
 	_left -= 1
@@ -116,6 +124,7 @@ func _process(_delta: float) -> void:
 ## Hands the view back and gets out of the way. Everything built along the way
 ## stays built — the pipelines belong to the renderer, not to this node.
 func _finish() -> void:
+	ScreenMud.clear(get_tree())
 	if _restore != null and is_instance_valid(_restore):
 		_restore.current = true
 	if _camera != null:

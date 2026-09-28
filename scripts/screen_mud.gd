@@ -7,6 +7,7 @@ extends CanvasLayer
 ## hit — the host tells that peer ([method Puglin.net_mudded]).
 
 const MOST := 16
+const SHADER := preload("res://shaders/screen_mud.gdshader")
 const HOLD := 2.6
 const FADE := 4.0
 
@@ -36,13 +37,25 @@ static func cover(tree: SceneTree) -> float:
 	return clampf(total, 0.0, 1.0)
 
 
+## Over the world and under everything drawn on top of it: the bars (4), the
+## bag (6), the pause menu and its settings (10).
+const LAYER := 3
+
+
+## Clears it at once (the warm-up's splat, or a new level).
+static func clear(tree: SceneTree) -> void:
+	var here := tree.root.get_node_or_null("ScreenMud") as ScreenMud
+	if here != null:
+		here._splats.clear()
+
+
 func _ready() -> void:
-	layer = 40
+	layer = LAYER
 	_rect = ColorRect.new()
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_mat = ShaderMaterial.new()
-	_mat.shader = load("res://shaders/screen_mud.gdshader")
+	_mat.shader = SHADER
 	_rect.material = _mat
 	add_child(_rect)
 
