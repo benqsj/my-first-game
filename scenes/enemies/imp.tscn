@@ -78,6 +78,14 @@ break_clip = &"IP_Stagger"
 death_clip = &"IP_Death"
 guard_idle_clip = &"IP_Idle"
 dies_by_clip = true
+clip_meta = "res://assets/monsters/imp/imp_clip_meta.json"
+run_clip = &"IP_Run"
+roused_walk_clip = &"IP_Sneak"
+strafe_l_clip = &"IP_Strafe_L"
+strafe_r_clip = &"IP_Strafe_R"
+back_clip = &"IP_Back"
+weapon_tip = Vector3(-0.15, 0.12, 0.47)
+weapon_radius = 0.14
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)

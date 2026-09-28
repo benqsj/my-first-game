@@ -1,11 +1,12 @@
 class_name Imp
-extends Fighter
+extends ClipFighter
 
 ## The imp: a spiked mace in its right fist, claws on its left, and no patience.
 ##
 ## It keeps the [Fighter]'s body — band, leash, stamina, the blade watched for
 ## cuts — and fights its own way, out of clips made on its own rig
-## (`assets/monsters/imp/imp_anims.glb`, vepxis-art `tools/imp_build.py`):
+## (`assets/monsters/imp/imp_anims.glb`, vepxis-art `tools/imp_build.py`; the
+## moves, the travel and the blows are [ClipFighter]'s):
 ##
 ## * **It circles.** Roused, it does not walk into the sword. It runs to a ring
 ##   round the one it hunts and strafes there, face on, working round towards his
@@ -63,26 +64,19 @@ const MOVES := {
 	STAGGER: [&"IP_Stagger", 1.2, 0.0, 0.85],
 }
 ## Attack -> [bones whose speed marks a blow, which limb lands it ("claw" /
-## "mace"), share of hit_damage, blows the player counts it as].
+## "weapon"), share of hit_damage, blows the player counts it as].
 const STRIKES := {
 	SWIPE: [["hand_l"], ["claw"], 0.55, 2],
-	MACE: [["hand_r"], ["mace"], 0.8, 2],
-	COMBO: [["hand_l", "hand_r"], ["claw", "mace"], 0.6, 3],
-	SLAM: [["hand_r"], ["mace"], 1.0, 1],
-	POUNCE: [["hand_r", "hand_l"], ["mace"], 1.0, 1],
+	MACE: [["hand_r"], ["weapon"], 0.8, 2],
+	COMBO: [["hand_l", "hand_r"], ["claw", "weapon"], 0.6, 3],
+	SLAM: [["hand_r"], ["weapon"], 1.0, 1],
+	POUNCE: [["hand_r", "hand_l"], ["weapon"], 1.0, 1],
 	FLIP: [["foot_l", "foot_r"], ["feet"], 0.7, 2],
 }
 const EVADES := [HOP, BACKFLIP, DODGE_L, DODGE_R]
 const HITS := [HIT_F, HIT_L, HIT_R, STAGGER]
 ## How many of a band go in at one man at once.
 const PACK := 2
-## Where the mace's head is, in the right hand's own frame (measured off the
-## mesh), and how thick the spikes make it.
-const MACE_TIP := Vector3(-0.15, 0.12, 0.47)
-const MACE_RADIUS := 0.14
-const CLAW_RADIUS := 0.1
-const FOOT_RADIUS := 0.11
-const META_PATH := "res://assets/monsters/imp/imp_clip_meta.json"
 
 enum Tactic { CLOSE, CIRCLE, ENGAGE }
 
@@ -97,8 +91,6 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 ## How far off him a leap comes down: the arm and the mace ahead of it, about
 ## 1.45 m at its size, so the head of the mace and not the imp lands on him.
 @export var land_off: float = 1.5
-## How close it steps in under a blow on foot.
-@export var strike_off: float = 1.3
 ## Chance it gets out of the way of a cut aimed at it.
 @export_range(0.0, 1.0) var evade_chance: float = 0.5
 ## How long a sidestep or a flip is untouchable.
@@ -112,29 +104,12 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 
 ## Who holds a turn at whom: quarry's instance id -> the imps going in at him.
 static var _turns: Dictionary = {}
-static var _meta: Dictionary = {}
 
 var _tactic: int = Tactic.CLOSE
 var _tactic_left: float = 0.0
 var _circle_sign: float = 1.0
-## The body's frame when the move began: travel is laid along it.
-var _move_fwd: Vector3 = Vector3.FORWARD
-var _move_right: Vector3 = Vector3.RIGHT
-## Forward travel is stretched by this (a leap sized to the gap).
-var _stretch: float = 1.0
-var _last_hips: Vector2 = Vector2.ZERO
 var _dodge_dir: Vector3 = Vector3.ZERO
 var _counter: bool = false
-var _hand_r: int = -1
-var _hand_l: int = -1
-var _fore_l: int = -1
-var _tip_l: int = -1
-var _foot_l: int = -1
-var _foot_r: int = -1
-var _calf_l: int = -1
-var _calf_r: int = -1
-## Blow moments per attack, act seconds, measured once per kind.
-static var _moments: Dictionary = {}
 
 
 func _ready() -> void:
@@ -144,17 +119,6 @@ func _ready() -> void:
 		Act.REACT_POISON: [[&"IP_Stagger", 1.2, 0.8]],
 	}
 	super()
-	if _meta.is_empty() and FileAccess.file_exists(META_PATH):
-		_meta = JSON.parse_string(FileAccess.get_file_as_string(META_PATH))
-	if _skeleton != null:
-		_hand_r = _skeleton.find_bone("hand_r")
-		_hand_l = _skeleton.find_bone("hand_l")
-		_fore_l = _skeleton.find_bone("lowerarm_l")
-		_tip_l = _skeleton.find_bone("middle_04_leaf_l")
-		_foot_l = _skeleton.find_bone("ball_l")
-		_foot_r = _skeleton.find_bone("ball_r")
-		_calf_l = _skeleton.find_bone("calf_l")
-		_calf_r = _skeleton.find_bone("calf_r")
 	_circle_sign = 1.0 if _rng.randf() < 0.5 else -1.0
 
 
@@ -162,193 +126,41 @@ func _exit_tree() -> void:
 	_release()
 
 
-#region Clips
-func _clip_of(what: int) -> StringName:
-	return (MOVES[what] as Array)[0]
+func _moves() -> Dictionary:
+	return MOVES
 
 
-## Seconds the move lasts on the act clock.
-func _move_length(what: int) -> float:
-	var m: Array = MOVES[what]
-	if _anim == null:
-		return 0.6
-	return _anim.clip_length(m[0]) * (float(m[3]) - float(m[2])) / float(m[1])
-
-
-## Where the clip is, in its own seconds, this far into the move.
-func _clip_time(what: int, t: float) -> float:
-	var m: Array = MOVES[what]
-	return _anim.clip_length(m[0]) * float(m[2]) + t * float(m[1])
-
-
-## The moments of an attack's blows, in act seconds.
-func _blow_moments(what: int) -> PackedFloat32Array:
-	if _moments.has(what):
-		return _moments[what]
-	var out := PackedFloat32Array()
-	if _anim != null:
-		var m: Array = MOVES[what]
-		var s: Array = STRIKES[what]
-		var clip: StringName = m[0]
-		var length := _anim.clip_length(clip)
-		var peaks := _anim.measure_peaks(clip, PackedStringArray(s[0]), 0.6, 0.12)
-		for p in peaks:
-			if p < float(m[2]) or p > float(m[3]):
-				continue
-			out.append((p - float(m[2])) * length / float(m[1]))
-		var wanted: int = (s[1] as Array).size()
-		if out.size() > wanted:
-			# Keep the latest ones: the fastest early motion is the wind-up.
-			out = out.slice(out.size() - wanted)
-		if out.is_empty():
-			out.append(_move_length(what) * 0.45)
-	_moments[what] = out
-	return out
-
-
-## Where the hips have got to, forward and to its left, metres on this body.
-func _hips(clip: StringName, t: float) -> Vector2:
-	var m: Dictionary = _meta.get(String(clip), {})
-	var path: Array = m.get("hips", [])
-	if path.is_empty():
-		return Vector2.ZERO
-	var f := clampf(t * float(m.get("fps", 30.0)), 0.0, float(path.size() - 1))
-	var i := int(f)
-	var j := mini(i + 1, path.size() - 1)
-	var a: Array = path[i]
-	var b: Array = path[j]
-	var w := f - float(i)
-	return Vector2(lerpf(float(a[0]), float(b[0]), w), lerpf(float(a[1]), float(b[1]), w)) \
-			* maxf(visual_scale, 0.01)
-#endregion
+func _strikes() -> Dictionary:
+	return STRIKES
 
 
 #region Acting
-func _begin(what: int) -> void:
-	_start(what)
-	_act_length = _move_length(what)
-	_move_fwd = _forward()
-	_move_right = _move_fwd.cross(Vector3.UP)
-	_stretch = 1.0
-	_last_hips = _hips(_clip_of(what), _clip_time(what, 0.0))
-	if STRIKES.has(what):
-		stamina -= attack_cost
-		_regen_wait = regen_delay
-		_arm(what)
+func _fade_in(what: int) -> float:
+	return 0.08 if HITS.has(what) or EVADES.has(what) else 0.12
 
 
-## Lays the attack's blows along its limbs, live around each moment.
-func _arm(what: int) -> void:
-	if _skeleton == null:
-		return
-	var s: Array = STRIKES[what]
-	var limbs: Array = s[1]
-	var moments := _blow_moments(what)
-	var worth := hit_damage * float(s[2])
-	var count: int = s[3]
-	for i in moments.size():
-		var limb: String = limbs[mini(i, limbs.size() - 1)]
-		var stretches := _mace_part if limb == "mace" else (_claw_part if limb == "claw" else _feet_part)
-		var blow := i
-		var serial := act_serial
-		_sweeps.append(WeaponSweep.blow(stretches, 2.0, moments[i] - BLOW_BEFORE, moments[i] + BLOW_AFTER,
-				act_serial, func(who: Node3D) -> void:
-					who.call("receive_blow", worth, self, blow, count, serial)))
+func _carry(delta: float) -> Vector3:
+	var v := super(delta)
+	return v * knock_scale if HITS.has(act) else v
 
 
-func _mace_part() -> Array:
-	if _hand_r < 0:
-		return []
-	var s := maxf(visual_scale, 0.01)
-	return [WeaponSweep.bones(_skeleton, _hand_r, _hand_r, MACE_RADIUS * s, MACE_TIP)]
+func _leaps() -> Array:
+	return [POUNCE, FLIP]
 
 
-func _claw_part() -> Array:
-	if _fore_l < 0 or _hand_l < 0:
-		return []
-	var s := maxf(visual_scale, 0.01)
-	var out := [WeaponSweep.bones(_skeleton, _fore_l, _hand_l, CLAW_RADIUS * s)]
-	if _tip_l >= 0:
-		out.append(WeaponSweep.bones(_skeleton, _hand_l, _tip_l, CLAW_RADIUS * s))
-	return out
+func _track_rate(what: int) -> float:
+	return turn_speed * (0.9 if what == POUNCE or what == FLIP else 0.5)
 
 
-func _feet_part() -> Array:
-	var out := []
-	var s := maxf(visual_scale, 0.01)
-	if _calf_l >= 0 and _foot_l >= 0:
-		out.append(WeaponSweep.bones(_skeleton, _calf_l, _foot_l, FOOT_RADIUS * s))
-	if _calf_r >= 0 and _foot_r >= 0:
-		out.append(WeaponSweep.bones(_skeleton, _calf_r, _foot_r, FOOT_RADIUS * s))
-	return out
-
-
-func _play_act() -> void:
-	if not MOVES.has(act):
-		super()
-		return
-	var m: Array = MOVES[act]
-	_anim.play(m[0], 0.08 if HITS.has(act) or EVADES.has(act) else 0.12, float(m[1]), 1.0, true)
-	_anim.seek(_anim.clip_length(m[0]) * float(m[2]))
-
-
-func _run_act(delta: float) -> void:
-	if not MOVES.has(act):
-		super(delta)
-		return
-	var clip := _clip_of(act)
-	var t := _clip_time(act, _act_time)
-	var hips := _hips(clip, t)
-	var step := hips - _last_hips
-	_last_hips = hips
-	var carry := _move_fwd * step.x * _stretch - _move_right * step.y
-	if HITS.has(act):
-		carry *= knock_scale
-	var v := carry / maxf(delta, 0.0001)
+func _extra_velocity(delta: float) -> Vector3:
+	var v := super(delta)
 	if act == DODGE_L or act == DODGE_R or act == BACKFLIP:
 		# In place in the clip: carried by hand, fast off the mark and easing out.
 		var span := minf(_act_length, 0.55)
 		var k := clampf(_act_time / span, 0.0, 1.0)
 		var reach_out := dodge_distance * (1.0 if act != BACKFLIP else 1.1)
 		v += _dodge_dir * reach_out * 2.0 * (1.0 - k) / span
-	if STRIKES.has(act):
-		_track_before_blow(delta)
-		v += _close_gap()
-	velocity.x = v.x
-	velocity.z = v.z
-	if _act_time >= _act_length:
-		_after(act)
-
-
-## Turns to follow him until the first blow is on its way, then commits.
-func _track_before_blow(delta: float) -> void:
-	if _quarry == null:
-		return
-	var first := _blow_moments(act)[0]
-	if _act_time < first - 0.2:
-		var rate := turn_speed * (0.9 if act == POUNCE or act == FLIP else 0.5)
-		_face(_quarry.global_position - global_position, delta, rate)
-		_move_fwd = _forward()
-		_move_right = _move_fwd.cross(Vector3.UP)
-
-
-## A step in under the clip's own travel, so the blow lands where he stands.
-func _close_gap() -> Vector3:
-	if _quarry == null or act == POUNCE or act == FLIP:
-		return Vector3.ZERO
-	var moments := _blow_moments(act)
-	var next := -1.0
-	for m in moments:
-		if m > _act_time:
-			next = m
-			break
-	if next < 0.0:
-		return Vector3.ZERO
-	var gap := _distance_to(_quarry)
-	var want := strike_off
-	if gap <= want:
-		return Vector3.ZERO
-	return _forward() * minf((gap - want) / maxf(next - _act_time, 0.15), close_speed)
+	return v
 
 
 ## What follows a move: out of reach after a blow, a counter after a clean
@@ -603,32 +415,4 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 		_face(-thrown, 1.0, 1000.0)
 	_begin(what)
 	return landed
-#endregion
-
-
-#region Moving about
-func _play_locomotion(_delta: float) -> void:
-	var planar := Vector3(velocity.x, 0.0, velocity.z)
-	var pace := planar.length()
-	var roused := mode == Mode.CHASE or mode == Mode.FIGHT
-	if pace < 0.15:
-		if _anim.current_clip() != idle_clip or _anim.clip_progress() >= 1.0:
-			_anim.play(idle_clip, 0.25, 1.0)
-		return
-	var ahead := _forward()
-	var right := ahead.cross(Vector3.UP)
-	var fwd := planar.dot(ahead)
-	var side := planar.dot(right)
-	var clip := walk_clip
-	if absf(side) > absf(fwd) * 1.1:
-		clip = &"IP_Strafe_R" if side > 0.0 else &"IP_Strafe_L"
-	elif fwd < 0.0:
-		clip = &"IP_Back"
-	elif pace > 3.2:
-		clip = &"IP_Run"
-	elif roused:
-		clip = &"IP_Sneak"
-	var stride := maxf(_anim.measure_stride(clip), 0.2) * maxf(visual_scale, 0.01)
-	var rate := pace * _anim.clip_length(clip) / stride
-	_anim.play(clip, 0.2, clampf(rate, retime_range.x, chase_retime_max))
 #endregion

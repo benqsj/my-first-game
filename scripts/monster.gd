@@ -136,7 +136,8 @@ func _wear_skin() -> void:
 			continue
 		for s in mesh.mesh.get_surface_count():
 			var source := mesh.mesh.surface_get_material(s) as BaseMaterial3D
-			if source == null:
+			# Only the kit's own materials have colourways (not a sword added to it).
+			if source == null or not source.resource_name.begins_with("MI_"):
 				continue
 			var material := _skin_for(source, source.resource_name.trim_prefix("MI_"))
 			if material != null:
