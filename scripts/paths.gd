@@ -26,32 +26,130 @@ extends Node3D
 ## Metres between the ribbon's cross-sections.
 @export var step: float = 1.5
 
+## Across a road in the lands round the core ([Lands]), in metres.
+@export var road_width: float = 3.4
+
+## The roads of the lands (each land's way from its gate to its boss, and the
+## spurs to its village), read from the map at load. Drawn and kept clear of
+## trees like [member tracks], but not flattened into the core's ground: the
+## map already cut them into the lands.
+var roads: Array[PackedVector2Array] = []
+
 var _noise := FastNoiseLite.new()
+var _width: float = 0.0
 
 
 func _ready() -> void:
 	_noise.seed = 70111
 	_noise.frequency = 0.08
+	_width = width
 	for i in tracks.size():
-		var mesh := _ribbon(tracks[i])
-		if mesh == null:
-			continue
-		var node := MeshInstance3D.new()
-		node.name = "Track_%d" % i
-		node.mesh = mesh
-		node.material_override = material
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(node)
+		_draw("Track_%d" % i, tracks[i])
+	roads = lands_roads()
+	_index_roads()
+	_width = road_width
+	for i in roads.size():
+		_draw("Road_%d" % i, roads[i])
+	_width = width
+
+
+func _draw(node_name: String, line: PackedVector2Array) -> void:
+	var mesh := _ribbon(line)
+	if mesh == null:
+		return
+	var node := MeshInstance3D.new()
+	node.name = node_name
+	node.mesh = mesh
+	node.material_override = material
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+
+
+## The lands' roads as the map has them ([x, z, y] every few metres), or none
+## when there are no lands.
+static func lands_roads() -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	var lands := Lands.current
+	if lands == null or not is_instance_valid(lands) or lands.info.is_empty():
+		return out
+	var lines: Array = []
+	var regions: Dictionary = lands.info.get("regions", {})
+	for key: String in regions:
+		lines.append(regions[key].get("route", []))
+	var spurs: Dictionary = lands.info.get("spurs", {})
+	for key: String in spurs:
+		lines.append(spurs[key])
+	for pts: Array in lines:
+		var line := PackedVector2Array()
+		for p: Array in pts:
+			line.append(Vector2(float(p[0]), float(p[1])))
+		if line.size() >= 2:
+			out.append(line)
+	return out
 
 
 ## Whether a point is within `margin` metres of the edge of any track.
 func near(at: Vector2, margin: float = 0.0) -> bool:
-	var reach := width * 0.5 + margin
+	if _near_any(tracks, at, width * 0.5 + margin):
+		return true
+	if _road_segments.is_empty():
+		return false
+	# The roads are long: only the segments filed under this point's cell.
+	var reach := road_width * 0.5 + margin
 	var reach2 := reach * reach
-	for line in tracks:
+	var lo := Vector2i(floori((at.x - reach) / ROAD_CELL), floori((at.y - reach) / ROAD_CELL))
+	var hi := Vector2i(floori((at.x + reach) / ROAD_CELL), floori((at.y + reach) / ROAD_CELL))
+	for cz in range(lo.y, hi.y + 1):
+		for cx in range(lo.x, hi.x + 1):
+			var list: PackedInt32Array = _road_cells.get(Vector2i(cx, cz), PackedInt32Array())
+			for k in list:
+				var a := _road_segments[k * 2]
+				var b := _road_segments[k * 2 + 1]
+				var ab := b - a
+				var t := clampf((at - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+				if at.distance_squared_to(a + ab * t) < reach2:
+					return true
+	return false
+
+
+## Side of the grid the roads' segments are filed on, for [method near].
+const ROAD_CELL := 24.0
+## Each road segment's two ends, one after the other.
+var _road_segments := PackedVector2Array()
+## Grid cell -> the segments that pass through it.
+var _road_cells: Dictionary = {}
+
+
+func _index_roads() -> void:
+	_road_segments.clear()
+	_road_cells.clear()
+	for line in roads:
 		for i in line.size() - 1:
 			var a := line[i]
 			var b := line[i + 1]
+			var k := int(_road_segments.size() / 2.0)
+			_road_segments.append(a)
+			_road_segments.append(b)
+			var lo := Vector2i(floori(minf(a.x, b.x) / ROAD_CELL), floori(minf(a.y, b.y) / ROAD_CELL))
+			var hi := Vector2i(floori(maxf(a.x, b.x) / ROAD_CELL), floori(maxf(a.y, b.y) / ROAD_CELL))
+			for cz in range(lo.y, hi.y + 1):
+				for cx in range(lo.x, hi.x + 1):
+					var cell := Vector2i(cx, cz)
+					var list: PackedInt32Array = _road_cells.get(cell, PackedInt32Array())
+					list.append(k)
+					_road_cells[cell] = list
+
+
+static func _near_any(lines: Array[PackedVector2Array], at: Vector2, reach: float) -> bool:
+	var reach2 := reach * reach
+	for line in lines:
+		for i in line.size() - 1:
+			var a := line[i]
+			var b := line[i + 1]
+			# a cheap box test first: the roads are long and mostly far away
+			if at.x < minf(a.x, b.x) - reach or at.x > maxf(a.x, b.x) + reach \
+					or at.y < minf(a.y, b.y) - reach or at.y > maxf(a.y, b.y) + reach:
+				continue
 			var ab := b - a
 			var t := clampf((at - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
 			if at.distance_squared_to(a + ab * t) < reach2:
@@ -64,6 +162,10 @@ func _height(x: float, z: float) -> float:
 	# marsh strips' dished ground.
 	if Terrain.current != null and Terrain.current.contains(x, z):
 		return Terrain.height(x, z)
+	# Out in the lands, their ground (a touch higher: the drawn grid is coarser
+	# than a ribbon's sections, and a slope would swallow it).
+	if Lands.current != null and Lands.current.covers(x, z):
+		return Lands.height(x, z) + 0.06
 	var lowest := 0.0
 	for path in ground:
 		var marsh := get_node_or_null(path) as Marsh
@@ -100,14 +202,14 @@ func _ribbon(line: PackedVector2Array) -> ArrayMesh:
 		var side := Vector2(-dir.y, dir.x)
 		if i > 0:
 			run += p.distance_to(points[i - 1])
-		var half := width * 0.5 * (0.85 + 0.3 * (_noise.get_noise_1d(run) * 0.5 + 0.5))
+		var half := _width * 0.5 * (0.85 + 0.3 * (_noise.get_noise_1d(run) * 0.5 + 0.5))
 		# Tracks thin out where they begin and end rather than stopping square.
 		var ends := clampf(minf(run, total - run) / 4.0, 0.25, 1.0)
 		for k in across.size():
 			var q := p + side * across[k] * half * ends
 			var y := _height(q.x, q.y) + 0.035
 			st.set_color(Color(1.0, 1.0, 1.0, alpha[k] * (0.55 + 0.45 * ends)))
-			st.set_uv(Vector2(across[k] * 0.5 + 0.5, run / (width * 1.5)))
+			st.set_uv(Vector2(across[k] * 0.5 + 0.5, run / (_width * 1.5)))
 			st.set_normal(Vector3.UP)
 			st.add_vertex(Vector3(q.x, y, q.y))
 	var cols := across.size()
