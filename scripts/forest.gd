@@ -162,10 +162,11 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(40.0, -70.0, 9.0),
 	Vector3(88.0, -68.0, 9.0),
 	Vector3(82.0, -14.0, 9.0),
-	# The lane out to the east, and Arkdeva's glade in the wood, which is wide:
-	# its thorns run eleven metres.
+	# The lane out to the east, and the two Arkdevas' lairs, which are wide:
+	# their thorns run eleven metres (World.CAMPS).
 	Vector3(60.0, -12.0, 13.0),
-	Vector3(5.0, -50.0, 22.0),
+	Vector3(-104.0, -118.0, 16.0),
+	Vector3(-80.0, -216.0, 16.0),
 	# The settlement. It sits on the open side and the treeline would not reach
 	# it anyway, but the hedgerows are planted by hand and would run straight
 	# through the street without this.
@@ -184,6 +185,12 @@ const CLEARINGS: Array[Vector3] = [
 	Vector3(0.0, -302.0, 34.0),
 	Vector3(14.0, -255.0, 12.0),
 	Vector3(36.0, -232.0, 10.0),
+	# The city of Gulansharo inside its wall on the bay's north shore
+	# ([LandsPlaces]), and the way up to its land gate.
+	Vector3(-62.0, -272.0, 36.0),
+	Vector3(0.0, -268.0, 36.0),
+	Vector3(62.0, -272.0, 36.0),
+	Vector3(36.0, -230.0, 12.0),
 ]
 
 ## The wolves' wood: north of the village, on the land past the old square's
@@ -900,6 +907,9 @@ func _plant_lands() -> void:
 			var choices: Array = spec["models"]
 			var x := float(row[1])
 			var z := float(row[2])
+			# nothing stands on a bridge's line, or at its ends
+			if lands.near_crossing(Vector2(x, z), 3.5):
+				continue
 			var turn := float(row[5])
 			# which of the kind's models: from where it stands, so every peer agrees
 			var pick := int(absf(x * 12.9898 + z * 78.233)) % choices.size()

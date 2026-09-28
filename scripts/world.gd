@@ -73,20 +73,24 @@ const CAMPS: Array[Array] = [
 	[&"puglin", Vector2(88.0, -68.0), 3],
 	# (Out on the east fields: the hill behind the village is the wolves'.)
 	[&"puglin", Vector2(82.0, -14.0), 4],
-	# Two orc warriors, wading in the bay off the end of the fishermen's pier —
-	# the first thing met at the far end of the map. Every second orc of a band
-	# is the great-axe one (`ORC_MIX`).
-	[&"orc", Vector2(0.0, -342.0), 2],
-	# And Arkdeva, alone, in a glade of its own in the wood fifty metres
-	# south of spawn, as far from every other creature as that part of the map
-	# allows.
-	[&"arkdeva", Vector2(5.0, -50.0), 1],
+	# The orcs have taken the mist village for their den (the map's `mist`):
+	# two with great axes in its yard and four standing guard round it. The
+	# city's land gate opens when they are dead ([LandsPlaces]). They used to
+	# wade in the bay off the pier.
+	[&"orc_greataxe", Vector2(10.0, -190.0), 2],
+	[&"orc_guard", Vector2(10.0, -190.0), 4],
+	# And two Arkdevas, each alone in a lair cut into the wood with its webs:
+	# the web ravine in the big wood's south-east corner, far from the tracks
+	# and the imps (level 8), and the marsh lair east of the mere (level 9).
+	[&"arkdeva", Vector2(-104.0, -118.0), 1],
+	[&"arkdeva", Vector2(-80.0, -216.0), 1],
 ]
 const CAMP_SCENES := {
 	&"imp": "res://scenes/enemies/imp.tscn",
 	&"puglin": "res://scenes/enemies/puglin.tscn",
 	&"orc": "res://scenes/enemies/orc.tscn",
 	&"orc_greataxe": "res://scenes/enemies/orc_greataxe.tscn",
+	&"orc_guard": "res://scenes/enemies/orc.tscn",
 	&"arkdeva": "res://scenes/enemies/arkdeva.tscn",
 }
 ## Kinds whose bands are mixed: every second member is the other scene.
@@ -501,6 +505,8 @@ const FENCE_SCENE := "res://unverified/assets/area/HighLandsFantasyBuildings/Mis
 ## Where the gap in the fence is: the west side, between the gate towers, where
 ## the track comes in.
 const GATE := Vector2(35.0, 50.0)
+## And the gap at the back, on the far side from the gate (z from, to).
+const BACK_GATE := Vector2(44.0, 57.0)
 ## Where the villagers walk: along the street between the rows and round the
 ## square (as the village stood before it was spread; spread with it).
 const STREET := [
@@ -602,6 +608,10 @@ func _build_fence(village: Node3D) -> void:
 				mid = a + dir * (span - length * 0.5)
 			# The gate: the west side, between the towers.
 			if side == 3 and mid.y > GATE.x and mid.y < GATE.y:
+				continue
+			# And a way out at the back, onto the west land's road (the old
+			# gate of the lands round the core, [Lands]).
+			if side == 1 and mid.y > BACK_GATE.x and mid.y < BACK_GATE.y:
 				continue
 			# In a [Building], as every piece of the kit is: it is what finds the
 			# textures the .fbx only names, without which the fence is white.
