@@ -6,9 +6,9 @@ extends CanvasLayer
 ## moment and then thin away over a few seconds. Only on the screen of the one it
 ## hit — the host tells that peer ([method Puglin.net_mudded]).
 
-const MOST := 12
-const HOLD := 1.4
-const FADE := 3.2
+const MOST := 16
+const HOLD := 2.6
+const FADE := 4.0
 
 ## Each: [centre (0–1 of the screen), radius (of its height), age, seed].
 var _splats: Array = []
@@ -48,11 +48,13 @@ func _ready() -> void:
 
 
 func _add(amount: float) -> void:
-	var n := int(round(3.0 + 2.0 * amount))
-	var middle := Vector2(randf_range(0.35, 0.65), randf_range(0.3, 0.6))
+	# One big slap where it hit, the rest thrown round it, some off the edges.
+	var middle := Vector2(randf_range(0.38, 0.62), randf_range(0.32, 0.58))
+	_splats.append([middle, randf_range(0.26, 0.34) * amount, 0.0, randf() * 100.0])
+	var n := int(round(6.0 + 3.0 * amount))
 	for i in n:
-		var at := middle + Vector2(randf_range(-0.28, 0.28), randf_range(-0.22, 0.22))
-		_splats.append([at, randf_range(0.08, 0.2) * amount, 0.0, randf() * 100.0])
+		var at := middle + Vector2(randf_range(-0.45, 0.45), randf_range(-0.35, 0.35))
+		_splats.append([at, randf_range(0.09, 0.22) * amount, 0.0, randf() * 100.0])
 	while _splats.size() > MOST:
 		_splats.pop_front()
 
@@ -82,6 +84,11 @@ func _process(delta: float) -> void:
 	_mat.set_shader_parameter(&"blobs", blobs)
 	_mat.set_shader_parameter(&"seeds", seeds)
 	_mat.set_shader_parameter(&"count", _splats.size())
+	# A brown film over everything while there is much of it.
+	var film := 0.0
+	for sp: Array in _splats:
+		film = maxf(film, _strength(float(sp[2])))
+	_mat.set_shader_parameter(&"film", film)
 	var size := get_viewport().get_visible_rect().size
 	_mat.set_shader_parameter(&"aspect", size.x / maxf(size.y, 1.0))
 	_rect.visible = not _splats.is_empty()

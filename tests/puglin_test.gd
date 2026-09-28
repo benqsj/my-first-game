@@ -180,19 +180,27 @@ func _initialize() -> void:
 	player.state = Player.State.GROUNDED
 	_struck.clear()
 	var threw := false
+	var held := false
+	var flying := false
 	var mudded := 0.0
 	for i in 60 * 6:
 		await physics_frame
 		player.velocity = Vector3.ZERO
 		threw = threw or thrower.act == Puglin.THROW
+		if thrower.act == Puglin.THROW and thrower._throw_clock > 0.2 and thrower._throw_clock < thrower._throw_at:
+			held = held or (thrower._held != null and thrower._held.visible)
+		if not world.find_children("*", "MudBall", true, false).is_empty():
+			flying = true
 		mudded = maxf(mudded, ScreenMud.cover(self))
 		if mudded > 0.02:
 			# One lump is enough: no more thrown while it dries.
 			thrower.throw_range = Vector2.ZERO
 	_check("from off he throws mud at him", threw)
+	_check("the lump is seen in its fist before it goes", held)
+	_check("and in the air on its way", flying)
 	_check("the mud hits him", not _struck.is_empty(), "%d" % _struck.size())
-	_check("and gets in his eyes", mudded > 0.02, "%.3f" % mudded)
-	await _wait(60 * 6)
+	_check("and gets well into his eyes", mudded > 0.2, "%.3f" % mudded)
+	await _wait(60 * 8)
 	_check("which clears after a few seconds", ScreenMud.cover(self) < 0.001, "%.3f" % ScreenMud.cover(self))
 
 	# --- One combo, three cuts, all three floor him ---------------------------------

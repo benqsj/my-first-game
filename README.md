@@ -4603,12 +4603,19 @@ hand, 25 Mixamo clips `PG_*` on its own rig; the colourways still the kit's,
   last ball), a single ball only flinches him. Steel glances off a ball (a puff,
   no blood); magic gets in and knocks it out of its ball. Uncurled it stands
   dizzy a second — the opening.
-- **Mud** (`MudBall`, `ScreenMud`, `shaders/screen_mud.gdshader`): thrown in an
-  arc at where he is going, a lump that splashes and leaves a patch that dries.
-  What it hits takes a little and, unless he rolled away from it or met it on a
-  shield, gets mud in his eyes: ragged splats over *his* screen only (the host
-  tells his peer, `net_mudded`), dripping, that hold a moment and thin away over
-  three seconds.
+- **Mud** (`MudBall`, `ScreenMud`, `shaders/screen_mud.gdshader`), made to be
+  seen coming and to blind: it scoops a lump and holds it in its fist through the
+  wind-up; the lump flies lumpy, spinning and wet-shining with a pale rim that
+  stands it off the earth behind it, shedding drops, with a dark spot on the
+  ground under it that says where the arc will come down; it lands with a slap,
+  a spray of drops and a patch that dries. What it hits takes a little and,
+  unless he rolled away from it or met it on a shield, gets mud in his eyes, on
+  *his* screen only (the host tells his peer, `net_mudded`): one big slap where
+  it hit and eight or so round it and off the edges, thick and wet in the middle,
+  running in drips, round drops thrown off, the view round them smeared and
+  blurred as through dirty glass and a brown film over the lot; it holds 2.6 s
+  and thins away over 4. A band's timers all run on one clock (the physics
+  frames), not each member's own.
 - **One combo, three cuts**: three of the sword-and-shield set's slashes run
   together (across, back the other way, a heavy one down into the ground),
   counted as one combo — all three floor him. `ClipFighter._chain_blow /

@@ -125,11 +125,18 @@ var _volley_size: int = 1
 var _next_throw: float = 0.0
 var _next_roll: float = 0.0
 var _slot_angle: float = 0.0
-var _clock: float = 0.0
+## One clock for the whole band (every member's times are read against it):
+## the physics frames gone by, in seconds.
+var _clock: float:
+	get:
+		return float(Engine.get_physics_frames()) / float(Engine.physics_ticks_per_second)
 ## The rolling look, every peer: how far over the ball has turned.
 var _spin: float = 0.0
 var _body_basis: Basis = Basis.IDENTITY
 var _throw_at: float = 0.5
+## The lump of mud in its fist while it winds up to throw (every peer).
+var _held: MeshInstance3D
+var _throw_clock: float = -1.0
 
 
 func _ready() -> void:
@@ -293,11 +300,6 @@ func _slot(b: Dictionary, i: int, n: int, who: Puglin) -> Vector3:
 
 
 #region Thinking
-func _physics_process(delta: float) -> void:
-	_clock += delta
-	super(delta)
-
-
 func _think(delta: float) -> void:
 	if mode == Mode.GUARD or mode == Mode.RETURN:
 		super(delta)
@@ -631,8 +633,14 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 
 
 #region The ball, drawn
+func _play_act() -> void:
+	super()
+	_throw_clock = 0.0 if act == THROW else -1.0
+
+
 func _process(delta: float) -> void:
 	super(delta)
+	_hold_mud(delta)
 	if body == null or is_dead:
 		return
 	if act == ROLL:
@@ -645,6 +653,29 @@ func _process(delta: float) -> void:
 	elif _spin != 0.0:
 		_spin = 0.0
 		body.transform = Transform3D(_body_basis, Vector3(0.0, _body_rest_y, 0.0))
+
+
+## Scooped up at the start of a throw and held in the fist, wet and shining,
+## until it lets fly: the throw is seen coming.
+func _hold_mud(delta: float) -> void:
+	var holding := act == THROW and _throw_clock >= 0.0 and _throw_clock < _throw_at and not is_dead
+	if holding:
+		_throw_clock += delta
+	if not holding or _skeleton == null or _hand_r < 0:
+		if _held != null:
+			_held.visible = false
+		return
+	if _held == null:
+		_held = MeshInstance3D.new()
+		_held.mesh = MudBall.lump_mesh()
+		_held.material_override = MudBall.mud()
+		_held.top_level = true
+		add_child(_held)
+	_held.visible = true
+	var grow := clampf(_throw_clock / 0.35, 0.2, 1.0)
+	_held.scale = Vector3.ONE * grow
+	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(_hand_r)
+	_held.global_position = hand * Vector3(0.0, 0.05, 0.08)
 
 
 ## Turns the curled body over about the middle of the ball, the way it rolls.
