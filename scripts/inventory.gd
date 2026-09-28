@@ -233,17 +233,16 @@ func _items() -> Array[Dictionary]:
 				out.append({
 					"name": "Round Shield", "kind": "Small shield", "icon": "round", "shield": Shields.ROUND,
 					"worn": player.shield_kind == Shields.ROUND,
-					"stats": [["Guard", "100 %"], ["Stamina per blow", "× %.1f" % player.block_stamina],
-							["Parry", "yes"], ["Parry window", "%.2f s" % player.parry_window]],
-					"text": "Light and quick. Raised as a blow comes, it is flung out across it and the blow is thrown back, leaving whoever struck it open.",
+					"stats": [["Guard", "100 %"], ["Stamina per blow", "× %.1f" % player.block_stamina]],
+					"text": "Light and quick: up in an instant, and it goes with him wherever he turns.",
 				})
 				out.append({
 					"name": "Tower Shield", "kind": "Greatshield", "icon": "tower", "shield": Shields.TOWER,
 					"worn": player.shield_kind == Shields.TOWER,
 					"stats": [["Guard", "100 %"],
 							["Stamina per blow", "× %.1f" % (player.block_stamina * player.tower_block_share)],
-							["Parry", "no"], ["Stance", "crouched"]],
-					"text": "Tall, heavy, crimson, with the gold cross. It cannot parry, but a blow on it costs half as much to hold, and he crouches right down behind it.",
+							["Stance", "crouched"]],
+					"text": "Tall, heavy, crimson, with the gold cross. A blow on it costs half as much to hold, and he crouches right down behind it.",
 				})
 		Tab.ATTIRE:
 			var garbs := _garbs()

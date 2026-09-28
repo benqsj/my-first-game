@@ -21,11 +21,11 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 
 #region Exported tuning
 @export_group("Senses")
-## How far away the knight is noticed. Close: a wolf in the grass is met, not
-## seen coming from across the field.
-@export var sight_range: float = 11.0
+## How far away the knight is noticed: well off, so a pack comes out at him
+## before he is among them (it was 11 m, and they were met rather than seen).
+@export var sight_range: float = 17.0
 ## Once chasing, it keeps coming until the knight is this far away.
-@export var lose_range: float = 18.0
+@export var lose_range: float = 28.0
 ## Close enough to stand up and swing.
 @export var reach: float = 3.2
 ## How far off its claws land (measured: about 1.65 m round it, at its size);

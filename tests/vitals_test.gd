@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Health, stamina, the parry and falling: what the player's body can take,
+## Health, stamina, the block and falling: what the player's body can take,
 ## what it costs, and what a blow thrown back off the shield does to whoever
 ## threw it.
 ##
@@ -70,7 +70,6 @@ func _initialize() -> void:
 
 	_player.is_blocking = true
 	_player._guard_raised_at = _player._now()
-	_player._last_parry_move = _player._now() - 5.0
 	var before := _player.health
 	_in_front(imp)
 	_player.net_blow(10.0, away, imp.global_position, "%s#2" % path, 0, 3)
@@ -78,43 +77,22 @@ func _initialize() -> void:
 	_check("but holding it costs stamina", is_equal_approx(_player.stamina, _player.max_stamina - Defence.taken(10.0, _player.p_def) * _player.block_stamina),
 			"%.1f" % _player.stamina)
 
-	# --- The parry ---------------------------------------------------------------
-	var thrown_back: Array = []
-	_player.parried.connect(func(who: Node3D) -> void: thrown_back.append(who))
+	# --- No parry: a blow met the moment the shield comes up is only blocked ------
 	_player.stamina = _player.max_stamina
-	_player._guard_raised_at = _player._now()
-	_player._last_parry_move = _player._now()
-	_in_front(imp)
-	_player.net_blow(10.0, away, imp.global_position, "%s#3" % path, 0, 3)
-	_check("met as the shield comes up, it is parried", thrown_back.size() == 1 and thrown_back[0] == imp,
-			str(thrown_back))
-	_check("which costs nothing", _player.health == before and _player.stamina == _player.max_stamina)
-	_check("and the imp reels", imp.act == Fighter.Act.REEL, "act %d" % imp.act)
-	var hp := imp.health
-	imp._receive(20.0, imp.global_position, Vector3.UP, _player)
-	_check("open, a riposte bites deeper", is_equal_approx(hp - imp.health, Defence.taken(20.0, imp.p_def) * Recoil.RIPOSTE),
-			"%.1f" % (hp - imp.health))
-	# Its arm is thrown back: the reel is laid over whatever the clip says.
-	var arm: int = imp._reel_bones.get("arm_r", -1)
-	_check("the imp has an arm to throw back", arm >= 0)
-	await _wait(10)
-	_check("the reel runs on every frame", imp._reel_clock > 0.1, "%.2f" % imp._reel_clock)
-
-	thrown_back.clear()
-	# (The shield is only up while the button is held; ticks have gone by.)
 	_player.is_blocking = true
 	_player._guard_raised_at = _player._now()
-	_player._last_parry_move = _player._now()
 	_in_front(imp)
-	_player.net_blow(10.0, away, imp.global_position, "%s#4" % path, 0, 1)
-	_check("a slam (a combo of one) is only ever blocked", thrown_back.is_empty())
-
+	_player.net_blow(10.0, away, imp.global_position, "%s#3" % path, 0, 3)
+	_check("met as the shield comes up, it is only blocked: no parry", _player.health == before
+			and _player.stamina < _player.max_stamina and imp.act != Fighter.Act.REEL, "act %d" % imp.act)
 	_player.is_blocking = false
 	_player._guard_raised_at = -100.0
-	_player._last_parry_move = -100.0
 
+	# The creatures still reel when something else throws them back (a knock):
+	# open, a riposte bites deeper.
+	var hp := imp.health
 	orc.parried(_player)
-	_check("a parried orc reels", orc.act == Brute.ACT_REEL and orc.is_reeling())
+	_check("a thrown-back orc reels", orc.act == Brute.ACT_REEL and orc.is_reeling())
 	await _wait(5)
 	_check("his axe going back the way it came", orc._own.speed_scale < 0.0, "%.1f" % orc._own.speed_scale)
 	await _wait(30)
@@ -133,15 +111,13 @@ func _initialize() -> void:
 	_check("the tower shield goes on his arm, the round one off it", skinned != null
 			and skinned._shield_meshes.size() == 2 and skinned._shield_meshes[1] != null
 			and skinned._shield_meshes[1].visible and not skinned._shield_meshes[0].visible)
-	thrown_back.clear()
 	_player.stamina = _player.max_stamina
 	_player.is_blocking = true
 	_player._guard_raised_at = _player._now()
-	_player._last_parry_move = _player._now()
 	_in_front(imp)
 	before = _player.health
 	_player.net_blow(10.0, away, imp.global_position, "%s#t1" % path, 0, 3)
-	_check("it cannot parry", thrown_back.is_empty() and _player.health == before)
+	_check("the tower shield takes it", _player.health == before)
 	_check("but a blow on it costs little more than half the stamina", is_equal_approx(_player.stamina,
 			_player.max_stamina - Defence.taken(10.0, _player.p_def) * _player.block_stamina * _player.tower_block_share), "%.1f" % _player.stamina)
 	_player.set_shield(Inventory.Shields.ROUND)
@@ -178,11 +154,12 @@ func _initialize() -> void:
 
 	# --- A wolf --------------------------------------------------------------------
 	var wolf: Wolf = null
+	# One of the pack, not its leader (bigger: its claws reach past him at this range).
 	for node in enemies.get_children():
-		if node is Wolf:
+		if node is Wolf and not (node as Wolf).is_leader:
 			wolf = node
 			break
-	_check("wolves notice a player close, not across the field", wolf != null and wolf.sight_range <= 12.0)
+	_check("wolves notice a player some way off, not across the field", wolf != null and wolf.sight_range <= 20.0)
 	if wolf != null:
 		# Close enough that its claws come through him (they land only where
 		# they actually go — WeaponSweep).

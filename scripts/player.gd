@@ -26,10 +26,8 @@ signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
 signal blade_planted(where: Vector3)
 ## A creature's blow reached this body: what it was worth, and whether the
-## shield caught it. A parried blow is reported as caught, for nothing.
+## shield caught it. (There is no parry: a shield only ever blocks.)
 signal struck(damage: float, blocked: bool)
-## A blow met on the shield at the last moment and thrown back ([method _parry]).
-signal parried(attacker: Node3D)
 signal died
 signal respawned
 ## A blow went through the roll in its first moments ([member perfect_dodge_window]).
@@ -274,13 +272,6 @@ var _vault_peak: float = -INF
 @export var stamina_empty_delay: float = 1.1
 ## Stamina a blow caught on the shield costs, per point of the blow's damage.
 @export var block_stamina: float = 2.4
-## How soon after the shield goes up a blow has to arrive to be **parried**
-## rather than blocked, in seconds. A parry costs nothing, turns the blow back
-## and leaves whoever threw it open.
-@export var parry_window: float = 0.3
-## Shortest gap between two parry moves: a guard raised again sooner than this
-## goes straight up as a block, so the parry cannot be spammed.
-@export var parry_cooldown: float = 0.7
 ## What a blow on the tower shield costs, as a share of what the round one pays.
 @export_range(0.1, 1.0) var tower_block_share: float = 0.55
 ## Held this long when a blow breaks the guard (the shield taken with no
@@ -355,10 +346,8 @@ var _since_hurt: float = 0.0
 var _respawn_left: float = 0.0
 var _spawn_point: Vector3 = Vector3.ZERO
 var _spawn_known: bool = false
-## When the shield last came up, in seconds of engine time: a blow that lands
-## within `parry_window` of it is parried.
+## When the shield last came up, in seconds of engine time.
 var _guard_raised_at: float = -100.0
-var _last_parry_move: float = -100.0
 ## When the current roll started, and whether it has already been perfect.
 var _evade_started_at: float = -100.0
 var _evade_was_perfect: bool = false
@@ -866,12 +855,6 @@ func _read_actions() -> void:
 		is_blocking = raised
 		if raised:
 			_guard_raised_at = _now()
-			# With the round shield the guard goes up *as a parry*: the shield
-			# is flung out across whatever is coming, and only then settles
-			# into the block. The parry window is that fling.
-			if shield_kind == Inventory.Shields.ROUND and _now() - _last_parry_move > parry_cooldown:
-				_last_parry_move = _now()
-				net_parry_move.rpc()
 		block_changed.emit(is_blocking)
 
 	if Input.is_action_just_pressed("jump"):
@@ -2589,13 +2572,6 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	facing.y = 0.0
 	if is_blocking and facing.normalized().dot(toward.normalized()) > 0.2:
 		_combo_landed[combo] = -999
-		# Met the moment the shield came up: thrown back. Only an ordinary blow
-		# can be — a slam, a stamp or the ground coming up (a combo of one) is
-		# too much to turn aside, and is only ever blocked.
-		if blows > 1 and shield_kind == Inventory.Shields.ROUND \
-				and _now() - _last_parry_move <= parry_window:
-			_parry(combo.get_slice("#", 0), source)
-			return
 		# Caught on the shield: a step back, and it costs stamina to hold — never
 		# more than most of the bar, so even a raid boss's blow can be taken on
 		# the shield once.
@@ -3084,42 +3060,6 @@ func _take_damage(amount: float) -> bool:
 		_die()
 		return true
 	return false
-
-
-## The blow thrown back.
-##
-## The shield met it the moment it came up, so it costs nothing and does
-## nothing to him; everything happens to the other side. Whoever threw it is
-## told — on the host, which is where creatures think — and reels, open, with
-## its weapon knocked back the way it came ([method Brute.parried],
-## [method Fighter.parried]).
-func _parry(attacker: String, source: Vector3) -> void:
-	var toward := source - global_position
-	toward.y = 0.0
-	var ahead := toward.normalized() if toward.length_squared() > 0.0001 else -global_transform.basis.z
-	var at := global_position + Vector3.UP * 1.25 + ahead * 0.55
-	struck.emit(0.0, true)
-	net_react.rpc(Reaction.PARRY, at, ahead)
-	net_parried.rpc_id(1, NodePath(attacker))
-	var who := get_node_or_null(NodePath(attacker)) as Node3D
-	parried.emit(who)
-
-
-## The parry move, on every peer: the shield flung out across the blow.
-@rpc("any_peer", "call_local", "reliable")
-func net_parry_move() -> void:
-	if rig != null and rig.has_method(&"parry"):
-		rig.call(&"parry")
-
-
-## On the host: the creature whose blow was parried is told so.
-@rpc("any_peer", "call_local", "reliable")
-func net_parried(attacker: NodePath) -> void:
-	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
-		return
-	var who := get_node_or_null(attacker)
-	if who != null and who.has_method(&"parried"):
-		who.call(&"parried", self)
 
 
 ## Fallen. He lies where he fell until `respawn_time` is up and is then put back

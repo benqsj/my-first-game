@@ -58,6 +58,53 @@ static var _patch_mesh: QuadMesh
 ## Every ground stain laid so far, oldest first, up to `MAX_PATCHES`.
 static var _patches: Array[MeshInstance3D] = []
 
+## How it looks (see [method use_style]):
+##   `cubes` — a stream of small bright cubes and darker gouts, faceted pools
+##             (the first: blocky like the world);
+##   `gloss` — round glossy drops, lit, and smooth wet pools that catch the
+##             light (after Arkdeva's venom);
+##   `trail` — a thin fast streak of drops along the cut and, on the ground,
+##             one red stroke the way the blade went, and a few drops;
+##   `mist`  — a soft red mist that hangs and thins, and small soft stains
+##             that fade soon.
+static var style: StringName = &"cubes"
+static var _stroke: ImageTexture
+
+
+## Changes how blood looks from the next blow on: the sprays and stains laid so
+## far are cleared and the assets built again.
+static func use_style(which: StringName) -> void:
+	style = which
+	_stream_mesh = null
+	_stream_material = null
+	_burst_mesh = null
+	_burst_material = null
+	_stream_process = null
+	_burst_process = null
+	_splat = null
+	_pool_material = null
+	_drop_material = null
+	for pair: Array in _sprays:
+		for p: Variant in pair:
+			if is_instance_valid(p):
+				(p as Node).queue_free()
+	_sprays.clear()
+	for patch in _patches:
+		if is_instance_valid(patch):
+			patch.queue_free()
+	_patches.clear()
+
+
+static func _lit(colour: Color, alpha: bool = false) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = colour
+	m.roughness = 0.12
+	m.metallic_specular = 1.0
+	m.metallic = 0.15
+	if alpha:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	return m
+
 
 ## Builds, ahead of time, what a blow would otherwise build in the middle of a
 ## fight, and lays the spray emitters out in `world`.
@@ -113,6 +160,10 @@ static func splatter(world: Node, point: Vector3, direction: Vector3, on: Node3D
 
 ## How long this blow's blood stays, between `LINGER_MIN` and `LINGER_MAX`.
 static func _linger() -> float:
+	if style == &"mist":
+		return randf_range(8.0, 12.0)
+	if style == &"trail":
+		return randf_range(18.0, 24.0)
 	return randf_range(LINGER_MIN, LINGER_MAX)
 
 
@@ -122,10 +173,10 @@ static func _linger() -> float:
 const SPRAY_POOL := 6
 
 static var _stream_process: ParticleProcessMaterial
-static var _stream_mesh: BoxMesh
+static var _stream_mesh: PrimitiveMesh
 static var _stream_material: StandardMaterial3D
 static var _burst_process: ParticleProcessMaterial
-static var _burst_mesh: BoxMesh
+static var _burst_mesh: PrimitiveMesh
 static var _burst_material: StandardMaterial3D
 ## Each entry: [the stream of drops, the gush].
 static var _sprays: Array = []
@@ -156,17 +207,69 @@ static func _spray(world: Node, point: Vector3, along: Vector3, strength: float)
 
 
 static func _spray_assets() -> void:
+	if _stream_mesh == null and style != &"cubes":
+		match style:
+			&"gloss":
+				var drop := SphereMesh.new()
+				drop.radius = 0.022
+				drop.height = 0.044
+				drop.radial_segments = 8
+				drop.rings = 4
+				_stream_mesh = drop
+				_stream_material = _lit(SPRAY)
+				var gout := SphereMesh.new()
+				gout.radius = 0.045
+				gout.height = 0.09
+				gout.radial_segments = 8
+				gout.rings = 4
+				_burst_mesh = gout
+				_burst_material = _lit(CHUNK)
+			&"trail":
+				# Streaks, drawn out along the way they fly.
+				var streak := BoxMesh.new()
+				streak.size = Vector3(0.012, 0.11, 0.012)
+				_stream_mesh = streak
+				_stream_material = StandardMaterial3D.new()
+				_stream_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				_stream_material.albedo_color = Color(0.62, 0.02, 0.03)
+				var bead := SphereMesh.new()
+				bead.radius = 0.02
+				bead.height = 0.04
+				bead.radial_segments = 6
+				bead.rings = 3
+				_burst_mesh = bead
+				_burst_material = _stream_material
+			&"mist":
+				var puff := QuadMesh.new()
+				puff.size = Vector2(0.22, 0.22)
+				_stream_mesh = puff
+				_stream_material = StandardMaterial3D.new()
+				_stream_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				_stream_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				_stream_material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+				_stream_material.albedo_texture = _soft_dot()
+				_stream_material.vertex_color_use_as_albedo = true
+				_stream_material.albedo_color = Color(0.55, 0.03, 0.03, 0.8)
+				var fleck := SphereMesh.new()
+				fleck.radius = 0.016
+				fleck.height = 0.032
+				fleck.radial_segments = 6
+				fleck.rings = 3
+				_burst_mesh = fleck
+				_burst_material = _lit(SPRAY)
 	if _stream_mesh == null:
 		# Blocks, like the world they fall in: a small cube each, flat red.
-		_stream_mesh = BoxMesh.new()
-		_stream_mesh.size = Vector3.ONE * 0.036
+		var cube := BoxMesh.new()
+		cube.size = Vector3.ONE * 0.036
+		_stream_mesh = cube
 		_stream_material = StandardMaterial3D.new()
 		_stream_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_stream_material.albedo_color = SPRAY
 	if _burst_mesh == null:
 		# A gout: a bigger block, darker, tumbling out of the cut.
-		_burst_mesh = BoxMesh.new()
-		_burst_mesh.size = Vector3.ONE * 0.075
+		var block := BoxMesh.new()
+		block.size = Vector3.ONE * 0.075
+		_burst_mesh = block
 		_burst_material = StandardMaterial3D.new()
 		_burst_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_burst_material.albedo_color = CHUNK
@@ -222,6 +325,34 @@ static func _spray_assets() -> void:
 		var shrink_tex := CurveTexture.new()
 		shrink_tex.curve = shrink
 		_stream_process.scale_curve = shrink_tex
+		if style == &"trail":
+			# Each streak drawn out along its own flight.
+			_stream_process.particle_flag_align_y = true
+			_stream_process.angle_min = 0.0
+			_stream_process.angle_max = 0.0
+			_stream_process.angular_velocity_min = 0.0
+			_stream_process.angular_velocity_max = 0.0
+			_stream_process.spread = THROW_SPREAD * 0.6
+		elif style == &"mist":
+			# A soft cloud thrown a little way and hanging, growing as it thins.
+			_stream_process.spread = 40.0
+			_stream_process.initial_velocity_min = 0.6
+			_stream_process.initial_velocity_max = 2.2
+			_stream_process.gravity = Vector3(0.0, -0.6, 0.0)
+			_stream_process.damping_min = 1.5
+			_stream_process.damping_max = 3.0
+			var grow := Curve.new()
+			grow.add_point(Vector2(0.0, 0.4))
+			grow.add_point(Vector2(1.0, 1.8))
+			var grow_tex := CurveTexture.new()
+			grow_tex.curve = grow
+			_stream_process.scale_curve = grow_tex
+			var thin := Gradient.new()
+			thin.set_color(0, Color(1, 1, 1, 0.85))
+			thin.set_color(1, Color(1, 1, 1, 0.0))
+			var thin_tex := GradientTexture1D.new()
+			thin_tex.gradient = thin
+			_stream_process.color_ramp = thin_tex
 
 
 ## How many emitter pairs are still in a level. Ones that went with an old
@@ -240,8 +371,8 @@ static func _add_spray(world: Node) -> Array:
 	_spray_assets()
 	var stream := GPUParticles3D.new()
 	stream.name = "BloodSpray"
-	stream.amount = 36
-	stream.lifetime = 0.62
+	stream.amount = int({&"cubes": 36, &"gloss": 30, &"trail": 22, &"mist": 18}.get(style, 36))
+	stream.lifetime = 1.1 if style == &"mist" else 0.62
 	stream.one_shot = true
 	stream.explosiveness = 0.82
 	stream.emitting = false
@@ -253,7 +384,7 @@ static func _add_spray(world: Node) -> Array:
 	world.add_child(stream)
 	var gush := GPUParticles3D.new()
 	gush.name = "BloodGush"
-	gush.amount = 12
+	gush.amount = int({&"cubes": 12, &"gloss": 10, &"trail": 5, &"mist": 8}.get(style, 12))
 	gush.lifetime = 0.5
 	gush.one_shot = true
 	gush.explosiveness = 0.9
@@ -293,6 +424,12 @@ static var _wound: ImageTexture
 
 static func splat_texture() -> ImageTexture:
 	if _splat != null:
+		return _splat
+	if style == &"gloss" or style == &"trail":
+		_splat = _smooth_splat()
+		return _splat
+	if style == &"mist":
+		_splat = _soft_dot()
 		return _splat
 	const SIZE := 128
 	var image := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
@@ -366,8 +503,107 @@ static func wound_texture() -> ImageTexture:
 #endregion
 
 
+## A wet pool: a smooth round blob with a wavering edge, a few round drops
+## beside it, deeper in the middle.
+static func _smooth_splat() -> ImageTexture:
+	const SIZE := 128
+	var image := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7171
+	var waves: Array[Vector3] = []
+	for i in 4:
+		waves.append(Vector3(rng.randi_range(3, 9), rng.randf_range(0.03, 0.07), rng.randf() * TAU))
+	var spots: Array[Vector3] = []
+	for i in 6:
+		var a := rng.randf() * TAU
+		var r := rng.randf_range(0.78, 0.93)
+		spots.append(Vector3(cos(a) * r, sin(a) * r, rng.randf_range(0.03, 0.06)))
+	for y in SIZE:
+		for x in SIZE:
+			var u := (x + 0.5) / float(SIZE) * 2.0 - 1.0
+			var v := (y + 0.5) / float(SIZE) * 2.0 - 1.0
+			var r := sqrt(u * u + v * v)
+			var a := atan2(v, u)
+			var edge := 0.66
+			for w in waves:
+				edge += w.y * sin(w.x * a + w.z)
+			var inside := clampf((edge - r) / 0.025, 0.0, 1.0)
+			for sp in spots:
+				inside = maxf(inside, clampf((sp.z - Vector2(u - sp.x, v - sp.y).length()) / 0.01, 0.0, 1.0))
+			var shade := 1.0 - 0.3 * clampf((edge * 0.6 - r) / 0.15, 0.0, 1.0)
+			image.set_pixel(x, y, Color(shade, shade, shade, inside))
+	image.generate_mipmaps()
+	return ImageTexture.create_from_image(image)
+
+
+## A soft round dot, clear at its edge.
+static func _soft_dot() -> ImageTexture:
+	const SIZE := 64
+	var image := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
+	for y in SIZE:
+		for x in SIZE:
+			var u := (x + 0.5) / float(SIZE) * 2.0 - 1.0
+			var v := (y + 0.5) / float(SIZE) * 2.0 - 1.0
+			var a := clampf(1.0 - sqrt(u * u + v * v), 0.0, 1.0)
+			image.set_pixel(x, y, Color(1, 1, 1, a * a))
+	image.generate_mipmaps()
+	return ImageTexture.create_from_image(image)
+
+
+## A stroke of red laid the way the blade went: a long streak, thick at its
+## start and thinning to a torn tail, dry-brushed along its edges.
+static func stroke_texture() -> ImageTexture:
+	if _stroke != null:
+		return _stroke
+	const W := 256
+	const H := 64
+	var image := Image.create(W, H, false, Image.FORMAT_RGBA8)
+	var noise := FastNoiseLite.new()
+	noise.seed = 404
+	noise.frequency = 0.09
+	for y in H:
+		for x in W:
+			var u := (x + 0.5) / float(W)
+			var v := (y + 0.5) / float(H) * 2.0 - 1.0
+			var width := 0.8 * pow(1.0 - u, 0.6) * smoothstep(0.0, 0.08, u) + 0.04
+			var bristle := 0.25 * noise.get_noise_2d(x * 0.4, y * 3.0)
+			var inside := clampf((width + bristle * width - absf(v)) / 0.06, 0.0, 1.0)
+			# Streaks where the brush ran dry, more of them towards the tail.
+			if noise.get_noise_2d(x * 0.15, y * 6.0) < -0.35 + 0.5 * (1.0 - u):
+				inside *= 0.25
+			var shade := 1.0 - 0.25 * clampf(1.0 - absf(v) / maxf(width, 0.01), 0.0, 1.0)
+			image.set_pixel(x, y, Color(shade, shade, shade, inside))
+	image.generate_mipmaps()
+	_stroke = ImageTexture.create_from_image(image)
+	return _stroke
+
+
 #region On the ground
 static func _stain_assets() -> void:
+	if _pool_material == null and style != &"cubes":
+		if style == &"gloss":
+			_pool_material = _lit(Color(0.36, 0.015, 0.015, 0.97), true)
+			_pool_material.metallic = 0.0
+			_pool_material.roughness = 0.22
+			_pool_material.albedo_texture = splat_texture()
+			_pool_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			_drop_material = _pool_material
+		else:
+			_pool_material = StandardMaterial3D.new()
+			_pool_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			_pool_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			_pool_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			if style == &"trail":
+				_pool_material.albedo_color = Color(0.5, 0.02, 0.03, 0.95)
+				_pool_material.albedo_texture = stroke_texture()
+				_drop_material = _pool_material.duplicate() as StandardMaterial3D
+				_drop_material.albedo_texture = splat_texture()
+			else:
+				_pool_material.albedo_color = Color(0.36, 0.02, 0.02, 0.7)
+				_pool_material.albedo_texture = splat_texture()
+				_drop_material = _pool_material
+		_patch_mesh = QuadMesh.new()
+		_patch_mesh.size = Vector2.ONE
 	if _pool_material != null:
 		return
 	# Flat red, like the spray: faceted pools that read at a glance.
@@ -394,6 +630,9 @@ static func _stain_ground(world: Node, point: Vector3, along: Vector3, strength:
 	_stain_assets()
 	var space := _space_of(world)
 	var aim := (along + Vector3.UP * 0.22).normalized()
+	if style == &"trail" or style == &"mist":
+		_stain_light(world, space, point, aim, strength)
+		return
 	var side := aim.cross(Vector3.UP)
 	if side.length_squared() < 0.0001:
 		side = Vector3.RIGHT
@@ -435,6 +674,30 @@ static func _stain_ground(world: Node, point: Vector3, along: Vector3, strength:
 		var flat_aim := Vector3(aim.x, 0.0, aim.z)
 		var wide := randf_range(0.45, 0.75) * clampf(0.8 + 0.2 * strength, 0.7, 1.4)
 		_lay(world, space, _pool_material, middle, point.y, flat_aim, wide * 1.4, wide, fell * 0.8)
+
+
+## The light styles' ground: a stroke the way the blade went and a few drops
+## (`trail`), or a few small soft stains (`mist`).
+static func _stain_light(world: Node, space: PhysicsDirectSpaceState3D, point: Vector3, aim: Vector3,
+		strength: float) -> void:
+	var flat := Vector3(aim.x, 0.0, aim.z)
+	if flat.length_squared() < 0.0001:
+		flat = Vector3(randf() - 0.5, 0.0, randf() - 0.5)
+	flat = flat.normalized()
+	if style == &"trail":
+		var length := randf_range(1.1, 1.7) * clampf(0.8 + 0.2 * strength, 0.7, 1.5)
+		var start := point + flat * 0.2
+		_lay(world, space, _pool_material, start + flat * length * 0.5, point.y, flat, length,
+				randf_range(0.16, 0.24), 0.25)
+		for i in 3 + int(strength):
+			var at := point + flat * randf_range(0.6, 2.2) + flat.cross(Vector3.UP) * randfn(0.0, 0.18)
+			var size := randf_range(0.06, 0.13)
+			_lay(world, space, _drop_material, at, point.y, flat, size * 1.4, size, randf_range(0.3, 0.55))
+		return
+	for i in 3 + int(strength * 2.0):
+		var at := point + flat * randf_range(0.0, 1.2) + Vector3(randfn(0.0, 0.25), 0.0, randfn(0.0, 0.25))
+		var size := randf_range(0.18, 0.4)
+		_lay(world, space, _pool_material, at, point.y, Vector3.ZERO, size, size, randf_range(0.25, 0.7))
 
 
 ## Lays one stain at `at` (moved onto whatever is there to lie on), `length`

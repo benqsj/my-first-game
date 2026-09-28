@@ -4553,3 +4553,20 @@ next), the golem 1.9 m and never fights. The imp is first.
   after a dodge it wants 2 s before it can dodge another
   (`missile_dodge_rest`); enraged, none. wolf_run_test and wolf_mind_test
   expect some dodged, never most.
+
+## No parry; wolves see further; blood styles
+
+- **The parry is gone.** Raising the shield no longer flings it out first
+  (`SS_Parry`) and a blow met the moment it comes up is simply blocked, paid
+  in stamina like any other; there is no `parry_window`, `parry_cooldown` or
+  `_parry()` on the player any more, and the inventory no longer lists it. The
+  creatures keep their `parried()` (a thrown-back reel) for anything else that
+  knocks them back. vitals_test and skinned_rig_test check the block only.
+- **Wolves come out from further off:** they notice him at 17 m (was 11) and
+  follow to 28 m (was 18).
+- **Blood can be drawn four ways** (`Blood.style`, `Blood.use_style()`),
+  shown side by side by `_shots_tmp/blood_styles.gd`: `cubes` (as it was),
+  `gloss` (round glossy drops and wet pools that catch the light), `trail` (a
+  thin fast streak and one red brush-stroke laid the way the blade went, a few
+  drops; 18–24 s) and `mist` (a soft red mist that hangs and thins, small soft
+  stains that go in 8–12 s). The game still uses `cubes` until one is chosen.

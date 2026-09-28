@@ -117,13 +117,12 @@ func _initialize() -> void:
 	for i in 30:
 		await physics_frame
 	Input.action_press("block")
-	# With the round shield the guard goes up as a parry first — the shield
-	# flung across the blow — and settles into the block after it.
+	# No parry now: the guard goes straight up into the block.
 	var flung := false
 	for i in 70:
 		await physics_frame
 		flung = flung or anim.current_animation == "SS_Parry"
-	_check("raising the round shield parries first", flung, "")
+	_check("raising the shield goes straight into the block, no parry", not flung, "")
 	_check("holding block plays the guard", anim.current_animation == "SS_Block_Idle", anim.current_animation)
 	await _shot(player, "04_block")
 	Input.action_press("move_forward")
