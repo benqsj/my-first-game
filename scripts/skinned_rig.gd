@@ -349,7 +349,13 @@ func _configure() -> void:
 	# from the back of the shoulders to the calf: real cloth, in the wind.
 	whole_capes = {&"ashen": [{"base": Color("6b4a33"), "hem": Color("7d5b3f"), "trim": Color("3a2a1c"),
 			"pattern": "plain", "left": [0.23, 0.13, 1.56], "right": [-0.23, 0.13, 1.56], "length": 1.0,
-			"spread": 1.3}]}
+			"spread": 1.3, "cols": 9, "rows": 13,
+			# kept off his broader build: the back and the capelet over it, the
+			# breeches, the boots, the arms swinging back
+			"colliders": [["pelvis", "neck_01", 0.21], ["spine_01", "spine_02", 0.235], ["spine_02", "neck_01", 0.2],
+					["thigh_l", "calf_l", 0.15], ["thigh_r", "calf_r", 0.15], ["calf_l", "foot_l", 0.12],
+					["calf_r", "foot_r", 0.12], ["upperarm_l", "lowerarm_l", 0.1], ["upperarm_r", "lowerarm_r", 0.1],
+					["lowerarm_l", "hand_l", 0.08], ["lowerarm_r", "hand_r", 0.08]]}]}
 	capes = [{
 		"bone": "spine_02", "left": [0.21, 0.15, 1.6], "right": [-0.21, 0.15, 1.6],
 		"length": 1.15, "spread": 1.35, "flare": 0.12, "wrap": 0.13, "cols": 7, "rows": 11,
