@@ -1,0 +1,6 @@
+The assassin's looks THE BLADE and THE SHADE (rogue_face_real, rogue_face_shade):
+- Modular Character Outfits - Fantasy [Standard] by Quaternius — CC0 1.0 (the Ranger outfit, its textures)
+- Universal Base Characters [Standard] by Quaternius — CC0 1.0 (head, eyes, brows, Hair_Long)
+- Medieval Weapons by Quaternius — CC0 1.0 (Dagger)
+https://quaternius.com
+Fitted onto dagger_rig by vepxis-art/tools/dg13_ranger.py; textures cut to 2k/1k.

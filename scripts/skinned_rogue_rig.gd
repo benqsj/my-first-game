@@ -188,15 +188,30 @@ func _configure() -> void:
 	# ring too (it does not cut: the right one does).
 	off_hand_blade = true
 	off_hand_whole_only = true
-	# Who he is, picked on the hero select: the assassin made real — a lean
-	# body, smooth and skinned across the joints, in the Dune Runner's clothes,
-	# the hood up and the scarf over his mouth (tools/dg12_body.py) — or the
-	# one of boxes he was, who wears the outfits in the bag.
+	# Who he is, picked on the hero select (tools/dg13_ranger.py): Quaternius'
+	# Ranger (CC0) fitted onto his rig, in its brown leather and sand linen —
+	# THE BLADE with the hood up and his face under it, THE SHADE with the
+	# hood off, long hair, and a dark cloth over all his face but the eyes —
+	# each with a cloak; or the one of boxes he was, who wears the outfits in
+	# the bag.
 	mesh_prefix = "rogue"
-	faces = [&"real", &"box"]
-	face_skulls = [&"real", &"box"]
-	face_names = ["THE BLADE", "AS HE WAS"]
-	whole_faces = [&"real"]
+	faces = [&"real", &"shade", &"box"]
+	face_skulls = [&"real", &"shade", &"box"]
+	face_names = ["THE BLADE", "THE SHADE", "AS HE WAS"]
+	whole_faces = [&"real", &"shade"]
+	var cloak_body := [["pelvis", "neck_01", 0.17], ["spine_01", "spine_02", 0.19],
+			["thigh_l", "calf_l", 0.1], ["thigh_r", "calf_r", 0.1], ["calf_l", "foot_l", 0.085],
+			["calf_r", "foot_r", 0.085]]
+	whole_capes = {
+		&"real": [{"left": [0.19, 0.17, 1.44], "right": [-0.19, 0.17, 1.44], "length": 0.92, "spread": 1.25,
+			"flare": 0.1, "wrap": 0.1, "cols": 8, "rows": 11, "base": Color.html("4a3322"),
+			"hem": Color.html("352418"), "trim": Color.html("6b4a2c"), "pattern": "plain",
+			"colliders": cloak_body}, {"off": true}],
+		&"shade": [{"left": [0.19, 0.17, 1.44], "right": [-0.19, 0.17, 1.44], "length": 0.92, "spread": 1.25,
+			"flare": 0.1, "wrap": 0.1, "cols": 8, "rows": 11, "base": Color.html("1c1b20"),
+			"hem": Color.html("6e1420"), "trim": Color.html("4a0f18"), "pattern": "plain",
+			"colliders": cloak_body}, {"off": true}],
+	}
 	# His own knife: its whooshes, its bite, his grunt.
 	swing_sounds = [
 		"res://unverified/sounds/assassin/swing_1.wav", "res://unverified/sounds/assassin/swing_2.wav",

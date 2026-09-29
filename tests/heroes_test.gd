@@ -34,14 +34,15 @@ func _initialize() -> void:
 	await _check_rogue()
 	await _spawn(&"rogue")
 	await _check_steps("the rogue")
-	# His first outfit (the wraith's coat) wears the long cloak and no scarf tail.
-	# the outfit he starts in (the Dune Runner) goes without a cape
-	await _check_cape("the rogue", 0)
+	# a cloak only on a whole figure (the one made real, the wanderer), so it
+	# follows the look the settings have picked
+	await _check_cape("the rogue", 1 if (_player.rig as SkinnedRig).wearing_whole() else 0)
 	await _check_moves("the rogue", Player.MoveSound.STEP)
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
-	# the warrior's dress he starts in goes without a cape
-	await _check_cape("Tariel", 0)
+	# a cloak only on a whole figure (the one made real, the wanderer), so it
+	# follows the look the settings have picked
+	await _check_cape("Tariel", 1 if (_player.rig as SkinnedRig).wearing_whole() else 0)
 	await _check_moves("Tariel", Player.MoveSound.ROLL)
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig

@@ -4928,28 +4928,50 @@ landing ~3 m on with its dust and wave.
 
 The user asked for the assassin out of boxes: the old one is a figure of
 rigid boxes, each on one bone, so every joint bends like a hinge between two
-bricks — it moves in pieces. **THE BLADE** (`rogue_face_real`, built by
-`vepxis-art/tools/dg12_body.py` into `heroes.blend`) is one smooth-shaded mesh
-on the same `dagger_rig`, lofted in rings (Tariel's wanderer's `Mesh14`) and
-skinned smoothly across every joint: a lean body, a real head with eyes and
-brows, and the Dune Runner's clothes — the loose sand top bloused over the
-belt, short sleeves, brown breeches cut above the knee, leg wraps, soft boots,
-the sand hood up, the dark scarf over his mouth, the strap across the chest
-(one flat band, back over the shoulder), bracers, the belt's buckle and
-pouches, a crimson knot at the hip — and a knife in each hand. He is picked
-on the hero select as Tariel's looks are (`faces` = `real`, `box`;
-`whole_faces` = `real`, so the outfits in the bag are the old one's); THE
-BLADE comes first. The old one stays as AS HE WAS.
+bricks — it moves in pieces. A first try lofted a body by hand
+(`tools/dg12_body.py`) and was rightly thrown out: it looked worse than the
+boxes. What he wears now is professional work: **Quaternius' Ranger**
+(*Modular Character Outfits – Fantasy*, CC0) with the head, eyes, brows and
+hair of his *Universal Base Characters* (CC0), both in `vepxis-art/new-persons`,
+fitted onto `dagger_rig` by `vepxis-art/tools/dg13_ranger.py`:
+
+- Their skeleton (UE names) is posed onto `dagger_rig`'s bones — each bone's
+  head put on its partner's, stretched to the next (`COPY_LOCATION` +
+  `STRETCH_TO`; the hands, the head and the feet only turned) — after a
+  scale of 0.926 so little has to stretch. The meshes are baked in that pose
+  and their weights renamed onto `dagger_rig` (`spine_02` → `spine_01`,
+  `spine_03` → `spine_02`, `Head` → `head`, every finger → its hand). So the
+  one animation set drives both looks.
+- The clips have no fingers, so the hands are baked closed round a grip.
+- The textures are cut to 2k (clothes) and 1k (head, hair) in
+  `new-persons/mco_2k`; the Ranger is worn in his third colours — brown
+  leather, sand linen, the Dune Runner's.
+- A knife in each fist, Quaternius' *Medieval Weapons* dagger (CC0), lying
+  forward out of the thumb's side.
+
+Two looks, picked on the hero select (`faces`), both whole figures with a
+cloak of cloth (`whole_capes`): **THE BLADE**, the hood up and his face in it,
+a brown cloak; **THE SHADE**, the hood off, long hair, a dark cloth over all his
+face but a slit for the eyes, a black cloak with a crimson hem. The one of
+boxes stays as **AS HE WAS**, with the outfits in the bag. `rogue_rigged.glb`
+is 30 MB with them (it was 10).
 
 **The knife was the wrong way up.** Both knives stood up out of the back of
 the fist in the T. Every Mixamo blow is made for a blade out of the thumb's
 side, lying forward in the T as Tariel's sword does, so as the wrist turned
 to cut the knife turned over into a reverse grip — and the cut in the air
-with it. Both looks now hold it forward (the old outfits' knife turned 90° on
-the fist in Blender; `blade_rest_dir` forward). The second knife, in the left
-hand of the one made real, draws its ring too (`off_hand_whole_only`) but
-does not cut. His blows are eased into one another over 0.14 s
-(`action_blend`), not the knight's 0.1.
+with it. All the looks hold it forward now (the old outfits' knife turned 90°
+on the fist in Blender; `blade_rest_dir` forward). The second knife draws its
+ring too (`off_hand_whole_only`) but does not cut. His blows are eased into
+one another over 0.14 s (`action_blend`).
+
+**Swinging on the run.** The first cut out of a run kept the whole run under
+it, and the run's legs were laid under a body that was swinging and turning
+to its target: legs thrashing. Now that run is eased down to the swing's pace
+over 0.3 s (`Player.free_swing_ease`) — a lunge, not a glide — and the run is
+laid under a swing only while he is really going somewhere
+(`SkinnedRig.swing_stride_from`, 1.6 m/s); at a swing's own pace the clip's
+feet are his. For Tariel too.
 
 Not changed: while he coats his blade (`DG_Poison_Coat`, made for the old
-empty left hand) the one made real's left knife is still in that hand.
+empty left hand) the left knife stays in that hand.
