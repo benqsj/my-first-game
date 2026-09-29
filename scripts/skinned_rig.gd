@@ -98,6 +98,9 @@ var trail_window: Dictionary = {}
 ## more than 1.2 of a cut (a heavy blow, the end of the string).
 var arc_style: Dictionary = {}
 var arc_heavy_boost: float = 1.0
+## The off hand's arc only while a whole figure is worn (see `whole_faces`):
+## the assassin made real has a knife in that hand, the old one has none.
+var off_hand_whole_only: bool = false
 var _arc_base: Dictionary = {}
 ## A heavy blow's clip reached its `slam` share: the blade in the ground at
 ## `at`, where the shockwave goes out from. Once a blow, on every peer.
@@ -752,7 +755,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	for arc: BladeArc in [_arc, _arc_l]:
 		if arc == null:
 			continue
-		arc.emitting = trailing
+		arc.emitting = trailing and (arc == _arc or not off_hand_whole_only or wearing_whole())
 		if trailing and arc_heavy_boost != 1.0 and not _arc_base.is_empty():
 			var boost := arc_heavy_boost if cut_weight > 1.2 else 1.0
 			arc.intensity = float(_arc_base["intensity"]) * boost

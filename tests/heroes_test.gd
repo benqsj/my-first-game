@@ -255,7 +255,10 @@ func _check_rogue() -> void:
 		if not rig.get_cutting_edge().is_empty():
 			cut = true
 	_check("the knife cuts", cut)
-	_check("one knife, in one hand", not rig.off_hand_blade and rig._arc_l == null)
+	# One knife cuts, the right; the one made real has a second in his left
+	# hand, whose ring is drawn only while he is the one worn.
+	_check("one knife cuts; the left draws its ring only on the one made real",
+			rig.off_hand_blade and rig.off_hand_whole_only and rig._arc_l != null)
 	_check("the combo is six blows, each one there", rig.flurry.size() == 6
 			and rig.flurry.all(func(c: StringName) -> bool: return rig._anim.has_animation(c)))
 	_check("his roll is a flip and his dodge a twisting one", rig.clips[&"roll"] == &"DG_Flip"

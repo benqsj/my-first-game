@@ -168,16 +168,35 @@ func _configure() -> void:
 	air_cut_from = 0.2
 	plunge_from = 0.35
 	roll_share = 0.8
+	# One blow eased into the next over a little longer than a man's: at his
+	# pace the knight's 0.1 s is a snap from pose to pose.
+	action_blend = 0.14
 	# Quick hands.
 	swing_rate = 2.1
 	swing_recovery = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.4
-	# The knife: standing up out of the right fist at rest.
+	# The knife: lying forward out of the thumb's side of the right fist at
+	# rest, as Tariel's sword does. It stood up out of the back of the fist
+	# before, and every Mixamo blow — made for a blade held the other way —
+	# turned it over into a reverse grip as the wrist turned to cut, and the
+	# cut in the air with it.
 	blade_base = 0.075
 	blade_tip = 0.42
-	blade_rest_dir = Vector3.UP
-	off_hand_blade = false
+	blade_rest_dir = Vector3(0, 0, 1)
+	# The one made real carries a second knife in his left hand; it draws its
+	# ring too (it does not cut: the right one does).
+	off_hand_blade = true
+	off_hand_whole_only = true
+	# Who he is, picked on the hero select: the assassin made real — a lean
+	# body, smooth and skinned across the joints, in the Dune Runner's clothes,
+	# the hood up and the scarf over his mouth (tools/dg12_body.py) — or the
+	# one of boxes he was, who wears the outfits in the bag.
+	mesh_prefix = "rogue"
+	faces = [&"real", &"box"]
+	face_skulls = [&"real", &"box"]
+	face_names = ["THE BLADE", "AS HE WAS"]
+	whole_faces = [&"real"]
 	# His own knife: its whooshes, its bite, his grunt.
 	swing_sounds = [
 		"res://unverified/sounds/assassin/swing_1.wav", "res://unverified/sounds/assassin/swing_2.wav",

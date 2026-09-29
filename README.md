@@ -4922,3 +4922,34 @@ heavy blows). The assassin's two knives use it too, a little finer.
 Checked with `_shots_tmp/tariel_look.gd` (the string and the slam at a
 puglin, filmed from the side): four cuts in ~2.6 s, an arc on each, the slam
 landing ~3 m on with its dust and wave.
+
+
+## The assassin made real
+
+The user asked for the assassin out of boxes: the old one is a figure of
+rigid boxes, each on one bone, so every joint bends like a hinge between two
+bricks — it moves in pieces. **THE BLADE** (`rogue_face_real`, built by
+`vepxis-art/tools/dg12_body.py` into `heroes.blend`) is one smooth-shaded mesh
+on the same `dagger_rig`, lofted in rings (Tariel's wanderer's `Mesh14`) and
+skinned smoothly across every joint: a lean body, a real head with eyes and
+brows, and the Dune Runner's clothes — the loose sand top bloused over the
+belt, short sleeves, brown breeches cut above the knee, leg wraps, soft boots,
+the sand hood up, the dark scarf over his mouth, the strap across the chest
+(one flat band, back over the shoulder), bracers, the belt's buckle and
+pouches, a crimson knot at the hip — and a knife in each hand. He is picked
+on the hero select as Tariel's looks are (`faces` = `real`, `box`;
+`whole_faces` = `real`, so the outfits in the bag are the old one's); THE
+BLADE comes first. The old one stays as AS HE WAS.
+
+**The knife was the wrong way up.** Both knives stood up out of the back of
+the fist in the T. Every Mixamo blow is made for a blade out of the thumb's
+side, lying forward in the T as Tariel's sword does, so as the wrist turned
+to cut the knife turned over into a reverse grip — and the cut in the air
+with it. Both looks now hold it forward (the old outfits' knife turned 90° on
+the fist in Blender; `blade_rest_dir` forward). The second knife, in the left
+hand of the one made real, draws its ring too (`off_hand_whole_only`) but
+does not cut. His blows are eased into one another over 0.14 s
+(`action_blend`), not the knight's 0.1.
+
+Not changed: while he coats his blade (`DG_Poison_Coat`, made for the old
+empty left hand) the one made real's left knife is still in that hand.
