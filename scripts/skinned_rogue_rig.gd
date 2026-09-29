@@ -139,6 +139,11 @@ func _configure() -> void:
 		&"DG_Big_Flip": [Vector2(0.8, 0.96)],
 	}
 	carried = {&"DG_Spin_Flip_Kick": true, &"DG_Big_Flip": true, &"DG_Dual_Combo": true}
+	# Both knives cut the air bright and broad, as the dual blades do in the
+	# user's Dragonwilds videos; the heavy blows and the last cut of the string
+	# brighter and longer still.
+	arc_style = {"life": 0.18, "intensity": 1.4, "sheet": 0.7, "taper": 0.6}
+	arc_heavy_boost = 1.3
 	flurry_reset_after = 1.0
 	cut_window = {
 		&"DG_Combo_1": Vector2(0.3, 0.8), &"DG_Combo_2": Vector2(0.15, 1.0),

@@ -100,7 +100,7 @@ func _initialize() -> void:
 	await physics_frame
 	await physics_frame
 	Input.action_release("attack")
-	_check("a click throws a swing", String(rig.current_swing()).begins_with("SS_"), String(rig.current_swing()))
+	_check("a click throws a swing", rig.current_swing() == rig.flurry[0], String(rig.current_swing()))
 	var cut := false
 	var shot_taken := false
 	for i in 90:
