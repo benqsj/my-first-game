@@ -105,11 +105,11 @@ func _check_menu() -> void:
 			"'%s'" % named)
 
 	# Under the stage, who he is: for Tariel, the square-headed one he was or
-	# the warrior after Ashen; the archer has no such choice. Neither has a
-	# choice of hair.
+	# the warrior after Ashen; for the archer, the green ranger hooded or
+	# bareheaded, or the one he was. Neither has a choice of hair.
 	var face_row := (pages[2] as Control).find_child("FaceRow", true, false) as Control
 	var hair_row := (pages[2] as Control).find_child("HairRow", true, false) as Control
-	_check("the archer has no look to pick", face_row != null and face_row.modulate.a < 0.01)
+	_check("the archer has a look to pick", face_row != null and face_row.modulate.a > 0.99)
 	var face_was: int = _game.face(&"tariel")
 	menu.set("_chosen", &"tariel")
 	menu.call("_refresh_cards")

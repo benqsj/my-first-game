@@ -54,6 +54,17 @@ func _configure() -> void:
 	# His two outfits (see [Inventory]): the ranger's hooded mantle, worn; the
 	# wanderer's kaftan and cowl, in the bag.
 	garbs = [&"avtandil_ranger", &"avtandil_wanderer"]
+	# Who he is, picked on the hero select (tools/dg16_avtandil.py in
+	# vepxis-art): the assassin's green — Quaternius' Ranger (CC0) fitted onto
+	# his rig in its own shape, his own bow in the left fist and his quiver on
+	# his back — THE RANGER with the hood up and only shadow in it, THE HUNTER
+	# with the hood off, long hair and his face wrapped in dark cloth; or the
+	# one he was, in the two outfits above.
+	mesh_prefix = "avtandil"
+	faces = [&"real", &"hunter", &"box"]
+	face_skulls = [&"real", &"hunter", &"box"]
+	face_names = ["THE RANGER", "THE HUNTER", "AS HE WAS"]
+	whole_faces = [&"real", &"hunter"]
 	swing_volume = -4.0
 	clips = {
 		&"idle": &"AV_Idle_01", &"walk": &"AV_Walk_Forward", &"run": &"AV_Run_Forward",
