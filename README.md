@@ -5017,3 +5017,32 @@ feet are his. For Tariel too.
 
 Not changed: while he coats his blade (`DG_Poison_Coat`, made for the old
 empty left hand) the left knife stays in that hand.
+
+
+## Tariel the warrior in the iron helm
+
+A third look for Tariel on the hero select, **THE WARRIOR**: leather and a
+scaled coat, an iron helm with his face in its shadow, his own copper-red
+sword and no shield. `shieldless_faces` hides both shields and
+`own_sword_faces` hides Tariel's sword while he is worn. The model is
+".Fuse Warrior" by Leonardo Carvalho (Sketchfab, CC BY 4.0). The credit is in
+`assets/tariel_rigged/SOURCES.txt` and must stay with the game.
+
+It is a real rigged character: a Mixamo skeleton with fingers, with the
+helmet, sword and shield as meshes of their own. So nothing is weighted by
+us. `vepxis-art/tools/fw_fit.py` poses its skeleton onto `tariel_rig`:
+
+- The arms and legs are laid on (`COPY_LOCATION` + `STRETCH_TO`).
+- The spine, neck and head are only turned, to lean as the rig does. The feet
+  keep their own lie.
+- The fingers close as his own clip holds them.
+
+Every mesh is baked in that pose and its weights are renamed onto
+`tariel_rig`'s bones: `Hips` → `pelvis`, `Spine` → `spine_01`,
+`Spine1/2` → `spine_02`, every finger → its hand, and so on. His sword is
+turned about its grip to lie forward out of the fist, as the clips expect.
+`tools/fw_export.py` writes the glb.
+
+A first try with an AI-made model (Kingslayer, one fused surface with no
+skeleton, weighted by bone heat: `tools/ks_fit.py`) bent like rubber and was
+thrown out.
