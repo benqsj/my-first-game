@@ -755,6 +755,8 @@ func _spawn_character() -> void:
 	body.name = "Visuals"
 	add_child(body)
 	rig = body as CharacterRig
+	if rig != null and rig.has_signal(&"slammed"):
+		rig.connect(&"slammed", _on_slammed)
 	# His own body wears the hair picked on the hero select; everybody else's
 	# comes from `net_hair`.
 	var chooser := get_node_or_null("/root/Game")
@@ -828,7 +830,10 @@ func _read_actions() -> void:
 	# below this line is a way of *not* finishing the attack.
 	if is_committed():
 		if Input.is_action_just_pressed("attack"):
-			_attack_buffer = attack_buffer_time
+			if _guard_heavy() and Input.is_action_pressed("block"):
+				_heavy_buffer = attack_buffer_time
+			else:
+				_attack_buffer = attack_buffer_time
 		if _has_heavy() and Input.is_action_just_pressed("block"):
 			_heavy_buffer = attack_buffer_time
 		# A light cut that has done its work may be broken off by an evade: the
@@ -879,6 +884,11 @@ func _read_actions() -> void:
 	if _has_heavy() and Input.is_action_just_pressed("block"):
 		_attack(true)
 	elif _has_heavy() and _heavy_buffer > 0.0:
+		_attack(true)
+	elif _guard_heavy() and is_blocking and Input.is_action_just_pressed("attack"):
+		# Out of his guard: the shield comes down and the heavy blow goes.
+		_attack(true)
+	elif _guard_heavy() and _heavy_buffer > 0.0:
 		_attack(true)
 	elif not has_bow() and Input.is_action_just_pressed("attack"):
 		_attack()
@@ -2386,6 +2396,10 @@ func _attack(heavy: bool = false) -> void:
 		return
 	# Which heavy blow, before the rig's string is ended by it.
 	var blow := _heavy_blow() if heavy else -1
+	# A heavy blow out of the guard lowers the shield for as long as it lasts.
+	if heavy and is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
 	# Swinging a sword that is on your back takes it off your back first. There
 	# is no draw clip in the library, so the blade crosses back to the hand over
 	# the same beat as the wind-up rather than being drawn during it.
@@ -2450,6 +2464,32 @@ func _has_heavy() -> bool:
 		return false
 	var blows: Variant = rig.get(&"heavy")
 	return blows is Array and not (blows as Array).is_empty()
+
+
+## A hero with a shield throws his heavy blow out of his guard: the attack
+## button with the shield up (the knight's leaping slam).
+func _guard_heavy() -> bool:
+	if profile == null or not profile.can_block or has_bow() or rig == null:
+		return false
+	var blows: Variant = rig.get(&"heavy")
+	return blows is Array and not (blows as Array).is_empty()
+
+
+## A heavy blow's blade has gone into the ground (see [signal SkinnedRig.slammed]):
+## dust thrown up round it, a wave of broken earth running on the way he faces,
+## the thump of it and the ground shaking under whoever is near. Every peer
+## plays its own copy of the blow, so every peer sees and hears this.
+func _on_slammed(at: Vector3, heft: float) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var ahead := -global_basis.z
+	ahead.y = 0.0
+	DustRing.burst(world, at, 1.1 + 0.2 * heft)
+	GroundFx.eruption(world, at, 0.8)
+	GroundFx.wave(world, at, ahead.normalized(), 4.5, false, 0.9)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.18, 0.4, 14.0)
 
 
 ## Heavy blows cost this many light cuts' stamina.

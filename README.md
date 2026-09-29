@@ -4856,3 +4856,48 @@ off, 1082 on), load +0.4 s (GroundCover 0.25–0.5 s, the open sward ~0.15 s).
 `tests/ground_cover_test.gd`: it grows, every instance drawn, no shadows and a
 draw distance on the litter, nothing in the village, no log on the wolves'
 hill, the open sward there and off the square and the tracks' middles.
+
+
+## Tariel's string, after Dragonwilds
+
+The user filmed the combos he wanted from *RuneScape: Dragonwilds* (two short
+phone videos, one blade and two): every cut from a different side, a step in
+under each, about half a second a cut, a wide pale crescent behind the blade,
+a whole turn of the body to end the string, and a leap brought down into the
+ground. Tariel's string is that now (`SkinnedRig._configure`):
+
+| press | clip | what it is |
+| --- | --- | --- |
+| 1 | `TR_Axe_R2L` | a hard cut from his right to his left, stepping into it |
+| 2 | `TR_Inward` | the backhand, low and in |
+| 3 | `TR_Axe_Spin_A` | a sweep up out of a crouch |
+| 4 | `TR_GS_RunSpin` | the finisher: the body turned right round the blade, carried ~2 m on; two cuts (`cut_windows`), worth 1.6 |
+| shield up + attack | `TR_GS_JumpSlam` | the heavy blow: a leap, the sword brought down two-handed into the ground, carried to what it is thrown at |
+
+Seven clips from Mixamo (X Bot, retargeted onto `tariel_rig` with
+`retarget_mixamo.py`, in `tariel.blend`; the FBX in `vepxis-art/mixamo_tariel/`),
+five of them used. Each cut is played from a part of its clip (`flurry_part`),
+~0.5 s at `swing_rate`; the string starts over after 1.1 s without a click.
+The windows were measured in Blender from the sword's tip: past 55% of its top
+speed it cuts (`cut_window`), past 30% the arc is drawn (`trail_window`, new)
+— so the crescent covers the whole sweep while only the fast part of it hurts.
+
+**The heavy blow out of the guard.** A hero with a shield has no second
+attack button (the block button is his guard), so `Player._guard_heavy()`
+throws his heavy blow when attack is pressed *while the shield is up*; the
+shield comes down for as long as the blow lasts. A press during a swing with
+the shield held is buffered as a heavy one. The slam's spec has a `slam`
+share: when the clip reaches it the rig emits `slammed(at, heft)` once, and
+`Player._on_slammed` throws up dust (`DustRing`), a small eruption and a wave
+of broken ground running on the way he faces (`GroundFx`), the hard thud and
+a camera shake — on every peer, since every peer plays the swing. The wave is
+a look only: what the slam hurts is still what its blade passes through.
+
+**The arc** (`BladeArc`) is styled per hero from `arc_style` (life,
+intensity, sheet, taper) and brightened, widened and lengthened by
+`arc_heavy_boost` on any blow worth more than 1.2 of a cut (the finisher, the
+heavy blows). The assassin's two knives use it too, a little finer.
+
+Checked with `_shots_tmp/tariel_look.gd` (the string and the slam at a
+puglin, filmed from the side): four cuts in ~2.6 s, an arc on each, the slam
+landing ~3 m on with its dust and wave.
