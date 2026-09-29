@@ -102,10 +102,15 @@ func _configure() -> void:
 	# right to low left, and the blow down to the ground to end it. No cut
 	# faster than `flurry_min_time`, the last no faster than
 	# `finisher_min_time`: the tightest of them were a blur at his pace.
+	# The string ends in a whirl now, as the dual blades do in the user's
+	# Dragonwilds video: a whole turn low on his feet, both knives drawing a
+	# ring round him and the right one coming up out of it (the axe's turn and
+	# rising cut, the same clip as Tariel's last). The blow down to the ground
+	# it replaced is still his, among the heavy ones (DG_Axe_Three).
 	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Backhand_Cut", &"DG_Axe_R2L",
-			&"DG_Finisher"]
+			&"DG_Whirl"]
 	flurry_part = {
-		&"DG_Axe_R2L": Vector2(0.236, 0.597),
+		&"DG_Axe_R2L": Vector2(0.236, 0.597), &"DG_Whirl": Vector2(0.1, 0.62),
 	}
 	flurry_quicken = 0.0
 	flurry_min_time = 0.36
@@ -142,8 +147,10 @@ func _configure() -> void:
 	# Both knives cut the air bright and broad, as the dual blades do in the
 	# user's Dragonwilds videos; the heavy blows and the last cut of the string
 	# brighter and longer still.
-	arc_style = {"life": 0.18, "intensity": 1.4, "sheet": 0.7, "taper": 0.6}
-	arc_heavy_boost = 1.3
+	# The rings drawn wider than the short knife itself, as in the video.
+	arc_style = {"life": 0.26, "intensity": 1.0, "sheet": 0.6, "taper": 0.3, "smear": 1.0,
+			"tip_overshoot": 0.6}
+	arc_heavy_boost = 1.25
 	flurry_reset_after = 1.0
 	cut_window = {
 		&"DG_Combo_1": Vector2(0.3, 0.8), &"DG_Combo_2": Vector2(0.15, 1.0),
@@ -154,7 +161,9 @@ func _configure() -> void:
 		&"DG_Slash_Out": Vector2(0.377, 0.459), &"DG_Axe_R2L": Vector2(0.319, 0.486),
 		&"DG_Thrust_Slash": Vector2(0.211, 0.267), &"DG_Spin_Flip_Kick": Vector2(0.369, 0.441),
 		&"DG_Axe_Three": Vector2(0.175, 0.27), &"DG_Big_Flip": Vector2(0.8, 0.96),
+		&"DG_Whirl": Vector2(0.253, 0.411),
 	}
+	trail_window = {&"DG_Whirl": Vector2(0.23, 0.44)}
 	# Thrown off a jump: the double stab from its raise to the stab going in.
 	air_cut_from = 0.2
 	plunge_from = 0.35
