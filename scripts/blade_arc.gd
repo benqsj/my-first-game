@@ -44,6 +44,10 @@ extends MeshInstance3D
 @export var strand_gap: float = 0.11
 ## How much of the pale sheet behind the edge shows (0: only the lines).
 @export var sheet: float = 0.45
+## 0 the glowing hairline; 1 the broad brushed smear that goes to smoke as it
+## ages (see the shader).
+@export_range(0.0, 1.0) var smear: float = 0.0
+@export var smoke_color: Color = Color(0.52, 0.55, 0.62)
 
 var emitting: bool = false
 
@@ -83,6 +87,15 @@ func _apply_look() -> void:
 	_material.set_shader_parameter("strands", strands)
 	_material.set_shader_parameter("strand_gap", strand_gap)
 	_material.set_shader_parameter("sheet", sheet)
+	_material.set_shader_parameter("smear", smear)
+	_material.set_shader_parameter("smoke_color", smoke_color)
+
+
+## Pushes the look to the shader again after its properties have been changed
+## (they are only read into it when the arc is made).
+func restyle() -> void:
+	if _material != null:
+		_apply_look()
 
 
 func _allocate() -> void:

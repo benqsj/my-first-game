@@ -4871,8 +4871,16 @@ ground. Tariel's string is that now (`SkinnedRig._configure`):
 | 1 | `TR_Axe_R2L` | a hard cut from his right to his left, stepping into it |
 | 2 | `TR_Inward` | the backhand, low and in |
 | 3 | `TR_Axe_Spin_A` | a sweep up out of a crouch |
-| 4 | `TR_GS_RunSpin` | the finisher: the body turned right round the blade, carried ~2 m on; two cuts (`cut_windows`), worth 1.6 |
+| 4 | `TR_Axe_Rising` | the finisher: a whole turn low on his feet, the blade coming round and up with him; worth 1.6 |
 | shield up + attack | `TR_GS_JumpSlam` | the heavy blow: a leap, the sword brought down two-handed into the ground, carried to what it is thrown at |
+
+The first finisher was the great sword's running spin (`TR_GS_RunSpin`, still in
+the glb): with two hands on the hilt through his shield and a lean back it
+read as a man falling round, and two more things made it worse — a clip that
+carries him moved the body, so the run was laid under his legs
+(`swing_strides`), and the waist was bent back toward the target all through
+the turn (`StrikeAim`). Neither happens now under a clip that carries him or
+a cut of the string that does.
 
 Seven clips from Mixamo (X Bot, retargeted onto `tariel_rig` with
 `retarget_mixamo.py`, in `tariel.blend`; the FBX in `vepxis-art/mixamo_tariel/`),
@@ -4893,7 +4901,20 @@ of broken ground running on the way he faces (`GroundFx`), the hard thud and
 a camera shake — on every peer, since every peer plays the swing. The wave is
 a look only: what the slam hurts is still what its blade passes through.
 
-**The arc** (`BladeArc`) is styled per hero from `arc_style` (life,
+**The arc** (`BladeArc`) has a second look, `smear` (in `blade_arc.gdshader`):
+where the orc's axe and the wolf's claws leave a glowing hairline, the heroes'
+blades leave what the video's do — a broad pale sheet from the hilt to past
+the tip, brushed with fine streaks along the swing, crisp at the edge the tip
+swept, fraying at its far end and going to a grey-blue smoke as it ages (0.26
+s). A spin draws a whole ring. Properties set after the arc is made are only
+pushed to the shader by `restyle()` (the first cut of this set its style
+after `_ready` and the shader never saw it). The assassin's rings are drawn
+wider than his short knives (`tip_overshoot` 0.6), and his string now ends in
+the same whirl as Tariel's (`DG_Whirl`, the axe's turn retargeted onto
+`dagger_rig`, `tools/dg11_export.py`); the blow down to the ground it replaced
+is still among his heavy ones.
+
+The arc is styled per hero from `arc_style` (life,
 intensity, sheet, taper) and brightened, widened and lengthened by
 `arc_heavy_boost` on any blow worth more than 1.2 of a cut (the finisher, the
 heavy blows). The assassin's two knives use it too, a little finer.

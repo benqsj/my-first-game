@@ -351,12 +351,15 @@ func _configure() -> void:
 	strike_pull = 0.25
 	# His string, after the one the user filmed in Dragonwilds: a hard cut from
 	# his right to his left with a step into it, a backhand low and in, a sweep
-	# up out of a crouch, and to end it the whole body turned round the blade,
-	# carried two strides on. Each about 0.5 s; left for a beat, it starts over.
-	flurry = [&"TR_Axe_R2L", &"TR_Inward", &"TR_Axe_Spin_A", &"TR_GS_RunSpin"]
+	# up out of a crouch, and to end it a whole turn on his feet, low, the blade
+	# coming round and up with him. Each about 0.5 s; left for a beat, it
+	# starts over. (The great sword's running spin was the first finisher: two
+	# hands on the hilt through his shield, a run under it and a lean back —
+	# it read as a man falling round, not turning.)
+	flurry = [&"TR_Axe_R2L", &"TR_Inward", &"TR_Axe_Spin_A", &"TR_Axe_Rising"]
 	flurry_part = {
 		&"TR_Axe_R2L": Vector2(0.25, 0.62), &"TR_Inward": Vector2(0.36, 0.78),
-		&"TR_Axe_Spin_A": Vector2(0.2, 0.62), &"TR_GS_RunSpin": Vector2(0.04, 0.88),
+		&"TR_Axe_Spin_A": Vector2(0.2, 0.62), &"TR_Axe_Rising": Vector2(0.1, 0.62),
 	}
 	finisher_weight = 1.6
 	flurry_reset_after = 1.1
@@ -364,16 +367,15 @@ func _configure() -> void:
 	# 30% (the arc behind it).
 	cut_window.merge({
 		&"TR_Axe_R2L": Vector2(0.389, 0.431), &"TR_Inward": Vector2(0.485, 0.591),
-		&"TR_Axe_Spin_A": Vector2(0.36, 0.413), &"TR_GS_RunSpin": Vector2(0.125, 0.661),
+		&"TR_Axe_Spin_A": Vector2(0.36, 0.413), &"TR_Axe_Rising": Vector2(0.253, 0.411),
 		&"TR_GS_JumpSlam": Vector2(0.446, 0.6),
 	}, true)
-	cut_windows = {&"TR_GS_RunSpin": [Vector2(0.125, 0.304), Vector2(0.536, 0.661)]}
 	trail_window = {
 		&"TR_Axe_R2L": Vector2(0.319, 0.458), &"TR_Inward": Vector2(0.47, 0.606),
-		&"TR_Axe_Spin_A": Vector2(0.333, 0.467), &"TR_GS_RunSpin": Vector2(0.12, 0.67),
+		&"TR_Axe_Spin_A": Vector2(0.333, 0.467), &"TR_Axe_Rising": Vector2(0.23, 0.44),
 		&"TR_GS_JumpSlam": Vector2(0.385, 0.631),
 	}
-	carried = {&"TR_GS_RunSpin": true, &"TR_GS_JumpSlam": true}
+	carried = {&"TR_GS_JumpSlam": true}
 	# His heavy blow, thrown out of his guard (the attack button with the
 	# shield up): a leap and the sword brought down two-handed into the ground,
 	# carried to where the thing stands; the ground shakes where it goes in
@@ -384,8 +386,9 @@ func _configure() -> void:
 	]
 	# A broad, bright cut in the air, as in the videos, and brighter and longer
 	# on the finisher and the slam.
-	arc_style = {"life": 0.2, "intensity": 1.45, "sheet": 0.8, "taper": 0.55}
-	arc_heavy_boost = 1.35
+	arc_style = {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35, "smear": 1.0,
+			"tip_overshoot": 0.12}
+	arc_heavy_boost = 1.25
 	# His outfits (see [Inventory]), the first worn: the berserker's; none
 	# with a cape.
 	# His outfit (see [Inventory]): the berserker's, no cape.
@@ -629,6 +632,7 @@ func _setup_blade() -> void:
 	_arc.setup(_blade_base, _blade_tip)
 	for key: String in arc_style:
 		_arc.set(key, arc_style[key])
+	_arc.restyle()
 	_arc_base = {"life": _arc.life, "intensity": _arc.intensity, "sheet": _arc.sheet}
 	var left := _skel.find_bone("weapon_l")
 	if off_hand_blade and left >= 0:
@@ -649,6 +653,7 @@ func _setup_blade() -> void:
 		_arc_l.setup(base_l, tip_l)
 		for key: String in arc_style:
 			_arc_l.set(key, arc_style[key])
+		_arc_l.restyle()
 
 
 ## Spring bones for the cape (`cape_00`..`cape_06`) and the ponytail
@@ -753,6 +758,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			arc.intensity = float(_arc_base["intensity"]) * boost
 			arc.life = float(_arc_base["life"]) * (1.0 + (boost - 1.0) * 0.8)
 			arc.sheet = minf(float(_arc_base["sheet"]) * boost, 1.0)
+			arc.restyle()
 
 	if _role == Role.NONE:
 		_pick_base(planar_speed, airborne, dashing, vertical_speed, blocking)
@@ -771,7 +777,11 @@ func aim_strike(at: Vector3, on: bool) -> void:
 func _update_strike(delta: float) -> void:
 	if _strike == null:
 		return
-	var want := _strike_on and _role == Role.SWING and not _air_cut and (not _heavy_now or _heavy_aim)
+	# Not bent to the target through a cut of the string that turns him right
+	# round (the spin): the waist pulled back towards the target all through
+	# the turn is a man wringing himself.
+	var spinning := not _heavy_now and carried.has(_act_clip)
+	var want := _strike_on and _role == Role.SWING and not _air_cut and (not _heavy_now or _heavy_aim) and not spinning
 	# In fast, as the swing starts; out more slowly as it gives the body back.
 	_strike.weight = move_toward(_strike.weight, 1.0 if want else 0.0, delta / (0.07 if want else 0.2))
 	_strike.natural = float(strike_heights.get(_act_clip, strike_natural))
@@ -799,7 +809,10 @@ func get_cutting_edge() -> PackedVector3Array:
 func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 	if _stride == null:
 		return
-	var under := (swing_strides and _role == Role.SWING and not _air_cut) or (_role == Role.FREE and walk_under)
+	# A blow whose own clip carries him (a spin, a leap) has its own feet: a run
+	# laid under a body turning round on them is a man running on the spot.
+	var under := (swing_strides and _role == Role.SWING and not _air_cut and not carried.has(_act_clip)) \
+			or (_role == Role.FREE and walk_under)
 	var want := under and not airborne and planar > idle_threshold
 	if want:
 		var clip := _direction_clip(planar)
