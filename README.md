@@ -4945,7 +4945,15 @@ fitted onto `dagger_rig` by `vepxis-art/tools/dg14_ranger.py`:
   weights are renamed onto `dagger_rig` (`spine_02` → `spine_01`, `spine_03`
   → `spine_02`, `Head` → `head`, every finger → its hand), so the one
   animation set drives every look.
-- The clips have no fingers, so the hands are baked closed round a grip.
+- Filled out (`THICK`): Quaternius drew him slight, so each bone's flesh is
+  widened round its own length — the body 10 %, the arms and legs 12–16 % —
+  thicker without growing taller or a joint moving.
+- The clips have no fingers, so the hands are baked into fists, and the fist
+  is a real one now: every finger closed the same way (the left hand's were
+  bent backwards before), the thumb laid over the index finger's middle
+  joint (found by search in Blender), and the knife's grip put through the
+  ring the fingers draw, cut to a hand's width, the guard against the index
+  finger.
 - His own green, as Quaternius painted him; textures cut to 2k in
   `new-persons/mco_2k`.
 - A knife in each fist, Quaternius' *Medieval Weapons* dagger (CC0), lying
@@ -4954,10 +4962,37 @@ fitted onto `dagger_rig` by `vepxis-art/tools/dg14_ranger.py`:
 
 Two looks, picked on the hero select (`faces`), both whole figures with a
 cloak of cloth (`whole_capes`), and neither shows a face: **THE BLADE**, the
-hood up and nothing in it but shadow, a brown cloak; **THE SHADE**, the hood
-off, long hair round a face wrapped smooth in black cloth, a black cloak with a
-crimson hem. The one of boxes stays as **AS HE WAS**, with the outfits in the
-bag. `rogue_rigged.glb` is 27 MB with them (it was 10).
+hood up and nothing in it but shadow, chestnut hair falling out of it at the
+sides; **THE SHADE**, the hood off, long chestnut hair round a face wrapped
+smooth in black cloth, a black cloak with a crimson hem. The one of boxes
+stays as **AS HE WAS**, with the outfits in the bag. `rogue_rigged.glb` is
+27 MB with them (it was 10).
+
+### Two knives, not a sword and a shield
+
+His string began with the one-handed sword's cuts, whose left hand is tucked
+to the chest as if it held a shield: only the right knife moved, and a man
+with two knives flailing one of them looked aimless. It is a knife-fighter's
+string now, both hands at work in every blow: both knives thrown out wide
+(`DG_Slash_Out`), both brought back in across him (`DG_Slash_In`), then
+Mixamo's dual-blade combo cut into its three blows — left then right, both at
+once, both again the other way (`DG_Dual_A/B/C`, copies of `DG_Dual_Combo`,
+each blow found from the hands' speed in Blender) — and the whirl to end it.
+Each has its cut and its trail window where both hands are fastest.
+
+## Avtandil in the green
+
+Avtandil wears the same outfit (`vepxis-art/tools/dg16_avtandil.py`): the
+Ranger fitted onto `avtandil_rig` the same way, with his own bow and quiver
+lifted off his old ranger's outfit. His rig is a bigger man than the
+assassin's (head at 1.97 m, not 1.8), so the fit is done with the rig shrunk
+to the assassin's size (every measure holds) and the result grown back onto
+it. His arms are drawn in by a few cm so the left fist closes exactly on the
+bow's grip — the bow cannot move, its string and limbs are the
+`BowModifier`'s bones. Three looks on the hero select: **THE RANGER** (hood
+up, only shadow in it), **THE HUNTER** (hood off, long hair, the face
+wrapped), and **AS HE WAS**, in his two old outfits. `avtandil_rigged.glb` is
+23 MB with them (it was 5).
 
 **The knife was the wrong way up.** Both knives stood up out of the back of
 the fist in the T. Every Mixamo blow is made for a blade out of the thumb's
