@@ -300,6 +300,10 @@ var whole_faces: Array[StringName] = []
 var whole_capes: Dictionary = {}
 ## What the model's own meshes are named from.
 var mesh_prefix: String = "tariel"
+## Faces that carry no shield: while one is on, neither shield is shown.
+var shieldless_faces: Array[StringName] = []
+## Faces with a sword of their own in the figure: the model's sword is hidden.
+var own_sword_faces: Array[StringName] = []
 
 
 func _ready() -> void:
@@ -405,10 +409,17 @@ func _configure() -> void:
 	# mesh), so no outfit or hair is worn with him.
 	hairs = [&"mohawk_long"]
 	hair_names = ["LONG MOHAWK"]
-	faces = [&"box", &"ashen"]
-	face_skulls = [&"box", &"ashen"]
-	face_names = ["AS HE WAS", "THE WANDERER"]
-	whole_faces = [&"ashen"]
+	# Or the warrior in the iron helm: leather and a scaled coat, his face in
+	# the helm's shadow, his own copper-red sword and no shield (".Fuse
+	# Warrior" by Leonardo Carvalho, Sketchfab, CC-BY-4.0: a rigged Mixamo
+	# character, posed onto this rig and his weights renamed onto it by
+	# vepxis-art/tools/fw_fit.py).
+	faces = [&"box", &"ashen", &"fuse"]
+	face_skulls = [&"box", &"ashen", &"fuse"]
+	face_names = ["AS HE WAS", "THE WANDERER", "THE WARRIOR"]
+	whole_faces = [&"ashen", &"fuse"]
+	shieldless_faces = [&"fuse"]
+	own_sword_faces = [&"fuse"]
 	# The wanderer wears a cloak of plain brown wool under his capelet, hung
 	# from the back of the shoulders to the calf: real cloth, in the wind.
 	whole_capes = {&"ashen": [{"base": Color("6b4a33"), "hem": Color("7d5b3f"), "trim": Color("3a2a1c"),
@@ -1279,9 +1290,12 @@ func parry() -> void:
 ## Shows the shield that is carried and hides the other.
 func set_shield(kind: int) -> void:
 	shield_kind = kind
+	var bare := face < faces.size() and shieldless_faces.has(faces[face])
+	if _sword_mesh != null:
+		_sword_mesh.visible = not (face < faces.size() and own_sword_faces.has(faces[face]))
 	for i in _shield_meshes.size():
 		if _shield_meshes[i] != null:
-			_shield_meshes[i].visible = i == kind
+			_shield_meshes[i].visible = i == kind and not bare
 	_base_clip = &""
 
 
@@ -1336,6 +1350,8 @@ func set_face(index: int) -> void:
 			mesh.visible = i == face
 	set_hair(hair)
 	set_garb(garb)
+	if not _shield_meshes.is_empty():
+		set_shield(shield_kind)
 
 
 ## Whether the face that is on is a whole figure (see `whole_faces`).

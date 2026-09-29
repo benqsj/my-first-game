@@ -54,8 +54,9 @@ func _initialize() -> void:
 	var cloth := rig.find_child("Cloth", true, false) as SpringBoneSimulator3D
 	_check("the ponytail hangs off spring bones", cloth != null and cloth.get_setting_count() == 1, "")
 	# The warrior's dress he starts in goes without a cape.
-	_check("the berserker goes without a cape, the wanderer with his cloak",
-			rig.cloth_capes.size() == (1 if rig.wearing_whole() else 0), "%d" % rig.cloth_capes.size())
+	_check("the berserker goes without a cape, the wanderer with his cloak, the warrior without",
+			rig.cloth_capes.size() == (1 if rig.wearing_whole() and rig.whole_capes.has(rig.faces[rig.face]) else 0),
+			"%d" % rig.cloth_capes.size())
 	# His face and his hair are meshes of their own: the square head and its
 	# long mohawk, one of each worn; the warrior after Ashen a whole figure.
 	var worn := 0
@@ -73,7 +74,7 @@ func _initialize() -> void:
 		if face_mesh != null:
 			faces_found += 1
 			faces_worn += 1 if face_mesh.visible else 0
-	_check("his looks: both in the model, one worn", faces_found == 2 and faces_worn == 1,
+	_check("his looks: all in the model, one worn", faces_found == rig.faces.size() and faces_worn == 1,
 			"%d found, %d worn" % [faces_found, faces_worn])
 	# The warrior worn: he alone shows, no outfit and no hair over him.
 	var face_was := rig.face
@@ -87,6 +88,16 @@ func _initialize() -> void:
 	var whole := rig.find_child("tariel_face_ashen", true, false) as MeshInstance3D
 	_check("the warrior worn whole, nothing over him", whole != null and whole.visible and over == 0,
 			"%d over" % over)
+	# The warrior in the iron helm: whole too, his own sword, no shield.
+	rig.set_face(rig.faces.find(&"fuse"))
+	var king := rig.find_child("tariel_face_fuse", true, false) as MeshInstance3D
+	var shields := 0
+	for n in ["tariel_shield", "tariel_tower_shield"]:
+		var sm := rig.find_child(n, true, false) as MeshInstance3D
+		shields += 1 if sm != null and sm.visible else 0
+	var sword := rig.find_child("tariel_sword", true, false) as MeshInstance3D
+	_check("the warrior worn whole, with his own sword and no shield", king != null and king.visible
+			and shields == 0 and sword != null and not sword.visible, "%d shields shown" % shields)
 	rig.set_face(face_was)
 	if not rig.cloth_capes.is_empty():
 		var fwd := -player.global_transform.basis.z

@@ -1,0 +1,12 @@
+tariel_face_fuse ("THE WARRIOR") is made from:
+
+  ".Fuse Warrior" by Leonardo Carvalho
+  https://sketchfab.com/3d-models/fuse-warrior-6e8a032cedf9426fbc31ee3a49a4300d
+  Licensed under CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+
+  Changes: posed onto Tariel's skeleton and its weights renamed onto it, the
+  sword turned to lie forward out of the fist, the shield left off, the face
+  under the helm darkened (vepxis-art/tools/fw_fit.py).
+
+The rest of the model (the rig, the other looks, the sword and shields) is the
+project's own.

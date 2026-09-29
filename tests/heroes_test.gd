@@ -42,7 +42,9 @@ func _initialize() -> void:
 	await _check_steps("Tariel")
 	# a cloak only on a whole figure (the one made real, the wanderer), so it
 	# follows the look the settings have picked
-	await _check_cape("Tariel", 1 if (_player.rig as SkinnedRig).wearing_whole() else 0)
+	# The wanderer wears a cloak; the warrior in the iron helm none.
+	var knight := _player.rig as SkinnedRig
+	await _check_cape("Tariel", 1 if knight.wearing_whole() and knight.whole_capes.has(knight.faces[knight.face]) else 0)
 	await _check_moves("Tariel", Player.MoveSound.ROLL)
 	await _check_chain("Tariel")
 	var trig := _player.rig as SkinnedRig
