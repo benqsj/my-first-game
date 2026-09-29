@@ -4946,15 +4946,19 @@ fitted onto `dagger_rig` by `vepxis-art/tools/dg14_ranger.py`:
   → `spine_02`, `Head` → `head`, every finger → its hand), so the one
   animation set drives every look.
 - Filled out (`THICK`): Quaternius drew him slight, so each bone's flesh is
-  widened round its own length — the body 10 %, the arms and legs 12–16 % —
-  thicker without growing taller or a joint moving.
+  widened round its own length — the chest 12–14 %, the arms 26–34 % (they
+  were a boy's under a man's legs), the legs barely (2–4 %) — without his
+  growing taller or a joint moving.
 - The clips have no fingers, so the hands are baked into fists, and the fist
   is a real one now: every finger closed the same way (the left hand's were
   bent backwards before), the thumb laid over the index finger's middle
   joint (found by search in Blender), and the knife's grip put through the
   ring the fingers draw, cut to a hand's width, the guard against the index
   finger.
-- His own green, as Quaternius painted him; textures cut to 2k in
+- Out of the green, which is Avtandil's: the Ranger's own painting recoloured
+  by `vepxis-art/tools/dg17_recolour.py` (greens and browns moved apart, the
+  shading kept) — charcoal cloth and oxblood leather for THE BLADE, crimson
+  cloth and near-black leather for THE SHADE; textures cut to 2k in
   `new-persons/mco_2k`.
 - A knife in each fist, Quaternius' *Medieval Weapons* dagger (CC0), lying
   forward out of the thumb's side, in dark oiled steel with a bright honed
