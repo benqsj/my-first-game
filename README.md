@@ -4933,28 +4933,31 @@ bricks — it moves in pieces. A first try lofted a body by hand
 boxes. What he wears now is professional work: **Quaternius' Ranger**
 (*Modular Character Outfits – Fantasy*, CC0) with the head, eyes, brows and
 hair of his *Universal Base Characters* (CC0), both in `vepxis-art/new-persons`,
-fitted onto `dagger_rig` by `vepxis-art/tools/dg13_ranger.py`:
+fitted onto `dagger_rig` by `vepxis-art/tools/dg14_ranger.py`:
 
-- Their skeleton (UE names) is posed onto `dagger_rig`'s bones — each bone's
-  head put on its partner's, stretched to the next (`COPY_LOCATION` +
-  `STRETCH_TO`; the hands, the head and the feet only turned) — after a
-  scale of 0.926 so little has to stretch. The meshes are baked in that pose
-  and their weights renamed onto `dagger_rig` (`spine_02` → `spine_01`,
-  `spine_03` → `spine_02`, `Head` → `head`, every finger → its hand). So the
-  one animation set drives both looks.
+- The Ranger keeps his own shape. `dagger_rig` is a box skeleton — hips 14 cm
+  apart, a straight spine, a 5 cm neck — and laying the Ranger's bones onto it
+  (the first fit, `dg13`) spread his legs wide and bent his head down. Now
+  only the arms are laid onto `dagger_rig`'s (each bone's head on its
+  partner's, stretched to the next, so the knives sit where its hands are);
+  body, legs, neck and head stay as Quaternius made them, at a scale of 0.95
+  where the two skeletons' joints lie within a few cm of each other. The
+  weights are renamed onto `dagger_rig` (`spine_02` → `spine_01`, `spine_03`
+  → `spine_02`, `Head` → `head`, every finger → its hand), so the one
+  animation set drives every look.
 - The clips have no fingers, so the hands are baked closed round a grip.
-- The textures are cut to 2k (clothes) and 1k (head, hair) in
-  `new-persons/mco_2k`; the Ranger is worn in his third colours — brown
-  leather, sand linen, the Dune Runner's.
+- His own green, as Quaternius painted him; textures cut to 2k in
+  `new-persons/mco_2k`.
 - A knife in each fist, Quaternius' *Medieval Weapons* dagger (CC0), lying
-  forward out of the thumb's side.
+  forward out of the thumb's side, in dark oiled steel with a bright honed
+  edge, a dark bronze guard and a leather-wrapped grip.
 
 Two looks, picked on the hero select (`faces`), both whole figures with a
-cloak of cloth (`whole_capes`): **THE BLADE**, the hood up and his face in it,
-a brown cloak; **THE SHADE**, the hood off, long hair, a dark cloth over all his
-face but a slit for the eyes, a black cloak with a crimson hem. The one of
-boxes stays as **AS HE WAS**, with the outfits in the bag. `rogue_rigged.glb`
-is 30 MB with them (it was 10).
+cloak of cloth (`whole_capes`), and neither shows a face: **THE BLADE**, the
+hood up and nothing in it but shadow, a brown cloak; **THE SHADE**, the hood
+off, long hair round a face wrapped smooth in black cloth, a black cloak with a
+crimson hem. The one of boxes stays as **AS HE WAS**, with the outfits in the
+bag. `rogue_rigged.glb` is 27 MB with them (it was 10).
 
 **The knife was the wrong way up.** Both knives stood up out of the back of
 the fist in the T. Every Mixamo blow is made for a blade out of the thumb's
