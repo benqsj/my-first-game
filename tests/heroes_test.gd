@@ -240,7 +240,7 @@ func _check_rogue() -> void:
 	await physics_frame
 	await physics_frame
 	Input.action_release("attack")
-	_check("a click is the first blow of the combo", String(rig.current_swing()) == "DG_Combo_1",
+	_check("a click is the first blow of the combo: both knives thrown out", String(rig.current_swing()) == "DG_Slash_Out",
 			String(rig.current_swing()))
 	# The whoosh comes with the cut, a moment into the swing.
 	var heard := false

@@ -107,10 +107,19 @@ func _configure() -> void:
 	# ring round him and the right one coming up out of it (the axe's turn and
 	# rising cut, the same clip as Tariel's last). The blow down to the ground
 	# it replaced is still his, among the heavy ones (DG_Axe_Three).
-	flurry = [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Backhand_Cut", &"DG_Axe_R2L",
-			&"DG_Whirl"]
+	# And now a string for two knives, not for a sword and a shield: the first
+	# cuts were the one-handed sword's, the left hand tucked to the chest as if
+	# it held a shield, only the right knife moving — a man flailing one knife.
+	# Now both work, as a knife-fighter's do: both knives thrown out wide, both
+	# brought back in across him, then Mixamo's dual-blade combo cut into its
+	# three blows (left then right; both at once; both again, the other way —
+	# DG_Dual_A/B/C, copies of DG_Dual_Combo, measured off the hands' speed in
+	# Blender), and the whirl to end it.
+	flurry = [&"DG_Slash_Out", &"DG_Slash_In", &"DG_Dual_A", &"DG_Dual_B", &"DG_Dual_C", &"DG_Whirl"]
 	flurry_part = {
-		&"DG_Axe_R2L": Vector2(0.236, 0.597), &"DG_Whirl": Vector2(0.1, 0.62),
+		&"DG_Slash_Out": Vector2(0.22, 0.6), &"DG_Slash_In": Vector2(0.36, 0.7),
+		&"DG_Dual_A": Vector2(0.1, 0.36), &"DG_Dual_B": Vector2(0.36, 0.57),
+		&"DG_Dual_C": Vector2(0.57, 0.82), &"DG_Whirl": Vector2(0.1, 0.62),
 	}
 	flurry_quicken = 0.0
 	flurry_min_time = 0.36
@@ -158,12 +167,18 @@ func _configure() -> void:
 		&"DG_Backhand_Cut": Vector2(0.2, 0.8), &"DG_Combo_4": Vector2(0.31, 0.88),
 		&"DG_Combo_5": Vector2(0.0, 0.89), &"DG_Finisher": Vector2(0.35, 0.8),
 		&"DG_Double_Stab": Vector2(0.326, 0.37), &"DG_Dual_Combo": Vector2(0.257, 0.743),
-		&"DG_Slash_Out": Vector2(0.377, 0.459), &"DG_Axe_R2L": Vector2(0.319, 0.486),
+		&"DG_Slash_Out": Vector2(0.38, 0.49), &"DG_Axe_R2L": Vector2(0.319, 0.486),
 		&"DG_Thrust_Slash": Vector2(0.211, 0.267), &"DG_Spin_Flip_Kick": Vector2(0.369, 0.441),
 		&"DG_Axe_Three": Vector2(0.175, 0.27), &"DG_Big_Flip": Vector2(0.8, 0.96),
 		&"DG_Whirl": Vector2(0.253, 0.411),
+		&"DG_Slash_In": Vector2(0.47, 0.6), &"DG_Dual_A": Vector2(0.15, 0.33),
+		&"DG_Dual_B": Vector2(0.43, 0.52), &"DG_Dual_C": Vector2(0.66, 0.75),
 	}
-	trail_window = {&"DG_Whirl": Vector2(0.23, 0.44)}
+	trail_window = {
+		&"DG_Whirl": Vector2(0.23, 0.44), &"DG_Slash_Out": Vector2(0.34, 0.52),
+		&"DG_Slash_In": Vector2(0.44, 0.63), &"DG_Dual_A": Vector2(0.13, 0.35),
+		&"DG_Dual_B": Vector2(0.41, 0.55), &"DG_Dual_C": Vector2(0.63, 0.78),
+	}
 	# Thrown off a jump: the double stab from its raise to the stab going in.
 	air_cut_from = 0.2
 	plunge_from = 0.35
