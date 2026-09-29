@@ -501,6 +501,10 @@ var _heavy_buffer: float = 0.0
 ## The first swing does; the ones chained off it do not.
 var _swing_chain: int = 0
 var _free_swing: bool = false
+## When the swing in hand was thrown, and how long the run a first cut is
+## thrown out of lasts under it before it is down to the swing's pace.
+var _swing_t0: float = -100.0
+@export var free_swing_ease: float = 0.3
 ## True while a cut thrown in the air still owes the ground its landing.
 var _plunging: bool = false
 ## How long is left before a flurry is considered over and the next swing counts
@@ -923,6 +927,13 @@ func _process_locomotion(delta: float) -> void:
 		speed = minf(speed, walk_speed)
 	elif is_committed() and not _free_swing:
 		speed *= commit_speed_scale
+	elif is_committed() and is_on_floor():
+		# The first cut out of a run keeps its run only for a step: eased down
+		# to the swing's pace over `free_swing_ease`, so the charge lands in a
+		# lunge instead of the whole cut gliding on at a run with legs running
+		# under a body that is swinging.
+		var eased := clampf((_now() - _swing_t0) / maxf(free_swing_ease, 0.01), 0.0, 1.0)
+		speed *= lerpf(1.0, commit_speed_scale, eased)
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
 	if _root_timer > 0.0:
@@ -2439,6 +2450,7 @@ func _attack(heavy: bool = false) -> void:
 	# committed their momentum to, and damping it turns a charge into a shuffle.
 	var airborne := not is_on_floor()
 	_free_swing = _swing_chain == 0 or airborne
+	_swing_t0 = _now()
 	_swing_chain += 1
 	# A cut thrown in the air is a **plunge**, and a plunge is owed its landing:
 	# whatever it passes through on the way down, it finishes in the ground.

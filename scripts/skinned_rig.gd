@@ -191,6 +191,8 @@ var _last_attack_at: float = -100.0
 ## A swing thrown on the move keeps running legs under it (see
 ## [StrideModifier]) instead of skating on the clip's planted feet.
 @export var swing_strides: bool = true
+## How fast he must be going under a swing for the run to be laid under it.
+@export var swing_stride_from: float = 1.6
 ## How quickly the legs go over to the stride and back, in seconds.
 @export var stride_blend: float = 0.12
 
@@ -816,7 +818,11 @@ func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 	# laid under a body turning round on them is a man running on the spot.
 	var under := (swing_strides and _role == Role.SWING and not _air_cut and not carried.has(_act_clip)) \
 			or (_role == Role.FREE and walk_under)
-	var want := under and not airborne and planar > idle_threshold
+	# Only under a swing that is really going somewhere: at a swing's own pace
+	# (a man stepping into his cut) the clip's feet are his, and a walk laid
+	# under them is legs shuffling on the spot under a body that is cutting.
+	var least := idle_threshold if _role != Role.SWING else maxf(idle_threshold, swing_stride_from)
+	var want := under and not airborne and planar > least
 	if want:
 		var clip := _direction_clip(planar)
 		if _anim.has_animation(clip):
