@@ -1,0 +1,2 @@
+Unity Asset Store: Knight of darkness 2 by Anton Puzanov (Standard EULA)
+Built by vepxis-art tools/bl_mixfig.py (VX_HERO=tariel VX_FIG=darkknight).

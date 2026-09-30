@@ -56,6 +56,14 @@ extends CharacterBody3D
 ## Clips in `clip_source` that are cycles (a file out of Blender carries no
 ## loop flag).
 @export var loop_clips: PackedStringArray = PackedStringArray()
+## For a skeleton of its own rather than the mannequin's: the bone whose
+## travel is played (the hips), and the two feet a stride is measured between.
+## Whether the body is lifted so its lowest point stands on the ground. Off
+## for a model already standing on its feet at the origin, whose weapon hangs
+## below them at rest (vepxis-art tools/mon_build.py).
+@export var settle_on_ground: bool = true
+@export var hips_bone: String = "pelvis"
+@export var foot_bones: PackedStringArray = PackedStringArray(["foot_l", "foot_r"])
 
 @export_group("Appearance")
 ## Size the creature is drawn at, on top of whatever the `Visuals` node already
@@ -102,7 +110,8 @@ func _ready() -> void:
 		body.scale = Vector3.ONE * visual_scale
 		_body_rest_y = body.position.y
 		_wear_skin()
-		_settle_on_ground()
+		if settle_on_ground:
+			_settle_on_ground()
 		_start_animation()
 
 	_fidget_in = _rng.randf_range(2.0, maxf(fidget_interval, 2.0))
@@ -181,6 +190,8 @@ func _start_animation() -> void:
 	_anim = SkeletonAnim.new()
 	_anim.name = "Anim"
 	add_child(_anim)
+	_anim.hips_name = hips_bone
+	_anim.feet = foot_bones
 	if not _anim.setup(_skeleton, clip_source):
 		_anim.queue_free()
 		_anim = null

@@ -1,0 +1,112 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="PackedScene" path="res://assets/monsters/dragon_souleater/dragon_souleater.glb" id="2_model"]
+[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_body"]
+radius = 1.4
+height = 2.9
+
+[sub_resource type="SceneReplicationConfig" id="Repl_body"]
+properties/0/path = NodePath("NetSmooth:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("NetSmooth:net_rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:velocity")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath(".:stamina")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:is_dead")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:mode")
+properties/6/spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:act")
+properties/7/spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath(".:act_serial")
+properties/8/spawn = true
+properties/8/replication_mode = 2
+properties/9/path = NodePath("NetSmooth:net_stamp")
+properties/9/spawn = true
+properties/9/replication_mode = 1
+
+[node name="DragonSoulEater" type="CharacterBody3D" groups=["enemy"]]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_fighter")
+speed = 1.6
+roam_radius = 3.0
+rest_time = 2.4
+step_height = 0.76
+walk_clip = &"DS_Walk"
+idle_clip = &"DS_Idle"
+fidget_clip = &"DS_Idle"
+fidget_interval = 0.0
+clip_source = "res://assets/monsters/dragon_souleater/dragon_souleater.glb"
+loop_clips = PackedStringArray("DS_Idle", "DS_Walk", "DS_Run")
+settle_on_ground = false
+hips_bone = "Root_Pelvis"
+foot_bones = PackedStringArray("Toe_Left", "Toe_Right")
+sight_range = 22
+leash_radius = 55.0
+chase_speed = 4.4
+chase_retime_max = 2.2
+max_health = 1300
+bar_height = 3.67
+body_radius = 1.26
+body_height = 2.89
+max_stamina = 200
+block_chance = 0.0
+dash_chance = 0.0
+p_def = 45
+m_def = 30
+reach = 4.0
+hit_damage = 60
+attack_cooldown = Vector2(1.2, 2.6)
+attack_clip = &"DS_BasicAttack"
+block_clip = &"DS_GetHit"
+dash_clip = &"DS_GetHit"
+break_clip = &"DS_GetHit"
+death_clip = &"DS_Die"
+guard_idle_clip = &"DS_Idle"
+dies_by_clip = true
+clip_meta = "res://assets/monsters/dragon_souleater/dragon_souleater_clip_meta.json"
+run_clip = &"DS_Run"
+run_above = 3.2
+weapon_tip = Vector3(0, 0.8, 0)
+weapon_radius = 0.8
+strike_off = 2.4
+close_speed = 4.4
+attacks = Array[StringName]([&"DS_BasicAttack", &"DS_TailAttack"])
+strike_bones = PackedStringArray("Head", "Tail03")
+weapon_bone = &"Head"
+hit_clip = &"DS_GetHit"
+big_attacks = Array[StringName]([&"DS_FireballShoot"])
+big_reach = 10.0
+roar_clip = &"DS_Scream"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.45, 0)
+shape = SubResource("Capsule_body")
+
+[node name="Visuals" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Model" parent="Visuals" instance=ExtResource("2_model")]
+
+[node name="Body" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.033
+replication_config = SubResource("Repl_body")
+
+[node name="NetSmooth" type="Node" parent="."]
+script = ExtResource("net_smooth")

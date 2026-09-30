@@ -1,0 +1,2 @@
+Unity Asset Store: One_Eye_Monster by Garshasp (Standard EULA). Clips: Mixamo.
+On its own skeleton; built by vepxis-art tools/mon_build.py ogre.

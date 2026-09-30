@@ -1,0 +1,2 @@
+free3d.com: Centaur (Centaur_17_exprt.blend), with its own 20 clips. Check the free3d page for its licence before shipping.
+On its own skeleton; built by vepxis-art tools/mon_build.py centaur.

@@ -14,6 +14,10 @@ extends Control
 ## picked onto the `Game` autoload and hands the connection to [Net].
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
+## The empty floor to try creatures, bosses and looks on ([ArenaPanel]).
+const ARENA := "res://scenes/world/test_arena.tscn"
+## Whether START goes to the arena rather than the land.
+var _arena: bool = false
 const NetScript := preload("res://scripts/net.gd")
 
 ## The three columns of the character screen, in pixels: a roster tile, and the
@@ -187,9 +191,14 @@ func _build_mode() -> Control:
 	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	buttons.add_child(MenuStyle.button("ALONE", func() -> void:
 			_multiplayer = false
+			_arena = false
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("WITH COMPANIONS", func() -> void:
 			_multiplayer = true
+			_show(Page.CHARACTERS)))
+	buttons.add_child(MenuStyle.button("TEST ARENA", func() -> void:
+			_multiplayer = false
+			_arena = true
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	column.add_child(buttons)
@@ -860,7 +869,7 @@ func _start() -> void:
 	# game with a peer left over from last time still holding a socket open.
 	if _net != null:
 		_net.call("leave")
-	get_tree().change_scene_to_file(WORLD)
+	get_tree().change_scene_to_file(ARENA if _arena else WORLD)
 
 
 ## Opens the game to others and goes straight in. The host is a player.

@@ -1,0 +1,2 @@
+Unity Asset Store: Dragon for Boss Monster : HP by Dungeon Mason (Standard EULA), with its own clips.
+On its own skeleton; built by vepxis-art tools/mon_build.py dragon_terror.

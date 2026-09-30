@@ -457,11 +457,13 @@ func _configure() -> void:
 	#   tools/sk_build.py): THE PALADIN and THE HOODED as Synty made them, THE
 	#   SWORN bareheaded and bearded in the knight's plate, THE IRON KNIGHT in
 	#   the plate in steel and blue.
-	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
+	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
+			&"darkknight"]
 	face_skulls = faces.duplicate()
 	face_names = ["AS HE WAS", "THE WANDERER", "THE WARRIOR", "THE SQUIRE", "THE KNIGHT",
-			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT"]
-	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
+			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT", "THE DARK KNIGHT"]
+	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
+			&"darkknight"]
 	whole_faces = [&"ashen", &"fuse"]
 	whole_faces.append_array(on_figures)
 	shieldless_faces = [&"fuse"]
@@ -492,6 +494,10 @@ func _configure() -> void:
 				&"thigh_r": &"thigh_r", &"calf_r": &"calf_r", &"foot_r": &"foot_r", &"ball_r": &"ball_r",
 				&"thigh_l": &"thigh_l", &"calf_l": &"calf_l", &"foot_l": &"foot_l", &"ball_l": &"ball_l",
 			}},
+		# THE DARK KNIGHT: Anton Puzanov's Knight of darkness on its own
+		# mannequin-named skeleton (vepxis-art tools/bl_mixfig.py, VX_FIG=darkknight).
+		&"darkknight": {"scene": "res://assets/tariel_darkknight/tariel_darkknight.glb", "prefix": "dk",
+			"hips": &"pelvis", "map": SkinnedRig.sidekick_map({&"weapon_r": &"weapon_r", &"shield_l": &"shield_l"})},
 	}
 	figure_faces = {
 		&"squire": {"figure": &"blink", "show": ["body_", "starter_"], "hide": ["body_underwear"]},
@@ -500,6 +506,7 @@ func _configure() -> void:
 		&"hooded": {"figure": &"sidekick", "show": ["hooded"]},
 		&"sworn": {"figure": &"sidekick", "show": ["sworn"]},
 		&"iron": {"figure": &"sidekick", "show": ["iron"]},
+		&"darkknight": {"figure": &"darkknight", "show": ["body"]},
 	}
 	# The wanderer wears a cloak of plain brown wool under his capelet, hung
 	# from the back of the shoulders to the calf: real cloth, in the wind.
@@ -1482,6 +1489,23 @@ static func sidekick_map(extra: Dictionary) -> Dictionary:
 			"thigh_l", "calf_l", "foot_l", "ball_l"]:
 		map[StringName(b)] = StringName(b)
 	map[&"spine_03"] = &"spine_02"
+	map.merge(extra)
+	return map
+
+
+## The same for a model rigged to Mixamo's skeleton (the "mixamorig:" taken
+## off its names, vepxis-art tools/bl_mixfig.py); its middle spine bone rides
+## the first.
+static func mixamo_map(extra: Dictionary) -> Dictionary:
+	var map := {
+		&"Hips": &"pelvis", &"Spine": &"spine_01", &"Spine2": &"spine_02", &"Neck": &"neck_01", &"Head": &"head",
+		&"RightShoulder": &"clavicle_r", &"RightArm": &"upperarm_r", &"RightForeArm": &"lowerarm_r",
+		&"RightHand": &"hand_r",
+		&"LeftShoulder": &"clavicle_l", &"LeftArm": &"upperarm_l", &"LeftForeArm": &"lowerarm_l",
+		&"LeftHand": &"hand_l",
+		&"RightUpLeg": &"thigh_r", &"RightLeg": &"calf_r", &"RightFoot": &"foot_r", &"RightToeBase": &"ball_r",
+		&"LeftUpLeg": &"thigh_l", &"LeftLeg": &"calf_l", &"LeftFoot": &"foot_l", &"LeftToeBase": &"ball_l",
+	}
 	map.merge(extra)
 	return map
 

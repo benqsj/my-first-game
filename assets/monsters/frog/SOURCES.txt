@@ -1,0 +1,2 @@
+Unity Asset Store: Frog Marauder (Pixelated Texture) by AngeloMaN87 (Standard EULA). Clips: Mixamo.
+On its own skeleton; built by vepxis-art tools/mon_build.py frog.

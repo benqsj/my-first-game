@@ -40,6 +40,12 @@ const SKIP_PREFIXES: PackedStringArray = [
 	"index_", "middle_", "pinky_", "ring_", "thumb_",
 ]
 
+## The bone whose travel is carried across as well as its turn, and the two
+## the stride is measured between — the mannequin's names unless the owner, a
+## creature on a skeleton of its own ([Brawler]), says others before `setup`.
+var hips_name: String = "pelvis"
+var feet: PackedStringArray = PackedStringArray(["foot_l", "foot_r"])
+
 var _skeleton: Skeleton3D
 var _player: AnimationPlayer
 var _target: Skeleton3D
@@ -145,8 +151,8 @@ func _pair_bones() -> void:
 		_rest_delta.append(_dst_rest[-1] * _src_rest_inverse[-1])
 		_dst_rest_rotation.append(_target.get_bone_rest(dst).basis.get_rotation_quaternion())
 
-	_src_pelvis = _skeleton.find_bone("pelvis")
-	_dst_pelvis = _target.find_bone("pelvis")
+	_src_pelvis = _skeleton.find_bone(hips_name)
+	_dst_pelvis = _target.find_bone(hips_name)
 	if _src_pelvis >= 0 and _dst_pelvis >= 0:
 		_pelvis_rest = _skeleton.get_bone_rest(_src_pelvis).origin
 		_dst_pelvis_rest = _target.get_bone_rest(_dst_pelvis).origin
@@ -333,8 +339,8 @@ func measure_stride(clip: StringName) -> float:
 		return 0.0
 	if _stride_cache.has(clip):
 		return float(_stride_cache[clip]) * 2.0 * _limb_scale
-	var left := _skeleton.find_bone("foot_l")
-	var right := _skeleton.find_bone("foot_r")
+	var left := _skeleton.find_bone(feet[0])
+	var right := _skeleton.find_bone(feet[1])
 	if left < 0 or right < 0:
 		return 0.0
 

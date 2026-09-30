@@ -1,0 +1,2 @@
+BlenderKit: Sci-Fi Ninja Rigged Character (see its BlenderKit page for the licence)
+Built by vepxis-art tools/bl_mixfig.py (VX_HERO=rogue VX_FIG=ninja).

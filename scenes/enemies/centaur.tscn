@@ -1,0 +1,110 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="PackedScene" path="res://assets/monsters/centaur/centaur.glb" id="2_model"]
+[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_body"]
+radius = 0.9
+height = 2.16
+
+[sub_resource type="SceneReplicationConfig" id="Repl_body"]
+properties/0/path = NodePath("NetSmooth:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("NetSmooth:net_rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:velocity")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath(".:stamina")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:is_dead")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:mode")
+properties/6/spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:act")
+properties/7/spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath(".:act_serial")
+properties/8/spawn = true
+properties/8/replication_mode = 2
+properties/9/path = NodePath("NetSmooth:net_stamp")
+properties/9/spawn = true
+properties/9/replication_mode = 1
+
+[node name="Centaur" type="CharacterBody3D" groups=["enemy"]]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_fighter")
+speed = 1.8
+roam_radius = 3.0
+rest_time = 2.4
+step_height = 0.6
+walk_clip = &"CT_Walk1"
+idle_clip = &"CT_Idle1"
+fidget_clip = &"CT_Idle1"
+fidget_interval = 0.0
+clip_source = "res://assets/monsters/centaur/centaur.glb"
+loop_clips = PackedStringArray("CT_Idle1", "CT_Walk1", "CT_Run", "CT_Battle_Idle")
+settle_on_ground = false
+hips_bone = "Hip"
+foot_bones = PackedStringArray("r_hoof.L", "r_hoof.R")
+sight_range = 18
+leash_radius = 45.0
+chase_speed = 4.2
+chase_retime_max = 2.2
+max_health = 800
+bar_height = 2.92
+body_radius = 0.81
+body_height = 2.29
+max_stamina = 200
+block_chance = 0.0
+dash_chance = 0.0
+p_def = 35
+m_def = 25
+reach = 3.2
+hit_damage = 50
+attack_cooldown = Vector2(1.2, 2.6)
+attack_clip = &"CT_Attack1"
+block_clip = &"CT_Hit1"
+dash_clip = &"CT_Hit1"
+break_clip = &"CT_Hit1"
+death_clip = &"CT_Death1"
+guard_idle_clip = &"CT_Battle_Idle"
+dies_by_clip = true
+clip_meta = "res://assets/monsters/centaur/centaur_clip_meta.json"
+run_clip = &"CT_Run"
+run_above = 3.0
+weapon_tip = Vector3(0, 1.2, 0)
+weapon_radius = 0.5
+strike_off = 1.92
+close_speed = 4.2
+attacks = Array[StringName]([&"CT_Attack1", &"CT_Attack2", &"CT_Attack3"])
+strike_bones = PackedStringArray("weapon_bone")
+weapon_bone = &"weapon_bone"
+hit_clip = &"CT_Hit1"
+roar_clip = &"CT_Bat_Idle_Trick"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.08, 0)
+shape = SubResource("Capsule_body")
+
+[node name="Visuals" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Model" parent="Visuals" instance=ExtResource("2_model")]
+
+[node name="Body" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.033
+replication_config = SubResource("Repl_body")
+
+[node name="NetSmooth" type="Node" parent="."]
+script = ExtResource("net_smooth")

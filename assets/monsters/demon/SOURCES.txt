@@ -1,0 +1,2 @@
+Unity Asset Store: Monster Low Poly by Khornes (Standard EULA). Clips: the minotaur's (minotaur1 by ninj4ext).
+On its own skeleton; built by vepxis-art tools/mon_build.py demon.

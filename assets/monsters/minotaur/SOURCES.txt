@@ -1,0 +1,2 @@
+Unity Asset Store: minotaur1 by ninj4ext (Standard EULA), with its own 17 clips.
+On its own skeleton; built by vepxis-art tools/mon_build.py minotaur.

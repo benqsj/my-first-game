@@ -35,6 +35,9 @@ extends Node3D
 ## twenty-eight, so nothing this far out has any bearing on a fight. The last few
 ## metres are faded rather than cut.
 @export var creature_draw_distance: float = 90.0
+## Whether the level raises the creatures' camps ([constant CAMPS]). The test
+## arena ([ArenaPanel]) does not: there the creatures are called up by hand.
+@export var raise_camps: bool = true
 
 ## How near a player a creature has to be before it thinks at all, in metres.
 ## Zero leaves every one of them thinking all the time.
@@ -371,7 +374,7 @@ func _on_left(peer: int) -> void:
 ## numbers — so the same creature has the same name and place on every peer.
 func _build_camps() -> void:
 	var creatures := get_node_or_null("Enemies")
-	if creatures == null:
+	if creatures == null or not raise_camps:
 		return
 	for i in CAMPS.size():
 		var camp: Array = CAMPS[i]

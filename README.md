@@ -5240,3 +5240,83 @@ THE BLADE, THE SHADE and AS HE WAS keep both knives and the two-knife string.
 every clip of such a string is in the model and that the hidden knife stays
 hidden. `heroes_test` and `rogue_strike_test` expect the string and heavy
 blow of whichever look is saved.
+
+## The test arena, and creatures and bosses on skeletons of their own
+
+**TEST ARENA** on the ride page (next to ALONE and WITH COMPANIONS) starts a
+solo game on an empty floor (`scenes/world/test_arena.tscn`): the same
+`World`, with `raise_camps = false`, so no camp is raised. `F1` shows the
+board (`ArenaPanel`, `scripts/arena_panel.gd`):
+
+- **Creatures** and **Bosses**: every kind the game has is a button. Pressed,
+  one is called up a few paces in front of the hero, facing him, with a patch
+  of ground of its own there, so it fights at once.
+- **Look**: the arrows step through the hero's looks on the spot (`set_face`,
+  remembered as the menu's pick would be).
+- **Heal**, **Hold still** (every creature stops thinking and walking) and
+  **Clear**.
+
+New creatures and bosses, each on the skeleton it came with. No bone is
+renamed or moved. `vepxis-art/tools/mon_build.py` builds each one:
+
+- **Its own clips**, where it came with some: the minotaur (17), the centaur
+  (20) and the four dragons (16 to 18 each).
+- **Mixamo's clips**, where it did not: the frog marauder, the one-eyed ogre
+  and the Knight of darkness. The demon borrows the minotaur's own clips: both
+  skeletons use the mannequin's names, and a beast's stance suits its
+  digitigrade legs. The clips are carried onto the creature's bones by where each
+  bone points: the Mixamo T-pose is laid onto the creature's limbs first, so an
+  A-posed arm swings the way the Mixamo arm does.
+
+Every clip is made in place at 30 fps and named with the creature's prefix.
+How far the hips travel in each clip goes to `<name>_clip_meta.json`. Out:
+`assets/monsters/<name>/<name>.glb`.
+
+| Scene | What | Clips |
+|---|---|---|
+| `frog.tscn` | frog marauder with an axe | Mixamo (orc axe set) |
+| `demon.tscn` | horned demon with a sword | the minotaur's |
+| `ogre.tscn` | one-eyed ogre, fists | Mixamo (mutant, brawl) |
+| `minotaur.tscn` | boss, great axe | its own |
+| `centaur.tscn` | boss, lance | its own |
+| `dark_knight.tscn` | boss, the Knight of darkness with a great sword | Mixamo (sword and shield set) |
+| `dragon_terror.tscn`, `dragon_nightmare.tscn`, `dragon_usurper.tscn`, `dragon_souleater.tscn` | bosses | their own |
+
+`Brawler` (`scripts/brawler.gd`, a `ClipFighter`) reads the scene for:
+
+- its attacks (clip, rate, the part of the clip played);
+- the big attacks it saves for when the hero is further off;
+- the bone it strikes with (`weapon_bone`, `weapon_tip`, `weapon_radius`);
+- the bones whose speed marks the blow;
+- its hit, death and roar clips.
+
+`tools/make_brawlers.py` writes the ten scenes from one table.
+
+`Monster.hips_bone` and `foot_bones` name the hips and feet of a skeleton that
+isn't the mannequin's (`SkeletonAnim.hips_name` and `feet`).
+
+`tests/arena_test.gd` checks the arena:
+
+- no camp is raised;
+- every entry is called up and stands on the floor;
+- each creature, alone with the hero, has its clips and comes at him and swings;
+- Hold still, Clear and the look arrows work.
+
+## THE NINJA: the assassin on a Mixamo skeleton
+
+BlenderKit's sci-fi ninja is a sixth look for the assassin, on its own
+Mixamo skeleton. His two knives are in its fists. `vepxis-art/tools/bl_mixfig.py`
+builds it (`VX_HERO=rogue VX_FIG=ninja`). It is a generic builder for a
+Mixamo-rigged figure: it takes the "mixamorig:" off the bone names, brings the
+figure to the hero's height, turns the limbs onto his, closes the fists and
+adds his arm bones and arms. Out: `assets/rogue_ninja/rogue_ninja.glb`.
+
+`SkinnedRig.mixamo_map()` maps its bones to the rig's.
+
+## THE DARK KNIGHT: Tariel in the Knight of darkness
+
+Anton Puzanov's Knight of darkness 2 (Unity Asset Store) is a tenth look for
+Tariel, on its own mannequin-named skeleton, with his sword and shield. It is
+built by `bl_mixfig.py` (`VX_HERO=tariel VX_FIG=darkknight`). Out:
+`assets/tariel_darkknight/tariel_darkknight.glb`. The same knight also fights
+as a boss (`dark_knight.tscn`).
