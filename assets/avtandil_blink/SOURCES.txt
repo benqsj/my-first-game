@@ -1,0 +1,10 @@
+avtandil_blink.glb — THE HUNTSMAN, Avtandil's figure on Blink's skeleton.
+
+"FREE Low Poly Human - RPG Character" by Blink (blinkstudio), Unity Asset Store
+https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/free-low-poly-human-rpg-character-219979
+Licence: Standard Unity Asset Store EULA. Used as part of this game, not
+redistributed on its own.
+
+Built as assets/tariel_blink is (vepxis-art/tools/bl_blink.py), with
+VX_HERO=avtandil: his own bow cut out of his model and put on added bow bones
+(tools/fig_hero.py).

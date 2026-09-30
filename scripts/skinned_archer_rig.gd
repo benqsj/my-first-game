@@ -61,10 +61,27 @@ func _configure() -> void:
 	# with the hood off, long hair and his face wrapped in dark cloth; or the
 	# one he was, in the two outfits above.
 	mesh_prefix = "avtandil"
-	faces = [&"real", &"hunter", &"box"]
-	face_skulls = [&"real", &"hunter", &"box"]
-	face_names = ["THE RANGER", "THE HUNTER", "AS HE WAS"]
-	whole_faces = [&"real", &"hunter"]
+	# Or a figure on its own skeleton, which follows his ([FigureFollower]),
+	# carrying his own bow cut out of his model (vepxis-art/tools/fig_hero.py):
+	# THE HUNTSMAN, Blink's man in the starter's leathers (tools/bl_blink.py),
+	# and THE FOX HUNTER, Synty's Sidekick in the brown hood with two black
+	# foxes on his shoulders (tools/sk_build.py).
+	faces = [&"real", &"hunter", &"box", &"huntsman", &"foxhunter"]
+	face_skulls = faces.duplicate()
+	face_names = ["THE RANGER", "THE HUNTER", "AS HE WAS", "THE HUNTSMAN", "THE FOX HUNTER"]
+	whole_faces = [&"real", &"hunter", &"huntsman", &"foxhunter"]
+	var bow_bones := {&"bow_l": &"bow_l", &"bow_limb_l": &"bow_limb_l", &"bow_tip_l": &"bow_tip_l",
+			&"bow_limb_u": &"bow_limb_u", &"bow_tip_u": &"bow_tip_u", &"draw_r": &"draw_r"}
+	figures = {
+		&"blink": {"scene": "res://assets/avtandil_blink/avtandil_blink.glb", "prefix": "blink",
+			"hips": &"Root_M", "map": SkinnedRig.blink_map(bow_bones)},
+		&"sidekick": {"scene": "res://assets/avtandil_sidekick/avtandil_sidekick.glb", "prefix": "sk",
+			"hips": &"pelvis", "map": SkinnedRig.sidekick_map(bow_bones)},
+	}
+	figure_faces = {
+		&"huntsman": {"figure": &"blink", "show": ["body_", "starter_"], "hide": ["body_underwear"]},
+		&"foxhunter": {"figure": &"sidekick", "show": ["foxhunter"]},
+	}
 	swing_volume = -4.0
 	clips = {
 		&"idle": &"AV_Idle_01", &"walk": &"AV_Walk_Forward", &"run": &"AV_Run_Forward",
@@ -189,6 +206,12 @@ func _make_arrow() -> Node3D:
 	head.material_override = steel
 	arrow.add_child(head)
 	return arrow
+
+
+## The figure worn has been posed: the string and the arrow go on its bow.
+func _on_figure_followed(id: StringName) -> void:
+	if _bow_mod != null and _figure_skel != null and _figs.has(id) and _figs[id]["skel"] == _figure_skel:
+		_bow_mod.place_string_on(_figure_skel)
 
 
 #region The bow, as the controller calls it

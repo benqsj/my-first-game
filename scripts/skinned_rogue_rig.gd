@@ -210,10 +210,23 @@ func _configure() -> void:
 	# each with a cloak; or the one of boxes he was, who wears the outfits in
 	# the bag.
 	mesh_prefix = "rogue"
-	faces = [&"real", &"shade", &"box"]
-	face_skulls = [&"real", &"shade", &"box"]
-	face_names = ["THE BLADE", "THE SHADE", "AS HE WAS"]
-	whole_faces = [&"real", &"shade"]
+	# Or Synty's Sidekick on its own skeleton, which follows his
+	# ([FigureFollower]), with his own knives cut out of his model
+	# (vepxis-art/tools/fig_hero.py, tools/sk_build.py): THE FOX MASK in the
+	# mask and its hood, the wanderer's coat in reds; THE HOOD in the deep
+	# hood with a cloth over his mouth, in dark steel and blue.
+	faces = [&"real", &"shade", &"box", &"foxmask", &"hood"]
+	face_skulls = faces.duplicate()
+	face_names = ["THE BLADE", "THE SHADE", "AS HE WAS", "THE FOX MASK", "THE HOOD"]
+	whole_faces = [&"real", &"shade", &"foxmask", &"hood"]
+	figures = {
+		&"sidekick": {"scene": "res://assets/rogue_sidekick/rogue_sidekick.glb", "prefix": "sk",
+			"hips": &"pelvis", "map": SkinnedRig.sidekick_map({&"weapon_r": &"weapon_r", &"weapon_l": &"weapon_l"})},
+	}
+	figure_faces = {
+		&"foxmask": {"figure": &"sidekick", "show": ["foxmask"]},
+		&"hood": {"figure": &"sidekick", "show": ["hood"]},
+	}
 	var cloak_body := [["pelvis", "neck_01", 0.17], ["spine_01", "spine_02", 0.19],
 			["thigh_l", "calf_l", 0.1], ["thigh_r", "calf_r", 0.1], ["calf_l", "foot_l", 0.085],
 			["calf_r", "foot_r", 0.085]]

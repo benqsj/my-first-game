@@ -262,6 +262,8 @@ var _stride_time: float = 0.0
 ## ribbon [CharacterRig] hangs off the procedural rig.
 var _arc: BladeArc
 var _arc_l: BladeArc
+var _blade_base_l: Marker3D
+var _blade_tip_l: Marker3D
 ## Which shield is on the arm (see [enum Shields] in `inventory.gd`): 0 the
 ## round one, 1 the tower shield. The model carries both; one is shown.
 var shield_kind: int = 0
@@ -322,6 +324,7 @@ var _figure: Node3D
 var _figure_skel: Skeleton3D
 var _figure_mount: BoneAttachment3D
 var _rig_mount: BoneAttachment3D
+var _rig_mount_l: Node3D
 
 
 func _ready() -> void:
@@ -729,6 +732,8 @@ func _setup_blade() -> void:
 		var tip_l := Marker3D.new()
 		tip_l.position = along_l * blade_tip
 		mount_l.add_child(tip_l)
+		_blade_base_l = base_l
+		_blade_tip_l = tip_l
 		_arc_l = BladeArc.new()
 		_arc_l.name = "BladeArcL"
 		add_child(_arc_l)
@@ -1362,13 +1367,7 @@ func set_shield(kind: int) -> void:
 	for i in _shield_meshes.size():
 		if _shield_meshes[i] != null:
 			_shield_meshes[i].visible = i == kind and not bare
-	if _figure != null:
-		var prefix := String(figures[figure_faces[faces[face]]["figure"]]["prefix"])
-		var arms := {"sword": true, "shield": kind == 0, "tower_shield": kind == 1}
-		for key: String in arms:
-			var mesh := _figure.find_child("%s_%s" % [prefix, key], true, false) as MeshInstance3D
-			if mesh != null:
-				mesh.visible = arms[key]
+	_show_figure_arms()
 	_base_clip = &""
 
 
@@ -1433,6 +1432,36 @@ func wearing_whole() -> bool:
 	return face < faces.size() and whole_faces.has(faces[face])
 
 
+## The bone map for a figure on Blink's skeleton (see `figures`): its body
+## bones by this rig's, and `extra` (the arm bones both carry) as given.
+static func blink_map(extra: Dictionary) -> Dictionary:
+	var map := {
+		&"Root_M": &"pelvis", &"Spine1_M": &"spine_01", &"Chest_M": &"spine_02",
+		&"Neck_M": &"neck_01", &"Head_M": &"head",
+		&"Scapula_R": &"clavicle_r", &"Shoulder_R": &"upperarm_r", &"Elbow_R": &"lowerarm_r",
+		&"Wrist_R": &"hand_r",
+		&"Scapula_L": &"clavicle_l", &"Shoulder_L": &"upperarm_l", &"Elbow_L": &"lowerarm_l",
+		&"Wrist_L": &"hand_l",
+		&"Hip_R": &"thigh_r", &"Knee_R": &"calf_r", &"Ankle_R": &"foot_r", &"Toes_R": &"ball_r",
+		&"Hip_L": &"thigh_l", &"Knee_L": &"calf_l", &"Ankle_L": &"foot_l", &"Toes_L": &"ball_l",
+	}
+	map.merge(extra)
+	return map
+
+
+## The same for Synty's Sidekick: the mannequin's names, as this rig's are;
+## its third spine bone is this rig's second, the second rides the first.
+static func sidekick_map(extra: Dictionary) -> Dictionary:
+	var map := {}
+	for b in ["pelvis", "spine_01", "neck_01", "head", "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+			"clavicle_l", "upperarm_l", "lowerarm_l", "hand_l", "thigh_r", "calf_r", "foot_r", "ball_r",
+			"thigh_l", "calf_l", "foot_l", "ball_l"]:
+		map[StringName(b)] = StringName(b)
+	map[&"spine_03"] = &"spine_02"
+	map.merge(extra)
+	return map
+
+
 ## Whether the face that is on is worn on the figure's own skeleton.
 func wearing_figure() -> bool:
 	return face < faces.size() and figure_faces.has(faces[face])
@@ -1442,6 +1471,8 @@ func wearing_figure() -> bool:
 ## a mount on its sword hand for the blade's cut (see `_show_figure()`).
 func _setup_figure() -> void:
 	_rig_mount = _sword_mount
+	if _blade_base_l != null:
+		_rig_mount_l = _blade_base_l.get_parent() as Node3D
 	var model := _skel.owner as Node3D if _skel.owner != null else _skel.get_parent() as Node3D
 	for id: StringName in figures:
 		var spec: Dictionary = figures[id]
@@ -1468,7 +1499,14 @@ func _setup_figure() -> void:
 			mount.name = "WeaponMount"
 			skel.add_child(mount)
 			mount.bone_name = "weapon_r"
-		_figs[id] = {"node": node, "skel": skel, "follow": follow, "mount": mount}
+		var mount_l: BoneAttachment3D = null
+		if skel.find_bone("weapon_l") >= 0:
+			mount_l = BoneAttachment3D.new()
+			mount_l.name = "WeaponMountL"
+			skel.add_child(mount_l)
+			mount_l.bone_name = "weapon_l"
+		follow.followed.connect(_on_figure_followed.bind(id))
+		_figs[id] = {"node": node, "skel": skel, "follow": follow, "mount": mount, "mount_l": mount_l}
 
 
 ## Shows the figure the face that is on is worn on, with its meshes for that
@@ -1496,7 +1534,7 @@ func _show_figure() -> void:
 		var hides: Array = look.get("hide", [])
 		for mesh: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
 			var key := String(mesh.name).trim_prefix(prefix)
-			if key in ["sword", "shield", "tower_shield"]:
+			if key in ["sword", "shield", "tower_shield"] or key.begins_with("arm_"):
 				continue
 			var shown := false
 			for pre: String in shows:
@@ -1505,11 +1543,41 @@ func _show_figure() -> void:
 				shown = shown and not key.begins_with(pre)
 			mesh.visible = shown
 		(fig["follow"] as FigureFollower).follow()
+	_show_figure_arms()
 	var mount := _figure_mount if _figure_mount != null else _rig_mount
 	if mount != null and _blade_base != null and _blade_base.get_parent() != mount:
 		_blade_base.reparent(mount, false)
 		_blade_tip.reparent(mount, false)
 		_sword_mount = mount
+	var fig_l: Node3D = null
+	if _figure != null:
+		fig_l = _figs[worn]["mount_l"]
+	var mount_l := fig_l if fig_l != null else _rig_mount_l
+	if mount_l != null and _blade_base_l != null and _blade_base_l.get_parent() != mount_l:
+		_blade_base_l.reparent(mount_l, false)
+		_blade_tip_l.reparent(mount_l, false)
+
+
+## The arms the figure worn carries: its sword and whichever shield is held,
+## and every "<prefix>_arm_*" (knives, a bow) always.
+func _show_figure_arms() -> void:
+	if _figure == null:
+		return
+	var prefix := String(figures[figure_faces[faces[face]]["figure"]]["prefix"]) + "_"
+	var arms := {"sword": true, "shield": shield_kind == 0, "tower_shield": shield_kind == 1}
+	for mesh: MeshInstance3D in _figure.find_children(prefix + "*", "MeshInstance3D", true, false):
+		var key := String(mesh.name).trim_prefix(prefix)
+		if arms.has(key):
+			mesh.visible = arms[key]
+		elif key.begins_with("arm_"):
+			mesh.visible = true
+
+
+## A figure has just been posed off this rig (see [signal
+## FigureFollower.followed]); the one worn is `_figure_skel`. For a rig to put
+## what hangs off its figure's bones where they now are.
+func _on_figure_followed(_id: StringName) -> void:
+	pass
 
 
 ## Takes the capes down and hangs them again, each spec in `capes` with its

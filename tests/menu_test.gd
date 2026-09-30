@@ -124,6 +124,9 @@ func _check_menu() -> void:
 		var face_mesh := knight.find_child("tariel_face_" + String(key), true, false) as MeshInstance3D
 		if face_mesh != null and face_mesh.visible:
 			faces_on += 1
+	# A look worn on a figure of its own (see SkinnedRig.figures) is that figure.
+	if knight.wearing_figure() and knight._figure != null and knight._figure.visible:
+		faces_on += 1
 	_check("the arrow puts on the other look, and only it", knight.face == (face_from + 1) % knight.faces.size()
 			and faces_on == 1, "%d -> %d, %d shown" % [face_from, knight.face, faces_on])
 	_check("the hair shows only on the square head",

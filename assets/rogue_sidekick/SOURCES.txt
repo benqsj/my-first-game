@@ -1,0 +1,13 @@
+rogue_sidekick.glb — figures on Synty's Sidekick skeleton for the rogue rig.
+
+"FREE Starter Pack - Sidekick Modular Characters by Synty" (Synty Studios),
+Unity Asset Store
+https://assetstore.unity.com/packages/3d/characters/free-starter-pack-sidekick-modular-characters-by-synty-336970
+Licence: Standard Unity Asset Store EULA / Synty licence (free). Used as part
+of this game, not redistributed on its own.
+
+Mixes of the pack's parts (the wanderer's kit, hoods, masks, human heads) in
+its Starter colour maps, each joined into one mesh on Sidekick's own skeleton;
+the rest turned onto the hero's limbs and the hands closed, the hero's own arms
+cut out of his model and put on added bones: vepxis-art/tools/sk_build.py with
+VX_HERO=rogue (tools/fig_hero.py).

@@ -194,11 +194,17 @@ func _flex(skel: Skeleton3D) -> void:
 		skel.set_bone_pose_rotation(b, (pg.inverse() * turned).get_rotation_quaternion())
 
 
-func _place_string(skel: Skeleton3D) -> void:
-	var tu := _bone(&"bow_tip_u")
-	var tl := _bone(&"bow_tip_l")
-	var pinch := _bone(&"draw_r")
-	var grip := _bone(&"bow_l")
+## Puts the string and arrow on another skeleton's bow — a figure's, with bones
+## of the same names (see [FigureFollower]) — once it has been posed.
+func place_string_on(skel: Skeleton3D) -> void:
+	_place_string(skel, skel != get_skeleton())
+
+
+func _place_string(skel: Skeleton3D, foreign: bool = false) -> void:
+	var tu := skel.find_bone("bow_tip_u") if foreign else _bone(&"bow_tip_u")
+	var tl := skel.find_bone("bow_tip_l") if foreign else _bone(&"bow_tip_l")
+	var pinch := skel.find_bone("draw_r") if foreign else _bone(&"draw_r")
+	var grip := skel.find_bone("bow_l") if foreign else _bone(&"bow_l")
 	if tu < 0 or tl < 0:
 		return
 	var xf := skel.global_transform

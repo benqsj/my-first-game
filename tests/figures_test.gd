@@ -1,0 +1,105 @@
+extends SceneTree
+## Every look worn on a figure of its own (see [FigureFollower]) on every hero:
+## the figure shown and the rig's own meshes not, the look's mesh and its arms
+## shown, the figure's hands where the rig's are give or take its build, the
+## blade's cut off the figure's hands, the bow's string on the figure's bow;
+## and the rig's own look again with every figure put away.
+
+const HEROES := {
+	"Tariel": "res://scenes/player/tariel_rigged_visuals.tscn",
+	"the assassin": "res://scenes/player/rogue_rigged_visuals.tscn",
+	"Avtandil": "res://scenes/player/avtandil_rigged_visuals.tscn",
+}
+const CLIP_AT := 0.45
+
+var _failed := 0
+
+
+func _initialize() -> void:
+	_run.call_deferred()
+
+
+func _check(what: String, ok: bool, detail: String) -> void:
+	print("%s  %s  %s" % ["ok  " if ok else "FAIL", what, detail])
+	if not ok:
+		_failed += 1
+
+
+func _hand(skel: Skeleton3D, bone: String) -> Vector3:
+	return skel.global_transform * skel.get_bone_global_pose(skel.find_bone(bone)).origin
+
+
+func _run() -> void:
+	for hero: String in HEROES:
+		var body := Node3D.new()
+		root.add_child(body)
+		var rig := (load(HEROES[hero]) as PackedScene).instantiate() as SkinnedRig
+		body.add_child(rig)
+		for i in 4:
+			await process_frame
+		var anim: AnimationPlayer = rig._anim
+		var clip := String(anim.get_animation_list()[0])
+		for key: StringName in rig.figure_faces:
+			rig.set_face(rig.faces.find(key))
+			anim.play(clip)
+			anim.seek(anim.get_animation(clip).length * CLIP_AT, true)
+			for i in 3:
+				await process_frame
+			var fig := rig._figure
+			var skel := rig._figure_skel
+			var spec: Dictionary = rig.figures[rig.figure_faces[key]["figure"]]
+			var prefix := String(spec["prefix"]) + "_"
+			var rig_shown: Array[String] = []
+			for mesh: MeshInstance3D in rig.find_children(rig.mesh_prefix + "_*", "MeshInstance3D", true, false):
+				if mesh.is_visible_in_tree() and not fig.is_ancestor_of(mesh):
+					rig_shown.append(String(mesh.name))
+			var look_shown := 0
+			var arms_shown := 0
+			for mesh: MeshInstance3D in fig.find_children(prefix + "*", "MeshInstance3D", true, false):
+				if not mesh.is_visible_in_tree():
+					continue
+				var part := String(mesh.name).trim_prefix(prefix)
+				if part.begins_with("arm_") or part in ["sword", "shield", "tower_shield"]:
+					arms_shown += 1
+				else:
+					look_shown += 1
+			# The figure's hand bone by the rig's: the map says which it follows.
+			var map: Dictionary = spec["map"]
+			var fig_hand := ""
+			for b: StringName in map:
+				if map[b] == &"hand_r":
+					fig_hand = String(b)
+			var off := _hand(skel, fig_hand).distance_to(_hand(rig._skel, "hand_r"))
+			_check("%s as %s: the figure worn, his own meshes put away" % [hero, key],
+					fig != null and fig.visible and rig_shown.is_empty() and look_shown >= 1 and arms_shown >= 1,
+					"%d of the look, %d arms, his shown: %s" % [look_shown, arms_shown, rig_shown])
+			_check("%s as %s: the figure's hand by his" % [hero, key], off < 0.4, "%.2f m off" % off)
+			if rig._blade_tip != null:
+				_check("%s as %s: the cut off the figure's hand" % [hero, key],
+						rig._blade_tip.get_parent() == rig._figure_mount, str(rig._blade_tip.get_parent().name))
+			if rig._blade_tip_l != null:
+				_check("%s as %s: the off hand's cut off the figure's off hand" % [hero, key],
+						rig._blade_tip_l.get_parent() == rig._figs[rig.figure_faces[key]["figure"]]["mount_l"],
+						str(rig._blade_tip_l.get_parent().name))
+			if rig is SkinnedArcherRig:
+				var bow: BowModifier = (rig as SkinnedArcherRig)._bow_mod
+				var tip := _hand(skel, "bow_tip_u")
+				var d := bow.string_u.global_position.distance_to(tip)
+				_check("%s as %s: the string on the figure's bow" % [hero, key], d < 0.03, "%.3f m off its tip" % d)
+		rig.set_face(0)
+		await process_frame
+		var shown := 0
+		for id: StringName in rig._figs:
+			shown += 1 if (rig._figs[id]["node"] as Node3D).visible else 0
+		_check("%s in his own look again: every figure put away" % hero, shown == 0 and rig._figure == null,
+				"%d shown" % shown)
+		if rig is SkinnedArcherRig:
+			var bow: BowModifier = (rig as SkinnedArcherRig)._bow_mod
+			for i in 2:
+				await process_frame
+			var d := bow.string_u.global_position.distance_to(_hand(rig._skel, "bow_tip_u"))
+			_check("%s in his own look: the string on his own bow" % hero, d < 0.03, "%.3f m" % d)
+		body.queue_free()
+		await process_frame
+	print("figures_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
+	quit(1 if _failed > 0 else 0)

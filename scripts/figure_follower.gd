@@ -14,6 +14,10 @@ extends Node
 ## Works only between skeletons whose rests point the limbs the same way
 ## (vepxis-art/tools/bl_blink.py turns the figure's rest onto the rig's).
 
+## Emitted each time the figure has been posed off the rig, so what hangs off
+## the figure's bones (a bow's string) can be put where they now are.
+signal followed
+
 ## The rig's skeleton, whose pose is read.
 var source: Skeleton3D
 ## The figure's skeleton, which is posed.
@@ -95,3 +99,4 @@ func follow() -> void:
 		var local := parent_g.affine_inverse() * g
 		target.set_bone_pose_rotation(t, local.basis.get_rotation_quaternion())
 		target.set_bone_pose_position(t, local.origin)
+	followed.emit()
