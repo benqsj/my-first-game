@@ -5388,3 +5388,96 @@ called up in the arena as **Smaug (look only)**: it stands, with no clips, and
 does not fight. It is a fan model of a copyrighted character, so its model and
 scene are kept out of the history (`.gitignore`). The arena skips the entry
 where the scene isn't there.
+
+## THE WARRIOR: two hands on a great sword, a hero of his own
+
+THE DARK KNIGHT is no longer one of Tariel's looks. Its sword was never really
+in its hand: it followed Tariel's skeleton, and his sword and grip, bone by
+bone. The knight is now **THE WARRIOR**, a sixth hero on the hero select
+(`scenes/player/warrior.tres`, `SkinnedWarriorRig`), with his own skeleton,
+his own clips, a great sword in both hands and no shield.
+
+**The model** (`vepxis-art/tools/wr_build.py`, out: `assets/warrior/warrior.glb`):
+
+- Anton Puzanov's Knight of darkness 2 (Unity Asset Store), skin 2: red cloak
+  and gold boots. The boss in the arena wears skin 1.
+- He keeps the skeleton he came with (the mannequin's names, 1.95 m). Added:
+  a `root` bone for the root-motion track, and `weapon_r` in the right fist.
+- His finger bones did not lie in his gloves' fingers (the gloves were bound in
+  another pose). Each is laid along the part of the glove weighted to it. Both
+  fists are then closed round a grip, and the mesh is baked into that as the
+  new rest.
+- His own sword is the great sword: scaled up 1.12, with its grip stretched to
+  0.26 m (two fists), the right fist just under the guard.
+
+**The grip.** In every clip, per frame:
+
+1. The blade runs the way the Mixamo man's two palms run on his grip (right
+   palm minus left).
+2. The right hand is turned so its grip runs that way.
+3. The left fist is brought onto the hilt, 0.1 to 0.2 m under the right, by a
+   two-bone solve with shortest arcs only (after `great_axe.py`).
+
+Where the Mixamo man lets go with his left hand (the palms more than 0.46 m
+apart), the left hand is left free; between 0.26 and 0.46 m it is eased.
+
+**The clips.** Mixamo's Great Sword pack, 28 clips (`WR_*`), carried by
+`mon_build.carry`. `GA_*` came from `mixamo_orc/`; the rest were downloaded into
+`vepxis-art/mixamo_warrior/`:
+
+- walk, run, backwards and strafes;
+- jump, crouch, hits;
+- the combo, downward, low, power and high-spin slashes;
+- the jump attack, the slide attack, a kick and the hilt;
+- a death onto one knee and a roll (not from the pack: the sword stays in the
+  right hand).
+
+Cut windows, trails and ground speeds were measured in Blender
+(`tools/wr_measure.py`, off the blade tip and the planted foot).
+
+**How he fights:**
+
+- **Attack** is his string. The combo's three blows are one clip under three
+  names (`WR_Combo_A/B/C`, added at load), and the high spin ends it. Each blow
+  is 0.5 s at the least and the last 0.75 s; `swing_rate` is 1.25.
+- **The other button** (no shield to raise) throws his heavy blows, picked by
+  where the string is (`Player._heavy_blow`):
+  - out of nothing: the power slash;
+  - early in the string: the leap and the blade into the ground (it shakes);
+  - later: the cut down into the ground;
+  - at the end of the string: the low sweep;
+  - at a run: the slide in under it.
+- Off a jump, the jump attack.
+
+**His weight.** `CharacterProfile` has a Weight group that overrides the
+controller's own values:
+
+| | Warrior | the controller's |
+|---|---|---|
+| ground acceleration | 26 | 60 |
+| deceleration | 32 | 75 |
+| turn | 7 | 12 |
+| turn standing | 12 | 22 |
+| carried by his swing | 0.08 | 0.18 |
+| shove | 0.14 | 0.28 |
+| stagger | 0.016 | 0.03 |
+
+His other numbers:
+
+- run 5.0, walk 2.1;
+- a shorter, heavier roll;
+- jump 0.8;
+- 210 health, p.def 45, damage 27;
+- 24 stamina a blow.
+
+Tariel's fuse look is called THE IRON HELM now, so that no look of his is
+also called THE WARRIOR. `SkinnedRig.sword_mesh_name` names the blade mesh a
+rig's blood goes on.
+
+`tests/warrior_test.gd` checks:
+
+- he is on his own rig and skeleton, with every clip his tables name;
+- the sword is in his fist and there is no shield;
+- he is heavier than Tariel;
+- both hands are on the hilt standing, walking and through a cut;
+- attack throws his string and the other button a heavy blow.
