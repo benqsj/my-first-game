@@ -5209,3 +5209,34 @@ checks:
 - the cut comes off the figure's hands, both hands for the assassin;
 - the string sits on the figure's bow tip;
 - every figure is put away again for the hero's own look.
+
+
+## The assassin's Sidekick looks hold one knife
+
+Sidekick's men are made for one blade: the fox mask carries a single sword,
+at his hip. So THE FOX MASK and THE HOOD hold one knife, in the right fist.
+They fight with the one-handed string the assassin had before his two-knife
+one:
+
+1. `DG_Combo_1` and `DG_Combo_2`: Mixamo's one-handed sword combo, the left
+   hand tucked to the chest.
+2. `DG_Spin_Cut`: the spinning cut.
+3. `DG_Backhand_Cut`: the backhand.
+4. `DG_Axe_R2L`: the axe's cut from right to left.
+5. `DG_Whirl`: the whirl to end it.
+
+The two-knife heavy blow (`DG_Dual_Combo`) gives way to the one-handed
+combo's last big blow (`DG_Finisher`). No ring is drawn off the empty hand.
+THE BLADE, THE SHADE and AS HE WAS keep both knives and the two-knife string.
+
+`SkinnedRig.face_moves` holds this, by face:
+
+- `flurry`, `flurry_part` and `heavy` are laid over the rig's own moves.
+  `_configure()` leaves those, and `_own_moves` keeps them.
+- `off_hand: false` draws no ring off the off hand.
+- `hide_arms` lists the figure's `arm_*` meshes the look doesn't carry.
+
+`set_face()` applies them (`_apply_moves()`). `figures_test` checks that
+every clip of such a string is in the model and that the hidden knife stays
+hidden. `heroes_test` and `rogue_strike_test` expect the string and heavy
+blow of whichever look is saved.
