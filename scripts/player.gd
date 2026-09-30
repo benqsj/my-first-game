@@ -782,6 +782,12 @@ func _spawn_character() -> void:
 	dodge_duration = profile.dodge_duration
 	if profile.jump_height > 0.0:
 		jump_height = profile.jump_height
+	# The weight he carries (see [CharacterProfile]'s Weight group).
+	for key: StringName in [&"ground_acceleration", &"ground_deceleration", &"turn_speed",
+			&"turn_speed_still", &"commit_speed_scale", &"blow_shove", &"blow_stagger"]:
+		var v: float = float(profile.get(key))
+		if v >= 0.0:
+			set(key, v)
 	_levitate_left = profile.levitation
 	max_health = profile.max_health
 	p_def = profile.p_def

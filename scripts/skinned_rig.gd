@@ -221,6 +221,8 @@ var _anim: AnimationPlayer
 var _skel: Skeleton3D
 var _body: Node3D
 var _sword_mesh: MeshInstance3D
+## The mesh of the blade in the hand, looked up by name (blood goes on it).
+var sword_mesh_name: String = "tariel_sword"
 var _role: Role = Role.NONE
 ## Whether the legs walk under the free action now playing (the body moving on
 ## while the arms do something else — the assassin coating his blade).
@@ -371,7 +373,7 @@ func _ready() -> void:
 	# The capes are the rig's own cloth, not spring bones: hung on every rig.
 	_setup_capes()
 	_put_on_dress()
-	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
+	_sword_mesh = find_child(sword_mesh_name, true, false) as MeshInstance3D
 	for mesh_name in ["tariel_shield", "tariel_tower_shield"]:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
 	_setup_figure()
@@ -457,13 +459,13 @@ func _configure() -> void:
 	#   tools/sk_build.py): THE PALADIN and THE HOODED as Synty made them, THE
 	#   SWORN bareheaded and bearded in the knight's plate, THE IRON KNIGHT in
 	#   the plate in steel and blue.
-	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
-			&"darkknight"]
+	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
 	face_skulls = faces.duplicate()
-	face_names = ["AS HE WAS", "THE WANDERER", "THE WARRIOR", "THE SQUIRE", "THE KNIGHT",
-			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT", "THE DARK KNIGHT"]
-	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
-			&"darkknight"]
+	face_names = ["AS HE WAS", "THE WANDERER", "THE IRON HELM", "THE SQUIRE", "THE KNIGHT",
+			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT"]
+	# (THE DARK KNIGHT left him: the knight is THE WARRIOR now, a hero of his
+	# own on his own skeleton, SkinnedWarriorRig.)
+	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
 	whole_faces = [&"ashen", &"fuse"]
 	whole_faces.append_array(on_figures)
 	shieldless_faces = [&"fuse"]
@@ -494,10 +496,6 @@ func _configure() -> void:
 				&"thigh_r": &"thigh_r", &"calf_r": &"calf_r", &"foot_r": &"foot_r", &"ball_r": &"ball_r",
 				&"thigh_l": &"thigh_l", &"calf_l": &"calf_l", &"foot_l": &"foot_l", &"ball_l": &"ball_l",
 			}},
-		# THE DARK KNIGHT: Anton Puzanov's Knight of darkness on its own
-		# mannequin-named skeleton (vepxis-art tools/bl_mixfig.py, VX_FIG=darkknight).
-		&"darkknight": {"scene": "res://assets/tariel_darkknight/tariel_darkknight.glb", "prefix": "dk",
-			"hips": &"pelvis", "map": SkinnedRig.sidekick_map({&"weapon_r": &"weapon_r", &"shield_l": &"shield_l"})},
 	}
 	figure_faces = {
 		&"squire": {"figure": &"blink", "show": ["body_", "starter_"], "hide": ["body_underwear"]},
@@ -506,7 +504,6 @@ func _configure() -> void:
 		&"hooded": {"figure": &"sidekick", "show": ["hooded"]},
 		&"sworn": {"figure": &"sidekick", "show": ["sworn"]},
 		&"iron": {"figure": &"sidekick", "show": ["iron"]},
-		&"darkknight": {"figure": &"darkknight", "show": ["body"]},
 	}
 	# The wanderer wears a cloak of plain brown wool under his capelet, hung
 	# from the back of the shoulders to the calf: real cloth, in the wind.

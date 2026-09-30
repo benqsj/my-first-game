@@ -280,6 +280,9 @@ func _weapon(p: CharacterProfile) -> Dictionary:
 			crit.append(["Bolt speed", "%.0f m/s" % p.arrow_speed])
 			return {"name": "Staff of the Storm", "kind": "Staff", "icon": "staff", "worn": true, "stats": crit,
 					"text": "Hold to gather a bolt of lightning at the crystal, let go to throw it. Thrown at what he has locked on to, the bolt hunts it."}
+	if p.display_name.to_lower().contains("warrior"):
+		return {"name": "The Black Great Sword", "kind": "Great sword", "icon": "sword", "worn": true, "stats": crit,
+				"text": "A long blade and a hilt for both hands. Slow to get moving, and nothing stands in its way once it is."}
 	if p.display_name.to_lower().contains("rogue") or p.display_name.to_lower().contains("assassin"):
 		return {"name": "Shadow Knife", "kind": "Dagger", "icon": "dagger", "worn": true, "stats": crit,
 				"text": "A long knife, black-hilted, kept keen. Quick cuts, one after another, faster than anything can answer."}

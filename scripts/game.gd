@@ -16,6 +16,7 @@ const CHARACTERS := {
 	&"mage": "res://scenes/player/mage.tres",
 	&"rogue": "res://scenes/player/rogue.tres",
 	&"elf": "res://scenes/player/elf.tres",
+	&"warrior": "res://scenes/player/warrior.tres",
 }
 const DEFAULT := &"tariel"
 

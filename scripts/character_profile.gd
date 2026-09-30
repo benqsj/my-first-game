@@ -54,6 +54,19 @@ enum Weapon {
 @export_range(0.0, 1.0) var dash_land_at: float = 1.0
 @export_range(0.0, 1.0) var dodge_land_at: float = 1.0
 
+@export_group("Weight")
+## How the body carries its weight, over the controller's own (a negative
+## value keeps the controller's). A heavy fighter gets going and comes to a
+## stop slower, turns slower, is carried less far by his own swing and is
+## shoved and held less by a blow.
+@export var ground_acceleration: float = -1.0
+@export var ground_deceleration: float = -1.0
+@export var turn_speed: float = -1.0
+@export var turn_speed_still: float = -1.0
+@export var commit_speed_scale: float = -1.0
+@export var blow_shove: float = -1.0
+@export var blow_stagger: float = -1.0
+
 @export_group("Vitals")
 ## How much punishment the body takes before it falls. The knight in his plate
 ## is the yardstick; the mage in his robe is the least of them.

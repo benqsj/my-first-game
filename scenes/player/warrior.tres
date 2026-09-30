@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="CharacterProfile" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/character_profile.gd" id="1_profile"]
+[ext_resource type="PackedScene" path="res://scenes/player/warrior_rigged_visuals.tscn" id="2_visuals"]
+
+[resource]
+script = ExtResource("1_profile")
+display_name = "Warrior"
+blurb = "No shield: two hands on one great sword. Slow to get going and slow to stop, and every blow a weight thrown — nothing stands in its way."
+visuals = ExtResource("2_visuals")
+can_block = false
+can_climb = false
+weapon = 0
+run_speed = 5.0
+walk_speed = 2.1
+dash_speed = 8.5
+dash_duration = 0.55
+dodge_speed = 7.0
+dodge_duration = 0.75
+dash_land_at = 0.8
+dodge_land_at = 0.8
+ground_acceleration = 26.0
+ground_deceleration = 32.0
+turn_speed = 7.0
+turn_speed_still = 12.0
+commit_speed_scale = 0.08
+blow_shove = 0.14
+blow_stagger = 0.016
+crit_chance = 0.08
+crit_damage = 1.8
+damage = 27.0
+max_health = 210.0
+p_def = 45.0
+m_def = 18.0
+max_stamina = 110.0
+attack_stamina = 24.0
+roll_stamina = 26.0
+dodge_stamina = 12.0
+jump_height = 0.8
