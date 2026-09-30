@@ -5063,7 +5063,7 @@ took the rig's proportions. This model keeps its own skeleton (Advanced
 Skeleton names: `Root_M`, `Shoulder_R`…), its own proportions (6 cm
 taller, shoulders further back) and its own weights. It is a second model,
 `assets/tariel_blink/tariel_blink.glb`, loaded beside Tariel's
-(`SkinnedRig.figure_scene`). Its skeleton is moved by his:
+(`SkinnedRig.figures`, see below). Its skeleton is moved by his:
 
 - `FigureFollower` (`scripts/figure_follower.gd`) waits for
   `skeleton_updated` on the rig's skeleton, when the pose is final (clip,
@@ -5090,8 +5090,8 @@ While one of these looks is on:
 
 - The figure shows. It is in `whole_faces`, `shieldless_faces` and
   `own_sword_faces`, so none of the rig's meshes do.
-- `figure_faces` says which of its meshes show: a list of name prefixes
-  shown and hidden.
+- `figure_faces` says which figure a face is worn on and which of its meshes
+  show: a list of name prefixes shown and hidden.
 - The blade's markers are moved onto a `BoneAttachment3D` on the figure's
   `weapon_r`, so the cut in the air leaves his sword. The sparks and sounds
   follow the same mount.
@@ -5103,3 +5103,49 @@ The package came through Unity (Hub + an empty project in `~/UnityBlink`,
 Package Manager → My Assets → Download). The `.unitypackage` is a tar of
 GUID folders (`asset` + `pathname`) and is unpacked without Unity
 (`vepxis-art/blink/pkg`). Its 33 own clips on its own skeleton are not used.
+
+
+## Synty's Sidekick: four more looks on a third skeleton
+
+Four more looks for Tariel on the hero select, from Synty's "Sidekick Modular
+Characters" FREE Starter Pack (Unity Asset Store;
+`assets/tariel_sidekick/SOURCES.txt`):
+
+- **THE PALADIN**: Synty's Starter_01, the plumed helm, the knight's plate and
+  the wolf pelt on his back.
+- **THE HOODED**: Starter_03, the hood, and the plate mixed with the other
+  kit's pieces.
+- **THE SWORN**: a mix of the same parts. The knight's plate without helm,
+  mask or pelt, one of the human heads with hair and a full beard, and a
+  heavier body.
+- **THE IRON KNIGHT**: the helmed knight in Starter_03's steel-and-blue colour
+  map, more muscled.
+
+Every Sidekick part (157 of them) carries the same 88-bone skeleton. It uses
+the mannequin's names, as `tariel_rig` does, plus fingers, twist bones and
+attach points. A look is a list of parts (Synty's `.sk` recipe or our own),
+a colour map and the body blend shapes (`defaultBuff`, `defaultHeavy`,
+`defaultSkinny`, `masculineFeminine`, from the recipe's `MuscleValue`,
+`BodySizeValue` and `BodyTypeValue`).
+
+`vepxis-art/tools/sk_build.py`:
+
+- Imports each part once, bakes the shapes at each look's values and joins
+  each look into one mesh (`sk_<look>`) on the one armature.
+- Turns the rest onto the rig's limbs and closes the fists, as `bl_blink.py`
+  does.
+- Adds `weapon_r` / `shield_l` for Tariel's sword and shields.
+
+The skeleton stays Sidekick's own.
+
+`SkinnedRig.figures` now holds any number of such models by id, each with
+its scene, mesh prefix, bone map and hips. Blink's is `blink`, Sidekick's is
+`sidekick`: its `spine_03` follows the rig's `spine_02`, and `spine_02`
+rides `spine_01`. `figure_faces[face].figure` says which one a face wears.
+Every figure is loaded once, hidden, with its own `FigureFollower` and its
+own sword-hand mount. The one worn shows (`_figure`), and the blade's cut
+moves to its hand.
+
+The pack came through Unity, the same way as Blink's (Package Manager → My
+Assets → Download). Its `.unitypackage` is unpacked without Unity into
+`vepxis-art/sidekick/pkg`.
