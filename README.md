@@ -5149,3 +5149,63 @@ moves to its hand.
 The pack came through Unity, the same way as Blink's (Package Manager → My
 Assets → Download). Its `.unitypackage` is unpacked without Unity into
 `vepxis-art/sidekick/pkg`.
+
+
+## Figures for the assassin and Avtandil, with their own arms
+
+These figures run on the same machinery as Tariel's, and every hero keeps his
+own looks:
+
+- **The assassin** gets two Synty Sidekick looks.
+  - **THE FOX MASK**: the fox mask and its hood, the wanderer's coat in
+    Starter_02's reds, a sword at the hip for show.
+  - **THE HOOD**: the deep hood and a cloth over the mouth, the same coat in
+    dark steel and blue.
+- **Avtandil** gets two looks.
+  - **THE HUNTSMAN**: Blink's man in the starter's leathers.
+  - **THE FOX HUNTER**: Sidekick in the brown hood, bearded, with two black
+    foxes on his shoulders.
+
+Each hero's arms come from his own model (`vepxis-art/tools/fig_hero.py`).
+Both builders take the hero's joints (to turn the figure's rest onto his limbs)
+and his arm bones off his glb. `VX_HERO=tariel|rogue|avtandil` picks the hero
+for `tools/bl_blink.py` and `tools/sk_build.py`.
+
+- **Knives:** cut out of the assassin's model by material and side (the left
+  one is weighted to the hand), each put on the figure's added
+  `weapon_r` / `weapon_l`.
+- **Bow:** cut out of Avtandil's by its `bow_*` bones, whole chain and all.
+  `draw_r` comes along too.
+- **Offsets:** each added bone is set off from the figure's joint as the
+  hero's is from his. Only its head matters: its parts turn rigidly about it.
+
+In the game:
+
+- **The assassin's off-hand cut** (his left knife's ring) moves to a mount
+  on the figure's `weapon_l`, as the main hand's does.
+- **The bow's string and arrow** are placed from the figure's bow.
+  `FigureFollower` emits `followed` once it has posed the figure.
+  `SkinnedRig._on_figure_followed()` is a hook for that. The archer uses it
+  to call `BowModifier.place_string_on(figure_skeleton)`, which reads the
+  figure's own `bow_tip_u/l`, `draw_r` and `bow_l` by name.
+- **Arms shown:** `<prefix>_arm_*` meshes always show on the worn figure, and
+  the sword and shields follow `shield_kind` (`_show_figure_arms()`).
+- **Bone maps:** `SkinnedRig.blink_map(extra)` and
+  `SkinnedRig.sidekick_map(extra)` build a figure's map with the hero's arm
+  bones added.
+
+Sidekick parts can bring dynamic bones of their own (the pelt's `abac_dyn_*`,
+the plume's `ahed_dyn_*`, hair and beards). They are added to the figure's
+skeleton and ride their parents; left out, their vertices stretched.
+`CIVL_10_26AHPB`, a long tail of cloth behind the hips that only Synty's
+physics hangs down, is left out.
+
+`tests/figures_test.gd` (headless) puts every figure look on every hero and
+checks:
+
+- the figure shows and the hero's meshes don't;
+- the look and its arms show;
+- the hands are within 40 cm;
+- the cut comes off the figure's hands, both hands for the assassin;
+- the string sits on the figure's bow tip;
+- every figure is put away again for the hero's own look.
