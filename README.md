@@ -5046,3 +5046,60 @@ turned about its grip to lie forward out of the fist, as the clips expect.
 A first try with an AI-made model (Kingslayer, one fused surface with no
 skeleton, weighted by bone heat: `tools/ks_fit.py`) bent like rubber and was
 thrown out.
+
+
+## Tariel as the squire and the knight, on a skeleton of their own
+
+Two more looks for Tariel on the hero select, **THE SQUIRE** (bearded,
+bareheaded, in the starter's leather vest and breeches) and **THE KNIGHT**
+(the plate set and its helm, the hair under it). Both are Blink's low poly
+man, "FREE Low Poly Human – RPG Character" (Unity Asset Store, Standard
+EULA; `assets/tariel_blink/SOURCES.txt`). They carry Tariel's sword and his
+round or tower shield, whichever he holds.
+
+**This figure is not fitted to `tariel_rig`.** The warrior and the wanderer
+were posed onto the rig and their weights renamed onto its bones, so they
+took the rig's proportions. This model keeps its own skeleton (Advanced
+Skeleton names: `Root_M`, `Shoulder_R`…), its own proportions (6 cm
+taller, shoulders further back) and its own weights. It is a second model,
+`assets/tariel_blink/tariel_blink.glb`, loaded beside Tariel's
+(`SkinnedRig.figure_scene`). Its skeleton is moved by his:
+
+- `FigureFollower` (`scripts/figure_follower.gd`) waits for
+  `skeleton_updated` on the rig's skeleton, when the pose is final (clip,
+  stride, strike aim, every modifier).
+- It then turns every mapped bone of the figure in the world as its partner
+  has turned from its rest: `global = (pose · rest⁻¹) · figure_rest`.
+  The map is `SkinnedRig.figure_map` (`Root_M` ← `pelvis`, `Chest_M` ←
+  `spine_02`, `Shoulder_R` ← `upperarm_r`, `Knee_L` ← `calf_l`, …).
+- Bones not in the map ride their parent as they rest (`Spine2_M`, the
+  fingers, the face).
+- The hips are also moved, by the rig's hips' travel × the figure's hip
+  height ÷ the rig's, so his longer legs still reach the ground.
+
+This needs both rests to point the limbs the same way. `vepxis-art/tools/bl_blink.py` turns the
+model's rest (arms, forearms, thighs, calves, hands) onto the rig's bone
+directions, closes the fingers into fists and applies that as the rest. The
+mesh is only turned about its own joints by its own weights. The script
+also adds `weapon_r` (under `Wrist_R`) and `shield_l` (under `Elbow_L`) with
+the rig's rest orientation, set off from the figure's joints as the rig's are
+from its own. The grip is moved out into the fist and the shield down onto the
+slimmer arm (`NUDGE`). The rig's sword and shields are copied onto them.
+
+While one of these looks is on:
+
+- The figure shows. It is in `whole_faces`, `shieldless_faces` and
+  `own_sword_faces`, so none of the rig's meshes do.
+- `figure_faces` says which of its meshes show: a list of name prefixes
+  shown and hidden.
+- The blade's markers are moved onto a `BoneAttachment3D` on the figure's
+  `weapon_r`, so the cut in the air leaves his sword. The sparks and sounds
+  follow the same mount.
+
+Hits and the camera still go by the rig's skeleton, whose hand is up to 20 cm
+from his. The feet land within 2–5 cm of the rig's.
+
+The package came through Unity (Hub + an empty project in `~/UnityBlink`,
+Package Manager → My Assets → Download). The `.unitypackage` is a tar of
+GUID folders (`asset` + `pathname`) and is unpacked without Unity
+(`vepxis-art/blink/pkg`). Its 33 own clips on its own skeleton are not used.
