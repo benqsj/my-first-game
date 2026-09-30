@@ -5248,6 +5248,10 @@ solo game on an empty floor (`scenes/world/test_arena.tscn`): the same
 `World`, with `raise_camps = false`, so no camp is raised. `F1` shows the
 board (`ArenaPanel`, `scripts/arena_panel.gd`):
 
+- At the start, one of every kind already stands on the floor, facing the
+  middle: the creatures on a ring 11 m round, the bosses on one 30 m round
+  (`_populate`). With **Wait for my blow** on, none of them moves until the
+  hero strikes it.
 - **Creatures** and **Bosses**: every kind the game has is a button. Pressed,
   one is called up a few paces in front of the hero, facing him, with a patch
   of ground of its own there, so it fights at once.
@@ -5335,13 +5339,21 @@ and quiver are left out for his bow.
 `bl_mixfig.py` (`shape: elf`) works her figure at rest, each change by a soft
 falloff round a landmark taken off her own bones, so her clothes move with her:
 
-- a fuller bust;
-- a narrower waist;
-- rounder hips;
-- a slightly finer jaw.
+- a much fuller bust (the dress pushed out a little further, so no skin
+  shows through it);
+- a narrow waist;
+- wide, round hips;
+- a slightly finer jaw;
+- a smaller forehead: brow to crown pressed down by a quarter.
 
-Her hair is dark and glossy. The painted lines of her skin map are half blurred,
-and the skin is made a little lighter and warmer.
+Her hair is silver-white. The painted lines of her skin map are half blurred,
+and the whole skin is turned a dark elf's: pale ash with a cool blue cast, some
+of its living warmth kept (`skin_tinted`).
+
+She has two outfits in the bag (Attire): **Sylvan Leathers**, the green she
+came in, and **Shadow Weave**, the same cut dyed black-violet with silver for
+gold (`noir_garb`, mesh `de_noir`). Each is a whole body of the figure;
+`SkinnedElfRig.set_garb` shows the one put on.
 
 ## Smaug, to look at only
 

@@ -98,6 +98,7 @@ func _ready() -> void:
 	column.add_child(rules)
 	_root.visible = false
 	_refresh_look.call_deferred()
+	_populate.call_deferred()
 
 
 func _small(text: String, pressed: Callable) -> Button:
@@ -163,8 +164,30 @@ func _rig() -> SkinnedRig:
 	return found[0] as SkinnedRig if not found.is_empty() else null
 
 
-## Calls a creature up in front of the hero, facing him, on ground of its own.
-func call_up(path: String, boss: bool = false) -> Node3D:
+## One of every creature and boss stands on the floor from the start, the
+## creatures in a ring in front of the hero and the bosses in a wider one
+## behind them, each facing the middle, each waiting for his blow.
+func _populate() -> void:
+	# The hero is spawned a frame after the level is ready.
+	for i in 3:
+		await get_tree().process_frame
+	var kinds := [[], []]
+	for entry: Array in ENTRIES:
+		if ResourceLoader.exists(String(entry[1])):
+			kinds[1 if bool(entry[2]) else 0].append(entry)
+	var middle := Vector3(0.0, 0.0, -12.0)
+	for ring in 2:
+		var list: Array = kinds[ring]
+		var radius := 11.0 if ring == 0 else 30.0
+		for i in list.size():
+			var angle := PI + TAU * (float(i) + 0.5) / float(list.size())
+			var at := middle + Vector3(sin(angle), 0.0, cos(angle)) * radius
+			call_up(String(list[i][1]), bool(list[i][2]), at)
+
+
+## Calls a creature up in front of the hero, facing him, on ground of its own
+## (or at `where`, facing the arena's middle).
+func call_up(path: String, boss: bool = false, where: Variant = null) -> Node3D:
 	var hero := _hero()
 	var creatures := _world().get_node_or_null("Enemies") if _world() != null else null
 	var scene := load(path) as PackedScene
@@ -174,6 +197,11 @@ func call_up(path: String, boss: bool = false) -> Node3D:
 	ahead.y = 0.0
 	ahead = ahead.normalized() if ahead.length() > 0.01 else Vector3.FORWARD
 	var at := hero.global_position + ahead * (AHEAD_BOSS if boss else AHEAD)
+	if where != null:
+		at = where as Vector3
+		ahead = (Vector3(0.0, 0.0, -12.0) - at)
+		ahead.y = 0.0
+		ahead = -ahead.normalized()
 	at.y = 0.2
 	var body := scene.instantiate() as Node3D
 	_count += 1

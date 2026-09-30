@@ -39,7 +39,20 @@ func _run() -> void:
 	hero.immortal = true
 	var creatures := world.get_node("Enemies")
 	await _wait(20)
-	_check("no camp raised", creatures.get_child_count() == 0, str(creatures.get_child_count()))
+	var present := 0
+	for entry: Array in ArenaPanel.ENTRIES:
+		present += 1 if ResourceLoader.exists(String(entry[1])) else 0
+	_check("no camp raised; one of every kind stands there from the start", creatures.get_child_count() == present,
+			"%d of %d" % [creatures.get_child_count(), present])
+	var still := 0
+	await _wait(120)
+	for c in creatures.get_children():
+		if c is Fighter and (c as Fighter).act_serial == 0:
+			still += 1
+	_check("none of them starts a fight", still == creatures.get_children().filter(func(c: Node) -> bool: return c is Fighter).size(),
+			"%d still" % still)
+	(creatures.get_parent().get_node("ArenaPanel") as ArenaPanel)._clear()
+	await _wait(3)
 	_check("the hero stands on the floor", hero.is_on_floor() and absf(hero.global_position.y) < 0.1,
 			"y %.2f" % hero.global_position.y)
 
