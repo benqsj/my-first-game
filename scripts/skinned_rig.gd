@@ -304,6 +304,22 @@ var mesh_prefix: String = "tariel"
 var shieldless_faces: Array[StringName] = []
 ## Faces with a sword of their own in the figure: the model's sword is hidden.
 var own_sword_faces: Array[StringName] = []
+## Figures on a skeleton of their own (see [FigureFollower]): a second model,
+## `figure_scene`, loaded beside this one and moved by this rig's skeleton.
+## Per face that wears it, which of its meshes are shown: names start
+## "<figure_prefix>_" and then one of "show", and none of "hide". It carries
+## the arms itself ("<figure_prefix>_sword", "_shield", "_tower_shield").
+var figure_scene: String = ""
+var figure_prefix: String = "blink"
+var figure_faces: Dictionary = {}
+## Figure bone -> this rig's bone it is turned by; `figure_hips` is carried.
+var figure_map: Dictionary = {}
+var figure_hips: StringName = &""
+var _figure: Node3D
+var _figure_skel: Skeleton3D
+var _figure_follow: FigureFollower
+var _figure_mount: BoneAttachment3D
+var _rig_mount: BoneAttachment3D
 
 
 func _ready() -> void:
@@ -341,6 +357,7 @@ func _ready() -> void:
 	_sword_mesh = find_child("tariel_sword", true, false) as MeshInstance3D
 	for mesh_name in ["tariel_shield", "tariel_tower_shield"]:
 		_shield_meshes.append(find_child(mesh_name, true, false) as MeshInstance3D)
+	_setup_figure()
 	set_shield(shield_kind)
 	set_garb(garb)
 	set_face(face)
@@ -414,12 +431,33 @@ func _configure() -> void:
 	# Warrior" by Leonardo Carvalho, Sketchfab, CC-BY-4.0: a rigged Mixamo
 	# character, posed onto this rig and his weights renamed onto it by
 	# vepxis-art/tools/fw_fit.py).
-	faces = [&"box", &"ashen", &"fuse"]
-	face_skulls = [&"box", &"ashen", &"fuse"]
-	face_names = ["AS HE WAS", "THE WANDERER", "THE WARRIOR"]
-	whole_faces = [&"ashen", &"fuse"]
-	shieldless_faces = [&"fuse"]
-	own_sword_faces = [&"fuse"]
+	# Or Blink's low poly man (FREE Low Poly Human – RPG Character, Unity Asset
+	# Store, Standard EULA; assets/tariel_blink/SOURCES.txt) on his OWN
+	# skeleton, which follows this one ([FigureFollower]; the rest turned onto
+	# this rig's by vepxis-art/tools/bl_blink.py): THE SQUIRE in the starter's
+	# leathers, bearded and bareheaded, and THE KNIGHT in the plate and helm.
+	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight"]
+	face_skulls = [&"box", &"ashen", &"fuse", &"squire", &"knight"]
+	face_names = ["AS HE WAS", "THE WANDERER", "THE WARRIOR", "THE SQUIRE", "THE KNIGHT"]
+	whole_faces = [&"ashen", &"fuse", &"squire", &"knight"]
+	shieldless_faces = [&"fuse", &"squire", &"knight"]
+	own_sword_faces = [&"fuse", &"squire", &"knight"]
+	figure_scene = "res://assets/tariel_blink/tariel_blink.glb"
+	figure_faces = {
+		&"squire": {"show": ["body_", "starter_"], "hide": ["body_underwear"]},
+		&"knight": {"show": ["body_", "plate_"], "hide": ["body_underwear", "body_hair"]},
+	}
+	figure_hips = &"Root_M"
+	figure_map = {
+		&"Root_M": &"pelvis", &"Spine1_M": &"spine_01", &"Chest_M": &"spine_02",
+		&"Neck_M": &"neck_01", &"Head_M": &"head",
+		&"Scapula_R": &"clavicle_r", &"Shoulder_R": &"upperarm_r", &"Elbow_R": &"lowerarm_r",
+		&"Wrist_R": &"hand_r", &"weapon_r": &"weapon_r",
+		&"Scapula_L": &"clavicle_l", &"Shoulder_L": &"upperarm_l", &"Elbow_L": &"lowerarm_l",
+		&"Wrist_L": &"hand_l", &"shield_l": &"shield_l",
+		&"Hip_R": &"thigh_r", &"Knee_R": &"calf_r", &"Ankle_R": &"foot_r", &"Toes_R": &"ball_r",
+		&"Hip_L": &"thigh_l", &"Knee_L": &"calf_l", &"Ankle_L": &"foot_l", &"Toes_L": &"ball_l",
+	}
 	# The wanderer wears a cloak of plain brown wool under his capelet, hung
 	# from the back of the shoulders to the calf: real cloth, in the wind.
 	whole_capes = {&"ashen": [{"base": Color("6b4a33"), "hem": Color("7d5b3f"), "trim": Color("3a2a1c"),
@@ -1296,6 +1334,13 @@ func set_shield(kind: int) -> void:
 	for i in _shield_meshes.size():
 		if _shield_meshes[i] != null:
 			_shield_meshes[i].visible = i == kind and not bare
+	if _figure != null:
+		var on := wearing_figure()
+		var arms := {"sword": on, "shield": on and kind == 0, "tower_shield": on and kind == 1}
+		for key: String in arms:
+			var mesh := _figure.find_child("%s_%s" % [figure_prefix, key], true, false) as MeshInstance3D
+			if mesh != null:
+				mesh.visible = arms[key]
 	_base_clip = &""
 
 
@@ -1350,6 +1395,7 @@ func set_face(index: int) -> void:
 			mesh.visible = i == face
 	set_hair(hair)
 	set_garb(garb)
+	_show_figure()
 	if not _shield_meshes.is_empty():
 		set_shield(shield_kind)
 
@@ -1357,6 +1403,68 @@ func set_face(index: int) -> void:
 ## Whether the face that is on is a whole figure (see `whole_faces`).
 func wearing_whole() -> bool:
 	return face < faces.size() and whole_faces.has(faces[face])
+
+
+## Whether the face that is on is worn on the figure's own skeleton.
+func wearing_figure() -> bool:
+	return face < faces.size() and figure_faces.has(faces[face])
+
+
+## Loads the figure beside the model, its skeleton following this one, and a
+## mount on its sword hand for the blade's cut (see `_show_figure()`).
+func _setup_figure() -> void:
+	if figure_scene == "" or figure_faces.is_empty() or not ResourceLoader.exists(figure_scene):
+		return
+	_figure = (load(figure_scene) as PackedScene).instantiate() as Node3D
+	_figure.name = "Figure"
+	var model := _skel.owner as Node3D if _skel.owner != null else _skel.get_parent() as Node3D
+	model.get_parent().add_child(_figure)
+	_figure.transform = model.transform
+	_figure_skel = _figure.find_children("*", "Skeleton3D", true, false).front() as Skeleton3D
+	if _figure_skel == null:
+		_figure.queue_free()
+		_figure = null
+		return
+	_figure_follow = FigureFollower.new()
+	_figure_follow.name = "FigureFollower"
+	add_child(_figure_follow)
+	if not _figure_follow.setup(_skel, _figure_skel, figure_map, figure_hips):
+		push_warning("SkinnedRig: the figure's skeleton does not match its map.")
+	_rig_mount = _sword_mount
+	if _figure_skel.find_bone("weapon_r") >= 0:
+		_figure_mount = BoneAttachment3D.new()
+		_figure_mount.name = "WeaponMount"
+		_figure_skel.add_child(_figure_mount)
+		_figure_mount.bone_name = "weapon_r"
+
+
+## Shows the figure and its meshes for the face that is on, or hides it; the
+## blade's cut is drawn off whichever sword hand is seen.
+func _show_figure() -> void:
+	if _figure == null:
+		return
+	var on := wearing_figure()
+	_figure.visible = on
+	var look: Dictionary = figure_faces.get(faces[face], {}) if on else {}
+	var shows: Array = look.get("show", [])
+	var hides: Array = look.get("hide", [])
+	for mesh: MeshInstance3D in _figure.find_children("*", "MeshInstance3D", true, false):
+		var key := String(mesh.name).trim_prefix(figure_prefix + "_")
+		if key in ["sword", "shield", "tower_shield"]:
+			continue
+		var shown := false
+		for pre: String in shows:
+			shown = shown or key.begins_with(pre)
+		for pre: String in hides:
+			shown = shown and not key.begins_with(pre)
+		mesh.visible = shown
+	if on:
+		_figure_follow.follow()
+	var mount := _figure_mount if on and _figure_mount != null else _rig_mount
+	if mount != null and _blade_base != null and _blade_base.get_parent() != mount:
+		_blade_base.reparent(mount, false)
+		_blade_tip.reparent(mount, false)
+		_sword_mount = mount
 
 
 ## Takes the capes down and hangs them again, each spec in `capes` with its

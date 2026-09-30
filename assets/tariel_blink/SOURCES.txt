@@ -1,0 +1,11 @@
+tariel_blink.glb — THE SQUIRE / THE KNIGHT (Tariel's figures on their own skeleton)
+
+"FREE Low Poly Human - RPG Character" by Blink (blinkstudio), Unity Asset Store
+https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/free-low-poly-human-rpg-character-219979
+Licence: Standard Unity Asset Store EULA (Extension Asset, one seat). Used as
+part of this game, not redistributed on its own.
+
+Body, hair, beard and the Starter and PlateSet1 armour meshes, Blink's armour
+texture. Rest pose turned onto tariel_rig's limb directions and the hands
+closed, two bones (weapon_r, shield_l) and Tariel's sword and shields added by
+vepxis-art/tools/bl_blink.py; the Blink skeleton and weights are its own.

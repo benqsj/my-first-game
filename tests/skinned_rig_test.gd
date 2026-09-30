@@ -74,6 +74,9 @@ func _initialize() -> void:
 		if face_mesh != null:
 			faces_found += 1
 			faces_worn += 1 if face_mesh.visible else 0
+		elif rig.figure_faces.has(key) and rig._figure != null:
+			faces_found += 1
+			faces_worn += 1 if rig.faces[rig.face] == key else 0
 	_check("his looks: all in the model, one worn", faces_found == rig.faces.size() and faces_worn == 1,
 			"%d found, %d worn" % [faces_found, faces_worn])
 	# The warrior worn: he alone shows, no outfit and no hair over him.
@@ -98,6 +101,34 @@ func _initialize() -> void:
 	var sword := rig.find_child("tariel_sword", true, false) as MeshInstance3D
 	_check("the warrior worn whole, with his own sword and no shield", king != null and king.visible
 			and shields == 0 and sword != null and not sword.visible, "%d shields shown" % shields)
+	# The squire on his own skeleton: the figure shown and the rig's meshes
+	# not, the sword and the round shield his, the blade's cut off his hand;
+	# his hand where the rig's clip puts the rig's, give or take his build.
+	rig.set_face(rig.faces.find(&"squire"))
+	await process_frame
+	var rig_shown := 0
+	for mesh: MeshInstance3D in rig.find_children("tariel_*", "MeshInstance3D", true, false):
+		rig_shown += 1 if mesh.is_visible_in_tree() else 0
+	var fig_sword := rig.find_child("blink_sword", true, false) as MeshInstance3D
+	var fig_shield := rig.find_child("blink_shield", true, false) as MeshInstance3D
+	var fig_vest := rig.find_child("blink_starter_chest", true, false) as MeshInstance3D
+	var fig_skel := rig._figure_skel
+	var hand := fig_skel.global_transform * fig_skel.get_bone_global_pose(fig_skel.find_bone("Wrist_R")).origin
+	var rig_hand := rig._skel.global_transform * rig._skel.get_bone_global_pose(rig._skel.find_bone("hand_r")).origin
+	_check("the squire worn on his own skeleton", rig._figure.visible and rig_shown == 0
+			and fig_sword != null and fig_sword.visible and fig_shield != null and fig_shield.visible
+			and fig_vest != null and fig_vest.visible and rig._blade_tip.get_parent() == rig._figure_mount
+			and hand.distance_to(rig_hand) < 0.35,
+			"%d of the rig's shown, hand %.2f m off" % [rig_shown, hand.distance_to(rig_hand)])
+	rig.set_face(rig.faces.find(&"knight"))
+	var helm := rig.find_child("blink_plate_helmet", true, false) as MeshInstance3D
+	var fig_hair := rig.find_child("blink_body_hair", true, false) as MeshInstance3D
+	_check("the knight in his helm, the hair under it", helm != null and helm.visible
+			and fig_hair != null and not fig_hair.visible, "")
+	rig.set_face(rig.faces.find(&"box"))
+	_check("the rig's own look again: the figure put away", not rig._figure.visible
+			and rig._blade_tip.get_parent() == rig._rig_mount, "face %d, figure shown %s, cut off %s" % [rig.face,
+			rig._figure.visible, rig._blade_tip.get_parent().name])
 	rig.set_face(face_was)
 	if not rig.cloth_capes.is_empty():
 		var fwd := -player.global_transform.basis.z
