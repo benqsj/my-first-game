@@ -12,3 +12,7 @@
 # Working scratch: probes, shots, staging (kept out of the history)
 /_shots_tmp/
 /_to_delete/
+
+# A fan model looked at before buying a dragon: kept out of the history.
+/assets/monsters/smaug_preview/
+/scenes/enemies/smaug_preview.tscn

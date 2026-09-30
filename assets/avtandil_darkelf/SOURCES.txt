@@ -1,0 +1,2 @@
+blend-swap: Elf game-ready and animated (see bow-girl/x/81881 - LICENSE.html)
+Built by vepxis-art tools/bl_mixfig.py (VX_HERO=avtandil VX_FIG=darkelf).

@@ -1510,6 +1510,22 @@ static func mixamo_map(extra: Dictionary) -> Dictionary:
 	return map
 
 
+## The same for a model on Rigify's basic human skeleton (spine to
+## spine.006, upper_arm.L, shin.L...): its hips are "spine", its neck
+## spine.004, its head spine.006.
+static func rigify_map(extra: Dictionary) -> Dictionary:
+	var map := {
+		&"spine": &"pelvis", &"spine.001": &"spine_01", &"spine.003": &"spine_02", &"spine.004": &"neck_01",
+		&"spine.006": &"head",
+		&"shoulder.R": &"clavicle_r", &"upper_arm.R": &"upperarm_r", &"forearm.R": &"lowerarm_r", &"hand.R": &"hand_r",
+		&"shoulder.L": &"clavicle_l", &"upper_arm.L": &"upperarm_l", &"forearm.L": &"lowerarm_l", &"hand.L": &"hand_l",
+		&"thigh.R": &"thigh_r", &"shin.R": &"calf_r", &"foot.R": &"foot_r", &"toe.R": &"ball_r",
+		&"thigh.L": &"thigh_l", &"shin.L": &"calf_l", &"foot.L": &"foot_l", &"toe.L": &"ball_l",
+	}
+	map.merge(extra)
+	return map
+
+
 ## Whether the face that is on is worn on the figure's own skeleton.
 func wearing_figure() -> bool:
 	return face < faces.size() and figure_faces.has(faces[face])

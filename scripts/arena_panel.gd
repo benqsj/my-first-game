@@ -33,6 +33,8 @@ const ENTRIES: Array[Array] = [
 	["Dragon: Nightmare", "res://scenes/enemies/dragon_nightmare.tscn", true],
 	["Dragon: Usurper", "res://scenes/enemies/dragon_usurper.tscn", true],
 	["Dragon: Soul Eater", "res://scenes/enemies/dragon_souleater.tscn", true],
+	# Only to look at (no clips, it does not fight): kept out of the repo.
+	["Smaug (look only)", "res://scenes/enemies/smaug_preview.tscn", true],
 ]
 ## How far in front of the hero a creature is called up, and a boss.
 const AHEAD := 7.0

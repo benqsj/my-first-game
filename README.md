@@ -5302,14 +5302,15 @@ isn't the mannequin's (`SkeletonAnim.hips_name` and `feet`).
 - each creature, alone with the hero, has its clips and comes at him and swings;
 - Hold still, Clear and the look arrows work.
 
-## The ninja, not yet
+## THE NINJA: the assassin on a skeleton made for it
 
-BlenderKit's sci-fi ninja was built as a figure for the assassin
-(`vepxis-art/tools/bl_mixfig.py`, `VX_FIG=ninja`, into
-`assets/rogue_ninja/`). It is not offered as a look yet. Its Mixamo bones hang
-under a control rig's bones, and following the assassin's skeleton bends the
-body out of shape. `SkinnedRig.mixamo_map()` stays for a Mixamo-rigged figure
-that has no control rig.
+BlenderKit's sci-fi ninja is a sixth look for the assassin, with his two
+knives. The model came built for animating in Blender: its Mixamo bones hang
+under control and helper bones. `vepxis-art/tools/bl_mixfig.py` (with
+`clean_rig`) makes it a skeleton of its own, of the Mixamo bones alone, each
+under its nearest Mixamo ancestor. The weights were the Mixamo bones' already.
+Then it follows the assassin's skeleton like any figure
+(`SkinnedRig.mixamo_map()`). Out: `assets/rogue_ninja/rogue_ninja.glb`.
 
 ## THE DARK KNIGHT: Tariel in the Knight of darkness
 
@@ -5318,3 +5319,31 @@ Tariel, on its own mannequin-named skeleton, with his sword and shield. It is
 built by `bl_mixfig.py` (`VX_HERO=tariel VX_FIG=darkknight`). Out:
 `assets/tariel_darkknight/tariel_darkknight.glb`. The same knight also fights
 as a boss (`dark_knight.tscn`).
+
+## The elf: a second archer on the hero select
+
+**THE ELF** is a fifth hero, beside Avtandil, who stays as he was. She is his
+archer: his rig, his clips, his bow, his skills (`scenes/player/elf.tres`). She
+is only ever worn on a figure of her own skeleton (`SkinnedElfRig`,
+`scripts/skinned_elf_rig.gd`):
+
+- **THE DARK ELF**: blend-swap's animated dark elf, on its mocap (CMU-named)
+  skeleton. Its limbs are named as Mixamo's are; its spine is LowerBack, Spine,
+  Spine1. Her own bow, arrow and quiver are left out for Avtandil's bow.
+- **THE HUNTRESS**: Shokubutsu's Low Poly Female, on its Rigify skeleton
+  (`SkinnedRig.rigify_map()`). The model faced the other way and is turned.
+
+Both are built by `bl_mixfig.py` (`VX_HERO=avtandil VX_FIG=darkelf|huntress`).
+Out: `assets/avtandil_darkelf/` and `assets/avtandil_huntress/`.
+
+`figures_test` checks both. A hero with no look of her own skips the "own look
+again" check.
+
+## Smaug, to look at only
+
+A fan model of a dragon from free3d (`free3d.com/dragon`) is built by
+`mon_build.py smaug_preview` into `assets/monsters/smaug_preview/`. It is
+called up in the arena as **Smaug (look only)**: it stands, with no clips, and
+does not fight. It is a fan model of a copyrighted character, so its model and
+scene are kept out of the history (`.gitignore`). The arena skips the entry
+where the scene isn't there.

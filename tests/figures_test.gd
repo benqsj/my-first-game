@@ -9,6 +9,7 @@ const HEROES := {
 	"Tariel": "res://scenes/player/tariel_rigged_visuals.tscn",
 	"the assassin": "res://scenes/player/rogue_rigged_visuals.tscn",
 	"Avtandil": "res://scenes/player/avtandil_rigged_visuals.tscn",
+	"the elf": "res://scenes/player/elf_rigged_visuals.tscn",
 }
 const CLIP_AT := 0.45
 
@@ -103,7 +104,17 @@ func _run() -> void:
 				var tip := _hand(skel, "bow_tip_u")
 				var d := bow.string_u.global_position.distance_to(tip)
 				_check("%s as %s: the string on the figure's bow" % [hero, key], d < 0.03, "%.3f m off its tip" % d)
-		rig.set_face(0)
+		# A hero only ever worn on figures (the elf) has no look of his own to go back to.
+		var own := -1
+		for f in rig.faces.size():
+			if not rig.figure_faces.has(rig.faces[f]):
+				own = f
+				break
+		if own < 0:
+			body.queue_free()
+			await process_frame
+			continue
+		rig.set_face(own)
 		await process_frame
 		var shown := 0
 		for id: StringName in rig._figs:

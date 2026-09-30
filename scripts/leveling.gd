@@ -55,6 +55,7 @@ const GROWTH := {
 	&"avtandil": {"hp": 9.0, "p_atk": 2.4, "p_def": 1.2, "m_def": 1.2, "crit": 0.01, "stamina": 2.0},
 	&"rogue": {"hp": 8.0, "p_atk": 1.5, "p_def": 1.5, "m_def": 1.2, "crit": 0.015, "stamina": 3.0},
 	&"mage": {"hp": 7.0, "m_atk": 3.5, "p_def": 0.8, "m_def": 3.0, "crit": 0.005, "stamina": 3.0},
+	&"elf": {"hp": 8.0, "p_atk": 2.4, "p_def": 1.0, "m_def": 1.4, "crit": 0.012, "stamina": 2.5},
 }
 
 signal gained(percent: float)
