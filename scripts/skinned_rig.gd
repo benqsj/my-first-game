@@ -317,6 +317,16 @@ var figures: Dictionary = {}
 ## the figure's meshes shown are those named "<prefix>_" + one of "show" and
 ## none of "hide".
 var figure_faces: Dictionary = {}
+## How a face fights, where it is not as the rig does (set by `_configure()`):
+## face -> {"flurry", "flurry_part", "heavy"} laid over the rig's own, and
+## "off_hand": false to draw no ring off the off hand, "hide_arms": the
+## figure's "arm_*" meshes it does not carry. For a figure that holds one blade
+## where the rig holds two.
+var face_moves: Dictionary = {}
+## The rig's own moves, kept as `_configure()` left them (see `face_moves`).
+var _own_moves: Dictionary = {}
+## Whether the off hand's ring is drawn for the face that is on.
+var _off_hand_on: bool = true
 ## The figures loaded, by id: {"node", "skel", "follow", "mount"}.
 var _figs: Dictionary = {}
 ## The figure worn now (null while the rig's own look is on).
@@ -336,6 +346,8 @@ func _ready() -> void:
 		return
 	_body = get_parent() as Node3D
 	_configure()
+	_own_moves = {"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(),
+			"heavy": heavy.duplicate(true)}
 	for n in looping:
 		if _anim.has_animation(n):
 			_anim.get_animation(n).loop_mode = Animation.LOOP_LINEAR
@@ -839,7 +851,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	for arc: BladeArc in [_arc, _arc_l]:
 		if arc == null:
 			continue
-		arc.emitting = trailing and (arc == _arc or not off_hand_whole_only or wearing_whole())
+		arc.emitting = trailing and (arc == _arc or ((not off_hand_whole_only or wearing_whole()) and _off_hand_on))
 		if trailing and arc_heavy_boost != 1.0 and not _arc_base.is_empty():
 			var boost := arc_heavy_boost if cut_weight > 1.2 else 1.0
 			arc.intensity = float(_arc_base["intensity"]) * boost
@@ -1423,8 +1435,20 @@ func set_face(index: int) -> void:
 	set_hair(hair)
 	set_garb(garb)
 	_show_figure()
+	_apply_moves()
 	if not _shield_meshes.is_empty():
 		set_shield(shield_kind)
+
+
+## Fights as the face that is on does (see `face_moves`), or as the rig does.
+func _apply_moves() -> void:
+	if _own_moves.is_empty():
+		return
+	var m: Dictionary = face_moves.get(faces[face], {}) if face < faces.size() else {}
+	flurry.assign(m.get("flurry", _own_moves["flurry"]))
+	flurry_part = m.get("flurry_part", _own_moves["flurry_part"])
+	heavy = m.get("heavy", _own_moves["heavy"])
+	_off_hand_on = m.get("off_hand", true)
 
 
 ## Whether the face that is on is a whole figure (see `whole_faces`).
@@ -1570,7 +1594,7 @@ func _show_figure_arms() -> void:
 		if arms.has(key):
 			mesh.visible = arms[key]
 		elif key.begins_with("arm_"):
-			mesh.visible = true
+			mesh.visible = not (face_moves.get(faces[face], {}) as Dictionary).get("hide_arms", []).has(key)
 
 
 ## A figure has just been posed off this rig (see [signal

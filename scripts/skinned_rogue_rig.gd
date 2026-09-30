@@ -227,6 +227,21 @@ func _configure() -> void:
 		&"foxmask": {"figure": &"sidekick", "show": ["foxmask"]},
 		&"hood": {"figure": &"sidekick", "show": ["hood"]},
 	}
+	# Sidekick's men are made for one blade (the fox mask carries one sword,
+	# at his hip): so one knife, in the right fist, no ring off the empty left
+	# hand, and the one-handed string he had before the two-knife one —
+	# Mixamo's one-handed sword combo (the left hand tucked to the chest), the
+	# spinning cut, the backhand, the axe's cut from right to left and the
+	# whirl to end it. The two-knife heavy blow gives way to the one-handed
+	# combo's last big blow.
+	var one_heavy: Array = heavy.duplicate(true)
+	one_heavy[3] = {"clip": &"DG_Finisher", "part": Vector2(0.2, 0.9), "rate": 1.7, "weight": 1.5, "rise": 0.6}
+	var one_knife := {
+		"flurry": [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Backhand_Cut", &"DG_Axe_R2L", &"DG_Whirl"],
+		"flurry_part": {&"DG_Axe_R2L": Vector2(0.236, 0.597), &"DG_Whirl": Vector2(0.1, 0.62)},
+		"heavy": one_heavy, "off_hand": false, "hide_arms": ["arm_knife_l"],
+	}
+	face_moves = {&"foxmask": one_knife, &"hood": one_knife}
 	var cloak_body := [["pelvis", "neck_01", 0.17], ["spine_01", "spine_02", 0.19],
 			["thigh_l", "calf_l", 0.1], ["thigh_r", "calf_r", 0.1], ["calf_l", "foot_l", 0.085],
 			["calf_r", "foot_r", 0.085]]

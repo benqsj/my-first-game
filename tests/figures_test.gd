@@ -81,6 +81,23 @@ func _run() -> void:
 				_check("%s as %s: the off hand's cut off the figure's off hand" % [hero, key],
 						rig._blade_tip_l.get_parent() == rig._figs[rig.figure_faces[key]["figure"]]["mount_l"],
 						str(rig._blade_tip_l.get_parent().name))
+			if rig.face_moves.has(key):
+				var moves: Dictionary = rig.face_moves[key]
+				var missing: Array[String] = []
+				for c: StringName in rig.flurry:
+					if not anim.has_animation(c):
+						missing.append(String(c))
+				for h: Dictionary in rig.heavy:
+					if not anim.has_animation(h["clip"]):
+						missing.append(String(h["clip"]))
+				var hidden_shown := 0
+				for a: String in moves.get("hide_arms", []):
+					var m := fig.find_child(prefix + a, true, false) as MeshInstance3D
+					hidden_shown += 1 if m != null and m.visible else 0
+				_check("%s as %s: fights his own way, with what he holds" % [hero, key],
+						str(rig.flurry) == str(moves["flurry"]) and missing.is_empty() and hidden_shown == 0
+						and rig._off_hand_on == bool(moves.get("off_hand", true)),
+						"flurry %s, missing %s, %d hidden arms shown" % [rig.flurry, missing, hidden_shown])
 			if rig is SkinnedArcherRig:
 				var bow: BowModifier = (rig as SkinnedArcherRig)._bow_mod
 				var tip := _hand(skel, "bow_tip_u")
@@ -93,6 +110,8 @@ func _run() -> void:
 			shown += 1 if (rig._figs[id]["node"] as Node3D).visible else 0
 		_check("%s in his own look again: every figure put away" % hero, shown == 0 and rig._figure == null,
 				"%d shown" % shown)
+		_check("%s in his own look: fights as he did" % hero, str(rig.flurry) == str(rig._own_moves["flurry"])
+				and rig._off_hand_on, str(rig.flurry))
 		if rig is SkinnedArcherRig:
 			var bow: BowModifier = (rig as SkinnedArcherRig)._bow_mod
 			for i in 2:

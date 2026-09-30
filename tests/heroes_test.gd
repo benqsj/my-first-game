@@ -36,7 +36,8 @@ func _initialize() -> void:
 	await _check_steps("the rogue")
 	# a cloak only on a whole figure (the one made real, the wanderer), so it
 	# follows the look the settings have picked
-	await _check_cape("the rogue", 1 if (_player.rig as SkinnedRig).wearing_whole() else 0)
+	var rogue := _player.rig as SkinnedRig
+	await _check_cape("the rogue", 1 if rogue.wearing_whole() and rogue.whole_capes.has(rogue.faces[rogue.face]) else 0)
 	await _check_moves("the rogue", Player.MoveSound.STEP)
 	await _spawn(&"tariel")
 	await _check_steps("Tariel")
@@ -242,7 +243,9 @@ func _check_rogue() -> void:
 	await physics_frame
 	await physics_frame
 	Input.action_release("attack")
-	_check("a click is the first blow of the combo: both knives thrown out", String(rig.current_swing()) == "DG_Slash_Out",
+	# (both knives thrown out; a look that holds one knife has its own string:
+	# see SkinnedRig.face_moves)
+	_check("a click is the first blow of the combo: both knives thrown out", rig.current_swing() == rig.flurry[0],
 			String(rig.current_swing()))
 	# The whoosh comes with the cut, a moment into the swing.
 	var heard := false

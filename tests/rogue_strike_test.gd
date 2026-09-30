@@ -132,7 +132,9 @@ func _initialize() -> void:
 		await _press(player, "attack")
 		await _idle(player)
 	await _press(player, "block")
-	_check("at the end of it the whirling combo", rig._act_clip == &"DG_Dual_Combo", String(rig._act_clip))
+	# (the two knives' whirling combo; a look that holds one knife has its own:
+	# see SkinnedRig.face_moves)
+	_check("at the end of it the whirling combo", rig._act_clip == StringName(rig.heavy[3]["clip"]), String(rig._act_clip))
 	await _idle(player)
 	# A light cut's follow-through can be broken off by an evade; a heavy blow's cannot.
 	await _press(player, "attack")
