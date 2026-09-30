@@ -74,13 +74,18 @@ func _initialize() -> void:
 		if face_mesh != null:
 			faces_found += 1
 			faces_worn += 1 if face_mesh.visible else 0
-		elif rig.figure_faces.has(key) and rig._figure != null:
+		elif rig.figure_faces.has(key) and rig._figs.has(rig.figure_faces[key]["figure"]):
 			faces_found += 1
 			faces_worn += 1 if rig.faces[rig.face] == key else 0
 	_check("his looks: all in the model, one worn", faces_found == rig.faces.size() and faces_worn == 1,
 			"%d found, %d worn" % [faces_found, faces_worn])
-	# The warrior worn: he alone shows, no outfit and no hair over him.
+	# Before the looks below are tried: one with a cape hangs it afresh.
+	if not rig.cloth_capes.is_empty():
+		var fwd := -player.global_transform.basis.z
+		var hem := rig.cloth_capes[0].hem() - player.global_position
+		_check("running streams the cape out behind", hem.dot(fwd) < -0.25, "%.2f m behind" % -hem.dot(fwd))
 	var face_was := rig.face
+	# The warrior worn: he alone shows, no outfit and no hair over him.
 	rig.set_face(rig.faces.find(&"ashen"))
 	var over := 0
 	for mesh in rig.find_children("tariel_hair_*", "MeshInstance3D", true, false):
@@ -115,7 +120,7 @@ func _initialize() -> void:
 	var fig_skel := rig._figure_skel
 	var hand := fig_skel.global_transform * fig_skel.get_bone_global_pose(fig_skel.find_bone("Wrist_R")).origin
 	var rig_hand := rig._skel.global_transform * rig._skel.get_bone_global_pose(rig._skel.find_bone("hand_r")).origin
-	_check("the squire worn on his own skeleton", rig._figure.visible and rig_shown == 0
+	_check("the squire worn on his own skeleton", rig._figure != null and rig._figure.visible and rig_shown == 0
 			and fig_sword != null and fig_sword.visible and fig_shield != null and fig_shield.visible
 			and fig_vest != null and fig_vest.visible and rig._blade_tip.get_parent() == rig._figure_mount
 			and hand.distance_to(rig_hand) < 0.35,
@@ -125,15 +130,34 @@ func _initialize() -> void:
 	var fig_hair := rig.find_child("blink_body_hair", true, false) as MeshInstance3D
 	_check("the knight in his helm, the hair under it", helm != null and helm.visible
 			and fig_hair != null and not fig_hair.visible, "")
+	# Synty's Sidekick, a skeleton of its own again: each look one mesh, the
+	# rest of the figure's looks and Blink's figure put away.
+	for key: StringName in [&"paladin", &"hooded", &"sworn", &"iron"]:
+		rig.set_face(rig.faces.find(key))
+		await process_frame
+		var sk_shown: Array[String] = []
+		for mesh: MeshInstance3D in rig.find_children("sk_*", "MeshInstance3D", true, false):
+			if mesh.is_visible_in_tree():
+				sk_shown.append(String(mesh.name))
+		var blink_shown := 0
+		for mesh: MeshInstance3D in rig.find_children("blink_*", "MeshInstance3D", true, false):
+			blink_shown += 1 if mesh.is_visible_in_tree() else 0
+		var sk_hand := rig._figure_skel.global_transform * rig._figure_skel.get_bone_global_pose(
+				rig._figure_skel.find_bone("hand_r")).origin
+		var off := sk_hand.distance_to(rig._skel.global_transform * rig._skel.get_bone_global_pose(
+				rig._skel.find_bone("hand_r")).origin)
+		_check("%s worn on Sidekick's own skeleton" % key, sk_shown.has("sk_" + String(key))
+				and sk_shown.has("sk_sword") and blink_shown == 0 and off < 0.35
+				and rig._blade_tip.get_parent() == rig._figure_mount,
+				"%s shown, %d of Blink's, hand %.2f m off" % [sk_shown, blink_shown, off])
 	rig.set_face(rig.faces.find(&"box"))
-	_check("the rig's own look again: the figure put away", not rig._figure.visible
-			and rig._blade_tip.get_parent() == rig._rig_mount, "face %d, figure shown %s, cut off %s" % [rig.face,
-			rig._figure.visible, rig._blade_tip.get_parent().name])
+	var figs_shown := 0
+	for id: StringName in rig._figs:
+		figs_shown += 1 if (rig._figs[id]["node"] as Node3D).visible else 0
+	_check("the rig's own look again: the figures put away", figs_shown == 0 and rig._figure == null
+			and rig._blade_tip.get_parent() == rig._rig_mount, "%d shown, cut off %s" % [figs_shown,
+			rig._blade_tip.get_parent().name])
 	rig.set_face(face_was)
-	if not rig.cloth_capes.is_empty():
-		var fwd := -player.global_transform.basis.z
-		var hem := rig.cloth_capes[0].hem() - player.global_position
-		_check("running streams the cape out behind", hem.dot(fwd) < -0.25, "%.2f m behind" % -hem.dot(fwd))
 	Input.action_release("move_forward")
 	for i in 40:
 		await physics_frame
