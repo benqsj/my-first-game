@@ -8,3 +8,7 @@
 
 # macOS
 .DS_Store
+
+# Working scratch: probes, shots, staging (kept out of the history)
+/_shots_tmp/
+/_to_delete/
