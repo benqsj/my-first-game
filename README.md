@@ -5255,6 +5255,10 @@ board (`ArenaPanel`, `scripts/arena_panel.gd`):
   remembered as the menu's pick would be).
 - **Heal**, **Hold still** (every creature stops thinking and walking) and
   **Clear**.
+- **Wait for my blow** (on by default): a creature called up stays blind
+  (`sight_range` 0) until the first blow that hurts it. Then it gets its sight
+  back and turns on the hero.
+- **Can't be hurt** (on by default): the hero is kept at full health.
 
 New creatures and bosses, each on the skeleton it came with. No bone is
 renamed or moved. `vepxis-art/tools/mon_build.py` builds each one:
@@ -5323,21 +5327,21 @@ as a boss (`dark_knight.tscn`).
 ## The elf: a second archer on the hero select
 
 **THE ELF** is a fifth hero, beside Avtandil, who stays as he was. She is his
-archer: his rig, his clips, his bow, his skills (`scenes/player/elf.tres`). She
-is only ever worn on a figure of her own skeleton (`SkinnedElfRig`,
-`scripts/skinned_elf_rig.gd`):
+archer: his rig, his clips, his bow and his skills (`scenes/player/elf.tres`,
+`SkinnedElfRig`). She is worn as **THE DARK ELF**: blend-swap's animated dark
+elf on its mocap (CMU-named) skeleton, which follows his. Her own bow, arrow
+and quiver are left out for his bow.
 
-- **THE DARK ELF**: blend-swap's animated dark elf, on its mocap (CMU-named)
-  skeleton. Its limbs are named as Mixamo's are; its spine is LowerBack, Spine,
-  Spine1. Her own bow, arrow and quiver are left out for Avtandil's bow.
-- **THE HUNTRESS**: Shokubutsu's Low Poly Female, on its Rigify skeleton
-  (`SkinnedRig.rigify_map()`). The model faced the other way and is turned.
+`bl_mixfig.py` (`shape: elf`) works her figure at rest, each change by a soft
+falloff round a landmark taken off her own bones, so her clothes move with her:
 
-Both are built by `bl_mixfig.py` (`VX_HERO=avtandil VX_FIG=darkelf|huntress`).
-Out: `assets/avtandil_darkelf/` and `assets/avtandil_huntress/`.
+- a fuller bust;
+- a narrower waist;
+- rounder hips;
+- a slightly finer jaw.
 
-`figures_test` checks both. A hero with no look of her own skips the "own look
-again" check.
+Her hair is dark and glossy. The painted lines of her skin map are half blurred,
+and the skin is made a little lighter and warmer.
 
 ## Smaug, to look at only
 

@@ -70,6 +70,29 @@ func _run() -> void:
 	await _wait(3)
 	_check("the floor cleared", creatures.get_child_count() == 0, str(creatures.get_child_count()))
 
+	# Waiting for his blow (the default): the minotaur stands by him and does
+	# nothing; struck once it comes at him; and he loses nothing to it.
+	hero.immortal = false
+	var mino := panel.call_up("res://scenes/enemies/minotaur.tscn", true) as Brawler
+	if mino != null:
+		for i in 240:
+			await physics_frame
+		_check("waiting for his blow, the boss does not come at him", mino.act_serial == 0 and mino.mode == Fighter.Mode.GUARD,
+				"acts %d, mode %d" % [mino.act_serial, mino.mode])
+		mino.take_hit(10.0, mino.global_position + Vector3.UP, Vector3.FORWARD)
+		var came := false
+		for i in 600:
+			await physics_frame
+			if mino.act_serial > 0 and mino._moves().has(mino.act):
+				came = true
+		_check("struck, it fights back", came, "acts %d" % mino.act_serial)
+		await process_frame
+		_check("and he loses no health to it", hero.health >= hero.max_health, "%.0f of %.0f" % [hero.health, hero.max_health])
+	panel._clear()
+	await _wait(3)
+	hero.immortal = true
+	panel._wait_for_blow = false
+
 	# Each creature on clips of its own, alone on the floor with him: its clips
 	# are loaded, it sees him, comes at him and swings.
 	for entry: Array in ArenaPanel.ENTRIES:

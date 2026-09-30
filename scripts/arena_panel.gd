@@ -11,6 +11,9 @@ extends CanvasLayer
 ## and fighting without going back to the menu; making him whole again; holding
 ## every creature still to walk round it; and clearing the floor.
 ##
+## By default a creature called up here waits for the hero's first blow before
+## it fights back, and the hero loses no health (both can be switched off).
+##
 ## `F1` shows and hides the board. While it is up the mouse is free and the hero
 ## does not turn with it (`Player.menu_open`), as with the inventory.
 
@@ -44,6 +47,10 @@ var _root: Control
 var _look_label: Label
 var _count: int = 0
 var _frozen: bool = false
+## Creatures wait for the hero's first blow before they fight back, and the
+## hero loses no health here. Both on by default: this is a place to look.
+var _wait_for_blow: bool = true
+var _unhurt: bool = true
 
 
 func _ready() -> void:
@@ -85,6 +92,10 @@ func _ready() -> void:
 	tools.add_child(_small("Hold still", _toggle_freeze))
 	tools.add_child(_small("Clear", _clear))
 	column.add_child(tools)
+	var rules := HBoxContainer.new()
+	rules.add_child(_toggle("Wait for my blow", _wait_for_blow, func(on: bool) -> void: _wait_for_blow = on))
+	rules.add_child(_toggle("Can't be hurt", _unhurt, func(on: bool) -> void: _unhurt = on))
+	column.add_child(rules)
 	_root.visible = false
 	_refresh_look.call_deferred()
 
@@ -97,6 +108,23 @@ func _small(text: String, pressed: Callable) -> Button:
 	MenuStyle.style_button(button, false, true)
 	button.pressed.connect(pressed)
 	return button
+
+
+func _toggle(text: String, on: bool, changed: Callable) -> CheckButton:
+	var box := CheckButton.new()
+	box.text = text
+	box.button_pressed = on
+	box.focus_mode = Control.FOCUS_NONE
+	box.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 3)
+	box.toggled.connect(changed)
+	return box
+
+
+func _process(_delta: float) -> void:
+	if _unhurt:
+		var hero := _hero()
+		if hero != null:
+			hero.health = hero.max_health
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -157,7 +185,26 @@ func call_up(path: String, boss: bool = false) -> Node3D:
 	creatures.add_child(body)
 	if _frozen:
 		_hold(body, true)
+	if _wait_for_blow:
+		_make_wait(body)
 	return body
+
+
+## Blind until it is struck: its sight put away, given back (and turned on
+## the hero) by the first blow that hurts it.
+func _make_wait(body: Node) -> void:
+	if not "sight_range" in body or not body.has_signal("hurt"):
+		return
+	var sight: float = body.get("sight_range")
+	body.set("sight_range", 0.0)
+	body.connect("hurt", func(_remaining: float) -> void:
+		if not is_instance_valid(body):
+			return
+		body.set("sight_range", sight)
+		var hero := _hero()
+		if hero != null and body.has_method("_rouse"):
+			body.call("_rouse", hero), CONNECT_ONE_SHOT)
+	body.set_meta(&"arena_sight", sight)
 
 
 func _call_up(path: String, boss: bool) -> void:
