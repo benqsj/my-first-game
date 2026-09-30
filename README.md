@@ -5302,16 +5302,14 @@ isn't the mannequin's (`SkeletonAnim.hips_name` and `feet`).
 - each creature, alone with the hero, has its clips and comes at him and swings;
 - Hold still, Clear and the look arrows work.
 
-## THE NINJA: the assassin on a Mixamo skeleton
+## The ninja, not yet
 
-BlenderKit's sci-fi ninja is a sixth look for the assassin, on its own
-Mixamo skeleton. His two knives are in its fists. `vepxis-art/tools/bl_mixfig.py`
-builds it (`VX_HERO=rogue VX_FIG=ninja`). It is a generic builder for a
-Mixamo-rigged figure: it takes the "mixamorig:" off the bone names, brings the
-figure to the hero's height, turns the limbs onto his, closes the fists and
-adds his arm bones and arms. Out: `assets/rogue_ninja/rogue_ninja.glb`.
-
-`SkinnedRig.mixamo_map()` maps its bones to the rig's.
+BlenderKit's sci-fi ninja was built as a figure for the assassin
+(`vepxis-art/tools/bl_mixfig.py`, `VX_FIG=ninja`, into
+`assets/rogue_ninja/`). It is not offered as a look yet. Its Mixamo bones hang
+under a control rig's bones, and following the assassin's skeleton bends the
+body out of shape. `SkinnedRig.mixamo_map()` stays for a Mixamo-rigged figure
+that has no control rig.
 
 ## THE DARK KNIGHT: Tariel in the Knight of darkness
 
