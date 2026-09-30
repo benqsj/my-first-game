@@ -16,9 +16,10 @@ func _configure() -> void:
 	face_skulls = faces.duplicate()
 	face_names = ["THE DARK ELF"]
 	whole_faces = faces.duplicate()
-	# Her outfits in the bag: the green she came in, and the same dyed black-
-	# violet and silver (vepxis-art tools/bl_mixfig.py, noir_garb).
-	garbs = [&"de_body", &"de_noir"]
+	# Her outfits in the bag: the green she came in, the same dyed black-violet
+	# and silver, and black leather straps on the bare skin (vepxis-art
+	# tools/bl_mixfig.py, noir_garb and harness_garb).
+	garbs = [&"de_body", &"de_noir", &"de_harness"]
 	var bow_bones := {&"bow_l": &"bow_l", &"bow_limb_l": &"bow_limb_l", &"bow_tip_l": &"bow_tip_l",
 			&"bow_limb_u": &"bow_limb_u", &"bow_tip_u": &"bow_tip_u", &"draw_r": &"draw_r"}
 	# The mocap skeleton's limbs are named as Mixamo's are; its spine is
@@ -31,7 +32,7 @@ func _configure() -> void:
 			"hips": &"Hips", "map": elf_map},
 	}
 	figure_faces = {
-		&"darkelf": {"figure": &"darkelf", "show": ["body", "noir"]},
+		&"darkelf": {"figure": &"darkelf", "show": ["body", "noir", "harness"]},
 	}
 
 

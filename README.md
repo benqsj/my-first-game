@@ -5347,13 +5347,38 @@ falloff round a landmark taken off her own bones, so her clothes move with her:
 - a smaller forehead: brow to crown pressed down by a quarter.
 
 Her hair is silver-white. The painted lines of her skin map are half blurred,
-and the whole skin is turned a dark elf's: pale ash with a cool blue cast, some
-of its living warmth kept (`skin_tinted`).
+and the whole skin is turned a dark elf's: slate with a blue-violet cast, its
+shading kept (`skin_tinted`).
 
-She has two outfits in the bag (Attire): **Sylvan Leathers**, the green she
-came in, and **Shadow Weave**, the same cut dyed black-violet with silver for
-gold (`noir_garb`, mesh `de_noir`). Each is a whole body of the figure;
+**Her weights over the hips and belly are made again** (`reweight_hips`). The
+model came with the whole seat weighted to the lower back and none of it to the
+thighs, so every stride pulled the thigh out of the buttock (spikes) and every
+bend folded the belly along one line. Across that band each vertex is now
+weighted by how near it is to the pelvis, the spine and the thigh on its side,
+smoothed along the mesh and blended into the old weights at the band's edges.
+Her skeleton stays her own (the blend's mocap skeleton), following Avtandil's.
+
+**The bow sits in her hand**: the grip is set back into the palm (`nudge`) and
+her fingers are closed round it (`grip`).
+
+She has three outfits in the bag (Attire). Each is a whole body of the figure;
 `SkinnedElfRig.set_garb` shows the one put on.
+
+- **Sylvan Leathers**: the green she came in.
+- **Shadow Weave**: the same cut dyed black-violet, with silver for gold
+  (`noir_garb`, mesh `de_noir`).
+- **Night Harness**: black leather straps on the bare skin (`harness_garb`,
+  mesh `de_harness`). The bodice, kilt, belt and pouch are taken off. The
+  sleeve, pauldron, collar, bracers and boots stay, dyed black and silver (the
+  model has no skin under them). Every strap is cut out of her own skin between
+  two planes, so it follows the body and keeps its weights:
+  - triangle cups, with halter straps up to the collar;
+  - a band under the bust and a strap down the middle;
+  - a cross over the belly and a low belt;
+  - thigh-high wraps, with crossed straps on the thighs;
+  - a long glove on the bare arm.
+
+  The briefs painted on the skin are turned black leather.
 
 ## Smaug, to look at only
 

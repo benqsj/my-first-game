@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://x1qiihxii7su"
-path="res://.godot/imported/avtandil_darkelf_ElfCloth_2.jpg-90dfced3d43fafb92c1943fff1eb06f2.ctex"
+uid="uid://c6abslj2e55aa"
+path="res://.godot/imported/avtandil_darkelf_ElfCloth_4.jpg-fbbdd0e8684b16095acb1c29664f7ded.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "a45c20a7e00d8aff357762413c46908b"
+"md5": "1e63c385f846a0156685ec6605855efe"
 }
 
 [deps]
 
-source_file="res://assets/avtandil_darkelf/avtandil_darkelf_ElfCloth_2.jpg"
-dest_files=["res://.godot/imported/avtandil_darkelf_ElfCloth_2.jpg-90dfced3d43fafb92c1943fff1eb06f2.ctex"]
+source_file="res://assets/avtandil_darkelf/avtandil_darkelf_ElfCloth_4.jpg"
+dest_files=["res://.godot/imported/avtandil_darkelf_ElfCloth_4.jpg-fbbdd0e8684b16095acb1c29664f7ded.ctex"]
 
 [params]
 
