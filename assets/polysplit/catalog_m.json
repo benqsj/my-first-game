@@ -1,0 +1,165 @@
+{
+ "beard": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8
+ ],
+ "classes": {
+  "archer": {
+   "bottom": "archer",
+   "extras": [
+    "archer_arrowquiver",
+    "archer_cape"
+   ],
+   "hat": "tyrolean",
+   "off": "",
+   "top": "archer",
+   "weapon": "bow"
+  },
+  "fighter": {
+   "bottom": "fighter",
+   "extras": [
+    "fighter_swordscabbard"
+   ],
+   "hat": "headband",
+   "off": "",
+   "top": "fighter",
+   "weapon": "sword_a"
+  },
+  "hunter": {
+   "bottom": "hunter",
+   "extras": [
+    "hunter_arrowquiver",
+    "hunter_dagger_sheathed_r"
+   ],
+   "hat": "felted",
+   "off": "",
+   "top": "hunter",
+   "weapon": "bow"
+  },
+  "knight": {
+   "bottom": "knight",
+   "extras": [
+    "knight_greatswordscabbard",
+    "knight_neckscarf",
+    "knight_pauldrons",
+    "knight_swordsheathed"
+   ],
+   "hat": "greathelm",
+   "off": "",
+   "top": "knight",
+   "weapon": "greatsword"
+  },
+  "mage": {
+   "bottom": "mage",
+   "extras": [
+    "mage_slingbag"
+   ],
+   "hat": "magehat_a",
+   "off": "",
+   "top": "mage",
+   "weapon": "staff_a"
+  },
+  "rogue": {
+   "bottom": "rogue",
+   "extras": [
+    "rogue_daggerscabbard_l",
+    "rogue_daggerscabbard_r"
+   ],
+   "hat": "eyepatch",
+   "off": "dagger",
+   "top": "rogue",
+   "weapon": "dagger"
+  },
+  "sorcerer": {
+   "bottom": "sorcerer",
+   "extras": [
+    "sorcerer_cloak",
+    "sorcerer_shoes"
+   ],
+   "hat": "bishop",
+   "off": "",
+   "top": "sorcerer",
+   "weapon": "staff_a"
+  },
+  "swordsman": {
+   "bottom": "swordsman",
+   "extras": [
+    "swordsman_swordscabbard"
+   ],
+   "hat": "skullcap",
+   "off": "",
+   "top": "swordsman",
+   "weapon": "sword_a"
+  },
+  "warlock": {
+   "bottom": "warlock",
+   "extras": [
+    "warlock_cape"
+   ],
+   "hat": "hood",
+   "off": "",
+   "top": "warlock",
+   "weapon": "staff_a"
+  }
+ },
+ "extras": {
+  "archer_arrowquiver": "archer",
+  "archer_cape": "archer",
+  "fighter_swordscabbard": "fighter",
+  "hunter_arrowquiver": "hunter",
+  "hunter_dagger_sheathed_r": "hunter",
+  "knight_greatswordscabbard": "knight",
+  "knight_neckscarf": "knight",
+  "knight_pauldrons": "knight",
+  "knight_swordsheathed": "knight",
+  "mage_slingbag": "mage",
+  "rogue_daggerscabbard_l": "rogue",
+  "rogue_daggerscabbard_r": "rogue",
+  "sorcerer_cloak": "sorcerer",
+  "sorcerer_shoes": "sorcerer",
+  "swordsman_swordscabbard": "swordsman",
+  "warlock_cape": "warlock"
+ },
+ "hair": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14
+ ],
+ "hats": [
+  "armet",
+  "beret",
+  "bishop",
+  "bycocket",
+  "circlet",
+  "eyepatch",
+  "facemask",
+  "felted",
+  "greathelm",
+  "headband",
+  "hood",
+  "kettle",
+  "leathercoif",
+  "magehat_a",
+  "magehat_b",
+  "skullcap",
+  "tyrolean",
+  "witchhat"
+ ]
+}

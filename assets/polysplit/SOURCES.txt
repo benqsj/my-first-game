@@ -1,0 +1,15 @@
+<hero>_<m|f>.glb — the hero select's maker, YOUR OWN (scripts/polysplit_look.gd)
+colors/body_1..8.png, colors/objects_1..14.png — the pack's pre-coloured textures
+
+"Low-Poly Medieval Fantasy Heroes - Basic Pack" (Polysplit Games), Unity Asset Store
+https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/low-poly-medieval-fantasy-heroes-basic-pack-288957
+Licence: Standard Unity Asset Store EULA (bought). Used as part of this game,
+not redistributed on its own.
+
+Every part of the pack's heroes, male (BasicHeroes/M_<Class>.fbx; M_Archer read
+through Godot's fbx reader) and female (BasicHeroes/All-in-One_SeparateGenders/
+BasicHero_F.fbx), the loose headwear (BasicHeadwear/) and weapons
+(BasicWeapons/), each a mesh of its own on Polysplit's own skeleton: its rest
+turned onto each hero's limbs, the hands closed, the hero's arm bones added and
+the weapons put where the hero holds his own, by vepxis-art/tools/ps_creator.py.
+The colours are the pack's BodyPreColors and ObjectPreColors, renamed.

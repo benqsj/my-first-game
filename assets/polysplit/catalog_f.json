@@ -1,0 +1,158 @@
+{
+ "beard": [],
+ "classes": {
+  "archer": {
+   "bottom": "archer",
+   "extras": [
+    "archer_arrowquiver",
+    "archer_cape"
+   ],
+   "hat": "bycocket",
+   "off": "",
+   "top": "archer",
+   "weapon": "bow"
+  },
+  "fighter": {
+   "bottom": "fighter",
+   "extras": [
+    "fighter_swordscabbard"
+   ],
+   "hat": "leathercoif",
+   "off": "",
+   "top": "fighter",
+   "weapon": "sword_a"
+  },
+  "hunter": {
+   "bottom": "hunter",
+   "extras": [
+    "hunter_arrowquiver"
+   ],
+   "hat": "beret",
+   "off": "",
+   "top": "hunter",
+   "weapon": "bow"
+  },
+  "knight": {
+   "bottom": "knight",
+   "extras": [
+    "knight_dagger",
+    "knight_daggerscabbard",
+    "knight_pauldrons",
+    "knight_skirt",
+    "knight_swordscabbard"
+   ],
+   "hat": "armet",
+   "off": "",
+   "top": "knight",
+   "weapon": "sword_a"
+  },
+  "mage": {
+   "bottom": "mage",
+   "extras": [
+    "mage_cape",
+    "mage_scarf"
+   ],
+   "hat": "magehat_b",
+   "off": "",
+   "top": "mage",
+   "weapon": "staff_a"
+  },
+  "rogue": {
+   "bottom": "rogue",
+   "extras": [
+    "rogue_daggerscabbard"
+   ],
+   "hat": "facemask",
+   "off": "",
+   "top": "rogue",
+   "weapon": "dagger"
+  },
+  "sorcerer": {
+   "bottom": "sorcerer",
+   "extras": [
+    "sorcerer_shawl",
+    "sorcerer_shoes"
+   ],
+   "hat": "circlet",
+   "off": "",
+   "top": "sorcerer",
+   "weapon": "staff_a"
+  },
+  "swordsman": {
+   "bottom": "swordsman",
+   "extras": [
+    "swordsman_swordscabbard"
+   ],
+   "hat": "kettle",
+   "off": "",
+   "top": "swordsman",
+   "weapon": "sword_a"
+  },
+  "witch": {
+   "bottom": "witch",
+   "extras": [
+    "witch_cape",
+    "witch_choker"
+   ],
+   "hat": "witchhat",
+   "off": "",
+   "top": "witch",
+   "weapon": "staff_a"
+  }
+ },
+ "extras": {
+  "archer_arrowquiver": "archer",
+  "archer_cape": "archer",
+  "fighter_swordscabbard": "fighter",
+  "hunter_arrowquiver": "hunter",
+  "knight_dagger": "knight",
+  "knight_daggerscabbard": "knight",
+  "knight_pauldrons": "knight",
+  "knight_skirt": "knight",
+  "knight_swordscabbard": "knight",
+  "mage_cape": "mage",
+  "mage_scarf": "mage",
+  "rogue_daggerscabbard": "rogue",
+  "sorcerer_shawl": "sorcerer",
+  "sorcerer_shoes": "sorcerer",
+  "swordsman_swordscabbard": "swordsman",
+  "witch_cape": "witch",
+  "witch_choker": "witch"
+ },
+ "hair": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14
+ ],
+ "hats": [
+  "armet",
+  "beret",
+  "bishop",
+  "bycocket",
+  "circlet",
+  "eyepatch",
+  "facemask",
+  "felted",
+  "greathelm",
+  "headband",
+  "hood",
+  "kettle",
+  "leathercoif",
+  "magehat_a",
+  "magehat_b",
+  "skullcap",
+  "tyrolean",
+  "witchhat"
+ ]
+}
