@@ -5380,6 +5380,34 @@ She has three outfits in the bag (Attire). Each is a whole body of the figure;
 
   The briefs painted on the skin are turned black leather.
 
+## THE NIGHT ELF: a realistic woman on her own skeleton
+
+Two more looks for the elf, **THE NIGHT ELF** and **THE NIGHT ELF, BARE**, both
+on **Anna Ipati (animated)** by Jungle Jim (Sketchfab, CC Attribution 4.0;
+credit kept in `assets/avtandil_anna/SOURCES.txt`). She is a realistic
+Character Creator woman, kept on her own Character Creator skeleton
+(`CC_Base_*`), which follows Avtandil's like every figure. Her twist bones
+ride their limbs.
+
+`vepxis-art/tools/anna_prep.py` gets her ready:
+
+- lighter: the face's 350 shape keys cleared, the hair cards decimated, the
+  textures at 1024 (378k triangles down to 118k, 253 MB down to 31 MB);
+- a dark elf: the skin slate blue-violet, the hair silver-white, the ears drawn
+  up and back into points;
+- the briefs cut down to a thong;
+- her meshes grouped as `body`, `hair`, `bra` and `thong`, so a look can show
+  or hide each one.
+
+`bl_mixfig.py VX_FIG=anna` builds the figure (`assets/avtandil_anna`):
+
+- the bones' numbered suffixes taken off;
+- the limbs' main bones, which the export left at the origin, put back at their
+  joints (`fix_zero_bones`);
+- Avtandil's bow in her closed left hand.
+
+THE NIGHT ELF shows everything. THE NIGHT ELF, BARE leaves off the bra.
+
 ## Smaug, to look at only
 
 A fan model of a dragon from free3d (`free3d.com/dragon`) is built by

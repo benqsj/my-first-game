@@ -1,0 +1,2 @@
+Sketchfab: Anna Ipati (animated) by Jungle Jim, CC Attribution 4.0 (https://sketchfab.com/3d-models/anna-ipati-animated-9ef7dbea47854f49b496e8c0a8332157)
+Built by vepxis-art tools/bl_mixfig.py (VX_HERO=avtandil VX_FIG=anna).
