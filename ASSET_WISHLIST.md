@@ -9,6 +9,7 @@ Blink and Sidekick.
 ## Buying now
 - **Low-Poly Medieval Fantasy Heroes – Basic Pack** (Polysplit Games), $24.99
   https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/low-poly-medieval-fantasy-heroes-basic-pack-288957
+  - Price history (asset-prices.xamin.it): it drops to $12.49 (50% off) every 2-3 months. The last sale was June 2026, so wait for the next one.
   - Modular: 2 base bodies (male and female), 9 class outfits, hair, beards, faces, weapons.
   - About 3k tris per character. One 2048 RGB colour-mask texture plus 22 pre-coloured PNGs.
   - Humanoid rig with no animations. It will follow `tariel_rig` through `FigureFollower`, as Sidekick does.
