@@ -39,6 +39,8 @@ var _globals: Array[Transform3D] = []
 var _hips: int = -1
 var _scale: float = 1.0
 var damp: Dictionary = {}
+const DAMP_FULL_FROM := 0.6109  # 35 degrees
+const DAMP_FULL_AT := 1.3963  # 80 degrees
 var mids: Dictionary = {}
 var _damp: PackedFloat32Array = PackedFloat32Array()
 var _mid: Dictionary = {}
@@ -116,14 +118,15 @@ func follow() -> void:
 			var qb := _turn(m[1]).get_rotation_quaternion()
 			var q := qa.slerp(qb, m[2])
 			if _damp[t] < 1.0:
-				q = Quaternion.IDENTITY.slerp(q, _damp[t])
+				q = Quaternion.IDENTITY.slerp(q, _damp_at(t, q))
 			g.basis = Basis(q) * _dst_rest[t].basis
 			g.origin = parent_g * rest_local.origin
 		elif s >= 0:
 			var pose := source.get_bone_global_pose(s).orthonormalized()
 			var turn := pose.basis * _src_rest[s].basis.inverse()
 			if _damp[t] < 1.0:
-				turn = Basis(Quaternion.IDENTITY.slerp(turn.get_rotation_quaternion(), _damp[t]))
+				var q := turn.get_rotation_quaternion()
+				turn = Basis(Quaternion.IDENTITY.slerp(q, _damp_at(t, q)))
 			g.basis = turn * _dst_rest[t].basis
 			if t == _hips:
 				g.origin = _dst_rest[t].origin + (pose.origin - _src_rest[s].origin) * _scale
@@ -136,6 +139,14 @@ func follow() -> void:
 		target.set_bone_pose_rotation(t, local.basis.get_rotation_quaternion())
 		target.set_bone_pose_position(t, local.origin)
 	followed.emit()
+
+
+## How far a damped bone follows: its damping for a lean, easing back to the
+## whole turn for a big one (a roll, a dive), which must not be cut short.
+func _damp_at(t: int, q: Quaternion) -> float:
+	var angle := q.get_angle()
+	var k := clampf((angle - DAMP_FULL_FROM) / (DAMP_FULL_AT - DAMP_FULL_FROM), 0.0, 1.0)
+	return lerpf(_damp[t], 1.0, k * k * (3.0 - 2.0 * k))
 
 
 func _turn(s: int) -> Basis:

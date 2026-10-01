@@ -66,6 +66,91 @@ func _configure() -> void:
 	}
 
 
+## Her roll: Tariel's quick roll back up to the run, carried onto Avtandil's
+## skeleton (his dive forward sprawls on its back — not hers).
+const ROLL_FROM := "res://assets/tariel_rigged/tariel_rigged.glb"
+const ROLL_CLIP := &"Roll_Quick_To_Run"
+const ROLL_LIBRARY := &"elf"
+
+
+func _ready() -> void:
+	super()
+	var roll := borrow_clip(ROLL_FROM, ROLL_CLIP, ROLL_LIBRARY)
+	if roll != &"":
+		clips[&"roll"] = roll
+		roll_share = 0.8
+
+
+## Copies `clip` from another rig of the same bone names (`scene`) onto this
+## one's skeleton: each bone turned from its rest as the other's is turned
+## from its own (local turn carried through the two rests), the hips' travel
+## scaled by the two hips' heights. Returns the clip's name in this rig's
+## player ("<library>/<clip>"), or &"" if it could not be had.
+func borrow_clip(scene: String, clip: StringName, library: StringName) -> StringName:
+	if _anim == null or _skel == null or not ResourceLoader.exists(scene):
+		return &""
+	var src_root := (load(scene) as PackedScene).instantiate()
+	var src_anim := src_root.find_children("*", "AnimationPlayer", true, false).front() as AnimationPlayer
+	var src_skel := src_root.find_children("*", "Skeleton3D", true, false).front() as Skeleton3D
+	if src_anim == null or src_skel == null or not src_anim.has_animation(clip):
+		src_root.free()
+		return &""
+	var from := src_anim.get_animation(clip)
+	# Where this rig's clips point at its skeleton.
+	var prefix := ""
+	for n in _anim.get_animation_list():
+		var a := _anim.get_animation(n)
+		for t in a.get_track_count():
+			var path := String(a.track_get_path(t))
+			if path.contains(":"):
+				prefix = path.get_slice(":", 0)
+				break
+		if prefix != "":
+			break
+	var h_src := src_skel.get_bone_global_rest(maxi(src_skel.find_bone("pelvis"), 0)).origin.y
+	var h_dst := _skel.get_bone_global_rest(maxi(_skel.find_bone("pelvis"), 0)).origin.y
+	var k := h_dst / h_src if h_src > 0.01 else 1.0
+	var out := Animation.new()
+	out.length = from.length
+	out.loop_mode = from.loop_mode
+	for t in from.get_track_count():
+		var path := String(from.track_get_path(t))
+		if not path.contains(":"):
+			continue
+		var bone := path.get_slice(":", 1)
+		var bs := src_skel.find_bone(bone)
+		var bd := _skel.find_bone(bone)
+		if bs < 0 or bd < 0:
+			continue
+		var type := from.track_get_type(t)
+		if type == Animation.TYPE_ROTATION_3D:
+			var r_src := src_skel.get_bone_rest(bs).basis.get_rotation_quaternion()
+			var r_dst := _skel.get_bone_rest(bd).basis.get_rotation_quaternion()
+			var fix := r_src.inverse() * r_dst
+			var nt := out.add_track(Animation.TYPE_ROTATION_3D)
+			out.track_set_path(nt, NodePath(prefix + ":" + bone))
+			for i in from.track_get_key_count(t):
+				var q: Quaternion = from.track_get_key_value(t, i)
+				out.rotation_track_insert_key(nt, from.track_get_key_time(t, i), (q * fix).normalized())
+		elif type == Animation.TYPE_POSITION_3D and bone == "pelvis":
+			var p_src := src_skel.get_bone_rest(bs).origin
+			var p_dst := _skel.get_bone_rest(bd).origin
+			var nt := out.add_track(Animation.TYPE_POSITION_3D)
+			out.track_set_path(nt, NodePath(prefix + ":" + bone))
+			for i in from.track_get_key_count(t):
+				var v: Vector3 = from.track_get_key_value(t, i)
+				out.position_track_insert_key(nt, from.track_get_key_time(t, i), p_dst + (v - p_src) * k)
+	src_root.free()
+	var lib: AnimationLibrary
+	if _anim.has_animation_library(library):
+		lib = _anim.get_animation_library(library)
+	else:
+		lib = AnimationLibrary.new()
+		_anim.add_animation_library(library, lib)
+	lib.add_animation(clip, out)
+	return StringName("%s/%s" % [library, clip])
+
+
 ## Avtandil's own heads (THE RANGER, THE HUNTER) and outfits are in the model she shares;
 ## none of them is one of her faces, so none is ever shown.
 func set_face(index: int) -> void:
