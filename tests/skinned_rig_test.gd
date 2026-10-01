@@ -150,6 +150,25 @@ func _initialize() -> void:
 				and sk_shown.has("sk_sword") and blink_shown == 0 and off < 0.35
 				and rig._blade_tip.get_parent() == rig._figure_mount,
 				"%s shown, %d of Blink's, hand %.2f m off" % [sk_shown, blink_shown, off])
+	# Polysplit's Swordsman, on Polysplit's own skeleton: his one mesh and the
+	# pack's sword, nothing of Sidekick's.
+	rig.set_face(rig.faces.find(&"swordsman"))
+	await process_frame
+	var ps_shown: Array[String] = []
+	for mesh: MeshInstance3D in rig.find_children("ps_*", "MeshInstance3D", true, false):
+		if mesh.is_visible_in_tree():
+			ps_shown.append(String(mesh.name))
+	var sk_left := 0
+	for mesh: MeshInstance3D in rig.find_children("sk_*", "MeshInstance3D", true, false):
+		sk_left += 1 if mesh.is_visible_in_tree() else 0
+	var ps_hand := rig._figure_skel.global_transform * rig._figure_skel.get_bone_global_pose(
+			rig._figure_skel.find_bone("R_wrist_joint")).origin
+	var ps_off := ps_hand.distance_to(rig._skel.global_transform * rig._skel.get_bone_global_pose(
+			rig._skel.find_bone("hand_r")).origin)
+	_check("the swordsman worn on Polysplit's own skeleton", ps_shown.has("ps_swordsman")
+			and ps_shown.has("ps_sword") and sk_left == 0 and ps_off < 0.35
+			and rig._blade_tip.get_parent() == rig._figure_mount,
+			"%s shown, %d of Sidekick's, hand %.2f m off" % [ps_shown, sk_left, ps_off])
 	rig.set_face(rig.faces.find(&"box"))
 	var figs_shown := 0
 	for id: StringName in rig._figs:

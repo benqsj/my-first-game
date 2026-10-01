@@ -1,0 +1,14 @@
+tariel_polysplit.glb — THE SWORDSMAN (Tariel's figure on its own skeleton)
+
+"Low-Poly Medieval Fantasy Heroes - Basic Pack" (Polysplit Games), Unity Asset Store
+https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/low-poly-medieval-fantasy-heroes-basic-pack-288957
+Licence: Standard Unity Asset Store EULA (bought). Used as part of this game,
+not redistributed on its own.
+
+BasicHeroes/M_Swordsman.fbx as Polysplit dressed him (gambeson, skull cap over
+a mail coif, scabbard), the male base head, the pack's pre-coloured textures
+(medievalTexture_bodyColor1, medievalTexture_objectColor1). The parts are
+joined into one mesh on Polysplit's own 98-bone skeleton; its rest turned onto
+tariel_rig's limb directions and the hands closed, two bones (weapon_r,
+shield_l) and Tariel's shields added, and the pack's own sword put where
+Tariel's sword is, by vepxis-art/tools/ps_build.py.

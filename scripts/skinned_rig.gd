@@ -459,13 +459,18 @@ func _configure() -> void:
 	#   tools/sk_build.py): THE PALADIN and THE HOODED as Synty made them, THE
 	#   SWORN bareheaded and bearded in the knight's plate, THE IRON KNIGHT in
 	#   the plate in steel and blue.
-	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
+	# - Polysplit's Low-Poly Medieval Fantasy Heroes (Basic Pack;
+	#   assets/tariel_polysplit/SOURCES.txt, tools/ps_build.py): THE SWORDSMAN
+	#   as Polysplit dressed him, with the pack's own sword.
+	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
+			&"swordsman"]
 	face_skulls = faces.duplicate()
 	face_names = ["AS HE WAS", "THE WANDERER", "THE IRON HELM", "THE SQUIRE", "THE KNIGHT",
-			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT"]
+			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT", "THE SWORDSMAN"]
 	# (THE DARK KNIGHT left him: the knight is THE WARRIOR now, a hero of his
 	# own on his own skeleton, SkinnedWarriorRig.)
-	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
+	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
+			&"swordsman"]
 	whole_faces = [&"ashen", &"fuse"]
 	whole_faces.append_array(on_figures)
 	shieldless_faces = [&"fuse"]
@@ -496,6 +501,8 @@ func _configure() -> void:
 				&"thigh_r": &"thigh_r", &"calf_r": &"calf_r", &"foot_r": &"foot_r", &"ball_r": &"ball_r",
 				&"thigh_l": &"thigh_l", &"calf_l": &"calf_l", &"foot_l": &"foot_l", &"ball_l": &"ball_l",
 			}},
+		&"polysplit": {"scene": "res://assets/tariel_polysplit/tariel_polysplit.glb", "prefix": "ps",
+			"hips": &"pelvis_joint", "map": polysplit_map({&"weapon_r": &"weapon_r", &"shield_l": &"shield_l"})},
 	}
 	figure_faces = {
 		&"squire": {"figure": &"blink", "show": ["body_", "starter_"], "hide": ["body_underwear"]},
@@ -504,6 +511,7 @@ func _configure() -> void:
 		&"hooded": {"figure": &"sidekick", "show": ["hooded"]},
 		&"sworn": {"figure": &"sidekick", "show": ["sworn"]},
 		&"iron": {"figure": &"sidekick", "show": ["iron"]},
+		&"swordsman": {"figure": &"polysplit", "show": ["swordsman"]},
 	}
 	# The wanderer wears a cloak of plain brown wool under his capelet, hung
 	# from the back of the shoulders to the calf: real cloth, in the wind.
@@ -1492,6 +1500,22 @@ static func sidekick_map(extra: Dictionary) -> Dictionary:
 			"thigh_l", "calf_l", "foot_l", "ball_l"]:
 		map[StringName(b)] = StringName(b)
 	map[&"spine_03"] = &"spine_02"
+	map.merge(extra)
+	return map
+
+
+## The same for Polysplit's heroes (vepxis-art tools/ps_build.py): their
+## waist is this rig's first spine bone, their chest the second.
+static func polysplit_map(extra: Dictionary) -> Dictionary:
+	var map := {
+		&"pelvis_joint": &"pelvis", &"waist_joint": &"spine_01", &"chest_joint": &"spine_02",
+		&"neck_joint": &"neck_01", &"head_joint": &"head",
+	}
+	for s: String in ["l", "r"]:
+		var side := s.to_upper()
+		for pair: Array in [["clavicle", "clavicle"], ["shoulder", "upperarm"], ["elbow", "lowerarm"], ["wrist", "hand"],
+				["thigh", "thigh"], ["knee", "calf"], ["ankle", "foot"], ["ball", "ball"]]:
+			map[StringName("%s_%s_joint" % [side, pair[0]])] = StringName("%s_%s" % [pair[1], s])
 	map.merge(extra)
 	return map
 
