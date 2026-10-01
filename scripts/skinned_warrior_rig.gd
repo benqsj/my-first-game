@@ -19,16 +19,45 @@ extends SkinnedRig
 ## under a name of its own (so each has its own part, window and trail).
 const COMBO := &"WR_Combo"
 const COMBO_PARTS := [&"WR_Combo_A", &"WR_Combo_B", &"WR_Combo_C"]
+## And Mixamo's two-handed sword combo, his second string, the same way.
+const COMBO2 := &"WR_Combo2"
+const COMBO2_PARTS := [&"WR_Combo2_A", &"WR_Combo2_B", &"WR_Combo2_C"]
+## Out of a fight he carries the sword on his right shoulder, one hand on it
+## (the Mixamo idle and swagger walk under it, the arm laid there in Blender);
+## a blow, a hit or a target puts both hands back on the hilt, and so many
+## seconds of quiet lay it back on the shoulder.
+const REST := &"WR_Rest"
+const REST_WALK := &"WR_RestWalk"
+const RELAX_AFTER := 4.0
+
+## His two strings: the great sword combo standing (or set out from), the
+## two-handed combo thrown on the move.
+var string_still: Array[StringName] = []
+var string_moving: Array[StringName] = []
+var _fight_until: float = -100.0
+var cloak: ClothBones
 
 
 func _ready() -> void:
 	var player := find_children("*", "AnimationPlayer", true, false).front() as AnimationPlayer
-	if player != null and player.has_animation(COMBO):
+	if player != null:
 		var lib := player.get_animation_library(&"")
-		for n: StringName in COMBO_PARTS:
-			if not lib.has_animation(n):
-				lib.add_animation(n, player.get_animation(COMBO))
+		for pair: Array in [[COMBO, COMBO_PARTS], [COMBO2, COMBO2_PARTS]]:
+			if not player.has_animation(pair[0]):
+				continue
+			for n: StringName in pair[1]:
+				if not lib.has_animation(n):
+					lib.add_animation(n, player.get_animation(pair[0]))
 	super()
+	# The cloak: his own, hung as cloth (ClothBones), last of all, over the
+	# body as it stands.
+	if _skel != null:
+		cloak = ClothBones.new()
+		cloak.name = "Cloak"
+		_skel.add_child(cloak)
+		if not cloak.setup(_skel):
+			cloak.queue_free()
+			cloak = null
 
 
 func _configure() -> void:
@@ -50,19 +79,27 @@ func _configure() -> void:
 	ground_speed = {
 		&"WR_Walk": 1.1, &"WR_Run": 3.9, &"WR_WalkBack": 0.82, &"WR_RunBack": 1.9,
 		&"WR_StrafeL": 0.94, &"WR_StrafeR": 1.0, &"WR_RunL": 2.3, &"WR_RunR": 2.7,
+		&"WR_RestWalk": 1.66,
 	}
 	looping = [
 		&"WR_Idle", &"WR_Walk", &"WR_Run", &"WR_WalkBack", &"WR_RunBack", &"WR_StrafeL",
-		&"WR_StrafeR", &"WR_RunL", &"WR_RunR", &"WR_Block", &"WR_Crouch",
+		&"WR_StrafeR", &"WR_RunL", &"WR_RunR", &"WR_Block", &"WR_Crouch", &"WR_Rest", &"WR_RestWalk",
 	]
 	# His string: the great sword combo's three blows — across from his right,
 	# back across low, and the big one from over the shoulder — and the high
 	# spin to end it, the blade coming round twice. Slow, each one a weight
 	# thrown; left for a beat it starts over.
-	flurry = [&"WR_Combo_A", &"WR_Combo_B", &"WR_Combo_C", &"WR_HighSpin"]
+	# On the move he throws the other one: Mixamo's two-handed sword combo,
+	# cut from his right, back from his left, and over the head down, and the
+	# heavy swing into the ground to end it.
+	string_still = [&"WR_Combo_A", &"WR_Combo_B", &"WR_Combo_C", &"WR_HighSpin"]
+	string_moving = [&"WR_Combo2_A", &"WR_Combo2_B", &"WR_Combo2_C", &"WR_HighSpin"]
+	flurry = string_still.duplicate()
 	flurry_part = {
 		&"WR_Combo_A": Vector2(0.06, 0.36), &"WR_Combo_B": Vector2(0.38, 0.62),
 		&"WR_Combo_C": Vector2(0.64, 0.9), &"WR_HighSpin": Vector2(0.1, 0.74),
+		&"WR_Combo2_A": Vector2(0.05, 0.31), &"WR_Combo2_B": Vector2(0.31, 0.58),
+		&"WR_Combo2_C": Vector2(0.58, 0.88),
 	}
 	flurry_min_time = 0.5
 	finisher_min_time = 0.75
@@ -73,7 +110,9 @@ func _configure() -> void:
 		&"WR_Combo_C": Vector2(0.72, 0.79), &"WR_HighSpin": Vector2(0.18, 0.66),
 		&"WR_Power": Vector2(0.35, 0.83), &"WR_JumpAttack": Vector2(0.47, 0.62),
 		&"WR_Downward": Vector2(0.13, 0.56), &"WR_Low": Vector2(0.44, 0.57),
-		&"WR_Slide": Vector2(0.56, 0.72),
+		&"WR_Slide": Vector2(0.56, 0.72), &"WR_Combo2_A": Vector2(0.19, 0.245),
+		&"WR_Combo2_B": Vector2(0.39, 0.5), &"WR_Combo2_C": Vector2(0.66, 0.79),
+		&"WR_HeavySwing": Vector2(0.45, 0.56),
 	}, true)
 	# The blows that cut twice cut in two windows, not through the swing
 	# between them.
@@ -87,7 +126,9 @@ func _configure() -> void:
 		&"WR_Combo_C": Vector2(0.71, 0.79), &"WR_HighSpin": Vector2(0.14, 0.68),
 		&"WR_Power": Vector2(0.33, 0.83), &"WR_JumpAttack": Vector2(0.46, 0.65),
 		&"WR_Downward": Vector2(0.1, 0.6), &"WR_Low": Vector2(0.42, 0.58),
-		&"WR_Slide": Vector2(0.56, 0.78),
+		&"WR_Slide": Vector2(0.56, 0.78), &"WR_Combo2_A": Vector2(0.15, 0.25),
+		&"WR_Combo2_B": Vector2(0.38, 0.51), &"WR_Combo2_C": Vector2(0.66, 0.79),
+		&"WR_HeavySwing": Vector2(0.44, 0.56),
 	}
 	# The heavy blows, on the other button (no shield to raise), which one by
 	# what the string has come to (Player._heavy_blow):
@@ -95,7 +136,7 @@ func _configure() -> void:
 	#  1 early in the string: the leap, and the blade brought down two-handed
 	#    into the ground where the thing stands (the ground shakes);
 	#  2 later: the cut down, and down again into the ground;
-	#  3 at the end of the string: the low sweep;
+	#  3 at the end of the string: the great swing round and into the ground;
 	#  4 at a run: sliding in low under it and the blade coming up.
 	heavy = [
 		{"clip": &"WR_Power", "part": Vector2(0.1, 0.9), "rate": 1.2, "weight": 1.8, "step": 2.2, "rise": 0.86},
@@ -103,20 +144,25 @@ func _configure() -> void:
 			"travel": 2.68, "slam": 0.6, "rise": 0.72},
 		{"clip": &"WR_Downward", "part": Vector2(0.04, 0.8), "rate": 1.2, "weight": 2.0, "slam": 0.58,
 			"rise": 0.7},
-		{"clip": &"WR_Low", "part": Vector2(0.28, 0.82), "rate": 1.25, "weight": 1.9, "rise": 0.7},
+		{"clip": &"WR_HeavySwing", "part": Vector2(0.24, 0.72), "rate": 1.35, "weight": 2.1, "slam": 0.55,
+			"rise": 0.66},
 		{"clip": &"WR_Slide", "part": Vector2(0.05, 0.9), "rate": 1.2, "weight": 2.0, "aim": false,
 			"travel": 2.94, "rise": 0.8},
 	]
-	carried = {&"WR_JumpAttack": true, &"WR_Slide": true}
+	# Every blow carries him as far as the man in the clip went (its travel is
+	# on the root bone): the weight goes into the step, the step into the cut.
+	carried = {&"WR_JumpAttack": true, &"WR_Slide": true, &"WR_Combo_A": true, &"WR_Combo_B": true,
+			&"WR_Combo_C": true, &"WR_HighSpin": true, &"WR_Power": true, &"WR_Combo2_A": true,
+			&"WR_Combo2_B": true, &"WR_Combo2_C": true}
 	# Off a jump: the jump attack from the top of its leap to the blade going in.
 	air_cut_from = 0.42
 	plunge_from = 0.6
 	roll_share = 0.62
 	# A great sword's pace: slower out of the guard, a longer ease from one
 	# blow into the next.
-	swing_rate = 1.25
-	swing_recovery = 0.2
-	action_blend = 0.15
+	swing_rate = 1.3
+	swing_recovery = 0.18
+	action_blend = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.0
 	# The blade from just over his right fist (the guard) to its point.
@@ -155,3 +201,46 @@ func _setup_blade() -> void:
 	if bone >= 0:
 		blade_rest_dir = (_skel.get_bone_global_rest(bone).basis * Vector3.UP).normalized()
 	super()
+
+
+## Whether he holds the fighting stance: a blow in the last few seconds, a
+## blow taken, or something locked on to.
+func in_fight() -> bool:
+	if Time.get_ticks_msec() / 1000.0 < _fight_until:
+		return true
+	return _body != null and _body.get(&"target") != null
+
+
+func _wake() -> void:
+	_fight_until = Time.get_ticks_msec() / 1000.0 + RELAX_AFTER
+
+
+## A new string is picked by how he stands when it starts: standing, the
+## great sword combo; on the move, the two-handed one.
+func attack(style: int = -1) -> void:
+	_wake()
+	var now := Time.get_ticks_msec() / 1000.0
+	var fresh := _flurry_slot < 0 or _flurry_slot >= flurry.size() - 1 \
+			or (flurry_reset_after > 0.0 and now - _last_attack_at > flurry_reset_after)
+	if fresh and style < HEAVY:
+		var body := _body as CharacterBody3D
+		var moving := body != null and Vector2(body.velocity.x, body.velocity.z).length() > 1.2
+		flurry.assign(string_moving if moving else string_still)
+		_flurry_slot = -1
+	super(style)
+
+
+func flinch() -> void:
+	_wake()
+	super()
+
+
+func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blocking: bool) -> void:
+	if not airborne and not blocking and not _crouching and not _wall_climbing and not in_fight():
+		if planar < idle_threshold:
+			_set_base(REST, 0.3, 1.0)
+			return
+		if planar <= run_threshold and _direction_clip(planar) == clips[&"walk"]:
+			_set_base(REST_WALK, loco_blend, _rate(REST_WALK, planar))
+			return
+	super(planar, airborne, dashing, vy, blocking)

@@ -54,17 +54,23 @@ func _initialize() -> void:
 			_player.ground_acceleration < 40.0 and _player.ground_deceleration < 50.0
 			and _player.turn_speed < 10.0 and _player.run_speed < 5.6, "acc %.0f dec %.0f turn %.1f run %.1f" % [
 			_player.ground_acceleration, _player.ground_deceleration, _player.turn_speed, _player.run_speed])
-	# both hands on the hilt, standing
+	# out of a fight: the sword on his shoulder, one hand on it
 	await _wait(20)
-	_grip(rig, "standing")
-	# walking
+	_check("out of a fight he stands with the sword on his shoulder", String(rig._anim.current_animation) == "WR_Rest",
+			String(rig._anim.current_animation))
+	_check("the blade over his right shoulder, pointing back", _on_shoulder(rig))
+	# the cloak is cloth
+	_check("his cloak hangs as cloth", rig.cloak != null and is_instance_valid(rig.cloak))
+	var hem0 := rig.cloak.hem_travel if rig.cloak != null else 0.0
 	Input.action_press("move_forward")
 	await _wait(40)
-	_check("walking forward plays his own walk or run",
-			["WR_Walk", "WR_Run"].has(String(rig._anim.current_animation)), String(rig._anim.current_animation))
-	_grip(rig, "on the move")
+	_check("walking out of a fight: the swagger, the sword still on the shoulder",
+			["WR_RestWalk", "WR_Run"].has(String(rig._anim.current_animation)), String(rig._anim.current_animation))
 	Input.action_release("move_forward")
 	await _wait(60)
+	_check("and the cloak swings with him", rig.cloak != null and rig.cloak.hem_travel - hem0 > 0.3,
+			"%.2f m" % (rig.cloak.hem_travel - hem0 if rig.cloak != null else 0.0))
+	_check("its bones hang below where they rest", rig.cloak != null and _cloak_sane(rig))
 	# his string
 	_player.stamina = _player.max_stamina
 	var serial := rig.attack_serial
@@ -72,6 +78,7 @@ func _initialize() -> void:
 	await _wait(2)
 	Input.action_release("attack")
 	await _wait(8)
+	var at := _player.global_position
 	_check("attack throws the first of his string", String(rig._act_clip) == "WR_Combo_A"
 			and rig.attack_serial == serial + 1, String(rig._act_clip))
 	var worst := 0.0
@@ -79,7 +86,22 @@ func _initialize() -> void:
 		await physics_frame
 		worst = maxf(worst, _off_hilt(rig))
 	_check("through the cut the left hand stays on the hilt", worst < 0.2, "%.3f m off" % worst)
+	_check("the cut carries him into it", _player.global_position.distance_to(at) > 0.15,
+			"%.2f m" % _player.global_position.distance_to(at))
+	_check("a blow puts him in the fighting stance", rig.in_fight())
+	_grip(rig, "in the fight")
 	await _wait(80)
+	# on the move, the other string
+	_player.stamina = _player.max_stamina
+	Input.action_press("move_forward")
+	await _wait(30)
+	Input.action_press("attack")
+	await _wait(2)
+	Input.action_release("attack")
+	await _wait(6)
+	Input.action_release("move_forward")
+	_check("on the move he throws his second string", String(rig._act_clip) == "WR_Combo2_A", String(rig._act_clip))
+	await _wait(90)
 	_player.stamina = _player.max_stamina
 	Input.action_press("block")
 	await _wait(2)
@@ -92,6 +114,25 @@ func _initialize() -> void:
 			String(rig._act_clip))
 	await _wait(120)
 	_done()
+
+
+func _on_shoulder(rig: SkinnedWarriorRig) -> bool:
+	var skel := rig._skel
+	var sh := skel.global_transform * skel.get_bone_global_pose(skel.find_bone("upperarm_r")).origin
+	var tip := rig._blade_tip.global_position
+	var back := _player.global_basis.z
+	return tip.y > sh.y and (tip - sh).dot(back) > 0.3
+
+
+func _cloak_sane(rig: SkinnedWarriorRig) -> bool:
+	var skel := rig._skel
+	var top := skel.find_bone("clk_0_4")
+	var hem := skel.find_bone("clk_8_4")
+	if top < 0 or hem < 0:
+		return false
+	var a := skel.get_bone_global_pose(top).origin
+	var b := skel.get_bone_global_pose(hem).origin
+	return b.y < a.y - 0.6 and a.distance_to(b) < 1.6
 
 
 ## How far the left fist is off the line of the blade (m).
