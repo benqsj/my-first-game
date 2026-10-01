@@ -5420,6 +5420,26 @@ their edges are clean.
   his two. Her waist bends instead of creasing, and her chest no longer swings
   off to one side.
 
+### Three outfits and a softer roll
+
+Three more looks on the same body, chosen with the LOOK arrows like the others:
+**THE NIGHT ELF: HARNESS** (leather cups on halters, a strapped harness over the
+belly, a choker, thigh-high boots with straps, long gloves), **THE NIGHT ELF:
+CORSET** (a laced leather corset with silver trim, knee-high boots, bracers) and
+**THE NIGHT ELF: SILK** (sheer cups, garter belt, stockings with straps, long
+gloves). All three keep the thong. They are cut straight from the skin in
+`vepxis-art/tools/anna_prep.py` (`VX_FITS`), so they carry the body's own weights
+and bend with it; the cups are aimed from the breast bones. Each is a mesh of its
+own in the glb (`an_fit_harness`, `an_fit_corset`, `an_fit_garter`) and
+`figure_faces` shows the right one.
+
+The dodge roll is no longer the elf's own dive: `SkinnedElfRig.borrow_clip()`
+takes Tariel's tucked `Roll_Quick_To_Run`, converts every rotation onto the elf's
+skeleton (q_dst = q_src * r_src^-1 * r_dst) and scales the pelvis path by the hip
+heights. The torso damping that keeps her run upright now eases off between 35 and
+80 degrees of bend (`FigureFollower._damp_at`), so the tuck curls fully instead of
+diving flat.
+
 ## Smaug, to look at only
 
 A fan model of a dragon from free3d (`free3d.com/dragon`) is built by

@@ -17,9 +17,10 @@ extends SkinnedArcherRig
 
 func _configure() -> void:
 	super()
-	faces = [&"darkelf", &"anna", &"anna_bare"]
+	faces = [&"darkelf", &"anna", &"anna_bare", &"anna_harness", &"anna_corset", &"anna_garter"]
 	face_skulls = faces.duplicate()
-	face_names = ["THE DARK ELF", "THE NIGHT ELF", "THE NIGHT ELF, BARE"]
+	face_names = ["THE DARK ELF", "THE NIGHT ELF", "THE NIGHT ELF, BARE", "THE NIGHT ELF: HARNESS",
+			"THE NIGHT ELF: CORSET", "THE NIGHT ELF: SILK"]
 	whole_faces = faces.duplicate()
 	# Her outfits in the bag: the green she came in, the same dyed black-violet
 	# and silver, and black leather straps on the bare skin (vepxis-art
@@ -63,6 +64,12 @@ func _configure() -> void:
 		&"darkelf": {"figure": &"darkelf", "show": ["body", "noir", "harness"]},
 		&"anna": {"figure": &"anna", "show": ["body", "hair", "bra", "thong"]},
 		&"anna_bare": {"figure": &"anna", "show": ["body", "hair", "thong"]},
+		# Her outfits, each cut out of her own skin (vepxis-art anna_prep.py):
+		# leather straps and thigh boots; a corset with silver lacing; silk
+		# cups, garters and stockings.
+		&"anna_harness": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_harness"]},
+		&"anna_corset": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_corset"]},
+		&"anna_garter": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_garter"]},
 	}
 
 
