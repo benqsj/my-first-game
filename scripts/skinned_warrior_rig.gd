@@ -181,6 +181,9 @@ func _configure() -> void:
 	hairs = []
 	hair_names = []
 	mesh_prefix = "warrior"
+	# and YOUR OWN, made on the hero select out of Polysplit's heroes
+	# ([PolysplitLook], `SkinnedRig._add_maker()`)
+	polysplit_hero = &"warrior"
 	faces = [&"warrior"]
 	face_skulls = faces.duplicate()
 	face_names = ["THE WARRIOR"]

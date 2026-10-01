@@ -331,6 +331,25 @@ var _own_moves: Dictionary = {}
 var _off_hand_on: bool = true
 ## The figures loaded, by id: {"node", "skel", "follow", "mount"}.
 var _figs: Dictionary = {}
+## The hero the hero select's maker dresses (see [PolysplitLook]): set in
+## `_configure()`, it adds the face CUSTOM, worn on a figure with every part of
+## Polysplit's heroes (assets/polysplit/<hero>_<m|f>.glb), each loaded the
+## first time it is worn. Empty: no maker.
+var polysplit_hero: StringName = &""
+## The look made on the hero select, worn while CUSTOM is (see
+## [PolysplitLook]); set before the rig is in the tree, or by `set_look()`.
+var ps_look: Dictionary = {}
+const CUSTOM := &"custom"
+## The bones a hero's arms hang from, carried onto the maker's figure by the
+## same names where the rig has them (vepxis-art tools/fig_hero.py).
+const ARM_BONES: Array[StringName] = [&"weapon_r", &"weapon_l", &"shield_l", &"bow_l", &"bow_limb_l", &"bow_tip_l",
+		&"bow_limb_u", &"bow_tip_u", &"draw_r"]
+## The rig's own meshes (not named for it, as the warrior's are) put away
+## while the maker's figure is worn, to show again after.
+var _own_hidden: Array[MeshInstance3D] = []
+## Where the cut's markers sit on the rig's own blade, kept to go back to
+## from the maker's (whose blades are their own length).
+var _blade_at: Array[Vector3] = []
 ## The figure worn now (null while the rig's own look is on).
 var _figure: Node3D
 var _figure_skel: Skeleton3D
@@ -348,6 +367,8 @@ func _ready() -> void:
 		return
 	_body = get_parent() as Node3D
 	_configure()
+	if polysplit_hero != &"":
+		_add_maker()
 	_own_moves = {"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(),
 			"heavy": heavy.duplicate(true)}
 	for n in looping:
@@ -460,17 +481,18 @@ func _configure() -> void:
 	#   SWORN bareheaded and bearded in the knight's plate, THE IRON KNIGHT in
 	#   the plate in steel and blue.
 	# - Polysplit's Low-Poly Medieval Fantasy Heroes (Basic Pack;
-	#   assets/tariel_polysplit/SOURCES.txt, tools/ps_build.py): THE SWORDSMAN
-	#   as Polysplit dressed him, with the pack's own sword.
-	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
-			&"swordsman"]
+	#   assets/polysplit/SOURCES.txt, tools/ps_creator.py): YOUR OWN, made
+	#   on the hero select out of every part of the pack ([PolysplitLook];
+	#   `_add_maker()` puts it last). It took THE SWORDSMAN's place, the one
+	#   look of the pack he wore before.
+	faces = [&"box", &"ashen", &"fuse", &"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
 	face_skulls = faces.duplicate()
 	face_names = ["AS HE WAS", "THE WANDERER", "THE IRON HELM", "THE SQUIRE", "THE KNIGHT",
-			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT", "THE SWORDSMAN"]
+			"THE PALADIN", "THE HOODED", "THE SWORN", "THE IRON KNIGHT"]
+	polysplit_hero = &"tariel"
 	# (THE DARK KNIGHT left him: the knight is THE WARRIOR now, a hero of his
 	# own on his own skeleton, SkinnedWarriorRig.)
-	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron",
-			&"swordsman"]
+	var on_figures: Array[StringName] = [&"squire", &"knight", &"paladin", &"hooded", &"sworn", &"iron"]
 	whole_faces = [&"ashen", &"fuse"]
 	whole_faces.append_array(on_figures)
 	shieldless_faces = [&"fuse"]
@@ -501,8 +523,6 @@ func _configure() -> void:
 				&"thigh_r": &"thigh_r", &"calf_r": &"calf_r", &"foot_r": &"foot_r", &"ball_r": &"ball_r",
 				&"thigh_l": &"thigh_l", &"calf_l": &"calf_l", &"foot_l": &"foot_l", &"ball_l": &"ball_l",
 			}},
-		&"polysplit": {"scene": "res://assets/tariel_polysplit/tariel_polysplit.glb", "prefix": "ps",
-			"hips": &"pelvis_joint", "map": polysplit_map({&"weapon_r": &"weapon_r", &"shield_l": &"shield_l"})},
 	}
 	figure_faces = {
 		&"squire": {"figure": &"blink", "show": ["body_", "starter_"], "hide": ["body_underwear"]},
@@ -511,7 +531,6 @@ func _configure() -> void:
 		&"hooded": {"figure": &"sidekick", "show": ["hooded"]},
 		&"sworn": {"figure": &"sidekick", "show": ["sworn"]},
 		&"iron": {"figure": &"sidekick", "show": ["iron"]},
-		&"swordsman": {"figure": &"polysplit", "show": ["swordsman"]},
 	}
 	# The wanderer wears a cloak of plain brown wool under his capelet, hung
 	# from the back of the shoulders to the calf: real cloth, in the wind.
@@ -1439,7 +1458,9 @@ func set_hair(index: int) -> void:
 ## Shows the face `index` of `faces` and hides the others; the hair follows
 ## it onto its skull.
 func set_face(index: int) -> void:
-	face = clampi(index, 0, maxi(faces.size() - 1, 0))
+	# A look no longer offered (an index saved when there were more) is the
+	# hero's first, not his last: the last is YOUR OWN, the maker's.
+	face = index if index >= 0 and index < faces.size() else 0
 	for i in faces.size():
 		var mesh := find_child("%s_face_%s" % [mesh_prefix, faces[i]], true, false) as MeshInstance3D
 		if mesh != null:
@@ -1467,6 +1488,8 @@ func _apply_moves() -> void:
 	flurry_part = m.get("flurry_part", _own_moves["flurry_part"])
 	heavy = m.get("heavy", _own_moves["heavy"])
 	_off_hand_on = m.get("off_hand", true)
+	if face < faces.size() and faces[face] == CUSTOM:
+		_off_hand_on = PolysplitLook.BLADES.has(String(ps_look.get("o", "")))
 
 
 ## Whether the face that is on is a whole figure (see `whole_faces`).
@@ -1564,52 +1587,71 @@ func _setup_figure() -> void:
 	_rig_mount = _sword_mount
 	if _blade_base_l != null:
 		_rig_mount_l = _blade_base_l.get_parent() as Node3D
-	var model := _skel.owner as Node3D if _skel.owner != null else _skel.get_parent() as Node3D
+	if _blade_base != null:
+		_blade_at = [_blade_base.position, _blade_tip.position]
+		if _blade_base_l != null:
+			_blade_at.append_array([_blade_base_l.position, _blade_tip_l.position])
 	for id: StringName in figures:
-		var spec: Dictionary = figures[id]
-		var path := String(spec["scene"])
-		if not ResourceLoader.exists(path):
-			continue
-		var node := (load(path) as PackedScene).instantiate() as Node3D
-		node.name = "Figure_" + String(id)
-		model.get_parent().add_child(node)
-		node.transform = model.transform
-		node.visible = false
-		var skel := node.find_children("*", "Skeleton3D", true, false).front() as Skeleton3D
-		if skel == null:
-			node.queue_free()
-			continue
-		var follow := FigureFollower.new()
-		follow.name = "FigureFollower_" + String(id)
-		add_child(follow)
-		follow.damp = spec.get("damp", {})
-		follow.mids = spec.get("mids", {})
-		if not follow.setup(_skel, skel, spec["map"], spec["hips"]):
-			push_warning("SkinnedRig: figure %s's skeleton does not match its map." % id)
-		var mount: BoneAttachment3D = null
-		if skel.find_bone("weapon_r") >= 0:
-			mount = BoneAttachment3D.new()
-			mount.name = "WeaponMount"
-			skel.add_child(mount)
-			mount.bone_name = "weapon_r"
-		var mount_l: BoneAttachment3D = null
-		if skel.find_bone("weapon_l") >= 0:
-			mount_l = BoneAttachment3D.new()
-			mount_l.name = "WeaponMountL"
-			skel.add_child(mount_l)
-			mount_l.bone_name = "weapon_l"
-		follow.followed.connect(_on_figure_followed.bind(id))
-		_figs[id] = {"node": node, "skel": skel, "follow": follow, "mount": mount, "mount_l": mount_l}
+		if not (figures[id] as Dictionary).get("lazy", false):
+			_load_figure(id)
+
+
+## Loads the figure `id` beside the model, following its skeleton (see
+## `_setup_figure()`). False if it cannot be.
+func _load_figure(id: StringName) -> bool:
+	var model := _skel.owner as Node3D if _skel.owner != null else _skel.get_parent() as Node3D
+	var spec: Dictionary = figures[id]
+	var path := String(spec["scene"])
+	if not ResourceLoader.exists(path):
+		return false
+	var node := (load(path) as PackedScene).instantiate() as Node3D
+	node.name = "Figure_" + String(id)
+	model.get_parent().add_child(node)
+	node.transform = model.transform
+	node.visible = false
+	var skel := node.find_children("*", "Skeleton3D", true, false).front() as Skeleton3D
+	if skel == null:
+		node.queue_free()
+		return false
+	var follow := FigureFollower.new()
+	follow.name = "FigureFollower_" + String(id)
+	add_child(follow)
+	follow.damp = spec.get("damp", {})
+	follow.mids = spec.get("mids", {})
+	if not follow.setup(_skel, skel, spec["map"], spec["hips"]):
+		push_warning("SkinnedRig: figure %s's skeleton does not match its map." % id)
+	var mount: BoneAttachment3D = null
+	if skel.find_bone("weapon_r") >= 0:
+		mount = BoneAttachment3D.new()
+		mount.name = "WeaponMount"
+		skel.add_child(mount)
+		mount.bone_name = "weapon_r"
+	var mount_l: BoneAttachment3D = null
+	if skel.find_bone("weapon_l") >= 0:
+		mount_l = BoneAttachment3D.new()
+		mount_l.name = "WeaponMountL"
+		skel.add_child(mount_l)
+		mount_l.bone_name = "weapon_l"
+	follow.followed.connect(_on_figure_followed.bind(id))
+	_figs[id] = {"node": node, "skel": skel, "follow": follow, "mount": mount, "mount_l": mount_l}
+	return true
 
 
 ## Shows the figure the face that is on is worn on, with its meshes for that
 ## face, and hides every other; the blade's cut is drawn off whichever sword
 ## hand is seen.
 func _show_figure() -> void:
-	if _figs.is_empty():
+	if figures.is_empty():
 		return
 	var look: Dictionary = figure_faces.get(faces[face], {}) if wearing_figure() else {}
+	var custom: bool = look.get("custom", false)
+	if custom:
+		look["figure"] = &"psf" if String(ps_look.get("g", "m")) == "f" else &"psm"
 	var worn: StringName = look.get("figure", &"")
+	if worn != &"" and not _figs.has(worn) and not _load_figure(worn):
+		push_warning("SkinnedRig: the figure %s is missing." % worn)
+		worn = &""
+	_hide_own(custom and worn != &"")
 	_figure = null
 	_figure_skel = null
 	_figure_mount = null
@@ -1625,7 +1667,13 @@ func _show_figure() -> void:
 		var prefix := String(figures[id]["prefix"]) + "_"
 		var shows: Array = look.get("show", [])
 		var hides: Array = look.get("hide", [])
-		for mesh: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		if custom:
+			PolysplitLook.apply(node, ps_look)
+			shows = []
+		var listed: Array[Node] = []
+		if not custom:
+			listed = node.find_children("*", "MeshInstance3D", true, false)
+		for mesh: MeshInstance3D in listed:
 			var key := String(mesh.name).trim_prefix(prefix)
 			if key in ["sword", "shield", "tower_shield"] or key.begins_with("arm_"):
 				continue
@@ -1649,6 +1697,119 @@ func _show_figure() -> void:
 	if mount_l != null and _blade_base_l != null and _blade_base_l.get_parent() != mount_l:
 		_blade_base_l.reparent(mount_l, false)
 		_blade_tip_l.reparent(mount_l, false)
+	_fit_blades(custom)
+
+
+## The cut's markers along the blade in hand: the maker's blades are measured
+## off their meshes (a dagger is short, a great sword long); every other look
+## has the rig's own.
+func _fit_blades(custom: bool) -> void:
+	if _blade_at.size() < 2:
+		return
+	_blade_base.position = _blade_at[0]
+	_blade_tip.position = _blade_at[1]
+	if _blade_at.size() >= 4:
+		_blade_base_l.position = _blade_at[2]
+		_blade_tip_l.position = _blade_at[3]
+	if not custom or _figure == null:
+		return
+	var w := String(ps_look.get("w", ""))
+	if PolysplitLook.BLADES.has(w):
+		var reach := _reach(_figure.find_child("ps_w_" + w, true, false) as MeshInstance3D, &"weapon_r",
+				_blade_at[1].normalized())
+		if reach > 0.1:
+			_blade_tip.position = _blade_at[1].normalized() * reach * 0.96
+			_blade_base.position = _blade_at[1].normalized() * minf(_blade_at[0].length(), reach * 0.3)
+	var o := String(ps_look.get("o", ""))
+	if _blade_at.size() >= 4 and PolysplitLook.BLADES.has(o):
+		var reach_l := _reach(_figure.find_child("ps_o_" + o, true, false) as MeshInstance3D, &"weapon_l",
+				_blade_at[3].normalized())
+		if reach_l > 0.1:
+			_blade_tip_l.position = _blade_at[3].normalized() * reach_l * 0.96
+
+
+## How far `mesh` (a weapon rigid on the figure's `bone`) reaches from the
+## bone along `along` (in the bone's frame), at rest.
+func _reach(mesh: MeshInstance3D, bone: StringName, along: Vector3) -> float:
+	if mesh == null or mesh.skin == null or mesh.mesh == null or _figure_skel == null:
+		return 0.0
+	var at := _figure_skel.find_bone(bone)
+	var bind := Transform3D()
+	var found := false
+	for i in mesh.skin.get_bind_count():
+		var named := mesh.skin.get_bind_name(i)
+		if named == bone or (named == &"" and mesh.skin.get_bind_bone(i) == at):
+			bind = mesh.skin.get_bind_pose(i)
+			found = true
+	if not found:
+		return 0.0
+	var best := 0.0
+	for s in mesh.mesh.get_surface_count():
+		for v: Vector3 in mesh.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
+			best = maxf(best, (bind * v).dot(along))
+	return best
+
+
+## Puts the rig's own meshes away while the maker's figure is worn (`on`), and
+## brings back after those no look of the rig's would show again.
+func _hide_own(on: bool) -> void:
+	if not on:
+		for mesh in _own_hidden:
+			if is_instance_valid(mesh):
+				mesh.visible = true
+		_own_hidden.clear()
+		return
+	for mesh: MeshInstance3D in _skel.find_children("*", "MeshInstance3D", true, false):
+		if not mesh.visible:
+			continue
+		mesh.visible = false
+		if not String(mesh.name).begins_with(mesh_prefix + "_") and not _own_hidden.has(mesh):
+			_own_hidden.append(mesh)
+
+
+## Adds the maker's face, CUSTOM, last of the hero's looks: worn on the
+## figure of the look's gender, its bones following the rig's by
+## [method polysplit_map] (a chest on the rig's third spine bone where it has
+## one), its arms on the rig's own arm bones.
+func _add_maker() -> void:
+	if faces.is_empty():
+		faces = [&"own"]
+		face_skulls = [&"own"]
+		face_names = ["AS HE WAS"]
+	faces.append(CUSTOM)
+	face_skulls.append(CUSTOM)
+	face_names.append("YOUR OWN")
+	whole_faces.append(CUSTOM)
+	shieldless_faces.append(CUSTOM)
+	own_sword_faces.append(CUSTOM)
+	var extra := {}
+	for b in ARM_BONES:
+		if _skel.find_bone(b) >= 0:
+			extra[b] = b
+	var map := polysplit_map(extra)
+	if _skel.find_bone("spine_03") >= 0:
+		map[&"chest_joint"] = &"spine_03"
+	for g: String in ["m", "f"]:
+		figures[StringName("ps" + g)] = {"scene": "res://assets/polysplit/%s_%s.glb" % [polysplit_hero, g],
+				"prefix": "ps", "hips": &"pelvis_joint", "map": map, "lazy": true}
+	figure_faces[CUSTOM] = {"figure": &"psm", "custom": true}
+	ps_look = PolysplitLook.normalized(ps_look, polysplit_hero)
+
+
+## Wears `look` (see [PolysplitLook]) — at once, if the maker's face is on.
+func set_look(look: Dictionary) -> void:
+	if polysplit_hero == &"":
+		return
+	ps_look = PolysplitLook.normalized(look, polysplit_hero)
+	if _skel != null and face < faces.size() and faces[face] == CUSTOM:
+		_show_figure()
+		_apply_moves()
+		set_shield(shield_kind)
+
+
+## The look worn by the maker's face (empty without one).
+func get_look() -> Dictionary:
+	return ps_look.duplicate(true)
 
 
 ## The arms the figure worn carries: its sword and whichever shield is held,
@@ -1657,6 +1818,15 @@ func _show_figure_arms() -> void:
 	if _figure == null:
 		return
 	var prefix := String(figures[figure_faces[faces[face]]["figure"]]["prefix"]) + "_"
+	if faces[face] == CUSTOM:
+		# the hero's own shield, the one he carries, if the look holds it; the
+		# rest is the look's (`PolysplitLook.apply()`)
+		var his := String(ps_look.get("o", "")) == "his_shield"
+		for key: String in ["shield", "tower_shield"]:
+			var mesh := _figure.find_child(prefix + key, true, false) as MeshInstance3D
+			if mesh != null:
+				mesh.visible = his and shield_kind == (0 if key == "shield" else 1)
+		return
 	var arms := {"sword": true, "shield": shield_kind == 0, "tower_shield": shield_kind == 1}
 	for mesh: MeshInstance3D in _figure.find_children(prefix + "*", "MeshInstance3D", true, false):
 		var key := String(mesh.name).trim_prefix(prefix)

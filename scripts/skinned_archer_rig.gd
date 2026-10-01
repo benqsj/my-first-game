@@ -61,6 +61,9 @@ func _configure() -> void:
 	# with the hood off, long hair and his face wrapped in dark cloth; or the
 	# one he was, in the two outfits above.
 	mesh_prefix = "avtandil"
+	# and YOUR OWN, made on the hero select out of Polysplit's heroes
+	# ([PolysplitLook], `SkinnedRig._add_maker()`)
+	polysplit_hero = &"avtandil"
 	# Only AS HE WAS is worn (2026-10-02, the user's pick): THE RANGER, THE
 	# HUNTER, THE HUNTSMAN and THE FOX HUNTER were taken off the hero select.
 	faces = [&"box"]

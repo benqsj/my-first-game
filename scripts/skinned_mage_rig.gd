@@ -115,6 +115,10 @@ func _configure() -> void:
 	max_play_rate = 2.4
 	roll_share = 0.8
 	cloth_enabled = false
+	# As he was, or YOUR OWN, made on the hero select out of Polysplit's
+	# heroes ([PolysplitLook], `SkinnedRig._add_maker()`), a sword in his
+	# hand (2026-10-02, the user's word) and a staff in the other if he will.
+	polysplit_hero = &"mage"
 
 
 func _ready() -> void:

@@ -210,6 +210,9 @@ func _configure() -> void:
 	# each with a cloak; or the one of boxes he was, who wears the outfits in
 	# the bag.
 	mesh_prefix = "rogue"
+	# and YOUR OWN, made on the hero select out of Polysplit's heroes
+	# ([PolysplitLook], `SkinnedRig._add_maker()`)
+	polysplit_hero = &"rogue"
 	# Or Synty's Sidekick on its own skeleton, which follows his
 	# ([FigureFollower]), with his own knives cut out of his model
 	# (vepxis-art/tools/fig_hero.py, tools/sk_build.py): THE FOX MASK in the
