@@ -1552,6 +1552,8 @@ func _setup_figure() -> void:
 		var follow := FigureFollower.new()
 		follow.name = "FigureFollower_" + String(id)
 		add_child(follow)
+		follow.damp = spec.get("damp", {})
+		follow.mids = spec.get("mids", {})
 		if not follow.setup(_skel, skel, spec["map"], spec["hips"]):
 			push_warning("SkinnedRig: figure %s's skeleton does not match its map." % id)
 		var mount: BoneAttachment3D = null

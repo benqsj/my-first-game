@@ -5408,6 +5408,18 @@ ride their limbs.
 
 THE NIGHT ELF shows everything. THE NIGHT ELF, BARE leaves off the bra.
 
+The thong: its front is a smaller triangle cut from her briefs. The string round
+the hips and the strip behind are cut out of her own skin between planes, so
+their edges are clean.
+
+`FigureFollower` takes two refinements for her (figure spec `damp`, `mids`):
+
+- She stands taller than his hunter's crouch: her hips and spine turn only
+  about half the way his do.
+- Her middle spine bone, which he has no partner for, turns halfway between
+  his two. Her waist bends instead of creasing, and her chest no longer swings
+  off to one side.
+
 ## Smaug, to look at only
 
 A fan model of a dragon from free3d (`free3d.com/dragon`) is built by

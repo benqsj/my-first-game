@@ -51,8 +51,13 @@ func _configure() -> void:
 	figures = {
 		&"darkelf": {"scene": "res://assets/avtandil_darkelf/avtandil_darkelf.glb", "prefix": "de",
 			"hips": &"Hips", "map": elf_map},
+		# She stands taller than his hunter's crouch (the hips and spine turn
+		# only part of the way his do), and her middle spine bone shares the
+		# bend between his two, so her waist bends rather than creases.
 		&"anna": {"scene": "res://assets/avtandil_anna/avtandil_anna.glb", "prefix": "an",
-			"hips": &"CC_Base_Hip", "map": anna_map},
+			"hips": &"CC_Base_Hip", "map": anna_map,
+			"damp": {&"CC_Base_Hip": 0.55, &"CC_Base_Waist": 0.5, &"CC_Base_Spine01": 0.5, &"CC_Base_Spine02": 0.5},
+			"mids": {&"CC_Base_Spine01": [&"spine_01", &"spine_02", 0.5]}},
 	}
 	figure_faces = {
 		&"darkelf": {"figure": &"darkelf", "show": ["body", "noir", "harness"]},

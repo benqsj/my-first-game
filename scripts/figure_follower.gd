@@ -13,6 +13,14 @@ extends Node
 ##
 ## Works only between skeletons whose rests point the limbs the same way
 ## (vepxis-art/tools/bl_blink.py turns the figure's rest onto the rig's).
+##
+## Two refinements, set before `setup()`:
+## * `damp` (figure bone -> 0..1) turns that bone only part of the way its
+##   partner has turned — a hunched run carried onto a figure that should
+##   stand taller.
+## * `mids` (figure bone -> [rig bone a, rig bone b, t]) turns a bone the rig
+##   has no partner for part of the way between two that it has — a spine of
+##   three bones following a spine of two, so the bend is shared.
 
 ## Emitted each time the figure has been posed off the rig, so what hangs off
 ## the figure's bones (a bow's string) can be put where they now are.
@@ -30,6 +38,10 @@ var _dst_rest: Array[Transform3D] = []
 var _globals: Array[Transform3D] = []
 var _hips: int = -1
 var _scale: float = 1.0
+var damp: Dictionary = {}
+var mids: Dictionary = {}
+var _damp: PackedFloat32Array = PackedFloat32Array()
+var _mid: Dictionary = {}
 
 
 ## `map` is figure bone -> rig bone; `hips` names the figure's hips bone,
@@ -48,6 +60,19 @@ func setup(src: Skeleton3D, dst: Skeleton3D, map: Dictionary, hips: StringName) 
 			push_warning("FigureFollower: no bone %s / %s." % [key, map[key]])
 			return false
 		_from[t] = s
+	_damp.resize(n)
+	_damp.fill(1.0)
+	for key: StringName in damp:
+		var t := dst.find_bone(String(key))
+		if t >= 0:
+			_damp[t] = float(damp[key])
+	for key: StringName in mids:
+		var t := dst.find_bone(String(key))
+		var m: Array = mids[key]
+		var a := src.find_bone(String(m[0]))
+		var b := src.find_bone(String(m[1]))
+		if t >= 0 and a >= 0 and b >= 0 and _from[t] < 0:
+			_mid[t] = [a, b, float(m[2])]
 	# Parents before children.
 	var done: Dictionary = {}
 	while _order.size() < n:
@@ -85,9 +110,20 @@ func follow() -> void:
 		var rest_local := target.get_bone_rest(t)
 		var g: Transform3D
 		var s := _from[t]
-		if s >= 0:
+		if _mid.has(t):
+			var m: Array = _mid[t]
+			var qa := _turn(m[0]).get_rotation_quaternion()
+			var qb := _turn(m[1]).get_rotation_quaternion()
+			var q := qa.slerp(qb, m[2])
+			if _damp[t] < 1.0:
+				q = Quaternion.IDENTITY.slerp(q, _damp[t])
+			g.basis = Basis(q) * _dst_rest[t].basis
+			g.origin = parent_g * rest_local.origin
+		elif s >= 0:
 			var pose := source.get_bone_global_pose(s).orthonormalized()
 			var turn := pose.basis * _src_rest[s].basis.inverse()
+			if _damp[t] < 1.0:
+				turn = Basis(Quaternion.IDENTITY.slerp(turn.get_rotation_quaternion(), _damp[t]))
 			g.basis = turn * _dst_rest[t].basis
 			if t == _hips:
 				g.origin = _dst_rest[t].origin + (pose.origin - _src_rest[s].origin) * _scale
@@ -100,3 +136,8 @@ func follow() -> void:
 		target.set_bone_pose_rotation(t, local.basis.get_rotation_quaternion())
 		target.set_bone_pose_position(t, local.origin)
 	followed.emit()
+
+
+func _turn(s: int) -> Basis:
+	var pose := source.get_bone_global_pose(s).orthonormalized()
+	return pose.basis * _src_rest[s].basis.inverse()
