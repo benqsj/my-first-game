@@ -1436,6 +1436,12 @@ func set_face(index: int) -> void:
 		var mesh := find_child("%s_face_%s" % [mesh_prefix, faces[i]], true, false) as MeshInstance3D
 		if mesh != null:
 			mesh.visible = i == face
+	# A face the model still carries but the rig no longer offers (looks taken
+	# off the hero select) stays hidden.
+	for node in find_children("%s_face_*" % mesh_prefix, "MeshInstance3D", true, false):
+		var key := StringName(String(node.name).trim_prefix("%s_face_" % mesh_prefix))
+		if not faces.has(key):
+			(node as MeshInstance3D).visible = false
 	set_hair(hair)
 	set_garb(garb)
 	_show_figure()

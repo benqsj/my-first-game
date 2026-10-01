@@ -5637,3 +5637,30 @@ rig's blood goes on.
 - a cut carries him forward and puts him in the fighting stance with both
   hands on the hilt;
 - moving, he throws the second string.
+
+
+## The roster trimmed (2026-10-02)
+
+The art is heading to stylized low poly, starting with Polysplit's Heroes pack
+(see `ASSET_WISHLIST.md`). The hero select now offers only these looks:
+
+- **Tariel**: every look, as before.
+- **Avtandil**: **AS HE WAS** only, the one of boxes, with his two outfits.
+  THE RANGER, THE HUNTER, THE HUNTSMAN and THE FOX HUNTER were taken off
+  (`SkinnedArcherRig`: no figures).
+- **The assassin**: **THE FOX MASK** only, on Sidekick.
+  THE BLADE, THE SHADE, AS HE WAS, THE HOOD and THE NINJA were taken off
+  (`SkinnedRogueRig`: the Sidekick figure alone, no capes).
+- **The mage** and **THE WARRIOR**: unchanged.
+- **The elf** is off the roster. `elf.tres`, its visuals scene and
+  `skinned_elf_rig.gd` are gone.
+
+The sections above still describe the looks that were taken off. Their asset
+folders were left in place:
+- `assets/avtandil_anna`
+- `assets/avtandil_blink`
+- `assets/avtandil_sidekick`
+- `assets/rogue_ninja`
+
+Nothing loads them now, so they can go whenever their history is no longer
+wanted.

@@ -109,7 +109,9 @@ func _check_menu() -> void:
 	# bareheaded, or the one he was. Neither has a choice of hair.
 	var face_row := (pages[2] as Control).find_child("FaceRow", true, false) as Control
 	var hair_row := (pages[2] as Control).find_child("HairRow", true, false) as Control
-	_check("the archer has a look to pick", face_row != null and face_row.modulate.a > 0.99)
+	# Avtandil has one look now (AS HE WAS), so there is nothing to pick.
+	_check("the archer, with one look, offers no choice of it",
+			face_row == null or not face_row.visible or face_row.modulate.a < 0.99)
 	var face_was: int = _game.face(&"tariel")
 	menu.set("_chosen", &"tariel")
 	menu.call("_refresh_cards")

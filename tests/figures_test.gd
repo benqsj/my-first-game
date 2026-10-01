@@ -9,7 +9,6 @@ const HEROES := {
 	"Tariel": "res://scenes/player/tariel_rigged_visuals.tscn",
 	"the assassin": "res://scenes/player/rogue_rigged_visuals.tscn",
 	"Avtandil": "res://scenes/player/avtandil_rigged_visuals.tscn",
-	"the elf": "res://scenes/player/elf_rigged_visuals.tscn",
 }
 const CLIP_AT := 0.45
 

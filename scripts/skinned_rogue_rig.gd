@@ -215,23 +215,18 @@ func _configure() -> void:
 	# (vepxis-art/tools/fig_hero.py, tools/sk_build.py): THE FOX MASK in the
 	# mask and its hood, the wanderer's coat in reds; THE HOOD in the deep
 	# hood with a cloth over his mouth, in dark steel and blue.
-	faces = [&"real", &"shade", &"box", &"foxmask", &"hood", &"ninja"]
+	# Only THE FOX MASK is worn (2026-10-02, the user's pick): THE BLADE, THE
+	# SHADE, AS HE WAS, THE HOOD and THE NINJA were taken off the hero select.
+	faces = [&"foxmask"]
 	face_skulls = faces.duplicate()
-	face_names = ["THE BLADE", "THE SHADE", "AS HE WAS", "THE FOX MASK", "THE HOOD", "THE NINJA"]
-	whole_faces = [&"real", &"shade", &"foxmask", &"hood", &"ninja"]
+	face_names = ["THE FOX MASK"]
+	whole_faces = [&"foxmask"]
 	figures = {
 		&"sidekick": {"scene": "res://assets/rogue_sidekick/rogue_sidekick.glb", "prefix": "sk",
 			"hips": &"pelvis", "map": SkinnedRig.sidekick_map({&"weapon_r": &"weapon_r", &"weapon_l": &"weapon_l"})},
-		# THE NINJA: BlenderKit's sci-fi ninja on a skeleton of its own made of
-		# its Mixamo bones alone, its control rig taken off, his two knives in
-		# its hands (vepxis-art tools/bl_mixfig.py, clean_rig).
-		&"ninja": {"scene": "res://assets/rogue_ninja/rogue_ninja.glb", "prefix": "nj",
-			"hips": &"Hips", "map": SkinnedRig.mixamo_map({&"weapon_r": &"weapon_r", &"weapon_l": &"weapon_l"})},
 	}
 	figure_faces = {
 		&"foxmask": {"figure": &"sidekick", "show": ["foxmask"]},
-		&"hood": {"figure": &"sidekick", "show": ["hood"]},
-		&"ninja": {"figure": &"ninja", "show": ["body"]},
 	}
 	# Sidekick's men are made for one blade (the fox mask carries one sword,
 	# at his hip): so one knife, in the right fist, no ring off the empty left
@@ -247,20 +242,7 @@ func _configure() -> void:
 		"flurry_part": {&"DG_Axe_R2L": Vector2(0.236, 0.597), &"DG_Whirl": Vector2(0.1, 0.62)},
 		"heavy": one_heavy, "off_hand": false, "hide_arms": ["arm_knife_l"],
 	}
-	face_moves = {&"foxmask": one_knife, &"hood": one_knife}
-	var cloak_body := [["pelvis", "neck_01", 0.17], ["spine_01", "spine_02", 0.19],
-			["thigh_l", "calf_l", 0.1], ["thigh_r", "calf_r", 0.1], ["calf_l", "foot_l", 0.085],
-			["calf_r", "foot_r", 0.085]]
-	whole_capes = {
-		&"real": [{"left": [0.19, 0.17, 1.44], "right": [-0.19, 0.17, 1.44], "length": 0.92, "spread": 1.25,
-			"flare": 0.1, "wrap": 0.1, "cols": 8, "rows": 11, "base": Color.html("4a3322"),
-			"hem": Color.html("352418"), "trim": Color.html("6b4a2c"), "pattern": "plain",
-			"colliders": cloak_body}, {"off": true}],
-		&"shade": [{"left": [0.19, 0.17, 1.44], "right": [-0.19, 0.17, 1.44], "length": 0.92, "spread": 1.25,
-			"flare": 0.1, "wrap": 0.1, "cols": 8, "rows": 11, "base": Color.html("1c1b20"),
-			"hem": Color.html("6e1420"), "trim": Color.html("4a0f18"), "pattern": "plain",
-			"colliders": cloak_body}, {"off": true}],
-	}
+	face_moves = {&"foxmask": one_knife}
 	# His own knife: its whooshes, its bite, his grunt.
 	swing_sounds = [
 		"res://unverified/sounds/assassin/swing_1.wav", "res://unverified/sounds/assassin/swing_2.wav",
