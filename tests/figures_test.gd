@@ -9,6 +9,8 @@ const HEROES := {
 	"Tariel": "res://scenes/player/tariel_rigged_visuals.tscn",
 	"the assassin": "res://scenes/player/rogue_rigged_visuals.tscn",
 	"Avtandil": "res://scenes/player/avtandil_rigged_visuals.tscn",
+	"the mage": "res://scenes/player/mage_rigged_visuals.tscn",
+	"the warrior": "res://scenes/player/warrior_rigged_visuals.tscn",
 }
 const CLIP_AT := 0.45
 
@@ -59,7 +61,9 @@ func _run() -> void:
 				if not mesh.is_visible_in_tree():
 					continue
 				var part := String(mesh.name).trim_prefix(prefix)
-				if part.begins_with("arm_") or part in ["sword", "shield", "tower_shield"]:
+				# (the maker's, YOUR OWN: "w_<id>" in the sword hand, "o_<id>" the other)
+				if part.begins_with("arm_") or part.begins_with("w_") or part.begins_with("o_") \
+						or part in ["sword", "shield", "tower_shield"]:
 					arms_shown += 1
 				else:
 					look_shown += 1

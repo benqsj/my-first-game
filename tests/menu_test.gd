@@ -109,9 +109,10 @@ func _check_menu() -> void:
 	# bareheaded, or the one he was. Neither has a choice of hair.
 	var face_row := (pages[2] as Control).find_child("FaceRow", true, false) as Control
 	var hair_row := (pages[2] as Control).find_child("HairRow", true, false) as Control
-	# Avtandil has one look now (AS HE WAS), so there is nothing to pick.
-	_check("the archer, with one look, offers no choice of it",
-			face_row == null or not face_row.visible or face_row.modulate.a < 0.99)
+	# Avtandil has two looks now: AS HE WAS, and YOUR OWN, made on the spot
+	# (the maker, [PolysplitLook]).
+	_check("the archer offers his own look and one made for him",
+			face_row != null and face_row.modulate.a > 0.99)
 	var face_was: int = _game.face(&"tariel")
 	menu.set("_chosen", &"tariel")
 	menu.call("_refresh_cards")
@@ -134,6 +135,43 @@ func _check_menu() -> void:
 	_check("the hair shows only on the square head",
 			_hairs_shown(knight) == (0 if knight.wearing_whole() else 1))
 	_check("and the look is remembered", _game.face(&"tariel") == knight.face)
+
+	# YOUR OWN: the maker in the dossier's place, a class dressing him, every
+	# change on the stage and remembered; the dossier back for any other look.
+	var look_was: Dictionary = _game.look(&"tariel")
+	var dossier := (pages[2] as Control).find_child("Dossier", true, false) as Control
+	var maker := (pages[2] as Control).find_child("Maker", true, false) as Control
+	knight.set_face(knight.faces.find(SkinnedRig.CUSTOM))
+	menu.call("_refresh_picks")
+	await _wait(2)
+	_check("YOUR OWN puts the maker where the dossier was", maker != null and maker.visible
+			and dossier != null and not dossier.visible)
+	menu.set("_maker_tab", "CLASS")
+	var cls_was := String(knight.get_look()["cls"])
+	menu.call("_maker_step", "cls", 1)
+	await _wait(2)
+	var made := knight.get_look()
+	var spec: Dictionary = PolysplitLook.CLASSES["m"][made["cls"]]
+	_check("a class dresses him in its clothes, hat and arms", String(made["cls"]) != cls_was
+			and made["top"] == made["cls"] and made["hat"] == spec["hat"]
+			and knight._figure != null and knight._figure.visible,
+			"%s -> %s" % [cls_was, made["cls"]])
+	_check("and it is remembered", String(_game.look(&"tariel").get("cls", "")) == String(made["cls"]))
+	menu.call("_maker_step", "g", 1)
+	await _wait(2)
+	_check("the body: a woman, on a figure of her own", knight.get_look()["g"] == "f"
+			and knight._figure == knight._figs[&"psf"]["node"])
+	var tabs_rows := 0
+	menu.call("_maker_show", "FACE")
+	for kind: String in (menu.get("_maker_rows") as Dictionary):
+		var row := (menu.get("_maker_rows") as Dictionary)[kind] as Control
+		tabs_rows += 1 if row.visible else 0
+	_check("a tab shows its own rows (FACE: six)", tabs_rows == 6, "%d" % tabs_rows)
+	knight.set_face(face_from)
+	menu.call("_refresh_picks")
+	await _wait(1)
+	_check("another look puts the dossier back", dossier.visible and not maker.visible)
+	_game.set_look(&"tariel", look_was)
 	_game.set_face(&"tariel", face_was)
 
 	# Every character can be taken into a game with other people — including the

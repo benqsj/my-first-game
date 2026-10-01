@@ -74,7 +74,8 @@ func _initialize() -> void:
 		if face_mesh != null:
 			faces_found += 1
 			faces_worn += 1 if face_mesh.visible else 0
-		elif rig.figure_faces.has(key) and rig._figs.has(rig.figure_faces[key]["figure"]):
+		elif rig.figure_faces.has(key) and rig.figures.has(rig.figure_faces[key]["figure"]):
+			# (the maker's figures are loaded the first time they are worn)
 			faces_found += 1
 			faces_worn += 1 if rig.faces[rig.face] == key else 0
 	_check("his looks: all in the model, one worn", faces_found == rig.faces.size() and faces_worn == 1,
@@ -150,9 +151,10 @@ func _initialize() -> void:
 				and sk_shown.has("sk_sword") and blink_shown == 0 and off < 0.35
 				and rig._blade_tip.get_parent() == rig._figure_mount,
 				"%s shown, %d of Blink's, hand %.2f m off" % [sk_shown, blink_shown, off])
-	# Polysplit's Swordsman, on Polysplit's own skeleton: his one mesh and the
-	# pack's sword, nothing of Sidekick's.
-	rig.set_face(rig.faces.find(&"swordsman"))
+	# YOUR OWN as the swordsman, on Polysplit's own skeleton: the class's
+	# gambeson, the pack's sword and his shield, nothing of Sidekick's.
+	rig.set_look(PolysplitLook.dress(PolysplitLook.default_look(&"tariel", "m"), &"tariel", "swordsman"))
+	rig.set_face(rig.faces.find(SkinnedRig.CUSTOM))
 	await process_frame
 	var ps_shown: Array[String] = []
 	for mesh: MeshInstance3D in rig.find_children("ps_*", "MeshInstance3D", true, false):
@@ -165,8 +167,8 @@ func _initialize() -> void:
 			rig._figure_skel.find_bone("R_wrist_joint")).origin
 	var ps_off := ps_hand.distance_to(rig._skel.global_transform * rig._skel.get_bone_global_pose(
 			rig._skel.find_bone("hand_r")).origin)
-	_check("the swordsman worn on Polysplit's own skeleton", ps_shown.has("ps_swordsman")
-			and ps_shown.has("ps_sword") and sk_left == 0 and ps_off < 0.35
+	_check("YOUR OWN, the swordsman, worn on Polysplit's own skeleton", ps_shown.has("ps_top_swordsman")
+			and ps_shown.has("ps_w_sword_a") and ps_shown.has("ps_shield") and sk_left == 0 and ps_off < 0.35
 			and rig._blade_tip.get_parent() == rig._figure_mount,
 			"%s shown, %d of Sidekick's, hand %.2f m off" % [ps_shown, sk_left, ps_off])
 	rig.set_face(rig.faces.find(&"box"))
