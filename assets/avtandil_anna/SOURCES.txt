@@ -1,2 +1,3 @@
 Sketchfab: Anna Ipati (animated) by Jungle Jim, CC Attribution 4.0 (https://sketchfab.com/3d-models/anna-ipati-animated-9ef7dbea47854f49b496e8c0a8332157)
+The SYLVAN leathers (fit_sylvan, sylvan_t*.jpg): blend-swap: Elf game-ready and animated (see vepxis-art bow-girl/x/81881 - LICENSE.html), carried over by tools/anna_prep.py
 Built by vepxis-art tools/bl_mixfig.py (VX_HERO=avtandil VX_FIG=anna).
