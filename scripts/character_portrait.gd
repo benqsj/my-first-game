@@ -32,6 +32,14 @@ extends SubViewportContainer
 
 var _stand: Node3D
 var _rig: Node3D
+var _camera: Camera3D
+## Whether the camera is in close on the face (see `frame_close()`), and how
+## far it has got there (0..1).
+var _close: bool = false
+var _close_at: float = 0.0
+## Where it stands in close: on the face, a step off it.
+const CLOSE_HEIGHT := 1.62
+const CLOSE_BACK := 1.55
 
 
 ## How it is framed. A roster of faces to pick from and the one picked standing
@@ -103,8 +111,15 @@ static func of(profile: CharacterProfile, size: Vector2,
 	portrait._stand.add_child(portrait._rig)
 
 	view.add_child(portrait._lights())
-	view.add_child(portrait._eye())
+	portrait._camera = portrait._eye()
+	view.add_child(portrait._camera)
 	return portrait
+
+
+## Takes the camera in close on the face (the hero select's maker, making it),
+## or back to where it was; it eases there.
+func frame_close(close: bool) -> void:
+	_close = close
 
 
 ## The model on the stand (null for a profile with none).
@@ -125,6 +140,19 @@ func _process(delta: float) -> void:
 	if _stand == null or not is_visible_in_tree():
 		return
 	_stand.rotation.y = wrapf(_stand.rotation.y + turn_speed * delta, -PI, PI)
+	var close_was := _close_at
+	_close_at = move_toward(_close_at, 1.0 if _close else 0.0, delta * 3.0)
+	if _camera != null and (_close_at > 0.0 or close_was > 0.0):
+		# In close, on the head where it is (the idle sways it, a figure is
+		# taller than the rig): a step in front of it, looking at it.
+		var t := smoothstep(0.0, 1.0, _close_at)
+		var head := Vector3(0.0, CLOSE_HEIGHT, 0.0)
+		if _rig.has_method(&"bone_position"):
+			head = _rig.call(&"bone_position", &"head") + Vector3(0.0, 0.1, 0.0)
+		var far_eye := Vector3(0.0, eye_height + 0.14, eye_back)
+		var far_at := Vector3(0.0, eye_height, 0.0)
+		_camera.look_at_from_position(far_eye.lerp(head + Vector3(0.0, 0.03, CLOSE_BACK), t),
+				far_at.lerp(head, t), Vector3.UP)
 	# Standing still, on the ground, not jumping, not rolling, not blocking. The
 	# rig fills in the breathing, the weight on the feet and where the weapons
 	# hang, which is most of what makes a model look alive rather than posed.

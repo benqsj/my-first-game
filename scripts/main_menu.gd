@@ -69,6 +69,26 @@ var _go: Button
 ## Under the stage: the picked hero's face and hair, each stepped through with
 ## two arrows (shown only for a hero who has a choice of it): kind -> the row.
 var _pick_rows: Dictionary = {}
+## The maker ([PolysplitLook]), in the dossier's place while the picked hero
+## wears YOUR OWN: its rows in four tabs, each an arrow either side of what is
+## picked of that kind.
+const MAKER_TABS := {
+	"CLASS": ["cls", "g"],
+	"FACE": ["eyes", "brows", "mouth", "beard", "hair", "skin"],
+	"GEAR": ["top", "bottom", "extra", "hat", "cloth"],
+	"ARMS": ["w", "o"],
+}
+const MAKER_LABELS := {
+	"cls": "CLASS", "g": "BODY", "eyes": "EYES", "brows": "BROWS", "mouth": "MOUTH", "beard": "BEARD",
+	"hair": "HAIR", "skin": "SKIN", "top": "TOP", "bottom": "LEGS", "extra": "MORE", "hat": "HAT",
+	"cloth": "CLOTH", "w": "WEAPON", "o": "OTHER HAND",
+}
+var _maker_tab: String = "CLASS"
+var _maker_rows: Dictionary = {}
+var _maker_tabs: Dictionary = {}
+## Which of the extras the MORE row is on (it steps through them all; the
+## button by it puts the one shown on or off).
+var _extra_at: int = 0
 
 
 func _ready() -> void:
@@ -257,6 +277,7 @@ func _build_characters() -> Control:
 	mid_gap.custom_minimum_size = Vector2(60.0, 0.0)
 	middle.add_child(mid_gap)
 	middle.add_child(_dossier())
+	middle.add_child(_maker())
 	var right_gap := Control.new()
 	right_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	middle.add_child(right_gap)
@@ -523,6 +544,8 @@ func _stage(roster: Array) -> Control:
 			full.rig().set(&"hair", int(_game.call(&"hair", id)))
 			if _game.has_method(&"tint"):
 				full.rig().set(&"tint", int(_game.call(&"tint", id)))
+			if _game.has_method(&"look"):
+				full.rig().set(&"ps_look", _game.call(&"look", id))
 		_stages[id] = full
 		stage.add_child(full)
 		full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -582,6 +605,9 @@ func _step(kind: String, by: int) -> void:
 	model.call(&"set_" + kind, index)
 	if _game != null:
 		_game.call(&"set_" + kind, _chosen, index)
+		# YOUR OWN is worn as it was made: what it is made of is kept with it
+		if kind == "face" and model.has_method(&"get_look") and _game.has_method(&"set_look"):
+			_game.call(&"set_look", _chosen, model.call(&"get_look"))
 	_refresh_picks()
 
 
@@ -594,6 +620,7 @@ func _step_face(by: int) -> void:
 
 
 func _refresh_picks() -> void:
+	_refresh_maker()
 	for kind: String in _pick_rows:
 		var row := _pick_rows[kind] as HBoxContainer
 		var names := _pick_list(kind)
@@ -672,6 +699,261 @@ func _process(delta: float) -> void:
 	var stage := page.find_child("Stage", true, false) as Control if page != null else null
 	if stage != null:
 		stage.queue_redraw()
+
+
+#region The maker
+## The right, while the picked hero wears YOUR OWN: what he is made of, a row
+## for each kind of part, four tabs of them.
+func _maker() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "Maker"
+	panel.custom_minimum_size = Vector2(540.0, 0.0)
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.visible = false
+	var plate := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.84))
+	plate.border_color = Color(MenuStyle.GOLD_DIM, 0.6)
+	plate.set_border_width_all(1)
+	plate.shadow_color = Color(0, 0, 0, 0.5)
+	plate.shadow_size = 24
+	plate.content_margin_left = 26.0
+	plate.content_margin_right = 26.0
+	plate.content_margin_top = 22.0
+	plate.content_margin_bottom = 22.0
+	panel.add_theme_stylebox_override("panel", plate)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	panel.add_child(column)
+	var called := MenuStyle.label("YOUR OWN", MenuStyle.HEADING_SIZE, MenuStyle.CREAM)
+	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	column.add_child(called)
+	var note := MenuStyle.label("A class first, then the rest. Kept as you go.", MenuStyle.BODY_SIZE - 3,
+			MenuStyle.GOLD_DIM)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	column.add_child(note)
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 6)
+	for tab: String in MAKER_TABS:
+		var button := MenuStyle.button(tab, func() -> void: _maker_show(tab), true)
+		button.name = "Tab" + tab
+		button.custom_minimum_size = Vector2(98.0, 38.0)
+		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE)
+		tabs.add_child(button)
+		_maker_tabs[tab] = button
+	column.add_child(tabs)
+	column.add_child(MenuStyle.rule())
+	for tab: String in MAKER_TABS:
+		for kind: String in MAKER_TABS[tab]:
+			column.add_child(_maker_row(kind))
+	return panel
+
+
+func _maker_row(kind: String) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "Make_" + kind
+	row.add_theme_constant_override("separation", 8)
+	var what := MenuStyle.label(MAKER_LABELS[kind], MenuStyle.BODY_SIZE - 2, MenuStyle.GOLD_DIM)
+	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	what.custom_minimum_size = Vector2(96.0, 0.0)
+	row.add_child(what)
+	var back := MenuStyle.button("<", func() -> void: _maker_step(kind, -1), true)
+	back.name = "Back"
+	back.custom_minimum_size = Vector2(40.0, 32.0)
+	row.add_child(back)
+	var value := MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	value.name = "Value"
+	value.custom_minimum_size = Vector2(236.0, 0.0)
+	value.clip_text = true
+	row.add_child(value)
+	var on := MenuStyle.button(">", func() -> void: _maker_step(kind, 1), true)
+	on.name = "Next"
+	on.custom_minimum_size = Vector2(40.0, 32.0)
+	row.add_child(on)
+	if kind == "skin" or kind == "cloth":
+		for i in 2:
+			var swatch := ColorRect.new()
+			swatch.name = "Swatch%d" % i
+			swatch.custom_minimum_size = Vector2(22.0, 22.0)
+			swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(swatch)
+	if kind == "extra":
+		var wear := MenuStyle.button("WEAR", _maker_toggle_extra, true)
+		wear.name = "Wear"
+		wear.custom_minimum_size = Vector2(76.0, 32.0)
+		wear.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 2)
+		row.add_child(wear)
+	_maker_rows[kind] = row
+	return row
+
+
+## Whether the picked hero wears YOUR OWN.
+func _making() -> bool:
+	var model := _chosen_rig()
+	if model == null or not model.has_method(&"get_look"):
+		return false
+	var all: Array = model.get(&"faces")
+	var at := int(model.get(&"face"))
+	return at < all.size() and all[at] == SkinnedRig.CUSTOM
+
+
+## What can be picked of `kind` for the picked hero in `look`.
+func _maker_options(kind: String, look: Dictionary) -> Array:
+	var g := String(look.get("g", "m"))
+	match kind:
+		"cls":
+			return PolysplitLook.classes(_chosen, g)
+		"g":
+			return ["m", "f"]
+		"eyes", "brows", "mouth":
+			return range(5)
+		"beard":
+			return range(9) if g == "m" else []
+		"hair":
+			return range(15)
+		"skin":
+			return range(1, PolysplitLook.SKINS + 1)
+		"cloth":
+			return range(1, PolysplitLook.CLOTHS + 1)
+		"top", "bottom":
+			var outfits: Array = [""]
+			outfits.append_array(PolysplitLook.classes(_chosen, g))
+			return outfits
+		"extra":
+			return PolysplitLook.all_extras(g)
+		"hat":
+			var hats: Array = [""]
+			hats.append_array(PolysplitLook.HAT_ORDER)
+			return hats
+		"w", "o":
+			return (PolysplitLook.ARMS.get(_chosen, {}) as Dictionary).get(kind, [])
+	return []
+
+
+func _maker_name(kind: String, value: Variant, look: Dictionary) -> String:
+	match kind:
+		"cls":
+			return PolysplitLook.CLASS_NAMES.get(value, String(value).to_upper())
+		"g":
+			return "MAN" if value == "m" else "WOMAN"
+		"eyes", "brows", "mouth", "skin", "cloth":
+			return str(int(value) + (1 if kind in ["eyes", "brows", "mouth"] else 0))
+		"beard", "hair":
+			return "NONE" if int(value) == 0 else str(int(value))
+		"top", "bottom":
+			return "BARE" if String(value) == "" else PolysplitLook.CLASS_NAMES.get(value, "") + "'S"
+		"extra":
+			var worn: bool = (look.get("extras", []) as Array).has(value)
+			return PolysplitLook.extra_name(String(value)) if not worn else "· %s ·" % PolysplitLook.extra_name(String(value))
+		"hat":
+			return "NONE" if String(value) == "" else String(PolysplitLook.HATS[value]["name"])
+		"w", "o":
+			return PolysplitLook.ARM_NAMES.get(value, String(value).to_upper())
+	return str(value)
+
+
+func _maker_show(tab: String) -> void:
+	_maker_tab = tab
+	_refresh_maker()
+
+
+## The next (or last) of `kind`, on the stage and remembered. A class dresses
+## the hero in its clothes, hat and arms; the body changes the figure.
+func _maker_step(kind: String, by: int) -> void:
+	var model := _chosen_rig()
+	if not _making():
+		return
+	var look: Dictionary = model.call(&"get_look")
+	var options := _maker_options(kind, look)
+	if options.is_empty():
+		return
+	if kind == "extra":
+		_extra_at = wrapi(_extra_at + by, 0, options.size())
+		_refresh_maker()
+		return
+	if options.size() < 2:
+		return
+	var at := options.find(look.get(kind))
+	var value: Variant = options[wrapi(at + by, 0, options.size())]
+	match kind:
+		"cls":
+			look = PolysplitLook.dress(look, _chosen, String(value))
+		"g":
+			look = PolysplitLook.regendered(look, _chosen, String(value))
+		_:
+			look[kind] = value
+	_maker_wear(look)
+
+
+## Puts the extra the MORE row shows on, or takes it off.
+func _maker_toggle_extra() -> void:
+	var model := _chosen_rig()
+	if not _making():
+		return
+	var look: Dictionary = model.call(&"get_look")
+	var options := _maker_options("extra", look)
+	if options.is_empty():
+		return
+	var id: String = options[clampi(_extra_at, 0, options.size() - 1)]
+	var worn: Array = look.get("extras", [])
+	if worn.has(id):
+		worn.erase(id)
+	else:
+		worn.append(id)
+	look["extras"] = worn
+	_maker_wear(look)
+
+
+func _maker_wear(look: Dictionary) -> void:
+	var model := _chosen_rig()
+	model.call(&"set_look", look)
+	if _game != null and _game.has_method(&"set_look"):
+		_game.call(&"set_look", _chosen, model.call(&"get_look"))
+	_refresh_maker()
+
+
+## The maker for the picked hero, if he wears YOUR OWN (the dossier if not);
+## the stage's camera close on the face while the face is being made.
+func _refresh_maker() -> void:
+	var page := _pages.get(Page.CHARACTERS) as Control
+	if page == null:
+		return
+	var making := _making()
+	var dossier := page.find_child("Dossier", true, false) as Control
+	var maker := page.find_child("Maker", true, false) as Control
+	if dossier != null:
+		dossier.visible = not making
+	if maker != null:
+		maker.visible = making
+	var full := _stages.get(_chosen) as CharacterPortrait
+	if full != null:
+		full.frame_close(making and _maker_tab == "FACE")
+	if not making:
+		return
+	for tab: String in _maker_tabs:
+		MenuStyle.style_button(_maker_tabs[tab] as Button, tab == _maker_tab, true)
+	var look: Dictionary = _chosen_rig().call(&"get_look")
+	for kind: String in _maker_rows:
+		var row := _maker_rows[kind] as HBoxContainer
+		row.visible = (MAKER_TABS[_maker_tab] as Array).has(kind)
+		var options := _maker_options(kind, look)
+		var choice := options.size() > (0 if kind == "extra" else 1)
+		row.modulate.a = 1.0 if choice else 0.35
+		for button in [row.get_node("Back"), row.get_node("Next")]:
+			(button as Button).disabled = not choice
+		var value := row.get_node("Value") as Label
+		if options.is_empty():
+			value.text = "—"
+			continue
+		var at := clampi(_extra_at, 0, options.size() - 1) if kind == "extra" else maxi(options.find(look.get(kind)), 0)
+		value.text = _maker_name(kind, options[at], look)
+		if kind == "skin" or kind == "cloth":
+			var texture := "body" if kind == "skin" else "objects"
+			for i in 2:
+				(row.get_node("Swatch%d" % i) as ColorRect).color = PolysplitLook.swatch(texture, int(options[at]),
+						i == 1)
+		if kind == "extra":
+			var worn: bool = (look.get("extras", []) as Array).has(options[at])
+			(row.get_node("Wear") as Button).text = "TAKE OFF" if worn else "WEAR"
+#endregion
 
 
 ## The right: who they are and what picking them means, on a dark plate.

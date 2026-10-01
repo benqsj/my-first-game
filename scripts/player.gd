@@ -365,6 +365,9 @@ var hair: int = 0
 var face: int = 0
 ## And the colour its clothes are dyed (see `set_tint()`).
 var tint: int = 0
+## And the look made on the hero select, worn with the face YOUR OWN (see
+## `set_look()`, [PolysplitLook]).
+var look: Dictionary = {}
 ## True while a screen of his own (the inventory, the big map) is open: the
 ## body stands still and takes no buttons.
 var menu_open: bool = false
@@ -482,6 +485,11 @@ var net_hair: int = 0
 var net_face: int = 0
 ## And the dye on its clothes.
 var net_tint: int = 0
+## And the look made on the hero select, as [method PolysplitLook.to_wire]
+## writes it ("" for none).
+var net_look: String = ""
+## The `net_look` last put on the rig, so it is only worn again when it changes.
+var _net_look_worn: String = ""
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -655,6 +663,9 @@ func _process(delta: float) -> void:
 		rig.call(&"set_hair", net_hair)
 	if not mine and rig.has_method(&"set_tint") and int(rig.get(&"tint")) != net_tint:
 		rig.call(&"set_tint", net_tint)
+	if not mine and rig.has_method(&"set_look") and net_look != _net_look_worn:
+		_net_look_worn = net_look
+		rig.call(&"set_look", PolysplitLook.from_wire(net_look))
 	if state == State.WALLCLIMB:
 		rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
 	# `velocity` is replicated, so the pace is right for everyone. `is_on_floor()`
@@ -694,6 +705,7 @@ func _publish_net_state() -> void:
 	net_hair = hair
 	net_face = face
 	net_tint = tint
+	net_look = PolysplitLook.to_wire(look)
 
 
 func _physics_process(delta: float) -> void:
@@ -772,6 +784,9 @@ func _spawn_character() -> void:
 	# comes from `net_hair`.
 	var chooser := get_node_or_null("/root/Game")
 	if chooser != null and is_multiplayer_authority() and chooser.has_method(&"hair"):
+		# the look before the face, so YOUR OWN comes up as it was made
+		if chooser.has_method(&"look"):
+			set_look(chooser.call(&"look", chooser.call(&"character")))
 		set_face(int(chooser.call(&"face", chooser.call(&"character"))))
 		set_hair(int(chooser.call(&"hair", chooser.call(&"character"))))
 		if chooser.has_method(&"tint"):
@@ -3012,6 +3027,16 @@ func set_face(index: int) -> void:
 	face = index
 	if rig != null and rig.has_method(&"set_face"):
 		rig.call(&"set_face", index)
+
+
+## Wears the look made on the hero select ([PolysplitLook]); every peer sees
+## it through `net_look`.
+func set_look(made: Dictionary) -> void:
+	if rig != null and rig.has_method(&"set_look"):
+		rig.call(&"set_look", made)
+		look = rig.call(&"get_look")
+	else:
+		look = made.duplicate(true)
 
 
 ## Dyes the rig's clothes (its `TINTS`); every peer sees it through `net_tint`.

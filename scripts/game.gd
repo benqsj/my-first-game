@@ -35,6 +35,9 @@ var _faces: Dictionary = {}
 ## And the colour each hero's clothes are dyed: id -> an index into their
 ## rig's `TINTS` (only THE NIGHT ELF has any).
 var _tints: Dictionary = {}
+## And the look each hero was made into on the hero select ([PolysplitLook]):
+## id -> the look, worn while their face is YOUR OWN.
+var _looks: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
@@ -169,6 +172,17 @@ func set_tint(id: StringName, index: int) -> void:
 	_save_settings()
 
 
+## The look `id` was made into on the hero select (empty if never made).
+func look(id: StringName) -> Dictionary:
+	return (_looks.get(id, {}) as Dictionary).duplicate(true)
+
+
+## Remembers `id`'s look.
+func set_look(id: StringName, made: Dictionary) -> void:
+	_looks[id] = made.duplicate(true)
+	_save_settings()
+
+
 ## Every character there is, in the order they should be offered.
 func roster() -> Array[StringName]:
 	var ids: Array[StringName] = []
@@ -253,6 +267,11 @@ func _load_settings() -> void:
 	if file.has_section("tint"):
 		for key in file.get_section_keys("tint"):
 			_tints[StringName(key)] = int(file.get_value("tint", key, 0))
+	if file.has_section("look"):
+		for key in file.get_section_keys("look"):
+			var made: Variant = file.get_value("look", key, {})
+			if made is Dictionary:
+				_looks[StringName(key)] = made
 
 
 func _save_settings() -> void:
@@ -265,5 +284,7 @@ func _save_settings() -> void:
 		file.set_value("face", String(id), int(_faces[id]))
 	for id: StringName in _tints:
 		file.set_value("tint", String(id), int(_tints[id]))
+	for id: StringName in _looks:
+		file.set_value("look", String(id), _looks[id])
 	file.save(SETTINGS)
 #endregion
