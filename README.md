@@ -5481,3 +5481,48 @@ rig's blood goes on.
 - he is heavier than Tariel;
 - both hands are on the hilt standing, walking and through a cut;
 - attack throws his string and the other button a heavy blow.
+
+## THE WARRIOR, second round: the sword on his shoulder, a cloak of cloth, blows with weight
+
+- **Out of a fight** he carries the great sword on his right shoulder, in one
+  hand: the blade's flat over the shoulder and pointing back, his fist before
+  it (`WR_Rest` on Mixamo's standing idle with an axe, and `WR_RestWalk` on
+  its swagger walk). The arm is laid there in Blender
+  (`wr_build.shoulder_pass`): the fist and the blade's line are set in
+  spine_03's frame, so they ride the body, and the arm is solved to them
+  with its elbow out and down.
+- He goes back to both hands on the hilt with a blow, a blow taken or a
+  target locked on (`SkinnedWarriorRig.in_fight`). After 4 s of quiet the
+  sword goes back on the shoulder. The run keeps the pack's run.
+- **The cloak is cloth.** His own textured cloak, below the shoulders, is
+  weighted to a grid of 9 × 9 bones (`clk_<row>_<col>`), laid round him on
+  the cloak's own surface by angle and height (`wr_build.cloak_bones`). It is
+  wholly the grid's under 1.38 m and its own above 1.5 m. `ClothBones` (a
+  SkeletonModifier3D, `scripts/cloth_bones.gd`) hangs that grid as one sheet:
+  - [ClothCape]'s Verlet cloth, with the lengths along, across, the diagonals
+    and every other point kept;
+  - capsules round the trunk, the legs and the arms;
+  - the top row sewn to spine_03, and a drape held strongly at the top and
+    hardly at the hem;
+  - each bone set where its point is, turned as the sheet round it has
+    turned.
+- **Blows with weight.** Every attack clip now keeps its travel on the root
+  bone, and his blows are `carried`: the step the man in the clip took goes
+  into the body with the cut. That covers the combo's three, the high spin,
+  the power slash, the second combo, the leap and the slide.
+- **A second string.** Started while moving, the string is Mixamo's
+  two-handed sword combo instead (`WR_Combo2_A/B/C`, one clip under three
+  names), with the high spin to end it.
+- **A new heavy blow.** At the end of the string, the heavy button throws the
+  great swing round and into the ground (`WR_HeavySwing`, Mixamo's two-handed
+  heavy weapon swing, slam at 0.55). It replaces the low sweep.
+- Blows ease into one another a little quicker (`action_blend` 0.12) and come
+  a little faster (`swing_rate` 1.3).
+
+`warrior_test` also checks:
+
+- the shoulder stance out of a fight;
+- the cloak is cloth: its hem travels, and its bones hang below their tops;
+- a cut carries him forward and puts him in the fighting stance with both
+  hands on the hilt;
+- moving, he throws the second string.
