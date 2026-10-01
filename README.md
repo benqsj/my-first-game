@@ -5724,3 +5724,155 @@ Swordsmen following three rigs, one each for Kevin, UAL 2 and the Mixamo
 clips Tariel uses now, through IDLE, COMBAT IDLE, RUN, SWORD, SWORD COMBO
 and JUMP. It writes a movie with `--write-movie`, and Blender's sequencer
 turns the frames into an mp4.
+
+
+## The maker: YOUR OWN, out of every part of Polysplit's heroes (2026-10-02)
+
+On the hero select, every hero now has one more look, the last one:
+**YOUR OWN**. With it on, the dossier makes way for the maker. The maker has
+four tabs, and each row has an arrow either side:
+
+| Tab | What it sets |
+| --- | --- |
+| CLASS | the class, and the body (man or woman) |
+| FACE | eyes, brows, mouth, beard, hair and skin colour; the stage's camera moves in on the head while this tab is open |
+| GEAR | top, legs, MORE (capes, scabbards, pauldrons… each put on or taken off), hat and cloth colour |
+| ARMS | the weapon, and what is in the other hand |
+
+The class is picked first. It dresses him in its clothes, hat and arms, and
+changing it leaves the face as it is. Every change is worn on the stage at
+once and remembered (`Game.look()`, the `[look]` section of `settings.cfg`).
+The look goes to the other peers as a JSON string (`Player.net_look`).
+The plan behind it is `CHARACTER_CREATOR.md`. Parts 1–6 are done here; the
+animations (part 7) come next.
+
+What was decided with the user:
+
+- **Both genders, every hero.**
+- **The old looks stay.** YOUR OWN is added after them. It took the place of
+  THE SWORDSMAN, the one Polysplit look Tariel had: its index is the same, so
+  a saved pick carries over.
+- **Any hero can wear any class.** His own come first:
+
+  | Hero | His own classes |
+  | --- | --- |
+  | Tariel | swordsman, fighter, knight |
+  | the warrior | knight |
+  | the assassin | rogue |
+  | Avtandil | archer, hunter |
+  | the mage | mage, sorcerer, warlock, witch |
+
+- **The pack's colours are enough:** 8 body colours (skin, hair, eyes) and
+  14 object colours (cloth, arms), each a texture swapped in
+  (`assets/polysplit/colors/`).
+- **The mage holds a sword.** A staff can go in his other hand.
+
+### The figures
+
+The figures are `assets/polysplit/<hero>_<m|f>.glb`: one per hero and gender,
+ten in all, about 6 MB each. They are written by
+`vepxis-art/tools/ps_creator.py` (background Blender, about 40 s each).
+
+Each holds the pack's figure on its own 98-bone skeleton. The rest is turned
+onto that hero's limbs and the fists are closed, as `ps_build.py` did for
+the one Swordsman. Every part is a mesh of its own, all hidden but those the
+look shows. A part's kind is in its name:
+
+| Mesh | What it is |
+| --- | --- |
+| `ps_head`, `ps_topbody`, `ps_bottombody` | the bare body |
+| `ps_eyes_<0-4>`, `ps_brows_<0-4>`, `ps_mouth_<0-4>` | the face's decals |
+| `ps_beard_<1-8>` | the beards (men only) |
+| `ps_hair_<n>` | a hairstyle with no hat (1–14) |
+| `ps_hairb_<n>`, `ps_hairb_<n>_<part>` | the same style cut for a hat: the pack's "b" cut, with its bun or bangs and without its top |
+| `ps_top_<class>`, `ps_bottom_<class>` | a class's clothes |
+| `ps_x_<class>_<part>` | what else a class wears |
+| `ps_hat_<id>` | the 18 hats; the ones with no bones of their own are put on `head_joint` |
+| `ps_w_<id>` | a weapon in the sword hand: `sword_a`, `sword_b`, `greatsword`, `dagger`, `staff_a`, `staff_b`, `bow` |
+| `ps_o_<id>` | one in the other hand: `shield`, `dagger`, `staff_a`, `staff_b` |
+| `ps_shield`, `ps_tower_shield`, `ps_arm_bow` | the hero's own arms |
+
+The weapons ride the hero's own weapon bones, which `fig_hero.py` adds to the
+figure. Mage and warrior entries were added there. Each weapon is placed
+where the hero holds his own:
+
+- Tariel's sword sets the blades.
+- The warrior's great sword sets his.
+- The assassin's knives set the daggers.
+- Avtandil's bow sets the hunter's bow, turned tip onto tip, because his own
+  is straight at rest. Its string rides `draw_r`.
+- The mage has none of his own, so he holds the weapons as the pack does.
+
+A weapon is left out of a hero's file if he has no bone for it.
+
+`sword_b`, `staff_b` and the woman's great sword come from the pack's loose
+weapon files. They are set where the class's own sword or staff is held. No
+woman's class has a great sword.
+
+### In the game
+
+- **`PolysplitLook`** (`scripts/polysplit_look.gd`) is the look: one
+  Dictionary.
+  - It also holds the class sets, the hats (how much hair shows under each,
+    and whether the beard and face do), each hero's arms, and the names.
+  - `dress()` puts a class on a look.
+  - `regendered()` changes the body.
+  - `normalized()` mends a look read from disk or the wire.
+  - `apply()` shows the figure's parts and swaps the two textures. The
+    materials are duplicated per figure, so one hero's dye stays his.
+- **`SkinnedRig`** adds the face `CUSTOM` when `_configure()` sets
+  `polysplit_hero` (`_add_maker()`).
+  - **Figures:** two figures (`psm`, `psf`) are loaded only the first time
+    they are worn, so the hero select's five stages stay light.
+  - **Bones:** `polysplit_map()` maps them. Where the rig has a third spine
+    bone, as the warrior does, the chest rides it instead.
+  - **Hiding the hero's own model:** while YOUR OWN is worn, his meshes are
+    put away. The warrior's meshes are not named for him, so they are put
+    back afterwards by `_hide_own()`.
+  - **The cut:** its markers are measured off the blade in hand (`_reach()`
+    on the mesh's bind pose), so a dagger cuts short and a great sword long.
+    The other hand's ring is drawn only for a blade.
+  - **The look:** `set_look()` / `get_look()`.
+- **`CharacterPortrait.frame_close()`** follows the head for the FACE tab.
+
+Gotchas:
+
+- !! **Hidden parts and stale matrices.** The pack hides most variants: the
+  bare body, and all but one hair. Hidden, Blender neither selects them nor
+  applies them. Their `matrix_world` is also stale (scale 1, not the fbx's
+  0.01) until they are shown and the view layer updated. Without that, the
+  bare body and the hairs come out a hundred times too big.
+- !! **The male Archer.** Blender cannot import `M_Archer.fbx` (`KeyError:
+  rootSkeleton`). Godot's own fbx reader can.
+  - `_shots_tmp/fbx2glb.gd` turned it into `polysplit/conv/M_Archer.glb`
+    (kept in vepxis-art).
+  - Its parts match the fbx imports exactly.
+  - Its hat is the Tyrolean.
+- The woman's all-in-one file (`BasicHero_F.fbx`) holds three swords, one per
+  class. Only one of them is taken.
+
+### Tests
+
+`tests/maker_test.gd` (new) covers every hero, in both genders and every
+class the pack has for him. It checks that:
+
+- the figure of the look's gender is worn and the hero's own meshes are put
+  away;
+- every part the look names is a mesh and is shown, and nothing else is;
+- the hair is the hat's cut;
+- the figure's hand is within 0.35 m of his;
+- the weapon is in hand, and the cut comes off the figure's hand and is the
+  blade's length;
+- the colours are swapped in;
+- the look survives the wire;
+- his own look comes back afterwards.
+
+`menu_test` checks the maker on the page.
+
+`assets/tariel_polysplit/` (THE SWORDSMAN) is no longer worn. It is kept
+because `vepxis-art/polysplit/cmp.gd`, the animation comparison for part 7,
+still stands on it.
+
+A face index saved when a hero had more looks now falls back to his first
+look, not his last (`SkinnedRig.set_face()`). Without this, Avtandil and the
+assassin would have come up in YOUR OWN.
