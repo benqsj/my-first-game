@@ -1,0 +1,10 @@
+melee_compare.glb — two animation packs retargeted onto tariel_rig, to be
+compared (vepxis-art/tools/kv_retarget.py). No mesh; clips KV_* and UQ_*.
+
+KV_*: "Human Melee Animations FREE" by Kevin Iglesias, Unity Asset Store
+https://assetstore.unity.com/packages/3d/animations/human-melee-animations-free-165785
+Licence: Standard Unity Asset Store EULA (free). Used as part of this game,
+not redistributed on its own.
+
+UQ_*: Quaternius' Universal Animation Library 2 (Standard), CC0, the same
+clips as assets/anim/ual2.glb.
