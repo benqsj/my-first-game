@@ -5440,6 +5440,25 @@ heights. The torso damping that keeps her run upright now eases off between 35 a
 80 degrees of bend (`FigureFollower._damp_at`), so the tuck curls fully instead of
 diving flat.
 
+### Three more outfits, and her colours on the hero select
+
+Three more looks: **THE NIGHT ELF: GOLD** (gold armour: cups, a V over the
+thong, fine chains on the hips, armlets, bracers and greaves over short boots),
+**THE NIGHT ELF: CATSUIT** (glossy from the throat to the toes, a plunge to below
+the bust and the back open to the waist, cut in pieces along straight planes so
+the edges stay clean) and **THE NIGHT ELF: HUNTRESS** (a leather tube top, hot
+pants with a silver belt, knee boots with silver cuffs, bracers, a strap round
+one thigh).
+
+Under LOOK on the hero select there is now a **COLOUR** row: BLACK, CRIMSON,
+VIOLET, EMERALD, MIDNIGHT, WHITE or GOLD. It dyes her leather and silk, her bra
+and thong too (`SkinnedElfRig.set_tint`, `TINTS`), by a dyed copy of each
+material set as the surface's override. The gold armour takes the colour too but
+stays metal (white turns it silver). The silver trim and her skin are never dyed.
+The row fades out for a look with nothing to dye (THE DARK ELF). The pick is
+remembered (`Game.tint`/`set_tint`, the `[tint]` section of the settings) and
+reaches the other players through `Player.net_tint`.
+
 ## Smaug, to look at only
 
 A fan model of a dragon from free3d (`free3d.com/dragon`) is built by

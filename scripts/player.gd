@@ -363,6 +363,8 @@ var garb: int = 0
 var hair: int = 0
 ## And which of its faces (see `set_face()`).
 var face: int = 0
+## And the colour its clothes are dyed (see `set_tint()`).
+var tint: int = 0
 ## True while a screen of his own (the inventory, the big map) is open: the
 ## body stands still and takes no buttons.
 var menu_open: bool = false
@@ -478,6 +480,8 @@ var net_garb: int = 0
 var net_hair: int = 0
 ## Which of its faces, for the other peers.
 var net_face: int = 0
+## And the dye on its clothes.
+var net_tint: int = 0
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -649,6 +653,8 @@ func _process(delta: float) -> void:
 		rig.call(&"set_face", net_face)
 	if not mine and rig.has_method(&"set_hair") and int(rig.get(&"hair")) != net_hair:
 		rig.call(&"set_hair", net_hair)
+	if not mine and rig.has_method(&"set_tint") and int(rig.get(&"tint")) != net_tint:
+		rig.call(&"set_tint", net_tint)
 	if state == State.WALLCLIMB:
 		rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
 	# `velocity` is replicated, so the pace is right for everyone. `is_on_floor()`
@@ -687,6 +693,7 @@ func _publish_net_state() -> void:
 	net_garb = garb
 	net_hair = hair
 	net_face = face
+	net_tint = tint
 
 
 func _physics_process(delta: float) -> void:
@@ -767,6 +774,8 @@ func _spawn_character() -> void:
 	if chooser != null and is_multiplayer_authority() and chooser.has_method(&"hair"):
 		set_face(int(chooser.call(&"face", chooser.call(&"character"))))
 		set_hair(int(chooser.call(&"hair", chooser.call(&"character"))))
+		if chooser.has_method(&"tint"):
+			set_tint(int(chooser.call(&"tint", chooser.call(&"character"))))
 	footsteps = Footsteps.new()
 	footsteps.name = "Footsteps"
 	add_child(footsteps)
@@ -3003,6 +3012,13 @@ func set_face(index: int) -> void:
 	face = index
 	if rig != null and rig.has_method(&"set_face"):
 		rig.call(&"set_face", index)
+
+
+## Dyes the rig's clothes (its `TINTS`); every peer sees it through `net_tint`.
+func set_tint(index: int) -> void:
+	tint = index
+	if rig != null and rig.has_method(&"set_tint"):
+		rig.call(&"set_tint", index)
 
 
 ## Wears one of the rig's `hairs`; every peer sees it through `net_hair`.

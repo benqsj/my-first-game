@@ -33,6 +33,9 @@ var _chosen: StringName = DEFAULT
 var _hairs: Dictionary = {}
 ## And each hero's face: id -> an index into their rig's `faces`.
 var _faces: Dictionary = {}
+## And the colour each hero's clothes are dyed: id -> an index into their
+## rig's `TINTS` (only THE NIGHT ELF has any).
+var _tints: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
@@ -156,6 +159,17 @@ func set_face(id: StringName, index: int) -> void:
 	_save_settings()
 
 
+## Which colour `id`'s clothes are dyed (0, as they came, if never picked).
+func tint(id: StringName) -> int:
+	return int(_tints.get(id, 0))
+
+
+## Dyes `id`'s clothes, and remembers it.
+func set_tint(id: StringName, index: int) -> void:
+	_tints[id] = index
+	_save_settings()
+
+
 ## Every character there is, in the order they should be offered.
 func roster() -> Array[StringName]:
 	var ids: Array[StringName] = []
@@ -237,6 +251,9 @@ func _load_settings() -> void:
 	if file.has_section("face"):
 		for key in file.get_section_keys("face"):
 			_faces[StringName(key)] = int(file.get_value("face", key, 0))
+	if file.has_section("tint"):
+		for key in file.get_section_keys("tint"):
+			_tints[StringName(key)] = int(file.get_value("tint", key, 0))
 
 
 func _save_settings() -> void:
@@ -247,5 +264,7 @@ func _save_settings() -> void:
 		file.set_value("hair", String(id), int(_hairs[id]))
 	for id: StringName in _faces:
 		file.set_value("face", String(id), int(_faces[id]))
+	for id: StringName in _tints:
+		file.set_value("tint", String(id), int(_tints[id]))
 	file.save(SETTINGS)
 #endregion

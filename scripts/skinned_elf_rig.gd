@@ -17,10 +17,12 @@ extends SkinnedArcherRig
 
 func _configure() -> void:
 	super()
-	faces = [&"darkelf", &"anna", &"anna_bare", &"anna_harness", &"anna_corset", &"anna_garter"]
+	faces = [&"darkelf", &"anna", &"anna_bare", &"anna_harness", &"anna_corset", &"anna_garter",
+			&"anna_gold", &"anna_catsuit", &"anna_huntress"]
 	face_skulls = faces.duplicate()
 	face_names = ["THE DARK ELF", "THE NIGHT ELF", "THE NIGHT ELF, BARE", "THE NIGHT ELF: HARNESS",
-			"THE NIGHT ELF: CORSET", "THE NIGHT ELF: SILK"]
+			"THE NIGHT ELF: CORSET", "THE NIGHT ELF: SILK", "THE NIGHT ELF: GOLD",
+			"THE NIGHT ELF: CATSUIT", "THE NIGHT ELF: HUNTRESS"]
 	whole_faces = faces.duplicate()
 	# Her outfits in the bag: the green she came in, the same dyed black-violet
 	# and silver, and black leather straps on the bare skin (vepxis-art
@@ -70,7 +72,73 @@ func _configure() -> void:
 		&"anna_harness": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_harness"]},
 		&"anna_corset": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_corset"]},
 		&"anna_garter": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_garter"]},
+		# Gold armour over the thong; a catsuit cut open at the front, back
+		# and hips; a leather tube top, hot pants and knee boots.
+		&"anna_gold": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_gold"]},
+		&"anna_catsuit": {"figure": &"anna", "show": ["body", "hair", "fit_catsuit"]},
+		&"anna_huntress": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_huntress"]},
 	}
+
+
+## The colour her outfit is dyed (an index into `TINTS`), picked on the hero
+## select beside the look. Only THE NIGHT ELF's clothes take it: the leather
+## and the silk (her bra and thong too), and the gold armour, which keeps its
+## shine (white makes it silver); never the silver trim or her skin.
+var tint: int = 0
+## What each colour is called, for the picker; empty while she wears a look
+## with no clothes of hers to dye, so the picker fades out.
+var tint_names: Array:
+	get:
+		return TINT_NAMES if _dyeable() else []
+const TINT_NAMES := ["BLACK", "CRIMSON", "VIOLET", "EMERALD", "MIDNIGHT", "WHITE", "GOLD"]
+## Albedo (sRGB), metallic, roughness. Black is the colour the model came in.
+const TINTS := [
+	[Color(0, 0, 0), -1.0, -1.0],
+	[Color(0.55, 0.03, 0.06), 0.0, 0.32],
+	[Color(0.30, 0.07, 0.50), 0.0, 0.32],
+	[Color(0.03, 0.36, 0.16), 0.0, 0.32],
+	[Color(0.05, 0.09, 0.36), 0.0, 0.32],
+	[Color(0.90, 0.90, 0.92), 0.0, 0.38],
+	[Color(0.86, 0.62, 0.24), 0.9, 0.28],
+]
+const DYED_MATERIALS := ["fit_leather", "fit_nylon", "fit_gold"]
+var _dyes: Dictionary = {}
+
+
+func _dyeable() -> bool:
+	return face >= 0 and face < faces.size() and String(faces[face]).begins_with("anna")
+
+
+## Dyes THE NIGHT ELF's clothes (see `TINTS`); kept across looks.
+func set_tint(index: int) -> void:
+	tint = posmod(index, TINTS.size())
+	_apply_tint()
+
+
+func _apply_tint() -> void:
+	for node in find_children("an_*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		var key := String(mesh.name).trim_prefix("an_")
+		if not (key.begins_with("fit_") or key == "bra" or key == "thong") or mesh.mesh == null:
+			continue
+		for i in mesh.mesh.get_surface_count():
+			var base := mesh.mesh.surface_get_material(i) as BaseMaterial3D
+			if base == null or not DYED_MATERIALS.any(func(m: String) -> bool: return base.resource_name.begins_with(m)):
+				continue
+			if tint == 0:
+				mesh.set_surface_override_material(i, null)
+				continue
+			var dye_key := "%s/%d" % [base.resource_name, tint]
+			if not _dyes.has(dye_key):
+				var dyed := base.duplicate() as BaseMaterial3D
+				var t: Array = TINTS[tint]
+				dyed.albedo_color = t[0]
+				# Metal stays metal, whatever its colour.
+				if base.metallic < 0.5:
+					dyed.metallic = t[1]
+					dyed.roughness = t[2]
+				_dyes[dye_key] = dyed
+			mesh.set_surface_override_material(i, _dyes[dye_key])
 
 
 ## Her roll: Tariel's quick roll back up to the run, carried onto Avtandil's
@@ -172,6 +240,7 @@ func set_face(index: int) -> void:
 		var key := StringName(String(node.name).trim_prefix(mesh_prefix + "_face_"))
 		if not faces.has(key):
 			(node as MeshInstance3D).visible = false
+	_apply_tint()
 
 
 ## Her outfits are whole bodies of the figure: the one put on is shown, the

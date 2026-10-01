@@ -250,6 +250,7 @@ func _build_characters() -> Control:
 	stage_column.add_theme_constant_override("separation", 0)
 	stage_column.add_child(_stage(roster))
 	stage_column.add_child(_picker("face"))
+	stage_column.add_child(_picker("tint"))
 	stage_column.add_child(_picker("hair"))
 	middle.add_child(stage_column)
 	var mid_gap := Control.new()
@@ -522,6 +523,8 @@ func _stage(roster: Array) -> Control:
 		if full.rig() != null and _game != null:
 			full.rig().set(&"face", int(_game.call(&"face", id)))
 			full.rig().set(&"hair", int(_game.call(&"hair", id)))
+			if _game.has_method(&"tint"):
+				full.rig().set(&"tint", int(_game.call(&"tint", id)))
 		_stages[id] = full
 		stage.add_child(full)
 		full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -605,7 +608,7 @@ func _refresh_picks() -> void:
 		if shown:
 			var index := clampi(int(_chosen_rig().get(StringName(kind))), 0, names.size() - 1)
 			(row.get_node("Name") as Label).text = "%s   %s   %d / %d" % [
-					("LOOK" if kind == "face" else kind.to_upper()), String(names[index]), index + 1, names.size()]
+					{"face": "LOOK", "tint": "COLOUR"}.get(kind, kind.to_upper()), String(names[index]), index + 1, names.size()]
 
 
 ## Turns whoever is on the stage as the mouse is dragged across it (either
