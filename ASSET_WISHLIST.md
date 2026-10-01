@@ -26,6 +26,10 @@ Blink and Sidekick.
     https://kevdev.itch.io/human-melee-animations
 
 ## Later
+- **Enemies, bandits, NPCs: GanzSe FREE Modular Character – Fantasy Low Poly Pack**. It is free and already in My Assets (added 2026-10-02), but not downloaded yet.
+  It has modular armour in 6 slots (30 pieces in 3 colours), faces and hair. Rigged, with no animations.
+  A full suit of armour is about 8-10k tris. Not for the heroes, because the style is a little different from Polysplit's.
+  https://assetstore.unity.com/packages/3d/characters/humanoids/fantasy/ganzse-free-modular-character-fantasy-low-poly-pack-321521
 - **NPCs: Low-Poly Medieval Fantasy – NPC Pack** (Polysplit Games), $10. Same style as Heroes.
   https://assetstore.unity.com/packages/3d/characters/low-poly-medieval-fantasy-npc-pack-317450
 - **Monsters: Low-Poly Medieval Fantasy – Biped Creatures Pack** (Polysplit Games), $14.99.
