@@ -5664,3 +5664,63 @@ folders were left in place:
 
 Nothing loads them now, so they can go whenever their history is no longer
 wanted.
+
+
+## Polysplit's Swordsman, and two animation packs side by side (2026-10-02)
+
+**THE SWORDSMAN** is one more look for Tariel, the first from Polysplit's
+"Low-Poly Medieval Fantasy Heroes – Basic Pack" (`assets/tariel_polysplit/`).
+He wears the pack's M_Swordsman as Polysplit dressed him: the blue gambeson,
+the skull cap over a mail coif and the scabbard on his back, in the pack's
+pre-coloured textures (body colour 1, objects colour 1).
+
+The pack's heroes (`BasicHeroes/M_<Class>.fbx`) each carry the whole male base
+(every hair, face and beard) and the class's outfit, on one 98-bone skeleton:
+`pelvis_joint`, `waist_joint`, `chest_joint`, `L_`/`R_` arm and finger joints,
+and hair, cape and coat-tail chains. `vepxis-art/tools/ps_build.py` builds the
+figure as `sk_build.py` does for Sidekick:
+
+- It joins the look's parts into one mesh (`ps_swordsman`).
+- It turns the rest onto the rig's limbs and closes the fists.
+- It adds `weapon_r` / `shield_l` with Tariel's shields.
+- It puts the pack's own sword where Tariel's is: grip in the fist, blade and
+  flat turned to his.
+
+Two gotchas:
+- The face's eyes, brows and mouth are cut-out decals on quads. The
+  material's alpha goes through a "greater than 0.5" node, so the glTF comes
+  out `alphaMode: MASK`. Without it the face is a red and white block.
+- The parts' UV maps do not share a name. Each part is left one layer, named
+  `UVMap`, before the join.
+
+`SkinnedRig.polysplit_map()` maps the waist to `spine_01` and the chest to
+`spine_02`. Hair, cape and coat-tail chains ride their parents. The figure is
+6% taller than the rig; `FigureFollower` scales the hips' travel to match.
+
+### Kevin Iglesias and UAL 2 on tariel_rig
+
+The aim is to choose which paid animation pack to buy. The free versions of
+both are retargeted onto `tariel_rig` by `vepxis-art/tools/kv_retarget.py`,
+into `assets/anim/compare/melee_compare.glb`. That file has no mesh, only the
+clips:
+
+- `KV_*`: Kevin Iglesias' Human Melee Animations FREE.
+- `UQ_*`: the UAL 2 Standard clips that are already in `ual2.glb`.
+
+Each mapped bone takes the turn its partner has made from rest, in the world,
+corrected by the small difference between the two T-poses' limb directions.
+Limb lengths stay the rig's, and the hips travel by the ratio of hip heights.
+Every clip is sampled at 30 fps by time. The paid Kevin pack uses the same
+skeleton (`B-hips`, `B-spine`, `B-chest`, `B-upperArm.L`, ...), so the same
+script brings it over by adding its files to `CLIPS`.
+
+What the free packs lack:
+- Kevin FREE has no jump.
+- UAL 2 Standard has no ordinary run (only `Sword_Dash`) and no plain
+  sword-hand idle.
+
+The comparison scene is kept outside the repo, in `vepxis-art/polysplit/cmp.gd`; to run it, copy it to `_shots_tmp/`. It shows three
+Swordsmen following three rigs, one each for Kevin, UAL 2 and the Mixamo
+clips Tariel uses now, through IDLE, COMBAT IDLE, RUN, SWORD, SWORD COMBO
+and JUMP. It writes a movie with `--write-movie`, and Blender's sequencer
+turns the frames into an mp4.
