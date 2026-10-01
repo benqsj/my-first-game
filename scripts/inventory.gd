@@ -26,15 +26,6 @@ enum Tab { WEAPONS, SHIELDS, GOODS, ATTIRE }
 const TAB_NAMES := ["Weapons", "Shields", "Goods", "Attire"]
 ## The outfits, by the name of their mesh in the model (the rig's `garbs`).
 const GARBS := {
-	&"de_body": {"name": "Sylvan Leathers", "kind": "Bodice and kilt", "colour": Color("3f5a34"),
-		"stats": [["Cloth", "leaf-green leather"], ["Trim", "gold"], ["Shoulder", "carved pauldron"]],
-		"text": "The dark elf's own: a green bodice and a ragged leaf kilt over a belted pouch, one carved pauldron, boots and bracers trimmed in gold."},
-	&"de_noir": {"name": "Shadow Weave", "kind": "Bodice and kilt", "colour": Color("3a2a48"),
-		"stats": [["Cloth", "black-violet"], ["Trim", "silver"], ["Leather", "charcoal"]],
-		"text": "The same cut dyed as the Shadow's hunters wear it: a black-violet weave, silver where the gold was, the leather gone to charcoal."},
-	&"de_harness": {"name": "Night Harness", "kind": "Leather straps", "colour": Color("1c1c22"),
-		"stats": [["Leather", "black"], ["Legs", "thigh-high wraps"], ["Cover", "little"]],
-		"text": "What the dark elves of the old stories hunt in: black leather straps crossed over the bare skin, triangle cups on halter straps, a low belt, thigh-high wraps and crossed thigh straps, one long glove."},
 	&"avtandil_ranger": {"name": "Ranger's Mantle", "kind": "Hooded mantle", "colour": Color("3f5a3a"),
 		"stats": [["Cloth", "wool"], ["Hood", "up"], ["Length", "mid-thigh"]],
 		"text": "A grey-green tunic to mid-thigh under a long mantle of moss wool, its hood up. The hunter's own: it keeps the rain off and the face in shadow."},

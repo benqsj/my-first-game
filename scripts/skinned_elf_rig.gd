@@ -5,36 +5,25 @@ extends SkinnedArcherRig
 ## rolls and climbs as he does — his rig, his clips, his bow — but is only ever
 ## worn on a figure of her own skeleton, which follows his ([FigureFollower]):
 ##
-## * THE DARK ELF: blend-swap's animated dark elf (CC-BY), on its mocap
-##   (CMU-named) skeleton, her own bow left out for his (vepxis-art
-##   tools/bl_mixfig.py, VX_FIG=darkelf).
-## * THE NIGHT ELF and THE NIGHT ELF, BARE: Anna Ipati by Jungle Jim
+## * THE NIGHT ELF: Anna Ipati by Jungle Jim
 ##   (Sketchfab, CC-BY), a realistic woman made a dark elf (slate skin, silver
 ##   hair, pointed ears) and lighter by vepxis-art tools/anna_prep.py, on her
-##   own Character Creator skeleton (VX_FIG=anna). The bare look leaves off
-##   the bra.
+##   own Character Creator skeleton (VX_FIG=anna). HUNTRESS is cut out of her
+##   own skin; SYLVAN is the green
+##   leathers of the old dark elf (blend-swap's, CC-BY), carried over onto
+##   her and weighted from her skin (vepxis-art anna_prep.py, fit_sylvan).
 
 
 func _configure() -> void:
 	super()
-	faces = [&"darkelf", &"anna", &"anna_bare", &"anna_harness", &"anna_corset", &"anna_garter",
-			&"anna_gold", &"anna_catsuit", &"anna_huntress"]
+	faces = [&"anna_sylvan", &"anna_huntress"]
 	face_skulls = faces.duplicate()
-	face_names = ["THE DARK ELF", "THE NIGHT ELF", "THE NIGHT ELF, BARE", "THE NIGHT ELF: HARNESS",
-			"THE NIGHT ELF: CORSET", "THE NIGHT ELF: SILK", "THE NIGHT ELF: GOLD",
-			"THE NIGHT ELF: CATSUIT", "THE NIGHT ELF: HUNTRESS"]
+	face_names = ["THE NIGHT ELF: SYLVAN", "THE NIGHT ELF: HUNTRESS"]
 	whole_faces = faces.duplicate()
-	# Her outfits in the bag: the green she came in, the same dyed black-violet
-	# and silver, and black leather straps on the bare skin (vepxis-art
-	# tools/bl_mixfig.py, noir_garb and harness_garb).
-	garbs = [&"de_body", &"de_noir", &"de_harness"]
+	# No outfits in the bag: her clothes are her looks, dyed on the hero select.
+	garbs = []
 	var bow_bones := {&"bow_l": &"bow_l", &"bow_limb_l": &"bow_limb_l", &"bow_tip_l": &"bow_tip_l",
 			&"bow_limb_u": &"bow_limb_u", &"bow_tip_u": &"bow_tip_u", &"draw_r": &"draw_r"}
-	# The mocap skeleton's limbs are named as Mixamo's are; its spine is
-	# LowerBack, Spine, Spine1 (the lower back rides the hips).
-	var elf_map := SkinnedRig.mixamo_map(bow_bones)
-	elf_map.erase(&"Spine2")
-	elf_map[&"Spine1"] = &"spine_02"
 	# Character Creator's skeleton: the waist and the upper chest take his two
 	# spine bones (the bone between rides); the twist bones ride their limbs.
 	var anna_map := {&"CC_Base_Hip": &"pelvis", &"CC_Base_Waist": &"spine_01", &"CC_Base_Spine02": &"spine_02",
@@ -52,8 +41,6 @@ func _configure() -> void:
 		anna_map[StringName("CC_Base_%s_ToeBase" % S)] = StringName("ball_" + lo)
 	anna_map.merge(bow_bones)
 	figures = {
-		&"darkelf": {"scene": "res://assets/avtandil_darkelf/avtandil_darkelf.glb", "prefix": "de",
-			"hips": &"Hips", "map": elf_map},
 		# She stands taller than his hunter's crouch (the hips and spine turn
 		# only part of the way his do), and her middle spine bone shares the
 		# bend between his two, so her waist bends rather than creases.
@@ -63,19 +50,10 @@ func _configure() -> void:
 			"mids": {&"CC_Base_Spine01": [&"spine_01", &"spine_02", 0.5]}},
 	}
 	figure_faces = {
-		&"darkelf": {"figure": &"darkelf", "show": ["body", "noir", "harness"]},
-		&"anna": {"figure": &"anna", "show": ["body", "hair", "bra", "thong"]},
-		&"anna_bare": {"figure": &"anna", "show": ["body", "hair", "thong"]},
-		# Her outfits, each cut out of her own skin (vepxis-art anna_prep.py):
-		# leather straps and thigh boots; a corset with silver lacing; silk
-		# cups, garters and stockings.
-		&"anna_harness": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_harness"]},
-		&"anna_corset": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_corset"]},
-		&"anna_garter": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_garter"]},
-		# Gold armour over the thong; a catsuit cut open at the front, back
-		# and hips; a leather tube top, hot pants and knee boots.
-		&"anna_gold": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_gold"]},
-		&"anna_catsuit": {"figure": &"anna", "show": ["body", "hair", "fit_catsuit"]},
+		# Her outfits on her own body (vepxis-art anna_prep.py): the old dark
+		# elf's green leathers carried over; a leather tube top, hot pants and
+		# knee boots cut out of her skin.
+		&"anna_sylvan": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_sylvan"]},
 		&"anna_huntress": {"figure": &"anna", "show": ["body", "hair", "thong", "fit_huntress"]},
 	}
 
@@ -91,17 +69,20 @@ var tint_names: Array:
 	get:
 		return TINT_NAMES if _dyeable() else []
 const TINT_NAMES := ["BLACK", "CRIMSON", "VIOLET", "EMERALD", "MIDNIGHT", "WHITE", "GOLD"]
-## Albedo (sRGB), metallic, roughness. Black is the colour the model came in.
+## Albedo (sRGB), metallic, roughness: matte, never glossy. Black is the
+## colour the model came in.
 const TINTS := [
 	[Color(0, 0, 0), -1.0, -1.0],
-	[Color(0.55, 0.03, 0.06), 0.0, 0.32],
-	[Color(0.30, 0.07, 0.50), 0.0, 0.32],
-	[Color(0.03, 0.36, 0.16), 0.0, 0.32],
-	[Color(0.05, 0.09, 0.36), 0.0, 0.32],
-	[Color(0.90, 0.90, 0.92), 0.0, 0.38],
-	[Color(0.86, 0.62, 0.24), 0.9, 0.28],
+	[Color(0.55, 0.03, 0.06), 0.0, 0.85],
+	[Color(0.30, 0.07, 0.50), 0.0, 0.85],
+	[Color(0.03, 0.36, 0.16), 0.0, 0.85],
+	[Color(0.05, 0.09, 0.36), 0.0, 0.85],
+	[Color(0.90, 0.90, 0.92), 0.0, 0.85],
+	[Color(0.86, 0.62, 0.24), 0.75, 0.6],
 ]
-const DYED_MATERIALS := ["fit_leather", "fit_nylon", "fit_gold"]
+const DYED_MATERIALS := ["fit_leather", "fit_nylon", "fit_gold", "fit_sylvan"]
+const SYLVAN_DYE := "res://assets/avtandil_anna/sylvan_t%d.jpg"
+const SYLVAN_AS_MADE := 3
 var _dyes: Dictionary = {}
 
 
@@ -125,15 +106,23 @@ func _apply_tint() -> void:
 			var base := mesh.mesh.surface_get_material(i) as BaseMaterial3D
 			if base == null or not DYED_MATERIALS.any(func(m: String) -> bool: return base.resource_name.begins_with(m)):
 				continue
-			if tint == 0:
+			var sylvan := base.resource_name.begins_with("fit_sylvan")
+			# The green leathers are dyed by a dyed picture of themselves
+			# (anna_prep.py writes one per colour); emerald is them as made.
+			if tint == (SYLVAN_AS_MADE if sylvan else 0):
 				mesh.set_surface_override_material(i, null)
 				continue
 			var dye_key := "%s/%d" % [base.resource_name, tint]
 			if not _dyes.has(dye_key):
 				var dyed := base.duplicate() as BaseMaterial3D
+				if sylvan:
+					dyed.albedo_texture = load(SYLVAN_DYE % tint)
+					_dyes[dye_key] = dyed
+					mesh.set_surface_override_material(i, dyed)
+					continue
 				var t: Array = TINTS[tint]
 				dyed.albedo_color = t[0]
-				# Metal stays metal, whatever its colour.
+				# Metal stays metal, whatever its colour; cloth stays matte.
 				if base.metallic < 0.5:
 					dyed.metallic = t[1]
 					dyed.roughness = t[2]
@@ -231,7 +220,7 @@ func borrow_clip(scene: String, clip: StringName, library: StringName) -> String
 func set_face(index: int) -> void:
 	super(index)
 	set_garb(garb)
-	# His outfits are not hers to wear (her garbs are her own two).
+	# His outfits are not hers to wear.
 	for name: String in ["avtandil_ranger", "avtandil_wanderer"]:
 		var mesh := find_child(name, true, false) as MeshInstance3D
 		if mesh != null:

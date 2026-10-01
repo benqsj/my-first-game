@@ -5455,9 +5455,41 @@ VIOLET, EMERALD, MIDNIGHT, WHITE or GOLD. It dyes her leather and silk, her bra
 and thong too (`SkinnedElfRig.set_tint`, `TINTS`), by a dyed copy of each
 material set as the surface's override. The gold armour takes the colour too but
 stays metal (white turns it silver). The silver trim and her skin are never dyed.
-The row fades out for a look with nothing to dye (THE DARK ELF). The pick is
+The pick is
 remembered (`Game.tint`/`set_tint`, the `[tint]` section of the settings) and
 reaches the other players through `Player.net_tint`.
+
+### THE DARK ELF retired; her leathers on THE NIGHT ELF
+
+The old dark elf (blend-swap's model, its own mocap skeleton) is gone from the
+game: her figure, her looks and her three outfits in the bag. What stays is
+her clothing. **THE NIGHT ELF: SYLVAN**, now the elf's first look, wears her
+green bodice with one sleeve and the carved pauldron, the leaf kilt with its
+belt and pouch, the thigh wrap, and the boots and bracers trimmed in gold.
+`anna_prep.py` (fit_sylvan) does the transfer:
+
+1. It takes the cloth faces off her model.
+2. It moves each vertex by the bones that moved it on her skeleton onto the
+   same bones of this one. A limb is turned from her joint to this one's and
+   stretched to its length; the body is scaled by height. Her mocap foot
+   joint sits at the sole, so her ankle is placed at the same share of the
+   way from knee to floor as here.
+3. It pushes the cloth 11 mm out of the skin where it sinks in.
+4. It turns every face to look away from the skin, because her cloth was
+   two-sided.
+5. It weights the cloth from the skin under it.
+
+Of all the looks, only two stay in the game: **SYLVAN** and **HUNTRESS**. The
+plain, bare, harness, corset, silk, gold and catsuit looks were dropped at the
+user's pick. `anna_prep.py` still knows how to cut the dropped outfits, but it
+throws them away unless they are named in `VX_FIT_KEEP` (by default
+`fit_huntress,fit_sylvan`). All the clothes are matte now: the leather has
+roughness 0.85 and the metal 0.6.
+
+The COLOUR row dyes it as well. Each colour has its own picture
+(`assets/avtandil_anna/sylvan_t<n>.jpg`): the green dyed, the gold kept
+(silver for WHITE), the brown leather left brown. EMERALD is the leathers
+as they were.
 
 ## Smaug, to look at only
 
