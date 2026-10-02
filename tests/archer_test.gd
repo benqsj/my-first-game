@@ -28,6 +28,9 @@ func _initialize() -> void:
 	_world.get_node("Level").add_child(load("res://scenes/world/test_course.tscn").instantiate())
 	await _wait(2)
 	_player = (_world as World).player()
+	# his own look: the settings may have YOUR OWN on, which is worn on
+	# the mannequin (checked by grip_test, maker_test, skinned_rig_test)
+	_player.set_face(0)
 	# Two blows of a wolf are the end of a man now, and these wolves are real:
 	# what is asked here is about the bow and the lock, not about surviving them.
 	_player.immortal = true

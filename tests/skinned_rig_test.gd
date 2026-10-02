@@ -37,6 +37,9 @@ func _initialize() -> void:
 		quit(1)
 		return
 	_check("all clips loaded", rig.clip_names().size() >= 51, "%d" % rig.clip_names().size())
+	# His own look, on his own rig (the settings may have YOUR OWN on, which
+	# is worn on the mannequin: checked further down).
+	rig.set_face(0)
 	var anim: AnimationPlayer = rig._anim
 
 	for i in 40:
@@ -85,7 +88,6 @@ func _initialize() -> void:
 		var fwd := -player.global_transform.basis.z
 		var hem := rig.cloth_capes[0].hem() - player.global_position
 		_check("running streams the cape out behind", hem.dot(fwd) < -0.25, "%.2f m behind" % -hem.dot(fwd))
-	var face_was := rig.face
 	# The warrior worn: he alone shows, no outfit and no hair over him.
 	rig.set_face(rig.faces.find(&"ashen"))
 	var over := 0
@@ -171,6 +173,16 @@ func _initialize() -> void:
 			and ps_shown.has("ps_w_sword_a") and ps_shown.has("ps_shield") and sk_left == 0 and ps_off < 0.35
 			and rig._blade_tip.get_parent() == rig._figure_mount,
 			"%s shown, %d of Sidekick's, hand %.2f m off" % [ps_shown, sk_left, ps_off])
+	# YOUR OWN is worn on the UE mannequin, with the picked moves
+	# (ANIMATION_MIGRATION.md): its player, its skeleton, the sword-and-shield
+	# set; the model hidden.
+	var mq_idle: StringName = rig.clips[&"idle"]
+	_check("YOUR OWN on the mannequin, with the picked moves", rig.on_mannequin()
+			and rig._anim != anim and rig.moves.get("kind") == &"sword" and mq_idle == &"KV_Idle01"
+			and rig.clips[&"block_idle"] == &"KV_BlockShield01_Loop" and not rig._strings.is_empty()
+			and rig._anim.has_animation(rig.flurry[0]) and not (anim.get_parent() as Node3D).is_visible_in_tree(),
+			"on %s, kind %s, idle %s, block %s, flurry %s" % [rig.on_mannequin(), rig.moves.get("kind"), mq_idle,
+			rig.clips.get(&"block_idle"), rig.flurry])
 	rig.set_face(rig.faces.find(&"box"))
 	var figs_shown := 0
 	for id: StringName in rig._figs:
@@ -178,7 +190,7 @@ func _initialize() -> void:
 	_check("the rig's own look again: the figures put away", figs_shown == 0 and rig._figure == null
 			and rig._blade_tip.get_parent() == rig._rig_mount, "%d shown, cut off %s" % [figs_shown,
 			rig._blade_tip.get_parent().name])
-	rig.set_face(face_was)
+	rig.set_face(0)
 	Input.action_release("move_forward")
 	for i in 40:
 		await physics_frame

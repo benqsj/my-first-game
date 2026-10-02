@@ -39,8 +39,11 @@ func _initialize() -> void:
 		if not names.has(String(h["clip"])):
 			missing.append(String(h["clip"]))
 	_check("with every clip his tables name", missing.is_empty(), str(missing))
-	_check("on no one else's skeleton", rig.find_children("*", "FigureFollower", true, false).is_empty()
-			and not rig.wearing_figure())
+	# (a figure loaded for YOUR OWN, if the settings had it on, is put away)
+	var shown_figs := 0
+	for id: StringName in rig._figs:
+		shown_figs += 1 if (rig._figs[id]["node"] as Node3D).visible else 0
+	_check("on no one else's skeleton", shown_figs == 0 and not rig.wearing_figure() and not rig.on_mannequin())
 	_check("his skeleton has the root, the sword socket and the mannequin's bones",
 			rig._skel.find_bone("root") >= 0 and rig._skel.find_bone("weapon_r") >= 0
 			and rig._skel.find_bone("hand_l") >= 0 and rig._skel.find_bone("pelvis") >= 0)
@@ -161,6 +164,9 @@ func _spawn(id: StringName) -> void:
 	root.add_child(_world)
 	await _wait(2)
 	_player = (_world as World).player()
+	# his own look: the settings may have YOUR OWN on, which is worn on
+	# the mannequin (checked by grip_test, maker_test, skinned_rig_test)
+	_player.set_face(0)
 	for body in _world.find_children("*", "CharacterBody3D", true, false):
 		if body != _player:
 			body.queue_free()

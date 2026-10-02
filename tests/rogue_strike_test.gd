@@ -19,6 +19,9 @@ func _initialize() -> void:
 	await physics_frame
 	var player: Player = world.call("player")
 	player.immortal = true
+	# his own look: the settings may have YOUR OWN on, which is worn on the
+	# mannequin (checked by grip_test, maker_test, skinned_rig_test)
+	player.set_face(0)
 	var land := Terrain.current
 	var at := Vector3(6, 0, 36)
 	at.y = land.height_at(at.x, at.z)

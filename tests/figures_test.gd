@@ -105,6 +105,11 @@ func _run() -> void:
 			if rig is SkinnedArcherRig:
 				var bow: BowModifier = (rig as SkinnedArcherRig)._bow_mod
 				var tip := _hand(skel, "bow_tip_u")
+				if rig.on_mannequin():
+					# the pack's bow on the mannequin's figure: its tip off its mesh
+					var archer := rig as SkinnedArcherRig
+					tip = (skel.global_transform * skel.get_bone_global_pose(skel.find_bone("weapon_l"))) \
+							* (archer._bow_ends[0] if not archer._bow_ends.is_empty() else Vector3.ZERO)
 				var d := bow.string_u.global_position.distance_to(tip)
 				_check("%s as %s: the string on the figure's bow" % [hero, key], d < 0.03, "%.3f m off its tip" % d)
 		# A hero only ever worn on figures (the elf) has no look of his own to go back to.

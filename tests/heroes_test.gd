@@ -86,6 +86,9 @@ func _spawn(id: StringName) -> void:
 	root.add_child(_world)
 	await _wait(2)
 	_player = (_world as World).player()
+	# his own look: the settings may have YOUR OWN on, which is worn on
+	# the mannequin (checked by grip_test, maker_test, skinned_rig_test)
+	_player.set_face(0)
 	for body in _world.find_children("*", "CharacterBody3D", true, false):
 		if body != _player:
 			body.queue_free()

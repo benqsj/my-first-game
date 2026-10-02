@@ -118,7 +118,10 @@ func _run() -> void:
 				_check("%s: %s in hand" % [tag, w], shown.has(arm_key), str(shown))
 				if PolysplitLook.BLADES.has(w):
 					var mesh := fig.find_child("ps_w_" + w, true, false) as MeshInstance3D
-					var reach := rig._reach(mesh, &"weapon_r", rig._blade_at[1].normalized())
+					# (on the mannequin the blade's own way in the hand, see _fit_blades)
+					var along := rig._far(mesh, &"weapon_r").normalized() if rig.on_mannequin() \
+							else rig._blade_at[1].normalized()
+					var reach := rig._reach(mesh, &"weapon_r", along)
 					var tip := rig._blade_tip.position.length()
 					_check("%s: the cut off the figure's hand, as long as the %s" % [tag, w],
 							rig._blade_tip.get_parent() == rig._figure_mount and reach > 0.15
