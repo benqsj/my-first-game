@@ -22,8 +22,12 @@ const NetScript := preload("res://scripts/net.gd")
 
 ## The three columns of the character screen, in pixels: a roster tile, and the
 ## stage the picked one stands on. The dossier takes what is left.
-const TILE := Vector2(124.0, 140.0)
-const STAGE := Vector2(440.0, 540.0)
+const TILE := Vector2(116.0, 132.0)
+const STAGE := Vector2(440.0, 500.0)
+## Room kept under the stage for the look/colour/hair rows, shown or not, so
+## the stage stays where it is from hero to hero (and the page fits 900 high:
+## at 540 the stage pushed the roster off the bottom).
+const PICKS_HEIGHT := 112.0
 
 
 ## Appended rather than inserted: the pages are addressed by number from the
@@ -269,9 +273,16 @@ func _build_characters() -> Control:
 	stage_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage_column.add_theme_constant_override("separation", 0)
 	stage_column.add_child(_stage(roster))
-	stage_column.add_child(_picker("face"))
-	stage_column.add_child(_picker("tint"))
-	stage_column.add_child(_picker("hair"))
+	var picks := VBoxContainer.new()
+	picks.custom_minimum_size = Vector2(0.0, PICKS_HEIGHT)
+	picks.add_theme_constant_override("separation", 2)
+	picks.add_child(_picker("face"))
+	picks.add_child(_picker("tint"))
+	picks.add_child(_picker("hair"))
+	var turn := MenuStyle.label("DRAG THE HERO TO TURN HIM", MenuStyle.BODY_SIZE - 5, Color(MenuStyle.GOLD_DIM, 0.8))
+	turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage_column.add_child(turn)
+	stage_column.add_child(picks)
 	middle.add_child(stage_column)
 	var mid_gap := Control.new()
 	mid_gap.custom_minimum_size = Vector2(60.0, 0.0)
@@ -625,15 +636,16 @@ func _refresh_picks() -> void:
 		var row := _pick_rows[kind] as HBoxContainer
 		var names := _pick_list(kind)
 		var shown := names.size() > 1
-		# Faded out rather than hidden, so the stage does not jump when a
-		# hero with no choice is picked.
-		row.modulate.a = 1.0 if shown else 0.0
+		# Hidden when there is nothing to pick; the rows' room under the stage
+		# is kept (PICKS_HEIGHT), so the stage does not jump.
+		row.visible = shown
 		for button in [row.get_node("Back"), row.get_node("Next")]:
 			(button as Button).disabled = not shown
 		if shown:
 			var index := clampi(int(_chosen_rig().get(StringName(kind))), 0, names.size() - 1)
-			(row.get_node("Name") as Label).text = "%s   %s   %d / %d" % [
-					{"face": "LOOK", "tint": "COLOUR"}.get(kind, kind.to_upper()), String(names[index]), index + 1, names.size()]
+			(row.get_node("Name") as Label).text = "%s:  %s    %d / %d" % [
+					{"face": "LOOK", "tint": "COLOUR"}.get(kind, kind.to_upper()), String(names[index]).to_upper(),
+					index + 1, names.size()]
 
 
 ## Turns whoever is on the stage as the mouse is dragged across it (either
@@ -724,10 +736,13 @@ func _maker() -> Control:
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
 	var called := MenuStyle.label("YOUR OWN", MenuStyle.HEADING_SIZE, MenuStyle.CREAM)
+	called.name = "Called"
 	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(called)
-	var note := MenuStyle.label("A class first, then the rest. Kept as you go.", MenuStyle.BODY_SIZE - 3,
+	var note := MenuStyle.label("Make him your own: a class first, then his face, clothes and arms.\n"
+			+ "Every change is kept. FACE brings the camera up to his face.", MenuStyle.BODY_SIZE - 3,
 			MenuStyle.GOLD_DIM)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(note)
 	var tabs := HBoxContainer.new()
@@ -929,6 +944,9 @@ func _refresh_maker() -> void:
 		return
 	for tab: String in _maker_tabs:
 		MenuStyle.style_button(_maker_tabs[tab] as Button, tab == _maker_tab, true)
+	var called := page.find_child("Called", true, false) as Label
+	if called != null:
+		called.text = "%s · YOUR OWN" % _profile(_chosen).display_name.to_upper()
 	var look: Dictionary = _chosen_rig().call(&"get_look")
 	for kind: String in _maker_rows:
 		var row := _maker_rows[kind] as HBoxContainer
@@ -944,6 +962,9 @@ func _refresh_maker() -> void:
 			continue
 		var at := clampi(_extra_at, 0, options.size() - 1) if kind == "extra" else maxi(options.find(look.get(kind)), 0)
 		value.text = _maker_name(kind, options[at], look)
+		if kind in ["eyes", "brows", "mouth", "beard", "hair", "skin", "cloth"]:
+			# which of how many: a bare number says nothing of how far there is to go
+			value.text = "NONE" if value.text == "NONE" else "%d / %d" % [at + 1, options.size()]
 		if kind == "skin" or kind == "cloth":
 			var texture := "body" if kind == "skin" else "objects"
 			for i in 2:

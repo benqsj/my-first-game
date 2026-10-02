@@ -2059,6 +2059,10 @@ func _build_mannequin() -> bool:
 	feet.name = "FootFlat"
 	feet.active = false
 	skel.add_child(feet)
+	# and last of all: the feet on the ground where it is (slopes, steps)
+	var ground := FootGround.new()
+	ground.name = "FootGround"
+	skel.add_child(ground)
 	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib,
 			"own": own, "feet": feet}
 	_mannequin_built(skel)
@@ -2565,6 +2569,17 @@ func play_part(clip: StringName, rate: float, from: float = 0.0, until: float = 
 
 ## Where `bone` is in the world right now.
 func bone_position(bone: StringName) -> Vector3:
+	# On the mannequin what is seen is the figure on it: its own bone, where
+	# there is one of the name (the head is "head_joint" on it), or the
+	# mannequin's ("head" is "Head" there). Asked for "head" in the hero
+	# select, the mannequin had none and the camera went to the belly.
+	if _on_mq and _figure_skel != null:
+		for name: StringName in [bone, StringName(String(bone) + "_joint")]:
+			var j := _figure_skel.find_bone(name)
+			if j >= 0:
+				return _figure_skel.global_transform * _figure_skel.get_bone_global_pose(j).origin
+	if _skel != null and _skel.find_bone(bone) < 0 and _skel.find_bone(String(bone).capitalize()) >= 0:
+		bone = StringName(String(bone).capitalize())
 	if _skel != null:
 		var i := _skel.find_bone(bone)
 		if i >= 0:

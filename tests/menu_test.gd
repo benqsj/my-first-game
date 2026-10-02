@@ -112,13 +112,13 @@ func _check_menu() -> void:
 	# Avtandil has two looks now: AS HE WAS, and YOUR OWN, made on the spot
 	# (the maker, [PolysplitLook]).
 	_check("the archer offers his own look and one made for him",
-			face_row != null and face_row.modulate.a > 0.99)
+			face_row != null and face_row.visible)
 	var face_was: int = _game.face(&"tariel")
 	menu.set("_chosen", &"tariel")
 	menu.call("_refresh_cards")
 	await _wait(3)
-	_check("Tariel does", face_row != null and face_row.modulate.a > 0.99)
-	_check("but no hair to pick", hair_row != null and hair_row.modulate.a < 0.01)
+	_check("Tariel does", face_row != null and face_row.visible)
+	_check("but no hair to pick", hair_row != null and not hair_row.visible)
 	var knight := (stages[&"tariel"] as CharacterPortrait).rig() as SkinnedRig
 	var face_from: int = knight.face
 	menu.call("_step_face", 1)

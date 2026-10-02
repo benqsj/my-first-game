@@ -6176,3 +6176,25 @@ until the user says otherwise.
   he went slower than his legs; now x1.01, the feet sliding 0.36 m/s). The
   others to try are gone: F6-F9, `trial.cfg`, `Sprint_Swing` and its bake,
   `RunLean`. Tariel is now faster on the run than the other heroes (5.6).
+
+### Feet on the ground on slopes; the hero select's face close-up and layout (2026-10-02, later)
+- Running across a hillside the uphill foot went under the ground: every clip
+  is made on flat ground. `FootGround` (last on the mannequin's skeleton, every
+  hero on it) looks for the ground under each ankle (a ray down, the body
+  left out), keeps the foot as high over it as the clip holds it over flat
+  ground, brings the hips down by what the lower foot needs (eased), bends
+  each leg to its foot by two-bone IK in its knee's plane, and lays a foot
+  near the ground along it (to 32 degrees). Only on the floor. Across a 30
+  degree hillside the ankle went 0.21 m under; now 0.02 (15-20 degrees: 0.06
+  -> 0.05-0.08 at worst). Past 40 degrees, where he cannot stand, it still
+  goes 0.15 under.
+- The hero select: FACE brought the camera to the belly on YOUR OWN, because
+  `bone_position("head")` looked on the mannequin, whose bone is "Head":
+  it now looks on the figure on it first (`head_joint`). The page fits 900
+  high (the stage 500, the roster tiles 116x132; at 540 the roster and BACK
+  went off the bottom); the look/colour/hair rows are hidden when there is
+  nothing to pick, their room kept; "drag the hero to turn him" under the
+  stage; the maker says whose it is ("TARIEL · YOUR OWN"), what it is for and
+  that FACE comes close; a numbered part reads "4 / 5", not "4".
+- Kevin's pack beyond the 01s: AttackShield02, CombatDamage02, Death02,
+  CombatDeath01-04, CombatIdle01 (seen in a reel; none put in yet).
