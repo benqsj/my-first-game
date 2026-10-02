@@ -5900,3 +5900,72 @@ Every hero still starts with his class's own weapon.
 
 The idea of clothes that fit whoever picks them up, and of weapons dropped
 by bosses, is noted in `CHARACTER_CREATOR.md` §8.
+
+
+## The animation lab: Kevin Iglesias | UAL 2 | what the heroes play now (2026-10-02)
+
+`scenes/tools/anim_lab.tscn` (`scripts/anim_lab.gd`) shows the two packs we
+bought side by side with what the heroes play now, one move at a time. Each
+column is a figure in Polysplit's clothes, holding the set's arms:
+
+1. **Kevin Iglesias**, Human Melee Animations (119 male in-place clips), on
+   Quaternius' UAL 2 mannequin.
+2. **Quaternius UAL 2**, on its own mannequin, exactly as made.
+3. **Now:** the set's hero on his own rig with his Mixamo clips, in YOUR OWN.
+
+The moves are grouped into sets by what is held:
+
+| Set | Hero in column 3 |
+| --- | --- |
+| MOVING | Tariel |
+| SWORD AND SHIELD | Tariel |
+| TWO HANDS | the warrior |
+| TWO KNIVES | the assassin |
+| BOW | Avtandil |
+| SPEAR | the mage (a staff stands in for the spear for now) |
+
+A pack with nothing for a move says so: NOT IN THIS PACK.
+
+**Keys:**
+
+| Key | What it does |
+| --- | --- |
+| ← → | another move |
+| ↑ ↓ | another set |
+| 1 / 2 / 3 | pick that column's clips for the move |
+| space | pause |
+| - / = | slower / faster |
+| R | play the move again |
+
+Picks are kept in `assets/anim/lab/picks.json`. Launched with
+`--write-movie <f>.avi --fixed-fps 30 -- movie <set>`, the lab walks through
+one set and quits.
+
+**Why the mannequin.** UAL 2's skeleton is the UE mannequin: three spine
+bones and every finger. Our `tariel_rig` has two spine bones and no fingers,
+and the Mixamo clips reach the figure through two retargets: Mixamo →
+`tariel_rig` → Polysplit. On the mannequin, UAL 2 plays with no retarget at
+all, and Kevin goes through one, fingers included.
+`assets/polysplit/mannequin_m.glb` is the maker's figure built onto the
+mannequin's limbs (`ps_creator.py mannequin m`). It holds the pack's arms
+the way the pack holds them, the shield on the forearm.
+
+**How Kevin's clips got onto the mannequin:**
+
+- !! Blender's fbx reader brings Kevin's skeleton in lying down, with the
+  clips standing and in centimetres. A retarget from that throws the figure
+  off the stage.
+- Godot's own fbx reader (ufbx) reads them right. `vepxis-art/tools/fbx2glb.gd`
+  turned every clip, and Kevin's skinned man `HumanM_Model.fbx` (whose bind
+  is the T-pose), into glb (`kevin_melee/glb/`).
+- `vepxis-art/tools/kv_godot.gd` retargets them in Godot into
+  `assets/anim/lab/kevin_lib.res`, an AnimationLibrary of `KV_*` clips. Each
+  bone takes the turn its partner made from the T-pose, in the world, with
+  the limbs' rest difference corrected. The hips travel by the ratio of hip
+  heights. It takes a few seconds.
+- The converted clips are bare node hierarchies (no mesh, so no skeleton),
+  and spaces in the names come out as `_-_`.
+- Godot's glb import takes `_Loop` off UAL 2's clip names and loops them.
+  The lab looks for both spellings.
+
+`assets/anim/lab/ual2_mannequin.glb` is UAL 2 Source's `UAL2.glb` as bought.
