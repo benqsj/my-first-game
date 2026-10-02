@@ -75,3 +75,15 @@
   ინდექსს 0-ზე აბრუნებს.
 - heroes_test-ის 4 ჩავარდნა და smoke_test-ის physics tick ძველია (HEAD-ზეც
   ასეა).
+
+## 5. დამატებით (2026-10-02, მომხმარებლის კითხვიდან)
+
+- Kevin-ის ნაყიდ პაკეტში სადემონსტრაციო იარაღებიცაა:
+  `kevin_melee/pkg/Assets/Kevin Iglesias/Human Animations/Unity Demo Scenes/Human Melee Animations/Models/`:
+  Human_Sword, Human_Shield, Human_Dagger, Human_Greatsword, **Human_Polearm (შუბი)**,
+  **Human_Warhammer (ჩაქუჩი)**. მომხმარებელს render-ით აჩვენე. თუ მოეწონება, Polysplit-ის
+  ფერების ტექსტურაზე გადაიყვანე და შუბი/ჩაქუჩი იარაღებს დაამატე.
+  ისინი ზუსტად Kevin-ის კლიპებისთვისაა გაკეთებული, ამიტომ ხელში ზუსტად დაჯდება
+  (Kevin-ის `B-handProp`).
+- Kevin Iglesias ტანსაცმელს არ ყიდის (მხოლოდ ანიმაციები და უფასო Human Character Dummy).
+  ტანსაცმლისთვის Polysplit-ის სერიის სხვა პაკეტები გადაამოწმე.
