@@ -6101,3 +6101,17 @@ until the user says otherwise.
 - `tests/stride_test.gd -- <hero>` (new): in the world, the game's inputs,
   the foot down flat must slide under 0.45 m/s walking and running, and the
   evade on the run must go ahead. All five pass (0.15-0.44 m/s).
+
+### One speed for every hero; the guard walked without the feet in the ground (2026-10-02, later)
+- Every hero now has Tariel's speeds, the user's word, to begin with: walk 2.4,
+  run 5.6, dash 11 m/s for 0.45 s, dodge 8.5 m/s for 0.7 s (they were:
+  warrior 2.1/5.0/8.5x0.55/7x0.75, assassin 3.0/5.9/9.5x0.5/8x1.1, Avtandil
+  4.0/5.9/13.5x0.5/11x0.72, the mage 2.6/5.4/10x0.45/8x0.7). The warrior keeps
+  his slower start, stop and turn.
+- Walking behind the shield, the walk's legs were laid under Kevin's block,
+  whose hips are low and turned square to the guard: the legs went into the
+  ground and stepped sideways while he went ahead. `StrideModifier` now takes
+  the hips' height and turn from the cycle too, the trunk above kept as the
+  clip has it. stride_test checks the guarded walk (slides 0.23 m/s, the
+  ankles 3 cm higher than walking, not lower).
+

@@ -241,7 +241,8 @@ func _check_rogue() -> void:
 	if rig == null:
 		return
 	_check("and swings rather than shoots", not _player.has_bow())
-	_check("he runs at the hunter's pace", is_equal_approx(_player.run_speed, 5.9), "%.1f m/s" % _player.run_speed)
+	# (one speed for every hero since 2026-10-02, the user's word: Tariel's)
+	_check("he runs at the heroes' pace", is_equal_approx(_player.run_speed, 5.6), "%.1f m/s" % _player.run_speed)
 	Input.action_press("attack")
 	await physics_frame
 	await physics_frame

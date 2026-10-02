@@ -28,6 +28,18 @@ var weight: float = 0.0
 
 var _tracks: Array[Vector2i] = []
 var _tracks_for: Animation
+## The cycle's hips (position track, bone), or (-1, -1): the legs come with
+## the height they were made at. Under a crouched clip (Kevin's block on the
+## mannequin) a walk's straight legs from the clip's low hips went into the
+## ground.
+var _hips := Vector2i(-1, -1)
+## The cycle's hips turn (rotation track, bone) and the bone over them whose
+## turn in the world is kept: the legs hang off the hips, so under a clip
+## standing square-on to its guard (Kevin's block) a walk's legs stepped out
+## sideways while the body went ahead, and slid. The hips are turned as the
+## cycle turns them, the trunk above left as the clip has it.
+var _hips_turn := Vector2i(-1, -1)
+var _trunk: int = -1
 
 
 func _ready() -> void:
@@ -43,16 +55,48 @@ func _process_modification() -> void:
 	if _tracks_for != cycle:
 		_find_tracks(skel)
 	var at := fposmod(time, maxf(cycle.length, 0.01))
+	if _hips_turn.x >= 0:
+		var trunk_was := skel.get_bone_global_pose(_trunk) if _trunk >= 0 else Transform3D()
+		var hips_own := skel.get_bone_pose_rotation(_hips_turn.y)
+		skel.set_bone_pose_rotation(_hips_turn.y, hips_own.slerp(cycle.rotation_track_interpolate(_hips_turn.x, at), weight))
+		if _trunk >= 0:
+			var hips_now := skel.get_bone_global_pose(_hips_turn.y)
+			skel.set_bone_pose_rotation(_trunk, (hips_now.basis.orthonormalized().inverse()
+					* trunk_was.basis.orthonormalized()).get_rotation_quaternion())
 	for tb in _tracks:
 		var leg := cycle.rotation_track_interpolate(tb.x, at)
 		var own := skel.get_bone_pose_rotation(tb.y)
 		skel.set_bone_pose_rotation(tb.y, own.slerp(leg, weight))
+	if _hips.x >= 0:
+		var at_hips := cycle.position_track_interpolate(_hips.x, at)
+		var own_hips := skel.get_bone_pose_position(_hips.y)
+		# the height only (up as the hips' parent sees it: the mannequin's root
+		# lies on its back): the clip keeps where the hips are over the feet
+		var parent := skel.get_bone_parent(_hips.y)
+		var up := Vector3.UP
+		if parent >= 0:
+			up = (skel.get_bone_global_pose(parent).basis.inverse() * Vector3.UP).normalized()
+		var rise := (at_hips - own_hips).dot(up) * weight
+		skel.set_bone_pose_position(_hips.y, own_hips + up * rise)
 
 
 func _find_tracks(skel: Skeleton3D) -> void:
 	_tracks.clear()
 	_tracks_for = cycle
+	_hips = Vector2i(-1, -1)
+	_hips_turn = Vector2i(-1, -1)
+	_trunk = skel.find_bone("spine_01")
 	for t in cycle.get_track_count():
+		if cycle.track_get_type(t) == Animation.TYPE_ROTATION_3D \
+				and String(cycle.track_get_path(t).get_concatenated_subnames()) == "pelvis":
+			var pb := skel.find_bone("pelvis")
+			if pb >= 0 and _trunk >= 0 and skel.get_bone_parent(_trunk) == pb:
+				_hips_turn = Vector2i(t, pb)
+		if cycle.track_get_type(t) == Animation.TYPE_POSITION_3D \
+				and String(cycle.track_get_path(t).get_concatenated_subnames()) == "pelvis":
+			var hb := skel.find_bone("pelvis")
+			if hb >= 0:
+				_hips = Vector2i(t, hb)
 		if cycle.track_get_type(t) != Animation.TYPE_ROTATION_3D:
 			continue
 		var bone_name := String(cycle.track_get_path(t).get_concatenated_subnames())

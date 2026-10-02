@@ -64,10 +64,11 @@ func _check_character() -> void:
 
 	var knight := load(KNIGHT) as CharacterProfile
 	var archer := load(ARCHER) as CharacterProfile
-	_check("he runs faster than the knight", archer.run_speed > knight.run_speed,
+	# (one speed for every hero since 2026-10-02, the user's word: as fast)
+	_check("he runs as fast as the knight", archer.run_speed >= knight.run_speed,
 			"%.1f vs %.1f m/s" % [archer.run_speed, knight.run_speed])
-	_check("his roll carries further",
-			archer.dash_speed * archer.dash_duration > knight.dash_speed * knight.dash_duration,
+	_check("his roll carries as far",
+			archer.dash_speed * archer.dash_duration >= knight.dash_speed * knight.dash_duration,
 			"%.2f vs %.2f m" % [archer.dash_speed * archer.dash_duration,
 					knight.dash_speed * knight.dash_duration])
 	_check("and he crits more often", archer.crit_chance > knight.crit_chance,

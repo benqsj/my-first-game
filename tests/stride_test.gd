@@ -41,7 +41,11 @@ func _initialize() -> void:
 	for i in 20:
 		await physics_frame
 	_check("%s on the mannequin" % hero, rig.on_mannequin(), "")
-	for pace: Array in [["walk", ["walk", "move_forward"]], ["run", ["move_forward"]]]:
+	var lowest := {}
+	var paces: Array = [["walk", ["walk", "move_forward"]], ["run", ["move_forward"]]]
+	if player.profile != null and player.profile.can_block:
+		paces.append(["guarded walk", ["block", "move_forward"]])
+	for pace: Array in paces:
 		for a: String in pace[1]:
 			Input.action_press(a)
 		for i in 90:
@@ -57,6 +61,12 @@ func _initialize() -> void:
 				(track[foot] as Array).append(skel.global_transform * skel.get_bone_global_pose(skel.find_bone(foot)).origin)
 			rates.append(rig._anim.speed_scale)
 			clip = rig._anim.current_animation
+		# how low the feet go, over the ground he stands on
+		var low := INF
+		for foot: String in track:
+			for p: Vector3 in track[foot]:
+				low = minf(low, p.y - player.global_position.y)
+		lowest[pace[0]] = low
 		# a foot down flat (within 2 cm of its lowest) should not move
 		for foot: String in track:
 			var ps: Array = track[foot]
@@ -77,6 +87,9 @@ func _initialize() -> void:
 				"(%s at x%.2f, %.1f m/s: the standing foot slides %.2f m/s)" % [clip, rates[rates.size() - 1], speed, median])
 		for i in 30:
 			await physics_frame
+	if lowest.has("guarded walk"):
+		_check("walking behind the guard, the feet stay out of the ground", float(lowest["guarded walk"])
+				> float(lowest["walk"]) - 0.04, "(lowest ankle %.3f m, walking %.3f m)" % [lowest["guarded walk"], lowest["walk"]])
 	# the evade on the run
 	Input.action_press("move_forward")
 	for i in 60:
