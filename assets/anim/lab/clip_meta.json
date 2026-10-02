@@ -518,25 +518,6 @@
 			"length": 0.967,
 			"loop": false
 		},
-		"Sprint_Shield": {
-			"cuts": [
-				[
-					0.073,
-					0.805
-				]
-			],
-			"ground_speed": 0.48,
-			"length": 0.667,
-			"loop": true,
-			"peak": 4.62,
-			"shield_turn": 19.0,
-			"trails": [
-				[
-					0.0,
-					0.878
-				]
-			]
-		},
 		"Sword_Aerial_Idle": {
 			"length": 1.067,
 			"loop": true,
@@ -600,6 +581,115 @@
 				[
 					0.0,
 					0.286
+				]
+			]
+		},
+		"Sword_Heavy_A": {
+			"cuts": [
+				[
+					0.489,
+					0.689
+				]
+			],
+			"length": 0.733,
+			"loop": false,
+			"peak": 77.02,
+			"trails": [
+				[
+					0.111,
+					0.289
+				],
+				[
+					0.467,
+					0.711
+				]
+			]
+		},
+		"Sword_Heavy_A_Rec": {
+			"cuts": [
+				[
+					0.05,
+					0.383
+				]
+			],
+			"length": 1.0,
+			"loop": false,
+			"peak": 11.51,
+			"trails": [
+				[
+					0.033,
+					0.5
+				]
+			]
+		},
+		"Sword_Heavy_B": {
+			"cuts": [
+				[
+					0.7,
+					0.867
+				]
+			],
+			"length": 0.5,
+			"loop": false,
+			"peak": 84.11,
+			"slam": 1.0,
+			"trails": [
+				[
+					0.633,
+					0.9
+				]
+			]
+		},
+		"Sword_Heavy_B_Rec": {
+			"cuts": [
+				[
+					0.152,
+					0.739
+				]
+			],
+			"length": 0.767,
+			"loop": false,
+			"peak": 11.09,
+			"slam": 0.0,
+			"trails": [
+				[
+					0.065,
+					0.804
+				]
+			]
+		},
+		"Sword_Heavy_C": {
+			"cuts": [
+				[
+					0.643,
+					0.81
+				]
+			],
+			"length": 0.7,
+			"loop": false,
+			"peak": 84.41,
+			"trails": [
+				[
+					0.619,
+					0.833
+				]
+			]
+		},
+		"Sword_Heavy_C_Rec": {
+			"cuts": [
+				[
+					0.206,
+					0.765
+				]
+			],
+			"length": 0.567,
+			"loop": false,
+			"peak": 16.37,
+			"slam": 0.529,
+			"trails": [
+				[
+					0.088,
+					0.882
 				]
 			]
 		},
@@ -756,6 +846,23 @@
 				]
 			]
 		},
+		"Sword_Light_C_Rec": {
+			"cuts": [
+				[
+					0.048,
+					0.524
+				]
+			],
+			"length": 0.7,
+			"loop": false,
+			"peak": 11.0,
+			"trails": [
+				[
+					0.0,
+					0.619
+				]
+			]
+		},
 		"Sword_Light_Combo": {
 			"cuts": [
 				[
@@ -790,6 +897,23 @@
 				[
 					0.585,
 					0.595
+				]
+			]
+		},
+		"Sword_Light_D": {
+			"cuts": [
+				[
+					0.09,
+					0.17
+				]
+			],
+			"length": 1.667,
+			"loop": false,
+			"peak": 29.38,
+			"trails": [
+				[
+					0.04,
+					0.18
 				]
 			]
 		},
@@ -916,6 +1040,23 @@
 				[
 					0.494,
 					0.533
+				]
+			]
+		},
+		"Sword_UpperCut": {
+			"cuts": [
+				[
+					0.19,
+					0.405
+				]
+			],
+			"length": 0.7,
+			"loop": false,
+			"peak": 62.58,
+			"trails": [
+				[
+					0.167,
+					0.429
 				]
 			]
 		}

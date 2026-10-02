@@ -634,6 +634,35 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("toggle_fullscreen"):
 		_toggle_fullscreen()
+	# Trying the strings and heavy blows (Tariel's, for now): F6 / F7.
+	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and (key.keycode == KEY_F6 or key.keycode == KEY_F7) \
+			and rig != null and rig.has_method(&"cycle_string"):
+		var named: String = rig.call(&"cycle_string" if key.keycode == KEY_F6 else &"cycle_heavy")
+		if named != "":
+			_toast("%s:  %s   (F6 სერია, F7 ძლიერი)" % ["სერია" if key.keycode == KEY_F6 else "ძლიერი", named])
+
+
+var _toast_label: Label
+
+
+## A line of text at the top of the screen for a couple of seconds.
+func _toast(text: String) -> void:
+	if _toast_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 50
+		add_child(layer)
+		_toast_label = Label.new()
+		_toast_label.add_theme_font_size_override("font_size", 28)
+		_toast_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_toast_label.add_theme_constant_override("outline_size", 8)
+		_toast_label.position = Vector2(40, 90)
+		layer.add_child(_toast_label)
+	_toast_label.text = text
+	_toast_label.modulate.a = 1.0
+	var fade := create_tween()
+	fade.tween_interval(2.5)
+	fade.tween_property(_toast_label, "modulate:a", 0.0, 0.6)
 
 
 ## Split in two: the camera is only your own body's business, the animation is
@@ -2756,7 +2785,10 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.DEATH:
 			_interrupt_skill()
 			if rig != null:
-				rig.knock_down()
+				if rig.has_method(&"die"):
+					rig.call(&"die")
+				else:
+					rig.knock_down()
 			_rig_says(&"hurt")
 			_thud()
 			Blood.splatter(Blood.world_of(self), at, blow)

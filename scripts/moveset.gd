@@ -38,6 +38,15 @@ const COMPANIONS := {
 const BLOCK_HIT := {
 	&"two_hands": &"KV_Parry2H01_Hit", &"knives": &"KV_ParryDW01_Hit", &"spear": &"KV_ParryPolearm01_Hit",
 }
+## Each class's death (the look's "cls"), Kevin's, the user's picks
+## (2026-10-03): the swordsman, the knight, the rogue and the hunter theirs,
+## the rest shared out among the six.
+const DEATHS := {
+	"swordsman": &"KV_Death01", "knight": &"KV_CombatDeath04", "rogue": &"KV_CombatDeath03",
+	"hunter": &"KV_CombatDeath02", "archer": &"KV_CombatDeath01", "fighter": &"KV_Death02",
+	"mage": &"KV_Death02", "sorcerer": &"KV_CombatDeath01", "warlock": &"KV_CombatDeath04",
+	"witch": &"KV_CombatDeath03",
+}
 ## A string's blow is played from a little before its cut to a little after
 ## (seconds), so one runs into the next.
 const LEAD := 0.28

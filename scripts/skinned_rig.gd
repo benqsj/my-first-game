@@ -2172,12 +2172,69 @@ func _wear_moves() -> void:
 	if walk_pace > 0.0 and run_pace > walk_pace:
 		run_threshold = 0.5 * (walk_pace + run_pace)
 	shield_turn_default = float((moves["shield_turn"] as Dictionary).get(moves["guard"], SHIELD_BUILT_TURN))
+	# the string and heavy blow last picked to try (F6 / F7), kept
+	var cfg := ConfigFile.new()
+	if cfg.load(TRIAL_CFG) == OK:
+		_wear_string(int(cfg.get_value(String(polysplit_hero), "string", 0)))
+		_wear_heavy(int(cfg.get_value(String(polysplit_hero), "heavy", 0)))
 	_hilt_ends.clear()
 	_flurry_slot = -1
 	_base_clip = &""
 	# standing at once, so the skeleton (and the figure on it) is posed before
 	# the first frame the controller drives
 	_set_base(clips[&"idle"], 0.0, 1.0)
+
+
+const TRIAL_CFG := "user://trial.cfg"
+
+
+## The next string to try ([Swordsman] `STRINGS`, F6), kept for next time.
+## Its name, or "" if there are none.
+func cycle_string() -> String:
+	return _cycle_trial("string", (moves.get("string_sets", []) as Array).size(), _wear_string)
+
+
+## The next heavy blow to try ([Swordsman] `HEAVIES`, F7), kept.
+func cycle_heavy() -> String:
+	return _cycle_trial("heavy", (moves.get("heavy_sets", []) as Array).size(), _wear_heavy)
+
+
+func _cycle_trial(key: String, count: int, wear: Callable) -> String:
+	if not _on_mq or count == 0:
+		return ""
+	var cfg := ConfigFile.new()
+	cfg.load(TRIAL_CFG)
+	var next := (int(cfg.get_value(String(polysplit_hero), key, 0)) + 1) % count
+	cfg.set_value(String(polysplit_hero), key, next)
+	cfg.save(TRIAL_CFG)
+	return wear.call(next)
+
+
+func _wear_string(i: int) -> String:
+	var sets: Array = moves.get("string_sets", [])
+	if sets.is_empty():
+		return ""
+	var s: Dictionary = sets[clampi(i, 0, sets.size() - 1)]
+	var clips_of: Array = (s["clips"] as Array).filter(func(c: StringName) -> bool: return _anim.has_animation(c))
+	if clips_of.size() != (s["clips"] as Array).size():
+		return ""
+	_strings = [clips_of]
+	flurry.assign(clips_of)
+	moves["recover"] = (s["recover"] as Dictionary).duplicate()
+	_flurry_slot = -1
+	return String(s["name"])
+
+
+func _wear_heavy(i: int) -> String:
+	var sets: Array = moves.get("heavy_sets", [])
+	if sets.is_empty():
+		return ""
+	var h: Dictionary = sets[clampi(i, 0, sets.size() - 1)]
+	if not _anim.has_animation(h["clip"]):
+		return ""
+	heavy = [h.duplicate()]
+	var named: Array = Swordsman.HEAVIES.filter(func(x: Dictionary) -> bool: return x["clip"] == h["clip"])
+	return String(named[0]["name"]) if not named.is_empty() else String(h["clip"])
 
 
 ## `clip` as the run, the walk going over to it halfway between their paces.
@@ -2501,6 +2558,18 @@ func _hang_capes(looks: Array) -> void:
 
 func knock_down() -> void:
 	_play_action(clips[&"down"], Role.DOWN, 1.4, 0.06)
+
+
+## Dead: on the mannequin, the death of his look's class (Moveset.DEATHS, each
+## class its own, the user's picks); otherwise falling as when knocked down.
+## Held there (no getting up out of it).
+func die() -> void:
+	var clip: StringName = clips[&"down"]
+	if _on_mq:
+		var own: StringName = Moveset.DEATHS.get(String(ps_look.get("cls", "")), &"")
+		if own != &"" and _anim.has_animation(own):
+			clip = own
+	_play_action(clip, Role.DOWN, 1.0, 0.08)
 
 
 func get_up(duration: float) -> void:

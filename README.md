@@ -6198,3 +6198,23 @@ until the user says otherwise.
   that FACE comes close; a numbered part reads "4 / 5", not "4".
 - Kevin's pack beyond the 01s: AttackShield02, CombatDamage02, Death02,
   CombatDeath01-04, CombatIdle01 (seen in a reel; none put in yet).
+
+### A death for each class; strings and heavy blows to try in the game (2026-10-03)
+- Each class (the look's `cls`) dies its own death on the mannequin
+  (`Moveset.DEATHS`, the user's picks): swordsman `KV_Death01`, knight
+  `KV_CombatDeath04`, rogue `KV_CombatDeath03`, hunter `KV_CombatDeath02`;
+  the rest shared out (archer and sorcerer `KV_CombatDeath01`, fighter and
+  mage `KV_Death02`, warlock `CombatDeath04`, witch `CombatDeath03`).
+  `SkinnedRig.die()` (the player's DEATH reaction); being knocked down keeps
+  its own fall, which the getting up plays backwards.
+- To try in the game, Tariel on the mannequin: F6 the next string
+  (`Swordsman.STRINGS`: UAL 2 Regular A-B-C, Light A-B-C-D, Heavy A-B-C,
+  Kevin's 1H 01-04), F7 the next heavy blow (`HEAVIES`: UAL 2 Heavy Combo,
+  Heavy D, UpperCut, Kevin's 1H 05); a line at the top says which; kept in
+  user://trial.cfg. Every clip of them is measured (clip_meta) and played
+  whole, with its own `_Rec` where it has one.
+- The animation catalogue: ~/Desktop/vepxis_animations (Kevin's and UAL 2's
+  clips on Tariel, a page a kind, `_shots_tmp/catalog/catalog.gd`).
+- stride_test's run slide reads 0.36-0.44 m/s alone and up to 1.0 when the
+  machine is busy with other tests (the sprint's feet are both off the ground
+  between steps): run it alone.

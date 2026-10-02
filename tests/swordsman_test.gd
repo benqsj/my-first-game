@@ -49,6 +49,9 @@ func _initialize() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	await _frames(30)
 	_check("on the mannequin", rig.on_mannequin())
+	# the designed string and heavy blow, whatever was last picked to try
+	rig._wear_string(0)
+	rig._wear_heavy(0)
 
 	# the string, twice
 	for round in 2:
@@ -140,6 +143,27 @@ func _initialize() -> void:
 			rig._anim.current_animation, worst])
 	Input.action_release("crouch")
 	await _frames(30)
+
+	# the strings to try: each one A, B, C... in its order
+	for i in (rig.moves["string_sets"] as Array).size():
+		var named := rig._wear_string(i)
+		var want: Array = rig.moves["string_sets"][i]["clips"]
+		var seen: Array[StringName] = []
+		for k in 180:
+			if k % 8 == 0 and seen.size() < want.size():
+				await _tap("attack")
+			else:
+				await physics_frame
+			var sw := rig.current_swing()
+			if sw != &"" and (seen.is_empty() or seen[seen.size() - 1] != sw):
+				seen.append(sw)
+		_check("the string %s" % named, seen == want, str(seen))
+		await _frames(150)
+	# the deaths: his class's
+	rig.die()
+	await physics_frame
+	_check("he dies his class's death", rig._anim.current_animation == Moveset.DEATHS["swordsman"],
+			"(%s)" % rig._anim.current_animation)
 
 	if _failures == 0:
 		print("All checks passed.")
