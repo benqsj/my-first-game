@@ -640,7 +640,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			and rig != null and rig.has_method(&"cycle_run"):
 		var run: StringName = rig.call(&"cycle_run")
 		if run != &"":
-			_toast("სირბილი: %s  (F6 — შემდეგი)" % run)
+			_toast("სირბილი: %s  (F6 შემდეგი, F7/F8 ნაბიჯი, F9 დახრა)" % run)
+	if key != null and key.pressed and not key.echo and (key.keycode == KEY_F7 or key.keycode == KEY_F8) \
+			and rig != null and rig.has_method(&"tune_run"):
+		var pace: float = rig.call(&"tune_run", 1.07 if key.keycode == KEY_F7 else 1.0 / 1.07)
+		if pace > 0.0:
+			_toast("%s: ნაბიჯი x%.2f  (F7 გრძელი/ნელი, F8 მოკლე/ჩქარი)" % [rig.get(&"clips")[&"run"], pace])
+	if key != null and key.pressed and not key.echo and key.keycode == KEY_F9 \
+			and rig != null and rig.has_method(&"cycle_lean"):
+		var lean: float = rig.call(&"cycle_lean")
+		if lean >= 0.0:
+			_toast("სირბილისას წელში დახრა: %d°  (F9)" % int(lean))
 
 
 var _toast_label: Label

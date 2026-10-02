@@ -6162,3 +6162,11 @@ until the user says otherwise.
   are both off the ground between steps). `stride_test -- tariel <run>`.
 - swordsman_test: each run plays when picked; crouched, the toes lie no lower
   than standing.
+- More to try (2026-10-02, later): Kevin's only other forward run,
+  `KV_Sprint01_Forward` (his pack has Run01, Sprint01 and the strafes, no
+  other), and `Sprint_Swing`, made at load by `Swordsman.bake()`: UAL 2's
+  shield sprint's legs and trunk with Kevin's run's arms swinging, in step
+  (each clip's left foot farthest ahead lined up). F7 / F8 lengthen or shorten
+  the run's steps at the same speed (its pace x1.07 either way, kept per run),
+  F9 leans him forward from the hips while running, 0/5/10/15 degrees
+  (`RunLean`). All kept in user://trial.cfg.

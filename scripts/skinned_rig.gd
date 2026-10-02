@@ -2040,6 +2040,8 @@ func _build_mannequin() -> bool:
 			lib.add_animation(clip, (load(other) as AnimationLibrary).get_animation(clip))
 	for n: StringName in lib.get_animation_list():
 		Moveset.complete(lib.get_animation(n), skel)
+	# runs made out of two (Swordsman.ARMS_FROM)
+	Swordsman.bake(lib, skel)
 	for n: StringName in player.get_animation_library_list():
 		player.remove_animation_library(n)
 	player.add_animation_library(&"", lib)
@@ -2054,13 +2056,16 @@ func _build_mannequin() -> bool:
 		strike.name = "StrikeAim"
 		strike.natural = strike_natural
 		skel.add_child(strike)
+	var lean := RunLean.new()
+	lean.name = "RunLean"
+	skel.add_child(lean)
 	# last: the feet laid flat under the hero's own clips carried over
 	var feet := FootFlat.new()
 	feet.name = "FootFlat"
 	feet.active = false
 	skel.add_child(feet)
 	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib,
-			"own": own, "feet": feet}
+			"own": own, "feet": feet, "lean": lean}
 	_mannequin_built(skel)
 	return true
 
@@ -2174,6 +2179,17 @@ func _wear_moves() -> void:
 	var tried := _tried_run()
 	if (moves.get("runs", []) as Array).has(tried) and _anim.has_animation(tried):
 		_set_run(tried)
+	if not (moves.get("runs", []) as Array).is_empty():
+		var cfg := ConfigFile.new()
+		if cfg.load(TRIAL_CFG) == OK:
+			var hero := String(polysplit_hero)
+			for c: StringName in moves["runs"]:
+				var f := float(cfg.get_value(hero, "pace_" + String(c), 1.0))
+				if ground_speed.has(c):
+					ground_speed[c] = float(ground_speed[c]) * f
+			if _mq.has("lean"):
+				(_mq["lean"] as RunLean).degrees = float(cfg.get_value(hero, "lean", 0.0))
+			_set_run(clips[&"run"])
 	_hilt_ends.clear()
 	_flurry_slot = -1
 	_base_clip = &""
@@ -2199,6 +2215,38 @@ func cycle_run() -> StringName:
 
 
 const TRIAL_CFG := "user://trial.cfg"
+
+
+## The run's pace times `factor` (F7 / F8): its legs slower and its steps
+## longer, or quicker and shorter, at the same speed over the ground. Kept.
+## The pace now against the measured one, or 0.0 if there is no run to tune.
+func tune_run(factor: float) -> float:
+	var run: StringName = clips[&"run"]
+	if not _on_mq or not ground_speed.has(run) or (moves.get("runs", []) as Array).is_empty():
+		return 0.0
+	var cfg := ConfigFile.new()
+	cfg.load(TRIAL_CFG)
+	var key := "pace_" + String(run)
+	var was := float(cfg.get_value(String(polysplit_hero), key, 1.0))
+	var now := clampf(was * factor, 0.5, 2.0)
+	ground_speed[run] = float(ground_speed[run]) / was * now
+	cfg.set_value(String(polysplit_hero), key, now)
+	cfg.save(TRIAL_CFG)
+	_set_run(run)
+	return now
+
+
+## The lean forward while running (F9): 0, 5, 10, 15 degrees in turn. Kept.
+func cycle_lean() -> float:
+	if not _on_mq or not _mq.has("lean"):
+		return -1.0
+	var lean: RunLean = _mq["lean"]
+	lean.degrees = fmod(lean.degrees + 5.0, 20.0)
+	var cfg := ConfigFile.new()
+	cfg.load(TRIAL_CFG)
+	cfg.set_value(String(polysplit_hero), "lean", lean.degrees)
+	cfg.save(TRIAL_CFG)
+	return lean.degrees
 
 
 func _tried_run() -> StringName:
@@ -2320,6 +2368,10 @@ func _mq_tick(delta: float, planar: float, airborne: bool, vy: float, blocking: 
 	var feet: FootFlat = _mq.get("feet")
 	if feet != null:
 		feet.active = (_mq["own"] as Dictionary).has(StringName(_anim.current_animation))
+	var lean: RunLean = _mq.get("lean")
+	if lean != null:
+		var running: bool = not airborne and StringName(_anim.current_animation) == clips[&"run"]
+		lean.weight = move_toward(lean.weight, 1.0 if running else 0.0, delta * 4.0)
 	if blocking:
 		_rouse()
 	if not fighting():
