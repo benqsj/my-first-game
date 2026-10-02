@@ -5986,3 +5986,99 @@ lab stars the main one.
 | SPEAR | Kevin, the only pack that has it. |
 
 Still to do: the shield sits wrong in the hand on the mannequin's figure.
+
+(Done since: see the next section.)
+
+## The heroes on the mannequin with the picked moves (2026-10-02)
+
+ANIMATION_MIGRATION.md, part 3. YOUR OWN, every hero's, is worn on
+Quaternius' UAL 2 mannequin, the UE skeleton (three spine bones, every
+finger), and fights with the clips the user picked in the lab. The other
+looks (AS HE WAS and the rest) stay on the hero's own rig and Mixamo clips
+until the user says otherwise.
+
+### How a rig wears the mannequin (`SkinnedRig`, region "YOUR OWN on the mannequin")
+- The first time YOUR OWN is worn, `_build_mannequin()` loads
+  `assets/anim/lab/ual2_mannequin.glb` beside the model (its own mesh hidden)
+  and gives its player one library of its own: UAL 2's clips, Kevin's
+  (`kevin_lib.res`), the hero's own clips carried onto the mannequin
+  (`assets/anim/heroes/<hero>_mannequin.res`, vepxis-art `tools/h2m.gd`, the
+  same world-delta retarget as kv_godot.gd) and any clip another hero lends
+  (`mq_borrow`: the mage's spell is Tariel's `SS_Spell_Casting`).
+- `_use_mannequin(on)` swaps what the rig drives: `_anim`, `_skel`, the
+  stride and strike modifiers; the model is hidden whole and its player
+  stopped. Back on another look, the hero's own tables come back
+  (`_own_tables`).
+- !! Every clip has every bone keyed (`Moveset.complete()`): UAL 2's clips
+  leave out the bones they do not move, Kevin's the middle spine bone, and a
+  bone no clip keys stays wherever the last one that did left it (the same
+  clip measured two ways depending on what played before it).
+- The figure is the maker's built on the mannequin's limbs
+  (`assets/polysplit/mannequin_m.glb`, `mannequin_f.glb`: `ps_creator.py
+  mannequin m|f`), following the mannequin (chest on `spine_03`, head on
+  `Head`). It carries the pack's arms and Tariel's two shields (HIS SHIELD);
+  "HIS OWN BOW" shows the pack's bow (his own bends on bones of his rig's).
+
+### The moves (`scripts/moveset.gd`, `Moveset`)
+- `kind_of(look)`: the set by what the look holds: a sword -> SWORD AND
+  SHIELD, the great sword -> TWO HANDS, a dagger -> TWO KNIVES, a bow -> BOW,
+  a staff -> SPEAR. MOVING under every one.
+- `build(kind, own)`: the tables laid over the hero's own. MOVING's picks are
+  the clip table's idle/walk/run/sprint/strafe/back/roll/mantle/hit/down;
+  Kevin's walk and run the other ways go with them; the jump is UAL 2's start,
+  air and landing. "also" picks are played at random in the main one's place
+  (`_alt()`): the hero's own roll, air and climb; Kevin's guard; the heavy
+  blow's other.
+- Strings: the cuts one after the other, each with its `_Rec` played after it
+  if no blow follows and he stands; the combo clip cut at its cuts into a
+  string of its own (`<clip>#1`, `#2`...); Kevin's cuts as another. A new
+  string is picked at random. The picked blows play at `MQ_SWING_RATE` (1.1),
+  not the Mixamo clips' 1.6.
+- In a fight (a blow, a hit or the guard in the last 4 s, or something locked
+  on) he stands in the picked guard, else Kevin's standing. The block is a
+  standing clip: the legs walk under it (`StrideModifier`) as he moves.
+- Cut and trail windows, ground speeds, the shield's turn and the bow's
+  release are measured off the clips (vepxis-art `tools/clip_meta.gd` ->
+  `assets/anim/lab/clip_meta.json`): the tip past 55 % of its top speed
+  cuts, past 30 % draws the arc; the standing foot's median speed is a
+  cycle's pace (on the figure, times the rig's scale).
+
+### The arms
+- The shield rides a bone of its own on the left forearm (`shield_l`). One
+  shield on the forearm cannot face the blow both in UAL 2's guard and in
+  Kevin's block (they hold the forearm ~70° apart), so `_turn_shield()` turns
+  it about the forearm onto each clip's measured `shield_turn` (the guard's
+  for a clip with none), 540°/s.
+- Every weapon of the mannequin's figure goes through the middle of its fist
+  (`ps_creator.py mannequin_grips()`: the line between a blade's or a staff's
+  ends, a bow's grip). The pack's straight bow string is taken out; the game
+  draws the string to the right fist (`BowModifier.place_string_at()`).
+- Two hands on one grip: the figure's arms are their own length, so its left
+  fist lands off the hilt where the mannequin's is on it. `hilt_hand()` puts
+  it back (as far along the handle as the mannequin's, scaled; two-bone IK,
+  the elbow kept in its plane), unless the clip itself lets go of the hilt.
+- Avtandil on the mannequin draws with UAL 2's `Bow_Notch` (0..0.4), aims
+  with `Bow_Aim_Neutral`, looses with `Bow_Shoot`; his own aim walks, climbs
+  and skills are his clips carried over. The mage cuts with the picked sword
+  moves and casts with Tariel's spell, the legs walking under it.
+
+### Tests
+- `tests/grip_test.gd` (new): every picked clip, frame by frame, on the
+  figure: each grip in its fist (a failure), the left fist on a two-handed
+  grip, the blade in the body (torso, head, thighs); the shield's face ahead.
+  All pass, no clip warned. Worst seen: the left knife touches the hips (up
+  to 9 cm, 2-7 % of frames) in `Sword_Light_Combo` and `Sword_Light_C`;
+  `KV_AttackPolearm03` sweeps through the hips 16 % of its frames.
+- The one-handed blows picked for TWO HANDS (`Sword_Heavy_D`, `Sword_Block`,
+  `Sword_GroundPound`) let go of the hilt: the great sword is held in one
+  hand there.
+- The tests that check a hero's own look (heroes, archer, warrior,
+  rogue_strike, skinned_rig) put face 0 on first: the settings may have YOUR
+  OWN on. `skinned_rig_test` checks YOUR OWN on the mannequin too.
+  `Footsteps` asks the rig which skeleton moves (`skeleton_now()`).
+
+### Seen in the game (hero reels, 2026-10-02)
+- Kevin's STANDING (`KV_Idle01`) is an unarmed idle: the weapon sticks out
+  sideways from the loose hand. The guard is held for 4 s after a fight.
+- The mage's attack button charges and casts (the bow's interface): his
+  sword moves are in his tables but nothing throws them yet.
