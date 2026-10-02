@@ -463,6 +463,11 @@ func _check_moves(who: String, evade: Player.MoveSound) -> void:
 ## Evades one after another: a press during a roll is the next roll, straight
 ## on, and a press just after one ends follows on without the cooldown.
 func _check_chain(who: String) -> void:
+	# out on the open ground: wherever the moves before left him, a roll into
+	# a wall stops at once and there is no roll to press into
+	_player.global_position = Vector3(0.0, 0.5, 26.0)
+	_player.velocity = Vector3.ZERO
+	_player.rotation.y = 0.0
 	await _wait(30)
 	_player.stamina = _player.max_stamina
 	_player._dash_cooldown_timer = 0.0

@@ -2027,9 +2027,13 @@ func _build_mannequin() -> bool:
 		sources.append(load(KEVIN_LIB) as AnimationLibrary)
 	if ResourceLoader.exists(HERO_LIB % polysplit_hero):
 		sources.append(load(HERO_LIB % polysplit_hero) as AnimationLibrary)
+	var own := {}
 	for src: AnimationLibrary in sources:
+		var mine := src.resource_path == HERO_LIB % polysplit_hero
 		for n: StringName in src.get_animation_list():
 			lib.add_animation(n, src.get_animation(n))
+			if mine:
+				own[n] = true
 	for clip: StringName in mq_borrow:
 		var other := HERO_LIB % mq_borrow[clip]
 		if ResourceLoader.exists(other) and (load(other) as AnimationLibrary).has_animation(clip):
@@ -2050,7 +2054,13 @@ func _build_mannequin() -> bool:
 		strike.name = "StrikeAim"
 		strike.natural = strike_natural
 		skel.add_child(strike)
-	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib}
+	# last: the feet laid flat under the hero's own clips carried over
+	var feet := FootFlat.new()
+	feet.name = "FootFlat"
+	feet.active = false
+	skel.add_child(feet)
+	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib,
+			"own": own, "feet": feet}
 	_mannequin_built(skel)
 	return true
 
@@ -2123,6 +2133,9 @@ func _wear_moves() -> void:
 			clips[slot] = clip
 	for clip: StringName in moves["ground_speed"]:
 		ground_speed[clip] = float(moves["ground_speed"][clip]) * pace
+	# paces found in the game, at his size already ([Swordsman] `RUN_PACE`)
+	for clip: StringName in moves.get("run_pace", {}):
+		ground_speed[clip] = float(moves["run_pace"][clip])
 	var lib: AnimationLibrary = _mq["lib"]
 	for part: StringName in moves["aliases"]:
 		if not lib.has_animation(part) and lib.has_animation(moves["aliases"][part]):
@@ -2158,12 +2171,51 @@ func _wear_moves() -> void:
 	if walk_pace > 0.0 and run_pace > walk_pace:
 		run_threshold = 0.5 * (walk_pace + run_pace)
 	shield_turn_default = float((moves["shield_turn"] as Dictionary).get(moves["guard"], SHIELD_BUILT_TURN))
+	var tried := _tried_run()
+	if (moves.get("runs", []) as Array).has(tried) and _anim.has_animation(tried):
+		_set_run(tried)
 	_hilt_ends.clear()
 	_flurry_slot = -1
 	_base_clip = &""
 	# standing at once, so the skeleton (and the figure on it) is posed before
 	# the first frame the controller drives
 	_set_base(clips[&"idle"], 0.0, 1.0)
+
+
+## The runs to try (F6, [Swordsman] `RUNS`): the next one in, kept for the next
+## time the game starts (user://trial.cfg). Its name, or &"" if there are none.
+func cycle_run() -> StringName:
+	var runs: Array = moves.get("runs", []) if _on_mq else []
+	runs = runs.filter(func(c: StringName) -> bool: return _anim.has_animation(c))
+	if runs.is_empty():
+		return &""
+	var next: StringName = runs[(runs.find(clips[&"run"]) + 1) % runs.size()]
+	_set_run(next)
+	var cfg := ConfigFile.new()
+	cfg.load(TRIAL_CFG)
+	cfg.set_value(String(polysplit_hero), "run", String(next))
+	cfg.save(TRIAL_CFG)
+	return next
+
+
+const TRIAL_CFG := "user://trial.cfg"
+
+
+func _tried_run() -> StringName:
+	var cfg := ConfigFile.new()
+	if cfg.load(TRIAL_CFG) != OK:
+		return &""
+	return StringName(str(cfg.get_value(String(polysplit_hero), "run", "")))
+
+
+## `clip` as the run, the walk going over to it halfway between their paces.
+func _set_run(clip: StringName) -> void:
+	clips[&"run"] = clip
+	var walk_pace := float(ground_speed.get(clips[&"walk"], 0.0))
+	var run_pace := float(ground_speed.get(clip, 0.0))
+	if walk_pace > 0.0 and run_pace > walk_pace:
+		run_threshold = 0.5 * (walk_pace + run_pace)
+	_base_clip = &""
 
 
 ## `clip`, or at random one of the clips picked to play in its place.
@@ -2265,6 +2317,9 @@ func _mq_tick(delta: float, planar: float, airborne: bool, vy: float, blocking: 
 			_play_action(land, Role.FREE, 1.4, 0.06, 0.0, 0.45)
 			_recovering = true
 	_air_was = airborne
+	var feet: FootFlat = _mq.get("feet")
+	if feet != null:
+		feet.active = (_mq["own"] as Dictionary).has(StringName(_anim.current_animation))
 	if blocking:
 		_rouse()
 	if not fighting():

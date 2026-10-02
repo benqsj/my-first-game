@@ -634,6 +634,37 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("toggle_fullscreen"):
 		_toggle_fullscreen()
+	# Trying the runs (Tariel's, for now): F6 goes to the next.
+	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and key.keycode == KEY_F6 \
+			and rig != null and rig.has_method(&"cycle_run"):
+		var run: StringName = rig.call(&"cycle_run")
+		if run != &"":
+			_toast("სირბილი: %s  (F6 — შემდეგი)" % run)
+
+
+var _toast_label: Label
+
+
+## A line of text at the top of the screen for a couple of seconds.
+func _toast(text: String) -> void:
+	if _toast_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 50
+		add_child(layer)
+		_toast_label = Label.new()
+		_toast_label.add_theme_font_size_override("font_size", 28)
+		_toast_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_toast_label.add_theme_constant_override("outline_size", 8)
+		_toast_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_toast_label.position.y = 90
+		_toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		layer.add_child(_toast_label)
+	_toast_label.text = text
+	_toast_label.modulate.a = 1.0
+	var fade := create_tween()
+	fade.tween_interval(2.2)
+	fade.tween_property(_toast_label, "modulate:a", 0.0, 0.6)
 
 
 ## Split in two: the camera is only your own body's business, the animation is
@@ -1124,7 +1155,9 @@ func _aim_body(direction: Vector3, delta: float) -> void:
 ## and runs from it like any other way, the camera still on the target: a
 ## backpedal at a run is no way for a man to go (the user's word, 2026-10-02).
 func _watches_backing_off() -> bool:
-	return _is_bow() or is_blocking or Input.is_action_pressed("walk")
+	# (and the assassin: his locked step back is a step facing it, then the flip)
+	return _is_bow() or is_blocking or Input.is_action_pressed("walk") \
+			or (profile != null and profile.step_then_flip)
 
 
 ## True when the stick is pointed away from what is being fought — backing off

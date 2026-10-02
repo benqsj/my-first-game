@@ -32,8 +32,18 @@ const EVADE := {"clip": &"Sword_Dash", "rate": 1.3, "weight": 0.6, "cut": Vector
 ## hold: the blade at its highest (0.167 s of 1.167); cut: the chop, from the
 ## top to the blade in the ground (0.23-0.35 s), as shares.
 const JUMP_ATTACK := {"clip": &"Sword_GroundPound", "hold": 0.143, "cut": Vector2(0.19, 0.3)}
+## The runs to try in the game, F6 going from one to the next (the user is
+## choosing, 2026-10-02): Kevin's (the pick), Tariel's own Mixamo one carried
+## onto the mannequin, UAL 2's with the shield up.
+const RUNS: Array[StringName] = [&"KV_Run01_Forward", &"SS_Run", &"Sprint_Shield"]
+## Their paces as Tariel plays them (m/s, his size), where the measure off the
+## clip does not hold: a run with both feet off the ground between steps has
+## no foot standing to measure (clip_meta read Sprint_Shield as 0.48 m/s).
+## Found in the game by trying paces for the least slide (2026-10-02); the
+## sprint's is its own rate at his run.
+const RUN_PACE := {&"SS_Run": 4.3, &"Sprint_Shield": 5.6}
 ## Clips to measure with the sword besides the picks.
-const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle"]
+const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle", &"Sprint_Shield"]
 
 
 ## Lays the design over `t`, a [method Moveset.build] table for the sword.
@@ -60,6 +70,14 @@ static func apply(t: Dictionary) -> void:
 	t["cut_window"][jump["clip"]] = jump["cut"]
 	(t["cut_windows"] as Dictionary).erase(jump["clip"])
 	t["trail_window"][jump["clip"]] = Vector2(float(jump["hold"]), float(jump["cut"].y) + 0.03)
+	t["runs"] = RUNS.duplicate()
+	t["run_pace"] = RUN_PACE.duplicate()
+	for c: StringName in RUNS:
+		var m := Moveset.clip_meta(c)
+		if m.has("ground_speed"):
+			t["ground_speed"][c] = float(m["ground_speed"]) * Moveset.PACE_FIX
+		if bool(m.get("loop", false)) and not t["looping"].has(c):
+			t["looping"].append(c)
 	for c: StringName in [evade["clip"], jump["clip"]]:
 		var m := Moveset.clip_meta(c)
 		if m.has("shield_turn"):

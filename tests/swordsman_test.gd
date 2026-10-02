@@ -115,6 +115,33 @@ func _initialize() -> void:
 	_check("the chop cuts, on the ground", chopped)
 	_check("played to its end", furthest > 0.9, "(%.2f)" % furthest)
 
+	# the runs to try (F6): each is the run when picked
+	for c: StringName in Swordsman.RUNS:
+		rig._set_run(c)
+		Input.action_press("move_forward")
+		await _frames(50)
+		_check("the run %s plays" % c, rig._anim.current_animation == c, "(%s at x%.2f)" % [rig._anim.current_animation,
+				rig._anim.speed_scale])
+		Input.action_release("move_forward")
+		await _frames(40)
+
+	# crouched, the feet flat on the ground (FootFlat): the toes no lower than
+	# the ankle by much
+	Input.action_press("crouch")
+	await _frames(40)
+	var skel := rig.skeleton_now()
+	var worst := 0.0
+	for side in ["l", "r"]:
+		var foot := skel.get_bone_global_pose(skel.find_bone("foot_" + side)).origin
+		var ball := skel.get_bone_global_pose(skel.find_bone("ball_" + side)).origin
+		var drop := foot.y - ball.y
+		worst = maxf(worst, drop - (skel.get_bone_global_rest(skel.find_bone("foot_" + side)).origin.y
+				- skel.get_bone_global_rest(skel.find_bone("ball_" + side)).origin.y))
+	_check("crouched, the feet lie flat", worst < 0.04, "(%s: the toes %.3f m lower than standing)" % [
+			rig._anim.current_animation, worst])
+	Input.action_release("crouch")
+	await _frames(30)
+
 	if _failures == 0:
 		print("All checks passed.")
 	else:

@@ -518,6 +518,25 @@
 			"length": 0.967,
 			"loop": false
 		},
+		"Sprint_Shield": {
+			"cuts": [
+				[
+					0.073,
+					0.805
+				]
+			],
+			"ground_speed": 0.48,
+			"length": 0.667,
+			"loop": true,
+			"peak": 4.62,
+			"shield_turn": 19.0,
+			"trails": [
+				[
+					0.0,
+					0.878
+				]
+			]
+		},
 		"Sword_Aerial_Idle": {
 			"length": 1.067,
 			"loop": true,

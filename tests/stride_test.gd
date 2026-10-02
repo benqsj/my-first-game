@@ -5,7 +5,7 @@ extends SceneTree
 ## ground is measured (the figure's ankle, in the world)
 ## and should be under SLIDE_OK. And the evade thrown on the run should be a
 ## roll ahead, not the dodge that hops back.
-##   Godot --headless --path . --script res://tests/stride_test.gd -- [hero]
+##   Godot --headless --path . --script res://tests/stride_test.gd -- [hero] [run clip]
 
 const SLIDE_OK := 0.45
 var _failures := 0
@@ -41,6 +41,9 @@ func _initialize() -> void:
 	for i in 20:
 		await physics_frame
 	_check("%s on the mannequin" % hero, rig.on_mannequin(), "")
+	if args.size() > 1:
+		# a run of the ones to try (Swordsman.RUNS)
+		rig._set_run(StringName(args[1]))
 	var lowest := {}
 	var paces: Array = [["walk", ["walk", "move_forward"]], ["run", ["move_forward"]]]
 	if player.profile != null and player.profile.can_block:

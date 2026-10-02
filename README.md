@@ -6142,3 +6142,23 @@ until the user says otherwise.
 - `tests/swordsman_test.gd` (new): the string twice A, B, C; the evade cuts,
   goes 1.5-4 m ahead, is let go when he moves off; the jump attack holds in
   the air, plays on at near its pace landing, to its end.
+
+### Locked on, he turns and runs; the jump attack cuts; feet flat crouched; three runs to try (2026-10-02, later)
+- Locked on, backing off turned into a backpedal at a run. Now he turns and
+  runs whichever way he goes, the camera still on the target; only the bow,
+  the raised guard, the walk key or the assassin's step-then-flip keep him
+  facing it while backing off (`Player._watches_backing_off()`).
+- The jump attack's chop lands after the feet do, in the PLUNGE role, which
+  never cut: PLUNGE now cuts (and draws its arc) inside the clip's window.
+- Crouched, the hero's own Mixamo clips carried onto the mannequin pointed the
+  feet down and curled the toes under. `FootFlat` (a SkeletonModifier3D last
+  on the mannequin) lays each foot as it stands at rest, turned only about
+  the vertical, and the toes flat, wholly up to 0.16 m of ankle height and
+  not at all past 0.32; only while one of those clips plays.
+- Three runs to try in the game, F6 going to the next and remembered
+  (user://trial.cfg): Kevin's `KV_Run01_Forward`, Tariel's own `SS_Run` (at
+  4.3 m/s) and UAL 2's `Sprint_Shield` (5.6 m/s), `Swordsman.RUNS` /
+  `RUN_PACE` (paces found in the game: clip_meta cannot read a run whose feet
+  are both off the ground between steps). `stride_test -- tariel <run>`.
+- swordsman_test: each run plays when picked; crouched, the toes lie no lower
+  than standing.
