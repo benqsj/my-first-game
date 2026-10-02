@@ -6170,3 +6170,9 @@ until the user says otherwise.
   the run's steps at the same speed (its pace x1.07 either way, kept per run),
   F9 leans him forward from the hips while running, 0/5/10/15 degrees
   (`RunLean`). All kept in user://trial.cfg.
+- Picked (2026-10-02, later): Tariel runs with Kevin's sprint,
+  `KV_Sprint01_Forward` (`Swordsman.RUN`), at its own pace: his `run_speed` is
+  now 7.4 m/s, the clip's pace over the ground (at 5.6 it played at x0.76 and
+  he went slower than his legs; now x1.01, the feet sliding 0.36 m/s). The
+  others to try are gone: F6-F9, `trial.cfg`, `Sprint_Swing` and its bake,
+  `RunLean`. Tariel is now faster on the run than the other heroes (5.6).

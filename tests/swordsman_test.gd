@@ -115,15 +115,14 @@ func _initialize() -> void:
 	_check("the chop cuts, on the ground", chopped)
 	_check("played to its end", furthest > 0.9, "(%.2f)" % furthest)
 
-	# the runs to try (F6): each is the run when picked
-	for c: StringName in Swordsman.RUNS:
-		rig._set_run(c)
-		Input.action_press("move_forward")
-		await _frames(50)
-		_check("the run %s plays" % c, rig._anim.current_animation == c, "(%s at x%.2f)" % [rig._anim.current_animation,
-				rig._anim.speed_scale])
-		Input.action_release("move_forward")
-		await _frames(40)
+	# the run: Kevin's sprint at its own pace
+	Input.action_press("move_forward")
+	await _frames(70)
+	_check("the run is Kevin's sprint near its own pace", rig._anim.current_animation == Swordsman.RUN
+			and absf(rig._anim.speed_scale - 1.0) < 0.12, "(%s at x%.2f, %.1f m/s)" % [rig._anim.current_animation,
+			rig._anim.speed_scale, Vector2(player.velocity.x, player.velocity.z).length()])
+	Input.action_release("move_forward")
+	await _frames(40)
 
 	# crouched, the feet flat on the ground (FootFlat): the toes no lower than
 	# the ankle by much

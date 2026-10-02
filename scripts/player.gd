@@ -634,47 +634,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("toggle_fullscreen"):
 		_toggle_fullscreen()
-	# Trying the runs (Tariel's, for now): F6 goes to the next.
-	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and key.keycode == KEY_F6 \
-			and rig != null and rig.has_method(&"cycle_run"):
-		var run: StringName = rig.call(&"cycle_run")
-		if run != &"":
-			_toast("სირბილი: %s  (F6 შემდეგი, F7/F8 ნაბიჯი, F9 დახრა)" % run)
-	if key != null and key.pressed and not key.echo and (key.keycode == KEY_F7 or key.keycode == KEY_F8) \
-			and rig != null and rig.has_method(&"tune_run"):
-		var pace: float = rig.call(&"tune_run", 1.07 if key.keycode == KEY_F7 else 1.0 / 1.07)
-		if pace > 0.0:
-			_toast("%s: ნაბიჯი x%.2f  (F7 გრძელი/ნელი, F8 მოკლე/ჩქარი)" % [rig.get(&"clips")[&"run"], pace])
-	if key != null and key.pressed and not key.echo and key.keycode == KEY_F9 \
-			and rig != null and rig.has_method(&"cycle_lean"):
-		var lean: float = rig.call(&"cycle_lean")
-		if lean >= 0.0:
-			_toast("სირბილისას წელში დახრა: %d°  (F9)" % int(lean))
-
-
-var _toast_label: Label
-
-
-## A line of text at the top of the screen for a couple of seconds.
-func _toast(text: String) -> void:
-	if _toast_label == null:
-		var layer := CanvasLayer.new()
-		layer.layer = 50
-		add_child(layer)
-		_toast_label = Label.new()
-		_toast_label.add_theme_font_size_override("font_size", 28)
-		_toast_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		_toast_label.add_theme_constant_override("outline_size", 8)
-		_toast_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-		_toast_label.position.y = 90
-		_toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		layer.add_child(_toast_label)
-	_toast_label.text = text
-	_toast_label.modulate.a = 1.0
-	var fade := create_tween()
-	fade.tween_interval(2.2)
-	fade.tween_property(_toast_label, "modulate:a", 0.0, 0.6)
 
 
 ## Split in two: the camera is only your own body's business, the animation is
