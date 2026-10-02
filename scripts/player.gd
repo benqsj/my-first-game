@@ -1111,11 +1111,20 @@ func _aim_body(direction: Vector3, delta: float) -> void:
 		_face_aim(delta)
 		return
 	if target != null:
-		if not lock_run_turns or direction.is_zero_approx() or _backing_off(direction):
+		if not lock_run_turns or direction.is_zero_approx() \
+				or (_backing_off(direction) and _watches_backing_off()):
 			_face_target(delta)
 			return
 	if not direction.is_zero_approx():
 		_face_direction(direction, delta)
+
+
+## Backing off a target keeps him facing it only for the bow (he backs off
+## shooting), behind the shield, or walking (careful steps). Otherwise he turns
+## and runs from it like any other way, the camera still on the target: a
+## backpedal at a run is no way for a man to go (the user's word, 2026-10-02).
+func _watches_backing_off() -> bool:
+	return _is_bow() or is_blocking or Input.is_action_pressed("walk")
 
 
 ## True when the stick is pointed away from what is being fought — backing off

@@ -5,7 +5,8 @@ extends SceneTree
 ## - the evade is Sword_Dash, played at its rate, cutting on the way, going
 ##   ahead, and given up as soon as he moves off once the dash is over;
 ## - the jump attack is Sword_GroundPound: the blade held over the head in the
-##   air, played on at near its own pace when he lands, to its end.
+##   air, played on at near its own pace when he lands, to its end, the chop
+##   cutting.
 ##   Godot --headless --path . --script res://tests/swordsman_test.gd
 var _failures := 0
 var player: Player
@@ -104,10 +105,14 @@ func _initialize() -> void:
 	var rate := rig._anim.speed_scale
 	_check("landing it plays on near its own pace", rate > 0.8 and rate < 1.5, "(x%.2f)" % rate)
 	var furthest := 0.0
+	var chopped := false
 	for i in 90:
 		await physics_frame
 		if rig._anim.current_animation == "Sword_GroundPound":
 			furthest = maxf(furthest, rig._anim.current_animation_position / rig._anim.current_animation_length)
+		if not rig.get_cutting_edge().is_empty():
+			chopped = true
+	_check("the chop cuts, on the ground", chopped)
 	_check("played to its end", furthest > 0.9, "(%.2f)" % furthest)
 
 	if _failures == 0:

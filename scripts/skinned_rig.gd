@@ -904,7 +904,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	if _role != Role.NONE:
 		_action_left -= delta
 		var through := _progress()
-		_attack_cutting = (_role == Role.SWING or (_role == Role.ROLL and _evade_cut)) and _in_window(through)
+		_attack_cutting = (_role == Role.SWING or _role == Role.PLUNGE or (_role == Role.ROLL and _evade_cut)) \
+				and _in_window(through)
 		if _role == Role.SWING and _heavy_now and not _slam_done:
 			var slam := _slam_share()
 			if slam > 0.0 and through >= slam:
@@ -1201,7 +1202,7 @@ func _in_window(through: float) -> bool:
 ## Inside the clip's `trail_window`: the arc is drawn though the blade may not
 ## be cutting yet (or any more).
 func _in_trail() -> bool:
-	if _role != Role.SWING and not (_role == Role.ROLL and _evade_cut):
+	if _role != Role.SWING and _role != Role.PLUNGE and not (_role == Role.ROLL and _evade_cut):
 		return false
 	var w: Vector2 = trail_window.get(_act_clip, Vector2.ZERO)
 	if w == Vector2.ZERO:
