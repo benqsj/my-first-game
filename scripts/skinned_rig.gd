@@ -256,6 +256,8 @@ var _blocking_now: bool = false
 var _plunge_left: float = 0.0
 var _swing_commit: float = 0.0
 var _air_cut: bool = false
+## The evade playing is one that cuts on the way ([Swordsman] `EVADE`).
+var _evade_cut: bool = false
 var _sliding: bool = false
 var _stride: StrideModifier
 var _stride_clip: StringName = &""
@@ -902,7 +904,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	if _role != Role.NONE:
 		_action_left -= delta
 		var through := _progress()
-		_attack_cutting = _role == Role.SWING and _in_window(through)
+		_attack_cutting = (_role == Role.SWING or (_role == Role.ROLL and _evade_cut)) and _in_window(through)
 		if _role == Role.SWING and _heavy_now and not _slam_done:
 			var slam := _slam_share()
 			if slam > 0.0 and through >= slam:
@@ -916,7 +918,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 		# player moves off; standing still, it plays out its follow-through.
 		# (and a clip that only brings him back, as soon as he moves off)
 		var released := ((_role == Role.SWING and not _air_cut and _swing_commit <= 0.0)
-				or (_role == Role.FREE and _recovering)) and planar_speed > idle_threshold
+				or (_role == Role.FREE and _recovering)
+				or (_role == Role.ROLL and _evade_cut and not dashing)) and planar_speed > idle_threshold
 		if _role == Role.DOWN:
 			pass  # held until get_up() or leave_ground()
 		elif _air_cut and _action_left <= 0.0 and airborne:
@@ -1133,6 +1136,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	var length := _anim.get_animation(clip).length
 	_role = role
 	_recovering = false
+	_evade_cut = false
 	_act_clip = clip
 	_action_len = length
 	_action_rate = maxf(rate, 0.01)
@@ -1160,6 +1164,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 func _end_action() -> void:
 	_air_cut = false
+	_evade_cut = false
 	walk_under = false
 	_recovering = false
 	_role = Role.NONE
@@ -1196,7 +1201,7 @@ func _in_window(through: float) -> bool:
 ## Inside the clip's `trail_window`: the arc is drawn though the blade may not
 ## be cutting yet (or any more).
 func _in_trail() -> bool:
-	if _role != Role.SWING:
+	if _role != Role.SWING and not (_role == Role.ROLL and _evade_cut):
 		return false
 	var w: Vector2 = trail_window.get(_act_clip, Vector2.ZERO)
 	if w == Vector2.ZERO:
@@ -1455,6 +1460,17 @@ func bloody() -> void:
 
 
 func dodge(duration: float) -> void:
+	if _on_mq and moves.has("evade"):
+		# An evade that cuts on the way, played whole at its own rate: the
+		# dash is its lunge and cut, the rest its recovery ([Swordsman]).
+		var evade: Dictionary = moves["evade"]
+		if _play_action(evade["clip"], Role.ROLL, float(evade["rate"]), 0.06):
+			_evade_cut = true
+			_heavy_now = false
+			cut_weight = float(evade["weight"])
+			attack_serial += 1
+			_whoosh()
+		return
 	# The roll part of the clip, fitted to the dash so the tumble and the
 	# movement finish together; what is left of the clip is the run-out, which
 	# the locomotion picks up instead.
@@ -1467,6 +1483,8 @@ func dodge(duration: float) -> void:
 
 
 func dodge_clip(duration: float) -> bool:
+	if _on_mq and moves.has("evade"):
+		return false  # the evade is the one move; no longer one to turn it into
 	var roll: StringName = _mq_roll() if _on_mq else clips[&"roll"]
 	var length := _anim.get_animation(roll).length if _anim.has_animation(roll) else 0.0
 	if length <= 0.0:
@@ -1959,7 +1977,8 @@ func _tables() -> Dictionary:
 			"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(), "heavy": heavy.duplicate(true),
 			"cut_window": cut_window.duplicate(), "cut_windows": cut_windows.duplicate(true),
 			"trail_window": trail_window.duplicate(), "carried": carried.duplicate(),
-			"flurry_reset_after": flurry_reset_after, "swing_rate": swing_rate, "run_threshold": run_threshold}
+			"flurry_reset_after": flurry_reset_after, "swing_rate": swing_rate, "run_threshold": run_threshold,
+			"air_cut_from": air_cut_from, "plunge_from": plunge_from}
 
 
 func _set_tables(t: Dictionary) -> void:
@@ -1976,6 +1995,8 @@ func _set_tables(t: Dictionary) -> void:
 	flurry_reset_after = float(t["flurry_reset_after"])
 	swing_rate = float(t["swing_rate"])
 	run_threshold = float(t["run_threshold"])
+	air_cut_from = float(t.get("air_cut_from", air_cut_from))
+	plunge_from = float(t.get("plunge_from", plunge_from))
 
 
 ## Loads the mannequin beside the model, its mesh hidden, its player given
@@ -2124,6 +2145,11 @@ func _wear_moves() -> void:
 	# the picked blows were made at the game's pace (UAL 2's) or near it
 	# (Kevin's): not hurried as the Mixamo ones were
 	swing_rate = MQ_SWING_RATE
+	if moves.has("jump_attack"):
+		# from the aerial pose up to the blade over the head, held till the
+		# ground; the landing plays on from there ([Swordsman])
+		air_cut_from = 0.0
+		plunge_from = float(moves["jump_attack"]["hold"])
 	# from the walk to the run halfway between their paces, each played as
 	# near its own pace as it can be
 	var walk_pace := float(ground_speed.get(clips[&"walk"], 0.0))

@@ -164,7 +164,7 @@ static func all_clips() -> Array[StringName]:
 				for c: String in l:
 					if not c.begins_with("c:") and not out.has(clip_name(c, {})):
 						out.append(clip_name(c, {}))
-	for c: StringName in COMPANIONS.values() + BLOCK_HIT.values():
+	for c: StringName in COMPANIONS.values() + BLOCK_HIT.values() + Swordsman.CLIPS:
 		if not out.has(c):
 			out.append(c)
 	return out
@@ -299,6 +299,9 @@ static func build(kind: StringName, own: Dictionary) -> Dictionary:
 					t["trail_window"][c] = Vector2(_v2(trails[0]).x, _v2(trails[trails.size() - 1]).y)
 	if t["guard"] != &"" and not t["looping"].has(t["guard"]):
 		t["looping"].append(t["guard"])
+	if kind == &"sword":
+		# one author and one design for the sword (Tariel): see Swordsman
+		Swordsman.apply(t)
 	return t
 
 

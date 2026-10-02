@@ -15,6 +15,7 @@ run_speed = 5.6
 walk_speed = 2.4
 dash_speed = 11.0
 dash_duration = 0.45
+dash_land_at = 0.7
 dodge_speed = 8.5
 dodge_duration = 0.7
 crit_chance = 0.05

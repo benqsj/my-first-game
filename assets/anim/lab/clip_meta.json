@@ -518,6 +518,12 @@
 			"length": 0.967,
 			"loop": false
 		},
+		"Sword_Aerial_Idle": {
+			"length": 1.067,
+			"loop": true,
+			"shield_turn": -95.0,
+			"slam": 0.492
+		},
 		"Sword_Block": {
 			"cuts": [
 				[
@@ -532,6 +538,27 @@
 				[
 					0.0,
 					0.093
+				]
+			]
+		},
+		"Sword_Dash": {
+			"cuts": [
+				[
+					0.168,
+					0.211
+				]
+			],
+			"length": 1.567,
+			"loop": false,
+			"peak": 92.59,
+			"trails": [
+				[
+					0.032,
+					0.063
+				],
+				[
+					0.158,
+					0.232
 				]
 			]
 		},

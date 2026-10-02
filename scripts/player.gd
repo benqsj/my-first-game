@@ -1201,8 +1201,9 @@ func _press_dash() -> void:
 	if state == State.DASHING or state == State.DODGING:
 		# The hunter has no double tap: his dodge comes of itself, sideways
 		# on a lock ([method _start_evade]).
-		if not alternating and doubled and state == State.DASHING and not _is_bow():
-			_upgrade_to_dodge()
+		# (a rig with no longer evade to turn it into takes the press as the
+		# next evade instead)
+		if not alternating and doubled and state == State.DASHING and not _is_bow() and _upgrade_to_dodge():
 			return
 		if not _evade_landed():
 			_evade_queued = true
@@ -1304,14 +1305,14 @@ func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = fa
 
 ## Turns the roll already under way into the longer, animated dodge, keeping the
 ## direction it was thrown in.
-func _upgrade_to_dodge() -> void:
+func _upgrade_to_dodge() -> bool:
 	if stamina <= 0.0:
-		return  # Nothing left to stretch the roll into a dodge with.
+		return false  # Nothing left to stretch the roll into a dodge with.
 	if profile != null and profile.step_then_flip:
 		# A flip goes the way he is going, whichever way he was facing.
 		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
 	if rig != null and not rig.dodge_clip(dodge_duration):
-		return  # No clip to upgrade to; the roll carries on as it is.
+		return false  # No clip to upgrade to; the roll carries on as it is.
 	_spend(profile.dodge_stamina if profile != null else 8.0)
 	state = State.DODGING
 	_dodge_timer = dodge_duration
@@ -1319,6 +1320,7 @@ func _upgrade_to_dodge() -> void:
 	is_invulnerable = dodge_iframes > 0.0
 	_safe_until = maxf(_safe_until, _now() + dodge_duration)
 	dodge_started.emit(_dash_direction)
+	return true
 
 
 ## Drives both evades. They differ in how long they last, how fast they travel

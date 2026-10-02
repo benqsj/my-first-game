@@ -6115,3 +6115,30 @@ until the user says otherwise.
   clip has it. stride_test checks the guarded walk (slides 0.23 m/s, the
   ankles 3 cm higher than walking, not lower).
 
+
+### Tariel's sword and shield: one author, one design (2026-10-02, later)
+- Everything Tariel does with the sword on the mannequin is UAL 2's, played
+  whole and near its own pace (`scripts/swordsman.gd`, laid over what
+  `Moveset.build` makes of the picks for the sword):
+  - the string is UAL 2's own chain, `Sword_Regular_A -> B -> C`, the same
+    every time (each blow ends in the pose the next starts in). No string or
+    clip of another pack is picked at random any more (`alts` emptied);
+    A and B left alone are brought back by their own `_Rec`;
+  - the evade is `Sword_Dash`: low and forward with the blade drawn across on
+    the way, a light cut (x0.6). At x1.3 its lunge and cut fill the 0.45 s
+    dash (travel stops at 0.7 of it, `dash_land_at`); the low hold and the
+    rising after it are its recovery, given up as soon as he moves off. There
+    is no longer evade to turn it into: a second press is the next evade
+    (`_upgrade_to_dodge()` now says whether it could);
+  - the jump attack is `Sword_GroundPound`, which starts in UAL 2's aerial
+    pose: in the air it plays to the blade over the head and holds it there;
+    landing, it plays on at x1.2 to its end, the blade into the ground. Only
+    the chop cuts.
+- Why: the deformation seen in the roll and the jump attack was the clips and
+  how they were played (the Mixamo roll squeezed into the dash at ~1.8x, the
+  jump attack played in pieces and held), not the mannequin: the old rig and
+  the figure on the mannequin showed the same poses. UAL 2's clips on Tariel
+  match the bare mannequin pose for pose.
+- `tests/swordsman_test.gd` (new): the string twice A, B, C; the evade cuts,
+  goes 1.5-4 m ahead, is let go when he moves off; the jump attack holds in
+  the air, plays on at near its pace landing, to its end.
