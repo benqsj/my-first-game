@@ -1,0 +1,373 @@
+{
+	"MOVING": {
+		"STANDING": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Idle01"
+			]
+		},
+		"WALK": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Walk01_Forward"
+			]
+		},
+		"RUN": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Run01_Forward"
+			]
+		},
+		"SPRINT": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Sprint01_Forward"
+			]
+		},
+		"RUN LEFT": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_StrafeRun01_Left"
+			]
+		},
+		"RUN BACK": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Run01_Backward"
+			]
+		},
+		"DODGE": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Dodge01"
+			],
+			"also": [
+				{
+					"column": "NOW (MIXAMO)",
+					"clips": [
+						"c:roll"
+					]
+				}
+			]
+		},
+		"JUMP": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"NinjaJump_Start",
+				"NinjaJump_Idle_Loop",
+				"NinjaJump_Land"
+			],
+			"also": [
+				{
+					"column": "NOW (MIXAMO)",
+					"clips": [
+						"c:air"
+					]
+				}
+			]
+		},
+		"CLIMB UP": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"ClimbUp_1m"
+			],
+			"also": [
+				{
+					"column": "NOW (MIXAMO)",
+					"clips": [
+						"c:mantle"
+					]
+				}
+			]
+		},
+		"HIT": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_CombatDamage01"
+			]
+		},
+		"DEATH": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Death01"
+			]
+		}
+	},
+	"SWORD AND SHIELD": {
+		"ON GUARD": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Idle_Shield_Loop"
+			],
+			"also": [
+				{
+					"column": "KEVIN IGLESIAS",
+					"clips": [
+						"KV_CombatIdle1H01"
+					]
+				}
+			]
+		},
+		"CUT 1": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Regular_A",
+				"Sword_Regular_A_Rec"
+			],
+			"also": [
+				{
+					"column": "KEVIN IGLESIAS",
+					"clips": [
+						"KV_Attack1H01_R"
+					]
+				}
+			]
+		},
+		"CUT 2": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Regular_B",
+				"Sword_Regular_B_Rec"
+			],
+			"also": [
+				{
+					"column": "KEVIN IGLESIAS",
+					"clips": [
+						"KV_Attack1H02_R"
+					]
+				}
+			]
+		},
+		"CUT 3": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Regular_C"
+			],
+			"also": [
+				{
+					"column": "KEVIN IGLESIAS",
+					"clips": [
+						"KV_Attack1H03_R"
+					]
+				}
+			]
+		},
+		"COMBO": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Regular_Combo"
+			],
+			"also": [
+				{
+					"column": "KEVIN IGLESIAS",
+					"clips": [
+						"KV_Attack1H01_R",
+						"KV_Attack1H02_R",
+						"KV_Attack1H03_R",
+						"KV_Attack1H04_R"
+					]
+				}
+			]
+		},
+		"HEAVY BLOW": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Heavy_Combo"
+			],
+			"also": [
+				{
+					"column": "KEVIN IGLESIAS",
+					"clips": [
+						"KV_Attack1H05_R"
+					]
+				}
+			]
+		},
+		"BLOCK": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_BlockShield01_Loop"
+			]
+		},
+		"BLOCK, HIT": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Idle_Shield_Break"
+			]
+		},
+		"SHIELD BASH": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_AttackShield01"
+			]
+		},
+		"SWORD DRAWN": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_UnsheatheHips01_R"
+			]
+		}
+	},
+	"TWO HANDS": {
+		"ON GUARD": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_CombatIdle2H01"
+			]
+		},
+		"CUT 1": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Attack2H01"
+			]
+		},
+		"CUT 2": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Attack2H02"
+			]
+		},
+		"CUT 3": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Attack2H03"
+			]
+		},
+		"CUT 4": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_Attack2H04"
+			],
+			"also": [
+				{
+					"column": "QUATERNIUS UAL 2",
+					"clips": [
+						"Sword_Heavy_D"
+					]
+				}
+			]
+		},
+		"PARRY": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Block"
+			]
+		},
+		"SLAM": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_GroundPound"
+			]
+		}
+	},
+	"TWO KNIVES": {
+		"ON GUARD": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_CombatIdle1H01"
+			]
+		},
+		"STAB 1": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Light_A",
+				"Sword_Light_A_Rec"
+			]
+		},
+		"STAB 2": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Light_B",
+				"Sword_Light_B_Rec"
+			]
+		},
+		"COMBO": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Light_Combo"
+			]
+		},
+		"PARRY": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Block"
+			]
+		},
+		"ONE KNIFE": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Sword_Light_C"
+			]
+		}
+	},
+	"BOW": {
+		"NOCK": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Bow_Notch"
+			]
+		},
+		"AIM": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Bow_Aim_Neutral"
+			]
+		},
+		"AIM HIGH": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Bow_Aim_Up"
+			]
+		},
+		"SHOOT": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Bow_Shoot"
+			]
+		},
+		"RAPID": {
+			"column": "QUATERNIUS UAL 2",
+			"clips": [
+				"Bow_RapidShoot_Loop"
+			]
+		}
+	},
+	"SPEAR (A STAFF FOR NOW)": {
+		"ON GUARD": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_CombatIdlePolearm01"
+			]
+		},
+		"THRUST 1": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_AttackPolearm01"
+			]
+		},
+		"THRUST 2": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_AttackPolearm02"
+			]
+		},
+		"SWEEP": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_AttackPolearm03"
+			]
+		},
+		"SPIN": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_AttackPolearm04"
+			]
+		},
+		"PARRY": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_ParryPolearm01_Loop"
+			]
+		}
+	}
+}

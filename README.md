@@ -5969,3 +5969,20 @@ the way the pack holds them, the shield on the forearm.
   The lab looks for both spellings.
 
 `assets/anim/lab/ual2_mannequin.glb` is UAL 2 Source's `UAL2.glb` as bought.
+
+### The user's picks (2026-10-02)
+
+The user's picks are in `assets/anim/lab/picks.json`: for each move, the main
+column, and under "also" the others kept beside it to vary the blows. The
+lab stars the main one.
+
+| Set | Picks |
+| --- | --- |
+| MOVING | Kevin: standing, walk, run, sprint, strafe, run back, hit, death. Dodge: Kevin, ours kept too. Jump and climb: UAL 2, ours kept too. |
+| SWORD AND SHIELD | Guard, the three cuts, combo and heavy blow: UAL 2, Kevin's kept too. Block: Kevin. Blocked hit: UAL 2. Shield bash and drawing the sword: Kevin. |
+| TWO HANDS | Guard and cuts 1-3: Kevin. Cut 4: both, Kevin and UAL 2's one-handed blow from above into the ground. Parry and slam: UAL 2. |
+| TWO KNIVES | Guard: Kevin. Every stab, combo, parry and the one knife: UAL 2, for its range of blows. |
+| BOW | UAL 2. |
+| SPEAR | Kevin, the only pack that has it. |
+
+Still to do: the shield sits wrong in the hand on the mannequin's figure.
