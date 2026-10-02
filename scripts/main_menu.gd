@@ -814,11 +814,10 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 		"cloth":
 			return range(1, PolysplitLook.CLOTHS + 1)
 		"top", "bottom":
-			var outfits: Array = [""]
-			outfits.append_array(PolysplitLook.classes(_chosen, g))
-			return outfits
+			# his own classes' clothes only; hats and arms are free
+			return PolysplitLook.classes(_chosen, g)
 		"extra":
-			return PolysplitLook.all_extras(g)
+			return PolysplitLook.extras(_chosen, g)
 		"hat":
 			var hats: Array = [""]
 			hats.append_array(PolysplitLook.HAT_ORDER)

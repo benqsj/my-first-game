@@ -5876,3 +5876,27 @@ still stands on it.
 A face index saved when a hero had more looks now falls back to his first
 look, not his last (`SkinnedRig.set_face()`). Without this, Avtandil and the
 assassin would have come up in YOUR OWN.
+
+### Every hero his own clothes; hats and arms free (2026-10-02, later)
+
+The maker now offers a hero **only his own classes**
+(`PolysplitLook.HERO_CLASSES`). His top, legs and MORE come from those
+classes alone, so a swordsman no longer wears the rogue's legs.
+`normalized()` mends any other class's clothes on a saved or sent look back
+to his own.
+
+Hats are free for everyone. So are the arms: any blade the hero's figure has
+a bone for.
+
+| Hero | Sword hand | Other hand |
+| --- | --- | --- |
+| Tariel | arming sword, broad sword, great sword, dagger | his shield, round shield, none |
+| the warrior | great sword, the two swords, dagger | — |
+| the assassin | dagger, the two swords | dagger, none |
+| the mage | the two swords, great sword, dagger | staff, crooked staff, dagger, none |
+| Avtandil | his own bow, the hunter's bow | — |
+
+Every hero still starts with his class's own weapon.
+
+The idea of clothes that fit whoever picks them up, and of weapons dropped
+by bosses, is noted in `CHARACTER_CREATOR.md` §8.

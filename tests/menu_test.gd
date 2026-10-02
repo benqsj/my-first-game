@@ -151,23 +151,25 @@ func _check_menu() -> void:
 	menu.call("_maker_step", "cls", 1)
 	await _wait(2)
 	var made := knight.get_look()
-	var spec: Dictionary = PolysplitLook.CLASSES["m"][made["cls"]]
+	var spec: Dictionary = PolysplitLook.CLASSES[made["g"]][made["cls"]]
 	_check("a class dresses him in its clothes, hat and arms", String(made["cls"]) != cls_was
 			and made["top"] == made["cls"] and made["hat"] == spec["hat"]
 			and knight._figure != null and knight._figure.visible,
-			"%s -> %s" % [cls_was, made["cls"]])
+			"%s -> %s: %s, figure %s" % [cls_was, made["cls"], made, knight._figure])
 	_check("and it is remembered", String(_game.look(&"tariel").get("cls", "")) == String(made["cls"]))
+	var g_was := String(made["g"])
 	menu.call("_maker_step", "g", 1)
 	await _wait(2)
-	_check("the body: a woman, on a figure of her own", knight.get_look()["g"] == "f"
-			and knight._figure == knight._figs[&"psf"]["node"])
+	var g_now := String(knight.get_look()["g"])
+	_check("the body changed, on a figure of its own", g_now != g_was
+			and knight._figure == knight._figs[StringName("ps" + g_now)]["node"], "%s -> %s" % [g_was, g_now])
 	var tabs_rows := 0
 	menu.call("_maker_show", "FACE")
 	for kind: String in (menu.get("_maker_rows") as Dictionary):
 		var row := (menu.get("_maker_rows") as Dictionary)[kind] as Control
 		tabs_rows += 1 if row.visible else 0
 	_check("a tab shows its own rows (FACE: six)", tabs_rows == 6, "%d" % tabs_rows)
-	knight.set_face(face_from)
+	knight.set_face(0)
 	menu.call("_refresh_picks")
 	await _wait(1)
 	_check("another look puts the dossier back", dossier.visible and not maker.visible)

@@ -60,7 +60,8 @@ const CLASS_NAMES := {
 	"swordsman": "SWORDSMAN", "fighter": "FIGHTER", "knight": "KNIGHT", "archer": "ARCHER", "hunter": "HUNTER",
 	"rogue": "ROGUE", "mage": "MAGE", "sorcerer": "SORCERER", "warlock": "WARLOCK", "witch": "WITCH",
 }
-## Each hero's own classes, offered first (the rest follow in the pack's order).
+## Each hero's own classes: the only ones he is offered (2026-10-02, the
+## user's word: every hero his own body and clothes; hats and arms are free).
 const HERO_CLASSES := {
 	&"tariel": ["swordsman", "fighter", "knight"],
 	&"warrior": ["knight"],
@@ -97,18 +98,20 @@ const HATS := {
 const HAT_ORDER := ["skullcap", "headband", "kettle", "leathercoif", "greathelm", "armet", "tyrolean", "bycocket",
 		"felted", "beret", "eyepatch", "facemask", "circlet", "hood", "magehat_a", "magehat_b", "bishop", "witchhat"]
 
-## What each hero can hold: "w" the sword hand, "o" the other. An id is a
+## What each hero can hold: "w" the sword hand, "o" the other — any of the
+## pack's arms his figure has a bone for (Avtandil has only his bow's), his
+## class's first. An id is a
 ## figure mesh "ps_w_<id>" / "ps_o_<id>", but for "his_shield" (the hero's
 ## own, the one his bag says he carries: "ps_shield" / "ps_tower_shield"),
 ## "own_bow" (Avtandil's own, which bends: "ps_arm_bow") and "none". The mage
 ## holds a sword (2026-10-02, the user's word), a staff in the other hand if
 ## he will.
 const ARMS := {
-	&"tariel": {"w": ["sword_a", "sword_b"], "o": ["his_shield", "shield", "none"]},
-	&"warrior": {"w": ["greatsword", "sword_a", "sword_b"], "o": ["none"]},
-	&"rogue": {"w": ["dagger"], "o": ["dagger", "none"]},
+	&"tariel": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["his_shield", "shield", "none"]},
+	&"warrior": {"w": ["greatsword", "sword_a", "sword_b", "dagger"], "o": ["none"]},
+	&"rogue": {"w": ["dagger", "sword_a", "sword_b"], "o": ["dagger", "none"]},
 	&"avtandil": {"w": ["own_bow", "bow"], "o": ["none"]},
-	&"mage": {"w": ["sword_a", "sword_b"], "o": ["staff_a", "staff_b", "none"]},
+	&"mage": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["staff_a", "staff_b", "dagger", "none"]},
 }
 const ARM_NAMES := {
 	"sword_a": "ARMING SWORD", "sword_b": "BROAD SWORD", "greatsword": "GREAT SWORD", "dagger": "DAGGER",
@@ -135,16 +138,25 @@ static func extra_name(id: String) -> String:
 	return "%s'S %s" % [CLASS_NAMES.get(cls, cls.to_upper()), EXTRA_NAMES.get(part, part.to_upper())]
 
 
-## The classes `hero` is offered for gender `g`, his own first.
+## The classes `hero` is offered for gender `g`: his own, those the pack has
+## for her (or him). One at least: the pack's first, for a hero with none.
 static func classes(hero: StringName, g: String) -> Array[String]:
 	var out: Array[String] = []
 	var have: Dictionary = CLASSES.get(g, {})
 	for c: String in HERO_CLASSES.get(hero, []):
 		if have.has(c):
 			out.append(c)
-	for c: String in CLASS_ORDER:
-		if have.has(c) and not out.has(c):
-			out.append(c)
+	if out.is_empty():
+		out.append(CLASS_ORDER[0])
+	return out
+
+
+## The extras `hero` may wear in gender `g`: those of his own classes.
+static func extras(hero: StringName, g: String) -> Array[String]:
+	var out: Array[String] = []
+	for c in classes(hero, g):
+		for x: String in CLASSES[g][c]["extras"]:
+			out.append(x)
 	return out
 
 
@@ -202,19 +214,19 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	for key: String in look:
 		out[key] = look[key]
 	out["g"] = g
-	var have: Dictionary = CLASSES[g]
-	if not have.has(String(out["cls"])):
-		out = dress(out, hero, classes(hero, g)[0])
+	var own := classes(hero, g)
+	if not own.has(String(out["cls"])):
+		out = dress(out, hero, own[0])
 	for key: String in ["top", "bottom"]:
-		if String(out[key]) != "" and not have.has(String(out[key])):
+		if not own.has(String(out[key])):
 			out[key] = out["cls"]
-	var extras: Array = []
-	var known := all_extras(g)
+	var worn: Array = []
+	var known := extras(hero, g)
 	var given: Array = out["extras"] if out["extras"] is Array else []
 	for x: Variant in given:
-		if known.has(String(x)) and not extras.has(String(x)):
-			extras.append(String(x))
-	out["extras"] = extras
+		if known.has(String(x)) and not worn.has(String(x)):
+			worn.append(String(x))
+	out["extras"] = worn
 	if String(out["hat"]) != "" and not HATS.has(String(out["hat"])):
 		out["hat"] = ""
 	for key: String in ["eyes", "brows", "mouth"]:

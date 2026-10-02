@@ -148,6 +148,25 @@ func _run() -> void:
 			if path.ends_with("body_5.png") or path.ends_with("objects_9.png"):
 				dyed += 1
 		_check("%s: dyed (skin 5, cloth 9)" % hero, dyed == mats.size() and dyed >= 2, "%d of %d" % [dyed, mats.size()])
+		# His own body and clothes only: another class's top, legs or cape
+		# give way to his class's (hats and arms are free).
+		var g_now := String(rig.get_look()["g"])
+		var mine := PolysplitLook.classes(hero, g_now)
+		var other := ""
+		for c: String in PolysplitLook.CLASSES[g_now]:
+			if not mine.has(c):
+				other = c
+				break
+		var foreign := rig.get_look()
+		foreign["cls"] = other
+		foreign["top"] = other
+		foreign["bottom"] = other
+		foreign["extras"] = (PolysplitLook.CLASSES[g_now][other]["extras"] as Array).duplicate()
+		var mended := PolysplitLook.normalized(foreign, hero)
+		_check("%s: no %s's clothes on him" % [hero, other], mine.has(String(mended["cls"]))
+				and mine.has(String(mended["top"])) and mine.has(String(mended["bottom"]))
+				and (mended["extras"] as Array).all(func(x: Variant) -> bool:
+					return PolysplitLook.extras(hero, g_now).has(String(x))), str(mended))
 		# A look given whole on the wire comes back the same.
 		var back := PolysplitLook.from_wire(PolysplitLook.to_wire(rig.get_look()))
 		_check("%s: the look over the wire" % hero,
