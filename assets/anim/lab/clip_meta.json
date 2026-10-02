@@ -364,6 +364,11 @@
 			"loop": false
 		},
 		"KV_Dodge01": {
+			"hop": [
+				-0.03,
+				-0.53
+			],
+			"hop_peak": 0.4,
 			"length": 1.067,
 			"loop": false
 		},
@@ -431,37 +436,37 @@
 			"loop": true
 		},
 		"KV_Run01_Backward": {
-			"ground_speed": 4.58,
+			"ground_speed": 4.7,
 			"length": 0.6,
 			"loop": true
 		},
 		"KV_Run01_Forward": {
-			"ground_speed": 3.82,
+			"ground_speed": 4.97,
 			"length": 0.6,
 			"loop": true
 		},
 		"KV_Sprint01_Forward": {
-			"ground_speed": 4.43,
+			"ground_speed": 7.34,
 			"length": 0.533,
 			"loop": true
 		},
 		"KV_StrafeRun01_Left": {
-			"ground_speed": 1.32,
+			"ground_speed": 4.64,
 			"length": 0.6,
 			"loop": true
 		},
 		"KV_StrafeRun01_Right": {
-			"ground_speed": 1.43,
+			"ground_speed": 4.57,
 			"length": 0.6,
 			"loop": true
 		},
 		"KV_StrafeWalk01_Left": {
-			"ground_speed": 2.04,
+			"ground_speed": 2.26,
 			"length": 0.8,
 			"loop": true
 		},
 		"KV_StrafeWalk01_Right": {
-			"ground_speed": 2.3,
+			"ground_speed": 2.36,
 			"length": 0.8,
 			"loop": true
 		},
@@ -492,12 +497,12 @@
 			]
 		},
 		"KV_Walk01_Backward": {
-			"ground_speed": 2.14,
+			"ground_speed": 2.32,
 			"length": 0.8,
 			"loop": true
 		},
 		"KV_Walk01_Forward": {
-			"ground_speed": 2.08,
+			"ground_speed": 2.31,
 			"length": 0.8,
 			"loop": true
 		},

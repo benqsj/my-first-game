@@ -6082,3 +6082,22 @@ until the user says otherwise.
   sideways from the loose hand. The guard is held for 4 s after a fight.
 - The mage's attack button charges and casts (the bow's interface): his
   sword moves are in his tables but nothing throws them yet.
+
+### Tariel's run and evade, set right (2026-10-02, later)
+- The run played was Kevin's sprint: it took over past halfway from the run's
+  pace to the sprint's, and the controller has no sprint gear, so at his run
+  (5.6 m/s) he always sprinted, legs flung wide. The sprint now plays only
+  past the hero's own `run_speed` (x1.1).
+- Kevin's DODGE is a hop back that comes back (hips 0.53 m behind at 0.4 of
+  it, then home); the dash turns the body to the way it goes, so on the run he
+  hopped back while the body went forward, and slid. `_mq_roll()`: the hop is
+  played (to its farthest, `hop_peak`) only when the dash goes the way it hops;
+  any other way the pick's "also", the hero's own roll.
+- Paces: measured as a foot's speed while down flat (the lower foot frame by
+  frame read a run as 3.4 m/s for 4.9). In the game the feet still slid at
+  that pace; at 0.833 of it they stand, the same for every hero tried
+  (`Moveset.PACE_FIX`). The walk changes to the run halfway between their
+  paces on the mannequin.
+- `tests/stride_test.gd -- <hero>` (new): in the world, the game's inputs,
+  the foot down flat must slide under 0.45 m/s walking and running, and the
+  evade on the run must go ahead. All five pass (0.15-0.44 m/s).

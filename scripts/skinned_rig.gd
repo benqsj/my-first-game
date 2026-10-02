@@ -1085,9 +1085,10 @@ func _direction_clip(planar: float) -> StringName:
 		return clips[&"run_left"] if run else clips[&"walk_left"]
 	if fwd < 0.0:
 		return clips[&"run_back"] if run else clips[&"walk_back"]
-	# the picked sprint, past halfway from the run's pace to its own
-	if _on_mq and run and clips.has(&"sprint") and planar > 0.5 * (float(ground_speed.get(clips[&"run"], 4.0))
-			+ float(ground_speed.get(clips[&"sprint"], 6.0))):
+	# the picked sprint only past his own run (the controller has no sprint of
+	# its own: at his run's pace Kevin's sprint was his run, legs flung wide)
+	if _on_mq and run and clips.has(&"sprint") and _body != null and _body.get(&"run_speed") != null \
+			and planar > float(_body.get(&"run_speed")) * 1.1:
 		return clips[&"sprint"]
 	return clips[&"run"] if run else clips[&"walk"]
 
@@ -1457,7 +1458,7 @@ func dodge(duration: float) -> void:
 	# The roll part of the clip, fitted to the dash so the tumble and the
 	# movement finish together; what is left of the clip is the run-out, which
 	# the locomotion picks up instead.
-	var roll := _alt(clips[&"roll"])
+	var roll: StringName = _mq_roll() if _on_mq else clips[&"roll"]
 	var share := roll_share
 	if _on_mq:
 		share = float((moves.get("roll_share", {}) as Dictionary).get(roll, roll_share))
@@ -1466,7 +1467,7 @@ func dodge(duration: float) -> void:
 
 
 func dodge_clip(duration: float) -> bool:
-	var roll := _alt(clips[&"roll"])
+	var roll: StringName = _mq_roll() if _on_mq else clips[&"roll"]
 	var length := _anim.get_animation(roll).length if _anim.has_animation(roll) else 0.0
 	if length <= 0.0:
 		return false
@@ -1958,7 +1959,7 @@ func _tables() -> Dictionary:
 			"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(), "heavy": heavy.duplicate(true),
 			"cut_window": cut_window.duplicate(), "cut_windows": cut_windows.duplicate(true),
 			"trail_window": trail_window.duplicate(), "carried": carried.duplicate(),
-			"flurry_reset_after": flurry_reset_after, "swing_rate": swing_rate}
+			"flurry_reset_after": flurry_reset_after, "swing_rate": swing_rate, "run_threshold": run_threshold}
 
 
 func _set_tables(t: Dictionary) -> void:
@@ -1974,6 +1975,7 @@ func _set_tables(t: Dictionary) -> void:
 	carried = (t["carried"] as Dictionary).duplicate()
 	flurry_reset_after = float(t["flurry_reset_after"])
 	swing_rate = float(t["swing_rate"])
+	run_threshold = float(t["run_threshold"])
 
 
 ## Loads the mannequin beside the model, its mesh hidden, its player given
@@ -2122,6 +2124,12 @@ func _wear_moves() -> void:
 	# the picked blows were made at the game's pace (UAL 2's) or near it
 	# (Kevin's): not hurried as the Mixamo ones were
 	swing_rate = MQ_SWING_RATE
+	# from the walk to the run halfway between their paces, each played as
+	# near its own pace as it can be
+	var walk_pace := float(ground_speed.get(clips[&"walk"], 0.0))
+	var run_pace := float(ground_speed.get(clips[&"run"], 0.0))
+	if walk_pace > 0.0 and run_pace > walk_pace:
+		run_threshold = 0.5 * (walk_pace + run_pace)
 	shield_turn_default = float((moves["shield_turn"] as Dictionary).get(moves["guard"], SHIELD_BUILT_TURN))
 	_hilt_ends.clear()
 	_flurry_slot = -1
@@ -2143,6 +2151,30 @@ func _alt(clip: StringName) -> StringName:
 		return clip
 	var other: Variant = others[i - 1]
 	return other if other is StringName and _anim.has_animation(other) else clip
+
+
+## The evade on the mannequin, by the way the dash goes as the body sees it:
+## Kevin's dodge is a hop that goes out one way and comes back (its "hop",
+## measured), so it is played only when the dash goes that way; any other
+## way (ahead, as a dash mostly is: the body turns to it) it is the hero's
+## own roll, the pick's "also".
+func _mq_roll() -> StringName:
+	var main: StringName = clips[&"roll"]
+	var others: Array = (moves.get("alts", {}) as Dictionary).get(main, [])
+	var hop: Array = Moveset.clip_meta(main).get("hop", [])
+	if hop.is_empty() or others.is_empty():
+		return _alt(main)
+	var way := Vector3(float(hop[0]), 0.0, float(hop[1]))
+	var dash: Variant = _body.get(&"_dash_direction") if _body != null else null
+	var along := 0.0
+	if dash is Vector3 and (dash as Vector3).length() > 0.1 and way.length() > 0.05:
+		# the clip's +z is the way he faces; the body's is its -z
+		var local := _body.global_basis.inverse() * (dash as Vector3)
+		along = Vector3(local.x, 0.0, -local.z).normalized().dot(way.normalized())
+	if along > 0.5:
+		return main
+	var own: Variant = others[0]
+	return own if own is StringName and _anim.has_animation(own) else main
 
 
 ## A blow thrown or taken, a guard raised: on guard for `EASE_AFTER`.

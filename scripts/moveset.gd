@@ -42,6 +42,11 @@ const BLOCK_HIT := {
 ## (seconds), so one runs into the next.
 const LEAD := 0.28
 const FOLLOW := 0.32
+## The measured paces against what stands the feet in the game: played at
+## its measured pace a cycle's feet slid forward (0.9-1.1 m/s at a run); at
+## this share of it they stand (0.15-0.36 m/s), the same for Tariel (x1.2),
+## the warrior and the assassin (tests/stride_test.gd, 2026-10-02).
+const PACE_FIX := 0.833
 ## A clip with more than one cut in it, as more than one blow of a string:
 ## each part is the clip under "<clip>#<n>" (the same Animation).
 const PART_MARK := "#"
@@ -203,7 +208,10 @@ static func build(kind: StringName, own: Dictionary) -> Dictionary:
 		clips[&"air"] = jump["main"][0]
 	for alt: Array in jump["alts"]:
 		t["alts"][clips.get(&"air", &"")] = [alt[0]]
-	t["roll_share"][clips.get(&"roll", &"")] = 0.86
+	# a dodge that hops out and back is played to where it is farthest out
+	var roll_clip: StringName = clips.get(&"roll", &"")
+	t["roll_share"][roll_clip] = float(clip_meta(roll_clip).get("hop_peak", 0.86)) \
+			if clip_meta(roll_clip).has("hop_peak") else 0.86
 	# the arms
 	var set_key := kind
 	if set_key == &"sword" or set_key == &"two_hands" or set_key == &"knives" or set_key == &"spear":
@@ -269,7 +277,7 @@ static func build(kind: StringName, own: Dictionary) -> Dictionary:
 		if m.is_empty():
 			continue
 		if m.has("ground_speed"):
-			t["ground_speed"][c] = float(m["ground_speed"])
+			t["ground_speed"][c] = float(m["ground_speed"]) * PACE_FIX
 		if bool(m.get("loop", false)) and not t["looping"].has(c):
 			t["looping"].append(c)
 		if m.has("shield_turn"):
