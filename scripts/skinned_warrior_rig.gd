@@ -225,7 +225,8 @@ func attack(style: int = -1) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	var fresh := _flurry_slot < 0 or _flurry_slot >= flurry.size() - 1 \
 			or (flurry_reset_after > 0.0 and now - _last_attack_at > flurry_reset_after)
-	if fresh and style < HEAVY:
+	# (on the mannequin the strings are the picked ones, see SkinnedRig)
+	if fresh and style < HEAVY and not _on_mq:
 		var body := _body as CharacterBody3D
 		var moving := body != null and Vector2(body.velocity.x, body.velocity.z).length() > 1.2
 		flurry.assign(string_moving if moving else string_still)
@@ -239,7 +240,9 @@ func flinch() -> void:
 
 
 func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blocking: bool) -> void:
-	if not airborne and not blocking and not _crouching and not _wall_climbing and not in_fight():
+	# (on the mannequin the sword is not laid on his shoulder: his REST clips
+	# hold his own great sword, not the figure's; the picked stance is used)
+	if not _on_mq and not airborne and not blocking and not _crouching and not _wall_climbing and not in_fight():
 		if planar < idle_threshold:
 			_set_base(REST, 0.3, 1.0)
 			return

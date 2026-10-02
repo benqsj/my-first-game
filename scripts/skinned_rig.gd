@@ -357,6 +357,59 @@ var _figure_mount: BoneAttachment3D
 var _rig_mount: BoneAttachment3D
 var _rig_mount_l: Node3D
 
+## YOUR OWN is worn on Quaternius' UAL 2 mannequin, the UE skeleton (three
+## spine bones, every finger), and fights with the clips the user picked in
+## the animation lab ([Moveset], ANIMATION_MIGRATION.md): the mannequin is
+## loaded beside the model the first time YOUR OWN is worn, its own mesh
+## hidden, and while it is worn it is this rig's skeleton and player — the
+## model's is still and hidden. The hero's own clips come with it, carried
+## onto the mannequin (`HERO_LIB`), for whatever the picks leave out; the
+## figure is the maker's built on the mannequin's limbs (`MANNEQUIN_FIGURE`).
+## The looks AS HE WAS and the rest stay on the hero's own rig and clips.
+## False: YOUR OWN on the hero's own rig, as before the migration.
+var maker_on_mannequin: bool = true
+const MANNEQUIN_SCENE := "res://assets/anim/lab/ual2_mannequin.glb"
+const KEVIN_LIB := "res://assets/anim/lab/kevin_lib.res"
+const HERO_LIB := "res://assets/anim/heroes/%s_mannequin.res"
+const MANNEQUIN_FIGURE := "res://assets/polysplit/mannequin_%s.glb"
+## Clips another hero's library lends this one on the mannequin (clip ->
+## hero): the mage's spell is Tariel's.
+var mq_borrow: Dictionary = {}
+## The shield's face about the left forearm (degrees from up towards ahead,
+## in the T-pose) as the maker's figure is built (vepxis-art ps_creator.py
+## THETA0), and where it is turned to for a clip the moves do not name.
+const SHIELD_BUILT_TURN := 18.6
+var shield_turn_default: float = 0.0
+## The picked blows' pace (see `swing_rate`).
+const MQ_SWING_RATE := 1.1
+## How fast the shield goes round onto a clip's way (degrees a second).
+const SHIELD_TURN_RATE := 540.0
+## Seconds without a blow, a hit or a guard after which he stands easy (the
+## lab's STANDING) rather than on guard.
+const EASE_AFTER := 4.0
+## The moves worn on the mannequin ([method Moveset.build]); empty off it.
+var moves: Dictionary = {}
+var _on_mq: bool = false
+## {"node", "skel", "anim", "stride", "strike"} once built.
+var _mq: Dictionary = {}
+## The model's own skeleton, player and modifiers while the mannequin is worn.
+var _own: Dictionary = {}
+## The rig's own tables as `_configure()` left them (see `_tables()`).
+var _own_tables: Dictionary = {}
+var _strings: Array = []
+var _fight_till: float = -100.0
+var _guard_clip: StringName = &""
+var _air_was: bool = false
+var _air_t: float = 0.0
+var _air_clip: StringName = &""
+var _air_rising: bool = false
+## A clip that only brings him back (a blow's recovery, the landing): moving
+## off lets go of it.
+var _recovering: bool = false
+var _shield_turn_now: float = NAN
+## The two-handed weapon's ends in the figure's hand (see `_hilt()`).
+var _hilt_ends: Array[Vector3] = []
+
 
 func _ready() -> void:
 	_attack_rng.randomize()
@@ -371,6 +424,7 @@ func _ready() -> void:
 		_add_maker()
 	_own_moves = {"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(),
 			"heavy": heavy.duplicate(true)}
+	_own_tables = _tables()
 	for n in looping:
 		if _anim.has_animation(n):
 			_anim.get_animation(n).loop_mode = Animation.LOOP_LINEAR
@@ -860,13 +914,23 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 				slammed.emit(at, cut_weight)
 		# A swing that has done its work gives the body back as soon as the
 		# player moves off; standing still, it plays out its follow-through.
-		var released := _role == Role.SWING and not _air_cut and _swing_commit <= 0.0 and planar_speed > idle_threshold
+		# (and a clip that only brings him back, as soon as he moves off)
+		var released := ((_role == Role.SWING and not _air_cut and _swing_commit <= 0.0)
+				or (_role == Role.FREE and _recovering)) and planar_speed > idle_threshold
 		if _role == Role.DOWN:
 			pass  # held until get_up() or leave_ground()
 		elif _air_cut and _action_left <= 0.0 and airborne:
 			_anim.speed_scale = 0.0  # the chop, held until the ground arrives
 		elif _action_left <= 0.0 or released:
+			# A blow of the picked moves with a recovery of its own (UAL 2's
+			# "_Rec"): played after it, if nothing follows and he stands.
+			var after: StringName = &""
+			if _on_mq and _role == Role.SWING and not released and not _heavy_now:
+				after = (moves.get("recover", {}) as Dictionary).get(_act_clip, &"")
 			_end_action()
+			if after != &"" and planar_speed <= idle_threshold and not airborne and _anim.has_animation(after):
+				_play_action(after, Role.FREE, 1.15, 0.08)
+				_recovering = true
 	else:
 		_attack_cutting = false
 	# A clip whose own travel carries him: what its root moved by last frame,
@@ -890,6 +954,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			arc.sheet = minf(float(_arc_base["sheet"]) * boost, 1.0)
 			arc.restyle()
 
+	if _on_mq:
+		_mq_tick(delta, planar_speed, airborne, vertical_speed, blocking)
 	if _role == Role.NONE:
 		_pick_base(planar_speed, airborne, dashing, vertical_speed, blocking)
 	_update_stride(delta, planar_speed, airborne)
@@ -941,8 +1007,10 @@ func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 		return
 	# A blow whose own clip carries him (a spin, a leap) has its own feet: a run
 	# laid under a body turning round on them is a man running on the spot.
+	# (and on the mannequin, under the guard held up: the picked block is a
+	# standing one, the legs walk under it)
 	var under := (swing_strides and _role == Role.SWING and not _air_cut and not carried.has(_act_clip)) \
-			or (_role == Role.FREE and walk_under)
+			or (_role == Role.FREE and walk_under) or (_on_mq and _role == Role.NONE and _blocking_now)
 	# Only under a swing that is really going somewhere: at a swing's own pace
 	# (a man stepping into his cut) the clip's feet are his, and a walk laid
 	# under them is legs shuffling on the spot under a body that is cutting.
@@ -967,6 +1035,8 @@ func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 
 
 func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, blocking: bool) -> void:
+	if _on_mq and _mq_base(planar, airborne, blocking):
+		return
 	if airborne:
 		_set_base(clips[&"air"], loco_blend, 0.8)
 		return
@@ -1015,6 +1085,10 @@ func _direction_clip(planar: float) -> StringName:
 		return clips[&"run_left"] if run else clips[&"walk_left"]
 	if fwd < 0.0:
 		return clips[&"run_back"] if run else clips[&"walk_back"]
+	# the picked sprint, past halfway from the run's pace to its own
+	if _on_mq and run and clips.has(&"sprint") and planar > 0.5 * (float(ground_speed.get(clips[&"run"], 4.0))
+			+ float(ground_speed.get(clips[&"sprint"], 6.0))):
+		return clips[&"sprint"]
 	return clips[&"run"] if run else clips[&"walk"]
 
 
@@ -1057,6 +1131,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 		return false
 	var length := _anim.get_animation(clip).length
 	_role = role
+	_recovering = false
 	_act_clip = clip
 	_action_len = length
 	_action_rate = maxf(rate, 0.01)
@@ -1085,6 +1160,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 func _end_action() -> void:
 	_air_cut = false
 	walk_under = false
+	_recovering = false
 	_role = Role.NONE
 	_act_clip = &""
 	_attack_cutting = false
@@ -1184,8 +1260,16 @@ func attack(style: int = -1) -> void:
 			_swing_commit = swing_time()
 			_whoosh()
 		return
+	if _on_mq:
+		_rouse()
 	if style >= HEAVY and style - HEAVY < heavy.size():
 		var h: Dictionary = heavy[style - HEAVY]
+		if _on_mq:
+			# the pick's "also" played at random in its place
+			var others: Array = (moves.get("alts", {}) as Dictionary).get(StringName("heavy:%d" % (style - HEAVY)), [])
+			var i := randi() % (others.size() + 1)
+			if i > 0 and _anim.has_animation((others[i - 1] as Dictionary)["clip"]):
+				h = others[i - 1]
 		_attack_style = AttackStyle.THRUST
 		# A heavy blow ends the string: the next click starts it again.
 		_flurry_slot = -1
@@ -1208,6 +1292,10 @@ func attack(style: int = -1) -> void:
 		# A combo left alone for a while starts again from its first cut.
 		var now := Time.get_ticks_msec() / 1000.0
 		if flurry_reset_after > 0.0 and now - _last_attack_at > flurry_reset_after:
+			_flurry_slot = -1
+		if _on_mq and _strings.size() > 1 and (_flurry_slot < 0 or _flurry_slot >= flurry.size() - 1):
+			# a new string: one of the picked ones, at random
+			flurry.assign(_strings[randi() % _strings.size()])
 			_flurry_slot = -1
 		_last_attack_at = now
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
@@ -1369,15 +1457,20 @@ func dodge(duration: float) -> void:
 	# The roll part of the clip, fitted to the dash so the tumble and the
 	# movement finish together; what is left of the clip is the run-out, which
 	# the locomotion picks up instead.
-	var length := _anim.get_animation(clips[&"roll"]).length if _anim.has_animation(clips[&"roll"]) else 1.0
-	_play_action(clips[&"roll"], Role.ROLL, length * roll_share / maxf(duration, 0.05), 0.05, 0.0, roll_share)
+	var roll := _alt(clips[&"roll"])
+	var share := roll_share
+	if _on_mq:
+		share = float((moves.get("roll_share", {}) as Dictionary).get(roll, roll_share))
+	var length := _anim.get_animation(roll).length if _anim.has_animation(roll) else 1.0
+	_play_action(roll, Role.ROLL, length * share / maxf(duration, 0.05), 0.05, 0.0, share)
 
 
 func dodge_clip(duration: float) -> bool:
-	var length := _anim.get_animation(clips[&"roll"]).length if _anim.has_animation(clips[&"roll"]) else 0.0
+	var roll := _alt(clips[&"roll"])
+	var length := _anim.get_animation(roll).length if _anim.has_animation(roll) else 0.0
 	if length <= 0.0:
 		return false
-	return _play_action(clips[&"roll"], Role.ROLL, length / maxf(duration, 0.05), 0.06)
+	return _play_action(roll, Role.ROLL, length / maxf(duration, 0.05), 0.06)
 
 
 func hit() -> void:
@@ -1385,6 +1478,8 @@ func hit() -> void:
 
 
 func flinch() -> void:
+	if _on_mq:
+		_rouse()
 	if _role == Role.SWING or _role == Role.DOWN:
 		return
 	_play_action(clips[&"hit_blocked"] if _blocking_now else clips[&"hit"], Role.HIT, 1.3, 0.05)
@@ -1395,6 +1490,8 @@ func flinch() -> void:
 func parry() -> void:
 	if _role == Role.DOWN or _role == Role.GET_UP:
 		return
+	if _on_mq:
+		_rouse()
 	if clips.has(&"parry") and _anim.has_animation(clips[&"parry"]):
 		_play_action(clips[&"parry"], Role.HIT, 1.5, 0.03)
 	else:
@@ -1482,6 +1579,10 @@ func set_face(index: int) -> void:
 ## Fights as the face that is on does (see `face_moves`), or as the rig does.
 func _apply_moves() -> void:
 	if _own_moves.is_empty():
+		return
+	if _on_mq:
+		_wear_moves()
+		_off_hand_on = PolysplitLook.BLADES.has(String(ps_look.get("o", "")))
 		return
 	var m: Dictionary = face_moves.get(faces[face], {}) if face < faces.size() else {}
 	flurry.assign(m.get("flurry", _own_moves["flurry"]))
@@ -1633,6 +1734,8 @@ func _load_figure(id: StringName) -> bool:
 		skel.add_child(mount_l)
 		mount_l.bone_name = "weapon_l"
 	follow.followed.connect(_on_figure_followed.bind(id))
+	follow.followed.connect(_turn_shield.bind(id))
+	follow.followed.connect(_hilt.bind(id))
 	_figs[id] = {"node": node, "skel": skel, "follow": follow, "mount": mount, "mount_l": mount_l}
 	return true
 
@@ -1645,13 +1748,16 @@ func _show_figure() -> void:
 		return
 	var look: Dictionary = figure_faces.get(faces[face], {}) if wearing_figure() else {}
 	var custom: bool = look.get("custom", false)
+	# YOUR OWN on the mannequin, every other look on the model's own skeleton
+	_use_mannequin(custom and maker_on_mannequin)
 	if custom:
 		look["figure"] = &"psf" if String(ps_look.get("g", "m")) == "f" else &"psm"
 	var worn: StringName = look.get("figure", &"")
 	if worn != &"" and not _figs.has(worn) and not _load_figure(worn):
 		push_warning("SkinnedRig: the figure %s is missing." % worn)
 		worn = &""
-	_hide_own(custom and worn != &"")
+	# (on the mannequin the model is hidden whole, see `_use_mannequin()`)
+	_hide_own(custom and worn != &"" and not _on_mq)
 	_figure = null
 	_figure_skel = null
 	_figure_mount = null
@@ -1670,6 +1776,12 @@ func _show_figure() -> void:
 		if custom:
 			PolysplitLook.apply(node, ps_look)
 			shows = []
+			if _on_mq and String(ps_look.get("w", "")) == "own_bow":
+				# the mannequin's figure has the pack's bow only (his own
+				# bends on bones of his rig's)
+				var bow := node.find_child("ps_w_bow", true, false) as MeshInstance3D
+				if bow != null:
+					bow.visible = true
 		var listed: Array[Node] = []
 		if not custom:
 			listed = node.find_children("*", "MeshInstance3D", true, false)
@@ -1715,17 +1827,27 @@ func _fit_blades(custom: bool) -> void:
 		return
 	var w := String(ps_look.get("w", ""))
 	if PolysplitLook.BLADES.has(w):
-		var reach := _reach(_figure.find_child("ps_w_" + w, true, false) as MeshInstance3D, &"weapon_r",
-				_blade_at[1].normalized())
+		var mesh := _figure.find_child("ps_w_" + w, true, false) as MeshInstance3D
+		# the blade's way in the hand: the rig's own, or on the mannequin's
+		# figure (whose hand bones are the mannequin's) the blade's own
+		var along := _blade_at[1].normalized()
+		if _on_mq:
+			along = _far(mesh, &"weapon_r").normalized()
+		var reach := _reach(mesh, &"weapon_r", along)
 		if reach > 0.1:
-			_blade_tip.position = _blade_at[1].normalized() * reach * 0.96
-			_blade_base.position = _blade_at[1].normalized() * minf(_blade_at[0].length(), reach * 0.3)
+			_blade_tip.position = along * reach * 0.96
+			_blade_base.position = along * minf(_blade_at[0].length(), reach * 0.3)
 	var o := String(ps_look.get("o", ""))
 	if _blade_at.size() >= 4 and PolysplitLook.BLADES.has(o):
-		var reach_l := _reach(_figure.find_child("ps_o_" + o, true, false) as MeshInstance3D, &"weapon_l",
-				_blade_at[3].normalized())
+		var mesh_l := _figure.find_child("ps_o_" + o, true, false) as MeshInstance3D
+		var along_l := _blade_at[3].normalized()
+		if _on_mq:
+			along_l = _far(mesh_l, &"weapon_l").normalized()
+		var reach_l := _reach(mesh_l, &"weapon_l", along_l)
 		if reach_l > 0.1:
-			_blade_tip_l.position = _blade_at[3].normalized() * reach_l * 0.96
+			_blade_tip_l.position = along_l * reach_l * 0.96
+			if _on_mq:
+				_blade_base_l.position = along_l * minf(_blade_at[2].length(), reach_l * 0.3)
 
 
 ## How far `mesh` (a weapon rigid on the figure's `bone`) reaches from the
@@ -1747,6 +1869,31 @@ func _reach(mesh: MeshInstance3D, bone: StringName, along: Vector3) -> float:
 	for s in mesh.mesh.get_surface_count():
 		for v: Vector3 in mesh.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
 			best = maxf(best, (bind * v).dot(along))
+	return best
+
+
+## The point of `mesh` (rigid on the figure's `bone`) farthest from the bone
+## (or from `from`), in the bone's frame at rest: a blade's tip (and from the
+## tip, its pommel). Zero if it cannot be read.
+func _far(mesh: MeshInstance3D, bone: StringName, from: Vector3 = Vector3.ZERO) -> Vector3:
+	if mesh == null or mesh.skin == null or mesh.mesh == null or _figure_skel == null:
+		return Vector3.ZERO
+	var at := _figure_skel.find_bone(bone)
+	var bind := Transform3D()
+	var found := false
+	for i in mesh.skin.get_bind_count():
+		var named := mesh.skin.get_bind_name(i)
+		if named == bone or (named == &"" and mesh.skin.get_bind_bone(i) == at):
+			bind = mesh.skin.get_bind_pose(i)
+			found = true
+	if not found:
+		return Vector3.ZERO
+	var best := Vector3.ZERO
+	for s in mesh.mesh.get_surface_count():
+		for v: Vector3 in mesh.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
+			var p := bind * v
+			if p.distance_squared_to(from) > best.distance_squared_to(from):
+				best = p
 	return best
 
 
@@ -1789,11 +1936,413 @@ func _add_maker() -> void:
 	var map := polysplit_map(extra)
 	if _skel.find_bone("spine_03") >= 0:
 		map[&"chest_joint"] = &"spine_03"
+	var scene := "res://assets/polysplit/%s_%s.glb" % [polysplit_hero, "%s"]
+	if maker_on_mannequin:
+		# on the mannequin: its chest is its third spine bone, its head "Head";
+		# the figure's arm bones ride their hands and forearm
+		map = polysplit_map({})
+		map[&"chest_joint"] = &"spine_03"
+		map[&"head_joint"] = &"Head"
+		scene = MANNEQUIN_FIGURE
 	for g: String in ["m", "f"]:
-		figures[StringName("ps" + g)] = {"scene": "res://assets/polysplit/%s_%s.glb" % [polysplit_hero, g],
+		figures[StringName("ps" + g)] = {"scene": scene % g,
 				"prefix": "ps", "hips": &"pelvis_joint", "map": map, "lazy": true}
 	figure_faces[CUSTOM] = {"figure": &"psm", "custom": true}
 	ps_look = PolysplitLook.normalized(ps_look, polysplit_hero)
+
+
+#region YOUR OWN on the mannequin
+## The tables a hero fights from (see `clips`, `flurry`...), as they stand.
+func _tables() -> Dictionary:
+	return {"clips": clips.duplicate(), "ground_speed": ground_speed.duplicate(), "looping": looping.duplicate(),
+			"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(), "heavy": heavy.duplicate(true),
+			"cut_window": cut_window.duplicate(), "cut_windows": cut_windows.duplicate(true),
+			"trail_window": trail_window.duplicate(), "carried": carried.duplicate(),
+			"flurry_reset_after": flurry_reset_after, "swing_rate": swing_rate}
+
+
+func _set_tables(t: Dictionary) -> void:
+	clips = (t["clips"] as Dictionary).duplicate()
+	ground_speed = (t["ground_speed"] as Dictionary).duplicate()
+	looping.assign(t["looping"])
+	flurry.assign(t["flurry"])
+	flurry_part = (t["flurry_part"] as Dictionary).duplicate()
+	heavy = (t["heavy"] as Array).duplicate(true)
+	cut_window = (t["cut_window"] as Dictionary).duplicate()
+	cut_windows = (t["cut_windows"] as Dictionary).duplicate(true)
+	trail_window = (t["trail_window"] as Dictionary).duplicate()
+	carried = (t["carried"] as Dictionary).duplicate()
+	flurry_reset_after = float(t["flurry_reset_after"])
+	swing_rate = float(t["swing_rate"])
+
+
+## Loads the mannequin beside the model, its mesh hidden, its player given
+## every clip it may play: UAL 2's (its own), Kevin's, the hero's own carried
+## onto it, and any lent by another hero (`mq_borrow`) — each with every bone
+## keyed ([method Moveset.complete]). False if it cannot be.
+func _build_mannequin() -> bool:
+	if not ResourceLoader.exists(MANNEQUIN_SCENE):
+		return false
+	var node := (load(MANNEQUIN_SCENE) as PackedScene).instantiate() as Node3D
+	node.name = "Mannequin"
+	var model := _skel.owner as Node3D if _skel.owner != null else _skel.get_parent() as Node3D
+	add_child(node)
+	node.transform = model.transform if model.get_parent() == self else Transform3D.IDENTITY
+	var skel := node.find_children("*", "Skeleton3D", true, false).front() as Skeleton3D
+	var player := node.find_children("*", "AnimationPlayer", true, false).front() as AnimationPlayer
+	if skel == null or player == null:
+		node.queue_free()
+		return false
+	for mesh: MeshInstance3D in node.find_children("*", "MeshInstance3D", true, false):
+		mesh.visible = false
+	# One library of its own (the clips are shared, the list is not): a second
+	# hero on the mannequin must not find this one's clips in his.
+	var lib := AnimationLibrary.new()
+	var sources: Array[AnimationLibrary] = [player.get_animation_library(&"")]
+	if ResourceLoader.exists(KEVIN_LIB):
+		sources.append(load(KEVIN_LIB) as AnimationLibrary)
+	if ResourceLoader.exists(HERO_LIB % polysplit_hero):
+		sources.append(load(HERO_LIB % polysplit_hero) as AnimationLibrary)
+	for src: AnimationLibrary in sources:
+		for n: StringName in src.get_animation_list():
+			lib.add_animation(n, src.get_animation(n))
+	for clip: StringName in mq_borrow:
+		var other := HERO_LIB % mq_borrow[clip]
+		if ResourceLoader.exists(other) and (load(other) as AnimationLibrary).has_animation(clip):
+			lib.add_animation(clip, (load(other) as AnimationLibrary).get_animation(clip))
+	for n: StringName in lib.get_animation_list():
+		Moveset.complete(lib.get_animation(n), skel)
+	for n: StringName in player.get_animation_library_list():
+		player.remove_animation_library(n)
+	player.add_animation_library(&"", lib)
+	var holder := player.get_node(player.root_node)
+	player.root_motion_track = NodePath(String(holder.get_path_to(skel)) + ":root")
+	var stride := StrideModifier.new()
+	stride.name = "Stride"
+	skel.add_child(stride)
+	var strike: StrikeAim = null
+	if strike_aim:
+		strike = StrikeAim.new()
+		strike.name = "StrikeAim"
+		strike.natural = strike_natural
+		skel.add_child(strike)
+	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib}
+	_mannequin_built(skel)
+	return true
+
+
+## For a rig to add what it hangs off the mannequin's skeleton (a bow's
+## modifier), once it is built.
+func _mannequin_built(_skel_mq: Skeleton3D) -> void:
+	pass
+
+
+## For a rig to follow the swap onto the mannequin (`on`) and back.
+func _mannequin_worn(_on: bool) -> void:
+	pass
+
+
+## Puts the rig onto the mannequin (`on`) or back onto the model's own
+## skeleton: which skeleton, player and modifiers it drives, which tables it
+## plays from, and which of the two is shown.
+func _use_mannequin(on: bool) -> void:
+	if on == _on_mq or _anim == null:
+		return
+	if on and _mq.is_empty() and not _build_mannequin():
+		return
+	_end_action()
+	_base_clip = &""
+	var model := (_own.get("skel", _skel) as Skeleton3D)
+	var model_root := model.owner as Node3D if model.owner != null else model.get_parent() as Node3D
+	if on:
+		_own = {"anim": _anim, "skel": _skel, "stride": _stride, "strike": _strike}
+		_anim.active = false
+		_anim = _mq["anim"]
+		_skel = _mq["skel"]
+		_stride = _mq["stride"]
+		_strike = _mq["strike"]
+		_anim.active = true
+		# hidden and still: nothing of it (its modifiers, a bow's string) is
+		# worked out off a skeleton no one sees
+		model_root.visible = false
+		model_root.process_mode = Node.PROCESS_MODE_DISABLED
+	else:
+		_anim.active = false
+		_anim = _own["anim"]
+		_skel = _own["skel"]
+		_stride = _own["stride"]
+		_strike = _own["strike"]
+		_anim.active = true
+		model_root.visible = true
+		model_root.process_mode = Node.PROCESS_MODE_INHERIT
+		_set_tables(_own_tables)
+		moves = {}
+	_on_mq = on
+	_shield_turn_now = NAN
+	# the capes hang off the skeleton worn
+	set_garb(garb)
+	_mannequin_worn(on)
+
+
+## The moves for the arms of the look worn ([Moveset]), laid over the hero's
+## own tables (which stay for what the picks leave out).
+func _wear_moves() -> void:
+	var kind := Moveset.kind_of(ps_look)
+	if moves.get("kind", &"") == kind:
+		return
+	moves = Moveset.build(kind, _own_tables["clips"])
+	_set_tables(_own_tables)
+	var pace := scale.y
+	for slot: StringName in moves["clips"]:
+		var clip: StringName = moves["clips"][slot]
+		if clip != &"" and _anim.has_animation(clip):
+			clips[slot] = clip
+	for clip: StringName in moves["ground_speed"]:
+		ground_speed[clip] = float(moves["ground_speed"][clip]) * pace
+	var lib: AnimationLibrary = _mq["lib"]
+	for part: StringName in moves["aliases"]:
+		if not lib.has_animation(part) and lib.has_animation(moves["aliases"][part]):
+			lib.add_animation(part, lib.get_animation(moves["aliases"][part]))
+	for clip: StringName in moves["looping"]:
+		if _anim.has_animation(clip):
+			_anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+	_strings = []
+	for s: Array in moves["strings"]:
+		var playable := s.filter(func(c: StringName) -> bool: return _anim.has_animation(c))
+		if playable.size() == s.size() and not s.is_empty():
+			_strings.append(s)
+	if not _strings.is_empty():
+		flurry.assign(_strings[0])
+	for key: String in ["flurry_part", "cut_window", "cut_windows", "trail_window"]:
+		(get(key) as Dictionary).merge(moves[key], true)
+	if not (moves["heavy"] as Array).is_empty():
+		heavy = (moves["heavy"] as Array).duplicate(true)
+	if flurry_reset_after <= 0.0:
+		flurry_reset_after = 1.2
+	# the picked blows were made at the game's pace (UAL 2's) or near it
+	# (Kevin's): not hurried as the Mixamo ones were
+	swing_rate = MQ_SWING_RATE
+	shield_turn_default = float((moves["shield_turn"] as Dictionary).get(moves["guard"], SHIELD_BUILT_TURN))
+	_hilt_ends.clear()
+	_flurry_slot = -1
+	_base_clip = &""
+	# standing at once, so the skeleton (and the figure on it) is posed before
+	# the first frame the controller drives
+	_set_base(clips[&"idle"], 0.0, 1.0)
+
+
+## `clip`, or at random one of the clips picked to play in its place.
+func _alt(clip: StringName) -> StringName:
+	if not _on_mq:
+		return clip
+	var others: Array = (moves.get("alts", {}) as Dictionary).get(clip, [])
+	if others.is_empty():
+		return clip
+	var i := randi() % (others.size() + 1)
+	if i == 0:
+		return clip
+	var other: Variant = others[i - 1]
+	return other if other is StringName and _anim.has_animation(other) else clip
+
+
+## A blow thrown or taken, a guard raised: on guard for `EASE_AFTER`.
+func _rouse() -> void:
+	_fight_till = Time.get_ticks_msec() / 1000.0 + EASE_AFTER
+
+
+## On guard: lately in a fight, or locked on to something.
+func fighting() -> bool:
+	if Time.get_ticks_msec() / 1000.0 < _fight_till:
+		return true
+	return _body != null and _body.get(&"target") != null
+
+
+## The mannequin's base pose where the moves have their own (the jump's
+## start, the air, the guard held up, standing on guard or easy); false for
+## the rig's own choice.
+func _mq_base(planar: float, airborne: bool, blocking: bool) -> bool:
+	if airborne:
+		var start: StringName = clips.get(&"air_start", &"")
+		if _air_rising and start != &"" and _anim.has_animation(start) \
+				and _air_t < _anim.get_animation(start).length * 0.85:
+			_set_base(start, 0.08, 1.0)
+			return true
+		var air := _air_clip if _air_clip != &"" else clips.get(&"air", &"") as StringName
+		if not _anim.has_animation(air):
+			return false
+		_set_base(air, 0.15, 1.0)
+		return true
+	if _crouching or _wall_climbing:
+		return false
+	if blocking:
+		var guard: StringName = clips.get(&"block_idle", &"")
+		if not _anim.has_animation(guard):
+			return false
+		_set_base(guard, 0.12, 1.0)
+		return true
+	if planar < idle_threshold:
+		var stand: StringName = clips[&"idle"]
+		if fighting() and moves.get("guard", &"") != &"":
+			if _guard_clip == &"":
+				_guard_clip = _alt(moves["guard"])
+			stand = _guard_clip
+		_set_base(stand, 0.25, 1.0)
+		return true
+	return false
+
+
+## Each frame on the mannequin, before the base is picked: the jump's start
+## and landing, and the guard let down when the fight is over.
+func _mq_tick(delta: float, planar: float, airborne: bool, vy: float, blocking: bool) -> void:
+	if airborne and not _air_was:
+		_air_t = 0.0
+		_air_rising = vy > 0.5
+		_air_clip = _alt(clips.get(&"air", &""))
+	if airborne:
+		_air_t += delta
+	elif _air_was and _air_t > 0.35 and _role == Role.NONE and planar <= idle_threshold:
+		var land: StringName = clips.get(&"land", &"")
+		if land != &"" and _anim.has_animation(land):
+			_play_action(land, Role.FREE, 1.4, 0.06, 0.0, 0.45)
+			_recovering = true
+	_air_was = airborne
+	if blocking:
+		_rouse()
+	if not fighting():
+		_guard_clip = &""
+
+
+## Turns the shield on the maker's figure about its forearm onto the way the
+## clip playing holds it to the front (the moves' "shield_turn", measured off
+## each clip), or onto the guard's way for a clip that names none: one shield
+## on the forearm cannot face the blow in UAL 2's guard and Kevin's block both.
+func _turn_shield(id: StringName) -> void:
+	if not _on_mq or _figure_skel == null or not _figs.has(id) or _figs[id]["skel"] != _figure_skel:
+		return
+	var b := _figure_skel.find_bone("shield_l")
+	var elbow := _figure_skel.find_bone("L_elbow_joint")
+	var wrist := _figure_skel.find_bone("L_wrist_joint")
+	if b < 0 or elbow < 0 or wrist < 0:
+		return
+	var playing := _act_clip if _role != Role.NONE else StringName(_anim.current_animation)
+	var want := float((moves.get("shield_turn", {}) as Dictionary).get(playing, shield_turn_default))
+	if is_nan(_shield_turn_now):
+		_shield_turn_now = want
+	else:
+		_shield_turn_now = move_toward(_shield_turn_now, want, SHIELD_TURN_RATE * get_process_delta_time())
+	var e_rest := _figure_skel.get_bone_global_rest(elbow)
+	var along := (_figure_skel.get_bone_global_rest(wrist).origin - e_rest.origin).normalized()
+	var turned := _figure_skel.get_bone_global_pose(elbow).basis.orthonormalized() * e_rest.basis.orthonormalized().inverse() \
+			* Basis(along, deg_to_rad(_shield_turn_now - SHIELD_BUILT_TURN)) \
+			* _figure_skel.get_bone_global_rest(b).basis.orthonormalized()
+	var parent := _figure_skel.get_bone_global_pose(_figure_skel.get_bone_parent(b)).basis.orthonormalized()
+	_figure_skel.set_bone_pose_rotation(b, (parent.inverse() * turned).get_rotation_quaternion())
+
+
+## The middle of the curled fingers: the mannequin's (as its clips close
+## them round a grip, in its hand bones' frames) and the maker's figure's (in
+## its weapon bones' frames), and the line through the mannequin's fist (its
+## little finger to its first, the way a blade held in it points).
+const MQ_FIST_R := Vector3(-0.028, 0.105, -0.007)
+const MQ_FIST_L := Vector3(0.030, 0.105, -0.010)
+const MQ_FIST_AXIS := Vector3(-0.02, 0.12, 0.99)
+const FIG_FIST_R := Vector3(-0.003, 0.084, -0.021)
+const FIG_FIST_L := Vector3(0.003, 0.084, -0.021)
+
+
+## Two hands on one grip (the great sword, the staff): the clips close the
+## mannequin's left fist round the handle, but the figure's arms are its own
+## length, so its left fist lands off it. Puts it back: as far along the
+## handle from the right fist as the mannequin's is (scaled to the figure's
+## arms), the left arm bent onto it (two bones, the elbow kept in its plane).
+## Where the clip lets go of the handle (a one-handed blow), it is left alone.
+## `tip`, `butt`: the weapon's two ends in the figure's right weapon bone's
+## frame. Returns how far the mannequin's own left fist was off its handle.
+static func hilt_hand(mq: Skeleton3D, fig: Skeleton3D, tip: Vector3, butt: Vector3) -> float:
+	var hr := mq.find_bone("hand_r")
+	var hl := mq.find_bone("hand_l")
+	var wr := fig.find_bone("weapon_r")
+	var sh := fig.find_bone("L_shoulder_joint")
+	var el := fig.find_bone("L_elbow_joint")
+	var wl := fig.find_bone("L_wrist_joint")
+	var held := fig.find_bone("weapon_l")
+	if hr < 0 or hl < 0 or wr < 0 or sh < 0 or el < 0 or wl < 0 or held < 0:
+		return INF
+	var mr := mq.get_bone_global_pose(hr)
+	var rf := mr * MQ_FIST_R
+	var along := (mr.basis * MQ_FIST_AXIS).normalized()
+	var lf := mq.get_bone_global_pose(hl) * MQ_FIST_L
+	var s := (lf - rf).dot(along)
+	var off := ((lf - rf) - along * s).length()
+	var w := 1.0 - smoothstep(0.08, 0.2, off)
+	if w <= 0.001:
+		return off
+	# the figure's arm against the mannequin's, for how far along the grip
+	var k := fig.get_bone_global_rest(sh).origin.distance_to(fig.get_bone_global_rest(wl).origin) \
+			/ maxf(mq.get_bone_global_rest(mq.find_bone("upperarm_l")).origin.distance_to(mq.get_bone_global_rest(hl).origin), 0.01)
+	var g := fig.get_bone_global_pose(wr)
+	# as far along from the right fist, on the handle itself
+	# (the handle's way as the fist's: its little finger to its first)
+	var way := (tip - butt).normalized()
+	if way.z < 0.0:
+		way = -way
+	var want := g * FIG_FIST_R + (g.basis * way).normalized() * s * k
+	want = Geometry3D.get_closest_point_to_segment(want, g * butt, g * tip)
+	for _pass in 2:
+		var a := fig.get_bone_global_pose(sh)
+		var b := fig.get_bone_global_pose(el)
+		var c := fig.get_bone_global_pose(wl)
+		# where the wrist must be for the fist to be on the grip
+		var fist := fig.get_bone_global_pose(held) * FIG_FIST_L
+		var target := c.origin.lerp(want - (fist - c.origin), w)
+		var la := a.origin.distance_to(b.origin)
+		var lb := b.origin.distance_to(c.origin)
+		var reach := clampf(a.origin.distance_to(target), absf(la - lb) + 0.001, la + lb - 0.001)
+		# the elbow opened or closed to the reach
+		var bend_axis := (a.origin - b.origin).cross(c.origin - b.origin)
+		if bend_axis.length_squared() < 1e-8:
+			bend_axis = (b.basis * Vector3.RIGHT)
+		bend_axis = bend_axis.normalized()
+		var now := (a.origin - b.origin).angle_to(c.origin - b.origin)
+		var need := acos(clampf((la * la + lb * lb - reach * reach) / (2.0 * la * lb), -1.0, 1.0))
+		var turn_e := Basis(bend_axis, need - now)
+		fig.set_bone_pose_rotation(el, (a.basis.orthonormalized().inverse() * turn_e * b.basis.orthonormalized()).get_rotation_quaternion())
+		# the whole arm swung from the shoulder onto the target
+		var c2 := fig.get_bone_global_pose(wl).origin
+		if (c2 - a.origin).length_squared() > 1e-6 and (target - a.origin).length_squared() > 1e-6:
+			var swing := Basis(Quaternion((c2 - a.origin).normalized(), (target - a.origin).normalized()))
+			var parent := fig.get_bone_global_pose(fig.get_bone_parent(sh)).basis.orthonormalized()
+			fig.set_bone_pose_rotation(sh, (parent.inverse() * swing * a.basis.orthonormalized()).get_rotation_quaternion())
+	return off
+
+
+## The figure posed: the left fist put back on a two-handed grip (see
+## `hilt_hand()`).
+func _hilt(id: StringName) -> void:
+	if not _on_mq or _figure_skel == null or not _figs.has(id) or _figs[id]["skel"] != _figure_skel:
+		return
+	var kind: StringName = moves.get("kind", &"")
+	if kind != &"two_hands" and kind != &"spear":
+		return
+	if _hilt_ends.is_empty():
+		var mesh := _figure.find_child("ps_w_" + String(ps_look.get("w", "")), true, false) as MeshInstance3D
+		var tip := _far(mesh, &"weapon_r")
+		if tip == Vector3.ZERO:
+			return
+		_hilt_ends = [tip, _far(mesh, &"weapon_r", tip)]
+	hilt_hand(_skel, _figure_skel, _hilt_ends[0], _hilt_ends[1])
+
+
+## Whether the rig is on the mannequin now.
+func on_mannequin() -> bool:
+	return _on_mq
+
+
+## The skeleton that moves now: the model's, or the mannequin's while YOUR
+## OWN is worn (for whatever reads the feet or the bones: [Footsteps]).
+func skeleton_now() -> Skeleton3D:
+	return _skel
+#endregion
 
 
 ## Wears `look` (see [PolysplitLook]) — at once, if the maker's face is on.
@@ -1905,8 +2454,10 @@ func wall_climb(active: bool) -> void:
 
 
 func climb(duration: float) -> void:
-	_play_action(clips[&"mantle"], Role.CLIMB,
-			_anim.get_animation(clips[&"mantle"]).length / maxf(duration, 0.05), 0.06)
+	var clip := _alt(clips[&"mantle"])
+	if not _anim.has_animation(clip):
+		return
+	_play_action(clip, Role.CLIMB, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.06)
 
 
 func is_crouched() -> bool:

@@ -41,6 +41,28 @@ const CLIMB_UP_SPEED := 0.4
 const SHIMMY_SPEED := 0.36
 
 var _bow_mod: BowModifier
+## The draw, the aim and the release as played now: his own clips, or on the
+## mannequin the picked BOW moves ([Moveset]): the draw played from
+## `draw_from` to `draw_until` (shares of its clip).
+var draw_clip: StringName = DRAW_CLIP
+var draw_from: float = DRAW_FROM
+var draw_until: float = 1.0
+var aim_idle: StringName = AIM_IDLE
+var loose_clip: StringName = LOOSE_CLIP
+var loose_from: float = LOOSE_FROM
+var loose_to: float = LOOSE_TO
+## UAL 2's nock reaches back to the quiver and draws by 0.4 of it; its shot
+## lets go at once and is back up by 0.35 (seen on the mannequin).
+const UAL_DRAW_UNTIL := 0.4
+const UAL_LOOSE_TO := 0.35
+## On the mannequin: the modifier on its skeleton (the model's own is kept to
+## go back to), and the pack bow's tips in its bone's frame.
+var _bow_own: BowModifier
+var _bow_mq: BowModifier
+var _bow_ends: Array[Vector3] = []
+## Where the figure's fist closes, in its hand's frame (measured off the
+## mannequin's figure: the middle of the curled fingers).
+const FIST := Vector3(0.0, 0.085, -0.02)
 var _draw_target: float = 0.0
 var _pitch: float = 0.0
 var _aim_phase: float = 0.0   # 0 idle, 0..1 through the draw clip, 1 holding
@@ -133,6 +155,9 @@ func _ready() -> void:
 	_bow_mod.string_u = _make_string("bow_string_u")
 	_bow_mod.string_l = _make_string("bow_string_l")
 	_bow_mod.arrow = _make_arrow()
+	_bow_own = _bow_mod
+	if _on_mq:
+		_mannequin_worn(true)
 	# And the joints the procedural rig had, by their old names, for anything
 	# that still asks for them (the archer test measures the drawing arm with
 	# them). The old `*_l` nodes are anatomically right: see [CharacterRig].
@@ -199,7 +224,80 @@ func _make_arrow() -> Node3D:
 ## The figure worn has been posed: the string and the arrow go on its bow.
 func _on_figure_followed(id: StringName) -> void:
 	if _bow_mod != null and _figure_skel != null and _figs.has(id) and _figs[id]["skel"] == _figure_skel:
-		_bow_mod.place_string_on(_figure_skel)
+		if _on_mq:
+			_place_pack_string()
+		else:
+			_bow_mod.place_string_on(_figure_skel)
+
+
+## On the mannequin: its own modifier (the chest tilting onto the shot), and
+## the picked BOW clips for the draw, the aim and the release; back on his
+## own rig, his.
+func _mannequin_worn(on: bool) -> void:
+	if _bow_own == null:
+		return
+	if on and _bow_mq == null:
+		_bow_mq = BowModifier.new()
+		_bow_mq.name = "Bow"
+		_skel.add_child(_bow_mq)
+		_bow_mq.string_u = _bow_own.string_u
+		_bow_mq.string_l = _bow_own.string_l
+		_bow_mq.arrow = _bow_own.arrow
+	_bow_mod = _bow_mq if on else _bow_own
+	# one modifier places the shared string: the other is still
+	_bow_own.active = not on
+	if _bow_mq != null:
+		_bow_mq.active = on
+	_bow_ends.clear()
+	var bow: Dictionary = moves.get("bow", {}) if on else {}
+	draw_clip = bow.get(&"draw", DRAW_CLIP)
+	draw_from = 0.0 if bow.has(&"draw") else DRAW_FROM
+	draw_until = UAL_DRAW_UNTIL if bow.has(&"draw") else 1.0
+	aim_idle = bow.get(&"aim", AIM_IDLE)
+	loose_clip = bow.get(&"loose", LOOSE_CLIP)
+	if bow.has(&"loose"):
+		loose_from = maxf(float(Moveset.clip_meta(loose_clip).get("release", 0.05)) - 0.05, 0.0)
+		loose_to = UAL_LOOSE_TO
+	else:
+		loose_from = LOOSE_FROM
+		loose_to = LOOSE_TO
+	if _anim != null and _anim.has_animation(aim_idle):
+		_anim.get_animation(aim_idle).loop_mode = Animation.LOOP_LINEAR
+
+
+func _apply_moves() -> void:
+	super()
+	if _on_mq and _bow_own != null:
+		_mannequin_worn(true)
+
+
+## The pack's bow on the mannequin's figure has no bones to its tips: they
+## are read off its mesh (its two ends, in its bone's frame) and the string
+## drawn from them to the right fist.
+func _place_pack_string() -> void:
+	var bow := _figure.find_child("ps_w_bow", true, false) as MeshInstance3D if _figure != null else null
+	if bow == null or not bow.visible:
+		return
+	var bone := _figure_skel.find_bone("weapon_l")
+	var hand := _figure_skel.find_bone("weapon_r")
+	if bone < 0 or hand < 0:
+		return
+	if _bow_ends.is_empty():
+		var a := _far(bow, &"weapon_l")
+		var c := a
+		var bind := Transform3D()
+		for i in bow.skin.get_bind_count():
+			if bow.skin.get_bind_name(i) == &"weapon_l":
+				bind = bow.skin.get_bind_pose(i)
+		for v: Vector3 in bow.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+			var p := bind * v
+			if p.distance_squared_to(a) > c.distance_squared_to(a):
+				c = p
+		_bow_ends = [a, c]
+	var xf := _figure_skel.global_transform
+	var held := xf * _figure_skel.get_bone_global_pose(bone)
+	var drawing := xf * _figure_skel.get_bone_global_pose(hand)
+	_bow_mod.place_string_at(held * _bow_ends[0], held * _bow_ends[1], drawing * FIST, held * FIST)
 
 
 #region The bow, as the controller calls it
@@ -214,8 +312,8 @@ func loose_bow() -> void:
 	_loose_left = 0.35
 	_drawing_clip = false
 	_aim_phase = 0.0
-	if _anim.has_animation(LOOSE_CLIP):
-		_play_action(LOOSE_CLIP, Role.FREE, 1.3, 0.05, LOOSE_FROM, LOOSE_TO)
+	if _anim.has_animation(loose_clip):
+		_play_action(loose_clip, Role.FREE, 1.3, 0.05, loose_from, loose_to)
 
 
 func is_aiming() -> bool:
@@ -314,11 +412,11 @@ func nock_lead(brace: float = 0.0, quick: float = 1.0) -> float:
 func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0, quick: float = 1.0) -> float:
 	_drawing_clip = false
 	_aim_phase = 0.0
-	if _anim == null or not _anim.has_animation(DRAW_CLIP):
+	if _anim == null or not _anim.has_animation(draw_clip):
 		return 0.3
-	var clip_len := _anim.get_animation(DRAW_CLIP).length
+	var clip_len := _anim.get_animation(draw_clip).length * (draw_until - draw_from)
 	# A braced shot is drawn heavier: a quarter slower.
-	var nock := play_part(DRAW_CLIP, clip_len / nock_lead(brace, quick), 0.0, 1.0, 0.1)
+	var nock := play_part(draw_clip, clip_len / nock_lead(brace, quick), draw_from, draw_until, 0.1)
 	if nock <= 0.0:
 		return 0.3
 	# The string is drawn by hand for a skill shot: [method animate] brings it
@@ -331,8 +429,9 @@ func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0, quick: fl
 	# Held at full: the draw's last frames, stretched over the hold, so the
 	# bow stays up and the string at the cheek (the aim idle drops the bow).
 	get_tree().create_timer(nock * 0.97, false).timeout.connect(func() -> void:
-		if _act_clip == DRAW_CLIP and _skill_t >= 0.0:
-			play_part(DRAW_CLIP, clip_len * 0.03 / maxf(hold + 0.25, 0.05), 0.97, 1.0, 0.02))
+		if _act_clip == draw_clip and _skill_t >= 0.0:
+			var held := draw_until - 0.03 * (draw_until - draw_from)
+			play_part(draw_clip, clip_len * 0.03 / maxf(hold + 0.25, 0.05), held, draw_until, 0.02))
 	return nock
 
 
@@ -340,8 +439,8 @@ func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0, quick: fl
 func loose_skill_shot() -> void:
 	_skill_t = -1.0
 	_loose_left = 0.35
-	if _anim != null and _anim.has_animation(LOOSE_CLIP):
-		_play_action(LOOSE_CLIP, Role.FREE, 1.3, 0.05, LOOSE_FROM, LOOSE_TO)
+	if _anim != null and _anim.has_animation(loose_clip):
+		_play_action(loose_clip, Role.FREE, 1.3, 0.05, loose_from, loose_to)
 
 
 ## Where the arrow on the string has its head right now — where a shot leaves
@@ -394,7 +493,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if drawing and _role == Role.NONE and not _drawing_clip and moving:
 		_aim_phase = minf(maxf(_aim_phase, 0.0) + delta / _draw_time, 1.0)
 	if drawing and _role == Role.NONE:
-		if _aim_phase <= 0.0 and not _drawing_clip and not moving and _anim.has_animation(DRAW_CLIP):
+		if _aim_phase <= 0.0 and not _drawing_clip and not moving and _anim.has_animation(draw_clip):
 			# Up out of whatever he was doing: the draw clip fitted to the draw
 			# time the profile gives, so the string is back when the power is.
 			var draw_time := 0.85
@@ -402,18 +501,19 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			if body != null and body.profile != null:
 				draw_time = maxf(body.profile.draw_time, 0.2)
 			_drawing_clip = true
-			_base_clip = DRAW_CLIP
-			var clip_len := _anim.get_animation(DRAW_CLIP).length
-			_anim.play(DRAW_CLIP, 0.08)
-			_anim.seek(clip_len * DRAW_FROM, true)
+			_base_clip = draw_clip
+			var clip_len := _anim.get_animation(draw_clip).length
+			_anim.play(draw_clip, 0.08)
+			_anim.seek(clip_len * draw_from, true)
 			# The nock-and-draw at no slower than it was performed; faster when the
 			# profile's draw time asks for it. The power keeps building after.
-			_anim.speed_scale = maxf(clip_len * (1.0 - DRAW_FROM) / draw_time, 1.0)
+			_anim.speed_scale = maxf(clip_len * (draw_until - draw_from) / draw_time, 1.0)
 		if _drawing_clip:
-			var draw_len := _anim.get_animation(DRAW_CLIP).length
-			var through := _anim.current_animation_position / draw_len if _anim.current_animation == DRAW_CLIP else 1.0
+			var draw_len := _anim.get_animation(draw_clip).length
+			var at := _anim.current_animation_position / draw_len if _anim.current_animation == draw_clip else 1.0
+			var through := (at - draw_from) / maxf(draw_until - draw_from, 0.01)
 			_aim_phase = clampf(through, 0.0, 1.0)
-			if through >= 0.98 or _anim.current_animation != DRAW_CLIP:
+			if through >= 0.98 or _anim.current_animation != draw_clip:
 				_drawing_clip = false
 				_aim_phase = 1.0
 	elif not drawing and _loose_left <= 0.0:
@@ -488,7 +588,7 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 		return
 	if _aim_phase > 0.0 and _draw_target > 0.001 and not airborne:
 		if planar < idle_threshold:
-			_set_base(AIM_IDLE, 0.12, 1.0)
+			_set_base(aim_idle, 0.12, 1.0)
 		else:
 			var clip := _dir4(&"aim_walk", &"aim_walk_back", &"aim_walk_left", &"aim_walk_right")
 			_set_base(clip, 0.15, _rate(clip, planar))

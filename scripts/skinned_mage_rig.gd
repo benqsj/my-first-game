@@ -45,6 +45,19 @@ const CRYSTAL_UP := 0.83
 ## The crystal's own light at rest: the ice-blue of the stone.
 const CRYSTAL_LIGHT := Color(0.45, 0.85, 1.0)
 
+## The throw as played now: his own, or on the mannequin Tariel's spell
+## cast (`SS_Spell_Casting`, lent him: no bought pack has one), the legs
+## walking under it as he moves (ANIMATION_MIGRATION.md).
+var cast_clip: StringName = CAST_CLIP
+var cast_from: float = CAST_FROM
+var cast_release: float = CAST_RELEASE
+var cast_to: float = CAST_TO
+const MQ_CAST := &"SS_Spell_Casting"
+## Where in Tariel's cast the hand comes through (measured on the mannequin:
+## the right hand's fastest, clip_meta.json "release"), and from and to.
+const MQ_CAST_FROM := 0.15
+const MQ_CAST_TO := 0.8
+var _staff_mount: Node3D
 var _charge: float = 0.0
 var _wind: MageWind
 var _cast_left: float = 0.0
@@ -119,6 +132,7 @@ func _configure() -> void:
 	# heroes ([PolysplitLook], `SkinnedRig._add_maker()`), a sword in his
 	# hand (2026-10-02, the user's word) and a staff in the other if he will.
 	polysplit_hero = &"mage"
+	mq_borrow = {MQ_CAST: "tariel"}
 
 
 func _ready() -> void:
@@ -135,6 +149,7 @@ func _ready() -> void:
 	mount.name = "StaffMount"
 	_skel.add_child(mount)
 	mount.bone_name = "weapon_l"
+	_staff_mount = mount
 	var up := (_skel.get_bone_global_rest(bone).basis.inverse() * Vector3.UP).normalized()
 	_glow = OmniLight3D.new()
 	_glow.name = "Crystal"
@@ -160,6 +175,8 @@ func _ready() -> void:
 	_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_orb.visible = false
 	_glow.add_child(_orb)
+	if _on_mq:
+		_mannequin_worn(true)
 
 
 #region The spell, as the controller calls it (the bow's interface)
@@ -171,15 +188,17 @@ func loose_bow() -> void:
 	_cast_left = 0.45 + cast_lead()
 	_charge = 0.0
 	_flash_in = cast_lead()
-	if _anim.has_animation(CAST_CLIP):
-		_play_action(CAST_CLIP, Role.FREE, CAST_RATE, 0.1, CAST_FROM, CAST_TO)
+	if _anim.has_animation(cast_clip):
+		_play_action(cast_clip, Role.FREE, CAST_RATE, 0.1, cast_from, cast_to)
+		# on the mannequin Tariel's cast is the arms only: the legs go on
+		walk_under = _on_mq
 
 
 ## How long after the button the staff comes through and the bolt goes.
 func cast_lead() -> float:
-	if _anim == null or not _anim.has_animation(CAST_CLIP):
+	if _anim == null or not _anim.has_animation(cast_clip):
 		return 0.0
-	return _anim.get_animation(CAST_CLIP).length * (CAST_RELEASE - CAST_FROM) / CAST_RATE
+	return _anim.get_animation(cast_clip).length * (cast_release - cast_from) / CAST_RATE
 
 
 ## Where the bolt leaves from: the staff's crystal.
@@ -193,9 +212,44 @@ func is_aiming() -> bool:
 	return _charge > 0.05
 
 
-func attack(_style: int = -1) -> void:
+func attack(style: int = -1) -> void:
+	if _on_mq:
+		# YOUR OWN holds a sword (2026-10-02, the user's word): he cuts with it
+		super(style)
+		return
 	attack_serial += 1
 	_play_action(flurry[0], Role.FREE, 1.6, 0.06)
+
+
+## On the mannequin: Tariel's cast for the throw, and the crystal's light off
+## the hidden model (on the rig, put where the figure's off hand is).
+func _mannequin_worn(on: bool) -> void:
+	var lent := on and _anim != null and _anim.has_animation(MQ_CAST)
+	cast_clip = MQ_CAST if lent else CAST_CLIP
+	cast_from = MQ_CAST_FROM if lent else CAST_FROM
+	cast_to = MQ_CAST_TO if lent else CAST_TO
+	cast_release = float(Moveset.clip_meta(MQ_CAST).get("release", 0.45)) if lent else CAST_RELEASE
+	if _glow != null and _staff_mount != null:
+		_glow.reparent(self if on else _staff_mount, false)
+		if not on:
+			_glow.position = (_skel.get_bone_global_rest(_skel.find_bone("weapon_l")).basis.inverse()
+					* Vector3.UP).normalized() * CRYSTAL_UP
+
+
+## Where the crystal is on the mannequin's figure: the top of the staff in
+## the off hand (its far end on the thumb's side), or the off fist.
+func _crystal_at() -> Vector3:
+	if _figure_skel == null:
+		return global_position + Vector3.UP * 1.6
+	var b := _figure_skel.find_bone("weapon_l")
+	var held := _figure_skel.global_transform * _figure_skel.get_bone_global_pose(b)
+	var o := String(ps_look.get("o", ""))
+	if o.begins_with("staff"):
+		var tip := _far(_figure.find_child("ps_o_" + o, true, false) as MeshInstance3D, &"weapon_l")
+		if tip.z < 0.0:
+			tip = Vector3(tip.x, tip.y, -tip.z)
+		return held * tip
+	return held * Vector3(0.0, 0.085, -0.02)
 #endregion
 
 
@@ -204,6 +258,8 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if _anim == null:
 		return
 	_cast_left = maxf(_cast_left - delta, 0.0)
+	if _on_mq and _glow != null and _glow.get_parent() == self:
+		_glow.global_position = _crystal_at()
 	if _flash_in >= 0.0:
 		_flash_in -= delta
 		if _flash_in < 0.0 and _glow != null and _glow.is_inside_tree():

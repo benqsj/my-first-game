@@ -30,6 +30,7 @@ const STEPS: Array[String] = [
 @export var min_gap: float = 0.16
 
 var _skel: Skeleton3D
+var _rig: Node
 var _feet: Array[int] = []
 var _lifted: Array[bool] = []
 var _floor: Array[float] = []
@@ -41,11 +42,21 @@ var steps_played: int = 0
 
 
 ## `rig` is the node holding the model; finds the skeleton and its two feet.
+## A rig that changes skeletons (YOUR OWN on the mannequin, see
+## [method SkinnedRig.skeleton_now]) is asked which one moves each frame.
 func attach(rig: Node) -> bool:
+	_rig = rig
 	var found := rig.find_children("*", "Skeleton3D", true, false)
 	if found.is_empty():
 		return false
-	_skel = found.front() as Skeleton3D
+	return _use(found.front() as Skeleton3D)
+
+
+func _use(skel: Skeleton3D) -> bool:
+	_skel = skel
+	_feet.clear()
+	_lifted.clear()
+	_floor.clear()
 	for side: String in ["l", "r"]:
 		var bone := _find_foot(side)
 		if bone >= 0:
@@ -71,6 +82,10 @@ func _find_foot(side: String) -> int:
 ## `grounded` whether the body is on the floor, `body` the hero.
 func tick(delta: float, speed: float, grounded: bool, body: Node3D) -> void:
 	_clock += delta
+	if _rig != null and is_instance_valid(_rig) and _rig.has_method(&"skeleton_now"):
+		var now := _rig.call(&"skeleton_now") as Skeleton3D
+		if now != null and now != _skel:
+			_use(now)
 	if _skel == null or not is_instance_valid(_skel):
 		return
 	var base_y := body.global_position.y

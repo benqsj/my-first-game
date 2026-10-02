@@ -210,17 +210,25 @@ func _place_string(skel: Skeleton3D, foreign: bool = false) -> void:
 	var xf := skel.global_transform
 	var a := xf * skel.get_bone_global_pose(tu).origin
 	var c := xf * skel.get_bone_global_pose(tl).origin
-	var drawn := draw > 0.05 and pinch >= 0
 	var hand := xf * skel.get_bone_global_pose(pinch).origin if pinch >= 0 else (a + c) * 0.5
+	var g := xf * skel.get_bone_global_pose(grip).origin if grip >= 0 else (a + c) * 0.5
+	place_string_at(a, c, hand, g, pinch >= 0)
+
+
+## The string from the tips `a` and `c` to the drawing fingers at `hand` (as
+## far as the draw has brought it), and the arrow from them through the grip
+## `g`: for a bow with no bones of this rig's names (the pack's bow on the
+## mannequin's figure, whose tips the rig works out itself).
+func place_string_at(a: Vector3, c: Vector3, hand: Vector3, g: Vector3, fingers: bool = true) -> void:
+	var drawn := draw > 0.05 and fingers
 	# The string comes off its rest line onto the fingers over the first part of
 	# the draw rather than jumping to them.
-	var mid := ((a + c) * 0.5).lerp(hand, clampf(draw * 4.0, 0.0, 1.0)) if pinch >= 0 else (a + c) * 0.5
+	var mid := ((a + c) * 0.5).lerp(hand, clampf(draw * 4.0, 0.0, 1.0)) if fingers else (a + c) * 0.5
 	_stretch(string_u, a, mid)
 	_stretch(string_l, c, mid)
 	if arrow != null:
 		arrow.visible = drawn
-		if drawn and grip >= 0:
-			var g := xf * skel.get_bone_global_pose(grip).origin
+		if drawn:
 			var along := g - hand
 			if along.length() > 0.05:
 				arrow.global_transform = Transform3D(Basis.looking_at(along, Vector3.UP), hand)
