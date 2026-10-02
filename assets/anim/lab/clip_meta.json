@@ -1,0 +1,873 @@
+{
+	"clips": {
+		"Bow_Aim_Neutral": {
+			"full_draw": 0.0,
+			"length": 2.5,
+			"loop": false,
+			"release": 0.42
+		},
+		"Bow_Aim_Up": {
+			"full_draw": 0.0,
+			"length": 1.333,
+			"loop": false,
+			"release": 0.679
+		},
+		"Bow_Notch": {
+			"full_draw": 0.133,
+			"length": 2.5,
+			"loop": false,
+			"release": 0.073
+		},
+		"Bow_RapidShoot": {
+			"full_draw": 0.296,
+			"length": 0.433,
+			"loop": true,
+			"release": 0.111
+		},
+		"Bow_Shoot": {
+			"full_draw": 0.341,
+			"length": 0.667,
+			"loop": false,
+			"release": 0.073
+		},
+		"ClimbUp_1m": {
+			"length": 0.667,
+			"loop": false
+		},
+		"Idle_Shield": {
+			"length": 2.5,
+			"loop": true,
+			"shield_turn": 2.3
+		},
+		"Idle_Shield_Break": {
+			"cuts": [
+				[
+					0.046,
+					0.154
+				],
+				[
+					0.385,
+					0.446
+				]
+			],
+			"length": 1.067,
+			"loop": false,
+			"peak": 18.91,
+			"trails": [
+				[
+					0.031,
+					0.169
+				],
+				[
+					0.308,
+					0.523
+				]
+			]
+		},
+		"KV_Attack1H01_R": {
+			"cuts": [
+				[
+					0.134,
+					0.269
+				]
+			],
+			"length": 1.1,
+			"loop": false,
+			"peak": 25.55,
+			"trails": [
+				[
+					0.03,
+					0.269
+				]
+			]
+		},
+		"KV_Attack1H02_R": {
+			"cuts": [
+				[
+					0.274,
+					0.31
+				]
+			],
+			"length": 1.4,
+			"loop": false,
+			"peak": 79.44,
+			"slam": 0.381,
+			"trails": [
+				[
+					0.262,
+					0.333
+				]
+			]
+		},
+		"KV_Attack1H03_R": {
+			"cuts": [
+				[
+					0.205,
+					0.269
+				]
+			],
+			"length": 1.3,
+			"loop": false,
+			"peak": 91.65,
+			"trails": [
+				[
+					0.013,
+					0.064
+				],
+				[
+					0.192,
+					0.282
+				]
+			]
+		},
+		"KV_Attack1H04_R": {
+			"cuts": [
+				[
+					0.3,
+					0.357
+				]
+			],
+			"length": 1.167,
+			"loop": false,
+			"peak": 80.46,
+			"trails": [
+				[
+					0.271,
+					0.4
+				]
+			]
+		},
+		"KV_Attack1H05_R": {
+			"cuts": [
+				[
+					0.186,
+					0.286
+				]
+			],
+			"length": 1.167,
+			"loop": false,
+			"peak": 64.27,
+			"trails": [
+				[
+					0.043,
+					0.314
+				]
+			]
+		},
+		"KV_Attack2H01": {
+			"cuts": [
+				[
+					0.309,
+					0.351
+				]
+			],
+			"length": 1.6,
+			"loop": false,
+			"peak": 101.7,
+			"trails": [
+				[
+					0.278,
+					0.361
+				]
+			]
+		},
+		"KV_Attack2H02": {
+			"cuts": [
+				[
+					0.432,
+					0.463
+				]
+			],
+			"length": 1.567,
+			"loop": false,
+			"peak": 107.41,
+			"slam": 0.674,
+			"trails": [
+				[
+					0.411,
+					0.463
+				]
+			]
+		},
+		"KV_Attack2H03": {
+			"cuts": [
+				[
+					0.174,
+					0.207
+				]
+			],
+			"length": 1.533,
+			"loop": false,
+			"peak": 110.3,
+			"trails": [
+				[
+					0.022,
+					0.043
+				],
+				[
+					0.163,
+					0.217
+				]
+			]
+		},
+		"KV_Attack2H04": {
+			"cuts": [
+				[
+					0.31,
+					0.345
+				]
+			],
+			"length": 1.4,
+			"loop": false,
+			"peak": 100.1,
+			"slam": 0.429,
+			"trails": [
+				[
+					0.036,
+					0.06
+				],
+				[
+					0.298,
+					0.357
+				]
+			]
+		},
+		"KV_AttackPolearm01": {
+			"cuts": [
+				[
+					0.048,
+					0.072
+				],
+				[
+					0.253,
+					0.277
+				]
+			],
+			"length": 1.367,
+			"loop": false,
+			"peak": 25.56,
+			"trails": [
+				[
+					0.024,
+					0.096
+				],
+				[
+					0.229,
+					0.289
+				]
+			]
+		},
+		"KV_AttackPolearm02": {
+			"cuts": [
+				[
+					0.239,
+					0.304
+				]
+			],
+			"length": 1.533,
+			"loop": false,
+			"peak": 33.42,
+			"trails": [
+				[
+					0.033,
+					0.087
+				],
+				[
+					0.217,
+					0.326
+				]
+			]
+		},
+		"KV_AttackPolearm03": {
+			"cuts": [
+				[
+					0.337,
+					0.373
+				]
+			],
+			"length": 1.367,
+			"loop": false,
+			"peak": 44.94,
+			"trails": [
+				[
+					0.12,
+					0.169
+				],
+				[
+					0.325,
+					0.386
+				]
+			]
+		},
+		"KV_AttackPolearm04": {
+			"cuts": [
+				[
+					0.171,
+					0.21
+				]
+			],
+			"length": 1.733,
+			"loop": false,
+			"peak": 50.81,
+			"trails": [
+				[
+					0.067,
+					0.229
+				]
+			]
+		},
+		"KV_AttackShield01": {
+			"cuts": [
+				[
+					0.019,
+					0.074
+				],
+				[
+					0.222,
+					0.352
+				]
+			],
+			"length": 0.9,
+			"loop": false,
+			"peak": 30.84,
+			"shield_turn": -22.9,
+			"trails": [
+				[
+					0.0,
+					0.426
+				]
+			]
+		},
+		"KV_BlockShield01_Loop": {
+			"length": 1.333,
+			"loop": true,
+			"shield_turn": -67.7
+		},
+		"KV_CombatDamage01": {
+			"length": 1.0,
+			"loop": false
+		},
+		"KV_CombatIdle1H01": {
+			"length": 1.333,
+			"loop": true
+		},
+		"KV_CombatIdle2H01": {
+			"length": 1.333,
+			"loop": true
+		},
+		"KV_CombatIdlePolearm01": {
+			"length": 1.333,
+			"loop": true
+		},
+		"KV_Death01": {
+			"length": 0.733,
+			"loop": false
+		},
+		"KV_Dodge01": {
+			"length": 1.067,
+			"loop": false
+		},
+		"KV_Idle01": {
+			"length": 2.7,
+			"loop": true
+		},
+		"KV_Parry2H01_Hit": {
+			"cuts": [
+				[
+					0.0,
+					0.038
+				]
+			],
+			"length": 0.867,
+			"loop": false,
+			"peak": 6.69,
+			"trails": [
+				[
+					0.0,
+					0.113
+				]
+			]
+		},
+		"KV_ParryDW01_Hit": {
+			"cuts": [
+				[
+					0.0,
+					0.038
+				]
+			],
+			"length": 0.867,
+			"loop": false,
+			"peak": 4.68,
+			"trails": [
+				[
+					0.0,
+					0.038
+				]
+			]
+		},
+		"KV_ParryPolearm01_Hit": {
+			"cuts": [
+				[
+					0.019,
+					0.113
+				]
+			],
+			"length": 0.867,
+			"loop": false,
+			"peak": 6.15,
+			"trails": [
+				[
+					0.0,
+					0.151
+				],
+				[
+					0.66,
+					0.755
+				]
+			]
+		},
+		"KV_ParryPolearm01_Loop": {
+			"length": 1.333,
+			"loop": true
+		},
+		"KV_Run01_Backward": {
+			"ground_speed": 4.58,
+			"length": 0.6,
+			"loop": true
+		},
+		"KV_Run01_Forward": {
+			"ground_speed": 3.82,
+			"length": 0.6,
+			"loop": true
+		},
+		"KV_Sprint01_Forward": {
+			"ground_speed": 4.43,
+			"length": 0.533,
+			"loop": true
+		},
+		"KV_StrafeRun01_Left": {
+			"ground_speed": 1.32,
+			"length": 0.6,
+			"loop": true
+		},
+		"KV_StrafeRun01_Right": {
+			"ground_speed": 1.43,
+			"length": 0.6,
+			"loop": true
+		},
+		"KV_StrafeWalk01_Left": {
+			"ground_speed": 2.04,
+			"length": 0.8,
+			"loop": true
+		},
+		"KV_StrafeWalk01_Right": {
+			"ground_speed": 2.3,
+			"length": 0.8,
+			"loop": true
+		},
+		"KV_UnsheatheHips01_R": {
+			"cuts": [
+				[
+					0.022,
+					0.311
+				],
+				[
+					0.733,
+					0.889
+				]
+			],
+			"length": 0.733,
+			"loop": false,
+			"peak": 21.23,
+			"shield_turn": 80.9,
+			"trails": [
+				[
+					0.0,
+					0.333
+				],
+				[
+					0.689,
+					0.933
+				]
+			]
+		},
+		"KV_Walk01_Backward": {
+			"ground_speed": 2.14,
+			"length": 0.8,
+			"loop": true
+		},
+		"KV_Walk01_Forward": {
+			"ground_speed": 2.08,
+			"length": 0.8,
+			"loop": true
+		},
+		"NinjaJump_Idle": {
+			"length": 2.0,
+			"loop": true
+		},
+		"NinjaJump_Land": {
+			"length": 1.267,
+			"loop": false
+		},
+		"NinjaJump_Start": {
+			"length": 0.967,
+			"loop": false
+		},
+		"Sword_Block": {
+			"cuts": [
+				[
+					0.0,
+					0.08
+				]
+			],
+			"length": 1.233,
+			"loop": false,
+			"peak": 27.92,
+			"trails": [
+				[
+					0.0,
+					0.093
+				]
+			]
+		},
+		"Sword_GroundPound": {
+			"cuts": [
+				[
+					0.014,
+					0.1
+				],
+				[
+					0.229,
+					0.271
+				]
+			],
+			"length": 1.167,
+			"loop": false,
+			"peak": 66.52,
+			"slam": 0.314,
+			"trails": [
+				[
+					0.0,
+					0.286
+				]
+			]
+		},
+		"Sword_Heavy_Combo": {
+			"cuts": [
+				[
+					0.084,
+					0.119
+				],
+				[
+					0.257,
+					0.272
+				],
+				[
+					0.402,
+					0.429
+				],
+				[
+					0.582,
+					0.602
+				]
+			],
+			"length": 4.333,
+			"loop": false,
+			"peak": 84.41,
+			"slam": 0.743,
+			"trails": [
+				[
+					0.027,
+					0.046
+				],
+				[
+					0.08,
+					0.123
+				],
+				[
+					0.249,
+					0.276
+				],
+				[
+					0.398,
+					0.433
+				],
+				[
+					0.582,
+					0.605
+				]
+			]
+		},
+		"Sword_Heavy_D": {
+			"cuts": [
+				[
+					0.229,
+					0.271
+				]
+			],
+			"length": 2.333,
+			"loop": false,
+			"peak": 71.29,
+			"slam": 0.529,
+			"trails": [
+				[
+					0.221,
+					0.271
+				]
+			]
+		},
+		"Sword_Light_A": {
+			"cuts": [
+				[
+					0.13,
+					0.783
+				]
+			],
+			"length": 0.367,
+			"loop": false,
+			"peak": 32.51,
+			"trails": [
+				[
+					0.087,
+					0.826
+				]
+			]
+		},
+		"Sword_Light_A_Rec": {
+			"cuts": [
+				[
+					0.0,
+					0.633
+				]
+			],
+			"length": 0.5,
+			"loop": false,
+			"peak": 6.98,
+			"trails": [
+				[
+					0.0,
+					0.867
+				]
+			]
+		},
+		"Sword_Light_B": {
+			"cuts": [
+				[
+					0.444,
+					0.593
+				]
+			],
+			"length": 0.433,
+			"loop": false,
+			"peak": 60.4,
+			"trails": [
+				[
+					0.0,
+					0.037
+				],
+				[
+					0.407,
+					0.593
+				]
+			]
+		},
+		"Sword_Light_B_Rec": {
+			"cuts": [
+				[
+					0.088,
+					0.471
+				]
+			],
+			"length": 0.567,
+			"loop": false,
+			"peak": 7.32,
+			"trails": [
+				[
+					0.029,
+					0.559
+				]
+			]
+		},
+		"Sword_Light_C": {
+			"cuts": [
+				[
+					0.472,
+					0.566
+				]
+			],
+			"length": 0.867,
+			"loop": false,
+			"peak": 59.14,
+			"trails": [
+				[
+					0.453,
+					0.585
+				]
+			]
+		},
+		"Sword_Light_Combo": {
+			"cuts": [
+				[
+					0.044,
+					0.078
+				],
+				[
+					0.171,
+					0.195
+				],
+				[
+					0.376,
+					0.4
+				]
+			],
+			"length": 3.4,
+			"loop": false,
+			"peak": 60.34,
+			"trails": [
+				[
+					0.02,
+					0.088
+				],
+				[
+					0.171,
+					0.195
+				],
+				[
+					0.371,
+					0.405
+				],
+				[
+					0.585,
+					0.595
+				]
+			]
+		},
+		"Sword_Regular_A": {
+			"cuts": [
+				[
+					0.407,
+					0.593
+				]
+			],
+			"length": 0.433,
+			"loop": false,
+			"peak": 82.52,
+			"slam": 0.481,
+			"trails": [
+				[
+					0.111,
+					0.63
+				]
+			]
+		},
+		"Sword_Regular_A_Rec": {
+			"cuts": [
+				[
+					0.207,
+					0.448
+				]
+			],
+			"length": 0.967,
+			"loop": false,
+			"peak": 13.81,
+			"shield_turn": 78.5,
+			"trails": [
+				[
+					0.172,
+					0.603
+				]
+			]
+		},
+		"Sword_Regular_B": {
+			"cuts": [
+				[
+					0.364,
+					0.485
+				]
+			],
+			"length": 0.533,
+			"loop": false,
+			"peak": 94.34,
+			"trails": [
+				[
+					0.333,
+					0.545
+				]
+			]
+		},
+		"Sword_Regular_B_Rec": {
+			"cuts": [
+				[
+					0.242,
+					0.677
+				]
+			],
+			"length": 1.033,
+			"loop": false,
+			"peak": 7.81,
+			"trails": [
+				[
+					0.113,
+					0.742
+				]
+			]
+		},
+		"Sword_Regular_C": {
+			"cuts": [
+				[
+					0.3,
+					0.333
+				]
+			],
+			"length": 2.0,
+			"loop": false,
+			"peak": 86.73,
+			"slam": 0.558,
+			"trails": [
+				[
+					0.025,
+					0.067
+				],
+				[
+					0.292,
+					0.35
+				]
+			]
+		},
+		"Sword_Regular_Combo": {
+			"cuts": [
+				[
+					0.061,
+					0.089
+				],
+				[
+					0.222,
+					0.25
+				],
+				[
+					0.494,
+					0.522
+				]
+			],
+			"length": 3.0,
+			"loop": false,
+			"peak": 94.34,
+			"slam": 0.589,
+			"trails": [
+				[
+					0.028,
+					0.094
+				],
+				[
+					0.217,
+					0.256
+				],
+				[
+					0.494,
+					0.533
+				]
+			]
+		}
+	},
+	"made_by": "vepxis-art/tools/clip_meta.gd"
+}

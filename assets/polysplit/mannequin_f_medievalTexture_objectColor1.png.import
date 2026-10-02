@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bx3lq3uoduyma"
-path.s3tc="res://.godot/imported/mannequin_m_medievalTexture_bodyColor1.png-5bb20a093fe94399e87b3db71026367d.s3tc.ctex"
+uid="uid://ch2bdfet4x871"
+path.s3tc="res://.godot/imported/mannequin_f_medievalTexture_objectColor1.png-0cae99cc2a5fd76f2c892796601f9f43.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "67be598a944e296b94b1beed6d3c8730"
+"md5": "f92b8ed1305032c75a3a99957c825b9a"
 }
 
 [deps]
 
-source_file="res://assets/polysplit/mannequin_m_medievalTexture_bodyColor1.png"
-dest_files=["res://.godot/imported/mannequin_m_medievalTexture_bodyColor1.png-5bb20a093fe94399e87b3db71026367d.s3tc.ctex"]
+source_file="res://assets/polysplit/mannequin_f_medievalTexture_objectColor1.png"
+dest_files=["res://.godot/imported/mannequin_f_medievalTexture_objectColor1.png-0cae99cc2a5fd76f2c892796601f9f43.s3tc.ctex"]
 
 [params]
 
