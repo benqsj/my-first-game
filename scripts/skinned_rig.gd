@@ -1845,6 +1845,7 @@ func _show_figure() -> void:
 		_blade_tip_l.reparent(mount_l, false)
 	_fit_blades(custom)
 	_fit_sheath(custom)
+	_scale_ground()
 
 
 ## The cut's markers along the blade in hand: the maker's blades are measured
@@ -2145,13 +2146,12 @@ func _wear_moves() -> void:
 		return
 	moves = Moveset.build(kind, _own_tables["clips"])
 	_set_tables(_own_tables)
-	var pace := scale.y
 	for slot: StringName in moves["clips"]:
 		var clip: StringName = moves["clips"][slot]
 		if clip != &"" and _anim.has_animation(clip):
 			clips[slot] = clip
-	for clip: StringName in moves["ground_speed"]:
-		ground_speed[clip] = float(moves["ground_speed"][clip]) * pace
+	_mq_ground = (moves["ground_speed"] as Dictionary).duplicate()
+	_scale_ground()
 	var lib: AnimationLibrary = _mq["lib"]
 	for part: StringName in moves["aliases"]:
 		if not lib.has_animation(part) and lib.has_animation(moves["aliases"][part]):
@@ -2664,6 +2664,36 @@ var _sheath_at: float = -1.0
 ## The clip putting it away or drawing it, kept till it is over (the hand-off
 ## is done before it ends).
 var _sheath_play: StringName = &""
+
+
+## The mannequin's clips' paces over the ground (m/s at scale 1), as the
+## moveset measured them; `ground_speed` is these at the size worn.
+var _mq_ground: Dictionary = {}
+
+
+## The paces at the size the figure is drawn: the model's scale, and how much
+## longer the figure's legs are than the mannequin's. The figure's limbs are
+## turned as the mannequin's are, so its stride is longer by its legs (its
+## hips' height over the mannequin's, [FigureFollower] `_scale`); left out,
+## every walk and run played too fast for the ground covered, and the standing
+## foot slid back 17-25 % of the pace (`stride_test`, a frame to a tick).
+func _scale_ground() -> void:
+	if _mq_ground.is_empty():
+		return
+	var pace := scale.y * _figure_stride()
+	for clip: StringName in _mq_ground:
+		ground_speed[clip] = float(_mq_ground[clip]) * pace
+
+
+func _figure_stride() -> float:
+	if _figure == null or _figure_skel == null:
+		return 1.0
+	for id: StringName in _figs:
+		if _figs[id]["skel"] == _figure_skel:
+			var follow := _figs[id]["follow"] as FigureFollower
+			if follow != null and follow._scale > 0.5:
+				return follow._scale
+	return 1.0
 
 
 ## Whether there is a scabbard to put the sword in.

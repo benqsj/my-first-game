@@ -764,7 +764,13 @@ func _lean(delta: float, planar: float, off_ground: bool) -> void:
 		_lean_prev_dir = flat / planar
 	var k := 1.0 - exp(-lean_follow * delta)
 	_lean_roll = lerpf(_lean_roll, roll, k)
-	_lean_pitch = lerpf(_lean_pitch, pitch, k)
+	# Forward and back on a spring, a little under-damped: pulled up out of a
+	# run he rocks back, a touch forward past upright on the way, and is still
+	# (`pace_sway_stiffness`, `pace_sway_damping`).
+	var pull := (pitch - _lean_pitch) * pace_sway_stiffness - _lean_pitch_speed * pace_sway_damping
+	_lean_pitch_speed += pull * minf(delta, 0.05)
+	_lean_pitch += _lean_pitch_speed * minf(delta, 0.05)
+	_lean_pitch = clampf(_lean_pitch, -pace_lean_back * 1.3, pace_lean_max * 1.3)
 	rig.transform.basis = Basis.from_euler(Vector3(_lean_pitch, 0.0, _lean_roll)) * _lean_rest
 
 
@@ -779,6 +785,10 @@ func _lean(delta: float, planar: float, off_ground: bool) -> void:
 @export var pace_lean_back: float = 0.13
 ## How fast the lean follows what it is asked for (1/s).
 @export var lean_follow: float = 9.0
+## The forward-and-back lean's spring: how hard it is pulled to what it is
+## asked for, and how much the rocking is damped (under 2·√stiffness rocks).
+@export var pace_sway_stiffness: float = 110.0
+@export var pace_sway_damping: float = 13.0
 ## Pace (m/s) a stop or a turn back must come out of to kick up dust, how hard
 ## it must brake (m/s²), and the size of the puff.
 @export var skid_pace: float = 4.5
@@ -792,6 +802,7 @@ var _lean_yaw := 0.0
 var _lean_vel := Vector3.ZERO
 var _lean_roll := 0.0
 var _lean_pitch := 0.0
+var _lean_pitch_speed := 0.0
 var _lean_prev_flat := Vector3.ZERO
 var _lean_prev_dir := Vector3.FORWARD
 var _skid_at := -100000

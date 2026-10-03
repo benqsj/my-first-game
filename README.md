@@ -4169,7 +4169,9 @@ the hold and the light; breaking off their moves is still the wolf's alone.
 **Leaning into the run** (`Player._lean`): the model (not the capsule) is
 leant over its feet into a turn, the faster and tighter the more
 (`turn_lean_rate`, at most `turn_lean_max` 0.2 rad), forward as a run picks up
-and back as it pulls up (`pace_lean_*`), eased in at `lean_follow`. Pulled up hard out of a run, or thrown back the
+and back as it pulls up (`pace_lean_*`), eased in at `lean_follow`; forward and back it is a spring a little
+under-damped (`pace_sway_*`), so pulled up he rocks back and a touch forward
+past upright before he is still. Pulled up hard out of a run, or thrown back the
 other way, the feet kick up a little dust (`skid_*`, a small `DustRing`). Worked out
 from the turning and the replicated velocity, so every peer sees it; none in
 the air, in a swing or a dodge. `tests/hit_feel_test.gd` checks the lean and
@@ -6386,8 +6388,21 @@ and the top of the head is about 0.2 m above it.
   5.6 m/s. `archer_test`'s "as fast as the knight" (5.6 vs 6.3) was already
   failing at 7.4.
 - **Moveset ground speeds follow the scale** (`SkinnedRig._wear_moves`, `pace :=
-  scale.y`), so the walks and runs of every hero retime themselves. Every
-  hero's `stride_test` passes.
+  scale.y`), so the walks and runs of every hero retime themselves.
+- **...and the figure's legs (fixed later the same day).** The figure's limbs
+  are turned as the mannequin's are, so its stride is longer by its legs: its
+  hips stand higher than the mannequin's (`FigureFollower._scale`). Left out,
+  every walk and run played too fast for the ground covered and the standing
+  foot slid back 17-25 % of the pace. `SkinnedRig._scale_ground()` multiplies
+  the paces by both, worked out again whenever a figure is put on. Tariel's
+  sprint now plays x0.88 at 6.3 m/s (its own pace on his figure is ~7.2 m/s);
+  every hero's walk and run slides 0.16-0.28 m/s.
+- **`stride_test` measured noise before.** Headless, frames ran free of the
+  physics ticks, so a tick with no frame (the pose not moved on while the body
+  had) or two read as sliding, a different amount each run: the earlier
+  0.35-0.39 at x1.01 was luck. It now draws one frame a tick
+  (`Engine.max_fps`) and reads the body where it is, not where the smoother
+  draws it, and gives the same numbers every run.
 - **The blade reaches less far.** The cut markers are measured off the blade in
   hand, so they follow. `multiplayer_test` stood the two knights 1.3 m from
   the wolf; that is now 1.1 m.

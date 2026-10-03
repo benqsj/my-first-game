@@ -18,6 +18,10 @@ func _check(what: String, ok: bool, detail: String) -> void:
 
 
 func _initialize() -> void:
+	# one frame drawn for each physics tick: headless, frames run free, and a
+	# tick with no frame in it (the pose not moved on while the body has) or
+	# two (the pose moved on twice) read as the standing foot sliding
+	Engine.max_fps = Engine.physics_ticks_per_second
 	var args := OS.get_cmdline_user_args()
 	var hero := StringName(args[0]) if args.size() > 0 else &"tariel"
 	var game := root.get_node_or_null("Game")
@@ -59,6 +63,11 @@ func _initialize() -> void:
 		var track := {"L_ankle_joint": [], "R_ankle_joint": []}
 		for i in 90:
 			await physics_frame
+			# where the body is, not where it is drawn: the model is drawn a
+			# fraction of a tick behind ([VisualSmoother]), by a different
+			# fraction each frame, and that read as the planted foot sliding
+			if player._smoother != null:
+				player._smoother.take_off()
 			var skel := rig._figure_skel
 			for foot: String in track:
 				(track[foot] as Array).append(skel.global_transform * skel.get_bone_global_pose(skel.find_bone(foot)).origin)
