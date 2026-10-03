@@ -6587,7 +6587,10 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   faces +Z as imported (the handles on -Z) and its top is +Y; the -Y "front"
   `mannequin_shields()` was given lies in the shield's face, so which way it
   turned was luck. Now set from the files (looked at, not guessed from the
-  shape): the face out, the top up in the guard.
+  shape): the face out, the top up in the guard. !! The top is the file's
+  -Y: with +Y up the bone shields' skulls and the ornate crests stood on
+  their heads (the user saw it; `vepxis-art/aw/probe5` draws every shield
+  flat with its texture).
 - **Scabbards.** A sword or knife of the Advanced pack brings its own
   scabbard: worn where the class's scabbard was (the swordsman's on his back,
   the fighter's at his hip, the knight's great one, the rogue's sheaths), the
