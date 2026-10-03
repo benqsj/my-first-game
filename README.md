@@ -889,12 +889,16 @@ are what is written there, so Medium went on the end (`LOW, HIGH, MEDIUM`) and
 
 | | High | Medium | Low |
 | --- | ---- | ------ | --- |
-| sun's shadow | 2 cascades, 95 m | **1 cascade, 55 m** | **off** |
+| sun's shadow | 2 cascades, 95 m | **1 cascade, 55 m**, 2048 map | **off** |
+| shadow filter | soft low | soft very low | hard |
 | render scale | 1.0 | **0.85**, FSR | **0.7**, FSR |
+| at most this many pixels drawn (then FSR) | 2.4 M | 1.6 M | 1.0 M |
 | edges | SMAA | FXAA | none |
 | texture mipmap bias | 0 | 0 | **+1.0** — surfaces go soft |
 | SSAO | on | off | off |
-| glow, fog | on | on | off |
+| glow | on | on | off |
+| fog | on | on | on |
+| how far anything in the lands is drawn (`REACH`) | 240 m | 180 m | 130 m |
 | grass: draw distance, LOD bias | 130 m, 0.06 | 95 m, 0.04 | 60 m, 0.02 |
 | wood and meadow plants | as laid out | 80 % of the distance | 60 % |
 | loose stones, people | 110 m, 80 m | 80 m, 60 m | 55 m, 45 m |
@@ -2173,6 +2177,102 @@ one hull of at most 24 points per stone, one of 32 per big rock, and up to six o
   SSAO were the things worth touching.
 - **The wolves' rigs** (68 pieces each) and the 8 256-triangle grass clump are
   still the biggest things left, and both are Blender work.
+
+## Performance, October 2026
+
+The September pass was made on the 240 × 575 m core. Since then the lands went
+round it (600 × 890 m, `Lands`, `LandsPlaces`: five villages, sixteen camps,
+forty-nine landmarks, Gulansharo), and the game had got slow on High and
+Medium: low frame rates and a judder when running and turning the camera.
+
+    godot --path . --script res://tests/perf_tour.gd    # not --headless
+
+| place | High before | High after | Medium before | after | Low before | after |
+| --- | --- | --- | --- | --- | --- | --- |
+| spawn, to the wood | 15.8 ms, 6 112 draws | 16.0, 3 452 | 14.3, 5 365 | 12.8, 2 871 | 6.6, 1 933 | 8.1, 888 |
+| in the wood | 39.5, 3 790 | 13.2, 2 166 | 27.4, 3 336 | 9.9, 1 619 | 16.0, 1 593 | 7.1, 772 |
+| the hamlet | 42.9, 4 296 | 14.9, 2 797 | 28.7, 3 848 | 12.0, 2 235 | 16.5, 994 | 6.6, 555 |
+| the mist village | 43.2, 2 204 | 15.3, 1 809 | 30.8, 1 941 | 10.7, 1 456 | 19.8, 924 | 7.4, 513 |
+| the pier | 35.3, 963 | 11.2, 836 | 24.4, 614 | 8.4, 478 | 13.9, 283 | 5.3, 208 |
+| the orc camp | 48.8, 4 095 | 16.0, 2 562 | 32.6, 3 367 | 12.0, 1 947 | 20.1, 897 | 7.2, 368 |
+
+Video memory 1.49 GB → 1.02 GB. The frame times of the "before" run are high
+partly because the machine was busy (see *Measuring* below); the draw calls
+are exact.
+
+What was done:
+
+- **The lands' places batched** (`StaticBatch`). The city, the villages, the
+  camps and the landmarks are boxes, cylinders and props, 1 329 of them, each
+  its own draw call and its own again in each shadow cascade: about 4 000 of
+  the spawn's 6 000 draws, drawn whether they could be seen or not. At load
+  they are copied into ~600 meshes, one per square of the map × material ×
+  size × shadow (small pieces on 32 m squares, middling on 64, large on 96),
+  and freed. Pieces under 1.6 m cast no shadow. Left alone: anything with
+  children or a script (the land gate), anything see-through, the kit's
+  buildings (scenes).
+- **Everything in the lands has a reach** (`Graphics.REACH`: 240 / 180 / 130 m)
+  and the fog hides where it stops. Small pieces 70 m, middling 150 m (before
+  the setting's scale), the big ones the setting's reach, fading into the fog
+  over its last 12 %; the wood's trees are capped at it too. The ground, the
+  water and the far mountains, which cost little, go on to the horizon. The
+  fog is thicker to match (`Looks`: 0.0042 → 0.0052, Low 0.0032 → 0.0058) and
+  is on for Low as well, which had none.
+- **Occlusion culling** (`Occluders`, `rendering/occlusion_culling`). The
+  ground of the lands is a flat grid lifted in its shader, so the CPU never
+  knew a hill was there: an 8 m grid of it is now an occluder, each corner at
+  the lowest ground within a step of it and 3 m under that, so it is
+  everywhere below the drawn ground and never hides what stands on it. The
+  big solid boxes of the lands' places (walls, towers, houses:
+  `LandsPlaces.occluder_boxes`) and each kit `Building`, shrunk into its own
+  outline, are the other occluder. Looking north from the spawn: 2 795 →
+  1 583 draws. Checked against pictures with it off (no difference past the
+  frame-to-frame noise of the grass and the air).
+- **A pixel budget** (`Graphics.PIXEL_BUDGET`). A Retina Mac's full screen is
+  3360 × 2100, five times the 1600 × 900 window everything above is measured
+  in; High drew all of it. Now no setting draws more than 2.4 / 1.6 / 1.0
+  million pixels and FSR brings it up, re-worked whenever the window changes
+  size (F11, the display setting).
+- **Shadows one step cheaper**: the filter soft-low on High, very-low on
+  Medium (from the project's soft-medium), and Medium's single cascade on a
+  2048 map.
+- **The run's judder** (`VisualSmoother`, on the hero). The body moves sixty
+  times a second and the screen is drawn at whatever rate it manages, so at
+  45 fps one frame had no step in it and the next two, and a camera smoothly
+  following a body that jumps makes the whole world judder round it when it
+  turns. The model is now drawn where the body was the fraction of a tick ago
+  the frame is drawn at, and the camera follows that. Only *drawn* there: the
+  offset goes on after every other `_process` and comes off before any other
+  `_process` or `_physics_process`, so the collider, the blows, the IK and the
+  skills that move the model (`LevelBeam`) never see it. Godot's own physics
+  interpolation was not used: everything moved from `_process` (the camera
+  rig, the blade arcs, the bars over heads, the cloth) would have been drawn a
+  tick late. The creatures still step at 60 Hz: their own scripts set their
+  `Visuals` (a corpse sinking, the golem's stomp), and they are seen from
+  further off.
+
+### Measuring
+
+- **Frame times from a script-driven window are only as good as the window.**
+  A visible window waits for the display (1/3 of the main thread was in
+  `IOSurfaceSharedEvent waitUntilSignaledValue`, sampled with `sample`), an
+  occluded one does not, so one run can read 17 ms and the next 5 ms for the
+  same frame. Metal gives Godot no GPU timestamps. Draw calls, primitives
+  and objects are exact; read those first.
+- `_shots_tmp/` probes used this round (not kept): a gameplay probe (stand,
+  run, run and turn, swing, all of it, with the spikes and the physics ticks
+  in each frame), one that switches each thing off in turn at four spots, one
+  that times every script's `_process` by hand (all of them together are
+  under 2.5 ms; the orcs are most of it at their camp), occlusion on/off with
+  picture differences.
+- At the spawn on High the frame is ~16 ms and GPU-bound, right at a 60 Hz
+  display's 16.7: a frame just over it waits a whole refresh, which reads as
+  a hitch about once a second. Medium (~10–13 ms) has room to spare.
+- **iCloud.** The project is on the Desktop, which iCloud syncs: `bird` held
+  75 % of a core through every run of this pass, and every import and every
+  screenshot is uploaded. Moving the project out of iCloud's folders (or
+  turning Desktop & Documents off) gives that back to the game.
+- LODs: every heavy .glb already imports with `generate_lods`; nothing to do.
 
 ## Tariel, skinned
 
