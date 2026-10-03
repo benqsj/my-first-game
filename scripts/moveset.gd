@@ -49,6 +49,9 @@ const DEATHS := {
 }
 ## A hero's own death, whatever class he wears (Tariel's, the user's word).
 const HERO_DEATHS := {&"tariel": &"KV_Death01"}
+## Deaths played slower than made: KV_Death01 is 0.7 s, too quick a fall (the
+## user's word, 2026-10-03); at x0.6 it takes 1.2 s.
+const DEATH_RATE := {&"KV_Death01": 0.6}
 ## A string's blow is played from a little before its cut to a little after
 ## (seconds), so one runs into the next.
 const LEAD := 0.28

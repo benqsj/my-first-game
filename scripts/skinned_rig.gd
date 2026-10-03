@@ -2552,7 +2552,7 @@ func die() -> void:
 				Moveset.DEATHS.get(String(ps_look.get("cls", "")), &""))
 		if own != &"" and _anim.has_animation(own):
 			clip = own
-	_play_action(clip, Role.DOWN, 1.0, 0.08)
+	_play_action(clip, Role.DOWN, float(Moveset.DEATH_RATE.get(clip, 1.0)), 0.08)
 
 
 func get_up(duration: float) -> void:
