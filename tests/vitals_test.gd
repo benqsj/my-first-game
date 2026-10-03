@@ -108,9 +108,19 @@ func _initialize() -> void:
 	await _wait(30)
 	_player.set_shield(Inventory.Shields.TOWER)
 	var skinned := _player.rig as SkinnedRig
-	_check("the tower shield goes on his arm, the round one off it", skinned != null
-			and skinned._shield_meshes.size() == 2 and skinned._shield_meshes[1] != null
-			and skinned._shield_meshes[1].visible and not skinned._shield_meshes[0].visible)
+	# worn on the arm of whatever he is drawn as: the model's own shields, or
+	# a figure's (YOUR OWN, his look on the maker's figure, is his first)
+	var shields: Array = []
+	if skinned != null and skinned.wearing_figure() and skinned._figure != null:
+		var prefix := String(skinned.figures[skinned.figure_faces[skinned.faces[skinned.face]]["figure"]]["prefix"]) + "_"
+		shields = [skinned._figure.find_child(prefix + "shield", true, false),
+				skinned._figure.find_child(prefix + "tower_shield", true, false)]
+	elif skinned != null:
+		shields = skinned._shield_meshes
+	_check("the tower shield goes on his arm, the round one off it", shields.size() == 2
+			and shields[1] != null and (shields[1] as Node3D).visible
+			and (shields[0] == null or not (shields[0] as Node3D).visible),
+			"(%s)" % [skinned.faces[skinned.face] if skinned != null else "no rig"])
 	_player.stamina = _player.max_stamina
 	_player.is_blocking = true
 	_player._guard_raised_at = _player._now()
