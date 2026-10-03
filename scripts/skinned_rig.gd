@@ -177,10 +177,8 @@ var swing_volume := -18.0
 ## The weight of a cut heard in its swing (see [method _whoosh_now]): a string's
 ## first cut higher and quicker, its second plainer, its last (and a cut of
 ## about its weight) deeper with a rush of air under it, a heavy blow deeper
-## still with a deep rush. Off for the rigs with sounds of their own.
+## still with a deep rush ([method ImpactFx.rush], noise with no tone in it). Off for the rigs with sounds of their own.
 var heft_swings := true
-const AIR_RUSH: Array[String] = ["res://unverified/sounds/tariel/air_2.wav", "res://unverified/sounds/tariel/air_3.wav"]
-const AIR_DEEP: Array[String] = ["res://unverified/sounds/tariel/air_5.wav"]
 ## The cut weights from which a swing is heard as a string's last, and as a
 ## heavy blow.
 const HEFT_FINISHER := 1.15
@@ -484,7 +482,7 @@ func _ready() -> void:
 	set_face(face)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
-	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds + AIR_RUSH + AIR_DEEP)
+	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
 	ImpactFx.warm()
 
 
@@ -1432,10 +1430,10 @@ func _whoosh_now() -> void:
 	match heft:
 		&"heavy":
 			Sfx.play_any(self, swing_sounds, at, swing_pitch * 0.84, swing_volume + 2.0)
-			Sfx.play_any(self, AIR_DEEP, at, 0.95, swing_volume + 1.0)
+			ImpactFx.rush(self, at, true, swing_volume + 1.0)
 		&"finisher":
 			Sfx.play_any(self, swing_sounds, at, swing_pitch * 0.92, swing_volume + 1.0)
-			Sfx.play_any(self, AIR_RUSH, at, 1.0, swing_volume - 4.0)
+			ImpactFx.rush(self, at, false, swing_volume - 2.0)
 		&"second":
 			Sfx.play_any(self, swing_sounds, at, swing_pitch * 0.98, swing_volume)
 		_:

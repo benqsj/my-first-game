@@ -6920,11 +6920,14 @@ are played, by the cut's weight (`cut_weight`):
 |---|---|---|
 | `first` | a string's first, the light cuts (an evade's) | pitch ×1.07, −1 dB |
 | `second` | the cuts in the middle of a string | pitch ×0.98 |
-| `finisher` | weight ≥ 1.15: a string's last (1.6), the running cut, the thrust, the Rising Cut, the Shadow Slide | pitch ×0.92, +1 dB, a rush of air under it (`air_2`/`air_3`, −4 dB) |
-| `heavy` | weight ≥ 1.75 or a heavy blow: the Shadow Lance, the jump slam | pitch ×0.84, +2 dB, a deep rush (`air_5`, +1 dB) |
+| `finisher` | weight ≥ 1.15: a string's last (1.6), the running cut, the thrust, the Rising Cut, the Shadow Slide | pitch ×0.92, +1 dB, a rush of air under it (`ImpactFx.rush`, −2 dB) |
+| `heavy` | weight ≥ 1.75 or a heavy blow: the Shadow Lance, the jump slam | pitch ×0.84, +2 dB, a deep rush (`ImpactFx.rush` deep, +1 dB) |
 
 Only the swords: the archer, the mage and the assassin keep their own swings
-(`heft_swings = false`).
+(`heft_swings = false`). The rushes are made of noise alone, swelling and
+going duller as the blade passes. The recorded ones (`tariel/air_2`, `air_3`,
+`air_5`) were tried first, but they hum: `air_5` has 68 % of its energy at
+151 Hz, and the user heard bells.
 
 **What the blade goes into is heard** (`ImpactFx.matter_of()`, `ImpactFx.strike()`).
 A creature that takes a cut tells the knight what it is made of

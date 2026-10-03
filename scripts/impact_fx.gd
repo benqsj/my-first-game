@@ -8,6 +8,62 @@ extends RefCounted
 static var _thud: AudioStreamWAV
 ## The other things a blade can meet, made the same way (see [method strike]).
 static var _made: Dictionary = {}
+## The rush of air under a heavy swing (see [method rush]): made of noise only.
+static var _rush: Dictionary = {}
+
+
+## The rush of air under a string's last swing, or (`deep`) a heavy blow's:
+## noise swelling and dying, its colour sweeping down, with no tone in it (the
+## recorded rushes, `tariel/air_*`, hum: the user heard bells, 2026-10-04).
+## Played on `on` (the sword's mount), so it goes with the blade.
+static func rush(owner: Node, on: Node3D, deep: bool, volume_db: float) -> void:
+	if owner == null or on == null or not on.is_inside_tree():
+		return
+	if not _rush.has(deep):
+		_rush[deep] = _make_rush(deep)
+	var player := AudioStreamPlayer3D.new()
+	player.stream = _rush[deep]
+	player.volume_db = volume_db
+	player.pitch_scale = randf_range(0.93, 1.07)
+	player.unit_size = 6.0
+	player.max_distance = 60.0
+	on.add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+
+static func _make_rush(deep: bool) -> AudioStreamWAV:
+	var rate := 22050
+	var long := 0.42 if deep else 0.3
+	var count := int(rate * long)
+	var data := PackedByteArray()
+	data.resize(count * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242 if deep else 2424
+	var lp := 0.0
+	var lp2 := 0.0
+	var hp := 0.0
+	for i in count:
+		var t := float(i) / float(rate)
+		var k := t / long
+		# swelling to its loudest a fifth of the way in, then dying
+		var env := smoothstep(0.0, 0.2, k) * pow(1.0 - k, 1.6)
+		# the colour: from bright to dull as the blade passes
+		var bright := lerpf(0.32, 0.06, k) * (0.55 if deep else 1.0)
+		var n := rng.randf_range(-1.0, 1.0)
+		lp += (n - lp) * bright
+		lp2 += (lp - lp2) * bright
+		hp += (lp2 - hp) * 0.02  # a little low cut, no rumble
+		var s := (lp2 - hp) * env * (3.2 if deep else 2.6)
+		data.encode_s16(i * 2, int(clampf(s, -1.0, 1.0) * 30000.0))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	wav.stereo = false
+	wav.data = data
+	return wav
+
+
 ## A blade caught on a guard: the recording of a blow on a shield (the one the
 ## hero's block plays, `Player.BLOCK_SOUND`), the made thunk under it.
 const GUARD_BLOCK := "res://unverified/sounds/all/block_1.wav"
