@@ -693,6 +693,8 @@ func _process(delta: float) -> void:
 		rig.call(&"set_garb", net_garb)
 	if not mine and rig.has_method(&"set_face") and int(rig.get(&"face")) != net_face:
 		rig.call(&"set_face", net_face)
+	if not mine and rig.weapons_stowed() != net_stowed:
+		rig.stow_weapons(net_stowed)
 	if not mine and rig.has_method(&"set_hair") and int(rig.get(&"hair")) != net_hair:
 		rig.call(&"set_hair", net_hair)
 	if not mine and rig.has_method(&"set_tint") and int(rig.get(&"tint")) != net_tint:
@@ -823,6 +825,7 @@ func _physics_process(delta: float) -> void:
 		_spawn_point = global_position
 	_tick_timers(delta)
 	_tick_vitals(delta)
+	_tick_sheathe(delta)
 	_track_target(delta)
 	_track_pierce(delta)
 	if has_bow():
@@ -1424,6 +1427,11 @@ func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = fa
 			var local := global_transform.basis.inverse() * _dash_direction
 			rig.call(&"step_dodge", Vector2(local.x, local.z), dash_duration)
 		else:
+			# An evade that cuts on the way (Tariel's dash) cannot be made
+			# with the sword away: it comes to the hand as the dash goes.
+			var moves: Variant = rig.get(&"moves")
+			if moves is Dictionary and (moves as Dictionary).has("evade"):
+				_set_weapons_stowed(false)
 			rig.dodge(dash_duration)
 	dash_started.emit(_dash_direction)
 	return true
@@ -1571,6 +1579,33 @@ func _set_weapons_stowed(away: bool) -> void:
 ## True while the player has put the weapons away.
 func weapons_stowed() -> bool:
 	return rig != null and rig.weapons_stowed()
+
+
+## Whether the rig is drawing the sword now.
+func _rig_drawing() -> bool:
+	return rig != null and rig.has_method(&"is_drawing") and bool(rig.call(&"is_drawing"))
+
+
+## Out of the fight, the sword goes back in its scabbard of its own accord:
+## `sheathe_after` seconds once the rig is no longer on guard (no blow, hit or
+## guard for its `EASE_AFTER`, no target). Only where there is a scabbard to
+## put it in, standing or walking with nothing else going on.
+func _tick_sheathe(delta: float) -> void:
+	if rig == null or not rig.has_method(&"can_sheathe") or not bool(rig.call(&"can_sheathe")) \
+			or weapons_stowed():
+		_peace = 0.0
+		return
+	var busy := state != State.GROUNDED or is_committed() or is_blocking or _drawing or _crouching \
+			or (rig.has_method(&"fighting") and bool(rig.call(&"fighting")))
+	_peace = 0.0 if busy else _peace + delta
+	if _peace >= sheathe_after:
+		_peace = 0.0
+		_set_weapons_stowed(true)
+
+
+## Seconds out of the fight before the sword is put away.
+@export var sheathe_after: float = 2.0
+var _peace: float = 0.0
 #endregion
 
 
@@ -2556,6 +2591,18 @@ func _attack(heavy: bool = false) -> void:
 		return
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
+	# The sword away: one press draws it, and the cut goes as it comes out
+	# (the press is kept till the draw is done). Off the ground, or with no
+	# clip for it, the sword is simply in the hand (below).
+	if _rig_drawing() or (state == State.GROUNDED and weapons_stowed() and rig.has_method(&"draw_time") \
+			and float(rig.call(&"draw_time")) > 0.0):
+		if not _rig_drawing():
+			_set_weapons_stowed(false)
+		if heavy:
+			_heavy_buffer = attack_buffer_time
+		else:
+			_attack_buffer = attack_buffer_time
+		return
 	var cost := profile.attack_stamina if profile != null else 16.0
 	if heavy:
 		cost *= heavy_stamina
@@ -3363,7 +3410,7 @@ func _tick_timers(delta: float) -> void:
 	if not bitten:
 		_commit_timer = maxf(_commit_timer - delta, 0.0)
 	_root_timer = maxf(_root_timer - delta, 0.0)
-	if not bitten:
+	if not bitten and not _rig_drawing():
 		_attack_buffer = maxf(_attack_buffer - delta, 0.0)
 		_heavy_buffer = maxf(_heavy_buffer - delta, 0.0)
 	# A flurry is over once nothing has been swung for a beat, and the next cut

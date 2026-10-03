@@ -900,6 +900,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	_airborne_now = airborne
 	_blocking_now = blocking
 	_hold_stop(delta)
+	_sheath_tick(delta)
 	_plunge_left = maxf(_plunge_left - delta, 0.0)
 	_swing_commit = maxf(_swing_commit - delta, 0.0)
 
@@ -1766,6 +1767,7 @@ func _load_figure(id: StringName) -> bool:
 	follow.followed.connect(_on_figure_followed.bind(id))
 	follow.followed.connect(_turn_shield.bind(id))
 	follow.followed.connect(_hilt.bind(id))
+	follow.followed.connect(_hold_sheathed.bind(id))
 	_figs[id] = {"node": node, "skel": skel, "follow": follow, "mount": mount, "mount_l": mount_l}
 	return true
 
@@ -1840,6 +1842,7 @@ func _show_figure() -> void:
 		_blade_base_l.reparent(mount_l, false)
 		_blade_tip_l.reparent(mount_l, false)
 	_fit_blades(custom)
+	_fit_sheath(custom)
 
 
 ## The cut's markers along the blade in hand: the maker's blades are measured
@@ -2459,6 +2462,9 @@ func _hilt(id: StringName) -> void:
 	var kind: StringName = moves.get("kind", &"")
 	if kind != &"two_hands" and kind != &"spear":
 		return
+	# the sword away: nothing for the other hand to take hold of
+	if _sheath_k > 0.5:
+		return
 	if _hilt_ends.is_empty():
 		var mesh := _figure.find_child("ps_w_" + String(ps_look.get("w", "")), true, false) as MeshInstance3D
 		var tip := _far(mesh, &"weapon_r")
@@ -2617,7 +2623,168 @@ func is_wall_climbing() -> bool:
 
 
 func weapons_slung() -> float:
-	return 0.0  # no sheathing yet — the sword stays in hand
+	return _sheath_k
+
+
+#region The scabbard
+## The sword put away in the scabbard the figure wears, and drawn from it
+## (2026-10-03). The scabbard is one of the figure's extras, rigid on one bone
+## (the swordsman's on `cape_joint1`, across the back; the fighter's on
+## `L_coatTail_joint1`, at the left hip); where the sword sits in it — its
+## socket — is worked out off the two meshes when the look is put on
+## (`_fit_sheath`). Kevin's clips put it away and draw it, over the back or
+## from the hip, whichever the scabbard is; at the moment the hand takes the
+## hilt (`grab`, a share of the clip) the sword goes over from the scabbard to
+## the hand, or back, in `SHEATH_HANDOFF`. The sword is moved by its bone,
+## `weapon_r`, so its mesh and the cut's markers go with it.
+
+## The clips by where the scabbard is: [draw, grab, the share it is played to,
+## its rate], [put away, let go, rate]. The grab and let-go are where the hand
+## is at the hilt (vepxis-art NOTES 2026-10-03, the hand's path sampled).
+const SHEATH_CLIPS := {
+	&"back": {"draw": [&"KV_UnsheatheBack01_R", 0.57, 0.8, 1.5], "away": [&"KV_SheatheBack01_R", 0.45, 1.1]},
+	&"hips": {"draw": [&"KV_UnsheatheHips01_R", 0.52, 0.8, 1.5], "away": [&"KV_SheatheHips01_R", 0.59, 1.1]},
+}
+## Seconds the sword takes to go over from the scabbard to the hand or back.
+const SHEATH_HANDOFF := 0.08
+
+## Where the sword sits when it is away: {"bone": the scabbard's bone on the
+## figure, "at": weapon_r's transform in that bone's frame, "where": &"back" or
+## &"hips", "mesh": the scabbard}. Empty when there is nowhere to put it.
+var _sheath: Dictionary = {}
+## How far the sword is in the scabbard (0 in the hand, 1 away), and where it
+## is going.
+var _sheath_k: float = 0.0
+var _sheath_goal: float = 0.0
+## The clip putting it away or drawing it now, and its hand-off share.
+var _sheath_clip: StringName = &""
+var _sheath_at: float = -1.0
+## The clip putting it away or drawing it, kept till it is over (the hand-off
+## is done before it ends).
+var _sheath_play: StringName = &""
+
+
+## Whether there is a scabbard to put the sword in.
+func can_sheathe() -> bool:
+	return not _sheath.is_empty()
+
+
+## Puts the sword away (`away`) or draws it. Standing or walking, with nothing
+## else playing, it is done with the clip; otherwise (in the air, in a move,
+## no clip) it is done at once.
+func stow_weapons(away: bool) -> void:
+	if not can_sheathe():
+		_stowed = false
+		_sheath_k = 0.0
+		_sheath_goal = 0.0
+		return
+	if away == _stowed:
+		return
+	_stowed = away
+	var spec: Array = (SHEATH_CLIPS[_sheath["where"]] as Dictionary)["away" if away else "draw"]
+	var clip: StringName = spec[0]
+	if _role != Role.NONE or _airborne_now or not _anim.has_animation(clip):
+		_sheath_now(away)
+		return
+	var rate := float(spec[3] if not away else spec[2])
+	var until := float(spec[2]) if not away else 1.0
+	if not _play_action(clip, Role.FREE, rate, 0.1, 0.0, until):
+		_sheath_now(away)
+		return
+	walk_under = true
+	_sheath_clip = clip
+	_sheath_play = clip
+	_sheath_at = float(spec[1])
+
+
+func weapons_stowed() -> bool:
+	return _stowed
+
+
+## Whether the sword is being drawn now (a cut asked for meanwhile waits).
+func is_drawing() -> bool:
+	return not _stowed and _sheath_play != &"" and _role == Role.FREE and _act_clip == _sheath_play
+
+
+## How long a draw takes, seconds (0 if the sword is not away to be drawn).
+func draw_time() -> float:
+	if not _stowed or not can_sheathe():
+		return 0.0
+	var spec: Array = (SHEATH_CLIPS[_sheath["where"]] as Dictionary)["draw"]
+	if not _anim.has_animation(spec[0]):
+		return 0.0
+	return _anim.get_animation(spec[0]).length * float(spec[2]) / float(spec[3])
+
+
+## The sword where it is asked to be, now.
+func _sheath_now(away: bool) -> void:
+	_stowed = away and can_sheathe()
+	_sheath_goal = 1.0 if _stowed else 0.0
+	_sheath_k = _sheath_goal
+	_sheath_clip = &""
+
+
+## Each frame: the hand reaching the hilt hands the sword over; a clip broken
+## off before that leaves it where it was asked to be.
+func _sheath_tick(delta: float) -> void:
+	if _sheath_clip != &"":
+		if _role != Role.FREE or _act_clip != _sheath_clip:
+			_sheath_now(_stowed)
+		elif _progress() >= _sheath_at:
+			_sheath_goal = 1.0 if _stowed else 0.0
+			_sheath_clip = &""
+	_sheath_k = move_toward(_sheath_k, _sheath_goal, delta / SHEATH_HANDOFF)
+
+
+## Once the figure is posed: the sword's bone laid in the scabbard, as far as
+## it has gone over.
+func _hold_sheathed(id: StringName) -> void:
+	if _sheath_k <= 0.0 or _sheath.is_empty() or _figure_skel == null or not _figs.has(id) \
+			or _figs[id]["skel"] != _figure_skel:
+		return
+	var w := _figure_skel.find_bone("weapon_r")
+	if w < 0:
+		return
+	var want: Transform3D = _figure_skel.get_bone_global_pose(int(_sheath["bone"])) * (_sheath["at"] as Transform3D)
+	var hand := _figure_skel.get_bone_global_pose(w)
+	var g := hand.interpolate_with(want, _sheath_k)
+	var p := _figure_skel.get_bone_parent(w)
+	var local := (_figure_skel.get_bone_global_pose(p) if p >= 0 else Transform3D()).affine_inverse() * g
+	_figure_skel.set_bone_pose_rotation(w, local.basis.get_rotation_quaternion())
+	_figure_skel.set_bone_pose_position(w, local.origin)
+
+
+## The socket for the sword in hand in the scabbard the look wears, or none:
+## a blade in the sword hand, nothing that cuts in the other, a scabbard worn.
+## Of the scabbards worn, the one whose length is nearest the blade's.
+func _fit_sheath(custom: bool) -> void:
+	_sheath = {}
+	if custom and _figure != null and _figure_skel != null and _on_mq:
+		var w := String(ps_look.get("w", ""))
+		var o := String(ps_look.get("o", ""))
+		var sword := _figure.find_child("ps_w_" + w, true, false) as MeshInstance3D
+		if PolysplitLook.BLADES.has(w) and not PolysplitLook.BLADES.has(o) and sword != null:
+			var blade := Sheath.blade(sword, _figure_skel, &"weapon_r")
+			var best := INF
+			for x: Variant in ps_look.get("extras", []):
+				var id := String(x)
+				if not id.contains("scabbard"):
+					continue
+				var mesh := _figure.find_child("ps_x_" + id, true, false) as MeshInstance3D
+				Sheath.put_mouth_over_sword_shoulder(mesh, _figure_skel)
+				var socket := Sheath.socket(mesh, _figure_skel, blade)
+				if socket.is_empty():
+					continue
+				var miss := absf(float(socket["length"]) - float(blade["length"]))
+				if miss < best:
+					best = miss
+					_sheath = socket
+	if _sheath.is_empty():
+		_sheath_now(false)
+	else:
+		_sheath_k = 1.0 if _stowed else 0.0
+		_sheath_goal = _sheath_k
+#endregion
 
 
 ## Plays `clip` from `from` to `until` (shares of its length) at `rate`, as a

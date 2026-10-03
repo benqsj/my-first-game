@@ -156,7 +156,11 @@ func _initialize() -> void:
 	_check("the orc's clips held with it", orc_held > 0 and held_step < 0.005, "(%.4f s a tick)" % held_step)
 	_check("the orc lit", orc_lit > 0, "(%d meshes)" % orc_lit)
 	_check("he does not glide on in the bite", glide < 1.0, "(%.2f m/s)" % glide)
+	# the string may still be going (cuts asked for in the loop): let it end
 	await _frames(30)
+	while player.is_committed():
+		await physics_frame
+	await _frames(20)
 	_check("the orc let go", _held(orc) == 0)
 	_check("the light gone", _lit(orc) == 0)
 

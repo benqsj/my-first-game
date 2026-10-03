@@ -6393,3 +6393,47 @@ and the top of the head is about 0.2 m above it.
   the wolf; that is now 1.1 m.
 - The monsters' sizes are planned against these heights
   (`CREATURES_PACK.md` §6).
+
+
+## The sword in its scabbard (2026-10-03)
+
+A hero on the mannequin in a look that wears a scabbard (YOUR OWN: Tariel as
+the swordsman, across his back; as the fighter, at his left hip) puts his
+sword away in it and draws it from it (`SkinnedRig`, region "The scabbard";
+`scripts/sheath.gd`).
+
+* **No new bones.** Every Polysplit scabbard is already rigid on one bone of
+  the figure (the swordsman's on `cape_joint1`, the fighter's on
+  `L_coatTail_joint1`). Where the sword lies in it, its socket, is worked out
+  off the two meshes when the look is put on (`Sheath.blade`, `Sheath.socket`):
+  the blade's line, its guard (where the mesh is widest across the line) and
+  which way the guard runs; the scabbard's line, its mouth (the end higher at
+  rest), its length and its width. The sword's bone, `weapon_r`, is laid there
+  once the figure is posed (`_hold_sheathed`, after the follower), so its mesh
+  and the cut's markers go with it. Of the scabbards worn, the one nearest the
+  blade's length is used.
+* **The pack's swordsman wears his hilt over his left shoulder.** A right hand
+  draws over the right, so a back scabbard with its mouth on the left is
+  mirrored across the figure's middle once, when it is first fitted
+  (`Sheath.put_mouth_over_sword_shoulder`). A hip scabbard is left as it is
+  (the fighter's is drawn across the body).
+* **Kevin's clips** put it away and draw it: `KV_SheatheBack01_R` /
+  `KV_UnsheatheBack01_R` for a back scabbard, `..Hips01_R` for a hip one
+  (`SHEATH_CLIPS`). The sword goes over from the scabbard to the hand (or back)
+  in 0.08 s at the moment the hand is at the hilt (`grab`: 0.57 of the back
+  draw, 0.45 of the back sheathe, 0.52 / 0.59 at the hip; the hand's path
+  sampled), with the legs walking under it (`walk_under`). Anything that breaks
+  the clip off leaves the sword where it was asked to be.
+* **Out of the fight it goes away by itself**: `Player.sheathe_after` 2 s after
+  the rig is off guard (no blow, hit or guard for `EASE_AFTER` 4 s, no target),
+  standing or walking with nothing else going on. The stow key still puts it
+  away or draws it by hand.
+* **One press draws it and cuts**: attack with the sword away plays the draw
+  (to 0.8 of the clip at x1.5, ~0.4 s) and the press is kept while it plays
+  (`Player._rig_drawing`), so the first cut goes as it comes out. Off the
+  ground, or for an evade that cuts (Tariel's dash), the sword is simply in
+  the hand at once; a hit taken leaves it where it is. The shield is on the arm all the while, so the guard is
+  never late. Other peers see it through `net_stowed`.
+* Not for a look with a blade in the other hand too (the rogue's two daggers),
+  nor for a look with no scabbard: those keep the sword in hand.
+* `tests/sheath_test.gd`.
