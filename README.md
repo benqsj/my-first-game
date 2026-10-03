@@ -6468,3 +6468,41 @@ sword away in it and draws it from it (`SkinnedRig`, region "The scabbard";
   stride laid on its legs (this, and the cuts on the run) the feet never seemed
   to lift. It now takes them as the skeleton is posed (`skeleton_updated`).
 * `tests/sheath_test.gd` (the run's steps and lean while it is put away too).
+
+## Tariel: the shield charge, the running cut, the cut that misses (2026-10-03, TARIEL_POLISH.md session 2)
+* **The shield charge.** With the shield up, the dash is no evade but a charge
+  behind it: UAL 2's `Shield_Dash` (1.1 s, played whole over `bash_time`
+  0.85 s). He turns to what he is locked on or what is in front, the guard
+  comes down, and he drives in at `bash_speed` 8 m/s for `bash_travel` 0.38 s
+  (~3 m at nothing). Whatever is in front of the shield (`bash_reach` 0.55 m
+  body to body, `bash_cone` 55°) is shoved (`bash_push`), takes
+  `bash_damage` 0.35 of a cut, and reels: `react(&"knock")`, the reel every
+  creature already had for a guard broken ([Recoil], blows on it bite x1.5).
+  The charge stops dead on it with a clang, dust and a step back
+  (`net_bash_landed`). Stamina: `bash_stamina` 1.3 evades. Every peer plays
+  the charge (`net_shield_bash`), the host decides what it hits
+  (`_tick_bash`), as the creatures decide what a cut hits. Only for a rig with
+  the clip (`SkinnedRig.can_shield_bash`): Tariel on the mannequin.
+  Kevin's `KV_AttackShield01` (the lab's "SHIELD BASH", the rig's `parry`
+  slot) was never thrown by anything and stays so.
+* **The running cut.** The first cut thrown at more than `run_cut_pace` 0.75
+  of `run_speed` is UAL 2's `Sword_Light_D` (`Swordsman.RUN_ATTACK`, x1.1,
+  weight 1.25): a wide sweep out of a lunge, the cut at 0.14-0.26 s. It steps
+  in up to `run_cut_reach` 2.6 m to what it is thrown at, the run kept under
+  it for `run_cut_ease` 0.5 s (a standing first cut: 0.3), 1.25 cuts'
+  stamina. The string goes on from B after it (the rig's string slot is set
+  to A). Style `SkinnedRig.RUN_CUT` over the wire, like the heavy blows.
+* **The cut that misses.** A cut of the string (or the running cut) whose
+  cut has passed with nothing landed (`Player._judge_whiff`: no
+  `net_blade_landed` since the swing's first `attack_serial`) drags: its
+  follow-through is played at `whiff_slow` x0.5 until `whiff_recovery` 0.22 s
+  is lost (`SkinnedRig.overreach`), he is held that much longer, and the evade
+  cannot break it off until it is over (it can break off a cut that landed,
+  as before). Heavy blows, the jump attack and the evade's cut are not
+  judged. In the test a missed A holds him 38 frames, a landed one 29.
+* `tests/tariel_moves_test.gd` (new): the charge (clip, travel, the orc
+  taken, reeling and hurt; the dash without the shield still the evade), the
+  running cut and B after it, the miss (signal, longer, the evade refused).
+* `clip_meta.json`: `Shield_Dash` measured (`Swordsman.CLIPS`), nothing else
+  changed (a full rerun of `clip_meta.gd` drops `Sword_Light_C_Rec` and
+  `Sword_UpperCut`, which no pick asks for any more: merged by hand).
