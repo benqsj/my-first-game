@@ -748,6 +748,18 @@ func _lean(delta: float, planar: float, off_ground: bool) -> void:
 		var ahead := -global_basis.z
 		# Forward lean is a negative turn about the body's x.
 		pitch = -clampf(accel.dot(ahead) * pace_lean_rate, -pace_lean_back, pace_lean_max)
+	# Pulled up hard out of a run, or thrown back the other way: the feet dig
+	# in and kick up a little dust.
+	var was_pace := Vector3(_lean_prev_flat.x, 0.0, _lean_prev_flat.z).length()
+	_lean_prev_flat = flat
+	if not off_ground and was_pace > skid_pace and accel.dot(_lean_prev_dir) < -skid_brake \
+			and Time.get_ticks_msec() - _skid_at > 450:
+		_skid_at = Time.get_ticks_msec()
+		var world := Blood.world_of(self)
+		if world != null:
+			DustRing.burst(world, global_position + _lean_prev_dir * 0.35, skid_dust)
+	if planar > 0.5:
+		_lean_prev_dir = flat / planar
 	var k := 1.0 - exp(-lean_follow * delta)
 	_lean_roll = lerpf(_lean_roll, roll, k)
 	_lean_pitch = lerpf(_lean_pitch, pitch, k)
@@ -765,6 +777,11 @@ func _lean(delta: float, planar: float, off_ground: bool) -> void:
 @export var pace_lean_back: float = 0.13
 ## How fast the lean follows what it is asked for (1/s).
 @export var lean_follow: float = 9.0
+## Pace (m/s) a stop or a turn back must come out of to kick up dust, how hard
+## it must brake (m/s²), and the size of the puff.
+@export var skid_pace: float = 4.5
+@export var skid_brake: float = 35.0
+@export var skid_dust: float = 0.45
 @export_group("")
 
 var _lean_ready := false
@@ -773,6 +790,9 @@ var _lean_yaw := 0.0
 var _lean_vel := Vector3.ZERO
 var _lean_roll := 0.0
 var _lean_pitch := 0.0
+var _lean_prev_flat := Vector3.ZERO
+var _lean_prev_dir := Vector3.FORWARD
+var _skid_at := -100000
 
 
 ## Copies the parts of the internal state that other peers have to see into the
@@ -2906,11 +2926,11 @@ func net_blade_landed() -> void:
 	# The blow felt in the hands: his own view knocked the way the blade went.
 	if is_multiplayer_authority() and camera != null and camera.current and rig != null:
 		var weight := 1.0 if rig.get(&"cut_weight") == null else float(rig.get(&"cut_weight"))
-		# Knocked further the heavier the blow; the end of a string and the
-		# heavy blows shake it too.
-		ImpactFx.nudge(camera, rig.swing_direction(-global_basis.z), 0.03 + 0.035 * clampf(weight - 0.6, 0.0, 1.0))
-		if weight > 1.2:
-			WindBlast.shake(self, 0.05 + 0.04 * clampf(weight - 1.2, 0.0, 0.6), 0.22, 6.0)
+		# Knocked the way the blade went and shaken, every cut: further and
+		# harder the heavier the blow ([ImpactFx.knock]).
+		var heft := clampf(weight - 0.6, 0.0, 1.2)
+		ImpactFx.knock(camera, rig.swing_direction(-global_basis.z),
+				0.03 + 0.03 * heft, 0.035 + 0.045 * heft, 0.18 + 0.1 * heft)
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies

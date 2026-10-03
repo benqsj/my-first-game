@@ -185,16 +185,20 @@ func _stick_in(what: Node3D, where: Vector3) -> void:
 	if not is_instance_valid(what) or not is_inside_tree():
 		return
 	var holder: Node3D = what
-	var skels := what.find_children("*", "Skeleton3D", true, false)
-	if not skels.is_empty():
-		var skel := skels[0] as Skeleton3D
-		var best := -1
-		var best_d := INF
-		for b in skel.get_bone_count():
-			var d := (skel.global_transform * skel.get_bone_global_pose(b).origin).distance_squared_to(where)
+	# A hero on the mannequin still carries his old skeleton, its meshes
+	# hidden, no longer moving the body you see: only skeletons that move a
+	# shown mesh count, and the bone nearest the hit across them is the one.
+	var skel: Skeleton3D = null
+	var best := -1
+	var best_d := INF
+	for each in _shown_skeletons(what):
+		for b in each.get_bone_count():
+			var d := (each.global_transform * each.get_bone_global_pose(b).origin).distance_squared_to(where)
 			if d < best_d:
 				best_d = d
 				best = b
+				skel = each
+	if skel != null:
 		if best >= 0:
 			var mount_name := "ArrowMount_%d" % best
 			var mount := skel.get_node_or_null(mount_name) as BoneAttachment3D
@@ -205,17 +209,35 @@ func _stick_in(what: Node3D, where: Vector3) -> void:
 				mount.bone_idx = best
 			holder = mount
 	else:
-		var best_d := INF
+		var near_d := INF
 		for m in what.find_children("*", "MeshInstance3D", true, false):
 			var mesh := m as MeshInstance3D
 			if not mesh.is_visible_in_tree() or mesh is SwordTrail:
 				continue
 			var box := mesh.global_transform * mesh.get_aabb()
 			var d := 0.0 if box.grow(0.05).has_point(where) else box.get_center().distance_squared_to(where)
-			if d < best_d:
-				best_d = d
+			if d < near_d:
+				near_d = d
 				holder = mesh
 	reparent(holder, true)
+
+
+## The skeletons in `what` that move a mesh you can see; if none does (a body
+## of bare skeletons), every one shown.
+static func _shown_skeletons(what: Node) -> Array[Skeleton3D]:
+	var out: Array[Skeleton3D] = []
+	for node in what.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if not mi.is_visible_in_tree() or mi.skin == null:
+			continue
+		var skel := mi.get_node_or_null(mi.skeleton) as Skeleton3D
+		if skel != null and not out.has(skel):
+			out.append(skel)
+	if out.is_empty():
+		for node in what.find_children("*", "Skeleton3D", true, false):
+			if (node as Skeleton3D).is_visible_in_tree():
+				out.append(node as Skeleton3D)
+	return out
 
 
 ## Sits in whatever it landed in, then fades away. Arrows that never leave carve

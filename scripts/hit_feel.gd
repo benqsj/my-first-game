@@ -19,9 +19,9 @@ const MAX_STOP := 0.14
 
 ## The colour the body is lit, and how bright at a light cut and a heavy one.
 const FLASH_TINT := Color(1.0, 0.93, 0.86)
-const FLASH_LIGHT := 0.3
-const FLASH_HEAVY := 0.6
-const FLASH_TIME := 0.12
+const FLASH_LIGHT := 0.16
+const FLASH_HEAVY := 0.34
+const FLASH_TIME := 0.1
 ## Meshes lit at most, so a body of many parts costs little.
 const MAX_MESHES := 48
 

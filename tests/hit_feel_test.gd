@@ -39,6 +39,14 @@ func _lit(node: Node) -> int:
 	return n
 
 
+func _dust(world: Node) -> int:
+	var n := 0
+	for c in world.find_children("*", "", true, false):
+		if c is DustRing:
+			n += 1
+	return n
+
+
 func _held(node: Node) -> int:
 	return 1 if HitFeel.is_held(node) else 0
 
@@ -68,6 +76,12 @@ func _initialize() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	await _frames(30)
 
+	# --- an arrow in him rides the body you see, not the old hidden skeleton ---
+	var skels := Arrow._shown_skeletons(player)
+	var old_skel: Variant = rig._own.get("skel") if rig._own != null else null
+	_check("arrows ride a shown skeleton", not skels.is_empty() and not skels.has(old_skel),
+			"(%s)" % [skels.map(func(k: Skeleton3D) -> String: return "%s/%d bones" % [k.get_parent().name, k.get_bone_count()])])
+
 	# --- the lean ---
 	var rest := rig.transform.basis
 	Input.action_press("move_forward")
@@ -85,6 +99,19 @@ func _initialize() -> void:
 	var off := rig.transform.basis.y.angle_to(rest.y)
 	_check("upright again standing", off < 0.01, "(%.2f deg)" % rad_to_deg(off))
 	_check("the lean leaves his size alone", absf(rig.transform.basis.get_scale().x - rest.get_scale().x) < 0.001)
+
+	# --- pulling up out of a run kicks up dust ---
+	player.camera_rig.rotation.y = 0.0
+	Input.action_press("move_forward")
+	await _frames(60)
+	var before := _dust(world)
+	Input.action_release("move_forward")
+	var dust := 0
+	for i in 12:
+		await process_frame
+		dust = maxi(dust, _dust(world) - before)
+	_check("pulling up out of a run kicks up dust", dust > 0)
+	await _frames(60)
 
 	# --- the bite ---
 	var orc: Node3D = load("res://scenes/enemies/orc.tscn").instantiate()

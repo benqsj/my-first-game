@@ -4149,17 +4149,17 @@ What says a cut went *in*, the way it does in a souls-like:
   `WolfRig.hitstop`; creatures that step their clips themselves (fighters,
   imps, orcs) step them at `HitFeel.pace()`; any other clip player is held by
   its process mode. All on the real clock.
-* **The body lit**: for 0.12 s the creature is lit at its edges, a warm white
-  fading out (`HitFeel.flash`, an additive overlay; meshes already wearing an
+* **The body lit**: for 0.1 s the creature is lit faintly at its edges, a warm
+  white fading out (`HitFeel.flash`, an additive overlay; meshes already wearing an
   overlay, an affliction or the blood, are left alone). Brighter for a heavier
   blow.
 * **Blood out of the cut, not a streak of light**: the red streak laid along
   the swing where it bit is gone (it read as a laser); the gush above is the
   mark of the blow.
-* **The view is knocked** the way the blade went, and eased back
-  (`ImpactFx.nudge`, his own camera only): 3 cm for the dash's cut up to 6.5 cm
-  for a heavy blow; the end of a string and the heavy blows shake it too, more
-  the heavier.
+* **The view is knocked and shaken, every cut** (`ImpactFx.knock`, one tween
+  for both so they never fight over the offsets; his own camera only): knocked
+  the way the blade went, 3 cm for the dash's cut, ~4 for a light one, up to
+  6.6 for a heavy blow, then shaken (3.5–9 cm, dying away over 0.18–0.3 s).
 * **It is heard**: under the ring of the steel, a short deep thump with a wet
   tear over it (`ImpactFx.thud`, made in code at load).
 
@@ -4169,7 +4169,8 @@ the hold and the light; breaking off their moves is still the wolf's alone.
 **Leaning into the run** (`Player._lean`): the model (not the capsule) is
 leant over its feet into a turn, the faster and tighter the more
 (`turn_lean_rate`, at most `turn_lean_max` 0.2 rad), forward as a run picks up
-and back as it pulls up (`pace_lean_*`), eased in at `lean_follow`. Worked out
+and back as it pulls up (`pace_lean_*`), eased in at `lean_follow`. Pulled up hard out of a run, or thrown back the
+other way, the feet kick up a little dust (`skid_*`, a small `DustRing`). Worked out
 from the turning and the replicated velocity, so every peer sees it; none in
 the air, in a swing or a dodge. `tests/hit_feel_test.gd` checks the lean and
 the bite.

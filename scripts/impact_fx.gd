@@ -38,6 +38,35 @@ static func nudge(cam: Camera3D, along: Vector3, amount: float = 0.035) -> void:
 	cam.set_meta(&"nudge", tw)
 
 
+## The view knocked `amount` metres along `along` (as [method nudge]) and then
+## shaken, `shake` metres at first, dying away over `time` seconds, and settled
+## back. One tween for both, so the knock and the shake never fight over the
+## camera's offsets.
+static func knock(cam: Camera3D, along: Vector3, amount: float, shake: float, time: float) -> void:
+	if cam == null or not cam.is_inside_tree():
+		return
+	var flat := Vector2(along.dot(cam.global_basis.x), along.dot(cam.global_basis.y))
+	if flat.length_squared() < 0.0001:
+		flat = Vector2(0.0, -1.0)
+	flat = flat.normalized() * amount
+	var old: Variant = cam.get_meta(&"nudge") if cam.has_meta(&"nudge") else null
+	if old is Tween and (old as Tween).is_valid():
+		(old as Tween).kill()
+	var tw := cam.create_tween()
+	tw.tween_property(cam, "h_offset", flat.x, 0.03).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(cam, "v_offset", flat.y, 0.03).set_ease(Tween.EASE_OUT)
+	var steps := 5
+	var step := time / float(steps + 1)
+	for i in steps:
+		var k := shake * (1.0 - float(i) / float(steps))
+		var at := flat * (1.0 - float(i + 1) / float(steps + 1))
+		tw.tween_property(cam, "h_offset", at.x + randf_range(-k, k), step)
+		tw.parallel().tween_property(cam, "v_offset", at.y + randf_range(-k, k) * 0.7, step)
+	tw.tween_property(cam, "h_offset", 0.0, step).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(cam, "v_offset", 0.0, step).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	cam.set_meta(&"nudge", tw)
+
+
 ## The blade going into flesh, heard: a short deep thump with a wet tear over it.
 static func thud(owner: Node, at: Vector3, hard: bool = false) -> void:
 	if owner == null or not owner.is_inside_tree():
