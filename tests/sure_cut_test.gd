@@ -8,6 +8,9 @@ extends SceneTree
 ## - the Shadow Slide (skill 2): the running cut out of a slide, gone at
 ##   once (no standing, the sword never frozen), in to the orc 7 m off,
 ##   shadows shed behind him, the cut landing; at nothing, a longer slide;
+## - the Shadow Lance (skill 3): the sword out in front before he gets there,
+##   the point what runs into the orc (struck while it is still held out),
+##   the slide stopped on it; at nothing, a long slide;
 ## - the shadow a perfect dodge (and the slide) sheds has the figure in it
 ##   (it was copied off the hero's own hidden model: nothing to see);
 ## - Tariel's profile has the shadow.
@@ -67,6 +70,7 @@ func _initialize() -> void:
 	await _check_rules()
 	await _check_run_cuts()
 	await _check_thrust()
+	await _check_lance()
 
 	if _failures == 0:
 		print("All checks passed.")
@@ -294,4 +298,56 @@ func _check_thrust() -> void:
 		await physics_frame
 	var went := Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
 	_check("at nothing, a longer slide (7-10 m)", went > 7.0 and went < 10.0, "(%.2f m)" % went)
+	await _settle()
+
+
+## Skill 3: the Shadow Lance: the point out in front through the slide, and
+## what runs into the orc; the slide stops on it.
+func _check_lance() -> void:
+	await _home()
+	_fresh()
+	_check("skill 3 is the Shadow Lance", player.skill_in(2) == &"shadow_lance", "(%s)" % player.skill_in(2))
+	var orc := _put(ORC, player.global_position + _fwd() * 7.5 + player.global_basis.x * 0.4)
+	await _frames(20)
+	var hp := _health(orc)
+	var r := Player._blade_radius(orc)
+	_check("skill 3 goes", player.use_skill(2))
+	await physics_frame
+	_check("it is KV_Attack1H05_R", rig.current_swing() == &"KV_Attack1H05_R", "(%s)" % rig.current_swing())
+	var out_at := -1.0
+	var struck_gap := -1.0
+	var held_when_struck := false
+	var after := Vector3.ZERO
+	var froze := 0
+	for i in 70:
+		var was_held := bool(rig.call(&"holding_cut"))
+		await physics_frame
+		var to := orc.global_position - player.global_position
+		to.y = 0.0
+		var gap := to.length() - r
+		if out_at < 0.0 and float(rig.call(&"_progress")) >= 0.25:
+			out_at = gap
+		if rig._anim.speed_scale <= 0.0:
+			froze += 1
+		if struck_gap < 0.0 and _health(orc) < hp:
+			struck_gap = gap
+			held_when_struck = was_held
+			after = player.global_position
+	var past := Vector2(player.global_position.x - after.x, player.global_position.z - after.z).length()
+	_check("the sword is out in front well before he gets there", out_at > 3.0,
+			"(out %.2f m off its body)" % out_at)
+	_check("the point is what runs into it (struck held out, at the blade's length)",
+			struck_gap > 0.0 and held_when_struck and struck_gap < 2.4, "(%.2f m off, held %s)" % [struck_gap, held_when_struck])
+	_check("and the slide stops on it", past < 0.8, "(%.2f m on after)" % past)
+	_check("the sword is never frozen", froze <= 2, "(%d frames)" % froze)
+	orc.queue_free()
+	await _settle()
+	await _home()
+	_fresh()
+	var from := player.global_position
+	_check("skill 3 at nothing", player.use_skill(2))
+	for i in 90:
+		await physics_frame
+	var went := Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
+	_check("at nothing, a long slide (7-10 m)", went > 7.0 and went < 10.0, "(%.2f m)" % went)
 	await _settle()

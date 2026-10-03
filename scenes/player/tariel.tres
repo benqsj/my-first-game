@@ -29,4 +29,4 @@ max_stamina = 100.0
 attack_stamina = 18.0
 roll_stamina = 20.0
 dodge_stamina = 8.0
-skills = PackedStringArray("rising_cut", "shadow_slide")
+skills = PackedStringArray("rising_cut", "shadow_slide", "shadow_lance")

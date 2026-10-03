@@ -6750,6 +6750,19 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   (`time_to_cut`), and out of the slide 4 m/s is carried into it. 24
   stamina, 9 s cooldown, its picture on the bar. (First tried as a thrust,
   KV_Attack1H05_R set standing 0.3 s: it read as stuck.)
+* **Skill 3 (key 3): the Shadow Lance** (`Player._shadow_slide(&"shadow_lance")`,
+  `Swordsman.SHADOW_LANCE`, style `SkinnedRig.SHADOW_LANCE` 93; the user's
+  word: the sword already out in front through the slide, so it is the blade
+  that runs into the monster, not a thrust after). Kevin's KV_Attack1H05_R at
+  x1.9 to `hold` 0.26, measured as the arm out and the blade level ahead at
+  the chest (tip 2.16 m ahead, 1.5 m up, straight on:
+  `_shots_tmp/lance_probe.gd`), creeping on to 0.272 while he slides (the
+  same slide as the Shadow Slide, shadows and all). The point is out ~4 m
+  before he gets there; it cuts when it reaches the body (its spec's
+  `sure_margin` 0: no reach past the blade's own), the slide stops dead on it
+  and the thrust is drawn back out (`release_cut` on `net_blade_landed`).
+  With nothing struck, the slide runs out (`slide_blind` 8 m) and the thrust
+  is drawn back. 26 stamina, 10 s cooldown, its own picture.
 * **A held cut that creeps** (`SkinnedRig`): a cut spec's `creep` (share of
   its rate) and `creep_until` (share of the clip): held, it comes on slowly
   instead of stopping dead.

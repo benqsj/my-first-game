@@ -67,6 +67,18 @@ const RISING_CUT := {"clip": &"Sword_UpperCut", "rate": 1.0, "weight": 1.7, "hol
 ## Let go to cut `strike_gap` metres (body to body) off it.
 const SHADOW_SLIDE := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.6, "hold": 0.035, "creep": 0.22,
 	"creep_until": 0.07, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.0, "string_at": -1}
+## Tariel's third skill, the Shadow Lance (the user's word, 2026-10-03: the
+## sword already out in front through the slide, so that it is the blade that
+## runs into the monster, not a thrust after it): Kevin's lunge and thrust
+## (KV_Attack1H05_R) played to `hold` 0.26 of it, the arm out and the blade
+## level ahead at the chest (measured: tip 2.16 m ahead, 1.5 m up, pointing
+## straight on; `_shots_tmp/lance_probe.gd`), and held there, creeping, while
+## he slides; his cut lands when the point gets to it (no reach beyond the
+## blade's own: `sure_margin` 0). `strike_gap`: where the slide would end,
+## body to body, if nothing were struck before.
+const SHADOW_LANCE := {"clip": &"KV_Attack1H05_R", "rate": 1.9, "weight": 1.8, "hold": 0.26, "creep": 0.015,
+	"creep_until": 0.272, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.4, "sure_margin": 0.0,
+	"lance": true, "string_at": -1}
 ## Kept for the swords to come (the user's word, 2026-10-03: each sword its own
 ## swings), tried in the game as the running cut (`_shots_tmp/runcut_reel.gd`):
 ## KV_Attack1H05_R held wound up like the Rising Cut (a lunge and thrust), and
@@ -80,7 +92,7 @@ const RUN_CUTS_KEPT := {
 const SHIELD_BASH := &"Shield_Dash"
 ## Clips to measure with the sword besides the picks.
 const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle", &"Sword_Light_D",
-	&"Shield_Dash", &"Sword_UpperCut",
+	&"Shield_Dash", &"Sword_UpperCut", &"KV_Attack1H05_R",
 	&"Sword_Heavy_A", &"Sword_Heavy_B", &"Sword_Heavy_C", &"Sword_Heavy_A_Rec", &"Sword_Heavy_B_Rec",
 	&"Sword_Heavy_C_Rec"]
 
@@ -125,6 +137,10 @@ static func apply(t: Dictionary) -> void:
 	_measure(t, rising["clip"])
 	var thrust: Dictionary = SHADOW_SLIDE.duplicate()
 	t["shadow_slide"] = thrust
+	var lance: Dictionary = SHADOW_LANCE.duplicate()
+	t["shadow_lance"] = lance
+	t["flurry_part"][lance["clip"]] = Vector2(0.0, 1.0)
+	_measure(t, lance["clip"])
 	t["flurry_part"][thrust["clip"]] = Vector2(0.0, 1.0)
 	_measure(t, thrust["clip"])
 	if not t["cut_window"].has(run_cut["clip"]):

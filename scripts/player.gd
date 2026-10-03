@@ -3322,17 +3322,23 @@ func _sure_pick() -> Node3D:
 	return _charge_target()
 
 
-## The swing just thrown does not miss `foe` (every peer is told).
-func _mark_sure(foe: Node3D) -> void:
-	net_sure_at.rpc(foe.get_path() if foe != null else NodePath())
+## The swing just thrown does not miss `foe` (every peer is told); `margin`,
+## if given, its reach past the blade's own instead of `sure_reach_margin`.
+func _mark_sure(foe: Node3D, margin: float = -1.0) -> void:
+	net_sure_at.rpc(foe.get_path() if foe != null else NodePath(), margin)
+
+
+## The reach past the blade's own for the swing in hand (-1: `sure_reach_margin`).
+var _sure_margin: float = -1.0
 
 
 @rpc("any_peer", "call_local", "reliable")
-func net_sure_at(foe: NodePath) -> void:
+func net_sure_at(foe: NodePath, margin: float = -1.0) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
 	_sure_foe = get_node_or_null(foe) as Node3D if not foe.is_empty() else null
+	_sure_margin = margin
 	_sure_serial = int(rig.get(&"attack_serial")) if rig != null and rig.get(&"attack_serial") != null else -1
 
 
@@ -3373,7 +3379,7 @@ func sure_holds(who: Node3D, edge: PackedVector3Array) -> bool:
 	var reach := 0.0
 	for p in edge:
 		reach = maxf(reach, Vector2(p.x - global_position.x, p.z - global_position.z).length())
-	if d - r > reach + sure_reach_margin:
+	if d - r > reach + (_sure_margin if _sure_margin >= 0.0 else sure_reach_margin):
 		return false
 	if d < maxf(r, 0.01):
 		return true
@@ -4043,6 +4049,7 @@ const SKILLS := {
 	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
 	&"rising_cut": {"name": "Rising Cut", "stamina": 22.0, "cooldown": 8.0},
 	&"shadow_slide": {"name": "Shadow Slide", "stamina": 24.0, "cooldown": 9.0},
+	&"shadow_lance": {"name": "Shadow Lance", "stamina": 26.0, "cooldown": 10.0},
 }
 const SKILL_SLOTS := 4
 
@@ -4106,6 +4113,8 @@ func use_skill(slot: int) -> bool:
 			went = _rising_cut()
 		&"shadow_slide":
 			went = _shadow_slide()
+		&"shadow_lance":
+			went = _shadow_slide(&"shadow_lance")
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -4177,22 +4186,29 @@ var _shade_t0: float = 0.0
 var _shade_left: float = 0.0
 var _shade_dir: Vector3 = Vector3.ZERO
 var _shade_gone: bool = false
+## The slide is the lance's (the blade out in front, stopped by what it hits).
+var _shade_lance: bool = false
 
 
-func _shadow_slide() -> bool:
-	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", "shadow_slide")):
+## `key` "shadow_lance": the Shadow Lance (Tariel's third skill, [Swordsman]
+## `SHADOW_LANCE`): the same slide, the sword thrust out in front as it
+## starts and held there, so the point is what runs into the thing; struck,
+## the slide stops on it and the thrust is drawn back out.
+func _shadow_slide(key: StringName = &"shadow_slide") -> bool:
+	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", String(key))):
 		return false
 	if not is_on_floor():
 		return false
-	if not _spend(float(SKILLS[&"shadow_slide"]["stamina"])):
+	if not _spend(float(SKILLS[key]["stamina"])):
 		return false
 	if is_blocking:
 		is_blocking = false
 		block_changed.emit(false)
 	_set_weapons_stowed(false)
 	var foe := _charge_target(shade_seek)
-	_charge_spec = rig.call(&"cut_spec", "shadow_slide")
+	_charge_spec = rig.call(&"cut_spec", String(key))
 	var spec := _charge_spec
+	_shade_lance = bool(spec.get("lance", false))
 	_shade_dir = -global_basis.z
 	_shade_dir.y = 0.0
 	_shade_left = float(spec.get("slide_blind", 8.0))
@@ -4210,9 +4226,9 @@ func _shadow_slide() -> bool:
 	_swing_chain = 1
 	_whiff_counts = _foe_within(whiff_near)
 	attack_started.emit()
-	net_attack.rpc(SkinnedRig.SHADOW_SLIDE)
+	net_attack.rpc(SkinnedRig.SHADOW_LANCE if _shade_lance else SkinnedRig.SHADOW_SLIDE)
 	_charge_foe = foe
-	_mark_sure(foe)
+	_mark_sure(foe, float(spec.get("sure_margin", -1.0)))
 	_shade_phase = 1
 	_shade_t0 = _game_t
 	_shade_gone = false
@@ -4246,16 +4262,26 @@ func _tick_shade(delta: float) -> void:
 		if to.length_squared() > 0.0001:
 			_shade_dir = _shade_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
 	var pace := _shade_pace()
+	if _shade_lance:
+		# The point has gone in: the slide stops on it, and the thrust is
+		# drawn back out.
+		if not _shade_gone and _landed_serial == int(rig.get(&"attack_serial")):
+			_shade_phase = -1
+			velocity.x = _shade_dir.x * 1.2
+			velocity.z = _shade_dir.z * 1.2
+			_shade_let_go()
+			return
 	# Let go as the blade will cut when he arrives: the ground he covers from
 	# now to the cut.
-	if not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
+	elif not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
 		_shade_let_go()
 	_shade_left -= pace * delta
 	if _shade_left <= 0.0:
 		_shade_phase = -1
 		# out of the slide, what is left of it carried on into the cut
-		velocity.x = _shade_dir.x * 4.0
-		velocity.z = _shade_dir.z * 4.0
+		var carry := 1.5 if _shade_lance else 4.0
+		velocity.x = _shade_dir.x * carry
+		velocity.z = _shade_dir.z * carry
 		if not _shade_gone:
 			_shade_let_go()
 

@@ -90,8 +90,11 @@ const RISING_CUT := 91
 ## The attack style of Tariel's second skill, the shadow slide (the moves'
 ## `shadow_slide`).
 const SHADOW_SLIDE := 92
+## And his third, the shadow lance (the moves' `shadow_lance`).
+const SHADOW_LANCE := 93
 ## The moves' spec each of those styles plays.
-const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut", SHADOW_SLIDE: "shadow_slide"}
+const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut", SHADOW_SLIDE: "shadow_slide",
+	SHADOW_LANCE: "shadow_lance"}
 ## Clips that cut more than once: every window its own blow (a new attack
 ## serial, a new whoosh), as shares of the clip.
 var cut_windows: Dictionary = {}

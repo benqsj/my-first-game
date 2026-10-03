@@ -414,6 +414,23 @@ func _icon(id: StringName, rect: Rect2) -> void:
 					hilt + along * 5.0 - side * 2.5]), Color(0.85, 0.88, 0.9))
 			_bars.draw_line(hilt + along * 5.0 + side * 6.0, hilt + along * 5.0 - side * 6.0, ICON, 3.0)
 			_bars.draw_line(hilt + along * 4.0, hilt - along * 4.0, Color(0.55, 0.12, 0.12), 3.5)
+		&"shadow_lance":
+			# A sword held level, point first, the shadows it slid in on
+			# strung out behind the hand, and a spark where the point arrives.
+			var shade := Color(0.55, 0.3, 1.0)
+			for k in 3:
+				var x := -20.0 + 6.0 * k
+				_bars.draw_line(c + Vector2(x, -9), c + Vector2(x - 3.0, 15), Color(shade, 0.3 + 0.2 * k), 4.0)
+			var hilt := c + Vector2(-6, 2)
+			var tip := c + Vector2(20, 2)
+			_bars.draw_colored_polygon(PackedVector2Array([tip, hilt + Vector2(6, -2.5), hilt + Vector2(6, 2.5)]),
+					Color(0.85, 0.88, 0.9))
+			_bars.draw_line(hilt + Vector2(6, -7), hilt + Vector2(6, 7), ICON, 3.0)
+			_bars.draw_line(hilt + Vector2(5, 0), hilt + Vector2(-4, 0), Color(0.55, 0.12, 0.12), 3.5)
+			for k in 4:
+				var a := -0.9 + 0.6 * k
+				_bars.draw_line(tip + Vector2(2, 0), tip + Vector2(2, 0) + Vector2(cos(a), sin(a)) * 6.0,
+						Color(1.0, 0.95, 0.75, 0.9), 1.5)
 		&"poison_blade":
 			# A dagger point up, a green drop running off it.
 			var venom := Color(0.45, 1.0, 0.25)
