@@ -251,7 +251,7 @@ func measure_peaks(clip: StringName, bones: PackedStringArray,
 		_player.seek(anim.length * float(i) / STEPS, true)
 		var at := PackedVector3Array()
 		for idx in ids:
-			at.append(_skeleton.get_bone_global_pose(idx).origin)
+			at.append(_posed(idx).origin)
 		track.append(at)
 	_player.stop()
 	if not was.is_empty():
@@ -279,6 +279,98 @@ func measure_peaks(clip: StringName, bones: PackedStringArray,
 
 ## Retimes the running clip without restarting it — what a walk cycle needs so
 ## the feet keep up with the ground under them.
+## The moment, 0 to 1, a point on a bone (`tip` in its own frame) reaches
+## farthest along `forward` (the source skeleton's own space) between `from`
+## and `to`: where a cut is out in front of the one making it, past its
+## wind-up behind or above. Worked out once per clip, bone and tip.
+func measure_reach(clip: StringName, bone_name: String, tip: Vector3 = Vector3.ZERO,
+		forward: Vector3 = Vector3.BACK, from: float = 0.0, to: float = 1.0) -> float:
+	var key := "reach|%s|%s|%s|%s|%s|%s" % [clip, bone_name, tip, forward, from, to]
+	if _peak_cache.has(key):
+		return float(_peak_cache[key])
+	if not has_clip(clip):
+		return -1.0
+	var anim := _player.get_animation(clip)
+	var idx := _skeleton.find_bone(bone_name)
+	if idx < 0 or anim.length <= 0.0:
+		return -1.0
+	const STEPS := 90
+	var was := _player.current_animation
+	_player.play(clip)
+	var best := -INF
+	var at := -1.0
+	for i in STEPS + 1:
+		var t := float(i) / STEPS
+		if t < from or t > to:
+			continue
+		_player.seek(anim.length * t, true)
+		var p := _posed(idx) * tip
+		var ahead := p.dot(forward)
+		if ahead > best:
+			best = ahead
+			at = t
+	_player.stop()
+	if not was.is_empty():
+		_player.play(was)
+	_peak_cache[key] = at
+	_peak_cache[key + "|far"] = best
+	return at
+
+
+## How far out in front the point got in the last [method measure_reach] with
+## the same arguments, in the library skeleton's metres (-INF if never).
+func reach_distance(clip: StringName, bone_name: String, tip: Vector3 = Vector3.ZERO,
+		forward: Vector3 = Vector3.BACK, from: float = 0.0, to: float = 1.0) -> float:
+	var key := "reach|%s|%s|%s|%s|%s|%s|far" % [clip, bone_name, tip, forward, from, to]
+	return float(_peak_cache.get(key, -INF))
+
+
+## Where stretches of the skeleton are over a part of a clip (shares `from`
+## to `to`, `steps` + 1 samples): each [bone a, bone b, tip in b's frame or
+## null for b's head]; out, per sample, one [Vector3, Vector3] per stretch,
+## in the library skeleton's own space.
+func sample_stretches(clip: StringName, stretches: Array, from: float, to: float,
+		steps: int = 12) -> Array:
+	var out: Array = []
+	if not has_clip(clip):
+		return out
+	var anim := _player.get_animation(clip)
+	var ids: Array = []
+	for st: Array in stretches:
+		ids.append([_skeleton.find_bone(String(st[0])), _skeleton.find_bone(String(st[1])), st[2]])
+	var was := _player.current_animation
+	_player.play(clip)
+	for i in steps + 1:
+		var t := clampf(lerpf(from, to, float(i) / float(steps)), 0.0, 1.0)
+		_player.seek(anim.length * t, true)
+		var frame: Array = []
+		for id: Array in ids:
+			if int(id[0]) < 0 or int(id[1]) < 0:
+				continue
+			var b := _posed(id[1])
+			frame.append([_posed(id[0]).origin, b * (id[2] as Vector3) if id[2] != null else b.origin])
+		out.append(frame)
+	_player.stop()
+	if not was.is_empty():
+		_player.play(was)
+	return out
+
+
+## A bone of the library's skeleton where the clip just sought has put it,
+## worked up its chain from the local poses. (Its global pose is not to be
+## trusted here: read straight after a seek, an arm's comes back at rest
+## while the legs' move — every blow was measured off a still hand.)
+func _posed(idx: int) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var i := idx
+	while i >= 0:
+		var local := Transform3D(Basis(_skeleton.get_bone_pose_rotation(i)).scaled(_skeleton.get_bone_pose_scale(i)),
+				_skeleton.get_bone_pose_position(i))
+		t = local * t
+		i = _skeleton.get_bone_parent(i)
+	return t
+
+
 func set_speed(speed: float) -> void:
 	if _ready_to_play and _player.is_playing():
 		_player.speed_scale = maxf(speed, 0.0)
@@ -349,8 +441,7 @@ func measure_stride(clip: StringName) -> float:
 	_player.play(clip)
 	for i in STEPS:
 		_player.seek(anim.length * float(i) / STEPS, true)
-		var gap := (_skeleton.get_bone_global_pose(left).origin
-				- _skeleton.get_bone_global_pose(right).origin)
+		var gap := (_posed(left).origin - _posed(right).origin)
 		gap.y = 0.0
 		step = maxf(step, gap.length())
 	_player.stop()
@@ -358,6 +449,11 @@ func measure_stride(clip: StringName) -> float:
 		_player.play(was)
 	_stride_cache[clip] = step
 	return step * 2.0 * _limb_scale
+
+
+## Where the clip playing is, in its own seconds.
+func clip_position() -> float:
+	return _player.current_animation_position if _ready_to_play and _player.is_playing() else 0.0
 
 
 func current_clip() -> StringName:

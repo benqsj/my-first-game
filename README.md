@@ -5445,6 +5445,38 @@ Two [Brawler]s on them, in the arena in place of their statues:
 - `scenes/enemies/skeleton.tscn`: the bare one, empty-handed. Shambles like a
   zombie and runs at you, rakes, punches and bites with both hands.
 
+**Blows that land** (2026-10-03, after the first try missed a hero standing
+still):
+
+- `SkeletonAnim`'s measures (`measure_peaks`, `measure_stride`) read the
+  library skeleton's global poses straight after a seek, and an arm's came
+  back at rest: every blow was "measured" off a still hand, the peaks came
+  out evenly spaced and the latest was kept — the blow at nine tenths of the
+  clip, long after the cut. They now work the pose up the chain from the
+  local poses (`_posed`). This fixes every Brawler's blow moments.
+- `Brawler.strike_at_reach`: the blow is where the weapon (or the attack's
+  own limb) is farthest out in front, not the wind-up's fast hand; and the
+  gap each attack steps to is worked out by following its stretches through
+  the live moments against a hero standing straight ahead (`_gap_that_lands`):
+  a sword cut from ~1.6 m, a shield bash from ~1.1, a bite from 0.8.
+- `Brawler.attack_limbs` / `big_limbs`: what lands each attack ("a>b@tip:r",
+  several joined by "|"): the shield for a bash, the head for a bite, the
+  fist or the leg.
+- `Brawler.too_close`: it backs off to its gap rather than swing from inside
+  it. `blows_to_fell`: the skeletons need three blows in one attack to knock
+  a hero down (each landed blow used to, and a hero on the ground is not hit).
+- The clip is kept on the move's clock (`Brawler._run_act`): drawn a beat
+  off it, the blade swung where the blow was not.
+- `ClipFighter._blow_moments` caches by the move and its strike too: two
+  kinds sharing one clip file and the same act numbers got each other's.
+
+Measured with a hero standing still (headless): the skeleton warrior lands
+10 of 10, the bare skeleton 9 of 9 (it no longer rakes, which could only
+reach from inside him; it bites, punches and kicks). Both quicker: warrior
+walks 1.7, chases 4.4 m/s, swings at x1.25, 0.5–1.2 s between attacks; the
+bare skeleton 1.4 / 4.0. The warrior's shield charge is out until it carries
+him (the clip is in place).
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

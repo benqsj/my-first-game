@@ -142,7 +142,9 @@ func _clip_time(what: int, t: float) -> float:
 
 ## The moments of an attack's blows, in act seconds.
 func _blow_moments(what: int) -> PackedFloat32Array:
-	var key := "%s|%d" % [clip_meta, what]
+	# Kinds can share a clip file and act numbers (the Biped Creatures' one
+	# library): the move and its strike are part of the key.
+	var key := "%s|%d|%s|%s" % [clip_meta, what, _moves().get(what, []), _strikes().get(what, [])]
 	if _moment_cache.has(key):
 		return _moment_cache[key]
 	var out := PackedFloat32Array()
