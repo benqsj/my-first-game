@@ -46,8 +46,15 @@ const STRINGS: Array = [
 		"recover": {&"Sword_Heavy_A": &"Sword_Heavy_A_Rec", &"Sword_Heavy_B": &"Sword_Heavy_B_Rec",
 			&"Sword_Heavy_C": &"Sword_Heavy_C_Rec"}},
 ]
+## The running cut (TARIEL_POLISH.md, 5): the first cut thrown at a run is
+## UAL 2's Sword_Light_D, a wide sweep out of a lunge, its cut at 0.09-0.17 of
+## 1.67 s (0.14-0.26 s at x1.1); the string goes on from B after it.
+const RUN_ATTACK := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.25}
+## The charge behind the shield (TARIEL_POLISH.md, 4): UAL 2's Shield_Dash.
+const SHIELD_BASH := &"Shield_Dash"
 ## Clips to measure with the sword besides the picks.
-const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle",
+const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle", &"Sword_Light_D",
+	&"Shield_Dash",
 	&"Sword_Heavy_A", &"Sword_Heavy_B", &"Sword_Heavy_C", &"Sword_Heavy_A_Rec", &"Sword_Heavy_B_Rec",
 	&"Sword_Heavy_C_Rec"]
 
@@ -81,6 +88,13 @@ static func apply(t: Dictionary) -> void:
 	(t["cut_windows"] as Dictionary).erase(jump["clip"])
 	t["trail_window"][jump["clip"]] = Vector2(float(jump["hold"]), float(jump["cut"].y) + 0.03)
 	t["clips"][&"run"] = RUN
+	t["clips"][&"shield_bash"] = SHIELD_BASH
+	var run_cut: Dictionary = RUN_ATTACK.duplicate()
+	t["run_attack"] = run_cut
+	t["flurry_part"][run_cut["clip"]] = Vector2(0.0, 1.0)
+	_measure(t, run_cut["clip"])
+	if not t["cut_window"].has(run_cut["clip"]):
+		t["cut_window"][run_cut["clip"]] = Vector2(0.09, 0.17)
 	for c: StringName in [evade["clip"], jump["clip"]]:
 		var m := Moveset.clip_meta(c)
 		if m.has("shield_turn"):

@@ -83,6 +83,8 @@ var finisher_weight: float = 1.0
 ## Which one is the controller's to choose.
 var heavy: Array = []
 const HEAVY := 100
+## The attack style of the running cut (the moves' `run_attack`).
+const RUN_CUT := 90
 ## Clips that cut more than once: every window its own blow (a new attack
 ## serial, a new whoosh), as shares of the clip.
 var cut_windows: Dictionary = {}
@@ -900,6 +902,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	_airborne_now = airborne
 	_blocking_now = blocking
 	_hold_stop(delta)
+	_tick_drag(delta)
 	_sheath_tick(delta)
 	_plunge_left = maxf(_plunge_left - delta, 0.0)
 	_swing_commit = maxf(_swing_commit - delta, 0.0)
@@ -1140,6 +1143,8 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	if not _anim.has_animation(clip):
 		return false
 	var length := _anim.get_animation(clip).length
+	# A drag left over from a missed cut is not this clip's.
+	_drag_left = 0.0
 	_role = role
 	_recovering = false
 	_evade_cut = false
@@ -1274,6 +1279,20 @@ func attack(style: int = -1) -> void:
 		return
 	if _on_mq:
 		_rouse()
+	if style == RUN_CUT and has_run_cut():
+		# The running cut: a sweep thrown out of the run, lunging; the string
+		# goes on from its second blow after it.
+		var rc: Dictionary = moves["run_attack"]
+		_attack_style = AttackStyle.SIDE
+		_heavy_now = false
+		cut_weight = float(rc.get("weight", 1.0))
+		_last_attack_at = Time.get_ticks_msec() / 1000.0
+		_flurry_slot = 0
+		if _play_action(rc["clip"], Role.SWING, float(rc.get("rate", 1.0)) * mq_swing_scale, 0.06,
+				0.0, float(rc.get("until", 1.0))):
+			_swing_commit = swing_time()
+			_whoosh()
+		return
 	if style >= HEAVY and style - HEAVY < heavy.size():
 		var h: Dictionary = heavy[style - HEAVY]
 		if _on_mq:
@@ -1360,6 +1379,67 @@ func _whoosh_now() -> void:
 	if _sword_mount != null:
 		at = _sword_mount
 	Sfx.play_any(self, swing_sounds, at, swing_pitch, swing_volume)
+
+
+## A running cut to throw ([Swordsman] `RUN_ATTACK`).
+func has_run_cut() -> bool:
+	return _on_mq and moves.has("run_attack") and _anim != null \
+			and _anim.has_animation((moves["run_attack"] as Dictionary)["clip"])
+
+
+## A charge to make behind the shield (the moves' "shield_bash" clip).
+func can_shield_bash() -> bool:
+	return _on_mq and _anim != null and clips.has(&"shield_bash") and _anim.has_animation(clips[&"shield_bash"])
+
+
+## The charge behind the shield, played whole over `seconds`: the drive in,
+## the shield thrown into what is there, and the standing back up.
+func shield_bash(seconds: float) -> void:
+	if not can_shield_bash():
+		return
+	_rouse()
+	var clip: StringName = clips[&"shield_bash"]
+	var length := _anim.get_animation(clip).length
+	_heavy_now = false
+	cut_weight = 1.0
+	_play_action(clip, Role.FREE, clampf(length / maxf(seconds, 0.1), 0.6, 2.0), 0.05)
+
+
+## Seconds left of a missed cut's dragged follow-through, and the share of
+## its pace it drags at.
+var _drag_left: float = 0.0
+var _drag_rate: float = 1.0
+
+
+## The cut went through nothing: what is left of it drags (played at `slow`
+## until `seconds` have been lost), and it gives the body back that much
+## later.
+func overreach(seconds: float, slow: float) -> void:
+	if _role != Role.SWING or _anim == null or seconds <= 0.0 or _drag_left > 0.0:
+		return
+	slow = clampf(slow, 0.1, 0.95)
+	_drag_rate = slow
+	_drag_left = seconds / (1.0 - slow)
+	_swing_commit += seconds
+	_action_left += seconds
+	_action_rate *= slow
+	_anim.speed_scale *= slow
+
+
+func _tick_drag(delta: float) -> void:
+	if _drag_left <= 0.0:
+		return
+	_drag_left -= delta
+	if _drag_left <= 0.0 or _role != Role.SWING:
+		_drag_left = 0.0
+		if _role == Role.SWING and _stop_left <= 0.0:
+			_action_rate /= _drag_rate
+			_anim.speed_scale /= _drag_rate
+
+
+## Being missed: dragging (see `overreach`).
+func dragging() -> bool:
+	return _drag_left > 0.0
 
 
 func swing_time() -> float:

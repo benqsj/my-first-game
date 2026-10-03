@@ -25,6 +25,10 @@ signal target_locked(who: Node3D)
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
 signal blade_planted(where: Vector3)
+## A cut of the string went through nothing: its follow-through drags ([member whiff_recovery]).
+signal whiffed
+## The shield went into something on a charge ([method _shield_bash]).
+signal bashed(who: Node3D)
 ## A creature's blow reached this body: what it was worth, and whether the
 ## shield caught it. (There is no parry: a shield only ever blocks.)
 signal struck(damage: float, blocked: bool)
@@ -519,6 +523,8 @@ var _free_swing: bool = false
 ## thrown out of lasts under it before it is down to the swing's pace.
 var _swing_t0: float = -100.0
 @export var free_swing_ease: float = 0.3
+## The ease of the swing in hand: `free_swing_ease`, or `run_cut_ease` for a cut out of a run.
+var _free_ease: float = 0.3
 ## True while a cut thrown in the air still owes the ground its landing.
 var _plunging: bool = false
 ## How long is left before a flurry is considered over and the next swing counts
@@ -685,6 +691,10 @@ func _process(delta: float) -> void:
 		camera_rig.global_position = camera_rig.global_position.lerp(follow, weight)
 		_publish_net_state()
 
+	# Somebody else's charge, as his body comes over the wire (his own is
+	# ticked on the body's own clock, in `_physics_process`).
+	if not mine:
+		_tick_bash(delta)
 	if rig == null:
 		return
 	if not mine and rig.has_method(&"set_shield") and int(rig.get(&"shield_kind")) != net_shield:
@@ -835,6 +845,8 @@ func _physics_process(delta: float) -> void:
 		_spawn_known = true
 		_spawn_point = global_position
 	_tick_timers(delta)
+	_judge_whiff()
+	_tick_bash(delta)
 	_tick_vitals(delta)
 	_tick_sheathe(delta)
 	_track_target(delta)
@@ -995,8 +1007,9 @@ func _read_actions() -> void:
 			_heavy_buffer = attack_buffer_time
 		# A light cut that has done its work may be broken off by an evade: the
 		# follow-through is his to give up. A heavy blow plays out.
+		# Not a cut that went through nothing, while its follow-through drags.
 		if Input.is_action_just_pressed("dash") and rig != null and rig.has_method(&"in_recovery") \
-				and bool(rig.call(&"in_recovery")):
+				and bool(rig.call(&"in_recovery")) and _now() >= _whiff_until:
 			_commit_timer = 0.0
 			_attack_buffer = 0.0
 			_heavy_buffer = 0.0
@@ -1026,7 +1039,11 @@ func _read_actions() -> void:
 		if not _try_climb() and not _try_wall_climb():
 			_jump_buffer_timer = jump_buffer_time
 	if Input.is_action_just_pressed("dash"):
-		_press_dash()
+		# Behind the shield the press is a charge with it, not an evade.
+		if _can_bash():
+			_shield_bash()
+		else:
+			_press_dash()
 	for slot in SKILL_SLOTS:
 		var action := StringName("skill_%d" % (slot + 1))
 		if InputMap.has_action(action) and Input.is_action_just_pressed(action):
@@ -1085,7 +1102,7 @@ func _process_locomotion(delta: float) -> void:
 		# to the swing's pace over `free_swing_ease`, so the charge lands in a
 		# lunge instead of the whole cut gliding on at a run with legs running
 		# under a body that is swinging.
-		var eased := clampf((_now() - _swing_t0) / maxf(free_swing_ease, 0.01), 0.0, 1.0)
+		var eased := clampf((_now() - _swing_t0) / maxf(_free_ease, 0.01), 0.0, 1.0)
 		speed *= lerpf(1.0, commit_speed_scale, eased)
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
@@ -2617,6 +2634,10 @@ func _attack(heavy: bool = false) -> void:
 	var cost := profile.attack_stamina if profile != null else 16.0
 	if heavy:
 		cost *= heavy_stamina
+	# The first cut thrown at a run is the running cut ([method _run_cut_ready]).
+	var run_cut := not heavy and _run_cut_ready()
+	if run_cut:
+		cost *= run_cut_stamina
 	if not _spend(cost):
 		_attack_buffer = 0.0
 		_heavy_buffer = 0.0
@@ -2648,7 +2669,7 @@ func _attack(heavy: bool = false) -> void:
 			if to_them.length_squared() > 0.0001:
 				rotation.y = atan2(-to_them.x, -to_them.z)
 		net_strike_at.rpc(foe.get_path() if foe != null else NodePath())
-		var reach := strike_step_max
+		var reach := run_cut_reach if run_cut else strike_step_max
 		rig.set(&"carry_scale", 1.0)
 		if blow >= 0:
 			var spec: Dictionary = rig.get(&"heavy")[blow]
@@ -2666,6 +2687,8 @@ func _attack(heavy: bool = false) -> void:
 	# committed their momentum to, and damping it turns a charge into a shuffle.
 	var airborne := not is_on_floor()
 	_free_swing = _swing_chain == 0 or airborne
+	_free_ease = run_cut_ease if run_cut else free_swing_ease
+	_whiff_counts = _foe_within(whiff_near)
 	_swing_t0 = _now()
 	_swing_chain += 1
 	# A cut thrown in the air is a **plunge**, and a plunge is owed its landing:
@@ -2679,6 +2702,8 @@ func _attack(heavy: bool = false) -> void:
 		var style := CharacterRig.AttackStyle.OVERHEAD if airborne else -1
 		if blow >= 0 and not airborne:
 			style = SkinnedRig.HEAVY + blow
+		elif run_cut:
+			style = SkinnedRig.RUN_CUT
 		net_attack.rpc(style)
 		_commit(rig.swing_time())
 	_attack_buffer = 0.0
@@ -2981,6 +3006,8 @@ func net_blade_landed() -> void:
 	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
 		return
 	_rig_says(&"blade_landed")
+	if rig != null and rig.get(&"attack_serial") != null:
+		_landed_serial = int(rig.get(&"attack_serial"))
 	# The blow felt in the hands: his own view knocked the way the blade went.
 	if is_multiplayer_authority() and camera != null and camera.current and rig != null:
 		var weight := 1.0 if rig.get(&"cut_weight") == null else float(rig.get(&"cut_weight"))
@@ -3160,6 +3187,10 @@ func _aim_strike() -> void:
 func net_attack(style: int) -> void:
 	if rig != null:
 		rig.attack(style)
+		# What this swing's cuts are numbered from: a landing told of after
+		# this is one of them ([method _judge_whiff]).
+		if rig.get(&"attack_serial") != null:
+			_swing_serial0 = int(rig.get(&"attack_serial"))
 	# TODO: enable the weapon hitbox for the active frames.
 
 
@@ -3211,6 +3242,202 @@ func _turn_to_target() -> void:
 	to_them.y = 0.0
 	if to_them.length_squared() > 0.0001:
 		rotation.y = atan2(-to_them.x, -to_them.z)
+#endregion
+
+
+#region The running cut, the shield charge, the cut that misses
+@export_group("Running cut")
+## The first cut thrown at more than this share of `run_speed` is the running
+## cut: a lunging sweep of its own (the rig's `run_attack`), the string going
+## on from its second blow after it.
+@export_range(0.0, 1.0) var run_cut_pace: float = 0.75
+## How far it carries him on to what it is thrown at, and how long his run
+## lasts under it before he is down to a swing's pace.
+@export var run_cut_reach: float = 2.6
+@export var run_cut_ease: float = 0.5
+## Its stamina, in light cuts'.
+@export var run_cut_stamina: float = 1.25
+
+@export_group("Shield charge")
+## The dash with the shield up: he drives in behind it at `bash_speed` for
+## `bash_travel` seconds, and is held for `bash_time` in all.
+@export var bash_speed: float = 8.0
+@export var bash_travel: float = 0.38
+@export var bash_time: float = 0.85
+## How near (body to body, metres) and how far round from straight ahead
+## (degrees) the shield takes something.
+@export var bash_reach: float = 0.55
+@export var bash_cone: float = 55.0
+## What it does to what it hits: a shove, a share of a cut's worth, and the
+## reel ([Recoil]) every creature has for a guard broken, which leaves it
+## open to the next blow.
+@export var bash_push: float = 6.0
+@export var bash_damage: float = 0.35
+## Its stamina, in evades'.
+@export var bash_stamina: float = 1.3
+
+@export_group("Missed cut")
+## A cut of the string that goes through nothing drags on this much longer in
+## its follow-through (the clip played at `whiff_slow` over it), and is not
+## to be rolled out of until it has: the price of swinging at the air.
+@export var whiff_recovery: float = 0.22
+@export_range(0.1, 1.0) var whiff_slow: float = 0.5
+## Only with something to fight this near (metres) as the cut is thrown:
+## swinging at the air with nothing about is no miss.
+@export var whiff_near: float = 6.0
+
+## The charge's travel left (seconds), the way it goes and what it has
+## already taken: on every peer, the host deciding what it hits.
+var _bash_left: float = 0.0
+var _bash_dir: Vector3 = Vector3.ZERO
+var _bash_struck: Array[Node3D] = []
+## The first attack serial of the swing in hand, the serial of the last cut
+## told to have landed, the swing last judged, and until when a missed one
+## drags.
+var _swing_serial0: int = -1
+var _landed_serial: int = -1
+var _whiff_judged: int = -1
+var _whiff_until: float = -100.0
+## Whether the swing in hand was thrown with something within `whiff_near`.
+var _whiff_counts: bool = false
+
+
+## Anything to fight within `reach` metres.
+func _foe_within(reach: float) -> bool:
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who != null and _targetable(who) and who.global_position.distance_to(global_position) <= reach:
+			return true
+	return false
+
+
+## A cut out of a run: on his feet, the first of a string, at a run, with the
+## shield down, and a rig with a running cut.
+func _run_cut_ready() -> bool:
+	if state != State.GROUNDED or not is_on_floor() or _swing_chain != 0 or is_blocking:
+		return false
+	if rig == null or not rig.has_method(&"has_run_cut") or not bool(rig.call(&"has_run_cut")):
+		return false
+	return Vector2(velocity.x, velocity.z).length() > run_speed * run_cut_pace
+
+
+## The shield up, on his feet, and a rig that charges with it.
+func _can_bash() -> bool:
+	if not is_blocking or state != State.GROUNDED or not is_on_floor():
+		return false
+	return rig != null and rig.has_method(&"can_shield_bash") and bool(rig.call(&"can_shield_bash"))
+
+
+## The charge behind the shield: he turns to what is in front (or what he is
+## locked on) and drives in, the guard coming down for it.
+func _shield_bash() -> void:
+	if _dash_cooldown_timer > 0.0:
+		return
+	if not _spend((profile.roll_stamina if profile != null else 20.0) * bash_stamina):
+		return
+	is_blocking = false
+	block_changed.emit(false)
+	_set_weapons_stowed(false)
+	var foe := target if target != null and _targetable(target) else _strike_candidate()
+	var aim := get_movement_direction()
+	if foe != null:
+		aim = foe.global_position - global_position
+	aim.y = 0.0
+	if aim.length_squared() > 0.0001:
+		rotation.y = atan2(-aim.x, -aim.z)
+	var dir := -global_basis.z
+	dir.y = 0.0
+	dir = dir.normalized()
+	_step_velocity = dir * bash_speed
+	_step_left = bash_travel
+	_free_swing = true
+	_swing_chain = 0
+	_dash_cooldown_timer = dash_cooldown + bash_time
+	_commit(bash_time)
+	attack_started.emit()
+	net_shield_bash.rpc(dir)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_shield_bash(dir: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	_bash_dir = dir
+	_bash_left = bash_travel + 0.06
+	_bash_struck.clear()
+	if rig != null and rig.has_method(&"shield_bash"):
+		rig.call(&"shield_bash", bash_time)
+	Sfx.play(self, ROLL_SOUND, self, Vector3.ZERO, 0.85, MOVE_VOLUME[MoveSound.ROLL])
+
+
+## The charge going: the host looks for what is in front of the shield.
+func _tick_bash(delta: float) -> void:
+	if _bash_left <= 0.0:
+		return
+	_bash_left -= delta
+	if not _decides_here() or is_dead:
+		return
+	var widest := cos(deg_to_rad(bash_cone))
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or _bash_struck.has(who) or not _targetable(who):
+			continue
+		var to := who.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < 0.01 or d - _body_radius(who) - 0.4 > bash_reach or _bash_dir.dot(to / d) < widest:
+			continue
+		_bash_struck.append(who)
+		var at := strike_point(who) - to / d * _body_radius(who)
+		var worth := cut_worth()
+		if who.has_method(&"take_hit"):
+			who.call(&"take_hit", float(worth[0]) * bash_damage, at, _bash_dir, false, false, self)
+		if who.has_method(&"react"):
+			who.call(&"react", &"knock", self, _bash_dir * bash_push)
+		net_bash_landed.rpc(who.get_path(), at)
+		bashed.emit(who)
+
+
+## The shield went into something: the clang and the jolt, on every peer;
+## the charge stopped dead on it, and a step back off it.
+@rpc("any_peer", "call_local", "reliable")
+func net_bash_landed(path: NodePath, at: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
+		return
+	_bash_left = 0.0
+	var who := get_node_or_null(path) as Node3D
+	HitFeel.bite(who, 1.15)
+	Sfx.play(self, PARRY_SOUND, self, at - global_position, randf_range(0.8, 0.9), -2.0)
+	ImpactFx.thud(self, at, true)
+	DustRing.burst(Blood.world_of(self), Vector3(at.x, global_position.y, at.z), 0.6)
+	if is_multiplayer_authority():
+		_step_velocity = -_bash_dir * 1.6
+		_step_left = 0.1
+		if camera != null and camera.current:
+			ImpactFx.knock(camera, _bash_dir, 0.06, 0.07, 0.22)
+
+
+## A cut of the string past its cut with nothing landed: it drags on
+## (`whiff_recovery`), and the evade may not take him out of it till then.
+func _judge_whiff() -> void:
+	if rig == null or _swing_serial0 < 0 or _whiff_judged == _swing_serial0 or _plunging:
+		return
+	if not rig.has_method(&"in_recovery") or not rig.has_method(&"current_swing"):
+		return
+	if StringName(rig.call(&"current_swing")) == &"" or bool(rig.call(&"is_heavy")) \
+			or not bool(rig.call(&"in_recovery")):
+		return
+	_whiff_judged = _swing_serial0
+	if _landed_serial >= _swing_serial0 or not _whiff_counts:
+		return
+	_whiff_until = _now() + whiff_recovery
+	if attacks_commit:
+		_commit_timer += whiff_recovery
+	if rig.has_method(&"overreach"):
+		rig.call(&"overreach", whiff_recovery, whiff_slow)
+	whiffed.emit()
 #endregion
 
 

@@ -518,6 +518,23 @@
 			"length": 0.967,
 			"loop": false
 		},
+		"Shield_Dash": {
+			"cuts": [
+				[
+					0.0,
+					0.06
+				]
+			],
+			"length": 1.1,
+			"loop": false,
+			"peak": 30.66,
+			"trails": [
+				[
+					0.0,
+					0.09
+				]
+			]
+		},
 		"Sword_Aerial_Idle": {
 			"length": 1.067,
 			"loop": true,
