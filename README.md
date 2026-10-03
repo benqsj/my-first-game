@@ -6223,3 +6223,38 @@ until the user says otherwise.
   UAL 2 Regular A-B-C (the one worn at first) and UAL 2 Heavy A-B-C; the
   other strings and the heavy blows to try (F7) are gone, the heavy blow is
   UAL 2's Heavy Combo as before.
+
+
+## The heroes brought down to a man's height (2026-10-03)
+
+Tariel's visuals were scaled 1.2, so on the Polysplit figure he stood about
+2.35 m with his helmet: a giant at the spawn, beside the village's doors, barrels
+and stalls. Every hero is now near a man's height, and each has a height of
+their own. Only the visuals node is scaled. The capsule (1.85 m) and the blow
+and step distances are the same for all of them.
+
+| hero | visuals scale | to the top of the head |
+| --- | ---: | ---: |
+| Tariel | 1.02 (was 1.2) | ≈ 1.95 m |
+| the warrior | 1.02 (was 1.0) | ≈ 1.95 m |
+| Avtandil | 0.985 (was 1.0) | ≈ 1.88 m |
+| the mage | 0.97 (was 1.0) | ≈ 1.85 m |
+| the assassin | 0.94 (was 1.0) | ≈ 1.80 m |
+
+On the Polysplit figure at scale 1, `head_joint` stands at 1.706 m in the idle,
+and the top of the head is about 0.2 m above it.
+
+- **Tariel runs at 6.3 m/s (was 7.4).** At the smaller size, Kevin's sprint at
+  7.4 m/s needed x1.19, and the standing foot slid 0.76 m/s
+  (`stride_test`; 0.45 is the limit). 6.3 m/s keeps the sprint at its own pace
+  (x1.01; slides 0.35–0.39 m/s). He is still the fastest; the others run
+  5.6 m/s. `archer_test`'s "as fast as the knight" (5.6 vs 6.3) was already
+  failing at 7.4.
+- **Moveset ground speeds follow the scale** (`SkinnedRig._wear_moves`, `pace :=
+  scale.y`), so the walks and runs of every hero retime themselves. Every
+  hero's `stride_test` passes.
+- **The blade reaches less far.** The cut markers are measured off the blade in
+  hand, so they follow. `multiplayer_test` stood the two knights 1.3 m from
+  the wolf; that is now 1.1 m.
+- The monsters' sizes are planned against these heights
+  (`CREATURES_PACK.md` §6).

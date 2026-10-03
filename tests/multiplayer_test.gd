@@ -202,7 +202,8 @@ func _check_two_attackers() -> void:
 		# one limb, and the second finds it already gone.
 		for k in 2:
 			var knight := [mine, other][k] as Player
-			knight.global_position = wolf.global_position + Vector3(-0.3 + 0.6 * k, 0.0, 1.3)
+			# 1.1 m: Tariel at a man's height (x1.02, was x1.2) reaches 1.3 m less far.
+			knight.global_position = wolf.global_position + Vector3(-0.3 + 0.6 * k, 0.0, 1.1)
 			knight.velocity = Vector3.ZERO
 			knight.rig.attack(CharacterRig.AttackStyle.SIDE)
 		# Long enough for the blade to get there: a clip has a wind-up before the
