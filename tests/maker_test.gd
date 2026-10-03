@@ -167,6 +167,20 @@ func _run() -> void:
 								var reach_arm := rig._blade_tip.position.length()
 								if reach_arm < 0.2:
 									wrong.append("%s cuts %.2f" % [id, reach_arm])
+							# its own scabbard in the class's place, the class's put away
+							for x: Variant in now.get("extras", []):
+								var key := PolysplitLook.extra_key(now, String(x))
+								var worn_x := fig.find_child("ps_" + key, true, false) as MeshInstance3D
+								if worn_x == null or not worn_x.visible:
+									wrong.append("%s: %s not worn" % [id, key])
+								elif key != "x_" + String(x):
+									var own_x := fig.find_child("ps_x_" + String(x), true, false) as MeshInstance3D
+									if own_x != null and own_x.visible:
+										wrong.append("%s: the class's %s still on" % [id, x])
+								elif String(x).contains("scabbard") and slot == "w" and PolysplitLook.sheathes(id) \
+										and PolysplitLook.aw_name(id) != "" and (PolysplitLook.aw_name(id) == "dagger") \
+										== String(x).contains("dagger") and not String(x).ends_with("_l"):
+									wrong.append("%s: no scabbard of its own for %s" % [id, x])
 				rig.set_look(held)
 				_check("%s: every arm of the class, every style, in hand (%d)" % [tag, counted],
 						wrong.is_empty(), str(wrong))

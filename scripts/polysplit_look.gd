@@ -129,6 +129,20 @@ const EXTRA_NAMES := {
 	"daggerscabbard": "SHEATH", "slingbag": "SLING BAG", "cloak": "CLOAK", "shoes": "SHOES", "skirt": "SKIRT",
 	"scarf": "SCARF", "shawl": "SHAWL", "choker": "CHOKER",
 }
+## The figure mesh (without the prefix) the extra `id` is worn as: a class's
+## scabbard gives way to the Advanced sword's (or knife's) own while one is
+## in the hand it serves (a left sheath the other hand's), in its style
+## ("x_aw_<scabbard>__<name>_<style>", tools/ps_creator.py aw_scabbards).
+static func extra_key(look: Dictionary, id: String) -> String:
+	if id.contains("scabbard"):
+		var knife := id.contains("dagger")
+		var held := String(look.get("o" if knife and id.ends_with("_l") else "w", ""))
+		var name := aw_name(held)
+		if name != "" and (name == "dagger") == knife and bool(AW.get(name, {}).get("sheath", false)):
+			return "x_aw_%s__%s" % [id, held.substr(3)]
+	return "x_" + id
+
+
 ## A blade: the cut is drawn along it (see [SkinnedRig]).
 const BLADES := ["sword_a", "sword_b", "greatsword", "dagger"]
 
@@ -168,6 +182,25 @@ const AW := {
 }
 ## The pack's four styles, each its own models and colours.
 const STYLES := ["normal", "ornate", "obsidian", "bone"]
+## How the pack's shader draws each style (its RGBRecolor_<Style>Weapons.mat):
+## metal and gloss for the mask's R, G and B, and the imbue glow (on for
+## ornate and obsidian), see shaders/aw_weapon.gdshader.
+const STYLE_LOOKS := {
+	"normal": {"metal": Vector3(0.0, 0.0, 0.25), "smooth": Vector3(0.0, 0.4, 0.25), "imbue": false,
+			"color": Color(0.4999, 0.8472, 0.9874), "strength": 0.3, "tiling": Vector2(0.5, 0.1), "scroll": 0.6,
+			"edge": 0.9},
+	"ornate": {"metal": Vector3(0.0, 0.7, 0.25), "smooth": Vector3(0.0, 0.5, 0.25), "imbue": true,
+			"color": Color(0.8148, 0.3372, 0.0160), "strength": 0.75, "tiling": Vector2(2.0, 6.0), "scroll": 0.5,
+			"edge": 0.6},
+	"obsidian": {"metal": Vector3(0.9, 0.45, 0.65), "smooth": Vector3(0.9, 0.4, 0.4), "imbue": true,
+			"color": Color(0.3968, 0.0343, 0.8879), "strength": 0.57, "tiling": Vector2(1.0, 2.0), "scroll": -0.5,
+			"edge": 0.9},
+	"bone": {"metal": Vector3(0.0, 0.0, 0.25), "smooth": Vector3(0.0, 0.4, 0.25), "imbue": false,
+			"color": Color(1.0, 0.0, 0.0), "strength": 0.5, "tiling": Vector2(2.0, 2.0), "scroll": -0.5, "edge": 0.75},
+}
+const AW_SHADER := "res://shaders/aw_weapon.gdshader"
+const AW_MASK := "res://assets/polysplit/aw_mask.png"
+static var _aw_mats: Dictionary = {}
 const STYLE_NAMES := {"normal": "NORMAL", "ornate": "ORNATE", "obsidian": "OBSIDIAN", "bone": "BONE"}
 ## What each class may hold (2026-10-03, the user's word: a class its own
 ## arms, to be seen in hand on the hero select; no bow for the swordsman).
@@ -294,6 +327,29 @@ static func cuts(id: String) -> bool:
 static func sheathes(id: String) -> bool:
 	var name := aw_name(id)
 	return BLADES.has(id) if name == "" else bool(AW.get(name, {}).get("sheath", false))
+
+
+## The material the Advanced Weapons are drawn with in `style` (one for
+## every figure), its colours `albedo` (the style's pre-coloured texture).
+static func aw_material(style: String, albedo: Texture2D) -> Material:
+	if _aw_mats.has(style):
+		return _aw_mats[style]
+	var spec: Dictionary = STYLE_LOOKS.get(style, STYLE_LOOKS["normal"])
+	var m := ShaderMaterial.new()
+	m.shader = load(AW_SHADER)
+	m.set_shader_parameter(&"albedo_tex", albedo)
+	if ResourceLoader.exists(AW_MASK):
+		m.set_shader_parameter(&"mask_tex", load(AW_MASK))
+	m.set_shader_parameter(&"metal_rgb", spec["metal"])
+	m.set_shader_parameter(&"smooth_rgb", spec["smooth"])
+	m.set_shader_parameter(&"imbue", spec["imbue"])
+	m.set_shader_parameter(&"imbue_color", spec["color"])
+	m.set_shader_parameter(&"imbue_strength", spec["strength"])
+	m.set_shader_parameter(&"imbue_tiling", spec["tiling"])
+	m.set_shader_parameter(&"imbue_scroll", spec["scroll"])
+	m.set_shader_parameter(&"edge_strength", spec["edge"])
+	_aw_mats[style] = m
+	return m
 
 
 ## What the maker calls `id`.
@@ -461,7 +517,7 @@ static func shown(look: Dictionary) -> Dictionary:
 	on["top_" + String(look["top"]) if String(look["top"]) != "" else "topbody"] = true
 	on["bottom_" + String(look["bottom"]) if String(look["bottom"]) != "" else "bottombody"] = true
 	for x: Variant in look.get("extras", []):
-		on["x_" + String(x)] = true
+		on[extra_key(look, String(x))] = true
 	if String(look.get("hat", "")) != "":
 		on["hat_" + String(look["hat"])] = true
 	var w := String(look.get("w", ""))
@@ -505,8 +561,12 @@ static func dye(figure: Node3D, skin: int, cloth: int) -> void:
 				continue
 			for i in mesh.mesh.get_surface_count():
 				var m := mesh.mesh.surface_get_material(i) as BaseMaterial3D
-				if m == null or m.resource_name.begins_with("aw_"):
-					continue  # (the Advanced Weapons are coloured by their style)
+				if m == null:
+					continue
+				if m.resource_name.begins_with("aw_"):
+					# the Advanced Weapons: their style's colours, metal and glow
+					mesh.set_surface_override_material(i, aw_material(m.resource_name.substr(3), m.albedo_texture))
+					continue
 				var kind := "body" if m.resource_name.contains("body") else "objects"
 				if not mats.has(m):
 					var own := m.duplicate() as BaseMaterial3D

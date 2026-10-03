@@ -2882,7 +2882,7 @@ func _fit_sheath(custom: bool) -> void:
 				var id := String(x)
 				if not id.contains("scabbard"):
 					continue
-				var mesh := _figure.find_child("ps_x_" + id, true, false) as MeshInstance3D
+				var mesh := _figure.find_child("ps_" + PolysplitLook.extra_key(ps_look, id), true, false) as MeshInstance3D
 				Sheath.put_mouth_over_sword_shoulder(mesh, _figure_skel)
 				var socket := Sheath.socket(mesh, _figure_skel, blade)
 				if socket.is_empty():

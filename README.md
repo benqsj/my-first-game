@@ -6579,3 +6579,27 @@ Tests: `maker_test` holds every arm of every class in every style (a mesh,
 shown, and the cut as far as it reaches); `menu_test` the ARMS tab's three
 rows and the style worn on the weapon in hand. Sheets of every class's arms:
 `vepxis-art/tools/aw_shots.gd -- <hero> <style> [guard] [names]` (windowed).
+
+### Shields the right way round, each sword its own scabbard, the pack's shader (2026-10-03, later)
+
+- **Shields.** The Heroes pack's round shield (ROUND SHIELD) and the Advanced
+  ones were worn back to front: the handles out. !! In the files every shield
+  faces +Z as imported (the handles on -Z) and its top is +Y; the -Y "front"
+  `mannequin_shields()` was given lies in the shield's face, so which way it
+  turned was luck. Now set from the files (looked at, not guessed from the
+  shape): the face out, the top up in the guard.
+- **Scabbards.** A sword or knife of the Advanced pack brings its own
+  scabbard: worn where the class's scabbard was (the swordsman's on his back,
+  the fighter's at his hip, the knight's great one, the rogue's sheaths), the
+  class's put away, in the weapon's style. `ps_creator.py aw_scabbards()`
+  lays the pack's scabbard mouth on mouth along the class's (80 meshes a
+  figure, `ps_x_aw_<scabbard>__<name>_<style>`); `PolysplitLook.extra_key()`
+  says which is worn, and the sword is put away into that one (`Sheath`).
+- **The pack's shader.** The Advanced Weapons are drawn the way the pack
+  draws them in Unity (`shaders/aw_weapon.gdshader`, after
+  `RGBRecolor_AdvancedWeapons.shadergraph`): metal and gloss by the RGB
+  mask's channels (`assets/polysplit/aw_mask.png`), with each style's values
+  (`PolysplitLook.STYLE_LOOKS`, from its `.mat`), and for ORNATE and
+  OBSIDIAN the "imbue" glow, a rim and slow noise moving over the weapon in
+  the style's colour. The flat look before was the pre-coloured texture
+  alone, rough and with no metal. The figures are now 18.5-19.3 MB.
