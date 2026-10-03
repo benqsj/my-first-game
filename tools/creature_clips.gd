@@ -71,6 +71,13 @@ const CLIPS := [
 	["CR_Sprint", "KV_Sprint01_Forward", true],
 	["CR_Death3", "KV_CombatDeath03", false],
 	["CR_Death4", "KV_CombatDeath04", false],
+	["CR_BowNotch", "Bow_Notch", false],
+	["CR_BowAim", "Bow_Aim_Neutral", true],
+	["CR_BowShoot", "Bow_Shoot", false],
+	["CR_BowRapid", "Bow_RapidShoot", false],
+	# Nock and draw (the hand on the string at 0.63 s, full at 1.05), held on
+	# the aim a breath, and loosed at 1.45 s (BowFighter.LOOSE_AT).
+	["CR_BowShot", [["Bow_Notch", 0.0, 1.25], ["Bow_Aim_Neutral", 0.0, 0.2], ["Bow_Shoot", 0.0, -1.0]], false],
 	["CR_PunchCombo", "Melee_Combo", false],
 	["CR_Hook", "Melee_Hook", false],
 	["CR_Uppercut", "Melee_Uppercut", false],
@@ -185,12 +192,24 @@ func _run() -> void:
 	var g: Array[Transform3D] = []
 	g.resize(n)
 	for c: Array in CLIPS:
-		if not lib.has_animation(StringName(c[1])):
-			push_error("no clip " + String(c[1]))
+		# A clip of several: [[mannequin clip, from s, to s], ...] played one
+		# after the other (the archer's draw, aim and loose as one move).
+		var segments: Array = (c[1] as Array).duplicate(true) if c[1] is Array else [[c[1], 0.0, -1.0]]
+		var total := 0.0
+		var missing := false
+		for seg: Array in segments:
+			if not lib.has_animation(StringName(seg[0])):
+				push_error("no clip " + String(seg[0]))
+				missing = true
+				break
+			var seg_len := lib.get_animation(StringName(seg[0])).length
+			if float(seg[2]) < 0.0 or float(seg[2]) > seg_len:
+				seg[2] = seg_len
+			total += float(seg[2]) - float(seg[1])
+		if missing:
 			continue
-		var a_src := lib.get_animation(StringName(c[1]))
 		var loop: bool = c[2]
-		var frames := maxi(int(round(a_src.length * FPS)), 1)
+		var frames := maxi(int(round(total * FPS)), 1)
 		var count := frames if loop else frames + 1
 		var anim := Animation.new()
 		anim.length = float(frames) / FPS
@@ -204,13 +223,22 @@ func _run() -> void:
 				rot_track[t] = tr
 		var pos_track := anim.add_track(Animation.TYPE_POSITION_3D)
 		anim.track_set_path(pos_track, NodePath("Skeleton3D:pelvis_joint"))
-		player.play(StringName(c[1]))
-		player.seek(0.0, true)
+		player.play(StringName(segments[0][0]))
+		player.seek(float(segments[0][1]), true)
 		var root0 := src.get_bone_global_pose(s_root).origin if s_root >= 0 else Vector3.ZERO
 		var path := []
+		var playing := String(segments[0][0])
 		for f in count:
-			var time := minf(float(f) / FPS, a_src.length)
-			player.seek(time, true)
+			var time := minf(float(f) / FPS, total)
+			var seg_i := 0
+			while seg_i < segments.size() - 1 and time > float(segments[seg_i][2]) - float(segments[seg_i][1]):
+				time -= float(segments[seg_i][2]) - float(segments[seg_i][1])
+				seg_i += 1
+			var seg: Array = segments[seg_i]
+			if String(seg[0]) != playing:
+				playing = String(seg[0])
+				player.play(StringName(playing))
+			player.seek(minf(float(seg[1]) + time, float(seg[2])), true)
 			var travel := (src.get_bone_global_pose(s_root).origin - root0) if s_root >= 0 else Vector3.ZERO
 			travel.y = 0.0
 			path.append([snappedf(travel.z * k, 0.0001), snappedf(travel.x * k, 0.0001), 0.0])
@@ -237,7 +265,7 @@ func _run() -> void:
 						anim.position_track_insert_key(pos_track, float(f) / FPS, local.origin)
 		player.stop()
 		out_lib.add_animation(StringName(c[0]), anim)
-		meta[String(c[0])] = {"frames": count, "fps": int(FPS), "loop": loop, "hips": path, "from": String(c[1])}
+		meta[String(c[0])] = {"frames": count, "fps": int(FPS), "loop": loop, "hips": path, "from": str(c[1])}
 		print("CLIP ", c[0], " <- ", c[1], " frames ", count, " travel %.2f" % float(path[-1][0]))
 
 	# The bare skeleton and the player, as a scene SkeletonAnim can load.

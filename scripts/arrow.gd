@@ -60,6 +60,10 @@ const HITS: Array[String] = [
 	"res://unverified/sounds/bow/arrow_hit_5.wav",
 ]
 
+## Loosed by a creature at the heroes ([BowFighter]): it flies through the
+## world and the heroes, not the creatures, and what it meets takes it as a
+## blow (`receive_blow`, a flinch, never a fall), not as a cut.
+var against_heroes: bool = false
 var _velocity: Vector3 = Vector3.ZERO
 var _gravity: float = 6.0
 var _damage: float = 0.0
@@ -140,7 +144,7 @@ func _sweep(from: Vector3, to: Vector3) -> Dictionary:
 	if _shooter is CollisionObject3D:
 		exclude.append((_shooter as CollisionObject3D).get_rid())
 	# World and enemies: the same things the player's own capsule collides with.
-	var query := PhysicsRayQueryParameters3D.create(from, to, 5, exclude)
+	var query := PhysicsRayQueryParameters3D.create(from, to, 3 if against_heroes else 5, exclude)
 	return space.intersect_ray(query)
 
 
@@ -157,6 +161,16 @@ func _strike(what: Node3D, where: Vector3) -> void:
 	_trail = null
 	_wake = null
 	struck.emit(what, where, _critical)
+
+	if against_heroes:
+		if what != null and what.has_method(&"receive_blow") and what.get("net_dead") != true:
+			Sfx.play(self, HITS[randi() % HITS.size()], null, where, randf_range(0.94, 1.06), -14.0)
+			# Only the host's copy counts, as for the heroes' own arrows.
+			if multiplayer.is_server():
+				what.call(&"receive_blow", _damage, _shooter if is_instance_valid(_shooter) else self,
+						0, 2, get_instance_id() % 100000)
+			_stick_in.call_deferred(what, where)
+		return
 
 	if what != null and what.has_method("take_hit"):
 		var blow := -global_transform.basis.y

@@ -1,0 +1,137 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/bow_fighter.gd" id="1_fighter"]
+[ext_resource type="PackedScene" path="res://assets/creatures/Skeleton_Archer.fbx" id="2_model"]
+[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
+[ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_body"]
+radius = 0.38
+height = 1.71
+
+[sub_resource type="SceneReplicationConfig" id="Repl_body"]
+properties/0/path = NodePath("NetSmooth:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("NetSmooth:net_rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:velocity")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath(".:stamina")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:is_dead")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:mode")
+properties/6/spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:act")
+properties/7/spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath(".:act_serial")
+properties/8/spawn = true
+properties/8/replication_mode = 2
+properties/9/path = NodePath("NetSmooth:net_stamp")
+properties/9/spawn = true
+properties/9/replication_mode = 1
+
+[node name="SkeletonArcher" type="CharacterBody3D" groups=["enemy"]]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_fighter")
+speed = 1.6
+roam_radius = 3.0
+rest_time = 2.4
+step_height = 0.4
+walk_clip = &"CR_Walk"
+idle_clip = &"CR_Idle"
+fidget_clip = &"CR_Idle"
+fidget_interval = 0.0
+loop_clips = PackedStringArray("CR_Idle", "CR_CombatIdle", "CR_Walk", "CR_Run", "CR_StrafeL", "CR_StrafeR", "CR_WalkBack")
+sight_range = 26
+leash_radius = 65.0
+chase_speed = 4.8
+chase_retime_max = 2.4
+max_health = 110
+bar_height = 2.137
+body_radius = 0.342
+body_height = 1.758
+max_stamina = 100
+block_chance = 0.0
+dash_chance = 0.0
+p_def = 10
+m_def = 10
+reach = 2.025
+hit_damage = 18
+attack_cooldown = Vector2(0.35, 0.8)
+attack_clip = &"CR_Idle"
+block_clip = &"CR_Hit"
+dash_clip = &"CR_Dodge"
+break_clip = &"CR_Hit"
+death_clip = &"CR_Death"
+guard_idle_clip = &"CR_CombatIdle"
+dies_by_clip = true
+clip_source = "res://assets/creatures/anim/biped_clips.scn"
+clip_meta = "res://assets/creatures/anim/biped_clip_meta.json"
+settle_on_ground = false
+hips_bone = "pelvis_joint"
+foot_bones = PackedStringArray("L_ankle_joint", "R_ankle_joint")
+visual_scale = 0.95
+run_clip = &"CR_Run"
+run_above = 2.6
+strike_off = 1.425
+close_speed = 4.8
+weapon_bone = &"R_wrist_joint"
+weapon_tip = Vector3(0.12, 0, 0)
+weapon_radius = 0.12
+strike_bones = PackedStringArray("R_wrist_joint")
+hit_clip = &"CR_Hit"
+attacks = Array[StringName]([])
+attack_parts = Array[Vector3]([])
+attack_limbs = PackedStringArray()
+attack_blows = PackedInt32Array()
+strike_at_reach = false
+blows_to_fell = 3
+too_close = 0.0
+steady_in_attack = true
+hit_cost = 0.0
+attack_cost = 10.0
+regen_delay = 0.5
+stamina_regen = 30.0
+blow_min_speed = 2.0
+strafe_l_clip = &"CR_StrafeL"
+strafe_r_clip = &"CR_StrafeR"
+back_clip = &"CR_WalkBack"
+shot_rate = 1.3
+shoot_range = 24.0
+flee_under = 6.0
+keep_away = 11.0
+flee_time = 1.7
+arrow_speed = 34.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)
+shape = SubResource("Capsule_body")
+
+[node name="Visuals" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Model" parent="Visuals" instance=ExtResource("2_model")]
+
+[node name="Dress" type="Node" parent="Visuals"]
+script = ExtResource("4_dress")
+body = "Body_Skeleton"
+objects = "Objects_SkelArcher"
+
+[node name="Body" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.033
+replication_config = SubResource("Repl_body")
+
+[node name="NetSmooth" type="Node" parent="."]
+script = ExtResource("net_smooth")

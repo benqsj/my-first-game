@@ -116,6 +116,17 @@ C = {
                               ["CR_PunchCombo", 1.1, 0.92, FISTS, 2], ["CR_Hook", 1.0, 0.95, FISTS, 1]]),
 }
 C["zombie_f"] = dict(C["zombie_m"], node="ZombieWoman", fbx="Zombie_F")
+# Keeps its distance: shoots from afar, runs from him when he comes close,
+# turns and shoots, runs again ([BowFighter], scripts/bow_fighter.gd).
+C["skeleton_archer"] = dict(node="SkeletonArcher", fbx="Skeleton_Archer", s=0.95, body="Body_Skeleton",
+                            objects="Objects_SkelArcher", script="res://scripts/bow_fighter.gd",
+                            idle="CR_Idle", guard="CR_CombatIdle", walk="CR_Walk", run="CR_Run", run_above=2.6,
+                            strafe=("CR_StrafeL", "CR_StrafeR"), back="CR_WalkBack",
+                            speed=1.6, chase=4.8, health=110, dmg=18, pdef=10, mdef=10, sight=26,
+                            hit="CR_Hit", death="CR_Death", too_close=0.0, cooldown=(0.35, 0.8),
+                            weapon=("R_wrist_joint", (0.12, 0, 0), 0.12), strike=["R_wrist_joint"], attacks=[],
+                            extra=['shot_rate = 1.3', 'shoot_range = 24.0', 'flee_under = 6.0', 'keep_away = 11.0',
+                                   'flee_time = 1.7', 'arrow_speed = 34.0'])
 
 REPL = "\n".join(
     "properties/%d/path = NodePath(\"%s\")\nproperties/%d/spawn = true\nproperties/%d/replication_mode = %d"
@@ -146,7 +157,7 @@ def scene(c):
     strike_off = 1.5 * s
     L = [
         '[gd_scene load_steps=7 format=3]', '',
-        '[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]',
+        '[ext_resource type="Script" path="%s" id="1_fighter"]' % c.get("script", "res://scripts/brawler.gd"),
         '[ext_resource type="PackedScene" path="res://assets/creatures/%s.fbx" id="2_model"]' % c["fbx"],
         '[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]',
         '[ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]', '',
@@ -166,7 +177,7 @@ def scene(c):
         'p_def = %s' % c["pdef"], 'm_def = %s' % c["mdef"],
         'reach = %s' % r2(strike_off + 0.6), 'hit_damage = %s' % c["dmg"],
         'attack_cooldown = Vector2(%s, %s)' % c["cooldown"],
-        'attack_clip = &"%s"' % atk[0][0],
+        'attack_clip = &"%s"' % (atk[0][0] if atk else c["idle"]),
         'block_clip = &"%s"' % c.get("block_clip", c["hit"]), 'dash_clip = &"CR_Dodge"', 'break_clip = &"%s"' % c["hit"],
         'death_clip = &"%s"' % c["death"], 'guard_idle_clip = &"%s"' % c["guard"], 'dies_by_clip = true',
         'clip_source = "res://assets/creatures/anim/biped_clips.scn"',
@@ -182,7 +193,7 @@ def scene(c):
         'attack_parts = Array[Vector3]([%s])' % ", ".join("Vector3(%s, 0, %s)" % (a[1], a[2]) for a in atk),
         'attack_limbs = %s' % psa([a[3] for a in atk]),
         'attack_blows = PackedInt32Array(%s)' % ", ".join(str(a[4]) for a in atk),
-        'strike_at_reach = %s' % str(c["strike_at_reach"]).lower(), 'blows_to_fell = %s' % c["blows_to_fell"],
+        'strike_at_reach = %s' % str(c["strike_at_reach"] and bool(atk)).lower(), 'blows_to_fell = %s' % c["blows_to_fell"],
         'too_close = %s' % c["too_close"], 'steady_in_attack = %s' % str(c["steady_in_attack"]).lower(),
         'hit_cost = %s' % c["hit_cost"], 'attack_cost = %s' % c["attack_cost"],
         'regen_delay = %s' % c["regen_delay"], 'stamina_regen = %s' % c["stamina_regen"],
@@ -192,6 +203,7 @@ def scene(c):
         L += ['strafe_l_clip = &"%s"' % c["strafe"][0], 'strafe_r_clip = &"%s"' % c["strafe"][1]]
     if c.get("back"):
         L += ['back_clip = &"%s"' % c["back"]]
+    L += c.get("extra", [])
     if c["counter"] > 0:
         L += ['counter_after = %s' % c["counter"]]
     if c.get("block_cost"):

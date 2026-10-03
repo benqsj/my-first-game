@@ -11,6 +11,9 @@ const KINDS := ["skeleton", "skeleton_warrior", "orc", "goblin", "ogre", "troll"
 		"zombie_m", "zombie_f"]
 const SECONDS := 14.0
 const SLOW := ["ogre", "golem", "zombie_m", "zombie_f"]
+## The archer: from afar it stands and every arrow strikes him; when he
+## comes at it, it runs, turns, shoots and runs again.
+const ARCHER := "skeleton_archer"
 
 var _failed := 0
 
@@ -28,7 +31,13 @@ func _initialize() -> void:
 func _run() -> void:
 	# `-- orc ghoul` tries only those.
 	var kinds: Array = Array(OS.get_cmdline_user_args()) if not OS.get_cmdline_user_args().is_empty() else KINDS
+	if OS.get_cmdline_user_args().is_empty():
+		kinds.append(ARCHER)
 	for kind: String in kinds:
+		if kind == ARCHER:
+			for chase in [false, true]:
+				await _archer(chase)
+			continue
 		for spam in [false, true]:
 			await _duel(kind, spam)
 	Input.action_release("attack")
@@ -86,6 +95,67 @@ func _duel(kind: String, spam: bool) -> void:
 	# The slow and heavy ones (an ogre, a golem, a shambling zombie) less often.
 	var least := int(SECONDS / 3.0) if kind in SLOW else int(SECONDS / 2.0)
 	_check("%s, %s: it keeps attacking" % [kind, how], attacks >= least, "%d attacks in %.0f s" % [attacks, SECONDS])
+	world.queue_free()
+	for i in 3:
+		await process_frame
+
+
+func _archer(chase: bool) -> void:
+	var world: World = load("res://scenes/world/test_arena.tscn").instantiate()
+	root.add_child(world)
+	for i in 30:
+		await physics_frame
+	var panel := world.get_node("ArenaPanel") as ArenaPanel
+	panel._clear()
+	panel._wait_for_blow = false
+	var hero := world.player()
+	hero.immortal = true
+	var struck := [0]
+	hero.struck.connect(func(_d: float, _b: bool) -> void: struck[0] += 1)
+	await physics_frame
+	var start := hero.global_position
+	var fwd := -hero.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var body := panel.call_up("res://scenes/enemies/pack/%s.tscn" % ARCHER, false,
+			start + fwd * (9.0 if chase else 15.0)) as BowFighter
+	var at := body.global_position
+	var serial := -1
+	var shots := 0
+	var fled := 0
+	var was_fleeing := false
+	var moved := 0.0
+	var hero_at := start
+	for f in int(SECONDS * 60.0):
+		await physics_frame
+		if chase:
+			var to := body.global_position - hero_at
+			to.y = 0.0
+			if to.length() > 2.0:
+				hero_at += to.normalized() * 4.0 / 60.0
+		hero.global_position = Vector3(hero_at.x, hero.global_position.y, hero_at.z)
+		var face := body.global_position - hero.global_position
+		hero.rotation.y = atan2(-face.x, -face.z)
+		moved = maxf(moved, body.global_position.distance_to(at))
+		if body._flee_left > 0.0 and not was_fleeing:
+			fled += 1
+		was_fleeing = body._flee_left > 0.0
+		if body.act_serial != serial:
+			serial = body.act_serial
+			if body.act == BowFighter.SHOT:
+				shots += 1
+	# The last shot may still be in the air.
+	for i in 40:
+		await physics_frame
+	if chase:
+		_check("archer, he comes at it: it runs, turns and shoots, again and again", fled >= 3 and shots >= 3,
+				"%d runs, %d shots" % [fled, shots])
+		_check("archer, he comes at it: its arrows strike him", struck[0] >= shots - 1 and struck[0] > 0,
+				"%d of %d" % [struck[0], shots])
+	else:
+		_check("archer, from afar: it stands and shoots", moved < 0.5 and shots >= 5,
+				"%d shots, moved %.1f m" % [shots, moved])
+		_check("archer, from afar: every arrow strikes him", struck[0] == shots, "%d of %d" % [struck[0], shots])
 	world.queue_free()
 	for i in 3:
 		await process_frame

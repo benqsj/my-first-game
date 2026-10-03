@@ -117,7 +117,8 @@ func _run() -> void:
 		if not ResourceLoader.exists(path):
 			continue
 		var body := panel.call_up(path, bool(entry[2]))
-		if not body is Brawler:
+		# The archer swings at nothing (creature_blows_test watches it shoot).
+		if not body is Brawler or (body as Brawler).attacks.is_empty():
 			body.queue_free()
 			await _wait(2)
 			continue

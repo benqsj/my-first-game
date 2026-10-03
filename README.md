@@ -5541,6 +5541,32 @@ skeleton still stand as statues. `tests/creature_blows_test.gd` runs all ten
 hero standing still and on one cutting at it, and each keeps attacking (at
 least every 2 s; every 3.5 s for the ogre, golem and zombies).
 
+### The skeleton archer keeps its distance (2026-10-04)
+
+`BowFighter` (`scripts/bow_fighter.gd`, a [Brawler]) in
+`scenes/enemies/pack/skeleton_archer.tscn`:
+
+- **Far off** (over `flee_under`, 6 m) it stands and shoots, again and
+  again, and never runs; beyond `shoot_range` (24 m) it walks in.
+- **Come close**, it turns and runs (`flee_time` 1.7 s, or until 11 m
+  between them), turns back and shoots once, and if he is still close runs
+  again: run, turn, shoot, run.
+- **The shot** is one baked clip, `CR_BowShot`: UAL 2's Bow_Notch to full
+  draw, 0.2 s of Bow_Aim_Neutral, Bow_Shoot (tools/creature_clips.gd now
+  bakes a clip of several segments). From the nock (0.63 s) to the loose
+  (1.45 s) the pack's own string bone (`stringJoint`) is held in the drawing
+  hand and the arrow mesh on it shows; at the loose a real [Arrow] leaves
+  the string, aimed where the hero will be (his pace led, the drop allowed
+  for). It turns onto him while it draws.
+- `Arrow.against_heroes`: an arrow loosed at the heroes flies through the
+  world and the heroes (not the creatures), and a hero takes it through
+  `receive_blow` (his shield and evades count; a flinch, never a fall).
+
+`tests/creature_blows_test.gd` (run with no arguments, or
+`-- skeleton_archer`): from 15 m it shoots and does not move, and every
+arrow strikes a hero standing still; walked at by a hero at 4 m/s, it runs,
+turns and shoots again and again, and its arrows strike him.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 
