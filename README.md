@@ -6487,10 +6487,9 @@ sword away in it and draws it from it (`SkinnedRig`, region "The scabbard";
   slot) was never thrown by anything and stays so.
 * **The running cut.** The first cut thrown at more than `run_cut_pace` 0.75
   of `run_speed` is UAL 2's `Sword_Light_D` (`Swordsman.RUN_ATTACK`, x1.1,
-  weight 1.25): a wide sweep out of a lunge, the cut at 0.14-0.26 s. It steps
-  in up to `run_cut_reach` 2.6 m to what it is thrown at, the run kept under
-  it for `run_cut_ease` 0.5 s (a standing first cut: 0.3), 1.25 cuts'
-  stamina. The string goes on from B after it (the rig's string slot is set
+  weight 1.25): a wide sweep out of a lunge, the cut at 0.14-0.26 s. The run
+  is kept under it to its cut and a step past (see "the run kept to the cut"
+  below), 1.25 cuts' stamina. The string goes on from B after it (the rig's string slot is set
   to A). Style `SkinnedRig.RUN_CUT` over the wire, like the heavy blows.
 * **The cut that misses.** A cut of the string (or the running cut) whose
   cut has passed with nothing landed (`Player._judge_whiff`: no
@@ -6606,3 +6605,32 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   OBSIDIAN the "imbue" glow, a rim and slow noise moving over the weapon in
   the style's colour. The flat look before was the pre-coloured texture
   alone, rough and with no metal. The figures are now 18.5-19.3 MB.
+
+### Tariel's skill 1, the Rising Cut; the running cut held wound up (2026-10-03, later)
+* **Skill 1 (key 1): the Rising Cut** (`Player._rising_cut`, `Swordsman.RISING_CUT`,
+  the user's pick from a reel of ten run cuts). From standing or running, he
+  draws the sword back low (UAL 2's `Sword_UpperCut` held at 0.06 of the clip)
+  and runs at what is ahead within `rising_seek` 14 m (or what he is locked
+  on), turning with it, at 1.12 of his run. `strike_gap` 1.1 m off its body
+  (its own `body_radius`, not the drawn size: the orc is drawn x2.24) the
+  blade comes up through it (weight 1.7). With nothing to run at, 0.45 s of
+  strides the way he faces and the cut; held at most 1.6 s. 22 stamina, 8 s
+  cooldown, its picture on the bar (`PlayerHud._icon`). The string starts at A
+  after it.
+* **A held cut** (`SkinnedRig.holding_cut` / `release_cut`, Player
+  `_tick_charge`): a cut spec with `hold` plays to that share and is frozen
+  there (no arc drawn), the run's legs under it (the stride under a swing),
+  until the controller lets it go (`net_release_cut` to every peer). A blow
+  that takes the clip off him breaks it off. Timed on the body's own clock
+  (`Player._game_t`): the wall clock `_now()` runs ahead of the game in a
+  recording (`--write-movie`) and under `Engine.time_scale`.
+* **The run kept to the cut**: a running cut keeps the whole run until its
+  blade starts to cut (`_ease_delay`, from `SkinnedRig.time_to_cut`), then
+  eases down over `run_cut_ease` 0.35 s, a step through the swing. It steps
+  in no more by a step of its own (`run_cut_reach` gone).
+* Kept for the swords to come (`Swordsman.RUN_CUTS_KEPT`): `KV_Attack1H05_R`
+  held wound up (a lunge and thrust) and `Sword_Heavy_D` unheld with the step
+  (a heavy chop out of a run). The reel: `_shots_tmp/runcut_reel.gd` (not kept;
+  ten clips as the running cut, each at speed and at x0.35).
+* `tests/tariel_moves_test.gd`: the Rising Cut at an orc 8 m off (runs in,
+  cuts, hurts it, cooldown) and at nothing.
