@@ -247,6 +247,7 @@ func _configure() -> void:
 	}
 	face_moves = {&"foxmask": one_knife}
 	# His own knife: its whooshes, its bite, his grunt.
+	heft_swings = false
 	swing_sounds = [
 		"res://unverified/sounds/assassin/swing_1.wav", "res://unverified/sounds/assassin/swing_2.wav",
 		"res://unverified/sounds/assassin/swing_3.wav", "res://unverified/sounds/assassin/swing_4.wav",

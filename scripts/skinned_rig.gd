@@ -174,6 +174,17 @@ const LIGHT_SWINGS: Array[String] = [
 ## How loud the swing plays, dB. (The user's slashes are ~8 dB hotter than
 ## the old air cuts; the rigs that keep those set their own.)
 var swing_volume := -18.0
+## The weight of a cut heard in its swing (see [method _whoosh_now]): a string's
+## first cut higher and quicker, its second plainer, its last (and a cut of
+## about its weight) deeper with a rush of air under it, a heavy blow deeper
+## still with a deep rush. Off for the rigs with sounds of their own.
+var heft_swings := true
+const AIR_RUSH: Array[String] = ["res://unverified/sounds/tariel/air_2.wav", "res://unverified/sounds/tariel/air_3.wav"]
+const AIR_DEEP: Array[String] = ["res://unverified/sounds/tariel/air_5.wav"]
+## The cut weights from which a swing is heard as a string's last, and as a
+## heavy blow.
+const HEFT_FINISHER := 1.15
+const HEFT_HEAVY := 1.75
 ## The blade going into a creature: one of these at random.
 var hit_sounds: Array[String] = ["res://unverified/sounds/tariel/hit_1.wav"]
 var hit_volume := -19.0
@@ -473,7 +484,8 @@ func _ready() -> void:
 	set_face(face)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.
-	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds)
+	Sfx.warm(swing_sounds + hit_sounds + hurt_sounds + AIR_RUSH + AIR_DEEP)
+	ImpactFx.warm()
 
 
 ## Override to swap in another character's clip table (see `clips`). The
@@ -932,6 +944,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			_action_left = maxf(_action_left, 0.2)
 		_attack_cutting = (_role == Role.SWING or _role == Role.PLUNGE or (_role == Role.ROLL and _evade_cut)) \
 				and _in_window(through)
+		if _attack_cutting:
+			_strike_world()
 		if _role == Role.SWING and _heavy_now and not _slam_done:
 			var slam := _slam_share()
 			if slam > 0.0 and through >= slam:
@@ -1411,7 +1425,78 @@ func _whoosh_now() -> void:
 	var at: Node3D = self
 	if _sword_mount != null:
 		at = _sword_mount
-	Sfx.play_any(self, swing_sounds, at, swing_pitch, swing_volume)
+	if not heft_swings:
+		Sfx.play_any(self, swing_sounds, at, swing_pitch, swing_volume)
+		return
+	var heft := swing_heft()
+	match heft:
+		&"heavy":
+			Sfx.play_any(self, swing_sounds, at, swing_pitch * 0.84, swing_volume + 2.0)
+			Sfx.play_any(self, AIR_DEEP, at, 0.95, swing_volume + 1.0)
+		&"finisher":
+			Sfx.play_any(self, swing_sounds, at, swing_pitch * 0.92, swing_volume + 1.0)
+			Sfx.play_any(self, AIR_RUSH, at, 1.0, swing_volume - 4.0)
+		&"second":
+			Sfx.play_any(self, swing_sounds, at, swing_pitch * 0.98, swing_volume)
+		_:
+			Sfx.play_any(self, swing_sounds, at, swing_pitch * 1.07, swing_volume - 1.0)
+
+
+## What the cut in hand is heard as: &"first" or &"second" of a string (and
+## the light cuts, an evade's), &"finisher" (a string's last, the running
+## cut, a thrust) or &"heavy" (a heavy blow, the skills' big cuts).
+func swing_heft() -> StringName:
+	if cut_weight >= HEFT_HEAVY or _heavy_now:
+		return &"heavy"
+	if cut_weight >= HEFT_FINISHER:
+		return &"finisher"
+	if _attack_style == AttackStyle.SIDE and _flurry_slot > 0 and _role == Role.SWING:
+		return &"second"
+	return &"first"
+
+
+## The swing whose blade has already met the world (see [method _strike_world]).
+var _world_struck := -1
+var _tip_was := Vector3.ZERO
+var _tip_was_serial := -1
+## Set when a cut has run into the world: what it met and where, for a test.
+var last_world_strike: Dictionary = {}
+
+
+## A cut that runs into the world — a trunk, a wall, a rock, a fence — is heard
+## where it does, once a swing, with a puff of grit: steel on stone, a knock in
+## wood ([method ImpactFx.strike]). The ground under a low cut is not (a face
+## that looks up), nor a body (those take the cut themselves).
+func _strike_world() -> void:
+	if _world_struck == attack_serial or _blade_base == null or _blade_tip == null or not is_inside_tree():
+		return
+	var from := _blade_base.global_position
+	var to := _blade_tip.global_position
+	var tip_was: Vector3 = _tip_was if _tip_was_serial == attack_serial else to
+	_tip_was = to
+	_tip_was_serial = attack_serial
+	if from.distance_squared_to(to) < 0.01:
+		return
+	# along the blade, and along the way its tip went since the last tick (a
+	# backhand starts with the blade already through the wall)
+	var space := get_world_3d().direct_space_state
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, 1))
+	if hit.is_empty() and tip_was.distance_squared_to(to) > 0.0001:
+		hit = space.intersect_ray(PhysicsRayQueryParameters3D.create(tip_was, to, 1))
+	if hit.is_empty():
+		return
+	var normal: Vector3 = hit["normal"]
+	var what := hit["collider"] as Node
+	if normal.y > 0.6 or what == null or what is CharacterBody3D:
+		return
+	_world_struck = attack_serial
+	var matter := ImpactFx.matter_of(what)
+	if matter == &"flesh":
+		matter = &"stone"
+	var at: Vector3 = hit["position"]
+	ImpactFx.strike(self, at, matter, cut_weight)
+	DustRing.burst(Blood.world_of(self), at, 0.25)
+	last_world_strike = {"matter": matter, "at": at, "serial": attack_serial, "what": String(what.name)}
 
 
 ## A running cut to throw ([Swordsman] `RUN_ATTACK`).
@@ -1601,12 +1686,19 @@ func is_planted() -> bool:
 
 ## The blade has gone into something: its sound, at the point it went in, the
 ## wet thump of it under the steel, and the swing caught a moment in the body.
-func blade_landed() -> void:
+##
+## `matter` is what it went into ([method ImpactFx.matter_of]): flesh thumps
+## wet, bone cracks, stone rings; the heavier the cut, the deeper and louder.
+func blade_landed(matter: StringName = &"flesh") -> void:
 	var at: Node3D = self
 	if _sword_mount != null:
 		at = _sword_mount
-	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06), hit_volume)
-	ImpactFx.thud(self, at.global_position)
+	var k := clampf(cut_weight - 1.0, -0.4, 1.0)
+	var steel := hit_volume + 2.5 * k
+	if matter == &"stone":
+		steel -= 4.0  # the ring is the stone's own
+	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06) * (1.0 - 0.1 * maxf(k, 0.0)) * (1.12 if matter == &"bone" else 1.0), steel)
+	ImpactFx.strike(self, at.global_position, matter, cut_weight)
 	# Held as long as the body it bit is ([HitFeel]): the two stand still
 	# together, longer for the end of a string or a heavy blow.
 	hitstop(HitFeel.stop_for(cut_weight) * bite_stop / 0.075)

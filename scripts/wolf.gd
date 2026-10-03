@@ -1751,7 +1751,7 @@ func _take_hits() -> void:
 		var worth := _blade_damage(knight)
 		take_hit(float(worth[0]), rig.last_cut_point, blow, bool(worth[1]), false, knight)
 		knight.rig.bloody()
-		knight.net_blade_landed.rpc()
+		knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
 		knight.blade_hit(self, rig.last_cut_point)
 		if is_dead:
 			return
@@ -1799,7 +1799,7 @@ func _wound(knight: Player, edge: Array, serial: int) -> bool:
 	_by_blade = true
 	take_hit(float(worth[0]), at, cut, bool(worth[1]), true, knight)
 	knight.rig.bloody()
-	knight.net_blade_landed.rpc()
+	knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
 	knight.blade_hit(self, at)
 	return true
 

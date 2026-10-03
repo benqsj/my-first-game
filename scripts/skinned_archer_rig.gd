@@ -72,6 +72,7 @@ var _draw_time: float = 0.85
 
 
 func _configure() -> void:
+	heft_swings = false
 	swing_sounds = LIGHT_SWINGS.duplicate()
 	# His two outfits (see [Inventory]): the ranger's hooded mantle, worn; the
 	# wanderer's kaftan and cowl, in the bag.

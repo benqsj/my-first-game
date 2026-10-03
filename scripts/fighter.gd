@@ -656,7 +656,7 @@ func _watch_blades() -> void:
 			CombatText.mark_critical(self)
 		if _receive(float(worth[0]), near[1], blow, knight):
 			knight.rig.bloody()
-			knight.net_blade_landed.rpc()
+			knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
 			knight.blade_hit(self, near[1])
 		if is_dead:
 			return
@@ -828,10 +828,13 @@ func _drive_flinch(delta: float) -> void:
 	_hit_react.drive(delta)
 
 
-## A cut caught on the guard: a puff where blade met guard, and no blood.
+## A cut caught on the guard: a puff where blade met guard, the ring of it,
+## and no blood.
 @rpc("authority", "call_local", "unreliable")
 func net_clash(at: Vector3) -> void:
 	DustRing.burst(Blood.world_of(self), at, 0.35)
+	# and steel ringing on the guard
+	ImpactFx.strike(self, at, &"guard")
 
 
 func _die() -> void:

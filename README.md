@@ -6871,3 +6871,52 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   little aside, all land; a wolf in its dodge is not touched; the Shadow
   Slide (gone at once, never frozen, in to the orc, shadows, the cut lands;
   at nothing 7-10 m).
+
+## The weight of a blow, heard (2026-10-04, TARIEL_POLISH.md session 3, item 7)
+
+**A string is heard getting heavier** (`SkinnedRig.swing_heft()`, `_whoosh_now()`).
+The slashes are the same four (`tariel/slash_1..4`); what changes is how they
+are played, by the cut's weight (`cut_weight`):
+
+| Heard as | Which cuts | How |
+|---|---|---|
+| `first` | a string's first, the light cuts (an evade's) | pitch ×1.07, −1 dB |
+| `second` | the cuts in the middle of a string | pitch ×0.98 |
+| `finisher` | weight ≥ 1.15: a string's last (1.6), the running cut, the thrust, the Rising Cut, the Shadow Slide | pitch ×0.92, +1 dB, a rush of air under it (`air_2`/`air_3`, −4 dB) |
+| `heavy` | weight ≥ 1.75 or a heavy blow: the Shadow Lance, the jump slam | pitch ×0.84, +2 dB, a deep rush (`air_5`, +1 dB) |
+
+Only the swords: the archer, the mage and the assassin keep their own swings
+(`heft_swings = false`).
+
+**What the blade goes into is heard** (`ImpactFx.matter_of()`, `ImpactFx.strike()`).
+A creature that takes a cut tells the knight what it is made of
+(`net_blade_landed(matter)`; Fighter, Brute, Wolf). The matter comes from a
+meta `"matter"` on the node or a parent, if set; otherwise from its scene or
+name:
+
+- **bone**: skeleton, bone, skull;
+- **stone**: golem, stone, rock, wall;
+- **wood**: trunk, tree, wood, fence, pier, plank, log, crate, barrel;
+- **flesh**: any other body; a static body that names none of these is stone.
+
+Flesh is the wet thud as before (hard for a weight ≥ 1.45). Bone cracks:
+three dry snaps over a short knock. The steel's own ring (`hit_1`) plays over
+either, louder and lower the heavier the cut (+2.5 dB and −10 % per unit of
+weight over 1), and higher over bone.
+The other sounds are made in code at load, like the thud. Stone is high
+partials that do not agree, with grit. Wood is a hollow low knock. The guard
+is steel on steel.
+
+**Caught on a guard, it rings**: `net_clash` (an imp or a skeleton
+blocking; an arrow off an orc) now plays `strike(.., &"guard")` with the
+puff.
+
+**A cut that runs into the world** — a trunk, a wall, a rock, a fence — is
+heard where it does, once a swing, with a puff of grit
+(`SkinnedRig._strike_world()`). Each tick of the cut window the world
+(layer 1) is looked for along the blade and along the path its tip took
+since the tick before; a backhand starts with the blade already through the
+wall. A face that looks up (the ground under a low cut) and bodies (they
+take the cut themselves) do not count. `last_world_strike` keeps the last one.
+
+Test: `tests/strike_sounds_test.gd`.

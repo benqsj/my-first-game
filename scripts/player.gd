@@ -3043,12 +3043,17 @@ func _play_thud() -> void:
 
 ## His blade has gone into a creature — told by the host, which is where the
 ## creatures decide what a swing hit; heard on every peer.
+## `matter` is what it went into ([method ImpactFx.matter_of]), heard so.
 @rpc("any_peer", "call_local", "unreliable")
-func net_blade_landed() -> void:
+func net_blade_landed(matter: StringName = &"flesh") -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
 		return
-	_rig_says(&"blade_landed")
+	if rig != null and rig.has_method(&"blade_landed"):
+		if rig is SkinnedRig:
+			(rig as SkinnedRig).blade_landed(matter)
+		else:
+			rig.call(&"blade_landed")
 	if rig != null and rig.get(&"attack_serial") != null:
 		_landed_serial = int(rig.get(&"attack_serial"))
 	# The blow felt in the hands: his own view knocked the way the blade went.

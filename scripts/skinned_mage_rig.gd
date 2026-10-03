@@ -90,6 +90,7 @@ func _configure() -> void:
 		[{"base": Color.html("b9b09c"), "hem": Color.html("c8a04a"), "trim": Color.html("c8a04a")}],
 		[{}],
 	]
+	heft_swings = false
 	swing_sounds = LIGHT_SWINGS.duplicate()
 	swing_volume = -4.0
 	clips = {

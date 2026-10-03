@@ -6,12 +6,72 @@ extends RefCounted
 ## and a wet, heavy sound under the ring of the steel.
 
 static var _thud: AudioStreamWAV
+## The other things a blade can meet, made the same way (see [method strike]).
+static var _made: Dictionary = {}
 
 
 ## Builds the sound now rather than on the first blow.
 static func warm() -> void:
 	if _thud == null:
 		_thud = _make_thud()
+	for what: StringName in [&"bone", &"stone", &"wood", &"guard"]:
+		if not _made.has(what):
+			_made[what] = _make(what)
+
+
+## What `node` is made of, as a blade hears it: &"flesh", &"bone" (the
+## skeletons), &"stone" (a golem, a wall, a rock) or &"wood" (a trunk, a
+## fence, the pier). Its own (or a parent's) meta "matter" says so if set;
+## otherwise its scene or name does.
+static func matter_of(node: Node) -> StringName:
+	var at := node
+	var depth := 0
+	while at != null and depth < 4:
+		if at.has_meta(&"matter"):
+			return StringName(at.get_meta(&"matter"))
+		var said := (at.scene_file_path + " " + String(at.name)).to_lower()
+		for word: String in ["skeleton", "bone", "skull"]:
+			if word in said:
+				return &"bone"
+		for word: String in ["golem", "stone", "rock", "wall"]:
+			if word in said:
+				return &"stone"
+		for word: String in ["trunk", "tree", "wood", "fence", "pier", "plank", "log", "crate", "barrel"]:
+			if word in said:
+				return &"wood"
+		if at is CharacterBody3D:
+			return &"flesh"
+		at = at.get_parent()
+		depth += 1
+	return &"stone" if node is StaticBody3D else &"flesh"
+
+
+## A blade meeting `what` (see [method matter_of]; &"guard" for a blade caught
+## on a guard or shield), heard at `at`: bone cracking, steel ringing off
+## stone, a dull knock in wood, steel on steel. `heft` (a blow's weight, 1 a
+## plain cut) makes it louder and deeper. Flesh is [method thud]'s.
+static func strike(owner: Node, at: Vector3, what: StringName, heft: float = 1.0) -> void:
+	if owner == null or not owner.is_inside_tree():
+		return
+	if what == &"flesh":
+		thud(owner, at, heft >= 1.45)
+		return
+	warm()
+	var stream: AudioStreamWAV = _made.get(what, null)
+	if stream == null:
+		return
+	var player := AudioStreamPlayer3D.new()
+	player.stream = stream
+	var k := clampf(heft - 1.0, -0.4, 1.0)
+	player.volume_db = float({&"bone": -7.0, &"stone": -9.0, &"wood": -6.0, &"guard": -8.0}.get(what, -8.0)) + 3.0 * k
+	player.pitch_scale = randf_range(0.94, 1.06) * (1.0 - 0.12 * maxf(k, 0.0))
+	player.unit_size = 7.0
+	player.max_distance = 55.0
+	var world: Node = owner.get_tree().current_scene if owner.get_tree().current_scene != null else owner.get_tree().root
+	world.add_child(player)
+	player.global_position = at
+	player.finished.connect(player.queue_free)
+	player.play()
 
 
 ## The view knocked `amount` metres along `along` as seen on the screen, and
@@ -112,6 +172,68 @@ static func _make_thud() -> AudioStreamWAV:
 		var slap := band2 * exp(-maxf(t - 0.025, 0.0) * 40.0) * (1.0 if t > 0.025 else 0.0) * 1.4
 		var s := clampf(body * 0.9 + tear + slap, -1.0, 1.0)
 		data.encode_s16(i * 2, int(s * 30000.0))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	wav.stereo = false
+	wav.data = data
+	return wav
+
+
+## The sounds of [method strike], made rather than recorded, as the thud is:
+## - bone: a dry crack, three snaps close together over a short knock;
+## - stone: steel ringing off it, high partials that do not agree, with grit;
+## - wood: a hollow knock, low partials dying quickly, and a click;
+## - guard: steel on steel, a lower ring than stone's, with a clank under it.
+static func _make(what: StringName) -> AudioStreamWAV:
+	var rate := 22050
+	var long := {&"bone": 0.22, &"stone": 0.55, &"wood": 0.28, &"guard": 0.6}
+	var count := int(rate * float(long.get(what, 0.3)))
+	var data := PackedByteArray()
+	data.resize(count * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 909 + what.hash() % 1000
+	# partials [Hz, decay /s, level]
+	var ring: Array = []
+	match what:
+		&"stone":
+			ring = [[2310.0, 9.0, 0.35], [3470.0, 12.0, 0.3], [5190.0, 16.0, 0.22], [7020.0, 22.0, 0.15]]
+		&"guard":
+			ring = [[880.0, 7.0, 0.32], [1530.0, 8.5, 0.3], [2410.0, 11.0, 0.22], [3730.0, 15.0, 0.14]]
+		&"wood":
+			ring = [[190.0, 26.0, 0.55], [415.0, 34.0, 0.35], [760.0, 48.0, 0.2]]
+		&"bone":
+			ring = [[310.0, 60.0, 0.4], [1250.0, 90.0, 0.15]]
+	var phases := []
+	phases.resize(ring.size())
+	phases.fill(0.0)
+	var low := 0.0
+	var band := 0.0
+	var snaps := [0.0, 0.011, 0.027]
+	for i in count:
+		var t := float(i) / float(rate)
+		var s := 0.0
+		for j in ring.size():
+			var p: Array = ring[j]
+			phases[j] = float(phases[j]) + TAU * float(p[0]) / float(rate)
+			s += sin(float(phases[j])) * float(p[2]) * exp(-t * float(p[1]))
+		s *= minf(t * 2000.0, 1.0)
+		var n := rng.randf_range(-1.0, 1.0)
+		low += (n - low) * 0.5
+		band += (low - band) * 0.15
+		var hiss := low - band  # noise, roughly 1-4 kHz
+		match what:
+			&"bone":
+				for at: float in snaps:
+					if t >= at:
+						s += hiss * exp(-(t - at) * 260.0) * 1.6
+			&"stone":
+				s += hiss * exp(-t * 70.0) * 1.0 + n * exp(-t * 30.0) * 0.08
+			&"wood":
+				s += hiss * exp(-t * 180.0) * 0.9
+			&"guard":
+				s += hiss * exp(-t * 90.0) * 0.7 + band * exp(-t * 40.0) * 1.5
+		data.encode_s16(i * 2, int(clampf(s, -1.0, 1.0) * 30000.0))
 	var wav := AudioStreamWAV.new()
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
 	wav.mix_rate = rate
