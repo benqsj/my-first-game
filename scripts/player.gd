@@ -319,6 +319,8 @@ var m_def: float = 0.0
 ## Visuals until the profile says what should be: the controller is the same
 ## code for all of them and the character is the thing that varies.
 var rig: CharacterRig
+## Draws the model between physics ticks, so a run does not judder ([VisualSmoother]).
+var _smoother: VisualSmoother
 ## Footfall sounds off the rig's feet (`Footsteps`); null on a rig with no skeleton.
 var footsteps: Footsteps
 ## Who is being played. Taken from the Game autoload on spawn unless something
@@ -675,7 +677,10 @@ func _process(delta: float) -> void:
 	if mine:
 		# Smooth follow keeps the camera stable even though the body only moves
 		# on physics ticks. Framerate-independent exponential damping.
-		var follow := global_position + Vector3.UP * camera_height
+		# Following where the body is *drawn*: the body itself only moves on
+		# physics ticks, and a camera chasing those steps makes the world judder.
+		var at := _smoother.drawn_at() if _smoother != null else global_position
+		var follow := at + Vector3.UP * camera_height
 		var weight := 1.0 - exp(-camera_follow_speed * delta)
 		camera_rig.global_position = camera_rig.global_position.lerp(follow, weight)
 		_publish_net_state()
@@ -807,6 +812,7 @@ func _spawn_character() -> void:
 	body.name = "Visuals"
 	add_child(body)
 	rig = body as CharacterRig
+	_smoother = VisualSmoother.attach(self, body)
 	if rig != null and rig.has_signal(&"slammed"):
 		rig.connect(&"slammed", _on_slammed)
 	# His own body wears the hair picked on the hero select; everybody else's
