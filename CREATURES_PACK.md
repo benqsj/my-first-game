@@ -9,6 +9,7 @@
   https://assetstore.unity.com/packages/3d/characters/creatures/low-poly-medieval-fantasy-biped-creatures-pack-340684
 - **ლიცენზია:** Standard Unity Asset Store EULA. თამაშის ნაწილად გამოიყენება,
   ცალკე არ ვრცელდება.
+- **გახსნილი პაკეტი:** `~/Projects/vepxis-art/packs/biped_creatures/` (ორიგინალი `.unitypackage` იქვეა, `packs/`-ში).
 - **სად არის Mac-ზე:**
   `~/Library/Unity/Asset Store-5.x/Polysplit Games/3D ModelsCharactersCreatures/Low-Poly Medieval Fantasy - Biped Creatures Pack.unitypackage`
   (6.9 MB).
