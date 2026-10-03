@@ -522,6 +522,9 @@ var _free_swing: bool = false
 ## When the swing in hand was thrown, and how long the run a first cut is
 ## thrown out of lasts under it before it is down to the swing's pace.
 var _swing_t0: float = -100.0
+## Game seconds, ticked with the body ([member _swing_t0] and the wound-up
+## cut are timed on it: what is timed against what the clip and the body do).
+var _game_t: float = 0.0
 @export var free_swing_ease: float = 0.3
 ## The ease of the swing in hand: `free_swing_ease`, or `run_cut_ease` for a cut out of a run.
 var _free_ease: float = 0.3
@@ -844,7 +847,9 @@ func _physics_process(delta: float) -> void:
 		# Wherever the body first stands is where it comes back to.
 		_spawn_known = true
 		_spawn_point = global_position
+	_game_t += delta
 	_tick_timers(delta)
+	_tick_charge()
 	_judge_whiff()
 	_tick_bash(delta)
 	_tick_vitals(delta)
@@ -1102,8 +1107,11 @@ func _process_locomotion(delta: float) -> void:
 		# to the swing's pace over `free_swing_ease`, so the charge lands in a
 		# lunge instead of the whole cut gliding on at a run with legs running
 		# under a body that is swinging.
-		var eased := clampf((_now() - _swing_t0) / maxf(_free_ease, 0.01), 0.0, 1.0)
-		speed *= lerpf(1.0, commit_speed_scale, eased)
+		# (a running cut keeps the whole of it till its blade cuts, and all
+		# the while it is held wound up)
+		if not _cut_charging:
+			var eased := clampf((_game_t - _swing_t0 - _ease_delay) / maxf(_free_ease, 0.01), 0.0, 1.0)
+			speed *= lerpf(1.0, commit_speed_scale, eased)
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
 	if _root_timer > 0.0:
@@ -1138,6 +1146,15 @@ func _process_locomotion(delta: float) -> void:
 			horizontal = _step_velocity
 			if _step_left <= 0.0:
 				horizontal = _step_velocity * 0.15
+		elif _cut_charging:
+			# Wound up, running in: at what he picked, else the way he is pushed.
+			var aim := _charge_aim(direction)
+			if not aim.is_zero_approx():
+				var pace := run_speed * float(_charge_spec.get("pace", 1.0))
+				# (from the pace he had, not what the stick left of it: the
+				# skill runs in without it)
+				horizontal = Vector3(velocity.x, 0.0, velocity.z).move_toward(aim * pace, ground_acceleration * delta)
+				rotation.y = lerp_angle(rotation.y, atan2(-aim.x, -aim.z), 1.0 - exp(-lock_turn_speed * delta))
 	else:
 		# In the air the stick steers the arc rather than driving it: the jump
 		# keeps the speed it launched with and control only redirects it.
@@ -2669,7 +2686,8 @@ func _attack(heavy: bool = false) -> void:
 			if to_them.length_squared() > 0.0001:
 				rotation.y = atan2(-to_them.x, -to_them.z)
 		net_strike_at.rpc(foe.get_path() if foe != null else NodePath())
-		var reach := run_cut_reach if run_cut else strike_step_max
+		# (a running cut steps in on the run itself, not by a step of its own)
+		var reach := 0.0 if run_cut else strike_step_max
 		rig.set(&"carry_scale", 1.0)
 		if blow >= 0:
 			var spec: Dictionary = rig.get(&"heavy")[blow]
@@ -2689,7 +2707,7 @@ func _attack(heavy: bool = false) -> void:
 	_free_swing = _swing_chain == 0 or airborne
 	_free_ease = run_cut_ease if run_cut else free_swing_ease
 	_whiff_counts = _foe_within(whiff_near)
-	_swing_t0 = _now()
+	_swing_t0 = _game_t
 	_swing_chain += 1
 	# A cut thrown in the air is a **plunge**, and a plunge is owed its landing:
 	# whatever it passes through on the way down, it finishes in the ground.
@@ -2706,6 +2724,17 @@ func _attack(heavy: bool = false) -> void:
 			style = SkinnedRig.RUN_CUT
 		net_attack.rpc(style)
 		_commit(rig.swing_time())
+		_ease_delay = 0.0
+		if run_cut and rig.has_method(&"holding_cut"):
+			if bool(rig.call(&"holding_cut")):
+				_cut_charging = true
+				_charge_skill = false
+				_charge_spec = rig.call(&"run_cut_spec")
+				_charge_t0 = _game_t
+				_charge_foe = _charge_target()
+				_commit(run_cut_hold_max + 2.0)
+			else:
+				_ease_delay = float(rig.call(&"time_to_cut"))
 	_attack_buffer = 0.0
 	_heavy_buffer = 0.0
 
@@ -3251,10 +3280,16 @@ func _turn_to_target() -> void:
 ## cut: a lunging sweep of its own (the rig's `run_attack`), the string going
 ## on from its second blow after it.
 @export_range(0.0, 1.0) var run_cut_pace: float = 0.75
-## How far it carries him on to what it is thrown at, and how long his run
-## lasts under it before he is down to a swing's pace.
-@export var run_cut_reach: float = 2.6
-@export var run_cut_ease: float = 0.5
+## His run lasts under it until the blade starts to cut, and then this long
+## (one more step through the swing) before he is down to a swing's pace.
+@export var run_cut_ease: float = 0.35
+## A running cut that winds up (its spec's `hold`) is held wound up while he
+## runs in, at most this long, and let go `strike_gap` metres (body to body)
+## off what he runs at, or at a second press.
+@export var run_cut_hold_max: float = 1.4
+## How far ahead (metres, degrees off his way) he picks what to run at.
+@export var run_cut_seek: float = 11.0
+@export var run_cut_seek_cone: float = 40.0
 ## Its stamina, in light cuts'.
 @export var run_cut_stamina: float = 1.25
 
@@ -3300,6 +3335,17 @@ var _whiff_judged: int = -1
 var _whiff_until: float = -100.0
 ## Whether the swing in hand was thrown with something within `whiff_near`.
 var _whiff_counts: bool = false
+## A running cut held wound up while he runs in, since when, and at what.
+var _cut_charging: bool = false
+var _charge_t0: float = -100.0
+var _charge_foe: Node3D = null
+## The spec of the cut held ([Swordsman] `RUN_ATTACK` or `RISING_CUT`), and
+## whether it is the skill (it runs at what it picked of itself, standing
+## start or not).
+var _charge_spec: Dictionary = {}
+var _charge_skill: bool = false
+## How long after the swing goes his run is kept whole (till its cut).
+var _ease_delay: float = 0.0
 
 
 ## Anything to fight within `reach` metres.
@@ -3309,6 +3355,97 @@ func _foe_within(reach: float) -> bool:
 		if who != null and _targetable(who) and who.global_position.distance_to(global_position) <= reach:
 			return true
 	return false
+
+
+## What a wound-up running cut runs at: the locked target, else the nearest
+## thing to fight ahead of the way he is going within `run_cut_seek`.
+func _charge_target(seek: float = -1.0) -> Node3D:
+	if seek < 0.0:
+		seek = run_cut_seek
+	if target != null and _targetable(target):
+		return target
+	var ahead := get_movement_direction()
+	if ahead.is_zero_approx():
+		ahead = -global_basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
+	var widest := cos(deg_to_rad(run_cut_seek_cone))
+	var best: Node3D = null
+	var best_d := INF
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or not _targetable(who):
+			continue
+		var to := who.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d > seek or d < 0.01 or ahead.dot(to / d) < widest:
+			continue
+		if d < best_d:
+			best_d = d
+			best = who
+	return best
+
+
+func _charge_aim(direction: Vector3) -> Vector3:
+	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
+		var to := _charge_foe.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			return to.normalized()
+	if not direction.is_zero_approx():
+		return direction
+	if _charge_skill:
+		var ahead := -global_basis.z
+		ahead.y = 0.0
+		return ahead.normalized()
+	return Vector3.ZERO
+
+
+## The wound-up running cut, let go when he is near enough what he runs at,
+## when he stops pushing with nothing to run at, at a second press, or when
+## it has been held `run_cut_hold_max`. Broken off by anything that takes the
+## clip off him (a blow).
+func _tick_charge() -> void:
+	if not _cut_charging:
+		return
+	if rig == null or not bool(rig.call(&"holding_cut")):
+		_cut_charging = false
+		return
+	var held := _game_t - _charge_t0
+	var spec := _charge_spec
+	var go := held >= float(spec.get("hold_max", run_cut_hold_max))
+	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
+		var to := _charge_foe.global_position - global_position
+		to.y = 0.0
+		# (its body as a blade finds it: its own radius, not the drawn size)
+		var r: Variant = _charge_foe.get(&"body_radius")
+		var radius := float(r) if r != null else 0.45
+		go = go or to.length() - radius - 0.4 <= float(spec.get("strike_gap", 0.9))
+	elif _charge_skill:
+		# Nothing to run at: a few strides the way he faces, and the cut.
+		go = go or held >= float(spec.get("blind_hold", 0.45))
+	elif held >= 0.25 and get_movement_direction().is_zero_approx():
+		go = true
+	if _attack_buffer > 0.0 and held >= 0.12:
+		_attack_buffer = 0.0
+		go = true
+	if go:
+		_cut_charging = false
+		net_release_cut.rpc()
+		_commit_timer = 0.0
+		_commit(float(rig.get(&"_swing_commit")))
+		_swing_t0 = _game_t
+		_ease_delay = float(rig.call(&"time_to_cut"))
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_release_cut() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if rig != null and rig.has_method(&"release_cut"):
+		rig.call(&"release_cut")
 
 
 ## A cut out of a run: on his feet, the first of a string, at a run, with the
@@ -3754,6 +3891,7 @@ const SKILLS := {
 	&"piercing_arrow": {"name": "Piercing Arrow", "stamina": 30.0, "cooldown": 10.0},
 	&"fire_arrow": {"name": "Fire Arrow", "stamina": 25.0, "cooldown": 12.0},
 	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
+	&"rising_cut": {"name": "Rising Cut", "stamina": 22.0, "cooldown": 8.0},
 }
 const SKILL_SLOTS := 4
 
@@ -3813,10 +3951,55 @@ func use_skill(slot: int) -> bool:
 			went = _fire_arrow()
 		&"poison_blade":
 			went = _poison_blade()
+		&"rising_cut":
+			went = _rising_cut()
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
 	skill_used.emit(slot, id)
+	return true
+
+
+## The Rising Cut (Tariel): the sword drawn back low, he runs at what is
+## in front (or locked), and near it brings the blade up through it
+## ([Swordsman] `RISING_CUT`, UAL 2's Sword_UpperCut held wound up). With
+## nothing to run at, a few strides the way he faces and the cut.
+@export_group("Rising Cut")
+## How far ahead (metres) it picks what to run at.
+@export var rising_seek: float = 14.0
+
+
+func _rising_cut() -> bool:
+	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", "rising_cut")):
+		return false
+	if not is_on_floor():
+		return false
+	if not _spend(float(SKILLS[&"rising_cut"]["stamina"])):
+		return false
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	_set_weapons_stowed(false)
+	var foe := _charge_target(rising_seek)
+	if foe != null:
+		var to := foe.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			rotation.y = atan2(-to.x, -to.z)
+	_free_swing = true
+	_swing_t0 = _game_t
+	_swing_chain = 1
+	_free_ease = run_cut_ease
+	_whiff_counts = _foe_within(whiff_near)
+	attack_started.emit()
+	net_attack.rpc(SkinnedRig.RISING_CUT)
+	_cut_charging = true
+	_charge_skill = true
+	_charge_spec = rig.call(&"cut_spec", "rising_cut")
+	_charge_t0 = _game_t
+	_charge_foe = foe
+	_commit(float(_charge_spec.get("hold_max", run_cut_hold_max)) + 2.0)
+	_attack_buffer = 0.0
 	return true
 
 

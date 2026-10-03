@@ -85,6 +85,10 @@ var heavy: Array = []
 const HEAVY := 100
 ## The attack style of the running cut (the moves' `run_attack`).
 const RUN_CUT := 90
+## The attack style of Tariel's skill, the rising cut (the moves' `rising_cut`).
+const RISING_CUT := 91
+## The moves' spec each of those styles plays.
+const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut"}
 ## Clips that cut more than once: every window its own blow (a new attack
 ## serial, a new whoosh), as shares of the clip.
 var cut_windows: Dictionary = {}
@@ -910,6 +914,12 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	if _role != Role.NONE:
 		_action_left -= delta
 		var through := _progress()
+		if _hold_at > 0.0 and _role == Role.SWING:
+			# The running cut wound up: held at its `hold` till it is let go.
+			if not _holding and through >= _hold_at:
+				_holding = true
+				_anim.speed_scale = 0.0
+			_action_left = maxf(_action_left, 0.2)
 		_attack_cutting = (_role == Role.SWING or _role == Role.PLUNGE or (_role == Role.ROLL and _evade_cut)) \
 				and _in_window(through)
 		if _role == Role.SWING and _heavy_now and not _slam_done:
@@ -1143,8 +1153,10 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	if not _anim.has_animation(clip):
 		return false
 	var length := _anim.get_animation(clip).length
-	# A drag left over from a missed cut is not this clip's.
+	# A drag left over from a missed cut is not this clip's, nor a held cut.
 	_drag_left = 0.0
+	_hold_at = -1.0
+	_holding = false
 	_role = role
 	_recovering = false
 	_evade_cut = false
@@ -1212,6 +1224,8 @@ func _in_window(through: float) -> bool:
 ## Inside the clip's `trail_window`: the arc is drawn though the blade may not
 ## be cutting yet (or any more).
 func _in_trail() -> bool:
+	if _holding:
+		return false  # wound up and held: no blade moving yet
 	if _role != Role.SWING and _role != Role.PLUNGE and not (_role == Role.ROLL and _evade_cut):
 		return false
 	var w: Vector2 = trail_window.get(_act_clip, Vector2.ZERO)
@@ -1279,19 +1293,26 @@ func attack(style: int = -1) -> void:
 		return
 	if _on_mq:
 		_rouse()
-	if style == RUN_CUT and has_run_cut():
+	if CUT_SPECS.has(style) and has_cut(CUT_SPECS[style]):
 		# The running cut: a sweep thrown out of the run, lunging; the string
-		# goes on from its second blow after it.
-		var rc: Dictionary = moves["run_attack"]
+		# goes on from its second blow after it (its spec's `string_at`). The
+		# rising cut, the skill, is played the same way.
+		var rc: Dictionary = moves[CUT_SPECS[style]]
 		_attack_style = AttackStyle.SIDE
 		_heavy_now = false
 		cut_weight = float(rc.get("weight", 1.0))
 		_last_attack_at = Time.get_ticks_msec() / 1000.0
-		_flurry_slot = 0
+		_flurry_slot = int(rc.get("string_at", 0))
 		if _play_action(rc["clip"], Role.SWING, float(rc.get("rate", 1.0)) * mq_swing_scale, 0.06,
 				0.0, float(rc.get("until", 1.0))):
-			_swing_commit = swing_time()
-			_whoosh()
+			_hold_at = float(rc.get("hold", -1.0))
+			if _hold_at > 0.0:
+				# Wound up and held there while he runs in; the controller
+				# lets it go ([method release_cut]).
+				_swing_commit = 999.0
+			else:
+				_swing_commit = swing_time()
+				_whoosh()
 		return
 	if style >= HEAVY and style - HEAVY < heavy.size():
 		var h: Dictionary = heavy[style - HEAVY]
@@ -1383,8 +1404,60 @@ func _whoosh_now() -> void:
 
 ## A running cut to throw ([Swordsman] `RUN_ATTACK`).
 func has_run_cut() -> bool:
-	return _on_mq and moves.has("run_attack") and _anim != null \
-			and _anim.has_animation((moves["run_attack"] as Dictionary)["clip"])
+	return has_cut("run_attack")
+
+
+## A cut of the moves' `key` spec ("run_attack", "rising_cut") to throw.
+func has_cut(key: String) -> bool:
+	return _on_mq and moves.has(key) and _anim != null \
+			and _anim.has_animation((moves[key] as Dictionary)["clip"])
+
+
+## The moves' `key` spec, or {}.
+func cut_spec(key: String) -> Dictionary:
+	return moves.get(key, {}) if _on_mq else {}
+
+
+## The running cut's spec ([Swordsman] `RUN_ATTACK`), or {}.
+func run_cut_spec() -> Dictionary:
+	return moves.get("run_attack", {}) if _on_mq else {}
+
+
+## Share of the clip the running cut is held wound up at (-1: none), and
+## whether it has got there.
+var _hold_at: float = -1.0
+var _holding: bool = false
+
+
+## A running cut wound up and held, not yet let go.
+func holding_cut() -> bool:
+	return _hold_at > 0.0 and _role == Role.SWING
+
+
+## Lets the held cut go: on from where it is held at the clip's rate. Returns
+## the seconds he is held for it (to its cut's end and `swing_recovery`).
+func release_cut() -> float:
+	if not holding_cut():
+		return 0.0
+	var at := maxf(_progress(), _hold_at)
+	_hold_at = -1.0
+	_holding = false
+	if _stop_left <= 0.0:
+		_anim.speed_scale = _action_rate
+	_action_from = at
+	_action_left = _action_len * (1.0 - at) / _action_rate
+	var w: Vector2 = cut_window.get(_act_clip, Vector2(at, at))
+	_swing_commit = _action_len * maxf(w.y - at, 0.0) / _action_rate + swing_recovery
+	_whoosh()
+	return _swing_commit
+
+
+## Seconds from now until the blow in hand starts cutting (0 if it is).
+func time_to_cut() -> float:
+	if _role != Role.SWING or _action_len <= 0.0:
+		return 0.0
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	return maxf(_action_len * (w.x - _progress()) / maxf(_action_rate, 0.01), 0.0)
 
 
 ## A charge to make behind the shield (the moves' "shield_bash" clip).

@@ -50,11 +50,28 @@ const STRINGS: Array = [
 ## UAL 2's Sword_Light_D, a wide sweep out of a lunge, its cut at 0.09-0.17 of
 ## 1.67 s (0.14-0.26 s at x1.1); the string goes on from B after it.
 const RUN_ATTACK := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.25}
+## Tariel's skill, the Rising Cut (the user's pick, 2026-10-03, from the run
+## cuts tried): UAL 2's Sword_UpperCut wound up (held at `hold`, the sword
+## drawn back low) while he runs at what he picked, let go `strike_gap`
+## metres (body to body) off it: the blade comes up through it. `pace`: of
+## his run; `hold_max`: let go by then whatever; `blind_hold`: with nothing
+## to run at, let go after this; `string_at` -1: the string starts again at A.
+const RISING_CUT := {"clip": &"Sword_UpperCut", "rate": 1.0, "weight": 1.7, "hold": 0.06,
+	"strike_gap": 1.1, "pace": 1.12, "hold_max": 1.6, "blind_hold": 0.45, "string_at": -1}
+## Kept for the swords to come (the user's word, 2026-10-03: each sword its own
+## swings), tried in the game as the running cut (`_shots_tmp/runcut_reel.gd`):
+## KV_Attack1H05_R held wound up like the Rising Cut (a lunge and thrust), and
+## Sword_Heavy_D unheld, the run carried on through the swing to its cut and a
+## step past it (Player `_ease_delay`): a heavy chop out of a run.
+const RUN_CUTS_KEPT := {
+	&"thrust": {"clip": &"KV_Attack1H05_R", "rate": 1.0, "weight": 1.4, "hold": 0.15, "strike_gap": 1.0},
+	&"heavy_chop": {"clip": &"Sword_Heavy_D", "rate": 1.1, "weight": 1.6},
+}
 ## The charge behind the shield (TARIEL_POLISH.md, 4): UAL 2's Shield_Dash.
 const SHIELD_BASH := &"Shield_Dash"
 ## Clips to measure with the sword besides the picks.
 const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle", &"Sword_Light_D",
-	&"Shield_Dash",
+	&"Shield_Dash", &"Sword_UpperCut",
 	&"Sword_Heavy_A", &"Sword_Heavy_B", &"Sword_Heavy_C", &"Sword_Heavy_A_Rec", &"Sword_Heavy_B_Rec",
 	&"Sword_Heavy_C_Rec"]
 
@@ -93,6 +110,10 @@ static func apply(t: Dictionary) -> void:
 	t["run_attack"] = run_cut
 	t["flurry_part"][run_cut["clip"]] = Vector2(0.0, 1.0)
 	_measure(t, run_cut["clip"])
+	var rising: Dictionary = RISING_CUT.duplicate()
+	t["rising_cut"] = rising
+	t["flurry_part"][rising["clip"]] = Vector2(0.0, 1.0)
+	_measure(t, rising["clip"])
 	if not t["cut_window"].has(run_cut["clip"]):
 		t["cut_window"][run_cut["clip"]] = Vector2(0.09, 0.17)
 	for c: StringName in [evade["clip"], jump["clip"]]:

@@ -376,6 +376,24 @@ func _icon(id: StringName, rect: Rect2) -> void:
 					tip - side * 3.0 - along * 1.0]), Color(1.0, 0.9, 0.5))
 			for k in 3:
 				_bars.draw_circle(tip - along * (8.0 + 6.0 * k) + side * (3.0 - 3.0 * k), 1.6, Color(1.0, 0.5, 0.1, 0.7))
+		&"rising_cut":
+			# A sword brought up from low: the blade up and over, the arc it cut
+			# rising behind it, and the dust of the run at its foot.
+			var arc := PackedVector2Array()
+			for k in 13:
+				var t := lerpf(PI * 0.95, PI * 1.6, k / 12.0)
+				arc.append(c + Vector2(cos(t), sin(t)) * 18.0 + Vector2(4, 4))
+			_bars.draw_polyline(arc, Color(0.75, 0.9, 1.0, 0.85), 3.0)
+			var hilt := c + Vector2(-8, 13)
+			var tip := c + Vector2(10, -18)
+			var along := (tip - hilt).normalized()
+			var side := Vector2(-along.y, along.x)
+			_bars.draw_colored_polygon(PackedVector2Array([tip, hilt + along * 6.0 + side * 3.0,
+					hilt + along * 6.0 - side * 3.0]), Color(0.85, 0.88, 0.9))
+			_bars.draw_line(hilt + along * 6.0 + side * 7.0, hilt + along * 6.0 - side * 7.0, ICON, 3.0)
+			_bars.draw_line(hilt + along * 5.0, hilt - along * 3.0, Color(0.55, 0.12, 0.12), 3.5)
+			for k in 3:
+				_bars.draw_circle(c + Vector2(-16.0 + 5.0 * k, 18.0 - 2.0 * (k % 2)), 2.2, Color(0.75, 0.65, 0.5, 0.7))
 		&"poison_blade":
 			# A dagger point up, a green drop running off it.
 			var venom := Color(0.45, 1.0, 0.25)

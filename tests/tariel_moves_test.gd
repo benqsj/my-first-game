@@ -4,6 +4,9 @@ extends SceneTree
 ##   it drives him in, and what it hits reels (its guard broken) and is hurt;
 ## - the running cut: the first cut at a run is Sword_Light_D, and the next
 ##   press goes on with the string's second blow (B);
+## - the Rising Cut (skill 1): from standing he runs at the orc ahead with the
+##   sword held back (Sword_UpperCut wound up) and cuts it near it; with
+##   nothing ahead, a few strides and the cut;
 ## - the missed cut: a cut of the string that goes through nothing holds him
 ##   longer than one that lands, and the evade cannot break it off at once.
 ##   Godot --headless --path . --script res://tests/tariel_moves_test.gd
@@ -62,6 +65,7 @@ func _initialize() -> void:
 	await _draw()
 	await _check_run_cut()
 	await _check_whiff()
+	await _check_rising_cut()
 
 	if _failures == 0:
 		print("All checks passed.")
@@ -91,6 +95,9 @@ func _creature(at: Vector3) -> Node3D:
 	c.position = _world.to_local(ground + Vector3.UP * 0.05)
 	_world.add_child(c)
 	c.set("sight_range", 0.0)
+	# kept where it is put: the checks are of what he does to it
+	c.set("speed", 0.0)
+	c.set("roam_radius", 0.0)
 	c.look_at(Vector3(player.global_position.x, ground.y, player.global_position.z), Vector3.UP)
 	return c
 
@@ -267,4 +274,56 @@ func _check_whiff() -> void:
 			break
 	_check("while a miss drags, the evade waits", refused)
 	behind.queue_free()
+	await _settle()
+
+
+## Skill 1: the Rising Cut, at an orc 8 m ahead, then at nothing.
+func _check_rising_cut() -> void:
+	await _frames(60)
+	_fresh()
+	_check("skill 1 is the Rising Cut", player.skill_in(0) == &"rising_cut", "(%s)" % player.skill_in(0))
+	var orc := _creature(player.global_position + _fwd() * 8.0)
+	orc.set("speed", 0.0)
+	orc.set("roam_radius", 0.0)
+	await _frames(20)
+	var health := float(orc.get("health"))
+	var from := player.global_position
+	var off := orc.global_position - from
+	off.y = 0.0
+	await _tap("skill_1")
+	await physics_frame
+	_check("it is Sword_UpperCut", rig.current_swing() == &"Sword_UpperCut", "(%s)" % rig.current_swing())
+	_check("wound up and held", bool(rig.call(&"holding_cut")))
+	var held_for := 0
+	while bool(rig.call(&"holding_cut")) and held_for < 200:
+		await physics_frame
+		held_for += 1
+	var at := orc.global_position - player.global_position
+	at.y = 0.0
+	_check("he ran in at it (let go 1.5-3 m from it)", at.length() > 1.4 and at.length() < 3.0,
+			"(%.2f m, after %d frames; went %.2f m)" % [at.length(), held_for, (player.global_position - from).length()])
+	var cut := false
+	for i in 40:
+		await physics_frame
+		if not rig.get_cutting_edge().is_empty():
+			cut = true
+	_check("the blade comes up", cut)
+	_check("and the orc is hurt", float(orc.get("health")) < health, "(%.0f -> %.0f)" % [health, float(orc.get("health"))])
+	_check("on cooldown", player.skill_cooldown_left(0) > 0.0)
+	orc.queue_free()
+	await _settle()
+	# At nothing: a few strides, and the cut.
+	player.set("_skill_ready_at", {})
+	_fresh()
+	from = player.global_position
+	# (straight from the bar: a second tap of the key in the same run of
+	# frames was not always seen by the input)
+	_check("skill 1 again", player.use_skill(0))
+	var n := 0
+	while bool(rig.call(&"holding_cut")) and n < 200:
+		await physics_frame
+		n += 1
+	var went := (player.global_position - from).length()
+	_check("at nothing, a few strides (1-4 m) and the cut", went > 1.0 and went < 4.0 and n < 60,
+			"(%.2f m, %d frames)" % [went, n])
 	await _settle()
