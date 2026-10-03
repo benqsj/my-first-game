@@ -48,6 +48,7 @@ func _initialize() -> void:
 	if args.size() > 1:
 		# a run of the ones to try (Swordsman.RUNS)
 		rig._set_run(StringName(args[1]))
+	await _soles_flat(rig, player)
 	var lowest := {}
 	var paces: Array = [["walk", ["walk", "move_forward"]], ["run", ["move_forward"]]]
 	if player.profile != null and player.profile.can_block:
@@ -119,3 +120,75 @@ func _initialize() -> void:
 	else:
 		print("%d check(s) FAILED." % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+## Standing, each sole lies flat: its heel as low as its toe. The figure's rest
+## had the toes 7 cm up, the foot turned with the leg when its rest was set
+## onto the mannequin's (vepxis-art tools/ps_creator.py; the user saw him
+## stand on his heels, 2026-10-04).
+func _soles_flat(rig: SkinnedRig, player: Player) -> void:
+	for i in 60:
+		await physics_frame
+	if player._smoother != null:
+		player._smoother.take_off()
+	var skel := rig._figure_skel
+	var fwd := -player.global_transform.basis.z
+	for side: String in ["L", "R"]:
+		var ankle_b := skel.find_bone(side + "_ankle_joint")
+		var ball_b := skel.find_bone(side + "_ball_joint")
+		var pts: Array[Vector3] = []
+		for mi: MeshInstance3D in skel.find_children("*", "MeshInstance3D", true, false):
+			if mi.visible and mi.skin != null:
+				pts.append_array(_posed(mi, skel, [ankle_b, ball_b]))
+		if pts.is_empty():
+			_check("%s sole found" % side, false, "")
+			continue
+		var ankle := skel.global_transform * skel.get_bone_global_pose(ankle_b).origin
+		var front := -INF
+		var back := INF
+		for p: Vector3 in pts:
+			front = maxf(front, (p - ankle).dot(fwd))
+			back = minf(back, (p - ankle).dot(fwd))
+		var heel := INF
+		var toe := INF
+		for p: Vector3 in pts:
+			var a := (p - ankle).dot(fwd)
+			if a < back + 0.05:
+				heel = minf(heel, p.y)
+			if a > front - 0.05:
+				toe = minf(toe, p.y)
+		_check("standing, the %s sole lies flat" % side, absf(toe - heel) < 0.03,
+				"(toe %.3f m over the heel; %s, on the floor %s, the ground's normal %s)" % [toe - heel,
+				rig._anim.current_animation, player.is_on_floor(), player.get_floor_normal()])
+
+
+## The points of a skinned mesh carried mostly by one of `bones`, posed.
+func _posed(mi: MeshInstance3D, skel: Skeleton3D, bones: Array) -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	var skin := mi.skin
+	var to_bone: Array[int] = []
+	for i in skin.get_bind_count():
+		to_bone.append(skel.find_bone(skin.get_bind_name(i)))
+	for s in mi.mesh.get_surface_count():
+		var arr := mi.mesh.surface_get_arrays(s)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		if arr[Mesh.ARRAY_BONES] == null:
+			continue
+		var bs: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+		var ws: PackedFloat32Array = arr[Mesh.ARRAY_WEIGHTS]
+		var per := bs.size() / vs.size()
+		for v in vs.size():
+			var best := 0
+			for k in per:
+				if ws[v * per + k] > ws[v * per + best]:
+					best = k
+			if not bones.has(to_bone[bs[v * per + best]]):
+				continue
+			var p := Vector3.ZERO
+			for k in per:
+				var w := ws[v * per + k]
+				if w > 0.0:
+					var j := bs[v * per + k]
+					p += (skel.get_bone_global_pose(to_bone[j]) * skin.get_bind_pose(j) * vs[v]) * w
+			out.append(skel.global_transform * p)
+	return out

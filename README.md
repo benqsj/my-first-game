@@ -6053,6 +6053,19 @@ look shows. A part's kind is in its name:
 | `ps_o_<id>` | one in the other hand: `shield`, `dagger`, `staff_a`, `staff_b` |
 | `ps_shield`, `ps_tower_shield`, `ps_arm_bow` | the hero's own arms |
 
+The feet are the exception to that turn (2026-10-04). Turning the thigh and
+the calf onto the hero's limbs turned each foot with them, and with the pose
+then made the rest, the sole was tipped: the toes about 7 cm up off the
+ground, the heel 3 cm into it. The user saw Tariel stand on his heels on the
+test arena's flat floor. Since the follower turns the figure's bones from
+their rest as the mannequin's turn from its own, which stands flat, it carried
+that tip into every clip. `ps_creator.py` now turns each `<S>_ankle_joint`
+back to how the pack made it before the rest is applied, and the sole lies
+flat (within 2 cm heel to toe). Only `mannequin_m.glb` and
+`mannequin_f.glb`, the figures every hero wears, were written again; the
+per-hero glbs get it when next rebuilt. `stride_test` checks it standing
+("the sole lies flat").
+
 The weapons ride the hero's own weapon bones, which `fig_hero.py` adds to the
 figure. Mage and warrior entries were added there. Each weapon is placed
 where the hero holds his own:
