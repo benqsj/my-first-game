@@ -116,7 +116,7 @@ func _run() -> void:
 				var w := String(worn["w"])
 				var arm_key := "arm_bow" if w == "own_bow" else "w_" + w
 				_check("%s: %s in hand" % [tag, w], shown.has(arm_key), str(shown))
-				if PolysplitLook.BLADES.has(w):
+				if PolysplitLook.cuts(w):
 					var mesh := fig.find_child("ps_w_" + w, true, false) as MeshInstance3D
 					# (on the mannequin the blade's own way in the hand, see _fit_blades)
 					var along := rig._far(mesh, &"weapon_r").normalized() if rig.on_mannequin() \
@@ -138,7 +138,38 @@ func _run() -> void:
 				elif o != "none":
 					_check("%s: %s in the other hand" % [tag, o], shown.has("o_" + o), str(shown))
 				_check("%s: the off hand's ring only for a blade in it" % tag,
-						rig._off_hand_on == PolysplitLook.BLADES.has(o), "%s %s" % [o, rig._off_hand_on])
+						rig._off_hand_on == PolysplitLook.cuts(o), "%s %s" % [o, rig._off_hand_on])
+				# Every arm the class holds, in every style (the Advanced
+				# Weapons, WEAPONS_PACK.md): a mesh of the figure, shown in
+				# hand, and the cut as long as it reaches.
+				var held := rig.get_look()
+				var wrong: Array[String] = []
+				var counted := 0
+				for style: String in PolysplitLook.STYLES:
+					for slot: String in ["w", "o"]:
+						var with := "" if slot == "w" else String(PolysplitLook.styled(String(held["w"]), style))
+						for id: String in PolysplitLook.arms(hero, cls, slot, style, with):
+							var test_look := held.duplicate(true)
+							test_look["ws"] = style
+							test_look[slot] = id
+							rig.set_look(test_look)
+							counted += 1
+							var now := rig.get_look()
+							if String(now[slot]) != id:
+								wrong.append("%s %s not kept (%s)" % [slot, id, now[slot]])
+								continue
+							if id in ["none", "his_shield", "own_bow"]:
+								continue
+							var mesh_arm := fig.find_child("ps_%s_%s" % [slot, id], true, false) as MeshInstance3D
+							if mesh_arm == null or not mesh_arm.visible:
+								wrong.append("%s %s not shown" % [slot, id])
+							elif slot == "w" and PolysplitLook.cuts(id):
+								var reach_arm := rig._blade_tip.position.length()
+								if reach_arm < 0.2:
+									wrong.append("%s cuts %.2f" % [id, reach_arm])
+				rig.set_look(held)
+				_check("%s: every arm of the class, every style, in hand (%d)" % [tag, counted],
+						wrong.is_empty(), str(wrong))
 		# The colours: the figure's own materials, dyed.
 		var look := rig.get_look()
 		look["skin"] = 5

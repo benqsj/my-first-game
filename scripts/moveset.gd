@@ -71,16 +71,8 @@ static var _meta: Dictionary = {}
 
 ## The kind of arms `look` ([PolysplitLook]) holds: which set it fights with.
 static func kind_of(look: Dictionary) -> StringName:
-	match String(look.get("w", "")):
-		"greatsword":
-			return &"two_hands"
-		"dagger":
-			return &"knives"
-		"bow", "own_bow":
-			return &"bow"
-		"staff_a", "staff_b":
-			return &"spear"
-	return &"sword"
+	var k := PolysplitLook.kind(String(look.get("w", "")))
+	return &"sword" if k == &"shield" else k
 
 
 static func picks() -> Dictionary:

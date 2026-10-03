@@ -80,12 +80,12 @@ const MAKER_TABS := {
 	"OUTFIT": ["cls", "g"],
 	"FACE": ["eyes", "brows", "mouth", "beard", "hair", "skin"],
 	"GEAR": ["top", "bottom", "extra", "hat", "cloth"],
-	"ARMS": ["w", "o"],
+	"ARMS": ["w", "o", "ws"],
 }
 const MAKER_LABELS := {
 	"cls": "OUTFIT", "g": "BODY", "eyes": "EYES", "brows": "BROWS", "mouth": "MOUTH", "beard": "BEARD",
 	"hair": "HAIR", "skin": "SKIN", "top": "TOP", "bottom": "LEGS", "extra": "MORE", "hat": "HAT",
-	"cloth": "CLOTH", "w": "WEAPON", "o": "OTHER HAND",
+	"cloth": "CLOTH", "w": "WEAPON", "o": "OTHER HAND", "ws": "STYLE",
 }
 var _maker_tab: String = "OUTFIT"
 var _maker_rows: Dictionary = {}
@@ -838,7 +838,11 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 			hats.append_array(PolysplitLook.HAT_ORDER)
 			return hats
 		"w", "o":
-			return (PolysplitLook.ARMS.get(_chosen, {}) as Dictionary).get(kind, [])
+			# what the outfit's class holds, the Advanced Weapons in the style picked
+			return PolysplitLook.arms(_chosen, String(look.get("cls", "")), kind, String(look.get("ws", "normal")),
+					String(look.get("w", "")) if kind == "o" else "")
+		"ws":
+			return PolysplitLook.STYLES
 	return []
 
 
@@ -860,7 +864,9 @@ func _maker_name(kind: String, value: Variant, look: Dictionary) -> String:
 		"hat":
 			return "NONE" if String(value) == "" else String(PolysplitLook.HATS[value]["name"])
 		"w", "o":
-			return PolysplitLook.ARM_NAMES.get(value, String(value).to_upper())
+			return PolysplitLook.arm_name(String(value))
+		"ws":
+			return PolysplitLook.STYLE_NAMES.get(value, String(value).to_upper())
 	return str(value)
 
 
@@ -965,6 +971,8 @@ func _refresh_maker() -> void:
 		if kind in ["eyes", "brows", "mouth", "beard", "hair", "skin", "cloth"]:
 			# which of how many: a bare number says nothing of how far there is to go
 			value.text = "NONE" if value.text == "NONE" else "%d / %d" % [at + 1, options.size()]
+		if kind in ["w", "o"] and options.size() > 2:
+			value.text = "%s  %d/%d" % [value.text, at + 1, options.size()]
 		if kind == "skin" or kind == "cloth":
 			var texture := "body" if kind == "skin" else "objects"
 			for i in 2:

@@ -20,7 +20,8 @@ extends RefCounted
 ##   hat      an id of `HATS`, or ""
 ##   skin     1..8  (the pack's body colours: skin, hair, eyes)
 ##   cloth    1..14 (its object colours: clothes, arms)
-##   w o      the arms in the sword hand and the other (see `ARMS`)
+##   w o      the arms in the sword hand and the other (see `ARMS`, `AW`)
+##   ws       the style the Advanced Weapons are worn in (`STYLES`)
 
 const SKINS := 8
 const CLOTHS := 14
@@ -131,6 +132,177 @@ const EXTRA_NAMES := {
 ## A blade: the cut is drawn along it (see [SkinnedRig]).
 const BLADES := ["sword_a", "sword_b", "greatsword", "dagger"]
 
+## Polysplit's Advanced Weapons (WEAPONS_PACK.md), on the mannequin's figure
+## (vepxis-art tools/ps_creator.py, `AW_ARMS`): an id "aw_<name>_<style>" is
+## the mesh "ps_w_<id>" (the sword hand; a bow's is the left fist) or
+## "ps_o_<id>" (the other hand; a shield's is the forearm). Each is held as
+## the pack holds its own, grip in the fist.
+##   kind     the moves it is fought with ([Moveset]): sword, two_hands,
+##            spear, knives, bow, or shield (the other hand's)
+##   hands    "w", "o" or both
+##   sheath   it goes into a scabbard (a sword or a knife)
+const AW := {
+	"shortsword": {"name": "SHORT SWORD", "kind": &"sword", "hands": "wo", "sheath": true},
+	"longsword": {"name": "LONG SWORD", "kind": &"sword", "hands": "w", "sheath": true},
+	"curvedsword": {"name": "CURVED SWORD", "kind": &"sword", "hands": "w", "sheath": true},
+	"rapier": {"name": "RAPIER", "kind": &"sword", "hands": "w", "sheath": true},
+	"greatsword": {"name": "GREAT SWORD (NEW)", "kind": &"two_hands", "hands": "w", "sheath": true},
+	"curvedgreatsword": {"name": "CURVED GREAT SWORD", "kind": &"two_hands", "hands": "w", "sheath": true},
+	"dagger": {"name": "KNIFE", "kind": &"knives", "hands": "wo", "sheath": true},
+	"axe": {"name": "AXE", "kind": &"sword", "hands": "wo"},
+	"greataxe": {"name": "GREAT AXE", "kind": &"two_hands", "hands": "w"},
+	"hammer": {"name": "HAMMER", "kind": &"sword", "hands": "wo"},
+	"greathammer": {"name": "GREAT HAMMER", "kind": &"two_hands", "hands": "w"},
+	"mace": {"name": "MACE", "kind": &"sword", "hands": "wo"},
+	"morningstar": {"name": "MORNING STAR", "kind": &"sword", "hands": "w"},
+	"flail": {"name": "FLAIL", "kind": &"sword", "hands": "w"},
+	"spear": {"name": "SPEAR", "kind": &"spear", "hands": "w"},
+	"poleaxe": {"name": "POLEAXE", "kind": &"spear", "hands": "w"},
+	"staff": {"name": "QUARTERSTAFF", "kind": &"spear", "hands": "wo"},
+	"wand": {"name": "WAND", "kind": &"sword", "hands": "wo"},
+	"roundshield": {"name": "BUCKLER", "kind": &"shield", "hands": "o"},
+	"kiteshield": {"name": "KITE SHIELD", "kind": &"shield", "hands": "o"},
+	"towershield": {"name": "TOWER SHIELD", "kind": &"shield", "hands": "o"},
+	"bow": {"name": "SHORT BOW", "kind": &"bow", "hands": "w"},
+	"longbow": {"name": "LONG BOW", "kind": &"bow", "hands": "w"},
+}
+## The pack's four styles, each its own models and colours.
+const STYLES := ["normal", "ornate", "obsidian", "bone"]
+const STYLE_NAMES := {"normal": "NORMAL", "ornate": "ORNATE", "obsidian": "OBSIDIAN", "bone": "BONE"}
+## What each class may hold (2026-10-03, the user's word: a class its own
+## arms, to be seen in hand on the hero select; no bow for the swordsman).
+## "aw_<name>" are the Advanced Weapons (worn in the look's style); the rest
+## the Heroes pack's (`ARM_NAMES`), offered only to a hero who has them in
+## `ARMS`. A class's first is what it starts with ([method dress] keeps the
+## pack's own where the hero has it).
+const CLASS_ARMS := {
+	"swordsman": {
+		"w": ["sword_a", "sword_b", "aw_longsword", "aw_shortsword", "aw_curvedsword", "aw_rapier", "greatsword",
+				"aw_greatsword", "aw_curvedgreatsword", "dagger", "aw_dagger", "aw_axe", "aw_mace", "aw_hammer",
+				"aw_morningstar", "aw_flail"],
+		"o": ["his_shield", "shield", "aw_roundshield", "aw_kiteshield", "aw_towershield", "aw_dagger",
+				"aw_shortsword", "none"],
+	},
+	"fighter": {
+		"w": ["sword_a", "sword_b", "aw_axe", "aw_mace", "aw_hammer", "aw_morningstar", "aw_flail", "aw_shortsword",
+				"aw_longsword", "aw_curvedsword", "greatsword", "aw_greataxe", "aw_greathammer", "aw_spear",
+				"aw_poleaxe", "dagger", "aw_dagger"],
+		"o": ["his_shield", "shield", "aw_roundshield", "aw_kiteshield", "aw_axe", "aw_mace", "aw_hammer",
+				"aw_dagger", "none"],
+	},
+	"knight": {
+		"w": ["greatsword", "aw_greatsword", "aw_curvedgreatsword", "aw_greataxe", "aw_greathammer", "aw_poleaxe",
+				"aw_spear", "sword_a", "sword_b", "aw_longsword", "aw_mace", "aw_morningstar", "dagger"],
+		"o": ["none", "aw_kiteshield", "aw_towershield", "aw_roundshield"],
+	},
+	"archer": {"w": ["own_bow", "bow", "aw_bow", "aw_longbow"], "o": ["none"]},
+	"hunter": {"w": ["own_bow", "bow", "aw_longbow", "aw_bow"], "o": ["none"]},
+	"rogue": {
+		"w": ["dagger", "aw_dagger", "aw_shortsword", "aw_curvedsword", "aw_rapier", "sword_a", "sword_b"],
+		"o": ["dagger", "aw_dagger", "aw_shortsword", "none"],
+	},
+	"mage": {
+		"w": ["sword_a", "sword_b", "aw_wand", "aw_shortsword", "aw_longsword", "aw_mace", "greatsword", "dagger",
+				"aw_dagger"],
+		"o": ["staff_a", "staff_b", "aw_staff", "aw_wand", "dagger", "aw_dagger", "none"],
+	},
+}
+
+
+## The Advanced Weapon's name ("longsword") in `id` ("aw_longsword_bone"), or
+## "" for one of the Heroes pack's.
+static func aw_name(id: String) -> String:
+	if not id.begins_with("aw_"):
+		return ""
+	var rest := id.substr(3)
+	for style: String in STYLES:
+		if rest.ends_with("_" + style):
+			return rest.substr(0, rest.length() - style.length() - 1)
+	return rest
+
+
+## `id` in `style`: an Advanced Weapon's in that style, any other as it is.
+static func styled(id: String, style: String) -> String:
+	var name := aw_name(id)
+	return id if name == "" else "aw_%s_%s" % [name, style]
+
+
+## What can be held in the `slot` hand ("w" / "o") by `hero` in class `cls`,
+## the Advanced Weapons in `style`. With `with` (the sword hand's) both hands'
+## (a great sword, a spear or a bow), the other hand holds no shield.
+static func arms(hero: StringName, cls: String, slot: String, style: String = "normal", with: String = "") -> Array:
+	var own: Array = (ARMS.get(hero, ARMS[&"tariel"]) as Dictionary)[slot]
+	var given: Array = (CLASS_ARMS.get(_arms_class(cls), {}) as Dictionary).get(slot, [])
+	var out: Array = []
+	for id: String in given:
+		if id.begins_with("aw_"):
+			if String(AW.get(id.substr(3), {}).get("hands", "")).contains(slot):
+				out.append(styled(id, style))
+		elif own.has(id):
+			out.append(id)
+	if out.is_empty():
+		out = own.duplicate()
+	if slot == "o" and both_hands(with):
+		var free := out.filter(func(id: String) -> bool: return kind(id) != &"shield")
+		if not free.is_empty():
+			out = free
+		if out.has("none"):
+			# (what such a look falls back to: the hand left free)
+			out.erase("none")
+			out.push_front("none")
+	return out
+
+
+## Whether `w` takes both hands (or one and the arm for a bow's string).
+static func both_hands(w: String) -> bool:
+	return kind(w) in [&"two_hands", &"spear", &"bow"]
+
+
+static func _arms_class(cls: String) -> String:
+	return "mage" if cls in ["sorcerer", "warlock", "witch"] else cls
+
+
+## The moves `id` is fought with ([Moveset] sets).
+static func kind(id: String) -> StringName:
+	var name := aw_name(id)
+	if name != "":
+		return AW.get(name, {}).get("kind", &"sword")
+	match id:
+		"greatsword":
+			return &"two_hands"
+		"dagger":
+			return &"knives"
+		"bow", "own_bow":
+			return &"bow"
+		"staff_a", "staff_b":
+			return &"spear"
+		"shield", "his_shield":
+			return &"shield"
+	return &"sword"
+
+
+## Whether the cut is drawn off `id`'s mesh in hand: a blade, or any weapon
+## of the Advanced pack's that strikes (not a shield, a bow or a wand).
+static func cuts(id: String) -> bool:
+	var name := aw_name(id)
+	if name == "":
+		return BLADES.has(id)
+	return not (AW.get(name, {}).get("kind", &"") in [&"shield", &"bow"]) and name != "wand"
+
+
+## Whether `id` goes into a scabbard.
+static func sheathes(id: String) -> bool:
+	var name := aw_name(id)
+	return BLADES.has(id) if name == "" else bool(AW.get(name, {}).get("sheath", false))
+
+
+## What the maker calls `id`.
+static func arm_name(id: String) -> String:
+	var name := aw_name(id)
+	if name != "":
+		return String(AW.get(name, {}).get("name", name.to_upper()))
+	return ARM_NAMES.get(id, id.to_upper())
+
 
 ## "THE WARLOCK'S CAPE" for "warlock_cape".
 static func extra_name(id: String) -> String:
@@ -176,7 +348,7 @@ static func all_extras(g: String) -> Array[String]:
 ## The look `hero` starts as: his first class, as the pack dresses it.
 static func default_look(hero: StringName, g: String = "m") -> Dictionary:
 	var look := {"g": g, "eyes": 0, "brows": 0, "mouth": 0, "beard": 1 if g == "m" else 0, "hair": 3,
-			"skin": 1, "cloth": 1}
+			"skin": 1, "cloth": 1, "ws": STYLES[0]}
 	return dress(look, hero, classes(hero, g)[0])
 
 
@@ -192,16 +364,18 @@ static func dress(look: Dictionary, hero: StringName, cls: String) -> Dictionary
 	out["bottom"] = cls
 	out["extras"] = (spec["extras"] as Array).duplicate()
 	out["hat"] = spec["hat"]
-	var arms: Dictionary = ARMS.get(hero, ARMS[&"tariel"])
+	var style := String(out.get("ws", STYLES[0]))
+	var held_w := arms(hero, cls, "w", style)
 	var w := String(spec.get("weapon", ""))
 	var o := String(spec.get("off", ""))
-	out["w"] = w if (arms["w"] as Array).has(w) else arms["w"][0]
-	if (arms["o"] as Array).has(o):
+	out["w"] = w if held_w.has(w) else held_w[0]
+	var held_o := arms(hero, cls, "o", style, String(out["w"]))
+	if held_o.has(o):
 		out["o"] = o
-	elif (arms["o"] as Array).has(w):
+	elif held_o.has(w):
 		out["o"] = w
 	else:
-		out["o"] = arms["o"][0]
+		out["o"] = held_o[0]
 	return out
 
 
@@ -237,11 +411,13 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	out["hair"] = clampi(int(out["hair"]), 0, 14)
 	out["skin"] = clampi(int(out["skin"]), 1, SKINS)
 	out["cloth"] = clampi(int(out["cloth"]), 1, CLOTHS)
-	var arms: Dictionary = ARMS.get(hero, ARMS[&"tariel"])
-	if not (arms["w"] as Array).has(String(out["w"])):
-		out["w"] = arms["w"][0]
-	if not (arms["o"] as Array).has(String(out["o"])):
-		out["o"] = arms["o"][0]
+	if not STYLES.has(String(out.get("ws", ""))):
+		out["ws"] = STYLES[0]
+	var style := String(out["ws"])
+	for slot: String in ["w", "o"]:
+		var held := arms(hero, String(out["cls"]), slot, style, String(out["w"]) if slot == "o" else "")
+		var id := styled(String(out[slot]), style)
+		out[slot] = id if held.has(id) else held[0]
 	return out
 
 
@@ -329,8 +505,8 @@ static func dye(figure: Node3D, skin: int, cloth: int) -> void:
 				continue
 			for i in mesh.mesh.get_surface_count():
 				var m := mesh.mesh.surface_get_material(i) as BaseMaterial3D
-				if m == null:
-					continue
+				if m == null or m.resource_name.begins_with("aw_"):
+					continue  # (the Advanced Weapons are coloured by their style)
 				var kind := "body" if m.resource_name.contains("body") else "objects"
 				if not mats.has(m):
 					var own := m.duplicate() as BaseMaterial3D

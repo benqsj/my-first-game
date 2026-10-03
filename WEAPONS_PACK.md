@@ -10,7 +10,9 @@
   - ორიგინალი: `~/Projects/vepxis-art/packs/Low-Poly Medieval Fantasy - Advanced Weapons.unitypackage`
     (და `~/Library/Unity/Asset Store-5.x/Polysplit Games/3D ModelsPropsWeapons/`)
   - იქვეა მონსტრების პაკეტიც, გახსნილი: `packs/biped_creatures/` (იხ. `CREATURES_PACK.md`).
-- **რეპოში ჯერ არაფერია.** თამაშში მხოლოდ ის შევა, რასაც თამაში ტვირთავს (glb-ები, ტექსტურა), `assets/weapons/`-ში.
+- **გაკეთდა (2026-10-03):** ყველა იარაღი ოთხივე სტილში გმირების ხელშია, YOUR OWN-ის ARMS ჩანართზე (WEAPON / OTHER HAND / STYLE).
+  ცალკე glb-ები არ დაგვჭირდა: იარაღები მანეკენის ფიგურაშია (`assets/polysplit/mannequin_<g>.glb`, `ps_creator.py`).
+  როგორ და რატომ: README, „The Advanced Weapons in the heroes' hands“. ქვემოთ §3 თავდაპირველი გეგმაა.
 
 ## 1. რა არის შიგნით
 
@@ -103,3 +105,13 @@
 - Blender-ის FBX იმპორტში დამალული ობიექტების `matrix_world` ძველია, სანამ არ გამოჩნდება (`hide_set(False)` + `view_layer.update()`). ეს Heroes-იდანაა ცნობილი.
 - `*_Set.fbx`-ში იარაღი და ქარქაში ერთად არის, მშობლად EMPTY აქვთ. ქარქაში ცალკე მეშად გამოიყოფა.
 - 3 ფაილს (`Axe`, `Spear`, `Wand`) მასალად `lambert1` აქვს.
+
+## 5. რა გაკეთდა (2026-10-03)
+
+- 23 იარაღი × 4 სტილი მანეკენის ფიგურაში: `ps_w_aw_<name>_<style>` / `ps_o_aw_<name>_<style>`.
+  Look-ში id-ც ასეა (`aw_longsword_ornate`), STYLE-ის შეცვლა ხელში არსებულ იარაღს სტილს უცვლის.
+- თითო კლასს თავისი იარაღები აქვს (`PolysplitLook.CLASS_ARMS`). Swordsman-ს მშვილდი არ აქვს.
+- ორხელა იარაღს, შუბსა და მშვილდს ფარი არ ახლავს.
+- ჯერ არ შესულა: არბალეტი, ხელთათმანი, კლანჭი, კაპარჭები; ჯაჭვიან გურზს ჯაჭვი ხისტი აქვს.
+- !! Advanced-ის ფარები ფაილში `ShieldBasic`-ის საპირისპიროდ იყურება: ნახევარი ბრუნი გრძელი ღერძის გარშემო.
+- დიდი ფარი ×0.85.

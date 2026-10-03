@@ -1695,7 +1695,7 @@ func _apply_moves() -> void:
 		return
 	if _on_mq:
 		_wear_moves()
-		_off_hand_on = PolysplitLook.BLADES.has(String(ps_look.get("o", "")))
+		_off_hand_on = PolysplitLook.cuts(String(ps_look.get("o", "")))
 		return
 	var m: Dictionary = face_moves.get(faces[face], {}) if face < faces.size() else {}
 	flurry.assign(m.get("flurry", _own_moves["flurry"]))
@@ -1703,7 +1703,7 @@ func _apply_moves() -> void:
 	heavy = m.get("heavy", _own_moves["heavy"])
 	_off_hand_on = m.get("off_hand", true)
 	if face < faces.size() and faces[face] == CUSTOM:
-		_off_hand_on = PolysplitLook.BLADES.has(String(ps_look.get("o", "")))
+		_off_hand_on = PolysplitLook.cuts(String(ps_look.get("o", "")))
 
 
 ## Whether the face that is on is a whole figure (see `whole_faces`).
@@ -1942,7 +1942,7 @@ func _fit_blades(custom: bool) -> void:
 	if not custom or _figure == null:
 		return
 	var w := String(ps_look.get("w", ""))
-	if PolysplitLook.BLADES.has(w):
+	if PolysplitLook.cuts(w):
 		var mesh := _figure.find_child("ps_w_" + w, true, false) as MeshInstance3D
 		# the blade's way in the hand: the rig's own, or on the mannequin's
 		# figure (whose hand bones are the mannequin's) the blade's own
@@ -1954,7 +1954,7 @@ func _fit_blades(custom: bool) -> void:
 			_blade_tip.position = along * reach * 0.96
 			_blade_base.position = along * minf(_blade_at[0].length(), reach * 0.3)
 	var o := String(ps_look.get("o", ""))
-	if _blade_at.size() >= 4 and PolysplitLook.BLADES.has(o):
+	if _blade_at.size() >= 4 and PolysplitLook.cuts(o):
 		var mesh_l := _figure.find_child("ps_o_" + o, true, false) as MeshInstance3D
 		var along_l := _blade_at[3].normalized()
 		if _on_mq:
@@ -2875,7 +2875,7 @@ func _fit_sheath(custom: bool) -> void:
 		var w := String(ps_look.get("w", ""))
 		var o := String(ps_look.get("o", ""))
 		var sword := _figure.find_child("ps_w_" + w, true, false) as MeshInstance3D
-		if PolysplitLook.BLADES.has(w) and not PolysplitLook.BLADES.has(o) and sword != null:
+		if PolysplitLook.sheathes(w) and not PolysplitLook.cuts(o) and sword != null:
 			var blade := Sheath.blade(sword, _figure_skel, &"weapon_r")
 			var best := INF
 			for x: Variant in ps_look.get("extras", []):

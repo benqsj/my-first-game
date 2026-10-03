@@ -169,6 +169,26 @@ func _check_menu() -> void:
 		var row := (menu.get("_maker_rows") as Dictionary)[kind] as Control
 		tabs_rows += 1 if row.visible else 0
 	_check("a tab shows its own rows (FACE: six)", tabs_rows == 6, "%d" % tabs_rows)
+	# ARMS: the weapon, the other hand and the Advanced Weapons' style; a
+	# style worn on the weapon in hand (WEAPONS_PACK.md).
+	menu.call("_maker_show", "ARMS")
+	tabs_rows = 0
+	for kind: String in (menu.get("_maker_rows") as Dictionary):
+		tabs_rows += 1 if ((menu.get("_maker_rows") as Dictionary)[kind] as Control).visible else 0
+	_check("ARMS shows the weapon, the other hand and the style", tabs_rows == 3, "%d" % tabs_rows)
+	var armed := knight.get_look()
+	armed["w"] = "aw_longsword_normal"
+	armed["ws"] = "normal"
+	knight.set_look(armed)
+	menu.call("_maker_step", "ws", 1)
+	await _wait(2)
+	var restyled := knight.get_look()
+	_check("the next style puts the long sword in it", String(restyled["ws"]) == "ornate"
+			and String(restyled["w"]) == "aw_longsword_ornate", "%s %s" % [restyled["ws"], restyled["w"]])
+	menu.call("_maker_step", "w", 1)
+	await _wait(1)
+	_check("the next weapon keeps the style", PolysplitLook.aw_name(String(knight.get_look()["w"])) == ""
+			or String(knight.get_look()["w"]).ends_with("_ornate"), String(knight.get_look()["w"]))
 	knight.set_face(0)
 	menu.call("_refresh_picks")
 	await _wait(1)

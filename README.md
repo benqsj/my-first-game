@@ -6506,3 +6506,76 @@ sword away in it and draws it from it (`SkinnedRig`, region "The scabbard";
 * `clip_meta.json`: `Shield_Dash` measured (`Swordsman.CLIPS`), nothing else
   changed (a full rerun of `clip_meta.gd` drops `Sword_Light_C_Rec` and
   `Sword_UpperCut`, which no pick asks for any more: merged by hand).
+
+
+## The Advanced Weapons in the heroes' hands (2026-10-03)
+
+Polysplit's Advanced Weapons (`WEAPONS_PACK.md`) are held by every hero in
+YOUR OWN, and picked on the hero select's maker, ARMS tab:
+
+| Row | What it sets |
+| --- | --- |
+| WEAPON | the sword hand's: what the outfit's class holds, "3/16" says how far along |
+| OTHER HAND | a shield, a second weapon or nothing |
+| STYLE | NORMAL, ORNATE, OBSIDIAN or BONE: every Advanced Weapon in hand changes to it |
+
+**What each class holds** (`PolysplitLook.CLASS_ARMS`, the user's word: a
+class its own arms; **no bow for the swordsman**):
+
+| Class | Sword hand | Other hand |
+| --- | --- | --- |
+| swordsman | swords (arming, broad, long, short, curved, rapier), great swords, knives, axe, mace, hammer, morning star, flail | his shield, round shield, buckler, kite, tower, knife, short sword |
+| fighter | axe, mace, hammer, morning star, flail, swords, great sword, great axe, great hammer, spear, poleaxe, knives | his shield, round shield, buckler, kite, axe, mace, hammer, knife |
+| knight (the warrior) | great swords, great axe, great hammer, poleaxe, spear, swords, mace, morning star, dagger | none, kite, tower, buckler |
+| archer, hunter (Avtandil) | his own bow, the hunter's bow, short bow, long bow | — |
+| rogue | knives, short sword, curved sword, rapier, swords | knives, short sword |
+| mage, sorcerer, warlock, witch | swords, wand, short and long sword, mace, great sword, knives | staffs, quarterstaff, wand, knives |
+
+The Heroes pack's own arms (`ARMS`, per hero) are still offered where the
+hero had them. A great sword, a spear or a bow leaves no shield in the other
+hand (`PolysplitLook.both_hands()`): the shield gives way to an empty hand.
+
+**On the figure.** `vepxis-art/tools/ps_creator.py mannequin m|f` now puts
+every Advanced Weapon in every style into `mannequin_<g>.glb` (108 meshes and
+12 shields; 6 → 15 MB, the four styles' pre-coloured textures in it):
+
+- `ps_w_aw_<name>_<style>` in the sword hand (`weapon_r`; a bow's on the
+  left fist, `weapon_l`), `ps_o_aw_<name>_<style>` in the other (`weapon_l`,
+  a shield on `shield_l`).
+- **Held as the pack holds its own.** Every Advanced file has its pivot on the
+  grip and its blade along the pack's -Y, like the Heroes pack's loose
+  weapons, and the Heroes classes hold those only moved onto `R_equip_joint`
+  (the left hand's turned half round the blade; measured: the class sword and
+  staff are the loose ones moved, nothing turned). So they go there, and then
+  through the same rest-setting and fists as the pack's sword. The bows are
+  laid as the classes' bow (fitted off `BowBasic`), their string taken out
+  (the game draws its own). Each is then moved into the middle of its fist as
+  the long sword is (the knife in the other hand).
+- **Shields** on the forearm as the pack's round one (`mannequin_shields`),
+  their back as far off the arm as its back. !! The Advanced shields face
+  the other way to `ShieldBasic` in their files (the straps came out in
+  front): half a turn about each one's long way. The tower shield is x0.85
+  (at 1.61 m it stood over his helmet in the guard).
+- Materials `aw_<style>`; `PolysplitLook.dye()` leaves them alone (the cloth
+  colour is for the Heroes pack's arms).
+
+**In the game.** A weapon id is `aw_<name>_<style>` (`PolysplitLook.AW`,
+`styled()`, `aw_name()`), so everything that looks for `ps_w_<id>` finds it.
+`PolysplitLook.kind()` says which moves it is fought with
+(`Moveset.kind_of`): a great sword, great axe or great hammer TWO HANDS, a
+spear, poleaxe or quarterstaff SPEAR, a knife TWO KNIVES, a bow BOW, the rest
+SWORD AND SHIELD. `cuts()` (the cut measured off the mesh: a spear cuts far,
+a knife short; not a shield, a bow or a wand) and `sheathes()` (only swords
+and knives go into a scabbard) replace `BLADES` in `SkinnedRig`. Avtandil's
+string goes on whichever bow he holds; the mage's crystal on the
+quarterstaff in his other hand.
+
+Not in yet: the crossbow (no moves for it), the caestus and the claw (worn on
+the fist, not held), the quivers, and the flail's chain (its bones are not
+kept: it hangs stiff). The idle the hero select plays is Kevin's unarmed one,
+so a weapon sticks out ahead of the hand there (as the pack's sword did).
+
+Tests: `maker_test` holds every arm of every class in every style (a mesh,
+shown, and the cut as far as it reaches); `menu_test` the ARMS tab's three
+rows and the style worn on the weapon in hand. Sheets of every class's arms:
+`vepxis-art/tools/aw_shots.gd -- <hero> <style> [guard] [names]` (windowed).

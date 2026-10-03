@@ -275,7 +275,9 @@ func _apply_moves() -> void:
 ## are read off its mesh (its two ends, in its bone's frame) and the string
 ## drawn from them to the right fist.
 func _place_pack_string() -> void:
-	var bow := _figure.find_child("ps_w_bow", true, false) as MeshInstance3D if _figure != null else null
+	var w := String(ps_look.get("w", ""))
+	var mesh := "ps_w_" + (w if w.begins_with("aw_") else "bow")
+	var bow := _figure.find_child(mesh, true, false) as MeshInstance3D if _figure != null else null
 	if bow == null or not bow.visible:
 		return
 	var bone := _figure_skel.find_bone("weapon_l")

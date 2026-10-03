@@ -244,7 +244,7 @@ func _crystal_at() -> Vector3:
 	var b := _figure_skel.find_bone("weapon_l")
 	var held := _figure_skel.global_transform * _figure_skel.get_bone_global_pose(b)
 	var o := String(ps_look.get("o", ""))
-	if o.begins_with("staff"):
+	if o.begins_with("staff") or PolysplitLook.aw_name(o) == "staff":
 		var tip := _far(_figure.find_child("ps_o_" + o, true, false) as MeshInstance3D, &"weapon_l")
 		if tip.z < 0.0:
 			tip = Vector3(tip.x, tip.y, -tip.z)
