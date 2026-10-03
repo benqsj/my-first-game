@@ -68,17 +68,18 @@ const RISING_CUT := {"clip": &"Sword_UpperCut", "rate": 1.0, "weight": 1.7, "hol
 const SHADOW_SLIDE := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.6, "hold": 0.035, "creep": 0.22,
 	"creep_until": 0.07, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.0, "string_at": -1}
 ## Tariel's third skill, the Shadow Lance (the user's word, 2026-10-03: the
-## sword already out in front through the slide, so that it is the blade that
-## runs into the monster, not a thrust after it): Kevin's lunge and thrust
-## (KV_Attack1H05_R) played to `hold` 0.26 of it, the arm out and the blade
-## level ahead at the chest (measured: tip 2.16 m ahead, 1.5 m up, pointing
-## straight on; `_shots_tmp/lance_probe.gd`), and held there, creeping, while
-## he slides; his cut lands when the point gets to it (no reach beyond the
-## blade's own: `sure_margin` 0). `strike_gap`: where the slide would end,
-## body to body, if nothing were struck before.
-const SHADOW_LANCE := {"clip": &"KV_Attack1H05_R", "rate": 1.9, "weight": 1.8, "hold": 0.26, "creep": 0.015,
-	"creep_until": 0.272, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.4, "sure_margin": 0.0,
-	"lance": true, "string_at": -1}
+## thrust's peak, the sword furthest out, falls just as the slide ends at the
+## monster): Kevin's lunge and thrust (KV_Attack1H05_R) drawn back to `hold`
+## 0.15 (the blade behind him, measured) and drawn on slowly from there
+## (`creep`, to `creep_until`) through the slide, as a spell is cast; let go so
+## that its `peak` 0.26 (the arm out, the blade level ahead at the chest: tip
+## 2.16 m ahead, 1.5 m up, straight on; `_shots_tmp/lance_probe.gd`) comes as
+## he arrives. The slide ends `strike_gap` metres (body to body) off it: the
+## point goes in at the peak. It cuts when the point reaches it (no reach past
+## the blade's own: `sure_margin` 0).
+const SHADOW_LANCE := {"clip": &"KV_Attack1H05_R", "rate": 1.0, "weight": 1.8, "hold": 0.15, "creep": 0.12,
+	"creep_until": 0.17, "peak": 0.26, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.7,
+	"sure_margin": 0.0, "lance": true, "string_at": -1}
 ## Kept for the swords to come (the user's word, 2026-10-03: each sword its own
 ## swings), tried in the game as the running cut (`_shots_tmp/runcut_reel.gd`):
 ## KV_Attack1H05_R held wound up like the Rising Cut (a lunge and thrust), and

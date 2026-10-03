@@ -8,9 +8,9 @@ extends SceneTree
 ## - the Shadow Slide (skill 2): the running cut out of a slide, gone at
 ##   once (no standing, the sword never frozen), in to the orc 7 m off,
 ##   shadows shed behind him, the cut landing; at nothing, a longer slide;
-## - the Shadow Lance (skill 3): the sword out in front before he gets there,
-##   the point what runs into the orc (struck while it is still held out),
-##   the slide stopped on it; at nothing, a long slide;
+## - the Shadow Lance (skill 3): the sword drawn back through the slide, the
+##   thrust's peak as it ends, the point into the orc there; at nothing, a
+##   long slide, the peak at its end;
 ## - the shadow a perfect dodge (and the slide) sheds has the figure in it
 ##   (it was copied off the hero's own hidden model: nothing to see);
 ## - Tariel's profile has the shadow.
@@ -301,8 +301,8 @@ func _check_thrust() -> void:
 	await _settle()
 
 
-## Skill 3: the Shadow Lance: the point out in front through the slide, and
-## what runs into the orc; the slide stops on it.
+## Skill 3: the Shadow Lance: the sword drawn back through the slide, the
+## thrust's peak (0.26 of the clip) as he arrives, the point into the orc there.
 func _check_lance() -> void:
 	await _home()
 	_fresh()
@@ -314,40 +314,49 @@ func _check_lance() -> void:
 	_check("skill 3 goes", player.use_skill(2))
 	await physics_frame
 	_check("it is KV_Attack1H05_R", rig.current_swing() == &"KV_Attack1H05_R", "(%s)" % rig.current_swing())
-	var out_at := -1.0
-	var struck_gap := -1.0
-	var held_when_struck := false
-	var after := Vector3.ZERO
+	var frames := 0
 	var froze := 0
-	for i in 70:
-		var was_held := bool(rig.call(&"holding_cut"))
+	var back := 0
+	var struck_at := -1
+	var struck_share := -1.0
+	var end_share := -1.0
+	var end_frame := -1
+	var after := Vector3.ZERO
+	for i in 80:
 		await physics_frame
-		var to := orc.global_position - player.global_position
-		to.y = 0.0
-		var gap := to.length() - r
-		if out_at < 0.0 and float(rig.call(&"_progress")) >= 0.25:
-			out_at = gap
-		if rig._anim.speed_scale <= 0.0:
-			froze += 1
-		if struck_gap < 0.0 and _health(orc) < hp:
-			struck_gap = gap
-			held_when_struck = was_held
+		frames += 1
+		var share := float(rig.call(&"_progress"))
+		if int(player.get("_shade_phase")) == 1:
+			if share < 0.2:
+				back += 1
+			if rig._anim.speed_scale <= 0.0:
+				froze += 1
+		elif end_frame < 0:
+			end_frame = frames
+			end_share = share
+		if struck_at < 0 and _health(orc) < hp:
+			struck_at = frames
+			struck_share = share
 			after = player.global_position
 	var past := Vector2(player.global_position.x - after.x, player.global_position.z - after.z).length()
-	_check("the sword is out in front well before he gets there", out_at > 3.0,
-			"(out %.2f m off its body)" % out_at)
-	_check("the point is what runs into it (struck held out, at the blade's length)",
-			struck_gap > 0.0 and held_when_struck and struck_gap < 2.4, "(%.2f m off, held %s)" % [struck_gap, held_when_struck])
-	_check("and the slide stops on it", past < 0.8, "(%.2f m on after)" % past)
-	_check("the sword is never frozen", froze <= 2, "(%d frames)" % froze)
+	_check("drawn back through most of the slide", back >= end_frame - 10, "(%d of %d frames)" % [back, end_frame])
+	_check("the thrust's peak as the slide ends", end_share > 0.22 and end_share < 0.3, "(at %.3f of the clip)" % end_share)
+	_check("the point goes in there", struck_at > 0 and absi(struck_at - end_frame) <= 3 and struck_share > 0.2
+			and struck_share < 0.3, "(frame %d, slide ended %d; at %.3f)" % [struck_at, end_frame, struck_share])
+	_check("and he stops on it", past < 0.8, "(%.2f m on after)" % past)
+	_check("the sword is never frozen in the slide", froze <= 2, "(%d frames)" % froze)
 	orc.queue_free()
 	await _settle()
 	await _home()
 	_fresh()
 	var from := player.global_position
 	_check("skill 3 at nothing", player.use_skill(2))
+	var share_end := -1.0
 	for i in 90:
 		await physics_frame
+		if share_end < 0.0 and int(player.get("_shade_phase")) != 1:
+			share_end = float(rig.call(&"_progress"))
 	var went := Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
-	_check("at nothing, a long slide (7-10 m)", went > 7.0 and went < 10.0, "(%.2f m)" % went)
+	_check("at nothing, a long slide (7-10 m), the peak at its end", went > 7.0 and went < 10.0
+			and share_end > 0.22 and share_end < 0.3, "(%.2f m, at %.3f)" % [went, share_end])
 	await _settle()

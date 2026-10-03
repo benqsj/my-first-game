@@ -4263,14 +4263,18 @@ func _tick_shade(delta: float) -> void:
 			_shade_dir = _shade_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
 	var pace := _shade_pace()
 	if _shade_lance:
-		# The point has gone in: the slide stops on it, and the thrust is
-		# drawn back out.
-		if not _shade_gone and _landed_serial == int(rig.get(&"attack_serial")):
+		# The point has gone in: the slide stops on it.
+		if _landed_serial == int(rig.get(&"attack_serial")):
 			_shade_phase = -1
 			velocity.x = _shade_dir.x * 1.2
 			velocity.z = _shade_dir.z * 1.2
-			_shade_let_go()
+			if not _shade_gone:
+				_shade_let_go()
 			return
+		# Let go so the thrust is at its peak as he arrives: the ground he
+		# covers until then.
+		if not _shade_gone and _shade_left <= pace * _shade_to_peak() + 0.05:
+			_shade_let_go()
 	# Let go as the blade will cut when he arrives: the ground he covers from
 	# now to the cut.
 	elif not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
@@ -4284,6 +4288,14 @@ func _tick_shade(delta: float) -> void:
 		velocity.z = _shade_dir.z * carry
 		if not _shade_gone:
 			_shade_let_go()
+
+
+## Seconds from where the lance's clip is to its peak, let go now (at its rate).
+func _shade_to_peak() -> float:
+	var length := float(rig.get(&"_action_len"))
+	var at := float(rig.call(&"_progress"))
+	return maxf(length * (float(_charge_spec.get("peak", 0.26)) - at), 0.0) \
+			/ maxf(float(rig.get(&"_action_rate")), 0.01)
 
 
 func _shade_let_go() -> void:

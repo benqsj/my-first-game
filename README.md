@@ -6752,17 +6752,17 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   KV_Attack1H05_R set standing 0.3 s: it read as stuck.)
 * **Skill 3 (key 3): the Shadow Lance** (`Player._shadow_slide(&"shadow_lance")`,
   `Swordsman.SHADOW_LANCE`, style `SkinnedRig.SHADOW_LANCE` 93; the user's
-  word: the sword already out in front through the slide, so it is the blade
-  that runs into the monster, not a thrust after). Kevin's KV_Attack1H05_R at
-  x1.9 to `hold` 0.26, measured as the arm out and the blade level ahead at
-  the chest (tip 2.16 m ahead, 1.5 m up, straight on:
-  `_shots_tmp/lance_probe.gd`), creeping on to 0.272 while he slides (the
-  same slide as the Shadow Slide, shadows and all). The point is out ~4 m
-  before he gets there; it cuts when it reaches the body (its spec's
-  `sure_margin` 0: no reach past the blade's own), the slide stops dead on it
-  and the thrust is drawn back out (`release_cut` on `net_blade_landed`).
-  With nothing struck, the slide runs out (`slide_blind` 8 m) and the thrust
-  is drawn back. 26 stamina, 10 s cooldown, its own picture.
+  word: the thrust's peak, the sword furthest out, falls just as the slide
+  ends at the monster). Kevin's KV_Attack1H05_R drawn back to `hold` 0.15
+  (the blade behind him) and drawn on slowly from there (`creep` 0.12 to
+  0.17) through the slide, shadows and all; let go when the ground left is
+  what he covers until its `peak` 0.26 (`_shade_to_peak`: the arm out and the
+  blade level ahead at the chest, tip 2.16 m ahead, 1.5 m up, straight on:
+  `_shots_tmp/lance_probe.gd`). The slide ends `strike_gap` 1.7 m off the
+  body, so the point goes in at the peak; it cuts only when the point reaches
+  it (`sure_margin` 0) and the slide stops on it. Measured: the point in at
+  0.233 of the clip, the frame after the slide's end; at nothing, 7.8 m and
+  the peak at 0.264 as it ends. 26 stamina, 10 s cooldown, its own picture.
 * **A held cut that creeps** (`SkinnedRig`): a cut spec's `creep` (share of
   its rate) and `creep_until` (share of the clip): held, it comes on slowly
   instead of stopping dead.
