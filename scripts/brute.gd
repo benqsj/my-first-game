@@ -551,7 +551,7 @@ func _watch_blades() -> void:
 				_rouse(knight)
 		if serial == _last_cut.get(knight.name, -1):
 			continue
-		var edge := knight.rig.get_cutting_edge()
+		var edge := knight.cutting_edge_for(self)
 		if edge.is_empty():
 			continue
 		var low := global_position + Vector3.UP * body_radius

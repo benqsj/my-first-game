@@ -850,6 +850,8 @@ func _physics_process(delta: float) -> void:
 	_game_t += delta
 	_tick_timers(delta)
 	_tick_charge()
+	_tick_thrust(delta)
+	_track_sure(delta)
 	_judge_whiff()
 	_tick_bash(delta)
 	_tick_vitals(delta)
@@ -1114,7 +1116,7 @@ func _process_locomotion(delta: float) -> void:
 			speed *= lerpf(1.0, commit_speed_scale, eased)
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
-	if _root_timer > 0.0:
+	if _root_timer > 0.0 or _thrust_phase == 0:
 		speed = 0.0
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -1141,6 +1143,10 @@ func _process_locomotion(delta: float) -> void:
 			# The swing held in its bite holds the body too: no gliding on
 			# under a blade that has stopped, and the step waits for it.
 			horizontal *= BITE_GLIDE
+		elif _thrust_phase == 1:
+			# The slide: straight in at its own pace, facing where it goes.
+			horizontal = _thrust_dir * thrust_slide_speed
+			rotation.y = atan2(-_thrust_dir.x, -_thrust_dir.z)
 		elif _step_left > 0.0:
 			_step_left -= delta
 			horizontal = _step_velocity
@@ -1173,6 +1179,12 @@ func _process_locomotion(delta: float) -> void:
 		horizontal = rig.get(&"carry_velocity")
 		if _bitten():
 			horizontal *= BITE_GLIDE
+
+	# The thrust set: he stands; the slide: nothing but the slide moves him.
+	if _thrust_phase == 0:
+		horizontal = Vector3.ZERO
+	elif _thrust_phase == 1:
+		horizontal = _thrust_dir * thrust_slide_speed
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -2723,6 +2735,10 @@ func _attack(heavy: bool = false) -> void:
 		elif run_cut:
 			style = SkinnedRig.RUN_CUT
 		net_attack.rpc(style)
+		if run_cut:
+			_mark_sure(_sure_pick())
+		elif _sure_foe != null:
+			net_sure_at.rpc(NodePath())
 		_commit(rig.swing_time())
 		_ease_delay = 0.0
 		if run_cut and rig.has_method(&"holding_cut"):
@@ -3271,6 +3287,142 @@ func _turn_to_target() -> void:
 	to_them.y = 0.0
 	if to_them.length_squared() > 0.0001:
 		rotation.y = atan2(-to_them.x, -to_them.z)
+#endregion
+
+
+#region Cuts that do not miss
+@export_group("Sure cuts")
+## The running cut and Tariel's skills (TARIEL_POLISH.md 11-12) do not miss
+## what they are thrown at — the locked target, else what the move picked —
+## for the blade passing over it, under it or a hand's breadth beside it
+## (standing within `sure_rise` above or below him).
+## They miss it only when it is out of the way: in its dodge
+## (`is_evading()`), out of the blade's reach, or gone off to the side: more
+## than `sure_cone` degrees round from where he faces AND far enough over that
+## the line he faces along no longer goes through the middle `sure_side` of
+## its body (a third of it gone past the line, it is missed).
+@export var sure_cone: float = 25.0
+@export_range(0.0, 1.0) var sure_side: float = 0.65
+## Past the blade's own reach (its tip from his middle, along the ground) by
+## this much, still in reach; its feet this far above or below his, still cut.
+@export var sure_reach_margin: float = 0.45
+@export var sure_rise: float = 2.4
+## Until the blade starts to cut he turns after it, this quickly (as a lock
+## turns him); not after something that has got round behind him.
+@export var sure_turn_speed: float = 14.0
+@export var sure_follow_cone: float = 110.0
+## What the cut in hand does not miss, on every peer, and which swing it is.
+var _sure_foe: Node3D = null
+var _sure_serial: int = -1
+
+
+## What a cut that does not miss is thrown at: the locked target, else the
+## nearest thing to fight ahead of the way he goes.
+func _sure_pick() -> Node3D:
+	if target != null and _targetable(target):
+		return target
+	return _charge_target()
+
+
+## The swing just thrown does not miss `foe` (every peer is told).
+func _mark_sure(foe: Node3D) -> void:
+	net_sure_at.rpc(foe.get_path() if foe != null else NodePath())
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_sure_at(foe: NodePath) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	_sure_foe = get_node_or_null(foe) as Node3D if not foe.is_empty() else null
+	_sure_serial = int(rig.get(&"attack_serial")) if rig != null and rig.get(&"attack_serial") != null else -1
+
+
+## The edge of his blade as `who` is to take it (what the creatures read,
+## each for itself): the blade's own, or — a cut that does not miss, at what
+## it was thrown at, while it cuts — that edge moved onto it, through where a
+## cut is aimed at it ([method strike_point]).
+func cutting_edge_for(who: Node3D) -> PackedVector3Array:
+	var edge: PackedVector3Array = rig.get_cutting_edge() if rig != null else PackedVector3Array()
+	if edge.is_empty() or who == null or who != _sure_foe or not sure_holds(who, edge):
+		return edge
+	# Onto the line up its middle, at the blade's own height as near as it may
+	# be: between a quarter of the way up to where a cut is aimed at it and
+	# there (over a wolf, down to its back; under a tall orc's chest, up to it).
+	var foot := who.global_position
+	var top := maxf(strike_point(who).y, foot.y + 0.3)
+	var axis := Geometry3D.get_closest_points_between_segments(edge[0], edge[1],
+			foot, Vector3(foot.x, top, foot.z))
+	var near: Vector3 = axis[0]
+	var onto := Vector3(foot.x, clampf(near.y, lerpf(foot.y, top, 0.25), top), foot.z)
+	var shift := onto - near
+	return PackedVector3Array([edge[0] + shift, edge[1] + shift])
+
+
+## Whether the cut in hand, its edge at `edge`, cannot miss `who` now (see
+## `sure_cone`).
+func sure_holds(who: Node3D, edge: PackedVector3Array) -> bool:
+	if who != _sure_foe or rig == null or int(rig.get(&"attack_serial")) != _sure_serial:
+		return false
+	if not _targetable(who) or (who.has_method(&"is_evading") and bool(who.call(&"is_evading"))):
+		return false
+	if absf(who.global_position.y - global_position.y) > sure_rise:
+		return false
+	var to := who.global_position - global_position
+	to.y = 0.0
+	var d := to.length()
+	var r := _blade_radius(who)
+	var reach := 0.0
+	for p in edge:
+		reach = maxf(reach, Vector2(p.x - global_position.x, p.z - global_position.z).length())
+	if d - r > reach + sure_reach_margin:
+		return false
+	if d < maxf(r, 0.01):
+		return true
+	var facing := -global_basis.z
+	facing.y = 0.0
+	facing = facing.normalized()
+	if facing.dot(to) < 0.0:
+		return false
+	var off := rad_to_deg(acos(clampf(facing.dot(to / d), -1.0, 1.0)))
+	var side := absf(facing.cross(to).y)
+	return off <= sure_cone or side <= r * sure_side
+
+
+## Until a cut that does not miss starts cutting, he turns after what it is
+## thrown at (the owner's; the turn goes out with the body).
+func _track_sure(delta: float) -> void:
+	if _sure_foe == null or not is_instance_valid(_sure_foe) or rig == null or not _targetable(_sure_foe):
+		return
+	if int(rig.get(&"attack_serial")) != _sure_serial or not is_committed() or _thrust_phase == 1:
+		return
+	if not rig.has_method(&"time_to_cut"):
+		return
+	if not (bool(rig.call(&"holding_cut")) or float(rig.call(&"time_to_cut")) > 0.0):
+		return
+	if _sure_foe.has_method(&"is_evading") and bool(_sure_foe.call(&"is_evading")):
+		return
+	var to := _sure_foe.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() < 0.0001:
+		return
+	var facing := -global_basis.z
+	facing.y = 0.0
+	if facing.normalized().dot(to.normalized()) < cos(deg_to_rad(sure_follow_cone)):
+		return
+	rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-sure_turn_speed * delta))
+
+
+## How wide `who` is to a blade: what the creature's own blade test reads
+## (a [Fighter]'s radius is drawn at its size, the others' as it is).
+static func _blade_radius(who: Node3D) -> float:
+	var r: Variant = who.get(&"body_radius")
+	if r == null:
+		return 0.45
+	if who is Fighter:
+		var s: Variant = who.get(&"visual_scale")
+		return float(r) * maxf(float(s) if s != null else 1.0, 0.01)
+	return float(r)
 #endregion
 
 
@@ -3892,6 +4044,7 @@ const SKILLS := {
 	&"fire_arrow": {"name": "Fire Arrow", "stamina": 25.0, "cooldown": 12.0},
 	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
 	&"rising_cut": {"name": "Rising Cut", "stamina": 22.0, "cooldown": 8.0},
+	&"slide_thrust": {"name": "Sliding Thrust", "stamina": 24.0, "cooldown": 9.0},
 }
 const SKILL_SLOTS := 4
 
@@ -3953,6 +4106,8 @@ func use_skill(slot: int) -> bool:
 			went = _poison_blade()
 		&"rising_cut":
 			went = _rising_cut()
+		&"slide_thrust":
+			went = _slide_thrust()
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -3998,9 +4153,137 @@ func _rising_cut() -> bool:
 	_charge_spec = rig.call(&"cut_spec", "rising_cut")
 	_charge_t0 = _game_t
 	_charge_foe = foe
+	_mark_sure(foe)
 	_commit(float(_charge_spec.get("hold_max", run_cut_hold_max)) + 2.0)
 	_attack_buffer = 0.0
 	return true
+
+
+## The Sliding Thrust (Tariel's second skill, [Swordsman] `SLIDE_THRUST`):
+## the thrust set where he stands for a beat, then a slide in at what he
+## picked, shadows shed behind him, and the point put into it.
+@export_group("Sliding Thrust")
+## How far ahead (metres) it picks what to slide at.
+@export var thrust_seek: float = 12.0
+## The slide's pace (m/s): four metres in a fifth of a second.
+@export var thrust_slide_speed: float = 22.0
+## The set (0), the slide (1) or neither (-1); since when it is set; the
+## slide left (metres), its way, and whether the thrust has been let go.
+var _thrust_phase: int = -1
+var _thrust_set_at: float = -1.0
+var _thrust_left: float = 0.0
+var _thrust_dir: Vector3 = Vector3.ZERO
+var _thrust_gone: bool = false
+
+
+func _slide_thrust() -> bool:
+	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", "slide_thrust")):
+		return false
+	if not is_on_floor():
+		return false
+	if not _spend(float(SKILLS[&"slide_thrust"]["stamina"])):
+		return false
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	_set_weapons_stowed(false)
+	var foe := _charge_target(thrust_seek)
+	if foe != null:
+		var to := foe.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			rotation.y = atan2(-to.x, -to.z)
+	_free_swing = false
+	_swing_t0 = _game_t
+	_swing_chain = 1
+	_whiff_counts = _foe_within(whiff_near)
+	attack_started.emit()
+	net_attack.rpc(SkinnedRig.SLIDE_THRUST)
+	_charge_spec = rig.call(&"cut_spec", "slide_thrust")
+	_charge_foe = foe
+	_mark_sure(foe)
+	_thrust_phase = 0
+	_thrust_set_at = -1.0
+	_thrust_gone = false
+	_commit(3.0)
+	_attack_buffer = 0.0
+	return true
+
+
+## The thrust set, then slid in and let go (the owner's, on the physics clock).
+func _tick_thrust(delta: float) -> void:
+	if _thrust_phase < 0:
+		return
+	if rig == null or (not _thrust_gone and not bool(rig.call(&"holding_cut"))):
+		# broken off (a blow took the clip off him)
+		_thrust_phase = -1
+		return
+	var spec := _charge_spec
+	var foe := _charge_foe if _charge_foe != null and is_instance_valid(_charge_foe) \
+			and _targetable(_charge_foe) else null
+	if _thrust_phase == 0:
+		if not bool(rig.call(&"cut_is_set")):
+			return
+		if _thrust_set_at < 0.0:
+			_thrust_set_at = _game_t
+		if _game_t - _thrust_set_at < float(spec.get("set", 0.3)):
+			return
+		_thrust_dir = -global_basis.z
+		_thrust_dir.y = 0.0
+		_thrust_left = float(spec.get("slide_blind", 4.0))
+		if foe != null:
+			var to := foe.global_position - global_position
+			to.y = 0.0
+			if to.length_squared() > 0.0001:
+				_thrust_dir = to.normalized()
+			_thrust_left = clampf(to.length() - _blade_radius(foe) - float(spec.get("strike_gap", 0.75)),
+					0.0, float(spec.get("slide_max", 5.0)))
+		_thrust_dir = _thrust_dir.normalized()
+		_thrust_phase = 1
+		net_slide.rpc(_thrust_left / maxf(thrust_slide_speed, 0.1))
+	# The slide: on at what it was thrown at (it is followed, not led), the
+	# thrust let go as the point will reach it.
+	if foe != null and not (foe.has_method(&"is_evading") and bool(foe.call(&"is_evading"))):
+		var to := foe.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			_thrust_dir = _thrust_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
+	var lead := thrust_slide_speed * float(rig.call(&"time_to_cut")) if _thrust_gone else 0.0
+	if not _thrust_gone:
+		# from the hold to the point going in, at the clip's rate
+		var len := float(rig.get(&"_action_len"))
+		var w: Vector2 = (rig.get(&"cut_window") as Dictionary).get(spec["clip"], Vector2(0.186, 0.286))
+		lead = thrust_slide_speed * len * maxf(w.x - float(spec.get("hold", 0.15)), 0.0) \
+				/ maxf(float(spec.get("rate", 1.0)), 0.01)
+	if not _thrust_gone and _thrust_left <= lead:
+		_thrust_gone = true
+		net_release_cut.rpc()
+		_commit_timer = 0.0
+		_commit(float(rig.get(&"_swing_commit")))
+		_swing_t0 = _game_t
+	_thrust_left -= thrust_slide_speed * delta
+	if _thrust_left <= 0.0:
+		_thrust_phase = -1
+		# out of the slide, a step's worth of it carried on
+		velocity.x = _thrust_dir.x * 2.0
+		velocity.z = _thrust_dir.z * 2.0
+		if not _thrust_gone:
+			_thrust_gone = true
+			net_release_cut.rpc()
+			_commit_timer = 0.0
+			_commit(float(rig.get(&"_swing_commit")))
+			_swing_t0 = _game_t
+
+
+## Sliding in now: what slides with him on every peer — the shadows shed
+## behind him the length of the slide, and the hiss of it.
+@rpc("any_peer", "call_local", "reliable")
+func net_slide(seconds: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	ShadowTrail.start(self, seconds + 0.12, 0.028)
+	Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.15, -3.0)
 
 
 ## Rain of Arrows: one arrow up into the sky, and a moment later a volley down

@@ -639,7 +639,7 @@ func _watch_blades() -> void:
 			_answer_swing(knight)
 		if serial == _last_cut.get(knight.name, -1):
 			continue
-		var edge := knight.rig.get_cutting_edge()
+		var edge := knight.cutting_edge_for(self)
 		if edge.is_empty():
 			continue
 		var s := maxf(visual_scale, 0.01)

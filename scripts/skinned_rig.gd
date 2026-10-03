@@ -87,8 +87,11 @@ const HEAVY := 100
 const RUN_CUT := 90
 ## The attack style of Tariel's skill, the rising cut (the moves' `rising_cut`).
 const RISING_CUT := 91
+## The attack style of Tariel's second skill, the sliding thrust (the moves'
+## `slide_thrust`).
+const SLIDE_THRUST := 92
 ## The moves' spec each of those styles plays.
-const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut"}
+const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut", SLIDE_THRUST: "slide_thrust"}
 ## Clips that cut more than once: every window its own blow (a new attack
 ## serial, a new whoosh), as shares of the clip.
 var cut_windows: Dictionary = {}
@@ -1298,7 +1301,7 @@ func attack(style: int = -1) -> void:
 		# goes on from its second blow after it (its spec's `string_at`). The
 		# rising cut, the skill, is played the same way.
 		var rc: Dictionary = moves[CUT_SPECS[style]]
-		_attack_style = AttackStyle.SIDE
+		_attack_style = AttackStyle.THRUST if style == SLIDE_THRUST else AttackStyle.SIDE
 		_heavy_now = false
 		cut_weight = float(rc.get("weight", 1.0))
 		_last_attack_at = Time.get_ticks_msec() / 1000.0
@@ -1432,6 +1435,11 @@ var _holding: bool = false
 ## A running cut wound up and held, not yet let go.
 func holding_cut() -> bool:
 	return _hold_at > 0.0 and _role == Role.SWING
+
+
+## The held cut has got to where it is held (it is set, not still winding up).
+func cut_is_set() -> bool:
+	return holding_cut() and _holding
 
 
 ## Lets the held cut go: on from where it is held at the clip's rate. Returns

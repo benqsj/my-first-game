@@ -1726,7 +1726,7 @@ func _take_hits() -> void:
 		var serial: int = knight.rig.attack_serial
 		if serial == _last_hit_serial.get(knight.name, -1):
 			continue
-		var edge := _within_reach(knight.rig.get_cutting_edge())
+		var edge := _within_reach(knight.cutting_edge_for(self))
 		if edge.is_empty():
 			continue
 

@@ -6639,3 +6639,42 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   ten clips as the running cut, each at speed and at x0.35).
 * `tests/tariel_moves_test.gd`: the Rising Cut at an orc 8 m off (runs in,
   cuts, hurts it, cooldown) and at nothing.
+
+### Cuts that do not miss, skill 2 the Sliding Thrust, the shadow found again (2026-10-03, night; TARIEL_POLISH 11-13)
+* **Cuts that do not miss** (`Player` region "Cuts that do not miss"): the
+  running cut, the Rising Cut and the Sliding Thrust are marked "sure" at what
+  they are thrown at (the locked target, else what the move picked;
+  `net_sure_at` to every peer with the swing's `attack_serial`). The
+  creatures read his blade through `Player.cutting_edge_for(self)` instead of
+  `rig.get_cutting_edge()` (Brute, Fighter, Wolf): while it cuts, for the sure
+  foe, if `sure_holds()`, the edge is moved onto the line up its middle, at
+  the blade's own height clamped between a quarter of the way up to its
+  `strike_point` and there. So the cut lands over a wolf, under a tall orc's
+  chest, on a puglin at his knee. What still misses: the foe in its dodge
+  (`is_evading()`), out of reach (the blade tip's reach along the ground
+  + `sure_reach_margin` 0.45), feet more than `sure_rise` 2.4 m above or
+  below his, behind him, or **gone off to the side**: more than `sure_cone`
+  25° round AND its middle more than `sure_side` 0.65 of its radius off the
+  line he faces (a third of it past the line: missed). Until the blade starts
+  to cut he turns after it (`_track_sure`, `sure_turn_speed` 14), not after
+  something round behind him (`sure_follow_cone` 110°) or in its dodge.
+* **Skill 2 (key 2): the Sliding Thrust** (`Player._slide_thrust`,
+  `_tick_thrust`, `Swordsman.SLIDE_THRUST`, style `SkinnedRig.SLIDE_THRUST`
+  92): Kevin's `KV_Attack1H05_R` played to its `hold` 0.15 and set there
+  (`SkinnedRig.cut_is_set`), he stands 0.3 s (nothing moves him), then
+  slides in at `thrust_slide_speed` 22 m/s at what he picked (seek 12 m,
+  followed as it goes) up to `slide_max` 5 m, stopping `strike_gap` 0.75 m
+  off its body; the thrust let go so the point goes in as the slide ends.
+  With nothing to slide at, `slide_blind` 4 m. Shadows shed the length of the
+  slide (`net_slide`: `ShadowTrail.start(self, secs, 0.028)`) and the shadow
+  hiss. 24 stamina, 9 s cooldown, its picture on the bar.
+* **The shadow found again**: `ShadowTrail` copied the first Skeleton3D under
+  the hero, which on the mannequin is his own model, hidden, with no mesh
+  shown: the copies had nothing in them, for Avtandil and the assassin too.
+  Now `ShadowTrail.shown_skeleton()`: the shown skeleton with the most shown
+  meshes (the maker's figure), and only shown meshes copied. Tariel's profile
+  has `shadow_dodge` now (TARIEL_POLISH 13).
+* `tests/sure_cut_test.gd`: the shadow has the figure in it; the rules asked
+  straight; the running cut locked on an orc, a wolf, a puglin, straight and a
+  little aside, all land; a wolf in its dodge is not touched; the thrust's
+  set, slide (3-5 m, < 20 frames), shadows, the point in, and at nothing.
