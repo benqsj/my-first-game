@@ -6739,17 +6739,20 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
 * **Skill 2 (key 2): the Shadow Slide** (`Player._shadow_slide`,
   `_tick_shade`, `Swordsman.SHADOW_SLIDE`, style `SkinnedRig.SHADOW_SLIDE`
   92; the user's word: the running cut out of a slide, no stop in it, like a
-  cast). UAL 2's `Sword_Light_D` (the running cut's clip): the blade drawn
-  back to `hold` 0.035 of the clip and coming on from there at `creep` 0.22
-  of its rate (no further than `creep_until` 0.07, short of its cut at 0.09)
-  — never frozen. The shadows start with the key; he slides at once, the pace
-  eased in from a quarter over `shade_ease` 0.14 s to `shade_speed` 22 m/s, at
-  what he picked (seek 12 m, followed as it goes) up to `slide_max` 7 m,
-  `strike_gap` 1.0 m off its body; with nothing before him `slide_blind` 8 m.
-  The cut is let go when the ground left is what he covers until it cuts
-  (`time_to_cut`), and out of the slide 4 m/s is carried into it. 24
-  stamina, 9 s cooldown, its picture on the bar. (First tried as a thrust,
-  KV_Attack1H05_R set standing 0.3 s: it read as stuck.)
+  cast, and the swing's peak just as the slide ends). UAL 2's `Sword_Light_D`
+  (the running cut's clip): the blade drawn back to `hold` 0.02 (behind him)
+  and coming on at `creep` 0.15 of its rate to `creep_until` 0.05 — never
+  frozen — through the slide; let go so its `peak` 0.17 (the blade come round
+  level ahead, tip 2.1-2.4 m out, measured with `_shots_tmp/lance_probe.gd`)
+  comes as the slide ends, `strike_gap` 1.8 m off the body; it cuts when the
+  blade reaches it (`sure_margin` 0) and the slide stops on it. The shadows
+  start with the key; the slide's pace eases in from a quarter over
+  `shade_ease` 0.14 s to `shade_speed` 22 m/s, at what he picked (seek 12 m,
+  followed) up to `slide_max` 7 m; with nothing before him `slide_blind` 8 m.
+  The release is timed off the whole slide's duration, worked out as it
+  starts (`_shade_duration`, the eased pace ticked as the body is): timed off
+  the pace at the moment, a short slide let go too late. 24 stamina, 9 s
+  cooldown, its picture on the bar.
 * **Skill 3 (key 3): the Shadow Lance** (`Player._shadow_slide(&"shadow_lance")`,
   `Swordsman.SHADOW_LANCE`, style `SkinnedRig.SHADOW_LANCE` 93; the user's
   word: the thrust's peak, the sword furthest out, falls just as the slide

@@ -4188,6 +4188,8 @@ var _shade_dir: Vector3 = Vector3.ZERO
 var _shade_gone: bool = false
 ## The slide is the lance's (the blade out in front, stopped by what it hits).
 var _shade_lance: bool = false
+## How long the whole slide takes (seconds), worked out as it starts.
+var _shade_time: float = 0.0
 
 
 ## `key` "shadow_lance": the Shadow Lance (Tariel's third skill, [Swordsman]
@@ -4232,6 +4234,7 @@ func _shadow_slide(key: StringName = &"shadow_slide") -> bool:
 	_shade_phase = 1
 	_shade_t0 = _game_t
 	_shade_gone = false
+	_shade_time = _shade_duration(_shade_left)
 	# (as long as the slide takes, eased in, and the shadows' own fading)
 	net_slide.rpc(_shade_left / maxf(shade_speed, 0.1) + shade_ease * 0.5)
 	_commit(3.0)
@@ -4241,8 +4244,22 @@ func _shadow_slide(key: StringName = &"shadow_slide") -> bool:
 
 ## The slide's pace now: eased in from standing over `shade_ease`.
 func _shade_pace() -> float:
-	var t := clampf((_game_t - _shade_t0) / maxf(shade_ease, 0.01), 0.0, 1.0)
+	return _shade_pace_at(_game_t - _shade_t0)
+
+
+func _shade_pace_at(since: float) -> float:
+	var t := clampf(since / maxf(shade_ease, 0.01), 0.0, 1.0)
 	return shade_speed * lerpf(0.25, 1.0, t * t * (3.0 - 2.0 * t))
+
+
+## How long a slide of `metres` takes, eased in as it is (ticked as the body is).
+func _shade_duration(metres: float) -> float:
+	var step := 1.0 / maxf(float(Engine.physics_ticks_per_second), 1.0)
+	var t := 0.0
+	while metres > 0.0 and t < 5.0:
+		metres -= _shade_pace_at(t) * step
+		t += step
+	return t
 
 
 ## The slide and its cut let go (the owner's, on the physics clock).
@@ -4262,8 +4279,8 @@ func _tick_shade(delta: float) -> void:
 		if to.length_squared() > 0.0001:
 			_shade_dir = _shade_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
 	var pace := _shade_pace()
-	if _shade_lance:
-		# The point has gone in: the slide stops on it.
+	if _charge_spec.has("peak"):
+		# The blade has gone in: the slide stops on it.
 		if _landed_serial == int(rig.get(&"attack_serial")):
 			_shade_phase = -1
 			velocity.x = _shade_dir.x * 1.2
@@ -4271,9 +4288,9 @@ func _tick_shade(delta: float) -> void:
 			if not _shade_gone:
 				_shade_let_go()
 			return
-		# Let go so the thrust is at its peak as he arrives: the ground he
-		# covers until then.
-		if not _shade_gone and _shade_left <= pace * _shade_to_peak() + 0.05:
+		# Let go so the swing is at its peak as he arrives: when what is left
+		# of the slide's time is what it takes the clip to get there.
+		if not _shade_gone and _game_t - _shade_t0 + _shade_to_peak() >= _shade_time - 0.01:
 			_shade_let_go()
 	# Let go as the blade will cut when he arrives: the ground he covers from
 	# now to the cut.

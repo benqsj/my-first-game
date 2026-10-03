@@ -59,14 +59,18 @@ const RUN_ATTACK := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.25}
 const RISING_CUT := {"clip": &"Sword_UpperCut", "rate": 1.0, "weight": 1.7, "hold": 0.06,
 	"strike_gap": 1.1, "pace": 1.12, "hold_max": 1.6, "blind_hold": 0.45, "string_at": -1}
 ## Tariel's second skill, the Shadow Slide (TARIEL_POLISH.md 12, the user's
-## word 2026-10-03: the running cut, out of a slide, with the shadows): UAL 2's
-## Sword_Light_D, the blade drawn back (`hold` 0.035 of the clip) and coming on
-## slowly from there (`creep`, a share of its rate, no further than
-## `creep_until`, short of its cut at 0.09) while he slides in at what he
-## picked, up to `slide_max` metres; with nothing before him `slide_blind`.
-## Let go to cut `strike_gap` metres (body to body) off it.
-const SHADOW_SLIDE := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.6, "hold": 0.035, "creep": 0.22,
-	"creep_until": 0.07, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.0, "string_at": -1}
+## word 2026-10-03: the running cut, out of a slide, with the shadows, and the
+## swing's peak just as the slide ends): UAL 2's Sword_Light_D, the blade
+## drawn back (`hold` 0.02 of the clip, behind him) and coming on slowly from
+## there (`creep`, a share of its rate, to `creep_until`, still behind) while
+## he slides in at what he picked, up to `slide_max` metres (with nothing
+## before him `slide_blind`); let go so the sweep's `peak` (0.17: the blade
+## come round level ahead, tip 2.1-2.4 m out; `_shots_tmp/lance_probe.gd`)
+## comes as the slide ends, `strike_gap` metres (body to body) off it. It
+## cuts when the blade reaches it (`sure_margin` 0).
+const SHADOW_SLIDE := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.6, "hold": 0.02, "creep": 0.15,
+	"creep_until": 0.05, "peak": 0.17, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.8,
+	"sure_margin": 0.0, "string_at": -1}
 ## Tariel's third skill, the Shadow Lance (the user's word, 2026-10-03: the
 ## thrust's peak, the sword furthest out, falls just as the slide ends at the
 ## monster): Kevin's lunge and thrust (KV_Attack1H05_R) drawn back to `hold`

@@ -6,8 +6,9 @@ extends SceneTree
 ##   little aside is cut; well off to the side, out of reach or in its dodge
 ##   is not;
 ## - the Shadow Slide (skill 2): the running cut out of a slide, gone at
-##   once (no standing, the sword never frozen), in to the orc 7 m off,
-##   shadows shed behind him, the cut landing; at nothing, a longer slide;
+##   once (no standing, the sword never frozen), the blade drawn back through
+##   it and the sweep's peak as it ends at the orc, the cut landing there;
+##   at nothing, a longer slide;
 ## - the Shadow Lance (skill 3): the sword drawn back through the slide, the
 ##   thrust's peak as it ends, the point into the orc there; at nothing, a
 ##   long slide, the peak at its end;
@@ -246,7 +247,8 @@ func _run_cut_at(scene: String, aside: float, dodging: bool) -> void:
 	await _settle()
 
 
-## Skill 2: the Shadow Slide: the running cut out of a slide, no stop in it.
+## Skill 2: the Shadow Slide: the running cut out of a slide, no stop in it,
+## the blade drawn back through the slide and the sweep's peak as it ends.
 func _check_thrust() -> void:
 	await _home()
 	_fresh()
@@ -262,42 +264,58 @@ func _check_thrust() -> void:
 	var shadows := 0
 	var stood := 0
 	var froze := 0
+	var back := 0
+	var end_frame := -1
+	var end_share := -1.0
+	var struck_at := -1
+	var struck_share := -1.0
 	var last := player.global_position
-	while int(player.get("_shade_phase")) == 1 and frames < 60:
+	for i in 70:
 		await physics_frame
 		frames += 1
-		var step := Vector2(player.global_position.x - last.x, player.global_position.z - last.z).length()
+		var share := float(rig.call(&"_progress"))
+		if int(player.get("_shade_phase")) == 1:
+			var step := Vector2(player.global_position.x - last.x, player.global_position.z - last.z).length()
+			if step < 0.02:
+				stood += 1
+			if rig._anim.speed_scale <= 0.0:
+				froze += 1
+			if share < 0.08:
+				back += 1
+			var trail := player.get_node_or_null("ShadowTrail") as ShadowTrail
+			if trail != null:
+				shadows = maxi(shadows, trail._copies.size())
+		elif end_frame < 0:
+			end_frame = frames
+			end_share = share
 		last = player.global_position
-		if step < 0.02:
-			stood += 1
-		if rig._anim.speed_scale <= 0.0:
-			froze += 1
-		var trail := player.get_node_or_null("ShadowTrail") as ShadowTrail
-		if trail != null:
-			shadows = maxi(shadows, trail._copies.size())
-	var to := orc.global_position - player.global_position
-	to.y = 0.0
-	var gap := to.length() - Player._blade_radius(orc)
+		if struck_at < 0 and _health(orc) < hp:
+			struck_at = frames
+			struck_share = share
 	_check("he goes at once and never stands in it", stood <= 1, "(%d frames standing)" % stood)
 	_check("and the sword is never frozen", froze <= 2, "(%d frames frozen)" % froze)
-	_check("the slide takes him in to it (0.5-1.6 m off)", gap > 0.5 and gap < 1.6 and frames < 30,
-			"(%.2f m off after %d frames, went %.2f m)" % [gap, frames, (player.global_position - from).length()])
+	_check("the blade drawn back through most of the slide", back >= end_frame - 10, "(%d of %d frames)" % [back, end_frame])
+	_check("the sweep's peak as the slide ends", end_share > 0.12 and end_share < 0.21, "(at %.3f of the clip)" % end_share)
+	_check("the blade goes in there", struck_at > 0 and absi(struck_at - end_frame) <= 3,
+			"(frame %d, slide ended %d; at %.3f; went %.2f m)" % [struck_at, end_frame, struck_share,
+			(player.global_position - from).length()])
 	_check("shadows shed behind him", shadows >= 3, "(%d)" % shadows)
-	for i in 40:
-		await physics_frame
-	_check("the cut lands on the orc", _health(orc) < hp, "(%.0f -> %.0f)" % [hp, _health(orc)])
 	_check("on cooldown", player.skill_cooldown_left(1) > 0.0)
 	orc.queue_free()
 	await _settle()
-	# With nothing before him: further, about 8 m.
+	# With nothing before him: further, about 8 m, the peak at its end.
 	await _home()
 	_fresh()
 	from = player.global_position
 	_check("skill 2 at nothing", player.use_skill(1))
+	var share_end := -1.0
 	for i in 90:
 		await physics_frame
+		if share_end < 0.0 and int(player.get("_shade_phase")) != 1:
+			share_end = float(rig.call(&"_progress"))
 	var went := Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
-	_check("at nothing, a longer slide (7-10 m)", went > 7.0 and went < 10.0, "(%.2f m)" % went)
+	_check("at nothing, a longer slide (7-10 m), the peak at its end", went > 7.0 and went < 10.0
+			and share_end > 0.12 and share_end < 0.21, "(%.2f m, at %.3f)" % [went, share_end])
 	await _settle()
 
 
