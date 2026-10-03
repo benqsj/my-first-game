@@ -6061,7 +6061,12 @@ test arena's flat floor. Since the follower turns the figure's bones from
 their rest as the mannequin's turn from its own, which stands flat, it carried
 that tip into every clip. `ps_creator.py` now turns each `<S>_ankle_joint`
 back to how the pack made it before the rest is applied, and the sole lies
-flat (within 2 cm heel to toe). Only `mannequin_m.glb` and
+flat (within 2 cm heel to toe). The legs set onto the hero's also stand
+1.7 cm shorter, so every sole went that far under the ground (the user saw
+the foot sunk); right after the rest is applied, the whole figure is lifted
+till the bare foot's sole (`ps_bottombody`) is on the ground. The figure's
+hips are 1.6 % higher for it, and `FigureFollower._scale` with them. Only
+`mannequin_m.glb` and
 `mannequin_f.glb`, the figures every hero wears, were written again; the
 per-hero glbs get it when next rebuilt. `stride_test` checks it standing
 ("the sole lies flat").
