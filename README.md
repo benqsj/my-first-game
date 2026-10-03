@@ -6941,11 +6941,17 @@ Flesh is the wet thud as before (hard for a weight ≥ 1.45). Bone cracks:
 three dry snaps over a short knock. The steel's own ring (`hit_1`) plays over
 either, louder and lower the heavier the cut (+2.5 dB and −10 % per unit of
 weight over 1), and higher over bone.
-The other sounds are made in code at load, like the thud. Stone is high
-partials that do not agree, with grit. Wood is a hollow low knock. The guard
-is steel on steel.
+Stone gets no steel ring, only its own sound. The other sounds are made in
+code at load, like the thud:
+- **stone**: a dull knock falling from 100 to 45 Hz, with grains of grit
+  breaking over it. Nothing rings: the first version was high partials and
+  the user heard a golem ring like a bell.
+- **wood**: a hollow low knock.
+- **guard**: the recorded blow on a shield (`block_1`, the hero's own
+  block), with a short dull thunk under it. The made steel-on-steel ring was
+  not liked either.
 
-**Caught on a guard, it rings**: `net_clash` (an imp or a skeleton
+**Caught on a guard, it is heard**: `net_clash` (an imp or a skeleton
 blocking; an arrow off an orc) now plays `strike(.., &"guard")` with the
 puff.
 

@@ -8,10 +8,14 @@ extends RefCounted
 static var _thud: AudioStreamWAV
 ## The other things a blade can meet, made the same way (see [method strike]).
 static var _made: Dictionary = {}
+## A blade caught on a guard: the recording of a blow on a shield (the one the
+## hero's block plays, `Player.BLOCK_SOUND`), the made thunk under it.
+const GUARD_BLOCK := "res://unverified/sounds/all/block_1.wav"
 
 
 ## Builds the sound now rather than on the first blow.
 static func warm() -> void:
+	Sfx.warm([GUARD_BLOCK])
 	if _thud == null:
 		_thud = _make_thud()
 	for what: StringName in [&"bone", &"stone", &"wood", &"guard"]:
@@ -47,8 +51,8 @@ static func matter_of(node: Node) -> StringName:
 
 
 ## A blade meeting `what` (see [method matter_of]; &"guard" for a blade caught
-## on a guard or shield), heard at `at`: bone cracking, steel ringing off
-## stone, a dull knock in wood, steel on steel. `heft` (a blow's weight, 1 a
+## on a guard or shield), heard at `at`: bone cracking, stone crunching, a
+## dull knock in wood, a blow on a shield. `heft` (a blow's weight, 1 a
 ## plain cut) makes it louder and deeper. Flesh is [method thud]'s.
 static func strike(owner: Node, at: Vector3, what: StringName, heft: float = 1.0) -> void:
 	if owner == null or not owner.is_inside_tree():
@@ -60,6 +64,10 @@ static func strike(owner: Node, at: Vector3, what: StringName, heft: float = 1.0
 	var stream: AudioStreamWAV = _made.get(what, null)
 	if stream == null:
 		return
+	if what == &"guard":
+		# the block the hero's own shield makes, over the thunk
+		Sfx.play(owner, GUARD_BLOCK, null, at, randf_range(0.9, 1.05) * (1.0 - 0.1 * clampf(heft - 1.0, 0.0, 1.0)),
+				-13.0 + 2.0 * clampf(heft - 1.0, -0.4, 1.0))
 	var player := AudioStreamPlayer3D.new()
 	player.stream = stream
 	var k := clampf(heft - 1.0, -0.4, 1.0)
@@ -182,12 +190,12 @@ static func _make_thud() -> AudioStreamWAV:
 
 ## The sounds of [method strike], made rather than recorded, as the thud is:
 ## - bone: a dry crack, three snaps close together over a short knock;
-## - stone: steel ringing off it, high partials that do not agree, with grit;
+## - stone: a dull knock with grit breaking over it, nothing that rings;
 ## - wood: a hollow knock, low partials dying quickly, and a click;
-## - guard: steel on steel, a lower ring than stone's, with a clank under it.
+## - guard: a dull thunk, under the recorded block (`GUARD_BLOCK`).
 static func _make(what: StringName) -> AudioStreamWAV:
 	var rate := 22050
-	var long := {&"bone": 0.22, &"stone": 0.55, &"wood": 0.28, &"guard": 0.6}
+	var long := {&"bone": 0.22, &"stone": 0.4, &"wood": 0.28, &"guard": 0.32}
 	var count := int(rate * float(long.get(what, 0.3)))
 	var data := PackedByteArray()
 	data.resize(count * 2)
@@ -196,10 +204,8 @@ static func _make(what: StringName) -> AudioStreamWAV:
 	# partials [Hz, decay /s, level]
 	var ring: Array = []
 	match what:
-		&"stone":
-			ring = [[2310.0, 9.0, 0.35], [3470.0, 12.0, 0.3], [5190.0, 16.0, 0.22], [7020.0, 22.0, 0.15]]
 		&"guard":
-			ring = [[880.0, 7.0, 0.32], [1530.0, 8.5, 0.3], [2410.0, 11.0, 0.22], [3730.0, 15.0, 0.14]]
+			ring = [[150.0, 34.0, 0.7]]
 		&"wood":
 			ring = [[190.0, 26.0, 0.55], [415.0, 34.0, 0.35], [760.0, 48.0, 0.2]]
 		&"bone":
@@ -209,7 +215,11 @@ static func _make(what: StringName) -> AudioStreamWAV:
 	phases.fill(0.0)
 	var low := 0.0
 	var band := 0.0
+	var deep := 0.0
+	var thump := 0.0
 	var snaps := [0.0, 0.011, 0.027]
+	# stone breaking: grains of grit, close together and dying away
+	var grains := [[0.0, 1.0], [0.009, 0.7], [0.017, 0.8], [0.03, 0.5], [0.044, 0.4], [0.061, 0.25]]
 	for i in count:
 		var t := float(i) / float(rate)
 		var s := 0.0
@@ -222,17 +232,27 @@ static func _make(what: StringName) -> AudioStreamWAV:
 		low += (n - low) * 0.5
 		band += (low - band) * 0.15
 		var hiss := low - band  # noise, roughly 1-4 kHz
+		deep += (band - deep) * 0.03
 		match what:
 			&"bone":
 				for at: float in snaps:
 					if t >= at:
 						s += hiss * exp(-(t - at) * 260.0) * 1.6
 			&"stone":
-				s += hiss * exp(-t * 70.0) * 1.0 + n * exp(-t * 30.0) * 0.08
+				# no ring (the user heard bells, 2026-10-04): a dull knock
+				# falling from 100 to 45 Hz, and grit breaking over it
+				thump += TAU * (45.0 + 55.0 * exp(-t * 25.0)) / float(rate)
+				s += sin(thump) * exp(-t * 26.0) * 0.9 * minf(t * 2000.0, 1.0)
+				var grit := (band - deep) * 1.6 + hiss * 0.5
+				for g: Array in grains:
+					if t >= float(g[0]):
+						s += grit * float(g[1]) * exp(-(t - float(g[0])) * 110.0)
+				s += band * exp(-t * 14.0) * 0.12
 			&"wood":
 				s += hiss * exp(-t * 180.0) * 0.9
 			&"guard":
-				s += hiss * exp(-t * 90.0) * 0.7 + band * exp(-t * 40.0) * 1.5
+				# a dull thunk under the recorded block (see [method strike])
+				s += band * exp(-t * 45.0) * 1.2 + hiss * exp(-t * 120.0) * 0.5
 		data.encode_s16(i * 2, int(clampf(s, -1.0, 1.0) * 30000.0))
 	var wav := AudioStreamWAV.new()
 	wav.format = AudioStreamWAV.FORMAT_16_BITS

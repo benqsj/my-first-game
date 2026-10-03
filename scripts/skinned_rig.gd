@@ -1695,9 +1695,10 @@ func blade_landed(matter: StringName = &"flesh") -> void:
 		at = _sword_mount
 	var k := clampf(cut_weight - 1.0, -0.4, 1.0)
 	var steel := hit_volume + 2.5 * k
-	if matter == &"stone":
-		steel -= 4.0  # the ring is the stone's own
-	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06) * (1.0 - 0.1 * maxf(k, 0.0)) * (1.12 if matter == &"bone" else 1.0), steel)
+	# into stone, only the stone's crunch: the steel's own ring over it made a
+	# bell of a golem (the user, 2026-10-04)
+	if matter != &"stone":
+		Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06) * (1.0 - 0.1 * maxf(k, 0.0)) * (1.12 if matter == &"bone" else 1.0), steel)
 	ImpactFx.strike(self, at.global_position, matter, cut_weight)
 	# Held as long as the body it bit is ([HitFeel]): the two stand still
 	# together, longer for the end of a string or a heavy blow.
