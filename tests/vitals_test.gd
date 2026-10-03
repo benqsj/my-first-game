@@ -135,8 +135,9 @@ func _initialize() -> void:
 	_check("a blow in the first moments of a roll is dodged perfectly", perfect[0] and _player.health == before)
 	_check("and the roll's stamina comes back", _player.stamina >= 50.0 - 0.01, "%.1f" % _player.stamina)
 	await _wait(3)
-	_check("the knight leaves no shadow: that is the light-footed ones' own",
-			_player.get_node_or_null("ShadowTrail") == null)
+	# (Tariel has the shadow too since TARIEL_POLISH 13)
+	_check("a perfect dodge leaves the shadow where the profile says so",
+			(_player.get_node_or_null("ShadowTrail") != null) == _player.profile.shadow_dodge)
 	await _wait(80)
 
 	# --- The inventory and the map ----------------------------------------------

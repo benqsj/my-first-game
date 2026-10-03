@@ -18,7 +18,8 @@ extends Node3D
 ## How long after a perfect dodge nothing lands on the body that sheds it
 ## (read by [Player]): the shedding and the last copies fading.
 const GUARD := 1.2
-@export var every: float = 0.07
+const EVERY := 0.07
+@export var every: float = EVERY
 @export var copy_life: float = 0.5
 
 var _skeleton: Skeleton3D
@@ -29,23 +30,53 @@ var _copies: Array[Dictionary] = []
 static var _shader: Shader = null
 
 
-## Starts one on `body`, shedding copies of the skeleton under its visuals.
-static func start(body: Node3D) -> ShadowTrail:
+## Starts one on `body`, shedding copies of the skeleton under its visuals —
+## for `seconds` (its `shedding` if not given), one each `each` (its `every`).
+static func start(body: Node3D, seconds: float = -1.0, each: float = -1.0) -> ShadowTrail:
 	if body == null:
 		return null
-	var skeleton := body.find_child("Skeleton3D", true, false) as Skeleton3D
+	var skeleton := shown_skeleton(body)
 	if skeleton == null:
 		return null
 	var old := body.get_node_or_null("ShadowTrail") as ShadowTrail
 	if old != null:
-		old._left = old.shedding
+		old._skeleton = skeleton
+		old._go_on(seconds, each)
 		return old
 	var trail := ShadowTrail.new()
 	trail.name = "ShadowTrail"
 	trail._skeleton = skeleton
-	trail._left = trail.shedding
+	trail._go_on(seconds, each)
 	body.add_child(trail)
 	return trail
+
+
+func _go_on(seconds: float, each: float) -> void:
+	_left = shedding if seconds < 0.0 else seconds
+	every = each if each > 0.0 else EVERY
+	_next = 0.0
+
+
+## The skeleton the body is seen in: of those under it, the one shown with the
+## most meshes shown on it. (A hero on the mannequin keeps his own model
+## hidden and the mannequin's skeleton bare; what is seen is the figure, a
+## skeleton of its own — the first Skeleton3D found is the hidden one, and a
+## shadow copied off it has nothing in it to see.)
+static func shown_skeleton(body: Node3D) -> Skeleton3D:
+	var best: Skeleton3D = null
+	var most := 0
+	for node in body.find_children("*", "Skeleton3D", true, false):
+		var skel := node as Skeleton3D
+		if not skel.is_visible_in_tree():
+			continue
+		var shown := 0
+		for child in skel.get_children():
+			if child is MeshInstance3D and (child as MeshInstance3D).visible:
+				shown += 1
+		if shown > most:
+			most = shown
+			best = skel
+	return best
 
 
 func _process(delta: float) -> void:
@@ -75,7 +106,7 @@ func _shed() -> void:
 	# Only the meshes: nothing that would go on moving it (spring bones, the
 	# stride, attachments with lights on them).
 	for child in copy.get_children():
-		if not child is MeshInstance3D:
+		if not child is MeshInstance3D or not (child as MeshInstance3D).visible:
 			copy.remove_child(child)
 			child.free()
 	copy.top_level = true
