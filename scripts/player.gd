@@ -714,11 +714,65 @@ func _process(delta: float) -> void:
 		if rig.has_method(&"aim_bow"):
 			rig.call(&"aim_bow", net_draw, net_aim)
 	_aim_strike()
+	_lean(delta, planar, airborne or (state if mine else net_state) != State.GROUNDED)
 	rig.animate(delta, planar, planar / maxf(walk_speed, 0.01), airborne,
 			dashing, velocity.y, is_blocking if mine else net_blocking)
 	if footsteps != null:
 		var climbing := (state if mine else net_state) == State.WALLCLIMB
 		footsteps.tick(delta, planar, not airborne and not dashing and not climbing, self)
+
+
+## The body leant into what it is doing, over its feet: into a turn the
+## faster and tighter it carves, forward as a run picks up, back as it pulls
+## up. Laid on the model's own transform (the capsule stays upright), worked
+## out from the turning and the replicated velocity, so every peer sees it.
+func _lean(delta: float, planar: float, off_ground: bool) -> void:
+	if rig == null:
+		return
+	if not _lean_ready:
+		_lean_rest = rig.transform.basis
+		_lean_yaw = rotation.y
+		_lean_vel = velocity
+		_lean_ready = true
+	var dt := maxf(delta, 0.0001)
+	var yaw_rate := wrapf(rotation.y - _lean_yaw, -PI, PI) / dt
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var accel := (flat - Vector3(_lean_vel.x, 0.0, _lean_vel.z)) / dt
+	_lean_yaw = rotation.y
+	_lean_vel = velocity
+	var roll := 0.0
+	var pitch := 0.0
+	if not off_ground and not is_committed() and not _bitten() and planar > 0.5:
+		roll = clampf(yaw_rate * planar * turn_lean_rate, -turn_lean_max, turn_lean_max)
+	if not off_ground and not is_committed():
+		var ahead := -global_basis.z
+		# Forward lean is a negative turn about the body's x.
+		pitch = -clampf(accel.dot(ahead) * pace_lean_rate, -pace_lean_back, pace_lean_max)
+	var k := 1.0 - exp(-lean_follow * delta)
+	_lean_roll = lerpf(_lean_roll, roll, k)
+	_lean_pitch = lerpf(_lean_pitch, pitch, k)
+	rig.transform.basis = Basis.from_euler(Vector3(_lean_pitch, 0.0, _lean_roll)) * _lean_rest
+
+
+@export_group("Lean")
+## Radians of lean into a turn per (radian a second of turning × metre a
+## second of pace), and the most it leans.
+@export var turn_lean_rate: float = 0.0085
+@export var turn_lean_max: float = 0.2
+## Radians of lean per m/s² of picking up (forward) or pulling up (back).
+@export var pace_lean_rate: float = 0.0032
+@export var pace_lean_max: float = 0.1
+@export var pace_lean_back: float = 0.13
+## How fast the lean follows what it is asked for (1/s).
+@export var lean_follow: float = 9.0
+@export_group("")
+
+var _lean_ready := false
+var _lean_rest := Basis.IDENTITY
+var _lean_yaw := 0.0
+var _lean_vel := Vector3.ZERO
+var _lean_roll := 0.0
+var _lean_pitch := 0.0
 
 
 ## Copies the parts of the internal state that other peers have to see into the
@@ -1024,7 +1078,11 @@ func _process_locomotion(delta: float) -> void:
 		else:
 			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
 		_aim_body(direction, delta)
-		if _step_left > 0.0:
+		if _bitten():
+			# The swing held in its bite holds the body too: no gliding on
+			# under a blade that has stopped, and the step waits for it.
+			horizontal *= BITE_GLIDE
+		elif _step_left > 0.0:
 			_step_left -= delta
 			horizontal = _step_velocity
 			if _step_left <= 0.0:
@@ -1045,6 +1103,8 @@ func _process_locomotion(delta: float) -> void:
 	# A flip or a lunge carries him as far as its own clip goes.
 	if rig != null and rig.has_method(&"carrying") and bool(rig.call(&"carrying")):
 		horizontal = rig.get(&"carry_velocity")
+		if _bitten():
+			horizontal *= BITE_GLIDE
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -2744,6 +2804,15 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	net_react.rpc(Reaction.FLINCH, at, spray)
 
 
+## What is left of his pace while his swing is held in a bite.
+const BITE_GLIDE := 0.12
+
+
+## Whether his swing is held in a bite now ([SkinnedRig.in_hitstop]).
+func _bitten() -> bool:
+	return rig != null and is_committed() and rig.has_method(&"in_hitstop") and bool(rig.call(&"in_hitstop"))
+
+
 ## How hard a blow of `damage` shoves: the damage, up to `blow_heft_cap`.
 func _heft(damage: float) -> float:
 	return minf(damage, blow_heft_cap)
@@ -2836,9 +2905,12 @@ func net_blade_landed() -> void:
 	_rig_says(&"blade_landed")
 	# The blow felt in the hands: his own view knocked the way the blade went.
 	if is_multiplayer_authority() and camera != null and camera.current and rig != null:
-		ImpactFx.nudge(camera, rig.swing_direction(-global_basis.z))
-		if rig.get(&"cut_weight") != null and float(rig.get(&"cut_weight")) > 1.2:
-			WindBlast.shake(self, 0.06, 0.2, 6.0)
+		var weight := 1.0 if rig.get(&"cut_weight") == null else float(rig.get(&"cut_weight"))
+		# Knocked further the heavier the blow; the end of a string and the
+		# heavy blows shake it too.
+		ImpactFx.nudge(camera, rig.swing_direction(-global_basis.z), 0.03 + 0.035 * clampf(weight - 0.6, 0.0, 1.0))
+		if weight > 1.2:
+			WindBlast.shake(self, 0.05 + 0.04 * clampf(weight - 1.2, 0.0, 0.6), 0.22, 6.0)
 
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
@@ -3265,10 +3337,15 @@ func _tick_timers(delta: float) -> void:
 	_slide_timer = maxf(_slide_timer - delta, 0.0)
 	_slide_cooldown_timer = maxf(_slide_cooldown_timer - delta, 0.0)
 	_wall_cooldown_timer = maxf(_wall_cooldown_timer - delta, 0.0)
-	_commit_timer = maxf(_commit_timer - delta, 0.0)
+	# A swing held in its bite holds his clock with it: the commitment, and a
+	# cut asked for meanwhile, wait for the clip rather than run out under it.
+	var bitten := _bitten()
+	if not bitten:
+		_commit_timer = maxf(_commit_timer - delta, 0.0)
 	_root_timer = maxf(_root_timer - delta, 0.0)
-	_attack_buffer = maxf(_attack_buffer - delta, 0.0)
-	_heavy_buffer = maxf(_heavy_buffer - delta, 0.0)
+	if not bitten:
+		_attack_buffer = maxf(_attack_buffer - delta, 0.0)
+		_heavy_buffer = maxf(_heavy_buffer - delta, 0.0)
 	# A flurry is over once nothing has been swung for a beat, and the next cut
 	# counts as a first one again — so running in and hitting something is always
 	# the fast swing, however many were thrown a moment ago.
@@ -3937,7 +4014,12 @@ func is_venomous() -> bool:
 ## A cut of this hero's has landed on `creature` at `at`. Host only (the
 ## creatures call it where they take the cut). A poisoned blade adds a stack.
 func blade_hit(creature: Node3D, at: Vector3) -> void:
-	if not _decides_here() or not is_venomous() or creature == null:
+	if not _decides_here() or creature == null:
+		return
+	if creature.is_inside_tree():
+		var weight := 1.0 if rig == null or rig.get(&"cut_weight") == null else float(rig.get(&"cut_weight"))
+		net_bite.rpc(creature.get_path(), weight)
+	if not is_venomous():
 		return
 	var marks := Afflictions.of(creature, false)
 	var first := marks == null or marks.poison_stacks() == 0
@@ -3945,6 +4027,16 @@ func blade_hit(creature: Node3D, at: Vector3) -> void:
 	if first and creature.has_method(&"react"):
 		creature.call(&"react", &"poison", self, Vector3.ZERO)
 #endregion
+
+
+## The creature his blade bit, held and lit for the beat his swing is held
+## ([HitFeel]) — on every peer, as the swing's own hold is.
+@rpc("any_peer", "call_local", "unreliable")
+func net_bite(path: NodePath, weight: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
+		return
+	HitFeel.bite(get_node_or_null(path) as Node3D, weight)
 
 
 ## Puts an affliction on a creature on every peer, with a burst where it

@@ -257,7 +257,7 @@ func _process(delta: float) -> void:
 				or _anim.clip_progress() >= 1.0:
 			_anim.play(idle_clip, 0.3, 1.0)
 
-	_anim.advance(delta)
+	_anim.advance(delta * HitFeel.pace(self))
 
 
 ## Drops the model so its feet rest on the ground rather than sinking into it.

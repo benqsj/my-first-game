@@ -291,7 +291,7 @@ func _process(delta: float) -> void:
 	# Dead, the knock back plays only as far as the blow throwing it back; the
 	# fall itself is the body going over (`_topple`).
 	if not is_dead or dies_by_clip or _corpse_age < FREEZE_AT:
-		_anim.advance(delta)
+		_anim.advance(delta * HitFeel.pace(self))
 	if _decides() and not is_dead:
 		WeaponSweep.run(_sweeps, _act_time, act_serial, get_tree(), delta)
 	WeaponSweep.draw(self, _sweeps)

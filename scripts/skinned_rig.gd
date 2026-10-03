@@ -1411,7 +1411,9 @@ func blade_landed() -> void:
 		at = _sword_mount
 	Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06), hit_volume)
 	ImpactFx.thud(self, at.global_position)
-	hitstop(bite_stop * (1.8 if cut_weight > 1.2 else 1.0))
+	# Held as long as the body it bit is ([HitFeel]): the two stand still
+	# together, longer for the end of a string or a heavy blow.
+	hitstop(HitFeel.stop_for(cut_weight) * bite_stop / 0.075)
 
 
 ## How long the swing is held as it bites (seconds): the blade felt going in.
@@ -1420,6 +1422,11 @@ var _stop_left: float = 0.0
 var _stop_rate: float = 1.0
 ## The rate the clip is held at while stopped: all but still.
 const STOP_RATE := 0.04
+
+
+## Whether the swing is held in a bite now.
+func in_hitstop() -> bool:
+	return _stop_left > 0.0
 
 
 func hitstop(seconds: float) -> void:

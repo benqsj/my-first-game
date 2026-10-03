@@ -896,7 +896,7 @@ func _animate(delta: float) -> void:
 		_own.speed_scale = clampf(planar / float(_natural.get(clip, 1.5)), 0.6, 1.8) if moving else 1.0
 	elif not REACTS.has(act):
 		_own.speed_scale = 1.0
-	_own.advance(delta)
+	_own.advance(delta * HitFeel.pace(self))
 	# His clips are kept on the spot; the body is what moves him.
 	if _hips >= 0:
 		var at := _skeleton.get_bone_pose_position(_hips)
