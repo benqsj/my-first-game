@@ -363,3 +363,15 @@ Materials_Shaders_Textures/
 ```
 
 ![იარაღები და თავსაბურავები](docs/creatures_pack/weapons.jpg)
+
+---
+
+## 9. რა გაკეთდა (2026-10-03)
+
+- 13-ვე არენაზე დგას თავისი პოზით და იარაღით (`PackCreature`, README: „The test arena“).
+- **ანიმაცია:** `tools/creature_clips.gd` 33 კლიპს (Kevin + UAL2) აცხობს
+  Polysplit-ის ჩონჩხზე: `assets/creatures/anim/biped_clips.scn`. ჩონჩხი 13-ვეს
+  ერთი აქვს, ამიტომ ეს კლიპები ყველაზე ითამაშებს. (§5-ის მე-2 გზა.)
+- **იბრძვიან:** ჩონჩხი-მეომარი (`scenes/enemies/skeleton_warrior.tscn`) და
+  შიშველი ჩონჩხი (`scenes/enemies/skeleton.tscn`), `Brawler`-ით.
+- შემდეგი: ჩონჩხი-მშვილდოსანი (თოკი `stringJoint`-ზე), ჩონჩხი-ჯადოქარი (ჯადოს კლიპი).

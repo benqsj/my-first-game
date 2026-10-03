@@ -57,12 +57,16 @@ func _run() -> void:
 			"y %.2f" % hero.global_position.y)
 
 	var panel := world.get_node("ArenaPanel") as ArenaPanel
+	var spot := 0
 	for entry: Array in ArenaPanel.ENTRIES:
 		var path := String(entry[1])
 		if not ResourceLoader.exists(path):
 			_check("%s: its scene is there" % entry[0], false, path)
 			continue
-		var body := panel.call_up(path, bool(entry[2]))
+		# Each on a spot of its own: the statues' capsules would hold up
+		# whatever was called up onto the same one.
+		var body := panel.call_up(path, bool(entry[2]), Vector3(-18.0 + 3.0 * spot, 0.0, -20.0))
+		spot += 1
 		await _wait(45)
 		var ok := is_instance_valid(body) and body.is_inside_tree()
 		var y := body.global_position.y if ok else INF

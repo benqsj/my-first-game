@@ -134,7 +134,12 @@ func _set_down() -> void:
 
 ## Every surface in the pack's shader: the body's material or the objects'.
 func _dress(body: String, objects: String) -> void:
-	for node in figure.find_children("*", "MeshInstance3D", true, false):
+	dress(figure, body, objects)
+
+
+## The same for any of the pack's figures (a fighting one's, [PackDress]).
+static func dress(figure_root: Node, body: String, objects: String) -> void:
+	for node in figure_root.find_children("*", "MeshInstance3D", true, false):
 		var mesh := node as MeshInstance3D
 		mesh.visible = true
 		for i in mesh.mesh.get_surface_count():

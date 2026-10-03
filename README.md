@@ -5413,6 +5413,41 @@ They have no clips yet: they stand, and do not fight (CREATURES_PACK.md §5
 has the plan). `tests/arena_test.gd` checks each one's 99 bones, its parts in
 the pack's shader, its pose and the arms it carries.
 
+### The skeletons fight (first of the pack)
+
+The pack has no clips, and all thirteen share one skeleton, so the clips are
+baked once onto it and any of them can play them:
+`tools/creature_clips.gd` (`godot --headless --path . --script
+res://tools/creature_clips.gd`) carries 33 of UAL 2's and Kevin's clips off
+the mannequin onto Polysplit's 99 bones — each bone turned in the world as
+its partner has turned from rest, after its rest is turned to point the way
+the partner's does (fingers too, so the fists close round the hilt); the hips
+carried by the mannequin's travel scaled to the figure's height (x1.15).
+Out: `assets/creatures/anim/biped_clips.scn` (the bare skeleton and a player
+with the clips, a [SkeletonAnim] `clip_source`) and `biped_clip_meta.json`.
+All the clips are in place; the meta's travel is zero.
+
+| Clip | From | | Clip | From |
+|---|---|---|---|---|
+| CR_Idle, CR_CombatIdle, CR_ShieldIdle | KV_Idle01, KV_CombatIdle1H01, Idle_Shield | | CR_Block, CR_BlockHit | KV_BlockShield01_Loop / _Hit |
+| CR_Walk, CR_WalkBack, CR_StrafeL/R, CR_Run | KV_Walk01_*, KV_StrafeWalk01_*, KV_Run01_Forward | | CR_Hit, CR_Hit2, CR_Stun | KV_CombatDamage01/02, KV_Stun01 |
+| CR_Slash1..5 | KV_Attack1H01..05_R | | CR_Death, CR_Death2, CR_Dodge | KV_CombatDeath01/02, KV_Dodge01 |
+| CR_ShieldBash, CR_ShieldBash2, CR_ShieldDash | KV_AttackShield01/02, Shield_Dash | | CR_Punch1/2, CR_Kick | KV_AttackPunch01_R/03_R, KV_AttackKick01_R |
+| CR_ZombieIdle/Walk/Run/Scratch/Bite, CR_Rise | UAL 2's Zombie_* | | | |
+
+Two [Brawler]s on them, in the arena in place of their statues:
+
+- `scenes/enemies/skeleton_warrior.tscn`: sword and shield. Slashes (four of
+  Kevin's one-handed) and a shield bash; from up to 5 m it charges behind the
+  shield. Blocks a third of blows (CR_BlockHit), guards behind the shield.
+  The blow is the sword: `R_equip_joint` out to 1.15 m along its +X (the
+  blade's tip measured off the mesh, 1.23 m).
+- `scenes/enemies/skeleton.tscn`: the bare one, empty-handed. Shambles like a
+  zombie and runs at you, rakes, punches and bites with both hands.
+
+Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
+shader and colours on the FBX's meshes; `PackCreature.dress`).
+
 The rest of this section is how the arena worked with the game's creatures,
 which it still does for any entry put back on the board:
 
