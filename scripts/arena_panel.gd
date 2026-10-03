@@ -18,26 +18,24 @@ extends CanvasLayer
 ## does not turn with it (`Player.menu_open`), as with the inventory.
 
 ## label, scene, and whether it is a boss (drawn in its own column).
+## Only Polysplit's Biped Creatures stand here now (CREATURES_PACK.md), each
+## with the arms it came with, or none where it came with none
+## ([PackCreature]). They have no clips yet: they stand in the pack's poses.
+## The game's other creatures and bosses are still in the lands.
 const ENTRIES: Array[Array] = [
-	["Wolf", "res://scenes/enemies/wolf.tscn", false],
-	["Golem", "res://scenes/enemies/golem.tscn", false],
-	["Imp", "res://scenes/enemies/imp.tscn", false],
-	["Puglin", "res://scenes/enemies/puglin.tscn", false],
-	["Orc", "res://scenes/enemies/orc.tscn", false],
-	["Orc, great axe", "res://scenes/enemies/orc_greataxe.tscn", false],
-	["Frog marauder", "res://scenes/enemies/frog.tscn", false],
-	["Demon", "res://scenes/enemies/demon.tscn", false],
-	["One-eyed ogre", "res://scenes/enemies/ogre.tscn", false],
-	["Arkdeva", "res://scenes/enemies/arkdeva.tscn", true],
-	["Minotaur", "res://scenes/enemies/minotaur.tscn", true],
-	["Centaur", "res://scenes/enemies/centaur.tscn", true],
-	["Knight of darkness", "res://scenes/enemies/dark_knight.tscn", true],
-	["Dragon: Terror Bringer", "res://scenes/enemies/dragon_terror.tscn", true],
-	["Dragon: Nightmare", "res://scenes/enemies/dragon_nightmare.tscn", true],
-	["Dragon: Usurper", "res://scenes/enemies/dragon_usurper.tscn", true],
-	["Dragon: Soul Eater", "res://scenes/enemies/dragon_souleater.tscn", true],
-	# Only to look at (no clips, it does not fight): kept out of the repo.
-	["Smaug (look only)", "res://scenes/enemies/smaug_preview.tscn", true],
+	["Orc", "res://scenes/creatures/orc.tscn", false],
+	["Goblin", "res://scenes/creatures/goblin.tscn", false],
+	["Ogre", "res://scenes/creatures/ogre.tscn", false],
+	["Troll", "res://scenes/creatures/troll.tscn", false],
+	["Ghoul", "res://scenes/creatures/ghoul.tscn", false],
+	["Golem", "res://scenes/creatures/golem.tscn", false],
+	["Zombie (man)", "res://scenes/creatures/zombie_m.tscn", false],
+	["Zombie (woman)", "res://scenes/creatures/zombie_f.tscn", false],
+	["Skeleton", "res://scenes/creatures/skeleton.tscn", false],
+	["Skeleton warrior", "res://scenes/creatures/skeleton_warrior.tscn", false],
+	["Skeleton archer", "res://scenes/creatures/skeleton_archer.tscn", false],
+	["Skeleton mage", "res://scenes/creatures/skeleton_mage.tscn", false],
+	["Skeleton, all in one", "res://scenes/creatures/skeleton_all.tscn", false],
 ]
 ## How far in front of the hero a creature is called up, and a boss.
 const AHEAD := 7.0
@@ -78,6 +76,8 @@ func _ready() -> void:
 	lists.add_theme_constant_override("separation", 10)
 	column.add_child(lists)
 	for boss: bool in [false, true]:
+		if not ENTRIES.any(func(e: Array) -> bool: return bool(e[2]) == boss):
+			continue
 		var list := VBoxContainer.new()
 		list.add_theme_constant_override("separation", 4)
 		list.add_child(MenuStyle.label("Bosses" if boss else "Creatures", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))

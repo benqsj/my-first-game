@@ -131,6 +131,31 @@ func _run() -> void:
 		panel._clear()
 		await _wait(3)
 
+	# Polysplit's Biped Creatures: each on its own 99 bones, every part shown in
+	# the pack's shader, held in a pose, and its own arms in its hands.
+	var arms := {"Orc": ["Orc_Sword"], "Goblin": ["Goblin_Club"], "Ogre": ["Ogre_Club"],
+			"Skeleton warrior": ["Skeleton_Warrior_Sword", "Skeleton_Warrior_Shield"],
+			"Skeleton archer": ["Skeleton_Archer_Bow", "Skeleton_Archer_Arrow"],
+			"Skeleton mage": ["Skeleton_Mage_Staff"],
+			"Skeleton, all in one": ["Skeleton_Warrior_Sword", "Skeleton_Archer_Bow", "Skeleton_Mage_Staff"]}
+	for entry: Array in ArenaPanel.ENTRIES:
+		var body := panel.call_up(String(entry[1]), bool(entry[2])) as PackCreature
+		if body == null:
+			continue
+		await _wait(2)
+		var meshes := body.figure.find_children("*", "MeshInstance3D", true, false)
+		var dressed := meshes.all(func(m: Node) -> bool:
+			var mi := m as MeshInstance3D
+			return mi.visible and mi.get_surface_override_material(0) is ShaderMaterial)
+		var posed := body.skeleton.get_bone_pose_rotation(body.skeleton.find_bone("R_shoulder_joint")) \
+				!= body.skeleton.get_bone_rest(body.skeleton.find_bone("R_shoulder_joint")).basis.get_rotation_quaternion()
+		var carried: Array = arms.get(String(entry[0]), [])
+		var holds := carried.all(func(n: String) -> bool: return body.figure.find_child(n, true, false) != null)
+		_check("%s: 99 bones, %d parts in the pack's colours, posed, its arms (%s)" % [entry[0], meshes.size(), ", ".join(carried) if not carried.is_empty() else "none"],
+				body.skeleton.get_bone_count() == 99 and not meshes.is_empty() and dressed and posed and holds)
+		panel._clear()
+		await _wait(3)
+
 	var rig := panel._rig()
 	if rig != null and rig.faces.size() > 1:
 		var was := rig.face

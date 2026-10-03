@@ -5373,6 +5373,49 @@ solo game on an empty floor (`scenes/world/test_arena.tscn`): the same
 `World`, with `raise_camps = false`, so no camp is raised. `F1` shows the
 board (`ArenaPanel`, `scripts/arena_panel.gd`):
 
+**Since 2026-10-03 only Polysplit's Biped Creatures stand in the arena**
+(CREATURES_PACK.md): the thirteen of the pack, each with the arms it came
+with, or empty-handed where the pack gave it none. The creatures and bosses
+below are still the game's, in the lands; they are just no longer on the
+arena's board.
+
+| Arena entry | Scene | Arms | Size |
+|---|---|---|---|
+| Orc | `scenes/creatures/orc.tscn` | falchion, armour | x1.1 |
+| Goblin | `goblin.tscn` | club | x0.65 |
+| Ogre | `ogre.tscn` | great club | x1.6 |
+| Troll | `troll.tscn` | none | x1.6 |
+| Ghoul | `ghoul.tscn` | none (claws) | x0.95 |
+| Golem | `golem.tscn` | none (stone fists) | x1.8 |
+| Zombie (man), (woman) | `zombie_m.tscn`, `zombie_f.tscn` | none | x0.95 |
+| Skeleton | `skeleton.tscn` | none | x0.95 |
+| Skeleton warrior | `skeleton_warrior.tscn` | sword, shield, helm | x0.95 |
+| Skeleton archer | `skeleton_archer.tscn` | bow, arrow, quiver, hat | x0.95 |
+| Skeleton mage | `skeleton_mage.tscn` | staff, hood | x0.95 |
+| Skeleton, all in one | `skeleton_all.tscn` | all three skeletons' kit | x0.95 |
+
+`PackCreature` (`scripts/pack_creature.gd`) is each of them:
+
+- the pack's own FBX, read by Godot's FBX importer (`assets/creatures/*.fbx`),
+  on its own 99 bones, every part shown;
+- the pack's RGB-mask shader, `shaders/creature_rgb.gdshader`, worked out of
+  `RGBRecolor_BipedCreatures.shadergraph`, with the colours of the pack's
+  `.mat` for that creature (`PackCreature.MATERIALS`) and the pack's own mask
+  with its alpha (`assets/creatures/creature_mask.png`; the Advanced Weapons'
+  copy has none, and the faces came out as solid blocks on it);
+- held in the pose the pack's demo gives it: one frame of
+  `BipedCreaturePoses.fbx` (the Unity clip's frame, the take from -51 at 24
+  fps). The bare skeleton has no pose of its own and takes the man zombie's;
+- turned round (the pack faces +Z, the game's creatures -Z), set down on the
+  floor under it, with a capsule to bump into.
+
+They have no clips yet: they stand, and do not fight (CREATURES_PACK.md §5
+has the plan). `tests/arena_test.gd` checks each one's 99 bones, its parts in
+the pack's shader, its pose and the arms it carries.
+
+The rest of this section is how the arena worked with the game's creatures,
+which it still does for any entry put back on the board:
+
 - At the start, one of every kind already stands on the floor, facing the
   middle: the creatures on a ring 11 m round, the bosses on one 30 m round
   (`_populate`). With **Wait for my blow** on, none of them moves until the
