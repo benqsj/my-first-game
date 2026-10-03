@@ -72,6 +72,7 @@ func _initialize() -> void:
 	await _check_run_cuts()
 	await _check_thrust()
 	await _check_lance()
+	await _check_peaks()
 
 	if _failures == 0:
 		print("All checks passed.")
@@ -378,3 +379,47 @@ func _check_lance() -> void:
 	_check("at nothing, a long slide (7-10 m), the peak at its end", went > 7.0 and went < 10.0
 			and share_end > 0.22 and share_end < 0.3, "(%.2f m, at %.3f)" % [went, share_end])
 	await _settle()
+
+
+## Both slides, near and far, at a standing orc and at a wolf left free to
+## move: as the slide ends the swing is at its peak and the blade points
+## ahead, never off to the side with the swing unfinished.
+func _check_peaks() -> void:
+	for slot in [1, 2]:
+		var peak := 0.17 if slot == 1 else 0.26
+		for c in [[ORC, 2.8], [ORC, 4.0], [ORC, 5.5], [WOLF, 6.0], ["", 0.0]]:
+			await _home()
+			_fresh()
+			var foe: Node3D = null
+			if c[0] != "":
+				foe = _put(c[0], player.global_position + _fwd() * float(c[1]) + player.global_basis.x * 0.3)
+				if c[0] == WOLF:
+					for key in ["sight_range", "speed", "roam_radius", "run_speed", "walk_speed"]:
+						foe.set(key, null if foe.get(key) == null else 6.0)
+				await _frames(15)
+			player.target = foe
+			var hp := _health(foe) if foe != null else 0.0
+			player.use_skill(slot)
+			var end_share := -1.0
+			var ahead := -2.0
+			for i in 80:
+				await physics_frame
+				if int(player.get("_shade_phase")) != 1:
+					end_share = float(rig.call(&"_progress"))
+					var pts := rig.blade_points()
+					if pts.size() == 2:
+						var along := pts[1] - pts[0]
+						along.y = 0.0
+						ahead = _fwd().dot(along.normalized())
+					break
+			for i in 40:
+				await physics_frame
+			var what := "nothing" if foe == null else "%s %.1f m" % [String(c[0]).get_file().get_basename(), c[1]]
+			_check("skill %d at %s: the peak as the slide ends, the blade ahead" % [slot + 1, what],
+					absf(end_share - peak) <= 0.035 and ahead > 0.7,
+					"(at %.3f of the clip, peak %.2f; blade %.2f ahead)" % [end_share, peak, ahead])
+			if foe != null:
+				_check("  and it is struck", _health(foe) < hp, "(%.0f -> %.0f)" % [hp, _health(foe)])
+				foe.queue_free()
+			player.target = null
+			await _settle()

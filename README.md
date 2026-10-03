@@ -6798,6 +6798,21 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   it (`sure_margin` 0) and the slide stops on it. Measured: the point in at
   0.233 of the clip, the frame after the slide's end; at nothing, 7.8 m and
   the peak at 0.264 as it ends. 26 stamina, 10 s cooldown, its own picture.
+* **The peak on the slide's end, always** (`Player._tick_shade_peak`, the
+  user's word: never the blade off to the side, the swing unfinished, as the
+  slide ends; both slides). The slide's end follows the foe (`_shade_left`
+  from where it is now, no further than `slide_max` in all); the swing is let
+  go when what is left of the slide is what it takes at its own pace, and from
+  then on paced (`SkinnedRig.pace_to` / `pace_own`, x0.5-x2.5 of its rate, not
+  in a bite) to reach its peak as the slide runs out. A slide too short for
+  the swing even hurried (`SHADE_HURRY` 1.8) is slowed to it (a foe close by,
+  or one coming on); with no ground left at all the swing finishes where he
+  is. Struck before the peak (a sweep coming round into it): the slide is cut
+  to a last 0.3 m and the swing hurried there; struck at it: the slide stops.
+  The sure cut's reach counts only the blade ahead of him (a blade drawn back
+  behind him reaches nothing in front: it had struck the orc with the lance
+  still drawn back). Tested at an orc 2.8, 4 and 5.5 m off, a wolf left to
+  move, and nothing: the slide ends within 0.03 of the peak, blade ahead.
 * **A held cut that creeps** (`SkinnedRig`): a cut spec's `creep` (share of
   its rate) and `creep_until` (share of the clip): held, it comes on slowly
   instead of stopping dead.

@@ -1467,6 +1467,28 @@ func release_cut() -> float:
 	return _swing_commit
 
 
+## Plays the blow in hand at whatever pace brings it to `share` of its clip
+## in `seconds` (between half and two and a half times its own rate): a swing
+## timed to land on something, as the end of a slide. Not while a bite holds it.
+func pace_to(share: float, seconds: float) -> void:
+	if _role != Role.SWING or _action_len <= 0.0 or _stop_left > 0.0 or holding_cut():
+		return
+	var left := maxf(share - _progress(), 0.0) * _action_len
+	var speed := _action_rate
+	if left > 0.0 and seconds > 0.0:
+		speed = clampf(left / seconds, _action_rate * 0.5, _action_rate * 2.5)
+	_anim.speed_scale = speed
+	_action_left = _action_len * (1.0 - _progress()) / maxf(speed, 0.01)
+
+
+## Back to the blow's own pace (after `pace_to`).
+func pace_own() -> void:
+	if _role != Role.SWING or _action_len <= 0.0 or _stop_left > 0.0 or holding_cut():
+		return
+	_anim.speed_scale = _action_rate
+	_action_left = _action_len * (1.0 - _progress()) / maxf(_action_rate, 0.01)
+
+
 ## Seconds from now until the blow in hand starts cutting (0 if it is).
 func time_to_cut() -> float:
 	if _role != Role.SWING or _action_len <= 0.0:

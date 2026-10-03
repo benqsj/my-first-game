@@ -1145,7 +1145,7 @@ func _process_locomotion(delta: float) -> void:
 			horizontal *= BITE_GLIDE
 		elif _shade_phase == 1:
 			# The slide: straight in at its own pace, facing where it goes.
-			horizontal = _shade_dir * _shade_pace()
+			horizontal = _shade_dir * _shade_pace_now
 			rotation.y = atan2(-_shade_dir.x, -_shade_dir.z)
 		elif _step_left > 0.0:
 			_step_left -= delta
@@ -1182,7 +1182,7 @@ func _process_locomotion(delta: float) -> void:
 
 	# The slide: nothing but the slide moves him.
 	if _shade_phase == 1:
-		horizontal = _shade_dir * _shade_pace()
+		horizontal = _shade_dir * _shade_pace_now
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -3376,9 +3376,14 @@ func sure_holds(who: Node3D, edge: PackedVector3Array) -> bool:
 	to.y = 0.0
 	var d := to.length()
 	var r := _blade_radius(who)
+	# (how far ahead of him the blade is: a blade drawn back behind him
+	# reaches nothing in front)
+	var ahead := -global_basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized()
 	var reach := 0.0
 	for p in edge:
-		reach = maxf(reach, Vector2(p.x - global_position.x, p.z - global_position.z).length())
+		reach = maxf(reach, (p - global_position).dot(ahead))
 	if d - r > reach + (_sure_margin if _sure_margin >= 0.0 else sure_reach_margin):
 		return false
 	if d < maxf(r, 0.01):
@@ -4188,8 +4193,9 @@ var _shade_dir: Vector3 = Vector3.ZERO
 var _shade_gone: bool = false
 ## The slide is the lance's (the blade out in front, stopped by what it hits).
 var _shade_lance: bool = false
-## How long the whole slide takes (seconds), worked out as it starts.
-var _shade_time: float = 0.0
+## How far the slide has gone (metres), and its pace this tick.
+var _shade_went: float = 0.0
+var _shade_pace_now: float = 0.0
 
 
 ## `key` "shadow_lance": the Shadow Lance (Tariel's third skill, [Swordsman]
@@ -4234,7 +4240,8 @@ func _shadow_slide(key: StringName = &"shadow_slide") -> bool:
 	_shade_phase = 1
 	_shade_t0 = _game_t
 	_shade_gone = false
-	_shade_time = _shade_duration(_shade_left)
+	_shade_went = 0.0
+	_shade_pace_now = _shade_pace_at(0.0)
 	# (as long as the slide takes, eased in, and the shadows' own fading)
 	net_slide.rpc(_shade_left / maxf(shade_speed, 0.1) + shade_ease * 0.5)
 	_commit(3.0)
@@ -4250,16 +4257,6 @@ func _shade_pace() -> float:
 func _shade_pace_at(since: float) -> float:
 	var t := clampf(since / maxf(shade_ease, 0.01), 0.0, 1.0)
 	return shade_speed * lerpf(0.25, 1.0, t * t * (3.0 - 2.0 * t))
-
-
-## How long a slide of `metres` takes, eased in as it is (ticked as the body is).
-func _shade_duration(metres: float) -> float:
-	var step := 1.0 / maxf(float(Engine.physics_ticks_per_second), 1.0)
-	var t := 0.0
-	while metres > 0.0 and t < 5.0:
-		metres -= _shade_pace_at(t) * step
-		t += step
-	return t
 
 
 ## The slide and its cut let go (the owner's, on the physics clock).
@@ -4279,32 +4276,91 @@ func _tick_shade(delta: float) -> void:
 		if to.length_squared() > 0.0001:
 			_shade_dir = _shade_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
 	var pace := _shade_pace()
+	_shade_pace_now = pace
 	if _charge_spec.has("peak"):
-		# The blade has gone in: the slide stops on it.
-		if _landed_serial == int(rig.get(&"attack_serial")):
-			_shade_phase = -1
-			velocity.x = _shade_dir.x * 1.2
-			velocity.z = _shade_dir.z * 1.2
-			if not _shade_gone:
-				_shade_let_go()
-			return
-		# Let go so the swing is at its peak as he arrives: when what is left
-		# of the slide's time is what it takes the clip to get there.
-		if not _shade_gone and _game_t - _shade_t0 + _shade_to_peak() >= _shade_time - 0.01:
-			_shade_let_go()
+		_tick_shade_peak(foe, pace, delta)
+		return
 	# Let go as the blade will cut when he arrives: the ground he covers from
 	# now to the cut.
-	elif not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
+	if not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
 		_shade_let_go()
 	_shade_left -= pace * delta
 	if _shade_left <= 0.0:
 		_shade_phase = -1
-		# out of the slide, what is left of it carried on into the cut
-		var carry := 1.5 if _shade_lance else 4.0
-		velocity.x = _shade_dir.x * carry
-		velocity.z = _shade_dir.z * carry
+		velocity.x = _shade_dir.x * 4.0
+		velocity.z = _shade_dir.z * 4.0
 		if not _shade_gone:
 			_shade_let_go()
+
+
+## A slide whose swing has a `peak` (the Shadow Slide, the Shadow Lance): the
+## swing's peak — the blade come round or thrust out level ahead — falls on
+## the slide's end, however long the slide (the user's word: never the blade
+## off to the side, the swing unfinished, as the slide ends). The slide's end
+## follows what it is thrown at; the swing is let go when what is left of the
+## slide is what the swing takes at its own pace, and from then on is paced
+## (`SkinnedRig.pace_to`) to reach its peak as the slide runs out: faster for
+## a short slide, slower if the thing came on to meet him. Struck before the
+## peak (a sweep coming round into it), the slide is cut to a last step and
+## the swing hurried to its peak there; struck at it, the slide stops.
+func _tick_shade_peak(foe: Node3D, pace: float, delta: float) -> void:
+	var peak := float(_charge_spec.get("peak", 0.2))
+	var at := float(rig.call(&"_progress"))
+	var serial := int(rig.get(&"attack_serial"))
+	if foe != null:
+		# the end of the slide where it is now (no further than it may go)
+		var to := foe.global_position - global_position
+		to.y = 0.0
+		var want := to.length() - _blade_radius(foe) - float(_charge_spec.get("strike_gap", 1.5))
+		_shade_left = clampf(want, 0.0, _shade_reach_left())
+	if _landed_serial == serial:
+		if _shade_gone and at >= peak - 0.03:
+			# at its peak, in it: the slide stops on it
+			_shade_end(1.2)
+			return
+		_shade_left = minf(_shade_left, 0.3)
+	# The swing's time to its peak: at its own pace, and at the quickest it
+	# may be hurried to. A slide too short for it is slowed to it (a thing
+	# close by, or one that came on to meet him): the slide ends with the
+	# swing, never before it.
+	var own := _shade_to_peak()
+	var quickest := own / SHADE_HURRY
+	if _shade_left / maxf(pace, 0.1) < quickest:
+		pace = _shade_left / maxf(quickest, 0.01)
+	_shade_pace_now = pace
+	var left_t := _shade_left / maxf(pace, 0.1) if pace > 0.01 else quickest
+	if not _shade_gone and left_t <= own + 0.01:
+		_shade_let_go()
+	if _shade_gone:
+		rig.call(&"pace_to", peak, maxf(left_t, quickest))
+	_shade_left -= pace * delta
+	_shade_went += pace * delta
+	if _shade_left <= 0.001 and (not _shade_gone or at < peak - 0.01):
+		# no ground left and the swing not there yet: it finishes where he is
+		_shade_left = 0.0
+		return
+	if _shade_left <= 0.0:
+		_shade_end(1.5 if _shade_lance else 4.0)
+
+
+## How much a swing timed to a slide's end may be hurried past its own pace.
+const SHADE_HURRY := 1.8
+
+
+## How much further this slide may go (`slide_max` in all).
+func _shade_reach_left() -> float:
+	return maxf(float(_charge_spec.get("slide_max", 7.0)) - _shade_went, 0.0)
+
+
+## The slide over: what is left of it carried on (m/s), the swing let go if it
+## was not, and at its own pace again.
+func _shade_end(carry: float) -> void:
+	_shade_phase = -1
+	velocity.x = _shade_dir.x * carry
+	velocity.z = _shade_dir.z * carry
+	if not _shade_gone:
+		_shade_let_go()
+	rig.call(&"pace_own")
 
 
 ## Seconds from where the lance's clip is to its peak, let go now (at its rate).
