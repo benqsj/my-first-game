@@ -850,7 +850,7 @@ func _physics_process(delta: float) -> void:
 	_game_t += delta
 	_tick_timers(delta)
 	_tick_charge()
-	_tick_thrust(delta)
+	_tick_shade(delta)
 	_track_sure(delta)
 	_judge_whiff()
 	_tick_bash(delta)
@@ -1116,7 +1116,7 @@ func _process_locomotion(delta: float) -> void:
 			speed *= lerpf(1.0, commit_speed_scale, eased)
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
-	if _root_timer > 0.0 or _thrust_phase == 0:
+	if _root_timer > 0.0:
 		speed = 0.0
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
@@ -1143,10 +1143,10 @@ func _process_locomotion(delta: float) -> void:
 			# The swing held in its bite holds the body too: no gliding on
 			# under a blade that has stopped, and the step waits for it.
 			horizontal *= BITE_GLIDE
-		elif _thrust_phase == 1:
+		elif _shade_phase == 1:
 			# The slide: straight in at its own pace, facing where it goes.
-			horizontal = _thrust_dir * thrust_slide_speed
-			rotation.y = atan2(-_thrust_dir.x, -_thrust_dir.z)
+			horizontal = _shade_dir * _shade_pace()
+			rotation.y = atan2(-_shade_dir.x, -_shade_dir.z)
 		elif _step_left > 0.0:
 			_step_left -= delta
 			horizontal = _step_velocity
@@ -1180,11 +1180,9 @@ func _process_locomotion(delta: float) -> void:
 		if _bitten():
 			horizontal *= BITE_GLIDE
 
-	# The thrust set: he stands; the slide: nothing but the slide moves him.
-	if _thrust_phase == 0:
-		horizontal = Vector3.ZERO
-	elif _thrust_phase == 1:
-		horizontal = _thrust_dir * thrust_slide_speed
+	# The slide: nothing but the slide moves him.
+	if _shade_phase == 1:
+		horizontal = _shade_dir * _shade_pace()
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -3394,7 +3392,7 @@ func sure_holds(who: Node3D, edge: PackedVector3Array) -> bool:
 func _track_sure(delta: float) -> void:
 	if _sure_foe == null or not is_instance_valid(_sure_foe) or rig == null or not _targetable(_sure_foe):
 		return
-	if int(rig.get(&"attack_serial")) != _sure_serial or not is_committed() or _thrust_phase == 1:
+	if int(rig.get(&"attack_serial")) != _sure_serial or not is_committed() or _shade_phase == 1:
 		return
 	if not rig.has_method(&"time_to_cut"):
 		return
@@ -4044,7 +4042,7 @@ const SKILLS := {
 	&"fire_arrow": {"name": "Fire Arrow", "stamina": 25.0, "cooldown": 12.0},
 	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
 	&"rising_cut": {"name": "Rising Cut", "stamina": 22.0, "cooldown": 8.0},
-	&"slide_thrust": {"name": "Sliding Thrust", "stamina": 24.0, "cooldown": 9.0},
+	&"shadow_slide": {"name": "Shadow Slide", "stamina": 24.0, "cooldown": 9.0},
 }
 const SKILL_SLOTS := 4
 
@@ -4106,8 +4104,8 @@ func use_skill(slot: int) -> bool:
 			went = _poison_blade()
 		&"rising_cut":
 			went = _rising_cut()
-		&"slide_thrust":
-			went = _slide_thrust()
+		&"shadow_slide":
+			went = _shadow_slide()
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -4159,120 +4157,115 @@ func _rising_cut() -> bool:
 	return true
 
 
-## The Sliding Thrust (Tariel's second skill, [Swordsman] `SLIDE_THRUST`):
-## the thrust set where he stands for a beat, then a slide in at what he
-## picked, shadows shed behind him, and the point put into it.
-@export_group("Sliding Thrust")
+## The Shadow Slide (Tariel's second skill, [Swordsman] `SHADOW_SLIDE`): the
+## running cut (UAL 2's Sword_Light_D) thrown out of a slide. No standing and
+## no frozen pose: as the key goes the shadows start, he gathers into the
+## slide (its pace eased in over `shade_ease`) and goes in at what he picked,
+## the blade drawn back and coming on slowly (the rig's `creep`) as though a
+## spell were being cast, and the sweep let go so it cuts as he arrives.
+## With nothing before him he slides further (`slide_blind`).
+@export_group("Shadow Slide")
 ## How far ahead (metres) it picks what to slide at.
-@export var thrust_seek: float = 12.0
-## The slide's pace (m/s): four metres in a fifth of a second.
-@export var thrust_slide_speed: float = 22.0
-## The set (0), the slide (1) or neither (-1); since when it is set; the
-## slide left (metres), its way, and whether the thrust has been let go.
-var _thrust_phase: int = -1
-var _thrust_set_at: float = -1.0
-var _thrust_left: float = 0.0
-var _thrust_dir: Vector3 = Vector3.ZERO
-var _thrust_gone: bool = false
+@export var shade_seek: float = 12.0
+## The slide's pace (m/s) and how long it takes to reach it from standing.
+@export var shade_speed: float = 22.0
+@export var shade_ease: float = 0.14
+## The slide (1) or none (-1); since when; the slide left (metres), its way,
+## and whether the cut has been let go.
+var _shade_phase: int = -1
+var _shade_t0: float = 0.0
+var _shade_left: float = 0.0
+var _shade_dir: Vector3 = Vector3.ZERO
+var _shade_gone: bool = false
 
 
-func _slide_thrust() -> bool:
-	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", "slide_thrust")):
+func _shadow_slide() -> bool:
+	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", "shadow_slide")):
 		return false
 	if not is_on_floor():
 		return false
-	if not _spend(float(SKILLS[&"slide_thrust"]["stamina"])):
+	if not _spend(float(SKILLS[&"shadow_slide"]["stamina"])):
 		return false
 	if is_blocking:
 		is_blocking = false
 		block_changed.emit(false)
 	_set_weapons_stowed(false)
-	var foe := _charge_target(thrust_seek)
+	var foe := _charge_target(shade_seek)
+	_charge_spec = rig.call(&"cut_spec", "shadow_slide")
+	var spec := _charge_spec
+	_shade_dir = -global_basis.z
+	_shade_dir.y = 0.0
+	_shade_left = float(spec.get("slide_blind", 8.0))
 	if foe != null:
 		var to := foe.global_position - global_position
 		to.y = 0.0
 		if to.length_squared() > 0.0001:
-			rotation.y = atan2(-to.x, -to.z)
+			_shade_dir = to
+		_shade_left = clampf(to.length() - _blade_radius(foe) - float(spec.get("strike_gap", 1.0)),
+				0.0, float(spec.get("slide_max", 7.0)))
+	_shade_dir = _shade_dir.normalized()
+	rotation.y = atan2(-_shade_dir.x, -_shade_dir.z)
 	_free_swing = false
 	_swing_t0 = _game_t
 	_swing_chain = 1
 	_whiff_counts = _foe_within(whiff_near)
 	attack_started.emit()
-	net_attack.rpc(SkinnedRig.SLIDE_THRUST)
-	_charge_spec = rig.call(&"cut_spec", "slide_thrust")
+	net_attack.rpc(SkinnedRig.SHADOW_SLIDE)
 	_charge_foe = foe
 	_mark_sure(foe)
-	_thrust_phase = 0
-	_thrust_set_at = -1.0
-	_thrust_gone = false
+	_shade_phase = 1
+	_shade_t0 = _game_t
+	_shade_gone = false
+	# (as long as the slide takes, eased in, and the shadows' own fading)
+	net_slide.rpc(_shade_left / maxf(shade_speed, 0.1) + shade_ease * 0.5)
 	_commit(3.0)
 	_attack_buffer = 0.0
 	return true
 
 
-## The thrust set, then slid in and let go (the owner's, on the physics clock).
-func _tick_thrust(delta: float) -> void:
-	if _thrust_phase < 0:
+## The slide's pace now: eased in from standing over `shade_ease`.
+func _shade_pace() -> float:
+	var t := clampf((_game_t - _shade_t0) / maxf(shade_ease, 0.01), 0.0, 1.0)
+	return shade_speed * lerpf(0.25, 1.0, t * t * (3.0 - 2.0 * t))
+
+
+## The slide and its cut let go (the owner's, on the physics clock).
+func _tick_shade(delta: float) -> void:
+	if _shade_phase < 0:
 		return
-	if rig == null or (not _thrust_gone and not bool(rig.call(&"holding_cut"))):
+	if rig == null or (not _shade_gone and not bool(rig.call(&"holding_cut"))):
 		# broken off (a blow took the clip off him)
-		_thrust_phase = -1
+		_shade_phase = -1
 		return
-	var spec := _charge_spec
 	var foe := _charge_foe if _charge_foe != null and is_instance_valid(_charge_foe) \
 			and _targetable(_charge_foe) else null
-	if _thrust_phase == 0:
-		if not bool(rig.call(&"cut_is_set")):
-			return
-		if _thrust_set_at < 0.0:
-			_thrust_set_at = _game_t
-		if _game_t - _thrust_set_at < float(spec.get("set", 0.3)):
-			return
-		_thrust_dir = -global_basis.z
-		_thrust_dir.y = 0.0
-		_thrust_left = float(spec.get("slide_blind", 4.0))
-		if foe != null:
-			var to := foe.global_position - global_position
-			to.y = 0.0
-			if to.length_squared() > 0.0001:
-				_thrust_dir = to.normalized()
-			_thrust_left = clampf(to.length() - _blade_radius(foe) - float(spec.get("strike_gap", 0.75)),
-					0.0, float(spec.get("slide_max", 5.0)))
-		_thrust_dir = _thrust_dir.normalized()
-		_thrust_phase = 1
-		net_slide.rpc(_thrust_left / maxf(thrust_slide_speed, 0.1))
-	# The slide: on at what it was thrown at (it is followed, not led), the
-	# thrust let go as the point will reach it.
+	# On at what it was thrown at (followed, not led), unless it dodges.
 	if foe != null and not (foe.has_method(&"is_evading") and bool(foe.call(&"is_evading"))):
 		var to := foe.global_position - global_position
 		to.y = 0.0
 		if to.length_squared() > 0.0001:
-			_thrust_dir = _thrust_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
-	var lead := thrust_slide_speed * float(rig.call(&"time_to_cut")) if _thrust_gone else 0.0
-	if not _thrust_gone:
-		# from the hold to the point going in, at the clip's rate
-		var len := float(rig.get(&"_action_len"))
-		var w: Vector2 = (rig.get(&"cut_window") as Dictionary).get(spec["clip"], Vector2(0.186, 0.286))
-		lead = thrust_slide_speed * len * maxf(w.x - float(spec.get("hold", 0.15)), 0.0) \
-				/ maxf(float(spec.get("rate", 1.0)), 0.01)
-	if not _thrust_gone and _thrust_left <= lead:
-		_thrust_gone = true
-		net_release_cut.rpc()
-		_commit_timer = 0.0
-		_commit(float(rig.get(&"_swing_commit")))
-		_swing_t0 = _game_t
-	_thrust_left -= thrust_slide_speed * delta
-	if _thrust_left <= 0.0:
-		_thrust_phase = -1
-		# out of the slide, a step's worth of it carried on
-		velocity.x = _thrust_dir.x * 2.0
-		velocity.z = _thrust_dir.z * 2.0
-		if not _thrust_gone:
-			_thrust_gone = true
-			net_release_cut.rpc()
-			_commit_timer = 0.0
-			_commit(float(rig.get(&"_swing_commit")))
-			_swing_t0 = _game_t
+			_shade_dir = _shade_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
+	var pace := _shade_pace()
+	# Let go as the blade will cut when he arrives: the ground he covers from
+	# now to the cut.
+	if not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
+		_shade_let_go()
+	_shade_left -= pace * delta
+	if _shade_left <= 0.0:
+		_shade_phase = -1
+		# out of the slide, what is left of it carried on into the cut
+		velocity.x = _shade_dir.x * 4.0
+		velocity.z = _shade_dir.z * 4.0
+		if not _shade_gone:
+			_shade_let_go()
+
+
+func _shade_let_go() -> void:
+	_shade_gone = true
+	net_release_cut.rpc()
+	_commit_timer = 0.0
+	_commit(float(rig.get(&"_swing_commit")))
+	_swing_t0 = _game_t
 
 
 ## Sliding in now: what slides with him on every peer — the shadows shed
@@ -4282,7 +4275,7 @@ func net_slide(seconds: float) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
-	ShadowTrail.start(self, seconds + 0.12, 0.028)
+	ShadowTrail.start(self, seconds + 0.1, 0.028)
 	Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.15, -3.0)
 
 

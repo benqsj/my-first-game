@@ -58,14 +58,15 @@ const RUN_ATTACK := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.25}
 ## to run at, let go after this; `string_at` -1: the string starts again at A.
 const RISING_CUT := {"clip": &"Sword_UpperCut", "rate": 1.0, "weight": 1.7, "hold": 0.06,
 	"strike_gap": 1.1, "pace": 1.12, "hold_max": 1.6, "blind_hold": 0.45, "string_at": -1}
-## Tariel's second skill, the Sliding Thrust (TARIEL_POLISH.md 12): Kevin's
-## lunge and thrust (KV_Attack1H05_R) set, held at `hold` (the blade drawn
-## back at the hip) `set` seconds where he stands, then he slides in at what
-## he picked, a trail of shadows behind him, up to `slide_max` metres (with
-## nothing to slide at, `slide_blind`), and the thrust goes in `strike_gap`
-## metres (body to body) off it. `string_at` -1: the string starts again at A.
-const SLIDE_THRUST := {"clip": &"KV_Attack1H05_R", "rate": 1.0, "weight": 1.6, "hold": 0.15, "set": 0.3,
-	"slide_max": 5.0, "slide_blind": 4.0, "strike_gap": 0.75, "string_at": -1}
+## Tariel's second skill, the Shadow Slide (TARIEL_POLISH.md 12, the user's
+## word 2026-10-03: the running cut, out of a slide, with the shadows): UAL 2's
+## Sword_Light_D, the blade drawn back (`hold` 0.035 of the clip) and coming on
+## slowly from there (`creep`, a share of its rate, no further than
+## `creep_until`, short of its cut at 0.09) while he slides in at what he
+## picked, up to `slide_max` metres; with nothing before him `slide_blind`.
+## Let go to cut `strike_gap` metres (body to body) off it.
+const SHADOW_SLIDE := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.6, "hold": 0.035, "creep": 0.22,
+	"creep_until": 0.07, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.0, "string_at": -1}
 ## Kept for the swords to come (the user's word, 2026-10-03: each sword its own
 ## swings), tried in the game as the running cut (`_shots_tmp/runcut_reel.gd`):
 ## KV_Attack1H05_R held wound up like the Rising Cut (a lunge and thrust), and
@@ -79,7 +80,7 @@ const RUN_CUTS_KEPT := {
 const SHIELD_BASH := &"Shield_Dash"
 ## Clips to measure with the sword besides the picks.
 const CLIPS: Array[StringName] = [&"Sword_Dash", &"Sword_GroundPound", &"Sword_Aerial_Idle", &"Sword_Light_D",
-	&"Shield_Dash", &"Sword_UpperCut", &"KV_Attack1H05_R",
+	&"Shield_Dash", &"Sword_UpperCut",
 	&"Sword_Heavy_A", &"Sword_Heavy_B", &"Sword_Heavy_C", &"Sword_Heavy_A_Rec", &"Sword_Heavy_B_Rec",
 	&"Sword_Heavy_C_Rec"]
 
@@ -122,8 +123,8 @@ static func apply(t: Dictionary) -> void:
 	t["rising_cut"] = rising
 	t["flurry_part"][rising["clip"]] = Vector2(0.0, 1.0)
 	_measure(t, rising["clip"])
-	var thrust: Dictionary = SLIDE_THRUST.duplicate()
-	t["slide_thrust"] = thrust
+	var thrust: Dictionary = SHADOW_SLIDE.duplicate()
+	t["shadow_slide"] = thrust
 	t["flurry_part"][thrust["clip"]] = Vector2(0.0, 1.0)
 	_measure(t, thrust["clip"])
 	if not t["cut_window"].has(run_cut["clip"]):

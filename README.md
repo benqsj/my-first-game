@@ -6701,16 +6701,23 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   line he faces (a third of it past the line: missed). Until the blade starts
   to cut he turns after it (`_track_sure`, `sure_turn_speed` 14), not after
   something round behind him (`sure_follow_cone` 110°) or in its dodge.
-* **Skill 2 (key 2): the Sliding Thrust** (`Player._slide_thrust`,
-  `_tick_thrust`, `Swordsman.SLIDE_THRUST`, style `SkinnedRig.SLIDE_THRUST`
-  92): Kevin's `KV_Attack1H05_R` played to its `hold` 0.15 and set there
-  (`SkinnedRig.cut_is_set`), he stands 0.3 s (nothing moves him), then
-  slides in at `thrust_slide_speed` 22 m/s at what he picked (seek 12 m,
-  followed as it goes) up to `slide_max` 5 m, stopping `strike_gap` 0.75 m
-  off its body; the thrust let go so the point goes in as the slide ends.
-  With nothing to slide at, `slide_blind` 4 m. Shadows shed the length of the
-  slide (`net_slide`: `ShadowTrail.start(self, secs, 0.028)`) and the shadow
-  hiss. 24 stamina, 9 s cooldown, its picture on the bar.
+* **Skill 2 (key 2): the Shadow Slide** (`Player._shadow_slide`,
+  `_tick_shade`, `Swordsman.SHADOW_SLIDE`, style `SkinnedRig.SHADOW_SLIDE`
+  92; the user's word: the running cut out of a slide, no stop in it, like a
+  cast). UAL 2's `Sword_Light_D` (the running cut's clip): the blade drawn
+  back to `hold` 0.035 of the clip and coming on from there at `creep` 0.22
+  of its rate (no further than `creep_until` 0.07, short of its cut at 0.09)
+  — never frozen. The shadows start with the key; he slides at once, the pace
+  eased in from a quarter over `shade_ease` 0.14 s to `shade_speed` 22 m/s, at
+  what he picked (seek 12 m, followed as it goes) up to `slide_max` 7 m,
+  `strike_gap` 1.0 m off its body; with nothing before him `slide_blind` 8 m.
+  The cut is let go when the ground left is what he covers until it cuts
+  (`time_to_cut`), and out of the slide 4 m/s is carried into it. 24
+  stamina, 9 s cooldown, its picture on the bar. (First tried as a thrust,
+  KV_Attack1H05_R set standing 0.3 s: it read as stuck.)
+* **A held cut that creeps** (`SkinnedRig`): a cut spec's `creep` (share of
+  its rate) and `creep_until` (share of the clip): held, it comes on slowly
+  instead of stopping dead.
 * **The shadow found again**: `ShadowTrail` copied the first Skeleton3D under
   the hero, which on the mannequin is his own model, hidden, with no mesh
   shown: the copies had nothing in them, for Avtandil and the assassin too.
@@ -6719,5 +6726,6 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   has `shadow_dodge` now (TARIEL_POLISH 13).
 * `tests/sure_cut_test.gd`: the shadow has the figure in it; the rules asked
   straight; the running cut locked on an orc, a wolf, a puglin, straight and a
-  little aside, all land; a wolf in its dodge is not touched; the thrust's
-  set, slide (3-5 m, < 20 frames), shadows, the point in, and at nothing.
+  little aside, all land; a wolf in its dodge is not touched; the Shadow
+  Slide (gone at once, never frozen, in to the orc, shadows, the cut lands;
+  at nothing 7-10 m).

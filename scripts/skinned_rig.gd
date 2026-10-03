@@ -87,11 +87,11 @@ const HEAVY := 100
 const RUN_CUT := 90
 ## The attack style of Tariel's skill, the rising cut (the moves' `rising_cut`).
 const RISING_CUT := 91
-## The attack style of Tariel's second skill, the sliding thrust (the moves'
-## `slide_thrust`).
-const SLIDE_THRUST := 92
+## The attack style of Tariel's second skill, the shadow slide (the moves'
+## `shadow_slide`).
+const SHADOW_SLIDE := 92
 ## The moves' spec each of those styles plays.
-const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut", SLIDE_THRUST: "slide_thrust"}
+const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut", SHADOW_SLIDE: "shadow_slide"}
 ## Clips that cut more than once: every window its own blow (a new attack
 ## serial, a new whoosh), as shares of the clip.
 var cut_windows: Dictionary = {}
@@ -921,6 +921,10 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			# The running cut wound up: held at its `hold` till it is let go.
 			if not _holding and through >= _hold_at:
 				_holding = true
+				# frozen there, or (a spec's `creep`) coming on slowly, as a
+				# spell is cast, no further than its `creep_until`
+				_anim.speed_scale = _action_rate * _hold_creep
+			if _holding and _hold_creep > 0.0 and through >= _hold_until:
 				_anim.speed_scale = 0.0
 			_action_left = maxf(_action_left, 0.2)
 		_attack_cutting = (_role == Role.SWING or _role == Role.PLUNGE or (_role == Role.ROLL and _evade_cut)) \
@@ -1301,7 +1305,7 @@ func attack(style: int = -1) -> void:
 		# goes on from its second blow after it (its spec's `string_at`). The
 		# rising cut, the skill, is played the same way.
 		var rc: Dictionary = moves[CUT_SPECS[style]]
-		_attack_style = AttackStyle.THRUST if style == SLIDE_THRUST else AttackStyle.SIDE
+		_attack_style = AttackStyle.SIDE
 		_heavy_now = false
 		cut_weight = float(rc.get("weight", 1.0))
 		_last_attack_at = Time.get_ticks_msec() / 1000.0
@@ -1309,6 +1313,8 @@ func attack(style: int = -1) -> void:
 		if _play_action(rc["clip"], Role.SWING, float(rc.get("rate", 1.0)) * mq_swing_scale, 0.06,
 				0.0, float(rc.get("until", 1.0))):
 			_hold_at = float(rc.get("hold", -1.0))
+			_hold_creep = float(rc.get("creep", 0.0))
+			_hold_until = float(rc.get("creep_until", _hold_at))
 			if _hold_at > 0.0:
 				# Wound up and held there while he runs in; the controller
 				# lets it go ([method release_cut]).
@@ -1430,16 +1436,14 @@ func run_cut_spec() -> Dictionary:
 ## whether it has got there.
 var _hold_at: float = -1.0
 var _holding: bool = false
+## Held coming on slowly (a share of its rate) up to a share of the clip.
+var _hold_creep: float = 0.0
+var _hold_until: float = -1.0
 
 
 ## A running cut wound up and held, not yet let go.
 func holding_cut() -> bool:
 	return _hold_at > 0.0 and _role == Role.SWING
-
-
-## The held cut has got to where it is held (it is set, not still winding up).
-func cut_is_set() -> bool:
-	return holding_cut() and _holding
 
 
 ## Lets the held cut go: on from where it is held at the clip's rate. Returns

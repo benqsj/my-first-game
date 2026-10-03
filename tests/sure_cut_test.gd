@@ -5,8 +5,9 @@ extends SceneTree
 ## - what may and may not be missed (`Player.sure_holds`): above, below and a
 ##   little aside is cut; well off to the side, out of reach or in its dodge
 ##   is not;
-## - the Sliding Thrust (skill 2): the thrust set where he stands, then a
-##   slide of 3-5 m in at the orc, shadows shed behind him, and the point in;
+## - the Shadow Slide (skill 2): the running cut out of a slide, gone at
+##   once (no standing, the sword never frozen), in to the orc 7 m off,
+##   shadows shed behind him, the cut landing; at nothing, a longer slide;
 ## - the shadow a perfect dodge (and the slide) sheds has the figure in it
 ##   (it was copied off the hero's own hidden model: nothing to see);
 ## - Tariel's profile has the shadow.
@@ -241,52 +242,56 @@ func _run_cut_at(scene: String, aside: float, dodging: bool) -> void:
 	await _settle()
 
 
-## Skill 2: set where he stands, a slide of 3-5 m, shadows, the point in.
+## Skill 2: the Shadow Slide: the running cut out of a slide, no stop in it.
 func _check_thrust() -> void:
 	await _home()
 	_fresh()
-	_check("skill 2 is the Sliding Thrust", player.skill_in(1) == &"slide_thrust", "(%s)" % player.skill_in(1))
+	_check("skill 2 is the Shadow Slide", player.skill_in(1) == &"shadow_slide", "(%s)" % player.skill_in(1))
 	var orc := _put(ORC, player.global_position + _fwd() * 7.0 + player.global_basis.x * 0.5)
 	await _frames(20)
 	var hp := _health(orc)
 	var from := player.global_position
 	_check("skill 2 goes", player.use_skill(1))
 	await physics_frame
-	_check("it is KV_Attack1H05_R", rig.current_swing() == &"KV_Attack1H05_R", "(%s)" % rig.current_swing())
-	var set_frames := 0
-	var moved_set := 0.0
-	while int(player.get("_thrust_phase")) == 0 and set_frames < 120:
-		moved_set = Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
-		await physics_frame
-		set_frames += 1
-	_check("set where he stands for ~0.4-0.6 s", set_frames > 22 and set_frames < 40 and moved_set < 0.35,
-			"(%d frames, moved %.2f m)" % [set_frames, moved_set])
-	var slide_from := player.global_position
-	var slide_frames := 0
+	_check("it is the running cut, Sword_Light_D", rig.current_swing() == &"Sword_Light_D", "(%s)" % rig.current_swing())
+	var frames := 0
 	var shadows := 0
-	while int(player.get("_thrust_phase")) == 1 and slide_frames < 60:
+	var stood := 0
+	var froze := 0
+	var last := player.global_position
+	while int(player.get("_shade_phase")) == 1 and frames < 60:
 		await physics_frame
-		slide_frames += 1
+		frames += 1
+		var step := Vector2(player.global_position.x - last.x, player.global_position.z - last.z).length()
+		last = player.global_position
+		if step < 0.02:
+			stood += 1
+		if rig._anim.speed_scale <= 0.0:
+			froze += 1
 		var trail := player.get_node_or_null("ShadowTrail") as ShadowTrail
 		if trail != null:
 			shadows = maxi(shadows, trail._copies.size())
-	var slid := (player.global_position - slide_from).length()
-	_check("a quick slide of 3-5 m", slid > 2.8 and slid < 5.3 and slide_frames < 20,
-			"(%.2f m in %d frames)" % [slid, slide_frames])
+	var to := orc.global_position - player.global_position
+	to.y = 0.0
+	var gap := to.length() - Player._blade_radius(orc)
+	_check("he goes at once and never stands in it", stood <= 1, "(%d frames standing)" % stood)
+	_check("and the sword is never frozen", froze <= 2, "(%d frames frozen)" % froze)
+	_check("the slide takes him in to it (0.5-1.6 m off)", gap > 0.5 and gap < 1.6 and frames < 30,
+			"(%.2f m off after %d frames, went %.2f m)" % [gap, frames, (player.global_position - from).length()])
 	_check("shadows shed behind him", shadows >= 3, "(%d)" % shadows)
 	for i in 40:
 		await physics_frame
-	_check("the point goes into the orc", _health(orc) < hp, "(%.0f -> %.0f)" % [hp, _health(orc)])
+	_check("the cut lands on the orc", _health(orc) < hp, "(%.0f -> %.0f)" % [hp, _health(orc)])
 	_check("on cooldown", player.skill_cooldown_left(1) > 0.0)
 	orc.queue_free()
 	await _settle()
-	# With nothing to slide at: about 4 m the way he faces.
+	# With nothing before him: further, about 8 m.
 	await _home()
 	_fresh()
 	from = player.global_position
 	_check("skill 2 at nothing", player.use_skill(1))
 	for i in 90:
 		await physics_frame
-	var went := (player.global_position - from).length()
-	_check("at nothing, a slide of ~4 m", went > 3.2 and went < 5.5, "(%.2f m)" % went)
+	var went := Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
+	_check("at nothing, a longer slide (7-10 m)", went > 7.0 and went < 10.0, "(%.2f m)" % went)
 	await _settle()
