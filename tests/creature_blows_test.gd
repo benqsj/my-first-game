@@ -7,8 +7,10 @@ extends SceneTree
 ##
 ##   godot --headless --path . --script res://tests/creature_blows_test.gd
 
-const KINDS := ["skeleton", "skeleton_warrior"]
+const KINDS := ["skeleton", "skeleton_warrior", "orc", "goblin", "ogre", "troll", "ghoul", "golem",
+		"zombie_m", "zombie_f"]
 const SECONDS := 14.0
+const SLOW := ["ogre", "golem", "zombie_m", "zombie_f"]
 
 var _failed := 0
 
@@ -24,7 +26,9 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	for kind: String in KINDS:
+	# `-- orc ghoul` tries only those.
+	var kinds: Array = Array(OS.get_cmdline_user_args()) if not OS.get_cmdline_user_args().is_empty() else KINDS
+	for kind: String in kinds:
 		for spam in [false, true]:
 			await _duel(kind, spam)
 	Input.action_release("attack")
@@ -45,7 +49,7 @@ func _duel(kind: String, spam: bool) -> void:
 	var struck := [0]
 	hero.struck.connect(func(_d: float, _b: bool) -> void: struck[0] += 1)
 	await physics_frame
-	var body := panel.call_up("res://scenes/enemies/%s.tscn" % kind) as Brawler
+	var body := panel.call_up("res://scenes/enemies/pack/%s.tscn" % kind) as Brawler
 	await physics_frame
 	body.max_health = 99999.0
 	body.health = 99999.0
@@ -79,7 +83,9 @@ func _duel(kind: String, spam: bool) -> void:
 	Input.action_release("attack")
 	var how := "while he cuts at it" if spam else "standing still"
 	_check("%s, %s: every blow lands" % [kind, how], expected > 0 and landed == expected, "%d of %d" % [landed, expected])
-	_check("%s, %s: it keeps attacking" % [kind, how], attacks >= int(SECONDS / 2.0), "%d attacks in %.0f s" % [attacks, SECONDS])
+	# The slow and heavy ones (an ogre, a golem, a shambling zombie) less often.
+	var least := int(SECONDS / 3.0) if kind in SLOW else int(SECONDS / 2.0)
+	_check("%s, %s: it keeps attacking" % [kind, how], attacks >= least, "%d attacks in %.0f s" % [attacks, SECONDS])
 	world.queue_free()
 	for i in 3:
 		await process_frame

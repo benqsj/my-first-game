@@ -1,0 +1,128 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="PackedScene" path="res://assets/creatures/Zombie_M.fbx" id="2_model"]
+[ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
+[ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_body"]
+radius = 0.38
+height = 1.71
+
+[sub_resource type="SceneReplicationConfig" id="Repl_body"]
+properties/0/path = NodePath("NetSmooth:net_position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("NetSmooth:net_rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:velocity")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:health")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath(".:stamina")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath(".:is_dead")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath(".:mode")
+properties/6/spawn = true
+properties/6/replication_mode = 2
+properties/7/path = NodePath(".:act")
+properties/7/spawn = true
+properties/7/replication_mode = 2
+properties/8/path = NodePath(".:act_serial")
+properties/8/spawn = true
+properties/8/replication_mode = 2
+properties/9/path = NodePath("NetSmooth:net_stamp")
+properties/9/spawn = true
+properties/9/replication_mode = 1
+
+[node name="ZombieMan" type="CharacterBody3D" groups=["enemy"]]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_fighter")
+speed = 0.9
+roam_radius = 3.0
+rest_time = 2.4
+step_height = 0.4
+walk_clip = &"CR_ZombieWalk"
+idle_clip = &"CR_ZombieIdle"
+fidget_clip = &"CR_ZombieIdle"
+fidget_interval = 9.0
+loop_clips = PackedStringArray("CR_ZombieIdle", "CR_ZombieWalk", "CR_ZombieRun")
+sight_range = 11
+leash_radius = 27.5
+chase_speed = 2.8
+chase_retime_max = 2.4
+max_health = 140
+bar_height = 2.137
+body_radius = 0.342
+body_height = 1.758
+max_stamina = 100
+block_chance = 0.0
+dash_chance = 0.0
+p_def = 8
+m_def = 5
+reach = 2.025
+hit_damage = 16
+attack_cooldown = Vector2(0.4, 1.0)
+attack_clip = &"CR_ZombieScratch"
+block_clip = &"CR_Hit"
+dash_clip = &"CR_Dodge"
+break_clip = &"CR_Hit"
+death_clip = &"CR_Death2"
+guard_idle_clip = &"CR_ZombieIdle"
+dies_by_clip = true
+clip_source = "res://assets/creatures/anim/biped_clips.scn"
+clip_meta = "res://assets/creatures/anim/biped_clip_meta.json"
+settle_on_ground = false
+hips_bone = "pelvis_joint"
+foot_bones = PackedStringArray("L_ankle_joint", "R_ankle_joint")
+visual_scale = 0.95
+run_clip = &"CR_ZombieRun"
+run_above = 2.2
+strike_off = 1.425
+close_speed = 2.8
+weapon_bone = &"R_wrist_joint"
+weapon_tip = Vector3(0.12, 0, 0)
+weapon_radius = 0.16
+strike_bones = PackedStringArray("R_wrist_joint", "L_wrist_joint")
+hit_clip = &"CR_Hit"
+attacks = Array[StringName]([&"CR_ZombieScratch", &"CR_ZombieBite", &"CR_PunchCombo", &"CR_Hook"])
+attack_parts = Array[Vector3]([Vector3(1.2, 0, 0.9), Vector3(1.15, 0, 0.9), Vector3(1.1, 0, 0.92), Vector3(1.0, 0, 0.95)])
+attack_limbs = PackedStringArray("L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "head_joint>head_joint@0.11,0.13,0:0.2", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12")
+attack_blows = PackedInt32Array(1, 1, 2, 1)
+strike_at_reach = true
+blows_to_fell = 3
+too_close = 0.12
+steady_in_attack = true
+hit_cost = 0.0
+attack_cost = 10.0
+regen_delay = 0.5
+stamina_regen = 30.0
+blow_min_speed = 0.8
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)
+shape = SubResource("Capsule_body")
+
+[node name="Visuals" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Model" parent="Visuals" instance=ExtResource("2_model")]
+
+[node name="Dress" type="Node" parent="Visuals"]
+script = ExtResource("4_dress")
+body = "Body_Zombie"
+objects = "Objects_Zombie"
+
+[node name="Body" type="MultiplayerSynchronizer" parent="."]
+replication_interval = 0.033
+replication_config = SubResource("Repl_body")
+
+[node name="NetSmooth" type="Node" parent="."]
+script = ExtResource("net_smooth")

@@ -5503,6 +5503,44 @@ under 2 m/s none of it counted.
 against one cutting at it every 0.4 s, lands every blow it throws and
 attacks at least once every 2 s.
 
+### All the pack's melee creatures fight (2026-10-04)
+
+Ten [Brawler]s in `scenes/enemies/pack/`, written by `tools/make_pack_brawlers.py`
+from one table (the two skeletons moved there too), all on the clips baked
+by `tools/creature_clips.gd` (50 now: two-handed strikes, the ground slam,
+UAL 2's sword and heavy combos, a knee, the wounded idle, a sprint, more
+deaths):
+
+| Creature | Size | Arms | Attacks |
+|---|---|---|---|
+| Orc | x1.1 | falchion | four cuts, a three-cut combo, a kick |
+| Goblin | x0.65 | club | quick cuts and a kick, darts aside |
+| Ogre | x1.6 | great club | four two-handed strikes, a ground slam |
+| Troll | x1.6 | fists | punches, hook, uppercut, a two-fisted slam, a kick |
+| Ghoul | x0.95 | claws | rake, hook, punches, a fist combo, the bite; darts aside |
+| Golem | x1.8 | stone fists | punch, hook, uppercut, slam; hard to hurt |
+| Zombie man / woman | x0.95 | — | rake, bite, fist combo, hook; shambles |
+| Skeleton, skeleton warrior | x0.95 | — / sword and shield | as above |
+
+What made them land every blow (beyond the skeletons' round):
+
+- The gap test (`Brawler._gap_that_lands`) grew the hero's width with the
+  creature's size (an ogre swung from a metre too far), and counted samples
+  slower than `blow_min_speed`, which the sweep then ignores. Both fixed;
+  heavy arms count from 1.2 m/s.
+- An attack is only begun from a gap it lands from: of its attacks, one that
+  fits where it stands (no closer than the two bodies allow); else it walks
+  in. A slam begun from the edge of its reach fell short.
+- It does not swing at a hero knocked flat (he cannot be hit there); it
+  waits for him to get up.
+- None of them fells with a single blow (`blows_to_fell` 3).
+
+The arena's board calls these up; the archer, the mage and the all-in-one
+skeleton still stand as statues. `tests/creature_blows_test.gd` runs all ten
+(`-- orc ghoul` for some): every blow of every completed attack lands on a
+hero standing still and on one cutting at it, and each keeps attacking (at
+least every 2 s; every 3.5 s for the ogre, golem and zombies).
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

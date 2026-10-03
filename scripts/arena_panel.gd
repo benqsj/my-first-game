@@ -20,21 +20,22 @@ extends CanvasLayer
 ## label, scene, and whether it is a boss (drawn in its own column).
 ## Only Polysplit's Biped Creatures stand here now (CREATURES_PACK.md), each
 ## with the arms it came with, or none where it came with none
-## ([PackCreature]). Most have no clips yet and stand in the pack's poses;
-## the skeleton and the skeleton warrior fight ([Brawler], on the clips
-## baked onto the pack's skeleton by tools/creature_clips.gd).
+## ([PackCreature] for those that only stand yet). The melee ones fight
+## ([Brawler], scenes/enemies/pack/, tools/make_pack_brawlers.py, on the
+## clips baked onto the pack's skeleton by tools/creature_clips.gd); the
+## skeleton archer and mage still stand in the pack's poses.
 ## The game's other creatures and bosses are still in the lands.
 const ENTRIES: Array[Array] = [
-	["Orc", "res://scenes/creatures/orc.tscn", false],
-	["Goblin", "res://scenes/creatures/goblin.tscn", false],
-	["Ogre", "res://scenes/creatures/ogre.tscn", false],
-	["Troll", "res://scenes/creatures/troll.tscn", false],
-	["Ghoul", "res://scenes/creatures/ghoul.tscn", false],
-	["Golem", "res://scenes/creatures/golem.tscn", false],
-	["Zombie (man)", "res://scenes/creatures/zombie_m.tscn", false],
-	["Zombie (woman)", "res://scenes/creatures/zombie_f.tscn", false],
-	["Skeleton", "res://scenes/enemies/skeleton.tscn", false],
-	["Skeleton warrior", "res://scenes/enemies/skeleton_warrior.tscn", false],
+	["Orc", "res://scenes/enemies/pack/orc.tscn", false],
+	["Goblin", "res://scenes/enemies/pack/goblin.tscn", false],
+	["Ogre", "res://scenes/enemies/pack/ogre.tscn", false],
+	["Troll", "res://scenes/enemies/pack/troll.tscn", false],
+	["Ghoul", "res://scenes/enemies/pack/ghoul.tscn", false],
+	["Golem", "res://scenes/enemies/pack/golem.tscn", false],
+	["Zombie (man)", "res://scenes/enemies/pack/zombie_m.tscn", false],
+	["Zombie (woman)", "res://scenes/enemies/pack/zombie_f.tscn", false],
+	["Skeleton", "res://scenes/enemies/pack/skeleton.tscn", false],
+	["Skeleton warrior", "res://scenes/enemies/pack/skeleton_warrior.tscn", false],
 	["Skeleton archer", "res://scenes/creatures/skeleton_archer.tscn", false],
 	["Skeleton mage", "res://scenes/creatures/skeleton_mage.tscn", false],
 	["Skeleton, all in one", "res://scenes/creatures/skeleton_all.tscn", false],

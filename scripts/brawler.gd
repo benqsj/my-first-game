@@ -229,7 +229,11 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 	var share_after := blow_window.y * rate / length
 	var frames := _anim.sample_stretches(m[0], stretches, at - share_before, at + share_after, 14)
 	var s := maxf(visual_scale, 0.01)
-	var touch := (radius + WeaponSweep.BODY_RADIUS + WeaponSweep.GRAZE) * s - 0.05
+	# The limb grows with the creature; the hero does not.
+	var touch := radius * s + WeaponSweep.BODY_RADIUS + WeaponSweep.GRAZE - 0.05
+	# A sample counts only moving as fast as a blow must (`blow_min_speed`,
+	# at the stretch's far end, in act seconds), as the sweep will count it.
+	var step_act := (share_before + share_after) * length / 14.0 / rate
 	var fwd := reach_forward.normalized()
 	var runs: Array = []
 	var run_start := -1.0
@@ -239,8 +243,15 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 		var low := fwd * d / s + Vector3.UP * WeaponSweep.BODY_LOW / s
 		var high := fwd * d / s + Vector3.UP * WeaponSweep.BODY_HIGH / s
 		var hit := false
-		for frame: Array in frames:
-			for part: Array in frame:
+		for fi in frames.size():
+			var frame: Array = frames[fi]
+			var prev: Array = frames[maxi(fi - 1, 0)]
+			for pi in frame.size():
+				var part: Array = frame[pi]
+				if fi > 0 and blow_min_speed > 0.0 and pi < prev.size():
+					var moved := (part[1] as Vector3).distance_to((prev[pi] as Array)[1]) * s
+					if moved / maxf(step_act, 0.0001) < blow_min_speed:
+						continue
 				var pts := Geometry3D.get_closest_points_between_segments(part[0], part[1], low, high)
 				if pts[0].distance_to(pts[1]) * s <= touch:
 					hit = true
@@ -315,10 +326,32 @@ func _weapon_part() -> Array:
 
 ## Picks one of its attacks — a big one if the hero is further off.
 func _begin_attack() -> void:
+	# Knocked flat, he cannot be hit (Player.net_blow): it waits over him for
+	# him to get up rather than swing through the air above him.
+	if _quarry_down():
+		_cooldown = maxf(_cooldown, 0.15)
+		return
 	if attacks.is_empty():
 		super()
 		return
-	_begin(ATTACK_BASE + _rng.randi() % attacks.size())
+	# One of the attacks that lands from where it stands: a slam made from the
+	# edge of its reach while still walking in falls short. (No closer than
+	# the two bodies let it come: a bite is thrown from there and steps in.)
+	var gap := _distance_to(_quarry) if _quarry != null else 0.0
+	var nearest := 0.4 * maxf(visual_scale, 0.01) + 0.55
+	var fits: Array[int] = []
+	for i in attacks.size():
+		var want := maxf(float(_strike_from.get(ATTACK_BASE + i, strike_off)), nearest)
+		if gap <= want + 0.4:
+			fits.append(ATTACK_BASE + i)
+	if fits.is_empty():
+		_move_towards(_quarry.global_position, chase_speed, get_physics_process_delta_time())
+		return
+	_begin(fits[_rng.randi() % fits.size()])
+
+
+func _quarry_down() -> bool:
+	return _quarry != null and _quarry is Player and (_quarry as Player).state == Player.State.DOWNED
 
 
 func _think(delta: float) -> void:
@@ -326,7 +359,7 @@ func _think(delta: float) -> void:
 		_roar_in -= delta
 		var gap := _distance_to(_quarry)
 		if not big_attacks.is_empty() and gap > reach and gap < big_reach and _cooldown <= 0.0 \
-				and stamina >= attack_cost and _rng.randf() < 0.02:
+				and stamina >= attack_cost and _rng.randf() < 0.02 and not _quarry_down():
 			_face(_quarry.global_position - global_position, 1.0, 50.0)
 			_begin(BIG_BASE + _rng.randi() % big_attacks.size())
 			return
