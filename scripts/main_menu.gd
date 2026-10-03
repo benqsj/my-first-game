@@ -77,17 +77,17 @@ var _pick_rows: Dictionary = {}
 ## wears YOUR OWN: its rows in four tabs, each an arrow either side of what is
 ## picked of that kind.
 const MAKER_TABS := {
-	"CLASS": ["cls", "g"],
+	"OUTFIT": ["cls", "g"],
 	"FACE": ["eyes", "brows", "mouth", "beard", "hair", "skin"],
 	"GEAR": ["top", "bottom", "extra", "hat", "cloth"],
 	"ARMS": ["w", "o"],
 }
 const MAKER_LABELS := {
-	"cls": "CLASS", "g": "BODY", "eyes": "EYES", "brows": "BROWS", "mouth": "MOUTH", "beard": "BEARD",
+	"cls": "OUTFIT", "g": "BODY", "eyes": "EYES", "brows": "BROWS", "mouth": "MOUTH", "beard": "BEARD",
 	"hair": "HAIR", "skin": "SKIN", "top": "TOP", "bottom": "LEGS", "extra": "MORE", "hat": "HAT",
 	"cloth": "CLOTH", "w": "WEAPON", "o": "OTHER HAND",
 }
-var _maker_tab: String = "CLASS"
+var _maker_tab: String = "OUTFIT"
 var _maker_rows: Dictionary = {}
 var _maker_tabs: Dictionary = {}
 ## Which of the extras the MORE row is on (it steps through them all; the

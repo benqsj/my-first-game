@@ -6359,10 +6359,22 @@ and step distances are the same for all of them.
 | hero | visuals scale | to the top of the head |
 | --- | ---: | ---: |
 | Tariel | 1.02 (was 1.2) | ≈ 1.95 m |
-| the warrior | 1.02 (was 1.0) | ≈ 1.95 m |
+| the warrior | 1.1 (was 1.02, before that 1.0) | ≈ 2.1 m |
 | Avtandil | 0.985 (was 1.0) | ≈ 1.88 m |
 | the mage | 0.97 (was 1.0) | ≈ 1.85 m |
 | the assassin | 0.94 (was 1.0) | ≈ 1.80 m |
+
+**The warrior, the big and slow one (2026-10-03, later).** The knight's
+outfit is his alone now (`PolysplitLook.HERO_CLASSES`: Tariel keeps the
+swordsman's and the fighter's), and he is the biggest of them: visuals x1.1
+(~2.1 m), running 4.6 m/s (Kevin's run at its own pace, x1.01) and walking
+2.2, and his blows on the mannequin at 0.82 of the others' pace
+(`SkinnedRig.mq_swing_scale`, heavy blows' own rates too). His slow start and
+stop and slow turning were already his (`warrior.tres`).
+
+**OUTFIT, not CLASS.** On the hero select the first tab of the maker and its
+row are called OUTFIT: Polysplit's classes are only clothes, a hat, the extras
+and the arms they start with; nothing in the game reads them.
 
 On the Polysplit figure at scale 1, `head_joint` stands at 1.706 m in the idle,
 and the top of the head is about 0.2 m above it.

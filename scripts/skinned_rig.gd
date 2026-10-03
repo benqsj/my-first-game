@@ -384,6 +384,8 @@ const SHIELD_BUILT_TURN := 18.6
 var shield_turn_default: float = 0.0
 ## The picked blows' pace (see `swing_rate`).
 const MQ_SWING_RATE := 1.1
+## This hero's share of that pace: under 1 for a heavy one (the warrior).
+var mq_swing_scale: float = 1.0
 ## How fast the shield goes round onto a clip's way (degrees a second).
 const SHIELD_TURN_RATE := 540.0
 ## Seconds without a blow, a hit or a guard after which he stands easy (the
@@ -1285,7 +1287,8 @@ func attack(style: int = -1) -> void:
 		cut_weight = float(h.get("weight", 1.5))
 		_heavy_aim = bool(h.get("aim", true))
 		var hp: Vector2 = h.get("part", Vector2(0.0, 1.0))
-		if _play_action(h["clip"], Role.SWING, float(h.get("rate", swing_rate)), 0.08, hp.x, hp.y):
+		var h_rate := float(h.get("rate", swing_rate)) * (mq_swing_scale if _on_mq and h.has("rate") else 1.0)
+		if _play_action(h["clip"], Role.SWING, h_rate, 0.08, hp.x, hp.y):
 			_swing_commit = swing_time()
 			_whoosh()
 		return
@@ -2166,7 +2169,7 @@ func _wear_moves() -> void:
 		flurry_reset_after = 1.2
 	# the picked blows were made at the game's pace (UAL 2's) or near it
 	# (Kevin's): not hurried as the Mixamo ones were
-	swing_rate = MQ_SWING_RATE
+	swing_rate = MQ_SWING_RATE * mq_swing_scale
 	if moves.has("jump_attack"):
 		# from the aerial pose up to the blade over the head, held till the
 		# ground; the landing plays on from there ([Swordsman])

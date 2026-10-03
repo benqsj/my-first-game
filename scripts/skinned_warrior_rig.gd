@@ -161,6 +161,9 @@ func _configure() -> void:
 	# A great sword's pace: slower out of the guard, a longer ease from one
 	# blow into the next.
 	swing_rate = 1.3
+	# On the mannequin too: a great sword swung by a big man, slower than
+	# the others' blows (MQ_SWING_RATE x0.82).
+	mq_swing_scale = 0.82
 	swing_recovery = 0.18
 	action_blend = 0.12
 	run_threshold = 3.0

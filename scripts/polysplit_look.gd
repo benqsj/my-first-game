@@ -60,10 +60,12 @@ const CLASS_NAMES := {
 	"swordsman": "SWORDSMAN", "fighter": "FIGHTER", "knight": "KNIGHT", "archer": "ARCHER", "hunter": "HUNTER",
 	"rogue": "ROGUE", "mage": "MAGE", "sorcerer": "SORCERER", "warlock": "WARLOCK", "witch": "WITCH",
 }
-## Each hero's own classes: the only ones he is offered (2026-10-02, the
+## Each hero's own classes (shown as OUTFIT on the hero select: they are the
+## pack's clothes, nothing more): the only ones he is offered (2026-10-02, the
 ## user's word: every hero his own body and clothes; hats and arms are free).
+## The knight's are the warrior's alone (2026-10-03).
 const HERO_CLASSES := {
-	&"tariel": ["swordsman", "fighter", "knight"],
+	&"tariel": ["swordsman", "fighter"],
 	&"warrior": ["knight"],
 	&"rogue": ["rogue"],
 	&"avtandil": ["archer", "hunter"],

@@ -146,7 +146,7 @@ func _check_menu() -> void:
 	await _wait(2)
 	_check("YOUR OWN puts the maker where the dossier was", maker != null and maker.visible
 			and dossier != null and not dossier.visible)
-	menu.set("_maker_tab", "CLASS")
+	menu.set("_maker_tab", "OUTFIT")
 	var cls_was := String(knight.get_look()["cls"])
 	menu.call("_maker_step", "cls", 1)
 	await _wait(2)
