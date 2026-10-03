@@ -39,6 +39,13 @@ var _clock: float = 0.0
 var _last_index: int = -1
 ## Steps heard so far, for the tests.
 var steps_played: int = 0
+## Where each foot was when the skeleton was last posed, every modifier done
+## (its `skeleton_updated`), in the skeleton's frame. A modifier's pose is only
+## there while the skeleton is drawn: read later in the frame the bones are
+## back to the clip's, and under a clip that stands while a stride is laid on
+## its legs (a sword drawn on the run, a cut) the feet never lifted and the
+## steps went quiet.
+var _posed: Array[Vector3] = []
 
 
 ## `rig` is the node holding the model; finds the skeleton and its two feet.
@@ -53,7 +60,12 @@ func attach(rig: Node) -> bool:
 
 
 func _use(skel: Skeleton3D) -> bool:
+	if _skel != null and is_instance_valid(_skel) and _skel.skeleton_updated.is_connected(_on_posed):
+		_skel.skeleton_updated.disconnect(_on_posed)
 	_skel = skel
+	_posed.clear()
+	if not skel.skeleton_updated.is_connected(_on_posed):
+		skel.skeleton_updated.connect(_on_posed)
 	_feet.clear()
 	_lifted.clear()
 	_floor.clear()
@@ -67,6 +79,14 @@ func _use(skel: Skeleton3D) -> bool:
 		return false
 	Sfx.warm(STEPS)
 	return true
+
+
+func _on_posed() -> void:
+	if _skel == null or not is_instance_valid(_skel):
+		return
+	_posed.resize(_feet.size())
+	for k in _feet.size():
+		_posed[k] = _skel.get_bone_global_pose(_feet[k]).origin
 
 
 func _find_foot(side: String) -> int:
@@ -90,7 +110,8 @@ func tick(delta: float, speed: float, grounded: bool, body: Node3D) -> void:
 		return
 	var base_y := body.global_position.y
 	for k in _feet.size():
-		var y := (_skel.global_transform * _skel.get_bone_global_pose(_feet[k])).origin.y - base_y
+		var foot := _posed[k] if k < _posed.size() else _skel.get_bone_global_pose(_feet[k]).origin
+		var y := (_skel.global_transform * foot).y - base_y
 		# The lowest the foot sits, easing back up slowly so a slope or a
 		# crouch does not leave the reference stuck low.
 		_floor[k] = minf(y, _floor[k] + delta * 0.1) if _floor[k] < INF else y

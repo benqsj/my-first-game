@@ -47,6 +47,15 @@ func _hand_to_grip() -> float:
 	return hand.distance_to(rig._blade_base.global_position)
 
 
+## How far forward his chest leans (degrees), as the figure is drawn.
+func _lean() -> float:
+	var sk := rig._figure_skel
+	var chest := sk.get_bone_global_pose(sk.find_bone("chest_joint"))
+	var waist := sk.get_bone_global_pose(sk.find_bone("waist_joint"))
+	var up := (sk.global_transform.basis * (chest.origin - waist.origin)).normalized()
+	return rad_to_deg(up.angle_to(Vector3.UP))
+
+
 func _wear(cls: String) -> void:
 	player.set_look(PolysplitLook.dress(PolysplitLook.default_look(&"tariel", "m"), &"tariel", cls))
 	player.set_face(rig.faces.find(SkinnedRig.CUSTOM))
@@ -104,6 +113,37 @@ func _initialize() -> void:
 	await _frames(3)
 	_check("the sword is in his fist again", rig.weapons_slung() <= 0.0 and _hand_to_grip() < 0.25,
 			"(slung %.2f, %.2f m)" % [rig.weapons_slung(), _hand_to_grip()])
+
+	# put away on the run: the legs and the run's lean go on, the steps heard
+	await _frames(40)
+	Input.action_press("move_forward")
+	await _frames(40)
+	var steps0 := player.footsteps.steps_played
+	var lean0 := 0.0
+	for i in 40:
+		await physics_frame
+		lean0 += _lean()
+	await physics_frame
+	steps0 = player.footsteps.steps_played - steps0
+	await _tap("stow")
+	var steps1 := player.footsteps.steps_played
+	var lean1 := 0.0
+	var seen := 0
+	for i in 40:
+		await physics_frame
+		if rig._anim.current_animation == "KV_SheatheBack01_R":
+			lean1 += _lean()
+			seen += 1
+	steps1 = player.footsteps.steps_played - steps1
+	Input.action_release("move_forward")
+	lean0 /= 40.0
+	lean1 /= maxf(seen, 1)
+	_check("put away on the run, the steps go on", steps1 >= maxi(steps0 - 1, 2), "(%d running, %d putting away)" % [steps0, steps1])
+	_check("and he keeps the run's lean", seen > 10 and absf(lean1 - lean0) < 5.0,
+			"(%.1f deg running, %.1f putting away)" % [lean0, lean1])
+	await _frames(60)
+	await _tap("attack")
+	await _frames(90)
 
 	# out of the fight it goes back of its own accord
 	var away := false

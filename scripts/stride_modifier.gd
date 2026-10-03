@@ -20,6 +20,17 @@ const LEG_BONES: PackedStringArray = [
 	"thigh_r", "calf_r", "foot_r", "ball_r",
 ]
 
+## The trunk and the shield arm too, for a clip that is the sword arm's
+## alone (the sword put away or drawn on the run): the clip's own back is a man
+## standing, and laid over a run it straightened him up mid-stride.
+const UPPER_BONES: PackedStringArray = [
+	"spine_01", "spine_02", "spine_03", "neck_01", "head",
+	"clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+]
+## Whether the trunk and the other arm come from the cycle as well.
+var upper: bool = false
+var _upper_tracks: Array[Vector2i] = []
+
 ## The cycle the legs come from, and where in it they are (seconds).
 var cycle: Animation
 var time: float = 0.0
@@ -59,7 +70,7 @@ func _process_modification() -> void:
 		var trunk_was := skel.get_bone_global_pose(_trunk) if _trunk >= 0 else Transform3D()
 		var hips_own := skel.get_bone_pose_rotation(_hips_turn.y)
 		skel.set_bone_pose_rotation(_hips_turn.y, hips_own.slerp(cycle.rotation_track_interpolate(_hips_turn.x, at), weight))
-		if _trunk >= 0:
+		if _trunk >= 0 and not upper:
 			var hips_now := skel.get_bone_global_pose(_hips_turn.y)
 			skel.set_bone_pose_rotation(_trunk, (hips_now.basis.orthonormalized().inverse()
 					* trunk_was.basis.orthonormalized()).get_rotation_quaternion())
@@ -67,6 +78,10 @@ func _process_modification() -> void:
 		var leg := cycle.rotation_track_interpolate(tb.x, at)
 		var own := skel.get_bone_pose_rotation(tb.y)
 		skel.set_bone_pose_rotation(tb.y, own.slerp(leg, weight))
+	if upper:
+		for tb in _upper_tracks:
+			var q := cycle.rotation_track_interpolate(tb.x, at)
+			skel.set_bone_pose_rotation(tb.y, skel.get_bone_pose_rotation(tb.y).slerp(q, weight))
 	if _hips.x >= 0:
 		var at_hips := cycle.position_track_interpolate(_hips.x, at)
 		var own_hips := skel.get_bone_pose_position(_hips.y)
@@ -82,6 +97,7 @@ func _process_modification() -> void:
 
 func _find_tracks(skel: Skeleton3D) -> void:
 	_tracks.clear()
+	_upper_tracks.clear()
 	_tracks_for = cycle
 	_hips = Vector2i(-1, -1)
 	_hips_turn = Vector2i(-1, -1)
@@ -104,3 +120,7 @@ func _find_tracks(skel: Skeleton3D) -> void:
 			var bone := skel.find_bone(bone_name)
 			if bone >= 0:
 				_tracks.append(Vector2i(t, bone))
+		elif bone_name in UPPER_BONES:
+			var ub := skel.find_bone(bone_name)
+			if ub >= 0:
+				_upper_tracks.append(Vector2i(t, ub))

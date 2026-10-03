@@ -6436,4 +6436,20 @@ sword away in it and draws it from it (`SkinnedRig`, region "The scabbard";
   never late. Other peers see it through `net_stowed`.
 * Not for a look with a blade in the other hand too (the rogue's two daggers),
   nor for a look with no scabbard: those keep the sword in hand.
-* `tests/sheath_test.gd`.
+* **The blade lies in the scabbard, not beside it** (fixed the same day). Each
+  mesh's line is its own principal axis (Jacobi on the covariance,
+  `Sheath._axes`), the guard is the widest slice across it, the mouth the
+  middle of the scabbard's last 4 cm: the first try took the line from the
+  sword's bone to its point, and the bone sits in the grip 11° and some
+  centimetres off the blade's line, so the blade stood out of the scabbard.
+  Every Polysplit blade now lies inside its scabbard but for the guard at the
+  mouth (`_shots_tmp/fit_probe.gd` counted it).
+* **On the run only the sword arm is the clip's.** Kevin's clips are a man
+  standing; laid over a run they straightened his back mid-stride. While one
+  plays, the stride under it ([StrideModifier] `upper`) gives the trunk, the
+  head and the shield arm the run's pose too, so he keeps leaning into it.
+* **The steps go on under it.** [Footsteps] read the feet later in the frame,
+  when a modifier's pose is gone again: under a clip standing still with a
+  stride laid on its legs (this, and the cuts on the run) the feet never seemed
+  to lift. It now takes them as the skeleton is posed (`skeleton_updated`).
+* `tests/sheath_test.gd` (the run's steps and lean while it is put away too).

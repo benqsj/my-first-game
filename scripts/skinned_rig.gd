@@ -1039,6 +1039,8 @@ func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 			want = false
 	_stride.weight = move_toward(_stride.weight, 1.0 if want else 0.0,
 			delta / maxf(stride_blend, 0.01))
+	# the sword put away or drawn on the run: only the sword arm is the clip's
+	_stride.upper = _sheath_play != &"" and _role == Role.FREE and _act_clip == _sheath_play
 
 
 func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, blocking: bool) -> void:

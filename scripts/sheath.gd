@@ -12,30 +12,57 @@ extends RefCounted
 
 
 ## The blade of `mesh` (rigid on `bone` of `skel`), in the bone's frame:
-## {"axis": grip to point, "guard": the guard's middle, "flat": the way the
-## guard runs, "length": guard to point}. Empty if it cannot be read.
+## {"axis": guard to point, "guard": the guard's middle, "flat": the way the
+## blade is wide, "length": guard to point}. Empty if it cannot be read.
+##
+## The line is the mesh's own long axis (its principal axis), not the way from
+## the bone to the point: the bone sits in the grip off the blade's line, and a
+## line through it lay a few degrees and centimetres off, so the blade stood
+## out through the scabbard's side.
 static func blade(mesh: MeshInstance3D, skel: Skeleton3D, bone: StringName) -> Dictionary:
 	var pts := _points(mesh, skel, bone)
 	if pts.size() < 4:
 		return {}
-	var tip := Vector3.ZERO
+	var frame := _axes(pts)
+	var c: Vector3 = frame[0]
+	var d: Vector3 = frame[1]
+	# the point is the end farther from the bone (the hand)
+	var lo := INF
+	var hi := -INF
 	for p in pts:
-		if p.length_squared() > tip.length_squared():
-			tip = p
-	var d := tip.normalized()
-	var widest := -1.0
-	var guard_t := 0.0
-	var flat := Vector3.ZERO
+		var t := (p - c).dot(d)
+		lo = minf(lo, t)
+		hi = maxf(hi, t)
+	if (c + d * lo).length() > (c + d * hi).length():
+		d = -d
+		var keep := lo
+		lo = -hi
+		hi = -keep
+	# the guard: the slice across the line where the mesh is widest
+	var slices := 40
+	var width := PackedFloat32Array()
+	width.resize(slices)
 	for p in pts:
-		var t := p.dot(d)
-		var across := p - d * t
-		if across.length() > widest:
-			widest = across.length()
-			guard_t = t
-			flat = across
-	if flat.length_squared() < 1e-8:
-		flat = d.cross(Vector3.UP if absf(d.y) < 0.9 else Vector3.RIGHT)
-	return {"axis": d, "guard": d * guard_t, "flat": flat.normalized(), "length": tip.length() - guard_t}
+		var t := (p - c).dot(d)
+		var i := clampi(int((t - lo) / maxf(hi - lo, 0.001) * slices), 0, slices - 1)
+		var across := ((p - c) - d * t).length()
+		width[i] = maxf(width[i], across)
+	var best := 0
+	for i in slices:
+		if width[i] > width[best]:
+			best = i
+	var t0 := lo + (hi - lo) * float(best) / slices
+	var t1 := lo + (hi - lo) * float(best + 1) / slices
+	var guard := Vector3.ZERO
+	var n := 0
+	for p in pts:
+		var t := (p - c).dot(d)
+		if t >= t0 and t <= t1:
+			guard += p
+			n += 1
+	guard = guard / float(maxi(n, 1)) if n > 0 else c + d * (t0 + t1) * 0.5
+	var g := (guard - c).dot(d)
+	return {"axis": d, "guard": guard, "flat": frame[2], "length": hi - g}
 
 
 ## The socket for `the_blade` ([method blade]) in the scabbard `mesh`, on the
@@ -51,45 +78,44 @@ static func socket(mesh: MeshInstance3D, skel: Skeleton3D, the_blade: Dictionary
 	var pts := _points(mesh, skel, skel.get_bone_name(bone))
 	if pts.size() < 4:
 		return {}
-	var c := Vector3.ZERO
-	for p in pts:
-		c += p
-	c /= float(pts.size())
-	var p1 := c
-	for p in pts:
-		if p.distance_squared_to(c) > p1.distance_squared_to(c):
-			p1 = p
-	var p2 := p1
-	for p in pts:
-		if p.distance_squared_to(p1) > p2.distance_squared_to(p1):
-			p2 = p
-	var u := (p2 - p1).normalized()
-	if u.length_squared() < 0.5:
-		return {}
+	var frame := _axes(pts)
+	var c: Vector3 = frame[0]
+	var u: Vector3 = frame[1]
+	var s: Vector3 = frame[2]
 	# the mouth is the end that is higher at rest
 	var rest := skel.get_bone_global_rest(bone)
-	if (rest * p1).y > (rest * p2).y:
-		u = -u
 	var lo := INF
 	var hi := -INF
-	var widest := -1.0
-	var wide := Vector3.ZERO
+	var top := -INF
+	var top_t := 0.0
 	for p in pts:
 		var t := (p - c).dot(u)
 		lo = minf(lo, t)
 		hi = maxf(hi, t)
-		var across := (p - c) - u * t
-		if across.length() > widest:
-			widest = across.length()
-			wide = across
-	var mouth := c + u * hi
+		var y := (rest * p).y
+		if y > top:
+			top = y
+			top_t = t
+	if top_t < 0.0:
+		u = -u
+		var keep := lo
+		lo = -hi
+		hi = -keep
+	# the mouth's middle: the scabbard's last few centimetres at that end
+	var mouth := Vector3.ZERO
+	var n := 0
+	for p in pts:
+		if (p - c).dot(u) >= hi - MOUTH_DEPTH:
+			mouth += p
+			n += 1
+	mouth = mouth / float(n) if n > 0 else c + u * hi
+	# its line through the mouth's middle, the way the scabbard runs
+	mouth = mouth - u * (mouth - c).dot(u) + u * hi
 	var into := -u
-	var s := (wide - into * wide.dot(into)).normalized()
-	if s.length_squared() < 0.5:
-		s = into.cross(Vector3.UP).normalized()
 	var d: Vector3 = the_blade["axis"]
 	var f: Vector3 = the_blade["flat"]
 	f = (f - d * f.dot(d)).normalized()
+	s = (s - into * s.dot(into)).normalized()
 	var sword_frame := Basis(d, f, d.cross(f))
 	var sheath_frame := Basis(into, s, into.cross(s))
 	var turn := sheath_frame * sword_frame.transposed()
@@ -101,6 +127,60 @@ static func socket(mesh: MeshInstance3D, skel: Skeleton3D, the_blade: Dictionary
 	if chest >= 0 and high < skel.get_bone_global_rest(chest).origin.y * 0.85:
 		where = &"hips"
 	return {"bone": bone, "at": at, "where": where, "length": hi - lo, "mesh": mesh}
+
+## How deep from its end the mouth's middle is taken, metres.
+const MOUTH_DEPTH := 0.04
+
+
+## [centre, long axis, middle axis, short axis] of `pts`: their mean and the
+## principal axes of their spread (Jacobi on the 3x3 covariance).
+static func _axes(pts: PackedVector3Array) -> Array:
+	var c := Vector3.ZERO
+	for p in pts:
+		c += p
+	c /= float(pts.size())
+	var m := [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+	for p in pts:
+		var q := p - c
+		var v := [q.x, q.y, q.z]
+		for i in 3:
+			for j in 3:
+				m[i][j] += v[i] * v[j]
+	var e := [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+	for sweep in 30:
+		for pq: Array in [[0, 1], [0, 2], [1, 2]]:
+			var a: int = pq[0]
+			var b: int = pq[1]
+			if absf(m[a][b]) < 1e-12:
+				continue
+			var theta: float = (float(m[b][b]) - float(m[a][a])) / (2.0 * float(m[a][b]))
+			var t := signf(theta) / (absf(theta) + sqrt(theta * theta + 1.0))
+			if theta == 0.0:
+				t = 1.0
+			var cs := 1.0 / sqrt(t * t + 1.0)
+			var sn := t * cs
+			for k in 3:
+				var mka: float = m[k][a]
+				var mkb: float = m[k][b]
+				m[k][a] = cs * mka - sn * mkb
+				m[k][b] = sn * mka + cs * mkb
+			for k in 3:
+				var mak: float = m[a][k]
+				var mbk: float = m[b][k]
+				m[a][k] = cs * mak - sn * mbk
+				m[b][k] = sn * mak + cs * mbk
+			for k in 3:
+				var eka: float = e[k][a]
+				var ekb: float = e[k][b]
+				e[k][a] = cs * eka - sn * ekb
+				e[k][b] = sn * eka + cs * ekb
+	var order := [0, 1, 2]
+	order.sort_custom(func(i: int, j: int) -> bool: return float(m[i][i]) > float(m[j][j]))
+	var axes: Array = [c]
+	for i: int in order:
+		axes.append(Vector3(e[0][i], e[1][i], e[2][i]).normalized())
+	return axes
+
 
 ## How far the guard stands out of the mouth, metres.
 const GUARD_PROUD := 0.015
