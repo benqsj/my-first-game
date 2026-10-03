@@ -181,7 +181,12 @@ const AW := {
 	"longbow": {"name": "LONG BOW", "kind": &"bow", "hands": "w"},
 }
 ## The pack's four styles, each its own models and colours.
-const STYLES := ["normal", "ornate", "obsidian", "bone"]
+## "black" is the obsidian models as first worn, before the pack's shader:
+## the pre-coloured texture alone, black and dull, no glow (2026-10-03, the
+## user's word: the new and the old both).
+const STYLES := ["normal", "ornate", "obsidian", "black", "bone"]
+## The models a style is worn in (its meshes' "<style>" in the figure).
+const STYLE_MODELS := {"black": "obsidian"}
 ## How the pack's shader draws each style (its RGBRecolor_<Style>Weapons.mat):
 ## metal and gloss for the mask's R, G and B, and the imbue glow (on for
 ## ornate and obsidian), see shaders/aw_weapon.gdshader.
@@ -201,7 +206,8 @@ const STYLE_LOOKS := {
 const AW_SHADER := "res://shaders/aw_weapon.gdshader"
 const AW_MASK := "res://assets/polysplit/aw_mask.png"
 static var _aw_mats: Dictionary = {}
-const STYLE_NAMES := {"normal": "NORMAL", "ornate": "ORNATE", "obsidian": "OBSIDIAN", "bone": "BONE"}
+const STYLE_NAMES := {"normal": "NORMAL", "ornate": "ORNATE", "obsidian": "OBSIDIAN", "black": "BLACK OBSIDIAN",
+		"bone": "BONE"}
 ## What each class may hold (2026-10-03, the user's word: a class its own
 ## arms, to be seen in hand on the hero select; no bow for the swordsman).
 ## "aw_<name>" are the Advanced Weapons (worn in the look's style); the rest
@@ -257,7 +263,7 @@ static func aw_name(id: String) -> String:
 ## `id` in `style`: an Advanced Weapon's in that style, any other as it is.
 static func styled(id: String, style: String) -> String:
 	var name := aw_name(id)
-	return id if name == "" else "aw_%s_%s" % [name, style]
+	return id if name == "" else "aw_%s_%s" % [name, STYLE_MODELS.get(style, style)]
 
 
 ## What can be held in the `slot` hand ("w" / "o") by `hero` in class `cls`,
@@ -334,6 +340,14 @@ static func sheathes(id: String) -> bool:
 static func aw_material(style: String, albedo: Texture2D) -> Material:
 	if _aw_mats.has(style):
 		return _aw_mats[style]
+	if not STYLE_LOOKS.has(style):
+		# a style drawn as first worn: the texture alone, dull
+		var plain := StandardMaterial3D.new()
+		plain.albedo_texture = albedo
+		plain.roughness = 0.7
+		plain.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		_aw_mats[style] = plain
+		return plain
 	var spec: Dictionary = STYLE_LOOKS.get(style, STYLE_LOOKS["normal"])
 	var m := ShaderMaterial.new()
 	m.shader = load(AW_SHADER)
@@ -548,6 +562,20 @@ static func apply(figure: Node3D, look: Dictionary) -> void:
 			visible = visible or (key.begins_with(pre) and not key.ends_with("_top"))
 		mesh.visible = visible
 	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)))
+	wear_style(figure, String(look.get("ws", STYLES[0])))
+
+
+## Draws the figure's Advanced Weapons as `style` has them: a style worn on
+## another's models ("black" on the obsidian ones) gets its own material.
+static func wear_style(figure: Node3D, style: String) -> void:
+	var models := String(STYLE_MODELS.get(style, style))
+	for s: Array in figure.get_meta(&"aw_surfs", []):
+		var mesh := s[0] as MeshInstance3D
+		if not is_instance_valid(mesh):
+			continue
+		var own := String(s[2])
+		var drawn := style if own == models else own
+		mesh.set_surface_override_material(int(s[1]), aw_material(drawn, s[3] as Texture2D))
 
 
 ## Swaps the figure's two textures for the pack's colours `skin` (1..8) and
@@ -565,6 +593,10 @@ static func dye(figure: Node3D, skin: int, cloth: int) -> void:
 					continue
 				if m.resource_name.begins_with("aw_"):
 					# the Advanced Weapons: their style's colours, metal and glow
+					# (`wear_style()` picks between the ways a model is drawn)
+					var surfs: Array = figure.get_meta(&"aw_surfs", [])
+					surfs.append([mesh, i, m.resource_name.substr(3), m.albedo_texture])
+					figure.set_meta(&"aw_surfs", surfs)
 					mesh.set_surface_override_material(i, aw_material(m.resource_name.substr(3), m.albedo_texture))
 					continue
 				var kind := "body" if m.resource_name.contains("body") else "objects"

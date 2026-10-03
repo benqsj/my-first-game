@@ -184,6 +184,25 @@ func _run() -> void:
 				rig.set_look(held)
 				_check("%s: every arm of the class, every style, in hand (%d)" % [tag, counted],
 						wrong.is_empty(), str(wrong))
+				# BLACK OBSIDIAN: the obsidian models, drawn dull as first worn;
+				# OBSIDIAN the same models with the pack's shader
+				var w_aw := ""
+				for id: String in PolysplitLook.arms(hero, cls, "w", "obsidian"):
+					if id.begins_with("aw_"):
+						w_aw = id
+						break
+				if w_aw != "":
+					var drawn := {}
+					for style: String in ["obsidian", "black"]:
+						var styled_look := held.duplicate(true)
+						styled_look["ws"] = style
+						styled_look["w"] = w_aw
+						rig.set_look(styled_look)
+						var mesh_s := fig.find_child("ps_w_" + w_aw, true, false) as MeshInstance3D
+						drawn[style] = mesh_s.get_surface_override_material(0) if mesh_s != null else null
+					rig.set_look(held)
+					_check("%s: OBSIDIAN glows, BLACK OBSIDIAN is the same %s drawn plain" % [tag, w_aw],
+							drawn["obsidian"] is ShaderMaterial and drawn["black"] is StandardMaterial3D, str(drawn))
 		# The colours: the figure's own materials, dyed.
 		var look := rig.get_look()
 		look["skin"] = 5

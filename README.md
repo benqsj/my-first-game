@@ -6605,6 +6605,11 @@ rows and the style worn on the weapon in hand. Sheets of every class's arms:
   OBSIDIAN the "imbue" glow, a rim and slow noise moving over the weapon in
   the style's colour. The flat look before was the pre-coloured texture
   alone, rough and with no metal. The figures are now 18.5-19.3 MB.
+- **BLACK OBSIDIAN** (the user's word: the new and the old both): a fifth
+  STYLE, the obsidian models drawn as they were first worn, the texture
+  alone, black and dull, no glow. Its weapons' ids are the obsidian ones
+  (`PolysplitLook.STYLE_MODELS`); `wear_style()` gives their meshes the plain
+  material, OBSIDIAN keeps the pack's shader.
 
 ### Tariel's skill 1, the Rising Cut; the running cut held wound up (2026-10-03, later)
 * **Skill 1 (key 1): the Rising Cut** (`Player._rising_cut`, `Swordsman.RISING_CUT`,
