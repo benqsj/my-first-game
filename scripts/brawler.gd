@@ -47,6 +47,16 @@ extends ClipFighter
 ## the skeleton it comes from (`reach_forward`).
 @export var strike_at_reach: bool = false
 @export var reach_forward: Vector3 = Vector3.BACK
+## Blows in each attack (in `attacks`, then `big_attacks`; missing: 1). An
+## attack of several (a punch combo) has its blows where its striking ends
+## move fastest, the latest that many of them.
+@export var attack_blows: PackedInt32Array = PackedInt32Array()
+## Not pushed back by the blows it takes while it is swinging: the swing
+## goes on and lands where it was aimed.
+@export var steady_in_attack: bool = false
+## Guarding behind its shield, it strikes back once his blows have stopped
+## coming for this long (s; 0: it waits for the guard to drop by itself).
+@export var counter_after: float = 0.0
 ## How many of its ordinary blows in one attack fell a hero (1: every blow
 ## that lands knocks him down). Its big attacks always do.
 @export var blows_to_fell: int = 1
@@ -104,6 +114,11 @@ func _ready() -> void:
 
 ## An attack landed by limbs of its own (`attack_limbs`): its strike is
 ## those stretches, and the blow is marked by the speed of their far ends.
+func _blows_of(what: int) -> int:
+	var i := what - ATTACK_BASE if what < BIG_BASE else attacks.size() + what - BIG_BASE
+	return maxi(attack_blows[i], 1) if i >= 0 and i < attack_blows.size() else 1
+
+
 func _own_limb(what: int, spec: String) -> void:
 	if spec.strip_edges().is_empty():
 		return
@@ -167,6 +182,24 @@ func _moments_at_reach() -> void:
 			var last: Array = (_limbs_of[what] as Array)[-1]
 			bone = String(last[1])
 			tip = last[2]
+		var n := _blows_of(what)
+		if n > 1:
+			# A combo: its blows where the striking ends move fastest.
+			var peaks := PackedFloat32Array()
+			for p in _anim.measure_peaks(m[0], PackedStringArray(s[0]), 0.3, 0.08):
+				if p >= float(m[2]) and p <= float(m[3]):
+					peaks.append(p)
+			if peaks.size() > n:
+				peaks = peaks.slice(peaks.size() - n)
+			if not peaks.is_empty():
+				var limbs: Array = []
+				for k in peaks.size():
+					limbs.append((s[1] as Array)[0])
+				_strikes_table[what] = [s[0], limbs, 1.0 / float(peaks.size()) * 1.6, maxi(int(s[3]), peaks.size()), 0.5, peaks]
+				var first := _gap_that_lands(what, m, peaks[0])
+				if first > 0.0:
+					_strike_from[what] = first
+			continue
 		var at := _anim.measure_reach(m[0], bone, tip, reach_forward, float(m[2]), float(m[3]))
 		if at >= 0.0:
 			_strikes_table[what] = [s[0], s[1], s[2], s[3], 0.6, PackedFloat32Array([at])]
@@ -303,7 +336,31 @@ func _think(delta: float) -> void:
 			return
 		if _step_back(delta):
 			return
+	# Behind the shield, once his blows stop coming: straight back at him.
+	if counter_after > 0.0 and act == Act.BLOCK and _quarry != null and not is_dead \
+			and _act_time >= counter_after and stamina >= attack_cost \
+			and _distance_to(_quarry) <= reach + 0.4:
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_begin_attack()
+		return
 	super(delta)
+
+
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	var was := velocity
+	var bled := super(damage, at, blow, from, magic)
+	if steady_in_attack and not is_dead and _strikes_table.has(act):
+		velocity.x = was.x
+		velocity.z = was.z
+	return bled
+
+
+## Its own moves are swings too: none is dropped halfway to guard or to step
+## aside from his (Fighter only knows its own ATTACK act as one).
+func _answer_swing(knight: Node3D) -> void:
+	if _moves_table.has(act):
+		return
+	super(knight)
 
 
 ## Standing too close to swing: a step or two back first.
@@ -332,7 +389,7 @@ func _run_act(delta: float) -> void:
 	if _anim.current_clip() != clip:
 		return
 	var want := _clip_time(act, _act_time)
-	if absf(_anim.clip_position() - want) > 0.03 and want < _anim.clip_length(clip):
+	if absf(_anim.clip_position() - want) > 0.015 and want < _anim.clip_length(clip):
 		_anim.seek(want)
 
 

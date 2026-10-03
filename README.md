@@ -5477,6 +5477,32 @@ walks 1.7, chases 4.4 m/s, swings at x1.25, 0.5–1.2 s between attacks; the
 bare skeleton 1.4 / 4.0. The warrior's shield charge is out until it carries
 him (the clip is in place).
 
+**Fighting back while being cut** (2026-10-04): the skeletons used to stand
+idle through a hero's string of cuts. Each cut cost them stamina (12) and
+held back its return for 1.6 s, so under a string of cuts they could not pay
+for a swing; the warrior's guard was renewed by every swing of his, and his
+own swings could be dropped halfway to guard or dodge (Fighter only counted
+its own ATTACK act as a swing). Now:
+
+- `hit_cost` 0, `attack_cost` 10, stamina back at 30/s after 0.5 s, and
+  0.15–0.5 s between attacks.
+- `Brawler._answer_swing`: no move of its own is dropped halfway.
+- `Brawler.counter_after` (warrior 0.3 s): behind the shield, once his cuts
+  stop coming, it strikes back.
+- `Brawler.steady_in_attack`: a cut taken mid-swing does not push it out of
+  the swing's reach.
+
+The bare skeleton fights with its fists: right, left, a two-blow combo
+(UAL 2's Melee_Combo, `attack_blows` 2, the blows where the fists move
+fastest), a hook, an uppercut, a kick and the bite. The bite is the skull
+(`head_joint` to the jaw's front), and its blows count from 0.8 m/s
+(`blow_min_speed`): the head comes to rest at the end of its lunge, and
+under 2 m/s none of it counted.
+
+`tests/creature_blows_test.gd`: each, against a hero standing still and
+against one cutting at it every 0.4 s, lands every blow it throws and
+attacks at least once every 2 s.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 
