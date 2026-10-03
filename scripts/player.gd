@@ -634,13 +634,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("toggle_fullscreen"):
 		_toggle_fullscreen()
-	# Trying the strings and heavy blows (Tariel's, for now): F6 / F7.
+	# The string (Tariel's): F6 goes to the other.
 	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and (key.keycode == KEY_F6 or key.keycode == KEY_F7) \
+	if key != null and key.pressed and not key.echo and key.keycode == KEY_F6 \
 			and rig != null and rig.has_method(&"cycle_string"):
-		var named: String = rig.call(&"cycle_string" if key.keycode == KEY_F6 else &"cycle_heavy")
+		var named: String = rig.call(&"cycle_string")
 		if named != "":
-			_toast("%s:  %s   (F6 სერია, F7 ძლიერი)" % ["სერია" if key.keycode == KEY_F6 else "ძლიერი", named])
+			_toast("სერია:  %s   (F6 შეცვლა)" % named)
 
 
 var _toast_label: Label

@@ -6218,3 +6218,8 @@ until the user says otherwise.
 - stride_test's run slide reads 0.36-0.44 m/s alone and up to 1.0 when the
   machine is busy with other tests (the sprint's feet are both off the ground
   between steps): run it alone.
+- Picked (2026-10-03): Tariel dies `KV_Death01` whatever class he wears
+  (`Moveset.HERO_DEATHS`). Two strings only, F6 going from one to the other:
+  UAL 2 Regular A-B-C (the one worn at first) and UAL 2 Heavy A-B-C; the
+  other strings and the heavy blows to try (F7) are gone, the heavy blow is
+  UAL 2's Heavy Combo as before.

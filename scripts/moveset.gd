@@ -47,6 +47,8 @@ const DEATHS := {
 	"mage": &"KV_Death02", "sorcerer": &"KV_CombatDeath01", "warlock": &"KV_CombatDeath04",
 	"witch": &"KV_CombatDeath03",
 }
+## A hero's own death, whatever class he wears (Tariel's, the user's word).
+const HERO_DEATHS := {&"tariel": &"KV_Death01"}
 ## A string's blow is played from a little before its cut to a little after
 ## (seconds), so one runs into the next.
 const LEAD := 0.28

@@ -51,7 +51,6 @@ func _initialize() -> void:
 	_check("on the mannequin", rig.on_mannequin())
 	# the designed string and heavy blow, whatever was last picked to try
 	rig._wear_string(0)
-	rig._wear_heavy(0)
 
 	# the string, twice
 	for round in 2:
