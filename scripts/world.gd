@@ -124,6 +124,8 @@ func _ready() -> void:
 	_dress_village()
 	GroundCover.lay(get_node_or_null("Forest") as Forest, VILLAGE)
 	_build_camps()
+	# What hides what (the ground, the walls), for the renderer to skip.
+	Occluders.build(self)
 	_cull_distant_creatures()
 	_prewarm_effects()
 	_add_marsh_song()

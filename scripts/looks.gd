@@ -44,13 +44,16 @@ const SWARD_REACH := 0.3
 ## those: the later, lighter one below had been judged on Low). Its shadows
 ## and blacks lifted a touch after (more ambient, softer shadows, a little less
 ## contrast): "a little lighter, the shadows and the black most of all".
+## The fog thickened (0.0042 -> 0.0052, Low's 0.0032 -> 0.0058) when the
+## world stopped being drawn past [constant Graphics.REACH]: it is what hides
+## where the drawing stops.
 const DARK_ENV := {
 	"tonemap_mode": Environment.TONE_MAPPER_ACES,
 	"tonemap_exposure": 1.0,
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
 	"ambient_light_energy": 2.25,
 	"fog_light_color": Color(0.4, 0.42, 0.43),
-	"fog_density": 0.0042,
+	"fog_density": 0.0052,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
 	"adjustment_enabled": true,
@@ -72,7 +75,7 @@ const DARK_SUN := {
 ## How much of their colour the wood's leaves and bark keep in the dark grade.
 const DARK_WOOD := Color(0.82, 0.86, 0.78)
 
-## The same grade on Low. Low has no ambient occlusion, glow or fog and blurs
+## The same grade on Low. Low has no ambient occlusion or glow and blurs
 ## its textures, and the grade above went murky there: lighter (AgX, which
 ## keeps the shadows open; more exposure and ambient; softer shadows) and less
 ## green instead of darker — the leaves (not the bark, which is lifted), the
@@ -83,7 +86,7 @@ const LOW_ENV := {
 	"ambient_light_color": Color(0.45, 0.5, 0.52),
 	"ambient_light_energy": 2.7,
 	"fog_light_color": Color(0.4, 0.42, 0.43),
-	"fog_density": 0.0032,
+	"fog_density": 0.0058,
 	"fog_aerial_perspective": 0.6,
 	"fog_sun_scatter": 0.08,
 	"ssao_intensity": 0.55,

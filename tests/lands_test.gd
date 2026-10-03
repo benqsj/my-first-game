@@ -116,6 +116,24 @@ func _initialize() -> void:
 	_check("the lands' places are put up", places != null and int(places.counts.get("landmarks", 0)) > 30
 			and int(places.counts.get("crossings", 0)) >= 7, "%s" % (places.counts if places else {}))
 	if places != null:
+		# Drawn as batches, not one node a box ([StaticBatch]); everything
+		# under it carries a reach for [Graphics] to cap.
+		var batched: Dictionary = places.counts.get("batched", {})
+		_check("the places' boxes are drawn in batches",
+				int(batched.get("pieces", 0)) > 500 and int(batched.get("batches", 0)) * 2 < int(batched.get("pieces", 0)),
+				"%s" % batched)
+		var unranged := 0
+		var meshes := places.find_children("*", "GeometryInstance3D", true, false)
+		for node in meshes:
+			if not node.has_meta(&"designed_range"):
+				unranged += 1
+		_check("every one of them has a reach", meshes.size() > 0 and unranged == 0, "%d of %d" % [unranged, meshes.size()])
+		var land_gate := places.get_node_or_null("LandGate")
+		_check("the land gate is left out of them", land_gate != null and land_gate.get_child_count() > 0)
+		var hidden := _world.get_node_or_null("Occluders")
+		_check("the ground and the walls hide what is behind them",
+				hidden != null and hidden.get_node_or_null("Ground") != null
+				and int(Occluders.last_counts.get("boxes", 0)) > 50, "%s" % Occluders.last_counts)
 		_check("the city's land gate is shut", places.land_gate_shut())
 		places.open_land_gate()
 		await _wait(2)

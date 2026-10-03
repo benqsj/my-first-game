@@ -59,6 +59,9 @@ var _bodies: Node3D
 var _cells: Dictionary = {}
 const SOLID_CELL := 32.0
 var counts: Dictionary = {}
+## The big solid boxes (walls, towers, houses): [Transform3D, size] in this
+## node's frame, for [Occluders] to hide what stands behind them.
+var occluder_boxes: Array = []
 
 
 func _ready() -> void:
@@ -76,6 +79,11 @@ func _ready() -> void:
 	_build_gates()
 	_build_landmarks()
 	_build_city()
+	# Thousands of boxes and props, each its own draw call: drawn as a few
+	# hundred batches instead, each only as far as its size is worth.
+	var batched := StaticBatch.merge(self)
+	StaticBatch.range_rest(self)
+	counts["batched"] = batched
 	print("LandsPlaces: %s, in %.1f ms" % [counts, (Time.get_ticks_usec() - started) / 1000.0])
 
 
@@ -185,6 +193,8 @@ func _box(size: Vector3, at: Transform3D, mat: String, solid: bool = true) -> vo
 		var shape := BoxShape3D.new()
 		shape.size = size
 		_add_shape(shape, at)
+		if size.y >= 2.5 and maxf(size.x, size.z) >= 4.0 and minf(size.x, size.z) >= 0.6:
+			occluder_boxes.append([at, size])
 
 
 func _cylinder(radius: float, height: float, at: Vector3, mat: String, solid: bool = true, top: float = -1.0) -> void:
