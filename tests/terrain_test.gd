@@ -54,23 +54,35 @@ func _initialize() -> void:
 		var at := (mark as Node3D).global_position
 		worst = maxf(worst, absf(land.height_at(at.x, at.z)))
 	_check("the spawn is level with the old ground", worst < 0.03, "%.3f m" % worst)
+	# The village rolls a little, but each of its buildings stands on a level pad.
 	worst = 0.0
 	var worst_at := ""
-	var village := world.get_node_or_null("Level/Village") as Node3D
-	if village != null:
-		for mi in village.find_children("*", "MeshInstance3D", true, false):
-			if "Fence" in str(mi.get_path()) or "Villager" in str(mi.get_path()):
-				continue  # put down after, or walking about: both follow the ground
-			var box := (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
-			if box.size.x > 100.0 or box.size.z > 100.0:
-				continue
-			var at := box.get_center()
-			if not World.VILLAGE.has_point(Vector2(at.x, at.z)):
-				continue  # out past the fence (the windmill, the ruins): on the ground as it lies
-			if absf(land.height_at(at.x, at.z)) > worst:
-				worst = absf(land.height_at(at.x, at.z))
-				worst_at = str(mi.get_path()).get_slice("Village/", 1) + " " + str(at)
-	_check("so is the settlement", worst < 0.05, "%.3f m at %s" % [worst, worst_at])
+	for entry: Array in VillageHouses.LAYOUT:
+		var data: Dictionary = VillageHouses.info().get(String(entry[0]), {})
+		if data.is_empty() or data.get("ruin", false):
+			continue
+		var xf := VillageHouses.placed(entry)
+		var hw: float = float(data["W"]) * 0.5
+		var hd: float = float(data["D"]) * 0.5
+		var lo := INF
+		var hi := -INF
+		for c: Vector3 in [Vector3.ZERO, Vector3(-hw, 0, -hd), Vector3(hw, 0, -hd), Vector3(hw, 0, hd), Vector3(-hw, 0, hd)]:
+			var p := xf * c
+			var h := land.height_at(p.x, p.z)
+			lo = minf(lo, h)
+			hi = maxf(hi, h)
+		if hi - lo > worst:
+			worst = hi - lo
+			worst_at = String(entry[0])
+	_check("each of the village's buildings stands level", worst < 0.06, "%.3f m under %s" % [worst, worst_at])
+	var lot_low := INF
+	var lot_high := -INF
+	for i in 400:
+		var at := World.VILLAGE.position + Vector2(randf(), randf()) * World.VILLAGE.size
+		lot_low = minf(lot_low, land.height_at(at.x, at.y))
+		lot_high = maxf(lot_high, land.height_at(at.x, at.y))
+	_check("and the lot between them is not dead flat", lot_high - lot_low > 0.3 and lot_high - lot_low < 3.0,
+			"%.2f m" % (lot_high - lot_low))
 	var tower := world.get_node_or_null("Level/Tower") as Node3D
 	if tower != null:
 		_check("and the tower", absf(land.height_at(tower.global_position.x, tower.global_position.z)) < 0.05)

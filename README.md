@@ -7319,9 +7319,28 @@ json, drawn, on the ground and colliding; the street, spawn, gates, square,
 quest givers and every door are open; no two overlap; only the windmill is left
 of the old kit. `village_props_test` checks the props against the new doors.
 
-Still to come (the same plan): the street, lanes and paths to the doors, a low
-stone wall in place of the fence, the big tree and the spring on the square,
-the new trees, and new villagers.
+**Fixed the same day:** each building was joined in Blender round its first
+piece rather than its middle, so the drawn house stood metres off its collider
+(a hero walked into some and into thin air beside others). Now joined round
+the origin; `village_houses_test` checks that every model stands over its box.
+
+**A low stone wall instead of the fence** ([VillageWall]): dry stone with a
+timber cap, 1.3 m, the houses' own stone (a length of the kit's wall, two back
+to back, exported as `WallPiece` beside the buildings). It follows the lot
+loosely, out to the east and in at the corners, and is broken at the west gate,
+the east gate, a gap south for the lane to the vineyard and the windmill and one
+north for the lane to the wood; each run ends on a pier. Every length stands on
+the ground under it; drawn as one MultiMesh, colliding as thin boxes (0.2 m,
+so a hero who jumps at it vaults it: `fence_vault_test`, now at the wall).
+
+**The village is no longer dead flat.** [Terrain] leaves the lot 35% of the
+land's roll (`village_roll`), up to a metre or so between the houses, and puts
+every building and the square on its own level pad that eases back into the
+roll over 5 m (`pad_fade`). `terrain_test`: each building stands level, and the
+lot between them is not flat (but no more than 3 m from low to high).
+
+Still to come (the same plan): the street, lanes and paths to the doors, the
+big tree and the spring on the square, the new trees, and new villagers.
 
 ## Up off his knee; no shield, the other string (2026-10-04)
 

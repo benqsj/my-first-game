@@ -72,6 +72,11 @@ extends StaticBody3D
 @export var keep_fade: float = 10.0
 ## Tracks keep this much of the roll.
 @export var track_keep: float = 0.2
+## And the village's lot this much: it rolls a little between its buildings,
+## each of which (and the square) stands on its own level pad.
+@export var village_roll: float = 0.35
+## Over how far a building's pad rises back into the village's roll.
+@export var pad_fade: float = 5.0
 ## Resolution of the flatness grid.
 @export var mask_cell: float = 2.0
 ## The materials the ground can wear: [0] the house style, [1] realistic,
@@ -206,10 +211,13 @@ func _build_mask() -> void:
 	_track.fill(0.0)
 	var world := _world()
 	var level := get_parent()
+	# What the village puts up is put up after this, and laid out below; the
+	# nodes it starts from stand where they will not stay.
+	var village := level.get_node_or_null("Village")
 	# Everything standing in the level.
 	for node in level.find_children("*", "VisualInstance3D", true, false):
 		var vi := node as VisualInstance3D
-		if vi == null or is_ancestor_of(vi):
+		if vi == null or is_ancestor_of(vi) or (village != null and village.is_ancestor_of(vi)):
 			continue
 		var box := vi.global_transform * vi.get_aabb()
 		if box.size.x > 100.0 or box.size.z > 100.0:
@@ -217,7 +225,7 @@ func _build_mask() -> void:
 		_keep_rect(Rect2(box.position.x, box.position.z, box.size.x, box.size.z))
 	for node in level.find_children("*", "CollisionShape3D", true, false):
 		var cs := node as CollisionShape3D
-		if cs == null or is_ancestor_of(cs) or cs.shape == null:
+		if cs == null or is_ancestor_of(cs) or cs.shape == null or (village != null and village.is_ancestor_of(cs)):
 			continue
 		var box := cs.global_transform * cs.shape.get_debug_mesh().get_aabb()
 		if box.size.x > 100.0 or box.size.z > 100.0:
@@ -237,8 +245,17 @@ func _build_mask() -> void:
 	for camp: Array in World.CAMPS:
 		var c: Vector2 = camp[1]
 		_keep_circle(c, 8.0)
-	# The village's lot, all of it, as it stands once it has been spread.
-	_keep_rect(World.VILLAGE)
+	# The village's lot: most of the roll taken out but not all of it (a village
+	# is not built on a table), and the ground under each building and under the
+	# square made level, each on its own pad.
+	_keep_rect(World.VILLAGE, village_roll)
+	for entry: Array in VillageHouses.LAYOUT:
+		var data: Dictionary = VillageHouses.info().get(String(entry[0]), {})
+		if data.is_empty() or data.get("ruin", false):
+			continue
+		var r := 0.5 * Vector2(float(data["W"]), float(data["D"])).length() + 1.0
+		_pad(Vector2(entry[1], entry[2]), r)
+	_pad_rect(VillageProps.PLAZA.grow(1.0))
 	for c: Vector3 in Forest.CLEARINGS:
 		_keep_circle(Vector2(c.x, c.y), c.z * 0.6)
 	# The tracks: a third of the roll left.
@@ -282,7 +299,9 @@ func _ease(d: float) -> float:
 	return t * t * (3.0 - 2.0 * t)
 
 
-func _keep_rect(r: Rect2) -> void:
+## Flat over a rectangle, rising back into the land round it; `keep` of the
+## roll is left even inside it.
+func _keep_rect(r: Rect2, keep: float = 0.0) -> void:
 	var reach := keep_margin + keep_fade
 	var span := _cells(r.position - Vector2(reach, reach), r.end + Vector2(reach, reach))
 	for iz in range(span.position.y, span.end.y + 1):
@@ -291,7 +310,31 @@ func _keep_rect(r: Rect2) -> void:
 			var dx := maxf(maxf(r.position.x - p.x, p.x - r.end.x), 0.0)
 			var dz := maxf(maxf(r.position.y - p.y, p.y - r.end.y), 0.0)
 			var k := _index(ix, iz)
-			_mask[k] = minf(_mask[k], _ease(sqrt(dx * dx + dz * dz)))
+			_mask[k] = minf(_mask[k], maxf(keep, _ease(sqrt(dx * dx + dz * dz))))
+
+
+## A level pad for something standing in the village: dead flat out to
+## `radius`, back into the village's roll over [member pad_fade].
+func _pad(c: Vector2, radius: float) -> void:
+	var reach := radius + pad_fade
+	var span := _cells(c - Vector2(reach, reach), c + Vector2(reach, reach))
+	for iz in range(span.position.y, span.end.y + 1):
+		for ix in range(span.position.x, span.end.x + 1):
+			var t := clampf((_cell_at(ix, iz).distance_to(c) - radius) / pad_fade, 0.0, 1.0)
+			var k := _index(ix, iz)
+			_mask[k] = minf(_mask[k], t * t * (3.0 - 2.0 * t))
+
+
+func _pad_rect(r: Rect2) -> void:
+	var span := _cells(r.position - Vector2(pad_fade, pad_fade), r.end + Vector2(pad_fade, pad_fade))
+	for iz in range(span.position.y, span.end.y + 1):
+		for ix in range(span.position.x, span.end.x + 1):
+			var p := _cell_at(ix, iz)
+			var dx := maxf(maxf(r.position.x - p.x, p.x - r.end.x), 0.0)
+			var dz := maxf(maxf(r.position.y - p.y, p.y - r.end.y), 0.0)
+			var t := clampf(sqrt(dx * dx + dz * dz) / pad_fade, 0.0, 1.0)
+			var k := _index(ix, iz)
+			_mask[k] = minf(_mask[k], t * t * (3.0 - 2.0 * t))
 
 
 func _keep_circle(c: Vector2, radius: float) -> void:

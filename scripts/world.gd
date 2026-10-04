@@ -498,12 +498,6 @@ const SPREAD := Vector2(1.12, 1.4)
 ## on the flat by the fields, made bigger across and up.
 const MILL := Vector2(50.0, -3.0)
 const MILL_GROWTH := Vector2(1.3, 1.55)
-const FENCE_SCENE := "res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx"
-## Where the gap in the fence is: the west side, between the gate towers, where
-## the track comes in.
-const GATE := Vector2(35.0, 50.0)
-## And the gap at the back, on the far side from the gate (z from, to).
-const BACK_GATE := Vector2(44.0, 57.0)
 ## Where the villagers walk: along the street between the rows and round the
 ## square (as the village stood before it was spread; spread with it).
 const STREET := [
@@ -521,8 +515,8 @@ static func spread(at: Vector3) -> Vector3:
 			SPREAD_FROM.y + (at.z - SPREAD_FROM.y) * SPREAD.y)
 
 
-## The houses ([VillageHouses]), the windmill out past the fence, a fence round
-## the lot with its gate where the track comes in, the props, people.
+## The houses ([VillageHouses]), the windmill out past the wall, a low stone wall
+## round the lot ([VillageWall]) broken where the ways come in, the props, people.
 func _dress_village() -> void:
 	var village := get_node_or_null("Level/Village") as Node3D
 	if village == null:
@@ -532,7 +526,7 @@ func _dress_village() -> void:
 		mill.position = Vector3(MILL.x, Terrain.height_under(MILL.x, MILL.y, 5.0) - 0.15, MILL.y)
 		_grow_building(mill, Vector3(MILL_GROWTH.x, MILL_GROWTH.y, MILL_GROWTH.x))
 	VillageHouses.dress(village)
-	_build_fence(village)
+	VillageWall.dress(village)
 	VillageProps.dress(village)
 	_settle_villagers(village)
 
@@ -559,74 +553,6 @@ static func _grow_building(thing: Node3D, by: Vector3) -> void:
 		var part := child as Node3D
 		if part != null:
 			part.transform = Transform3D(Basis.from_scale(by), Vector3.ZERO) * part.transform
-
-
-func _build_fence(village: Node3D) -> void:
-	var scene := load(FENCE_SCENE) as PackedScene
-	if scene == null:
-		return
-	var probe := scene.instantiate() as Node3D
-	var box := _bounds(probe)
-	probe.free()
-	# The fence piece runs along its longer side.
-	var along_x := box.size.x >= box.size.z
-	var length := maxf(box.size.x, box.size.z) * 1.9
-	if length <= 0.1:
-		return
-	var fence := Node3D.new()
-	fence.name = "Fence"
-	village.add_child(fence)
-	var body := StaticBody3D.new()
-	body.name = "FenceBody"
-	body.collision_layer = 1
-	fence.add_child(body)
-	var r := VILLAGE
-	var corners := [Vector2(r.position.x, r.position.y), Vector2(r.end.x, r.position.y),
-			Vector2(r.end.x, r.end.y), Vector2(r.position.x, r.end.y)]
-	for side in 4:
-		var a: Vector2 = corners[side]
-		var b: Vector2 = corners[(side + 1) % 4]
-		var span := a.distance_to(b)
-		var dir := (b - a).normalized()
-		var pieces := int(ceil(span / length))
-		for k in pieces:
-			var mid := a + dir * (length * (float(k) + 0.5))
-			if (mid - a).length() > span:
-				mid = a + dir * (span - length * 0.5)
-			# The gate: the west side, between the towers.
-			if side == 3 and mid.y > GATE.x and mid.y < GATE.y:
-				continue
-			# And a way out at the back, onto the west land's road (the old
-			# gate of the lands round the core, [Lands]).
-			if side == 1 and mid.y > BACK_GATE.x and mid.y < BACK_GATE.y:
-				continue
-			# In a [Building], as every piece of the kit is: it is what finds the
-			# textures the .fbx only names, without which the fence is white.
-			var piece := Building.new()
-			piece.build_collision = false
-			piece.add_child(scene.instantiate())
-			fence.add_child(piece)
-			var yaw := atan2(-dir.y, dir.x) + (0.0 if along_x else PI * 0.5)
-			piece.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * 1.9), Vector3(mid.x, Terrain.height_under(mid.x, mid.y, 0.5), mid.y))
-			var shape := CollisionShape3D.new()
-			var slab := BoxShape3D.new()
-			slab.size = Vector3(length, 1.3, 0.25)
-			shape.shape = slab
-			shape.transform = Transform3D(Basis(Vector3.UP, atan2(-dir.y, dir.x)), Vector3(mid.x, 0.65, mid.y))
-			body.add_child(shape)
-
-
-func _bounds(node: Node3D) -> AABB:
-	var out := AABB()
-	var first := true
-	for m in node.find_children("*", "MeshInstance3D", true, false):
-		var mesh := m as MeshInstance3D
-		if mesh.mesh == null:
-			continue
-		var box := mesh.transform * mesh.mesh.get_aabb()
-		out = box if first else out.merge(box)
-		first = false
-	return out
 
 
 func _settle_villagers(village: Node3D) -> void:

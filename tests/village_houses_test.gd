@@ -100,6 +100,48 @@ func _initialize() -> void:
 				break
 	_check("no two buildings overlap", overlaps.is_empty(), ", ".join(overlaps))
 
+	# Each model stands over its collider (and not, say, off to one side of it).
+	var off: Array[String] = []
+	for entry: Array in VillageHouses.LAYOUT:
+		var node := houses.get_node_or_null(String(entry[0])) as MeshInstance3D
+		var data: Dictionary = info.get(String(entry[0]), {})
+		if node == null or data.is_empty():
+			continue
+		var box := node.mesh.get_aabb()
+		var hw: float = float(data["W"]) * 0.5
+		var hd: float = float(data["D"]) * 0.5
+		if box.position.x > -hw + 0.4 or box.end.x < hw - 0.4 or box.position.z > -hd + 0.4 \
+				or box.end.z < hd - 0.4 or box.position.x < -hw - 3.0 or box.end.x > hw + 3.0:
+			off.append("%s %s" % [entry[0], box])
+	_check("each model stands over its collider", off.is_empty(), ", ".join(off))
+
+	# The wall: built, open at the four ways in, and clear of every building.
+	var wall := world.get_node_or_null("Level/Village/Wall") as VillageWall
+	_check("the village has its wall", wall != null and wall.get_node_or_null("WallBody") != null)
+	if wall != null:
+		var wall_body := wall.get_node("WallBody") as StaticBody3D
+		var closed: Array[String] = []
+		for way: Vector2 in [Vector2(20.0, 43.0), Vector2(120.0, 50.5), Vector2(59.0, 7.0), Vector2(41.5, 81.3)]:
+			var q := PhysicsShapeQueryParameters3D.new()
+			q.shape = probe
+			q.transform = Transform3D(Basis.IDENTITY, Vector3(way.x, Terrain.height(way.x, way.y) + 1.0, way.y))
+			q.collision_mask = 1
+			for hit: Dictionary in space.intersect_shape(q, 8):
+				if hit["rid"] == wall_body.get_rid():
+					closed.append(str(way))
+					break
+		_check("the ways in are open", closed.is_empty(), ", ".join(closed))
+		var through: Array[String] = []
+		for run: Array in VillageWall.RUNS:
+			for i in run.size() - 1:
+				var a2: Vector2 = run[i]
+				var b2: Vector2 = run[i + 1]
+				for k in int(a2.distance_to(b2)):
+					var at := a2.lerp(b2, k / a2.distance_to(b2))
+					if VillageHouses.blocked(at, 0.5):
+						through.append("(%.0f, %.0f)" % [at.x, at.y])
+		_check("the wall runs clear of every building", through.is_empty(), ", ".join(through))
+
 	# Of the old kit only the windmill is left.
 	var old: Array[String] = []
 	for child in world.get_node("Level/Village").get_children():

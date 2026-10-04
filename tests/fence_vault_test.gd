@@ -29,8 +29,9 @@ func _try(hero: StringName) -> void:
 	for node in world.get_node("Enemies").get_children():
 		(node as Node).set_physics_process(false)
 		(node as Node3D).global_position += Vector3(0.0, -60.0, 0.0)
-	# The north fence runs along z = VILLAGE.end.y; from inside, heading out.
-	var fence_z := World.VILLAGE.end.y
+	# The north side of the village's wall, where it crosses x = 64; from
+	# inside, heading out.
+	var fence_z := VillageWall.north_z(64.0)
 	for side: float in [-1.0, 1.0]:
 		var start := Vector3(64.0, 0.3, fence_z - side * 2.6)
 		player.global_position = start + Vector3.UP * Terrain.height(start.x, start.z)

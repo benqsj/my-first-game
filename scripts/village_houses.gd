@@ -45,7 +45,7 @@ const LAYOUT := [
 	# Ruins out past the fence.
 	[&"Ruin1", 10.0, 70.0, 30.0],
 	[&"Ruin2", 100.0, -1.0, -20.0],
-	[&"Ruin3", 94.0, 85.0, 75.0],
+	[&"Ruin3", 94.0, 87.0, 75.0],
 ]
 
 ## Beyond this a building is not drawn; the props go long before.
@@ -103,6 +103,7 @@ func build() -> void:
 	body.name = "HousesBody"
 	body.collision_layer = 1
 	body.collision_mask = 0
+	body.set_meta(&"matter", &"stone")
 	add_child(body)
 	for entry: Array in LAYOUT:
 		var kind: StringName = entry[0]
