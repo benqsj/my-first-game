@@ -53,6 +53,20 @@ var emitting: bool = false
 
 const SHADER := preload("res://assets/fx/blade_arc.gdshader")
 
+## To try (the user's, 2026-10-05): F1 (F2 too, as F1 is the test arena's
+## board there) steps the heroes' cut through the smear it always was (0), the
+## air bent soft (1) and bent strong (2) ([code]assets/fx/cut_air.gdshader[/code]).
+## Only arcs under a [SkinnedRig] follow it; the orc's and the wolf's keep theirs.
+static var air_look: int = 0
+const AIR_NAMES := ["ხმლის კვალი: როგორც იყო", "ხმლის კვალი: ჰაერი, ნაზი", "ხმლის კვალი: ჰაერი, ძლიერი"]
+## [strength, split, rim, haze] for 1 and 2.
+const AIR_LOOKS := [[], [0.022, 0.1, 0.22, 0.6], [0.04, 0.16, 0.3, 0.6]]
+static var _air_shader: Shader = null
+static var _switched_on: int = -1
+static var _note: Label = null
+var _air_material: ShaderMaterial = null
+var _look_shown: int = 0
+
 var _base: Node3D
 var _tip: Node3D
 var _t_base: Array[Vector3] = []
@@ -122,9 +136,65 @@ func setup(blade_base: Node3D, blade_tip: Node3D) -> void:
 	_tip = blade_tip
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed or key.echo or (key.keycode != KEY_F1 and key.keycode != KEY_F2):
+		return
+	if not get_parent() is SkinnedRig:
+		return
+	# every hero's arc hears the key: only the first steps the look
+	if _switched_on == Engine.get_process_frames():
+		return
+	_switched_on = Engine.get_process_frames()
+	air_look = (air_look + 1) % AIR_NAMES.size()
+	_tell(AIR_NAMES[air_look])
+
+
+## The look's name a moment on the screen.
+func _tell(text: String) -> void:
+	if _note == null or not is_instance_valid(_note):
+		var layer := CanvasLayer.new()
+		layer.layer = 90
+		get_tree().root.add_child(layer)
+		_note = Label.new()
+		_note.position = Vector2(40.0, 140.0)
+		_note.add_theme_font_size_override("font_size", 30)
+		_note.add_theme_color_override("font_outline_color", Color.BLACK)
+		_note.add_theme_constant_override("outline_size", 8)
+		layer.add_child(_note)
+	_note.text = text
+	_note.modulate.a = 1.0
+	var fade := _note.create_tween()
+	fade.tween_interval(1.4)
+	fade.tween_property(_note, "modulate:a", 0.0, 0.6)
+
+
+## Puts on the look `air_look` asks for, if it is not on already.
+func _wear_look() -> void:
+	_look_shown = air_look
+	if air_look == 0:
+		material_override = _material
+		return
+	if _air_shader == null:
+		_air_shader = load("res://assets/fx/cut_air.gdshader") as Shader
+	if _air_material == null:
+		_air_material = ShaderMaterial.new()
+		_air_material.shader = _air_shader
+		_air_material.set_shader_parameter("streak_tex", load("res://assets/fx/tex/cut_air_streak.png"))
+		_air_material.set_shader_parameter("break_tex", load("res://assets/fx/tex/cut_air_break.png"))
+	var look: Array = AIR_LOOKS[air_look]
+	_air_material.set_shader_parameter("strength", look[0])
+	_air_material.set_shader_parameter("split", look[1])
+	_air_material.set_shader_parameter("rim", look[2])
+	_air_material.set_shader_parameter("haze", look[3])
+	material_override = _air_material
+
+
 func _process(delta: float) -> void:
 	if _base == null or _tip == null:
 		return
+	if _look_shown != air_look and get_parent() is SkinnedRig:
+		_wear_look()
 	_clock += delta
 	if emitting:
 		var b := _base.global_position

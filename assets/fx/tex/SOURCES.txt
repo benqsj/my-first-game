@@ -1,0 +1,2 @@
+cut_air_break.png   Cartoon FX Remaster Free (Jean Moreno, Unity Asset Store, Standard EULA): "cfxr sword trail noise ice", 512 px
+cut_air_streak.png  Cartoon FX Remaster Free (Jean Moreno, Unity Asset Store, Standard EULA): "cfxr sword trail noise bubbles", 512 px
