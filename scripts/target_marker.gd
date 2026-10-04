@@ -18,11 +18,12 @@ extends MeshInstance3D
 ## How big it is, in metres, and how much bigger it gets with distance so that
 ## it stays readable across a field. Small: it says *which*, and anything past
 ## the size it takes to say that is sitting on top of the thing being fought.
-@export var size: float = 0.021
-@export var grow_with_range: float = 0.0016
-## Brighter than white on purpose. Past 1 the colour runs into the glow pass, so
-## the mark reads as lit rather than as a sticker.
-@export var tint: Color = Color(1.35, 1.35, 1.35)
+@export var size: float = 0.012
+@export var grow_with_range: float = 0.0007
+## White, and no brighter: past 1 the colour ran into the glow pass and the
+## bloom made a ball of light far bigger than the dot over the very part it
+## marks (the user's word, 2026-10-04: much smaller).
+@export var tint: Color = Color(1.0, 1.0, 1.0, 0.95)
 ## How fast it slides onto a new target when the lock changes.
 @export var settle_speed: float = 18.0
 ## How fast it spins, in turns per second. A plain dot has nothing to show for

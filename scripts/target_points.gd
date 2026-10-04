@@ -28,6 +28,15 @@ static func of(who: Node3D) -> Array[Vector3]:
 	var head: Node3D = info.get("head_follow")
 	if head != null and is_instance_valid(head) and out.size() == 3:
 		out[2] = head.global_position
+	# Never over the top of what an arrow can hit: a head bone higher than the
+	# body's collider (the centaur's, the demon's) had shots aimed at it go over.
+	if info.has("top"):
+		var up := xf.basis.y.normalized()
+		var roof := xf * Vector3(0.0, float(info["top"]), 0.0)
+		for i in out.size():
+			var over := (out[i] - roof).dot(up)
+			if over > 0.0:
+				out[i] -= up * over
 	return out
 
 
@@ -69,8 +78,28 @@ static func _measure(who: Node3D) -> Dictionary:
 			Vector3(mid.x, bottom + h * HEAD, mid.z),
 		]
 		info["head_follow"] = _head_attachment(who)
+	var top := _collider_top(who)
+	if top > -INF:
+		info["top"] = top - clampf(box.size.y * 0.05, 0.08, 0.3) if not first else top - 0.1
 	who.set_meta(&"_target_points", info)
 	return info
+
+
+## The top of the body's own colliders (not those of things hung off it), in
+## its frame; -INF with none.
+static func _collider_top(who: Node3D) -> float:
+	var top := -INF
+	var inv := who.global_transform.affine_inverse()
+	for node in who.get_children():
+		var cs := node as CollisionShape3D
+		if cs == null or cs.shape == null or cs.disabled:
+			continue
+		var debug := cs.shape.get_debug_mesh()
+		if debug == null:
+			continue
+		var box := inv * cs.global_transform * debug.get_aabb()
+		top = maxf(top, box.end.y)
+	return top
 
 
 ## The box the bones of `mi`'s skeleton make, in `inv`'s frame (none when
@@ -101,18 +130,46 @@ static func _is_overlay(node: Node, who: Node) -> bool:
 	return false
 
 
+## A point riding the head bone `i` at the middle of the head: halfway out to
+## its highest child (the bone's own root is down at the neck), the root
+## itself when it has none.
+static func _head_middle(skel: Skeleton3D, i: int) -> Node3D:
+	var at := BoneAttachment3D.new()
+	at.name = "TargetHead"
+	skel.add_child(at)
+	at.bone_name = skel.get_bone_name(i)
+	var mid := Node3D.new()
+	mid.name = "Middle"
+	at.add_child(mid)
+	var root := skel.get_bone_global_rest(i)
+	var best := Vector3.ZERO
+	var high := -INF
+	for c in skel.get_bone_children(i):
+		var p := skel.get_bone_global_rest(c).origin
+		if p.y > high:
+			high = p.y
+			best = p
+	if high > root.origin.y:
+		# in the bone's own frame, scaled as the skeleton is
+		mid.position = (root.affine_inverse() * best) * 0.5
+	return mid
+
+
 ## A node riding the head bone, if there is a skeleton with one.
 static func _head_attachment(who: Node3D) -> Node3D:
 	for node in who.find_children("*", "Skeleton3D", true, false):
 		var skel := node as Skeleton3D
 		for i in skel.get_bone_count():
 			var bone := skel.get_bone_name(i).to_lower()
-			if bone == "head" or bone.ends_with(":head") or bone.ends_with("_head") or bone == "head_01":
-				var at := BoneAttachment3D.new()
-				at.name = "TargetHead"
-				skel.add_child(at)
-				at.bone_name = skel.get_bone_name(i)
-				return at
+			if bone == "head" or bone.ends_with(":head") or bone.ends_with("_head") or bone == "head_01" \
+					or bone.ends_with("-head") or bone.ends_with(" head"):
+				return _head_middle(skel, i)
+	# Rigify's head is the last of the spine.
+	for node in who.find_children("*", "Skeleton3D", true, false):
+		var skel := node as Skeleton3D
+		var i := skel.find_bone("DEF-spine.006")
+		if i >= 0:
+			return _head_middle(skel, i)
 	for name in ["head", "Head", "skull"]:
 		var joint := who.find_child(name, true, false) as Node3D
 		if joint != null:
