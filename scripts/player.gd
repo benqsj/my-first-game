@@ -716,6 +716,7 @@ func _process(delta: float) -> void:
 	# ticked on the body's own clock, in `_physics_process`).
 	if not mine:
 		_tick_bash(delta)
+		_tick_kick(delta)
 	if rig == null:
 		return
 	if not mine and rig.has_method(&"set_shield") and int(rig.get(&"shield_kind")) != net_shield:
@@ -872,6 +873,7 @@ func _physics_process(delta: float) -> void:
 	_track_sure(delta)
 	_judge_whiff()
 	_tick_bash(delta)
+	_tick_kick(delta)
 	_tick_vitals(delta)
 	_tick_sheathe(delta)
 	_track_target(delta)
@@ -1070,6 +1072,10 @@ func _read_actions() -> void:
 		# that is taken hold of and climbed instead.
 		if not _try_climb() and not _try_wall_climb():
 			_jump_buffer_timer = jump_buffer_time
+	# An archer has no shield: the block button is a kick for what has come
+	# too close (AVTANDIL_POLISH 7).
+	if Input.is_action_just_pressed("block") and _can_kick():
+		_kick()
 	if Input.is_action_just_pressed("dash"):
 		# Behind the shield the press is a charge with it, not an evade.
 		if _can_bash():
@@ -3830,6 +3836,30 @@ static func _blade_radius(who: Node3D) -> float:
 ## Its stamina, in evades'.
 @export var bash_stamina: float = 1.3
 
+@export_group("Kick")
+## The archer's kick on the block button (he has no shield): the clip played
+## from `kick_from` to `kick_to` of it at `kick_rate`, the foot out at
+## `kick_contact` of it (measured, `_shots_tmp/kick_probe.gd`: the right foot
+## furthest out, 0.75 m ahead at chest height, at 0.47-0.5).
+@export var kick_rate: float = 1.6
+@export var kick_from: float = 0.12
+@export var kick_to: float = 0.85
+@export var kick_contact: float = 0.47
+## How near (from his middle to the other's body, metres) and how far round
+## from straight ahead (degrees) the foot takes something.
+@export var kick_reach: float = 1.35
+@export var kick_cone: float = 60.0
+## What it does: a shove back ([method Brute.react] `knock`, as the shield's
+## charge) of `kick_throw` metres on a brute (its shove dies away at 4/s, so
+## the push asked for is worked out from that), `kick_push` on anything else
+## (a wolf takes it straight onto its speed); a small share of a cut, its
+## stamina and how soon another.
+@export var kick_throw: float = 2.5
+@export var kick_push: float = 6.0
+@export var kick_damage: float = 0.25
+@export var kick_stamina: float = 14.0
+@export var kick_cooldown: float = 1.5
+
 @export_group("Missed cut")
 ## A cut of the string that goes through nothing drags on this much longer in
 ## its follow-through (the clip played at `whiff_slow` over it), and is not
@@ -3975,6 +4005,110 @@ func _run_cut_ready() -> bool:
 	if rig == null or not rig.has_method(&"has_run_cut") or not bool(rig.call(&"has_run_cut")):
 		return false
 	return Vector2(velocity.x, velocity.z).length() > run_speed * run_cut_pace
+
+
+#region The kick (AVTANDIL_POLISH 7)
+## The kick's wait for the foot to come out (seconds, on every peer), the way
+## it goes, and how soon another may be thrown.
+var _kick_wait: float = -1.0
+var _kick_dir: Vector3 = Vector3.ZERO
+var _kick_cool: float = 0.0
+
+
+## A hero with no shield and a bow, on his feet, a rig that kicks.
+func _can_kick() -> bool:
+	if profile == null or profile.can_block or not has_bow() or unarmed:
+		return false
+	if state != State.GROUNDED or not is_on_floor() or _kick_cool > 0.0 or is_committed():
+		return false
+	return rig != null and rig.has_method(&"kick")
+
+
+## He turns to what he is locked on (or what is in front) and kicks it away:
+## a draw in hand is let go of, unshot.
+func _kick() -> void:
+	if not _spend(kick_stamina):
+		return
+	_drawing = false
+	_draw_timer = 0.0
+	_set_weapons_stowed(false)
+	var foe := target if target != null and _targetable(target) else _strike_candidate()
+	var aim := get_movement_direction()
+	if foe != null:
+		aim = foe.global_position - global_position
+	aim.y = 0.0
+	if aim.length_squared() > 0.0001:
+		rotation.y = atan2(-aim.x, -aim.z)
+	var dir := -global_basis.z
+	dir.y = 0.0
+	dir = dir.normalized()
+	_kick_cool = kick_cooldown
+	var secs := float(rig.call(&"kick_length", kick_rate, kick_from, kick_to))
+	_commit(secs)
+	attack_started.emit()
+	net_kick.rpc(dir)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_kick(dir: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	_kick_dir = dir
+	if rig != null and rig.has_method(&"kick"):
+		_kick_wait = float(rig.call(&"kick", kick_rate, kick_from, kick_to, kick_contact))
+		var swish: Variant = rig.get(&"swing_sounds")
+		if swish is Array:
+			Sfx.play_any(self, swish as Array, self, 0.9, -5.0)
+
+
+## The foot out: the host takes what is in front of it.
+func _tick_kick(delta: float) -> void:
+	_kick_cool = maxf(_kick_cool - delta, 0.0)
+	if _kick_wait < 0.0:
+		return
+	_kick_wait -= delta
+	if _kick_wait >= 0.0:
+		return
+	if not _decides_here() or is_dead:
+		return
+	var widest := cos(deg_to_rad(kick_cone))
+	for node in get_tree().get_nodes_in_group("enemy"):
+		var who := node as Node3D
+		if who == null or not _targetable(who):
+			continue
+		var to := who.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < 0.01 or d - _body_radius(who) > kick_reach or _kick_dir.dot(to / d) < widest:
+			continue
+		var at := strike_point(who) - to / d * _body_radius(who)
+		at.y = minf(at.y, global_position.y + 1.2)
+		var worth := cut_worth()
+		if who.has_method(&"take_hit"):
+			who.call(&"take_hit", float(worth[0]) * kick_damage, at, _kick_dir, false, false, self)
+		if who.has_method(&"react"):
+			var taken: Variant = who.get(&"shove_taken")
+			var push := kick_push
+			if taken is float and float(taken) > 0.01:
+				push = kick_throw * 4.0 / float(taken)
+			who.call(&"react", &"knock", self, _kick_dir * push)
+		net_kick_landed.rpc(who.get_path(), at)
+
+
+## The foot went in: the thud and the jolt, on every peer.
+@rpc("any_peer", "call_local", "reliable")
+func net_kick_landed(path: NodePath, at: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
+		return
+	var who := get_node_or_null(path) as Node3D
+	HitFeel.bite(who, 1.0)
+	ImpactFx.thud(self, at, false)
+	DustRing.burst(Blood.world_of(self), Vector3(at.x, global_position.y, at.z), 0.45)
+	if is_multiplayer_authority() and camera != null and camera.current:
+		ImpactFx.knock(camera, _kick_dir, 0.05, 0.05, 0.18)
+#endregion
 
 
 ## The shield up, on his feet, and a rig that charges with it.

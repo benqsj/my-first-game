@@ -777,6 +777,33 @@ func bow_hand() -> Vector3:
 	return global_position + Vector3.UP * 1.5
 
 
+## The kick on the block button (AVTANDIL_POLISH 7): his kick clip from
+## `from` to `to` of it at `rate`, the bow let down for it. Returns how long
+## until the foot is out (at `contact` of the clip).
+const KICK_CLIP := &"AV_Melee_Kick"
+
+
+func kick(rate: float, from: float, to: float, contact: float) -> float:
+	if _anim == null or not _anim.has_animation(KICK_CLIP):
+		return 0.0
+	_drawing_clip = false
+	_aim_phase = 0.0
+	_draw_target = 0.0
+	_readying = false
+	_full_t = -1.0
+	_skill_t = -1.0
+	_rouse()
+	_play_action(KICK_CLIP, Role.FREE, rate, 0.08, from, to)
+	return _anim.get_animation(KICK_CLIP).length * maxf(contact - from, 0.0) / maxf(rate, 0.01)
+
+
+## How long the kick plays.
+func kick_length(rate: float, from: float, to: float) -> float:
+	if _anim == null or not _anim.has_animation(KICK_CLIP):
+		return 0.5
+	return _anim.get_animation(KICK_CLIP).length * (to - from) / maxf(rate, 0.01)
+
+
 func attack(style: int = -1) -> void:
 	# A bow has no cut; a melee press is a kick or a punch, no blade to track.
 	attack_serial += 1
