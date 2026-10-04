@@ -184,7 +184,11 @@ func _stand_off() -> float:
 ## Starts the reel. A kind whose acts are a list of moves (Arkdeva) starts its
 ## own; the rest stand in `ACT_REEL`.
 func _reel() -> void:
-	_start(ACT_REEL, Recoil.STAGGER)
+	_start(ACT_REEL, _reel_time)
+
+
+## How long the next reel holds it: a parry's stagger, or a stun's ([Stun]).
+var _reel_time: float = Recoil.STAGGER
 #endregion
 
 
@@ -644,7 +648,9 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 ## How it shows a skill. The plain one: thrown back, it reels.
 func _react(kind: StringName) -> void:
 	if kind == &"knock" or kind == &"stun":
+		_reel_time = Stun.TIME if kind == &"stun" else Recoil.STAGGER
 		_reel()
+		_reel_time = Recoil.STAGGER
 
 
 @rpc("authority", "call_local", "unreliable")

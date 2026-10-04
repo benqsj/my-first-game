@@ -6,6 +6,10 @@ extends Node3D
 ## every peer a ring of small stars goes round over its head for as long as
 ## that lasts — the old sign of a head that is spinning.
 
+## How long a stun holds a creature (the user's word, 2026-10-05: 2 s).
+const TIME := 2.0
+## The stunning shot's colour: its charge, its streak, its stars.
+const GOLD := Color(1.0, 0.84, 0.3)
 const STARS := 4
 const RING := 0.32
 const TURN := 2.2

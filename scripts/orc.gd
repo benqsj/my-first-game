@@ -723,7 +723,9 @@ func _react(kind: StringName) -> void:
 	if kind == &"stun":
 		# Stunned: he reels where he stands, as from a parry.
 		if act != Act.REACT_KNOCK:
+			_reel_time = Stun.TIME
 			_reel()
+			_reel_time = Recoil.STAGGER
 		return
 	if not REACT_OF.has(kind):
 		return

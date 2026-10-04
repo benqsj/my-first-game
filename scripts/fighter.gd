@@ -713,8 +713,9 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 		&"knock":
 			_start(Act.REACT_KNOCK)
 		&"stun":
-			# Stunned: it reels where it stands, as from a parry.
+			# Stunned: it reels where it stands, as from a parry, for a stun's time.
 			_start(Act.REEL)
+			_act_length = Stun.TIME
 		&"burn":
 			if act == Act.NONE or act == Act.BLOCK:
 				_start(Act.REACT_BURN)

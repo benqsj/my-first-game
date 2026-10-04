@@ -2751,6 +2751,12 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 			arrow.set(&"perfect", perfect)
 		if &"stun_chance" in arrow:
 			arrow.set(&"stun_chance", stun)
+		if stun > 0.0:
+			# the stunning arrow streaks gold
+			if &"streak_tint" in arrow:
+				arrow.set(&"streak_tint", Color(Stun.GOLD, 0.9))
+			if &"crit_tint" in arrow:
+				arrow.set(&"crit_tint", Color(Stun.GOLD, 0.9))
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
@@ -2763,8 +2769,14 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		else:
 			Sfx.play(self, RELEASE_SOUND_2, self, Vector3.ZERO, randf_range(0.95, 1.06), -14.0)
 	if stun > 0.0 and rig != null and rig.has_method(&"loose_skill_shot"):
-		# the stunning arrow is a skill shot, drawn and held as one
+		# the stunning arrow is a skill shot, drawn and held as one; it goes
+		# with a gold flash and a ring off the bow
 		rig.call(&"loose_skill_shot")
+		if into != null:
+			var dir := flight.normalized()
+			SkillFx.flash(into, from, Stun.GOLD, 0.55, 0.2)
+			SkillFx.ring(into, from + dir * 0.3, dir, Stun.GOLD, 0.15, 0.8, 0.28, 0.05, 2.2)
+		Sfx.play(self, ULT_SHOT, self, Vector3.ZERO, 1.3, -14.0, 0.0)
 		return
 	# A cast has already been played, by `net_cast`.
 	if rig != null and rig.has_method(&"loose_bow") and not rig.has_method(&"cast_lead"):
@@ -5445,8 +5457,11 @@ func _arrow_tip() -> Vector3:
 @export var stun_head_bonus: float = 0.25
 @export var stun_share: float = 0.7
 @export var stun_immunity: float = 6.0
-const STUN_HOLD := 0.2
-const STUN_QUICK := 1.6
+## Its draw: braced and held, slower than a shot, a gold light gathering on the
+## arrowhead the while ([BowCharge] `stun`), so it is seen coming.
+const STUN_HOLD := 0.55
+const STUN_QUICK := 1.0
+const STUN_BRACE := 1.0
 
 
 func _stun_arrow() -> bool:
@@ -5457,9 +5472,9 @@ func _stun_arrow() -> bool:
 	_drawing = false
 	_draw_timer = 0.0
 	_turn_to_target()
-	var nock := float(rig.call(&"nock_lead", 0.0, STUN_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
-	_commit(nock + STUN_HOLD + 0.4)
-	_root(nock + STUN_HOLD + 0.4)
+	var nock := float(rig.call(&"nock_lead", STUN_BRACE, STUN_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
+	_commit(nock + STUN_HOLD + 0.45)
+	_root(nock + STUN_HOLD + 0.45)
 	net_stun_draw.rpc(_aim_pitch())
 	_stun_loose(nock + STUN_HOLD, _skill_serial)
 	return true
@@ -5487,8 +5502,15 @@ func net_stun_draw(pitch: float) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
-	if rig != null and rig.has_method(&"charged_shot"):
-		rig.call(&"charged_shot", STUN_HOLD, pitch, 0.0, STUN_QUICK)
+	if rig == null or not rig.has_method(&"charged_shot"):
+		return
+	var nock := float(rig.call(&"charged_shot", STUN_HOLD, pitch, STUN_BRACE, STUN_QUICK))
+	Sfx.play(self, ULT_CAST, self, Vector3.ZERO, 1.25, -13.0, 0.0)
+	var into := Blood.world_of(self)
+	if into != null:
+		var glow := BowCharge.new()
+		glow.start(rig, &"stun", nock + STUN_HOLD + 0.05)
+		into.add_child(glow)
 
 
 ## One of his stunning arrows went into `what` (host, [Arrow]): the roll.
@@ -5503,7 +5525,7 @@ func arrow_stun(what: Node3D, head: bool, chance: float) -> void:
 	what.set_meta(&"stun_free_at", now + stun_immunity)
 	if what.has_method(&"react"):
 		what.call(&"react", &"stun", self, Vector3.ZERO)
-	net_stunned.rpc(what.get_path(), Recoil.STAGGER)
+	net_stunned.rpc(what.get_path(), Stun.TIME)
 
 
 ## Something stunned, on every peer: the stars over its head ([Stun]).
