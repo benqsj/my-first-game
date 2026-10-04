@@ -10,10 +10,13 @@ extends Node3D
 ## [method ignite] sets one alight (the dragon's fireball does it in the
 ## film), [method burn_all] the lot at once (a skipped film).
 ##
-## A while after the hero has come (see [method smoulder]) the flames die
-## down to a glow and thin smoke. Each burnt building belongs to a job in the
+## Then the fire goes out ([method die_down]: no flames, a glow and thin
+## smoke) and the burnt houses are found fallen in ([method ruin_all]): each
+## is swapped for one of the kit's ruins, blackened, standing where it stood,
+## its collider swapped with it. Each burnt building belongs to a job in the
 ## [QuestBook]: when that job is rewarded its buildings are put back — the
-## soot washes off, the fire and smoke go — and [signal restored] names them.
+## house up again, the soot washed off, the smoke gone — and [signal restored]
+## names them.
 ## Only Datvi gives a job now (the wood cleared: two houses); the other four
 ## wait for the jobs the new people will bring, under the ids kept for them.
 
@@ -25,6 +28,8 @@ const BURNT := {
 	&"House2": &"imps", &"House3": &"imps",
 	&"Marani": &"arkdeva", &"House8": &"arkdeva",
 }
+## The kit's ruins, handed round the fallen houses in turn.
+const RUINS: Array[StringName] = [&"Ruin1", &"Ruin2", &"Ruin3"]
 ## Georgian names for what is rebuilt.
 const NAMES := {
 	&"House2": "სახლი", &"House3": "სახლი", &"House6": "სახლი", &"House7": "სახლი",
@@ -60,7 +65,7 @@ static var _soot_shader: Shader
 var _burning: Dictionary = {}
 var _book: QuestBook
 var _clock: float = 0.0
-var _smouldering: bool = false
+var _houses: Node3D
 
 
 ## Finds the buildings under `houses` ([VillageHouses]) and makes them ready
@@ -69,6 +74,7 @@ func dress(houses: Node3D) -> void:
 	if _soot_shader == null:
 		_soot_shader = Shader.new()
 		_soot_shader.code = SOOT_CODE
+	_houses = houses
 	for kind: StringName in BURNT:
 		var mesh := houses.get_node_or_null(NodePath(String(kind))) as MeshInstance3D
 		if mesh == null or mesh.mesh == null:
@@ -80,7 +86,7 @@ func dress(houses: Node3D) -> void:
 		mat.set_shader_parameter(&"base_y", box.position.y)
 		mat.set_shader_parameter(&"top_y", box.end.y)
 		_burning[kind] = {"mesh": mesh, "mat": mat, "box": box, "fx": [], "lights": [],
-				"heat": 0.0, "want": 0.0, "job": BURNT[kind], "lit": false}
+				"heat": 0.0, "want": 0.0, "job": BURNT[kind], "lit": false, "soot": 0.0}
 
 
 ## Sets `kind` alight; the fire grows over `seconds`.
@@ -101,6 +107,8 @@ func burn_all() -> void:
 		ignite(kind, 0.01)
 		var b: Dictionary = _burning[kind]
 		b["heat"] = 1.0
+		b["soot"] = 1.0
+		(b["mat"] as ShaderMaterial).set_shader_parameter(&"soot", 1.0)
 		_apply(b)
 		# The smoke already up in its column, not only starting.
 		for p: GPUParticles3D in b["fx"]:
@@ -147,14 +155,92 @@ func kinds() -> Array[StringName]:
 	return out
 
 
-## The flames die down to a glow; the smoke thins.
-func smoulder() -> void:
-	_smouldering = true
+## The fire goes out over `seconds`: no flames left, a glow in the black and
+## thinner smoke.
+func die_down(seconds: float) -> void:
 	for kind: StringName in _burning:
 		var b: Dictionary = _burning[kind]
-		if b["lit"] and float(b["want"]) > 0.4:
-			b["want"] = 0.4
-			b["rate"] = 1.0 / 20.0
+		if b["lit"]:
+			b["want"] = 0.15
+			b["rate"] = maxf(float(b["heat"]) - 0.15, 0.0) / maxf(seconds, 0.01)
+
+
+## Every burnt house fallen in: one of the kit's ruins in its place, black,
+## with its own walls to bump into, and the house's collider taken away.
+func ruin_all() -> void:
+	if _houses == null:
+		return
+	var models := _ruin_models()
+	var body := _houses.get_node_or_null("HousesBody") as StaticBody3D
+	var i := 0
+	for kind: StringName in _burning:
+		var b: Dictionary = _burning[kind]
+		if not b["lit"] or b.has("ruin"):
+			continue
+		var pick: StringName = RUINS[i % RUINS.size()]
+		i += 1
+		var model := models.get(pick) as Mesh
+		if model == null:
+			continue
+		var house := b["mesh"] as MeshInstance3D
+		var ruin := MeshInstance3D.new()
+		ruin.name = String(kind) + "_Fallen"
+		ruin.mesh = model
+		ruin.transform = house.transform
+		ruin.material_overlay = b["mat"]
+		ruin.visibility_range_end = house.visibility_range_end
+		_houses.add_child(ruin)
+		house.visible = false
+		var off: Array[CollisionShape3D] = []
+		var added: Array[CollisionShape3D] = []
+		var box: AABB = b["box"]
+		var reach := maxf(box.size.x, box.size.z) * 0.5 + 0.5
+		if body != null:
+			for node in body.get_children():
+				var shape := node as CollisionShape3D
+				if shape == null or shape.disabled:
+					continue
+				var at := shape.global_position
+				if Vector2(at.x - house.global_position.x, at.z - house.global_position.z).length() < reach:
+					shape.disabled = true
+					off.append(shape)
+			var data: Dictionary = VillageHouses.info().get(String(pick), {})
+			for spec: Dictionary in data.get("boxes", []):
+				var size: Array = spec["size"]
+				var c: Array = spec["c"]
+				var shape := CollisionShape3D.new()
+				var slab := BoxShape3D.new()
+				slab.size = Vector3(size[0], size[1], size[2])
+				shape.shape = slab
+				shape.transform = house.transform * Transform3D(
+						Basis(Vector3.UP, deg_to_rad(float(spec.get("yaw", 0.0)))), Vector3(c[0], spec["y"], c[1]))
+				body.add_child(shape)
+				added.append(shape)
+		b["ruin"] = {"node": ruin, "off": off, "added": added}
+		# What still smokes and glows is down in the rubble now, not up on a roof.
+		var low := box.position.y + 1.6
+		for p: GPUParticles3D in b["fx"]:
+			p.global_position.y = minf(p.global_position.y, low + (1.0 if p.get_meta(&"smoke", false) else 0.0))
+		for light: OmniLight3D in b["lights"]:
+			light.global_position.y = minf(light.global_position.y, low)
+
+
+func is_ruined(kind: StringName) -> bool:
+	return _burning.has(kind) and (_burning[kind] as Dictionary).has("ruin")
+
+
+func _ruin_models() -> Dictionary:
+	var out := {}
+	var scene := load(VillageHouses.SCENE) as PackedScene
+	if scene == null:
+		return out
+	var models := scene.instantiate()
+	for node in models.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if RUINS.has(StringName(String(mi.name))):
+			out[StringName(String(mi.name))] = mi.mesh
+	models.free()
+	return out
 
 
 ## Puts the buildings of `job` back as they were.
@@ -166,9 +252,24 @@ func restore_job(job: StringName) -> void:
 			b["want"] = 0.0
 			b["rate"] = 1.0 / 2.5
 			b["lit"] = false
+			_raise(b)
 			done.append(kind)
 	if not done.is_empty():
 		restored.emit(done, job)
+
+
+## The house up again where its ruin lay.
+func _raise(b: Dictionary) -> void:
+	if not b.has("ruin"):
+		return
+	var r: Dictionary = b["ruin"]
+	(r["node"] as Node).queue_free()
+	for shape: CollisionShape3D in r["added"]:
+		shape.queue_free()
+	for shape: CollisionShape3D in r["off"]:
+		shape.disabled = false
+	(b["mesh"] as MeshInstance3D).visible = true
+	b.erase("ruin")
 
 
 func is_burnt(kind: StringName) -> bool:
@@ -189,6 +290,19 @@ func _process(delta: float) -> void:
 			heat = move_toward(heat, want, float(b.get("rate", 0.5)) * delta)
 			b["heat"] = heat
 			_apply(b)
+		# Black within the first moments of the fire and black after it,
+		# until the building is put back; then it washes off.
+		var soot: float = b["soot"]
+		var soot_want := 1.0 if b["lit"] else 0.0
+		if soot != soot_want:
+			var rate := 3.0 * float(b.get("rate", 0.5)) if b["lit"] else 0.4
+			soot = move_toward(soot, soot_want, rate * delta)
+			b["soot"] = soot
+			(b["mat"] as ShaderMaterial).set_shader_parameter(&"soot", soot)
+			if soot <= 0.0 and not b["lit"]:
+				var mesh := b["mesh"] as MeshInstance3D
+				if mesh.material_overlay == b["mat"]:
+					mesh.material_overlay = null
 		if heat > 0.0:
 			var i := 0
 			for light: OmniLight3D in b["lights"]:
@@ -207,10 +321,6 @@ func _on_book() -> void:
 func _apply(b: Dictionary) -> void:
 	var heat: float = b["heat"]
 	var flame := clampf(heat, 0.0, 1.0)
-	# Black within the first moments of the fire, and black while it smoulders;
-	# washed off as it is rebuilt.
-	var soot := clampf(heat * 3.0, 0.0, 1.0) if b["lit"] else heat
-	(b["mat"] as ShaderMaterial).set_shader_parameter(&"soot", soot)
 	for p: GPUParticles3D in b["fx"]:
 		var full: float = p.get_meta(&"full", 1.0)
 		var smoke: bool = p.get_meta(&"smoke", false)
@@ -219,9 +329,6 @@ func _apply(b: Dictionary) -> void:
 		p.amount_ratio = k * full
 		p.emitting = k > 0.01
 	if heat <= 0.0 and not b["lit"]:
-		var mesh := b["mesh"] as MeshInstance3D
-		if mesh.material_overlay == b["mat"]:
-			mesh.material_overlay = null
 		for light: OmniLight3D in b["lights"]:
 			light.light_energy = 0.0
 

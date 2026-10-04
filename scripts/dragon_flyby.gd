@@ -22,6 +22,10 @@ const FIRE := Color(1.0, 0.45, 0.08)
 ## Times the size of the boss in the bestiary (which stands ~3 m at the
 ## shoulder): the one that burns a village is a great deal bigger.
 @export var size: float = 4.0
+## Never seen: the model only casts its shadow (and a soft dark shape is
+## laid on the ground under it), so a film shows what goes over and not what
+## it is.
+@export var unseen: bool = false
 ## Metres a second along the line.
 var speed: float = 22.0
 
@@ -34,6 +38,7 @@ var _along: float = 0.0
 var _flying: bool = false
 var _bank: float = 0.0
 var _last_yaw: float = NAN
+var _shade: Decal
 
 
 func _ready() -> void:
@@ -58,6 +63,18 @@ func _ready() -> void:
 			if _anim.has_animation(clip):
 				_anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 		_anim.animation_finished.connect(_on_clip_done)
+	if unseen:
+		for mesh: GeometryInstance3D in _model.find_children("*", "GeometryInstance3D", true, false):
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		_shade = Decal.new()
+		_shade.name = "GroundShadow"
+		_shade.size = Vector3(5.0 * size, 60.0, 3.2 * size)
+		_shade.texture_albedo = _shade_texture()
+		_shade.modulate = Color(0, 0, 0, 0.62)
+		_shade.upper_fade = 0.0
+		_shade.lower_fade = 0.0
+		_shade.top_level = true
+		add_child(_shade)
 	var skels := _model.find_children("*", "Skeleton3D", true, false)
 	if not skels.is_empty():
 		_skel = skels[0] as Skeleton3D
@@ -168,6 +185,8 @@ func _place(delta: float) -> void:
 	if _along + 3.0 > length:
 		ahead = at + (at - _curve.sample_baked(maxf(_along - 3.0, 0.0), true))
 	global_position = at
+	if _shade != null:
+		_shade.global_position = Vector3(at.x, Terrain.height(at.x, at.z) + 20.0, at.z)
 	var way := ahead - at
 	if way.length() < 0.01:
 		return
@@ -179,3 +198,23 @@ func _place(delta: float) -> void:
 		_bank = lerpf(_bank, clampf(turning * 0.9, -0.7, 0.7), 1.0 - exp(-3.0 * delta))
 	_last_yaw = yaw
 	global_basis = Basis.from_euler(Vector3(pitch * 0.6, yaw, _bank), EULER_ORDER_YXZ)
+	if _shade != null:
+		# Wings across the line (the decal's x), body along it.
+		_shade.global_basis = Basis(Vector3.UP, yaw)
+
+
+## A soft dark blot: wide wings, a body.
+static func _shade_texture() -> Texture2D:
+	var w := 128
+	var h := 64
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		for x in w:
+			var u := (float(x) / float(w - 1) - 0.5) * 2.0
+			var v := (float(y) / float(h - 1) - 0.5) * 2.0
+			# The wings: a wide flat lens, swept back; the body: a narrow one.
+			var wing := 1.0 - clampf(sqrt(u * u + pow((v + absf(u) * 0.35) * 2.6, 2.0)), 0.0, 1.0)
+			var body := 1.0 - clampf(sqrt(pow(u * 4.0, 2.0) + v * v), 0.0, 1.0)
+			var a := clampf(maxf(wing, body) * 2.2, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	return ImageTexture.create_from_image(img)

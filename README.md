@@ -1676,8 +1676,9 @@ are counted by watching the creatures (`QuestBook` polls the `enemy` group and
 counts each new corpse by its scene's name), so any creature is a kind without
 registering it, and in co-op a kill counts for everyone who has the job.
 The reward is the giver's thanks, a burst of warm light and the job's
-experience, if it names any. Arms are not given yet: there are no weapon
-items to give.
+experience, if it names any. In the story Datvi's arms come when his job
+is taken: the hero's own sword and shield shown again and his unarmed state
+lifted (`Intro._arm`). There are no weapon items yet.
 
 `scripts/quest_book.gd` is the book and the on-screen text; `scripts/quest_giver.gd`
 is a person: the model scaled to a height, dropped on to whatever is under it,
@@ -1686,38 +1687,48 @@ checks all of it.
 
 ## The story's opening and the burnt village
 
-A solo game started from the menu (Start, not the arena) opens with a film
-instead of putting the hero on the square. The menu leaves word in
+A solo game started from the menu (Start, not the arena) opens with the
+story instead of putting the hero on the square. The menu leaves word in
 `Game.story_pending`; the level's `Intro` node (`scripts/intro.gd`) takes it
 and clears it. A level loaded any other way (tests, co-op, the arena) has no
 story, and nothing below happens.
 
-1. **The glade.** The hero lies unarmed in the big glade of the wolves' wood
-   on the hill north of the village (`Intro.LIE_AT`, (46, 128)), on UAL 2's
-   `IdleToLay` held at its last frame. His feet point at the village, so the
-   getting up leaves him facing it. Sword, shield, bow and blades are hidden
-   (`Intro.is_arm`) and every creature is out of sight and still for the
-   film. The film opens out of black on a shot down over the trees to him.
-2. **The dragon, hardly seen.** The Soul Eater (`DragonFlyby`,
-   `scripts/dragon_flyby.gd`: the bestiary's model x4, no mind and no body,
-   flown along a smooth line) comes out of the wood behind him. The camera
-   stays low beside him, so all of it there is to see is its shadow going
-   over and the ground shaking.
-3. **He gets up** (`LayToIdle`) already facing the village. Over his shoulder
-   we see it far off and small, going round the roofs once and throwing fire
-   at one after another, a ball every 0.3 s (`DragonFlyby.fireball`). Then it
-   is gone to the south-east, and he says so. The film hands him the game:
-   "follow the smoke". His arms are back. The creatures come back too, except
-   those within 48 m of the glade, which wait until he has reached the village.
-4. **The arrival.** Walking in among the houses (`Intro.VILLAGE_IN`) plays a
-   second film: the burning village from above, then Datvi on the square.
-   The village needs timber to be rebuilt, strange monsters have come into
-   the wood, and if the hero clears it Datvi will give him arms and
-   experience. The goal at the top of the screen is to talk to Datvi.
+1. **The wood (film).** The hero lies in a glade high on the ridge of the
+   wolves' wood (`Intro.LIE_AT`, (70, 168)), where the trees hide the village.
+   He is on UAL 2's `IdleToLay`, held at its last frame, with his feet to the
+   south. Something goes over, out of the wood behind him. The dragon is never
+   seen: `DragonFlyby.unseen` draws its model only into the shadows and lays
+   a soft dark shape on the ground under it. What there is to see is its
+   shadow, leaves and dust torn up after it, and the ground shaking. He gets up
+   (`LayToIdle`) facing the way it went: "ეს რა იყო...?" — "დრაკონი?!".
+   Out of his sight the roofs catch one after another, and the smoke shows
+   over the trees.
+2. **Down the hill.** The game is his: "follow it, south". The village cannot
+   be seen yet.
+3. **The sighting (film).** Coming down past `Intro.SIGHT_Z` (z 134), where
+   the trees open, a short film shows:
+   - over his shoulder, the village through the trunks: "სოფელი...!";
+   - from over the village's open ground, the roofs alight: "ის იწვის!".
+   Then the fire goes out as he walks down (`VillageFire.die_down`, 22 s): the
+   flames die, a glow and smoke stay.
+4. **The arrival (film).** Coming in among the houses (`Intro.VILLAGE_IN`),
+   the fire is out and the burnt houses have fallen in. Datvi on the square
+   tells him that:
+   - the village needs timber to be rebuilt;
+   - strange monsters have come into the wood;
+   - if the hero clears the wood, Datvi will give him arms and experience.
 
-Either film is skipped with **Space** (or Enter, or the pad's Start). The
-world is then put where the film ends: everything burning, the dragon gone,
-the hero on his feet with his camera behind him.
+**Unarmed until Datvi's job.** From the opening until he takes Datvi's job,
+`Player.unarmed` is set. He runs, jumps, evades and crouches, but he cannot
+attack, block, draw a bow or use a skill (`Player._read_unarmed`). His sword,
+shield, bow and sheathed blades are hidden (`Intro.is_arm`: meshes named
+`ps_w_*`, `ps_o_*`, `ps_shield*` or `*sheathed*`, and bow strings). The
+wood's creatures (`Intro.WOOD`) are kept out of sight and still (process
+disabled) for as long as he is unarmed. Every creature is kept away during a
+film. When he takes the job, his arms come back and the wood fills again.
+
+Every film is skipped with **Space** (or Enter, or the pad's Start). The
+world is then put where that film ends.
 
 `Cutscene` (`scripts/cutscene.gd`) is the crew: its own camera moved by
 `shot(from, look, to, look_to, seconds, track)`, black bars, a line of
@@ -1727,7 +1738,16 @@ map are hidden. `end()` gives them back. Every `wait` returns at once after a
 skip, so a film written as a run of awaits falls through to its end.
 
 `VillageFire` (`scripts/village_fire.gd`) is the damage and its repair. Six
-buildings burn, two for each job:
+buildings burn, two for each job. While they burn they get:
+- soot: a multiplying overlay, thicker up under the roof and in patches;
+- fire on the roof and embers;
+- flickering lights;
+- a column of dark smoke.
+
+`die_down` then puts the fire out. `ruin_all` swaps each burnt house for one
+of the kit's ruins (`Ruin1-3`, in turn), blackened, standing where the house
+stood. The house's colliders are disabled and the ruin's own boxes added.
+The six buildings by job:
 
 | job | buildings |
 | --- | --- |
@@ -1738,25 +1758,21 @@ buildings burn, two for each job:
 Only Datvi is left of the people (the user is making them anew). The other
 four buildings stay burnt until jobs are given under those ids again.
 
-A burning building gets:
-- soot: a multiplying overlay, thicker up under the roof and in patches;
-- fire on the roof and embers going up;
-- flickering lights;
-- a column of dark smoke tall enough to be seen from the meadow.
-
-150 s after the arrival the flames die down to a smoulder. When a job is
-rewarded, its buildings come back: the soot washes off and the fire and
-smoke go out. A line at the top of the screen says what was rebuilt.
+When a job is rewarded its houses are put back: the house stands up again
+in place of its ruin, the soot washes off and the smoke goes. A line at the
+top of the screen says what was rebuilt.
 
 There is no saving yet, so the story starts over with every new game.
 
 `tests/intro_test.gd` (headless, `--fixed-fps 30`) checks the whole run:
 - no story without the menu's word;
-- lying under the film's camera;
-- the dragon and the six fires;
-- the skip;
-- the arrival at Datvi;
-- a rewarded job's houses rebuilt.
+- lying unarmed with no creature in sight;
+- the dragon never seen;
+- the roofs alight;
+- up facing the village with the wood's creatures away;
+- the sighting, then the arrival: houses fallen in, Datvi;
+- the job taken: arms back, the wood full;
+- the job rewarded: the houses back up.
 
 ## Creatures
 

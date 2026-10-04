@@ -297,6 +297,10 @@ var _vault_peak: float = -INF
 ## Hurt but never killed: health stops at 1. For tests that are about
 ## something other than dying.
 @export var immortal: bool = false
+## Nothing in his hands (the story's start, until Datvi gives him arms,
+## [Intro]): he runs, jumps, evades and crouches, but has nothing to cut,
+## shoot or raise, and no skills.
+var unarmed: bool = false
 ## Physical and magical defence (p.def, m.def), from the profile ([Defence]).
 var p_def: float = 0.0
 var m_def: float = 0.0
@@ -1006,6 +1010,9 @@ func _read_actions() -> void:
 	# of a swing.
 	if Input.is_action_just_pressed("lock_on"):
 		_toggle_lock()
+	if unarmed:
+		_read_unarmed()
+		return
 
 	# Mid-swing, the only thing the buttons do is queue the next one. Everything
 	# below this line is a way of *not* finishing the attack.
@@ -1089,6 +1096,25 @@ func _read_actions() -> void:
 		# The swing that was asked for during the last one. Taken the moment the
 		# last one lets go, so a flurry is one press per cut.
 		_string_attack(_buffer_other)
+
+
+## The buttons with nothing in his hands: only the ones that move him.
+func _read_unarmed() -> void:
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	_attack_buffer = 0.0
+	_heavy_buffer = 0.0
+	if is_committed():
+		return
+	if Input.is_action_just_pressed("jump"):
+		if not _try_climb() and not _try_wall_climb():
+			_jump_buffer_timer = jump_buffer_time
+	if Input.is_action_just_pressed("dash"):
+		_press_dash()
+	_set_crouching(Input.is_action_pressed("crouch"))
+	if Input.is_action_just_pressed("crouch"):
+		_try_slide()
 
 
 func _process_locomotion(delta: float) -> void:
@@ -2412,7 +2438,7 @@ func _tick_bow(delta: float) -> void:
 	if _draw_sound != null and not _drawing:
 		Sfx.stop(_draw_sound)
 		_draw_sound = null
-	var holding := Input.is_action_pressed("attack") and not menu_open
+	var holding := Input.is_action_pressed("attack") and not menu_open and not unarmed
 	# Committed as well as rolling: the beat after the string goes belongs to the
 	# shot that was just taken, and an archer who can start the next draw before
 	# his arm has come down is an archer with no rate of fire to manage.
