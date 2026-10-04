@@ -5526,13 +5526,15 @@ func blade_hit(creature: Node3D, at: Vector3) -> void:
 
 #region An arrow's hit, felt (AVTANDIL_POLISH 4)
 ## The arrow's own sound is where it lands, and from far off is not heard: the
-## archer gets his own, in his ear, and a mark on his screen. The head has a
-## sharper one; a shot let go at the moment a little brighter. Only he hears
-## and sees it: the host decides the hit and sends it to his peer.
-const HIT_FELT_SOUND := "res://sounds/bow/hit_confirm.wav"
-const HEAD_FELT_SOUND := "res://sounds/bow/hit_head.wav"
-const HIT_FELT_DB := -7.0
-const HEAD_FELT_DB := -4.0
+## archer gets it in his ear too, and a mark on his screen. The same recordings
+## of an arrow going in ([constant Arrow.HITS]; the synthesized "tuk" was not
+## liked, 2026-10-05): at the head deeper and louder, let go at the moment a
+## touch louder. Only he hears and sees it: the host decides the hit and sends
+## it to his peer.
+const HIT_FELT_PITCH := 1.0
+const HEAD_FELT_PITCH := 0.8
+const HIT_FELT_DB := -6.0
+const HEAD_FELT_DB := -3.0
 ## The arrow's bite on what it went into ([HitFeel]): weaker than any cut.
 const ARROW_BITE := 0.55
 var _felt_at: int = -1000
@@ -5557,7 +5559,8 @@ func net_arrow_felt(where: Vector3, head: bool, perfect: bool) -> void:
 	arrow_hit_felt.emit(where, head, perfect)
 	if quiet:
 		return
-	Sfx.play_flat(self, HEAD_FELT_SOUND if head else HIT_FELT_SOUND, 1.08 if perfect else 1.0,
+	Sfx.play_flat(self, Arrow.HITS[randi() % Arrow.HITS.size()],
+			HEAD_FELT_PITCH if head else HIT_FELT_PITCH,
 			(HEAD_FELT_DB if head else HIT_FELT_DB) + (1.5 if perfect else 0.0))
 #endregion
 

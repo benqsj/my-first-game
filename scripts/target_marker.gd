@@ -18,8 +18,8 @@ extends MeshInstance3D
 ## How big it is, in metres, and how much bigger it gets with distance so that
 ## it stays readable across a field. Small: it says *which*, and anything past
 ## the size it takes to say that is sitting on top of the thing being fought.
-@export var size: float = 0.012
-@export var grow_with_range: float = 0.0007
+@export var size: float = 0.05
+@export var grow_with_range: float = 0.024
 ## White, and no brighter: past 1 the colour ran into the glow pass and the
 ## bloom made a ball of light far bigger than the dot over the very part it
 ## marks (the user's word, 2026-10-04: much smaller).
@@ -51,6 +51,9 @@ func _ready() -> void:
 	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# Without this a billboard drops the node's scale: the dot was drawn off a
+	# 1 m quad whatever `size` said (some 20 px across at 12 m; now about 7).
+	_material.billboard_keep_scale = true
 	# Drawn over whatever it is marking: a dot hidden behind the wolf it is on
 	# would be worse than no dot at all.
 	_material.no_depth_test = true
@@ -76,7 +79,8 @@ static func _pip() -> ImageTexture:
 			var core := 1.0 - smoothstep(0.22, 0.30, out)
 			# Faint, and not far: a halo that reaches the edge of the quad puts a
 			# white wash over the very thing the mark is meant to point at.
-			var halo := (1.0 - smoothstep(0.26, 0.62, out)) * 0.18
+			# (no halo: even faint, it made the dot read twice its size)
+			var halo := 0.0
 			var ink := clampf(core + halo, 0.0, 1.0)
 			if ink > 0.0:
 				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, ink))
