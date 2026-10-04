@@ -117,7 +117,9 @@ func _check_lock() -> void:
 			(_player.global_position - eye).normalized().dot(to_them.normalized()) > 0.5,
 			"%.2f" % (_player.global_position - eye).normalized().dot(to_them.normalized()))
 
-	# Backing away has to keep him facing it, which is the whole point of a lock.
+	# Backing away with nothing drawn he turns and runs from it, as Tariel does
+	# (the user's word, 2026-10-04); with the string drawn he backs off facing
+	# it, the shot still on.
 	var gap := _player.global_position.distance_to(quarry.global_position)
 	Input.action_press("move_back")
 	await _wait(30)
@@ -125,12 +127,30 @@ func _check_lock() -> void:
 	var facing_now := -_player.global_transform.basis.z
 	var away := (quarry.global_position - _player.global_position)
 	away.y = 0.0
-	_check("backing off keeps him facing it",
+	_check("backing off, nothing drawn, he turns and runs from it",
 			_player.global_position.distance_to(quarry.global_position) > gap + 0.5
+					and facing_now.dot(away.normalized()) < -0.5,
+			"gap %.1f -> %.1f, facing %.2f" % [gap,
+					_player.global_position.distance_to(quarry.global_position),
+					facing_now.dot(away.normalized())])
+	await _wait(20)
+	gap = _player.global_position.distance_to(quarry.global_position)
+	Input.action_press("attack")
+	await _wait(20)
+	Input.action_press("move_back")
+	await _wait(40)
+	Input.action_release("move_back")
+	facing_now = -_player.global_transform.basis.z
+	away = (quarry.global_position - _player.global_position)
+	away.y = 0.0
+	_check("backing off drawn keeps him facing it",
+			_player.global_position.distance_to(quarry.global_position) > gap + 0.3
 					and facing_now.dot(away.normalized()) > 0.9,
 			"gap %.1f -> %.1f, facing %.2f" % [gap,
 					_player.global_position.distance_to(quarry.global_position),
 					facing_now.dot(away.normalized())])
+	Input.action_release("attack")
+	await _wait(30)
 
 	# Running sideways is going somewhere, and a man going somewhere faces it.
 	# Holding ground and backing off both keep watching the target; a run does

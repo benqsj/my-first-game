@@ -1377,13 +1377,14 @@ func _aim_body(direction: Vector3, delta: float) -> void:
 		_face_direction(direction, delta)
 
 
-## Backing off a target keeps him facing it only for the bow (he backs off
-## shooting), behind the shield, or walking (careful steps). Otherwise he turns
-## and runs from it like any other way, the camera still on the target: a
-## backpedal at a run is no way for a man to go (the user's word, 2026-10-02).
+## Backing off a target keeps him facing it only behind the shield, or
+## walking (careful steps), or with the string drawn (that is [method _face_aim]'s
+## before this is asked). Otherwise he turns and runs from it like any other
+## way, the camera still on the target: a backpedal at a run is no way for a
+## man to go (the user's word, 2026-10-02; for the bow too, 2026-10-04).
 func _watches_backing_off() -> bool:
 	# (and the assassin: his locked step back is a step facing it, then the flip)
-	return _is_bow() or is_blocking or Input.is_action_pressed("walk") \
+	return is_blocking or Input.is_action_pressed("walk") \
 			or (profile != null and profile.step_then_flip)
 
 
