@@ -1406,10 +1406,10 @@ func _guard_ahead(direction: Vector3) -> bool:
 ## Locked on and stepping carefully — behind the raised shield, or walking
 ## (TARIEL_POLISH.md 10): every way he goes, forward, back or to either side,
 ## he keeps facing what he fights, his legs stepping the way he goes (the
-## rig's strafe walks); only a run turns him the way he runs. Not the bow:
-## the hunter's own sideways lock is a dodge.
+## rig's strafe walks); only a run turns him the way he runs. The bow too,
+## walking (AVTANDIL_POLISH 3; drawn he faces the shot anyway, [method _face_aim]).
 func _strafes_on_lock() -> bool:
-	return not _is_bow() and (is_blocking or Input.is_action_pressed("walk"))
+	return is_blocking or Input.is_action_pressed("walk")
 
 
 ## True when the stick is pointed away from what is being fought — backing off
