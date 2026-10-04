@@ -7024,3 +7024,37 @@ the blow's combo key (its node path before the `#`).
 
 Test: `tests/block_feel_test.gd`. Reel: `_shots_tmp/block_reel.gd`
 (`--write-movie`), with blows of 2, 9, 30 and 30.
+
+## A blow that gets through, from its side (2026-10-04, TARIEL_POLISH.md session 4, item 9)
+
+Every blow that got past his guard played one flinch, `KV_CombatDamage01`,
+whichever way it came and however hard. Now `Player._flinch()` asks two
+things of it. Where it came from: `blow_side(away)` sets the blow against
+his facing (front, behind, his left, his right; `SkinnedRig.From`). How hard:
+`hit_heft(damage)` is the damage after his armour over `hit_heaviest` (30),
+0..1. The heft rides to every peer on the length of `net_react(FLINCH)`'s
+spray, 1 + heft; the blood takes only its direction.
+`SkinnedRig.flinch_from(away, from, heft)` plays it on the mannequin:
+
+| From | Light | Heavy (heft ≥ 0.6) |
+|---|---|---|
+| in front | `KV_CombatDamage01`, rocked back | `KV_CombatDamage02`, head snapped back, shield flung up |
+| behind | `SS_Unblocked_Impact_2`, buckles forward | the same, slower and played out |
+| his left | `SS_Head_Impact`, head knocked round to his right | `KV_CombatDamage02` |
+| his right | `KV_CombatDamage01` | `KV_CombatDamage02` |
+
+`SS_Head_Impact` only goes one way. Struck from his right, it would turn him
+into the blow, so there he is rocked back instead. A light blow plays at
+×1.45, a heavy one at ×1.05.
+
+What shows the side is `HitLean`, a modifier on the mannequin's skeleton.
+It sits after the strike aim and before the feet, so the figure bends with
+it. It is the creatures' `HitReact` spring on `spine_01..03`, `neck_01` and
+`Head`: his back is thrown over the way the blow went and springs back
+upright. It runs at 4.5 rad/s for the lightest blow and 8 for the heaviest,
+and it runs even under a swing. A swing or a fall is not cut short by the
+clip. Off the mannequin (another hero's own rig), `flinch()` as before.
+
+Test: `tests/hit_direction_test.gd` (four sides × light and heavy). Reel:
+`_shots_tmp/hit_dir_reel.gd` (`--write-movie`; a red post marks the striker).
+

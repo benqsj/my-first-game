@@ -1799,6 +1799,58 @@ func flinch() -> void:
 	_play_action(clips[&"hit_blocked"] if _blocking_now else clips[&"hit"], Role.HIT, 1.3, 0.05)
 
 
+## Where a blow that got through came from, in his own frame
+## ([method flinch_from]).
+enum From { FRONT, BACK, LEFT, RIGHT }
+
+## Each side's flinch on the mannequin: [light, heavy]. Struck in front he is
+## rocked back (Kevin's combat damage, the heavy one his head snapped back);
+## from behind he buckles forward under it. From his left his head is knocked
+## round to his right (`SS_Head_Impact` goes only that way: from his right it
+## would turn him into the blow, so there he is rocked back instead); a heavy
+## one from a side rocks him back hard. The side itself is shown by
+## [HitLean], his back thrown over away from the blow.
+const FLINCH_CLIPS := {
+	From.FRONT: [&"KV_CombatDamage01", &"KV_CombatDamage02"],
+	From.BACK: [&"SS_Unblocked_Impact_2", &"SS_Unblocked_Impact_2"],
+	From.LEFT: [&"SS_Head_Impact", &"KV_CombatDamage02"],
+	From.RIGHT: [&"KV_CombatDamage01", &"KV_CombatDamage02"],
+}
+## From this `heft` up a blow is a heavy one: the bigger clip.
+const FLINCH_HEAVY := 0.6
+## How hard his back is thrown over (HitLean), from the lightest to the
+## heaviest blow.
+const LEAN_THROW := Vector2(4.5, 8.0)
+
+## The last flinch ([method flinch_from]), for a test.
+var last_flinch: Dictionary = {}
+
+
+## A blow that got through (TARIEL_POLISH.md 9): `away` the way it went (from
+## whoever struck to him, world space), `from` which side of him it came
+## ([enum From]), `heft` how hard (0..1). The side picks the clip, the heft
+## the light one or the heavy one and how fast it plays; his back is thrown
+## over along `away` whatever he is doing, but a swing or a fall is not cut
+## short by a flinch. Off the mannequin, the rig's own hit ([method flinch]).
+func flinch_from(away: Vector3, from: int, heft: float) -> void:
+	var k := clampf(heft, 0.0, 1.0)
+	if _on_mq:
+		_rouse()
+		var lean := _mq.get("lean") as HitLean
+		if lean != null and _role != Role.DOWN:
+			lean.strike(away, lerpf(LEAN_THROW.x, LEAN_THROW.y, k))
+	var picks: Array = FLINCH_CLIPS.get(from, FLINCH_CLIPS[From.FRONT])
+	var clip: StringName = picks[1] if k >= FLINCH_HEAVY else picks[0]
+	if not _on_mq or not _anim.has_animation(clip):
+		flinch()
+		return
+	if _role == Role.SWING or _role == Role.DOWN:
+		return
+	# a light one quick and over; a heavy one played out, slower
+	_play_action(clip, Role.HIT, lerpf(1.45, 1.05, k), 0.05)
+	last_flinch = {"from": from, "clip": clip, "heft": k}
+
+
 ## A blow caught on the raised shield: the guard's jolt, `strength` (0..1, how
 ## hard the blow was) deciding how big — a light one a quick shudder, a heavy
 ## one the shield driven back and slowly brought up again. Not over a swing,
@@ -2376,6 +2428,10 @@ func _build_mannequin() -> bool:
 		strike.name = "StrikeAim"
 		strike.natural = strike_natural
 		skel.add_child(strike)
+	# a blow that got through bends his back over the way it went
+	var lean := HitLean.new()
+	lean.name = "HitLean"
+	skel.add_child(lean)
 	# last: the feet laid flat under the hero's own clips carried over
 	var feet := FootFlat.new()
 	feet.name = "FootFlat"
@@ -2386,7 +2442,7 @@ func _build_mannequin() -> bool:
 	ground.name = "FootGround"
 	skel.add_child(ground)
 	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib,
-			"own": own, "feet": feet}
+			"own": own, "feet": feet, "lean": lean}
 	_mannequin_built(skel)
 	return true
 

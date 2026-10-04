@@ -2960,7 +2960,9 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	velocity += away * (2.0 + _heft(damage) * blow_shove)
 	_free_swing = false
 	_commit(0.2 + _heft(damage) * blow_stagger)
-	net_react.rpc(Reaction.FLINCH, at, spray)
+	# how hard it was rides on the spray's length (1 the lightest, 2 the
+	# heaviest; the blood takes only its way): [method _flinch]
+	net_react.rpc(Reaction.FLINCH, at, spray * (1.0 + hit_heft(damage)))
 
 
 ## What is left of his pace while his swing is held in a bite.
@@ -2993,8 +2995,7 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 	match reaction:
 		Reaction.FLINCH:
 			_interrupt_skill()
-			if rig != null:
-				rig.flinch()
+			_flinch(blow)
 			_rig_says(&"hurt")
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
@@ -3036,6 +3037,44 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			perfect_dodged.emit()
 		Reaction.BLOCK:
 			_feel_block(at, blow)
+
+
+## The damage (after his armour) at which a blow that gets through is the
+## heaviest there is ([method hit_heft] 1).
+@export var hit_heaviest: float = 30.0
+
+
+## How hard a blow of `damage` that got through is: 0..1.
+func hit_heft(damage: float) -> float:
+	return clampf(damage / maxf(hit_heaviest, 0.01), 0.0, 1.0)
+
+
+## Which side of him a blow going `away` (from whoever struck to him) came
+## from: [enum SkinnedRig.From].
+func blow_side(away: Vector3) -> int:
+	var from := -Vector3(away.x, 0.0, away.z)
+	var ahead := -global_basis.z
+	var right := global_basis.x
+	var f := from.dot(ahead)
+	var r := from.dot(right)
+	if absf(f) >= absf(r):
+		return SkinnedRig.From.FRONT if f >= 0.0 else SkinnedRig.From.BACK
+	return SkinnedRig.From.RIGHT if r > 0.0 else SkinnedRig.From.LEFT
+
+
+## A blow that got through, shown (TARIEL_POLISH.md 9): which way it came
+## from and how hard pick the flinch. `blow` is the blood's spray (the blow's
+## way, a little up), its length 1 + how hard.
+func _flinch(blow: Vector3) -> void:
+	if rig == null:
+		return
+	if not rig.has_method(&"flinch_from"):
+		rig.flinch()
+		return
+	var away := Vector3(blow.x, 0.0, blow.z)
+	var heft := clampf(blow.length() - 1.0, 0.0, 1.0)
+	rig.call(&"flinch_from", away.normalized() if away.length_squared() > 0.000001 else global_basis.z,
+			blow_side(away), heft)
 
 
 ## How the push back off the shield goes with a blow's strength (m/s added,
