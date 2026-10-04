@@ -103,10 +103,22 @@ func _initialize() -> void:
 					and player.stamina >= player.max_stamina - 0.01,
 					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.jog_speed, player.stamina])
 		if pace[0] == "sprint":
-			_check("Shift: the sprint at his run's pace, the stamina going",
+			_check("Shift: the sprint at his run's pace, out of a fight free",
 					clip == "KV_Sprint01_Forward" and absf(speed - player.run_speed) < 0.4
-					and player.stamina < player.max_stamina * 0.85,
+					and player.stamina >= player.max_stamina - 0.01,
 					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.run_speed, player.stamina])
+		if pace[0] == "sprint":
+			# in a fight it costs
+			for a: String in pace[1]:
+				Input.action_press(a)
+			var had := player.stamina
+			for i in 60:
+				player.set(&"_combat_until", player.get(&"_game_t") + 5.0)
+				await physics_frame
+			_check("in a fight the sprint costs stamina", player.stamina < had - 8.0,
+					"(%.0f -> %.0f)" % [had, player.stamina])
+			for a: String in pace[1]:
+				Input.action_release(a)
 		_check("%s: the standing foot stays put" % pace[0], median < SLIDE_OK,
 				"(%s at x%.2f, %.1f m/s: the standing foot slides %.2f m/s)" % [clip, rates[rates.size() - 1], speed, median])
 		for i in 30:

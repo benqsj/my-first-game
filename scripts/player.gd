@@ -896,7 +896,7 @@ func _physics_process(delta: float) -> void:
 	_tick_bash(delta)
 	_tick_kick(delta)
 	_tick_vitals(delta)
-	_tick_sheathe(delta)
+	_tick_combat(delta)
 	_track_target(delta)
 	_track_pierce(delta)
 	if has_bow():
@@ -1211,7 +1211,7 @@ func _process_locomotion(delta: float) -> void:
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
 	# The sprint costs only while it is a sprint: on the ground, faster than
 	# the jog (not slowed by a swing, the draw, the shield).
-	if sprinting and on_floor and speed > jog_speed:
+	if sprinting and on_floor and speed > jog_speed and in_combat():
 		_spend(sprint_stamina * delta)
 	elif sprinting and speed <= jog_speed:
 		sprinting = false
@@ -1762,26 +1762,72 @@ func _rig_drawing() -> bool:
 	return rig != null and rig.has_method(&"is_drawing") and bool(rig.call(&"is_drawing"))
 
 
-## Out of the fight, the sword goes back in its scabbard of its own accord:
-## `sheathe_after` seconds once the rig is no longer on guard (no blow, hit or
-## guard for its `EASE_AFTER`, no target). Only where there is a scabbard to
-## put it in, standing or walking with nothing else going on.
-func _tick_sheathe(delta: float) -> void:
-	if rig == null or not rig.has_method(&"can_sheathe") or not bool(rig.call(&"can_sheathe")) \
-			or weapons_stowed():
-		_peace = 0.0
-		return
-	var busy := state != State.GROUNDED or is_committed() or is_blocking or _drawing or _crouching \
-			or (rig.has_method(&"fighting") and bool(rig.call(&"fighting")))
-	_peace = 0.0 if busy else _peace + delta
-	if _peace >= sheathe_after:
-		_peace = 0.0
-		_set_weapons_stowed(true)
+## In a fight or not (the user's word, 2026-10-05): something after him
+## (an orc or a fighter whose quarry he is, chasing or fighting; a wolf
+## chasing or fighting near him), a blow taken (on the shield too, or his
+## health going down, which is how a blow from another player reaches his
+## own peer), or something locked on. It lasts `combat_linger` after the last
+## of these. Out of it the sprint costs nothing; going into it, or struck,
+## the weapons put away (Q) are drawn of themselves. The sword is no longer
+## put away by itself: only Q puts it away.
+func in_combat() -> bool:
+	return _game_t < _combat_until
 
 
-## Seconds out of the fight before the sword is put away.
-@export var sheathe_after: float = 2.0
-var _peace: float = 0.0
+## Seconds a fight lasts after the last sign of it.
+@export var combat_linger: float = 5.0
+## How near something after him has to be to count.
+@export var hunted_range: float = 40.0
+var _combat_until: float = -INF
+var _combat_was: bool = false
+var _health_seen: float = -1.0
+var _hunt_left: float = 0.0
+var _hunted: bool = false
+var _struck_lately: bool = false
+
+
+func _tick_combat(delta: float) -> void:
+	_hunt_left -= delta
+	if _hunt_left <= 0.0:
+		_hunt_left = 0.25
+		_hunted = _is_hunted()
+	var hurt := _health_seen >= 0.0 and health < _health_seen - 0.01
+	_health_seen = health
+	if hurt or _struck_lately or _hunted or target != null:
+		_combat_until = _game_t + combat_linger
+	var now := in_combat()
+	# into the fight, or a blow taken: the weapons back in hand (not while
+	# climbing, which stows them of its own accord and hands them back after)
+	if (now and not _combat_was) or hurt or _struck_lately:
+		if weapons_stowed() and state != State.CLIMBING and state != State.WALLCLIMB and not is_dead:
+			_set_weapons_stowed(false)
+	_struck_lately = false
+	_combat_was = now
+
+
+## Something after him: a [Brute] or a [Fighter] chasing or fighting him, a
+## [Wolf] chasing or fighting near him.
+func _is_hunted() -> bool:
+	if is_dead:
+		return false
+	for group: StringName in [&"enemy", &"wolf"]:
+		for node in get_tree().get_nodes_in_group(group):
+			var foe := node as Node3D
+			if foe == null or foe == self or foe.get(&"is_dead") == true:
+				continue
+			if foe.global_position.distance_squared_to(global_position) > hunted_range * hunted_range:
+				continue
+			if foe is Wolf:
+				var st := (foe as Wolf).state
+				if st == Wolf.State.CHASE or st == Wolf.State.FIGHT:
+					return true
+				continue
+			var mode: Variant = foe.get(&"mode")
+			# Brute.Mode and Fighter.Mode are the same: GUARD, CHASE, FIGHT, RETURN
+			if mode is int and (int(mode) == Brute.Mode.CHASE or int(mode) == Brute.Mode.FIGHT) \
+					and foe.get(&"_quarry") == self:
+				return true
+	return false
 #endregion
 
 
@@ -3135,6 +3181,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			net_react.rpc(Reaction.FLINCH, knock, (away + Vector3.UP * 0.3).normalized())
 			_take_damage(damage * 0.5)
 			return
+		_struck_lately = true
 		struck.emit(damage, true)
 		# The one who struck is held with him for the beat ([HitFeel]): the
 		# blow felt stopping on the shield.
@@ -4402,7 +4449,8 @@ func _wants_sprint(direction: Vector3, walking: bool) -> bool:
 		return false
 	if not InputMap.has_action(&"sprint") or not Input.is_action_pressed(&"sprint"):
 		return false
-	return stamina > 0.0 and not _winded
+	# out of a fight it costs nothing, so being winded does not stop it
+	return not in_combat() or (stamina > 0.0 and not _winded)
 
 
 func _now() -> float:
@@ -4450,6 +4498,7 @@ func _tick_vitals(delta: float) -> void:
 func _take_damage(amount: float) -> bool:
 	if is_dead or amount <= 0.0:
 		return false
+	_struck_lately = true
 	health = maxf(health - amount, 1.0 if immortal else 0.0)
 	_since_hurt = 0.0
 	if health <= 0.0:

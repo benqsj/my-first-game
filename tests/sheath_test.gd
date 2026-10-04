@@ -4,7 +4,8 @@ extends SceneTree
 ## - the swordsman's scabbard is on his back, the fighter's at his hip;
 ## - put away, the blade lies in the scabbard; one press of attack draws it
 ##   and the first cut goes, with no second press;
-## - out of the fight it goes back of its own accord.
+## - it is never put away by itself, only with Q (the user's word, 2026-10-05);
+##   with it the shield goes on the back; a blow taken draws them again.
 ##   Godot --headless --path . --script res://tests/sheath_test.gd
 var _failures := 0
 var player: Player
@@ -145,14 +146,28 @@ func _initialize() -> void:
 	await _tap("attack")
 	await _frames(90)
 
-	# out of the fight it goes back of its own accord
+	# out of the fight it stays in the hand: only Q puts it away
 	var away := false
-	for i in 60 * 10:
+	for i in 60 * 4:
 		await physics_frame
 		if player.weapons_stowed():
 			away = true
 			break
-	_check("out of the fight it goes back by itself", away)
+	_check("out of the fight it stays in the hand", not away)
+
+	# Q: the shield goes on the back with it, and a blow taken draws them
+	await _tap("stow")
+	await _frames(90)
+	if not rig._shield_back.is_empty():
+		var sk := rig._figure_skel
+		var shield := sk.get_bone_global_pose(int(rig._shield_back["shield"])).origin
+		var chest := sk.get_bone_global_pose(int(rig._shield_back["bone"])).origin
+		_check("the shield on his back", player.weapons_stowed() and shield.distance_to(chest) < 0.75,
+				"(%.2f m from the chest)" % shield.distance_to(chest))
+	player.call(&"_take_damage", 1.0)
+	await _frames(5)
+	_check("a blow taken draws them again", not player.weapons_stowed())
+	_check("and he is in a fight", player.in_combat())
 
 	print("sheath_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)

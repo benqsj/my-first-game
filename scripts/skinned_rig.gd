@@ -3237,6 +3237,15 @@ const SHEATH_HANDOFF := 0.08
 ## figure, "at": weapon_r's transform in that bone's frame, "where": &"back" or
 ## &"hips", "mesh": the scabbard}. Empty when there is nowhere to put it.
 var _sheath: Dictionary = {}
+## Where the shield sits when the weapons are away: on his back, its face
+## out ({"bone": chest_joint, "shield": shield_l, "at": shield_l's transform
+## in the chest's frame}). Empty with no shield (the user's word, 2026-10-05:
+## Q puts the shield away too).
+var _shield_back: Dictionary = {}
+## Where on the back the shield's inner face is centred, in the figure's
+## frame at rest (he faces +Z): down from the chest and behind it.
+const SHIELD_BACK_DROP := 0.12
+const SHIELD_BACK_OFF := 0.17
 ## How far the sword is in the scabbard (0 in the hand, 1 away), and where it
 ## is going.
 var _sheath_k: float = 0.0
@@ -3358,6 +3367,7 @@ func _hold_sheathed(id: StringName) -> void:
 			or _figs[id]["skel"] != _figure_skel:
 		return
 	var w := _figure_skel.find_bone("weapon_r")
+	_hold_shield_back(_figure_skel)
 	if w < 0:
 		return
 	var want: Transform3D = _figure_skel.get_bone_global_pose(int(_sheath["bone"])) * (_sheath["at"] as Transform3D)
@@ -3399,6 +3409,66 @@ func _fit_sheath(custom: bool) -> void:
 	else:
 		_sheath_k = 1.0 if _stowed else 0.0
 		_sheath_goal = _sheath_k
+	_fit_shield_back()
+
+
+## The shield's place on the back for the look worn: from its mesh at rest
+## (skinned to shield_l, in the figure's rest frame), its thin axis turned to
+## face out of the back (the side away from the forearm out), its longest
+## across it upright, its inner face put SHIELD_BACK_OFF behind the chest and
+## SHIELD_BACK_DROP below it.
+func _fit_shield_back() -> void:
+	_shield_back = {}
+	if _sheath.is_empty() or _figure == null or _figure_skel == null:
+		return
+	var sk := _figure_skel
+	var sb := sk.find_bone("shield_l")
+	var chest := sk.find_bone("chest_joint")
+	if sb < 0 or chest < 0:
+		return
+	var mesh: MeshInstance3D = null
+	for m: Node in _figure.find_children("ps_*shield*", "MeshInstance3D", true, false):
+		if (m as MeshInstance3D).visible and (m as MeshInstance3D).mesh != null:
+			mesh = m
+			break
+	if mesh == null:
+		return
+	var box := mesh.get_aabb()
+	var size := box.size
+	var thin := 0
+	for a in 3:
+		if size[a] < size[thin]:
+			thin = a
+	var others := [0, 1, 2].filter(func(a: int) -> bool: return a != thin)
+	var up_axis: int = others[0] if size[others[0]] >= size[others[1]] else others[1]
+	var shield_rest := sk.get_bone_global_rest(sb)
+	var out := Vector3.ZERO
+	out[thin] = 1.0 if box.get_center()[thin] >= shield_rest.origin[thin] else -1.0
+	var up := Vector3.ZERO
+	up[up_axis] = 1.0
+	# turn the rest frame (out, up) onto the back's (-Z out of the back, +Y up)
+	var from := Basis(out.cross(up), up, -out).orthonormalized()
+	var to := Basis(Vector3(0, 0, -1).cross(Vector3.UP), Vector3.UP, Vector3(0, 0, 1)).orthonormalized()
+	var turn := to * from.inverse()
+	var inner := box.get_center() - out * size[thin] * 0.5
+	var chest_rest := sk.get_bone_global_rest(chest)
+	var where := Vector3(0.0, chest_rest.origin.y - SHIELD_BACK_DROP, chest_rest.origin.z - SHIELD_BACK_OFF)
+	var moved := Transform3D(turn, where - turn * inner)
+	_shield_back = {"bone": chest, "shield": sb, "at": chest_rest.affine_inverse() * moved * shield_rest}
+
+
+## Once the figure is posed: the shield's bone laid on the back, as far as the
+## weapons have gone away.
+func _hold_shield_back(sk: Skeleton3D) -> void:
+	if _shield_back.is_empty() or sk != _figure_skel:
+		return
+	var sb := int(_shield_back["shield"])
+	var want: Transform3D = sk.get_bone_global_pose(int(_shield_back["bone"])) * (_shield_back["at"] as Transform3D)
+	var g := sk.get_bone_global_pose(sb).interpolate_with(want, _sheath_k)
+	var p := sk.get_bone_parent(sb)
+	var local := (sk.get_bone_global_pose(p) if p >= 0 else Transform3D()).affine_inverse() * g
+	sk.set_bone_pose_rotation(sb, local.basis.get_rotation_quaternion())
+	sk.set_bone_pose_position(sb, local.origin)
 #endregion
 
 

@@ -128,8 +128,13 @@ lost between physics ticks and simulated input works in tests.
 - **Jog, run, walk** (the user's word, 2026-10-04). With nothing held he
   **jogs**: `jog_speed` = `run_speed` x `jog_share` (0.66), Kevin's
   `KV_Run01_Forward` near its own pace. **Shift** (`sprint`) is his whole
-  `run_speed`, Kevin's `KV_Sprint01_Forward`, and costs `sprint_stamina`
-  (12/s) while he is really going at it (on the ground, faster than the jog);
+  `run_speed`, Kevin's `KV_Sprint01_Forward`, and **in a fight** costs
+  `sprint_stamina` (12/s) while he is really going at it (on the ground,
+  faster than the jog); out of a fight it is free (2026-10-05). In a fight
+  (`Player.in_combat`, for `combat_linger` 5 s after the last sign): an orc,
+  a fighter (its `_quarry` him) or a wolf chasing or fighting within
+  `hunted_range` 40 m, a blow taken (on the shield too, or his health going
+  down: a blow from another player), or something locked on;
   run dry he is winded and jogs until a fifth of the stamina is back. No
   sprint crouched, behind the shield, with the string drawn or walking
   (`walk`, Ctrl on a Mac, Alt elsewhere). The legs go walk -> jog halfway
@@ -6880,10 +6885,15 @@ sword away in it and draws it from it (`SkinnedRig`, region "The scabbard";
   draw, 0.45 of the back sheathe, 0.52 / 0.59 at the hip; the hand's path
   sampled), with the legs walking under it (`walk_under`). Anything that breaks
   the clip off leaves the sword where it was asked to be.
-* **Out of the fight it goes away by itself**: `Player.sheathe_after` 2 s after
-  the rig is off guard (no blow, hit or guard for `EASE_AFTER` 4 s, no target),
-  standing or walking with nothing else going on. The stow key still puts it
-  away or draws it by hand.
+* **Only Q puts it away** (the user's word, 2026-10-05; it used to go away by
+  itself 2 s out of a fight). The **shield goes on the back** with it
+  (`SkinnedRig._fit_shield_back`: the shield mesh's thin axis turned out of
+  the back, its longest upright, its inner face 0.17 m behind the chest and
+  0.12 below it; `_hold_shield_back` lays shield_l there as far as the sword
+  has gone). **Struck, or going into a fight** (`Player.in_combat`), what is
+  away is drawn by itself; Q in a fight still puts it away until the next blow.
+  The rest of this paragraph's "hit taken leaves it where it is" no longer
+  holds.
 * **One press draws it and cuts**: attack with the sword away plays the draw
   (to 0.8 of the clip at x1.5, ~0.4 s) and the press is kept while it plays
   (`Player._rig_drawing`), so the first cut goes as it comes out. Off the
