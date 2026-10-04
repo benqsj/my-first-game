@@ -238,7 +238,12 @@ func _swing_at(player: Player, f: Fighter, hold: bool = true) -> void:
 	var aim := spot - player.global_position
 	player.rotation.y = atan2(-aim.x, -aim.z)
 	await physics_frame
-	player.rig.attack()
+	# his cut as the player throws it (the rig's attack() alone is only the
+	# swing: the blade is the controller's, 2026-10-04)
+	Input.action_press("attack")
+	await physics_frame
+	await physics_frame
+	Input.action_release("attack")
 	for i in 20:
 		if hold:
 			f.global_position = Vector3(spot.x, f.global_position.y, spot.z)

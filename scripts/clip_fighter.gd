@@ -34,6 +34,10 @@ extends Fighter
 @export var back_clip: StringName = &""
 ## Above this pace it runs.
 @export var run_above: float = 3.2
+## How much further a run carries than twice its feet's widest gap (the
+## flight between steps, which the feet do not show): the run's legs retimed
+## to it. 1 for a run measured right.
+@export var run_stride_gain: float = 1.0
 ## The weapon in its right fist, from the fist to this point in the hand's own
 ## frame (measured off the mesh), this thick.
 @export var weapon_tip: Vector3 = Vector3(0.0, 0.0, 0.4)
@@ -113,6 +117,17 @@ func _extra_velocity(_delta: float) -> Vector3:
 ## Attacks that carry it to him by their own travel (a leap), not stepped in.
 func _leaps() -> Array:
 	return []
+
+
+## How long before and after each of a move's blow moments its weapon can
+## land (seconds): `blow_window` unless a creature says otherwise for a move.
+func _blow_window_for(_what: int) -> Vector2:
+	return blow_window
+
+
+## How near (body to body) it steps in under a move's next blow.
+func _strike_off_for(_what: int) -> float:
+	return strike_off
 
 
 ## How fast it turns to follow him before an attack's first blow.
@@ -222,8 +237,9 @@ func _arm(what: int) -> void:
 		var limb: String = limbs[mini(i, limbs.size() - 1)]
 		var blow := _chain_blow + i
 		var serial := _chain_serial if _chain_serial >= 0 else act_serial
-		_sweeps.append(WeaponSweep.blow(_limb(limb), blow_min_speed, moments[i] - blow_window.x,
-				moments[i] + blow_window.y,
+		var window := _blow_window_for(what)
+		_sweeps.append(WeaponSweep.blow(_limb(limb), blow_min_speed, moments[i] - window.x,
+				moments[i] + window.y,
 				act_serial, func(who: Node3D) -> void:
 					who.call("receive_blow", worth, self, blow, count, serial)))
 
@@ -324,6 +340,9 @@ func _play_locomotion(_delta: float) -> void:
 	elif roused and not roused_walk_clip.is_empty():
 		clip = roused_walk_clip
 	var stride := maxf(_anim.measure_stride(clip), 0.1) * maxf(visual_scale, 0.01)
+	if clip == run_clip:
+		# a run's feet leave the ground: it covers more than its widest step
+		stride *= run_stride_gain
 	var rate := pace * _anim.clip_length(clip) / stride
 	_anim.play(clip, 0.2, clampf(rate, retime_range.x, chase_retime_max))
 #endregion
@@ -350,7 +369,8 @@ func _close_gap() -> Vector3:
 	if next < 0.0:
 		return Vector3.ZERO
 	var gap := _distance_to(_quarry)
-	if gap <= strike_off:
+	var off := _strike_off_for(act)
+	if gap <= off:
 		return Vector3.ZERO
-	return _forward() * minf((gap - strike_off) / maxf(next - _act_time, 0.15), close_speed)
+	return _forward() * minf((gap - off) / maxf(next - _act_time, 0.15), close_speed)
 #endregion

@@ -84,13 +84,17 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 ## The ring it circles at, metres from him.
 @export var ring: Vector2 = Vector2(3.4, 5.4)
 ## Seconds it circles before it may go in again.
-@export var circle_time: Vector2 = Vector2(0.7, 2.0)
-@export var strafe_speed: float = 2.6
+@export var circle_time: Vector2 = Vector2(0.5, 1.3)
+@export var strafe_speed: float = 2.1
 ## Farthest it leaps in from.
 @export var leap_range: float = 6.5
 ## How far off him a leap comes down: the arm and the mace ahead of it, about
 ## 1.45 m at its size, so the head of the mace and not the imp lands on him.
-@export var land_off: float = 1.5
+## (1.35: at 1.5 the mace came down 0.2 m short of a hero standing still.)
+@export var land_off: float = 1.35
+## The flip kick's feet reach less than the pounce's mace: it comes down nearer
+## (at 1.5 m its feet passed 0.4 m short of him).
+@export var flip_land_off: float = 1.05
 ## Chance it gets out of the way of a cut aimed at it.
 @export_range(0.0, 1.0) var evade_chance: float = 0.5
 ## How long a sidestep or a flip is untouchable.
@@ -146,6 +150,26 @@ func _carry(delta: float) -> Vector3:
 
 func _leaps() -> Array:
 	return [POUNCE, FLIP]
+
+
+## A leap comes down later than its clip's blow moment when it is stretched
+## to the gap (the mace met him 0.1-0.5 s after it, past the window); the
+## combo's claw comes in early and its mace late (`_shots_tmp/imp_blow_probe.gd`,
+## 2026-10-04: the pounce, the flip and the combo all missed a hero standing
+## still).
+func _blow_window_for(what: int) -> Vector2:
+	if what == POUNCE:
+		return Vector2(blow_window.x, 0.55)
+	if what == FLIP:
+		return Vector2(blow_window.x, 0.34)
+	if what == COMBO:
+		return Vector2(0.26, 0.32)
+	return blow_window
+
+
+## The combo's second blow (the mace) fell 0.4 m short: it steps in closer.
+func _strike_off_for(what: int) -> float:
+	return 0.9 if what == COMBO else strike_off
 
 
 func _track_rate(what: int) -> float:
@@ -259,7 +283,7 @@ func _strike_from(gap: float) -> void:
 		# The leap is stretched or cut so it comes down on him.
 		var land := _blow_moments(what)[0]
 		var travelled := _hips(_clip_of(what), _clip_time(what, land)).x
-		var want := gap - land_off
+		var want := gap - (land_off if what == POUNCE else flip_land_off)
 		_stretch = clampf(want / maxf(travelled, 0.2), 0.3, 2.2)
 		return
 	var roll := _rng.randf()
@@ -306,7 +330,11 @@ func _circle(gap: float, delta: float) -> void:
 		var d := off.length()
 		if d > 0.01 and d < 3.0:
 			apart += off / d * (3.0 - d)
-	var want := (round_dir * strafe_speed + radial + apart * 1.2).limit_length(chase_speed)
+	# no faster round him than its strafe can step (backing out of the ring
+	# fast had its legs at x2.2, 2026-10-04); inside the ring, out of reach of
+	# his sword a little quicker
+	var top := strafe_speed * (1.6 if gap < ring.x else 1.1)
+	var want := (round_dir * strafe_speed + radial + apart * 1.2).limit_length(top)
 	velocity.x = move_toward(velocity.x, want.x, acceleration * 2.0 * delta)
 	velocity.z = move_toward(velocity.z, want.z, acceleration * 2.0 * delta)
 

@@ -7231,3 +7231,49 @@ Test: `tests/dodge_spent_test.gd`. Reel: `_shots_tmp/dodge_reel.gd`.
   `LIGHT_SWINGS` holds only `swing_1`, played ±8 % in pitch (`_whoosh_now`
   when `heft_swings` is off). No other wav in the game is silent.
 
+## The imp's blows land, and its legs keep pace (2026-10-04)
+
+The user saw the imp all but never hit a hero, and its legs going far too
+fast. A probe (`_shots_tmp/imp_blow_probe.gd`) threw each of its attacks at
+a hero standing still and logged how near its weapon came, how fast it was
+moving and when.
+
+**The claw, the mace and the slam already landed.** These did not:
+- **The pounce.** The leap is stretched to the gap, and the mace came down
+  0.1–0.5 s after the clip's blow moment, past the window (+0.1 s), and
+  0.2 m short of him.
+- **The flip kick.** The feet passed 0.4 m short of him.
+- **The combo.** The claw came 0.18 s before its window opened, and the mace
+  was 0.4 m short.
+
+`ClipFighter` now asks each creature for two things per move:
+`_blow_window_for(what)` (default `blow_window`) and
+`_strike_off_for(what)` (default `strike_off`). The imp sets:
+
+| Move | Window, before / after the moment | Other change |
+|---|---|---|
+| pounce | 0.14 / 0.55 s | comes down at 1.35 m (`land_off`, was 1.5) |
+| flip kick | 0.14 / 0.34 s | comes down at 1.05 m (`flip_land_off`) |
+| combo | 0.26 / 0.32 s | steps in to 0.9 m |
+
+A blow still lands only where the weapon passes through him.
+
+**Its legs:**
+- **The run.** A run's feet leave the ground, so it covers more than twice
+  its widest step. The run is retimed by `run_stride_gain` 1.3 (new on
+  `ClipFighter`, 1 by default).
+- **Slower everywhere:** the chase is 4.8 m/s (was 5.4) and the circling
+  2.1 m/s (`strafe_speed`, was 2.6). Going round him is capped at ×1.1 of
+  that, ×1.6 while inside the ring backing out of reach (backing out had
+  the walk-back at ×2.2).
+- **No leg clip plays faster than ×1.3** (`chase_retime_max`, was 2.2).
+- **It goes in more often.** It circles 0.5–1.3 s (`circle_time`, was
+  0.7–2.0) and rests 0.4–1.0 s after a blow (was 0.5–1.4). On a hero
+  standing still that is 5 blows in 15 s, where it had landed 1 in 12.
+
+`imp_test`'s cut is now thrown as the player throws it (the attack button),
+since the rig's `attack()` alone is only the swing.
+
+Test: `tests/imp_blows_test.gd`: every attack lands on a hero standing still
+(two or three of each), and the legs stay at ×1.3 or less.
+
