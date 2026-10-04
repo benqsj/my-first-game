@@ -49,6 +49,13 @@ var draw_from: float = DRAW_FROM
 var draw_until: float = 1.0
 var aim_idle: StringName = AIM_IDLE
 var loose_clip: StringName = LOOSE_CLIP
+## The picked RAPID clip (`Bow_RapidShoot`): the bow up and drawn, let go, and
+## the next arrow on the string.
+var rapid_clip: StringName = &""
+## What a tap looks like (AVTANDIL_POLISH, being tried): 0 the loose clip
+## over the nock it cut short, 1 the rapid clip, 2 the whole loose clip from
+## the bow up and drawn.
+var tap_style: int = 0
 var loose_from: float = LOOSE_FROM
 var loose_to: float = LOOSE_TO
 ## UAL 2's nock reaches back to the quiver and draws by 0.4 of it; its shot
@@ -255,6 +262,7 @@ func _mannequin_worn(on: bool) -> void:
 	draw_from = 0.0 if bow.has(&"draw") else DRAW_FROM
 	draw_until = UAL_DRAW_UNTIL if bow.has(&"draw") else 1.0
 	aim_idle = bow.get(&"aim", AIM_IDLE)
+	rapid_clip = bow.get(&"rapid", &"")
 	loose_clip = bow.get(&"loose", LOOSE_CLIP)
 	if bow.has(&"loose"):
 		loose_from = maxf(float(Moveset.clip_meta(loose_clip).get("release", 0.05)) - 0.05, 0.0)
@@ -298,9 +306,56 @@ func _place_pack_string() -> void:
 				c = p
 		_bow_ends = [a, c]
 	var xf := _figure_skel.global_transform
-	var held := xf * _figure_skel.get_bone_global_pose(bone)
+	var held_s := _square_bow(bone, _figure_skel.get_bone_global_pose(bone),
+			_figure_skel.get_bone_global_pose(hand) * FIST)
+	var held := xf * held_s
 	var drawing := xf * _figure_skel.get_bone_global_pose(hand)
 	_bow_mod.place_string_at(held * _bow_ends[0], held * _bow_ends[1], drawing * FIST, held * FIST)
+
+
+## How far the bow is turned in the fist onto the shot, by the draw.
+const SQUARE_BY_DRAW := 3.0
+
+## The pack's bow, held as the clips leave it, sits at a slant to the line from
+## the bow hand to the drawing hand: the string, taken by the fingers, came off
+## it well below the middle and the arrow lay along the lower limb. Drawn, the
+## bow is turned about the fist (the bone `weapon_l`, skeleton space `held`) so
+## that its string line stands square across the arrow and passes through the
+## drawing fingers at `hand`: the nocking point is where the fist is, the way
+## an archer holds it. Returns the turned pose, also set on the bone.
+func _square_bow(bone: int, held: Transform3D, hand: Vector3) -> Transform3D:
+	var w := clampf(_bow_mod.draw * SQUARE_BY_DRAW, 0.0, 1.0) if _bow_mod.has_string() else 0.0
+	if w <= 0.0:
+		return held
+	var fist := held * FIST
+	var a := held * (_bow_ends[0] as Vector3)
+	var c := held * (_bow_ends[1] as Vector3)
+	var shot := fist - hand
+	if shot.length() < 0.1 or a.distance_to(c) < 0.3:
+		return held
+	var v := shot.normalized()
+	var d := (c - a).normalized()
+	var o := a + d * (fist - a).dot(d) - fist
+	if o.length() < 0.02:
+		return held
+	var o_hat := o.normalized()
+	var d2 := d - v * d.dot(v)
+	if d2.length() < 0.1:
+		return held
+	d2 = d2.normalized()
+	var from := Basis(d, o_hat, d.cross(o_hat)).orthonormalized()
+	var to := Basis(d2, -v, d2.cross(-v)).orthonormalized()
+	var q := Quaternion.IDENTITY.slerp(Quaternion(to * from.inverse()), w)
+	var tremble := shake()
+	if tremble > 0.0:
+		q = Quaternion(v.cross(d2).normalized(), SHAKE_TURN * tremble * _shake_noise(5.0)) \
+				* Quaternion(d2, SHAKE_TURN * 0.6 * tremble * _shake_noise(9.0)) * q
+	var turned := Transform3D(Basis(q) * held.basis, fist + q * (held.origin - fist))
+	var p := _figure_skel.get_bone_parent(bone)
+	var local := (_figure_skel.get_bone_global_pose(p) if p >= 0 else Transform3D()).affine_inverse() * turned
+	_figure_skel.set_bone_pose_rotation(bone, local.basis.get_rotation_quaternion())
+	_figure_skel.set_bone_pose_position(bone, local.origin)
+	return turned
 
 
 #region The bow, as the controller calls it
@@ -312,11 +367,97 @@ func aim_bow(draw: float, pitch: float) -> void:
 func loose_bow() -> void:
 	if _aim_phase <= 0.05 and _draw_target <= 0.05:
 		return
+	var tap := _aim_phase < 0.6
+	_full_t = -1.0
 	_loose_left = 0.35
 	_drawing_clip = false
 	_aim_phase = 0.0
-	if _anim.has_animation(loose_clip):
+	if tap and tap_style == 1 and rapid_clip != &"" and _anim.has_animation(rapid_clip):
+		_play_action(rapid_clip, Role.FREE, 1.0, 0.06)
+	elif tap and tap_style == 2 and _anim.has_animation(loose_clip):
+		_play_action(loose_clip, Role.FREE, 1.15, 0.1, 0.0, 0.5)
+	elif _anim.has_animation(loose_clip):
 		_play_action(loose_clip, Role.FREE, 1.3, 0.05, loose_from, loose_to)
+
+
+#region The moment to let go (AVTANDIL_POLISH 7, being tried)
+## Off until the user has seen it: with it on, a full draw is marked (a glint
+## on the arrowhead and a ting), let go within `PERFECT_WINDOW` of that it is a
+## perfect release, and held on past it the bow starts to shake.
+var release_timing: bool = false
+const PERFECT_WINDOW := 0.3
+const SHAKE_RAMP := 1.2
+const SHAKE_PITCH := 0.06
+const SHAKE_TURN := 0.09
+const TING := "res://unverified/sounds/bow/full_draw_ting.wav"
+var _full_t: float = -1.0
+var _shake_t: float = 0.0
+
+
+## 0 not at full draw, 1 a perfect release now, 2 held too long.
+func release_grade() -> int:
+	if _full_t < 0.0:
+		return 0
+	return 1 if _full_t <= PERFECT_WINDOW else 2
+
+
+## How hard the bow shakes, 0 to 1.
+func shake() -> float:
+	if not release_timing or _full_t < 0.0:
+		return 0.0
+	return clampf((_full_t - PERFECT_WINDOW) / SHAKE_RAMP, 0.0, 1.0)
+
+
+func _tick_release(delta: float, drawing: bool) -> void:
+	if drawing and _draw_target >= 0.999 and _aim_phase >= 1.0 and _skill_t < 0.0:
+		if _full_t < 0.0:
+			_full_t = 0.0
+			if release_timing:
+				_glint()
+		else:
+			_full_t += delta
+	else:
+		_full_t = -1.0
+	_shake_t += delta
+
+
+func _shake_noise(seed_at: float) -> float:
+	var s := _shake_t + seed_at
+	return sin(s * 43.0) * 0.5 + sin(s * 27.0 + 1.3) * 0.35 + sin(s * 61.0 + 2.1) * 0.15
+
+
+func _glint() -> void:
+	if _bow_mod == null or _bow_mod.arrow == null:
+		return
+	var head := MeshInstance3D.new()
+	var ball := SphereMesh.new()
+	ball.radius = 0.035
+	ball.height = 0.07
+	head.mesh = ball
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.92, 0.6)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.85, 0.4)
+	mat.emission_energy_multiplier = 6.0
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	head.material_override = mat
+	head.position = Vector3(0.0, 0.0, -0.8)
+	_bow_mod.arrow.add_child(head)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.85, 0.5)
+	light.light_energy = 4.0
+	light.omni_range = 2.0
+	head.add_child(light)
+	var tw := head.create_tween()
+	tw.tween_property(head, "scale", Vector3.ONE * 2.6, 0.1)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.3)
+	tw.parallel().tween_property(head, "scale", Vector3.ONE * 0.5, 0.3)
+	tw.parallel().tween_property(light, "light_energy", 0.0, 0.3)
+	tw.tween_callback(head.queue_free)
+	if ResourceLoader.exists(TING):
+		Sfx.play(self, TING, self, Vector3.ZERO, 1.0, -10.0)
+#endregion
 
 
 func is_aiming() -> bool:
@@ -522,6 +663,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	elif not drawing and _loose_left <= 0.0:
 		_drawing_clip = false
 		_aim_phase = 0.0
+	_tick_release(delta, drawing)
 	_sky_left = maxf(_sky_left - delta, 0.0)
 	if _bow_mod != null and _sky_left > 0.0:
 		# The sky shot draws its own string: back over the stretch the hand is
@@ -548,6 +690,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			string *= maxf(_draw_target, 0.6)
 		_bow_mod.draw = string
 		_bow_mod.pitch = _pitch * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
+		_bow_mod.pitch += SHAKE_PITCH * shake() * _shake_noise(0.0)
 	if _bow_mod != null:
 		# The mark's flung arm.
 		var w := 0.0
