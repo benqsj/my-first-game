@@ -25,6 +25,14 @@ uniform vec4 tint : source_color = vec4(0.85, 0.92, 1.0, 1.0);
 uniform float tint_amount = 0.06;
 uniform float brighten = 0.04;
 uniform float erosion = 0.9;
+// the cut itself: along the line the tip swept the air is torn and pulled
+// apart to both sides, so a seam shows through the haze (0 none)
+uniform float seam = 0.0;
+// how far in from the edge the seam runs, and how wide its pull is (shares of the arc)
+uniform float seam_at = 0.86;
+uniform float seam_width = 0.12;
+// a pressure wave rolled out across the arc behind the blade (0 none)
+uniform float wave = 0.0;
 
 void fragment() {
 	float age = clamp(UV.x, 0.0, 1.0);
@@ -44,6 +52,18 @@ void fragment() {
 	// and a ripple across the arc, like a wake
 	push.y += sin(across * 9.0 - age * 6.0 - TIME * 9.0) * 0.3;
 	vec2 off = push * strength * mask * 2.0;
+	// across the arc, on the screen: which way is out from the hilt
+	vec2 g = vec2(dFdx(across), dFdy(across));
+	vec2 out_dir = length(g) > 1e-6 ? normalize(g) : vec2(0.0, 1.0);
+	// the seam: each side pulled away from the line, hardest right at it
+	float d = across - seam_at;
+	float pull = sign(d) * (1.0 - smoothstep(0.0, seam_width, abs(d))) * smoothstep(0.0, 0.02, abs(d));
+	float seam_life = pow(1.0 - age, 1.6) * keep * lead;
+	off += out_dir * pull * seam * strength * 1.6 * seam_life;
+	// the pressure wave: a bulge rolling out from the edge as the arc ages
+	float front = 1.0 - age * 1.4;
+	float bulge = exp(-pow((across - front) * 7.0, 2.0)) * wave * strength * (1.0 - age);
+	off += out_dir * bulge * keep;
 	vec2 suv = SCREEN_UV + off;
 	float s = split * length(off);
 	float lod = haze * 2.0 * mask;
@@ -55,7 +75,10 @@ void fragment() {
 	bent = mix(bent, bent * tint.rgb * 1.08, tint_amount * mask);
 	// the fresh edge: a thin, faint line where the tip just went
 	float edge = smoothstep(0.93, 1.0, across) * pow(1.0 - age, 3.0) * lead;
+	// the seam's own glint, a hair of light along the tear
+	edge += exp(-pow(d * 70.0, 2.0)) * seam * 0.35 * seam_life;
 	vec3 col = bent + rim_color.rgb * edge * rim;
 	ALBEDO = col;
-	ALPHA = clamp(mask * 3.0 + edge * rim, 0.0, 1.0);
+	float seam_mask = (1.0 - smoothstep(0.0, seam_width * 1.2, abs(d))) * seam_life * step(0.001, seam);
+	ALPHA = clamp(max(mask * 3.0, seam_mask * 3.0) + edge * rim, 0.0, 1.0);
 }

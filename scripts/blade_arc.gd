@@ -53,19 +53,23 @@ var emitting: bool = false
 
 const SHADER := preload("res://assets/fx/blade_arc.gdshader")
 
-## To try (the user's, 2026-10-05): F1 (F2 too, as F1 is the test arena's
-## board there) steps the heroes' cut through the smear it always was (0), the
-## air bent soft (1) and bent strong (2) ([code]assets/fx/cut_air.gdshader[/code]).
+## The heroes' cut is bent air ([code]assets/fx/cut_air.gdshader[/code]): the
+## strong one, the user's pick (2026-10-05), by default. To try, F1 (F2 too, as
+## F1 is the test arena's board there) steps it through the smear it always was
+## (0), the air bent soft (1), strong (2) and stronger still (3).
 ## Only arcs under a [SkinnedRig] follow it; the orc's and the wolf's keep theirs.
-static var air_look: int = 0
-const AIR_NAMES := ["ხმლის კვალი: როგორც იყო", "ხმლის კვალი: ჰაერი, ნაზი", "ხმლის კვალი: ჰაერი, ძლიერი"]
-## [strength, split, rim, haze] for 1 and 2.
-const AIR_LOOKS := [[], [0.022, 0.1, 0.22, 0.6], [0.04, 0.16, 0.3, 0.6]]
+static var air_look: int = 2
+const AIR_NAMES := ["ხმლის კვალი: როგორც იყო", "ხმლის კვალი: ჰაერი, ნაზი", "ხმლის კვალი: ჰაერი, ძლიერი",
+		"ხმლის კვალი: ჰაერი, უძლიერესი"]
+## [strength, split, rim, haze, seam, wave] for 1, 2 and 3.
+const AIR_LOOKS := [[], [0.022, 0.1, 0.22, 0.6, 0.0, 0.0], [0.04, 0.16, 0.3, 0.6, 0.8, 0.0],
+		[0.065, 0.15, 0.4, 0.75, 1.4, 1.0]]
 static var _air_shader: Shader = null
 static var _switched_on: int = -1
 static var _note: Label = null
 var _air_material: ShaderMaterial = null
-var _look_shown: int = 0
+## What this arc has on; -1 till the first frame puts on `air_look`.
+var _look_shown: int = -1
 
 var _base: Node3D
 var _tip: Node3D
@@ -187,6 +191,8 @@ func _wear_look() -> void:
 	_air_material.set_shader_parameter("split", look[1])
 	_air_material.set_shader_parameter("rim", look[2])
 	_air_material.set_shader_parameter("haze", look[3])
+	_air_material.set_shader_parameter("seam", look[4])
+	_air_material.set_shader_parameter("wave", look[5])
 	material_override = _air_material
 
 
