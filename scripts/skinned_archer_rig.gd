@@ -833,6 +833,14 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		# ground; the aiming walk takes over and brings the bow up on the way.
 		_drawing_clip = false
 		_base_clip = &""
+	# A new draw while the last loose is still playing out: past the string's
+	# going (0.05 s on), the loose gives way and the hand goes back for the
+	# string at once. Waiting for the whole clip (0.43-0.67 s), quick shots
+	# went with the string never drawn: the hand stood still on the loose
+	# (the user's word, 2026-10-05; 14% of drawn frames in a burst of taps).
+	if drawing and _role == Role.FREE and _skill_t < 0.0 and _act_clip != &"" \
+			and (_act_clip == loose_clip or _act_clip == rapid_clip) and _loose_left < 0.3:
+		_end_action()
 	if drawing and _role == Role.NONE and not _drawing_clip and moving:
 		_aim_phase = minf(maxf(_aim_phase, 0.0) + delta / _draw_time, 1.0)
 	if drawing and _role == Role.NONE:
