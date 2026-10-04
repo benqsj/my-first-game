@@ -246,10 +246,12 @@ static func _make_thud() -> AudioStreamWAV:
 
 ## The sounds of [method strike], made rather than recorded, as the thud is:
 ## - bone: a dry crack, three snaps close together over a short knock;
-## - stone: a dull knock with grit breaking over it, nothing that rings;
+## - stone: see [method _make_stone];
 ## - wood: a hollow knock, low partials dying quickly, and a click;
 ## - guard: a dull thunk, under the recorded block (`GUARD_BLOCK`).
 static func _make(what: StringName) -> AudioStreamWAV:
+	if what == &"stone":
+		return _make_stone()
 	var rate := 22050
 	var long := {&"bone": 0.22, &"stone": 0.4, &"wood": 0.28, &"guard": 0.32}
 	var count := int(rate * float(long.get(what, 0.3)))
@@ -310,6 +312,70 @@ static func _make(what: StringName) -> AudioStreamWAV:
 				# a dull thunk under the recorded block (see [method strike])
 				s += band * exp(-t * 45.0) * 1.2 + hiss * exp(-t * 120.0) * 0.5
 		data.encode_s16(i * 2, int(clampf(s, -1.0, 1.0) * 30000.0))
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	wav.stereo = false
+	wav.data = data
+	return wav
+
+
+## Stone struck and breaking (the user asked for it, 2026-10-04: the first two
+## made stones rang like bells or were only a dull knock). Three parts, none
+## of them a tone:
+## - the crack: a bright snap of noise, gone in a few milliseconds;
+## - the mass: a low knock falling from 90 to 40 Hz under dull noise;
+## - the crumble: forty-odd chips and pebbles falling off it over half a
+##   second, thick at first and thinning out, each a few milliseconds of
+##   noise, some bright, some dull, each softer than the one before.
+static func _make_stone() -> AudioStreamWAV:
+	var rate := 44100
+	var long := 0.7
+	var count := int(rate * long)
+	var data := PackedByteArray()
+	data.resize(count * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7171
+	# the chips: [start s, level, decay /s, brightness 0..1]
+	var chips: Array = []
+	for i in 44:
+		var u := rng.randf()
+		var at := 0.012 + 0.55 * u * u
+		chips.append([at, rng.randf_range(0.25, 1.0) * exp(-at * 3.0) * 0.85,
+				rng.randf_range(300.0, 900.0), rng.randf()])
+	chips.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	var lp := 0.0
+	var mid := 0.0
+	var low := 0.0
+	var phase := 0.0
+	var first := 0
+	for i in count:
+		var t := float(i) / float(rate)
+		var n := rng.randf_range(-1.0, 1.0)
+		lp += (n - lp) * 0.45       # under ~6 kHz
+		mid += (lp - mid) * 0.08    # under ~600 Hz
+		low += (mid - low) * 0.02   # under ~140 Hz
+		var bright := n - lp * 0.6  # the top of it
+		var body := mid - low       # ~150-600 Hz
+		# the crack
+		var s := bright * exp(-t * 320.0) * 1.1 + body * exp(-t * 90.0) * 1.2
+		# the mass
+		phase += TAU * (40.0 + 50.0 * exp(-t * 22.0)) / float(rate)
+		s += sin(phase) * exp(-t * 24.0) * 0.75 * minf(t * 3000.0, 1.0)
+		s += low * exp(-t * 18.0) * 2.0
+		# the crumble
+		while first < chips.size() and t - float(chips[first][0]) > 0.03:
+			first += 1
+		for j in range(first, chips.size()):
+			var c: Array = chips[j]
+			var dt := t - float(c[0])
+			if dt < 0.0:
+				break
+			var colour := lerpf(body * 1.4, bright * 0.8 + lp * 0.3, float(c[3]))
+			s += colour * float(c[1]) * exp(-dt * float(c[2]))
+		# a little dust settling
+		s += lp * exp(-t * 7.0) * 0.03
+		data.encode_s16(i * 2, int(clampf(s * 0.8, -1.0, 1.0) * 30000.0))
 	var wav := AudioStreamWAV.new()
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
 	wav.mix_rate = rate

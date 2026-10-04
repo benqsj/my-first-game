@@ -6972,9 +6972,12 @@ either, louder and lower the heavier the cut (+2.5 dB and −10 % per unit of
 weight over 1), and higher over bone.
 Stone gets no steel ring, only its own sound. The other sounds are made in
 code at load, like the thud:
-- **stone**: a dull knock falling from 100 to 45 Hz, with grains of grit
-  breaking over it. Nothing rings: the first version was high partials and
-  the user heard a golem ring like a bell.
+- **stone**: stone struck and breaking (`_make_stone`, 0.7 s at 44.1 kHz).
+  A bright crack of noise, a low knock falling from 90 to 40 Hz, and some 44
+  chips and pebbles falling off it over half a second, thick at first, some
+  bright and some dull. No line holds more than 1–2 % of its energy. The first
+  version was high partials and rang like a bell; the second, a dull knock
+  with grit, was not stone enough.
 - **wood**: a hollow low knock.
 - **guard**: the recorded blow on a shield (`block_1`, the hero's own
   block), with a short dull thunk under it. The made steel-on-steel ring was
