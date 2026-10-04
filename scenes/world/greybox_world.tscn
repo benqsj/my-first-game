@@ -41,6 +41,7 @@
 [ext_resource type="Script" path="res://scripts/lands_places.gd" id="62_places"]
 [ext_resource type="Script" path="res://scripts/waystones.gd" id="63_waystones"]
 [ext_resource type="Script" path="res://scripts/lands_mood.gd" id="64_mood"]
+[ext_resource type="Script" path="res://scripts/intro.gd" id="90_intro"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.36, 0.5, 0.72, 1)
@@ -593,3 +594,6 @@ script = ExtResource("12_warmup")
 
 [node name="PauseMenu" type="CanvasLayer" parent="."]
 script = ExtResource("9_pause")
+
+[node name="Intro" type="Node" parent="."]
+script = ExtResource("90_intro")

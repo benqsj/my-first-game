@@ -1180,6 +1180,8 @@ func _profile(id: StringName) -> CharacterProfile:
 func _start() -> void:
 	if _game != null:
 		_game.choose(_chosen)
+		# A solo game in the world opens with the story ([Intro]).
+		_game.set(&"story_pending", not _arena)
 	# A solo game is a game with nobody else in it, which is not the same as a
 	# game with a peer left over from last time still holding a socket open.
 	if _net != null:

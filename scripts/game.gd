@@ -27,6 +27,9 @@ signal character_changed(id: StringName)
 signal graphics_changed(level: Graphics.Level)
 
 var _chosen: StringName = DEFAULT
+## A new story to begin: the menu's Start sets it for a solo game, and the
+## level's [Intro] takes it (and clears it) to play the opening film.
+var story_pending: bool = false
 ## Each hero's hair, picked on the hero select: id -> an index into the rig's
 ## `hairs`. Remembered between runs.
 var _hairs: Dictionary = {}

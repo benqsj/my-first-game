@@ -1679,6 +1679,71 @@ is a person: the model scaled to a height, dropped on to whatever is under it,
 breathing and turning to face whoever talks to them. `tests/quest_test.gd`
 checks all of it.
 
+## The story's opening and the burnt village
+
+A solo game started from the menu (Start, not the arena) opens with a film
+instead of putting the hero on the square. The menu leaves word in
+`Game.story_pending`; the level's `Intro` node (`scripts/intro.gd`) takes it
+and clears it. A level loaded any other way (tests, co-op, the arena) has no
+story, and nothing below happens.
+
+1. **The meadow.** The hero lies in the grass south of the village
+   (`Intro.LIE_AT`, (64, -44)), on UAL 2's `IdleToLay` held at its last frame.
+   The film opens out of black on a slow shot down to him.
+2. **The dragon.** The Soul Eater (`DragonFlyby`, `scripts/dragon_flyby.gd`:
+   the bestiary's model x4, no mind and no body, flown along a smooth line
+   through the air, banking into its turns) comes in low out of the south.
+   The camera lies by his head and follows it over him, shaking as it passes.
+3. **He gets up** (`LayToIdle`), turns, and over his shoulder we watch it
+   circle the village and spit fire (`DragonFlyby.fireball`) at the roofs
+   that are not alight yet. Each ball that lands sets a building burning.
+   He says so, and the film hands him the game: "follow the smoke".
+4. **The arrival.** Walking in among the houses (`Intro.VILLAGE_IN`) plays a
+   second film: the burning village from above, then Datvi on the square
+   telling him what happened and that the wolves come down at the smell of
+   smoke. The goal at the top of the screen is to talk to Datvi; the wolves
+   job is the first of the three.
+
+Either film is skipped with **Space** (or Enter, or the pad's Start). The
+world is then put where the film ends: everything burning, the dragon gone,
+the hero on his feet with his camera behind him.
+
+`Cutscene` (`scripts/cutscene.gd`) is the crew: its own camera moved by
+`shot(from, look, to, look_to, seconds, track)`, black bars, a line of
+speech with the speaker's name over it (`say`), fades, a shake. While it runs
+the hero has no physics tick and no input, can't be hurt, and his HUD and
+map are hidden. `end()` gives them back. Every `wait` returns at once after a
+skip, so a film written as a run of awaits falls through to its end.
+
+`VillageFire` (`scripts/village_fire.gd`) is the damage and its repair. Six
+buildings burn, two for each job:
+
+| job | buildings |
+| --- | --- |
+| wolves (Datvi) | House6, House7 |
+| imps (Ali) | House2, House3 |
+| arkdeva (Baqaq) | the marani, House8 |
+
+A burning building gets:
+- soot: a multiplying overlay, thicker up under the roof and in patches;
+- fire on the roof and embers going up;
+- flickering lights;
+- a column of dark smoke tall enough to be seen from the meadow.
+
+150 s after the arrival the flames die down to a smoulder. When a job is
+rewarded, its buildings come back: the soot washes off and the fire and
+smoke go out. A line at the top of the screen says what was rebuilt.
+
+There is no saving yet, so the story starts over with every new game.
+
+`tests/intro_test.gd` (headless, `--fixed-fps 30`) checks the whole run:
+- no story without the menu's word;
+- lying under the film's camera;
+- the dragon and the six fires;
+- the skip;
+- the arrival at Datvi;
+- a rewarded job's houses rebuilt.
+
 ## Creatures
 
 `scenes/enemies/` holds four kinds and the level holds seventeen of them, all
@@ -2636,8 +2701,13 @@ scripts/marsh.gd             the marsh strip and the bay: ground, water, mist
 scripts/paths.gd             the worn tracks between the places on the map
 scripts/quest_book.gd        the quests: who gives what, counting, the on-screen text
 scripts/quest_giver.gd       a person with a job: model, mark, breathing, facing
+scripts/intro.gd             the story's opening: the meadow, the dragon, the arrival at Datvi
+scripts/cutscene.gd          a film: its camera, black bars, lines of speech, fades, skip
+scripts/dragon_flyby.gd      the Soul Eater flown along a line for a film, and its fireballs
+scripts/village_fire.gd      the burnt village: soot, fire, smoke, rebuilt by the jobs
 scripts/venom.gd             Arkdeva's poison: the gob, the splash, the pool
 tests/quest_test.gd          headless checks: the givers, talking, counting, handing in
+tests/intro_test.gd          headless (--fixed-fps 30): the films, the fires, the skip, the rebuilding
 tests/venom_shots.gd         photographs the poison in flight, landing and drying
 scripts/mist_village.gd      the misty village's materials, fixed up at load
 tests/marsh_test.gd          headless checks: the marsh, the mere, the village
