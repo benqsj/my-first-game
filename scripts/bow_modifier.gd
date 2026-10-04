@@ -220,10 +220,19 @@ func _place_string(skel: Skeleton3D, foreign: bool = false) -> void:
 ## `g`: for a bow with no bones of this rig's names (the pack's bow on the
 ## mannequin's figure, whose tips the rig works out itself).
 func place_string_at(a: Vector3, c: Vector3, hand: Vector3, g: Vector3, fingers: bool = true) -> void:
-	var drawn := draw > 0.05 and fingers
+	# The fingers take the string when they reach it, not when the draw starts:
+	# a nock that goes to the quiver first would otherwise drag the string off
+	# after the hand, across the archer's back. Past `CATCH_ANYWAY` of the draw
+	# it is taken wherever the hand is, so a clip that never quite comes to the
+	# string still draws it.
+	if not fingers or draw <= 0.05:
+		_caught = false
+	elif not _caught:
+		_caught = _to_line(hand, a, c) < CATCH_REACH or draw >= CATCH_ANYWAY
+	var drawn := _caught
 	# The string comes off its rest line onto the fingers over the first part of
 	# the draw rather than jumping to them.
-	var mid := ((a + c) * 0.5).lerp(hand, clampf(draw * 4.0, 0.0, 1.0)) if fingers else (a + c) * 0.5
+	var mid := ((a + c) * 0.5).lerp(hand, clampf(draw * 4.0, 0.0, 1.0)) if drawn else (a + c) * 0.5
 	_stretch(string_u, a, mid)
 	_stretch(string_l, c, mid)
 	if arrow != null:
@@ -232,6 +241,24 @@ func place_string_at(a: Vector3, c: Vector3, hand: Vector3, g: Vector3, fingers:
 			var along := g - hand
 			if along.length() > 0.05:
 				arrow.global_transform = Transform3D(Basis.looking_at(along, Vector3.UP), hand)
+
+
+## How near (m) the drawing fingers must come to the resting string to take it,
+## and the share of the draw past which they take it wherever they are.
+const CATCH_REACH := 0.12
+const CATCH_ANYWAY := 0.6
+var _caught: bool = false
+
+
+## True once the drawing fingers have the string, for this draw.
+func has_string() -> bool:
+	return _caught
+
+
+static func _to_line(p: Vector3, a: Vector3, c: Vector3) -> float:
+	var ac := c - a
+	var u := clampf((p - a).dot(ac) / maxf(ac.length_squared(), 1e-6), 0.0, 1.0)
+	return p.distance_to(a + ac * u)
 
 
 ## Puts a string half at `from`, pointing its -Y at `to`, one unit long scaled to
