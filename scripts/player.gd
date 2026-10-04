@@ -1287,7 +1287,7 @@ func _aim_body(direction: Vector3, delta: float) -> void:
 		return
 	if target != null:
 		if not lock_run_turns or direction.is_zero_approx() \
-				or (_backing_off(direction) and _watches_backing_off()):
+				or (_backing_off(direction) and _watches_backing_off()) or _strafes_on_lock():
 			_face_target(delta)
 			return
 	if not direction.is_zero_approx():
@@ -1302,6 +1302,15 @@ func _watches_backing_off() -> bool:
 	# (and the assassin: his locked step back is a step facing it, then the flip)
 	return _is_bow() or is_blocking or Input.is_action_pressed("walk") \
 			or (profile != null and profile.step_then_flip)
+
+
+## Locked on and stepping carefully — behind the raised shield, or walking
+## (TARIEL_POLISH.md 10): every way he goes, forward, back or to either side,
+## he keeps facing what he fights, his legs stepping the way he goes (the
+## rig's strafe walks); only a run turns him the way he runs. Not the bow:
+## the hunter's own sideways lock is a dodge.
+func _strafes_on_lock() -> bool:
+	return not _is_bow() and (is_blocking or Input.is_action_pressed("walk"))
 
 
 ## True when the stick is pointed away from what is being fought — backing off

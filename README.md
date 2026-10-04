@@ -7169,3 +7169,25 @@ Reel: `_shots_tmp/guard_reel.gd [-- own]`.
   `crumpled()` says while he is down. A skill (a stun, a ground slam's
   victim, a curse) calls it the same way `Player._feel_guard_break()` does.
 
+## Stepping round what he is locked on (2026-10-04, TARIEL_POLISH.md session 4, item 10)
+
+Locked on, only backing straight off kept him facing the target, and only
+behind the shield or walking. To either side he turned the way he went:
+with the shield up, his side was to the enemy and his legs walked forward.
+
+Now `Player._strafes_on_lock()` keeps him facing what he fights every way he
+goes. It applies when he is locked on and either has the shield up or is
+walking (`walk` held); not for the bow, whose sideways lock is a dodge.
+
+The legs step the way he goes. The rig's `_direction_clip` already picks by
+the velocity in his own frame:
+- forward: `KV_Walk01_Forward`;
+- back: `KV_Walk01_Backward`;
+- to the sides: `KV_StrafeWalk01_Left`/`_Right`.
+
+Under the guard these are laid under `KV_BlockShield01_Loop` (the stride),
+so the shield stays up. A run still turns him the way he runs.
+
+Test: `tests/lock_strafe_test.gd` (the shield up, walking and running, four
+ways each).
+
