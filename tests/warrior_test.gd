@@ -53,11 +53,11 @@ func _initialize() -> void:
 			and rig._blade_base != null and rig._blade_tip.global_position.distance_to(
 			rig._blade_base.global_position) > 1.1)
 	# his weight
-	# (every hero runs as fast as Tariel since 2026-10-02, the user's word:
-	# the speeds one for all to begin with; his weight is in how he gets going)
-	_check("he is heavier than Tariel: slower to start, stop and turn",
+	# (each hero his own pace since 2026-10-04, the user's word: the knight
+	# the slowest, 5.7 m/s, Tariel 6.0; and his weight in how he gets going)
+	_check("he is heavier than Tariel: slower to start, stop and turn, and to run",
 			_player.ground_acceleration < 40.0 and _player.ground_deceleration < 50.0
-			and _player.turn_speed < 10.0 and _player.run_speed <= 5.6, "acc %.0f dec %.0f turn %.1f run %.1f" % [
+			and _player.turn_speed < 10.0 and _player.run_speed < 6.0, "acc %.0f dec %.0f turn %.1f run %.1f" % [
 			_player.ground_acceleration, _player.ground_deceleration, _player.turn_speed, _player.run_speed])
 	# out of a fight: the sword on his shoulder, one hand on it
 	await _wait(20)

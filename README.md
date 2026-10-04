@@ -7347,3 +7347,24 @@ With the shield back, the block button guards again.
 
 Test: `tests/shieldless_test.gd`.
 
+## Each hero his own pace (2026-10-04, the user's pick)
+
+Until now one speed was shared by every hero (the user's word on 2026-10-02),
+with Tariel at 6.3 m/s and the warrior at 4.6. The user now wants an order:
+the assassin and the hunter fastest, then the mage (about the swordsman),
+then the swordsman, the knight last. The spread is kept small (16 %), so a
+party keeps together:
+
+| Hero | `run_speed` (m/s) | The run on his legs (`stride_test`) |
+|---|---|---|
+| assassin (rogue) | 6.6 | `KV_Run01_Forward` ×1.45 |
+| hunter (Avtandil) | 6.4 | `KV_Sprint01_Forward` ×0.91 |
+| mage | 6.1 | `KV_Sprint01_Forward` ×0.88 |
+| swordsman (Tariel) | 6.0 | `KV_Sprint01_Forward` ×0.82 |
+| knight (warrior) | 5.7 (the user's, was 4.6) | `KV_Run01_Forward` ×1.07 |
+
+Every standing foot stays put (`stride_test`, all five). Tests changed:
+- `archer_test`: the hunter is faster than the swordsman (it passes now);
+- `heroes_test`: the rogue at 6.6;
+- `swordsman_test`: Tariel's sprint within ×0.8–1.2.
+
