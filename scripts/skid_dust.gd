@@ -33,7 +33,7 @@ static func kick(into: Node, where: Vector3, along: Vector3, strength: float = 1
 
 
 ## How solid the puffs are, from the lightest shove to the heaviest.
-const SOLID := Vector2(0.07, 0.5)
+const SOLID := Vector2(0.04, 0.3)
 
 
 func _build(along: Vector3, k: float) -> void:
@@ -42,7 +42,7 @@ func _build(along: Vector3, k: float) -> void:
 	one_shot = true
 	explosiveness = 0.8
 	lifetime = lerpf(0.45, 0.85, k)
-	amount = maxi(int(lerpf(2.0, 16.0, k * k)), 2)
+	amount = maxi(int(lerpf(1.0, 8.0, k * k)), 1)
 	visibility_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 4, 6))
 	var process := _process_material().duplicate() as ParticleProcessMaterial
 	var flat := Vector3(along.x, 0.0, along.z)
@@ -50,8 +50,8 @@ func _build(along: Vector3, k: float) -> void:
 	process.direction = (flat + Vector3.UP * 0.45).normalized()
 	process.initial_velocity_min = lerpf(0.3, 1.2, k)
 	process.initial_velocity_max = lerpf(0.8, 2.8, k)
-	process.scale_min = lerpf(0.15, 0.5, k)
-	process.scale_max = lerpf(0.3, 0.85, k)
+	process.scale_min = lerpf(0.12, 0.38, k)
+	process.scale_max = lerpf(0.22, 0.6, k)
 	var solid := lerpf(SOLID.x, SOLID.y, k * k)
 	var fade := Gradient.new()
 	fade.set_color(0, Color(TINT, solid))

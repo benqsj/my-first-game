@@ -77,8 +77,13 @@ func _run() -> void:
 		var heavy: Dictionary = got[30.0]
 		_check("struck from %s: known for that side" % names[from], light["from"] == from and heavy["from"] == from,
 				"%s / %s" % [light["from"], heavy["from"]])
-		_check("from %s: its flinch plays" % names[from], light["clip"] != &"" and light["playing"] == String(light["clip"]),
-				"%s" % light["clip"])
+		if from == SkinnedRig.From.BACK:
+			# from behind: no clip (he is not hunched over), only the lean
+			_check("from behind: not hunched over (no clip over him)", light["clip"] == &"" and heavy["clip"] == &""
+					and not String(light["playing"]).contains("Impact"), "%s" % light["playing"])
+		else:
+			_check("from %s: its flinch plays" % names[from], light["clip"] != &"" and light["playing"] == String(light["clip"]),
+					"%s" % light["clip"])
 		_check("from %s: thrown over away from the blow" % names[from], light["lean"] > 0.03 and heavy["lean"] > light["lean"],
 				"%.3f / %.3f rad" % [light["lean"], heavy["lean"]])
 		_check("from %s: a heavy blow a bigger flinch" % names[from],

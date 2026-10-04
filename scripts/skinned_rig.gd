@@ -1818,15 +1818,17 @@ func flinch() -> void:
 enum From { FRONT, BACK, LEFT, RIGHT }
 
 ## Each side's flinch on the mannequin: [light, heavy]. Struck in front he is
-## rocked back (Kevin's combat damage, the heavy one his head snapped back);
-## from behind he buckles forward under it. From his left his head is knocked
+## rocked back (Kevin's combat damage, the heavy one his head snapped back).
+## From behind no clip (`SS_Unblocked_Impact_2` hunched him over, and the user
+## did not want that): only his back thrown forward, harder (`BACK_LEAN`).
+## From his left his head is knocked
 ## round to his right (`SS_Head_Impact` goes only that way: from his right it
 ## would turn him into the blow, so there he is rocked back instead); a heavy
 ## one from a side rocks him back hard. The side itself is shown by
 ## [HitLean], his back thrown over away from the blow.
 const FLINCH_CLIPS := {
 	From.FRONT: [&"KV_CombatDamage01", &"KV_CombatDamage02"],
-	From.BACK: [&"SS_Unblocked_Impact_2", &"SS_Unblocked_Impact_2"],
+	From.BACK: [&"", &""],
 	From.LEFT: [&"SS_Head_Impact", &"KV_CombatDamage02"],
 	From.RIGHT: [&"KV_CombatDamage01", &"KV_CombatDamage02"],
 }
@@ -1835,6 +1837,8 @@ const FLINCH_HEAVY := 0.6
 ## How hard his back is thrown over (HitLean), from the lightest to the
 ## heaviest blow.
 const LEAN_THROW := Vector2(4.5, 8.0)
+## Struck from behind there is no clip, so the lean is harder.
+const BACK_LEAN := 1.4
 
 ## The last flinch ([method flinch_from]), for a test.
 var last_flinch: Dictionary = {}
@@ -1852,11 +1856,14 @@ func flinch_from(away: Vector3, from: int, heft: float) -> void:
 		_rouse()
 		var lean := _mq.get("lean") as HitLean
 		if lean != null and _role != Role.DOWN:
-			lean.strike(away, lerpf(LEAN_THROW.x, LEAN_THROW.y, k))
+			lean.strike(away, lerpf(LEAN_THROW.x, LEAN_THROW.y, k) * (BACK_LEAN if from == From.BACK else 1.0))
 	if _crumpled and _role == Role.HIT:
 		return  # down on his knee: the blow lands, he stays down
 	var picks: Array = FLINCH_CLIPS.get(from, FLINCH_CLIPS[From.FRONT])
 	var clip: StringName = picks[1] if k >= FLINCH_HEAVY else picks[0]
+	if _on_mq and clip == &"":
+		last_flinch = {"from": from, "clip": clip, "heft": k}
+		return  # only the lean
 	if not _on_mq or not _anim.has_animation(clip):
 		flinch()
 		return

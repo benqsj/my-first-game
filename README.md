@@ -7156,3 +7156,16 @@ it comes through, with a flinch.
 Tests: `tests/guard_break_test.gd`; `block_feel_test` (dust by weight).
 Reel: `_shots_tmp/guard_reel.gd [-- own]`.
 
+### Less dust; no hunch from behind; the crumple for skills (2026-10-04, later)
+
+- **Dust thinned again.** There are 1–8 puffs (k² of the strength),
+  solidity 0.04–0.3, and they are smaller. A plain blow leaves a faint wisp.
+- **Struck from behind he no longer hunches over.** `SS_Unblocked_Impact_2`
+  is gone (`FLINCH_CLIPS[BACK]` is empty). He keeps his pose and his back
+  is thrown forward ×1.4 harder (`BACK_LEAN`).
+- **The fall to one knee is for skills too.** The user wants it reused.
+  `SkinnedRig.guard_crumple(seconds, away)` is public and self-contained:
+  it plays the knee drop, holds it for `seconds` all told and gets up.
+  `crumpled()` says while he is down. A skill (a stun, a ground slam's
+  victim, a curse) calls it the same way `Player._feel_guard_break()` does.
+
