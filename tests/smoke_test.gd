@@ -269,6 +269,8 @@ func _initialize() -> void:
 	player.global_position = Vector3(6.0, 0.2, 12.0)
 	player.velocity = Vector3.ZERO
 	await _wait(30)
+	# off the run (Shift), not the jog: the jog is under `slide_min_speed`
+	Input.action_press("sprint")
 	Input.action_press("move_forward")
 	await _wait(45)
 	Input.action_press("crouch")
@@ -280,6 +282,7 @@ func _initialize() -> void:
 	await _wait(int(player.slide_duration * 60.0) + 20)
 	Input.action_release("crouch")
 	Input.action_release("move_forward")
+	Input.action_release("sprint")
 	await _wait(10)
 	_check("the slide ends by itself", player.state != Player.State.SLIDING,
 			"state = %d" % player.state)
