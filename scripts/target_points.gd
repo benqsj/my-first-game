@@ -27,7 +27,12 @@ static func of(who: Node3D) -> Array[Vector3]:
 		out.append(xf * (local as Vector3))
 	var head: Node3D = info.get("head_follow")
 	if head != null and is_instance_valid(head) and out.size() == 3:
-		out[2] = head.global_position
+		var at := head.global_position + xf.basis.y.normalized() * float(head.get_meta(&"lift", 0.0))
+		# Across, on the body's own middle, not the bone's: a skin that sits
+		# off its skeleton (the orc's, some 8 cm) had the mark off the face.
+		var local := xf.affine_inverse() * at
+		local.x = float(info.get("mid_x", local.x))
+		out[2] = xf * local
 	# Never over the top of what an arrow can hit: a head bone higher than the
 	# body's collider (the centaur's, the demon's) had shots aimed at it go over.
 	if info.has("top"):
@@ -78,6 +83,7 @@ static func _measure(who: Node3D) -> Dictionary:
 			Vector3(mid.x, bottom + h * HEAD, mid.z),
 		]
 		info["head_follow"] = _head_attachment(who)
+		info["mid_x"] = mid.x
 	var top := _collider_top(who)
 	if top > -INF:
 		info["top"] = top - clampf(box.size.y * 0.05, 0.08, 0.3) if not first else top - 0.1
@@ -130,29 +136,40 @@ static func _is_overlay(node: Node, who: Node) -> bool:
 	return false
 
 
-## A point riding the head bone `i` at the middle of the head: halfway out to
-## its highest child (the bone's own root is down at the neck), the root
-## itself when it has none.
+## A point riding the head bone `i`, lifted (meta `lift`, metres, straight up
+## in [method of]) to the middle of the head: halfway up to the bone's highest
+## child in the world (its root is down at the neck). Straight up, never along
+## the bone or towards the child: a skeleton turned in its own frame (the
+## orc's) or a child off to one side put the point off the middle of the face.
 static func _head_middle(skel: Skeleton3D, i: int) -> Node3D:
 	var at := BoneAttachment3D.new()
 	at.name = "TargetHead"
 	skel.add_child(at)
 	at.bone_name = skel.get_bone_name(i)
-	var mid := Node3D.new()
-	mid.name = "Middle"
-	at.add_child(mid)
-	var root := skel.get_bone_global_rest(i)
-	var best := Vector3.ZERO
+	var xf := skel.global_transform
+	var root := (xf * skel.get_bone_global_rest(i)).origin
+	# The eyes' level where it has eyes; else halfway to its highest child
+	# (not an effects bone: Arkdeva's FxTop stands well over her crown).
+	var eyes := 0.0
+	var seen := 0
+	for b in skel.get_bone_count():
+		var n := skel.get_bone_name(b).to_lower()
+		if n.contains("eye") and not n.contains("brow") and not n.ends_with("_end"):
+			var y := (xf * skel.get_bone_global_rest(b)).origin.y
+			if y > root.y - 0.05:
+				eyes += y
+				seen += 1
+	if seen > 0:
+		at.set_meta(&"lift", maxf(eyes / seen - root.y, 0.0))
+		return at
 	var high := -INF
 	for c in skel.get_bone_children(i):
-		var p := skel.get_bone_global_rest(c).origin
-		if p.y > high:
-			high = p.y
-			best = p
-	if high > root.origin.y:
-		# in the bone's own frame, scaled as the skeleton is
-		mid.position = (root.affine_inverse() * best) * 0.5
-	return mid
+		if skel.get_bone_name(c).to_lower().begins_with("fx"):
+			continue
+		high = maxf(high, (xf * skel.get_bone_global_rest(c)).origin.y)
+	if high > root.y:
+		at.set_meta(&"lift", (high - root.y) * 0.5)
+	return at
 
 
 ## A node riding the head bone, if there is a skeleton with one.

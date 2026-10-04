@@ -50,7 +50,13 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 	var marker := player.find_child("TargetMarker", true, false) as TargetMarker
-	_check("the mark is smaller still", marker != null and marker.size < 0.025, "")
+	# The billboard keeps the node's scale (without it the dot was drawn off a
+	# 1 m quad whatever its size said), and at 12 m its quad is under half a
+	# metre: the dot itself (a quarter of the quad) some 8-9 px at 1280 wide.
+	var mat := marker.material_override as StandardMaterial3D if marker != null else null
+	_check("the mark is small: its size counts, under 0.5 m at 12 m",
+			mat != null and mat.billboard_keep_scale and marker.size + marker.grow_with_range * 12.0 < 0.5,
+			"" if marker == null else "%.2f m" % (marker.size + marker.grow_with_range * 12.0))
 	if marker != null:
 		for i in 30:
 			await process_frame
