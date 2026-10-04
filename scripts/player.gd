@@ -1191,6 +1191,12 @@ func _process_locomotion(delta: float) -> void:
 	# walk (turning to the shot is still the controller's).
 	if _root_timer > 0.0:
 		speed = 0.0
+	# On his knee from a broken guard: no walking it along (it slid him across
+	# the ground the way the stick pushed).
+	var knelt := _now() < _crumpled_until
+	if knelt:
+		speed = 0.0
+		direction = Vector3.ZERO
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
 	# The sprint costs only while it is a sprint: on the ground, faster than
@@ -3280,6 +3286,11 @@ func _dodge_spent_out(damage: float) -> bool:
 	return _now() - _evade_ended_at <= dodge_mistime_window
 
 
+## Until when he is down on his knee from a broken guard: he does not walk or
+## turn on it, whatever the stick says (the shove the blow gave dies away).
+var _crumpled_until: float = -INF
+
+
 ## The guard broken (or, `shield` false, a dodge spent out): see
 ## [method _feel_guard_break].
 func _crumple(damage: float, away: Vector3, shield: bool = true) -> void:
@@ -3291,6 +3302,7 @@ func _crumple(damage: float, away: Vector3, shield: bool = true) -> void:
 	_stamina_wait = stamina_empty_delay
 	velocity += away * block_shove.y
 	_commit(guard_crumple_time)
+	_crumpled_until = _now() + guard_crumple_time
 	struck.emit(damage, false)
 	var at := global_position + Vector3.UP * 1.2
 	if _take_damage(damage):
