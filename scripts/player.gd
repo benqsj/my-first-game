@@ -22,6 +22,8 @@ signal wall_grabbed(normal: Vector3)
 signal wall_released
 signal weapons_stowed_changed(away: bool)
 signal target_locked(who: Node3D)
+## His guard broken under a heavy blow with too little stamina ([method _crumple]).
+signal guard_broken
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
 signal blade_planted(where: Vector3)
@@ -2914,10 +2916,14 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		var cost := minf(damage * block_stamina, max_stamina * 0.7)
 		if shield_kind == Inventory.Shields.TOWER:
 			cost *= tower_block_share
+		var had := stamina
 		_spend(cost)
 		# How hard it was, 0..1 ([method block_strength]): the push back, the
 		# jolt, the sparks, the hold and the view all go by it.
 		var strength := block_strength(damage)
+		if strength >= guard_crumple_from and (had <= max_stamina * guard_crumple_low or stamina <= 0.0):
+			_crumple(damage, away)
+			return
 		var shove := lerpf(block_shove.x, block_shove.y, strength)
 		if shield_kind == Inventory.Shields.TOWER:
 			shove *= tower_block_share
@@ -2986,7 +2992,7 @@ func _forget_combos_from(combo: String) -> void:
 			_combo_landed.erase(key)
 
 
-enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE, BLOCK }
+enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE, BLOCK, GUARD_BREAK }
 
 ## What a blow did to him, shown in every window: a flinch or a fall with
 ## blood, or the end of lying there.
@@ -3037,6 +3043,8 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			perfect_dodged.emit()
 		Reaction.BLOCK:
 			_feel_block(at, blow)
+		Reaction.GUARD_BREAK:
+			_feel_guard_break(at, blow)
 
 
 ## The damage (after his armour) at which a blow that gets through is the
@@ -3075,6 +3083,85 @@ func _flinch(blow: Vector3) -> void:
 	var heft := clampf(blow.length() - 1.0, 0.0, 1.0)
 	rig.call(&"flinch_from", away.normalized() if away.length_squared() > 0.000001 else global_basis.z,
 			blow_side(away), heft)
+
+
+## A blow on the shield at least this hard ([method block_strength])...
+@export var guard_crumple_from: float = 0.9
+## ...taken with no more than this share of the stamina left (or that takes the
+## last of it) breaks the guard outright: [method _crumple].
+@export var guard_crumple_low: float = 0.3
+## How long he is down on his knee and open, all told (seconds).
+@export var guard_crumple_time: float = 2.1
+
+
+## The guard broken (the user's idea, 2026-10-04): a heavy blow on the shield
+## with too little stamina left to hold it. The shield is beaten aside and
+## the blow lands whole; the stamina is gone; he reels and goes down on one
+## knee, open, and whatever strikes him meanwhile lands too (no guard can be
+## raised while he is down). Heard as the shield giving way, felt as a hard
+## jolt of the view.
+func _crumple(damage: float, away: Vector3) -> void:
+	is_blocking = false
+	block_changed.emit(false)
+	_free_swing = false
+	stamina = 0.0
+	_winded = true
+	_stamina_wait = stamina_empty_delay
+	velocity += away * block_shove.y
+	_commit(guard_crumple_time)
+	struck.emit(damage, false)
+	var at := global_position + Vector3.UP * 1.2
+	if _take_damage(damage):
+		velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
+		return
+	guard_broken.emit()
+	net_react.rpc(Reaction.GUARD_BREAK, at, away)
+
+
+## The guard beaten aside, seen and heard on every peer ([method _crumple]).
+func _feel_guard_break(at: Vector3, away: Vector3) -> void:
+	_interrupt_skill()
+	var flat := Vector3(away.x, 0.0, away.z)
+	flat = flat.normalized() if flat.length_squared() > 0.0001 else global_basis.z
+	if rig != null:
+		if rig.has_method(&"guard_crumple"):
+			rig.call(&"guard_crumple", guard_crumple_time, flat)
+		else:
+			rig.flinch()
+	# the shield giving way: the block struck deep and loud, wood splitting,
+	# a crunch under it and a deep rush of air; then his knee on the ground
+	var shield_at := at + (-flat) * 0.5
+	Sfx.play(self, BLOCK_SOUND, self, shield_at - global_position, randf_range(0.66, 0.72), -3.0)
+	ImpactFx.strike(self, shield_at, &"wood", 2.0)
+	ImpactFx.strike(self, shield_at, &"stone", 1.8)
+	ImpactFx.thud(self, at, true)
+	ImpactFx.rush(self, self, true, -6.0)
+	get_tree().create_timer(guard_knee_after).timeout.connect(_knee_down_heard)
+	_rig_says(&"hurt")
+	ParryFlash.burst(Blood.world_of(self), shield_at, -flat, 1.0)
+	Blood.splatter(Blood.world_of(self), at, (flat + Vector3.UP * 0.3).normalized())
+	for foot: Vector3 in (rig.call(&"foot_points") if rig != null and rig.has_method(&"foot_points") else [global_position]):
+		SkidDust.kick(Blood.world_of(self), foot, flat, 1.0)
+	if is_multiplayer_authority() and camera != null and camera.current:
+		# hard: the whole view thrown and shaken
+		ImpactFx.knock(camera, flat, guard_break_view.x, guard_break_view.y, guard_break_view.z)
+	last_guard_break = {"at": at}
+
+
+## The view's jolt when the guard breaks: how far (m), how much shake (m),
+## how long (s).
+@export var guard_break_view := Vector3(0.38, 0.3, 0.75)
+## When his knee meets the ground after the guard breaks (seconds).
+@export var guard_knee_after: float = 0.95
+## The last broken guard ([method _feel_guard_break]), for a test.
+var last_guard_break: Dictionary = {}
+
+
+func _knee_down_heard() -> void:
+	if is_dead or rig == null or not rig.has_method(&"crumpled") or not bool(rig.call(&"crumpled")):
+		return
+	Sfx.play(self, FALL_SOUND, self, Vector3.ZERO, randf_range(0.9, 1.0), -8.0)
+	DustRing.burst(Blood.world_of(self), global_position, 0.35)
 
 
 ## How the push back off the shield goes with a blow's strength (m/s added,
@@ -3119,7 +3206,7 @@ func _feel_block(at: Vector3, blow: Vector3) -> void:
 	var feet: Array = rig.call(&"foot_points") if rig != null and rig.has_method(&"foot_points") \
 			else [global_position]
 	for foot: Vector3 in feet:
-		SkidDust.kick(Blood.world_of(self), foot, -back, lerpf(0.45, 1.2, strength))
+		SkidDust.kick(Blood.world_of(self), foot, -back, strength)
 	if is_multiplayer_authority() and camera != null and camera.current:
 		# the view jolted back, away from the striker, and shaken: a blow felt
 		ImpactFx.knock(camera, -back, lerpf(0.06, 0.16, strength), lerpf(0.05, 0.15, strength),

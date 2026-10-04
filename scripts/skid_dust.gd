@@ -7,9 +7,8 @@ extends GPUParticles3D
 ## Soft dull puffs, not sparks: earth does not shine.
 ## It frees itself.
 
-## Dirt colour, and how solid a puff ever gets.
+## Dirt colour.
 const TINT := Color(0.6, 0.53, 0.44)
-const OPACITY := 0.55
 
 static var _material: ParticleProcessMaterial = null
 static var _draw: QuadMesh = null
@@ -17,12 +16,15 @@ static var _puff: ImageTexture = null
 
 
 ## Kicks one up at `where` (on the ground under a foot), thrown along `along`
-## (the way he slides) and up a little; `size` 0..1+, how hard the shove.
-static func kick(into: Node, where: Vector3, along: Vector3, size: float = 1.0) -> SkidDust:
-	if into == null or size <= 0.0:
+## (the way he slides) and up a little. `strength` 0..1, how hard the shove:
+## a plain blow a thin wisp, a heavy one a thick cloud (how many puffs, how
+## solid, how big, how far).
+static func kick(into: Node, where: Vector3, along: Vector3, strength: float = 1.0) -> SkidDust:
+	var k := clampf(strength, 0.0, 1.0)
+	if into == null:
 		return null
 	var dust := SkidDust.new()
-	dust._build(along, size)
+	dust._build(along, k)
 	into.add_child(dust)
 	dust.global_position = where + Vector3.UP * 0.05
 	dust.emitting = true
@@ -30,22 +32,34 @@ static func kick(into: Node, where: Vector3, along: Vector3, size: float = 1.0) 
 	return dust
 
 
-func _build(along: Vector3, size: float) -> void:
+## How solid the puffs are, from the lightest shove to the heaviest.
+const SOLID := Vector2(0.07, 0.5)
+
+
+func _build(along: Vector3, k: float) -> void:
 	top_level = true
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	one_shot = true
 	explosiveness = 0.8
-	lifetime = 0.75
-	amount = maxi(int(12.0 * size), 5)
+	lifetime = lerpf(0.45, 0.85, k)
+	amount = maxi(int(lerpf(2.0, 16.0, k * k)), 2)
 	visibility_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 4, 6))
 	var process := _process_material().duplicate() as ParticleProcessMaterial
 	var flat := Vector3(along.x, 0.0, along.z)
 	flat = flat.normalized() if flat.length_squared() > 0.0001 else Vector3.FORWARD
 	process.direction = (flat + Vector3.UP * 0.45).normalized()
-	process.initial_velocity_min = 0.6 * size + 0.4
-	process.initial_velocity_max = 2.0 * size + 0.6
-	process.scale_min = 0.25 + 0.15 * size
-	process.scale_max = 0.45 + 0.3 * size
+	process.initial_velocity_min = lerpf(0.3, 1.2, k)
+	process.initial_velocity_max = lerpf(0.8, 2.8, k)
+	process.scale_min = lerpf(0.15, 0.5, k)
+	process.scale_max = lerpf(0.3, 0.85, k)
+	var solid := lerpf(SOLID.x, SOLID.y, k * k)
+	var fade := Gradient.new()
+	fade.set_color(0, Color(TINT, solid))
+	fade.set_color(1, Color(TINT, 0.0))
+	fade.add_point(0.25, Color(TINT, solid * 0.85))
+	var fade_tex := GradientTexture1D.new()
+	fade_tex.gradient = fade
+	process.color_ramp = fade_tex
 	process_material = process
 	draw_pass_1 = _quad()
 
@@ -70,13 +84,6 @@ static func _process_material() -> ParticleProcessMaterial:
 	var grow_tex := CurveTexture.new()
 	grow_tex.curve = grow
 	_material.scale_curve = grow_tex
-	var fade := Gradient.new()
-	fade.set_color(0, Color(TINT, OPACITY))
-	fade.set_color(1, Color(TINT, 0.0))
-	fade.add_point(0.25, Color(TINT, OPACITY * 0.85))
-	var fade_tex := GradientTexture1D.new()
-	fade_tex.gradient = fade
-	_material.color_ramp = fade_tex
 	return _material
 
 

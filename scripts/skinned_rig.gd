@@ -963,6 +963,16 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			pass  # held until get_up() or leave_ground()
 		elif _air_cut and _action_left <= 0.0 and airborne:
 			_anim.speed_scale = 0.0  # the chop, held until the ground arrives
+		elif _crumpled and _action_left > 0.0:
+			# down on one knee: held there till his time is up
+			if _anim.current_animation_position >= CRUMPLE_KNEE:
+				_anim.speed_scale = 0.0
+		elif _crumpled:
+			_crumpled = false
+			_end_action()
+			if _anim.has_animation(CRUMPLE_RISE):
+				_play_action(CRUMPLE_RISE, Role.FREE, CRUMPLE_RISE_RATE, 0.18)
+				_recovering = true
 		elif _action_left <= 0.0 or released:
 			# A blow of the picked moves with a recovery of its own (UAL 2's
 			# "_Rec"): played after it, if nothing follows and he stands.
@@ -1176,6 +1186,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 		from: float = 0.0, until: float = 1.0) -> bool:
 	if not _anim.has_animation(clip):
 		return false
+	_crumpled = false
 	var length := _anim.get_animation(clip).length
 	# A drag left over from a missed cut is not this clip's, nor a held cut.
 	_drag_left = 0.0
@@ -1210,6 +1221,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 
 func _end_action() -> void:
+	_crumpled = false
 	_air_cut = false
 	_evade_cut = false
 	walk_under = false
@@ -1796,7 +1808,7 @@ func hit() -> void:
 func flinch() -> void:
 	if _on_mq:
 		_rouse()
-	if _role == Role.SWING or _role == Role.DOWN:
+	if _role == Role.SWING or _role == Role.DOWN or (_crumpled and _role == Role.HIT):
 		return
 	_play_action(clips[&"hit_blocked"] if _blocking_now else clips[&"hit"], Role.HIT, 1.3, 0.05)
 
@@ -1841,6 +1853,8 @@ func flinch_from(away: Vector3, from: int, heft: float) -> void:
 		var lean := _mq.get("lean") as HitLean
 		if lean != null and _role != Role.DOWN:
 			lean.strike(away, lerpf(LEAN_THROW.x, LEAN_THROW.y, k))
+	if _crumpled and _role == Role.HIT:
+		return  # down on his knee: the blow lands, he stays down
 	var picks: Array = FLINCH_CLIPS.get(from, FLINCH_CLIPS[From.FRONT])
 	var clip: StringName = picks[1] if k >= FLINCH_HEAVY else picks[0]
 	if not _on_mq or not _anim.has_animation(clip):
@@ -1870,6 +1884,47 @@ func block_jolt(strength: float, away: Vector3 = Vector3.ZERO) -> void:
 	var lean := _mq.get("lean") as HitLean
 	if lean != null and away.length_squared() > 0.0001:
 		lean.strike(away, lerpf(BLOCK_ROCK.x, BLOCK_ROCK.y, k))
+
+
+## The guard broken (TARIEL_POLISH.md, the user's idea 2026-10-04): a heavy
+## blow taken on the shield with too little stamina left to hold it. His head
+## is snapped back, he reels and goes down on one knee — the warrior's death
+## (`WR_Death`, "Dying With Front Impact To The Head And Fall On One Knee"),
+## played fast from the blow to the knee and held there — and gets up after
+## `seconds` all told (`SS_Crouch_To_Stand`). A blow that lands meanwhile
+## rocks his back (HitLean) but does not knock him off his knee.
+## Returns false off the mannequin (his rig's own flinch played instead).
+func guard_crumple(seconds: float, away: Vector3 = Vector3.ZERO) -> bool:
+	if not _on_mq or not _anim.has_animation(CRUMPLE):
+		flinch()
+		return false
+	_rouse()
+	var length := _anim.get_animation(CRUMPLE).length
+	_play_action(CRUMPLE, Role.HIT, CRUMPLE_RATE, 0.05, CRUMPLE_START / length, 1.0)
+	var rise := _anim.get_animation(CRUMPLE_RISE).length / CRUMPLE_RISE_RATE \
+			if _anim.has_animation(CRUMPLE_RISE) else 0.0
+	_action_left = maxf(seconds - rise, (CRUMPLE_KNEE - CRUMPLE_START) / CRUMPLE_RATE + 0.2)
+	_crumpled = true
+	var lean := _mq.get("lean") as HitLean
+	if lean != null and away.length_squared() > 0.0001:
+		lean.strike(away, BLOCK_ROCK.y)
+	return true
+
+
+## Whether he is down on his knee from a broken guard ([method guard_crumple]).
+func crumpled() -> bool:
+	return _crumpled
+
+
+const CRUMPLE := &"WR_Death"
+const CRUMPLE_FROM_HERO := "warrior"
+## Where in it the blow lands, and where he is down on his knee (seconds).
+const CRUMPLE_START := 0.12
+const CRUMPLE_KNEE := 2.02
+const CRUMPLE_RATE := 1.9
+const CRUMPLE_RISE := &"SS_Crouch_To_Stand"
+const CRUMPLE_RISE_RATE := 0.9
+var _crumpled: bool = false
 
 
 ## How hard a blow on the shield rocks his back over (HitLean, radians a
@@ -2437,6 +2492,12 @@ func _build_mannequin() -> bool:
 		var other := HERO_LIB % mq_borrow[clip]
 		if ResourceLoader.exists(other) and (load(other) as AnimationLibrary).has_animation(clip):
 			lib.add_animation(clip, (load(other) as AnimationLibrary).get_animation(clip))
+	# the guard broken under a heavy blow: the warrior's fall to one knee
+	# ([method guard_crumple]), for any hero on the mannequin
+	if not lib.has_animation(CRUMPLE) and ResourceLoader.exists(HERO_LIB % CRUMPLE_FROM_HERO):
+		var theirs := load(HERO_LIB % CRUMPLE_FROM_HERO) as AnimationLibrary
+		if theirs.has_animation(CRUMPLE):
+			lib.add_animation(CRUMPLE, theirs.get_animation(CRUMPLE))
 	for n: StringName in lib.get_animation_list():
 		Moveset.complete(lib.get_animation(n), skel)
 	for n: StringName in player.get_animation_library_list():

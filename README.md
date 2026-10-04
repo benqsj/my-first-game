@@ -7112,3 +7112,47 @@ body.
 he rocks back, skids and throws dust. Reel: `_shots_tmp/shield_reel.gd --
 <scene> <s> [own]`; `own` films through his own camera, to see the shake.
 
+### Dust by weight, and the guard broken (2026-10-04, the user's notes)
+
+**The dust** off his heels (`SkidDust.kick(.., strength)`) now goes by how
+hard the blow was, squared, so a plain blow throws up only a thin wisp:
+
+| Strength | Puffs | Solidity |
+|---|---|---|
+| a skeleton's cut (0.63) | about 4 | 0.24 |
+| the heaviest (1) | 16 | 0.5 |
+
+Size, life and speed grow with it too.
+
+**The guard broken.** It happens when a blow on the shield is heavy
+(`block_strength` ≥ `guard_crumple_from`, 0.9: an orc's blow, not a
+skeleton's or an imp's) and his stamina is low (≤ `guard_crumple_low`, 30 %
+of the bar, or the blow takes the last of it). `Player._crumple()` then:
+- lands the whole blow;
+- empties the stamina (winded);
+- drops the shield;
+- commits him for `guard_crumple_time` (2.1 s). No guard can be raised
+  meanwhile, so another blow lands too.
+- `net_react(GUARD_BREAK)` → `_feel_guard_break()` on every peer.
+
+`_feel_guard_break()` plays it:
+- **Sound:** the block sound struck deep and loud (×0.69, −3 dB), wood
+  splitting and a crunch (`ImpactFx.strike` wood + stone), a hard thud and a
+  deep rush. His knee is heard on the ground at 0.95 s (`fall_1`, with a
+  `DustRing`).
+- **Picture:** full-size sparks, blood, heavy heel dust.
+- **His view:** thrown 38 cm and shaken 30 cm over 0.75 s (`guard_break_view`).
+- **His body:** `SkinnedRig.guard_crumple()`. His head is snapped back, he
+  reels and goes down on one knee. The clip is the warrior's `WR_Death`
+  ("Dying With Front Impact To The Head And Fall On One Knee"), borrowed onto
+  every hero's mannequin. It plays from 0.12 s at ×1.9 to the knee (2.02 s)
+  and is frozen there. He gets up with `SS_Crouch_To_Stand`.
+- A blow that lands while he is on his knee rocks his back (HitLean) but does
+  not knock him off it (`crumpled()`).
+
+A light blow with too little stamina breaks the guard the old way: half of
+it comes through, with a flinch.
+
+Tests: `tests/guard_break_test.gd`; `block_feel_test` (dust by weight).
+Reel: `_shots_tmp/guard_reel.gd [-- own]`.
+
