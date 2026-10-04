@@ -440,6 +440,25 @@ holding a stick:
   out from the leg while carried (`carry_cant`, `carry_lean`), square to the
   target while drawn.
 
+
+#### Off the middle of the bow, and the moment to let go (2026-10-04)
+
+On the mannequin the pack's bow sat slanted in the fist, so the fingers took
+the string well below its middle and every arrow left from a fixed 1.35 m,
+under the bow. Drawn, the bow is now turned about the fist
+(`SkinnedArcherRig._square_bow`) so its string stands square across the arrow,
+the arrow rests on the bow level with the string's middle (`_rest`), and the
+shot leaves from the head of the arrow on the string (`loose_point()`; a tap
+uses where the last drawn shot left). The fingers take the string only when
+they reach it (`BowModifier.has_string()`), not on the way to the quiver.
+
+A full draw settles for 0.25 s; let go in the 0.25 s after that and the shot is
+worth `perfect_release_bonus` (x1.6). Held on, the bow shakes harder over 1.2 s
+and the shot wanders up to `release_spread` (5 degrees). The moment is marked by
+a small glint on the arrowhead, no sound, and only for the archer himself: in
+PvP the other side reads it off his body. A tap plays `Bow_RapidShoot`
+(`tap_style` 1). `AVTANDIL_POLISH.md` has the rest of the plan.
+
 ### Target lock
 
 `lock_on` takes the enemy nearest the middle of the view — angle first, distance

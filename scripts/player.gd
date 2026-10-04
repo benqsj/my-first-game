@@ -248,8 +248,14 @@ var _vault_peak: float = -INF
 ## full sprint cannot aim, and being able to would make every other approach
 ## pointless.
 @export_range(0.1, 1.0) var draw_speed_scale: float = 0.55
-## Where the arrow leaves from, measured up the body.
+## Where the arrow leaves from, measured up the body, when the rig has no
+## arrow on the string to say where it is.
 @export var arrow_height: float = 1.35
+## A string let go in the moment after the full draw has settled (the rig's
+## `release_grade()` 1) is worth this much more; held past it, the bow shakes and
+## the shot wanders up to `release_spread` degrees either way, by how hard.
+@export var perfect_release_bonus: float = 1.6
+@export var release_spread: float = 5.0
 ## Where the camera settles while the string is held, in degrees below level.
 ##
 ## The running camera sits twenty degrees above the player looking down, which
@@ -2522,6 +2528,11 @@ func _loose_arrow() -> void:
 	var carry := lerpf(profile.snap_share, 1.0, power)
 	var critical := _shot_rng.randf() < profile.crit_chance
 	var damage := profile.shot_power() * carry * (profile.crit_damage if critical else 1.0)
+	# The moment to let go: read off the rig before the loose resets it.
+	var grade := int(rig.call(&"release_grade")) if rig != null and rig.has_method(&"release_grade") else 0
+	var shaking := float(rig.call(&"shake")) if rig != null and rig.has_method(&"shake") else 0.0
+	if grade == 1:
+		damage *= perfect_release_bonus
 	# Held all the way: the mage's full charge is a bigger bolt, and hits harder
 	# than the draw's scale alone would make it.
 	if power >= 0.97:
@@ -2552,6 +2563,12 @@ func _loose_arrow() -> void:
 	if rig != null and rig.has_method(&"spell_origin"):
 		from = rig.call(&"spell_origin")
 	var heading := _shot_heading(from, speed)
+	if shaking > 0.0:
+		var wander := deg_to_rad(release_spread) * shaking
+		var across := heading.cross(up_direction)
+		if across.length() > 0.01:
+			heading = heading.rotated(across.normalized(), wander * _shot_rng.randf_range(-1.0, 1.0))
+		heading = heading.rotated(up_direction, wander * _shot_rng.randf_range(-1.0, 1.0)).normalized()
 	# Everywhere, not just here. A locked shot is told what it was loosed at,
 	# which a bolt hunts.
 	var quarry := NodePath()

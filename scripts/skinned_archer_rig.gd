@@ -55,7 +55,7 @@ var rapid_clip: StringName = &""
 ## What a tap looks like (AVTANDIL_POLISH, being tried): 0 the loose clip
 ## over the nock it cut short, 1 the rapid clip, 2 the whole loose clip from
 ## the bow up and drawn.
-var tap_style: int = 0
+var tap_style: int = 1
 var loose_from: float = LOOSE_FROM
 var loose_to: float = LOOSE_TO
 ## UAL 2's nock reaches back to the quiver and draws by 0.4 of it; its shot
@@ -380,8 +380,19 @@ func _square_bow(bone: int, held: Transform3D, hand: Vector3) -> Transform3D:
 ## nowhere (not finite) with none nocked, for the controller's own height.
 func loose_point() -> Vector3:
 	if _bow_mod != null and _bow_mod.arrow != null and _bow_mod.arrow.visible:
-		return _bow_mod.arrow.global_transform * Vector3(0.0, 0.0, -ARROW_HEAD)
+		var at := _bow_mod.arrow.global_transform * Vector3(0.0, 0.0, -ARROW_HEAD)
+		_loose_local = global_transform.affine_inverse() * at
+		return at
+	# A tap: the string never came back, but the bow goes up as it is let go,
+	# so the arrow leaves where it last left a drawn bow.
+	if _on_mq:
+		return global_transform * _loose_local
 	return Vector3.INF
+
+
+## The last drawn shot's head of the arrow, in the rig's own frame; until one
+## has been drawn, where it was measured at full draw on the mannequin.
+var _loose_local := Vector3(-0.07, 1.62, 0.75)
 
 
 #region The bow, as the controller calls it
@@ -407,13 +418,13 @@ func loose_bow() -> void:
 
 
 #region The moment to let go (AVTANDIL_POLISH 7, being tried)
-## Off until the user has seen it: with it on, the string at full draw settles
+## On (the user's pick, 2026-10-04): the string at full draw settles
 ## for `SETTLE` before the moment comes; let go within `PERFECT_WINDOW` of it it
 ## is a perfect release, and held on past it the bow starts to shake. The moment
 ## is marked only for the archer himself, by a small glint on the arrowhead and
 ## no sound: whoever he is shooting at must read it off his body, not off a
 ## light.
-var release_timing: bool = false
+var release_timing: bool = true
 const SETTLE := 0.25
 const PERFECT_WINDOW := 0.25
 const SHAKE_RAMP := 1.2
