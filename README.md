@@ -1657,22 +1657,27 @@ name and toned harder, towards olive (`Forest.broadleaf_tone`).
 
 ## Quests
 
-Three people with jobs, each with a mark over their head — a gold `!` for a job
+People with jobs, each with a mark over their head — a gold `!` for a job
 on offer, a green `?` when it is done and waiting to be handed in:
 
 | who | where | job |
 | --- | --- | --- |
-| Datvi the Woodcutter (the bear with the log) | the settlement's street | kill 4 wolves |
-| Ali of the Embers (the fire spirit) | the mere's north shore, where the track comes out | kill 6 imps |
-| Old Baqaq the Fisherman (the frog with the rod) | the end of the pier | kill Arkdeva |
+| Datvi the Woodcutter (the bear with the log) | the village square | "Clear the wood": kill 4 wolves (for now; monsters may take their place) |
+
+Ali of the Embers and Old Baqaq were taken out with the villagers. The user
+is making the people anew. Their jobs (`imps`, `arkdeva`) are still in
+`QuestBook.JOBS`, with nobody to give them. A job may name `"xp"`: on
+handing in, the giver teaches that much (in wolves' worth, `Leveling.gain`).
+Datvi's gives 8.
 
 Walk up to one and **F** (`interact`) talks; F again takes the job on, walking
 away declines it. A taken job sits in the top-right corner with its count. Kills
 are counted by watching the creatures (`QuestBook` polls the `enemy` group and
 counts each new corpse by its scene's name), so any creature is a kind without
 registering it, and in co-op a kill counts for everyone who has the job.
-Players have no health or purse yet, so the reward is the giver's thanks and a
-burst of warm light.
+The reward is the giver's thanks, a burst of warm light and the job's
+experience, if it names any. Arms are not given yet: there are no weapon
+items to give.
 
 `scripts/quest_book.gd` is the book and the on-screen text; `scripts/quest_giver.gd`
 is a person: the model scaled to a height, dropped on to whatever is under it,
@@ -1687,22 +1692,28 @@ instead of putting the hero on the square. The menu leaves word in
 and clears it. A level loaded any other way (tests, co-op, the arena) has no
 story, and nothing below happens.
 
-1. **The meadow.** The hero lies in the grass south of the village
-   (`Intro.LIE_AT`, (64, -44)), on UAL 2's `IdleToLay` held at its last frame.
-   The film opens out of black on a slow shot down to him.
-2. **The dragon.** The Soul Eater (`DragonFlyby`, `scripts/dragon_flyby.gd`:
-   the bestiary's model x4, no mind and no body, flown along a smooth line
-   through the air, banking into its turns) comes in low out of the south.
-   The camera lies by his head and follows it over him, shaking as it passes.
-3. **He gets up** (`LayToIdle`), turns, and over his shoulder we watch it
-   circle the village and spit fire (`DragonFlyby.fireball`) at the roofs
-   that are not alight yet. Each ball that lands sets a building burning.
-   He says so, and the film hands him the game: "follow the smoke".
+1. **The glade.** The hero lies unarmed in the big glade of the wolves' wood
+   on the hill north of the village (`Intro.LIE_AT`, (46, 128)), on UAL 2's
+   `IdleToLay` held at its last frame. His feet point at the village, so the
+   getting up leaves him facing it. Sword, shield, bow and blades are hidden
+   (`Intro.is_arm`) and every creature is out of sight and still for the
+   film. The film opens out of black on a shot down over the trees to him.
+2. **The dragon, hardly seen.** The Soul Eater (`DragonFlyby`,
+   `scripts/dragon_flyby.gd`: the bestiary's model x4, no mind and no body,
+   flown along a smooth line) comes out of the wood behind him. The camera
+   stays low beside him, so all of it there is to see is its shadow going
+   over and the ground shaking.
+3. **He gets up** (`LayToIdle`) already facing the village. Over his shoulder
+   we see it far off and small, going round the roofs once and throwing fire
+   at one after another, a ball every 0.3 s (`DragonFlyby.fireball`). Then it
+   is gone to the south-east, and he says so. The film hands him the game:
+   "follow the smoke". His arms are back. The creatures come back too, except
+   those within 48 m of the glade, which wait until he has reached the village.
 4. **The arrival.** Walking in among the houses (`Intro.VILLAGE_IN`) plays a
-   second film: the burning village from above, then Datvi on the square
-   telling him what happened and that the wolves come down at the smell of
-   smoke. The goal at the top of the screen is to talk to Datvi; the wolves
-   job is the first of the three.
+   second film: the burning village from above, then Datvi on the square.
+   The village needs timber to be rebuilt, strange monsters have come into
+   the wood, and if the hero clears it Datvi will give him arms and
+   experience. The goal at the top of the screen is to talk to Datvi.
 
 Either film is skipped with **Space** (or Enter, or the pad's Start). The
 world is then put where the film ends: everything burning, the dragon gone,
@@ -1720,9 +1731,12 @@ buildings burn, two for each job:
 
 | job | buildings |
 | --- | --- |
-| wolves (Datvi) | House6, House7 |
-| imps (Ali) | House2, House3 |
-| arkdeva (Baqaq) | the marani, House8 |
+| wolves (Datvi: clear the wood) | House6, House7 |
+| imps (no giver yet) | House2, House3 |
+| arkdeva (no giver yet) | the marani, House8 |
+
+Only Datvi is left of the people (the user is making them anew). The other
+four buildings stay burnt until jobs are given under those ids again.
 
 A burning building gets:
 - soot: a multiplying overlay, thicker up under the roof and in patches;

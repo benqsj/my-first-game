@@ -39,11 +39,21 @@ func _initialize() -> void:
 	_check("the film's camera is the one drawn", not player.camera.current)
 	var hud := player.get_node_or_null("Hud") as CanvasLayer
 	_check("his HUD is hidden", hud == null or not hud.visible)
-	_check("he lies in the meadow south of the village",
+	_check("he lies in the glade in the wolves' wood",
 			Vector2(player.global_position.x, player.global_position.z).distance_to(Intro.LIE_AT) < 1.0,
 			"%s" % player.global_position)
 	_check("lying down (the clip held)", player.rig.current_clip() == Intro.LIE_DOWN,
 			"%s" % player.rig.current_clip())
+	var arms_seen := 0
+	for mesh: MeshInstance3D in player.rig.find_children("*", "MeshInstance3D", true, false):
+		if Intro.is_arm(mesh) and mesh.is_visible_in_tree():
+			arms_seen += 1
+	_check("unarmed: no sword, no shield", arms_seen == 0, "%d seen" % arms_seen)
+	var creatures_seen := 0
+	for body in world.get_node("Enemies").get_children():
+		if (body as Node3D).visible:
+			creatures_seen += 1
+	_check("no creature in the film", creatures_seen == 0, "%d seen" % creatures_seen)
 	_check("the village is not burning yet", intro.fire != null and not intro.fire.is_burnt(&"Marani"))
 
 	# The dragon comes and the roofs catch.
@@ -64,6 +74,26 @@ func _initialize() -> void:
 	_check("the hero has his body back", player.is_physics_processing())
 	_check("and his camera", player.camera.current)
 	_check("standing, not lying", player.rig.current_clip() != Intro.LIE_DOWN)
+	var arms_back := 0
+	for mesh: MeshInstance3D in player.rig.find_children("*", "MeshInstance3D", true, false):
+		if Intro.is_arm(mesh) and mesh.is_visible_in_tree():
+			arms_back += 1
+	_check("his arms back after it", arms_back > 0)
+	var near_glade := 0
+	var far_shown := 0
+	for body in world.get_node("Enemies").get_children():
+		var b3 := body as Node3D
+		var d := Vector2(b3.global_position.x, b3.global_position.z).distance_to(Intro.LIE_AT)
+		if d < Intro.QUIET_ROUND and b3.visible:
+			near_glade += 1
+		elif d >= Intro.QUIET_ROUND and b3.visible:
+			far_shown += 1
+	_check("the creatures round the glade still away", near_glade == 0, "%d" % near_glade)
+	_check("the rest back", far_shown > 0)
+	var to_village := Vector2(Intro.LOOK_AT.x - player.global_position.x, Intro.LOOK_AT.y - player.global_position.z)
+	var facing := Vector2(-player.global_basis.z.x, -player.global_basis.z.z)
+	_check("up facing the village", facing.normalized().dot(to_village.normalized()) > 0.9,
+			"%.2f" % facing.normalized().dot(to_village.normalized()))
 
 	# Into the village: Datvi's film; skipped, it hands the game back.
 	player.global_position = Vector3(64.0, Terrain.height(64.0, 12.0) + 0.2, 12.0)
@@ -76,6 +106,11 @@ func _initialize() -> void:
 	await _wait(30)
 	_check("then the village is his to rebuild", intro.stage == 4, "stage %d" % intro.stage)
 	var datvi := world.get_node("People/Datvi") as Node3D
+	var all_back := true
+	for body in world.get_node("Enemies").get_children():
+		if not (body as Node3D).visible:
+			all_back = false
+	_check("every creature back after the arrival", all_back)
 	_check("he was brought to Datvi", player.global_position.distance_to(datvi.global_position) < 6.0,
 			"%.1f m" % player.global_position.distance_to(datvi.global_position))
 

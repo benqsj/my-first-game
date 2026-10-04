@@ -11,10 +11,11 @@ extends Node3D
 ## film), [method burn_all] the lot at once (a skipped film).
 ##
 ## A while after the hero has come (see [method smoulder]) the flames die
-## down to a glow and thin smoke. Each burnt building belongs to one of the
-## jobs in the [QuestBook]: when that job is rewarded its buildings are put
-## back — the soot washes off, the fire and smoke go — and [signal restored]
-## names them.
+## down to a glow and thin smoke. Each burnt building belongs to a job in the
+## [QuestBook]: when that job is rewarded its buildings are put back — the
+## soot washes off, the fire and smoke go — and [signal restored] names them.
+## Only Datvi gives a job now (the wood cleared: two houses); the other four
+## wait for the jobs the new people will bring, under the ids kept for them.
 
 signal restored(kinds: Array[StringName], job: StringName)
 

@@ -28,12 +28,14 @@ enum State { OFFERED, TAKEN, DONE, REWARDED }
 const JOBS := {
 	&"wolves": {
 		"giver": "Datvi the Woodcutter",
-		"title": "Wolves at the woodpile",
-		"offer": "Every night the wolves come down out of the pines and drag my logs about. Timber is heavy enough without chasing it. Thin them out for me — four of them should teach the rest.",
-		"waiting": "Still hear them howling. Four, I said.",
-		"thanks": "Quiet at last. Here — sit by the fire a while, you look half dead yourself.",
+		"title": "Clear the wood",
+		"offer": "To build the village up again we need timber, and the timber is in the wood up the hill. But since the dragon came something strange has got into the pines, and the wolves have gone wild with it. Clear the wood for me — four of them, to start — and I will give you arms worth carrying and teach you what I know.",
+		"waiting": "Nobody will take an axe up there yet. Four, I said.",
+		"thanks": "Quiet up there at last. Here — arms, as I promised, and a thing or two worth knowing. Tomorrow we fell timber.",
 		"kind": &"wolf",
 		"count": 4,
+		# Experience given on handing in, in wolves' worth ([Leveling]).
+		"xp": 8.0,
 	},
 	&"imps": {
 		"giver": "Ali of the Embers",
@@ -199,10 +201,16 @@ func _close() -> void:
 
 ## Players carry no health or purse yet, so the reward is the giver's word and
 ## a moment of warm light round the player — something to see that it counted.
-func _reward(_id: StringName) -> void:
+func _reward(id: StringName) -> void:
 	var me := _local_player()
 	if me == null:
 		return
+	# What the giver teaches: experience, where the job promises it (the host's
+	# to give; a solo game is its own host).
+	var worth := float((JOBS.get(id, {}) as Dictionary).get("xp", 0.0))
+	var learning := me.get_node_or_null(^"Leveling") as Leveling
+	if worth > 0.0 and learning != null and (not multiplayer.has_multiplayer_peer() or multiplayer.is_server()):
+		learning.gain(worth)
 	var glow := CPUParticles3D.new()
 	glow.one_shot = true
 	glow.explosiveness = 0.7

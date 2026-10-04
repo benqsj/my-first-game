@@ -24,7 +24,7 @@ func _initialize() -> void:
 	for node in world.find_children("*", "Node3D", true, false):
 		if node is QuestGiver:
 			givers.append(node)
-	_check("three people with jobs", givers.size() == 3, "%d" % givers.size())
+	_check("one person with a job (Datvi; the others are to be made anew)", givers.size() == 1, "%d" % givers.size())
 	await _wait(10)
 
 	# Each stands on something, not in the air and not buried.
@@ -70,7 +70,7 @@ func _initialize() -> void:
 	book.interact()
 	await _wait(2)
 	_check("talking to him offers the job", book._dialog.visible
-			and book._dialog_text.text.contains("wolves"), book._dialog_text.text)
+			and book._dialog_text.text.contains("wood"), book._dialog_text.text)
 	book.interact()
 	await _wait(2)
 	_check("a second word takes it on", int(book.state[&"wolves"]) == QuestBook.State.TAKEN)

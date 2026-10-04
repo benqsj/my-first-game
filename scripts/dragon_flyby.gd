@@ -134,7 +134,7 @@ func fireball(at: Vector3, seconds: float = 0.7, landed: Callable = Callable()) 
 		var p := from.lerp(at, k) + Vector3.UP * sin(k * PI) * 2.0
 		ball.global_position = p, 0.0, 1.0, seconds)
 	t.tween_callback(func() -> void:
-		SkillFx.flash(parent, at + Vector3.UP * 1.0, Color(1.0, 0.75, 0.35), 5.0, 0.5, 6.0)
+		SkillFx.flash(parent, at + Vector3.UP * 1.0, Color(1.0, 0.6, 0.25), 2.2, 0.35, 6.0)
 		SkillFx.burst(parent, at + Vector3.UP * 0.5, FIRE, 120, Vector2(4.0, 14.0), Vector3.UP, 70.0,
 				Vector2(0.06, 0.16), Vector3(0, -9, 0), 1.4)
 		if landed.is_valid():

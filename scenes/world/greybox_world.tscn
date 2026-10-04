@@ -34,8 +34,6 @@
 [ext_resource type="Script" path="res://scripts/quest_book.gd" id="48_quests"]
 [ext_resource type="Script" path="res://scripts/quest_giver.gd" id="49_giver"]
 [ext_resource type="PackedScene" path="res://unverified/assets/bearnpc/bear1.glb" id="50_bear"]
-[ext_resource type="PackedScene" path="res://unverified/assets/firenpc/cecxli .glb" id="51_fire"]
-[ext_resource type="PackedScene" path="res://unverified/assets/frog-npc/frog1.glb" id="52_frog"]
 [ext_resource type="Script" path="res://scripts/terrain.gd" id="60_terrain"]
 [ext_resource type="Script" path="res://scripts/lands.gd" id="61_lands"]
 [ext_resource type="Script" path="res://scripts/lands_places.gd" id="62_places"]
@@ -552,22 +550,6 @@ npc_name = "Datvi the Woodcutter"
 quest = &"wolves"
 model = ExtResource("50_bear")
 height = 2.1
-
-[node name="Ali" type="Node3D" parent="People"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -147)
-script = ExtResource("49_giver")
-npc_name = "Ali of the Embers"
-quest = &"imps"
-model = ExtResource("51_fire")
-height = 1.7
-
-[node name="Baqaq" type="Node3D" parent="People"]
-transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 1.8, 0.9, -317.5)
-script = ExtResource("49_giver")
-npc_name = "Old Baqaq the Fisherman"
-quest = &"arkdeva"
-model = ExtResource("52_frog")
-height = 2.2
 
 [node name="Players" type="Node3D" parent="."]
 

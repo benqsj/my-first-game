@@ -498,14 +498,14 @@ const SPREAD := Vector2(1.12, 1.4)
 ## on the flat by the fields, made bigger across and up.
 const MILL := Vector2(50.0, -3.0)
 const MILL_GROWTH := Vector2(1.3, 1.55)
-## Where the villagers walk: along the street between the rows and round the
-## square (as the village stood before it was spread; spread with it).
+## Along the street between the rows and round the square, as the village
+## stood before it was spread (spread with it): where the villagers walked
+## before they were taken out to be made anew, and what the props keep clear of.
 const STREET := [
 	Vector3(36, 0, 42), Vector3(46, 0, 41.5), Vector3(56, 0, 42.5), Vector3(66, 0, 42),
 	Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(78, 0, 46), Vector3(90, 0, 47),
 	Vector3(60, 0, 44), Vector3(50, 0, 43.5),
 ]
-const VILLAGERS := 7
 
 
 ## Where a point of the village as it stands in the scene ends up once the
@@ -516,7 +516,8 @@ static func spread(at: Vector3) -> Vector3:
 
 
 ## The houses ([VillageHouses]), the windmill out past the wall, a low stone wall
-## round the lot ([VillageWall]) broken where the ways come in, the props, people.
+## round the lot ([VillageWall]) broken where the ways come in, the props. No
+## villagers for now: the people are to be made anew (only Datvi stays).
 func _dress_village() -> void:
 	var village := get_node_or_null("Level/Village") as Node3D
 	if village == null:
@@ -528,7 +529,6 @@ func _dress_village() -> void:
 	VillageHouses.dress(village)
 	VillageWall.dress(village)
 	VillageProps.dress(village)
-	_settle_villagers(village)
 
 
 ## Makes a [Building] bigger by `by` in its own frame: the model inside it
@@ -553,21 +553,6 @@ static func _grow_building(thing: Node3D, by: Vector3) -> void:
 		var part := child as Node3D
 		if part != null:
 			part.transform = Transform3D(Basis.from_scale(by), Vector3.ZERO) * part.transform
-
-
-func _settle_villagers(village: Node3D) -> void:
-	if not ResourceLoader.exists(Villager.MODEL):
-		return
-	var spots: Array[Vector3] = []
-	for p: Vector3 in STREET:
-		spots.append(spread(p))
-	for i in VILLAGERS:
-		var one := Villager.new()
-		one.name = "Villager%d" % i
-		one.variant = i
-		one.spots = spots
-		one.position = spots[(i * 3) % spots.size()] + Vector3(0.8 * (i % 2), 0.0, 0.6 * (i % 3))
-		village.add_child(one)
 
 
 ## The music: the orcs' fight track while this peer's player is fighting an
