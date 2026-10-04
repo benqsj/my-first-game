@@ -29,15 +29,22 @@ static var _spark_tex: ImageTexture = null
 
 
 ## Throws one at `where`, the sparks going out along `outward` (towards whoever
-## struck the blow).
-static func burst(into: Node, where: Vector3, outward: Vector3) -> ParryFlash:
+## struck the blow). `size` scales it all — the star, the lamp, how many
+## sparks and how far they fly: 1 a parry, less a blow caught on a guard
+## (`Player`'s block, by how hard it was).
+static func burst(into: Node, where: Vector3, outward: Vector3, size: float = 1.0) -> ParryFlash:
 	if into == null:
 		return null
 	var flash := ParryFlash.new()
+	flash.size = clampf(size, 0.1, 2.0)
 	into.add_child(flash)
 	flash.global_position = where
 	flash._build(outward)
 	return flash
+
+
+## How big this one is (see [method burst]).
+var size: float = 1.0
 
 
 func _build(outward: Vector3) -> void:
@@ -61,12 +68,12 @@ func _build(outward: Vector3) -> void:
 
 	_lamp = OmniLight3D.new()
 	_lamp.light_color = Color(1.0, 0.85, 0.55)
-	_lamp.light_energy = 5.0
-	_lamp.omni_range = 4.0
+	_lamp.light_energy = 5.0 * size
+	_lamp.omni_range = 4.0 * sqrt(size)
 	add_child(_lamp)
 
 	var sparks := GPUParticles3D.new()
-	sparks.amount = 28
+	sparks.amount = maxi(int(28.0 * size), 6)
 	sparks.lifetime = 0.42
 	sparks.one_shot = true
 	sparks.explosiveness = 0.95
@@ -79,8 +86,8 @@ func _build(outward: Vector3) -> void:
 	# The sparks go back at whoever struck, and up: a fan, not a sphere.
 	process.direction = (out + Vector3.UP * 0.55).normalized()
 	process.spread = 55.0
-	process.initial_velocity_min = 3.5
-	process.initial_velocity_max = 8.0
+	process.initial_velocity_min = 3.5 * sqrt(size)
+	process.initial_velocity_max = 8.0 * sqrt(size)
 	process.gravity = Vector3(0.0, -14.0, 0.0)
 	process.damping_min = 2.0
 	process.damping_max = 4.0
@@ -120,11 +127,11 @@ func _process(delta: float) -> void:
 	if _star != null:
 		# Up at once, then out.
 		var grow := 1.0 - pow(1.0 - clampf(_age / 0.08, 0.0, 1.0), 3.0)
-		_star.scale = Vector3.ONE * lerpf(0.3, 1.5, grow) * (1.0 - 0.4 * t)
+		_star.scale = Vector3.ONE * lerpf(0.3, 1.5, grow) * (1.0 - 0.4 * t) * size
 		_star.rotation.z = t * 0.6
 		_star_mat.albedo_color.a = pow(1.0 - clampf(_age / 0.22, 0.0, 1.0), 1.5)
 	if _lamp != null:
-		_lamp.light_energy = 5.0 * pow(1.0 - clampf(_age / 0.25, 0.0, 1.0), 2.0)
+		_lamp.light_energy = 5.0 * size * pow(1.0 - clampf(_age / 0.25, 0.0, 1.0), 2.0)
 
 
 ## A four-pointed star with a hot core, drawn once.

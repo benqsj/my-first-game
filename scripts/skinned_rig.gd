@@ -1799,6 +1799,31 @@ func flinch() -> void:
 	_play_action(clips[&"hit_blocked"] if _blocking_now else clips[&"hit"], Role.HIT, 1.3, 0.05)
 
 
+## A blow caught on the raised shield: the guard's jolt, `strength` (0..1, how
+## hard the blow was) deciding how big — a light one a quick shudder, a heavy
+## one the shield driven back and slowly brought up again. Not over a swing,
+## a fall or getting up.
+func block_jolt(strength: float) -> void:
+	if _role == Role.SWING or _role == Role.DOWN or _role == Role.GET_UP or _role == Role.ROLL:
+		return
+	# The guard's own hit, the one that goes with the guard he holds (Kevin's,
+	# on the mannequin); else the rig's blocked impact. (The mannequin's
+	# `hit_blocked` is UAL 2's Idle_Shield_Break: the shield flung down and
+	# the sword up — a guard broken, not a blow held.)
+	var clip: StringName = BLOCK_HIT if _anim.has_animation(BLOCK_HIT) else clips.get(&"hit_blocked", &"")
+	if clip == &"" or not _anim.has_animation(clip):
+		return
+	if _on_mq:
+		_rouse()
+	var k := clampf(strength, 0.0, 1.0)
+	# a light blow only the start of the jolt, quick; a heavy one all of it
+	_play_action(clip, Role.HIT, lerpf(2.2, 1.3, k), 0.04, 0.0, lerpf(0.6, 1.0, k))
+
+
+## The guard's hit ([method block_jolt]).
+const BLOCK_HIT := &"KV_BlockShield01_Hit"
+
+
 ## A blow thrown back off the shield: the guard's own jolt, played fast — the
 ## shield punched out into the blow and brought back.
 func parry() -> void:

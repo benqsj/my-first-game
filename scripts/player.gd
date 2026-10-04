@@ -2915,7 +2915,13 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		if shield_kind == Inventory.Shields.TOWER:
 			cost *= tower_block_share
 		_spend(cost)
-		velocity += away * (1.0 + _heft(damage) * blow_shove * 0.25)
+		# How hard it was, 0..1 ([method block_strength]): the push back, the
+		# jolt, the sparks, the hold and the view all go by it.
+		var strength := block_strength(damage)
+		var shove := lerpf(block_shove.x, block_shove.y, strength)
+		if shield_kind == Inventory.Shields.TOWER:
+			shove *= tower_block_share
+		velocity += away * shove
 		if stamina <= 0.0:
 			# Nothing left to hold it with: the guard breaks, and half the blow
 			# comes through it.
@@ -2929,7 +2935,14 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			_take_damage(damage * 0.5)
 			return
 		struck.emit(damage, true)
-		net_react.rpc(Reaction.BLOCK, global_position + Vector3.UP * 1.2 + facing.normalized() * 0.5, toward.normalized())
+		# The one who struck is held with him for the beat ([HitFeel]): the
+		# blow felt stopping on the shield.
+		var striker := get_node_or_null(NodePath(combo.get_slice("#", 0))) as Node3D if combo.begins_with("/") else null
+		if striker != null and striker != self:
+			HitFeel.hold(striker, block_hold(strength))
+		# the strength rides on the blow's length (it is the way back to him)
+		net_react.rpc(Reaction.BLOCK, global_position + Vector3.UP * 1.2 + facing.normalized() * 0.5,
+				toward.normalized() * maxf(strength, 0.01))
 		return
 
 	_combo_landed[combo] = int(_combo_landed[combo]) + 1
@@ -3022,7 +3035,55 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.0, -1.0)
 			perfect_dodged.emit()
 		Reaction.BLOCK:
-			Sfx.play(self, BLOCK_SOUND, self, at - global_position, randf_range(0.92, 1.08), -14.0)
+			_feel_block(at, blow)
+
+
+## How the push back off the shield goes with a blow's strength (m/s added,
+## from the lightest to the heaviest; the tower shield takes
+## `tower_block_share` of it).
+@export var block_shove := Vector2(1.1, 3.4)
+## The damage (after his armour) at which a blow on the shield is the hardest
+## there is ([method block_strength] 1); the lightest counts as `BLOCK_LEAST`.
+@export var block_heaviest: float = 18.0
+const BLOCK_LEAST := 0.12
+
+
+## How hard a blow of `damage` is, caught on the shield: 0..1.
+func block_strength(damage: float) -> float:
+	return clampf(damage / maxf(block_heaviest, 0.01), BLOCK_LEAST, 1.0)
+
+
+## How long a blow of `strength` on the shield holds both of them (seconds):
+## a light one a breath, a heavy one about as long as a heavy cut's bite.
+func block_hold(strength: float) -> float:
+	return lerpf(0.035, 0.11, clampf(strength, 0.0, 1.0))
+
+
+## A blow caught on his shield, felt (TARIEL_POLISH.md 8): on every peer the
+## block's sound (deeper and louder the harder), sparks off the shield's face
+## thrown back at whoever struck, the guard's jolt and the hold; in his own
+## window the view knocked back and shaken. `blow` points back at the striker,
+## its length the strength.
+func _feel_block(at: Vector3, blow: Vector3) -> void:
+	var strength := clampf(blow.length(), 0.0, 1.0)
+	var back := blow.normalized() if blow.length_squared() > 0.000001 else -global_basis.z
+	Sfx.play(self, BLOCK_SOUND, self, at - global_position, randf_range(0.95, 1.05) * lerpf(1.06, 0.88, strength),
+			lerpf(-15.0, -9.0, strength))
+	ParryFlash.burst(Blood.world_of(self), at, back, lerpf(0.3, 0.75, strength))
+	if rig != null:
+		if rig.has_method(&"block_jolt"):
+			rig.call(&"block_jolt", strength)
+		if rig.has_method(&"hitstop"):
+			rig.call(&"hitstop", block_hold(strength))
+	if is_multiplayer_authority() and camera != null and camera.current:
+		# pushed back: away from the striker
+		ImpactFx.knock(camera, -back, lerpf(0.02, 0.07, strength), lerpf(0.015, 0.07, strength),
+				lerpf(0.14, 0.3, strength))
+	last_block_feel = {"strength": strength, "at": at}
+
+
+## The last blow felt on his shield ([method _feel_block]), for a test.
+var last_block_feel: Dictionary = {}
 
 
 ## A sound of the rig's own (`hurt`), if it has it.

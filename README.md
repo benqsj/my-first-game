@@ -6996,3 +6996,31 @@ wall. A face that looks up (the ground under a low cut) and bodies (they
 take the cut themselves) do not count. `last_world_strike` keeps the last one.
 
 Test: `tests/strike_sounds_test.gd`.
+
+## A blow on the shield, felt (2026-10-04, TARIEL_POLISH.md session 3, item 8)
+
+Before this, a blow caught on the raised shield made the block's sound and
+added a small push back; nothing else answered it. Now everything goes by
+how hard the blow was. `Player.block_strength(damage)` is the damage, after
+his armour, over `block_heaviest` (18), from 0.12 for the lightest up to 1.
+It rides to every peer on the length of `net_react(BLOCK)`'s blow vector,
+and `_feel_block()` plays it:
+
+| What | Light (0.12) | Heavy (1) |
+|---|---|---|
+| push back (`block_shove`, m/s; tower shield × `tower_block_share`) | 1.4 | 3.4 |
+| hold, his rig and the one who struck (`block_hold`, `HitFeel.hold`) | 0.04 s | 0.11 s |
+| sparks off the shield's face, back at the striker (`ParryFlash.burst(.., size)`) | 0.35 | 0.75 |
+| the view knocked back and shaken (`ImpactFx.knock`, his own window) | 2 cm | 7 cm |
+| the block's sound (`block_1`) | −15 dB, pitch ×1.06 | −9 dB, pitch ×0.88 |
+| the guard's jolt (`SkinnedRig.block_jolt`) | its first 60 %, ×2.2 | all of it, ×1.3 |
+
+The jolt is Kevin's `KV_BlockShield01_Hit`, the hit that goes with the guard
+he holds (`KV_BlockShield01_Loop`). It is not the rig's `hit_blocked`: on the
+mannequin that is UAL 2's `Idle_Shield_Break`, where the shield is flung down
+and the sword comes up, a guard broken. `ParryFlash` takes a `size` now (star,
+lamp, how many sparks, how fast); 1 is a parry. The striker is found from
+the blow's combo key (its node path before the `#`).
+
+Test: `tests/block_feel_test.gd`. Reel: `_shots_tmp/block_reel.gd`
+(`--write-movie`), with blows of 2, 9, 30 and 30.
