@@ -5567,6 +5567,37 @@ least every 2 s; every 3.5 s for the ogre, golem and zombies).
 arrow strikes a hero standing still; walked at by a hero at 4 m/s, it runs,
 turns and shoots again and again, and its arrows strike him.
 
+### The skeleton mage keeps a spell's length off (2026-10-04)
+
+`MageFighter` (`scripts/mage_fighter.gd`, a [Brawler]) in
+`scenes/enemies/pack/skeleton_mage.tscn`, on the mage hero's own casts carried
+onto the pack's skeleton (`CR_MG_*`: tools/creature_clips.gd now reads
+`assets/anim/heroes/mage_mannequin.res` too; 69 clips):
+
+- **Keeps 7 to 15 m**: further off it walks in, closer it steps back facing
+  him (it does not turn and run, as the archer does).
+- **A bolt** (`CR_MG_Throw`, at 0.40 of it): the mage hero's [SpellBolt] in
+  violet, from the staff's crystal, slow then faster, bending after him; a
+  roll takes him out of its way.
+- **The ground under him** (`CR_MG_Ground`): a ring of light opens where he
+  stands and tightens ([HexCircle], `scripts/hex_circle.gd`); 1.1 s later the
+  ground erupts there and whoever is still in it takes the blow. It favours
+  this when he has stood still for 1.5 s.
+- **Up close** (3.2 m): a blast of the staff (`CR_MG_Blast`) throws him back
+  hard; between blasts it strikes with the staff (KV polearm attacks).
+- **The dead rise** (`CR_MG_Raise`): two bare skeletons climb out of the
+  ground beside it (`Brawler.rise()`, UAL 2's Zombie_Spawn), at most two
+  standing, every 14 s.
+- `SpellBolt.against_heroes` (from [Arrow]): as the archer's arrows.
+
+`Brawler`: of its attacks it throws only one that lands from where it
+stands, now from neither too far nor well inside its reach; too close for
+all of them, it steps back first.
+
+`tests/creature_blows_test.gd` (`-- skeleton_mage`): from 11 m its bolts and
+bursts strike a hero standing still and it raises the dead; up close it
+blasts him off.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

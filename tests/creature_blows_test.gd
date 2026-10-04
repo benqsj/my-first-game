@@ -14,6 +14,9 @@ const SLOW := ["ogre", "golem", "zombie_m", "zombie_f"]
 ## The archer: from afar it stands and every arrow strikes him; when he
 ## comes at it, it runs, turns, shoots and runs again.
 const ARCHER := "skeleton_archer"
+## The mage: from afar its bolts and bursts strike a hero standing still and
+## it raises the dead; up close it blasts him off.
+const MAGE := "skeleton_mage"
 
 var _failed := 0
 
@@ -33,7 +36,12 @@ func _run() -> void:
 	var kinds: Array = Array(OS.get_cmdline_user_args()) if not OS.get_cmdline_user_args().is_empty() else KINDS
 	if OS.get_cmdline_user_args().is_empty():
 		kinds.append(ARCHER)
+		kinds.append(MAGE)
 	for kind: String in kinds:
+		if kind == MAGE:
+			for close in [false, true]:
+				await _mage(close)
+			continue
 		if kind == ARCHER:
 			for chase in [false, true]:
 				await _archer(chase)
@@ -156,6 +164,57 @@ func _archer(chase: bool) -> void:
 		_check("archer, from afar: it stands and shoots", moved < 0.5 and shots >= 5,
 				"%d shots, moved %.1f m" % [shots, moved])
 		_check("archer, from afar: every arrow strikes him", struck[0] == shots, "%d of %d" % [struck[0], shots])
+	world.queue_free()
+	for i in 3:
+		await process_frame
+
+
+func _mage(close: bool) -> void:
+	var world: World = load("res://scenes/world/test_arena.tscn").instantiate()
+	root.add_child(world)
+	for i in 30:
+		await physics_frame
+	var panel := world.get_node("ArenaPanel") as ArenaPanel
+	panel._clear()
+	panel._wait_for_blow = false
+	var hero := world.player()
+	hero.immortal = true
+	await physics_frame
+	var start := hero.global_position
+	var fwd := -hero.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var body := panel.call_up("res://scenes/enemies/pack/%s.tscn" % MAGE, false,
+			start + fwd * (2.4 if close else 11.0)) as MageFighter
+	var landed := {}
+	var current := [0]
+	hero.struck.connect(func(_d: float, _b: bool) -> void:
+		landed[current[0]] = int(landed.get(current[0], 0)) + 1)
+	var serial := -1
+	var casts := {}
+	for f in int(SECONDS * 60.0):
+		await physics_frame
+		if not close:
+			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		var face := body.global_position - hero.global_position
+		hero.rotation.y = atan2(-face.x, -face.z)
+		if body.act_serial != serial:
+			serial = body.act_serial
+			if MageFighter.SPELLS.has(body.act):
+				casts[body.act] = int(casts.get(body.act, 0)) + 1
+				current[0] = body.act
+	for i in 90:
+		await physics_frame
+	if close:
+		_check("mage, up close: it blasts him off", int(casts.get(MageFighter.BLAST, 0)) >= 1
+				and int(landed.get(MageFighter.BLAST, 0)) >= 1, "%s cast, %s landed" % [casts, landed])
+	else:
+		_check("mage, from afar: bolts and bursts, and every one strikes him standing still",
+				int(casts.get(MageFighter.BOLT, 0)) + int(casts.get(MageFighter.HEX, 0)) >= 3
+				and int(landed.get(MageFighter.BOLT, 0)) >= int(casts.get(MageFighter.BOLT, 0)) - 1
+				and int(landed.get(MageFighter.HEX, 0)) >= int(casts.get(MageFighter.HEX, 0)) - 1,
+				"%s cast, %s landed" % [casts, landed])
+		_check("mage, from afar: it raises the dead", body._standing_raised() >= 1, "%d standing" % body._standing_raised())
 	world.queue_free()
 	for i in 3:
 		await process_frame

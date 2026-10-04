@@ -305,6 +305,18 @@ func _gap_for_blow() -> Vector3:
 	return -_forward() * minf((strike_off - gap) / maxf(next - _act_time, 0.15), close_speed * 0.6)
 
 
+## Raised out of the ground (a mage's summons): it climbs out first
+## (`clip`, e.g. UAL 2's Zombie_Spawn), then goes for `quarry`.
+const RISE := 98
+
+
+func rise(clip: StringName, quarry: Node3D = null) -> void:
+	_moves_table[RISE] = [clip, 1.3, 0.0, 1.0]
+	_begin(RISE)
+	if quarry != null:
+		_rouse(quarry)
+
+
 func _move(clip: StringName, parts: Array[Vector3], i: int) -> Array:
 	var p := parts[i] if i < parts.size() else Vector3(1.0, 0.0, 1.0)
 	return [clip, p.x, p.y, p.z]
@@ -340,12 +352,25 @@ func _begin_attack() -> void:
 	var gap := _distance_to(_quarry) if _quarry != null else 0.0
 	var nearest := 0.4 * maxf(visual_scale, 0.01) + 0.55
 	var fits: Array[int] = []
+	var closest_want := INF
 	for i in attacks.size():
 		var want := maxf(float(_strike_from.get(ATTACK_BASE + i, strike_off)), nearest)
-		if gap <= want + 0.4:
+		closest_want = minf(closest_want, want)
+		# Nor from well inside it: a thrust from too close goes past him.
+		if gap <= want + 0.4 and gap >= want - 0.6:
 			fits.append(ATTACK_BASE + i)
 	if fits.is_empty():
-		_move_towards(_quarry.global_position, chase_speed, get_physics_process_delta_time())
+		var delta := get_physics_process_delta_time()
+		if gap < closest_want:
+			# Too close for any of them: a step back first, facing him.
+			var away := global_position - _quarry.global_position
+			away.y = 0.0
+			_face(-away, delta, turn_speed)
+			var back := away.normalized() * speed
+			velocity.x = move_toward(velocity.x, back.x, acceleration * 3.0 * delta)
+			velocity.z = move_toward(velocity.z, back.z, acceleration * 3.0 * delta)
+		else:
+			_move_towards(_quarry.global_position, chase_speed, delta)
 		return
 	_begin(fits[_rng.randi() % fits.size()])
 

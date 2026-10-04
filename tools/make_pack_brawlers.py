@@ -116,6 +116,16 @@ C = {
                               ["CR_PunchCombo", 1.1, 0.92, FISTS, 2], ["CR_Hook", 1.0, 0.95, FISTS, 1]]),
 }
 C["zombie_f"] = dict(C["zombie_m"], node="ZombieWoman", fbx="Zombie_F")
+# Keeps a spell's length off: bolts, a burst under his feet, a blast to drive
+# him off up close, the staff, and the dead raised ([MageFighter]).
+C["skeleton_mage"] = dict(node="SkeletonMage", fbx="Skeleton_Mage", s=0.95, body="Body_Skeleton",
+                          objects="Objects_SkelMage", script="res://scripts/mage_fighter.gd",
+                          idle="CR_MG_Idle", guard="CR_MG_Idle", walk="CR_MG_Walk", run="CR_MG_Run", run_above=2.8,
+                          strafe=("CR_MG_WalkL", "CR_MG_WalkR"), back="CR_MG_WalkBack",
+                          speed=1.5, chase=3.2, health=120, dmg=22, pdef=8, mdef=30, sight=24,
+                          hit="CR_MG_Hit", death="CR_MG_Death", too_close=0.3, cooldown=(0.5, 1.1),
+                          weapon=("R_equip_joint", (-0.9, 0, 0), 0.1), strike=["R_wrist_joint"],
+                          attacks=[["CR_Staff1", 1.25, 0.9, WEAPON, 1], ["CR_Staff2", 1.25, 0.9, WEAPON, 1]])
 # Keeps its distance: shoots from afar, runs from him when he comes close,
 # turns and shoots, runs again ([BowFighter], scripts/bow_fighter.gd).
 C["skeleton_archer"] = dict(node="SkeletonArcher", fbx="Skeleton_Archer", s=0.95, body="Body_Skeleton",

@@ -37,7 +37,7 @@ const ENTRIES: Array[Array] = [
 	["Skeleton", "res://scenes/enemies/pack/skeleton.tscn", false],
 	["Skeleton warrior", "res://scenes/enemies/pack/skeleton_warrior.tscn", false],
 	["Skeleton archer", "res://scenes/enemies/pack/skeleton_archer.tscn", false],
-	["Skeleton mage", "res://scenes/creatures/skeleton_mage.tscn", false],
+	["Skeleton mage", "res://scenes/enemies/pack/skeleton_mage.tscn", false],
 	["Skeleton, all in one", "res://scenes/creatures/skeleton_all.tscn", false],
 ]
 ## How far in front of the hero a creature is called up, and a boss.

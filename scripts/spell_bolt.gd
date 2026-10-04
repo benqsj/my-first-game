@@ -458,7 +458,7 @@ func _sweep_past(from: Vector3, to: Vector3, past: Array[RID]) -> Dictionary:
 	var exclude: Array[RID] = past.duplicate()
 	if _shooter is CollisionObject3D:
 		exclude.append((_shooter as CollisionObject3D).get_rid())
-	var query := PhysicsRayQueryParameters3D.create(from, to, 5, exclude)
+	var query := PhysicsRayQueryParameters3D.create(from, to, 3 if against_heroes else 5, exclude)
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
 
@@ -467,6 +467,15 @@ func _strike(what: Node3D, where: Vector3) -> void:
 	_velocity = Vector3.ZERO
 	_let_go_of_trails()
 	struck.emit(what, where, _critical)
+	# A creature's spell at the heroes ([MageFighter]): a blow through m.def,
+	# dealt by the host's copy.
+	if against_heroes:
+		if what != null and what.has_method(&"receive_blow") and what.get("net_dead") != true \
+				and multiplayer.is_server():
+			what.call(&"receive_blow", _damage, _shooter if is_instance_valid(_shooter) else self,
+					0, 2, get_instance_id() % 100000, true)
+		_burst(where)
+		return
 	if what != null and what.has_method("take_hit"):
 		# A spell: through m.def.
 		what.call("take_hit", _damage, where, _heading, _critical, false, _shooter, true)

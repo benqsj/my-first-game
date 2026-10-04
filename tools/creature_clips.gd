@@ -23,6 +23,8 @@ extends SceneTree
 
 const MQ := "res://assets/anim/lab/ual2_mannequin.glb"
 const KV := "res://assets/anim/lab/kevin_lib.res"
+## The mage hero's own clips on the mannequin (casts, the staff held).
+const MAGE := "res://assets/anim/heroes/mage_mannequin.res"
 const FIG := "res://assets/creatures/Skeleton_Base.fbx"
 const OUT := "res://assets/creatures/anim/biped_clips.scn"
 const META := "res://assets/creatures/anim/biped_clip_meta.json"
@@ -75,6 +77,20 @@ const CLIPS := [
 	["CR_BowAim", "Bow_Aim_Neutral", true],
 	["CR_BowShoot", "Bow_Shoot", false],
 	["CR_BowRapid", "Bow_RapidShoot", false],
+	["CR_MG_Idle", "MG_Idle", true],
+	["CR_MG_Walk", "MG_Walk", true],
+	["CR_MG_WalkBack", "MG_Walk_Back", true],
+	["CR_MG_WalkL", "MG_Walk_Left", true],
+	["CR_MG_WalkR", "MG_Walk_Right", true],
+	["CR_MG_Run", "MG_Run", true],
+	["CR_MG_Throw", "MG_Cast_Throw", false],
+	["CR_MG_Ground", "MG_Cast_Ground", false],
+	["CR_MG_Blast", "MG_Cast_Blast", false],
+	["CR_MG_Raise", "MG_Cast_2H", false],
+	["CR_MG_Hit", "MG_Hit", false],
+	["CR_MG_Death", "MG_Death", false],
+	["CR_Staff1", "KV_AttackPolearm01", false],
+	["CR_Staff2", "KV_AttackPolearm03", false],
 	# Nock and draw (the hand on the string at 0.63 s, full at 1.05), held on
 	# the aim a breath, and loosed at 1.45 s (BowFighter.LOOSE_AT).
 	["CR_BowShot", [["Bow_Notch", 0.0, 1.25], ["Bow_Aim_Neutral", 0.0, 0.2], ["Bow_Shoot", 0.0, -1.0]], false],
@@ -128,7 +144,8 @@ func _run() -> void:
 	var src := mq.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
 	var player := mq.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
 	var lib := AnimationLibrary.new()
-	for src_lib: AnimationLibrary in [player.get_animation_library(&""), load(KV) as AnimationLibrary]:
+	for src_lib: AnimationLibrary in [player.get_animation_library(&""), load(KV) as AnimationLibrary,
+			load(MAGE) as AnimationLibrary]:
 		for clip: StringName in src_lib.get_animation_list():
 			lib.add_animation(clip, src_lib.get_animation(clip))
 	for clip: StringName in lib.get_animation_list():
