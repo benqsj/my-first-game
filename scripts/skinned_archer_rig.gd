@@ -305,57 +305,83 @@ func _place_pack_string() -> void:
 			if p.distance_squared_to(a) > c.distance_squared_to(a):
 				c = p
 		_bow_ends = [a, c]
+		# The arrow rests on the bow at its middle, level with the middle of
+		# the string, not on the fist (which holds the pack's bow 9 cm below
+		# its middle): the fist's point slid up the bow's line to there.
+		var along := (c - a).normalized()
+		_rest = FIST + along * ((a + c) * 0.5 - FIST).dot(along)
 	var xf := _figure_skel.global_transform
 	var held_s := _square_bow(bone, _figure_skel.get_bone_global_pose(bone),
 			_figure_skel.get_bone_global_pose(hand) * FIST)
 	var held := xf * held_s
 	var drawing := xf * _figure_skel.get_bone_global_pose(hand)
-	_bow_mod.place_string_at(held * _bow_ends[0], held * _bow_ends[1], drawing * FIST, held * FIST)
+	_bow_mod.place_string_at(held * _bow_ends[0], held * _bow_ends[1], drawing * FIST, held * _rest)
 
 
 ## How far the bow is turned in the fist onto the shot, by the draw.
 const SQUARE_BY_DRAW := 3.0
+## Where the arrow rests on the pack's bow, in its bone's frame (see above).
+var _rest := FIST
 
 ## The pack's bow, held as the clips leave it, sits at a slant to the line from
 ## the bow hand to the drawing hand: the string, taken by the fingers, came off
 ## it well below the middle and the arrow lay along the lower limb. Drawn, the
 ## bow is turned about the fist (the bone `weapon_l`, skeleton space `held`) so
-## that its string line stands square across the arrow and passes through the
-## drawing fingers at `hand`: the nocking point is where the fist is, the way
-## an archer holds it. Returns the turned pose, also set on the bone.
+## that its string line stands square across the arrow, and the arrow from the
+## drawing fingers at `hand` lies over the bow's middle (`_rest`) and meets the
+## string at its middle. Returns the turned pose, also set on the bone.
 func _square_bow(bone: int, held: Transform3D, hand: Vector3) -> Transform3D:
 	var w := clampf(_bow_mod.draw * SQUARE_BY_DRAW, 0.0, 1.0) if _bow_mod.has_string() else 0.0
 	if w <= 0.0:
 		return held
 	var fist := held * FIST
-	var a := held * (_bow_ends[0] as Vector3)
-	var c := held * (_bow_ends[1] as Vector3)
-	var shot := fist - hand
-	if shot.length() < 0.1 or a.distance_to(c) < 0.3:
-		return held
-	var v := shot.normalized()
-	var d := (c - a).normalized()
-	var o := a + d * (fist - a).dot(d) - fist
-	if o.length() < 0.02:
-		return held
-	var o_hat := o.normalized()
-	var d2 := d - v * d.dot(v)
-	if d2.length() < 0.1:
-		return held
-	d2 = d2.normalized()
-	var from := Basis(d, o_hat, d.cross(o_hat)).orthonormalized()
-	var to := Basis(d2, -v, d2.cross(-v)).orthonormalized()
-	var q := Quaternion.IDENTITY.slerp(Quaternion(to * from.inverse()), w)
+	# The turn that squares it, found twice over: the rest moves as it turns.
+	var q_all := Quaternion.IDENTITY
+	var now := held
+	var v := Vector3.ZERO
+	var d2 := Vector3.ZERO
+	for i in 2:
+		var rest := now * _rest
+		var a := now * (_bow_ends[0] as Vector3)
+		var c := now * (_bow_ends[1] as Vector3)
+		var shot := rest - hand
+		if shot.length() < 0.1 or a.distance_to(c) < 0.3:
+			return held
+		v = shot.normalized()
+		var d := (c - a).normalized()
+		var o := (a + c) * 0.5 - rest
+		o -= d * o.dot(d)
+		if o.length() < 0.02:
+			return held
+		var o_hat := o.normalized()
+		d2 = d - v * d.dot(v)
+		if d2.length() < 0.1:
+			return held
+		d2 = d2.normalized()
+		var from := Basis(d, o_hat, d.cross(o_hat)).orthonormalized()
+		var to := Basis(d2, -v, d2.cross(-v)).orthonormalized()
+		var q := Quaternion(to * from.inverse())
+		q_all = q * q_all
+		now = Transform3D(Basis(q_all) * held.basis, fist + q_all * (held.origin - fist))
+	var qw := Quaternion.IDENTITY.slerp(q_all, w)
 	var tremble := shake()
 	if tremble > 0.0:
-		q = Quaternion(v.cross(d2).normalized(), SHAKE_TURN * tremble * _shake_noise(5.0)) \
-				* Quaternion(d2, SHAKE_TURN * 0.6 * tremble * _shake_noise(9.0)) * q
-	var turned := Transform3D(Basis(q) * held.basis, fist + q * (held.origin - fist))
+		qw = Quaternion(v.cross(d2).normalized(), SHAKE_TURN * tremble * _shake_noise(5.0)) \
+				* Quaternion(d2, SHAKE_TURN * 0.6 * tremble * _shake_noise(9.0)) * qw
+	var turned := Transform3D(Basis(qw) * held.basis, fist + qw * (held.origin - fist))
 	var p := _figure_skel.get_bone_parent(bone)
 	var local := (_figure_skel.get_bone_global_pose(p) if p >= 0 else Transform3D()).affine_inverse() * turned
 	_figure_skel.set_bone_pose_rotation(bone, local.basis.get_rotation_quaternion())
 	_figure_skel.set_bone_pose_position(bone, local.origin)
 	return turned
+
+
+## Where the shot leaves the bow: the head of the arrow on the string, or
+## nowhere (not finite) with none nocked, for the controller's own height.
+func loose_point() -> Vector3:
+	if _bow_mod != null and _bow_mod.arrow != null and _bow_mod.arrow.visible:
+		return _bow_mod.arrow.global_transform * Vector3(0.0, 0.0, -ARROW_HEAD)
+	return Vector3.INF
 
 
 #region The bow, as the controller calls it

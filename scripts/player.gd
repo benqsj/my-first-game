@@ -2543,6 +2543,12 @@ func _loose_arrow() -> void:
 		if not is_inside_tree() or state == State.DOWNED:
 			return
 	var from := global_position + up_direction * arrow_height
+	# Off the bow, where the arrow on the string was, when there is one: shot
+	# from the fixed height it left from below the bow.
+	if rig != null and rig.has_method(&"loose_point"):
+		var nocked: Vector3 = rig.call(&"loose_point")
+		if nocked.is_finite():
+			from = nocked
 	if rig != null and rig.has_method(&"spell_origin"):
 		from = rig.call(&"spell_origin")
 	var heading := _shot_heading(from, speed)
