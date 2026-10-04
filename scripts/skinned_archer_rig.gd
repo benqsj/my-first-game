@@ -77,6 +77,91 @@ var _drawing_clip: bool = false
 var _loose_left: float = 0.0
 var _draw_time: float = 0.85
 
+#region Aiming up and down (AVTANDIL_POLISH 1)
+## On the mannequin the held aim is one of three clips by how far up or down
+## the shot goes: UAL 2's `Bow_Aim_Up` and `Bow_Aim_Down` hold the arrow at
+## +0.54 and -0.56 rad, `Bow_Aim_Neutral` level (measured,
+## `_shots_tmp/aimpitch_probe.gd`). Past `AIM_ZONE_IN` the steeper clip is
+## crossfaded in (over `AIM_SWAP_BLEND`), back under `AIM_ZONE_OUT`; what is
+## left over the clip's own angle the chest takes ([member BowModifier.pitch]).
+const AIM_LOW_CLIP := &"Bow_Aim_Down"
+const AIM_HIGH_PITCH := 0.54
+const AIM_LOW_PITCH := -0.56
+const AIM_ZONE_IN := 0.32
+const AIM_ZONE_OUT := 0.22
+const AIM_SWAP_BLEND := 0.22
+## The chest's tilt turns the arrow by only this share of it (0.69-0.70
+## measured in all three clips): the tilt asked for is the angle over it.
+const PITCH_GAIN := 0.7
+## How fast what is still off between the arrow on the string and the shot
+## is taken up, and how much of it at most (rad).
+const TRIM_RATE := 3.0
+const TRIM_MAX := 0.25
+var aim_high: StringName = &""
+var aim_low: StringName = &""
+## -1 low, 0 level, 1 high: which held aim clip the pitch asks for now.
+var _aim_zone: int = 0
+## The angle the base clip holds the arrow at, crossfades followed.
+var _clip_pitch: float = 0.0
+var _trim: float = 0.0
+## The pitch of the last shot, held on through the release and eased off.
+var _loose_pitch: float = 0.0
+
+
+## The held aim clip for a pitch, the zone kept until it is well left.
+func _aim_clip() -> StringName:
+	var p := _pitch
+	if _aim_zone == 0:
+		if p > AIM_ZONE_IN and aim_high != &"":
+			_aim_zone = 1
+		elif p < -AIM_ZONE_IN and aim_low != &"":
+			_aim_zone = -1
+	elif _aim_zone == 1 and p < AIM_ZONE_OUT:
+		_aim_zone = 0
+	elif _aim_zone == -1 and p > -AIM_ZONE_OUT:
+		_aim_zone = 0
+	if _aim_zone == 1 and _anim.has_animation(aim_high):
+		return aim_high
+	if _aim_zone == -1 and _anim.has_animation(aim_low):
+		return aim_low
+	return aim_idle
+
+
+## The angle the clip playing now holds the arrow at, followed through the
+## crossfade (Godot's is linear over its blend time).
+func _follow_clip_pitch(delta: float) -> void:
+	var cur := StringName(_anim.current_animation)
+	var to := 0.0
+	if cur != &"" and cur == aim_high:
+		to = AIM_HIGH_PITCH
+	elif cur != &"" and cur == aim_low:
+		to = AIM_LOW_PITCH
+	var blend := AIM_SWAP_BLEND if cur == aim_idle or to != 0.0 else 0.06
+	_clip_pitch = move_toward(_clip_pitch, to, delta * AIM_HIGH_PITCH / blend)
+
+
+func _zone_pitch() -> float:
+	var cur := StringName(_anim.current_animation)
+	if cur != &"" and cur == aim_high:
+		return AIM_HIGH_PITCH
+	if cur != &"" and cur == aim_low:
+		return AIM_LOW_PITCH
+	return 0.0
+
+
+## The chest's tilt that brings the arrow to `want` (rad, + up) over the clip.
+func _chest_for(want: float, delta: float) -> float:
+	var d := arrow_dir()
+	# taken up only once the clip is in: through a crossfade the arrow lags
+	var settled := absf(_clip_pitch - _zone_pitch()) < 0.01
+	if d != Vector3.ZERO and _aim_phase >= 1.0 and _bow_mod.has_string() and settled:
+		var off := want - asin(clampf(d.y, -1.0, 1.0))
+		_trim = clampf(_trim + off * TRIM_RATE * delta, -TRIM_MAX, TRIM_MAX)
+	else:
+		_trim = move_toward(_trim, 0.0, delta * 1.5)
+	return clampf((want - _clip_pitch) / PITCH_GAIN + _trim, -1.25, 1.25)
+#endregion
+
 
 func _configure() -> void:
 	heft_swings = false
@@ -262,6 +347,9 @@ func _mannequin_worn(on: bool) -> void:
 	draw_from = 0.0 if bow.has(&"draw") else DRAW_FROM
 	draw_until = UAL_DRAW_UNTIL if bow.has(&"draw") else 1.0
 	aim_idle = bow.get(&"aim", AIM_IDLE)
+	aim_high = bow.get(&"aim_high", &"")
+	aim_low = AIM_LOW_CLIP if on and bow.has(&"aim") else &""
+	_aim_zone = 0
 	rapid_clip = bow.get(&"rapid", &"")
 	loose_clip = bow.get(&"loose", LOOSE_CLIP)
 	if bow.has(&"loose"):
@@ -270,8 +358,10 @@ func _mannequin_worn(on: bool) -> void:
 	else:
 		loose_from = LOOSE_FROM
 		loose_to = LOOSE_TO
-	if _anim != null and _anim.has_animation(aim_idle):
-		_anim.get_animation(aim_idle).loop_mode = Animation.LOOP_LINEAR
+	if _anim != null:
+		for c: StringName in [aim_idle, aim_high, aim_low]:
+			if c != &"" and _anim.has_animation(c):
+				_anim.get_animation(c).loop_mode = Animation.LOOP_LINEAR
 
 
 func _apply_moves() -> void:
@@ -405,6 +495,7 @@ func loose_bow() -> void:
 	if _aim_phase <= 0.05 and _draw_target <= 0.05:
 		return
 	var tap := _aim_phase < 0.6
+	_loose_pitch = _pitch * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
 	_full_t = -1.0
 	_loose_left = 0.35
 	_drawing_clip = false
@@ -712,7 +803,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		var d := u
 		_bow_mod.draw = d
 		# The chest comes onto the line first, the string after it.
-		_bow_mod.pitch = _skill_pitch * smoothstep(0.1, 0.7, u)
+		_bow_mod.pitch = _skill_pitch * smoothstep(0.1, 0.7, u) / PITCH_GAIN
 		if _skill_t > _skill_nock + _skill_hold + 1.5:
 			_skill_t = -1.0
 	elif _bow_mod != null:
@@ -721,7 +812,15 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			string = clampf((_aim_phase - DRAW_STRING_FROM) / (1.0 - DRAW_STRING_FROM), 0.0, 1.0)
 			string *= maxf(_draw_target, 0.6)
 		_bow_mod.draw = string
-		_bow_mod.pitch = _pitch * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
+		_follow_clip_pitch(delta)
+		if drawing:
+			_bow_mod.pitch = _chest_for(_pitch, delta) * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
+		elif _loose_left > 0.0:
+			# Let go: the bow stays on the line it was shot along and eases off.
+			_bow_mod.pitch = _chest_for(_loose_pitch * smoothstep(0.0, 0.35, _loose_left), delta)
+		else:
+			_trim = 0.0
+			_bow_mod.pitch = move_toward(_bow_mod.pitch, 0.0, delta * 4.0)
 		_bow_mod.pitch += SHAKE_PITCH * shake() * _shake_noise(0.0)
 	if _bow_mod != null:
 		# The mark's flung arm.
@@ -766,7 +865,8 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 		return
 	if _aim_phase > 0.0 and _draw_target > 0.001 and not airborne:
 		if planar < idle_threshold:
-			_set_base(aim_idle, 0.12, 1.0)
+			var held := _aim_clip()
+			_set_base(held, AIM_SWAP_BLEND if held != aim_idle or _base_clip in [aim_high, aim_low] else 0.12, 1.0)
 		else:
 			var clip := _dir4(&"aim_walk", &"aim_walk_back", &"aim_walk_left", &"aim_walk_right")
 			_set_base(clip, 0.15, _rate(clip, planar))
