@@ -80,10 +80,12 @@ const SHADOW_SLIDE := {"clip": &"Sword_Light_D", "rate": 1.1, "weight": 1.6, "ho
 ## 2.16 m ahead, 1.5 m up, straight on; `_shots_tmp/lance_probe.gd`) comes as
 ## he arrives. The slide ends `strike_gap` metres (body to body) off it: the
 ## point goes in at the peak. It cuts when the point reaches it (no reach past
-## the blade's own: `sure_margin` 0).
+## the blade's own: `sure_margin` 0). Its arc (`trail`) only on the thrust,
+## from the creep to just past the peak: the measured window (0.043-0.314)
+## drew a wide white sweep as the blade came back (the user, 2026-10-04).
 const SHADOW_LANCE := {"clip": &"KV_Attack1H05_R", "rate": 1.0, "weight": 1.8, "hold": 0.15, "creep": 0.12,
 	"creep_until": 0.17, "peak": 0.26, "slide_max": 7.0, "slide_blind": 8.0, "strike_gap": 1.7,
-	"sure_margin": 0.0, "lance": true, "string_at": -1}
+	"sure_margin": 0.0, "lance": true, "string_at": -1, "trail": Vector2(0.17, 0.29)}
 ## Kept for the swords to come (the user's word, 2026-10-03: each sword its own
 ## swings), tried in the game as the running cut (`_shots_tmp/runcut_reel.gd`):
 ## KV_Attack1H05_R held wound up like the Rising Cut (a lunge and thrust), and

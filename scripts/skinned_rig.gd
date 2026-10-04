@@ -164,12 +164,11 @@ var swing_sounds: Array[String] = [
 	"res://unverified/sounds/tariel/slash_1.wav", "res://unverified/sounds/tariel/slash_2.wav",
 	"res://unverified/sounds/tariel/slash_3.wav", "res://unverified/sounds/tariel/slash_4.wav",
 ]
-## The older, lighter whooshes: the staff and the hunter's knife keep these.
+## The older, lighter whoosh: the staff and the hunter's knife keep it.
+## (swing_2..7 are silent files, every sample 0 — found 2026-10-04; six of
+## seven swings made no sound. Only swing_1 is left, its pitch varied by Sfx.)
 const LIGHT_SWINGS: Array[String] = [
-	"res://unverified/sounds/tariel/swing_1.wav", "res://unverified/sounds/tariel/swing_2.wav",
-	"res://unverified/sounds/tariel/swing_3.wav", "res://unverified/sounds/tariel/swing_4.wav",
-	"res://unverified/sounds/tariel/swing_5.wav", "res://unverified/sounds/tariel/swing_6.wav",
-	"res://unverified/sounds/tariel/swing_7.wav",
+	"res://unverified/sounds/tariel/swing_1.wav",
 ]
 ## How loud the swing plays, dB. (The user's slashes are ~8 dB hotter than
 ## the old air cuts; the rigs that keep those set their own.)
@@ -1187,6 +1186,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	if not _anim.has_animation(clip):
 		return false
 	_crumpled = false
+	_trail_cut = Vector2.ZERO
 	var length := _anim.get_animation(clip).length
 	# A drag left over from a missed cut is not this clip's, nor a held cut.
 	_drag_left = 0.0
@@ -1257,6 +1257,13 @@ func _in_window(through: float) -> bool:
 	return w != Vector2.ZERO and through >= w.x - cut_margin and through <= w.y + cut_margin
 
 
+## A cut's own trail (its spec's `trail`, shares of the clip), over the clip's
+## measured `trail_window`: the Shadow Lance's arc only on the thrust, not on
+## the blade drawn back after it (the user, 2026-10-04). Cleared by every
+## new action.
+var _trail_cut := Vector2.ZERO
+
+
 ## Inside the clip's `trail_window`: the arc is drawn though the blade may not
 ## be cutting yet (or any more).
 func _in_trail() -> bool:
@@ -1264,7 +1271,7 @@ func _in_trail() -> bool:
 		return false  # wound up and held: no blade moving yet
 	if _role != Role.SWING and _role != Role.PLUNGE and not (_role == Role.ROLL and _evade_cut):
 		return false
-	var w: Vector2 = trail_window.get(_act_clip, Vector2.ZERO)
+	var w: Vector2 = _trail_cut if _trail_cut != Vector2.ZERO else trail_window.get(_act_clip, Vector2.ZERO)
 	if w == Vector2.ZERO:
 		return false
 	var p := _progress()
@@ -1344,6 +1351,7 @@ func attack(style: int = -1) -> void:
 			_hold_at = float(rc.get("hold", -1.0))
 			_hold_creep = float(rc.get("creep", 0.0))
 			_hold_until = float(rc.get("creep_until", _hold_at))
+			_trail_cut = rc.get("trail", Vector2.ZERO)
 			if _hold_at > 0.0:
 				# Wound up and held there while he runs in; the controller
 				# lets it go ([method release_cut]).
@@ -1438,7 +1446,8 @@ func _whoosh_now() -> void:
 	if _sword_mount != null:
 		at = _sword_mount
 	if not heft_swings:
-		Sfx.play_any(self, swing_sounds, at, swing_pitch, swing_volume)
+		# a little pitch each way, so one whoosh is not heard over and over
+		Sfx.play_any(self, swing_sounds, at, swing_pitch * randf_range(0.92, 1.08), swing_volume)
 		return
 	var heft := swing_heft()
 	match heft:

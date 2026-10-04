@@ -7217,3 +7217,17 @@ What does not crumple him:
 
 Test: `tests/dodge_spent_test.gd`. Reel: `_shots_tmp/dodge_reel.gd`.
 
+
+
+### Small things (2026-10-04)
+
+- **The Shadow Lance's arc is drawn only on the thrust.** The spec has
+  `"trail": Vector2(0.17, 0.29)`, which `SkinnedRig._trail_cut` lays over
+  the clip's measured `trail_window` (0.043–0.314). That measured window
+  drew a wide white sweep as the blade came back. `_trail_cut` is cleared by
+  every new action.
+- **`swing_2..7.wav` are silent files,** every sample 0, so the staff's and
+  the hunter's knife's swings made no sound six times in seven. Now
+  `LIGHT_SWINGS` holds only `swing_1`, played ±8 % in pitch (`_whoosh_now`
+  when `heft_swings` is off). No other wav in the game is silent.
+
