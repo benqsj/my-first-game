@@ -162,6 +162,47 @@ func _chest_for(want: float, delta: float) -> float:
 	return clampf((want - _clip_pitch) / PITCH_GAIN + _trim, -1.25, 1.25)
 #endregion
 
+#region The bow kept ready (AVTANDIL_POLISH 2)
+## In a fight (locked on, or within [constant SkinnedRig.EASE_AFTER] of a shot)
+## and standing, the bow is not let down to the waist the way the loose clip
+## ends (its last third drops it there, sideways): the clip is held at
+## `READY_AT`, the bow still out before him after the shot, and the chest
+## leans `READY_DIP` down so it points a little under the line. At ease he
+## stands as before. The next draw is taken up from there, past the nock's
+## start where the bow sits at the waist (`READY_DRAW_FROM`).
+const READY_AT := 0.66
+const READY_DIP := -0.3
+const READY_BLEND := 0.3
+const READY_DRAW_FROM := 0.1
+var bow_ready: bool = true
+var _readying: bool = false
+var _draw_start: float = 0.0
+
+
+## Standing ready: the loose clip run on to `READY_AT` and stopped there, or
+## crossfaded to that frame when coming from anything else.
+func _hold_ready() -> void:
+	var at := _anim.get_animation(loose_clip).length * READY_AT
+	if _anim.current_animation == loose_clip:
+		if not _readying:
+			_readying = true
+			_base_clip = loose_clip
+		var pos := _anim.current_animation_position
+		_anim.speed_scale = 1.3 if pos < at - 0.01 else 0.0
+		return
+	_readying = true
+	_base_clip = loose_clip
+	_anim.play(loose_clip, READY_BLEND)
+	_anim.seek(at, true)
+	_anim.speed_scale = 0.0
+
+
+func _ready_now(planar: float, airborne: bool, blocking: bool) -> bool:
+	return bow_ready and _on_mq and not airborne and not blocking and not _crouching \
+			and planar < idle_threshold and fighting() and _anim.has_animation(loose_clip) \
+			and (moves.get("bow", {}) as Dictionary).has(&"loose")
+#endregion
+
 
 func _configure() -> void:
 	heft_swings = false
@@ -495,6 +536,7 @@ func loose_bow() -> void:
 	if _aim_phase <= 0.05 and _draw_target <= 0.05:
 		return
 	var tap := _aim_phase < 0.6
+	_rouse()
 	_loose_pitch = _pitch * (1.0 if _aim_phase > 0.5 else _aim_phase * 2.0)
 	_full_t = -1.0
 	_loose_left = 0.35
@@ -704,6 +746,7 @@ func charged_shot(hold: float, pitch: float = 0.0, brace: float = 0.0, quick: fl
 
 ## Lets the skill shot go: the ordinary release.
 func loose_skill_shot() -> void:
+	_rouse()
 	_skill_t = -1.0
 	_loose_left = 0.35
 	if _anim != null and _anim.has_animation(loose_clip):
@@ -768,17 +811,22 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			if body != null and body.profile != null:
 				draw_time = maxf(body.profile.draw_time, 0.2)
 			_drawing_clip = true
+			# From the bow kept ready, past the nock's start at the waist.
+			_draw_start = draw_from
+			if _readying and _on_mq:
+				_draw_start = maxf(draw_from, READY_DRAW_FROM)
+			_readying = false
 			_base_clip = draw_clip
 			var clip_len := _anim.get_animation(draw_clip).length
-			_anim.play(draw_clip, 0.08)
-			_anim.seek(clip_len * draw_from, true)
+			_anim.play(draw_clip, 0.12 if _draw_start > draw_from else 0.08)
+			_anim.seek(clip_len * _draw_start, true)
 			# The nock-and-draw at no slower than it was performed; faster when the
 			# profile's draw time asks for it. The power keeps building after.
-			_anim.speed_scale = maxf(clip_len * (draw_until - draw_from) / draw_time, 1.0)
+			_anim.speed_scale = maxf(clip_len * (draw_until - _draw_start) / draw_time, 1.0)
 		if _drawing_clip:
 			var draw_len := _anim.get_animation(draw_clip).length
 			var at := _anim.current_animation_position / draw_len if _anim.current_animation == draw_clip else 1.0
-			var through := (at - draw_from) / maxf(draw_until - draw_from, 0.01)
+			var through := (at - _draw_start) / maxf(draw_until - _draw_start, 0.01)
 			_aim_phase = clampf(through, 0.0, 1.0)
 			if through >= 0.98 or _anim.current_animation != draw_clip:
 				_drawing_clip = false
@@ -820,7 +868,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			_bow_mod.pitch = _chest_for(_loose_pitch * smoothstep(0.0, 0.35, _loose_left), delta)
 		else:
 			_trim = 0.0
-			_bow_mod.pitch = move_toward(_bow_mod.pitch, 0.0, delta * 4.0)
+			_bow_mod.pitch = move_toward(_bow_mod.pitch, READY_DIP if _readying else 0.0, delta * 1.5)
 		_bow_mod.pitch += SHAKE_PITCH * shake() * _shake_noise(0.0)
 	if _bow_mod != null:
 		# The mark's flung arm.
@@ -870,7 +918,12 @@ func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blockin
 		else:
 			var clip := _dir4(&"aim_walk", &"aim_walk_back", &"aim_walk_left", &"aim_walk_right")
 			_set_base(clip, 0.15, _rate(clip, planar))
+		_readying = false
 		return
+	if _ready_now(planar, airborne, blocking):
+		_hold_ready()
+		return
+	_readying = false
 	super(planar, airborne, dashing, vy, blocking)
 
 
