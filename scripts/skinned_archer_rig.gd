@@ -407,41 +407,48 @@ func loose_bow() -> void:
 
 
 #region The moment to let go (AVTANDIL_POLISH 7, being tried)
-## Off until the user has seen it: with it on, a full draw is marked (a glint
-## on the arrowhead and a ting), let go within `PERFECT_WINDOW` of that it is a
-## perfect release, and held on past it the bow starts to shake.
+## Off until the user has seen it: with it on, the string at full draw settles
+## for `SETTLE` before the moment comes; let go within `PERFECT_WINDOW` of it it
+## is a perfect release, and held on past it the bow starts to shake. The moment
+## is marked only for the archer himself, by a small glint on the arrowhead and
+## no sound: whoever he is shooting at must read it off his body, not off a
+## light.
 var release_timing: bool = false
-const PERFECT_WINDOW := 0.3
+const SETTLE := 0.25
+const PERFECT_WINDOW := 0.25
 const SHAKE_RAMP := 1.2
 const SHAKE_PITCH := 0.06
 const SHAKE_TURN := 0.09
-const TING := "res://unverified/sounds/bow/full_draw_ting.wav"
 var _full_t: float = -1.0
 var _shake_t: float = 0.0
+var _glinted: bool = false
 
 
-## 0 not at full draw, 1 a perfect release now, 2 held too long.
+## 0 not yet (or not at full draw), 1 a perfect release now, 2 held too long.
 func release_grade() -> int:
-	if _full_t < 0.0:
+	if _full_t < SETTLE:
 		return 0
-	return 1 if _full_t <= PERFECT_WINDOW else 2
+	return 1 if _full_t <= SETTLE + PERFECT_WINDOW else 2
 
 
 ## How hard the bow shakes, 0 to 1.
 func shake() -> float:
 	if not release_timing or _full_t < 0.0:
 		return 0.0
-	return clampf((_full_t - PERFECT_WINDOW) / SHAKE_RAMP, 0.0, 1.0)
+	return clampf((_full_t - SETTLE - PERFECT_WINDOW) / SHAKE_RAMP, 0.0, 1.0)
 
 
 func _tick_release(delta: float, drawing: bool) -> void:
 	if drawing and _draw_target >= 0.999 and _aim_phase >= 1.0 and _skill_t < 0.0:
 		if _full_t < 0.0:
 			_full_t = 0.0
-			if release_timing:
-				_glint()
+			_glinted = false
 		else:
 			_full_t += delta
+		if release_timing and not _glinted and _full_t >= SETTLE:
+			_glinted = true
+			if _body == null or _body.is_multiplayer_authority():
+				_glint()
 	else:
 		_full_t = -1.0
 	_shake_t += delta
@@ -457,32 +464,20 @@ func _glint() -> void:
 		return
 	var head := MeshInstance3D.new()
 	var ball := SphereMesh.new()
-	ball.radius = 0.035
-	ball.height = 0.07
+	ball.radius = 0.014
+	ball.height = 0.028
 	head.mesh = ball
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1.0, 0.92, 0.6)
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.85, 0.4)
-	mat.emission_energy_multiplier = 6.0
+	mat.albedo_color = Color(1.0, 0.95, 0.75)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	head.material_override = mat
 	head.position = Vector3(0.0, 0.0, -0.8)
 	_bow_mod.arrow.add_child(head)
-	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.85, 0.5)
-	light.light_energy = 4.0
-	light.omni_range = 2.0
-	head.add_child(light)
 	var tw := head.create_tween()
-	tw.tween_property(head, "scale", Vector3.ONE * 2.6, 0.1)
-	tw.tween_property(mat, "albedo_color:a", 0.0, 0.3)
-	tw.parallel().tween_property(head, "scale", Vector3.ONE * 0.5, 0.3)
-	tw.parallel().tween_property(light, "light_energy", 0.0, 0.3)
+	tw.tween_property(head, "scale", Vector3.ONE * 1.8, 0.06)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.18)
 	tw.tween_callback(head.queue_free)
-	if ResourceLoader.exists(TING):
-		Sfx.play(self, TING, self, Vector3.ZERO, 1.0, -10.0)
 #endregion
 
 

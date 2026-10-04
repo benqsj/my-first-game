@@ -177,9 +177,19 @@ func _check_lock() -> void:
 	at_it.y = 0.0
 	_check("and loosing turns him back onto the target",
 			shot.dot(at_it.normalized()) > 0.9, "%.2f" % shot.dot(at_it.normalized()))
-	# That arrow is not part of anything counted later.
+	# That arrow is not part of anything counted later. It comes off the bow
+	# now and may well have hit, and a wolf that has been hit goes for the one
+	# who shot it: a fresh one, where the old one was put, for what follows.
 	await _wait(40)
 	await _clear_arrows()
+	quarry.queue_free()
+	await _wait(2)
+	quarry = _wolf_at(Vector3(9.0, 0.5, 6.0))
+	# and him on his feet, if the old one got to him first
+	for i in 300:
+		if _player.state == Player.State.GROUNDED:
+			break
+		await _wait(1)
 
 	# Back to a known spot before the next lot: the checks above walked him
 	# around, and which enemy is "to the left" depends on where he is standing.
