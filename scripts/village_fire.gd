@@ -117,6 +117,20 @@ func burn_all() -> void:
 				p.restart()
 
 
+## Every burnt building as it is long after the fire: black, but nothing
+## burning, glowing or smoking (no fire is made at all).
+func burnt_out() -> void:
+	for kind: StringName in _burning:
+		var b: Dictionary = _burning[kind]
+		b["lit"] = true
+		b["heat"] = 0.0
+		b["want"] = 0.0
+		b["soot"] = 1.0
+		var mat := b["mat"] as ShaderMaterial
+		mat.set_shader_parameter(&"soot", 1.0)
+		(b["mesh"] as MeshInstance3D).material_overlay = mat
+
+
 ## The nearest burnt building to `at` that is not alight yet (or &"").
 func nearest_unlit(at: Vector3) -> StringName:
 	var best := &""

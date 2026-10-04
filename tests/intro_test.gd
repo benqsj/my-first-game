@@ -44,6 +44,11 @@ func _initialize() -> void:
 			and qp.is_physics_processing() and quiet.get_node_or_null("Intro/Opening") == null)
 	_check("the burnt houses already fallen in", qi.fire != null and qi.fire.is_ruined(&"House6")
 			and qi.fire.is_ruined(&"Marani") and _lit(qi) == 6)
+	var smoking := 0
+	for p: GPUParticles3D in qi.fire.find_children("*", "GPUParticles3D", true, false):
+		if p.emitting:
+			smoking += 1
+	_check("the fire long out: nothing burning or smoking", smoking == 0, "%d emitting" % smoking)
 	_check("armed, the wood as it is", not qp.unarmed and _arms_seen(qp) > 0 and _creatures_seen(quiet, true) > 0)
 	var qd := quiet.get_node("People/Datvi") as Node3D
 	_check("on the square, by Datvi", qp.global_position.distance_to(qd.global_position) < 20.0,

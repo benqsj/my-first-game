@@ -55,8 +55,8 @@ const LIE_DOWN := &"IdleToLay"
 @export var force: bool = false
 ## The films (and the unarmed walk down to the village) — off for now, the
 ## user's word (2026-10-04): a new game starts on the square of the village
-## as the dragon left it, fallen in and black, smoke still going up. The
-## films are kept to be put back.
+## as the dragon left it, fallen in and black, the fire long out (no smoke).
+## The films are kept to be put back.
 @export var films: bool = false
 
 var stage: Stage = Stage.NONE
@@ -114,12 +114,11 @@ func _begin() -> void:
 	await _opening()
 
 
-## No films: the village as it is when he walks in at the end of them — the
-## fire out, the burnt houses fallen in, smoke going up — and him on the
-## square, armed, Datvi's job there to take.
+## No films: the village long after the fire — the burnt houses fallen in
+## and black, nothing burning or smoking — and him on the square, armed,
+## Datvi's job there to take.
 func _aftermath() -> void:
-	fire.burn_all()
-	fire.die_down(0.01)
+	fire.burnt_out()
 	fire.ruin_all()
 	stage = Stage.VILLAGE
 

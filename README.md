@@ -1689,8 +1689,8 @@ checks all of it.
 
 **For now the films are off** (`Intro.films`, false; the user's word,
 2026-10-04). A solo game from the menu starts on the square with the village
-as the films would leave it: the fire out, the burnt houses fallen in and
-black, smoke still going up (`Intro._aftermath`). The hero is armed, and
+long after the fire: the burnt houses fallen in and black, nothing burning
+or smoking (`Intro._aftermath`, `VillageFire.burnt_out`). The hero is armed, and
 Datvi's job is there to take. Everything below is kept to be put back:
 set `films` to true on the level's `Intro` node.
 
