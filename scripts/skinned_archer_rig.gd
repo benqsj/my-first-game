@@ -179,22 +179,28 @@ var _readying: bool = false
 var _draw_start: float = 0.0
 
 
-## Standing ready: the loose clip run on to `READY_AT` and stopped there, or
-## crossfaded to that frame when coming from anything else.
+## Standing ready: the loose clip run on to `READY_AT` and held there, or
+## crossfaded to that frame when coming from anything else. Held by putting
+## it back on the frame every tick, never by stopping the player: a stopped
+## player stops its crossfade too, and he froze in the run he came out of,
+## a foot in the air (the user's word, 2026-10-05).
 func _hold_ready() -> void:
 	var at := _anim.get_animation(loose_clip).length * READY_AT
-	if _anim.current_animation == loose_clip:
-		if not _readying:
-			_readying = true
-			_base_clip = loose_clip
-		var pos := _anim.current_animation_position
-		_anim.speed_scale = 1.3 if pos < at - 0.01 else 0.0
+	if _anim.current_animation != loose_clip:
+		_readying = true
+		_base_clip = loose_clip
+		_anim.play(loose_clip, READY_BLEND)
+		_anim.seek(at, true)
+		_anim.speed_scale = 1.0
 		return
-	_readying = true
-	_base_clip = loose_clip
-	_anim.play(loose_clip, READY_BLEND)
-	_anim.seek(at, true)
-	_anim.speed_scale = 0.0
+	if not _readying:
+		_readying = true
+		_base_clip = loose_clip
+	if _anim.current_animation_position < at - 0.01:
+		_anim.speed_scale = 1.3
+	else:
+		_anim.speed_scale = 1.0
+		_anim.seek(at, true)
 
 
 func _ready_now(planar: float, airborne: bool, blocking: bool) -> bool:
