@@ -69,6 +69,15 @@ var _gravity: float = 6.0
 var _damage: float = 0.0
 var _critical: bool = false
 var _shooter: Node3D = null
+## The air it parts, heard as it goes by (AVTANDIL_POLISH 5): synthesized,
+## on the arrow, carried along with the doppler shift. A few at a time at most,
+## so a volley is not a wall of hiss.
+const WHISTLE := "res://sounds/bow/arrow_whistle.wav"
+const WHISTLE_DB := -15.0
+const MAX_WHISTLES := 4
+static var _whistling: int = 0
+var _whistle: AudioStreamPlayer3D = null
+
 ## Let go at the moment ([method SkinnedArcherRig.release_grade]): told to the
 ## archer with the hit, which he hears a little brighter.
 var perfect: bool = false
@@ -100,8 +109,35 @@ func launch(velocity: Vector3, damage: float, critical: bool, gravity: float,
 	_shooter = shooter
 	_point_along(velocity)
 	_lay_trail()
+	_start_whistle()
 	set_physics_process(true)
 	add_to_group(&"missile")
+
+
+func _start_whistle() -> void:
+	if _whistling >= MAX_WHISTLES or not ResourceLoader.exists(WHISTLE):
+		return
+	_whistle = AudioStreamPlayer3D.new()
+	_whistle.stream = load(WHISTLE)
+	_whistle.volume_db = WHISTLE_DB
+	_whistle.pitch_scale = randf_range(0.92, 1.08)
+	_whistle.unit_size = 2.5
+	_whistle.max_distance = 45.0
+	_whistle.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+	_whistle.bus = &"Master"
+	add_child(_whistle)
+	_whistle.play()
+	_whistling += 1
+	_whistle.tree_exited.connect(func() -> void: _whistling = maxi(_whistling - 1, 0))
+
+
+func _stop_whistle() -> void:
+	if _whistle != null and is_instance_valid(_whistle):
+		var w := _whistle
+		_whistle = null
+		var tw := w.create_tween()
+		tw.tween_property(w, "volume_db", -60.0, 0.05)
+		tw.tween_callback(w.queue_free)
 
 
 ## For a creature watching it come ([Wolf]): where it is, where it is going,
@@ -163,6 +199,7 @@ func _strike(what: Node3D, where: Vector3) -> void:
 				ribbon.queue_free)
 	_trail = null
 	_wake = null
+	_stop_whistle()
 	struck.emit(what, where, _critical)
 
 	if against_heroes:

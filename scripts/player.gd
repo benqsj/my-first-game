@@ -281,6 +281,12 @@ var _vault_peak: float = -INF
 @export_range(-40.0, 40.0) var aim_camera_pitch: float = -4.0
 ## How fast it comes up, and back down again once the string is loosed.
 @export var aim_camera_speed: float = 6.0
+## The view closes in as the string comes back (AVTANDIL_POLISH 5): this many
+## degrees off the field of view at full draw, eased in and back out.
+@export var draw_zoom_degrees: float = 7.0
+@export var draw_zoom_speed: float = 5.0
+var _fov_rest: float = -1.0
+var _draw_zoom_now: float = 0.0
 ## Ground closer than this under the crosshair is not what the player is
 ## shooting at — it is the ground they are standing on.
 @export var aim_min_range: float = 6.0
@@ -475,6 +481,9 @@ var _draw_timer: float = 0.0
 var _drawing: bool = false
 const DRAW_SOUND := "res://unverified/sounds/bow/draw_2.wav"
 const RELEASE_SOUND := "res://unverified/sounds/bow/release_2.wav"
+## The other string's snap, a little louder as recorded (AVTANDIL_POLISH 5):
+## the two taken in turn at random, so shot after shot is not one recording.
+const RELEASE_SOUND_2 := "res://unverified/sounds/bow/release.wav"
 ## The Piercing Arrow's own (the user's recordings in sounds/bow): the cast as
 ## the draw starts, the swell through the hold, the shot, and the wind after.
 const ULT_CAST := "res://sounds/bow/ult_cast.wav"
@@ -893,6 +902,7 @@ func _physics_process(delta: float) -> void:
 	if has_bow():
 		_tick_bow(delta)
 		_level_camera(delta)
+		_draw_zoom(delta)
 
 	# A pull-up is played out by hand: the body is carried along an arc that no
 	# amount of velocity would produce, so nothing else runs while it does.
@@ -2663,7 +2673,10 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
 	if _is_bow():
-		Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, 1.0, -8.0)
+		if randf() < 0.5:
+			Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, randf_range(0.95, 1.06), -8.0)
+		else:
+			Sfx.play(self, RELEASE_SOUND_2, self, Vector3.ZERO, randf_range(0.95, 1.06), -14.0)
 	# A cast has already been played, by `net_cast`.
 	if rig != null and rig.has_method(&"loose_bow") and not rig.has_method(&"cast_lead"):
 		rig.call(&"loose_bow")
@@ -2743,6 +2756,27 @@ func _level_camera(delta: float) -> void:
 			clampf(deg_to_rad(aim_camera_pitch), deg_to_rad(min_pitch_deg),
 					deg_to_rad(max_pitch_deg)),
 			1.0 - exp(-aim_camera_speed * delta))
+
+
+## Closes the view in on the shot as the string comes back, and opens it
+## again after (`draw_zoom_degrees`). Set outright from the resting field of
+## view while it is in, so it never drifts; left alone at rest.
+func _draw_zoom(delta: float) -> void:
+	if camera == null or not camera.current or not _is_bow():
+		return
+	if _fov_rest < 0.0:
+		_fov_rest = camera.fov
+	var want := draw_zoom_degrees * draw_power() if _drawing else 0.0
+	var was := _draw_zoom_now
+	_draw_zoom_now = lerpf(_draw_zoom_now, want, 1.0 - exp(-draw_zoom_speed * delta))
+	if _draw_zoom_now < 0.02 and want <= 0.0:
+		_draw_zoom_now = 0.0
+		if was > 0.0:
+			camera.fov = _fov_rest
+		else:
+			_fov_rest = camera.fov
+		return
+	camera.fov = _fov_rest - _draw_zoom_now
 
 
 ## How far off the level the shot is aimed, in radians, for the rig to lean on.
