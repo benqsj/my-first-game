@@ -47,6 +47,12 @@ static func _measure(who: Node3D) -> Dictionary:
 		if mi == null or mi.mesh == null or not mi.is_visible_in_tree() or _is_overlay(mi, who):
 			continue
 		var local := inv * mi.global_transform * mi.get_aabb()
+		# A skinned mesh's own box is its bind pose's, which can be anything
+		# (the orc's is 4 cm: its model is in other units, put right by its
+		# skeleton): the bones it rides are measured in too.
+		var bones := _bone_box(mi, inv)
+		if bones.size != Vector3.ZERO:
+			local = local.merge(bones)
 		box = local if first else box.merge(local)
 		first = false
 	var info := {}
@@ -65,6 +71,23 @@ static func _measure(who: Node3D) -> Dictionary:
 		info["head_follow"] = _head_attachment(who)
 	who.set_meta(&"_target_points", info)
 	return info
+
+
+## The box the bones of `mi`'s skeleton make, in `inv`'s frame (none when
+## it has no skin), the head's bone given a skull on top of it.
+static func _bone_box(mi: MeshInstance3D, inv: Transform3D) -> AABB:
+	if mi.skin == null or mi.skeleton.is_empty():
+		return AABB()
+	var skel := mi.get_node_or_null(mi.skeleton) as Skeleton3D
+	if skel == null or skel.get_bone_count() == 0:
+		return AABB()
+	var to := inv * skel.global_transform
+	var box := AABB(to * skel.get_bone_global_pose(0).origin, Vector3.ZERO)
+	for i in skel.get_bone_count():
+		box = box.expand(to * skel.get_bone_global_pose(i).origin)
+	# the topmost bone is the head's root, not its crown
+	box.size.y *= 1.06
+	return box
 
 
 ## Health bars, trails and the like hang off a creature without being part of

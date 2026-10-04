@@ -39,6 +39,24 @@ static func play(owner: Node, path: String, where: Node3D = null, at: Vector3 = 
 	return player
 
 
+## A sound not in the world but in the ear of whoever hears it (a hit felt by
+## the archer who made it): no place, no falloff.
+static func play_flat(owner: Node, path: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
+	if owner == null or not owner.is_inside_tree():
+		return
+	var stream := _stream(path)
+	if stream == null:
+		return
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.volume_db = volume_db
+	player.pitch_scale = maxf(pitch * randf_range(0.97, 1.03), 0.05)
+	player.bus = &"Master"
+	owner.add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+
 ## Fades a sound out over `time` and frees it (for one cut short: a draw let
 ## go before it was done).
 static func stop(player: AudioStreamPlayer3D, time: float = 0.06) -> void:

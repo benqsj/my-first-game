@@ -26,6 +26,9 @@ signal target_locked(who: Node3D)
 signal guard_broken
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
+## One of his arrows went into something living, on his own peer only (the
+## HUD's mark): where, whether at the head, whether let go at the moment.
+signal arrow_hit_felt(where: Vector3, head: bool, perfect: bool)
 signal blade_planted(where: Vector3)
 ## A cut of the string went through nothing: its follow-through drags ([member whiff_recovery]).
 signal whiffed
@@ -2574,7 +2577,7 @@ func _loose_arrow() -> void:
 	var quarry := NodePath()
 	if target != null and _targetable(target):
 		quarry = target.get_path()
-	net_loose.rpc(from, heading * speed, damage, critical, quarry, power)
+	net_loose.rpc(from, heading * speed, damage, critical, quarry, power, grade == 1)
 
 
 ## The cast, on every peer: the staff drawn back and brought through. The bolt
@@ -2606,7 +2609,7 @@ func is_evading() -> bool:
 ## dropped arrow is a missed kill.
 @rpc("any_peer", "call_local", "reliable")
 func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
-		quarry: NodePath = NodePath(), power: float = 0.0) -> void:
+		quarry: NodePath = NodePath(), power: float = 0.0, perfect: bool = false) -> void:
 	# Loose in the world rather than under the body, so the arrow does not ride
 	# the archer's own movement after it has left the string. `world_of` is the
 	# same answer blood and severed limbs use for the same question.
@@ -2620,6 +2623,8 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		arrow.global_position = from
 		if arrow.has_method(&"empower"):
 			arrow.call(&"empower", power)
+		if &"perfect" in arrow:
+			arrow.set(&"perfect", perfect)
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
@@ -5254,6 +5259,44 @@ func blade_hit(creature: Node3D, at: Vector3) -> void:
 	net_afflict.rpc(creature.get_path(), &"poison", venom_stack_time, venom_dps, at)
 	if first and creature.has_method(&"react"):
 		creature.call(&"react", &"poison", self, Vector3.ZERO)
+#endregion
+
+
+#region An arrow's hit, felt (AVTANDIL_POLISH 4)
+## The arrow's own sound is where it lands, and from far off is not heard: the
+## archer gets his own, in his ear, and a mark on his screen. The head has a
+## sharper one; a shot let go at the moment a little brighter. Only he hears
+## and sees it: the host decides the hit and sends it to his peer.
+const HIT_FELT_SOUND := "res://sounds/bow/hit_confirm.wav"
+const HEAD_FELT_SOUND := "res://sounds/bow/hit_head.wav"
+const HIT_FELT_DB := -7.0
+const HEAD_FELT_DB := -4.0
+## The arrow's bite on what it went into ([HitFeel]): weaker than any cut.
+const ARROW_BITE := 0.55
+var _felt_at: int = -1000
+
+
+## One of his arrows went into `what` at `where`. Host only ([Arrow]).
+func arrow_landed(what: Node3D, where: Vector3, head: bool, perfect: bool) -> void:
+	if what != null and what.is_inside_tree():
+		net_bite.rpc(what.get_path(), ARROW_BITE * (1.25 if head else 1.0))
+	net_arrow_felt.rpc_id(get_multiplayer_authority(), where, head, perfect)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_arrow_felt(where: Vector3, head: bool, perfect: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	# a volley (the rain) is one sound, not twenty
+	var now := Time.get_ticks_msec()
+	var quiet := now - _felt_at < 60
+	_felt_at = now
+	arrow_hit_felt.emit(where, head, perfect)
+	if quiet:
+		return
+	Sfx.play_flat(self, HEAD_FELT_SOUND if head else HIT_FELT_SOUND, 1.08 if perfect else 1.0,
+			(HEAD_FELT_DB if head else HIT_FELT_DB) + (1.5 if perfect else 0.0))
 #endregion
 
 

@@ -69,6 +69,9 @@ var _gravity: float = 6.0
 var _damage: float = 0.0
 var _critical: bool = false
 var _shooter: Node3D = null
+## Let go at the moment ([method SkinnedArcherRig.release_grade]): told to the
+## archer with the hit, which he hears a little brighter.
+var perfect: bool = false
 var _spent: bool = false
 ## The line down the flight path, and the wider wake either side of it.
 var _trail: SwordTrail
@@ -180,9 +183,15 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# for without it.
 		Blood.splatter(Blood.world_of(self), where, blow.normalized())
 		Sfx.play(self, HITS[randi() % HITS.size()], null, where, randf_range(0.94, 1.06), -14.0)
+		var alive: bool = what.get(&"is_dead") != true
 		# The shooter goes with it: an arrow that hurts something anonymously
 		# leaves the creature no reason to come and find out who fired it.
 		what.call("take_hit", _damage, where, blow, _critical, false, _shooter)
+		# The hit felt by whoever loosed it (AVTANDIL_POLISH 4): the host's copy
+		# tells him, he sends it to the archer's own peer.
+		if alive and multiplayer.is_server() and is_instance_valid(_shooter) \
+				and _shooter.has_method(&"arrow_landed"):
+			_shooter.call(&"arrow_landed", what, where, head_hit(what, where), perfect)
 		# Arrows that land in something ride it rather than hanging in the air
 		# where it used to be — on the bone nearest where it went in, so it goes
 		# with the leg or the head it is in, and down with the body when it
@@ -190,6 +199,21 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# of a physics step is asking the tree to change under the solver that
 		# is walking it.
 		_stick_in.call_deferred(what, where)
+
+
+## Whether the arrow went in at the head: on something big enough to have one
+## ([TargetPoints], three points), no lower than a share of its height under
+## the head point. Height only: the arrow stops on the body's capsule, which
+## stands well out in front of the head bone.
+static func head_hit(what: Node3D, where: Vector3) -> bool:
+	if what == null or not what.is_inside_tree():
+		return false
+	var points := TargetPoints.of(what)
+	if points.size() < 3:
+		return false
+	var reach := clampf((points[2].y - points[0].y) * 0.28, 0.18, 0.45)
+	var up := what.global_transform.basis.y.normalized()
+	return (where - points[2]).dot(up) > -reach
 
 
 ## Where in `what` the arrow stays: the bone of its skeleton nearest the hit
