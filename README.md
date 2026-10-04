@@ -459,6 +459,49 @@ a small glint on the arrowhead, no sound, and only for the archer himself: in
 PvP the other side reads it off his body. A tap plays `Bow_RapidShoot`
 (`tap_style` 1). `AVTANDIL_POLISH.md` has the rest of the plan.
 
+#### Up and down, the bow ready, the hit felt, the kick (2026-10-04, late)
+
+- **Aiming up and down** is the body's, not only the chest's. On the mannequin
+  the held aim is `Bow_Aim_Up` past +0.32 rad, `Bow_Aim_Down` past -0.32 (back
+  under 0.22), crossfaded over 0.22 s. The clips hold the arrow at +0.54 and
+  -0.56 rad (measured, `_shots_tmp/aimpitch_probe.gd`); what is left over goes
+  on the chest (`BowModifier.pitch`) over `PITCH_GAIN` 0.7, the share of the
+  chest's tilt the arrow really follows. Before, it was laid on 1:1 and the bow
+  fell 30% short of the shot (33 degrees up, the arrow at 23). A slow trim from
+  the arrow on the string takes up the rest once the clip is in. The line the
+  shot went along is held through the loose and eased off.
+- **The bow kept ready.** In a fight (locked on, or within `EASE_AFTER` 4 s of a
+  shot or a kick) and standing, the loose clip `Bow_Shoot` is run on to 0.66
+  and held, the bow still out before him, with the chest 0.3 rad down
+  (`READY_AT`, `READY_DIP`). Its last third used to drop the bow to the waist,
+  sideways. At ease he stands as before. The next draw starts from there, past
+  the nock's start where the bow is at the waist (`READY_DRAW_FROM`).
+- **The hit felt.** The arrow's own sound is where it lands and is not heard
+  from afar. Now the host's copy of an arrow that goes into something living
+  calls `Player.arrow_landed` on the shooter. He sends a weak bite to every peer
+  (`HitFeel`, weight 0.55) and `net_arrow_felt` to the archer's own peer: a dry
+  "tuk" in his ear (`sounds/bow/hit_confirm.wav`, synthesized), a sharper one
+  for the head (`hit_head.wav`), a little higher for a perfect release, and one
+  sound for a volley. It also raises `arrow_hit_felt`, which the HUD marks where
+  the arrow went in: four strokes, white; gold for a perfect release; at the
+  head red-orange with a ring. A head hit (`Arrow.head_hit`) is anything no
+  lower than about a quarter of the creature's height under its head point
+  ([TargetPoints]). It is judged by height, because the arrow stops on the
+  capsule, which stands well out in front of the head.
+- **TargetPoints on the orc** measured a 4 cm box: its skinned mesh's bind pose
+  is in other units, put right by the skeleton. So the orc counted as small and
+  every lock on it aimed at 0.8 m, its shins. Skinned meshes now have their
+  skeleton's bones measured in too (`_bone_box`). The orc has legs, belly and
+  head (0.8 / 2.0 / 3.0 m); the ogre and the golem are unchanged.
+- **The kick** is on the block button, since a bow hero has no shield
+  (`Player._kick`). `AV_Melee_Kick` is played from 0.12 to 0.85 at x1.6, with
+  the foot out at 0.47 (0.34 s; measured, `_shots_tmp/kick_probe.gd`). Whatever
+  is within 1.35 m and 60 degrees ahead takes a quarter of a cut and a knock: a
+  brute is thrown `kick_throw` 2.5 m (its shove dies away at 4/s, so the push
+  is worked out from that), a wolf takes `kick_push` 6. The kick costs 14
+  stamina, and the next one waits 1.5 s. It breaks off a draw. The host decides
+  the hit, as for the shield's charge (`net_kick` / `net_kick_landed`).
+
 ### Target lock
 
 `lock_on` takes the enemy nearest the middle of the view — angle first, distance
