@@ -3080,7 +3080,7 @@ func _flinch(blow: Vector3) -> void:
 ## How the push back off the shield goes with a blow's strength (m/s added,
 ## from the lightest to the heaviest; the tower shield takes
 ## `tower_block_share` of it).
-@export var block_shove := Vector2(1.1, 3.4)
+@export var block_shove := Vector2(2.2, 5.5)
 ## The damage (after his armour) at which a blow on the shield is the hardest
 ## there is ([method block_strength] 1); the lightest counts as `BLOCK_LEAST`.
 @export var block_heaviest: float = 18.0
@@ -3111,13 +3111,19 @@ func _feel_block(at: Vector3, blow: Vector3) -> void:
 	ParryFlash.burst(Blood.world_of(self), at, back, lerpf(0.3, 0.75, strength))
 	if rig != null:
 		if rig.has_method(&"block_jolt"):
-			rig.call(&"block_jolt", strength)
+			rig.call(&"block_jolt", strength, -back)
 		if rig.has_method(&"hitstop"):
 			rig.call(&"hitstop", block_hold(strength))
+	# his feet driven back along the ground: dirt off each heel, thrown the way
+	# he slides
+	var feet: Array = rig.call(&"foot_points") if rig != null and rig.has_method(&"foot_points") \
+			else [global_position]
+	for foot: Vector3 in feet:
+		SkidDust.kick(Blood.world_of(self), foot, -back, lerpf(0.45, 1.2, strength))
 	if is_multiplayer_authority() and camera != null and camera.current:
-		# pushed back: away from the striker
-		ImpactFx.knock(camera, -back, lerpf(0.02, 0.07, strength), lerpf(0.015, 0.07, strength),
-				lerpf(0.14, 0.3, strength))
+		# the view jolted back, away from the striker, and shaken: a blow felt
+		ImpactFx.knock(camera, -back, lerpf(0.06, 0.16, strength), lerpf(0.05, 0.15, strength),
+				lerpf(0.24, 0.42, strength))
 	last_block_feel = {"strength": strength, "at": at}
 
 

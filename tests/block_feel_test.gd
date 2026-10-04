@@ -2,9 +2,11 @@ extends SceneTree
 ## TARIEL_POLISH.md 8, a blow on the shield felt, by how hard it was:
 ## - pushed back further by a heavy blow than a light one, less on the tower
 ##   shield;
-## - the guard's jolt (the blocked-impact clip), the hold (his rig and the one
-##   who struck, held together), the sparks off the shield (smaller for a
-##   light blow), the view knocked back;
+## - the shield left where the guard holds it (no clip over it), his back
+##   rocked over away from the blow instead (HitLean), his feet skidding (not
+##   stepping) with dust off his heels; the hold (his rig and the one who
+##   struck, held together), the sparks off the shield (smaller for a light
+##   blow), the view knocked back and shaken;
 ## - the strength 0..1 from the damage.
 ##   Godot --headless --path . --script res://tests/block_feel_test.gd
 
@@ -56,9 +58,12 @@ func _initialize() -> void:
 	print("  heavy ", heavy)
 	_check("pushed back, further by a heavy blow", float(light["shove"]) > 0.8
 			and float(heavy["shove"]) > float(light["shove"]) * 2.0, "%.2f / %.2f m/s" % [light["shove"], heavy["shove"]])
-	var jolt := String(SkinnedRig.BLOCK_HIT) if rig._anim.has_animation(SkinnedRig.BLOCK_HIT) else String(rig.clips[&"hit_blocked"])
-	_check("the guard's jolt plays (the guard's own hit, not a guard broken)", String(light["clip"]) == jolt
-			and String(heavy["clip"]) == jolt, "%s / %s" % [light["clip"], heavy["clip"]])
+	_check("the shield stays as the guard holds it: no clip over it", String(light["clip"]) == String(light["before"])
+			and String(heavy["clip"]) == String(heavy["before"]), "%s / %s" % [light["clip"], heavy["clip"]])
+	_check("his back rocked over away from the blow, harder for a heavy one", float(light["rock"]) > 0.02
+			and float(heavy["rock"]) > float(light["rock"]), "%.3f / %.3f rad" % [light["rock"], heavy["rock"]])
+	_check("his feet skid back, not stepping", bool(light["skid"]) and bool(heavy["skid"]))
+	_check("dust off his heels", int(light["dust"]) >= 2 and int(heavy["dust"]) >= 2, "%d / %d" % [light["dust"], heavy["dust"]])
 	_check("held, longer for a heavy blow", float(light["stop"]) > 0.02 and float(heavy["stop"]) > float(light["stop"]) + 0.04,
 			"%.3f / %.3f s" % [light["stop"], heavy["stop"]])
 	_check("the one who struck is held with him", bool(light["held"]) and bool(heavy["held"]))
@@ -93,6 +98,8 @@ func _block(imp: Fighter, damage: float) -> Dictionary:
 		imp.remove_meta(&"bite_until")
 	await _wait(2)
 	var flashes_before := root.find_children("*", "ParryFlash", true, false).size()
+	var dust_before := root.find_children("*", "SkidDust", true, false).size()
+	var before := (_player.rig as SkinnedRig)._anim.current_animation
 	var cam := _player.camera
 	if cam != null and cam.has_meta(&"nudge"):
 		cam.remove_meta(&"nudge")
@@ -109,7 +116,14 @@ func _block(imp: Fighter, damage: float) -> Dictionary:
 	var got := {"blocking": blocking, "shove": shove, "clip": rig._anim.current_animation, "stop": rig._stop_left,
 			"held": imp.has_meta(&"bite_until"),
 			"sparks": size if root.find_children("*", "ParryFlash", true, false).size() > flashes_before else 0.0,
-			"view": cam != null and cam.has_meta(&"nudge"), "feel": _player.last_block_feel.duplicate()}
+			"view": cam != null and cam.has_meta(&"nudge"), "feel": _player.last_block_feel.duplicate(),
+			"before": before, "skid": rig.skidding(),
+			"dust": root.find_children("*", "SkidDust", true, false).size() - dust_before}
+	# a few frames on: how far his back is thrown over, away from the striker
+	for i in 6:
+		await physics_frame
+	var lean := rig._mq.get("lean") as HitLean
+	got["rock"] = lean.lean().dot(Vector3.UP.cross(away.normalized())) if lean != null else 0.0
 	if not blocking:
 		got["shove"] = -1.0  # the shield was not up
 	Input.action_release("block")

@@ -7089,3 +7089,26 @@ clip. Off the mannequin (another hero's own rig), `flinch()` as before.
 Test: `tests/hit_direction_test.gd` (four sides × light and heavy). Reel:
 `_shots_tmp/hit_dir_reel.gd` (`--write-movie`; a red post marks the striker).
 
+### The blow on the shield, reworked (2026-10-04, the user's notes)
+
+The guard's hit clip (`KV_BlockShield01_Hit`) turned the shield over, and the
+user did not want that. `SkinnedRig.block_jolt(strength, away)` now plays no
+clip: the shield stays where the guard holds it, and the blow goes into his
+body.
+- **His back** is rocked over away from the striker by `HitLean`, at 3 rad/s
+  for the lightest blow and 6.5 for the heaviest (`BLOCK_ROCK`).
+- **His feet skid.** For 0.22 to 0.45 s (`SKID_TIME`, `skidding()`) no walk
+  is laid under the guard, so he slides back on his heels instead of
+  stepping.
+- **The shove is harder:** `block_shove` is now 2.2 to 5.5 m/s (it was 1.1
+  to 3.4).
+- **Dirt goes up off each heel** (`SkidDust.kick`, at `foot_points()`). These
+  are soft, dull puffs thrown the way he slides.
+- **The view is knocked and shaken harder** (`ImpactFx.knock`): 6 to 16 cm,
+  with a shake of 5 to 15 cm over 0.24 to 0.42 s.
+- The sparks, the sound and the hold are as before.
+
+`block_feel_test` checks that the clip under the guard is unchanged and that
+he rocks back, skids and throws dust. Reel: `_shots_tmp/shield_reel.gd --
+<scene> <s> [own]`; `own` films through his own camera, to see the shake.
+

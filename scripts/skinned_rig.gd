@@ -1057,7 +1057,9 @@ func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 	# (a man stepping into his cut) the clip's feet are his, and a walk laid
 	# under them is legs shuffling on the spot under a body that is cutting.
 	var least := idle_threshold if _role != Role.SWING else maxf(idle_threshold, swing_stride_from)
-	var want := under and not airborne and planar > least
+	# shoved back off his shield the feet skid, they do not step
+	_skid_left = maxf(_skid_left - delta, 0.0)
+	var want := under and not airborne and planar > least and _skid_left <= 0.0
 	if want:
 		var clip := _direction_clip(planar)
 		if _anim.has_animation(clip):
@@ -1851,29 +1853,52 @@ func flinch_from(away: Vector3, from: int, heft: float) -> void:
 	last_flinch = {"from": from, "clip": clip, "heft": k}
 
 
-## A blow caught on the raised shield: the guard's jolt, `strength` (0..1, how
-## hard the blow was) deciding how big — a light one a quick shudder, a heavy
-## one the shield driven back and slowly brought up again. Not over a swing,
-## a fall or getting up.
-func block_jolt(strength: float) -> void:
-	if _role == Role.SWING or _role == Role.DOWN or _role == Role.GET_UP or _role == Role.ROLL:
+## A blow caught on the raised shield (TARIEL_POLISH.md 8, as the user asked
+## on 2026-10-04): the shield stays where the guard holds it — no clip, the
+## guard's own hit turned it over — and the blow goes into his body instead,
+## his back rocked over the way it was going (`away`, from whoever struck to
+## him; [HitLean]) and his feet skidding back without stepping for
+## `SKID_TIME` ([method skidding]). `strength` 0..1, how hard the blow was.
+func block_jolt(strength: float, away: Vector3 = Vector3.ZERO) -> void:
+	if _role == Role.DOWN or _role == Role.GET_UP:
 		return
-	# The guard's own hit, the one that goes with the guard he holds (Kevin's,
-	# on the mannequin); else the rig's blocked impact. (The mannequin's
-	# `hit_blocked` is UAL 2's Idle_Shield_Break: the shield flung down and
-	# the sword up — a guard broken, not a blow held.)
-	var clip: StringName = BLOCK_HIT if _anim.has_animation(BLOCK_HIT) else clips.get(&"hit_blocked", &"")
-	if clip == &"" or not _anim.has_animation(clip):
-		return
-	if _on_mq:
-		_rouse()
 	var k := clampf(strength, 0.0, 1.0)
-	# a light blow only the start of the jolt, quick; a heavy one all of it
-	_play_action(clip, Role.HIT, lerpf(2.2, 1.3, k), 0.04, 0.0, lerpf(0.6, 1.0, k))
+	_skid_left = lerpf(0.22, SKID_TIME, k)
+	if not _on_mq:
+		return
+	_rouse()
+	var lean := _mq.get("lean") as HitLean
+	if lean != null and away.length_squared() > 0.0001:
+		lean.strike(away, lerpf(BLOCK_ROCK.x, BLOCK_ROCK.y, k))
 
 
-## The guard's hit ([method block_jolt]).
-const BLOCK_HIT := &"KV_BlockShield01_Hit"
+## How hard a blow on the shield rocks his back over (HitLean, radians a
+## second), from the lightest to the heaviest.
+const BLOCK_ROCK := Vector2(3.0, 6.5)
+## The longest his feet skid under a blow on the shield (seconds).
+const SKID_TIME := 0.45
+var _skid_left: float = 0.0
+
+
+## Whether his feet are skidding back now ([method block_jolt]): not walked.
+func skidding() -> bool:
+	return _skid_left > 0.0
+
+
+## Where his feet are on the ground (the mannequin's ankles, dropped to his
+## soles); his own place under him off it.
+func foot_points() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	var base := global_position
+	if _on_mq and _skel != null:
+		for name: String in ["foot_l", "foot_r"]:
+			var b := _skel.find_bone(name)
+			if b >= 0:
+				var at := _skel.global_transform * _skel.get_bone_global_pose(b).origin
+				out.append(Vector3(at.x, base.y, at.z))
+	if out.is_empty():
+		out.append(base)
+	return out
 
 
 ## A blow thrown back off the shield: the guard's own jolt, played fast — the
