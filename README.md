@@ -1687,8 +1687,15 @@ checks all of it.
 
 ## The story's opening and the burnt village
 
-A solo game started from the menu (Start, not the arena) opens with the
-story instead of putting the hero on the square. The menu leaves word in
+**For now the films are off** (`Intro.films`, false; the user's word,
+2026-10-04). A solo game from the menu starts on the square with the village
+as the films would leave it: the fire out, the burnt houses fallen in and
+black, smoke still going up (`Intro._aftermath`). The hero is armed, and
+Datvi's job is there to take. Everything below is kept to be put back:
+set `films` to true on the level's `Intro` node.
+
+With the films on, a solo game started from the menu (Start, not the arena)
+opens with the story instead of putting the hero on the square. The menu leaves word in
 `Game.story_pending`; the level's `Intro` node (`scripts/intro.gd`) takes it
 and clears it. A level loaded any other way (tests, co-op, the arena) has no
 story, and nothing below happens.

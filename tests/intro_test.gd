@@ -32,10 +32,31 @@ func _initialize() -> void:
 	await _wait(3)
 
 	game.call("choose", &"tariel")
+	# The menu's word with the films off (as the game is now): straight into
+	# the burnt village.
+	game.set("story_pending", true)
+	var quiet: Node3D = load("res://scenes/world/greybox_world.tscn").instantiate()
+	root.add_child(quiet)
+	await _wait(40)
+	var qi := quiet.get_node("Intro") as Intro
+	var qp: Player = quiet.call("player")
+	_check("no films: straight into the village", qi.stage == Intro.Stage.VILLAGE and qp.camera.current
+			and qp.is_physics_processing() and quiet.get_node_or_null("Intro/Opening") == null)
+	_check("the burnt houses already fallen in", qi.fire != null and qi.fire.is_ruined(&"House6")
+			and qi.fire.is_ruined(&"Marani") and _lit(qi) == 6)
+	_check("armed, the wood as it is", not qp.unarmed and _arms_seen(qp) > 0 and _creatures_seen(quiet, true) > 0)
+	var qd := quiet.get_node("People/Datvi") as Node3D
+	_check("on the square, by Datvi", qp.global_position.distance_to(qd.global_position) < 20.0,
+			"%.1f m" % qp.global_position.distance_to(qd.global_position))
+	quiet.queue_free()
+	await _wait(3)
+
+	# The films (kept to be put back), all of them.
 	game.set("story_pending", true)
 	var world: Node3D = load("res://scenes/world/greybox_world.tscn").instantiate()
-	root.add_child(world)
 	var intro := world.get_node("Intro") as Intro
+	intro.films = true
+	root.add_child(world)
 	await _wait(40)
 	_check("the menu's word is taken", not bool(game.get("story_pending")))
 	var player: Player = world.call("player")

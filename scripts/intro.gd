@@ -53,6 +53,11 @@ const LIE_DOWN := &"IdleToLay"
 
 ## Plays even without the menu's word (tests and reels).
 @export var force: bool = false
+## The films (and the unarmed walk down to the village) — off for now, the
+## user's word (2026-10-04): a new game starts on the square of the village
+## as the dragon left it, fallen in and black, smoke still going up. The
+## films are kept to be put back.
+@export var films: bool = false
 
 var stage: Stage = Stage.NONE
 var fire: VillageFire
@@ -100,10 +105,23 @@ func _begin() -> void:
 		fire.dress(houses)
 	fire.restored.connect(_on_restored)
 	_build_goal()
+	set_process(true)
+	if not films:
+		_aftermath()
+		return
 	_player.unarmed = true
 	_hide_arms()
-	set_process(true)
 	await _opening()
+
+
+## No films: the village as it is when he walks in at the end of them — the
+## fire out, the burnt houses fallen in, smoke going up — and him on the
+## square, armed, Datvi's job there to take.
+func _aftermath() -> void:
+	fire.burn_all()
+	fire.die_down(0.01)
+	fire.ruin_all()
+	stage = Stage.VILLAGE
 
 
 func _film(title: String) -> Cutscene:
