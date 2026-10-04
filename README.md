@@ -7191,3 +7191,29 @@ so the shield stays up. A run still turns him the way he runs.
 Test: `tests/lock_strafe_test.gd` (the shield up, walking and running, four
 ways each).
 
+## A dodge spent out (2026-10-04, TARIEL_POLISH.md C2, item 11)
+
+The user's rule: a dodge thrown at the wrong time on the last of his
+stamina, under a heavy blow, drops him to his knee the way a broken guard
+does. `Player._dodge_spent_out(damage)` asks for three things together:
+- **he is winded**: the evade took the last of the stamina (`_winded`);
+- **the blow is heavy**: `block_strength` ≥ `guard_crumple_from` (0.9), the
+  same as a broken guard;
+- **he is out of the evade, but only just**: the blow lands within
+  `dodge_mistime_window` (0.6 s) of its end (`_evade_ended_at`, set in
+  `_end_dash`). The dodge came too early and the blow catches him getting up.
+
+When all three hold, `_crumple(damage, away, false)` runs. The blow lands
+whole, he goes down on one knee and is open (`guard_crumple`).
+
+There is no shield in it, so `net_react(GUARD_BREAK)` carries `away` × 2.
+`_feel_guard_break` then leaves out the shield's sounds and sparks; the hard
+thud, the rush, the blood, the dust and the heavy view jolt stay.
+
+What does not crumple him:
+- a blow inside the evade still goes through empty air;
+- a dodge with breath left, a light blow, or a blow landing later is only a
+  flinch.
+
+Test: `tests/dodge_spent_test.gd`. Reel: `_shots_tmp/dodge_reel.gd`.
+

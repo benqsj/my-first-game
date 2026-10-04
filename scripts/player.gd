@@ -1584,6 +1584,7 @@ func _land_at(dodging: bool) -> float:
 
 func _end_dash() -> void:
 	var dodging := state == State.DODGING
+	_evade_ended_at = _now()
 	is_invulnerable = false
 	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
 	# Bleed off the evade so the player keeps a bit of momentum — unless the
@@ -2960,6 +2961,11 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 				toward.normalized() * maxf(strength, 0.01))
 		return
 
+	if _dodge_spent_out(damage):
+		# rolled out of the way too early, on the last of his breath: the
+		# heavy blow catches him getting up, and down he goes
+		_crumple(damage, away, false)
+		return
 	_combo_landed[combo] = int(_combo_landed[combo]) + 1
 	struck.emit(damage, false)
 	var at := global_position + Vector3.UP * 1.2
@@ -3109,7 +3115,30 @@ func _flinch(blow: Vector3) -> void:
 ## knee, open, and whatever strikes him meanwhile lands too (no guard can be
 ## raised while he is down). Heard as the shield giving way, felt as a hard
 ## jolt of the view.
-func _crumple(damage: float, away: Vector3) -> void:
+## When his last evade ended ([method _end_dash]), for [method _dodge_spent_out].
+var _evade_ended_at: float = -INF
+## How long after an evade ends a heavy blow still finds him getting up out
+## of it (seconds): a dodge thrown too early.
+@export var dodge_mistime_window: float = 0.6
+
+
+## A heavy blow (as heavy as one that breaks a guard, [member
+## guard_crumple_from]) landing just after an evade that ran out his stamina
+## (the user's rule, 2026-10-04: the last of the stamina spent on a dodge,
+## and the dodge mistimed — he came out of it before the blow): it drops him
+## to his knee as a broken guard does ([method _crumple]). A dodge with breath
+## left, or a light blow, is only a blow that lands.
+func _dodge_spent_out(damage: float) -> bool:
+	if not _winded or block_strength(damage) < guard_crumple_from:
+		return false
+	if state == State.DASHING or state == State.DODGING:
+		return false
+	return _now() - _evade_ended_at <= dodge_mistime_window
+
+
+## The guard broken (or, `shield` false, a dodge spent out): see
+## [method _feel_guard_break].
+func _crumple(damage: float, away: Vector3, shield: bool = true) -> void:
 	is_blocking = false
 	block_changed.emit(false)
 	_free_swing = false
@@ -3124,7 +3153,8 @@ func _crumple(damage: float, away: Vector3) -> void:
 		velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 		return
 	guard_broken.emit()
-	net_react.rpc(Reaction.GUARD_BREAK, at, away)
+	# no shield in it (a dodge spent out) rides on the length: 2, not 1
+	net_react.rpc(Reaction.GUARD_BREAK, at, away.normalized() * (1.0 if shield else 2.0))
 
 
 ## The guard beaten aside, seen and heard on every peer ([method _crumple]).
@@ -3138,23 +3168,27 @@ func _feel_guard_break(at: Vector3, away: Vector3) -> void:
 		else:
 			rig.flinch()
 	# the shield giving way: the block struck deep and loud, wood splitting,
-	# a crunch under it and a deep rush of air; then his knee on the ground
+	# a crunch under it and a deep rush of air; then his knee on the ground.
+	# (A dodge spent out has no shield in it: the blow in flesh, the rush.)
+	var shield := away.length() < 1.5
 	var shield_at := at + (-flat) * 0.5
-	Sfx.play(self, BLOCK_SOUND, self, shield_at - global_position, randf_range(0.66, 0.72), -3.0)
-	ImpactFx.strike(self, shield_at, &"wood", 2.0)
-	ImpactFx.strike(self, shield_at, &"stone", 1.8)
+	if shield:
+		Sfx.play(self, BLOCK_SOUND, self, shield_at - global_position, randf_range(0.66, 0.72), -3.0)
+		ImpactFx.strike(self, shield_at, &"wood", 2.0)
+		ImpactFx.strike(self, shield_at, &"stone", 1.8)
 	ImpactFx.thud(self, at, true)
 	ImpactFx.rush(self, self, true, -6.0)
 	get_tree().create_timer(guard_knee_after).timeout.connect(_knee_down_heard)
 	_rig_says(&"hurt")
-	ParryFlash.burst(Blood.world_of(self), shield_at, -flat, 1.0)
+	if shield:
+		ParryFlash.burst(Blood.world_of(self), shield_at, -flat, 1.0)
 	Blood.splatter(Blood.world_of(self), at, (flat + Vector3.UP * 0.3).normalized())
 	for foot: Vector3 in (rig.call(&"foot_points") if rig != null and rig.has_method(&"foot_points") else [global_position]):
 		SkidDust.kick(Blood.world_of(self), foot, flat, 1.0)
 	if is_multiplayer_authority() and camera != null and camera.current:
 		# hard: the whole view thrown and shaken
 		ImpactFx.knock(camera, flat, guard_break_view.x, guard_break_view.y, guard_break_view.z)
-	last_guard_break = {"at": at}
+	last_guard_break = {"at": at, "shield": shield}
 
 
 ## The view's jolt when the guard breaks: how far (m), how much shake (m),
