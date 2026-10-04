@@ -967,11 +967,20 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			if _anim.current_animation_position >= CRUMPLE_KNEE:
 				_anim.speed_scale = 0.0
 		elif _crumpled:
+			# up off his knee: the fall to it played back (the crouch-to-stand
+			# that did it first popped from the knee to a crouch and swung the
+			# sword up over his head, the user's note 2026-10-04)
 			_crumpled = false
 			_end_action()
-			if _anim.has_animation(CRUMPLE_RISE):
-				_play_action(CRUMPLE_RISE, Role.FREE, CRUMPLE_RISE_RATE, 0.18)
-				_recovering = true
+			_role = Role.FREE
+			_recovering = true
+			_act_clip = CRUMPLE
+			_action_len = _anim.get_animation(CRUMPLE).length
+			_action_rate = CRUMPLE_RISE_RATE
+			_action_left = (CRUMPLE_KNEE - CRUMPLE_UP_AT) / CRUMPLE_RISE_RATE
+			_anim.play_backwards(CRUMPLE, 0.0)
+			_anim.seek(CRUMPLE_KNEE, true)
+			_anim.speed_scale = CRUMPLE_RISE_RATE
 		elif _action_left <= 0.0 or released:
 			# A blow of the picked moves with a recovery of its own (UAL 2's
 			# "_Rec"): played after it, if nothing follows and he stands.
@@ -1907,7 +1916,7 @@ func block_jolt(strength: float, away: Vector3 = Vector3.ZERO) -> void:
 ## is snapped back, he reels and goes down on one knee — the warrior's death
 ## (`WR_Death`, "Dying With Front Impact To The Head And Fall On One Knee"),
 ## played fast from the blow to the knee and held there — and gets up after
-## `seconds` all told (`SS_Crouch_To_Stand`). A blow that lands meanwhile
+## `seconds` all told (the fall played back off the knee). A blow that lands meanwhile
 ## rocks his back (HitLean) but does not knock him off his knee.
 ## Returns false off the mannequin (his rig's own flinch played instead).
 func guard_crumple(seconds: float, away: Vector3 = Vector3.ZERO) -> bool:
@@ -1917,8 +1926,7 @@ func guard_crumple(seconds: float, away: Vector3 = Vector3.ZERO) -> bool:
 	_rouse()
 	var length := _anim.get_animation(CRUMPLE).length
 	_play_action(CRUMPLE, Role.HIT, CRUMPLE_RATE, 0.05, CRUMPLE_START / length, 1.0)
-	var rise := _anim.get_animation(CRUMPLE_RISE).length / CRUMPLE_RISE_RATE \
-			if _anim.has_animation(CRUMPLE_RISE) else 0.0
+	var rise := (CRUMPLE_KNEE - CRUMPLE_UP_AT) / CRUMPLE_RISE_RATE
 	_action_left = maxf(seconds - rise, (CRUMPLE_KNEE - CRUMPLE_START) / CRUMPLE_RATE + 0.2)
 	_crumpled = true
 	var lean := _mq.get("lean") as HitLean
@@ -1938,8 +1946,10 @@ const CRUMPLE_FROM_HERO := "warrior"
 const CRUMPLE_START := 0.12
 const CRUMPLE_KNEE := 2.02
 const CRUMPLE_RATE := 1.9
-const CRUMPLE_RISE := &"SS_Crouch_To_Stand"
-const CRUMPLE_RISE_RATE := 0.9
+## Getting up: the fall played back from the knee to `CRUMPLE_UP_AT` (on his
+## feet again, reeling), at this rate; the stand takes it from there.
+const CRUMPLE_UP_AT := 1.5
+const CRUMPLE_RISE_RATE := 1.1
 var _crumpled: bool = false
 
 
@@ -2655,6 +2665,7 @@ func _wear_moves() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(TRIAL_CFG) == OK:
 		_wear_string(int(cfg.get_value(String(polysplit_hero), "string", 0)))
+	_main_string = _worn_string
 	_hilt_ends.clear()
 	_flurry_slot = -1
 	_base_clip = &""
@@ -2669,7 +2680,42 @@ const TRIAL_CFG := "user://trial.cfg"
 ## The other string ([Swordsman] `STRINGS`, F6), kept for next time.
 ## Its name, or "" if there are none.
 func cycle_string() -> String:
-	return _cycle_trial("string", (moves.get("string_sets", []) as Array).size(), _wear_string)
+	var named := _cycle_trial("string", (moves.get("string_sets", []) as Array).size(), _wear_string)
+	_main_string = _worn_string
+	return named
+
+
+## The string the attack button throws (F6's pick) and the one worn now.
+var _main_string: int = 0
+var _worn_string: int = 0
+
+
+## Whether he has a shield in his off hand (his look's "o"): without one there
+## is no guard to raise, and the block button throws the other string
+## ([method wear_other_string]; the user's word, 2026-10-04). Off the
+## mannequin, or a look that says nothing, he has.
+func holds_shield() -> bool:
+	if not _on_mq:
+		return true
+	var o := String(ps_look.get("o", ""))
+	return o == "" or PolysplitLook.kind(o) == &"shield"
+
+
+## How many strings he has to throw ([Swordsman] `STRINGS`).
+func string_count() -> int:
+	return (moves.get("string_sets", []) as Array).size() if _on_mq else 0
+
+
+## Puts on the string the next cut comes from: the one F6 picked (`other`
+## false, the attack button), or the other one (the block button with no
+## shield in hand). A change starts that string from its first cut.
+func wear_other_string(other: bool) -> void:
+	var count := string_count()
+	if count < 2:
+		return
+	var want := (_main_string + (1 if other else 0)) % count
+	if want != _worn_string:
+		_wear_string(want)
 
 
 func _cycle_trial(key: String, count: int, wear: Callable) -> String:
@@ -2692,6 +2738,7 @@ func _wear_string(i: int) -> String:
 	if clips_of.size() != (s["clips"] as Array).size():
 		return ""
 	_strings = [clips_of]
+	_worn_string = clampi(i, 0, sets.size() - 1)
 	flurry.assign(clips_of)
 	moves["recover"] = (s["recover"] as Dictionary).duplicate()
 	_flurry_slot = -1

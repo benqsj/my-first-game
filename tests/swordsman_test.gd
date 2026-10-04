@@ -147,6 +147,8 @@ func _initialize() -> void:
 	# the strings to try: each one A, B, C... in its order
 	for i in (rig.moves["string_sets"] as Array).size():
 		var named := rig._wear_string(i)
+		# as F6 picks it: the attack button's string from now on
+		rig._main_string = i
 		var want: Array = rig.moves["string_sets"][i]["clips"]
 		var seen: Array[StringName] = []
 		for k in 180:

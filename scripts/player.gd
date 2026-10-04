@@ -517,6 +517,9 @@ var _air_swirl: Node3D = null
 var _attack_buffer: float = 0.0
 ## A heavy blow asked for during a swing, as `_attack_buffer` is for a cut.
 var _heavy_buffer: float = 0.0
+## The buffered cut is from the other string (the block button, no shield in
+## hand: [method _other_string_ready]).
+var _buffer_other: bool = false
 ## How many cuts into the current flurry, and whether *this* one keeps its run.
 ## The first swing does; the ones chained off it do not.
 var _swing_chain: int = 0
@@ -1012,6 +1015,10 @@ func _read_actions() -> void:
 				_heavy_buffer = attack_buffer_time
 			else:
 				_attack_buffer = attack_buffer_time
+				_buffer_other = false
+		if _other_string_ready() and Input.is_action_just_pressed("block"):
+			_attack_buffer = attack_buffer_time
+			_buffer_other = true
 		if _has_heavy() and Input.is_action_just_pressed("block"):
 			_heavy_buffer = attack_buffer_time
 		# A light cut that has done its work may be broken off by an evade: the
@@ -1031,7 +1038,7 @@ func _read_actions() -> void:
 	# The shield is only up while the button is held; rolling and sliding drop it.
 	# A character with no shield has nothing to raise.
 	var raised := Input.is_action_pressed("block") and state == State.GROUNDED \
-			and (profile == null or profile.can_block)
+			and _shield_in_hand()
 	if raised:
 		# Raising a shield that is on your back takes it off your back first.
 		_set_weapons_stowed(false)
@@ -1073,12 +1080,15 @@ func _read_actions() -> void:
 		_attack(true)
 	elif _guard_heavy() and _heavy_buffer > 0.0:
 		_attack(true)
+	elif _other_string_ready() and Input.is_action_just_pressed("block"):
+		# No shield in his hand: the block button throws the other string.
+		_string_attack(true)
 	elif not has_bow() and Input.is_action_just_pressed("attack"):
-		_attack()
+		_string_attack(false)
 	elif not has_bow() and _attack_buffer > 0.0:
 		# The swing that was asked for during the last one. Taken the moment the
 		# last one lets go, so a flurry is one press per cut.
-		_attack()
+		_string_attack(_buffer_other)
 
 
 func _process_locomotion(delta: float) -> void:
@@ -2767,6 +2777,39 @@ func _attack(heavy: bool = false) -> void:
 
 ## A second attack button for a hero with no shield to raise (the assassin):
 ## his heavy blows ([member SkinnedRig.heavy]).
+## A shield in his hand to raise: a hero who blocks, with a shield in his
+## off hand (his look's; [method SkinnedRig.holds_shield]). Without one the
+## block button raises nothing (no empty arm held up).
+func _shield_in_hand() -> bool:
+	if profile != null and not profile.can_block:
+		return false
+	return rig == null or not rig.has_method(&"holds_shield") or bool(rig.call(&"holds_shield"))
+
+
+## A hero who would block but has no shield in hand, with more than one
+## string (Tariel): the block button throws the other string, the one F6
+## would pick (the user's word, 2026-10-04).
+func _other_string_ready() -> bool:
+	return profile != null and profile.can_block and not has_bow() and not _shield_in_hand() \
+			and rig != null and rig.has_method(&"string_count") and int(rig.call(&"string_count")) > 1
+
+
+## A cut from the string F6 picked (`other` false) or the other one, the
+## string put on first on every peer.
+func _string_attack(other: bool) -> void:
+	# kept for the press held over (a draw first): it is still this string's
+	_buffer_other = other
+	if not is_committed() and rig != null and rig.has_method(&"wear_other_string"):
+		net_wear_string.rpc(other)
+	_attack()
+
+
+@rpc("authority", "call_local", "reliable")
+func net_wear_string(other: bool) -> void:
+	if rig != null and rig.has_method(&"wear_other_string"):
+		rig.call(&"wear_other_string", other)
+
+
 func _has_heavy() -> bool:
 	if profile == null or profile.can_block or has_bow() or rig == null:
 		return false

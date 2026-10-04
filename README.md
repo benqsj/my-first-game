@@ -7322,3 +7322,28 @@ of the old kit. `village_props_test` checks the props against the new doors.
 Still to come (the same plan): the street, lanes and paths to the doors, a low
 stone wall in place of the fence, the big tree and the spring on the square,
 the new trees, and new villagers.
+
+## Up off his knee; no shield, the other string (2026-10-04)
+
+**Getting up off his knee.** After a broken guard or a dodge spent out,
+`SS_Crouch_To_Stand` popped him from the knee into a crouch and swung the
+sword up over his head. Now the fall itself (`WR_Death`) is played back from
+the knee (2.02 s) to `CRUMPLE_UP_AT` (1.5 s, on his feet again and reeling)
+at ×1.1, as a `FREE` action that a move breaks off. The base pose takes it
+from there.
+
+**With no shield in his hand** (his look's off hand is not a shield:
+`SkinnedRig.holds_shield()`):
+- the block button raises nothing (`Player._shield_in_hand()` gates the
+  guard), so no empty arm is held up;
+- it throws the **other string** instead, the one F6 would pick
+  (`_other_string_ready()`, `_string_attack(true)`). The attack button keeps
+  F6's string.
+
+`SkinnedRig.wear_other_string(other)` puts on the right string before each
+cut, on every peer (`net_wear_string`). A change starts that string from its
+first cut. `_buffer_other` keeps which button a buffered press came from.
+With the shield back, the block button guards again.
+
+Test: `tests/shieldless_test.gd`.
+
