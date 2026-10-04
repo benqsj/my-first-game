@@ -47,10 +47,9 @@ func _initialize() -> void:
 		spots.append(((World.STREET[a] as Vector3) + (World.STREET[a + 1] as Vector3)) * 0.5)
 	spots.append(Vector3(62.0, 0.0, 44.0))  # the spawn
 	spots.append(Vector3(31.0, 0.0, 42.5))  # the gate
-	for x: float in VillageProps.HUTS_SOUTH:
-		spots.append(Vector3(x, 0.0, VillageProps.SOUTH_DOOR_Z + 0.4))
-	for x: float in VillageProps.HUTS_NORTH:
-		spots.append(Vector3(x, 0.0, VillageProps.NORTH_DOOR_Z - 0.4))
+	for d: Array in VillageHouses.doors():
+		var at: Vector2 = d[0] + (d[1] as Vector2) * 0.6
+		spots.append(Vector3(at.x, 0.0, at.y))
 	for node in world.find_children("*", "Node3D", true, false):
 		if node is QuestGiver:
 			spots.append((node as Node3D).global_position)

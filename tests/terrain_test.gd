@@ -65,6 +65,8 @@ func _initialize() -> void:
 			if box.size.x > 100.0 or box.size.z > 100.0:
 				continue
 			var at := box.get_center()
+			if not World.VILLAGE.has_point(Vector2(at.x, at.z)):
+				continue  # out past the fence (the windmill, the ruins): on the ground as it lies
 			if absf(land.height_at(at.x, at.z)) > worst:
 				worst = absf(land.height_at(at.x, at.z))
 				worst_at = str(mi.get_path()).get_slice("Village/", 1) + " " + str(at)

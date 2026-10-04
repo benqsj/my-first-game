@@ -494,19 +494,10 @@ const VILLAGE := Rect2(20.0, 6.0, 96.0, 72.0)
 ## towers) and from the street (z), this much: the lot grows with the houses.
 const SPREAD_FROM := Vector2(30.0, 42.0)
 const SPREAD := Vector2(1.12, 1.4)
-## How much bigger each kind of building is made, across and up: taller than
-## they are wider, so a hut stands two storeys against a man rather than a shed.
-const GROWTH := {
-	"Hut": Vector2(1.5, 1.9),
-	"Barracks": Vector2(1.3, 1.6),
-	"TownCentre": Vector2(1.3, 1.55),
-	"Windmill": Vector2(1.3, 1.55),
-	"WatchTower": Vector2(1.3, 1.5),
-	"GateTower": Vector2(1.25, 1.45),
-	"Wall": Vector2(1.25, 1.35),
-}
-## And each row of houses steps back off the street this far as it grows.
-const ROW_STEP := 4.0
+## The windmill, the one building left of the old kit: out past the south fence
+## on the flat by the fields, made bigger across and up.
+const MILL := Vector2(50.0, -3.0)
+const MILL_GROWTH := Vector2(1.3, 1.55)
 const FENCE_SCENE := "res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/SM_WoodFence.fbx"
 ## Where the gap in the fence is: the west side, between the gate towers, where
 ## the track comes in.
@@ -517,7 +508,7 @@ const BACK_GATE := Vector2(44.0, 57.0)
 ## square (as the village stood before it was spread; spread with it).
 const STREET := [
 	Vector3(36, 0, 42), Vector3(46, 0, 41.5), Vector3(56, 0, 42.5), Vector3(66, 0, 42),
-	Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(90, 0, 40), Vector3(90, 0, 47),
+	Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(78, 0, 46), Vector3(90, 0, 47),
 	Vector3(60, 0, 44), Vector3(50, 0, 43.5),
 ]
 const VILLAGERS := 7
@@ -530,28 +521,17 @@ static func spread(at: Vector3) -> Vector3:
 			SPREAD_FROM.y + (at.z - SPREAD_FROM.y) * SPREAD.y)
 
 
-## Bigger and taller houses, spread out over a bigger lot to make room for them;
-## a fence round the lot with its gate where the track comes in; people.
+## The houses ([VillageHouses]), the windmill out past the fence, a fence round
+## the lot with its gate where the track comes in, the props, people.
 func _dress_village() -> void:
 	var village := get_node_or_null("Level/Village") as Node3D
 	if village == null:
 		return
-	for child in village.get_children():
-		var thing := child as Node3D
-		if thing == null:
-			continue
-		var kind := String(thing.name)
-		var at := spread(thing.position)
-		var grow := Vector2.ONE
-		for key: String in GROWTH:
-			if kind.begins_with(key):
-				grow = GROWTH[key]
-				break
-		if kind.begins_with("Hut") or kind == "Barracks":
-			at.z += -ROW_STEP if thing.position.z < SPREAD_FROM.y else ROW_STEP
-		thing.position = at
-		if grow != Vector2.ONE:
-			_grow_building(thing, Vector3(grow.x, grow.y, grow.x))
+	var mill := village.get_node_or_null("Windmill") as Node3D
+	if mill != null:
+		mill.position = Vector3(MILL.x, Terrain.height_under(MILL.x, MILL.y, 5.0) - 0.15, MILL.y)
+		_grow_building(mill, Vector3(MILL_GROWTH.x, MILL_GROWTH.y, MILL_GROWTH.x))
+	VillageHouses.dress(village)
 	_build_fence(village)
 	VillageProps.dress(village)
 	_settle_villagers(village)

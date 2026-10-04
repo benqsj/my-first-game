@@ -7277,3 +7277,48 @@ since the rig's `attack()` alone is only the swing.
 Test: `tests/imp_blows_test.gd`: every attack lands on a hero standing still
 (two or three of each), and the legs stay at ×1.3 or less.
 
+## The village rebuilt: Kakheti houses, a marani, a smithy, a tower and ruins
+
+The HighLands kit's huts, barracks, town centre, gate towers, walls, crops and
+loose props are gone from `Level/Village`; only the windmill is kept, moved out
+past the south fence onto the flat by the fields (`World.MILL`, 50, -3). The
+hedgerow of oaks that ran along that fence is gone with them. In their place stand twelve
+buildings and three ruins built for the village
+([VillageHouses], `scripts/village_houses.gd`):
+
+- **Nine houses** in the Kakheti way: a stone ground floor, plaster and timber
+  above, a wooden balcony on the street side (some with an outside stone stair
+  up to it, one with a balcony front and back), red round-tile roofs and stone
+  chimneys. No two are alike: 4 to 8 m across, 6 to 10 long, one or two storeys,
+  one all of stone.
+- **The marani** (wine-house and tavern) on the north side of the square, the
+  biggest (8 × 12 m), double doors and a balcony; tables in front of it.
+- **The smithy** by the east gate, its long side open in arches onto a yard by
+  the street (anvil, cauldron, workbench, weapon stand).
+- **A stone tower** by the west gate, four storeys, a banner over the way in.
+- **Three ruins** just outside the fence: a roofless shell, a two-storey house
+  whose upper floor has fallen in, and footings with low wall stubs, rubble
+  round them all.
+
+They are assembled in Blender from Quaternius' Medieval Village MegaKit (CC0)
+by `vepxis-art/village/houses/village.py`, which writes one glb (a node per
+building, each on its own origin with its street side to -X; textures cut to
+1024) and a json beside it: each building's size, the boxes it collides with
+(one round a house; one per standing piece of wall in a ruin), its door and its
+outside stair. `VillageHouses.LAYOUT` places them: the houses face the street
+from both sides, each turned a few degrees off the next. The plan is the
+project doc `claude/village_reconstruction_plan.md`.
+
+[VillageProps] keeps its lists, laid round the new doors
+(`VillageHouses.doors()`), and leaves out anything that would now stand inside
+a wall or under a stair (`VillageHouses.blocked`). The villagers' street spot
+that fell inside the smithy is moved.
+
+Test: `tests/village_houses_test.gd`: every building is in the glb and the
+json, drawn, on the ground and colliding; the street, spawn, gates, square,
+quest givers and every door are open; no two overlap; only the windmill is left
+of the old kit. `village_props_test` checks the props against the new doors.
+
+Still to come (the same plan): the street, lanes and paths to the doors, a low
+stone wall in place of the fence, the big tree and the spring on the square,
+the new trees, and new villagers.

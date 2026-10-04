@@ -39,12 +39,6 @@ const SOLID := [&"Stall_Empty", &"Stall_Cart_Empty", &"Barrel", &"Barrel_Apples"
 		&"Crate_Wooden", &"Table_Large", &"Workbench", &"WeaponStand", &"Dummy",
 		&"Anvil_Log", &"Barrel_Holder", &"Cauldron", &"Prop_Wagon", &"Bench"]
 
-## The huts' x, south row (doors to +z) and north row (doors to -z).
-const HUTS_SOUTH := [39.0, 52.4, 65.8, 79.3]
-const HUTS_NORTH := [45.7, 59.1, 72.6, 86.0]
-const SOUTH_DOOR_Z := 30.6
-const NORTH_DOOR_Z := 52.6
-
 ## [kind, x, z, yaw in degrees (the model's front is +z), height] — the
 ## square, the smithy, the town centre's tables, the windmill and the gate.
 ## Every model's front faces +z at yaw 0.
@@ -73,39 +67,39 @@ const PLACED := [
 	[&"Stool", 71.4, 34.6, 0.0],
 	[&"Stool", 73.4, 34.5, 20.0],
 	[&"Bucket_Wooden_1", 74.5, 36.6, 0.0],
-	# The smithy and the training yard in front of the barracks.
-	[&"Anvil_Log", 93.2, 34.2, -20.0],
-	[&"WeaponStand", 97.4, 33.4, 0.0],
-	[&"Workbench", 101.0, 33.2, -10.0],
-	[&"Cauldron", 99.3, 35.8, 0.0],
-	[&"Barrel", 88.6, 33.2, 0.0],
-	[&"Pickaxe_Bronze", 102.6, 34.1, 80.0],
-	[&"Dummy", 86.0, 36.6, 20.0],
-	[&"Dummy", 83.4, 37.2, -15.0],
-	# Tables in front of the town centre.
-	[&"Table_Large", 93.4, 51.4, 90.0],
-	[&"Stool", 92.3, 50.4, 0.0],
-	[&"Stool", 92.3, 52.4, 40.0],
-	[&"Stool", 94.5, 50.4, 10.0],
-	[&"Stool", 94.5, 52.4, -30.0],
-	[&"Barrel_Holder", 97.2, 55.4, 180.0],
-	[&"Barrel", 95.6, 56.2, 0.0],
-	# The windmill: a wagon and the flour.
-	[&"Prop_Wagon", 95.8, 66.0, 35.0],
-	[&"Bag", 99.0, 67.6, 0.0],
-	[&"Bag", 99.8, 67.0, 70.0],
-	[&"Bag", 99.4, 68.6, -50.0],
-	[&"Crate_Wooden", 97.8, 69.4, 10.0],
+	# The smithy's yard, between its open arches and the street.
+	[&"Anvil_Log", 98.2, 44.6, -20.0],
+	[&"WeaponStand", 95.4, 44.3, 0.0],
+	[&"Workbench", 102.6, 44.4, -10.0],
+	[&"Cauldron", 100.6, 45.4, 0.0],
+	[&"Barrel", 104.9, 44.2, 0.0],
+	[&"Pickaxe_Bronze", 103.6, 45.3, 80.0],
+	# Tables in front of the marani, under its balcony's edge.
+	[&"Table_Large", 65.0, 56.0, 90.0],
+	[&"Stool", 63.9, 55.0, 0.0],
+	[&"Stool", 63.9, 57.0, 40.0],
+	[&"Stool", 66.1, 55.0, 10.0],
+	[&"Stool", 66.1, 57.0, -30.0],
+	[&"Table_Large", 71.0, 56.0, 90.0],
+	[&"Stool", 69.9, 55.0, -20.0],
+	[&"Stool", 72.1, 57.0, 15.0],
+	[&"Barrel_Holder", 76.6, 57.6, 180.0],
+	[&"Barrel", 77.8, 56.6, 0.0],
+	# The windmill out past the south fence: a wagon and the flour.
+	[&"Prop_Wagon", 59.6, 1.0, 35.0],
+	[&"Bag", 58.2, 4.0, 0.0],
+	[&"Bag", 59.0, 4.4, 70.0],
+	[&"Bag", 57.6, 4.9, -50.0],
+	[&"Crate_Wooden", 60.4, 4.6, 10.0],
 	# By the gate: a wagon come in on the track, crates off it.
 	[&"Prop_Wagon", 38.0, 50.6, 100.0],
 	[&"Crate_Wooden", 40.8, 52.4, 5.0],
 	[&"FarmCrate_Empty", 36.2, 52.6, 30.0],
-	# Banners on the gate towers, over the way in.
-	[&"Banner_1", 30.0, 27.6, -90.0, 4.2],
-	[&"Banner_2", 30.0, 56.4, 90.0, 4.2],
+	# A banner on the tower by the gate, over the way in.
+	[&"Banner_1", 23.0, 59.7, 180.0, 4.2],
 ]
 
-## Green round each hut (dx off the door, dz out from the wall, yaw): bushes at
+## Green round each house (dx along its front, dz out from the door, yaw): bushes at
 ## the corners, flowers by the door, stepping stones out to the street.
 const GREEN := [
 	[&"Bush_Common", -5.6, -1.6, 0.0], [&"Bush_Common_Flowers", 5.4, -1.2, 60.0],
@@ -126,7 +120,7 @@ const GREENERY := [
 	[&"Bush_Common_Flowers", 45.0, 19.0, 0.0], [&"Plant_1", 70.0, 20.0, 0.0],
 ]
 
-## What stands at each hut's door (dx off the door, dz out from the wall, yaw).
+## What stands at each house's door (dx along its front, dz out from the door, yaw).
 const AT_DOOR := [
 	[[&"Bench", 3.0, 0.0, 0.0], [&"Barrel", -3.1, 0.1, 0.0], [&"Bucket_Wooden_1", -2.3, 0.6, 0.0]],
 	[[&"Crate_Wooden", -3.2, 0.1, 10.0], [&"FarmCrate_Empty", -3.0, 0.1, 0.0, 0.93], [&"Pot_1", 2.6, 0.4, 0.0]],
@@ -175,27 +169,33 @@ func lay_plaza() -> void:
 	add_child(node)
 
 
-## Every placement as [kind, Transform3D].
+## Every placement as [kind, Transform3D]. Nothing is put where a building
+## stands ([VillageHouses]): the lists were laid for the old huts, and what
+## would now be inside a wall or under a stair is left out.
 static func placements() -> Array:
 	var out: Array = []
 	for p: Array in PLACED:
-		out.append([p[0], _at(p[1], p[2], p[3], p[4] if p.size() > 4 else 0.0)])
+		_keep(out, p[0], _at(p[1], p[2], p[3], p[4] if p.size() > 4 else 0.0))
 	for p: Array in GREENERY:
-		out.append([p[0], _at(p[1], p[2], p[3], 0.0)])
-	for x: float in HUTS_SOUTH:
+		_keep(out, p[0], _at(p[1], p[2], p[3], 0.0))
+	var doors := VillageHouses.doors()
+	for i in doors.size():
+		var at: Vector2 = doors[i][0]
+		var o: Vector2 = doors[i][1]
+		var t := Vector2(o.y, -o.x)
+		var turn := rad_to_deg(atan2(o.x, o.y))
 		for d: Array in GREEN:
-			out.append([d[0], _at(x + d[1], SOUTH_DOOR_Z + d[2], d[3], 0.0)])
-	for x: float in HUTS_NORTH:
-		for d: Array in GREEN:
-			out.append([d[0], _at(x - d[1], NORTH_DOOR_Z - d[2], d[3] + 180.0, 0.0)])
-	for i in HUTS_SOUTH.size():
-		for d: Array in AT_DOOR[i]:
-			out.append([d[0], _at(HUTS_SOUTH[i] + d[1], SOUTH_DOOR_Z + d[2], d[3], d[4] if d.size() > 4 else 0.0)])
-	for i in HUTS_NORTH.size():
-		# The north row mirrored: doors face -z.
-		for d: Array in AT_DOOR[(i + 2) % AT_DOOR.size()]:
-			out.append([d[0], _at(HUTS_NORTH[i] - d[1], NORTH_DOOR_Z - d[2], d[3] + 180.0, d[4] if d.size() > 4 else 0.0)])
+			var p: Vector2 = at + t * float(d[1]) + o * float(d[2])
+			_keep(out, d[0], _at(p.x, p.y, float(d[3]) + turn, 0.0))
+		for d: Array in AT_DOOR[i % AT_DOOR.size()]:
+			var p: Vector2 = at + t * float(d[1]) + o * float(d[2])
+			_keep(out, d[0], _at(p.x, p.y, float(d[3]) + turn, d[4] if d.size() > 4 else 0.0))
 	return out
+
+
+static func _keep(out: Array, kind: StringName, xf: Transform3D) -> void:
+	if not VillageHouses.blocked(Vector2(xf.origin.x, xf.origin.z), 0.3):
+		out.append([kind, xf])
 
 
 static func _at(x: float, z: float, yaw_deg: float, up: float) -> Transform3D:

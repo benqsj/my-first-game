@@ -1,0 +1,9 @@
+The village's buildings. CC0 (public domain).
+
+village_houses.glb / village_houses.json
+  Quaternius, Medieval Village MegaKit [Standard]   https://quaternius.com/packs/medievalvillagemegakit.html
+  Assembled into nine houses, the marani, the smithy, the tower and three ruins
+  by ~/Projects/vepxis-art/village/houses/village.py (Blender):
+      MVK_GLTF=<kit>/glTF Blender -b --python village.py -- export all <out.glb>
+  which also writes the json (sizes, collision boxes, doors, stairs) beside it.
+  Textures cut to 1024.

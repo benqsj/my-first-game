@@ -117,9 +117,8 @@ const HEDGEROW := {
 ## than [PackedVector2Array]s: the packed one has to be *constructed*, and a
 ## constructor call cannot sit in a `const`.
 const HEDGEROWS: Array[Array] = [
-	# The lane down from the settlement to the greybox core.
-	[Vector2(30, 6), Vector2(58, -2), Vector2(92, -8)],
-	# And the rest of the farmed ground, north and south of the settlement.
+	# The farmed ground north and south of the settlement. (The line that ran
+	# along its south fence is gone: the windmill and a ruin stand there now.)
 	[Vector2(72, -30), Vector2(98, -46), Vector2(108, -74)],
 	[Vector2(24, -46), Vector2(58, -56), Vector2(86, -52)],
 	[Vector2(30, -22), Vector2(52, -26), Vector2(70, -22)],
