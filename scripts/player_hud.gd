@@ -63,10 +63,6 @@ var _gain: float = 0.0
 var _gain_time: float = 9.0
 var _up_level: int = 0
 var _up_time: float = 9.0
-## His arrows' hits, marked where they went in ([signal Player.arrow_hit_felt]):
-## [where, head, perfect, age].
-var _hits: Array = []
-const HIT_MARK_TIME := 0.32
 
 const GOLD := Color(0.95, 0.78, 0.36)
 const GOLD_DEEP := Color(0.55, 0.38, 0.12)
@@ -116,10 +112,6 @@ func _ready() -> void:
 	add_child(_death)
 	if player != null:
 		player.skill_used.connect(_on_skill_used)
-		player.arrow_hit_felt.connect(func(where: Vector3, head: bool, perfect: bool) -> void:
-			_hits.append([where, head, perfect, 0.0])
-			if _hits.size() > 8:
-				_hits.pop_front())
 
 
 func _process(delta: float) -> void:
@@ -139,9 +131,6 @@ func _process(delta: float) -> void:
 			_ready_flash[slot] = 0.0
 		_last_left[slot] = left
 		_ready_flash[slot] += delta
-	for h: Array in _hits:
-		h[3] = float(h[3]) + delta
-	_hits = _hits.filter(func(h: Array) -> bool: return float(h[3]) < HIT_MARK_TIME)
 	_said_time += delta
 	_gain_time += delta
 	_up_time += delta
@@ -180,7 +169,6 @@ func _draw_bars() -> void:
 			STAMINA_SPENT if winded else STAMINA, 0.0, Color.TRANSPARENT)
 	_draw_skills()
 	_draw_level()
-	_draw_hits()
 
 
 ## The level: a gilt shield at the head of the bars with the number in it and
@@ -281,39 +269,6 @@ func _draw_level() -> void:
 			_bars.draw_line(from, to, Color(GOLD, 0.7 * a), 1.0)
 			_bars.draw_colored_polygon(PackedVector2Array([to + Vector2(side * 5.0, 0), to + Vector2(0, -3),
 					to + Vector2(-side * 5.0, 0), to + Vector2(0, 3)]), Color(GOLD, 0.8 * a))
-
-
-## A hit: four short strokes round where the arrow went in, white; at the
-## head red-gold, bigger, with a ring; let go at the moment, gold. Out in a
-## third of a second, opening as it goes.
-func _draw_hits() -> void:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return
-	for h: Array in _hits:
-		var where: Vector3 = h[0]
-		if cam.is_position_behind(where):
-			continue
-		var head: bool = h[1]
-		var perfect: bool = h[2]
-		var u := float(h[3]) / HIT_MARK_TIME
-		var at := cam.unproject_position(where)
-		var tint := Color(1.0, 0.98, 0.94)
-		if perfect:
-			tint = Color(1.0, 0.84, 0.36)
-		if head:
-			tint = Color(1.0, 0.42, 0.22) if not perfect else Color(1.0, 0.62, 0.2)
-		tint.a = 1.0 - u * u
-		var size := 1.35 if head else 1.0
-		var gap := (5.0 + 5.0 * u) * size
-		var long := (11.0 if not perfect else 13.0) * size
-		for d: Vector2 in [Vector2(1, 1), Vector2(-1, 1), Vector2(1, -1), Vector2(-1, -1)]:
-			var n := d.normalized()
-			_bars.draw_line(at + n * gap, at + n * (gap + long), Color(0, 0, 0, 0.55 * tint.a), 5.0)
-			_bars.draw_line(at + n * gap, at + n * (gap + long), tint, 3.0)
-		if head:
-			_bars.draw_arc(at, gap + long + 4.0, 0.0, TAU, 28, Color(0, 0, 0, 0.45 * tint.a), 4.0)
-			_bars.draw_arc(at, gap + long + 4.0, 0.0, TAU, 28, tint, 2.0)
 
 
 func _on_skill_used(_slot: int, id: StringName) -> void:

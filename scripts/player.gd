@@ -26,8 +26,9 @@ signal target_locked(who: Node3D)
 signal guard_broken
 signal target_lost
 signal arrow_loosed(power: float, damage: float, critical: bool)
-## One of his arrows went into something living, on his own peer only (the
-## HUD's mark): where, whether at the head, whether let go at the moment.
+## One of his arrows went into something living, on his own peer only: where,
+## whether at the head, whether let go at the moment (for a blood effect to
+## come; the HUD's mark there was taken off, 2026-10-05).
 signal arrow_hit_felt(where: Vector3, head: bool, perfect: bool)
 signal blade_planted(where: Vector3)
 ## A cut of the string went through nothing: its follow-through drags ([member whiff_recovery]).

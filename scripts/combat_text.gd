@@ -7,7 +7,7 @@ extends Node3D
 ##   Wolf" — coloured by how it stands against yours: grey far below, green
 ##   below, white the same, yellow above, red far above.
 ## * **What each blow took off it**, a number that jumps up off it and fades:
-##   white, or for a critical larger, gold and with a "!".
+##   white, or for a critical larger and red, with "CRITICAL" over it.
 ##
 ## Hung under [World] once. It reads, it does not listen: every frame it looks at
 ## each creature near the camera and compares its `health` with last frame's —
@@ -22,6 +22,9 @@ const TAG_RANGE := 24.0
 const NUMBER_RANGE := 45.0
 ## How long a number stays up.
 const NUMBER_LIFE := 1.0
+
+## A critical's red: bright, a little warm, so it reads over blood and bark.
+const CRIT_RED := Color(1.0, 0.2, 0.14)
 
 ## The render layer the words are on — one the map's photograph from above
 ## leaves out ([WorldMap]), so no level or number is caught in it.
@@ -163,14 +166,29 @@ func _number(creature: Node3D, amount: float, critical: bool) -> void:
 	label.render_priority = 3
 	label.outline_render_priority = 2
 	var shown := maxi(roundi(amount), 1)
-	label.text = ("%d!" % shown) if critical else str(shown)
-	label.modulate = Color(1.0, 0.78, 0.2) if critical else Color(1.0, 1.0, 1.0)
+	label.text = str(shown)
+	label.modulate = CRIT_RED if critical else Color(1.0, 1.0, 1.0)
 	add_child(label)
 	var side := _rng.randf_range(-0.45, 0.45)
 	label.global_position = creature.global_position + Vector3(side, _bar_height(creature) + 0.5, 0.0)
 	_numbers.append(label)
 	_ages.append(0.0)
 	_drift.append(Vector3(side * 0.6, 1.0, 0.0))
+	if critical:
+		# The word over the number, going up with it (the user's word, 2026-10-05).
+		var word := label.duplicate() as Label3D
+		word.text = "CRITICAL"
+		word.font_size = 34
+		word.outline_size = 11
+		word.modulate = CRIT_RED
+		add_child(word)
+		# over the number by screen pixels: the labels are a fixed size on
+		# screen, so a lift in metres was nothing at range
+		word.global_position = label.global_position
+		word.offset = Vector2(0.0, 52.0)
+		_numbers.append(word)
+		_ages.append(0.0)
+		_drift.append(Vector3(side * 0.6, 1.0, 0.0))
 
 
 func _age_numbers(delta: float) -> void:
