@@ -2148,7 +2148,7 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 		return
 	_reacted[kind] = now
 	_swipe_lands = -1.0
-	_reeling = parried_stagger if kind == &"knock" else parried_stagger * 0.4
+	_reeling = parried_stagger if kind == &"knock" or kind == &"stun" else parried_stagger * 0.4
 	_swipe_timer = maxf(_swipe_timer, _reeling)
 	net_reel.rpc()
 

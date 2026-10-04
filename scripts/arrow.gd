@@ -78,6 +78,9 @@ const MAX_WHISTLES := 4
 static var _whistling: int = 0
 var _whistle: AudioStreamPlayer3D = null
 
+## The stunning arrow's chance to stun what it goes into ([method
+## Player.arrow_stun]); nothing for an ordinary one.
+var stun_chance: float = 0.0
 ## Let go at the moment ([method SkinnedArcherRig.release_grade]): told to the
 ## archer with the hit, which he hears a little brighter.
 var perfect: bool = false
@@ -228,7 +231,10 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# tells him, he sends it to the archer's own peer.
 		if alive and multiplayer.is_server() and is_instance_valid(_shooter) \
 				and _shooter.has_method(&"arrow_landed"):
-			_shooter.call(&"arrow_landed", what, where, head_hit(what, where), perfect)
+			var head := head_hit(what, where)
+			_shooter.call(&"arrow_landed", what, where, head, perfect)
+			if stun_chance > 0.0 and _shooter.has_method(&"arrow_stun"):
+				_shooter.call(&"arrow_stun", what, head, stun_chance)
 		# Arrows that land in something ride it rather than hanging in the air
 		# where it used to be — on the bone nearest where it went in, so it goes
 		# with the leg or the head it is in, and down with the body when it

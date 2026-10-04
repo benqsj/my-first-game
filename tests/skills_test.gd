@@ -47,8 +47,8 @@ func _check_keys() -> void:
 
 
 func _check_rain() -> void:
-	_check("Avtandil's slots: the mark, the fire arrow, the Rain of Arrows (3), the piercing arrow",
-			_player.skill_in(0) == &"hunters_mark" and _player.skill_in(1) == &"fire_arrow"
+	_check("Avtandil's slots: the mark, the stunning arrow, the Rain of Arrows (3), the piercing arrow",
+			_player.skill_in(0) == &"hunters_mark" and _player.skill_in(1) == &"stun_arrow"
 			and _player.skill_in(2) == &"arrow_rain" and _player.skill_in(3) == &"piercing_arrow")
 	await _wait(30)
 	var fwd := -_player.global_transform.basis.z

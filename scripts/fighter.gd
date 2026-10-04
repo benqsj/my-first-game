@@ -712,6 +712,9 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 	match kind:
 		&"knock":
 			_start(Act.REACT_KNOCK)
+		&"stun":
+			# Stunned: it reels where it stands, as from a parry.
+			_start(Act.REEL)
 		&"burn":
 			if act == Act.NONE or act == Act.BLOCK:
 				_start(Act.REACT_BURN)

@@ -426,7 +426,7 @@ func _arm_blows(what: int) -> void:
 
 ## Arkdeva takes only the knock as a blow: it rears as if parried.
 func _react(kind: StringName) -> void:
-	if kind == &"knock" and act != Act.DEAD:
+	if (kind == &"knock" or kind == &"stun") and act != Act.DEAD:
 		_reel()
 
 

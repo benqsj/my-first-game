@@ -21,8 +21,8 @@ var _player: Player
 func _initialize() -> void:
 	await process_frame
 	await _spawn(&"avtandil")
-	_check("Avtandil's slots: mark, fire, rain, piercing",
-			_player.skill_in(0) == &"hunters_mark" and _player.skill_in(1) == &"fire_arrow"
+	_check("Avtandil's slots: mark, stun, rain, piercing",
+			_player.skill_in(0) == &"hunters_mark" and _player.skill_in(1) == &"stun_arrow"
 			and _player.skill_in(2) == &"arrow_rain" and _player.skill_in(3) == &"piercing_arrow")
 	await _check_mark()
 	await _check_pierce()
@@ -201,7 +201,12 @@ func _check_fire() -> void:
 	await _wait(10)
 	await _ready_up()
 	_player.call("_hold_target", imp)
+	# Fire Arrow is out of his slots (the stunning arrow has its place); it is
+	# put back in slot 2 for this check.
+	var slots := _player.profile.skills
+	_player.profile.skills = PackedStringArray(["hunters_mark", "fire_arrow", "arrow_rain", "piercing_arrow"])
 	_check("the fire arrow goes", _player.use_skill(1))
+	_player.profile.skills = slots
 	var zone: Node = null
 	var burnt := false
 	var reacted := false

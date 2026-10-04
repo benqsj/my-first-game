@@ -643,7 +643,7 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 
 ## How it shows a skill. The plain one: thrown back, it reels.
 func _react(kind: StringName) -> void:
-	if kind == &"knock":
+	if kind == &"knock" or kind == &"stun":
 		_reel()
 
 

@@ -1098,7 +1098,7 @@ func _read_actions() -> void:
 			_jump_buffer_timer = jump_buffer_time
 	# An archer has no shield: the block button is a kick for what has come
 	# too close (AVTANDIL_POLISH 7).
-	if Input.is_action_just_pressed("block") and _can_kick():
+	if kick_on_block and Input.is_action_just_pressed("block") and _can_kick():
 		_kick()
 	if Input.is_action_just_pressed("dash"):
 		# Behind the shield the press is a charge with it, not an evade.
@@ -2558,7 +2558,9 @@ func _tick_bow(delta: float) -> void:
 	if _draw_sound != null and not _drawing:
 		Sfx.stop(_draw_sound)
 		_draw_sound = null
-	var holding := Input.is_action_pressed("attack") and not menu_open and not unarmed
+	# The block button draws too, for the fan of three ([method _fan_ready]).
+	var fanning := _fan_ready() and Input.is_action_pressed("block")
+	var holding := (Input.is_action_pressed("attack") or fanning) and not menu_open and not unarmed
 	# Committed as well as rolling: the beat after the string goes belongs to the
 	# shot that was just taken, and an archer who can start the next draw before
 	# his arm has come down is an archer with no rate of fire to manage.
@@ -2573,6 +2575,7 @@ func _tick_bow(delta: float) -> void:
 		if _shot_timer <= 0.0 and stamina > 0.0:
 			_drawing = true
 			_draw_timer = 0.0
+			_fan_draw = fanning and not Input.is_action_pressed("attack")
 			_set_weapons_stowed(false)
 			if _is_bow():
 				_draw_sound = Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -12.0)
@@ -2668,7 +2671,36 @@ func _loose_arrow() -> void:
 	var quarry := NodePath()
 	if target != null and _targetable(target):
 		quarry = target.get_path()
+	if _fan_draw:
+		# Three, side by side across the shot (none of them hunting), each worth
+		# `fan_share` of what the one would have been.
+		_fan_draw = false
+		_fan_ready_at = _now() + fan_cooldown
+		_spend(fan_stamina)
+		for k in [0, -1, 1]:
+			var way := heading.rotated(up_direction, deg_to_rad(fan_spread) * float(k)).normalized()
+			net_loose.rpc(from, way * speed, damage * fan_share, critical, NodePath(), power, grade == 1, 0.0, k != 0)
+		return
 	net_loose.rpc(from, heading * speed, damage, critical, quarry, power, grade == 1)
+
+
+#region The fan of three (on the block button; AVTANDIL_POLISH 8)
+## The block button, for an archer with no shield, draws as the attack does,
+## and lets three arrows go side by side: `fan_spread` degrees apart across
+## the shot, flat, each `fan_share` of the shot, for a crowd that has come on.
+## Then `fan_cooldown` before the next fan (the attack draws as ever).
+@export_group("Fan of arrows")
+@export var fan_spread: float = 8.0
+@export var fan_share: float = 0.55
+@export var fan_cooldown: float = 2.5
+@export var fan_stamina: float = 8.0
+var _fan_draw: bool = false
+var _fan_ready_at: float = -INF
+
+
+func _fan_ready() -> bool:
+	return _is_bow() and profile != null and not profile.can_block and _now() >= _fan_ready_at
+#endregion
 
 
 ## The cast, on every peer: the staff drawn back and brought through. The bolt
@@ -2700,7 +2732,8 @@ func is_evading() -> bool:
 ## dropped arrow is a missed kill.
 @rpc("any_peer", "call_local", "reliable")
 func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
-		quarry: NodePath = NodePath(), power: float = 0.0, perfect: bool = false) -> void:
+		quarry: NodePath = NodePath(), power: float = 0.0, perfect: bool = false,
+		stun: float = 0.0, quiet: bool = false) -> void:
 	# Loose in the world rather than under the body, so the arrow does not ride
 	# the archer's own movement after it has left the string. `world_of` is the
 	# same answer blood and severed limbs use for the same question.
@@ -2716,14 +2749,23 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 			arrow.call(&"empower", power)
 		if &"perfect" in arrow:
 			arrow.set(&"perfect", perfect)
+		if &"stun_chance" in arrow:
+			arrow.set(&"stun_chance", stun)
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
+	# The fan's other two go with the first: one snap, one loose.
+	if quiet:
+		return
 	if _is_bow():
 		if randf() < 0.5:
 			Sfx.play(self, RELEASE_SOUND, self, Vector3.ZERO, randf_range(0.95, 1.06), -8.0)
 		else:
 			Sfx.play(self, RELEASE_SOUND_2, self, Vector3.ZERO, randf_range(0.95, 1.06), -14.0)
+	if stun > 0.0 and rig != null and rig.has_method(&"loose_skill_shot"):
+		# the stunning arrow is a skill shot, drawn and held as one
+		rig.call(&"loose_skill_shot")
+		return
 	# A cast has already been played, by `net_cast`.
 	if rig != null and rig.has_method(&"loose_bow") and not rig.has_method(&"cast_lead"):
 		rig.call(&"loose_bow")
@@ -3971,6 +4013,9 @@ static func _blade_radius(who: Node3D) -> float:
 ## (a wolf takes it straight onto its speed); a small share of a cut, its
 ## stamina and how soon another.
 @export var kick_throw: float = 2.5
+## The kick is off the block button for now (the user's word, 2026-10-05): the
+## fan of three arrows is there instead ([member fan_share]).
+@export var kick_on_block: bool = false
 @export var kick_push: float = 6.0
 @export var kick_damage: float = 0.25
 @export var kick_stamina: float = 14.0
@@ -4672,6 +4717,7 @@ const SKILLS := {
 	&"hunters_mark": {"name": "Hunter's Mark", "stamina": 12.0, "cooldown": 14.0},
 	&"piercing_arrow": {"name": "Piercing Arrow", "stamina": 30.0, "cooldown": 10.0},
 	&"fire_arrow": {"name": "Fire Arrow", "stamina": 25.0, "cooldown": 12.0},
+	&"stun_arrow": {"name": "Stunning Arrow", "stamina": 22.0, "cooldown": 9.0},
 	&"poison_blade": {"name": "Poisoned Blade", "stamina": 15.0, "cooldown": 18.0},
 	&"rising_cut": {"name": "Rising Cut", "stamina": 22.0, "cooldown": 8.0},
 	&"shadow_slide": {"name": "Shadow Slide", "stamina": 24.0, "cooldown": 9.0},
@@ -4733,6 +4779,8 @@ func use_skill(slot: int) -> bool:
 			went = _piercing_arrow()
 		&"fire_arrow":
 			went = _fire_arrow()
+		&"stun_arrow":
+			went = _stun_arrow()
 		&"poison_blade":
 			went = _poison_blade()
 		&"rising_cut":
@@ -5385,6 +5433,87 @@ func _arrow_tip() -> Vector3:
 	if rig != null and rig.has_method(&"bow_hand"):
 		return rig.call(&"bow_hand")
 	return global_position + up_direction * arrow_height
+
+
+#region Stunning Arrow (in Fire Arrow's slot, the user's word 2026-10-05)
+## A quick drawn shot at what is locked (or ahead) that may stun what it goes
+## into: `stun_chance`, more at the head (`stun_head_bonus`). Stunned, a
+## creature reels where it stands ([Stun]: its own reel, `&"stun"`, with stars
+## over its head) and cannot be stunned again for `stun_immunity` seconds.
+@export_group("Stunning Arrow")
+@export var stun_chance: float = 0.35
+@export var stun_head_bonus: float = 0.25
+@export var stun_share: float = 0.7
+@export var stun_immunity: float = 6.0
+const STUN_HOLD := 0.2
+const STUN_QUICK := 1.6
+
+
+func _stun_arrow() -> bool:
+	if not _is_bow():
+		return false
+	if not _spend(float(SKILLS[&"stun_arrow"]["stamina"])):
+		return false
+	_drawing = false
+	_draw_timer = 0.0
+	_turn_to_target()
+	var nock := float(rig.call(&"nock_lead", 0.0, STUN_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
+	_commit(nock + STUN_HOLD + 0.4)
+	_root(nock + STUN_HOLD + 0.4)
+	net_stun_draw.rpc(_aim_pitch())
+	_stun_loose(nock + STUN_HOLD, _skill_serial)
+	return true
+
+
+## The stunning arrow let go when the draw and the hold are through (cut
+## short if he is hit first, [method _interrupt_skill]).
+func _stun_loose(after: float, serial: int) -> void:
+	await get_tree().create_timer(after, false).timeout
+	if serial != _skill_serial or not is_inside_tree() or is_dead:
+		return
+	var from := _arrow_tip()
+	var speed := profile.arrow_speed if profile != null else 60.0
+	var heading := _shot_heading(from, speed)
+	var damage := (profile.shot_power() if profile != null else 30.0) * stun_share
+	var quarry := NodePath()
+	if target != null and _targetable(target):
+		quarry = target.get_path()
+	net_loose.rpc(from, heading * speed, damage, false, quarry, 1.0, false, stun_chance)
+
+
+## The stunning arrow drawn, on every peer: a skill shot's draw and hold.
+@rpc("any_peer", "call_local", "reliable")
+func net_stun_draw(pitch: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	if rig != null and rig.has_method(&"charged_shot"):
+		rig.call(&"charged_shot", STUN_HOLD, pitch, 0.0, STUN_QUICK)
+
+
+## One of his stunning arrows went into `what` (host, [Arrow]): the roll.
+func arrow_stun(what: Node3D, head: bool, chance: float) -> void:
+	if what == null or not what.is_inside_tree() or what.get(&"is_dead") == true:
+		return
+	if _shot_rng.randf() >= chance + (stun_head_bonus if head else 0.0):
+		return
+	var now := _now()
+	if what.has_meta(&"stun_free_at") and now < float(what.get_meta(&"stun_free_at")):
+		return
+	what.set_meta(&"stun_free_at", now + stun_immunity)
+	if what.has_method(&"react"):
+		what.call(&"react", &"stun", self, Vector3.ZERO)
+	net_stunned.rpc(what.get_path(), Recoil.STAGGER)
+
+
+## Something stunned, on every peer: the stars over its head ([Stun]).
+@rpc("any_peer", "call_local", "reliable")
+func net_stunned(path: NodePath, seconds: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	Stun.show_over(get_node_or_null(path) as Node3D, seconds)
+#endregion
 
 
 #region Fire Arrow

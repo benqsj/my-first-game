@@ -376,6 +376,28 @@ func _icon(id: StringName, rect: Rect2) -> void:
 					tip - side * 3.0 - along * 1.0]), Color(1.0, 0.9, 0.5))
 			for k in 3:
 				_bars.draw_circle(tip - along * (8.0 + 6.0 * k) + side * (3.0 - 3.0 * k), 1.6, Color(1.0, 0.5, 0.1, 0.7))
+		&"stun_arrow":
+			# An arrow flying flat, three little stars going round over it.
+			var gold := Color(1.0, 0.86, 0.3)
+			_bars.draw_line(c + Vector2(-19, 7), c + Vector2(15, 7), ICON, 2.0)
+			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(21, 7), c + Vector2(13, 3),
+					c + Vector2(13, 11)]), ICON)
+			_bars.draw_line(c + Vector2(-19, 7), c + Vector2(-14, 3), Color(0.85, 0.3, 0.25), 2.0)
+			_bars.draw_line(c + Vector2(-19, 7), c + Vector2(-14, 11), Color(0.85, 0.3, 0.25), 2.0)
+			var orbit := PackedVector2Array()
+			for k in 25:
+				var t := TAU * k / 24.0
+				orbit.append(c + Vector2(cos(t) * 12.0, -9.0 + sin(t) * 4.0))
+			_bars.draw_polyline(orbit, Color(gold, 0.45), 1.0)
+			for k in 3:
+				var t := TAU * k / 3.0 + 0.4
+				var at := c + Vector2(cos(t) * 12.0, -9.0 + sin(t) * 4.0)
+				var pts := PackedVector2Array()
+				for j in 10:
+					var r := 4.0 if j % 2 == 0 else 1.7
+					var u := TAU * j / 10.0 - PI * 0.5
+					pts.append(at + Vector2(cos(u), sin(u)) * r)
+				_bars.draw_colored_polygon(pts, gold)
 		&"rising_cut":
 			# A sword brought up from low: the blade up and over, the arc it cut
 			# rising behind it, and the dust of the run at its foot.

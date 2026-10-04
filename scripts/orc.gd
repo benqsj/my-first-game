@@ -720,6 +720,11 @@ func _arm_blows(what: int) -> void:
 ## A skill landing: the orc's own reactions. Only a knock stops what he is
 ## doing; the rest wait for him to be free.
 func _react(kind: StringName) -> void:
+	if kind == &"stun":
+		# Stunned: he reels where he stands, as from a parry.
+		if act != Act.REACT_KNOCK:
+			_reel()
+		return
 	if not REACT_OF.has(kind):
 		return
 	var what: int = REACT_OF[kind]
