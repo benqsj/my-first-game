@@ -1140,7 +1140,7 @@ func _pick_base(planar: float, airborne: bool, _dashing: bool, _vy: float, block
 ## Which cycle fits the way the body is actually travelling relative to where it
 ## faces — forwards, backwards, or sideways while locked on to something.
 func _direction_clip(planar: float) -> StringName:
-	var run := planar > run_threshold
+	var run := planar > _run_from()
 	var body := _body as CharacterBody3D
 	if body == null:
 		return clips[&"run"] if run else clips[&"walk"]
@@ -1166,12 +1166,36 @@ func _direction_clip(planar: float) -> StringName:
 		return clips[&"run_left"] if run else clips[&"walk_left"]
 	if fwd < 0.0:
 		return clips[&"run_back"] if run else clips[&"walk_back"]
-	# the picked sprint only past his own run (the controller has no sprint of
-	# its own: at his run's pace Kevin's sprint was his run, legs flung wide)
+	# The jog and the sprint (the user's word, 2026-10-04): with nothing held
+	# he jogs (Kevin's run), with Shift he runs (Kevin's sprint), the one
+	# going over to the other halfway between the two paces.
+	if _on_mq and run and _body != null and _body.get(&"jog_speed") != null:
+		var jog: StringName = clips.get(&"jog", &"")
+		var fast: StringName = clips.get(&"sprint", clips[&"run"])
+		if not _anim.has_animation(fast):
+			fast = clips[&"run"]
+		if _anim.has_animation(jog):
+			return fast if planar > _sprint_from() else jog
+	# the picked sprint only past his own run (a body with no jog: at his
+	# run's pace Kevin's sprint was his run, legs flung wide)
 	if _on_mq and run and clips.has(&"sprint") and _body != null and _body.get(&"run_speed") != null \
 			and planar > float(_body.get(&"run_speed")) * 1.1:
 		return clips[&"sprint"]
 	return clips[&"run"] if run else clips[&"walk"]
+
+
+## The pace the legs go over from the walk to the jog: halfway between the
+## body's walk and jog when it has a jog (its `run_threshold` set by the
+## clips' paces is past a jog for a hero whose run is Kevin's sprint).
+func _run_from() -> float:
+	if _body == null or _body.get(&"jog_speed") == null or _body.get(&"walk_speed") == null:
+		return run_threshold
+	return minf(run_threshold, 0.5 * (float(_body.get(&"walk_speed")) + float(_body.get(&"jog_speed"))))
+
+
+## The pace the legs go over from the jog to the sprint: halfway between them.
+func _sprint_from() -> float:
+	return 0.5 * (float(_body.get(&"jog_speed")) + float(_body.get(&"run_speed")))
 
 
 ## From this pace (m/s) behind the raised shield his legs jog (`guard_jog`,

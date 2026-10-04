@@ -91,6 +91,7 @@ add actions in **Project → Project Settings → Input Map**. All keys are boun
 | `jump`         | Space       | A / Cross        | 0.5      |
 | `dash`         | Shift       | B / Circle       | 0.5      |
 | `walk`         | Ctrl        | Left shoulder    | 0.5      |
+| `sprint`       | Shift       | —                | 0.5      |
 | `crouch`       | C           | Left stick click | 0.5      |
 | `stow`         | Q           | Y / Triangle     | 0.5      |
 | `lock_on`      | E           | Right stick click | 0.5     |
@@ -124,6 +125,17 @@ lost between physics ticks and simulated input works in tests.
 
 ## Controller notes
 
+- **Jog, run, walk** (the user's word, 2026-10-04). With nothing held he
+  **jogs**: `jog_speed` = `run_speed` x `jog_share` (0.66), Kevin's
+  `KV_Run01_Forward` near its own pace. **Shift** (`sprint`) is his whole
+  `run_speed`, Kevin's `KV_Sprint01_Forward`, and costs `sprint_stamina`
+  (12/s) while he is really going at it (on the ground, faster than the jog);
+  run dry he is winded and jogs until a fifth of the stamina is back. No
+  sprint crouched, behind the shield, with the string drawn or walking
+  (`walk`, Ctrl on a Mac, Alt elsewhere). The legs go walk -> jog halfway
+  between `walk_speed` and `jog_speed`, jog -> sprint halfway between
+  `jog_speed` and `run_speed` (`SkinnedRig._run_from`, `_sprint_from`). The
+  running cut (`run_cut_pace` of `run_speed`) is thrown only out of a sprint.
 - **Camera-relative movement.** `get_movement_direction()` builds the direction
   from the rig's basis, flattened on Y, so W is always "away from camera".
 - **Jump.** `jump_height` is in metres and converted to an impulse from the
@@ -3395,7 +3407,7 @@ standing where it falls, the locked one first; spread evenly, a volley over a
 wolf would mostly miss it. `tests/skills_test.gd`.
 
 **The evade's key** (`Controls`, applied by `Game` at start): **Command** on a
-Mac, **Control** everywhere else; walking goes to Shift off a Mac (on a Mac it
+Mac, **Control** everywhere else; walking goes to Alt off a Mac (Shift is the sprint since 2026-10-04) (on a Mac it
 stays on Control). The gamepad is untouched. Command-Q during play does not
 quit (Q puts the weapons away, and is pressed while evading); any other way of
 closing the window does.

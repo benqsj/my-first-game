@@ -40,6 +40,9 @@ const COMPANIONS := {
 	&"walk_bl": &"KV_Walk01_BackwardLeft", &"walk_br": &"KV_Walk01_BackwardRight",
 	# a jog behind the raised shield: Kevin's run, slow, under the guard
 	&"guard_jog": &"KV_Run01_Forward",
+	# the jog, with nothing held (Shift is the sprint, the user's word,
+	# 2026-10-04)
+	&"jog": &"KV_Run01_Forward",
 }
 const BLOCK_HIT := {
 	&"two_hands": &"KV_Parry2H01_Hit", &"knives": &"KV_ParryDW01_Hit", &"spear": &"KV_ParryPolearm01_Hit",

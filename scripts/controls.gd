@@ -5,7 +5,9 @@ extends RefCounted
 ##
 ## * **The evade** is on the thumb: **Command** on a Mac, **Control**
 ##   everywhere else. Walking, which Control used to do off a Mac, goes to
-##   Shift there; on a Mac it stays on Control.
+##   Alt there; on a Mac it stays on Control.
+## * **The sprint** is on **Shift** (held; it costs stamina). With nothing
+##   held he jogs.
 ## * **The skills** are on **1, 2, 3, 4** (`skill_1`..`skill_4`), the four
 ##   squares at the bottom of the screen.
 ##
@@ -25,13 +27,18 @@ static func dodge_key() -> Key:
 
 
 static func walk_key() -> Key:
-	return KEY_CTRL if is_mac() else KEY_SHIFT
+	return KEY_CTRL if is_mac() else KEY_ALT
+
+
+static func sprint_key() -> Key:
+	return KEY_SHIFT
 
 
 ## Puts the machine's keys in the input map. Safe to call more than once.
 static func apply() -> void:
 	_keys(&"dash", [dodge_key()])
 	_keys(&"walk", [walk_key()])
+	_keys(&"sprint", [sprint_key()])
 	for i in SKILL_KEYS.size():
 		var action := StringName("skill_%d" % (i + 1))
 		if not InputMap.has_action(action):

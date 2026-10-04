@@ -181,6 +181,7 @@ func _check_run_cut() -> void:
 	_check("standing, the first cut is A", rig.current_swing() == Swordsman.STRING[0], "(%s)" % rig.current_swing())
 	await _settle()
 	await _frames(40)
+	Input.action_press("sprint")
 	Input.action_press("move_forward")
 	await _frames(70)
 	var pace := Vector2(player.velocity.x, player.velocity.z).length()
@@ -202,6 +203,7 @@ func _check_run_cut() -> void:
 		if s != &"" and s != seen[seen.size() - 1]:
 			seen.append(s)
 	Input.action_release("move_forward")
+	Input.action_release("sprint")
 	_check("it cuts", cut)
 	_check("the next press is the string's B", seen.size() > 1 and seen[1] == Swordsman.STRING[1], str(seen))
 	await _settle()

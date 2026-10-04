@@ -50,7 +50,8 @@ func _initialize() -> void:
 		rig._set_run(StringName(args[1]))
 	await _soles_flat(rig, player)
 	var lowest := {}
-	var paces: Array = [["walk", ["walk", "move_forward"]], ["run", ["move_forward"]]]
+	var paces: Array = [["walk", ["walk", "move_forward"]], ["jog", ["move_forward"]],
+			["sprint", ["sprint", "move_forward"]]]
 	if player.profile != null and player.profile.can_block:
 		paces.append(["guarded walk", ["block", "move_forward"]])
 	for pace: Array in paces:
@@ -96,6 +97,16 @@ func _initialize() -> void:
 		slides.sort()
 		var median := slides[int(slides.size() * 0.5)] if not slides.is_empty() else INF
 		var speed := Vector2(player.velocity.x, player.velocity.z).length()
+		if pace[0] == "jog":
+			_check("with nothing held he jogs (Kevin's run, at his jog's pace)",
+					clip == "KV_Run01_Forward" and absf(speed - player.jog_speed) < 0.3
+					and player.stamina >= player.max_stamina - 0.01,
+					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.jog_speed, player.stamina])
+		if pace[0] == "sprint":
+			_check("Shift: the sprint at his run's pace, the stamina going",
+					clip == "KV_Sprint01_Forward" and absf(speed - player.run_speed) < 0.4
+					and player.stamina < player.max_stamina * 0.85,
+					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.run_speed, player.stamina])
 		_check("%s: the standing foot stays put" % pace[0], median < SLIDE_OK,
 				"(%s at x%.2f, %.1f m/s: the standing foot slides %.2f m/s)" % [clip, rates[rates.size() - 1], speed, median])
 		for i in 30:

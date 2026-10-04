@@ -48,8 +48,20 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 @export_group("Movement")
 ## Speed while the walk modifier is held.
 @export var walk_speed: float = 3.6
-## Speed with no modifier held — running is the default gait.
+## Speed with the sprint held (Shift): his whole run, paid for in stamina
+## (`sprint_stamina`). With no modifier he jogs (`jog_share` of it).
 @export var run_speed: float = 7.2
+## The pace with no modifier held, as a share of `run_speed`: a jog, Kevin's
+## run played near its own pace; Shift is the run, Kevin's sprint (the user's
+## word, 2026-10-04: going off at once at a run was too fast).
+@export_range(0.3, 1.0) var jog_share: float = 0.66
+## Stamina a second the sprint costs while he is really going at it. Run dry
+## and he is winded: he jogs until it has come back past a fifth.
+@export var sprint_stamina: float = 12.0
+## The jog's pace, m/s (`run_speed` x `jog_share`, set with the profile).
+var jog_speed: float = 4.75
+## Going at a sprint this tick (the key held, moving, the stamina there).
+var sprinting: bool = false
 ## How hard the character can change its ground velocity. High values are what
 ## keep a fast run from sliding on through a turn or a release.
 @export var ground_acceleration: float = 60.0
@@ -962,6 +974,7 @@ func _spawn_character() -> void:
 
 	run_speed = profile.run_speed
 	walk_speed = profile.walk_speed
+	jog_speed = run_speed * jog_share
 	dash_speed = profile.dash_speed
 	dash_duration = profile.dash_duration
 	dodge_speed = profile.dodge_speed
@@ -1134,7 +1147,9 @@ func _read_unarmed() -> void:
 
 func _process_locomotion(delta: float) -> void:
 	var direction := get_movement_direction()
-	var speed := walk_speed if Input.is_action_pressed("walk") else run_speed
+	var walking := Input.is_action_pressed("walk")
+	sprinting = _wants_sprint(direction, walking)
+	var speed := walk_speed if walking else (run_speed if sprinting else jog_speed)
 	if _crouching:
 		speed = crouch_speed
 	# Nobody aims at a sprint. Holding the string costs most of the run, which is
@@ -1178,6 +1193,12 @@ func _process_locomotion(delta: float) -> void:
 		speed = 0.0
 	var on_floor := is_on_floor()
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
+	# The sprint costs only while it is a sprint: on the ground, faster than
+	# the jog (not slowed by a swing, the draw, the shield).
+	if sprinting and on_floor and speed > jog_speed:
+		_spend(sprint_stamina * delta)
+	elif sprinting and speed <= jog_speed:
+		sprinting = false
 
 	# A ledge met in mid-air is taken without asking, so running at a wall and
 	# jumping is enough to get over it. A face too tall to be mantled is caught
@@ -4324,6 +4345,17 @@ func net_move_sound(kind: int, strength: float) -> void:
 	if kind == MoveSound.LAND:
 		volume += lerpf(0.0, 7.0, clampf(strength, 0.0, 1.0))
 	Sfx.play(self, MOVE_SOUNDS[kind], self, Vector3.ZERO, 1.0, volume)
+
+
+## Shift held, going somewhere, on his feet and with stamina to spend: not
+## walking, crouched, behind the shield or with the string drawn, and not
+## winded (run dry, he jogs until a fifth of it is back).
+func _wants_sprint(direction: Vector3, walking: bool) -> bool:
+	if walking or direction.is_zero_approx() or _crouching or is_blocking or _drawing:
+		return false
+	if not InputMap.has_action(&"sprint") or not Input.is_action_pressed(&"sprint"):
+		return false
+	return stamina > 0.0 and not _winded
 
 
 func _now() -> float:
