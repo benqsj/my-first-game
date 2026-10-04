@@ -17,6 +17,11 @@ extends StaticBody3D
 ## it: every mesh standing in `Level` (the settlement, the tower, the greybox
 ## core), the spawn marks, the creatures already placed, the camps
 ## ([constant World.CAMPS]) and the wood's clearings ([constant Forest.CLEARINGS]).
+## The village's lot is the exception: it keeps a third of the roll and lies on
+## its own gentle slope ([member village_tilt], [member village_lie]): up to the
+## wood behind it, knolls under the tower and the east end. Each building and the
+## square stand level on their own pads, at the height the slope has there; the
+## square (and the spawn on it) stays at 0.
 ## The worn tracks ([Paths]) keep a little of the roll, a fifth, so a path runs
 ## over the land instead of cutting through it. The flatness is worked out once,
 ## at load, into a coarse grid ([member mask_cell]) and read bilinearly.
@@ -77,6 +82,21 @@ extends StaticBody3D
 @export var village_roll: float = 0.35
 ## Over how far a building's pad rises back into the village's roll.
 @export var pad_fade: float = 5.0
+## The village's own lie of the land, on top of what is left of the roll (the
+## square stays at 0, where the spawn marks are): it climbs gently to the north,
+## towards the wood behind it, and a little to the east; falls away to the
+## south fields; with a knoll under the tower and one under the east end.
+## Rise per metre north and east of the square's middle:
+@export var village_tilt := Vector2(0.012, 0.05)
+## The square's middle (x, z): the lie is 0 there.
+@export var village_heart := Vector2(63.0, 43.2)
+## Knolls and dips in the lot (x, z, radius, height).
+@export var village_lie: Array[Vector4] = [
+	Vector4(34.0, 58.0, 14.0, 1.0),   # the west end of the north row
+	Vector4(100.0, 58.0, 12.0, 0.8),  # the east end of the north row
+	Vector4(46.0, 22.0, 12.0, -0.6),  # a dip behind the south row
+	Vector4(86.0, 66.0, 12.0, 0.6),   # behind the north row, towards the wood
+]
 ## Resolution of the flatness grid.
 @export var mask_cell: float = 2.0
 ## The materials the ground can wear: [0] the house style, [1] realistic,
@@ -95,6 +115,11 @@ var _mask_n: int = 0
 ## Rows of the flatness grid (it runs further north than it is wide).
 var _mask_nz: int = 0
 var _track := PackedFloat32Array()
+## The village's lie (m), added under the rest: see [member village_tilt].
+var _base := PackedFloat32Array()
+## How much of a pad holds each cell (1 its flat, fading out): where two pads
+## meet, the one that holds a cell more keeps its level there.
+var _padded := PackedFloat32Array()
 var _meshes: Array[MeshInstance3D] = []
 
 
@@ -175,7 +200,7 @@ func height_at(x: float, z: float) -> float:
 		# Past the square: the lands round it, where there are any.
 		return Lands.height(x, z)
 	var h := raw_at(x, z)
-	return h * _flat_at(x, z) * _seam(z)
+	return (h * _flat_at(x, z) + _grid_at(_base, x, z)) * _seam(z)
 
 
 ## The relief before anything is flattened.
@@ -209,6 +234,10 @@ func _build_mask() -> void:
 	_mask.fill(1.0)
 	_track.resize(_mask_n * _mask_nz)
 	_track.fill(0.0)
+	_base.resize(_mask_n * _mask_nz)
+	_base.fill(0.0)
+	_padded.resize(_mask_n * _mask_nz)
+	_padded.fill(0.0)
 	var world := _world()
 	var level := get_parent()
 	# What the village puts up is put up after this, and laid out below; the
@@ -249,13 +278,36 @@ func _build_mask() -> void:
 	# is not built on a table), and the ground under each building and under the
 	# square made level, each on its own pad.
 	_keep_rect(World.VILLAGE, village_roll)
+	# And under that, the lot's own lie: not one level, but rising and
+	# falling gently, each pad level at the height the lie has there.
+	_lay_village()
+	var pads: Array[Vector3] = []  # (x, z, radius)
 	for entry: Array in VillageHouses.LAYOUT:
 		var data: Dictionary = VillageHouses.info().get(String(entry[0]), {})
 		if data.is_empty() or data.get("ruin", false):
 			continue
-		var r := 0.5 * Vector2(float(data["W"]), float(data["D"])).length() + 1.0
-		_pad(Vector2(entry[1], entry[2]), r)
-	_pad_rect(VillageProps.PLAZA.grow(1.0))
+		pads.append(Vector3(entry[1], entry[2], 0.5 * Vector2(float(data["W"]), float(data["D"])).length() + 1.0))
+	var plaza := VillageProps.PLAZA.grow(1.0)
+	var plaza_level := _grid_at(_base, plaza.get_center().x, plaza.get_center().y)
+	var levels: Array[float] = []
+	for c in pads:
+		levels.append(_grid_at(_base, c.x, c.y))
+	# Pads whose level ground meets share one level (no step under a house),
+	# and one that meets the square takes the square's.
+	for i in pads.size():
+		var a := Vector2(pads[i].x, pads[i].y)
+		var into_plaza := Vector2(clampf(a.x, plaza.position.x, plaza.end.x), clampf(a.y, plaza.position.y, plaza.end.y))
+		if a.distance_to(into_plaza) < pads[i].z:
+			levels[i] = plaza_level
+			continue
+		for j in range(i + 1, pads.size()):
+			if a.distance_to(Vector2(pads[j].x, pads[j].y)) < pads[i].z + pads[j].z:
+				var mean := (levels[i] + levels[j]) * 0.5
+				levels[i] = mean
+				levels[j] = mean
+	for i in pads.size():
+		_pad(Vector2(pads[i].x, pads[i].y), pads[i].z, levels[i])
+	_pad_rect(plaza)
 	for c: Vector3 in Forest.CLEARINGS:
 		_keep_circle(Vector2(c.x, c.y), c.z * 0.6)
 	# The tracks: a third of the roll left.
@@ -313,19 +365,65 @@ func _keep_rect(r: Rect2, keep: float = 0.0) -> void:
 			_mask[k] = minf(_mask[k], maxf(keep, _ease(sqrt(dx * dx + dz * dz))))
 
 
+## How far in from the lot's edge the village's lie takes hold: it is nothing at
+## the edge (the wall, the ruins and the tower outside stand on the land as it is).
+const LIE_FADE := 10.0
+
+
+## The village's lie (see [member village_tilt]) laid over the lot, fading
+## out to nothing at the lot's edge.
+func _lay_village() -> void:
+	var r := World.VILLAGE
+	var span := _cells(r.position, r.end)
+	for iz in range(span.position.y, span.end.y + 1):
+		for ix in range(span.position.x, span.end.x + 1):
+			var p := _cell_at(ix, iz)
+			var inside := minf(minf(p.x - r.position.x, r.end.x - p.x), minf(p.y - r.position.y, r.end.y - p.y))
+			if inside <= 0.0:
+				continue
+			var t := clampf(inside / LIE_FADE, 0.0, 1.0)
+			_base[_index(ix, iz)] = village_lie_at(p.x, p.y) * t * t * (3.0 - 2.0 * t)
+
+
+## Cell `k` drawn towards a pad's `level` by `hold` (1 = it is the level),
+## unless another pad already holds it more.
+func _level(k: int, level: float, hold: float) -> void:
+	if hold <= _padded[k]:
+		return
+	# Towards this pad's level from the lie (or from a weaker pad's pull).
+	_base[k] = lerpf(_base[k], level, (hold - _padded[k]) / maxf(1.0 - _padded[k], 0.0001))
+	_padded[k] = hold
+
+
+## The village's lie at (x, z), before any pad: 0 on the square's middle.
+func village_lie_at(x: float, z: float) -> float:
+	var h := (x - village_heart.x) * village_tilt.x + (z - village_heart.y) * village_tilt.y
+	for f in village_lie:
+		var d := Vector2(x - f.x, z - f.y).length()
+		if d < f.z:
+			var t := 0.5 + 0.5 * cos(PI * d / f.z)
+			h += f.w * t * t * (3.0 - 2.0 * t)
+	return h
+
+
 ## A level pad for something standing in the village: dead flat out to
-## `radius`, back into the village's roll over [member pad_fade].
-func _pad(c: Vector2, radius: float) -> void:
+## `radius` (at the height the village's lie has under its middle), back into
+## the village's roll and lie over [member pad_fade].
+func _pad(c: Vector2, radius: float, level: float) -> void:
 	var reach := radius + pad_fade
 	var span := _cells(c - Vector2(reach, reach), c + Vector2(reach, reach))
 	for iz in range(span.position.y, span.end.y + 1):
 		for ix in range(span.position.x, span.end.x + 1):
 			var t := clampf((_cell_at(ix, iz).distance_to(c) - radius) / pad_fade, 0.0, 1.0)
+			var e := t * t * (3.0 - 2.0 * t)
 			var k := _index(ix, iz)
-			_mask[k] = minf(_mask[k], t * t * (3.0 - 2.0 * t))
+			_mask[k] = minf(_mask[k], e)
+			_level(k, level, 1.0 - e)
 
 
 func _pad_rect(r: Rect2) -> void:
+	var mid := r.get_center()
+	var level := _grid_at(_base, mid.x, mid.y)
 	var span := _cells(r.position - Vector2(pad_fade, pad_fade), r.end + Vector2(pad_fade, pad_fade))
 	for iz in range(span.position.y, span.end.y + 1):
 		for ix in range(span.position.x, span.end.x + 1):
@@ -333,8 +431,10 @@ func _pad_rect(r: Rect2) -> void:
 			var dx := maxf(maxf(r.position.x - p.x, p.x - r.end.x), 0.0)
 			var dz := maxf(maxf(r.position.y - p.y, p.y - r.end.y), 0.0)
 			var t := clampf(sqrt(dx * dx + dz * dz) / pad_fade, 0.0, 1.0)
+			var e := t * t * (3.0 - 2.0 * t)
 			var k := _index(ix, iz)
-			_mask[k] = minf(_mask[k], t * t * (3.0 - 2.0 * t))
+			_mask[k] = minf(_mask[k], e)
+			_level(k, level, 1.0 - e)
 
 
 func _keep_circle(c: Vector2, radius: float) -> void:

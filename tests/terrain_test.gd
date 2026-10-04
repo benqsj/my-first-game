@@ -81,7 +81,8 @@ func _initialize() -> void:
 		var at := World.VILLAGE.position + Vector2(randf(), randf()) * World.VILLAGE.size
 		lot_low = minf(lot_low, land.height_at(at.x, at.y))
 		lot_high = maxf(lot_high, land.height_at(at.x, at.y))
-	_check("and the lot between them is not dead flat", lot_high - lot_low > 0.3 and lot_high - lot_low < 3.0,
+	# Its own lie (up to the wood, knolls) on top of the roll: a few metres.
+	_check("and the lot between them is not dead flat", lot_high - lot_low > 1.5 and lot_high - lot_low < 7.0,
 			"%.2f m" % (lot_high - lot_low))
 	var tower := world.get_node_or_null("Level/Tower") as Node3D
 	if tower != null:

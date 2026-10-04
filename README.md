@@ -7446,6 +7446,19 @@ every building and the square on its own level pad that eases back into the
 roll over 5 m (`pad_fade`). `terrain_test`: each building stands level, and the
 lot between them is not flat (but no more than 3 m from low to high).
 
+**And it lies on a slope of its own** (the user's word, 2026-10-04: "too flat").
+Under the roll, `Terrain` lays the village's lie (`village_tilt`,
+`village_lie`): the lot climbs gently to the north, towards the wood
+(5 cm a metre), and a little to the east (1.2 cm). It has knolls under the
+west and east ends of the north row and behind it, and a dip behind the south
+row. It is 0 on the square's middle, so the square and the spawn stay where
+they were. It fades to nothing over the last 10 m to the lot's edge
+(`LIE_FADE`), so the wall, the ruins outside and the old tower stand on the
+land as it was. Each house's pad is level at the lie's height under it.
+Pads whose level ground meets share one level; a pad that meets the square
+takes the square's level. From low to high the lot now spans about 4 m
+(`terrain_test` allows 1.5 to 7).
+
 Still to come (the same plan): the street, lanes and paths to the doors, the
 big tree and the spring on the square, the new trees, and new villagers.
 
