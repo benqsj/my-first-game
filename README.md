@@ -513,6 +513,17 @@ PvP the other side reads it off his body. A tap plays `Bow_RapidShoot`
   is worked out from that), a wolf takes `kick_push` 6. The kick costs 14
   stamina, and the next one waits 1.5 s. It breaks off a draw. The host decides
   the hit, as for the shield's charge (`net_kick` / `net_kick_landed`).
+- **Backing off** a lock with nothing drawn, the bow hero turns and runs from
+  it towards the camera as Tariel does; drawn he backs off facing it. Walking
+  (Alt) on a lock he steps every way facing it (`_strafes_on_lock`).
+- **The arrow heard going by**: a synthesized rush with a flutter and a faint
+  whistle (`sounds/bow/arrow_whistle.wav`) rides each arrow with the doppler
+  shift, four at most at once. The string's snap is one of two recordings. The
+  view closes in up to `draw_zoom_degrees` (7) as the string comes back.
+- **The lock's mark** is a small white dot (no brighter than white, so no
+  bloom). The head point sits halfway out to the head bone's highest child and
+  never above the top of the body's collider, minus a margin (`TargetPoints`).
+  `Bip01-Head` and Rigify's `DEF-spine.006` are found as heads.
 
 ### Target lock
 
