@@ -34,6 +34,12 @@ const MOVING_SLOTS := {
 const COMPANIONS := {
 	&"walk_back": &"KV_Walk01_Backward", &"walk_left": &"KV_StrafeWalk01_Left",
 	&"walk_right": &"KV_StrafeWalk01_Right", &"run_right": &"KV_StrafeRun01_Right",
+	# the four ways between (TARIEL_POLISH.md: eight ways round what he is
+	# locked on, 2026-10-04)
+	&"walk_fl": &"KV_Walk01_ForwardLeft", &"walk_fr": &"KV_Walk01_ForwardRight",
+	&"walk_bl": &"KV_Walk01_BackwardLeft", &"walk_br": &"KV_Walk01_BackwardRight",
+	# a jog behind the raised shield: Kevin's run, slow, under the guard
+	&"guard_jog": &"KV_Run01_Forward",
 }
 const BLOCK_HIT := {
 	&"two_hands": &"KV_Parry2H01_Hit", &"knives": &"KV_ParryDW01_Hit", &"spear": &"KV_ParryPolearm01_Hit",

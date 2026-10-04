@@ -1126,10 +1126,15 @@ func _process_locomotion(delta: float) -> void:
 	# what makes choosing when to draw a decision rather than a formality.
 	if _drawing:
 		speed *= draw_speed_scale
-	# Behind a raised shield he walks, he does not run: the guard is paid for with
-	# pace, the same way the draw is.
+	# Behind a raised shield he does not run: the guard is paid for with pace,
+	# the same way the draw is. Going on at it he may jog (`guard_run_speed`,
+	# the user's word 2026-10-04: a little faster, never his whole pace);
+	# walking, backing off or stepping aside he walks.
 	if is_blocking:
-		speed = minf(speed, walk_speed)
+		var cap := walk_speed
+		if not Input.is_action_pressed("walk") and _guard_ahead(direction):
+			cap = guard_run_speed
+		speed = minf(speed, cap)
 	# And nobody runs out of the *second* swing. The first one keeps whatever it
 	# was thrown at — a charge that turns into a shuffle the instant the button
 	# goes down reads as slow motion, not as weight — and so does anything thrown
@@ -1338,6 +1343,21 @@ func _watches_backing_off() -> bool:
 	# (and the assassin: his locked step back is a step facing it, then the flip)
 	return _is_bow() or is_blocking or Input.is_action_pressed("walk") \
 			or (profile != null and profile.step_then_flip)
+
+
+## His pace behind the raised shield going on (m/s): more than a walk, well
+## short of his run.
+@export var guard_run_speed: float = 3.6
+
+
+## Whether `direction` is on ahead of him (the way he faces): behind the
+## shield only that way does he jog.
+func _guard_ahead(direction: Vector3) -> bool:
+	if direction.is_zero_approx():
+		return false
+	var ahead := -global_basis.z
+	ahead.y = 0.0
+	return direction.normalized().dot(ahead.normalized()) > 0.7
 
 
 ## Locked on and stepping carefully — behind the raised shield, or walking

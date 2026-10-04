@@ -7494,3 +7494,39 @@ Every standing foot stays put (`stride_test`, all five). Tests changed:
 - `heroes_test`: the rogue at 6.6;
 - `swordsman_test`: Tariel's sprint within ×0.8–1.2.
 
+## The shield kept before him, eight ways locked on, a jog behind the shield (2026-10-04, evening)
+
+**The shield arm through a blow** (`ArmHold`, a modifier on the mannequin
+before `HitLean`). In the heavy flinch (`KV_CombatDamage02`) and the head
+blow (`SS_Head_Impact`), the shield flew up over his head and turned over;
+the user called it ugly. Every frame it is not holding, `ArmHold` notes the
+arm's pose:
+- `clavicle_l`, `lowerarm_l` and `hand_l` as they lie in their parents;
+- `upperarm_l` as the body holds it, in skeleton space.
+
+`flinch_from` asks it to `hold(...)` for the length of the flinch. That pose
+is laid back over the clip, fading in over 0.04 s and out over 0.25 s. Held
+in its parent, the upper arm would still have gone up with the chest thrown
+back, so it is held in skeleton space. The head, the back and the legs reel
+as the clip has them; the shield stays before him. A new action releases it.
+
+**Eight ways round what he is locked on.** Kevin's diagonal walks
+(`KV_Walk01_ForwardLeft`, `ForwardRight`, `BackwardLeft`, `BackwardRight`)
+are in `Moveset.COMPANIONS` (`walk_fl`, `walk_fr`, `walk_bl`, `walk_br`).
+Their ground speeds were measured by `clip_meta.gd` and only those four
+entries added to `clip_meta.json`. A full re-measure drifted 45 others, so
+it was not kept. `_direction_clip`, walking on the mannequin, picks the
+nearest of the eight ways (`WALK_WAYS`). This holds under the guard too.
+
+**A jog behind the shield.** Going on (within ~45° of the way he faces, not
+walking), the guard's pace is `guard_run_speed` 3.6 m/s, his walk 2.4 and his
+run 6.0. Backing off and stepping aside are still walks. From 3 m/s
+(`GUARD_JOG_FROM`), the legs under `KV_BlockShield01_Loop` are Kevin's run
+(`guard_jog`, `KV_Run01_Forward`, slowed to the pace). UAL 2's
+`Sprint_Shield` measured as nearly in place, so it is not used.
+
+`skills_test` now expects Tariel's three skills on 1 to 3.
+
+Tests: `lock_strafe_test` (the four diagonals); `hit_direction_test`.
+Reels: `_shots_tmp/hit_dir_reel.gd`, `_shots_tmp/guard_jog_reel.gd`.
+

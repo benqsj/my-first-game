@@ -1080,6 +1080,10 @@ func _update_stride(delta: float, planar: float, airborne: bool) -> void:
 	var want := under and not airborne and planar > least and _skid_left <= 0.0
 	if want:
 		var clip := _direction_clip(planar)
+		# jogging on behind the shield: Kevin's run, slow, under the guard
+		if _on_mq and _role == Role.NONE and _blocking_now and planar > GUARD_JOG_FROM \
+				and clips.has(&"guard_jog") and _anim.has_animation(clips[&"guard_jog"]) and _going_ahead():
+			clip = clips[&"guard_jog"]
 		if _anim.has_animation(clip):
 			if clip != _stride_clip:
 				# Same foot forward in the new cycle: keep the phase as a share.
@@ -1143,6 +1147,19 @@ func _direction_clip(planar: float) -> StringName:
 	var local := body.global_transform.basis.inverse() * body.velocity
 	var fwd := -local.z
 	var side := local.x
+	if not run and _on_mq and clips.has(&"walk_fl"):
+		# Walking, eight ways: the four between too (Kevin's diagonal walks),
+		# so stepping round what he is locked on turns smoothly from a side
+		# step to a step forward (TARIEL_POLISH.md, 2026-10-04).
+		var ang := rad_to_deg(atan2(side, fwd))
+		var best: StringName = clips[&"walk"]
+		var nearest := INF
+		for pair: Array in WALK_WAYS:
+			var off := absf(wrapf(ang - float(pair[1]), -180.0, 180.0))
+			if off < nearest and clips.has(pair[0]):
+				nearest = off
+				best = clips[pair[0]]
+		return best
 	if absf(side) > absf(fwd) * 1.2:
 		if side > 0.0:
 			return clips[&"run_right"] if run else clips[&"walk_right"]
@@ -1155,6 +1172,26 @@ func _direction_clip(planar: float) -> StringName:
 			and planar > float(_body.get(&"run_speed")) * 1.1:
 		return clips[&"sprint"]
 	return clips[&"run"] if run else clips[&"walk"]
+
+
+## From this pace (m/s) behind the raised shield his legs jog (`guard_jog`,
+## Kevin's run) rather than walk fast.
+const GUARD_JOG_FROM := 3.0
+
+
+## Whether the body is going on the way it faces (within ~45 degrees).
+func _going_ahead() -> bool:
+	var body := _body as CharacterBody3D
+	if body == null:
+		return true
+	var local := body.global_transform.basis.inverse() * body.velocity
+	return -local.z > absf(local.x)
+
+
+## The eight ways a walk goes, as [clip table key, degrees from ahead
+## (+ his right)].
+const WALK_WAYS: Array = [[&"walk", 0.0], [&"walk_fr", 45.0], [&"walk_right", 90.0], [&"walk_br", 135.0],
+		[&"walk_back", 180.0], [&"walk_bl", -135.0], [&"walk_left", -90.0], [&"walk_fl", -45.0]]
 
 
 func _block_walk_clip() -> StringName:
@@ -1196,6 +1233,9 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 		return false
 	_crumpled = false
 	_trail_cut = Vector2.ZERO
+	# a held shield arm is the last action's; a new one moves it its own way
+	if _on_mq and _mq.get("arm") != null:
+		(_mq["arm"] as ArmHold).release()
 	var length := _anim.get_animation(clip).length
 	# A drag left over from a missed cut is not this clip's, nor a held cut.
 	_drag_left = 0.0
@@ -1889,6 +1929,10 @@ func flinch_from(away: Vector3, from: int, heft: float) -> void:
 		return
 	# a light one quick and over; a heavy one played out, slower
 	_play_action(clip, Role.HIT, lerpf(1.45, 1.05, k), 0.05)
+	# the shield arm where it was: the body reels, the shield stays before him
+	var arm := _mq.get("arm") as ArmHold
+	if arm != null and holds_shield():
+		arm.hold(_action_left)
 	last_flinch = {"from": from, "clip": clip, "heft": k}
 
 
@@ -2540,6 +2584,10 @@ func _build_mannequin() -> bool:
 		strike.name = "StrikeAim"
 		strike.natural = strike_natural
 		skel.add_child(strike)
+	# the shield arm kept where it was through a blow that got through
+	var arm := ArmHold.new()
+	arm.name = "ArmHold"
+	skel.add_child(arm)
 	# a blow that got through bends his back over the way it went
 	var lean := HitLean.new()
 	lean.name = "HitLean"
@@ -2554,7 +2602,7 @@ func _build_mannequin() -> bool:
 	ground.name = "FootGround"
 	skel.add_child(ground)
 	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib,
-			"own": own, "feet": feet, "lean": lean}
+			"own": own, "feet": feet, "lean": lean, "arm": arm}
 	_mannequin_built(skel)
 	return true
 

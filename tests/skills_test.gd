@@ -19,8 +19,12 @@ func _initialize() -> void:
 	await process_frame
 	_check_keys()
 	await _spawn(&"tariel")
-	_check("Tariel has no skill in the first slot yet", _player.skill_in(0) == &"")
-	_check("and pressing 1 does nothing", not _player.use_skill(0))
+	# (his skills since 2026-10-03: the Rising Cut, the Shadow Slide, the
+	# Shadow Lance; their own test is sure_cut_test)
+	_check("Tariel's skills on 1 to 3", _player.skill_in(0) == &"rising_cut"
+			and _player.skill_in(1) == &"shadow_slide" and _player.skill_in(2) == &"shadow_lance",
+			"%s %s %s" % [_player.skill_in(0), _player.skill_in(1), _player.skill_in(2)])
+	_check("and nothing on 4", _player.skill_in(3) == &"" and not _player.use_skill(3))
 	await _spawn(&"avtandil")
 	await _check_rain()
 	print("")
