@@ -153,6 +153,37 @@ const ARM_NAMES := {
 	"staff_a": "STAFF", "staff_b": "CROOKED STAFF", "bow": "HUNTER'S BOW", "own_bow": "HIS OWN BOW",
 	"shield": "ROUND SHIELD", "his_shield": "HIS SHIELD", "none": "NONE",
 }
+## How quick each weapon is in the hand (the user's word, 2026-10-05: the
+## weapons their own pace, the heroes theirs): a share of a sword's pace, by
+## the Heroes pack's id or the Advanced Weapon's name. The blows are played
+## at the hero's pace times this over his own weapon's (`SkinnedRig.arms_ref`):
+## Tariel's sword and the warrior's great sword are 1, a knife quicker, an
+## axe or a hammer slower. With a weapon in each hand the slower one sets it.
+const ARM_SPEEDS := {
+	"dagger": 1.2, "sword_a": 1.0, "sword_b": 0.95, "greatsword": 1.0, "staff_a": 1.0, "staff_b": 1.0,
+	"shortsword": 1.0, "longsword": 0.95, "curvedsword": 1.0, "rapier": 1.1, "curvedgreatsword": 0.95,
+	"axe": 0.88, "greataxe": 0.85, "hammer": 0.85, "greathammer": 0.8, "mace": 0.88, "morningstar": 0.85,
+	"flail": 0.85, "spear": 1.0, "poleaxe": 0.9, "staff": 1.0, "wand": 1.0,
+}
+
+
+## How quick `id` is in the hand (1: a sword).
+static func arm_speed(id: String) -> float:
+	var name := aw_name(id)
+	return float(ARM_SPEEDS.get(name if name != "" else id, 1.0))
+
+
+## How quick the arms of `look` are: the sword hand's, or the slower of the
+## two when the other hand holds a weapon too (not a shield, not empty).
+static func arms_speed(look: Dictionary) -> float:
+	var w := String(look.get("w", ""))
+	var o := String(look.get("o", ""))
+	var k := arm_speed(w)
+	if o != "" and o != "none" and kind(o) not in [&"shield", &"bow"]:
+		k = minf(k, arm_speed(o))
+	return k
+
+
 ## What a class's extra parts are called (its id is "<class>_<part>").
 const EXTRA_NAMES := {
 	"swordscabbard": "SCABBARD", "greatswordscabbard": "GREAT SCABBARD", "neckscarf": "NECK SCARF",

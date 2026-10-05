@@ -420,6 +420,16 @@ const MQ_SWING_RATE := 1.1
 ## assassin's Mixamo knife cuts, made slow, are hurried as they are on his
 ## own rig even when the picked blows on the mannequin are not.
 var clip_rate: Dictionary = {}
+## The pace of the arms this hero's blows are made for ([method PolysplitLook.arms_speed]):
+## on the mannequin his blows are played at that of what he holds over this.
+var arms_ref: float = 1.0
+
+
+## His blows' pace for the arms he holds now (1 off the mannequin).
+func arms_pace() -> float:
+	if not _on_mq or ps_look.is_empty():
+		return 1.0
+	return PolysplitLook.arms_speed(ps_look) / maxf(arms_ref, 0.01)
 ## This hero's share of that pace: under 1 for a heavy one (the warrior).
 var mq_swing_scale: float = 1.0
 ## How fast the shield goes round onto a clip's way (degrees a second).
@@ -1476,7 +1486,8 @@ func attack(style: int = -1) -> void:
 		cut_weight = float(h.get("weight", 1.5))
 		_heavy_aim = bool(h.get("aim", true))
 		var hp: Vector2 = h.get("part", Vector2(0.0, 1.0))
-		var h_rate := float(h.get("rate", swing_rate)) * (mq_swing_scale if _on_mq and h.has("rate") else 1.0)
+		var h_rate := float(h.get("rate", swing_rate)) * (mq_swing_scale if _on_mq and h.has("rate") else 1.0) \
+				* arms_pace()
 		# wound up first, slowly, to its `wind`; the rest at its rate
 		var wind := float(h.get("wind", -1.0))
 		var winding := wind > hp.x and wind < hp.y
@@ -1510,7 +1521,7 @@ func attack(style: int = -1) -> void:
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
 		clip = flurry[_flurry_slot]
 	var part: Vector2 = flurry_part.get(clip, Vector2(0.0, 1.0))
-	var rate := float(clip_rate.get(clip, swing_rate))
+	var rate := float(clip_rate.get(clip, swing_rate)) * arms_pace()
 	if _attack_style == AttackStyle.SIDE:
 		rate *= 1.0 + flurry_quicken * maxi(_flurry_slot, 0)
 		var last := _flurry_slot == flurry.size() - 1

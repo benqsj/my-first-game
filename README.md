@@ -7920,3 +7920,20 @@ as before.
   - Each hand keeps the style of what was put in it: the look's
     `own_styles`, honoured by `PolysplitLook.normalized` (`style_of`). The
     hero select's STYLE puts both hands back in its own.
+- **Each weapon its own pace** (the user's word). A blow plays at the
+  hero's pace times his weapon's (`PolysplitLook.ARM_SPEEDS`,
+  `arm_speed`, `arms_speed`) over the weapon his blows are made for
+  (`SkinnedRig.arms_ref`, `arms_pace`, on the mannequin).
+  - A sword is 1, a knife 1.2, a rapier 1.1, an axe or a mace 0.88, a
+    great hammer 0.8.
+  - With a weapon in each hand the slower one sets his pace.
+  - Tariel's sword and the warrior's great sword are their reference, so
+    they are as they were. The assassin's reference is the knife.
+  - The assassin's own DG cuts on the mannequin are a touch slower than
+    before (1.85, `MQ_KNIFE_RATE`). With a short sword in either hand
+    they play at x0.83 (1.54), and so do his heavy blows.
+- **The bag's Empty Left Hand.** The last item puts one blade in his hands,
+  so he fights one-handed. Before this, putting the knife he already held
+  in his left hand into his right too left one knife in each hand, though
+  the bag marked only one item. Each blade now shows its attack speed and
+  that of both hands together.

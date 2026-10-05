@@ -55,6 +55,10 @@ func _initialize() -> void:
 		_check("%s: %s" % [l[0], "both hands" if two else "one hand"], rig.on_mannequin()
 				and (rig.moves.get("kind", &"") == &"dual") == two and rig.call(&"two_blades") == two,
 				String(rig.moves.get("kind", &"")))
+		# the pace of what he holds: knives quick, a short sword slower
+		var pace: float = rig.arms_pace()
+		var want := 1.0 if l[0] != "a short sword and a knife" else 1.0 / 1.2
+		_check("  the pace of his arms", absf(pace - want) < 0.01, "x%.2f" % pace)
 		if two:
 			_check("  the TWO BLADES string", rig.flurry.size() >= 4 and rig.flurry[0] == &"DG_Slash_Out", str(rig.flurry))
 			# his own cuts at his own pace on the mannequin too (they were at
@@ -65,7 +69,8 @@ func _initialize() -> void:
 			Input.action_release("attack")
 			for i in 3:
 				await physics_frame
-			_check("  his knife cuts at his own pace", rig._act_clip == &"DG_Slash_Out" and rig._anim.speed_scale > 1.8,
+			_check("  his knife cuts at his own pace", rig._act_clip == &"DG_Slash_Out"
+					and absf(rig._anim.speed_scale - 1.85 * pace) < 0.05,
 					"%s x%.2f" % [rig._act_clip, rig._anim.speed_scale])
 			for i in 60:
 				await physics_frame
@@ -82,7 +87,8 @@ func _initialize() -> void:
 			await physics_frame
 		_check("a knife put in his left hand: both hands", rig.moves.get("kind", &"") == &"dual"
 				and String(rig.get_look().get("o", "")) == "aw_dagger_ornate", String(rig.moves.get("kind", &"")))
-		bag._left_hand_empty()
+		_check("the bag has the empty left hand", blades.has("none"))
+		bag._use(blades.find("none"))
 		for i in 10:
 			await physics_frame
 		_check("his left hand emptied: one hand", rig.moves.get("kind", &"") != &"dual", String(rig.moves.get("kind", &"")))

@@ -162,7 +162,8 @@ func _input(event: InputEvent) -> void:
 			KEY_E:
 				_switch_tab(_tab + 1)
 			KEY_ENTER, KEY_SPACE, KEY_KP_ENTER:
-				if (event as InputEventKey).shift_pressed and _chosen < items.size() and items[_chosen].has("blade"):
+				if (event as InputEventKey).shift_pressed and _chosen < items.size() and items[_chosen].has("blade") \
+						and String(items[_chosen].blade) != "none":
 					_hold_blade(String(items[_chosen].blade), true)
 				else:
 					_use(_chosen)
@@ -192,7 +193,10 @@ func _on_gui(event: InputEvent) -> void:
 		if i < _items().size():
 			var item: Dictionary = _items()[i]
 			if (event as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT and item.has("blade"):
-				_hold_blade(String(item.blade), true)
+				if String(item.blade) == "none":
+					_left_hand_empty()
+				else:
+					_hold_blade(String(item.blade), true)
 			elif i == _chosen or (event as InputEventMouseButton).double_click:
 				_use(i)
 			_chosen = i
@@ -271,7 +275,10 @@ func _use(i: int) -> void:
 		player.set_garb(int(item.garb))
 		_root.queue_redraw()
 	elif item.has("blade"):
-		_hold_blade(String(item.blade), false)
+		if String(item.blade) == "none":
+			_left_hand_empty()
+		else:
+			_hold_blade(String(item.blade), false)
 	elif item.has("bow") and not item.get("worn", false):
 		var look := _look()
 		if not look.is_empty():
@@ -394,11 +401,19 @@ func _blades() -> Array[String]:
 		var held := String(look.get(key, ""))
 		if held not in ["", "none"] and not out.has(held):
 			out.append(held)
+	# and his left hand left empty: one blade, one-handed
+	out.append("none")
 	return out
 
 
 func _blade_item(p: CharacterProfile, id: String) -> Dictionary:
 	var look := _look()
+	if id == "none":
+		var empty := String(look.get("o", "none")) in ["", "none"]
+		return {"name": "Empty Left Hand", "kind": "One blade" + ("  ·  as he is now" if empty else ""),
+				"icon": "hand", "blade": "none", "worn": empty,
+				"stats": [["Attack speed", "%.0f %%" % (PolysplitLook.arm_speed(String(look.get("w", ""))) * 100.0)]],
+				"text": "Nothing in his left hand: one blade, and he fights one-handed, as he always has. Enter or click to leave his left hand empty."}
 	var right := String(look.get("w", "")) == id
 	var left := String(look.get("o", "")) == id
 	var style := id.get_slice("_", id.get_slice_count("_") - 1) if id.begins_with("aw_") else ""
@@ -409,9 +424,11 @@ func _blade_item(p: CharacterProfile, id: String) -> Dictionary:
 	var kind := "Knife" if PolysplitLook.kind(id) == &"knives" else "Short sword"
 	return {"name": title, "kind": kind + ("  ·  " + held if held != "" else ""), "icon": "dagger", "art": id,
 			"blade": id, "worn": right or left,
-			"stats": [["P.ATK", "%.0f" % p.damage], ["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)],
+			"stats": [["P.ATK", "%.0f" % p.damage], ["Attack speed", "%.0f %%" % (PolysplitLook.arm_speed(id) * 100.0)],
+				["Both hands now", "%.0f %%" % (PolysplitLook.arms_speed(look) * 100.0)],
+				["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)],
 				["Critical damage", "× %.1f" % p.crit_damage], ["Stamina per attack", "%.0f" % p.attack_stamina]],
-			"text": "A blade in each hand and he fights with both, each hand in turn; one, and he fights as he always has. Enter or click: his right hand. Shift+Enter or right-click: his left. X: the left hand empty."}
+			"text": "A blade in each hand and he fights with both, each hand in turn; one, and he fights as he always has. A knife is quicker than a short sword; with one in each hand the slower sets his pace. Enter or click: his right hand. Shift+Enter or right-click: his left. X: the left hand empty."}
 
 
 ## Puts blade `id` in his right hand (`left` false) or his left.
@@ -680,7 +697,9 @@ func _draw_item(c: Control, box: Rect2, item: Dictionary) -> void:
 	c.draw_multiline_string(UiArt.font("plain"), Vector2(box.position.x + 4, y + 24), String(item.text),
 			HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 8.0, 17, -1, Color(CREAM, 0.88))
 	var status := ""
-	if item.has("blade"):
+	if item.has("blade") and String(item.blade) == "none":
+		status = "Enter / click: his left hand empty"
+	elif item.has("blade"):
 		status = "Enter / click: right hand   ·   Shift+Enter / right-click: left hand   ·   X: left hand empty"
 	elif item.has("shield"):
 		status = "Enter / click to take it off" if worn else "Enter / click to put it on"
@@ -769,6 +788,15 @@ func _icon(c: Control, at: Vector2, kind: String, r: float, tint: Color = Color.
 	var steel := Color(0.8, 0.82, 0.86)
 	var dark := Color(0.14, 0.13, 0.13)
 	match kind:
+		"hand":
+			# an open hand, empty: a palm, four fingers and a thumb
+			var skin := Color(0.78, 0.66, 0.52, 0.85)
+			c.draw_circle(at + Vector2(0, r * 0.2), r * 0.42, skin)
+			for k in 4:
+				var x := (k - 1.5) * r * 0.22
+				c.draw_line(at + Vector2(x, 0), at + Vector2(x * 1.15, -r * (0.75 if k in [1, 2] else 0.62)), skin,
+						maxf(r * 0.16, 2.0))
+			c.draw_line(at + Vector2(-r * 0.3, r * 0.25), at + Vector2(-r * 0.72, -r * 0.05), skin, maxf(r * 0.16, 2.0))
 		"round":
 			c.draw_circle(at, r, Color(0.55, 0.42, 0.18))
 			c.draw_circle(at, r * 0.9, Color(0.78, 0.8, 0.84))

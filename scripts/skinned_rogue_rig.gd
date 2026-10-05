@@ -179,6 +179,8 @@ func _configure() -> void:
 	action_blend = 0.14
 	# Quick hands.
 	swing_rate = OWN_SWING_RATE
+	# his blows are made for knives: a short sword in either hand is slower
+	arms_ref = PolysplitLook.arm_speed("dagger")
 	swing_recovery = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.4
@@ -298,6 +300,10 @@ func two_blades() -> bool:
 
 
 const OWN_SWING_RATE := 2.1
+## On the mannequin, with knives (`arms_ref`, a knife's pace): his own cuts a
+## touch slower than on his own rig (the user's word, 2026-10-05: too quick);
+## a short sword in either hand plays them slower still (x1/1.2).
+const MQ_KNIFE_RATE := 1.85
 
 
 ## On the mannequin the picks give him a heavy blow of their own; his own,
@@ -308,7 +314,7 @@ func _wear_moves() -> void:
 	# were made slow: at the mannequin's 1.1 they were half his speed)
 	for c: StringName in flurry:
 		if String(c).begins_with("DG_"):
-			clip_rate[c] = OWN_SWING_RATE * mq_swing_scale
+			clip_rate[c] = MQ_KNIFE_RATE * mq_swing_scale
 	heavy = (WIND_HEAVY if two_blades() else WIND_HEAVY_ONE).duplicate(true)
 
 
