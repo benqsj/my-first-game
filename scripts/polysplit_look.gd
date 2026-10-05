@@ -34,7 +34,14 @@ const SKINS := 8
 ## the dark elves' two are the pale skin turned slate violet (body_9, body_10,
 ## made from body_5 in its skin quarter).
 const RACES := ["", "elf", "dark"]
-const RACE_SKINS := {"": [1, 2, 3, 4, 5, 6, 7, 8], "elf": [5, 7, 3, 1, 6, 2, 4, 8], "dark": [9, 10]}
+## A body_<n>.png holds a skin AND a hair colour, and only four skins are
+## told apart among the first eight: 1 2 3 the same tan, 4 a lighter, 5 6 the
+## same pale, 7 8 the same dark (they differ in their hair, which `hc` dyes
+## anyway). Offering all eight put three swatches on one skin, so a skin
+## picked came up as another (2026-10-06); `SKIN_SAME` takes an old look's
+## twin to the one offered. A dark elf has only his own two, never a man's.
+const RACE_SKINS := {"": [1, 4, 5, 7], "elf": [5, 4, 1, 7], "dark": [9, 10]}
+const SKIN_SAME := {2: 1, 3: 1, 6: 5, 8: 7}
 ## What an elf starts as, over the man's: skin, hair colour, hair by gender,
 ## no beard, the cloth's colour, and the first of `classes` his hero has
 ## (the elves' white sorcerer, the dark elves' witch or warlock); no hat.
@@ -623,7 +630,7 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	out["hair"] = clampi(int(out["hair"]), 0, 14)
 	out["race"] = race
 	var offered := skins(race)
-	out["skin"] = int(out["skin"])
+	out["skin"] = int(SKIN_SAME.get(int(out["skin"]), int(out["skin"])))
 	if not offered.has(out["skin"]):
 		out["skin"] = offered[0]
 	out["hc"] = clampi(int(look.get("hc", base.get("hc", out["skin"]))), 1, SKINS)
@@ -923,4 +930,6 @@ static func swatch(kind: String, index: int, second: bool = false) -> Color:
 		return Color.GRAY
 	if img.is_compressed():
 		img.decompress()
-	return img.get_pixel(int(img.get_width() * (0.92 if second else 0.42)), int(img.get_height() * 0.45))
+	# the flat skin (top left) or hair (top right) of the texture: the old
+	# point (0.42, 0.45) fell on a shaded strip, the same for skins 1 2 3
+	return img.get_pixel(int(img.get_width() * (0.6 if second else 0.1)), int(img.get_height() * 0.03))

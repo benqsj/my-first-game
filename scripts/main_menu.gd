@@ -959,7 +959,9 @@ func _maker_row(kind: String) -> Control:
 		var palette := HBoxContainer.new()
 		palette.name = "Palette"
 		palette.add_theme_constant_override("separation", 3)
-		var count := PolysplitLook.CLOTHS if kind == "cloth" else PolysplitLook.SKINS
+		# the skin's swatches run past the eight to the dark elves' own; the
+		# refresh shows only those the hero's people are offered
+		var count := PolysplitLook.CLOTHS if kind == "cloth" else (PolysplitLook.SKINS + 2 if kind == "skin" else PolysplitLook.SKINS)
 		for i in range(1, count + 1):
 			var swatch := Button.new()
 			swatch.name = "Swatch%d" % i
@@ -1188,6 +1190,7 @@ func _refresh_maker() -> void:
 			var worn := int(look.get(kind, look.get("skin", 1)))
 			for swatch: Button in (row.get_node("Palette") as Container).get_children():
 				var i := int(String(swatch.name).trim_prefix("Swatch"))
+				swatch.visible = kind != "skin" or options.has(i)
 				var colour := PolysplitLook.swatch(texture, i, kind == "hc")
 				swatch.add_theme_stylebox_override("normal", _swatch_style(colour, i == worn))
 				swatch.add_theme_stylebox_override("hover", _swatch_style(colour, i == worn, true))
