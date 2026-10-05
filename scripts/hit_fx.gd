@@ -13,8 +13,9 @@ extends Node3D
 ## * &"metal": steel on steel, a cut caught on a guard ([method ImpactFx.strike]
 ##   &"guard"): a hot star, spikes, a spray of long sparks falling, a brief
 ##   warm light.
-## * &"shield": a blow taken on his shield ([ParryFlash], less than a parry): a
-##   ring thrown out off the face, spikes, sparks and a few splinters.
+## * &"shield": a blow taken on his shield ([ParryFlash], less than a parry):
+##   spikes, sparks and a few splinters (no ring: it showed as a second shield,
+##   the user's word 2026-10-05).
 ## * &"clash": blade on blade, a parry ([ParryFlash] at full size): a wide
 ##   flare, a spinning four-point star, a ring, the most sparks, a bright light.
 ##
@@ -86,7 +87,6 @@ func _build(kind: StringName, normal: Vector3, heft: float) -> void:
 			_part("metal_sparks", "hit_spark_streak", Vector2(0.08, 0.42), true, int(28 * big), 0.42, normal)
 			_lamp(Color(1.0, 0.75, 0.4), 2.2, 0.14, 3.0)
 		&"shield":
-			_ring(normal, 0.2 * big, 1.1 * big, 0.2, Color(2.0, 1.8, 1.3, 0.9))
 			_part("spikes", "hit_spikes", Vector2(0.55, 0.55) * big, true, 1, 0.1, normal)
 			_part("shield_sparks", "hit_spark_streak", Vector2(0.07, 0.32), true, int(14 * big), 0.35, normal)
 			_part("shield_chips", "hit_chips_wood", Vector2(0.07, 0.07), false, int(5 * big), 0.7, normal)
@@ -249,30 +249,6 @@ static func _texture(name: String) -> Texture2D:
 	if not _tex.has(name):
 		_tex[name] = load(TEX + name + ".png")
 	return _tex[name]
-
-
-## A ring thrown out flat off the face that was struck (a shield's).
-func _ring(normal: Vector3, from: float, to: float, time: float, color: Color) -> void:
-	var mi := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(1.0, 1.0)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.albedo_texture = _texture("hit_ring")
-	m.albedo_color = color
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	q.material = m
-	mi.mesh = q
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-	var b := Basis.looking_at(-normal, Vector3.UP if absf(normal.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT)
-	mi.global_basis = b.scaled(Vector3.ONE * from)
-	var tw := mi.create_tween().set_parallel(true)
-	tw.tween_method(func(s: float) -> void: mi.global_basis = b.scaled(Vector3.ONE * s), from, to, time) \
-			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_method(func(a: float) -> void: m.albedo_color = Color(color, a), color.a, 0.0, time).set_ease(Tween.EASE_IN)
 
 
 ## A brief light where it struck.
