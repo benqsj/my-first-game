@@ -7996,3 +7996,6 @@ Tested by `tests/combat_core_test.gd` (headless).
   better. `ARM_SPEEDS` needs a damage column, so that the slower blade hits
   harder for about the same damage a second. `Player.cut_worth` should use
   it, and the bag should show it.
+- **The rush in** (the user's word): it costs a third of his stamina (a
+  heavy spec's `stamina_share`, read in `Player._attack`), and the slide
+  sheds no shadow trail now, only the dirt.

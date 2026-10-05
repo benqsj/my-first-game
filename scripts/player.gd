@@ -2957,6 +2957,13 @@ func _attack(heavy: bool = false) -> void:
 	var cost := profile.attack_stamina if profile != null else 16.0
 	if heavy:
 		cost *= heavy_stamina
+		# a heavy blow that is a skill of its own costs a share of the whole
+		# (the assassin's rush in: a third, the user's word 2026-10-05)
+		var pick := _heavy_blow()
+		if pick >= 0:
+			var share := float((rig.get(&"heavy")[pick] as Dictionary).get("stamina_share", 0.0))
+			if share > 0.0:
+				cost = max_stamina * share
 	# The first cut thrown at a run is the running cut ([method _run_cut_ready]).
 	var run_cut := not heavy and _run_cut_ready()
 	if run_cut:
@@ -3768,10 +3775,10 @@ func _on_wound_up(lunge: float) -> void:
 		return
 	ahead = ahead.normalized()
 	var t := clampf(go / glide_speed, 0.06, glide_longest)
-	# every peer: held coiled while he slides, the shadow he sheds, the dirt
+	# every peer: held coiled while he slides, and the dirt (no shadow trail:
+	# the user's word, 2026-10-05)
 	if rig != null and rig.has_method(&"hitstop"):
 		rig.call(&"hitstop", t)
-	ShadowTrail.start(self, t + 0.08, 0.03)
 	var world := Blood.world_of(self)
 	if world != null:
 		SkidDust.kick(world, global_position, -ahead, 0.7)

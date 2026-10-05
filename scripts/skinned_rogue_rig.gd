@@ -276,7 +276,8 @@ func _configure() -> void:
 ## Both are the two-knife combo (DG_Dual_Combo), played on his own rig and on
 ## the mannequin alike (the DG clips are carried onto it).
 const RUSH_IN := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.95,
-		"rate": 3.0, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.8}
+		"rate": 3.0, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.8,
+		"stamina_share": 0.33}
 const THREE_QUICK := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 1.15,
 		"rate": 2.7, "weight": 1.35, "step": 0.8, "rise": 0.8}
 const WIND_HEAVY := [RUSH_IN, THREE_QUICK, THREE_QUICK, THREE_QUICK, RUSH_IN]
@@ -284,7 +285,8 @@ const WIND_HEAVY := [RUSH_IN, THREE_QUICK, THREE_QUICK, THREE_QUICK, RUSH_IN]
 ## gathering and rush, but the blows one-handed — the axe's three great cuts
 ## (DG_Axe_Three: right, back, and over the head down), the left hand out of it.
 const RUSH_IN_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.02, 0.72), "wind": 0.16, "wind_rate": 1.05,
-		"rate": 2.7, "weight": 1.6, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.7}
+		"rate": 2.7, "weight": 1.6, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.7,
+		"stamina_share": 0.33}
 const THREE_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.06, 0.72), "wind": 0.16, "wind_rate": 1.25,
 		"rate": 2.5, "weight": 1.45, "step": 0.8, "rise": 0.7}
 const WIND_HEAVY_ONE := [RUSH_IN_ONE, THREE_ONE, THREE_ONE, THREE_ONE, RUSH_IN_ONE]

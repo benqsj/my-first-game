@@ -107,6 +107,8 @@ func _initialize() -> void:
 	player.target = foe
 	for i in 70:
 		await physics_frame
+	player.stamina = player.max_stamina
+	var before: float = player.stamina
 	Input.action_press("block")
 	await physics_frame
 	Input.action_release("block")
@@ -115,13 +117,18 @@ func _initialize() -> void:
 	var gap_at_release := -1.0
 	var closest := INF
 	var serial: int = rig.attack_serial
+	var lowest: float = before
 	for i in 120:
 		await physics_frame
+		lowest = minf(lowest, player.stamina)
 		if i == 10:
 			foe.global_position = moved
 		if rig.wind_left() <= 0.0 and gap_at_release < 0.0:
 			gap_at_release = Vector2(foe.global_position.x - player.global_position.x, foe.global_position.z - player.global_position.z).length()
 		closest = minf(closest, Vector2(foe.global_position.x - player.global_position.x, foe.global_position.z - player.global_position.z).length())
+	var spent: float = before - lowest
+	_check("the rush in costs a third of his stamina", absf(spent - player.max_stamina * 0.33) < 3.0,
+			"%.1f of %.0f" % [spent, player.max_stamina])
 	_check("slid in on it where it had gone", closest < 1.5, "%.2f m at the release, %.2f m closest" % [gap_at_release, closest])
 	_check("and cut it on arriving", rig.attack_serial - serial >= 1, "%d blows" % (rig.attack_serial - serial + 1))
 	print("rogue_arms_test: %s" % ("all checks passed" if _failures == 0 else "%d FAILED" % _failures))
