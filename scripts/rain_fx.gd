@@ -11,9 +11,9 @@ extends Node3D
 ##   at his feet as the arrow goes up; faint streaks of cut air coming down
 ##   with the volley; each arrow that goes into the ground kicks up a clod and
 ##   a little dust, and a low haze of it hangs over the patch after.
-## * [constant VOLLEY] — the same, louder, and the ground told: a pale ring
-##   comes up where it will fall in the beat before it does, a glint high up
-##   where the volley turns over, more dust.
+## * [constant VOLLEY] (the user's pick, 2026-10-05) — the same, louder: a
+##   glint high up where the volley turns over, more dust. No ring on the
+##   ground under it (the user's word).
 ## * [constant GOLD] — a hunter's spell: rays and sparks of gold off the bow,
 ##   a gold rune turning on the ground under the fall, gold streaks, the
 ##   arrows' lines gold, sparks where they land.
@@ -22,7 +22,7 @@ extends Node3D
 ## peer draws its own from the same rain.
 
 enum { DUST, VOLLEY, GOLD }
-const LOOK_NAMES := ["ქარი და მტვერი", "ზალპი (მიწაზე რგოლი)", "ოქრო (რუნა)"]
+const LOOK_NAMES := ["ქარი და მტვერი", "ზალპი", "ოქრო (რუნა)"]
 ## Which look every rain is drawn in.
 static var look: int = VOLLEY
 
@@ -75,11 +75,10 @@ static func cover(rain: Node3D, radius: float, delay: float, duration: float) ->
 	fx._radius = radius
 	rain.add_child(fx)
 	fx.position = Vector3.ZERO
-	match look:
-		VOLLEY:
-			fx._ground_mark("hit_ring", Color(1.0, 0.93, 0.8), 0.0, delay, duration)
-		GOLD:
-			fx._ground_mark("rain_rune", GOLD_SOFT, 1.5, delay, duration)
+	# no ring on the ground under the volley (the user's word, 2026-10-05):
+	# only the gold look lays its rune
+	if look == GOLD:
+		fx._ground_mark("rain_rune", GOLD_SOFT, 1.5, delay, duration)
 	return fx
 
 
