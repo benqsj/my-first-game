@@ -3415,12 +3415,31 @@ up, the string drawn and let go, upright again after; played at double speed,
 the string goes 1.5 s in and he is held still until just after). The arrow
 goes up, and 0.75 s later 36 arrows come down for 1.3 s (`ArrowRain`) on what he
 has locked if it is within 18 m — following it while they fall — or 9 m ahead
-of him. Nothing is drawn on the ground. They come slanted from his side, each
+of him. They come slanted from his side, each
 worth 35% of a full draw (crits as his shots do). They are ordinary `Arrow`s,
 and only the host's copies count for damage — every peer builds the same rain
 from the same seed (`net_arrow_rain`). A third of them come down on the bodies
 standing where it falls, the locked one first; spread evenly, a volley over a
 wolf would mostly miss it. `tests/skills_test.gd`.
+
+What it throws off besides its arrows is `RainFx`'s (2026-10-05, the user's
+word: on the shot and as they fall), in one of three looks (`RainFx.look`,
+VOLLEY until the user picks): **DUST** a gust and a puff off the bow and dust
+round his feet as the arrow goes up, faint streaks of cut air coming down with
+the volley (one emitter half way down), a clod and a puff of dust where each
+goes into the ground (`Arrow.struck`, not a body: that bleeds), a low haze
+after; **VOLLEY** the same, more, with a pale ring (`Decal`) coming up where
+it falls in the 0.75 s before, and a glint high up where it turns over;
+**GOLD** rays, a flare and sparks off the bow, a gold rune (`rain_rune`,
+Magic5) turning on the ground, gold streaks and arrow lines, sparks where they
+land. Reel `_shots_tmp/rain_reel.gd -- 012 [check]`.
+
+**His bows** (`BowKinds`, the bag's Weapons tab): his own, the hunter's, and
+the Advanced Weapons' short and long bow, each a share of his P.ATK and of
+the time to full draw — short x0.83 / x0.8, hunter's x0.93 / x0.92, his own
+x1, long x1.17 / x1.15. Put on through the look's `w`; the share is read off
+the look on every peer, on every arrow of his (the shot and the skills) and
+on the draw (`Player.draw_power`, the rig's `_draw_time`).
 
 **The evade's key** (`Controls`, applied by `Game` at start): **Command** on a
 Mac, **Control** everywhere else; walking goes to Alt off a Mac (Shift is the sprint since 2026-10-04) (on a Mac it
