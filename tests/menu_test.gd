@@ -168,7 +168,7 @@ func _check_menu() -> void:
 	for kind: String in (menu.get("_maker_rows") as Dictionary):
 		var row := (menu.get("_maker_rows") as Dictionary)[kind] as Control
 		tabs_rows += 1 if row.visible else 0
-	_check("a tab shows its own rows (FACE: six)", tabs_rows == 6, "%d" % tabs_rows)
+	_check("a tab shows its own rows (FACE: seven, the hair's colour its own)", tabs_rows == 7, "%d" % tabs_rows)
 	# ARMS: the weapon, the other hand and the Advanced Weapons' style; a
 	# style worn on the weapon in hand (WEAPONS_PACK.md).
 	menu.call("_maker_show", "ARMS")

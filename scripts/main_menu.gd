@@ -22,12 +22,16 @@ const NetScript := preload("res://scripts/net.gd")
 
 ## The three columns of the character screen, in pixels: a roster tile, and the
 ## stage the picked one stands on. The dossier takes what is left.
-const TILE := Vector2(116.0, 132.0)
-const STAGE := Vector2(440.0, 500.0)
+const TILE := Vector2(268.0, 104.0)
+## Taller and wider than it was (440 x 500): a great sword held out was cut
+## off at its edge (the camera stands back for it too, [CharacterPortrait]).
+const STAGE := Vector2(540.0, 600.0)
 ## Room kept under the stage for the look/colour/hair rows, shown or not, so
 ## the stage stays where it is from hero to hero (and the page fits 900 high:
 ## at 540 the stage pushed the roster off the bottom).
-const PICKS_HEIGHT := 112.0
+const PICKS_HEIGHT := 108.0
+## The right-hand plate (the dossier, or the maker in its place).
+const PLATE_WIDTH := 528.0
 
 
 ## Appended rather than inserted: the pages are addressed by number from the
@@ -78,13 +82,13 @@ var _pick_rows: Dictionary = {}
 ## picked of that kind.
 const MAKER_TABS := {
 	"OUTFIT": ["cls", "g"],
-	"FACE": ["eyes", "brows", "mouth", "beard", "hair", "skin"],
+	"FACE": ["eyes", "brows", "mouth", "beard", "hair", "hc", "skin"],
 	"GEAR": ["top", "bottom", "extra", "hat", "cloth"],
 	"ARMS": ["w", "o", "ws"],
 }
 const MAKER_LABELS := {
 	"cls": "OUTFIT", "g": "BODY", "eyes": "EYES", "brows": "BROWS", "mouth": "MOUTH", "beard": "BEARD",
-	"hair": "HAIR", "skin": "SKIN", "top": "TOP", "bottom": "LEGS", "extra": "MORE", "hat": "HAT",
+	"hair": "HAIR", "hc": "HAIR COLOUR", "skin": "SKIN", "top": "TOP", "bottom": "LEGS", "extra": "MORE", "hat": "HAT",
 	"cloth": "CLOTH", "w": "WEAPON", "o": "OTHER HAND", "ws": "STYLE",
 }
 var _maker_tab: String = "OUTFIT"
@@ -98,6 +102,7 @@ var _extra_at: int = 0
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	theme = UiArt.theme()
 	MenuStyle.background(self)
 
 	_game = get_node_or_null("/root/Game")
@@ -156,6 +161,19 @@ func _build_root() -> Control:
 	page.set_anchors_preset(Control.PRESET_FULL_RECT)
 	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+	# a band of shadow down the left for the words to stand in
+	var band := Control.new()
+	band.set_anchors_preset(Control.PRESET_FULL_RECT)
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.draw.connect(func() -> void:
+		var h := band.size.y
+		var edge := 740.0
+		band.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(edge, 0), Vector2(edge, h), Vector2(0, h)]),
+				PackedColorArray([Color(0.01, 0.01, 0.02, 0.72), Color(0.01, 0.01, 0.02, 0.0),
+				Color(0.01, 0.01, 0.02, 0.0), Color(0.01, 0.01, 0.02, 0.72)]))
+		pass)
+	page.add_child(band)
+
 	var column := VBoxContainer.new()
 	column.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	column.offset_left = 110.0
@@ -179,6 +197,10 @@ func _build_root() -> Control:
 	foot.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	foot.offset_right = -36.0
 	foot.offset_bottom = -26.0
+	foot.offset_left = -640.0
+	foot.offset_top = -56.0
+	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	foot.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	page.add_child(foot)
 	return page
 
@@ -189,16 +211,7 @@ func _card_page(heading: String) -> Array:
 	var page := CenterContainer.new()
 	page.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var card := PanelContainer.new()
-	var plate := MenuStyle.panel_style(Color(0.035, 0.035, 0.05, 0.82))
-	plate.border_color = Color(MenuStyle.GOLD_DIM, 0.7)
-	plate.set_border_width_all(1)
-	plate.shadow_color = Color(0, 0, 0, 0.55)
-	plate.shadow_size = 30
-	plate.content_margin_left = 64.0
-	plate.content_margin_right = 64.0
-	plate.content_margin_top = 44.0
-	plate.content_margin_bottom = 44.0
-	card.add_theme_stylebox_override("panel", plate)
+	card.add_theme_stylebox_override("panel", MenuStyle.plate(Vector2(68.0, 48.0)))
 	page.add_child(card)
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -231,24 +244,40 @@ func _build_mode() -> Control:
 	return made[0]
 
 
-## The hero select, the way the big games lay it out: whoever is picked large in
-## the middle, standing in a pool of their own colour and turning; everything
-## there is to know about them on a plate to the right; and the others along the
-## bottom, a face each, to pick from.
+## The hero select, the way the big games lay it out: the roster down the
+## left, a face and a name each; whoever is picked large in the middle,
+## standing in a pool of their own colour; on an ornate plate to the right
+## everything there is to know about them (or the maker, for YOUR OWN), and
+## the way on under it.
 func _build_characters() -> Control:
 	var page := Control.new()
 	page.set_anchors_preset(Control.PRESET_FULL_RECT)
 
+	# a darker floor under the three columns, so they read off the sky
+	var shade := Control.new()
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.draw.connect(func() -> void:
+		var w := shade.size.x
+		var h := shade.size.y
+		shade.draw_polygon(PackedVector2Array([Vector2(0, h * 0.45), Vector2(w, h * 0.45), Vector2(w, h),
+				Vector2(0, h)]), PackedColorArray([Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.0),
+				Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.55)]))
+		shade.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w * 0.3, 0), Vector2(w * 0.3, h),
+				Vector2(0, h)]), PackedColorArray([Color(0, 0, 0, 0.45), Color(0, 0, 0, 0.0),
+				Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.45)])))
+	page.add_child(shade)
+
 	var frame := MarginContainer.new()
 	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
-		frame.add_theme_constant_override("margin_" + side, 56)
-	frame.add_theme_constant_override("margin_top", 30)
-	frame.add_theme_constant_override("margin_bottom", 26)
+		frame.add_theme_constant_override("margin_" + side, 48)
+	frame.add_theme_constant_override("margin_top", 26)
+	frame.add_theme_constant_override("margin_bottom", 22)
 	page.add_child(frame)
 
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", 8)
 	frame.add_child(column)
 
 	var top := HBoxContainer.new()
@@ -265,48 +294,62 @@ func _build_characters() -> Control:
 	var roster: Array = _game.roster() if _game != null else []
 	var middle := HBoxContainer.new()
 	middle.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	middle.add_theme_constant_override("separation", 20)
+	middle.add_theme_constant_override("separation", 0)
+
+	# The roster, down the left.
+	var tiles := VBoxContainer.new()
+	tiles.name = "Roster"
+	tiles.alignment = BoxContainer.ALIGNMENT_CENTER
+	tiles.add_theme_constant_override("separation", 10)
+	for id: StringName in roster:
+		var tile := _roster_tile(id)
+		_cards[id] = tile
+		tiles.add_child(tile)
+	middle.add_child(tiles)
 	var left_gap := Control.new()
 	left_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	middle.add_child(left_gap)
+
+	# Whoever is picked, in the middle.
 	var stage_column := VBoxContainer.new()
 	stage_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage_column.add_theme_constant_override("separation", 0)
 	stage_column.add_child(_stage(roster))
+	var turn := MenuStyle.label("◂  DRAG TO TURN  ▸", MenuStyle.BODY_SIZE - 5, Color(MenuStyle.GOLD_DIM, 0.85), "head")
+	turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage_column.add_child(turn)
 	var picks := VBoxContainer.new()
 	picks.custom_minimum_size = Vector2(0.0, PICKS_HEIGHT)
 	picks.add_theme_constant_override("separation", 2)
 	picks.add_child(_picker("face"))
 	picks.add_child(_picker("tint"))
 	picks.add_child(_picker("hair"))
-	var turn := MenuStyle.label("DRAG THE HERO TO TURN HIM", MenuStyle.BODY_SIZE - 5, Color(MenuStyle.GOLD_DIM, 0.8))
-	turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage_column.add_child(turn)
 	stage_column.add_child(picks)
 	middle.add_child(stage_column)
 	var mid_gap := Control.new()
-	mid_gap.custom_minimum_size = Vector2(60.0, 0.0)
+	mid_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	middle.add_child(mid_gap)
-	middle.add_child(_dossier())
-	middle.add_child(_maker())
-	var right_gap := Control.new()
-	right_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	middle.add_child(right_gap)
-	column.add_child(middle)
 
-	var bottom := HBoxContainer.new()
-	bottom.add_theme_constant_override("separation", 14)
-	for id: StringName in roster:
-		var tile := _roster_tile(id)
-		_cards[id] = tile
-		bottom.add_child(tile)
-	var spring := Control.new()
-	spring.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bottom.add_child(spring)
+	# The plate, and the way on under it.
+	var right := VBoxContainer.new()
+	right.custom_minimum_size = Vector2(PLATE_WIDTH, 0.0)
+	right.add_theme_constant_override("separation", 14)
+	var upper := Control.new()
+	upper.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(upper)
+	right.add_child(_dossier())
+	right.add_child(_maker())
+	var lower := Control.new()
+	lower.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(lower)
 
-	var buttons := VBoxContainer.new()
+	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_END
-	buttons.add_theme_constant_override("separation", 10)
+	buttons.add_theme_constant_override("separation", 12)
+	var back := MenuStyle.button("BACK", func() -> void: _show(Page.MODE), true)
+	back.custom_minimum_size = Vector2(170.0, 56.0)
+	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	buttons.add_child(back)
 	# One button, two destinations. Solo starts the game; together, the choice
 	# still has to be made *first* — it is sent with the announcement, and a peer
 	# whose character is unknown is a peer with nothing to spawn.
@@ -317,25 +360,28 @@ func _build_characters() -> Control:
 				_start())
 	_go.custom_minimum_size = Vector2(300.0, 60.0)
 	_go.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_go.add_theme_font_override("font", UiArt.font("title"))
 	_go.add_theme_font_size_override("font_size", MenuStyle.BUTTON_SIZE + 2)
-	var bright := MenuStyle.panel_style(Color(0.46, 0.13, 0.12, 0.92))
+	var bright := MenuStyle.panel_style(Color(0.44, 0.11, 0.1, 0.95))
 	bright.border_color = MenuStyle.GOLD
-	bright.set_border_width_all(1)
+	bright.set_border_width_all(2)
+	bright.set_corner_radius_all(3)
+	bright.shadow_color = Color(0.6, 0.12, 0.06, 0.4)
+	bright.shadow_size = 10
 	var brighter := bright.duplicate() as StyleBoxFlat
-	brighter.bg_color = Color(0.62, 0.19, 0.14, 0.97)
-	brighter.shadow_color = Color(0.95, 0.5, 0.2, 0.35)
-	brighter.shadow_size = 14
+	brighter.bg_color = Color(0.62, 0.17, 0.12, 0.98)
+	brighter.border_color = UiArt.GOLD_LIGHT
+	brighter.shadow_color = Color(0.95, 0.5, 0.2, 0.4)
+	brighter.shadow_size = 18
 	_go.add_theme_stylebox_override("normal", bright)
 	for slot in ["hover", "pressed", "focus"]:
 		_go.add_theme_stylebox_override(slot, brighter)
 	_go.add_theme_color_override("font_color", MenuStyle.CREAM)
+	_go.add_theme_color_override("font_hover_color", Color.WHITE)
 	buttons.add_child(_go)
-	var back := MenuStyle.button("BACK", func() -> void: _show(Page.MODE), true)
-	back.custom_minimum_size = Vector2(300.0, 44.0)
-	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	buttons.add_child(back)
-	bottom.add_child(buttons)
-	column.add_child(bottom)
+	right.add_child(buttons)
+	middle.add_child(right)
+	column.add_child(middle)
 	return page
 
 
@@ -498,7 +544,8 @@ func _accent(id: StringName) -> Color:
 	return ACCENT.get(id, MenuStyle.GOLD)
 
 
-## One tile along the bottom: the character's face, their name under it.
+## One tile in the roster: the character's face in a frame, their name and
+## what they are called under it.
 func _roster_tile(id: StringName) -> Control:
 	var profile := _profile(id)
 	var tile := Button.new()
@@ -509,23 +556,33 @@ func _roster_tile(id: StringName) -> Control:
 		_chosen = id
 		_refresh_cards())
 
-	var column := VBoxContainer.new()
-	column.set_anchors_preset(Control.PRESET_FULL_RECT)
-	column.add_theme_constant_override("separation", 0)
-	column.offset_left = 5.0
-	column.offset_right = -5.0
-	column.offset_top = 5.0
-	column.offset_bottom = -5.0
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.add_child(column)
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.add_theme_constant_override("separation", 12)
+	row.offset_left = 6.0
+	row.offset_right = -8.0
+	row.offset_top = 6.0
+	row.offset_bottom = -6.0
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(row)
 
-	var face := CharacterPortrait.of(profile,
-			Vector2(TILE.x - 10.0, TILE.y - 34.0), CharacterPortrait.Frame.BUST)
+	var face := CharacterPortrait.of(profile, Vector2(TILE.y - 12.0, TILE.y - 12.0), CharacterPortrait.Frame.BUST)
 	face.name = "Face"
-	column.add_child(face)
-	var caption := MenuStyle.label(profile.display_name.to_upper(), MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	row.add_child(face)
+	var words := VBoxContainer.new()
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 0)
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(words)
+	var caption := MenuStyle.label(profile.display_name.to_upper(), MenuStyle.BODY_SIZE + 1, MenuStyle.CREAM, "title")
 	caption.name = "Name"
-	column.add_child(caption)
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	words.add_child(caption)
+	var what := MenuStyle.label(_arms(profile), MenuStyle.BODY_SIZE - 5, MenuStyle.GOLD_DIM, "head")
+	what.name = "Arms"
+	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	words.add_child(what)
 	return tile
 
 
@@ -570,24 +627,55 @@ func _picker(kind: String) -> Control:
 	var row := HBoxContainer.new()
 	row.name = kind.capitalize() + "Row"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
-	var back := MenuStyle.button("<", func() -> void: _step(kind, -1), true)
+	row.add_theme_constant_override("separation", 10)
+	var back := _arrow("‹", func() -> void: _step(kind, -1))
 	back.name = "Back"
-	back.custom_minimum_size = Vector2(52.0, 34.0)
-	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(back)
-	var called := MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	var called := MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM, "head")
 	called.name = "Name"
-	called.custom_minimum_size = Vector2(330.0, 0.0)
+	called.custom_minimum_size = Vector2(340.0, 0.0)
 	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(called)
-	var on := MenuStyle.button(">", func() -> void: _step(kind, 1), true)
+	var on := _arrow("›", func() -> void: _step(kind, 1))
 	on.name = "Next"
-	on.custom_minimum_size = Vector2(52.0, 34.0)
-	on.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(on)
 	_pick_rows[kind] = row
 	return row
+
+
+## A small square arrow button, gold on dark, lit under the mouse.
+func _arrow(glyph: String, pressed: Callable, size: Vector2 = Vector2(38.0, 32.0)) -> Button:
+	var button := Button.new()
+	button.text = glyph
+	button.custom_minimum_size = size
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_override("font", UiArt.font("bold"))
+	button.add_theme_font_size_override("font_size", 26)
+	button.pressed.connect(pressed)
+	var idle := StyleBoxFlat.new()
+	idle.bg_color = Color(0.06, 0.05, 0.06, 0.75)
+	idle.border_color = Color(MenuStyle.GOLD_DIM, 0.8)
+	idle.set_border_width_all(1)
+	idle.set_corner_radius_all(3)
+	idle.content_margin_top = -2.0
+	idle.content_margin_bottom = 2.0
+	var hot := idle.duplicate() as StyleBoxFlat
+	hot.bg_color = Color(0.3, 0.2, 0.07, 0.9)
+	hot.border_color = MenuStyle.GOLD
+	hot.shadow_color = Color(0.95, 0.6, 0.2, 0.25)
+	hot.shadow_size = 6
+	var off := idle.duplicate() as StyleBoxFlat
+	off.bg_color = Color(0.04, 0.04, 0.05, 0.4)
+	off.border_color = Color(MenuStyle.GOLD_DIM, 0.25)
+	button.add_theme_stylebox_override("normal", idle)
+	button.add_theme_stylebox_override("hover", hot)
+	button.add_theme_stylebox_override("pressed", hot)
+	button.add_theme_stylebox_override("focus", idle)
+	button.add_theme_stylebox_override("disabled", off)
+	button.add_theme_color_override("font_color", MenuStyle.GOLD)
+	button.add_theme_color_override("font_hover_color", UiArt.GOLD_LIGHT)
+	button.add_theme_color_override("font_disabled_color", Color(MenuStyle.GOLD_DIM, 0.4))
+	return button
 
 
 ## The picked hero's model on the stage.
@@ -674,7 +762,7 @@ func _draw_stage(stage: Control) -> void:
 	# with its colours faded top to bottom, so there are no bands in it.
 	var top_half := w * 0.07
 	var foot_half := w * 0.4
-	var floor_y := h * 0.93
+	var floor_y := h * 0.91
 	stage.draw_polygon(PackedVector2Array([
 			Vector2(w * 0.5 - top_half, -h * 0.1), Vector2(w * 0.5 + top_half, -h * 0.1),
 			Vector2(w * 0.5 + foot_half, floor_y), Vector2(w * 0.5 - foot_half, floor_y)]),
@@ -713,49 +801,42 @@ func _process(delta: float) -> void:
 		stage.queue_redraw()
 
 
-#region The maker
 ## The right, while the picked hero wears YOUR OWN: what he is made of, a row
 ## for each kind of part, four tabs of them.
 func _maker() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "Maker"
-	panel.custom_minimum_size = Vector2(540.0, 0.0)
+	panel.custom_minimum_size = Vector2(PLATE_WIDTH, 0.0)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	panel.visible = false
-	var plate := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.84))
-	plate.border_color = Color(MenuStyle.GOLD_DIM, 0.6)
-	plate.set_border_width_all(1)
-	plate.shadow_color = Color(0, 0, 0, 0.5)
-	plate.shadow_size = 24
-	plate.content_margin_left = 26.0
-	plate.content_margin_right = 26.0
-	plate.content_margin_top = 22.0
-	plate.content_margin_bottom = 22.0
-	panel.add_theme_stylebox_override("panel", plate)
+	panel.add_theme_stylebox_override("panel", MenuStyle.plate(Vector2(32.0, 28.0)))
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
-	var called := MenuStyle.label("YOUR OWN", MenuStyle.HEADING_SIZE, MenuStyle.CREAM)
+	var called := MenuStyle.label("YOUR OWN", MenuStyle.HEADING_SIZE - 6, MenuStyle.CREAM, "title")
 	called.name = "Called"
 	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(called)
-	var note := MenuStyle.label("Make him your own: a class first, then his face, clothes and arms.\n"
-			+ "Every change is kept. FACE brings the camera up to his face.", MenuStyle.BODY_SIZE - 3,
-			MenuStyle.GOLD_DIM)
+	var note := MenuStyle.label("Make him your own: an outfit first, then his face, clothes and arms. "
+			+ "Every change is kept.", MenuStyle.BODY_SIZE - 2, MenuStyle.GOLD_DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(note)
 	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 6)
+	tabs.add_theme_constant_override("separation", 4)
 	for tab: String in MAKER_TABS:
 		var button := MenuStyle.button(tab, func() -> void: _maker_show(tab), true)
 		button.name = "Tab" + tab
-		button.custom_minimum_size = Vector2(98.0, 38.0)
-		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE)
+		button.custom_minimum_size = Vector2(112.0, 40.0)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 1)
 		tabs.add_child(button)
 		_maker_tabs[tab] = button
 	column.add_child(tabs)
-	column.add_child(MenuStyle.rule())
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0.0, 4.0)
+	column.add_child(gap)
 	for tab: String in MAKER_TABS:
 		for kind: String in MAKER_TABS[tab]:
 			column.add_child(_maker_row(kind))
@@ -765,39 +846,75 @@ func _maker() -> Control:
 func _maker_row(kind: String) -> Control:
 	var row := HBoxContainer.new()
 	row.name = "Make_" + kind
+	row.custom_minimum_size = Vector2(0.0, 40.0)
 	row.add_theme_constant_override("separation", 8)
-	var what := MenuStyle.label(MAKER_LABELS[kind], MenuStyle.BODY_SIZE - 2, MenuStyle.GOLD_DIM)
+	var what := MenuStyle.label(MAKER_LABELS[kind], MenuStyle.BODY_SIZE - 4, MenuStyle.GOLD, "head")
 	what.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	what.custom_minimum_size = Vector2(96.0, 0.0)
+	what.custom_minimum_size = Vector2(118.0, 0.0)
+	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(what)
-	var back := MenuStyle.button("<", func() -> void: _maker_step(kind, -1), true)
+	var back := _arrow("‹", func() -> void: _maker_step(kind, -1))
 	back.name = "Back"
-	back.custom_minimum_size = Vector2(40.0, 32.0)
 	row.add_child(back)
-	var value := MenuStyle.label("", MenuStyle.BODY_SIZE - 1, MenuStyle.CREAM)
+	var value := MenuStyle.label("", MenuStyle.BODY_SIZE, MenuStyle.CREAM)
 	value.name = "Value"
-	value.custom_minimum_size = Vector2(236.0, 0.0)
+	value.custom_minimum_size = Vector2(250.0, 0.0)
+	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	value.clip_text = true
 	row.add_child(value)
-	var on := MenuStyle.button(">", func() -> void: _maker_step(kind, 1), true)
+	var on := _arrow("›", func() -> void: _maker_step(kind, 1))
 	on.name = "Next"
-	on.custom_minimum_size = Vector2(40.0, 32.0)
 	row.add_child(on)
-	if kind == "skin" or kind == "cloth":
-		for i in 2:
-			var swatch := ColorRect.new()
+	if kind in ["skin", "hc", "cloth"]:
+		# a swatch to click for each colour, in place of the arrows
+		back.visible = false
+		on.visible = false
+		value.visible = false
+		var palette := HBoxContainer.new()
+		palette.name = "Palette"
+		palette.add_theme_constant_override("separation", 3)
+		var count := PolysplitLook.CLOTHS if kind == "cloth" else PolysplitLook.SKINS
+		for i in range(1, count + 1):
+			var swatch := Button.new()
 			swatch.name = "Swatch%d" % i
-			swatch.custom_minimum_size = Vector2(22.0, 22.0)
-			swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			row.add_child(swatch)
+			swatch.focus_mode = Control.FOCUS_NONE
+			swatch.custom_minimum_size = Vector2(22.0 if kind == "cloth" else 34.0, 30.0)
+			swatch.tooltip_text = "%s %d" % [MAKER_LABELS[kind], i]
+			swatch.pressed.connect(func() -> void: _maker_pick(kind, i))
+			palette.add_child(swatch)
+		row.add_child(palette)
 	if kind == "extra":
 		var wear := MenuStyle.button("WEAR", _maker_toggle_extra, true)
 		wear.name = "Wear"
-		wear.custom_minimum_size = Vector2(76.0, 32.0)
-		wear.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 2)
+		wear.custom_minimum_size = Vector2(96.0, 32.0)
+		wear.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		wear.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 4)
 		row.add_child(wear)
 	_maker_rows[kind] = row
 	return row
+
+
+## A colour row's swatch clicked: that colour, on the stage and remembered.
+func _maker_pick(kind: String, value: int) -> void:
+	if not _making():
+		return
+	var look: Dictionary = _chosen_rig().call(&"get_look")
+	look[kind] = value
+	_maker_wear(look)
+
+
+## The style box a colour swatch is drawn in: its colour (the hair's or the
+## skin's half of the texture), gold-edged when it is the one worn.
+func _swatch_style(colour: Color, on: bool, hover: bool = false) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = colour
+	box.set_corner_radius_all(3)
+	box.border_color = UiArt.GOLD_LIGHT if on else (MenuStyle.GOLD if hover else Color(0, 0, 0, 0.8))
+	box.set_border_width_all(3 if on else (2 if hover else 1))
+	if on:
+		box.shadow_color = Color(1.0, 0.8, 0.4, 0.45)
+		box.shadow_size = 5
+	return box
 
 
 ## Whether the picked hero wears YOUR OWN.
@@ -824,7 +941,7 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 			return range(9) if g == "m" else []
 		"hair":
 			return range(15)
-		"skin":
+		"skin", "hc":
 			return range(1, PolysplitLook.SKINS + 1)
 		"cloth":
 			return range(1, PolysplitLook.CLOTHS + 1)
@@ -849,18 +966,20 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 func _maker_name(kind: String, value: Variant, look: Dictionary) -> String:
 	match kind:
 		"cls":
-			return PolysplitLook.CLASS_NAMES.get(value, String(value).to_upper())
+			return PolysplitLook.outfit_name(_chosen, String(look.get("g", "m")), String(value))
 		"g":
 			return "MAN" if value == "m" else "WOMAN"
-		"eyes", "brows", "mouth", "skin", "cloth":
+		"eyes", "brows", "mouth", "skin", "hc", "cloth":
 			return str(int(value) + (1 if kind in ["eyes", "brows", "mouth"] else 0))
 		"beard", "hair":
 			return "NONE" if int(value) == 0 else str(int(value))
 		"top", "bottom":
-			return "BARE" if String(value) == "" else PolysplitLook.CLASS_NAMES.get(value, "") + "'S"
+			return "BARE" if String(value) == "" else \
+					PolysplitLook.outfit_name(_chosen, String(look.get("g", "m")), String(value))
 		"extra":
 			var worn: bool = (look.get("extras", []) as Array).has(value)
-			return PolysplitLook.extra_name(String(value)) if not worn else "· %s ·" % PolysplitLook.extra_name(String(value))
+			var called := PolysplitLook.extra_name(String(value), _chosen, String(look.get("g", "m")))
+			return called if not worn else "◆ %s" % called
 		"hat":
 			return "NONE" if String(value) == "" else String(PolysplitLook.HATS[value]["name"])
 		"w", "o":
@@ -952,7 +1071,7 @@ func _refresh_maker() -> void:
 		MenuStyle.style_button(_maker_tabs[tab] as Button, tab == _maker_tab, true)
 	var called := page.find_child("Called", true, false) as Label
 	if called != null:
-		called.text = "%s · YOUR OWN" % _profile(_chosen).display_name.to_upper()
+		called.text = "%s  ·  YOUR OWN" % _profile(_chosen).display_name.to_upper()
 	var look: Dictionary = _chosen_rig().call(&"get_look")
 	for kind: String in _maker_rows:
 		var row := _maker_rows[kind] as HBoxContainer
@@ -968,42 +1087,37 @@ func _refresh_maker() -> void:
 			continue
 		var at := clampi(_extra_at, 0, options.size() - 1) if kind == "extra" else maxi(options.find(look.get(kind)), 0)
 		value.text = _maker_name(kind, options[at], look)
-		if kind in ["eyes", "brows", "mouth", "beard", "hair", "skin", "cloth"]:
+		if kind in ["eyes", "brows", "mouth", "beard", "hair", "skin", "hc", "cloth"]:
 			# which of how many: a bare number says nothing of how far there is to go
 			value.text = "NONE" if value.text == "NONE" else "%d / %d" % [at + 1, options.size()]
 		if kind in ["w", "o"] and options.size() > 2:
 			value.text = "%s  %d/%d" % [value.text, at + 1, options.size()]
-		if kind == "skin" or kind == "cloth":
-			var texture := "body" if kind == "skin" else "objects"
-			for i in 2:
-				(row.get_node("Swatch%d" % i) as ColorRect).color = PolysplitLook.swatch(texture, int(options[at]),
-						i == 1)
+		if kind in ["skin", "hc", "cloth"]:
+			var texture := "objects" if kind == "cloth" else "body"
+			var worn := int(look.get(kind, look.get("skin", 1)))
+			for swatch: Button in (row.get_node("Palette") as Container).get_children():
+				var i := int(String(swatch.name).trim_prefix("Swatch"))
+				var colour := PolysplitLook.swatch(texture, i, kind == "hc")
+				swatch.add_theme_stylebox_override("normal", _swatch_style(colour, i == worn))
+				swatch.add_theme_stylebox_override("hover", _swatch_style(colour, i == worn, true))
+				swatch.add_theme_stylebox_override("pressed", _swatch_style(colour, true))
 		if kind == "extra":
 			var worn: bool = (look.get("extras", []) as Array).has(options[at])
 			(row.get_node("Wear") as Button).text = "TAKE OFF" if worn else "WEAR"
 #endregion
 
 
-## The right: who they are and what picking them means, on a dark plate.
+## The right: who they are and what picking them means, on the ornate plate.
 func _dossier() -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "Dossier"
-	panel.custom_minimum_size = Vector2(430.0, 0.0)
+	panel.custom_minimum_size = Vector2(PLATE_WIDTH, 0.0)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var plate := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.84))
-	plate.border_color = Color(MenuStyle.GOLD_DIM, 0.6)
-	plate.set_border_width_all(1)
-	plate.shadow_color = Color(0, 0, 0, 0.5)
-	plate.shadow_size = 24
-	plate.content_margin_left = 30.0
-	plate.content_margin_right = 30.0
-	plate.content_margin_top = 26.0
-	plate.content_margin_bottom = 26.0
-	panel.add_theme_stylebox_override("panel", plate)
+	panel.add_theme_stylebox_override("panel", MenuStyle.plate(Vector2(36.0, 30.0)))
 
 	var column := VBoxContainer.new()
 	column.name = "Lines"
-	column.add_theme_constant_override("separation", 8)
+	column.add_theme_constant_override("separation", 9)
 	panel.add_child(column)
 	return panel
 
@@ -1023,9 +1137,9 @@ func _fill_dossier() -> void:
 
 	var profile := _profile(_chosen)
 	var light := _accent(_chosen)
-	var called := MenuStyle.label(profile.display_name.to_upper(), MenuStyle.HEADING_SIZE + 10, MenuStyle.CREAM)
+	var called := MenuStyle.label(profile.display_name.to_upper(), MenuStyle.HEADING_SIZE + 8, MenuStyle.CREAM, "title")
 	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	called.add_theme_color_override("font_shadow_color", Color(light, 0.55))
+	called.add_theme_color_override("font_shadow_color", Color(light, 0.5))
 	called.add_theme_constant_override("shadow_outline_size", 12)
 	called.add_theme_constant_override("shadow_offset_x", 0)
 	called.add_theme_constant_override("shadow_offset_y", 0)
@@ -1033,13 +1147,13 @@ func _fill_dossier() -> void:
 	var epithet := MenuStyle.label(EPITHET.get(_chosen, ""), MenuStyle.BODY_SIZE, light.lightened(0.25))
 	epithet.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(epithet)
-	var arms := MenuStyle.label(_arms(profile), MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM)
+	var arms := MenuStyle.label(_arms(profile), MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD, "head")
 	arms.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(arms)
-	column.add_child(MenuStyle.rule())
+	column.add_child(MenuStyle.ornament(PLATE_WIDTH - 80.0))
 	for stat: Array in _stats(profile):
 		column.add_child(_bar(stat[0], stat[1], stat[2], light))
-	column.add_child(MenuStyle.rule())
+	column.add_child(MenuStyle.ornament(PLATE_WIDTH - 80.0))
 	var traits := MenuStyle.label(_traits(profile), MenuStyle.BODY_SIZE - 2, MenuStyle.GOLD)
 	traits.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	traits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1081,21 +1195,27 @@ func _stats(profile: CharacterProfile) -> Array:
 func _bar(what: String, share: float, figure: String, light: Color) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
-	var called := MenuStyle.label(what, MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM)
+	var called := MenuStyle.label(what, MenuStyle.BODY_SIZE - 4, MenuStyle.GOLD, "head")
 	called.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	called.custom_minimum_size = Vector2(92.0, 0.0)
+	called.custom_minimum_size = Vector2(104.0, 0.0)
 	row.add_child(called)
 	var bar := Control.new()
 	bar.custom_minimum_size = Vector2(190.0, 20.0)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.draw.connect(func() -> void:
-		var y := bar.size.y * 0.5 - 4.0
+		var y := bar.size.y * 0.5 - 5.0
 		var width := bar.size.x
-		bar.draw_rect(Rect2(0, y, width, 8), Color(1, 1, 1, 0.07))
-		bar.draw_rect(Rect2(0, y, width * share, 8), light.darkened(0.15))
-		bar.draw_rect(Rect2(0, y, width * share, 3), light.lightened(0.3))
+		var full := width * share
+		bar.draw_rect(Rect2(-1, y - 1, width + 2, 12), Color(0, 0, 0, 0.6))
+		bar.draw_rect(Rect2(0, y, width, 10), Color(1, 1, 1, 0.05))
+		# the fill: dark at its root, bright at its head, a light line on top
+		bar.draw_polygon(PackedVector2Array([Vector2(0, y), Vector2(full, y), Vector2(full, y + 10), Vector2(0, y + 10)]),
+				PackedColorArray([light.darkened(0.55), light.lightened(0.1), light.darkened(0.1), light.darkened(0.7)]))
+		bar.draw_rect(Rect2(0, y, full, 2), Color(light.lightened(0.55), 0.8))
+		bar.draw_rect(Rect2(full - 2, y - 1, 2, 12), Color(light.lightened(0.6), 0.9))
 		for i in range(1, 5):
-			bar.draw_line(Vector2(width * i / 5.0, y), Vector2(width * i / 5.0, y + 8), Color(0, 0, 0, 0.6), 2.0))
+			bar.draw_line(Vector2(width * i / 5.0, y), Vector2(width * i / 5.0, y + 10), Color(0, 0, 0, 0.55), 2.0)
+		bar.draw_rect(Rect2(-1, y - 1, width + 2, 12), Color(MenuStyle.GOLD_DIM, 0.5), false, 1.0))
 	row.add_child(bar)
 	var value := MenuStyle.label(figure, MenuStyle.BODY_SIZE - 3, MenuStyle.CREAM)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -1127,6 +1247,8 @@ func _arms(profile: CharacterProfile) -> String:
 			return "LONGBOW"
 		CharacterProfile.Weapon.STAFF:
 			return "STAFF AND LIGHTNING"
+	if profile.display_name.to_lower().contains("warrior"):
+		return "GREAT SWORD"
 	return "SWORD AND SHIELD" if profile.can_block else "ONE LONG KNIFE"
 
 
@@ -1135,14 +1257,16 @@ func _refresh_cards() -> void:
 		var card := _cards[id] as Button
 		var picked := id == _chosen
 		var light := _accent(id)
-		var style := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.85) if not picked
-				else Color(light.darkened(0.7), 0.92))
+		var style := MenuStyle.panel_style(Color(0.03, 0.03, 0.045, 0.78) if not picked
+				else Color(light.darkened(0.72), 0.94))
 		style.set_content_margin_all(0.0)
-		style.border_color = light if picked else Color(MenuStyle.GOLD_DIM, 0.35)
-		style.set_border_width_all(2 if picked else 1)
+		style.set_corner_radius_all(3)
+		style.border_color = light if picked else Color(MenuStyle.GOLD_DIM, 0.4)
+		style.set_border_width_all(1)
+		style.border_width_left = 5 if picked else 1
 		if picked:
-			style.shadow_color = Color(light, 0.45)
-			style.shadow_size = 16
+			style.shadow_color = Color(light, 0.4)
+			style.shadow_size = 14
 		var hover := style.duplicate() as StyleBoxFlat
 		hover.border_color = light
 		card.add_theme_stylebox_override("normal", style)
@@ -1154,7 +1278,10 @@ func _refresh_cards() -> void:
 			face.modulate = Color.WHITE if picked else Color(0.62, 0.62, 0.66)
 		var caption := card.find_child("Name", true, false) as Label
 		if caption != null:
-			caption.add_theme_color_override("font_color", light.lightened(0.35) if picked else MenuStyle.GOLD_DIM)
+			caption.add_theme_color_override("font_color", light.lightened(0.45) if picked else MenuStyle.CREAM.darkened(0.25))
+		var what := card.find_child("Arms", true, false) as Label
+		if what != null:
+			what.add_theme_color_override("font_color", MenuStyle.GOLD if picked else MenuStyle.GOLD_DIM)
 	for id: StringName in _stages:
 		(_stages[id] as Control).visible = id == _chosen
 	var page := _pages.get(Page.CHARACTERS) as Control
