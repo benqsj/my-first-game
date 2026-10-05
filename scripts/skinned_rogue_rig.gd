@@ -307,15 +307,16 @@ const OWN_SWING_RATE := 2.1
 ## a short sword in either hand plays them slower still (x1/1.2).
 const MQ_KNIFE_RATE := 2.22
 ## Two blades or one (the user's word, 2026-10-05, after measuring with
-## `_shots_tmp/as/dps.gd`): two cut more often, a little lighter each, and
-## dearer — his stamina gone in about four seconds of cutting; one cuts less
-## often, harder, cheaper — about six. About the same harm a second either way.
-## The crit is the same for both.
-const TWO_BLADES := {"damage": 0.95, "stamina": 10.0}
+## `_shots_tmp/as/dps.gd`, `stam.gd`): two land a little more harm a second
+## and tire sooner; one a little less and lasts. Weighed against the others,
+## Tariel the measure (his stamina gone in 2.0 s of cutting, 77 harm on it):
+## two blades 1.9 s and about 94 harm, one 2.6 s and about 120 (no shield, the
+## least health). The crit is the same for both.
+const TWO_BLADES := {"damage": 1.05, "stamina": 16.0}
 ## (One blade's string is three cuts, its last the heavier one every third
 ## blow instead of every sixth: at x1.0 it already lands as hard a second as
 ## two blades at x0.95 — measured 2.56 against 2.49.)
-const ONE_BLADE := {"damage": 1.0, "stamina": 7.0, "pace": 0.9}
+const ONE_BLADE := {"damage": 1.0, "stamina": 14.0, "pace": 0.9}
 
 
 ## On the mannequin the picks give him a heavy blow of their own; his own,

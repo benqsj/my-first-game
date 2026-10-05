@@ -8027,3 +8027,27 @@ Tested by `tests/combat_core_test.gd` (headless).
     hand of the rogue's);
   - Shift+Enter or right-click still puts a blade straight into his left.
   - The Empty Left Hand item is gone.
+- **Every hero's stamina weighed against Tariel's** (the user's word,
+  2026-10-06). Tariel is the measure. Each hero mashes the attack button in
+  his own saved look (`_shots_tmp/as/stam.gd` for melee, `rstam.gd` for
+  shooters, every shot counted as landing):
+
+  | hero | harm/s | full stamina lasts | harm on it |
+  |---|---|---|---|
+  | Tariel | 38 | 2.0 s | 77 |
+  | warrior | 56 | 1.7 s | 95 |
+  | Amirani | 64 | 1.7 s | 109 |
+  | assassin, two daggers (×1.05, 16 a blow) | 50 | 1.9 s | 94 |
+  | assassin, one dagger (×1.0, 14 a blow) | 46 | 2.6 s | 120 |
+  | assassin, short sword + dagger | 43 | about 2.3 s | about 100 |
+  | archers, taps / full draws | 17–21 / 24–30 | 3.2 / 6.0 s | from afar |
+  | mages, taps / full charges | 25 / 30 | 2.8 / 5.7 s | from afar |
+
+  - The assassin was 4–6 s and 180–280 harm on a bar; now he is near the
+    others.
+  - The mages' tapped bolt was worth 0.3 of a full charge and landed 35–39
+    harm a second from afar, more than Tariel. It is now worth 0.2
+    (`snap_share`, mage / elf_mage / dark_mage), so a full charge pays
+    better than tapping.
+  - The warrior, Amirani and the archers are unchanged. Amirani is the
+    strongest on a bar, by design (`fee94ae`: harder blows).
