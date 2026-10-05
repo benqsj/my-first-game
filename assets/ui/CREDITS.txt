@@ -1,0 +1,15 @@
+assets/ui — where it came from
+
+fonts/   Cinzel (Natanael Gama), Cinzel Decorative (Natanael Gama), Alegreya Sans
+         (Juan Pablo del Peral, Huerta Tipográfica). SIL Open Font License 1.1
+         (fonts/OFL.txt). Cinzel-Bold/Medium are static cuts of the variable font
+         (fonttools varLib.instancer wght=700/500).
+icons/   Glyphs from game-icons.net (CC BY 3.0, https://creativecommons.org/licenses/by/3.0/),
+         baked into plates by vepxis-art/tools/ui_icons.py:
+           Lorc: striking-arrows, supersonic-arrow, flaming-arrow, charged-arrow,
+                 saber-slash, piercing-sword, dripping-blade, pocket-bow, broadsword,
+                 plain-dagger, wizard-staff, robe, hood, crossed-swords,
+                 bordered-shield, knapsack, potion-ball
+           Delapouite: eye-target, two-handed-sword, viking-shield, templar-shield
+           DarkZaitzev: running-ninja
+frames/  Drawn by vepxis-art/tools/ui_frames.py (ours).
