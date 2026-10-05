@@ -1879,6 +1879,18 @@ func hitstop(seconds: float) -> void:
 		_action_left += seconds
 
 
+## The hold let go early (he got where he was going): what was left of it
+## taken back off the swing's clock.
+func end_hitstop() -> void:
+	if _stop_left <= 0.0:
+		return
+	if _role != Role.NONE:
+		_action_left -= _stop_left
+	_stop_left = 0.0
+	if absf(_anim.speed_scale - _stop_rate * STOP_RATE) < 0.0001:
+		_anim.speed_scale = _stop_rate
+
+
 ## The hold over: the clip goes on at the rate it had — unless something else
 ## has set a rate of its own in the meantime, which is left alone.
 func _hold_stop(delta: float) -> void:

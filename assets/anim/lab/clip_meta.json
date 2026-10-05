@@ -1096,6 +1096,90 @@
 					0.429
 				]
 			]
+		},
+		"KV_Attack1H01_L": {
+			"cuts": [
+				[
+					0.03,
+					0.075
+				],
+				[
+					0.224,
+					0.254
+				]
+			],
+			"length": 1.1,
+			"loop": false,
+			"peak": 24.99,
+			"trails": [
+				[
+					0.015,
+					0.269
+				]
+			]
+		},
+		"KV_Attack1H02_L": {
+			"cuts": [
+				[
+					0.274,
+					0.323
+				]
+			],
+			"length": 1.033,
+			"loop": false,
+			"peak": 54.08,
+			"trails": [
+				[
+					0.048,
+					0.097
+				],
+				[
+					0.258,
+					0.339
+				]
+			]
+		},
+		"KV_AttackDW01": {
+			"cuts": [
+				[
+					0.186,
+					0.229
+				]
+			],
+			"length": 1.167,
+			"loop": false,
+			"peak": 37.97,
+			"trails": [
+				[
+					0.171,
+					0.229
+				]
+			]
+		},
+		"KV_AttackDW02": {
+			"cuts": [
+				[
+					0.173,
+					0.213
+				]
+			],
+			"length": 1.233,
+			"loop": false,
+			"peak": 34.98,
+			"trails": [
+				[
+					0.16,
+					0.213
+				],
+				[
+					0.44,
+					0.52
+				]
+			]
+		},
+		"KV_ParryDW01_Loop": {
+			"length": 1.333,
+			"loop": true
 		}
 	},
 	"made_by": "vepxis-art/tools/clip_meta.gd"

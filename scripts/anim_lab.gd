@@ -76,6 +76,22 @@ const SETS := [
 		["PARRY", ["KV_ParryDW01_Loop"], ["Sword_Block"], ["c:block_idle"], 3.0],
 		["ONE KNIFE", ["KV_Attack1H01_R", "KV_Attack1H02_R"], ["Sword_Light_C"], ["h:0"], 3.5],
 	]},
+	# The assassin with a blade in each hand (the user's word, 2026-10-05): a
+	# blow for each hand in turn, then both. Kevin's one-handed cuts left and
+	# right and his two-blade ones; UAL 2's; and his own two-knife string (the
+	# DG_Dual_ parts are one clip, cut in three in the game).
+	{"name": "TWO BLADES", "hero": &"rogue", "look": {"cls": "rogue", "w": "dagger", "o": "dagger"}, "moves": [
+		["ON GUARD", ["KV_CombatIdle1H01"], ["Idle_Shield_Loop"], ["DG_Idle_Knife"], 3.5],
+		["CUT 1", ["KV_Attack1H01_R"], ["Sword_Light_A"], ["DG_Slash_Out"], 2.6],
+		["CUT 2", ["KV_Attack1H01_L"], ["Sword_Light_B"], ["DG_Slash_In"], 2.6],
+		["CUT 3", ["KV_Attack1H02_R"], ["Sword_Regular_A"], ["DG_Dual_A"], 2.6],
+		["CUT 4", ["KV_Attack1H02_L"], ["Sword_Regular_B"], ["DG_Dual_B"], 2.6],
+		["CUT 5", ["KV_AttackDW01"], ["Sword_Regular_C"], ["DG_Dual_C"], 2.8],
+		["CUT 6", ["KV_AttackDW02"], ["Sword_Light_C"], ["DG_Whirl"], 3.0],
+		["COMBO", ["KV_Attack1H01_R", "KV_Attack1H01_L", "KV_Attack1H02_R", "KV_Attack1H02_L", "KV_AttackDW01",
+				"KV_AttackDW02"], ["Sword_Light_Combo"], ["DG_Slash_Out", "DG_Slash_In", "DG_Dual_Combo", "DG_Whirl"], 7.0],
+		["PARRY", ["KV_ParryDW01_Loop"], ["Sword_Block"], [], 3.0],
+	]},
 	{"name": "BOW", "hero": &"avtandil", "look": {"cls": "hunter", "w": "bow", "o": "none"}, "moves": [
 		["NOCK", [], ["Bow_Notch"], ["AV_Nock_Draw"], 3.0],
 		["AIM", [], ["Bow_Aim_Neutral"], ["c:aim_walk"], 3.0],
@@ -419,14 +435,21 @@ func _pick(col: int) -> void:
 	var chosen: Dictionary = _picks.get(group, {})
 	chosen[move[0]] = col
 	_picks[group] = chosen
+	# only this move's pick is rewritten: the rest of the file (and every
+	# move's "also", put in by hand) is kept as it was
+	var out := {}
+	if FileAccess.file_exists(PICKS):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(PICKS))
+		if parsed is Dictionary:
+			out = parsed
+	var in_group: Dictionary = out.get(group, {})
+	var entry: Dictionary = in_group.get(move[0], {})
+	entry["column"] = COLUMNS[col]
+	entry["clips"] = _clips_of(group, move[0], col)
+	in_group[move[0]] = entry
+	out[group] = in_group
 	var file := FileAccess.open(PICKS, FileAccess.WRITE)
 	if file != null:
-		var out := {}
-		for s: String in _picks:
-			out[s] = {}
-			for m: String in _picks[s]:
-				var i := int(_picks[s][m])
-				out[s][m] = {"column": COLUMNS[i], "clips": _clips_of(s, m, i)}
 		file.store_string(JSON.stringify(out, "\t"))
 	_show_move(_move)
 

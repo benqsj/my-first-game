@@ -23,6 +23,7 @@ const META := "res://assets/anim/lab/clip_meta.json"
 const SETS := {
 	&"moving": "MOVING", &"sword": "SWORD AND SHIELD", &"two_hands": "TWO HANDS",
 	&"knives": "TWO KNIVES", &"bow": "BOW", &"spear": "SPEAR (A STAFF FOR NOW)",
+	&"dual": "TWO BLADES",
 }
 ## Moves of MOVING -> the rig's clip table key.
 const MOVING_SLOTS := {
@@ -46,6 +47,7 @@ const COMPANIONS := {
 }
 const BLOCK_HIT := {
 	&"two_hands": &"KV_Parry2H01_Hit", &"knives": &"KV_ParryDW01_Hit", &"spear": &"KV_ParryPolearm01_Hit",
+	&"dual": &"KV_ParryDW01_Hit",
 }
 ## Each class's death (the look's "cls"), Kevin's, the user's picks
 ## (2026-10-03): the swordsman, the knight, the rogue and the hunter theirs,
@@ -79,9 +81,27 @@ static var _meta: Dictionary = {}
 
 
 ## The kind of arms `look` ([PolysplitLook]) holds: which set it fights with.
+##
+## The assassin with a blade in each hand (a knife, or a short sword, in the
+## other hand too) fights with both: TWO BLADES, `&"dual"` (the user's word,
+## 2026-10-05). One blade, and he fights as he did, one-handed.
 static func kind_of(look: Dictionary) -> StringName:
 	var k := PolysplitLook.kind(String(look.get("w", "")))
+	if two_blades(look):
+		return &"dual"
 	return &"sword" if k == &"shield" else k
+
+
+## Whether `look` is the assassin's with a blade in each hand.
+static func two_blades(look: Dictionary) -> bool:
+	var cls := String(look.get("cls", ""))
+	if String(PolysplitLook.PROFESSION_OF.get(cls, cls)) != "rogue":
+		return false
+	var o := String(look.get("o", ""))
+	if o == "" or o == "none":
+		return false
+	var blade := [&"knives", &"sword"]
+	return PolysplitLook.kind(o) in blade and PolysplitLook.kind(String(look.get("w", ""))) in blade
 
 
 static func picks() -> Dictionary:
@@ -229,7 +249,7 @@ static func build(kind: StringName, own: Dictionary) -> Dictionary:
 			if clip_meta(roll_clip).has("hop_peak") else 0.86
 	# the arms
 	var set_key := kind
-	if set_key == &"sword" or set_key == &"two_hands" or set_key == &"knives" or set_key == &"spear":
+	if set_key in [&"sword", &"two_hands", &"knives", &"spear", &"dual"]:
 		var guard := pick(set_key, "ON GUARD", own)
 		if not guard["main"].is_empty():
 			t["guard"] = guard["main"][0]
@@ -255,6 +275,13 @@ static func build(kind: StringName, own: Dictionary) -> Dictionary:
 			_slot(t, &"block_idle", "PARRY", &"knives", own)
 			_slot(t, &"parry", "PARRY", &"knives", own)
 			_heavy(t, "ONE KNIFE", &"knives", own, 1.6)
+		&"dual":
+			# a blow for each hand in turn, and both at once (the lab's TWO
+			# BLADES, picked by the user); the heavy blows are the rig's own
+			_string_of(t, ["CUT 1", "CUT 2", "CUT 3", "CUT 4", "CUT 5", "CUT 6"], &"dual", own)
+			_combo(t, "COMBO", &"dual", own)
+			_slot(t, &"block_idle", "PARRY", &"dual", own)
+			_slot(t, &"parry", "PARRY", &"dual", own)
 		&"spear":
 			_string_of(t, ["THRUST 1", "THRUST 2", "SWEEP"], &"spear", own)
 			_slot(t, &"block_idle", "PARRY", &"spear", own)

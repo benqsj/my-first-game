@@ -229,7 +229,7 @@ func _configure() -> void:
 	# spinning cut, the backhand, the axe's cut from right to left and the
 	# whirl to end it. The two-knife heavy blow gives way to the one-handed
 	# combo's last big blow.
-	var one_heavy: Array = WIND_HEAVY.duplicate(true)
+	var one_heavy: Array = WIND_HEAVY_ONE.duplicate(true)
 	var one_knife := {
 		"flurry": [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Backhand_Cut", &"DG_Axe_R2L", &"DG_Whirl"],
 		"flurry_part": {&"DG_Axe_R2L": Vector2(0.236, 0.597), &"DG_Whirl": Vector2(0.1, 0.62)},
@@ -274,17 +274,34 @@ func _configure() -> void:
 ## Both are the two-knife combo (DG_Dual_Combo), played on his own rig and on
 ## the mannequin alike (the DG clips are carried onto it).
 const RUSH_IN := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.6,
-		"rate": 2.6, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 3.5, "rise": 0.8}
+		"rate": 2.6, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.8}
 const THREE_QUICK := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.85,
 		"rate": 2.3, "weight": 1.35, "step": 0.8, "rise": 0.8}
 const WIND_HEAVY := [RUSH_IN, THREE_QUICK, THREE_QUICK, THREE_QUICK, RUSH_IN]
+## With one blade (the other hand empty, the user's word 2026-10-05): the same
+## gathering and rush, but the blows one-handed — the axe's three great cuts
+## (DG_Axe_Three: right, back, and over the head down), the left hand out of it.
+const RUSH_IN_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.02, 0.72), "wind": 0.16, "wind_rate": 0.75,
+		"rate": 2.3, "weight": 1.6, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.7}
+const THREE_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.06, 0.72), "wind": 0.16, "wind_rate": 0.95,
+		"rate": 2.1, "weight": 1.45, "step": 0.8, "rise": 0.7}
+const WIND_HEAVY_ONE := [RUSH_IN_ONE, THREE_ONE, THREE_ONE, THREE_ONE, RUSH_IN_ONE]
+
+
+## Whether he holds a blade in each hand now: on the mannequin by his look's
+## arms ([method Moveset.two_blades]); on his own rig every look but the one
+## that holds one knife.
+func two_blades() -> bool:
+	if _on_mq:
+		return moves.get("kind", &"") == &"dual"
+	return face_moves.get(faces[face] if face < faces.size() else &"", {}).is_empty()
 
 
 ## On the mannequin the picks give him a heavy blow of their own; his own,
 ## wound up, are kept.
 func _wear_moves() -> void:
 	super()
-	heavy = WIND_HEAVY.duplicate(true)
+	heavy = (WIND_HEAVY if two_blades() else WIND_HEAVY_ONE).duplicate(true)
 
 
 ## The evades played no faster than a man can be seen to move (the user's
@@ -339,6 +356,40 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			l.amount = _lean_now if s == skel else 0.0
 			# his face (the rig is turned about: its +Z is the way he faces)
 			l.forward = global_basis.z
+
+
+## With a blade in each hand both cut: the edge given to whatever asks is the
+## one going faster this tick (a blow of the left hand is the left knife's).
+var _edges_tick: int = -1
+var _edge_r_was := Vector3.ZERO
+var _edge_l_was := Vector3.ZERO
+var _left_edge: bool = false
+
+
+func get_cutting_edge() -> PackedVector3Array:
+	var edge := super()
+	if edge.is_empty() or _blade_tip_l == null or _blade_base_l == null or not two_blades() \
+			or not _off_hand_on:
+		return edge
+	var tick := Engine.get_physics_frames()
+	if tick != _edges_tick:
+		var r := _blade_tip.global_position
+		var l := _blade_tip_l.global_position
+		if _edges_tick == tick - 1:
+			_left_edge = l.distance_to(_edge_l_was) > r.distance_to(_edge_r_was) * 1.15
+		else:
+			_left_edge = false
+		_edge_r_was = r
+		_edge_l_was = l
+		_edges_tick = tick
+	if not _left_edge:
+		return edge
+	var base := _blade_base_l.global_position
+	var tip := _blade_tip_l.global_position
+	var along := tip - base
+	if along.length_squared() > 0.0001:
+		tip += along.normalized() * strike_reach
+	return PackedVector3Array([base, tip])
 
 
 ## The Poisoned Blade's coat (`DG_Poison_Coat`, built in Blender by

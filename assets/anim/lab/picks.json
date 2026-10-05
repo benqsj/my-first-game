@@ -369,5 +369,55 @@
 				"KV_ParryPolearm01_Loop"
 			]
 		}
+	},
+	"TWO BLADES": {
+		"ON GUARD": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Idle_Knife"
+			]
+		},
+		"CUT 1": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Slash_Out"
+			]
+		},
+		"CUT 2": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Slash_In"
+			]
+		},
+		"CUT 3": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Dual_A"
+			]
+		},
+		"CUT 4": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Dual_B"
+			]
+		},
+		"CUT 5": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Dual_C"
+			]
+		},
+		"CUT 6": {
+			"column": "NOW (MIXAMO)",
+			"clips": [
+				"DG_Whirl"
+			]
+		},
+		"PARRY": {
+			"column": "KEVIN IGLESIAS",
+			"clips": [
+				"KV_ParryDW01_Loop"
+			]
+		}
 	}
 }

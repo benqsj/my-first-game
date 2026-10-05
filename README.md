@@ -7861,3 +7861,45 @@ heavy combo flipped and fell to the ground, and his evades were a blur.
   the sizes are a uniform scale of the whole figure. Every one measures the
   same: hip at 0.52 of his height, leg to torso 1.60
   (`_shots_tmp/as/prop_world.gd`).
+
+## The assassin fights by what he holds (2026-10-05)
+
+The user's word: with a blade in each hand he fights with both; with one,
+as before.
+
+- **Two blades** means the rogue's look holds a knife or a short sword in
+  the other hand as well (`Moveset.two_blades`). Such a look is
+  `kind_of` `&"dual"`, the lab's **TWO BLADES** set:
+  - ON GUARD, CUT 1–6 (a blow of each hand in turn, then both), COMBO and
+    PARRY;
+  - the columns are Kevin's one-handed cuts left and right and his
+    two-blade ones, UAL 2's, and his own two-knife string;
+  - until the user picks, the string is his own DG two-knife one with
+    Kevin's two-blade parry.
+- **The lab's pick** now rewrites only that move's entry in `picks.json`,
+  keeping every "also" put in by hand.
+- **Cut windows.** `vepxis-art/tools/clip_meta.gd` measures the TWO BLADES
+  candidates, picked or not, with the faster of the two knives' tips
+  (`BLADES_L`). Only the new clips were added to `clip_meta.json`.
+- **Both knives cut.** With two blades the cutting edge a creature asks
+  for is whichever knife's tip goes faster that tick
+  (`SkinnedRogueRig.get_cutting_edge`).
+- **His heavy blows.** With two blades they stay as they were
+  (`WIND_HEAVY`, `DG_Dual_Combo`). With one blade they are one-handed
+  (`WIND_HEAVY_ONE`, the axe's three cuts `DG_Axe_Three`), with the same
+  gathering. His own look holding one knife (the fox mask) takes these too.
+- **The rush in is a slide** (`Player._on_wound_up`, `_glide`).
+  - When the gathering is let go he slides in at what he cuts, following it
+    wherever it went while he gathered.
+  - Speed is 18 m/s, up to 6.5 m, never past it.
+  - He is held in the coiled pose for the slide (`rig.hitstop`, and
+    `end_hitstop` the moment he arrives), so the blows come when he is
+    there.
+  - A shadow trail and a kick of dirt go with it.
+  - With nothing to go at, he slides a third of the lunge ahead.
+  - While he is still gathering or sliding, the clip's own travel does not
+    carry him.
+- `tests/rogue_arms_test.gd` checks the three arms (two knives, a short
+  sword and a knife, one knife). It also checks the slide onto a puglin
+  that stepped 5 m off while he gathered: he reaches 0.76 m and cuts.
+  `rogue_strike_test` reads the heavy table instead of naming clips.

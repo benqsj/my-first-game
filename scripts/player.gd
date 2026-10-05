@@ -1237,7 +1237,7 @@ func _process_locomotion(delta: float) -> void:
 		else:
 			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
 		_aim_body(direction, delta)
-		if _bitten():
+		if _bitten() and _glide_left <= 0.0:
 			# The swing held in its bite holds the body too: no gliding on
 			# under a blade that has stopped, and the step waits for it.
 			horizontal *= BITE_GLIDE
@@ -1245,6 +1245,8 @@ func _process_locomotion(delta: float) -> void:
 			# The slide: straight in at its own pace, facing where it goes.
 			horizontal = _shade_dir * _shade_pace_now
 			rotation.y = atan2(-_shade_dir.x, -_shade_dir.z)
+		elif _glide_left > 0.0:
+			horizontal = _glide(delta)
 		elif _step_left > 0.0:
 			_step_left -= delta
 			horizontal = _step_velocity
@@ -1273,7 +1275,10 @@ func _process_locomotion(delta: float) -> void:
 			horizontal = horizontal.limit_length(cap)
 
 	# A flip or a lunge carries him as far as its own clip goes.
-	if rig != null and rig.has_method(&"carrying") and bool(rig.call(&"carrying")):
+	# (not while a heavy blow is still being gathered, nor in the slide after:
+	# he edges and slides in by his own way, `_creep_in`, `_glide`)
+	if rig != null and rig.has_method(&"carrying") and bool(rig.call(&"carrying")) and _glide_left <= 0.0 \
+			and not (rig.has_method(&"wind_left") and float(rig.call(&"wind_left")) > 0.0):
 		horizontal = rig.get(&"carry_velocity")
 		if _bitten():
 			horizontal *= BITE_GLIDE
@@ -3718,27 +3723,82 @@ func _creep_in(spec: Dictionary) -> void:
 	_step_left = t
 
 
-## ... and when it is let go throws him in at what it is thrown at (no
-## further than `lunge`, and not past it), or that far ahead with nothing.
-@export var lunge_time: float = 0.18
+## ... and when it is let go he slides in at what it is thrown at, wherever
+## it has got to while he gathered (the user's word, 2026-10-05: a slide, a
+## leap — it may have stepped off while he wound up): fast and low, held in
+## the coiled pose, following it, no further than `lunge` and never past it;
+## the blows come when he is there. With nothing to go at, that far ahead
+## and no further than a third of it.
+@export var glide_speed: float = 18.0
+@export var glide_longest: float = 0.42
+var _glide_left: float = 0.0
+var _glide_foe: Node3D = null
+var _glide_dir := Vector3.ZERO
 
 
 func _on_wound_up(lunge: float) -> void:
-	if lunge <= 0.0 or not is_multiplayer_authority() or not is_on_floor():
+	if lunge <= 0.0 or not is_on_floor():
 		return
 	var foe: Node3D = _strike_foe if is_instance_valid(_strike_foe) else (target if target != null and _targetable(target) else null)
 	var ahead := -global_basis.z
 	ahead.y = 0.0
-	var go := lunge
+	var go := lunge / 3.0
 	if foe != null:
 		var to := foe.global_position - global_position
 		to.y = 0.0
 		if to.length() > 0.01:
 			ahead = to
 			go = clampf(to.length() - _body_radius(foe) - strike_close, 0.0, lunge)
-			rotation.y = atan2(-to.x, -to.z)
-	_step_velocity = ahead.normalized() * go / lunge_time
-	_step_left = lunge_time if go > 0.05 else 0.0
+	if go < 0.3:
+		return
+	ahead = ahead.normalized()
+	var t := clampf(go / glide_speed, 0.06, glide_longest)
+	# every peer: held coiled while he slides, the shadow he sheds, the dirt
+	if rig != null and rig.has_method(&"hitstop"):
+		rig.call(&"hitstop", t)
+	ShadowTrail.start(self, t + 0.08, 0.03)
+	var world := Blood.world_of(self)
+	if world != null:
+		SkidDust.kick(world, global_position, -ahead, 0.7)
+	if not is_multiplayer_authority():
+		return
+	rotation.y = atan2(-ahead.x, -ahead.z)
+	_glide_foe = foe
+	_glide_dir = ahead
+	_glide_left = t
+	_step_left = 0.0
+	# (his commitment waits on the hold by itself: see `_bitten`)
+
+
+## One tick of the slide: on at what it goes at, turned to it, till he is
+## there. Returns the pace to go at.
+func _glide(delta: float) -> Vector3:
+	_glide_left -= delta
+	var dir := _glide_dir
+	if is_instance_valid(_glide_foe):
+		var to := _glide_foe.global_position - global_position
+		to.y = 0.0
+		var gap := to.length() - _body_radius(_glide_foe) - strike_close
+		if gap <= 0.05:
+			_end_glide()
+			return Vector3.ZERO
+		dir = to.normalized()
+		rotation.y = atan2(-dir.x, -dir.z)
+		_glide_dir = dir
+		if gap < glide_speed * delta:
+			_end_glide()
+			return dir * gap / delta
+	if _glide_left <= 0.0:
+		_end_glide()
+	return dir * glide_speed
+
+
+func _end_glide() -> void:
+	_glide_left = 0.0
+	_glide_foe = null
+	# there: the blows now, not when the hold would have run out
+	if rig != null and rig.has_method(&"end_hitstop"):
+		rig.call(&"end_hitstop")
 
 
 static func _body_radius(who: Node3D) -> float:

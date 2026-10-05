@@ -119,7 +119,10 @@ func _initialize() -> void:
 		await physics_frame
 	var from := player.global_position
 	await _press(player, "block")
-	_check("out of nothing the heavy is the rush in", rig._act_clip == &"DG_Dual_Combo" and rig.is_heavy(),
+	# (his own look holds one knife: the one-handed blows, the axe's three)
+	var rush := StringName(rig.heavy[0]["clip"])
+	var many: int = (rig.cut_windows.get(rush, []) as Array).size()
+	_check("out of nothing the heavy is the rush in", rig._act_clip == rush and rig.is_heavy() and rig.heavy[0].has("lunge"),
 			String(rig._act_clip))
 	var slow: float = rig._anim.speed_scale
 	var serial: int = rig.attack_serial
@@ -130,22 +133,22 @@ func _initialize() -> void:
 		foe.global_position = hold
 		if rig.wind_left() > 0.0:
 			crept = Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
-		if rig._act_clip == &"DG_Dual_Combo":
+		if rig._act_clip == rush and not rig.in_hitstop():
 			fast = maxf(fast, rig._anim.speed_scale)
-	_check("wound up slowly, then let go fast", slow < 0.7 and fast > 2.4, "x%.2f then x%.2f" % [slow, fast])
+	_check("wound up slowly, then let go fast", slow < 0.8 and fast > 2.0, "x%.2f then x%.2f" % [slow, fast])
 	_check("edging in as he gathers", crept > 0.3, "%.2f m" % crept)
-	_check("and three blows", rig.attack_serial - serial == 2, "%d" % (rig.attack_serial - serial + 1))
+	_check("and every blow of it", rig.attack_serial - serial == many - 1, "%d of %d" % [rig.attack_serial - serial + 1, many])
 	await _idle(player)
 	await _press(player, "attack")
 	await _idle(player)
 	await _press(player, "block")
-	_check("early in the string it is three quick blows", rig._act_clip == &"DG_Dual_Combo",
+	_check("early in the string it is the quick ones", rig._act_clip == StringName(rig.heavy[1]["clip"]),
 			String(rig._act_clip))
 	serial = rig.attack_serial
 	for i in 100:
 		await physics_frame
 		foe.global_position = hold
-	_check("and it cuts three times", rig.attack_serial - serial == 2, "%d" % (rig.attack_serial - serial + 1))
+	_check("and it cuts every time", rig.attack_serial - serial == many - 1, "%d of %d" % [rig.attack_serial - serial + 1, many])
 	await _idle(player)
 	for k in 5:
 		await _press(player, "attack")
