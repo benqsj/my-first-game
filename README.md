@@ -7778,3 +7778,15 @@ The profiles copy the base hero's numbers, with a little of the people in them:
 
 The maker dresses the rig's own `polysplit_hero` (`MainMenu._ps_hero()`), not
 the roster's id, so an elf archer is offered the archer's outfits and arms.
+
+**Four banners, in two rows** (the user's word, later the same day):
+
+- HUMANS: Tariel, Avtandil and the assassin.
+- ELVES and DARK ELVES, as above.
+- KNIGHT: the warrior, on his own (`people = &"knight"`), where Amirani is to
+  stand.
+
+The mage is not offered on the hero select. His profile's `people` is empty and
+`Game.roster()` leaves out anyone of no people, but he is kept for the command
+line and the tests. A saved pick of him comes up as the first hero who is
+offered.
