@@ -7937,3 +7937,52 @@ as before.
   in his left hand into his right too left one knife in each hand, though
   the bag marked only one item. Each blade now shows its attack speed and
   that of both hands together.
+
+## The combat core: one door for a blow, a boss's stages, PvP (2026-10-05)
+
+**One door for a blow — `HurtboxComponent` + `HitInfo`.** The wolf, the
+`Fighter` (imps, puglins, the bandits) and the `Brute` (the orcs, Arkdeva) each
+had their own copy of "watch every hero's blade": once per swing per attacker,
+the edge against the body, the cut's worth, then blood on the blade and the
+jolt. That is now one node, `Hurtbox` (`scripts/hurtbox_component.gd`), made on
+each body the first time it is asked for (`hurtbox()`):
+
+* `scan()` — called from the owner's physics where the copy used to be. A
+  capsule (`set_capsule(radius, height, tolerance, scale)`) unless the owner
+  gives its own `contact` (the wolf: a wound above half its health, a limb off
+  along the edge below). `swing_seen(attacker)` is a new swing (the fighter
+  raises its guard, the orc wakes).
+* `take_hit(damage, at, blow, critical, spill, from, magic)` — the old
+  signature, so every arrow, bolt and skill still calls `take_hit` on the
+  creature as before; the creature's own `take_hit` only forwards to it.
+* Both build a `HitInfo` (`scripts/hit_info.gd`: damage, at, blow, critical,
+  spill, from, magic, by_blade, serial) and end in `take(hit)`: the host check,
+  the critical mark, and the owner's `receive_hit(hit) -> bool`. What a blow
+  *does* stays each kind's own: the wolf's poise and flinch, the orc's hide
+  against arrows, the fighter's guard.
+
+**A boss's stages — `BossPhase`.** `scripts/boss_phase.gd` is a Resource:
+`hp_threshold` (share of max health), `phase_animation` (the name of one of the
+boss's own attacks, from its `Act` enum: "ROAR", "STAMP"), `speed_multiplier`
+(walk, run, Arkdeva's approach), `armour_multiplier` (p.def and m.def) and
+`new_attacks_array` (attack names). Any `Brute` takes them in `phases`. After
+every blow (`_check_phase`, from where `hurt` is emitted) it steps into the
+deepest stage its health has reached: the multipliers are applied to its
+*starting* numbers (stages do not stack), the opening move is begun, and about
+half of its choices (`PHASE_NEW_SHARE`) come from the stage's new attacks that
+suit the gap (`_phase_attack_fits`: Arkdeva's spit only at spitting range, the
+orc's leap only from afar). `phase_changed(index, phase)` is emitted. Let go of
+and back home whole, it starts over (`_reset_phases`). No boss has stages yet:
+they are given in the boss's scene or `.tres`.
+
+**PvP, the least of it.** `Player.pvp_mode` (static; `-- --pvp` on the command
+line), `team` (0: against everyone) and `pvp_damage_scale` (0.5: a hero's
+numbers are made for orcs). `is_hostile_to(other)`: a creature always, another
+hero only in PvP, alive and of another side. The lock, the target switch, the
+nearest-target pick and a cut's step-in go through `_foes()`, which adds the
+hostile heroes. In PvP every hero has a hurtbox too: on the host, a hostile
+hero's blade through his capsule is scaled and sent through `receive_blow`, so
+his roll, perfect dodge, shield and armour all answer it as they answer an orc.
+Not yet: arrows, bolts and skills on heroes, venom on heroes, a menu switch.
+
+Tested by `tests/combat_core_test.gd` (headless).
