@@ -143,6 +143,56 @@ static func button(text: String, pressed: Callable, quiet: bool = false) -> Butt
 	return button
 
 
+## A bare word for the front page (the user's word, 2026-10-05: no plate or
+## line round each): carved capitals on the dark, nothing round them; under the
+## mouse (or the keys) the word goes gold, a soft warm light swells behind it
+## and a small gold diamond stands either side.
+static func word_button(text: String, pressed: Callable) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.flat = true
+	button.custom_minimum_size = Vector2(BUTTON_WIDTH, BUTTON_HEIGHT - 6.0)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var font := UiArt.font("title")
+	button.add_theme_font_override("font", font)
+	button.add_theme_font_size_override("font_size", BUTTON_SIZE + 4)
+	for state in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+		button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	button.add_theme_color_override("font_color", Color(CREAM, 0.82))
+	button.add_theme_color_override("font_hover_color", Color("f3c766"))
+	button.add_theme_color_override("font_focus_color", Color("f3c766"))
+	button.add_theme_color_override("font_pressed_color", GOLD)
+	button.add_theme_color_override("font_hover_pressed_color", GOLD)
+	button.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+	button.add_theme_constant_override("outline_size", 4)
+	button.pressed.connect(pressed)
+	var lit := func() -> bool: return button.is_hovered() or button.has_focus()
+	for sig: Signal in [button.mouse_entered, button.mouse_exited, button.focus_entered, button.focus_exited]:
+		sig.connect(button.queue_redraw)
+	button.draw.connect(func() -> void:
+		if not lit.call():
+			return
+		var mid := button.size * 0.5
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, BUTTON_SIZE + 4).x
+		# a warm light behind the word, falling off to nothing: rings of glow
+		for k in 6:
+			var t := float(k) / 5.0
+			var r := Vector2(w * 0.5 + 26.0, 20.0) * lerpf(1.0, 0.45, t)
+			var pts := PackedVector2Array()
+			for i in 24:
+				var a := TAU * float(i) / 24.0
+				pts.append(mid + Vector2(cos(a) * r.x, sin(a) * r.y))
+			button.draw_colored_polygon(pts, Color(0.95, 0.62, 0.2, 0.035))
+		for side in [-1.0, 1.0]:
+			var at := mid + Vector2(side * (w * 0.5 + 22.0), 1.0)
+			button.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -6), at + Vector2(6, 0),
+					at + Vector2(0, 6), at + Vector2(-6, 0)]), GOLD)
+			button.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -2.5), at + Vector2(2.5, 0),
+					at + Vector2(0, 2.5), at + Vector2(-2.5, 0)]), Color("3a2208")))
+	return button
+
+
 ## The one piece of styling everything else leans on: a word on the dark,
 ## underlined by a hairline, that lights up into a gold-edged plate when the
 ## mouse is on it — the way the old games' menus did it, not a web form's.

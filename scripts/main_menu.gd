@@ -185,9 +185,9 @@ func _build_root() -> Control:
 	column.add_child(MenuStyle.title())
 	var buttons := MenuStyle.button_column()
 	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	buttons.add_child(MenuStyle.button("PLAY", func() -> void: _show(Page.MODE)))
-	buttons.add_child(MenuStyle.button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
-	buttons.add_child(MenuStyle.button("EXIT", func() -> void: get_tree().quit()))
+	buttons.add_child(MenuStyle.word_button("PLAY", func() -> void: _show(Page.MODE)))
+	buttons.add_child(MenuStyle.word_button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
+	buttons.add_child(MenuStyle.word_button("EXIT", func() -> void: get_tree().quit()))
 	column.add_child(buttons)
 
 	var foot := MenuStyle.label("1 – 4 players  ·  LAN co-op  ·  early build", MenuStyle.BODY_SIZE - 3,
