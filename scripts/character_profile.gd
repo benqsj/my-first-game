@@ -18,6 +18,9 @@ enum Weapon {
 }
 
 @export var display_name: String = ""
+## The people the hero is of, which the hero select groups the roster by:
+## &"human", &"elf" or &"dark" (the dark elves).
+@export var people: StringName = &"human"
 ## One line for the character-select screen.
 @export_multiline var blurb: String = ""
 ## The model and its rig, hung under the player as `Visuals`. Its root carries

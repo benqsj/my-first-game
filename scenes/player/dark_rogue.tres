@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="CharacterProfile" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/character_profile.gd" id="1_profile"]
+[ext_resource type="PackedScene" path="res://scenes/player/dark_rogue_visuals.tscn" id="2_visuals"]
+
+[resource]
+script = ExtResource("1_profile")
+people = &"dark"
+display_name = "Dark Elf Assassin"
+blurb = "The blade in the dark is a dark elf's: the assassin's knives and flips, and the shadow's own crits."
+visuals = ExtResource("2_visuals")
+can_block = false
+shadow_dodge = true
+step_then_flip = true
+run_speed = 6.6
+walk_speed = 2.4
+dash_speed = 11.0
+dash_duration = 0.45
+dodge_speed = 8.5
+dodge_duration = 0.7
+dash_land_at = 0.72
+dodge_land_at = 0.66
+crit_chance = 0.3
+crit_damage = 1.80
+damage = 18.0
+max_health = 110.0
+p_def = 20.0
+m_def = 15.0
+max_stamina = 110.0
+attack_stamina = 9.0
+roll_stamina = 7.0
+dodge_stamina = 3.0
+skills = PackedStringArray("poison_blade")

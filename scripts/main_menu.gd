@@ -102,6 +102,9 @@ var _maker_tabs: Dictionary = {}
 ## Which of the extras the MORE row is on (it steps through them all; the
 ## button by it puts the one shown on or off).
 var _extra_at: int = 0
+## The people the roster shows ([constant PEOPLES]), and their banners.
+var _people: StringName = &"human"
+var _people_buttons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -123,6 +126,7 @@ func _ready() -> void:
 		_net.connect("join_failed", _on_net_trouble)
 		_net.connect("games_changed", _refresh_found)
 	_chosen = _game.character() if _game != null else &"tariel"
+	_people = _profile(_chosen).people
 
 	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS, Page.CONNECT]:
 		var built := _build(page)
@@ -306,6 +310,7 @@ func _build_characters() -> Control:
 	tiles.name = "Roster"
 	tiles.alignment = BoxContainer.ALIGNMENT_CENTER
 	tiles.add_theme_constant_override("separation", 10)
+	tiles.add_child(_people_row())
 	for id: StringName in roster:
 		var tile := _roster_tile(id)
 		_cards[id] = tile
@@ -534,6 +539,11 @@ const ACCENT := {
 	&"mage": Color("4f8ee8"),
 	&"rogue": Color("a04ad8"),
 	&"warrior": Color("b8433a"),
+	&"elf_archer": Color("8fd06a"),
+	&"elf_mage": Color("d8e6f2"),
+	&"dark_archer": Color("8a6ad8"),
+	&"dark_mage": Color("b05ce0"),
+	&"dark_rogue": Color("6a5a9a"),
 }
 ## What they are called, under their name.
 const EPITHET := {
@@ -542,6 +552,18 @@ const EPITHET := {
 	&"mage": "Keeper of the storm",
 	&"rogue": "The blade in the dark",
 	&"warrior": "Two hands on one great sword",
+	&"elf_archer": "Of Elvareti, the fallen world",
+	&"elf_mage": "Keeper of the moon's light",
+	&"dark_archer": "Last through the gate",
+	&"dark_mage": "The enemy's own dark, turned on it",
+	&"dark_rogue": "The blade in the dark",
+}
+## The peoples the roster is grouped by, in their order on the banners: what
+## each is called and its light.
+const PEOPLES := {
+	&"human": {"name": "HUMANS", "light": Color("d0892e")},
+	&"elf": {"name": "ELVES", "light": Color("bfe0a0")},
+	&"dark": {"name": "DARK ELVES", "light": Color("9a72e0")},
 }
 
 
@@ -551,6 +573,40 @@ func _accent(id: StringName) -> Color:
 
 ## One tile in the roster: the character's face in a frame, their name and
 ## what they are called under it.
+## The peoples' banners over the roster: one picked shows its heroes alone.
+func _people_row() -> Control:
+	var row := HBoxContainer.new()
+	row.name = "Peoples"
+	row.add_theme_constant_override("separation", 6)
+	row.custom_minimum_size = Vector2(TILE.x, 0.0)
+	for key: StringName in PEOPLES:
+		var spec: Dictionary = PEOPLES[key]
+		var button := Button.new()
+		button.name = "People_%s" % key
+		button.text = String(spec["name"])
+		button.focus_mode = Control.FOCUS_NONE
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size = Vector2(0.0, 44.0)
+		button.add_theme_font_override("font", UiArt.font("head"))
+		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 4)
+		button.pressed.connect(func() -> void: _pick_people(key))
+		_people_buttons[key] = button
+		row.add_child(button)
+	return row
+
+
+## Shows `people`'s heroes on the roster, and picks the first of them unless
+## the one picked is already theirs.
+func _pick_people(people: StringName) -> void:
+	_people = people
+	if _profile(_chosen).people != people:
+		for id: StringName in _cards:
+			if _profile(id).people == people:
+				_chosen = id
+				break
+	_refresh_cards()
+
+
 func _roster_tile(id: StringName) -> Control:
 	var profile := _profile(id)
 	var tile := Button.new()
@@ -683,6 +739,14 @@ func _arrow(glyph: String, pressed: Callable, size: Vector2 = Vector2(38.0, 32.0
 	button.add_theme_color_override("font_hover_color", UiArt.GOLD_LIGHT)
 	button.add_theme_color_override("font_disabled_color", Color(MenuStyle.GOLD_DIM, 0.4))
 	return button
+
+
+## The hero whose figure the maker dresses: the rig's (an elf is the
+## archer's, the mage's or the assassin's), or the picked id.
+func _ps_hero() -> StringName:
+	var model := _chosen_rig()
+	var hero: Variant = model.get(&"polysplit_hero") if model != null else null
+	return hero if hero is StringName and hero != &"" else _chosen
 
 
 ## The picked hero's model on the stage.
@@ -939,7 +1003,7 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 	var g := String(look.get("g", "m"))
 	match kind:
 		"cls":
-			return PolysplitLook.classes(_chosen, g)
+			return PolysplitLook.classes(_ps_hero(), g)
 		"g":
 			return ["m", "f"]
 		"eyes", "brows", "mouth":
@@ -948,22 +1012,24 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 			return range(9) if g == "m" else []
 		"hair":
 			return range(15)
-		"skin", "hc":
+		"skin":
+			return PolysplitLook.skins(String(look.get("race", "")))
+		"hc":
 			return range(1, PolysplitLook.SKINS + 1)
 		"cloth":
 			return range(1, PolysplitLook.CLOTHS + 1)
 		"top", "bottom":
 			# his own classes' clothes only; hats and arms are free
-			return PolysplitLook.classes(_chosen, g)
+			return PolysplitLook.classes(_ps_hero(), g)
 		"extra":
-			return PolysplitLook.extras(_chosen, g)
+			return PolysplitLook.extras(_ps_hero(), g)
 		"hat":
 			var hats: Array = [""]
 			hats.append_array(PolysplitLook.HAT_ORDER)
 			return hats
 		"w", "o":
 			# what the outfit's class holds, the Advanced Weapons in the style picked
-			return PolysplitLook.arms(_chosen, String(look.get("cls", "")), kind, String(look.get("ws", "normal")),
+			return PolysplitLook.arms(_ps_hero(), String(look.get("cls", "")), kind, String(look.get("ws", "normal")),
 					String(look.get("w", "")) if kind == "o" else "")
 		"ws":
 			return PolysplitLook.STYLES
@@ -973,7 +1039,7 @@ func _maker_options(kind: String, look: Dictionary) -> Array:
 func _maker_name(kind: String, value: Variant, look: Dictionary) -> String:
 	match kind:
 		"cls":
-			return PolysplitLook.outfit_name(_chosen, String(look.get("g", "m")), String(value))
+			return PolysplitLook.outfit_name(_ps_hero(), String(look.get("g", "m")), String(value))
 		"g":
 			return "MAN" if value == "m" else "WOMAN"
 		"eyes", "brows", "mouth", "skin", "hc", "cloth":
@@ -982,10 +1048,10 @@ func _maker_name(kind: String, value: Variant, look: Dictionary) -> String:
 			return "NONE" if int(value) == 0 else str(int(value))
 		"top", "bottom":
 			return "BARE" if String(value) == "" else \
-					PolysplitLook.outfit_name(_chosen, String(look.get("g", "m")), String(value))
+					PolysplitLook.outfit_name(_ps_hero(), String(look.get("g", "m")), String(value))
 		"extra":
 			var worn: bool = (look.get("extras", []) as Array).has(value)
-			var called := PolysplitLook.extra_name(String(value), _chosen, String(look.get("g", "m")))
+			var called := PolysplitLook.extra_name(String(value), _ps_hero(), String(look.get("g", "m")))
 			return called if not worn else "◆ %s" % called
 		"hat":
 			return "NONE" if String(value) == "" else String(PolysplitLook.HATS[value]["name"])
@@ -1021,9 +1087,9 @@ func _maker_step(kind: String, by: int) -> void:
 	var value: Variant = options[wrapi(at + by, 0, options.size())]
 	match kind:
 		"cls":
-			look = PolysplitLook.dress(look, _chosen, String(value))
+			look = PolysplitLook.dress(look, _ps_hero(), String(value))
 		"g":
-			look = PolysplitLook.regendered(look, _chosen, String(value))
+			look = PolysplitLook.regendered(look, _ps_hero(), String(value))
 		_:
 			look[kind] = value
 	_maker_wear(look)
@@ -1260,6 +1326,28 @@ func _arms(profile: CharacterProfile) -> String:
 
 
 func _refresh_cards() -> void:
+	for key: StringName in _people_buttons:
+		var banner := _people_buttons[key] as Button
+		var light: Color = PEOPLES[key]["light"]
+		var on := key == _people
+		var flat := MenuStyle.panel_style(Color(light.darkened(0.78), 0.94) if on else Color(0.03, 0.03, 0.045, 0.7))
+		flat.set_corner_radius_all(3)
+		flat.border_color = light if on else Color(MenuStyle.GOLD_DIM, 0.35)
+		flat.set_border_width_all(1)
+		flat.border_width_bottom = 3 if on else 1
+		if on:
+			flat.shadow_color = Color(light, 0.35)
+			flat.shadow_size = 10
+		var lit := flat.duplicate() as StyleBoxFlat
+		lit.border_color = light
+		banner.add_theme_stylebox_override("normal", flat)
+		banner.add_theme_stylebox_override("focus", flat)
+		banner.add_theme_stylebox_override("hover", lit)
+		banner.add_theme_stylebox_override("pressed", lit)
+		banner.add_theme_color_override("font_color", light.lightened(0.35) if on else MenuStyle.GOLD_DIM)
+		banner.add_theme_color_override("font_hover_color", light.lightened(0.5))
+	for id: StringName in _cards:
+		(_cards[id] as Control).visible = _profile(id).people == _people
 	for id: StringName in _cards:
 		var card := _cards[id] as Button
 		var picked := id == _chosen

@@ -16,6 +16,13 @@ const CHARACTERS := {
 	&"mage": "res://scenes/player/mage.tres",
 	&"rogue": "res://scenes/player/rogue.tres",
 	&"warrior": "res://scenes/player/warrior.tres",
+	# the elves and the dark elves (2026-10-05): the archer's, the mage's and
+	# the assassin's rigs, worn as YOUR OWN of their people
+	&"elf_archer": "res://scenes/player/elf_archer.tres",
+	&"elf_mage": "res://scenes/player/elf_mage.tres",
+	&"dark_archer": "res://scenes/player/dark_archer.tres",
+	&"dark_mage": "res://scenes/player/dark_mage.tres",
+	&"dark_rogue": "res://scenes/player/dark_rogue.tres",
 }
 const DEFAULT := &"tariel"
 
