@@ -193,11 +193,15 @@ func set_look(id: StringName, made: Dictionary) -> void:
 	_save_settings()
 
 
-## Every character there is, in the order they should be offered.
+## Every character offered on the hero select, in their order: those of a
+## people ([member CharacterProfile.people]). One of none (the mage, kept for
+## the command line and the tests, 2026-10-05) is not offered.
 func roster() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for id: StringName in CHARACTERS:
-		ids.append(id)
+		var profile := load(CHARACTERS[id]) as CharacterProfile
+		if profile != null and profile.people != &"":
+			ids.append(id)
 	return ids
 
 

@@ -5,6 +5,7 @@
 
 [resource]
 script = ExtResource("1_profile")
+people = &"knight"
 display_name = "Warrior"
 blurb = "No shield: two hands on one great sword. Slow to get going and slow to stop, and every blow a weight thrown — nothing stands in its way."
 visuals = ExtResource("2_visuals")

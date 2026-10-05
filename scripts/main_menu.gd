@@ -126,6 +126,9 @@ func _ready() -> void:
 		_net.connect("join_failed", _on_net_trouble)
 		_net.connect("games_changed", _refresh_found)
 	_chosen = _game.character() if _game != null else &"tariel"
+	# one not offered (the mage) gives way to the first who is
+	if _game != null and not _game.roster().has(_chosen):
+		_chosen = _game.roster()[0]
 	_people = _profile(_chosen).people
 
 	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS, Page.CONNECT]:
@@ -564,6 +567,7 @@ const PEOPLES := {
 	&"human": {"name": "HUMANS", "light": Color("d0892e")},
 	&"elf": {"name": "ELVES", "light": Color("bfe0a0")},
 	&"dark": {"name": "DARK ELVES", "light": Color("9a72e0")},
+	&"knight": {"name": "KNIGHT", "light": Color("b8433a")},
 }
 
 
@@ -575,9 +579,11 @@ func _accent(id: StringName) -> Color:
 ## what they are called under it.
 ## The peoples' banners over the roster: one picked shows its heroes alone.
 func _people_row() -> Control:
-	var row := HBoxContainer.new()
+	var row := GridContainer.new()
 	row.name = "Peoples"
-	row.add_theme_constant_override("separation", 6)
+	row.columns = 2
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
 	row.custom_minimum_size = Vector2(TILE.x, 0.0)
 	for key: StringName in PEOPLES:
 		var spec: Dictionary = PEOPLES[key]
@@ -586,7 +592,7 @@ func _people_row() -> Control:
 		button.text = String(spec["name"])
 		button.focus_mode = Control.FOCUS_NONE
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.custom_minimum_size = Vector2(0.0, 44.0)
+		button.custom_minimum_size = Vector2(0.0, 40.0)
 		button.add_theme_font_override("font", UiArt.font("head"))
 		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE - 4)
 		button.pressed.connect(func() -> void: _pick_people(key))
