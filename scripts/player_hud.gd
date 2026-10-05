@@ -22,10 +22,13 @@ extends CanvasLayer
 ##   gold line along the whole bottom edge, cut in tenths ([Leveling]). What a
 ##   kill brought rises off its count ("+10 EXP"); a new level is "LEVEL UP" at
 ##   the top of the screen, and the shield throws out light.
-## * **The skills are four squares at the bottom**, keys 1 to 4: the skill's
-##   picture, its key in the corner, and while it is coming back a shade that
-##   drains down off it with the seconds left. It flashes when it is ready again;
-##   used, its name shows over the bar for a moment. An empty slot is a dark one.
+## * **The skills are four sockets on a gilt plate at the bottom**, keys 1 to
+##   4: the skill's painted plate ([UiArt] icons), its key on a little tab
+##   under it, and while it is coming back a shadow that sweeps round off it
+##   like a clock hand with the seconds left. Short of the stamina for it, it
+##   is greyed and its key goes red. It flashes gold when it is ready again;
+##   used, its name shows over the plate for a moment. An empty socket is a
+##   dark one.
 
 ## Pixels per point of health and of stamina.
 const HEALTH_SCALE := 2.1
@@ -69,9 +72,9 @@ const GOLD_DEEP := Color(0.55, 0.38, 0.12)
 ## The longest a bar grows, however high the level.
 const MAX_BAR := 480.0
 
-const SLOT := 56.0
-const SLOT_GAP := 10.0
-const SLOT_BOTTOM := 26.0
+const SLOT := 62.0
+const SLOT_GAP := 12.0
+const SLOT_BOTTOM := 34.0
 const SLOT_FILL := Color(0.08, 0.07, 0.06, 0.78)
 const SLOT_EMPTY := Color(0.05, 0.05, 0.05, 0.45)
 const SLOT_SHADE := Color(0.0, 0.0, 0.0, 0.62)
@@ -276,43 +279,91 @@ func _on_skill_used(_slot: int, id: StringName) -> void:
 	_said_time = 0.0
 
 
-## The four squares, bottom centre.
+## The four sockets on their plate, bottom centre.
 func _draw_skills() -> void:
 	var view := _bars.size
 	var n := Player.SKILL_SLOTS
 	var width := SLOT * n + SLOT_GAP * (n - 1)
 	var origin := Vector2((view.x - width) * 0.5, view.y - SLOT_BOTTOM - SLOT)
-	var font := ThemeDB.fallback_font
+	var font := UiArt.font("title")
+	var digits := UiArt.font("bold")
+	UiArt.draw_frame(_bars, Rect2(origin - Vector2(22.0, 12.0), Vector2(width + 44.0, SLOT + 28.0)), "bar_plate", 20.0)
 	for slot in n:
 		var at := origin + Vector2((SLOT + SLOT_GAP) * slot, 0.0)
 		var rect := Rect2(at, Vector2(SLOT, SLOT))
 		var id := player.skill_in(slot)
-		_bars.draw_rect(rect.grow(2.0), FRAME)
-		_bars.draw_rect(rect, SLOT_FILL if id != &"" else SLOT_EMPTY)
-		if id != &"":
-			_icon(id, rect)
-			var left := player.skill_cooldown_left(slot)
-			if left > 0.0:
-				var share := clampf(left / maxf(player.skill_cooldown(slot), 0.01), 0.0, 1.0)
-				_bars.draw_rect(Rect2(at, Vector2(SLOT, SLOT * share)), SLOT_SHADE)
-				var secs := str(ceili(left))
-				var w := font.get_string_size(secs, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-				_bars.draw_string(font, at + Vector2((SLOT - w) * 0.5, SLOT * 0.5 + 7.0), secs,
-						HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.95))
-		var edge := EDGE
 		var flash := 1.0 - clampf(_ready_flash[slot] / 0.5, 0.0, 1.0)
 		if flash > 0.0 and id != &"":
-			edge = EDGE.lerp(Color(1.0, 0.95, 0.75, 1.0), flash)
-			_bars.draw_rect(rect.grow(3.0 + 3.0 * flash), Color(1.0, 0.9, 0.6, 0.35 * flash), false, 2.0)
-		_bars.draw_rect(rect.grow(2.0), edge, false, 1.0)
-		# The key, in the corner.
-		_bars.draw_string(font, at + Vector2(4.0, 14.0), str(slot + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
-				Color(1, 1, 1, 0.85 if id != &"" else 0.4))
+			for k in 4:
+				_bars.draw_rect(rect.grow(3.0 + 3.0 * k * flash), Color(1.0, 0.82, 0.4, 0.16 * flash), false, 3.0)
+		UiArt.draw_frame(_bars, rect.grow(3.0), "socket", 8.0)
+		if id == &"":
+			_bars.draw_string(digits, at + Vector2(0.0, SLOT * 0.5 + 6.0), "—", HORIZONTAL_ALIGNMENT_CENTER, SLOT, 18,
+					Color(1, 1, 1, 0.15))
+		else:
+			var short := player.stamina < float(Player.SKILLS[id].get("stamina", 0.0))
+			var left := player.skill_cooldown_left(slot)
+			var inner := rect.grow(-3.0)
+			var tex := UiArt.icon("skill_" + String(id))
+			var tint := Color.WHITE if not short else Color(0.55, 0.5, 0.5)
+			if left > 0.0:
+				tint = tint.darkened(0.25)
+			if tex != null:
+				_bars.draw_texture_rect(tex, inner, false, tint)
+			else:
+				_icon(id, rect)
+			if left > 0.0:
+				var share := clampf(left / maxf(player.skill_cooldown(slot), 0.01), 0.0, 1.0)
+				_sweep(inner, share)
+				var secs := str(ceili(left))
+				var y := at.y + SLOT * 0.5 + 9.0
+				_bars.draw_string_outline(digits, Vector2(at.x, y), secs, HORIZONTAL_ALIGNMENT_CENTER, SLOT, 24, 5,
+						Color(0, 0, 0, 0.85))
+				_bars.draw_string(digits, Vector2(at.x, y), secs, HORIZONTAL_ALIGNMENT_CENTER, SLOT, 24,
+						Color(1.0, 0.96, 0.86))
+			if flash > 0.0:
+				_bars.draw_rect(inner, Color(1.0, 0.9, 0.6, 0.35 * flash))
+				_bars.draw_rect(rect.grow(2.0), Color(1.0, 0.9, 0.6, flash), false, 2.0)
+		# The key, on a tab hanging under the socket.
+		var tab := Rect2(at + Vector2(SLOT * 0.5 - 11.0, SLOT - 6.0), Vector2(22.0, 17.0))
+		_bars.draw_rect(tab, Color(0.06, 0.05, 0.05, 0.95))
+		var short_key := id != &"" and player.stamina < float(Player.SKILLS[id].get("stamina", 0.0))
+		_bars.draw_rect(tab, Color(GOLD, 0.8) if not short_key else Color(0.85, 0.25, 0.2), false, 1.0)
+		_bars.draw_string(font, tab.position + Vector2(0.0, 13.0), str(slot + 1), HORIZONTAL_ALIGNMENT_CENTER,
+				tab.size.x, 13, Color(1.0, 0.92, 0.72, 0.95 if id != &"" else 0.4))
 	if _said != "" and _said_time < 1.4:
 		var a := 1.0 - clampf((_said_time - 0.9) / 0.5, 0.0, 1.0)
-		var w := font.get_string_size(_said, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-		_bars.draw_string(font, Vector2((view.x - w) * 0.5, origin.y - 14.0), _said, HORIZONTAL_ALIGNMENT_LEFT,
-				-1, 18, Color(1.0, 0.92, 0.7, a))
+		var y := origin.y - 26.0
+		_bars.draw_string_outline(font, Vector2(0.0, y), _said, HORIZONTAL_ALIGNMENT_CENTER, view.x, 22, 6,
+				Color(0, 0, 0, 0.7 * a))
+		_bars.draw_string(font, Vector2(0.0, y), _said, HORIZONTAL_ALIGNMENT_CENTER, view.x, 22,
+				Color(1.0, 0.88, 0.6, a))
+
+
+## The cooldown's shadow over `rect`: a pie of `share` of a turn, from twelve
+## o'clock round, clipped to the square.
+func _sweep(rect: Rect2, share: float) -> void:
+	if share <= 0.0:
+		return
+	var c := rect.get_center()
+	var r := rect.size.x
+	var pts := PackedVector2Array([c])
+	var steps := maxi(3, int(48 * share))
+	# the pie runs from where the hand is now back round to twelve o'clock
+	var start := TAU * (1.0 - share)
+	for k in steps + 1:
+		var t := -PI * 0.5 + start + (TAU - start) * k / steps
+		var p := c + Vector2(cos(t), sin(t)) * r
+		p.x = clampf(p.x, rect.position.x, rect.end.x)
+		p.y = clampf(p.y, rect.position.y, rect.end.y)
+		pts.append(p)
+	_bars.draw_colored_polygon(pts, Color(0.0, 0.0, 0.0, 0.62))
+	# the hand
+	var hand := -PI * 0.5 + start
+	var tip := c + Vector2(cos(hand), sin(hand)) * r
+	tip.x = clampf(tip.x, rect.position.x, rect.end.x)
+	tip.y = clampf(tip.y, rect.position.y, rect.end.y)
+	_bars.draw_line(c, tip, Color(1.0, 0.85, 0.5, 0.7), 1.5)
 
 
 ## A skill's picture, drawn: Rain of Arrows is three arrows coming down on a
