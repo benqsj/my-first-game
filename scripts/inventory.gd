@@ -96,6 +96,18 @@ const CREAM := Color("ece4d6")
 const MUTED := Color(0.72, 0.68, 0.6)
 const SLOT := Vector2(78, 78)
 const COLUMNS := 5
+## The gap between two slots of the grid.
+const SLOT_GAP := 8.0
+## What each thing's glyph ([UiArt] "item_<icon>") is tinted.
+const ICON_TINTS := {
+	"bow": Color(0.92, 0.72, 0.46), "sword": Color(0.86, 0.9, 0.98), "greatsword": Color(0.8, 0.84, 0.94),
+	"dagger": Color(0.78, 0.8, 0.88), "staff": Color(0.78, 0.66, 1.0), "round": Color(0.9, 0.74, 0.46),
+	"tower": Color(0.95, 0.4, 0.36),
+}
+## The hero himself, at the head of the status column (made when the bag is
+## first opened: his model, in what he wears).
+var _portrait: CharacterPortrait
+const PORTRAIT := Vector2(312, 250)
 
 var player: Player
 
@@ -167,7 +179,7 @@ func _on_gui(event: InputEvent) -> void:
 	if _tabs_rect.has_point(at):
 		_switch_tab(int((at.x - _tabs_rect.position.x) / (_tabs_rect.size.x / TAB_NAMES.size())))
 	elif _slots_rect.has_point(at):
-		var cell := ((at - _slots_rect.position) / (SLOT + Vector2(8, 8))).floor()
+		var cell := ((at - _slots_rect.position) / (SLOT + Vector2(SLOT_GAP, SLOT_GAP))).floor()
 		var i := int(cell.y) * COLUMNS + int(cell.x)
 		if i < _items().size():
 			if i == _chosen or (event as InputEventMouseButton).double_click:
@@ -187,6 +199,8 @@ func is_open() -> bool:
 
 func toggle() -> void:
 	_root.visible = not _root.visible
+	if _root.visible:
+		_dress_portrait()
 	player.menu_open = _root.visible
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if _root.visible else Input.MOUSE_MODE_CAPTURED
 	_root.queue_redraw()
@@ -320,7 +334,7 @@ func _weapon(p: CharacterProfile) -> Dictionary:
 				return _bow_item(p, held)
 			crit.append(["Full draw", "%.2f s" % p.draw_time])
 			crit.append(["Arrow speed", "%.0f m/s" % p.arrow_speed])
-			return {"name": "Hunter's Longbow", "kind": "Bow", "icon": "bow", "worn": true, "stats": crit,
+			return {"name": "Archer's Longbow", "kind": "Bow", "icon": "bow", "worn": true, "stats": crit,
 					"text": "Avtandil's bow. Hold to draw, let go to loose: a tapped shot flies fast and light, a full draw lands for all of it."}
 		CharacterProfile.Weapon.STAFF:
 			crit.append(["Full charge", "%.2f s" % p.draw_time])
@@ -328,7 +342,7 @@ func _weapon(p: CharacterProfile) -> Dictionary:
 			return {"name": "Staff of the Storm", "kind": "Staff", "icon": "staff", "worn": true, "stats": crit,
 					"text": "Hold to gather a bolt of lightning at the crystal, let go to throw it. Thrown at what he has locked on to, the bolt hunts it."}
 	if p.display_name.to_lower().contains("warrior"):
-		return {"name": "The Black Great Sword", "kind": "Great sword", "icon": "sword", "worn": true, "stats": crit,
+		return {"name": "The Black Great Sword", "kind": "Great sword", "icon": "greatsword", "worn": true, "stats": crit,
 				"text": "A long blade and a hilt for both hands. Slow to get moving, and nothing stands in its way once it is."}
 	if p.display_name.to_lower().contains("rogue") or p.display_name.to_lower().contains("assassin"):
 		return {"name": "Shadow Knife", "kind": "Dagger", "icon": "dagger", "worn": true, "stats": crit,
@@ -372,123 +386,223 @@ func _bow_item(p: CharacterProfile, id: String) -> Dictionary:
 
 
 #region Drawing
+## The hero in the status column: made once, dressed as he is each time the
+## bag opens.
+func _dress_portrait() -> void:
+	if player.profile == null:
+		return
+	if _portrait == null:
+		_portrait = CharacterPortrait.of(player.profile, PORTRAIT, CharacterPortrait.Frame.FULL)
+		_portrait.name = "Portrait"
+		_portrait.turn_speed = 0.35
+		_root.add_child(_portrait)
+	var model := _portrait.rig()
+	if model == null or player.rig == null:
+		return
+	if model.has_method(&"set_look") and player.rig.has_method(&"get_look"):
+		model.call(&"set_look", player.rig.call(&"get_look"))
+	if model.has_method(&"set_face"):
+		model.call(&"set_face", int(player.rig.get(&"face")))
+	if model.has_method(&"set_garb") and "garb" in player.rig:
+		model.call(&"set_garb", int(player.rig.get(&"garb")))
+
+
 func _draw_all() -> void:
 	var c := _root
 	var screen := c.size
-	var font := ThemeDB.fallback_font
-	# The world, darkened and cooled behind the menu.
-	c.draw_rect(Rect2(Vector2.ZERO, screen), Color(0.02, 0.025, 0.03, 0.82))
-	var band := Color(0.0, 0.0, 0.0, 0.35)
-	c.draw_rect(Rect2(0, 0, screen.x, 64), band)
-	c.draw_rect(Rect2(0, screen.y - 44, screen.x, 44), band)
-	_bag_icon(c, Vector2(40, 32))
-	c.draw_string(font, Vector2(66, 41), "Inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 26, CREAM)
-	c.draw_line(Vector2(24, 64), Vector2(screen.x - 24, 64), Color(GOLD_DIM, 0.6), 1.0)
+	# The world, darkened and cooled behind the bag, darker still at the edges.
+	c.draw_rect(Rect2(Vector2.ZERO, screen), Color(0.02, 0.022, 0.03, 0.8))
+	for k in 6:
+		var inset := 60.0 * k
+		c.draw_rect(Rect2(Vector2.ZERO, screen).grow(-inset), Color(0, 0, 0, 0.06), false, 60.0)
+	# The head: the bag, the word, the hero, a gilt rule under it.
+	var head_h := 70.0
+	c.draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(screen.x, 0), Vector2(screen.x, head_h),
+			Vector2(0, head_h)]), PackedColorArray([Color(0, 0, 0, 0.7), Color(0, 0, 0, 0.7), Color(0.06, 0.05, 0.04, 0.5),
+			Color(0.06, 0.05, 0.04, 0.5)]))
+	var bag := UiArt.icon("item_bag")
+	if bag != null:
+		c.draw_texture_rect(bag, Rect2(36, 14, 42, 42), false, Color(0.9, 0.72, 0.45))
+	UiArt.text_shadowed(c, Vector2(90, 47), "INVENTORY", 30, CREAM, "title")
+	var p := player.profile
+	var book := player.get_node_or_null(^"Leveling") as Leveling
+	var who := "%s   ·   LEVEL %d" % [p.display_name.to_upper() if p != null else "", book.level if book != null else 1]
+	UiArt.text(c, Vector2(0, 44), who, 18, GOLD, "head", HORIZONTAL_ALIGNMENT_RIGHT, screen.x - 40.0)
+	UiArt.rule(c, Vector2(24, head_h), Vector2(screen.x - 24, head_h), Color(GOLD_DIM, 0.8))
 
-	var left := Rect2(40, 90, SLOT.x * COLUMNS + 8 * (COLUMNS - 1) + 24, screen.y - 160)
-	var right_w := 360.0
-	var right := Rect2(screen.x - right_w - 40, 90, right_w, screen.y - 160)
-	var middle := Rect2(left.end.x + 40, 90, right.position.x - left.end.x - 80, screen.y - 160)
+	var top := 96.0
+	var bottom := screen.y - 58.0
+	var grid_w := SLOT.x * COLUMNS + SLOT_GAP * (COLUMNS - 1)
+	var left := Rect2(32, top, grid_w + 64, bottom - top)
+	var right_w := 380.0
+	var right := Rect2(screen.x - right_w - 32, top, right_w, bottom - top)
+	var middle := Rect2(left.end.x + 24, top, right.position.x - left.end.x - 48, bottom - top)
 
-	_draw_left(c, font, left)
+	_draw_left(c, left)
+	UiArt.draw_frame(c, middle, "panel", 30.0)
 	var items := _items()
 	if _chosen < items.size():
-		_draw_item(c, font, middle, items[_chosen])
+		_draw_item(c, middle.grow(-36.0), items[_chosen])
 	else:
-		c.draw_string(font, middle.position + Vector2(0, 28), "Nothing here yet.", HORIZONTAL_ALIGNMENT_LEFT, -1,
-				18, MUTED)
-	_draw_status(c, font, right)
+		UiArt.text(c, middle.position + Vector2(40, 64), "Nothing here yet.", 20, MUTED, "body")
+	_draw_status(c, right)
 
-	var keys := "Arrows / mouse  choose      Q / E  tab      Enter  put on      I  close"
-	c.draw_string(font, Vector2(40, screen.y - 16), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(CREAM, 0.7))
+	# The keys, along the foot.
+	var keys := [["◂ ▸ ▴ ▾", "choose"], ["Q / E", "tab"], ["Enter", "put on / take off"], ["I", "close"]]
+	var x := 40.0
+	for pair: Array in keys:
+		var key := String(pair[0])
+		var w := UiArt.font("bold").get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 16.0
+		var box := Rect2(x, screen.y - 40.0, w, 24.0)
+		c.draw_rect(box, Color(0.1, 0.09, 0.08, 0.9))
+		c.draw_rect(box, Color(GOLD_DIM, 0.9), false, 1.0)
+		UiArt.text(c, box.position + Vector2(8, 17), key, 15, CREAM, "bold")
+		UiArt.text(c, Vector2(box.end.x + 8, box.position.y + 17), String(pair[1]), 15, Color(CREAM, 0.7), "body")
+		x = box.end.x + 16.0 + UiArt.font("body").get_string_size(String(pair[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 22.0
+	if _portrait != null:
+		_portrait.position = right.position + Vector2((right.size.x - PORTRAIT.x) * 0.5, 52.0)
+		_portrait.size = PORTRAIT
 
 
-func _draw_left(c: Control, font: Font, box: Rect2) -> void:
-	# Tabs.
-	_tabs_rect = Rect2(box.position, Vector2(box.size.x, 40))
-	var w := box.size.x / TAB_NAMES.size()
+func _draw_left(c: Control, box: Rect2) -> void:
+	UiArt.draw_frame(c, box, "panel", 30.0)
+	var inner := box.grow(-32.0)
+	# The tabs: a glyph and a word each, the open one lit.
+	_tabs_rect = Rect2(inner.position, Vector2(inner.size.x, 44))
+	var w := inner.size.x / TAB_NAMES.size()
+	var glyphs := ["item_tab_weapons", "item_tab_shields", "item_tab_goods", "item_tab_attire"]
 	for i in TAB_NAMES.size():
-		var r := Rect2(box.position + Vector2(w * i, 0), Vector2(w - 4, 36))
+		var r := Rect2(inner.position + Vector2(w * i, 0), Vector2(w - 4, 44))
 		var on := i == _tab
-		c.draw_rect(r, Color(0.16, 0.14, 0.1, 0.9) if on else Color(0.08, 0.08, 0.08, 0.7))
-		if on:
-			c.draw_rect(Rect2(r.position + Vector2(0, r.size.y - 2), Vector2(r.size.x, 2)), GOLD)
-		var tw := font.get_string_size(TAB_NAMES[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-		c.draw_string(font, r.position + Vector2((r.size.x - tw) * 0.5, 24), TAB_NAMES[i],
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 16, GOLD if on else MUTED)
+		UiArt.draw_frame(c, r, "tab_on" if on else "tab", 4.0)
+		var glyph := UiArt.icon(glyphs[i])
+		if glyph != null:
+			c.draw_texture_rect(glyph, Rect2(r.position + Vector2((r.size.x - 22) * 0.5, 3), Vector2(22, 22)), false,
+					GOLD.lightened(0.2) if on else Color(MUTED, 0.7))
+		UiArt.text(c, Vector2(r.position.x, r.position.y + 39), String(TAB_NAMES[i]).to_upper(), 11,
+				UiArt.GOLD_LIGHT if on else MUTED, "head", HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	var items := _items()
 	var title := String(items[_chosen].name) if _chosen < items.size() else "—"
-	c.draw_string(font, box.position + Vector2(0, 70), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, CREAM)
-	# The grid: four rows shown, empty slots drawn as sockets.
-	_slots_rect = Rect2(box.position + Vector2(0, 86), Vector2(COLUMNS, 4) * (SLOT + Vector2(8, 8)))
-	var frame := _slots_rect.grow(10.0)
-	c.draw_rect(frame, Color(0.05, 0.05, 0.05, 0.75))
-	c.draw_rect(frame, Color(GOLD_DIM, 0.5), false, 1.0)
-	for k in COLUMNS * 4:
-		var at := _slots_rect.position + Vector2(k % COLUMNS, floori(float(k) / COLUMNS)) * (SLOT + Vector2(8, 8))
+	UiArt.text(c, inner.position + Vector2(2, 76), title, 19, CREAM, "head")
+	# The grid: five rows shown, empty slots drawn as sockets.
+	var rows := 5
+	_slots_rect = Rect2(inner.position + Vector2(0, 94), Vector2(COLUMNS, rows) * (SLOT + Vector2(SLOT_GAP, SLOT_GAP)))
+	for k in COLUMNS * rows:
+		var at := _slots_rect.position + Vector2(k % COLUMNS, floori(float(k) / COLUMNS)) \
+				* (SLOT + Vector2(SLOT_GAP, SLOT_GAP))
 		var r := Rect2(at, SLOT)
-		c.draw_rect(r, Color(0.11, 0.1, 0.09, 0.9))
-		c.draw_rect(r, Color(1, 1, 1, 0.06), false, 1.0)
+		var chosen := k == _chosen and k < items.size()
+		if chosen:
+			for g in 3:
+				c.draw_rect(r.grow(3.0 + 3.0 * g), Color(1.0, 0.78, 0.35, 0.12), false, 3.0)
+		UiArt.draw_frame(c, r, "socket_lit" if chosen else "socket", 8.0)
 		if k < items.size():
 			var item: Dictionary = items[k]
-			_icon(c, r.get_center(), String(item.icon), 30.0, item.get("colour", Color.WHITE))
+			_glyph(c, r.grow(-10.0), item)
 			if item.get("worn", false):
-				c.draw_string(font, r.position + Vector2(6, SLOT.y - 8), "E", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, GOLD)
-		if k == _chosen and k < items.size():
-			c.draw_rect(r.grow(2.0), GOLD, false, 2.0)
-			c.draw_rect(r.grow(5.0), Color(GOLD, 0.25), false, 2.0)
+				_worn_mark(c, r.position + Vector2(13, SLOT.y - 13))
+	# A count under the grid.
+	UiArt.text(c, Vector2(_slots_rect.position.x, _slots_rect.end.y + 22), "%d / %d" % [items.size(), COLUMNS * rows],
+			14, MUTED, "body")
 
 
-func _draw_item(c: Control, font: Font, box: Rect2, item: Dictionary) -> void:
+## The small gold diamond with an E: in his hands, or on him.
+func _worn_mark(c: Control, at: Vector2) -> void:
+	c.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -10), at + Vector2(10, 0), at + Vector2(0, 10),
+			at + Vector2(-10, 0)]), Color(0.12, 0.09, 0.04))
+	c.draw_polyline(PackedVector2Array([at + Vector2(0, -10), at + Vector2(10, 0), at + Vector2(0, 10),
+			at + Vector2(-10, 0), at + Vector2(0, -10)]), GOLD, 1.5)
+	UiArt.text(c, at + Vector2(-10, 5), "E", 12, UiArt.GOLD_LIGHT, "title", HORIZONTAL_ALIGNMENT_CENTER, 20.0)
+
+
+## A thing's picture in `rect`: its glyph, tinted, or the drawn one.
+func _glyph(c: Control, rect: Rect2, item: Dictionary) -> void:
+	var kind := String(item.icon)
+	var tex := UiArt.icon("item_" + kind)
+	if tex == null:
+		_icon(c, rect.get_center(), kind, rect.size.x * 0.4, item.get("colour", Color.WHITE))
+		return
+	var tint: Color = ICON_TINTS.get(kind, Color.WHITE)
+	if kind == "garb":
+		var cloth: Color = item.get("colour", Color(0.6, 0.6, 0.55))
+		tint = cloth.lightened(0.45)
+	c.draw_texture_rect(tex, rect, false, tint)
+
+
+func _draw_item(c: Control, box: Rect2, item: Dictionary) -> void:
 	var y := box.position.y
-	c.draw_string(font, Vector2(box.position.x, y + 26), String(item.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 28, CREAM)
-	c.draw_string(font, Vector2(box.position.x, y + 54), String(item.kind), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, MUTED)
-	c.draw_line(Vector2(box.position.x, y + 68), Vector2(box.end.x - 170, y + 68), Color(GOLD_DIM, 0.6), 1.0)
-	# The picture of it, framed, to the right of the name.
-	var pic := Rect2(Vector2(box.end.x - 150, y), Vector2(150, 150))
-	c.draw_rect(pic, Color(0.06, 0.06, 0.06, 0.9))
-	c.draw_rect(pic, Color(GOLD_DIM, 0.7), false, 1.5)
-	c.draw_rect(pic.grow(-6), Color(GOLD_DIM, 0.3), false, 1.0)
-	_icon(c, pic.get_center(), String(item.icon), 56.0, item.get("colour", Color.WHITE))
-	# Its numbers.
-	y += 100
-	c.draw_string(font, Vector2(box.position.x, y), "Attributes", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, GOLD)
-	y += 12
-	for line: Array in item.stats:
-		y += 30
-		c.draw_string(font, Vector2(box.position.x + 14, y), String(line[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, MUTED)
-		c.draw_string(font, Vector2(box.position.x + 14, y), String(line[1]), HORIZONTAL_ALIGNMENT_RIGHT,
-				box.size.x - 200, 17, CREAM)
-		c.draw_line(Vector2(box.position.x + 14, y + 8), Vector2(box.position.x + box.size.x - 186, y + 8),
-				Color(1, 1, 1, 0.05), 1.0)
-	y += 48
-	c.draw_string(font, Vector2(box.position.x, y), "Effect", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, GOLD)
-	y += 12
-	c.draw_multiline_string(font, Vector2(box.position.x + 14, y + 22), String(item.text), HORIZONTAL_ALIGNMENT_LEFT,
-			box.size.x - 40, 16, -1, Color(CREAM, 0.85))
-	y += 110
+	var pic_size := 156.0
+	var text_w := box.size.x - pic_size - 24.0
+	UiArt.text_shadowed(c, Vector2(box.position.x, y + 30), String(item.name), 30, CREAM, "title", 
+			HORIZONTAL_ALIGNMENT_LEFT, text_w)
+	UiArt.text(c, Vector2(box.position.x, y + 58), String(item.kind).to_upper(), 15, GOLD, "head")
 	var worn: bool = item.get("worn", false)
-	var status := "Equipped" if worn else ("Enter / click to put on" if item.has("shield") or item.has("garb") \
-			or item.has("bow") else "")
-	if worn and item.has("shield"):
-		status = "Equipped - Enter / click to take off"
+	if worn:
+		var badge := Rect2(box.position.x, y + 72, 104, 24)
+		c.draw_rect(badge, Color(0.25, 0.18, 0.06, 0.9))
+		c.draw_rect(badge, GOLD, false, 1.0)
+		UiArt.text(c, badge.position + Vector2(0, 17), "EQUIPPED", 12, UiArt.GOLD_LIGHT, "title",
+				HORIZONTAL_ALIGNMENT_CENTER, badge.size.x)
+	# The picture of it, in a lit socket, light behind it.
+	var pic := Rect2(Vector2(box.end.x - pic_size, y), Vector2(pic_size, pic_size))
+	UiArt.draw_frame(c, pic, "socket_lit", 8.0)
+	var glow: Color = ICON_TINTS.get(String(item.icon), item.get("colour", Color(0.9, 0.8, 0.6)))
+	for k in range(8, 0, -1):
+		c.draw_circle(pic.get_center(), pic_size * 0.06 * k, Color(glow, 0.025))
+	_glyph(c, pic.grow(-22.0), item)
+	# Its numbers.
+	y += pic_size + 30.0
+	_section(c, Vector2(box.position.x, y), box.size.x, "ATTRIBUTES")
+	y += 14.0
+	var stripe := false
+	for line: Array in item.stats:
+		var row := Rect2(box.position.x, y, box.size.x, 30)
+		if stripe:
+			c.draw_rect(row, Color(1, 1, 1, 0.035))
+		stripe = not stripe
+		UiArt.text(c, Vector2(row.position.x + 12, y + 21), String(line[0]), 17, MUTED, "body")
+		UiArt.text(c, Vector2(row.position.x, y + 21), String(line[1]), 17, CREAM, "bold", HORIZONTAL_ALIGNMENT_RIGHT,
+				row.size.x - 12.0)
+		y += 30.0
+	y += 30.0
+	_section(c, Vector2(box.position.x, y), box.size.x, "DESCRIPTION")
+	y += 12.0
+	c.draw_multiline_string(UiArt.font("plain"), Vector2(box.position.x + 4, y + 24), String(item.text),
+			HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 8.0, 17, -1, Color(CREAM, 0.88))
+	var status := ""
+	if item.has("shield"):
+		status = "Enter / click to take it off" if worn else "Enter / click to put it on"
+	elif (item.has("garb") or item.has("bow")) and not worn:
+		status = "Enter / click to put it on"
 	if not status.is_empty():
-		c.draw_string(font, Vector2(box.position.x, y), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
-				GOLD if worn else Color(CREAM, 0.7))
+		UiArt.text(c, Vector2(box.position.x, box.end.y - 6.0), "◆  " + status, 16, Color(GOLD, 0.95), "body")
 
 
-func _draw_status(c: Control, font: Font, box: Rect2) -> void:
+## A section's heading: gold capitals and a rule running out from them.
+func _section(c: Control, at: Vector2, width: float, title: String) -> void:
+	UiArt.text(c, at, title, 15, GOLD, "title")
+	var w := UiArt.font("title").get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+	c.draw_line(at + Vector2(w + 12, -5), at + Vector2(width, -5), Color(GOLD_DIM, 0.7), 1.0)
+	c.draw_colored_polygon(PackedVector2Array([at + Vector2(width, -9), at + Vector2(width + 4, -5),
+			at + Vector2(width, -1), at + Vector2(width - 4, -5)]), GOLD_DIM)
+
+
+func _draw_status(c: Control, box: Rect2) -> void:
 	var p := player.profile
-	c.draw_rect(box, Color(0.05, 0.05, 0.05, 0.55))
-	c.draw_rect(Rect2(box.position, Vector2(1, box.size.y)), Color(GOLD_DIM, 0.5))
-	var x := box.position.x + 22
-	var w := box.size.x - 44
-	var y := box.position.y + 30
-	c.draw_string(font, Vector2(x, y), "Character Status", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, CREAM)
-	y += 10
-	c.draw_line(Vector2(x, y), Vector2(x + w, y), Color(GOLD_DIM, 0.6), 1.0)
+	UiArt.draw_frame(c, box, "panel", 30.0)
+	var x := box.position.x + 32
+	var w := box.size.x - 64
+	var y := box.position.y + 40
+	UiArt.text(c, Vector2(box.position.x, y), "CHARACTER", 18, CREAM, "title", HORIZONTAL_ALIGNMENT_CENTER, box.size.x)
+	# the hero stands here (the portrait), on a pool of light
+	var stand := Vector2(box.position.x + box.size.x * 0.5, box.position.y + 52 + PORTRAIT.y * 0.92)
+	c.draw_set_transform(stand, 0.0, Vector2(1.0, 0.22))
+	for k in range(6, 0, -1):
+		c.draw_circle(Vector2.ZERO, 30.0 + 14.0 * k, Color(GOLD, 0.03))
+	c.draw_arc(Vector2.ZERO, 92.0, 0.0, TAU, 48, Color(GOLD, 0.5), 1.5)
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	y = box.position.y + 52 + PORTRAIT.y + 18
 	var rows: Array = []
-	rows.append(["Name", p.display_name if p != null else "—"])
 	var book := player.get_node_or_null(^"Leveling") as Leveling
 	if book != null:
 		rows.append(["Level", "%d" % book.level])
@@ -519,17 +633,22 @@ func _draw_status(c: Control, font: Font, box: Rect2) -> void:
 			rows.append(["Shield", ("Round Shield" if player.shield_kind == Shields.ROUND else "Tower Shield")
 					if _shield_on() else "None"])
 	for r: Array in rows:
-		y += 30 if String(r[0]) != "" else 14
 		if String(r[0]) == "":
+			y += 6
+			c.draw_line(Vector2(x, y), Vector2(x + w, y), Color(GOLD_DIM, 0.35), 1.0)
+			y += 4
 			continue
-		c.draw_string(font, Vector2(x, y), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, MUTED)
-		c.draw_string(font, Vector2(x, y), String(r[1]), HORIZONTAL_ALIGNMENT_RIGHT, w, 17, CREAM)
-
-
-func _bag_icon(c: Control, at: Vector2) -> void:
-	c.draw_circle(at + Vector2(0, 4), 12.0, Color(0.45, 0.32, 0.18))
-	c.draw_rect(Rect2(at + Vector2(-5, -12), Vector2(10, 7)), Color(0.45, 0.32, 0.18))
-	c.draw_line(at + Vector2(-7, -6), at + Vector2(7, -6), GOLD, 2.0)
+		y += 24
+		if r[0] in ["HP", "Stamina"]:
+			# a thin bar under the figure
+			var full := player.health / maxf(player.max_health, 1.0) if r[0] == "HP" \
+					else maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0)
+			var bar := Rect2(x, y + 4, w, 3)
+			c.draw_rect(bar, Color(1, 1, 1, 0.06))
+			c.draw_rect(Rect2(bar.position, Vector2(w * clampf(full, 0.0, 1.0), 3)),
+					Color(0.78, 0.16, 0.12) if r[0] == "HP" else Color(0.38, 0.7, 0.32))
+		UiArt.text(c, Vector2(x, y), String(r[0]), 16, MUTED, "body")
+		UiArt.text(c, Vector2(x, y), String(r[1]), 16, CREAM, "bold", HORIZONTAL_ALIGNMENT_RIGHT, w)
 
 
 ## The things, drawn: every icon is a few shapes, so none needs a file.
