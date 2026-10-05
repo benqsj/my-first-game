@@ -436,6 +436,13 @@ func get_cutting_edge() -> PackedVector3Array:
 	return PackedVector3Array([base, tip])
 
 
+## Whether the edge last given out ([method get_cutting_edge]) was the left
+## hand's: with two blades only the right one is coated with the Poisoned
+## Blade (the user's word, 2026-10-06).
+func cut_by_off_hand() -> bool:
+	return _left_edge and two_blades() and _off_hand_on
+
+
 ## A blow's worth by what he holds (see `TWO_BLADES`, `ONE_BLADE`).
 func attack(style: int = -1) -> void:
 	super(style)

@@ -92,6 +92,9 @@ enum Weapon {
 ## How often a hit lands for `crit_damage` times its worth, 0 to 1.
 @export_range(0.0, 1.0) var crit_chance: float = 0.1
 @export var crit_damage: float = 2.0
+## A cut from behind is a critical worth this many times its worth (the
+## assassin's backstab, [RogueSkills]); 0 for none.
+@export var backstab: float = 0.0
 ## p.atk: what a cut or an arrow is worth before any of that. For the bow this
 ## is the *full draw* figure; a snap shot is worth a fraction of it.
 @export var damage: float = 26.0

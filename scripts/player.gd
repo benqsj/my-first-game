@@ -2480,6 +2480,9 @@ func _targetable(who: Node3D) -> bool:
 		return false
 	if who.get("is_dead") == true:
 		return false
+	# a hero gone in his Vanish is not there to lock
+	if who != self and who is Player and (who as Player).is_hidden():
+		return false
 	return true
 
 
@@ -4869,6 +4872,8 @@ const SKILLS := {
 	&"rising_cut": {"name": "Rising Cut", "stamina": 22.0, "cooldown": 8.0},
 	&"shadow_slide": {"name": "Shadow Slide", "stamina": 24.0, "cooldown": 9.0},
 	&"shadow_lance": {"name": "Shadow Lance", "stamina": 26.0, "cooldown": 10.0},
+	&"shadow_step": {"name": "Shadow Step", "stamina": 20.0, "cooldown": 9.0},
+	&"vanish": {"name": "Vanish", "stamina": 25.0, "cooldown": 16.0},
 }
 const SKILL_SLOTS := 4
 
@@ -4936,6 +4941,10 @@ func use_skill(slot: int) -> bool:
 			went = _shadow_slide()
 		&"shadow_lance":
 			went = _shadow_slide(&"shadow_lance")
+		&"shadow_step":
+			went = rogue().shadow_step(float(SKILLS[id]["stamina"]))
+		&"vanish":
+			went = rogue().vanish(float(SKILLS[id]["stamina"]))
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -5334,11 +5343,11 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 @export var coat_rate: float = 1.4
 ## How long the blade stays poisoned once coated.
 @export var venom_time: float = 10.0
-## Each stack on a creature lasts this long and costs it this much a second.
+## Each stack on a creature lasts this long and costs it this much a second
+## (the user's word, 2026-10-06: 5 a stack, up to five, the fifth boils it —
+## [constant Afflictions.POISON_MAX], [method Afflictions.apply]).
 @export var venom_stack_time: float = 6.0
-## Gentle on purpose: three stacks are 7.5 a second, which with the blade
-## is a help, not the whole of the kill.
-@export var venom_dps: float = 2.5
+@export var venom_dps: float = 5.0
 
 ## Until when (on `_now()`) this hero's blade poisons what it cuts.
 var _venom_until: float = 0.0
@@ -5793,6 +5802,7 @@ func net_poison_blade() -> void:
 		return
 	var fx := VenomBlade.new()
 	fx.name = "VenomBlade"
+	fx.tint = RogueSkills.venom_of(self)
 	fx.start(rig, coat_rate, venom_time)
 	into.add_child(fx)
 
@@ -5810,7 +5820,15 @@ func blade_hit(creature: Node3D, at: Vector3) -> void:
 	if creature.is_inside_tree():
 		var weight := 1.0 if rig == null or rig.get(&"cut_weight") == null else float(rig.get(&"cut_weight"))
 		net_bite.rpc(creature.get_path(), weight)
+	if _backstab_on == creature:
+		_backstab_on = null
+		var chest := creature.global_position + Vector3.UP * 1.1
+		net_backstab.rpc(chest + (at - chest) * 0.5 if at != Vector3.ZERO else chest)
 	if not is_venomous():
+		return
+	# Only the knife that was coated poisons (the user's word, 2026-10-06: not
+	# both of two): a cut of the other hand's is a cut and no more.
+	if rig != null and rig.has_method(&"cut_by_off_hand") and bool(rig.call(&"cut_by_off_hand")):
 		return
 	var marks := Afflictions.of(creature, false)
 	var first := marks == null or marks.poison_stacks() == 0
@@ -5886,9 +5904,10 @@ func net_afflict(path: NodePath, kind: StringName, seconds: float, amount: float
 		marks.apply(kind, seconds, self, amount)
 	var into := Blood.world_of(self)
 	if kind == &"poison" and into != null:
-		SkillFx.burst(into, at, Afflictions.VENOM, 22, Vector2(1.0, 3.5), Vector3.UP, 120.0,
+		var venom := RogueSkills.venom_of(self)
+		SkillFx.burst(into, at, venom, 22, Vector2(1.0, 3.5), Vector3.UP, 120.0,
 				Vector2(0.012, 0.03), Vector3(0, -7, 0), 0.45)
-		SkillFx.ring(into, at, Vector3.UP, Afflictions.VENOM, 0.05, 0.5, 0.25, 0.04, 2.0)
+		SkillFx.ring(into, at, Vector3.UP, venom, 0.05, 0.5, 0.25, 0.04, 2.0)
 
 
 func _decides_here() -> bool:
@@ -5898,13 +5917,76 @@ func _decides_here() -> bool:
 
 
 ## What a cut of this hero's blade is worth where it lands (host): p.atk, and
-## `crit_chance` of the time a critical. [worth, critical].
-func cut_worth() -> Array:
+## `crit_chance` of the time a critical. [worth, critical]. On `target`, from
+## behind it, the assassin's backstab: a critical worth his `backstab`
+## ([RogueSkills]); the first cut out of his Vanish a sure critical.
+func cut_worth(target: Node3D = null) -> Array:
 	var worth: Array = [26.0, false] if profile == null else profile.cut(_shot_rng)
 	# A heavy blow, or the last cut of a string, is worth more.
 	if rig != null and rig.get(&"cut_weight") != null:
 		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))
+	if profile == null:
+		return worth
+	var crit_was := profile.crit_damage if bool(worth[1]) else 1.0
+	var stab := RogueSkills.backstab_of(profile, target)
+	if stab > 1.0 and RogueSkills.behind(self, target):
+		# the backstab is the critical: a roll that came up critical too is not
+		# counted twice
+		worth[0] = float(worth[0]) / crit_was * stab
+		worth[1] = true
+		_backstab_on = target
+	elif _rogue != null and _rogue.take_ambush() and not bool(worth[1]):
+		worth[0] = float(worth[0]) * profile.crit_damage
+		worth[1] = true
 	return worth
+
+
+#region The assassin's Shadow Step, Vanish and backstab ([RogueSkills])
+var _rogue: RogueSkills = null
+## The creature the last cut was a backstab on, until it lands ([method blade_hit]).
+var _backstab_on: Node3D = null
+
+
+## His [RogueSkills], made the first time it is asked for (on every peer: the
+## first word of it that arrives makes it there).
+func rogue() -> RogueSkills:
+	if _rogue == null or not is_instance_valid(_rogue):
+		_rogue = RogueSkills.new()
+		_rogue.name = "RogueSkills"
+		add_child(_rogue)
+	return _rogue
+
+
+## Gone from sight in his Vanish: the creatures do not go for him, and in PvP
+## a foe cannot lock him ([method Brute.unseen], [method _targetable]).
+func is_hidden() -> bool:
+	return _rogue != null and is_instance_valid(_rogue) and _rogue.hiding
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_shadow_step(from: Vector3, to: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	rogue().show_step(from, to)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_vanish(on: bool, ambush: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	rogue().set_hiding(on, ambush)
+
+
+## A backstab landed at `at` (sent by the host).
+@rpc("any_peer", "call_local", "reliable")
+func net_backstab(at: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	rogue().show_backstab(at)
+#endregion
 
 
 #region PvP: who is a foe, and a hero's blade on a hero ([HurtboxComponent])
@@ -5928,7 +6010,7 @@ func _foes() -> Array[Node3D]:
 			foes.append(node as Node3D)
 	if pvp_mode:
 		for node in get_tree().get_nodes_in_group(&"player"):
-			if node != self and is_hostile_to(node):
+			if node != self and is_hostile_to(node) and not (node as Player).is_hidden():
 				foes.append(node as Node3D)
 	return foes
 

@@ -323,7 +323,7 @@ func _holds(point: Vector3) -> bool:
 
 func _pick_quarry() -> Node3D:
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
-			and _holds(_quarry.global_position) and not _fallen(_quarry):
+			and _holds(_quarry.global_position) and not unseen(_quarry):
 		return _quarry
 	if mode == Mode.RETURN:
 		return null
@@ -331,7 +331,7 @@ func _pick_quarry() -> Node3D:
 	var closest := INF
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or not _holds(who.global_position) or _fallen(who):
+		if who == null or not _holds(who.global_position) or unseen(who):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:
@@ -343,6 +343,13 @@ func _pick_quarry() -> Node3D:
 ## A player who has fallen and is waiting to be put back: left alone.
 static func _fallen(who: Node3D) -> bool:
 	return who != null and who.get("net_dead") == true
+
+
+## A player not to be gone for: fallen, or gone from sight (the assassin's
+## Vanish, [method Player.is_hidden]). Where a creature picks its quarry; its
+## blows still land on whoever stands in them.
+static func unseen(who: Node3D) -> bool:
+	return _fallen(who) or (who != null and who.has_method(&"is_hidden") and bool(who.call(&"is_hidden")))
 
 
 func _rouse(who: Node3D) -> void:

@@ -254,7 +254,7 @@ func _check_poison() -> void:
 		_player.blade_hit(imp, imp.global_position + Vector3.UP)
 		await _wait(6)
 	var marks := Afflictions.of(imp, false)
-	_check("cuts put stacks on, three at most", marks != null and marks.poison_stacks() == 3,
+	_check("cuts put stacks on, one a cut", marks != null and marks.poison_stacks() == 4,
 			str(marks.poison_stacks() if marks != null else -1))
 	await _wait(75)
 	_check("and they tick", is_instance_valid(imp) and float(imp.health) < was - 20.0,

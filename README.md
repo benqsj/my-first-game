@@ -8069,3 +8069,73 @@ Tested by `tests/combat_core_test.gd` (headless).
   - `tests/arms_bag_test.gd -- <hero>` checks it.
 - The Dark Elf Assassin is the assassin's rig and profile, so his speed and
   everything above are the same. Only his crit is 30 % against 25.
+
+## The assassin's skills: poison that boils, the backstab, the Shadow Step, Vanish (2026-10-06)
+
+The plan is `claude/assassin_buff_plan.md` in the project. The user's word
+on 2026-10-06: S1, S2 and S4 in full. The thrown knife (S3) is dropped. The
+weapons' damage against their pace is left out here: the arms will be remade
+on their own, each with its own weight and pace. His bar is now 1 the
+Poisoned Blade, 2 the Shadow Step, 3 Vanish; 4 is empty. The new skills are
+in `scripts/rogue_skills.gd` ([RogueSkills], a child "RogueSkills" of the
+Player, made by `Player.rogue()`). What is sent between peers stays on the
+Player (`net_shadow_step`, `net_vanish`, `net_backstab`).
+
+- **The Poisoned Blade.** 5 a second a stack (`venom_dps`, was 2.5), up to
+  **five** stacks (`Afflictions.POISON_MAX`, was 3), 6 s each.
+  - **The fifth boils it**: all the stacks burst at once for two seconds of
+    all five (5 × 5 × 2 = 50, less its m.def), in a gout of venom, a ring
+    on the ground and a flash, and are gone.
+  - It does not boil the same creature again for 8 s
+    (`BOIL_COOLDOWN`); until then the fifth only renews the oldest stack.
+  - **One knife of two is poisoned**, the right one (the user's word: not
+    both). A cut of the left hand's is a cut and no more
+    (`SkinnedRogueRig.cut_by_off_hand()`).
+- **Backstab**, passive (`CharacterProfile.backstab`, 2.2 on both
+  assassins). A cut that lands within 60° of straight behind what it cuts
+  is a critical worth ×2.2. On a boss ([Brute]: the orcs' warriors,
+  Arkdeva) it is ×1.5.
+  - It takes the place of a rolled critical; the two do not stack.
+  - A crimson flash and a deeper bite where it lands (violet for the dark
+    elf).
+  - `Player.cut_worth(target)` now takes what it lands on.
+    `HurtboxComponent.scan` and the wolf's `_blade_damage` pass it.
+- **Shadow Step** (20 stamina, 9 s). He is gone in smoke and out again
+  behind what is locked, or ahead within 12 m, facing its back. That sets
+  up the backstab.
+  - Straight behind if he fits there (ground under him, nothing between),
+    else 35° or 70° to either side.
+  - With nothing to step to, 6 m ahead, short of what is in the way.
+  - Nothing lands on him for 0.35 s.
+- **Vanish** (25 stamina, 16 s). A puff of smoke and he is gone for 6 s.
+  - The creatures lose him. `Brute.unseen(who)` is read where the brutes
+    (the orcs, Arkdeva), the fighters (imps, puglins, brawlers) and the
+    wolves pick whom to go for. A blow already on its way still lands on
+    whoever stands in it.
+  - In PvP a foe cannot lock him (`_targetable`, `_foes`) and sees nothing.
+    His own eyes and his friends' see a ghost of him (28 %).
+  - His own cut ends it, and **that cut is a sure critical** (a backstab
+    still counts as the backstab). A blow taken ends it, and it runs out
+    after 6 s. Coating the blade and the Shadow Step do not end it.
+- **One set of skills, two peoples' colours.** The human's venom is green
+  and his smoke ash-grey; the dark elf's venom is violet and his smoke a
+  purple night. This covers the blade's coat, the stacks, the veins, the
+  boil, the step's and the vanish's smoke, and the backstab's flash
+  (`RogueSkills.venom_of`, `smoke_of`).
+- **Sounds** are recordings already in the game: the shadow's whoosh for
+  the step and the vanish (pitched), the skill sound for the vanish (low),
+  the sword's bite for the backstab and the skill-shot sound (low) for the
+  boil.
+- **Icons**: `skill_shadow_step.png` (game-icons' shadow-follower, in
+  crimson-violet) and `skill_vanish.png` (the hood, in night blue), baked by
+  `vepxis-art/tools/ui_icons.py`.
+- **What it adds** (single target, before m.def):
+  - One coat (10 s, 18 s cooldown) is about 50 for the boil, 25 a second
+    once five stacks are on, the stacks' 6 s tail, and often a second boil
+    at 8 s: about 300 a coat at most.
+  - A backstab is ×2.2 against the ×1.8 critical he lands a quarter of
+    the time.
+  - In PvP his blade is still ×0.5 (`pvp_damage_scale`), and the poison
+    does not reach heroes.
+- `tests/rogue_skills_test.gd` checks all of the above.
+  `tests/new_skills_test.gd` now expects four stacks from four cuts.

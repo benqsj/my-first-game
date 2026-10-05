@@ -382,7 +382,7 @@ func _pick_quarry() -> Node3D:
 	var reach2 := leash_radius * leash_radius
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
 			and _quarry.global_position.distance_squared_to(camp_centre) < reach2 \
-			and not Brute._fallen(_quarry):
+			and not Brute.unseen(_quarry):
 		return _quarry
 	if mode == Mode.RETURN:
 		return null
@@ -391,7 +391,7 @@ func _pick_quarry() -> Node3D:
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
 		if who == null or who.global_position.distance_squared_to(camp_centre) >= reach2 \
-				or Brute._fallen(who):
+				or Brute.unseen(who):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:

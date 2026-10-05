@@ -129,7 +129,7 @@ func scan() -> void:
 		hit.serial = serial
 		if hit.damage <= 0.0:
 			var worth: Array = body.call(&"_blade_damage", knight) \
-					if body.has_method(&"_blade_damage") else knight.cut_worth()
+					if body.has_method(&"_blade_damage") else knight.cut_worth(body)
 			hit.damage = float(worth[0])
 			hit.critical = bool(worth[1])
 		if take(hit):

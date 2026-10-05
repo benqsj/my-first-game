@@ -527,7 +527,7 @@ func _quarry() -> Node3D:
 	var worst := 0.0
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or Brute._fallen(who):
+		if who == null or Brute.unseen(who):
 			continue
 		var done := float(_threat.get(who.name, 0.0))
 		if done > worst:
@@ -544,7 +544,7 @@ func _nearest_player() -> Node3D:
 	var closest := INF
 	for node in get_tree().get_nodes_in_group("player"):
 		var who := node as Node3D
-		if who == null or Brute._fallen(who):
+		if who == null or Brute.unseen(who):
 			continue
 		var gap := global_position.distance_squared_to(who.global_position)
 		if gap < closest:
@@ -1797,7 +1797,7 @@ func _wound(knight: Player, edge: PackedVector3Array) -> HitInfo:
 ## now and then a critical. [worth, critical].
 func _blade_damage(knight: Player) -> Array:
 	if knight != null and knight.profile != null:
-		return knight.cut_worth()
+		return knight.cut_worth(self)
 	return [damage_per_hit, false]
 
 

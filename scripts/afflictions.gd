@@ -21,14 +21,20 @@ extends Node3D
 ##   flickers, the skin charring with glowing cracks. `burn_dps` a second.
 ## * **Poison** — stacks, up to `POISON_MAX`, each on its own clock; drops over
 ##   the head count them. Veins of green run under the skin, bubbles rise.
-##   Every stack is `poison_dps` a second.
+##   Every stack is `poison_dps` a second. The fifth **boils** it (the user's
+##   word, 2026-10-06): the stacks burst at once for `BOIL_SECONDS` of all
+##   five, in a gout of venom, and are gone; not again on the same creature
+##   for `BOIL_COOLDOWN` (the fifth then only renews the oldest). Drawn in the
+##   poisoner's colour ([method RogueSkills.venom_of]: the dark elf's violet).
 ##
 ## Everything it draws goes when its time is up or the creature dies.
 
 ## What the mark adds: to a bow's blows, and to everyone else's.
 const MARK_BOW := 1.05
 const MARK_OTHER := 1.02
-const POISON_MAX := 3
+const POISON_MAX := 5
+const BOIL_SECONDS := 2.0
+const BOIL_COOLDOWN := 8.0
 const TICK := 0.5
 
 const GOLD := Color(1.0, 0.72, 0.25)
@@ -41,6 +47,9 @@ var burn_left: float = 0.0
 var burn_dps: float = 0.0
 var poison: PackedFloat32Array = PackedFloat32Array()
 var poison_dps: float = 0.0
+## The poison's colour: the poisoner's people's.
+var venom_color: Color = VENOM
+var _boil_ready: float = 0.0
 
 var _creature: Node3D
 var _by: Dictionary = {}           # kind -> the player who put it there
@@ -113,6 +122,8 @@ func apply(kind: StringName, seconds: float, source: Node3D = null, amount: floa
 			burn_dps = maxf(burn_dps, amount)
 		&"poison":
 			poison_dps = maxf(poison_dps, amount)
+			if source != null:
+				venom_color = RogueSkills.venom_of(source)
 			if poison.size() < POISON_MAX:
 				poison.append(seconds)
 			else:
@@ -123,7 +134,37 @@ func apply(kind: StringName, seconds: float, source: Node3D = null, amount: floa
 						oldest = i
 				poison[oldest] = seconds
 			_pop_icon(poison.size() - 1)
+			if poison.size() >= POISON_MAX and _clock >= _boil_ready:
+				_boil()
 	_refresh()
+
+
+## The fifth stack: the poison boils over. Every peer draws it; the host takes
+## the health.
+func _boil() -> void:
+	_boil_ready = _clock + BOIL_COOLDOWN
+	var harm := poison_dps * float(POISON_MAX) * BOIL_SECONDS
+	poison.clear()
+	var into := Blood.world_of(_creature)
+	var mid := _creature.global_position + Vector3.UP * _height() * 0.55
+	if into != null:
+		var big := clampf(_height() / 1.6, 0.8, 2.2)
+		SkillFx.burst(into, mid, venom_color, int(70 * big), Vector2(2.0, 6.5) * big, Vector3.UP, 180.0,
+				Vector2(0.03, 0.07) * big, Vector3(0, -8, 0), 0.7)
+		SkillFx.ring(into, _creature.global_position + Vector3.UP * 0.08, Vector3.UP, venom_color,
+				0.3, 1.5 * big, 0.4, 0.04, 2.2)
+		SkillFx.flash(into, mid, venom_color, 0.3 * big, 0.14, 2.5)
+		SkillFx.light(into, mid, venom_color, 4.0, 5.0 * big, 0.45)
+		SkillFx.particles(into, mid, {
+			"amount": int(30 * big), "life": 1.4, "one_shot": true, "explosiveness": 0.9,
+			"speed": Vector2(0.4, 1.4) * big, "spread": 180.0, "gravity": Vector3(0, 0.5, 0), "damping": 1.5,
+			"size": Vector2(0.25, 0.5) * big, "box": Vector3(0.3, 0.5, 0.3) * big, "add": false, "grow": 0.5,
+			"colors": [Color(venom_color, 0.0), Color(venom_color.darkened(0.4), 0.5), Color(venom_color.darkened(0.7), 0.0)],
+		})
+	Sfx.play(_creature, RogueSkills.BOIL_SOUND, null, mid, 0.55, -2.0)
+	Sfx.play(_creature, RogueSkills.BACKSTAB_SOUND, null, mid, 0.6, -8.0)
+	if _decides() and harm > 0.0 and _creature.has_method(&"take_dot"):
+		_creature.call(&"take_dot", harm, _source(&"poison"))
 
 
 func is_marked() -> bool:
@@ -202,7 +243,10 @@ func _dead() -> bool:
 
 ## A number that changes whenever what should be drawn does.
 func _state() -> int:
-	return (1 if mark_left > 0.0 else 0) | (2 if burn_left > 0.0 else 0) | (poison.size() << 2)
+	# (kept while a boil cools, so the next five stacks on it do not boil it
+	# again before its time)
+	return (1 if mark_left > 0.0 else 0) | (2 if burn_left > 0.0 else 0) | (poison.size() << 2) \
+			| (32 if _clock < _boil_ready else 0)
 
 
 #region Sizes
@@ -309,9 +353,9 @@ func _refresh() -> void:
 	var skin: ShaderMaterial = null
 	if burning or poisoned:
 		skin = _skin_material()
-		skin.set_shader_parameter(&"glow_color", FIRE if burning else VENOM)
+		skin.set_shader_parameter(&"glow_color", FIRE if burning else venom_color)
 		skin.set_shader_parameter(&"dark_color",
-				Color(0.05, 0.03, 0.02, 0.55) if burning else Color(0.1, 0.28, 0.05, 0.3))
+				Color(0.05, 0.03, 0.02, 0.55) if burning else Color(venom_color.darkened(0.75), 0.3))
 	var top_mat: Material = skin
 	for mi in _meshes:
 		if not is_instance_valid(mi):
@@ -509,7 +553,8 @@ func _show_bubbles(on: bool) -> void:
 			"amount": 22, "life": 1.6, "speed": Vector2(0.3, 0.9), "spread": 20.0,
 			"gravity": Vector3(0, 0.4, 0), "size": Vector2(0.04, 0.09) * clampf(h / 1.6, 0.8, 2.0),
 			"box": Vector3(r, h * 0.45, r),
-			"colors": [Color(0.6, 1.0, 0.4, 0.0), Color(0.4, 1.0, 0.2, 0.9), Color(0.2, 0.6, 0.1, 0.0)],
+			"colors": [Color(venom_color.lightened(0.3), 0.0), Color(venom_color, 0.9),
+				Color(venom_color.darkened(0.4), 0.0)],
 		})
 		_bubbles.position = Vector3.UP * h * 0.5
 	_bubbles.emitting = on
@@ -523,7 +568,7 @@ func _pop_icon(index: int) -> void:
 		s.radius = 0.1
 		s.height = 0.2
 		mi.mesh = s
-		var mat := SkillFx.glow(VENOM, 2.6, false)
+		var mat := SkillFx.glow(venom_color, 2.6, false)
 		mat.no_depth_test = true
 		mat.render_priority = 2
 		mi.material_override = mat
@@ -532,8 +577,8 @@ func _pop_icon(index: int) -> void:
 		_overhead.add_child(mi)
 		_icons.append(mi)
 	for i in _icons.size():
-		# A drop: pointed up. Three in a row under where the sigil would be.
-		_icons[i].position = Vector3((i - 1) * 0.3, -0.72, 0.0)
+		# A drop: pointed up. Five in a row under where the sigil would be.
+		_icons[i].position = Vector3((i - (POISON_MAX - 1) * 0.5) * 0.24, -0.72, 0.0)
 	var icon := _icons[clampi(index, 0, _icons.size() - 1)]
 	icon.visible = true
 	icon.scale = Vector3(0.1, 0.15, 0.1)

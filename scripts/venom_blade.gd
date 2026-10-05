@@ -21,6 +21,8 @@ const FLICK := 33.0
 const DONE := 46.0
 
 var _rig: Node
+## The venom's colour: the poisoner's people's ([method RogueSkills.venom_of]).
+var tint: Color = VENOM
 var _rate: float = 1.4
 var _lasts: float = 10.0
 var _age: float = 0.0
@@ -44,7 +46,7 @@ func start(rig: Node, rate: float, lasts: float) -> void:
 
 func _ready() -> void:
 	top_level = true
-	_coat = SkillFx.rod(self, Vector3.ZERO, Vector3.ZERO, VENOM, 0.011, 2.4)
+	_coat = SkillFx.rod(self, Vector3.ZERO, Vector3.ZERO, tint, 0.011, 2.4)
 	_coat_mat = _coat.material_override as StandardMaterial3D
 	_coat_mat.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	_coat.hide()
@@ -52,26 +54,26 @@ func _ready() -> void:
 		"amount": 14, "life": 0.6, "speed": Vector2(0.0, 0.2), "spread": 30.0, "dir": Vector3.DOWN,
 		"gravity": Vector3(0, -9.0, 0), "size": Vector2(0.012, 0.02), "box": Vector3(0.02, 0.02, 0.02),
 		"add": false, "grow": 0.05,
-		"colors": [VENOM, VENOM, Color(VENOM.r, VENOM.g, VENOM.b, 0.0)],
+		"colors": [tint, tint, Color(tint, 0.0)],
 	})
 	_drips.emitting = false
 	_fumes = SkillFx.particles(self, Vector3.ZERO, {
 		"amount": 10, "life": 1.0, "speed": Vector2(0.03, 0.15), "spread": 40.0,
 		"gravity": Vector3(0, 0.2, 0), "size": Vector2(0.03, 0.06), "box": Vector3(0.04, 0.04, 0.04),
-		"grow": 0.25, "colors": [Color(0.4, 0.9, 0.2, 0.0), Color(0.35, 0.8, 0.15, 0.25), Color(0.2, 0.4, 0.1, 0.0)],
+		"grow": 0.25, "colors": [Color(tint, 0.0), Color(tint.darkened(0.15), 0.25), Color(tint.darkened(0.6), 0.0)],
 	})
 	_fumes.emitting = false
 	# Off the fingertips as they run down the blade.
 	_breath = SkillFx.particles(self, Vector3.ZERO, {
 		"amount": 12, "life": 0.45, "speed": Vector2(0.02, 0.1), "spread": 60.0,
 		"gravity": Vector3(0, 0.3, 0), "size": Vector2(0.015, 0.03), "box": Vector3(0.015, 0.015, 0.015),
-		"grow": 0.15, "colors": [Color(0.5, 1.0, 0.3, 0.0), Color(0.45, 1.0, 0.25, 0.5), Color(0.2, 0.5, 0.1, 0.0)],
+		"grow": 0.15, "colors": [Color(tint.lightened(0.2), 0.0), Color(tint.lightened(0.1), 0.5), Color(tint.darkened(0.5), 0.0)],
 	})
 	_breath.emitting = false
 	# Only the blade and the hand at it are lit green: a small, faint light (a
 	# big one turned his whole body green).
 	_light = OmniLight3D.new()
-	_light.light_color = VENOM
+	_light.light_color = tint
 	_light.omni_range = 0.7
 	_light.light_energy = 0.0
 	add_child(_light)
@@ -114,7 +116,7 @@ func _process(delta: float) -> void:
 		_breath.global_position = base + along * (0.08 + 0.92 * wet)
 	if frame >= FLICK and not _flicked:
 		_flicked = true
-		SkillFx.burst(get_parent(), tip - along * 0.3, VENOM, 26, Vector2(1.5, 4.0),
+		SkillFx.burst(get_parent(), tip - along * 0.3, tint, 26, Vector2(1.5, 4.0),
 				(along.cross(Vector3.UP)).normalized(), 50.0, Vector2(0.012, 0.022), Vector3(0, -9, 0), 0.5)
 	if left <= 0.0:
 		queue_free()
