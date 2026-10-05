@@ -46,7 +46,8 @@ func start(rig: Node, rate: float, lasts: float) -> void:
 
 func _ready() -> void:
 	top_level = true
-	_coat = SkillFx.rod(self, Vector3.ZERO, Vector3.ZERO, tint, 0.011, 2.4)
+	# a wet coat, not a glowing one (Elden Ring's poison)
+	_coat = SkillFx.rod(self, Vector3.ZERO, Vector3.ZERO, tint, 0.011, 0.5)
 	_coat_mat = _coat.material_override as StandardMaterial3D
 	_coat_mat.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	_coat.hide()
@@ -105,7 +106,7 @@ func _process(delta: float) -> void:
 	var fade := clampf(left / 1.2, 0.0, 1.0)
 	_coat_mat.albedo_color.a = fade * (0.85 + 0.15 * sin(_age * 6.0))
 	_light.global_position = base + along * 0.6
-	_light.light_energy = 0.15 * wet * fade
+	_light.light_energy = 0.0
 	_drips.global_position = base + along * lerpf(0.1, 0.6, wet)
 	_fumes.global_position = base + along * 0.6
 	_drips.emitting = frame >= WIPE_TO and left > 0.5

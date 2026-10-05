@@ -5912,8 +5912,7 @@ func net_afflict(path: NodePath, kind: StringName, seconds: float, amount: float
 	var into := Blood.world_of(self)
 	if kind == &"poison" and into != null:
 		var venom := RogueSkills.venom_of(self)
-		SkillFx.burst(into, at, venom, 22, Vector2(1.0, 3.5), Vector3.UP, 120.0,
-				Vector2(0.012, 0.03), Vector3(0, -7, 0), 0.45)
+		RogueSkills.drops(into, at, venom, 10, 0.8)
 
 
 func _decides_here() -> bool:

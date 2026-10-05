@@ -149,15 +149,13 @@ func _boil() -> void:
 	var mid := _creature.global_position + Vector3.UP * _height() * 0.55
 	if into != null:
 		var big := clampf(_height() / 1.6, 0.8, 2.2)
-		SkillFx.burst(into, mid, venom_color, int(70 * big), Vector2(2.0, 6.5) * big, Vector3.UP, 180.0,
-				Vector2(0.03, 0.07) * big, Vector3(0, -8, 0), 0.7)
-		SkillFx.flash(into, mid, venom_color, 0.3 * big, 0.14, 2.5)
-		SkillFx.light(into, mid, venom_color, 4.0, 5.0 * big, 0.45)
+		# a gout of it out of him, falling, and its fumes: dull, no glow
+		RogueSkills.drops(into, mid, venom_color, int(50 * big), big)
 		SkillFx.particles(into, mid, {
 			"amount": int(30 * big), "life": 1.4, "one_shot": true, "explosiveness": 0.9,
 			"speed": Vector2(0.4, 1.4) * big, "spread": 180.0, "gravity": Vector3(0, 0.5, 0), "damping": 1.5,
 			"size": Vector2(0.25, 0.5) * big, "box": Vector3(0.3, 0.5, 0.3) * big, "add": false, "grow": 0.5,
-			"colors": [Color(venom_color, 0.0), Color(venom_color.darkened(0.4), 0.5), Color(venom_color.darkened(0.7), 0.0)],
+			"colors": [Color(venom_color.darkened(0.5), 0.0), Color(venom_color.darkened(0.6), 0.45), Color(venom_color.darkened(0.8), 0.0)],
 		})
 	if _decides() and harm > 0.0 and _creature.has_method(&"take_dot"):
 		_creature.call(&"take_dot", harm, _source(&"poison"))

@@ -72,7 +72,7 @@ func _check_poison() -> void:
 	await _wait(60)
 	var ticked := was - float(imp.health)
 	_check("five stacks are 25 a second (less its m.def)", ticked > 18.0 and ticked < 30.0, "%.1f in 1 s" % ticked)
-	_check("green", marks != null and marks.venom_color.is_equal_approx(Afflictions.VENOM))
+	_check("green", marks != null and marks.venom_color.is_equal_approx(RogueSkills.HUMAN_VENOM))
 	var rig := _player.rig as SkinnedRogueRig
 	_check("one knife: every cut is the coated one's", rig != null and not rig.cut_by_off_hand())
 	if rig != null and rig.two_blades():

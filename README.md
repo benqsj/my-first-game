@@ -8197,3 +8197,20 @@ Player (`net_shadow_step`, `net_vanish`, `net_backstab`).
   frame after the first and the second use as the same as standing (about
   18 ms against 17).
 
+### Dull and dark, as Elden Ring's (2026-10-06, the user's word)
+The user's word: the game is Lineage 2's skills with Elden Ring's look. The
+skills stay; how they look changes:
+- **Colours.** The human's venom is a sickly yellow-green
+  (`RogueSkills.HUMAN_VENOM`), the dark elf's a bruised violet. Smoke is
+  nearly black.
+- **Nothing glows.** The coated knife has no light on it and its coat
+  barely shines. The cloak's rim is fainter.
+- **The Shadow Step** is smoke where he went in, a thin dark wake along the
+  way, smoke where he comes out, and his shadow left standing. The sparks,
+  the column of colour and the light are gone.
+- **A backstab lets blood**, a heavy gout of it the way the knife went in
+  (`Blood.splatter` ×1.8), instead of a flash.
+- **The poison's bite and the boil** throw dull drops of venom that fall
+  (`RogueSkills.drops`). They are not glowing sparks, and the boil has no
+  flash or light; its fumes are darker.
+

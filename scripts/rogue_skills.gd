@@ -65,11 +65,15 @@ const AMBUSH_TIME := 1.0
 ## No sounds of their own yet (the user's word, 2026-10-06: the pitched
 ## recordings were not liked); the knife's own bite is heard where it lands.
 
-## The dark elf's venom and both peoples' smoke.
-const DARK_VENOM := Color(0.74, 0.32, 1.0)
-const ASH := Color(0.16, 0.15, 0.15)
-const NIGHT := Color(0.2, 0.08, 0.3)
-const CRIMSON := Color(1.0, 0.16, 0.12)
+## The venoms and the smoke, dull and dark as Elden Ring's (the user's word,
+## 2026-10-06: a mix of Lineage 2's skills and Elden Ring's look — nothing
+## neon, no glow, no rings): the human's a sickly yellow-green, the dark
+## elf's a bruised violet; smoke nearly black.
+const HUMAN_VENOM := Color(0.42, 0.52, 0.1)
+const DARK_VENOM := Color(0.36, 0.16, 0.46)
+const ASH := Color(0.05, 0.05, 0.055)
+const NIGHT := Color(0.07, 0.03, 0.09)
+const CRIMSON := Color(0.45, 0.04, 0.03)
 
 var hero: Player
 ## Gone from sight now (every peer, from `net_vanish`).
@@ -82,7 +86,7 @@ var _faded: Dictionary = {}
 
 ## His people's venom: the human's green, the dark elf's violet.
 static func venom_of(who: Node) -> Color:
-	return DARK_VENOM if _dark(who) else Afflictions.VENOM
+	return DARK_VENOM if _dark(who) else HUMAN_VENOM
 
 
 ## His people's smoke.
@@ -268,33 +272,14 @@ func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
 	if into == null:
 		return
 	var smoke := smoke_of(hero)
-	var rim := venom_of(hero) if _dark(hero) else CRIMSON
-	_puff(into, from, smoke, 1.1)
-	# a dark streak along the way he went, low, thinning towards where he
-	# comes out
+	_puff(into, from, smoke, 1.0)
+	# a thin dark wake along the way he went, hanging a moment
 	var way := to - from
-	var steps := clampi(int(way.length() / 0.7), 3, 14)
+	var steps := clampi(int(way.length() / 0.9), 2, 10)
 	for k in steps:
 		var t := (k + 0.5) / float(steps)
-		SkillFx.particles(into, from + way * t + Vector3.UP * lerpf(0.9, 1.1, t), {
-			"amount": 10, "life": 0.55, "one_shot": true, "explosiveness": 0.9,
-			"speed": Vector2(0.2, 0.8), "spread": 180.0, "damping": 2.0, "gravity": Vector3(0, 0.4, 0),
-			"size": Vector2(0.18, 0.36) * lerpf(1.0, 0.6, t), "box": Vector3(0.12, 0.35, 0.12),
-			"add": false, "grow": 0.5,
-			"colors": [Color(smoke, 0.0), Color(smoke, 0.7), Color(smoke, 0.0)],
-		})
-	SkillFx.burst(into, from + Vector3.UP * 1.0, rim, 18, Vector2(1.0, 3.0), way.normalized(), 25.0,
-			Vector2(0.015, 0.03), Vector3.ZERO, 0.35)
-	# out of it: the smoke, a ring on the ground, a column of his colour
-	# going up through him and a spray of sparks off his back
-	_puff(into, to, smoke, 0.9)
-	SkillFx.particles(into, to + Vector3.UP * 0.1, {
-		"amount": 26, "life": 0.5, "one_shot": true, "explosiveness": 0.85,
-		"speed": Vector2(2.5, 5.0), "spread": 6.0, "dir": Vector3.UP, "damping": 3.0,
-		"ring": Vector2(0.25, 0.4), "size": Vector2(0.03, 0.06), "grow": 0.2,
-		"colors": [Color(rim.lightened(0.3), 1.0), Color(rim, 0.9), Color(rim.darkened(0.4), 0.0)],
-	})
-	SkillFx.light(into, to + Vector3.UP * 1.0, rim, 2.5, 4.0, 0.35)
+		_wisp(into, from + way * t + Vector3.UP * 1.0, smoke, lerpf(0.8, 0.5, t))
+	_puff(into, to, smoke, 0.7)
 #endregion
 
 
@@ -376,7 +361,7 @@ uniform sampler2D cut : source_color, hint_default_white;
 uniform float use_cut = 0.0;
 uniform vec4 rim_color : source_color = vec4(0.6, 0.6, 0.8, 1.0);
 uniform float rim_power = 3.5;
-uniform float rim_strength = 0.55;
+uniform float rim_strength = 0.3;
 uniform float bend = 0.018;
 void fragment() {
 	if (use_cut > 0.5 && texture(cut, UV).a < 0.5) {
@@ -393,7 +378,7 @@ void fragment() {
 """
 static var _cloak_shader: Shader = null
 ## The rim: the human's a cold steel, the dark elf's his violet.
-const STEEL := Color(0.62, 0.7, 0.85)
+const STEEL := Color(0.45, 0.5, 0.58)
 
 
 ## The cloak for his own eyes and his friends'; for a foe in PvP nothing.
@@ -470,32 +455,47 @@ func _on_died() -> void:
 #endregion
 
 
-## Every peer: a backstab landed at `at` — a crimson (violet) flash and the
-## blade's bite, deeper.
+## Every peer: a backstab landed at `at` — no flash: the blood it lets, a
+## heavy gout of it the way the knife went in.
 func show_backstab(at: Vector3) -> void:
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
-	var rim := venom_of(hero) if _dark(hero) else CRIMSON
-	SkillFx.flash(into, at, rim, 0.25, 0.12, 3.0)
-	SkillFx.burst(into, at, rim, 26, Vector2(2.0, 5.0), (at - hero.global_position).normalized(), 40.0,
-			Vector2(0.02, 0.05), Vector3(0, -6, 0), 0.4)
+	var way := at - hero.global_position
+	way.y = 0.0
+	Blood.splatter(into, at, way.normalized() if way.length_squared() > 0.0001 else Vector3.FORWARD,
+			null, 1.8)
 
 
 ## A puff of smoke `big` across at `at`: thick at the feet, rolling up and out.
 static func _puff(into: Node, at: Vector3, smoke: Color, big: float) -> void:
 	SkillFx.particles(into, at + Vector3.UP * 0.9, {
-		"amount": int(40 * big), "life": 0.9, "one_shot": true, "explosiveness": 0.95,
-		"speed": Vector2(0.8, 2.4) * big, "spread": 180.0, "dir": Vector3.UP, "damping": 3.0,
-		"gravity": Vector3(0, 0.6, 0), "size": Vector2(0.35, 0.7) * big, "box": Vector3(0.3, 0.8, 0.3),
-		"add": false, "grow": 0.5,
-		"colors": [Color(smoke, 0.0), Color(smoke, 0.85), Color(smoke.lightened(0.15), 0.0)],
+		"amount": int(26 * big), "life": 1.1, "one_shot": true, "explosiveness": 0.9,
+		"speed": Vector2(0.3, 1.2) * big, "spread": 180.0, "dir": Vector3.UP, "damping": 2.5,
+		"gravity": Vector3(0, 0.35, 0), "size": Vector2(0.4, 0.8) * big, "box": Vector3(0.25, 0.75, 0.25),
+		"add": false, "grow": 0.6,
+		"colors": [Color(smoke, 0.0), Color(smoke, 0.75), Color(smoke, 0.0)],
 	})
-	SkillFx.particles(into, at + Vector3.UP * 0.1, {
-		"amount": int(24 * big), "life": 0.7, "one_shot": true, "explosiveness": 1.0,
-		"speed": Vector2(2.0, 3.5) * big, "spread": 10.0, "dir": Vector3.UP, "damping": 4.0,
-		"ring": Vector2(0.2, 0.4), "size": Vector2(0.25, 0.45) * big, "add": false, "grow": 0.4,
-		"colors": [Color(smoke, 0.0), Color(smoke, 0.7), Color(smoke, 0.0)],
+
+
+## One wisp of smoke hanging where he passed.
+static func _wisp(into: Node, at: Vector3, smoke: Color, big: float) -> void:
+	SkillFx.particles(into, at, {
+		"amount": 6, "life": 0.8, "one_shot": true, "explosiveness": 0.8,
+		"speed": Vector2(0.1, 0.4), "spread": 180.0, "damping": 2.0, "gravity": Vector3(0, 0.25, 0),
+		"size": Vector2(0.25, 0.45) * big, "box": Vector3(0.1, 0.35, 0.1), "add": false, "grow": 0.6,
+		"colors": [Color(smoke, 0.0), Color(smoke, 0.55), Color(smoke, 0.0)],
+	})
+
+
+## Drops of venom thrown off a cut or a boil: dull, falling, not glowing.
+static func drops(into: Node, at: Vector3, venom: Color, count: int, big: float) -> void:
+	SkillFx.particles(into, at, {
+		"amount": count, "life": 0.6, "one_shot": true, "explosiveness": 0.95,
+		"speed": Vector2(0.8, 2.6) * big, "spread": 70.0, "dir": Vector3.UP, "damping": 0.5,
+		"gravity": Vector3(0, -9.0, 0), "size": Vector2(0.015, 0.035) * big, "box": Vector3(0.08, 0.08, 0.08),
+		"add": false, "grow": 0.1,
+		"colors": [Color(venom, 1.0), Color(venom.darkened(0.3), 1.0), Color(venom.darkened(0.6), 0.0)],
 	})
 
 
@@ -525,19 +525,7 @@ static func warm(at: Node3D) -> void:
 	cut_ball.position = Vector3(0.7, 0.0, 0.0)
 	var here := at.global_position
 	_puff(at, here + Vector3.DOWN * 0.9, ASH, 0.4)
-	SkillFx.burst(at, here, CRIMSON, 6, Vector2(0.5, 1.0), Vector3.UP, 30.0, Vector2(0.01, 0.02), Vector3.ZERO, 0.3)
-	SkillFx.particles(at, here, {
-		"amount": 4, "life": 0.4, "one_shot": true, "explosiveness": 1.0,
-		"speed": Vector2(0.2, 0.5), "spread": 180.0, "damping": 2.0, "gravity": Vector3(0, 0.4, 0),
-		"size": Vector2(0.1, 0.2), "box": Vector3(0.1, 0.1, 0.1), "add": false, "grow": 0.5,
-		"colors": [Color(ASH, 0.0), Color(ASH, 0.7), Color(ASH, 0.0)],
-	})
-	SkillFx.particles(at, here, {
-		"amount": 4, "life": 0.4, "one_shot": true, "explosiveness": 1.0,
-		"speed": Vector2(0.5, 1.0), "spread": 6.0, "dir": Vector3.UP, "damping": 3.0,
-		"ring": Vector2(0.1, 0.2), "size": Vector2(0.03, 0.06), "grow": 0.2,
-		"colors": [Color(CRIMSON, 1.0), Color(CRIMSON, 0.0)],
-	})
-	SkillFx.flash(at, here, CRIMSON, 0.2, 0.2, 1.0)
-	SkillFx.light(at, here, CRIMSON, 0.5, 2.0, 0.3)
+	_wisp(at, here, ASH, 0.4)
+	drops(at, here, HUMAN_VENOM, 4, 0.5)
+	Blood.splatter(at, here, Vector3.FORWARD, null, 0.3)
 
