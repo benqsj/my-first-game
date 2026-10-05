@@ -4873,7 +4873,7 @@ const SKILLS := {
 	&"shadow_slide": {"name": "Shadow Slide", "stamina": 24.0, "cooldown": 9.0},
 	&"shadow_lance": {"name": "Shadow Lance", "stamina": 26.0, "cooldown": 10.0},
 	&"shadow_step": {"name": "Shadow Step", "stamina": 20.0, "cooldown": 9.0},
-	&"vanish": {"name": "Vanish", "stamina": 25.0, "cooldown": 16.0},
+	&"vanish": {"name": "Vanish", "stamina": 25.0, "cooldown": 40.0},
 }
 const SKILL_SLOTS := 4
 
@@ -5964,11 +5964,11 @@ func is_hidden() -> bool:
 
 
 @rpc("any_peer", "call_local", "reliable")
-func net_shadow_step(from: Vector3, to: Vector3) -> void:
+func net_shadow_step(from: Vector3, to: Vector3, foe: NodePath) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
-	rogue().show_step(from, to)
+	rogue().show_step(from, to, get_node_or_null(foe) as Node3D if not foe.is_empty() else null)
 
 
 @rpc("any_peer", "call_local", "reliable")

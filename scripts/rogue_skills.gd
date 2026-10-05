@@ -10,15 +10,22 @@ extends Node
 ##   Read where a cut's worth is decided ([method Player.cut_worth]).
 ## * **Shadow Step** (slot 2) — gone in smoke and out of it again behind what
 ##   is locked or ahead of him (`STEP_SEEK`), facing its back: the backstab
-##   set up. Nothing lands on him for `STEP_GUARD`. With nothing to step to,
-##   `STEP_BLIND` metres ahead.
+##   set up — and he puts the knife into it as he comes out (the user's word,
+##   2026-10-06): a thrust (DG_Thrust_Slash's) that lands `STEP_STAB_DELAY`
+##   after, worth a cut of his (from behind, so a backstab) times
+##   `STEP_STRIKE`. Nothing lands on him for `STEP_GUARD`. With nothing to
+##   step to, `STEP_BLIND` metres ahead and no blow.
 ## * **Vanish** (slot 3) — a puff of smoke and he is gone for `VANISH_TIME`:
 ##   the creatures lose him ([method Player.is_hidden], read by
 ##   [method Brute.unseen] wherever they pick whom to go for), as does a
-##   hostile hero's lock in PvP. His own eyes and his friends' still see a
-##   ghost of him (`VANISH_SHOWN`); a foe in PvP sees nothing. A blow taken
-##   ends it; so does a cut of his own, and the first cut out of it is a sure
-##   critical (`AMBUSH_TIME`).
+##   hostile hero's lock in PvP. His own eyes and his friends' see only a
+##   shimmer where he is: the world behind him bent a little through his
+##   shape, and a faint rim of his people's colour at its edges
+##   (`CLOAK_SHADER`); nothing of his front or his inside shows. A foe in
+##   PvP sees nothing at all. A blow taken ends it; so does a cut of his own
+##   (or the Shadow Step's thrust), and the first cut out of it is a sure
+##   critical (`AMBUSH_TIME`). 10 s, 40 s to come back (the user's word,
+##   2026-10-06).
 ##
 ## Human or dark elf, one set of skills, each in his people's colour
 ## ([method venom_of], [method smoke_of]): the human's venom green and his
@@ -38,11 +45,17 @@ const STEP_SEEK := 12.0
 const STEP_GAP := 0.75
 const STEP_BLIND := 6.0
 const STEP_GUARD := 0.35
+## The thrust he comes out of the step with: its clip and the stretch of it
+## played, its pace, when the point goes in, and what it is worth.
+const STEP_STAB := &"DG_Thrust_Slash"
+const STEP_STAB_PART := Vector2(0.1, 0.38)
+const STEP_STAB_RATE := 2.2
+const STEP_STAB_DELAY := 0.19
+const STEP_STRIKE := 1.0
 
 ## Vanish: how long, how much of him is still drawn for his own eyes and his
 ## friends', and how long after it ends on a cut of his that cut is sure.
-const VANISH_TIME := 6.0
-const VANISH_SHOWN := 0.28
+const VANISH_TIME := 10.0
 const AMBUSH_TIME := 1.0
 
 const STEP_SOUND := "res://unverified/sounds/dodge/shadow.wav"
@@ -142,13 +155,18 @@ func shadow_step(cost: float) -> bool:
 	if not hero._spend(cost):
 		return false
 	var from := hero.global_position
+	if foe != null and hiding:
+		# the thrust is a cut of his: out of hiding, and sure
+		hero.net_vanish.rpc(false, true)
 	hero.global_position = to
 	hero.velocity = Vector3.ZERO
 	face.y = 0.0
 	if face.length_squared() > 0.0001:
 		hero.rotation.y = atan2(-face.x, -face.z)
 	hero._safe_until = maxf(hero._safe_until, hero._now() + STEP_GUARD)
-	hero.net_shadow_step.rpc(from, to)
+	if foe != null:
+		hero._commit(STEP_STAB_DELAY + 0.25)
+	hero.net_shadow_step.rpc(from, to, foe.get_path() if foe != null else NodePath())
 	return true
 
 
@@ -224,8 +242,13 @@ func _clear_line(from: Vector3, spot: Vector3, foe: Node3D) -> bool:
 	return hero.get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 
-## Every peer: the smoke where he was and where he comes out.
-func show_step(from: Vector3, to: Vector3) -> void:
+## Every peer: the smoke where he was and where he comes out, and the thrust
+## into `foe` (its blow the host's).
+func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
+	if foe != null and hero.rig != null and hero.rig.has_method(&"play_part"):
+		hero.rig.call(&"play_part", STEP_STAB, STEP_STAB_RATE, STEP_STAB_PART.x, STEP_STAB_PART.y, 0.05)
+		if hero._decides_here():
+			get_tree().create_timer(STEP_STAB_DELAY, false).timeout.connect(_stab.bind(foe.get_path()))
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
@@ -238,6 +261,32 @@ func show_step(from: Vector3, to: Vector3) -> void:
 	Sfx.play(hero, STEP_SOUND, null, from, 0.85, -3.0)
 	Sfx.play(hero, STEP_SOUND, hero, Vector3.ZERO, 1.2, -6.0)
 #endregion
+
+
+## Host: the step's thrust lands, if it is still there to land on.
+func _stab(path: NodePath) -> void:
+	var foe := get_node_or_null(path) as Node3D
+	if hero == null or foe == null or not foe.is_inside_tree():
+		return
+	if foe.get(&"is_dead") == true or hero.is_dead:
+		return
+	var to := foe.global_position - hero.global_position
+	to.y = 0.0
+	if to.length() > Player._body_radius(foe) + 2.0:
+		return
+	var worth: Array = hero.cut_worth(foe)
+	var damage := float(worth[0]) * STEP_STRIKE
+	var way := to.normalized() if to.length_squared() > 0.0001 else -hero.global_basis.z
+	var at := foe.global_position + Vector3.UP * 1.1 - way * Player._body_radius(foe)
+	var foe_hero := foe as Player
+	if foe_hero != null:
+		foe_hero.hurtbox().take(HitInfo.make(damage, at, way, bool(worth[1]), true, hero))
+	elif foe.has_method(&"take_hit"):
+		foe.call(&"take_hit", damage, at, way, bool(worth[1]), true, hero)
+		hero.blade_hit(foe, at)
+	else:
+		return
+	hero.net_blade_landed.rpc(ImpactFx.matter_of(foe))
 
 
 #region Vanish
@@ -281,10 +330,42 @@ func take_ambush() -> bool:
 	return false
 
 
-## Drawn as a ghost for his own eyes and his friends'; not at all for a foe
-## in PvP. His meshes are cut out with an alpha scissor, which a node's
-## `transparency` only thins to nothing (below the scissor every pixel goes):
-## so each surface wears a blended copy of its material for the while.
+## The cloak: what is behind him, read off the screen and bent a little
+## through his shape, so where he stands only shimmers; a thin rim of his
+## people's colour where his outline turns away. Written with its depth
+## and as good as opaque, so only the nearest of his surfaces is drawn —
+## nothing of his front seen through his back, no limb through another.
+## His hair and cloth keep their cut-outs (`cut`, the albedo's alpha).
+const CLOAK_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_back, depth_draw_always, shadows_disabled;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform sampler2D cut : source_color, hint_default_white;
+uniform float use_cut = 0.0;
+uniform vec4 rim_color : source_color = vec4(0.6, 0.6, 0.8, 1.0);
+uniform float rim_power = 3.5;
+uniform float rim_strength = 0.55;
+uniform float bend = 0.018;
+void fragment() {
+	if (use_cut > 0.5 && texture(cut, UV).a < 0.5) {
+		discard;
+	}
+	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float rim = pow(1.0 - facing, rim_power);
+	float ripple = 0.6 + 0.4 * sin(TIME * 2.6 + VERTEX.y * 9.0 + VERTEX.x * 5.0);
+	vec2 off = NORMAL.xy * bend * ripple * (0.4 + rim);
+	vec3 behind = textureLod(screen_tex, SCREEN_UV - off, 0.0).rgb;
+	ALBEDO = mix(behind * 0.94, rim_color.rgb, rim * rim_strength);
+	ALPHA = 1.0;
+}
+"""
+static var _cloak_shader: Shader = null
+## The rim: the human's a cold steel, the dark elf's his violet.
+const STEEL := Color(0.62, 0.7, 0.85)
+
+
+## The cloak for his own eyes and his friends'; for a foe in PvP nothing.
+## What each mesh wore and whether it cast a shadow is kept and given back.
 func _fade(on: bool) -> void:
 	if not on:
 		for g: Variant in _faded:
@@ -293,37 +374,52 @@ func _fade(on: bool) -> void:
 			var was: Array = _faded[g]
 			var gi := g as GeometryInstance3D
 			gi.transparency = float(was[0])
+			gi.cast_shadow = int(was[2]) as GeometryInstance3D.ShadowCastingSetting
 			var mi := gi as MeshInstance3D
 			if mi != null:
+				var kept: Array = was[1]
 				for k in mi.get_surface_override_material_count():
-					mi.set_surface_override_material(k, was[1][k] if k < (was[1] as Array).size() else null)
+					mi.set_surface_override_material(k, kept[k] if k < kept.size() else null)
 		_faded.clear()
 		return
 	var gone := Player.pvp_mode and not hero.is_multiplayer_authority()
+	if _cloak_shader == null:
+		_cloak_shader = Shader.new()
+		_cloak_shader.code = CLOAK_SHADER
+	var rim := DARK_VENOM if _dark(hero) else STEEL
 	for node in hero.find_children("*", "GeometryInstance3D", true, false):
 		var g := node as GeometryInstance3D
-		if g == null or _faded.has(g):
+		if g == null or _faded.has(g) or _shed(g):
 			continue
-		var overrides: Array = []
+		var kept: Array = []
 		var mi := g as MeshInstance3D
-		if gone:
-			_faded[g] = [g.transparency, overrides]
+		_faded[g] = [g.transparency, kept, int(g.cast_shadow)]
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if gone or mi == null or mi.mesh == null or mi.material_override != null:
 			g.transparency = 1.0
 			continue
-		if mi != null and mi.mesh != null and mi.material_override == null:
-			for k in mi.get_surface_override_material_count():
-				overrides.append(mi.get_surface_override_material(k))
-				var base := mi.get_active_material(k) as BaseMaterial3D
-				if base == null:
-					continue
-				var ghost := base.duplicate() as BaseMaterial3D
-				ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-				ghost.albedo_color.a = base.albedo_color.a * VANISH_SHOWN
-				mi.set_surface_override_material(k, ghost)
-			_faded[g] = [g.transparency, overrides]
-		else:
-			_faded[g] = [g.transparency, overrides]
-			g.transparency = 1.0 - VANISH_SHOWN
+		for k in mi.get_surface_override_material_count():
+			kept.append(mi.get_surface_override_material(k))
+			var cloak := ShaderMaterial.new()
+			cloak.shader = _cloak_shader
+			cloak.set_shader_parameter(&"rim_color", rim)
+			cloak.set_meta(&"cloak", true)
+			var base := mi.get_active_material(k) as BaseMaterial3D
+			if base != null and base.albedo_texture != null \
+					and base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				cloak.set_shader_parameter(&"cut", base.albedo_texture)
+				cloak.set_shader_parameter(&"use_cut", 1.0)
+			mi.set_surface_override_material(k, cloak)
+
+
+## A copy the shadow trail shed (it fades on its own), not his body.
+func _shed(g: Node) -> bool:
+	var up := g.get_parent()
+	while up != null and up != hero:
+		if up is ShadowTrail:
+			return true
+		up = up.get_parent()
+	return false
 
 
 func _on_attack() -> void:

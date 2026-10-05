@@ -8107,16 +8107,28 @@ Player (`net_shadow_step`, `net_vanish`, `net_backstab`).
     else 35° or 70° to either side.
   - With nothing to step to, 6 m ahead, short of what is in the way.
   - Nothing lands on him for 0.35 s.
-- **Vanish** (25 stamina, 16 s). A puff of smoke and he is gone for 6 s.
+  - **And he puts the knife in** (the user's word, 2026-10-06): out of the
+    smoke a thrust (DG_Thrust_Slash, 0.1-0.38 at ×2.2) whose point goes in
+    0.19 s after, worth a cut of his from behind, so a backstab (×2.2, a
+    boss ×1.5), with the poison if the blade is coated. The host lands it
+    (`RogueSkills._stab`) if the thing is still within reach.
+- **Vanish** (25 stamina, 40 s). A puff of smoke and he is gone for 10 s
+  (the user's word, 2026-10-06: 40 s to come back, about 10 s hidden).
   - The creatures lose him. `Brute.unseen(who)` is read where the brutes
     (the orcs, Arkdeva), the fighters (imps, puglins, brawlers) and the
     wolves pick whom to go for. A blow already on its way still lands on
     whoever stands in it.
   - In PvP a foe cannot lock him (`_targetable`, `_foes`) and sees nothing.
-    His own eyes and his friends' see a ghost of him (28 %).
+    His own eyes and his friends' see only a shimmer: the cloak shader
+    (`RogueSkills.CLOAK_SHADER`) draws the world behind him, bent a little
+    through his shape, with a thin rim of his people's colour (steel or
+    violet). It writes its depth and is as good as opaque, so nothing of his
+    front shows through his back (the user's word: the half-transparent
+    ghost showed him through himself). He casts no shadow while hidden.
   - His own cut ends it, and **that cut is a sure critical** (a backstab
     still counts as the backstab). A blow taken ends it, and it runs out
-    after 6 s. Coating the blade and the Shadow Step do not end it.
+    after 10 s. Coating the blade does not end it; the Shadow Step's thrust
+    does (and is sure).
 - **One set of skills, two peoples' colours.** The human's venom is green
   and his smoke ash-grey; the dark elf's venom is violet and his smoke a
   purple night. This covers the blade's coat, the stacks, the veins, the

@@ -128,6 +128,7 @@ func _check_step() -> void:
 	await _ready_up()
 	_player.call("_hold_target", imp)
 	var had := _player.stamina
+	var whole: float = imp.health
 	_check("the shadow step goes", _player.use_skill(1))
 	await _wait(2)
 	var gap := _player.global_position.distance_to(imp.global_position)
@@ -138,6 +139,9 @@ func _check_step() -> void:
 	_check("facing it", (-_player.global_basis.z).dot(to.normalized()) > 0.95)
 	_check("for 20 stamina", absf(had - _player.stamina - 20.0) < 1.0, "%.1f" % (had - _player.stamina))
 	_check("9 s before the next", absf(_player.skill_cooldown_left(1) - 9.0) < 0.2)
+	await _wait(20)
+	_check("and he puts the knife in its back", is_instance_valid(imp) and float(imp.health) < whole,
+			"%.0f -> %.0f" % [whole, float(imp.health) if is_instance_valid(imp) else -1.0])
 	_player.target = null
 	imp.queue_free()
 	await _wait(10)
@@ -162,6 +166,7 @@ func _check_vanish() -> void:
 	await _ready_up()
 	var seen: Node3D = imp.call("_pick_quarry")
 	_check("the imp sees him", seen == _player)
+	_check("40 s before vanish comes back", is_equal_approx(_player.skill_cooldown(2), 40.0))
 	_check("vanish goes", _player.use_skill(2))
 	await _wait(2)
 	_check("he is gone", _player.is_hidden())
@@ -216,8 +221,11 @@ func _check_dark() -> void:
 ## the node's own transparency).
 func _ghosts() -> int:
 	var n := 0
+	# (his own meshes: not the shadow trail's copies, which fade on their own)
 	for g in _player.find_children("*", "GeometryInstance3D", true, false):
 		var gi := g as GeometryInstance3D
+		if _player.rogue()._shed(gi):
+			continue
 		if gi.transparency > 0.3:
 			n += 1
 			continue
@@ -225,8 +233,8 @@ func _ghosts() -> int:
 		if mi == null:
 			continue
 		for k in mi.get_surface_override_material_count():
-			var m := mi.get_surface_override_material(k) as BaseMaterial3D
-			if m != null and m.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA and m.albedo_color.a < 0.5:
+			var m := mi.get_surface_override_material(k)
+			if m != null and m.has_meta(&"cloak"):
 				n += 1
 				break
 	return n
