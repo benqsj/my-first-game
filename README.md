@@ -7638,3 +7638,59 @@ run 6.0. Backing off and stepping aside are still walks. From 3 m/s
 Tests: `lock_strafe_test` (the four diagonals); `hit_direction_test`.
 Reels: `_shots_tmp/hit_dir_reel.gd`, `_shots_tmp/guard_jog_reel.gd`.
 
+
+## The menu, the bag and the skill bar dressed; the hair's colour; one profession per outfit (2026-10-05)
+
+**Lettering, frames, icons** (`scripts/ui_art.gd`, `assets/ui/`, sources in
+`assets/ui/CREDITS.txt`). `UiArt` loads them once and hands them out:
+
+- `UiArt.font("title" | "head" | "deco" | "body" | "bold" | "plain")`: Cinzel
+  Bold / Medium / Decorative for titles, headings and buttons, Alegreya Sans for
+  everything read. `UiArt.theme()` is set on the main menu's root.
+- `UiArt.frame(name)` / `draw_frame(onto, rect, name)`: 9-slice frames baked by
+  `vepxis-art/tools/ui_frames.py` — `panel` (dark, gold double edge, gold
+  corners), `socket` / `socket_lit` (a slot), `bar_plate`, `tab` / `tab_on`.
+- `UiArt.icon("skill_<id>" | "item_<icon>")`: the skills' painted plates and
+  the bag's white glyphs (tinted in the game), baked by
+  `vepxis-art/tools/ui_icons.py` from game-icons.net (CC BY 3.0). A skill with
+  no plate falls back to the drawn picture in `PlayerHud._icon`.
+
+**The menu.** `MenuStyle.label(text, size, colour, kind)` takes the lettering;
+`MenuStyle.plate()` is the ornate panel. The hero select is laid out anew: the
+roster down the left (tiles 268 x 104: a bust, the name, the arms), the stage
+540 x 600 in the middle, the dossier or the maker (`PLATE_WIDTH` 528) on the
+right with BACK and START under it. Node names the tests use are kept.
+
+**The stage fits the hero** (`CharacterPortrait.fit`, full length only): every
+0.2 s it measures every bone of what is seen and the blades' tips as he is
+turned now, and stands the camera back until all of it is inside the frame
+(5 % margin), the ground kept at `FLOOR_AT` 0.9 down the frame, where the
+stage draws its floor. Never closer than `eye_back`; out quickly, in slowly.
+
+**The hair's colour** is the look's `hc` (1..8). `PolysplitLook.dye` gives the
+meshes in `HAIRY` (hair, hair under a hat, beard, brows) a copy of the body's
+material of their own, dyed `body_<hc>.png` — the pack lays the hair's colour
+in the texture's top-right quarter, the skin's in the top left, so the same
+textures serve both. A look without `hc` wears the skin's (as before). The
+maker's FACE tab has HAIR COLOUR and SKIN as rows of swatches; CLOTH too.
+
+**One profession per outfit** (`PolysplitLook.PROFESSION_OF`): the hunter is
+the archer, the fighter the swordsman, the sorcerer / warlock / witch the mage.
+The look's `cls` is still the pack's class (it picks the clothes, the deaths
+in `Moveset.DEATHS` too); the maker calls it `outfit_name()` (ARCHER · II).
+The hunter's quiver is the archer's (`_extra_alias`), so it is offered once.
+`CLASS_ARMS` is by profession: the swordsman one-handed arms only (no great
+sword, great axe, great hammer, spear or poleaxe), the knight only those, the
+mage no great sword.
+
+**The skill bar** (`PlayerHud._draw_skills`): sockets 62 px on the gilt
+plate, the key on a tab under each; cooldown a clock sweep (`_sweep`) with
+the seconds; greyed, its key red, without the stamina for it.
+
+**The bag** (`Inventory`): three ornate plates, glyph tabs, socket grid
+(5 x 5), the chosen thing's picture in a lit socket, ATTRIBUTES / DESCRIPTION
+sections, and a `CharacterPortrait` of the hero (dressed as he is when the
+bag opens, `_dress_portrait`) at the head of the status column.
+
+Tests: `maker_test` checks the hair dyed apart from the skin; `menu_test`
+expects seven FACE rows.
