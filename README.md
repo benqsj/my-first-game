@@ -7726,3 +7726,55 @@ PLAY / SETTINGS / EXIT are bare words (`MenuStyle.word_button`). **The hero on
 the select page** keeps the size he opened at (`CharacterPortrait._fit`:
 measured over 0.6 s by each bone's reach from the axis, then held until the
 look changes).
+
+## The elves and the dark elves (2026-10-05)
+
+Five more heroes, picked on the hero select by their people. Over the roster
+there are three banners (`MainMenu.PEOPLES`): **HUMANS**, **ELVES** and **DARK
+ELVES**. Picking one shows that people's heroes alone and picks the first of
+them. Which people a hero belongs to is his profile's `people`.
+
+| id | hero | rig and clips | people |
+| --- | --- | --- | --- |
+| `elf_archer` | Elf Archer | Avtandil's | elf |
+| `elf_mage` | Elf Mage | the mage's | elf |
+| `dark_archer` | Dark Elf Archer | Avtandil's | dark |
+| `dark_mage` | Dark Elf Mage | the mage's | dark |
+| `dark_rogue` | Dark Elf Assassin | the assassin's | dark |
+
+**How they are made.** Each is its base hero's rig scene, inherited
+(`scenes/player/<id>_visuals.tscn`), with two settings on `SkinnedRig`:
+
+- `maker_only`: YOUR OWN is the only look. The hero's own faces and hair are
+  not offered (`_only_maker()`).
+- `race`: every look worn is made of that people (`_of_race()`). Whatever was
+  saved is overridden. An elf with no saved look comes up a woman; the maker's
+  BODY row turns her into a man.
+
+The profiles copy the base hero's numbers, with a little of the people in them:
+
+- The elves run 0.2 m/s faster and have 10 less health.
+- The dark elves have 5% more crits.
+
+**The looks.** `PolysplitLook` has a new key, `race`: "" for a man, "elf" or
+"dark".
+
+- **Ears.** The head's ears are drawn up and back into points (`_wear_ears()`,
+  `_point_ears()`). The ear is the head's outermost band between 39% and 81% of
+  its height and 30% and 81% of its depth. Each point there is carried out, up
+  and back by how far out and how high on the ear it lies, the way vepxis-art
+  `_amirani/elves4.py` did it in Blender. The pointed head is made once per mesh
+  and swapped in. It keeps the head's weights, so it moves as before, and it
+  shows through every hair.
+- **Skin and hair.** The dark elves' skins are `colors/body_9.png` and
+  `body_10.png`: body_5's skin quarter turned slate violet, lighter and darker.
+  The maker's SKIN row offers each people its own (`RACE_SKINS`).
+- **Starting looks.** An elf starts with no beard and no hat (so the ears are
+  seen), and with her people's hair and outfit (`RACE_DEFAULTS`):
+  - the elves golden-haired, the archer in green and the mage as the white
+    sorcerer;
+  - the dark elves silver-haired, the archer and the assassin in dark leather
+    and the mage as the purple witch (the warlock for a man).
+
+The maker dresses the rig's own `polysplit_hero` (`MainMenu._ps_hero()`), not
+the roster's id, so an elf archer is offered the archer's outfits and arms.
