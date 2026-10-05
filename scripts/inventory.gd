@@ -96,6 +96,9 @@ const CREAM := Color("ece4d6")
 const MUTED := Color(0.72, 0.68, 0.6)
 const SLOT := Vector2(78, 78)
 const COLUMNS := 5
+const ARMS_ART := "res://assets/ui/icons/arms/"
+## The arms' pictures loaded so far, by id (null for one there is none of).
+var _arts: Dictionary = {}
 ## The gap between two slots of the grid.
 const SLOT_GAP := 8.0
 ## What each thing's glyph ([UiArt] "item_<icon>") is tinted.
@@ -292,19 +295,23 @@ func _items() -> Array[Dictionary]:
 		Tab.WEAPONS:
 			var bows := _bows()
 			if bows.is_empty():
-				out.append(_weapon(p))
+				var held := _weapon(p)
+				# the picture of what is really in his hand, when his look says
+				held["art"] = String(_look().get("w", ""))
+				out.append(held)
 			for id: String in bows:
 				out.append(_bow_item(p, id))
 		Tab.SHIELDS:
 			if _has_shield():
 				out.append({
-					"name": "Round Shield", "kind": "Small shield", "icon": "round", "shield": Shields.ROUND,
+					"name": "Round Shield", "kind": "Small shield", "icon": "round", "art": "his_shield", "shield": Shields.ROUND,
 					"worn": player.shield_kind == Shields.ROUND and _shield_on(),
 					"stats": [["Guard", "100 %"], ["Stamina per blow", "× %.1f" % player.block_stamina]],
 					"text": "Light and quick: up in an instant, and it goes with him wherever he turns.",
 				})
 				out.append({
-					"name": "Tower Shield", "kind": "Greatshield", "icon": "tower", "shield": Shields.TOWER,
+					"name": "Tower Shield", "kind": "Greatshield", "icon": "tower", "art": "his_tower_shield",
+					"shield": Shields.TOWER,
 					"worn": player.shield_kind == Shields.TOWER and _shield_on(),
 					"stats": [["Guard", "100 %"],
 							["Stamina per blow", "× %.1f" % (player.block_stamina * player.tower_block_share)],
@@ -381,7 +388,7 @@ func _bow_item(p: CharacterProfile, id: String) -> Dictionary:
 			["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)], ["Critical damage", "× %.1f" % p.crit_damage],
 			["Stamina per attack", "%.0f" % p.attack_stamina], ["Arrow speed", "%.0f m/s" % p.arrow_speed]]
 	return {"name": info.get("name", PolysplitLook.arm_name(id)), "kind": info.get("kind", "Bow"), "icon": "bow",
-			"bow": id, "worn": String(_look().get("w", "")) == id, "stats": stats, "text": info.get("text", "")}
+			"bow": id, "art": id, "worn": String(_look().get("w", "")) == id, "stats": stats, "text": info.get("text", "")}
 #endregion
 
 
@@ -506,6 +513,27 @@ func _draw_left(c: Control, box: Rect2) -> void:
 			14, MUTED, "body")
 
 
+## The real thing's picture (assets/ui/icons/arms, baked off the figure's own
+## meshes by `_shots_tmp/bake_arm_icons.gd`; the user's word, 2026-10-05: the
+## bow as it is seen in his hands) for an arm id of his look, null for none.
+## His own bow is worn as the pack's on the mannequin, so it is that picture.
+func _arm_art(id: String) -> Texture2D:
+	if id == "" or id == "none":
+		return null
+	if id == "own_bow":
+		id = "bow"
+	if _arts.has(id):
+		return _arts[id]
+	var path := ARMS_ART + id + ".png"
+	var tex := load(path) as Texture2D if ResourceLoader.exists(path) else null
+	_arts[id] = tex
+	# loaded in the middle of a draw it comes up blank (white) until it is
+	# drawn again: the bag only redraws on a key, so it is asked for once more
+	if tex != null:
+		get_tree().create_timer(0.05).timeout.connect(_root.queue_redraw)
+	return tex
+
+
 ## The small gold diamond with an E: in his hands, or on him.
 func _worn_mark(c: Control, at: Vector2) -> void:
 	c.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -10), at + Vector2(10, 0), at + Vector2(0, 10),
@@ -517,6 +545,10 @@ func _worn_mark(c: Control, at: Vector2) -> void:
 
 ## A thing's picture in `rect`: its glyph, tinted, or the drawn one.
 func _glyph(c: Control, rect: Rect2, item: Dictionary) -> void:
+	var art := _arm_art(String(item.get("art", "")))
+	if art != null:
+		c.draw_texture_rect(art, rect.grow(rect.size.x * 0.08), false)
+		return
 	var kind := String(item.icon)
 	var tex := UiArt.icon("item_" + kind)
 	if tex == null:

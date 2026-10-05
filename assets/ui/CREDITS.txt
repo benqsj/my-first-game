@@ -13,3 +13,7 @@ icons/   Glyphs from game-icons.net (CC BY 3.0, https://creativecommons.org/lice
            Delapouite: eye-target, two-handed-sword, viking-shield, templar-shield
            DarkZaitzev: running-ninja
 frames/  Drawn by vepxis-art/tools/ui_frames.py (ours).
+
+icons/arms/*.png — the bag's pictures of the arms, rendered in Godot off the
+figures' own meshes (Polysplit Heroes, Advanced Weapons) by
+_shots_tmp/bake_arm_icons.gd: 192 px, transparent.
