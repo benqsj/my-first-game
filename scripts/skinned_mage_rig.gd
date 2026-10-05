@@ -267,7 +267,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 			# The bolt leaves the crystal: a burst of sparks there, thrown the
 			# way he faces, and the stone flares.
 			var ahead := -(_body as Node3D).global_transform.basis.z if _body is Node3D else Vector3.FORWARD
-			ParryFlash.burst(Blood.world_of(self), _glow.global_position, ahead)
+			ParryFlash.burst(Blood.world_of(self), _glow.global_position, ahead, 1.0, false)
 			_glow.light_energy = 6.0
 	_charge_time = _charge_time + delta if _charge > 0.05 else 0.0
 	if _glow != null:

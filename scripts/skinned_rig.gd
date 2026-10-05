@@ -1794,6 +1794,10 @@ func blade_landed(matter: StringName = &"flesh") -> void:
 	if matter != &"stone":
 		Sfx.play_any(self, hit_sounds, at, randf_range(0.94, 1.06) * (1.0 - 0.1 * maxf(k, 0.0)) * (1.12 if matter == &"bone" else 1.0), steel)
 	ImpactFx.strike(self, at.global_position, matter, cut_weight)
+	if matter != &"flesh" and _blade_base != null and _blade_tip != null:
+		# what it struck thrown off where the blade bit, near its point ([HitFx])
+		var bit := _blade_base.global_position.lerp(_blade_tip.global_position, 0.72)
+		HitFx.spawn(Blood.world_of(self), matter, bit, HitFx.facing_out(self, bit), cut_weight)
 	# Held as long as the body it bit is ([HitFeel]): the two stand still
 	# together, longer for the end of a string or a heavy blow.
 	hitstop(HitFeel.stop_for(cut_weight) * bite_stop / 0.075)

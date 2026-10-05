@@ -1,2 +1,11 @@
 cut_air_break.png   Cartoon FX Remaster Free (Jean Moreno, Unity Asset Store, Standard EULA): "cfxr sword trail noise ice", 512 px
 cut_air_streak.png  Cartoon FX Remaster Free (Jean Moreno, Unity Asset Store, Standard EULA): "cfxr sword trail noise bubbles", 512 px
+hit_spark_streak.png  Kenney Particle Pack (CC0): trace_01
+hit_star.png          Kenney Particle Pack (CC0): star_07
+hit_star4.png         Kenney Particle Pack (CC0): star_08
+hit_ring.png          Kenney Particle Pack (CC0): circle_02
+hit_flare.png         Cartoon FX Remaster Free (Jean Moreno, Unity Asset Store, Standard EULA): "cfxr flare"
+hit_spikes.png        Cartoon FX Remaster Free: "cfxr spikes impact" (white, alpha from luminance)
+hit_chips_stone.png   Cartoon FX Remaster Free: "cfxr debris flat unlit 3x3" (3x3 atlas)
+hit_chips_wood.png    Cartoon FX Remaster Free: "cfxr debris wood unlit 3x3" (3x3 atlas)
+hit_dust.png          Free Fire VFX - URP (Vefects, Unity Asset Store, Standard EULA): T_VFX_Dust_01 (white, alpha from luminance)

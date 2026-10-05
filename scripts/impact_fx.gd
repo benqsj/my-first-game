@@ -121,6 +121,7 @@ static func strike(owner: Node, at: Vector3, what: StringName, heft: float = 1.0
 	if stream == null:
 		return
 	if what == &"guard":
+		HitFx.spawn(Blood.world_of(owner), &"metal", at, HitFx.facing_out(owner, at), heft)
 		# the block the hero's own shield makes, over the thunk
 		Sfx.play(owner, GUARD_BLOCK, null, at, randf_range(0.9, 1.05) * (1.0 - 0.1 * clampf(heft - 1.0, 0.0, 1.0)),
 				-13.0 + 2.0 * clampf(heft - 1.0, -0.4, 1.0))

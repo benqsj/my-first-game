@@ -32,14 +32,26 @@ static var _spark_tex: ImageTexture = null
 ## struck the blow). `size` scales it all — the star, the lamp, how many
 ## sparks and how far they fly: 1 a parry, less a blow caught on a guard
 ## (`Player`'s block, by how hard it was).
-static func burst(into: Node, where: Vector3, outward: Vector3, size: float = 1.0) -> ParryFlash:
+## `textured` (the default since 2026-10-05) draws it with [HitFx] instead: a
+## parry (size 1) as blade on blade, &"clash", a blow on his shield (less) as
+## &"shield"; the mage's crystal keeps the drawn star (false).
+static func burst(into: Node, where: Vector3, outward: Vector3, size: float = 1.0, textured: bool = true) -> ParryFlash:
 	if into == null:
 		return null
 	var flash := ParryFlash.new()
 	flash.size = clampf(size, 0.1, 2.0)
 	into.add_child(flash)
 	flash.global_position = where
-	flash._build(outward)
+	if textured:
+		# the flash itself stays (a test counts it), empty, freed after LIFE
+		flash.top_level = true
+		var out := outward
+		out.y = 0.0
+		out = out.normalized() if out.length_squared() > 0.0001 else Vector3.FORWARD
+		HitFx.spawn(into, &"clash" if size >= 0.95 else &"shield", where,
+				(out + Vector3.UP * 0.35).normalized(), size if size >= 0.95 else lerpf(0.8, 1.3, inverse_lerp(0.3, 0.75, size)))
+	else:
+		flash._build(outward)
 	return flash
 
 
