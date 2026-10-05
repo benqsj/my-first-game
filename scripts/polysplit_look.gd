@@ -134,6 +134,10 @@ const EXTRA_NAMES := {
 ## in the hand it serves (a left sheath the other hand's), in its style
 ## ("x_aw_<scabbard>__<name>_<style>", tools/ps_creator.py aw_scabbards).
 static func extra_key(look: Dictionary, id: String) -> String:
+	if id == "archer_arrowquiver":
+		# the archer's quiver is worn on the back, as the hunter's is, not at
+		# the hip (2026-10-05, the user's word): looks saved with it get it too
+		id = QUIVER
 	if id.contains("scabbard"):
 		var knife := id.contains("dagger")
 		var held := String(look.get("o" if knife and id.ends_with("_l") else "w", ""))
@@ -141,6 +145,14 @@ static func extra_key(look: Dictionary, id: String) -> String:
 		if name != "" and (name == "dagger") == knife and bool(AW.get(name, {}).get("sheath", false)):
 			return "x_aw_%s__%s" % [id, held.substr(3)]
 	return "x_" + id
+
+
+## The quiver on the back (the hunter's), and how far it is lifted off the
+## back, in the figure's own space (-z is behind him), when a cape or a cloak
+## is worn under it: worn as it was made it sits inside the cape, only the
+## fletchings showing.
+const QUIVER := "hunter_arrowquiver"
+const QUIVER_LIFT := Vector3(0.0, 0.0, -0.07)
 
 
 ## A blade: the cut is drawn along it (see [SkinnedRig]).
@@ -561,8 +573,44 @@ static func apply(figure: Node3D, look: Dictionary) -> void:
 		for pre in prefixes:
 			visible = visible or (key.begins_with(pre) and not key.ends_with("_top"))
 		mesh.visible = visible
+	_lift_quiver(figure, on)
 	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)))
 	wear_style(figure, String(look.get("ws", STYLES[0])))
+
+
+## The back quiver over a cape (`QUIVER_LIFT`), or back on the body without
+## one. The lifted copy is made once per figure; skinned as the first was.
+static func _lift_quiver(figure: Node3D, on: Dictionary) -> void:
+	var found := figure.find_children(PREFIX + "x_" + QUIVER, "MeshInstance3D", true, false)
+	if found.is_empty():
+		return
+	var quiver := found[0] as MeshInstance3D
+	var caped := false
+	for key: String in on:
+		if key.begins_with("x_") and (key.contains("cape") or key.contains("cloak") or key.contains("shawl")):
+			caped = true
+			break
+	if not quiver.has_meta(&"bare"):
+		if quiver.mesh == null:
+			return
+		quiver.set_meta(&"bare", quiver.mesh)
+	var bare := quiver.get_meta(&"bare") as Mesh
+	if not caped:
+		quiver.mesh = bare
+		return
+	if not quiver.has_meta(&"lifted"):
+		var lifted := ArrayMesh.new()
+		for i in bare.get_surface_count():
+			var arrays := bare.surface_get_arrays(i)
+			var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			for k in points.size():
+				points[k] += QUIVER_LIFT
+			arrays[Mesh.ARRAY_VERTEX] = points
+			lifted.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {},
+					bare.surface_get_format(i) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+			lifted.surface_set_material(i, bare.surface_get_material(i))
+		quiver.set_meta(&"lifted", lifted)
+	quiver.mesh = quiver.get_meta(&"lifted") as Mesh
 
 
 ## Draws the figure's Advanced Weapons as `style` has them: a style worn on
