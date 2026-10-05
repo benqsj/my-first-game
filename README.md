@@ -3424,12 +3424,12 @@ wolf would mostly miss it. `tests/skills_test.gd`.
 
 What it throws off besides its arrows is `RainFx`'s (2026-10-05, the user's
 word: on the shot and as they fall), in one of three looks (`RainFx.look`,
-VOLLEY until the user picks): **DUST** a gust and a puff off the bow and dust
+VOLLEY): **DUST** a gust and a puff off the bow and dust
 round his feet as the arrow goes up, faint streaks of cut air coming down with
 the volley (one emitter half way down), a clod and a puff of dust where each
 goes into the ground (`Arrow.struck`, not a body: that bleeds), a low haze
-after; **VOLLEY** the same, more, with a pale ring (`Decal`) coming up where
-it falls in the 0.75 s before, and a glint high up where it turns over;
+after; **VOLLEY** (the user's pick) the same, more, and a glint high up where
+it turns over — no ring on the ground (the user's word);
 **GOLD** rays, a flare and sparks off the bow, a gold rune (`rain_rune`,
 Magic5) turning on the ground, gold streaks and arrow lines, sparks where they
 land. Reel `_shots_tmp/rain_reel.gd -- 012 [check]`.
@@ -7703,7 +7703,7 @@ sword, great axe, great hammer, spear or poleaxe), the knight only those, the
 mage no great sword.
 
 **The skill bar** (`PlayerHud._draw_skills`): sockets 62 px on the gilt
-plate, the key on a tab under each; cooldown a clock sweep (`_sweep`) with
+plate (no key under them, the user's word); cooldown a clock sweep (`_sweep`) with
 the seconds; greyed, its key red, without the stamina for it.
 
 **The bag** (`Inventory`): three ornate plates, glyph tabs, socket grid
