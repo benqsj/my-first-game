@@ -2565,6 +2565,11 @@ func _tick_bow(delta: float) -> void:
 	# shot that was just taken, and an archer who can start the next draw before
 	# his arm has come down is an archer with no rate of fire to manage.
 	var busy := (state != State.GROUNDED and state != State.AIRBORNE) or is_committed()
+	# The bow is not drawn in the air (no shooting from a jump; the user's word,
+	# 2026-10-05): a jump lets the string go unshot, as a roll does.
+	# A step off a kerb (still within coyote time) keeps the draw.
+	if state == State.AIRBORNE and _is_bow() and _coyote_timer <= 0.0:
+		busy = true
 
 	if busy:
 		# Rolling or climbing with a drawn bow is not a thing. The draw is lost,
