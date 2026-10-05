@@ -32,6 +32,10 @@ static func show_over(creature: Node3D, seconds: float) -> void:
 	if held != null:
 		held._left = maxf(held._left, seconds)
 		return
+	# the stun landing: a crack of lightning round its head
+	var into := creature.get_parent()
+	var points := TargetPoints.of(creature)
+	Lightning.crackle(into, points[points.size() - 1], 0.55, 6, 0.22, 16)
 	var ring := Stun.new()
 	ring.name = "StunStars"
 	ring._creature = creature

@@ -2757,11 +2757,11 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		if &"stun_chance" in arrow:
 			arrow.set(&"stun_chance", stun)
 		if stun > 0.0:
-			# the stunning arrow streaks gold
+			# the stunning arrow streaks electric
 			if &"streak_tint" in arrow:
-				arrow.set(&"streak_tint", Color(Stun.GOLD, 0.9))
+				arrow.set(&"streak_tint", Color(Lightning.SPARK, 0.9))
 			if &"crit_tint" in arrow:
-				arrow.set(&"crit_tint", Color(Stun.GOLD, 0.9))
+				arrow.set(&"crit_tint", Color(Lightning.SPARK, 0.9))
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
@@ -2775,12 +2775,11 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 			Sfx.play(self, RELEASE_SOUND_2, self, Vector3.ZERO, randf_range(0.95, 1.06), -14.0)
 	if stun > 0.0 and rig != null and rig.has_method(&"loose_skill_shot"):
 		# the stunning arrow is a skill shot, drawn and held as one; it goes
-		# with a gold flash and a ring off the bow
+		# with a crack of lightning off the bow
 		rig.call(&"loose_skill_shot")
 		if into != null:
-			var dir := flight.normalized()
-			SkillFx.flash(into, from, Stun.GOLD, 0.55, 0.2)
-			SkillFx.ring(into, from + dir * 0.3, dir, Stun.GOLD, 0.15, 0.8, 0.28, 0.05, 2.2)
+			SkillFx.flash(into, from, Lightning.SPARK, 0.22, 0.12)
+			Lightning.crackle(into, from, 0.4, 5, 0.12, 14)
 		Sfx.play(self, ULT_SHOT, self, Vector3.ZERO, 1.3, -14.0, 0.0)
 		return
 	# A cast has already been played, by `net_cast`.

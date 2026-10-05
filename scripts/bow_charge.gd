@@ -23,9 +23,9 @@ var _flame: GPUParticles3D
 var _light: OmniLight3D
 
 
-## `kind` is &"wind", &"fire" or &"stun" (a gold light swelling on the head,
-## gold motes wheeling in to it, a ring closing every so often); it lasts
-## `time` seconds.
+## `kind` is &"wind", &"fire" or &"stun" (little forks of lightning crackling
+## off the head, more as the draw comes on, and sparks); it lasts `time`
+## seconds.
 func start(rig: Node, kind: StringName, time: float) -> void:
 	_rig = rig
 	_kind = kind
@@ -36,26 +36,13 @@ func _ready() -> void:
 	top_level = true
 	var at := _hand()
 	_light = OmniLight3D.new()
-	_light.light_color = WIND if _kind == &"wind" else (Stun.GOLD if _kind == &"stun" else FIRE)
+	_light.light_color = WIND if _kind == &"wind" else (Lightning.SPARK if _kind == &"stun" else FIRE)
 	_light.omni_range = 1.6
 	_light.light_energy = 0.0
 	add_child(_light)
 	if _kind == &"stun":
-		_orb = MeshInstance3D.new()
-		var g := SphereMesh.new()
-		g.radius = 1.0
-		g.height = 2.0
-		_orb.mesh = g
-		_orb_mat = SkillFx.glow(Color(1.0, 0.72, 0.18), 2.2)
-		_orb.material_override = _orb_mat
-		_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(_orb)
-		_inflow = SkillFx.particles(self, at, {
-			"amount": 48, "life": 0.5, "speed": Vector2(0.0, 0.1), "sphere": 0.5,
-			"orbit": 11.0, "tangent": 6.0, "damping": 1.0, "size": Vector2(0.018, 0.04),
-			"local": true, "grow": 0.3,
-			"colors": [Color(1, 1, 1, 0.0), Stun.GOLD, Color(1, 1, 0.9, 1.0)],
-		})
+		# lightning: no orb, only crackles round the head ([method _process])
+		pass
 	elif _kind == &"wind":
 		_orb = MeshInstance3D.new()
 		var s := SphereMesh.new()
@@ -93,14 +80,14 @@ func _process(delta: float) -> void:
 	var u := clampf(_age / maxf(_time, 0.01), 0.0, 1.0)
 	_light.global_position = at
 	if _kind == &"stun":
-		var r := 0.025 + 0.07 * u + 0.015 * sin(_age * 30.0)
-		_orb.global_transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * r), at)
-		_inflow.global_position = at
-		_light.light_energy = 0.5 + 1.4 * u
+		# Crackling: little forks of lightning off the arrowhead, more and
+		# longer as the draw comes on; a few sparks now and then; the light
+		# flickering with them.
+		_light.light_energy = (0.3 + 1.2 * u) * (1.0 if randf() < 0.7 else 0.3)
 		if _age >= _next_ring:
-			_next_ring = _age + 0.22
-			var ahead := _ahead()
-			SkillFx.ring(get_parent(), at, ahead, Stun.GOLD, 0.5, 0.03, 0.22, 0.04, 2.0)
+			_next_ring = _age + randf_range(0.035, 0.07)
+			Lightning.crackle(get_parent(), at, 0.14 + 0.22 * u, 2 + int(u * 2.0), 0.07,
+					5 if randf() < 0.3 else 0)
 	elif _kind == &"wind":
 		var r := 0.02 + 0.08 * u + 0.012 * sin(_age * 25.0)
 		_orb.global_transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * r), at)
