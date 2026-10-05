@@ -40,6 +40,21 @@ var _close_at: float = 0.0
 ## Where it stands in close: on the face, a step off it.
 const CLOSE_HEIGHT := 1.62
 const CLOSE_BACK := 1.55
+## Whether the camera stands back far enough for all of him, whatever he
+## holds and however he is turned (the full-length one): a great sword held
+## out was cut off by the frame's edge (2026-10-05, the user's word). It
+## measures every bone of what is seen and the blades' tips, by their reach
+## from the stand's axis (so it does not breathe as he turns), and only ever
+## stands further back than `eye_back`.
+var fit: bool = false
+## What the fit asks for, eased to.
+var _fit_back: float = -1.0
+var _fit_height: float = -1.0
+var _fit_clock: float = 0.0
+## Room left round him, as a share of the frame.
+const FIT_MARGIN := 0.05
+## Where the ground is, down the frame: the stage draws its floor there.
+const FLOOR_AT := 0.9
 
 
 ## How it is framed. A roster of faces to pick from and the one picked standing
@@ -65,6 +80,7 @@ static func of(profile: CharacterProfile, size: Vector2,
 		# taller than it is wide.
 		portrait.eye_height = 1.05
 		portrait.eye_back = 4.0
+		portrait.fit = true
 	elif framing == Frame.BUST:
 		portrait.eye_height = 1.3
 		portrait.eye_back = 2.3
@@ -142,15 +158,20 @@ func _process(delta: float) -> void:
 	_stand.rotation.y = wrapf(_stand.rotation.y + turn_speed * delta, -PI, PI)
 	var close_was := _close_at
 	_close_at = move_toward(_close_at, 1.0 if _close else 0.0, delta * 3.0)
-	if _camera != null and (_close_at > 0.0 or close_was > 0.0):
+	var moved := false
+	if fit and _camera != null:
+		moved = _fit(delta)
+	if _camera != null and (_close_at > 0.0 or close_was > 0.0 or moved):
 		# In close, on the head where it is (the idle sways it, a figure is
 		# taller than the rig): a step in front of it, looking at it.
 		var t := smoothstep(0.0, 1.0, _close_at)
 		var head := Vector3(0.0, CLOSE_HEIGHT, 0.0)
 		if _rig.has_method(&"bone_position"):
 			head = _rig.call(&"bone_position", &"head") + Vector3(0.0, 0.1, 0.0)
-		var far_eye := Vector3(0.0, eye_height + 0.14, eye_back)
-		var far_at := Vector3(0.0, eye_height, 0.0)
+		var back := _fit_back if _fit_back > 0.0 else eye_back
+		var high := _fit_height if _fit_height > 0.0 else eye_height
+		var far_eye := Vector3(0.0, high + 0.14, back)
+		var far_at := Vector3(0.0, high, 0.0)
 		_camera.look_at_from_position(far_eye.lerp(head + Vector3(0.0, 0.03, CLOSE_BACK), t),
 				far_at.lerp(head, t), Vector3.UP)
 	# Standing still, on the ground, not jumping, not rolling, not blocking. The
@@ -158,6 +179,63 @@ func _process(delta: float) -> void:
 	# hang, which is most of what makes a model look alive rather than posed.
 	if _rig != null and _rig.has_method("animate"):
 		_rig.call("animate", delta, 0.0, 0.0, false, false, 0.0, false)
+
+
+## Eases the camera to where all of him is in the frame (see `fit`);
+## whether it moved.
+func _fit(delta: float) -> bool:
+	_fit_clock -= delta
+	var want := Vector2(eye_back, eye_height)
+	if _fit_clock <= 0.0 or _fit_back < 0.0:
+		_fit_clock = 0.2
+		want = _fit_wanted()
+		set_meta(&"fit_want", want)
+	else:
+		want = get_meta(&"fit_want", want)
+	if _fit_back < 0.0:
+		_fit_back = want.x
+		_fit_height = want.y
+		return true
+	var was := Vector2(_fit_back, _fit_height)
+	# out quickly (nothing is cut off for long), back in slowly
+	var rate := 6.0 if want.x > _fit_back else 1.5
+	_fit_back = lerpf(_fit_back, want.x, minf(1.0, rate * delta))
+	_fit_height = lerpf(_fit_height, want.y, minf(1.0, rate * delta))
+	return was.distance_to(Vector2(_fit_back, _fit_height)) > 0.0005
+
+
+## How far back and how high the camera wants to be: [back, height]. The
+## ground stays where the stage's floor is drawn (`FLOOR_AT` of the frame
+## down), so he stands on it however far back the camera goes; every bone
+## and blade tip, as he is turned now, is kept inside the frame's edges.
+func _fit_wanted() -> Vector2:
+	if _rig == null or _stand == null or not _rig.is_inside_tree():
+		return Vector2(eye_back, eye_height)
+	var axis := _stand.global_position
+	var points: Array[Vector3] = [Vector3(0.0, 1.9, 0.0)]
+	for skel: Skeleton3D in _rig.find_children("*", "Skeleton3D", true, false):
+		if not skel.is_visible_in_tree():
+			continue
+		for b in skel.get_bone_count():
+			points.append(skel.global_transform * skel.get_bone_global_pose(b).origin - axis)
+	for key: StringName in [&"_blade_tip", &"_blade_base", &"_blade_tip_l", &"_blade_base_l"]:
+		var marker: Variant = _rig.get(key)
+		if marker is Node3D and is_instance_valid(marker) and (marker as Node3D).is_inside_tree():
+			points.append((marker as Node3D).global_position - axis)
+	var tan_v := tan(deg_to_rad(eye_fov) * 0.5)
+	var aspect := size.x / maxf(size.y, 1.0) if size.y > 0.0 else 0.9
+	var tan_h := tan_v * aspect
+	# the ground at FLOOR_AT down the frame: aimed at `pin` x the half height
+	var pin := (FLOOR_AT - 0.5) * 2.0
+	var room := 1.0 - FIT_MARGIN * 2.0
+	var back := eye_back
+	for p in points:
+		var top := p.y + 0.2
+		# its top inside the frame's top edge: top <= pin*H0 + room*H(z)
+		back = maxf(back, (top + room * p.z * tan_v) / ((pin + room) * tan_v))
+		# its sides inside the frame's: |x| <= room * (back - z) * tan_h
+		back = maxf(back, absf(p.x) / (room * tan_h) + p.z)
+	return Vector2(back, pin * back * tan_v)
 
 
 ## A key light from the front and above, a dim fill from behind to lift the
