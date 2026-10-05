@@ -828,7 +828,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	var drawing := _draw_target > 0.001 and not _wall_climbing
 	var body_p := _body as Player
 	if body_p != null and body_p.profile != null:
-		_draw_time = maxf(body_p.profile.draw_time, 0.2)
+		_draw_time = maxf(body_p.profile.draw_time * BowKinds.draw(body_p), 0.2)
 	var moving := planar_speed > idle_threshold
 	if _drawing_clip and moving:
 		# The draw clip is a standing one. Moving, it would slide him across the

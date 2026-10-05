@@ -245,6 +245,12 @@ func _use(i: int) -> void:
 	elif item.has("garb"):
 		player.set_garb(int(item.garb))
 		_root.queue_redraw()
+	elif item.has("bow") and not item.get("worn", false):
+		var look := _look()
+		if not look.is_empty():
+			look["w"] = String(item.bow)
+			player.set_look(look)
+		_root.queue_redraw()
 
 
 ## The outfits his model carries (the rig's `garbs`); empty for a hero with one.
@@ -270,7 +276,11 @@ func _items() -> Array[Dictionary]:
 		return out
 	match _tab:
 		Tab.WEAPONS:
-			out.append(_weapon(p))
+			var bows := _bows()
+			if bows.is_empty():
+				out.append(_weapon(p))
+			for id: String in bows:
+				out.append(_bow_item(p, id))
 		Tab.SHIELDS:
 			if _has_shield():
 				out.append({
@@ -305,6 +315,9 @@ func _weapon(p: CharacterProfile) -> Dictionary:
 			["Critical damage", "× %.1f" % p.crit_damage], ["Stamina per attack", "%.0f" % p.attack_stamina]]
 	match p.weapon:
 		CharacterProfile.Weapon.BOW:
+			var held := String(_look().get("w", ""))
+			if BowKinds.key_of(held) != "":
+				return _bow_item(p, held)
 			crit.append(["Full draw", "%.2f s" % p.draw_time])
 			crit.append(["Arrow speed", "%.0f m/s" % p.arrow_speed])
 			return {"name": "Hunter's Longbow", "kind": "Bow", "icon": "bow", "worn": true, "stats": crit,
@@ -322,6 +335,39 @@ func _weapon(p: CharacterProfile) -> Dictionary:
 				"text": "A long knife, black-hilted, kept keen. Quick cuts, one after another, faster than anything can answer."}
 	return {"name": "Tariel's Sword", "kind": "Straight sword", "icon": "sword", "worn": true, "stats": crit,
 			"text": "The knight's sword. Cuts that chain into a flurry; thrown from a jump, it comes down and plants."}
+
+
+## His bows ([BowKinds]) as his look can hold them (the Advanced Weapons' in
+## the look's style), in [constant BowKinds.KINDS]' order; none for a hero without.
+func _bows() -> Array[String]:
+	var out: Array[String] = []
+	var p := player.profile
+	if p == null or p.weapon != CharacterProfile.Weapon.BOW or player.rig == null:
+		return out
+	var look := _look()
+	var hero: Variant = player.rig.get(&"polysplit_hero")
+	if look.is_empty() or not hero is StringName or hero == &"":
+		return out
+	var held := PolysplitLook.arms(hero, String(look.get("cls", "")), "w", String(look.get("ws", "normal")))
+	for key: String in BowKinds.KINDS:
+		for id: String in held:
+			if BowKinds.key_of(id) == key:
+				out.append(id)
+				break
+	return out
+
+
+## One of his bows in the bag: its own P.ATK and draw ([BowKinds]), the rest
+## his profile's.
+func _bow_item(p: CharacterProfile, id: String) -> Dictionary:
+	var info: Dictionary = BowKinds.KINDS.get(BowKinds.key_of(id), {})
+	var atk := float(info.get("atk", 1.0))
+	var draw := float(info.get("draw", 1.0))
+	var stats := [["P.ATK", "%.0f" % (p.damage * atk)], ["Full draw", "%.2f s" % (p.draw_time * draw)],
+			["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)], ["Critical damage", "× %.1f" % p.crit_damage],
+			["Stamina per attack", "%.0f" % p.attack_stamina], ["Arrow speed", "%.0f m/s" % p.arrow_speed]]
+	return {"name": info.get("name", PolysplitLook.arm_name(id)), "kind": info.get("kind", "Bow"), "icon": "bow",
+			"bow": id, "worn": String(_look().get("w", "")) == id, "stats": stats, "text": info.get("text", "")}
 #endregion
 
 
@@ -422,7 +468,8 @@ func _draw_item(c: Control, font: Font, box: Rect2, item: Dictionary) -> void:
 			box.size.x - 40, 16, -1, Color(CREAM, 0.85))
 	y += 110
 	var worn: bool = item.get("worn", false)
-	var status := "Equipped" if worn else ("Enter / click to put on" if item.has("shield") or item.has("garb") else "")
+	var status := "Equipped" if worn else ("Enter / click to put on" if item.has("shield") or item.has("garb") \
+			or item.has("bow") else "")
 	if worn and item.has("shield"):
 		status = "Equipped - Enter / click to take off"
 	if not status.is_empty():
@@ -457,7 +504,7 @@ func _draw_status(c: Control, font: Font, box: Rect2) -> void:
 		if p.weapon == CharacterProfile.Weapon.STAFF:
 			rows.append(["M.ATK", "%.0f" % m_atk])
 		else:
-			rows.append(["P.ATK", "%.0f" % p.damage])
+			rows.append(["P.ATK", "%.0f" % (p.damage * BowKinds.atk(player))])
 		rows.append(["P.DEF  /  M.DEF", "%.0f  /  %.0f" % [player.p_def,
 				float(player.get("m_def")) if "m_def" in player else 0.0]])
 		rows.append(["Critical", "%.0f %%  × %.1f" % [p.crit_chance * 100.0, p.crit_damage]])

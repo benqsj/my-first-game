@@ -2604,7 +2604,8 @@ func _tick_bow(delta: float) -> void:
 func draw_power() -> float:
 	if profile == null or profile.draw_time <= 0.0:
 		return 1.0
-	return clampf(_draw_timer / profile.draw_time, 0.0, 1.0)
+	# the bow in his hands draws quicker or slower than his own ([BowKinds])
+	return clampf(_draw_timer / (profile.draw_time * BowKinds.draw(self)), 0.0, 1.0)
 
 
 ## True while the string is being held.
@@ -2629,7 +2630,7 @@ func _loose_arrow() -> void:
 	# scale is earned by holding.
 	var carry := lerpf(profile.snap_share, 1.0, power)
 	var critical := _shot_rng.randf() < profile.crit_chance
-	var damage := profile.shot_power() * carry * (profile.crit_damage if critical else 1.0)
+	var damage := profile.shot_power() * BowKinds.atk(self) * carry * (profile.crit_damage if critical else 1.0)
 	# The moment to let go: read off the rig before the loose resets it.
 	var grade := int(rig.call(&"release_grade")) if rig != null and rig.has_method(&"release_grade") else 0
 	var shaking := float(rig.call(&"shake")) if rig != null and rig.has_method(&"shake") else 0.0
@@ -5163,7 +5164,7 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 	rain.name = "ArrowRain"
 	into.add_child(rain)
 	rain.global_position = centre
-	var each := (profile.damage if profile != null else 26.0) * rain_share
+	var each := (profile.damage if profile != null else 26.0) * BowKinds.atk(self) * rain_share
 	rain.start(self, arrow_scene, rain_seed, each, profile.crit_chance if profile != null else 0.1,
 			profile.crit_damage if profile != null else 2.0)
 	if not quarry.is_empty():
@@ -5322,7 +5323,7 @@ func _piercing_arrow() -> bool:
 		dir = HuntingLight._aim_of(quarry) - from
 	dir = dir.normalized()
 	var critical := _shot_rng.randf() < (profile.crit_chance if profile != null else 0.1)
-	var damage := (profile.damage if profile != null else 30.0) * pierce_share \
+	var damage := (profile.damage if profile != null else 30.0) * BowKinds.atk(self) * pierce_share \
 			* ((profile.crit_damage if profile != null else 2.0) if critical else 1.0)
 	net_piercing.rpc(dir, damage, critical)
 	return true
@@ -5506,7 +5507,7 @@ func _stun_loose(after: float, serial: int) -> void:
 	var heading := _shot_heading(from, speed)
 	if target != null and _targetable(target):
 		heading = _aim_direction(from, speed)
-	var damage := (profile.shot_power() if profile != null else 30.0) * stun_share
+	var damage := (profile.shot_power() if profile != null else 30.0) * BowKinds.atk(self) * stun_share
 	var quarry := NodePath()
 	if target != null and _targetable(target):
 		quarry = target.get_path()
@@ -5570,7 +5571,7 @@ func _fire_arrow() -> bool:
 	var nock := float(rig.call(&"nock_lead", 0.0, FIRE_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + FIRE_HOLD + 0.45)
 	_root(nock + FIRE_HOLD + 0.45)
-	var damage := (profile.damage if profile != null else 30.0) * fire_share
+	var damage := (profile.damage if profile != null else 30.0) * BowKinds.atk(self) * fire_share
 	net_fire_arrow.rpc(at, damage)
 	return true
 
