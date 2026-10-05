@@ -24,8 +24,13 @@ const NetScript := preload("res://scripts/net.gd")
 ## stage the picked one stands on. The dossier takes what is left.
 const TILE := Vector2(268.0, 104.0)
 ## Taller and wider than it was (440 x 500): a great sword held out was cut
-## off at its edge (the camera stands back for it too, [CharacterPortrait]).
+## off at its edge (the picture runs past it too, `STAGE_BLEED`).
 const STAGE := Vector2(540.0, 600.0)
+## How far the hero's picture runs out past the stage either side (into the
+## gaps beside it, the picture's ground clear): a great sword held out stays
+## whole without the camera standing back and the hero drawn smaller than
+## the others (the user's word, 2026-10-05).
+const STAGE_BLEED := 116.0
 ## Room kept under the stage for the look/colour/hair rows, shown or not, so
 ## the stage stays where it is from hero to hero (and the page fits 900 high:
 ## at 540 the stage pushed the roster off the bottom).
@@ -603,7 +608,7 @@ func _stage(roster: Array) -> Control:
 	stage.gui_input.connect(_on_stage_input)
 	stage.draw.connect(func() -> void: _draw_stage(stage))
 	for id: StringName in roster:
-		var full := CharacterPortrait.of(_profile(id), STAGE)
+		var full := CharacterPortrait.of(_profile(id), STAGE + Vector2(STAGE_BLEED * 2.0, 0.0))
 		full.name = "Full_%s" % id
 		# In the face and the hair picked last time; set before the model is
 		# in the tree, so it comes up wearing them.
@@ -617,6 +622,8 @@ func _stage(roster: Array) -> Control:
 		_stages[id] = full
 		stage.add_child(full)
 		full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		full.offset_left = -STAGE_BLEED
+		full.offset_right = STAGE_BLEED
 	return stage
 
 

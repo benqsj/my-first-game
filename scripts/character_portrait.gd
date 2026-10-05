@@ -57,6 +57,8 @@ var _fit_most := Vector2(-1.0, -1.0)
 var _fit_key: String = "?"
 ## How long he is measured for before the camera is held where it is.
 const FIT_SETTLE := 0.6
+## How far back the full-length camera stands, the same for every hero.
+const FULL_BACK := 4.8
 ## Room left round him, as a share of the frame.
 const FIT_MARGIN := 0.05
 ## Where the ground is, down the frame: the stage draws its floor there.
@@ -85,7 +87,12 @@ static func of(profile: CharacterProfile, size: Vector2,
 		# Standing back far enough that head and boots both fit a frame that is
 		# taller than it is wide.
 		portrait.eye_height = 1.05
-		portrait.eye_back = 4.0
+		# Every hero the same size (the user's word, 2026-10-05: the knight was
+		# smaller than the others, the camera standing back for his great
+		# sword): one distance for all, far enough for the tallest helm; a
+		# blade held out is given room by a frame wider than the stage
+		# (the hero select's STAGE_BLEED), not by standing further back.
+		portrait.eye_back = FULL_BACK
 		portrait.fit = true
 	elif framing == Frame.BUST:
 		portrait.eye_height = 1.3
@@ -235,23 +242,17 @@ func _fit_wanted() -> Vector2:
 		if marker is Node3D and is_instance_valid(marker) and (marker as Node3D).is_inside_tree():
 			points.append((marker as Node3D).global_position - axis)
 	var tan_v := tan(deg_to_rad(eye_fov) * 0.5)
-	var aspect := size.x / maxf(size.y, 1.0) if size.y > 0.0 else 0.9
-	var tan_h := tan_v * aspect
 	# the ground at FLOOR_AT down the frame: aimed at `pin` x the half height
 	var pin := (FLOOR_AT - 0.5) * 2.0
 	var room := 1.0 - FIT_MARGIN * 2.0
 	var back := eye_back
-	# Every point by its reach from the axis, at the worst way it can be turned:
-	# so the camera stands where it stood whichever way he is turned, and he does
-	# not grow and shrink as the player turns him (the user's word, 2026-10-05).
-	var side := sqrt(1.0 / pow(room * tan_h, 2.0) + 1.0)
+	# Only his height can stand the camera further back (a helm taller than
+	# FULL_BACK has room for): never his reach, so a hero with a great sword is
+	# drawn as big as one with a knife (the user's word, 2026-10-05). The sides
+	# are the wider frame's to keep (the hero select's STAGE_BLEED).
 	for p in points:
-		var reach := Vector2(p.x, p.z).length()
 		var top := p.y + 0.2
-		# its top inside the frame's top edge: top <= pin*H0 + room*H(z), at its nearest
-		back = maxf(back, (top + room * reach * tan_v) / ((pin + room) * tan_v))
-		# its sides inside the frame's: |x| <= room * (back - z) * tan_h, turned the worst way
-		back = maxf(back, reach * side)
+		back = maxf(back, top / ((pin + room) * tan_v))
 	return Vector2(back, pin * back * tan_v)
 
 
