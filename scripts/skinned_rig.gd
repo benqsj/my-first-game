@@ -362,6 +362,12 @@ var polysplit_hero: StringName = &""
 ## [PolysplitLook]); set before the rig is in the tree, or by `set_look()`.
 var ps_look: Dictionary = {}
 const CUSTOM := &"custom"
+## A hero who is only ever the maker's figure (the elves, 2026-10-05): his
+## own looks are not offered, YOUR OWN is all there is.
+@export var maker_only: bool = false
+## And the people that figure is of ([constant PolysplitLook.RACES]): every
+## look worn is made of it, whatever was saved.
+@export var race: String = ""
 ## The bones a hero's arms hang from, carried onto the maker's figure by the
 ## same names where the rig has them (vepxis-art tools/fig_hero.py).
 const ARM_BONES: Array[StringName] = [&"weapon_r", &"weapon_l", &"shield_l", &"bow_l", &"bow_limb_l", &"bow_tip_l",
@@ -446,6 +452,8 @@ func _ready() -> void:
 	_configure()
 	if polysplit_hero != &"":
 		_add_maker()
+		if maker_only:
+			_only_maker()
 	_own_moves = {"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(),
 			"heavy": heavy.duplicate(true)}
 	_own_tables = _tables()
@@ -2520,7 +2528,29 @@ func _add_maker() -> void:
 		figures[StringName("ps" + g)] = {"scene": scene % g,
 				"prefix": "ps", "hips": &"pelvis_joint", "map": map, "lazy": true}
 	figure_faces[CUSTOM] = {"figure": &"psm", "custom": true}
-	ps_look = PolysplitLook.normalized(ps_look, polysplit_hero)
+	ps_look = _of_race(ps_look)
+
+
+## Leaves YOUR OWN the only look (see `maker_only`): the hero's own faces and
+## hair are not offered, and the face is the maker's from the first.
+func _only_maker() -> void:
+	faces = [CUSTOM]
+	face_skulls = [CUSTOM]
+	face_names = ["YOUR OWN"]
+	face = 0
+	hairs = []
+	hair_names = []
+	hair = 0
+
+
+## `look` made whole for this hero, of his people (see `race`).
+func _of_race(look: Dictionary) -> Dictionary:
+	var made := look.duplicate(true)
+	made["race"] = race
+	# an elf first comes up a woman (the maker turns her into a man)
+	if race != "" and not made.has("g"):
+		made["g"] = "f"
+	return PolysplitLook.normalized(made, polysplit_hero)
 
 
 #region YOUR OWN on the mannequin
@@ -3079,7 +3109,7 @@ func skeleton_now() -> Skeleton3D:
 func set_look(look: Dictionary) -> void:
 	if polysplit_hero == &"":
 		return
-	ps_look = PolysplitLook.normalized(look, polysplit_hero)
+	ps_look = _of_race(look)
 	if _skel != null and face < faces.size() and faces[face] == CUSTOM:
 		_show_figure()
 		_apply_moves()

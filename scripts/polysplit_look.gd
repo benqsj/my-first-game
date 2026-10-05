@@ -25,8 +25,25 @@ extends RefCounted
 ##   cloth    1..14 (its object colours: clothes, arms)
 ##   w o      the arms in the sword hand and the other (see `ARMS`, `AW`)
 ##   ws       the style the Advanced Weapons are worn in (`STYLES`)
+##   race     "" (a man), "elf" or "dark" (a dark elf): pointed ears on the
+##            head (`_wear_ears()`), and for a dark elf a skin of `RACE_SKINS`
+##            (2026-10-05)
 
 const SKINS := 8
+## The peoples a look can be of, and the skins (body_<n>.png) each is offered:
+## the dark elves' two are the pale skin turned slate violet (body_9, body_10,
+## made from body_5 in its skin quarter).
+const RACES := ["", "elf", "dark"]
+const RACE_SKINS := {"": [1, 2, 3, 4, 5, 6, 7, 8], "elf": [5, 7, 3, 1, 6, 2, 4, 8], "dark": [9, 10]}
+## What an elf starts as, over the man's: skin, hair colour, hair by gender,
+## no beard, the cloth's colour, and the first of `classes` his hero has
+## (the elves' white sorcerer, the dark elves' witch or warlock); no hat.
+const RACE_DEFAULTS := {
+	"elf": {"skin": 5, "hc": 5, "hair_m": 8, "hair_f": 11, "beard": 0,
+			"cloth": {"sorcerer": 7, "mage": 7, "_": 4}, "classes": ["sorcerer", "archer", "rogue"]},
+	"dark": {"skin": 9, "hc": 6, "hair_m": 7, "hair_f": 7, "beard": 0,
+			"cloth": {"witch": 5, "warlock": 5, "_": 13}, "classes": ["witch", "warlock", "hunter", "rogue"]},
+}
 ## The meshes (without the prefix) dyed in the hair's colour, not the skin's.
 const HAIRY := ["hair_", "hairb_", "beard_", "brows_"]
 const CLOTHS := 14
@@ -475,10 +492,34 @@ static func all_extras(g: String) -> Array[String]:
 
 
 ## The look `hero` starts as: his first class, as the pack dresses it.
-static func default_look(hero: StringName, g: String = "m") -> Dictionary:
+static func default_look(hero: StringName, g: String = "m", race: String = "") -> Dictionary:
 	var look := {"g": g, "eyes": 0, "brows": 0, "mouth": 0, "beard": 1 if g == "m" else 0, "hair": 3,
 			"skin": 1, "cloth": 1, "ws": STYLES[0]}
+	if RACE_DEFAULTS.has(race):
+		var d: Dictionary = RACE_DEFAULTS[race]
+		look["race"] = race
+		look["skin"] = d["skin"]
+		look["hc"] = d["hc"]
+		look["hair"] = d["hair_" + g]
+		look["beard"] = d["beard"]
+		var own := classes(hero, g)
+		var cls: String = own[0]
+		for wanted: String in d["classes"]:
+			if own.has(wanted):
+				cls = wanted
+				break
+		var made := dress(look, hero, cls)
+		# bare-headed, so the ears are seen
+		made["hat"] = ""
+		var cloth: Dictionary = d["cloth"]
+		made["cloth"] = cloth.get(cls, cloth["_"])
+		return made
 	return dress(look, hero, classes(hero, g)[0])
+
+
+## The skins a look of `race` may wear.
+static func skins(race: String) -> Array:
+	return RACE_SKINS.get(race, RACE_SKINS[""])
 
 
 ## `look` in class `cls`'s clothes, hat and arms (the face kept). A weapon the
@@ -519,7 +560,10 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	var g := String(look.get("g", "m"))
 	if g != "m" and g != "f":
 		g = "m"
-	var base := default_look(hero, g)
+	var race := String(look.get("race", ""))
+	if not RACES.has(race):
+		race = ""
+	var base := default_look(hero, g, race)
 	var out := base.duplicate(true)
 	for key: String in look:
 		out[key] = look[key]
@@ -544,8 +588,12 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 		out[key] = clampi(int(out[key]), 0, 4)
 	out["beard"] = clampi(int(out["beard"]), 0, 8) if g == "m" else 0
 	out["hair"] = clampi(int(out["hair"]), 0, 14)
-	out["skin"] = clampi(int(out["skin"]), 1, SKINS)
-	out["hc"] = clampi(int(look.get("hc", out["skin"])), 1, SKINS)
+	out["race"] = race
+	var offered := skins(race)
+	out["skin"] = int(out["skin"])
+	if not offered.has(out["skin"]):
+		out["skin"] = offered[0]
+	out["hc"] = clampi(int(look.get("hc", base.get("hc", out["skin"]))), 1, SKINS)
 	out["cloth"] = clampi(int(out["cloth"]), 1, CLOTHS)
 	if not STYLES.has(String(out.get("ws", ""))):
 		out["ws"] = STYLES[0]
@@ -628,8 +676,76 @@ static func apply(figure: Node3D, look: Dictionary) -> void:
 			visible = visible or (key.begins_with(pre) and not key.ends_with("_top"))
 		mesh.visible = visible
 	_lift_quiver(figure, on)
+	_wear_ears(figure, String(look.get("race", "")) != "")
 	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)), int(look.get("hc", look.get("skin", 1))))
 	wear_style(figure, String(look.get("ws", STYLES[0])))
+
+
+## Elves' ears: the head's ears drawn up and back into points. The ear is the
+## head's outermost band (`EAR_BAND` of its half-width) between 39% and 81% of
+## its height and 30% and 81% of its depth from the face back; each point is
+## carried out, up and back by how far out it lies and how high on the ear,
+## the same way vepxis-art _amirani/elves4.py did it in Blender. The pointed
+## head is made once per mesh and swapped in; the weights are the head's, so
+## it moves as it did.
+const EAR_BAND := 0.029
+const EAR_REACH := Vector3(0.045, 0.10, 0.05)
+static var _eared: Dictionary = {}
+
+
+static func _wear_ears(figure: Node3D, on: bool) -> void:
+	for head: MeshInstance3D in figure.find_children(PREFIX + "head", "MeshInstance3D", true, false):
+		if not head.has_meta(&"plain"):
+			if head.mesh == null:
+				continue
+			head.set_meta(&"plain", head.mesh)
+		var plain := head.get_meta(&"plain") as Mesh
+		if not on:
+			head.mesh = plain
+			continue
+		var key := plain.get_instance_id()
+		if not _eared.has(key):
+			_eared[key] = _point_ears(plain)
+		head.mesh = _eared[key] as Mesh
+
+
+static func _point_ears(plain: Mesh) -> ArrayMesh:
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	for i in plain.get_surface_count():
+		for p: Vector3 in plain.surface_get_arrays(i)[Mesh.ARRAY_VERTEX]:
+			lo = lo.min(p)
+			hi = hi.max(p)
+	var size := hi - lo
+	var cx := (lo.x + hi.x) * 0.5
+	var half := size.x * 0.5
+	# the pack's head is 0.329 tall in Blender; the reach goes with the head
+	var scale := size.y / 0.329 * 0.85
+	var band := EAR_BAND * size.y / 0.329
+	var out := ArrayMesh.new()
+	for i in plain.get_surface_count():
+		var arrays := plain.surface_get_arrays(i)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for k in points.size():
+			var p := points[k]
+			var side := absf(p.x - cx)
+			if side < half - band:
+				continue
+			var up := (p.y - lo.y) / size.y
+			# the face is +z: depth counts from it backwards
+			var back := (hi.z - p.z) / size.z
+			if up <= 0.39 or up >= 0.81 or back <= 0.30 or back >= 0.81:
+				continue
+			var w := minf(1.0, (side - (half - band)) / band)
+			var high := clampf((up - 0.42) / 0.27, 0.0, 1.0)
+			var sgn := 1.0 if p.x > cx else -1.0
+			points[k] = p + Vector3(sgn * EAR_REACH.x * w * (0.5 + high), EAR_REACH.y * w * high * high,
+					-EAR_REACH.z * w * high) * scale
+		arrays[Mesh.ARRAY_VERTEX] = points
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {},
+				plain.surface_get_format(i) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+		out.surface_set_material(i, plain.surface_get_material(i))
+	return out
 
 
 ## The back quiver over a cape (`QUIVER_LIFT`), or back on the body without
