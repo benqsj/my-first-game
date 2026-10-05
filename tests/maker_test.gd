@@ -206,15 +206,30 @@ func _run() -> void:
 		# The colours: the figure's own materials, dyed.
 		var look := rig.get_look()
 		look["skin"] = 5
+		look["hc"] = 3
 		look["cloth"] = 9
 		rig.set_look(look)
 		var dyed := 0
+		var hairs := 0
 		var mats: Dictionary = rig._figure.get_meta(&"ps_mats", {})
 		for m: BaseMaterial3D in mats.values():
 			var path := m.albedo_texture.resource_path if m.albedo_texture != null else ""
-			if path.ends_with("body_5.png") or path.ends_with("objects_9.png"):
+			var want: String = {"body": "body_5.png", "hair": "body_3.png"}.get(String(m.get_meta(&"kind")),
+					"objects_9.png")
+			if path.ends_with(want):
 				dyed += 1
-		_check("%s: dyed (skin 5, cloth 9)" % hero, dyed == mats.size() and dyed >= 2, "%d of %d" % [dyed, mats.size()])
+			if String(m.get_meta(&"kind")) == "hair":
+				hairs += 1
+		_check("%s: dyed (skin 5, hair 3, cloth 9)" % hero, dyed == mats.size() and dyed >= 3 and hairs >= 1,
+				"%d of %d, %d of the hair's" % [dyed, mats.size(), hairs])
+		var shown_hair := 0
+		for mesh: MeshInstance3D in rig._figure.find_children("ps_hair*", "MeshInstance3D", true, false):
+			if mesh.visible and mesh.get_surface_override_material(0) != null:
+				var tex := (mesh.get_surface_override_material(0) as BaseMaterial3D).albedo_texture
+				shown_hair += 1 if tex != null and tex.resource_path.ends_with("body_3.png") else 0
+		_check("%s: the hair worn in its own colour, not the skin's" % hero,
+				shown_hair >= 1 or int(look.get("hair", 0)) == 0 or not String(look.get("hat", "")).is_empty(),
+				"%d" % shown_hair)
 		# His own body and clothes only: another class's top, legs or cape
 		# give way to his class's (hats and arms are free).
 		var g_now := String(rig.get_look()["g"])

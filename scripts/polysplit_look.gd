@@ -18,12 +18,17 @@ extends RefCounted
 ##   top bottom         a class's id, or "" for the bare body
 ##   extras   [ids]: what else a class wears (capes, scabbards...)
 ##   hat      an id of `HATS`, or ""
-##   skin     1..8  (the pack's body colours: skin, hair, eyes)
+##   skin     1..8  (the pack's body colours: the skin, and the eyes)
+##   hc       1..8  the hair's colour (the same textures, worn by the hair,
+##            the beard and the brows alone); a look without one has its
+##            hair in the skin's texture, as before (2026-10-05)
 ##   cloth    1..14 (its object colours: clothes, arms)
 ##   w o      the arms in the sword hand and the other (see `ARMS`, `AW`)
 ##   ws       the style the Advanced Weapons are worn in (`STYLES`)
 
 const SKINS := 8
+## The meshes (without the prefix) dyed in the hair's colour, not the skin's.
+const HAIRY := ["hair_", "hairb_", "beard_", "brows_"]
 const CLOTHS := 14
 const COLOURS := "res://assets/polysplit/colors/"
 const PREFIX := "ps_"
@@ -71,6 +76,16 @@ const HERO_CLASSES := {
 	&"rogue": ["rogue"],
 	&"avtandil": ["archer", "hunter"],
 	&"mage": ["mage", "sorcerer", "warlock", "witch"],
+}
+## The pack's classes are outfits of one profession each (2026-10-05, the
+## user's word: the archer and the hunter are the same thing, so are the
+## swordsman and the fighter, and the mage's four): the hunter's clothes,
+## hat and arms are the archer's second outfit, and so on. A look's "cls"
+## is still the outfit (it picks the clothes); what the maker calls it, and
+## what it may hold, is the profession's.
+const PROFESSION_OF := {
+	"swordsman": "swordsman", "fighter": "swordsman", "knight": "knight", "archer": "archer", "hunter": "archer",
+	"rogue": "rogue", "mage": "mage", "sorcerer": "mage", "warlock": "mage", "witch": "mage",
 }
 const CLASS_ORDER := ["swordsman", "fighter", "knight", "archer", "hunter", "rogue", "mage", "sorcerer",
 		"warlock", "witch"]
@@ -227,34 +242,27 @@ const STYLE_NAMES := {"normal": "NORMAL", "ornate": "ORNATE", "obsidian": "OBSID
 ## `ARMS`. A class's first is what it starts with ([method dress] keeps the
 ## pack's own where the hero has it).
 const CLASS_ARMS := {
+	# one hand: no great sword, great axe or pole for the swordsman (the
+	# user's word, 2026-10-05: they are the knight's, not his)
 	"swordsman": {
-		"w": ["sword_a", "sword_b", "aw_longsword", "aw_shortsword", "aw_curvedsword", "aw_rapier", "greatsword",
-				"aw_greatsword", "aw_curvedgreatsword", "dagger", "aw_dagger", "aw_axe", "aw_mace", "aw_hammer",
-				"aw_morningstar", "aw_flail"],
+		"w": ["sword_a", "sword_b", "aw_longsword", "aw_shortsword", "aw_curvedsword", "aw_rapier", "aw_axe",
+				"aw_mace", "aw_hammer", "aw_morningstar", "aw_flail", "dagger", "aw_dagger"],
 		"o": ["his_shield", "shield", "aw_roundshield", "aw_kiteshield", "aw_towershield", "aw_dagger",
-				"aw_shortsword", "none"],
+				"aw_shortsword", "aw_axe", "aw_mace", "aw_hammer", "none"],
 	},
-	"fighter": {
-		"w": ["sword_a", "sword_b", "aw_axe", "aw_mace", "aw_hammer", "aw_morningstar", "aw_flail", "aw_shortsword",
-				"aw_longsword", "aw_curvedsword", "greatsword", "aw_greataxe", "aw_greathammer", "aw_spear",
-				"aw_poleaxe", "dagger", "aw_dagger"],
-		"o": ["his_shield", "shield", "aw_roundshield", "aw_kiteshield", "aw_axe", "aw_mace", "aw_hammer",
-				"aw_dagger", "none"],
-	},
+	# both hands: the great arms are his alone
 	"knight": {
 		"w": ["greatsword", "aw_greatsword", "aw_curvedgreatsword", "aw_greataxe", "aw_greathammer", "aw_poleaxe",
-				"aw_spear", "sword_a", "sword_b", "aw_longsword", "aw_mace", "aw_morningstar", "dagger"],
-		"o": ["none", "aw_kiteshield", "aw_towershield", "aw_roundshield"],
+				"aw_spear"],
+		"o": ["none"],
 	},
 	"archer": {"w": ["own_bow", "bow", "aw_bow", "aw_longbow"], "o": ["none"]},
-	"hunter": {"w": ["own_bow", "bow", "aw_longbow", "aw_bow"], "o": ["none"]},
 	"rogue": {
-		"w": ["dagger", "aw_dagger", "aw_shortsword", "aw_curvedsword", "aw_rapier", "sword_a", "sword_b"],
+		"w": ["dagger", "aw_dagger", "aw_shortsword", "aw_curvedsword", "aw_rapier"],
 		"o": ["dagger", "aw_dagger", "aw_shortsword", "none"],
 	},
 	"mage": {
-		"w": ["sword_a", "sword_b", "aw_wand", "aw_shortsword", "aw_longsword", "aw_mace", "greatsword", "dagger",
-				"aw_dagger"],
+		"w": ["sword_a", "sword_b", "aw_wand", "aw_shortsword", "aw_longsword", "aw_mace", "dagger", "aw_dagger"],
 		"o": ["staff_a", "staff_b", "aw_staff", "aw_wand", "dagger", "aw_dagger", "none"],
 	},
 }
@@ -310,7 +318,26 @@ static func both_hands(w: String) -> bool:
 
 
 static func _arms_class(cls: String) -> String:
-	return "mage" if cls in ["sorcerer", "warlock", "witch"] else cls
+	return profession(cls)
+
+
+## The profession `cls` is an outfit of ("fighter" -> "swordsman").
+static func profession(cls: String) -> String:
+	return String(PROFESSION_OF.get(cls, cls))
+
+
+## The outfits `hero` has of his profession in gender `g` (his classes).
+## What the maker calls outfit `cls`: "ARCHER", or "ARCHER · II" for the
+## second of a profession's outfits.
+static func outfit_name(hero: StringName, g: String, cls: String) -> String:
+	var called := String(CLASS_NAMES.get(profession(cls), profession(cls).to_upper()))
+	var sets := classes(hero, g)
+	if sets.size() < 2:
+		return called
+	return "%s · %s" % [called, ROMAN[clampi(sets.find(cls), 0, ROMAN.size() - 1)]]
+
+
+const ROMAN := ["I", "II", "III", "IV", "V", "VI"]
 
 
 ## The moves `id` is fought with ([Moveset] sets).
@@ -387,11 +414,29 @@ static func arm_name(id: String) -> String:
 
 
 ## "THE WARLOCK'S CAPE" for "warlock_cape".
-static func extra_name(id: String) -> String:
+static func extra_name(id: String, hero: StringName = &"", g: String = "m") -> String:
 	var cut := id.find("_")
 	var cls := id.substr(0, cut)
 	var part := id.substr(cut + 1)
-	return "%s'S %s" % [CLASS_NAMES.get(cls, cls.to_upper()), EXTRA_NAMES.get(part, part.to_upper())]
+	var whose := String(CLASS_NAMES.get(profession(cls), cls.to_upper()))
+	var called := "%s'S %s" % [whose, EXTRA_NAMES.get(part, part.to_upper())]
+	if hero != &"":
+		# two outfits' scabbards (or capes) are told apart by the outfit's number
+		var sets := classes(hero, g)
+		var twins := 0
+		for c in sets:
+			for x: String in CLASSES[g][c]["extras"]:
+				if x.substr(x.find("_") + 1) == part and _extra_alias(x) == x:
+					twins += 1
+		if twins > 1 and sets.has(cls):
+			called += " · " + ROMAN[sets.find(cls)]
+	return called
+
+
+## The extra `id` is worn as when another outfit's is the same thing: the
+## hunter's quiver is the archer's (both on the back, see [method extra_key]).
+static func _extra_alias(id: String) -> String:
+	return "archer_arrowquiver" if id == QUIVER else id
 
 
 ## The classes `hero` is offered for gender `g`: his own, those the pack has
@@ -412,7 +457,9 @@ static func extras(hero: StringName, g: String) -> Array[String]:
 	var out: Array[String] = []
 	for c in classes(hero, g):
 		for x: String in CLASSES[g][c]["extras"]:
-			out.append(x)
+			var worn := _extra_alias(x) if CLASSES[g].has("archer") else x
+			if not out.has(worn):
+				out.append(worn)
 	return out
 
 
@@ -444,7 +491,12 @@ static func dress(look: Dictionary, hero: StringName, cls: String) -> Dictionary
 	out["cls"] = cls
 	out["top"] = cls
 	out["bottom"] = cls
-	out["extras"] = (spec["extras"] as Array).duplicate()
+	var extras: Array = []
+	for x: String in spec["extras"]:
+		var worn := _extra_alias(x) if CLASSES[g].has("archer") else x
+		if not extras.has(worn):
+			extras.append(worn)
+	out["extras"] = extras
 	out["hat"] = spec["hat"]
 	var style := String(out.get("ws", STYLES[0]))
 	var held_w := arms(hero, cls, "w", style)
@@ -482,8 +534,9 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	var known := extras(hero, g)
 	var given: Array = out["extras"] if out["extras"] is Array else []
 	for x: Variant in given:
-		if known.has(String(x)) and not worn.has(String(x)):
-			worn.append(String(x))
+		var id := _extra_alias(String(x)) if CLASSES[g].has("archer") else String(x)
+		if known.has(id) and not worn.has(id):
+			worn.append(id)
 	out["extras"] = worn
 	if String(out["hat"]) != "" and not HATS.has(String(out["hat"])):
 		out["hat"] = ""
@@ -492,6 +545,7 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	out["beard"] = clampi(int(out["beard"]), 0, 8) if g == "m" else 0
 	out["hair"] = clampi(int(out["hair"]), 0, 14)
 	out["skin"] = clampi(int(out["skin"]), 1, SKINS)
+	out["hc"] = clampi(int(look.get("hc", out["skin"])), 1, SKINS)
 	out["cloth"] = clampi(int(out["cloth"]), 1, CLOTHS)
 	if not STYLES.has(String(out.get("ws", ""))):
 		out["ws"] = STYLES[0]
@@ -574,7 +628,7 @@ static func apply(figure: Node3D, look: Dictionary) -> void:
 			visible = visible or (key.begins_with(pre) and not key.ends_with("_top"))
 		mesh.visible = visible
 	_lift_quiver(figure, on)
-	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)))
+	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)), int(look.get("hc", look.get("skin", 1))))
 	wear_style(figure, String(look.get("ws", STYLES[0])))
 
 
@@ -626,15 +680,21 @@ static func wear_style(figure: Node3D, style: String) -> void:
 		mesh.set_surface_override_material(int(s[1]), aw_material(drawn, s[3] as Texture2D))
 
 
-## Swaps the figure's two textures for the pack's colours `skin` (1..8) and
-## `cloth` (1..14). The figure's materials are made its own the first time,
-## so one hero's dye does not run into another's.
-static func dye(figure: Node3D, skin: int, cloth: int) -> void:
+## Swaps the figure's textures for the pack's colours: `skin` (1..8) on the
+## body, `hair` (1..8, the skin's when 0) on the hair, the beard and the
+## brows, `cloth` (1..14) on the rest. The figure's materials are made its
+## own the first time (the hair's a second copy of the body's), so one hero's
+## dye does not run into another's.
+static func dye(figure: Node3D, skin: int, cloth: int, hair: int = 0) -> void:
 	var mats: Dictionary = figure.get_meta(&"ps_mats", {})
 	if mats.is_empty():
 		for mesh: MeshInstance3D in figure.find_children("*", "MeshInstance3D", true, false):
 			if mesh.mesh == null:
 				continue
+			var hairy := false
+			var key := String(mesh.name).trim_prefix(PREFIX)
+			for pre: String in HAIRY:
+				hairy = hairy or key.begins_with(pre)
 			for i in mesh.mesh.get_surface_count():
 				var m := mesh.mesh.surface_get_material(i) as BaseMaterial3D
 				if m == null:
@@ -648,14 +708,26 @@ static func dye(figure: Node3D, skin: int, cloth: int) -> void:
 					mesh.set_surface_override_material(i, aw_material(m.resource_name.substr(3), m.albedo_texture))
 					continue
 				var kind := "body" if m.resource_name.contains("body") else "objects"
-				if not mats.has(m):
+				if kind == "body" and hairy:
+					kind = "hair"
+				var mine := "%d:%s" % [m.get_instance_id(), kind]
+				if not mats.has(mine):
 					var own := m.duplicate() as BaseMaterial3D
 					own.set_meta(&"kind", kind)
-					mats[m] = own
-				mesh.set_surface_override_material(i, mats[m])
+					mats[mine] = own
+				mesh.set_surface_override_material(i, mats[mine])
 		figure.set_meta(&"ps_mats", mats)
+	if hair <= 0:
+		hair = skin
 	for m: BaseMaterial3D in mats.values():
-		var path := COLOURS + ("body_%d.png" % skin if m.get_meta(&"kind") == "body" else "objects_%d.png" % cloth)
+		var path := COLOURS
+		match String(m.get_meta(&"kind")):
+			"body":
+				path += "body_%d.png" % skin
+			"hair":
+				path += "body_%d.png" % hair
+			_:
+				path += "objects_%d.png" % cloth
 		if ResourceLoader.exists(path):
 			m.albedo_texture = load(path)
 
