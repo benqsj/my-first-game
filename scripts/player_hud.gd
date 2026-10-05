@@ -324,13 +324,8 @@ func _draw_skills() -> void:
 			if flash > 0.0:
 				_bars.draw_rect(inner, Color(1.0, 0.9, 0.6, 0.35 * flash))
 				_bars.draw_rect(rect.grow(2.0), Color(1.0, 0.9, 0.6, flash), false, 2.0)
-		# The key, on a tab hanging under the socket.
-		var tab := Rect2(at + Vector2(SLOT * 0.5 - 11.0, SLOT - 6.0), Vector2(22.0, 17.0))
-		_bars.draw_rect(tab, Color(0.06, 0.05, 0.05, 0.95))
-		var short_key := id != &"" and player.stamina < float(Player.SKILLS[id].get("stamina", 0.0))
-		_bars.draw_rect(tab, Color(GOLD, 0.8) if not short_key else Color(0.85, 0.25, 0.2), false, 1.0)
-		_bars.draw_string(font, tab.position + Vector2(0.0, 13.0), str(slot + 1), HORIZONTAL_ALIGNMENT_CENTER,
-				tab.size.x, 13, Color(1.0, 0.92, 0.72, 0.95 if id != &"" else 0.4))
+		# No key under the socket (the user's word, 2026-10-05: the numbers are
+		# not needed); a skill short of stamina is greyed.
 	if _said != "" and _said_time < 1.4:
 		var a := 1.0 - clampf((_said_time - 0.9) / 0.5, 0.0, 1.0)
 		var y := origin.y - 26.0
