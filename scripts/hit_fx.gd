@@ -5,19 +5,18 @@ extends Node3D
 ## pick of 2026-10-05), drawn with textures (assets/fx/tex/hit_*, Kenney and
 ## Cartoon FX, see SOURCES.txt) rather than by code:
 ##
-## * &"stone": a small flash, a few short sparks, grey chips thrown out and
-##   falling, a puff of dust ([method SkinnedRig.blade_landed] on a golem, a
-##   wall, a rock).
+## * &"stone": a small flash, sparks, a few small grey chips
+##   ([method SkinnedRig.blade_landed] on a golem, a wall, a rock).
 ## * &"wood": splinters and a little brown dust, no sparks (a trunk, a fence).
 ## * &"bone": pale chips and a small flash.
 ## * &"metal": steel on steel, a cut caught on a guard ([method ImpactFx.strike]
-##   &"guard"): a hot star, spikes, a spray of long sparks falling, a brief
-##   warm light.
+##   &"guard"): a hot star, a spray of long sparks falling, a brief warm light.
 ## * &"shield": a blow taken on his shield ([ParryFlash], less than a parry):
-##   spikes, sparks and a few splinters (no ring: it showed as a second shield,
-##   the user's word 2026-10-05).
-## * &"clash": blade on blade, a parry ([ParryFlash] at full size): a wide
-##   flare, a spinning four-point star, a ring, the most sparks, a bright light.
+##   a hot star and sparks.
+## * &"clash": blade on blade, a parry ([ParryFlash] at full size): a hot star,
+##   the most sparks, a bright light.
+## Steel on anything hard is sparks, nothing else drawn round them (no ring,
+## flare or spikes: the user's word, 2026-10-05).
 ##
 ## Each is one node of a few one-shot [GPUParticles3D] that frees itself; the
 ## materials and meshes are made once per look and shared. `normal` is the way
@@ -70,11 +69,10 @@ func _build(kind: StringName, normal: Vector3, heft: float) -> void:
 	var big := lerpf(1.0, 1.35, clampf(heft - 1.0, 0.0, 1.0))
 	match kind:
 		&"stone":
-			_part("stone_flash", "hit_star", Vector2(0.35, 0.35) * big, true, 1, 0.08, normal)
-			_part("stone_sparks", "hit_spark_streak", Vector2(0.06, 0.28), true, int(9 * big), 0.28, normal)
-			_part("stone_chips", "hit_chips_stone", Vector2(0.06, 0.06), false, int(12 * big), 0.85, normal)
-			_part("dust", "hit_dust", Vector2(0.4, 0.4) * big, false, 5, 1.0, normal)
-			_lamp(Color(1.0, 0.75, 0.45), 1.5, 0.1, 2.5)
+			_part("stone_flash", "hit_star", Vector2(0.4, 0.4) * big, true, 1, 0.08, normal)
+			_part("stone_sparks", "hit_spark_streak", Vector2(0.07, 0.32), true, int(16 * big), 0.32, normal)
+			_part("stone_chips", "hit_chips_stone", Vector2(0.045, 0.045), false, int(5 * big), 0.7, normal)
+			_lamp(Color(1.0, 0.75, 0.45), 1.6, 0.1, 2.5)
 		&"wood":
 			_part("wood_chips", "hit_chips_wood", Vector2(0.085, 0.085), false, int(12 * big), 0.8, normal)
 			_part("wood_dust", "hit_dust", Vector2(0.45, 0.45) * big, false, 3, 1.0, normal)
@@ -82,21 +80,17 @@ func _build(kind: StringName, normal: Vector3, heft: float) -> void:
 			_part("stone_flash", "hit_star", Vector2(0.3, 0.3) * big, true, 1, 0.08, normal)
 			_part("bone_chips", "hit_chips_stone", Vector2(0.05, 0.05), false, int(10 * big), 0.7, normal)
 		&"metal":
-			_part("metal_star", "hit_star", Vector2(0.7, 0.7) * big, true, 1, 0.12, normal)
-			_part("spikes", "hit_spikes", Vector2(0.45, 0.45) * big, true, 1, 0.09, normal)
+			_part("metal_star", "hit_star", Vector2(0.55, 0.55) * big, true, 1, 0.1, normal)
 			_part("metal_sparks", "hit_spark_streak", Vector2(0.08, 0.42), true, int(28 * big), 0.42, normal)
 			_lamp(Color(1.0, 0.75, 0.4), 2.2, 0.14, 3.0)
 		&"shield":
-			_part("spikes", "hit_spikes", Vector2(0.55, 0.55) * big, true, 1, 0.1, normal)
-			_part("shield_sparks", "hit_spark_streak", Vector2(0.07, 0.32), true, int(14 * big), 0.35, normal)
-			_part("shield_chips", "hit_chips_wood", Vector2(0.07, 0.07), false, int(5 * big), 0.7, normal)
-			_lamp(Color(1.0, 0.85, 0.55), 2.5 * big, 0.14, 3.0)
+			_part("metal_star", "hit_star", Vector2(0.5, 0.5) * big, true, 1, 0.1, normal)
+			_part("shield_sparks", "hit_spark_streak", Vector2(0.08, 0.38), true, int(22 * big), 0.38, normal)
+			_lamp(Color(1.0, 0.85, 0.55), 2.2 * big, 0.14, 3.0)
 		&"clash":
-			_part("flare", "hit_flare", Vector2(1.6, 0.8) * big, true, 1, 0.16, normal)
-			_part("star4", "hit_star4", Vector2(0.9, 0.9) * big, true, 1, 0.22, normal)
-			_part("ring", "hit_ring", Vector2(1.6, 1.6) * big, true, 1, 0.26, normal)
+			_part("metal_star", "hit_star", Vector2(0.7, 0.7) * big, true, 1, 0.12, normal)
 			_part("clash_sparks", "hit_spark_streak", Vector2(0.08, 0.5), true, int(36 * big), 0.5, normal)
-			_lamp(Color(1.0, 0.9, 0.7), 3.5 * big, 0.2, 4.0)
+			_lamp(Color(1.0, 0.9, 0.7), 3.0 * big, 0.18, 4.0)
 	get_tree().create_timer(LIFE).timeout.connect(queue_free)
 
 
