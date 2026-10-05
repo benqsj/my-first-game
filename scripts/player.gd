@@ -203,6 +203,18 @@ var _vault_peak: float = -INF
 ## caught by the same wall on the way past.
 @export var wall_regrab_delay: float = 0.35
 
+@export_group("PvP")
+## His side in PvP: heroes of the same side never hurt each other; 0 is a side
+## of his own (against everyone).
+@export var team: int = 0
+## What his blow on another hero is worth, as a share of what it is worth on a
+## creature: a hero's numbers are made for orcs and wolves, and whole they would
+## end a duel in two cuts.
+@export_range(0.05, 2.0, 0.05) var pvp_damage_scale: float = 0.5
+## Whether heroes may hurt each other at all (the whole game's; `-- --pvp` on
+## the command line turns it on).
+static var pvp_mode: bool = false
+
 @export_group("Target lock")
 ## How far off a target can be taken.
 @export var lock_range: float = 26.0
@@ -576,6 +588,8 @@ var _chain_timer: float = 0.0
 
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--pvp"):
+		pvp_mode = true
 	_spawn_character()
 	# The bow's two sounds, read off the disk now rather than on the first draw.
 	Sfx.warm([DRAW_SOUND, RELEASE_SOUND, PARRY_SOUND, SHADOW_SOUND, ULT_CAST, ULT_CHARGE, ULT_SHOT,
@@ -894,6 +908,7 @@ func _physics_process(delta: float) -> void:
 	_tick_shade(delta)
 	_track_sure(delta)
 	_judge_whiff()
+	_watch_pvp_blades()
 	_tick_bash(delta)
 	_tick_kick(delta)
 	_tick_vitals(delta)
@@ -2406,7 +2421,7 @@ func _switch_target(towards: float) -> void:
 
 	var best: Node3D = null
 	var best_gap := INF
-	for node in get_tree().get_nodes_in_group("enemy"):
+	for node in _foes():
 		var who := node as Node3D
 		if who == null or who == target or not _targetable(who):
 			continue
@@ -2438,7 +2453,7 @@ func _best_target() -> Node3D:
 	var best: Node3D = null
 	var best_score := -INF
 
-	for node in get_tree().get_nodes_in_group("enemy"):
+	for node in _foes():
 		var who := node as Node3D
 		if who == null or not _targetable(who):
 			continue
@@ -2486,7 +2501,7 @@ var _last_target_at := Vector3.ZERO
 func _nearest_to(spot: Vector3) -> Node3D:
 	var best: Node3D = null
 	var closest := INF
-	for node in get_tree().get_nodes_in_group("enemy"):
+	for node in _foes():
 		var who := node as Node3D
 		if who == null or who == target or not _targetable(who):
 			continue
@@ -3828,7 +3843,7 @@ func _strike_candidate() -> Node3D:
 	var widest := cos(deg_to_rad(strike_assist_cone))
 	var best: Node3D = null
 	var best_d := INF
-	for node in get_tree().get_nodes_in_group("enemy"):
+	for node in _foes():
 		var who := node as Node3D
 		if who == null or not _targetable(who):
 			continue
@@ -5879,3 +5894,69 @@ func cut_worth() -> Array:
 	if rig != null and rig.get(&"cut_weight") != null:
 		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))
 	return worth
+
+
+#region PvP: who is a foe, and a hero's blade on a hero ([HurtboxComponent])
+## Whether `other` is someone he fights: a creature always; another hero only
+## in PvP, while alive, and not of his own side (`team`).
+func is_hostile_to(other: Node) -> bool:
+	if other == null or other == self or not is_instance_valid(other):
+		return false
+	if other is Player:
+		var hero := other as Player
+		return pvp_mode and not hero.is_dead and (team == 0 or hero.team != team)
+	return other.is_in_group(&"enemy") or other.is_in_group(&"wolf")
+
+
+## What a lock, a switch and a cut's step-in may take: the creatures, and in
+## PvP the heroes he is hostile to.
+func _foes() -> Array[Node3D]:
+	var foes: Array[Node3D] = []
+	for node in get_tree().get_nodes_in_group(&"enemy"):
+		if node is Node3D:
+			foes.append(node as Node3D)
+	if pvp_mode:
+		for node in get_tree().get_nodes_in_group(&"player"):
+			if node != self and is_hostile_to(node):
+				foes.append(node as Node3D)
+	return foes
+
+
+## His [HurtboxComponent]: his own capsule, and only a hostile hero's blade.
+func hurtbox() -> HurtboxComponent:
+	var box := get_node_or_null(^"Hurtbox") as HurtboxComponent
+	if box == null:
+		box = HurtboxComponent.of(self)
+		box.set_capsule(0.4, 1.85, 0.15)
+		box.blade_feedback = false
+		box.may_strike = func(attacker: Node3D) -> bool:
+			return attacker is Player and (attacker as Player).is_hostile_to(self)
+	return box
+
+
+## In PvP, once a tick on the host: every hostile hero's blade against him.
+func _watch_pvp_blades() -> void:
+	if not pvp_mode or is_dead or not _decides_here():
+		return
+	hurtbox().scan()
+
+
+## A hero's blow on him ([HurtboxComponent.take], host): scaled by the
+## attacker's `pvp_damage_scale` and then taken as any blow is
+## ([method receive_blow]: his roll, his shield, his armour). True when it is
+## likely to have drawn blood (not while he is rolling, dashing or down: his
+## own peer decides that, in [method net_blow]).
+func receive_hit(hit: HitInfo) -> bool:
+	var source := hit.attacker()
+	if is_dead or source == null:
+		return false
+	var damage := hit.damage
+	var hero := source as Player
+	if hero != null:
+		if not hero.is_hostile_to(self):
+			return false
+		damage *= hero.pvp_damage_scale
+	receive_blow(damage, source, 0, 1, hit.serial, hit.magic)
+	return not (is_invulnerable or state == State.DASHING or state == State.DODGING \
+			or state == State.DOWNED)
+#endregion
