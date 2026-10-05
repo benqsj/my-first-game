@@ -151,8 +151,6 @@ func _boil() -> void:
 		var big := clampf(_height() / 1.6, 0.8, 2.2)
 		SkillFx.burst(into, mid, venom_color, int(70 * big), Vector2(2.0, 6.5) * big, Vector3.UP, 180.0,
 				Vector2(0.03, 0.07) * big, Vector3(0, -8, 0), 0.7)
-		SkillFx.ring(into, _creature.global_position + Vector3.UP * 0.08, Vector3.UP, venom_color,
-				0.3, 1.5 * big, 0.4, 0.04, 2.2)
 		SkillFx.flash(into, mid, venom_color, 0.3 * big, 0.14, 2.5)
 		SkillFx.light(into, mid, venom_color, 4.0, 5.0 * big, 0.45)
 		SkillFx.particles(into, mid, {
@@ -161,8 +159,6 @@ func _boil() -> void:
 			"size": Vector2(0.25, 0.5) * big, "box": Vector3(0.3, 0.5, 0.3) * big, "add": false, "grow": 0.5,
 			"colors": [Color(venom_color, 0.0), Color(venom_color.darkened(0.4), 0.5), Color(venom_color.darkened(0.7), 0.0)],
 		})
-	Sfx.play(_creature, RogueSkills.BOIL_SOUND, null, mid, 0.55, -2.0)
-	Sfx.play(_creature, RogueSkills.BACKSTAB_SOUND, null, mid, 0.6, -8.0)
 	if _decides() and harm > 0.0 and _creature.has_method(&"take_dot"):
 		_creature.call(&"take_dot", harm, _source(&"poison"))
 

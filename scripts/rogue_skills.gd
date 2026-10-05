@@ -62,11 +62,8 @@ const STEP_GLIDE := 0.55
 const VANISH_TIME := 10.0
 const AMBUSH_TIME := 1.0
 
-const STEP_SOUND := "res://unverified/sounds/dodge/shadow.wav"
-const VANISH_SOUND := "res://unverified/sounds/magic/use-skill-sound1.wav"
-const BACKSTAB_SOUND := "res://unverified/sounds/sword-damage-sound/sword-slash-damage.wav"
-const BOIL_SOUND := "res://unverified/sounds/magic/skill-shot-sound1.wav"
-const SOUNDS := [STEP_SOUND, VANISH_SOUND, BACKSTAB_SOUND, BOIL_SOUND]
+## No sounds of their own yet (the user's word, 2026-10-06: the pitched
+## recordings were not liked); the knife's own bite is heard where it lands.
 
 ## The dark elf's venom and both peoples' smoke.
 const DARK_VENOM := Color(0.74, 0.32, 1.0)
@@ -122,7 +119,6 @@ static func backstab_of(profile: CharacterProfile, target: Node3D) -> float:
 
 func _ready() -> void:
 	hero = get_parent() as Player
-	Sfx.warm(SOUNDS)
 	if hero == null:
 		return
 	hero.attack_started.connect(_on_attack)
@@ -292,7 +288,6 @@ func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
 	# out of it: the smoke, a ring on the ground, a column of his colour
 	# going up through him and a spray of sparks off his back
 	_puff(into, to, smoke, 0.9)
-	SkillFx.ring(into, to + Vector3.UP * 0.05, Vector3.UP, rim, 0.2, 1.4, 0.3, 0.03, 1.8)
 	SkillFx.particles(into, to + Vector3.UP * 0.1, {
 		"amount": 26, "life": 0.5, "one_shot": true, "explosiveness": 0.85,
 		"speed": Vector2(2.5, 5.0), "spread": 6.0, "dir": Vector3.UP, "damping": 3.0,
@@ -300,9 +295,6 @@ func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
 		"colors": [Color(rim.lightened(0.3), 1.0), Color(rim, 0.9), Color(rim.darkened(0.4), 0.0)],
 	})
 	SkillFx.light(into, to + Vector3.UP * 1.0, rim, 2.5, 4.0, 0.35)
-	Sfx.play(hero, STEP_SOUND, null, from, 0.8, -3.0)
-	Sfx.play(hero, STEP_SOUND, null, to, 1.15, -5.0)
-	Sfx.play(hero, VANISH_SOUND, null, to, 1.4, -12.0)
 #endregion
 
 
@@ -354,14 +346,11 @@ func set_hiding(on: bool, ambush: bool) -> void:
 		_hiding_until = _now() + VANISH_TIME
 		if into != null:
 			_puff(into, hero.global_position, smoke_of(hero), 1.4)
-		Sfx.play(hero, VANISH_SOUND, hero, Vector3.ZERO, 0.62, -4.0)
-		Sfx.play(hero, STEP_SOUND, hero, Vector3.ZERO, 0.7, -6.0)
 	else:
 		if ambush:
 			_ambush_until = _now() + AMBUSH_TIME
 		if into != null:
 			_puff(into, hero.global_position, smoke_of(hero), 0.6)
-		Sfx.play(hero, STEP_SOUND, hero, Vector3.ZERO, 1.3, -8.0)
 	_fade(on)
 
 
@@ -491,54 +480,6 @@ func show_backstab(at: Vector3) -> void:
 	SkillFx.flash(into, at, rim, 0.25, 0.12, 3.0)
 	SkillFx.burst(into, at, rim, 26, Vector2(2.0, 5.0), (at - hero.global_position).normalized(), 40.0,
 			Vector2(0.02, 0.05), Vector3(0, -6, 0), 0.4)
-	Sfx.play(hero, BACKSTAB_SOUND, null, at, 0.82, -3.0)
-
-
-## A perfect evade's flash (any hero with the shadow's dodge): his body lit
-## at its edges in the shadow's violet for a moment, fading, and a cold puff
-## where he was. Seen even when he stops where the blow missed him and his
-## shadows stand inside him.
-const SHADE := Color(0.55, 0.25, 1.0)
-const GLOW_SHADER := """
-shader_type spatial;
-render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
-uniform vec4 glow : source_color = vec4(0.55, 0.25, 1.0, 1.0);
-uniform float fade = 1.0;
-void fragment() {
-	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
-	ALBEDO = glow.rgb * (0.18 + 1.8 * rim) * fade;
-}
-"""
-static var _glow_shader: Shader = null
-
-
-static func dodge_flash(who: Player) -> void:
-	var skel := ShadowTrail.shown_skeleton(who)
-	var into := Blood.world_of(who)
-	if into != null:
-		_puff(into, who.global_position, Color(0.12, 0.06, 0.2), 0.7)
-		SkillFx.ring(into, who.global_position + Vector3.UP * 0.05, Vector3.UP, SHADE, 0.3, 1.6, 0.35, 0.03, 2.0)
-	if skel == null:
-		return
-	if _glow_shader == null:
-		_glow_shader = Shader.new()
-		_glow_shader.code = GLOW_SHADER
-	var mat := ShaderMaterial.new()
-	mat.shader = _glow_shader
-	var lit: Array[MeshInstance3D] = []
-	for child in skel.get_children():
-		var mi := child as MeshInstance3D
-		if mi == null or not mi.visible or mi.material_overlay != null:
-			continue
-		mi.material_overlay = mat
-		lit.append(mi)
-	var tw := who.create_tween()
-	tw.tween_method(func(f: float) -> void: mat.set_shader_parameter(&"fade", f), 1.0, 0.0, 0.7) \
-			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func() -> void:
-		for mi in lit:
-			if is_instance_valid(mi) and mi.material_overlay == mat:
-				mi.material_overlay = null)
 
 
 ## A puff of smoke `big` across at `at`: thick at the feet, rolling up and out.
@@ -556,3 +497,47 @@ static func _puff(into: Node, at: Vector3, smoke: Color, big: float) -> void:
 		"ring": Vector2(0.2, 0.4), "size": Vector2(0.25, 0.45) * big, "add": false, "grow": 0.4,
 		"colors": [Color(smoke, 0.0), Color(smoke, 0.7), Color(smoke, 0.0)],
 	})
+
+
+## Built once behind the level's black warm-up screen ([PipelineWarmup]):
+## the cloak, the smoke, the sparks, the column and the flash, so the first
+## Vanish or Shadow Step does not stall the frame while the renderer builds
+## them (the user's word: it hitched the first time). `at` is a node in
+## front of the warm-up's camera.
+static func warm(at: Node3D) -> void:
+	if _cloak_shader == null:
+		_cloak_shader = Shader.new()
+		_cloak_shader.code = CLOAK_SHADER
+	var ball := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.3
+	sphere.height = 0.6
+	ball.mesh = sphere
+	var cloak := ShaderMaterial.new()
+	cloak.shader = _cloak_shader
+	ball.material_override = cloak
+	at.add_child(ball)
+	var cut_ball := ball.duplicate() as MeshInstance3D
+	var cut_cloak := cloak.duplicate() as ShaderMaterial
+	cut_cloak.set_shader_parameter(&"use_cut", 1.0)
+	cut_ball.material_override = cut_cloak
+	at.add_child(cut_ball)
+	cut_ball.position = Vector3(0.7, 0.0, 0.0)
+	var here := at.global_position
+	_puff(at, here + Vector3.DOWN * 0.9, ASH, 0.4)
+	SkillFx.burst(at, here, CRIMSON, 6, Vector2(0.5, 1.0), Vector3.UP, 30.0, Vector2(0.01, 0.02), Vector3.ZERO, 0.3)
+	SkillFx.particles(at, here, {
+		"amount": 4, "life": 0.4, "one_shot": true, "explosiveness": 1.0,
+		"speed": Vector2(0.2, 0.5), "spread": 180.0, "damping": 2.0, "gravity": Vector3(0, 0.4, 0),
+		"size": Vector2(0.1, 0.2), "box": Vector3(0.1, 0.1, 0.1), "add": false, "grow": 0.5,
+		"colors": [Color(ASH, 0.0), Color(ASH, 0.7), Color(ASH, 0.0)],
+	})
+	SkillFx.particles(at, here, {
+		"amount": 4, "life": 0.4, "one_shot": true, "explosiveness": 1.0,
+		"speed": Vector2(0.5, 1.0), "spread": 6.0, "dir": Vector3.UP, "damping": 3.0,
+		"ring": Vector2(0.1, 0.2), "size": Vector2(0.03, 0.06), "grow": 0.2,
+		"colors": [Color(CRIMSON, 1.0), Color(CRIMSON, 0.0)],
+	})
+	SkillFx.flash(at, here, CRIMSON, 0.2, 0.2, 1.0)
+	SkillFx.light(at, here, CRIMSON, 0.5, 2.0, 0.3)
+

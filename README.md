@@ -8178,3 +8178,22 @@ Player (`net_shadow_step`, `net_vanish`, `net_backstab`).
   - **Whoever had him loses him** for 1.5 s (`RogueSkills.STEP_LOST`,
     `Player.is_hidden`): creatures and bosses drop him as their quarry
     ([method Brute.unseen]), and in PvP a foe's lock on him lets go.
+
+### Taken back, and the first-use stall (2026-10-06, the user's word)
+- **No rings on the ground.** The user's words: "a cartoon; we follow
+  Elden Ring". Gone from the Shadow Step, the boil, the poison's bite and
+  the perfect evade.
+- **The perfect evade is as it was before**: only the shadow trail and its
+  sound. The violet edge glow, the first copy shed at once, the puff and
+  the ring are gone (`RogueSkills.dodge_flash` removed).
+- **The skills' own sounds are off.** The pitched recordings were not
+  liked. The knife's bite is still heard where it lands. New sounds are to
+  be picked.
+- **The first Vanish and Shadow Step no longer stall the frame.** Their
+  materials are built behind the level's black warm-up screen
+  (`RogueSkills.warm`, called by [PipelineWarmup] with the puglin's mud):
+  the cloak with and without its cut-out, the smoke, the sparks, the column,
+  the flash and the light. `_shots_tmp/as/hitch_probe.gd` measured the worst
+  frame after the first and the second use as the same as standing (about
+  18 ms against 17).
+

@@ -3394,11 +3394,7 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				rig.leave_ground()
 		Reaction.PERFECT_DODGE:
 			if profile != null and profile.shadow_dodge:
-				var shade := ShadowTrail.start(self)
-				if shade != null:
-					# the first shadow now, where he was when it missed him
-					shade._shed()
-				RogueSkills.dodge_flash(self)
+				ShadowTrail.start(self)
 				Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.0, -1.0)
 			perfect_dodged.emit()
 		Reaction.BLOCK:
@@ -5918,7 +5914,6 @@ func net_afflict(path: NodePath, kind: StringName, seconds: float, amount: float
 		var venom := RogueSkills.venom_of(self)
 		SkillFx.burst(into, at, venom, 22, Vector2(1.0, 3.5), Vector3.UP, 120.0,
 				Vector2(0.012, 0.03), Vector3(0, -7, 0), 0.45)
-		SkillFx.ring(into, at, Vector3.UP, venom, 0.05, 0.5, 0.25, 0.04, 2.0)
 
 
 func _decides_here() -> bool:
