@@ -51,6 +51,12 @@ var fit: bool = false
 var _fit_back: float = -1.0
 var _fit_height: float = -1.0
 var _fit_clock: float = 0.0
+## The farthest the fit asked for while it was measuring, and the look it
+## was measured for.
+var _fit_most := Vector2(-1.0, -1.0)
+var _fit_key: String = "?"
+## How long he is measured for before the camera is held where it is.
+const FIT_SETTLE := 0.6
 ## Room left round him, as a share of the frame.
 const FIT_MARGIN := 0.05
 ## Where the ground is, down the frame: the stage draws its floor there.
@@ -181,27 +187,33 @@ func _process(delta: float) -> void:
 		_rig.call("animate", delta, 0.0, 0.0, false, false, 0.0, false)
 
 
-## Eases the camera to where all of him is in the frame (see `fit`);
-## whether it moved.
+## Puts the camera where all of him is in the frame (see `fit`), and keeps
+## it there: measured over his first moments on the stand (`FIT_SETTLE`, the
+## rig's pose settling), the farthest of those held from then on, so he stays
+## the size he opened at however he is turned and whatever his idle does (the
+## user's word, 2026-10-05: he grew and shrank as he was turned). Measured
+## again when his look changes (another weapon, another outfit). Whether it
+## moved.
 func _fit(delta: float) -> bool:
+	var key := str(_rig.get(&"ps_look")) if _rig != null else ""
+	if key != _fit_key:
+		_fit_key = key
+		_fit_clock = FIT_SETTLE
+		_fit_most = Vector2(-1.0, -1.0)
+	if _fit_clock <= 0.0 and _fit_back > 0.0:
+		return false
 	_fit_clock -= delta
-	var want := Vector2(eye_back, eye_height)
-	if _fit_clock <= 0.0 or _fit_back < 0.0:
-		_fit_clock = 0.2
-		want = _fit_wanted()
-		set_meta(&"fit_want", want)
-	else:
-		want = get_meta(&"fit_want", want)
-	if _fit_back < 0.0:
-		_fit_back = want.x
-		_fit_height = want.y
-		return true
+	var want := _fit_wanted()
+	# the very first frames are the rig before its pose (arms out, a blade
+	# anywhere): not counted
+	if _fit_clock < FIT_SETTLE - 0.15 and want.x > _fit_most.x:
+		_fit_most = want
+	if _fit_most.x > 0.0:
+		want = _fit_most
 	var was := Vector2(_fit_back, _fit_height)
-	# out quickly (nothing is cut off for long), back in slowly
-	var rate := 6.0 if want.x > _fit_back else 1.5
-	_fit_back = lerpf(_fit_back, want.x, minf(1.0, rate * delta))
-	_fit_height = lerpf(_fit_height, want.y, minf(1.0, rate * delta))
-	return was.distance_to(Vector2(_fit_back, _fit_height)) > 0.0005
+	_fit_back = want.x
+	_fit_height = want.y
+	return was.distance_to(want) > 0.0005
 
 
 ## How far back and how high the camera wants to be: [back, height]. The
@@ -229,12 +241,17 @@ func _fit_wanted() -> Vector2:
 	var pin := (FLOOR_AT - 0.5) * 2.0
 	var room := 1.0 - FIT_MARGIN * 2.0
 	var back := eye_back
+	# Every point by its reach from the axis, at the worst way it can be turned:
+	# so the camera stands where it stood whichever way he is turned, and he does
+	# not grow and shrink as the player turns him (the user's word, 2026-10-05).
+	var side := sqrt(1.0 / pow(room * tan_h, 2.0) + 1.0)
 	for p in points:
+		var reach := Vector2(p.x, p.z).length()
 		var top := p.y + 0.2
-		# its top inside the frame's top edge: top <= pin*H0 + room*H(z)
-		back = maxf(back, (top + room * p.z * tan_v) / ((pin + room) * tan_v))
-		# its sides inside the frame's: |x| <= room * (back - z) * tan_h
-		back = maxf(back, absf(p.x) / (room * tan_h) + p.z)
+		# its top inside the frame's top edge: top <= pin*H0 + room*H(z), at its nearest
+		back = maxf(back, (top + room * reach * tan_v) / ((pin + room) * tan_v))
+		# its sides inside the frame's: |x| <= room * (back - z) * tan_h, turned the worst way
+		back = maxf(back, reach * side)
 	return Vector2(back, pin * back * tan_v)
 
 
