@@ -7986,3 +7986,13 @@ his roll, perfect dodge, shield and armour all answer it as they answer an orc.
 Not yet: arrows, bolts and skills on heroes, venom on heroes, a menu switch.
 
 Tested by `tests/combat_core_test.gd` (headless).
+- **One knife: always the whole string.** The picks gave him two strings,
+  the two-cut `Sword_Light_A/B` and the three-cut `Sword_Light_Combo`.
+  A new string was picked between them at random, so the turning last
+  blow came only now and then (the user liked it). With one knife only
+  the longest string is kept (`SkinnedRogueRig._wear_moves`).
+- **To do, the user's word.** Weapon speed has to be paid for in damage:
+  every blade now hits for the same P.ATK, so the quicker one is simply
+  better. `ARM_SPEEDS` needs a damage column, so that the slower blade hits
+  harder for about the same damage a second. `Player.cut_worth` should use
+  it, and the bag should show it.

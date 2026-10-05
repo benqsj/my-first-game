@@ -310,6 +310,16 @@ const MQ_KNIFE_RATE := 1.85
 ## wound up, are kept.
 func _wear_moves() -> void:
 	super()
+	# One knife: always the whole three-cut string, its last blow the turning
+	# one (the user's word, 2026-10-05: he liked it, and it came only now and
+	# then, a new string picked at random between it and the two-cut one).
+	if _on_mq and not two_blades() and _strings.size() > 1:
+		var whole: Array = _strings[0]
+		for st: Array in _strings:
+			if st.size() > whole.size():
+				whole = st
+		_strings = [whole]
+		flurry.assign(whole)
 	# his own knife cuts at his own rig's pace, whatever the picks' is (they
 	# were made slow: at the mannequin's 1.1 they were half his speed)
 	for c: StringName in flurry:

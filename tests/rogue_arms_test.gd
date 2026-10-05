@@ -74,6 +74,9 @@ func _initialize() -> void:
 					"%s x%.2f" % [rig._act_clip, rig._anim.speed_scale])
 			for i in 60:
 				await physics_frame
+		if not two:
+			_check("  one knife: always the whole three-cut string", rig._strings.size() == 1 and rig.flurry.size() >= 3,
+					str(rig.flurry))
 		_check("  the heavy blows %s" % ("with both" if two else "with the one"),
 				rig.heavy[0]["clip"] == (&"DG_Dual_Combo" if two else &"DG_Axe_Three"), String(rig.heavy[0]["clip"]))
 	# The bag: every knife and short sword, in every style, for either hand.
