@@ -7790,3 +7790,28 @@ The mage is not offered on the hero select. His profile's `people` is empty and
 `Game.roster()` leaves out anyone of no people, but he is kept for the command
 line and the tests. A saved pick of him comes up as the first hero who is
 offered.
+
+## Amirani on the KNIGHT banner (2026-10-05)
+
+`amirani` is the warrior's rig, worn only as YOUR OWN
+(`scenes/player/amirani_visuals.tscn`: `maker_only`, and his `start_look`):
+
+- **His look.** The knight's figure without its helm, with long black hair
+  (hair 11, colour 2), a full beard, dark steel and crimson (cloth 9), the
+  neck scarf and the pauldrons. Until one is made on the hero select, a
+  `maker_only` rig starts as its `start_look`.
+- **His size.** 1.15 times the warrior's (visual scale 1.265).
+- **His numbers.** 35% more health, 15% more damage, 0.3 m/s slower.
+- **His chains** (`AmiraniChains`, a node in his scene). They are worn on
+  the figure the rig shows:
+  - An iron manacle with bronze rims sits on each forearm, 78% of the way
+    from the elbow to the wrist.
+  - From the right one hangs a rope of 14 links (Verlet: carried on, pulled
+    down, held to its length, never under the ground he stands on), with
+    the rock of the mountain on its end.
+  - From the left one hang four links, broken.
+  - The links are Godot `TorusMesh`es, every other one a quarter turn about
+    the chain.
+
+He still fights with the warrior's great sword. The chain is seen and swings,
+but it does not strike yet.
