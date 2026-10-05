@@ -135,16 +135,7 @@ func _configure() -> void:
 	#  2 later: three great cuts, the last from over his head to the ground;
 	#  3 at the end of the string: the whirling combo, round and through;
 	#  4 at a run: a flying front flip, the knife coming down as he lands.
-	heavy = [
-		{"clip": &"DG_Thrust_Slash", "part": Vector2(0.144, 0.8), "rate": 1.75, "weight": 1.5, "step": 3.0,
-			"rise": 0.55},
-		{"clip": &"DG_Spin_Flip_Kick", "part": Vector2(0.243, 1.0), "rate": 1.7, "weight": 1.6, "aim": false,
-			"travel": 1.6, "rise": 0.56, "hold": 0.93},
-		{"clip": &"DG_Axe_Three", "part": Vector2(0.135, 0.8), "rate": 1.8, "weight": 1.4, "rise": 0.67},
-		{"clip": &"DG_Dual_Combo", "part": Vector2(0.193, 0.9), "rate": 1.7, "weight": 1.4, "rise": 0.78},
-		{"clip": &"DG_Big_Flip", "part": Vector2(0.1, 1.0), "rate": 1.35, "weight": 1.8, "aim": false,
-			"travel": 5.3},
-	]
+	heavy = WIND_HEAVY.duplicate(true)
 	cut_windows = {
 		&"DG_Thrust_Slash": [Vector2(0.211, 0.267), Vector2(0.456, 0.522)],
 		&"DG_Spin_Flip_Kick": [Vector2(0.369, 0.441), Vector2(0.45, 0.559)],
@@ -238,8 +229,7 @@ func _configure() -> void:
 	# spinning cut, the backhand, the axe's cut from right to left and the
 	# whirl to end it. The two-knife heavy blow gives way to the one-handed
 	# combo's last big blow.
-	var one_heavy: Array = heavy.duplicate(true)
-	one_heavy[3] = {"clip": &"DG_Finisher", "part": Vector2(0.2, 0.9), "rate": 1.7, "weight": 1.5, "rise": 0.6}
+	var one_heavy: Array = WIND_HEAVY.duplicate(true)
 	var one_knife := {
 		"flurry": [&"DG_Combo_1", &"DG_Combo_2", &"DG_Spin_Cut", &"DG_Backhand_Cut", &"DG_Axe_R2L", &"DG_Whirl"],
 		"flurry_part": {&"DG_Axe_R2L": Vector2(0.236, 0.597), &"DG_Whirl": Vector2(0.1, 0.62)},
@@ -271,6 +261,83 @@ func _configure() -> void:
 	strike_pull = 0.3
 
 
+## The heavy blows, on the other button (the user's word, 2026-10-05: not the
+## flips and falls he had): each wound up first, slowly — the knives drawn
+## back, the body gathered low — and then let go all at once (`wind`, the
+## share of the clip the gathering ends at; `wind_rate`, its pace; `rate`,
+## the pace of what follows). Which one is what the string has come to
+## ([method Player._heavy_blow]): out of nothing and at a run, one rising cut
+## out of a crouch, hard (DG_Slash_Out); in the string, three quick blows
+## (the two-knife combo, DG_Dual_Combo). Every peer plays the same table, on
+## his own rig and on the mannequin (the DG clips are carried onto it).
+const ONE_HARD := {"clip": &"DG_Slash_Out", "part": Vector2(0.1, 0.66), "wind": 0.36, "wind_rate": 0.75,
+		"rate": 2.0, "weight": 2.3, "step": 1.2, "rise": 0.55}
+const THREE_QUICK := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.85,
+		"rate": 2.3, "weight": 1.35, "step": 0.8, "rise": 0.8}
+const WIND_HEAVY := [ONE_HARD, THREE_QUICK, THREE_QUICK, THREE_QUICK, ONE_HARD]
+
+
+## On the mannequin the picks give him a heavy blow of their own; his own,
+## wound up, are kept.
+func _wear_moves() -> void:
+	super()
+	heavy = WIND_HEAVY.duplicate(true)
+
+
+## The evades played no faster than a man can be seen to move (the user's
+## word, 2026-10-05: they were a blur at two to four times their pace): of
+## each clip only the stretch where he goes (measured off its root in
+## `_shots_tmp/as/curves.py`), not the gathering before it or the standing
+## up after, which the next move blends over.
+const EVADE_PART := {
+	&"DG_Dodge_Fwd": Vector2(0.12, 0.9), &"DG_Dodge_Back": Vector2(0.08, 0.66),
+	&"DG_Dodge_Left": Vector2(0.06, 0.88), &"DG_Dodge_Right": Vector2(0.06, 0.85),
+	&"DG_Twist": Vector2(0.0, 0.75), &"DG_Backflip": Vector2(0.12, 0.58),
+}
+
+
+func _evade(clip: StringName, duration: float, blend: float) -> bool:
+	if not _anim.has_animation(clip):
+		return false
+	var part: Vector2 = EVADE_PART.get(clip, Vector2(0.0, 1.0))
+	var length := _anim.get_animation(clip).length
+	return _play_action(clip, Role.ROLL, length * (part.y - part.x) / maxf(duration, 0.05), blend, part.x, part.y)
+
+
+## The run leaned into, on whichever skeleton he wears ([RunLean]).
+const LEAN_RUN := 0.16
+const LEAN_SPRINT := 0.2
+var _leans: Dictionary = {}
+var _lean_now: float = 0.0
+
+
+func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bool,
+		dashing: bool, vertical_speed: float, blocking: bool = false) -> void:
+	super(delta, planar_speed, speed_ratio, airborne, dashing, vertical_speed, blocking)
+	var skel: Skeleton3D = _mq.get("skel") if _on_mq else _skel
+	if skel == null:
+		return
+	var lean: RunLean = _leans.get(skel)
+	if lean == null or not is_instance_valid(lean):
+		lean = RunLean.new()
+		lean.name = "RunLean"
+		skel.add_child(lean)
+		_leans[skel] = lean
+	var want := 0.0
+	if _role == Role.NONE and not airborne and not dashing:
+		if _base_clip == clips.get(&"sprint", &"-"):
+			want = LEAN_SPRINT
+		elif _base_clip == clips.get(&"run", &"-") or _base_clip == clips.get(&"jog", &"-"):
+			want = LEAN_RUN * clampf(planar_speed / 5.0, 0.0, 1.0)
+	_lean_now = move_toward(_lean_now, want, delta * 0.9)
+	for s: Skeleton3D in _leans:
+		var l: RunLean = _leans[s]
+		if is_instance_valid(l):
+			l.amount = _lean_now if s == skel else 0.0
+			# his face (the rig is turned about: its +Z is the way he faces)
+			l.forward = global_basis.z
+
+
 ## The Poisoned Blade's coat (`DG_Poison_Coat`, built in Blender by
 ## `tools/dg9_build.py`): the knife brought up before his chest, two fingers of
 ## the other hand run along it from the guard to the point, the excess flicked
@@ -292,10 +359,7 @@ func coat_blade(rate: float) -> float:
 
 
 func dodge_clip(duration: float) -> bool:
-	var clip: StringName = clips[&"dodge"]
-	if not _anim.has_animation(clip):
-		return false
-	return _play_action(clip, Role.ROLL, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.06)
+	return _evade(clips[&"dodge"], duration, 0.06)
 
 
 ## A tap of the dash: the archer's quick step, whichever way it goes as the
@@ -306,18 +370,13 @@ func step_dodge(local: Vector2, duration: float) -> void:
 		key = &"step_right" if local.x > 0.0 else &"step_left"
 	elif local.y > 0.0:
 		key = &"step_back"
-	var clip: StringName = clips[key]
-	if not _anim.has_animation(clip):
+	if not _evade(clips[key], duration, 0.05):
 		dodge(duration)
-		return
-	_play_action(clip, Role.ROLL, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.05)
 
 
 ## Away from what he is facing: a backflip, still facing it.
 func backflip(duration: float) -> void:
-	var clip: StringName = clips[&"backflip"]
-	if _anim.has_animation(clip):
-		_play_action(clip, Role.ROLL, _anim.get_animation(clip).length / maxf(duration, 0.05), 0.05)
+	_evade(clips[&"backflip"], duration, 0.05)
 
 
 ## On a wall: hanging, climbing up or down, or shimmying along — the archer's

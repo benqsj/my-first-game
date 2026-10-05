@@ -7815,3 +7815,34 @@ offered.
 
 He still fights with the warrior's great sword. The chain is seen and swings,
 but it does not strike yet.
+
+## The assassin's movement (2026-10-05)
+
+The user's word: he looked short beside the others, the right button's
+heavy combo flipped and fell to the ground, and his evades were a blur.
+
+- **His size.** Visual scale 0.94 → 0.97 (~1.86 m), the mage's; Avtandil
+  is 0.985. The Dark Elf Assassin's scene inherits it.
+- **His evades** (`SkinnedRogueRig.EVADE_PART`, `_evade`). Of each clip
+  only the stretch where he goes is played, measured off its root
+  (`_shots_tmp/as/curves.py`): the steps and the twisting flip now play at
+  about 1.45 times their pace (they were 2.2–3.7 times, the backflip six).
+  The step lasts 0.55 s at 9 m/s and the flip 0.8 s at 7.5 m/s
+  (`rogue.tres`, `dark_rogue.tres`; were 0.45 s at 11 and 0.7 s at 8.5),
+  the same ground covered.
+- **His heavy blows** (the right button, `SkinnedRogueRig.WIND_HEAVY`).
+  Each is wound up slowly and then let go all at once. A heavy spec's
+  `wind` is the share of the clip the gathering ends at, played at
+  `wind_rate`; the rest plays at `rate` (`SkinnedRig.attack`, `_wind_at`;
+  the swing sound goes with the release).
+  - Out of nothing, or at a run: one hard rising cut out of a crouch
+    (`DG_Slash_Out`, worth 2.3 cuts).
+  - In the string: three quick blows (`DG_Dual_Combo`, 1.35 each).
+  - The spinning leap that ended on the ground, the flying flip and the
+    axe's three cuts are gone from it. The same table is worn on the
+    mannequin (YOUR OWN) in place of the picks' one-knife blow.
+- **His run leans into it** (`RunLean`, a `SkeletonModifier3D` laid on
+  whichever skeleton he wears). The back is bent forward 0.16 rad at a run
+  and 0.2 at a sprint, and the head is brought back up so he looks ahead.
+  It eases in and out, and is not used while he strafes, backs, evades or
+  swings.

@@ -108,8 +108,9 @@ func _initialize() -> void:
 			lowest = minf(lowest, minf(e[0].y, e[1].y) - at.y)
 	_check("the knife goes down to a wolf on the ground", lowest < 0.5, "%.2f m" % lowest)
 
-	# The heavy blows, on the other button: which one is what the string has
-	# come to, and the ones that cut more than once cut more than once.
+	# The heavy blows, on the other button (2026-10-05): each wound up slowly,
+	# then let go all at once. Out of nothing one hard cut, in the string
+	# three quick ones.
 	wolf.global_position += Vector3(0, -80, 0)
 	wolf.set_physics_process(false)
 	foe.global_position = hold
@@ -117,27 +118,35 @@ func _initialize() -> void:
 	for i in 80:
 		await physics_frame
 	await _press(player, "block")
-	_check("out of nothing the heavy is the lunge", rig._act_clip == &"DG_Thrust_Slash" and rig.is_heavy(),
+	_check("out of nothing the heavy is one hard cut", rig._act_clip == &"DG_Slash_Out" and rig.is_heavy(),
 			String(rig._act_clip))
+	var slow: float = rig._anim.speed_scale
 	var serial: int = rig.attack_serial
+	var fast := 0.0
 	for i in 70:
 		await physics_frame
 		foe.global_position = hold
-	_check("and it cuts twice", rig.attack_serial == serial + 1, "%d" % (rig.attack_serial - serial))
+		if rig._act_clip == &"DG_Slash_Out":
+			fast = maxf(fast, rig._anim.speed_scale)
+	_check("wound up slowly, then let go fast", slow < 1.0 and fast > 1.8, "x%.2f then x%.2f" % [slow, fast])
+	_check("and it cuts once", rig.attack_serial == serial, "%d" % (rig.attack_serial - serial))
 	await _idle(player)
 	await _press(player, "attack")
 	await _idle(player)
 	await _press(player, "block")
-	_check("early in the string it is the spinning leap", rig._act_clip == &"DG_Spin_Flip_Kick",
+	_check("early in the string it is three quick blows", rig._act_clip == &"DG_Dual_Combo",
 			String(rig._act_clip))
+	serial = rig.attack_serial
+	for i in 100:
+		await physics_frame
+		foe.global_position = hold
+	_check("and it cuts three times", rig.attack_serial - serial == 2, "%d" % (rig.attack_serial - serial + 1))
 	await _idle(player)
 	for k in 5:
 		await _press(player, "attack")
 		await _idle(player)
 	await _press(player, "block")
-	# (the two knives' whirling combo; a look that holds one knife has its own:
-	# see SkinnedRig.face_moves)
-	_check("at the end of it the whirling combo", rig._act_clip == StringName(rig.heavy[3]["clip"]), String(rig._act_clip))
+	_check("at the end of it the three quick ones too", rig._act_clip == StringName(rig.heavy[3]["clip"]), String(rig._act_clip))
 	await _idle(player)
 	# A light cut's follow-through can be broken off by an evade; a heavy blow's cannot.
 	await _press(player, "attack")

@@ -940,6 +940,13 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	if _role != Role.NONE:
 		_action_left -= delta
 		var through := _progress()
+		if _wind_at > 0.0 and _role == Role.SWING and through >= _wind_at:
+			# wound up: the blows come all at once
+			_wind_at = -1.0
+			_action_rate = _wind_fast
+			if _stop_left <= 0.0 and _drag_left <= 0.0:
+				_anim.speed_scale = _wind_fast
+			_whoosh()
 		if _hold_at > 0.0 and _role == Role.SWING:
 			# The running cut wound up: held at its `hold` till it is let go.
 			if not _holding and through >= _hold_at:
@@ -1276,6 +1283,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_drag_left = 0.0
 	_hold_at = -1.0
 	_holding = false
+	_wind_at = -1.0
 	_role = role
 	_recovering = false
 	_evade_cut = false
@@ -1461,9 +1469,18 @@ func attack(style: int = -1) -> void:
 		_heavy_aim = bool(h.get("aim", true))
 		var hp: Vector2 = h.get("part", Vector2(0.0, 1.0))
 		var h_rate := float(h.get("rate", swing_rate)) * (mq_swing_scale if _on_mq and h.has("rate") else 1.0)
-		if _play_action(h["clip"], Role.SWING, h_rate, 0.08, hp.x, hp.y):
+		# wound up first, slowly, to its `wind`; the rest at its rate
+		var wind := float(h.get("wind", -1.0))
+		var winding := wind > hp.x and wind < hp.y
+		var start_rate := h_rate * float(h.get("wind_rate", 1.0)) / float(h.get("rate", 1.0)) if winding else h_rate
+		if _play_action(h["clip"], Role.SWING, start_rate, 0.08, hp.x, hp.y):
+			if winding:
+				_wind_at = wind
+				_wind_fast = h_rate
+				_action_left = _action_len * ((wind - hp.x) / start_rate + (hp.y - wind) / h_rate)
 			_swing_commit = swing_time()
-			_whoosh()
+			if not winding:
+				_whoosh()
 		return
 	_heavy_now = false
 	cut_weight = 1.0
@@ -1632,6 +1649,11 @@ var _holding: bool = false
 ## Held coming on slowly (a share of its rate) up to a share of the clip.
 var _hold_creep: float = 0.0
 var _hold_until: float = -1.0
+## A heavy blow wound up slowly (its spec's `wind`, `wind_rate`): played at
+## the slow rate up to this share of its clip, then at `_wind_fast` — the
+## gathering, then the blows all at once. -1: none.
+var _wind_at: float = -1.0
+var _wind_fast: float = 1.0
 
 
 ## A running cut wound up and held, not yet let go.
@@ -1757,6 +1779,11 @@ func swing_time() -> float:
 			# the first step off would snap him from the ground to his feet.
 			if h.has("hold") and _heavy_now:
 				return _action_len * (float(h["hold"]) - _action_from) / _action_rate
+	if _wind_at > 0.0:
+		# still winding up: the slow part, then the rest at the blows' pace
+		var lead := _action_len * maxf(_wind_at - _action_from, 0.0) / _action_rate
+		return lead + minf(_action_len * (w.y - _wind_at) / _wind_fast + swing_recovery,
+				_action_len * (part.y - _wind_at) / _wind_fast)
 	return minf(_action_len * (w.y - _action_from) / _action_rate + swing_recovery,
 			_action_len * (part.y - _action_from) / _action_rate)
 
