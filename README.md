@@ -7713,3 +7713,16 @@ bag opens, `_dress_portrait`) at the head of the status column.
 
 Tests: `maker_test` checks the hair dyed apart from the skin; `menu_test`
 expects seven FACE rows.
+
+**The bag's pictures of the arms** (2026-10-05, the user's word): rendered off
+the figures' own meshes into `assets/ui/icons/arms/<id>.png` (192 px, the
+look's arm id: `sword_a`, `aw_longbow_ornate`, `his_shield` ...; his own bow is
+the pack's `bow` on the mannequin) by `vepxis-art/tools/bake_arm_icons.gd`
+(run windowed from the repo with `--script <path> -- <out dir>`: each mesh
+laid along the diagonal by its principal axes, shields upright and face on;
+his shields are the `sk_*` meshes, the others render dark). `Inventory._glyph`
+draws an item's `art` when there is one, else its glyph. **The front page**'s
+PLAY / SETTINGS / EXIT are bare words (`MenuStyle.word_button`). **The hero on
+the select page** keeps the size he opened at (`CharacterPortrait._fit`:
+measured over 0.6 s by each bone's reach from the axis, then held until the
+look changes).
