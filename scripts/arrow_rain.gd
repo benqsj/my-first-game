@@ -2,8 +2,9 @@ class_name ArrowRain
 extends Node3D
 
 ## Avtandil's Rain of Arrows: a volley of arrows coming down over a patch of
-## ground — on what he has locked, following it, or ahead of him. Nothing marks
-## the ground: what is seen is the arrow he sends up and the rain after it.
+## ground — on what he has locked, following it, or ahead of him. What it
+## throws off besides (off the bow, over the patch, where the arrows land) is
+## [RainFx]'s, in the look picked there.
 ##
 ## The arrows are ordinary [Arrow]s — they sweep for what they cross, stick in
 ## what they hit and sink away — so a rain hurts exactly as arrows do: only the
@@ -50,6 +51,11 @@ var _follow: Node3D
 var _marks: Array[Node3D] = []
 ## The arrows sent down so far, for the tests.
 var arrows: Array[Node3D] = []
+## What it throws off besides its arrows ([RainFx]): over the patch, and when
+## the volley starts down.
+var _fx: RainFx
+var _fell: bool = false
+var _settled: bool = false
 
 
 ## Sets it going. `rain_seed` is the same on every peer, so the arrows are too.
@@ -63,6 +69,17 @@ func start(shooter: Node3D, scene: PackedScene, rain_seed: int, damage: float, c
 	_crit_damage = crit_damage
 	_next_whistle = delay
 	Sfx.warm(WHISTLES)
+	_fx = RainFx.cover(self, radius, delay, duration)
+	# the shot up, off his bow, as it goes
+	if shooter != null and is_instance_valid(shooter) and shooter.is_inside_tree():
+		var rig: Variant = shooter.get(&"rig")
+		var hand := shooter.global_position + Vector3.UP * 1.4
+		if rig is Object and is_instance_valid(rig) and (rig as Object).has_method(&"bow_hand"):
+			hand = (rig as Object).call(&"bow_hand")
+		var toward := global_position - shooter.global_position
+		toward.y = 0.0
+		var up := (toward.normalized() * 0.3 + Vector3.UP).normalized() if toward.length_squared() > 0.01 else Vector3.UP
+		RainFx.loosed(get_parent(), hand, up, shooter.global_position)
 
 
 ## Makes the rain fall on `who` wherever it goes while the arrows come down.
@@ -78,6 +95,12 @@ func _process(delta: float) -> void:
 		global_position = Vector3(at.x, global_position.y + (at.y - global_position.y) * 0.2, at.z)
 	# The arrows, spread evenly over the fall.
 	var due := int(ceil(float(count) * clampf((_clock - delay) / duration, 0.0, 1.0)))
+	if not _fell and _clock >= delay - 0.12 and _fx != null:
+		_fell = true
+		_fx.falling(global_position + Vector3.UP * height + _back() * lean_back, duration)
+	if not _settled and _clock >= delay + duration * 0.55 and _fx != null:
+		_settled = true
+		_fx.settle()
 	if due > 0 and _sent == 0:
 		_find_marks()
 		if _follow != null and is_instance_valid(_follow) and not _marks.has(_follow):
@@ -124,11 +147,7 @@ func _drop() -> void:
 		var mark := _marks[which % _marks.size()]
 		if is_instance_valid(mark):
 			land = mark.global_position + Vector3.UP * 0.9 + Vector3(cos(a), 0.0, sin(a)) * 0.2
-	var back := Vector3.ZERO
-	if _shooter != null and is_instance_valid(_shooter):
-		back = _shooter.global_position - global_position
-		back.y = 0.0
-		back = back.normalized() if back.length_squared() > 0.01 else Vector3.ZERO
+	var back := _back()
 	var scatter := Vector3(_rng.randf_range(-0.8, 0.8), 0.0, _rng.randf_range(-0.8, 0.8))
 	var from := land + Vector3.UP * height + back * lean_back + scatter
 	var arrow := _scene.instantiate() as Node3D
@@ -138,9 +157,30 @@ func _drop() -> void:
 	arrow.set(&"lifetime", 3.0)
 	arrow.set(&"wake_spread", 0.0)
 	arrow.set(&"trail_width", 0.035)
+	if RainFx.look == RainFx.GOLD:
+		arrow.set(&"streak_tint", Color(1.0, 0.82, 0.4, 0.75))
 	into.add_child(arrow)
+	if arrow.has_signal(&"struck"):
+		arrow.connect(&"struck", _on_struck)
 	arrow.global_position = from
 	var critical := _rng.randf() < _crit_chance
 	arrow.call(&"launch", (land - from).normalized() * speed, _damage * (_crit_damage if critical else 1.0),
 			critical, 6.0, _shooter)
 	arrows.append(arrow)
+
+
+## The way back towards the archer, flat (none once he is gone).
+func _back() -> Vector3:
+	if _shooter == null or not is_instance_valid(_shooter):
+		return Vector3.ZERO
+	var back := _shooter.global_position - global_position
+	back.y = 0.0
+	return back.normalized() if back.length_squared() > 0.01 else Vector3.ZERO
+
+
+## One of the volley went into something: the ground kicks up ([RainFx]); a
+## body bleeds on its own ([Blood], in the arrow).
+func _on_struck(what: Node3D, where: Vector3, _critical: bool) -> void:
+	if what != null and what.has_method(&"take_hit"):
+		return
+	RainFx.landed(get_parent() if is_inside_tree() else null, where)

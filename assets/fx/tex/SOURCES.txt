@@ -9,3 +9,9 @@ hit_spikes.png        Cartoon FX Remaster Free: "cfxr spikes impact" (white, alp
 hit_chips_stone.png   Cartoon FX Remaster Free: "cfxr debris flat unlit 3x3" (3x3 atlas)
 hit_chips_wood.png    Cartoon FX Remaster Free: "cfxr debris wood unlit 3x3" (3x3 atlas)
 hit_dust.png          Free Fire VFX - URP (Vefects, Unity Asset Store, Standard EULA): T_VFX_Dust_01 (white, alpha from luminance)
+rain_streak.png       Kenney Particle Pack (CC0): trace_06 (256 px)
+rain_dust.png         Free Fire VFX - URP (Vefects): T_VFX_Directional_Dust_01 (white, alpha from luminance)
+rain_haze.png         Kenney Particle Pack (CC0): smoke_04
+rain_gust.png         Kenney Particle Pack (CC0): twirl_01
+rain_rune.png         Area of Effect Spell FREE (Matthew Guz, Unity Asset Store, Standard EULA): Magic5 (1024 px)
+rain_rays.png         Cartoon FX Remaster Free: "cfxr aura rays" (white, alpha from luminance)
