@@ -18,7 +18,10 @@ extends CanvasLayer
 ## ([member Player.menu_open]).
 ##
 ## The arrow keys or the mouse move the choice, Q / E the tab, Enter or a click
-## puts on what can be put on (a shield, an outfit), I or Escape closes.
+## puts on what can be put on (a shield, an outfit), I or Escape closes. Enter
+## or a click on the shield in his hand takes it off (3 too; the user's word,
+## 2026-10-05): he fights with the sword alone, the block button throwing the
+## other string ([method SkinnedRig.holds_shield]); 1 or 2 puts one on again.
 
 enum Shields { ROUND, TOWER }
 enum Tab { WEAPONS, SHIELDS, GOODS, ATTIRE }
@@ -101,6 +104,8 @@ var _tab: int = Tab.WEAPONS
 var _chosen: int = 0
 var _slots_rect: Rect2
 var _tabs_rect: Rect2
+## The look's off hand before the shield was taken off, to put the same back.
+var _off_hand_before: String = ""
 
 
 func _ready() -> void:
@@ -147,6 +152,8 @@ func _input(event: InputEvent) -> void:
 				equip(Shields.ROUND)
 			KEY_2:
 				equip(Shields.TOWER)
+			KEY_3:
+				take_off()
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -188,8 +195,41 @@ func toggle() -> void:
 func equip(kind: int) -> void:
 	if player == null or not _has_shield():
 		return
+	if not _shield_on():
+		var look := _look()
+		if not look.is_empty():
+			look["o"] = _off_hand_before if _off_hand_before not in ["", "none"] else "his_shield"
+			player.set_look(look)
 	player.set_shield(kind)
 	_root.queue_redraw()
+
+
+## Takes the shield off his arm (his look's off hand "none"); a hero whose look
+## cannot change (not on the mannequin) keeps his.
+func take_off() -> void:
+	if player == null or not _has_shield() or not _shield_on():
+		return
+	var look := _look()
+	if look.is_empty():
+		return
+	_off_hand_before = String(look.get("o", ""))
+	look["o"] = "none"
+	player.set_look(look)
+	_root.queue_redraw()
+
+
+## Whether a shield is on his arm.
+func _shield_on() -> bool:
+	if player.rig != null and player.rig.has_method(&"holds_shield"):
+		return bool(player.rig.call(&"holds_shield"))
+	return true
+
+
+## The look he wears (empty when his rig has none to change).
+func _look() -> Dictionary:
+	if player.rig == null or not player.rig.has_method(&"get_look"):
+		return {}
+	return player.rig.call(&"get_look")
 
 
 func _use(i: int) -> void:
@@ -198,7 +238,10 @@ func _use(i: int) -> void:
 		return
 	var item: Dictionary = items[i]
 	if item.has("shield"):
-		equip(int(item.shield))
+		if item.get("worn", false):
+			take_off()
+		else:
+			equip(int(item.shield))
 	elif item.has("garb"):
 		player.set_garb(int(item.garb))
 		_root.queue_redraw()
@@ -232,13 +275,13 @@ func _items() -> Array[Dictionary]:
 			if _has_shield():
 				out.append({
 					"name": "Round Shield", "kind": "Small shield", "icon": "round", "shield": Shields.ROUND,
-					"worn": player.shield_kind == Shields.ROUND,
+					"worn": player.shield_kind == Shields.ROUND and _shield_on(),
 					"stats": [["Guard", "100 %"], ["Stamina per blow", "× %.1f" % player.block_stamina]],
 					"text": "Light and quick: up in an instant, and it goes with him wherever he turns.",
 				})
 				out.append({
 					"name": "Tower Shield", "kind": "Greatshield", "icon": "tower", "shield": Shields.TOWER,
-					"worn": player.shield_kind == Shields.TOWER,
+					"worn": player.shield_kind == Shields.TOWER and _shield_on(),
 					"stats": [["Guard", "100 %"],
 							["Stamina per blow", "× %.1f" % (player.block_stamina * player.tower_block_share)],
 							["Stance", "crouched"]],
@@ -380,6 +423,8 @@ func _draw_item(c: Control, font: Font, box: Rect2, item: Dictionary) -> void:
 	y += 110
 	var worn: bool = item.get("worn", false)
 	var status := "Equipped" if worn else ("Enter / click to put on" if item.has("shield") or item.has("garb") else "")
+	if worn and item.has("shield"):
+		status = "Equipped - Enter / click to take off"
 	if not status.is_empty():
 		c.draw_string(font, Vector2(box.position.x, y), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 16,
 				GOLD if worn else Color(CREAM, 0.7))
@@ -424,7 +469,8 @@ func _draw_status(c: Control, font: Font, box: Rect2) -> void:
 		if not garbs.is_empty():
 			rows.append(["Attire", String(GARBS.get(StringName(garbs[player.garb]), {}).get("name", garbs[player.garb]))])
 		if _has_shield():
-			rows.append(["Shield", "Round Shield" if player.shield_kind == Shields.ROUND else "Tower Shield"])
+			rows.append(["Shield", ("Round Shield" if player.shield_kind == Shields.ROUND else "Tower Shield")
+					if _shield_on() else "None"])
 	for r: Array in rows:
 		y += 30 if String(r[0]) != "" else 14
 		if String(r[0]) == "":

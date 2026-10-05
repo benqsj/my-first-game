@@ -53,23 +53,14 @@ var emitting: bool = false
 
 const SHADER := preload("res://assets/fx/blade_arc.gdshader")
 
-## The heroes' cut is bent air ([code]assets/fx/cut_air.gdshader[/code]): the
-## strong one, the user's pick (2026-10-05), by default. To try, F1 (F2 too, as
-## F1 is the test arena's board there) steps it through the smear it always was
-## (0), the air bent soft (1), strong (2) and stronger still (3).
-## Only arcs under a [SkinnedRig] follow it; the orc's and the wolf's keep theirs.
-static var air_look: int = 2
-const AIR_NAMES := ["ხმლის კვალი: როგორც იყო", "ხმლის კვალი: ჰაერი, ნაზი", "ხმლის კვალი: ჰაერი, ძლიერი",
-		"ხმლის კვალი: ჰაერი, უძლიერესი"]
-## [strength, split, rim, haze, seam, wave] for 1, 2 and 3.
-const AIR_LOOKS := [[], [0.022, 0.1, 0.22, 0.6, 0.0, 0.0], [0.04, 0.16, 0.3, 0.6, 0.8, 0.0],
-		[0.065, 0.15, 0.4, 0.75, 1.4, 1.0]]
+## The heroes' cut is bent air, strong ([code]assets/fx/cut_air.gdshader[/code]:
+## the user's pick, 2026-10-05; the smear in [code]blade_arc.gdshader[/code] is
+## left to the orc's axe and the wolf's claws). Only arcs under a [SkinnedRig].
+## [strength, split, rim, haze, seam, wave]
+const AIR_LOOK := [0.04, 0.16, 0.3, 0.6, 0.8, 0.0]
 static var _air_shader: Shader = null
-static var _switched_on: int = -1
-static var _note: Label = null
 var _air_material: ShaderMaterial = null
-## What this arc has on; -1 till the first frame puts on `air_look`.
-var _look_shown: int = -1
+var _air_worn: bool = false
 
 var _base: Node3D
 var _tip: Node3D
@@ -140,67 +131,28 @@ func setup(blade_base: Node3D, blade_tip: Node3D) -> void:
 	_tip = blade_tip
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo or (key.keycode != KEY_F1 and key.keycode != KEY_F2):
-		return
-	if not get_parent() is SkinnedRig:
-		return
-	# every hero's arc hears the key: only the first steps the look
-	if _switched_on == Engine.get_process_frames():
-		return
-	_switched_on = Engine.get_process_frames()
-	air_look = (air_look + 1) % AIR_NAMES.size()
-	_tell(AIR_NAMES[air_look])
-
-
-## The look's name a moment on the screen.
-func _tell(text: String) -> void:
-	if _note == null or not is_instance_valid(_note):
-		var layer := CanvasLayer.new()
-		layer.layer = 90
-		get_tree().root.add_child(layer)
-		_note = Label.new()
-		_note.position = Vector2(40.0, 140.0)
-		_note.add_theme_font_size_override("font_size", 30)
-		_note.add_theme_color_override("font_outline_color", Color.BLACK)
-		_note.add_theme_constant_override("outline_size", 8)
-		layer.add_child(_note)
-	_note.text = text
-	_note.modulate.a = 1.0
-	var fade := _note.create_tween()
-	fade.tween_interval(1.4)
-	fade.tween_property(_note, "modulate:a", 0.0, 0.6)
-
-
-## Puts on the look `air_look` asks for, if it is not on already.
-func _wear_look() -> void:
-	_look_shown = air_look
-	if air_look == 0:
-		material_override = _material
-		return
+## Puts the bent air on, in place of the smear, once.
+func _wear_air() -> void:
+	_air_worn = true
 	if _air_shader == null:
 		_air_shader = load("res://assets/fx/cut_air.gdshader") as Shader
-	if _air_material == null:
-		_air_material = ShaderMaterial.new()
-		_air_material.shader = _air_shader
-		_air_material.set_shader_parameter("streak_tex", load("res://assets/fx/tex/cut_air_streak.png"))
-		_air_material.set_shader_parameter("break_tex", load("res://assets/fx/tex/cut_air_break.png"))
-	var look: Array = AIR_LOOKS[air_look]
-	_air_material.set_shader_parameter("strength", look[0])
-	_air_material.set_shader_parameter("split", look[1])
-	_air_material.set_shader_parameter("rim", look[2])
-	_air_material.set_shader_parameter("haze", look[3])
-	_air_material.set_shader_parameter("seam", look[4])
-	_air_material.set_shader_parameter("wave", look[5])
+	_air_material = ShaderMaterial.new()
+	_air_material.shader = _air_shader
+	_air_material.set_shader_parameter("streak_tex", load("res://assets/fx/tex/cut_air_streak.png"))
+	_air_material.set_shader_parameter("break_tex", load("res://assets/fx/tex/cut_air_break.png"))
+	for k in AIR_KEYS.size():
+		_air_material.set_shader_parameter(AIR_KEYS[k], AIR_LOOK[k])
 	material_override = _air_material
+
+
+const AIR_KEYS := ["strength", "split", "rim", "haze", "seam", "wave"]
 
 
 func _process(delta: float) -> void:
 	if _base == null or _tip == null:
 		return
-	if _look_shown != air_look and get_parent() is SkinnedRig:
-		_wear_look()
+	if not _air_worn and get_parent() is SkinnedRig:
+		_wear_air()
 	_clock += delta
 	if emitting:
 		var b := _base.global_position
