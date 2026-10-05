@@ -37,6 +37,8 @@ const STAGE_BLEED := 116.0
 const PICKS_HEIGHT := 108.0
 ## The right-hand plate (the dossier, or the maker in its place).
 const PLATE_WIDTH := 528.0
+## The gap over the peoples' banners, down from the top of the roster column.
+const ROSTER_TOP := 120.0
 
 
 ## Appended rather than inserted: the pages are addressed by number from the
@@ -311,8 +313,13 @@ func _build_characters() -> Control:
 	# The roster, down the left.
 	var tiles := VBoxContainer.new()
 	tiles.name = "Roster"
-	tiles.alignment = BoxContainer.ALIGNMENT_CENTER
+	# held at the top, under a fixed gap, so the banners stand still however
+	# many heroes the people picked has (the user's word, 2026-10-05)
+	tiles.alignment = BoxContainer.ALIGNMENT_BEGIN
 	tiles.add_theme_constant_override("separation", 10)
+	var above := Control.new()
+	above.custom_minimum_size = Vector2(0.0, ROSTER_TOP)
+	tiles.add_child(above)
 	tiles.add_child(_people_row())
 	for id: StringName in roster:
 		var tile := _roster_tile(id)
@@ -567,9 +574,9 @@ const EPITHET := {
 ## each is called and its light.
 const PEOPLES := {
 	&"human": {"name": "HUMANS", "light": Color("d0892e")},
+	&"knight": {"name": "KNIGHT", "light": Color("b8433a")},
 	&"elf": {"name": "ELVES", "light": Color("bfe0a0")},
 	&"dark": {"name": "DARK ELVES", "light": Color("9a72e0")},
-	&"knight": {"name": "KNIGHT", "light": Color("b8433a")},
 }
 
 
