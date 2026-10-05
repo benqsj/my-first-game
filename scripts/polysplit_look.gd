@@ -142,8 +142,8 @@ const HAT_ORDER := ["skullcap", "headband", "kettle", "leathercoif", "greathelm"
 ## holds a sword (2026-10-02, the user's word), a staff in the other hand if
 ## he will.
 const ARMS := {
-	&"tariel": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["his_shield", "shield", "none"]},
-	&"warrior": {"w": ["greatsword", "sword_a", "sword_b", "dagger"], "o": ["none"]},
+	&"tariel": {"w": ["sword_a", "sword_b", "greatsword", "dagger", "none"], "o": ["his_shield", "shield", "none"]},
+	&"warrior": {"w": ["greatsword", "sword_a", "sword_b", "dagger", "none"], "o": ["none"]},
 	&"rogue": {"w": ["dagger", "sword_a", "sword_b", "none"], "o": ["dagger", "none"]},
 	&"avtandil": {"w": ["own_bow", "bow"], "o": ["none"]},
 	&"mage": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["staff_a", "staff_b", "dagger", "none"]},
@@ -294,14 +294,14 @@ const CLASS_ARMS := {
 	# user's word, 2026-10-05: they are the knight's, not his)
 	"swordsman": {
 		"w": ["sword_a", "sword_b", "aw_longsword", "aw_shortsword", "aw_curvedsword", "aw_rapier", "aw_axe",
-				"aw_mace", "aw_hammer", "aw_morningstar", "aw_flail", "dagger", "aw_dagger"],
+				"aw_mace", "aw_hammer", "aw_morningstar", "aw_flail", "dagger", "aw_dagger", "none"],
 		"o": ["his_shield", "shield", "aw_roundshield", "aw_kiteshield", "aw_towershield", "aw_dagger",
 				"aw_shortsword", "aw_axe", "aw_mace", "aw_hammer", "none"],
 	},
 	# both hands: the great arms are his alone
 	"knight": {
 		"w": ["greatsword", "aw_greatsword", "aw_curvedgreatsword", "aw_greataxe", "aw_greathammer", "aw_poleaxe",
-				"aw_spear"],
+				"aw_spear", "none"],
 		"o": ["none"],
 	},
 	"archer": {"w": ["own_bow", "bow", "aw_bow", "aw_longbow"], "o": ["none"]},

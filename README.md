@@ -8051,3 +8051,21 @@ Tested by `tests/combat_core_test.gd` (headless).
     better than tapping.
   - The warrior, Amirani and the archers are unchanged. Amirani is the
     strongest on a bar, by design (`fee94ae`: harder blows).
+- **Every blade-fighter's arms from the bag** (the user's word, 2026-10-06).
+  Tariel, the warrior, Amirani and both assassins take their arms the same
+  way (`Inventory._blades`, `_take_blade`):
+  - The bag lists every arm of his sword hand and of the other in every
+    style (not shields: those stay under Shields).
+  - One press puts a blade into the empty right hand, else the left, else
+    in the left's place. Pressed again on one he holds, it comes off.
+  - A shield stays on his arm: a new blade takes the right hand's place.
+  - A two-handed blade takes both hands.
+  - X takes every blade off.
+  - Archers and mages keep their bows and staves.
+  - "none" is now a sword hand of every class, and empty-handed is the
+    knife's moves.
+  - The grid scrolls with the one chosen and with the wheel when there
+    are more than its 25 sockets (Tariel has 43).
+  - `tests/arms_bag_test.gd -- <hero>` checks it.
+- The Dark Elf Assassin is the assassin's rig and profile, so his speed and
+  everything above are the same. Only his crit is 30 % against 25.
