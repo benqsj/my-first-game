@@ -225,14 +225,26 @@ func place_string_at(a: Vector3, c: Vector3, hand: Vector3, g: Vector3, fingers:
 	# after the hand, across the archer's back. Past `CATCH_ANYWAY` of the draw
 	# it is taken wherever the hand is, so a clip that never quite comes to the
 	# string still draws it.
+	span = hand.distance_to(g)
 	if not fingers or draw <= 0.05:
 		_caught = false
+		_nearest = INF
 	elif not _caught:
-		_caught = _to_line(hand, a, c) < CATCH_REACH or draw >= CATCH_ANYWAY
+		# Taken where the hand comes nearest the bow on its way to the string
+		# and turns back with it: the clips' fingers pass the string a little
+		# off it (never within CATCH_REACH), and taken only at CATCH_ANYWAY the
+		# string jumped from its rest to a hand already most of the way back
+		# (the user's word, 2026-10-05).
+		var turned := draw > 0.08 and span > _nearest + CATCH_TURN
+		_nearest = minf(_nearest, span)
+		_caught = turned or _to_line(hand, a, c) < CATCH_REACH or draw >= CATCH_ANYWAY
+		if _caught:
+			_caught_ms = Time.get_ticks_msec()
 	var drawn := _caught
-	# The string comes off its rest line onto the fingers over the first part of
-	# the draw rather than jumping to them.
-	var mid := ((a + c) * 0.5).lerp(hand, clampf(draw * 4.0, 0.0, 1.0)) if drawn else (a + c) * 0.5
+	# The string comes off its rest line onto the fingers over `CATCH_BLEND`
+	# seconds from the moment they take it, never in a jump.
+	var take := smoothstep(0.0, 1.0, float(Time.get_ticks_msec() - _caught_ms) / (CATCH_BLEND * 1000.0))
+	var mid := ((a + c) * 0.5).lerp(hand, take) if drawn else (a + c) * 0.5
 	_stretch(string_u, a, mid)
 	_stretch(string_l, c, mid)
 	if arrow != null:
@@ -245,7 +257,15 @@ func place_string_at(a: Vector3, c: Vector3, hand: Vector3, g: Vector3, fingers:
 
 ## How near (m) the drawing fingers must come to the resting string to take it,
 ## and the share of the draw past which they take it wherever they are.
+## The drawing hand's distance to where the arrow rests on the bow, last placed.
+var span: float = 0.0
 const CATCH_REACH := 0.12
+## How far back past its nearest the hand must come to have turned with the
+## string, and how long the string takes to come onto the fingers.
+const CATCH_TURN := 0.03
+const CATCH_BLEND := 0.15
+var _nearest: float = INF
+var _caught_ms: int = 0
 const CATCH_ANYWAY := 0.6
 var _caught: bool = false
 

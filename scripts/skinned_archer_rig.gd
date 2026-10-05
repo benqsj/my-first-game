@@ -336,11 +336,13 @@ func _make_arrow() -> Node3D:
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = 0.006
 	cyl.bottom_radius = 0.006
-	cyl.height = 0.82
+	# Long enough for his full draw (0.9-0.94 m from the fingers to the bow):
+	# at 0.82 the head came back past the bow into his fist.
+	cyl.height = 1.05
 	shaft.mesh = cyl
 	# Along -Z (the way the arrow points), starting a touch behind the fingers.
 	shaft.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-	shaft.position = Vector3(0.0, 0.0, -0.36)
+	shaft.position = Vector3(0.0, 0.0, -0.475)
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = Color("8a6a44")
 	shaft.material_override = wood
@@ -352,7 +354,7 @@ func _make_arrow() -> Node3D:
 	cone.height = 0.06
 	head.mesh = cone
 	head.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-	head.position = Vector3(0.0, 0.0, -0.8)
+	head.position = Vector3(0.0, 0.0, -ARROW_HEAD)
 	var steel := StandardMaterial3D.new()
 	steel.albedo_color = Color("a8b0b8")
 	steel.metallic = 0.7
@@ -622,7 +624,7 @@ func _glint() -> void:
 	mat.albedo_color = Color(1.0, 0.95, 0.75)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	head.material_override = mat
-	head.position = Vector3(0.0, 0.0, -0.8)
+	head.position = Vector3(0.0, 0.0, -ARROW_HEAD)
 	_bow_mod.arrow.add_child(head)
 	var tw := head.create_tween()
 	tw.tween_property(head, "scale", Vector3.ONE * 1.8, 0.06)
@@ -699,7 +701,7 @@ const OVERDRAW_CLIP := &"AV_Aim_Overdraw"
 ## The release of `AV_Shooting_Arrow` and its follow-through, in frames of 151.
 const LOOSE_PART := Vector2(116.0 / 151.0, 1.0)
 ## How far from the nock the arrowhead is (the arrow [method _make_arrow] makes).
-const ARROW_HEAD := 0.8
+const ARROW_HEAD := 1.03
 ## A skill shot's string: seconds since the nock began (-1 when none is
 ## drawn), how long the nock and the hold are, and the pitch it is aimed at.
 var _skill_t: float = -1.0
