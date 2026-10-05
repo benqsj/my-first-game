@@ -5480,6 +5480,10 @@ func _stun_arrow() -> bool:
 	_drawing = false
 	_draw_timer = 0.0
 	_turn_to_target()
+	# turned on with it through the draw and the hold, as the Piercing Arrow
+	# is and as a drawn string is ([method _track_pierce])
+	if target != null and _targetable(target):
+		_pierce_quarry = target
 	var nock := float(rig.call(&"nock_lead", STUN_BRACE, STUN_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
 	_commit(nock + STUN_HOLD + 0.45)
 	_root(nock + STUN_HOLD + 0.45)
@@ -5494,6 +5498,7 @@ func _stun_loose(after: float, serial: int) -> void:
 	await get_tree().create_timer(after, false).timeout
 	if serial != _skill_serial or not is_inside_tree() or is_dead:
 		return
+	_pierce_quarry = null
 	var from := _arrow_tip()
 	var speed := profile.arrow_speed if profile != null else 60.0
 	# at the target, wherever it has stepped to while the shot was held, not
