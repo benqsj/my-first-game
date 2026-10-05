@@ -368,6 +368,9 @@ const CUSTOM := &"custom"
 ## And the people that figure is of ([constant PolysplitLook.RACES]): every
 ## look worn is made of it, whatever was saved.
 @export var race: String = ""
+## The look a hero of `maker_only` starts as before one is made on the hero
+## select (Amirani's hair, beard and colours), over his people's own.
+@export var start_look: Dictionary = {}
 ## The bones a hero's arms hang from, carried onto the maker's figure by the
 ## same names where the rig has them (vepxis-art tools/fig_hero.py).
 const ARM_BONES: Array[StringName] = [&"weapon_r", &"weapon_l", &"shield_l", &"bow_l", &"bow_limb_l", &"bow_tip_l",
@@ -2546,6 +2549,10 @@ func _only_maker() -> void:
 ## `look` made whole for this hero, of his people (see `race`).
 func _of_race(look: Dictionary) -> Dictionary:
 	var made := look.duplicate(true)
+	if not made.has("cls"):
+		for key: Variant in start_look:
+			if not made.has(key):
+				made[key] = start_look[key]
 	made["race"] = race
 	# an elf first comes up a woman (the maker turns her into a man)
 	if race != "" and not made.has("g"):
