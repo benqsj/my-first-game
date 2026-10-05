@@ -305,7 +305,17 @@ const OWN_SWING_RATE := 2.1
 ## On the mannequin, with knives (`arms_ref`, a knife's pace): his own cuts a
 ## touch slower than on his own rig (the user's word, 2026-10-05: too quick);
 ## a short sword in either hand plays them slower still (x1/1.2).
-const MQ_KNIFE_RATE := 1.85
+const MQ_KNIFE_RATE := 2.22
+## Two blades or one (the user's word, 2026-10-05, after measuring with
+## `_shots_tmp/as/dps.gd`): two cut more often, a little lighter each, and
+## dearer — his stamina gone in about four seconds of cutting; one cuts less
+## often, harder, cheaper — about six. About the same harm a second either way.
+## The crit is the same for both.
+const TWO_BLADES := {"damage": 0.95, "stamina": 10.0}
+## (One blade's string is three cuts, its last the heavier one every third
+## blow instead of every sixth: at x1.0 it already lands as hard a second as
+## two blades at x0.95 — measured 2.56 against 2.49.)
+const ONE_BLADE := {"damage": 1.0, "stamina": 7.0, "pace": 0.9}
 
 
 ## On the mannequin the picks give him a heavy blow of their own; his own,
@@ -322,6 +332,13 @@ func _wear_moves() -> void:
 				whole = st
 		_strings = [whole]
 		flurry.assign(whole)
+	# (no cut quicker than this: his own 0.36 held the two-blade string back)
+	if _on_mq:
+		flurry_min_time = 0.3
+	# one blade: a tenth slower than the picks' pace
+	if _on_mq and not two_blades():
+		for c: StringName in flurry:
+			clip_rate[c] = MQ_SWING_RATE * mq_swing_scale * float(ONE_BLADE["pace"])
 	# his own knife cuts at his own rig's pace, whatever the picks' is (they
 	# were made slow: at the mannequin's 1.1 they were half his speed)
 	for c: StringName in flurry:
@@ -416,6 +433,19 @@ func get_cutting_edge() -> PackedVector3Array:
 	if along.length_squared() > 0.0001:
 		tip += along.normalized() * strike_reach
 	return PackedVector3Array([base, tip])
+
+
+## A blow's worth by what he holds (see `TWO_BLADES`, `ONE_BLADE`).
+func attack(style: int = -1) -> void:
+	super(style)
+	cut_weight *= float((TWO_BLADES if two_blades() else ONE_BLADE)["damage"])
+
+
+## What a light blow costs him, by what he holds (the profile's 9 as asked of
+## him by [Player]).
+func blow_stamina(cost: float) -> float:
+	var arms: Dictionary = TWO_BLADES if two_blades() else ONE_BLADE
+	return cost * float(arms["stamina"]) / 9.0
 
 
 ## The Poisoned Blade's coat (`DG_Poison_Coat`, built in Blender by

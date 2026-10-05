@@ -70,7 +70,7 @@ func _initialize() -> void:
 			for i in 3:
 				await physics_frame
 			_check("  his knife cuts at his own pace", rig._act_clip == &"DG_Slash_Out"
-					and absf(rig._anim.speed_scale - 1.85 * pace) < 0.05,
+					and absf(rig._anim.speed_scale - 2.22 * pace) < 0.05,
 					"%s x%.2f" % [rig._act_clip, rig._anim.speed_scale])
 			for i in 60:
 				await physics_frame

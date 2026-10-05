@@ -2968,6 +2968,10 @@ func _attack(heavy: bool = false) -> void:
 	var run_cut := not heavy and _run_cut_ready()
 	if run_cut:
 		cost *= run_cut_stamina
+	# what he holds sets what a blow costs (the assassin: two blades dearer,
+	# one cheaper, [method SkinnedRogueRig.blow_stamina])
+	if not heavy and rig != null and rig.has_method(&"blow_stamina"):
+		cost = float(rig.call(&"blow_stamina", cost))
 	if not _spend(cost):
 		_attack_buffer = 0.0
 		_heavy_buffer = 0.0

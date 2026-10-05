@@ -7999,3 +7999,20 @@ Tested by `tests/combat_core_test.gd` (headless).
 - **The rush in** (the user's word): it costs a third of his stamina (a
   heavy spec's `stamina_share`, read in `Player._attack`), and the slide
   sheds no shadow trail now, only the dirt.
+- **Two blades or one** (the user's word: two cut more often and tire
+  sooner; one cuts slower and lasts). The numbers are `TWO_BLADES` and
+  `ONE_BLADE` in `SkinnedRogueRig`, applied through `attack` (the blow's
+  worth) and `blow_stamina` (what a light blow costs, asked by
+  `Player._attack`); the crit is the same for both. Measured mashing for
+  6 s (`_shots_tmp/as/dps.gd`):
+
+  | | blows/s | harm/s | stamina/s | full stamina lasts |
+  |---|---|---|---|---|
+  | two knives (DG ×2.22, ×0.95, 10 a blow) | 2.50 | 2.49 | 25.0 | 4.0 s |
+  | one knife (picks' pace ×0.9, ×1.0, 7 a blow) | 2.33 | 2.57 | 16.3 | 6.1 s |
+  | short sword + knife (×0.83) | 2.17 | 2.17 | 21.7 | 4.7 s |
+
+  The one-knife string ends every third blow in its heavier turning cut,
+  so at ×1.0 it already lands about as hard a second as two blades.
+  On the mannequin no cut is quicker than 0.3 s (his own rig's 0.36 held
+  the two-blade string back).
