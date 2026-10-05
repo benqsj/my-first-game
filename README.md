@@ -7903,3 +7903,20 @@ as before.
   sword and a knife, one knife). It also checks the slide onto a puglin
   that stepped 5 m off while he gathered: he reaches 0.76 m and cuts.
   `rogue_strike_test` reads the heavy table instead of naming clips.
+- **Quicker heavy blows** (the user's word). Each wind-up and burst is
+  about a third faster:
+  - alone with two blades: gathering ×0.95, blows ×3.0;
+  - in the string: ×1.15 / ×2.7;
+  - with one blade: ×1.05 / ×2.7 alone, ×1.25 / ×2.5 in the string.
+- **His knife cuts at his own pace on the mannequin.** The DG two-knife
+  string played at the mannequin's 1.1, half his speed. `SkinnedRig.clip_rate`
+  (clip → rate) now gives his DG cuts his own 2.1.
+- **Every blade in the bag** (`Inventory._blades`, the Weapons tab, for the
+  assassin):
+  - the Heroes pack's knife, then the knife and the short sword in each of
+    the pack's four styles;
+  - Enter or click puts it in his right hand; Shift+Enter or right-click in
+    his left; X leaves the left hand empty (one blade, one-handed).
+  - Each hand keeps the style of what was put in it: the look's
+    `own_styles`, honoured by `PolysplitLook.normalized` (`style_of`). The
+    hero select's STYLE puts both hands back in its own.

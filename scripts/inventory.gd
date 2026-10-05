@@ -162,7 +162,12 @@ func _input(event: InputEvent) -> void:
 			KEY_E:
 				_switch_tab(_tab + 1)
 			KEY_ENTER, KEY_SPACE, KEY_KP_ENTER:
-				_use(_chosen)
+				if (event as InputEventKey).shift_pressed and _chosen < items.size() and items[_chosen].has("blade"):
+					_hold_blade(String(items[_chosen].blade), true)
+				else:
+					_use(_chosen)
+			KEY_X:
+				_left_hand_empty()
 			KEY_1:
 				equip(Shields.ROUND)
 			KEY_2:
@@ -185,7 +190,10 @@ func _on_gui(event: InputEvent) -> void:
 		var cell := ((at - _slots_rect.position) / (SLOT + Vector2(SLOT_GAP, SLOT_GAP))).floor()
 		var i := int(cell.y) * COLUMNS + int(cell.x)
 		if i < _items().size():
-			if i == _chosen or (event as InputEventMouseButton).double_click:
+			var item: Dictionary = _items()[i]
+			if (event as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT and item.has("blade"):
+				_hold_blade(String(item.blade), true)
+			elif i == _chosen or (event as InputEventMouseButton).double_click:
 				_use(i)
 			_chosen = i
 	_root.queue_redraw()
@@ -262,6 +270,8 @@ func _use(i: int) -> void:
 	elif item.has("garb"):
 		player.set_garb(int(item.garb))
 		_root.queue_redraw()
+	elif item.has("blade"):
+		_hold_blade(String(item.blade), false)
 	elif item.has("bow") and not item.get("worn", false):
 		var look := _look()
 		if not look.is_empty():
@@ -294,7 +304,10 @@ func _items() -> Array[Dictionary]:
 	match _tab:
 		Tab.WEAPONS:
 			var bows := _bows()
-			if bows.is_empty():
+			var blades := _blades()
+			for id: String in blades:
+				out.append(_blade_item(p, id))
+			if blades.is_empty() and bows.is_empty():
 				var held := _weapon(p)
 				# the picture of what is really in his hand, when his look says
 				held["art"] = String(_look().get("w", ""))
@@ -356,6 +369,71 @@ func _weapon(p: CharacterProfile) -> Dictionary:
 				"text": "A long knife, black-hilted, kept keen. Quick cuts, one after another, faster than anything can answer."}
 	return {"name": "Tariel's Sword", "kind": "Straight sword", "icon": "sword", "worn": true, "stats": crit,
 			"text": "The knight's sword. Cuts that chain into a flurry; thrown from a jump, it comes down and plants."}
+
+
+## The assassin's blades (the user's word, 2026-10-05: every knife, in every
+## style, to hold in either hand): the knives and the short swords his look
+## can hold, each in the pack's four styles, and whatever is in his hands.
+## Empty for any other hero, or one whose look cannot change.
+const BLADE_KINDS := ["aw_dagger", "aw_shortsword"]
+const BLADE_STYLES := ["normal", "ornate", "obsidian", "bone"]
+
+
+func _blades() -> Array[String]:
+	var out: Array[String] = []
+	if player.rig == null or player.rig.get(&"polysplit_hero") != &"rogue":
+		return out
+	var look := _look()
+	if look.is_empty():
+		return out
+	out.append("dagger")
+	for kind: String in BLADE_KINDS:
+		for style: String in BLADE_STYLES:
+			out.append(PolysplitLook.styled(kind, style))
+	for key: String in ["w", "o"]:
+		var held := String(look.get(key, ""))
+		if held not in ["", "none"] and not out.has(held):
+			out.append(held)
+	return out
+
+
+func _blade_item(p: CharacterProfile, id: String) -> Dictionary:
+	var look := _look()
+	var right := String(look.get("w", "")) == id
+	var left := String(look.get("o", "")) == id
+	var style := id.get_slice("_", id.get_slice_count("_") - 1) if id.begins_with("aw_") else ""
+	var title := PolysplitLook.arm_name(id).capitalize()
+	if style != "":
+		title += " — " + String(PolysplitLook.STYLE_NAMES.get(style, style.to_upper())).capitalize()
+	var held := "In both hands" if right and left else ("In his right hand" if right else ("In his left hand" if left else ""))
+	var kind := "Knife" if PolysplitLook.kind(id) == &"knives" else "Short sword"
+	return {"name": title, "kind": kind + ("  ·  " + held if held != "" else ""), "icon": "dagger", "art": id,
+			"blade": id, "worn": right or left,
+			"stats": [["P.ATK", "%.0f" % p.damage], ["Critical chance", "%.0f %%" % (p.crit_chance * 100.0)],
+				["Critical damage", "× %.1f" % p.crit_damage], ["Stamina per attack", "%.0f" % p.attack_stamina]],
+			"text": "A blade in each hand and he fights with both, each hand in turn; one, and he fights as he always has. Enter or click: his right hand. Shift+Enter or right-click: his left. X: the left hand empty."}
+
+
+## Puts blade `id` in his right hand (`left` false) or his left.
+func _hold_blade(id: String, left: bool) -> void:
+	var look := _look()
+	if look.is_empty():
+		return
+	look["o" if left else "w"] = id
+	# each hand keeps the style of what was put in it
+	look["own_styles"] = true
+	player.set_look(look)
+	_root.queue_redraw()
+
+
+## His left hand empty: one blade, and he fights one-handed.
+func _left_hand_empty() -> void:
+	var look := _look()
+	if look.is_empty() or _blades().is_empty():
+		return
+	look["o"] = "none"
+	player.set_look(look)
+	_root.queue_redraw()
 
 
 ## His bows ([BowKinds]) as his look can hold them (the Advanced Weapons' in
@@ -602,7 +680,9 @@ func _draw_item(c: Control, box: Rect2, item: Dictionary) -> void:
 	c.draw_multiline_string(UiArt.font("plain"), Vector2(box.position.x + 4, y + 24), String(item.text),
 			HORIZONTAL_ALIGNMENT_LEFT, box.size.x - 8.0, 17, -1, Color(CREAM, 0.88))
 	var status := ""
-	if item.has("shield"):
+	if item.has("blade"):
+		status = "Enter / click: right hand   ·   Shift+Enter / right-click: left hand   ·   X: left hand empty"
+	elif item.has("shield"):
 		status = "Enter / click to take it off" if worn else "Enter / click to put it on"
 	elif (item.has("garb") or item.has("bow")) and not worn:
 		status = "Enter / click to put it on"

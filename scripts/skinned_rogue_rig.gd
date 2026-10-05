@@ -178,7 +178,7 @@ func _configure() -> void:
 	# pace the knight's 0.1 s is a snap from pose to pose.
 	action_blend = 0.14
 	# Quick hands.
-	swing_rate = 2.1
+	swing_rate = OWN_SWING_RATE
 	swing_recovery = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.4
@@ -273,18 +273,18 @@ func _configure() -> void:
 ##    blows (the user liked it as it was).
 ## Both are the two-knife combo (DG_Dual_Combo), played on his own rig and on
 ## the mannequin alike (the DG clips are carried onto it).
-const RUSH_IN := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.6,
-		"rate": 2.6, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.8}
-const THREE_QUICK := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.85,
-		"rate": 2.3, "weight": 1.35, "step": 0.8, "rise": 0.8}
+const RUSH_IN := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.95,
+		"rate": 3.0, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.8}
+const THREE_QUICK := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 1.15,
+		"rate": 2.7, "weight": 1.35, "step": 0.8, "rise": 0.8}
 const WIND_HEAVY := [RUSH_IN, THREE_QUICK, THREE_QUICK, THREE_QUICK, RUSH_IN]
 ## With one blade (the other hand empty, the user's word 2026-10-05): the same
 ## gathering and rush, but the blows one-handed — the axe's three great cuts
 ## (DG_Axe_Three: right, back, and over the head down), the left hand out of it.
-const RUSH_IN_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.02, 0.72), "wind": 0.16, "wind_rate": 0.75,
-		"rate": 2.3, "weight": 1.6, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.7}
-const THREE_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.06, 0.72), "wind": 0.16, "wind_rate": 0.95,
-		"rate": 2.1, "weight": 1.45, "step": 0.8, "rise": 0.7}
+const RUSH_IN_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.02, 0.72), "wind": 0.16, "wind_rate": 1.05,
+		"rate": 2.7, "weight": 1.6, "step": 0.0, "creep": 0.7, "lunge": 6.5, "rise": 0.7}
+const THREE_ONE := {"clip": &"DG_Axe_Three", "part": Vector2(0.06, 0.72), "wind": 0.16, "wind_rate": 1.25,
+		"rate": 2.5, "weight": 1.45, "step": 0.8, "rise": 0.7}
 const WIND_HEAVY_ONE := [RUSH_IN_ONE, THREE_ONE, THREE_ONE, THREE_ONE, RUSH_IN_ONE]
 
 
@@ -297,10 +297,18 @@ func two_blades() -> bool:
 	return face_moves.get(faces[face] if face < faces.size() else &"", {}).is_empty()
 
 
+const OWN_SWING_RATE := 2.1
+
+
 ## On the mannequin the picks give him a heavy blow of their own; his own,
 ## wound up, are kept.
 func _wear_moves() -> void:
 	super()
+	# his own knife cuts at his own rig's pace, whatever the picks' is (they
+	# were made slow: at the mannequin's 1.1 they were half his speed)
+	for c: StringName in flurry:
+		if String(c).begins_with("DG_"):
+			clip_rate[c] = OWN_SWING_RATE * mq_swing_scale
 	heavy = (WIND_HEAVY if two_blades() else WIND_HEAVY_ONE).duplicate(true)
 
 

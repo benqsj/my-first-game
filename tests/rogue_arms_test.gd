@@ -57,8 +57,37 @@ func _initialize() -> void:
 				String(rig.moves.get("kind", &"")))
 		if two:
 			_check("  the TWO BLADES string", rig.flurry.size() >= 4 and rig.flurry[0] == &"DG_Slash_Out", str(rig.flurry))
+			# his own cuts at his own pace on the mannequin too (they were at
+			# its 1.1, half his speed)
+			player.global_position = at
+			Input.action_press("attack")
+			await physics_frame
+			Input.action_release("attack")
+			for i in 3:
+				await physics_frame
+			_check("  his knife cuts at his own pace", rig._act_clip == &"DG_Slash_Out" and rig._anim.speed_scale > 1.8,
+					"%s x%.2f" % [rig._act_clip, rig._anim.speed_scale])
+			for i in 60:
+				await physics_frame
 		_check("  the heavy blows %s" % ("with both" if two else "with the one"),
 				rig.heavy[0]["clip"] == (&"DG_Dual_Combo" if two else &"DG_Axe_Three"), String(rig.heavy[0]["clip"]))
+	# The bag: every knife and short sword, in every style, for either hand.
+	var bag := player._inventory
+	if bag != null:
+		var blades: Array[String] = bag._blades()
+		_check("the bag holds his blades", blades.size() >= 9 and blades.has("aw_dagger_bone") and blades.has("aw_dagger_ornate"),
+				str(blades))
+		bag._hold_blade("aw_dagger_ornate", true)
+		for i in 10:
+			await physics_frame
+		_check("a knife put in his left hand: both hands", rig.moves.get("kind", &"") == &"dual"
+				and String(rig.get_look().get("o", "")) == "aw_dagger_ornate", String(rig.moves.get("kind", &"")))
+		bag._left_hand_empty()
+		for i in 10:
+			await physics_frame
+		_check("his left hand emptied: one hand", rig.moves.get("kind", &"") != &"dual", String(rig.moves.get("kind", &"")))
+	else:
+		_check("the bag", false, "no Inventory on the player")
 	# Alone: gathered, then slid in on it where it has gone meanwhile.
 	player.global_position = at
 	player.rotation.y = 0.0

@@ -135,7 +135,7 @@ func _initialize() -> void:
 			crept = Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
 		if rig._act_clip == rush and not rig.in_hitstop():
 			fast = maxf(fast, rig._anim.speed_scale)
-	_check("wound up slowly, then let go fast", slow < 0.8 and fast > 2.0, "x%.2f then x%.2f" % [slow, fast])
+	_check("wound up slowly, then let go fast", slow < fast * 0.6 and fast > 2.0, "x%.2f then x%.2f" % [slow, fast])
 	_check("edging in as he gathers", crept > 0.3, "%.2f m" % crept)
 	_check("and every blow of it", rig.attack_serial - serial == many - 1, "%d of %d" % [rig.attack_serial - serial + 1, many])
 	await _idle(player)

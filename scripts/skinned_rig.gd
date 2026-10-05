@@ -416,6 +416,10 @@ const SHIELD_BUILT_TURN := 18.6
 var shield_turn_default: float = 0.0
 ## The picked blows' pace (see `swing_rate`).
 const MQ_SWING_RATE := 1.1
+## A blow's own pace where it is not `swing_rate`'s (clip -> rate): the
+## assassin's Mixamo knife cuts, made slow, are hurried as they are on his
+## own rig even when the picked blows on the mannequin are not.
+var clip_rate: Dictionary = {}
 ## This hero's share of that pace: under 1 for a heavy one (the warrior).
 var mq_swing_scale: float = 1.0
 ## How fast the shield goes round onto a clip's way (degrees a second).
@@ -1506,7 +1510,7 @@ func attack(style: int = -1) -> void:
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
 		clip = flurry[_flurry_slot]
 	var part: Vector2 = flurry_part.get(clip, Vector2(0.0, 1.0))
-	var rate := swing_rate
+	var rate := float(clip_rate.get(clip, swing_rate))
 	if _attack_style == AttackStyle.SIDE:
 		rate *= 1.0 + flurry_quicken * maxi(_flurry_slot, 0)
 		var last := _flurry_slot == flurry.size() - 1

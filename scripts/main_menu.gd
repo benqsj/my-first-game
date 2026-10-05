@@ -1107,6 +1107,9 @@ func _maker_step(kind: String, by: int) -> void:
 			look = PolysplitLook.regendered(look, _ps_hero(), String(value))
 		_:
 			look[kind] = value
+			if kind == "ws":
+				# the style picked: both hands' arms in it again
+				look.erase("own_styles")
 	_maker_wear(look)
 
 

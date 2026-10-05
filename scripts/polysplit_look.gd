@@ -601,8 +601,25 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 	for slot: String in ["w", "o"]:
 		var held := arms(hero, String(out["cls"]), slot, style, String(out["w"]) if slot == "o" else "")
 		var id := styled(String(out[slot]), style)
+		# each hand's blade in a style of its own, as put in it from the bag
+		# (`own_styles`; the hero select's STYLE puts both back in its own)
+		if out.get("own_styles", false):
+			var own_style := style_of(String(out[slot]))
+			if own_style != "" and arms(hero, String(out["cls"]), slot, own_style,
+					String(out["w"]) if slot == "o" else "").has(String(out[slot])):
+				id = String(out[slot])
+				held = [id]
 		out[slot] = id if held.has(id) else held[0]
 	return out
+
+
+## The style an Advanced Weapon's id is in ("bone" for "aw_dagger_bone"), or
+## "" for one of the Heroes pack's.
+static func style_of(id: String) -> String:
+	var name := aw_name(id)
+	if name == "":
+		return ""
+	return id.substr(4 + name.length())
 
 
 ## The same look in the other gender: the face and colours kept, the class
