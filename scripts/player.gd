@@ -2765,6 +2765,10 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		arrow.call("launch", flight, damage, critical, _gravity * _shot_drop(), self)
 		if not quarry.is_empty() and arrow.has_method(&"hunt"):
 			arrow.call(&"hunt", get_node_or_null(quarry) as Node3D)
+		# the stunning arrow follows what it was loosed at (Arrow.follow); an
+		# ordinary shot is only aimed
+		if not quarry.is_empty() and stun > 0.0 and arrow.has_method(&"follow"):
+			arrow.call(&"follow", get_node_or_null(quarry) as Node3D)
 	# The fan's other two go with the first: one snap, one loose.
 	if quiet:
 		return
@@ -5492,7 +5496,11 @@ func _stun_loose(after: float, serial: int) -> void:
 		return
 	var from := _arrow_tip()
 	var speed := profile.arrow_speed if profile != null else 60.0
+	# at the target, wherever it has stepped to while the shot was held, not
+	# down the body's line as it was braced (the arrow follows it from there)
 	var heading := _shot_heading(from, speed)
+	if target != null and _targetable(target):
+		heading = _aim_direction(from, speed)
 	var damage := (profile.shot_power() if profile != null else 30.0) * stun_share
 	var quarry := NodePath()
 	if target != null and _targetable(target):

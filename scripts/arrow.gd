@@ -81,6 +81,13 @@ var _whistle: AudioStreamPlayer3D = null
 ## The stunning arrow's chance to stun what it goes into ([method
 ## Player.arrow_stun]); nothing for an ordinary one.
 var stun_chance: float = 0.0
+## What it was loosed at, when it follows it ([method follow]): the stunning
+## arrow does, so a creature stepping aside as it flies is still hit; one that
+## dodges ([code]is_evading[/code]) shakes it off and it flies on straight.
+var _followed: Node3D = null
+var _follow_part: int = -1
+## How fast it turns onto its quarry, radians a second.
+const HUNT_TURN := 7.0
 ## Let go at the moment ([method SkinnedArcherRig.release_grade]): told to the
 ## archer with the hit, which he hears a little brighter.
 var perfect: bool = false
@@ -164,7 +171,10 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 
-	_velocity.y -= _gravity * delta
+	if _followed != null:
+		_steer(delta)
+	else:
+		_velocity.y -= _gravity * delta
 	_roll += TAU * spin * delta
 	var step := _velocity * delta
 	var hit := _sweep(global_position, global_position + step)
@@ -177,6 +187,57 @@ func _physics_process(delta: float) -> void:
 
 	global_position = (hit["position"] as Vector3) + _velocity.normalized() * bite
 	_strike(hit["collider"] as Node3D, hit["position"] as Vector3)
+
+
+## Follows `who` from here on (the stunning arrow, [method Player.net_loose]),
+## at the archer's chosen part of it when it is his target.
+func follow(who: Node3D) -> void:
+	if who == null or not who.is_inside_tree():
+		return
+	_followed = who
+	_follow_part = TargetPoints.default_index(who)
+	if is_instance_valid(_shooter) and _shooter.get(&"target") == who:
+		var part: Variant = _shooter.get(&"target_part")
+		if part is int:
+			_follow_part = part
+
+
+func _steer(delta: float) -> void:
+	var q := _followed
+	if not is_instance_valid(q) or not q.is_inside_tree() or q.get(&"is_dead") == true \
+			or (q.has_method(&"is_evading") and bool(q.call(&"is_evading"))):
+		# dodged, or gone: it flies on as it was going
+		_followed = null
+		return
+	var points := TargetPoints.of(q)
+	if points.is_empty():
+		_followed = null
+		return
+	var at: Vector3 = points[clampi(_follow_part, 0, points.size() - 1)]
+	# at that height, but down the middle of what stops arrows: a wolf's head
+	# stands out in front of its capsule, and an arrow through the head point
+	# would pass it by
+	for shape in q.get_children():
+		if shape is CollisionShape3D and not (shape as CollisionShape3D).disabled:
+			var mid := (shape as Node3D).global_position
+			at.x = mid.x
+			at.z = mid.z
+			break
+	var want := at - global_position
+	var speed := _velocity.length()
+	if want.length_squared() < 0.0001 or speed < 0.01:
+		return
+	var going := _velocity / speed
+	var need := want.normalized()
+	if going.dot(need) < -0.2:
+		# gone past it
+		_followed = null
+		return
+	var angle := going.angle_to(need)
+	if angle < 0.0001:
+		return
+	var turn := minf(HUNT_TURN * delta / angle, 1.0)
+	_velocity = going.slerp(need, turn).normalized() * speed
 
 
 ## What the arrow crossed between one tick and the next, if anything.
