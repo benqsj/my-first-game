@@ -117,6 +117,9 @@ var _arc_base: Dictionary = {}
 ## A heavy blow's clip reached its `slam` share: the blade in the ground at
 ## `at`, where the shockwave goes out from. Once a blow, on every peer.
 signal slammed(at: Vector3, heft: float)
+## A heavy blow wound up (its spec's `wind`) has been let go; `lunge` is how
+## far (m) its spec says he throws himself in with it (0: not at all).
+signal wound_up(lunge: float)
 var _slam_done: bool = false
 var carry_velocity := Vector3.ZERO
 ## How much of its clip's travel a carried blow covers: set by the controller
@@ -947,6 +950,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			if _stop_left <= 0.0 and _drag_left <= 0.0:
 				_anim.speed_scale = _wind_fast
 			_whoosh()
+			wound_up.emit(_wind_lunge)
 		if _hold_at > 0.0 and _role == Role.SWING:
 			# The running cut wound up: held at its `hold` till it is let go.
 			if not _holding and through >= _hold_at:
@@ -1477,6 +1481,7 @@ func attack(style: int = -1) -> void:
 			if winding:
 				_wind_at = wind
 				_wind_fast = h_rate
+				_wind_lunge = float(h.get("lunge", 0.0))
 				_action_left = _action_len * ((wind - hp.x) / start_rate + (hp.y - wind) / h_rate)
 			_swing_commit = swing_time()
 			if not winding:
@@ -1654,6 +1659,14 @@ var _hold_until: float = -1.0
 ## gathering, then the blows all at once. -1: none.
 var _wind_at: float = -1.0
 var _wind_fast: float = 1.0
+var _wind_lunge: float = 0.0
+
+
+## Seconds left of the gathering of a heavy blow being wound up (0: none).
+func wind_left() -> float:
+	if _wind_at <= 0.0 or _role != Role.SWING or _action_len <= 0.0:
+		return 0.0
+	return _action_len * maxf(_wind_at - _progress(), 0.0) / maxf(_action_rate, 0.01)
 
 
 ## A running cut wound up and held, not yet let go.

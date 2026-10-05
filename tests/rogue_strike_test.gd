@@ -109,27 +109,32 @@ func _initialize() -> void:
 	_check("the knife goes down to a wolf on the ground", lowest < 0.5, "%.2f m" % lowest)
 
 	# The heavy blows, on the other button (2026-10-05): each wound up slowly,
-	# then let go all at once. Out of nothing one hard cut, in the string
-	# three quick ones.
+	# then let go all at once. Out of nothing he edges in, rushes in and cuts
+	# three times; in the string the three quick ones on the spot.
 	wolf.global_position += Vector3(0, -80, 0)
 	wolf.set_physics_process(false)
 	foe.global_position = hold
 	# Long enough after the last cut that the string has started again.
 	for i in 80:
 		await physics_frame
+	var from := player.global_position
 	await _press(player, "block")
-	_check("out of nothing the heavy is one hard cut", rig._act_clip == &"DG_Slash_Out" and rig.is_heavy(),
+	_check("out of nothing the heavy is the rush in", rig._act_clip == &"DG_Dual_Combo" and rig.is_heavy(),
 			String(rig._act_clip))
 	var slow: float = rig._anim.speed_scale
 	var serial: int = rig.attack_serial
 	var fast := 0.0
-	for i in 70:
+	var crept := 0.0
+	for i in 110:
 		await physics_frame
 		foe.global_position = hold
-		if rig._act_clip == &"DG_Slash_Out":
+		if rig.wind_left() > 0.0:
+			crept = Vector2(player.global_position.x - from.x, player.global_position.z - from.z).length()
+		if rig._act_clip == &"DG_Dual_Combo":
 			fast = maxf(fast, rig._anim.speed_scale)
-	_check("wound up slowly, then let go fast", slow < 1.0 and fast > 1.8, "x%.2f then x%.2f" % [slow, fast])
-	_check("and it cuts once", rig.attack_serial == serial, "%d" % (rig.attack_serial - serial))
+	_check("wound up slowly, then let go fast", slow < 0.7 and fast > 2.4, "x%.2f then x%.2f" % [slow, fast])
+	_check("edging in as he gathers", crept > 0.3, "%.2f m" % crept)
+	_check("and three blows", rig.attack_serial - serial == 2, "%d" % (rig.attack_serial - serial + 1))
 	await _idle(player)
 	await _press(player, "attack")
 	await _idle(player)

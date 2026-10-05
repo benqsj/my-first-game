@@ -965,6 +965,8 @@ func _spawn_character() -> void:
 	_smoother = VisualSmoother.attach(self, body)
 	if rig != null and rig.has_signal(&"slammed"):
 		rig.connect(&"slammed", _on_slammed)
+	if rig != null and rig.has_signal(&"wound_up"):
+		rig.connect(&"wound_up", _on_wound_up)
 	# His own body wears the hair picked on the hero select; everybody else's
 	# comes from `net_hair`.
 	var chooser := get_node_or_null("/root/Game")
@@ -1394,9 +1396,9 @@ func _aim_body(direction: Vector3, delta: float) -> void:
 ## way, the camera still on the target: a backpedal at a run is no way for a
 ## man to go (the user's word, 2026-10-02; for the bow too, 2026-10-04).
 func _watches_backing_off() -> bool:
-	# (and the assassin: his locked step back is a step facing it, then the flip)
-	return is_blocking or Input.is_action_pressed("walk") \
-			or (profile != null and profile.step_then_flip)
+	# (the assassin too now runs from it, turned to the camera, the user's word
+	# 2026-10-05; only his evade back is still a step facing it)
+	return is_blocking or Input.is_action_pressed("walk")
 
 
 ## His pace behind the raised shield going on (m/s): more than a walk, well
@@ -3013,6 +3015,8 @@ func _attack(heavy: bool = false) -> void:
 			net_sure_at.rpc(NodePath())
 		_commit(rig.swing_time())
 		_ease_delay = 0.0
+		if blow >= 0 and not airborne:
+			_creep_in(rig.get(&"heavy")[blow])
 		if run_cut and rig.has_method(&"holding_cut"):
 			if bool(rig.call(&"holding_cut")):
 				_cut_charging = true
@@ -3699,6 +3703,42 @@ func _step_in(foe: Node3D, reach: float) -> void:
 	var go := minf(gap, reach)
 	_step_velocity = to.normalized() * go / strike_step_time
 	_step_left = strike_step_time
+
+
+## A heavy blow wound up slowly (the assassin's, [member SkinnedRogueRig.WIND_HEAVY])
+## edges him in over the gathering (its spec's `creep`, metres) ...
+func _creep_in(spec: Dictionary) -> void:
+	var creep := float(spec.get("creep", 0.0))
+	var t := float(rig.call(&"wind_left")) if rig.has_method(&"wind_left") else 0.0
+	if creep <= 0.0 or t <= 0.0 or not is_on_floor():
+		return
+	var ahead := -global_basis.z
+	ahead.y = 0.0
+	_step_velocity = ahead.normalized() * creep / t
+	_step_left = t
+
+
+## ... and when it is let go throws him in at what it is thrown at (no
+## further than `lunge`, and not past it), or that far ahead with nothing.
+@export var lunge_time: float = 0.18
+
+
+func _on_wound_up(lunge: float) -> void:
+	if lunge <= 0.0 or not is_multiplayer_authority() or not is_on_floor():
+		return
+	var foe: Node3D = _strike_foe if is_instance_valid(_strike_foe) else (target if target != null and _targetable(target) else null)
+	var ahead := -global_basis.z
+	ahead.y = 0.0
+	var go := lunge
+	if foe != null:
+		var to := foe.global_position - global_position
+		to.y = 0.0
+		if to.length() > 0.01:
+			ahead = to
+			go = clampf(to.length() - _body_radius(foe) - strike_close, 0.0, lunge)
+			rotation.y = atan2(-to.x, -to.z)
+	_step_velocity = ahead.normalized() * go / lunge_time
+	_step_left = lunge_time if go > 0.05 else 0.0
 
 
 static func _body_radius(who: Node3D) -> float:

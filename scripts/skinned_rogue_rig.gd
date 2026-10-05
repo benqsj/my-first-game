@@ -262,19 +262,22 @@ func _configure() -> void:
 
 
 ## The heavy blows, on the other button (the user's word, 2026-10-05: not the
-## flips and falls he had): each wound up first, slowly — the knives drawn
-## back, the body gathered low — and then let go all at once (`wind`, the
-## share of the clip the gathering ends at; `wind_rate`, its pace; `rate`,
-## the pace of what follows). Which one is what the string has come to
-## ([method Player._heavy_blow]): out of nothing and at a run, one rising cut
-## out of a crouch, hard (DG_Slash_Out); in the string, three quick blows
-## (the two-knife combo, DG_Dual_Combo). Every peer plays the same table, on
-## his own rig and on the mannequin (the DG clips are carried onto it).
-const ONE_HARD := {"clip": &"DG_Slash_Out", "part": Vector2(0.1, 0.66), "wind": 0.36, "wind_rate": 0.75,
-		"rate": 2.0, "weight": 2.3, "step": 1.2, "rise": 0.55}
+## flips and falls he had). Each is wound up first, slowly, and then let go
+## all at once (`wind`, the share of the clip the gathering ends at;
+## `wind_rate`, its pace; `rate`, the pace of what follows). Which one is
+## what the string has come to ([method Player._heavy_blow]):
+##  - on its own (out of nothing, or at a run): a long gathering edging in
+##    (`creep`, metres), then he throws himself in (`lunge`) and three blows
+##    come quick as one;
+##  - after cuts of the string: the gathering on the spot and the three quick
+##    blows (the user liked it as it was).
+## Both are the two-knife combo (DG_Dual_Combo), played on his own rig and on
+## the mannequin alike (the DG clips are carried onto it).
+const RUSH_IN := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.6,
+		"rate": 2.6, "weight": 1.5, "step": 0.0, "creep": 0.7, "lunge": 3.5, "rise": 0.8}
 const THREE_QUICK := {"clip": &"DG_Dual_Combo", "part": Vector2(0.1, 0.86), "wind": 0.23, "wind_rate": 0.85,
 		"rate": 2.3, "weight": 1.35, "step": 0.8, "rise": 0.8}
-const WIND_HEAVY := [ONE_HARD, THREE_QUICK, THREE_QUICK, THREE_QUICK, ONE_HARD]
+const WIND_HEAVY := [RUSH_IN, THREE_QUICK, THREE_QUICK, THREE_QUICK, RUSH_IN]
 
 
 ## On the mannequin the picks give him a heavy blow of their own; his own,

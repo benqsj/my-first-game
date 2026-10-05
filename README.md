@@ -7835,14 +7835,29 @@ heavy combo flipped and fell to the ground, and his evades were a blur.
   `wind` is the share of the clip the gathering ends at, played at
   `wind_rate`; the rest plays at `rate` (`SkinnedRig.attack`, `_wind_at`;
   the swing sound goes with the release).
-  - Out of nothing, or at a run: one hard rising cut out of a crouch
-    (`DG_Slash_Out`, worth 2.3 cuts).
-  - In the string: three quick blows (`DG_Dual_Combo`, 1.35 each).
-  - The spinning leap that ended on the ground, the flying flip and the
-    axe's three cuts are gone from it. The same table is worn on the
-    mannequin (YOUR OWN) in place of the picks' one-knife blow.
+  - On its own (out of nothing, or at a run): a long gathering (x0.6)
+    while he edges in 0.7 m (`creep`, `Player._creep_in`), then he throws
+    himself up to 3.5 m in at what he cuts (`lunge`; the rig's `wound_up`
+    signal, `Player._on_wound_up`, never past it) and three blows come as
+    one (x2.6).
+  - After cuts of the string (left, then right): the gathering on the spot
+    and the three quick blows (x2.3). The user liked this one as it was.
+  - Both are the two-knife combo (`DG_Dual_Combo`). The spinning leap that
+    ended on the ground, the flying flip and the axe's three cuts are gone
+    from it. The same table is worn on the mannequin (YOUR OWN), in place
+    of the picks' one-knife blow.
 - **His run leans into it** (`RunLean`, a `SkeletonModifier3D` laid on
   whichever skeleton he wears). The back is bent forward 0.16 rad at a run
   and 0.2 at a sprint, and the head is brought back up so he looks ahead.
   It eases in and out, and is not used while he strafes, backs, evades or
   swings.
+- **Backing off a lock** (every hero, the user's word): running back from
+  what he is locked on, he turns and runs towards the camera, the camera
+  still on the target. Only behind a raised shield or walking does he keep
+  facing it. The assassin's exception is gone; only his evade back is still
+  a step facing it.
+- **The legs** (the user asked if the resizing left some heroes short in the
+  leg). It did not. Every hero's look is YOUR OWN on the same mannequin, and
+  the sizes are a uniform scale of the whole figure. Every one measures the
+  same: hip at 0.52 of his height, leg to torso 1.60
+  (`_shots_tmp/as/prop_world.gd`).
