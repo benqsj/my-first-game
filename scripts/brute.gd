@@ -18,6 +18,8 @@ extends CharacterBody3D
 
 signal died
 signal hurt(remaining: float)
+## It stepped into one of its [member phases] (`index` into them).
+signal phase_changed(index: int, phase: BossPhase)
 
 enum Mode { GUARD, CHASE, FIGHT, RETURN }
 ## Every subclass keeps these two numbers for "nothing" and "dead".
@@ -60,6 +62,11 @@ const ACT_REEL := 98
 @export var regen_after: float = 0.0
 @export var regen_fill: float = 1.5
 
+@export_group("Boss phases")
+## The stages of its fight, each from a share of its health down ([BossPhase]).
+## Empty for an ordinary creature.
+@export var phases: Array[BossPhase] = []
+
 @export_group("Appearance")
 ## Size the model is drawn at. The collider is sized in the scene to match.
 @export var visual_scale: float = 1.0
@@ -99,8 +106,6 @@ var _quarry: Node3D
 var _act_time: float = 0.0
 var _act_length: float = 0.0
 var _cooldown: float = 0.0
-var _seen_swing: Dictionary = {}
-var _last_cut: Dictionary = {}
 var _corpse_age: float = 0.0
 var _cleared: bool = false
 var _body_rest_y: float = 0.0
@@ -280,7 +285,7 @@ func _think(delta: float) -> void:
 				mode = Mode.RETURN
 			elif act == ACT_NONE:
 				var gap := _distance_to(_quarry)
-				if _cooldown <= 0.0:
+				if _cooldown <= 0.0 and not _choose_phase_attack(gap):
 					_choose_attack(gap)
 				if act != ACT_NONE:
 					return
@@ -299,6 +304,7 @@ func _think(delta: float) -> void:
 			if home.length() < 1.5:
 				mode = Mode.GUARD
 				health = max_health
+				_reset_phases()
 				_wait = 1.0
 			else:
 				_move_towards(_home, speed * 1.6, delta)
@@ -518,6 +524,124 @@ func _run_waves(delta: float) -> void:
 #endregion
 
 
+#region Boss phases
+## Which of [member phases] it is in (-1: none yet).
+var phase_index: int = -1
+## Its speeds and defences as they were before any stage changed them.
+var _phase_base: Dictionary = {}
+## The current stage's new attacks, as ids of its `Act` enum.
+var _phase_attacks: Array[int] = []
+## The share of its choices taken from a stage's new attacks.
+const PHASE_NEW_SHARE := 0.5
+## What a stage's speed multiplier scales, of what it has.
+const PHASE_SPEEDS: Array[StringName] = [&"speed", &"chase_speed", &"close_speed"]
+
+
+## The stage it is in, or null.
+func current_phase() -> BossPhase:
+	return phases[phase_index] if phase_index >= 0 and phase_index < phases.size() else null
+
+
+## After every blow (host): the deepest stage its health has fallen to, if it
+## is not in it yet. Stages are read highest threshold first, so a blow that
+## takes it past two at once goes straight to the second.
+func _check_phase() -> void:
+	if phases.is_empty() or is_dead or not _decides():
+		return
+	var share := health / maxf(max_health, 0.001)
+	var next := phase_index
+	var order := _phase_order()
+	for k in order.size():
+		var i: int = order[k]
+		if k > order.find(phase_index) and share <= phases[i].hp_threshold:
+			next = i
+	if next != phase_index:
+		_enter_phase(next)
+
+
+## The stages' indices, highest threshold first.
+func _phase_order() -> Array[int]:
+	var order: Array[int] = []
+	for i in phases.size():
+		if phases[i] != null:
+			order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		return phases[a].hp_threshold > phases[b].hp_threshold)
+	return order
+
+
+func _enter_phase(index: int) -> void:
+	if _phase_base.is_empty():
+		for key: StringName in PHASE_SPEEDS:
+			if get(key) != null:
+				_phase_base[key] = float(get(key))
+		_phase_base[&"p_def"] = p_def
+		_phase_base[&"m_def"] = m_def
+	phase_index = index
+	var phase := phases[index]
+	for key: StringName in PHASE_SPEEDS:
+		if _phase_base.has(key):
+			set(key, float(_phase_base[key]) * phase.speed_multiplier)
+	p_def = float(_phase_base[&"p_def"]) * phase.armour_multiplier
+	m_def = float(_phase_base[&"m_def"]) * phase.armour_multiplier
+	_phase_attacks.clear()
+	for attack: StringName in phase.new_attacks_array:
+		var id := _attack_id(attack)
+		if id >= 0:
+			_phase_attacks.append(id)
+		else:
+			push_warning("%s: no attack called %s for its stage %d" % [name, attack, index])
+	if phase.phase_animation != &"":
+		var opening := _attack_id(phase.phase_animation)
+		if opening >= 0 and act != ACT_DEAD:
+			_begin_phase_move(opening)
+	phase_changed.emit(index, phase)
+
+
+## Back to how it started (let go of and whole again).
+func _reset_phases() -> void:
+	if phase_index < 0:
+		return
+	for key: StringName in _phase_base:
+		set(key, _phase_base[key])
+	phase_index = -1
+	_phase_attacks.clear()
+
+
+## Now and then, once in a stage, one of its new attacks instead of its own
+## choice — one that suits how far off its quarry is. True if one was begun.
+func _choose_phase_attack(gap: float) -> bool:
+	if _phase_attacks.is_empty() or _rng.randf() >= PHASE_NEW_SHARE:
+		return false
+	var fits: Array[int] = []
+	for id in _phase_attacks:
+		if _phase_attack_fits(id, gap):
+			fits.append(id)
+	if fits.is_empty():
+		return false
+	_begin_phase_move(fits[_rng.randi() % fits.size()])
+	return act != ACT_NONE
+
+
+## The id of one of its attacks by name, from its own `Act` enum; -1 if none.
+func _attack_id(attack: StringName) -> int:
+	var acts: Variant = get_script().get_script_constant_map().get(&"Act")
+	if not acts is Dictionary:
+		return -1
+	return int((acts as Dictionary).get(String(attack), -1))
+
+
+## Whether an attack can be thrown from `gap` metres off (a kind says which).
+func _phase_attack_fits(_id: int, gap: float) -> bool:
+	return gap <= _stand_off() + 1.0
+
+
+## Begins one of its attacks by id (a kind knows how).
+func _begin_phase_move(_id: int) -> void:
+	pass
+#endregion
+
+
 #region Taking hits
 ## A player met one of its blows on the shield at the last moment. Host only:
 ## whatever it was doing stops — the rest of a combo is not thrown — and it
@@ -540,56 +664,42 @@ func _reel_act() -> bool:
 
 
 func _watch_blades() -> void:
-	for node in get_tree().get_nodes_in_group("player"):
-		var knight := node as Player
-		if knight == null or knight.rig == null:
-			continue
-		var serial: int = knight.rig.attack_serial
-		if not _seen_swing.has(knight.name):
-			_seen_swing[knight.name] = serial
-			_last_cut[knight.name] = serial
-			continue
-		if serial != _seen_swing[knight.name]:
-			_seen_swing[knight.name] = serial
-			if knight.global_position.distance_to(global_position) < 6.0:
-				_rouse(knight)
-		if serial == _last_cut.get(knight.name, -1):
-			continue
-		var edge := knight.cutting_edge_for(self)
-		if edge.is_empty():
-			continue
-		var low := global_position + Vector3.UP * body_radius
-		var high := global_position + Vector3.UP * maxf(body_height - body_radius, body_radius)
-		var near := Geometry3D.get_closest_points_between_segments(edge[0], edge[1], low, high)
-		if near[0].distance_to(near[1]) > body_radius + hit_tolerance:
-			continue
-		_last_cut[knight.name] = serial
-		# Thrown the way the blade was going: cut from its right, it goes left.
-		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.3)
-		var worth := knight.cut_worth()
-		if bool(worth[1]):
-			CombatText.mark_critical(self)
-		if _receive(float(worth[0]), near[1], blow, knight):
-			knight.rig.bloody()
-			knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
-			knight.blade_hit(self, near[1])
-		if is_dead:
-			return
+	var box := hurtbox()
+	box.set_capsule(body_radius, body_height, hit_tolerance)
+	box.scan()
+
+
+## Its [HurtboxComponent], made the first time it is asked for.
+func hurtbox() -> HurtboxComponent:
+	var box := get_node_or_null(^"Hurtbox") as HurtboxComponent
+	if box == null:
+		box = HurtboxComponent.of(self)
+		box.swing_seen.connect(_wake_to_swing)
+	return box
+
+
+## A swing near it wakes it.
+func _wake_to_swing(knight: Node3D) -> void:
+	if knight.global_position.distance_to(global_position) < 6.0:
+		_rouse(knight)
 
 
 ## What `arrow.gd` calls, with the wolf's signature.
 func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
-		_spill: bool = true, from: Node = null, magic: bool = false) -> void:
-	if is_dead or not _decides():
-		return
-	var shooter := from as Node3D if is_instance_valid(from) else null
+		spill: bool = true, from: Node = null, magic: bool = false) -> void:
+	hurtbox().take_hit(damage, at, blow, critical, spill, from, magic)
+
+
+## What a hit does to it ([HurtboxComponent.take]): true when it drew blood. A
+## blade's cut is taken whole; a shot only as far as its hide lets it in.
+func receive_hit(hit: HitInfo) -> bool:
+	if hit.by_blade:
+		return _receive(hit.damage, hit.at, hit.blow, hit.attacker(), true, hit.magic)
+	var shooter := hit.attacker()
 	var factor := _arrow_factor(shooter)
 	if factor < 1.0:
-		net_clash.rpc(at)
-	# A critical is already in `damage`: the shooter made it one.
-	if critical:
-		CombatText.mark_critical(self)
-	_receive(damage * factor, at, blow, shooter, factor >= 1.0, magic)
+		net_clash.rpc(hit.at)
+	return _receive(hit.damage * factor, hit.at, hit.blow, shooter, factor >= 1.0, hit.magic)
 
 
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bool = true,
@@ -606,6 +716,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, bleed: bo
 	damage *= Afflictions.factor(self, from)
 	health = maxf(health - Defence.against(damage, p_def, m_def, magic), 0.0)
 	hurt.emit(health)
+	_check_phase()
 	if bleed:
 		var thrown := blow if blow.length_squared() > 0.0001 else Vector3.UP
 		net_bleed.rpc(at, thrown.normalized())
@@ -624,6 +735,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 	_calm = 0.0
 	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from), 0.0)
 	hurt.emit(health)
+	_check_phase()
 	if health <= 0.0:
 		_die()
 

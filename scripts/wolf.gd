@@ -141,7 +141,6 @@ var _rng := RandomNumberGenerator.new()
 ## The last swing taken from each attacker, keyed by their node name. A single
 ## number here would let two players swinging in the same tick collapse into one
 ## hit — the second one's serial would already look seen.
-var _last_hit_serial: Dictionary = {}
 ## How much each attacker has taken off it in total, keyed the same way. This is
 ## what it goes after: the one hurting it most, not the one standing nearest.
 var _threat: Dictionary = {}
@@ -1708,53 +1707,50 @@ func _face(direction: Vector3, delta: float) -> void:
 
 
 #region Damage
-## Watches the knight's blade and takes off whatever it passes through. The
-## blade is read as a line segment rather than a collision body: the point of
-## the swing is *where* it lands on the creature, and a segment gives that
-## directly without wrapping every limb in its own collider.
+## Watches the knight's blade and takes off whatever it passes through
+## ([HurtboxComponent]). The blade is read as a line segment rather than a
+## collision body: the point of the swing is *where* it lands on the creature,
+## and a segment gives that directly without wrapping every limb in its own
+## collider. Two people swinging at the same wolf in the same tick both land.
 func _take_hits() -> void:
 	if is_dead or _evading > 0.0:
 		return
-	# Every player, not the one that happened to be first in the group at load.
-	# Two people swinging at the same wolf in the same tick both land — which is
-	# also why the serial is remembered per attacker.
-	for node in get_tree().get_nodes_in_group("player"):
-		var knight := node as Player
-		if knight == null or knight.rig == null:
-			continue
+	hurtbox().scan()
 
-		var serial: int = knight.rig.attack_serial
-		if serial == _last_hit_serial.get(knight.name, -1):
-			continue
-		var edge := _within_reach(knight.cutting_edge_for(self))
-		if edge.is_empty():
-			continue
 
-		if _wound(knight, edge, serial):
-			if is_dead:
-				return
-			continue
-		# Thrown the way the blade was going: the limb, and the blood after it.
-		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
-		var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance, blow)
-		if part == "":
-			continue
-		_last_hit_serial[knight.name] = serial
+## Its [HurtboxComponent], made the first time it is asked for: the wolf's own
+## test of a blade (a wound, or a limb off) instead of a capsule.
+func hurtbox() -> HurtboxComponent:
+	var box := get_node_or_null(^"Hurtbox") as HurtboxComponent
+	if box == null:
+		box = HurtboxComponent.of(self)
+		box.skip_first_swing = false
+		box.contact = _blade_contact
+	return box
 
-		_by_blade = true
-		# The host decided *which* limb; everyone else is told, so the piece that
-		# comes off is the same piece in every window. Re-running the geometry
-		# there would disagree — their copy of the blade is in a slightly
-		# different place, a frame of interpolation behind.
-		net_sever.rpc(part, rig.last_cut_point, blow)
-		# `net_sever` has already spilled the blood, on every peer.
-		var worth := _blade_damage(knight)
-		take_hit(float(worth[0]), rig.last_cut_point, blow, bool(worth[1]), false, knight)
-		knight.rig.bloody()
-		knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
-		knight.blade_hit(self, rig.last_cut_point)
-		if is_dead:
-			return
+
+## Where the knight's edge reaches it, as a hit; null if it does not. While it
+## is above half its health (`sever_below`) the blade wounds it ([method
+## _wound]); after that a limb may come off along the edge.
+func _blade_contact(knight: Player, cut_edge: PackedVector3Array) -> HitInfo:
+	var edge := _within_reach(cut_edge)
+	if edge.is_empty():
+		return null
+	var wounding := _wound(knight, edge)
+	if wounding != null:
+		return wounding if wounding.damage >= 0.0 else null
+	# Thrown the way the blade was going: the limb, and the blood after it.
+	var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
+	var part := rig.sever_along_edge(edge[0], edge[1], hit_tolerance, blow)
+	if part == "":
+		return null
+	# The host decided *which* limb; everyone else is told, so the piece that
+	# comes off is the same piece in every window. Re-running the geometry
+	# there would disagree — their copy of the blade is in a slightly
+	# different place, a frame of interpolation behind.
+	net_sever.rpc(part, rig.last_cut_point, blow)
+	# `net_sever` has already spilled the blood, on every peer.
+	return HitInfo.make(0.0, rig.last_cut_point, blow, false, false)
 
 
 ## Down on its belly, it lies under a cut swung at a standing man's height: the
@@ -1783,25 +1779,18 @@ func strike_point() -> Vector3:
 
 
 ## While it is above half its health (`sever_below`) the blade does not take a
-## limb off: it wounds it — blood, the damage, a shove. True when that is what
-## this cut was (whether or not it reached); false once limbs may come off.
-func _wound(knight: Player, edge: Array, serial: int) -> bool:
+## limb off: it wounds it — blood, the damage, a shove. Null when limbs may
+## come off this cut; else the wound (its `damage` -1 when it did not reach).
+func _wound(knight: Player, edge: PackedVector3Array) -> HitInfo:
 	if health <= max_health * sever_below and _rng.randf() < sever_chance:
-		return false
+		return null
 	if not rig._blade_reaches(edge[0], edge[1], hit_tolerance):
-		return true
-	_last_hit_serial[knight.name] = serial
+		return HitInfo.make(-1.0, Vector3.ZERO, Vector3.ZERO)
 	var chest := 0.35 if rig.is_crippled() else 1.1
 	var at := Geometry3D.get_closest_point_to_segment(global_position + Vector3.UP * chest * _size() / 1.65, edge[0], edge[1])
 	# Thrown the way the blade was going: cut from its right, it goes left.
 	var cut: Vector3 = knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.4)
-	var worth := _blade_damage(knight)
-	_by_blade = true
-	take_hit(float(worth[0]), at, cut, bool(worth[1]), true, knight)
-	knight.rig.bloody()
-	knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
-	knight.blade_hit(self, at)
-	return true
+	return HitInfo.make(0.0, at, cut)
 
 
 ## What a hero's cut is worth to it, before its p.def: that hero's own p.atk,
@@ -1992,14 +1981,22 @@ func net_restore(parts: Array) -> void:
 ## that landed it.
 func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
 		spill: bool = true, from: Node = null, magic: bool = false) -> void:
-	# Only the host decides what a hit is worth. `health` and `is_dead` are
-	# replicated from here, so a client that scored one says nothing and waits to
-	# be told — which is what keeps one wolf from dying twice.
-	if is_dead or not _decides():
-		return
-	if critical:
-		CombatText.mark_critical(self)
+	hurtbox().take_hit(damage, at, blow, critical, spill, from, magic)
 
+
+## What a hit does to it ([HurtboxComponent.take], which has already checked
+## that this is the host and it is alive: only the host decides what a hit is
+## worth. `health` and `is_dead` are replicated from here, so a client that
+## scored one says nothing and waits to be told — which is what keeps one wolf
+## from dying twice).
+func receive_hit(hit: HitInfo) -> bool:
+	_by_blade = hit.by_blade
+	_apply_hit(hit.damage, hit.at, hit.blow, hit.critical, hit.spill, hit.from, hit.magic)
+	return true
+
+
+func _apply_hit(damage: float, at: Vector3, blow: Vector3, critical: bool,
+		spill: bool, from: Node, magic: bool) -> void:
 	damage = Defence.against(damage, p_def, m_def, magic)
 	if _reeling > 0.0 or _open > 0.0:
 		damage *= Recoil.RIPOSTE

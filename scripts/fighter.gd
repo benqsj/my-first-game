@@ -169,8 +169,6 @@ var _dash_dir: Vector3 = Vector3.ZERO
 var _blows: PackedFloat32Array = PackedFloat32Array()
 var _blows_done: int = 0
 ## Per attacker, by node name: the last swing answered and the last one taken.
-var _seen_swing: Dictionary = {}
-var _last_cut: Dictionary = {}
 var _corpse_age: float = 0.0
 var _cleared: bool = false
 ## The bones the reel from a parry bends, and how far into it this peer is.
@@ -622,58 +620,35 @@ func is_reeling() -> bool:
 	return act == Act.REEL
 
 
-## Watches every knight's blade. A new swing is a chance to defend; a blade
-## that passes through the body is a cut, taken once per swing per attacker.
+## Watches every knight's blade ([HurtboxComponent]): a new swing is a chance
+## to defend; a blade that passes through the body is a cut, taken once per
+## swing per attacker.
 func _watch_blades() -> void:
-	for node in get_tree().get_nodes_in_group("player"):
-		var knight := node as Player
-		if knight == null or knight.rig == null:
-			continue
-		var serial: int = knight.rig.attack_serial
-		if not _seen_swing.has(knight.name):
-			_seen_swing[knight.name] = serial
-			_last_cut[knight.name] = serial
-			continue
-		if serial != _seen_swing[knight.name]:
-			_seen_swing[knight.name] = serial
-			_answer_swing(knight)
-		if serial == _last_cut.get(knight.name, -1):
-			continue
-		var edge := knight.cutting_edge_for(self)
-		if edge.is_empty():
-			continue
-		var s := maxf(visual_scale, 0.01)
-		var low := global_position + Vector3.UP * body_radius * s
-		var high := global_position + Vector3.UP * maxf(body_height - body_radius, body_radius) * s
-		var near := Geometry3D.get_closest_points_between_segments(edge[0], edge[1], low, high)
-		if near[0].distance_to(near[1]) > body_radius * s + hit_tolerance:
-			continue
-		_last_cut[knight.name] = serial
-		# Thrown the way the blade was going: cut from its right, it goes left.
-		var blow := knight.rig.swing_direction((edge[1] - edge[0]).normalized() + Vector3.UP * 0.3)
-		var worth := knight.cut_worth()
-		if bool(worth[1]):
-			CombatText.mark_critical(self)
-		if _receive(float(worth[0]), near[1], blow, knight):
-			knight.rig.bloody()
-			knight.net_blade_landed.rpc(ImpactFx.matter_of(self))
-			knight.blade_hit(self, near[1])
-		if is_dead:
-			return
+	var box := hurtbox()
+	box.set_capsule(body_radius, body_height, hit_tolerance, visual_scale)
+	box.scan()
+
+
+## Its [HurtboxComponent], made the first time it is asked for.
+func hurtbox() -> HurtboxComponent:
+	var box := get_node_or_null(^"Hurtbox") as HurtboxComponent
+	if box == null:
+		box = HurtboxComponent.of(self)
+		box.swing_seen.connect(_answer_swing)
+	return box
 
 
 ## The door every kind of damage comes through, the arrow's included — the same
 ## signature as `Wolf.take_hit()`, which is what `arrow.gd` calls.
 func take_hit(damage: float, at: Vector3, blow: Vector3, critical: bool = false,
-		_spill: bool = true, from: Node = null, magic: bool = false) -> void:
-	if is_dead or not _decides():
-		return
-	# The archer may have left while the arrow was in the air. A critical is
-	# already in `damage`: the shooter made it one.
-	var shooter := from as Node3D if is_instance_valid(from) else null
-	if critical:
-		CombatText.mark_critical(self)
-	_receive(damage, at, blow, shooter, magic)
+		spill: bool = true, from: Node = null, magic: bool = false) -> void:
+	hurtbox().take_hit(damage, at, blow, critical, spill, from, magic)
+
+
+## What a hit does to it ([HurtboxComponent.take]): true when it drew blood.
+func receive_hit(hit: HitInfo) -> bool:
+	# The archer may have left while the arrow was in the air.
+	return _receive(hit.damage, hit.at, hit.blow, hit.attacker(), hit.magic)
 
 
 ## Fire and poison (host, from [Afflictions]): health off with no blood and

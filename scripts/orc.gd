@@ -659,6 +659,17 @@ func _choose_attack(gap: float) -> void:
 			_open(Act.LEAP)
 
 
+func _phase_attack_fits(id: int, gap: float) -> bool:
+	if id == Act.LEAP:
+		return gap < slam_range and gap > reach + 1.5
+	return id == Act.ROAR or gap <= reach
+
+
+func _begin_phase_move(id: int) -> void:
+	if _own != null and _acts.has(id):
+		_open(id)
+
+
 ## Anyone near enough to hit but not in front of him.
 func _someone_behind() -> bool:
 	var ahead := _players_ahead(reach + 0.6, 0.3)

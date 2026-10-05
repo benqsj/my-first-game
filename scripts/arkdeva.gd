@@ -343,6 +343,17 @@ func _choose_attack(gap: float) -> void:
 		_begin(Act.SPIT_ONE if _rng.randf() < 0.5 else Act.SPIT_TWO)
 
 
+func _phase_attack_fits(id: int, gap: float) -> bool:
+	if id == Act.SPIT_ONE or id == Act.SPIT_TWO:
+		return gap >= spit_range.x and gap <= spit_range.y
+	return gap <= melee_range
+
+
+func _begin_phase_move(id: int) -> void:
+	if MOVES.has(id):
+		_begin(id)
+
+
 func _begin(what: int) -> void:
 	var at := 0.0
 	_events.clear()
