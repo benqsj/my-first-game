@@ -144,7 +144,7 @@ const HAT_ORDER := ["skullcap", "headband", "kettle", "leathercoif", "greathelm"
 const ARMS := {
 	&"tariel": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["his_shield", "shield", "none"]},
 	&"warrior": {"w": ["greatsword", "sword_a", "sword_b", "dagger"], "o": ["none"]},
-	&"rogue": {"w": ["dagger", "sword_a", "sword_b"], "o": ["dagger", "none"]},
+	&"rogue": {"w": ["dagger", "sword_a", "sword_b", "none"], "o": ["dagger", "none"]},
 	&"avtandil": {"w": ["own_bow", "bow"], "o": ["none"]},
 	&"mage": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["staff_a", "staff_b", "dagger", "none"]},
 }
@@ -160,7 +160,7 @@ const ARM_NAMES := {
 ## Tariel's sword and the warrior's great sword are 1, a knife quicker, an
 ## axe or a hammer slower. With a weapon in each hand the slower one sets it.
 const ARM_SPEEDS := {
-	"dagger": 1.2, "sword_a": 1.0, "sword_b": 0.95, "greatsword": 1.0, "staff_a": 1.0, "staff_b": 1.0,
+	"none": 1.2, "dagger": 1.2, "sword_a": 1.0, "sword_b": 0.95, "greatsword": 1.0, "staff_a": 1.0, "staff_b": 1.0,
 	"shortsword": 1.0, "longsword": 0.95, "curvedsword": 1.0, "rapier": 1.1, "curvedgreatsword": 0.95,
 	"axe": 0.88, "greataxe": 0.85, "hammer": 0.85, "greathammer": 0.8, "mace": 0.88, "morningstar": 0.85,
 	"flail": 0.85, "spear": 1.0, "poleaxe": 0.9, "staff": 1.0, "wand": 1.0,
@@ -306,7 +306,9 @@ const CLASS_ARMS := {
 	},
 	"archer": {"w": ["own_bow", "bow", "aw_bow", "aw_longbow"], "o": ["none"]},
 	"rogue": {
-		"w": ["dagger", "aw_dagger", "aw_shortsword", "aw_curvedsword", "aw_rapier"],
+		# (empty hands too: everything can be taken off in the bag, the user's
+		# word 2026-10-06)
+		"w": ["dagger", "aw_dagger", "aw_shortsword", "aw_curvedsword", "aw_rapier", "none"],
 		"o": ["dagger", "aw_dagger", "aw_shortsword", "none"],
 	},
 	"mage": {

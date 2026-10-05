@@ -8016,3 +8016,14 @@ Tested by `tests/combat_core_test.gd` (headless).
   so at ×1.0 it already lands about as hard a second as two blades.
   On the mannequin no cut is quicker than 0.3 s (his own rig's 0.36 held
   the two-blade string back).
+- **The bag, one press a blade** (the user's word, 2026-10-06,
+  `Inventory._take_blade`):
+  - a blade he does not hold goes into his right hand if it is empty,
+    else into his left, else in place of the left one;
+  - a blade he holds is taken off: out of his left hand first; out of his
+    right, the left one goes over into it;
+  - X takes everything off. Empty-handed he fights with the knife's moves,
+    his fists, at half the harm (`Moveset.kind_of`; "none" is now a sword
+    hand of the rogue's);
+  - Shift+Enter or right-click still puts a blade straight into his left.
+  - The Empty Left Hand item is gone.

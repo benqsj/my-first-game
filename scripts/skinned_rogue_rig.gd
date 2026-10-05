@@ -439,6 +439,9 @@ func get_cutting_edge() -> PackedVector3Array:
 func attack(style: int = -1) -> void:
 	super(style)
 	cut_weight *= float((TWO_BLADES if two_blades() else ONE_BLADE)["damage"])
+	# nothing in his hands (all taken off in the bag): fists, half as hard
+	if _on_mq and String(ps_look.get("w", "")) == "none":
+		cut_weight *= 0.5
 
 
 ## What a light blow costs him, by what he holds (the profile's 9 as asked of

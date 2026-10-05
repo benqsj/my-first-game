@@ -85,16 +85,42 @@ func _initialize() -> void:
 		var blades: Array[String] = bag._blades()
 		_check("the bag holds his blades", blades.size() >= 9 and blades.has("aw_dagger_bone") and blades.has("aw_dagger_ornate"),
 				str(blades))
-		bag._hold_blade("aw_dagger_ornate", true)
+		# one press a blade: into the empty right hand, then the left, then in
+		# the left's place; on one he holds, off (the user's word, 2026-10-06)
+		var steps := [
+			["all off", "", "none", "none"],
+			["a knife: into the empty right hand", "aw_dagger_bone", "aw_dagger_bone", "none"],
+			["another: into the left", "aw_dagger_ornate", "aw_dagger_bone", "aw_dagger_ornate"],
+			["a third: in the left's place", "aw_shortsword_normal", "aw_dagger_bone", "aw_shortsword_normal"],
+			["the left's again: off", "aw_shortsword_normal", "aw_dagger_bone", "none"],
+			["the right's again: off, hands empty", "aw_dagger_bone", "none", "none"],
+			["into the empty right hand again", "aw_dagger_normal", "aw_dagger_normal", "none"],
+			["the left, then the right off: the left goes over", "aw_dagger_ornate", "aw_dagger_normal", "aw_dagger_ornate"],
+			["", "aw_dagger_normal", "aw_dagger_ornate", "none"],
+		]
+		for st: Array in steps:
+			if st[1] == "":
+				bag._hands_empty()
+			else:
+				bag._take_blade(st[1])
+			for i in 6:
+				await physics_frame
+			var lk: Dictionary = rig.get_look()
+			if st[0] != "":
+				_check("bag: " + st[0], String(lk.get("w")) == st[2] and String(lk.get("o")) == st[3],
+						"%s / %s" % [lk.get("w"), lk.get("o")])
+		bag._take_blade("aw_dagger_bone")
 		for i in 10:
 			await physics_frame
-		_check("a knife put in his left hand: both hands", rig.moves.get("kind", &"") == &"dual"
-				and String(rig.get_look().get("o", "")) == "aw_dagger_ornate", String(rig.moves.get("kind", &"")))
-		_check("the bag has the empty left hand", blades.has("none"))
-		bag._use(blades.find("none"))
+		_check("two in hand from the bag: both hands", rig.moves.get("kind", &"") == &"dual", String(rig.moves.get("kind", &"")))
+		bag._hands_empty()
 		for i in 10:
 			await physics_frame
-		_check("his left hand emptied: one hand", rig.moves.get("kind", &"") != &"dual", String(rig.moves.get("kind", &"")))
+		_check("empty-handed: one hand (fists)", rig.moves.get("kind", &"") == &"knives" and not rig.call(&"two_blades"),
+				String(rig.moves.get("kind", &"")))
+		bag._take_blade("dagger")
+		for i in 10:
+			await physics_frame
 	else:
 		_check("the bag", false, "no Inventory on the player")
 	# Alone: gathered, then slid in on it where it has gone meanwhile.

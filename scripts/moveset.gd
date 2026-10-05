@@ -86,7 +86,11 @@ static var _meta: Dictionary = {}
 ## other hand too) fights with both: TWO BLADES, `&"dual"` (the user's word,
 ## 2026-10-05). One blade, and he fights as he did, one-handed.
 static func kind_of(look: Dictionary) -> StringName:
-	var k := PolysplitLook.kind(String(look.get("w", "")))
+	var w := String(look.get("w", ""))
+	# empty-handed: the knife's moves, fists for knives
+	if w == "none":
+		return &"knives"
+	var k := PolysplitLook.kind(w)
 	if two_blades(look):
 		return &"dual"
 	return &"sword" if k == &"shield" else k
@@ -98,7 +102,7 @@ static func two_blades(look: Dictionary) -> bool:
 	if String(PolysplitLook.PROFESSION_OF.get(cls, cls)) != "rogue":
 		return false
 	var o := String(look.get("o", ""))
-	if o == "" or o == "none":
+	if o == "" or o == "none" or String(look.get("w", "none")) in ["", "none"]:
 		return false
 	var blade := [&"knives", &"sword"]
 	return PolysplitLook.kind(o) in blade and PolysplitLook.kind(String(look.get("w", ""))) in blade
