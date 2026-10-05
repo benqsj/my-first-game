@@ -8151,3 +8151,30 @@ Player (`net_shadow_step`, `net_vanish`, `net_backstab`).
     does not reach heroes.
 - `tests/rogue_skills_test.gd` checks all of the above.
   `tests/new_skills_test.gd` now expects four stacks from four cuts.
+
+### Fixes after play (2026-10-06, the user's word)
+- **The flip's landing.** `dodge_land_at` 0.66 → 0.92 on both assassins.
+  Measured on the mannequin's feet (`_shots_tmp/as/flip_probe.gd`): at 0.66
+  of the flip his feet were still two metres up. They come down at about
+  0.91. So a press in the air waits until he is down; it no longer starts
+  the next evade mid-flip.
+- **A perfect evade shows.** The shadow's copies were there, but they stood
+  inside him when he stopped where the blow missed, and in his purple
+  clothes they were lost. Now:
+  - the first copy is shed at once, where he was;
+  - his body is lit at its edges in the shadow's violet, fading over 0.7 s
+    (an additive overlay, `RogueSkills.dodge_flash`);
+  - there is a cold puff and a ring on the ground.
+  This is for every hero with the shadow's dodge (Avtandil too).
+- **The Shadow Step, seen.**
+  - His shadow is left standing where he was (shed before he moves).
+  - A dark streak of smoke runs along the way he went, with sparks of his
+    colour off the start.
+  - Where he comes out there is smoke, a ring, a column of sparks up
+    through him and a flash of light.
+  - **The view glides after him** (`Player.glide_camera`): for 0.55 s it
+    follows at 6 instead of 22 and swings round behind him. The lens
+    widens by 8° and eases back.
+  - **Whoever had him loses him** for 1.5 s (`RogueSkills.STEP_LOST`,
+    `Player.is_hidden`): creatures and bosses drop him as their quarry
+    ([method Brute.unseen]), and in PvP a foe's lock on him lets go.

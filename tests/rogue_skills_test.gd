@@ -155,7 +155,9 @@ func _check_step() -> void:
 	# six metres, or short of whatever stands in the way
 	_check("up to six metres the way he faces", went.length() > 1.4 and went.length() < 6.5
 			and went.normalized().dot(fwd) > 0.9, "%.2f" % went.length())
-	await _wait(10)
+	_check("whoever had him has lost him for a moment", _player.is_hidden() and Brute.unseen(_player))
+	await _wait(100)
+	_check("then he is there again", not _player.is_hidden())
 
 
 func _check_vanish() -> void:

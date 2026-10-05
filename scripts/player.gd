@@ -744,7 +744,14 @@ func _process(delta: float) -> void:
 		# physics ticks, and a camera chasing those steps makes the world judder.
 		var at := _smoother.drawn_at() if _smoother != null else global_position
 		var follow := at + Vector3.UP * camera_height
-		var weight := 1.0 - exp(-camera_follow_speed * delta)
+		var follow_speed := camera_follow_speed
+		if _now() < _glide_until:
+			# a skill that moved him at once (the Shadow Step): the view glides
+			# after him and swings round behind him, not a cut
+			follow_speed = minf(follow_speed, glide_follow_speed)
+			camera_rig.rotation.y = lerp_angle(camera_rig.rotation.y, _glide_yaw,
+					1.0 - exp(-glide_turn_speed * delta))
+		var weight := 1.0 - exp(-follow_speed * delta)
 		camera_rig.global_position = camera_rig.global_position.lerp(follow, weight)
 		_publish_net_state()
 
@@ -3387,7 +3394,11 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				rig.leave_ground()
 		Reaction.PERFECT_DODGE:
 			if profile != null and profile.shadow_dodge:
-				ShadowTrail.start(self)
+				var shade := ShadowTrail.start(self)
+				if shade != null:
+					# the first shadow now, where he was when it missed him
+					shade._shed()
+				RogueSkills.dodge_flash(self)
 				Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.0, -1.0)
 			perfect_dodged.emit()
 		Reaction.BLOCK:
@@ -5957,10 +5968,38 @@ func rogue() -> RogueSkills:
 	return _rogue
 
 
-## Gone from sight in his Vanish: the creatures do not go for him, and in PvP
-## a foe cannot lock him ([method Brute.unseen], [method _targetable]).
+## Gone from sight in his Vanish, or just out of a Shadow Step: the creatures
+## do not go for him, and in PvP a foe cannot lock him ([method Brute.unseen],
+## [method _targetable]).
 func is_hidden() -> bool:
-	return _rogue != null and is_instance_valid(_rogue) and _rogue.hiding
+	return _rogue != null and is_instance_valid(_rogue) and (_rogue.hiding or _rogue.lost())
+
+
+## The view after a body moved at once: for `seconds` the camera follows at
+## `glide_follow_speed` and swings to `yaw` (behind him), with a short widening
+## of the lens.
+@export_group("Camera glide")
+@export var glide_follow_speed: float = 6.0
+@export var glide_turn_speed: float = 6.5
+@export var glide_fov_kick: float = 8.0
+var _glide_until: float = 0.0
+var _glide_yaw: float = 0.0
+var _glide_fov_rest: float = -1.0
+var _fov_tween: Tween = null
+
+
+func glide_camera(yaw: float, seconds: float) -> void:
+	if not is_multiplayer_authority() or camera == null:
+		return
+	_glide_until = _now() + seconds
+	_glide_yaw = yaw
+	if _fov_tween != null and _fov_tween.is_valid():
+		_fov_tween.kill()
+	else:
+		_glide_fov_rest = camera.fov
+	_fov_tween = create_tween()
+	_fov_tween.tween_property(camera, "fov", _glide_fov_rest + glide_fov_kick, 0.09).set_trans(Tween.TRANS_SINE)
+	_fov_tween.tween_property(camera, "fov", _glide_fov_rest, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
 @rpc("any_peer", "call_local", "reliable")

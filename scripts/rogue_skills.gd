@@ -52,6 +52,10 @@ const STEP_STAB_PART := Vector2(0.1, 0.38)
 const STEP_STAB_RATE := 2.2
 const STEP_STAB_DELAY := 0.19
 const STEP_STRIKE := 1.0
+## For this long after the step whoever had him (a creature, a boss, a hero's
+## lock in PvP) has lost him ([method Player.is_hidden]); and the view's glide.
+const STEP_LOST := 1.5
+const STEP_GLIDE := 0.55
 
 ## Vanish: how long, how much of him is still drawn for his own eyes and his
 ## friends', and how long after it ends on a cut of his that cut is sure.
@@ -75,6 +79,7 @@ var hero: Player
 var hiding: bool = false
 var _hiding_until: float = 0.0
 var _ambush_until: float = 0.0
+var _lost_until: float = 0.0
 var _faded: Dictionary = {}
 
 
@@ -134,6 +139,11 @@ func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
+## Just out of a Shadow Step: nothing that had him has him.
+func lost() -> bool:
+	return _now() < _lost_until
+
+
 #region Shadow Step
 ## The owner's: steps him, if there is a place to step to, and sends it.
 ## True if he went.
@@ -158,6 +168,8 @@ func shadow_step(cost: float) -> bool:
 	if foe != null and hiding:
 		# the thrust is a cut of his: out of hiding, and sure
 		hero.net_vanish.rpc(false, true)
+	# sent before he goes, so his own shadow is left where he stood
+	hero.net_shadow_step.rpc(from, to, foe.get_path() if foe != null else NodePath())
 	hero.global_position = to
 	hero.velocity = Vector3.ZERO
 	face.y = 0.0
@@ -166,7 +178,7 @@ func shadow_step(cost: float) -> bool:
 	hero._safe_until = maxf(hero._safe_until, hero._now() + STEP_GUARD)
 	if foe != null:
 		hero._commit(STEP_STAB_DELAY + 0.25)
-	hero.net_shadow_step.rpc(from, to, foe.get_path() if foe != null else NodePath())
+	hero.glide_camera(hero.rotation.y, STEP_GLIDE)
 	return true
 
 
@@ -249,17 +261,48 @@ func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
 		hero.rig.call(&"play_part", STEP_STAB, STEP_STAB_RATE, STEP_STAB_PART.x, STEP_STAB_PART.y, 0.05)
 		if hero._decides_here():
 			get_tree().create_timer(STEP_STAB_DELAY, false).timeout.connect(_stab.bind(foe.get_path()))
+	# whoever had him has lost him
+	_lost_until = _now() + STEP_LOST
+	# his shadow left standing where he was (shed now, before he moves), and a
+	# little more of it as he comes out
+	var shade := ShadowTrail.start(hero, 0.2, 0.05)
+	if shade != null:
+		shade._shed()
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
 	var smoke := smoke_of(hero)
-	_puff(into, from, smoke, 1.0)
-	_puff(into, to, smoke, 0.7)
 	var rim := venom_of(hero) if _dark(hero) else CRIMSON
-	SkillFx.ring(into, to + Vector3.UP * 0.05, Vector3.UP, rim, 0.2, 1.0, 0.25, 0.025, 1.4)
-	ShadowTrail.start(hero, 0.18, 0.04)
-	Sfx.play(hero, STEP_SOUND, null, from, 0.85, -3.0)
-	Sfx.play(hero, STEP_SOUND, hero, Vector3.ZERO, 1.2, -6.0)
+	_puff(into, from, smoke, 1.1)
+	# a dark streak along the way he went, low, thinning towards where he
+	# comes out
+	var way := to - from
+	var steps := clampi(int(way.length() / 0.7), 3, 14)
+	for k in steps:
+		var t := (k + 0.5) / float(steps)
+		SkillFx.particles(into, from + way * t + Vector3.UP * lerpf(0.9, 1.1, t), {
+			"amount": 10, "life": 0.55, "one_shot": true, "explosiveness": 0.9,
+			"speed": Vector2(0.2, 0.8), "spread": 180.0, "damping": 2.0, "gravity": Vector3(0, 0.4, 0),
+			"size": Vector2(0.18, 0.36) * lerpf(1.0, 0.6, t), "box": Vector3(0.12, 0.35, 0.12),
+			"add": false, "grow": 0.5,
+			"colors": [Color(smoke, 0.0), Color(smoke, 0.7), Color(smoke, 0.0)],
+		})
+	SkillFx.burst(into, from + Vector3.UP * 1.0, rim, 18, Vector2(1.0, 3.0), way.normalized(), 25.0,
+			Vector2(0.015, 0.03), Vector3.ZERO, 0.35)
+	# out of it: the smoke, a ring on the ground, a column of his colour
+	# going up through him and a spray of sparks off his back
+	_puff(into, to, smoke, 0.9)
+	SkillFx.ring(into, to + Vector3.UP * 0.05, Vector3.UP, rim, 0.2, 1.4, 0.3, 0.03, 1.8)
+	SkillFx.particles(into, to + Vector3.UP * 0.1, {
+		"amount": 26, "life": 0.5, "one_shot": true, "explosiveness": 0.85,
+		"speed": Vector2(2.5, 5.0), "spread": 6.0, "dir": Vector3.UP, "damping": 3.0,
+		"ring": Vector2(0.25, 0.4), "size": Vector2(0.03, 0.06), "grow": 0.2,
+		"colors": [Color(rim.lightened(0.3), 1.0), Color(rim, 0.9), Color(rim.darkened(0.4), 0.0)],
+	})
+	SkillFx.light(into, to + Vector3.UP * 1.0, rim, 2.5, 4.0, 0.35)
+	Sfx.play(hero, STEP_SOUND, null, from, 0.8, -3.0)
+	Sfx.play(hero, STEP_SOUND, null, to, 1.15, -5.0)
+	Sfx.play(hero, VANISH_SOUND, null, to, 1.4, -12.0)
 #endregion
 
 
@@ -449,6 +492,53 @@ func show_backstab(at: Vector3) -> void:
 	SkillFx.burst(into, at, rim, 26, Vector2(2.0, 5.0), (at - hero.global_position).normalized(), 40.0,
 			Vector2(0.02, 0.05), Vector3(0, -6, 0), 0.4)
 	Sfx.play(hero, BACKSTAB_SOUND, null, at, 0.82, -3.0)
+
+
+## A perfect evade's flash (any hero with the shadow's dodge): his body lit
+## at its edges in the shadow's violet for a moment, fading, and a cold puff
+## where he was. Seen even when he stops where the blow missed him and his
+## shadows stand inside him.
+const SHADE := Color(0.55, 0.25, 1.0)
+const GLOW_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
+uniform vec4 glow : source_color = vec4(0.55, 0.25, 1.0, 1.0);
+uniform float fade = 1.0;
+void fragment() {
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	ALBEDO = glow.rgb * (0.18 + 1.8 * rim) * fade;
+}
+"""
+static var _glow_shader: Shader = null
+
+
+static func dodge_flash(who: Player) -> void:
+	var skel := ShadowTrail.shown_skeleton(who)
+	var into := Blood.world_of(who)
+	if into != null:
+		_puff(into, who.global_position, Color(0.12, 0.06, 0.2), 0.7)
+		SkillFx.ring(into, who.global_position + Vector3.UP * 0.05, Vector3.UP, SHADE, 0.3, 1.6, 0.35, 0.03, 2.0)
+	if skel == null:
+		return
+	if _glow_shader == null:
+		_glow_shader = Shader.new()
+		_glow_shader.code = GLOW_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _glow_shader
+	var lit: Array[MeshInstance3D] = []
+	for child in skel.get_children():
+		var mi := child as MeshInstance3D
+		if mi == null or not mi.visible or mi.material_overlay != null:
+			continue
+		mi.material_overlay = mat
+		lit.append(mi)
+	var tw := who.create_tween()
+	tw.tween_method(func(f: float) -> void: mat.set_shader_parameter(&"fade", f), 1.0, 0.0, 0.7) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		for mi in lit:
+			if is_instance_valid(mi) and mi.material_overlay == mat:
+				mi.material_overlay = null)
 
 
 ## A puff of smoke `big` across at `at`: thick at the feet, rolling up and out.
