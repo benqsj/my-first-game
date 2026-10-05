@@ -69,21 +69,25 @@ func _initialize() -> void:
 	_check("and back when the setting goes back", env.tonemap_mode == Environment.TONE_MAPPER_ACES)
 	Graphics.apply(self, Graphics.Level.HIGH)
 
-	# --- F8: the old one ------------------------------------------------------
+	# --- F8: Elden Ring's Limgrave ---------------------------------------------
+	_check("only two looks on F8 (the user's word)", Looks.LOOKS.size() == 2)
 	looks.apply(1)
-	var old_mesh := _clump_mesh(field)
-	_check("F8 puts on the old look", chunk.material_override == land.styles[0])
-	_check("with the full clump", field.clump_scene == Looks.OLD_GRASS and old_mesh != null
-			and old_mesh != light and _tris(old_mesh) > 5000, "%d triangles" % (_tris(old_mesh) if old_mesh else 0))
-	_check("on the same clumps, not a new field", field.clump_count() == clumps)
-	var every := true
-	for node in field.find_children("*", "MultiMeshInstance3D", false, false):
-		var multi := (node as MultiMeshInstance3D).multimesh
-		if multi != null and multi.mesh == light:
-			every = false
-	_check("every chunk of it", every)
-	_check("and no sward", sward != null and not sward.visible)
+	var ground2 := land.styles[2] as ShaderMaterial
+	# (the fog's colour is the lands' moods' to ease, [LandsMood]: the sky and
+	# the exposure are read instead)
+	var sky_mat := env.sky.sky_material as ProceduralSkyMaterial if env.sky != null else null
+	_check("F8 puts on Elden Ring's colours: the gold horizon",
+			sky_mat == null or sky_mat.sky_horizon_color.is_equal_approx(Looks.ELDEN_SKY["sky_horizon_color"]))
+	_check("and its light", is_equal_approx(env.tonemap_exposure, Looks.ELDEN_ENV["tonemap_exposure"]))
+	_check("the grassy ground gold", (ground2.get_shader_parameter("tone_grass") as Color).is_equal_approx(
+			Looks.ELDEN_GROUND["tone_grass"]))
+	_check("on the same ground and clumps", chunk.material_override == land.styles[2]
+			and field.clump_count() == clumps)
 	looks.apply(0)
+	var tone_back: Variant = ground2.get_shader_parameter("tone_grass")
+	_check("and back to the new look's own", is_equal_approx(env.tonemap_exposure, Looks.DARK_ENV["tonemap_exposure"])
+			and not (tone_back is Color and (tone_back as Color).is_equal_approx(Looks.ELDEN_GROUND["tone_grass"])),
+			"exposure %.2f tone %s" % [env.tonemap_exposure, str(tone_back)])
 
 	var mat := land.styles[2] as ShaderMaterial
 	var mask := looks.ground_mask()

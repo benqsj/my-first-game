@@ -8214,3 +8214,31 @@ skills stay; how they look changes:
   (`RogueSkills.drops`). They are not glowing sparks, and the boil has no
   flash or light; its fumes are darker.
 
+## F8: the new look and Elden Ring's Limgrave (2026-10-06, the user's word)
+- F8 now steps between only two looks ([Looks]): the new one (0) and
+  **elden** (1). Old, old ground with light grass, photo and gras2 are off
+  F8.
+- **elden** is the same forest floor, sward and light grass in Limgrave's
+  colours:
+  - gold and ochre grass clumps (`ELDEN_GRASS`) and olive-gold leaves
+    (`ELDEN_WOOD`);
+  - the grassy ground gold, the earth dry grey-brown (`ELDEN_GROUND` on
+    `terrain_forest.gdshader`; `ELDEN_LANDS` on the lands' ground round the
+    core);
+  - a warm golden haze and an amber sun, a pale gold horizon under a
+    grey-blue sky, colour a little drained and contrast up (`ELDEN_ENV`,
+    `ELDEN_SKY`, `ELDEN_SUN`).
+  - Each ground's own parameters are kept and put back when the look
+    changes (`_set_params`).
+- `tests/looks_test.gd` checks the two looks and the way back.
+
+## A perfect evade out of the weapon's way (2026-10-06, the user's word)
+- The shadow never came on a well-timed dodge. A creature's blow is a
+  [WeaponSweep] that lands only where the weapon goes, and a dodge that
+  carried him out of its path was never touched, so it never counted as
+  evaded.
+- Now a blow reaches an evading hero `EVADE_GRAZE` (0.9 m) further. That is
+  only so it can tell that he evaded it: the evade takes nothing.
+- `_shots_tmp/as/graze_probe.gd` checks it: a swing 0.9 m from him finds
+  nothing when he stands, and is a perfect evade when he is dodging.
+

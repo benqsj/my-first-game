@@ -26,6 +26,13 @@ const BODY_LOW := 0.12
 const BODY_HIGH := 1.78
 ## The allowance for a blow that visibly grazes him.
 const GRAZE := 0.08
+## How much further a blow reaches a hero who is evading it, only to tell
+## that he evaded it: his evade takes nothing ([method Player.receive_blow]
+## lets it through empty air), but a blow that went by close to a well-timed
+## roll or step is a perfect evade (the shadow). Without it a dodge that
+## carried him out of the weapon's path was never a perfect one — the
+## assassin's shadow never came (the user's word, 2026-10-06).
+const EVADE_GRAZE := 0.9
 
 ## Draws every live sweep's stretches in the world, for looking at blows.
 static var show: bool = false
@@ -176,9 +183,12 @@ func step(tree: SceneTree, delta: float) -> Array[Node3D]:
 				continue
 			var low := who.global_position + Vector3.UP * BODY_LOW
 			var high := who.global_position + Vector3.UP * BODY_HIGH
+			var reach := r
+			if who.has_method(&"is_evading") and bool(who.call(&"is_evading")):
+				reach += EVADE_GRAZE
 			for k in steps + 1:
 				var t := float(k) / float(steps)
-				if touches(a0.lerp(a1, t), b0.lerp(b1, t), r, low, high):
+				if touches(a0.lerp(a1, t), b0.lerp(b1, t), reach, low, high):
 					caught[who] = true
 					met.append(who)
 					break
