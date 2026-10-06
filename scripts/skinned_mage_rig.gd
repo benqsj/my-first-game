@@ -229,6 +229,17 @@ func attack(style: int = -1) -> void:
 	_play_action(flurry[0], Role.FREE, 1.6, 0.06)
 
 
+## His own long cape (`capes`) only over his own robes: over YOUR OWN, which
+## wears its class's cape or cloak, it hung a second one inside the clothes (the
+## user's word, 2026-10-06).
+func set_garb(index: int) -> void:
+	super(index)
+	if faces.size() > face and bool((figure_faces.get(faces[face], {}) as Dictionary).get("custom", false)):
+		for cape in cloth_capes:
+			cape.queue_free()
+		cloth_capes.clear()
+
+
 ## On the mannequin: Tariel's cast for the throw, and the crystal's light off
 ## the hidden model (on the rig, put where the figure's off hand is).
 func _mannequin_worn(on: bool) -> void:
