@@ -1113,6 +1113,7 @@ func _update_strike(delta: float) -> void:
 	var want := _strike_on and _role == Role.SWING and not _air_cut and (not _heavy_now or _heavy_aim) and not spinning
 	# In fast, as the swing starts; out more slowly as it gives the body back.
 	_strike.weight = move_toward(_strike.weight, 1.0 if want else 0.0, delta / (0.07 if want else 0.2))
+	_strike.facing = _body if _body != null else self
 	_strike.natural = float(strike_heights.get(_act_clip, strike_natural))
 	if want:
 		_strike.target = _strike_at if _strike.weight < 0.02 else _strike.target.lerp(_strike_at, 1.0 - exp(-18.0 * delta))

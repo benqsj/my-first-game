@@ -27,6 +27,12 @@ var squat_share: float = 0.35
 var lean_max: float = 0.9
 ## The most it turns towards the target at the waist (radians).
 var turn_max: float = 0.5
+## What faces the way he faces (the body): the skeleton's own -Z is not it on
+## the mannequin, which stands turned round in its node (its -Z is his back).
+## Reading the skeleton there turned every aimed cut away to one side by
+## `turn_max` and leant him back from what was low (the user, 2026-10-06:
+## the knight's blade went past the side of what it was thrown at).
+var facing: Node3D
 
 var _bones := {}
 
@@ -47,7 +53,7 @@ func _process_modification() -> void:
 			_bones[n] = skel.find_bone(n)
 	var body := skel.global_transform
 	var feet := body.origin.y
-	var fwd := -body.basis.z.normalized()
+	var fwd := -(facing.global_basis.z if facing != null and facing.is_inside_tree() else body.basis.z).normalized()
 	fwd.y = 0.0
 	if fwd.length_squared() < 0.0001:
 		return

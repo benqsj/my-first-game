@@ -164,7 +164,7 @@ func _configure() -> void:
 	# On the mannequin too: a great sword swung by a big man, slower than
 	# the others' blows (MQ_SWING_RATE x0.82).
 	mq_swing_scale = 0.82
-	swing_recovery = 0.26
+	swing_recovery = 0.22
 	# A great sword's weight, as Elden Ring's (the user's word, 2026-10-06):
 	# gathered slowly, falling all at once, and brought back to guard slower
 	# than it went (a string's end slower still), the stance eased back in;
@@ -175,8 +175,8 @@ func _configure() -> void:
 	# from one blow into the next (A into B, B into C...) the blade carried
 	# over slowly: the last one's follow-through played on a little longer
 	# before the next may start, blended into it, its wind-up slower still
-	chain_windup_pace = 0.6
-	chain_blend = 0.22
+	chain_windup_pace = 0.68
+	chain_blend = 0.18
 	recover_pace = 0.95
 	last_recover_pace = 0.8
 	recover_blend = 0.25

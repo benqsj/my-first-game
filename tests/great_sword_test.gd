@@ -100,7 +100,9 @@ func _initialize() -> void:
 	_check("two hands", rig.moves.get("kind", &"") == &"two_hands", str(rig.moves.get("kind", &"")))
 	_check("the block button throws a string", rig.block_throws_string() and player._other_string_ready())
 	_check("no heavy blow on it", not player._has_heavy())
+	# (whichever string F6 last left picked in the game's settings)
 	rig._wear_string(0)
+	rig._main_string = 0
 	rig.wear_other_string(false)
 	await _frames(10)
 
@@ -162,7 +164,7 @@ func _initialize() -> void:
 			gather_b = rig._anim.speed_scale
 		await physics_frame
 	print("    A gathered at %.2f, B carried over at %.2f" % [gather_a, gather_b])
-	_check("B carried over from A slower than A was gathered", gather_b > 0.0 and gather_b < gather_a - 0.05,
+	_check("B carried over from A slower than A was gathered", gather_b > 0.0 and gather_b < gather_a - 0.02,
 			"%.2f vs %.2f" % [gather_b, gather_a])
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)

@@ -8334,3 +8334,19 @@ thrown on from the last (B after A, C after B, D after C) gathers at
 over `chain_blend` 0.22 s, and the last plays its follow-through a little
 longer before the next may start (`swing_recovery` 0.18 -> 0.26). The swing
 itself still falls at x1.45.
+
+### The knight's blade on what it is thrown at (2026-10-06, the user's word)
+
+The blows went past the side of what they were thrown at (the stab always),
+and still landed now and then through the sure cut. `StrikeAim` took the
+skeleton's -Z for the way he faces; on the mannequin that is his back (the
+mannequin stands turned round in its node), so every aimed blow turned his
+waist `turn_max` (29 degrees) away to one side, and a bend down to something
+low leant him back. It now reads `facing` (the rig sets it to the body). The
+blade's closest pass to an orc's chest 2.5 m off (`tests/great_sword_aim_test.gd`):
+the stab 0.87 -> 0.05 m, the two overheads 1.06 / 0.89 -> 0.11 / 0.09 m, every
+blow of both strings under 0.3 m. Tariel and the assassin on the mannequin
+aim through the same modifier and are mended with it.
+
+The blade carried over from blow to blow a little quicker: `chain_windup_pace`
+0.68 (was 0.6), `chain_blend` 0.18 s, `swing_recovery` 0.22.
