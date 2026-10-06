@@ -8345,6 +8345,27 @@ Tariel's sword is by `Swordsman`:
   Amirani 19-23 | 16, assassin 21 | 10, Tariel 17 | 9, archers 12-17 | 8-9,
   mages 9 | 7. The mages' and the warrior's and Amirani's bars are empty.
 
+### Tariel the shield, the knight the health; Amirani gone (2026-10-06, the user's word)
+- **Amirani is gone** (his profile, figure and chains; `Game.CHARACTERS`, the
+  hero select). The heroes of the sword are Tariel and the knight.
+- **Tariel: the least blow and the longest stand.** Damage 16 -> 14 (14.4 a
+  second on the imp by `tools/hero_dps.gd`, the least of the swords), health
+  180 -> 220, p.def 40 -> 50. **The knight: the most health**: 210 -> 240,
+  p.def 45 -> 30 (25 a second on the imp). Against blades Tariel stands about
+  330 (220 x 1.5), the knight about 312, every other hero 110-145.
+- **Tariel keeps his shield**: his other hand holds a shield and nothing else
+  (`PolysplitLook.arms`, so a saved look without it gets it back) and the bag
+  does not take it off (`Inventory.take_off`). `shieldless_test` now checks
+  that.
+- **His fourth skill, the Challenge** (`scripts/tariel_challenge.gd`, 20
+  stamina, 20 s; `skill_challenge.png`, game-icons' shield-impact): every
+  creature within 9 m comes for him alone for 6 s (Fighter / Brute
+  `_pick_quarry`, Wolf `_quarry` ask `TarielChallenge.dared` first; not
+  heroes in PvP) and his p.def stands x1.4 meanwhile (`Player.net_blow`).
+  Dust beaten up round him and a jolt of the view as the blow rings out. The
+  move is `SS_Spell_Casting` for now; Mixamo's are on the side-by-side page.
+  Tests: `tariel_challenge_test`, `skills_test`.
+
 
 ### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)
 

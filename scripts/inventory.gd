@@ -255,6 +255,10 @@ func equip(kind: int) -> void:
 func take_off() -> void:
 	if player == null or not _has_shield() or not _shield_on():
 		return
+	# Tariel keeps his shield on his arm (the user's word, 2026-10-06): it is
+	# his guard and his p.def; he changes it for the other, never for none
+	if player.profile != null and player.profile.can_block:
+		return
 	var look := _look()
 	if look.is_empty():
 		return

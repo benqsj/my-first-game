@@ -549,7 +549,6 @@ const ACCENT := {
 	&"mage": Color("4f8ee8"),
 	&"rogue": Color("a04ad8"),
 	&"warrior": Color("b8433a"),
-	&"amirani": Color("8a3a2e"),
 	&"elf_archer": Color("8fd06a"),
 	&"elf_mage": Color("d8e6f2"),
 	&"dark_archer": Color("8a6ad8"),
@@ -563,7 +562,6 @@ const EPITHET := {
 	&"mage": "Keeper of the storm",
 	&"rogue": "The blade in the dark",
 	&"warrior": "Two hands on one great sword",
-	&"amirani": "Chained to the Caucasus, freed by the elves",
 	&"elf_archer": "Of Elvareti, the fallen world",
 	&"elf_mage": "Keeper of the moon's light",
 	&"dark_archer": "Last through the gate",
@@ -1341,8 +1339,6 @@ func _arms(profile: CharacterProfile) -> String:
 			return "LONGBOW"
 		CharacterProfile.Weapon.STAFF:
 			return "STAFF AND LIGHTNING"
-	if profile.display_name.to_lower().contains("amirani"):
-		return "CHAIN AND GREAT SWORD"
 	if profile.display_name.to_lower().contains("warrior"):
 		return "GREAT SWORD"
 	return "SWORD AND SHIELD" if profile.can_block else "ONE LONG KNIFE"

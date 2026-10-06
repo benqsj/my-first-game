@@ -14,7 +14,7 @@ extends SceneTree
 const WORLD := "res://scenes/world/greybox_world.tscn"
 const IMP := "res://scenes/enemies/imp.tscn"
 const BOSS := "res://scenes/enemies/orc.tscn"
-const HEROES: Array[StringName] = [&"tariel", &"warrior", &"amirani", &"rogue", &"avtandil", &"mage",
+const HEROES: Array[StringName] = [&"tariel", &"warrior", &"rogue", &"avtandil", &"mage",
 		&"elf_archer", &"elf_mage", &"dark_archer", &"dark_mage", &"dark_rogue"]
 const SECONDS := 30.0
 ## How far in front of him it stands (from his middle to its).

@@ -3240,8 +3240,9 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		return
 	if not is_multiplayer_authority() or is_dead:
 		return
-	# What his armour takes off it — or, a spell's, his m.def.
-	damage = Defence.against(damage, p_def, m_def, magic)
+	# What his armour takes off it — or, a spell's, his m.def. (Tariel's
+	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
+	damage = Defence.against(damage, p_def * TarielChallenge.guard(self), m_def, magic)
 	# A fresh combo from this attacker forgets the last one.
 	if blow == 0 or not _combo_landed.has(combo):
 		_forget_combos_from(combo)
@@ -4891,6 +4892,7 @@ const SKILLS := {
 	&"shadow_lance": {"name": "Shadow Lance", "stamina": 26.0, "cooldown": 10.0},
 	&"shadow_step": {"name": "Shadow Step", "stamina": 20.0, "cooldown": 9.0},
 	&"vanish": {"name": "Vanish", "stamina": 25.0, "cooldown": 40.0},
+	&"challenge": {"name": "Challenge", "stamina": 20.0, "cooldown": 20.0},
 }
 const SKILL_SLOTS := 4
 
@@ -4962,6 +4964,8 @@ func use_skill(slot: int) -> bool:
 			went = rogue().shadow_step(float(SKILLS[id]["stamina"]))
 		&"vanish":
 			went = rogue().vanish(float(SKILLS[id]["stamina"]))
+		&"challenge":
+			went = TarielChallenge.cast(self)
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -6025,6 +6029,15 @@ func net_vanish(on: bool, ambush: bool) -> void:
 	if sender != 0 and sender != 1 and sender != get_multiplayer_authority():
 		return
 	rogue().set_hiding(on, ambush)
+
+
+## Every peer: Tariel's Challenge ([TarielChallenge]).
+@rpc("any_peer", "call_local", "reliable")
+func net_challenge() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	TarielChallenge.show(self)
 
 
 ## The move before a skill of his goes, on every peer ([method RogueSkills.play_cue]).

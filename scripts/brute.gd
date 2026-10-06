@@ -322,6 +322,11 @@ func _holds(point: Vector3) -> bool:
 
 
 func _pick_quarry() -> Node3D:
+	# dared by Tariel's Challenge: him and no one else while it holds
+	var dared := TarielChallenge.dared(self)
+	if dared != null and _holds(dared.global_position):
+		_quarry = dared
+		return dared
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
 			and _holds(_quarry.global_position) and not unseen(_quarry):
 		return _quarry

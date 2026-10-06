@@ -24,7 +24,8 @@ func _initialize() -> void:
 	_check("Tariel's skills on 1 to 3", _player.skill_in(0) == &"rising_cut"
 			and _player.skill_in(1) == &"shadow_slide" and _player.skill_in(2) == &"shadow_lance",
 			"%s %s %s" % [_player.skill_in(0), _player.skill_in(1), _player.skill_in(2)])
-	_check("and nothing on 4", _player.skill_in(3) == &"" and not _player.use_skill(3))
+	_check("and the Challenge on 4 (2026-10-06; its own test is tariel_challenge_test)",
+			_player.skill_in(3) == &"challenge")
 	await _spawn(&"avtandil")
 	await _check_rain()
 	print("")

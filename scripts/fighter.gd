@@ -380,6 +380,11 @@ func _think(delta: float) -> void:
 ## fought while they stay there.
 func _pick_quarry() -> Node3D:
 	var reach2 := leash_radius * leash_radius
+	# dared by Tariel's Challenge: him and no one else while it holds
+	var dared := TarielChallenge.dared(self)
+	if dared != null and dared.global_position.distance_squared_to(camp_centre) < reach2:
+		_quarry = dared
+		return dared
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
 			and _quarry.global_position.distance_squared_to(camp_centre) < reach2 \
 			and not Brute.unseen(_quarry):

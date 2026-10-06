@@ -16,9 +16,6 @@ const CHARACTERS := {
 	&"mage": "res://scenes/player/mage.tres",
 	&"rogue": "res://scenes/player/rogue.tres",
 	&"warrior": "res://scenes/player/warrior.tres",
-	# Amirani (2026-10-05): the warrior's rig, the knight's figure his own size
-	# and in his chains
-	&"amirani": "res://scenes/player/amirani.tres",
 	# the elves and the dark elves (2026-10-05): the archer's, the mage's and
 	# the assassin's rigs, worn as YOUR OWN of their people
 	&"elf_archer": "res://scenes/player/elf_archer.tres",

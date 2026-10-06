@@ -523,6 +523,10 @@ func _decides() -> bool:
 ## and it is also the one a player can hold in their head: *hurt it more than
 ## they did, and it is yours.*
 func _quarry() -> Node3D:
+	# dared by Tariel's Challenge: him and no one else while it holds
+	var dared := TarielChallenge.dared(self)
+	if dared != null:
+		return dared
 	var owed: Node3D = null
 	var worst := 0.0
 	for node in get_tree().get_nodes_in_group("player"):
