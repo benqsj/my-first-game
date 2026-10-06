@@ -70,7 +70,7 @@ func _initialize() -> void:
 	Graphics.apply(self, Graphics.Level.HIGH)
 
 	# --- F8: Elden Ring's Limgrave ---------------------------------------------
-	_check("only two looks on F8 (the user's word)", Looks.LOOKS.size() == 2)
+	_check("three looks on F8 (the user's word)", Looks.LOOKS.size() == 3)
 	looks.apply(1)
 	var ground2 := land.styles[2] as ShaderMaterial
 	# (the fog's colour is the lands' moods' to ease, [LandsMood]: the sky and

@@ -5827,6 +5827,9 @@ func blade_hit(creature: Node3D, at: Vector3) -> void:
 	if creature.is_inside_tree():
 		var weight := 1.0 if rig == null or rig.get(&"cut_weight") == null else float(rig.get(&"cut_weight"))
 		net_bite.rpc(creature.get_path(), weight)
+	# out of hiding: seen now that it has landed
+	if is_hidden() and _rogue != null and _rogue.hiding:
+		net_vanish.rpc(false, false)
 	if _backstab_on == creature:
 		_backstab_on = null
 		var chest := creature.global_position + Vector3.UP * 1.1
@@ -5940,7 +5943,7 @@ func cut_worth(target: Node3D = null) -> Array:
 		worth[0] = float(worth[0]) / crit_was * stab
 		worth[1] = true
 		_backstab_on = target
-	elif _rogue != null and _rogue.take_ambush() and not bool(worth[1]):
+	elif _rogue != null and (_rogue.hiding or _rogue.take_ambush()) and not bool(worth[1]):
 		worth[0] = float(worth[0]) * profile.crit_damage
 		worth[1] = true
 	return worth
@@ -6006,10 +6009,20 @@ func net_shadow_step(from: Vector3, to: Vector3, foe: NodePath) -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func net_vanish(on: bool, ambush: bool) -> void:
+	# his own peer, or the host (where his cut out of hiding lands)
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1 and sender != get_multiplayer_authority():
+		return
+	rogue().set_hiding(on, ambush)
+
+
+## The move before a skill of his goes, on every peer ([method RogueSkills.play_cue]).
+@rpc("any_peer", "call_local", "reliable")
+func net_rogue_cue(cue: int) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
-	rogue().set_hiding(on, ambush)
+	rogue().play_cue(cue)
 
 
 ## A backstab landed at `at` (sent by the host).

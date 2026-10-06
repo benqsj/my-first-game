@@ -59,7 +59,24 @@ const STEP_GLIDE := 0.55
 
 ## Vanish: how long, how much of him is still drawn for his own eyes and his
 ## friends', and how long after it ends on a cut of his that cut is sure.
-const VANISH_TIME := 10.0
+const VANISH_TIME := 7.0
+## Before he is gone: a pellet thrown down at his feet (UAL's OverhandThrow,
+## the stretch played, its pace) and when the smoke comes up out of it.
+const VANISH_CAST := &"OverhandThrow"
+const VANISH_CAST_PART := Vector2(0.18, 0.62)
+const VANISH_CAST_RATE := 1.5
+const VANISH_CAST_DELAY := 0.24
+## Before the Shadow Step: he gathers low and throws himself forward (UAL 2's
+## Sword_Dash, its start), and goes into the smoke as he does.
+const STEP_WIND := &"Sword_Dash"
+const STEP_WIND_PART := Vector2(0.03, 0.28)
+const STEP_WIND_RATE := 1.3
+const STEP_WIND_DELAY := 0.2
+## A cut of his out of hiding keeps him unseen until it lands (the user's
+## word, 2026-10-06: the creature saw him as the swing began and the first
+## blow was not the free one it should be); if it lands nothing, he is seen
+## this long after it began.
+const STRIKE_GRACE := 0.8
 const AMBUSH_TIME := 1.0
 
 ## No sounds of their own yet (the user's word, 2026-10-06: the pitched
@@ -81,6 +98,8 @@ var hiding: bool = false
 var _hiding_until: float = 0.0
 var _ambush_until: float = 0.0
 var _lost_until: float = 0.0
+var _strike_until: float = 0.0
+var _casting: bool = false
 var _faded: Dictionary = {}
 
 
@@ -131,8 +150,26 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if hiding and hero != null and hero.is_multiplayer_authority() and _now() >= _hiding_until:
+	if not hiding or hero == null or not hero.is_multiplayer_authority():
+		return
+	if _now() >= _hiding_until or (_strike_until > 0.0 and _now() >= _strike_until):
+		_strike_until = 0.0
 		hero.net_vanish.rpc(false, false)
+
+
+## Every peer: the move he makes before a skill goes (`cue`: 0 the vanish's
+## throw, 1 the step's gathering).
+func play_cue(cue: int) -> void:
+	if hero.rig == null or not hero.rig.has_method(&"play_part"):
+		return
+	if cue == 0:
+		hero.rig.call(&"play_part", VANISH_CAST, VANISH_CAST_RATE, VANISH_CAST_PART.x, VANISH_CAST_PART.y, 0.08)
+	else:
+		hero.rig.call(&"play_part", STEP_WIND, STEP_WIND_RATE, STEP_WIND_PART.x, STEP_WIND_PART.y, 0.06)
+		var into := Blood.world_of(hero)
+		if into != null:
+			# the shadows gather round him as he goes down
+			_wisp(into, hero.global_position + Vector3.UP * 0.6, smoke_of(hero), 0.9)
 
 
 func _now() -> float:
@@ -164,10 +201,35 @@ func shadow_step(cost: float) -> bool:
 		return false
 	if not hero._spend(cost):
 		return false
+	# he gathers first, turned to it, and goes into the smoke after
+	face.y = 0.0
+	if foe != null:
+		var at_it := foe.global_position - hero.global_position
+		at_it.y = 0.0
+		if at_it.length_squared() > 0.0001:
+			hero.rotation.y = atan2(-at_it.x, -at_it.z)
+	hero.velocity = Vector3.ZERO
+	hero._commit(STEP_WIND_DELAY + (STEP_STAB_DELAY + 0.25 if foe != null else 0.1))
+	hero.net_rogue_cue.rpc(1)
+	var foe_path := foe.get_path() if foe != null else NodePath()
+	get_tree().create_timer(STEP_WIND_DELAY, false).timeout.connect(_step_go.bind(foe_path, to, face))
+	return true
+
+
+## The owner's, after the gathering: out of sight and out again behind it
+## (where it stands now, if it still can be), or where he meant to go.
+func _step_go(foe_path: NodePath, to: Vector3, face: Vector3) -> void:
+	if hero == null or hero.is_dead:
+		return
+	var foe := get_node_or_null(foe_path) as Node3D if not foe_path.is_empty() else null
+	if foe != null and foe.is_inside_tree() and foe.get(&"is_dead") != true:
+		var now_to := _behind_spot(foe)
+		if now_to != Vector3.INF:
+			to = now_to
+		face = foe.global_position - to
+	else:
+		foe = null
 	var from := hero.global_position
-	if foe != null and hiding:
-		# the thrust is a cut of his: out of hiding, and sure
-		hero.net_vanish.rpc(false, true)
 	# sent before he goes, so his own shadow is left where he stood
 	hero.net_shadow_step.rpc(from, to, foe.get_path() if foe != null else NodePath())
 	hero.global_position = to
@@ -179,7 +241,6 @@ func shadow_step(cost: float) -> bool:
 	if foe != null:
 		hero._commit(STEP_STAB_DELAY + 0.25)
 	hero.glide_camera(hero.rotation.y, STEP_GLIDE)
-	return true
 
 
 ## Behind `foe`, on the ground and clear: straight behind if he fits there,
@@ -307,17 +368,28 @@ func _stab(path: NodePath) -> void:
 	else:
 		return
 	hero.net_blade_landed.rpc(ImpactFx.matter_of(foe))
+	if hiding:
+		hero.net_vanish.rpc(false, false)
 
 
 #region Vanish
 ## The owner's: spends and sends it. True if it went.
 func vanish(cost: float) -> bool:
-	if hero == null or hiding:
+	if hero == null or hiding or _casting:
 		return false
 	if not hero._spend(cost):
 		return false
-	hero.net_vanish.rpc(true, false)
+	_casting = true
+	hero._commit(VANISH_CAST_DELAY + 0.12)
+	hero.net_rogue_cue.rpc(0)
+	get_tree().create_timer(VANISH_CAST_DELAY, false).timeout.connect(_vanish_go)
 	return true
+
+
+func _vanish_go() -> void:
+	_casting = false
+	if hero != null and not hero.is_dead and not hiding:
+		hero.net_vanish.rpc(true, false)
 
 
 ## Every peer: gone (`on`) or back. Back on a cut of his own (`ambush`), that
@@ -327,6 +399,7 @@ func set_hiding(on: bool, ambush: bool) -> void:
 		return
 	hiding = on
 	var into := Blood.world_of(hero)
+	_strike_until = 0.0
 	if on:
 		_hiding_until = _now() + VANISH_TIME
 		if into != null:
@@ -440,8 +513,10 @@ func _shed(g: Node) -> bool:
 
 
 func _on_attack() -> void:
-	if hiding and hero.is_multiplayer_authority():
-		hero.net_vanish.rpc(false, true)
+	# not seen yet: only once the cut lands ([method Player.blade_hit]), or
+	# STRIKE_GRACE after it began
+	if hiding and hero.is_multiplayer_authority() and _strike_until <= 0.0:
+		_strike_until = _now() + STRIKE_GRACE
 
 
 func _on_struck(_damage: float, _blocked: bool) -> void:

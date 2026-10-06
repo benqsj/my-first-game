@@ -22,8 +22,8 @@ extends Node
 ##    `assets/grass2/gras2.glb` (6 672 triangles, alpha-dithered): to judge it
 ##    against the light one.
 ##
-## Since 2026-10-06 (the user's word) only two are stepped through: the new
-## one above (0) and **elden** (1) — the same ground and grass in Elden Ring's
+## Since 2026-10-06 (the user's word) only three are stepped through: the new
+## one above (0), **elden dark** (2, below) and **elden** (1) — the same ground and grass in Elden Ring's
 ## Limgrave colours: gold and ochre grass, olive-gold leaves, dry grey-brown
 ## earth, a warm golden haze, a low amber sun and a pale gold horizon. The
 ## old looks (1–4 above) are no longer on F8.
@@ -158,11 +158,65 @@ const ELDEN_LANDS := {
 	"heather_green": Color(0.42, 0.39, 0.2),
 	"dirt": Color(0.46, 0.38, 0.26),
 }
+## **elden dark** (the user's word, 2026-10-06: the gold one liked, but too
+## colourful): the same Limgrave, darker and more drained — an overcast gold,
+## a grey-gold haze, a lower sun, olive-brown grass, darker earth.
+const EDARK_ENV := {
+	"tonemap_mode": Environment.TONE_MAPPER_ACES,
+	"tonemap_exposure": 0.98,
+	"ambient_light_color": Color(0.5, 0.49, 0.43),
+	"ambient_light_energy": 1.8,
+	"fog_light_color": Color(0.52, 0.49, 0.4),
+	"fog_density": 0.0066,
+	"fog_aerial_perspective": 0.7,
+	"fog_sun_scatter": 0.14,
+	"adjustment_enabled": true,
+	"adjustment_brightness": 0.98,
+	"adjustment_contrast": 1.12,
+	"adjustment_saturation": 0.66,
+}
+const EDARK_SKY := {
+	"sky_top_color": Color(0.27, 0.3, 0.34),
+	"sky_horizon_color": Color(0.6, 0.56, 0.45),
+	"ground_bottom_color": Color(0.1, 0.09, 0.07),
+	"ground_horizon_color": Color(0.56, 0.52, 0.42),
+}
+const EDARK_SUN := {
+	"light_energy": 1.05,
+	"light_color": Color(0.96, 0.82, 0.6),
+	"shadow_opacity": 0.7,
+}
+const EDARK_WOOD := Color(0.74, 0.7, 0.5)
+const EDARK_GRASS := Color(0.86, 0.74, 0.46)
+const EDARK_GROUND := {
+	"tone_grass": Color(0.68, 0.61, 0.4),
+	"tone_floor": Color(0.48, 0.46, 0.36),
+	"tone_bare": Color(0.64, 0.59, 0.46),
+	"tone_earth": Color(0.68, 0.65, 0.58),
+}
+const EDARK_LANDS := {
+	"grass_a": Color(0.25, 0.24, 0.12),
+	"grass_b": Color(0.36, 0.33, 0.16),
+	"grass_dry": Color(0.48, 0.42, 0.24),
+	"needles": Color(0.15, 0.15, 0.1),
+	"litter": Color(0.34, 0.26, 0.15),
+	"heather_green": Color(0.31, 0.3, 0.17),
+	"dirt": Color(0.36, 0.31, 0.23),
+}
+## The grades a look may wear, by name: light, sky, sun, the wood's and the
+## grass's tone, and the grounds' colours.
+const GRADES := {
+	"elden": {"env": ELDEN_ENV, "sky": ELDEN_SKY, "sun": ELDEN_SUN, "wood": ELDEN_WOOD,
+			"grass": ELDEN_GRASS, "ground": ELDEN_GROUND, "lands": ELDEN_LANDS},
+	"elden_dark": {"env": EDARK_ENV, "sky": EDARK_SKY, "sun": EDARK_SUN, "wood": EDARK_WOOD,
+			"grass": EDARK_GRASS, "ground": EDARK_GROUND, "lands": EDARK_LANDS},
+}
 ## Terrain.styles: 0 house, 1 photographed, 2 forest floor. `grade`: the light
-## and colour put on ("dark", "elden"; none for the level's own).
+## and colour put on ("dark", or one of `GRADES`; none for the level's own).
 const LOOKS: Array[Dictionary] = [
 	{"name": "new: forest floor, low sward, light grass, dark", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "grade": "dark"},
 	{"name": "elden: Limgrave's gold", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "grade": "elden"},
+	{"name": "elden dark: Limgrave overcast", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "grade": "elden_dark"},
 ]
 ## Metres a pixel of the ground mask.
 const MASK_CELL := 2.0
@@ -215,7 +269,8 @@ func apply(which: int) -> void:
 ## are changed, to put back.
 func _grade(kind: String) -> void:
 	var on := kind != ""
-	var elden := kind == "elden"
+	var g: Dictionary = GRADES.get(kind, {})
+	var styled := not g.is_empty()
 	# Which of the two dark grades: Low's own, or the one for Medium and High.
 	var low := kind == "dark" and Graphics.current == Graphics.Level.LOW
 	var world := _world()
@@ -223,12 +278,14 @@ func _grade(kind: String) -> void:
 		var env := (node as WorldEnvironment).environment
 		if env == null:
 			continue
-		_set_all(env, ELDEN_ENV if elden else (LOW_ENV if low else DARK_ENV), on, [DARK_ENV, LOW_ENV, ELDEN_ENV])
+		_set_all(env, g["env"] if styled else (LOW_ENV if low else DARK_ENV), on,
+				[DARK_ENV, LOW_ENV, ELDEN_ENV, EDARK_ENV])
 		var sky := env.sky.sky_material if env.sky != null else null
 		if sky is ProceduralSkyMaterial:
-			_set_all(sky, ELDEN_SKY if elden else DARK_SKY, on, [DARK_SKY, ELDEN_SKY])
+			_set_all(sky, g["sky"] if styled else DARK_SKY, on, [DARK_SKY, ELDEN_SKY, EDARK_SKY])
 	for node in world.find_children("*", "DirectionalLight3D", true, false):
-		_set_all(node, ELDEN_SUN if elden else (LOW_SUN if low else DARK_SUN), on, [DARK_SUN, LOW_SUN, ELDEN_SUN])
+		_set_all(node, g["sun"] if styled else (LOW_SUN if low else DARK_SUN), on,
+				[DARK_SUN, LOW_SUN, ELDEN_SUN, EDARK_SUN])
 	var forest := world.get_node_or_null("Forest")
 	if forest != null:
 		if low:
@@ -236,16 +293,17 @@ func _grade(kind: String) -> void:
 		else:
 			# Everything back first (Low leaves some of it alone), then toned.
 			_tone_wood(forest, Color.WHITE)
-			_tone_wood(forest, ELDEN_WOOD if elden else (DARK_WOOD if on else Color.WHITE))
+			_tone_wood(forest, g["wood"] if styled else (DARK_WOOD if on else Color.WHITE))
 	for node in world.find_children("*", "GrassField", true, false):
-		_tone_wood(node, ELDEN_GRASS if elden else (LOW_GRASS if low else Color.WHITE))
+		_tone_wood(node, g["grass"] if styled else (LOW_GRASS if low else Color.WHITE))
 	if _terrain != null and _terrain.styles.size() > 2:
 		var ground := _terrain.styles[2] as ShaderMaterial
 		if ground != null:
-			_set_params(ground, ELDEN_GROUND if elden else {"tone_grass": LOW_GROUND_GRASS} if low else {})
+			var tones: Dictionary = g["ground"] if styled else ({"tone_grass": LOW_GROUND_GRASS} if low else {})
+			_set_params(ground, tones)
 	var lands := world.get_node_or_null("Lands")
 	if lands != null and lands.get(&"_ground") is ShaderMaterial:
-		_set_params(lands.get(&"_ground") as ShaderMaterial, ELDEN_LANDS if elden else {})
+		_set_params(lands.get(&"_ground") as ShaderMaterial, g["lands"] if styled else {})
 
 
 ## A ground's shader parameters: those in `values` put on, every other one

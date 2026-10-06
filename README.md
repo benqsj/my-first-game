@@ -8242,3 +8242,25 @@ skills stay; how they look changes:
 - `_shots_tmp/as/graze_probe.gd` checks it: a swing 0.9 m from him finds
   nothing when he stands, and is a perfect evade when he is dodging.
 
+### F8's third look, and Vanish's first cut (2026-10-06, the user's word)
+- **elden dark: Limgrave overcast** (look 2). The user liked the gold look
+  but found it too colourful. This one is the same Limgrave, darker and
+  more drained: a grey-gold haze, a lower sun, olive-brown grass, darker
+  earth (`EDARK_*`). The looks' grades are now a table (`Looks.GRADES`).
+  F8 steps: new → elden → elden dark.
+- **Vanish**:
+  - It lasts 7 s (was 10).
+  - Before it goes he throws a pellet down at his feet (UAL's
+    OverhandThrow, 0.18–0.62 at ×1.5). The smoke comes up out of it
+    0.24 s later and he is gone.
+  - **A cut out of hiding keeps him unseen until it lands**
+    (`Player.blade_hit` on the host ends it). Before, the creature saw him
+    as the swing began. That cut is the sure critical. If it lands nothing,
+    he is seen 0.8 s after it began (`STRIKE_GRACE`).
+- **Shadow Step**: he gathers low and throws himself forward first (UAL 2's
+  Sword_Dash start, 0.2 s), with the shadows gathering round him. Then he
+  is gone, and out again behind where the thing stands *now*. Out of
+  hiding, the step's thrust also keeps him unseen until it lands.
+- The moves before each skill go to every peer with `Player.net_rogue_cue`.
+  The host may now end a hero's Vanish too (`net_vanish` from peer 1).
+
