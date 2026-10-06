@@ -7,8 +7,8 @@ extends Brawler
 ## * **Out of the ground.** It lies under the earth (`buried`: not seen, not
 ##   in anyone's way) until a hero comes within `wake_range`, then climbs out
 ##   of it (`rise_clip`) and comes for him. Where it is set to wait for the
-##   hero's blow (the arena's rule, its sight put away) it stands up there
-##   from the start instead.
+##   hero's blow (the arena's rule, its sight put away) it climbs out all the
+##   same and stands there until he strikes it.
 ## * **The horde.** Roused, it rouses every other of the dead within
 ##   `call_range` that is still waiting, its band or not.
 ## * **Not dead the first time.** Cut down, it may (`getup_chance`, once) only
@@ -80,14 +80,11 @@ func _think(delta: float) -> void:
 	if under:
 		if not _decides():
 			return
-		# Set to wait for his blow (sight put away): up and standing there.
-		if sight_range <= 0.0:
-			under = false
-			_show_under()
-			return
 		var near := _pick_quarry()
 		if near != null and _distance_to(near) < wake_range:
-			_climb_out(near)
+			# Set to wait for his blow (the arena's rule, its sight put away):
+			# it climbs out and stands there until he strikes it.
+			_climb_out(near if sight_range > 0.0 else null)
 		return
 	if act == DOWN or act == LIE or act == GETUP:
 		return

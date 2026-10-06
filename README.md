@@ -5920,7 +5920,8 @@ warrior's helm and coat, the mage's robe, the archer's strap and quiver.
 - **Out of the ground**: it lies under the earth, unseen, out of everyone's
   way and not to be locked on (`under`, sent to every peer), until a hero
   comes within 8 m; then it climbs out (`CR_Rise`) and comes. Set to wait for
-  his blow (the arena's rule) it stands there from the start instead.
+  his blow (the arena's rule) it climbs out all the same and stands there
+  until he strikes it.
 - **The horde**: roused, it rouses every other of the dead within 14 m still waiting.
 - **Not dead the first time**: cut down, half the time it only falls
   (`CR_Death2`), lies 2 s and gets up (`CR_GetUp`, UAL 2's LayToIdle) with 35 %

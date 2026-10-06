@@ -47,7 +47,9 @@ func _run() -> void:
 	var still := 0
 	await _wait(120)
 	for c in creatures.get_children():
-		if c is Fighter and (c as Fighter).act_serial == 0:
+		# (a zombie he stands near climbs out of the ground, and only that)
+		if c is Fighter and ((c as Fighter).act_serial == 0 or (c is ZombieFighter
+				and (c as Fighter).mode == Fighter.Mode.GUARD)):
 			still += 1
 	_check("none of them starts a fight", still == creatures.get_children().filter(func(c: Node) -> bool: return c is Fighter).size(),
 			"%d still" % still)

@@ -50,6 +50,7 @@ func _done(world: Node) -> void:
 
 func _run() -> void:
 	await _buried()
+	await _waiting()
 	await _horde()
 	await _getup()
 	await _ghoul()
@@ -78,6 +79,30 @@ func _buried() -> void:
 			rose = true
 	_check("he comes near: it climbs out of the ground", rose and not z.under and z.body.visible and z.is_in_group(&"enemy"))
 	_check("and its blows land on him", struck[0] >= 2, "%d" % struck[0])
+	await _done(a[0])
+
+
+## The arena's rule (wait for his blow): under the ground all the same, out
+## of it when he comes near, and then it waits for his blow.
+func _waiting() -> void:
+	var a: Array = await _arena()
+	var panel: ArenaPanel = a[1]
+	var hero: Player = a[2]
+	panel._wait_for_blow = true
+	var start := hero.global_position
+	var z := panel.call_up("res://scenes/enemies/pack/zombie_m.tscn", false, _ahead(hero, 14.0)) as ZombieFighter
+	for i in 30:
+		await physics_frame
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+	_check("waiting for his blow, it is still under the ground", z.under and not z.body.visible)
+	var near := z.global_position + (start - z.global_position).normalized() * 5.0
+	var rose := false
+	for f in 60 * 5:
+		await physics_frame
+		hero.global_position = Vector3(near.x, hero.global_position.y, near.z)
+		rose = rose or z.act == Brawler.RISE
+	_check("he comes near: it climbs out and waits for his blow", rose and not z.under
+			and z.mode == Fighter.Mode.GUARD, "mode %d" % z.mode)
 	await _done(a[0])
 
 
