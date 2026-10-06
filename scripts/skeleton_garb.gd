@@ -46,6 +46,8 @@ const SLOTS := ["sk_head", "sk_top", "sk_bottom"]
 
 static var _kit: Node3D
 static var _kit_skel: Skeleton3D
+## Piece id -> its mesh with the cloth only.
+static var _cloth: Dictionary = {}
 
 
 ## The ids worn in `look`, slot by slot.
@@ -99,13 +101,36 @@ static func wear(skel: Skeleton3D, look: Dictionary) -> void:
 			continue
 		var mi := MeshInstance3D.new()
 		mi.name = TAG + id
-		mi.mesh = src.mesh
+		mi.mesh = cloth_of(id)
 		mi.skin = _skin_for(src.skin, skel)
 		skel.add_child(mi)
 		mi.skeleton = NodePath("..")
 		var mat := PackCreature.material(String(piece[4]))
 		for s in mi.mesh.get_surface_count():
 			mi.set_surface_override_material(s, mat)
+
+
+## The piece's mesh without the bones the kit models into it (a coat carries
+## the skeleton's arm bones, a skirt its leg bones: the pack swaps the bare
+## bones for them): its "Objects" surfaces only, the cloth and the iron.
+static func cloth_of(id: String) -> Mesh:
+	if _cloth.has(id):
+		return _cloth[id]
+	if not PIECES.has(id) or not _load_kit():
+		return null
+	var src := _kit.find_child(String(PIECES[id][1]), true, false) as MeshInstance3D
+	if src == null or src.mesh == null:
+		return null
+	var out := ArrayMesh.new()
+	for s in src.mesh.get_surface_count():
+		var was := src.mesh.surface_get_material(s)
+		if was == null or not was.resource_name.contains("Objects"):
+			continue
+		var flags: int = src.mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, src.mesh.surface_get_arrays(s), [], {}, flags)
+		out.surface_set_material(out.get_surface_count() - 1, was)
+	_cloth[id] = out
+	return out
 
 
 static func _load_kit() -> bool:

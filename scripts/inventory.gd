@@ -97,6 +97,8 @@ const MUTED := Color(0.72, 0.68, 0.6)
 const SLOT := Vector2(78, 78)
 const COLUMNS := 5
 const ARMS_ART := "res://assets/ui/icons/arms/"
+## The skeletons' clothes' pictures (tools/bake_garb_icons.gd).
+const GARB_ART := "res://assets/ui/icons/garb/"
 ## The arms' pictures loaded so far, by id (null for one there is none of).
 var _arts: Dictionary = {}
 ## The gap between two slots of the grid.
@@ -110,7 +112,12 @@ const ICON_TINTS := {
 ## The hero himself, at the head of the status column (made when the bag is
 ## first opened: his model, in what he wears).
 var _portrait: CharacterPortrait
-const PORTRAIT := Vector2(312, 250)
+const PORTRAIT := Vector2(216, 250)
+## The sockets beside him for what he wears and holds (the user's word,
+## 2026-10-06): head, body and legs on his left, his hands on his right.
+const EQUIP := 54.0
+var _equip_rects: Array = []
+var _portrait_rect: Rect2
 
 var player: Player
 
@@ -196,8 +203,19 @@ func _input(event: InputEvent) -> void:
 
 
 func _on_gui(event: InputEvent) -> void:
+	# Dragged across, he turns on his stand, to be seen from every side.
+	if event is InputEventMouseMotion and _portrait != null \
+			and ((event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 \
+			and _portrait_rect.grow(30.0).has_point((event as InputEventMouseMotion).position):
+		_portrait.spin((event as InputEventMouseMotion).relative.x * 0.012)
+		return
 	if not event is InputEventMouseButton or not (event as InputEventMouseButton).pressed:
 		return
+	var press_at := (event as InputEventMouseButton).position
+	for slot: Array in _equip_rects:
+		if (slot[0] as Rect2).has_point(press_at):
+			_take_off_slot(String(slot[1]))
+			return
 	var wheel := (event as InputEventMouseButton).button_index
 	if wheel == MOUSE_BUTTON_WHEEL_UP or wheel == MOUSE_BUTTON_WHEEL_DOWN:
 		var count := _items().size()
@@ -247,6 +265,7 @@ func equip(kind: int) -> void:
 			look["o"] = _off_hand_before if _off_hand_before not in ["", "none"] else "his_shield"
 			player.set_look(look)
 	player.set_shield(kind)
+	_dress_portrait()
 	_root.queue_redraw()
 
 
@@ -261,6 +280,7 @@ func take_off() -> void:
 	_off_hand_before = String(look.get("o", ""))
 	look["o"] = "none"
 	player.set_look(look)
+	_dress_portrait()
 	_root.queue_redraw()
 
 
@@ -279,6 +299,13 @@ func _look() -> Dictionary:
 
 
 func _use(i: int) -> void:
+	_use_item(i)
+	# what he now wears, on him at once in the bag's picture of him
+	if _root.visible:
+		_dress_portrait()
+
+
+func _use_item(i: int) -> void:
 	var items := _items()
 	if i < 0 or i >= items.size():
 		return
@@ -376,7 +403,9 @@ func _items() -> Array[Dictionary]:
 					"text": "Tall, heavy, crimson, with the gold cross. A blow on it costs half as much to hold, and he crouches right down behind it.",
 				})
 		Tab.ATTIRE:
-			var garbs := _garbs()
+			# his model's own outfits, when he wears his model (on his own
+			# figure they are not on him)
+			var garbs := _garbs() if not _wears_own_figure() else []
 			for i in garbs.size():
 				var info: Dictionary = GARBS.get(StringName(garbs[i]), {})
 				out.append({
@@ -393,6 +422,7 @@ func _items() -> Array[Dictionary]:
 					var paint: Array = PackCreature.MATERIALS[String(piece[4])]
 					out.append({
 						"name": piece[2], "kind": piece[3], "icon": "garb", "colour": paint[0], "sk": id,
+						"pic": GARB_ART + id + ".png",
 						"worn": String(look.get(String(piece[0]), "")) == id,
 						"stats": [["Worn", {"sk_head": "on the head", "sk_top": "over the body",
 								"sk_bottom": "on the legs"}[String(piece[0])]], ["From", "the barrow's dead"]],
@@ -680,7 +710,8 @@ func _draw_all() -> void:
 	_draw_status(c, right)
 
 	# The keys, along the foot.
-	var keys := [["◂ ▸ ▴ ▾", "choose"], ["Q / E", "tab"], ["Enter", "put on / take off"], ["I", "close"]]
+	var keys := [["◂ ▸ ▴ ▾", "choose"], ["Q / E", "tab"], ["Enter", "put on / take off"], ["drag", "turn him"],
+			["I", "close"]]
 	var x := 40.0
 	for pair: Array in keys:
 		var key := String(pair[0])
@@ -694,6 +725,7 @@ func _draw_all() -> void:
 	if _portrait != null:
 		_portrait.position = right.position + Vector2((right.size.x - PORTRAIT.x) * 0.5, 52.0)
 		_portrait.size = PORTRAIT
+		_portrait_rect = Rect2(_portrait.position, PORTRAIT)
 
 
 func _draw_left(c: Control, box: Rect2) -> void:
@@ -763,6 +795,105 @@ func _arm_art(id: String) -> Texture2D:
 	return tex
 
 
+## A picture by its path (the clothes' own), loaded once; null for none.
+func _picture(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if _arts.has(path):
+		return _arts[path]
+	var tex := load(path) as Texture2D if ResourceLoader.exists(path) else null
+	_arts[path] = tex
+	if tex != null:
+		get_tree().create_timer(0.05).timeout.connect(_root.queue_redraw)
+	return tex
+
+
+## What he wears and holds, socket by socket: [slot, label, item-like
+## dictionary (name, icon, pic or art, colour) or {} for nothing].
+func _equipped() -> Array:
+	var look := _look()
+	var own := _wears_own_figure()
+	var out: Array = []
+	for slot: Array in [["sk_head", "HEAD", "hat"], ["sk_top", "BODY", "top"], ["sk_bottom", "LEGS", "bottom"]]:
+		var thing := {}
+		var id := String(look.get(String(slot[0]), "")) if own else ""
+		if SkeletonGarb.PIECES.has(id):
+			var piece: Array = SkeletonGarb.PIECES[id]
+			thing = {"name": piece[2], "icon": "garb", "pic": GARB_ART + id + ".png", "sk": id,
+					"colour": (PackCreature.MATERIALS[String(piece[4])] as Array)[0]}
+		elif own and String(look.get(String(slot[2]), "")) != "":
+			var key := String(look[String(slot[2])])
+			var label := String(PolysplitLook.HATS.get(key, {}).get("name", key)) if slot[2] == "hat" \
+					else "His own " + ("coat" if slot[2] == "top" else "breeches")
+			thing = {"name": label.capitalize() if slot[2] == "hat" else label, "icon": "garb",
+					"colour": Color(0.55, 0.5, 0.42)}
+		elif not own and slot[2] == "top":
+			var garbs := _garbs()
+			if not garbs.is_empty():
+				var info: Dictionary = GARBS.get(StringName(garbs[player.garb]), {})
+				thing = {"name": info.get("name", garbs[player.garb]), "icon": "garb",
+						"colour": info.get("colour", Color(0.5, 0.5, 0.45))}
+		out.append([slot[0], slot[1], thing])
+	var p := player.profile
+	var w := String(look.get("w", ""))
+	var held := {}
+	if w != "" and w != "none":
+		held = {"name": PolysplitLook.arm_name(w) if w != "own_bow" else "His own bow", "icon": "sword", "art": w}
+	elif p != null and look.is_empty():
+		held = _weapon(p)
+	out.append(["w", "WEAPON", held])
+	var o := String(look.get("o", ""))
+	var other := {}
+	if o == "his_shield" or (look.is_empty() and _has_shield() and _shield_on()):
+		var tower := player.shield_kind == Shields.TOWER
+		other = {"name": "Tower Shield" if tower else "Round Shield", "icon": "tower" if tower else "round",
+				"art": "his_tower_shield" if tower else "his_shield"}
+	elif o != "" and o != "none":
+		other = {"name": PolysplitLook.arm_name(o), "icon": "sword", "art": o}
+	out.append(["o", "OFF HAND", other])
+	return out
+
+
+## A socket beside him clicked: one of the skeletons' clothes comes off.
+func _take_off_slot(slot: String) -> void:
+	if not SkeletonGarb.SLOTS.has(slot):
+		return
+	var look := _look()
+	if look.is_empty() or not look.has(slot):
+		return
+	look.erase(slot)
+	player.set_look(look)
+	_dress_portrait()
+	_root.queue_redraw()
+
+
+## The sockets beside him: three on his left (head, body, legs), his two
+## hands on his right; what is in each drawn, its name under it.
+func _draw_equipped(c: Control, area: Rect2) -> void:
+	_equip_rects.clear()
+	var things := _equipped()
+	for k in things.size():
+		var entry: Array = things[k]
+		var left := k < 3
+		var row := k if left else k - 3
+		var x := area.position.x if left else area.end.x - EQUIP
+		var y := area.position.y + 8.0 + row * (EQUIP + 34.0)
+		var r := Rect2(x, y, EQUIP, EQUIP)
+		var thing: Dictionary = entry[2]
+		UiArt.text(c, Vector2(r.position.x - 10.0, r.position.y - 4.0), String(entry[1]), 10, Color(GOLD, 0.85),
+				"head", HORIZONTAL_ALIGNMENT_CENTER, EQUIP + 20.0)
+		UiArt.draw_frame(c, r, "socket_lit" if not thing.is_empty() else "socket", 6.0)
+		if not thing.is_empty():
+			_glyph(c, r.grow(-6.0), thing)
+			var caption := String(thing.get("name", ""))
+			if caption.length() > 13:
+				caption = caption.substr(0, 12) + "…"
+			UiArt.text(c, Vector2(r.position.x - 14.0, r.end.y + 13.0), caption, 10, Color(CREAM, 0.8), "body",
+					HORIZONTAL_ALIGNMENT_CENTER, EQUIP + 28.0)
+			if thing.has("sk"):
+				_equip_rects.append([r, String(entry[0])])
+
+
 ## The small gold diamond with an E: in his hands, or on him.
 func _worn_mark(c: Control, at: Vector2) -> void:
 	c.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -10), at + Vector2(10, 0), at + Vector2(0, 10),
@@ -774,7 +905,7 @@ func _worn_mark(c: Control, at: Vector2) -> void:
 
 ## A thing's picture in `rect`: its glyph, tinted, or the drawn one.
 func _glyph(c: Control, rect: Rect2, item: Dictionary) -> void:
-	var art := _arm_art(String(item.get("art", "")))
+	var art := _picture(String(item.get("pic", ""))) if item.has("pic") else _arm_art(String(item.get("art", "")))
 	if art != null:
 		c.draw_texture_rect(art, rect.grow(rect.size.x * 0.08), false)
 		return
@@ -858,6 +989,8 @@ func _draw_status(c: Control, box: Rect2) -> void:
 	var w := box.size.x - 64
 	var y := box.position.y + 40
 	UiArt.text(c, Vector2(box.position.x, y), "CHARACTER", 18, CREAM, "title", HORIZONTAL_ALIGNMENT_CENTER, box.size.x)
+	# what he wears and holds, in sockets either side of him
+	_draw_equipped(c, Rect2(box.position.x + 20.0, box.position.y + 52.0, box.size.x - 40.0, PORTRAIT.y))
 	# the hero stands here (the portrait), on a pool of light
 	var stand := Vector2(box.position.x + box.size.x * 0.5, box.position.y + 52 + PORTRAIT.y * 0.92)
 	c.draw_set_transform(stand, 0.0, Vector2(1.0, 0.22))
@@ -890,7 +1023,7 @@ func _draw_status(c: Control, box: Rect2) -> void:
 		rows.append(["Roll", "%.1f m" % (p.dash_speed * p.dash_duration)])
 		rows.append(["", ""])
 		rows.append(["Weapon", String(_weapon(p).name)])
-		var garbs := _garbs()
+		var garbs := _garbs() if not _wears_own_figure() else []
 		if not garbs.is_empty():
 			rows.append(["Attire", String(GARBS.get(StringName(garbs[player.garb]), {}).get("name", garbs[player.garb]))])
 		if _has_shield():

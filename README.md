@@ -5965,6 +5965,19 @@ same name, the rests lined up at the pelvis, 1.7 cm). Worn as `sk_head`,
 a skirt his breeches (his bare body under them), headgear his hat and hair.
 `tests/skeleton_garb_test.gd`.
 
+The pieces are worn as cloth only: the kit models the skeleton's own arm and
+leg bones into its coats and skirts (the pack swaps the bare bones for them),
+so only their "Objects" surfaces are kept (`SkeletonGarb.cloth_of`).
+
+**The bag** (the user's word): each piece has its own picture
+(`assets/ui/icons/garb/`, baked by `tools/bake_garb_icons.gd`, windowed: the
+piece alone, its cloth, three-quarters on). Beside the hero in the character
+column are sockets for what he wears and holds (head, body, legs; weapon, off
+hand), each with its picture and name; a click on one of the skeletons'
+pieces takes it off. The hero himself turns when dragged across, and is
+dressed again at once when something is put on or taken off. On his own
+figure his model's outfits are not listed (they are not on him).
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

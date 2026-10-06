@@ -91,5 +91,21 @@ func _run() -> void:
 			if item.has("sk"):
 				listed += 1
 	_check("the bag's Attire lists the nine pieces", listed == SkeletonGarb.PIECES.size(), "%d" % listed)
+	var pictures := 0
+	for id: String in SkeletonGarb.PIECES:
+		pictures += 1 if ResourceLoader.exists(Inventory.GARB_ART + id + ".png") else 0
+	_check("each has a picture of its own", pictures == SkeletonGarb.PIECES.size(), "%d" % pictures)
+	if not bag.is_empty():
+		var inv := bag[0] as Inventory
+		look = rig.call("get_look")
+		look["sk_top"] = "sk_warrior_top"
+		hero.set_look(look)
+		var body: Dictionary = (inv._equipped()[1] as Array)[2]
+		_check("the body's socket beside him shows what he wears", String(body.get("sk", "")) == "sk_warrior_top", str(body))
+		inv._take_off_slot("sk_top")
+		_check("clicked, it comes off", not (rig.call("get_look") as Dictionary).has("sk_top"))
+	for id: String in SkeletonGarb.PIECES:
+		var cloth := SkeletonGarb.cloth_of(id)
+		_check("%s: cloth only, no bones in it" % id, cloth != null and cloth.get_surface_count() >= 1)
 	print("skeleton_garb_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)
