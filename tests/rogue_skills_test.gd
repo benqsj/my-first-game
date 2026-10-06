@@ -61,7 +61,7 @@ func _check_poison() -> void:
 	marks = Afflictions.of(imp, false)
 	_check("the fifth boils it: the stacks gone", marks != null and marks.poison_stacks() == 0,
 			str(marks.poison_stacks() if marks != null else -1))
-	_check("and 50 off it at once (5 a stack, five stacks, two seconds; its m.def takes some)", took >= 40.0 and took < 60.0,
+	_check("and 10 off it at once (1 a stack, five stacks, two seconds; its m.def takes some)", took >= 7.0 and took < 12.0,
 			"%.1f" % took)
 	for i in 5:
 		_player.blade_hit(imp, imp.global_position + Vector3.UP)
@@ -71,7 +71,7 @@ func _check_poison() -> void:
 	was = imp.health
 	await _wait(60)
 	var ticked := was - float(imp.health)
-	_check("five stacks are 25 a second (less its m.def)", ticked > 18.0 and ticked < 30.0, "%.1f in 1 s" % ticked)
+	_check("five stacks are 5 a second, no more (less its m.def)", ticked > 3.5 and ticked <= 5.0, "%.1f in 1 s" % ticked)
 	_check("green", marks != null and marks.venom_color.is_equal_approx(RogueSkills.HUMAN_VENOM))
 	var rig := _player.rig as SkinnedRogueRig
 	_check("one knife: every cut is the coated one's", rig != null and not rig.cut_by_off_hand())

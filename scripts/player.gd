@@ -5361,10 +5361,11 @@ func net_arrow_rain(from: Vector3, up: Vector3, centre: Vector3, rain_seed: int,
 ## How long the blade stays poisoned once coated.
 @export var venom_time: float = 10.0
 ## Each stack on a creature lasts this long and costs it this much a second
-## (the user's word, 2026-10-06: 5 a stack, up to five, the fifth boils it —
-## [constant Afflictions.POISON_MAX], [method Afflictions.apply]).
+## (up to five, the fifth boils it — [constant Afflictions.POISON_MAX],
+## [method Afflictions.apply]). No more than 5 a second in all (the user's
+## word, 2026-10-06: it was 5 a stack, 25 at five, the assassin too strong).
 @export var venom_stack_time: float = 6.0
-@export var venom_dps: float = 5.0
+@export var venom_dps: float = 1.0
 
 ## Until when (on `_now()`) this hero's blade poisons what it cuts.
 var _venom_until: float = 0.0

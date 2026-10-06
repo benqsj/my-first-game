@@ -257,7 +257,7 @@ func _check_poison() -> void:
 	_check("cuts put stacks on, one a cut", marks != null and marks.poison_stacks() == 4,
 			str(marks.poison_stacks() if marks != null else -1))
 	await _wait(75)
-	_check("and they tick", is_instance_valid(imp) and float(imp.health) < was - 20.0,
+	_check("and they tick", is_instance_valid(imp) and float(imp.health) < was - 3.0,
 			"%.0f -> %.0f" % [was, float(imp.health) if is_instance_valid(imp) else -1.0])
 	_check("its veins go green", is_instance_valid(imp) and _overlaid(imp))
 	_player._venom_until = 0.0

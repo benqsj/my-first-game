@@ -8329,6 +8329,22 @@ Tariel's sword is by `Swordsman`:
   (`DG_Rise_Up`, "Standing From A Crouch", new from Mixamo). The K2 stab is
   no longer used (the clip stays in the library).
 
+### The poison weaker, and how hard each hero hits (2026-10-06, the user's word)
+- **The poison does no more than 5 a second** (`Player.venom_dps` 5 -> 1 a
+  stack, five stacks; the boil 50 -> 10). The assassin felt too strong.
+- **`tools/hero_dps.gd`**: every hero against the same dummy (an imp, or an
+  orc warrior with `-- boss`; its physics off, its blades still felt, no
+  guard or dodge, turning to face him unless it has lost him) for 30 s each of
+  cuts only, skills only and both, from full stamina, the stamina and
+  cooldowns then running as in play; the crit rolls seeded. Prints what it
+  lost a second. About 20 minutes for all eleven; name heroes to run fewer:
+
+      godot --path . --headless --script res://tools/hero_dps.gd -- [boss] [rogue tariel ...]
+
+  The first run (imp | orc warrior, a second, "both"): warrior 26 | 14,
+  Amirani 19-23 | 16, assassin 21 | 10, Tariel 17 | 9, archers 12-17 | 8-9,
+  mages 9 | 7. The mages' and the warrior's and Amirani's bars are empty.
+
 
 ### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)
 
