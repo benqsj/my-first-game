@@ -27,6 +27,11 @@ func _initialize() -> void:
 	# A roll begun as it closes in: shaken off, and it misses.
 	var timed := await _case(7.0, 0.6)
 	_check("a roll begun as it closes in shakes it off", timed["hits"] == 0 and timed["let_go"], str(timed))
+	# Dodged, it does not go out: it flies on past him and strikes whoever
+	# stands 3.5 m behind him on its way (it never goes after him).
+	var behind := await _case_behind()
+	_check("dodged, it flies on and strikes the one behind him", behind["first"] == 0 and behind["second"] == 1
+			and not behind["faded_at_pass"], str(behind))
 	# Walking only: followed and hit (as ever).
 	var walked := await _case(-1.0, 0.0)
 	_check("a body walking across is followed and hit", walked["hits"] == 1, str(walked))
@@ -67,6 +72,39 @@ func _case(roll_at: float, roll_for: float) -> Dictionary:
 		out["let_go"] = out["let_go"] or (not bolt.is_hunting() and not bolt.is_fading())
 	out["hits"] = int(dummy.get("hits"))
 	dummy.queue_free()
+	if is_instance_valid(bolt):
+		bolt.queue_free()
+	await _wait(2)
+	return out
+
+
+## A body standing 24 m off that rolls as the bolt closes in, and a second
+## standing 3.5 m behind it on the same line.
+func _case_behind() -> Dictionary:
+	var first := _dummy()
+	first.position = Vector3(24.0, 20.0, 0.0)
+	_world.add_child(first)
+	var second := _dummy()
+	second.position = Vector3(27.5, 20.0, 0.0)
+	_world.add_child(second)
+	await _wait(2)
+	var bolt: SpellBolt = (load("res://scenes/fx/spell_bolt.tscn") as PackedScene).instantiate()
+	_world.add_child(bolt)
+	bolt.global_position = Vector3(0.0, 20.8, 0.0)
+	bolt.launch(Vector3(30.0, 0.0, 0.0), 10.0, false, 0.0, _world)
+	bolt.hunt(first)
+	var out := {"first": 0, "second": 0, "faded_at_pass": false}
+	for i in 180:
+		if is_instance_valid(bolt):
+			var gap := (first.global_position + Vector3.UP - bolt.global_position).length()
+			first.set("evading", gap < 7.0 or bool(first.get("evading")))
+			if bolt.global_position.x > 24.5 and bolt.global_position.x < 26.5 and bolt.is_fading():
+				out["faded_at_pass"] = true
+		await physics_frame
+	out["first"] = int(first.get("hits"))
+	out["second"] = int(second.get("hits"))
+	first.queue_free()
+	second.queue_free()
 	if is_instance_valid(bolt):
 		bolt.queue_free()
 	await _wait(2)

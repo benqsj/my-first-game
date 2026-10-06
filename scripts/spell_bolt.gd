@@ -29,9 +29,9 @@ extends Arrow
 ##   go, or thrown long before it arrives, does not shake it (the user's word,
 ##   2026-10-06: rolled as the skeleton mage cast, its bolt went on the old
 ##   way and never came after him).
-## * **It does not come round again.** The moment it is past what it was thrown
-##   at, hit or not, it fades out where it is. Without a quarry it fades at
-##   the end of its `reach`.
+## * **It does not come round again.** Dodged, it flies on straight past what
+##   it was thrown at and strikes whatever stands in its way behind (it never
+##   goes after anyone else), and fades at the end of its `reach`.
 ##
 ## Where it strikes it bursts in a flash and is gone instead of sticking.
 
@@ -256,10 +256,13 @@ func _physics_process(delta: float) -> void:
 			var to_it := _mark(_quarry) - global_position
 			if to_it.dot(_heading) < 0.0:
 				# Gone by — which a bolt still hunting never is: it comes round.
-				# One that was shaken off does not turn back for another go.
+				# One that was shaken off does not turn back for another go: it
+				# flies on straight past him, out of sight (`reach`), and
+				# whoever stands in its way behind him takes it (the user's
+				# word, 2026-10-06: it went out the moment it was dodged). It
+				# never goes after anyone else.
 				if _was_ahead and not _hunting:
-					_fade()
-					return
+					_quarry = null
 			else:
 				_was_ahead = true
 			if _hunting and _got_away(_quarry, delta, to_it.length() / maxf(pace, 1.0)):
