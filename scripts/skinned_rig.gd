@@ -209,6 +209,18 @@ var _last_attack_at: float = -100.0
 @export var action_blend: float = 0.1
 ## Widens the measured cutting window a little each side, as a fraction of the clip.
 @export var cut_margin: float = 0.03
+## A blow's way back to guard, once it has cut, played at this share of its
+## pace (1: as made); the last blow of a string and a heavy blow at
+## `last_recover_pace`. A blow thrown into it cuts it short as ever: only a
+## blow left alone comes back slowly (the knight, the user's word 2026-10-06).
+var recover_pace: float = 1.0
+var last_recover_pace: float = 1.0
+## Seconds the stance is blended back in over after a blow played out (the
+## last of a string: `last_recover_blend`); under 0, the stance's own.
+var recover_blend: float = -1.0
+var last_recover_blend: float = -1.0
+var _recover_slowed: bool = false
+var _ease_back: float = -1.0
 ## Swings play at this rate. Mixamo's are unhurried; the game is not.
 @export var swing_rate: float = 1.6
 ## A swing thrown on the move keeps running legs under it (see
@@ -979,6 +991,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 				and _in_window(through)
 		if _attack_cutting:
 			_strike_world()
+		if _role == Role.SWING and not _recover_slowed and not _air_cut and _hold_at <= 0.0:
+			_slow_recovery(through)
 		if _role == Role.SWING and _heavy_now and not _slam_done:
 			var slam := _slam_share()
 			if slam > 0.0 and through >= slam:
@@ -1021,9 +1035,13 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			# A blow of the picked moves with a recovery of its own (UAL 2's
 			# "_Rec"): played after it, if nothing follows and he stands.
 			var after: StringName = &""
+			if _role == Role.SWING and not released:
+				_ease_back = last_recover_blend if _last_blow() else recover_blend
 			if _on_mq and _role == Role.SWING and not released and not _heavy_now:
 				after = (moves.get("recover", {}) as Dictionary).get(_act_clip, &"")
+			var ease := _ease_back
 			_end_action()
+			_ease_back = ease
 			if after != &"" and planar_speed <= idle_threshold and not airborne and _anim.has_animation(after):
 				_play_action(after, Role.FREE, 1.15, 0.08)
 				_recovering = true
@@ -1283,6 +1301,9 @@ func _set_base(clip: StringName, blend: float, rate: float) -> void:
 		return
 	if clip != _base_clip or _anim.current_animation != clip:
 		_base_clip = clip
+		if _ease_back > 0.0:
+			blend = maxf(blend, _ease_back)
+		_ease_back = -1.0
 		_anim.play(clip, blend)
 	_anim.speed_scale = rate
 
@@ -1304,6 +1325,8 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_wind_at = -1.0
 	_role = role
 	_recovering = false
+	_recover_slowed = false
+	_ease_back = -1.0
 	_evade_cut = false
 	_act_clip = clip
 	_action_len = length
@@ -1424,6 +1447,35 @@ func in_recovery() -> bool:
 		return false
 	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
 	return w != Vector2.ZERO and _progress() > w.y + cut_margin
+
+
+## The blow in hand is a string's last, or a heavy blow.
+func _last_blow() -> bool:
+	return _heavy_now or (_attack_style == AttackStyle.SIDE and not flurry.is_empty()
+			and _flurry_slot == flurry.size() - 1)
+
+
+## Once the blow in hand has cut, the rest of it (its way back to guard)
+## slowed to `recover_pace` (`last_recover_pace` at a string's end).
+func _slow_recovery(through: float) -> void:
+	var k := last_recover_pace if _last_blow() else recover_pace
+	if k >= 0.999:
+		return
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	var many: Array = cut_windows.get(_act_clip, [])
+	if not many.is_empty():
+		w = many[many.size() - 1]
+	if w == Vector2.ZERO or through < w.y + cut_margin:
+		return
+	_recover_slowed = true
+	k = maxf(k, 0.1)
+	var held := maxf(_stop_left, 0.0)
+	_action_left = held + maxf(_action_left - held, 0.0) / k
+	_action_rate *= k
+	if _stop_left > 0.0:
+		_stop_rate *= k
+	else:
+		_anim.speed_scale *= k
 
 
 ## Its travel is carrying him (see `carried`).
@@ -2884,6 +2936,13 @@ func holds_shield() -> bool:
 ## How many strings he has to throw ([Swordsman] `STRINGS`).
 func string_count() -> int:
 	return (moves.get("string_sets", []) as Array).size() if _on_mq else 0
+
+
+## Whether the block button throws the other string instead of a heavy blow
+## for a hero who never raises a guard (the knight's great sword,
+## [GreatSword]).
+func block_throws_string() -> bool:
+	return _on_mq and bool(moves.get("block_strings", false)) and string_count() > 1
 
 
 ## Puts on the string the next cut comes from: the one F6 picked (`other`

@@ -3087,8 +3087,18 @@ func _shield_in_hand() -> bool:
 ## string (Tariel): the block button throws the other string, the one F6
 ## would pick (the user's word, 2026-10-04).
 func _other_string_ready() -> bool:
+	# the knight, who never raises a guard: both buttons cut ([GreatSword])
+	if _block_throws_string():
+		return true
 	return profile != null and profile.can_block and not has_bow() and not _shield_in_hand() \
 			and rig != null and rig.has_method(&"string_count") and int(rig.call(&"string_count")) > 1
+
+
+## A hero with no guard whose block button is a second string of cuts, not
+## a heavy blow (the knight's great sword, the user's word 2026-10-06).
+func _block_throws_string() -> bool:
+	return rig != null and not has_bow() and rig.has_method(&"block_throws_string") \
+			and bool(rig.call(&"block_throws_string"))
 
 
 ## A cut from the string F6 picked (`other` false) or the other one, the
@@ -3108,7 +3118,7 @@ func net_wear_string(other: bool) -> void:
 
 
 func _has_heavy() -> bool:
-	if profile == null or profile.can_block or has_bow() or rig == null:
+	if profile == null or profile.can_block or has_bow() or rig == null or _block_throws_string():
 		return false
 	var blows: Variant = rig.get(&"heavy")
 	return blows is Array and not (blows as Array).is_empty()

@@ -348,6 +348,9 @@ static func build(kind: StringName, own: Dictionary) -> Dictionary:
 	if kind == &"sword":
 		# one author and one design for the sword (Tariel): see Swordsman
 		Swordsman.apply(t)
+	elif kind == &"two_hands":
+		# the knight's great sword, on both buttons: see GreatSword
+		GreatSword.apply(t)
 	return t
 
 
