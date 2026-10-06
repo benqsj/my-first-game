@@ -107,8 +107,8 @@ func _initialize() -> void:
 	_check("the block button throws a string", rig.block_throws_string() and player._other_string_ready())
 	_check("no heavy blow on it", not player._has_heavy())
 	# (whichever string F6 last left picked in the game's settings)
-	rig._wear_string(0)
-	rig._main_string = 0
+	rig._wear_string(GreatSword.MAIN_STRINGS[0])
+	rig._main_string = GreatSword.MAIN_STRINGS[0]
 	rig.wear_other_string(false)
 	await _frames(10)
 
@@ -116,17 +116,17 @@ func _initialize() -> void:
 	two.assign(GreatSword.STRINGS[0]["clips"])
 	var one: Array[StringName] = []
 	one.assign(GreatSword.STRINGS[1]["clips"])
-	var seen := await _string("attack", 4)
-	_check("the attack button: the two-handed string", seen == two, str(seen))
+	var seen := await _string("block", 4)
+	_check("the block button: the two-handed string", seen == two, str(seen))
 	await _frames(200)
-	seen = await _string("block", 4)
-	_check("the block button: the one-handed string", seen == one, str(seen))
+	seen = await _string("attack", 4)
+	_check("the attack button: the one-handed string", seen == one, str(seen))
 	await _frames(200)
 	_check("the stamina held out", player.stamina > 0.0, "%.0f" % player.stamina)
 	player.stamina = player.max_stamina
 
 	# a first blow left alone, against the same blow with the old pace
-	var slow := await _one_blow("attack")
+	var slow := await _one_blow("block")
 	await _frames(200)
 	var keep := [rig.recover_pace, rig.last_recover_pace, rig.windup_pace, rig.strike_pace]
 	rig.recover_pace = 1.0
@@ -135,7 +135,7 @@ func _initialize() -> void:
 	rig.strike_pace = 1.0
 	var hang_was := rig.hang_time
 	rig.hang_time = 0.0
-	var plain := await _one_blow("attack")
+	var plain := await _one_blow("block")
 	rig.recover_pace = keep[0]
 	rig.last_recover_pace = keep[1]
 	rig.windup_pace = keep[2]
@@ -156,8 +156,8 @@ func _initialize() -> void:
 
 	# the string's last blow comes back slower still
 	for i in 3:
-		await _next("attack")
-	var last := await _one_blow("attack")
+		await _next("block")
+	var last := await _one_blow("block")
 	print("    last blow %s: %.2f s (pace %.2f -> %.2f)" % [last["clip"], last["t"], last["cut"], last["back"]])
 	_check("the last blow is the string's end", last["clip"] == two[3], str(last["clip"]))
 	_check("its way back slower than a first blow's", last["back"] / maxf(last["cut"], 0.01) \
@@ -167,9 +167,9 @@ func _initialize() -> void:
 	# B thrown on from A: carried over more slowly than A was gathered
 	await _frames(200)
 	player.stamina = player.max_stamina
-	await _next("attack")
+	await _next("block")
 	var gather_a := rig._anim.speed_scale
-	await _next("attack")
+	await _next("block")
 	var gather_b := 0.0
 	for i in 20:
 		if rig._blow_phase == 0 and rig._stop_left <= 0.0:
@@ -178,6 +178,23 @@ func _initialize() -> void:
 	print("    A gathered at %.2f, B carried over at %.2f" % [gather_a, gather_b])
 	_check("B carried over from A slower than A was gathered", gather_b > 0.0 and gather_b < gather_a - 0.02,
 			"%.2f vs %.2f" % [gather_b, gather_a])
+
+	# F6: the attack button goes on to Tariel's strings, the block button
+	# keeps the two-handed one
+	await _frames(200)
+	player.stamina = player.max_stamina
+	var named := rig.cycle_string()
+	await _next("attack")
+	var tariel := rig.current_swing()
+	await _frames(200)
+	await _next("block")
+	var still := rig.current_swing()
+	_check("F6: the attack button throws Tariel's string", named.begins_with("TARIEL")
+			and tariel == (Swordsman.STRINGS[0]["clips"] as Array)[0], "%s / %s" % [named, tariel])
+	_check("F6: the block button keeps the two-handed string", still == two[0], str(still))
+	for i in 2:
+		rig.cycle_string()
+	_check("F6 three times: back to one hand", rig._main_string == GreatSword.MAIN_STRINGS[0])
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
 	quit(1 if _failures > 0 else 0)

@@ -232,6 +232,16 @@ var strike_lead: float = 0.1
 ## the blade is carried over slowly from one blow into the next (the user's
 ## word, 2026-10-06). Under 0: `windup_pace` and `action_blend`.
 var chain_windup_pace: float = -1.0
+## The roll's getting up (the rest of its clip, past where the dash ends) played
+## at this pace when he stands where it ends, as a way back that moving off
+## lets go of; 0: the stance blended straight in from where the roll is (the
+## knight was left down on one knee and popped up, the user's word
+## 2026-10-06). `roll_out_blend`: the stance blended in over it either way.
+var roll_rise_rate: float = 0.0
+## Where in the roll's clip the getting up is done (the warrior's roll goes on
+## into a flourish of the sword after it).
+var roll_rise_until: float = 0.97
+var roll_out_blend: float = -1.0
 var chain_blend: float = -1.0
 ## The camera shaken when his blade bites (times the blow's weight), his own
 ## view only; 0: not at all.
@@ -1072,11 +1082,23 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			var after: StringName = &""
 			if _role == Role.SWING and not released:
 				_ease_back = last_recover_blend if _last_blow() else recover_blend
+			var rise := _role == Role.ROLL and not _evade_cut and roll_rise_rate > 0.0 and not released \
+					and planar_speed <= idle_threshold and not airborne and _progress() < roll_rise_until - 0.02 \
+					and (Moveset.clip_meta(_act_clip).get("hop", []) as Array).is_empty()
+			var rise_clip := _act_clip
+			var rise_from := _progress()
+			if _role == Role.ROLL and roll_out_blend > 0.0:
+				_ease_back = roll_out_blend
 			if _on_mq and _role == Role.SWING and not released and not _heavy_now:
 				after = (moves.get("recover", {}) as Dictionary).get(_act_clip, &"")
 			var ease := _ease_back
 			_end_action()
 			_ease_back = ease
+			if rise and _anim.has_animation(rise_clip):
+				# up off the ground at its own pace, from where the dash left him
+				_play_action(rise_clip, Role.FREE, roll_rise_rate, 0.0, rise_from, roll_rise_until)
+				_recovering = true
+				_ease_back = roll_out_blend
 			if after != &"" and planar_speed <= idle_threshold and not airborne and _anim.has_animation(after):
 				_play_action(after, Role.FREE, 1.15, 0.08)
 				_recovering = true
@@ -3043,6 +3065,11 @@ func _wear_moves() -> void:
 	if cfg.load(TRIAL_CFG) == OK:
 		_wear_string(int(cfg.get_value(String(polysplit_hero), "string", 0)))
 	_main_string = _worn_string
+	var mains: Array = moves.get("main_strings", [])
+	if not mains.is_empty() and not mains.has(_main_string):
+		# a pick saved before the block button had a string of its own
+		_wear_string(mains[0])
+		_main_string = mains[0]
 	_hilt_ends.clear()
 	_flurry_slot = -1
 	_base_clip = &""
@@ -3057,6 +3084,18 @@ const TRIAL_CFG := "user://trial.cfg"
 ## The other string ([Swordsman] `STRINGS`, F6), kept for next time.
 ## Its name, or "" if there are none.
 func cycle_string() -> String:
+	var mains: Array = moves.get("main_strings", [])
+	if _on_mq and not mains.is_empty():
+		# the attack button's strings only ([GreatSword]): the block
+		# button's stays its own
+		var next: int = mains[(maxi(mains.find(_main_string), 0) + 1) % mains.size()]
+		var cfg := ConfigFile.new()
+		cfg.load(TRIAL_CFG)
+		cfg.set_value(String(polysplit_hero), "string", next)
+		cfg.save(TRIAL_CFG)
+		var named := _wear_string(next)
+		_main_string = next
+		return named
 	var named := _cycle_trial("string", (moves.get("string_sets", []) as Array).size(), _wear_string)
 	_main_string = _worn_string
 	return named
@@ -3098,6 +3137,8 @@ func wear_other_string(other: bool) -> void:
 	if count < 2:
 		return
 	var want := (_main_string + (1 if other else 0)) % count
+	if moves.has("block_string"):
+		want = int(moves["block_string"]) if other else _main_string
 	if want != _worn_string:
 		_wear_string(want)
 

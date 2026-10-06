@@ -158,6 +158,11 @@ func _configure() -> void:
 	air_cut_from = 0.42
 	plunge_from = 0.6
 	roll_share = 0.62
+	# Up off the roll at its own pace where he stands, not popped up off his
+	# knee into the stance (the user's word, 2026-10-06).
+	roll_rise_rate = 1.3
+	roll_rise_until = 0.86
+	roll_out_blend = 0.3
 	# A great sword's pace: slower out of the guard, a longer ease from one
 	# blow into the next.
 	swing_rate = 1.3

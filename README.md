@@ -8388,3 +8388,22 @@ A first blow: the cut 0.57 s after the press (0.42 played as made).
 The knight's evades slower (warrior and Amirani): the dash 8.8 m/s for 0.58 s
 (was 11 for 0.45), the dodge 7.0 for 0.85 s (8.5 for 0.7); the roll's clip is
 fitted to the time, so it plays slower too.
+
+### The buttons fixed, F6 to Tariel's strings; up off the roll (2026-10-06, the user's word)
+
+The block button always throws the **two-handed** string, the attack button
+the one F6 picks: **one hand** first, then **Tariel's** two strings as he
+throws them with no shield (UAL 2's Regular and Heavy A-B-C with their own
+ways back, `Swordsman.STRINGS`, named "TARIEL ..."). `GreatSword.BLOCK_STRING`
+/ `MAIN_STRINGS`; `SkinnedRig.cycle_string()` goes round `main_strings` only,
+`wear_other_string()` takes `block_string` for the block button; a pick saved
+before (the two-handed one) is put back to one hand.
+
+The knight's roll ended down on one knee (its clip fitted to the dash at
+x2.6, the getting up left out) and the stance popped in from there. Now
+`SkinnedRig.roll_rise_rate`: standing where the dash ends, the rest of the
+roll's clip (the getting up) plays on at x1.3 up to `roll_rise_until` (0.86:
+the warrior's roll goes on into a flourish after it) as a way back that moving
+off lets go of, the stance blended in over `roll_out_blend` 0.3 s. Not for a
+dodge that hops out and back (Kevin's). His dash 7.8 m/s x 0.66 s (the roll
+x2.3), warrior and Amirani.
