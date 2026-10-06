@@ -24,6 +24,11 @@ extends Arrow
 ##   that says `is_evading()`, or breaks sideways off the way it was going
 ##   faster than `dodge_kick` — shakes it off. From then on the bolt flies
 ##   straight, and it goes through a body that is rolling out of its way.
+##   Only an evade begun while it is on its way counts, and only once it is
+##   near (`dodge_window` seconds off): a roll already going when it was let
+##   go, or thrown long before it arrives, does not shake it (the user's word,
+##   2026-10-06: rolled as the skeleton mage cast, its bolt went on the old
+##   way and never came after him).
 ## * **It does not come round again.** The moment it is past what it was thrown
 ##   at, hit or not, it fades out where it is. Without a quarry it fades at
 ##   the end of its `reach`.
@@ -61,6 +66,9 @@ const MODEL_SCALE := 0.14
 ## Whether a hard swerve (above) counts as a dodge too; off, only a real dodge
 ## (`is_evading()`) shakes it off.
 @export var dodge_by_swerve: bool = false
+## How near (seconds of flight at its present pace) it must be for an evade to
+## shake it off; an evade begun further off is spent for nothing.
+@export var dodge_window: float = 0.75
 ## How far it goes before it has spent itself, in metres.
 @export var reach: float = 70.0
 ## How long the fading out takes.
@@ -80,6 +88,10 @@ var _hunting: bool = false
 var _was_ahead: bool = false
 ## The quarry's recent velocity, smoothed: a dodge is a break from it.
 var _quarry_pace: Vector3 = Vector3.ZERO
+## Whether the quarry was evading at the last look, and whether an evade of
+## his has begun since the bolt was let go (only such an evade can shake it).
+var _quarry_evading: bool = false
+var _fresh_evade: bool = false
 var _fading: bool = false
 ## The distance over which it gathers pace, worked out on its first tick —
 ## the quarry is handed over after the launch.
@@ -179,6 +191,8 @@ func hunt(who: Node3D) -> void:
 	_was_ahead = false
 	var pace: Variant = who.get("velocity") if who != null else null
 	_quarry_pace = pace if pace is Vector3 else Vector3.ZERO
+	_quarry_evading = _is_evading(who)
+	_fresh_evade = false
 
 
 ## Whether it is still bending towards its quarry.
@@ -248,7 +262,7 @@ func _physics_process(delta: float) -> void:
 					return
 			else:
 				_was_ahead = true
-			if _hunting and _got_away(_quarry, delta):
+			if _hunting and _got_away(_quarry, delta, to_it.length() / maxf(pace, 1.0)):
 				_hunting = false
 			if _hunting and to_it.length_squared() > 0.0001:
 				# Bent hard enough to always arrive: at least as fast as the
@@ -422,9 +436,15 @@ func _mark(who: Node3D) -> Vector3:
 ## velocity has broken sideways off the bolt's line, hard, against what it was
 ## doing a moment ago. Steady running across the line is not that — it is
 ## followed.
-func _got_away(who: Node3D, delta: float) -> bool:
-	if _is_evading(who):
-		return true
+func _got_away(who: Node3D, delta: float, arrives_in: float = 0.0) -> bool:
+	var evading := _is_evading(who)
+	if evading and not _quarry_evading:
+		_fresh_evade = true
+	elif not evading:
+		_fresh_evade = false
+	_quarry_evading = evading
+	if evading:
+		return _fresh_evade and arrives_in <= dodge_window
 	# Only a body that can dodge gets away, and only by dodging: a creature
 	# turning or breaking into a run is followed and hit.
 	if not who.has_method(&"is_evading") or not dodge_by_swerve:
