@@ -1111,6 +1111,14 @@ func _read_actions() -> void:
 	if Input.is_action_just_pressed("stow"):
 		_set_weapons_stowed(not weapons_stowed())
 
+	# At a sprint the block button is no guard but the slide in under it
+	# ([member SkinnedRig.run_slide]; Tariel, the user's word 2026-10-07).
+	if sprinting and Input.is_action_just_pressed("block") and _run_slide_ready():
+		_forced_heavy = _run_slide_slot()
+		_attack(true)
+		_forced_heavy = -1
+		return
+
 	# The shield is only up while the button is held; rolling and sliding drop it.
 	# A character with no shield has nothing to raise.
 	var raised := Input.is_action_pressed("block") and state == State.GROUNDED \
@@ -3240,13 +3248,34 @@ func _on_slammed(at: Vector3, heft: float) -> void:
 
 ## Heavy blows cost this many light cuts' stamina.
 @export var heavy_stamina: float = 1.6
+## A heavy blow named outright (the sprint's slide), not picked by the
+## string: -1 none.
+var _forced_heavy: int = -1
+
+
+## A slide to throw off a sprint: this look has one ([method
+## SkinnedRig.run_slide_index]) and its clip, and he has the ground under him.
+func _run_slide_ready() -> bool:
+	return not has_bow() and state == State.GROUNDED and _run_slide_slot() >= 0
+
+
+## Where the sprint's slide is in the rig's heavy blows, or -1.
+func _run_slide_slot() -> int:
+	if rig == null or not rig.has_method(&"run_slide_index"):
+		return -1
+	return int(rig.call(&"run_slide_index"))
 
 
 ## Which heavy blow the string has come to: out of nothing a lunge (or, at a
 ## run, the flying flip); early in the string the spinning leap; later the
 ## three great cuts; at its end the whirling combo.
 func _heavy_blow() -> int:
+	if _forced_heavy >= 0:
+		return _forced_heavy
 	var count := (rig.get(&"heavy") as Array).size()
+	# the sprint's slide, kept last, is never one the string comes to
+	if _run_slide_slot() >= 0:
+		count -= 1
 	var at: int = int(rig.call(&"flurry_position")) if rig.has_method(&"flurry_position") else -1
 	var pace := Vector2(velocity.x, velocity.z).length()
 	var pick := 0

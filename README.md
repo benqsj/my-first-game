@@ -200,6 +200,17 @@ lost between physics ticks and simulated input works in tests.
   body or drops it through the floor. Standing back up is gated on there being
   room for the full capsule — under a low gap the slide simply carries on until
   the player is out from under it.
+- **Sliding cut (Tariel, at a sprint).** The block button while sprinting
+  throws the warrior's slide (`WR_Slide`: in low on one knee under what is in
+  front, the blade coming up) instead of raising the guard or the other
+  string. It is a heavy blow (`SkinnedRig.run_slide`, kept last in `heavy` by
+  `_keep_run_slide()` whatever the look's picks put there, so the string's
+  own heavy picks never come to it; `Player._forced_heavy` names it), so it
+  costs a heavy blow's stamina, carries him as far as the clip goes (or to
+  what he aims at) and goes over the wire as `HEAVY + index`. The clip is the
+  warrior's, lent on the mannequin (`mq_borrow`); a look off the mannequin has
+  no slide and the button does what it always did.
+  `tests/tariel_sprint_slide_test.gd`.
 - **Ledge climb.** A ledge in front turns into a pull-up: on `jump` from the
   ground, and **on its own in mid-air**, so running at a wall and jumping is
   enough to get over it without timing a second button.

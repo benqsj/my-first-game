@@ -83,6 +83,10 @@ var finisher_weight: float = 1.0
 ## Which one is the controller's to choose.
 var heavy: Array = []
 const HEAVY := 100
+## A heavy blow thrown off a sprint with the block button (Tariel: the
+## warrior's slide), kept last in `heavy` whatever else is there
+## ([method run_slide_index]). Empty: none.
+var run_slide: Dictionary = {}
 ## The attack style of the running cut (the moves' `run_attack`).
 const RUN_CUT := 90
 ## The attack style of Tariel's skill, the rising cut (the moves' `rising_cut`).
@@ -631,6 +635,16 @@ func _configure() -> void:
 		{"clip": &"TR_GS_JumpSlam", "part": Vector2(0.12, 0.86), "rate": 1.45, "weight": 1.9, "aim": false,
 			"travel": 3.09, "slam": 0.47, "rise": 0.66},
 	]
+	# At a sprint the block button throws the warrior's slide instead: in low
+	# on one knee under what is in front of him and the blade coming up (the
+	# user's word, 2026-10-07). The warrior's clip, lent on the mannequin
+	# (`mq_borrow`); a look off the mannequin has no such clip and no slide.
+	run_slide = {"clip": &"WR_Slide", "part": Vector2(0.05, 0.9), "rate": 1.2, "weight": 2.0,
+			"aim": false, "travel": 2.94, "rise": 0.8}
+	mq_borrow[&"WR_Slide"] = "warrior"
+	carried[&"WR_Slide"] = true
+	cut_window[&"WR_Slide"] = Vector2(0.56, 0.72)
+	trail_window[&"WR_Slide"] = Vector2(0.56, 0.78)
 	# A broad, bright cut in the air, as in the videos, and brighter and longer
 	# on the finisher and the slam.
 	arc_style = {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35, "smear": 1.0,
@@ -2563,6 +2577,7 @@ func _apply_moves() -> void:
 	if _on_mq:
 		_wear_moves()
 		_off_hand_on = PolysplitLook.cuts(String(ps_look.get("o", "")))
+		_keep_run_slide()
 		return
 	var m: Dictionary = face_moves.get(faces[face], {}) if face < faces.size() else {}
 	flurry.assign(m.get("flurry", _own_moves["flurry"]))
@@ -2571,6 +2586,28 @@ func _apply_moves() -> void:
 	_off_hand_on = m.get("off_hand", true)
 	if face < faces.size() and faces[face] == CUSTOM:
 		_off_hand_on = PolysplitLook.cuts(String(ps_look.get("o", "")))
+	_keep_run_slide()
+
+
+## `run_slide` put back last in `heavy`, once, after the heavy blows were
+## worn anew (a look's, the mannequin's picks).
+func _keep_run_slide() -> void:
+	if run_slide.is_empty():
+		return
+	for i in range(heavy.size() - 1, -1, -1):
+		if (heavy[i] as Dictionary).get("clip") == run_slide["clip"]:
+			heavy.remove_at(i)
+	heavy.append(run_slide.duplicate(true))
+
+
+## Where `run_slide` is in `heavy` (last), or -1: none, or its clip not in
+## this look's library (off the mannequin).
+func run_slide_index() -> int:
+	if run_slide.is_empty() or heavy.is_empty() or _anim == null:
+		return -1
+	if (heavy.back() as Dictionary).get("clip") != run_slide["clip"]:
+		return -1
+	return heavy.size() - 1 if _anim.has_animation(run_slide["clip"]) else -1
 
 
 ## Whether the face that is on is a whole figure (see `whole_faces`).
