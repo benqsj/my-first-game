@@ -5998,6 +5998,19 @@ hands the kit gives them, their skirts only from the hips (over his own
 breeches and boots: the kit's leggings and boots were cut for bone and sank
 into his legs) — `SkeletonGarb._kept`.
 
+Clothing comes in five parts: head, shirt, pants, shoes and cloak. A hero's
+own breeches and boots are one mesh in the pack, so `SkeletonGarb._legs_and_feet`
+cuts it by the bone each triangle hangs from most (`_part_of`: ankle, ball and
+toe make the feet). It draws them as `SkGarb_legs` and `SkGarb_feet`, and
+`look.feet` picks whose boots he wears. The skeletons' boots
+(`sk_warrior_boots`, `sk_archer_boots`) are `sk_feet` pieces, and with them on
+his own feet are not drawn. The kit's bracers and leggings are cut to bone
+size, so `_fitted` pushes each limb vertex out from its bone line onto flesh
+(`FLESH`). The bag's sockets are HEAD, BODY, LEGS and FEET on the left, and
+WEAPON, OFF HAND and CLOAK on the right. A cape or cloak goes in CLOAK before
+a choker or scarf. The bake tools draw with `RenderingServer.force_draw`
+because a window behind the game got no frames and the bake hung.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

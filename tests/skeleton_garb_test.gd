@@ -29,6 +29,13 @@ func _shown(fig: Node, prefix: String) -> Array[String]:
 	return out
 
 
+## His own breeches and boots are drawn apart now, as SkGarb_legs and
+## SkGarb_feet on his skeleton; worn, they stand for `ps_bottom_*`.
+func _own(skel: Skeleton3D, part: String) -> bool:
+	var m := skel.get_node_or_null(SkeletonGarb.TAG + part) as MeshInstance3D
+	return m != null and m.visible and not m.is_queued_for_deletion()
+
+
 func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var who := StringName(args[0]) if not args.is_empty() else &"tariel"
@@ -49,7 +56,7 @@ func _run() -> void:
 	var fig: Node3D = rig.get("_figure")
 	var skel: Skeleton3D = rig.get("_figure_skel")
 	_check("%s: his own top, breeches, hat and hair on first" % who,
-			not _shown(fig, "top_").is_empty() and not _shown(fig, "bottom_").is_empty()
+			not _shown(fig, "top_").is_empty() and _own(skel, "legs") and _own(skel, "feet")
 			and not _shown(fig, "hat_").is_empty() and not _shown(fig, "hair").is_empty())
 
 	look = rig.call("get_look")
@@ -61,12 +68,12 @@ func _run() -> void:
 		await physics_frame
 	var on := []
 	for c in skel.get_children():
-		if String(c.name).begins_with(SkeletonGarb.TAG) and (c as MeshInstance3D).is_visible_in_tree():
+		if String(c.name).begins_with(SkeletonGarb.TAG + "sk_") and (c as MeshInstance3D).is_visible_in_tree():
 			on.append(String(c.name))
 	_check("the three pieces are on his figure", on.size() == 3, str(on))
 	_check("his own top is off under the coat, his breeches and boots on under the skirt",
 			_shown(fig, "top_").is_empty() and not _shown(fig, "topbody").is_empty()
-			and not _shown(fig, "bottom_").is_empty() and _shown(fig, "bottombody").is_empty(),
+			and _own(skel, "legs") and _own(skel, "feet") and _shown(fig, "bottombody").is_empty(),
 			"%s %s" % [_shown(fig, "top"), _shown(fig, "bottom")])
 	_check("his hat and hair are off under the helm", _shown(fig, "hat_").is_empty() and _shown(fig, "hair").is_empty(),
 			"%s %s" % [_shown(fig, "hat_"), _shown(fig, "hair")])
@@ -78,7 +85,7 @@ func _run() -> void:
 	for i in 5:
 		await physics_frame
 	var left := skel.get_children().filter(func(c: Node) -> bool:
-		return String(c.name).begins_with(SkeletonGarb.TAG) and not c.is_queued_for_deletion())
+		return String(c.name).begins_with(SkeletonGarb.TAG + "sk_") and not c.is_queued_for_deletion())
 	_check("taken off, they are gone and his own is back", left.is_empty()
 			and not _shown(fig, "top_").is_empty() and not _shown(fig, "hat_").is_empty())
 
@@ -146,5 +153,25 @@ func _run() -> void:
 		for k in src.mesh.get_surface_count():
 			whole += (src.mesh.surface_get_arrays(k)[Mesh.ARRAY_INDEX] as PackedInt32Array).size()
 		_check("%s: less of it worn than the kit has (no hands, no boots)" % id, n > 0 and n < whole, "%d of %d" % [n, whole])
+	# his legs and feet apart: breeches without their feet, his boots alone
+	look = rig.call("get_look")
+	look.erase("bare_bottom")
+	look.erase("feet")
+	hero.set_look(look)
+	for i in 3:
+		await physics_frame
+	var parts := skel.get_children().filter(func(c: Node) -> bool:
+		return String(c.name) in [SkeletonGarb.TAG + "legs", SkeletonGarb.TAG + "feet"] and not c.is_queued_for_deletion())
+	_check("his breeches and his boots are drawn apart", parts.size() == 2 and _shown(fig, "bottom").is_empty(),
+			"%d parts, %s" % [parts.size(), _shown(fig, "bottom")])
+	look = rig.call("get_look")
+	look["sk_feet"] = "sk_archer_boots"
+	hero.set_look(look)
+	for i in 3:
+		await physics_frame
+	var feet_now := skel.get_children().filter(func(c: Node) -> bool:
+		return not c.is_queued_for_deletion() and String(c.name) in [SkeletonGarb.TAG + "feet", SkeletonGarb.TAG + "sk_archer_boots"])
+	_check("in the skeleton's boots, his own are off", feet_now.size() == 1
+			and String(feet_now[0].name) == SkeletonGarb.TAG + "sk_archer_boots", str(feet_now.map(func(c: Node) -> String: return String(c.name))))
 	print("skeleton_garb_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)

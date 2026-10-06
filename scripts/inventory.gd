@@ -112,10 +112,10 @@ const ICON_TINTS := {
 ## The hero himself, at the head of the status column (made when the bag is
 ## first opened: his model, in what he wears).
 var _portrait: CharacterPortrait
-const PORTRAIT := Vector2(216, 250)
+const PORTRAIT := Vector2(216, 280)
 ## The sockets beside him for what he wears and holds (the user's word,
 ## 2026-10-06): head, body and legs on his left, his hands on his right.
-const EQUIP := 54.0
+const EQUIP := 46.0
 var _equip_rects: Array = []
 var _portrait_rect: Rect2
 
@@ -337,6 +337,9 @@ func _use_item(i: int) -> void:
 				"hat":
 					look["hat"] = key
 					look.erase("sk_head")
+				"feet":
+					look["feet"] = key
+					look.erase("sk_feet")
 				"extra":
 					var worn: Array = (look.get("extras", []) as Array).duplicate()
 					if not worn.has(key):
@@ -464,10 +467,11 @@ func _all_items() -> Array[Dictionary]:
 					out.append({
 						"name": piece[2], "kind": piece[3], "icon": "garb", "colour": paint[0], "sk": id,
 						"pic": GARB_ART + id + ".png",
-						"order": {"sk_head": 0, "sk_top": 1, "sk_bottom": 3}[String(piece[0])],
+						"order": {"sk_head": 0, "sk_top": 1, "sk_bottom": 3, "sk_feet": 4}[String(piece[0])],
 						"worn": String(look.get(String(piece[0]), "")) == id,
 						"stats": [["Worn", {"sk_head": "on the head", "sk_top": "over the body",
-								"sk_bottom": "on the legs"}[String(piece[0])]], ["From", "the barrow's dead"]],
+								"sk_bottom": "on the legs", "sk_feet": "on the feet"}[String(piece[0])]],
+								["From", "the barrow's dead"]],
 						"text": piece[5],
 					})
 	return out
@@ -864,6 +868,16 @@ func _own_pieces(look: Dictionary) -> Array[Dictionary]:
 				"text": "His own, as he came: the %s of the %s's outfit." % [
 						"coat" if part == "top" else "breeches", outfit.to_lower()],
 			})
+	for cls: String in PolysplitLook.classes(hero, g):
+		var outfit := String(PolysplitLook.CLASS_NAMES.get(cls, cls)).capitalize()
+		var on_feet := String(look.get("feet", look.get("bottom", "")))
+		out.append({
+			"name": "%s's Boots" % outfit, "kind": "Boots", "icon": "garb", "colour": Color(0.55, 0.5, 0.42),
+			"own": "feet", "key": cls, "pic": pic.call("feet_" + cls), "order": 4,
+			"worn": on_feet == cls and not look.has("sk_feet"),
+			"stats": [["Worn", "on the feet"], ["Outfit", outfit]],
+			"text": "His own, as he came: the boots of the %s's outfit." % outfit.to_lower(),
+		})
 	for hat: String in PolysplitLook.HAT_ORDER:
 		var path: String = pic.call("hat_" + hat)
 		if not ResourceLoader.exists(path):
@@ -883,12 +897,16 @@ func _own_pieces(look: Dictionary) -> Array[Dictionary]:
 			continue
 		out.append({
 			"name": _extra_name(x), "kind": "Cloak and the like", "icon": "garb", "colour": Color(0.55, 0.5, 0.42),
-			"own": "extra", "key": x, "pic": path, "order": 2,
+			"own": "extra", "key": x, "pic": path, "order": 4 if x.ends_with("_shoes") else 2,
 			"worn": (look.get("extras", []) as Array).has(x),
 			"stats": [["Worn", "over his clothes"]],
 			"text": "Part of his outfit, to wear or to leave off.",
 		})
 	return out
+
+
+static func _cloakish(x: String) -> bool:
+	return x.contains("cape") or x.contains("cloak") or x.contains("shawl") or x.contains("mantle")
 
 
 ## An extra of his outfits that is clothing (a cape, a cloak, a shawl, a
@@ -930,7 +948,8 @@ func _equipped() -> Array:
 	var hero: Variant = player.rig.get(&"polysplit_hero") if player.rig != null else null
 	var g := String(look.get("g", "m"))
 	var out: Array = []
-	for slot: Array in [["sk_head", "HEAD", "hat"], ["sk_top", "BODY", "top"], ["sk_bottom", "LEGS", "bottom"]]:
+	for slot: Array in [["sk_head", "HEAD", "hat"], ["sk_top", "BODY", "top"], ["sk_bottom", "LEGS", "bottom"],
+			["sk_feet", "FEET", "feet"]]:
 		var thing := {}
 		var id := String(look.get(String(slot[0]), "")) if own else ""
 		var part := String(slot[2])
@@ -938,7 +957,11 @@ func _equipped() -> Array:
 			var piece: Array = SkeletonGarb.PIECES[id]
 			thing = {"name": piece[2], "icon": "garb", "pic": GARB_ART + id + ".png", "sk": id,
 					"colour": (PackCreature.MATERIALS[String(piece[4])] as Array)[0]}
-		elif own and String(look.get(part, "")) != "" and not look.get("bare_" + part, false):
+		elif own and part == "feet" and String(look.get("feet", look.get("bottom", ""))) != "":
+			var cls := String(look.get("feet", look.get("bottom", "")))
+			thing = {"name": "%s's Boots" % String(PolysplitLook.CLASS_NAMES.get(cls, cls)).capitalize(), "icon": "garb",
+					"colour": Color(0.55, 0.5, 0.42), "pic": GARB_ART + "own_%s_%s_feet_%s.png" % [hero, g, cls]}
+		elif own and part != "feet" and String(look.get(part, "")) != "" and not look.get("bare_" + part, false):
 			var key := String(look[part])
 			var label := String(PolysplitLook.HATS.get(key, {}).get("name", key)).capitalize() if part == "hat" \
 					else "%s's %s" % [String(PolysplitLook.CLASS_NAMES.get(key, key)).capitalize(),
@@ -971,8 +994,11 @@ func _equipped() -> Array:
 	out.append(["o", "OFF HAND", other])
 	var cloak := {}
 	if own:
-		for x: Variant in look.get("extras", []):
-			if _is_cloth(String(x)):
+		# the cloak itself before a choker or a scarf worn with it
+		var on: Array = (look.get("extras", []) as Array).filter(func(x: Variant) -> bool: return _is_cloth(String(x)))
+		on.sort_custom(func(a: Variant, b: Variant) -> bool: return _cloakish(String(a)) and not _cloakish(String(b)))
+		for x: Variant in on:
+			if true:
 				cloak = {"name": _extra_name(String(x)), "icon": "garb", "colour": Color(0.55, 0.5, 0.42),
 						"pic": GARB_ART + "own_%s_%s_x_%s.png" % [hero, g, String(x)], "extra": String(x)}
 				break
@@ -1010,6 +1036,11 @@ func _take_off_slot(slot: String) -> void:
 						look.erase("sk_bottom")
 					else:
 						look["bare_bottom"] = true
+				"sk_feet":
+					if look.has("sk_feet"):
+						look.erase("sk_feet")
+					else:
+						look["feet"] = ""
 				"cloak":
 					var worn: Array = (look.get("extras", []) as Array).duplicate()
 					for x: Variant in worn:
@@ -1030,10 +1061,10 @@ func _draw_equipped(c: Control, area: Rect2) -> void:
 	var things := _equipped()
 	for k in things.size():
 		var entry: Array = things[k]
-		var left := k < 3
-		var row := k if left else k - 3
+		var left := k < 4
+		var row := k if left else k - 4
 		var x := area.position.x if left else area.end.x - EQUIP
-		var y := area.position.y + 8.0 + row * (EQUIP + 34.0)
+		var y := area.position.y + 6.0 + row * (EQUIP + 28.0)
 		var r := Rect2(x, y, EQUIP, EQUIP)
 		var thing: Dictionary = entry[2]
 		UiArt.text(c, Vector2(r.position.x - 10.0, r.position.y - 4.0), String(entry[1]), 10, Color(GOLD, 0.85),

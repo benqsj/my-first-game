@@ -40,12 +40,16 @@ const PIECES := {
 			"Objects_SkelMage", "A mage's mantle hung with a chain of brass, the grave-cloth hood down."],
 	"sk_warrior_bottom": ["sk_bottom", "Skeleton_Warrior_Bottom", "Barrow Kilt", "Kilt and greaves",
 			"Objects_SkelWarrior", "A war kilt of leather strips over greaves and knee-cops."],
-	"sk_archer_bottom": ["sk_bottom", "Skeleton_Archer_Bottom", "Bone Archer's Leggings", "Leggings and boots",
-			"Objects_SkelArcher", "Ragged leggings and tall boots."],
+	"sk_archer_bottom": ["sk_bottom", "Skeleton_Archer_Bottom", "Bone Archer's Leggings", "Leggings",
+			"Objects_SkelArcher", "Ragged leggings, bound at the knee."],
+	"sk_warrior_boots": ["sk_feet", "Skeleton_Warrior_Bottom", "Barrow Boots", "Boots",
+			"Objects_SkelWarrior", "Short boots of old leather off a barrow warrior."],
+	"sk_archer_boots": ["sk_feet", "Skeleton_Archer_Bottom", "Bone Archer's Boots", "Tall boots",
+			"Objects_SkelArcher", "Tall boots, cracked at the ankle."],
 	"sk_mage_bottom": ["sk_bottom", "Skeleton_Mage_Bottom", "Grave Robe", "Robe",
 			"Objects_SkelMage", "The long skirt of a mage's robe, frayed at the hem."],
 }
-const SLOTS := ["sk_head", "sk_top", "sk_bottom"]
+const SLOTS := ["sk_head", "sk_top", "sk_bottom", "sk_feet"]
 
 static var _kit: Node3D
 static var _kit_skel: Skeleton3D
@@ -91,13 +95,15 @@ static func strip(on: Dictionary, look: Dictionary) -> void:
 
 ## Puts what `look` wears on the figure's skeleton `skel` (and takes off what
 ## it no longer does).
-static func wear(skel: Skeleton3D, look: Dictionary) -> void:
+static func wear(skel: Skeleton3D, look: Dictionary, figure: Node = null) -> void:
 	if skel == null:
 		return
 	for child in skel.get_children():
 		if String(child.name).begins_with(TAG):
 			skel.remove_child(child)
 			child.queue_free()
+	if figure != null:
+		_legs_and_feet(figure, skel, look)
 	var ids := worn(look)
 	if ids.is_empty() or not _load_kit():
 		return
@@ -115,6 +121,100 @@ static func wear(skel: Skeleton3D, look: Dictionary) -> void:
 		var mat := PackCreature.material(String(piece[4]))
 		for s in mi.mesh.get_surface_count():
 			mi.set_surface_override_material(s, mat)
+
+
+## His legs and his feet worn apart (the user's word, 2026-10-07: shoes are
+## a thing of their own): the figure's breeches (`bottom_<cls>`, or the bare
+## body with `bare_bottom`) drawn without their feet, and the feet of
+## `look.feet`'s breeches (his boots; "" bare; missing, the breeches' own)
+## drawn alone, or nothing under a skeleton's boots. Each is cut from the
+## figure's mesh by the bone each triangle hangs from most.
+static func _legs_and_feet(figure: Node, skel: Skeleton3D, look: Dictionary) -> void:
+	var meshes := {}
+	for m: MeshInstance3D in figure.find_children("ps_bottom*", "MeshInstance3D", true, false):
+		meshes[String(m.name)] = m
+	var legs_name := "ps_bottombody" if look.get("bare_bottom", false) else "ps_bottom_" + String(look.get("bottom", ""))
+	var feet_key := String(look.get("feet", look.get("bottom", "")))
+	var feet_name := "" if look.has("sk_feet") else ("ps_bottombody" if feet_key == "" else "ps_bottom_" + feet_key)
+	if not meshes.has(legs_name):
+		return
+	for m: MeshInstance3D in meshes.values():
+		m.visible = false
+	for pair: Array in [[legs_name, false, "legs"], [feet_name, true, "feet"]]:
+		var src: MeshInstance3D = meshes.get(String(pair[0]))
+		if src == null or src.mesh == null:
+			continue
+		var mi := MeshInstance3D.new()
+		mi.name = TAG + String(pair[2])
+		mi.mesh = _part_of(src.mesh, src.skin, skel, bool(pair[1]))
+		mi.skin = src.skin
+		skel.add_child(mi)
+		mi.skeleton = NodePath("..")
+		# a cut drops the surfaces left empty: each kept one says whose it was
+		var from: PackedInt32Array = mi.mesh.get_meta(&"from", PackedInt32Array())
+		for k in from.size():
+			if from[k] < src.get_surface_override_material_count():
+				mi.set_surface_override_material(k, src.get_surface_override_material(from[k]))
+		if src.material_override != null:
+			mi.material_override = src.material_override
+
+
+static var _parts: Dictionary = {}
+
+
+## A figure mesh's feet alone (`feet`), or the rest of it without them.
+static func _part_of(mesh: Mesh, skin: Skin, skel: Skeleton3D, feet: bool) -> Mesh:
+	var key := "%d|%s" % [mesh.get_instance_id(), feet]
+	if _parts.has(key):
+		return _parts[key]
+	var names := PackedStringArray()
+	if skin != null:
+		for k in skin.get_bind_count():
+			var n := String(skin.get_bind_name(k))
+			if n == "" and skin.get_bind_bone(k) >= 0:
+				n = skel.get_bone_name(skin.get_bind_bone(k))
+			names.append(n)
+	var out := ArrayMesh.new()
+	var from := PackedInt32Array()
+	for sidx in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(sidx)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES] if arrays[Mesh.ARRAY_BONES] != null else PackedInt32Array()
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS] if arrays[Mesh.ARRAY_WEIGHTS] != null else PackedFloat32Array()
+		var index: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+		if verts.is_empty() or bones.is_empty() or index.is_empty():
+			continue
+		var per := floori(float(bones.size()) / float(verts.size()))
+		var foot := PackedByteArray()
+		foot.resize(verts.size())
+		for v in verts.size():
+			var best := -1.0
+			var bone := ""
+			for j in per:
+				var k := bones[v * per + j]
+				if weights[v * per + j] > best and k < names.size():
+					best = weights[v * per + j]
+					bone = names[k]
+			foot[v] = 1 if is_foot(bone) else 0
+		var kept := PackedInt32Array()
+		for t in floori(index.size() / 3.0):
+			var n := foot[index[t * 3]] + foot[index[t * 3 + 1]] + foot[index[t * 3 + 2]]
+			# a triangle goes with the feet if most of its corners do
+			if (n >= 2) == feet:
+				kept.append(index[t * 3])
+				kept.append(index[t * 3 + 1])
+				kept.append(index[t * 3 + 2])
+		if kept.is_empty():
+			continue
+		var cut := arrays.duplicate()
+		cut[Mesh.ARRAY_INDEX] = kept
+		var flags: int = mesh.surface_get_format(sidx) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, cut, [], {}, flags)
+		out.surface_set_material(out.get_surface_count() - 1, mesh.surface_get_material(sidx))
+		from.append(sidx)
+	out.set_meta(&"from", from)
+	_parts[key] = out
+	return out
 
 
 ## The piece's mesh without the bones the kit models into it (a coat carries
@@ -178,8 +278,9 @@ static func _kept(arrays: Array, skin: Skin, slot: String) -> Array:
 		if slot == "sk_top":
 			keep = not (bone.contains("wrist") or bone.contains("Finger"))
 		elif slot == "sk_bottom":
-			keep = bone.contains("pelvis") or bone.contains("waist") or bone.contains("thigh") \
-					or bone.contains("coatTail") or bone.contains("oatTail")
+			keep = not is_foot(bone)
+		elif slot == "sk_feet":
+			keep = is_foot(bone)
 		keep_vert[v] = 1 if keep else 0
 	var kept := PackedInt32Array()
 	for t in floori(index.size() / 3.0):
@@ -192,6 +293,61 @@ static func _kept(arrays: Array, skin: Skin, slot: String) -> Array:
 			kept.append(c)
 	var out := arrays.duplicate()
 	out[Mesh.ARRAY_INDEX] = kept
+	out[Mesh.ARRAY_VERTEX] = _fitted(verts, bones, weights, per, names, skin)
+	return out
+
+
+## A foot's bone: the ankle, the ball, the toe.
+static func is_foot(bone: String) -> bool:
+	return bone.contains("ankle") or bone.contains("ball") or bone.contains("toe")
+
+
+## How far out (metres) what hangs from each limb's bone is set, to sit on
+## a man's flesh rather than on bare bone (the kit's bracers, leggings and
+## boots were cut round the bone: on him they were bracelets sunk into his
+## arm, and boots inside his feet).
+const FLESH := {"shoulder": 0.03, "elbow": 0.026, "thigh": 0.05, "knee": 0.04, "ankle": 0.03, "ball": 0.022}
+## Each limb bone's next one down, the limb's line.
+const LIMB_NEXT := {"shoulder": "elbow", "elbow": "wrist", "thigh": "knee", "knee": "ankle", "ankle": "ball",
+		"ball": "toe"}
+
+
+## The corners hung from a limb bone set out from the limb's line by its
+## FLESH, in the mesh's own (rest) space.
+static func _fitted(verts: PackedVector3Array, bones: PackedInt32Array, weights: PackedFloat32Array, per: int,
+		names: PackedStringArray, skin: Skin) -> PackedVector3Array:
+	var out := verts.duplicate()
+	if _kit_skel == null:
+		return out
+	for v in verts.size():
+		var best := -1.0
+		var k_best := -1
+		for j in per:
+			if weights[v * per + j] > best:
+				best = weights[v * per + j]
+				k_best = bones[v * per + j]
+		if k_best < 0 or k_best >= names.size():
+			continue
+		var name := names[k_best]
+		var part := ""
+		for key: String in FLESH:
+			if name.contains(key + "_joint") or name.contains(key + "Joint"):
+				part = key
+		if part == "":
+			continue
+		var b := _kit_skel.find_bone(name)
+		var next := _kit_skel.find_bone(name.replace(part, String(LIMB_NEXT[part])))
+		if b < 0 or next < 0:
+			continue
+		var to_skel := _rest(_kit_skel, b) * skin.get_bind_pose(k_best)
+		var p := to_skel * verts[v]
+		var a := _rest(_kit_skel, b).origin
+		var c := _rest(_kit_skel, next).origin
+		var on := Geometry3D.get_closest_point_to_segment(p, a, c)
+		var away := p - on
+		if away.length() < 0.0005:
+			continue
+		out[v] = to_skel.affine_inverse() * (p + away.normalized() * float(FLESH[part]))
 	return out
 
 

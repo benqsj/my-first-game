@@ -80,6 +80,7 @@ func _run() -> void:
 			for cls: String in PolysplitLook.classes(hero, g):
 				keys.append("top_" + cls)
 				keys.append("bottom_" + cls)
+				keys.append("feet_" + cls)
 			# every hat (the maker's are free), and his outfits' cloaks and the like
 			for hat: String in PolysplitLook.HAT_ORDER:
 				keys.append("hat_" + hat)
@@ -88,14 +89,27 @@ func _run() -> void:
 					keys.append("x_" + x)
 			# everything he is drawn with, not only the figure's (the bow's string is the rig's)
 			var meshes := v.find_children("*", "MeshInstance3D", true, false)
+			var skel: Skeleton3D = v.get(&"_figure_skel")
 			for k: String in keys:
 				var shown: MeshInstance3D = null
+				# breeches without their feet, boots alone (SkeletonGarb._part_of)
+				var cut := k.begins_with("bottom_") or k.begins_with("feet_")
+				var want := "ps_bottom_" + k.get_slice("_", 1) if cut else "ps_" + k
 				for m: MeshInstance3D in meshes:
-					m.visible = String(m.name) == "ps_" + k
-					if m.visible:
+					m.visible = String(m.name) == want and not cut
+					if String(m.name) == want:
 						shown = m
 				if shown == null:
 					continue
+				if cut:
+					var part := MeshInstance3D.new()
+					part.mesh = SkeletonGarb._part_of(shown.mesh, shown.skin, skel, k.begins_with("feet_"))
+					part.skin = shown.skin
+					skel.add_child(part)
+					part.skeleton = NodePath("..")
+					for c in shown.get_surface_override_material_count():
+						part.set_surface_override_material(c, shown.get_surface_override_material(c))
+					shown = part
 				await process_frame
 				var box := shown.mesh.get_aabb()
 				var lo := Vector3(INF, INF, INF)
@@ -107,11 +121,16 @@ func _run() -> void:
 				var mid := (lo + hi) * 0.5
 				cam.position = Vector3(mid.x, mid.y, mid.z + 10.0)
 				cam.size = maxf(hi.x - lo.x, hi.y - lo.y) * 1.2
+				# drawn here and now: a window behind others (the game, the
+				# editor) gets no frames of its own, and the wait never ended
 				for f in 3:
-					await RenderingServer.frame_post_draw
+					RenderingServer.force_draw(false)
+					await process_frame
 				_fit(view.get_texture().get_image()).save_png(ProjectSettings.globalize_path(
 						OUT + "own_%s_%s_%s.png" % [hero, g, k]))
 				done += 1
+				if cut:
+					shown.queue_free()
 			v.queue_free()
 			await process_frame
 	print("BAKED ", done)

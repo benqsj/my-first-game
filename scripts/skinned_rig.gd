@@ -2757,7 +2757,7 @@ func _show_figure() -> void:
 		if custom:
 			PolysplitLook.apply(node, ps_look)
 			# and the skeletons' clothes from the bag over the bare body
-			SkeletonGarb.wear(_figure_skel, ps_look)
+			SkeletonGarb.wear(_figure_skel, ps_look, node)
 			shows = []
 			if _on_mq and String(ps_look.get("w", "")) == "own_bow":
 				# the mannequin's figure has the pack's bow only (his own

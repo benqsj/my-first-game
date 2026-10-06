@@ -78,7 +78,8 @@ func _run() -> void:
 		cam.position = Vector3(mid.x, mid.y, mid.z + 10.0)
 		cam.size = maxf(hi.x - lo.x, hi.y - lo.y) * 1.1
 		for f in 3:
-			await RenderingServer.frame_post_draw
+			RenderingServer.force_draw(false)
+			await process_frame
 		_fit(view.get_texture().get_image()).save_png(ProjectSettings.globalize_path(OUT + id + ".png"))
 		done += 1
 	print("BAKED ", done)
