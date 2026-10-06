@@ -54,8 +54,18 @@ func _run() -> void:
 	_check("it goes again", hero.use_skill(0))
 	var times: Array[float] = []
 	var left := MageSkills.SPEARS
+	var crown_ok := true
 	for i in 420:
 		await physics_frame
+		if i == 20:
+			# her body turned aside (running round it): the crescent stays turned at it
+			hero.rotation.y += PI * 0.5
+		if i == 50 and hero.mage().spears_up():
+			var to := foe.global_position - hero.global_position
+			to.y = 0.0
+			var ahead := -hero.mage()._crown.global_basis.z
+			ahead.y = 0.0
+			crown_ok = ahead.normalized().dot(to.normalized()) > 0.95
 		var now := 0
 		for s: Variant in hero.mage()._spears:
 			if s != null and is_instance_valid(s):
@@ -65,6 +75,7 @@ func _run() -> void:
 		while left > now:
 			times.append(i / 60.0)
 			left -= 1
+	_check("locked, the crescent is turned at it, not as her body", crown_ok)
 	var lost := hp0 - float(foe.get("health"))
 	# two at once, three one by one, the last five quicker
 	var gaps: Array[float] = []

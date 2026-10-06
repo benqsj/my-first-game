@@ -14,6 +14,8 @@ extends Node
 ##   one by one, then the last five quicker (`VOLLEY`). If it falls they go on
 ##   at the next. With nothing to throw at for `HOLD_MAX` they break.
 ##   She is not held while they hang or fly: her own bolts go on as ever.
+##   The crescent is turned as the view is ([method _crown_at]). Knocked down,
+##   they hang on and the volley waits for her to be up; dead, they break.
 ##
 ## Hangs under the [Player] as "MageSkills" ([method Player.mage]). The
 ## spears are grown and thrown on every peer from the Player's own messages
@@ -223,9 +225,24 @@ func _end_crown() -> void:
 	_spears.clear()
 
 
-## Where she is, turned the way she faces: the crescent's frame.
+## Where she is: the crescent's frame.
+##
+## Turned as the view is, not as her body is (the user's word, 2026-10-07: as
+## in Elden Ring): with something locked, the way from her to it, which is how
+## the camera looks at the two of them, so running round it sideways the
+## crescent keeps the shape the view first saw; with nothing locked, the way
+## her own camera looks (another peer's copy, without her camera, the way she
+## faces).
 func _crown_at() -> Transform3D:
 	var yaw := hero.global_rotation.y
+	var ahead := Vector3.ZERO
+	if hero.target != null and hero._targetable(hero.target):
+		ahead = hero.target.global_position - hero.global_position
+	elif hero.is_multiplayer_authority() and hero.camera != null and hero.camera.is_inside_tree():
+		ahead = -hero.camera.global_basis.z
+	ahead.y = 0.0
+	if ahead.length_squared() > 0.0001:
+		yaw = atan2(-ahead.x, -ahead.z)
 	return Transform3D(Basis(Vector3.UP, yaw), hero.global_position)
 
 
@@ -294,7 +311,14 @@ func _process(delta: float) -> void:
 		var thick := clampf(grown * 1.6, 0.0, 1.0)
 		spear.scale = Vector3(maxf(thick * size, 0.01), maxf(size, 0.01), maxf(thick * size, 0.01))
 	if hero.is_multiplayer_authority():
-		_decide(foe, aim)
+		if hero.state == Player.State.DOWNED:
+			# knocked down: they hang on round her, and the volley waits for
+			# her to be up again, its rhythm kept
+			_next_at += delta
+			if _go_at >= 0.0:
+				_go_at += delta
+		else:
+			_decide(foe, aim)
 
 
 ## Her own peer: throws the next spear when it is time and there is something
