@@ -19,10 +19,10 @@ func _ready() -> void:
 	glow_colour = ICE
 	super()
 	# a steady pace off the crescent, and faster and faster from about a third
-	# of the way (the user's word, 2026-10-07, twice): it leaves at 0.35 of its
-	# top speed, is at half of it half way, three quarters of it at three
-	# quarters of the way, and arrives at the whole of it
-	start_share = 0.35
+	# of the way (the user's word, 2026-10-07, three times): it leaves at 0.4
+	# of its top speed (`MageSkills.SPEED`), is past half of it half way, and
+	# arrives at the whole of it
+	start_share = 0.4
 	ramp_share = 1.0
 	ramp_distance = 16.0
 	ramp_min = 4.0

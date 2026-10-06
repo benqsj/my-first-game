@@ -38,7 +38,16 @@ func _run() -> void:
 		if i > 15 and i < 60:
 			fastest = maxf(fastest, Vector2(hero.velocity.x, hero.velocity.z).length())
 			legs = legs and bool(hero.rig.get(&"walk_under"))
+	# and while they hang she still only walks, even asked to run
+	Input.action_press("sprint")
+	var hanging_fastest := 0.0
+	for i in 40:
+		await physics_frame
+		hanging_fastest = maxf(hanging_fastest, Vector2(hero.velocity.x, hero.velocity.z).length())
+	Input.action_release("sprint")
 	Input.action_release("move_forward")
+	_check("while they hang she only walks", hanging_fastest <= hero.walk_speed + 0.2,
+			"%.2f m/s" % hanging_fastest)
 	_check("moving as she raises her hand she walks, legs walking (no sliding)",
 			fastest <= hero.walk_speed + 0.2 and fastest > 0.5 and legs,
 			"%.2f m/s (walk %.2f), legs %s" % [fastest, hero.walk_speed, legs])
@@ -50,7 +59,7 @@ func _run() -> void:
 		await physics_frame
 		waited += 1
 	_check("with nothing to throw at they break after a while", not hero.mage().spears_up()
-			and waited / 60.0 > MageSkills.HOLD_MAX - 0.5, "%.1f s" % (waited / 60.0))
+			and waited / 60.0 > MageSkills.HOLD_MAX - 1.5, "%.1f s more" % (waited / 60.0))
 
 	# Something locked: all ten go at it, and hurt it.
 	hero._skill_ready_at.clear()
