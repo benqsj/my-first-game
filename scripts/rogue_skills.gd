@@ -10,10 +10,10 @@ extends Node
 ##   Read where a cut's worth is decided ([method Player.cut_worth]).
 ## * **Shadow Step** (slot 2) — gone in smoke and out of it again behind what
 ##   is locked or ahead of him (`STEP_SEEK`), facing its back: the backstab
-##   set up — and he puts the knife into it as he comes out (the user's word,
-##   2026-10-06): a thrust (DG_Thrust_Slash's) that lands `STEP_STAB_DELAY`
-##   after, worth a cut of his (from behind, so a backstab) times
-##   `STEP_STRIKE`. Nothing lands on him for `STEP_GUARD`. With nothing to
+##   set up. He goes down into the ground in smoke and leaps up out of it
+##   behind it, cutting as he spins (the user's word, 2026-10-06): the cut
+##   lands `LEAP_HIT` after, worth a cut of his (from behind, so a backstab)
+##   times `STEP_STRIKE`. Nothing lands on him for `STEP_GUARD`. With nothing to
 ##   step to, `STEP_BLIND` metres ahead and no blow.
 ## * **Vanish** (slot 3) — a puff of smoke and he is gone for `VANISH_TIME`:
 ##   the creatures lose him ([method Player.is_hidden], read by
@@ -45,15 +45,7 @@ const STEP_SEEK := 12.0
 const STEP_GAP := 0.75
 const STEP_BLIND := 6.0
 const STEP_GUARD := 0.35
-## The thrust he comes out of the step with: its clip and the stretch of it
-## played, its pace, when the point goes in, and what it is worth.
-## (Mixamo's "Stabbing", the knife driven in in a reverse grip, the user's
-## pick K2, 2026-10-06: its first thrust, frames 9-33 of 80, the point in at
-## frame 25; tools/dg18_extra.py, h2m.gd rogue_extra.)
-const STEP_STAB := &"DG_Stab_Back"
-const STEP_STAB_PART := Vector2(0.11, 0.41)
-const STEP_STAB_RATE := 1.5
-const STEP_STAB_DELAY := 0.36
+## What the cut he comes out of the step with is worth.
 const STEP_STRIKE := 1.0
 ## For this long after the step whoever had him (a creature, a boss, a hero's
 ## lock in PvP) has lost him ([method Player.is_hidden]); and the view's glide.
@@ -78,13 +70,39 @@ const VANISH_CAST_DELAY := 0.48
 ## ground, and he sinks into it (the body drawn down `SINK` metres over
 ## `SINK_TIME`) to come up out of the ground behind it, smoke round his feet,
 ## and the knife in.
+## Only the drop of the crouch (frames 24-49: past frame 46 the clip holds
+## still, then steps a foot out and reaches down, which played quick read as a
+## stop and a hop, the user's word), the sink starting halfway down it, so he
+## goes on down into the ground without a break.
 const STEP_WIND := &"DG_Crouch_Down"
-const STEP_WIND_PART := Vector2(0.19, 0.68)
-const STEP_WIND_RATE := 4.5
-const STEP_WIND_DELAY := 0.52
+const STEP_WIND_PART := Vector2(0.19, 0.40)
+const STEP_WIND_RATE := 2.4
+const STEP_WIND_DELAY := 0.35
 const SINK := 1.3
-const SINK_TIME := 0.12
-const RISE_TIME := 0.22
+const SINK_TIME := 0.18
+## The smoke that hides the going down and the coming up comes this long
+## before the body moves.
+const SHROUD_LEAD := 0.1
+## Coming up out of the ground with no foe to cut (Mixamo's "Standing From A
+## Crouch", DG_Rise_Up, frames 14-56 of 104: its first frames are hands only),
+## the body thrown up from under the ground over `RISE_TIME`.
+const RISE_CLIP := &"DG_Rise_Up"
+const RISE_PART := Vector2(0.13, 0.54)
+const RISE_RATE := 4.0
+const RISE_TIME := 0.2
+const RISE_HOLD := 0.05
+## With a foe to come up behind (the user's idea and pick, 2026-10-06, "A"
+## of two): he leaps up out of the ground and cuts as he spins, his own spin
+## cut (DG_Spin_Cut, all of it), the cut landing `LEAP_HIT` after he comes
+## up, `LEAP` metres up over `HOP_UP` and down over `HOP_DOWN`, his shadows
+## hanging in the air behind him. The rise above is for a step with no foe.
+const LEAP_CUT := &"DG_Spin_Cut"
+const LEAP_CUT_PART := Vector2(0.0, 1.0)
+const LEAP_CUT_RATE := 1.3
+const LEAP_HIT := 0.33
+const LEAP := 0.55
+const HOP_UP := 0.24
+const HOP_DOWN := 0.2
 ## A cut of his out of hiding keeps him unseen until it lands (the user's
 ## word, 2026-10-06: the creature saw him as the swing began and the first
 ## blow was not the free one it should be); if it lands nothing, he is seen
@@ -183,8 +201,17 @@ func play_cue(cue: int) -> void:
 		if into != null:
 			# the shadows gather round him as he goes down
 			_wisp(into, hero.global_position + Vector3.UP * 0.4, smoke_of(hero), 0.9)
-		# and into the ground as his hand touches it
+		# a thick smoke wells up round the whole of him just before the ground
+		# takes him, so the going down is felt more than seen (the user's word)
+		get_tree().create_timer(maxf(STEP_WIND_DELAY - SINK_TIME - SHROUD_LEAD, 0.0), false).timeout.connect(_cover)
+		# and into the ground
 		get_tree().create_timer(maxf(STEP_WIND_DELAY - SINK_TIME, 0.0), false).timeout.connect(_sink)
+
+
+func _cover() -> void:
+	var into := Blood.world_of(hero)
+	if into != null and hero != null and not hero.is_dead:
+		_shroud(into, hero.global_position, smoke_of(hero), 0.8)
 
 
 ## His body drawn down into the ground (the rig only: the body itself stays,
@@ -198,13 +225,13 @@ func _sink() -> void:
 	var rest: float = body.get_meta(&"rest_y")
 	var into := Blood.world_of(hero)
 	if into != null:
-		_puff(into, hero.global_position, smoke_of(hero), 0.8)
+		_ground_burst(into, hero.global_position, smoke_of(hero), 1.0)
 	var tw := body.create_tween()
 	tw.tween_property(body, "position:y", rest - SINK, SINK_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 ## Up out of the ground where he comes out.
-func _rise() -> void:
+func _rise(hop: float = 0.0) -> void:
 	var body := hero.rig as Node3D
 	if body == null:
 		return
@@ -213,7 +240,22 @@ func _rise() -> void:
 	var rest: float = body.get_meta(&"rest_y")
 	body.position.y = rest - SINK
 	var tw := body.create_tween()
-	tw.tween_property(body, "position:y", rest, RISE_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# a beat under the ground while the smoke stands up round where he comes
+	tw.tween_interval(RISE_HOLD)
+	if hop <= 0.0:
+		tw.tween_property(body, "position:y", rest, RISE_TIME).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		return
+	# out of it in a leap, and down again
+	tw.tween_property(body, "position:y", rest + hop, HOP_UP).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(body, "position:y", rest, HOP_DOWN).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _leap_shadows() -> void:
+	if hero != null and not hero.is_dead:
+		ShadowTrail.start(hero, 0.3, 0.05)
+
+
+
 
 
 func _now() -> float:
@@ -253,7 +295,7 @@ func shadow_step(cost: float) -> bool:
 		if at_it.length_squared() > 0.0001:
 			hero.rotation.y = atan2(-at_it.x, -at_it.z)
 	hero.velocity = Vector3.ZERO
-	hero._commit(STEP_WIND_DELAY + (STEP_STAB_DELAY + 0.25 if foe != null else 0.1))
+	hero._commit(STEP_WIND_DELAY + (LEAP_HIT + 0.1 if foe != null else RISE_TIME + 0.1))
 	hero.net_rogue_cue.rpc(1)
 	var foe_path := foe.get_path() if foe != null else NodePath()
 	get_tree().create_timer(STEP_WIND_DELAY, false).timeout.connect(_step_go.bind(foe_path, to, face))
@@ -283,7 +325,7 @@ func _step_go(foe_path: NodePath, to: Vector3, face: Vector3) -> void:
 		hero.rotation.y = atan2(-face.x, -face.z)
 	hero._safe_until = maxf(hero._safe_until, hero._now() + STEP_GUARD)
 	if foe != null:
-		hero._commit(STEP_STAB_DELAY + 0.25)
+		hero._commit(LEAP_HIT + 0.1)
 	hero.glide_camera(hero.rotation.y, STEP_GLIDE)
 
 
@@ -362,25 +404,121 @@ func _clear_line(from: Vector3, spot: Vector3, foe: Node3D) -> bool:
 ## Every peer: the smoke where he was and where he comes out, and the thrust
 ## into `foe` (its blow the host's).
 func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
-	if foe != null and hero.rig != null and hero.rig.has_method(&"play_part"):
-		hero.rig.call(&"play_part", STEP_STAB, STEP_STAB_RATE, STEP_STAB_PART.x, STEP_STAB_PART.y, 0.05)
-		if hero._decides_here():
-			get_tree().create_timer(STEP_STAB_DELAY, false).timeout.connect(_stab.bind(foe.get_path()))
+	var leap := foe != null
+	if hero.rig != null and hero.rig.has_method(&"play_part"):
+		if leap:
+			# up out of the ground in a leap, cutting as he spins
+			hero.rig.call(&"play_part", LEAP_CUT, LEAP_CUT_RATE, LEAP_CUT_PART.x, LEAP_CUT_PART.y, 0.05)
+		else:
+			# up out of the ground, from the crouch he went down in
+			hero.rig.call(&"play_part", RISE_CLIP, RISE_RATE, RISE_PART.x, RISE_PART.y, 0.04)
+	if leap and hero._decides_here():
+		get_tree().create_timer(LEAP_HIT, false).timeout.connect(_stab.bind(foe.get_path()))
 	# whoever had him has lost him
 	_lost_until = _now() + STEP_LOST
-	_rise()
+	_rise(LEAP if leap else 0.0)
+	if leap:
+		# his shadows left hanging in the air through the spin
+		get_tree().create_timer(RISE_HOLD + 0.06, false).timeout.connect(_leap_shadows)
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
 	var smoke := smoke_of(hero)
-	_puff(into, from, smoke, 1.0)
-	# a thin dark wake along the way he went, hanging a moment
-	var way := to - from
-	var steps := clampi(int(way.length() / 0.9), 2, 10)
-	for k in steps:
-		var t := (k + 0.5) / float(steps)
-		_wisp(into, from + way * t + Vector3.UP * 1.0, smoke, lerpf(0.8, 0.5, t))
-	_puff(into, to, smoke, 0.7)
+	# the ground gives him up: it bursts open under him, earth thrown up and
+	# a gout of shadow going up with him, a jolt you feel
+	_shroud(into, to, smoke, 0.5 if leap else 0.75)
+	_ground_burst(into, to, smoke, 1.3)
+	_erupt(into, to, smoke)
+	for k in 3:
+		_wisp(into, to + Vector3.UP * (0.3 + 0.45 * k), smoke, 0.8 - 0.15 * k)
+	if hero.is_multiplayer_authority():
+		WindBlast.shake(hero, 0.06, 0.22)
+
+
+## A thick dark smoke standing round the whole of him, full at once and
+## thinning over `life`: what he goes down into and comes up out of.
+static func _shroud(into: Node, at: Vector3, smoke: Color, life: float) -> void:
+	var deep := smoke.darkened(0.55)
+	# the body of it, all round him (in front as well as behind)
+	SkillFx.particles(into, at + Vector3.UP * 0.85, {
+		"amount": 56, "life": life, "one_shot": true, "explosiveness": 1.0,
+		"speed": Vector2(0.2, 0.7), "spread": 180.0, "dir": Vector3.UP, "damping": 1.8,
+		"gravity": Vector3(0, 0.45, 0), "size": Vector2(0.8, 1.5), "box": Vector3(0.45, 0.75, 0.45),
+		"add": false, "grow": 0.04, "spin": true, "tex": billow(),
+		"colors": [Color(deep, 0.95), Color(deep, 0.95), Color(deep, 0.8), Color(smoke, 0.0)],
+	})
+	# and ragged tongues of it curling up off the top
+	SkillFx.particles(into, at + Vector3.UP * 1.5, {
+		"amount": 14, "life": life * 1.3, "one_shot": true, "explosiveness": 0.9,
+		"speed": Vector2(0.6, 1.4), "spread": 35.0, "dir": Vector3.UP, "damping": 1.5,
+		"gravity": Vector3(0, 0.2, 0), "size": Vector2(0.5, 0.9), "box": Vector3(0.35, 0.2, 0.35),
+		"add": false, "grow": 0.2, "spin": true, "tex": billow(),
+		"colors": [Color(deep, 0.0), Color(deep, 0.75), Color(smoke, 0.0)],
+	})
+
+
+static var _billow: ImageTexture
+
+
+## A puff of smoke: soft at the edge and lumpy all through (fractal noise),
+## so a heap of them reads as smoke and not as a dark block.
+static func billow() -> ImageTexture:
+	if _billow != null:
+		return _billow
+	const SIDE := 128
+	var noise := FastNoiseLite.new()
+	noise.seed = 7
+	noise.frequency = 0.035
+	noise.fractal_octaves = 4
+	var image := Image.create(SIDE, SIDE, false, Image.FORMAT_RGBA8)
+	var middle := (SIDE - 1) * 0.5
+	for y in SIDE:
+		for x in SIDE:
+			var out := Vector2(x - middle, y - middle).length() / middle
+			var lump := noise.get_noise_2d(x, y) * 0.5 + 0.5
+			var a := (1.0 - smoothstep(0.25, 1.0, out + (0.5 - lump) * 0.55)) * lerpf(0.55, 1.0, lump)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, clampf(a, 0.0, 1.0)))
+	_billow = ImageTexture.create_from_image(image)
+	return _billow
+
+
+## Where he comes up: a narrow gout of dark smoke shot up out of the ground
+## past his height, and clods of earth thrown up and out with it.
+static func _erupt(into: Node, at: Vector3, smoke: Color) -> void:
+	SkillFx.particles(into, at + Vector3.UP * 0.1, {
+		"amount": 30, "life": 0.7, "one_shot": true, "explosiveness": 0.9,
+		"speed": Vector2(3.5, 7.0), "spread": 9.0, "dir": Vector3.UP, "damping": 6.0,
+		"gravity": Vector3.ZERO, "size": Vector2(0.3, 0.6), "box": Vector3(0.2, 0.05, 0.2),
+		"add": false, "grow": 0.7,
+		"colors": [Color(smoke.darkened(0.3), 0.0), Color(smoke.darkened(0.3), 0.95), Color(smoke, 0.0)],
+	})
+	SkillFx.particles(into, at + Vector3.UP * 0.1, {
+		"amount": 22, "life": 0.9, "one_shot": true, "explosiveness": 0.95,
+		"speed": Vector2(2.5, 5.0), "spread": 40.0, "dir": Vector3.UP, "damping": 0.3,
+		"gravity": Vector3(0, -11.0, 0), "size": Vector2(0.04, 0.09), "box": Vector3(0.3, 0.05, 0.3),
+		"add": false, "grow": 0.1,
+		"colors": [Color(0.2, 0.16, 0.11, 1.0), Color(0.14, 0.11, 0.08, 1.0), Color(0.1, 0.08, 0.06, 0.0)],
+	})
+
+
+## The ground opening under him or giving him up: a low pool of dark smoke
+## spreading out round his feet and up his legs, and clods of earth thrown up.
+static func _ground_burst(into: Node, at: Vector3, smoke: Color, big: float) -> void:
+	SkillFx.particles(into, at + Vector3.UP * 0.15, {
+		"amount": int(46 * big), "life": 1.0, "one_shot": true, "explosiveness": 0.95,
+		"speed": Vector2(0.6, 2.0) * big, "spread": 85.0, "dir": Vector3.UP, "damping": 3.0,
+		"gravity": Vector3(0, -0.15, 0), "size": Vector2(0.45, 0.9) * big, "box": Vector3(0.35, 0.05, 0.35),
+		"add": false, "grow": 0.6,
+		"colors": [Color(smoke, 0.0), Color(smoke, 0.9), Color(smoke, 0.0)],
+	})
+	SkillFx.particles(into, at + Vector3.UP * 0.6, {
+		"amount": int(18 * big), "life": 1.1, "one_shot": true, "explosiveness": 0.8,
+		"speed": Vector2(0.4, 1.4) * big, "spread": 25.0, "dir": Vector3.UP, "damping": 2.0,
+		"gravity": Vector3(0, 0.3, 0), "size": Vector2(0.4, 0.75) * big, "box": Vector3(0.25, 0.6, 0.25),
+		"add": false, "grow": 0.6,
+		"colors": [Color(smoke, 0.0), Color(smoke, 0.8), Color(smoke, 0.0)],
+	})
+	drops(into, at + Vector3.UP * 0.1, Color(0.18, 0.14, 0.1), int(16 * big), 1.3 * big)
 #endregion
 
 
@@ -642,5 +780,7 @@ static func warm(at: Node3D) -> void:
 	_puff(at, here + Vector3.DOWN * 0.9, ASH, 0.4)
 	_wisp(at, here, ASH, 0.4)
 	drops(at, here, HUMAN_VENOM, 4, 0.5)
+	_erupt(at, here + Vector3.DOWN * 0.9, ASH)
+	_shroud(at, here + Vector3.DOWN * 0.9, ASH, 0.3)
 	Blood.splatter(at, here, Vector3.FORWARD, null, 0.3)
 

@@ -8312,6 +8312,23 @@ Tariel's sword is by `Swordsman`:
 - **The stab is K2's first thrust** (frames 9–33 of 80 at ×1.5). The point
   goes in 0.36 s after he comes up, as a backstab.
 
+### The Shadow Step, out of the ground in a leap (2026-10-06, the user's word)
+- **No stop going down.** The crouch held still and stepped a foot out (it
+  read as a stop and a hop): only its drop is played now (frames 24-49 at
+  x2.4), and the sink starts halfway down it.
+- **Hidden in smoke.** A thick dark smoke wells up round the whole of him
+  0.1 s before the ground takes him, and round where he comes up before he
+  does (`_shroud`: lumpy noise puffs, `billow()`, not a dark block). The
+  going down and coming up are felt, not seen.
+- **Out of the ground in a leap, cutting as he spins** (the user's idea; of
+  two tried he picked "A", his own `DG_Spin_Cut`, over Tariel's whirl). He
+  leaps 0.55 m out of it (`LEAP`, `HOP_UP`, `HOP_DOWN`), his shadows hanging
+  in the air behind him (`ShadowTrail`), with a gout of smoke, thrown earth
+  and a small jolt of the view. The cut lands 0.33 s after he comes up
+  (`LEAP_HIT`): 0.7 s from the key, 1.2 s before. With no foe he only rises
+  (`DG_Rise_Up`, "Standing From A Crouch", new from Mixamo). The K2 stab is
+  no longer used (the clip stays in the library).
+
 
 ### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)
 

@@ -132,7 +132,7 @@ func _check_step() -> void:
 	_check("the shadow step goes", _player.use_skill(1))
 	await _wait(2)
 	_check("he gathers first, still where he was", _player.global_position.distance_to(imp.global_position) > 6.0)
-	await _wait(40)
+	await _wait(28)
 	var gap := _player.global_position.distance_to(imp.global_position)
 	_check("he is behind it", RogueSkills.behind(_player, imp), "gap %.2f" % gap)
 	_check("close", gap < 2.0, "%.2f" % gap)
@@ -141,7 +141,7 @@ func _check_step() -> void:
 	_check("facing it", (-_player.global_basis.z).dot(to.normalized()) > 0.95)
 	_check("for 20 stamina", absf(had - _player.stamina - 20.0) < 1.0, "%.1f" % (had - _player.stamina))
 	_check("9 s before the next", absf(_player.skill_cooldown_left(1) - 9.0) < 1.0)
-	await _wait(30)
+	await _wait(62)
 	_check("and he puts the knife in its back", is_instance_valid(imp) and float(imp.health) < whole,
 			"%.0f -> %.0f" % [whole, float(imp.health) if is_instance_valid(imp) else -1.0])
 	_player.target = null
