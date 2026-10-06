@@ -8267,3 +8267,48 @@ skills stay; how they look changes:
   as well. F8 now steps between only the new look (the default, kept) and
   **elden dark**. The gold grade stays in `Looks.GRADES`, unused.
 
+
+## The knight's great sword: both buttons, a slow way back (2026-10-06, the user's word)
+
+YOUR OWN knight holding a great sword (the mannequin, [Moveset] kind
+`two_hands`) is laid out by `scripts/great_sword.gd` (`GreatSword.apply`), as
+Tariel's sword is by `Swordsman`:
+
+- **Both buttons cut.** The attack button throws the string F6 picked, the
+  block button (he has no guard to raise) the other one — Tariel's way with no
+  shield. The strings (`GreatSword.STRINGS`): **TWO HANDS** Kevin's
+  `KV_Attack2H01..04` (the lab's CUT 1-4) and **ONE HAND** `KV_Attack1H01_R`,
+  `03_R`, `04_R`, `02_R`, the blade swung from the right fist; `hilt_hand` lets
+  the left fist go wherever a clip takes it off the grip. The rig says so with
+  `SkinnedRig.block_throws_string()`; `Player._block_throws_string()` puts the
+  block button on `_other_string_ready()` and takes it off `_has_heavy()`, so
+  the knight's heavy blow (the ground pound) is not on a button for now.
+- **A slow way back.** Every blow is played on to its clip's end (its own way
+  back to guard) instead of 0.32 s past its cut. Once it has cut, the rest
+  plays at `SkinnedRig.recover_pace` of its pace, the string's last blow (and a
+  heavy one) at `last_recover_pace`, and the stance blends in over
+  `recover_blend` / `last_recover_blend` s. The warrior's: 0.78 / 0.55, 0.35 /
+  0.55 s (both rigs, `SkinnedWarriorRig._configure`). A blow thrown into the
+  way back cuts it short as before (the commit still ends at the cut's end and
+  `swing_recovery`), and moving off releases it: only a blow left alone comes
+  back slowly. The other heroes keep 1.0 (unchanged).
+- Test: `tests/great_sword_test.gd` (both strings by their buttons, the way
+  back slower than the cut, the last blow slower still).
+
+### Mixamo moves for Vanish and the Shadow Step (2026-10-06, the user's picks)
+- The user picked from a side-by-side page of the current moves and Mixamo's.
+  Downloaded into vepxis-art/mixamo_skills/ and retargeted onto dagger_rig by
+  `tools/dg18_extra.py` (into `assets/rogue_rigged/rogue_extra.glb`, the rig
+  alone). Then `tools/h2m.gd -- rogue_extra` adds them to the mannequin's
+  `rogue_mannequin.res`.
+  - **V3**: Mixamo's "Crouching" (`DG_Crouch_Down`).
+  - **K2**: "Stabbing", the rear hand in a reverse grip (`DG_Stab_Back`).
+- **Vanish**: down on his heels, his right hand to the ground (frames 24–84
+  at ×4). He is gone as it touches, 0.48 s in.
+- **Shadow Step**: the same crouch (×4.5). As his hand touches the ground he
+  sinks into it: the body is drawn 1.3 m down over 0.12 s (`_sink`). He
+  rises out of the ground behind the creature over 0.22 s (`_rise`), with
+  smoke round his feet. The ShadowTrail at the start is gone.
+- **The stab is K2's first thrust** (frames 9–33 of 80 at ×1.5). The point
+  goes in 0.36 s after he comes up, as a backstab.
+

@@ -132,7 +132,7 @@ func _check_step() -> void:
 	_check("the shadow step goes", _player.use_skill(1))
 	await _wait(2)
 	_check("he gathers first, still where he was", _player.global_position.distance_to(imp.global_position) > 6.0)
-	await _wait(18)
+	await _wait(40)
 	var gap := _player.global_position.distance_to(imp.global_position)
 	_check("he is behind it", RogueSkills.behind(_player, imp), "gap %.2f" % gap)
 	_check("close", gap < 2.0, "%.2f" % gap)
@@ -140,8 +140,8 @@ func _check_step() -> void:
 	to.y = 0.0
 	_check("facing it", (-_player.global_basis.z).dot(to.normalized()) > 0.95)
 	_check("for 20 stamina", absf(had - _player.stamina - 20.0) < 1.0, "%.1f" % (had - _player.stamina))
-	_check("9 s before the next", absf(_player.skill_cooldown_left(1) - 9.0) < 0.6)
-	await _wait(20)
+	_check("9 s before the next", absf(_player.skill_cooldown_left(1) - 9.0) < 1.0)
+	await _wait(30)
 	_check("and he puts the knife in its back", is_instance_valid(imp) and float(imp.health) < whole,
 			"%.0f -> %.0f" % [whole, float(imp.health) if is_instance_valid(imp) else -1.0])
 	_player.target = null
@@ -151,7 +151,7 @@ func _check_step() -> void:
 	var from := _player.global_position
 	var fwd := _fwd()
 	_check("with nothing there, a step ahead", _player.use_skill(1))
-	await _wait(20)
+	await _wait(40)
 	var went := _player.global_position - from
 	went.y = 0.0
 	# six metres, or short of whatever stands in the way
@@ -173,8 +173,8 @@ func _check_vanish() -> void:
 	_check("40 s before vanish comes back", is_equal_approx(_player.skill_cooldown(2), 40.0))
 	_check("vanish goes", _player.use_skill(2))
 	await _wait(2)
-	_check("the pellet thrown first: not gone yet", not _player.is_hidden())
-	await _wait(20)
+	_check("down on his heels first: not gone yet", not _player.is_hidden())
+	await _wait(38)
 	_check("he is gone", _player.is_hidden())
 	_check("the imp does not go for him", imp.call("_pick_quarry") == null)
 	_check("nor do the orcs or the wolves", Brute.unseen(_player))
@@ -195,19 +195,19 @@ func _check_vanish() -> void:
 	_player.profile.crit_chance = crit
 	await _ready_up()
 	_check("vanish again", _player.use_skill(2))
-	await _wait(22)
+	await _wait(40)
 	_player.attack_started.emit()
 	await _wait(60)
 	_check("a cut that lands nothing: seen soon after", not _player.is_hidden())
 	await _ready_up()
 	_player.use_skill(2)
-	await _wait(22)
+	await _wait(40)
 	_player.struck.emit(5.0, false)
 	await _wait(2)
 	_check("a blow taken ends it", not _player.is_hidden())
 	await _ready_up()
 	_player.use_skill(2)
-	await _wait(22)
+	await _wait(40)
 	_player.rogue()._hiding_until = 0.0
 	await _wait(3)
 	_check("and it runs out", not _player.is_hidden())

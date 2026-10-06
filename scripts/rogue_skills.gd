@@ -47,10 +47,13 @@ const STEP_BLIND := 6.0
 const STEP_GUARD := 0.35
 ## The thrust he comes out of the step with: its clip and the stretch of it
 ## played, its pace, when the point goes in, and what it is worth.
-const STEP_STAB := &"DG_Thrust_Slash"
-const STEP_STAB_PART := Vector2(0.1, 0.38)
-const STEP_STAB_RATE := 2.2
-const STEP_STAB_DELAY := 0.19
+## (Mixamo's "Stabbing", the knife driven in in a reverse grip, the user's
+## pick K2, 2026-10-06: its first thrust, frames 9-33 of 80, the point in at
+## frame 25; tools/dg18_extra.py, h2m.gd rogue_extra.)
+const STEP_STAB := &"DG_Stab_Back"
+const STEP_STAB_PART := Vector2(0.11, 0.41)
+const STEP_STAB_RATE := 1.5
+const STEP_STAB_DELAY := 0.36
 const STEP_STRIKE := 1.0
 ## For this long after the step whoever had him (a creature, a boss, a hero's
 ## lock in PvP) has lost him ([method Player.is_hidden]); and the view's glide.
@@ -62,16 +65,26 @@ const STEP_GLIDE := 0.55
 const VANISH_TIME := 7.0
 ## Before he is gone: a pellet thrown down at his feet (UAL's OverhandThrow,
 ## the stretch played, its pace) and when the smoke comes up out of it.
-const VANISH_CAST := &"OverhandThrow"
-const VANISH_CAST_PART := Vector2(0.18, 0.62)
-const VANISH_CAST_RATE := 1.5
-const VANISH_CAST_DELAY := 0.24
+## (Mixamo's "Crouching", the user's pick V3: frames 24-84 of 123, from
+## standing to the right hand on the ground, played quick; he is gone as his
+## hand touches it.)
+const VANISH_CAST := &"DG_Crouch_Down"
+const VANISH_CAST_PART := Vector2(0.19, 0.68)
+const VANISH_CAST_RATE := 4.0
+const VANISH_CAST_DELAY := 0.48
 ## Before the Shadow Step: he gathers low and throws himself forward (UAL 2's
 ## Sword_Dash, its start), and goes into the smoke as he does.
-const STEP_WIND := &"Sword_Dash"
-const STEP_WIND_PART := Vector2(0.03, 0.28)
-const STEP_WIND_RATE := 1.3
-const STEP_WIND_DELAY := 0.2
+## The step the same way (the user's word): down on his heels, a hand on the
+## ground, and he sinks into it (the body drawn down `SINK` metres over
+## `SINK_TIME`) to come up out of the ground behind it, smoke round his feet,
+## and the knife in.
+const STEP_WIND := &"DG_Crouch_Down"
+const STEP_WIND_PART := Vector2(0.19, 0.68)
+const STEP_WIND_RATE := 4.5
+const STEP_WIND_DELAY := 0.52
+const SINK := 1.3
+const SINK_TIME := 0.12
+const RISE_TIME := 0.22
 ## A cut of his out of hiding keeps him unseen until it lands (the user's
 ## word, 2026-10-06: the creature saw him as the swing began and the first
 ## blow was not the free one it should be); if it lands nothing, he is seen
@@ -169,7 +182,38 @@ func play_cue(cue: int) -> void:
 		var into := Blood.world_of(hero)
 		if into != null:
 			# the shadows gather round him as he goes down
-			_wisp(into, hero.global_position + Vector3.UP * 0.6, smoke_of(hero), 0.9)
+			_wisp(into, hero.global_position + Vector3.UP * 0.4, smoke_of(hero), 0.9)
+		# and into the ground as his hand touches it
+		get_tree().create_timer(maxf(STEP_WIND_DELAY - SINK_TIME, 0.0), false).timeout.connect(_sink)
+
+
+## His body drawn down into the ground (the rig only: the body itself stays,
+## to be moved by the step).
+func _sink() -> void:
+	var body := hero.rig as Node3D
+	if body == null:
+		return
+	if not body.has_meta(&"rest_y"):
+		body.set_meta(&"rest_y", body.position.y)
+	var rest: float = body.get_meta(&"rest_y")
+	var into := Blood.world_of(hero)
+	if into != null:
+		_puff(into, hero.global_position, smoke_of(hero), 0.8)
+	var tw := body.create_tween()
+	tw.tween_property(body, "position:y", rest - SINK, SINK_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+## Up out of the ground where he comes out.
+func _rise() -> void:
+	var body := hero.rig as Node3D
+	if body == null:
+		return
+	if not body.has_meta(&"rest_y"):
+		body.set_meta(&"rest_y", body.position.y)
+	var rest: float = body.get_meta(&"rest_y")
+	body.position.y = rest - SINK
+	var tw := body.create_tween()
+	tw.tween_property(body, "position:y", rest, RISE_TIME).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _now() -> float:
@@ -324,11 +368,7 @@ func show_step(from: Vector3, to: Vector3, foe: Node3D = null) -> void:
 			get_tree().create_timer(STEP_STAB_DELAY, false).timeout.connect(_stab.bind(foe.get_path()))
 	# whoever had him has lost him
 	_lost_until = _now() + STEP_LOST
-	# his shadow left standing where he was (shed now, before he moves), and a
-	# little more of it as he comes out
-	var shade := ShadowTrail.start(hero, 0.2, 0.05)
-	if shade != null:
-		shade._shed()
+	_rise()
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
