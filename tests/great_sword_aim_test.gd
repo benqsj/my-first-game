@@ -53,8 +53,9 @@ func _initialize() -> void:
 	foe.global_position = player.global_position + Vector3(0.6, 0.0, -2.4)
 	foe.process_mode = Node.PROCESS_MODE_DISABLED
 	foe.set(&"immortal", true)
-	rig._wear_string(GreatSword.MAIN_STRINGS[0])
-	rig._main_string = GreatSword.MAIN_STRINGS[0]
+	rig._mode = 0
+	rig._main_string = GreatSword.MODES[0]["strings"][0]
+	rig._wear_string(rig._main_string)
 	for action in ["attack", "block"]:
 		for i in 200:
 			await physics_frame

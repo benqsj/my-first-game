@@ -3065,11 +3065,12 @@ func _wear_moves() -> void:
 	if cfg.load(TRIAL_CFG) == OK:
 		_wear_string(int(cfg.get_value(String(polysplit_hero), "string", 0)))
 	_main_string = _worn_string
-	var mains: Array = moves.get("main_strings", [])
-	if not mains.is_empty() and not mains.has(_main_string):
-		# a pick saved before the block button had a string of its own
-		_wear_string(mains[0])
-		_main_string = mains[0]
+	var modes: Array = moves.get("modes", [])
+	if not modes.is_empty():
+		# the way he fights picked last (F6, [GreatSword] MODES)
+		_mode = clampi(int(cfg.get_value(String(polysplit_hero), "mode", 0)), 0, modes.size() - 1)
+		_main_string = int(modes[_mode]["strings"][0])
+		_wear_string(_main_string)
 	_hilt_ends.clear()
 	_flurry_slot = -1
 	_base_clip = &""
@@ -3084,23 +3085,25 @@ const TRIAL_CFG := "user://trial.cfg"
 ## The other string ([Swordsman] `STRINGS`, F6), kept for next time.
 ## Its name, or "" if there are none.
 func cycle_string() -> String:
-	var mains: Array = moves.get("main_strings", [])
-	if _on_mq and not mains.is_empty():
-		# the attack button's strings only ([GreatSword]): the block
-		# button's stays its own
-		var next: int = mains[(maxi(mains.find(_main_string), 0) + 1) % mains.size()]
+	var modes: Array = moves.get("modes", [])
+	if _on_mq and not modes.is_empty():
+		# the next way he fights ([GreatSword] MODES): both buttons' strings
+		_mode = (_mode + 1) % modes.size()
 		var cfg := ConfigFile.new()
 		cfg.load(TRIAL_CFG)
-		cfg.set_value(String(polysplit_hero), "string", next)
+		cfg.set_value(String(polysplit_hero), "mode", _mode)
 		cfg.save(TRIAL_CFG)
-		var named := _wear_string(next)
-		_main_string = next
-		return named
+		_main_string = int(modes[_mode]["strings"][0])
+		_wear_string(_main_string)
+		return String(modes[_mode]["name"])
 	var named := _cycle_trial("string", (moves.get("string_sets", []) as Array).size(), _wear_string)
 	_main_string = _worn_string
 	return named
 
 
+## The way he fights picked with F6 where the moves have more than one
+## ([GreatSword] MODES).
+var _mode: int = 0
 ## The string the attack button throws (F6's pick) and the one worn now.
 var _main_string: int = 0
 var _worn_string: int = 0
@@ -3137,8 +3140,9 @@ func wear_other_string(other: bool) -> void:
 	if count < 2:
 		return
 	var want := (_main_string + (1 if other else 0)) % count
-	if moves.has("block_string"):
-		want = int(moves["block_string"]) if other else _main_string
+	var modes: Array = moves.get("modes", [])
+	if not modes.is_empty():
+		want = int(modes[_mode]["strings"][1 if other else 0])
 	if want != _worn_string:
 		_wear_string(want)
 

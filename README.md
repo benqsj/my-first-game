@@ -8423,3 +8423,13 @@ the warrior's roll goes on into a flourish after it) as a way back that moving
 off lets go of, the stance blended in over `roll_out_blend` 0.3 s. Not for a
 dodge that hops out and back (Kevin's). His dash 7.8 m/s x 0.66 s (the roll
 x2.3), warrior and Amirani.
+
+### F6: two ways to fight (2026-10-06, 16:21, the user's word)
+
+Tariel's Regular A-B-C is off the knight. F6 goes between two ways
+(`GreatSword.MODES`, kept in trial.cfg under "mode"): **one hand / two hands**
+(the attack button / the block button, as before), and **two hands / Tariel's
+Heavy A-B-C** (the two-handed string moved to the attack button, and on the
+block button what Tariel's block button throws with no shield in hand).
+`SkinnedRig._mode`; `cycle_string()` and `wear_other_string()` read the mode's
+pair.

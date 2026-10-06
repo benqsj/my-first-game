@@ -107,8 +107,9 @@ func _initialize() -> void:
 	_check("the block button throws a string", rig.block_throws_string() and player._other_string_ready())
 	_check("no heavy blow on it", not player._has_heavy())
 	# (whichever string F6 last left picked in the game's settings)
-	rig._wear_string(GreatSword.MAIN_STRINGS[0])
-	rig._main_string = GreatSword.MAIN_STRINGS[0]
+	rig._mode = 0
+	rig._main_string = GreatSword.MODES[0]["strings"][0]
+	rig._wear_string(rig._main_string)
 	rig.wear_other_string(false)
 	await _frames(10)
 
@@ -179,22 +180,21 @@ func _initialize() -> void:
 	_check("B carried over from A slower than A was gathered", gather_b > 0.0 and gather_b < gather_a - 0.02,
 			"%.2f vs %.2f" % [gather_b, gather_a])
 
-	# F6: the attack button goes on to Tariel's strings, the block button
-	# keeps the two-handed one
+	# F6: both hands on the attack button, Tariel's block-button string (his
+	# Heavy A-B-C) on the block button; F6 again: back
 	await _frames(200)
 	player.stamina = player.max_stamina
 	var named := rig.cycle_string()
 	await _next("attack")
-	var tariel := rig.current_swing()
+	var lmb := rig.current_swing()
 	await _frames(200)
 	await _next("block")
-	var still := rig.current_swing()
-	_check("F6: the attack button throws Tariel's string", named.begins_with("TARIEL")
-			and tariel == (Swordsman.STRINGS[0]["clips"] as Array)[0], "%s / %s" % [named, tariel])
-	_check("F6: the block button keeps the two-handed string", still == two[0], str(still))
-	for i in 2:
-		rig.cycle_string()
-	_check("F6 three times: back to one hand", rig._main_string == GreatSword.MAIN_STRINGS[0])
+	var rmb := rig.current_swing()
+	_check("F6: the attack button throws the two-handed string", lmb == two[0], "%s / %s" % [named, lmb])
+	_check("F6: the block button throws Tariel's Heavy A-B-C", rmb == (Swordsman.STRINGS[1]["clips"] as Array)[0],
+			str(rmb))
+	rig.cycle_string()
+	_check("F6 again: one hand / two hands", rig._mode == 0 and rig._main_string == 1)
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
 	quit(1 if _failures > 0 else 0)

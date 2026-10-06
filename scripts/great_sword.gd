@@ -3,14 +3,15 @@ extends RefCounted
 ## The knight's great sword on the UE mannequin (YOUR OWN holding a great
 ## sword, a great axe or a pole: [Moveset] kind `two_hands`), laid over what
 ## [Moveset] builds out of the lab's picks (the user's word, 2026-10-06):
-## - he fights on both buttons (the user's word, 2026-10-06, 16:05): the
-##   block button (no shield to raise) always throws the two-handed string
-##   (Kevin's 2H, the lab's CUT 1-4), the attack button the one F6 picks of
-##   the others: one hand (Kevin's 1H, the blade swung from the right fist,
-##   the other hand let go of the grip by `SkinnedRig.hilt_hand` wherever a
-##   clip takes it off), or Tariel's two strings as he throws them with no
-##   shield in hand (UAL 2's Regular and Heavy A-B-C, their own ways back to
-##   guard, `Swordsman.STRINGS`). The heavy blow is off the block button;
+## - he fights on both buttons, in one of two ways F6 goes between (the
+##   user's word, 2026-10-06, 16:21): one hand on the attack button (Kevin's
+##   1H, the blade swung from the right fist, the other hand let go of the
+##   grip by `SkinnedRig.hilt_hand` wherever a clip takes it off) and both
+##   hands on the block button (no shield to raise; Kevin's 2H, the lab's
+##   CUT 1-4); or both hands on the attack button and, on the block button,
+##   what Tariel's block button throws with no shield in hand (UAL 2's Heavy
+##   A-B-C with its own ways back to guard, `Swordsman.STRINGS[1]`). The
+##   heavy blow is off the block button;
 ## - every blow is played on to its clip's end, its own way back to guard, and
 ##   that way back slower than the cut ([member SkinnedRig.recover_pace]):
 ##   left alone a blow comes back slowly, the end of a string slower still. A
@@ -22,10 +23,13 @@ const STRINGS: Array = [
 	{"name": "ONE HAND  1-2-3-4", "clips": [&"KV_Attack1H01_R", &"KV_Attack1H03_R", &"KV_Attack1H04_R",
 			&"KV_Attack1H02_R"], "recover": {}},
 ]
-## The string the block button throws (an index into the sets), and the ones
-## F6 goes through for the attack button, the first worn until F6 is pressed.
-const BLOCK_STRING := 0
-const MAIN_STRINGS: Array[int] = [1, 2, 3]
+## The ways he fights, F6 going from one to the next: [the attack button's
+## string, the block button's] (indices into the sets: 0 two hands, 1 one
+## hand, 2 Tariel's Heavy A-B-C), each with its name.
+const MODES: Array = [
+	{"name": "ONE HAND  /  TWO HANDS", "strings": [1, 0]},
+	{"name": "TWO HANDS  /  TARIEL'S HEAVY A-B-C", "strings": [0, 2]},
+]
 
 
 ## Seconds of the clip before its cut each blow is played from (the other
@@ -35,17 +39,16 @@ const GATHER := 0.38
 
 ## Lays the design over `t`, a [method Moveset.build] table for two hands.
 static func apply(t: Dictionary) -> void:
-	# his own two, then Tariel's two (as Tariel throws them with no shield)
+	# his own two, then Tariel's block-button string (as Tariel throws it
+	# with no shield)
 	var sets: Array = STRINGS.duplicate(true)
-	for ts: Dictionary in Swordsman.STRINGS:
-		var mine := ts.duplicate(true)
-		mine["name"] = "TARIEL  " + String(ts["name"])
-		sets.append(mine)
-	t["strings"] = [(sets[MAIN_STRINGS[0]]["clips"] as Array).duplicate()]
+	var heavy: Dictionary = (Swordsman.STRINGS[1] as Dictionary).duplicate(true)
+	heavy["name"] = "TARIEL  " + String(heavy["name"])
+	sets.append(heavy)
+	t["strings"] = [(sets[MODES[0]["strings"][0]]["clips"] as Array).duplicate()]
 	t["recover"] = {}
 	t["string_sets"] = sets
-	t["block_string"] = BLOCK_STRING
-	t["main_strings"] = MAIN_STRINGS
+	t["modes"] = MODES
 	t["swing_from"] = {}
 	# the block button throws a string ([method SkinnedRig.block_throws_string])
 	t["block_strings"] = true
