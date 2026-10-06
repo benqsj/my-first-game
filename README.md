@@ -5940,6 +5940,16 @@ New clips in tools/creature_clips.gd (81): `CR_GetUp`, `CR_Leap`, the
 zombies' walks and runs every way. `tests/dead_test.gd`; creature_blows_test
 counts the ghoul among the slower attackers (it darts off between).
 
+### The skeletons dressed mixed (2026-10-06, the user's word)
+
+The four skeletons are all on the pack's all-in-one kit now
+(`Skeleton_AllinOne.fbx`) and `PackDress` puts each in an outfit of its own:
+its bones and arms always (`always`), one of `heads` (helm, archer's hat,
+mage's hood or none), `tops` and `bottoms` (any of the three skeletons', its
+own likeliest), and its objects in one of `colours`; picked from its name, so
+every peer dresses the same body alike. The bare one goes mostly bare, in a
+rag or a hood now and then. `tests/skeleton_dress_test.gd`.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

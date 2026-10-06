@@ -1,7 +1,7 @@
 [gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
-[ext_resource type="PackedScene" path="res://assets/creatures/Skeleton_Base.fbx" id="2_model"]
+[ext_resource type="PackedScene" path="res://assets/creatures/Skeleton_AllinOne.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
 
@@ -120,6 +120,11 @@ transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0)
 script = ExtResource("4_dress")
 body = "Body_Skeleton"
 objects = "Objects"
+always = PackedStringArray("Skeleton_Head", "Skeleton_Top", "Skeleton_Bottom")
+heads = PackedStringArray("", "", "", "SkeletonMage_Hood", "Skeleton_Archer_Hat", "Skeleton_Warrior_Helm")
+tops = PackedStringArray("", "", "", "Skeleton_Archer_Top", "Skeleton_Mage_Top")
+bottoms = PackedStringArray("", "", "Skeleton_Warrior_Bottom", "Skeleton_Mage_Bottom", "Skeleton_Archer_Bottom")
+colours = PackedStringArray("Objects_SkelUniform", "Objects_SkelArcher", "Objects_SkelMage", "Objects_SkelWarrior")
 
 [node name="Body" type="MultiplayerSynchronizer" parent="."]
 replication_interval = 0.033
