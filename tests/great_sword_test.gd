@@ -137,7 +137,7 @@ func _initialize() -> void:
 			"%.2f vs %.2f" % [slow["gather"], slow["cut"]])
 	_check("the way back slower than the cut", slow["back"] < slow["cut"] * 0.8,
 			"%.2f vs %.2f" % [slow["back"], slow["cut"]])
-	_check("the blow lasts longer left alone", slow["t"] > plain["t"] + 0.1, "%.2f vs %.2f" % [slow["t"], plain["t"]])
+	_check("the blow lasts longer left alone", slow["t"] > plain["t"] + 0.03, "%.2f vs %.2f" % [slow["t"], plain["t"]])
 	player.stamina = player.max_stamina
 
 	# the string's last blow comes back slower still
@@ -147,8 +147,23 @@ func _initialize() -> void:
 	print("    last blow %s: %.2f s (pace %.2f -> %.2f)" % [last["clip"], last["t"], last["cut"], last["back"]])
 	_check("the last blow is the string's end", last["clip"] == two[3], str(last["clip"]))
 	_check("its way back slower than a first blow's", last["back"] / maxf(last["cut"], 0.01) \
-			< slow["back"] / maxf(slow["cut"], 0.01) - 0.1,
+			< slow["back"] / maxf(slow["cut"], 0.01) - 0.05,
 			"%.2f vs %.2f" % [last["back"] / maxf(last["cut"], 0.01), slow["back"] / maxf(slow["cut"], 0.01)])
+
+	# B thrown on from A: carried over more slowly than A was gathered
+	await _frames(200)
+	player.stamina = player.max_stamina
+	await _next("attack")
+	var gather_a := rig._anim.speed_scale
+	await _next("attack")
+	var gather_b := 0.0
+	for i in 20:
+		if rig._blow_phase == 0 and rig._stop_left <= 0.0:
+			gather_b = rig._anim.speed_scale
+		await physics_frame
+	print("    A gathered at %.2f, B carried over at %.2f" % [gather_a, gather_b])
+	_check("B carried over from A slower than A was gathered", gather_b > 0.0 and gather_b < gather_a - 0.05,
+			"%.2f vs %.2f" % [gather_b, gather_a])
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
 	quit(1 if _failures > 0 else 0)

@@ -227,6 +227,12 @@ var last_recover_blend: float = -1.0
 var windup_pace: float = 1.0
 var strike_pace: float = 1.0
 var strike_lead: float = 0.1
+## A blow thrown on from the last (B after A, C after B...): its wind-up at
+## this pace instead, and blended in from the last over `chain_blend` s, so
+## the blade is carried over slowly from one blow into the next (the user's
+## word, 2026-10-06). Under 0: `windup_pace` and `action_blend`.
+var chain_windup_pace: float = -1.0
+var chain_blend: float = -1.0
 ## The camera shaken when his blade bites (times the blow's weight), his own
 ## view only; 0: not at all.
 var land_shake: float = 0.0
@@ -1507,19 +1513,19 @@ func _set_blow_phase(phase: int, k: float) -> void:
 ## A string's blow played heavy (see `windup_pace`): started at its wind-up's
 ## pace, held to it till the swing, and given back once it has cut, the
 ## commit worked out over the three.
-func _weigh_blow(clip: StringName, rate: float, from: float) -> void:
-	if absf(windup_pace - 1.0) < 0.001 and absf(strike_pace - 1.0) < 0.001:
+func _weigh_blow(clip: StringName, rate: float, from: float, windup: float) -> void:
+	if absf(windup - 1.0) < 0.001 and absf(strike_pace - 1.0) < 0.001:
 		return
 	var w: Vector2 = cut_window.get(clip, Vector2.ZERO)
 	if w == Vector2.ZERO:
 		return
-	_set_blow_phase(0, windup_pace)
+	_set_blow_phase(0, windup)
 	var clip_len := _action_len
 	var lead := strike_lead / maxf(clip_len, 0.01)
 	var s0 := maxf(w.x - lead, from)
 	if from >= s0:
 		_set_blow_phase(1, strike_pace)
-	_swing_commit = clip_len * maxf(s0 - from, 0.0) / (rate * windup_pace) \
+	_swing_commit = clip_len * maxf(s0 - from, 0.0) / (rate * windup) \
 			+ clip_len * maxf(w.y - s0, 0.0) / (rate * strike_pace) + swing_recovery
 
 
@@ -1628,10 +1634,13 @@ func attack(style: int = -1) -> void:
 		if least > 0.0 and _anim.has_animation(clip):
 			var span := _anim.get_animation(clip).length * (part.y - part.x)
 			rate = minf(rate, span / least)
-	if _play_action(clip, Role.SWING, rate, -1.0, part.x, part.y):
+	var chained := _attack_style == AttackStyle.SIDE and _flurry_slot > 0
+	var blend := chain_blend if chained and chain_blend >= 0.0 else -1.0
+	if _play_action(clip, Role.SWING, rate, blend, part.x, part.y):
 		_swing_commit = swing_time()
 		if _attack_style == AttackStyle.SIDE:
-			_weigh_blow(clip, rate, part.x)
+			_weigh_blow(clip, rate, part.x,
+					chain_windup_pace if chained and chain_windup_pace > 0.0 else windup_pace)
 		_whoosh()
 
 

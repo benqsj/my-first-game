@@ -8324,3 +8324,13 @@ the cut to its end falling all at once (x1.45), and the way back at
 s. The commit and the whoosh are worked out over the three. His bite is held
 longer (`bite_stop` 0.11) and shakes his own view (`land_shake` 0.06 x the
 blow's weight). A first blow left alone: 1.68 s (1.52 as made, 1.95 before).
+
+### From blow to blow, the blade carried over (2026-10-06, the user's word)
+
+The way back a little quicker again (`recover_pace` 0.95, a string's end
+0.8, blends 0.25 / 0.38 s), and the weight felt through the string: a blow
+thrown on from the last (B after A, C after B, D after C) gathers at
+`chain_windup_pace` 0.6 (the first blow 0.72) and is blended in from the last
+over `chain_blend` 0.22 s, and the last plays its follow-through a little
+longer before the next may start (`swing_recovery` 0.18 -> 0.26). The swing
+itself still falls at x1.45.
