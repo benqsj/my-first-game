@@ -4,7 +4,9 @@ extends SceneTree
 ##   while he runs on; at a jog, an ordinary blow; the block button never;
 ## - let go of the attack button, or of the push: the blow comes down there,
 ##   a step at most, and the blade goes into the ground;
-## - locked on to something: he runs at it and leaps at it by himself.
+## - locked on to something: he runs at it and brings the blade down on it
+##   by himself; the jump pressed while he charges: he leaps, the blade down
+##   from the air.
 ##   Godot --headless --path . --script res://tests/great_sword_charge_test.gd
 var _failures := 0
 var player: Player
@@ -24,13 +26,13 @@ func _frames(n: int) -> void:
 
 
 func _release_all() -> void:
-	for a in ["move_forward", "sprint", "attack", "block"]:
+	for a in ["move_forward", "sprint", "attack", "block", "jump"]:
 		Input.action_release(a)
 
 
 ## Runs ahead (at a sprint or not), presses `button` and holds it `hold`
 ## seconds, then lets go of `let_go`; what came of it.
-func _charge(sprint: bool, button: String, hold: float, let_go: String) -> Dictionary:
+func _charge(sprint: bool, button: String, hold: float, let_go: String, jump_at: float = -1.0) -> Dictionary:
 	player.stamina = player.max_stamina
 	Input.action_press("move_forward")
 	if sprint:
@@ -48,6 +50,10 @@ func _charge(sprint: bool, button: String, hold: float, let_go: String) -> Dicti
 	while t < hold + 2.0:
 		await physics_frame
 		t += 1.0 / Engine.physics_ticks_per_second
+		if jump_at > 0.0 and t >= jump_at and t < jump_at + 0.05:
+			Input.action_press("jump")
+		elif jump_at > 0.0 and t >= jump_at + 0.05:
+			Input.action_release("jump")
 		if not let and t >= hold and let_go != "":
 			let = true
 			Input.action_release(let_go)
@@ -128,12 +134,18 @@ func _initialize() -> void:
 	foe.global_position = player.global_position + Vector3(0, 0, -11.0)
 	player._hold_target(foe)
 	r = await _charge(true, "attack", 3.0, "")
-	_check("locked on: he leaps at it by himself", r.get("last", &"") == GreatSword.CHARGE["leap"]["clip"] and r["slam"],
+	_check("locked on: the blade down on it by himself", r.get("last", &"") == GreatSword.CHARGE["clip"] and r["slam"],
 			str(r.get("last", &"")))
-	print("    the blade into the ground %.2f m from its middle; up %.2f m" % [float(r.get("slam_d", -1.0)), float(r["top"])])
-	_check("the leap leaves the ground", float(r["top"]) > 0.4, "%.2f m" % float(r["top"]))
-	_check("the leap lands before it, not in it", float(r.get("slam_d", 0.0)) > 1.0 and float(r.get("slam_d", 9.0)) < 3.2,
+	print("    the blade into the ground %.2f m from its middle" % float(r.get("slam_d", -1.0)))
+	_check("near enough to reach it", float(r.get("slam_d", 9.0)) < 3.2 and float(r.get("slam_d", 0.0)) > 1.0,
 			"%.2f m" % float(r.get("slam_d", -1.0)))
+	player._drop_target()
+
+	foe.global_position = Vector3(0.0, 0.5, 200.0)
+	r = await _charge(true, "attack", 3.0, "", 0.7)
+	print("    the jump: %s, up %.2f m" % [r.get("last", &""), float(r["top"])])
+	_check("the jump pressed in the charge: he leaps", r.get("last", &"") == GreatSword.CHARGE["leap"]["clip"]
+			and float(r["top"]) > 0.4 and r["slam"], "%.2f m" % float(r["top"]))
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
 	quit(1 if _failures > 0 else 0)

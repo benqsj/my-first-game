@@ -3152,7 +3152,7 @@ func _on_slammed(at: Vector3, heft: float) -> void:
 		GroundFx.eruption(world, at, 0.8)
 		GroundFx.wave(world, at, ahead.normalized(), 4.5, false, 0.9)
 	ImpactFx.thud(self, at, true)
-	WindBlast.shake(self, 0.18, 0.4, 14.0)
+	WindBlast.shake(self, 0.18 * clampf(heft / 2.0, 1.0, 1.4), 0.4, 14.0)
 
 
 ## Heavy blows cost this many light cuts' stamina.
@@ -4306,11 +4306,13 @@ func _tick_charge() -> void:
 		# (its body as a blade finds it: its own radius, not the drawn size)
 		var r: Variant = _charge_foe.get(&"body_radius")
 		var radius := float(r) if r != null else 0.45
-		# the knight's charge: near enough, he leaps at it
-		var gap := float(lp.get("gap", spec.get("strike_gap", 0.9)))
+		# near enough, the blow goes by itself (the knight's: a leap only
+		# on the jump button, `leap_on_jump`)
+		var on_jump := bool(spec.get("leap_on_jump", false))
+		var gap := float(spec.get("strike_gap", 0.9)) if on_jump else float(lp.get("gap", spec.get("strike_gap", 0.9)))
 		if to.length() - radius - 0.4 <= gap:
 			go = true
-			leap = not lp.is_empty()
+			leap = not lp.is_empty() and not on_jump
 	elif _charge_skill:
 		# Nothing to run at: a few strides the way he faces, and the cut.
 		go = go or held >= float(spec.get("blind_hold", 0.45))
@@ -4323,6 +4325,11 @@ func _tick_charge() -> void:
 	if _attack_buffer > 0.0 and held >= 0.12:
 		_attack_buffer = 0.0
 		go = true
+	if bool(spec.get("leap_on_jump", false)) and not lp.is_empty() and Input.is_action_just_pressed("jump"):
+		# The knight's charge, the jump pressed: he leaps and brings the
+		# blade down from the air (the user's word, 2026-10-06)
+		go = true
+		leap = true
 	if go:
 		_cut_charging = false
 		net_release_cut.rpc(leap)

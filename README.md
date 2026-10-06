@@ -8504,3 +8504,17 @@ the leap's blade into the ground 1.74 m from an orc's middle.
   middle when let go from `leap.gap` 6.2 m off.
 - No spikes or wave of earth from his blade (`SkinnedRig.slam_spikes` false for
   the warrior): dust, the thud and the shake.
+
+### The charge: the dust on time, the leap on the jump, harder blows (2026-10-06, 19:42, the user's word)
+
+- The dust and the shake came late: a running cut's `slam` was the clip's
+  lowest point, after the blade had gone in. Now it is the moment the
+  blade's point is down at the ground (`SLAM_TIP_HEIGHT` 0.3 m) past its cut,
+  the measured share only as a fallback.
+- The leap only on the jump: the jump pressed while he charges
+  (`leap_on_jump`) and he leaps, locked on or not. Locked on, near enough
+  (`strike_gap` 1.6 m off its body) the overhead cut comes down on it by
+  itself.
+- Both fall harder once let go (`strike_boost` 1.3 on `strike_pace`:
+  `SkinnedRig._strike_boost`) and weigh more (2.3, the leap 2.6: the bite held
+  longer); the view shaken with the blow's weight (`_on_slammed`, x1.15-1.3).

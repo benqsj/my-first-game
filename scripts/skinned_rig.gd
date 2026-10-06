@@ -124,6 +124,11 @@ var _slam_done: bool = false
 ## A running cut's blade into the ground (its spec's `slam`, a share of the
 ## clip): the ground shakes there as under a heavy blow. -1: none.
 var _cut_slam: float = -1.0
+## How near the ground the blade's point is when it counts as gone in (m).
+const SLAM_TIP_HEIGHT := 0.3
+## The swing's top pace for the blow in hand, against `strike_pace` (a
+## running cut let go falls harder: its spec's `strike_boost`).
+var _strike_boost: float = 1.0
 var carry_velocity := Vector3.ZERO
 ## How much of its clip's travel a carried blow covers: set by the controller
 ## so a flip lands where what it is thrown at stands (1 on every other peer).
@@ -1049,7 +1054,13 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			_pace_phase(through, delta)
 		if _role == Role.SWING and (_heavy_now or _cut_slam > 0.0) and not _slam_done:
 			var slam := _cut_slam if _cut_slam > 0.0 else _slam_share()
-			if slam > 0.0 and through >= slam:
+			# (a running cut's: the moment the blade's point is down at the
+			# ground, past its cut, not the clip's lowest point after it: the
+			# dust and the shake came late, the user's word 2026-10-06)
+			var down := _cut_slam > 0.0 and _blade_tip != null and _body != null \
+					and through >= _whole_cut(_act_clip).x \
+					and _blade_tip.global_position.y <= _body.global_position.y + SLAM_TIP_HEIGHT
+			if (slam > 0.0 and through >= slam) or down:
 				_slam_done = true
 				var at := global_position
 				if _blade_tip != null:
@@ -1393,6 +1404,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_role = role
 	_recovering = false
 	_cut_slam = -1.0
+	_strike_boost = 1.0
 	_blow_phase = 2
 	_blow_k = 1.0
 	_blow_t = 0.0
@@ -1563,7 +1575,8 @@ func _pace_phase(through: float, delta: float) -> void:
 		2:
 			if not held:
 				_blow_t += delta
-			k = lerpf(strike_pace, back, smoothstep(0.0, settle_time, _blow_t)) if settle_time > 0.0 else back
+			k = lerpf(strike_pace * _strike_boost, back, smoothstep(0.0, settle_time, _blow_t)) \
+					if settle_time > 0.0 else back
 	if phase != _blow_phase or absf(k - _blow_k) > 0.001:
 		_set_blow_phase(phase, k)
 
@@ -1588,7 +1601,7 @@ func _swing_start(clip: StringName, w: Vector2) -> float:
 func _strike_k(through: float, s0: float, cut: float) -> float:
 	var from := strike_from_pace if strike_from_pace > 0.0 else strike_pace
 	var u := clampf((through - s0) / maxf(cut - s0, 0.001), 0.0, 1.0)
-	return lerpf(from, strike_pace, u * u)
+	return lerpf(from, strike_pace * _strike_boost, u * u)
 
 
 ## The blow's pace made `k` of its own from now on (and the time left of it
@@ -1642,7 +1655,7 @@ func _swing_times(from: float, w: Vector2, rate: float, s0: float) -> Vector2:
 	for i in steps:
 		var p := a + (w.x - a) * (float(i) + 0.5) / float(steps)
 		t += clip_len * maxf(w.x - a, 0.0) / float(steps) / (rate * _strike_k(p, s0, w.x))
-	return Vector2(t, t + clip_len * maxf(w.y - maxf(w.x, from), 0.0) / (rate * strike_pace))
+	return Vector2(t, t + clip_len * maxf(w.y - maxf(w.x, from), 0.0) / (rate * strike_pace * _strike_boost))
 
 
 ## Seconds from the blow being weighed to its cut (a leap's time in the air).
@@ -1949,6 +1962,7 @@ func release_cut(leap: bool = false) -> float:
 			_cut_slam = float(lp.get("slam", -1.0))
 			_slam_done = false
 			# up at the leap's own pace, a beat at the top, and down fast
+			_strike_boost = float(lp.get("strike_boost", 1.0))
 			_weigh_blow(_act_clip, lrate, _action_from, float(lp.get("windup", 1.0)))
 			var lw := _whole_cut(_act_clip)
 			if _cut_slam > lw.y:
@@ -1971,6 +1985,7 @@ func release_cut(leap: bool = false) -> float:
 		# in up to `strike_pace`, then carried on and slowed as a weighed
 		# blow is).
 		var base := _action_rate
+		_strike_boost = float(cut_spec("run_attack").get("strike_boost", 1.0))
 		_weighed = true
 		_blow_phase = 1
 		_blow_k = 1.0

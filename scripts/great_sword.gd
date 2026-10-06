@@ -40,15 +40,18 @@ const MODES: Array = [
 ## the blow comes down where he is, a step at most (`stop_on_release`), and
 ## fast (`fast_release`: the weight is back already): the overhead cut into
 ## the ground. Locked on to
-## something, he runs at it and, near enough (`leap.gap`), leaps at it
-## without waiting: off the ground for as long as Kevin's 2H04 takes to bring
-## the blade down (up at `leap.windup`, a beat at the top, down fast) and into
-## the ground.
-const CHARGE := {"clip": &"KV_Attack2H02", "rate": 1.0, "weight": 1.9, "hold": 0.3, "creep": 0.06,
-	"creep_until": 0.33, "hold_max": 1.3, "pace": 1.0, "strike_gap": 1.2, "string_at": -1, "slam": 0.674,
+## something, he runs at it and, near enough (`strike_gap`), brings it down
+## without waiting. The jump pressed while he charges (`leap_on_jump`): he
+## leaps, off the ground for as long as Kevin's 2H04 takes to bring the blade
+## down (up at `leap.windup`, a beat at the top, down fast) and into the
+## ground. Both let go fall harder than a string's blow (`strike_boost`) and
+## weigh more (`weight`: the bite held longer, the view shaken harder).
+const CHARGE := {"clip": &"KV_Attack2H02", "rate": 1.0, "weight": 2.3, "hold": 0.3, "creep": 0.06,
+	"creep_until": 0.33, "hold_max": 1.3, "pace": 1.0, "strike_gap": 1.6, "string_at": -1, "slam": 0.674,
 	"sprint_only": true, "hold_button": true, "locked_only": true, "stop_on_release": true,
-	"fast_release": true,
-	"leap": {"clip": &"KV_Attack2H04", "from": 0.12, "rate": 1.0, "windup": 0.55, "weight": 2.2, "slam": 0.429, "gap": 6.2}}
+	"fast_release": true, "strike_boost": 1.3, "leap_on_jump": true,
+	"leap": {"clip": &"KV_Attack2H04", "from": 0.12, "rate": 1.0, "windup": 0.55, "weight": 2.6, "slam": 0.429,
+		"gap": 6.2, "strike_boost": 1.3}}
 
 
 ## Seconds of the clip before its cut each blow is played from (the other
