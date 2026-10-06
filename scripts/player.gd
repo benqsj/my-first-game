@@ -5051,6 +5051,7 @@ const SKILLS := {
 	&"shadow_step": {"name": "Shadow Step", "stamina": 20.0, "cooldown": 9.0},
 	&"vanish": {"name": "Vanish", "stamina": 25.0, "cooldown": 40.0},
 	&"challenge": {"name": "Challenge", "stamina": 20.0, "cooldown": 20.0},
+	&"frost_spears": {"name": "Frost Spears", "stamina": 25.0, "cooldown": 14.0},
 }
 const SKILL_SLOTS := 4
 
@@ -5124,6 +5125,8 @@ func use_skill(slot: int) -> bool:
 			went = rogue().vanish(float(SKILLS[id]["stamina"]))
 		&"challenge":
 			went = TarielChallenge.cast(self)
+		&"frost_spears":
+			went = mage().frost_spears(float(SKILLS[id]["stamina"]))
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -6141,6 +6144,47 @@ func rogue() -> RogueSkills:
 		_rogue.name = "RogueSkills"
 		add_child(_rogue)
 	return _rogue
+
+
+## The mages' skills ([MageSkills]), made the first time they are asked for.
+var _mage: MageSkills = null
+
+
+func mage() -> MageSkills:
+	if _mage == null or not is_instance_valid(_mage):
+		_mage = MageSkills.new()
+		_mage.name = "MageSkills"
+		add_child(_mage)
+	return _mage
+
+
+## The Frost Spears grown, on every peer ([method MageSkills.grow_spears]).
+@rpc("any_peer", "call_local", "reliable")
+func net_frost_spears() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	mage().grow_spears()
+
+
+## Spear `i` thrown, on every peer; only the host's copy hurts.
+@rpc("any_peer", "call_local", "reliable")
+func net_frost_spear(i: int, from: Vector3, flight: Vector3, damage: float, critical: bool,
+		quarry: NodePath) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	mage().throw_spear(i, from, flight, damage, critical,
+			get_node_or_null(quarry) as Node3D if not quarry.is_empty() else null)
+
+
+## The spears left break, on every peer.
+@rpc("any_peer", "call_local", "reliable")
+func net_frost_end() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	mage().break_spears()
 
 
 ## Gone from sight in his Vanish, or just out of a Shadow Step: the creatures

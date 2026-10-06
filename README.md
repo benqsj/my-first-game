@@ -8739,3 +8739,28 @@ it began after the bolt was let go and the bolt is within `dodge_window` (0.75 s
 of flight) of its quarry. Before, a roll already going at the throw shook it off
 on its first tick: it flew on the way it was thrown and never came after him (the
 skeleton mage's bolt, and the heroes' the same). `tests/bolt_dodge_test.gd`.
+
+### Dodged, a bolt flies on; the elf's Frost Spears; one cape (2026-10-06, the user's word)
+
+**A dodged bolt flies on.** It used to go out the moment it was past what it was
+thrown at. Now, shaken off, it flies on straight out of sight (`reach`) and
+whatever stands in its way behind him takes it — a friend 3-4 m behind him, or a
+creature behind a creature. It never turns to go after anyone else
+(`bolt_dodge_test`, the one behind).
+
+**Frost Spears** (the elf's first skill, `MageSkills`, `IceShard`). She raises
+her hand (Mixamo's Heal, its rise) and ten spears of ice grow out of the air one
+after another, `FORM_EVERY` 0.08 s apart, a crescent of them over and behind her
+head that goes where she goes, every point turned on what she will throw them
+at. Once all are there and there is something to throw at — her lock, else the
+nearest foe ahead within `SEEK` 28 m — they go on their own, one every 0.16 s:
+each an `IceShard` (a SpellBolt: it hunts, it is dodged only in time, it flies
+on when dodged, it goes through m.def), worth 0.35 of a full bolt, a crit rolled
+for each. Nothing to throw at for 6 s, and they break into frost. She is not held
+while they hang or fly. Her own peer decides; `net_frost_spears` /
+`net_frost_spear` / `net_frost_end` draw it everywhere, the host's copies hurt.
+25 stamina (mana to come), 14 s. `tests/frost_spears_test.gd`.
+
+**One cape.** Over YOUR OWN — which every mage now wears, with its class's own
+cape or cloak — `SkinnedMageRig.set_garb` hangs none of the mage's own cloth
+capes: one hung inside the clothes as a second cape.

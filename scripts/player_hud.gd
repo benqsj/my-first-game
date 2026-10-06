@@ -382,6 +382,18 @@ func _icon(id: StringName, rect: Rect2) -> void:
 						tip - along * 4.0 - side * 3.5]), ICON)
 				_bars.draw_line(tail, tail + along * 5.0 + side * 3.0, Color(0.85, 0.3, 0.25), 2.0)
 				_bars.draw_line(tail, tail + along * 5.0 - side * 3.0, Color(0.85, 0.3, 0.25), 2.0)
+		&"frost_spears":
+			# A crescent of ice spears over a ring, all pointing one way.
+			var ice := Color(0.7, 0.92, 1.0)
+			for k in 5:
+				var a := deg_to_rad(lerpf(-60.0, 60.0, k / 4.0))
+				var base := c + Vector2(sin(a) * 15.0 - 6.0, -cos(a) * 9.0 + 4.0)
+				var tip := base + Vector2(14.0, -6.0)
+				var along := (tip - base).normalized()
+				var side := Vector2(-along.y, along.x)
+				_bars.draw_colored_polygon(PackedVector2Array([tip, base + side * 2.6, base - along * 3.0,
+						base - side * 2.6]), ice)
+			_bars.draw_arc(c + Vector2(-2, 14), 9.0, PI * 1.1, PI * 1.9, 12, Color(ice, 0.6), 1.5)
 		&"hunters_mark":
 			# The mark: a ring, four points in, an eye.
 			var red := Color(0.95, 0.25, 0.18)
