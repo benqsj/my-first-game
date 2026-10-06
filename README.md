@@ -6024,6 +6024,12 @@ wheel or the gold bar beside the grid, which shows six rows. The hero's side
 is wider (34 % of the screen) with a bigger hero, and the numbers sit in two
 columns under him.
 
+`UnderGarb` (`scripts/under_garb.gd`) gives a woman's bare legs a band of
+the underthings' cloth from mid-thigh down to the knee (look "smalls",
+default "shorts"). Her body's triangles are clipped at HEM and WAIST, with
+the corners' weights blended along the cut. "skirt" adds a short flared
+underskirt ring, but that one is not used.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

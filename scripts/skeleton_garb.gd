@@ -161,6 +161,22 @@ static func _legs_and_feet(figure: Node, skel: Skeleton3D, look: Dictionary) -> 
 		var mi := MeshInstance3D.new()
 		mi.name = TAG + String(pair[1])
 		mi.mesh = _part_of(src.mesh, src.skin, skel, String(pair[1]))
+		# her underthings in the cut she wears (UnderGarb)
+		var smalls := String(look.get("smalls", "shorts")) if String(look.get("g", "m")) == "f" else ""
+		if String(pair[1]) == "legs" and String(pair[0]) == "ps_bottombody" and smalls != "":
+			mi.mesh = UnderGarb.shorts(mi.mesh, src.skin)
+			if smalls == "skirt":
+				var skirt := MeshInstance3D.new()
+				skirt.name = TAG + "skirt"
+				skirt.mesh = UnderGarb.skirt(src.mesh, src.skin)
+				skirt.skin = src.skin
+				skel.add_child(skirt)
+				skirt.skeleton = NodePath("..")
+				var own := src.get_surface_override_material(0) as BaseMaterial3D
+				if own != null:
+					own = own.duplicate() as BaseMaterial3D
+					own.cull_mode = BaseMaterial3D.CULL_DISABLED
+					skirt.set_surface_override_material(0, own)
 		mi.skin = src.skin
 		skel.add_child(mi)
 		mi.skeleton = NodePath("..")
