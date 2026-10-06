@@ -121,6 +121,9 @@ signal slammed(at: Vector3, heft: float)
 ## far (m) its spec says he throws himself in with it (0: not at all).
 signal wound_up(lunge: float)
 var _slam_done: bool = false
+## A running cut's blade into the ground (its spec's `slam`, a share of the
+## clip): the ground shakes there as under a heavy blow. -1: none.
+var _cut_slam: float = -1.0
 var carry_velocity := Vector3.ZERO
 ## How much of its clip's travel a carried blow covers: set by the controller
 ## so a flip lands where what it is thrown at stands (1 on every other peer).
@@ -1044,8 +1047,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			_strike_world()
 		if _role == Role.SWING and not _air_cut and _hold_at <= 0.0:
 			_pace_phase(through, delta)
-		if _role == Role.SWING and _heavy_now and not _slam_done:
-			var slam := _slam_share()
+		if _role == Role.SWING and (_heavy_now or _cut_slam > 0.0) and not _slam_done:
+			var slam := _cut_slam if _cut_slam > 0.0 else _slam_share()
 			if slam > 0.0 and through >= slam:
 				_slam_done = true
 				var at := global_position
@@ -1389,6 +1392,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_wind_at = -1.0
 	_role = role
 	_recovering = false
+	_cut_slam = -1.0
 	_blow_phase = 2
 	_blow_k = 1.0
 	_blow_t = 0.0
@@ -1665,6 +1669,8 @@ func attack(style: int = -1) -> void:
 		_flurry_slot = int(rc.get("string_at", 0))
 		if _play_action(rc["clip"], Role.SWING, float(rc.get("rate", 1.0)) * mq_swing_scale, 0.06,
 				0.0, float(rc.get("until", 1.0))):
+			_cut_slam = float(rc.get("slam", -1.0))
+			_slam_done = false
 			_hold_at = float(rc.get("hold", -1.0))
 			_hold_creep = float(rc.get("creep", 0.0))
 			_hold_until = float(rc.get("creep_until", _hold_at))
@@ -1910,9 +1916,26 @@ func holding_cut() -> bool:
 
 ## Lets the held cut go: on from where it is held at the clip's rate. Returns
 ## the seconds he is held for it (to its cut's end and `swing_recovery`).
-func release_cut() -> float:
+func release_cut(leap: bool = false) -> float:
 	if not holding_cut():
 		return 0.0
+	var lp: Dictionary = cut_spec("run_attack").get("leap", {})
+	if leap and not lp.is_empty() and _anim.has_animation(lp["clip"]):
+		# Let go as a leap (the knight's charge reaching what he is locked
+		# on): the leap's clip taken up from its own wind-up, the blade over
+		# his head as the held one has it, and down into the ground.
+		_hold_at = -1.0
+		_holding = false
+		var weight := float(lp.get("weight", cut_weight))
+		if _play_action(lp["clip"], Role.SWING, float(lp.get("rate", 1.0)) * mq_swing_scale, 0.12,
+				float(lp.get("from", 0.0))):
+			cut_weight = weight
+			_cut_slam = float(lp.get("slam", -1.0))
+			_slam_done = false
+			var lw: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
+			_swing_commit = _action_len * maxf(lw.y - _action_from, 0.0) / _action_rate + swing_recovery
+			_whoosh()
+			return _swing_commit
 	var at := maxf(_progress(), _hold_at)
 	_hold_at = -1.0
 	_holding = false

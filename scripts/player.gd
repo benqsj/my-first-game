@@ -3065,7 +3065,11 @@ func _attack(heavy: bool = false) -> void:
 				_charge_spec = rig.call(&"run_cut_spec")
 				_charge_t0 = _game_t
 				_charge_foe = _charge_target()
-				_commit(run_cut_hold_max + 2.0)
+				if bool(_charge_spec.get("locked_only", false)):
+					# (the knight's charge runs at what he is locked on, or
+					# where he is pushed)
+					_charge_foe = target if target != null and _targetable(target) else null
+				_commit(float(_charge_spec.get("hold_max", run_cut_hold_max)) + 2.0)
 			else:
 				_ease_delay = float(rig.call(&"time_to_cut"))
 	_attack_buffer = 0.0
@@ -4293,37 +4297,50 @@ func _tick_charge() -> void:
 	var held := _game_t - _charge_t0
 	var spec := _charge_spec
 	var go := held >= float(spec.get("hold_max", run_cut_hold_max))
+	var leap := false
+	var lp: Dictionary = spec.get("leap", {})
 	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
 		var to := _charge_foe.global_position - global_position
 		to.y = 0.0
 		# (its body as a blade finds it: its own radius, not the drawn size)
 		var r: Variant = _charge_foe.get(&"body_radius")
 		var radius := float(r) if r != null else 0.45
-		go = go or to.length() - radius - 0.4 <= float(spec.get("strike_gap", 0.9))
+		# the knight's charge: near enough, he leaps at it
+		var gap := float(lp.get("gap", spec.get("strike_gap", 0.9)))
+		if to.length() - radius - 0.4 <= gap:
+			go = true
+			leap = not lp.is_empty()
 	elif _charge_skill:
 		# Nothing to run at: a few strides the way he faces, and the cut.
 		go = go or held >= float(spec.get("blind_hold", 0.45))
-	elif held >= 0.25 and get_movement_direction().is_zero_approx():
+	elif held >= 0.25 and get_movement_direction().is_zero_approx() and not bool(spec.get("hold_button", false)):
 		go = true
+	if bool(spec.get("hold_button", false)) and held >= 0.1 and not go:
+		# The knight's charge: held as long as the attack button and the
+		# push are; letting go of either lets the blow go where he is.
+		go = not Input.is_action_pressed("attack") or get_movement_direction().is_zero_approx()
 	if _attack_buffer > 0.0 and held >= 0.12:
 		_attack_buffer = 0.0
 		go = true
 	if go:
 		_cut_charging = false
-		net_release_cut.rpc()
+		net_release_cut.rpc(leap)
 		_commit_timer = 0.0
 		_commit(float(rig.get(&"_swing_commit")))
 		_swing_t0 = _game_t
-		_ease_delay = float(rig.call(&"time_to_cut"))
+		# (let go where he is: the run given up at once, a step at most;
+		# a leap carries the run into it)
+		_ease_delay = 0.0 if bool(spec.get("stop_on_release", false)) and not leap \
+				else float(rig.call(&"time_to_cut"))
 
 
 @rpc("any_peer", "call_local", "reliable")
-func net_release_cut() -> void:
+func net_release_cut(leap: bool = false) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
 	if rig != null and rig.has_method(&"release_cut"):
-		rig.call(&"release_cut")
+		rig.call(&"release_cut", leap)
 
 
 ## A cut out of a run: on his feet, the first of a string, at a run, with the
@@ -4332,6 +4349,13 @@ func _run_cut_ready() -> bool:
 	if state != State.GROUNDED or not is_on_floor() or _swing_chain != 0 or is_blocking:
 		return false
 	if rig == null or not rig.has_method(&"has_run_cut") or not bool(rig.call(&"has_run_cut")):
+		return false
+	# (the knight's charge: only at a sprint, Shift held)
+	var spec: Variant = rig.call(&"run_cut_spec") if rig.has_method(&"run_cut_spec") else {}
+	if spec is Dictionary and bool((spec as Dictionary).get("sprint_only", false)) and not sprinting:
+		return false
+	# (and only off the attack button: the block button's string is its own)
+	if spec is Dictionary and bool((spec as Dictionary).get("hold_button", false)) and _buffer_other:
 		return false
 	return Vector2(velocity.x, velocity.z).length() > run_speed * run_cut_pace
 

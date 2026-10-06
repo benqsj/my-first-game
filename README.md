@@ -8463,3 +8463,21 @@ turns UAL 2's heavy blows flow through. Those three are now
 eased swing, no slowed way back), and each plays to its end before the next
 may start (`swing_time()` is the time left of the clip), the next blended in
 over its last moment.
+
+### The knight's charge (2026-10-06, 18:48, the user's word)
+
+At a sprint (Shift held) the attack button pressed and **held** is a charge
+(`GreatSword.CHARGE`, the moves' "run_attack"): the blade drawn back over his
+head (Kevin's 2H02 held at 0.3, drawn on slowly to 0.33) while the legs run on
+under it, for as long as the button and the push are held (up to 6 s; nothing
+need be ahead). Let go of the attack button, or of the push, and the blow
+comes down where he is, a step at most (`stop_on_release`: the run given up at
+once), the blade into the ground at 2H02's `slam` (the ground shakes, as under
+a heavy blow: `SkinnedRig._cut_slam`). **Locked on** to something he runs at
+it and, `leap.gap` 3.4 m off its body, leaps at it by himself (Kevin's 2H04
+from 0.12, the blade over his head into it and the ground; weight 2.2).
+Neither at a jog, nor on the block button (`sprint_only`, `hold_button`,
+`locked_only` in Player `_run_cut_ready`, `_tick_charge`;
+`SkinnedRig.release_cut(leap)`). Measured (`tests/great_sword_charge_test.gd`):
+held 1.2 s he runs 6.8 m; let go, on 1.15 m (the button) / 0.46 m (the push);
+the leap's blade into the ground 1.74 m from an orc's middle.

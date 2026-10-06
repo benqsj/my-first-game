@@ -32,6 +32,21 @@ const MODES: Array = [
 ]
 
 
+## The charge (the user's word, 2026-10-06, 18:48): at a sprint (Shift held),
+## the attack button pressed and held: the blade drawn back over his head
+## (Kevin's 2H02 held at `hold`, drawn on slowly to `creep_until`) while the
+## legs run on under it, for as long as the button and the push are held.
+## Let go of either and the blow comes down where he is, a step at most
+## (`stop_on_release`): the overhead cut into the ground. Locked on to
+## something, he runs at it and, near enough (`leap.gap`), leaps at it
+## without waiting: Kevin's 2H04, up from its own wind-up and down into the
+## ground.
+const CHARGE := {"clip": &"KV_Attack2H02", "rate": 1.0, "weight": 1.9, "hold": 0.3, "creep": 0.06,
+	"creep_until": 0.33, "hold_max": 6.0, "pace": 1.0, "strike_gap": 1.2, "string_at": -1, "slam": 0.674,
+	"sprint_only": true, "hold_button": true, "locked_only": true, "stop_on_release": true,
+	"leap": {"clip": &"KV_Attack2H04", "from": 0.12, "rate": 1.0, "weight": 2.2, "slam": 0.429, "gap": 3.4}}
+
+
 ## Seconds of the clip before its cut each blow is played from (the other
 ## strings' Moveset.LEAD 0.28): the blade gathered from further back.
 const GATHER := 0.38
@@ -49,6 +64,7 @@ static func apply(t: Dictionary) -> void:
 	t["recover"] = {}
 	t["string_sets"] = sets
 	t["modes"] = MODES
+	t["run_attack"] = CHARGE.duplicate(true)
 	# Tariel's blows flow one into the next: played as made, each to its end
 	# ([member SkinnedRig.played_out])
 	t["played_out"] = {}

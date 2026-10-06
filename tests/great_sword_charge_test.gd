@@ -1,0 +1,128 @@
+extends SceneTree
+## The knight's charge ([GreatSword] CHARGE, the user's word 2026-10-06):
+## - at a sprint, the attack button held: the blade held back over his head
+##   while he runs on; at a jog, an ordinary blow; the block button never;
+## - let go of the attack button, or of the push: the blow comes down there,
+##   a step at most, and the blade goes into the ground;
+## - locked on to something: he runs at it and leaps at it by himself.
+##   Godot --headless --path . --script res://tests/great_sword_charge_test.gd
+var _failures := 0
+var player: Player
+var rig: SkinnedRig
+var foe: Node3D
+
+
+func _check(what: String, ok: bool, detail: String = "") -> void:
+	print("  %s - %s %s" % ["ok  " if ok else "FAIL", what, detail])
+	if not ok:
+		_failures += 1
+
+
+func _frames(n: int) -> void:
+	for i in n:
+		await physics_frame
+
+
+func _release_all() -> void:
+	for a in ["move_forward", "sprint", "attack", "block"]:
+		Input.action_release(a)
+
+
+## Runs ahead (at a sprint or not), presses `button` and holds it `hold`
+## seconds, then lets go of `let_go`; what came of it.
+func _charge(sprint: bool, button: String, hold: float, let_go: String) -> Dictionary:
+	player.stamina = player.max_stamina
+	Input.action_press("move_forward")
+	if sprint:
+		Input.action_press("sprint")
+	await _frames(40)
+	Input.action_press(button)
+	await _frames(3)
+	var out := {"charging": player._cut_charging, "clip": rig.current_swing(), "slam": false, "went": 0.0,
+			"held_run": 0.0}
+	var t := 0.0
+	var z := 0.0
+	var z0 := player.global_position.z
+	var let := false
+	while t < hold + 2.0:
+		await physics_frame
+		t += 1.0 / Engine.physics_ticks_per_second
+		if not let and t >= hold and let_go != "":
+			let = true
+			Input.action_release(let_go)
+			z = player.global_position.z
+			out["held_run"] = absf(z - z0)
+		if t > hold + 0.4:
+			_release_all()
+		if rig.current_swing() != &"":
+			out["last"] = rig.current_swing()
+		if rig._slam_done and not out["slam"]:
+			out["slam_d"] = Vector2(player.global_position.x - foe.global_position.x,
+					player.global_position.z - foe.global_position.z).length()
+			_release_all()
+		out["slam"] = out["slam"] or rig._slam_done
+	if let:
+		out["went"] = absf(player.global_position.z - z)
+	_release_all()
+	await _frames(60)
+	return out
+
+
+func _initialize() -> void:
+	var game := root.get_node_or_null("Game")
+	if game != null:
+		game.call("choose", &"warrior")
+	var world: World = load("res://scenes/world/greybox_world.tscn").instantiate()
+	root.add_child(world)
+	await _frames(2)
+	player = world.player()
+	player.immortal = true
+	for e in world.get_node("Enemies").get_children():
+		if foe == null and e is CharacterBody3D and String(e.name).to_lower().contains("orc"):
+			foe = e
+			continue
+		e.queue_free()
+	rig = player.rig as SkinnedRig
+	player.set_look(PolysplitLook.default_look(&"warrior", "m"))
+	player.set_face(rig.faces.find(SkinnedRig.CUSTOM))
+	player.global_position = Vector3(0.0, 0.5, 26.0)
+	player.rotation.y = 0.0
+	player.camera_rig.rotation.y = 0.0
+	foe.global_position = Vector3(0.0, 0.5, 200.0)
+	foe.process_mode = Node.PROCESS_MODE_DISABLED
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	await _frames(60)
+	rig._mode = 0
+	rig._main_string = GreatSword.MODES[0]["strings"][0]
+	rig._wear_string(rig._main_string)
+
+	var r := await _charge(false, "attack", 0.6, "attack")
+	_check("at a jog: no charge, an ordinary blow", not r["charging"] and r["clip"] != GreatSword.CHARGE["clip"],
+			str(r["clip"]))
+	r = await _charge(true, "block", 0.6, "block")
+	_check("the block button at a sprint: no charge", not r["charging"], str(r["clip"]))
+	r = await _charge(true, "attack", 1.2, "attack")
+	print("    held: ran %.2f m; let go of the attack: on %.2f m" % [r["held_run"], r["went"]])
+	_check("at a sprint the attack button held: the charge", r["charging"] and r["clip"] == GreatSword.CHARGE["clip"],
+			str(r["clip"]))
+	_check("held, he runs on (4-5 strides)", r["held_run"] > 5.0, "%.2f m" % r["held_run"])
+	_check("let go of the attack: a step at most", r["went"] < 1.6, "%.2f m" % r["went"])
+	_check("the blade into the ground", r["slam"])
+	r = await _charge(true, "attack", 1.0, "move_forward")
+	print("    let go of the push: on %.2f m" % r["went"])
+	_check("let go of the push: a step at most", r["went"] < 1.6 and r["slam"], "%.2f m" % r["went"])
+
+	player.global_position = Vector3(0.0, 0.5, 26.0)
+	player.rotation.y = 0.0
+	await _frames(30)
+	foe.global_position = player.global_position + Vector3(0, 0, -14.0)
+	player._hold_target(foe)
+	r = await _charge(true, "attack", 3.0, "")
+	_check("locked on: he leaps at it by himself", r.get("last", &"") == GreatSword.CHARGE["leap"]["clip"] and r["slam"],
+			str(r.get("last", &"")))
+	print("    the blade into the ground %.2f m from its middle" % float(r.get("slam_d", -1.0)))
+	_check("the leap lands before it, not in it", float(r.get("slam_d", 0.0)) > 1.0 and float(r.get("slam_d", 9.0)) < 3.2,
+			"%.2f m" % float(r.get("slam_d", -1.0)))
+
+	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
+	quit(1 if _failures > 0 else 0)
