@@ -2472,7 +2472,9 @@ func _switch_target(towards: float) -> void:
 		var who := node as Node3D
 		if who == null or who == target or not _targetable(who):
 			continue
-		if eye.distance_to(_aim_point(who)) > lock_range:
+		# How far from him, not from the camera behind him (which sits a
+		# spring's length back and took 4-5 m off the reach).
+		if global_position.distance_to(who.global_position) > lock_range:
 			continue
 		# Only what lies the way the stick was pushed, and the nearest of those.
 		var gap := (_bearing(who, eye, right) - held) * signf(towards)
@@ -2505,10 +2507,13 @@ func _best_target() -> Node3D:
 		if who == null or not _targetable(who):
 			continue
 		var to_them: Vector3 = _aim_point(who) - eye
-		var range_to := to_them.length()
-		if range_to > lock_range or range_to < 0.01:
+		var seen := to_them.length()
+		# Within reach of him, not of the camera a spring's length behind him:
+		# measured from the camera, a creature 22 m off could not be locked.
+		var range_to := global_position.distance_to(who.global_position)
+		if range_to > lock_range or seen < 0.01:
 			continue
-		var facing := looking.dot(to_them / range_to)
+		var facing := looking.dot(to_them / seen)
 		if facing < widest:
 			continue
 		# Straight ahead beats close by, but not by so much that something on

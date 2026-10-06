@@ -2,7 +2,7 @@ extends SceneTree
 
 ## Avtandil's shots go into what he shoots at, with the hunter's bow: a
 ## skeleton held still in the test arena (Hold still) is struck by every
-## shot, drawn or snapped, locked on at 12 m (even when it was held still in
+## shot, drawn or snapped, locked on at 12 and 22 m (even when it was held still in
 ## the middle of a step, its velocity left over) and with the crosshair held
 ## on its chest at 12 and 22 m, and the arrows land about the body, not
 ## about its feet.
@@ -31,7 +31,7 @@ func _run() -> void:
 	var game := root.get_node_or_null("Game")
 	if game != null:
 		game.call("choose", &"avtandil")
-	for case: Array in [[12.0, false, false], [12.0, false, true], [12.0, true, false], [22.0, true, false]]:
+	for case: Array in [[12.0, false, false], [12.0, false, true], [22.0, false, false], [12.0, true, false], [22.0, true, false]]:
 		await _range(case[0], case[1], case[2])
 	Input.action_release("attack")
 	print("bow_aim_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
@@ -73,6 +73,9 @@ func _range(dist: float, free: bool, stale: bool) -> void:
 		Input.action_press("lock_on")
 		await _wait(2)
 		Input.action_release("lock_on")
+		await _wait(5)
+		# within his lock range (measured from him, not from the camera)
+		_check("%.0f m: it can be locked" % dist, hero.target == body, str(hero.target))
 	await _wait(20)
 	var shots := 0
 	var heights: Array[float] = []
