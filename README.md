@@ -5852,6 +5852,32 @@ cut at its front is caught and one from behind is not; spent, the guard
 breaks; caught, it answers bash then sword, both landing on a hero standing
 still; cut down, 18 pieces that come to rest on the floor.
 
+- **Every skeleton breaks so** (2026-10-06, the user's word): the bare one
+  (and those the mage raises), the archer and the mage too.
+  `Brawler.shatter_on_death`, on in the four skeleton scenes;
+  `shield_warrior_test` cuts each down.
+
+### Avtandil's arrows at a creature held still (2026-10-06, the user's word)
+
+The hunter's bow seemed to miss a skeleton standing still, and the arrow to
+leave the right hand. It leaves the head of the arrow on the string, over the
+bow, as it should (a side view of the draw shows it); what was wrong was the
+aim:
+
+- **A locked shot led the creature by its velocity, all of it.** A body held
+  still (the arena's Hold still, which stops its physics) keeps the velocity
+  it had, a step or a fall: the shot went 3-4 degrees low, into its legs at
+  12 m and into the ground short of it at 22. Now it is led along the ground
+  only, and only while the body is moving at all
+  (`Player._aim_direction`); Hold still also zeroes its velocity
+  (`ArenaPanel._hold`).
+- **A shot at the crosshair now allows for the drop**, as a locked one does:
+  at 22 m it came down on the hips, now on the chest.
+
+`tests/bow_aim_test.gd`: the hunter's bow at a skeleton held still, drawn and
+snapped, locked at 12 m (also held mid-step) and at the crosshair at 12 and
+22 m: every shot strikes it, about the chest.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

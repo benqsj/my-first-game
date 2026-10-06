@@ -2918,7 +2918,13 @@ func _aim_direction(from: Vector3, speed: float = 40.0) -> Vector3:
 		var moving: Variant = target.get("velocity")
 		if moving is Vector3:
 			var flight := from.distance_to(at) / maxf(speed, 1.0)
-			at += (moving as Vector3) * flight
+			# Led along the ground only, and only for a body that is moving at
+			# all: one held still (the arena's Hold still) keeps the velocity it
+			# had, and a creature's fall or a step's bob sent the shot into the
+			# ground short of it.
+			var ground := Vector3((moving as Vector3).x, 0.0, (moving as Vector3).z)
+			if target.is_physics_processing():
+				at += ground * flight
 			# And the drop over that flight, so the arc is aimed through rather
 			# than along.
 			at.y += 0.5 * _gravity * _shot_drop() * flight * flight
@@ -2941,6 +2947,10 @@ func _aim_direction(from: Vector3, speed: float = 40.0) -> Vector3:
 		# Shooting at it is how an arrow ends up buried three paces away.
 		if eye.distance_to(landed) > aim_min_range:
 			at = landed
+			# Through the drop, as a locked shot is: the arrow comes down on
+			# what is under the crosshair rather than a hand below it.
+			var flight := from.distance_to(at) / maxf(speed, 1.0)
+			at.y += 0.5 * _gravity * _shot_drop() * flight * flight
 	var heading := at - from
 	return heading.normalized() if heading.length_squared() > 0.0001 else looking
 

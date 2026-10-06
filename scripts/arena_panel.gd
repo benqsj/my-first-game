@@ -267,6 +267,9 @@ func _toggle_freeze() -> void:
 ## Holds a creature still (no thinking, no walking; it keeps breathing).
 func _hold(body: Node, still: bool) -> void:
 	body.set_physics_process(not still)
+	# and not still going the way it was (a shot at it leads by its velocity)
+	if still and body is CharacterBody3D:
+		(body as CharacterBody3D).velocity = Vector3.ZERO
 
 
 func _step_look(by: int) -> void:
