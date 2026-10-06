@@ -13,8 +13,9 @@ extends Node
 ##   from one side and then the other, in a rhythm (`VOLLEY`): three, a short
 ##   breath, three, a breath, three and a fourth on its heels. If it falls they go on
 ##   at the next. With nothing to throw at for `HOLD_MAX` they break.
-##   She is not held while they hang or fly: her own bolts go on as ever;
-##   but while they are up she only walks.
+##   She walks while her hand is raised and while it comes forward (the
+##   gestures, `_gesture`); between them, and while they hang and fly, she is
+##   free: her own bolts and her run go on as ever.
 ##   The crescent is turned as the view is ([method _crown_at]). Knocked down
 ##   they hang on in the air and go on going; dead, they break.
 ##
@@ -280,9 +281,6 @@ func _process(delta: float) -> void:
 	if not spears_up() or hero == null:
 		return
 	_clock += delta
-	# while they are up she walks, she does not run (the user's word,
-	# 2026-10-07)
-	hero.cast_walk_until = maxf(hero.cast_walk_until, hero._now() + 0.1)
 	# the crown goes with her, and turns with her a little behind
 	var want := _crown_at()
 	_crown.global_position = want.origin
