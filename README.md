@@ -8597,3 +8597,20 @@ the leap's blade into the ground 1.74 m from an orc's middle.
   2.6 rad/s, and the blow lets go at it within `CHARGE_STRIKE_CONE` 80 degrees:
   run a step aside of it, he still brings the blade down on it (1.66 m from its
   middle in the test). Off the other way, he runs on as before.
+
+## No standing on creatures; locks only on what hunts him; creatures chase further (2026-10-06, the user's word)
+
+- **No hero stands on a creature or climbs it.** The climb's rays (the ledge,
+  the wall to take hold of, the wall's top) see the world only
+  (`Player._climb_mask()`: the collision mask less `ENEMY_LAYER` 4), a step up
+  never goes onto a creature (`StepUp.climb`), and come down on one he slides
+  off it (`Player._slip_off_creatures()`, 4.5 m/s out from its middle).
+  `tests/no_standing_on_creatures_test.gd`: dropped on an orc's head, on the
+  ground beside it a second later.
+- **A kill locks on only to what hunts him.** The lock moves on from a dead
+  target only to one that is after him (`Player._hunting_me`: a camp's band or
+  a brute roused at him, CHASE or FIGHT; a wolf chasing or fighting him);
+  something far off minding its own ground is left alone.
+- **They see further and chase further** (`Aggro`, applied as each wakes):
+  sight x1.35, the ground they follow (a camp's `leash_radius`, a wolf's
+  `lose_range`) x2. The orc warrior's ground is still its water.

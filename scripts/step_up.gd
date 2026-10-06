@@ -48,6 +48,9 @@ static func climb(body: CharacterBody3D, delta: float, height: float,
 		return false
 	if blocker.get_normal().dot(body.up_direction) > floor_cos:
 		return false  # A walkable slope: move_and_slide() already handles it.
+	var by := blocker.get_collider() as Node
+	if by != null and by.is_in_group("enemy"):
+		return false  # A creature is not a step to go up on.
 
 	# 2. Is there room to lift the body?
 	var lift := body.up_direction * height
@@ -69,6 +72,9 @@ static func climb(body: CharacterBody3D, delta: float, height: float,
 			continue  # Still hanging over the void: probe further out.
 		if drop.get_normal().dot(body.up_direction) < floor_cos:
 			continue  # Caught the edge: probe further out.
+		var under := drop.get_collider() as Node
+		if under != null and under.is_in_group("enemy"):
+			return false  # Not up onto a creature.
 
 		if height - drop.get_travel().length() <= 0.001:
 			return false  # The surface is level with our feet, nothing to climb.

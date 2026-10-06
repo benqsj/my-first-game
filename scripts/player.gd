@@ -966,6 +966,7 @@ func _physics_process(delta: float) -> void:
 	_step_up(delta)
 	move_and_slide()
 	_resolve_contacts()
+	_slip_off_creatures()
 	_update_floor_state()
 
 
@@ -1954,6 +1955,41 @@ func _stand_up() -> bool:
 #region Climb
 ## Pulls the body up over a ledge in front of it, if there is one within reach
 ## and something to stand on when it gets there.
+## What the hands and feet may take hold of or stand on in a climb: the world,
+## not a creature (no pulling up onto an orc's shoulders, nor a wall made of a
+## troll; the user's word, 2026-10-06).
+func _climb_mask() -> int:
+	return collision_mask & ~ENEMY_LAYER
+
+
+## The physics layer every creature's body is on (4: the third).
+const ENEMY_LAYER := 4
+
+
+## Standing on a creature (come down on its head): slid off it, out the way
+## it is from its middle (the user's word, 2026-10-06: no standing on them).
+func _slip_off_creatures() -> void:
+	if not is_on_floor():
+		return
+	for i in get_slide_collision_count():
+		var hit := get_slide_collision(i)
+		var who := hit.get_collider() as Node3D
+		if who == null or not who.is_in_group("enemy") or hit.get_normal().dot(up_direction) < 0.3:
+			continue
+		var away := global_position - who.global_position
+		away.y = 0.0
+		if away.length_squared() < 0.0025:
+			away = global_basis.z
+		away = away.normalized()
+		velocity.x = away.x * CREATURE_SLIP_SPEED
+		velocity.z = away.z * CREATURE_SLIP_SPEED
+		global_position += away * 0.05
+		return
+
+
+const CREATURE_SLIP_SPEED := 4.5
+
+
 func _try_climb() -> bool:
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return false
@@ -2002,7 +2038,7 @@ func _find_ledge() -> Vector3:
 
 	var chest := global_position + up_direction * climb_min_height
 	var face := PhysicsRayQueryParameters3D.create(
-			chest, chest + facing * climb_reach, collision_mask, exclude)
+			chest, chest + facing * climb_reach, _climb_mask(), exclude)
 	if space.intersect_ray(face).is_empty():
 		return Vector3.ZERO
 
@@ -2014,7 +2050,7 @@ func _find_ledge() -> Vector3:
 	for reach: float in [0.4, 0.55, climb_reach]:
 		var above := global_position + up_direction * (climb_max_height + 0.4) + facing * reach
 		var top := PhysicsRayQueryParameters3D.create(
-				above, above - up_direction * (climb_max_height + 0.4), collision_mask, exclude)
+				above, above - up_direction * (climb_max_height + 0.4), _climb_mask(), exclude)
 		hit = space.intersect_ray(top)
 		if hit.is_empty():
 			continue
@@ -2034,18 +2070,18 @@ func _find_ledge() -> Vector3:
 	_vault_peak = -INF
 	var headroom := PhysicsRayQueryParameters3D.create(
 			landing + up_direction * 0.05, landing + up_direction * climb_headroom,
-			collision_mask, exclude)
+			_climb_mask(), exclude)
 	if not space.intersect_ray(headroom).is_empty():
 		return Vector3.ZERO
 	# A thin top — a fence rail, the coping of a wall — is nowhere to stand: the
 	# landing past its edge has nothing under it. Over it instead, to the
 	# ground on the far side (a vault), rather than up into the air beyond it.
 	var under := PhysicsRayQueryParameters3D.create(landing + up_direction * 0.3,
-			landing - up_direction * 0.4, collision_mask, exclude)
+			landing - up_direction * 0.4, _climb_mask(), exclude)
 	if space.intersect_ray(under).is_empty():
 		var beyond := lip + facing * 1.1
 		var down := PhysicsRayQueryParameters3D.create(beyond + up_direction * 0.3,
-				beyond - up_direction * (rise + 2.0), collision_mask, exclude)
+				beyond - up_direction * (rise + 2.0), _climb_mask(), exclude)
 		var ground := space.intersect_ray(down)
 		if ground.is_empty() or (ground.normal as Vector3).dot(up_direction) < cos(floor_max_angle):
 			return Vector3.ZERO
@@ -2184,7 +2220,7 @@ func _scan_wall(origin: Vector3, facing: Vector3) -> Dictionary:
 	var space := get_world_3d().direct_space_state
 	var exclude: Array[RID] = [get_rid()]
 	var query := PhysicsRayQueryParameters3D.create(
-			origin, origin + facing * wall_grip_reach, collision_mask, exclude)
+			origin, origin + facing * wall_grip_reach, _climb_mask(), exclude)
 	var hit := space.intersect_ray(query)
 	if hit.is_empty():
 		return {}
@@ -2318,7 +2354,7 @@ func _find_wall_top() -> Vector3:
 	for depth: float in [0.15, 0.45, 0.9]:
 		var over := head + facing * (_wall_hold_distance() + depth)
 		var top := PhysicsRayQueryParameters3D.create(
-				over, over - up_direction * 1.3, collision_mask, exclude)
+				over, over - up_direction * 1.3, _climb_mask(), exclude)
 		var hit := space.intersect_ray(top)
 		if hit.is_empty():
 			continue
@@ -2328,7 +2364,7 @@ func _find_wall_top() -> Vector3:
 		var landing: Vector3 = hit["position"]
 		var headroom := PhysicsRayQueryParameters3D.create(
 				landing + up_direction * 0.05, landing + up_direction * climb_headroom,
-				collision_mask, exclude)
+				_climb_mask(), exclude)
 		if space.intersect_ray(headroom).is_empty():
 			return landing
 	return Vector3.ZERO
@@ -2512,12 +2548,14 @@ var _last_target_at := Vector3.ZERO
 
 ## Of the enemies that can be locked, the nearest to `spot`, within lock range
 ## of him; null if there are none.
-func _nearest_to(spot: Vector3) -> Node3D:
+func _nearest_to(spot: Vector3, hunting_only: bool = false) -> Node3D:
 	var best: Node3D = null
 	var closest := INF
 	for node in _foes():
 		var who := node as Node3D
 		if who == null or who == target or not _targetable(who):
+			continue
+		if hunting_only and not _hunting_me(who):
 			continue
 		if global_position.distance_to(who.global_position) > lock_range:
 			continue
@@ -2528,6 +2566,20 @@ func _nearest_to(spot: Vector3) -> Node3D:
 	return best
 
 
+## Whether `who` is after him: roused and chasing or fighting him (a camp's
+## band, a brute: its quarry him and its mode CHASE or FIGHT; a wolf: chasing
+## or fighting, its quarry him). Something that keeps no such state counts.
+func _hunting_me(who: Node3D) -> bool:
+	if who is Wolf:
+		var wolf := who as Wolf
+		return (wolf.state == Wolf.State.CHASE or wolf.state == Wolf.State.FIGHT) and wolf._quarry() == self
+	var quarry: Variant = who.get(&"_quarry")
+	var mode: Variant = who.get(&"mode")
+	if mode != null and (who is Fighter or who is Brute):
+		return quarry == self and (int(mode) == Fighter.Mode.CHASE or int(mode) == Fighter.Mode.FIGHT)
+	return true
+
+
 ## Keeps the camera on the target and lets go when there is nothing left to hold.
 func _track_target(delta: float) -> void:
 	if target == null:
@@ -2535,8 +2587,10 @@ func _track_target(delta: float) -> void:
 	if not _targetable(target):
 		# Killed (or gone): straight on to whichever of the rest stood nearest
 		# it, so a fight with a pack does not need the lock taken again after
-		# every kill. Only if there is one in reach; otherwise let go.
-		var next := _nearest_to(_last_target_at)
+		# every kill. Only if there is one in reach, and only one that is
+		# after him (not something far off minding its own ground, the user's
+		# word 2026-10-06); otherwise let go.
+		var next := _nearest_to(_last_target_at, true)
 		if next != null:
 			_hold_target(next)
 			return

@@ -349,6 +349,9 @@ var _strike_until: float = -1.0
 
 func _ready() -> void:
 	add_to_group(&"wolf")
+	# seen from further, followed further ([Aggro])
+	sight_range *= Aggro.SIGHT
+	lose_range *= Aggro.CHASE
 	# Stood on the ground where it was put: its hill is not flattened for it.
 	if Terrain.current != null:
 		global_position.y = Terrain.height_under(global_position.x, global_position.z, 0.4) + 0.2

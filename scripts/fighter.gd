@@ -190,6 +190,9 @@ var _reel_settled: bool = false
 
 func _ready() -> void:
 	super()
+	# seen from further, followed further ([Aggro])
+	sight_range *= Aggro.SIGHT
+	leash_radius *= Aggro.CHASE
 	if camp_centre == Vector3.ZERO:
 		camp_centre = _home
 	if not band.is_empty():

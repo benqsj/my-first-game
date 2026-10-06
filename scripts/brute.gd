@@ -130,6 +130,9 @@ var _sweeps: Array[WeaponSweep] = []
 
 func _ready() -> void:
 	add_to_group(&"enemy")
+	# seen from further, followed further ([Aggro])
+	sight_range *= Aggro.SIGHT
+	leash_radius *= Aggro.CHASE
 	_rng.randomize()
 	_home = global_position
 	if camp_centre == Vector3.ZERO:
