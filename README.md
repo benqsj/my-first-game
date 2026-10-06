@@ -5890,6 +5890,55 @@ snapped, locked at 12 m (also held mid-step) and at the crosshair at 12 and
   camera, a spring's length behind him, so nothing past about 21 m could be locked.
   `_best_target` and `_switch_target`; `bow_aim_test` locks at 22 m.
 
+### The skeletons' lord (2026-10-06, the user's pick)
+
+`SkeletonLord` (`scripts/skeleton_lord.gd`, a [ShieldFighter]) in
+`scenes/enemies/pack/skeleton_lord.tscn`, the arena's boss in place of the
+"Skeleton, all in one" statue: the pack's kit of all three skeletons' parts,
+at 1.25 (about 2.4 m), in crimson, iron and gold (`Objects_SkelLord`), the
+warrior's helm and coat, the mage's robe, the archer's strap and quiver.
+900 health, p.def 40, level 8, worth 8 wolves. It fights as each of them in turn
+(`stance`, sent to every peer; each shows only its own arms):
+
+- **Sword and shield**: the warrior's way, behind the shield, the bash and the sword.
+- **The bow**: further off than 10 m it stops, turns to him and half a second
+  later puts sword and shield away and takes the bow (a puff of violet at the
+  hand); the archer's shot again and again, the string in its fingers.
+  Within 6 m it takes sword and shield again. No shield with the bow.
+- **The staff**, at half its health, for good: it calls two of the dead up
+  out of the ground (three standing at most, more every 16 s) and takes the
+  mage's staff, the shield kept: bolts that bend after him, the ground
+  erupting under him when he stands still, a blast that throws him off when
+  he is within 3.6 m, the bash alone between (`ShieldFighter.bash_follows`).
+
+`tests/skeleton_lord_test.gd`.
+
+### The zombies and the ghoul (2026-10-06, the user's pick)
+
+`ZombieFighter` (`scripts/zombie_fighter.gd`) for both zombies:
+
+- **Out of the ground**: it lies under the earth, unseen, out of everyone's
+  way and not to be locked on (`under`, sent to every peer), until a hero
+  comes within 8 m; then it climbs out (`CR_Rise`) and comes. Set to wait for
+  his blow (the arena's rule) it stands there from the start instead.
+- **The horde**: roused, it rouses every other of the dead within 14 m still waiting.
+- **Not dead the first time**: cut down, half the time it only falls
+  (`CR_Death2`), lies 2 s and gets up (`CR_GetUp`, UAL 2's LayToIdle) with 35 %
+  of its health; struck while it lies, or cut down again, it is dead.
+- It shuffles every way now (`CR_ZombieWalkL/R/Back`).
+
+`GhoulFighter` (`scripts/ghoul_fighter.gd`):
+
+- **The leap**: from 3.2 to 8 m, every 3.5 s at most, it springs at him
+  (`CR_Leap`: UAL 2's NinjaJump start and landing) sized to the gap, and comes
+  down on him, body and claws: one blow, 1.3 of its own, that knocks him down.
+- **Hit and run**: after its swings it mostly scuttles off sideways and back,
+  facing him, for 0.6-1.1 s (`CR_ZombieRunL/R/Back`), then comes again.
+
+New clips in tools/creature_clips.gd (81): `CR_GetUp`, `CR_Leap`, the
+zombies' walks and runs every way. `tests/dead_test.gd`; creature_blows_test
+counts the ghoul among the slower attackers (it darts off between).
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

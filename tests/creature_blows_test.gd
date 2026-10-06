@@ -10,7 +10,8 @@ extends SceneTree
 const KINDS := ["skeleton", "skeleton_warrior", "orc", "goblin", "ogre", "troll", "ghoul", "golem",
 		"zombie_m", "zombie_f"]
 const SECONDS := 14.0
-const SLOW := ["ogre", "golem", "zombie_m", "zombie_f"]
+## (and the ghoul, which darts off after its swings and leaps in again)
+const SLOW := ["ogre", "golem", "zombie_m", "zombie_f", "ghoul"]
 ## The archer: from afar it stands and every arrow strikes him; when he
 ## comes at it, it runs, turns, shoots and runs again.
 const ARCHER := "skeleton_archer"

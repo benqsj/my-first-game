@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/zombie_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/creatures/Zombie_F.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
@@ -40,6 +40,9 @@ properties/8/replication_mode = 2
 properties/9/path = NodePath("NetSmooth:net_stamp")
 properties/9/spawn = true
 properties/9/replication_mode = 1
+properties/10/path = NodePath(".:under")
+properties/10/spawn = true
+properties/10/replication_mode = 2
 
 [node name="ZombieWoman" type="CharacterBody3D" groups=["enemy"]]
 collision_layer = 4
@@ -53,7 +56,7 @@ walk_clip = &"CR_ZombieWalk"
 idle_clip = &"CR_ZombieIdle"
 fidget_clip = &"CR_ZombieIdle"
 fidget_interval = 9.0
-loop_clips = PackedStringArray("CR_ZombieIdle", "CR_ZombieWalk", "CR_ZombieRun")
+loop_clips = PackedStringArray("CR_ZombieIdle", "CR_ZombieWalk", "CR_ZombieRun", "CR_ZombieWalkBack", "CR_ZombieWalkL", "CR_ZombieWalkR")
 sight_range = 11
 leash_radius = 27.5
 chase_speed = 2.8
@@ -78,6 +81,9 @@ death_clip = &"CR_Death2"
 guard_idle_clip = &"CR_ZombieIdle"
 dies_by_clip = true
 clip_source = "res://assets/creatures/anim/biped_clips.scn"
+strafe_l_clip = &"CR_ZombieWalkL"
+strafe_r_clip = &"CR_ZombieWalkR"
+back_clip = &"CR_ZombieWalkBack"
 clip_meta = "res://assets/creatures/anim/biped_clip_meta.json"
 settle_on_ground = false
 hips_bone = "pelvis_joint"

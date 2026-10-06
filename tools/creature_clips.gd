@@ -103,6 +103,16 @@ const CLIPS := [
 	["CR_ZombieScratch", "Zombie_Scratch", false],
 	["CR_ZombieBite", "Zombie_Bite", false],
 	["CR_Rise", "Zombie_Spawn", false],
+	# The zombies' and the ghoul's own (2026-10-06): up off the ground, the
+	# shamble and the scuttle every way, and the ghoul's leap.
+	["CR_GetUp", "LayToIdle", false],
+	["CR_ZombieWalkBack", "Zombie_Walk_Bwd", true],
+	["CR_ZombieWalkL", "Zombie_Walk_L", true],
+	["CR_ZombieWalkR", "Zombie_Walk_R", true],
+	["CR_ZombieRunBack", "Zombie_Run_Bwd", true],
+	["CR_ZombieRunL", "Zombie_Run_L", true],
+	["CR_ZombieRunR", "Zombie_Run_R", true],
+	["CR_Leap", [["NinjaJump_Start", 0.0, -1.0], ["NinjaJump_Land", 0.0, -1.0]], false],
 ]
 
 ## Clips made of two baked here: the legs (and hips) of the first, the body
