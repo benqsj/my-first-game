@@ -143,15 +143,22 @@ func _ready() -> void:
 	_wind = MageWind.new()
 	_wind.name = "Wind"
 	add_child(_wind)
-	var bone := _skel.find_bone("weapon_l")
-	if bone < 0:
-		return
-	var mount := BoneAttachment3D.new()
-	mount.name = "StaffMount"
-	_skel.add_child(mount)
-	mount.bone_name = "weapon_l"
-	_staff_mount = mount
-	var up := (_skel.get_bone_global_rest(bone).basis.inverse() * Vector3.UP).normalized()
+	# The crystal's light and the ball gathering at it: on the staff of his own
+	# model, or, YOUR OWN worn on the mannequin (which has no weapon_l and is
+	# worn before this runs), on the rig itself, put every frame where the
+	# figure's staff head or empty off fist is (`_crystal_at()`). Before
+	# 2026-10-06 it was never made on the mannequin, so nothing gathered and
+	# the bolt left from 1.6 m over his feet, off the staff (the user's word).
+	var model := _own.get("skel", _skel) as Skeleton3D
+	var bone := model.find_bone("weapon_l") if model != null else -1
+	var up := Vector3.UP
+	if bone >= 0:
+		var mount := BoneAttachment3D.new()
+		mount.name = "StaffMount"
+		model.add_child(mount)
+		mount.bone_name = "weapon_l"
+		_staff_mount = mount
+		up = (model.get_bone_global_rest(bone).basis.inverse() * Vector3.UP).normalized()
 	_glow = OmniLight3D.new()
 	_glow.name = "Crystal"
 	_glow.position = up * CRYSTAL_UP
@@ -159,7 +166,7 @@ func _ready() -> void:
 	_glow.omni_range = 3.0
 	_glow.light_energy = 0.15
 	_glow.shadow_enabled = false
-	mount.add_child(_glow)
+	(_staff_mount if _staff_mount != null and not _on_mq else self as Node3D).add_child(_glow)
 	_orb = MeshInstance3D.new()
 	_orb.name = "Gathering"
 	var ball := SphereMesh.new()
@@ -232,7 +239,7 @@ func _mannequin_worn(on: bool) -> void:
 	cast_release = float(Moveset.clip_meta(MQ_CAST).get("release", 0.45)) if lent else CAST_RELEASE
 	if _glow != null and _staff_mount != null:
 		_glow.reparent(self if on else _staff_mount, false)
-		if not on:
+		if not on and _skel.find_bone("weapon_l") >= 0:
 			_glow.position = (_skel.get_bone_global_rest(_skel.find_bone("weapon_l")).basis.inverse()
 					* Vector3.UP).normalized() * CRYSTAL_UP
 
@@ -246,11 +253,48 @@ func _crystal_at() -> Vector3:
 	var held := _figure_skel.global_transform * _figure_skel.get_bone_global_pose(b)
 	var o := String(ps_look.get("o", ""))
 	if o.begins_with("staff") or PolysplitLook.aw_name(o) == "staff":
-		var tip := _far(_figure.find_child("ps_o_" + o, true, false) as MeshInstance3D, &"weapon_l")
-		if tip.z < 0.0:
-			tip = Vector3(tip.x, tip.y, -tip.z)
-		return held * tip
+		if not _heads.has(o):
+			_heads[o] = _staff_head(_figure.find_child("ps_o_" + o, true, false) as MeshInstance3D)
+		return held * (_heads[o] as Vector3)
 	return held * Vector3(0.0, 0.085, -0.02)
+
+
+## Each staff's head in the hand's (weapon_l's) space, worked out once.
+var _heads: Dictionary = {}
+
+
+## The middle of a staff's head in weapon_l's space: the staff lies along the
+## bone's z with its head towards +z (the hand holds it a little below its
+## middle, so its foot is the vertex furthest from the hand, which is what
+## was used before 2026-10-06 and, turned round, put the ball 0.16 m past the
+## head and off to its side); the head is the vertices within 0.12 m of its top.
+func _staff_head(mesh: MeshInstance3D) -> Vector3:
+	if mesh == null or mesh.skin == null or mesh.mesh == null or _figure_skel == null:
+		return Vector3(0.0, 0.0, 0.8)
+	var at := _figure_skel.find_bone("weapon_l")
+	var bind := Transform3D()
+	var found := false
+	for i in mesh.skin.get_bind_count():
+		var named := mesh.skin.get_bind_name(i)
+		if named == &"weapon_l" or (named == &"" and mesh.skin.get_bind_bone(i) == at):
+			bind = mesh.skin.get_bind_pose(i)
+			found = true
+	if not found:
+		return Vector3(0.0, 0.0, 0.8)
+	var points: Array[Vector3] = []
+	var top := -INF
+	for s in mesh.mesh.get_surface_count():
+		for v: Vector3 in mesh.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX]:
+			var p := bind * v
+			points.append(p)
+			top = maxf(top, p.z)
+	var sum := Vector3.ZERO
+	var n := 0
+	for p in points:
+		if p.z >= top - 0.12:
+			sum += p
+			n += 1
+	return sum / float(n) if n > 0 else Vector3(0.0, 0.0, 0.8)
 #endregion
 
 
@@ -259,8 +303,7 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 	if _anim == null:
 		return
 	_cast_left = maxf(_cast_left - delta, 0.0)
-	if _on_mq and _glow != null and _glow.get_parent() == self:
-		_glow.global_position = _crystal_at()
+	_place_crystal()
 	if _flash_in >= 0.0:
 		_flash_in -= delta
 		if _flash_in < 0.0 and _glow != null and _glow.is_inside_tree():
@@ -290,6 +333,16 @@ func animate(delta: float, planar_speed: float, speed_ratio: float, airborne: bo
 		# Only while he floats (the jump held): a plain jump is just a jump.
 		_wind.amount = 1.35 if floating and airborne else 0.0
 	super(delta, planar_speed, speed_ratio, airborne, dashing, vertical_speed, blocking)
+	# again once this frame's pose is laid, so the ball sits on the staff head
+	# as it swings rather than a frame behind it
+	_place_crystal()
+
+
+## On the mannequin: the crystal (and the ball under it) on the figure's staff
+## head or off fist.
+func _place_crystal() -> void:
+	if _on_mq and _glow != null and _glow.get_parent() == self:
+		_glow.global_position = _crystal_at()
 
 
 func _pick_base(planar: float, airborne: bool, dashing: bool, vy: float, blocking: bool) -> void:

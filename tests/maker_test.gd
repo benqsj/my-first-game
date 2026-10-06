@@ -115,7 +115,12 @@ func _run() -> void:
 				# The arm in hand, and the cut off it.
 				var w := String(worn["w"])
 				var arm_key := "arm_bow" if w == "own_bow" else "w_" + w
-				_check("%s: %s in hand" % [tag, w], shown.has(arm_key), str(shown))
+				if w == "none":
+					# (the mages hold no sword, 2026-10-06: nothing in that hand)
+					_check("%s: nothing in hand" % tag,
+							shown.filter(func(k: String) -> bool: return k.begins_with("w_")).is_empty(), str(shown))
+				else:
+					_check("%s: %s in hand" % [tag, w], shown.has(arm_key), str(shown))
 				if PolysplitLook.cuts(w):
 					var mesh := fig.find_child("ps_w_" + w, true, false) as MeshInstance3D
 					# (on the mannequin the blade's own way in the hand, see _fit_blades)

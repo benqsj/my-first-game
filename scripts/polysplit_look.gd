@@ -145,15 +145,16 @@ const HAT_ORDER := ["skullcap", "headband", "kettle", "leathercoif", "greathelm"
 ## class's first. An id is a
 ## figure mesh "ps_w_<id>" / "ps_o_<id>", but for "his_shield" (the hero's
 ## own, the one his bag says he carries: "ps_shield" / "ps_tower_shield"),
-## "own_bow" (Avtandil's own, which bends: "ps_arm_bow") and "none". The mage
-## holds a sword (2026-10-02, the user's word), a staff in the other hand if
-## he will.
+## "own_bow" (Avtandil's own, which bends: "ps_arm_bow") and "none". The mages
+## hold no sword (2026-10-06, the user's word, which took back the sword of
+## 2026-10-02): the elf her staff in the off hand, the dark elf nothing at all,
+## fighting with her hands ([method normalized]).
 const ARMS := {
 	&"tariel": {"w": ["sword_a", "sword_b", "greatsword", "dagger", "none"], "o": ["his_shield", "shield", "none"]},
 	&"warrior": {"w": ["greatsword", "sword_a", "sword_b", "dagger", "none"], "o": ["none"]},
 	&"rogue": {"w": ["dagger", "sword_a", "sword_b", "none"], "o": ["dagger", "none"]},
 	&"avtandil": {"w": ["own_bow", "bow"], "o": ["none"]},
-	&"mage": {"w": ["sword_a", "sword_b", "greatsword", "dagger"], "o": ["staff_a", "staff_b", "dagger", "none"]},
+	&"mage": {"w": ["none", "dagger"], "o": ["staff_a", "staff_b", "dagger", "none"]},
 }
 const ARM_NAMES := {
 	"sword_a": "ARMING SWORD", "sword_b": "BROAD SWORD", "greatsword": "GREAT SWORD", "dagger": "DAGGER",
@@ -319,7 +320,7 @@ const CLASS_ARMS := {
 		"o": ["dagger", "aw_dagger", "aw_shortsword", "none"],
 	},
 	"mage": {
-		"w": ["sword_a", "sword_b", "aw_wand", "aw_shortsword", "aw_longsword", "aw_mace", "dagger", "aw_dagger"],
+		"w": ["none", "aw_wand", "dagger", "aw_dagger"],
 		"o": ["staff_a", "staff_b", "aw_staff", "aw_wand", "dagger", "aw_dagger", "none"],
 	},
 }
@@ -650,6 +651,15 @@ static func normalized(look: Dictionary, hero: StringName) -> Dictionary:
 				id = String(out[slot])
 				held = [id]
 		out[slot] = id if held.has(id) else held[0]
+	if hero == &"mage":
+		# One mage fights with her staff, the other with her hands (the
+		# user's word, 2026-10-06): the dark elf holds nothing, her spells
+		# leave her fist; the elf is never without a staff.
+		if race == "dark":
+			out["w"] = "none"
+			out["o"] = "none"
+		elif race == "elf" and not String(out["o"]).begins_with("staff") and aw_name(String(out["o"])) != "staff":
+			out["o"] = "staff_a"
 	return out
 
 

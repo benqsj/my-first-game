@@ -8703,3 +8703,28 @@ the leap's blade into the ground 1.74 m from an orc's middle.
   `lose_range`) x2. The orc warrior's ground is still its water.
 - (later the same evening, the user's word) They notice him from as far as
   before (`Aggro.SIGHT` 1.0) and follow him three times as far (`Aggro.CHASE` 3).
+
+## The mages: no sword, the staff and the fist, a bolt that is dodged only in time (2026-10-06, the user's word)
+
+**One with a staff, one with her hands.** The mages hold no sword any more
+([PolysplitLook] `ARMS.mage.w` is `none` or a dagger, the class's `w` none, a
+wand or a knife; the sword of 2026-10-02 is taken back). `PolysplitLook.normalized`
+keeps the people apart: the **elf** is never without a staff in her off hand,
+the **dark elf** holds nothing at all and her spells leave her fist.
+
+**The ball on the staff head.** Worn on the mannequin (YOUR OWN, which every
+mage now is) the rig never made its crystal: `SkinnedMageRig._ready` looked for
+`weapon_l` on the mannequin's skeleton, which has none, and gave up — so no ball
+gathered while charging and the bolt left from 1.6 m over his feet (`spell_origin`'s
+fallback). The crystal light and the ball are now made on the rig itself and put
+every frame (`_place_crystal`, after the pose is laid) on the figure's staff head
+or empty off fist. The head is worked out once per staff (`_staff_head`): the
+middle of the vertices within 0.12 m of the top of the staff along weapon_l's +z
+(the old `_far` took the vertex furthest from the hand — the staff's foot — and
+turned it round, 0.16 m past the head and off to its side, every frame).
+
+**A bolt is dodged only in time.** `SpellBolt._got_away` counts an evade only if
+it began after the bolt was let go and the bolt is within `dodge_window` (0.75 s
+of flight) of its quarry. Before, a roll already going at the throw shook it off
+on its first tick: it flew on the way it was thrown and never came after him (the
+skeleton mage's bolt, and the heroes' the same). `tests/bolt_dodge_test.gd`.
