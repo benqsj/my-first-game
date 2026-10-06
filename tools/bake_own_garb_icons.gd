@@ -3,7 +3,8 @@ extends SceneTree
 ## tools/bake_own_garb_icons.gd — the bag's pictures of each hero's own
 ## clothes, piece by piece (the user's word, 2026-10-06): for every hero of
 ## PolysplitLook.HERO_CLASSES, each gender, each of his outfits' coat
-## (`top_<cls>`), breeches (`bottom_<cls>`) and hat (`hat_<hat>`), the
+## (`top_<cls>`) and breeches (`bottom_<cls>`), every hat (`hat_<hat>`) and
+## his outfits' cloaks and the like (`x_<extra>`), the
 ## figure's mesh alone, dyed as his default look dyes it, three-quarters on.
 ##
 ##   godot --path . --script res://tools/bake_own_garb_icons.gd
@@ -79,9 +80,12 @@ func _run() -> void:
 			for cls: String in PolysplitLook.classes(hero, g):
 				keys.append("top_" + cls)
 				keys.append("bottom_" + cls)
-				var hat := String((PolysplitLook.CLASSES[g] as Dictionary).get(cls, {}).get("hat", ""))
-				if hat != "" and not keys.has("hat_" + hat):
-					keys.append("hat_" + hat)
+			# every hat (the maker's are free), and his outfits' cloaks and the like
+			for hat: String in PolysplitLook.HAT_ORDER:
+				keys.append("hat_" + hat)
+			for x: String in PolysplitLook.extras(hero, g):
+				if Inventory._is_cloth(x):
+					keys.append("x_" + x)
 			# everything he is drawn with, not only the figure's (the bow's string is the rig's)
 			var meshes := v.find_children("*", "MeshInstance3D", true, false)
 			for k: String in keys:

@@ -14,8 +14,11 @@ extends RefCounted
 ## A look carries what is worn as `sk_head`, `sk_top`, `sk_bottom` (ids of
 ## [constant PIECES]); sent with the look to every peer. What a piece covers
 ## is taken off underneath it ([method strip]): a coat takes his own top off
-## (the figure's bare body under it), a skirt his breeches, headgear his hat
-## and his hair. Nothing is worn over his own clothes.
+## (the figure's bare body under it), headgear his hat and his hair. A skirt
+## is worn over his own breeches and boots: of the kit's legs only what hangs
+## from the hips is kept (its leggings and boots are cut for bone, not for a
+## man's calves, and sank into his). Taken off from the bag, his own top or
+## breeches leave the bare body (`bare_top`, `bare_bottom` in the look).
 
 const KIT := "res://assets/creatures/Skeleton_AllinOne.fbx"
 ## Under the figure's skeleton, so a look worn again takes them off first.
@@ -66,19 +69,23 @@ static func strip(on: Dictionary, look: Dictionary) -> void:
 	var covered := {}
 	for id in worn(look):
 		covered[String(PIECES[id][0])] = true
+	if look.get("bare_top", false):
+		covered["sk_top"] = true
+	if look.get("bare_bottom", false):
+		covered["bare_bottom"] = true
 	if covered.is_empty():
 		return
 	for key: String in on.keys():
 		if covered.has("sk_top") and key.begins_with("top_"):
 			on.erase(key)
-		elif covered.has("sk_bottom") and key.begins_with("bottom_"):
+		elif covered.has("bare_bottom") and key.begins_with("bottom_"):
 			on.erase(key)
 		elif covered.has("sk_head") and (key.begins_with("hat_") or key.begins_with("hair_")
 				or key.begins_with("hairb_")):
 			on.erase(key)
 	if covered.has("sk_top"):
 		on["topbody"] = true
-	if covered.has("sk_bottom"):
+	if covered.has("bare_bottom"):
 		on["bottombody"] = true
 
 
@@ -127,9 +134,64 @@ static func cloth_of(id: String) -> Mesh:
 		if was == null or not was.resource_name.contains("Objects"):
 			continue
 		var flags: int = src.mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, src.mesh.surface_get_arrays(s), [], {}, flags)
+		var arrays := _kept(src.mesh.surface_get_arrays(s), src.skin, String(PIECES[id][0]))
+		if (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).is_empty():
+			continue
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
 		out.surface_set_material(out.get_surface_count() - 1, was)
 	_cloth[id] = out
+	return out
+
+
+## Of a piece's triangles, those worth wearing on a man, by the bone each
+## hangs from most: a coat without the bony hands the kit gives it (wrists
+## and fingers), a skirt only what hangs from the hips and thighs (not its
+## leggings and boots).
+static func _kept(arrays: Array, skin: Skin, slot: String) -> Array:
+	if slot == "sk_head":
+		return arrays
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES] if arrays[Mesh.ARRAY_BONES] != null else PackedInt32Array()
+	var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS] if arrays[Mesh.ARRAY_WEIGHTS] != null else PackedFloat32Array()
+	var index: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+	if verts.is_empty() or bones.is_empty() or index.is_empty():
+		return arrays
+	var per := floori(float(bones.size()) / float(verts.size()))
+	var names := PackedStringArray()
+	for k in skin.get_bind_count():
+		var n := String(skin.get_bind_name(k))
+		if n == "" and _kit_skel != null and skin.get_bind_bone(k) >= 0:
+			n = _kit_skel.get_bone_name(skin.get_bind_bone(k))
+		names.append(n)
+	var keep_vert := PackedByteArray()
+	keep_vert.resize(verts.size())
+	for v in verts.size():
+		var best := -1.0
+		var bone := ""
+		for j in per:
+			var w := weights[v * per + j]
+			var k := bones[v * per + j]
+			if w > best and k < names.size():
+				best = w
+				bone = names[k]
+		var keep := true
+		if slot == "sk_top":
+			keep = not (bone.contains("wrist") or bone.contains("Finger"))
+		elif slot == "sk_bottom":
+			keep = bone.contains("pelvis") or bone.contains("waist") or bone.contains("thigh") \
+					or bone.contains("coatTail") or bone.contains("oatTail")
+		keep_vert[v] = 1 if keep else 0
+	var kept := PackedInt32Array()
+	for t in floori(index.size() / 3.0):
+		var a := index[t * 3]
+		var b := index[t * 3 + 1]
+		var c := index[t * 3 + 2]
+		if keep_vert[a] == 1 and keep_vert[b] == 1 and keep_vert[c] == 1:
+			kept.append(a)
+			kept.append(b)
+			kept.append(c)
+	var out := arrays.duplicate()
+	out[Mesh.ARRAY_INDEX] = kept
 	return out
 
 

@@ -5986,6 +5986,18 @@ default look dyes it, so a coat dyed otherwise in the maker shows the
 default dye here); put on, one takes the place of the skeleton's piece on that
 part of him, and his hat comes off again with Enter.
 
+**What he wears is not in the bag** (2026-10-07, the user's word): it is in
+the sockets beside him (head, body, legs; weapon, off hand, cloak), and a
+click on a socket takes it off into the bag: a weapon or shield out of his
+hand, a hat off, his own coat or breeches off to the bare body
+(`bare_top`/`bare_bottom` in the look), a cloak, cape, shawl or scarf of his
+outfits (now things of their own too, as is every hat of the maker's). The
+Attire tab lies in order: hats, coats, cloaks, breeches. The hero in the bag
+stands still unless dragged. The skeletons' coats are worn without the bony
+hands the kit gives them, their skirts only from the hips (over his own
+breeches and boots: the kit's leggings and boots were cut for bone and sank
+into his legs) — `SkeletonGarb._kept`.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

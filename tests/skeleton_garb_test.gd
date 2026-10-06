@@ -64,9 +64,9 @@ func _run() -> void:
 		if String(c.name).begins_with(SkeletonGarb.TAG) and (c as MeshInstance3D).is_visible_in_tree():
 			on.append(String(c.name))
 	_check("the three pieces are on his figure", on.size() == 3, str(on))
-	_check("his own top and breeches are off, his bare body under them",
-			_shown(fig, "top_").is_empty() and _shown(fig, "bottom_").is_empty()
-			and not _shown(fig, "topbody").is_empty() and not _shown(fig, "bottombody").is_empty(),
+	_check("his own top is off under the coat, his breeches and boots on under the skirt",
+			_shown(fig, "top_").is_empty() and not _shown(fig, "topbody").is_empty()
+			and not _shown(fig, "bottom_").is_empty() and _shown(fig, "bottombody").is_empty(),
 			"%s %s" % [_shown(fig, "top"), _shown(fig, "bottom")])
 	_check("his hat and hair are off under the helm", _shown(fig, "hat_").is_empty() and _shown(fig, "hair").is_empty(),
 			"%s %s" % [_shown(fig, "hat_"), _shown(fig, "hair")])
@@ -105,7 +105,7 @@ func _run() -> void:
 		inv._take_off_slot("sk_top")
 		_check("clicked, it comes off", not (rig.call("get_look") as Dictionary).has("sk_top"))
 		# his own clothes, piece by piece, beside the skeletons'
-		var own: Array = inv._items().filter(func(it: Dictionary) -> bool: return it.has("own"))
+		var own: Array = inv._all_items().filter(func(it: Dictionary) -> bool: return it.has("own"))
 		var with_pics := own.filter(func(it: Dictionary) -> bool: return ResourceLoader.exists(String(it.pic)))
 		_check("his own coats, breeches and hats are things in the bag, each with its picture",
 				own.size() >= 6 and with_pics.size() == own.size(), "%d, %d with pictures" % [own.size(), with_pics.size()])
@@ -113,6 +113,7 @@ func _run() -> void:
 		look["sk_top"] = "sk_archer_top"
 		hero.set_look(look)
 		var items := inv._items()
+		_check("what he wears is not in the bag", items.all(func(it: Dictionary) -> bool: return not it.get("worn", false)))
 		for i in items.size():
 			if String(items[i].get("own", "")) == "top" and String(items[i].key) != String(look.get("top", "")):
 				inv._use(i)
@@ -123,5 +124,27 @@ func _run() -> void:
 	for id: String in SkeletonGarb.PIECES:
 		var cloth := SkeletonGarb.cloth_of(id)
 		_check("%s: cloth only, no bones in it" % id, cloth != null and cloth.get_surface_count() >= 1)
+	if not bag.is_empty():
+		var inv2 := bag[0] as Inventory
+		# a cloak and the like taken off from its socket, his top too
+		look = rig.call("get_look")
+		var cloaks: Array = (look.get("extras", []) as Array).filter(func(x: Variant) -> bool: return Inventory._is_cloth(String(x)))
+		if not cloaks.is_empty():
+			inv2._take_off_slot("cloak")
+			var after: Array = rig.call("get_look").get("extras", [])
+			_check("his cloak comes off from its socket", not after.has(cloaks[0]), str(after))
+		inv2._take_off_slot("sk_top")
+		_check("his own coat comes off from its socket, his bare body under it",
+				_shown(fig, "top_").is_empty() and not _shown(fig, "topbody").is_empty())
+	for id: String in ["sk_warrior_top", "sk_archer_bottom"]:
+		var mesh := SkeletonGarb.cloth_of(id)
+		var n := 0
+		for k in mesh.get_surface_count():
+			n += (mesh.surface_get_arrays(k)[Mesh.ARRAY_INDEX] as PackedInt32Array).size()
+		var whole := 0
+		var src := (load(SkeletonGarb.KIT) as PackedScene).instantiate().find_child(String(SkeletonGarb.PIECES[id][1]), true, false) as MeshInstance3D
+		for k in src.mesh.get_surface_count():
+			whole += (src.mesh.surface_get_arrays(k)[Mesh.ARRAY_INDEX] as PackedInt32Array).size()
+		_check("%s: less of it worn than the kit has (no hands, no boots)" % id, n > 0 and n < whole, "%d of %d" % [n, whole])
 	print("skeleton_garb_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)
