@@ -187,7 +187,7 @@ func _initialize() -> void:
 	other.set_physics_process(true)
 	player.global_position = other.camp_centre + Vector3(0.0, 0.3, 6.0)
 	await _wait(120)
-	player.global_position = other.camp_centre + Vector3(0.0, 0.3, 60.0)
+	player.global_position = other.camp_centre + Vector3(0.0, 0.3, other.leash_radius + 15.0)
 	await _wait(300)
 	_check("past its ground it gives up and goes home", other.mode == Fighter.Mode.RETURN or other.mode == Fighter.Mode.GUARD,
 			"mode %d" % other.mode)
