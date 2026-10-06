@@ -5981,9 +5981,11 @@ func _decides_here() -> bool:
 ## ([RogueSkills]); the first cut out of his Vanish a sure critical.
 func cut_worth(target: Node3D = null) -> Array:
 	var worth: Array = [26.0, false] if profile == null else profile.cut(_shot_rng)
-	# Tariel without his shield cuts harder ([member CharacterProfile.bare_damage])
+	# Tariel without his shield cuts harder ([member CharacterProfile.bare_damage]),
+	# hardest on his other string (the block button's)
 	if shield_def_off() > 0.0:
-		worth[0] = float(worth[0]) * profile.bare_damage
+		var other := rig.get(&"_worn_string") != null and int(rig.get(&"_worn_string")) != int(rig.get(&"_main_string"))
+		worth[0] = float(worth[0]) * (profile.bare_other_damage if other else profile.bare_damage)
 	# A heavy blow, or the last cut of a string, is worth more.
 	if rig != null and rig.get(&"cut_weight") != null:
 		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))

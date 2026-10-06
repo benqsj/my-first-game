@@ -2,7 +2,7 @@ class_name TarielChallenge
 extends RefCounted
 
 ## Tariel's fourth skill, the Challenge (the user's word, 2026-10-06): he
-## raises his sword and strikes it on his shield, and every creature within
+## draws sword and shield up and drives them down before him, and every creature within
 ## `REACH` turns on him and comes for him alone for `TIME` (Lineage 2's
 ## Aggression), while his p.def stands `GUARD` times higher. Only creatures
 ## answer it: in PvP no hero is made to go for him.
@@ -14,15 +14,17 @@ extends RefCounted
 const REACH := 9.0
 const TIME := 6.0
 const GUARD := 1.4
-## The move: the sword raised over the shield and brought down on it (Mixamo's
-## "Sword And Shield Casting", SS_Spell_Casting), its stretch, its pace, and
-## when the blow on the shield rings out.
-const CLIP := &"SS_Spell_Casting"
-const PART := Vector2(0.0, 1.0)
-const RATE := 1.2
-const RING_AT := 0.5
+## The move (the user's pick, 2026-10-06: Mixamo's "Sword And Shield Power
+## Up", SS_Power_Up, vepxis-art tools/ss_extra.py, h2m.gd tariel_extra): sword
+## and shield drawn up and driven down in front of him (frame 16 of 72), and
+## he stands behind them; the stretch played, its pace, and when the blow
+## rings out.
+const CLIP := &"SS_Power_Up"
+const PART := Vector2(0.0, 0.76)
+const RATE := 1.4
+const RING_AT := 0.38
 ## How long he is held by it.
-const HOLD := 0.75
+const HOLD := 0.9
 const DUST := Color(0.2, 0.17, 0.13)
 
 

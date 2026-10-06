@@ -8373,6 +8373,16 @@ Tariel's sword is by `Swordsman`:
   on the block button's string, 20.7 on the attack button's, standing about
   300 against blades, a little under the knight's 312.
   `tools/hero_dps.gd -- tariel_bare tariel_bare_a` measures him so.
+- **And again (the user's word)**: without his shield his p.def is 25
+  (`shield_p_def` 25: about 275 against blades, under the knight's 312), his
+  usual string (the attack button) about 18 a second (`bare_damage` 1.24) and
+  his other string (the block button) about 21 (`bare_other_damage` 1.52;
+  `Player.cut_worth` tells them by the rig's worn string).
+- **The Challenge's move is Mixamo's "Sword And Shield Power Up"** (the
+  user's pick): `SS_Power_Up`, vepxis-art `tools/ss_extra.py` onto dagger_rig
+  into `assets/tariel_rigged/tariel_extra.glb`, `h2m.gd -- tariel_extra` into
+  `tariel_mannequin.res`; frames 0-54 at x1.4, the blow ringing out at
+  0.38 s, held 0.9 s.
 
 
 ### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)

@@ -82,9 +82,11 @@ enum Weapon {
 ## A shield-bearer's (Tariel's) shield, in what it is worth on his arm and what
 ## going without it gives him (the user's word, 2026-10-06): this much of his
 ## p.def is the shield's, gone with it; his cuts worth `bare_damage` times as
-## much with both hands free (and the other string on the block button).
+## much with both hands free on the attack button's string, and
+## `bare_other_damage` times on the other string (the block button's).
 @export var shield_p_def: float = 0.0
 @export var bare_damage: float = 1.0
+@export var bare_other_damage: float = 1.0
 ## Every roll, swing, shot and blow caught on the shield draws on this.
 @export var max_stamina: float = 100.0
 ## What one attack costs: a swing, an arrow let go, a spell thrown.
