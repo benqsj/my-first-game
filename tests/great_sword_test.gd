@@ -59,18 +59,23 @@ func _one_blow(action: String) -> Dictionary:
 	var t := 0.0
 	var pace_cut := 0.0
 	var pace_back := 0.0
+	var pace_gather := 0.0
 	var clip := rig.current_swing()
 	while rig.current_swing() != &"" and t < 6.0:
 		await physics_frame
 		t += 1.0 / Engine.physics_ticks_per_second
 		var w: Vector2 = rig.cut_window.get(clip, Vector2.ZERO)
 		var at := rig._progress()
+		if OS.has_environment("GS_TRACE"):
+			print("      t %.3f at %.3f sc %.2f ph %d k %.2f stop %.2f" % [t, at, rig._anim.speed_scale, rig._blow_phase, rig._blow_k, rig._stop_left])
 		if rig._stop_left <= 0.0:
-			if at < w.x:
+			if rig._blow_phase == 0:
+				pace_gather = rig._anim.speed_scale
+			elif at >= w.x and at <= w.y:
 				pace_cut = rig._anim.speed_scale
 			elif at > w.y + rig.cut_margin + 0.02:
 				pace_back = rig._anim.speed_scale
-	return {"clip": clip, "t": t, "cut": pace_cut, "back": pace_back}
+	return {"clip": clip, "t": t, "cut": pace_cut, "back": pace_back, "gather": pace_gather}
 
 
 func _initialize() -> void:
@@ -115,18 +120,24 @@ func _initialize() -> void:
 	# a first blow left alone, against the same blow with the old pace
 	var slow := await _one_blow("attack")
 	await _frames(200)
-	var keep := [rig.recover_pace, rig.last_recover_pace, rig.recover_blend, rig.last_recover_blend]
+	var keep := [rig.recover_pace, rig.last_recover_pace, rig.windup_pace, rig.strike_pace]
 	rig.recover_pace = 1.0
 	rig.last_recover_pace = 1.0
+	rig.windup_pace = 1.0
+	rig.strike_pace = 1.0
 	var plain := await _one_blow("attack")
 	rig.recover_pace = keep[0]
 	rig.last_recover_pace = keep[1]
+	rig.windup_pace = keep[2]
+	rig.strike_pace = keep[3]
 	await _frames(200)
-	print("    first blow %s: %.2f s back slowed (pace %.2f -> %.2f), %.2f s as made" % [slow["clip"], slow["t"],
-			slow["cut"], slow["back"], plain["t"]])
+	print("    first blow %s: %.2f s heavy (pace gather %.2f, cut %.2f, back %.2f), %.2f s as made" % [slow["clip"],
+			slow["t"], slow["gather"], slow["cut"], slow["back"], plain["t"]])
+	_check("gathered slowly, fallen fast", slow["gather"] < slow["cut"] * 0.6,
+			"%.2f vs %.2f" % [slow["gather"], slow["cut"]])
 	_check("the way back slower than the cut", slow["back"] < slow["cut"] * 0.8,
 			"%.2f vs %.2f" % [slow["back"], slow["cut"]])
-	_check("the blow lasts longer left alone", slow["t"] > plain["t"] + 0.2, "%.2f vs %.2f" % [slow["t"], plain["t"]])
+	_check("the blow lasts longer left alone", slow["t"] > plain["t"] + 0.1, "%.2f vs %.2f" % [slow["t"], plain["t"]])
 	player.stamina = player.max_stamina
 
 	# the string's last blow comes back slower still

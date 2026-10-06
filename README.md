@@ -8312,3 +8312,15 @@ Tariel's sword is by `Swordsman`:
 - **The stab is K2's first thrust** (frames 9–33 of 80 at ×1.5). The point
   goes in 0.36 s after he comes up, as a backstab.
 
+
+### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)
+
+The way back was too slow; what was wanted is the weight from blow to blow.
+A string's blow now plays in three paces (`SkinnedRig.windup_pace`,
+`strike_pace`, `strike_lead`, `_pace_phase`/`_set_blow_phase`/`_weigh_blow`):
+the wind-up gathered slowly (x0.72), the swing from 0.1 s (of the clip) before
+the cut to its end falling all at once (x1.45), and the way back at
+`recover_pace` 0.88 (a string's end 0.7), the stance eased in over 0.3 / 0.45
+s. The commit and the whoosh are worked out over the three. His bite is held
+longer (`bite_stop` 0.11) and shakes his own view (`land_shake` 0.06 x the
+blow's weight). A first blow left alone: 1.68 s (1.52 as made, 1.95 before).

@@ -165,13 +165,19 @@ func _configure() -> void:
 	# the others' blows (MQ_SWING_RATE x0.82).
 	mq_swing_scale = 0.82
 	swing_recovery = 0.18
-	# A great sword is slow to bring back (the user's word, 2026-10-06): once
-	# a blow has cut, the blade comes back to guard slower than it went, the
-	# end of a string slower still, and the stance eased back in over it.
-	recover_pace = 0.78
-	last_recover_pace = 0.55
-	recover_blend = 0.35
-	last_recover_blend = 0.55
+	# A great sword's weight, as Elden Ring's (the user's word, 2026-10-06):
+	# gathered slowly, falling all at once, and brought back to guard slower
+	# than it went (a string's end slower still), the stance eased back in;
+	# its bite held longer and felt in the view.
+	windup_pace = 0.72
+	strike_pace = 1.45
+	strike_lead = 0.1
+	recover_pace = 0.88
+	last_recover_pace = 0.7
+	recover_blend = 0.3
+	last_recover_blend = 0.45
+	bite_stop = 0.11
+	land_shake = 0.06
 	action_blend = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.0

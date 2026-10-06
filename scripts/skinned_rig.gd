@@ -219,7 +219,20 @@ var last_recover_pace: float = 1.0
 ## last of a string: `last_recover_blend`); under 0, the stance's own.
 var recover_blend: float = -1.0
 var last_recover_blend: float = -1.0
-var _recover_slowed: bool = false
+## The weight of a string's blow (Elden Ring's great swords, the user's word
+## 2026-10-06): the wind-up played at `windup_pace` of the blow's pace, the
+## swing itself, from `strike_lead` seconds (of the clip) before its cut to
+## the cut's end, at `strike_pace`, then the way back at `recover_pace`. A
+## slow gather and a sudden fall: the blade felt as heavy. 1 and 1: as made.
+var windup_pace: float = 1.0
+var strike_pace: float = 1.0
+var strike_lead: float = 0.1
+## The camera shaken when his blade bites (times the blow's weight), his own
+## view only; 0: not at all.
+var land_shake: float = 0.0
+## 0 the wind-up, 1 the swing, 2 the way back; the share of the pace now.
+var _blow_phase: int = 2
+var _blow_k: float = 1.0
 var _ease_back: float = -1.0
 ## Swings play at this rate. Mixamo's are unhurried; the game is not.
 @export var swing_rate: float = 1.6
@@ -991,8 +1004,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 				and _in_window(through)
 		if _attack_cutting:
 			_strike_world()
-		if _role == Role.SWING and not _recover_slowed and not _air_cut and _hold_at <= 0.0:
-			_slow_recovery(through)
+		if _role == Role.SWING and not _air_cut and _hold_at <= 0.0:
+			_pace_phase(through)
 		if _role == Role.SWING and _heavy_now and not _slam_done:
 			var slam := _slam_share()
 			if slam > 0.0 and through >= slam:
@@ -1325,7 +1338,8 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_wind_at = -1.0
 	_role = role
 	_recovering = false
-	_recover_slowed = false
+	_blow_phase = 2
+	_blow_k = 1.0
 	_ease_back = -1.0
 	_evade_cut = false
 	_act_clip = clip
@@ -1455,27 +1469,58 @@ func _last_blow() -> bool:
 			and _flurry_slot == flurry.size() - 1)
 
 
-## Once the blow in hand has cut, the rest of it (its way back to guard)
-## slowed to `recover_pace` (`last_recover_pace` at a string's end).
-func _slow_recovery(through: float) -> void:
-	var k := last_recover_pace if _last_blow() else recover_pace
-	if k >= 0.999:
-		return
+## Where the blow in hand has got to, its pace with it: the wind-up, the
+## swing (from `strike_lead` before the cut to its end) and, once it has cut,
+## the way back at `recover_pace` (`last_recover_pace` at a string's end).
+func _pace_phase(through: float) -> void:
 	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
 	var many: Array = cut_windows.get(_act_clip, [])
 	if not many.is_empty():
-		w = many[many.size() - 1]
-	if w == Vector2.ZERO or through < w.y + cut_margin:
+		w = Vector2((many[0] as Vector2).x, (many[many.size() - 1] as Vector2).y)
+	if w == Vector2.ZERO:
 		return
-	_recover_slowed = true
+	var lead := strike_lead / maxf(_action_len, 0.01)
+	if through >= w.y + cut_margin:
+		_set_blow_phase(2, last_recover_pace if _last_blow() else recover_pace)
+	elif _blow_phase == 0 and through >= w.x - lead:
+		_set_blow_phase(1, strike_pace)
+
+
+## The blow's pace made `k` of its own from now on (and the time left of it
+## with it, a hold kept as it is).
+func _set_blow_phase(phase: int, k: float) -> void:
 	k = maxf(k, 0.1)
+	var ratio := k / _blow_k
+	_blow_phase = phase
+	_blow_k = k
+	if absf(ratio - 1.0) < 0.001:
+		return
 	var held := maxf(_stop_left, 0.0)
-	_action_left = held + maxf(_action_left - held, 0.0) / k
-	_action_rate *= k
+	_action_left = held + maxf(_action_left - held, 0.0) / ratio
+	_action_rate *= ratio
 	if _stop_left > 0.0:
-		_stop_rate *= k
+		_stop_rate *= ratio
 	else:
-		_anim.speed_scale *= k
+		_anim.speed_scale *= ratio
+
+
+## A string's blow played heavy (see `windup_pace`): started at its wind-up's
+## pace, held to it till the swing, and given back once it has cut, the
+## commit worked out over the three.
+func _weigh_blow(clip: StringName, rate: float, from: float) -> void:
+	if absf(windup_pace - 1.0) < 0.001 and absf(strike_pace - 1.0) < 0.001:
+		return
+	var w: Vector2 = cut_window.get(clip, Vector2.ZERO)
+	if w == Vector2.ZERO:
+		return
+	_set_blow_phase(0, windup_pace)
+	var clip_len := _action_len
+	var lead := strike_lead / maxf(clip_len, 0.01)
+	var s0 := maxf(w.x - lead, from)
+	if from >= s0:
+		_set_blow_phase(1, strike_pace)
+	_swing_commit = clip_len * maxf(s0 - from, 0.0) / (rate * windup_pace) \
+			+ clip_len * maxf(w.y - s0, 0.0) / (rate * strike_pace) + swing_recovery
 
 
 ## Its travel is carrying him (see `carried`).
@@ -1585,6 +1630,8 @@ func attack(style: int = -1) -> void:
 			rate = minf(rate, span / least)
 	if _play_action(clip, Role.SWING, rate, -1.0, part.x, part.y):
 		_swing_commit = swing_time()
+		if _attack_style == AttackStyle.SIDE:
+			_weigh_blow(clip, rate, part.x)
 		_whoosh()
 
 
@@ -1605,6 +1652,12 @@ func _whoosh() -> void:
 	if w != Vector2.ZERO and _action_len > 0.0 and _action_rate > 0.0:
 		# A touch before the window opens: a slash is heard as the blade comes.
 		lead = maxf(_action_len * (w.x - _action_from) / _action_rate - 0.06, 0.0)
+		if _blow_phase == 0 and _role == Role.SWING:
+			# gathered at the wind-up's pace, then fallen at the swing's
+			var base := _action_rate / maxf(_blow_k, 0.01)
+			var s0 := maxf(w.x - strike_lead / maxf(_action_len, 0.01), _action_from)
+			lead = maxf(_action_len * (s0 - _action_from) / _action_rate
+					+ _action_len * (w.x - s0) / (base * maxf(strike_pace, 0.1)) - 0.06, 0.0)
 	if lead <= 0.01:
 		_whoosh_now()
 		return
@@ -1919,6 +1972,9 @@ func blade_landed(matter: StringName = &"flesh") -> void:
 	# Held as long as the body it bit is ([HitFeel]): the two stand still
 	# together, longer for the end of a string or a heavy blow.
 	hitstop(HitFeel.stop_for(cut_weight) * bite_stop / 0.075)
+	# his own view shaken by the weight of it
+	if land_shake > 0.0 and _body != null and _body.is_multiplayer_authority():
+		WindBlast.shake(_body, land_shake * cut_weight, 0.22 + 0.08 * cut_weight, 4.0)
 
 
 ## How long the swing is held as it bites (seconds): the blade felt going in.
