@@ -43,7 +43,7 @@ const GO_LEAD := 0.3
 const SEEK := 28.0
 ## Their top speed: they leave at `IceShard.start_share` of it and gather it
 ## over the second half of the way (`IceShard`).
-const SPEED := 40.0
+const SPEED := 48.0
 ## Each spear's worth, as a share of a full bolt's (before the full charge's
 ## bonus): ten of them are worth some three and a half bolts.
 const SHARE := 0.35
@@ -107,7 +107,6 @@ static func warm(at: Node3D) -> void:
 	SkillFx.particles(at, here, {"amount": 4, "life": 0.6, "one_shot": true, "explosiveness": 0.9,
 			"speed": Vector2(0.3, 1.0), "spread": 180.0, "size": Vector2(0.25, 0.4), "add": false,
 			"colors": [Color(0.92, 0.97, 1.0, 0.35), Color(0.9, 0.95, 1.0, 0.0)]})
-	SkillFx.ring(at, here, Vector3.BACK, Color(IceShard.ICE, 0.55), 0.26, 0.03, 0.3, 0.025, 1.4)
 	SkillFx.flash(at, here, IceShard.ICE_HOT, 0.14, 0.3, 3.0)
 	SkillFx.burst(at, here, IceShard.ICE, 4, Vector2(0.4, 1.4), Vector3.UP, 180.0, Vector2(0.02, 0.04),
 			Vector3(0, -1.5, 0), 0.5)
@@ -189,7 +188,8 @@ func throw_spear(i: int, from: Vector3, flight: Vector3, damage: float, critical
 	shard.launch(flight, damage, critical, 0.0, hero)
 	if quarry != null:
 		shard.hunt(quarry)
-	SkillFx.flash(into, from, IceShard.ICE_HOT, 0.12, 0.08, 1.5)
+	SkillFx.burst(into, from, IceShard.ICE_HOT, 6, Vector2(0.3, 1.0), Vector3.UP, 180.0, Vector2(0.015, 0.035),
+			Vector3(0, -1.5, 0), 0.35)
 	var left := false
 	for s: Variant in _spears:
 		left = left or (s != null and is_instance_valid(s))
@@ -340,24 +340,17 @@ func _decide(foe: Node3D, aim: Vector3) -> void:
 
 
 ## The cold gathering where a spear will be: motes of frost drawn in to the
-## spot from round it, and a ring of light closing on it.
+## spot from round it (no ring, no flash: the user's word, 2026-10-07).
 func _gather(into: Node, at: Vector3) -> void:
 	SkillFx.particles(into, at, {"amount": 16, "life": GATHER + 0.05, "one_shot": true, "explosiveness": 0.6,
 			"speed": Vector2(0.0, 0.1), "sphere": 0.55, "orbit": -9.0, "tangent": 3.0, "spread": 180.0,
 			"size": Vector2(0.02, 0.045), "grow": 0.8,
 			"colors": [Color(IceShard.ICE, 0.0), Color(IceShard.ICE_HOT, 1.0), Color(1, 1, 1, 1)]})
-	var cam := into.get_viewport().get_camera_3d() if into.get_viewport() != null else null
-	var facing := (cam.global_position - at) if cam != null else Vector3.BACK
-	SkillFx.ring(into, at, facing, Color(IceShard.ICE, 0.55), 0.26, 0.03, GATHER + 0.05, 0.025, 1.4)
 
 
-## The crystal there: a small white flash, a ring of frost thrown out, a few
-## glints off it, and a little frost that stays round it while it hangs.
+## The crystal there: a few glints thrown off it, and a little frost that
+## stays round it while it hangs.
 func _crystallise(into: Node, at: Vector3, spear: Node3D) -> void:
-	SkillFx.flash(into, at, IceShard.ICE_HOT, 0.14, 0.12, 3.0)
-	var cam := into.get_viewport().get_camera_3d() if into.get_viewport() != null else null
-	var facing := (cam.global_position - at) if cam != null else Vector3.BACK
-	SkillFx.ring(into, at, facing, Color(IceShard.ICE_HOT, 0.7), 0.05, 0.32, 0.28, 0.02, 2.0)
 	SkillFx.burst(into, at, IceShard.ICE, 10, Vector2(0.4, 1.4), Vector3.UP, 180.0, Vector2(0.02, 0.04),
 			Vector3(0, -1.5, 0), 0.5)
 	var glints := SkillFx.particles(_crown, at, {"amount": 8, "life": 1.0, "speed": Vector2(0.02, 0.12),
@@ -397,17 +390,17 @@ func _cool(spear: Node3D, grown: float, t: float, i: int) -> void:
 			mat.emission = IceShard.ICE_HOT.lerp(IceShard.ICE, cooled).lerp(IceShard.ICE_HOT, clampf(shimmer * 0.4, 0.0, 1.0))
 
 
-## Spear `i`'s float, `t` after it formed: it rises 0.22 m into its place over
-## the first half second, then drifts up and down (0.08 m, its own pace) and a
-## little to and fro.
+## Spear `i`'s float, `t` after it formed: it rises 7 cm into its place over
+## the first half second, then drifts gently up and down (2.5 cm, its own slow
+## pace) and a hair to and fro (the user's word, 2026-10-07: less).
 func _hover(i: int, t: float) -> Vector3:
 	var rise := clampf(t / 0.5, 0.0, 1.0)
 	rise = 1.0 - pow(1.0 - rise, 3.0)
 	var pace := 1.1 + 0.35 * fposmod(float(i) * 0.618, 1.0)
 	var phase := float(i) * 1.7
 	var settle := clampf(t / 0.6, 0.0, 1.0)
-	var up := -0.22 * (1.0 - rise) + sin(t * pace * TAU * 0.5 + phase) * 0.08 * settle
-	var sway := sin(t * pace * TAU * 0.27 + phase * 0.6) * 0.035 * settle
+	var up := -0.07 * (1.0 - rise) + sin(t * pace * TAU * 0.4 + phase) * 0.025 * settle
+	var sway := sin(t * pace * TAU * 0.22 + phase * 0.6) * 0.012 * settle
 	return Vector3(sway, up, sway * 0.6)
 
 
