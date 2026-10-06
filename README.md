@@ -8581,3 +8581,14 @@ the leap's blade into the ground 1.74 m from an orc's middle.
   no snap to it as it starts, and he runs on the way he was running, turned
   after the push no faster than `CHARGE_TURN` 1.1 rad/s (an arc round to it);
   near enough, the blow goes by itself only if it is ahead of him.
+
+### The leap lower and on; the charge drawn on to what is a step aside (2026-10-06, 20:18, the user's word)
+
+- The leap was too high (0.8 m): its gather played quicker (`leap.windup` 1.0)
+  for a shorter time in the air, 0.38 m up, and a lunge on the way he runs
+  (`leap.lunge` 2 m/s added as he leaves the ground).
+- Locked on and running at about it (within `CHARGE_ASSIST_CONE` 45 degrees of
+  the way the charge runs), the charge is drawn on to it at `CHARGE_ASSIST_TURN`
+  2.6 rad/s, and the blow lets go at it within `CHARGE_STRIKE_CONE` 80 degrees:
+  run a step aside of it, he still brings the blade down on it (1.66 m from its
+  middle in the test). Off the other way, he runs on as before.

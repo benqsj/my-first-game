@@ -4238,6 +4238,11 @@ var _charge_spec: Dictionary = {}
 ## The way the knight's charge runs, and how fast it may be turned (rad/s).
 var _charge_dir: Vector3 = Vector3.ZERO
 const CHARGE_TURN := 1.1
+## Within this many degrees of what he is locked on, the charge is drawn on
+## to it this fast (rad/s); and it is let go at it within `CHARGE_STRIKE_CONE`.
+const CHARGE_ASSIST_CONE := 45.0
+const CHARGE_ASSIST_TURN := 2.6
+const CHARGE_STRIKE_CONE := 80.0
 var _charge_skill: bool = false
 ## How long after the swing goes his run is kept whole (till its cut).
 var _ease_delay: float = 0.0
@@ -4292,9 +4297,19 @@ func _charge_aim(direction: Vector3) -> Vector3:
 			_charge_dir = -global_basis.z
 			_charge_dir.y = 0.0
 			_charge_dir = _charge_dir.normalized()
-		if not direction.is_zero_approx():
-			var turn := _charge_dir.signed_angle_to(direction, Vector3.UP)
-			var most := CHARGE_TURN * get_physics_process_delta_time()
+		var want := direction
+		var rate := CHARGE_TURN
+		# Running at about what he is locked on (not off the other way): drawn
+		# on to it, so he does not go by it a step aside (the user's word).
+		if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
+			var to := _charge_foe.global_position - global_position
+			to.y = 0.0
+			if to.length() > 0.5 and absf(_charge_dir.angle_to(to.normalized())) < deg_to_rad(CHARGE_ASSIST_CONE):
+				want = to.normalized()
+				rate = CHARGE_ASSIST_TURN
+		if not want.is_zero_approx():
+			var turn := _charge_dir.signed_angle_to(want, Vector3.UP)
+			var most := rate * get_physics_process_delta_time()
 			_charge_dir = _charge_dir.rotated(Vector3.UP, clampf(turn, -most, most)).normalized()
 		return _charge_dir
 	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
@@ -4338,7 +4353,8 @@ func _tick_charge() -> void:
 		var gap := float(spec.get("strike_gap", 0.9)) if on_jump else float(lp.get("gap", spec.get("strike_gap", 0.9)))
 		var ahead := -global_basis.z
 		ahead.y = 0.0
-		var facing := to.length() < 0.01 or ahead.normalized().dot(to.normalized()) > 0.5
+		var facing := to.length() < 0.01 \
+				or ahead.normalized().dot(to.normalized()) > cos(deg_to_rad(CHARGE_STRIKE_CONE))
 		if to.length() - radius - 0.4 <= gap and (facing or not bool(spec.get("follow_push", false))):
 			go = true
 			leap = not lp.is_empty() and not on_jump
@@ -4366,6 +4382,13 @@ func _tick_charge() -> void:
 			# off the ground for as long as the leap takes to come down on it
 			var air := clampf(float(rig.call(&"time_to_slam")), 0.2, 1.0)
 			velocity.y = _gravity * air * 0.5
+			# on, not up: a lunge over the ground more than a hop
+			var on := Vector3(velocity.x, 0.0, velocity.z)
+			if on.length() > 0.5:
+				var lunge := on.normalized() * float(spec.get("leap", {}).get("lunge", 0.0))
+				velocity.x += lunge.x
+				velocity.z += lunge.z
+				_air_speed_cap = maxf(_air_speed_cap, Vector3(velocity.x, 0.0, velocity.z).length())
 			_quiet_landing_until = _now() + air + 0.3
 		_commit_timer = 0.0
 		_commit(float(rig.get(&"_swing_commit")))

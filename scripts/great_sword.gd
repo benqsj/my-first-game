@@ -50,7 +50,7 @@ const CHARGE := {"clip": &"KV_Attack2H02", "rate": 1.0, "weight": 2.3, "hold": 0
 	"creep_until": 0.33, "hold_max": 1.3, "pace": 1.0, "strike_gap": 1.6, "string_at": -1, "slam": 0.674,
 	"sprint_only": true, "hold_button": true, "locked_only": true, "stop_on_release": true,
 	"fast_release": true, "strike_boost": 1.3, "leap_on_jump": true, "follow_push": true,
-	"leap": {"clip": &"KV_Attack2H04", "from": 0.12, "rate": 1.0, "windup": 0.55, "weight": 2.6, "slam": 0.429,
+	"leap": {"clip": &"KV_Attack2H04", "from": 0.12, "rate": 1.0, "windup": 1.0, "lunge": 2.0, "weight": 2.6, "slam": 0.429,
 		"gap": 6.2, "strike_boost": 1.3}}
 
 

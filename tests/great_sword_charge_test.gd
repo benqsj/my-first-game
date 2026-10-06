@@ -163,6 +163,20 @@ func _initialize() -> void:
 			"%.0f deg/s" % float(r["turn_rate"]))
 	player._drop_target()
 
+	# locked on to something a step aside of where he runs: drawn on to it,
+	# and the blow comes down on it
+	player.global_position = Vector3(0.0, 0.5, 26.0)
+	player.rotation.y = 0.0
+	await _frames(30)
+	foe.global_position = player.global_position + Vector3(2.2, 0, -10.0)
+	player._hold_target(foe)
+	r = await _charge(true, "attack", 3.0, "")
+	print("    locked on a step aside: %s, the blade down %.2f m from its middle" % [r.get("last", &""),
+			float(r.get("slam_d", -1.0))])
+	_check("locked on a step aside: the blow comes down on it", r.get("last", &"") == GreatSword.CHARGE["clip"]
+			and float(r.get("slam_d", 9.0)) < 3.0, "%.2f m" % float(r.get("slam_d", -1.0)))
+	player._drop_target()
+
 	# the jump, then the attack button in the air: the leap's blow
 	player.global_position = Vector3(0.0, 0.5, 26.0)
 	await _frames(30)
@@ -187,7 +201,7 @@ func _initialize() -> void:
 	r = await _charge(true, "attack", 3.0, "", 0.7)
 	print("    the jump: %s, up %.2f m" % [r.get("last", &""), float(r["top"])])
 	_check("the jump pressed in the charge: he leaps", r.get("last", &"") == GreatSword.CHARGE["leap"]["clip"]
-			and float(r["top"]) > 0.4 and r["slam"], "%.2f m" % float(r["top"]))
+			and float(r["top"]) > 0.25 and float(r["top"]) < 0.6 and r["slam"], "%.2f m" % float(r["top"]))
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
 	quit(1 if _failures > 0 else 0)
