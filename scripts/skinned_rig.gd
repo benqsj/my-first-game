@@ -254,6 +254,12 @@ var land_shake: float = 0.0
 ## pace over `settle_time` s. Where the swing sets off (a share of the clip;
 ## the measured arc's start), by clip; else `strike_lead` before the cut.
 var swing_from: Dictionary = {}
+## Blows played as they were made, not weighed so (clip -> true), each played
+## out to its end before the next may start: a string whose blows flow one
+## into the next (Tariel's UAL 2 Heavy A-B-C on the knight: the gather held
+## and slowed broke its turns, and C cut in before B had come round, the
+## user's word 2026-10-06).
+var played_out: Dictionary = {}
 var hang_time: float = 0.0
 var hang_pace: float = 0.15
 var strike_from_pace: float = -1.0
@@ -1523,7 +1529,7 @@ func _last_blow() -> bool:
 ## weighed (`_weigh_blow`) only gets the way back's pace.
 func _pace_phase(through: float, delta: float) -> void:
 	var w := _whole_cut(_act_clip)
-	if w == Vector2.ZERO:
+	if w == Vector2.ZERO or played_out.has(_act_clip):
 		return
 	var back := last_recover_pace if _last_blow() else recover_pace
 	if not _weighed:
@@ -1736,7 +1742,7 @@ func attack(style: int = -1) -> void:
 	var blend := chain_blend if chained and chain_blend >= 0.0 else -1.0
 	if _play_action(clip, Role.SWING, rate, blend, part.x, part.y):
 		_swing_commit = swing_time()
-		if _attack_style == AttackStyle.SIDE:
+		if _attack_style == AttackStyle.SIDE and not played_out.has(clip):
 			_weigh_blow(clip, rate, part.x,
 					chain_windup_pace if chained and chain_windup_pace > 0.0 else windup_pace)
 		_whoosh()
@@ -2010,6 +2016,9 @@ func swing_time() -> float:
 		return attack_duration
 	if _weighed:
 		return _swing_commit
+	if played_out.has(_act_clip) and _role == Role.SWING:
+		# to its end (and the next blended in over its last moment)
+		return maxf(_action_left - 0.04, 0.0)
 	var w: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
 	var many: Array = cut_windows.get(_act_clip, [])
 	if not many.is_empty():
@@ -3041,6 +3050,7 @@ func _wear_moves() -> void:
 	for key: String in ["flurry_part", "cut_window", "cut_windows", "trail_window"]:
 		(get(key) as Dictionary).merge(moves[key], true)
 	swing_from = (moves.get("swing_from", {}) as Dictionary).duplicate()
+	played_out = (moves.get("played_out", {}) as Dictionary).duplicate()
 	if not (moves["heavy"] as Array).is_empty():
 		heavy = (moves["heavy"] as Array).duplicate(true)
 	if flurry_reset_after <= 0.0:

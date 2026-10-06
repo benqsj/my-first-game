@@ -49,6 +49,11 @@ static func apply(t: Dictionary) -> void:
 	t["recover"] = {}
 	t["string_sets"] = sets
 	t["modes"] = MODES
+	# Tariel's blows flow one into the next: played as made, each to its end
+	# ([member SkinnedRig.played_out])
+	t["played_out"] = {}
+	for c: StringName in heavy["clips"]:
+		t["played_out"][c] = true
 	t["swing_from"] = {}
 	# the block button throws a string ([method SkinnedRig.block_throws_string])
 	t["block_strings"] = true

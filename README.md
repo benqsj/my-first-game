@@ -8433,3 +8433,12 @@ Heavy A-B-C** (the two-handed string moved to the attack button, and on the
 block button what Tariel's block button throws with no shield in hand).
 `SkinnedRig._mode`; `cycle_string()` and `wear_other_string()` read the mode's
 pair.
+
+### Tariel's Heavy A-B-C on the knight played as made (2026-10-06, the user's word)
+
+From B into C it broke off: the gather slowed and held at its top broke the
+turns UAL 2's heavy blows flow through. Those three are now
+`SkinnedRig.played_out` (set by GreatSword): not weighed (no gather, hold or
+eased swing, no slowed way back), and each plays to its end before the next
+may start (`swing_time()` is the time left of the clip), the next blended in
+over its last moment.
