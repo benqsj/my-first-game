@@ -10,12 +10,12 @@ extends Node
 ##   them at. They go where she goes. Once all are there, and as soon as there
 ##   is something to throw at — what she has locked, else the nearest foe
 ##   ahead of her (`SEEK`) — she brings her hand down and forward and they go,
-##   from one side and then the other, in a rhythm: two at once, then three
-##   one by one, then the last five quicker (`VOLLEY`). If it falls they go on
+##   from one side and then the other, in a rhythm (`VOLLEY`): three, a short
+##   breath, three, a breath, three and a fourth on its heels. If it falls they go on
 ##   at the next. With nothing to throw at for `HOLD_MAX` they break.
 ##   She is not held while they hang or fly: her own bolts go on as ever.
-##   The crescent is turned as the view is ([method _crown_at]). Knocked down,
-##   they hang on and the volley waits for her to be up; dead, they break.
+##   The crescent is turned as the view is ([method _crown_at]). Knocked down
+##   they hang on in the air and go on going; dead, they break.
 ##
 ## Hangs under the [Player] as "MageSkills" ([method Player.mage]). The
 ## spears are grown and thrown on every peer from the Player's own messages
@@ -36,10 +36,12 @@ const HIGH_FROM := 2.3
 const HIGH_TO := 3.4
 const BACK_FROM := -0.2
 const BACK_TO := 0.9
-## When each goes, from the first (seconds): two at once, three one by one,
-## the last five quicker. Even numbers hang on her left, odd on her right, and
-## they go in that order, so each comes from the other side.
-const VOLLEY: Array[float] = [0.0, 0.14, 0.75, 1.15, 1.55, 2.15, 2.4, 2.65, 2.9, 3.15]
+## When each goes, from the first (seconds), the user's word 2026-10-07:
+## three, a breath, three, a breath, three — and a fourth on its heels, out of
+## the beat. The breaths are short: the feel is of her holding back the next
+## and then not. Even numbers hang on her left, odd on her right, and they go
+## in that order, so each comes from the other side.
+const VOLLEY: Array[float] = [0.0, 0.22, 0.44, 0.95, 1.17, 1.39, 1.9, 2.12, 2.34, 2.46]
 ## From her hand coming down to the first going.
 const GO_LEAD := 0.3
 const SEEK := 28.0
@@ -138,8 +140,7 @@ func grow_spears() -> void:
 	_break_all()
 	if hero == null:
 		return
-	if hero.rig != null and hero.rig.has_method(&"play_part"):
-		hero.rig.call(&"play_part", RAISE_CLIP, RAISE_RATE, 0.0, 1.0, 0.15)
+	_gesture(RAISE_CLIP, RAISE_RATE, 0.0, 1.0, 0.15)
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
@@ -163,8 +164,21 @@ func grow_spears() -> void:
 
 ## Every peer: her hand down and forward, the volley about to go.
 func send_spears() -> void:
-	if hero != null and hero.rig != null and hero.rig.has_method(&"play_part"):
-		hero.rig.call(&"play_part", GO_CLIP, GO_RATE, GO_PART.x, GO_PART.y, 0.1)
+	_gesture(GO_CLIP, GO_RATE, GO_PART.x, GO_PART.y, 0.1)
+
+
+## Her arms in a gesture while her legs go on walking under it, and she held
+## to a walk for as long as it lasts (the user's word, 2026-10-07: moving while
+## she cast, she slid along standing).
+func _gesture(clip: StringName, rate: float, from: float, until: float, blend: float) -> void:
+	if hero == null or hero.rig == null or not hero.rig.has_method(&"play_part"):
+		return
+	var lasts := float(hero.rig.call(&"play_part", clip, rate, from, until, blend))
+	if lasts <= 0.0:
+		return
+	if &"walk_under" in hero.rig:
+		hero.rig.set(&"walk_under", true)
+	hero.cast_walk_until = maxf(hero.cast_walk_until, hero._now() + lasts)
 
 
 ## Every peer: spear `i` goes, from `from` at `flight`.
@@ -311,14 +325,9 @@ func _process(delta: float) -> void:
 		var thick := clampf(grown * 1.6, 0.0, 1.0)
 		spear.scale = Vector3(maxf(thick * size, 0.01), maxf(size, 0.01), maxf(thick * size, 0.01))
 	if hero.is_multiplayer_authority():
-		if hero.state == Player.State.DOWNED:
-			# knocked down: they hang on round her, and the volley waits for
-			# her to be up again, its rhythm kept
-			_next_at += delta
-			if _go_at >= 0.0:
-				_go_at += delta
-		else:
-			_decide(foe, aim)
+		# knocked down or not, out of the view or not, they go on (the user's
+		# word, 2026-10-07)
+		_decide(foe, aim)
 
 
 ## Her own peer: throws the next spear when it is time and there is something

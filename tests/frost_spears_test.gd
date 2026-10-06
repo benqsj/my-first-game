@@ -29,9 +29,19 @@ func _run() -> void:
 	# Nothing to throw at: they grow, wait, and break.
 	_check("it goes", hero.use_skill(0))
 	var most := 0
+	var fastest := 0.0
+	var legs := true
+	Input.action_press("move_forward")
 	for i in 100:
 		await physics_frame
 		most = maxi(most, _shown(hero))
+		if i > 15 and i < 60:
+			fastest = maxf(fastest, Vector2(hero.velocity.x, hero.velocity.z).length())
+			legs = legs and bool(hero.rig.get(&"walk_under"))
+	Input.action_release("move_forward")
+	_check("moving as she raises her hand she walks, legs walking (no sliding)",
+			fastest <= hero.walk_speed + 0.2 and fastest > 0.5 and legs,
+			"%.2f m/s (walk %.2f), legs %s" % [fastest, hero.walk_speed, legs])
 	_check("ten spears grow over her", most == MageSkills.SPEARS, "%d" % most)
 	_check("she is not held while they hang", not hero.is_committed())
 	_check("not again before its cooldown", not hero.use_skill(0))
@@ -77,13 +87,13 @@ func _run() -> void:
 			left -= 1
 	_check("locked, the crescent is turned at it, not as her body", crown_ok)
 	var lost := hp0 - float(foe.get("health"))
-	# two at once, three one by one, the last five quicker
+	# three, a breath, three, a breath, three and a fourth on its heels
 	var gaps: Array[float] = []
 	for k in range(1, times.size()):
 		gaps.append(times[k] - times[k - 1])
-	_check("thrown in the rhythm: two at once, then gaps, then quicker",
-			gaps.size() == 9 and gaps[0] < 0.25 and gaps[1] > 0.45 and gaps[2] > 0.3 and gaps[6] < 0.35,
-			str(gaps))
+	_check("thrown in the rhythm: three, a breath, three, a breath, three and one on its heels",
+			gaps.size() == 9 and gaps[0] < 0.3 and gaps[1] < 0.3 and gaps[2] > 0.4 and gaps[5] > 0.4
+			and gaps[2] < 0.7 and gaps[8] < 0.18, str(gaps))
 	_check("all ten thrown at it", not hero.mage().spears_up())
 	_check("and they hurt it (at least seven landed)", lost > 7.0 * 8.0, "%.1f off %.1f" % [lost, hp0])
 	print("frost_spears_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
