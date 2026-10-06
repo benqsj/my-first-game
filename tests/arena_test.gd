@@ -141,8 +141,7 @@ func _run() -> void:
 	var arms := {"Orc": ["Orc_Sword"], "Goblin": ["Goblin_Club"], "Ogre": ["Ogre_Club"],
 			"Skeleton warrior": ["Skeleton_Warrior_Sword", "Skeleton_Warrior_Shield"],
 			"Skeleton archer": ["Skeleton_Archer_Bow", "Skeleton_Archer_Arrow"],
-			"Skeleton mage": ["Skeleton_Mage_Staff"],
-			"Skeleton, all in one": ["Skeleton_Warrior_Sword", "Skeleton_Archer_Bow", "Skeleton_Mage_Staff"]}
+			"Skeleton mage": ["Skeleton_Mage_Staff"]}
 	for entry: Array in ArenaPanel.ENTRIES:
 		var body := panel.call_up(String(entry[1]), bool(entry[2])) as PackCreature
 		if body == null:

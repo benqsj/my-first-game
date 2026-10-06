@@ -44,6 +44,9 @@ extends Brawler
 ## behind the shield is.
 @export_range(0.0, 1.0) var bash_chance: float = 0.3
 @export_range(0.0, 1.0) var counter_bash_chance: float = 0.8
+## The sword straight after the bash (off: the bash alone, a hand with no
+## sword in it).
+@export var bash_follows: bool = true
 
 const BASH := 74
 const FOLLOW := 75
@@ -150,7 +153,7 @@ func _begin_bash() -> void:
 
 
 func _after(what: int) -> void:
-	if what == BASH and not is_dead:
+	if what == BASH and not is_dead and bash_follows:
 		# Straight out of the bash, the sword: one combo to him.
 		var serial := _chain_serial
 		_chain_blow = 1

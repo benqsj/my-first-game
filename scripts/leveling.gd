@@ -30,11 +30,11 @@ extends Node
 
 ## Every creature's level, shown over its head ([CombatText]): what it is,
 ## against where the heroes start.
-const LEVEL_OF := {&"imp": 1, &"puglin": 2, &"wolf": 3, &"orc": 6, &"arkdeva": 10}
+const LEVEL_OF := {&"imp": 1, &"puglin": 2, &"wolf": 3, &"orc": 6, &"skeleton_lord": 8, &"arkdeva": 10}
 const LEVEL_OTHER := 1
 
 ## What each creature is worth, in wolves.
-const WEIGHT := {&"wolf": 1.0, &"imp": 0.6, &"puglin": 0.8, &"orc": 3.0, &"arkdeva": 12.0}
+const WEIGHT := {&"wolf": 1.0, &"imp": 0.6, &"puglin": 0.8, &"orc": 3.0, &"skeleton_lord": 8.0, &"arkdeva": 12.0}
 ## What a creature with no line of its own is worth, in wolves.
 const WEIGHT_OTHER := 0.5
 const MAX_LEVEL := 10
