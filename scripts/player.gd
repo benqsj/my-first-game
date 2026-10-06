@@ -1017,6 +1017,8 @@ func _spawn_character() -> void:
 
 	run_speed = profile.run_speed
 	walk_speed = profile.walk_speed
+	# creeping is slower than walking, whatever the walk
+	crouch_speed = minf(crouch_speed, walk_speed * 0.75)
 	jog_speed = run_speed * jog_share
 	dash_speed = profile.dash_speed
 	dash_duration = profile.dash_duration
