@@ -140,13 +140,27 @@ static func _legs_and_feet(figure: Node, skel: Skeleton3D, look: Dictionary) -> 
 		return
 	for m: MeshInstance3D in meshes.values():
 		m.visible = false
-	for pair: Array in [[legs_name, false, "legs"], [feet_name, true, "feet"]]:
+	var parts := [[legs_name, "legs"], [feet_name, "feet"]]
+	# breeches whose tall boots are off leave the shin bare: his own skin
+	# there, unless the shoes worn go up it
+	var legs_src: MeshInstance3D = meshes[legs_name]
+	var shin_bare := bool(_part_of(legs_src.mesh, legs_src.skin, skel, "legs").get_meta(&"shaft", false))
+	var feet_src: MeshInstance3D = meshes.get(feet_name)
+	var tall: bool = false
+	if feet_src != null and feet_src.mesh != null:
+		tall = bool(_part_of(feet_src.mesh, feet_src.skin, skel, "feet").get_meta(&"shaft", false))
+	elif look.has("sk_feet"):
+		var boots := cloth_of(String(look.sk_feet))
+		tall = boots != null and bool(boots.get_meta(&"shaft", false))
+	if shin_bare and not tall and meshes.has("ps_bottombody"):
+		parts.append(["ps_bottombody", "shin"])
+	for pair: Array in parts:
 		var src: MeshInstance3D = meshes.get(String(pair[0]))
 		if src == null or src.mesh == null:
 			continue
 		var mi := MeshInstance3D.new()
-		mi.name = TAG + String(pair[2])
-		mi.mesh = _part_of(src.mesh, src.skin, skel, bool(pair[1]))
+		mi.name = TAG + String(pair[1])
+		mi.mesh = _part_of(src.mesh, src.skin, skel, String(pair[1]))
 		mi.skin = src.skin
 		skel.add_child(mi)
 		mi.skeleton = NodePath("..")
@@ -160,11 +174,16 @@ static func _legs_and_feet(figure: Node, skel: Skeleton3D, look: Dictionary) -> 
 
 
 static var _parts: Dictionary = {}
+## Whether the boots `_kept` last cut go up the shin.
+static var _shaft_seen := false
 
 
-## A figure mesh's feet alone (`feet`), or the rest of it without them.
-static func _part_of(mesh: Mesh, skin: Skin, skel: Skeleton3D, feet: bool) -> Mesh:
-	var key := "%d|%s" % [mesh.get_instance_id(), feet]
+## A figure mesh's shoes alone (`part` "feet": up to the knee where they go
+## so high), the rest of it without them ("legs"), or the shins alone
+## ("shin", of the bare body, under breeches whose boots are off). The mesh
+## says (meta "shaft") whether its shoes go up the shin.
+static func _part_of(mesh: Mesh, skin: Skin, skel: Skeleton3D, part: String) -> Mesh:
+	var key := "%d|%s" % [mesh.get_instance_id(), part]
 	if _parts.has(key):
 		return _parts[key]
 	var names := PackedStringArray()
@@ -176,6 +195,7 @@ static func _part_of(mesh: Mesh, skin: Skin, skel: Skeleton3D, feet: bool) -> Me
 			names.append(n)
 	var out := ArrayMesh.new()
 	var from := PackedInt32Array()
+	var shaft := false
 	for sidx in mesh.get_surface_count():
 		var arrays := mesh.surface_get_arrays(sidx)
 		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -185,22 +205,23 @@ static func _part_of(mesh: Mesh, skin: Skin, skel: Skeleton3D, feet: bool) -> Me
 		if verts.is_empty() or bones.is_empty() or index.is_empty():
 			continue
 		var per := floori(float(bones.size()) / float(verts.size()))
-		var foot := PackedByteArray()
-		foot.resize(verts.size())
-		for v in verts.size():
-			var best := -1.0
-			var bone := ""
-			for j in per:
-				var k := bones[v * per + j]
-				if weights[v * per + j] > best and k < names.size():
-					best = weights[v * per + j]
-					bone = names[k]
-			foot[v] = 1 if is_foot(bone) else 0
+		var kinds := _bone_kinds(bones, weights, per, names, verts.size())
+		var shoe := _shoe_tris(verts, index, kinds)
+		if shoe.size() > 0 and shoe[shoe.size() - 1] == 2:
+			shaft = true
 		var kept := PackedInt32Array()
 		for t in floori(index.size() / 3.0):
-			var n := foot[index[t * 3]] + foot[index[t * 3 + 1]] + foot[index[t * 3 + 2]]
-			# a triangle goes with the feet if most of its corners do
-			if (n >= 2) == feet:
+			var take := false
+			if part == "feet":
+				take = shoe[t] != 0
+			elif part == "legs":
+				take = shoe[t] == 0
+			else:
+				var n := 0
+				for q in 3:
+					n += 1 if kinds[index[t * 3 + q]] == SHIN else 0
+				take = n >= 2
+			if take:
 				kept.append(index[t * 3])
 				kept.append(index[t * 3 + 1])
 				kept.append(index[t * 3 + 2])
@@ -213,6 +234,7 @@ static func _part_of(mesh: Mesh, skin: Skin, skel: Skeleton3D, feet: bool) -> Me
 		out.surface_set_material(out.get_surface_count() - 1, mesh.surface_get_material(sidx))
 		from.append(sidx)
 	out.set_meta(&"from", from)
+	out.set_meta(&"shaft", shaft)
 	_parts[key] = out
 	return out
 
@@ -229,6 +251,7 @@ static func cloth_of(id: String) -> Mesh:
 	if src == null or src.mesh == null:
 		return null
 	var out := ArrayMesh.new()
+	_shaft_seen = false
 	for s in src.mesh.get_surface_count():
 		var was := src.mesh.surface_get_material(s)
 		if was == null or not was.resource_name.contains("Objects"):
@@ -239,6 +262,8 @@ static func cloth_of(id: String) -> Mesh:
 			continue
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
 		out.surface_set_material(out.get_surface_count() - 1, was)
+	# boots up the shin cover it: no bare shin is wanted under them
+	out.set_meta(&"shaft", _shaft_seen)
 	_cloth[id] = out
 	return out
 
@@ -263,6 +288,20 @@ static func _kept(arrays: Array, skin: Skin, slot: String) -> Array:
 		if n == "" and _kit_skel != null and skin.get_bind_bone(k) >= 0:
 			n = _kit_skel.get_bone_name(skin.get_bind_bone(k))
 		names.append(n)
+	if slot == "sk_bottom" or slot == "sk_feet":
+		var shoe := _shoe_tris(verts, index, _bone_kinds(bones, weights, per, names, verts.size()))
+		if slot == "sk_feet" and shoe[shoe.size() - 1] == 2:
+			_shaft_seen = true
+		var mine := PackedInt32Array()
+		for t in floori(index.size() / 3.0):
+			if (shoe[t] != 0) == (slot == "sk_feet"):
+				mine.append(index[t * 3])
+				mine.append(index[t * 3 + 1])
+				mine.append(index[t * 3 + 2])
+		var cut := arrays.duplicate()
+		cut[Mesh.ARRAY_INDEX] = mine
+		cut[Mesh.ARRAY_VERTEX] = _fitted(verts, bones, weights, per, names, skin)
+		return cut
 	var keep_vert := PackedByteArray()
 	keep_vert.resize(verts.size())
 	for v in verts.size():
@@ -300,6 +339,107 @@ static func _kept(arrays: Array, skin: Skin, slot: String) -> Array:
 ## A foot's bone: the ankle, the ball, the toe.
 static func is_foot(bone: String) -> bool:
 	return bone.contains("ankle") or bone.contains("ball") or bone.contains("toe")
+
+
+const FOOT := 0
+const SHIN := 1
+const UPPER := 2
+
+
+## Each corner's kind by the bone it hangs from most: FOOT, SHIN (the
+## "knee" bone runs from the knee to the ankle) or UPPER (anything above).
+static func _bone_kinds(bones: PackedInt32Array, weights: PackedFloat32Array, per: int, names: PackedStringArray,
+		count: int) -> PackedByteArray:
+	var kinds := PackedByteArray()
+	kinds.resize(count)
+	for v in count:
+		var best := -1.0
+		var bone := ""
+		for j in per:
+			var k := bones[v * per + j]
+			if weights[v * per + j] > best and k < names.size():
+				best = weights[v * per + j]
+				bone = names[k]
+		kinds[v] = FOOT if is_foot(bone) else (SHIN if bone.contains("knee") else UPPER)
+	return kinds
+
+
+## Which triangles are shoes (the user's word, 2026-10-07: what is below the
+## knee is the shoe, above it the breeches; but breeches down to the ankle
+## stay breeches, the shoes under them shoes alone). A boot is its own shell
+## of the mesh: a shell holding a foot and (all but) nothing above the knee is
+## a shoe up to wherever it goes. Shells welded to the breeches are cut at the
+## ankle, a triangle with the foot if most of its corners are. Per triangle
+## 1 (a shoe), 0 (not); one more entry at the end, 2 if a shoe went up the
+## shin, else 0.
+static func _shoe_tris(verts: PackedVector3Array, index: PackedInt32Array, kinds: PackedByteArray) -> PackedByteArray:
+	var n := verts.size()
+	var parent := PackedInt32Array()
+	parent.resize(n)
+	for v in n:
+		parent[v] = v
+	# corners at one place are one (the seams split them for the texture)
+	var at := {}
+	for v in n:
+		var p := verts[v]
+		var key := Vector3i(roundi(p.x * 10000.0), roundi(p.y * 10000.0), roundi(p.z * 10000.0))
+		if at.has(key):
+			_join(parent, v, int(at[key]))
+		else:
+			at[key] = v
+	var tris := floori(index.size() / 3.0)
+	for t in tris:
+		_join(parent, index[t * 3], index[t * 3 + 1])
+		_join(parent, index[t * 3], index[t * 3 + 2])
+	# the knee: as high as anything hangs from the shin's bone
+	var knee := -INF
+	for v in n:
+		if kinds[v] == SHIN:
+			knee = maxf(knee, verts[v].y)
+	var low := {}
+	var top := {}
+	for v in n:
+		var r := _root_of(parent, v)
+		if kinds[v] != UPPER:
+			low[r] = true
+		top[r] = maxf(float(top.get(r, -INF)), verts[v].y)
+	var out := PackedByteArray()
+	out.resize(tris + 1)
+	var shaft := false
+	for t in tris:
+		var r := _root_of(parent, index[t * 3])
+		# a shell of its own on the foot or the shin and no higher than the
+		# knee: a boot, a greave, a wrap, a strap by the ankle
+		var boot: bool = low.has(r) and knee > -INF and float(top[r]) <= knee + 0.05
+		if boot:
+			out[t] = 1
+			# up the shin to near the knee: it covers the shin
+			shaft = shaft or float(top[r]) > knee - 0.12
+		else:
+			var f := 0
+			for q in 3:
+				f += 1 if kinds[index[t * 3 + q]] == FOOT else 0
+			out[t] = 1 if f >= 2 else 0
+	out[tris] = 2 if shaft else 0
+	return out
+
+
+static func _root_of(parent: PackedInt32Array, v: int) -> int:
+	var r := v
+	while parent[r] != r:
+		r = parent[r]
+	while parent[v] != r:
+		var next := parent[v]
+		parent[v] = r
+		v = next
+	return r
+
+
+static func _join(parent: PackedInt32Array, a: int, b: int) -> void:
+	var ra := _root_of(parent, a)
+	var rb := _root_of(parent, b)
+	if ra != rb:
+		parent[maxi(ra, rb)] = mini(ra, rb)
 
 
 ## How far out (metres) what hangs from each limb's bone is set, to sit on

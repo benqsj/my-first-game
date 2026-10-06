@@ -31,6 +31,13 @@ func _shown(fig: Node, prefix: String) -> Array[String]:
 
 ## His own breeches and boots are drawn apart now, as SkGarb_legs and
 ## SkGarb_feet on his skeleton; worn, they stand for `ps_bottom_*`.
+func _tris(m: Mesh) -> int:
+	var n := 0
+	for k in m.get_surface_count():
+		n += floori((m.surface_get_arrays(k)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3.0)
+	return n
+
+
 func _own(skel: Skeleton3D, part: String) -> bool:
 	var m := skel.get_node_or_null(SkeletonGarb.TAG + part) as MeshInstance3D
 	return m != null and m.visible and not m.is_queued_for_deletion()
@@ -164,6 +171,17 @@ func _run() -> void:
 		return String(c.name) in [SkeletonGarb.TAG + "legs", SkeletonGarb.TAG + "feet"] and not c.is_queued_for_deletion())
 	_check("his breeches and his boots are drawn apart", parts.size() == 2 and _shown(fig, "bottom").is_empty(),
 			"%d parts, %s" % [parts.size(), _shown(fig, "bottom")])
+	# every breeches of his: shoes cut up to the knee where they go so high
+	var report := []
+	var shoeless := []
+	for m: MeshInstance3D in fig.find_children("ps_bottom_*", "MeshInstance3D", true, false):
+		var f := SkeletonGarb._part_of(m.mesh, m.skin, skel, "feet")
+		var l := SkeletonGarb._part_of(m.mesh, m.skin, skel, "legs")
+		report.append("%s %d/%d%s" % [String(m.name).trim_prefix("ps_bottom_"), _tris(f), _tris(l),
+				" tall" if f.get_meta(&"shaft", false) else ""])
+		if _tris(f) == 0:
+			shoeless.append(String(m.name))
+	_check("each of his breeches has its shoes to cut away", shoeless.is_empty(), "%s | %s" % [shoeless, report])
 	look = rig.call("get_look")
 	look["sk_feet"] = "sk_archer_boots"
 	hero.set_look(look)

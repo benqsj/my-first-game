@@ -746,6 +746,9 @@ static func apply(figure: Node3D, look: Dictionary) -> void:
 		mesh.visible = visible
 	_lift_quiver(figure, on)
 	_wear_ears(figure, String(look.get("race", "")) != "")
+	# hers in wine and rose rather than the men's grey (the user's word,
+	# 2026-10-07: her underthings prettier)
+	figure.set_meta(&"ps_female", String(look.get("g", "m")) == "f")
 	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)), int(look.get("hc", look.get("skin", 1))))
 	wear_style(figure, String(look.get("ws", STYLES[0])))
 
@@ -909,6 +912,8 @@ static func dye(figure: Node3D, skin: int, cloth: int, hair: int = 0) -> void:
 		match String(m.get_meta(&"kind")):
 			"body":
 				path += "body_%d.png" % skin
+				if figure.get_meta(&"ps_female", false) and ResourceLoader.exists(COLOURS + "body_%d_f.png" % skin):
+					path = COLOURS + "body_%d_f.png" % skin
 			"hair":
 				path += "body_%d.png" % hair
 			_:

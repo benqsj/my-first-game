@@ -103,7 +103,7 @@ func _run() -> void:
 					continue
 				if cut:
 					var part := MeshInstance3D.new()
-					part.mesh = SkeletonGarb._part_of(shown.mesh, shown.skin, skel, k.begins_with("feet_"))
+					part.mesh = SkeletonGarb._part_of(shown.mesh, shown.skin, skel, "feet" if k.begins_with("feet_") else "legs")
 					part.skin = shown.skin
 					skel.add_child(part)
 					part.skeleton = NodePath("..")

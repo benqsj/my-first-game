@@ -112,10 +112,12 @@ const ICON_TINTS := {
 ## The hero himself, at the head of the status column (made when the bag is
 ## first opened: his model, in what he wears).
 var _portrait: CharacterPortrait
-const PORTRAIT := Vector2(216, 280)
+const PORTRAIT := Vector2(300, 430)
+## The size he is drawn at this time (smaller on a narrow screen).
+var _pv := PORTRAIT
 ## The sockets beside him for what he wears and holds (the user's word,
 ## 2026-10-06): head, body and legs on his left, his hands on his right.
-const EQUIP := 46.0
+const EQUIP := 52.0
 var _equip_rects: Array = []
 var _portrait_rect: Rect2
 
@@ -127,14 +129,23 @@ var _chosen: int = 0
 var _slots_rect: Rect2
 ## The first row of the grid shown (more things than five rows hold).
 var _top_row: int = 0
-const GRID_ROWS := 5
+const GRID_ROWS := 6
+## The rows follow the chosen one (the keys) or stay where the wheel or the
+## bar put them (the user's word, 2026-10-07: the bag scrolls).
+var _follow := true
+## The scroll bar beside the grid, and whether it is being dragged.
+var _bar_rect: Rect2
+var _bar_drag := false
 
 
-## The first row to show for `count` things: the chosen one always in sight.
+## The first row to show for `count` things: the chosen one in sight, unless
+## the player scrolled away from it.
 func _grid_top(count: int) -> int:
 	var last := maxi(ceili(float(count) / COLUMNS) - GRID_ROWS, 0)
 	var row := floori(float(_chosen) / COLUMNS)
 	var top := clampi(_top_row, 0, last)
+	if not _follow:
+		return top
 	if row < top:
 		top = row
 	elif row >= top + GRID_ROWS:
@@ -170,6 +181,7 @@ func _input(event: InputEvent) -> void:
 		toggle()
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var items := _items()
+		_follow = true
 		match (event as InputEventKey).physical_keycode:
 			KEY_LEFT, KEY_A:
 				_chosen = maxi(_chosen - 1, 0)
@@ -203,6 +215,19 @@ func _input(event: InputEvent) -> void:
 
 
 func _on_gui(event: InputEvent) -> void:
+	# the scroll bar, pressed or dragged: the rows go where it is
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var b := event as InputEventMouseButton
+		_bar_drag = b.pressed and _bar_rect.grow(8.0).has_point(b.position)
+		if _bar_drag:
+			_scroll_to_bar(b.position.y)
+			return
+	if event is InputEventMouseMotion and _bar_drag:
+		if ((event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT) == 0:
+			_bar_drag = false
+		else:
+			_scroll_to_bar((event as InputEventMouseMotion).position.y)
+		return
 	# Dragged across, he turns on his stand, to be seen from every side.
 	if event is InputEventMouseMotion and _portrait != null \
 			and ((event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 \
@@ -218,12 +243,15 @@ func _on_gui(event: InputEvent) -> void:
 			return
 	var wheel := (event as InputEventMouseButton).button_index
 	if wheel == MOUSE_BUTTON_WHEEL_UP or wheel == MOUSE_BUTTON_WHEEL_DOWN:
-		var count := _items().size()
-		_chosen = clampi(_chosen + (COLUMNS if wheel == MOUSE_BUTTON_WHEEL_DOWN else -COLUMNS), 0, maxi(count - 1, 0))
+		# the wheel scrolls the rows, the chosen one stays chosen
+		var last := maxi(ceili(float(_items().size()) / COLUMNS) - GRID_ROWS, 0)
+		_follow = false
+		_top_row = clampi(_top_row + (1 if wheel == MOUSE_BUTTON_WHEEL_DOWN else -1), 0, last)
 		_root.queue_redraw()
 		return
 	var at := (event as InputEventMouseButton).position
 	if _tabs_rect.has_point(at):
+		_follow = true
 		_switch_tab(int((at.x - _tabs_rect.position.x) / (_tabs_rect.size.x / TAB_NAMES.size())))
 	elif _slots_rect.has_point(at):
 		var cell := ((at - _slots_rect.position) / (SLOT + Vector2(SLOT_GAP, SLOT_GAP))).floor()
@@ -743,7 +771,10 @@ func _draw_all() -> void:
 	var bottom := screen.y - 58.0
 	var grid_w := SLOT.x * COLUMNS + SLOT_GAP * (COLUMNS - 1)
 	var left := Rect2(32, top, grid_w + 64, bottom - top)
-	var right_w := 380.0
+	# the hero's side wide, the thing's own page narrower (the user's word,
+	# 2026-10-07), the hero as big as the side lets him be
+	var right_w := clampf(screen.x * 0.34, 420.0, 560.0)
+	_pv = PORTRAIT * minf(1.0, (right_w - 2.0 * (EQUIP + 56.0)) / PORTRAIT.x)
 	var right := Rect2(screen.x - right_w - 32, top, right_w, bottom - top)
 	var middle := Rect2(left.end.x + 24, top, right.position.x - left.end.x - 48, bottom - top)
 
@@ -770,9 +801,9 @@ func _draw_all() -> void:
 		UiArt.text(c, Vector2(box.end.x + 8, box.position.y + 17), String(pair[1]), 15, Color(CREAM, 0.7), "body")
 		x = box.end.x + 16.0 + UiArt.font("body").get_string_size(String(pair[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 22.0
 	if _portrait != null:
-		_portrait.position = right.position + Vector2((right.size.x - PORTRAIT.x) * 0.5, 52.0)
-		_portrait.size = PORTRAIT
-		_portrait_rect = Rect2(_portrait.position, PORTRAIT)
+		_portrait.position = right.position + Vector2((right.size.x - _pv.x) * 0.5, 52.0)
+		_portrait.size = _pv
+		_portrait_rect = Rect2(_portrait.position, _pv)
 
 
 func _draw_left(c: Control, box: Rect2) -> void:
@@ -796,7 +827,7 @@ func _draw_left(c: Control, box: Rect2) -> void:
 	var title := String(items[_chosen].name) if _chosen < items.size() else "—"
 	UiArt.text(c, inner.position + Vector2(2, 76), title, 19, CREAM, "head")
 	# The grid: five rows shown, empty slots drawn as sockets.
-	var rows := 5
+	var rows := GRID_ROWS
 	_slots_rect = Rect2(inner.position + Vector2(0, 94), Vector2(COLUMNS, rows) * (SLOT + Vector2(SLOT_GAP, SLOT_GAP)))
 	# more than fit: the rows scroll with the one chosen (and the wheel)
 	_top_row = _grid_top(items.size())
@@ -819,6 +850,25 @@ func _draw_left(c: Control, box: Rect2) -> void:
 	var shown := "%d / %d" % [items.size(), COLUMNS * rows] if items.size() <= COLUMNS * rows else \
 			"%d  ·  rows %d–%d of %d" % [items.size(), _top_row + 1, _top_row + rows, ceili(float(items.size()) / COLUMNS)]
 	UiArt.text(c, Vector2(_slots_rect.position.x, _slots_rect.end.y + 22), shown, 14, MUTED, "body")
+	# the scroll bar, in the frame's margin right of the grid
+	var all_rows := ceili(float(items.size()) / COLUMNS)
+	_bar_rect = Rect2()
+	if all_rows > rows:
+		var track := Rect2(inner.end.x + 10.0, _slots_rect.position.y, 6.0, _slots_rect.size.y - SLOT_GAP)
+		_bar_rect = track
+		c.draw_rect(track, Color(0, 0, 0, 0.45))
+		var h := maxf(track.size.y * float(rows) / all_rows, 24.0)
+		var at := track.position.y + (track.size.y - h) * float(_top_row) / float(all_rows - rows)
+		c.draw_rect(Rect2(track.position.x, at, track.size.x, h), Color(GOLD, 0.75 if _bar_drag else 0.5))
+
+
+## The rows put where the bar is pressed at height `y`.
+func _scroll_to_bar(y: float) -> void:
+	var last := maxi(ceili(float(_items().size()) / COLUMNS) - GRID_ROWS, 0)
+	var f := clampf((y - _bar_rect.position.y) / maxf(_bar_rect.size.y, 1.0), 0.0, 1.0)
+	_follow = false
+	_top_row = clampi(roundi(f * last), 0, last)
+	_root.queue_redraw()
 
 
 ## The real thing's picture (assets/ui/icons/arms, baked off the figure's own
@@ -1064,7 +1114,7 @@ func _draw_equipped(c: Control, area: Rect2) -> void:
 		var left := k < 4
 		var row := k if left else k - 4
 		var x := area.position.x if left else area.end.x - EQUIP
-		var y := area.position.y + 6.0 + row * (EQUIP + 28.0)
+		var y := area.position.y + 6.0 + row * (EQUIP + 40.0)
 		var r := Rect2(x, y, EQUIP, EQUIP)
 		var thing: Dictionary = entry[2]
 		UiArt.text(c, Vector2(r.position.x - 10.0, r.position.y - 4.0), String(entry[1]), 10, Color(GOLD, 0.85),
@@ -1111,7 +1161,12 @@ func _draw_item(c: Control, box: Rect2, item: Dictionary) -> void:
 	var y := box.position.y
 	var pic_size := 156.0
 	var text_w := box.size.x - pic_size - 24.0
-	UiArt.text_shadowed(c, Vector2(box.position.x, y + 30), String(item.name), 30, CREAM, "title", 
+	# the name smaller till it fits beside the picture (the page is narrower)
+	var title_px := 30
+	while title_px > 18 and UiArt.font("title").get_string_size(String(item.name), HORIZONTAL_ALIGNMENT_LEFT, -1,
+			title_px).x > text_w:
+		title_px -= 2
+	UiArt.text_shadowed(c, Vector2(box.position.x, y + 30), String(item.name), title_px, CREAM, "title", 
 			HORIZONTAL_ALIGNMENT_LEFT, text_w)
 	UiArt.text(c, Vector2(box.position.x, y + 58), String(item.kind).to_upper(), 15, GOLD, "head")
 	var worn: bool = item.get("worn", false)
@@ -1178,15 +1233,15 @@ func _draw_status(c: Control, box: Rect2) -> void:
 	var y := box.position.y + 40
 	UiArt.text(c, Vector2(box.position.x, y), "CHARACTER", 18, CREAM, "title", HORIZONTAL_ALIGNMENT_CENTER, box.size.x)
 	# what he wears and holds, in sockets either side of him
-	_draw_equipped(c, Rect2(box.position.x + 20.0, box.position.y + 52.0, box.size.x - 40.0, PORTRAIT.y))
+	_draw_equipped(c, Rect2(box.position.x + 24.0, box.position.y + 58.0, box.size.x - 48.0, _pv.y))
 	# the hero stands here (the portrait), on a pool of light
-	var stand := Vector2(box.position.x + box.size.x * 0.5, box.position.y + 52 + PORTRAIT.y * 0.92)
+	var stand := Vector2(box.position.x + box.size.x * 0.5, box.position.y + 52 + _pv.y * 0.92)
 	c.draw_set_transform(stand, 0.0, Vector2(1.0, 0.22))
 	for k in range(6, 0, -1):
 		c.draw_circle(Vector2.ZERO, 30.0 + 14.0 * k, Color(GOLD, 0.03))
-	c.draw_arc(Vector2.ZERO, 92.0, 0.0, TAU, 48, Color(GOLD, 0.5), 1.5)
+	c.draw_arc(Vector2.ZERO, 92.0 * _pv.x / 216.0, 0.0, TAU, 48, Color(GOLD, 0.5), 1.5)
 	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	y = box.position.y + 52 + PORTRAIT.y + 18
+	y = box.position.y + 52 + _pv.y + 22
 	var rows: Array = []
 	var book := player.get_node_or_null(^"Leveling") as Leveling
 	if book != null:
@@ -1217,6 +1272,26 @@ func _draw_status(c: Control, box: Rect2) -> void:
 		if _has_shield():
 			rows.append(["Shield", ("Round Shield" if player.shield_kind == Shields.ROUND else "Tower Shield")
 					if _shield_on() else "None"])
+	# two columns under him (the user's word, 2026-10-07: the hero bigger,
+	# the numbers lower): his level and his life on the left, the rest right
+	var split := 0
+	var seps := 0
+	for k in rows.size():
+		if String(rows[k][0]) == "":
+			seps += 1
+			if seps == 2:
+				split = k
+				break
+	var col_w := (w - 28.0) * 0.5
+	if split > 0:
+		_stat_rows(c, rows.slice(0, split), x, y, col_w)
+		_stat_rows(c, rows.slice(split + 1), x + col_w + 28.0, y, col_w)
+	else:
+		_stat_rows(c, rows, x, y, w)
+
+
+## The status rows from `y` down, `w` wide at `x`.
+func _stat_rows(c: Control, rows: Array, x: float, y: float, w: float) -> void:
 	for r: Array in rows:
 		if String(r[0]) == "":
 			y += 6
@@ -1232,8 +1307,8 @@ func _draw_status(c: Control, box: Rect2) -> void:
 			c.draw_rect(bar, Color(1, 1, 1, 0.06))
 			c.draw_rect(Rect2(bar.position, Vector2(w * clampf(full, 0.0, 1.0), 3)),
 					Color(0.78, 0.16, 0.12) if r[0] == "HP" else Color(0.38, 0.7, 0.32))
-		UiArt.text(c, Vector2(x, y), String(r[0]), 16, MUTED, "body")
-		UiArt.text(c, Vector2(x, y), String(r[1]), 16, CREAM, "bold", HORIZONTAL_ALIGNMENT_RIGHT, w)
+		UiArt.text(c, Vector2(x, y), String(r[0]), 15, MUTED, "body")
+		UiArt.text(c, Vector2(x, y), String(r[1]), 15, CREAM, "bold", HORIZONTAL_ALIGNMENT_RIGHT, w)
 
 
 ## The things, drawn: every icon is a few shapes, so none needs a file.

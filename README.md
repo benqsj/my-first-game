@@ -6011,6 +6011,19 @@ WEAPON, OFF HAND and CLOAK on the right. A cape or cloak goes in CLOAK before
 a choker or scarf. The bake tools draw with `RenderingServer.force_draw`
 because a window behind the game got no frames and the bake hung.
 
+Shoes run up to the knee. `SkeletonGarb._shoe_tris` splits the mesh into
+shells (corners at one place joined). A shell that has foot or shin corners
+and goes no higher than the knee (+5 cm) counts as a shoe: a boot, a greave,
+a wrap or a strap. Breeches welded to their boots are cut at the ankle
+instead. Breeches whose tall boots are off leave the shin bare, and
+`SkGarb_shin` puts the bare body's shin back there unless the shoes worn go
+up it (mesh meta `shaft`). Women's underthings use `body_<skin>_f.png`: the
+cloth quadrant of the body textures dyed wine and rose
+(`PolysplitLook.dye`, figure meta `ps_female`). The bag scrolls with the
+wheel or the gold bar beside the grid, which shows six rows. The hero's side
+is wider (34 % of the screen) with a bigger hero, and the numbers sit in two
+columns under him.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 
