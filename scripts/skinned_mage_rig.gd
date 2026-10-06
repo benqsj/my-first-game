@@ -53,6 +53,9 @@ var cast_from: float = CAST_FROM
 var cast_release: float = CAST_RELEASE
 var cast_to: float = CAST_TO
 const MQ_CAST := &"SS_Spell_Casting"
+## Kevin Iglesias' Human Spellcasting on the mannequin (vepxis-art
+## tools/kv_godot.gd over kevin_spell/glb): KV_MagicAttack*, KV_Casting*.
+const KEVIN_SPELL_LIB := "res://assets/anim/lab/kevin_spell_lib.res"
 ## Where in Tariel's cast the hand comes through (measured on the mannequin:
 ## the right hand's fastest, clip_meta.json "release"), and from and to.
 const MQ_CAST_FROM := 0.15
@@ -134,6 +137,7 @@ func _configure() -> void:
 	# hand (2026-10-02, the user's word) and a staff in the other if he will.
 	polysplit_hero = &"mage"
 	mq_borrow = {MQ_CAST: "tariel"}
+	mq_libs = [KEVIN_SPELL_LIB]
 
 
 func _ready() -> void:

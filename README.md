@@ -8764,17 +8764,24 @@ creature behind a creature. It never turns to go after anyone else
 (`bolt_dodge_test`, the one behind).
 
 **Frost Spears** (the elf's first skill, `MageSkills`, `IceShard`). She raises
-her hand (Mixamo's Heal, its rise) and ten spears of ice grow out of the air one
-after another, `FORM_EVERY` 0.08 s apart, a crescent of them over and behind her
-head that goes where she goes, every point turned on what she will throw them
-at. Once all are there and there is something to throw at — her lock, else the
-nearest foe ahead within `SEEK` 28 m — they go on their own, one every 0.16 s:
-each an `IceShard` (a SpellBolt: it hunts, it is dodged only in time, it flies
-on when dodged, it goes through m.def), worth 0.35 of a full bolt, a crit rolled
-for each. Nothing to throw at for 6 s, and they break into frost. She is not held
-while they hang or fly. Her own peer decides; `net_frost_spears` /
-`net_frost_spear` / `net_frost_end` draw it everywhere, the host's copies hurt.
-25 stamina (mana to come), 14 s. `tests/frost_spears_test.gd`.
+her hand to the sky (Kevin's Call, its load: `KV_MagicAttackCall1H01_L_Load`, from
+`assets/anim/lab/kevin_spell_lib.res`, Kevin's Human Spellcasting brought onto
+the mannequin by vepxis-art `tools/kv_godot.gd`, given to the mage by
+`SkinnedRig.mq_libs`) and ten spears of ice grow out of the air one after
+another, 0.09 s apart: five over her left shoulder and five over her right,
+scattered 2.3-3.4 m up, 0.75-2.1 m out to her side (each spear's place fixed by
+its number, so every peer sees the same), every point turned on what she will
+throw them at. They go where she goes. Once all are there and there is something
+to throw at — her lock, else the nearest foe ahead within 28 m — her hand comes
+down and forward (Mixamo's Heal, its rise) and they go, left, right, left in
+turn, in a rhythm (`VOLLEY`): two at once, three one by one, the last five
+quicker. Each is an `IceShard` (a SpellBolt: it hunts, it is dodged only in
+time, it flies on when dodged, through m.def), slower than a bolt (22 m/s),
+worth 0.35 of a full bolt, a crit rolled for each. Nothing to throw at for 6 s,
+and they break into frost. She is not held while they hang or fly. Her own peer
+decides; `net_frost_spears` / `net_frost_go` / `net_frost_spear` /
+`net_frost_end` draw it everywhere, the host's copies hurt. 25 stamina (mana to
+come), 14 s. `tests/frost_spears_test.gd` (the rhythm too).
 
 **One cape.** Over YOUR OWN — which every mage now wears, with its class's own
 cape or cloak — `SkinnedMageRig.set_garb` hangs none of the mage's own cloth

@@ -4,13 +4,15 @@ extends Node
 ## The elf's and the dark elf's skills (the plan: `claude/mage_polish_plan.md`).
 ##
 ## * **Frost Spears** (the elf, the user's word 2026-10-06): she raises her
-##   hand and ten spears of ice grow out of the air one after another, a
-##   crescent of them over and behind her head, each turned on what she will
-##   throw them at. They go where she goes. Once all are there, and as soon as
-##   there is something to throw at — what she has locked, else the nearest
-##   foe ahead of her (`SEEK`) — they go at it on their own, one after
-##   another (`FIRE_EVERY`), each an [IceShard]; if it falls they go on at the
-##   next. With nothing to throw at for `HOLD_MAX` they break and are gone.
+##   hand to the sky (Kevin's Call, its load) and ten spears of ice grow out of
+##   the air one after another, five over her left shoulder and five over her
+##   right, scattered high round her head, each turned on what she will throw
+##   them at. They go where she goes. Once all are there, and as soon as there
+##   is something to throw at — what she has locked, else the nearest foe
+##   ahead of her (`SEEK`) — she brings her hand down and forward and they go,
+##   from one side and then the other, in a rhythm: two at once, then three
+##   one by one, then the last five quicker (`VOLLEY`). If it falls they go on
+##   at the next. With nothing to throw at for `HOLD_MAX` they break.
 ##   She is not held while they hang or fly: her own bolts go on as ever.
 ##
 ## Hangs under the [Player] as "MageSkills" ([method Player.mage]). The
@@ -19,28 +21,39 @@ extends Node
 ## and at what is decided by her own peer, and only the host's copies hurt.
 
 const SPEARS := 10
-## One more every `FORM_EVERY`, each grown in `FORM_GROW`.
-const FORM_EVERY := 0.08
-const FORM_GROW := 0.2
-## The crescent: `ARC` degrees wide, `RADIUS` across, its middle `HIGH` over
-## her feet and `BACK` behind her.
-const ARC := 150.0
-const RADIUS := 1.25
-const HIGH := 2.05
-const BACK := 0.45
-## Thrown one after another, this fast, at what is within `SEEK`.
-const FIRE_EVERY := 0.16
+## One more every `FORM_EVERY`, each grown in `FORM_GROW`, left and right in
+## turn.
+const FORM_EVERY := 0.09
+const FORM_GROW := 0.22
+## Where they hang (her frame, -Z ahead): to her side `SIDE_FROM`..`SIDE_TO`,
+## `HIGH_FROM`..`HIGH_TO` over her feet, `BACK_FROM`..`BACK_TO` behind her;
+## each spear's own place in that is fixed by its number (every peer the same).
+const SIDE_FROM := 0.75
+const SIDE_TO := 2.1
+const HIGH_FROM := 2.3
+const HIGH_TO := 3.4
+const BACK_FROM := -0.2
+const BACK_TO := 0.9
+## When each goes, from the first (seconds): two at once, three one by one,
+## the last five quicker. Even numbers hang on her left, odd on her right, and
+## they go in that order, so each comes from the other side.
+const VOLLEY: Array[float] = [0.0, 0.14, 0.75, 1.15, 1.55, 2.15, 2.4, 2.65, 2.9, 3.15]
+## From her hand coming down to the first going.
+const GO_LEAD := 0.3
 const SEEK := 28.0
-const SPEED := 36.0
+const SPEED := 22.0
 ## Each spear's worth, as a share of a full bolt's (before the full charge's
 ## bonus): ten of them are worth some three and a half bolts.
 const SHARE := 0.35
 ## How long the spears wait for something to throw at.
 const HOLD_MAX := 6.0
-## The hand raised as they grow (Mixamo's Heal, its rise, quick).
-const CAST_CLIP := &"MG_Heal"
-const CAST_PART := Vector2(0.0, 0.45)
-const CAST_RATE := 1.8
+## The hand raised to the sky as they grow (Kevin's Call, its load), and
+## brought down and forward as they go (Mixamo's Heal, its rise, quick).
+const RAISE_CLIP := &"KV_MagicAttackCall1H01_L_Load"
+const RAISE_RATE := 1.0
+const GO_CLIP := &"MG_Heal"
+const GO_PART := Vector2(0.0, 0.45)
+const GO_RATE := 1.8
 
 var hero: Player
 ## The crescent (every peer): a node in the world that follows her, and the
@@ -53,6 +66,8 @@ var _born: float = 0.0
 var _thrown: int = 0
 var _next_at: float = 0.0
 var _clock: float = 0.0
+## Her own peer: when the volley began (-1 not yet).
+var _go_at: float = -1.0
 
 
 func _ready() -> void:
@@ -74,6 +89,7 @@ func frost_spears(cost: float) -> bool:
 		return false
 	hero.net_frost_spears.rpc()
 	_thrown = 0
+	_go_at = -1.0
 	_next_at = SPEARS * FORM_EVERY + FORM_GROW
 	return true
 
@@ -84,7 +100,7 @@ func grow_spears() -> void:
 	if hero == null:
 		return
 	if hero.rig != null and hero.rig.has_method(&"play_part"):
-		hero.rig.call(&"play_part", CAST_CLIP, CAST_RATE, CAST_PART.x, CAST_PART.y, 0.12)
+		hero.rig.call(&"play_part", RAISE_CLIP, RAISE_RATE, 0.0, 1.0, 0.15)
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
@@ -102,6 +118,12 @@ func grow_spears() -> void:
 		_crown.add_child(spear)
 		spear.position = _slot(i)
 		_spears.append(spear)
+
+
+## Every peer: her hand down and forward, the volley about to go.
+func send_spears() -> void:
+	if hero != null and hero.rig != null and hero.rig.has_method(&"play_part"):
+		hero.rig.call(&"play_part", GO_CLIP, GO_RATE, GO_PART.x, GO_PART.y, 0.1)
 
 
 ## Every peer: spear `i` goes, from `from` at `flight`.
@@ -158,11 +180,19 @@ func _crown_at() -> Transform3D:
 	return Transform3D(Basis(Vector3.UP, yaw), hero.global_position)
 
 
-## Spear `i`'s place on the crescent, in the crown's frame (-Z ahead of her).
+## Spear `i`'s place over her shoulder, in the crown's frame (-Z ahead of
+## her): even on her left, odd on her right, scattered by its number.
 func _slot(i: int) -> Vector3:
-	var k := float(i) / float(SPEARS - 1)
-	var a := deg_to_rad(lerpf(-ARC * 0.5, ARC * 0.5, k))
-	return Vector3(sin(a) * RADIUS, HIGH + cos(a) * RADIUS * 0.42, BACK + (1.0 - cos(a)) * 0.25)
+	var side := -1.0 if i % 2 == 0 else 1.0
+	var k := floori(i / 2.0)
+	var a := fposmod(sin(float(i) * 12.9898 + 1.7) * 43758.5453, 1.0)
+	var b := fposmod(sin(float(i) * 78.233 + 4.1) * 24634.6345, 1.0)
+	var c := fposmod(sin(float(i) * 39.425 + 2.9) * 11251.2291, 1.0)
+	# fanned out by its place in the five, then shaken a little
+	var across := lerpf(SIDE_FROM, SIDE_TO, (float(k) + a * 0.8) / 5.0)
+	var up := lerpf(HIGH_FROM, HIGH_TO, fposmod(float(k) * 0.41 + b * 0.5, 1.0))
+	var back := lerpf(BACK_FROM, BACK_TO, c)
+	return Vector3(side * across, up, back)
 
 
 func _process(delta: float) -> void:
@@ -215,8 +245,19 @@ func _decide(foe: Node3D, aim: Vector3) -> void:
 		return
 	if _clock < _next_at:
 		return
+	if _go_at < 0.0:
+		if foe == null:
+			if _clock > SPEARS * FORM_EVERY + FORM_GROW + HOLD_MAX:
+				hero.net_frost_end.rpc()
+			return
+		# her hand comes down and forward; the first goes a beat after
+		hero.net_frost_go.rpc()
+		_go_at = _clock + GO_LEAD
+		_next_at = _go_at
+		return
 	if foe == null:
-		if _clock > SPEARS * FORM_EVERY + FORM_GROW + HOLD_MAX:
+		# what it was at has fallen and nothing else is near: they wait
+		if _clock > _go_at + HOLD_MAX:
 			hero.net_frost_end.rpc()
 		return
 	var i := _thrown
@@ -234,7 +275,8 @@ func _decide(foe: Node3D, aim: Vector3) -> void:
 		damage *= profile.crit_damage
 	hero.net_frost_spear.rpc(i, from, flight, damage, critical, foe.get_path())
 	_thrown = i + 1
-	_next_at = _clock + FIRE_EVERY
+	if _thrown < VOLLEY.size():
+		_next_at = _go_at + VOLLEY[_thrown]
 
 
 ## What the spears go at: her lock, else the nearest foe ahead within `SEEK`.

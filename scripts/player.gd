@@ -6167,6 +6167,15 @@ func net_frost_spears() -> void:
 	mage().grow_spears()
 
 
+## Her hand down and forward, the Frost Spears about to go, on every peer.
+@rpc("any_peer", "call_local", "reliable")
+func net_frost_go() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	mage().send_spears()
+
+
 ## Spear `i` thrown, on every peer; only the host's copy hurts.
 @rpc("any_peer", "call_local", "reliable")
 func net_frost_spear(i: int, from: Vector3, flight: Vector3, damage: float, critical: bool,

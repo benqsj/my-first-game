@@ -11,8 +11,8 @@ extends SpellBolt
 const ICE := Color(0.62, 0.9, 1.0)
 const ICE_HOT := Color(0.9, 0.98, 1.0)
 ## The spike, in metres (the model is drawn at `MODEL_SCALE`, the bolt's).
-const LENGTH := 0.62
-const RADIUS := 0.07
+const LENGTH := 0.78
+const RADIUS := 0.085
 
 
 func _ready() -> void:

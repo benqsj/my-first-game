@@ -480,6 +480,9 @@ const MANNEQUIN_FIGURE := "res://assets/polysplit/mannequin_%s.glb"
 ## Clips another hero's library lends this one on the mannequin (clip ->
 ## hero): the mage's spell is Tariel's.
 var mq_borrow: Dictionary = {}
+## More libraries of clips on the mannequin, for this hero only (the mages:
+## Kevin's spellcasting, assets/anim/lab/kevin_spell_lib.res).
+var mq_libs: Array[String] = []
 ## The shield's face about the left forearm (degrees from up towards ahead,
 ## in the T-pose) as the maker's figure is built (vepxis-art ps_creator.py
 ## THETA0), and where it is turned to for a clip the moves do not name.
@@ -3013,6 +3016,9 @@ func _build_mannequin() -> bool:
 	var sources: Array[AnimationLibrary] = [player.get_animation_library(&"")]
 	if ResourceLoader.exists(KEVIN_LIB):
 		sources.append(load(KEVIN_LIB) as AnimationLibrary)
+	for extra: String in mq_libs:
+		if ResourceLoader.exists(extra):
+			sources.append(load(extra) as AnimationLibrary)
 	if ResourceLoader.exists(HERO_LIB % polysplit_hero):
 		sources.append(load(HERO_LIB % polysplit_hero) as AnimationLibrary)
 	var own := {}

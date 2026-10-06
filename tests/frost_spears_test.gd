@@ -52,9 +52,27 @@ func _run() -> void:
 	var hp0 := float(foe.get("health"))
 	hero.call("_hold_target", foe)
 	_check("it goes again", hero.use_skill(0))
-	for i in 240:
+	var times: Array[float] = []
+	var left := MageSkills.SPEARS
+	for i in 420:
 		await physics_frame
+		var now := 0
+		for s: Variant in hero.mage()._spears:
+			if s != null and is_instance_valid(s):
+				now += 1
+		if not hero.mage().spears_up():
+			now = 0
+		while left > now:
+			times.append(i / 60.0)
+			left -= 1
 	var lost := hp0 - float(foe.get("health"))
+	# two at once, three one by one, the last five quicker
+	var gaps: Array[float] = []
+	for k in range(1, times.size()):
+		gaps.append(times[k] - times[k - 1])
+	_check("thrown in the rhythm: two at once, then gaps, then quicker",
+			gaps.size() == 9 and gaps[0] < 0.25 and gaps[1] > 0.45 and gaps[2] > 0.3 and gaps[6] < 0.35,
+			str(gaps))
 	_check("all ten thrown at it", not hero.mage().spears_up())
 	_check("and they hurt it (at least seven landed)", lost > 7.0 * 8.0, "%.1f off %.1f" % [lost, hp0])
 	print("frost_spears_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
