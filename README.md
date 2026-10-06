@@ -8614,3 +8614,5 @@ the leap's blade into the ground 1.74 m from an orc's middle.
 - **They see further and chase further** (`Aggro`, applied as each wakes):
   sight x1.35, the ground they follow (a camp's `leash_radius`, a wolf's
   `lose_range`) x2. The orc warrior's ground is still its water.
+- (later the same evening, the user's word) They notice him from as far as
+  before (`Aggro.SIGHT` 1.0) and follow him three times as far (`Aggro.CHASE` 3).
