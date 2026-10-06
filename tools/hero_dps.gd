@@ -27,6 +27,8 @@ var _dummy: Node3D
 var _home := Vector3.ZERO
 var _rows: Array[String] = []
 var _dummy_scene := IMP
+## The button the cuts are thrown on ("block" for Tariel's other string).
+var _button := "attack"
 
 
 func _initialize() -> void:
@@ -38,8 +40,18 @@ func _initialize() -> void:
 		else:
 			only.append(StringName(a))
 	for id in (only if not only.is_empty() else HEROES):
-		await _spawn(id)
-		var row := "%-12s hp %4.0f" % [id, _player.max_health]
+		# "tariel_bare": Tariel with his shield off, his other string on the
+		# block button; "tariel_bare_a": off, on the attack button
+		var bare := String(id).begins_with("tariel_bare")
+		await _spawn(&"tariel" if bare else id)
+		_button = "block" if id == &"tariel_bare" else "attack"
+		if bare:
+			var look := _player.look.duplicate(true) if not _player.look.is_empty() \
+					else PolysplitLook.default_look(&"tariel", "m")
+			look["o"] = "none"
+			_player.set_look(look)
+			await _wait(30)
+		var row := "%-12s hp %4.0f p.def %3.0f" % [id, _player.max_health, _player.p_def - _player.shield_def_off()]
 		for mode in ["cuts", "skills", "both"]:
 			row += "  | " + await _bout(mode)
 		_rows.append(row)
@@ -110,9 +122,9 @@ func _bout(mode: String) -> String:
 					used += 1
 					break
 		if cuts and not saving and f % 6 == 0:
-			Input.action_press("attack")
+			Input.action_press(_button)
 		await physics_frame
-		Input.action_release("attack")
+		Input.action_release(_button)
 	var lost := start - float(_dummy.health) if is_instance_valid(_dummy) else start
 	var thrown := (int(_player.rig.get(&"attack_serial")) - serial) if _player.rig.get(&"attack_serial") != null else -1
 	if is_instance_valid(_dummy):

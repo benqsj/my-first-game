@@ -1,8 +1,8 @@
 extends SceneTree
 
-## Tariel (the user's word, 2026-10-06): the least blow and the longest stand.
-## His shield stays on his arm (no "none" in his other hand, the bag does not
-## take it off); his fourth skill, the Challenge ([TarielChallenge]): every
+## Tariel (the user's word, 2026-10-06): the least blow and the longest stand
+## with his shield; without it, its p.def gone and his cuts worth more. His
+## fourth skill, the Challenge ([TarielChallenge]): every
 ## creature within reach comes for him alone for a while, a creature further
 ## off does not, and his p.def stands higher meanwhile.
 ##
@@ -43,12 +43,17 @@ func _initialize() -> void:
 	_check("yet he stands longer against blades",
 			tariel.max_health * (100.0 + tariel.p_def) > knight.max_health * (100.0 + knight.p_def))
 
-	var held := PolysplitLook.arms(&"tariel", "swordsman", "o")
-	_check("his other hand: shields only", not held.is_empty()
-			and held.all(func(id: String) -> bool: return PolysplitLook.kind(id) == &"shield"), str(held))
-	var look := PolysplitLook.default_look(&"tariel", "m")
-	look["o"] = "none"
-	_check("a look without it gets it back", PolysplitLook.kind(String(PolysplitLook.normalized(look, &"tariel")["o"])) == &"shield")
+	_check("with his shield: all his p.def", is_equal_approx(_player.shield_def_off(), 0.0))
+	var dressed := _player.look.duplicate(true)
+	var bare := dressed.duplicate(true)
+	bare["o"] = "none"
+	_player.set_look(bare)
+	await _wait(10)
+	_check("without it: the shield's p.def gone", is_equal_approx(_player.shield_def_off(), tariel.shield_p_def)
+			and tariel.shield_p_def > 0.0, "%.0f" % _player.shield_def_off())
+	_check("and his cut worth more", tariel.bare_damage > 1.0)
+	_player.set_look(dressed)
+	await _wait(10)
 
 	_check("the Challenge on his fourth", _player.skill_in(3) == &"challenge")
 	var near := _creature(_ahead(6.0) + _side() * 2.0)

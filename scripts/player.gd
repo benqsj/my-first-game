@@ -3247,7 +3247,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		return
 	# What his armour takes off it — or, a spell's, his m.def. (Tariel's
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
-	damage = Defence.against(damage, p_def * TarielChallenge.guard(self), m_def, magic)
+	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
 	# A fresh combo from this attacker forgets the last one.
 	if blow == 0 or not _combo_landed.has(combo):
 		_forget_combos_from(combo)
@@ -5974,6 +5974,9 @@ func _decides_here() -> bool:
 ## ([RogueSkills]); the first cut out of his Vanish a sure critical.
 func cut_worth(target: Node3D = null) -> Array:
 	var worth: Array = [26.0, false] if profile == null else profile.cut(_shot_rng)
+	# Tariel without his shield cuts harder ([member CharacterProfile.bare_damage])
+	if shield_def_off() > 0.0:
+		worth[0] = float(worth[0]) * profile.bare_damage
 	# A heavy blow, or the last cut of a string, is worth more.
 	if rig != null and rig.get(&"cut_weight") != null:
 		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))
@@ -6058,6 +6061,14 @@ func net_vanish(on: bool, ambush: bool) -> void:
 	if sender != 0 and sender != 1 and sender != get_multiplayer_authority():
 		return
 	rogue().set_hiding(on, ambush)
+
+
+## The p.def a shield-bearer has not got with his shield off his arm (0 with
+## it, or for anyone else): [member CharacterProfile.shield_p_def].
+func shield_def_off() -> float:
+	if profile == null or profile.shield_p_def <= 0.0 or rig == null or not rig.has_method(&"holds_shield"):
+		return 0.0
+	return 0.0 if bool(rig.call(&"holds_shield")) else profile.shield_p_def
 
 
 ## Every peer: Tariel's Challenge ([TarielChallenge]).

@@ -8365,6 +8365,14 @@ Tariel's sword is by `Swordsman`:
   Dust beaten up round him and a jolt of the view as the blow rings out. The
   move is `SS_Spell_Casting` for now; Mixamo's are on the side-by-side page.
   Tests: `tariel_challenge_test`, `skills_test`.
+- **Later the same evening (the user's word): his shield comes off again**,
+  and he is balanced both ways. With it: damage 15, p.def 50 (15.9 a second
+  on the imp, cuts and skills). Without it (his other string on the block
+  button): the shield's 15 p.def gone (`CharacterProfile.shield_p_def`,
+  `Player.shield_def_off`) and his cuts x1.3 (`bare_damage`): 17.9 a second
+  on the block button's string, 20.7 on the attack button's, standing about
+  300 against blades, a little under the knight's 312.
+  `tools/hero_dps.gd -- tariel_bare tariel_bare_a` measures him so.
 
 
 ### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)

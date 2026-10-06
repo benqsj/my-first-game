@@ -1,7 +1,9 @@
 extends SceneTree
-## Tariel and his shield. Once (2026-10-04) he could go without it, the block
-## button then throwing his other string; since 2026-10-06 (the user's word)
-## he keeps it: a look with nothing in his other hand gets it back.
+## Tariel with no shield in his hand (his look's off hand "none"; the user's
+## word, 2026-10-04): the block button raises nothing — no empty arm held up —
+## and throws the other string instead, the one F6 would pick; the attack
+## button keeps the string F6 picked. With his shield back, the block button
+## raises it again.
 ##   Godot --headless --path . --script res://tests/shieldless_test.gd
 
 var _failures := 0
@@ -36,21 +38,36 @@ func _run() -> void:
 	_check("with his shield: he holds one", rig.holds_shield())
 	var sets: Array = rig.moves.get("string_sets", [])
 	_check("two strings to throw", sets.size() >= 2, str(sets.size()))
+	var main: Array = sets[rig._main_string]["clips"]
+	var other: Array = sets[(rig._main_string + 1) % sets.size()]["clips"]
 
-	# Since 2026-10-06 (the user's word) Tariel does not put his shield down:
-	# a look with nothing in his other hand gets the shield back, and the
-	# block button still raises it. (What the block button did with no shield
-	# — the other string — is left in the rig for a hero who has none.)
 	var bare := with_shield.duplicate(true)
 	bare["o"] = "none"
 	hero.set_look(bare)
 	await _wait(30)
 	hero.call(&"_set_weapons_stowed", false)
 	await _wait(30)
-	_check("a look without his shield: he holds it still", rig.holds_shield())
+	_check("no shield: he holds none", not rig.holds_shield())
+	Input.action_press("block")
+	await _wait(3)
+	var right := String(rig._act_clip)
+	await _wait(20)
+	_check("the block button raises no guard", not hero.is_blocking)
+	Input.action_release("block")
+	_check("it throws the other string's first cut", right == String(other[0]), "%s (want %s)" % [right, other[0]])
+	await _wait(150)
+	Input.action_press("attack")
+	await _wait(3)
+	var left := String(rig._act_clip)
+	Input.action_release("attack")
+	_check("the attack button keeps F6's string", left == String(main[0]), "%s (want %s)" % [left, main[0]])
+	await _wait(150)
+
+	hero.set_look(with_shield)
+	await _wait(30)
 	Input.action_press("block")
 	await _wait(10)
-	_check("and the block button raises it", hero.is_blocking)
+	_check("his shield back: the block button raises it", hero.is_blocking)
 	Input.action_release("block")
 	if _failures == 0:
 		print("All checks passed.")

@@ -358,12 +358,6 @@ static func arms(hero: StringName, cls: String, slot: String, style: String = "n
 			out.append(id)
 	if out.is_empty():
 		out = own.duplicate()
-	# Tariel does not put his shield down (the user's word, 2026-10-06): his
-	# other hand holds a shield and nothing else
-	if slot == "o" and hero == &"tariel":
-		var shields := out.filter(func(id: String) -> bool: return kind(id) == &"shield")
-		if not shields.is_empty():
-			out = shields
 	if slot == "o" and both_hands(with):
 		var free := out.filter(func(id: String) -> bool: return kind(id) != &"shield")
 		if not free.is_empty():
