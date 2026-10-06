@@ -11,6 +11,7 @@ extends SceneTree
 
 const OUT := "res://assets/ui/icons/garb/"
 const PX := 192
+const OVER := 3
 
 
 func _initialize() -> void:
@@ -20,7 +21,7 @@ func _initialize() -> void:
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	var view := SubViewport.new()
-	view.size = Vector2i(PX, PX)
+	view.size = Vector2i(PX * OVER, PX * OVER)
 	view.own_world_3d = true
 	view.transparent_bg = true
 	view.msaa_3d = Viewport.MSAA_4X
@@ -78,7 +79,21 @@ func _run() -> void:
 		cam.size = maxf(hi.x - lo.x, hi.y - lo.y) * 1.1
 		for f in 3:
 			await RenderingServer.frame_post_draw
-		view.get_texture().get_image().save_png(ProjectSettings.globalize_path(OUT + id + ".png"))
+		_fit(view.get_texture().get_image()).save_png(ProjectSettings.globalize_path(OUT + id + ".png"))
 		done += 1
 	print("BAKED ", done)
 	quit()
+
+
+## The drawn part of `img`, centred on a square of PX with a margin.
+func _fit(img: Image) -> Image:
+	var used := img.get_used_rect()
+	var out := Image.create(PX, PX, false, Image.FORMAT_RGBA8)
+	if used.size.x < 2 or used.size.y < 2:
+		return out
+	var part := img.get_region(used)
+	var k := float(PX) * 0.88 / float(maxi(used.size.x, used.size.y))
+	part.resize(maxi(int(used.size.x * k), 1), maxi(int(used.size.y * k), 1), Image.INTERPOLATE_LANCZOS)
+	out.blend_rect(part, Rect2i(Vector2i.ZERO, part.get_size()),
+			Vector2i(floori((PX - part.get_width()) * 0.5), floori((PX - part.get_height()) * 0.5)))
+	return out

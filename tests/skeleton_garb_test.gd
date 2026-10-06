@@ -104,6 +104,22 @@ func _run() -> void:
 		_check("the body's socket beside him shows what he wears", String(body.get("sk", "")) == "sk_warrior_top", str(body))
 		inv._take_off_slot("sk_top")
 		_check("clicked, it comes off", not (rig.call("get_look") as Dictionary).has("sk_top"))
+		# his own clothes, piece by piece, beside the skeletons'
+		var own: Array = inv._items().filter(func(it: Dictionary) -> bool: return it.has("own"))
+		var with_pics := own.filter(func(it: Dictionary) -> bool: return ResourceLoader.exists(String(it.pic)))
+		_check("his own coats, breeches and hats are things in the bag, each with its picture",
+				own.size() >= 6 and with_pics.size() == own.size(), "%d, %d with pictures" % [own.size(), with_pics.size()])
+		look = rig.call("get_look")
+		look["sk_top"] = "sk_archer_top"
+		hero.set_look(look)
+		var items := inv._items()
+		for i in items.size():
+			if String(items[i].get("own", "")) == "top" and String(items[i].key) != String(look.get("top", "")):
+				inv._use(i)
+				break
+		var now: Dictionary = rig.call("get_look")
+		_check("one of his own coats put on takes the skeleton's off", not now.has("sk_top")
+				and String(now.get("top", "")) != String(look.get("top", "")), str(now.get("top")))
 	for id: String in SkeletonGarb.PIECES:
 		var cloth := SkeletonGarb.cloth_of(id)
 		_check("%s: cloth only, no bones in it" % id, cloth != null and cloth.get_surface_count() >= 1)

@@ -5978,6 +5978,14 @@ pieces takes it off. The hero himself turns when dragged across, and is
 dressed again at once when something is put on or taken off. On his own
 figure his model's outfits are not listed (they are not on him).
 
+**His own clothes piece by piece too** (the user's word): the coat, the
+breeches and the hat of each of his outfits (his classes,
+`PolysplitLook.classes`) are things in the bag of their own, each with its
+picture (`tools/bake_own_garb_icons.gd`: the figure's mesh alone, as his
+default look dyes it, so a coat dyed otherwise in the maker shows the
+default dye here); put on, one takes the place of the skeleton's piece on that
+part of him, and his hat comes off again with Enter.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 
