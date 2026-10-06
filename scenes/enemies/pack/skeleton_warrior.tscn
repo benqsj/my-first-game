@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/shield_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/creatures/Skeleton_Warrior.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
@@ -53,7 +53,7 @@ walk_clip = &"CR_Walk"
 idle_clip = &"CR_Idle"
 fidget_clip = &"CR_Idle"
 fidget_interval = 0.0
-loop_clips = PackedStringArray("CR_Idle", "CR_ShieldIdle", "CR_Walk", "CR_Run", "CR_StrafeL", "CR_StrafeR", "CR_WalkBack")
+loop_clips = PackedStringArray("CR_Idle", "CR_ShieldIdle", "CR_Walk", "CR_Run", "CR_StrafeL", "CR_StrafeR", "CR_WalkBack", "CR_Block", "CR_ShieldWalk", "CR_ShieldBack", "CR_ShieldL", "CR_ShieldR")
 sight_range = 14
 leash_radius = 35.0
 chase_speed = 4.4
@@ -63,8 +63,8 @@ bar_height = 2.137
 body_radius = 0.342
 body_height = 1.758
 max_stamina = 100
-block_chance = 0.25
-dash_chance = 0.1
+block_chance = 0.0
+dash_chance = 0.0
 p_def = 30
 m_def = 10
 reach = 2.025
@@ -102,14 +102,14 @@ too_close = 0.35
 steady_in_attack = true
 hit_cost = 0.0
 attack_cost = 10.0
-regen_delay = 0.5
-stamina_regen = 30.0
+regen_delay = 1.0
+stamina_regen = 16.0
 blow_min_speed = 2.0
 strafe_l_clip = &"CR_StrafeL"
 strafe_r_clip = &"CR_StrafeR"
 back_clip = &"CR_WalkBack"
-counter_after = 0.3
-block_cost = 20.0
+counter_after = 0.35
+block_cost = 22.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)

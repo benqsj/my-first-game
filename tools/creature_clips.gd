@@ -105,6 +105,17 @@ const CLIPS := [
 	["CR_Rise", "Zombie_Spawn", false],
 ]
 
+## Clips made of two baked here: the legs (and hips) of the first, the body
+## from the waist up of the second, the second looped under the first's
+## length. The skeleton warrior walking in behind its raised shield.
+## [name here, legs from, waist up from]
+const LAYERED := [
+	["CR_ShieldWalk", "CR_Walk", "CR_Block"],
+	["CR_ShieldBack", "CR_WalkBack", "CR_Block"],
+	["CR_ShieldL", "CR_StrafeL", "CR_Block"],
+	["CR_ShieldR", "CR_StrafeR", "CR_Block"],
+]
+
 var _map := {}  # figure bone -> mannequin bone
 var _aim := {}  # figure bone -> [figure child, mannequin child] its direction is taken toward
 
@@ -285,6 +296,8 @@ func _run() -> void:
 		meta[String(c[0])] = {"frames": count, "fps": int(FPS), "loop": loop, "hips": path, "from": str(c[1])}
 		print("CLIP ", c[0], " <- ", c[1], " frames ", count, " travel %.2f" % float(path[-1][0]))
 
+	_layer(out_lib, meta, fig)
+
 	# The bare skeleton and the player, as a scene SkeletonAnim can load.
 	var holder := Node3D.new()
 	holder.name = "BipedClips"
@@ -332,3 +345,39 @@ func _run() -> void:
 		sc.free()
 	print("SAVED ", OUT, " err ", err, " clips ", out_lib.get_animation_list().size())
 	quit()
+
+
+## The LAYERED clips, out of clips already baked: every key of the legs'
+## clip kept, the waist and all above it turned as the other clip has them
+## at that moment (looped).
+func _layer(out_lib: AnimationLibrary, meta: Dictionary, fig: Skeleton3D) -> void:
+	var waist := fig.find_bone("waist_joint")
+	for c: Array in LAYERED:
+		var legs := out_lib.get_animation(StringName(c[1]))
+		var upper := out_lib.get_animation(StringName(c[2]))
+		if legs == null or upper == null:
+			push_error("layered %s: missing %s / %s" % [c[0], c[1], c[2]])
+			continue
+		var anim := legs.duplicate(true) as Animation
+		var swapped := 0
+		for tr in anim.get_track_count():
+			if anim.track_get_type(tr) != Animation.TYPE_ROTATION_3D:
+				continue
+			var bone := fig.find_bone(String(anim.track_get_path(tr)).get_slice(":", 1))
+			var b := bone
+			while b >= 0 and b != waist:
+				b = fig.get_bone_parent(b)
+			if b != waist:
+				continue
+			var src := upper.find_track(anim.track_get_path(tr), Animation.TYPE_ROTATION_3D)
+			if src < 0:
+				continue
+			for k in anim.track_get_key_count(tr):
+				var t := fmod(anim.track_get_key_time(tr, k), upper.length)
+				anim.track_set_key_value(tr, k, upper.rotation_track_interpolate(src, t))
+			swapped += 1
+		out_lib.add_animation(StringName(c[0]), anim)
+		var m: Dictionary = (meta[String(c[1])] as Dictionary).duplicate(true)
+		m["from"] = "%s legs, %s waist up" % [c[1], c[2]]
+		meta[String(c[0])] = m
+		print("LAYERED ", c[0], " bones from ", c[2], ": ", swapped)

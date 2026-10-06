@@ -5814,6 +5814,44 @@ all of them, it steps back first.
 bursts strike a hero standing still and it raises the dead; up close it
 blasts him off.
 
+### The skeleton warrior fights behind its shield (2026-10-06, the user's picks)
+
+`ShieldFighter` (`scripts/shield_fighter.gd`, a [Brawler]) in
+`scenes/enemies/pack/skeleton_warrior.tscn`:
+
+- **Behind the shield.** Roused and within 7.5 m of him it stops running and
+  walks in behind its raised shield (1.6 m/s), and stands behind it between
+  its blows. The clips are new: `CR_ShieldWalk`, `CR_ShieldBack`,
+  `CR_ShieldL`, `CR_ShieldR`, the walk's legs and hips under
+  `KV_BlockShield01_Loop`'s waist and everything above it
+  (tools/creature_clips.gd `LAYERED`; 73 clips). Standing, `CR_Block`.
+- **What the shield takes.** A cut at its front (the dot of its facing and
+  the way to the striker above 0.2) while the shield is up is caught: the
+  Fighter's own block (22 stamina a cut, the clash and the ring of it), and
+  with the guard spent it breaks and stands open (`guard_break_time`). From
+  the side or behind, and spells, get through. Its stamina comes back slowly
+  (16 a second after 1 s), so four or five cuts in a row break it. It no
+  longer dodges.
+- **The bash and the sword.** Once his blows stop coming (0.35 s), it
+  answers from behind the shield, mostly (80 %) with the shield thrown into
+  him (`CR_ShieldBash` 0 to 0.55 at x1.2, 0.6 of a blow) and straight out of
+  it the sword (`CR_Slash1` 0.12 to 0.85 at x1.3), one combo to the hero
+  (acts `BASH` 74 and `FOLLOW` 75 on one serial, blows 0 and 1). A third of
+  its own attacks are the same.
+- **Broken into bones.** Cut down, it comes apart where it stands
+  ([BoneShatter], `scripts/bone_shatter.gd`): each triangle goes with the bone
+  holding most of its first corner, carried up to the nearest of 18 pieces
+  (skull with the helm, chest, spine, pelvis, the arms, hands, legs and feet,
+  the sword, the shield), laid down as posed that frame, each a RigidBody3D
+  on the world's layer only, thrown the way the last blow went, spinning;
+  the bigger ones clatter as they land, and they sink away with the corpse.
+  Every peer breaks its own.
+
+`tests/shield_warrior_test.gd`: walks in behind the shield, not running; a
+cut at its front is caught and one from behind is not; spent, the guard
+breaks; caught, it answers bash then sword, both landing on a hero standing
+still; cut down, 18 pieces that come to rest on the floor.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 
