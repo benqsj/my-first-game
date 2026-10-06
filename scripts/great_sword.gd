@@ -22,12 +22,17 @@ const STRINGS: Array = [
 			&"KV_Attack1H02_R"], "recover": {}},
 ]
 
+## Seconds of the clip before its cut each blow is played from (the other
+## strings' Moveset.LEAD 0.28): the blade gathered from further back.
+const GATHER := 0.38
+
 
 ## Lays the design over `t`, a [method Moveset.build] table for two hands.
 static func apply(t: Dictionary) -> void:
 	t["strings"] = [(STRINGS[0]["clips"] as Array).duplicate()]
 	t["recover"] = {}
 	t["string_sets"] = STRINGS
+	t["swing_from"] = {}
 	# the block button throws the other string ([method SkinnedRig.block_throws_string])
 	t["block_strings"] = true
 	for s: Dictionary in STRINGS:
@@ -36,6 +41,14 @@ static func apply(t: Dictionary) -> void:
 			var cuts: Array = Moveset.clip_meta(c).get("cuts", [])
 			var from := 0.0
 			if not cuts.is_empty():
-				from = Moveset._part(c, Vector2(float(cuts[0][0]), float(cuts[0][1]))).x
+				# gathered from further back than the other strings' blows
+				var clip_len := float(Moveset.clip_meta(c).get("length", 1.0))
+				from = maxf(float(cuts[0][0]) - GATHER / clip_len, 0.0)
 			# from a little before its cut to the clip's end: back to guard
 			t["flurry_part"][c] = Vector2(from, 1.0)
+			# where the swing sets off: the start of the measured arc that
+			# runs into the cut ([member SkinnedRig.swing_from])
+			if not cuts.is_empty():
+				for tr: Array in Moveset.clip_meta(c).get("trails", []):
+					if float(tr[0]) <= float(cuts[0][0]) and float(tr[1]) >= float(cuts[0][0]):
+						t["swing_from"][c] = float(tr[0])

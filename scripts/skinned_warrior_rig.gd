@@ -169,13 +169,19 @@ func _configure() -> void:
 	# gathered slowly, falling all at once, and brought back to guard slower
 	# than it went (a string's end slower still), the stance eased back in;
 	# its bite held longer and felt in the view.
-	windup_pace = 0.72
-	strike_pace = 1.45
+	windup_pace = 0.8
 	strike_lead = 0.1
+	# a beat held at the top, then thrown, speeding up into the cut, and the
+	# blade's weight carrying it on past it before it slows to the way back
+	hang_time = 0.08
+	hang_pace = 0.12
+	strike_from_pace = 0.9
+	strike_pace = 1.75
+	settle_time = 0.16
 	# from one blow into the next (A into B, B into C...) the blade carried
-	# over slowly: the last one's follow-through played on a little longer
-	# before the next may start, blended into it, its wind-up slower still
-	chain_windup_pace = 0.68
+	# over a little slower: the last one's follow-through played on before
+	# the next may start, blended into it, its wind-up slower
+	chain_windup_pace = 0.72
 	chain_blend = 0.18
 	recover_pace = 0.95
 	last_recover_pace = 0.8

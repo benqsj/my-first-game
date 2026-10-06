@@ -60,6 +60,8 @@ func _one_blow(action: String) -> Dictionary:
 	var pace_cut := 0.0
 	var pace_back := 0.0
 	var pace_gather := 0.0
+	var hung := 0.0
+	var to_cut := -1.0
 	var clip := rig.current_swing()
 	while rig.current_swing() != &"" and t < 6.0:
 		await physics_frame
@@ -69,13 +71,17 @@ func _one_blow(action: String) -> Dictionary:
 		if OS.has_environment("GS_TRACE"):
 			print("      t %.3f at %.3f sc %.2f ph %d k %.2f stop %.2f" % [t, at, rig._anim.speed_scale, rig._blow_phase, rig._blow_k, rig._stop_left])
 		if rig._stop_left <= 0.0:
+			if rig._blow_phase == 3:
+				hung += 1.0 / Engine.physics_ticks_per_second
+			if to_cut < 0.0 and at >= w.x:
+				to_cut = t
 			if rig._blow_phase == 0:
 				pace_gather = rig._anim.speed_scale
 			elif at >= w.x and at <= w.y:
 				pace_cut = rig._anim.speed_scale
 			elif at > w.y + rig.cut_margin + 0.02:
 				pace_back = rig._anim.speed_scale
-	return {"clip": clip, "t": t, "cut": pace_cut, "back": pace_back, "gather": pace_gather}
+	return {"clip": clip, "t": t, "cut": pace_cut, "back": pace_back, "gather": pace_gather, "hung": hung, "to_cut": to_cut}
 
 
 func _initialize() -> void:
@@ -127,11 +133,14 @@ func _initialize() -> void:
 	rig.last_recover_pace = 1.0
 	rig.windup_pace = 1.0
 	rig.strike_pace = 1.0
+	var hang_was := rig.hang_time
+	rig.hang_time = 0.0
 	var plain := await _one_blow("attack")
 	rig.recover_pace = keep[0]
 	rig.last_recover_pace = keep[1]
 	rig.windup_pace = keep[2]
 	rig.strike_pace = keep[3]
+	rig.hang_time = hang_was
 	await _frames(200)
 	print("    first blow %s: %.2f s heavy (pace gather %.2f, cut %.2f, back %.2f), %.2f s as made" % [slow["clip"],
 			slow["t"], slow["gather"], slow["cut"], slow["back"], plain["t"]])
@@ -139,7 +148,10 @@ func _initialize() -> void:
 			"%.2f vs %.2f" % [slow["gather"], slow["cut"]])
 	_check("the way back slower than the cut", slow["back"] < slow["cut"] * 0.8,
 			"%.2f vs %.2f" % [slow["back"], slow["cut"]])
-	_check("the blow lasts longer left alone", slow["t"] > plain["t"] + 0.03, "%.2f vs %.2f" % [slow["t"], plain["t"]])
+	print("    the cut %.2f s after the press (%.2f as made), held %.2f s at the top" % [slow["to_cut"],
+			plain["to_cut"], slow["hung"]])
+	_check("a beat held at the top of the gather", slow["hung"] > 0.04 and plain["hung"] == 0.0,
+			"%.2f s" % slow["hung"])
 	player.stamina = player.max_stamina
 
 	# the string's last blow comes back slower still

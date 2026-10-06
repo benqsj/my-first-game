@@ -236,9 +236,25 @@ var chain_blend: float = -1.0
 ## The camera shaken when his blade bites (times the blow's weight), his own
 ## view only; 0: not at all.
 var land_shake: float = 0.0
-## 0 the wind-up, 1 the swing, 2 the way back; the share of the pace now.
+## Elden Ring's great sword, as it reads (the user's word, 2026-10-06): the
+## blade gathered, a beat held at the top of it (`hang_time` s of the real
+## clock at `hang_pace`), then thrown — the swing setting off at
+## `strike_from_pace` and speeding up (eased in) to `strike_pace` by the cut —
+## and its weight carrying it on past the cut, easing down to the way back's
+## pace over `settle_time` s. Where the swing sets off (a share of the clip;
+## the measured arc's start), by clip; else `strike_lead` before the cut.
+var swing_from: Dictionary = {}
+var hang_time: float = 0.0
+var hang_pace: float = 0.15
+var strike_from_pace: float = -1.0
+var settle_time: float = 0.0
+## 0 the wind-up, 3 held at its top, 1 the swing, 2 the way back; the share
+## of the pace now; seconds in the hold or the way back; whether the blow in
+## hand was weighed so (its commit is then `_swing_commit`).
 var _blow_phase: int = 2
 var _blow_k: float = 1.0
+var _blow_t: float = 0.0
+var _weighed: bool = false
 var _ease_back: float = -1.0
 ## Swings play at this rate. Mixamo's are unhurried; the game is not.
 @export var swing_rate: float = 1.6
@@ -1011,7 +1027,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 		if _attack_cutting:
 			_strike_world()
 		if _role == Role.SWING and not _air_cut and _hold_at <= 0.0:
-			_pace_phase(through)
+			_pace_phase(through, delta)
 		if _role == Role.SWING and _heavy_now and not _slam_done:
 			var slam := _slam_share()
 			if slam > 0.0 and through >= slam:
@@ -1347,6 +1363,8 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_recovering = false
 	_blow_phase = 2
 	_blow_k = 1.0
+	_blow_t = 0.0
+	_weighed = false
 	_ease_back = -1.0
 	_evade_cut = false
 	_act_clip = clip
@@ -1476,21 +1494,69 @@ func _last_blow() -> bool:
 			and _flurry_slot == flurry.size() - 1)
 
 
-## Where the blow in hand has got to, its pace with it: the wind-up, the
-## swing (from `strike_lead` before the cut to its end) and, once it has cut,
-## the way back at `recover_pace` (`last_recover_pace` at a string's end).
-func _pace_phase(through: float) -> void:
-	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
-	var many: Array = cut_windows.get(_act_clip, [])
-	if not many.is_empty():
-		w = Vector2((many[0] as Vector2).x, (many[many.size() - 1] as Vector2).y)
+## Where the blow in hand has got to, its pace with it (see `swing_from`):
+## the wind-up, the beat held at its top, the swing speeding up into the cut
+## and, once it has cut, carried on and easing down to the way back's pace
+## (`recover_pace`, `last_recover_pace` at a string's end). A blow not
+## weighed (`_weigh_blow`) only gets the way back's pace.
+func _pace_phase(through: float, delta: float) -> void:
+	var w := _whole_cut(_act_clip)
 	if w == Vector2.ZERO:
 		return
-	var lead := strike_lead / maxf(_action_len, 0.01)
-	if through >= w.y + cut_margin:
-		_set_blow_phase(2, last_recover_pace if _last_blow() else recover_pace)
-	elif _blow_phase == 0 and through >= w.x - lead:
-		_set_blow_phase(1, strike_pace)
+	var back := last_recover_pace if _last_blow() else recover_pace
+	if not _weighed:
+		if through >= w.y + cut_margin:
+			_set_blow_phase(2, back)
+		return
+	var held := _stop_left > 0.0
+	var phase := _blow_phase
+	var s0 := _swing_start(_act_clip, w)
+	if phase == 0 and through >= s0:
+		phase = 3 if hang_time > 0.0 else 1
+		_blow_t = 0.0
+	if phase == 3:
+		if not held:
+			_blow_t += delta
+		if _blow_t >= hang_time:
+			phase = 1
+	if phase == 1 and through >= w.y + cut_margin:
+		phase = 2
+		_blow_t = 0.0
+	var k := _blow_k
+	match phase:
+		3:
+			k = hang_pace
+		1:
+			k = _strike_k(through, s0, w.x)
+		2:
+			if not held:
+				_blow_t += delta
+			k = lerpf(strike_pace, back, smoothstep(0.0, settle_time, _blow_t)) if settle_time > 0.0 else back
+	if phase != _blow_phase or absf(k - _blow_k) > 0.001:
+		_set_blow_phase(phase, k)
+
+
+## The cut of `clip` whole (its first window's start to its last's end).
+func _whole_cut(clip: StringName) -> Vector2:
+	var w: Vector2 = cut_window.get(clip, Vector2.ZERO)
+	var many: Array = cut_windows.get(clip, [])
+	if not many.is_empty():
+		w = Vector2((many[0] as Vector2).x, (many[many.size() - 1] as Vector2).y)
+	return w
+
+
+## Where the swing of `clip` sets off (a share of it), no later than its cut.
+func _swing_start(clip: StringName, w: Vector2) -> float:
+	var at := float(swing_from.get(clip, w.x - strike_lead / maxf(_action_len, 0.01)))
+	return minf(at, w.x)
+
+
+## The swing's pace at `through`: from `strike_from_pace` at `s0`, eased in up
+## to `strike_pace` by the cut at `cut`.
+func _strike_k(through: float, s0: float, cut: float) -> float:
+	var from := strike_from_pace if strike_from_pace > 0.0 else strike_pace
+	var u := clampf((through - s0) / maxf(cut - s0, 0.001), 0.0, 1.0)
+	return lerpf(from, strike_pace, u * u)
 
 
 ## The blow's pace made `k` of its own from now on (and the time left of it
@@ -1511,23 +1577,32 @@ func _set_blow_phase(phase: int, k: float) -> void:
 		_anim.speed_scale *= ratio
 
 
-## A string's blow played heavy (see `windup_pace`): started at its wind-up's
-## pace, held to it till the swing, and given back once it has cut, the
-## commit worked out over the three.
+## A string's blow played heavy (see `windup_pace`, `swing_from`): started
+## at its wind-up's pace, and its commit worked out over the wind-up, the
+## beat at its top and the swing speeding up to the cut's end.
 func _weigh_blow(clip: StringName, rate: float, from: float, windup: float) -> void:
-	if absf(windup - 1.0) < 0.001 and absf(strike_pace - 1.0) < 0.001:
+	if absf(windup - 1.0) < 0.001 and absf(strike_pace - 1.0) < 0.001 and hang_time <= 0.0:
 		return
-	var w: Vector2 = cut_window.get(clip, Vector2.ZERO)
+	var w := _whole_cut(clip)
 	if w == Vector2.ZERO:
 		return
-	_set_blow_phase(0, windup)
+	_weighed = true
 	var clip_len := _action_len
-	var lead := strike_lead / maxf(clip_len, 0.01)
-	var s0 := maxf(w.x - lead, from)
-	if from >= s0:
-		_set_blow_phase(1, strike_pace)
-	_swing_commit = clip_len * maxf(s0 - from, 0.0) / (rate * windup) \
-			+ clip_len * maxf(w.y - s0, 0.0) / (rate * strike_pace) + swing_recovery
+	var s0 := _swing_start(clip, w)
+	var t := 0.0
+	if from < s0:
+		_set_blow_phase(0, windup)
+		t += clip_len * (s0 - from) / (rate * windup) + hang_time
+	else:
+		_set_blow_phase(1, _strike_k(from, s0, w.x))
+	# the swing, speeding up: summed in steps
+	var a := maxf(s0, from)
+	var steps := 16
+	for i in steps:
+		var p := a + (w.x - a) * (float(i) + 0.5) / float(steps)
+		t += clip_len * (w.x - a) / float(steps) / (rate * _strike_k(p, s0, w.x))
+	t += clip_len * maxf(w.y - maxf(w.x, from), 0.0) / (rate * strike_pace)
+	_swing_commit = t + swing_recovery
 
 
 ## Its travel is carrying him (see `carried`).
@@ -1662,12 +1737,13 @@ func _whoosh() -> void:
 	if w != Vector2.ZERO and _action_len > 0.0 and _action_rate > 0.0:
 		# A touch before the window opens: a slash is heard as the blade comes.
 		lead = maxf(_action_len * (w.x - _action_from) / _action_rate - 0.06, 0.0)
-		if _blow_phase == 0 and _role == Role.SWING:
-			# gathered at the wind-up's pace, then fallen at the swing's
+		if _weighed and _role == Role.SWING:
+			# gathered, held, then thrown: the time to the cut is the commit
+			# less the cut itself and what follows it
 			var base := _action_rate / maxf(_blow_k, 0.01)
-			var s0 := maxf(w.x - strike_lead / maxf(_action_len, 0.01), _action_from)
-			lead = maxf(_action_len * (s0 - _action_from) / _action_rate
-					+ _action_len * (w.x - s0) / (base * maxf(strike_pace, 0.1)) - 0.06, 0.0)
+			var whole := _whole_cut(_act_clip)
+			lead = maxf(_swing_commit - swing_recovery
+					- _action_len * maxf(whole.y - w.x, 0.0) / (base * maxf(strike_pace, 0.1)) - 0.06, 0.0)
 	if lead <= 0.01:
 		_whoosh_now()
 		return
@@ -1910,6 +1986,8 @@ func dragging() -> bool:
 func swing_time() -> float:
 	if _role != Role.SWING or _action_len <= 0.0:
 		return attack_duration
+	if _weighed:
+		return _swing_commit
 	var w: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
 	var many: Array = cut_windows.get(_act_clip, [])
 	if not many.is_empty():
@@ -2940,6 +3018,7 @@ func _wear_moves() -> void:
 		flurry.assign(_strings[0])
 	for key: String in ["flurry_part", "cut_window", "cut_windows", "trail_window"]:
 		(get(key) as Dictionary).merge(moves[key], true)
+	swing_from = (moves.get("swing_from", {}) as Dictionary).duplicate()
 	if not (moves["heavy"] as Array).is_empty():
 		heavy = (moves["heavy"] as Array).duplicate(true)
 	if flurry_reset_after <= 0.0:

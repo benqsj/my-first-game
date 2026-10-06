@@ -8367,3 +8367,24 @@ aim through the same modifier and are mended with it.
 
 The blade carried over from blow to blow a little quicker: `chain_windup_pace`
 0.68 (was 0.6), `chain_blend` 0.18 s, `swing_recovery` 0.22.
+
+### Gathered, held, thrown: the swing's curve (2026-10-06, the user's word)
+
+Step paces read as slow, not heavy. Elden Ring's great swords read heavy by
+their curve: the blade gathered (the backswing), a beat held at the top, then
+thrown, speeding up into the cut, and the weight carrying it on past the cut
+before it slows. `SkinnedRig._pace_phase` now runs that curve every tick:
+wind-up at `windup_pace` (the warrior's 0.8, a chained blow 0.72) -> held
+`hang_time` 0.08 s at `hang_pace` 0.12 where the swing sets off
+(`swing_from`, the start of the measured arc that runs into the cut,
+[GreatSword]) -> the swing eased in from `strike_from_pace` 0.9 to
+`strike_pace` 1.75 by the cut -> past the cut eased down to the way back's
+pace over `settle_time` 0.16 s. GreatSword plays each blow from 0.38 s of the
+clip before its cut (`GATHER`; the other strings 0.28), so the gather is seen.
+The commit is summed over the curve (`_weigh_blow`; `swing_time()` returns it,
+so the controller's commit is the same), the whoosh comes as the blade does.
+A first blow: the cut 0.57 s after the press (0.42 played as made).
+
+The knight's evades slower (warrior and Amirani): the dash 8.8 m/s for 0.58 s
+(was 11 for 0.45), the dodge 7.0 for 0.85 s (8.5 for 0.7); the roll's clip is
+fitted to the time, so it plays slower too.
