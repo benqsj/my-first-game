@@ -1052,7 +1052,8 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			_strike_world()
 		if _role == Role.SWING and not _air_cut and _hold_at <= 0.0:
 			_pace_phase(through, delta)
-		if _role == Role.SWING and (_heavy_now or _cut_slam > 0.0) and not _slam_done:
+		if (_role == Role.SWING and (_heavy_now or _cut_slam > 0.0) or _role == Role.PLUNGE and _cut_slam > 0.0) \
+				and not _slam_done:
 			var slam := _cut_slam if _cut_slam > 0.0 else _slam_share()
 			# (a running cut's: the moment the blade's point is down at the
 			# ground, past its cut, not the clip's lowest point after it: the
@@ -1660,6 +1661,17 @@ func _swing_times(from: float, w: Vector2, rate: float, s0: float) -> Vector2:
 
 ## Seconds from the blow being weighed to its cut (a leap's time in the air).
 var _to_cut: float = 0.0
+
+
+## Seconds from the blow being weighed to its blade in the ground (its
+## `_cut_slam`; else to its cut): a leap's time in the air, so the body and
+## the blade come down together.
+func time_to_slam() -> float:
+	var w := _whole_cut(_act_clip)
+	if _cut_slam <= w.x or _action_len <= 0.0:
+		return _to_cut
+	var base := _action_rate / maxf(_blow_k, 0.01)
+	return _to_cut + _action_len * (_cut_slam - w.x) / maxf(base * strike_pace * _strike_boost, 0.01)
 ## The ground broken open where his blade goes in (the spikes and the wave of
 ## earth, [GroundFx]); false: dust and the thud only (the knight, the user's
 ## word 2026-10-06).
@@ -2140,10 +2152,19 @@ func plunge(seconds: float) -> void:
 		_action_rate = maxf(length * (1.0 - at) / _plunge_left, 0.05)
 		_action_left = _plunge_left
 		_anim.speed_scale = _action_rate
+		_plunge_slam()
 		return
 	# The landing of the jump attack — the blade going in and the body coming
 	# back up over it — stretched over however long the recovery is.
 	_play_action(clips[&"plunge"], Role.PLUNGE, length * (1.0 - plunge_from) / _plunge_left, 0.06, plunge_from, 1.0)
+	_plunge_slam()
+
+
+## A jump attack whose blade goes into the ground (the moves' `jump_attack`
+## `slam`, the knight's): it shakes the ground there as the charge's does.
+func _plunge_slam() -> void:
+	_cut_slam = float((moves.get("jump_attack", {}) as Dictionary).get("slam", -1.0)) if _on_mq else -1.0
+	_slam_done = false
 
 
 func is_planted() -> bool:
@@ -3143,7 +3164,7 @@ func _wear_moves() -> void:
 	if moves.has("jump_attack"):
 		# from the aerial pose up to the blade over the head, held till the
 		# ground; the landing plays on from there ([Swordsman])
-		air_cut_from = 0.0
+		air_cut_from = float(moves["jump_attack"].get("from", 0.0))
 		plunge_from = float(moves["jump_attack"]["hold"])
 	# from the walk to the run halfway between their paces, each played as
 	# near its own pace as it can be

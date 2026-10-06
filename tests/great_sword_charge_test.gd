@@ -32,7 +32,8 @@ func _release_all() -> void:
 
 ## Runs ahead (at a sprint or not), presses `button` and holds it `hold`
 ## seconds, then lets go of `let_go`; what came of it.
-func _charge(sprint: bool, button: String, hold: float, let_go: String, jump_at: float = -1.0) -> Dictionary:
+func _charge(sprint: bool, button: String, hold: float, let_go: String, jump_at: float = -1.0,
+		watch_turn: bool = false) -> Dictionary:
 	player.stamina = player.max_stamina
 	Input.action_press("move_forward")
 	if sprint:
@@ -43,6 +44,8 @@ func _charge(sprint: bool, button: String, hold: float, let_go: String, jump_at:
 	var out := {"charging": player._cut_charging, "clip": rig.current_swing(), "slam": false, "went": 0.0,
 			"held_run": 0.0, "top": 0.0, "released_at": -1.0, "start_z": player.global_position.z}
 	var y0 := player.global_position.y
+	var was_v := Vector2.ZERO
+	out["turn_rate"] = 0.0
 	var t := 0.0
 	var z := 0.0
 	var z0 := player.global_position.z
@@ -64,6 +67,13 @@ func _charge(sprint: bool, button: String, hold: float, let_go: String, jump_at:
 		if rig.current_swing() != &"":
 			out["last"] = rig.current_swing()
 		out["top"] = maxf(float(out["top"]), player.global_position.y - y0)
+		if watch_turn and player._cut_charging:
+			var v := Vector2(player.velocity.x, player.velocity.z)
+			if v.length() > 1.0:
+				if was_v != Vector2.ZERO:
+					out["turn_rate"] = maxf(float(out.get("turn_rate", 0.0)),
+							rad_to_deg(absf(was_v.angle_to(v))) * Engine.physics_ticks_per_second)
+				was_v = v
 		if float(out["released_at"]) < 0.0 and out["charging"] and not player._cut_charging:
 			out["released_at"] = t
 			out["run_to_release"] = absf(player.global_position.z - float(out["start_z"]))
@@ -140,6 +150,38 @@ func _initialize() -> void:
 	_check("near enough to reach it", float(r.get("slam_d", 9.0)) < 3.2 and float(r.get("slam_d", 0.0)) > 1.0,
 			"%.2f m" % float(r.get("slam_d", -1.0)))
 	player._drop_target()
+
+	# locked on to something off to the side: he runs on the way he is pushed
+	player.global_position = Vector3(0.0, 0.5, 26.0)
+	player.rotation.y = 0.0
+	await _frames(30)
+	foe.global_position = player.global_position + Vector3(9.0, 0, -9.0)
+	player._hold_target(foe)
+	r = await _charge(true, "attack", 1.0, "attack", -1.0, true)
+	print("    locked on off to the side: turned %.0f degrees a second at most in the charge" % float(r["turn_rate"]))
+	_check("locked on, he comes round in an arc, not drawn at it", float(r["turn_rate"]) < 75.0,
+			"%.0f deg/s" % float(r["turn_rate"]))
+	player._drop_target()
+
+	# the jump, then the attack button in the air: the leap's blow
+	player.global_position = Vector3(0.0, 0.5, 26.0)
+	await _frames(30)
+	player.stamina = player.max_stamina
+	Input.action_press("jump")
+	await _frames(2)
+	Input.action_release("jump")
+	await _frames(12)
+	Input.action_press("attack")
+	await _frames(2)
+	Input.action_release("attack")
+	var air_clip := rig.current_swing()
+	rig._slam_done = false
+	var slammed := false
+	for i in 150:
+		await physics_frame
+		slammed = slammed or rig._slam_done
+	_check("the jump attack is the leap's blow, into the ground", air_clip == GreatSword.JUMP_ATTACK["clip"] and slammed,
+			"%s %s" % [air_clip, slammed])
 
 	foe.global_position = Vector3(0.0, 0.5, 200.0)
 	r = await _charge(true, "attack", 3.0, "", 0.7)

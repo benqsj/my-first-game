@@ -49,9 +49,17 @@ const MODES: Array = [
 const CHARGE := {"clip": &"KV_Attack2H02", "rate": 1.0, "weight": 2.3, "hold": 0.3, "creep": 0.06,
 	"creep_until": 0.33, "hold_max": 1.3, "pace": 1.0, "strike_gap": 1.6, "string_at": -1, "slam": 0.674,
 	"sprint_only": true, "hold_button": true, "locked_only": true, "stop_on_release": true,
-	"fast_release": true, "strike_boost": 1.3, "leap_on_jump": true,
+	"fast_release": true, "strike_boost": 1.3, "leap_on_jump": true, "follow_push": true,
 	"leap": {"clip": &"KV_Attack2H04", "from": 0.12, "rate": 1.0, "windup": 0.55, "weight": 2.6, "slam": 0.429,
 		"gap": 6.2, "strike_boost": 1.3}}
+
+
+## The jump attack (jump, then the attack button): the charge's leap, Kevin's
+## 2H04, from its own wind-up (`from`) up to the blade over his head in the air
+## (`hold`), held there till the ground, and down into it as he lands
+## (`slam`: the dust and the shake). It was his own Mixamo jump attack, the
+## body coming down and the blade after it (the user's word, 2026-10-06).
+const JUMP_ATTACK := {"clip": &"KV_Attack2H04", "from": 0.12, "hold": 0.28, "slam": 0.429}
 
 
 ## Seconds of the clip before its cut each blow is played from (the other
@@ -72,6 +80,8 @@ static func apply(t: Dictionary) -> void:
 	t["string_sets"] = sets
 	t["modes"] = MODES
 	t["run_attack"] = CHARGE.duplicate(true)
+	t["jump_attack"] = JUMP_ATTACK.duplicate()
+	t["clips"][&"plunge"] = JUMP_ATTACK["clip"]
 	# Tariel's blows flow one into the next: played as made, each to its end
 	# ([member SkinnedRig.played_out])
 	t["played_out"] = {}

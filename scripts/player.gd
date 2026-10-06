@@ -434,6 +434,10 @@ var _dash_timer: float = 0.0
 var _dash_cooldown_timer: float = 0.0
 var _dash_direction: Vector3 = Vector3.ZERO
 var _was_on_floor: bool = true
+## Until when a landing makes no sound of its own (the knight's leap comes
+## down with his blade, which has its own: not the body's thump and then the
+## blade's, the user's word 2026-10-06).
+var _quiet_landing_until: float = -100.0
 ## Fastest the player may travel horizontally while airborne: whatever it left
 ## the ground with. Air control steers the jump, it does not accelerate it.
 var _air_speed_cap: float = 0.0
@@ -3001,13 +3005,17 @@ func _attack(heavy: bool = false) -> void:
 	# what he is fighting. It snaps here rather than easing, because the swing
 	# starts now and an attack that turns into the target halfway through it is a
 	# cut that misses.
-	_turn_to_target()
+	# (not the knight's charge: he runs on the way he is going, `follow_push`,
+	# the user's word 2026-10-06)
+	var free_charge := run_cut and bool((rig.call(&"run_cut_spec") as Dictionary).get("follow_push", false))
+	if not free_charge:
+		_turn_to_target()
 	# A rig that aims its cuts ([StrikeAim]) is turned to what it is thrown at
 	# and every peer is told what that is: the host's copy of the swing is the
 	# one that cuts.
 	if _aims_strikes():
 		var foe := _strike_candidate()
-		if foe != null and foe != target:
+		if foe != null and foe != target and not free_charge:
 			var to_them := foe.global_position - global_position
 			to_them.y = 0.0
 			if to_them.length_squared() > 0.0001:
@@ -3064,6 +3072,7 @@ func _attack(heavy: bool = false) -> void:
 				_charge_skill = false
 				_charge_spec = rig.call(&"run_cut_spec")
 				_charge_t0 = _game_t
+				_charge_dir = Vector3(velocity.x, 0.0, velocity.z).normalized()
 				_charge_foe = _charge_target()
 				if bool(_charge_spec.get("locked_only", false)):
 					# (the knight's charge runs at what he is locked on, or
@@ -4226,6 +4235,9 @@ var _charge_foe: Node3D = null
 ## whether it is the skill (it runs at what it picked of itself, standing
 ## start or not).
 var _charge_spec: Dictionary = {}
+## The way the knight's charge runs, and how fast it may be turned (rad/s).
+var _charge_dir: Vector3 = Vector3.ZERO
+const CHARGE_TURN := 1.1
 var _charge_skill: bool = false
 ## How long after the swing goes his run is kept whole (till its cut).
 var _ease_delay: float = 0.0
@@ -4271,6 +4283,20 @@ func _charge_target(seek: float = -1.0) -> Node3D:
 
 
 func _charge_aim(direction: Vector3) -> Vector3:
+	if bool(_charge_spec.get("follow_push", false)):
+		# the knight's charge: on the way he was running, turned after the
+		# push no faster than `CHARGE_TURN` (locked on, the push is towards
+		# what he is locked on: he comes round to it in an arc, not drawn
+		# straight at it, the user's word 2026-10-06)
+		if _charge_dir.is_zero_approx():
+			_charge_dir = -global_basis.z
+			_charge_dir.y = 0.0
+			_charge_dir = _charge_dir.normalized()
+		if not direction.is_zero_approx():
+			var turn := _charge_dir.signed_angle_to(direction, Vector3.UP)
+			var most := CHARGE_TURN * get_physics_process_delta_time()
+			_charge_dir = _charge_dir.rotated(Vector3.UP, clampf(turn, -most, most)).normalized()
+		return _charge_dir
 	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
 		var to := _charge_foe.global_position - global_position
 		to.y = 0.0
@@ -4310,7 +4336,10 @@ func _tick_charge() -> void:
 		# on the jump button, `leap_on_jump`)
 		var on_jump := bool(spec.get("leap_on_jump", false))
 		var gap := float(spec.get("strike_gap", 0.9)) if on_jump else float(lp.get("gap", spec.get("strike_gap", 0.9)))
-		if to.length() - radius - 0.4 <= gap:
+		var ahead := -global_basis.z
+		ahead.y = 0.0
+		var facing := to.length() < 0.01 or ahead.normalized().dot(to.normalized()) > 0.5
+		if to.length() - radius - 0.4 <= gap and (facing or not bool(spec.get("follow_push", false))):
 			go = true
 			leap = not lp.is_empty() and not on_jump
 	elif _charge_skill:
@@ -4335,8 +4364,9 @@ func _tick_charge() -> void:
 		net_release_cut.rpc(leap)
 		if leap and is_on_floor():
 			# off the ground for as long as the leap takes to come down on it
-			var air := clampf(float(rig.get(&"_to_cut")), 0.2, 1.0)
+			var air := clampf(float(rig.call(&"time_to_slam")), 0.2, 1.0)
 			velocity.y = _gravity * air * 0.5
+			_quiet_landing_until = _now() + air + 0.3
 		_commit_timer = 0.0
 		_commit(float(rig.get(&"_swing_commit")))
 		_swing_t0 = _game_t
@@ -4894,7 +4924,7 @@ func _land() -> void:
 	# snap on the next tick.
 	velocity.y = 0.0
 	_air_speed_cap = run_speed
-	if _impact_speed >= land_sound_speed:
+	if _impact_speed >= land_sound_speed and _now() > _quiet_landing_until:
 		_move_sound(MoveSound.LAND, clampf(
 				inverse_lerp(land_sound_speed, hard_landing_speed, _impact_speed), 0.0, 1.0))
 	landed.emit(_impact_speed)

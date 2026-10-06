@@ -8566,3 +8566,18 @@ the leap's blade into the ground 1.74 m from an orc's middle.
 - Both fall harder once let go (`strike_boost` 1.3 on `strike_pace`:
   `SkinnedRig._strike_boost`) and weigh more (2.3, the leap 2.6: the bite held
   longer); the view shaken with the blow's weight (`_on_slammed`, x1.15-1.3).
+
+### The knight's jump attack is the leap; the charge runs where he is pushed (2026-10-06, 20:02, the user's word)
+
+- Jump, then the attack button: the charge's leap (`GreatSword.JUMP_ATTACK`,
+  Kevin's 2H04 from 0.12 up to the blade over his head at 0.28, held till the
+  ground, down into it as he lands: `slam` 0.429, `SkinnedRig._plunge_slam`).
+  His own Mixamo jump attack brought the body down and then the blade.
+- The charge's leap is in the air until the blade is in the ground
+  (`SkinnedRig.time_to_slam()`), and its landing makes no thump of its own
+  (Player `_quiet_landing_until`): one blow, not the body's and then the
+  blade's.
+- Locked on, the charge is not drawn at what he is locked on (`follow_push`):
+  no snap to it as it starts, and he runs on the way he was running, turned
+  after the push no faster than `CHARGE_TURN` 1.1 rad/s (an arc round to it);
+  near enough, the blow goes by itself only if it is ahead of him.
