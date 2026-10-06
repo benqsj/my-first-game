@@ -34,7 +34,9 @@ func _shown(fig: Node, prefix: String) -> Array[String]:
 func _tris(m: Mesh) -> int:
 	var n := 0
 	for k in m.get_surface_count():
-		n += floori((m.surface_get_arrays(k)[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3.0)
+		var arr := m.surface_get_arrays(k)
+		var idx: Variant = arr[Mesh.ARRAY_INDEX]
+		n += floori(((idx as PackedInt32Array).size() if idx != null else (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3.0)
 	return n
 
 
@@ -191,5 +193,16 @@ func _run() -> void:
 		return not c.is_queued_for_deletion() and String(c.name) in [SkeletonGarb.TAG + "feet", SkeletonGarb.TAG + "sk_archer_boots"])
 	_check("in the skeleton's boots, his own are off", feet_now.size() == 1
 			and String(feet_now[0].name) == SkeletonGarb.TAG + "sk_archer_boots", str(feet_now.map(func(c: Node) -> String: return String(c.name))))
+	# sandals and wraps made over his bare feet (UnderGarb)
+	for kind: String in UnderGarb.FOOTWEAR:
+		look = rig.call("get_look")
+		look.erase("sk_feet")
+		look["feet"] = kind
+		hero.set_look(look)
+		for i in 3:
+			await physics_frame
+		var shoes := skel.get_node_or_null(SkeletonGarb.TAG + "shoes") as MeshInstance3D
+		_check("%s on his bare feet" % kind, shoes != null and shoes.mesh != null and shoes.mesh.get_surface_count() == 1
+				and _tris(shoes.mesh) > 20 and _own(skel, "feet"), str(_tris(shoes.mesh)) if shoes != null else "none")
 	print("skeleton_garb_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)

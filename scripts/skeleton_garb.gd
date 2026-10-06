@@ -135,7 +135,10 @@ static func _legs_and_feet(figure: Node, skel: Skeleton3D, look: Dictionary) -> 
 		meshes[String(m.name)] = m
 	var legs_name := "ps_bottombody" if look.get("bare_bottom", false) else "ps_bottom_" + String(look.get("bottom", ""))
 	var feet_key := String(look.get("feet", look.get("bottom", "")))
-	var feet_name := "" if look.has("sk_feet") else ("ps_bottombody" if feet_key == "" else "ps_bottom_" + feet_key)
+	# sandals and wraps are made over the bare feet (UnderGarb.FOOTWEAR)
+	var made_shoes := UnderGarb.FOOTWEAR.has(feet_key)
+	var feet_name := "" if look.has("sk_feet") else ("ps_bottombody" if feet_key == "" or made_shoes \
+			else "ps_bottom_" + feet_key)
 	if not meshes.has(legs_name):
 		return
 	for m: MeshInstance3D in meshes.values():
@@ -154,6 +157,19 @@ static func _legs_and_feet(figure: Node, skel: Skeleton3D, look: Dictionary) -> 
 		tall = boots != null and bool(boots.get_meta(&"shaft", false))
 	if shin_bare and not tall and meshes.has("ps_bottombody"):
 		parts.append(["ps_bottombody", "shin"])
+	if made_shoes and not look.has("sk_feet") and meshes.has("ps_bottombody"):
+		var body: MeshInstance3D = meshes["ps_bottombody"]
+		var shoes := MeshInstance3D.new()
+		shoes.name = TAG + "shoes"
+		shoes.mesh = UnderGarb.footwear(body.mesh, body.skin, feet_key)
+		shoes.skin = body.skin
+		skel.add_child(shoes)
+		shoes.skeleton = NodePath("..")
+		var own := body.get_surface_override_material(0) as BaseMaterial3D
+		if own != null and shoes.mesh.get_surface_count() > 0:
+			own = own.duplicate() as BaseMaterial3D
+			own.cull_mode = BaseMaterial3D.CULL_DISABLED
+			shoes.set_surface_override_material(0, own)
 	for pair: Array in parts:
 		var src: MeshInstance3D = meshes.get(String(pair[0]))
 		if src == null or src.mesh == null:

@@ -928,6 +928,16 @@ func _own_pieces(look: Dictionary) -> Array[Dictionary]:
 			"stats": [["Worn", "on the feet"], ["Outfit", outfit]],
 			"text": "His own, as he came: the boots of the %s's outfit." % outfit.to_lower(),
 		})
+	# the sandals and the wraps made for the bare feet (the user's word,
+	# 2026-10-07)
+	for kind: String in UnderGarb.FOOTWEAR:
+		var info: Dictionary = UnderGarb.FOOTWEAR[kind]
+		out.append({
+			"name": info.name, "kind": info.kind, "icon": "garb", "colour": Color(0.55, 0.3, 0.3),
+			"own": "feet", "key": kind, "pic": pic.call("shoe_" + kind), "order": 4,
+			"worn": String(look.get("feet", "")) == kind and not look.has("sk_feet"),
+			"stats": [["Worn", "on the feet"]], "text": info.text,
+		})
 	for hat: String in PolysplitLook.HAT_ORDER:
 		var path: String = pic.call("hat_" + hat)
 		if not ResourceLoader.exists(path):
@@ -1011,6 +1021,9 @@ func _equipped() -> Array:
 			var cls := String(look.get("feet", look.get("bottom", "")))
 			thing = {"name": "%s's Boots" % String(PolysplitLook.CLASS_NAMES.get(cls, cls)).capitalize(), "icon": "garb",
 					"colour": Color(0.55, 0.5, 0.42), "pic": GARB_ART + "own_%s_%s_feet_%s.png" % [hero, g, cls]}
+			if UnderGarb.FOOTWEAR.has(cls):
+				thing = {"name": UnderGarb.FOOTWEAR[cls].name, "icon": "garb", "colour": Color(0.55, 0.3, 0.3),
+						"pic": GARB_ART + "own_%s_%s_shoe_%s.png" % [hero, g, cls]}
 		elif own and part != "feet" and String(look.get(part, "")) != "" and not look.get("bare_" + part, false):
 			var key := String(look[part])
 			var label := String(PolysplitLook.HATS.get(key, {}).get("name", key)).capitalize() if part == "hat" \

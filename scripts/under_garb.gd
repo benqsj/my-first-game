@@ -103,6 +103,199 @@ static func shorts(mesh: Mesh, skin: Skin) -> Mesh:
 	return out
 
 
+## The shoes made here rather than the pack's (the user's word, 2026-10-07):
+## look.feet "sandals" (a sole, a strap round the ankle and two over the
+## instep, in leather) or "wraps" (cloth wound round the ankle and the arch,
+## the toes and heel bare), worn over the bare feet.
+const FOOTWEAR := {
+	"sandals": {"name": "Strapped Sandals", "kind": "Sandals",
+		"text": "Leather soles and thongs, laced round the ankle."},
+	"wraps": {"name": "Ankle Wraps", "kind": "Foot wraps",
+		"text": "Strips of cloth wound round the ankle and the arch, toes and heel bare."},
+}
+## Leather: the dark end of the skin's own strip on the body texture.
+const LEATHER_UV := Vector2(0.018344, 0.47)
+
+
+## The footwear `kind` for the bare body `mesh`: bands of her skin's own
+## triangles, cut out between planes and set out a few millimetres along
+## their normals (so they hug the foot however it is shaped), and for the
+## sandals a sole under each foot.
+static func footwear(mesh: Mesh, skin: Skin, kind: String) -> Mesh:
+	var key := "f%d%s" % [mesh.get_instance_id(), kind]
+	if _made.has(key):
+		return _made[key]
+	var names := _names(skin)
+	var a := mesh.surface_get_arrays(0)
+	var index: PackedInt32Array = a[Mesh.ARRAY_INDEX]
+	var verts: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = a[Mesh.ARRAY_NORMAL]
+	var uvs: PackedVector2Array = a[Mesh.ARRAY_TEX_UV]
+	var bones: PackedInt32Array = a[Mesh.ARRAY_BONES]
+	var weights: PackedFloat32Array = a[Mesh.ARRAY_WEIGHTS]
+	var per := floori(float(bones.size()) / float(verts.size()))
+	var flags: int = mesh.surface_get_format(0) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+	# plain Arrays: a packed array in a Dictionary is handed out as a copy
+	var out := {"v": [], "n": [], "uv": [], "b": [], "w": [], "per": per}
+	for side: String in ["L_", "R_"]:
+		# the foot's line: from the heel's end to the toes' along the ground
+		var foot := PackedInt32Array()
+		for v in verts.size():
+			var bone := _main(bones, weights, per, v, names)
+			if bone.begins_with(side) and (bone.contains("ankle") or bone.contains("ball") or bone.contains("toe") \
+					or (bone.contains("knee") and verts[v].y < 0.2)):
+				foot.append(v)
+		if foot.is_empty():
+			continue
+		var heel := Vector3(INF, 0, INF)
+		var toe := Vector3(-INF, 0, -INF)
+		var mid := Vector3.ZERO
+		var n := 0
+		for v in foot:
+			if verts[v].y < 0.06:
+				mid += verts[v]
+				n += 1
+				heel.z = minf(heel.z, verts[v].z)
+				toe.z = maxf(toe.z, verts[v].z)
+		if n == 0:
+			continue
+		mid /= n
+		var length := toe.z - heel.z
+		# bands: [axis, from, to, uv, only the top of the foot]
+		var bands: Array = []
+		if kind == "sandals":
+			bands = [["y", 0.075, 0.105, LEATHER_UV, false],
+					["z", heel.z + length * 0.55, heel.z + length * 0.64, LEATHER_UV, true],
+					["z", heel.z + length * 0.78, heel.z + length * 0.86, LEATHER_UV, true]]
+		else:
+			bands = [["y", 0.04, 0.2, CLOTH_UV, false], ["z", heel.z + length * 0.3, heel.z + length * 0.7, CLOTH_UV, false]]
+		for band: Array in bands:
+			for t in floori(index.size() / 3.0):
+				var poly := []
+				var ours := 0
+				for q in 3:
+					var v := index[t * 3 + q]
+					ours += 1 if foot.has(v) else 0
+					var bw := {}
+					for j in per:
+						if weights[v * per + j] > 0.0:
+							bw[bones[v * per + j]] = float(bw.get(bones[v * per + j], 0.0)) + weights[v * per + j]
+					poly.append({"p": verts[v], "n": normals[v], "uv": uvs[v], "w": bw})
+				if ours < 2:
+					continue
+				var axis := String(band[0])
+				var pieces := []
+				for over: Array in _clip(poly, float(band[1]), true, axis):
+					pieces.append_array(_clip(over, float(band[2]), false, axis))
+				for piece: Array in pieces:
+					if bool(band[4]):
+						var up := 0.0
+						for c: Dictionary in piece:
+							up += (c.n as Vector3).y
+						if up / piece.size() < 0.15:
+							continue
+					_emit(out, piece, band[3], 0.005)
+		if kind == "sandals":
+			_sole(out, verts, foot, bones, weights, per, mid)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array(out.v)
+	arrays[Mesh.ARRAY_NORMAL] = PackedVector3Array(out.n)
+	arrays[Mesh.ARRAY_TEX_UV] = PackedVector2Array(out.uv)
+	arrays[Mesh.ARRAY_BONES] = PackedInt32Array(out.b)
+	arrays[Mesh.ARRAY_WEIGHTS] = PackedFloat32Array(out.w)
+	var made := ArrayMesh.new()
+	if not (out.v as Array).is_empty():
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+		made.surface_set_material(0, mesh.surface_get_material(0))
+	_made[key] = made
+	return made
+
+
+## A polygon's triangles into `out`, each corner set out `lift` along its
+## normal and coloured `uv`.
+static func _emit(out: Dictionary, piece: Array, uv: Vector2, lift: float) -> void:
+	var per: int = out.per
+	for k in range(1, piece.size() - 1):
+		for corner: Dictionary in [piece[0], piece[k], piece[k + 1]]:
+			(out.v as Array).append((corner.p as Vector3) + (corner.n as Vector3) * lift)
+			(out.n as Array).append(corner.n)
+			(out.uv as Array).append(uv)
+			_weigh(out, corner.w, per)
+
+
+static func _weigh(out: Dictionary, bw: Dictionary, per: int) -> void:
+	var pairs := bw.keys()
+	pairs.sort_custom(func(x: Variant, y: Variant) -> bool: return float(bw[x]) > float(bw[y]))
+	var total := 0.0
+	for j in mini(per, pairs.size()):
+		total += float(bw[pairs[j]])
+	for j in per:
+		if j < pairs.size():
+			(out.b as Array).append(int(pairs[j]))
+			(out.w as Array).append(float(bw[pairs[j]]) / maxf(total, 0.0001))
+		else:
+			(out.b as Array).append(0)
+			(out.w as Array).append(0.0)
+
+
+## A sole under a foot: the outline of what of it is near the ground, a
+## little wider, a slab 1.6 cm thick; each corner hung as the foot's corner
+## nearest it is.
+static func _sole(out: Dictionary, verts: PackedVector3Array, foot: PackedInt32Array, bones: PackedInt32Array,
+		weights: PackedFloat32Array, per: int, mid: Vector3) -> void:
+	var flat := PackedVector2Array()
+	var low := PackedInt32Array()
+	for v in foot:
+		if verts[v].y < 0.035:
+			flat.append(Vector2(verts[v].x, verts[v].z))
+			low.append(v)
+	if flat.size() < 3:
+		return
+	var hull := Geometry2D.convex_hull(flat)
+	if hull.size() > 1 and hull[0] == hull[hull.size() - 1]:
+		hull.remove_at(hull.size() - 1)
+	var centre := Vector2(mid.x, mid.z)
+	var ring := PackedVector2Array()
+	for p in hull:
+		ring.append(centre + (p - centre) * 1.08)
+	var top := 0.012
+	var bottom := -0.004
+	var at := func(p: Vector2, y: float) -> Dictionary:
+		var best := -1
+		var d := INF
+		for k in low.size():
+			var e := Vector2(verts[low[k]].x, verts[low[k]].z).distance_squared_to(p)
+			if e < d:
+				d = e
+				best = low[k]
+		var bw := {}
+		for j in per:
+			if weights[best * per + j] > 0.0:
+				bw[bones[best * per + j]] = float(bw.get(bones[best * per + j], 0.0)) + weights[best * per + j]
+		return {"p": Vector3(p.x, y, p.y), "w": bw}
+	var mid_top: Dictionary = at.call(centre, top)
+	var mid_bottom: Dictionary = at.call(centre, bottom)
+	for k in ring.size():
+		var p0 := ring[k]
+		var p1 := ring[(k + 1) % ring.size()]
+		var t0: Dictionary = at.call(p0, top)
+		var t1: Dictionary = at.call(p1, top)
+		var b0: Dictionary = at.call(p0, bottom)
+		var b1: Dictionary = at.call(p1, bottom)
+		var side := Vector3(p1.y - p0.y, 0, -(p1.x - p0.x)).normalized()
+		if side.dot(Vector3(p0.x - centre.x, 0, p0.y - centre.y)) < 0.0:
+			side = -side
+		for tri: Array in [[mid_top, t0, t1, Vector3.UP], [mid_bottom, b1, b0, Vector3.DOWN],
+				[t0, b0, b1, side], [t0, b1, t1, side]]:
+			for q in 3:
+				var c: Dictionary = tri[q]
+				(out.v as Array).append(c.p)
+				(out.n as Array).append(tri[3])
+				(out.uv as Array).append(LEATHER_UV)
+				_weigh(out, c.w, per)
+
+
 ## A short underskirt for the body `mesh` (her bare body, skinned by `skin`):
 ## a ring round her hips at SKIRT_TOP, flared out to SKIRT_HEM, its top on
 ## the pelvis and its hem half on the thigh beneath each side, so it swings
@@ -178,18 +371,20 @@ static func skirt(mesh: Mesh, skin: Skin) -> Mesh:
 ## The part of the convex polygon `poly` below the height `y` (above it with
 ## `above`), as one polygon in a list (none if nothing is there); the new
 ## corners on the cut are blended from the two they lie between.
-static func _clip(poly: Array, y: float, above: bool = false) -> Array:
+static func _clip(poly: Array, y: float, above: bool = false, axis: String = "y") -> Array:
 	var out := []
 	var n := poly.size()
 	for k in n:
 		var a: Dictionary = poly[k]
 		var b: Dictionary = poly[(k + 1) % n]
-		var a_in := ((a.p as Vector3).y >= y) == above
-		var b_in := ((b.p as Vector3).y >= y) == above
+		var ay := (a.p as Vector3).z if axis == "z" else (a.p as Vector3).y
+		var by := (b.p as Vector3).z if axis == "z" else (b.p as Vector3).y
+		var a_in := (ay >= y) == above
+		var b_in := (by >= y) == above
 		if a_in:
 			out.append(a)
 		if a_in != b_in:
-			var f := (y - (a.p as Vector3).y) / ((b.p as Vector3).y - (a.p as Vector3).y)
+			var f := (y - ay) / (by - ay)
 			var w := {}
 			for bone: Variant in (a.w as Dictionary):
 				w[bone] = float(w.get(bone, 0.0)) + float(a.w[bone]) * (1.0 - f)

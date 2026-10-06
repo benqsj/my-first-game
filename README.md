@@ -6048,6 +6048,16 @@ wheel or the gold bar beside the grid, which shows six rows. The hero's side
 is wider (34 % of the screen) with a bigger hero, and the numbers sit in two
 columns under him.
 
+Two shoes are made rather than taken from the pack, both in
+`UnderGarb.FOOTWEAR`. Strapped Sandals ("sandals") have a leather sole cut
+from the foot's outline, a strap round the ankle and two over the instep.
+Ankle Wraps ("wraps") are the underthings' cloth wound round the ankle and
+the arch. Both go in `look.feet` and are worn over the bare feet: the
+sandals are `SkGarb_shoes`, bands of her own skin clipped between planes and
+set out 5 mm. The bake keys for them are `shoe_<kind>`. The women's
+`body_<n>_f.png` dye the same texels on every skin, the mask taken from
+body_5.
+
 `UnderGarb` (`scripts/under_garb.gd`) gives a woman's bare legs a band of
 the underthings' cloth from mid-thigh down to the knee (look "smalls",
 default "shorts"). Her body's triangles are clipped at HEM and WAIST, with

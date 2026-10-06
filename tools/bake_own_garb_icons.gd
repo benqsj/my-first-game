@@ -87,14 +87,21 @@ func _run() -> void:
 			for x: String in PolysplitLook.extras(hero, g):
 				if Inventory._is_cloth(x):
 					keys.append("x_" + x)
+			for kind: String in UnderGarb.FOOTWEAR:
+				keys.append("shoe_" + kind)
+			# only the keys starting with the first user arg, if one is given
+			var only := OS.get_cmdline_user_args()
+			if not only.is_empty():
+				keys = keys.filter(func(x: String) -> bool: return x.begins_with(only[0]))
 			# everything he is drawn with, not only the figure's (the bow's string is the rig's)
 			var meshes := v.find_children("*", "MeshInstance3D", true, false)
 			var skel: Skeleton3D = v.get(&"_figure_skel")
 			for k: String in keys:
 				var shown: MeshInstance3D = null
 				# breeches without their feet, boots alone (SkeletonGarb._part_of)
-				var cut := k.begins_with("bottom_") or k.begins_with("feet_")
-				var want := "ps_bottom_" + k.get_slice("_", 1) if cut else "ps_" + k
+				var made := k.begins_with("shoe_")
+				var cut := k.begins_with("bottom_") or k.begins_with("feet_") or made
+				var want := "ps_bottombody" if made else ("ps_bottom_" + k.get_slice("_", 1) if cut else "ps_" + k)
 				for m: MeshInstance3D in meshes:
 					m.visible = String(m.name) == want and not cut
 					if String(m.name) == want:
@@ -103,12 +110,22 @@ func _run() -> void:
 					continue
 				if cut:
 					var part := MeshInstance3D.new()
-					part.mesh = SkeletonGarb._part_of(shown.mesh, shown.skin, skel, "feet" if k.begins_with("feet_") else "legs")
+					part.mesh = UnderGarb.footwear(shown.mesh, shown.skin, k.get_slice("_", 1)) if made \
+							else SkeletonGarb._part_of(shown.mesh, shown.skin, skel, "feet" if k.begins_with("feet_") else "legs")
 					part.skin = shown.skin
 					skel.add_child(part)
 					part.skeleton = NodePath("..")
 					for c in shown.get_surface_override_material_count():
 						part.set_surface_override_material(c, shown.get_surface_override_material(c))
+					if made and part.mesh.get_surface_count() > 0:
+						# her own dye (the wraps are her underthings' cloth)
+						var mat := (shown.get_active_material(0) as BaseMaterial3D).duplicate() as BaseMaterial3D
+						var skin_n := int(PolysplitLook.default_look(hero, g).get("skin", 1))
+						var tex := PolysplitLook.COLOURS + "body_%d%s.png" % [skin_n, "_f" if g == "f" else ""]
+						if ResourceLoader.exists(tex):
+							mat.albedo_texture = load(tex)
+						mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+						part.set_surface_override_material(0, mat)
 					shown = part
 				await process_frame
 				var box := shown.mesh.get_aabb()
@@ -120,6 +137,11 @@ func _run() -> void:
 					hi = hi.max(q)
 				var mid := (lo + hi) * 0.5
 				cam.position = Vector3(mid.x, mid.y, mid.z + 10.0)
+				cam.rotation = Vector3.ZERO
+				if k.begins_with("shoe_"):
+					# shoes from above and in front, flat on the ground as they are
+					cam.position = mid + Vector3(0.0, 6.0, 8.0)
+					cam.look_at(mid)
 				cam.size = maxf(hi.x - lo.x, hi.y - lo.y) * 1.2
 				# drawn here and now: a window behind others (the game, the
 				# editor) gets no frames of its own, and the wait never ended
