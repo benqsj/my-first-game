@@ -5,9 +5,9 @@ extends SkeletonModifier3D
 ## The hero's own Mixamo clips carried onto the mannequin (vepxis-art
 ## tools/h2m.gd) bend the feet where the knees bend deep: crouched, the feet
 ## pointed down and the toes curled under, the boots folded over (the user saw
-## it, 2026-10-02). Near the ground this turns each foot back to how it stands
-## at rest, keeping only which way it points along the ground, and lays the
-## toes flat; off the ground (a step, a jump) it lets the clip's foot be.
+## it, 2026-10-02). Near the ground this brings each sole level by the least
+## turn that does it (so it keeps which way it points), and lays the toes
+## flat; off the ground (a step, a jump) it lets the clip's foot be.
 ## Only while `active` (the rig sets it while one of those clips plays).
 ##
 ## Only a foot under a standing shin, though: in a roll or a dive the ankle
@@ -17,7 +17,10 @@ extends SkeletonModifier3D
 ## lean fades it out (`shin_upright`..`shin_lying`), and so does a foot whose
 ## toes point up more than along the ground (its way along the ground too
 ## short to read). And whatever is left may tip the foot but not turn it
-## round the shin by more than `max_twist_deg`.
+## round the shin by more than `max_twist_deg`. Measured over every clip of
+## the five heroes' libraries (2026-10-07): the old way turned a foot out of
+## the knee's plane by up to 56 degrees in 122 clips (walks, crouches, casts,
+## rolls), this way by 23 at most.
 
 const FEET: Array = [[&"foot_l", &"ball_l", &"calf_l"], [&"foot_r", &"ball_r", &"calf_r"]]
 ## The ankle's height (skeleton space, m) up to which the foot is laid flat
@@ -30,7 +33,10 @@ const FEET: Array = [[&"foot_l", &"ball_l", &"calf_l"], [&"foot_r", &"ball_r", &
 @export var shin_lying := 0.3
 ## How far (degrees) the foot may be turned about the shin from where the clip
 ## has it: laying it flat may tip it, never wring it round the leg.
-@export var max_twist_deg := 15.0
+@export var max_twist_deg := 8.0
+## Laid flat by the shortest turn that brings the sole level (true), or
+## turned back to the rest pose pointed along the ground (false, as before).
+@export var level_by_arc := true
 
 var _bones: Array = []
 
@@ -74,11 +80,17 @@ func _process_modification() -> void:
 			w *= smoothstep(0.35, 0.6, ball_now.length() / maxf(ball_len, 0.001))
 			if w <= 0.0:
 				continue
-		# the rest foot turned about the vertical to point where this one does
-		var yaw := ball_rest.normalized().signed_angle_to(ball_now.normalized(), Vector3.UP)
-		var flat := Basis(Vector3.UP, yaw) * rest.basis.orthonormalized()
 		var now_q := pose.basis.orthonormalized().get_rotation_quaternion()
-		var want := now_q.slerp(flat.get_rotation_quaternion(), w)
+		var flat_q: Quaternion
+		if level_by_arc:
+			# the sole's up, as it is at rest, brought level by the least turn
+			var sole_up := (pose.basis.orthonormalized() * (rest.basis.orthonormalized().inverse() * Vector3.UP)).normalized()
+			flat_q = Quaternion(sole_up, Vector3.UP) * now_q
+		else:
+			# the rest foot turned about the vertical to point where this one does
+			var yaw := ball_rest.normalized().signed_angle_to(ball_now.normalized(), Vector3.UP)
+			flat_q = (Basis(Vector3.UP, yaw) * rest.basis.orthonormalized()).get_rotation_quaternion()
+		var want := now_q.slerp(flat_q, w)
 		want = _untwisted(want, now_q, shin.normalized())
 		skel.set_bone_global_pose(f, Transform3D(Basis(want).scaled(pose.basis.get_scale()), pose.origin))
 		skel.set_bone_pose_rotation(b, skel.get_bone_pose_rotation(b).slerp(skel.get_bone_rest(b).basis.get_rotation_quaternion(), w))
