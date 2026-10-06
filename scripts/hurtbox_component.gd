@@ -133,8 +133,11 @@ func scan() -> void:
 			hit.damage = float(worth[0])
 			hit.critical = bool(worth[1])
 		if take(hit):
-			knight.rig.bloody()
-			knight.net_blade_landed.rpc(ImpactFx.matter_of(body))
+			var matter := ImpactFx.matter_of(body)
+			# no blood on the blade off bone or stone
+			if matter == &"flesh":
+				knight.rig.bloody()
+			knight.net_blade_landed.rpc(matter)
 			if blade_feedback:
 				knight.blade_hit(body, hit.at)
 		if body.get(&"is_dead") == true:

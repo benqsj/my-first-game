@@ -5878,6 +5878,18 @@ aim:
 snapped, locked at 12 m (also held mid-step) and at the crosshair at 12 and
 22 m: every shot strikes it, about the chest.
 
+### No blood from skeletons or golems; the lock's reach from the hero (2026-10-06, the user's word)
+
+- **Skeletons and golems let no blood**, whatever strikes them: `Blood.bleeds(creature)`
+  (false for bone or stone, `ImpactFx.matter_of`); `Blood.splatter` given such a
+  creature throws chips of it instead ([HitFx] bone or stone) and lays no wound;
+  arrows, the Piercing Shot's gust and the backstab go through `Blood.spill(.., struck)`;
+  the blade is not stained off them (`HurtboxComponent`). `tests/bloodless_test.gd`:
+  the four skeletons and the golem, and an orc that still bleeds.
+- **The lock reaches `lock_range` (26 m) from the hero.** It was measured from the
+  camera, a spring's length behind him, so nothing past about 21 m could be locked.
+  `_best_target` and `_switch_target`; `bow_aim_test` locks at 22 m.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

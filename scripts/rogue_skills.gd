@@ -716,8 +716,15 @@ func show_backstab(at: Vector3) -> void:
 		return
 	var way := at - hero.global_position
 	way.y = 0.0
-	Blood.splatter(into, at, way.normalized() if way.length_squared() > 0.0001 else Vector3.FORWARD,
-			null, 1.8)
+	# what it went into: a skeleton or a golem lets no blood
+	var struck: Node3D = null
+	var nearest := 1.6
+	for body: Node in hero.get_tree().get_nodes_in_group(&"enemy"):
+		if body is Node3D and (body as Node3D).global_position.distance_to(Vector3(at.x, (body as Node3D).global_position.y, at.z)) < nearest:
+			nearest = (body as Node3D).global_position.distance_to(Vector3(at.x, (body as Node3D).global_position.y, at.z))
+			struck = body
+	Blood.spill(into, at, way.normalized() if way.length_squared() > 0.0001 else Vector3.FORWARD,
+			struck, 1.8)
 
 
 ## A puff of smoke `big` across at `at`: thick at the feet, rolling up and out.

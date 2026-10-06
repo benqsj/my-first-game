@@ -222,7 +222,7 @@ func _strike(what: Node3D, at: Vector3) -> void:
 	# A gust through it: air bursting on out the far side, a band round it.
 	_puff(into, at, _dir, 24, Vector2(2.0, 6.0), 55.0, Vector2(0.18, 0.36), 0.5)
 	WindBlast.band(into, at, _dir, 0.4, 1.6, 0.4, randf() * TAU, 4.2)
-	Blood.splatter(into, at, _dir)
+	Blood.spill(into, at, _dir, what)
 	if not _decides():
 		return
 	what.call(&"take_hit", _damage, at, _dir, _critical, false, _shooter)

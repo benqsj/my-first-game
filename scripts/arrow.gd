@@ -282,7 +282,7 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		# every peer's copy arrives, but only the host's counts for damage — so
 		# the wound is spilled locally, where it is seen, and the hit is asked
 		# for without it.
-		Blood.splatter(Blood.world_of(self), where, blow.normalized())
+		Blood.spill(Blood.world_of(self), where, blow.normalized(), what)
 		Sfx.play(self, HITS[randi() % HITS.size()], null, where, randf_range(0.94, 1.06), -14.0)
 		var alive: bool = what.get(&"is_dead") != true
 		# The shooter goes with it: an arrow that hurts something anonymously

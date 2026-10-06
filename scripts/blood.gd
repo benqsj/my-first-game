@@ -151,11 +151,41 @@ static func splatter(world: Node, point: Vector3, direction: Vector3, on: Node3D
 	if world == null or not world.is_inside_tree():
 		return
 	var along := direction.normalized() if direction.length_squared() > 0.0001 else Vector3.UP
+	# A skeleton or a golem has none to let (the user, 2026-10-06): what it
+	# is made of is knocked off it instead, bone chips or stone grit.
+	if on != null and not bleeds(on):
+		_chips(world, point, on, strength)
+		return
 	_spray(world, point, along, strength)
 	_stain_ground(world, point, along, strength)
 	_stain_nearby(world, point, along)
 	if on != null:
 		wound(on, point, along)
+
+
+## Whether `creature` has blood to let: not a skeleton or a golem (bone or
+## stone, [method ImpactFx.matter_of]). Nothing struck bleeds as flesh does.
+static func bleeds(creature: Node) -> bool:
+	return creature == null or ImpactFx.matter_of(creature) == &"flesh"
+
+
+## Blood where `struck` (whatever was hit, if known) has any, with no wound
+## laid on it: an arrow going in, a gust through it. Its chips where it has
+## none.
+static func spill(world: Node, point: Vector3, direction: Vector3, struck: Node = null,
+		strength: float = 1.0) -> void:
+	if world == null or not world.is_inside_tree():
+		return
+	if struck != null and not bleeds(struck):
+		_chips(world, point, struck, strength)
+		return
+	splatter(world, point, direction, null, strength)
+
+
+static func _chips(world: Node, point: Vector3, struck: Node, strength: float) -> void:
+	var matter := ImpactFx.matter_of(struck)
+	HitFx.spawn(world, matter if matter in [&"bone", &"stone", &"wood"] else &"stone", point,
+			HitFx.facing_out(struck, point), clampf(strength, 0.6, 2.0))
 
 
 ## How long this blow's blood stays, between `LINGER_MIN` and `LINGER_MAX`.
