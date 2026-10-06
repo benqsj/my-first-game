@@ -18,12 +18,16 @@ const RADIUS := 0.085
 func _ready() -> void:
 	glow_colour = ICE
 	super()
-	# already up to speed when let go, and no great ramp after
-	start_share = 0.65
-	ramp_distance = 5.0
-	ramp_min = 2.0
-	ramp_max = 8.0
-	ramp_curve = 1.0
+	# a steady pace off the crescent, and over the second half of the way to
+	# what it was thrown at, faster and faster (the user's word, 2026-10-07):
+	# at 0.4 of its top speed it leaves, at half way it is barely faster, and
+	# it arrives at the whole of it
+	start_share = 0.4
+	ramp_share = 1.0
+	ramp_distance = 16.0
+	ramp_min = 4.0
+	ramp_max = 30.0
+	ramp_curve = 3.0
 	steer = 30.0
 	if _model != null:
 		_model.queue_free()

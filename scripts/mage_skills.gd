@@ -41,7 +41,9 @@ const VOLLEY: Array[float] = [0.0, 0.14, 0.75, 1.15, 1.55, 2.15, 2.4, 2.65, 2.9,
 ## From her hand coming down to the first going.
 const GO_LEAD := 0.3
 const SEEK := 28.0
-const SPEED := 22.0
+## Their top speed: they leave at `IceShard.start_share` of it and gather it
+## over the second half of the way (`IceShard`).
+const SPEED := 40.0
 ## Each spear's worth, as a share of a full bolt's (before the full charge's
 ## bonus): ten of them are worth some three and a half bolts.
 const SHARE := 0.35
@@ -78,6 +80,38 @@ func _ready() -> void:
 	hero = get_parent() as Player
 	if hero != null:
 		hero.died.connect(func() -> void: _break_all())
+
+
+## Built once where the renderer sees it before it is needed ([PipelineWarmup],
+## and in front of the view as a mage comes into the world): a spear, a
+## flying shard's tail and frost, the gathering, the rings, the flashes and
+## the glints, so the first Frost Spears does not stall the frame while the
+## renderer builds them (the user's word, 2026-10-07: it hitched the first
+## time). `at` is a node in front of a camera.
+static func warm(at: Node3D) -> void:
+	var here := at.global_position
+	var spear := IceShard.spike(IceShard.LENGTH, IceShard.RADIUS, 1.2)
+	at.add_child(spear)
+	var shard := IceShard.new()
+	at.add_child(shard)
+	shard.position = Vector3(0.4, 0.0, 0.0)
+	shard._lay_trail()
+	for t in shard._tails:
+		if is_instance_valid(t):
+			t.push(here)
+			t.push(here + Vector3(0.3, 0.0, 0.0))
+	SkillFx.particles(at, here, {"amount": 4, "life": 0.3, "one_shot": true, "explosiveness": 0.6,
+			"speed": Vector2(0.0, 0.1), "sphere": 0.2, "orbit": -9.0, "tangent": 3.0, "spread": 180.0,
+			"size": Vector2(0.02, 0.045), "grow": 0.8,
+			"colors": [Color(IceShard.ICE, 0.0), Color(IceShard.ICE_HOT, 1.0), Color(1, 1, 1, 1)]})
+	SkillFx.particles(at, here, {"amount": 4, "life": 0.6, "one_shot": true, "explosiveness": 0.9,
+			"speed": Vector2(0.3, 1.0), "spread": 180.0, "size": Vector2(0.25, 0.4), "add": false,
+			"colors": [Color(0.92, 0.97, 1.0, 0.35), Color(0.9, 0.95, 1.0, 0.0)]})
+	SkillFx.ring(at, here, Vector3.BACK, Color(IceShard.ICE, 0.55), 0.26, 0.03, 0.3, 0.025, 1.4)
+	SkillFx.flash(at, here, IceShard.ICE_HOT, 0.14, 0.3, 3.0)
+	SkillFx.burst(at, here, IceShard.ICE, 4, Vector2(0.4, 1.4), Vector3.UP, 180.0, Vector2(0.02, 0.04),
+			Vector3(0, -1.5, 0), 0.5)
+	SkillFx.light(at, here, IceShard.ICE, 1.0, 2.0, 0.3)
 
 
 ## Whether the spears are up (grown or growing, not all thrown).
@@ -122,7 +156,7 @@ func grow_spears() -> void:
 		spear.visible = false
 		spear.scale = Vector3.ONE * 0.01
 		_crown.add_child(spear)
-		spear.position = _slot(i)
+		spear.position = _slot(i) + _hover(i, 0.0)
 		_spears.append(spear)
 
 
@@ -238,26 +272,24 @@ func _process(delta: float) -> void:
 		var grown := clampf((since - GATHER) / FORM_GROW, 0.0, 1.0)
 		if grown <= 0.0:
 			continue
-		if not spear.visible:
+		var born := not spear.visible
+		if born:
 			# and the ice is there: a white flash, a ring of frost thrown off,
 			# the crystal bright as it forms and cooling to its glow
 			spear.visible = true
 			_crystallise(into, spear.global_position, spear)
 		var size := _grow_curve(grown)
-		_cool(spear, grown)
-		# hangs there, breathing a little, its point on what she will throw it at
-		var bob := sin(_clock * 3.0 + float(i) * 0.7) * 0.04
-		spear.position = _slot(i) + Vector3(0.0, bob, 0.0)
-		var to := aim - spear.global_position
-		if to.length_squared() > 0.01:
-			var point := to.normalized()
-			var side := point.cross(Vector3.UP)
-			if side.length_squared() < 1e-4:
-				side = point.cross(Vector3.RIGHT)
-			side = side.normalized()
-			var b := Basis(side, point, side.cross(point)).orthonormalized()
-			var now := spear.global_basis.orthonormalized()
-			spear.global_basis = now.slerp(b, clampf(delta * 10.0, 0.0, 1.0))
+		_cool(spear, grown, since - GATHER, i)
+		# it floats there (her levitation in it): rising into its place as it
+		# forms, then drifting slowly up and down and a little to and fro,
+		# each on its own beat — its point on what she will throw it at
+		spear.position = _slot(i) + _hover(i, since - GATHER)
+		var b := _pointing(aim, spear.global_position)
+		if born:
+			# born already aimed: no turning round to it
+			spear.global_basis = b
+		elif b != Basis():
+			spear.global_basis = spear.global_basis.orthonormalized().slerp(b, clampf(delta * 14.0, 0.0, 1.0))
 		# out along its length first, then filling out round
 		var thick := clampf(grown * 1.6, 0.0, 1.0)
 		spear.scale = Vector3(maxf(thick * size, 0.01), maxf(size, 0.01), maxf(thick * size, 0.01))
@@ -328,7 +360,7 @@ func _crystallise(into: Node, at: Vector3, spear: Node3D) -> void:
 	SkillFx.ring(into, at, facing, Color(IceShard.ICE_HOT, 0.7), 0.05, 0.32, 0.28, 0.02, 2.0)
 	SkillFx.burst(into, at, IceShard.ICE, 10, Vector2(0.4, 1.4), Vector3.UP, 180.0, Vector2(0.02, 0.04),
 			Vector3(0, -1.5, 0), 0.5)
-	var glints := SkillFx.particles(_crown, at, {"amount": 5, "life": 0.9, "speed": Vector2(0.02, 0.12),
+	var glints := SkillFx.particles(_crown, at, {"amount": 8, "life": 1.0, "speed": Vector2(0.02, 0.12),
 			"spread": 180.0, "sphere": 0.2, "gravity": Vector3(0, -0.3, 0), "size": Vector2(0.015, 0.035),
 			"local": true, "colors": [Color(IceShard.ICE_HOT, 0.0), Color(1, 1, 1, 0.9), Color(IceShard.ICE, 0.0)]})
 	_glints[_spears.find(spear)] = glints
@@ -345,16 +377,51 @@ static func _grow_curve(k: float) -> float:
 	return 1.0 + (c + 1.0) * x * x * x + c * x * x
 
 
-## A spear's ice cooling from white-hot as it forms to its own glow.
-func _cool(spear: Node3D, grown: float) -> void:
+## A spear's ice cooling from white-hot as it forms to its own glow; then,
+## while it hangs, a shimmer: a soft breath of light, and now and then a glint
+## running over it, each spear on its own beat.
+func _cool(spear: Node3D, grown: float, t: float, i: int) -> void:
+	var cooled := clampf(grown * 1.3, 0.0, 1.0)
+	var shimmer := 0.0
+	if cooled >= 1.0:
+		var breath := 0.25 * (0.5 + 0.5 * sin(t * 2.4 + float(i) * 1.3))
+		var glint := pow(maxf(sin(t * 1.15 + float(i) * 2.1), 0.0), 24.0) * 2.4
+		shimmer = breath + glint
 	for part in spear.get_children():
 		var mesh := part as MeshInstance3D
 		if mesh == null:
 			continue
 		var mat := mesh.material_override as StandardMaterial3D
 		if mat != null:
-			mat.emission_energy_multiplier = lerpf(5.0, 1.2, clampf(grown * 1.3, 0.0, 1.0))
-			mat.emission = IceShard.ICE_HOT.lerp(IceShard.ICE, clampf(grown * 1.3, 0.0, 1.0))
+			mat.emission_energy_multiplier = lerpf(5.0, 1.2, cooled) + shimmer
+			mat.emission = IceShard.ICE_HOT.lerp(IceShard.ICE, cooled).lerp(IceShard.ICE_HOT, clampf(shimmer * 0.4, 0.0, 1.0))
+
+
+## Spear `i`'s float, `t` after it formed: it rises 0.22 m into its place over
+## the first half second, then drifts up and down (0.08 m, its own pace) and a
+## little to and fro.
+func _hover(i: int, t: float) -> Vector3:
+	var rise := clampf(t / 0.5, 0.0, 1.0)
+	rise = 1.0 - pow(1.0 - rise, 3.0)
+	var pace := 1.1 + 0.35 * fposmod(float(i) * 0.618, 1.0)
+	var phase := float(i) * 1.7
+	var settle := clampf(t / 0.6, 0.0, 1.0)
+	var up := -0.22 * (1.0 - rise) + sin(t * pace * TAU * 0.5 + phase) * 0.08 * settle
+	var sway := sin(t * pace * TAU * 0.27 + phase * 0.6) * 0.035 * settle
+	return Vector3(sway, up, sway * 0.6)
+
+
+## A frame that points +Y from `from` at `aim` (identity when they meet).
+static func _pointing(aim: Vector3, from: Vector3) -> Basis:
+	var to := aim - from
+	if to.length_squared() < 0.01:
+		return Basis()
+	var point := to.normalized()
+	var side := point.cross(Vector3.UP)
+	if side.length_squared() < 1e-4:
+		side = point.cross(Vector3.RIGHT)
+	side = side.normalized()
+	return Basis(side, point, side.cross(point)).orthonormalized()
 
 
 ## What the spears go at: her lock, else the nearest foe ahead within `SEEK`.

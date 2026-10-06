@@ -189,6 +189,30 @@ func _ready() -> void:
 	_glow.add_child(_orb)
 	if _on_mq:
 		_mannequin_worn(true)
+	_warm_skills.call_deferred()
+
+
+## Her skills' look built in front of the view for a few frames as she comes
+## into the world (where there is a window: the level's own warm-up does it
+## too, behind its black screen), so the first cast does not stall.
+func _warm_skills() -> void:
+	if DisplayServer.get_name() == "headless" or not is_inside_tree():
+		return
+	for i in 2:
+		await get_tree().process_frame
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var props := Node3D.new()
+	props.name = "SkillWarmup"
+	cam.add_child(props)
+	props.position = Vector3(0.0, 0.0, -2.0)
+	props.scale = Vector3.ONE * 0.15
+	MageSkills.warm(props)
+	for i in 4:
+		await get_tree().process_frame
+	if is_instance_valid(props):
+		props.queue_free()
 
 
 #region The spell, as the controller calls it (the bow's interface)
