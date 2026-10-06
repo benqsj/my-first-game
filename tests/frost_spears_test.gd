@@ -29,7 +29,7 @@ func _run() -> void:
 	# Nothing to throw at: they grow, wait, and break.
 	_check("it goes", hero.use_skill(0))
 	var most := 0
-	for i in 60:
+	for i in 100:
 		await physics_frame
 		most = maxi(most, _shown(hero))
 	_check("ten spears grow over her", most == MageSkills.SPEARS, "%d" % most)

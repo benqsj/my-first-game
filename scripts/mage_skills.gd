@@ -24,7 +24,7 @@ const SPEARS := 10
 ## One more every `FORM_EVERY`, each grown in `FORM_GROW`, left and right in
 ## turn.
 const FORM_EVERY := 0.09
-const FORM_GROW := 0.22
+const FORM_GROW := 0.3
 ## Where they hang (her frame, -Z ahead): to her side `SIDE_FROM`..`SIDE_TO`,
 ## `HIGH_FROM`..`HIGH_TO` over her feet, `BACK_FROM`..`BACK_TO` behind her;
 ## each spear's own place in that is fixed by its number (every peer the same).
@@ -68,6 +68,10 @@ var _next_at: float = 0.0
 var _clock: float = 0.0
 ## Her own peer: when the volley began (-1 not yet).
 var _go_at: float = -1.0
+## The spears whose cold has begun to gather (every peer).
+var _gathered: Dictionary = {}
+## The frost glinting round each hanging spear (every peer), by number.
+var _glints: Dictionary = {}
 
 
 func _ready() -> void:
@@ -90,7 +94,7 @@ func frost_spears(cost: float) -> bool:
 	hero.net_frost_spears.rpc()
 	_thrown = 0
 	_go_at = -1.0
-	_next_at = SPEARS * FORM_EVERY + FORM_GROW
+	_next_at = SPEARS * FORM_EVERY + GATHER + FORM_GROW
 	return true
 
 
@@ -109,6 +113,8 @@ func grow_spears() -> void:
 	into.add_child(_crown)
 	_crown.global_transform = _crown_at()
 	_spears.clear()
+	_gathered.clear()
+	_glints.clear()
 	_clock = 0.0
 	_born = 0.0
 	for i in SPEARS:
@@ -131,6 +137,15 @@ func throw_spear(i: int, from: Vector3, flight: Vector3, damage: float, critical
 	if i >= 0 and i < _spears.size() and _spears[i] != null and is_instance_valid(_spears[i]):
 		(_spears[i] as Node3D).queue_free()
 		_spears[i] = null
+	var glints: Variant = _glints.get(i)
+	if glints != null and is_instance_valid(glints):
+		(glints as GPUParticles3D).emitting = false
+		var gid := (glints as Node).get_instance_id()
+		get_tree().create_timer(1.0).timeout.connect(func() -> void:
+			var g := instance_from_id(gid) as Node
+			if g != null:
+				g.queue_free())
+	_glints.erase(i)
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
@@ -211,14 +226,25 @@ func _process(delta: float) -> void:
 			continue
 		var spear := s as Node3D
 		var start := FORM_EVERY * i
-		var grown := clampf((_clock - start) / FORM_GROW, 0.0, 1.0)
+		var since := _clock - start
+		if since <= 0.0:
+			continue
+		var into := _crown.get_parent()
+		if not _gathered.has(i):
+			# first the cold gathers there: frost drawn in out of the air
+			# round a faint ring that tightens on the spot
+			_gathered[i] = true
+			_gather(into, spear.global_position)
+		var grown := clampf((since - GATHER) / FORM_GROW, 0.0, 1.0)
 		if grown <= 0.0:
 			continue
 		if not spear.visible:
+			# and the ice is there: a white flash, a ring of frost thrown off,
+			# the crystal bright as it forms and cooling to its glow
 			spear.visible = true
-			SkillFx.burst(_crown.get_parent(), spear.global_position, IceShard.ICE_HOT, 8, Vector2(0.3, 1.2),
-					Vector3.UP, 180.0, Vector2(0.02, 0.05), Vector3(0, -2, 0), 0.4)
-		var size := 1.0 - pow(1.0 - grown, 3.0)
+			_crystallise(into, spear.global_position, spear)
+		var size := _grow_curve(grown)
+		_cool(spear, grown)
 		# hangs there, breathing a little, its point on what she will throw it at
 		var bob := sin(_clock * 3.0 + float(i) * 0.7) * 0.04
 		spear.position = _slot(i) + Vector3(0.0, bob, 0.0)
@@ -232,7 +258,9 @@ func _process(delta: float) -> void:
 			var b := Basis(side, point, side.cross(point)).orthonormalized()
 			var now := spear.global_basis.orthonormalized()
 			spear.global_basis = now.slerp(b, clampf(delta * 10.0, 0.0, 1.0))
-		spear.scale = Vector3.ONE * maxf(size, 0.01)
+		# out along its length first, then filling out round
+		var thick := clampf(grown * 1.6, 0.0, 1.0)
+		spear.scale = Vector3(maxf(thick * size, 0.01), maxf(size, 0.01), maxf(thick * size, 0.01))
 	if hero.is_multiplayer_authority():
 		_decide(foe, aim)
 
@@ -247,7 +275,7 @@ func _decide(foe: Node3D, aim: Vector3) -> void:
 		return
 	if _go_at < 0.0:
 		if foe == null:
-			if _clock > SPEARS * FORM_EVERY + FORM_GROW + HOLD_MAX:
+			if _clock > SPEARS * FORM_EVERY + GATHER + FORM_GROW + HOLD_MAX:
 				hero.net_frost_end.rpc()
 			return
 		# her hand comes down and forward; the first goes a beat after
@@ -277,6 +305,56 @@ func _decide(foe: Node3D, aim: Vector3) -> void:
 	_thrown = i + 1
 	if _thrown < VOLLEY.size():
 		_next_at = _go_at + VOLLEY[_thrown]
+
+
+## The cold gathering where a spear will be: motes of frost drawn in to the
+## spot from round it, and a ring of light closing on it.
+func _gather(into: Node, at: Vector3) -> void:
+	SkillFx.particles(into, at, {"amount": 16, "life": GATHER + 0.05, "one_shot": true, "explosiveness": 0.6,
+			"speed": Vector2(0.0, 0.1), "sphere": 0.55, "orbit": -9.0, "tangent": 3.0, "spread": 180.0,
+			"size": Vector2(0.02, 0.045), "grow": 0.8,
+			"colors": [Color(IceShard.ICE, 0.0), Color(IceShard.ICE_HOT, 1.0), Color(1, 1, 1, 1)]})
+	var cam := into.get_viewport().get_camera_3d() if into.get_viewport() != null else null
+	var facing := (cam.global_position - at) if cam != null else Vector3.BACK
+	SkillFx.ring(into, at, facing, Color(IceShard.ICE, 0.55), 0.26, 0.03, GATHER + 0.05, 0.025, 1.4)
+
+
+## The crystal there: a small white flash, a ring of frost thrown out, a few
+## glints off it, and a little frost that stays round it while it hangs.
+func _crystallise(into: Node, at: Vector3, spear: Node3D) -> void:
+	SkillFx.flash(into, at, IceShard.ICE_HOT, 0.14, 0.12, 3.0)
+	var cam := into.get_viewport().get_camera_3d() if into.get_viewport() != null else null
+	var facing := (cam.global_position - at) if cam != null else Vector3.BACK
+	SkillFx.ring(into, at, facing, Color(IceShard.ICE_HOT, 0.7), 0.05, 0.32, 0.28, 0.02, 2.0)
+	SkillFx.burst(into, at, IceShard.ICE, 10, Vector2(0.4, 1.4), Vector3.UP, 180.0, Vector2(0.02, 0.04),
+			Vector3(0, -1.5, 0), 0.5)
+	var glints := SkillFx.particles(_crown, at, {"amount": 5, "life": 0.9, "speed": Vector2(0.02, 0.12),
+			"spread": 180.0, "sphere": 0.2, "gravity": Vector3(0, -0.3, 0), "size": Vector2(0.015, 0.035),
+			"local": true, "colors": [Color(IceShard.ICE_HOT, 0.0), Color(1, 1, 1, 0.9), Color(IceShard.ICE, 0.0)]})
+	_glints[_spears.find(spear)] = glints
+
+
+## How long a spear's cold gathers before the ice is there.
+const GATHER := 0.22
+
+
+## Grown by `k` (0..1): fast, past its length a little, and back.
+static func _grow_curve(k: float) -> float:
+	var c := 1.70158
+	var x := k - 1.0
+	return 1.0 + (c + 1.0) * x * x * x + c * x * x
+
+
+## A spear's ice cooling from white-hot as it forms to its own glow.
+func _cool(spear: Node3D, grown: float) -> void:
+	for part in spear.get_children():
+		var mesh := part as MeshInstance3D
+		if mesh == null:
+			continue
+		var mat := mesh.material_override as StandardMaterial3D
+		if mat != null:
+			mat.emission_energy_multiplier = lerpf(5.0, 1.2, clampf(grown * 1.3, 0.0, 1.0))
+			mat.emission = IceShard.ICE_HOT.lerp(IceShard.ICE, clampf(grown * 1.3, 0.0, 1.0))
 
 
 ## What the spears go at: her lock, else the nearest foe ahead within `SEEK`.
