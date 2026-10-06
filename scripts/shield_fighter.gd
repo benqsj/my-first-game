@@ -4,14 +4,22 @@ extends Brawler
 ## Sword and shield: the skeleton warrior of Polysplit's Biped Creatures
 ## (CREATURES_PACK.md).
 ##
-## * **Behind the shield.** Roused and within `shield_under` of him, it stops
-##   running and walks in behind its raised shield (`CR_ShieldWalk` and the
-##   rest: the walk's legs, the guard's body, tools/creature_clips.gd
-##   LAYERED), and stands behind it between its blows. Whatever comes at its
-##   front while the shield is up is caught on it (the guard's stamina, as
-##   any [Fighter]'s block: spent, the guard breaks and it stands open); from
-##   the side or behind (wider than `shield_front`) it gets through. Caught,
-##   it rocks behind the shield, and once his blows stop coming
+## * **The shield raised when he strikes or shoots** (the user's word: it
+##   came on always behind a raised shield). Its shield hangs at its side
+##   and it comes on as any creature does, until he swings at it (a swing
+##   seen, [signal HurtboxComponent.swing_seen]), something he loosed comes
+##   at it (an arrow, a bolt, a spear of ice: the `missile` group, judged
+##   `missile_watch` seconds out) or a blow gets through to it: then the
+##   shield comes up, turned to whoever it was, and stays up `raise_hold`
+##   seconds past the last of them. For the first `raise_steady` of those it
+##   does not swing itself (it would drop the shield into his blow); behind
+##   the raised shield it walks in (`CR_ShieldWalk` and the rest: the walk's
+##   legs, the guard's body, tools/creature_clips.gd LAYERED) instead of
+##   running. Whatever comes at its front while the shield is up is caught
+##   on it (the guard's stamina, as any [Fighter]'s block: spent, the guard
+##   breaks and it stands open); from the side or behind (wider than
+##   `shield_front`) it gets through, and magic goes through it. Caught, it
+##   rocks behind the shield, and once his blows stop coming
 ##   (`counter_after`) it answers.
 ## * **The bash and the sword.** Its answer from behind the shield, mostly,
 ##   and now and then one of its attacks: the shield thrown into him
@@ -20,7 +28,6 @@ extends Brawler
 ## * **Broken into bones** as every skeleton is ([member Brawler.shatter_on_death]).
 
 @export_group("Shield")
-@export var shield_under: float = 7.5
 @export var shield_pace: float = 1.6
 @export var shield_walk_clip: StringName = &"CR_ShieldWalk"
 @export var shield_back_clip: StringName = &"CR_ShieldBack"
@@ -30,6 +37,12 @@ extends Brawler
 ## How far round its front the shield covers: a blow from where the dot of
 ## its facing and the way to the striker is above this is caught.
 @export var shield_front: float = 0.2
+## How long the shield stays up past the last swing, shot or blow (s).
+@export var raise_hold: float = 1.5
+## How long after one it stands behind the shield without swinging (s).
+@export var raise_steady: float = 0.4
+## How far out (s of its flight) a missile coming at it raises the shield.
+@export var missile_watch: float = 0.9
 
 @export_group("Bash")
 @export var bash_clip: StringName = &"CR_ShieldBash"
@@ -50,6 +63,13 @@ extends Brawler
 
 const BASH := 74
 const FOLLOW := 75
+
+## The shield raised (every peer; the host decides it, [method net_guard]).
+var guarding: bool = false
+var _guard_for: float = 0.0
+var _threat_age: float = 99.0
+var _guard_from: Node3D = null
+var _judged: Dictionary = {}
 
 func _ready() -> void:
 	super()
@@ -77,15 +97,118 @@ func _ready() -> void:
 
 
 #region The shield
-## Up: roused, on its feet, not running and not in the middle of a move.
+## Up: roused, raised against a swing, a shot or a blow ([member guarding]),
+## and not in the middle of a move.
 func shield_up() -> bool:
 	if is_dead or not (mode == Mode.CHASE or mode == Mode.FIGHT):
 		return false
 	if act == Act.BLOCK:
 		return true
-	if act != Act.NONE:
+	# Raised (still slowing out of a run, as well): it holds.
+	return act == Act.NONE and guarding
+
+
+## Free to raise it: roused, and not in a move of its own, broken or reeling.
+func _may_raise() -> bool:
+	if is_dead or not _decides() or not (mode == Mode.CHASE or mode == Mode.FIGHT):
 		return false
-	return Vector3(velocity.x, 0.0, velocity.z).length() <= run_above
+	return act == Act.NONE or act == Act.BLOCK
+
+
+## Host: the shield up (or kept up) against `who`, turned to them.
+func _raise_shield(who: Node3D) -> void:
+	if not _may_raise():
+		return
+	_guard_for = raise_hold
+	_threat_age = 0.0
+	_guard_from = who
+	if who != null:
+		_turn_to_threat(who.global_position)
+	if not guarding:
+		net_guard.rpc(true)
+
+
+## Turned at once onto what comes from its front half, as a block is; from
+## behind it is not spun round (it turns as it can, and may be too late).
+func _turn_to_threat(point: Vector3) -> void:
+	var to := point - global_position
+	to.y = 0.0
+	if to.length_squared() > 0.0001 and _forward().dot(to.normalized()) > -0.2:
+		_face(to, 1.0, 1000.0)
+
+
+func _physics_process(delta: float) -> void:
+	if _decides():
+		_keep_guard(delta)
+	super(delta)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_guard(on: bool) -> void:
+	guarding = on
+
+
+## Host: the shield's clock, and the missiles coming at it.
+func _keep_guard(delta: float) -> void:
+	_threat_age += delta
+	_guard_for = maxf(_guard_for - delta, 0.0)
+	_watch_missiles()
+	var want := _guard_for > 0.0 and not is_dead and (mode == Mode.CHASE or mode == Mode.FIGHT)
+	if want != guarding:
+		net_guard.rpc(want)
+	if not want:
+		_guard_from = null
+
+
+## Arrows, bolts and spears loosed by a hero, on a line through it and soon
+## there: each raises the shield once, turned to whoever loosed it.
+func _watch_missiles() -> void:
+	if not (mode == Mode.CHASE or mode == Mode.FIGHT) or is_dead:
+		return
+	var centre := global_position + Vector3.UP * body_height * 0.55 * visual_scale
+	for node in get_tree().get_nodes_in_group(&"missile"):
+		var id := node.get_instance_id()
+		if _judged.has(id) or not node.has_method("flight"):
+			continue
+		if bool(node.get("against_heroes")):
+			continue
+		var flight: Array = node.call("flight")
+		if flight.is_empty():
+			continue
+		var at: Vector3 = flight[0]
+		var going: Vector3 = flight[1]
+		var speed2 := going.length_squared()
+		if speed2 < 1.0:
+			continue
+		var when := (centre - at).dot(going) / speed2
+		if when < 0.0 or when > missile_watch:
+			continue
+		if (at + going * when).distance_to(centre) > 1.4 * visual_scale:
+			continue
+		_judged[id] = true
+		var shooter: Node3D = null
+		if flight.size() > 2 and is_instance_valid(flight[2]):
+			shooter = flight[2] as Node3D
+		if shooter == null or not shooter.is_in_group(&"player"):
+			# Turned to where it comes from, whoever loosed it.
+			_raise_shield(null)
+			_turn_to_threat(at)
+		else:
+			_raise_shield(shooter)
+	if _judged.size() > 64:
+		_judged.clear()
+
+
+## A hero's swing begun at it: the shield up, whether or not it will reach.
+func _answer_swing(knight: Node3D) -> void:
+	super(knight)
+	if knight == null or _moves_table.has(act):
+		return
+	var to_me := global_position - knight.global_position
+	to_me.y = 0.0
+	if to_me.length() > react_range:
+		return
+	_raise_shield(knight)
 
 
 func _covers(from: Node3D) -> bool:
@@ -102,6 +225,9 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 		# block takes it from here (stamina, the clash, the break).
 		_start(Act.BLOCK)
 	var bled := super(damage, at, blow, from, magic)
+	# A blow that got through: the shield up for the next.
+	if bled and not is_dead and from != null:
+		_raise_shield(from)
 	return bled
 
 
@@ -124,13 +250,20 @@ func _think(delta: float) -> void:
 			_begin_attack()
 		return
 	_quarry = _pick_quarry()
-	if _quarry != null and act == Act.NONE:
+	if _quarry != null and act == Act.NONE and guarding:
 		var gap := _distance_to(_quarry)
-		if gap > reach and gap < shield_under:
+		var toward := _guard_from if is_instance_valid(_guard_from) else _quarry
+		if gap > reach:
 			# Walking in behind the shield, not running.
 			mode = Mode.CHASE
 			_move_towards(_quarry.global_position, shield_pace, delta)
-			_face(_quarry.global_position - global_position, delta, turn_speed)
+			_face(toward.global_position - global_position, delta, turn_speed * 2.0)
+			return
+		if _threat_age < raise_steady:
+			# His blow on its way: behind the shield, not swinging into it.
+			mode = Mode.FIGHT
+			_face(toward.global_position - global_position, delta, turn_speed * 2.0)
+			_slow(delta, 4.0)
 			return
 	super(delta)
 

@@ -1,7 +1,8 @@
 extends SceneTree
 
-## The skeleton warrior ([ShieldFighter]) in the test arena: it walks in
-## behind its raised shield; cuts at its front are caught on it and cuts from
+## The skeleton warrior ([ShieldFighter]) in the test arena: unprovoked it
+## comes on with its shield down; a swing, an arrow or a blow raises it, and
+## behind it it walks in, and it lowers it again once nothing comes; cuts at its front are caught on it and cuts from
 ## behind are not; the guard spent breaks; caught, it answers with the bash and
 ## the sword, both landing on a hero standing still; cut down, it breaks into
 ## its bones, which come to rest on the floor — as every skeleton does.
@@ -49,6 +50,7 @@ func _done(world: Node) -> void:
 
 
 func _run() -> void:
+	await _raise()
 	await _walk_in()
 	await _shield()
 	await _bash()
@@ -58,7 +60,68 @@ func _run() -> void:
 	quit(1 if _failed > 0 else 0)
 
 
-## From 7 m off it walks in behind the shield, not running.
+## Unprovoked, the shield down; an arrow loosed at it raises it before it
+## lands (and is caught), a swing begun at it raises it, and with nothing
+## more coming it goes down again.
+func _raise() -> void:
+	var a: Array = await _arena()
+	var world: Node = a[0]
+	var hero: Player = a[2]
+	var body := (a[1] as ArenaPanel).call_up(WARRIOR, false, _ahead(hero, 9.0)) as ShieldFighter
+	var start := hero.global_position
+	var raised := 0
+	var shield_clip := 0
+	for f in 50:
+		await physics_frame
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if body.guarding:
+			raised += 1
+		if body._anim.current_clip() in [body.shield_walk_clip, body.shield_idle_clip]:
+			shield_clip += 1
+	_check("unprovoked, it comes on with the shield down", raised == 0 and shield_clip == 0,
+			"%d raised, %d in a shield clip" % [raised, shield_clip])
+	# An arrow at it.
+	var health := body.health
+	var arrow: Arrow = (load("res://scenes/props/arrow.tscn") as PackedScene).instantiate()
+	world.add_child(arrow)
+	var from := hero.global_position + Vector3.UP * 1.5
+	arrow.global_position = from
+	var aim := (body.global_position + Vector3.UP * 1.0) - from
+	arrow.launch(aim.normalized() * 45.0, 20.0, false, 0.0, hero)
+	var up_at := -1
+	var caught := false
+	for f in 40:
+		await physics_frame
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if up_at < 0 and body.guarding:
+			up_at = f
+		if body.act == Fighter.Act.BLOCK:
+			caught = true
+	_check("an arrow loosed at it raises the shield", up_at >= 0, "raised at frame %d" % up_at)
+	_check("and is caught on it", caught and body.health >= health - 0.01,
+			"health %.0f of %.0f" % [body.health, health])
+	# Nothing more: down again.
+	var down_at := -1.0
+	for f in int((body.raise_hold + 1.5) * 60.0):
+		await physics_frame
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if body.guarding:
+			body._cooldown = 99.0
+		elif down_at < 0.0:
+			down_at = f / 60.0
+	_check("with nothing more coming it lowers it", down_at >= 0.0, "down after %.2f s" % down_at)
+	# A swing begun at it, from in front and near.
+	body.global_position = _ahead(hero, 2.4)
+	await physics_frame
+	var to := body.global_position - hero.global_position
+	hero.rotation.y = atan2(-to.x, -to.z)
+	body._start(Fighter.Act.NONE)
+	body._answer_swing(hero)
+	_check("a swing begun at it raises the shield", body.guarding)
+	await _done(world)
+
+
+## Kept being shot at from 7 m off, it walks in behind the shield, not running.
 func _walk_in() -> void:
 	var a: Array = await _arena()
 	var hero: Player = a[2]
@@ -69,6 +132,8 @@ func _walk_in() -> void:
 	for f in 120:
 		await physics_frame
 		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if f % 20 == 5:
+			body._raise_shield(hero)
 		if f > 30 and body.act == Fighter.Act.NONE and body._distance_to(hero) > body.reach + 0.2:
 			top = maxf(top, Vector3(body.velocity.x, 0.0, body.velocity.z).length())
 			if body._anim.current_clip() == body.shield_walk_clip:
@@ -93,6 +158,10 @@ func _shield() -> void:
 	body.velocity = Vector3.ZERO
 	body.look_at(Vector3(hero.global_position.x, body.global_position.y, hero.global_position.z), Vector3.UP)
 	var to_hero := hero.global_position - body.global_position
+	var open_bled := body._receive(20.0, body.global_position + Vector3.UP, -to_hero, hero)
+	_check("its shield down, a cut at its front gets through (and raises it)",
+			open_bled and body.guarding, "health %.0f" % body.health)
+	body._start(Fighter.Act.NONE)
 	var front_ok := not body._receive(20.0, body.global_position + Vector3.UP, -to_hero, hero)
 	_check("a cut at its front is caught on the shield", front_ok and body.act == Fighter.Act.BLOCK,
 			"act %d stamina %.0f" % [body.act, body.stamina])
@@ -137,6 +206,9 @@ func _bash() -> void:
 		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
 		var to := body.global_position - hero.global_position
 		hero.rotation.y = atan2(-to.x, -to.z)
+		if not caught:
+			# His swing begun at it (taken whenever it is free to raise).
+			body._raise_shield(hero)
 		if not caught and body.shield_up():
 			caught = true
 			body._receive(10.0, body.global_position + Vector3.UP, -to, hero)

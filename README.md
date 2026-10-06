@@ -5830,9 +5830,19 @@ blasts him off.
 `ShieldFighter` (`scripts/shield_fighter.gd`, a [Brawler]) in
 `scenes/enemies/pack/skeleton_warrior.tscn`:
 
-- **Behind the shield.** Roused and within 7.5 m of him it stops running and
-  walks in behind its raised shield (1.6 m/s), and stands behind it between
-  its blows. The clips are new: `CR_ShieldWalk`, `CR_ShieldBack`,
+- **Behind the shield, raised when he strikes or shoots** (2026-10-07, the
+  user's word: it came on always behind a raised shield; the skeleton lord
+  too). Unprovoked, the shield hangs at its side and it comes on as any
+  creature does. It comes up (`guarding`, sent to every peer by
+  `net_guard`) the moment he begins a swing at it within `react_range`, an
+  arrow, bolt or spear of ice he loosed is on a line through it and under
+  0.9 s out (the `missile` group's `flight()`, as the wolf judges them), or
+  a blow gets through to it; turned at once to whoever it was if they are
+  in its front half (from behind it turns as it can). It stays up 1.5 s past
+  the last of them (`raise_hold`), and for the first 0.4 s (`raise_steady`)
+  it does not swing (it would drop the shield into his blow). While it is
+  up and he is out of reach it walks in behind it (1.6 m/s) instead of
+  running. The clips are new: `CR_ShieldWalk`, `CR_ShieldBack`,
   `CR_ShieldL`, `CR_ShieldR`, the walk's legs and hips under
   `KV_BlockShield01_Loop`'s waist and everything above it
   (tools/creature_clips.gd `LAYERED`; 73 clips). Standing, `CR_Block`.
@@ -5858,7 +5868,10 @@ blasts him off.
   the bigger ones clatter as they land, and they sink away with the corpse.
   Every peer breaks its own.
 
-`tests/shield_warrior_test.gd`: walks in behind the shield, not running; a
+`tests/shield_warrior_test.gd`: unprovoked, the shield down; an arrow at it
+raises it before it lands and is caught, nothing more and it goes down, a
+swing begun at it raises it; kept shot at, it walks in behind the shield, not
+running; the shield down, a cut at its front gets through (and raises it); a
 cut at its front is caught and one from behind is not; spent, the guard
 breaks; caught, it answers bash then sword, both landing on a hero standing
 still; cut down, 18 pieces that come to rest on the floor.
