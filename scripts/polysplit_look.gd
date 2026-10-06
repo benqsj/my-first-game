@@ -723,6 +723,8 @@ static func shown(look: Dictionary) -> Dictionary:
 	var o := String(look.get("o", ""))
 	if o != "none" and o != "his_shield" and o != "":
 		on["o_" + o] = true
+	# the skeletons' clothes from the bag take off what they cover ([SkeletonGarb])
+	SkeletonGarb.strip(on, look)
 	return on
 
 

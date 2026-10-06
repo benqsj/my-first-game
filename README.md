@@ -5950,6 +5950,21 @@ own likeliest), and its objects in one of `colours`; picked from its name, so
 every peer dresses the same body alike. The bare one goes mostly bare, in a
 rag or a hood now and then. `tests/skeleton_dress_test.gd`.
 
+### The skeletons' clothes in the bag (2026-10-06, the user's word)
+
+`SkeletonGarb` (`scripts/skeleton_garb.gd`): the nine pieces of the
+all-in-one kit (three helms/hats/hoods, three coats, three skirts) are in the
+bag's Attire for a hero on his own figure (YOUR OWN); Enter puts one on or
+takes it off. The kit is skinned to the same 99 bones as the Heroes pack the
+maker's figure is made of, so each piece is put on the figure's skeleton
+with a skin of its own (each bind from the kit's bone to the figure's of the
+same name, the rests lined up at the pelvis, 1.7 cm). Worn as `sk_head`,
+`sk_top`, `sk_bottom` in the look (sent with it to every peer).
+**Nothing over his own clothes**: what a piece covers comes off underneath
+(`SkeletonGarb.strip`, from `PolysplitLook.shown`): a coat takes his top off,
+a skirt his breeches (his bare body under them), headgear his hat and hair.
+`tests/skeleton_garb_test.gd`.
+
 Each wears its looks through `PackDress` (`scripts/pack_dress.gd`, the pack's
 shader and colours on the FBX's meshes; `PackCreature.dress`).
 

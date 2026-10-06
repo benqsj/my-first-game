@@ -291,6 +291,18 @@ func _use(i: int) -> void:
 	elif item.has("garb"):
 		player.set_garb(int(item.garb))
 		_root.queue_redraw()
+	elif item.has("sk"):
+		# the skeletons' clothes ([SkeletonGarb]): on, or off again
+		var look := _look()
+		if not look.is_empty():
+			var id := String(item.sk)
+			var slot := String(SkeletonGarb.PIECES[id][0])
+			if String(look.get(slot, "")) == id:
+				look.erase(slot)
+			else:
+				look[slot] = id
+			player.set_look(look)
+		_root.queue_redraw()
 	elif item.has("blade"):
 		_take_blade(String(item.blade))
 	elif item.has("bow") and not item.get("worn", false):
@@ -307,6 +319,17 @@ func _garbs() -> Array:
 		return []
 	var list: Variant = player.rig.get(&"garbs")
 	return list if list is Array else []
+
+
+## He wears his own figure, the maker's (YOUR OWN), on which the skeletons'
+## clothes go.
+func _wears_own_figure() -> bool:
+	var rig: Node = player.rig
+	if rig == null or not (&"faces" in rig) or not (&"face" in rig):
+		return false
+	var faces: Array = rig.get(&"faces")
+	var face := int(rig.get(&"face"))
+	return face >= 0 and face < faces.size() and faces[face] == &"custom"
 
 
 func _has_shield() -> bool:
@@ -361,6 +384,20 @@ func _items() -> Array[Dictionary]:
 					"icon": "garb", "colour": info.get("colour", Color(0.4, 0.4, 0.35)), "garb": i,
 					"worn": player.garb == i, "stats": info.get("stats", []), "text": info.get("text", ""),
 				})
+			# The skeletons' clothes, on his own figure (YOUR OWN) only: the
+			# kit is made for its skeleton ([SkeletonGarb]).
+			if _wears_own_figure():
+				var look := _look()
+				for id: String in SkeletonGarb.PIECES:
+					var piece: Array = SkeletonGarb.PIECES[id]
+					var paint: Array = PackCreature.MATERIALS[String(piece[4])]
+					out.append({
+						"name": piece[2], "kind": piece[3], "icon": "garb", "colour": paint[0], "sk": id,
+						"worn": String(look.get(String(piece[0]), "")) == id,
+						"stats": [["Worn", {"sk_head": "on the head", "sk_top": "over the body",
+								"sk_bottom": "on the legs"}[String(piece[0])]], ["From", "the barrow's dead"]],
+						"text": piece[5],
+					})
 	return out
 
 
