@@ -38,10 +38,20 @@ func _initialize() -> void:
 	var knight := load("res://scenes/player/warrior.tres") as CharacterProfile
 	_check("his blow the least of the swords", tariel.damage < knight.damage, "%.0f" % tariel.damage)
 	_check("his p.def above the knight's", tariel.p_def > knight.p_def, "%.0f vs %.0f" % [tariel.p_def, knight.p_def])
-	_check("the knight's health above his", knight.max_health > tariel.max_health,
-			"%.0f vs %.0f" % [knight.max_health, tariel.max_health])
-	_check("yet he stands longer against blades",
-			tariel.max_health * (100.0 + tariel.p_def) > knight.max_health * (100.0 + knight.p_def))
+	# a wolf's swipe (the user's word, 2026-10-06): Tariel with his shield
+	# stands four, just, and falls to the fifth; without it, and the knight,
+	# the third is on the edge
+	var swipe := 110.0
+	var shielded := Defence.taken(swipe, tariel.p_def)
+	_check("a wolf: four swipes leave him standing, the fifth is the end",
+			shielded * 4.0 < tariel.max_health and shielded * 5.0 >= tariel.max_health,
+			"%.1f a swipe, %.0f health" % [shielded, tariel.max_health])
+	var unshielded := Defence.taken(swipe, tariel.p_def - tariel.shield_p_def)
+	_check("without his shield the third is the end", unshielded * 2.0 < tariel.max_health
+			and unshielded * 3.0 >= tariel.max_health, "%.1f a swipe" % unshielded)
+	var knights := Defence.taken(swipe, knight.p_def)
+	_check("the knight stands three, only just", knights * 3.0 < knight.max_health
+			and knights * 3.0 > knight.max_health - 10.0, "%.1f a swipe, %.0f health" % [knights, knight.max_health])
 
 	_check("with his shield: all his p.def", is_equal_approx(_player.shield_def_off(), 0.0))
 	var dressed := _player.look.duplicate(true)

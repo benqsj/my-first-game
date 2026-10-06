@@ -8421,6 +8421,11 @@ Tariel's sword is by `Swordsman`:
   into `assets/tariel_rigged/tariel_extra.glb`, `h2m.gd -- tariel_extra` into
   `tariel_mannequin.res`; frames 0-54 at x1.4, the blow ringing out at
   0.38 s, held 0.9 s.
+- **Counted in a wolf's swipes (110; the user's word, option A)**: Tariel
+  with his shield 295 health, p.def 50: four swipes leave him 1.7, the fifth
+  is the end. Without it his p.def is 10 (`shield_p_def` 40): the third is
+  the end. The knight 255 health, p.def 30: the third leaves him 1.2, a
+  heavier blow ends him. `tariel_challenge_test` counts them.
 
 
 ### The great sword's weight, as Elden Ring's (2026-10-06, the user's word)
