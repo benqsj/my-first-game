@@ -3148,8 +3148,9 @@ func _on_slammed(at: Vector3, heft: float) -> void:
 	var ahead := -global_basis.z
 	ahead.y = 0.0
 	DustRing.burst(world, at, 1.1 + 0.2 * heft)
-	GroundFx.eruption(world, at, 0.8)
-	GroundFx.wave(world, at, ahead.normalized(), 4.5, false, 0.9)
+	if rig == null or rig.get(&"slam_spikes") != false:
+		GroundFx.eruption(world, at, 0.8)
+		GroundFx.wave(world, at, ahead.normalized(), 4.5, false, 0.9)
 	ImpactFx.thud(self, at, true)
 	WindBlast.shake(self, 0.18, 0.4, 14.0)
 
@@ -4325,6 +4326,10 @@ func _tick_charge() -> void:
 	if go:
 		_cut_charging = false
 		net_release_cut.rpc(leap)
+		if leap and is_on_floor():
+			# off the ground for as long as the leap takes to come down on it
+			var air := clampf(float(rig.get(&"_to_cut")), 0.2, 1.0)
+			velocity.y = _gravity * air * 0.5
 		_commit_timer = 0.0
 		_commit(float(rig.get(&"_swing_commit")))
 		_swing_t0 = _game_t

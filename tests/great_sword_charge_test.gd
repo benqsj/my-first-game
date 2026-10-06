@@ -39,7 +39,8 @@ func _charge(sprint: bool, button: String, hold: float, let_go: String) -> Dicti
 	Input.action_press(button)
 	await _frames(3)
 	var out := {"charging": player._cut_charging, "clip": rig.current_swing(), "slam": false, "went": 0.0,
-			"held_run": 0.0}
+			"held_run": 0.0, "top": 0.0, "released_at": -1.0, "start_z": player.global_position.z}
+	var y0 := player.global_position.y
 	var t := 0.0
 	var z := 0.0
 	var z0 := player.global_position.z
@@ -56,6 +57,10 @@ func _charge(sprint: bool, button: String, hold: float, let_go: String) -> Dicti
 			_release_all()
 		if rig.current_swing() != &"":
 			out["last"] = rig.current_swing()
+		out["top"] = maxf(float(out["top"]), player.global_position.y - y0)
+		if float(out["released_at"]) < 0.0 and out["charging"] and not player._cut_charging:
+			out["released_at"] = t
+			out["run_to_release"] = absf(player.global_position.z - float(out["start_z"]))
 		if rig._slam_done and not out["slam"]:
 			out["slam_d"] = Vector2(player.global_position.x - foe.global_position.x,
 					player.global_position.z - foe.global_position.z).length()
@@ -112,15 +117,21 @@ func _initialize() -> void:
 	print("    let go of the push: on %.2f m" % r["went"])
 	_check("let go of the push: a step at most", r["went"] < 1.6 and r["slam"], "%.2f m" % r["went"])
 
+	r = await _charge(true, "attack", 3.0, "")
+	print("    held on: let go by itself after %.2f s, %.2f m" % [float(r["released_at"]), float(r.get("run_to_release", 0.0))])
+	_check("held on: 4-5 strides, then the blow by itself", float(r["released_at"]) > 0.9
+			and float(r["released_at"]) < 1.6 and r["slam"], "%.2f s" % float(r["released_at"]))
+
 	player.global_position = Vector3(0.0, 0.5, 26.0)
 	player.rotation.y = 0.0
 	await _frames(30)
-	foe.global_position = player.global_position + Vector3(0, 0, -14.0)
+	foe.global_position = player.global_position + Vector3(0, 0, -11.0)
 	player._hold_target(foe)
 	r = await _charge(true, "attack", 3.0, "")
 	_check("locked on: he leaps at it by himself", r.get("last", &"") == GreatSword.CHARGE["leap"]["clip"] and r["slam"],
 			str(r.get("last", &"")))
-	print("    the blade into the ground %.2f m from its middle" % float(r.get("slam_d", -1.0)))
+	print("    the blade into the ground %.2f m from its middle; up %.2f m" % [float(r.get("slam_d", -1.0)), float(r["top"])])
+	_check("the leap leaves the ground", float(r["top"]) > 0.4, "%.2f m" % float(r["top"]))
 	_check("the leap lands before it, not in it", float(r.get("slam_d", 0.0)) > 1.0 and float(r.get("slam_d", 9.0)) < 3.2,
 			"%.2f m" % float(r.get("slam_d", -1.0)))
 

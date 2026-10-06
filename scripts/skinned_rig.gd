@@ -1627,14 +1627,30 @@ func _weigh_blow(clip: StringName, rate: float, from: float, windup: float) -> v
 		t += clip_len * (s0 - from) / (rate * windup) + hang_time
 	else:
 		_set_blow_phase(1, _strike_k(from, s0, w.x))
-	# the swing, speeding up: summed in steps
+	var swing := _swing_times(from, w, rate, s0)
+	_to_cut = t + swing.x
+	_swing_commit = t + swing.y + swing_recovery
+
+
+## Seconds from `from` (or the swing's start `s0`, whichever is later) to the
+## cut and to the cut's end, the swing speeding up as `_strike_k` has it.
+func _swing_times(from: float, w: Vector2, rate: float, s0: float) -> Vector2:
+	var clip_len := _action_len
 	var a := maxf(s0, from)
+	var t := 0.0
 	var steps := 16
 	for i in steps:
 		var p := a + (w.x - a) * (float(i) + 0.5) / float(steps)
-		t += clip_len * (w.x - a) / float(steps) / (rate * _strike_k(p, s0, w.x))
-	t += clip_len * maxf(w.y - maxf(w.x, from), 0.0) / (rate * strike_pace)
-	_swing_commit = t + swing_recovery
+		t += clip_len * maxf(w.x - a, 0.0) / float(steps) / (rate * _strike_k(p, s0, w.x))
+	return Vector2(t, t + clip_len * maxf(w.y - maxf(w.x, from), 0.0) / (rate * strike_pace))
+
+
+## Seconds from the blow being weighed to its cut (a leap's time in the air).
+var _to_cut: float = 0.0
+## The ground broken open where his blade goes in (the spikes and the wave of
+## earth, [GroundFx]); false: dust and the thud only (the knight, the user's
+## word 2026-10-06).
+var slam_spikes: bool = true
 
 
 ## Its travel is carrying him (see `carried`).
@@ -1927,13 +1943,18 @@ func release_cut(leap: bool = false) -> float:
 		_hold_at = -1.0
 		_holding = false
 		var weight := float(lp.get("weight", cut_weight))
-		if _play_action(lp["clip"], Role.SWING, float(lp.get("rate", 1.0)) * mq_swing_scale, 0.12,
-				float(lp.get("from", 0.0))):
+		var lrate := float(lp.get("rate", 1.0)) * mq_swing_scale
+		if _play_action(lp["clip"], Role.SWING, lrate, 0.12, float(lp.get("from", 0.0))):
 			cut_weight = weight
 			_cut_slam = float(lp.get("slam", -1.0))
 			_slam_done = false
-			var lw: Vector2 = cut_window.get(_act_clip, Vector2(0.5, 0.5))
-			_swing_commit = _action_len * maxf(lw.y - _action_from, 0.0) / _action_rate + swing_recovery
+			# up at the leap's own pace, a beat at the top, and down fast
+			_weigh_blow(_act_clip, lrate, _action_from, float(lp.get("windup", 1.0)))
+			var lw := _whole_cut(_act_clip)
+			if _cut_slam > lw.y:
+				# held till the blade is in the ground
+				_swing_commit = maxf(_swing_commit, _swing_commit - swing_recovery
+						+ _action_len * (_cut_slam - lw.y) / (lrate * maxf(recover_pace, 0.1)) + 0.05)
 			_whoosh()
 			return _swing_commit
 	var at := maxf(_progress(), _hold_at)
@@ -1945,6 +1966,26 @@ func release_cut(leap: bool = false) -> float:
 	_action_left = _action_len * (1.0 - at) / _action_rate
 	var w: Vector2 = cut_window.get(_act_clip, Vector2(at, at))
 	_swing_commit = _action_len * maxf(w.y - at, 0.0) / _action_rate + swing_recovery
+	if bool(cut_spec("run_attack").get("fast_release", false)) and _act_clip == cut_spec("run_attack").get("clip", &""):
+		# The weight is back already: let go, it falls fast (the swing eased
+		# in up to `strike_pace`, then carried on and slowed as a weighed
+		# blow is).
+		var base := _action_rate
+		_weighed = true
+		_blow_phase = 1
+		_blow_k = 1.0
+		var whole := _whole_cut(_act_clip)
+		var s0 := _swing_start(_act_clip, whole)
+		_set_blow_phase(1, _strike_k(at, s0, whole.x))
+		var swing := _swing_times(at, whole, base, s0)
+		var lead := _action_len * maxf(s0 - at, 0.0) / (base * maxf(strike_from_pace if strike_from_pace > 0.0 else strike_pace, 0.1))
+		_to_cut = lead + swing.x
+		_swing_commit = lead + swing.y + swing_recovery
+		if _cut_slam > whole.y:
+			# held till the blade is in the ground: moving off before it
+			# would leave the blow without its end
+			_swing_commit = maxf(_swing_commit, lead + swing.y
+					+ _action_len * (_cut_slam - whole.y) / (base * maxf(recover_pace, 0.1)) + 0.05)
 	_whoosh()
 	return _swing_commit
 
@@ -1975,6 +2016,9 @@ func pace_own() -> void:
 func time_to_cut() -> float:
 	if _role != Role.SWING or _action_len <= 0.0:
 		return 0.0
+	if _weighed:
+		# (asked as the blow starts: worked out over its paces)
+		return _to_cut
 	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
 	return maxf(_action_len * (w.x - _progress()) / maxf(_action_rate, 0.01), 0.0)
 

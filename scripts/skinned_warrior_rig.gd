@@ -194,6 +194,8 @@ func _configure() -> void:
 	last_recover_blend = 0.38
 	bite_stop = 0.11
 	land_shake = 0.06
+	# His blade into the ground: dust and the thud, no spikes of earth.
+	slam_spikes = false
 	action_blend = 0.12
 	run_threshold = 3.0
 	max_play_rate = 2.0

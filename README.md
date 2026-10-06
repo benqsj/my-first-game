@@ -8481,3 +8481,18 @@ Neither at a jog, nor on the block button (`sprint_only`, `hold_button`,
 `SkinnedRig.release_cut(leap)`). Measured (`tests/great_sword_charge_test.gd`):
 held 1.2 s he runs 6.8 m; let go, on 1.15 m (the button) / 0.46 m (the push);
 the leap's blade into the ground 1.74 m from an orc's middle.
+
+### The charge: 4-5 strides, a fast fall, a real leap, no spikes (2026-10-06, 19:18, the user's word)
+
+- The charge runs 4-5 strides at most (`hold_max` 1.3 s, 7.4 m), then the blow
+  comes down by itself if nothing was let go first; locked on or not.
+- Let go, the blade falls fast (`fast_release`): the swing eased in from
+  `strike_from_pace` to `strike_pace` as a weighed blow, then carried on and
+  slowed; the commit runs to the blade in the ground (its `slam`), so moving
+  off does not cut the blow short (`_swing_times`, `_to_cut`).
+- The leap leaves the ground: `velocity.y = g * air / 2`, `air` the time to the
+  cut (`SkinnedRig._to_cut`), the leap played up at `leap.windup` 0.55, a beat at
+  the top, down fast: 0.53 m up, the blade into the ground 3 m from an orc's
+  middle when let go from `leap.gap` 6.2 m off.
+- No spikes or wave of earth from his blade (`SkinnedRig.slam_spikes` false for
+  the warrior): dust, the thud and the shake.
