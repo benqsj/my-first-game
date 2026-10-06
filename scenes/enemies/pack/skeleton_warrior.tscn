@@ -78,6 +78,7 @@ death_clip = &"CR_Death"
 guard_idle_clip = &"CR_ShieldIdle"
 dies_by_clip = true
 clip_source = "res://assets/creatures/anim/biped_clips.scn"
+shatter_on_death = true
 clip_meta = "res://assets/creatures/anim/biped_clip_meta.json"
 settle_on_ground = false
 hips_bone = "pelvis_joint"

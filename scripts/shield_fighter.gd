@@ -17,8 +17,7 @@ extends Brawler
 ##   and now and then one of its attacks: the shield thrown into him
 ##   (`bash_clip`), and straight out of it the sword (`follow_clip`), one
 ##   combo to the hero. Its other attacks are the [Brawler]'s.
-## * **Broken into bones.** Cut down, it comes apart where it stands
-##   ([BoneShatter]), the pieces thrown the way the last blow went.
+## * **Broken into bones** as every skeleton is ([member Brawler.shatter_on_death]).
 
 @export_group("Shield")
 @export var shield_under: float = 7.5
@@ -46,15 +45,8 @@ extends Brawler
 @export_range(0.0, 1.0) var bash_chance: float = 0.3
 @export_range(0.0, 1.0) var counter_bash_chance: float = 0.8
 
-@export_group("Death")
-@export var shatter_on_death: bool = true
-
 const BASH := 74
 const FOLLOW := 75
-
-## The way the last blow that got through went (every peer sees the cuts).
-var _last_blow: Vector3 = Vector3.ZERO
-
 
 func _ready() -> void:
 	super()
@@ -210,24 +202,4 @@ func _play_locomotion(delta: float) -> void:
 		return
 	var stride := maxf(_anim.measure_stride(clip), 0.1) * maxf(visual_scale, 0.01)
 	_anim.play(clip, 0.2, clampf(pace * _anim.clip_length(clip) / stride, retime_range.x, chase_retime_max))
-#endregion
-
-
-#region Death
-func _flinch_body(blow: Vector3) -> void:
-	_last_blow = blow
-	super(blow)
-
-
-func _lie_down() -> void:
-	super()
-	if not shatter_on_death or body == null or _skeleton == null:
-		return
-	var push := _last_blow
-	push.y = 0.0
-	push = push.normalized() * 2.2 if push.length_squared() > 0.0001 else -_forward() * 1.2
-	var world := Blood.world_of(self)
-	BoneShatter.burst(world, body, _skeleton, push, corpse_linger, corpse_sink_time)
-	ImpactFx.strike(self, global_position + Vector3.UP * 1.0 * visual_scale, &"bone", 1.4)
-	DustRing.burst(world, global_position + Vector3.UP * 0.05, 0.8 * visual_scale)
 #endregion

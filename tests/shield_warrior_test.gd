@@ -4,7 +4,7 @@ extends SceneTree
 ## behind its raised shield; cuts at its front are caught on it and cuts from
 ## behind are not; the guard spent breaks; caught, it answers with the bash and
 ## the sword, both landing on a hero standing still; cut down, it breaks into
-## its bones, which come to rest on the floor.
+## its bones, which come to rest on the floor — as every skeleton does.
 ##
 ##   godot --headless --path . --script res://tests/shield_warrior_test.gd
 
@@ -52,7 +52,8 @@ func _run() -> void:
 	await _walk_in()
 	await _shield()
 	await _bash()
-	await _shatter()
+	for kind: String in ["skeleton_warrior", "skeleton", "skeleton_archer", "skeleton_mage"]:
+		await _shatter(kind)
 	print("shield_warrior_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)
 
@@ -155,12 +156,14 @@ func _bash() -> void:
 	await _done(a[0])
 
 
-## Cut down, it breaks into its bones, and they come to rest on the floor.
-func _shatter() -> void:
+## Cut down, it breaks into its bones, and they come to rest on the floor:
+## every skeleton of the pack.
+func _shatter(kind: String) -> void:
 	var a: Array = await _arena()
 	var world: Node = a[0]
 	var hero: Player = a[2]
-	var body := (a[1] as ArenaPanel).call_up(WARRIOR, false, _ahead(hero, 2.5)) as ShieldFighter
+	var body := (a[1] as ArenaPanel).call_up("res://scenes/enemies/pack/%s.tscn" % kind, false,
+			_ahead(hero, 2.5)) as Brawler
 	for i in 20:
 		await physics_frame
 	var floor_y := body.global_position.y
@@ -172,7 +175,7 @@ func _shatter() -> void:
 	for n in Blood.world_of(body).get_children():
 		if n is RigidBody3D and String(n.name).begins_with("Bone_"):
 			pieces.append(n)
-	_check("cut down, it breaks into its bones", pieces.size() >= 12 and not body.body.visible,
+	_check("%s, cut down, breaks into its bones" % kind, pieces.size() >= 12 and not body.body.visible,
 			"%d pieces" % pieces.size())
 	for i in 150:
 		await physics_frame
@@ -188,6 +191,6 @@ func _shatter() -> void:
 			under += 1
 		if p.linear_velocity.length() < 0.5:
 			still += 1
-	_check("the bones lie on the floor", low >= pieces.size() - 2 and under == 0,
+	_check("%s: the bones lie on the floor" % kind, low >= pieces.size() - 2 and under == 0,
 			"%d low, %d under, %d still of %d" % [low, under, still, pieces.size()])
 	await _done(world)

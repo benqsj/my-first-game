@@ -68,6 +68,9 @@ extends ClipFighter
 @export var hit_clip: StringName = &""
 @export var roar_clip: StringName = &""
 @export var roar_every: Vector2 = Vector2(9.0, 16.0)
+## Cut down, it comes apart where it stands ([BoneShatter]), the pieces
+## thrown the way the last blow went: the skeletons.
+@export var shatter_on_death: bool = false
 
 const ATTACK_BASE := 60
 const BIG_BASE := 80
@@ -81,6 +84,8 @@ var _limbs_of: Dictionary = {}
 var _moves_table: Dictionary = {}
 var _strikes_table: Dictionary = {}
 var _roar_in: float = 0.0
+## The way the last blow that got through went (every peer sees the cuts).
+var _last_blow: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
@@ -455,3 +460,22 @@ func _after(what: int) -> void:
 	if what != ROAR:
 		_cooldown = _rng.randf_range(attack_cooldown.x, attack_cooldown.y)
 	super(what)
+
+
+func _flinch_body(blow: Vector3) -> void:
+	_last_blow = blow
+	super(blow)
+
+
+## Dead, on every peer: a skeleton breaks into its bones.
+func _lie_down() -> void:
+	super()
+	if not shatter_on_death or body == null or _skeleton == null:
+		return
+	var push := _last_blow
+	push.y = 0.0
+	push = push.normalized() * 2.2 if push.length_squared() > 0.0001 else -_forward() * 1.2
+	var world := Blood.world_of(self)
+	BoneShatter.burst(world, body, _skeleton, push, corpse_linger, corpse_sink_time)
+	ImpactFx.strike(self, global_position + Vector3.UP * 1.0 * visual_scale, &"bone", 1.4)
+	DustRing.burst(world, global_position + Vector3.UP * 0.05, 0.8 * visual_scale)
