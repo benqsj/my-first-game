@@ -70,23 +70,24 @@ func _initialize() -> void:
 	Graphics.apply(self, Graphics.Level.HIGH)
 
 	# --- F8: Elden Ring's Limgrave ---------------------------------------------
-	_check("three looks on F8 (the user's word)", Looks.LOOKS.size() == 3)
+	_check("two looks on F8: the new and elden dark (the user's word)", Looks.LOOKS.size() == 2
+			and Looks.LOOKS[1]["grade"] == "elden_dark")
 	looks.apply(1)
 	var ground2 := land.styles[2] as ShaderMaterial
 	# (the fog's colour is the lands' moods' to ease, [LandsMood]: the sky and
 	# the exposure are read instead)
 	var sky_mat := env.sky.sky_material as ProceduralSkyMaterial if env.sky != null else null
 	_check("F8 puts on Elden Ring's colours: the gold horizon",
-			sky_mat == null or sky_mat.sky_horizon_color.is_equal_approx(Looks.ELDEN_SKY["sky_horizon_color"]))
-	_check("and its light", is_equal_approx(env.tonemap_exposure, Looks.ELDEN_ENV["tonemap_exposure"]))
+			sky_mat == null or sky_mat.sky_horizon_color.is_equal_approx(Looks.EDARK_SKY["sky_horizon_color"]))
+	_check("and its light", is_equal_approx(env.tonemap_exposure, Looks.EDARK_ENV["tonemap_exposure"]))
 	_check("the grassy ground gold", (ground2.get_shader_parameter("tone_grass") as Color).is_equal_approx(
-			Looks.ELDEN_GROUND["tone_grass"]))
+			Looks.EDARK_GROUND["tone_grass"]))
 	_check("on the same ground and clumps", chunk.material_override == land.styles[2]
 			and field.clump_count() == clumps)
 	looks.apply(0)
 	var tone_back: Variant = ground2.get_shader_parameter("tone_grass")
 	_check("and back to the new look's own", is_equal_approx(env.tonemap_exposure, Looks.DARK_ENV["tonemap_exposure"])
-			and not (tone_back is Color and (tone_back as Color).is_equal_approx(Looks.ELDEN_GROUND["tone_grass"])),
+			and not (tone_back is Color and (tone_back as Color).is_equal_approx(Looks.EDARK_GROUND["tone_grass"])),
 			"exposure %.2f tone %s" % [env.tonemap_exposure, str(tone_back)])
 
 	var mat := land.styles[2] as ShaderMaterial

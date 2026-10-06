@@ -22,8 +22,9 @@ extends Node
 ##    `assets/grass2/gras2.glb` (6 672 triangles, alpha-dithered): to judge it
 ##    against the light one.
 ##
-## Since 2026-10-06 (the user's word) only three are stepped through: the new
-## one above (0), **elden dark** (2, below) and **elden** (1) — the same ground and grass in Elden Ring's
+## Since 2026-10-06 (the user's word) only two are stepped through: the new
+## one above (0) and **elden dark** (1, below). **elden** (its gold
+## grade, kept in `GRADES`) is off F8: too colourful — the same ground and grass in Elden Ring's
 ## Limgrave colours: gold and ochre grass, olive-gold leaves, dry grey-brown
 ## earth, a warm golden haze, a low amber sun and a pale gold horizon. The
 ## old looks (1–4 above) are no longer on F8.
@@ -215,7 +216,6 @@ const GRADES := {
 ## and colour put on ("dark", or one of `GRADES`; none for the level's own).
 const LOOKS: Array[Dictionary] = [
 	{"name": "new: forest floor, low sward, light grass, dark", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "grade": "dark"},
-	{"name": "elden: Limgrave's gold", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "grade": "elden"},
 	{"name": "elden dark: Limgrave overcast", "ground": 2, "grass": LIGHT_GRASS, "sward": true, "grade": "elden_dark"},
 ]
 ## Metres a pixel of the ground mask.

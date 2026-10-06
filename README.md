@@ -8263,4 +8263,7 @@ skills stay; how they look changes:
   hiding, the step's thrust also keeps him unseen until it lands.
 - The moves before each skill go to every peer with `Player.net_rogue_cue`.
   The host may now end a hero's Vanish too (`net_vanish` from peer 1).
+- Later the same morning (the user's word): the gold **elden** look is off F8
+  as well. F8 now steps between only the new look (the default, kept) and
+  **elden dark**. The gold grade stays in `Looks.GRADES`, unused.
 
