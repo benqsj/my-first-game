@@ -115,6 +115,7 @@ flee_under = 6.0
 keep_away = 11.0
 flee_time = 1.7
 arrow_speed = 34.0
+reform_chance = 0.5
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)

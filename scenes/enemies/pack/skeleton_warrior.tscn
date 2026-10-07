@@ -111,6 +111,7 @@ strafe_r_clip = &"CR_StrafeR"
 back_clip = &"CR_WalkBack"
 counter_after = 0.35
 block_cost = 22.0
+reform_chance = 0.5
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)

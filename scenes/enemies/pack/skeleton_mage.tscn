@@ -109,6 +109,7 @@ blow_min_speed = 2.0
 strafe_l_clip = &"CR_MG_WalkL"
 strafe_r_clip = &"CR_MG_WalkR"
 back_clip = &"CR_MG_WalkBack"
+reform_chance = 0.5
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)

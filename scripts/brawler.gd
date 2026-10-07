@@ -72,9 +72,27 @@ extends ClipFighter
 ## thrown the way the last blow went: the skeletons.
 @export var shatter_on_death: bool = false
 
+@export_group("Coming back together")
+## Cut down the first time, one that comes apart (`shatter_on_death`) may
+## (`reform_chance`, once) not be dead: its pieces lie `reform_after` s, then
+## gather back up into it over `reform_time`, the lowest first, glowing, and it
+## stands again with `reform_health` of its health and gives `reform_clip`
+## (the user's pick, 2026-10-07: the skeletons and the golem). Struck while it
+## lies in pieces, nothing lands.
+@export_range(0.0, 1.0) var reform_chance: float = 0.0
+@export var reform_after: float = 2.2
+@export var reform_time: float = 1.7
+@export_range(0.0, 1.0) var reform_health: float = 0.4
+@export var reform_clip: StringName = &""
+@export var reform_part: Vector3 = Vector3(1.0, 0.0, 1.0)
+@export var reform_glow: Color = Color(0.45, 0.85, 1.0)
+
 const ATTACK_BASE := 60
 const BIG_BASE := 80
 const ROAR := 99
+## Lying in pieces, and standing up out of them ([member reform_chance]).
+const PIECES := 120
+const REFORM := 121
 
 var _weapon: int = -1
 ## Act -> the gap its blow lands from (`strike_at_reach`), else `strike_off`.
@@ -86,6 +104,19 @@ var _strikes_table: Dictionary = {}
 var _roar_in: float = 0.0
 ## The way the last blow that got through went (every peer sees the cuts).
 var _last_blow: Vector3 = Vector3.ZERO
+## Whether it has come back together once already (host).
+var _reformed: bool = false
+## Every peer: its pieces while it lies apart, where each stood in it, and
+## how long it has lain.
+var _pieces: Array[RigidBody3D] = []
+var _piece_home: Array[Transform3D] = []
+var _piece_clock: float = 0.0
+var _gathering: bool = false
+var _apart_shown: bool = false
+var _layer_whole: int = -1
+var _piece_glow: StandardMaterial3D
+## Every peer: lying in pieces, out of the fight (no bars, no name over it).
+var out_of_fight: bool = false
 
 
 func _ready() -> void:
@@ -95,6 +126,8 @@ func _ready() -> void:
 		_moves_table[BIG_BASE + i] = _move(big_attacks[i], big_parts, i)
 	if not roar_clip.is_empty():
 		_moves_table[ROAR] = [roar_clip, 1.0, 0.0, 1.0]
+	if not reform_clip.is_empty():
+		_moves_table[REFORM] = [reform_clip, reform_part.x, reform_part.y, reform_part.z]
 	var bones := strike_bones if not strike_bones.is_empty() else PackedStringArray([String(weapon_bone)])
 	for what: int in _moves_table:
 		if what != ROAR:
@@ -179,38 +212,45 @@ func _moments_at_reach() -> void:
 	if _anim == null:
 		return
 	for what: int in _strikes_table:
-		var m: Array = _moves_table[what]
-		var s: Array = _strikes_table[what]
-		var bone := String(weapon_bone)
-		var tip := weapon_tip
-		if _limbs_of.has(what):
-			var last: Array = (_limbs_of[what] as Array)[-1]
-			bone = String(last[1])
-			tip = last[2]
-		var n := _blows_of(what)
-		if n > 1:
-			# A combo: its blows where the striking ends move fastest.
-			var peaks := PackedFloat32Array()
-			for p in _anim.measure_peaks(m[0], PackedStringArray(s[0]), 0.3, 0.08):
-				if p >= float(m[2]) and p <= float(m[3]):
-					peaks.append(p)
-			if peaks.size() > n:
-				peaks = peaks.slice(peaks.size() - n)
-			if not peaks.is_empty():
-				var limbs: Array = []
-				for k in peaks.size():
-					limbs.append((s[1] as Array)[0])
-				_strikes_table[what] = [s[0], limbs, 1.0 / float(peaks.size()) * 1.6, maxi(int(s[3]), peaks.size()), 0.5, peaks]
-				var first := _gap_that_lands(what, m, peaks[0])
-				if first > 0.0:
-					_strike_from[what] = first
-			continue
-		var at := _anim.measure_reach(m[0], bone, tip, reach_forward, float(m[2]), float(m[3]))
-		if at >= 0.0:
-			_strikes_table[what] = [s[0], s[1], s[2], s[3], 0.6, PackedFloat32Array([at])]
-			var from := _gap_that_lands(what, m, at)
-			if from > 0.0:
-				_strike_from[what] = from
+		_moment_at_reach(what)
+
+
+## One move's blows put where they reach furthest (see `strike_at_reach`).
+func _moment_at_reach(what: int) -> void:
+	if _anim == null:
+		return
+	var m: Array = _moves_table[what]
+	var s: Array = _strikes_table[what]
+	var bone := String(weapon_bone)
+	var tip := weapon_tip
+	if _limbs_of.has(what):
+		var last: Array = (_limbs_of[what] as Array)[-1]
+		bone = String(last[1])
+		tip = last[2]
+	var n := _blows_of(what)
+	if n > 1:
+		# A combo: its blows where the striking ends move fastest.
+		var peaks := PackedFloat32Array()
+		for p in _anim.measure_peaks(m[0], PackedStringArray(s[0]), 0.3, 0.08):
+			if p >= float(m[2]) and p <= float(m[3]):
+				peaks.append(p)
+		if peaks.size() > n:
+			peaks = peaks.slice(peaks.size() - n)
+		if not peaks.is_empty():
+			var limbs: Array = []
+			for k in peaks.size():
+				limbs.append((s[1] as Array)[0])
+			_strikes_table[what] = [s[0], limbs, 1.0 / float(peaks.size()) * 1.6, maxi(int(s[3]), peaks.size()), 0.5, peaks]
+			var first := _gap_that_lands(what, m, peaks[0])
+			if first > 0.0:
+				_strike_from[what] = first
+		return
+	var at := _anim.measure_reach(m[0], bone, tip, reach_forward, float(m[2]), float(m[3]))
+	if at >= 0.0:
+		_strikes_table[what] = [s[0], s[1], s[2], s[3], 0.6, PackedFloat32Array([at])]
+		var from := _gap_that_lands(what, m, at)
+		if from > 0.0:
+			_strike_from[what] = from
 
 
 ## The gap from him a blow lands from: its stretches followed through the
@@ -385,6 +425,8 @@ func _quarry_down() -> bool:
 
 
 func _think(delta: float) -> void:
+	if act == PIECES or act == REFORM:
+		return
 	if (mode == Mode.CHASE or mode == Mode.FIGHT) and act == Act.NONE and _quarry != null and not is_dead:
 		_roar_in -= delta
 		var gap := _distance_to(_quarry)
@@ -410,6 +452,8 @@ func _think(delta: float) -> void:
 
 
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	if act == PIECES:
+		return false
 	var was := velocity
 	var bled := super(damage, at, blow, from, magic)
 	if steady_in_attack and not is_dead and _strikes_table.has(act):
@@ -421,7 +465,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 ## Its own moves are swings too: none is dropped halfway to guard or to step
 ## aside from his (Fighter only knows its own ATTACK act as one).
 func _answer_swing(knight: Node3D) -> void:
-	if _moves_table.has(act):
+	if _moves_table.has(act) or act == PIECES:
 		return
 	super(knight)
 
@@ -445,6 +489,16 @@ func _step_back(delta: float) -> bool:
 ## clock, and a clip drawn a beat ahead or behind it (the clip steps with the
 ## drawn frames, the clock with the physics) swings where the blow is not.
 func _run_act(delta: float) -> void:
+	if act == PIECES:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if _act_time >= reform_after + reform_time:
+			health = maxf(health, max_health * reform_health)
+			if _moves_table.has(REFORM):
+				_begin(REFORM)
+			else:
+				_start(Act.NONE)
+		return
 	super(delta)
 	if _anim == null or not _moves_table.has(act) or act == ROAR:
 		return
@@ -470,12 +524,171 @@ func _flinch_body(blow: Vector3) -> void:
 ## Dead, on every peer: a skeleton breaks into its bones.
 func _lie_down() -> void:
 	super()
+	_drop_pieces()
 	if not shatter_on_death or body == null or _skeleton == null:
 		return
+	_burst_apart(corpse_linger)
+
+
+## Breaks it into its pieces where it stands (every peer), thrown the way the
+## last blow went; they lie `linger` s.
+func _burst_apart(linger: float) -> Array[RigidBody3D]:
 	var push := _last_blow
 	push.y = 0.0
 	push = push.normalized() * 2.2 if push.length_squared() > 0.0001 else -_forward() * 1.2
 	var world := Blood.world_of(self)
-	BoneShatter.burst(world, body, _skeleton, push, corpse_linger, corpse_sink_time)
-	ImpactFx.strike(self, global_position + Vector3.UP * 1.0 * visual_scale, &"bone", 1.4)
+	var out := BoneShatter.burst(world, body, _skeleton, push, linger, corpse_sink_time)
+	ImpactFx.strike(self, global_position + Vector3.UP * 1.0 * visual_scale, _shatter_matter(), 1.4)
 	DustRing.burst(world, global_position + Vector3.UP * 0.05, 0.8 * visual_scale)
+	return out
+
+
+## What it sounds like coming apart.
+func _shatter_matter() -> StringName:
+	return &"bone"
+
+
+#region Coming back together
+## Cut down: the first time it may only come apart (host).
+func _die() -> void:
+	if is_dead or _reformed or not shatter_on_death or reform_chance <= 0.0 or not _decides() \
+			or act == PIECES or _rng.randf() >= reform_chance:
+		super()
+		return
+	_reformed = true
+	health = 1.0
+	velocity = Vector3.ZERO
+	_sweeps.clear()
+	_start(PIECES as Act)
+	_act_length = reform_after + reform_time
+
+
+func _play_act() -> void:
+	if act == PIECES:
+		_come_apart()
+		return
+	if act == REFORM:
+		# Out of the held pose it stood up in.
+		_anim.set_speed(1.0)
+	super()
+
+
+## Every peer: in pieces on the ground, the pose it fell in held for them to
+## come back to.
+func _come_apart() -> void:
+	if body == null or _skeleton == null or not body.visible:
+		return
+	_drop_pieces()
+	_pieces = _burst_apart(reform_after + reform_time + 30.0)
+	_piece_home.clear()
+	for rb in _pieces:
+		_piece_home.append(rb.global_transform)
+	_piece_clock = 0.0
+	_gathering = false
+	if _anim != null:
+		_anim.set_speed(0.0)
+
+
+## Every peer: lying apart it is not there to be fought (nothing to lock on
+## to, nothing in the way); its pieces gather back once they have lain.
+func _process(delta: float) -> void:
+	super(delta)
+	var apart := act == PIECES and not is_dead
+	out_of_fight = apart
+	if apart:
+		# (the bars show themselves again whenever they are set)
+		if _health_bar != null:
+			_health_bar.visible = false
+		if _stamina_bar != null:
+			_stamina_bar.visible = false
+	if apart != _apart_shown:
+		_apart_shown = apart
+		if apart:
+			_layer_whole = collision_layer
+			collision_layer = 0
+			remove_from_group(&"enemy")
+		else:
+			if _layer_whole >= 0:
+				collision_layer = _layer_whole
+			if not is_dead and not is_in_group(&"enemy"):
+				add_to_group(&"enemy")
+			_whole_again()
+	if not apart:
+		return
+	_piece_clock += delta
+	if not _gathering and _piece_clock >= reform_after:
+		_gather()
+
+
+## Every peer: each piece lifts off the ground and flies back to where it stood
+## in it, the lowest first, the head last, glowing as it comes.
+func _gather() -> void:
+	_gathering = true
+	if _pieces.is_empty():
+		return
+	var low := INF
+	var high := -INF
+	for home in _piece_home:
+		low = minf(low, home.origin.y)
+		high = maxf(high, home.origin.y)
+	_piece_glow = StandardMaterial3D.new()
+	_piece_glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_piece_glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_piece_glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_piece_glow.albedo_color = Color(reform_glow, 0.0)
+	var glow_tw := create_tween()
+	glow_tw.tween_property(_piece_glow, "albedo_color:a", 0.55, reform_time * 0.4)
+	glow_tw.tween_property(_piece_glow, "albedo_color:a", 0.0, reform_time * 0.6)
+	var world := Blood.world_of(self)
+	SkillFx.light(world, global_position + Vector3.UP * 0.8 * visual_scale, reform_glow, 2.5, 5.0 * visual_scale,
+			reform_time + 0.3)
+	for i in _pieces.size():
+		var rb := _pieces[i]
+		if not is_instance_valid(rb):
+			continue
+		rb.freeze = true
+		rb.collision_mask = 0
+		for mi in rb.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_overlay = _piece_glow
+		var home := _piece_home[i]
+		var up := (home.origin.y - low) / maxf(high - low, 0.01)
+		var delay := up * reform_time * 0.45 + randf_range(0.0, 0.08)
+		var fly := maxf(reform_time - delay, 0.2)
+		var from := rb.global_transform
+		var lift := randf_range(0.4, 0.9) * visual_scale
+		var tw := rb.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_method(func(t: float) -> void:
+			if not is_instance_valid(rb):
+				return
+			var e := t * t * (3.0 - 2.0 * t)
+			var at := from.origin.lerp(home.origin, e) + Vector3.UP * sin(PI * t) * lift
+			rb.global_transform = Transform3D(from.basis.slerp(home.basis, e), at), 0.0, 1.0, fly)
+	SkillFx.burst(world, global_position + Vector3.UP * 0.2, reform_glow, 24, Vector2(0.4, 1.4), Vector3.UP, 60.0,
+			Vector2(0.02, 0.05), Vector3(0, 1.0, 0), reform_time)
+
+
+## Every peer: whole again where the pieces met.
+func _whole_again() -> void:
+	var had := not _pieces.is_empty()
+	_drop_pieces()
+	if body != null and not is_dead:
+		body.visible = true
+	if _anim != null and not is_dead:
+		_anim.set_speed(1.0)
+	if had and not is_dead:
+		var world := Blood.world_of(self)
+		var mid := global_position + Vector3.UP * 0.9 * visual_scale
+		SkillFx.flash(world, mid, reform_glow, 0.55 * visual_scale, 0.22, 1.6)
+		SkillFx.ring(world, global_position + Vector3.UP * 0.1, Vector3.UP, reform_glow, 0.3, 1.9 * visual_scale,
+				0.4, 0.025, 1.4)
+		ImpactFx.strike(self, mid, _shatter_matter(), 1.0)
+
+
+func _drop_pieces() -> void:
+	for rb in _pieces:
+		if is_instance_valid(rb):
+			rb.queue_free()
+	_pieces.clear()
+	_piece_home.clear()
+#endregion
