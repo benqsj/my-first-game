@@ -471,8 +471,9 @@ func _aim_at(foe: Node3D) -> Vector3:
 
 
 #region Frost Step (the elf, the user's word 2026-10-07)
-## She glides: low, fast and slowing, up to `STEP_REACH` the way she is moving
-## (the way she faces, standing), short of whatever is in the way — not gone
+## She glides: low, fast and slowing, up to `STEP_REACH` the way she is moving,
+## or, not moving, straight back away from what is in front of her, still
+## facing it (the user's word, 2026-10-07), short of whatever is in the way — not gone
 ## and out again ahead (the user's word: a slide). The ground freezes under her
 ## as she goes ([FrostTrail]) and stays frozen `TRAIL_SECONDS` after: whatever
 ## runs across it is slowed for [constant FrostTrail.CHILL].
@@ -487,8 +488,11 @@ const TRAIL_SECONDS := 6.0
 ## ([member SkinnedRig.mq_borrow]), its low part, held there as she goes.
 const GLIDE_CLIP := &"WR_Slide"
 const GLIDE_PART := Vector2(0.08, 0.5)
+## Going back she skids crouched, facing the way she was.
+const BACK_CLIP := &"MG_Crouch"
 
 var _glide_dir := Vector3.ZERO
+var _glide_back := false
 var _glide_v0: float = 0.0
 var _glide_t: float = 0.0
 var _glide_time: float = 0.0
@@ -503,9 +507,12 @@ func frost_step(cost: float) -> bool:
 	if hero == null or hero.is_dead or gliding():
 		return false
 	var way := hero.get_movement_direction()
-	if way.length_squared() < 0.01:
-		way = -hero.global_basis.z
 	way.y = 0.0
+	# not pushed anywhere: back, away from what is in front of her
+	var back := way.length_squared() < 0.01
+	if back:
+		way = hero.global_basis.z
+		way.y = 0.0
 	if way.length_squared() < 0.0001:
 		return false
 	way = way.normalized()
@@ -517,13 +524,15 @@ func frost_step(cost: float) -> bool:
 	var from := hero.global_position
 	_glide_reach = Vector2(to.x - from.x, to.z - from.z).length()
 	_glide_dir = way
+	_glide_back = back
 	_glide_time = GLIDE_TIME * sqrt(_glide_reach / STEP_REACH)
 	_glide_v0 = _glide_reach / (_glide_time * (1.0 + GLIDE_EASE) * 0.5)
 	_glide_t = 0.0
 	_glide_went = 0.0
 	_glide_tick = Engine.get_physics_frames()
-	hero.rotation.y = atan2(-way.x, -way.z)
-	hero.net_frost_step.rpc(from, to, _glide_v0, _glide_time)
+	if not back:
+		hero.rotation.y = atan2(-way.x, -way.z)
+	hero.net_frost_step.rpc(from, to, _glide_v0, _glide_time, back)
 	return true
 
 
@@ -545,7 +554,9 @@ func glide_velocity(delta: float) -> Vector3:
 	_glide_t += delta
 	_glide_went += pace * delta
 	_glide_tick = Engine.get_physics_frames()
-	hero.rotation.y = atan2(-_glide_dir.x, -_glide_dir.z)
+	# facing where she goes; going back, facing where she was
+	var face := -_glide_dir if _glide_back else _glide_dir
+	hero.rotation.y = atan2(-face.x, -face.z)
 	if _glide_t >= _glide_time or _glide_went >= _glide_reach or (hero.is_on_wall() and _glide_t > 0.05):
 		_end_glide()
 	return _glide_dir * pace
@@ -588,14 +599,16 @@ func _step_spot(way: Vector3) -> Vector3:
 
 ## Every peer: she drops low and glides, frost bursting off where she pushed
 ## from, and the ground freezing under her as she goes.
-func show_frost_step(from: Vector3, to: Vector3, v0: float, time: float) -> void:
+func show_frost_step(from: Vector3, to: Vector3, v0: float, time: float, back: bool = false) -> void:
 	if hero == null:
 		return
 	var into := Blood.world_of(hero)
 	if into == null:
 		return
 	var anim := hero.rig.get(&"_anim") as AnimationPlayer if hero.rig != null else null
-	if anim != null and anim.has_animation(GLIDE_CLIP):
+	if back and anim != null and anim.has_animation(BACK_CLIP):
+		hero.rig.call(&"play_part", BACK_CLIP, 1.0, 0.0, minf((time + 0.15) / anim.get_animation(BACK_CLIP).length, 1.0), 0.08)
+	elif anim != null and anim.has_animation(GLIDE_CLIP):
 		# its low part over the whole glide: down in it all the way, rising
 		# as it ends
 		var span := anim.get_animation(GLIDE_CLIP).length * (GLIDE_PART.y - GLIDE_PART.x)

@@ -33,7 +33,7 @@ func _run() -> void:
 			slot = i
 	_check("the elf has the Frost Step", slot >= 0)
 
-	# Standing: out ahead the way she faces.
+	# Standing: back, away from what she faces, still facing it.
 	var from := hero.global_position
 	var ahead := -hero.global_basis.z
 	ahead.y = 0.0
@@ -51,9 +51,12 @@ func _run() -> void:
 	await _wait(40)
 	moved = hero.global_position - from
 	moved.y = 0.0
-	_check("and some eight metres on, straight ahead",
+	_check("and some eight metres on, straight back",
 			moved.length() > 6.0 and moved.length() <= MageSkills.STEP_REACH + 0.6
-			and moved.normalized().dot(ahead) > 0.95, "%.2f m" % moved.length())
+			and moved.normalized().dot(-ahead) > 0.95, "%.2f m" % moved.length())
+	var facing := -hero.global_basis.z
+	facing.y = 0.0
+	_check("still facing the way she was", facing.normalized().dot(ahead) > 0.95)
 	_check("and done gliding", not hero.mage().gliding())
 	var trail: FrostTrail = null
 	for n in world.find_children("*", "FrostTrail", true, false):
@@ -87,6 +90,24 @@ func _run() -> void:
 			absf(cold_pace / free_pace - Afflictions.CHILL_SPEED) < 0.08,
 			"%.2f vs %.2f m/s" % [cold_pace, free_pace])
 	await _wait(200)
+
+	# Pushed some way: she glides that way, facing it.
+	await _wait(60 * 4)
+	Input.action_press("move_right")
+	await _wait(3)
+	var want := hero.get_movement_direction()
+	var at := hero.global_position
+	_check("it goes again, pushed to the side", hero.use_skill(slot))
+	Input.action_release("move_right")
+	await _wait(50)
+	var went := hero.global_position - at
+	went.y = 0.0
+	var look := -hero.global_basis.z
+	look.y = 0.0
+	_check("pushed, she glides the way she is pushed, facing it",
+			went.length() > 6.0 and went.normalized().dot(want) > 0.95 and look.normalized().dot(want) > 0.95,
+			"%.2f m" % went.length())
+	await _wait(60)
 
 	# The bolt: a click let go at once is not thrown until it has gathered.
 	var got: Array[float] = []

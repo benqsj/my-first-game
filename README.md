@@ -9023,9 +9023,10 @@ capes: one hung inside the clothes as a second cape.
 **Frost Step** (the elf's second skill, `MageSkills.frost_step`, `FrostTrail`).
 She glides — not gone and out again ahead (the user's word: a slide): down in
 the warrior's slide (`WR_Slide`, its low part, lent on the mannequin) she goes
-up to 8 m the way she is moving (the way she faces, standing), fast and slowing
+up to 8 m the way she is moving, fast and slowing
 (0.6 s, ending at 0.45 of her first pace), short of anything in the way at her
-knees or her chest, onto ground not more than 1.6 m above or below her; a wall
+knees or her chest (pushed nowhere, straight back, crouched (`MG_Crouch`)
+and still facing what was in front of her: the user's word), onto ground not more than 1.6 m above or below her; a wall
 or a body met stops her there. Nothing but the glide moves her
 (`MageSkills.glide_velocity`, from `_process_locomotion`). The ground freezes
 under her as she goes: ice chips and snow kicked back off her feet, the frost

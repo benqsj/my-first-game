@@ -6297,11 +6297,11 @@ func net_frost_end() -> void:
 
 ## The Frost Step, on every peer ([method MageSkills.show_frost_step]).
 @rpc("any_peer", "call_local", "reliable")
-func net_frost_step(from: Vector3, to: Vector3, pace: float, seconds: float) -> void:
+func net_frost_step(from: Vector3, to: Vector3, pace: float, seconds: float, back: bool) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
-	mage().show_frost_step(from, to, pace, seconds)
+	mage().show_frost_step(from, to, pace, seconds, back)
 
 
 ## Her glide over, where it stopped ([method MageSkills.end_frost_step]).
