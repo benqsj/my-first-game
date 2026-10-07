@@ -9085,15 +9085,15 @@ two in `use_skill` and the three messages (`net_dark_grasp`, `net_dark_held`,
 `ShadowHold`). Where she points (her lock within 20 m, else 9 m ahead), her hand
 thrust at the ground (`MG_Cast_Ground`):
 
-- a circle of violet runes 3 m round opens on the ground and turns, a ring of
+- a circle of violet runes 4.5 m round opens on the ground and turns, a ring of
   spikes inside it tightening, motes and black smoke drawn down into it, for
   0.75 s: time to get out;
 - then the ground cracks (the cracks burning violet and cooling), and long
-  black hands burst up out of it in black fire: four round the edge grab at the
+  black hands burst up out of it in black fire: six round the edge grab at the
   air, and **two close on each foe still in it**, bent over it at the elbow,
   their clawed fingers shut on its waist;
 - what is caught takes 0.9 of a full bolt (a spell, through m.def; a crit
-  rolled) and is **held where it stands** for 1.6 s (0.8 on a boss: a creature
+  rolled) and is **held where it stands** for 2.6 s (1.3 on a boss: a creature
   with stages, or 1200 health or more). It may turn and strike, but not go:
   `ShadowHold`, after the body's own physics tick, puts it back where it was
   over the ground (the chill's way, on the body's own peer, so it works on
@@ -9112,8 +9112,10 @@ Her hand thrown up (Kevin's `MagicAttackCall1H01_L`), and over and beyond
 where she points (9 m up, 15 m past it) a rift tears open in the sky: a whirl
 of black cloud lit violet from inside, rings of runes turning in it, facing
 the way the comets will go. Out of it, 0.45 s later, come **six comets**, one
-after another (0, 0.26, 0.5, 0.78, 0.98, 1.22 s), the first where she pointed
-and the rest scattered up to 4.6 m round it, never two within 1.7 m (one seed,
+after another (0, 0.26, 0.5, 0.78, 0.98, 1.22 s), the first and the fourth at
+what she has locked (they follow it until 70 % of their fall, then come on to
+where it was: only a late dodge escapes them), the rest scattered up to 4.6 m
+round where she pointed, never two within 1.7 m (one seed,
 every peer the same):
 
 - each a rock of black stone (a sphere broken by noise into flat facets,
@@ -9141,3 +9143,9 @@ The bar draws both (`PlayerHud._icon`). `PipelineWarmup` and the mage's rig
 warm them (`DarkSkills.warm`). `tests/dark_mage_test.gd` (headless): the
 circle, the hands, held and hurt, not moved when shoved, let go after its
 time, the rift, six comets, three ogres hurt.
+
+**Later the same day (the user's word):** the hands hold longer (2.6 s, a boss
+1.3) and over more ground (4.5 m round, six empty hands); the comets missed
+too often, so two of the six (`DarkSkills.AIMED`) go at her lock and follow it
+(`DarkComet.chase`, until `HOME` = 70 % of the fall), the rest fall scattered
+for the others round it. With nothing locked all six fall as before.

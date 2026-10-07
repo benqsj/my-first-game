@@ -86,15 +86,21 @@ func _run() -> void:
 	for f in foes:
 		before.append(float(f.get(&"health")))
 	var seen: Dictionary = {}
+	var aimed: Dictionary = {}
 	var rifts := 0
+	var locked := foes[1]
+	hero.target = locked
 	_check("Black Comets goes", hero.use_skill(comets))
 	for t in 200:
 		await physics_frame
 		for c in world.find_children("*", "DarkComet", true, false):
 			seen[c.get_instance_id()] = true
+			if c.get(&"_quarry") == locked:
+				aimed[c.get_instance_id()] = true
 		rifts = maxi(rifts, world.find_children("*", "DarkRift", true, false).size())
 	_check("a rift opens in the sky", rifts == 1)
 	_check("six comets fall out of it", seen.size() == DarkSkills.COMETS, "%d" % seen.size())
+	_check("two of them go at what she has locked", aimed.size() == DarkSkills.AIMED.size(), "%d" % aimed.size())
 	var hurt := 0
 	for i in foes.size():
 		if is_instance_valid(foes[i]) and float(foes[i].get(&"health")) < before[i]:

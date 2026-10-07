@@ -37,6 +37,11 @@ const GRASP_PART := Vector2(0.0, 1.0)
 const COMETS := 6
 ## When each leaves the rift, after it has opened (seconds).
 const LAUNCH: Array[float] = [0.0, 0.26, 0.5, 0.78, 0.98, 1.22]
+## Which of them go at what she has locked (the user's word, 2026-10-07: one
+## or two at him, the rest scattered for the others round him): they follow it
+## as they fall until `DarkComet.HOME` of the way, so only a late dodge
+## escapes them.
+const AIMED: Array[int] = [0, 3]
 const RIFT_OPEN := 0.45
 ## How long a comet is in the air.
 const FLIGHT := 0.75
@@ -156,20 +161,27 @@ func comets(cost: float) -> bool:
 		return false
 	var at := _spot()
 	_face(at)
+	var quarry := NodePath()
+	if hero.target != null and hero._targetable(hero.target) \
+			and hero.target.global_position.distance_to(hero.global_position) <= REACH + 2.0:
+		quarry = hero.target.get_path()
 	var damages := PackedFloat32Array()
 	var crits := PackedByteArray()
 	for i in COMETS:
 		var worth := _worth(COMET_SHARE)
 		damages.append(float(worth[0]))
 		crits.append(1 if bool(worth[1]) else 0)
-	hero.net_dark_comets.rpc(at, hero.global_position, randi(), damages, crits)
+	hero.net_dark_comets.rpc(at, hero.global_position, randi(), damages, crits, quarry)
 	return true
 
 
 ## Every peer: her hand to the sky, the rift torn open over and beyond `at`
 ## (away from where she stands, `from`), and the comets out of it one by one.
 func show_comets(at: Vector3, from: Vector3, rain_seed: int, damages: PackedFloat32Array,
-		crits: PackedByteArray) -> void:
+		crits: PackedByteArray, quarry_path: NodePath = NodePath()) -> void:
+	var quarry: Node3D = null
+	if not quarry_path.is_empty():
+		quarry = hero.get_node_or_null(quarry_path) as Node3D
 	_gesture(CALL_CLIP, CALL_RATE, 0.0, 1.0, 0.12)
 	var into := Blood.world_of(hero)
 	if into == null:
@@ -192,13 +204,23 @@ func show_comets(at: Vector3, from: Vector3, rain_seed: int, damages: PackedFloa
 		var critical := i < crits.size() and crits[i] != 0
 		var spot: Vector3 = spots[i]
 		var rift_id := rift.get_instance_id()
+		var aimed := AIMED.has(i) and quarry != null
+		var quarry_id := quarry.get_instance_id() if quarry != null else 0
 		get_tree().create_timer(leave, false).timeout.connect(func() -> void:
 			if not is_instance_valid(hero):
 				return
 			var r := instance_from_id(rift_id) as DarkRift
 			if r != null:
 				r.pulse()
-			DarkComet.fall(into, out, spot, FLIGHT, hero, damage, critical, which, big))
+			var to := spot
+			var q: Node3D = (instance_from_id(quarry_id) as Node3D) if aimed else null
+			if q != null and (not q.is_inside_tree() or q.get(&"is_dead") == true):
+				q = null
+			if q != null:
+				to = _ground(hero, q.global_position)
+			var c := DarkComet.fall(into, out, to, FLIGHT, hero, damage, critical, which, big)
+			if q != null and c != null:
+				c.chase(q))
 
 
 ## Where they fall: the first where she pointed, the rest round it, never two

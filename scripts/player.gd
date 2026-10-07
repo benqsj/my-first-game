@@ -6350,14 +6350,15 @@ func net_dark_held(paths: Array, times: Array) -> void:
 	dark().show_held(paths, times)
 
 
-## Her Black Comets, on every peer: the rift over `at` and the comets out of it.
+## Her Black Comets, on every peer: the rift over `at` and the comets out of
+## it, two of them after `quarry` (her lock, if any).
 @rpc("any_peer", "call_local", "reliable")
 func net_dark_comets(at: Vector3, from: Vector3, rain_seed: int, damages: PackedFloat32Array,
-		crits: PackedByteArray) -> void:
+		crits: PackedByteArray, quarry: NodePath = NodePath()) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
-	dark().show_comets(at, from, rain_seed, damages, crits)
+	dark().show_comets(at, from, rain_seed, damages, crits, quarry)
 
 
 ## Gone from sight in his Vanish, or just out of a Shadow Step: the creatures

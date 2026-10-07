@@ -15,6 +15,9 @@ extends Node3D
 
 const REACH := 2.5
 const SQUARE := 1.3
+## A comet sent at someone follows him for this share of its fall, then
+## comes on to where he was.
+const HOME := 0.7
 ## How long the streak of fire behind it.
 const STREAK := 6.0
 ## Its worth at the edge of `REACH`, of what it is where it falls.
@@ -37,6 +40,7 @@ var _trail: Array[GPUParticles3D] = []
 var _light: OmniLight3D
 var _streak: MeshInstance3D
 var _struck := false
+var _quarry: Node3D
 
 
 ## A comet from `from` down to `to`, striking `seconds` later.
@@ -130,11 +134,24 @@ func _ready() -> void:
 	_place()
 
 
+## Follows `who` as it falls ([constant HOME]).
+func chase(who: Node3D) -> void:
+	_quarry = who
+
+
 func _process(delta: float) -> void:
 	_age += delta
 	if _struck:
 		return
 	var t := clampf(_age / flight, 0.0, 1.0)
+	if _quarry != null and t < HOME:
+		if not is_instance_valid(_quarry) or _quarry.get(&"is_dead") == true:
+			_quarry = null
+		else:
+			var at := _quarry.global_position
+			_to = Vector3(at.x, at.y, at.z)
+			if is_instance_valid(_warn):
+				_warn.global_position = _to + Vector3.UP * 0.15
 	if is_instance_valid(_warn):
 		_warn.modulate.a = minf(t * 2.5, 1.0) * 0.9
 		var w := REACH * lerpf(2.6, 2.0, t)

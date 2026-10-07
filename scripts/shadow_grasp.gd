@@ -14,11 +14,11 @@ extends Node3D
 ## to say, and it tells everyone ([method Player.net_dark_held]), so the hands
 ## that hold are on everyone's screen on the same bodies.
 
-const RADIUS := 3.0
+const RADIUS := 4.5
 const WARN := 0.75
-const HOLD := 1.6
+const HOLD := 2.6
 ## Hands that grab at nothing, scattered round the circle.
-const EMPTY := 4
+const EMPTY := 6
 
 var caster: Player
 var damage: float = 0.0
