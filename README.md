@@ -6012,6 +6012,85 @@ counts the ghoul among the slower attackers (it darts off between).
   spitting fuse that lands, rolls, fizzes faster and bursts after 1 s: 2.6 m
   of fire, 2x its blow at the middle, throwing him down within half of it.
 
+### The orc, the ogre, the troll and the golem, each its own (2026-10-07, the user's picks)
+
+The four big ones were plain [Brawler]s, the same fight in four bodies. Now
+each has a script of its own on [PackBrute] (`scripts/pack_brute.gd`, a
+[Brawler]: the rage, the leap, the quake, the slow blow and the kinds of
+blow they share):
+
+- **The orc** (`OrcFighter`, `scripts/orc_fighter.gd`): from 4.5 to 10 m off,
+  every 7 s or so, it **leaps** at him (`CR_Leap`) and comes down on him,
+  falchion and body: down he goes. Behind his raised shield in front of it
+  for 0.35 s, it **kicks the shield aside** (`CR_Kick`, a "guard" blow: on
+  the shield it breaks his guard, `Player._crumple`) and goes straight in
+  with the falchion while he is open. **Rage** at half its health.
+- **The ogre** (`OgreFighter`, `scripts/ogre_fighter.gd`): from 1.5 to 5 m,
+  every 7-11 s, it **pounds the ground** with its club (`CR_GroundPound`): a
+  shock runs out 5.5 m round it at 9 m/s ([QuakeRing], `scripts/quake_ring.gd`:
+  a ring of dust, grit, cracks, the view shaken) and whoever is on the ground
+  as it passes under him is thrown down — jump it or roll. **The great
+  blow** (`CR_Heavy2`, kept out of its ordinary swings): the wind-up played
+  2.4 times slower, the club glowing hotter as it rises, then down at its own
+  pace: a "crush", no shield holds it (the guard beaten down and most of it
+  lands), and it fells him. **Him down** within 3.4 m: the club brought down
+  on him where he lies ("stomp": it lands though he lies there, unless he
+  rolls out). **Rage** at half its health.
+- **The troll** (`TrollFighter`, `scripts/troll_fighter.gd`): from 6 to 20 m,
+  every 6-10 s, it tears a **boulder** out of the ground (`CR_Harvest`, the
+  rock in its hand) and hurls it (`CR_Throw`; [GoblinShot] `BOULDER`): it
+  fells whoever it meets (a shield takes it at a cost) and bursts into
+  rubble. It **leaps** like the orc and the ground shakes where it lands (a
+  3.5 m quake). Its **wounds close**: 1.2 % of its health a second, green
+  motes rising off it, but not for 6 s after fire or frost on it (burning
+  or chilled, [Afflictions]).
+- **The golem** (`GolemFighter`, `scripts/golem_fighter.gd`): it **does not
+  reel**: a blow does not push it or bend it, nor stop its swing; only one of
+  45 or more (before its defence), or 90 taken close together (worn off at
+  30 a second after 0.8 s), staggers it (its hit clip), and a parry only
+  counts towards that. From 3.5 to 13 m, every 6-9 s, it strikes the ground
+  and **stone spikes** come up row after row towards him (`GroundFx.wave`,
+  14 m at 11 m/s, a new `pace` argument): a "spike" blow, no shield takes
+  it, it fells him; get out of its line. Cut down the first time it **comes
+  back together** (below).
+- **Rage** (`rage_at`): cut under half its health it stops and roars
+  (`CR_Transform`), rings of red, a red glow from then on; quicker on its feet
+  and in its swings (x1.22), its pauses cut to 0.4, its blows x1.25, a knock
+  no longer throws it; its kind within 25 m come at the roar.
+
+**Kinds of blow.** `Player.receive_blow` takes `how` (after the combo, `!how`
+on the key; `ClipFighter._blow_kind` per move, `_blow_worth` for the rage):
+"guard" and "crush" beat a raised shield down (0.4 and 0.8 of it landing);
+"ground" misses him off the ground and goes under the shield; "stomp" lands
+on him lying down (`Player._stomped`, `Reaction.STOMPED`), under the shield;
+"spike" goes under the shield.
+
+### Coming back together: the skeletons and the golem (2026-10-07, the user's pick)
+
+A [Brawler] that breaks into its pieces when it dies (`shatter_on_death`) may,
+the first time (`reform_chance`: the golem always, the four skeletons half
+the time), not be dead: it comes apart as before ([BoneShatter]) but its
+pose is held, it is out of the fight (no lock, no body, no bars, nothing
+lands: act `PIECES`), and after `reform_after` s the pieces freeze, glow
+(`reform_glow`: pale blue for bones, amber for stone) and fly back up to
+where each stood in it over `reform_time` s, the lowest first and the head
+last, on a little arc, turning back into place; a flash and a ring, and it
+stands again with `reform_health` of its health (the golem roars,
+`reform_clip`). Cut down again, it is dead for good. `Brawler._die`, `_come_apart`,
+`_gather`, `_whole_again`; every peer runs the pieces itself from the act.
+
+`tests/brutes_test.gd` (headless; `-- <names>` runs a few): the kinds of blow
+on him; the orc's leap fells him, its kick breaks his guard and it goes in
+after it, its rage and its kin coming; the ogre's pound fells him, its great
+blow is drawn out and breaks his guard, it treads on him lying; the troll's
+boulder fells him, its wounds close and not while it burns, its leap fells
+him and shakes the ground; light blows do not stop the golem, a heavy one or
+a string of them do, its spikes fell him under his shield; the golem and a
+skeleton come back together once and die the second time.
+`tools/make_pack_brawlers.py` carries the four's scripts and settings (it was
+already behind the goblin's, ghoul's and zombies' scenes: do not rerun it
+blindly).
+
 ### Gold (2026-10-07, the user's word: a goblin had nothing to steal)
 
 - Every hero has a [Purse] (`scripts/purse.gd`, under him by World, every
