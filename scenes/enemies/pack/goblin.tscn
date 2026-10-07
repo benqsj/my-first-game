@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/goblin_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/creatures/Goblin.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
@@ -45,7 +45,7 @@ properties/9/replication_mode = 1
 collision_layer = 4
 collision_mask = 7
 script = ExtResource("1_fighter")
-speed = 2.2
+speed = 1.4
 roam_radius = 3.0
 rest_time = 2.4
 step_height = 0.4
@@ -64,7 +64,7 @@ body_radius = 0.234
 body_height = 1.203
 max_stamina = 100
 block_chance = 0.0
-dash_chance = 0.25
+dash_chance = 0.45
 p_def = 8
 m_def = 5
 reach = 1.575

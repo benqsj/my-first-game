@@ -5964,6 +5964,110 @@ New clips in tools/creature_clips.gd (81): `CR_GetUp`, `CR_Leap`, the
 zombies' walks and runs every way. `tests/dead_test.gd`; creature_blows_test
 counts the ghoul among the slower attackers (it darts off between).
 
+### The ghoul polished: on all fours, poison, the frenzy, feeding (2026-10-07, the user's picks)
+
+- **On all fours**: it runs on its hands and feet (`CR_CrawlRun`, Mixamo's
+  Running Crawl, the first clip baked straight out of Mixamo, see below), at
+  4.8 m/s (the clip played up to x3.2, `chase_retime_max`). It walks upright.
+  Strafes now `CR_StrafeL/R`, back `CR_WalkBack` and, faster,
+  `CR_ZombieRunBack` (`back_run_clip`).
+- **Poisoned claws**: a blow of its that reaches him (not on his guard)
+  leaves a stack of poison in him ([HeroPoison], `scripts/hero_poison.gd`,
+  hung under every hero by World): 6 s of 2.5 a second each, up to three;
+  green drops rise off him and his health bar runs green. The host decides,
+  his own peer takes the health.
+- **The scream and the frenzy**: cut under 45 % it stops and screams
+  (`CR_Transform`, UAL 2's MonsterTransformation), then is in a frenzy for
+  good (`net_frenzy`, every peer): x1.3 on its feet and in its swings, a
+  third of the breath between them, no darting off, leaps twice as often,
+  and a knock, fire or poison no longer throw it about; a red glow pulses on
+  it.
+- **Feeding**: a corpse within 14 m (not a skeleton's bones, not stone) and
+  left alone, or roused but hurt with him 9 m off or more: it goes to it,
+  bends over it (`CR_Harvest`, UAL 2's Farm_Harvest, the middle of it) and
+  eats, 6 % of its health a second, up to 8 s a corpse (then picked clean);
+  the corpse is kept from sinking while it does (`net_hold_corpse`). Struck
+  while it feeds, it comes up off it at him.
+
+### The goblin: round to his back, a thief, a coward, stones and bombs (2026-10-07, the user's picks)
+
+`GoblinFighter` (`scripts/goblin_fighter.gd`, a [Brawler]) in `goblin.tscn`:
+
+- **Round to his back**: with another goblin within 12 m it does not come at
+  his front: it runs round him (to 30 degrees off his back, by his side first
+  if it is in front) and strikes from behind, or from where it got to after
+  2.6 s. It hops aside from his swings (`dash_chance` 0.45).
+- **A hand in his purse**: a blow of its that reaches him, not on his guard,
+  55 % of the time takes 30 % of his gold (3 to 60), a bag shows at its hip
+  and it runs for 5 s. Cut down, it drops it back with its own.
+- **A coward alone**: with no other goblin by it, it keeps 7 m off, backing
+  away or running, and throws; only within 2.4 m does it fight. Under 35 %
+  of its health it runs for 4 s and shrieks (`CR_Call`, UAL 2's
+  Idle_Rail_Call): every goblin within 28 m comes for him. Its fear is gone
+  once another is by it. (`bold`: fights as though one were; the blows test.)
+- **Stones and bombs**: from 4 to 15 m, every 3.5-6 s (alone 1.8-3 s), it
+  throws overhand (`CR_Throw`, UAL 2's OverhandThrow) at where he will be
+  ([GoblinShot], `scripts/goblin_shot.gd`, on every peer by `net_throw`): a
+  stone (0.7 of its blow, a flinch), or 30 % of the time a black pot with a
+  spitting fuse that lands, rolls, fizzes faster and bursts after 1 s: 2.6 m
+  of fire, 2x its blow at the middle, throwing him down within half of it.
+
+### Gold (2026-10-07, the user's word: a goblin had nothing to steal)
+
+- Every hero has a [Purse] (`scripts/purse.gd`, under him by World, every
+  peer; the host decides, `net_gold`). The count is top right of the HUD, a
+  coin and the number, the last change rising off it (gold found, red
+  stolen).
+- Every creature cut down drops its gold ([CoinBank] under the World,
+  `scripts/coin_bank.gd`): 6 a wolf of its worth ([Leveling.worth], +-35 %),
+  plus what it carried (`carried_gold`). [Coins] (`scripts/coins.gd`) are
+  thrown up out of where it fell, spin, bounce and lie glinting; a hero who
+  comes within 1.7 m gets them, and they fly up into him.
+
+### Feet that keep to the ground (2026-10-07, the user's word: some moved their feet far too fast, some too slow)
+
+- **The rate was squared.** `SkeletonAnim.play()` put a new clip's rate on
+  the clip (`custom_speed`) and the next frame's on the player's
+  `speed_scale`; the two multiply, so every walk and run, retimed each frame,
+  ran at the square of its rate (x1.8 played x3.2, x0.6 played x0.36), and a
+  move begun after a walk ran at the walk's rate times its own. Now the rate
+  is only ever the player's scale.
+- **The pace read off the planted foot.** `SkeletonAnim.measure_ground_speed`
+  reads how fast the foot that is down goes by under the hips (over the
+  clip, the lowest twelfth of each foot's rise) instead of guessing from the
+  stride's width (a shuffle drags its feet, a run is half in the air, a
+  strafe crosses its feet). `ClipFighter.gait_rate` plays every cycle at
+  pace / that, between `gait_floor` (0.3) and `chase_retime_max`; measured,
+  every pack creature's feet now slip under 10 % at every pace, every way.
+- **Walk or run by the clips**: it runs once its walk would play faster than
+  `walk_rate_max` (1.55), and walks again a tenth under (`run_above` only
+  where the walk cannot be read).
+- No clip to go back with: its walk played backwards. The ogre, troll and
+  golem strafe and step back (`CR_StrafeL/R`, `CR_WalkBack`), the bare
+  skeleton shuffles every way (`CR_ZombieWalkL/R/Back`); the bare skeleton
+  ambles at 0.9 m/s (was 1.4: its shuffle at x2.3), the goblin at 1.4 (2.2),
+  the ogre and troll at 2.0 and the golem at 1.8 (1.5 and 1.2, their long
+  legs at x0.3).
+
+### The shield raised when he strikes or shoots: answered through a battering
+
+Behind its shield, two blows caught over 0.6 s and it answers through them,
+his swings still coming (`answer_after_caught`, `answer_within`): a hero
+hacking at the shield is bashed off it. creature_blows_test counts a shield
+fighter among the slower attackers while he cuts at it.
+
+New clips in tools/creature_clips.gd (88): `CR_Throw`, `CR_Call`,
+`CR_Transform`, `CR_Harvest`, `CR_Consume`, `CR_Surprise` (UAL 2), and
+`CR_CrawlRun` out of Mixamo: `MIXAMO` lists fbx files
+(`assets/creatures/anim/mixamo/`, exported in place, no skin, X Bot) baked
+through Mixamo's bone names (`MIXAMO_NAMES`, fingers by rule); `_bake` is now
+one function for both sources. `tests/goblin_ghoul_test.gd`: gold dropped and
+picked up; the theft, the run, the gold dropped back; alone it keeps off and
+throws, the stones reach him, the bomb bursts by him; with another it gets
+round to his back; hurt it runs and shrieks and the other comes; the ghoul's
+poison eats at him and wears off; it screams into a frenzy, quicker, a knock
+no longer throws it; left alone it feeds on a corpse and is healed.
+
 ### The skeletons dressed mixed (2026-10-06, the user's word)
 
 The four skeletons are all on the pack's all-in-one kit now

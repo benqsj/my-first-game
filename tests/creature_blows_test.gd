@@ -12,6 +12,9 @@ const KINDS := ["skeleton", "skeleton_warrior", "orc", "goblin", "ogre", "troll"
 const SECONDS := 14.0
 ## (and the ghoul, which darts off after its swings and leaps in again)
 const SLOW := ["ogre", "golem", "zombie_m", "zombie_f", "ghoul"]
+## Behind a raised shield it waits his cuts out and answers between them, so
+## while he hacks at it, it swings less often too.
+const GUARDS := ["skeleton_warrior"]
 ## The archer: from afar it stands and every arrow strikes him; when he
 ## comes at it, it runs, turns, shoots and runs again.
 const ARCHER := "skeleton_archer"
@@ -71,6 +74,9 @@ func _duel(kind: String, spam: bool) -> void:
 	await physics_frame
 	body.max_health = 99999.0
 	body.health = 99999.0
+	if body is GoblinFighter:
+		# A goblin alone keeps off and throws: here it fights as with others by it.
+		(body as GoblinFighter).bold = true
 	var start := hero.global_position
 	var serial := -1
 	var expected := 0
@@ -102,7 +108,7 @@ func _duel(kind: String, spam: bool) -> void:
 	var how := "while he cuts at it" if spam else "standing still"
 	_check("%s, %s: every blow lands" % [kind, how], expected > 0 and landed == expected, "%d of %d" % [landed, expected])
 	# The slow and heavy ones (an ogre, a golem, a shambling zombie) less often.
-	var least := int(SECONDS / 3.0) if kind in SLOW else int(SECONDS / 2.0)
+	var least := int(SECONDS / 3.0) if kind in SLOW or (spam and kind in GUARDS) else int(SECONDS / 2.0)
 	_check("%s, %s: it keeps attacking" % [kind, how], attacks >= least, "%d attacks in %.0f s" % [attacks, SECONDS])
 	world.queue_free()
 	for i in 3:

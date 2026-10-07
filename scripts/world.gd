@@ -135,6 +135,10 @@ func _ready() -> void:
 	var words := CombatText.new()
 	words.name = "CombatText"
 	add_child(words)
+	# The gold on the ground: what the creatures drop ([CoinBank]).
+	var bank := CoinBank.new()
+	bank.name = "CoinBank"
+	add_child(bank)
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
 	if net != null:
@@ -277,6 +281,13 @@ func _build_player(data: Variant) -> Node:
 	var book := Leveling.new()
 	book.name = "Leveling"
 	body.add_child(book)
+	# His gold, and poison in him, the same way ([Purse], [HeroPoison]).
+	var purse := Purse.new()
+	purse.name = "Purse"
+	body.add_child(purse)
+	var poison := HeroPoison.new()
+	poison.name = "HeroPoison"
+	body.add_child(poison)
 	# Before the tree as well: the spawner decides who to tell about this body
 	# the moment it arrives, and a peer still loading must not be one of them.
 	NetSmooth.guard(body.get_node_or_null("Body") as MultiplayerSynchronizer)
@@ -306,6 +317,10 @@ func _on_creature_died(creature: Node) -> void:
 		return
 	if creature is Node3D:
 		Leveling.share(creature as Node3D, players())
+		# And its gold on the ground where it fell.
+		var bank := get_node_or_null(^"CoinBank") as CoinBank
+		if bank != null:
+			bank.drop((creature as Node3D).global_position, CoinBank.worth_of(creature))
 
 
 ## Takes a body away again. The host drops it and the spawner takes it off

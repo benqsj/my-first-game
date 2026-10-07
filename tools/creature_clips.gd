@@ -113,7 +113,35 @@ const CLIPS := [
 	["CR_ZombieRunL", "Zombie_Run_L", true],
 	["CR_ZombieRunR", "Zombie_Run_R", true],
 	["CR_Leap", [["NinjaJump_Start", 0.0, -1.0], ["NinjaJump_Land", 0.0, -1.0]], false],
+	# The goblin's and the ghoul's (2026-10-07): a stone thrown overhand, a
+	# call to the others, the ghoul's scream into its frenzy, and bent over a
+	# corpse, feeding.
+	["CR_Throw", "OverhandThrow", false],
+	["CR_Call", "Idle_Rail_Call", false],
+	["CR_Transform", "MonsterTransformation", false],
+	["CR_Harvest", "Farm_Harvest", false],
+	["CR_Consume", "Consume", false],
+	["CR_Surprise", "Surprise", false],
 ]
+
+## Clips straight out of Mixamo (exported in place, without skin, on X Bot),
+## carried onto the figure the same way through Mixamo's bone names.
+## [name here, the fbx, a cycle, from s, to s (-1: its end)]
+const MIXAMO := [
+	# The ghoul running on all fours (2026-10-07, the user's pick).
+	["CR_CrawlRun", "res://assets/creatures/anim/mixamo/Running_Crawl.fbx", true, 0.0, -1.0],
+]
+
+## Mannequin bone -> Mixamo's (after "mixamorig").
+const MIXAMO_NAMES := {
+	"pelvis": "Hips", "spine_01": "Spine", "spine_03": "Spine2", "neck_01": "Neck", "Head": "Head",
+	"clavicle_l": "LeftShoulder", "upperarm_l": "LeftArm", "lowerarm_l": "LeftForeArm", "hand_l": "LeftHand",
+	"thigh_l": "LeftUpLeg", "calf_l": "LeftLeg", "foot_l": "LeftFoot", "ball_l": "LeftToeBase",
+	"ball_leaf_l": "LeftToe_End",
+	"clavicle_r": "RightShoulder", "upperarm_r": "RightArm", "lowerarm_r": "RightForeArm", "hand_r": "RightHand",
+	"thigh_r": "RightUpLeg", "calf_r": "RightLeg", "foot_r": "RightFoot", "ball_r": "RightToeBase",
+	"ball_leaf_r": "RightToe_End",
+}
 
 ## Clips made of two baked here: the legs (and hips) of the first, the body
 ## from the waist up of the second, the second looped under the first's
@@ -189,6 +217,105 @@ func _run() -> void:
 			if not done.has(i) and (fig.get_bone_parent(i) < 0 or done.has(fig.get_bone_parent(i))):
 				order.append(i)
 				done[i] = true
+	var out_lib := AnimationLibrary.new()
+	var meta := {}
+	_bake(src, player, lib, CLIPS, func(m: String) -> String: return m, fig, order, out_lib, meta)
+	for c: Array in MIXAMO:
+		var mx := (load(String(c[1])) as PackedScene).instantiate() as Node3D
+		root.add_child(mx)
+		var mx_skel := mx.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
+		var mx_player := mx.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
+		var take := StringName("")
+		for clip_name: StringName in mx_player.get_animation_list():
+			if String(clip_name) != "RESET":
+				take = clip_name
+				break
+		var prefix := ""
+		for i in mx_skel.get_bone_count():
+			var bn := mx_skel.get_bone_name(i)
+			if bn.ends_with("Hips"):
+				prefix = bn.substr(0, bn.length() - 4)
+				break
+		var mx_lib := AnimationLibrary.new()
+		mx_lib.add_animation(take, mx_player.get_animation(take))
+		for lib_name: StringName in mx_player.get_animation_library_list():
+			mx_player.remove_animation_library(lib_name)
+		mx_player.add_animation_library(&"", mx_lib)
+		mx_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+		_bake(mx_skel, mx_player, mx_lib, [[c[0], [[String(take), c[3], c[4]]], c[2]]],
+				func(m: String) -> String: return prefix + _mixamo_name(m),
+				fig, order, out_lib, meta)
+		mx.queue_free()
+
+	_layer(out_lib, meta, fig)
+
+	# The bare skeleton and the player, as a scene SkeletonAnim can load.
+	var holder := Node3D.new()
+	holder.name = "BipedClips"
+	var skel := Skeleton3D.new()
+	skel.name = "Skeleton3D"
+	holder.add_child(skel)
+	skel.owner = holder
+	for i in n:
+		skel.add_bone(fig.get_bone_name(i))
+	for i in n:
+		skel.set_bone_parent(i, fig.get_bone_parent(i))
+		skel.set_bone_rest(i, fig.get_bone_rest(i))
+	skel.reset_bone_poses()
+	var ap := AnimationPlayer.new()
+	ap.name = "AnimationPlayer"
+	holder.add_child(ap)
+	ap.owner = holder
+	ap.add_animation_library(&"", out_lib)
+	var packed := PackedScene.new()
+	packed.pack(holder)
+	var err := ResourceSaver.save(packed, OUT)
+	var file := FileAccess.open(META, FileAccess.WRITE)
+	file.store_string(JSON.stringify(meta))
+	file.close()
+
+	# Where the pack's weapons reach, in their bones' own frames (for the
+	# Brawler's weapon_tip).
+	for pair: Array in [["Skeleton_Warrior", "Skeleton_Warrior_Sword", "R_equip_joint"],
+			["Orc", "Orc_Sword", "R_equip_joint"], ["Goblin", "Goblin_Club", "R_equip_joint"],
+			["Ogre", "Ogre_Club", "R_equip_joint"], ["Skeleton_Mage", "Skeleton_Mage_Staff", "R_equip_joint"]]:
+		var sc := (load("res://assets/creatures/%s.fbx" % pair[0]) as PackedScene).instantiate()
+		var mi := sc.find_child(pair[1], true, false) as MeshInstance3D
+		var sk := sc.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
+		var bone := sk.find_bone(pair[2])
+		var bt := sk.get_bone_global_rest(bone)
+		var far := Vector3.ZERO
+		var far_d := 0.0
+		var verts: PackedVector3Array = mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+		for v in verts:
+			var d := v.distance_to(bt.origin)
+			if d > far_d:
+				far_d = d
+				far = v
+		print("TIP ", pair[1], " on ", pair[2], " local ", bt.affine_inverse() * far, " length %.2f" % far_d)
+		sc.free()
+	print("SAVED ", OUT, " err ", err, " clips ", out_lib.get_animation_list().size())
+	quit()
+
+
+## A mannequin bone's name on Mixamo's skeleton (without the prefix).
+func _mixamo_name(m: String) -> String:
+	if MIXAMO_NAMES.has(m):
+		return String(MIXAMO_NAMES[m])
+	# The fingers: index_02_l -> LeftHandIndex2.
+	var parts := m.split("_")
+	if parts.size() == 3 and parts[1].is_valid_int():
+		var side := "Left" if parts[2] == "l" else "Right"
+		return "%sHand%s%d" % [side, parts[0].capitalize(), int(parts[1])]
+	return "?" + m
+
+
+## Every clip of `clips` ([name, mannequin clip or segments, a cycle]) off
+## `src` playing `lib` in `player`, onto the figure, into `out_lib` and
+## `meta`. `rename` turns a mannequin bone name into `src`'s own.
+func _bake(src: Skeleton3D, player: AnimationPlayer, lib: AnimationLibrary, clips: Array, rename: Callable,
+		fig: Skeleton3D, order: PackedInt32Array, out_lib: AnimationLibrary, meta: Dictionary) -> void:
+	var n := fig.get_bone_count()
 	var d_rest: Array[Transform3D] = []
 	for i in n:
 		d_rest.append(fig.get_bone_global_rest(i).orthonormalized())
@@ -202,7 +329,7 @@ func _run() -> void:
 	offset.resize(n)
 	for key: StringName in _map:
 		var t := fig.find_bone(String(key))
-		var s := src.find_bone(String(_map[key]))
+		var s := src.find_bone(rename.call(String(_map[key])))
 		if t < 0 or s < 0:
 			push_error("no bone %s / %s" % [key, _map[key]])
 			continue
@@ -210,7 +337,7 @@ func _run() -> void:
 		var align := Basis.IDENTITY
 		if _aim.has(key):
 			var tc := fig.find_bone(String(_aim[key][0]))
-			var sc := src.find_bone(String(_aim[key][1]))
+			var sc := src.find_bone(rename.call(String(_aim[key][1])))
 			if tc >= 0 and sc >= 0:
 				var a := (d_rest[tc].origin - d_rest[t].origin).normalized()
 				var b := (s_rest[sc].origin - s_rest[s].origin).normalized()
@@ -220,16 +347,14 @@ func _run() -> void:
 						align = Basis(axis.normalized(), a.angle_to(b))
 		offset[t] = s_rest[s].basis.inverse() * align * d_rest[t].basis
 	var hips := fig.find_bone("pelvis_joint")
-	var s_hips := src.find_bone("pelvis")
-	var s_root := src.find_bone("root")
+	var s_hips := src.find_bone(rename.call("pelvis"))
+	var s_root := src.find_bone(rename.call("root"))
 	var k := d_rest[hips].origin.y / s_rest[s_hips].origin.y
 	print("height ratio ", k)
 
-	var out_lib := AnimationLibrary.new()
-	var meta := {}
 	var g: Array[Transform3D] = []
 	g.resize(n)
-	for c: Array in CLIPS:
+	for c: Array in clips:
 		# A clip of several: [[mannequin clip, from s, to s], ...] played one
 		# after the other (the archer's draw, aim and loose as one move).
 		var segments: Array = (c[1] as Array).duplicate(true) if c[1] is Array else [[c[1], 0.0, -1.0]]
@@ -305,56 +430,6 @@ func _run() -> void:
 		out_lib.add_animation(StringName(c[0]), anim)
 		meta[String(c[0])] = {"frames": count, "fps": int(FPS), "loop": loop, "hips": path, "from": str(c[1])}
 		print("CLIP ", c[0], " <- ", c[1], " frames ", count, " travel %.2f" % float(path[-1][0]))
-
-	_layer(out_lib, meta, fig)
-
-	# The bare skeleton and the player, as a scene SkeletonAnim can load.
-	var holder := Node3D.new()
-	holder.name = "BipedClips"
-	var skel := Skeleton3D.new()
-	skel.name = "Skeleton3D"
-	holder.add_child(skel)
-	skel.owner = holder
-	for i in n:
-		skel.add_bone(fig.get_bone_name(i))
-	for i in n:
-		skel.set_bone_parent(i, fig.get_bone_parent(i))
-		skel.set_bone_rest(i, fig.get_bone_rest(i))
-	skel.reset_bone_poses()
-	var ap := AnimationPlayer.new()
-	ap.name = "AnimationPlayer"
-	holder.add_child(ap)
-	ap.owner = holder
-	ap.add_animation_library(&"", out_lib)
-	var packed := PackedScene.new()
-	packed.pack(holder)
-	var err := ResourceSaver.save(packed, OUT)
-	var file := FileAccess.open(META, FileAccess.WRITE)
-	file.store_string(JSON.stringify(meta))
-	file.close()
-
-	# Where the pack's weapons reach, in their bones' own frames (for the
-	# Brawler's weapon_tip).
-	for pair: Array in [["Skeleton_Warrior", "Skeleton_Warrior_Sword", "R_equip_joint"],
-			["Orc", "Orc_Sword", "R_equip_joint"], ["Goblin", "Goblin_Club", "R_equip_joint"],
-			["Ogre", "Ogre_Club", "R_equip_joint"], ["Skeleton_Mage", "Skeleton_Mage_Staff", "R_equip_joint"]]:
-		var sc := (load("res://assets/creatures/%s.fbx" % pair[0]) as PackedScene).instantiate()
-		var mi := sc.find_child(pair[1], true, false) as MeshInstance3D
-		var sk := sc.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
-		var bone := sk.find_bone(pair[2])
-		var bt := sk.get_bone_global_rest(bone)
-		var far := Vector3.ZERO
-		var far_d := 0.0
-		var verts: PackedVector3Array = mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-		for v in verts:
-			var d := v.distance_to(bt.origin)
-			if d > far_d:
-				far_d = d
-				far = v
-		print("TIP ", pair[1], " on ", pair[2], " local ", bt.affine_inverse() * far, " length %.2f" % far_d)
-		sc.free()
-	print("SAVED ", OUT, " err ", err, " clips ", out_lib.get_animation_list().size())
-	quit()
 
 
 ## The LAYERED clips, out of clips already baked: every key of the legs'

@@ -43,6 +43,11 @@ extends Brawler
 @export var raise_steady: float = 0.4
 ## How far out (s of its flight) a missile coming at it raises the shield.
 @export var missile_watch: float = 0.9
+## Blows caught one after another, and how long behind the shield since the
+## first, before it answers through them, his swings still coming (a hero
+## hacking at the shield is bashed off it).
+@export var answer_after_caught: int = 2
+@export var answer_within: float = 0.6
 
 @export_group("Bash")
 @export var bash_clip: StringName = &"CR_ShieldBash"
@@ -70,6 +75,8 @@ var _guard_for: float = 0.0
 var _threat_age: float = 99.0
 var _guard_from: Node3D = null
 var _judged: Dictionary = {}
+var _caught_run: int = 0
+var _caught_for: float = 0.0
 
 func _ready() -> void:
 	super()
@@ -152,12 +159,16 @@ func net_guard(on: bool) -> void:
 func _keep_guard(delta: float) -> void:
 	_threat_age += delta
 	_guard_for = maxf(_guard_for - delta, 0.0)
+	if _caught_run > 0:
+		_caught_for += delta
 	_watch_missiles()
 	var want := _guard_for > 0.0 and not is_dead and (mode == Mode.CHASE or mode == Mode.FIGHT)
 	if want != guarding:
 		net_guard.rpc(want)
 	if not want:
 		_guard_from = null
+		_caught_run = 0
+		_caught_for = 0.0
 
 
 ## Arrows, bolts and spears loosed by a hero, on a line through it and soon
@@ -224,6 +235,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 		# Behind the raised shield: caught, rocking it back; the Fighter's own
 		# block takes it from here (stamina, the clash, the break).
 		_start(Act.BLOCK)
+		_caught_run += 1
 	var bled := super(damage, at, blow, from, magic)
 	# A blow that got through: the shield up for the next.
 	if bled and not is_dead and from != null:
@@ -239,11 +251,16 @@ func _think(delta: float) -> void:
 	if mode == Mode.GUARD or mode == Mode.RETURN or is_dead:
 		super(delta)
 		return
-	# Behind the shield, his blows over: the bash and the sword, mostly.
+	# Behind the shield, his blows over (or caught one after another): the
+	# bash and the sword, mostly.
+	var through := answer_after_caught > 0 and _caught_run >= answer_after_caught \
+			and _caught_for >= answer_within and _act_time >= 0.1
 	if counter_after > 0.0 and act == Act.BLOCK and _quarry != null \
-			and _act_time >= counter_after and stamina >= attack_cost \
+			and (_act_time >= counter_after or through) and stamina >= attack_cost \
 			and _distance_to(_quarry) <= reach + 0.4 and not _quarry_down():
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_caught_run = 0
+		_caught_for = 0.0
 		if _rng.randf() < counter_bash_chance:
 			_begin_bash()
 		else:
@@ -336,6 +353,5 @@ func _play_locomotion(delta: float) -> void:
 	if not _anim.has_clip(clip):
 		super(delta)
 		return
-	var stride := maxf(_anim.measure_stride(clip), 0.1) * maxf(visual_scale, 0.01)
-	_anim.play(clip, 0.2, clampf(pace * _anim.clip_length(clip) / stride, retime_range.x, chase_retime_max))
+	_anim.play(clip, 0.2, gait_rate(clip, pace))
 #endregion

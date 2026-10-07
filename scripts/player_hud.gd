@@ -66,6 +66,13 @@ var _gain: float = 0.0
 var _gain_time: float = 9.0
 var _up_level: int = 0
 var _up_time: float = 9.0
+## His gold ([Purse]): the count top right, and the last change rising off it
+## (gold for found, red for stolen).
+var _purse: Purse
+var _gold_by: int = 0
+var _gold_time: float = 9.0
+var _poison: HeroPoison
+const POISONED := Color(0.36, 0.7, 0.12)
 
 const GOLD := Color(0.95, 0.78, 0.36)
 const GOLD_DEEP := Color(0.55, 0.38, 0.12)
@@ -137,6 +144,15 @@ func _process(delta: float) -> void:
 	_said_time += delta
 	_gain_time += delta
 	_up_time += delta
+	_gold_time += delta
+	if _purse == null:
+		_purse = Purse.of(player)
+		if _purse != null:
+			_purse.changed.connect(func(_total: int, by: int) -> void:
+				_gold_by = by if _gold_time > 1.2 or signi(by) != signi(_gold_by) else _gold_by + by
+				_gold_time = 0.0)
+	if _poison == null:
+		_poison = HeroPoison.of(player)
 	if _book == null:
 		_book = player.get_node_or_null(^"Leveling") as Leveling
 		if _book != null:
@@ -162,8 +178,9 @@ func _draw_bars() -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	var at := MARGIN
+	var poisoned := _poison != null and _poison.poisoned()
 	_bar(at, minf(player.max_health * HEALTH_SCALE, MAX_BAR), HEALTH_HEIGHT,
-			player.health / maxf(player.max_health, 1.0), HEALTH,
+			player.health / maxf(player.max_health, 1.0), POISONED if poisoned else HEALTH,
 			_lost / maxf(player.max_health, 1.0), HEALTH_LOST)
 	at.y += HEALTH_HEIGHT + GAP
 	var winded := player.is_winded()
@@ -172,6 +189,35 @@ func _draw_bars() -> void:
 			STAMINA_SPENT if winded else STAMINA, 0.0, Color.TRANSPARENT)
 	_draw_skills()
 	_draw_level()
+	_draw_gold()
+
+
+## The gold: a coin and the count in the top right corner.
+func _draw_gold() -> void:
+	if _purse == null:
+		return
+	var font := UiArt.font("bold")
+	var view := _bars.size
+	var text := str(_purse.gold)
+	var size := 22
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var right := view.x - 28.0
+	var c := Vector2(right - w - 18.0, 36.0)
+	_bars.draw_circle(c + Vector2(1.5, 2.0), 11.0, Color(0, 0, 0, 0.5))
+	_bars.draw_circle(c, 11.0, GOLD_DEEP)
+	_bars.draw_circle(c, 9.0, GOLD)
+	_bars.draw_arc(c, 6.0, 0.0, TAU, 18, GOLD_DEEP, 1.5)
+	_bars.draw_string(font, Vector2(right - w + 1.5, 44.0 + 2.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size,
+			Color(0, 0, 0, 0.7))
+	_bars.draw_string(font, Vector2(right - w, 44.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, GOLD)
+	if _gold_by != 0 and _gold_time < 1.6:
+		var a := 1.0 - clampf((_gold_time - 0.8) / 0.8, 0.0, 1.0)
+		var rise := _gold_time * 18.0
+		var tint := Color(1.0, 0.9, 0.5, a) if _gold_by > 0 else Color(1.0, 0.3, 0.22, a)
+		var said := ("+%d" % _gold_by) if _gold_by > 0 else ("%d" % _gold_by)
+		var sw := font.get_string_size(said, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		_bars.draw_string(font, Vector2(right - sw, 70.0 + rise * (1.0 if _gold_by < 0 else -0.3)), said,
+				HORIZONTAL_ALIGNMENT_LEFT, -1, 18, tint)
 
 
 ## The level: a gilt shield at the head of the bars with the number in it and
