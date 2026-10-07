@@ -5156,6 +5156,7 @@ const SKILLS := {
 	&"frost_step": {"name": "Frost Step", "stamina": 18.0, "cooldown": 9.0},
 	&"dark_grasp": {"name": "Dark Hands", "stamina": 22.0, "cooldown": 11.0},
 	&"black_comets": {"name": "Black Comets", "stamina": 30.0, "cooldown": 16.0},
+	&"black_sun": {"name": "Black Sun", "stamina": 28.0, "cooldown": 18.0},
 	&"frost_nova": {"name": "Frost Nova", "stamina": 22.0, "cooldown": 14.0},
 	&"moonwell": {"name": "Moonwell", "stamina": 30.0, "cooldown": 24.0},
 	&"moonfall": {"name": "Moonfall", "stamina": 28.0, "cooldown": 10.0},
@@ -5314,6 +5315,8 @@ func use_skill(slot: int) -> bool:
 			went = dark().grasp(float(SKILLS[id]["stamina"]))
 		&"black_comets":
 			went = dark().comets(float(SKILLS[id]["stamina"]))
+		&"black_sun":
+			went = dark().sun(float(SKILLS[id]["stamina"]))
 		&"frost_nova":
 			went = elf().nova(float(SKILLS[id]["stamina"]))
 		&"moonwell":
@@ -6506,6 +6509,15 @@ func net_dark_held(paths: Array, times: Array) -> void:
 	if sender != 0 and sender != 1:
 		return
 	dark().show_held(paths, times)
+
+
+## Her Black Sun, on every peer: the sphere over `at` ([BlackSun]).
+@rpc("any_peer", "call_local", "reliable")
+func net_dark_sun(at: Vector3, damage: float, critical: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	dark().show_sun(at, damage, critical)
 
 
 ## Her Black Comets, on every peer: the rift over `at` and the comets out of

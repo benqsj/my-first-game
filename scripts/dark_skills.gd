@@ -15,6 +15,9 @@ extends Node
 ##   rocks of black stone burning in black fire, one after another, the first
 ##   where she pointed and the rest scattered round it (every peer the same,
 ##   from one seed), each striking the ground with a spell's blow round it.
+## * **Black Sun** ([BlackSun]): a black sphere over where she points draws
+##   everything round it in for two seconds (a boss only held back), then
+##   bursts.
 ##
 ## Hangs under the [Player] as "DarkSkills" ([method Player.dark]). Her own
 ## peer decides where and sends it ([method Player.net_dark_grasp],
@@ -149,6 +152,36 @@ func show_held(paths: Array, times: Array) -> void:
 		var body := hero.get_node_or_null(paths[i] as NodePath) as Node3D
 		if body != null:
 			ShadowGrasp.clutch(body, float(times[i]) if i < times.size() else ShadowGrasp.HOLD)
+#endregion
+
+
+#region Black Sun
+## Black Sun: its burst's worth, of a full bolt's.
+const SUN_SHARE := 1.3
+## Both her hands thrown forward.
+const SUN_CLIP := &"KV_MagicAttackDirect2H01"
+const SUN_RATE := 1.3
+
+
+## Her own peer: the skill.
+func sun(cost: float) -> bool:
+	if hero == null or hero.is_dead:
+		return false
+	if not hero._spend(cost):
+		return false
+	var at := _spot()
+	_face(at)
+	var worth := _worth(SUN_SHARE)
+	hero.net_dark_sun.rpc(at, float(worth[0]), bool(worth[1]))
+	return true
+
+
+## Every peer: her hands thrown forward and the black sun over `at`.
+func show_sun(at: Vector3, damage: float, critical: bool) -> void:
+	_gesture(SUN_CLIP, SUN_RATE, 0.0, 1.0, 0.1)
+	var into := Blood.world_of(hero)
+	BlackSun.rise(into, at, hero, damage, critical)
+	DarkFx.black_fire(into, _hand(), 0.0, 0.4, {"box": Vector3(0.08, 0.08, 0.08), "rate": 0.7})
 #endregion
 
 

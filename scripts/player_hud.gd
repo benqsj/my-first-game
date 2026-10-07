@@ -561,6 +561,21 @@ func _icon(id: StringName, rect: Rect2) -> void:
 					var tip := knuckle + Vector2(sin(a - s * 0.9), -cos(a - s * 0.9)) * 8.0
 					_bars.draw_line(wrist, knuckle, violet, 2.5)
 					_bars.draw_line(knuckle, tip, violet, 1.8)
+		&"black_sun":
+			# A black ball rimmed in violet, a thin ring of fire round it, and
+			# streaks of wind running in to it from every side.
+			var violet := Color(0.72, 0.45, 1.0)
+			for k in 8:
+				var a := TAU * k / 8.0 + 0.3
+				var d := Vector2(cos(a), sin(a))
+				_bars.draw_line(c + d * 21.0, c + d * 14.0, Color(0.85, 0.78, 1.0, 0.55), 1.5)
+			var disk := PackedVector2Array()
+			for k in 33:
+				var t := TAU * k / 32.0
+				disk.append(c + Vector2(cos(t) * 15.0, sin(t) * 5.0).rotated(-0.35))
+			_bars.draw_polyline(disk, violet, 2.0)
+			_bars.draw_circle(c, 9.0, violet)
+			_bars.draw_circle(c, 7.5, Color(0.02, 0.01, 0.03))
 		&"black_comets":
 			# Three black rocks coming down from the top left, each dragging
 			# a tail of violet fire, and the ground cracked where one struck.

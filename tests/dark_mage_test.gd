@@ -110,6 +110,35 @@ func _run() -> void:
 	_check("and are gone", world.find_children("*", "DarkComet", true, false).is_empty()
 			and world.find_children("*", "DarkRift", true, false).is_empty())
 
+	# Black Sun: what is round it is drawn in, then it bursts.
+	var sun := -1
+	for i in Player.SKILL_SLOTS:
+		if hero.skill_in(i) == &"black_sun":
+			sun = i
+	_check("she has Black Sun", sun >= 0)
+	for f in foes:
+		if is_instance_valid(f):
+			f.queue_free()
+	await _wait(10)
+	hero.target = null
+	var centre := DarkSkills._ground(hero, hero.global_position + ahead * DarkSkills.AHEAD)
+	var far := centre + ahead.cross(Vector3.UP) * 4.5
+	var pulled := panel.call_up(OGRE, false, far)
+	await _wait(10)
+	pulled.global_position = far
+	await _wait(5)
+	hero.stamina = hero.max_stamina
+	var hp := float(pulled.get(&"health"))
+	_check("Black Sun goes", hero.use_skill(sun))
+	await _wait(5)
+	_check("a black sun hangs over where she points", world.find_children("*", "BlackSun", true, false).size() == 1)
+	await _wait(roundi(BlackSun.PULL * 60.0) - 15)
+	var gap := Vector2(pulled.global_position.x - centre.x, pulled.global_position.z - centre.z).length()
+	_check("what is round it is drawn in", gap < 3.0, "%.2f m from it (was 4.5)" % gap)
+	await _wait(40)
+	_check("it has burst", world.find_children("*", "BlackSun", true, false).is_empty())
+	_check("and hurt what it drew in", float(pulled.get(&"health")) < hp, "%.0f -> %.0f" % [hp, float(pulled.get(&"health"))])
+
 	printerr("dark_mage_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)
 

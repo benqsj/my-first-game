@@ -9186,3 +9186,33 @@ the four sockets under them; a skill and then a socket (or the other way) puts
 it there, swapping if it was in another. `Player.skill_picks`, kept per hero in
 `user://skill_picks.cfg`; with none picked, the first four of the profile.
 `tests/elf_skills_test.gd`.
+
+### The dark elf mage's Black Sun (2026-10-07, the user's word)
+
+The user picked it out of the ideas for her third skill (and the black wings,
+a leap back and a glide, for the next; the shadow servant noted for later).
+`black_sun`, 28 stamina, 18 s (`BlackSun`, `DarkSkills.sun`, `net_dark_sun`):
+
+- both her hands thrown forward (Kevin's `MagicAttackDirect2H01`); over where
+  she points (her lock, else 9 m ahead), 2.8 m up, a **black sphere** opens
+  (0.75 m, black, its rim burning violet), the light round it bent as round a
+  hole (a shell reading the screen behind it, drawn first of what is
+  see-through), a thin **ring of violet fire** whirling round it (a disk
+  shader, always turned toward the camera so it is never seen edge on, no
+  crown), a light that takes light away (`light_negative`), and a whirl of
+  violet spikes on the ground under it;
+- for **2 s** it draws in: streaks of wind from every side lying along the way
+  they go (`TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY`), black wisps
+  spiralling in, dust dragged over the ground, violet motes; and **every foe
+  within 6 m is dragged toward it** at 6.5 m/s, let go a metre short of the
+  middle (`move_and_collide`, after its own tick, on the body's own peer: the
+  host for a creature, a hero's own for him in PvP), a puff of dust at its
+  feet as it goes. **A boss is not dragged**: inside it it keeps only 45 % of
+  its pace, as if walking into a wind (the user's word);
+- then it shrinks in on itself and **bursts**: 1.3 of a full bolt within
+  3.6 m (55 % at the edge), a crit rolled, everyone thrown back (`knock`),
+  rings, a shock and cracks on the ground, black fire, sparks, smoke.
+
+So the three go together: the sun gathers them, the hands hold them, the
+comets fall on them. `tests/dark_mage_test.gd`: an ogre 4.5 m off is drawn in
+to under 3 m and hurt by the burst.
