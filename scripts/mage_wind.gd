@@ -2,7 +2,7 @@ class_name MageWind
 extends Node3D
 
 ## The air that holds the mage up while she floats (the jump held): not light
-## but the air itself (the user's word, 2026-10-07: the spinning discs and
+## but the air itself, and the wind of it seen in pale streaks (the user's word, 2026-10-07: the spinning discs and
 ## wisps under her feet were not liked). Under her soles a column of air bent
 ## as heat bends it over a road, the world behind it wavering, thickest at her
 ## feet and gone a metre and a half down; and near the ground (within
@@ -31,7 +31,7 @@ shader_type spatial;
 render_mode unshaded, cull_back, depth_draw_never, shadows_disabled;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform float amount = 0.0;
-uniform float bend = 0.0095;
+uniform float bend = 0.018;
 uniform float depth = 1.6;
 varying float h;
 void vertex() {
@@ -46,11 +46,14 @@ void fragment() {
 	float along = smoothstep(0.0, 0.1, h) * (1.0 - smoothstep(0.3, 1.0, h));
 	float k = body * along * amount;
 	vec2 p = vec2(UV.x * 31.4159, h * 14.0 - TIME * 7.5);
-	vec2 q = vec2(UV.x * 50.2655 + 2.0, h * 22.0 - TIME * 11.0);
+	vec2 q = vec2(UV.x * 37.6991 + 2.0, h * 18.0 - TIME * 10.0);
 	vec2 off = vec2(wave(p) + 0.6 * wave(q), wave(p.yx * 1.3 + 4.0) * 0.7) * bend * k;
 	vec3 behind = textureLod(screen_tex, SCREEN_UV + off, 0.0).rgb;
-	ALBEDO = behind * (1.0 + 0.04 * k);
-	ALPHA = clamp(k * 1.8, 0.0, 1.0);
+	// where the bent air turns away, a thin bright edge, as glass shows one
+	float edge = (1.0 - smoothstep(0.15, 0.55, facing)) * smoothstep(0.02, 0.15, facing);
+	float glint = 0.5 + 0.5 * sin(UV.x * 37.6991 + h * 10.0 - TIME * 8.0);
+	ALBEDO = behind * (1.0 + 0.07 * k) + vec3(0.9, 0.96, 1.0) * edge * glint * 0.08 * along * amount;
+	ALPHA = clamp(k * 2.2 + edge * along * amount * 0.6, 0.0, 1.0);
 }
 """
 
@@ -60,7 +63,7 @@ render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform float prog = 0.0;
 uniform float strength = 0.0;
-uniform float bend = 0.012;
+uniform float bend = 0.026;
 void fragment() {
 	vec2 d = UV - 0.5;
 	float r = length(d) * 2.0;
@@ -75,8 +78,8 @@ void fragment() {
 	// the ground's UV runs across the screen near enough the way the ring does
 	vec2 off = dir * bend * k * vec2(1.0, -0.6);
 	vec3 behind = textureLod(screen_tex, SCREEN_UV - off, 0.0).rgb;
-	ALBEDO = behind * (1.0 + 0.05 * k);
-	ALPHA = clamp(k * 1.6, 0.0, 1.0);
+	ALBEDO = behind * (1.0 + 0.08 * k) + vec3(0.92, 0.96, 1.0) * ring * fade * strength * 0.1;
+	ALPHA = clamp(k * 1.8, 0.0, 1.0);
 }
 """
 
@@ -92,6 +95,7 @@ var _ring_age: Array[float] = []
 var _next_ring: float = 0.0
 var _probe: float = 0.0
 var _ground := Vector3.INF
+var _streaks: GPUParticles3D
 
 
 func _ready() -> void:
@@ -120,6 +124,8 @@ func _ready() -> void:
 	_column.position = Vector3(0.0, -COLUMN * 0.5 + 0.05, 0.0)
 	_column.visible = false
 	add_child(_column)
+	_streaks = _make_streaks()
+	add_child(_streaks)
 	for i in 3:
 		var quad := PlaneMesh.new()
 		quad.size = Vector2(2.0, 2.0)
@@ -145,6 +151,8 @@ func _process(delta: float) -> void:
 		# keep the column upright under her whatever the figure leans
 		_column.global_basis = Basis.IDENTITY
 		_haze.set_shader_parameter(&"amount", _shown)
+	_streaks.emitting = _shown > 0.3
+	_streaks.amount_ratio = clampf(_shown, 0.0, 1.0)
 	_tick_rings(delta)
 	if not on:
 		_ground = Vector3.INF
@@ -230,3 +238,63 @@ func _tick_rings(delta: float) -> void:
 		# out quick, then slowing
 		_ring_mats[i].set_shader_parameter(&"prog", 1.0 - pow(1.0 - t, 2.2))
 		_ring_mats[i].set_shader_parameter(&"strength", float(ring.get_meta(&"strength", 1.0)))
+
+
+## The wind itself, seen: thin pale ribbons of air whirling round her legs
+## and down and out from under her (each a trail, so it curves the way the air
+## goes), not light: no glow, a pale line over the world.
+func _make_streaks() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = 10
+	p.lifetime = 1.0
+	p.local_coords = false
+	p.trail_enabled = true
+	p.trail_lifetime = 0.6
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.position = Vector3.UP * 0.55
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	m.emission_ring_axis = Vector3.UP
+	m.emission_ring_radius = 0.7
+	m.emission_ring_inner_radius = 0.45
+	m.emission_ring_height = 0.5
+	m.direction = Vector3.DOWN
+	m.spread = 10.0
+	m.initial_velocity_min = 0.15
+	m.initial_velocity_max = 0.35
+	m.gravity = Vector3(0, -0.5, 0)
+	m.orbit_velocity_min = 1.2
+	m.orbit_velocity_max = 1.6
+	m.radial_velocity_min = 0.15
+	m.radial_velocity_max = 0.4
+	m.damping_min = 0.3
+	m.damping_max = 0.6
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.0))
+	ramp.add_point(0.2, Color(0.97, 0.99, 1.0, 0.55))
+	ramp.add_point(0.65, Color(0.95, 0.98, 1.0, 0.35))
+	ramp.set_color(ramp.get_point_count() - 1, Color(0.95, 0.98, 1.0, 0.0))
+	var ramp_tex := GradientTexture1D.new()
+	ramp_tex.gradient = ramp
+	m.color_ramp = ramp_tex
+	p.process_material = m
+	var ribbon := RibbonTrailMesh.new()
+	ribbon.shape = RibbonTrailMesh.SHAPE_CROSS
+	ribbon.size = 0.03
+	ribbon.sections = 12
+	ribbon.section_length = 0.08
+	var thin := Curve.new()
+	thin.add_point(Vector2(0.0, 0.0))
+	thin.add_point(Vector2(0.5, 1.0))
+	thin.add_point(Vector2(1.0, 0.0))
+	ribbon.curve = thin
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.vertex_color_use_as_albedo = true
+	mat.use_particle_trails = true
+	ribbon.material = mat
+	p.draw_pass_1 = ribbon
+	p.emitting = false
+	return p

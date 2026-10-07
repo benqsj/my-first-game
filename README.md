@@ -9060,5 +9060,9 @@ over a road (a cone 1.6 m down, a shader reading the screen behind it and
 wavering it, thickest at her feet, nothing at its silhouette), and, while the
 ground is within 3.2 m, rings of bent air running out over it from under her
 every 0.42 s (stronger the lower she is), with a little pale dust thrown off
-along the ground below 1.6 m. No colour of its own. Only while she floats (the
+along the ground below 1.6 m. No colour of its own. Made plainer the same day
+(the user's word: too faint, something missing): the haze bends 2.4 times as
+much, with a thin glassy edge where it turns away, the rings bend the ground
+harder, and the wind itself is seen: ten pale ribbons (particle trails) whirling
+round her legs and spiralling down and out from under her. Only while she floats (the
 jump held), as before.
