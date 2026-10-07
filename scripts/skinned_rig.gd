@@ -880,7 +880,8 @@ func _rehang_capes(look: Dictionary) -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo or key.keycode != KEY_F9 or wardrobe.is_empty():
+	if key == null or not key.pressed or key.echo or key.keycode != KEY_F9 \
+			or not key.shift_pressed or wardrobe.is_empty():
 		return
 	if _body != null and not _body.is_multiplayer_authority():
 		return

@@ -87,6 +87,12 @@ const CAMPS: Array[Array] = [
 	# and the imps (level 8), and the marsh lair east of the mere (level 9).
 	[&"arkdeva", Vector2(-104.0, -118.0), 1],
 	[&"arkdeva", Vector2(-80.0, -216.0), 1],
+	# The skeletons that keep the old graveyard west of the mist village
+	# ([NecroPlaces]): three with swords and shields and their mage in the
+	# walled yard, two archers just inside its gate.
+	[&"skeleton_warrior", Vector2(90.0, -158.0), 3],
+	[&"skeleton_mage", Vector2(90.0, -158.0), 1],
+	[&"skeleton_archer", Vector2(74.0, -158.0), 2],
 ]
 const CAMP_SCENES := {
 	&"imp": "res://scenes/enemies/imp.tscn",
@@ -95,6 +101,9 @@ const CAMP_SCENES := {
 	&"orc_greataxe": "res://scenes/enemies/orc_greataxe.tscn",
 	&"orc_guard": "res://scenes/enemies/orc.tscn",
 	&"arkdeva": "res://scenes/enemies/arkdeva.tscn",
+	&"skeleton_warrior": "res://scenes/enemies/pack/skeleton_warrior.tscn",
+	&"skeleton_mage": "res://scenes/enemies/pack/skeleton_mage.tscn",
+	&"skeleton_archer": "res://scenes/enemies/pack/skeleton_archer.tscn",
 }
 ## Kinds whose bands are mixed: every second member is the other scene.
 const ORC_MIX := {&"orc": &"orc_greataxe"}
@@ -122,6 +131,10 @@ var _fight_music_until: float = 0.0
 
 func _ready() -> void:
 	_dress_village()
+	# The old graveyard and the dead wood round Arkdeva's lairs ([NecroPlaces]).
+	var necro := NecroPlaces.new()
+	necro.name = "NecroPlaces"
+	add_child(necro)
 	GroundCover.lay(get_node_or_null("Forest") as Forest, VILLAGE)
 	_build_camps()
 	# What hides what (the ground, the walls), for the renderer to skip.

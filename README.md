@@ -4425,7 +4425,7 @@ wood as a flat grey crescent. `strands` draws more than one line side by side.
 * The orc's axe keeps its own grey arc.
 
 
-## Tariel's colours: F9
+## Tariel's colours: Shift+F9 (F9 until 2026-10-08)
 
 Tariel's colours are a wardrobe in `SkinnedRig.TARIEL_WARDROBE`, not baked into
 the model: each dress is a set of colours for the model's materials (by their
@@ -4433,7 +4433,7 @@ names from Blender, `t6_crimson`, `t6_tiger`, `t6_gold`, … in Blender's linear
 values) and for his cloth cape. `_put_on_dress()` gives each named surface a
 copy of its material in the new colour (`set_surface_override_material`) and
 recolours the cape (`ClothCape.recolour`) — the same meshes and the same number
-of materials, so a dress costs nothing. **F9** steps through them in the game
+of materials, so a dress costs nothing. **Shift+F9** steps through them in the game
 and says which is on; `SkinnedRig.dress` is the one worn (the static default
 is the one he starts in). The other heroes have no wardrobe.
 
@@ -9353,3 +9353,51 @@ perhaps 2-3 s more, but every one of those systems is still being changed, and a
 baked copy has to know when it has gone stale — that is a bigger and riskier
 job than these.
 
+
+## The old graveyard and the dead wood (2026-10-08, the user's word)
+
+EmaceArt's **NecroPOLY** kit (Unity Asset Store), converted without Unity by
+`vepxis-art/necropoly/convert.py` into `assets/necropoly/`: 56 props in
+`necro_props.glb`, the three ready-made "chunks" the graveyard is made of
+(`necropoly_chunk_02c/02a/01c.glb`; the kit's other seven are converted too,
+in `vepxis-art/necropoly/chunks/`) and one palette texture (`necro_palette.png`). The kit is built about 2.5 times a man,
+so everything of it stands at 0.4 (`NecroPlaces.KIT_SCALE`). Built at load by
+[NecroPlaces] (`scripts/necro_places.gd`), a child of the world:
+
+- **The old graveyard** west of the mist village, on the flat by the marsh
+  (x 69–109, z −135…−190): the walled yard (`02c`) with its gate to the east,
+  the broken ground south of it (`02a`) and a row of mausoleums to the north
+  (`01c`), each sunk until its floor is the ground (the kit raises its yards
+  on a plinth, 2.5 m at our scale). Round it four great dead trees, crooked
+  ones, roots, dead grass, mud, two ruined walls and three lamp posts by the
+  gate, lit. A spur of track (`Paths`, the fifth) runs to the gate from the
+  way to the mist village. The grass keeps off it (`NecroPlaces.blocks` in
+  `Meadows._site`).
+  - Collision: the kit's mesh where it stands up out of the floor (walls,
+    tombs, posts; not floors or small things), and the yard's wall as boxes,
+    since its iron is too thin to collide as drawn (`YARD_WALL`). The gate is
+    kept clear (`GATE_CLEAR`).
+  - **Six skeletons keep it** (`World.CAMPS`): three warriors and their mage in
+    the yard, two archers inside the gate.
+- **The dead wood round Arkdeva's two lairs**: within 28 m of a lair every tree
+  of the wood is dead, and fewer out to 46 m. The wood's own trees are swapped
+  where they stand — their trunk keeps colliding, their drawn copy is scaled
+  to nothing in its MultiMesh and the kit's bare tree (or its crooked one) is
+  drawn there instead — and some of the bushes go. Dead grass, roots and
+  stones on the floor, low mist.
+- **Mist**: a few big soft sheets drifting low (CPUParticles3D) over the
+  graveyard and each lair.
+- **Sound** (`sounds/ambience/`, from the Sonniss GDC 2026 bundle, see
+  `SOURCES.txt`): an evil hum over the graveyard and each lair, and birds in
+  the living wood, so the dead wood is heard going quiet.
+- **F9** flips the kit's colours: the kit's own palette (the level starts in
+  it) or ours (`shaders/necro.gdshader`: drained a little, darker and warmer,
+  the near-white taken down, moss in patches on whatever faces the sky, damp
+  streaks down the walls). Tariel's colours, which were F9, are **Shift+F9**.
+
+`tests/necro_test.gd` (headless): the three pieces at the kit's scale, the
+yard's wall stops a body and its gate lets one in, the yard's floor is the
+ground, the grass keeps off, six skeletons, the lairs' cores dead and nothing
+past their reach, F9 there and back (Shift+F9 not). Which trees went over is
+read off the MultiMeshes only with a window (the headless renderer keeps no
+transforms).
