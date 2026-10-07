@@ -9064,5 +9064,8 @@ along the ground below 1.6 m. No colour of its own. Made plainer the same day
 (the user's word: too faint, something missing): the haze bends 2.4 times as
 much, with a thin glassy edge where it turns away, the rings bend the ground
 harder, and the wind itself is seen: ten pale ribbons (particle trails) whirling
-round her legs and spiralling down and out from under her. Only while she floats (the
+round her legs and spiralling down and out from under her. Then (the user's word): the
+bent air starts up her shins and is fullest round her feet, going down from
+them; and no rings sent out over the ground all the while she floats (too many
+white circles) but one, where she lands, as she comes down out of floating. Only while she floats (the
 jump held), as before.

@@ -5,10 +5,12 @@ extends Node3D
 ## but the air itself, and the wind of it seen in pale streaks (the user's word, 2026-10-07: the spinning discs and
 ## wisps under her feet were not liked). Under her soles a column of air bent
 ## as heat bends it over a road, the world behind it wavering, thickest at her
-## feet and gone a metre and a half down; and near the ground (within
-## `REACH`) the push of it reaching the ground: rings of bent air running out
-## over it from under her, stronger the lower she is, and a little dust
-## thrown off along it when she is low.
+## feet, round her feet and shins as much (the user's word), and gone a metre
+## and a half down; near the ground (within `REACH`) a little dust thrown off
+## along it when she is low; and as she comes down out of it onto the ground,
+## one ring of bent air running out from where she lands (one, there and
+## then: the user's word, the rings sent out all the while she floated were
+## too many).
 ##
 ## How much of it there is follows `amount`, which the rig sets every frame:
 ## none on the ground or in a plain jump, all of it while she floats.
@@ -25,6 +27,10 @@ const RING_WIDE := 2.2
 ## Dust thrown off below this height.
 const DUST_UNDER := 1.6
 const COLUMN := 1.6
+## How far up her legs the bent air goes, over her soles.
+const ABOVE := 0.55
+## Floated within this long before touching the ground: a landing.
+const LANDING := 1.0
 
 const HAZE_SHADER := """
 shader_type spatial;
@@ -35,7 +41,7 @@ uniform float bend = 0.018;
 uniform float depth = 1.6;
 varying float h;
 void vertex() {
-	h = clamp(-VERTEX.y / depth, 0.0, 1.0);
+	h = clamp(0.5 - VERTEX.y / depth, 0.0, 1.0);
 }
 float wave(vec2 p) {
 	return sin(p.x) * sin(p.y * 1.3 + 1.7);
@@ -43,7 +49,9 @@ float wave(vec2 p) {
 void fragment() {
 	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float body = smoothstep(0.05, 0.65, facing);
-	float along = smoothstep(0.0, 0.1, h) * (1.0 - smoothstep(0.3, 1.0, h));
+	// h runs from the top of it (up her shins) to its foot: in over the
+	// first few centimetres, full round her feet, gone near the bottom
+	float along = smoothstep(0.0, 0.12, h) * (1.0 - smoothstep(0.45, 1.0, h));
 	float k = body * along * amount;
 	vec2 p = vec2(UV.x * 31.4159, h * 14.0 - TIME * 7.5);
 	vec2 q = vec2(UV.x * 37.6991 + 2.0, h * 18.0 - TIME * 10.0);
@@ -95,6 +103,9 @@ var _ring_age: Array[float] = []
 var _next_ring: float = 0.0
 var _probe: float = 0.0
 var _ground := Vector3.INF
+## When she last floated (s, this node's clock), for the landing ring.
+var _floated_at: float = -INF
+var _clock: float = 0.0
 var _streaks: GPUParticles3D
 
 
@@ -106,9 +117,9 @@ func _ready() -> void:
 		_ring_shader.code = RING_SHADER
 	# the column of bent air: a cone from her soles down, open both ends
 	var cone := CylinderMesh.new()
-	cone.top_radius = 0.32
-	cone.bottom_radius = 0.6
-	cone.height = COLUMN
+	cone.top_radius = 0.3
+	cone.bottom_radius = 0.62
+	cone.height = COLUMN + ABOVE
 	cone.radial_segments = 24
 	cone.rings = 6
 	cone.cap_top = false
@@ -117,11 +128,11 @@ func _ready() -> void:
 	_column.mesh = cone
 	_haze = ShaderMaterial.new()
 	_haze.shader = _haze_shader
-	_haze.set_shader_parameter(&"depth", COLUMN)
+	_haze.set_shader_parameter(&"depth", COLUMN + ABOVE)
 	_column.material_override = _haze
 	_column.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# the mesh's own middle is its middle: hung so its top is at her soles
-	_column.position = Vector3(0.0, -COLUMN * 0.5 + 0.05, 0.0)
+	# the mesh's own middle is its middle: hung so its top is up her shins
+	_column.position = Vector3(0.0, ABOVE - (COLUMN + ABOVE) * 0.5, 0.0)
 	_column.visible = false
 	add_child(_column)
 	_streaks = _make_streaks()
@@ -144,7 +155,11 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_clock += delta
+	if amount > 0.5:
+		_floated_at = _clock
 	_shown = move_toward(_shown, minf(amount, 1.0), delta / 0.3)
+	_land_check()
 	var on := _shown > 0.01
 	_column.visible = on
 	if on:
@@ -166,7 +181,20 @@ func _process(delta: float) -> void:
 	_next_ring -= delta
 	if _next_ring <= 0.0 and _shown > 0.5:
 		_next_ring = RING_EVERY
-		_ring_out()
+		if global_position.y - _ground.y < DUST_UNDER:
+			_dust(clampf(1.0 - (global_position.y - _ground.y) / REACH, 0.0, 1.0))
+
+
+## Down on the ground straight out of floating: the one ring, where she lands.
+func _land_check() -> void:
+	if _clock - _floated_at > LANDING:
+		return
+	var body := _body() as CharacterBody3D
+	if body == null or not body.is_on_floor():
+		return
+	_floated_at = -INF
+	_ground = global_position
+	_ring_out()
 
 
 ## The ground under her, if within `REACH`; INF if not.
@@ -195,7 +223,7 @@ func _body() -> CollisionObject3D:
 
 ## A ring of bent air sent out over the ground under her.
 func _ring_out() -> void:
-	var height := global_position.y - _ground.y
+	var height := maxf(global_position.y - _ground.y, 0.0)
 	var near := clampf(1.0 - height / REACH, 0.0, 1.0)
 	for i in _rings.size():
 		if _ring_age[i] < RING_LIFE:
