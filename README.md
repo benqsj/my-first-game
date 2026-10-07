@@ -9065,7 +9065,8 @@ along the ground below 1.6 m. No colour of its own. Made plainer the same day
 much, with a thin glassy edge where it turns away, the rings bend the ground
 harder, and the wind itself is seen: ten pale ribbons (particle trails) whirling
 round her legs and spiralling down and out from under her. Then (the user's word): the
-bent air starts up her shins and is fullest round her feet, going down from
-them; and no rings sent out over the ground all the while she floats (too many
+bent air comes out from under each foot, where the foot ends (two narrow cones
+hung each frame from the lower of the foot's heel and ball bones, whatever the
+float pose does with them), fullest right at the sole and widening down; and no rings sent out over the ground all the while she floats (too many
 white circles) but one, where she lands, as she comes down out of floating. Only while she floats (the
 jump held), as before.

@@ -3,10 +3,10 @@ extends Node3D
 
 ## The air that holds the mage up while she floats (the jump held): not light
 ## but the air itself, and the wind of it seen in pale streaks (the user's word, 2026-10-07: the spinning discs and
-## wisps under her feet were not liked). Under her soles a column of air bent
-## as heat bends it over a road, the world behind it wavering, thickest at her
-## feet, round her feet and shins as much (the user's word), and gone a metre
-## and a half down; near the ground (within `REACH`) a little dust thrown off
+## wisps under her feet were not liked). Out from under each foot, where the
+## foot ends (the user's word), a column of air bent as heat bends it over a
+## road, the world behind it wavering, thickest right at the sole, widening
+## and gone a metre and a half down; near the ground (within `REACH`) a little dust thrown off
 ## along it when she is low; and as she comes down out of it onto the ground,
 ## one ring of bent air running out from where she lands (one, there and
 ## then: the user's word, the rings sent out all the while she floated were
@@ -27,8 +27,11 @@ const RING_WIDE := 2.2
 ## Dust thrown off below this height.
 const DUST_UNDER := 1.6
 const COLUMN := 1.6
-## How far up her legs the bent air goes, over her soles.
-const ABOVE := 0.55
+## The feet's bones: the bent air comes out from under each foot, where the
+## foot ends (the user's word), wherever the float pose holds them.
+const FEET := [[&"foot_l", &"ball_l"], [&"foot_r", &"ball_r"]]
+## From the bones down to the sole.
+const SOLE := 0.05
 ## Floated within this long before touching the ground: a landing.
 const LANDING := 1.0
 
@@ -51,7 +54,7 @@ void fragment() {
 	float body = smoothstep(0.05, 0.65, facing);
 	// h runs from the top of it (up her shins) to its foot: in over the
 	// first few centimetres, full round her feet, gone near the bottom
-	float along = smoothstep(0.0, 0.12, h) * (1.0 - smoothstep(0.45, 1.0, h));
+	float along = smoothstep(0.0, 0.025, h) * (1.0 - smoothstep(0.3, 1.0, h));
 	float k = body * along * amount;
 	vec2 p = vec2(UV.x * 31.4159, h * 14.0 - TIME * 7.5);
 	vec2 q = vec2(UV.x * 37.6991 + 2.0, h * 18.0 - TIME * 10.0);
@@ -60,7 +63,7 @@ void fragment() {
 	// where the bent air turns away, a thin bright edge, as glass shows one
 	float edge = (1.0 - smoothstep(0.15, 0.55, facing)) * smoothstep(0.02, 0.15, facing);
 	float glint = 0.5 + 0.5 * sin(UV.x * 37.6991 + h * 10.0 - TIME * 8.0);
-	ALBEDO = behind * (1.0 + 0.07 * k) + vec3(0.9, 0.96, 1.0) * edge * glint * 0.08 * along * amount;
+	ALBEDO = behind * (1.0 + 0.07 * k) + vec3(0.9, 0.96, 1.0) * edge * glint * 0.04 * along * amount;
 	ALPHA = clamp(k * 2.2 + edge * along * amount * 0.6, 0.0, 1.0);
 }
 """
@@ -95,7 +98,7 @@ static var _haze_shader: Shader = null
 static var _ring_shader: Shader = null
 
 var _shown: float = 0.0
-var _column: MeshInstance3D
+var _columns: Array[MeshInstance3D] = []
 var _haze: ShaderMaterial
 var _rings: Array[MeshInstance3D] = []
 var _ring_mats: Array[ShaderMaterial] = []
@@ -115,26 +118,28 @@ func _ready() -> void:
 		_haze_shader.code = HAZE_SHADER
 		_ring_shader = Shader.new()
 		_ring_shader.code = RING_SHADER
-	# the column of bent air: a cone from her soles down, open both ends
+	# a column of bent air under each foot: a cone from the sole down, narrow
+	# at the foot and widening, open both ends
 	var cone := CylinderMesh.new()
-	cone.top_radius = 0.3
-	cone.bottom_radius = 0.62
-	cone.height = COLUMN + ABOVE
-	cone.radial_segments = 24
-	cone.rings = 6
+	cone.top_radius = 0.13
+	cone.bottom_radius = 0.5
+	cone.height = COLUMN
+	cone.radial_segments = 20
+	cone.rings = 8
 	cone.cap_top = false
 	cone.cap_bottom = false
-	_column = MeshInstance3D.new()
-	_column.mesh = cone
 	_haze = ShaderMaterial.new()
 	_haze.shader = _haze_shader
-	_haze.set_shader_parameter(&"depth", COLUMN + ABOVE)
-	_column.material_override = _haze
-	_column.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# the mesh's own middle is its middle: hung so its top is up her shins
-	_column.position = Vector3(0.0, ABOVE - (COLUMN + ABOVE) * 0.5, 0.0)
-	_column.visible = false
-	add_child(_column)
+	_haze.set_shader_parameter(&"depth", COLUMN)
+	for i in 2:
+		var column := MeshInstance3D.new()
+		column.mesh = cone
+		column.material_override = _haze
+		column.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		column.top_level = true
+		column.visible = false
+		add_child(column)
+		_columns.append(column)
 	_streaks = _make_streaks()
 	add_child(_streaks)
 	for i in 3:
@@ -161,10 +166,13 @@ func _process(delta: float) -> void:
 	_shown = move_toward(_shown, minf(amount, 1.0), delta / 0.3)
 	_land_check()
 	var on := _shown > 0.01
-	_column.visible = on
+	for i in _columns.size():
+		_columns[i].visible = on
+		if on:
+			# upright, its top at the sole of that foot wherever it is
+			_columns[i].global_transform = Transform3D(Basis.IDENTITY,
+					_sole(i) + Vector3.DOWN * (COLUMN * 0.5))
 	if on:
-		# keep the column upright under her whatever the figure leans
-		_column.global_basis = Basis.IDENTITY
 		_haze.set_shader_parameter(&"amount", _shown)
 	_streaks.emitting = _shown > 0.3
 	_streaks.amount_ratio = clampf(_shown, 0.0, 1.0)
@@ -195,6 +203,19 @@ func _land_check() -> void:
 	_floated_at = -INF
 	_ground = global_position
 	_ring_out()
+
+
+## Where foot `i` ends: under the lower of its heel and ball, a little below
+## the bones; under her middle if the rig has no such bones.
+func _sole(i: int) -> Vector3:
+	var rig := get_parent()
+	if rig == null or not rig.has_method(&"bone_position"):
+		return global_position
+	var heel: Vector3 = rig.call(&"bone_position", FEET[i][0])
+	var ball: Vector3 = rig.call(&"bone_position", FEET[i][1])
+	var at := heel.lerp(ball, 0.5)
+	at.y = minf(heel.y, ball.y) - SOLE
+	return at
 
 
 ## The ground under her, if within `REACH`; INF if not.
