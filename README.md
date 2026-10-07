@@ -9051,3 +9051,14 @@ gathering to that, then goes; that least gathering earns nothing
 (`draw_power` counts from it), so a click is worth what it was. And 0.8 s
 between one and the next (`shot_cooldown`, was 0.35). Clicking as fast as she
 can, one every 1.33 s. `tests/frost_step_test.gd`.
+
+### The mage's levitation: bent air, not light (2026-10-07, the user's word)
+
+The spinning discs and falling wisps under her feet were not liked. `MageWind`
+is now the air itself: under her soles a column of air bent as heat bends it
+over a road (a cone 1.6 m down, a shader reading the screen behind it and
+wavering it, thickest at her feet, nothing at its silhouette), and, while the
+ground is within 3.2 m, rings of bent air running out over it from under her
+every 0.42 s (stronger the lower she is), with a little pale dust thrown off
+along the ground below 1.6 m. No colour of its own. Only while she floats (the
+jump held), as before.
