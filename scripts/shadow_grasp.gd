@@ -23,6 +23,8 @@ const EMPTY := 6
 var caster: Player
 var damage: float = 0.0
 var critical: bool = false
+## Only drawn ([method DarkSkills.warm]): it catches no one.
+var dummy := false
 
 var _age: float = 0.0
 var _done := false
@@ -119,7 +121,7 @@ func _erupt() -> void:
 		var spot := at + Vector3(cos(a) * r, 0.0, sin(a) * r)
 		spot.y = _ground_y(spot, at.y)
 		ShadowHand.rise(into, spot, at, _rng.randf_range(0.8, 1.0), HOLD * _rng.randf_range(0.45, 0.7), 0.5)
-	if multiplayer.is_server():
+	if multiplayer.is_server() and not dummy:
 		_catch()
 
 

@@ -6,7 +6,7 @@ extends Node3D
 ## it as round a hole in the world, a thin ring of violet fire whirling about
 ## it, and for `PULL` seconds it draws in everything round it: dust, smoke and
 ## streaks of wind running in over the ground and through the air, and every
-## foe within `REACH` dragged toward it (a boss is not dragged but held back,
+## foe within `REACH` (9 m) dragged toward it (a boss is not dragged but held back,
 ## going at `BOSS_PACE` of its pace, as if against the wind). Then it shrinks
 ## in on itself and bursts: what is within `BLAST` takes a spell's blow, less
 ## at the edge, and is thrown back.
@@ -17,11 +17,11 @@ extends Node3D
 ## burst hurts.
 
 const HIGH := 2.8
-const REACH := 6.0
+const REACH := 9.0
 const PULL := 2.0
 ## How fast it drags (m/s), at the edge of its reach and nearer; it lets go a
 ## metre short of the middle.
-const DRAG := 6.5
+const DRAG := 11.0
 const NEAR := 1.0
 ## A boss keeps this share of its pace inside it.
 const BOSS_PACE := 0.45
@@ -34,6 +34,9 @@ const COLLAPSE := 0.22
 var caster: Player
 var damage: float = 0.0
 var critical: bool = false
+## Only drawn, to build what it is drawn with before it is needed
+## ([method DarkSkills.warm]): it drags and hurts nothing.
+var dummy := false
 
 var _age: float = 0.0
 var _burst := false
@@ -225,7 +228,7 @@ func _process(delta: float) -> void:
 	_dark.light_energy = 1.6 * grow
 	_glow.light_energy = 1.5 * grow
 	_trail_tick -= delta
-	if _trail_tick <= 0.0:
+	if _trail_tick <= 0.0 and not dummy:
 		_trail_tick = 0.22
 		for who in _foes():
 			if _inside(who):
@@ -250,7 +253,7 @@ func _face_disk() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _burst or _age > PULL:
+	if dummy or _burst or _age > PULL:
 		return
 	var grip := clampf(_age / 0.3, 0.0, 1.0)
 	for who in _foes():
@@ -314,7 +317,7 @@ func _explode() -> void:
 		if is_instance_valid(p):
 			p.emitting = false
 			p.get_tree().create_timer(p.lifetime + 0.3, false).timeout.connect(p.queue_free)
-	if multiplayer.is_server():
+	if multiplayer.is_server() and not dummy:
 		_hurt(at)
 	SkillFx.flash(into, at, DarkFx.VOID, 1.2, 0.14, 3.0)
 	SkillFx.light(into, at, DarkFx.HOT, 6.0, 14.0, 0.5)
@@ -334,7 +337,8 @@ func _explode() -> void:
 	DarkFx.black_fire(into, _ground + Vector3.UP * 0.05, 1.6, 0.9, {"ring": Vector2(0.4, BLAST * 0.7), "rate": 1.4})
 	DarkFx.embers(into, at, 50, Vector2(4.0, 10.0), 1.0)
 	DarkFx.smoke(into, at, 14, 1.8, 1.8, 2.0, 1.0)
-	WindBlast.shake(self, 0.12, 0.3, 26.0)
+	if not dummy:
+		WindBlast.shake(self, 0.12, 0.3, 26.0)
 	if is_instance_valid(_swirl):
 		var t3 := _swirl.create_tween()
 		t3.tween_property(_swirl, "modulate:a", 0.0, 0.5)

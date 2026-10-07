@@ -83,6 +83,27 @@ static func warm(at: Node3D) -> void:
 	DarkFx.black_fire(at, here, 0.0, 0.1)
 	DarkFx.smoke(at, here, 2, 0.1, 0.3)
 	DarkFx.embers(at, here, 2, Vector2(0.1, 0.2), 0.3)
+	# and the rest the first cast of each used to stall on (the user's word,
+	# 2026-10-07): the decals, the rift, a comet in flight and striking, the
+	# black sun (its shell reads the screen: a pipeline of its own), the
+	# grasp's circle. All only drawn: `dummy`, nothing caught or hurt.
+	var grasp := ShadowGrasp.open(at, here, null, 0.0, false, 1)
+	if grasp != null:
+		grasp.dummy = true
+	DarkRift.tear(at, here + Vector3.UP * 0.5, 0.3, Vector3.DOWN)
+	var comet := DarkComet.fall(at, here + Vector3.UP * 0.6, here, 0.08, null, 0.0, false, 1, 0.2)
+	if comet != null:
+		comet.dummy = true
+	var sun := BlackSun.rise(at, here, null, 0.0, false)
+	if sun != null:
+		sun.dummy = true
+	DarkFx.decal(at, here, DarkFx.CRACK, 0.3, Color(DarkFx.VOID, 1.0), 1.0, 0.5)
+	# what is left behind them, freed with `at` or after a second
+	for n in at.get_children():
+		if n is ShadowGrasp or n is DarkRift or n is BlackSun:
+			n.get_tree().create_timer(1.0, false).timeout.connect(func() -> void:
+				if is_instance_valid(n):
+					n.queue_free())
 
 
 ## Where she points: her lock if it is within `REACH`, else `AHEAD` of her; on

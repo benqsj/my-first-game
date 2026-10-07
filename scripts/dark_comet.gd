@@ -28,6 +28,8 @@ var damage: float = 0.0
 var critical: bool = false
 var flight: float = 0.6
 var size: float = 1.0
+## Only drawn ([method DarkSkills.warm]): it hurts nothing and shakes nothing.
+var dummy := false
 
 var _from := Vector3.ZERO
 var _to := Vector3.ZERO
@@ -181,7 +183,7 @@ func _strike() -> void:
 			p.get_tree().create_timer(p.lifetime + 0.3, false).timeout.connect(p.queue_free)
 	if is_instance_valid(_warn):
 		_warn.queue_free()
-	if multiplayer.is_server():
+	if multiplayer.is_server() and not dummy:
 		_hurt(at)
 	# the flash and the light of it
 	SkillFx.flash(into, at + Vector3.UP * 0.5, DarkFx.VOID, 0.9 * size, 0.16, 3.0)
@@ -212,7 +214,8 @@ func _strike() -> void:
 	DarkFx.black_fire(into, at + Vector3.UP * 0.05, 0.0, 1.6 * size, {"box": Vector3(0.6, 0.1, 0.6), "rate": 1.4})
 	DarkFx.black_fire(into, at + Vector3.UP * 0.05, 2.4, 0.9 * size, {"ring": Vector2(0.2, 1.3 * size), "rate": 1.3})
 	GroundFx.eruption(into, at, 0.6 * size)
-	WindBlast.shake(self, 0.14, 0.35, 26.0)
+	if not dummy:
+		WindBlast.shake(self, 0.14, 0.35, 26.0)
 	queue_free()
 
 
