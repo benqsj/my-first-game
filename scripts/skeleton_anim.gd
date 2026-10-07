@@ -65,6 +65,9 @@ var _dst_rest_rotation: Array[Quaternion] = []
 ## Clip -> the widest the mannequin's feet get in it, before `_limb_scale`.
 ## Pure mannequin, so shared by every creature instead of re-swept per spawn.
 static var _stride_cache: Dictionary = {}
+## Clip -> how fast the ground goes by under its planted foot at rate 1, before
+## `_limb_scale` ([method measure_ground_speed]).
+static var _ground_cache: Dictionary = {}
 ## Clip + bones -> the moments, 0 to 1, the given bones are moving fastest.
 ## Pure mannequin, like the stride, so worked out once per clip for everyone.
 static var _peak_cache: Dictionary = {}
@@ -205,7 +208,13 @@ func play(clip: StringName, fade: float = 0.15, speed: float = 1.0,
 	# `fade` instead of snapping — the idle into a swing, a swing into a block.
 	if restart and _player.current_animation == String(clip):
 		_player.stop()
-	_player.play(clip, fade if _weight > 0.001 else 0.0, speed)
+	# The rate goes on the player's own scale, the clip played at 1: the two
+	# multiply, so a clip started at its rate and retimed on the next frame
+	# (every walk and run, every frame) ran at the square of it, and one
+	# started after a fast walk at the walk's rate times its own (the user's
+	# word: some moved their feet far too fast, some too slow).
+	_player.speed_scale = maxf(speed, 0.0)
+	_player.play(clip, fade if _weight > 0.001 else 0.0, 1.0)
 	return true
 
 
@@ -449,6 +458,64 @@ func measure_stride(clip: StringName) -> float:
 		_player.play(was)
 	_stride_cache[clip] = step
 	return step * 2.0 * _limb_scale
+
+
+## How fast a cycle clip carries this body at rate 1, in metres a second: the
+## speed of whichever foot is down, going by under the hips, over two cycles.
+##
+## The width of the stride ([method measure_stride]) only guesses at it — a
+## shuffle drags its feet, a run is off the ground half the time, a strafe
+## crosses its feet — so a walk retimed by it slid or ran in place. Played at
+## `pace / measure_ground_speed(clip)` the foot on the ground stays where it
+## was put. 0 when it cannot be read (no feet, no clip).
+func measure_ground_speed(clip: StringName) -> float:
+	const STEPS := 96
+	if not has_clip(clip):
+		return 0.0
+	if _ground_cache.has(clip):
+		return float(_ground_cache[clip]) * _limb_scale
+	var anim := _player.get_animation(clip)
+	if anim == null or anim.length <= 0.0:
+		return 0.0
+	var ids := [_skeleton.find_bone(feet[0]), _skeleton.find_bone(feet[1])]
+	if ids[0] < 0 or ids[1] < 0:
+		return 0.0
+	var was := _player.current_animation
+	var was_at := _player.current_animation_position
+	_player.play(clip)
+	var pos: Array = []
+	for i in STEPS + 1:
+		_player.seek(anim.length * float(i) / STEPS, true)
+		pos.append([_posed(ids[0]).origin, _posed(ids[1]).origin])
+	_player.stop()
+	if not was.is_empty():
+		_player.play(was)
+		_player.seek(was_at, true)
+	# A foot is down within the lowest sixth of its own rise.
+	var low := [1e9, 1e9]
+	var high := [-1e9, -1e9]
+	for q: Array in pos:
+		for k in 2:
+			low[k] = minf(low[k], (q[k] as Vector3).y)
+			high[k] = maxf(high[k], (q[k] as Vector3).y)
+	var travel := Vector3.ZERO
+	var down := 0
+	for i in range(1, pos.size()):
+		var a: Array = pos[i - 1]
+		var b: Array = pos[i]
+		var rise := [(b[0] as Vector3).y - low[0], (b[1] as Vector3).y - low[1]]
+		var k := 0 if rise[0] / maxf(high[0] - low[0], 0.0001) < rise[1] / maxf(high[1] - low[1], 0.0001) else 1
+		if rise[k] > (high[k] - low[k]) * 0.08:
+			continue
+		var d: Vector3 = (b[k] as Vector3) - (a[k] as Vector3)
+		d.y = 0.0
+		travel += d
+		down += 1
+	var speed := 0.0
+	if down > 0:
+		speed = travel.length() / (anim.length * float(down) / STEPS)
+	_ground_cache[clip] = speed
+	return speed * _limb_scale
 
 
 ## Where the clip playing is, in its own seconds.

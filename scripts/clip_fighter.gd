@@ -32,8 +32,16 @@ extends Fighter
 @export var strafe_l_clip: StringName = &""
 @export var strafe_r_clip: StringName = &""
 @export var back_clip: StringName = &""
-## Above this pace it runs.
+## Its back clip for going back faster, if it has one (the ghoul's run back).
+@export var back_run_clip: StringName = &""
+## Above this pace it runs, where its walk cannot be read off the clip; where
+## it can, it runs once the walk would play faster than `walk_rate_max`
+## (and walks again under `walk_rate_max` less a tenth), so neither clip is
+## ever played far off its own pace.
 @export var run_above: float = 3.2
+@export var walk_rate_max: float = 1.55
+## The slowest a cycle clip is played (a big creature ambling).
+@export var gait_floor: float = 0.3
 ## How much further a run carries than twice its feet's widest gap (the
 ## flight between steps, which the feet do not show): the run's legs retimed
 ## to it. 1 for a run measured right.
@@ -241,7 +249,15 @@ func _arm(what: int) -> void:
 		_sweeps.append(WeaponSweep.blow(_limb(limb), blow_min_speed, moments[i] - window.x,
 				moments[i] + window.y,
 				act_serial, func(who: Node3D) -> void:
-					who.call("receive_blow", worth, self, blow, count, serial)))
+					who.call("receive_blow", worth, self, blow, count, serial)
+					_blow_reached(who, what)))
+
+
+## Host: one of its blows (of act `what`) has reached `who` (he may yet have
+## blocked it on his own peer): for what a creature does to him besides the
+## blow — a ghoul's poison, a goblin's hand in his purse.
+func _blow_reached(_who: Node3D, _what: int) -> void:
+	pass
 
 
 func _limb(which: String) -> Callable:
@@ -331,20 +347,54 @@ func _play_locomotion(_delta: float) -> void:
 	var fwd := planar.dot(ahead)
 	var side := planar.dot(right)
 	var clip := walk_clip
+	var reverse := false
 	if absf(side) > absf(fwd) * 1.1 and not strafe_r_clip.is_empty():
 		clip = strafe_r_clip if side > 0.0 else strafe_l_clip
-	elif fwd < 0.0 and not back_clip.is_empty():
-		clip = back_clip
-	elif pace > run_above and not run_clip.is_empty():
+	elif fwd < 0.0:
+		if not back_clip.is_empty():
+			clip = back_clip
+			if not back_run_clip.is_empty() and _would_run(back_clip, back_run_clip, pace):
+				clip = back_run_clip
+		else:
+			# No clip of its own to go back with: its walk, played backwards.
+			reverse = true
+	elif not run_clip.is_empty() and _would_run(walk_clip, run_clip, pace):
 		clip = run_clip
 	elif roused and not roused_walk_clip.is_empty():
 		clip = roused_walk_clip
-	var stride := maxf(_anim.measure_stride(clip), 0.1) * maxf(visual_scale, 0.01)
-	if clip == run_clip:
-		# a run's feet leave the ground: it covers more than its widest step
-		stride *= run_stride_gain
-	var rate := pace * _anim.clip_length(clip) / stride
-	_anim.play(clip, 0.2, clampf(rate, retime_range.x, chase_retime_max))
+	var rate := gait_rate(clip, pace)
+	_anim.play(clip, 0.2, rate)
+	if reverse:
+		_anim.rewind(rate)
+
+
+## Whether at `pace` it goes at its run rather than its walk.
+func _would_run(walk: StringName, run: StringName, pace: float) -> bool:
+	var ground := _anim.measure_ground_speed(walk) * maxf(visual_scale, 0.01)
+	if ground <= 0.05:
+		return pace > run_above
+	var limit := walk_rate_max
+	if _anim.current_clip() == run:
+		limit -= 0.1
+	return pace / ground > limit
+
+
+## The rate a cycle clip plays at for the feet to keep to the ground at `pace`
+## (m/s): by how fast the clip's planted foot goes by under it
+## ([method SkeletonAnim.measure_ground_speed]), else by the width of its
+## stride; kept between `gait_floor` and `chase_retime_max`.
+func gait_rate(clip: StringName, pace: float) -> float:
+	var ground := _anim.measure_ground_speed(clip) * maxf(visual_scale, 0.01)
+	var rate := 1.0
+	if ground > 0.05:
+		rate = pace / ground
+	else:
+		var stride := maxf(_anim.measure_stride(clip), 0.1) * maxf(visual_scale, 0.01)
+		if clip == run_clip:
+			# a run's feet leave the ground: it covers more than its widest step
+			stride *= run_stride_gain
+		rate = pace * _anim.clip_length(clip) / stride
+	return clampf(rate, gait_floor, chase_retime_max)
 #endregion
 
 
