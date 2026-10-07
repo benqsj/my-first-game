@@ -1326,6 +1326,10 @@ func _process_locomotion(delta: float) -> void:
 	# The slide: nothing but the slide moves him.
 	if _shade_phase == 1:
 		horizontal = _shade_dir * _shade_pace_now
+	# The elf's Frost Step: she glides, and nothing else moves her
+	# ([method MageSkills.glide_velocity]).
+	if _mage != null and _mage.gliding():
+		horizontal = _mage.glide_velocity(delta)
 
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
@@ -2701,7 +2705,11 @@ func _tick_bow(delta: float) -> void:
 			if stamina <= 0.0:
 				_loose_arrow()
 	elif _drawing:
-		_loose_arrow()
+		if profile != null and _draw_timer < profile.min_draw:
+			# let go too soon: it goes on gathering to its least, then goes
+			_draw_timer += delta
+		else:
+			_loose_arrow()
 
 	if rig != null and rig.has_method(&"aim_bow"):
 		rig.call(&"aim_bow", draw_power() if _drawing else 0.0, _aim_pitch())
@@ -2713,7 +2721,11 @@ func draw_power() -> float:
 	if profile == null or profile.draw_time <= 0.0:
 		return 1.0
 	# the bow in his hands draws quicker or slower than his own ([BowKinds])
-	return clampf(_draw_timer / (profile.draw_time * BowKinds.draw(self)), 0.0, 1.0)
+	var full := profile.draw_time * BowKinds.draw(self)
+	# The least gathering a spell must have ([member CharacterProfile.min_draw])
+	# earns nothing: a click is still worth a click, only slower to come.
+	var least := minf(profile.min_draw, full * 0.5)
+	return clampf((_draw_timer - least) / (full - least), 0.0, 1.0)
 
 
 ## True while the string is being held.
@@ -5136,6 +5148,7 @@ const SKILLS := {
 	&"vanish": {"name": "Vanish", "stamina": 25.0, "cooldown": 40.0},
 	&"challenge": {"name": "Challenge", "stamina": 20.0, "cooldown": 20.0},
 	&"frost_spears": {"name": "Frost Spears", "stamina": 25.0, "cooldown": 14.0},
+	&"frost_step": {"name": "Frost Step", "stamina": 18.0, "cooldown": 9.0},
 }
 const SKILL_SLOTS := 4
 
@@ -5211,6 +5224,8 @@ func use_skill(slot: int) -> bool:
 			went = TarielChallenge.cast(self)
 		&"frost_spears":
 			went = mage().frost_spears(float(SKILLS[id]["stamina"]))
+		&"frost_step":
+			went = mage().frost_step(float(SKILLS[id]["stamina"]))
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -6278,6 +6293,24 @@ func net_frost_end() -> void:
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
 	mage().break_spears()
+
+
+## The Frost Step, on every peer ([method MageSkills.show_frost_step]).
+@rpc("any_peer", "call_local", "reliable")
+func net_frost_step(from: Vector3, to: Vector3, pace: float, seconds: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	mage().show_frost_step(from, to, pace, seconds)
+
+
+## Her glide over, where it stopped ([method MageSkills.end_frost_step]).
+@rpc("any_peer", "call_local", "reliable")
+func net_frost_step_end(at: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	mage().end_frost_step(at)
 
 
 ## Gone from sight in his Vanish, or just out of a Shadow Step: the creatures

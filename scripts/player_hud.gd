@@ -477,6 +477,22 @@ func _icon(id: StringName, rect: Rect2) -> void:
 				_bars.draw_colored_polygon(PackedVector2Array([tip, base + side * 2.6, base - along * 3.0,
 						base - side * 2.6]), ice)
 			_bars.draw_arc(c + Vector2(-2, 14), 9.0, PI * 1.1, PI * 1.9, 12, Color(ice, 0.6), 1.5)
+		&"frost_step":
+			# Her shape gone to frost on the left, a streak, and a flash on the
+			# right; crystals left standing on the ground between.
+			var ice := Color(0.7, 0.92, 1.0)
+			var ground := c.y + 13.0
+			_bars.draw_line(Vector2(c.x - 20.0, ground), Vector2(c.x + 20.0, ground), Color(ice, 0.45), 3.0)
+			for k in 5:
+				var x := c.x - 15.0 + 7.5 * k
+				var tall := 5.0 + 3.0 * float((k * 7) % 3)
+				_bars.draw_colored_polygon(PackedVector2Array([Vector2(x - 2.2, ground), Vector2(x + 0.6 * (k - 2), ground - tall),
+						Vector2(x + 2.2, ground)]), ice)
+			for k in 4:
+				_bars.draw_circle(c + Vector2(-16.0 + 2.5 * (k % 2), -8.0 + 5.0 * k), 1.4, Color(ice, 0.8 - 0.15 * k))
+			_bars.draw_line(c + Vector2(-12, -2), c + Vector2(10, -2), Color(ice, 0.85), 2.0)
+			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(16, -2), c + Vector2(9, -6), c + Vector2(9, 2)]), ice)
+			_bars.draw_circle(c + Vector2(15, -2), 6.0, Color(1, 1, 1, 0.35))
 		&"hunters_mark":
 			# The mark: a ring, four points in, an eye.
 			var red := Color(0.95, 0.25, 0.18)

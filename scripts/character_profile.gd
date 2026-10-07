@@ -139,6 +139,11 @@ enum Weapon {
 @export var arrow_speed_snap: float = 21.0
 ## Shortest gap between loosing one arrow and drawing the next.
 @export var shot_cooldown: float = 0.18
+## The least a shot is gathered before it can go: a click let go sooner goes
+## on gathering to this and then goes (the mage's bolt, the user's word
+## 2026-10-07: clicked as fast as a bow, the bolts killed everything). 0, a
+## bow: it goes off the click.
+@export var min_draw: float = 0.0
 ## What is loosed, if not the controller's arrow — the mage's bolt.
 @export var projectile: PackedScene
 ## How much of the world's gravity pulls on it; below 0 keeps the arrow's.

@@ -26,6 +26,12 @@ extends Node3D
 ##   five, in a gout of venom, and are gone; not again on the same creature
 ##   for `BOIL_COOLDOWN` (the fifth then only renews the oldest). Drawn in the
 ##   poisoner's colour ([method RogueSkills.venom_of]: the dark elf's violet).
+## * **Chill** — the elf's frost (the user's word, 2026-10-07: the Frost
+##   Step's trail). For its time it goes at `CHILL_SPEED` of its pace: the
+##   body's own peer (the host for a creature, a hero's own for him) takes
+##   back that share of each tick's step over the ground, whatever moved it
+##   ([method _physics_process]), so it works on every kind alike. Frost
+##   cracks over the skin, cold mist falls off it, a snowflake over the head.
 ##
 ## Everything it draws goes when its time is up or the creature dies.
 
@@ -41,6 +47,10 @@ const GOLD := Color(1.0, 0.72, 0.25)
 const CRIMSON := Color(1.0, 0.12, 0.06)
 const FIRE := Color(1.0, 0.45, 0.08)
 const VENOM := Color(0.38, 1.0, 0.16)
+## What share of its pace a chilled body keeps.
+const CHILL_SPEED := 0.55
+const FROST := Color(0.62, 0.9, 1.0)
+const FROST_HOT := Color(0.9, 0.98, 1.0)
 
 var mark_left: float = 0.0
 var burn_left: float = 0.0
@@ -50,6 +60,11 @@ var poison_dps: float = 0.0
 ## The poison's colour: the poisoner's people's.
 var venom_color: Color = VENOM
 var _boil_ready: float = 0.0
+var chill_left: float = 0.0
+## Where the body was at the end of the last physics tick, while chilled.
+var _last := Vector3.INF
+var _frost: GPUParticles3D
+var _flake: Node3D
 
 var _creature: Node3D
 var _by: Dictionary = {}           # kind -> the player who put it there
@@ -136,6 +151,8 @@ func apply(kind: StringName, seconds: float, source: Node3D = null, amount: floa
 			_pop_icon(poison.size() - 1)
 			if poison.size() >= POISON_MAX and _clock >= _boil_ready:
 				_boil()
+		&"chill":
+			chill_left = maxf(chill_left, seconds)
 	_refresh()
 
 
@@ -173,8 +190,20 @@ func poison_stacks() -> int:
 	return poison.size()
 
 
+func is_chilled() -> bool:
+	return chill_left > 0.0
+
+
+## What share of its pace `creature` keeps now: 1 unless chilled.
+static func pace(creature: Node) -> float:
+	var a := of(creature, false)
+	return CHILL_SPEED if a != null and a.chill_left > 0.0 else 1.0
+
+
 func _ready() -> void:
 	_creature = get_parent() as Node3D
+	# after the body's own tick, so its step is taken before it is cut
+	process_physics_priority = 100
 	_gather_meshes()
 
 
@@ -187,6 +216,7 @@ func _process(delta: float) -> void:
 	var was := _state()
 	mark_left = maxf(mark_left - delta, 0.0)
 	burn_left = maxf(burn_left - delta, 0.0)
+	chill_left = maxf(chill_left - delta, 0.0)
 	for i in range(poison.size() - 1, -1, -1):
 		poison[i] -= delta
 		if poison[i] <= 0.0:
@@ -198,6 +228,22 @@ func _process(delta: float) -> void:
 	if _state() == 0:
 		_clear_all()
 		queue_free()
+
+
+## The chill: on the body's own peer, `1 - CHILL_SPEED` of each tick's step
+## over the ground taken back (not a jump or a fall, and not a step too long
+## to be a step: a blink, a teleport).
+func _physics_process(_delta: float) -> void:
+	if chill_left <= 0.0 or _dead() or not _creature.is_multiplayer_authority():
+		_last = Vector3.INF
+		return
+	var now := _creature.global_position
+	if _last.is_finite():
+		var moved := now - _last
+		moved.y = 0.0
+		if moved.length() < 1.0:
+			_creature.global_position = now - moved * (1.0 - CHILL_SPEED)
+	_last = _creature.global_position
 
 
 ## The host's share: the fire and the poison take their toll every `TICK`.
@@ -240,7 +286,7 @@ func _state() -> int:
 	# (kept while a boil cools, so the next five stacks on it do not boil it
 	# again before its time)
 	return (1 if mark_left > 0.0 else 0) | (2 if burn_left > 0.0 else 0) | (poison.size() << 2) \
-			| (32 if _clock < _boil_ready else 0)
+			| (32 if _clock < _boil_ready else 0) | (64 if chill_left > 0.0 else 0)
 
 
 #region Sizes
@@ -342,14 +388,21 @@ func _refresh() -> void:
 	var marked := mark_left > 0.0
 	var burning := burn_left > 0.0
 	var poisoned := not poison.is_empty()
+	var chilled := chill_left > 0.0
 
-	# The body: a skin effect for fire or poison. The mark leaves it alone.
+	# The body: a skin effect for fire, poison or frost. The mark leaves it alone.
 	var skin: ShaderMaterial = null
-	if burning or poisoned:
+	if burning or poisoned or chilled:
 		skin = _skin_material()
-		skin.set_shader_parameter(&"glow_color", FIRE if burning else venom_color)
-		skin.set_shader_parameter(&"dark_color",
-				Color(0.05, 0.03, 0.02, 0.55) if burning else Color(venom_color.darkened(0.75), 0.3))
+		if burning:
+			skin.set_shader_parameter(&"glow_color", FIRE)
+			skin.set_shader_parameter(&"dark_color", Color(0.05, 0.03, 0.02, 0.55))
+		elif poisoned:
+			skin.set_shader_parameter(&"glow_color", venom_color)
+			skin.set_shader_parameter(&"dark_color", Color(venom_color.darkened(0.75), 0.3))
+		else:
+			skin.set_shader_parameter(&"glow_color", FROST_HOT * 0.55)
+			skin.set_shader_parameter(&"dark_color", Color(0.72, 0.88, 1.0, 0.2))
 	var top_mat: Material = skin
 	for mi in _meshes:
 		if not is_instance_valid(mi):
@@ -361,11 +414,16 @@ func _refresh() -> void:
 		else:
 			mi.material_overlay = _old_overlays[mi] as Material
 
-	_show_overhead(marked or poisoned)
+	_show_overhead(marked or poisoned or chilled)
 	if _sigil != null:
 		_sigil.visible = marked
 	_show_fire(burning)
 	_show_bubbles(poisoned)
+	_show_frost(chilled)
+	if chilled:
+		_pop_flake()
+	elif _flake != null:
+		_flake.visible = false
 	for i in _icons.size():
 		_icons[i].visible = i < poison.size()
 
@@ -382,12 +440,16 @@ func _draw(_delta: float) -> void:
 			_sigil.rotation.z = _clock * 0.9
 			var breathe := (1.0 + 0.06 * sin(_clock * 3.2)) * SIGIL_SCALE
 			_sigil.scale = _sigil.scale.lerp(Vector3.ONE * breathe, 0.12)
+	if _flake != null and _flake.visible:
+		_flake.rotation.z = -_clock * 0.5
 	if _fire_light != null and _fire_light.visible:
 		_fire_light.light_energy = 2.2 + 0.6 * sin(_clock * 13.0) + 0.4 * sin(_clock * 7.3)
 		_fire_light.position = Vector3.UP * _height() * 0.6
 	if _skin != null:
 		var burning := burn_left > 0.0
 		var goal := 1.0 if burning else float(poison.size()) / float(POISON_MAX)
+		if not burning and poison.is_empty() and chill_left > 0.0:
+			goal = 0.75
 		var now := float(_skin.get_shader_parameter(&"amount"))
 		_skin.set_shader_parameter(&"amount", move_toward(now, goal * 0.85, 0.6 * get_process_delta_time()))
 
@@ -552,6 +614,62 @@ func _show_bubbles(on: bool) -> void:
 		})
 		_bubbles.position = Vector3.UP * h * 0.5
 	_bubbles.emitting = on
+
+
+## Cold mist falling off a chilled body, and frost glinting on it.
+func _show_frost(on: bool) -> void:
+	if not on and _frost == null:
+		return
+	if _frost == null:
+		var r := _radius()
+		var h := _height()
+		_frost = SkillFx.particles(self, _creature.global_position + Vector3.UP * h * 0.5, {
+			"amount": 20, "life": 1.4, "speed": Vector2(0.05, 0.25), "dir": Vector3.DOWN, "spread": 40.0,
+			"gravity": Vector3(0, -0.5, 0), "size": Vector2(0.2, 0.45) * clampf(h / 1.6, 0.8, 2.0),
+			"box": Vector3(r, h * 0.4, r), "add": false, "grow": 0.5,
+			"colors": [Color(0.92, 0.97, 1.0, 0.0), Color(0.9, 0.96, 1.0, 0.3), Color(0.88, 0.95, 1.0, 0.0)],
+		})
+		_frost.position = Vector3.UP * h * 0.5
+	_frost.emitting = on
+
+
+## A snowflake over the head while chilled: six arms, each with a fork.
+func _pop_flake() -> void:
+	_show_overhead(true)
+	if _flake == null:
+		_flake = Node3D.new()
+		_flake.name = "Flake"
+		var mat := SkillFx.glow(FROST, 2.6, false)
+		mat.no_depth_test = true
+		mat.render_priority = 2
+		for k in 6:
+			var a := PI / 3.0 * k
+			# the arm, out from the middle; a fork two thirds of the way out
+			var pieces := [[a, Vector2.ZERO, 0.3, 0.035]]
+			for side: float in [-0.75, 0.75]:
+				pieces.append([a + side, Vector2(sin(a), cos(a)) * 0.18, 0.1, 0.025])
+			for piece: Array in pieces:
+				var turn: float = piece[0]
+				var dir := Vector2(sin(turn), cos(turn))
+				var b := BoxMesh.new()
+				b.size = Vector3(float(piece[3]), float(piece[2]), 0.01)
+				var mi := MeshInstance3D.new()
+				mi.mesh = b
+				mi.material_override = mat
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var mid2: Vector2 = (piece[1] as Vector2) + dir * float(piece[2]) * 0.5
+				mi.position = Vector3(mid2.x, mid2.y, 0.0)
+				mi.rotation.z = -turn
+				_flake.add_child(mi)
+		_overhead.add_child(_flake)
+	# where the sigil hangs, or beside it when there is one
+	_flake.position = Vector3(0.0 if mark_left <= 0.0 else 0.62, 0.0, 0.0)
+	if not _flake.visible or _flake.scale.x < 0.5:
+		_flake.visible = true
+		_flake.scale = Vector3.ONE * 0.1
+		var tw := _flake.create_tween()
+		tw.tween_property(_flake, "scale", Vector3.ONE * 1.25, 0.14).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_flake, "scale", Vector3.ONE, 0.12)
 
 
 func _pop_icon(index: int) -> void:

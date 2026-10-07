@@ -137,6 +137,8 @@ func _configure() -> void:
 	# hand (2026-10-02, the user's word) and a staff in the other if he will.
 	polysplit_hero = &"mage"
 	mq_borrow = {MQ_CAST: "tariel"}
+	# the elf's Frost Step glides in the warrior's slide ([MageSkills])
+	mq_borrow[MageSkills.GLIDE_CLIP] = "warrior"
 	mq_libs = [KEVIN_SPELL_LIB]
 
 

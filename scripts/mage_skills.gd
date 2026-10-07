@@ -3,6 +3,8 @@ extends Node
 
 ## The elf's and the dark elf's skills (the plan: `claude/mage_polish_plan.md`).
 ##
+## * **Frost Step** (the elf, the user's word 2026-10-07): a glide low over
+##   the ground, freezing it as she goes; what crosses the frost is slowed.
 ## * **Frost Spears** (the elf, the user's word 2026-10-06): she raises her
 ##   hand to the sky (Kevin's Call, its load) and ten spears of ice grow out of
 ##   the air one after another, five over her left shoulder and five over her
@@ -466,3 +468,158 @@ func _aim_at(foe: Node3D) -> Vector3:
 	var ahead := -hero.global_basis.z
 	ahead.y = 0.0
 	return hero.global_position + Vector3.UP * 1.2 + ahead.normalized() * 20.0
+
+
+#region Frost Step (the elf, the user's word 2026-10-07)
+## She glides: low, fast and slowing, up to `STEP_REACH` the way she is moving
+## (the way she faces, standing), short of whatever is in the way — not gone
+## and out again ahead (the user's word: a slide). The ground freezes under her
+## as she goes ([FrostTrail]) and stays frozen `TRAIL_SECONDS` after: whatever
+## runs across it is slowed for [constant FrostTrail.CHILL].
+const STEP_REACH := 8.0
+const STEP_MIN := 1.5
+## How long the whole reach takes; a shorter one less.
+const GLIDE_TIME := 0.6
+## Her pace at the end of the glide, of what it was at the start.
+const GLIDE_EASE := 0.45
+const TRAIL_SECONDS := 6.0
+## What she glides in: the warrior's slide, lent on the mannequin
+## ([member SkinnedRig.mq_borrow]), its low part, held there as she goes.
+const GLIDE_CLIP := &"WR_Slide"
+const GLIDE_PART := Vector2(0.08, 0.5)
+
+var _glide_dir := Vector3.ZERO
+var _glide_v0: float = 0.0
+var _glide_t: float = 0.0
+var _glide_time: float = 0.0
+var _glide_went: float = 0.0
+var _glide_reach: float = 0.0
+var _glide_tick: int = 0
+var _trail: FrostTrail
+
+
+## Her own peer: the skill. False if there is nowhere to go.
+func frost_step(cost: float) -> bool:
+	if hero == null or hero.is_dead or gliding():
+		return false
+	var way := hero.get_movement_direction()
+	if way.length_squared() < 0.01:
+		way = -hero.global_basis.z
+	way.y = 0.0
+	if way.length_squared() < 0.0001:
+		return false
+	way = way.normalized()
+	var to := _step_spot(way)
+	if to == Vector3.INF:
+		return false
+	if not hero._spend(cost):
+		return false
+	var from := hero.global_position
+	_glide_reach = Vector2(to.x - from.x, to.z - from.z).length()
+	_glide_dir = way
+	_glide_time = GLIDE_TIME * sqrt(_glide_reach / STEP_REACH)
+	_glide_v0 = _glide_reach / (_glide_time * (1.0 + GLIDE_EASE) * 0.5)
+	_glide_t = 0.0
+	_glide_went = 0.0
+	_glide_tick = Engine.get_physics_frames()
+	hero.rotation.y = atan2(-way.x, -way.z)
+	hero.net_frost_step.rpc(from, to, _glide_v0, _glide_time)
+	return true
+
+
+## True while she is gliding (her own peer).
+func gliding() -> bool:
+	if _glide_time <= 0.0:
+		return false
+	# knocked down, or whatever else stopped her moving her own way (no tick
+	# of the glide for a few): it is over
+	if hero == null or hero.is_dead or Engine.get_physics_frames() - _glide_tick > 3:
+		_end_glide()
+		return false
+	return true
+
+
+## Her own peer, each physics tick of the glide: how she goes, facing it.
+func glide_velocity(delta: float) -> Vector3:
+	var pace := _glide_v0 * lerpf(1.0, GLIDE_EASE, clampf(_glide_t / _glide_time, 0.0, 1.0))
+	_glide_t += delta
+	_glide_went += pace * delta
+	_glide_tick = Engine.get_physics_frames()
+	hero.rotation.y = atan2(-_glide_dir.x, -_glide_dir.z)
+	if _glide_t >= _glide_time or _glide_went >= _glide_reach or (hero.is_on_wall() and _glide_t > 0.05):
+		_end_glide()
+	return _glide_dir * pace
+
+
+func _end_glide() -> void:
+	if _glide_time <= 0.0:
+		return
+	_glide_time = 0.0
+	if hero != null and hero.is_inside_tree():
+		hero.net_frost_step_end.rpc(hero.global_position)
+
+
+## Where she can glide to: up to `STEP_REACH` along `way`, short of anything
+## standing in the way (at her knees and at her chest), on the ground and not
+## much above or below where she is; nearer if not there. INF if nowhere.
+func _step_spot(way: Vector3) -> Vector3:
+	var space := hero.get_world_3d().direct_space_state
+	var skip: Array[RID] = [hero.get_rid()]
+	var go := STEP_REACH
+	for high: float in [0.45, 1.3]:
+		var eye := hero.global_position + Vector3.UP * high
+		var q := PhysicsRayQueryParameters3D.create(eye, eye + way * STEP_REACH, hero.collision_mask, skip)
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			go = minf(go, eye.distance_to(hit["position"]) - 0.55)
+	while go >= STEP_MIN:
+		var at := hero.global_position + way * go
+		var q := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 1.6, at + Vector3.DOWN * 3.0, hero.collision_mask, skip)
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			var ground: Vector3 = hit["position"]
+			if absf(ground.y - hero.global_position.y) <= 1.6 or not hero.is_on_floor():
+				return ground if hero.is_on_floor() else Vector3(ground.x, maxf(ground.y, at.y), ground.z)
+		elif not hero.is_on_floor():
+			return at
+		go -= 1.0
+	return Vector3.INF
+
+
+## Every peer: she drops low and glides, frost bursting off where she pushed
+## from, and the ground freezing under her as she goes.
+func show_frost_step(from: Vector3, to: Vector3, v0: float, time: float) -> void:
+	if hero == null:
+		return
+	var into := Blood.world_of(hero)
+	if into == null:
+		return
+	var anim := hero.rig.get(&"_anim") as AnimationPlayer if hero.rig != null else null
+	if anim != null and anim.has_animation(GLIDE_CLIP):
+		# its low part over the whole glide: down in it all the way, rising
+		# as it ends
+		var span := anim.get_animation(GLIDE_CLIP).length * (GLIDE_PART.y - GLIDE_PART.x)
+		hero.rig.call(&"play_part", GLIDE_CLIP, span / maxf(time + 0.12, 0.05), GLIDE_PART.x, GLIDE_PART.y, 0.06)
+	var feet := from + Vector3.UP * 0.15
+	# where she pushed off: a kick of frost, a ring of it on the ground
+	SkillFx.burst(into, feet, IceShard.ICE, 22, Vector2(1.0, 3.0), Vector3.UP, 75.0, Vector2(0.02, 0.05),
+			Vector3(0, -5, 0), 0.55)
+	SkillFx.ring(into, from + Vector3.UP * 0.08, Vector3.UP, IceShard.ICE_HOT, 0.25, 1.6, 0.35, 0.04, 2.2)
+	SkillFx.particles(into, feet + Vector3.UP * 0.3, {"amount": 10, "life": 0.9, "one_shot": true, "explosiveness": 0.9,
+			"speed": Vector2(0.2, 0.6), "spread": 180.0, "size": Vector2(0.5, 0.9), "add": false, "grow": 0.6,
+			"box": Vector3(0.3, 0.3, 0.3),
+			"colors": [Color(0.92, 0.97, 1.0, 0.0), Color(0.9, 0.96, 1.0, 0.35), Color(0.9, 0.95, 1.0, 0.0)]})
+	SkillFx.light(into, from + Vector3.UP * 0.6, IceShard.ICE, 1.6, 5.0, 0.3)
+	_trail = FrostTrail.new()
+	into.add_child(_trail)
+	_trail.start(hero, from, to, TRAIL_SECONDS, v0, time, GLIDE_EASE)
+	if hero.is_multiplayer_authority():
+		WindBlast.shake(hero, 0.03, 0.12)
+
+
+## Every peer: the glide is over at `at` (stopped short, or there): the frost
+## goes no further than she did.
+func end_frost_step(at: Vector3) -> void:
+	if _trail != null and is_instance_valid(_trail):
+		_trail.cut(at)
+#endregion

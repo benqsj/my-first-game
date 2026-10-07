@@ -9017,3 +9017,36 @@ come), 14 s. `tests/frost_spears_test.gd` (the rhythm too).
 **One cape.** Over YOUR OWN — which every mage now wears, with its class's own
 cape or cloak — `SkinnedMageRig.set_garb` hangs none of the mage's own cloth
 capes: one hung inside the clothes as a second cape.
+
+### The elf's Frost Step; chill; the mage's bolt no faster than a second (2026-10-07, the user's word)
+
+**Frost Step** (the elf's second skill, `MageSkills.frost_step`, `FrostTrail`).
+She glides — not gone and out again ahead (the user's word: a slide): down in
+the warrior's slide (`WR_Slide`, its low part, lent on the mannequin) she goes
+up to 8 m the way she is moving (the way she faces, standing), fast and slowing
+(0.6 s, ending at 0.45 of her first pace), short of anything in the way at her
+knees or her chest, onto ground not more than 1.6 m above or below her; a wall
+or a body met stops her there. Nothing but the glide moves her
+(`MageSkills.glide_velocity`, from `_process_locomotion`). The ground freezes
+under her as she goes: ice chips and snow kicked back off her feet, the frost
+(a shallow decal) and ice crystals running along behind her at her pace, and,
+when she is done, a ring where she stops and a cold mist low over it all, for
+6 s after: whatever crosses it — a creature, or in PvP a hero she is hostile
+to — is **chilled** for 5 s after it leaves it. Only what she has glided over is
+frost. 18 stamina, 9 s. `net_frost_step` (from, to, her pace, how long) starts
+it on every peer; `net_frost_step_end` stops the frost where she stopped.
+
+**Chill** (`Afflictions` "chill"). For its time a body goes at 0.55 of its pace:
+after the body's own physics tick, its own peer (the host for a creature, a
+hero's own for him) takes back 0.45 of the tick's step over the ground —
+whatever moved it, so every kind of creature and the heroes alike; not a jump
+or a fall, and not a step over a metre (a blink). Frost cracks over the skin,
+cold mist falls off it, a snowflake turns over its head (beside the hunter's
+sigil, if marked). A new chill renews it to 5 s; it does not stack.
+
+**The mage's bolt** (both elves). Clicked as fast as an arrow it killed
+everything. `CharacterProfile.min_draw` (0.45 s): a click let go sooner goes on
+gathering to that, then goes; that least gathering earns nothing
+(`draw_power` counts from it), so a click is worth what it was. And 0.8 s
+between one and the next (`shot_cooldown`, was 0.35). Clicking as fast as she
+can, one every 1.33 s. `tests/frost_step_test.gd`.
