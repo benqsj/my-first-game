@@ -42,7 +42,13 @@ func _check_menu() -> void:
 
 	# Every page exists and exactly one of them is up.
 	var pages: Dictionary = menu.get("_pages")
-	_check("the menu builds every page", pages.size() == 5, "%d" % pages.size())
+	# The choosing of a hero is built when it is first opened: it is the page
+	# that needs every hero loaded and modelled, and building it up front was
+	# most of the ten seconds and more the menu took to come up.
+	_check("the menu builds every page but the heroes'", pages.size() == 4 and not pages.has(2),
+			"%d" % pages.size())
+	_check("and no hero's model at all yet",
+			menu.find_children("*", "CharacterPortrait", true, false).is_empty())
 	_check("it opens on the front page", _visible_pages(pages) == 1,
 			"%d visible" % _visible_pages(pages))
 
@@ -52,7 +58,33 @@ func _check_menu() -> void:
 
 	menu.call("_show", 2)
 	await _wait(2)
+	_check("and the heroes' page when it is opened", pages.size() == 5)
 	var cards: Dictionary = menu.get("_cards")
+	var stages: Dictionary = menu.get("_stages")
+	_check("with only the picked one's model on the stage", stages.size() == 1,
+			"%d built" % stages.size())
+	var faced := 0
+	for id: StringName in cards:
+		if _has_model(cards[id] as Control):
+			faced += 1
+	var people_now: StringName = _game.profile_of(menu.get("_chosen")).people
+	var theirs := 0
+	for id: StringName in cards:
+		if _game.profile_of(id).people == people_now:
+			theirs += 1
+	_check("and faces only on the tiles of the people shown", faced == theirs,
+			"%d faces, %d of that people" % [faced, theirs])
+	var chosen_was: StringName = menu.get("_chosen")
+	# Every people in turn, and every hero picked: then each has their face and
+	# their figure.
+	for id: StringName in cards:
+		menu.call("_pick_people", _game.profile_of(id).people)
+		menu.set("_chosen", id)
+		menu.call("_refresh_cards")
+	menu.call("_pick_people", _game.profile_of(chosen_was).people)
+	menu.set("_chosen", chosen_was)
+	menu.call("_refresh_cards")
+	await _wait(2)
 	_check("character select offers every character",
 			cards.size() == _game.roster().size(), "%d cards" % cards.size())
 
@@ -66,7 +98,6 @@ func _check_menu() -> void:
 	_check("every roster tile shows the face it is offering", shown == cards.size(),
 			"%d of %d" % [shown, cards.size()])
 
-	var stages: Dictionary = menu.get("_stages")
 	_check("and there is a full-length one of each to stand in the middle",
 			stages.size() == cards.size(), "%d of %d" % [stages.size(), cards.size()])
 
@@ -223,12 +254,25 @@ func _check_menu() -> void:
 	# Picking a card and starting carries the choice into the game.
 	var was: StringName = _game.character()
 	menu.set("_chosen", &"avtandil")
+	current_scene = menu
 	menu.call("_start")
 	await _wait(2)
 	_check("starting carries the chosen character over", _game.character() == &"avtandil",
 			"%s" % _game.character())
+	# Behind a loading screen ([SceneLoader]), which stays up until the level
+	# is in and has set itself up, and then gets out of the way.
+	_check("a loading screen goes up", root.get_node_or_null("SceneLoader") is SceneLoader)
+	var waited := 0
+	while root.get_node_or_null("SceneLoader") != null and waited < 1200:
+		await _wait(1)
+		waited += 1
+	_check("the level comes in under it", current_scene != null
+			and current_scene.scene_file_path == WORLD, "%s" % current_scene)
+	_check("and the loading screen goes", root.get_node_or_null("SceneLoader") == null)
+	_check("and the menu is let go of", not is_instance_valid(menu))
 	_game.choose(was)
-	menu.queue_free()
+	if current_scene != null:
+		current_scene.queue_free()
 	await _wait(3)
 
 

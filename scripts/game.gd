@@ -52,6 +52,8 @@ var _looks: Dictionary = {}
 ## ([method Inventory.key_of]), by the hero's id.
 var _owned: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
+## Every hero's profile, once loaded, kept for the run ([method profile_of]).
+var _profiles: Dictionary = {}
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
 
@@ -93,6 +95,7 @@ func _ready() -> void:
 				if not next.begins_with("--") and not CHARACTERS.has(StringName(next.to_lower())):
 					address = next
 	Graphics.apply(get_tree(), _graphics)
+	_start_loading_profiles()
 	if connect_as != "":
 		# Deferred: the other autoloads are not up yet, and neither is anything
 		# to change scene *to*.
@@ -136,11 +139,44 @@ func character() -> StringName:
 ## And everything that is known about them. Never null: an id that has lost its
 ## resource falls back to the default rather than handing back nothing.
 func profile() -> CharacterProfile:
-	var found := load(CHARACTERS.get(_chosen, CHARACTERS[DEFAULT])) as CharacterProfile
+	var found := profile_of(_chosen)
 	if found == null:
 		push_error("Game: '%s' has no usable profile." % _chosen)
-		found = load(CHARACTERS[DEFAULT]) as CharacterProfile
+		found = profile_of(DEFAULT)
 	return found
+
+
+## `id`'s profile (the default's for an id that is not a hero), loaded once and
+## kept.
+##
+## Kept, because a profile carries its hero's whole model (`visuals`) and
+## nothing else holds on to one between uses: loaded loose, every `load()` read
+## the model off the disk again, 0.3-0.4 s for each of the elves. The menu asked
+## for all ten dozens of times over — the roster, every tile, every refresh —
+## and that was most of the ten seconds and more it took to come up.
+func profile_of(id: StringName) -> CharacterProfile:
+	if not CHARACTERS.has(id):
+		id = DEFAULT
+	var found := _profiles.get(id) as CharacterProfile
+	if found != null:
+		return found
+	var path: String = CHARACTERS[id]
+	# Already on its way in from [method _start_loading_profiles]: wait for that
+	# rather than start a second load of the same thing.
+	if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		found = ResourceLoader.load_threaded_get(path) as CharacterProfile
+	if found == null:
+		found = load(path) as CharacterProfile
+	if found != null:
+		_profiles[id] = found
+	return found
+
+
+## Starts every profile loading in the background, so that by the time the
+## player has got as far as choosing a hero they are mostly in already.
+func _start_loading_profiles() -> void:
+	for id: StringName in CHARACTERS:
+		ResourceLoader.load_threaded_request(CHARACTERS[id], "", true)
 
 
 ## Picks a character. Takes effect the next time a level is loaded, which is
@@ -213,7 +249,7 @@ func set_owned(id: StringName, keys: Array) -> void:
 func roster() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for id: StringName in CHARACTERS:
-		var profile := load(CHARACTERS[id]) as CharacterProfile
+		var profile := profile_of(id)
 		if profile != null and profile.people != &"":
 			ids.append(id)
 	return ids

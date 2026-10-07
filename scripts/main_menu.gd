@@ -57,6 +57,8 @@ var _chosen: StringName = &""
 ## middle — one is built per character and only the picked one is shown.
 var _cards: Dictionary = {}
 var _stages: Dictionary = {}
+## Where the full-length portraits stand ([method _stage_of] puts them there).
+var _stage_box: Control
 var _graphics_buttons: Dictionary = {}
 var _display_buttons: Dictionary = {}
 ## Seconds the menu has been up: what the stage's light breathes by.
@@ -129,14 +131,19 @@ func _ready() -> void:
 		_net.connect("games_changed", _refresh_found)
 	_chosen = _game.character() if _game != null else &"tariel"
 	# one not offered (the mage) gives way to the first who is
-	if _game != null and not _game.roster().has(_chosen):
+	# (asked of the one hero alone: the whole roster is every hero loaded, and
+	# that is for the page that shows them, not for the front screen)
+	if _game != null and (not (_game.get("CHARACTERS") as Dictionary).has(_chosen)
+			or _profile(_chosen).people == &""):
 		_chosen = _game.roster()[0]
-	_people = _profile(_chosen).people
 
-	for page: Page in [Page.ROOT, Page.MODE, Page.CHARACTERS, Page.SETTINGS, Page.CONNECT]:
-		var built := _build(page)
-		add_child(built)
-		_pages[page] = built
+	# All but the choosing of a hero, which is built the first time it is
+	# opened ([method _page_of]). It is the only page that needs the heroes
+	# themselves — every profile, and a model of whoever is looked at — and
+	# building it up front is what used to keep this screen from coming up for
+	# ten seconds and more, on the way in and again on the way back from a game.
+	for page: Page in [Page.ROOT, Page.MODE, Page.SETTINGS, Page.CONNECT]:
+		_page_of(page)
 	_show(Page.ROOT)
 
 
@@ -155,6 +162,19 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 #region Pages
+## `page`, built and added the first time it is asked for.
+func _page_of(page: Page) -> Control:
+	var built := _pages.get(page) as Control
+	if built != null:
+		return built
+	if page == Page.CHARACTERS:
+		_people = _profile(_chosen).people
+	built = _build(page)
+	add_child(built)
+	_pages[page] = built
+	return built
+
+
 func _build(page: Page) -> Control:
 	match page:
 		Page.MODE:
@@ -334,7 +354,7 @@ func _build_characters() -> Control:
 	var stage_column := VBoxContainer.new()
 	stage_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stage_column.add_theme_constant_override("separation", 0)
-	stage_column.add_child(_stage(roster))
+	stage_column.add_child(_stage())
 	var turn := MenuStyle.label("◂  DRAG TO TURN  ▸", MenuStyle.BODY_SIZE - 5, Color(MenuStyle.GOLD_DIM, 0.85), "head")
 	turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stage_column.add_child(turn)
@@ -515,6 +535,7 @@ func _build_settings() -> Control:
 	return made[0]
 func _show(page: Page) -> void:
 	_page = page
+	_page_of(page)
 	for key: Page in _pages:
 		(_pages[key] as Control).visible = key == page
 	if page == Page.CHARACTERS:
@@ -620,6 +641,21 @@ func _pick_people(people: StringName) -> void:
 	_refresh_cards()
 
 
+## The head-and-shoulders model on `id`'s roster tile, built the first time
+## the tile is shown.
+func _face_of(id: StringName, card: Control) -> Control:
+	var slot := card.find_child("FaceSlot", true, false) as Control
+	if slot == null:
+		return null
+	if slot.get_child_count() > 0:
+		return slot.get_child(0) as Control
+	var face := CharacterPortrait.of(_profile(id), slot.custom_minimum_size, CharacterPortrait.Frame.BUST)
+	face.name = "Face"
+	slot.add_child(face)
+	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return face
+
+
 func _roster_tile(id: StringName) -> Control:
 	var profile := _profile(id)
 	var tile := Button.new()
@@ -640,9 +676,13 @@ func _roster_tile(id: StringName) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tile.add_child(row)
 
-	var face := CharacterPortrait.of(profile, Vector2(TILE.y - 12.0, TILE.y - 12.0), CharacterPortrait.Frame.BUST)
-	face.name = "Face"
-	row.add_child(face)
+	# The face itself comes later ([method _face_of]), when the tile is first
+	# shown: only one people's heroes are on the roster at a time.
+	var slot := Control.new()
+	slot.name = "FaceSlot"
+	slot.custom_minimum_size = Vector2(TILE.y - 12.0, TILE.y - 12.0)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(slot)
 	var words := VBoxContainer.new()
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
 	words.add_theme_constant_override("separation", 0)
@@ -663,7 +703,7 @@ func _roster_tile(id: StringName) -> Control:
 ## The middle: whoever is picked, full length and turning, in a pool of their
 ## own light on a round stone. One portrait per character, built once and shown
 ## one at a time — a `SubViewport` is not a thing to rebuild every click.
-func _stage(roster: Array) -> Control:
+func _stage() -> Control:
 	var stage := Control.new()
 	stage.name = "Stage"
 	stage.custom_minimum_size = Vector2(STAGE.x, STAGE.y)
@@ -676,24 +716,35 @@ func _stage(roster: Array) -> Control:
 	stage.mouse_default_cursor_shape = Control.CURSOR_DRAG
 	stage.gui_input.connect(_on_stage_input)
 	stage.draw.connect(func() -> void: _draw_stage(stage))
-	for id: StringName in roster:
-		var full := CharacterPortrait.of(_profile(id), STAGE + Vector2(STAGE_BLEED * 2.0, 0.0))
-		full.name = "Full_%s" % id
-		# In the face and the hair picked last time; set before the model is
-		# in the tree, so it comes up wearing them.
-		if full.rig() != null and _game != null:
-			full.rig().set(&"face", int(_game.call(&"face", id)))
-			full.rig().set(&"hair", int(_game.call(&"hair", id)))
-			if _game.has_method(&"tint"):
-				full.rig().set(&"tint", int(_game.call(&"tint", id)))
-			if _game.has_method(&"look"):
-				full.rig().set(&"ps_look", _game.call(&"look", id))
-		_stages[id] = full
-		stage.add_child(full)
-		full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		full.offset_left = -STAGE_BLEED
-		full.offset_right = STAGE_BLEED
+	_stage_box = stage
 	return stage
+
+
+## `id`'s full-length portrait, built the first time they are picked: a model
+## for each of ten heroes is seconds of work, and most of them are never
+## looked at on any one visit to this page.
+func _stage_of(id: StringName) -> CharacterPortrait:
+	var built := _stages.get(id) as CharacterPortrait
+	if built != null or _stage_box == null:
+		return built
+	var full := CharacterPortrait.of(_profile(id), STAGE + Vector2(STAGE_BLEED * 2.0, 0.0))
+	full.name = "Full_%s" % id
+	# In the face and the hair picked last time; set before the model is
+	# in the tree, so it comes up wearing them.
+	if full.rig() != null and _game != null:
+		full.rig().set(&"face", int(_game.call(&"face", id)))
+		full.rig().set(&"hair", int(_game.call(&"hair", id)))
+		if _game.has_method(&"tint"):
+			full.rig().set(&"tint", int(_game.call(&"tint", id)))
+		if _game.has_method(&"look"):
+			full.rig().set(&"ps_look", _game.call(&"look", id))
+	_stages[id] = full
+	full.visible = id == _chosen
+	_stage_box.add_child(full)
+	full.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	full.offset_left = -STAGE_BLEED
+	full.offset_right = STAGE_BLEED
+	return full
 
 
 ## A row under the stage: an arrow either side of the name of the face (or
@@ -764,7 +815,7 @@ func _ps_hero() -> StringName:
 
 ## The picked hero's model on the stage.
 func _chosen_rig() -> Node3D:
-	var full := _stages.get(_chosen) as CharacterPortrait
+	var full := _stage_of(_chosen)
 	return full.rig() if full != null else null
 
 
@@ -832,7 +883,7 @@ func _on_stage_input(event: InputEvent) -> void:
 		across = drag.relative.x
 	if across == 0.0:
 		return
-	var full := _stages.get(_chosen) as CharacterPortrait
+	var full := _stage_of(_chosen)
 	if full != null:
 		full.spin(across * 0.012)
 
@@ -1153,7 +1204,7 @@ func _refresh_maker() -> void:
 		dossier.visible = not making
 	if maker != null:
 		maker.visible = making
-	var full := _stages.get(_chosen) as CharacterPortrait
+	var full := _stage_of(_chosen)
 	if full != null:
 		full.frame_close(making and _maker_tab == "FACE")
 	if not making:
@@ -1387,7 +1438,7 @@ func _refresh_cards() -> void:
 		card.add_theme_stylebox_override("focus", style)
 		card.add_theme_stylebox_override("hover", hover)
 		card.add_theme_stylebox_override("pressed", hover)
-		var face := card.find_child("Face", true, false) as Control
+		var face := _face_of(id, card) if card.visible else null
 		if face != null:
 			face.modulate = Color.WHITE if picked else Color(0.62, 0.62, 0.66)
 		var caption := card.find_child("Name", true, false) as Label
@@ -1396,6 +1447,7 @@ func _refresh_cards() -> void:
 		var what := card.find_child("Arms", true, false) as Label
 		if what != null:
 			what.add_theme_color_override("font_color", MenuStyle.GOLD if picked else MenuStyle.GOLD_DIM)
+	_stage_of(_chosen)
 	for id: StringName in _stages:
 		(_stages[id] as Control).visible = id == _chosen
 	var page := _pages.get(Page.CHARACTERS) as Control
@@ -1412,6 +1464,10 @@ func _refresh_cards() -> void:
 func _profile(id: StringName) -> CharacterProfile:
 	if _game == null:
 		return CharacterProfile.new()
+	# From the game's own store, which keeps them: loaded loose, every call
+	# here read the hero's whole model off the disk again.
+	if _game.has_method(&"profile_of"):
+		return _game.call(&"profile_of", id) as CharacterProfile
 	var paths: Dictionary = _game.get("CHARACTERS")
 	return load(String(paths.get(id, paths.values()[0]))) as CharacterProfile
 #endregion
@@ -1427,7 +1483,7 @@ func _start() -> void:
 	# game with a peer left over from last time still holding a socket open.
 	if _net != null:
 		_net.call("leave")
-	get_tree().change_scene_to_file(ARENA if _arena else WORLD)
+	SceneLoader.go(get_tree(), ARENA if _arena else WORLD)
 
 
 ## Opens the game to others and goes straight in. The host is a player.
