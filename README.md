@@ -716,6 +716,9 @@ picked in the middle, and what picking them means on the right.
   thing to throw away and rebuild every time the player moves down a list, and
   the hidden ones neither draw nor pose anyone
   (`UPDATE_WHEN_VISIBLE`, plus an `is_visible_in_tree()` guard on `_process`).
+  Built **when first wanted**, not up front: the page itself the first time it
+  is opened, a stage figure the first time that hero is picked, a roster face
+  the first time its people's banner is up (see *Loading* below).
 - The **dossier** is generated from the profile: name, weapon, run speed, roll
   distance, crit chance, whether there is a shield to put up, and the blurb,
   with a "— faster" or "— further" against the knight wherever the numbers
@@ -2818,6 +2821,7 @@ scripts/character_portrait.gd  the model on its card, lit and turning
 scripts/graphics.gd      what low and high actually change
 scripts/menu_style.gd    the widgets and the palette both menus are made of
 scripts/pause_menu.gd    the in-game menu
+scripts/scene_loader.gd  the loading screen between the menu and a level, both ways
 scripts/target_marker.gd the sight over whatever is being fought
 scripts/step_up.gd       walking up a step, for anything on legs
 scripts/character_profile.gd  one playable character, as a resource
@@ -9295,3 +9299,57 @@ a leap back and a glide, for the next; the shadow servant noted for later).
 So the three go together: the sun gathers them, the hands hold them, the
 comets fall on them. `tests/dark_mage_test.gd`: an ogre 4.5 m off is drawn in
 to under 3 m and hurt by the burst.
+
+
+## Loading: the menu in a moment, a screen on the way in (2026-10-07, the user's word)
+
+START took long, and EXIT TO MAIN MENU longer. Measured headless:
+
+- **The menu took 11-17 s to come up** — at the start of the game and again on
+  every way back from one. Not the drawing: `_profile()` and `Game.roster()`
+  `load()`ed the heroes' profiles, and a profile carries its hero's whole model
+  (`visuals`). Nothing held on to one between calls, so every call read the
+  model off the disk again — 0.3-0.4 s for each of the elves — and the roster,
+  every tile and every refresh asked for all ten. On top of that the
+  character page built twenty models (a stage figure and a roster face for each
+  of ten heroes) whether anyone looked at them or not.
+- **The level takes ~1 s to read and ~4-5 s to set itself up** (the ground
+  0.8, the wood 0.4, the lands 0.3, the places 0.2, the village, the camps and
+  the player ~2, the meadows 1 more just after), and then [PipelineWarmup]
+  shows it to the renderer. All that while the menu stood frozen with START lit.
+
+What changed:
+
+- `Game.profile_of(id)` loads a profile **once and keeps it** for the run;
+  `profile()`, `roster()` and the menu all go through it. `Game._ready()`
+  starts all ten loading on worker threads (`load_threaded_request`), so they
+  are mostly in by the time anyone opens the character page. The cost is the ten
+  heroes' models staying in memory during play — they were all in memory while
+  the menu was up anyway.
+- The menu builds the **character page when it is first opened**
+  (`_page_of()`), a **stage figure when that hero is first picked**
+  (`_stage_of()`), and a **roster face when its tile is first shown**
+  (`_face_of()`; one people's heroes are on the roster at a time). Its own
+  `_ready()` asks about the one hero picked, never the whole roster.
+- [`SceneLoader`](scripts/scene_loader.gd) (`SceneLoader.go(tree, path)`) is the
+  way between screens — START, the pause menu's EXIT, and `Net`'s hosting,
+  joining and losing the host. It puts up the menu's dusk with LOADING and a gold
+  bar, lets the old scene go, reads the new one on a worker thread with the bar
+  showing how far, and stays up (layer 129, over the warm-up's black) until the
+  new scene is in and `PipelineWarmup` has freed itself.
+
+Measured the same way after: the menu's `_ready()` 11-17 s → 0.2 s at the
+start and 7 ms coming back from a game; the character page 0.3 s when it opens,
+2 s if it is opened the very moment the game starts (waiting on the profiles
+still loading); the level's own setting-up 5.8 → 3.9 s (the player's model no
+longer read off the disk again). In a window, under load, START to the village
+on screen was ~19 s, most of it the warm-up compiling pipelines — less once
+Godot has them cached. `menu_test` checks the lazy
+pages and faces and the loading screen's coming and going.
+
+Not done (the third way, offered and left): baking the wood, the meadows, the
+lands and the ground into files instead of growing them at load. It would save
+perhaps 2-3 s more, but every one of those systems is still being changed, and a
+baked copy has to know when it has gone stale — that is a bigger and riskier
+job than these.
+

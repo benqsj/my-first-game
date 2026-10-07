@@ -89,7 +89,7 @@ func quit_to_menu() -> void:
 	var net := get_node_or_null("/root/Net")
 	if net != null:
 		net.call("leave")
-	get_tree().change_scene_to_file(MENU)
+	SceneLoader.go(get_tree(), MENU)
 
 
 ## True while there are other people in the game to consider.

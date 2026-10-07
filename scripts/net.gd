@@ -104,7 +104,7 @@ func host(character: StringName) -> bool:
 	_beacon.set_broadcast_enabled(true)
 	_beacon_in = 0.0
 	lobby_changed.emit()
-	get_tree().change_scene_to_file(WORLD)
+	SceneLoader.go(get_tree(), WORLD)
 	return true
 
 
@@ -384,7 +384,7 @@ func _on_connected() -> void:
 	stop_looking()
 	if going != &"":
 		_announce_as = going
-		get_tree().change_scene_to_file(WORLD)
+		SceneLoader.go(get_tree(), WORLD)
 
 
 func _on_connect_failed() -> void:
@@ -395,5 +395,5 @@ func _on_connect_failed() -> void:
 func _on_host_lost() -> void:
 	join_failed.emit("The host closed the game.")
 	leave()
-	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+	SceneLoader.go(get_tree(), "res://scenes/ui/main_menu.tscn")
 #endregion
