@@ -50,7 +50,10 @@ C = {
                                       ["CR_Slash3", 1.25, 0.85, WEAPON, 1], ["CR_Slash4", 1.25, 0.88, WEAPON, 1],
                                       ["CR_ShieldBash", 1.25, 0.9, SHIELD, 1]]),
     # A falchion, armour on the shoulders and legs; cuts, a three-cut combo, a kick.
-    "orc": dict(node="Orc", fbx="Orc", s=1.1, body="Body_Orc", objects="Objects_Orc",
+    # [OrcFighter]: leaps from off, kicks through a shield, rages at half health.
+    "orc": dict(node="Orc", fbx="Orc", s=1.1, body="Body_Orc", objects="Objects_Orc", script="res://scripts/orc_fighter.gd",
+                extra=['rage_at = 0.5', 'rage_call = 25.0', 'leap_clip = &"CR_Leap"',
+                       'leap_limbs = "pelvis_joint>head_joint:0.34|R_equip_joint>R_equip_joint@1.1,0,0:0.14"'],
                 idle="CR_Idle", guard="CR_CombatIdle", walk="CR_Walk", run="CR_Run", run_above=2.8,
                 strafe=("CR_StrafeL", "CR_StrafeR"), back="CR_WalkBack",
                 speed=1.6, chase=4.4, health=260, dmg=26, pdef=25, mdef=10, sight=15,
@@ -69,23 +72,27 @@ C = {
                    attacks=[["CR_Slash1", 1.45, 0.85, WEAPON, 1], ["CR_Slash2", 1.45, 0.85, WEAPON, 1],
                             ["CR_Slash5", 1.45, 0.85, WEAPON, 1], ["CR_Kick", 1.4, 0.85, KICK, 1]]),
     # Big and heavy: a great club in both hands, a ground slam; each blow fells.
-    "ogre": dict(node="Ogre", fbx="Ogre", s=1.6, body="Body_Ogre", objects="Objects_Ogre",
+    # [OgreFighter]: the pound's shock, the slow great blow (CR_Heavy2), treads on him lying, rages.
+    "ogre": dict(node="Ogre", fbx="Ogre", s=1.6, body="Body_Ogre", objects="Objects_Ogre", script="res://scripts/ogre_fighter.gd",
+                 extra=['rage_at = 0.5', 'rage_call = 25.0'],
                  idle="CR_HeavyIdle", guard="CR_HeavyIdle", walk="CR_Walk", run="CR_Run", run_above=3.0,
                  speed=1.5, chase=3.8, health=520, dmg=42, pdef=35, mdef=10, sight=16,
                  hit="CR_Hit2", death="CR_Death4", too_close=0.4, cooldown=(0.4, 1.0), min_speed=1.2,
                  weapon=("R_equip_joint", (0.92, 0, 0), 0.18), strike=["R_wrist_joint"],
-                 attacks=[["CR_Heavy1", 1.05, 0.9, WEAPON, 1], ["CR_Heavy2", 1.05, 0.9, WEAPON, 1],
-                          ["CR_Heavy3", 1.05, 0.9, WEAPON, 1], ["CR_Heavy4", 1.05, 0.9, WEAPON, 1],
-                          ["CR_GroundPound", 1.0, 0.92, WEAPON, 1]]),
+                 attacks=[["CR_Heavy1", 1.05, 0.9, WEAPON, 1],
+                          ["CR_Heavy3", 1.05, 0.9, WEAPON, 1], ["CR_Heavy4", 1.05, 0.9, WEAPON, 1]]),
     # Big, empty-handed: fists, a slam with both, a kick.
-    "troll": dict(node="Troll", fbx="Troll", s=1.6, body="Body_Troll", objects="Objects",
+    # [TrollFighter]: hurls boulders, leaps and shakes the ground, its wounds close.
+    "troll": dict(node="Troll", fbx="Troll", s=1.6, body="Body_Troll", objects="Objects", script="res://scripts/troll_fighter.gd",
+                  extra=['leap_clip = &"CR_Leap"', 'leap_quake = 3.5', 'leap_part = Vector3(1.05, 0.1, 0.62)',
+                         'leap_limbs = "pelvis_joint>head_joint:0.34|' + L_FIST.replace(":0.12", ":0.14") + '|' + R_FIST.replace(":0.12", ":0.14") + '"'],
                   idle="CR_IdleWounded", guard="CR_CombatIdle", walk="CR_Walk", run="CR_Run", run_above=3.0,
                   speed=1.5, chase=3.8, health=450, dmg=38, pdef=25, mdef=15, sight=15,
                   hit="CR_Hit2", death="CR_Death", too_close=0.3, cooldown=(0.3, 0.8),
                   weapon=("R_wrist_joint", (0.12, 0, 0), 0.2), strike=["R_wrist_joint", "L_wrist_joint"],
                   attacks=[["CR_Punch1", 1.15, 0.88, R_FIST, 1], ["CR_PunchL", 1.15, 0.88, L_FIST, 1],
                            ["CR_Hook", 1.05, 0.95, FISTS, 1], ["CR_Uppercut", 1.1, 0.9, FISTS, 1],
-                           ["CR_GroundPound", 1.0, 0.92, FISTS, 1], ["CR_Kick", 1.1, 0.9, KICK, 1]]),
+                           ["CR_Kick", 1.1, 0.9, KICK, 1]]),
     # Lean and fast: claws, a bite; darts aside.
     "ghoul": dict(node="Ghoul", fbx="Ghoul", s=0.95, body="Body_Ghoul", objects="Objects",
                   idle="CR_ZombieIdle", guard="CR_ZombieIdle", walk="CR_Walk", run="CR_ZombieRun", run_above=2.6,
@@ -96,7 +103,11 @@ C = {
                            ["CR_PunchL", 1.35, 0.88, L_FIST, 1], ["CR_PunchCombo", 1.3, 0.92, FISTS, 2],
                            ["CR_ZombieBite", 1.3, 0.9, BITE, 1]]),
     # Stone: slow, enormous fists, a slam; hard to hurt.
-    "golem": dict(node="Golem", fbx="Golem", s=1.8, body="Body_Golem", objects="Objects",
+    # [GolemFighter]: does not reel, stone spikes out of the ground, comes back together once.
+    "golem": dict(node="Golem", fbx="Golem", s=1.8, body="Body_Golem", objects="Objects", script="res://scripts/golem_fighter.gd",
+                  extra=['shatter_on_death = true', 'reform_chance = 1.0', 'reform_clip = &"CR_Transform"',
+                         'reform_part = Vector3(1.1, 0.0, 0.85)', 'reform_glow = Color(1, 0.62, 0.25, 1)',
+                         'reform_after = 2.6', 'reform_time = 2.0', 'reform_health = 0.5'],
                   idle="CR_CombatIdle", guard="CR_CombatIdle", walk="CR_Walk", run="CR_Run", run_above=3.2,
                   speed=1.2, chase=3.2, health=800, dmg=55, pdef=60, mdef=20, sight=14,
                   hit="CR_Hit2", death="CR_Death4", too_close=0.4, cooldown=(0.5, 1.2), min_speed=1.2,
@@ -104,8 +115,7 @@ C = {
                   strike=["R_wrist_joint", "L_wrist_joint"],
                   attacks=[["CR_Punch1", 0.95, 0.88, R_FIST.replace(":0.12", ":0.16"), 1],
                            ["CR_Hook", 0.95, 0.95, FISTS.replace(":0.12", ":0.16"), 1],
-                           ["CR_Uppercut", 0.95, 0.9, FISTS.replace(":0.12", ":0.16"), 1],
-                           ["CR_GroundPound", 0.9, 0.92, FISTS.replace(":0.12", ":0.16"), 1]]),
+                           ["CR_Uppercut", 0.95, 0.9, FISTS.replace(":0.12", ":0.16"), 1]]),
     "zombie_m": dict(node="ZombieMan", fbx="Zombie_M", s=0.95, body="Body_Zombie", objects="Objects_Zombie",
                      idle="CR_ZombieIdle", guard="CR_ZombieIdle", walk="CR_ZombieWalk", run="CR_ZombieRun",
                      run_above=2.2, fidget="CR_ZombieIdle", speed=0.9, chase=2.8, health=140, dmg=16,
@@ -231,6 +241,8 @@ def scene(c):
     return "\n".join(L)
 
 
+# The skeletons may come back together once (Brawler.reform_chance), and
+# break into their bones (set by hand in their scenes, with their own scripts).
 os.makedirs(os.path.join(HERE, "scenes/enemies/pack"), exist_ok=True)
 for key, c in C.items():
     path = os.path.join(HERE, "scenes/enemies/pack/%s.tscn" % key)

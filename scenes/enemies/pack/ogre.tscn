@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/ogre_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/creatures/Ogre.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
@@ -95,10 +95,10 @@ weapon_tip = Vector3(0.92, 0, 0)
 weapon_radius = 0.18
 strike_bones = PackedStringArray("R_wrist_joint")
 hit_clip = &"CR_Hit2"
-attacks = Array[StringName]([&"CR_Heavy1", &"CR_Heavy2", &"CR_Heavy3", &"CR_Heavy4", &"CR_GroundPound"])
-attack_parts = Array[Vector3]([Vector3(1.05, 0, 0.9), Vector3(1.05, 0, 0.9), Vector3(1.05, 0, 0.9), Vector3(1.05, 0, 0.9), Vector3(1.0, 0, 0.92)])
-attack_limbs = PackedStringArray("", "", "", "", "")
-attack_blows = PackedInt32Array(1, 1, 1, 1, 1)
+attacks = Array[StringName]([&"CR_Heavy1", &"CR_Heavy3", &"CR_Heavy4"])
+attack_parts = Array[Vector3]([Vector3(1.05, 0, 0.9), Vector3(1.05, 0, 0.9), Vector3(1.05, 0, 0.9)])
+attack_limbs = PackedStringArray("", "", "")
+attack_blows = PackedInt32Array(1, 1, 1)
 strike_at_reach = true
 blows_to_fell = 3
 too_close = 0.4
@@ -108,6 +108,8 @@ attack_cost = 10.0
 regen_delay = 0.5
 stamina_regen = 30.0
 blow_min_speed = 1.2
+rage_at = 0.5
+rage_call = 25.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.44, 0)

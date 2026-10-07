@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/orc_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/creatures/Orc.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
@@ -108,6 +108,10 @@ blow_min_speed = 2.0
 strafe_l_clip = &"CR_StrafeL"
 strafe_r_clip = &"CR_StrafeR"
 back_clip = &"CR_WalkBack"
+rage_at = 0.5
+rage_call = 25.0
+leap_clip = &"CR_Leap"
+leap_limbs = "pelvis_joint>head_joint:0.34|R_equip_joint>R_equip_joint@1.1,0,0:0.14"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.99, 0)

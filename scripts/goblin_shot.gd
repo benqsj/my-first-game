@@ -10,10 +10,14 @@ extends Node3D
 ## faster, and bursts after `FUSE`: every hero within `BLAST` takes the blast,
 ## the nearer the harder, thrown off his feet if he is close.
 ##
+## **A boulder** is the troll's ([TrollFighter]): torn out of the ground and
+## hurled, it throws down whoever it meets (a shield takes it, at a cost),
+## and bursts into rubble where it lands.
+##
 ## Made on every peer from the goblin's own message; only the host's lands
 ## blows (`hurts`).
 
-enum Kind { STONE, BOMB }
+enum Kind { STONE, BOMB, BOULDER }
 
 const GRAVITY := 9.8
 const FUSE := 1.0
@@ -23,6 +27,7 @@ const POT := Color(0.12, 0.11, 0.1)
 const SPARK := Color(1.0, 0.62, 0.2)
 const FIRE := Color(1.0, 0.5, 0.15)
 const HERO_R := 0.45
+const BOULDER_R := 0.75
 
 var kind: int = Kind.STONE
 ## Thrown at the heroes (the creatures do not raise a shield to it).
@@ -69,7 +74,18 @@ func flight() -> Array:
 func _build() -> void:
 	_model = MeshInstance3D.new()
 	var mat := StandardMaterial3D.new()
-	if kind == Kind.STONE:
+	if kind == Kind.BOULDER:
+		var m := SphereMesh.new()
+		m.radius = 0.42
+		m.height = 0.76
+		m.radial_segments = 7
+		m.rings = 4
+		_model.mesh = m
+		mat.albedo_color = Color(0.4, 0.37, 0.33)
+		mat.roughness = 1.0
+		_model.scale = Vector3(1.1, 0.85, 1.0)
+		_model.rotation = Vector3(randf(), randf(), randf()) * TAU
+	elif kind == Kind.STONE:
 		var m := SphereMesh.new()
 		m.radius = 0.08
 		m.height = 0.13
@@ -131,7 +147,7 @@ func _physics_process(delta: float) -> void:
 	var to := from + _vel * delta
 	_model.rotation += _spin * delta
 	# A hero in its way (the host's).
-	if hurts and kind == Kind.STONE:
+	if hurts and kind != Kind.BOMB:
 		for node in get_tree().get_nodes_in_group(&"player"):
 			var hero := node as Node3D
 			if hero == null or bool(hero.get("is_dead")):
@@ -139,7 +155,7 @@ func _physics_process(delta: float) -> void:
 			var low := hero.global_position + Vector3.UP * 0.3
 			var high := hero.global_position + Vector3.UP * 1.7
 			var pts := Geometry3D.get_closest_points_between_segments(from, to, low, high)
-			if pts[0].distance_to(pts[1]) <= HERO_R:
+			if pts[0].distance_to(pts[1]) <= (BOULDER_R if kind == Kind.BOULDER else HERO_R):
 				_strike_hero(hero, pts[0])
 				return
 	# The ground, a wall.
@@ -149,7 +165,7 @@ func _physics_process(delta: float) -> void:
 	if not hit.is_empty():
 		var at: Vector3 = hit["position"]
 		global_position = at + (hit["normal"] as Vector3) * 0.1
-		if kind == Kind.STONE:
+		if kind != Kind.BOMB:
 			_crack(at, hit["normal"])
 		else:
 			_land(hit["normal"])
@@ -168,8 +184,14 @@ func _strike_hero(hero: Node3D, at: Vector3) -> void:
 func _crack(at: Vector3, normal: Vector3) -> void:
 	_done = true
 	var into := Blood.world_of(self)
-	HitFx.spawn(into, &"stone", at, normal, 0.6)
-	DustRing.burst(into, at, 0.35)
+	if kind == Kind.BOULDER:
+		HitFx.spawn(into, &"stone", at, normal, 1.4)
+		GroundFx.eruption(into, at, 0.75)
+		DustRing.burst(into, at, 1.0)
+		ImpactFx.thud(self, at, true)
+	else:
+		HitFx.spawn(into, &"stone", at, normal, 0.6)
+		DustRing.burst(into, at, 0.35)
 	queue_free()
 
 

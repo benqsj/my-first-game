@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/troll_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/creatures/Troll.fbx" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
@@ -95,10 +95,10 @@ weapon_tip = Vector3(0.12, 0, 0)
 weapon_radius = 0.2
 strike_bones = PackedStringArray("R_wrist_joint", "L_wrist_joint")
 hit_clip = &"CR_Hit2"
-attacks = Array[StringName]([&"CR_Punch1", &"CR_PunchL", &"CR_Hook", &"CR_Uppercut", &"CR_GroundPound", &"CR_Kick"])
-attack_parts = Array[Vector3]([Vector3(1.15, 0, 0.88), Vector3(1.15, 0, 0.88), Vector3(1.05, 0, 0.95), Vector3(1.1, 0, 0.9), Vector3(1.0, 0, 0.92), Vector3(1.1, 0, 0.9)])
-attack_limbs = PackedStringArray("R_elbow_joint>R_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "R_knee_joint>R_toe_joint:0.12")
-attack_blows = PackedInt32Array(1, 1, 1, 1, 1, 1)
+attacks = Array[StringName]([&"CR_Punch1", &"CR_PunchL", &"CR_Hook", &"CR_Uppercut", &"CR_Kick"])
+attack_parts = Array[Vector3]([Vector3(1.15, 0, 0.88), Vector3(1.15, 0, 0.88), Vector3(1.05, 0, 0.95), Vector3(1.1, 0, 0.9), Vector3(1.1, 0, 0.9)])
+attack_limbs = PackedStringArray("R_elbow_joint>R_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12", "R_knee_joint>R_toe_joint:0.12")
+attack_blows = PackedInt32Array(1, 1, 1, 1, 1)
 strike_at_reach = true
 blows_to_fell = 3
 too_close = 0.3
@@ -108,6 +108,10 @@ attack_cost = 10.0
 regen_delay = 0.5
 stamina_regen = 30.0
 blow_min_speed = 2.0
+leap_clip = &"CR_Leap"
+leap_quake = 3.5
+leap_limbs = "pelvis_joint>head_joint:0.34|L_elbow_joint>L_midFinger_joint3:0.14|R_elbow_joint>R_midFinger_joint3:0.14"
+leap_part = Vector3(1.05, 0.1, 0.62)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.44, 0)

@@ -47,7 +47,7 @@ static func wave_width(d: float, size: float = 1.0) -> float:
 
 
 static func wave(into: Node, from: Vector3, direction: Vector3, length: float,
-		thin: bool, size: float = 1.0) -> GroundFx:
+		thin: bool, size: float = 1.0, pace: float = WAVE_SPEED) -> GroundFx:
 	if into == null:
 		return null
 	var fx := GroundFx.new()
@@ -68,7 +68,7 @@ static func wave(into: Node, from: Vector3, direction: Vector3, length: float,
 			var edge := absf(off) / maxf(width * 0.5, 0.01)
 			var s := rng.randf_range(0.75, 1.3) * (1.15 - 0.4 * edge) * (0.85 + d / length * 0.5) * size
 			var tall := s * rng.randf_range(0.9, 1.5)
-			var delay := d / WAVE_SPEED + rng.randf() * 0.05
+			var delay := d / pace + rng.randf() * 0.05
 			last = maxf(last, delay)
 			# Leant outwards from where the wave started, more at the edges.
 			var out := Vector3(pos.x - from.x, 0.0, pos.z - from.z)
