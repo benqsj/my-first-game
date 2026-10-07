@@ -48,6 +48,9 @@ var _tints: Dictionary = {}
 ## And the look each hero was made into on the hero select ([PolysplitLook]):
 ## id -> the look, worn while their face is YOUR OWN.
 var _looks: Dictionary = {}
+## What each hero has found and carries ([method Player.gain]): item keys
+## ([method Inventory.key_of]), by the hero's id.
+var _owned: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
@@ -193,6 +196,17 @@ func set_look(id: StringName, made: Dictionary) -> void:
 	_save_settings()
 
 
+## What hero `id` has found and carries (item keys, [method Inventory.key_of]).
+func owned(id: StringName) -> Array:
+	return (_owned.get(id, []) as Array).duplicate()
+
+
+## Remembers what hero `id` carries.
+func set_owned(id: StringName, keys: Array) -> void:
+	_owned[id] = keys.duplicate()
+	_save_settings()
+
+
 ## Every character offered on the hero select, in their order: those of a
 ## people ([member CharacterProfile.people]). One of none (the mage, kept for
 ## the command line and the tests, 2026-10-05) is not offered.
@@ -286,6 +300,11 @@ func _load_settings() -> void:
 			var made: Variant = file.get_value("look", key, {})
 			if made is Dictionary:
 				_looks[StringName(key)] = made
+	if file.has_section("owned"):
+		for key in file.get_section_keys("owned"):
+			var keys: Variant = file.get_value("owned", key, [])
+			if keys is Array:
+				_owned[StringName(key)] = keys
 
 
 func _save_settings() -> void:
@@ -300,5 +319,7 @@ func _save_settings() -> void:
 		file.set_value("tint", String(id), int(_tints[id]))
 	for id: StringName in _looks:
 		file.set_value("look", String(id), _looks[id])
+	for id: StringName in _owned:
+		file.set_value("owned", String(id), _owned[id])
 	file.save(SETTINGS)
 #endregion

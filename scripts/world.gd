@@ -139,6 +139,10 @@ func _ready() -> void:
 	var bank := CoinBank.new()
 	bank.name = "CoinBank"
 	add_child(bank)
+	# And now and then a thing for the bag ([LootDrop]).
+	var loot := LootDrop.new()
+	loot.name = "LootDrop"
+	add_child(loot)
 	_spawner.spawn_function = _build_player
 	var net := get_node_or_null("/root/Net")
 	if net != null:
@@ -321,6 +325,9 @@ func _on_creature_died(creature: Node) -> void:
 		var bank := get_node_or_null(^"CoinBank") as CoinBank
 		if bank != null:
 			bank.drop((creature as Node3D).global_position, CoinBank.worth_of(creature))
+		var loot := get_node_or_null(^"LootDrop") as LootDrop
+		if loot != null:
+			loot.drop(creature as Node3D, players())
 
 
 ## Takes a body away again. The host drops it and the spawner takes it off

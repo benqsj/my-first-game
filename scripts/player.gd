@@ -4800,6 +4800,56 @@ func set_garb(index: int) -> void:
 		rig.call(&"set_garb", index)
 
 
+## What he has found and carries ([GEAR_SETS.md] §5.7, the user's word
+## 2026-10-07): the keys of the bag's things ([method Inventory.key_of]). He
+## starts with what he wears and holds; the rest falls from the creatures he
+## kills ([LootDrop]). Remembered between runs, by hero ([method Game.owned]).
+var _owned: Dictionary = {}
+var _owned_read: bool = false
+
+
+## The hero's id ("tariel"), his profile's file name.
+func hero_id() -> StringName:
+	return StringName(profile.resource_path.get_file().get_basename()) if profile != null else &""
+
+
+func _read_owned() -> void:
+	if _owned_read:
+		return
+	_owned_read = true
+	var game := get_node_or_null(^"/root/Game") if not Inventory.under_test() else null
+	if game != null and game.has_method(&"owned"):
+		for key: Variant in game.call(&"owned", hero_id()):
+			_owned[String(key)] = true
+
+
+## Whether he carries the thing of `key`.
+func owns(key: String) -> bool:
+	_read_owned()
+	return _owned.has(key)
+
+
+## He has the thing of `key` now; false if he had it already.
+func gain(key: String) -> bool:
+	_read_owned()
+	if key == "" or _owned.has(key):
+		return false
+	_owned[key] = true
+	var game := get_node_or_null(^"/root/Game") if not Inventory.under_test() else null
+	if game != null and game.has_method(&"set_owned") and hero_id() != &"":
+		game.call(&"set_owned", hero_id(), _owned.keys())
+	return true
+
+
+## Everything he carries forgotten (a new start; the tests).
+func forget_owned() -> void:
+	_owned_read = true
+	_owned.clear()
+	var game := get_node_or_null(^"/root/Game") if not Inventory.under_test() else null
+	if game != null and game.has_method(&"set_owned") and hero_id() != &"":
+		game.call(&"set_owned", hero_id(), [])
+
+
 const PARRY_SOUND := "res://sounds/parry/clang.wav"
 const BLOCK_SOUND := "res://unverified/sounds/all/block_1.wav"
 const FALL_SOUND := "res://unverified/sounds/all/fall_1.wav"

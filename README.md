@@ -6236,6 +6236,34 @@ isn't the mannequin's (`SkeletonAnim.hips_name` and `feet`).
 - each creature, alone with the hero, has its clips and comes at him and swings;
 - Hold still, Clear and the look arrows work.
 
+### What he carries, and what the creatures drop (2026-10-07, the user's word)
+
+The sets, the weights (heavy, light, robe) and who wears what are agreed in
+`GEAR_SETS.md`. A hero now **starts with his first arms and what he wears**;
+everything else is found. `Player.owns` / `gain` keep the keys of what he
+carries (`Inventory.key_of`: `blade:<id>`, `bow:<id>`, `shield:<n>`,
+`own:<part>:<key>`, `sk:<id>`, `garb:<mesh>`), remembered between runs by
+hero in `user://settings.cfg` (`Game.owned`, section `owned`). The bag lists
+only those (`Inventory._items`); what he wears or holds is his already
+(`_claim`). `Inventory._start_kit`, once his look is on him, puts back his
+default look's arms in place of any he has not found (the hero select's pick
+of a weapon included) and the round shield in place of the tower one.
+
+**Drops.** `LootDrop` (under the World, beside the `CoinBank`) is told of every
+death by `World._on_creature_died`. The host rolls for each hero within 35 m
+(`LootDrop.chance_of`: 0.15 + 0.1 a wolf's worth, so an imp 21 %, a wolf 25 %,
+an orc 45 %, a boss always) and tells that hero's peer, which draws the thing
+from his own bag (`Inventory.roll_loot`: anything he has not got, clothes
+oftener than arms, the arms' rarer styles and his model's old outfits, the
+renowned garb, rarer) and lays it beside the body for him alone (`LootItem`:
+a glowing mote with a thread of light over it, drifting down out of the
+body). Walked over, it is his, flies into him and the HUD shows FOUND with its
+picture (`PlayerHud.found`). Which creature drops what is not decided yet.
+
+In a test (`--script` from `tests/` or `_shots_tmp/`) the bag holds
+everything (`Inventory.everything`) and nothing is written to the player's
+settings. `tests/loot_test.gd [-- hero]`.
+
 ## THE NINJA: the assassin on a skeleton made for it
 
 BlenderKit's sci-fi ninja is a sixth look for the assassin, with his two

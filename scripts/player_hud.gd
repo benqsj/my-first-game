@@ -58,6 +58,10 @@ var _death_time: float = 0.0
 var _ready_flash: PackedFloat32Array = PackedFloat32Array([9.0, 9.0, 9.0, 9.0])
 var _last_left: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 var _said: String = ""
+## What he has just picked up off the ground ([LootItem]), and its picture.
+var _found: String = ""
+var _found_pic: Texture2D = null
+var _found_time: float = 9.0
 var _said_time: float = 9.0
 ## The hero's [Leveling], found once it is there; the last experience gained and
 ## the last level reached, and how long ago.
@@ -142,6 +146,7 @@ func _process(delta: float) -> void:
 		_last_left[slot] = left
 		_ready_flash[slot] += delta
 	_said_time += delta
+	_found_time += delta
 	_gain_time += delta
 	_up_time += delta
 	_gold_time += delta
@@ -190,6 +195,38 @@ func _draw_bars() -> void:
 	_draw_skills()
 	_draw_level()
 	_draw_gold()
+	_draw_found()
+
+
+## He picked up `what` ([LootItem]): its picture and name, a moment, low in
+## the middle of the screen.
+func found(what: String, pic: Texture2D = null) -> void:
+	_found = what
+	_found_pic = pic
+	_found_time = 0.0
+
+
+func _draw_found() -> void:
+	if _found == "" or _found_time > 3.2:
+		return
+	var a := clampf(_found_time / 0.2, 0.0, 1.0) * (1.0 - clampf((_found_time - 2.6) / 0.6, 0.0, 1.0))
+	var font := UiArt.font("bold")
+	var view := _bars.size
+	var side := 64.0
+	var text_w := font.get_string_size(_found, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	var w := side + 14.0 + maxf(text_w, font.get_string_size("FOUND", HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x) + 28.0
+	var box := Rect2(Vector2((view.x - w) * 0.5, view.y * 0.62), Vector2(w, side + 16.0))
+	_bars.draw_rect(box, Color(0.05, 0.04, 0.04, 0.72 * a))
+	_bars.draw_rect(box, Color(EDGE, EDGE.a * a), false, 1.0)
+	var pic_rect := Rect2(box.position + Vector2(10.0, 8.0), Vector2(side, side))
+	_bars.draw_rect(pic_rect, Color(SLOT_FILL, SLOT_FILL.a * a))
+	if _found_pic != null:
+		_bars.draw_texture_rect(_found_pic, pic_rect, false, Color(1, 1, 1, a))
+	var x := pic_rect.end.x + 14.0
+	_bars.draw_string(font, Vector2(x, box.position.y + 30.0), "FOUND", HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
+			Color(GOLD, 0.85 * a))
+	_bars.draw_string(font, Vector2(x, box.position.y + 58.0), _found, HORIZONTAL_ALIGNMENT_LEFT, -1, 22,
+			Color(1.0, 0.95, 0.85, a))
 
 
 ## The gold: a coin and the count in the top right corner.

@@ -165,6 +165,8 @@ func _ready() -> void:
 	_root.draw.connect(_draw_all)
 	_root.gui_input.connect(_on_gui)
 	add_child(_root)
+	# what he starts with, once his look is on him
+	get_tree().create_timer(0.6).timeout.connect(_start_kit)
 
 
 #region Opening, and choosing
@@ -421,14 +423,166 @@ func _has_shield() -> bool:
 #endregion
 
 
+#region What he carries
+## Everything in the bag whether he has found it or not (the tests; the
+## arena). Off in play: he has what he started with and what he found
+## ([GEAR_SETS.md] §5.7).
+static var everything: bool = under_test()
+
+
+## Whether this is a test run (`--script res://tests/...`, or a probe in
+## `_shots_tmp/`): everything is in
+## the bag then, and what a hero carries is not written to the player's own
+## settings ([method Player.gain]).
+static func under_test() -> bool:
+	for arg: String in OS.get_cmdline_args():
+		if arg.contains("tests/") or arg.contains("_shots_tmp/"):
+			return true
+	return false
+
+## The tabs a found thing can be under.
+const LOOT_TABS := [Tab.WEAPONS, Tab.SHIELDS, Tab.ATTIRE]
+var _kit_done: bool = false
+
+
+## The key a thing of the bag is known by in what he carries
+## ([method Player.owns]): "" for one that cannot be taken off or found (the
+## weapon of a hero whose look cannot change).
+static func key_of(item: Dictionary) -> String:
+	if item.has("shield"):
+		return "shield:%d" % int(item.shield)
+	if item.has("gid"):
+		return "garb:" + String(item.gid)
+	if item.has("own"):
+		return "own:%s:%s" % [String(item.own), String(item.key)]
+	if item.has("sk"):
+		return "sk:" + String(item.sk)
+	if item.has("blade"):
+		return "blade:" + String(item.blade)
+	if item.has("bow"):
+		return "bow:" + String(item.bow)
+	return ""
+
+
+func _has(item: Dictionary) -> bool:
+	var key := key_of(item)
+	return key == "" or player.owns(key)
+
+
+func _claim(item: Dictionary) -> void:
+	var key := key_of(item)
+	if key != "":
+		player.gain(key)
+
+
+## What he starts with (the user's word, 2026-10-07: the heroes keep only
+## their first weapons): the arms in his hands that he has not found give way
+## to his class's own (his default look's), the tower shield to the round one;
+## then whatever he wears and holds is his. Once, when his look is on him.
+func _start_kit() -> void:
+	if _kit_done or player == null or not is_instance_valid(player) or player.profile == null:
+		return
+	if player.rig == null:
+		# his body not made yet: again in a moment
+		if is_inside_tree():
+			get_tree().create_timer(0.5).timeout.connect(_start_kit)
+		return
+	_kit_done = true
+	if everything:
+		return
+	var look := _look()
+	var hero: Variant = player.rig.get(&"polysplit_hero") if player.rig != null else null
+	if not look.is_empty() and hero is StringName and hero != &"":
+		var start := PolysplitLook.default_look(hero, String(look.get("g", "m")), String(look.get("race", "")))
+		var changed := false
+		for slot: String in ["w", "o"]:
+			var held := String(look.get(slot, "none"))
+			var first := String(start.get(slot, "none"))
+			if held in ["", "none"] or held == first:
+				continue
+			var kind := "bow:" if PolysplitLook.kind(held) == &"bow" else "blade:"
+			if PolysplitLook.kind(held) == &"shield" or player.owns(kind + held):
+				continue
+			look[slot] = first
+			changed = true
+		if changed:
+			look["ws"] = String(start.get("ws", "normal"))
+			look.erase("own_styles")
+			player.set_look(look)
+	if _has_shield() and player.shield_kind != Shields.ROUND \
+			and not player.owns("shield:%d" % player.shield_kind):
+		player.set_shield(Shields.ROUND)
+	var was := _tab
+	for tab: int in LOOT_TABS:
+		_tab = tab
+		for item: Dictionary in _all_items():
+			if item.get("worn", false):
+				_claim(item)
+	_tab = was
+
+
+## Something he has not got yet, for a creature to drop ([LootDrop]): drawn
+## at random over the bag's tabs (the clothes more often than the arms),
+## his own old outfits ([member GARBS], the heroes' renowned garb, §5.3) and
+## the arms' rarer styles less often. Empty when he has everything.
+func roll_loot(rng: RandomNumberGenerator) -> Dictionary:
+	_start_kit()
+	var pool: Array[Dictionary] = []
+	var weights: Array[float] = []
+	var was := _tab
+	for tab: int in LOOT_TABS:
+		_tab = tab
+		for item: Dictionary in _all_items():
+			var key := key_of(item)
+			if key == "" or item.get("worn", false) or player.owns(key):
+				continue
+			var w := 1.0 if tab == Tab.ATTIRE else 0.6
+			if item.has("gid"):
+				w = 0.15
+			elif item.has("blade") or item.has("bow"):
+				var style := PolysplitLook.style_of(String(item.get("blade", item.get("bow", ""))))
+				if style not in ["", "normal"]:
+					w *= 0.35
+			var found := item.duplicate()
+			found["tab"] = tab
+			found["loot_key"] = key
+			pool.append(found)
+			weights.append(w)
+	_tab = was
+	if pool.is_empty():
+		return {}
+	var total := 0.0
+	for w in weights:
+		total += w
+	var pick := rng.randf() * total
+	for i in pool.size():
+		pick -= weights[i]
+		if pick <= 0.0:
+			return pool[i]
+	return pool[pool.size() - 1]
+
+
+## The picture of a found thing (its baked one, or the arm's), or null.
+func picture_of(item: Dictionary) -> Texture2D:
+	if item.has("pic"):
+		return _picture(String(item.pic))
+	if item.has("art"):
+		return _arm_art(String(item.art))
+	return null
+#endregion
+
+
 #region What he has
 ## The things in the bag under the open tab: what he wears or holds is on
 ## him, in the sockets beside him, not in the bag (the user's word,
 ## 2026-10-07); his clothes in order, head, body, cloak, legs.
 func _items() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	_start_kit()
 	for item: Dictionary in _all_items():
-		if not item.get("worn", false):
+		if item.get("worn", false):
+			_claim(item)
+		elif everything or _has(item):
 			out.append(item)
 	if _tab == Tab.ATTIRE:
 		out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -481,7 +635,8 @@ func _all_items() -> Array[Dictionary]:
 				var info: Dictionary = GARBS.get(StringName(garbs[i]), {})
 				out.append({
 					"name": info.get("name", String(garbs[i])), "kind": info.get("kind", "Outfit"),
-					"icon": "garb", "colour": info.get("colour", Color(0.4, 0.4, 0.35)), "garb": i, "order": 1,
+					"icon": "garb", "colour": info.get("colour", Color(0.4, 0.4, 0.35)), "garb": i,
+					"gid": String(garbs[i]), "order": 1,
 					"worn": player.garb == i, "stats": info.get("stats", []), "text": info.get("text", ""),
 				})
 			# The skeletons' clothes, on his own figure (YOUR OWN) only: the
