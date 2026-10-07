@@ -672,6 +672,10 @@ func _ready() -> void:
 		chart.name = "Map"
 		chart.player = self
 		add_child(chart)
+		var book := SkillBook.new()
+		book.name = "SkillBook"
+		book.player = self
+		add_child(book)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1039,6 +1043,7 @@ func _spawn_character() -> void:
 	health = max_health
 	max_stamina = profile.max_stamina
 	stamina = max_stamina
+	_load_picks()
 
 
 ## True for a character who shoots rather than swings — the bow, or the staff,
@@ -5151,6 +5156,9 @@ const SKILLS := {
 	&"frost_step": {"name": "Frost Step", "stamina": 18.0, "cooldown": 9.0},
 	&"dark_grasp": {"name": "Dark Hands", "stamina": 22.0, "cooldown": 11.0},
 	&"black_comets": {"name": "Black Comets", "stamina": 30.0, "cooldown": 16.0},
+	&"frost_nova": {"name": "Frost Nova", "stamina": 22.0, "cooldown": 14.0},
+	&"moonwell": {"name": "Moonwell", "stamina": 30.0, "cooldown": 24.0},
+	&"moonfall": {"name": "Moonfall", "stamina": 28.0, "cooldown": 10.0},
 }
 const SKILL_SLOTS := 4
 
@@ -5168,11 +5176,85 @@ signal skill_used(slot: int, id: StringName)
 var _skill_ready_at: Dictionary = {}
 
 
+## The skills he has picked for the four sockets, in order (the user's word,
+## 2026-10-07: a hero with more skills than sockets chooses which,
+## [SkillBook]); empty, the first of his profile's. Kept between games.
+var skill_picks: PackedStringArray = PackedStringArray()
+const PICKS_FILE := "user://skill_picks.cfg"
+
+
+## Every skill he has, picked or not.
+func skill_choices() -> PackedStringArray:
+	var out := PackedStringArray()
+	if profile != null:
+		for id in profile.skills:
+			if SKILLS.has(StringName(id)):
+				out.append(id)
+	return out
+
+
+## What is in the sockets: his picks if he has made them, else the first four.
+func _socketed() -> PackedStringArray:
+	if skill_picks.size() == SKILL_SLOTS:
+		return skill_picks
+	var all := skill_choices()
+	var out := PackedStringArray()
+	for i in SKILL_SLOTS:
+		out.append(all[i] if i < all.size() else "")
+	return out
+
+
+## Puts skill `id` in `slot`; if it was in another socket, what was in `slot`
+## goes there instead. Kept for this hero.
+func set_skill_slot(slot: int, id: StringName) -> void:
+	if slot < 0 or slot >= SKILL_SLOTS or (id != &"" and not skill_choices().has(String(id))):
+		return
+	var picks := _socketed()
+	var was := picks.find(String(id))
+	if was >= 0 and id != &"":
+		picks[was] = picks[slot]
+	picks[slot] = String(id)
+	skill_picks = picks
+	_keep_picks()
+
+
+func _picks_key() -> String:
+	return profile.resource_path.get_file().get_basename() if profile != null else ""
+
+
+func _keep_picks() -> void:
+	var key := _picks_key()
+	if key == "":
+		return
+	var cfg := ConfigFile.new()
+	cfg.load(PICKS_FILE)
+	cfg.set_value("picks", key, skill_picks)
+	cfg.save(PICKS_FILE)
+
+
+## His picks as he left them last time, if they still fit what he has.
+func _load_picks() -> void:
+	skill_picks = PackedStringArray()
+	var key := _picks_key()
+	var cfg := ConfigFile.new()
+	if key == "" or cfg.load(PICKS_FILE) != OK:
+		return
+	var kept: Variant = cfg.get_value("picks", key, PackedStringArray())
+	if not (kept is PackedStringArray) or (kept as PackedStringArray).size() != SKILL_SLOTS:
+		return
+	var all := skill_choices()
+	for id in (kept as PackedStringArray):
+		if id != "" and not all.has(id):
+			return
+	skill_picks = kept
+
+
 ## The skill in `slot`, or `&""` for an empty one.
 func skill_in(slot: int) -> StringName:
-	if profile == null or slot < 0 or slot >= profile.skills.size():
+	if profile == null or slot < 0 or slot >= SKILL_SLOTS:
 		return &""
-	var id := StringName(profile.skills[slot])
+	var picks := _socketed()
+	var id := StringName(picks[slot]) if slot < picks.size() else &""
 	return id if SKILLS.has(id) else &""
 
 
@@ -5232,6 +5314,12 @@ func use_skill(slot: int) -> bool:
 			went = dark().grasp(float(SKILLS[id]["stamina"]))
 		&"black_comets":
 			went = dark().comets(float(SKILLS[id]["stamina"]))
+		&"frost_nova":
+			went = elf().nova(float(SKILLS[id]["stamina"]))
+		&"moonwell":
+			went = elf().moonwell(float(SKILLS[id]["stamina"]))
+		&"moonfall":
+			went = elf().moonfall(float(SKILLS[id]["stamina"]))
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -6330,6 +6418,76 @@ func dark() -> DarkSkills:
 		_dark.name = "DarkSkills"
 		add_child(_dark)
 	return _dark
+
+
+## The elf mage's Frost Nova, Moonwell and Moonfall ([ElfSkills]), made the
+## first time they are asked for (on every peer).
+var _elf: ElfSkills = null
+
+
+func elf() -> ElfSkills:
+	if _elf == null or not is_instance_valid(_elf):
+		_elf = ElfSkills.new()
+		_elf.name = "ElfSkills"
+		add_child(_elf)
+	return _elf
+
+
+## Her Frost Nova, on every peer: the ring of ice from `at`.
+@rpc("any_peer", "call_local", "reliable")
+func net_elf_nova(at: Vector3, damage: float, critical: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	elf().show_nova(at, damage, critical)
+
+
+## Who her Frost Nova froze and for how long, on every peer (the host says).
+@rpc("any_peer", "call_local", "reliable")
+func net_elf_frozen(paths: Array, times: Array) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	elf().show_frozen(paths, times)
+
+
+## Her Moonwell, on every peer, at `at`.
+@rpc("any_peer", "call_local", "reliable")
+func net_elf_moonwell(at: Vector3) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	elf().show_moonwell(at)
+
+
+## Her Moonfall, on every peer, at `at`.
+@rpc("any_peer", "call_local", "reliable")
+func net_elf_moonfall(at: Vector3, damage: float, critical: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	elf().show_moonfall(at, damage, critical)
+
+
+## Healed `amount` (the elf's Moonwell): the host asks, his own peer, where his
+## health is kept, mends it and shows it.
+func heal(amount: float) -> void:
+	if amount <= 0.0 or is_dead:
+		return
+	net_heal.rpc_id(get_multiplayer_authority(), amount)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_heal(amount: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_dead:
+		return
+	var was := health
+	health = minf(health + amount, max_health)
+	if health - was >= 0.5:
+		HealNumber.pop(self, health - was)
 
 
 ## Her Dark Hands, on every peer: the circle opening at `at` ([ShadowGrasp]).

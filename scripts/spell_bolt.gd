@@ -500,8 +500,10 @@ func _strike(what: Node3D, where: Vector3) -> void:
 		_burst(where)
 		return
 	if what != null and what.has_method("take_hit"):
-		# A spell: through m.def.
-		what.call("take_hit", _damage, where, _heading, _critical, false, _shooter, true)
+		# A spell: through m.def. Frozen (the elf's Frost Nova), the ice
+		# shatters and the blow is worth more ([FrostShell]).
+		var damage := _damage * FrostShell.shatter(what)
+		what.call("take_hit", damage, where, _heading, _critical, false, _shooter, true)
 	_burst(where)
 
 

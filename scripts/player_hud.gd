@@ -446,6 +446,15 @@ func _sweep(rect: Rect2, share: float) -> void:
 
 ## A skill's picture, drawn: Rain of Arrows is three arrows coming down on a
 ## ring.
+## Draws skill `id`'s drawn icon onto `canvas` as on the bar (the
+## [SkillBook]), from inside that canvas's own drawing.
+func draw_icon_on(canvas: Control, id: StringName, rect: Rect2) -> void:
+	var bars := _bars
+	_bars = canvas
+	_icon(id, rect)
+	_bars = bars
+
+
 func _icon(id: StringName, rect: Rect2) -> void:
 	var c := rect.get_center()
 	match id:
@@ -493,6 +502,44 @@ func _icon(id: StringName, rect: Rect2) -> void:
 			_bars.draw_line(c + Vector2(-12, -2), c + Vector2(10, -2), Color(ice, 0.85), 2.0)
 			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(16, -2), c + Vector2(9, -6), c + Vector2(9, 2)]), ice)
 			_bars.draw_circle(c + Vector2(15, -2), 6.0, Color(1, 1, 1, 0.35))
+		&"frost_nova":
+			# A burst of ice: crystals standing in a ring round a flash, frost
+			# lines running out.
+			var ice := Color(0.7, 0.92, 1.0)
+			_bars.draw_circle(c, 5.0, Color(1, 1, 1, 0.8))
+			_bars.draw_arc(c, 19.0, 0.0, TAU, 32, Color(ice, 0.55), 2.0)
+			for k in 8:
+				var t := TAU * k / 8.0
+				var out := Vector2(cos(t), sin(t))
+				var side := Vector2(-out.y, out.x)
+				var base := c + out * 9.0
+				var tip := c + out * (21.0 if k % 2 == 0 else 16.0)
+				_bars.draw_colored_polygon(PackedVector2Array([tip, base + side * 3.0, base - side * 3.0]), ice)
+		&"moonwell":
+			# A crescent moon over a circle of light, motes rising.
+			var silver := Color(0.88, 0.93, 1.0)
+			var green := Color(0.55, 1.0, 0.65)
+			_bars.draw_arc(c + Vector2(0, 13), 18.0, PI * 0.05, PI * 0.95, 16, Color(silver, 0.9), 2.5)
+			_bars.draw_arc(c + Vector2(0, 13), 18.0, PI * 1.05, PI * 1.95, 16, Color(silver, 0.35), 1.5)
+			_bars.draw_circle(c + Vector2(0, -8), 10.0, silver)
+			_bars.draw_circle(c + Vector2(5, -11), 9.0, Color(0.08, 0.1, 0.16))
+			for k in 3:
+				_bars.draw_circle(c + Vector2(-10.0 + 10.0 * k, 6.0 - 4.0 * float(k % 2)), 1.8, green)
+			_bars.draw_line(c + Vector2(-3, 12), c + Vector2(3, 12), green, 2.0)
+			_bars.draw_line(c + Vector2(0, 9), c + Vector2(0, 15), green, 2.0)
+		&"moonfall":
+			# A column of light coming down onto a ring of runes.
+			var silver := Color(0.9, 0.94, 1.0)
+			_bars.draw_rect(Rect2(c + Vector2(-6, -22), Vector2(12, 30)), Color(silver, 0.35))
+			_bars.draw_rect(Rect2(c + Vector2(-2.5, -22), Vector2(5, 30)), silver)
+			var ring := PackedVector2Array()
+			for k in 25:
+				var t := TAU * k / 24.0
+				ring.append(c + Vector2(cos(t) * 17.0, 12.0 + sin(t) * 5.5))
+			_bars.draw_polyline(ring, Color(silver, 0.85), 2.0)
+			for k in 6:
+				var t := TAU * k / 6.0 + 0.3
+				_bars.draw_circle(c + Vector2(cos(t) * 13.0, 12.0 + sin(t) * 4.0), 1.5, silver)
 		&"dark_grasp":
 			# Two black hands up out of a violet ring, clawed fingers closing.
 			var violet := Color(0.72, 0.45, 1.0)

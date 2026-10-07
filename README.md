@@ -9149,3 +9149,40 @@ time, the rift, six comets, three ogres hurt.
 too often, so two of the six (`DarkSkills.AIMED`) go at her lock and follow it
 (`DarkComet.chase`, until `HOME` = 70 % of the fall), the rest fall scattered
 for the others round it. With nothing locked all six fall as before.
+
+### The elf's Frost Nova, Moonwell and Moonfall; four of five in the sockets (2026-10-07, the user's picks)
+
+`ElfSkills` (`Player.elf()`), beside `MageSkills`. The elf now has five
+skills (`elf_mage.tres`: frost_spears, frost_step, frost_nova, moonwell,
+moonfall) and four sockets.
+
+**Frost Nova** (22 stamina, 14 s). Her staff struck down (Kevin's
+`MagicAttackOmni01`); frost runs out over the ground 4.5 m in 0.28 s with three
+rings of ice crystals bursting up as it passes, a ring of light and a low wave
+of snow (`FrostNova`). The host hurts what it reaches (0.35 of a full bolt) and
+**freezes** it (`FrostShell`): 1.5 s, twice that if it was chilled (her Frost
+Step's trail), at most 3 s, half for a boss. Frozen: a clear blue sheath the
+size of its meshes with crystals leaning out of it, its rig's processing held
+(the pose stops), `ShadowHold` keeps it in place, and the host reels it
+(`react("stun")`) so it does not strike. A blow from her spells (`SpellBolt`,
+so the bolt and the spears, and the Moonfall) shatters the ice and is worth 1.5
+as much (`FrostShell.shatter`).
+
+**Moonwell** (30 stamina, 24 s). Her hand raised (`MG_Heal`): a circle of
+silver runes 5 m across at her feet for 6 s, turning, a soft light, motes
+rising, a faint veil of light round its edge (`MoonWell`). Every 0.5 s the host
+heals her and her friends in it a quarter of their health over the 6 s
+(`Player.heal` -> `net_heal` on the hero's own peer, a green "+N" off the head:
+`HealNumber`), and chills the foes in it.
+
+**Moonfall** (28 stamina, 10 s). Her hand to the sky (Kevin's
+`MagicAttackCall1H01_L`); where she points (her lock within 20 m, else 9 m
+ahead) a circle of runes opens and a second draws in on it for 0.7 s, then a
+column of moonlight falls (`MoonFall`): 1.6 of a full bolt to everything within
+3 m and a 1.5 s stun (half a boss), a flash, rings of light, silver sparks.
+
+**Four of five** (`SkillBook`, K). Every skill he has in a row with its name,
+the four sockets under them; a skill and then a socket (or the other way) puts
+it there, swapping if it was in another. `Player.skill_picks`, kept per hero in
+`user://skill_picks.cfg`; with none picked, the first four of the profile.
+`tests/elf_skills_test.gd`.
