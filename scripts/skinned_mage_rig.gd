@@ -211,6 +211,7 @@ func _warm_skills() -> void:
 	props.position = Vector3(0.0, 0.0, -2.0)
 	props.scale = Vector3.ONE * 0.15
 	MageSkills.warm(props)
+	DarkSkills.warm(props)
 	for i in 4:
 		await get_tree().process_frame
 	if is_instance_valid(props):

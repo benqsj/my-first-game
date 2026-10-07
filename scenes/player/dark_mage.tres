@@ -21,6 +21,7 @@ dodge_speed = 8.5
 dodge_duration = 0.7
 crit_chance = 0.17
 crit_damage = 1.60
+skills = PackedStringArray("dark_grasp", "black_comets")
 damage = 0.0
 full_charge_bonus = 1.8
 jump_height = 3.6

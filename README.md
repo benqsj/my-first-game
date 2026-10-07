@@ -9070,3 +9070,74 @@ hung each frame from the lower of the foot's heel and ball bones, whatever the
 float pose does with them), fullest right at the sole and widening down; and no rings sent out over the ground all the while she floats (too many
 white circles) but one, where she lands, as she comes down out of floating. Only while she floats (the
 jump held), as before.
+
+### The dark elf mage: Dark Hands and Black Comets (2026-10-07, the user's word)
+
+The plan is `claude/dark_elves_plan.md` in the project. The user's word: no
+draining of life (it would make her too strong), no curse; her hands out of
+the ground, and comets, several of them, falling. Her code is apart from the
+elf's (`DarkSkills`, `scripts/dark_skills.gd`, `Player.dark()`), so the two can
+be worked on side by side; `player.gd` has only the two lines in `SKILLS`, the
+two in `use_skill` and the three messages (`net_dark_grasp`, `net_dark_held`,
+`net_dark_comets`). `dark_mage.tres`: `skills = dark_grasp, black_comets`.
+
+**Dark Hands** (`dark_grasp`, 22 stamina, 11 s; `ShadowGrasp`, `ShadowHand`,
+`ShadowHold`). Where she points (her lock within 20 m, else 9 m ahead), her hand
+thrust at the ground (`MG_Cast_Ground`):
+
+- a circle of violet runes 3 m round opens on the ground and turns, a ring of
+  spikes inside it tightening, motes and black smoke drawn down into it, for
+  0.75 s: time to get out;
+- then the ground cracks (the cracks burning violet and cooling), and long
+  black hands burst up out of it in black fire: four round the edge grab at the
+  air, and **two close on each foe still in it**, bent over it at the elbow,
+  their clawed fingers shut on its waist;
+- what is caught takes 0.9 of a full bolt (a spell, through m.def; a crit
+  rolled) and is **held where it stands** for 1.6 s (0.8 on a boss: a creature
+  with stages, or 1200 health or more). It may turn and strike, but not go:
+  `ShadowHold`, after the body's own physics tick, puts it back where it was
+  over the ground (the chill's way, on the body's own peer, so it works on
+  every kind of creature and on a hero in PvP);
+- the hands are a long arm out of the ground, a forearm bent from the elbow,
+  a palm, four three-jointed fingers ending in claws and a thumb, all of
+  `DarkFx.flesh()`: black, rimmed in violet, veins of it crawling under, burnt
+  away in flecks as they sink back.
+
+The circle and the empty hands are drawn on every peer from her message; the
+host says who was caught (`net_dark_held`), so the holding hands are on the
+same bodies everywhere.
+
+**Black Comets** (`black_comets`, 30 stamina, 16 s; `DarkRift`, `DarkComet`).
+Her hand thrown up (Kevin's `MagicAttackCall1H01_L`), and over and beyond
+where she points (9 m up, 15 m past it) a rift tears open in the sky: a whirl
+of black cloud lit violet from inside, rings of runes turning in it, facing
+the way the comets will go. Out of it, 0.45 s later, come **six comets**, one
+after another (0, 0.26, 0.5, 0.78, 0.98, 1.22 s), the first where she pointed
+and the rest scattered up to 4.6 m round it, never two within 1.7 m (one seed,
+every peer the same):
+
+- each a rock of black stone (a sphere broken by noise into flat facets,
+  `DarkFx.rock_mesh`, Polyhaven's `aerial_rocks_02` laid over it, split with
+  veins that glow violet), spinning, 0.75 s in the air, a streak of violet
+  fire behind it and a tail of black fire, violet fire, smoke and sparks left
+  in the air;
+- where it will strike, a ring burns on the ground and tightens as it comes;
+- it strikes: a flash, a ring thrown out over the ground, the ground cracked
+  and burnt black round it, stone flung up, smoke, violet sparks and black
+  fire burning there 2.4 s; the camera shakes;
+- everything within 2.5 m takes 0.62 of a full bolt (0.55 of that at the
+  edge), a crit rolled for each comet; what it falls right on (1.3 m) is
+  thrown down (`react(&"knock")`). Only the host's comets hurt.
+
+**Black fire** (`DarkFx.black_fire`): dark tongues of flame, not added, laid
+over violet ones that are, so the black reads against the light behind it.
+Textures (`assets/fx/tex/dark_*.png`, white with the alpha in every channel so
+a decal's glow is only where the picture is): the runes, spikes, cracks and
+ring from Matthew Guz's Area of Effect Spell FREE (`2-Magic 3`, `Magic2`,
+`2-Crack`, `2-Shockwave 2`), the flame and the veins from Vefects' Free Fire
+VFX (`T_VFX_Fire_Mask_01`, `T_VFX_Noise_07`), the smoke Kenney's `whitePuff02`.
+
+The bar draws both (`PlayerHud._icon`). `PipelineWarmup` and the mage's rig
+warm them (`DarkSkills.warm`). `tests/dark_mage_test.gd` (headless): the
+circle, the hands, held and hurt, not moved when shoved, let go after its
+time, the rift, six comets, three ogres hurt.

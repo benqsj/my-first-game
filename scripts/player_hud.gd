@@ -493,6 +493,45 @@ func _icon(id: StringName, rect: Rect2) -> void:
 			_bars.draw_line(c + Vector2(-12, -2), c + Vector2(10, -2), Color(ice, 0.85), 2.0)
 			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(16, -2), c + Vector2(9, -6), c + Vector2(9, 2)]), ice)
 			_bars.draw_circle(c + Vector2(15, -2), 6.0, Color(1, 1, 1, 0.35))
+		&"dark_grasp":
+			# Two black hands up out of a violet ring, clawed fingers closing.
+			var violet := Color(0.72, 0.45, 1.0)
+			var ink := Color(0.1, 0.04, 0.14)
+			var ring := PackedVector2Array()
+			for k in 25:
+				var t := TAU * k / 24.0
+				ring.append(c + Vector2(cos(t) * 18.0, 13.0 + sin(t) * 5.0))
+			_bars.draw_polyline(ring, violet, 2.0)
+			for k in 2:
+				var s := -1.0 if k == 0 else 1.0
+				var wrist := c + Vector2(s * 7.0, -4.0)
+				var root := c + Vector2(s * 9.0, 13.0)
+				_bars.draw_line(root, wrist, violet, 6.0)
+				_bars.draw_line(root, wrist, ink, 3.5)
+				for f in 4:
+					var a := deg_to_rad(-40.0 + 22.0 * f) * s
+					var knuckle := wrist + Vector2(sin(a), -cos(a)) * 5.0
+					var tip := knuckle + Vector2(sin(a - s * 0.9), -cos(a - s * 0.9)) * 8.0
+					_bars.draw_line(wrist, knuckle, violet, 2.5)
+					_bars.draw_line(knuckle, tip, violet, 1.8)
+		&"black_comets":
+			# Three black rocks coming down from the top left, each dragging
+			# a tail of violet fire, and the ground cracked where one struck.
+			var violet := Color(0.72, 0.45, 1.0)
+			var ink := Color(0.1, 0.04, 0.14)
+			var heads: Array[Vector2] = [Vector2(-12.0, 2.0), Vector2(3.0, -9.0), Vector2(11.0, 9.0)]
+			for k in heads.size():
+				var head := c + heads[k]
+				var big := 5.5 if k == 2 else 4.0
+				var back := Vector2(-0.72, -0.7)
+				_bars.draw_line(head + back * 3.0, head + back * 15.0, Color(violet, 0.35), big * 1.6)
+				_bars.draw_line(head + back * 2.0, head + back * 11.0, Color(violet, 0.8), big * 0.7)
+				_bars.draw_circle(head, big + 1.2, violet)
+				_bars.draw_circle(head, big, ink)
+			var hit := c + Vector2(11.0, 17.0)
+			for k in 5:
+				var a := deg_to_rad(-160.0 + 35.0 * k)
+				_bars.draw_line(hit + Vector2(cos(a), sin(a)) * 4.0, hit + Vector2(cos(a), sin(a)) * 9.0, violet, 1.5)
 		&"hunters_mark":
 			# The mark: a ring, four points in, an eye.
 			var red := Color(0.95, 0.25, 0.18)

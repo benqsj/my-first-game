@@ -5149,6 +5149,8 @@ const SKILLS := {
 	&"challenge": {"name": "Challenge", "stamina": 20.0, "cooldown": 20.0},
 	&"frost_spears": {"name": "Frost Spears", "stamina": 25.0, "cooldown": 14.0},
 	&"frost_step": {"name": "Frost Step", "stamina": 18.0, "cooldown": 9.0},
+	&"dark_grasp": {"name": "Dark Hands", "stamina": 22.0, "cooldown": 11.0},
+	&"black_comets": {"name": "Black Comets", "stamina": 30.0, "cooldown": 16.0},
 }
 const SKILL_SLOTS := 4
 
@@ -5226,6 +5228,10 @@ func use_skill(slot: int) -> bool:
 			went = mage().frost_spears(float(SKILLS[id]["stamina"]))
 		&"frost_step":
 			went = mage().frost_step(float(SKILLS[id]["stamina"]))
+		&"dark_grasp":
+			went = dark().grasp(float(SKILLS[id]["stamina"]))
+		&"black_comets":
+			went = dark().comets(float(SKILLS[id]["stamina"]))
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
@@ -6311,6 +6317,47 @@ func net_frost_step_end(at: Vector3) -> void:
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
 	mage().end_frost_step(at)
+
+
+## The dark elf mage's skills ([DarkSkills]), made the first time they are
+## asked for (on every peer: the first word of them that arrives makes them).
+var _dark: DarkSkills = null
+
+
+func dark() -> DarkSkills:
+	if _dark == null or not is_instance_valid(_dark):
+		_dark = DarkSkills.new()
+		_dark.name = "DarkSkills"
+		add_child(_dark)
+	return _dark
+
+
+## Her Dark Hands, on every peer: the circle opening at `at` ([ShadowGrasp]).
+@rpc("any_peer", "call_local", "reliable")
+func net_dark_grasp(at: Vector3, damage: float, critical: bool, grasp_seed: int) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	dark().show_grasp(at, damage, critical, grasp_seed)
+
+
+## Who her Dark Hands caught and for how long, on every peer (the host says).
+@rpc("any_peer", "call_local", "reliable")
+func net_dark_held(paths: Array, times: Array) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	dark().show_held(paths, times)
+
+
+## Her Black Comets, on every peer: the rift over `at` and the comets out of it.
+@rpc("any_peer", "call_local", "reliable")
+func net_dark_comets(at: Vector3, from: Vector3, rain_seed: int, damages: PackedFloat32Array,
+		crits: PackedByteArray) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	dark().show_comets(at, from, rain_seed, damages, crits)
 
 
 ## Gone from sight in his Vanish, or just out of a Shadow Step: the creatures

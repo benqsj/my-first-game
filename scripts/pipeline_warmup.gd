@@ -107,8 +107,9 @@ func _ready() -> void:
 	_props.position = Vector3(0.0, 0.0, -1.5)
 	# and the assassin's Vanish and Shadow Step: the first of each stalled
 	RogueSkills.warm(_props)
-	# and the elf's Frost Spears
+	# and the elf's Frost Spears, and the dark elf's hands and comets
 	MageSkills.warm(_props)
+	DarkSkills.warm(_props)
 	ScreenMud.prepare(get_tree())
 	ScreenMud.splat(get_tree(), 1.0)
 
