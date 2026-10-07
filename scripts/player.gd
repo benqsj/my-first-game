@@ -3354,15 +3354,32 @@ var _combo_landed: Dictionary = {}
 ## one combo from the next: the last blow of a combo that has landed every time
 ## puts him on the ground. Anything short of that is a flinch.
 func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, combo: int = 0,
-		magic: bool = false) -> void:
+		magic: bool = false, how: StringName = &"") -> void:
 	if from == null:
 		return
 	var away := global_position - from.global_position
 	away.y = 0.0
 	if away.length_squared() < 0.0001:
 		away = global_transform.basis.z
+	# What kind of blow it is rides on the combo's key ([method _blow_kind]).
+	var key := "%s#%d" % [from.get_path(), combo]
+	if not how.is_empty():
+		key += "!" + String(how)
 	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position,
-			"%s#%d" % [from.get_path(), combo], blow, blows, magic)
+			key, blow, blows, magic)
+
+
+## The kinds of blow the big creatures have ([PackBrute]), after the "!" of a
+## combo's key:
+## * "guard": a kick at the shield — caught on it, it beats the guard aside
+##   ([method _crumple]); "crush" (the ogre's slow blow) the same.
+## * "ground": a shock along the ground — off the ground (a jump) it misses,
+##   and no shield takes it.
+## * "stomp": a blow at him where he lies — it finds him on the ground (a roll
+##   out still clears it), and no shield takes it.
+## * "spike": stone out of the ground under him — no shield takes it.
+func _blow_kind(combo: String) -> String:
+	return combo.get_slice("!", 1) if combo.contains("!") else ""
 
 
 ## Only the host deals creatures' blows. A local call reports sender 0.
@@ -3377,6 +3394,12 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# What his armour takes off it — or, a spell's, his m.def. (Tariel's
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
+	var how := _blow_kind(combo)
+	if how == "stomp" and state == State.DOWNED and not is_dead:
+		_stomped(damage, away)
+		return
+	if how == "ground" and not is_on_floor():
+		return
 	# A fresh combo from this attacker forgets the last one.
 	if blow == 0 or not _combo_landed.has(combo):
 		_forget_combos_from(combo)
@@ -3403,7 +3426,12 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	toward.y = 0.0
 	var facing := -global_transform.basis.z
 	facing.y = 0.0
-	if is_blocking and facing.normalized().dot(toward.normalized()) > 0.2:
+	if is_blocking and (how == "guard" or how == "crush") and facing.normalized().dot(toward.normalized()) > 0.2:
+		# Kicked or beaten aside: the guard goes, and the blow with it.
+		_combo_landed[combo] = -999
+		_crumple(damage * (0.4 if how == "guard" else 0.8), away)
+		return
+	if is_blocking and how != "ground" and how != "stomp" and how != "spike" and facing.normalized().dot(toward.normalized()) > 0.2:
 		_combo_landed[combo] = -999
 		# Caught on the shield: a step back, and it costs stamina to hold — never
 		# more than most of the bar, so even a raid boss's blow can be taken on
@@ -3493,7 +3521,7 @@ func _forget_combos_from(combo: String) -> void:
 			_combo_landed.erase(key)
 
 
-enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE, BLOCK, GUARD_BREAK }
+enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE, BLOCK, GUARD_BREAK, STOMPED }
 
 ## What a blow did to him, shown in every window: a flinch or a fall with
 ## blood, or the end of lying there.
@@ -3546,6 +3574,24 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			_feel_block(at, blow)
 		Reaction.GUARD_BREAK:
 			_feel_guard_break(at, blow)
+		Reaction.STOMPED:
+			_thud()
+			Blood.splatter(Blood.world_of(self), at, blow)
+			if is_multiplayer_authority() and camera != null and camera.current:
+				ImpactFx.knock(camera, Vector3.DOWN, 0.3, 0.35, 0.4)
+
+
+## Struck where he lies ("stomp", [method _blow_kind]): it lands whole, and
+## keeps him down a moment longer — unless he rolls out first.
+func _stomped(damage: float, away: Vector3) -> void:
+	struck.emit(damage, false)
+	var at := global_position + Vector3.UP * 0.3
+	if _take_damage(damage):
+		return
+	velocity += away * 1.5
+	if not _getting_up:
+		_down_timer = maxf(_down_timer, 0.45)
+	net_react.rpc(Reaction.STOMPED, at, (away + Vector3.UP * 0.6).normalized())
 
 
 ## The damage (after his armour) at which a blow that gets through is the

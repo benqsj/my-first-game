@@ -249,8 +249,24 @@ func _arm(what: int) -> void:
 		_sweeps.append(WeaponSweep.blow(_limb(limb), blow_min_speed, moments[i] - window.x,
 				moments[i] + window.y,
 				act_serial, func(who: Node3D) -> void:
-					who.call("receive_blow", worth, self, blow, count, serial)
+					var how := _blow_kind(what)
+					if how.is_empty():
+						who.call("receive_blow", worth * _blow_worth(what), self, blow, count, serial)
+					else:
+						who.call("receive_blow", worth * _blow_worth(what), self, blow, count, serial, false, how)
 					_blow_reached(who, what)))
+
+
+## What kind of blow move `what` lands ([method Player._blow_kind]): "" for
+## an ordinary one, "guard" a kick through the shield, "crush" a blow no
+## shield holds, "ground" a shock along the ground, "stomp" one at him lying.
+func _blow_kind(_what: int) -> StringName:
+	return &""
+
+
+## A share on top of the move's own worth, as it lands (a creature enraged).
+func _blow_worth(_what: int) -> float:
+	return 1.0
 
 
 ## Host: one of its blows (of act `what`) has reached `who` (he may yet have
