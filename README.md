@@ -13,6 +13,7 @@ godot --path . --headless --script res://tests/menu_test.gd    # menu + graphics
 godot --path . --script res://tests/combat_test.gd -- /tmp      # creature + combat checks
 godot --path . --headless --script res://tests/multiplayer_test.gd  # who owns what
 godot --path . --headless --script res://tests/fighter_test.gd     # imps and puglins: bands, rousing, blows, the whole-combo knockdown, dying, the leash
+godot --path . --headless --script res://tests/fall_test.gd        # Tariel felled the way the blow went, up again quickly, thrown off his knee
 godot --path . --headless --script res://tests/imp_test.gd         # the imp: size, own clips, circling, leap, evade, thrown by a cut, two at a time
 godot --path . --headless --script res://tests/puglin_test.gd      # the puglin: a band as one, balls, mud in the eyes, the three-cut combo, scatter and gather
 godot --path . --script res://tests/draw_budget.gd             # where the draw calls go
@@ -2503,9 +2504,41 @@ controller makes, so `player.gd` is unchanged. `tariel.tres` points at
 | walking behind the shield | `SS_Block_Walk`, `_Back`, `_Left`, `_Right` — legs from the walk, the guard from `SS_Block_Idle`, baked in Blender; blocking caps the pace at `walk_speed` |
 | hit | `SS_Head_Impact` |
 | dash / dodge | `Roll_Quick_To_Run` |
-| knocked down / get up | `SS_Falling_Back_Death` (and back to front) |
+| knocked down / get up | by the blow ([Falls that follow the blow](#falls-that-follow-the-blow)); other heroes `SS_Falling_Back_Death` (and back to front) |
 | airborne | `SS_Running_Jump` |
 | crouch, slide | `SS_Crouch_Block_Idle` — *stand-in, the pack has none* |
+
+### Falls that follow the blow
+
+Felled, Tariel goes down the way the blow went (the user's word, 2026-10-09:
+"it must read that the club or the sword threw him"). `Player._fall_kind`
+picks a `SkinnedRig.Fall` from where the blow came ([Player.blow_side]) and
+how hard; the kind rides to every peer on the knockdown's spray (length
+10 + kind) and `SkinnedRig.fall()` plays it:
+
+| Blow | Fall | Clip |
+| --- | --- | --- |
+| in front | thrown back onto his back | `Hit_Knockback`, `KV_CombatDeath02` |
+| in front, heft ≥ `fall_fly_heft` (0.85) | launched (`fall_fly_push` 5 back, 4.6 up), curled in the air, struck onto the ground | `LiftAir_Fall_Air` → `LiftAir_Fall_Impact` |
+| from his left / right | thrown over to the other side | Avtandil's `AV_Death_Right_01/02` / `AV_Death_Left_01/02` (lent) |
+| from behind | onto his face | `AV_Death_Forward_02`, `KV_CombatDeath04` |
+| `crush`, or the attacker's `blow_from_above()` true | crushed down where he stands | `KV_CombatDeath01` |
+
+- Each fall is played only till he lies still (the pick's share) and held:
+  the death clips' long dying is not waited out; he lies `fall_lie` (0.35 s)
+  and gets up — on his feet again in 2–2.7 s all told.
+- The clips are copied as `F_<clip>` with the hips' travel lifted onto the
+  root (`SkinnedRig._lift_travel`), so the body is carried with the fall
+  (`fall_velocity`, root motion): the view goes with him and he gets up where
+  he lies.
+- Getting up (`SkinnedRig.rise`): off his back `LayToIdle` (now and then
+  `KipUp`), the body turned and set over so the clip's first pose lies where
+  he lies; face down, the fall played back (a Mixamo get-up to come).
+- Down on his knee (a broken guard, a dodge spent out), a second blow throws
+  him down the same way. The kneel itself is shorter: `guard_crumple_time`
+  1.35 s, the fall to the knee at 2.4x, up off it at 1.4x.
+- Only the heroes in `SkinnedRig.FALL_HEROES` (Tariel) so far.
+- `tests/fall_test.gd`; `guard_break_test` checks the throw off the knee.
 
 He does not climb walls (`can_climb = false` in `tariel.tres`): only the hunter
 does. The cape (`cape_00`–`cape_06`) and the ponytail (`hair_00`–`hair_04`) are

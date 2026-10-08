@@ -3336,6 +3336,21 @@ func _heavy_blow() -> int:
 @export var get_up_time: float = 1.1
 ## A roll out of a knockdown is allowed this long after hitting the ground.
 @export var roll_out_after: float = 0.25
+## Falls that follow the blow ([method SkinnedRig.fall]): how long he lies
+## once the fall has played out, before getting up (seconds).
+@export var fall_lie: float = 0.35
+## From this heft ([method hit_heft]) a blow in front launches him through
+## the air instead of throwing him back; and how hard (back, up; m/s).
+@export var fall_fly_heft: float = 0.85
+@export var fall_fly_push: Vector2 = Vector2(5.0, 4.6)
+## A fall whose clip carries him over the ground is shoved less by the blow.
+@export var fall_carried_shove: float = 1.2
+
+## The fall under way ([enum SkinnedRig.Fall]), and whether it is a launch
+## not yet come down; what the blow shoved him by, dying away.
+var _down_kind: int = 0
+var _down_flying: bool = false
+var _down_push: Vector3 = Vector3.ZERO
 
 ## Seconds left of the current part of a knockdown, which part it is, and how
 ## long he has been down.
@@ -3363,6 +3378,10 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		away = global_transform.basis.z
 	# What kind of blow it is rides on the combo's key ([method _blow_kind]).
 	var key := "%s#%d" % [from.get_path(), combo]
+	# A blow brought down on him from above (the attacker says so): he is
+	# crushed down where he stands if it fells him ([method _fall_kind]).
+	if how.is_empty() and from.has_method(&"blow_from_above") and bool(from.call(&"blow_from_above")):
+		how = &"above"
 	if not how.is_empty():
 		key += "!" + String(how)
 	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position,
@@ -3421,6 +3440,21 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			stamina = minf(stamina + (profile.roll_stamina if profile != null else 20.0), max_stamina)
 			_winded = false
 			net_react.rpc(Reaction.PERFECT_DODGE, global_position, Vector3.ZERO)
+		return
+	# Down on his knee (a broken guard, a dodge spent out): a second blow that
+	# finds him there throws him down, the way it went (the user's word,
+	# 2026-10-09: he knelt there too long, and a blow on him should fell him).
+	if _now() < _crumpled_until:
+		_crumpled_until = -INF
+		_combo_landed[combo] = int(_combo_landed[combo]) + 1
+		struck.emit(damage, false)
+		var knelt_at := global_position + Vector3.UP * 0.9
+		var knelt_spray := (away + Vector3.UP * 0.3).normalized()
+		if _take_damage(damage):
+			velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
+			return
+		_knock_down(away, damage, how)
+		net_react.rpc(Reaction.KNOCKDOWN, knelt_at, knelt_spray * (10.0 + _down_kind))
 		return
 	var toward := source - global_position
 	toward.y = 0.0
@@ -3489,8 +3523,9 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 		return
 	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
-		_knock_down(away, damage)
-		net_react.rpc(Reaction.KNOCKDOWN, at, spray)
+		_knock_down(away, damage, how)
+		# the fall's kind rides on the spray's length (10 + kind)
+		net_react.rpc(Reaction.KNOCKDOWN, at, spray * (10.0 + _down_kind))
 		return
 	velocity += away * (2.0 + _heft(damage) * blow_shove)
 	_free_swing = false
@@ -3535,14 +3570,28 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
 			_interrupt_skill()
+			var kind := int(round(blow.length())) - 10 if blow.length() > 9.5 else 0
 			if rig != null:
-				rig.knock_down()
+				if rig.has_method(&"fall"):
+					var lies := float(rig.call(&"fall", kind))
+					if lies > 0.0 and is_multiplayer_authority() and state == State.DOWNED and not _down_flying:
+						_down_timer = lies + fall_lie
+				else:
+					rig.knock_down()
 			_rig_says(&"hurt")
 			_thud()
-			Blood.splatter(Blood.world_of(self), at, blow)
+			Blood.splatter(Blood.world_of(self), at, blow.normalized())
 		Reaction.GET_UP:
 			if rig != null:
-				rig.get_up(get_up_time)
+				if rig.has_method(&"rise"):
+					# the body turned and set over to where he lies, so the
+					# getting up starts from the way he fell
+					var fix: Dictionary = rig.call(&"rise", get_up_time)
+					if not fix.is_empty() and is_multiplayer_authority():
+						rotation.y += float(fix["yaw"])
+						global_position += fix["shift"] as Vector3
+				else:
+					rig.get_up(get_up_time)
 		Reaction.ROLL_OUT:
 			Sfx.play(self, ROLL_SOUND, self, Vector3.ZERO, 1.0, MOVE_VOLUME[MoveSound.ROLL])
 			if rig != null:
@@ -3638,7 +3687,7 @@ func _flinch(blow: Vector3) -> void:
 ## last of it) breaks the guard outright: [method _crumple].
 @export var guard_crumple_low: float = 0.3
 ## How long he is down on his knee and open, all told (seconds).
-@export var guard_crumple_time: float = 2.1
+@export var guard_crumple_time: float = 1.35
 
 
 ## The guard broken (the user's idea, 2026-10-04): a heavy blow on the shield
@@ -3842,7 +3891,27 @@ func net_blade_landed(matter: StringName = &"flesh") -> void:
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
 ## there, out of reach of anything else, until he gets up or rolls clear.
-func _knock_down(away: Vector3, damage: float) -> void:
+## Which way a blow that fells him throws him ([enum SkinnedRig.Fall], the
+## user's word 2026-10-09): crushed down by one from above, thrown over to a
+## side by one from that side, onto his face by one from behind; one in front
+## throws him back, or, heavy enough, launches him through the air.
+func _fall_kind(away: Vector3, damage: float, how: String) -> int:
+	if how == "crush" or how == "above":
+		return SkinnedRig.Fall.CRUSH
+	match blow_side(away):
+		SkinnedRig.From.BACK:
+			return SkinnedRig.Fall.FORWARD
+		SkinnedRig.From.LEFT:
+			return SkinnedRig.Fall.LEFT
+		SkinnedRig.From.RIGHT:
+			return SkinnedRig.Fall.RIGHT
+	return SkinnedRig.Fall.FLY if hit_heft(damage) >= fall_fly_heft else SkinnedRig.Fall.BACK
+
+
+func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
+	_down_kind = _fall_kind(away, damage, how)
+	_down_flying = _down_kind == SkinnedRig.Fall.FLY and rig != null and rig.has_method(&"fall") \
+			and bool(rig.call(&"falls_directional"))
 	state = State.DOWNED
 	_down_timer = down_time + 0.8
 	_getting_up = false
@@ -3854,16 +3923,38 @@ func _knock_down(away: Vector3, damage: float) -> void:
 	_commit_timer = 0.0
 	_root_timer = 0.0
 	_attack_buffer = 0.0
-	velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
+	var shove := 2.5 + _heft(damage) * blow_shove * 0.5
+	var directional := rig != null and rig.has_method(&"falls_directional") and bool(rig.call(&"falls_directional"))
+	if directional and _down_kind != SkinnedRig.Fall.BACK and _down_kind != SkinnedRig.Fall.FLY:
+		shove = fall_carried_shove
+	velocity = away * shove
+	if _down_flying:
+		velocity = away * fall_fly_push.x + Vector3.UP * fall_fly_push.y
+		_down_timer = 9.0  # till he comes down
+	_down_push = Vector3(velocity.x, 0.0, velocity.z)
 
 
 func _process_downed(delta: float) -> void:
 	_down_for += delta
-	velocity.x = move_toward(velocity.x, 0.0, 9.0 * delta)
-	velocity.z = move_toward(velocity.z, 0.0, 9.0 * delta)
-	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
+	# the blow's shove dying away (slowly through the air), and whatever the
+	# fall itself carries him by ([member SkinnedRig.fall_velocity])
+	var airborne := not is_on_floor()
+	_down_push = _down_push.move_toward(Vector3.ZERO, (1.5 if airborne else 9.0) * delta)
+	var carried := Vector3.ZERO
+	if rig != null and "fall_velocity" in rig:
+		carried = rig.get(&"fall_velocity") as Vector3
+	velocity.x = _down_push.x + carried.x
+	velocity.z = _down_push.z + carried.z
+	if not airborne and velocity.y <= 0.0:
+		velocity.y = 0.0
+	else:
+		velocity.y -= _gravity * delta
 	move_and_slide()
 	_update_floor_state()
+	# launched: lies once he has come down and been struck onto the ground
+	if _down_flying and is_on_floor() and _down_for > 0.12:
+		_down_flying = false
+		_down_timer = 0.6 + fall_lie
 
 	# Fallen for good: no rolling out and no getting up — only the wait.
 	if is_dead:

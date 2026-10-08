@@ -1092,7 +1092,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 				or (_role == Role.FREE and _recovering)
 				or (_role == Role.ROLL and _evade_cut and not dashing)) and planar_speed > idle_threshold
 		if _role == Role.DOWN:
-			pass  # held until get_up() or leave_ground()
+			_fall_tick(delta, airborne)  # held until get_up() or leave_ground()
 		elif _air_cut and _action_left <= 0.0 and airborne:
 			_anim.speed_scale = 0.0  # the chop, held until the ground arrives
 		elif _crumpled and _action_left > 0.0:
@@ -1145,6 +1145,11 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	# A clip whose own travel carries him: what its root moved by last frame,
 	# as a pace over the ground.
 	_carrying = _role == Role.SWING and carried.has(_act_clip)
+	fall_velocity = Vector3.ZERO
+	if _fall_kind >= 0 and (_role == Role.DOWN or _role == Role.GET_UP):
+		var slid := _skel.global_basis * _anim.get_root_motion_position()
+		slid.y = 0.0
+		fall_velocity = slid / maxf(delta, 0.001)
 	if _carrying:
 		var moved := _skel.global_basis * _anim.get_root_motion_position()
 		moved.y = 0.0
@@ -1455,6 +1460,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 
 func _end_action() -> void:
+	_fall_kind = -1
 	_crumpled = false
 	_air_cut = false
 	_evade_cut = false
@@ -2438,7 +2444,7 @@ func guard_crumple(seconds: float, away: Vector3 = Vector3.ZERO) -> bool:
 	var length := _anim.get_animation(CRUMPLE).length
 	_play_action(CRUMPLE, Role.HIT, CRUMPLE_RATE, 0.05, CRUMPLE_START / length, 1.0)
 	var rise := (CRUMPLE_KNEE - CRUMPLE_UP_AT) / CRUMPLE_RISE_RATE
-	_action_left = maxf(seconds - rise, (CRUMPLE_KNEE - CRUMPLE_START) / CRUMPLE_RATE + 0.2)
+	_action_left = maxf(seconds - rise, (CRUMPLE_KNEE - CRUMPLE_START) / CRUMPLE_RATE + 0.1)
 	_crumpled = true
 	var lean := _mq.get("lean") as HitLean
 	if lean != null and away.length_squared() > 0.0001:
@@ -2456,11 +2462,11 @@ const CRUMPLE_FROM_HERO := "warrior"
 ## Where in it the blow lands, and where he is down on his knee (seconds).
 const CRUMPLE_START := 0.12
 const CRUMPLE_KNEE := 2.02
-const CRUMPLE_RATE := 1.9
+const CRUMPLE_RATE := 2.4
 ## Getting up: the fall played back from the knee to `CRUMPLE_UP_AT` (on his
 ## feet again, reeling), at this rate; the stand takes it from there.
 const CRUMPLE_UP_AT := 1.5
-const CRUMPLE_RISE_RATE := 1.1
+const CRUMPLE_RISE_RATE := 1.4
 var _crumpled: bool = false
 
 
@@ -3089,6 +3095,8 @@ func _build_mannequin() -> bool:
 		var theirs := load(HERO_LIB % CRUMPLE_FROM_HERO) as AnimationLibrary
 		if theirs.has_animation(CRUMPLE):
 			lib.add_animation(CRUMPLE, theirs.get_animation(CRUMPLE))
+	if FALL_HEROES.has(polysplit_hero):
+		_ready_falls(lib, skel)
 	for n: StringName in lib.get_animation_list():
 		Moveset.complete(lib.get_animation(n), skel)
 	for n: StringName in player.get_animation_library_list():
@@ -3703,6 +3711,304 @@ func get_up(duration: float) -> void:
 func leave_ground() -> void:
 	if _role == Role.DOWN or _role == Role.GET_UP:
 		_end_action()
+
+
+#region Falls that follow the blow
+## Knocked down the way the blow went (the user's word, 2026-10-09: "it must
+## read that the club or the sword threw him"; Tariel first, then the rest):
+## thrown back onto his back by a blow in front, launched off his feet and
+## through the air by a very heavy one, thrown over sideways by one from a
+## side, pitched onto his face by one from behind, crushed down where he
+## stands by one from above. Each fall is played only till he lies still
+## (`settled`) and held there — the long dying of a death clip is not waited
+## out — and he gets up from the way he lies: off his back ([constant
+## GET_UPS_BACK]), or, face down, the fall played back. Where a clip carries
+## him over the ground (the hips' travel, lifted onto the root), the body is
+## carried with it ([member fall_velocity]), so the view goes with him and he
+## gets up where he lies.
+## By where the blow came from (LEFT: from his left) and how hard.
+enum Fall { BACK, FLY, LEFT, RIGHT, FORWARD, CRUSH }
+## The heroes whose falls follow the blow (the others still fall back).
+const FALL_HEROES := [&"tariel"]
+## kind -> picks taken in turn: [clip, rate, share of it where he lies still].
+## The clips are Avtandil's deaths (lent), Kevin's and UAL 2's.
+const FALLS := {
+	Fall.BACK: [[&"Hit_Knockback", 1.0, 0.6], [&"KV_CombatDeath02", 1.05, 0.5]],
+	Fall.FLY: [[&"LiftAir_Fall_Air", 1.0, 2.0]],
+	# struck from his left he is thrown over to his right ("Death_Right"), and
+	# the other way about (the clips' root goes that way)
+	Fall.LEFT: [[&"AV_Death_Right_01", 1.45, 0.66], [&"AV_Death_Right_02", 1.45, 0.8]],
+	Fall.RIGHT: [[&"AV_Death_Left_01", 1.45, 0.66], [&"AV_Death_Left_02", 1.45, 0.78]],
+	Fall.FORWARD: [[&"AV_Death_Forward_02", 1.5, 0.8], [&"KV_CombatDeath04", 1.2, 0.8]],
+	Fall.CRUSH: [[&"KV_CombatDeath01", 1.25, 0.8]],
+}
+## Launched ([constant Fall.FLY]): curled in the air till the ground comes,
+## then struck onto it.
+const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
+## A launch that never leaves the ground lands after this long anyway.
+const FALL_AIR_MOST := 0.45
+## Getting up off his back, taken in turn: [clip, share of `get_up_time`].
+const GET_UPS_BACK := [[&"LayToIdle", 1.0], [&"LayToIdle", 1.0], [&"KipUp", 0.85]]
+## ...and face down (none yet: the fall played back).
+const GET_UPS_FRONT: Array = []
+## Lent from another hero's clips: clip -> hero.
+const FALL_LENT := {
+	&"AV_Death_Left_01": "avtandil", &"AV_Death_Left_02": "avtandil",
+	&"AV_Death_Right_01": "avtandil", &"AV_Death_Right_02": "avtandil",
+	&"AV_Death_Forward_02": "avtandil",
+}
+## The falls' own copies of the clips are kept under this prefix (the hips'
+## travel lifted onto the root, [method _lift_travel]).
+const FALL_PREFIX := "F_"
+
+## What the fall moved him by this frame, as a pace over the ground (world).
+var fall_velocity: Vector3 = Vector3.ZERO
+## The fall under way ([enum Fall]), -1 none.
+var _fall_kind: int = -1
+var _fall_settle: float = 1.0
+var _fall_air: float = 0.0
+var _fall_time: float = 0.0
+var _falls_ready: bool = false
+var _falls_made: int = 0
+## The last fall and getting up, for a test: {"kind", "clip", "on_back", "up"}.
+var last_fall: Dictionary = {}
+
+
+## Whether this rig falls the way the blow went ([method fall]).
+func falls_directional() -> bool:
+	return _falls_ready
+
+
+## Knocked down: `kind` a [enum Fall]. Returns about how long till he lies
+## still (seconds), 0 if this rig has no such falls (the old fall played).
+func fall(kind: int) -> float:
+	if not _falls_ready:
+		knock_down()
+		return 0.0
+	_rouse()
+	var picks: Array = FALLS.get(kind, FALLS[Fall.BACK])
+	var pick: Array = picks[_falls_made % picks.size()]
+	_falls_made += 1
+	var clip := _fall_clip(pick[0])
+	if clip == &"":
+		knock_down()
+		return 0.0
+	_play_action(clip, Role.DOWN, float(pick[1]), 0.08 if kind == Fall.FLY else 0.06)
+	_fall_kind = kind
+	_fall_settle = float(pick[2])
+	_fall_air = 0.0
+	_fall_time = 0.0
+	last_fall = {"kind": kind, "clip": pick[0]}
+	if kind == Fall.FLY:
+		return FALL_AIR_MOST + _fall_length(FALL_IMPACT)
+	return _anim.get_animation(clip).length * _fall_settle / float(pick[1])
+
+
+func _fall_length(pick: Array) -> float:
+	var clip := _fall_clip(pick[0])
+	if clip == &"":
+		return 0.5
+	return _anim.get_animation(clip).length * float(pick[2]) / float(pick[1])
+
+
+func _fall_clip(clip: StringName) -> StringName:
+	var own := StringName(FALL_PREFIX + String(clip))
+	if _anim.has_animation(own):
+		return own
+	return clip if _anim.has_animation(clip) else &""
+
+
+## Each frame of a fall: launched, the landing waited for; else held still
+## once he lies still.
+func _fall_tick(delta: float, airborne: bool) -> void:
+	if _fall_kind < 0:
+		return
+	_fall_time += delta
+	if _fall_kind == Fall.FLY:
+		if airborne:
+			_fall_air += delta
+		if (not airborne and (_fall_air > 0.06 or _fall_time > 0.12)) or _fall_time > 1.6 \
+				or (_fall_air <= 0.0 and _fall_time > FALL_AIR_MOST):
+			var impact := _fall_clip(FALL_IMPACT[0])
+			if impact != &"":
+				_play_action(impact, Role.DOWN, float(FALL_IMPACT[1]), 0.05)
+			_fall_kind = Fall.BACK
+			_fall_settle = float(FALL_IMPACT[2])
+			landed_fall.emit()
+		return
+	if _anim.speed_scale > 0.0 and _progress() >= _fall_settle:
+		_anim.speed_scale = 0.0
+
+
+## A launch come down onto the ground ([constant Fall.FLY]).
+signal landed_fall
+
+
+## Up from where he lies. Off his back, a clip of getting up, matched to how
+## he lies (the body turned and set over so the clip's first pose lies where
+## he lies); face down, the fall played back. Returns what the body must be
+## turned by about its up axis and moved by, {"yaw", "shift"} — the
+## controller of the body does it; empty if nothing.
+func rise(duration: float) -> Dictionary:
+	if not _falls_ready or _role != Role.DOWN:
+		get_up(duration)
+		return {}
+	var on_back := _lying_on_back()
+	var picks: Array = GET_UPS_BACK if on_back else GET_UPS_FRONT
+	last_fall["on_back"] = on_back
+	if picks.is_empty():
+		_rise_backwards(duration)
+		last_fall["up"] = &""
+		return {}
+	var pick: Array = picks[_falls_made % picks.size()]
+	var clip := _fall_clip(pick[0])
+	if clip == &"":
+		_rise_backwards(duration)
+		return {}
+	var before := _lying_marks()
+	var length := _anim.get_animation(clip).length
+	_play_action(clip, Role.GET_UP, length / maxf(duration * float(pick[1]), 0.05), 0.0)
+	_anim.advance(0.0)
+	var after := _lying_marks()
+	_fall_kind = -1
+	last_fall["up"] = pick[0]
+	if before.is_empty() or after.is_empty():
+		return {}
+	var was: Vector3 = before[1] - before[0]
+	var now: Vector3 = after[1] - after[0]
+	was.y = 0.0
+	now.y = 0.0
+	if was.length_squared() < 0.0004 or now.length_squared() < 0.0004:
+		return {}
+	var yaw := atan2(now.z, now.x) - atan2(was.z, was.x)
+	yaw = -wrapf(yaw, -PI, PI)
+	var body := get_parent_node_3d()
+	while body != null and not body is CharacterBody3D:
+		body = body.get_parent_node_3d()
+	var origin := body.global_position if body != null else global_position
+	var turned: Vector3 = origin + (after[0] - origin).rotated(Vector3.UP, yaw)
+	var shift: Vector3 = before[0] - turned
+	shift.y = 0.0
+	return {"yaw": yaw, "shift": shift}
+
+
+## The fall played back from where it is held (no clip to get up with).
+func _rise_backwards(duration: float) -> void:
+	var clip: StringName = _act_clip if _act_clip != &"" and _anim.has_animation(_act_clip) else clips[&"down"]
+	if not _anim.has_animation(clip):
+		_end_action()
+		return
+	var at := _anim.current_animation_position if StringName(_anim.current_animation) == clip \
+			else _anim.get_animation(clip).length
+	_fall_kind = -1
+	_role = Role.GET_UP
+	_act_clip = clip
+	_action_len = _anim.get_animation(clip).length
+	_action_rate = at / maxf(duration, 0.05)
+	_action_left = maxf(duration, 0.05)
+	_anim.play_backwards(clip, 0.1)
+	_anim.seek(at, true)
+	_anim.speed_scale = maxf(_action_rate, 0.01)
+
+
+## Whether he lies on his back: his chest's front turned up.
+func _lying_on_back() -> bool:
+	var pelvis := _skel.find_bone("pelvis")
+	if pelvis < 0:
+		return true
+	var pose := _skel.global_transform * _skel.get_bone_global_pose(pelvis)
+	return (pose.basis * _pelvis_front).y > 0.0
+
+
+## Where his hips and his head are (world), [] if not found.
+func _lying_marks() -> Array:
+	var pelvis := _skel.find_bone("pelvis")
+	var head := _skel.find_bone("head")
+	if pelvis < 0 or head < 0:
+		return []
+	return [_skel.global_transform * _skel.get_bone_global_pose(pelvis).origin,
+			_skel.global_transform * _skel.get_bone_global_pose(head).origin]
+
+
+## The way his front faces, in the pelvis bone's own frame (from the rest).
+var _pelvis_front: Vector3 = Vector3.ZERO
+
+
+## The falls' clips made ready on the mannequin's library: those lent from
+## another hero brought in, and each copied under [constant FALL_PREFIX]
+## with the hips' travel over the ground lifted onto the root.
+func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
+	var want: Array[StringName] = []
+	for kind: int in FALLS:
+		for pick: Array in FALLS[kind]:
+			want.append(pick[0])
+	want.append(FALL_IMPACT[0])
+	for pick: Array in GET_UPS_BACK + GET_UPS_FRONT:
+		want.append(pick[0])
+	for clip: StringName in want:
+		var a: Animation = null
+		if lib.has_animation(clip):
+			a = lib.get_animation(clip)
+		elif FALL_LENT.has(clip) and ResourceLoader.exists(HERO_LIB % FALL_LENT[clip]):
+			var theirs := load(HERO_LIB % FALL_LENT[clip]) as AnimationLibrary
+			if theirs.has_animation(clip):
+				a = theirs.get_animation(clip)
+		if a == null:
+			continue
+		var own := StringName(FALL_PREFIX + String(clip))
+		if not lib.has_animation(own):
+			lib.add_animation(own, _lift_travel(a, skel))
+	# his front, in the pelvis's frame: the skeleton faces +Z in its own space
+	# (the mannequin's rest) — measured off the rest, so a lying pose can say
+	# whether that front is turned up
+	var pelvis := skel.find_bone("pelvis")
+	if pelvis >= 0:
+		var rest := skel.get_bone_global_rest(pelvis)
+		_pelvis_front = (rest.basis.inverse() * Vector3(0.0, 0.0, 1.0)).normalized()
+	_falls_ready = true
+
+
+## A copy of `a` with the hips' travel over the ground (in the root's frame,
+## its x and y: the root's rest turns its z up) taken off the hips and put on
+## the root, where it is root motion ([member fall_velocity]). A clip whose
+## root already travels is only copied.
+static func _lift_travel(a: Animation, skel: Skeleton3D) -> Animation:
+	var out := a.duplicate(true) as Animation
+	var hips := -1
+	var root_pos := -1
+	for i in out.get_track_count():
+		if out.track_get_type(i) != Animation.TYPE_POSITION_3D:
+			continue
+		var bone := String(out.track_get_path(i)).get_slice(":", 1)
+		if bone == "pelvis":
+			hips = i
+		elif bone == "root":
+			root_pos = i
+	if hips < 0:
+		return out
+	if root_pos >= 0:
+		var n := out.track_get_key_count(root_pos)
+		if n > 1 and (out.track_get_key_value(root_pos, 0) as Vector3).distance_to(
+				out.track_get_key_value(root_pos, n - 1)) > 0.05:
+			return out
+		out.remove_track(root_pos)
+		if root_pos < hips:
+			hips -= 1
+	var base := String(out.track_get_path(hips)).get_slice(":", 0)
+	var root := skel.find_bone("root")
+	if root < 0:
+		return out
+	var rest := skel.get_bone_rest(root)
+	var t := out.add_track(Animation.TYPE_POSITION_3D)
+	out.track_set_path(t, NodePath("%s:root" % base))
+	var first := out.track_get_key_value(hips, 0) as Vector3
+	for k in out.track_get_key_count(hips):
+		var v := out.track_get_key_value(hips, k) as Vector3
+		var d := Vector3(v.x - first.x, v.y - first.y, 0.0)
+		out.track_set_key_value(hips, k, Vector3(first.x, first.y, v.z))
+		out.position_track_insert_key(t, out.track_get_key_time(hips, k), rest.origin + rest.basis * d)
+	return out
+#endregion
 
 
 func is_down() -> bool:

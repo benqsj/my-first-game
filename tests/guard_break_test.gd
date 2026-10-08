@@ -5,8 +5,9 @@ extends SceneTree
 ##   only blocked;
 ## - a heavy one with little left: the blow lands whole, the stamina is gone,
 ##   he goes down on one knee (WR_Death, held), the view is thrown hard;
-## - while he is down no guard can be raised and a second blow lands too; then
-##   he gets up and can block again.
+## - while he is down no guard can be raised, and a second blow lands and
+##   throws him down off his knee (2026-10-09); then he gets up and can block
+##   again.
 ##   Godot --headless --path . --script res://tests/guard_break_test.gd
 
 var _failures := 0
@@ -64,7 +65,7 @@ func _run() -> void:
 			"%.2f s into the clip" % low_heavy["at"])
 	_check("no guard while he is down", not low_heavy["guard_up"])
 	_check("a second blow lands while he is down", low_heavy["second"], str(low_heavy["after"]))
-	_check("and he stays down", low_heavy["still_down"])
+	_check("and throws him down off his knee (the user's word, 2026-10-09)", low_heavy["thrown"])
 	_check("he gets up and can block again", low_heavy["up_again"])
 
 	Input.action_release("block")
@@ -103,7 +104,7 @@ func _blow(share: float, damage: float, follow: bool = false) -> Dictionary:
 	if not follow:
 		return got
 	# down on his knee: the clip stopped there, not fallen on
-	await _wait(80)
+	await _wait(54)
 	got["held"] = rig.crumpled()
 	got["at"] = rig._anim.current_animation_position
 	got["frozen"] = absf(rig._anim.current_animation_position - SkinnedRig.CRUMPLE_KNEE) < 0.12 \
@@ -114,7 +115,7 @@ func _blow(share: float, damage: float, follow: bool = false) -> Dictionary:
 	got["after"] = _struck.duplicate()
 	got["second"] = _struck.size() > 0 and not bool(_struck[0][1])
 	await _wait(5)
-	got["still_down"] = rig.crumpled()
-	await _wait(int(_hero.guard_crumple_time * 60.0) + 40)
+	got["thrown"] = _hero.state == Player.State.DOWNED and not rig.crumpled()
+	await _wait(270)
 	got["up_again"] = not rig.crumpled() and _hero.is_blocking
 	return got
