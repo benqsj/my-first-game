@@ -137,18 +137,17 @@ func contains(x: float, z: float) -> bool:
 ## strips are 0 but for their water; the lands round the core are [Lands]).
 static func height(x: float, z: float) -> float:
 	if current == null or not is_instance_valid(current):
-		return 0.0
+		# A level with no square of its own (the v5 world) is all [Lands].
+		return Lands.height(x, z)
 	return current.height_at(x, z)
 
 
 ## The lowest of the ground under a footprint of radius `r` round (x, z): what
 ## a trunk or a post is set down to, so no side of it floats on a slope.
 static func height_under(x: float, z: float, r: float) -> float:
-	if current == null or not is_instance_valid(current):
-		return 0.0
-	var h := current.height_at(x, z)
+	var h := height(x, z)
 	for d: Vector2 in [Vector2(r, 0), Vector2(-r, 0), Vector2(0, r), Vector2(0, -r)]:
-		h = minf(h, current.height_at(x + d.x, z + d.y))
+		h = minf(h, height(x + d.x, z + d.y))
 	return h
 
 

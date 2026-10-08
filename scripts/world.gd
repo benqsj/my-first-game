@@ -38,6 +38,10 @@ extends Node3D
 ## Whether the level raises the creatures' camps ([constant CAMPS]). The test
 ## arena ([ArenaPanel]) does not: there the creatures are called up by hand.
 @export var raise_camps: bool = true
+## Whether the old map's own places go up: the village dressed, the old
+## graveyard and the dead wood ([NecroPlaces]), the village's ground cover. The
+## v5 world ([V5Frame]) has none of them yet.
+@export var old_places: bool = true
 
 ## How near a player a creature has to be before it thinks at all, in metres.
 ## Zero leaves every one of them thinking all the time.
@@ -131,12 +135,13 @@ var _fight_music_until: float = 0.0
 
 
 func _ready() -> void:
-	_dress_village()
-	# The old graveyard and the dead wood round Arkdeva's lairs ([NecroPlaces]).
-	var necro := NecroPlaces.new()
-	necro.name = "NecroPlaces"
-	add_child(necro)
-	GroundCover.lay(get_node_or_null("Forest") as Forest, VILLAGE)
+	if old_places:
+		_dress_village()
+		# The old graveyard and the dead wood round Arkdeva's lairs ([NecroPlaces]).
+		var necro := NecroPlaces.new()
+		necro.name = "NecroPlaces"
+		add_child(necro)
+		GroundCover.lay(get_node_or_null("Forest") as Forest, VILLAGE)
 	_build_camps()
 	# What hides what (the ground, the walls), for the renderer to skip.
 	Occluders.build(self)

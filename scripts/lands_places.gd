@@ -95,7 +95,7 @@ func _ready() -> void:
 ## What the batches are made from: the map, and the code that puts it up.
 func _cache_key() -> String:
 	var parts := ""
-	for file in ["res://scripts/lands_places.gd", "res://scripts/static_batch.gd", Lands.DIR + "lands.json"]:
+	for file in ["res://scripts/lands_places.gd", "res://scripts/static_batch.gd", Lands.dir + "lands.json"]:
 		parts += FileAccess.get_md5(file)
 	return "lands_" + parts.md5_text().substr(0, 16)
 

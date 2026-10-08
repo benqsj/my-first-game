@@ -353,7 +353,7 @@ func _ready() -> void:
 	sight_range *= Aggro.SIGHT
 	lose_range *= Aggro.CHASE
 	# Stood on the ground where it was put: its hill is not flattened for it.
-	if Terrain.current != null:
+	if Terrain.current != null or Lands.current != null:
 		global_position.y = Terrain.height_under(global_position.x, global_position.z, 0.4) + 0.2
 	_home = global_position
 	_rng.randomize()

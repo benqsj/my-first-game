@@ -30,6 +30,16 @@ extends StaticBody3D
 ## for anything outside its square).
 
 const DIR := "res://assets/world/lands/"
+## Where the map's files are read from: the v4 lands by default, the v5 world's
+## own (`assets/world/v5/`, vepxis-art/map/v5/build_v5.py) in its scene. The
+## static one is the level's, for the static readers ([method _read]).
+@export_dir var data_dir: String = DIR
+## The ground's shader (the v5 world wears its own: sand in heather's place).
+@export_file("*.gdshader") var ground_shader: String = ""
+## The ground's noise where there is no [Terrain] to lend its own (v5).
+@export var mottle: Texture2D
+@export var bump: Texture2D
+static var dir: String = DIR
 const GROUND_SHADER := "res://shaders/lands_ground.gdshader"
 const WATER_SHADER := "res://shaders/lands_water.gdshader"
 
@@ -57,6 +67,8 @@ var z0: float = 0.0
 ## The core, (x0, z0, x1, z1): drawn and walked on by [Terrain] and [Marsh].
 var core := Vector4(-120.0, -455.0, 120.0, 180.0)
 var info: Dictionary = {}
+## The sea's surface where the map has one ([code]sea_level[/code] in its json).
+var sea_level: float = 0.0
 
 var _h := PackedFloat32Array()
 var _w := PackedFloat32Array()
@@ -83,6 +95,7 @@ static func water(x: float, z: float) -> float:
 
 func _enter_tree() -> void:
 	current = self
+	dir = data_dir if data_dir.ends_with("/") else data_dir + "/"
 	_load()
 
 
@@ -94,10 +107,10 @@ func _exit_tree() -> void:
 func _load() -> void:
 	if _loaded:
 		return
-	var text := FileAccess.get_file_as_string(DIR + "lands.json")
+	var text := FileAccess.get_file_as_string(dir + "lands.json")
 	var parsed: Variant = JSON.parse_string(text)
 	if not parsed is Dictionary:
-		push_error("Lands: %slands.json is missing or broken." % DIR)
+		push_error("Lands: %slands.json is missing or broken." % dir)
 		return
 	info = parsed
 	nx = int(info["nx"])
@@ -107,12 +120,13 @@ func _load() -> void:
 	var c: Dictionary = info["core"]
 	# The core's own grids end on whole metres: Terrain at z = 180, the bay at -455.
 	core = Vector4(float(c["x0"]), ceilf(float(c["z0"])), float(c["x1"]), ceilf(float(c["z1"])))
+	sea_level = float(info.get("sea_level", 0.0))
 	_h = _read("height.f32.gz", nx * nz * 4).to_float32_array()
 	_w = _read("water.f32.gz", nx * nz * 4).to_float32_array()
 	_block = _read("block.u8.gz", nx * nz)
 	_loaded = _h.size() == nx * nz and _w.size() == nx * nz and _block.size() == nx * nz
 	if not _loaded:
-		push_error("Lands: the grids in %s are not %d × %d." % [DIR, nx, nz])
+		push_error("Lands: the grids in %s are not %d × %d." % [dir, nx, nz])
 		return
 	# Worked out as soon as the grids are in, so the wood (grown before the
 	# lands are built) can keep off them.
@@ -123,7 +137,7 @@ func _load() -> void:
 ## [kind, x, z, y, scale, turn in degrees].
 func table(list: String) -> Array:
 	var out: Array = []
-	var text := FileAccess.get_file_as_string(DIR + list + ".txt")
+	var text := FileAccess.get_file_as_string(dir + list + ".txt")
 	var lines := text.split("\n", false)
 	for i in range(1, lines.size()):
 		var f := lines[i].split(",")
@@ -134,7 +148,7 @@ func table(list: String) -> Array:
 
 
 static func _read(file: String, size: int) -> PackedByteArray:
-	var raw := FileAccess.get_file_as_bytes(DIR + file)
+	var raw := FileAccess.get_file_as_bytes(dir + file)
 	if raw.is_empty():
 		return PackedByteArray()
 	return raw.decompress(size, FileAccess.COMPRESSION_GZIP)
@@ -254,7 +268,7 @@ func _texture(data: PackedByteArray, fmt: Image.Format) -> ImageTexture:
 
 func _ground_material() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
-	mat.shader = load(GROUND_SHADER) as Shader
+	mat.shader = load(ground_shader if ground_shader != "" else GROUND_SHADER) as Shader
 	mat.set_shader_parameter("height_tex", _texture(_h.to_byte_array(), Image.FORMAT_RF))
 	for key: String in ["splat_a", "splat_b", "splat_c"]:
 		mat.set_shader_parameter(key, _texture(_read(key + ".rgba8.gz", nx * nz * 4), Image.FORMAT_RGBA8))
@@ -273,6 +287,11 @@ func _ground_material() -> ShaderMaterial:
 				var v: Variant = house.get_shader_parameter(key)
 				if v != null:
 					mat.set_shader_parameter(key, v)
+	if mat.get_shader_parameter("mottle") == null and mottle != null:
+		mat.set_shader_parameter("mottle", mottle)
+	if mat.get_shader_parameter("bump") == null and bump != null:
+		mat.set_shader_parameter("bump", bump)
+	mat.set_shader_parameter("sea_level", sea_level)
 	return mat
 
 
@@ -536,8 +555,11 @@ func _build_floor() -> void:
 			for ix in w:
 				var k := row + ix
 				var h := _h[k]
-				if _block[k] != 0:
+				if _block[k] == 1:
 					h = maxf(h, _w[k] + barrier_rise)
+				elif _block[k] == 2:
+					# the sea, deeper than a wade (v5: its surface is a plane, not in `water`)
+					h = maxf(h, sea_level + barrier_rise)
 				data[iz * w + ix] = h
 		var shape := HeightMapShape3D.new()
 		shape.map_width = w
@@ -673,8 +695,8 @@ func _lowest_near(verts: PackedVector3Array, idx: PackedInt32Array, i: int) -> f
 ## grass and flowers, a little under the trees), drawn, swayed and trodden down
 ## by a [GrassField] of their own.
 func _build_grass() -> void:
-	var raw := FileAccess.get_file_as_bytes(DIR + "grass.f32.gz")
-	var tints_raw := FileAccess.get_file_as_bytes(DIR + "grass_tint.rgba8.gz")
+	var raw := FileAccess.get_file_as_bytes(dir + "grass.f32.gz")
+	var tints_raw := FileAccess.get_file_as_bytes(dir + "grass_tint.rgba8.gz")
 	if raw.is_empty() or tints_raw.is_empty():
 		return
 	var clumps := raw.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP).to_float32_array()
@@ -694,6 +716,16 @@ func _build_grass() -> void:
 #region Edge
 func _build_edge() -> void:
 	var r := rim()
+	_build_walls(r)
+	_build_beyond(r)
+
+
+## Walls round the rim, or round the map's `play` rectangle where it gives one
+## (v5: the land runs on under the mountains and the sea past the walls).
+func _build_walls(r: Vector4) -> void:
+	var play: Dictionary = info.get("play", {})
+	if not play.is_empty():
+		r = Vector4(float(play["x0"]), float(play["z0"]), float(play["x1"]), float(play["z1"]))
 	var mid := Vector2((r.x + r.z) * 0.5, (r.y + r.w) * 0.5)
 	var size := Vector2(r.z - r.x, r.w - r.y)
 	# Walls round the rim, high enough that nothing is thrown over them.
@@ -716,7 +748,6 @@ func _build_edge() -> void:
 		cs.position = walls[i][0]
 		body.add_child(cs)
 	add_child(body)
-	_build_beyond(r)
 
 
 ## Land past the rim: from the rim's own heights out and down, under the
@@ -760,6 +791,12 @@ func _build_beyond(r: Vector4) -> void:
 			var at: Vector3 = p + push.normalized() * float(outs[k])
 			var n := noise.get_noise_2d(at.x, at.z)
 			var y := p.y
+			if p.y < sea_level - 0.5:
+				# under the sea: it goes on down, it does not rise into islands
+				at.y = p.y - 2.0 * k
+				verts.append(at)
+				cols.append(Color(0.30, 0.30, 0.24))
+				continue
 			match k:
 				1:
 					y = p.y * 0.85 + 4.0 + n * 10.0
