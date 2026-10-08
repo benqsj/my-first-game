@@ -161,10 +161,16 @@ func profile_of(id: StringName) -> CharacterProfile:
 	if found != null:
 		return found
 	var path: String = CHARACTERS[id]
-	# Already on its way in from [method _start_loading_profiles]: wait for that
-	# rather than start a second load of the same thing.
-	if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-		found = ResourceLoader.load_threaded_get(path) as CharacterProfile
+	# Whatever is on its way in now is waited for first, ours or not: a second
+	# load of the rig it shares with ours, side by side with it, is the hang
+	# [method _start_loading_profiles] is about.
+	if _loading != &"":
+		var was := _loading
+		var got := ResourceLoader.load_threaded_get(CHARACTERS[was]) as CharacterProfile
+		_loading = &""
+		if got != null and not _profiles.has(was):
+			_profiles[was] = got
+		found = _profiles.get(id) as CharacterProfile
 	if found == null:
 		found = load(path) as CharacterProfile
 	if found != null:
@@ -172,11 +178,51 @@ func profile_of(id: StringName) -> CharacterProfile:
 	return found
 
 
-## Starts every profile loading in the background, so that by the time the
+## Whether every hero's profile is in (the level waits for that: see
+## [SceneLoader]).
+func profiles_ready() -> bool:
+	return _loading == &"" and _queue.is_empty()
+
+
+## The profiles still to come in the background, and the one coming now.
+var _queue: Array[StringName] = []
+var _loading: StringName = &""
+
+
+## Starts the profiles loading in the background, so that by the time the
 ## player has got as far as choosing a hero they are mostly in already.
+##
+## One at a time, on one worker, without sub-threads: four of the heroes share
+## Tariel's rig (`tariel_rigged.glb`), and ten requests at once, each with its
+## own sub-threads, had several threads loading that one file together ("Another
+## resource is loaded from path ... possible cyclic resource inclusion") and could
+## leave the loader waiting on itself for good — the main thread stuck in a
+## `load()` of a profile that never finished, the game hung on its loading
+## screen (the user's word, the v5 world, 2026-10-08).
 func _start_loading_profiles() -> void:
+	_queue.clear()
 	for id: StringName in CHARACTERS:
-		ResourceLoader.load_threaded_request(CHARACTERS[id], "", true)
+		_queue.append(id)
+	set_process(true)
+
+
+func _process(_delta: float) -> void:
+	if _loading != &"":
+		var path: String = CHARACTERS[_loading]
+		if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			return
+		var got := ResourceLoader.load_threaded_get(path) as CharacterProfile
+		if got != null and not _profiles.has(_loading):
+			_profiles[_loading] = got
+		_loading = &""
+	while not _queue.is_empty():
+		var id: StringName = _queue.pop_front()
+		if _profiles.has(id):
+			continue
+		if ResourceLoader.load_threaded_request(CHARACTERS[id], "", false) == OK:
+			_loading = id
+			return
+	set_process(false)
 
 
 ## Picks a character. Takes effect the next time a level is loaded, which is

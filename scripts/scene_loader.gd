@@ -79,6 +79,13 @@ func _process(_delta: float) -> void:
 			_shown += 1
 			if _shown < 2:
 				return
+			# Not while the heroes' profiles are still coming in on their worker
+			# ([method Game.profiles_ready]): two loads of the same rig at once
+			# is how the loader hung.
+			var game := get_node_or_null(^"/root/Game")
+			if game != null and game.has_method(&"profiles_ready") and not game.call(&"profiles_ready") \
+					and _shown < 60 * 30:
+				return
 			get_tree().unload_current_scene.call_deferred()
 			if ResourceLoader.load_threaded_request(_path, "", true) != OK:
 				push_error("SceneLoader: cannot load '%s'." % _path)

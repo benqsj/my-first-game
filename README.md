@@ -9524,3 +9524,18 @@ The walled town round the palace's hill at (−150, 0), [V5Town]
   length, a gatehouse's two blocks and the room over the passage), props by
   their mesh's box. A capsule probe finds the four ways in from the gates to
   the square and all round the ring street clear.
+
+## The hang on the way into a level (2026-10-08, the user's word)
+
+Choosing NEW WORLD (V5) could leave the game on its loading screen for good.
+The heroes' profiles were all requested at start, ten threaded loads at once
+each with sub-threads; four heroes share Tariel's rig, so several threads loaded
+`tariel_rigged.glb` together ("Another resource is loaded from path … possible
+cyclic resource inclusion") and the loader could end up waiting on itself — a
+sample of the hung process showed the main thread asleep in a load and a worker
+waiting on a condition for ever. Now [Game] loads the profiles one at a time on
+one worker without sub-threads (`_queue`, `_process`), `profile_of()` waits for
+the one under way before loading another itself, `World._profile()` asks Game
+rather than `load()`, and [SceneLoader] starts the level only once
+`Game.profiles_ready()` (or after 30 s). From the menu straight away: v5 in
+8–10 s, after a few seconds there 4.5 s.

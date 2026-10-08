@@ -496,7 +496,9 @@ func _profile(id: StringName) -> CharacterProfile:
 	var paths: Dictionary = game.get("CHARACTERS")
 	if not paths.has(id):
 		return null
-	return load(String(paths[id])) as CharacterProfile
+	# the one Game keeps (it may be on its way in on a worker: a plain load()
+	# of the same path then waits on that load from here)
+	return game.call(&"profile_of", id) as CharacterProfile
 
 
 #region Where they stand
