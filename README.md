@@ -9481,3 +9481,46 @@ the default. +x is west, +z north.
   village, graveyard and ground cover out.
 - Tree packs looked at for the coming stages: `vepxis-art/map/v5/trees/`
   (contact sheets, `trees_survey.md`).
+
+## The v5 world, stage 2: the town (2026-10-08, the user's word)
+
+The walled town round the palace's hill at (−150, 0), [V5Town]
+(`scripts/v5_town.gd`), in `world_v5.tscn`.
+
+- **Models**: `assets/town/town_kit.glb` (+ `town_kit.json`: each model's
+  size, collision boxes, doors), built in Blender by
+  `vepxis-art/map/v5/town.py` from Quaternius' Medieval Village MegaKit and a
+  few Fantasy Props MegaKit pieces (both CC0), with the village's builder
+  (`village/houses/village.py`): the village's houses, the marani and the
+  smithy, five three-storey town houses; the town wall (an 8 m length two
+  storeys high and 2 m through with a walk behind merlons, a square tower,
+  the gatehouse with a 4 m passage and a room over it); the palace (an
+  eight-sided round tower under the kit's conical roof, a 4 m length of the
+  inner wall, the inner gate, the keep and its tower); market stalls,
+  barrels, crates, benches. The kit's heaviest pieces are decimated in the
+  library (the rock-trim corners were most of a house: 30k → ~15k triangles a
+  house); textures 1024 WebP.
+- **Plan**: `assets/world/v5/town.json`, from
+  `vepxis-art/map/v5/town_layout.py` (seeded): a 16-sided wall (r ≈ 128,
+  towers on the corners, gatehouses on the four cardinal roads), ~180 houses
+  in four rings each facing its street (round the square at 79 m, both sides
+  of the ring street at 98 m (8 m wide), along the lane under the wall), the
+  marani beside the north-east market, the smithy inside the east gate; two
+  markets (north-east and south-west, as the concept has them) straddling the
+  ring street; the palace: eight round towers and their wall at 36 m on the
+  hilltop, the inner gate to the west, the keep facing it across the court
+  with its fountain, the keep's tower behind, two wings; cypresses round the
+  gardens on the hill's slope; the bonfire on the square, the spawn by it
+  looking at the palace gate.
+- **Ground**: `build_v5.py` reads town.json and paves the streets, the square,
+  the markets and the court (gravel), wears the ground between the houses
+  (dirt, litter) and keeps the gardens green with flowers.
+- **Drawing**: a MultiMesh per model and per eighth of the town (palace,
+  props apart): ~120 groups; props drawn to 160 m and without shadows. At the
+  spawn on the M1: ~59 fps, ~1050 draws, ~2 M primitives (windowed probe).
+  The town's walls and houses are occluders ([Occluders] reads
+  `V5Town.occluder_boxes`).
+- **Colliding**: the kit's boxes in one body (one round a house, each wall
+  length, a gatehouse's two blocks and the room over the passage), props by
+  their mesh's box. A capsule probe finds the four ways in from the gates to
+  the square and all round the ring street clear.

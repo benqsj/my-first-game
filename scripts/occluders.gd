@@ -113,6 +113,12 @@ static func _boxes(world: Node3D, holder: Node3D) -> int:
 		for entry: Array in places.occluder_boxes:
 			_add_box(verts, idx, places.global_transform * (entry[0] as Transform3D), entry[1] as Vector3)
 			count += 1
+	# the v5 town's walls and houses ([V5Town])
+	var town := world.get_node_or_null("V5Town")
+	if town != null:
+		for entry: Array in town.get("occluder_boxes"):
+			_add_box(verts, idx, entry[0] as Transform3D, entry[1] as Vector3)
+			count += 1
 	for node in world.find_children("*", "Building", true, false):
 		var building := node as Node3D
 		var outline := AABB()
