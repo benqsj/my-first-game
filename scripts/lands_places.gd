@@ -73,18 +73,31 @@ func _ready() -> void:
 	_bodies = Node3D.new()
 	_bodies.name = "Solid"
 	add_child(_bodies)
-	_build_crossings()
-	_build_settlements()
-	_build_camps()
-	_build_gates()
-	_build_landmarks()
-	_build_city()
+	# What each stage took, in ms: the load is long, and this is most of it.
+	var took := {}
+	var t := Time.get_ticks_usec()
+	for stage: Callable in [_build_crossings, _build_settlements, _build_camps, _build_gates,
+			_build_landmarks, _build_city]:
+		stage.call()
+		var now := Time.get_ticks_usec()
+		took[stage.get_method()] = roundi((now - t) / 1000.0)
+		t = now
 	# Thousands of boxes and props, each its own draw call: drawn as a few
 	# hundred batches instead, each only as far as its size is worth.
-	var batched := StaticBatch.merge(self)
+	var batched := StaticBatch.merge(self, _cache_key())
 	StaticBatch.range_rest(self)
+	took["batch"] = roundi((Time.get_ticks_usec() - t) / 1000.0)
 	counts["batched"] = batched
+	counts["ms"] = took
 	print("LandsPlaces: %s, in %.1f ms" % [counts, (Time.get_ticks_usec() - started) / 1000.0])
+
+
+## What the batches are made from: the map, and the code that puts it up.
+func _cache_key() -> String:
+	var parts := ""
+	for file in ["res://scripts/lands_places.gd", "res://scripts/static_batch.gd", Lands.DIR + "lands.json"]:
+		parts += FileAccess.get_md5(file)
+	return "lands_" + parts.md5_text().substr(0, 16)
 
 
 #region Helpers

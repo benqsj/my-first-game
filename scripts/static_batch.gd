@@ -44,10 +44,103 @@ static var last_counts: Dictionary = {}
 const CELL := [32.0, 64.0, 96.0]
 
 
+## Bumped whenever what a merge makes changes, so old caches are not read.
+const CACHE_VERSION := 1
+
+
 ## Copies the plain meshes straight under `holder` into batches on squares
 ## [constant CELL] metres on a side, and frees them. Returns
 ## {"pieces": n, "batches": m}.
-static func merge(holder: Node3D) -> Dictionary:
+##
+## **Cached.** Building the batches is most of a level's load (5.5 s of the
+## lands' places on the M1: every piece's arrays are read back from the
+## renderer, twice). With a `cache_key` — anything that changes when what is
+## put up changes — the batches are kept in `user://batch_cache/` the first
+## time and read from there after (a fraction of a second); the pieces are
+## still picked out the same way and freed. `-- no_batch_cache` builds afresh.
+static func merge(holder: Node3D, cache_key: String = "") -> Dictionary:
+	var path := ""
+	if cache_key != "" and not "no_batch_cache" in OS.get_cmdline_user_args():
+		path = "user://batch_cache/%s_v%d.scn" % [cache_key, CACHE_VERSION]
+		if ResourceLoader.exists(path):
+			var cached := _from_cache(holder, path)
+			if not cached.is_empty():
+				return cached
+	var built := _merge(holder)
+	if path != "":
+		_to_cache(holder, path)
+	return built
+
+
+## The pieces a merge takes: plain meshes straight under the holder.
+static func _takes(mi: MeshInstance3D) -> bool:
+	if mi == null or mi.get_child_count() > 0 or mi.get_script() != null \
+			or not mi.visible or mi.mesh == null or mi.is_in_group(&"unbatched") \
+			or mi.skeleton != NodePath("") and mi.skin != null:
+		return false
+	var mesh := mi.mesh
+	for s in mesh.get_surface_count():
+		var mat: Material = mi.material_override
+		if mat == null:
+			mat = mi.get_surface_override_material(s)
+		if mat == null:
+			mat = mesh.surface_get_material(s)
+		var base := mat as BaseMaterial3D
+		if base != null and (base.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED \
+				or base.blend_mode != BaseMaterial3D.BLEND_MODE_MIX):
+			return false
+		if mat != null and not (mat is BaseMaterial3D) and not (mat is ShaderMaterial):
+			return false
+		if mesh is ArrayMesh and (mesh as ArrayMesh).surface_get_primitive_type(s) \
+				!= Mesh.PRIMITIVE_TRIANGLES:
+			return false
+	return true
+
+
+static func _from_cache(holder: Node3D, path: String) -> Dictionary:
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return {}
+	var root := scene.instantiate()
+	var taken: Array[Node] = []
+	for child in holder.get_children():
+		if _takes(child as MeshInstance3D):
+			taken.append(child)
+	if int(root.get_meta(&"pieces", -1)) != taken.size():
+		# not what was cached (something changed that the key missed): build
+		root.free()
+		return {}
+	for node in taken:
+		holder.remove_child(node)
+		node.free()
+	var made := 0
+	for batch in root.get_children():
+		root.remove_child(batch)
+		batch.owner = null
+		holder.add_child(batch)
+		made += 1
+	root.free()
+	last_counts = {"pieces": taken.size(), "batches": made, "cached": true}
+	return last_counts
+
+
+static func _to_cache(holder: Node3D, path: String) -> void:
+	var root := Node3D.new()
+	root.set_meta(&"pieces", int(last_counts.get("pieces", 0)))
+	for child in holder.get_children():
+		if not String(child.name).begins_with("Batch_"):
+			continue
+		var copy := child.duplicate()
+		root.add_child(copy)
+		copy.owner = root
+	var packed := PackedScene.new()
+	if packed.pack(root) == OK:
+		DirAccess.make_dir_recursive_absolute("user://batch_cache")
+		ResourceSaver.save(packed, path, ResourceSaver.FLAG_COMPRESS)
+	root.free()
+
+
+static func _merge(holder: Node3D) -> Dictionary:
 	var groups: Dictionary = {}
 	var taken: Array[Node] = []
 	for child in holder.get_children():
