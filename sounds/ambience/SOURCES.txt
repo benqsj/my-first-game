@@ -1,4 +1,3 @@
-graveyard_loop.ogg  <- 344 Audio, Ghostly Presences Vol. 1, "Evil Spell Ambience" (60 s from 0:40, looped)
 forest_birds_loop.ogg <- 344 Audio, East Coast America Vol. 1, "Forest Crickets, Birds, Connecticut 02" (46 s, looped)
 From the Sonniss GDC 2026 Game Audio Bundle (part 1 of 5): royalty free, commercial use, no attribution needed;
 the raw files may not be redistributed on their own. License PDF: vepxis-art (Sonniss zip).

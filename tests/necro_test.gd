@@ -8,7 +8,7 @@ extends SceneTree
 ## floors on the ground, that its walls stop a body and its gate lets one in,
 ## that the grass keeps off it, that the skeletons hold it, that the wood
 ## round each lair has gone over to dead trees (and not beyond its reach), and
-## that F9 flips the kit's colours and back.
+## that the kit is in our colours and its tombs collide as boxes.
 
 const WORLD := "res://scenes/world/greybox_world.tscn"
 
@@ -63,9 +63,9 @@ func _initialize() -> void:
 	# Down onto the yard where the skeletons stand: the floor is the ground's,
 	# not the kit's plinth (2.5 m up before it was sunk).
 	var down := space.intersect_ray(PhysicsRayQueryParameters3D.create(
-			Vector3(90.0, 6.0, -158.0), Vector3(90.0, -3.0, -158.0)))
+			Vector3(93.0, 6.0, -153.0), Vector3(93.0, -3.0, -153.0)))
 	_check("the yard's floor is at the ground", not down.is_empty()
-			and absf((down["position"] as Vector3).y - Terrain.height(90.0, -158.0)) < 0.3,
+			and absf((down["position"] as Vector3).y - Terrain.height(93.0, -153.0)) < 0.3,
 			str(down.get("position", "")))
 
 	# --- the dead wood -------------------------------------------------------
@@ -100,19 +100,10 @@ func _initialize() -> void:
 		_check("no living tree in a lair's core", living_near == 0, "%d" % living_near)
 		_check("the wood beyond its reach is alive", living_far > 20, "%d" % living_far)
 
-	# --- F9 ------------------------------------------------------------------
-	_check("it starts in the kit's colours", not np.ours
-			and float(np.material.get_shader_parameter(&"ours")) == 0.0)
-	var key := InputEventKey.new()
-	key.keycode = KEY_F9
-	key.pressed = true
-	np._unhandled_key_input(key)
-	_check("F9 puts ours on", np.ours and float(np.material.get_shader_parameter(&"ours")) == 1.0)
-	np._unhandled_key_input(key)
-	_check("and F9 again the kit's", not np.ours)
-	key.shift_pressed = true
-	np._unhandled_key_input(key)
-	_check("shift+F9 is Tariel's colours, not this", not np.ours)
+	# --- our colours --------------------------------------------------------
+	_check("the kit is in our colours", float(np.material.get_shader_parameter(&"ours")) == 1.0)
+	_check("its tombs collide as boxes, filed by patch", yard != null
+			and yard.find_children("Tombs_*", "StaticBody3D", false, false).size() >= 4)
 	_finish()
 
 

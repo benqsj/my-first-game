@@ -90,9 +90,10 @@ const CAMPS: Array[Array] = [
 	# The skeletons that keep the old graveyard west of the mist village
 	# ([NecroPlaces]): three with swords and shields and their mage in the
 	# walled yard, two archers just inside its gate.
-	[&"skeleton_warrior", Vector2(90.0, -158.0), 3],
-	[&"skeleton_mage", Vector2(90.0, -158.0), 1],
-	[&"skeleton_archer", Vector2(74.0, -158.0), 2],
+	# (on open paving: the yard's middle holds a monument)
+	[&"skeleton_warrior", Vector2(93.0, -153.0), 3],
+	[&"skeleton_mage", Vector2(93.0, -153.0), 1],
+	[&"skeleton_archer", Vector2(76.0, -155.0), 2],
 ]
 const CAMP_SCENES := {
 	&"imp": "res://scenes/enemies/imp.tscn",

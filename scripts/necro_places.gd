@@ -18,12 +18,12 @@ extends Node3D
 ##   on the ground. The trees are swapped where they stand: the wood's own trunk
 ##   keeps colliding, its drawn copy is put out (scaled to nothing in its
 ##   MultiMesh) and a dead tree is drawn in its place.
-## * **F9** flips the kit's colours between ours (drained a little, darker,
-##   warmer, moss on what faces the sky: `shaders/necro.gdshader`) and the
-##   kit's own palette, and says which at the top of the screen. The level
-##   starts in the kit's own (`ours_at_start`).
-## * **Sound** (`sounds/ambience/`, from the Sonniss GDC bundle): a low evil
-##   hum over the graveyard and each lair, and birds in the living wood.
+## * **Our colours**, not the kit's: its palette drained a little, darker and
+##   warmer, moss on what faces the sky (`shaders/necro.gdshader`). (For one
+##   night F9 flipped between the two; the user kept ours.)
+## * **Sound** (`sounds/ambience/`, from the Sonniss GDC bundle): birds in the
+##   living wood. (The evil hum over the graveyard and the lairs is gone: the
+##   user found it too real, like wind.)
 ##
 ## Nothing here is networked: every peer builds the same from these tables.
 
@@ -116,25 +116,26 @@ const DEAD_FLOOR: Array[Array] = [
 const PROPS_PATH := "res://assets/necropoly/necro_props.glb"
 const CHUNK_PATH := "res://assets/necropoly/necropoly_chunk_%s.glb"
 const PALETTE := "res://assets/necropoly/necro_palette.png"
-const SOUND := "res://sounds/ambience/graveyard_loop.ogg"
 ## And the living wood's birds, so the dead wood is heard going quiet.
 const BIRDS := "res://sounds/ambience/forest_birds_loop.ogg"
 const BIRDS_AT: Array[Vector3] = [Vector3(-72.0, 3.0, 40.0), Vector3(-66.0, 3.0, -50.0)]
 
-## Whether the level starts in our colours (true) or the kit's own.
-@export var ours_at_start: bool = false
 @export var build_graveyard: bool = true
 @export var build_dead_wood: bool = true
 
-var ours: bool = false
 var material: ShaderMaterial
 var glow: StandardMaterial3D
 ## Model name -> mesh, out of the props glb.
 var _meshes: Dictionary = {}
 ## How many of the wood's trees were swapped for dead ones.
 var swapped: int = 0
-var _label: Label
-var _label_left: float = 0.0
+## The one that is up, for the warm-up ([PipelineWarmup]) to draw from.
+static var current: NecroPlaces
+## Collision boxes per chunk, worked out offline (`necro_boxes.json`).
+const BOXES_PATH := "res://assets/necropoly/necro_boxes.json"
+## Side of the patches the graveyard's boxes are filed into, one body each:
+## a query looks only at the boxes of the patch it is in.
+const BODY_CELL := 16.0
 
 
 ## Whether the grass ([Meadows]) should keep off this point: the graveyard's
@@ -147,29 +148,41 @@ static func blocks(at: Vector2) -> bool:
 
 
 func _ready() -> void:
+	var started := Time.get_ticks_usec()
 	name = "NecroPlaces"
 	material = ShaderMaterial.new()
 	material.shader = load("res://shaders/necro.gdshader")
 	material.set_shader_parameter(&"palette", load(PALETTE))
+	material.set_shader_parameter(&"ours", 1.0)
 	glow = StandardMaterial3D.new()
 	glow.albedo_color = Color(1.0, 0.62, 0.25)
 	glow.emission_enabled = true
 	glow.emission = Color(1.0, 0.55, 0.2)
 	glow.emission_energy_multiplier = 3.0
 	_load_props()
+	if "no_necro" in OS.get_cmdline_user_args():
+		# for measuring what the places cost
+		build_graveyard = false
+		build_dead_wood = false
 	if build_graveyard:
 		_build_graveyard()
 	if build_dead_wood:
 		_build_dead_wood()
 	for at in BIRDS_AT:
 		add_child(_sound(at, -12.0, 16.0, 80.0, BIRDS))
-	set_ours(ours_at_start)
-	set_process(false)
+	current = self
+	# The warm-up is up before this (it is in the scene, this is added by the
+	# world's _ready): hand it the kit's things now.
+	var warmup := get_parent().get_node_or_null("PipelineWarmup")
+	if warmup != null and warmup.get("_props") is Node3D:
+		warm(warmup.get("_props"))
+	print("NecroPlaces: graveyard %s, %d trees gone dead, in %.1f ms" % [
+			build_graveyard, swapped, (Time.get_ticks_usec() - started) / 1000.0])
 
 
-func set_ours(on: bool) -> void:
-	ours = on
-	material.set_shader_parameter(&"ours", 1.0 if on else 0.0)
+func _exit_tree() -> void:
+	if current == self:
+		current = null
 
 
 #region Meshes
@@ -223,6 +236,11 @@ func _build_graveyard() -> void:
 	var body := StaticBody3D.new()
 	body.name = "GraveyardBody"
 	yard.add_child(body)
+	var boxes: Dictionary = {}
+	var file := FileAccess.open(BOXES_PATH, FileAccess.READ)
+	if file != null:
+		boxes = (JSON.parse_string(file.get_as_text()) as Dictionary).get("chunks", {})
+	var cells: Dictionary = {}
 	for piece: Array in GRAVEYARD:
 		var scene := load(CHUNK_PATH % piece[0]) as PackedScene
 		if scene == null:
@@ -238,7 +256,7 @@ func _build_graveyard() -> void:
 			mi.mesh = _dressed(mi.mesh)
 			mi.lod_bias = 0.6
 			mi.visibility_range_end = 220.0
-			_collide(body, mi)
+		_boxes(yard, cells, chunk.transform, float(piece[3]), boxes.get(piece[0], []))
 	for w in YARD_WALL:
 		var a := Vector2(w.x, w.y)
 		var b := Vector2(w.z, w.w)
@@ -274,43 +292,36 @@ func _build_graveyard() -> void:
 			yard.add_child(lamp)
 	add_child(_mist(GRAVE_MIDDLE + Vector3(0, _ground(GRAVE_MIDDLE.x, GRAVE_MIDDLE.z), 0), Vector3(30, 1, 34),
 			Color(0.62, 0.66, 0.64, 0.10), 26))
-	add_child(_sound(GRAVE_MIDDLE + Vector3(0, 1.5, 0), -6.0, 14.0, 75.0))
 
 
 ## Walls, tombs and posts collide; floors, grass and the small things on them
-## do not (the ground under them is the terrain's): every triangle big enough
-## to matter that stands up out of the floor.
-func _collide(body: StaticBody3D, mi: MeshInstance3D) -> void:
-	if mi.mesh == null:
-		return
-	var faces := mi.mesh.get_faces()
-	var xf := mi.global_transform if mi.is_inside_tree() else mi.transform
-	var base := Terrain.height(xf.origin.x, xf.origin.z)
-	var keep := PackedVector3Array()
-	for t in range(0, faces.size(), 3):
-		var a := xf * faces[t]
-		var b := xf * faces[t + 1]
-		var c := xf * faces[t + 2]
-		var top := maxf(a.y, maxf(b.y, c.y))
-		if top < base + 0.45:
+## do not (the ground under them is the terrain's). Not the kit's mesh itself:
+## as one concave shape it cost the physics 14 ms a tick with the skeletons
+## walking in it. Instead boxes, worked out offline from the mesh
+## (`vepxis-art/necropoly/boxes.py`: what rises 0.45 m over the floor,
+## rasterised on a half-metre grid and merged), each [x, z, size x, size z,
+## height] in the chunk's frame, filed by patch onto bodies of their own.
+func _boxes(yard: Node3D, cells: Dictionary, xf: Transform3D, sink: float, list: Array) -> void:
+	var turn := Basis(xf.basis.get_rotation_quaternion())
+	for entry: Array in list:
+		var h := float(entry[4])
+		var local := Vector3(float(entry[0]), sink + h * 0.5, float(entry[1]))
+		var at := xf.origin + turn * local
+		if at.x > GATE_CLEAR.x and at.x < GATE_CLEAR.z and at.z > GATE_CLEAR.y and at.z < GATE_CLEAR.w:
 			continue
-		var mid := (a + b + c) / 3.0
-		if mid.x > GATE_CLEAR.x and mid.x < GATE_CLEAR.z and mid.z > GATE_CLEAR.y and mid.z < GATE_CLEAR.w \
-				and mid.y < base + 3.0:
-			continue
-		var n := (b - a).cross(c - a)
-		if n.length() < 0.06:
-			continue
-		keep.append(a)
-		keep.append(b)
-		keep.append(c)
-	if keep.is_empty():
-		return
-	var shape := ConcavePolygonShape3D.new()
-	shape.set_faces(keep)
-	var col := CollisionShape3D.new()
-	col.shape = shape
-	body.add_child(col)
+		var key := Vector2i(floori(at.x / BODY_CELL), floori(at.z / BODY_CELL))
+		var body: StaticBody3D = cells.get(key)
+		if body == null:
+			body = StaticBody3D.new()
+			body.name = "Tombs_%d_%d" % [key.x, key.y]
+			yard.add_child(body)
+			cells[key] = body
+		var box := BoxShape3D.new()
+		box.size = Vector3(float(entry[2]), h, float(entry[3]))
+		var col := CollisionShape3D.new()
+		col.shape = box
+		col.transform = Transform3D(turn, at)
+		body.add_child(col)
 
 
 func _trunk(body: StaticBody3D, at: Vector3, radius: float) -> void:
@@ -360,7 +371,6 @@ func _build_dead_wood() -> void:
 		var y := _ground(lair.x, lair.y)
 		wood.add_child(_mist(Vector3(lair.x, y, lair.y), Vector3(DEAD_REACH * 1.4, 1, DEAD_REACH * 1.4),
 				Color(0.5, 0.56, 0.5, 0.12), 30))
-		wood.add_child(_sound(Vector3(lair.x, y + 1.5, lair.y), -9.0, 12.0, 60.0))
 
 
 func _is_group(group_name: String, prefixes: PackedStringArray) -> bool:
@@ -504,7 +514,7 @@ static func _soft() -> Texture2D:
 	return t
 
 
-func _sound(at: Vector3, volume_db: float, unit: float, reach: float, path: String = SOUND) -> AudioStreamPlayer3D:
+func _sound(at: Vector3, volume_db: float, unit: float, reach: float, path: String) -> AudioStreamPlayer3D:
 	var s := AudioStreamPlayer3D.new()
 	s.name = "Air"
 	var stream := load(path) as AudioStreamOggVorbis
@@ -522,41 +532,33 @@ func _sound(at: Vector3, volume_db: float, unit: float, reach: float, path: Stri
 #endregion
 
 
-#region F9
-func _unhandled_key_input(event: InputEvent) -> void:
-	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo or key.keycode != KEY_F9 or key.shift_pressed:
+#region Warm-up
+## Things of the kit drawn once before play ([PipelineWarmup]): a dead tree
+## as a mesh and in a MultiMesh, a lamp's glow and the mist, so their first
+## sight does not stall the frame (a 1.8 s hitch on reaching a lair).
+static func warm(holder: Node3D) -> void:
+	var me := current
+	if me == null:
 		return
-	set_ours(not ours)
-	_say()
-
-
-func _say() -> void:
-	if _label == null:
-		var layer := CanvasLayer.new()
-		layer.layer = 50
-		add_child(layer)
-		_label = Label.new()
-		_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-		_label.position.y = 60.0
-		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_label.add_theme_font_size_override("font_size", 22)
-		_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		_label.add_theme_constant_override("outline_size", 6)
-		layer.add_child(_label)
-	_label.text = "NecroPOLY: ჩვენი ფერები (F9)" if ours else "NecroPOLY: პაკეტის ფერები (F9)"
-	_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_label.visible = true
-	_label_left = 2.5
-	set_process(true)
-
-
-func _process(delta: float) -> void:
-	if _label == null or not _label.visible:
-		set_process(false)
-		return
-	_label_left -= delta
-	if _label_left <= 0.0:
-		_label.visible = false
-		set_process(false)
+	var tree: Mesh = me._meshes.get("EA03_Environment_Nature_Tree_1b")
+	var lamp: Mesh = me._meshes.get("EA_Exterior_Lantern_Solid_01a")
+	for mesh: Mesh in [tree, lamp]:
+		if mesh == null:
+			continue
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.scale = Vector3.ONE * 0.02
+		holder.add_child(mi)
+	if tree != null:
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.mesh = tree
+		multi.instance_count = 1
+		multi.set_instance_transform(0, Transform3D(Basis().scaled(Vector3.ONE * 0.02), Vector3.ZERO))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = multi
+		holder.add_child(mmi)
+	var mist := me._mist(Vector3.ZERO, Vector3.ONE, Color(1, 1, 1, 0.1), 2)
+	mist.position = Vector3(0.0, 0.0, -1.0)
+	holder.add_child(mist)
 #endregion

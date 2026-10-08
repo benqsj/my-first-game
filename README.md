@@ -4425,7 +4425,7 @@ wood as a flat grey crescent. `strands` draws more than one line side by side.
 * The orc's axe keeps its own grey arc.
 
 
-## Tariel's colours: Shift+F9 (F9 until 2026-10-08)
+## Tariel's colours: F9
 
 Tariel's colours are a wardrobe in `SkinnedRig.TARIEL_WARDROBE`, not baked into
 the model: each dress is a set of colours for the model's materials (by their
@@ -4433,7 +4433,7 @@ names from Blender, `t6_crimson`, `t6_tiger`, `t6_gold`, … in Blender's linear
 values) and for his cloth cape. `_put_on_dress()` gives each named surface a
 copy of its material in the new colour (`set_surface_override_material`) and
 recolours the cape (`ClothCape.recolour`) — the same meshes and the same number
-of materials, so a dress costs nothing. **Shift+F9** steps through them in the game
+of materials, so a dress costs nothing. **F9** steps through them in the game
 and says which is on; `SkinnedRig.dress` is the one worn (the static default
 is the one he starts in). The other heroes have no wardrobe.
 
@@ -9373,12 +9373,13 @@ so everything of it stands at 0.4 (`NecroPlaces.KIT_SCALE`). Built at load by
   gate, lit. A spur of track (`Paths`, the fifth) runs to the gate from the
   way to the mist village. The grass keeps off it (`NecroPlaces.blocks` in
   `Meadows._site`).
-  - Collision: the kit's mesh where it stands up out of the floor (walls,
-    tombs, posts; not floors or small things), and the yard's wall as boxes,
-    since its iron is too thin to collide as drawn (`YARD_WALL`). The gate is
-    kept clear (`GATE_CLEAR`).
-  - **Six skeletons keep it** (`World.CAMPS`): three warriors and their mage in
-    the yard, two archers inside the gate.
+  - Collision: boxes for what stands up out of the floor (walls, tombs,
+    posts; see below), and the yard's wall as a run of boxes, since its iron
+    is too thin to collide as drawn (`YARD_WALL`). The gate is kept clear
+    (`GATE_CLEAR`).
+  - **Six skeletons keep it** (`World.CAMPS`): three warriors and their mage on
+    open paving in the yard (93, −153; its middle holds a monument), two archers
+    inside the gate.
 - **The dead wood round Arkdeva's two lairs**: within 28 m of a lair every tree
   of the wood is dead, and fewer out to 46 m. The wood's own trees are swapped
   where they stand — their trunk keeps colliding, their drawn copy is scaled
@@ -9388,16 +9389,44 @@ so everything of it stands at 0.4 (`NecroPlaces.KIT_SCALE`). Built at load by
 - **Mist**: a few big soft sheets drifting low (CPUParticles3D) over the
   graveyard and each lair.
 - **Sound** (`sounds/ambience/`, from the Sonniss GDC 2026 bundle, see
-  `SOURCES.txt`): an evil hum over the graveyard and each lair, and birds in
-  the living wood, so the dead wood is heard going quiet.
-- **F9** flips the kit's colours: the kit's own palette (the level starts in
-  it) or ours (`shaders/necro.gdshader`: drained a little, darker and warmer,
-  the near-white taken down, moss in patches on whatever faces the sky, damp
-  streaks down the walls). Tariel's colours, which were F9, are **Shift+F9**.
+  `SOURCES.txt`): birds in the living wood. The evil hum the graveyard and the
+  lairs had for one night is gone (the user: too real, like wind).
+- **Our colours** (`shaders/necro.gdshader`): the kit's palette drained a
+  little, darker and warmer, the near-white taken down, moss in patches on
+  whatever faces the sky, damp streaks down the walls. For one night F9 flipped
+  between these and the kit's own; the user kept ours, and F9 is Tariel's
+  colours again.
+- **Collision as boxes.** The kit's mesh as one concave shape cost the physics
+  up to 14 ms a tick with the skeletons walking in it (the stutter the user
+  felt going in). `vepxis-art/necropoly/boxes.py` rasterises what rises 0.45 m
+  over each chunk's floor onto a half-metre grid and merges it into boxes
+  (`assets/necropoly/necro_boxes.json`, ~920 for the three chunks); they are
+  filed onto a body per 16 m patch (`Tombs_x_z`).
+- `-- no_necro` leaves the graveyard and the dead wood out, for measuring.
+- **Warmed up** ([PipelineWarmup]): a dead tree as a mesh and in a MultiMesh,
+  a lamp and the mist are drawn behind the black before play (a 1.8 s hitch on
+  first reaching a lair before).
 
 `tests/necro_test.gd` (headless): the three pieces at the kit's scale, the
 yard's wall stops a body and its gate lets one in, the yard's floor is the
 ground, the grass keeps off, six skeletons, the lairs' cores dead and nothing
-past their reach, F9 there and back (Shift+F9 not). Which trees went over is
+past their reach, our colours on, the tombs' boxes filed by patch. Which trees went over is
 read off the MultiMeshes only with a window (the headless renderer keeps no
 transforms).
+
+## The load: the lands' batches cached (2026-10-08, the user's word)
+
+The level took 16–17 s to come up. The biggest single piece was
+`StaticBatch.merge` under [LandsPlaces]: 5.2–5.5 s, every one of its 1329
+pieces read back from the renderer twice to be merged into 640 batches.
+`StaticBatch.merge(holder, cache_key)` now keeps the batches in
+`user://batch_cache/lands_<key>_v1.scn` the first time and reads them from
+there after (72 ms); the key is the md5 of `lands_places.gd`,
+`static_batch.gd` and `lands.json`, so a change to the map or to how it is put
+up builds them afresh, and the number of pieces is checked against the cache.
+`-- no_batch_cache` skips it; `CACHE_VERSION` is bumped when a merge makes
+something different. LandsPlaces now prints what each of its stages took
+(`"ms"`). Measured on the M1 with the editor open: the first 60 frames of the
+level at 11.3 s, from 16.6 s. What is left is the rest of the build (~3 s:
+Meadows 0.9, Forest 0.6, VillageProps 0.4, …), loading the scene's resources
+and the warm-up's frames.
