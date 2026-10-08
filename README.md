@@ -6095,6 +6095,96 @@ skeleton come back together once and die the second time.
 already behind the goblin's, ghoul's and zombies' scenes: do not rerun it
 blindly).
 
+### The ogre in Elden Ring's way (2026-10-08, the user's word)
+
+The user: it did the same combo again and again, wanted light and heavy
+blows, a swing round from the side, Elden Ring's fight; no hit-stop on the big
+ones but their stance broken; no rings at its feet when it rages (never offer
+round rings again unless asked); the golem's spikes made much better.
+
+**Why it repeated itself.** `Brawler._begin_attack` began only an attack whose
+own landing gap was within -0.6/+0.4 m of where he stood; each clip lands from
+its own gap, so at any gap one fitted, always the same. Enraged, it closed in
+faster and always came to the same gap.
+
+**Strings** (`OgreFighter`, `scripts/ogre_fighter.gd`):
+
+- Eleven swings of its own (`SWINGS`), on clips newly baked onto the pack's
+  skeleton (`tools/creature_clips.gd`: UAL 2's sword strikes one by one, the
+  dash, the rising cut, a second kick, the polearm's sweeps, `IdleToLay`; 111
+  clips now). **Light**: a sweep (`CR_Slash1`), a chop (`CR_Slash4`), a
+  backhand (`CR_RegB`), a wide one round to its side (`CR_Slash3`), a low
+  sweep (`CR_LightD`): quick, they never fell him. **Heavy**: an overhead
+  smash (`CR_Heavy1`), a cleave (`CR_Heavy3`), a leaping slam (`CR_Heavy4`), a
+  whirl brought down (`CR_HeavyD`); the smash and the cleave fell him on top of
+  another blow of the same string, the slam and the whirl by themselves. A
+  kick (`CR_Kick`, "guard": it beats a raised shield aside) when he hugs it, a
+  lunge (`CR_SwordDash`) from 4.5-8 m.
+- **The opener** is weighed by where he is: in front any, at its side
+  (55-120 deg) mostly the wide and the low sweeps, at its back the backhand;
+  the one it opened with last is a quarter as likely.
+- **Each swing may run on into another** (`FOLLOW`, weighed, the end of the
+  string one of the choices): never the same twice running, only one that
+  lands from where he is now, turned up to `string_turn` (55 deg) after him, at
+  most `string_most` (3) long; then it stands to get its breath (`recover`
+  1-1.9 s) - the opening. One string is one combo on him
+  (`ClipFighter._chain_serial`), so its blows count together.
+- **Delayed swings** (`PackBrute._holds`): a heavy one, 30 % of the time, is
+  held 0.3-0.75 s at the top of its wind-up before it comes down (picked from
+  the swing's serial: every peer holds it alike). The great blow too.
+- **Enraged** (`FOLLOW_RAGING`): the strings run to five, the end of one a
+  third as likely, and the pound and the great blow come into them (a cleave
+  into a pound, a pound into the great blow or the leaping slam). The pound
+  and the great blow come seldomer by themselves (9-14 s, 8-13 s).
+- It treads on him down 60 % of the time (`stomp_chance`), every 5 s at most;
+  else it waits over him.
+
+**Stance, not hit-stop** (`PackBrute`, for any of the big ones; the ogre's
+`stance` 130):
+
+- `bite_hold` 0: a hero's blade does not hold it ([HitFeel] `hold_share`;
+  his own swing's hold is cut to 45 %, `SkinnedRig.trim_hitstop`), and a blow
+  hardly pushes or bends it (`shove_share` 0.1, `flinch_share` 0.35).
+- Every blow fills a hidden stance: its damage (before defence) times the
+  hero's swing weight (`cut_weight`, which is in the damage once already: a
+  light cut x1, a heavy blow x2.25 and more); a shot 0.5, a spell 0.75 of its
+  damage; a knock from a skill 30 % of the stance, a parry 35 %. Nothing
+  landing for `stance_rest` (10 s), it is whole again.
+- Full: it goes down on a knee (`CR_LayDown` to 38 %, held `stance_down` 2.6 s
+  with a breath of sway, back up the same way slower; each peer sets the clip
+  by hand, `_show_stance`), a grunt, dust off it, lit for a beat. **The first
+  blow of a hero on it then is a critical** (x`stance_crit` 3: a deep thud,
+  `crit_sound`, a burst of light, his view knocked) and it gets up from there.
+- A knock from a skill no longer throws a creature with a stance about.
+- No riposte clip for the heroes yet: the critical is the first blow, any blow.
+
+**Rage without rings.** `PackBrute._glow_on` no longer lays two rings and a
+dust ring at its feet: red embers and hot breath go up off it, the view shakes.
+
+**Sounds** (`sounds/ogre/`, cut from the Sonniss GDC 2026 bundle, see
+`SOURCES.txt`): a whoosh before every blow (deep for the heavy ones), the club
+meeting the ground (with grit thrown up and the view shaken) on a heavy blow
+that comes down by the ground, its roar when it rages, a short one before the
+pound and the great blow, grunts, a deep step and a puff of dust at every
+footfall (the view nudged near it running), the critical.
+
+**The golem's spikes** (`GroundFx.shards`, the same rows the host hurts by):
+faceted stone in the golem's grey (flat faces, dark at the foot, paler to a
+split point), a crack along the ground opening just ahead of the front with
+an amber seam (`CRACK_SHADER`) and a light running with it, each row bursting
+up past its height and settling, grit and dust off it, a crunch every 1.8 m;
+at the end it crumbles back into the ground, chips spilling, instead of
+fading. No dust ring where it strikes (`GroundFx.eruption(..., false)`).
+
+`tests/ogre_test.gd` (headless; `-- strings raging sides steady stance rings`):
+strings of many swings light and heavy, never one twice running, none most of
+what it does; enraged longer strings and as many kinds; at its side it sweeps,
+at its back the backhand; not held by a blade nor pushed; a heavy blow fills
+its stance faster, full it kneels, the first blow then is a critical, it gets
+up, left alone its stance mends; no ring at its feet enraged.
+`creature_blows_test` sets a creature's stance to 0 (a kneel there is the
+hero's doing, not counted against how often it attacks).
+
 ### Gold (2026-10-07, the user's word: a goblin had nothing to steal)
 
 - Every hero has a [Purse] (`scripts/purse.gd`, under him by World, every
