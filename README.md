@@ -9572,3 +9572,35 @@ a bonfire of squares.
   in four layers — a hot core, orange tongues, sparks, smoke — and a light that
   flickers with them.
 - At the spawn: ~68 fps, ~650 draws, ~1.1 M primitives (was 1030 / 1.9 M).
+
+## The v5 world three times as big; a small town round the ruins (2026-10-08, the user's word)
+
+"Smaller again, fewer houses; in the middle ruins — a raid boss goes there, and
+when he is dead something gets built; the wall smaller; and more like the real
+thing: from Poti to Batumi I get there far too fast."
+
+- **The land ×3** (`build_v5.py`: `S = 3`): every place the concept map gives is
+  carried out from the town's middle by three — the coast (10.5 m a km now:
+  Poti to Batumi about 630 m, two minutes' run), the rivers (wider: the Rioni
+  24 m, the Enguri 18), the roads, the bridges, the bog, the mountains' foot,
+  the east cliff. What has a size of its own keeps it: the town, the wolves'
+  hill (moved to (−690, 540)), a road's width. The grid is 3.7 × 2.4 km.
+- **Cells of 2 m** (`C = 2`, the json's `cell`): [Lands] now reads a grid of any
+  cell size — `cell` scales its ground chunks, its height lookups, the water's
+  quads and the barrier's openings; the collision height maps are stored in
+  cells and scaled up evenly; the ground and water shaders take a `cell`
+  uniform. 1851 × 1201 cells; Lands builds in ~0.9 s. Grass grows round the
+  town and along the roads (~28 k clumps), not over the whole land.
+- **The town** (`town_layout.py` v3): the wall at 92 m (twelve sides, towers on
+  the corners, the four gatehouses); 16 buildings — the four shops along the
+  west street with their stalls, the smith and a house at the east gate, the
+  tavern, and nine houses in four little groups round yards; ~34 trees,
+  bushes and flowers.
+- **The ruins in the middle**: the palace is gone — on the old hill's flat top
+  (30 m round, 3 m up) an open, level ground 18 m round for the raid boss
+  (`town.json` → `arena`), round it the broken towers (`RoundTowerRuin`, B),
+  the old wall's stubs (`WallRuin4`, B, C) with more gap than wall and the
+  four ways in left open, the village kit's fallen houses (Ruin1–3), rubble
+  heaps and dead trees. The bonfire and the spawn are on the west street just
+  inside the gate.
+- Fog thinner (0.00035) for the bigger land.
