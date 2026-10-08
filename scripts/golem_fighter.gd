@@ -173,8 +173,8 @@ func _spike_run(from: Vector3, way: Vector3) -> void:
 @rpc("authority", "call_local", "reliable")
 func net_spikes(from: Vector3, way: Vector3) -> void:
 	var world := Blood.world_of(self)
-	GroundFx.wave(world, from, way, spikes_length, false, spikes_size, spikes_pace)
-	GroundFx.eruption(world, from, 0.8)
+	GroundFx.shards(world, from, way, spikes_length, spikes_size, spikes_pace, reform_glow)
+	GroundFx.eruption(world, from, 0.8, false)
 	ImpactFx.thud(self, from, true)
 
 
