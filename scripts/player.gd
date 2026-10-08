@@ -6314,7 +6314,13 @@ func net_bite(path: NodePath, weight: float) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1 and sender != multiplayer.get_unique_id():
 		return
-	HitFeel.bite(get_node_or_null(path) as Node3D, weight)
+	var who := get_node_or_null(path) as Node3D
+	HitFeel.bite(who, weight)
+	# Into a big one that does not stop for it, his own swing checks only a
+	# little ([HitFeel.hold_share]).
+	var share := HitFeel.hold_share(who)
+	if share < 1.0 and rig != null and rig.has_method(&"trim_hitstop"):
+		rig.call(&"trim_hitstop", lerpf(0.45, 1.0, share))
 
 
 ## Puts an affliction on a creature on every peer, with a burst where it

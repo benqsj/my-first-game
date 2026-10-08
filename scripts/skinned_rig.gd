@@ -2253,6 +2253,20 @@ func end_hitstop() -> void:
 		_anim.speed_scale = _stop_rate
 
 
+## The hold cut down to `share` of what is left of it (a blade into a big
+## one that does not stop for it: his swing barely checks either).
+func trim_hitstop(share: float) -> void:
+	if _stop_left <= 0.0:
+		return
+	var cut := _stop_left * (1.0 - clampf(share, 0.0, 1.0))
+	if cut >= _stop_left - 0.0001:
+		end_hitstop()
+		return
+	_stop_left -= cut
+	if _role != Role.NONE:
+		_action_left -= cut
+
+
 ## The hold over: the clip goes on at the rate it had — unless something else
 ## has set a rate of its own in the meantime, which is left alone.
 func _hold_stop(delta: float) -> void:

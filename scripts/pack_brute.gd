@@ -22,6 +22,14 @@ extends Brawler
 ## * **Kinds of blow** (`_kinds`, [method ClipFighter._blow_kind]): "guard"
 ##   a kick through the shield, "crush" a blow no shield holds, "ground",
 ##   "stomp".
+## * **Stance** (`stance`; the user's word, 2026-10-08: Elden Ring's, not a
+##   hit-stop): blows do not stop it nor push it about (`bite_hold`,
+##   `shove_share`, `flinch_share`), but each fills a hidden stance, a heavy
+##   blow far more than a light cut; full, it goes down on a knee
+##   (`stance_clip`), open, and the first blow on it then is a critical
+##   (`stance_crit`). Left alone `stance_rest` s, it is whole again.
+## * **A delayed blow** (`_holds`): now and then a swing held at the top of
+##   its wind-up a moment before it comes down (Elden Ring's delayed swings).
 
 @export_group("Rage")
 ## 0: it does not rage.
@@ -53,8 +61,34 @@ extends Brawler
 @export var leap_quake: float = 0.0
 @export var leap_quake_share: float = 0.7
 
+@export_group("Stance")
+## What its hidden stance takes before it breaks (0: it has none). A blow
+## fills it by its damage (before defence) times the hero's swing weight
+## twice over (a light cut 1, a heavy blow 1.5 and more: 2.25+); a shot 0.5,
+## a spell 0.75 of its damage.
+@export var stance: float = 0.0
+## Seconds with nothing landing before its stance is whole again.
+@export var stance_rest: float = 10.0
+## How long it stays down on its knee, open.
+@export var stance_down: float = 2.6
+## The first blow on it while it is down: this many times as hard.
+@export var stance_crit: float = 3.0
+## Going down on its knee: the clip, [rate, -, the share of it it kneels at].
+## It comes back up the same way, slower.
+@export var stance_clip: StringName = &"CR_LayDown"
+@export var stance_part: Vector3 = Vector3(1.2, 0.0, 0.38)
+## The share of a hero's hit-stop that holds it ([HitFeel]: 1 every bite,
+## 0 none — a blade does not stop a big one's swing), and of the shove and the
+## bend a blow gives it.
+@export_range(0.0, 1.0) var bite_hold: float = 1.0
+@export_range(0.0, 1.0) var shove_share: float = 1.0
+@export_range(0.0, 1.0) var flinch_share: float = 1.0
+## Heard as the critical goes in (empty: the thud only).
+@export_file("*.wav", "*.ogg") var crit_sound: String = ""
+
 const RAGE := 110
 const LEAP := 111
+const STANCE := 119
 
 ## Replicated by [method net_rage].
 var raging: bool = false
@@ -78,6 +112,20 @@ var _shown_clock: float = 0.0
 var _charge: OmniLight3D
 var _ember: MeshInstance3D
 var _ember_mat: StandardMaterial3D
+## act -> [chance, shortest, longest, seconds before the blow it holds at]: a
+## delayed swing ([method _hold_of]).
+var _holds: Dictionary = {}
+## Host: the stance it has taken, how long since a blow last landed, and
+## whether the critical is still to come in this break.
+var stance_taken: float = 0.0
+var stance_breaks: int = 0
+var crits_taken: int = 0
+var _stance_quiet: float = 99.0
+var _crit_open: bool = false
+var _by_blade: bool = false
+## Every peer: the clock of the stance break shown (its clip set by hand).
+var _stance_clock: float = 0.0
+var _stance_serial: int = -1
 
 
 func _ready() -> void:
@@ -91,6 +139,8 @@ func _ready() -> void:
 		# One blow that throws him down, at the landing.
 		_strikes_table[LEAP] = [s[0], s[1], leap_share, 1, 0.6, PackedFloat32Array([leap_land])]
 	_leap_wait = _rng.randf_range(1.0, leap_cooldown * 0.5)
+	if stance > 0.0:
+		_moves_table[STANCE] = [stance_clip, stance_part.x, 0.0, stance_part.z]
 
 
 ## A move of its own beyond its attacks: [clip, rate, from, to].
@@ -168,6 +218,10 @@ func _extra_velocity(delta: float) -> Vector3:
 
 
 func _after(what: int) -> void:
+	if what == STANCE:
+		_crit_open = false
+		stance_taken = 0.0
+		_stance_quiet = 99.0
 	if what == LEAP:
 		_leap_wait = leap_cooldown * (0.6 if raging else 1.0)
 	if what == RAGE and not raging:
@@ -219,6 +273,10 @@ func net_quake(at: Vector3, radius: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	super(delta)
+	if stance > 0.0 and _decides():
+		_stance_quiet += delta
+		if _stance_quiet > stance_rest:
+			stance_taken = 0.0
 	if _quakes.is_empty() or not _decides():
 		return
 	for i in range(_quakes.size() - 1, -1, -1):
@@ -245,43 +303,83 @@ func _physics_process(delta: float) -> void:
 #endregion
 
 
-#region A slow blow
-## The clip drawn out until `lead` seconds before the blow: a move's act time
-## `t` to the time it would be at its own pace.
-func _windup_end(what: int) -> float:
+#region A slow blow, a delayed one
+## Act seconds of the move at its own pace up to `lead` s before its first
+## blow (where a slow wind-up ends, or a delayed swing is held).
+func _windup_end(what: int, lead: float = -1.0) -> float:
 	if _in_lin:
 		return 0.0
 	_in_lin = true
 	var ms := super._blow_moments(what)
 	_in_lin = false
-	var w: Array = _windups[what]
-	return maxf(ms[0] - float(w[1]), 0.0) if not ms.is_empty() else 0.0
+	if lead < 0.0:
+		lead = float((_windups[what] as Array)[1]) if _windups.has(what) else 0.15
+	return maxf(ms[0] - lead, 0.0) if not ms.is_empty() else 0.0
+
+
+## How long this swing is held at the top of its wind-up (0: not this time).
+## Picked from the swing's serial, so every peer holds it alike.
+func _hold_of(what: int) -> float:
+	if what != act or not _holds.has(what):
+		return 0.0
+	var h: Array = _holds[what]
+	var r := fposmod(sin(float(act_serial) * 12.9898 + float(what) * 78.233) * 43758.5453, 1.0)
+	if r >= float(h[0]):
+		return 0.0
+	return lerpf(float(h[1]), float(h[2]), fposmod(r * 9.137, 1.0))
+
+
+## [where the wind-up ends at its own pace, how much slower it is played up to
+## there, how long it is held there] for a move, or [] if it is played plain.
+func _shape(what: int) -> Array:
+	if _in_lin:
+		return []
+	var slow := float((_windups[what] as Array)[0]) if _windups.has(what) else 1.0
+	var hold := _hold_of(what)
+	if slow == 1.0 and hold <= 0.0:
+		return []
+	var lead := float((_holds[what] as Array)[3]) if hold > 0.0 else -1.0
+	return [_windup_end(what, lead), slow, hold]
 
 
 func _clip_time(what: int, t: float) -> float:
-	if _windups.has(what) and not _in_lin:
-		var slow := float((_windups[what] as Array)[0])
-		var k := _windup_end(what)
-		t = t / slow if t < k * slow else t - k * (slow - 1.0)
+	if what == STANCE and _moves_table.has(STANCE):
+		return _stance_clip_time(t)
+	var sh := _shape(what)
+	if not sh.is_empty():
+		var k := float(sh[0])
+		var slow := float(sh[1])
+		var hold := float(sh[2])
+		if t < k * slow:
+			t = t / slow
+		elif t < k * slow + hold:
+			t = k
+		else:
+			t = t - k * (slow - 1.0) - hold
 	return super(what, t)
 
 
 func _move_length(what: int) -> float:
+	if what == STANCE and _moves_table.has(STANCE):
+		return _stance_spans().x + _stance_spans().y + _stance_spans().z
 	var length := super(what)
-	if _windups.has(what) and not _in_lin:
-		length += _windup_end(what) * (float((_windups[what] as Array)[0]) - 1.0)
+	var sh := _shape(what)
+	if not sh.is_empty():
+		length += float(sh[0]) * (float(sh[1]) - 1.0) + float(sh[2])
 	return length
 
 
 func _blow_moments(what: int) -> PackedFloat32Array:
 	var ms := super(what)
-	if not _windups.has(what) or _in_lin:
+	var sh := _shape(what)
+	if sh.is_empty():
 		return ms
-	var slow := float((_windups[what] as Array)[0])
-	var k := _windup_end(what)
+	var k := float(sh[0])
+	var slow := float(sh[1])
+	var hold := float(sh[2])
 	var out := PackedFloat32Array()
 	for m in ms:
-		out.append(m * slow if m <= k else m + k * (slow - 1.0))
+		out.append(m * slow if m <= k else m + k * (slow - 1.0) + hold)
 	return out
 
 
@@ -344,6 +442,7 @@ func _weapon_tip_at() -> Vector3:
 
 func _process(delta: float) -> void:
 	super(delta)
+	_show_stance(delta)
 	if not _windups.is_empty():
 		_show_windup(delta)
 	if _glow != null:
@@ -405,12 +504,21 @@ func _glow_on() -> void:
 	_glow_light.shadow_enabled = false
 	add_child(_glow_light)
 	_glow_light.position = Vector3.UP * 1.3 * visual_scale
+	# No rings at its feet (the user's word, 2026-10-08): red embers and hot
+	# breath going up off it, and the roar shakes the view.
 	var into := Blood.world_of(self)
-	SkillFx.ring(into, global_position + Vector3.UP * 1.2 * visual_scale, Vector3.UP, rage_glow, 0.3,
-			3.6 * visual_scale, 0.5, 0.03, 2.5)
-	SkillFx.ring(into, global_position + Vector3.UP * 0.1, Vector3.UP, rage_glow, 0.3, 4.5 * visual_scale,
-			0.6, 0.02, 1.6)
-	DustRing.burst(into, global_position + Vector3.UP * 0.05, 1.2 * visual_scale)
+	SkillFx.particles(into, global_position + Vector3.UP * 1.1 * visual_scale, {
+		"amount": 46, "life": 1.3, "one_shot": true, "explosiveness": 0.85,
+		"speed": Vector2(0.6, 2.2), "dir": Vector3.UP, "spread": 55.0, "gravity": Vector3(0, 1.2, 0),
+		"damping": 1.2, "size": Vector2(0.03, 0.07), "box": Vector3(0.45, 0.8, 0.45) * visual_scale,
+		"colors": [Color(1.0, 0.8, 0.5, 1.0), rage_glow, Color(rage_glow.r, rage_glow.g, rage_glow.b, 0.0)],
+	})
+	SkillFx.particles(into, global_position + Vector3.UP * 1.75 * visual_scale, {
+		"amount": 14, "life": 1.6, "one_shot": true, "explosiveness": 0.7, "add": false,
+		"speed": Vector2(0.4, 1.1), "dir": Vector3.UP, "spread": 35.0, "gravity": Vector3(0, 0.6, 0),
+		"damping": 0.8, "size": Vector2(0.35, 0.7), "sphere": 0.25 * visual_scale, "grow": 0.3,
+		"colors": [Color(0.55, 0.5, 0.48, 0.0), Color(0.5, 0.45, 0.42, 0.28), Color(0.45, 0.42, 0.4, 0.0)],
+	})
 	for node in get_tree().get_nodes_in_group(&"player"):
 		var hero := node as Player
 		if hero != null and hero.is_multiplayer_authority() and hero.global_position.distance_to(global_position) < 14.0:
@@ -419,11 +527,192 @@ func _glow_on() -> void:
 				ImpactFx.knock(cam, Vector3.DOWN, 0.06, 0.12, 0.6)
 
 
-## Enraged, a blow no longer throws it about.
+## Enraged, a blow no longer throws it about; one with a stance is not thrown
+## about at all, the knock goes to its stance.
 func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
+	if stance > 0.0 and kind == &"knock" and act != STANCE:
+		if is_dead or not _decides():
+			return
+		if from != null and is_instance_valid(from):
+			_rouse(from)
+		_add_stance(stance * 0.3)
+		return
 	if raging and kind == &"knock":
 		if from != null and is_instance_valid(from) and _decides():
 			_rouse(from)
 		return
 	super(kind, from, push)
+#endregion
+
+
+#region Stance
+## [going down, down, getting up] in act seconds.
+func _stance_spans() -> Vector3:
+	var len_down := 0.6
+	if _anim != null:
+		len_down = _anim.clip_length(stance_clip) * stance_part.z / maxf(stance_part.x, 0.01)
+	return Vector3(len_down, stance_down, len_down * 1.4)
+
+
+## The clip's own time through the break: down to the knee, held there (a
+## breath of sway), and back up the same way, slower.
+func _stance_clip_time(t: float) -> float:
+	var sp := _stance_spans()
+	var knee := _anim.clip_length(stance_clip) * stance_part.z if _anim != null else 0.0
+	if t < sp.x:
+		return t * stance_part.x
+	if t < sp.x + sp.y:
+		return knee - 0.06 * (0.5 + 0.5 * sin((t - sp.x) * 2.6))
+	return maxf(knee - (t - sp.x - sp.y) * stance_part.x / 1.4, 0.0)
+
+
+func receive_hit(hit: HitInfo) -> bool:
+	_by_blade = hit.by_blade
+	var bled := super(hit)
+	_by_blade = false
+	return bled
+
+
+## How much of a blow's damage goes to its stance: a hero's swing by its
+## weight (twice: the damage has it once already), a shot or a spell less.
+func _stance_weight(from: Node3D, magic: bool) -> float:
+	if not _by_blade or from == null:
+		return 0.75 if magic else 0.5
+	var w := 1.0
+	var rig: Variant = from.get(&"rig")
+	if rig is Object:
+		var cw: Variant = (rig as Object).get(&"cut_weight")
+		if cw is float:
+			w = float(cw)
+	return w * w
+
+
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	var crit := false
+	if act == STANCE and _crit_open and from != null and from.is_in_group(&"player"):
+		damage *= stance_crit
+		crit = true
+	var was := velocity
+	var bled := super(damage, at, blow, from, magic)
+	if not bled or is_dead or act == PIECES:
+		return bled
+	if shove_share < 1.0:
+		velocity.x = lerpf(was.x, velocity.x, shove_share)
+		velocity.z = lerpf(was.z, velocity.z, shove_share)
+	if crit:
+		_crit_open = false
+		crits_taken += 1
+		_send_crit(at)
+		# Struck down where it knelt: it gets up from there now.
+		var sp := _stance_spans()
+		_act_time = maxf(_act_time, sp.x + sp.y - 0.35)
+	elif stance > 0.0 and act != STANCE:
+		_add_stance(damage * _stance_weight(from, magic))
+	return bled
+
+
+## Host: stance taken; full, it breaks.
+func _add_stance(amount: float) -> void:
+	if stance <= 0.0 or is_dead or act == STANCE or act == PIECES or act == REFORM:
+		return
+	_stance_quiet = 0.0
+	stance_taken += amount
+	if stance_taken >= stance:
+		_break_stance()
+
+
+func _break_stance() -> void:
+	stance_taken = 0.0
+	stance_breaks += 1
+	_crit_open = true
+	_sweeps.clear()
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_begin(STANCE)
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_stance_broken.rpc()
+	else:
+		net_stance_broken()
+
+
+## A parry counts towards its stance too.
+func parried(by: Node3D) -> void:
+	_add_stance(stance * 0.35)
+	if act != STANCE:
+		super(by)
+
+
+## Every peer: it buckles — a heavy grunt of the ground taking its knee, dust
+## kicked up off it (no ring), the view knocked for him close by.
+@rpc("authority", "call_local", "reliable")
+func net_stance_broken() -> void:
+	var into := Blood.world_of(self)
+	var knee := global_position + _forward() * 0.5 * visual_scale
+	ImpactFx.thud(self, knee + Vector3.UP * 0.3, true)
+	SkillFx.particles(into, knee + Vector3.UP * 0.15, {
+		"amount": 22, "life": 0.9, "one_shot": true, "explosiveness": 0.9, "add": false,
+		"speed": Vector2(0.8, 2.4), "dir": Vector3.UP, "spread": 70.0, "gravity": Vector3(0, -1.5, 0),
+		"damping": 2.5, "size": Vector2(0.25, 0.55), "sphere": 0.4 * visual_scale, "grow": 0.25,
+		"colors": [Color(0.62, 0.55, 0.45, 0.0), Color(0.6, 0.53, 0.44, 0.5), Color(0.58, 0.52, 0.44, 0.0)],
+	})
+	# Lit for a beat, white-gold: open now.
+	HitFeel.flash(self, 0.5)
+	WindBlast.shake(self, 0.08, 0.3, 14.0)
+
+
+func _send_crit(at: Vector3) -> void:
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_crit.rpc(at)
+	else:
+		net_crit(at)
+
+
+## Every peer: the critical on it down — a deep blow, blood and a burst of
+## light where it went in, the view knocked hard.
+@rpc("authority", "call_local", "reliable")
+func net_crit(at: Vector3) -> void:
+	var into := Blood.world_of(self)
+	ImpactFx.thud(self, at, true)
+	ImpactFx.strike(self, at, &"flesh", 2.2)
+	if not crit_sound.is_empty():
+		Sfx.play(self, crit_sound, null, at, 1.0, 1.0)
+	SkillFx.burst(into, at, Color(1.0, 0.85, 0.55), 26, Vector2(2.0, 6.5), Vector3.UP, 120.0,
+			Vector2(0.03, 0.07), Vector3(0, -7, 0), 0.45)
+	HitFeel.flash(self, 0.8)
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Player
+		if hero != null and hero.is_multiplayer_authority() and hero.global_position.distance_to(global_position) < 10.0:
+			var cam := hero.get_viewport().get_camera_3d()
+			if cam != null:
+				ImpactFx.knock(cam, (global_position - hero.global_position).normalized(), 0.09, 0.1, 0.4)
+
+
+## Every peer: the break's clip kept where its clock is (down, held, back up:
+## not a clip played straight through).
+func _show_stance(delta: float) -> void:
+	if act != STANCE or _anim == null or not _moves_table.has(STANCE):
+		_stance_serial = -1
+		return
+	if act_serial != _stance_serial:
+		_stance_serial = act_serial
+		_stance_clock = 0.0
+	else:
+		_stance_clock += delta
+	if _decides():
+		return
+	if _anim.current_clip() == stance_clip:
+		_anim.seek(_stance_clip_time(_stance_clock))
+
+
+## A blow bends it over only so far.
+func _flinch_body(blow: Vector3) -> void:
+	if flinch_share >= 1.0:
+		super(blow)
+		return
+	_last_blow = blow
+	if is_dead or body == null:
+		return
+	if _hit_react == null:
+		_hit_react = HitReact.on_body(body)
+	_hit_react.strike(blow, FLINCH_THROW * flinch_share)
 #endregion

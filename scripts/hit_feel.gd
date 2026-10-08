@@ -28,11 +28,14 @@ const MAX_MESHES := 48
 static var _shader: Shader
 
 
-## Both halves of the bite on `victim`: held, and lit.
+## Both halves of the bite on `victim`: held, and lit. A big one (its
+## `bite_hold` under 1, [PackBrute]) is held that share of it, or not at all:
+## a blade does not stop an ogre's swing (Elden Ring's big ones take the cut
+## without a pause; only their stance gives).
 static func bite(victim: Node3D, weight: float) -> void:
 	if victim == null or not victim.is_inside_tree():
 		return
-	var seconds := stop_for(weight)
+	var seconds := stop_for(weight) * hold_share(victim)
 	hold(victim, seconds)
 	flash(victim, lerpf(FLASH_LIGHT, FLASH_HEAVY, clampf((weight - 1.0) / 0.6, 0.0, 1.0)))
 
@@ -77,6 +80,12 @@ static func pace(creature: Node) -> float:
 		return HELD_RATE
 	creature.remove_meta(&"bite_until")
 	return 1.0
+
+
+## The share of a bite `creature` is held for (its `bite_hold`, else all).
+static func hold_share(creature: Node) -> float:
+	var share: Variant = creature.get(&"bite_hold") if creature != null else null
+	return clampf(float(share), 0.0, 1.0) if share is float else 1.0
 
 
 ## Whether `creature` is held in a bite now.
