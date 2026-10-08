@@ -33,6 +33,21 @@
   ],
   "stairs": null,
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 8.5
+  },
+  "balconies": [
+   {
+    "x": -4.0,
+    "y": 3.12,
+    "depth": 8,
+    "side": -1,
+    "stair_end": null
+   }
+  ],
   "tris": 13856
  },
  "House2": {
@@ -78,6 +93,28 @@
    ]
   },
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 10.5
+  },
+  "balconies": [
+   {
+    "x": -4.0,
+    "y": 3.12,
+    "depth": 10,
+    "side": -1,
+    "stair_end": -5.0
+   }
+  ],
+  "stair_ramp": {
+   "x": -4.0,
+   "z_foot": -11.0,
+   "z_top": -5.0,
+   "y_top": 3.12,
+   "width": 2.0
+  },
   "tris": 16645
  },
  "House3": {
@@ -124,6 +161,13 @@
   ],
   "stairs": null,
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 6.0,
+   "half": 4.75,
+   "depth": 8.5
+  },
+  "balconies": [],
   "tris": 18950
  },
  "House4": {
@@ -160,6 +204,13 @@
   ],
   "stairs": null,
   "height": 3.12,
+  "roof": {
+   "top": 3.12,
+   "rise": 3.7,
+   "half": 2.75,
+   "depth": 6.5
+  },
+  "balconies": [],
   "tris": 7084
  },
  "House5": {
@@ -196,6 +247,28 @@
   ],
   "stairs": null,
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 6.5
+  },
+  "balconies": [
+   {
+    "x": -4.0,
+    "y": 3.12,
+    "depth": 6,
+    "side": -1,
+    "stair_end": null
+   },
+   {
+    "x": 4.0,
+    "y": 3.12,
+    "depth": 6,
+    "side": 1,
+    "stair_end": null
+   }
+  ],
   "tris": 18247
  },
  "House6": {
@@ -241,6 +314,28 @@
    ]
   },
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 6.0,
+   "half": 4.75,
+   "depth": 10.5
+  },
+  "balconies": [
+   {
+    "x": -5.0,
+    "y": 3.12,
+    "depth": 10,
+    "side": -1,
+    "stair_end": -5.0
+   }
+  ],
+  "stair_ramp": {
+   "x": -5.0,
+   "z_foot": -11.0,
+   "z_top": -5.0,
+   "y_top": 3.12,
+   "width": 2.0
+  },
   "tris": 18716
  },
  "House7": {
@@ -277,6 +372,13 @@
   ],
   "stairs": null,
   "height": 3.12,
+  "roof": {
+   "top": 3.12,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 8.5
+  },
+  "balconies": [],
   "tris": 9329
  },
  "House8": {
@@ -313,6 +415,21 @@
   ],
   "stairs": null,
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 8.5
+  },
+  "balconies": [
+   {
+    "x": -4.0,
+    "y": 3.12,
+    "depth": 8,
+    "side": -1,
+    "stair_end": null
+   }
+  ],
   "tris": 17033
  },
  "House9": {
@@ -358,6 +475,28 @@
    ]
   },
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 3.7,
+   "half": 2.75,
+   "depth": 8.5
+  },
+  "balconies": [
+   {
+    "x": -3.0,
+    "y": 3.12,
+    "depth": 8,
+    "side": -1,
+    "stair_end": -4.0
+   }
+  ],
+  "stair_ramp": {
+   "x": -3.0,
+   "z_foot": -10.0,
+   "z_top": -4.0,
+   "y_top": 3.12,
+   "width": 2.0
+  },
   "tris": 12515
  },
  "Marani": {
@@ -413,6 +552,28 @@
    ]
   },
   "height": 6.24,
+  "roof": {
+   "top": 6.24,
+   "rise": 6.0,
+   "half": 4.75,
+   "depth": 12.5
+  },
+  "balconies": [
+   {
+    "x": -5.0,
+    "y": 3.12,
+    "depth": 12,
+    "side": -1,
+    "stair_end": -6.0
+   }
+  ],
+  "stair_ramp": {
+   "x": -5.0,
+   "z_foot": -12.0,
+   "z_top": -6.0,
+   "y_top": 3.12,
+   "width": 2.0
+  },
   "tris": 21348
  },
  "Smithy": {
@@ -479,6 +640,13 @@
   ],
   "stairs": null,
   "height": 3.12,
+  "roof": {
+   "top": 3.12,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 8.5
+  },
+  "balconies": [],
   "tris": 7936
  },
  "TownHouse1": {
@@ -515,6 +683,21 @@
   ],
   "stairs": null,
   "height": 9.36,
+  "roof": {
+   "top": 9.36,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 8.5
+  },
+  "balconies": [
+   {
+    "x": -4.0,
+    "y": 3.12,
+    "depth": 8,
+    "side": -1,
+    "stair_end": null
+   }
+  ],
   "tris": 18676
  },
  "TownHouse2": {
@@ -551,6 +734,13 @@
   ],
   "stairs": null,
   "height": 9.36,
+  "roof": {
+   "top": 9.36,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 10.5
+  },
+  "balconies": [],
   "tris": 22646
  },
  "TownHouse3": {
@@ -587,6 +777,21 @@
   ],
   "stairs": null,
   "height": 9.36,
+  "roof": {
+   "top": 9.36,
+   "rise": 3.7,
+   "half": 2.75,
+   "depth": 8.5
+  },
+  "balconies": [
+   {
+    "x": -3.0,
+    "y": 3.12,
+    "depth": 8,
+    "side": -1,
+    "stair_end": null
+   }
+  ],
   "tris": 20053
  },
  "TownHouse4": {
@@ -642,6 +847,28 @@
    ]
   },
   "height": 9.36,
+  "roof": {
+   "top": 9.36,
+   "rise": 6.0,
+   "half": 4.75,
+   "depth": 8.5
+  },
+  "balconies": [
+   {
+    "x": -5.0,
+    "y": 3.12,
+    "depth": 8,
+    "side": -1,
+    "stair_end": -4.0
+   }
+  ],
+  "stair_ramp": {
+   "x": -5.0,
+   "z_foot": -10.0,
+   "z_top": -4.0,
+   "y_top": 3.12,
+   "width": 2.0
+  },
   "tris": 23644
  },
  "TownHouse5": {
@@ -678,6 +905,13 @@
   ],
   "stairs": null,
   "height": 9.36,
+  "roof": {
+   "top": 9.36,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 6.5
+  },
+  "balconies": [],
   "tris": 15613
  },
  "Keep": {
@@ -714,6 +948,21 @@
   ],
   "stairs": null,
   "height": 9.36,
+  "roof": {
+   "top": 9.36,
+   "rise": 6.0,
+   "half": 4.75,
+   "depth": 14.5
+  },
+  "balconies": [
+   {
+    "x": -5.0,
+    "y": 3.12,
+    "depth": 14,
+    "side": -1,
+    "stair_end": null
+   }
+  ],
   "tris": 39765
  },
  "KeepTower": {
@@ -750,6 +999,13 @@
   ],
   "stairs": null,
   "height": 15.6,
+  "roof": {
+   "top": 15.6,
+   "rise": 4.9,
+   "half": 3.75,
+   "depth": 6.5
+  },
+  "balconies": [],
   "tris": 29956
  },
  "CityWall8": {
@@ -1012,5 +1268,167 @@
   "doors": [],
   "stairs": null,
   "tris": 2822
+ },
+ "WeaponShop": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 16268
+ },
+ "ClothShop": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 8519
+ },
+ "PotionShop": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 10996
+ },
+ "FoodShop": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 19504
+ },
+ "SmithyYard": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 19176
+ },
+ "BenchSeat": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 404
+ },
+ "Tree1": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 6265
+ },
+ "Tree2": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 5648
+ },
+ "Tree3": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 3505
+ },
+ "Tree4": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 4066
+ },
+ "Tree5": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 3182
+ },
+ "Bush": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 900
+ },
+ "BushFlowers": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 1368
+ },
+ "Flowers3": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 755
+ },
+ "Flowers4": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 1690
+ },
+ "Plant1": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 360
+ },
+ "Plant7": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 112
+ },
+ "Fern": {
+  "W": 1,
+  "D": 1,
+  "height": 1,
+  "boxes": [],
+  "doors": [],
+  "stairs": null,
+  "tris": 288
  }
 }

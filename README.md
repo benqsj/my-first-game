@@ -9539,3 +9539,36 @@ the one under way before loading another itself, `World._profile()` asks Game
 rather than `load()`, and [SceneLoader] starts the level only once
 `Game.profiles_ready()` (or after 30 s). From the menu straight away: v5 in
 8–10 s, after a few seconds there 4.5 s.
+
+## The town, second pass: fewer houses, room, shops (2026-10-08, the user's word)
+
+"Far too many houses — thirty at most; room between them, more beauty, not a
+German row town; shops: arms, clothes, a smithy." And: standing on the
+fountain's water as on air, walking through the outside stairs like a ghost,
+a bonfire of squares.
+
+- `town_layout.py` v2: 25 buildings. Along the west street from the main gate
+  to the square, staggered either side, each with its own stall in front and
+  a banner: **the Armourer** (weapons), **the Clothier**, **the Herbalist**
+  (potions), **the Grocer**, and a little market between them; **the Smith**
+  inside the east gate with his yard (anvil, whetstone, weapon rack,
+  workbench); **the Marani** (tavern) on the square with tables outside; four
+  neighbourhoods of four or five houses round a yard with a big tree and a
+  bench, a path from each to its street. The ring street is gone. `town.json`
+  has the shops (`shops`: kind, name, where) for the shopkeepers to come.
+- Between them: ~85 trees (Stylized Nature MegaKit's common trees, ×1.15–1.5),
+  bushes, flowers and plants round the houses and over the green; the ground
+  grass, trodden earth only round the buildings, the yards and paths; grass
+  clumps grow in the town now too.
+- New kit models (`town.py`): WeaponShop, ClothShop, PotionShop, FoodShop
+  (each the props kit's stall with its wares), SmithyYard, BenchSeat, Tree1–5,
+  Bush, BushFlowers, Flowers3/4, Plant1/7, Fern. The kit json now gives each
+  house its balconies, its outside stair (as a ramp) and its roof.
+- Colliding: a house's balcony has a floor and a rail, its outside stair a ramp
+  under the steps (a body walks up it onto the balcony), its roof two sloped
+  slabs; the fountain only its rim (a ring of short boxes) and its column —
+  inside the rim one wades; trees a trunk each.
+- The bonfire: soft round particles (a radial gradient instead of a bare quad)
+  in four layers — a hot core, orange tongues, sparks, smoke — and a light that
+  flickers with them.
+- At the spawn: ~68 fps, ~650 draws, ~1.1 M primitives (was 1030 / 1.9 M).
