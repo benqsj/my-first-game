@@ -110,6 +110,12 @@ stamina_regen = 30.0
 blow_min_speed = 1.2
 rage_at = 0.5
 rage_call = 25.0
+stance = 130.0
+stance_rest = 10.0
+bite_hold = 0.0
+shove_share = 0.1
+flinch_share = 0.35
+crit_sound = "res://sounds/ogre/crit.wav"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.44, 0)

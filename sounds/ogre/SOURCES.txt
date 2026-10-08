@@ -1,0 +1,12 @@
+The ogre's sounds (2026-10-08), cut, pitched down and mixed from the Sonniss GDC 2026 Game Audio Bundle
+(part 1 of 5): royalty free, commercial use, no attribution needed; the raw files may not be
+redistributed on their own. License PDF: vepxis-art (Sonniss zip).
+
+roar.wav           <- 344 Audio, Dinosaurs Vol. 2, "Large Herbivore Roar 01" (0.2-3.2 s, x0.88)
+roar_short.wav     <- 344 Audio, Dinosaurs, "T Rex" (0.25-2.2 s, x0.8)
+grunt_1..3.wav     <- 344 Audio, Dog Vocalisations, "Dog Shuffle, Grunt, Movement, Lying Down" (x0.62, low-passed)
+club_ground_1..4   <- 344 Audio, Medieval Weapons Vol. 2, "Spear And Stick Impact, Wooden MKH 2" (x0.66)
+                      + Bass Drops & Downers, "Bass Drop & Downer Fast 16" under it
+step_1..3.wav      <- the same wooden impacts (x0.42, low-passed at 900 Hz)
+whoosh_heavy/light <- 344 Audio, Elemental Palette Designed Vol. 1, "Wind, Rush, Whoosh, Long x5 01" (x0.62 / x0.9)
+crit.wav           <- 344 Audio, Cinematic Fight Vol. 1, "4 x Punch, Body 02" (x0.7) + the bass drop

@@ -74,6 +74,10 @@ func _duel(kind: String, spam: bool) -> void:
 	await physics_frame
 	body.max_health = 99999.0
 	body.health = 99999.0
+	# Its stance broken by his cuts it kneels a while, of his doing: not counted
+	# against how often it attacks (ogre_test has the stance).
+	if body is PackBrute:
+		(body as PackBrute).stance = 0.0
 	if body is GoblinFighter:
 		# A goblin alone keeps off and throws: here it fights as with others by it.
 		(body as GoblinFighter).bold = true
