@@ -59,8 +59,9 @@ static func _ground(holder: Node3D) -> int:
 	if lands != null and is_instance_valid(lands) and lands.nx > 0:
 		x0 = lands.x0
 		z0 = lands.z0
-		x1 = lands.x0 + lands.nx
-		z1 = lands.z0 + lands.nz
+		var r := lands.rim()
+		x1 = r.z
+		z1 = r.w
 	# Heights on a grid at half the step, then each corner of the occluder the
 	# lowest of them within a step of it.
 	var half := GROUND_STEP * 0.5

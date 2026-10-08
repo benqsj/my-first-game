@@ -26,6 +26,8 @@ uniform sampler2D mottle : filter_linear_mipmap, repeat_enable;
 uniform sampler2D bump : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform vec2 origin = vec2(-300.0, -470.0);
 uniform vec2 grid_size = vec2(601.0, 891.0);
+// metres a cell of the grids is on a side
+uniform float cell = 1.0;
 // The core, drawn by Terrain and Marsh: nothing of this is drawn inside it.
 uniform vec4 core = vec4(-9999.0, -9999.0, -9999.0, -9999.0);
 uniform float skirt = 1.5;
@@ -62,7 +64,7 @@ float hat(ivec2 c) {
 
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	ivec2 c = ivec2(round(w.xz - origin));
+	ivec2 c = ivec2(round((w.xz - origin) / cell));
 	int s = max(int(UV.x + 0.5), 1);
 	float h = hat(c);
 	float hl = hat(c + ivec2(-s, 0));
@@ -86,7 +88,7 @@ void fragment() {
 	if (xz.x > core.x + 0.01 && xz.x < core.z - 0.01 && xz.y > core.y + 0.01 && xz.y < core.w - 0.01) {
 		discard;
 	}
-	vec2 uv = (xz - origin + 0.5) / grid_size;
+	vec2 uv = ((xz - origin) / cell + 0.5) / grid_size;
 	vec4 a = texture(splat_a, uv);
 	vec4 b = texture(splat_b, uv);
 	vec4 c = texture(splat_c, uv);

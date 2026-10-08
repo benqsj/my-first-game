@@ -18,6 +18,7 @@ uniform sampler2D ripple_a : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform sampler2D ripple_b : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform vec2 origin = vec2(-300.0, -470.0);
 uniform vec2 grid_size = vec2(601.0, 891.0);
+uniform float cell = 1.0;
 
 uniform vec3 fresh_shallow : source_color = vec3(0.24, 0.32, 0.27);
 uniform vec3 fresh_deep : source_color = vec3(0.06, 0.12, 0.12);
@@ -46,7 +47,7 @@ void fragment() {
 	float thickness = max(VERTEX.z - behind.z, 0.0);
 	float murkiness = clamp(thickness / murk, 0.0, 1.0);
 
-	vec2 cell_uv = (world_pos.xz - origin + 0.5) / grid_size;
+	vec2 cell_uv = ((world_pos.xz - origin) / cell + 0.5) / grid_size;
 	vec4 f = texture(flow_tex, cell_uv);
 	vec2 dir = (f.rg - 0.5) * 2.0;
 	float moving = clamp(length(dir) * 2.5, 0.0, 1.0);

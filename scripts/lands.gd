@@ -64,6 +64,8 @@ var nx: int = 0
 var nz: int = 0
 var x0: float = 0.0
 var z0: float = 0.0
+## Metres a cell of the grids is on a side (the v4 lands 1, the v5 world 2).
+var cell: float = 1.0
 ## The core, (x0, z0, x1, z1): drawn and walked on by [Terrain] and [Marsh].
 var core := Vector4(-120.0, -455.0, 120.0, 180.0)
 var info: Dictionary = {}
@@ -117,6 +119,7 @@ func _load() -> void:
 	nz = int(info["nz"])
 	x0 = float(info["x0"])
 	z0 = float(info["z0"])
+	cell = float(info.get("cell", 1.0))
 	var c: Dictionary = info["core"]
 	# The core's own grids end on whole metres: Terrain at z = 180, the bay at -455.
 	core = Vector4(float(c["x0"]), ceilf(float(c["z0"])), float(c["x1"]), ceilf(float(c["z1"])))
@@ -158,7 +161,7 @@ static func _read(file: String, size: int) -> PackedByteArray:
 func covers(x: float, z: float) -> bool:
 	if not _loaded:
 		return false
-	if x < x0 or z < z0 or x > x0 + nx - 1 or z > z0 + nz - 1:
+	if x < x0 or z < z0 or x > x0 + (nx - 1) * cell or z > z0 + (nz - 1) * cell:
 		return false
 	return not in_core(x, z)
 
@@ -170,12 +173,12 @@ func in_core(x: float, z: float) -> bool:
 
 ## Whether (x, z) is inside the world's rim at all.
 func inside(x: float, z: float) -> bool:
-	return x >= x0 and z >= z0 and x <= x0 + nx - 1 and z <= z0 + nz - 1
+	return x >= x0 and z >= z0 and x <= x0 + (nx - 1) * cell and z <= z0 + (nz - 1) * cell
 
 
 ## The rim, (x0, z0, x1, z1).
 func rim() -> Vector4:
-	return Vector4(x0, z0, x0 + nx - 1, z0 + nz - 1)
+	return Vector4(x0, z0, x0 + (nx - 1) * cell, z0 + (nz - 1) * cell)
 
 
 func _at(ix: int, iz: int) -> float:
@@ -186,8 +189,8 @@ func _at(ix: int, iz: int) -> float:
 func height_at(x: float, z: float) -> float:
 	if not _loaded:
 		return 0.0
-	var fx := clampf(x - x0, 0.0, nx - 1.0)
-	var fz := clampf(z - z0, 0.0, nz - 1.0)
+	var fx := clampf((x - x0) / cell, 0.0, nx - 1.0)
+	var fz := clampf((z - z0) / cell, 0.0, nz - 1.0)
 	var ix := mini(int(fx), nx - 2)
 	var iz := mini(int(fz), nz - 2)
 	var tx := fx - ix
@@ -201,8 +204,8 @@ func height_at(x: float, z: float) -> float:
 func water_at(x: float, z: float) -> float:
 	if not _loaded:
 		return -INF
-	var ix := clampi(int(round(x - x0)), 0, nx - 1)
-	var iz := clampi(int(round(z - z0)), 0, nz - 1)
+	var ix := clampi(int(round((x - x0) / cell)), 0, nx - 1)
+	var iz := clampi(int(round((z - z0) / cell)), 0, nz - 1)
 	var v := _w[iz * nx + ix]
 	return v if v > -90.0 else -INF
 
@@ -219,7 +222,7 @@ func _ready() -> void:
 	_build_water()
 	_build_edge()
 	_build_grass()
-	print("Lands: %d × %d m round the core, in %.1f ms" % [nx - 1, nz - 1, (Time.get_ticks_usec() - started) / 1000.0])
+	print("Lands: %d × %d m round the core, in %.1f ms" % [(nx - 1) * cell, (nz - 1) * cell, (Time.get_ticks_usec() - started) / 1000.0])
 
 
 #region The seam
@@ -277,6 +280,7 @@ func _ground_material() -> ShaderMaterial:
 	mat.set_shader_parameter("crop_tex", tint)
 	mat.set_shader_parameter("origin", Vector2(x0, z0))
 	mat.set_shader_parameter("grid_size", Vector2(nx, nz))
+	mat.set_shader_parameter("cell", cell)
 	mat.set_shader_parameter("core", core)
 	# The core's house-style ground lends its noise, so the grass is one grass.
 	var terrain := Terrain.current
@@ -356,8 +360,8 @@ func _build_ground() -> void:
 		for cx in range(0, nx - 1, chunk_cells):
 			var w := mini(chunk_cells, nx - 1 - cx)
 			var d := mini(chunk_cells, nz - 1 - cz)
-			var lo := Vector2(x0 + cx, z0 + cz)
-			var hi := lo + Vector2(w, d)
+			var lo := Vector2(x0 + cx * cell, z0 + cz * cell)
+			var hi := lo + Vector2(w, d) * cell
 			if lo.x >= core.x and hi.x <= core.z and lo.y >= core.y and hi.y <= core.w:
 				continue  # all core
 			var low := INF
@@ -372,6 +376,8 @@ func _build_ground() -> void:
 			fine.name = "Near_%d_%d" % [cx, cz]
 			fine.mesh = _grid(w, d, 1)
 			fine.position = Vector3(lo.x, 0.0, lo.y)
+			# the grid is built in cells; a cell is `cell` metres
+			fine.scale = Vector3(cell, 1.0, cell)
 			fine.custom_aabb = box
 			fine.material_override = _ground
 			fine.visibility_range_end = near_range
@@ -381,6 +387,7 @@ func _build_ground() -> void:
 			coarse.name = "Far_%d_%d" % [cx, cz]
 			coarse.mesh = _grid(w, d, far_step)
 			coarse.position = fine.position
+			coarse.scale = fine.scale
 			coarse.custom_aabb = box
 			coarse.material_override = _ground
 			coarse.visibility_range_begin = near_range
@@ -520,9 +527,9 @@ func _open(a: Vector2, b: Vector2, half_width: float) -> void:
 	var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - Vector2.ONE * half_width
 	var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) + Vector2.ONE * half_width
 	var ab := b - a
-	for iz in range(maxi(int(lo.y - z0), 0), mini(int(hi.y - z0) + 2, nz)):
-		for ix in range(maxi(int(lo.x - x0), 0), mini(int(hi.x - x0) + 2, nx)):
-			var p := Vector2(x0 + ix, z0 + iz)
+	for iz in range(maxi(int((lo.y - z0) / cell), 0), mini(int((hi.y - z0) / cell) + 2, nz)):
+		for ix in range(maxi(int((lo.x - x0) / cell), 0), mini(int((hi.x - x0) / cell) + 2, nx)):
+			var p := Vector2(x0 + ix * cell, z0 + iz * cell)
 			var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
 			if p.distance_to(a + ab * t) <= half_width:
 				_block[iz * nx + ix] = 0
@@ -532,10 +539,10 @@ func _open(a: Vector2, b: Vector2, half_width: float) -> void:
 #region Floor
 func _build_floor() -> void:
 	# Grid cells (ix, iz) spans, inclusive, round the core.
-	var cx0 := int(core.x - x0)
-	var cx1 := int(core.z - x0)
-	var cz0 := int(core.y - z0)
-	var cz1 := int(core.w - z0)
+	var cx0 := int((core.x - x0) / cell)
+	var cx1 := int((core.z - x0) / cell)
+	var cz0 := int((core.y - z0) / cell)
+	var cz1 := int((core.w - z0) / cell)
 	var spans: Array[Rect2i] = [
 		Rect2i(0, 0, cx0, nz - 1),                       # east of the core, all its length
 		Rect2i(cx1, 0, nx - 1 - cx1, nz - 1),            # west of it
@@ -560,7 +567,8 @@ func _build_floor() -> void:
 				elif _block[k] == 2:
 					# the sea, deeper than a wade (v5: its surface is a plane, not in `water`)
 					h = maxf(h, sea_level + barrier_rise)
-				data[iz * w + ix] = h
+				# heights in cells: the shape is scaled up by the cell, evenly
+				data[iz * w + ix] = h / cell
 		var shape := HeightMapShape3D.new()
 		shape.map_width = w
 		shape.map_depth = d
@@ -569,7 +577,8 @@ func _build_floor() -> void:
 		cs.name = "Floor%d" % n
 		cs.shape = shape
 		# A height map is centred on its node.
-		cs.position = Vector3(x0 + span.position.x + (w - 1) * 0.5, 0.0, z0 + span.position.y + (d - 1) * 0.5)
+		cs.position = Vector3(x0 + (span.position.x + (w - 1) * 0.5) * cell, 0.0, z0 + (span.position.y + (d - 1) * 0.5) * cell)
+		cs.scale = Vector3.ONE * cell
 		add_child(cs)
 		n += 1
 #endregion
@@ -588,6 +597,7 @@ func _water_material() -> Material:
 	mat.set_shader_parameter("flow_tex", _texture(_read("flow.rgba8.gz", nx * nz * 4), Image.FORMAT_RGBA8))
 	mat.set_shader_parameter("origin", Vector2(x0, z0))
 	mat.set_shader_parameter("grid_size", Vector2(nx, nz))
+	mat.set_shader_parameter("cell", cell)
 	return mat
 
 
@@ -637,16 +647,16 @@ func _build_water() -> void:
 				for ix in range(cx, mini(cx + chunk_cells, nx - 1)):
 					if wet[iz * nx + ix] == 0:
 						continue
-					var x := x0 + ix
-					var z := z0 + iz
-					if in_core(x + 0.5, z + 0.5):
+					var x := x0 + ix * cell
+					var z := z0 + iz * cell
+					if in_core(x + 0.5 * cell, z + 0.5 * cell):
 						continue
 					var quad := PackedInt32Array()
 					for c: Vector2i in [Vector2i(ix, iz), Vector2i(ix + 1, iz), Vector2i(ix, iz + 1), Vector2i(ix + 1, iz + 1)]:
 						if not corner.has(c):
 							var lv := _corner_level(c.x, c.y)
 							corner[c] = verts.size()
-							verts.append(Vector3(x0 + c.x, lv, z0 + c.y))
+							verts.append(Vector3(x0 + c.x * cell, lv, z0 + c.y * cell))
 						quad.append(corner[c])
 					idx.append_array([quad[0], quad[1], quad[2], quad[1], quad[3], quad[2]])
 			if idx.is_empty():
