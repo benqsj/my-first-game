@@ -1,0 +1,129 @@
+[gd_scene load_steps=20 format=3]
+
+[ext_resource type="Script" path="res://scripts/world.gd" id="1_world"]
+[ext_resource type="Script" path="res://scripts/lands.gd" id="2_lands"]
+[ext_resource type="Script" path="res://scripts/lands_places.gd" id="3_places"]
+[ext_resource type="Script" path="res://scripts/v5_frame.gd" id="4_frame"]
+[ext_resource type="Script" path="res://scripts/pipeline_warmup.gd" id="5_warmup"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="6_pause"]
+[ext_resource type="Texture2D" path="res://assets/world/v5/sky/kloofendal_sky_2k.exr" id="7_sky"]
+
+[sub_resource type="PanoramaSkyMaterial" id="Sky_pano"]
+panorama = ExtResource("7_sky")
+energy_multiplier = 1.0
+
+[sub_resource type="Sky" id="Sky_env"]
+sky_material = SubResource("Sky_pano")
+
+[sub_resource type="Environment" id="Environment_v5"]
+background_mode = 2
+sky = SubResource("Sky_env")
+tonemap_mode = 2
+ambient_light_source = 3
+ambient_light_color = Color(0.58, 0.64, 0.6, 1)
+ambient_light_sky_contribution = 0.6
+ambient_light_energy = 1.0
+reflected_light_source = 2
+ssao_enabled = true
+ssao_intensity = 1.1
+glow_enabled = true
+fog_enabled = true
+fog_light_color = Color(0.70, 0.76, 0.82, 1)
+fog_sun_scatter = 0.12
+fog_density = 0.0006
+fog_sky_affect = 0.0
+fog_aerial_perspective = 0.3
+adjustment_enabled = true
+adjustment_contrast = 1.03
+adjustment_saturation = 1.06
+
+[sub_resource type="FastNoiseLite" id="Noise_ground"]
+noise_type = 3
+frequency = 0.018
+fractal_octaves = 4
+fractal_lacunarity = 2.3
+fractal_gain = 0.55
+
+[sub_resource type="Gradient" id="Grad_ground"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.135, 0.165, 0.098, 1, 0.24, 0.27, 0.15, 1, 0.38, 0.37, 0.24, 1)
+
+[sub_resource type="NoiseTexture2D" id="Tex_ground"]
+width = 512
+height = 512
+seamless = true
+color_ramp = SubResource("Grad_ground")
+noise = SubResource("Noise_ground")
+
+[sub_resource type="FastNoiseLite" id="Noise_ground_bump"]
+noise_type = 3
+frequency = 0.09
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="Tex_ground_bump"]
+width = 512
+height = 512
+seamless = true
+as_normal_map = true
+bump_strength = 3.0
+noise = SubResource("Noise_ground_bump")
+
+[node name="WorldV5" type="Node3D"]
+script = ExtResource("1_world")
+raise_camps = false
+old_places = false
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_v5")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.353, 0.353, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 12, 0)
+light_energy = 1.25
+shadow_enabled = true
+shadow_opacity = 0.72
+directional_shadow_mode = 1
+directional_shadow_split_1 = 0.26
+directional_shadow_max_distance = 110.0
+directional_shadow_blend_splits = true
+
+[node name="Lands" type="StaticBody3D" parent="."]
+script = ExtResource("2_lands")
+data_dir = "res://assets/world/v5/"
+ground_shader = "res://shaders/v5_ground.gdshader"
+mottle = SubResource("Tex_ground")
+bump = SubResource("Tex_ground_bump")
+near_range = 200.0
+
+[node name="LandsPlaces" type="Node3D" parent="."]
+script = ExtResource("3_places")
+
+[node name="Enemies" type="Node3D" parent="."]
+
+[node name="V5Frame" type="Node3D" parent="."]
+script = ExtResource("4_frame")
+
+[node name="Players" type="Node3D" parent="."]
+
+[node name="SpawnPoints" type="Node3D" parent="."]
+
+[node name="Mark1" type="Marker3D" parent="SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -92, 6, 0)
+
+[node name="Mark2" type="Marker3D" parent="SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -92, 6, 2.5)
+
+[node name="Mark3" type="Marker3D" parent="SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -92, 6, -2.5)
+
+[node name="Mark4" type="Marker3D" parent="SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -89.5, 6, 0)
+
+[node name="PlayerSpawner" type="MultiplayerSpawner" parent="."]
+_spawnable_scenes = PackedStringArray("res://scenes/player/player.tscn")
+spawn_path = NodePath("../Players")
+
+[node name="PipelineWarmup" type="Node" parent="."]
+script = ExtResource("5_warmup")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("6_pause")

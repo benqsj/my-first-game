@@ -16,8 +16,11 @@ extends Control
 const WORLD := "res://scenes/world/greybox_world.tscn"
 ## The empty floor to try creatures, bosses and looks on ([ArenaPanel]).
 const ARENA := "res://scenes/world/test_arena.tscn"
+## The v5 world being built (vepxis-art/map/v5, the project's world_v5_plan).
+const WORLD_V5 := "res://scenes/world/world_v5.tscn"
 ## Whether START goes to the arena rather than the land.
 var _arena: bool = false
+var _v5: bool = false
 const NetScript := preload("res://scripts/net.gd")
 
 ## The three columns of the character screen, in pixels: a roster tile, and the
@@ -263,13 +266,21 @@ func _build_mode() -> Control:
 	buttons.add_child(MenuStyle.button("ALONE", func() -> void:
 			_multiplayer = false
 			_arena = false
+			_v5 = false
+			_show(Page.CHARACTERS)))
+	buttons.add_child(MenuStyle.button("NEW WORLD (V5)", func() -> void:
+			_multiplayer = false
+			_arena = false
+			_v5 = true
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("WITH COMPANIONS", func() -> void:
 			_multiplayer = true
+			_v5 = false
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("TEST ARENA", func() -> void:
 			_multiplayer = false
 			_arena = true
+			_v5 = false
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	column.add_child(buttons)
@@ -1478,12 +1489,12 @@ func _start() -> void:
 	if _game != null:
 		_game.choose(_chosen)
 		# A solo game in the world opens with the story ([Intro]).
-		_game.set(&"story_pending", not _arena)
+		_game.set(&"story_pending", not _arena and not _v5)
 	# A solo game is a game with nobody else in it, which is not the same as a
 	# game with a peer left over from last time still holding a socket open.
 	if _net != null:
 		_net.call("leave")
-	SceneLoader.go(get_tree(), ARENA if _arena else WORLD)
+	SceneLoader.go(get_tree(), ARENA if _arena else (WORLD_V5 if _v5 else WORLD))
 
 
 ## Opens the game to others and goes straight in. The host is a player.

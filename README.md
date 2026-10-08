@@ -9430,3 +9430,54 @@ something different. LandsPlaces now prints what each of its stages took
 level at 11.3 s, from 16.6 s. What is left is the rest of the build (~3 s:
 Meadows 0.9, Forest 0.6, VillageProps 0.4, …), loading the scene's resources
 and the warm-up's frames.
+
+## The v5 world, stage 1: the frame (2026-10-08, the user's word)
+
+A new level, `scenes/world/world_v5.tscn` (main menu: **NEW WORLD (V5)**),
+built by the plan in the project's `world_v5_plan.md` (concept
+`vepxis-art/map/v5/map_v5i_concept.png`). The old level is untouched and still
+the default. +x is west, +z north.
+
+- **The ground** is [Lands] reading another map: `data_dir =
+  res://assets/world/v5/`, written by `vepxis-art/map/v5/build_v5.py`
+  (numpy/scipy, deterministic, ~8 s). 1321 × 961 m at a metre a cell
+  (x −560…760, z −480…480); the play land is x −452…700, z −332…332 (the
+  map's `play`, where Lands puts its walls now when a map has one). No
+  [Terrain] square: the json's `core` is empty, so Lands draws and collides
+  all of it, and `Terrain.height()` falls back to `Lands.height()` when there
+  is no Terrain (so everything that plants on the ground works in either
+  level).
+- **The Black Sea**: the true coast, Natural Earth 1:10m
+  (`ge_coast.json`), Gagra at the top of the play land and Batumi at the
+  bottom, 3.5 m a km both ways; a beach strip (sand, wet at the water), the
+  floor going down to −11 m. The sea's surface is one plane at y = 0 out to the
+  horizon ([V5Frame], the bay's water a shade bluer); where it is deeper than
+  a wade the map's `block` is 2 and the floor rises out of it at the sea's
+  level, as it does for deep river water.
+- **The Rioni and the Enguri** from the east hills to the sea at Poti and north
+  of Anaklia, levels that never run uphill and come down to the sea's; in the
+  hills past the cliff they keep a gentle fall and cut a valley rather than
+  climb into a waterfall. Two stone bridges where the north and south gates'
+  roads cross them (the map's `landmarks`; Lands finds each span and opens the
+  barrier, [LandsPlaces] puts the bridge up as it does in the v4 lands).
+- **The Caucasus** north (snow from ~95 m), **Adjara's hills** south, hills and
+  a rock cliff along the east edge (x ≈ −440); their foot wanders and their
+  lower slopes are dark wood, scree and rock higher.
+- **The palace's hill**: the town's ground levelled (5.2 m) 130 m round
+  (−150, 0), a hill on it 4 m high with a dead-level top 44 m round.
+- **Roads** out of the four gates as the concept draws them, graded, dirt with
+  gravel edges (the town's streets are stage 2).
+- **The wolves' hill moved as it was**: the old Terrain features, Forest's
+  GROVE firs (giant firs and young pines, same seed, glades, scales) and the
+  sixteen wolves, carried from round (63, 138) to (−330, 180) — `wolves_hill`
+  in the json, planted by [V5Frame] (MultiMeshes and a trunk each).
+- **The sky**: Poly Haven's kloofendal_48d_partly_cloudy_puresky (2k EXR,
+  `assets/world/v5/sky/`) as a panorama, lighting the ambient and reflections;
+  lighter fog.
+- The ground's shader is `shaders/v5_ground.gdshader` (Lands'
+  `ground_shader`): the lands' shader with sand in heather's place.
+  Without a Terrain to lend it, the ground's noise textures are Lands'
+  `mottle` and `bump` exports. `World.old_places = false` keeps the old
+  village, graveyard and ground cover out.
+- Tree packs looked at for the coming stages: `vepxis-art/map/v5/trees/`
+  (contact sheets, `trees_survey.md`).
