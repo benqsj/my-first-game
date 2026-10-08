@@ -122,6 +122,33 @@ const CLIPS := [
 	["CR_Harvest", "Farm_Harvest", false],
 	["CR_Consume", "Consume", false],
 	["CR_Surprise", "Surprise", false],
+	# The ogre's strings (2026-10-08, the user's word: the same combo again and
+	# again): UAL 2's sword strikes one by one, light and heavy, the dash, the
+	# rising cut, turns about, a second kick, the polearm's sweeps; and going
+	# down and back up for its stance broken.
+	["CR_HeavyA", "Sword_Heavy_A", false],
+	["CR_HeavyB", "Sword_Heavy_B", false],
+	["CR_HeavyC", "Sword_Heavy_C", false],
+	["CR_HeavyD", "Sword_Heavy_D", false],
+	["CR_LightA", "Sword_Light_A", false],
+	["CR_LightB", "Sword_Light_B", false],
+	["CR_LightC", "Sword_Light_C", false],
+	["CR_LightD", "Sword_Light_D", false],
+	["CR_RegA", "Sword_Regular_A", false],
+	["CR_RegB", "Sword_Regular_B", false],
+	["CR_RegC", "Sword_Regular_C", false],
+	["CR_SwordDash", "Sword_Dash", false],
+	["CR_SwordUpper", "Sword_UpperCut", false],
+	["CR_Turn180L", "Turn180_L", false],
+	["CR_Turn180R", "Turn180_R", false],
+	["CR_TurnL", "KV_Turn01_Left", false],
+	["CR_TurnR", "KV_Turn01_Right", false],
+	["CR_Kick2", "KV_AttackKick02_R", false],
+	["CR_Polearm2", "KV_AttackPolearm02", false],
+	["CR_Polearm4", "KV_AttackPolearm04", false],
+	["CR_LayDown", "IdleToLay", false],
+	["CR_KipUp", "KipUp", false],
+	["CR_Knockback", "Hit_Knockback", false],
 ]
 
 ## Clips straight out of Mixamo (exported in place, without skin, on X Bot),
