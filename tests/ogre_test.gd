@@ -545,11 +545,12 @@ func _track() -> void:
 	await _done(a[0])
 
 
-## A held smash, him backed off 4 m and a step aside during its hold: it
-## slides at him as it lets go and fells him; the same with him rolling at
-## its blow (his i-frames) misses.
+## A held smash: planted through its wind-up and hold whatever he does (no
+## glide, no rocking to and fro); him backed off 4 m and a step aside, it
+## slides at him the moment it lets go and fells him; him still in reach, no
+## slide and it fells him; rolled through at its blow (i-frames), it misses.
 func _slide() -> void:
-	for rolled: bool in [false, true]:
+	for how: String in ["off", "near", "rolled"]:
 		var a: Array = await _arena()
 		var hero: Player = a[2]
 		var ogre := _ogre(a, _ahead(hero, 3.0))
@@ -558,30 +559,50 @@ func _slide() -> void:
 		ogre._quarry = hero
 		var to := hero.global_position - ogre.global_position
 		to.y = 0.0
+		var reach := float(ogre._strike_from.get(OgreFighter.SMASH, ogre.strike_off))
+		var away := to.normalized()
+		ogre.global_position = hero.global_position - away * reach
 		ogre.rotation.y = atan2(-to.x, -to.z)
+		await physics_frame
 		ogre._holds[OgreFighter.SMASH] = [1.0, 0.6, 0.6, 0.22]
 		ogre._open(OgreFighter.SMASH)
 		var sp := ogre._slide_span(OgreFighter.SMASH)
-		var away := to.normalized()
-		var spot := hero.global_position + away * 4.0 + away.cross(Vector3.UP) * 1.2
+		var near := hero.global_position
+		var spot := near + away * 4.0 + away.cross(Vector3.UP) * 1.2
 		var from := ogre.global_position
+		var drift := 0.0
 		var downed := false
 		var blow := ogre._blow_moments(OgreFighter.SMASH)[0]
+		var f := 0
 		while ogre.act == OgreFighter.SMASH:
 			await physics_frame
+			f += 1
 			_hold_off(ogre)
-			if ogre._act_time < sp.x - 0.1:
-				hero.global_position = Vector3(spot.x, hero.global_position.y, spot.z)
-			if rolled:
+			if ogre.act == OgreFighter.SMASH and ogre._act_time < sp.x - 0.05:
+				var d := from - ogre.global_position
+				drift = maxf(drift, Vector2(d.x, d.z).length())
+				if how == "near":
+					# He shuffles about in front of it, in reach.
+					var at := near - away * 0.4 * absf(sin(f * 0.4)) + away.cross(Vector3.UP) * 0.5 * sin(f * 0.4)
+					hero.global_position = Vector3(at.x, hero.global_position.y, at.z)
+				else:
+					hero.global_position = Vector3(spot.x, hero.global_position.y, spot.z)
+			if how == "rolled":
 				hero.is_invulnerable = absf(ogre._act_time - blow) < 0.3
 			downed = downed or hero.state == Player.State.DOWNED
 		hero.is_invulnerable = false
 		var slid := Vector2(ogre.global_position.x - from.x, ogre.global_position.z - from.z).length()
-		if rolled:
-			_check("held, slid at him, rolled through at its blow: it misses", ogre.slides_made == 1 and not downed,
-					"slid %d, downed %s" % [ogre.slides_made, downed])
-		else:
-			_check("held, him backed off: it slides at him as it lets go", ogre.slides_made == 1 and slid > 2.5,
-					"slid %d, %.1f m" % [ogre.slides_made, slid])
-			_check("and its blow throws him down", downed, "ogre %.1f m from him" % ogre._distance_to(hero))
+		match how:
+			"off":
+				_check("held, him backed off: planted through its hold", drift < 0.12, "%.2f m" % drift)
+				_check("and it slides at him as it lets go", ogre.slides_made == 1 and slid > 2.5,
+						"slid %d, %.1f m" % [ogre.slides_made, slid])
+				_check("and its blow throws him down", downed, "ogre %.1f m from him" % ogre._distance_to(hero))
+			"near":
+				_check("held, him shuffling in reach: no glide, no rocking", drift < 0.12, "%.2f m" % drift)
+				_check("and no slide, and it fells him", ogre.slides_made == 0 and downed,
+						"slid %d, downed %s" % [ogre.slides_made, downed])
+			"rolled":
+				_check("held, slid at him, rolled through at its blow: it misses", ogre.slides_made == 1 and not downed,
+						"slid %d, downed %s" % [ogre.slides_made, downed])
 		await _done(a[0])

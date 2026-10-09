@@ -6296,12 +6296,16 @@ No spikes for the ogre.
   it, it never fells). Combos stay as they were.
 - **The held swing comes after him** (the user's word, 2026-10-09: "if I
   back off while it pauses it can't reach me — slide it at me fast; only a
-  roll should beat it"): a held swing (`_holds`: the heavies, the great
-  blow, the roll-catch) let go with him more than `slide_slack` past its
-  reach slides at him from `slide_lead` 0.2 s before the hold ends to its
-  blow (`_slide_after_him`, at least `slide_least` 7 m/s, at most
-  `slide_most` 6.5 m), turning after him all the way past the commit — the
-  heavies fell. Grit kicked off its feet, a grunt, a small shake
+  roll should beat it"; then: "it shouldn't creep while paused, nor rock to
+  and fro"): a held swing (`_holds`: the heavies, the great blow, the
+  roll-catch) is **planted** through its wind-up and its hold — none of the
+  Brawler's stepping in under the blow (`_close_gap`) nor backing off
+  (`too_close`), which glided it while frozen and rocked it to and fro as he
+  moved round it. Let go with him more than `slide_slack` 0.15 m past its
+  reach, it **slides at him at once** from the end of the hold to its blow
+  (`_slide_span`, `_slide_after_him`; ~0.22 s, as fast as the gap asks, at
+  most `slide_most` 6.5 m), turning after him all the way past the commit —
+  the heavies fell. Grit kicked off its feet, a grunt, a small shake
   (`net_slide`). Running does not beat it; a roll at the blow does.
 
 Clips: `tools/creature_clips.gd` takes Mixamo clips with their travel in the
@@ -6316,8 +6320,10 @@ runs at the run's when he runs; the leap and the run-and-spring begin, lift
 off, come down on him stepped aside, fell him and shake the ground again; a
 roll is answered by the roll-catch, always held; a swing follows him round
 through its wind-up and is locked after its commit.
-`-- slide`: a held smash, him backed off 4 m and aside in its hold, slides
-at him and fells him; rolled through at its blow (i-frames), it misses.
+`-- slide`: a held smash stands still through its hold (him backed off, or
+shuffling about in reach); backed off 4 m and aside, it slides at him as it
+lets go and fells him; in reach, no slide and it fells him; rolled through at
+its blow (i-frames), it misses.
 
 ### Gold (2026-10-07, the user's word: a goblin had nothing to steal)
 

@@ -138,15 +138,14 @@ extends PackBrute
 @export var aftershock_ahead: float = 1.1
 @export var aftershock_radius: float = 2.6
 @export var aftershock_share: float = 0.45
-## A held swing let go with him backed out of its reach (the user's word,
-## 2026-10-09): it slides at him, quick, from `slide_lead` s before the hold
-## ends to its blow, turning after him all the way — only a roll beats it.
-## It slides no further than `slide_most` (m at its size), never slower than
-## `slide_least` m/s; he must be `slide_slack` m past its reach for it.
-@export var slide_lead: float = 0.2
+## A held swing (the user's word, 2026-10-09): planted through its wind-up
+## and its hold — no stepping in or backing off, so no glide and no rocking
+## to and fro as he moves round it; let go with him out of its reach (by
+## more than `slide_slack` m), it slides at him at once from the end of the
+## hold to its blow, turning after him all the way — only a roll beats it.
+## It slides no further than `slide_most` (m at its size).
 @export var slide_most: float = 6.5
-@export var slide_least: float = 7.0
-@export var slide_slack: float = 0.5
+@export var slide_slack: float = 0.15
 
 @export_group("Strings")
 ## The closing swing of a string this long or longer (calm, enraged) throws
@@ -710,11 +709,14 @@ func _next_in_string(what: int) -> int:
 
 #region Acting
 func _extra_velocity(delta: float) -> Vector3:
-	if _slide_serial == act_serial:
-		var sp := _slide_span(act)
-		if _act_time >= sp.x and _act_time <= sp.y:
-			return _forward() * _slide_speed
-		return Vector3.ZERO
+	var held := _slide_span(act)
+	if held.x >= 0.0:
+		# Planted through the wind-up and the hold; then the slide, if he
+		# backed off, or the plain step in under the blow.
+		if _act_time < held.x:
+			return Vector3.ZERO
+		if _slide_serial == act_serial:
+			return _forward() * _slide_speed if _act_time <= held.y else Vector3.ZERO
 	if act == LUNGE:
 		if _act_time <= _blow_moments(LUNGE)[0]:
 			return _forward() * _lunge_speed
@@ -779,8 +781,8 @@ func _close_speed_for(what: int, until: float, from: float) -> float:
 	return maxf(_distance_to(_quarry) - short - own, 0.0) / left
 
 
-## Act seconds a held swing slides over: [from a beat before its hold ends,
-## its blow], or (-1, -1) if it is not held this time.
+## Act seconds a held swing slides over: [the end of its hold, its blow], or
+## (-1, -1) if it is not held this time.
 func _slide_span(what: int) -> Vector2:
 	var sh := _shape(what)
 	if sh.is_empty() or float(sh[2]) <= 0.0:
@@ -789,7 +791,7 @@ func _slide_span(what: int) -> Vector2:
 	if ms.is_empty():
 		return Vector2(-1.0, -1.0)
 	var release := float(sh[0]) * float(sh[1]) + float(sh[2])
-	return Vector2(maxf(release - slide_lead, 0.0), ms[0])
+	return Vector2(release, ms[0])
 
 
 ## Host: a held swing let go with him out of its reach slides at him and
@@ -814,7 +816,7 @@ func _slide_after_him(delta: float) -> bool:
 	_face(_quarry.global_position - global_position, delta, turn_speed * 4.0)
 	_reframe()
 	var window := maxf(sp.y - sp.x, 0.15)
-	_slide_speed = clampf(_close_speed_for(act, sp.y, sp.x), slide_least,
+	_slide_speed = clampf(_close_speed_for(act, sp.y, sp.x), 0.0,
 			slide_most * visual_scale / 1.6 / window)
 	return true
 
