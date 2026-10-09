@@ -3376,6 +3376,7 @@ var _blow_name: StringName = &""
 ## ...and where it was dealt from (the side it came from is the striker's,
 ## not the way its sweep leant: [method _blow_fall]).
 var _blow_source: Vector3 = Vector3.ZERO
+var _blow_weapon: bool = false
 ## The fall picked for the blow that felled him ([constant BLOW_FALLS]): its
 ## number ([constant SkinnedRig.REVIEW], 0 none) and how he is turned for it.
 var _down_number: int = 0
@@ -3392,22 +3393,20 @@ var _down_face: String = ""
 ## one who struck (he folds forward at its feet), "keep" as he stands.
 ## Not here: the kind of blow picks it ([method _fall_kind]).
 const BLOW_FALLS := {
-	# the user's word 2026-10-09 23:16. The falls onto his face from above
-	# (Fall_Flat, 10) go the way he faces, whichever way that is ("keep": he
-	# is not turned, so facing the camera he falls at it)
-	&"smash": {"any": [[10, "keep"]], "side": [[27, "keep"]]},
-	&"cleave": {"front": [[2, ""]], "side": [[5, ""]]},
+	# the user's word 2026-10-09 23:53. The falls onto his face from above
+	# (Fall_Flat, 10) go the way he faces ("keep": not turned, so facing the
+	# camera he falls at it); the smash in front turns him the blow's way
+	&"smash": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
+	&"cleave": {"any": [[2, ""], [11, ""], [14, ""], [17, ""], [16, ""]], "back": [[16, "keep"]]},
 	&"jump_slam": {"any": [[10, "keep"]]},
 	&"whirl": {"any": [[5, ""]]},
 	&"heavy": {"any": [[24, "foe"]]},
-	# caught in its shock's ring: over backwards; with his back to it, onto
-	# his stomach (Knocked To Stomach spins him round as he goes down: begun
-	# with his back to it, his head ends at it — the user's word)
-	&"pound": {"any": [[13, ""], [14, ""]], "back": [[11, "keep"]]},
+	# its shock's ring: over backwards; the club itself on him, flat on his face
+	&"pound": {"any": [[14, ""]], "weapon": [[10, "keep"]]},
 	&"leap_slam": {"any": [[10, "keep"]]},
 	&"run_slam": {"any": [[10, "keep"]]},
-	&"sweep": {"any": [[11, "keep"]]},
-	&"chop": {"any": [[4, ""]]},
+	&"sweep": {"any": [[5, ""]]},
+	&"chop": {"any": [[20, ""]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
@@ -3457,6 +3456,9 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		key += "!" + String(how)
 	# which blow it is, by name: a fall picked for it ([constant BLOW_FALLS])
 	var named: StringName = StringName(from.call(&"blow_name")) if from.has_method(&"blow_name") else &""
+	# the weapon itself met him (not only the blow's shock): "@w"
+	if not named.is_empty() and WeaponSweep.motion_on(self).length() >= 0.5:
+		named = StringName(String(named) + "@w")
 	net_blow.rpc_id(get_multiplayer_authority(), damage, _swept(away.normalized()), from.global_position,
 			key, blow, blows, magic, named)
 
@@ -3513,7 +3515,8 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
 	var how := _blow_kind(combo)
-	_blow_name = named
+	_blow_weapon = String(named).ends_with("@w")
+	_blow_name = StringName(String(named).trim_suffix("@w"))
 	_blow_source = source
 	# the weapon's force and pitch ride on `away` ([method _swept])
 	_blow_pitch = clampf(away.y, -1.0, 1.0)
@@ -4117,6 +4120,8 @@ func _blow_fall(away: Vector3) -> Array:
 		SkinnedRig.From.LEFT, SkinnedRig.From.RIGHT:
 			side = "side"
 	var picks: Array = sides.get(side, sides.get("any", []))
+	if _blow_weapon and sides.has("weapon"):
+		picks = sides["weapon"]
 	if picks.is_empty():
 		return []
 	return picks[randi() % picks.size()]

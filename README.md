@@ -2597,19 +2597,21 @@ longer used.
   (thrown the clip's way). A clip that throws him slanting (`FALL_SLANT`:
   Hit By Car) is turned the more by its own measured travel
   (`numbered_slant`). **The falls onto his face from above go the way he
-  faces** (the user's word, 23:16: "facing the camera, he falls at the
-  camera"): Fall_Flat is never turned ("keep"). The ogre: smash 10
-  `TR_Fall_Flat` (from a side 27, `AV_Death_Forward_02` from 42 %); jump,
-  leap and run slam 10; cleave in front 2 `KV_CombatDeath02`, from a side 5
-  `TR_Flying_Back`; whirl 5; heavy 24 `KV_Death01` facing it (0.72); pound
-  (its ring) 13 `TR_Shoulder_Hit_Fall` or 14 `TR_Sweep_Fall`, both over
-  backwards (BACK: no turning his back first), and with his back to it 11
-  `TR_Knocked_Stomach` (it spins him round going down: his head ends where
-  his back was); sweep 11 as he stands; chop 4 `TR_Knocked_Over`. Everything
-  else falls by kind. The number rides to every peer in the hundreds of the
+  faces** (the user's word, 23:16): the slams' Fall_Flat is never turned
+  ("keep"). The ogre (23:53): smash in front 10 `TR_Fall_Flat` thrown the
+  blow's way, from a side or behind 27 (`AV_Death_Forward_02` from 42 %);
+  cleave one of 2 `KV_CombatDeath02`, 11 `TR_Knocked_Stomach`, 14
+  `TR_Sweep_Fall`, 17 `KV_CombatDeath03`, 16 `KV_CombatDeath01` (folded
+  to a side, mirrored for the other), from behind 16 as he stands; jump,
+  leap and run slam 10 keep; whirl 5; heavy 24 `KV_Death01` facing it;
+  pound: its ring 14 over backwards, the club itself on him ("@w" on the
+  blow's name: `WeaponSweep.motion_on`) 10 keep; sweep's close 5
+  `TR_Flying_Back`; chop's close 20 `AV_Death_Backward_01`. Everything else
+  falls by kind. The number rides to every peer in the hundreds of the
   spray (100 × number + 10.25 + kind + force / 4). On the felling blow his
-  back is thrown over along it (`SkinnedRig.jolt` → HitLean, `JOLT` 6–10),
-  laid over the fall: it follows the club.
+  back is thrown over along it (`SkinnedRig.jolt` → HitLean, `JOLT` 6–10).
+  `FootFlat` now also works on the falls' `F_` copies of his own clips (the
+  boots folded over lying and getting up, the user saw it).
   `TR_Shoulder_Hit_Fall` (13) is kept for being splashed with something
   (poison...), the arcade.
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws

@@ -3466,7 +3466,10 @@ func _mq_tick(delta: float, planar: float, airborne: bool, vy: float, blocking: 
 	_air_was = airborne
 	var feet: FootFlat = _mq.get("feet")
 	if feet != null:
-		feet.active = (_mq["own"] as Dictionary).has(StringName(_anim.current_animation))
+		# the falls' own copies of his clips too ("F_"): their feet folded
+		# over in the falls and the get-ups (the user saw it, 2026-10-09)
+		var playing := String(_anim.current_animation).trim_prefix(FALL_PREFIX)
+		feet.active = (_mq["own"] as Dictionary).has(StringName(playing))
 	if blocking:
 		_rouse()
 	if not fighting():
@@ -3805,6 +3808,9 @@ const REVIEW := {
 	# 9 without its stumble: straight down onto his stomach (the user's word)
 	27: [Fall.FORWARD, [&"AV_Death_Forward_02", 1.3, 0.76, 0.42]],
 	20: [Fall.BACK, [&"AV_Death_Backward_01", 1.4, 0.66, 0.25]],
+	# folded over to his left (mirrored for his right), from where he sways
+	16: [Fall.RIGHT, [&"KV_CombatDeath01", 1.25, 0.72, 0.4]],
+	17: [Fall.BACK, [&"KV_CombatDeath03", 1.1, 0.66, 0.25]],
 }
 
 
@@ -3871,7 +3877,7 @@ const FALL_TIERS := Vector2(0.35, 0.9)
 ## forward first).
 const FALL_ACROSS := [&"TR_Thrown_Side"]
 ## Clips the falls also want mirrored, left for right ([method _mirrored]).
-const FALL_MIRROR := [&"TR_Thrown_Side"]
+const FALL_MIRROR := [&"TR_Thrown_Side", &"KV_CombatDeath01"]
 ## Launched ([constant Fall.FLY]): curled in the air till the ground comes,
 ## then struck onto it.
 const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]

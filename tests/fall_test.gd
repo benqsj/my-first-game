@@ -97,11 +97,14 @@ func _run() -> void:
 
 	# the falls the user picked per blow (Player.BLOW_FALLS)
 	var smash := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"smash")
-	_check("the ogre's smash in front: onto his face the way he faces, not turned (10)", smash["number"] == 10
-			and smash["faced"] > 0.9 and smash["moved"].z < -0.3, str(smash))
-	var smash_back := await _fell(Vector3(0, 0, 2), 40.0, &"", Vector3.ZERO, false, &"smash")
-	_check("...and from behind the same: onto his face the way he faces", smash_back["number"] == 10
-			and smash_back["faced"] < -0.9 and smash_back["moved"].z < -0.3, str(smash_back))
+	_check("the ogre's smash in front: onto his face, thrown the blow's way (10)", smash["number"] == 10
+			and smash["moved"].z > 0.3, str(smash))
+	var slam := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"leap_slam")
+	_check("its leap slam: onto his face the way he faces, not turned (10)", slam["number"] == 10
+			and slam["faced"] > 0.9 and slam["moved"].z < -0.3, str(slam))
+	var cleave_back := await _fell(Vector3(0, 0, 2), 40.0, &"", Vector3.ZERO, false, &"cleave")
+	_check("its cleave from behind: folded over to a side as he stands (16)", cleave_back["number"] == 16
+			and cleave_back["faced"] < -0.9, str(cleave_back))
 	var smash_side := await _fell(Vector3(-2, 0, 0), 40.0, &"", Vector3.ZERO, false, &"smash")
 	_check("its smash from a side: forward onto his stomach as he stands (27)",
 			smash_side["number"] == 27 and not smash_side["on_back"] and absf(smash_side["faced"]) < 0.2
@@ -110,14 +113,12 @@ func _run() -> void:
 	_check("its great blow: on his knees and forward, his face to it (24)", heavy["number"] == 24
 			and heavy["faced"] > 0.9 and heavy["moved"].z < 0.1, str(heavy))
 	var sweep := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"sweep")
-	_check("a string's close (sweep): onto his stomach, not turned (11)", sweep["number"] == 11
-			and sweep["faced"] > 0.9 and not sweep["on_back"], str(sweep))
+	_check("a string's close (sweep): thrown back flying (5)", sweep["number"] == 5, str(sweep))
 	var pound := await _fell(Vector3(0, 0, -2), 40.0, &"ground", Vector3.ZERO, false, &"pound")
-	_check("in the pound's ring facing it: over backwards (13, 14)", [13, 14].has(pound["number"])
-			and pound["faced"] > 0.9 and pound["on_back"], str(pound))
-	var pound_back := await _fell(Vector3(0, 0, 2), 40.0, &"ground", Vector3.ZERO, false, &"pound")
-	_check("...with his back to it: onto his stomach, his head ending at it (11)", pound_back["number"] == 11
-			and pound_back["faced"] < -0.9 and not pound_back["on_back"], str(pound_back))
+	_check("in the pound's ring: over backwards (14)", pound["number"] == 14 and pound["faced"] > 0.9
+			and pound["on_back"], str(pound))
+	var pounded := await _fell(Vector3(0, 0, -2), 40.0, &"ground", Vector3(0, -20, 4), false, &"pound")
+	_check("...the club itself on him: flat on his face (10)", pounded["number"] == 10, str(pounded))
 	var unnamed := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"kick")
 	_check("a blow with no fall picked falls by its kind", unnamed["number"] == 0, str(unnamed))
 
