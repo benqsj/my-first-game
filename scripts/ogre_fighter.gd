@@ -488,7 +488,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 	if prev >= 0 and _strikes_table.has(prev):
 		var n := _blow_moments(prev).size()
 		_chain_blow += n
-		var kind := _blow_kind(prev)
+		var kind := _combo_kind(prev)
 		_kind_blows[kind] = int(_kind_blows.get(kind, 0)) + n
 	_string_count += 1
 	_pounded = false
@@ -505,7 +505,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		finishers_made += 1
 		var keep: Array = _strikes_table[what]
 		var close := keep.duplicate()
-		close[3] = int(_kind_blows.get(_blow_kind(what), 0)) + _blow_moments(what).size()
+		close[3] = int(_kind_blows.get(_combo_kind(what), 0)) + _blow_moments(what).size()
 		_strikes_table[what] = close
 		_begin(what)
 		_strikes_table[what] = keep
@@ -520,6 +520,24 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		var own := _hips(m[0], _clip_time(LUNGE, until)).x - _hips(m[0], _clip_time(LUNGE, 0.0)).x
 		var short := float(_strike_from.get(LUNGE, strike_off))
 		_lunge_speed = maxf(_distance_to(_quarry) - short - own, 0.0) / maxf(until, 0.2)
+
+
+## Its blows brought down on him from above: felled by one, he is crushed
+## down where he stands ([method Player.receive_blow] asks).
+const OVERHEAD := [SMASH, JUMP_SLAM, LEAP_SLAM, CATCH]
+
+
+func blow_from_above() -> bool:
+	return OVERHEAD.has(act) and _blow_kind(act).is_empty()
+
+
+## The kind a move's blows reach him as — his combo key goes by it, so the
+## blows of a string count together only within one kind.
+func _combo_kind(what: int) -> StringName:
+	var kind := _blow_kind(what)
+	if kind.is_empty() and OVERHEAD.has(what):
+		return &"above"
+	return kind
 
 
 ## Where he stands against the way it faces: "front", "side" or "behind".
