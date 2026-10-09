@@ -15,6 +15,16 @@ extends SceneTree
 ##   it gets up; left alone its stance is whole again;
 ## * enraged: no ring at its feet.
 ##
+## Round 3 (2026-10-09, the user's word):
+## * falls: a heavy blow throws him down by itself, a light one only
+##   staggers him, but the close of a long string fells him;
+## * gait: it trots after him, and runs once he plainly runs from it, each
+##   clip at about its own pace;
+## * from afar: 8-14 m off it leaps at him, 12-22 m it runs at him and
+##   springs; both follow him and throw him down;
+## * the roll-catch answers a roll; a swing follows him till late, then is
+##   locked; a lone heavy blow's aftershock.
+##
 ##   godot --headless --path . --script res://tests/ogre_test.gd [-- <part>...]
 
 const OGRE := "res://scenes/enemies/pack/ogre.tscn"
@@ -34,7 +44,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var only := OS.get_cmdline_user_args()
-	var parts := ["strings", "raging", "sides", "steady", "stance", "rings"]
+	var parts := ["strings", "raging", "sides", "steady", "stance", "rings", "falls", "gait", "afar", "catch",
+			"track"]
 	for part: String in parts:
 		if only.is_empty() or only.has(part):
 			await call("_" + part)
@@ -308,3 +319,221 @@ func _rings() -> void:
 				rings += 1
 	_check("enraged, no ring at its feet", raged and rings == 0, "raged %s, %d rings seen" % [raged, rings])
 	await _done(world)
+
+
+const LIGHT_OK := [OgreFighter.SWEEP, OgreFighter.CHOP, OgreFighter.BACKHAND, OgreFighter.WIDE, OgreFighter.LOW,
+		OgreFighter.KICK, OgreFighter.LUNGE]
+
+
+## Its moves held out of the way (the leaps, the pound, the great blow).
+func _hold_off(ogre: OgreFighter, keep: Array = []) -> void:
+	for n: String in ["_leap_slam_wait", "_run_slam_wait", "_lunge_wait", "_pound_wait", "_heavy_wait"]:
+		if not keep.has(n):
+			ogre.set(n, 99.0)
+
+
+func _falls() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.2))
+	# Strings of two, each closed by a finisher: the close's own rule tried
+	# often (it is 3 and 4 in the game).
+	ogre.string_most = 2
+	ogre.finisher_from = Vector2i(2, 2)
+	var start := hero.global_position
+	var recent: Array = []
+	var downs: Array = []
+	var staggers := [0]
+	var light_downs := 0
+	var was_down := false
+	var serial := -1
+	var info := [0, false]
+	hero.struck.connect(func(_d: float, blocked: bool) -> void:
+		if not blocked and LIGHT_OK.has(ogre.act) and not (ogre._closing and ogre._finishes()):
+			staggers[0] += 1)
+	for f in 50 * 60:
+		await physics_frame
+		_hold_off(ogre)
+		if ogre.act_serial != serial:
+			serial = ogre.act_serial
+			recent.append([f, ogre.act])
+		while not recent.is_empty() and f - int(recent[0][0]) > 90 and recent.size() > 1:
+			recent.pop_front()
+		info = [ogre._string_count, ogre._closing and ogre._finishes()]
+		var down := hero.state == Player.State.DOWNED
+		if down and not was_down:
+			var acts: Array = []
+			for r: Array in recent:
+				acts.append(int(r[1]))
+			downs.append([ogre.act, info[0], info[1], acts])
+			if LIGHT_OK.has(ogre.act):
+				light_downs += 1
+		was_down = down
+		if not down:
+			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+			var to := ogre.global_position - hero.global_position
+			hero.rotation.y = atan2(-to.x, -to.z)
+	var bad: Array = []
+	for d: Array in downs:
+		if LIGHT_OK.has(int(d[0])) and not bool(d[2]):
+			bad.append(d)
+	_check("a light swing never throws him down, unless it closes a long string", bad.is_empty(),
+			"%d downs, wrong: %s" % [downs.size(), bad])
+	_check("a light swing staggers him", staggers[0] > 0, "%d staggers" % staggers[0])
+	var heavy_downs := 0
+	for d: Array in downs:
+		if OgreFighter.SWINGS.has(int(d[0])) and bool(OgreFighter.SWINGS[int(d[0])][2]):
+			heavy_downs += 1
+	_check("a heavy one throws him down by itself", heavy_downs > 0, str(downs))
+	_check("the close of a long string fells him, light or not", ogre.finishers_made > 0 and light_downs > 0,
+			"%d finishers, %d by a light close" % [ogre.finishers_made, light_downs])
+	await _done(a[0])
+
+
+func _gait() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 14.0))
+	await physics_frame
+	ogre._rouse(hero)
+	var start := hero.global_position
+	var trot := [0, 0]
+	for f in 100:
+		await physics_frame
+		_hold_off(ogre)
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		var pace := Vector2(ogre.velocity.x, ogre.velocity.z).length()
+		if f > 40 and ogre.act == Fighter.Act.NONE and pace > 1.0:
+			trot[1] += 1
+			if ogre._anim.current_clip() == ogre.trot_clip and absf(float(ogre._anim.get(&"_player").speed_scale) - 1.0) < 0.35:
+				trot[0] += 1
+	_check("coming at him it trots, at about the trot's own pace", trot[0] > trot[1] * 0.7, "%d of %d" % trot)
+	# He runs from it, straight away at a sprint.
+	var away := (hero.global_position - ogre.global_position)
+	away.y = 0.0
+	away = away.normalized()
+	var ran := [0, 0]
+	var gap := ogre._distance_to(hero)
+	var pos := hero.global_position
+	for f in 240:
+		await physics_frame
+		_hold_off(ogre)
+		pos += away * 6.6 / 60.0
+		hero.global_position = Vector3(pos.x, hero.global_position.y, pos.z)
+		if f > 90:
+			ran[1] += 1
+			var pace := Vector2(ogre.velocity.x, ogre.velocity.z).length()
+			if ogre.running_after and pace > 5.0 and ogre._anim.current_clip() == ogre.run_clip \
+					and float(ogre._anim.get(&"_player").speed_scale) > 0.6 and float(ogre._anim.get(&"_player").speed_scale) < 1.35:
+				ran[0] += 1
+	_check("him running from it, it runs, at about the run's own pace", ran[0] > ran[1] * 0.6,
+			"%d of %d (gap from %.1f)" % [ran[0], ran[1], gap])
+	await _done(a[0])
+
+
+func _afar() -> void:
+	for which: int in [OgreFighter.LEAP_SLAM, OgreFighter.RUN_SLAM]:
+		var a: Array = await _arena()
+		var hero: Player = a[2]
+		var off := 11.0 if which == OgreFighter.LEAP_SLAM else 18.0
+		var ogre := _ogre(a, _ahead(hero, off))
+		await physics_frame
+		ogre._rouse(hero)
+		var name := "the leap" if which == OgreFighter.LEAP_SLAM else "the run and spring"
+		_hold_off(ogre)
+		ogre.set("_leap_slam_wait" if which == OgreFighter.LEAP_SLAM else "_run_slam_wait", 0.0)
+		var start := hero.global_position
+		var began := false
+		var downed := false
+		var lift := 0.0
+		var stepped := false
+		var shocks := 0
+		for f in 8 * 60:
+			await physics_frame
+			_hold_off(ogre, ["_leap_slam_wait"] if which == OgreFighter.LEAP_SLAM else ["_run_slam_wait"])
+			if which == OgreFighter.RUN_SLAM:
+				ogre._leap_slam_wait = 99.0
+			began = began or ogre.act == which
+			if ogre.act == which and ogre.body != null:
+				lift = maxf(lift, ogre.body.position.y - ogre._body_rest_y)
+				# A step aside as it comes: it follows him till it is committed.
+				if not stepped and ogre._act_time > 0.05:
+					stepped = true
+					var side := (hero.global_position - ogre.global_position).cross(Vector3.UP).normalized()
+					start += side * 1.5
+			if hero.state == Player.State.DOWNED and began:
+				downed = true
+			if hero.state != Player.State.DOWNED:
+				hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+			if downed and ogre.act != which:
+				shocks = ogre.aftershocks_made
+				break
+		_check("%s from %.0f m: begun" % [name, off], began)
+		_check("%s: up off the ground" % name, lift > 0.3, "%.2f m" % lift)
+		_check("%s: it comes down on him, stepped aside, and throws him down" % name, downed,
+				"ogre %.1f m from him" % ogre._distance_to(hero))
+		_check("%s: the ground shakes again after it" % name, ogre.aftershocks_made > 0, str(shocks))
+		await _done(a[0])
+
+
+func _catch() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.0))
+	ogre.sight_range = 0.0
+	await physics_frame
+	ogre._quarry = hero
+	var gap := float(ogre._strike_from.get(OgreFighter.CATCH, 2.6))
+	var to := hero.global_position - ogre.global_position
+	ogre.global_position = hero.global_position - to.normalized() * gap
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	var n := 0
+	for i in 100:
+		ogre._string_count = 1
+		ogre._closing = false
+		ogre._saw_roll = true
+		ogre.stamina = ogre.max_stamina
+		if ogre._next_in_string(OgreFighter.SWEEP) == OgreFighter.CATCH:
+			n += 1
+	_check("him rolled from under a blow, the next is mostly the roll-catch", n >= 45, "%d of 100" % n)
+	ogre.act = OgreFighter.CATCH
+	_check("the roll-catch is always held a roll's length", ogre._hold_of(OgreFighter.CATCH) >= ogre.catch_hold.x - 0.01,
+			"%.2f s" % ogre._hold_of(OgreFighter.CATCH))
+	ogre.act = Fighter.Act.NONE
+	await _done(a[0])
+
+
+func _track() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.0))
+	ogre.sight_range = 0.0
+	await physics_frame
+	ogre._quarry = hero
+	var to := hero.global_position - ogre.global_position
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	ogre._open(OgreFighter.SMASH)
+	var commit := ogre._commit_at(OgreFighter.SMASH)
+	# He steps round it as it winds up.
+	var centre := ogre.global_position
+	var r := Vector2(to.x, to.z).length()
+	var ang := atan2(to.z, to.x) + deg_to_rad(45.0)
+	var spot := centre + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+	var off_at_commit := 999.0
+	var turned_after := 0.0
+	var rot_at := 0.0
+	while ogre.act == OgreFighter.SMASH and ogre._act_time < commit + 0.25:
+		await physics_frame
+		if ogre._act_time >= commit and off_at_commit > 900.0:
+			var t := spot - ogre.global_position
+			off_at_commit = rad_to_deg(absf(angle_difference(ogre.rotation.y, atan2(-t.x, -t.z))))
+			rot_at = ogre.rotation.y
+			# and again past the commit: too late, it is locked
+			ang += deg_to_rad(45.0)
+			spot = centre + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+		if off_at_commit < 900.0:
+			turned_after = maxf(turned_after, rad_to_deg(absf(angle_difference(ogre.rotation.y, rot_at))))
+		hero.global_position = Vector3(spot.x, hero.global_position.y, spot.z)
+	_check("a swing follows him round through its wind-up", off_at_commit < 15.0, "%.1f deg off at the commit" % off_at_commit)
+	_check("and is locked from its late commit on", turned_after < 3.0, "turned %.1f deg after" % turned_after)
+	await _done(a[0])
