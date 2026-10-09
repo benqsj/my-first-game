@@ -2526,14 +2526,19 @@ how hard; the kind rides to every peer on the knockdown's spray (length
 
 - Each fall is played only till he lies still (the pick's share) and held:
   the death clips' long dying is not waited out; he lies `fall_lie` (0.35 s)
-  and gets up — on his feet again in 2–2.7 s all told.
+  and gets up — on his feet again in 2–2.4 s all told off his back, about
+  3 s off his face.
 - The clips are copied as `F_<clip>` with the hips' travel lifted onto the
   root (`SkinnedRig._lift_travel`), so the body is carried with the fall
   (`fall_velocity`, root motion): the view goes with him and he gets up where
   he lies.
 - Getting up (`SkinnedRig.rise`): off his back `LayToIdle` (now and then
-  `KipUp`), the body turned and set over so the clip's first pose lies where
-  he lies; face down, the fall played back (a Mixamo get-up to come).
+  `KipUp`); off his face Mixamo's "Standing From A Lying Prone" and "Getting
+  Up From Stomach" (`TR_GetUp_Prone`, `TR_GetUp_Stomach`, in
+  `tariel_extra.glb` → `tariel_mannequin.res` by `h2m.gd -- tariel_extra`;
+  only the push off the ground to standing, `GET_UPS_FRONT`). The body is
+  turned and set over so the clip's first pose lies where he lies, and the
+  getting up takes as long as the clip says (`rise()`'s `time`).
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws
   him down the same way. The kneel itself is shorter: `guard_crumple_time`
   1.35 s, the fall to the knee at 2.4x, up off it at 1.4x.

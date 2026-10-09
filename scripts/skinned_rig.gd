@@ -3747,10 +3747,12 @@ const FALLS := {
 const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
 ## A launch that never leaves the ground lands after this long anyway.
 const FALL_AIR_MOST := 0.45
-## Getting up off his back, taken in turn: [clip, share of `get_up_time`].
-const GET_UPS_BACK := [[&"LayToIdle", 1.0], [&"LayToIdle", 1.0], [&"KipUp", 0.85]]
-## ...and face down (none yet: the fall played back).
-const GET_UPS_FRONT: Array = []
+## Getting up off his back, taken in turn: [clip, times `get_up_time`, from,
+## until (shares of the clip)].
+const GET_UPS_BACK := [[&"LayToIdle", 1.0, 0.0, 1.0], [&"LayToIdle", 1.0, 0.0, 1.0], [&"KipUp", 0.85, 0.0, 1.0]]
+## ...and face down: Mixamo's, onto his own clips (tariel_extra, 2026-10-09),
+## only the part from the push off the ground to standing.
+const GET_UPS_FRONT := [[&"TR_GetUp_Prone", 1.25, 0.2, 0.66], [&"TR_GetUp_Stomach", 1.35, 0.22, 0.68]]
 ## Lent from another hero's clips: clip -> hero.
 const FALL_LENT := {
 	&"AV_Death_Left_01": "avtandil", &"AV_Death_Left_02": "avtandil",
@@ -3844,11 +3846,12 @@ func _fall_tick(delta: float, airborne: bool) -> void:
 signal landed_fall
 
 
-## Up from where he lies. Off his back, a clip of getting up, matched to how
-## he lies (the body turned and set over so the clip's first pose lies where
-## he lies); face down, the fall played back. Returns what the body must be
-## turned by about its up axis and moved by, {"yaw", "shift"} — the
-## controller of the body does it; empty if nothing.
+## Up from where he lies: a clip of getting up off his back or off his face,
+## matched to how he lies (the body turned and set over so the clip's first
+## pose lies where he lies); with none, the fall played back. Returns what the
+## body must be turned by about its up axis and moved by, and how long the
+## getting up takes, {"yaw", "shift", "time"} — the controller of the body
+## does it; empty if nothing.
 func rise(duration: float) -> Dictionary:
 	if not _falls_ready or _role != Role.DOWN:
 		get_up(duration)
@@ -3867,19 +3870,22 @@ func rise(duration: float) -> Dictionary:
 		return {}
 	var before := _lying_marks()
 	var length := _anim.get_animation(clip).length
-	_play_action(clip, Role.GET_UP, length / maxf(duration * float(pick[1]), 0.05), 0.0)
+	var from := float(pick[2])
+	var until := float(pick[3])
+	var takes := maxf(duration * float(pick[1]), 0.05)
+	_play_action(clip, Role.GET_UP, length * (until - from) / takes, 0.0, from, until)
 	_anim.advance(0.0)
 	var after := _lying_marks()
 	_fall_kind = -1
 	last_fall["up"] = pick[0]
 	if before.is_empty() or after.is_empty():
-		return {}
+		return {"time": takes}
 	var was: Vector3 = before[1] - before[0]
 	var now: Vector3 = after[1] - after[0]
 	was.y = 0.0
 	now.y = 0.0
 	if was.length_squared() < 0.0004 or now.length_squared() < 0.0004:
-		return {}
+		return {"time": takes}
 	var yaw := atan2(now.z, now.x) - atan2(was.z, was.x)
 	yaw = -wrapf(yaw, -PI, PI)
 	var body := get_parent_node_3d()
@@ -3889,7 +3895,7 @@ func rise(duration: float) -> Dictionary:
 	var turned: Vector3 = origin + (after[0] - origin).rotated(Vector3.UP, yaw)
 	var shift: Vector3 = before[0] - turned
 	shift.y = 0.0
-	return {"yaw": yaw, "shift": shift}
+	return {"yaw": yaw, "shift": shift, "time": takes}
 
 
 ## The fall played back from where it is held (no clip to get up with).

@@ -3587,9 +3587,12 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 					# the body turned and set over to where he lies, so the
 					# getting up starts from the way he fell
 					var fix: Dictionary = rig.call(&"rise", get_up_time)
-					if not fix.is_empty() and is_multiplayer_authority():
-						rotation.y += float(fix["yaw"])
-						global_position += fix["shift"] as Vector3
+					if is_multiplayer_authority():
+						if fix.has("yaw"):
+							rotation.y += float(fix["yaw"])
+							global_position += fix["shift"] as Vector3
+						if fix.has("time") and _getting_up:
+							_down_timer = float(fix["time"])
 				else:
 					rig.get_up(get_up_time)
 		Reaction.ROLL_OUT:

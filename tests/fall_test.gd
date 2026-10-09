@@ -4,7 +4,8 @@ extends SceneTree
 ## - a very heavy blow in front launches him: off the ground, carried back;
 ## - from his left he goes over to his right, from his right to his left;
 ## - from behind onto his face; a crushing blow brings him down where he is;
-## - he lies only a moment: on his feet again well inside 3 s;
+## - he lies only a moment: on his feet again in about 3 s at most, off his
+##   back with LayToIdle/KipUp, off his face with Mixamo's get-ups;
 ## - down on his knee (a broken guard), a second blow throws him down.
 ##   Godot --headless --path . --script res://tests/fall_test.gd
 
@@ -59,10 +60,13 @@ func _run() -> void:
 	var back := await _fell(Vector3(0, 0, 2), 12.0)
 	_check("from behind: onto his face, forward", back["kind"] == SkinnedRig.Fall.FORWARD and back["moved"].z < -0.4
 			and not back["on_back"], str(back))
+	_check("face down: up off his face with a clip of its own", back["up"] != &"", str(back["up"]))
 	var crush := await _fell(Vector3(0, 0, -2), 20.0, &"crush")
 	_check("crushed: down where he stands", crush["kind"] == SkinnedRig.Fall.CRUSH, str(crush))
 	for got: Dictionary in [left, right, back, crush]:
-		_check("up again inside 3.2 s (%s)" % got["clip"], got["up_in"] < 3.2, "%.2f s" % got["up_in"])
+		# off his face takes a little longer: a push up off the ground
+		var most := 3.2 if got["on_back"] else 3.3
+		_check("up again inside %.1f s (%s)" % [most, got["clip"]], got["up_in"] < most, "%.2f s" % got["up_in"])
 
 	# down on his knee, then a second blow
 	_hero.global_position = Vector3(0, _hero.global_position.y, 0)
