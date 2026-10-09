@@ -20,7 +20,10 @@ extends PackBrute
 ##   aside; 4.5-8 m off, a lunge; the opener it began with last time is
 ##   seldom the next.
 ## * **Delayed swings** ([PackBrute] `_holds`): a heavy one, now and then,
-##   held at the top of its wind-up before it comes down. And the roll-catch
+##   held at the top of its wind-up before it comes down; him backed out of
+##   its reach meanwhile, it slides at him fast as it lets go and follows him
+##   round to the blow (`slide_*`): running does not beat it, a roll does.
+##   And the roll-catch
 ##   (`CATCH`): him rolled out from under a blow, the next comes held a
 ##   beat, timed for the end of a roll made too early.
 ## * **Tracking, then committed** (Elden Ring's): each swing and leap turns
@@ -135,6 +138,15 @@ extends PackBrute
 @export var aftershock_ahead: float = 1.1
 @export var aftershock_radius: float = 2.6
 @export var aftershock_share: float = 0.45
+## A held swing let go with him backed out of its reach (the user's word,
+## 2026-10-09): it slides at him, quick, from `slide_lead` s before the hold
+## ends to its blow, turning after him all the way — only a roll beats it.
+## It slides no further than `slide_most` (m at its size), never slower than
+## `slide_least` m/s; he must be `slide_slack` m past its reach for it.
+@export var slide_lead: float = 0.2
+@export var slide_most: float = 6.5
+@export var slide_least: float = 7.0
+@export var slide_slack: float = 0.5
 
 @export_group("Strings")
 ## The closing swing of a string this long or longer (calm, enraged) throws
@@ -177,8 +189,8 @@ const CATCH := 144
 ## lands, how many times slower the flight is played], and how high the
 ## body is lifted on top of the clip's own jump (m at its size).
 const FLIGHTS := {
-	LEAP_SLAM: [0.05, 0.45, 2.2, 1.0],
-	RUN_SLAM: [0.87, 1.62, 1.35, 0.55],
+	LEAP_SLAM: [0.05, 0.45, 1.4, 1.0],
+	RUN_SLAM: [0.87, 1.62, 1.05, 0.55],
 }
 
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, how often
@@ -244,6 +256,11 @@ var _pounded: bool = false
 var _string_count: int = 0
 var _last_opener: int = -1
 var _lunge_speed: float = 0.0
+## The held swing sliding at him: the act serial it is on, and its speed.
+var _slide_serial: int = -1
+var _slide_speed: float = 0.0
+## How many held swings slid at him (for the tests).
+var slides_made: int = 0
 var moves_made: Array[int] = []
 ## Host: this swing closes its string (and fells him), and the blows of the
 ## string so far by their kind (each kind is a combo of its own to him).
@@ -693,6 +710,11 @@ func _next_in_string(what: int) -> int:
 
 #region Acting
 func _extra_velocity(delta: float) -> Vector3:
+	if _slide_serial == act_serial:
+		var sp := _slide_span(act)
+		if _act_time >= sp.x and _act_time <= sp.y:
+			return _forward() * _slide_speed
+		return Vector3.ZERO
 	if act == LUNGE:
 		if _act_time <= _blow_moments(LUNGE)[0]:
 			return _forward() * _lunge_speed
@@ -729,7 +751,11 @@ func _track_rate(what: int) -> float:
 ## Turning after him till the move commits ([method _commit_at]), and then
 ## locked: the dash and the leaps sized to where he is now, as they turn.
 func _track_before_blow(delta: float) -> void:
-	if _quarry == null or _act_time >= _commit_at(act):
+	if _quarry == null:
+		return
+	if _slide_after_him(delta):
+		return
+	if _act_time >= _commit_at(act):
 		return
 	_face(_quarry.global_position - global_position, delta, _track_rate(act))
 	_reframe()
@@ -751,6 +777,64 @@ func _close_speed_for(what: int, until: float, from: float) -> float:
 	var short := float(_strike_from.get(what, strike_off))
 	var left := maxf(until - maxf(from, _act_time), 0.15)
 	return maxf(_distance_to(_quarry) - short - own, 0.0) / left
+
+
+## Act seconds a held swing slides over: [from a beat before its hold ends,
+## its blow], or (-1, -1) if it is not held this time.
+func _slide_span(what: int) -> Vector2:
+	var sh := _shape(what)
+	if sh.is_empty() or float(sh[2]) <= 0.0:
+		return Vector2(-1.0, -1.0)
+	var ms := _blow_moments(what)
+	if ms.is_empty():
+		return Vector2(-1.0, -1.0)
+	var release := float(sh[0]) * float(sh[1]) + float(sh[2])
+	return Vector2(maxf(release - slide_lead, 0.0), ms[0])
+
+
+## Host: a held swing let go with him out of its reach slides at him and
+## follows him round to its blow. True while it is sliding.
+func _slide_after_him(delta: float) -> bool:
+	var sp := _slide_span(act)
+	if sp.x < 0.0 or _act_time > sp.y:
+		return false
+	if _slide_serial != act_serial:
+		if not _decides() or _act_time < sp.x or _quarry_down():
+			return false
+		var reach := float(_strike_from.get(act, strike_off))
+		if _distance_to(_quarry) <= reach + slide_slack * visual_scale / 1.6:
+			return false
+		_slide_serial = act_serial
+		slides_made += 1
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_slide.rpc()
+		else:
+			net_slide()
+	_face(_quarry.global_position - global_position, delta, turn_speed * 4.0)
+	_reframe()
+	var window := maxf(sp.y - sp.x, 0.15)
+	_slide_speed = clampf(_close_speed_for(act, sp.y, sp.x), slide_least,
+			slide_most * visual_scale / 1.6 / window)
+	return true
+
+
+## Every peer: the held swing let go at him — a grunt, grit kicked up off
+## its feet as it slides.
+@rpc("authority", "call_local", "reliable")
+func net_slide() -> void:
+	_sound_at(GRUNTS, global_position + Vector3.UP * 1.6 * visual_scale, 0.8, 0.0)
+	var into := Blood.world_of(self)
+	var back := -_forward()
+	for side: float in [-0.35, 0.35]:
+		var at := global_position + back * 0.3 + _forward().cross(Vector3.UP) * side * visual_scale
+		SkillFx.particles(into, at + Vector3.UP * 0.08, {
+			"amount": 9, "life": 0.7, "one_shot": true, "explosiveness": 0.85, "add": false,
+			"speed": Vector2(0.8, 2.0), "dir": back + Vector3.UP * 0.6, "spread": 35.0, "gravity": Vector3(0, -3.0, 0),
+			"damping": 1.5, "size": Vector2(0.15, 0.32), "grow": 0.4, "sphere": 0.2,
+			"colors": [Color(0.6, 0.55, 0.47, 0.0), Color(0.58, 0.53, 0.46, 0.4), Color(0.55, 0.5, 0.45, 0.0)],
+		})
+	WindBlast.shake(self, 0.05, 0.2, 9.0)
 
 
 ## A leap's flight in act seconds: [leaves the ground, lands], drawn out.
@@ -993,7 +1077,9 @@ func _lift_in_flight() -> void:
 	if FLIGHTS.has(act) and not is_dead and _anim != null:
 		var span := _flight_span(act)
 		var u := clampf((_heard_clock - span.x) / maxf(span.y - span.x, 0.05), 0.0, 1.0)
-		body.position.y = _body_rest_y + float((FLIGHTS[act] as Array)[3]) * visual_scale / 1.6 * sin(PI * u)
+		# Up over the first 60 %, then brought down hard.
+		var arc := sin(PI * 0.5 * u / 0.6) if u < 0.6 else cos(PI * 0.5 * (u - 0.6) / 0.4)
+		body.position.y = _body_rest_y + float((FLIGHTS[act] as Array)[3]) * visual_scale / 1.6 * arc
 		_lifted = true
 	elif _lifted:
 		_lifted = false

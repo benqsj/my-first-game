@@ -6251,10 +6251,12 @@ run over `run_gait_above` 4.9, a little hysteresis), each at
 
 **From afar** (B, the distance ladder): 4.5-8 m the sword dash (`LUNGE`, as
 before); 8-14 m **the great leap** (`LEAP_SLAM`, `CR_Heavy4` with its flight
-drawn out x2.2 and the body lifted another metre on an arc: ~1 s in the air,
+drawn out x1.4 (was x2.2: "too slow from the air") and the body lifted another
+metre on an arc that rises over 60 % of the flight and comes down hard,
 club overhead, down on him; fells); 12-22 m **it runs at him** (`_charging`,
 at `run_speed`) and at `run_slam_takeoff` 9.5 m **springs off the run**
-(`RUN_SLAM`, Mixamo's Run Jump Attack from its take-off: high, ~1 s up, down
+(`RUN_SLAM`, Mixamo's Run Jump Attack from its take-off: high, its flight
+x1.05 (was x1.35), down
 club first, a crush no shield holds; then a long crouch getting up — the
 opening). `FLIGHTS` gives each leap's flight in clip seconds and how much
 slower it is played (`_clip_time`, `_move_length`, `_blow_moments` warped);
@@ -6276,6 +6278,15 @@ No spikes for the ogre.
   ahead (two uneven eruptions, a deep thud, the view shaken, no ring): him on
   the ground within 2.6 m is staggered (`"ground"`: a jump or a roll clears
   it, it never fells). Combos stay as they were.
+- **The held swing comes after him** (the user's word, 2026-10-09: "if I
+  back off while it pauses it can't reach me — slide it at me fast; only a
+  roll should beat it"): a held swing (`_holds`: the heavies, the great
+  blow, the roll-catch) let go with him more than `slide_slack` past its
+  reach slides at him from `slide_lead` 0.2 s before the hold ends to its
+  blow (`_slide_after_him`, at least `slide_least` 7 m/s, at most
+  `slide_most` 6.5 m), turning after him all the way past the commit — the
+  heavies fell. Grit kicked off its feet, a grunt, a small shake
+  (`net_slide`). Running does not beat it; a roll at the blow does.
 
 Clips: `tools/creature_clips.gd` takes Mixamo clips with their travel in the
 hips (no root bone): a cycle's drift is taken out, an attack's whole path
@@ -6289,6 +6300,8 @@ runs at the run's when he runs; the leap and the run-and-spring begin, lift
 off, come down on him stepped aside, fell him and shake the ground again; a
 roll is answered by the roll-catch, always held; a swing follows him round
 through its wind-up and is locked after its commit.
+`-- slide`: a held smash, him backed off 4 m and aside in its hold, slides
+at him and fells him; rolled through at its blow (i-frames), it misses.
 
 ### Gold (2026-10-07, the user's word: a goblin had nothing to steal)
 
