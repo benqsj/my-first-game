@@ -3341,12 +3341,15 @@ func _heavy_blow() -> int:
 @export var fall_lie: float = 0.35
 ## From this heft ([method hit_heft]) a blow in front launches him through
 ## the air instead of throwing him back; and how hard (back, up; m/s).
-@export var fall_fly_heft: float = 0.85
+@export var fall_fly_heft: float = 2.0
 @export var fall_fly_push: Vector2 = Vector2(5.0, 4.6)
 ## A fall whose clip carries him over the ground is shoved less by the blow.
 @export var fall_carried_shove: float = 1.2
 ## ...and this much more (m/s) per unit of the weapon's force ([method _swept]).
 @export var fall_force_shove: float = 3.0
+## A blow's weight ([method hit_heft]) counts as this much force when it is
+## more than the weapon's own ([method _knock_down]).
+@export var fall_heft_force: float = 1.2
 
 ## How the weapon met him ([method _swept]): from this speed (m/s) the
 ## throw leans to the weapon's sweep, fully (`sweep_lean_most`) this much
@@ -3979,6 +3982,10 @@ func _fall_kind(away: Vector3, damage: float, how: String) -> int:
 
 func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	_down_kind = _fall_kind(away, damage, how)
+	# how hard it was: the weapon's force, or the blow's weight, whichever is
+	# the more — it picks a light fall (dropped) or a heavy one (thrown) and
+	# how far ([method SkinnedRig.fall], the user's word 2026-10-09)
+	_blow_force = maxf(_blow_force, hit_heft(damage) * fall_heft_force)
 	_down_flying = _down_kind == SkinnedRig.Fall.FLY and rig != null and rig.has_method(&"fall") \
 			and bool(rig.call(&"falls_directional"))
 	state = State.DOWNED

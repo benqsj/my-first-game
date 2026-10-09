@@ -51,9 +51,12 @@ func _run() -> void:
 	_check("on his feet again inside 3 s", front["up_in"] < 3.0, "%.2f s" % front["up_in"])
 
 	var fly := await _fell(Vector3(0, 0, -2), 40.0)
-	_check("a very heavy one: launched", fly["kind"] == SkinnedRig.Fall.FLY and fly["rose"] > 0.4, str(fly))
+	_check("a very heavy one in front: thrown back hard (the heavy fall)", fly["kind"] == SkinnedRig.Fall.BACK
+			and fly["tier"] == 2, str(fly))
 	_check("and carried well back", fly["moved"].z > 2.0, str(fly["moved"]))
-	_check("launched, up again inside 3.5 s", fly["up_in"] < 3.5, "%.2f s" % fly["up_in"])
+	_check("thrown, up again inside 3.5 s", fly["up_in"] < 3.5, "%.2f s" % fly["up_in"])
+	var light := await _fell(Vector3(0, 0, -2), 3.0)
+	_check("a light one: only dropped (the light fall)", light["tier"] == 0, str(light))
 
 	var left := await _fell(Vector3(-2, 0, 0), 12.0)
 	_check("from his left: over to his right", left["kind"] == SkinnedRig.Fall.LEFT and left["moved"].x > 0.4, str(left))
@@ -136,4 +139,5 @@ func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 =
 	got["up_in"] = frames / 60.0
 	got["on_back"] = got.get("on_back", false)
 	got["up"] = got.get("up", &"")
+	got["tier"] = got.get("tier", -1)
 	return got

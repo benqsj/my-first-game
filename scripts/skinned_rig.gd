@@ -3730,18 +3730,49 @@ func leave_ground() -> void:
 enum Fall { BACK, FLY, LEFT, RIGHT, FORWARD, CRUSH }
 ## The heroes whose falls follow the blow (the others still fall back).
 const FALL_HEROES := [&"tariel"]
-## kind -> picks taken in turn: [clip, rate, share of it where he lies still].
-## The clips are Avtandil's deaths (lent), Kevin's and UAL 2's.
+## kind -> picks by how hard the blow was ([method fall]'s `force`): [light,
+## middling, heavy], each a list taken in turn of [clip, rate, share of it
+## where he lies still, share it is begun from]. Light ones drop him, heavy
+## ones throw him (the user's word, 2026-10-09: "struck from the side he must
+## be thrown over, or knocked down sideways at once — not reel as if dizzy";
+## Mixamo's, `TR_*`, through tariel_extra; `_M` a mirrored copy, [method
+## _mirrored]). Struck from his left he goes over to his right: "Hit By Car"
+## drops him that way at once, "Thrown To The Side" (mirrored) throws him
+## through the air that way.
 const FALLS := {
-	Fall.BACK: [[&"Hit_Knockback", 1.0, 0.6], [&"KV_CombatDeath02", 1.05, 0.5]],
-	Fall.FLY: [[&"LiftAir_Fall_Air", 1.0, 2.0]],
-	# struck from his left he is thrown over to his right ("Death_Right"), and
-	# the other way about (the clips' root goes that way)
-	Fall.LEFT: [[&"AV_Death_Right_01", 1.45, 0.66], [&"AV_Death_Right_02", 1.45, 0.8]],
-	Fall.RIGHT: [[&"AV_Death_Left_01", 1.45, 0.66], [&"AV_Death_Left_02", 1.45, 0.78]],
-	Fall.FORWARD: [[&"AV_Death_Forward_02", 1.5, 0.8], [&"KV_CombatDeath04", 1.2, 0.8]],
-	Fall.CRUSH: [[&"KV_CombatDeath01", 1.25, 0.8]],
+	Fall.BACK: [
+		[[&"TR_Punch_Knockdown", 1.15, 0.6, 0.1], [&"TR_Knocked_Over", 1.1, 0.5, 0.08]],
+		[[&"Hit_Knockback", 1.0, 0.6, 0.0], [&"KV_CombatDeath02", 1.05, 0.5, 0.0]],
+		[[&"TR_Flying_Back", 1.1, 0.58, 0.0]],
+	],
+	Fall.FLY: [[[&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]], [[&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]],
+			[[&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]]],
+	Fall.LEFT: [
+		[[&"TR_Hit_By_Car", 1.15, 0.75, 0.5]],
+		[[&"TR_Hit_By_Car", 1.35, 0.75, 0.52]],
+		[[&"TR_Thrown_Side_M", 1.25, 0.66, 0.3]],
+	],
+	Fall.RIGHT: [
+		[[&"TR_Hit_By_Car_M", 1.15, 0.75, 0.5]],
+		[[&"TR_Hit_By_Car_M", 1.35, 0.75, 0.52]],
+		[[&"TR_Thrown_Side", 1.25, 0.66, 0.3]],
+	],
+	Fall.FORWARD: [
+		[[&"KV_CombatDeath04", 1.2, 0.8, 0.0], [&"AV_Death_Forward_02", 1.6, 0.8, 0.2]],
+		[[&"AV_Death_Forward_02", 1.6, 0.8, 0.15], [&"KV_CombatDeath04", 1.3, 0.8, 0.0]],
+		[[&"TR_Fall_Flat", 1.05, 0.75, 0.15]],
+	],
+	Fall.CRUSH: [[[&"KV_CombatDeath01", 1.25, 0.8, 0.0]], [[&"KV_CombatDeath01", 1.35, 0.8, 0.0]],
+			[[&"KV_CombatDeath01", 1.45, 0.8, 0.0]]],
 }
+## The force ([method fall]) from which a blow is middling, and heavy.
+const FALL_TIERS := Vector2(0.35, 0.9)
+## Falls to a side whose travel forward or back is dropped: thrown over to
+## his side, he goes that way only (Mixamo's "Thrown To The Side" steps 2.5 m
+## forward first).
+const FALL_ACROSS := [&"TR_Hit_By_Car", &"TR_Thrown_Side"]
+## Clips the falls also want mirrored, left for right ([method _mirrored]).
+const FALL_MIRROR := [&"TR_Hit_By_Car", &"TR_Thrown_Side"]
 ## Launched ([constant Fall.FLY]): curled in the air till the ground comes,
 ## then struck onto it.
 const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
@@ -3791,7 +3822,9 @@ func fall(kind: int, force: float = 0.0) -> float:
 		knock_down()
 		return 0.0
 	_rouse()
-	var picks: Array = FALLS.get(kind, FALLS[Fall.BACK])
+	var tiers: Array = FALLS.get(kind, FALLS[Fall.BACK])
+	var tier := 0 if force < FALL_TIERS.x else (1 if force < FALL_TIERS.y else 2)
+	var picks: Array = tiers[tier]
 	var pick: Array = picks[_falls_made % picks.size()]
 	_falls_made += 1
 	var clip := _fall_clip(pick[0])
@@ -3800,15 +3833,16 @@ func fall(kind: int, force: float = 0.0) -> float:
 		return 0.0
 	# a harder blow throws him over faster
 	var rate := float(pick[1]) * (1.0 + FALL_FORCE_PACE * clampf(force, 0.0, 1.5))
-	_play_action(clip, Role.DOWN, rate, 0.08 if kind == Fall.FLY else 0.06)
+	var from := float(pick[3])
+	_play_action(clip, Role.DOWN, rate, 0.08 if kind == Fall.FLY else 0.06, from)
 	_fall_kind = kind
 	_fall_settle = float(pick[2])
 	_fall_air = 0.0
 	_fall_time = 0.0
-	last_fall = {"kind": kind, "clip": pick[0]}
+	last_fall = {"kind": kind, "clip": pick[0], "tier": tier}
 	if kind == Fall.FLY:
 		return FALL_AIR_MOST + _fall_length(FALL_IMPACT)
-	return _anim.get_animation(clip).length * _fall_settle / rate
+	return _anim.get_animation(clip).length * maxf(_fall_settle - from, 0.05) / rate
 
 
 func _fall_length(pick: Array) -> float:
@@ -3951,8 +3985,10 @@ var _pelvis_front: Vector3 = Vector3.ZERO
 func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 	var want: Array[StringName] = []
 	for kind: int in FALLS:
-		for pick: Array in FALLS[kind]:
-			want.append(pick[0])
+		for tier: Array in FALLS[kind]:
+			for pick: Array in tier:
+				if not String(pick[0]).ends_with("_M"):
+					want.append(pick[0])
 	want.append(FALL_IMPACT[0])
 	for pick: Array in GET_UPS_BACK + GET_UPS_FRONT:
 		want.append(pick[0])
@@ -3968,7 +4004,13 @@ func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 			continue
 		var own := StringName(FALL_PREFIX + String(clip))
 		if not lib.has_animation(own):
-			lib.add_animation(own, _lift_travel(a, skel))
+			var lifted := _lift_travel(a, skel)
+			if FALL_ACROSS.has(clip):
+				_travel_across_only(lifted)
+			lib.add_animation(own, lifted)
+		var flipped := StringName(FALL_PREFIX + String(clip) + "_M")
+		if FALL_MIRROR.has(clip) and not lib.has_animation(flipped):
+			lib.add_animation(flipped, _mirrored(lib.get_animation(own), skel))
 	# his front, in the pelvis's frame: the skeleton faces +Z in its own space
 	# (the mannequin's rest) — measured off the rest, so a lying pose can say
 	# whether that front is turned up
@@ -3983,6 +4025,99 @@ func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 ## its x and y: the root's rest turns its z up) taken off the hips and put on
 ## the root, where it is root motion ([member fall_velocity]). A clip whose
 ## root already travels is only copied.
+## `a` mirrored left for right: the skeleton faces +Z in its own space, so
+## its x is across him. Each bone takes its partner's (thigh_l <- thigh_r)
+## pose reflected through that plane, put back into its own rest's frame
+## (G' = S G S C, C the turn from the reflected partner's rest to its own),
+## sampled at 30 a second; the root's travel is reflected with it.
+static func _mirrored(a: Animation, skel: Skeleton3D) -> Animation:
+	var n := skel.get_bone_count()
+	var base := "Armature/Skeleton3D"
+	var rot := {}
+	var pos := {}
+	for i in a.get_track_count():
+		var path := String(a.track_get_path(i))
+		if path.contains(":"):
+			base = path.get_slice(":", 0)
+		var b := skel.find_bone(path.get_slice(":", 1))
+		if b < 0:
+			continue
+		if a.track_get_type(i) == Animation.TYPE_ROTATION_3D:
+			rot[b] = i
+		elif a.track_get_type(i) == Animation.TYPE_POSITION_3D:
+			pos[b] = i
+	var S := Transform3D(Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)), Vector3.ZERO)
+	var partner: Array[int] = []
+	var fix: Array[Basis] = []
+	for b in n:
+		var bname := skel.get_bone_name(b)
+		var other := bname
+		if bname.ends_with("_l"):
+			other = bname.trim_suffix("_l") + "_r"
+		elif bname.ends_with("_r"):
+			other = bname.trim_suffix("_r") + "_l"
+		var m := skel.find_bone(other)
+		partner.append(m if m >= 0 else b)
+	for b in n:
+		var mine := skel.get_bone_global_rest(b).basis.orthonormalized()
+		var theirs := (S * skel.get_bone_global_rest(partner[b]) * S).basis.orthonormalized()
+		fix.append(theirs.inverse() * mine)
+	var out := Animation.new()
+	out.length = a.length
+	out.loop_mode = a.loop_mode
+	var r_out := {}
+	var p_out := {}
+	for b in n:
+		var t := out.add_track(Animation.TYPE_ROTATION_3D)
+		out.track_set_path(t, NodePath("%s:%s" % [base, skel.get_bone_name(b)]))
+		r_out[b] = t
+		if pos.has(partner[b]) or pos.has(b):
+			var tp := out.add_track(Animation.TYPE_POSITION_3D)
+			out.track_set_path(tp, NodePath("%s:%s" % [base, skel.get_bone_name(b)]))
+			p_out[b] = tp
+	var steps := maxi(int(ceil(a.length * 30.0)), 1)
+	for k in steps + 1:
+		var time := minf(float(k) / 30.0, a.length)
+		var g: Array[Transform3D] = []
+		g.resize(n)
+		for b in n:
+			var rest := skel.get_bone_rest(b)
+			var q := rest.basis.get_rotation_quaternion()
+			var o := rest.origin
+			if rot.has(b):
+				q = a.rotation_track_interpolate(rot[b], time)
+			if pos.has(b):
+				o = a.position_track_interpolate(pos[b], time)
+			var local := Transform3D(Basis(q), o)
+			var parent := skel.get_bone_parent(b)
+			g[b] = local if parent < 0 else g[parent] * local
+		var g2: Array[Transform3D] = []
+		g2.resize(n)
+		for b in n:
+			var src := S * g[partner[b]] * S
+			g2[b] = Transform3D(src.basis * fix[b], src.origin)
+		for b in n:
+			var parent := skel.get_bone_parent(b)
+			var local := g2[b] if parent < 0 else g2[parent].affine_inverse() * g2[b]
+			out.rotation_track_insert_key(r_out[b], time, local.basis.get_rotation_quaternion().normalized())
+			if p_out.has(b):
+				out.position_track_insert_key(p_out[b], time, local.origin)
+	return out
+
+
+## The root's travel kept across him only (its x in the skeleton's space,
+## which faces +Z): forward and back dropped.
+static func _travel_across_only(a: Animation) -> void:
+	for i in a.get_track_count():
+		if a.track_get_type(i) != Animation.TYPE_POSITION_3D \
+				or not String(a.track_get_path(i)).ends_with(":root"):
+			continue
+		var first := a.track_get_key_value(i, 0) as Vector3
+		for k in a.track_get_key_count(i):
+			var v := a.track_get_key_value(i, k) as Vector3
+			a.track_set_key_value(i, k, Vector3(v.x, v.y, first.z))
+
+
 static func _lift_travel(a: Animation, skel: Skeleton3D) -> Animation:
 	var out := a.duplicate(true) as Animation
 	var hips := -1

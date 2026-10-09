@@ -88,8 +88,13 @@ func _duel(kind: String, spam: bool) -> void:
 	var attacks := 0
 	var s0 := 0
 	var blows := 0
+	# Time he spends knocked down is of its doing, but it waits it out (it
+	# treads on him at most): "keeps attacking" goes by the time he stood.
+	var standing := 0
 	for f in int(SECONDS * 60.0):
 		await physics_frame
+		if hero.state != Player.State.DOWNED:
+			standing += 1
 		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
 		var to := body.global_position - hero.global_position
 		hero.rotation.y = atan2(-to.x, -to.z)
@@ -112,8 +117,10 @@ func _duel(kind: String, spam: bool) -> void:
 	var how := "while he cuts at it" if spam else "standing still"
 	_check("%s, %s: every blow lands" % [kind, how], expected > 0 and landed == expected, "%d of %d" % [landed, expected])
 	# The slow and heavy ones (an ogre, a golem, a shambling zombie) less often.
-	var least := int(SECONDS / 3.0) if kind in SLOW or (spam and kind in GUARDS) else int(SECONDS / 2.0)
-	_check("%s, %s: it keeps attacking" % [kind, how], attacks >= least, "%d attacks in %.0f s" % [attacks, SECONDS])
+	var stood := standing / 60.0
+	var least := int(stood / 3.0) if kind in SLOW or (spam and kind in GUARDS) else int(stood / 2.0)
+	_check("%s, %s: it keeps attacking" % [kind, how], attacks >= least,
+			"%d attacks in %.0f s, %.0f s of it with him on his feet" % [attacks, SECONDS, stood])
 	world.queue_free()
 	for i in 3:
 		await process_frame

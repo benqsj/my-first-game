@@ -2516,13 +2516,28 @@ picks a `SkinnedRig.Fall` from where the blow came ([Player.blow_side]) and
 how hard; the kind rides to every peer on the knockdown's spray (length
 10.25 + kind + force / 4) and `SkinnedRig.fall()` plays it:
 
-| Blow | Fall | Clip |
+| Blow | Fall | light / middling / heavy |
 | --- | --- | --- |
-| in front | thrown back onto his back | `Hit_Knockback`, `KV_CombatDeath02` |
-| in front, heft ≥ `fall_fly_heft` (0.85) | launched (`fall_fly_push` 5 back, 4.6 up), curled in the air, struck onto the ground | `LiftAir_Fall_Air` → `LiftAir_Fall_Impact` |
-| from his left / right | thrown over to the other side | Avtandil's `AV_Death_Right_01/02` / `AV_Death_Left_01/02` (lent) |
-| from behind | onto his face | `AV_Death_Forward_02`, `KV_CombatDeath04` |
-| `crush`, or the attacker's `blow_from_above()` true | crushed down where he stands | `KV_CombatDeath01` |
+| in front | thrown back onto his back | `TR_Punch_Knockdown`, `TR_Knocked_Over` / `Hit_Knockback`, `KV_CombatDeath02` / `TR_Flying_Back` |
+| rising under him, or force ≥ `fall_fly_force` in front | launched (`fall_fly_push`), curled in the air, struck onto the ground | `LiftAir_Fall_Air` → `LiftAir_Fall_Impact` |
+| from his left / right | dropped sideways at once, or (heavy) thrown through the air over to the other side | `TR_Hit_By_Car` / its mirror (light, middling); `TR_Thrown_Side` mirrored / as it is (heavy) |
+| from behind | onto his face | `KV_CombatDeath04`, `AV_Death_Forward_02` / the same / `TR_Fall_Flat` |
+| `crush`, "above", or a steep downward sweep | crushed down where he stands | `KV_CombatDeath01` |
+
+How hard (`SkinnedRig.FALL_TIERS` 0.35 / 0.9) is the weapon's force or the
+blow's weight (`hit_heft` × `fall_heft_force` 1.2), whichever is more (the
+user's word, 2026-10-09: "struck from the side he must be thrown over or
+knocked down sideways at once, not reel as if dizzy; by the damage"). The
+`TR_*` falls are Mixamo's ("Hit By Car", "Being Thrown To The Side",
+"Dying Flying Backward", "Falling Flat On Face", "Knocked Down From A
+Punch", "Knocked Over"; also downloaded and not used yet: Shoulder Hit And
+Fall, Knocked Down To Stomach, Sweep Fall, Big Side Hit), retargeted with
+their travel kept (`tools/tr_extra.py`, `FALLS` not in place) into
+`tariel_extra.glb`. `_M` clips are mirrored at load (`SkinnedRig._mirrored`:
+each bone takes its partner's pose reflected across the skeleton's x and put
+back in its own rest frame); the side falls keep only their travel across him
+(`FALL_ACROSS`). Avtandil's `AV_Death_Left/Right` are no longer used: they
+reeled as if dizzy.
 
 - **The weapon leads** (the user's word, 2026-10-09: "every fall must follow
   the club's swing and its power, whatever way it goes"). `WeaponSweep`
