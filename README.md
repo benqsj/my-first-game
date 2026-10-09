@@ -2594,15 +2594,20 @@ longer used.
   `SkinnedRig.REVIEW` (the page's "ანიმაცია N"), one at random, with how
   he is turned — "" the clip thrown the blow's way, "foe" his face to the
   striker (he folds forward at its feet, no shove), "keep" as he stands
-  (thrown the clip's way). The ogre: smash in front 10 `TR_Fall_Flat`, from a
-  side 1 `Hit_Knockback` or 27 (`AV_Death_Forward_02` from 42 %: straight
-  onto his stomach, not turned); cleave in front 2 `KV_CombatDeath02`, from a
-  side 5 `TR_Flying_Back`; jump slam and pound 14 `TR_Sweep_Fall`; whirl and
-  run slam 6 `LiftAir_Fall`; heavy 24 `KV_Death01` facing it; sweep and chop
-  (a string's close) 3 `TR_Punch_Knockdown`, held where he has come down
-  sitting (it lay back down after: "he falls twice"). The leap slam and
-  everything else fall by kind. The number rides to every peer in the
-  hundreds of the spray (100 × number + 10.25 + kind + force / 4).
+  (thrown the clip's way). A clip that throws him slanting (`FALL_SLANT`:
+  Hit By Car) is turned the more by its own measured travel
+  (`numbered_slant`). The ogre (the user's word, 22:46): smash in front 7
+  `TR_Thrown_Side` (up by its own clip), from a side 27
+  (`AV_Death_Forward_02` from 42 %: straight onto his stomach as he stands);
+  cleave in front 12 `TR_Hit_By_Car`, from a side 5 `TR_Flying_Back`; jump
+  slam 10 `TR_Fall_Flat`; whirl 5; heavy 24 `KV_Death01` facing it (slower,
+  0.72); pound (caught in its ring) 13 `TR_Shoulder_Hit_Fall`, 14
+  `TR_Sweep_Fall` or 11 `TR_Knocked_Stomach`; leap slam 10 facing it or 11;
+  run slam 10 facing it or 6 `LiftAir_Fall`; sweep 3 `TR_Punch_Knockdown`,
+  held where he has come down sitting (it lay back down after: "he falls
+  twice"); chop 20 `AV_Death_Backward_01` (Avtandil's, lent). Everything
+  else falls by kind. The number rides to every peer in the hundreds of the
+  spray (100 × number + 10.25 + kind + force / 4).
   `TR_Shoulder_Hit_Fall` (13) is kept for being splashed with something
   (poison...), the arcade.
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws

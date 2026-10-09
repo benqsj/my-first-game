@@ -3789,17 +3789,52 @@ const REVIEW := {
 	9: [Fall.FORWARD, [&"AV_Death_Forward_02", 1.6, 0.8, 0.15]],
 	10: [Fall.FORWARD, [&"TR_Fall_Flat", 1.05, 0.75, 0.15]],
 	11: [Fall.CRUSH, [&"TR_Knocked_Stomach", 1.2, 0.75, 0.2]],
-	12: [Fall.FORWARD, [&"TR_Hit_By_Car", 1.15, 0.9, 0.5]],
-	13: [Fall.FORWARD, [&"TR_Shoulder_Hit_Fall", 1.1, 0.9, 0.1]],
+	# from just before it is struck down to lying (it stands still till 55 %)
+	12: [Fall.FORWARD, [&"TR_Hit_By_Car", 1.15, 0.74, 0.53]],
+	13: [Fall.FORWARD, [&"TR_Shoulder_Hit_Fall", 1.1, 0.56, 0.15]],
 	14: [Fall.FORWARD, [&"TR_Sweep_Fall", 1.1, 0.9, 0.2]],
 	# 22, 24, 26 quicker than their own pace (the user's word: a heavy blow
 	# folds him forward fast)
 	22: [Fall.FORWARD, [&"AV_Death_Right_02", 1.85, 0.9, 0.0]],
-	24: [Fall.FORWARD, [&"KV_Death01", 0.9, 0.9, 0.0]],
+	# slower (the user's word, 22:46: it dropped too sharply; follow the
+	# ground down)
+	24: [Fall.FORWARD, [&"KV_Death01", 0.72, 0.92, 0.0]],
 	26: [Fall.FORWARD, [&"DG_Death", 1.95, 0.9, 0.0]],
 	# 9 without its stumble: straight down onto his stomach (the user's word)
 	27: [Fall.FORWARD, [&"AV_Death_Forward_02", 1.3, 0.76, 0.42]],
+	20: [Fall.BACK, [&"AV_Death_Backward_01", 1.4, 0.66, 0.25]],
 }
+
+
+## Falls whose clip throws him slanting off the way he faces: he is turned
+## the more so it goes the blow's way ([method Player._face_the_throw]).
+const FALL_SLANT := [&"TR_Hit_By_Car", &"AV_Death_Right_02"]
+var _slants: Dictionary = {}
+
+
+## How far to turn him (degrees, to his left) so the fall numbered `n`
+## throws him straight the way he faced: off its own travel over the ground,
+## from where it is begun to where he lies (the root's track of its `F_`
+## copy; the skeleton faces +Z in its own space). 0 for a fall not slanting.
+func numbered_slant(n: int) -> float:
+	if not REVIEW.has(n) or not FALL_SLANT.has(REVIEW[n][1][0]):
+		return 0.0
+	if _slants.has(n):
+		return _slants[n]
+	var pick: Array = REVIEW[n][1]
+	var slant := 0.0
+	var clip := _fall_clip(pick[0])
+	if clip != &"":
+		var a := _anim.get_animation(clip)
+		for i in a.get_track_count():
+			if a.track_get_type(i) == Animation.TYPE_POSITION_3D \
+					and String(a.track_get_path(i)).get_slice(":", 1) == "root":
+				var went := a.position_track_interpolate(i, float(pick[2]) * a.length) \
+						- a.position_track_interpolate(i, float(pick[3]) * a.length)
+				if Vector2(went.x, went.z).length() > 0.2:
+					slant = -rad_to_deg(atan2(went.x, went.z))
+	_slants[n] = slant
+	return slant
 
 
 ## The kind of the fall numbered `n` ([constant REVIEW]), -1 if there is no
@@ -3850,7 +3885,7 @@ const POSE_MARKS := [&"Head", &"hand_l", &"hand_r", &"foot_l", &"foot_r", &"calf
 const FALL_LENT := {
 	&"AV_Death_Left_01": "avtandil", &"AV_Death_Left_02": "avtandil",
 	&"AV_Death_Right_01": "avtandil", &"AV_Death_Right_02": "avtandil",
-	&"AV_Death_Forward_02": "avtandil", &"DG_Death": "rogue",
+	&"AV_Death_Forward_02": "avtandil", &"DG_Death": "rogue", &"AV_Death_Backward_01": "avtandil",
 }
 ## The falls' own copies of the clips are kept under this prefix (the hips'
 ## travel lifted onto the root, [method _lift_travel]).

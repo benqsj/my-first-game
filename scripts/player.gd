@@ -3366,9 +3366,11 @@ func _heavy_blow() -> int:
 @export var sweep_rise_pitch: float = 0.5
 ## From this force a blow in front launches him, as a heavy one does.
 @export var fall_fly_force: float = 1.3
-## For the falls' review page only: every fall is the catalogue's fall of
-## this number ([method SkinnedRig.review_pick]); 0 the game's own choice.
+## For the falls' review page only (its films): every fall is the one of
+## this number ([constant SkinnedRig.REVIEW]), turned so ([constant
+## BLOW_FALLS]); 0 the game's own choice.
 var review_fall: int = 0
+var review_face: String = ""
 ## The blow that came last, by its name ([method receive_blow]).
 var _blow_name: StringName = &""
 ## ...and where it was dealt from (the side it came from is the striker's,
@@ -3390,15 +3392,19 @@ var _down_face: String = ""
 ## one who struck (he folds forward at its feet), "keep" as he stands.
 ## Not here: the kind of blow picks it ([method _fall_kind]).
 const BLOW_FALLS := {
-	&"smash": {"front": [[10, ""]], "side": [[1, ""], [27, "keep"]]},
-	&"cleave": {"front": [[2, ""]], "side": [[5, ""]]},
-	&"jump_slam": {"any": [[14, ""]]},
-	&"whirl": {"any": [[6, ""]]},
+	# the user's word 2026-10-09 22:46
+	&"smash": {"front": [[7, ""]], "side": [[27, "keep"]]},
+	&"cleave": {"front": [[12, ""]], "side": [[5, ""]]},
+	&"jump_slam": {"any": [[10, ""]]},
+	&"whirl": {"any": [[5, ""]]},
 	&"heavy": {"any": [[24, "foe"]]},
-	&"pound": {"any": [[14, ""]]},
-	&"run_slam": {"any": [[6, ""]]},
+	# caught in its shock's ring
+	&"pound": {"any": [[13, ""], [14, ""], [11, ""]]},
+	# flat on his face at its feet, or (11) crushed onto his stomach
+	&"leap_slam": {"any": [[10, "foe"], [11, ""]]},
+	&"run_slam": {"any": [[10, "foe"], [6, ""]]},
 	&"sweep": {"any": [[3, ""]]},
-	&"chop": {"any": [[3, ""]]},
+	&"chop": {"any": [[20, ""]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
@@ -4056,6 +4062,10 @@ func _face_the_throw(away: Vector3) -> void:
 	if _down_face == "foe":
 		rotation.y = atan2(way.x, way.z)  # his face to the one who struck
 		return
+	# a clip that throws him slanting: turned the more so it goes the blow's way
+	var slant := 0.0
+	if _down_number > 0 and rig != null and rig.has_method(&"numbered_slant"):
+		slant = deg_to_rad(float(rig.call(&"numbered_slant", _down_number)))
 	match _down_kind:
 		SkinnedRig.Fall.BACK, SkinnedRig.Fall.FLY:
 			f = -way
@@ -4066,6 +4076,7 @@ func _face_the_throw(away: Vector3) -> void:
 		SkinnedRig.Fall.RIGHT:
 			f = way.cross(Vector3.UP)  # thrown to his left
 	if f.length_squared() > 0.0001:
+		f = f.rotated(Vector3.UP, slant)
 		rotation.y = atan2(-f.x, -f.z)
 
 
@@ -4117,7 +4128,7 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	_down_face = ""
 	var picked := _blow_fall(away)
 	if review_fall > 0:
-		picked = [review_fall, ""]
+		picked = [review_fall, review_face]
 	if not picked.is_empty() and rig != null and rig.has_method(&"numbered_kind"):
 		var kind := int(rig.call(&"numbered_kind", int(picked[0]), blow_side(away) == SkinnedRig.From.RIGHT))
 		if kind >= 0:

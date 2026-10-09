@@ -97,16 +97,21 @@ func _run() -> void:
 
 	# the falls the user picked per blow (Player.BLOW_FALLS)
 	var smash := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"smash")
-	_check("the ogre's smash in front: flat on his face (fall 10)", smash["number"] == 10 and not smash["on_back"], str(smash))
+	_check("the ogre's smash in front: thrown over to a side (fall 7), up by its own clip", smash["number"] == 7
+			and smash["up"] == &"own", str(smash))
 	var smash_side := await _fell(Vector3(-2, 0, 0), 40.0, &"", Vector3.ZERO, false, &"smash")
-	_check("its smash from a side: knocked back or forward as he stands (1 or 27)",
-			smash_side["number"] == 1 or smash_side["number"] == 27, str(smash_side))
+	_check("its smash from a side: forward onto his stomach as he stands (27)",
+			smash_side["number"] == 27 and not smash_side["on_back"] and absf(smash_side["faced"]) < 0.2
+			and smash_side["moved"].z < -0.3, str(smash_side))
 	var heavy := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"heavy")
 	_check("its great blow: on his knees and forward, his face to it (24)", heavy["number"] == 24
 			and heavy["faced"] > 0.9 and heavy["moved"].z < 0.1, str(heavy))
-	var chop := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"chop")
-	_check("a string's close (chop): knocked down sitting, up from sitting (3)", chop["number"] == 3
-			and float(chop.get("up_from", 0.0)) > 0.2, str(chop))
+	var sweep := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"sweep")
+	_check("a string's close (sweep): knocked down sitting, up from sitting (3)", sweep["number"] == 3
+			and float(sweep.get("up_from", 0.0)) > 0.2, str(sweep))
+	var cleave := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"cleave")
+	_check("its cleave in front: knocked aside, slanting, the way it went (12)", cleave["number"] == 12
+			and cleave["moved"].z > 0.5 and absf(cleave["moved"].x) < cleave["moved"].z, str(cleave))
 	var unnamed := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"kick")
 	_check("a blow with no fall picked falls by its kind", unnamed["number"] == 0, str(unnamed))
 
