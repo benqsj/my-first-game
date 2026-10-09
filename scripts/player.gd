@@ -3345,6 +3345,29 @@ func _heavy_blow() -> int:
 @export var fall_fly_push: Vector2 = Vector2(5.0, 4.6)
 ## A fall whose clip carries him over the ground is shoved less by the blow.
 @export var fall_carried_shove: float = 1.2
+## ...and this much more (m/s) per unit of the weapon's force ([method _swept]).
+@export var fall_force_shove: float = 3.0
+
+## How the weapon met him ([method _swept]): from this speed (m/s) the
+## throw leans to the weapon's sweep, fully (`sweep_lean_most`) this much
+## faster; from this speed it has force, 1 this much faster (an imp's fist
+## comes at 5-10 m/s, the ogre's club's end at 16-60).
+@export var sweep_lean_from: float = 2.0
+@export var sweep_lean_span: float = 8.0
+@export var sweep_lean_most: float = 0.85
+@export var sweep_force_from: float = 6.0
+@export var sweep_force_span: float = 30.0
+## A blow coming down steeper than this (pitch, -1 straight down) crushes him
+## down; rising steeper than `sweep_rise_pitch` with force, it launches him.
+@export var sweep_crush_pitch: float = -0.55
+@export var sweep_rise_pitch: float = 0.5
+## From this force a blow in front launches him, as a heavy one does.
+@export var fall_fly_force: float = 1.3
+## The last blow's force and pitch ([method _swept]), on the peer that owns him.
+var _blow_force: float = 0.0
+var _blow_pitch: float = 0.0
+## The last weapon met (host): {"speed", "force", "pitch", "lean"}, for a test.
+var last_sweep: Dictionary = {}
 
 ## The fall under way ([enum SkinnedRig.Fall]), and whether it is a launch
 ## not yet come down; what the blow shoved him by, dying away.
@@ -3384,8 +3407,34 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		how = &"above"
 	if not how.is_empty():
 		key += "!" + String(how)
-	net_blow.rpc_id(get_multiplayer_authority(), damage, away.normalized(), from.global_position,
+	net_blow.rpc_id(get_multiplayer_authority(), damage, _swept(away.normalized()), from.global_position,
 			key, blow, blows, magic)
+
+
+## The way a blow throws him, from how the weapon was moving where it met him
+## ([method WeaponSweep.motion_on]; the user's word, 2026-10-09: "every fall
+## must follow the club's swing and its power, whatever way it goes"): the
+## way along the ground leans from "away from the one who struck" over to the
+## weapon's own sweep, the faster it went the more; its speed is the blow's
+## force; how steeply it came down (or up) is its pitch. All three ride on
+## the vector [method net_blow] gets: its flat part is the way, of length
+## 1 + force, its y the pitch (-1 straight down .. 1 straight up).
+func _swept(away: Vector3) -> Vector3:
+	var sweep := WeaponSweep.motion_on(self)
+	var speed := sweep.length()
+	last_sweep = {}
+	if speed < 0.5:
+		return away
+	var flat := Vector3(sweep.x, 0.0, sweep.z)
+	var lean := clampf((flat.length() - sweep_lean_from) / sweep_lean_span, 0.0, sweep_lean_most)
+	var way := away
+	if flat.length_squared() > 0.0001:
+		way = away.lerp(flat.normalized(), lean)
+		if way.length_squared() < 0.0001:
+			way = away
+	var force := clampf((speed - sweep_force_from) / sweep_force_span, 0.0, 1.5)
+	last_sweep = {"speed": speed, "force": force, "pitch": sweep.y / speed, "lean": lean}
+	return way.normalized() * (1.0 + force) + Vector3.UP * clampf(sweep.y / speed, -1.0, 1.0)
 
 
 ## The kinds of blow the big creatures have ([PackBrute]), after the "!" of a
@@ -3414,6 +3463,11 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
 	var how := _blow_kind(combo)
+	# the weapon's force and pitch ride on `away` ([method _swept])
+	_blow_pitch = clampf(away.y, -1.0, 1.0)
+	away.y = 0.0
+	_blow_force = maxf(away.length() - 1.0, 0.0)
+	away = away.normalized() if away.length_squared() > 0.0001 else global_basis.z
 	if how == "stomp" and state == State.DOWNED and not is_dead:
 		_stomped(damage, away)
 		return
@@ -3454,7 +3508,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 			return
 		_knock_down(away, damage, how)
-		net_react.rpc(Reaction.KNOCKDOWN, knelt_at, knelt_spray * (10.0 + _down_kind))
+		net_react.rpc(Reaction.KNOCKDOWN, knelt_at, knelt_spray * _fall_spray_length())
 		return
 	var toward := source - global_position
 	toward.y = 0.0
@@ -3525,7 +3579,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
 		_knock_down(away, damage, how)
 		# the fall's kind rides on the spray's length (10 + kind)
-		net_react.rpc(Reaction.KNOCKDOWN, at, spray * (10.0 + _down_kind))
+		net_react.rpc(Reaction.KNOCKDOWN, at, spray * _fall_spray_length())
 		return
 	velocity += away * (2.0 + _heft(damage) * blow_shove)
 	_free_swing = false
@@ -3570,10 +3624,12 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
 			_interrupt_skill()
-			var kind := int(round(blow.length())) - 10 if blow.length() > 9.5 else 0
+			var told := blow.length()
+			var kind: int = int(floorf(told)) - 10 if told > 9.9 else 0
+			var force: float = maxf(told - floorf(told) - 0.25, 0.0) * 4.0 if told > 9.9 else 0.0
 			if rig != null:
 				if rig.has_method(&"fall"):
-					var lies := float(rig.call(&"fall", kind))
+					var lies := float(rig.call(&"fall", kind, force))
 					if lies > 0.0 and is_multiplayer_authority() and state == State.DOWNED and not _down_flying:
 						_down_timer = lies + fall_lie
 				else:
@@ -3894,13 +3950,22 @@ func net_blade_landed(matter: StringName = &"flesh") -> void:
 
 ## Off his feet. Everything else stops; he slides back with the blow and lies
 ## there, out of reach of anything else, until he gets up or rolls clear.
+## The knockdown's spray length: 10.25 + the fall's kind + a quarter of the
+## weapon's force (0..1.5) — how every peer learns both (the quarter's start
+## keeps a whole number from rounding down under the float).
+func _fall_spray_length() -> float:
+	return 10.25 + float(_down_kind) + clampf(_blow_force, 0.0, 1.5) * 0.25
+
+
 ## Which way a blow that fells him throws him ([enum SkinnedRig.Fall], the
 ## user's word 2026-10-09): crushed down by one from above, thrown over to a
 ## side by one from that side, onto his face by one from behind; one in front
 ## throws him back, or, heavy enough, launches him through the air.
 func _fall_kind(away: Vector3, damage: float, how: String) -> int:
-	if how == "crush" or how == "above":
+	if how == "crush" or how == "above" or _blow_pitch <= sweep_crush_pitch:
 		return SkinnedRig.Fall.CRUSH
+	if _blow_pitch >= sweep_rise_pitch and _blow_force >= 0.3:
+		return SkinnedRig.Fall.FLY
 	match blow_side(away):
 		SkinnedRig.From.BACK:
 			return SkinnedRig.Fall.FORWARD
@@ -3908,7 +3973,8 @@ func _fall_kind(away: Vector3, damage: float, how: String) -> int:
 			return SkinnedRig.Fall.LEFT
 		SkinnedRig.From.RIGHT:
 			return SkinnedRig.Fall.RIGHT
-	return SkinnedRig.Fall.FLY if hit_heft(damage) >= fall_fly_heft else SkinnedRig.Fall.BACK
+	return SkinnedRig.Fall.FLY if hit_heft(damage) >= fall_fly_heft or _blow_force >= fall_fly_force \
+			else SkinnedRig.Fall.BACK
 
 
 func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
@@ -3926,13 +3992,15 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	_commit_timer = 0.0
 	_root_timer = 0.0
 	_attack_buffer = 0.0
-	var shove := 2.5 + _heft(damage) * blow_shove * 0.5
+	# the harder the weapon came, the further it throws him ([method _swept])
+	var shove := (2.5 + _heft(damage) * blow_shove * 0.5) * (1.0 + 0.6 * _blow_force)
 	var directional := rig != null and rig.has_method(&"falls_directional") and bool(rig.call(&"falls_directional"))
 	if directional and _down_kind != SkinnedRig.Fall.BACK and _down_kind != SkinnedRig.Fall.FLY:
-		shove = fall_carried_shove
+		shove = fall_carried_shove + fall_force_shove * _blow_force
 	velocity = away * shove
 	if _down_flying:
-		velocity = away * fall_fly_push.x + Vector3.UP * fall_fly_push.y
+		var k := 1.0 + 0.25 * minf(_blow_force, 1.5)
+		velocity = away * fall_fly_push.x * k + Vector3.UP * fall_fly_push.y * k
 		_down_timer = 9.0  # till he comes down
 	_down_push = Vector3(velocity.x, 0.0, velocity.z)
 

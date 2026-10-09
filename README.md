@@ -2514,7 +2514,7 @@ Felled, Tariel goes down the way the blow went (the user's word, 2026-10-09:
 "it must read that the club or the sword threw him"). `Player._fall_kind`
 picks a `SkinnedRig.Fall` from where the blow came ([Player.blow_side]) and
 how hard; the kind rides to every peer on the knockdown's spray (length
-10 + kind) and `SkinnedRig.fall()` plays it:
+10.25 + kind + force / 4) and `SkinnedRig.fall()` plays it:
 
 | Blow | Fall | Clip |
 | --- | --- | --- |
@@ -2524,6 +2524,22 @@ how hard; the kind rides to every peer on the knockdown's spray (length
 | from behind | onto his face | `AV_Death_Forward_02`, `KV_CombatDeath04` |
 | `crush`, or the attacker's `blow_from_above()` true | crushed down where he stands | `KV_CombatDeath01` |
 
+- **The weapon leads** (the user's word, 2026-10-09: "every fall must follow
+  the club's swing and its power, whatever way it goes"). `WeaponSweep`
+  leaves on him how the weapon was moving where it met him (`blow_sweep`
+  meta, `WeaponSweep.motion_on`); `Player._swept` turns that into the throw:
+  its way leans from "away from the one who struck" over to the sweep
+  (`sweep_lean_*`, up to 0.85), its speed is the force (`sweep_force_from`
+  6 m/s, `_span` 30: an imp's fist 5-10 m/s, the ogre's club's end 16-60),
+  its pitch picks the fall — coming down steeper than `sweep_crush_pitch`
+  crushes him, rising past `sweep_rise_pitch` with force launches him, force
+  ≥ `fall_fly_force` (1.3) in front launches him too. The force throws him
+  further (`fall_force_shove` 3 m/s per unit, the launch up to 1.4x) and
+  plays the fall faster (`SkinnedRig.FALL_FORCE_PACE`). Way, force and pitch
+  ride on the vector `net_blow` gets (flat part 1 + force long, y the
+  pitch); kind and force reach every peer on the knockdown's spray (10.25 +
+  kind + force / 4). Every creature that strikes through `WeaponSweep` (the
+  ogre, orcs, wolves, imps...) gives it; blows without one fall as before.
 - Each fall is played only till he lies still (the pick's share) and held:
   the death clips' long dying is not waited out; he lies `fall_lie` (0.35 s)
   and gets up — on his feet again in 2–2.4 s all told off his back, about

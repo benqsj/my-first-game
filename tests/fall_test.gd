@@ -6,7 +6,9 @@ extends SceneTree
 ## - from behind onto his face; a crushing blow brings him down where he is;
 ## - he lies only a moment: on his feet again in about 3 s at most, off his
 ##   back with LayToIdle/KipUp, off his face with Mixamo's get-ups;
-## - down on his knee (a broken guard), a second blow throws him down.
+## - down on his knee (a broken guard), a second blow throws him down;
+## - the weapon's own sweep leads: thrown the way it went, crushed by one
+##   coming down, launched by one rising, further the harder it came.
 ##   Godot --headless --path . --script res://tests/fall_test.gd
 
 var _failures := 0
@@ -68,6 +70,19 @@ func _run() -> void:
 		var most := 3.2 if got["on_back"] else 3.3
 		_check("up again inside %.1f s (%s)" % [most, got["clip"]], got["up_in"] < most, "%.2f s" % got["up_in"])
 
+	# the weapon's own sweep ([WeaponSweep.motion_on]): its way, its power, its pitch
+	var across := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3(14, 0, 0))
+	_check("struck in front by a sweep to his right: thrown over to his right",
+			across["kind"] == SkinnedRig.Fall.LEFT and across["moved"].x > 0.4, str(across))
+	var down := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3(0, -30, 4))
+	_check("a blow coming down steeply: crushed down", down["kind"] == SkinnedRig.Fall.CRUSH, str(down))
+	var rising := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3(0, 24, 5))
+	_check("a blow rising under him: launched", rising["kind"] == SkinnedRig.Fall.FLY and rising["rose"] > 0.3, str(rising))
+	var soft := await _fell(Vector3(-2, 0, 0), 12.0, &"", Vector3(5, 0, 0))
+	var hard := await _fell(Vector3(-2, 0, 0), 12.0, &"", Vector3(45, 0, 0))
+	_check("the harder the sweep, the further he is thrown", hard["moved"].x > soft["moved"].x + 0.5,
+			"%.2f vs %.2f m" % [hard["moved"].x, soft["moved"].x])
+
 	# down on his knee, then a second blow
 	_hero.global_position = Vector3(0, _hero.global_position.y, 0)
 	await _wait(20)
@@ -89,7 +104,7 @@ func _run() -> void:
 	quit(1 if _failures > 0 else 0)
 
 
-func _fell(from: Vector3, damage: float, how: StringName = &"") -> Dictionary:
+func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 = Vector3.ZERO) -> Dictionary:
 	_hero.global_position = Vector3(0, _hero.global_position.y, 0)
 	_hero.rotation.y = 0.0
 	_hero.velocity = Vector3.ZERO
@@ -97,6 +112,10 @@ func _fell(from: Vector3, damage: float, how: StringName = &"") -> Dictionary:
 	var p0 := _hero.global_position
 	_foe.global_position = p0 + from
 	_serial += 1
+	if sweep != Vector3.ZERO:
+		_hero.set_meta(&"blow_sweep", [sweep, Engine.get_physics_frames()])
+	elif _hero.has_meta(&"blow_sweep"):
+		_hero.remove_meta(&"blow_sweep")
 	_hero.receive_blow(damage, _foe, 0, 1, _serial, false, how)
 	var rig := _hero.rig as SkinnedRig
 	var rose := 0.0

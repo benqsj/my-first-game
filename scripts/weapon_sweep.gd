@@ -188,11 +188,38 @@ func step(tree: SceneTree, delta: float) -> Array[Node3D]:
 				reach += EVADE_GRAZE
 			for k in steps + 1:
 				var t := float(k) / float(steps)
-				if touches(a0.lerp(a1, t), b0.lerp(b1, t), reach, low, high):
+				var a := a0.lerp(a1, t)
+				var b := b0.lerp(b1, t)
+				if touches(a, b, reach, low, high):
 					caught[who] = true
 					met.append(who)
+					_mark_motion(who, a, b, a1 - a0, b1 - b0, low, high, delta)
 					break
 	return met
+
+
+## How the weapon was moving where it met him (world, metres a second),
+## left on him as `blow_sweep` with the physics frame (the user's word,
+## 2026-10-09: a fall must follow the club's swing and its power, whatever way
+## it goes — [method Player.receive_blow] reads it).
+static func _mark_motion(who: Node3D, a: Vector3, b: Vector3, moved_a: Vector3, moved_b: Vector3,
+		low: Vector3, high: Vector3, delta: float) -> void:
+	var pts := Geometry3D.get_closest_points_between_segments(a, b, low, high)
+	var span := a.distance_to(b)
+	var along := clampf(a.distance_to(pts[0]) / span, 0.0, 1.0) if span > 0.0001 else 1.0
+	var v := moved_a.lerp(moved_b, along) / maxf(delta, 0.0001)
+	who.set_meta(&"blow_sweep", [v, Engine.get_physics_frames()])
+
+
+## The motion of the weapon that last met `who`, if it met him within the last
+## couple of physics frames; zero otherwise.
+static func motion_on(who: Node) -> Vector3:
+	if who == null or not who.has_meta(&"blow_sweep"):
+		return Vector3.ZERO
+	var m: Array = who.get_meta(&"blow_sweep")
+	if Engine.get_physics_frames() - int(m[1]) > 2:
+		return Vector3.ZERO
+	return m[0]
 
 
 ## Whether a stretch `radius` thick, `a` to `b`, meets the body between `low`

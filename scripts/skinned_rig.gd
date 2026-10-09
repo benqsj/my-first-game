@@ -3745,6 +3745,8 @@ const FALLS := {
 ## Launched ([constant Fall.FLY]): curled in the air till the ground comes,
 ## then struck onto it.
 const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
+## How much faster a fall plays per unit of the weapon's force.
+const FALL_FORCE_PACE := 0.22
 ## A launch that never leaves the ground lands after this long anyway.
 const FALL_AIR_MOST := 0.45
 ## Getting up off his back, taken in turn: [clip, times `get_up_time`, from,
@@ -3781,9 +3783,10 @@ func falls_directional() -> bool:
 	return _falls_ready
 
 
-## Knocked down: `kind` a [enum Fall]. Returns about how long till he lies
+## Knocked down: `kind` a [enum Fall], `force` how hard the weapon came
+## (0.. 1.5, [method Player._swept]). Returns about how long till he lies
 ## still (seconds), 0 if this rig has no such falls (the old fall played).
-func fall(kind: int) -> float:
+func fall(kind: int, force: float = 0.0) -> float:
 	if not _falls_ready:
 		knock_down()
 		return 0.0
@@ -3795,7 +3798,9 @@ func fall(kind: int) -> float:
 	if clip == &"":
 		knock_down()
 		return 0.0
-	_play_action(clip, Role.DOWN, float(pick[1]), 0.08 if kind == Fall.FLY else 0.06)
+	# a harder blow throws him over faster
+	var rate := float(pick[1]) * (1.0 + FALL_FORCE_PACE * clampf(force, 0.0, 1.5))
+	_play_action(clip, Role.DOWN, rate, 0.08 if kind == Fall.FLY else 0.06)
 	_fall_kind = kind
 	_fall_settle = float(pick[2])
 	_fall_air = 0.0
@@ -3803,7 +3808,7 @@ func fall(kind: int) -> float:
 	last_fall = {"kind": kind, "clip": pick[0]}
 	if kind == Fall.FLY:
 		return FALL_AIR_MOST + _fall_length(FALL_IMPACT)
-	return _anim.get_animation(clip).length * _fall_settle / float(pick[1])
+	return _anim.get_animation(clip).length * _fall_settle / rate
 
 
 func _fall_length(pick: Array) -> float:
