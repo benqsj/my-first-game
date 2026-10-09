@@ -3366,6 +3366,40 @@ func _heavy_blow() -> int:
 @export var sweep_rise_pitch: float = 0.5
 ## From this force a blow in front launches him, as a heavy one does.
 @export var fall_fly_force: float = 1.3
+## For the falls' review page only: every fall is the catalogue's fall of
+## this number ([method SkinnedRig.review_pick]); 0 the game's own choice.
+var review_fall: int = 0
+## The blow that came last, by its name ([method receive_blow]).
+var _blow_name: StringName = &""
+## ...and where it was dealt from (the side it came from is the striker's,
+## not the way its sweep leant: [method _blow_fall]).
+var _blow_source: Vector3 = Vector3.ZERO
+## The fall picked for the blow that felled him ([constant BLOW_FALLS]): its
+## number ([constant SkinnedRig.REVIEW], 0 none) and how he is turned for it.
+var _down_number: int = 0
+## Getting up: what he is still to be turned and moved by, and in how long
+## ([method SkinnedRig.rise]'s blend).
+var _rise_turn: float = 0.0
+var _rise_shift: Vector3 = Vector3.ZERO
+var _rise_left: float = 0.0
+var _down_face: String = ""
+## The falls the user picked for each blow (2026-10-09 22:03, on the review
+## page): the blow's name -> {where it came from: "front", "side", "back" or
+## "any" -> [[fall's number, how he is turned], ...]} — one of them at
+## random. Turned: "" so the fall goes the blow's way, "foe" his face to the
+## one who struck (he folds forward at its feet), "keep" as he stands.
+## Not here: the kind of blow picks it ([method _fall_kind]).
+const BLOW_FALLS := {
+	&"smash": {"front": [[10, ""]], "side": [[1, ""], [27, "keep"]]},
+	&"cleave": {"front": [[2, ""]], "side": [[5, ""]]},
+	&"jump_slam": {"any": [[14, ""]]},
+	&"whirl": {"any": [[6, ""]]},
+	&"heavy": {"any": [[24, "foe"]]},
+	&"pound": {"any": [[14, ""]]},
+	&"run_slam": {"any": [[6, ""]]},
+	&"sweep": {"any": [[3, ""]]},
+	&"chop": {"any": [[3, ""]]},
+}
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
 var _blow_pitch: float = 0.0
@@ -3412,8 +3446,10 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		how = &"above"
 	if not how.is_empty():
 		key += "!" + String(how)
+	# which blow it is, by name: a fall picked for it ([constant BLOW_FALLS])
+	var named: StringName = StringName(from.call(&"blow_name")) if from.has_method(&"blow_name") else &""
 	net_blow.rpc_id(get_multiplayer_authority(), damage, _swept(away.normalized()), from.global_position,
-			key, blow, blows, magic)
+			key, blow, blows, magic, named)
 
 
 ## The way a blow throws him, from how the weapon was moving where it met him
@@ -3458,7 +3494,7 @@ func _blow_kind(combo: String) -> String:
 ## Only the host deals creatures' blows. A local call reports sender 0.
 @rpc("any_peer", "call_local", "reliable")
 func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
-		blow: int, blows: int, magic: bool = false) -> void:
+		blow: int, blows: int, magic: bool = false, named: StringName = &"") -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if sender != 0 and sender != 1:
 		return
@@ -3468,6 +3504,8 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
 	var how := _blow_kind(combo)
+	_blow_name = named
+	_blow_source = source
 	# the weapon's force and pitch ride on `away` ([method _swept])
 	_blow_pitch = clampf(away.y, -1.0, 1.0)
 	away.y = 0.0
@@ -3633,11 +3671,13 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.KNOCKDOWN:
 			_interrupt_skill()
 			var told := blow.length()
+			var number: int = int(floorf(told / 100.0)) if told > 99.0 else 0
+			told -= 100.0 * number
 			var kind: int = int(floorf(told)) - 10 if told > 9.9 else 0
 			var force: float = maxf(told - floorf(told) - 0.25, 0.0) * 4.0 if told > 9.9 else 0.0
 			if rig != null:
 				if rig.has_method(&"fall"):
-					var lies := float(rig.call(&"fall", kind, force))
+					var lies := float(rig.call(&"fall", kind, force, number))
 					if lies > 0.0 and is_multiplayer_authority() and state == State.DOWNED and not _down_flying:
 						_down_timer = lies + fall_lie
 				else:
@@ -3652,7 +3692,13 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 					# getting up starts from the way he fell
 					var fix: Dictionary = rig.call(&"rise", get_up_time)
 					if is_multiplayer_authority():
-						if fix.has("yaw"):
+						if fix.has("yaw") and float(fix.get("blend", 0.0)) > 0.0:
+							# over the get-up's blend in, so the pose he lies in
+							# turns into its first one without a snap
+							_rise_turn = float(fix["yaw"])
+							_rise_shift = fix["shift"] as Vector3
+							_rise_left = float(fix["blend"])
+						elif fix.has("yaw"):
 							rotation.y += float(fix["yaw"])
 							global_position += fix["shift"] as Vector3
 						if fix.has("time") and _getting_up:
@@ -3962,7 +4008,8 @@ func net_blade_landed(matter: StringName = &"flesh") -> void:
 ## weapon's force (0..1.5) — how every peer learns both (the quarter's start
 ## keeps a whole number from rounding down under the float).
 func _fall_spray_length() -> float:
-	return 10.25 + float(_down_kind) + clampf(_blow_force, 0.0, 1.5) * 0.25
+	# the picked fall's number in the hundreds ([constant BLOW_FALLS])
+	return 100.0 * _down_number + 10.25 + float(_down_kind) + clampf(_blow_force, 0.0, 1.5) * 0.25
 
 
 ## Which way a blow that fells him throws him ([enum SkinnedRig.Fall], the
@@ -4002,10 +4049,13 @@ func _fall_kind(away: Vector3, _damage: float, how: String) -> int:
 ## the frame of the blow it reads as the blow wrenching him round.
 func _face_the_throw(away: Vector3) -> void:
 	var way := Vector3(away.x, 0.0, away.z)
-	if way.length_squared() < 0.0001:
+	if way.length_squared() < 0.0001 or _down_face == "keep":
 		return
 	way = way.normalized()
 	var f := Vector3.ZERO
+	if _down_face == "foe":
+		rotation.y = atan2(way.x, way.z)  # his face to the one who struck
+		return
 	match _down_kind:
 		SkinnedRig.Fall.BACK, SkinnedRig.Fall.FLY:
 			f = -way
@@ -4019,12 +4069,61 @@ func _face_the_throw(away: Vector3) -> void:
 		rotation.y = atan2(-f.x, -f.z)
 
 
+## The way the fall under way throws him, from how he faces (flat, unit).
+func _throw_way() -> Vector3:
+	var f := -global_basis.z
+	f.y = 0.0
+	f = f.normalized()
+	match _down_kind:
+		SkinnedRig.Fall.FORWARD, SkinnedRig.Fall.CRUSH:
+			return f
+		SkinnedRig.Fall.LEFT:
+			return f.cross(Vector3.UP)
+		SkinnedRig.Fall.RIGHT:
+			return Vector3.UP.cross(f)
+	return -f
+
+
+## The fall the user picked for the blow that came ([constant BLOW_FALLS]):
+## [number, how he is turned], or [] for none.
+func _blow_fall(away: Vector3) -> Array:
+	if (_blow_area and _blow_name != &"pound") or not BLOW_FALLS.has(_blow_name):
+		return []
+	var sides: Dictionary = BLOW_FALLS[_blow_name]
+	var side := "front"
+	var from_it := global_position - _blow_source
+	from_it.y = 0.0
+	if from_it.length_squared() < 0.0001:
+		from_it = away
+	match blow_side(from_it):
+		SkinnedRig.From.BACK:
+			side = "back"
+		SkinnedRig.From.LEFT, SkinnedRig.From.RIGHT:
+			side = "side"
+	var picks: Array = sides.get(side, sides.get("any", []))
+	if picks.is_empty():
+		return []
+	return picks[randi() % picks.size()]
+
+
 func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	# how hard it was: the weapon's force, or the blow's weight, whichever is
 	# the more — it picks a light fall (dropped) or a heavy one (thrown) and
 	# how far ([method SkinnedRig.fall], the user's word 2026-10-09)
 	_blow_force = maxf(_blow_force, hit_heft(damage) * fall_heft_force)
 	_down_kind = _fall_kind(away, damage, how)
+	# the fall picked for this blow, or by hand (the falls' review page)
+	_down_number = 0
+	_down_face = ""
+	var picked := _blow_fall(away)
+	if review_fall > 0:
+		picked = [review_fall, ""]
+	if not picked.is_empty() and rig != null and rig.has_method(&"numbered_kind"):
+		var kind := int(rig.call(&"numbered_kind", int(picked[0]), blow_side(away) == SkinnedRig.From.RIGHT))
+		if kind >= 0:
+			_down_kind = kind
+			_down_number = int(picked[0])
+			_down_face = String(picked[1])
 	_face_the_throw(away)
 	_down_flying = _down_kind == SkinnedRig.Fall.FLY and rig != null and rig.has_method(&"fall") \
 			and bool(rig.call(&"falls_directional"))
@@ -4044,7 +4143,12 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	var directional := rig != null and rig.has_method(&"falls_directional") and bool(rig.call(&"falls_directional"))
 	if directional and _down_kind != SkinnedRig.Fall.BACK and _down_kind != SkinnedRig.Fall.FLY:
 		shove = fall_carried_shove + fall_force_shove * _blow_force
-	velocity = away * shove
+	var thrown := away
+	if _down_face == "keep":
+		thrown = _throw_way()  # the way the fall throws him as he stands
+	elif _down_face == "foe":
+		shove = 0.0  # he folds forward at its feet, of himself
+	velocity = thrown * shove
 	if _down_flying:
 		var k := 1.0 + 0.25 * minf(_blow_force, 1.5)
 		velocity = away * fall_fly_push.x * k + Vector3.UP * fall_fly_push.y * k
@@ -4054,6 +4158,14 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 
 func _process_downed(delta: float) -> void:
 	_down_for += delta
+	if _rise_left > 0.0:
+		# set over to where the get-up begins, a share each frame ([method rise])
+		var k := minf(delta / _rise_left, 1.0)
+		rotation.y += _rise_turn * k
+		global_position += _rise_shift * k
+		_rise_turn *= 1.0 - k
+		_rise_shift *= 1.0 - k
+		_rise_left = maxf(_rise_left - delta, 0.0)
 	# the blow's shove dying away (slowly through the air), and whatever the
 	# fall itself carries him by ([member SkinnedRig.fall_velocity])
 	var airborne := not is_on_floor()

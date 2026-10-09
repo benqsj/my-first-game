@@ -2565,18 +2565,46 @@ longer used.
 - Each fall is played only till he lies still (the pick's share) and held:
   the death clips' long dying is not waited out; he lies `fall_lie` (0.35 s)
   and gets up — on his feet again in 2–2.4 s all told off his back, about
-  3 s off his face.
+  4–5 s off his face (the get-ups at near their own pace).
 - The clips are copied as `F_<clip>` with the hips' travel lifted onto the
   root (`SkinnedRig._lift_travel`), so the body is carried with the fall
   (`fall_velocity`, root motion): the view goes with him and he gets up where
   he lies.
-- Getting up (`SkinnedRig.rise`): off his back `LayToIdle` (now and then
-  `KipUp`); off his face Mixamo's "Standing From A Lying Prone" and "Getting
-  Up From Stomach" (`TR_GetUp_Prone`, `TR_GetUp_Stomach`, in
-  `tariel_extra.glb` → `tariel_mannequin.res` by `h2m.gd -- tariel_extra`;
-  only the push off the ground to standing, `GET_UPS_FRONT`). The body is
-  turned and set over so the clip's first pose lies where he lies, and the
-  getting up takes as long as the clip says (`rise()`'s `time`).
+- Getting up (`SkinnedRig.rise`): off his back `LayToIdle` or `KipUp`; off
+  his face Mixamo's "Standing From A Lying Prone", "Getting Up From Stomach"
+  and "Stand Up From Stomach" (`TR_GetUp_Prone`, `TR_GetUp_Stomach`,
+  `TR_StandUp_Stomach`, in `tariel_extra.glb` → `tariel_mannequin.res` by
+  `h2m.gd -- tariel_extra`; from just before the push off the ground to
+  standing, at `FRONT_UP_PACE` 1.7x — they were squeezed ~3x, the user's
+  word 2026-10-09: "at their own pace"). **Which one, and from where**: each
+  get-up's poses over where it may start are sampled at load
+  (`_sample_get_ups`, the `F_` copies, root travel left out) as
+  `_pose_marks` (hips' height, head/hands/feet/knees from the hips in a frame
+  along hips → head); the one likest how he lies is begun there (a sitting
+  pose — the light knock-down's end — gets up from the sitting part of
+  `LayToIdle`). It blends in over `UP_BLEND` 0.35 s while the body is turned
+  and set over (`Player._rise_turn/_shift`, a share each frame) so its first
+  pose lies where he lies: no snap ("the pose jumps", the user's word). Before
+  this the head bone was looked for as "head" (the mannequin's is "Head"), so
+  the body was never set over at all.
+- **Falls picked per blow** (the user, 2026-10-09 22:03, off the review page):
+  a striker that names its blow (`blow_name()`, the ogre's `BLOW_NAMES`) gets
+  the fall `Player.BLOW_FALLS` lists for it by the side it came from (the
+  striker's place, not the sweep's lean): numbers into
+  `SkinnedRig.REVIEW` (the page's "ანიმაცია N"), one at random, with how
+  he is turned — "" the clip thrown the blow's way, "foe" his face to the
+  striker (he folds forward at its feet, no shove), "keep" as he stands
+  (thrown the clip's way). The ogre: smash in front 10 `TR_Fall_Flat`, from a
+  side 1 `Hit_Knockback` or 27 (`AV_Death_Forward_02` from 42 %: straight
+  onto his stomach, not turned); cleave in front 2 `KV_CombatDeath02`, from a
+  side 5 `TR_Flying_Back`; jump slam and pound 14 `TR_Sweep_Fall`; whirl and
+  run slam 6 `LiftAir_Fall`; heavy 24 `KV_Death01` facing it; sweep and chop
+  (a string's close) 3 `TR_Punch_Knockdown`, held where he has come down
+  sitting (it lay back down after: "he falls twice"). The leap slam and
+  everything else fall by kind. The number rides to every peer in the
+  hundreds of the spray (100 × number + 10.25 + kind + force / 4).
+  `TR_Shoulder_Hit_Fall` (13) is kept for being splashed with something
+  (poison...), the arcade.
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws
   him down the same way. The kneel itself is shorter: `guard_crumple_time`
   1.35 s, the fall to the knee at 2.4x, up off it at 1.4x.

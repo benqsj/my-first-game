@@ -44,6 +44,11 @@ func _run() -> void:
 	_hero.immortal = true
 	_hero.call(&"_set_weapons_stowed", false)
 	_foe = Node3D.new()
+	# a striker that names its blow, as the ogre does (OgreFighter.blow_name)
+	var naming := GDScript.new()
+	naming.source_code = "extends Node3D\nvar named: StringName = &\"\"\nfunc blow_name() -> StringName:\n\treturn named\n"
+	naming.reload()
+	_foe.set_script(naming)
 	world.add_child(_foe)
 	var rig := _hero.rig as SkinnedRig
 	_check("Tariel's falls follow the blow", rig != null and rig.falls_directional())
@@ -57,7 +62,9 @@ func _run() -> void:
 	_check("a very heavy one in front: thrown back hard (the heavy fall)", fly["kind"] == SkinnedRig.Fall.BACK
 			and fly["tier"] == 2, str(fly))
 	_check("and carried well back", fly["moved"].z > 2.0, str(fly["moved"]))
-	_check("thrown, up again inside 3.5 s", fly["up_in"] < 3.5, "%.2f s" % fly["up_in"])
+	# up off his face at the get-up's own pace, near enough (the user's word,
+	# 2026-10-09): longer than off his back
+	_check("thrown, up again inside 5.5 s", fly["up_in"] < 5.5, "%.2f s" % fly["up_in"])
 	var light := await _fell(Vector3(0, 0, -2), 3.0)
 	_check("a light one: only dropped (the light fall)", light["tier"] == 0, str(light))
 
@@ -81,8 +88,27 @@ func _run() -> void:
 			str(crush_light))
 	for got: Dictionary in [left, right, back, crush]:
 		# off his face takes a little longer: a push up off the ground
-		var most := 3.2 if got["on_back"] else 3.3
+		var most := 3.2 if got["on_back"] else 5.5
 		_check("up again inside %.1f s (%s)" % [most, got["clip"]], got["up_in"] < most, "%.2f s" % got["up_in"])
+
+	# the get-up begun where its pose is likest how he lies, blended in
+	_check("the get-up begun from the pose likest how he lay", not (back.get("weighed", {}) as Dictionary).is_empty()
+			and not (crush.get("weighed", {}) as Dictionary).is_empty(), str(back.get("weighed")))
+
+	# the falls the user picked per blow (Player.BLOW_FALLS)
+	var smash := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"smash")
+	_check("the ogre's smash in front: flat on his face (fall 10)", smash["number"] == 10 and not smash["on_back"], str(smash))
+	var smash_side := await _fell(Vector3(-2, 0, 0), 40.0, &"", Vector3.ZERO, false, &"smash")
+	_check("its smash from a side: knocked back or forward as he stands (1 or 27)",
+			smash_side["number"] == 1 or smash_side["number"] == 27, str(smash_side))
+	var heavy := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"heavy")
+	_check("its great blow: on his knees and forward, his face to it (24)", heavy["number"] == 24
+			and heavy["faced"] > 0.9 and heavy["moved"].z < 0.1, str(heavy))
+	var chop := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"chop")
+	_check("a string's close (chop): knocked down sitting, up from sitting (3)", chop["number"] == 3
+			and float(chop.get("up_from", 0.0)) > 0.2, str(chop))
+	var unnamed := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"kick")
+	_check("a blow with no fall picked falls by its kind", unnamed["number"] == 0, str(unnamed))
 
 	# the weapon's own sweep ([WeaponSweep.motion_on]): its way, its power, its pitch
 	var across := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3(40, 0, 0))
@@ -126,7 +152,7 @@ func _run() -> void:
 
 
 func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 = Vector3.ZERO,
-		magic: bool = false) -> Dictionary:
+		magic: bool = false, named: StringName = &"") -> Dictionary:
 	_hero.global_position = Vector3(0, _hero.global_position.y, 0)
 	_hero.rotation.y = 0.0
 	_hero.velocity = Vector3.ZERO
@@ -138,7 +164,11 @@ func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 =
 		_hero.set_meta(&"blow_sweep", [sweep, Engine.get_physics_frames()])
 	elif _hero.has_meta(&"blow_sweep"):
 		_hero.remove_meta(&"blow_sweep")
+	_foe.set(&"named", named)
 	_hero.receive_blow(damage, _foe, 0, 1, _serial, magic, how)
+	var to_foe := _foe.global_position - _hero.global_position
+	to_foe.y = 0.0
+	var faced := (-_hero.global_basis.z).dot(to_foe.normalized())
 	var rig := _hero.rig as SkinnedRig
 	var rose := 0.0
 	var frames := 0
@@ -156,6 +186,8 @@ func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 =
 	got["moved"] = lay
 	got["rose"] = rose
 	got["up_in"] = frames / 60.0
+	got["faced"] = faced
+	got["number"] = got.get("number", 0)
 	got["on_back"] = got.get("on_back", false)
 	got["up"] = got.get("up", &"")
 	got["tier"] = got.get("tier", -1)

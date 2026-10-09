@@ -3742,7 +3742,7 @@ const FALL_HEROES := [&"tariel"]
 ## through the air that way.
 const FALLS := {
 	Fall.BACK: [
-		[[&"TR_Punch_Knockdown", 1.15, 0.6, 0.1], [&"TR_Knocked_Over", 1.1, 0.5, 0.08]],
+		[[&"TR_Punch_Knockdown", 1.15, 0.47, 0.1], [&"TR_Knocked_Over", 1.1, 0.5, 0.08]],
 		[[&"Hit_Knockback", 1.0, 0.6, 0.0], [&"KV_CombatDeath02", 1.05, 0.5, 0.0]],
 		[[&"TR_Flying_Back", 1.1, 0.58, 0.0]],
 	],
@@ -3771,6 +3771,48 @@ const FALLS := {
 	Fall.CRUSH: [[[&"TR_Knocked_Stomach", 1.2, 0.75, 0.2]], [[&"TR_Knocked_Stomach", 1.25, 0.75, 0.2]],
 			[[&"TR_Knocked_Stomach", 1.3, 0.75, 0.2]]],
 }
+## The falls by number (the review page's "ანიმაცია N", the user picks
+## them per blow by these: [member Player.BLOW_FALLS]): N -> [kind, pick];
+## a throw to a side is given for his right (`_M` taken for his left). The
+## number rides to every peer with the fall ([method fall]).
+const REVIEW := {
+	1: [Fall.BACK, [&"Hit_Knockback", 1.0, 0.6, 0.0]],
+	2: [Fall.BACK, [&"KV_CombatDeath02", 1.05, 0.5, 0.0]],
+	# held where he has come down sitting: on it lay back down, a second fall
+	# (the user's word, 2026-10-09); he gets up from sitting ([method rise])
+	3: [Fall.BACK, [&"TR_Punch_Knockdown", 1.15, 0.47, 0.1]],
+	4: [Fall.BACK, [&"TR_Knocked_Over", 1.1, 0.5, 0.08]],
+	5: [Fall.BACK, [&"TR_Flying_Back", 1.1, 0.58, 0.0]],
+	6: [Fall.FLY, [&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]],
+	7: [Fall.RIGHT, [&"TR_Thrown_Side", 1.25, 0.66, 0.34, 1.0]],
+	8: [Fall.FORWARD, [&"KV_CombatDeath04", 1.2, 0.8, 0.0]],
+	9: [Fall.FORWARD, [&"AV_Death_Forward_02", 1.6, 0.8, 0.15]],
+	10: [Fall.FORWARD, [&"TR_Fall_Flat", 1.05, 0.75, 0.15]],
+	11: [Fall.CRUSH, [&"TR_Knocked_Stomach", 1.2, 0.75, 0.2]],
+	12: [Fall.FORWARD, [&"TR_Hit_By_Car", 1.15, 0.9, 0.5]],
+	13: [Fall.FORWARD, [&"TR_Shoulder_Hit_Fall", 1.1, 0.9, 0.1]],
+	14: [Fall.FORWARD, [&"TR_Sweep_Fall", 1.1, 0.9, 0.2]],
+	# 22, 24, 26 quicker than their own pace (the user's word: a heavy blow
+	# folds him forward fast)
+	22: [Fall.FORWARD, [&"AV_Death_Right_02", 1.85, 0.9, 0.0]],
+	24: [Fall.FORWARD, [&"KV_Death01", 0.9, 0.9, 0.0]],
+	26: [Fall.FORWARD, [&"DG_Death", 1.95, 0.9, 0.0]],
+	# 9 without its stumble: straight down onto his stomach (the user's word)
+	27: [Fall.FORWARD, [&"AV_Death_Forward_02", 1.3, 0.76, 0.42]],
+}
+
+
+## The kind of the fall numbered `n` ([constant REVIEW]), -1 if there is no
+## such: a throw to a side goes to his left if the blow came `from_right`.
+func numbered_kind(n: int, from_right: bool) -> int:
+	if not REVIEW.has(n):
+		return -1
+	var kind: int = REVIEW[n][0]
+	if kind == Fall.RIGHT and not from_right:
+		kind = Fall.LEFT
+	return kind
+
+
 ## The force ([method fall]) from which a blow is middling, and heavy.
 const FALL_TIERS := Vector2(0.35, 0.9)
 ## Falls to a side whose travel forward or back is dropped: thrown over to
@@ -3786,17 +3828,29 @@ const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
 const FALL_FORCE_PACE := 0.22
 ## A launch that never leaves the ground lands after this long anyway.
 const FALL_AIR_MOST := 0.45
-## Getting up off his back, taken in turn: [clip, times `get_up_time`, from,
-## until (shares of the clip)].
-const GET_UPS_BACK := [[&"LayToIdle", 1.0, 0.0, 1.0], [&"LayToIdle", 1.0, 0.0, 1.0], [&"KipUp", 0.85, 0.0, 1.0]]
-## ...and face down: Mixamo's, onto his own clips (tariel_extra, 2026-10-09),
-## only the part from the push off the ground to standing.
-const GET_UPS_FRONT := [[&"TR_GetUp_Prone", 1.25, 0.2, 0.66], [&"TR_GetUp_Stomach", 1.35, 0.22, 0.68]]
+## Getting up off his back: [clip, times `get_up_time`, from, until (shares
+## of the clip), the latest it may start at]. The one begun is the one whose
+## pose somewhere from `from` to that latest is likest how he lies, begun
+## there ([method rise]: no snap into a first pose, the user's word
+## 2026-10-09 "the pose jumps").
+const GET_UPS_BACK := [[&"LayToIdle", 1.0, 0.0, 1.0, 0.5], [&"KipUp", 0.85, 0.0, 1.0, 0.25]]
+## ...and face down: Mixamo's three, onto his own clips (tariel_extra), from
+## just before the push off the ground to standing, played at
+## [constant FRONT_UP_PACE] (their own pace, near enough: the user's word
+## 2026-10-09; they were squeezed into 1.4 s): [clip, from, until, latest].
+const GET_UPS_FRONT := [[&"TR_GetUp_Prone", 0.05, 0.62, 0.3], [&"TR_GetUp_Stomach", 0.13, 0.7, 0.35],
+		[&"TR_StandUp_Stomach", 0.27, 0.75, 0.45]]
+## How much quicker than their own the get-ups off his face are played.
+const FRONT_UP_PACE := 1.7
+## How long a get-up blends in from how he lies (s).
+const UP_BLEND := 0.35
+## The bones weighed for how like two poses are ([method _pose_marks]).
+const POSE_MARKS := [&"Head", &"hand_l", &"hand_r", &"foot_l", &"foot_r", &"calf_l", &"calf_r"]
 ## Lent from another hero's clips: clip -> hero.
 const FALL_LENT := {
 	&"AV_Death_Left_01": "avtandil", &"AV_Death_Left_02": "avtandil",
 	&"AV_Death_Right_01": "avtandil", &"AV_Death_Right_02": "avtandil",
-	&"AV_Death_Forward_02": "avtandil",
+	&"AV_Death_Forward_02": "avtandil", &"DG_Death": "rogue",
 }
 ## The falls' own copies of the clips are kept under this prefix (the hips'
 ## travel lifted onto the root, [method _lift_travel]).
@@ -3829,9 +3883,11 @@ func falls_directional() -> bool:
 
 
 ## Knocked down: `kind` a [enum Fall], `force` how hard the weapon came
-## (0.. 1.5, [method Player._swept]). Returns about how long till he lies
-## still (seconds), 0 if this rig has no such falls (the old fall played).
-func fall(kind: int, force: float = 0.0) -> float:
+## (0.. 1.5, [method Player._swept]), `number` one fall picked by number
+## ([constant REVIEW]), 0 the kind's own by `force`. Returns about how long
+## till he lies still (seconds), 0 if this rig has no such falls (the old
+## fall played).
+func fall(kind: int, force: float = 0.0, number: int = 0) -> float:
 	if not _falls_ready:
 		knock_down()
 		return 0.0
@@ -3840,6 +3896,10 @@ func fall(kind: int, force: float = 0.0) -> float:
 	var tier := 0 if force < FALL_TIERS.x else (1 if force < FALL_TIERS.y else 2)
 	var picks: Array = tiers[tier]
 	var pick: Array = picks[_falls_made % picks.size()]
+	if REVIEW.has(number):
+		pick = (REVIEW[number][1] as Array).duplicate()
+		if kind == Fall.LEFT and FALL_MIRROR.has(pick[0]):
+			pick[0] = StringName(String(pick[0]) + "_M")
 	_falls_made += 1
 	var clip := _fall_clip(pick[0])
 	if clip == &"":
@@ -3855,7 +3915,7 @@ func fall(kind: int, force: float = 0.0) -> float:
 	_fall_rate = rate
 	_fall_air = 0.0
 	_fall_time = 0.0
-	last_fall = {"kind": kind, "clip": pick[0], "tier": tier}
+	last_fall = {"kind": kind, "clip": pick[0], "tier": tier, "number": number}
 	if kind == Fall.FLY:
 		return FALL_AIR_MOST + _fall_length(FALL_IMPACT)
 	return _anim.get_animation(clip).length * maxf(_fall_settle - from, 0.05) / rate
@@ -3934,19 +3994,50 @@ func rise(duration: float) -> Dictionary:
 		_rise_backwards(duration)
 		last_fall["up"] = &""
 		return {}
+	# the get-up, and where in it, likest how he lies
 	var pick: Array = picks[_falls_made % picks.size()]
+	var start := -1.0
+	var begun_as: Array = []
+	var lies_so := _pose_marks()
+	var best := INF
+	var weighed := {}
+	for p: Array in picks:
+		for mark: Array in _up_marks.get(p[0], []):
+			var apart := _marks_apart(lies_so, mark[1])
+			if apart < float(weighed.get(p[0], [INF])[0]):
+				weighed[p[0]] = [snappedf(apart, 0.001), mark[0]]
+			if apart < best:
+				best = apart
+				pick = p
+				start = float(mark[0])
+				begun_as = mark
 	var clip := _fall_clip(pick[0])
 	if clip == &"":
 		_rise_backwards(duration)
 		return {}
 	var before := _lying_marks()
 	var length := _anim.get_animation(clip).length
-	var from := float(pick[2])
-	var until := float(pick[3])
-	var takes := maxf(duration * float(pick[1]), 0.05)
-	_play_action(clip, Role.GET_UP, length * (until - from) / takes, 0.0, from, until)
-	_anim.advance(0.0)
-	var after := _lying_marks()
+	var from := float(pick[1]) if not on_back else float(pick[2])
+	var until := float(pick[2]) if not on_back else float(pick[3])
+	if start < 0.0:
+		start = from
+	var takes := 0.0
+	if on_back:
+		takes = maxf(duration * float(pick[1]) * (until - start) / maxf(until - from, 0.05), 0.05)
+	else:
+		takes = maxf(length * (until - start) / FRONT_UP_PACE, 0.05)
+	last_fall["up_from"] = start
+	last_fall["weighed"] = weighed
+	# blended in from how he lies, the body set over to where the get-up's
+	# first pose lies over the same while ([member Player]: no snap)
+	var blend := UP_BLEND if begun_as.size() > 3 else 0.0
+	_play_action(clip, Role.GET_UP, length * (until - start) / takes, blend, start, until)
+	var after: Array = []
+	if blend > 0.0:
+		after = [global_transform * (begun_as[2] as Vector3), global_transform * (begun_as[3] as Vector3)]
+	else:
+		_anim.advance(0.0)
+		after = _lying_marks()
 	_fall_kind = -1
 	last_fall["up"] = pick[0]
 	if before.is_empty() or after.is_empty():
@@ -3966,7 +4057,7 @@ func rise(duration: float) -> Dictionary:
 	var turned: Vector3 = origin + (after[0] - origin).rotated(Vector3.UP, yaw)
 	var shift: Vector3 = before[0] - turned
 	shift.y = 0.0
-	return {"yaw": yaw, "shift": shift, "time": takes}
+	return {"yaw": yaw, "shift": shift, "time": takes, "blend": blend}
 
 
 ## The fall played back from where it is held (no clip to get up with).
@@ -3997,10 +4088,116 @@ func _lying_on_back() -> bool:
 	return (pose.basis * _pelvis_front).y > 0.0
 
 
+## How he lies, to be matched against a get-up's poses: his hips' height,
+## then each of [constant POSE_MARKS] from his hips, along the way from his
+## hips to his head over the ground, up, and across (the rig's frame).
+func _pose_marks(on: Skeleton3D = null) -> PackedVector3Array:
+	var sk := on if on != null else _skel
+	var out := PackedVector3Array()
+	var pelvis := sk.find_bone("pelvis")
+	var head := _head_of(sk)
+	if pelvis < 0 or head < 0:
+		return out
+	var to_rig := _skel_to_rig(sk)
+	var hips := to_rig * sk.get_bone_global_pose(pelvis).origin
+	var ahead := to_rig * sk.get_bone_global_pose(head).origin - hips
+	ahead.y = 0.0
+	if ahead.length_squared() < 0.04:
+		# sitting up: the way his hips face
+		ahead = to_rig.basis * (sk.get_bone_global_pose(pelvis).basis * _pelvis_front)
+		ahead.y = 0.0
+	if ahead.length_squared() < 0.0001:
+		return out
+	ahead = ahead.normalized()
+	var across := Vector3.UP.cross(ahead)
+	out.append(Vector3(0.0, hips.y - to_rig.origin.y, 0.0))
+	for mark: StringName in POSE_MARKS:
+		var b := _head_of(sk) if mark == &"Head" else sk.find_bone(mark)
+		var d := (to_rig * sk.get_bone_global_pose(b).origin - hips) if b >= 0 else Vector3.ZERO
+		out.append(Vector3(d.dot(ahead), d.y, d.dot(across)))
+	return out
+
+
+## How unlike two [method _pose_marks] are (INF if either is missing).
+static func _marks_apart(a: PackedVector3Array, b: PackedVector3Array) -> float:
+	if a.size() != b.size() or a.is_empty():
+		return INF
+	var sum := (a[0] - b[0]).length_squared() * 2.0
+	for i in range(1, a.size()):
+		sum += (a[i] - b[i]).length_squared()
+	return sum
+
+
+## His head's bone: "Head" on the mannequin (UAL), "head" elsewhere (-1
+## none). (Looked for as "head" only, the getting up was never set over to
+## where he lay: the pose jumped, the user's word 2026-10-09.)
+static func _head_of(sk: Skeleton3D) -> int:
+	var b := sk.find_bone("Head")
+	return b if b >= 0 else sk.find_bone("head")
+
+
+## From the skeleton's space to the rig's.
+func _skel_to_rig(sk: Skeleton3D) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var n: Node = sk
+	while n != null and n != self:
+		if n is Node3D:
+			t = (n as Node3D).transform * t
+		n = n.get_parent()
+	return t
+
+
+## Every get-up's poses over where it may start ([method rise]), sampled
+## once: the skeleton posed from each clip's tracks, then put back.
+var _up_marks: Dictionary = {}
+
+
+func _sample_get_ups(lib: AnimationLibrary, skel: Skeleton3D) -> void:
+	var ups: Array = []
+	for p: Array in GET_UPS_BACK:
+		ups.append([p[0], p[2], p[4]])
+	for p: Array in GET_UPS_FRONT:
+		ups.append([p[0], p[1], p[3]])
+	for u: Array in ups:
+		var named := StringName(FALL_PREFIX + String(u[0]))
+		if not lib.has_animation(named):
+			named = u[0]
+		if not lib.has_animation(named):
+			continue
+		var a := lib.get_animation(named)
+		var bones := PackedInt32Array()
+		var root := skel.find_bone("root")
+		for i in a.get_track_count():
+			var b := skel.find_bone(String(a.track_get_path(i)).get_slice(":", 1))
+			# the root's travel is root motion: never on the pose in play
+			if b == root and a.track_get_type(i) == Animation.TYPE_POSITION_3D:
+				b = -1
+			bones.append(b)
+		var to_rig := _skel_to_rig(skel)
+		var pelvis := skel.find_bone("pelvis")
+		var head := _head_of(skel)
+		var marks: Array = []
+		for k in 25:
+			var share := lerpf(float(u[1]), float(u[2]), k / 24.0)
+			var t := share * a.length
+			for i in a.get_track_count():
+				if bones[i] < 0:
+					continue
+				if a.track_get_type(i) == Animation.TYPE_ROTATION_3D:
+					skel.set_bone_pose_rotation(bones[i], a.rotation_track_interpolate(i, t))
+				elif a.track_get_type(i) == Animation.TYPE_POSITION_3D:
+					skel.set_bone_pose_position(bones[i], a.position_track_interpolate(i, t))
+			skel.force_update_all_bone_transforms()
+			marks.append([share, _pose_marks(skel), to_rig * skel.get_bone_global_pose(pelvis).origin,
+					to_rig * skel.get_bone_global_pose(head).origin])
+		_up_marks[u[0]] = marks
+	skel.reset_bone_poses()
+
+
 ## Where his hips and his head are (world), [] if not found.
 func _lying_marks() -> Array:
 	var pelvis := _skel.find_bone("pelvis")
-	var head := _skel.find_bone("head")
+	var head := _head_of(_skel)
 	if pelvis < 0 or head < 0:
 		return []
 	return [_skel.global_transform * _skel.get_bone_global_pose(pelvis).origin,
@@ -4022,6 +4219,9 @@ func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 				if not String(pick[0]).ends_with("_M"):
 					want.append(pick[0])
 	want.append(FALL_IMPACT[0])
+	for n: int in REVIEW:
+		if not want.has(REVIEW[n][1][0]):
+			want.append(REVIEW[n][1][0])
 	for pick: Array in GET_UPS_BACK + GET_UPS_FRONT:
 		want.append(pick[0])
 	for clip: StringName in want:
@@ -4050,6 +4250,7 @@ func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 	if pelvis >= 0:
 		var rest := skel.get_bone_global_rest(pelvis)
 		_pelvis_front = (rest.basis.inverse() * Vector3(0.0, 0.0, 1.0)).normalized()
+	_sample_get_ups(lib, skel)
 	_falls_ready = true
 
 

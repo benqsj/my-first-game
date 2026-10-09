@@ -128,13 +128,18 @@ func _initialize() -> void:
 		if carried == null or (carried as Vector3).length() < 0.05:
 			break
 		await physics_frame
-	var lying_at := player.global_position
+	# ...and only while he lies (getting up, the get-up's own travel and its
+	# setting over to where he lies move him, not the stick)
+	var stick_moved := 0.0
 	Input.action_press("move_forward")
-	await _wait(30)
+	for i in 30:
+		var was := player.global_position
+		await physics_frame
+		var rig_role: Variant = player.rig.get(&"_role")
+		if rig_role == null or int(rig_role) == SkinnedRig.Role.DOWN:
+			stick_moved += player.global_position.distance_to(was)
 	Input.action_release("move_forward")
-	_check("on the ground the stick does not move him",
-			player.global_position.distance_to(lying_at) < 0.15,
-			"%.2f m" % player.global_position.distance_to(lying_at))
+	_check("on the ground the stick does not move him", stick_moved < 0.15, "%.2f m" % stick_moved)
 	_check("and nothing hits him while he is down", player.is_invulnerable)
 	Input.action_press("dash")
 	await physics_frame
