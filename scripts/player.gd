@@ -3369,6 +3369,8 @@ func _heavy_blow() -> int:
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
 var _blow_pitch: float = 0.0
+## The last blow was no weapon's: a skill's blast or a shock ([method net_blow]).
+var _blow_area: bool = false
 ## The last weapon met (host): {"speed", "force", "pitch", "lean"}, for a test.
 var last_sweep: Dictionary = {}
 
@@ -3471,6 +3473,9 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	away.y = 0.0
 	_blow_force = maxf(away.length() - 1.0, 0.0)
 	away = away.normalized() if away.length_squared() > 0.0001 else global_basis.z
+	# no weapon met him: a skill's blast, a shock along the ground, stone
+	# out of it ([method _fall_kind] throws him back from it)
+	_blow_area = magic or how == "ground" or how == "spike"
 	if how == "stomp" and state == State.DOWNED and not is_dead:
 		_stomped(damage, away)
 		return
@@ -3964,28 +3969,63 @@ func _fall_spray_length() -> float:
 ## user's word 2026-10-09): crushed down by one from above, thrown over to a
 ## side by one from that side, onto his face by one from behind; one in front
 ## throws him back, or, heavy enough, launches him through the air.
-func _fall_kind(away: Vector3, damage: float, how: String) -> int:
-	if how == "crush" or how == "above" or _blow_pitch <= sweep_crush_pitch:
+func _fall_kind(away: Vector3, _damage: float, how: String) -> int:
+	var heavy := _blow_force >= SkinnedRig.FALL_TIERS.y
+	# a skill's blast or a shock through the ground (no weapon in it): thrown
+	# straight back from where it came, through the air if heavy, else flat
+	# onto his back — never a fold (the user's word, 2026-10-09)
+	if _blow_area:
+		return SkinnedRig.Fall.FLY if heavy else SkinnedRig.Fall.BACK
+	# a heavy blow on his head from above: straight down onto his stomach;
+	# a lighter one falls by the side it came from
+	if heavy and (how == "crush" or how == "above" or _blow_pitch <= sweep_crush_pitch):
 		return SkinnedRig.Fall.CRUSH
 	if _blow_pitch >= sweep_rise_pitch and _blow_force >= 0.3:
 		return SkinnedRig.Fall.FLY
 	match blow_side(away):
 		SkinnedRig.From.BACK:
 			return SkinnedRig.Fall.FORWARD
-		SkinnedRig.From.LEFT:
-			return SkinnedRig.Fall.LEFT
-		SkinnedRig.From.RIGHT:
-			return SkinnedRig.Fall.RIGHT
-	return SkinnedRig.Fall.FLY if hit_heft(damage) >= fall_fly_heft or _blow_force >= fall_fly_force \
-			else SkinnedRig.Fall.BACK
+		SkinnedRig.From.LEFT, SkinnedRig.From.RIGHT:
+			if heavy:
+				return SkinnedRig.Fall.LEFT if blow_side(away) == SkinnedRig.From.LEFT else SkinnedRig.Fall.RIGHT
+			# a lighter one from a side: over backwards, or forwards if it
+			# carried him on the way he faces (no fold to the side)
+			var facing := -global_basis.z
+			facing.y = 0.0
+			return SkinnedRig.Fall.FORWARD if away.dot(facing.normalized()) > 0.15 else SkinnedRig.Fall.BACK
+	return SkinnedRig.Fall.FLY if _blow_force >= fall_fly_force else SkinnedRig.Fall.BACK
+
+
+## Turned on the blow's frame so the fall's clip throws him exactly the way
+## the blow goes (each clip throws him one way of his own: back, forward, to
+## a side): the turn is at most what lies between two sides (45°), and on
+## the frame of the blow it reads as the blow wrenching him round.
+func _face_the_throw(away: Vector3) -> void:
+	var way := Vector3(away.x, 0.0, away.z)
+	if way.length_squared() < 0.0001:
+		return
+	way = way.normalized()
+	var f := Vector3.ZERO
+	match _down_kind:
+		SkinnedRig.Fall.BACK, SkinnedRig.Fall.FLY:
+			f = -way
+		SkinnedRig.Fall.FORWARD:
+			f = way
+		SkinnedRig.Fall.LEFT:
+			f = Vector3.UP.cross(way)  # thrown to his right
+		SkinnedRig.Fall.RIGHT:
+			f = way.cross(Vector3.UP)  # thrown to his left
+	if f.length_squared() > 0.0001:
+		rotation.y = atan2(-f.x, -f.z)
 
 
 func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
-	_down_kind = _fall_kind(away, damage, how)
 	# how hard it was: the weapon's force, or the blow's weight, whichever is
 	# the more — it picks a light fall (dropped) or a heavy one (thrown) and
 	# how far ([method SkinnedRig.fall], the user's word 2026-10-09)
 	_blow_force = maxf(_blow_force, hit_heft(damage) * fall_heft_force)
+	_down_kind = _fall_kind(away, damage, how)
+	_face_the_throw(away)
 	_down_flying = _down_kind == SkinnedRig.Fall.FLY and rig != null and rig.has_method(&"fall") \
 			and bool(rig.call(&"falls_directional"))
 	state = State.DOWNED

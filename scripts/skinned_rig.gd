@@ -1461,6 +1461,7 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 func _end_action() -> void:
 	_fall_kind = -1
+	_fall_own_up = -1.0
 	_crumpled = false
 	_air_cut = false
 	_evade_cut = false
@@ -3747,32 +3748,37 @@ const FALLS := {
 	],
 	Fall.FLY: [[[&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]], [[&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]],
 			[[&"LiftAir_Fall_Air", 1.0, 2.0, 0.0]]],
+	# thrown over to a side: only heavy blows ([method Player._fall_kind]
+	# sends the lighter ones from a side back or forward); "Thrown To The
+	# Side" gets up by itself (its 5th: where he stands again)
 	Fall.LEFT: [
-		[[&"TR_Hit_By_Car", 1.15, 0.75, 0.5]],
-		[[&"TR_Hit_By_Car", 1.35, 0.75, 0.52]],
-		[[&"TR_Thrown_Side_M", 1.25, 0.66, 0.3]],
+		[[&"TR_Knocked_Over", 1.1, 0.5, 0.08]],
+		[[&"Hit_Knockback", 1.0, 0.6, 0.0]],
+		[[&"TR_Thrown_Side_M", 1.25, 0.66, 0.34, 1.0]],
 	],
 	Fall.RIGHT: [
-		[[&"TR_Hit_By_Car_M", 1.15, 0.75, 0.5]],
-		[[&"TR_Hit_By_Car_M", 1.35, 0.75, 0.52]],
-		[[&"TR_Thrown_Side", 1.25, 0.66, 0.3]],
+		[[&"TR_Knocked_Over", 1.1, 0.5, 0.08]],
+		[[&"Hit_Knockback", 1.0, 0.6, 0.0]],
+		[[&"TR_Thrown_Side", 1.25, 0.66, 0.34, 1.0]],
 	],
 	Fall.FORWARD: [
 		[[&"KV_CombatDeath04", 1.2, 0.8, 0.0], [&"AV_Death_Forward_02", 1.6, 0.8, 0.2]],
 		[[&"AV_Death_Forward_02", 1.6, 0.8, 0.15], [&"KV_CombatDeath04", 1.3, 0.8, 0.0]],
 		[[&"TR_Fall_Flat", 1.05, 0.75, 0.15]],
 	],
-	Fall.CRUSH: [[[&"KV_CombatDeath01", 1.25, 0.8, 0.0]], [[&"KV_CombatDeath01", 1.35, 0.8, 0.0]],
-			[[&"KV_CombatDeath01", 1.45, 0.8, 0.0]]],
+	# a heavy blow on his head from above: knocked down straight onto his
+	# stomach (the user's word, 2026-10-09; the old sideways fold is gone)
+	Fall.CRUSH: [[[&"TR_Knocked_Stomach", 1.2, 0.75, 0.2]], [[&"TR_Knocked_Stomach", 1.25, 0.75, 0.2]],
+			[[&"TR_Knocked_Stomach", 1.3, 0.75, 0.2]]],
 }
 ## The force ([method fall]) from which a blow is middling, and heavy.
 const FALL_TIERS := Vector2(0.35, 0.9)
 ## Falls to a side whose travel forward or back is dropped: thrown over to
 ## his side, he goes that way only (Mixamo's "Thrown To The Side" steps 2.5 m
 ## forward first).
-const FALL_ACROSS := [&"TR_Hit_By_Car", &"TR_Thrown_Side"]
+const FALL_ACROSS := [&"TR_Thrown_Side"]
 ## Clips the falls also want mirrored, left for right ([method _mirrored]).
-const FALL_MIRROR := [&"TR_Hit_By_Car", &"TR_Thrown_Side"]
+const FALL_MIRROR := [&"TR_Thrown_Side"]
 ## Launched ([constant Fall.FLY]): curled in the air till the ground comes,
 ## then struck onto it.
 const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
@@ -3801,6 +3807,14 @@ var fall_velocity: Vector3 = Vector3.ZERO
 ## The fall under way ([enum Fall]), -1 none.
 var _fall_kind: int = -1
 var _fall_settle: float = 1.0
+## A fall that gets him up by itself: where in its clip he stands again (-1
+## none), and the pace it was played at.
+var _fall_own_up: float = -1.0
+var _fall_rate: float = 1.0
+## How much quicker than the fall its own getting up is played.
+const OWN_UP_PACE := 1.25
+## ...and how long the stand blends into whatever comes next (seconds).
+const OWN_UP_BLEND := 0.3
 var _fall_air: float = 0.0
 var _fall_time: float = 0.0
 var _falls_ready: bool = false
@@ -3837,6 +3851,8 @@ func fall(kind: int, force: float = 0.0) -> float:
 	_play_action(clip, Role.DOWN, rate, 0.08 if kind == Fall.FLY else 0.06, from)
 	_fall_kind = kind
 	_fall_settle = float(pick[2])
+	_fall_own_up = float(pick[4]) if pick.size() > 4 else -1.0
+	_fall_rate = rate
 	_fall_air = 0.0
 	_fall_time = 0.0
 	last_fall = {"kind": kind, "clip": pick[0], "tier": tier}
@@ -3895,6 +3911,22 @@ func rise(duration: float) -> Dictionary:
 	if not _falls_ready or _role != Role.DOWN:
 		get_up(duration)
 		return {}
+	if _fall_own_up > 0.0 and _anim.has_animation(_act_clip):
+		# the fall gets him up by itself: played on from where he lies to
+		# where he stands, no other clip laid on (it jumped: the user's word)
+		var length := _anim.get_animation(_act_clip).length
+		var at := _anim.current_animation_position
+		var rate := _fall_rate * OWN_UP_PACE
+		var left := maxf(_fall_own_up * length - at, 0.05) / rate
+		_role = Role.GET_UP
+		_action_len = length
+		_action_rate = rate
+		_action_left = left
+		_anim.speed_scale = rate
+		_ease_back = OWN_UP_BLEND
+		last_fall["on_back"] = _lying_on_back()
+		last_fall["up"] = &"own"
+		return {"time": left}
 	var on_back := _lying_on_back()
 	var picks: Array = GET_UPS_BACK if on_back else GET_UPS_FRONT
 	last_fall["on_back"] = on_back

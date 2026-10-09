@@ -111,7 +111,9 @@ func _duel(kind: String, spam: bool) -> void:
 			blows = 0
 			if body._strikes().has(body.act):
 				attacks += 1
-				blows = body._blow_moments(body.act).size()
+				# an ordinary blow passes over him lying (by design): one begun
+				# with him down is not counted
+				blows = 0 if hero.state == Player.State.DOWNED else body._blow_moments(body.act).size()
 				s0 = struck[0]
 	Input.action_release("attack")
 	var how := "while he cuts at it" if spam else "standing still"

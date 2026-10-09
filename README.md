@@ -2520,24 +2520,31 @@ how hard; the kind rides to every peer on the knockdown's spray (length
 | --- | --- | --- |
 | in front | thrown back onto his back | `TR_Punch_Knockdown`, `TR_Knocked_Over` / `Hit_Knockback`, `KV_CombatDeath02` / `TR_Flying_Back` |
 | rising under him, or force ≥ `fall_fly_force` in front | launched (`fall_fly_push`), curled in the air, struck onto the ground | `LiftAir_Fall_Air` → `LiftAir_Fall_Impact` |
-| from his left / right | dropped sideways at once, or (heavy) thrown through the air over to the other side | `TR_Hit_By_Car` / its mirror (light, middling); `TR_Thrown_Side` mirrored / as it is (heavy) |
+| from his left / right | light and middling: over backwards (or forwards, if the blow carried him the way he faces) — no sideways fold; heavy: thrown through the air over to the other side, and up again by the throw's own clip | `TR_Thrown_Side` mirrored / as it is |
 | from behind | onto his face | `KV_CombatDeath04`, `AV_Death_Forward_02` / the same / `TR_Fall_Flat` |
-| `crush`, "above", or a steep downward sweep | crushed down where he stands | `KV_CombatDeath01` |
+| heavy on his head from above (`crush`, "above", a steep downward sweep) | straight down onto his stomach (lighter ones fall by their side) | `TR_Knocked_Stomach` |
+| a skill's blast, a shock through the ground (`magic`, "ground", "spike") | thrown straight back from it: flat onto his back, or (heavy) through the air | as in front |
+
+The fall's own clip throws him one way of its own, so on the blow's frame he
+is turned (at most 45°) to throw him exactly the way the blow goes
+(`Player._face_the_throw`). A fall that gets up by itself (the pick's 5th
+value: where he stands again, `TR_Thrown_Side` 1.0) is played on from where
+he lies (`OWN_UP_PACE` 1.25×, blended out over 0.3 s): no other clip laid on,
+so no jump. Killed by a blow he folds onto his knees and forward
+(`Moveset.HERO_DEATHS` `KV_Death01`). Whichever blow fells him — a combo's
+last — its way and weight pick the fall.
 
 How hard (`SkinnedRig.FALL_TIERS` 0.35 / 0.9) is the weapon's force or the
 blow's weight (`hit_heft` × `fall_heft_force` 1.2), whichever is more (the
-user's word, 2026-10-09: "struck from the side he must be thrown over or
-knocked down sideways at once, not reel as if dizzy; by the damage"). The
-`TR_*` falls are Mixamo's ("Hit By Car", "Being Thrown To The Side",
-"Dying Flying Backward", "Falling Flat On Face", "Knocked Down From A
-Punch", "Knocked Over"; also downloaded and not used yet: Shoulder Hit And
-Fall, Knocked Down To Stomach, Sweep Fall, Big Side Hit), retargeted with
-their travel kept (`tools/tr_extra.py`, `FALLS` not in place) into
-`tariel_extra.glb`. `_M` clips are mirrored at load (`SkinnedRig._mirrored`:
-each bone takes its partner's pose reflected across the skeleton's x and put
-back in its own rest frame); the side falls keep only their travel across him
-(`FALL_ACROSS`). Avtandil's `AV_Death_Left/Right` are no longer used: they
-reeled as if dizzy.
+user's word, 2026-10-09). The `TR_*` falls are Mixamo's ("Being Thrown To
+The Side", "Dying Flying Backward", "Falling Flat On Face", "Knocked Down
+From A Punch", "Knocked Over", "Knocked Down To Stomach"; also downloaded and
+not used: Hit By Car, Shoulder Hit And Fall, Sweep Fall, Big Side Hit),
+retargeted with their travel kept (`tools/tr_extra.py`) into
+`tariel_extra.glb`. `_M` clips are mirrored at load (`SkinnedRig._mirrored`);
+the side throw keeps only its travel across him (`FALL_ACROSS`). Avtandil's
+`AV_Death_Left/Right` and `KV_CombatDeath01` (the sideways fold) are no
+longer used.
 
 - **The weapon leads** (the user's word, 2026-10-09: "every fall must follow
   the club's swing and its power, whatever way it goes"). `WeaponSweep`

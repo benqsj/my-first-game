@@ -121,6 +121,13 @@ func _initialize() -> void:
 	_check("a single blow of a combo does not knock him down", not downed_early)
 	_check("the last blow of a combo that landed whole knocks him down", downed, "state %d" % player.state)
 	await _wait(50)
+	# a fall that carries him over the ground (the falls that follow the blow)
+	# has to have done carrying him first
+	for i in 120:
+		var carried: Variant = player.rig.get(&"fall_velocity")
+		if carried == null or (carried as Vector3).length() < 0.05:
+			break
+		await physics_frame
 	var lying_at := player.global_position
 	Input.action_press("move_forward")
 	await _wait(30)
