@@ -3393,11 +3393,11 @@ var _down_face: String = ""
 ## one who struck (he folds forward at its feet), "keep" as he stands.
 ## Not here: the kind of blow picks it ([method _fall_kind]).
 const BLOW_FALLS := {
-	# the user's word 2026-10-09 23:53. The falls onto his face from above
+	# the user's word 2026-10-09 23:53 (the cleave 10-10 00:08). The falls onto his face from above
 	# (Fall_Flat, 10) go the way he faces ("keep": not turned, so facing the
 	# camera he falls at it); the smash in front turns him the blow's way
 	&"smash": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
-	&"cleave": {"any": [[2, ""], [11, ""], [14, ""], [17, ""], [16, ""]], "back": [[16, "keep"]]},
+	&"cleave": {"any": [[11, ""], [17, ""]], "back": [[16, "keep"]]},
 	&"jump_slam": {"any": [[10, "keep"]]},
 	&"whirl": {"any": [[5, ""]]},
 	&"heavy": {"any": [[24, "foe"]]},
