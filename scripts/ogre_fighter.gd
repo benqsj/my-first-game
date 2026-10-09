@@ -547,6 +547,21 @@ func blow_from_above() -> bool:
 	return OVERHEAD.has(act) and _blow_kind(act).is_empty()
 
 
+## Its blows by name, for the hero's falls: he falls the way the user picked
+## for each ([member Player.BLOW_FALLS], 2026-10-09).
+const BLOW_NAMES := {
+	SWEEP: &"sweep", CHOP: &"chop", BACKHAND: &"backhand", WIDE: &"wide", LOW: &"low",
+	SMASH: &"smash", CLEAVE: &"cleave", JUMP_SLAM: &"jump_slam", WHIRL: &"whirl",
+	KICK: &"kick", LUNGE: &"lunge", LEAP_SLAM: &"leap_slam", RUN_SLAM: &"run_slam",
+	CATCH: &"catch", POUND: &"pound", HEAVY: &"heavy", STOMP: &"stomp",
+}
+
+
+## The blow it is dealing now, by name (&"" none): [member BLOW_NAMES].
+func blow_name() -> StringName:
+	return BLOW_NAMES.get(act, &"")
+
+
 ## The kind a move's blows reach him as — his combo key goes by it, so the
 ## blows of a string count together only within one kind.
 func _combo_kind(what: int) -> StringName:
