@@ -3791,8 +3791,10 @@ const REVIEW := {
 	11: [Fall.CRUSH, [&"TR_Knocked_Stomach", 1.2, 0.75, 0.2]],
 	# from just before it is struck down to lying (it stands still till 55 %)
 	12: [Fall.FORWARD, [&"TR_Hit_By_Car", 1.15, 0.74, 0.53]],
-	13: [Fall.FORWARD, [&"TR_Shoulder_Hit_Fall", 1.1, 0.56, 0.15]],
-	14: [Fall.FORWARD, [&"TR_Sweep_Fall", 1.1, 0.9, 0.2]],
+	# both go over backwards (the user's word, 23:16: turned his back to the
+	# blow first, he spun round before he fell)
+	13: [Fall.BACK, [&"TR_Shoulder_Hit_Fall", 1.1, 0.56, 0.15]],
+	14: [Fall.BACK, [&"TR_Sweep_Fall", 1.1, 0.9, 0.2]],
 	# 22, 24, 26 quicker than their own pace (the user's word: a heavy blow
 	# folds him forward fast)
 	22: [Fall.FORWARD, [&"AV_Death_Right_02", 1.85, 0.9, 0.0]],
@@ -3835,6 +3837,20 @@ func numbered_slant(n: int) -> float:
 					slant = -rad_to_deg(atan2(went.x, went.z))
 	_slants[n] = slant
 	return slant
+
+
+## The blow that fells him felt in his back as it lands ([HitLean], laid
+## over the fall's clip): `along` the way it went (world), `force` 0..1.5.
+## (The user's word, 2026-10-09 23:16: the fall should follow the club, the
+## head's weight in it.)
+func jolt(along: Vector3, force: float) -> void:
+	if not _on_mq:
+		return
+	var lean := _mq.get("lean") as HitLean
+	if lean != null:
+		lean.strike(along, lerpf(JOLT.x, JOLT.y, clampf(force, 0.0, 1.5) / 1.5))
+## How hard the felling blow throws his back over (HitLean), light to heavy.
+const JOLT := Vector2(6.0, 10.0)
 
 
 ## The kind of the fall numbered `n` ([constant REVIEW]), -1 if there is no

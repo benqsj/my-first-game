@@ -3392,19 +3392,22 @@ var _down_face: String = ""
 ## one who struck (he folds forward at its feet), "keep" as he stands.
 ## Not here: the kind of blow picks it ([method _fall_kind]).
 const BLOW_FALLS := {
-	# the user's word 2026-10-09 22:46
-	&"smash": {"front": [[7, ""]], "side": [[27, "keep"]]},
-	&"cleave": {"front": [[12, ""]], "side": [[5, ""]]},
-	&"jump_slam": {"any": [[10, ""]]},
+	# the user's word 2026-10-09 23:16. The falls onto his face from above
+	# (Fall_Flat, 10) go the way he faces, whichever way that is ("keep": he
+	# is not turned, so facing the camera he falls at it)
+	&"smash": {"any": [[10, "keep"]], "side": [[27, "keep"]]},
+	&"cleave": {"front": [[2, ""]], "side": [[5, ""]]},
+	&"jump_slam": {"any": [[10, "keep"]]},
 	&"whirl": {"any": [[5, ""]]},
 	&"heavy": {"any": [[24, "foe"]]},
-	# caught in its shock's ring
-	&"pound": {"any": [[13, ""], [14, ""], [11, ""]]},
-	# flat on his face at its feet, or (11) crushed onto his stomach
-	&"leap_slam": {"any": [[10, "foe"], [11, ""]]},
-	&"run_slam": {"any": [[10, "foe"], [6, ""]]},
-	&"sweep": {"any": [[3, ""]]},
-	&"chop": {"any": [[20, ""]]},
+	# caught in its shock's ring: over backwards; with his back to it, onto
+	# his stomach (Knocked To Stomach spins him round as he goes down: begun
+	# with his back to it, his head ends at it — the user's word)
+	&"pound": {"any": [[13, ""], [14, ""]], "back": [[11, "keep"]]},
+	&"leap_slam": {"any": [[10, "keep"]]},
+	&"run_slam": {"any": [[10, "keep"]]},
+	&"sweep": {"any": [[11, "keep"]]},
+	&"chop": {"any": [[4, ""]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
@@ -3684,6 +3687,8 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			if rig != null:
 				if rig.has_method(&"fall"):
 					var lies := float(rig.call(&"fall", kind, force, number))
+					if rig.has_method(&"jolt"):
+						rig.call(&"jolt", Vector3(blow.x, 0.0, blow.z), force)
 					if lies > 0.0 and is_multiplayer_authority() and state == State.DOWNED and not _down_flying:
 						_down_timer = lies + fall_lie
 				else:
@@ -4157,6 +4162,7 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	var thrown := away
 	if _down_face == "keep":
 		thrown = _throw_way()  # the way the fall throws him as he stands
+		shove = minf(shove, fall_carried_shove + fall_force_shove * 0.3)
 	elif _down_face == "foe":
 		shove = 0.0  # he folds forward at its feet, of himself
 	velocity = thrown * shove

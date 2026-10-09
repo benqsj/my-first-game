@@ -2596,18 +2596,20 @@ longer used.
   striker (he folds forward at its feet, no shove), "keep" as he stands
   (thrown the clip's way). A clip that throws him slanting (`FALL_SLANT`:
   Hit By Car) is turned the more by its own measured travel
-  (`numbered_slant`). The ogre (the user's word, 22:46): smash in front 7
-  `TR_Thrown_Side` (up by its own clip), from a side 27
-  (`AV_Death_Forward_02` from 42 %: straight onto his stomach as he stands);
-  cleave in front 12 `TR_Hit_By_Car`, from a side 5 `TR_Flying_Back`; jump
-  slam 10 `TR_Fall_Flat`; whirl 5; heavy 24 `KV_Death01` facing it (slower,
-  0.72); pound (caught in its ring) 13 `TR_Shoulder_Hit_Fall`, 14
-  `TR_Sweep_Fall` or 11 `TR_Knocked_Stomach`; leap slam 10 facing it or 11;
-  run slam 10 facing it or 6 `LiftAir_Fall`; sweep 3 `TR_Punch_Knockdown`,
-  held where he has come down sitting (it lay back down after: "he falls
-  twice"); chop 20 `AV_Death_Backward_01` (Avtandil's, lent). Everything
+  (`numbered_slant`). **The falls onto his face from above go the way he
+  faces** (the user's word, 23:16: "facing the camera, he falls at the
+  camera"): Fall_Flat is never turned ("keep"). The ogre: smash 10
+  `TR_Fall_Flat` (from a side 27, `AV_Death_Forward_02` from 42 %); jump,
+  leap and run slam 10; cleave in front 2 `KV_CombatDeath02`, from a side 5
+  `TR_Flying_Back`; whirl 5; heavy 24 `KV_Death01` facing it (0.72); pound
+  (its ring) 13 `TR_Shoulder_Hit_Fall` or 14 `TR_Sweep_Fall`, both over
+  backwards (BACK: no turning his back first), and with his back to it 11
+  `TR_Knocked_Stomach` (it spins him round going down: his head ends where
+  his back was); sweep 11 as he stands; chop 4 `TR_Knocked_Over`. Everything
   else falls by kind. The number rides to every peer in the hundreds of the
-  spray (100 × number + 10.25 + kind + force / 4).
+  spray (100 × number + 10.25 + kind + force / 4). On the felling blow his
+  back is thrown over along it (`SkinnedRig.jolt` → HitLean, `JOLT` 6–10),
+  laid over the fall: it follows the club.
   `TR_Shoulder_Hit_Fall` (13) is kept for being splashed with something
   (poison...), the arcade.
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws
