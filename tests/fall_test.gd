@@ -103,8 +103,8 @@ func _run() -> void:
 	_check("its leap slam: onto his face the way he faces, not turned (10)", slam["number"] == 10
 			and slam["faced"] > 0.9 and slam["moved"].z < -0.3, str(slam))
 	var cleave_back := await _fell(Vector3(0, 0, 2), 40.0, &"", Vector3.ZERO, false, &"cleave")
-	_check("its cleave from behind: folded over to a side as he stands (16)", cleave_back["number"] == 16
-			and cleave_back["faced"] < -0.9, str(cleave_back))
+	_check("its cleave from behind: Death Right 02, the blow's way (22)", cleave_back["number"] == 22
+			and cleave_back["moved"].z < -0.3, str(cleave_back))
 	var smash_side := await _fell(Vector3(-2, 0, 0), 40.0, &"", Vector3.ZERO, false, &"smash")
 	_check("its smash from a side: forward onto his stomach as he stands (27)",
 			smash_side["number"] == 27 and not smash_side["on_back"] and absf(smash_side["faced"]) < 0.2

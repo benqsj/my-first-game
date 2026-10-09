@@ -3397,15 +3397,20 @@ const BLOW_FALLS := {
 	# (Fall_Flat, 10) go the way he faces ("keep": not turned, so facing the
 	# camera he falls at it); the smash in front turns him the blow's way
 	&"smash": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
-	&"cleave": {"any": [[11, ""], [17, ""]], "back": [[16, "keep"]]},
+	# a swing from a side caught in his back (any of them): Avtandil's
+	# Death Right 02 (the user's word, 10-10 00:33)
+	&"cleave": {"any": [[11, ""], [17, ""]], "back": [[22, ""]]},
+	&"wide": {"back": [[22, ""]]},
+	&"low": {"back": [[22, ""]]},
+	&"backhand": {"back": [[22, ""]]},
 	&"jump_slam": {"any": [[10, "keep"]]},
-	&"whirl": {"any": [[5, ""]]},
+	&"whirl": {"any": [[5, ""]], "back": [[22, ""]]},
 	&"heavy": {"any": [[24, "foe"]]},
 	# its shock's ring: over backwards; the club itself on him, flat on his face
 	&"pound": {"any": [[14, ""]], "weapon": [[10, "keep"]]},
 	&"leap_slam": {"any": [[10, "keep"]]},
 	&"run_slam": {"any": [[10, "keep"]]},
-	&"sweep": {"any": [[5, ""]]},
+	&"sweep": {"any": [[5, ""]], "back": [[22, ""]]},
 	&"chop": {"any": [[20, ""]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.

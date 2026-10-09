@@ -3800,7 +3800,7 @@ const REVIEW := {
 	14: [Fall.BACK, [&"TR_Sweep_Fall", 1.1, 0.9, 0.2]],
 	# 22, 24, 26 quicker than their own pace (the user's word: a heavy blow
 	# folds him forward fast)
-	22: [Fall.FORWARD, [&"AV_Death_Right_02", 1.85, 0.9, 0.0]],
+	22: [Fall.FORWARD, [&"AV_Death_Right_02", 1.45, 0.9, 0.0]],
 	# slower (the user's word, 22:46: it dropped too sharply; follow the
 	# ground down)
 	24: [Fall.FORWARD, [&"KV_Death01", 0.72, 0.92, 0.0]],
