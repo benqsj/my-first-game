@@ -151,12 +151,22 @@ const CLIPS := [
 	["CR_Knockback", "Hit_Knockback", false],
 ]
 
-## Clips straight out of Mixamo (exported in place, without skin, on X Bot),
-## carried onto the figure the same way through Mixamo's bone names.
+## Clips straight out of Mixamo (without skin, on X Bot), carried onto the
+## figure the same way through Mixamo's bone names. Mixamo's skeleton has no
+## root bone: a clip exported with its travel carries it in the hips, and
+## that is taken out here as the root's would be (a cycle's straight drift
+## only, an attack's whole path over the ground, to the meta).
 ## [name here, the fbx, a cycle, from s, to s (-1: its end)]
 const MIXAMO := [
 	# The ghoul running on all fours (2026-10-07, the user's pick).
 	["CR_CrawlRun", "res://assets/creatures/anim/mixamo/Running_Crawl.fbx", true, 0.0, -1.0],
+	# The ogre's gait (2026-10-09, the user's word: long heavy strides, a
+	# lumbering trot, a real run when he runs from it).
+	# (Its run is CR_Run, the long-strided one, played slower.)
+	["CR_OgreWalk", "res://assets/creatures/anim/mixamo/Orc_Walk.fbx", true, 0.0, -1.0],
+	["CR_OgreTrot", "res://assets/creatures/anim/mixamo/Weighted_Run.fbx", true, 0.0, -1.0],
+	# Off its run at him from afar: the run-up, a great leap, down club first.
+	["CR_RunJumpSlam", "res://assets/creatures/anim/mixamo/Run_Jump_Attack.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
@@ -271,7 +281,7 @@ func _run() -> void:
 		mx_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 		_bake(mx_skel, mx_player, mx_lib, [[c[0], [[String(take), c[3], c[4]]], c[2]]],
 				func(m: String) -> String: return prefix + _mixamo_name(m),
-				fig, order, out_lib, meta)
+				fig, order, out_lib, meta, true)
 		mx.queue_free()
 
 	_layer(out_lib, meta, fig)
@@ -341,7 +351,8 @@ func _mixamo_name(m: String) -> String:
 ## `src` playing `lib` in `player`, onto the figure, into `out_lib` and
 ## `meta`. `rename` turns a mannequin bone name into `src`'s own.
 func _bake(src: Skeleton3D, player: AnimationPlayer, lib: AnimationLibrary, clips: Array, rename: Callable,
-		fig: Skeleton3D, order: PackedInt32Array, out_lib: AnimationLibrary, meta: Dictionary) -> void:
+		fig: Skeleton3D, order: PackedInt32Array, out_lib: AnimationLibrary, meta: Dictionary,
+		hips_root: bool = false) -> void:
 	var n := fig.get_bone_count()
 	var d_rest: Array[Transform3D] = []
 	for i in n:
@@ -416,6 +427,15 @@ func _bake(src: Skeleton3D, player: AnimationPlayer, lib: AnimationLibrary, clip
 		player.play(StringName(segments[0][0]))
 		player.seek(float(segments[0][1]), true)
 		var root0 := src.get_bone_global_pose(s_root).origin if s_root >= 0 else Vector3.ZERO
+		# No root bone (Mixamo's): the travel is the hips' over the ground; a
+		# cycle's only as a straight drift from its first frame to its last.
+		var hips0 := src.get_bone_global_pose(s_hips).origin
+		var drift := Vector3.ZERO
+		if s_root < 0 and hips_root and loop and segments.size() == 1:
+			player.seek(float(segments[0][2]), true)
+			drift = src.get_bone_global_pose(s_hips).origin - hips0
+			drift.y = 0.0
+			player.seek(float(segments[0][1]), true)
 		var path := []
 		var playing := String(segments[0][0])
 		for f in count:
@@ -430,8 +450,19 @@ func _bake(src: Skeleton3D, player: AnimationPlayer, lib: AnimationLibrary, clip
 				player.play(StringName(playing))
 			player.seek(minf(float(seg[1]) + time, float(seg[2])), true)
 			var travel := (src.get_bone_global_pose(s_root).origin - root0) if s_root >= 0 else Vector3.ZERO
+			var in_place := false
+			if s_root < 0 and hips_root:
+				if loop:
+					# a cycle is walked by the body's own pace, not its path
+					travel = drift * (float(f) / float(maxi(frames, 1)))
+					in_place = true
+				else:
+					travel = src.get_bone_global_pose(s_hips).origin - hips0
 			travel.y = 0.0
-			path.append([snappedf(travel.z * k, 0.0001), snappedf(travel.x * k, 0.0001), 0.0])
+			if in_place:
+				path.append([0.0, 0.0, 0.0])
+			else:
+				path.append([snappedf(travel.z * k, 0.0001), snappedf(travel.x * k, 0.0001), 0.0])
 			for t in order:
 				var p := fig.get_bone_parent(t)
 				var pg: Transform3D = g[p] if p >= 0 else Transform3D.IDENTITY
