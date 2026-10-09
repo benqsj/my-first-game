@@ -6149,8 +6149,8 @@ faster and always came to the same gap.
   backhand (`CR_RegB`), a wide one round to its side (`CR_Slash3`), a low
   sweep (`CR_LightD`): quick, they never fell him. **Heavy**: an overhead
   smash (`CR_Heavy1`), a cleave (`CR_Heavy3`), a leaping slam (`CR_Heavy4`), a
-  whirl brought down (`CR_HeavyD`); the smash and the cleave fell him on top of
-  another blow of the same string, the slam and the whirl by themselves. A
+  whirl brought down (`CR_HeavyD`); every heavy one fells him by itself (round
+  3, below; it was the smash and the cleave only on top of another blow). A
   kick (`CR_Kick`, "guard": it beats a raised shield aside) when he hugs it, a
   lunge (`CR_SwordDash`) from 4.5-8 m.
 - **The opener** is weighed by where he is: in front any, at its side
@@ -6217,6 +6217,73 @@ its stance faster, full it kneels, the first blow then is a critical, it gets
 up, left alone its stance mends; no ring at its feet enraged.
 `creature_blows_test` sets a creature's stance to 0 (a kneel there is the
 hero's doing, not counted against how often it attacks).
+
+### The ogre, round 3: falls, gait, from afar, Elden Ring's tricks (2026-10-09, the user's word)
+
+Plan: project doc `claude/ogre_polish_plan.md` (round 3: A, D, B, C; round 2
+is put off).
+
+**Falls** (A; Elden Ring's rule — "not every second blow should knock you
+down"): a heavy swing (smash, cleave, leaping slam, whirl, and the new
+leaps) throws him down by itself; a light one (sweep, chop, backhand, wide,
+low, kick, lunge) only staggers him; but **the close of a long string**
+(`finisher_from`: 3 calm, 4 enraged) fells him, light or not, if every blow
+of its kind in the string found him (`Player.receive_blow`'s rule, kept: the
+close's blow count is set to the string's blows so far). To know a swing
+closes as it begins, the end of a string is weighed when each swing begins
+(`_closes`, by the same `FOLLOW` odds), not after it.
+
+**Gait** (D): a heavy walk of long strides (`CR_OgreWalk`, Mixamo's Orc Walk,
+2.36 m/s at its size, `speed` 2.2), a lumbering trot with the club on its
+shoulder coming at him (`trot_clip` `CR_OgreTrot`, Weighted Run, 3.81 m/s =
+`chase_speed` 3.8), and a real run (`CR_Run`, the long-strided one, 7.4 m/s
+played at ~0.8) at `run_speed` 6 when he plainly runs from it
+(`running_after`: the gap opening faster than `flee_rate` 1.2 m/s for
+`flee_time` 0.6 s, him past `flee_from` 5 m; back to the trot once close).
+`OgreFighter._play_locomotion` picks by pace (trot over `trot_above` 2.9,
+run over `run_gait_above` 4.9, a little hysteresis), each at
+`gait_rate` (its feet to the ground); its footfalls heavier running.
+
+**From afar** (B, the distance ladder): 4.5-8 m the sword dash (`LUNGE`, as
+before); 8-14 m **the great leap** (`LEAP_SLAM`, `CR_Heavy4` with its flight
+drawn out x2.2 and the body lifted another metre on an arc: ~1 s in the air,
+club overhead, down on him; fells); 12-22 m **it runs at him** (`_charging`,
+at `run_speed`) and at `run_slam_takeoff` 9.5 m **springs off the run**
+(`RUN_SLAM`, Mixamo's Run Jump Attack from its take-off: high, ~1 s up, down
+club first, a crush no shield holds; then a long crouch getting up — the
+opening). `FLIGHTS` gives each leap's flight in clip seconds and how much
+slower it is played (`_clip_time`, `_move_length`, `_blow_moments` warped);
+the speed over the ground is laid over the flight only (`_close_speed_for`).
+No spikes for the ogre.
+
+**Elden Ring's tricks** (C):
+- **Tracking, then locked**: every swing and leap turns after him (faster
+  than before, `_track_rate`) till `commit_lead` (0.28 s light, 0.36 heavy)
+  before its blow — a leap till a third into its flight — re-sizing the dash
+  and the leaps to where he is; from there it is locked. Dodging is timing.
+- **The roll-catch** (`CATCH`, the smash held `catch_hold` 0.42-0.55 s, the
+  hold picked by serial as every hold): him rolled from under a swing's blow
+  (`_saw_roll`), the next is the roll-catch 65 % of the time; it also comes
+  now and then in light strings.
+- **Aftershock**: a lone heavy blow (a heavy swing that closes its string),
+  the great blow, the slams and leaps — when the club met the ground — are
+  followed `aftershock_after` 0.4 s later by a second burst of earth 1.1 m
+  ahead (two uneven eruptions, a deep thud, the view shaken, no ring): him on
+  the ground within 2.6 m is staggered (`"ground"`: a jump or a roll clears
+  it, it never fells). Combos stay as they were.
+
+Clips: `tools/creature_clips.gd` takes Mixamo clips with their travel in the
+hips (no root bone): a cycle's drift is taken out, an attack's whole path
+goes to the meta. FBX in `assets/creatures/anim/mixamo/` (from
+`vepxis-art/mixamo_orc/`). 114 clips.
+
+`tests/ogre_test.gd` new parts `-- falls gait afar catch track`: no light
+swing fells him except a long string's close, light swings stagger, heavy
+ones fell, a long string's light close fells; it trots at the trot's pace and
+runs at the run's when he runs; the leap and the run-and-spring begin, lift
+off, come down on him stepped aside, fell him and shake the ground again; a
+roll is answered by the roll-catch, always held; a swing follows him round
+through its wind-up and is locked after its commit.
 
 ### Gold (2026-10-07, the user's word: a goblin had nothing to steal)
 
