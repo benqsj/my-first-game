@@ -3405,7 +3405,9 @@ const BLOW_FALLS := {
 	&"backhand": {"back": [[22, ""]]},
 	&"jump_slam": {"any": [[10, "keep"]]},
 	&"whirl": {"any": [[5, ""]], "back": [[22, ""]]},
-	&"heavy": {"any": [[24, "foe"]]},
+	# from behind: on his knees and forward as he stands, his head at the
+	# camera, not turned round to it (the user's word, 10-10 09:21)
+	&"heavy": {"any": [[24, "foe"]], "back": [[24, "keep"]]},
 	# its shock's ring: over backwards; the club itself on him, flat on his face
 	&"pound": {"any": [[14, ""]], "weapon": [[10, "keep"]]},
 	&"leap_slam": {"any": [[10, "keep"]]},
