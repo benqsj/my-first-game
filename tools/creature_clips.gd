@@ -167,6 +167,38 @@ const MIXAMO := [
 	["CR_OgreTrot", "res://assets/creatures/anim/mixamo/Weighted_Run.fbx", true, 0.0, -1.0],
 	# Off its run at him from afar: the run-up, a great leap, down club first.
 	["CR_RunJumpSlam", "res://assets/creatures/anim/mixamo/Run_Jump_Attack.fbx", false, 0.0, -1.0],
+	# The ogre's authored combos (2026-10-10, candidates): Mixamo's great axe and
+	# great sword packs and two-handed swings, the club two-handed.
+	["CR_OG_Attack_Horizontal", "res://assets/creatures/anim/mixamo/OG_Attack_Horizontal.fbx", false, 0.0, -1.0],
+	["CR_OG_Attack_Backhand", "res://assets/creatures/anim/mixamo/OG_Attack_Backhand.fbx", false, 0.0, -1.0],
+	["CR_OG_Attack_Downward", "res://assets/creatures/anim/mixamo/OG_Attack_Downward.fbx", false, 0.0, -1.0],
+	["CR_OG_Attack_360", "res://assets/creatures/anim/mixamo/OG_Attack_360.fbx", false, 0.0, -1.0],
+	["CR_OG_Combo_1", "res://assets/creatures/anim/mixamo/OG_Combo_1.fbx", false, 0.0, -1.0],
+	["CR_OG_Combo_2", "res://assets/creatures/anim/mixamo/OG_Combo_2.fbx", false, 0.0, -1.0],
+	["CR_OG_Combo_3", "res://assets/creatures/anim/mixamo/OG_Combo_3.fbx", false, 0.0, -1.0],
+	["CR_OG_Kick", "res://assets/creatures/anim/mixamo/OG_Kick.fbx", false, 0.0, -1.0],
+	["CR_OG_Battlecry", "res://assets/creatures/anim/mixamo/OG_Battlecry.fbx", false, 0.0, -1.0],
+	["CR_OG_Combo_Slash", "res://assets/creatures/anim/mixamo/OG_Combo_Slash.fbx", false, 0.0, -1.0],
+	["CR_OG_Downward_Slash", "res://assets/creatures/anim/mixamo/OG_Downward_Slash.fbx", false, 0.0, -1.0],
+	["CR_OG_Low_Slash", "res://assets/creatures/anim/mixamo/OG_Low_Slash.fbx", false, 0.0, -1.0],
+	["CR_OG_Power_Slash", "res://assets/creatures/anim/mixamo/OG_Power_Slash.fbx", false, 0.0, -1.0],
+	["CR_OG_Power_Up", "res://assets/creatures/anim/mixamo/OG_Power_Up.fbx", false, 0.0, -1.0],
+	["CR_OG_Spin_Kick", "res://assets/creatures/anim/mixamo/OG_Spin_Kick.fbx", false, 0.0, -1.0],
+	["CR_OG_Jump_Attack", "res://assets/creatures/anim/mixamo/OG_Jump_Attack.fbx", false, 0.0, -1.0],
+	["CR_OG_Heavy_Swing", "res://assets/creatures/anim/mixamo/OG_Heavy_Swing.fbx", false, 0.0, -1.0],
+	["CR_OG_TwoHand_Combo", "res://assets/creatures/anim/mixamo/OG_TwoHand_Combo.fbx", false, 0.0, -1.0],
+	["CR_OG_Side_Kick", "res://assets/creatures/anim/mixamo/OG_Side_Kick.fbx", false, 0.0, -1.0],
+	# ...and fresh from Mixamo for it (2026-10-10, vepxis-art/mixamo_ogre): the
+	# club combos, an overhead bash, a swipe of its free hand, a headbutt, a
+	# stamp, a leap at him, a two-handed blow down.
+	["CR_OG_Club_Combo2H", "res://assets/creatures/anim/mixamo/OG_Club_Combo2H.fbx", false, 0.0, -1.0],
+	["CR_OG_Club_Combo1H", "res://assets/creatures/anim/mixamo/OG_Club_Combo1H.fbx", false, 0.0, -1.0],
+	["CR_OG_Bash", "res://assets/creatures/anim/mixamo/OG_Bash.fbx", false, 0.0, -1.0],
+	["CR_OG_Mutant_Swipe", "res://assets/creatures/anim/mixamo/OG_Mutant_Swipe.fbx", false, 0.0, -1.0],
+	["CR_OG_Headbutt", "res://assets/creatures/anim/mixamo/OG_Headbutt.fbx", false, 0.0, -1.0],
+	["CR_OG_Stomp", "res://assets/creatures/anim/mixamo/OG_Stomp.fbx", false, 0.0, -1.0],
+	["CR_OG_Mutant_Jump", "res://assets/creatures/anim/mixamo/OG_Mutant_Jump.fbx", false, 0.0, -1.0],
+	["CR_OG_Zombie_Overhead", "res://assets/creatures/anim/mixamo/OG_Zombie_Overhead.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
