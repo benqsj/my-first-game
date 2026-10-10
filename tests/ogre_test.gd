@@ -48,7 +48,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var only := OS.get_cmdline_user_args()
 	var parts := ["strings", "raging", "sides", "steady", "stance", "rings", "falls", "gait", "afar", "catch",
-			"track", "slide"]
+			"track", "slide", "outrun"]
 	for part: String in parts:
 		if only.is_empty() or only.has(part):
 			await call("_" + part)
@@ -611,4 +611,63 @@ func _slide() -> void:
 			"rolled":
 				_check("held, slid at him, rolled through at its blow: it misses", ogre.slides_made == 1 and not downed,
 						"slid %d, downed %s" % [ogre.slides_made, downed])
+		await _done(a[0])
+
+
+## Running does not beat a held swing, the jump slam or a leap (the user's
+## word, 2026-10-10): him running off at a hero's run (6.3 m/s) from the
+## moment it begins — straight away, or across it — it still catches him;
+## rolled through at its blow (i-frames), it misses.
+func _outrun() -> void:
+	var cases := [["held smash, run straight off", OgreFighter.SMASH, 0.0, false],
+			["held smash, run across", OgreFighter.SMASH, 90.0, false],
+			["jump slam, run straight off", OgreFighter.JUMP_SLAM, 0.0, false],
+			["jump slam, run across", OgreFighter.JUMP_SLAM, 70.0, false],
+			["the leap from 11 m, run across", OgreFighter.LEAP_SLAM, 90.0, false],
+			["the leap from 11 m, run straight off", OgreFighter.LEAP_SLAM, 0.0, false],
+			["jump slam, run off and rolled at its blow", OgreFighter.JUMP_SLAM, 0.0, true]]
+	for c: Array in cases:
+		var a: Array = await _arena()
+		var hero: Player = a[2]
+		var which: int = c[1]
+		var ogre := _ogre(a, _ahead(hero, 3.0))
+		ogre.sight_range = 0.0
+		await physics_frame
+		var to := hero.global_position - ogre.global_position
+		to.y = 0.0
+		var away := to.normalized()
+		var reach := float(ogre._strike_from.get(which, ogre.strike_off))
+		var off := 11.0 if which == OgreFighter.LEAP_SLAM else reach
+		ogre.global_position = hero.global_position - away * off
+		ogre.rotation.y = atan2(-to.x, -to.z)
+		await physics_frame
+		ogre._quarry = hero
+		if which == OgreFighter.SMASH:
+			ogre._holds[OgreFighter.SMASH] = [1.0, 0.6, 0.6, 0.22]
+		elif ogre._holds.has(which):
+			ogre._holds.erase(which)
+		if hero.rig is SkinnedRig:
+			(hero.rig as SkinnedRig).last_flinch = {}
+		ogre._open(which)
+		var run := away.rotated(Vector3.UP, deg_to_rad(float(c[2]))) * 6.3
+		var blow := ogre._blow_moments(which)[0]
+		var downed := false
+		var ran := 0.0
+		while ogre.act == which:
+			await physics_frame
+			_hold_off(ogre)
+			if hero.state != Player.State.DOWNED and not downed:
+				var at := hero.global_position + run / 60.0
+				hero.global_position = at
+				ran += run.length() / 60.0
+			if bool(c[3]):
+				hero.is_invulnerable = absf(ogre._act_time - blow) < 0.3
+			var hero_rig := hero.rig as SkinnedRig
+			var reeled := hero_rig != null and String(hero_rig.last_flinch.get("clip", "")).begins_with("TR_Big_Side_Hit")
+			downed = downed or hero.state == Player.State.DOWNED or reeled
+		hero.is_invulnerable = false
+		if bool(c[3]):
+			_check("%s: it misses" % c[0], not downed, "ran %.1f m" % ran)
+		else:
+			_check("%s: it still catches him" % c[0], downed, "ran %.1f m, ogre %.1f m from him" % [ran, ogre._distance_to(hero)])
 		await _done(a[0])

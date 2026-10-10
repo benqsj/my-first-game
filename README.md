@@ -6399,9 +6399,25 @@ No spikes for the ogre.
   moved round it. Let go with him more than `slide_slack` 0.15 m past its
   reach, it **slides at him at once** from the end of the hold to its blow
   (`_slide_span`, `_slide_after_him`; ~0.22 s, as fast as the gap asks, at
-  most `slide_most` 6.5 m), turning after him all the way past the commit —
+  most `slide_most` 11 m), turning after him all the way past the commit —
   the heavies fell. Grit kicked off its feet, a grunt, a small shake
   (`net_slide`). Running does not beat it; a roll at the blow does.
+- **Running does not beat a held swing, the jump slam or a leap** (the
+  user's word, 2026-10-10: running fast he still kept out of the leaps' and
+  the slide's reach; only a dodge must save him). These moves (`_chases`) go
+  for **where he will be** when the blow lands: his run as the ogre sees it
+  (`_watch_his_run`: his body's motion smoothed, so a peer far off is read
+  too) carried on to the blow, at most `chase_lead_most` 1.2 s of it
+  (`_quarry_ahead`); they turn after that point until `chase_commit` 0.12 s
+  before the blow (a leap until `chase_flight_commit` 85 % of its flight,
+  was a third), three times as fast once on their way. The held swing's
+  slide reaches up to 11 m. The **jump slam** (`CR_Heavy4` close) now also
+  closes on him over its last `jump_slam_close` 0.55 s before the blow
+  (`_jump_span`, `_jump_closing`, at most `jump_slam_most` 7 m) if he is out
+  of its reach; in reach it lands where it stands, as before. A roll timed
+  for the blow (i-frames) still beats each. `ogre_test -- outrun`: run off
+  straight or across at 6.3 m/s, it catches him (before this, 5 of 6 got
+  away); rolled at the blow, it misses.
 
 Clips: `tools/creature_clips.gd` takes Mixamo clips with their travel in the
 hips (no root bone): a cycle's drift is taken out, an attack's whole path

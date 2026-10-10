@@ -146,8 +146,20 @@ extends PackBrute
 ## more than `slide_slack` m), it slides at him at once from the end of the
 ## hold to its blow, turning after him all the way — only a roll beats it.
 ## It slides no further than `slide_most` (m at its size).
-@export var slide_most: float = 6.5
+@export var slide_most: float = 11.0
 @export var slide_slack: float = 0.15
+## Running does not beat a held swing, a jump slam or a leap (the user's
+## word, 2026-10-10: running fast he kept out of its reach — only a roll
+## must): they go for where he will be when the blow lands, his run carried
+## on (`chase_lead_most` s of it at most), and turn after him until
+## `chase_commit` s before the blow (a leap: `chase_flight_commit` of its
+## flight). The jump slam closes on him over its last `jump_slam_close` s,
+## `jump_slam_most` m at most.
+@export var chase_lead_most: float = 1.2
+@export var chase_commit: float = 0.12
+@export var chase_flight_commit: float = 0.85
+@export var jump_slam_close: float = 0.55
+@export var jump_slam_most: float = 7.0
 
 @export_group("Strings")
 ## The closing swing of a string this long or longer (calm, enraged) throws
@@ -260,6 +272,8 @@ var _lunge_speed: float = 0.0
 ## The held swing sliding at him: the act serial it is on, and its speed.
 var _slide_serial: int = -1
 var _slide_speed: float = 0.0
+## The jump slam's speed closing on him.
+var _jump_speed: float = 0.0
 ## How many held swings slid at him (for the tests).
 var slides_made: int = 0
 var moves_made: Array[int] = []
@@ -510,6 +524,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		_kind_blows[kind] = int(_kind_blows.get(kind, 0)) + n
 	_string_count += 1
 	_pounded = false
+	_jump_speed = 0.0
 	moves_made.append(what)
 	if moves_made.size() > 200:
 		moves_made = moves_made.slice(-100)
@@ -745,6 +760,10 @@ func _extra_velocity(delta: float) -> Vector3:
 		if _act_time <= _blow_moments(LUNGE)[0]:
 			return _forward() * _lunge_speed
 		return Vector3.ZERO
+	if act == JUMP_SLAM and _jump_speed > 0.0:
+		var span := _jump_span()
+		if _act_time >= span.x and _act_time <= span.y:
+			return _forward() * _jump_speed
 	if FLIGHTS.has(act):
 		var span := _flight_span(act)
 		if _act_time >= span.x and _act_time <= span.y:
@@ -758,10 +777,12 @@ func _extra_velocity(delta: float) -> Vector3:
 func _commit_at(what: int) -> float:
 	if FLIGHTS.has(what):
 		var span := _flight_span(what)
-		return lerpf(span.x, span.y, 0.3)
+		return lerpf(span.x, span.y, chase_flight_commit)
 	var ms := _blow_moments(what)
 	if ms.is_empty():
 		return 0.0
+	if what == JUMP_SLAM:
+		return ms[0] - chase_commit
 	var heavy := _is_heavy(what)
 	return ms[0] - (commit_lead.y if heavy else commit_lead.x)
 
@@ -783,26 +804,115 @@ func _track_before_blow(delta: float) -> void:
 		return
 	if _act_time >= _commit_at(act):
 		return
-	_face(_quarry.global_position - global_position, delta, _track_rate(act))
+	var chases := _chases(act)
+	var at := _quarry_ahead(act) if chases else _quarry.global_position
+	# a leap in the air, a jump slam closing: turned after him hard
+	var rate := _track_rate(act) * (3.0 if chases and _act_time >= _chase_from(act) else 1.0)
+	_face(at - global_position, delta, rate)
 	_reframe()
 	if act == LUNGE:
 		_lunge_speed = _close_speed_for(LUNGE, _blow_moments(LUNGE)[0], 0.0)
 	elif FLIGHTS.has(act):
 		var span := _flight_span(act)
-		_flight_speed = _close_speed_for(act, span.y, span.x)
+		_flight_speed = _close_speed_for(act, span.y, span.x, true)
+	elif act == JUMP_SLAM:
+		_jump_closing()
+
+
+## The moves running does not beat ([member chase_lead_most]): the leaps, the
+## jump slam, a held swing.
+func _chases(what: int) -> bool:
+	return FLIGHTS.has(what) or what == JUMP_SLAM or _slide_span(what).x >= 0.0
+
+
+## Act seconds from which a chasing move is on its way at him (the leap off
+## the ground, the jump slam closing, the held swing let go).
+func _chase_from(what: int) -> float:
+	if FLIGHTS.has(what):
+		return _flight_span(what).x
+	if what == JUMP_SLAM:
+		return _jump_span().x
+	return _slide_span(what).x
+
+
+## Where he will be when this move's first blow lands, if he runs on as he
+## runs now (flat, on the ground he stands on).
+func _quarry_ahead(what: int) -> Vector3:
+	var at := _quarry.global_position
+	var ms := _blow_moments(what)
+	if ms.is_empty():
+		return at
+	return at + _his_run * clampf(ms[0] - _act_time, 0.0, chase_lead_most)
+
+
+## Host: how he is running over the ground, as it sees him move (smoothed;
+## a peer's body far off has no velocity of its own to read).
+var _his_run: Vector3 = Vector3.ZERO
+var _his_last: Vector3 = Vector3.INF
+var _his_who: Node3D = null
+
+
+func _watch_his_run(delta: float) -> void:
+	if _quarry == null or not is_instance_valid(_quarry) or delta <= 0.0:
+		_his_run = Vector3.ZERO
+		_his_last = Vector3.INF
+		return
+	var at := _quarry.global_position
+	if _his_who != _quarry or _his_last == Vector3.INF:
+		_his_who = _quarry
+		_his_last = at
+		_his_run = Vector3.ZERO
+		return
+	var moved := (at - _his_last) / delta
+	moved.y = 0.0
+	_his_last = at
+	# a jump of the body (set over, respawned): not a run
+	if moved.length() > 14.0:
+		return
+	_his_run = _his_run.lerp(moved, 1.0 - exp(-12.0 * delta))
+
+
+## The jump slam's closing on him: act seconds [from, its blow].
+func _jump_span() -> Vector2:
+	var ms := _blow_moments(JUMP_SLAM)
+	if ms.is_empty():
+		return Vector2(-1.0, -1.0)
+	return Vector2(maxf(ms[0] - jump_slam_close, 0.0), ms[0])
+
+
+## Host: the jump slam's speed onto where he will be, if he is out of its
+## reach; none if he is in it (it lands where it stands, as it always did).
+func _jump_closing() -> void:
+	var span := _jump_span()
+	if span.x < 0.0:
+		return
+	var reach := float(_strike_from.get(JUMP_SLAM, strike_off))
+	var gap := _gap_to(_quarry_ahead(JUMP_SLAM))
+	if gap <= reach + slide_slack * visual_scale / 1.6:
+		_jump_speed = 0.0
+		return
+	_jump_speed = clampf(_close_speed_for(JUMP_SLAM, span.y, span.x, true), 0.0,
+			jump_slam_most * visual_scale / 1.6 / maxf(span.y - span.x, 0.15))
+
+
+func _gap_to(at: Vector3) -> float:
+	var gap := at - global_position
+	gap.y = 0.0
+	return gap.length()
 
 
 ## The speed on top of the clip's own travel that brings the move's blow on
 ## him from where he is now, laid over the act seconds from `from` (or now,
 ## if later) to `until`.
-func _close_speed_for(what: int, until: float, from: float) -> float:
+func _close_speed_for(what: int, until: float, from: float, ahead: bool = false) -> float:
 	var ms := _blow_moments(what)
 	var blow := ms[0] if not ms.is_empty() else until
 	var m: Array = _moves_table[what]
 	var own := _hips(m[0], _clip_time(what, blow)).x - _hips(m[0], _clip_time(what, _act_time)).x
 	var short := float(_strike_from.get(what, strike_off))
 	var left := maxf(until - maxf(from, _act_time), 0.15)
-	return maxf(_distance_to(_quarry) - short - own, 0.0) / left
+	var gap := _gap_to(_quarry_ahead(what)) if ahead else _distance_to(_quarry)
+	return maxf(gap - short - own, 0.0) / left
 
 
 ## Act seconds a held swing slides over: [the end of its hold, its blow], or
@@ -828,19 +938,21 @@ func _slide_after_him(delta: float) -> bool:
 		if not _decides() or _act_time < sp.x or _quarry_down():
 			return false
 		var reach := float(_strike_from.get(act, strike_off))
-		if _distance_to(_quarry) <= reach + slide_slack * visual_scale / 1.6:
+		if _gap_to(_quarry_ahead(act)) <= reach + slide_slack * visual_scale / 1.6:
 			return false
 		_slide_serial = act_serial
 		slides_made += 1
-		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_face(_quarry_ahead(act) - global_position, 1.0, 50.0)
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
 			net_slide.rpc()
 		else:
 			net_slide()
-	_face(_quarry.global_position - global_position, delta, turn_speed * 4.0)
-	_reframe()
+	# turned after where he will be till just before the blow, then locked
+	if _act_time < sp.y - chase_commit:
+		_face(_quarry_ahead(act) - global_position, delta, turn_speed * 4.0)
+		_reframe()
 	var window := maxf(sp.y - sp.x, 0.15)
-	_slide_speed = clampf(_close_speed_for(act, sp.y, sp.x), 0.0,
+	_slide_speed = clampf(_close_speed_for(act, sp.y, sp.x, true), 0.0,
 			slide_most * visual_scale / 1.6 / window)
 	return true
 
@@ -977,6 +1089,7 @@ func _shakes_after(what: int) -> bool:
 
 
 func _physics_process(delta: float) -> void:
+	_watch_his_run(delta)
 	super(delta)
 	if _shocks.is_empty() or is_dead or not _decides():
 		return
