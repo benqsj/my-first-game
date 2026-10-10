@@ -87,6 +87,8 @@ extends PackBrute
 @export_group("Strings")
 ## The most swings in one string, calm and enraged.
 @export var string_most: int = 3
+## How soon after a swing's last blow the next of its string begins (s).
+@export var string_follow_after: float = 0.32
 @export var string_most_raging: int = 5
 ## Its breath got back after a string ends (s), calm and enraged.
 @export var recover: Vector2 = Vector2(1.0, 1.9)
@@ -557,6 +559,13 @@ const BLOW_NAMES := {
 }
 
 
+## Whether the blow it is dealing now was held at the top of its wind-up
+## (the "it stops, then strikes" swing): a heavy one, it fells (the user's
+## word, 2026-10-10; [member Player.STAGGERS_ONLY]).
+func blow_held() -> bool:
+	return _hold_of(act) > 0.0
+
+
 ## The blow it is dealing now, by name (&"" none): [member BLOW_NAMES].
 func blow_name() -> StringName:
 	return BLOW_NAMES.get(act, &"")
@@ -889,6 +898,13 @@ func _move_length(what: int) -> float:
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
 		length += w.y * (w.z - 1.0)
+	# a swing the string goes on from: on into the next soon after its last
+	# blow, its own recovery cut (the user's word, 2026-10-10: the pauses
+	# in its strings were so long he could not tell it was a string)
+	if what == act and SWINGS.has(what) and not _closing and _string_count > 0:
+		var ms := _blow_moments(what)
+		if not ms.is_empty():
+			length = minf(length, ms[ms.size() - 1] + string_follow_after)
 	return length
 
 
