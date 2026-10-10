@@ -1149,7 +1149,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	if _fall_kind >= 0 and (_role == Role.DOWN or _role == Role.GET_UP):
 		var slid := _skel.global_basis * _anim.get_root_motion_position()
 		slid.y = 0.0
-		fall_velocity = slid / maxf(delta, 0.001)
+		fall_velocity = slid / maxf(delta, 0.001) * fall_carry
 	if _carrying:
 		var moved := _skel.global_basis * _anim.get_root_motion_position()
 		moved.y = 0.0
@@ -3125,7 +3125,7 @@ func _build_mannequin() -> bool:
 		if theirs.has_animation(CRUMPLE):
 			lib.add_animation(CRUMPLE, theirs.get_animation(CRUMPLE))
 	if FALL_HEROES.has(polysplit_hero):
-		_ready_falls(lib, skel)
+		_ready_falls(lib, skel, own)
 	for n: StringName in lib.get_animation_list():
 		Moveset.complete(lib.get_animation(n), skel)
 	for n: StringName in player.get_animation_library_list():
@@ -3760,8 +3760,11 @@ func leave_ground() -> void:
 ## gets up where he lies.
 ## By where the blow came from (LEFT: from his left) and how hard.
 enum Fall { BACK, FLY, LEFT, RIGHT, FORWARD, CRUSH }
-## The heroes whose falls follow the blow (the others still fall back).
-const FALL_HEROES := [&"tariel"]
+## The heroes whose falls follow the blow (the others still fall back): all
+## five on the mannequin, one skeleton, each at his own size (the visuals'
+## scale carries the clips' travel with it). Tariel's Mixamo falls are lent
+## to the rest ([constant FALL_LENT_BY]).
+const FALL_HEROES := [&"tariel", &"avtandil", &"rogue", &"mage", &"warrior"]
 ## kind -> picks by how hard the blow was ([method fall]'s `force`): [light,
 ## middling, heavy], each a list taken in turn of [clip, rate, share of it
 ## where he lies still, share it is begun from]. Light ones drop him, heavy
@@ -3931,18 +3934,38 @@ const FRONT_UP_PACE := 1.7
 const UP_BLEND := 0.35
 ## The bones weighed for how like two poses are ([method _pose_marks]).
 const POSE_MARKS := [&"Head", &"hand_l", &"hand_r", &"foot_l", &"foot_r", &"calf_l", &"calf_r"]
-## Lent from another hero's clips: clip -> hero.
+## Lent from another hero's clips: clip -> hero (and by the clip's prefix,
+## [constant FALL_LENT_BY]).
 const FALL_LENT := {
 	&"AV_Death_Left_01": "avtandil", &"AV_Death_Left_02": "avtandil",
 	&"AV_Death_Right_01": "avtandil", &"AV_Death_Right_02": "avtandil",
 	&"AV_Death_Forward_02": "avtandil", &"DG_Death": "rogue", &"AV_Death_Backward_01": "avtandil",
 }
+## ...and by prefix: Tariel's Mixamo falls and get-ups (`TR_`, tariel_extra),
+## Avtandil's, the assassin's.
+const FALL_LENT_BY := {"TR_": "tariel", "AV_": "avtandil", "DG_": "rogue"}
+
+
+## The hero whose library lends `clip` to one who has it not ("" none).
+static func _lender(clip: StringName) -> String:
+	if FALL_LENT.has(clip):
+		return FALL_LENT[clip]
+	for pre: String in FALL_LENT_BY:
+		if String(clip).begins_with(pre):
+			return FALL_LENT_BY[pre]
+	return ""
+
+
 ## The falls' own copies of the clips are kept under this prefix (the hips'
 ## travel lifted onto the root, [method _lift_travel]).
 const FALL_PREFIX := "F_"
 
 ## What the fall moved him by this frame, as a pace over the ground (world).
 var fall_velocity: Vector3 = Vector3.ZERO
+## How much further than the others a blow throws this hero (the clip's own
+## travel and the blow's shove both): the light ones, the assassin and the
+## mage, 1.2 (the user's word, 2026-10-10).
+var fall_carry: float = 1.0
 ## The fall under way ([enum Fall]), -1 none.
 var _fall_kind: int = -1
 var _fall_settle: float = 1.0
@@ -4296,7 +4319,7 @@ var _pelvis_front: Vector3 = Vector3.ZERO
 ## The falls' clips made ready on the mannequin's library: those lent from
 ## another hero brought in, and each copied under [constant FALL_PREFIX]
 ## with the hips' travel over the ground lifted onto the root.
-func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
+func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D, his: Dictionary) -> void:
 	var want: Array[StringName] = []
 	for kind: int in FALLS:
 		for tier: Array in FALLS[kind]:
@@ -4309,15 +4332,24 @@ func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 			want.append(REVIEW[n][1][0])
 	for pick: Array in GET_UPS_BACK + GET_UPS_FRONT:
 		want.append(pick[0])
-	for clip: StringName in want:
+	var lenders := {}
+	for clip: StringName in want + [StringName(BIG_HIT)]:
 		var a: Animation = null
 		if lib.has_animation(clip):
 			a = lib.get_animation(clip)
-		elif FALL_LENT.has(clip) and ResourceLoader.exists(HERO_LIB % FALL_LENT[clip]):
-			var theirs := load(HERO_LIB % FALL_LENT[clip]) as AnimationLibrary
-			if theirs.has_animation(clip):
+		else:
+			var hero := _lender(clip)
+			if hero != "" and not lenders.has(hero) and ResourceLoader.exists(HERO_LIB % hero):
+				lenders[hero] = load(HERO_LIB % hero) as AnimationLibrary
+			var theirs: AnimationLibrary = lenders.get(hero)
+			if theirs != null and theirs.has_animation(clip):
 				a = theirs.get_animation(clip)
-		if a == null:
+				# a hero's clip carried onto the mannequin, as his own are:
+				# its feet laid flat too ([FootFlat])
+				his[clip] = true
+				if String(clip) == BIG_HIT:
+					lib.add_animation(clip, a)
+		if a == null or String(clip) == BIG_HIT:
 			continue
 		var own := StringName(FALL_PREFIX + String(clip))
 		if not lib.has_animation(own):

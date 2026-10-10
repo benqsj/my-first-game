@@ -12,7 +12,11 @@ extends SceneTree
 ## - down on his knee (a broken guard), a second blow throws him down;
 ## - the weapon's own sweep leads: thrown the way it went, crushed by one
 ##   coming down, launched by one rising, further the harder it came.
-##   Godot --headless --path . --script res://tests/fall_test.gd
+## Every hero on the mannequin falls so (the user's word, 2026-10-10): Tariel's
+## Mixamo falls lent to the rest, their `F_` copies, the mirrored ones, the
+## get-ups matched to how he lies, the feet laid flat.
+##   Godot --headless --path . --script res://tests/fall_test.gd -- [hero|all]
+## (`all` runs each hero in turn, each in a Godot of its own.)
 
 var _failures := 0
 var _hero: Player
@@ -36,6 +40,14 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	var args := OS.get_cmdline_user_args()
+	var who := StringName(args[0]) if args.size() > 0 else &"tariel"
+	if who == &"all":
+		quit(_each_hero())
+		return
+	var game := root.get_node_or_null("Game")
+	if game != null:
+		game.call("choose", who)
 	var world: World = load("res://scenes/world/test_arena.tscn").instantiate()
 	root.add_child(world)
 	await _wait(30)
@@ -51,7 +63,18 @@ func _run() -> void:
 	_foe.set_script(naming)
 	world.add_child(_foe)
 	var rig := _hero.rig as SkinnedRig
-	_check("Tariel's falls follow the blow", rig != null and rig.falls_directional())
+	if who != &"tariel":
+		_hero.set_look(PolysplitLook.default_look(who, "m"))
+		_hero.set_face(rig.faces.find(SkinnedRig.CUSTOM))
+		await _wait(10)
+	print("hero: %s, size %.3f" % [who, (rig as Node3D).global_basis.get_scale().x])
+	_check("%s on the mannequin" % who, rig != null and rig.on_mannequin())
+	_check("%s's falls follow the blow" % who, rig != null and rig.falls_directional())
+	_lent(rig)
+	# the light ones are thrown a fifth further (the user's word, 2026-10-10)
+	var is_light := who == &"rogue" or who == &"mage"
+	_check("thrown %s" % ("a fifth further (light)" if is_light else "as Tariel is"),
+			is_equal_approx(rig.fall_carry, 1.2 if is_light else 1.0), str(rig.fall_carry))
 
 	var front := await _fell(Vector3(0, 0, -2), 12.0)
 	_check("in front: thrown back", front["kind"] == SkinnedRig.Fall.BACK and front["moved"].z > 0.3, str(front))
@@ -175,6 +198,45 @@ func _run() -> void:
 	else:
 		print("%d check(s) FAILED." % _failures)
 	quit(1 if _failures > 0 else 0)
+
+
+## Tariel's Mixamo falls lent, copied (`F_`) and mirrored; the get-ups'
+## poses sampled; the lent clips' feet laid flat as his own are.
+func _lent(rig: SkinnedRig) -> void:
+	var lib := (rig._mq["anim"] as AnimationPlayer).get_animation_library(&"")
+	var missing: Array = []
+	for n: int in SkinnedRig.REVIEW:
+		var clip := String(SkinnedRig.REVIEW[n][1][0])
+		if not lib.has_animation(SkinnedRig.FALL_PREFIX + clip):
+			missing.append(n)
+	_check("every numbered fall has its F_ copy", missing.is_empty(), str(missing))
+	_check("the mirrored ones too (_M)", lib.has_animation("F_TR_Thrown_Side_M") and lib.has_animation("F_KV_CombatDeath01_M")
+			and lib.has_animation("TR_Big_Side_Hit_M"))
+	var ups: Array = []
+	for p: Array in SkinnedRig.GET_UPS_BACK + SkinnedRig.GET_UPS_FRONT:
+		if not rig._up_marks.has(p[0]) or (rig._up_marks[p[0]] as Array).is_empty() \
+				or (rig._up_marks[p[0]][0][1] as PackedVector3Array).is_empty():
+			ups.append(p[0])
+	_check("every get-up's poses sampled (head bone found)", ups.is_empty(), str(ups))
+	var own: Dictionary = rig._mq["own"]
+	_check("the lent clips' feet laid flat (FootFlat)", own.has(&"TR_Fall_Flat") and own.has(&"TR_GetUp_Prone")
+			and own.has(&"AV_Death_Right_02") and own.has(&"TR_Big_Side_Hit"))
+
+
+## Each hero's fall_test in a Godot of its own: 0 if all passed.
+func _each_hero() -> int:
+	var bad: Array = []
+	for h: String in SkinnedRig.FALL_HEROES:
+		var out: Array = []
+		var code := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"),
+				"--script", "res://tests/fall_test.gd", "--", h], out, true)
+		for line: String in String("".join(out)).split("\n"):
+			if line.contains("FAIL") or line.contains("passed") or line.begins_with("hero:"):
+				print("[%s] %s" % [h, line])
+		if code != 0:
+			bad.append(h)
+	print("All checks passed." if bad.is_empty() else "FAILED: %s" % [bad])
+	return 1 if not bad.is_empty() else 0
 
 
 ## A blow named `named` landing alone: whether he went down, and the flinch.

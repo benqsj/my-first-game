@@ -2504,7 +2504,7 @@ controller makes, so `player.gd` is unchanged. `tariel.tres` points at
 | walking behind the shield | `SS_Block_Walk`, `_Back`, `_Left`, `_Right` — legs from the walk, the guard from `SS_Block_Idle`, baked in Blender; blocking caps the pace at `walk_speed` |
 | hit | `SS_Head_Impact` |
 | dash / dodge | `Roll_Quick_To_Run` |
-| knocked down / get up | by the blow ([Falls that follow the blow](#falls-that-follow-the-blow)); other heroes `SS_Falling_Back_Death` (and back to front) |
+| knocked down / get up | by the blow ([Falls that follow the blow](#falls-that-follow-the-blow)), every hero in YOUR OWN; a look on the hero's own rig `SS_Falling_Back_Death` (and back to front) |
 | airborne | `SS_Running_Jump` |
 | crouch, slide | `SS_Crouch_Block_Idle` — *stand-in, the pack has none* |
 
@@ -2633,7 +2633,27 @@ longer used.
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws
   him down the same way. The kneel itself is shorter: `guard_crumple_time`
   1.35 s, the fall to the knee at 2.4x, up off it at 1.4x.
-- Only the heroes in `SkinnedRig.FALL_HEROES` (Tariel) so far.
+- **Every hero** (the user's word, 2026-10-10): `SkinnedRig.FALL_HEROES` is
+  all five — Tariel, Avtandil, the assassin (`rogue`), the mage, the warrior —
+  in YOUR OWN, on the mannequin. They share its skeleton (the head bone
+  "Head" on all), so Tariel's Mixamo falls and get-ups are lent as they are,
+  not retargeted: a clip a hero's library lacks is taken by its prefix
+  (`FALL_LENT_BY`: `TR_` from Tariel's, `AV_` Avtandil's, `DG_` the
+  assassin's; `TR_Big_Side_Hit` too), copied to `F_` and mirrored (`_M`) on
+  his own library; a lent clip counts as his own for `FootFlat`, so its
+  boots are laid flat (Tariel's lent `AV_*` falls with them). The same picks
+  per blow (`Player.BLOW_FALLS`) for all. Each is his own size (the visuals'
+  scale: Tariel 1.02, Avtandil 0.985, assassin and mage 0.97, warrior 1.10)
+  and a fall's own travel is carried at that scale, the blow's shove the
+  same for all. **The light ones, the assassin and the mage, are thrown a
+  fifth further** (`SkinnedRig.fall_carry` 1.2: the clip's travel and the
+  shove, its dying-away quickened by as much so the distance, not its
+  square, grows: `Player._down_carry`). Reviewed on film per hero (the page
+  "ტარიელის დაცემები", a hero picker): `_shots_tmp/tf_blows_all.gd --
+  hero=<id> [facecam] B01 ... a0`. `fall_test -- all` runs the test for each.
+  The elves and the dark elves are these heroes' rigs (`elf_mage` the mage's,
+  `dark_rogue` the assassin's...), so they fall the same, the light ones a
+  fifth further too.
 - `tests/fall_test.gd`; `guard_break_test` checks the throw off the knee.
 
 He does not climb walls (`can_climb = false` in `tariel.tres`): only the hunter

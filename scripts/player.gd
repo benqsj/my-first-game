@@ -3446,6 +3446,8 @@ var last_sweep: Dictionary = {}
 var _down_kind: int = 0
 var _down_flying: bool = false
 var _down_push: Vector3 = Vector3.ZERO
+## How much further than the others this hero is thrown ([member SkinnedRig.fall_carry]).
+var _down_carry: float = 1.0
 
 ## Seconds left of the current part of a knockdown, which part it is, and how
 ## long he has been down.
@@ -4211,10 +4213,13 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 		shove = minf(shove, fall_carried_shove + fall_force_shove * 0.3)
 	elif _down_face == "foe":
 		shove = 0.0  # he folds forward at its feet, of himself
-	velocity = thrown * shove
+	# a light hero is thrown further ([member SkinnedRig.fall_carry])
+	var carry := float(rig.get(&"fall_carry")) if rig != null and "fall_carry" in rig else 1.0
+	velocity = thrown * shove * carry
+	_down_carry = carry
 	if _down_flying:
 		var k := 1.0 + 0.25 * minf(_blow_force, 1.5)
-		velocity = away * fall_fly_push.x * k + Vector3.UP * fall_fly_push.y * k
+		velocity = away * fall_fly_push.x * k * carry + Vector3.UP * fall_fly_push.y * k
 		_down_timer = 9.0  # till he comes down
 	_down_push = Vector3(velocity.x, 0.0, velocity.z)
 
@@ -4232,7 +4237,9 @@ func _process_downed(delta: float) -> void:
 	# the blow's shove dying away (slowly through the air), and whatever the
 	# fall itself carries him by ([member SkinnedRig.fall_velocity])
 	var airborne := not is_on_floor()
-	_down_push = _down_push.move_toward(Vector3.ZERO, (1.5 if airborne else 9.0) * delta)
+	# (a light hero's shove dies the quicker too: thrown `carry` times as far,
+	# not its square)
+	_down_push = _down_push.move_toward(Vector3.ZERO, (1.5 if airborne else 9.0) * delta * _down_carry)
 	var carried := Vector3.ZERO
 	if rig != null and "fall_velocity" in rig:
 		carried = rig.get(&"fall_velocity") as Vector3

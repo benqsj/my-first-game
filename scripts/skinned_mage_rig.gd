@@ -136,6 +136,8 @@ func _configure() -> void:
 	# heroes ([PolysplitLook], `SkinnedRig._add_maker()`), a sword in his
 	# hand (2026-10-02, the user's word) and a staff in the other if he will.
 	polysplit_hero = &"mage"
+	# light: thrown a fifth further by a felling blow (the user's word, 2026-10-10)
+	fall_carry = 1.2
 	mq_borrow = {MQ_CAST: "tariel"}
 	# the elf's Frost Step glides in the warrior's slide ([MageSkills])
 	mq_borrow[MageSkills.GLIDE_CLIP] = "warrior"

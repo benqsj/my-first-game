@@ -206,6 +206,8 @@ func _configure() -> void:
 	# and YOUR OWN, made on the hero select out of Polysplit's heroes
 	# ([PolysplitLook], `SkinnedRig._add_maker()`)
 	polysplit_hero = &"rogue"
+	# light: thrown a fifth further by a felling blow (the user's word, 2026-10-10)
+	fall_carry = 1.2
 	# Or Synty's Sidekick on its own skeleton, which follows his
 	# ([FigureFollower]), with his own knives cut out of his model
 	# (vepxis-art/tools/fig_hero.py, tools/sk_build.py): THE FOX MASK in the
