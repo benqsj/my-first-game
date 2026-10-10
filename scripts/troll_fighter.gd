@@ -32,6 +32,14 @@ extends PackBrute
 
 const PICK := 116
 const HURL := 117
+## Its combos' moves (2026-10-10).
+const T_PUNCH := 180
+const T_PUNCH_L := 181
+const T_UPPER := 182
+const T_HOOK := 183
+const T_HEADBUTT := 184
+const T_SWIPE := 185
+const T_LEAP := 186
 
 var _hurl_wait: float = 3.0
 var _hurled: bool = false
@@ -52,6 +60,7 @@ var _heal_shown: bool = false
 
 func _ready() -> void:
 	super()
+	_set_combos()
 	_special(PICK, pick_clip, pick_part)
 	_special(HURL, hurl_clip, hurl_part)
 	if _skeleton != null:
@@ -67,6 +76,25 @@ func _ready() -> void:
 			best = lerpf(float(m[2]), float(m[3]), 0.5)
 		_hurl_at = (best - float(m[2])) * length / maxf(float(m[1]), 0.01)
 	_hurl_wait = _rng.randf_range(2.0, hurl_cooldown.x)
+
+
+## Its combos made by hand ([PackBrute] `_hand_combos`): a right, a left and the
+## uppercut that throws him; a hook and a headbutt; its free hand swung and a
+## great leap down on him (enraged, the uppercut after).
+func _set_combos() -> void:
+	var both := (FIST_L + "|" + FIST_R) % ["0.14", "0.14"]
+	_hand_move(T_PUNCH, &"CR_Punch1", Vector3(1.0, 0.0, 0.85), 0.5, FIST_R % "0.14")
+	_hand_move(T_PUNCH_L, &"CR_PunchL", Vector3(1.0, 0.0, 0.85), 0.5, FIST_L % "0.14")
+	_hand_move(T_UPPER, &"CR_Uppercut", Vector3(0.95, 0.0, 0.9), 1.1, both)
+	_hand_move(T_HOOK, &"CR_Hook", Vector3(1.0, 0.0, 0.9), 0.6, both)
+	_hand_move(T_HEADBUTT, &"CR_OG_Headbutt", Vector3(1.0, 0.1, 0.7), 0.9, "head_joint>head_joint@0.11,0.13,0:0.24")
+	_hand_move(T_SWIPE, &"CR_OG_Mutant_Swipe", Vector3(1.0, 0.2, 0.8), 0.6, FIST_L % "0.18")
+	_hand_move(T_LEAP, &"CR_OG_Mutant_Jump", Vector3(0.95, 0.02, 0.8), 1.3, both)
+	_hand_combos = [
+		{"name": &"one_two_upper", "moves": [T_PUNCH, T_PUNCH_L, T_UPPER], "fells": [2], "weight": 1.0},
+		{"name": &"hook_headbutt", "moves": [T_HOOK, T_HEADBUTT], "fells": [1], "weight": 0.8},
+		{"name": &"swipe_leap", "moves": [T_SWIPE, T_LEAP], "fells": [1], "weight": 0.7, "rage": [T_UPPER]},
+	]
 
 
 func _own_move(delta: float) -> bool:

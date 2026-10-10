@@ -24,6 +24,12 @@ extends PackBrute
 @export var kick_share: float = 0.6
 
 const KICK := 112
+## Its combos' moves (2026-10-10): Mixamo's great axe swings, its sword one-handed.
+const O_HORIZ := 180
+const O_BACK := 181
+const O_DOWN := 182
+const O_TWIN := 183
+const O_SPIN := 184
 
 var _shield_for: float = 0.0
 var _kick_wait: float = 0.0
@@ -37,6 +43,16 @@ func _ready() -> void:
 	# Not a blow that fells him by itself.
 	_special_strike(KICK, kick_limbs, kick_share, 3)
 	_kinds[KICK] = &"guard"
+	_hand_move(O_HORIZ, &"CR_OG_Attack_Horizontal", Vector3(1.05, 0.1, 0.8), 0.6)
+	_hand_move(O_BACK, &"CR_OG_Attack_Backhand", Vector3(1.05, 0.08, 0.62), 0.6)
+	_hand_move(O_DOWN, &"CR_OG_Attack_Downward", Vector3(1.0, 0.05, 0.75), 1.15)
+	_hand_move(O_TWIN, &"CR_OG_Combo_3", Vector3(1.05, 0.12, 0.9), 0.5, "", [0.372, 0.617])
+	_hand_move(O_SPIN, &"CR_OG_Attack_360", Vector3(1.0, 0.0, 0.7), 1.2)
+	# its combos made by hand ([PackBrute] `_hand_combos`)
+	_hand_combos = [
+		{"name": &"three", "moves": [O_HORIZ, O_BACK, O_DOWN], "fells": [2], "weight": 1.0},
+		{"name": &"twin_spin", "moves": [O_TWIN, O_SPIN], "fells": [1], "weight": 0.8, "rage": [O_DOWN]},
+	]
 
 
 func _own_move(delta: float) -> bool:

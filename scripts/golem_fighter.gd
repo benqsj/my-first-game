@@ -37,6 +37,12 @@ extends PackBrute
 @export var spikes_cooldown: Vector2 = Vector2(6.0, 9.0)
 
 const SPIKES := 118
+## Its combos' moves (2026-10-10).
+const G_PUNCH := 180
+const G_HOOK := 181
+const G_HAMMER := 182
+const G_SWIPE := 183
+const G_UPPER := 184
 
 var _poise_taken: float = 0.0
 var _since_hit: float = 99.0
@@ -49,6 +55,7 @@ var _runs: Array[Dictionary] = []
 
 func _ready() -> void:
 	super()
+	_set_combos()
 	_special(SPIKES, spikes_clip, spikes_part)
 	if _anim != null:
 		var m: Array = _moves_table[SPIKES]
@@ -124,6 +131,23 @@ func parried(_by: Node3D) -> void:
 
 
 #region Spikes
+## Its combos made by hand ([PackBrute] `_hand_combos`), slow and heavy: a
+## right, a hook, both fists brought down into the ground; its free hand swung,
+## a right, the uppercut (enraged, the hammer after).
+func _set_combos() -> void:
+	var both := (FIST_L + "|" + FIST_R) % ["0.18", "0.18"]
+	_hand_move(G_PUNCH, &"CR_Punch1", Vector3(0.8, 0.0, 0.85), 0.55, FIST_R % "0.18")
+	_hand_move(G_HOOK, &"CR_Hook", Vector3(0.8, 0.0, 0.9), 0.65, both)
+	_hand_move(G_HAMMER, &"CR_OG_Zombie_Overhead", Vector3(0.8, 0.05, 0.6), 1.4, both)
+	_hand_move(G_SWIPE, &"CR_OG_Mutant_Swipe", Vector3(0.85, 0.2, 0.8), 0.6, FIST_L % "0.2")
+	_hand_move(G_UPPER, &"CR_Uppercut", Vector3(0.8, 0.0, 0.9), 1.2, both)
+	_hand_combos = [
+		{"name": &"hammer", "moves": [G_PUNCH, G_HOOK, G_HAMMER], "fells": [2], "weight": 1.0},
+		{"name": &"swipe_upper", "moves": [G_SWIPE, G_PUNCH, G_UPPER], "fells": [2], "weight": 0.8,
+				"rage": [G_HAMMER]},
+	]
+
+
 func _own_move(delta: float) -> bool:
 	_spikes_wait = maxf(_spikes_wait - delta, 0.0)
 	var gap := _distance_to(_quarry)

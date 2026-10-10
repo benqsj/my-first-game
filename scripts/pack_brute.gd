@@ -115,6 +115,35 @@ var _ember_mat: StandardMaterial3D
 ## act -> [chance, shortest, longest, seconds before the blow it holds at]: a
 ## delayed swing ([method _hold_of]).
 var _holds: Dictionary = {}
+
+@export_group("Combos")
+## How often it opens one of its combos made by hand (`_hand_combos`, its
+## kind's) instead of a plain attack, he in front: calm, enraged.
+@export var hand_combo_chance: Vector2 = Vector2(0.4, 0.55)
+## The practice (the test arena's board, 2026-10-10): >= 0, it does nothing
+## but this one of its combos, over and over — it comes in to it, opens it, gets
+## its breath, and again.
+@export var drill_combo: int = -1
+
+## Its combos made by hand (the user's word, 2026-10-10: as the ogre's, for the
+## troll, the golem and the orc): [{"name", "moves", "fells", "weight",
+## "rage"?}] — always the same moves in the same order, the ones at `fells`
+## throwing him down by themselves, the rest staggering; enraged, a `rage`
+## tail runs on and its last fells instead. Set by its kind in `_ready`, its
+## moves with [method _hand_move]. (The ogre has its own, richer.)
+var _hand_combos: Array = []
+## A fist's stretch, its radius to fill in (the troll's, the golem's).
+const FIST_R := "R_elbow_joint>R_midFinger_joint3:%s"
+const FIST_L := "L_elbow_joint>L_midFinger_joint3:%s"
+## Host: the combo on (-1 none), its place, its moves as they run, which
+## fell, the last it made; counts for the tests.
+var _hand_combo: int = -1
+var _hand_step: int = 0
+var _hand_moves: Array = []
+var _hand_fells: Array = []
+var _hand_last: int = -1
+var hand_combos_made: Array[int] = []
+var hand_finishers: int = 0
 ## Host: the stance it has taken, how long since a blow last landed, and
 ## whether the critical is still to come in this break.
 var stance_taken: float = 0.0
@@ -189,8 +218,141 @@ func _think(delta: float) -> void:
 
 
 ## A kind's own choice of move, before the Brawler's (true if it took one).
-func _own_move(_delta: float) -> bool:
+func _own_move(delta: float) -> bool:
+	if drill_combo >= 0 and not _hand_combos.is_empty():
+		return _drill(delta)
+	if _try_hand_combo(_distance_to(_quarry)):
+		return true
 	return _try_leap()
+
+
+## Host, practising one combo: waits out its breath (and him down) facing him,
+## then comes in to it and opens it.
+func _drill(delta: float) -> bool:
+	mode = Mode.FIGHT
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	if _quarry_down() or _cooldown > 0.0 or stamina < attack_cost:
+		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
+		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
+		if to.length_squared() > 0.0001:
+			_face(to, delta, turn_speed)
+		return true
+	if _try_hand_combo(_distance_to(_quarry)):
+		return true
+	_move_towards(_quarry.global_position, chase_speed, delta)
+	return true
+
+#region Combos made by hand
+## A move of its combos: `clip` played over `part` [rate, from, to], striking
+## with `limbs` (as `attack_limbs`; "" its weapon), worth `share` of
+## `hit_damage`; its blows where they reach furthest, or at `moments`
+## (shares of the clip) for a move of several.
+func _hand_move(what: int, clip: StringName, part: Vector3, share: float, limbs: String = "",
+		moments: Array = []) -> void:
+	_special(what, clip, part)
+	_special_strike(what, limbs, share, 99)
+	if not moments.is_empty():
+		var s: Array = _strikes_table[what]
+		var ls: Array = []
+		for i in moments.size():
+			ls.append((s[1] as Array)[0])
+		_strikes_table[what] = [s[0], ls, share, 99, 0.5, PackedFloat32Array(moments)]
+		if _anim != null:
+			var from := _gap_that_lands(what, _moves_table[what], float(moments[0]))
+			if from > 0.0:
+				_strike_from[what] = from
+
+
+## Host: now and then one of its combos, he in front and its first move in
+## reach, off its cooldown.
+func _try_hand_combo(gap: float) -> bool:
+	if _hand_combos.is_empty() or _quarry == null or _quarry_down() or stamina < attack_cost \
+			or _cooldown > 0.0:
+		return false
+	var drill := drill_combo >= 0 and drill_combo < _hand_combos.size()
+	if not drill and _rng.randf() >= (hand_combo_chance.y if raging else hand_combo_chance.x):
+		return false
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() > 0.0001 and rad_to_deg(_forward().angle_to(to.normalized())) > 60.0:
+		return false
+	var options: Array = []
+	var total := 0.0
+	for i in _hand_combos.size():
+		if drill and i != drill_combo:
+			continue
+		var c: Dictionary = _hand_combos[i]
+		var first := int((c["moves"] as Array)[0])
+		var want := float(_strike_from.get(first, strike_off))
+		if (gap < want - 0.9 and not drill) or gap > want + 1.4:
+			continue
+		var w := float(c["weight"]) * (0.2 if i == _hand_last else 1.0)
+		options.append([i, w])
+		total += w
+	if options.is_empty() or total <= 0.0:
+		return false
+	var roll := _rng.randf() * total
+	var pick := int((options[-1] as Array)[0])
+	for o: Array in options:
+		roll -= float(o[1])
+		if roll <= 0.0:
+			pick = int(o[0])
+			break
+	start_hand_combo(pick)
+	return true
+
+
+## Host: combo `which` of `_hand_combos` begun now, turned to him.
+func start_hand_combo(which: int) -> void:
+	var c: Dictionary = _hand_combos[which]
+	_hand_combo = which
+	_hand_step = 0
+	_hand_last = which
+	hand_combos_made.append(which)
+	_hand_moves = (c["moves"] as Array).duplicate()
+	_hand_fells = (c["fells"] as Array).duplicate()
+	if raging and c.has("rage"):
+		_hand_moves.append_array(c["rage"])
+		_hand_fells = [_hand_moves.size() - 1]
+	mode = Mode.FIGHT
+	if _quarry != null:
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+	# one combo on him: its blows count together
+	_chain_serial = 3000000 + act_serial + 1
+	_chain_blow = 0
+	_hand_begin(int(_hand_moves[0]))
+
+
+## Its move at `_hand_step`: a felling one is a fresh combo to him, its blows
+## his last, so it fells by itself.
+func _hand_begin(what: int) -> void:
+	if _hand_fells.has(_hand_step) and _strikes_table.has(what):
+		hand_finishers += 1
+		_chain_serial = 4000000 + act_serial + 1
+		_chain_blow = 0
+		var keep: Array = _strikes_table[what]
+		var close := keep.duplicate()
+		close[3] = _blow_moments(what).size()
+		_strikes_table[what] = close
+		_begin(what)
+		_strikes_table[what] = keep
+	else:
+		_begin(what)
+
+
+## Host, a move ended: the combo's next, if it runs on (-1 if not).
+func _hand_next(what: int) -> int:
+	if _hand_combo < 0 or is_dead or not _decides():
+		return -1
+	if _hand_step >= _hand_moves.size() or what != int(_hand_moves[_hand_step]):
+		return -1
+	if _hand_step + 1 >= _hand_moves.size() or _quarry == null or _quarry_down() \
+			or stamina < attack_cost * 0.25:
+		return -1
+	_hand_step += 1
+	return int(_hand_moves[_hand_step])
+#endregion
 
 
 func _try_leap() -> bool:
@@ -226,7 +388,17 @@ func _after(what: int) -> void:
 		_leap_wait = leap_cooldown * (0.6 if raging else 1.0)
 	if what == RAGE and not raging:
 		_send_rage()
+	var next := _hand_next(what)
+	if next < 0 and _hand_combo >= 0:
+		_hand_combo = -1
 	super(what)
+	if next >= 0:
+		# on into the next, turned a little after him
+		_chain_blow += _blow_moments(what).size()
+		if _quarry != null:
+			var to := _quarry.global_position - global_position
+			rotation.y = rotate_toward(rotation.y, atan2(-to.x, -to.z), deg_to_rad(55.0))
+		_hand_begin(next)
 
 
 func _run_act(delta: float) -> void:
@@ -375,6 +547,12 @@ func _move_length(what: int) -> float:
 	var sh := _shape(what)
 	if not sh.is_empty():
 		length += float(sh[0]) * (float(sh[1]) - 1.0) + float(sh[2])
+	# a hand-made combo's move with more to come: on soon after its last blow
+	if what == act and _hand_combo >= 0 and _hand_step < _hand_moves.size() - 1 \
+			and _strikes_table.has(what):
+		var ms := _blow_moments(what)
+		if not ms.is_empty():
+			length = minf(length, ms[ms.size() - 1] + 0.32)
 	return length
 
 
@@ -618,6 +796,18 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 	elif stance > 0.0 and act != STANCE:
 		_add_stance(damage * _stance_weight(from, magic))
 	return bled
+
+
+## Down on its knee and open to a hero's critical (every peer: its own flag
+## on the host, the kneel itself elsewhere).
+func crit_open() -> bool:
+	return not is_dead and act == STANCE and (_crit_open or not _decides())
+
+
+## Where a hero stands to deal it the critical: in front of it, this far
+## (m), and the height the blade goes in at.
+func crit_spot() -> Vector3:
+	return global_position + _forward() * 1.25 * visual_scale / 1.6
 
 
 ## Host: stance taken; full, it breaks.
