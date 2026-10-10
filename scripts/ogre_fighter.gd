@@ -91,8 +91,17 @@ extends PackBrute
 @export var string_follow_after: float = 0.32
 @export var string_most_raging: int = 5
 ## Its breath got back after a string ends (s), calm and enraged.
-@export var recover: Vector2 = Vector2(1.0, 1.9)
-@export var recover_raging: Vector2 = Vector2(0.4, 0.9)
+@export var recover: Vector2 = Vector2(0.5, 1.1)
+@export var recover_raging: Vector2 = Vector2(0.25, 0.6)
+## Between its strings (and over him while he is down) it does not stand dead
+## still (the user's word, 2026-10-10: it stood about a third of a fight): it
+## prowls round him at this pace (m/s at its size), keeping to its reach,
+## facing him, and now and then turns the other way.
+@export var prowl_speed: float = 0.8
+@export var prowl_turn_every: Vector2 = Vector2(1.0, 2.2)
+## ...never further round him than this (deg) from where it last came at him:
+## it does not end up behind him (the camera's side).
+@export var prowl_arc: float = 30.0
 ## How far it turns after him between two swings of a string (degrees).
 @export var string_turn: float = 55.0
 @export var lunge_from: float = 4.5
@@ -260,6 +269,13 @@ var _heavy_wait: float = 2.0
 var _stomp_wait: float = 0.0
 var _lunge_wait: float = 3.0
 var _kick_wait: float = 0.0
+## Which way round him it prowls (1 to its right), and when it turns.
+var _prowl_side: float = 1.0
+var _prowl_turn: float = 0.0
+## Where round him it was when it last came at him (flat, from him), and
+## how far round from there it has prowled (deg).
+var _prowl_home := Vector3.ZERO
+var _prowl_was: float = 0.0
 ## Act seconds the club meets the ground in the pound and the stomp.
 var _pound_at: float = 0.5
 var _stomp_at: float = 0.5
@@ -408,7 +424,7 @@ func _own_move(delta: float) -> bool:
 		if gap > stomp_reach * 0.8:
 			_move_towards(_quarry.global_position, chase_speed, delta)
 			return true
-		return false
+		return _prowl(gap, delta, stomp_reach * 0.7)
 	if _from_afar(gap, delta):
 		return true
 	if _pound_wait <= 0.0 and gap >= pound_from and gap <= pound_to and stamina >= attack_cost:
@@ -422,6 +438,8 @@ func _own_move(delta: float) -> bool:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
 		_open(HEAVY)
+		return true
+	if (_cooldown > 0.0 or stamina < attack_cost) and _prowl(gap, delta, strike_off):
 		return true
 	if attacks.is_empty() or _cooldown > 0.0 or stamina < attack_cost:
 		return super(delta)
@@ -438,6 +456,41 @@ func _own_move(delta: float) -> bool:
 		_open(pick)
 		return true
 	return super(delta)
+
+
+## Host, between its strings: round him at `prowl_speed`, facing him, kept
+## at `keep` m; off to the side it was going, now and then the other way.
+## False when he is not near enough to prowl round (it closes in as ever).
+func _prowl(gap: float, delta: float, keep: float) -> bool:
+	if _quarry == null or prowl_speed <= 0.0 or gap > keep + 3.0:
+		return false
+	mode = Mode.FIGHT
+	_prowl_turn -= delta
+	if _prowl_turn <= 0.0:
+		_prowl_turn = _rng.randf_range(prowl_turn_every.x, prowl_turn_every.y)
+		if _rng.randf() < 0.5:
+			_prowl_side = -_prowl_side
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() < 0.0001:
+		return false
+	var ahead := to.normalized()
+	if _prowl_home == Vector3.ZERO:
+		_prowl_home = -ahead
+	# kept within `prowl_arc` of where it came at him: going further out, back
+	var around := rad_to_deg(_prowl_home.signed_angle_to(-ahead, Vector3.UP))
+	if absf(around) > prowl_arc and absf(around) > absf(_prowl_was):
+		_prowl_side = -_prowl_side
+		_prowl_turn = _rng.randf_range(prowl_turn_every.x, prowl_turn_every.y)
+	_prowl_was = around
+	_face(ahead, delta, turn_speed)
+	var side := ahead.cross(Vector3.UP) * _prowl_side
+	# round him, and in or out to its reach
+	var radial := clampf((gap - keep) * 1.5, -1.0, 1.0)
+	var want := (side + ahead * radial).normalized() * prowl_speed * clampf(visual_scale / 1.6, 0.6, 1.6)
+	velocity.x = move_toward(velocity.x, want.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, want.z, acceleration * delta)
+	return true
 
 
 ## Host: the leaps from afar, if he is at their gap and they are due.
@@ -501,6 +554,10 @@ func _begin_attack() -> void:
 ## A string begun with `what`.
 func _open(what: int) -> void:
 	_string_count = 0
+	if _quarry != null:
+		_prowl_home = Vector3(global_position.x - _quarry.global_position.x, 0.0,
+				global_position.z - _quarry.global_position.z).normalized()
+	_prowl_was = 0.0
 	_pounded = false
 	# One combo on him for the whole string: its blows count together, so a
 	# heavy one after a light one fells him ([Player.receive_blow]).

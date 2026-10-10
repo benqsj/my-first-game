@@ -3389,9 +3389,13 @@ const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch"]
 ## that makes him reel and for one that fells him. A string's lighter blows
 ## hold neither: its quick run on from blow to blow is the point of it.
 @export var reel_stop: Vector2 = Vector2(0.09, 0.06)
+## A lighter blow that gets through holds the one who struck this long (s):
+## [with more of its string to come, the last]; him not at all, only shaken
+## (`struck_shake.z`), so his own moves are not held up.
+@export var flinch_stop: Vector2 = Vector2(0.04, 0.055)
 @export var fell_stop: Vector2 = Vector2(0.12, 0.08)
 ## Shaken where he is held (m along the blow, [HitShake]): a reel, a fall.
-@export var struck_shake: Vector2 = Vector2(0.04, 0.055)
+@export var struck_shake: Vector3 = Vector3(0.04, 0.055, 0.022)
 ## His own view knocked along the blow and shaken ([ImpactFx.knock]):
 ## [knock, shake, seconds] for a lighter blow (times its heft), a reel and a
 ## fall; and the thud as he meets the ground.
@@ -3717,6 +3721,9 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		net_react.rpc(Reaction.KNOCKDOWN, at, spray * _fall_spray_length())
 		return
 	_shove(away, flinch_shove, shove_mid_string if blow < blows - 1 else 1.0)
+	# the weapon stopped on him a breath, where it met him (the user's word,
+	# 2026-10-10: it went through him), a string's blow the least
+	_stop_striker(combo, flinch_stop.x if blow < blows - 1 else flinch_stop.y)
 	_free_swing = false
 	_commit(0.2 + _heft(damage) * blow_stagger)
 	# how hard it was rides on the spray's length (1 the lightest, 2 the
@@ -3837,6 +3844,8 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 				HitShake.shake(rig, blow, struck_shake.x, reel_stop.y + HitFeel.SHAKE_AFTER)
 			var k := 1.0 if big else clampf(blow.length() - 1.0, 0.0, 1.0)
 			_view_struck(blow, view_reel if big else view_flinch * k)
+			if not big and rig != null:
+				HitShake.shake(rig, blow, struck_shake.z * (0.6 + 0.4 * k), flinch_stop.y + HitFeel.SHAKE_AFTER)
 			_rig_says(&"hurt")
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
