@@ -43,6 +43,13 @@ const ENTRIES: Array[Array] = [
 ## How far in front of the hero a creature is called up, and a boss.
 const AHEAD := 7.0
 const AHEAD_BOSS := 13.0
+## The combo practice (2026-10-10): the big ones with combos made by hand.
+const DRILL_KINDS: Array[Array] = [
+	["Ogre", "res://scenes/enemies/pack/ogre.tscn"],
+	["Troll", "res://scenes/enemies/pack/troll.tscn"],
+	["Golem", "res://scenes/enemies/pack/golem.tscn"],
+	["Orc", "res://scenes/enemies/pack/orc.tscn"],
+]
 
 var _root: Control
 var _look_label: Label
@@ -52,6 +59,14 @@ var _frozen: bool = false
 ## hero loses no health here. Both on by default: this is a place to look.
 var _wait_for_blow: bool = true
 var _unhurt: bool = true
+## The combo practice: which of `DRILL_KINDS`, which combo, the one called up
+## for it (none: not practising), and the labels showing them.
+var _drill_kind: int = 0
+var _drill_combo: int = 0
+var _drill_body: Node3D = null
+var _drill_kind_label: Label
+var _drill_combo_label: Label
+var _drill_enraged: bool = false
 
 
 func _ready() -> void:
@@ -99,6 +114,32 @@ func _ready() -> void:
 	rules.add_child(_toggle("Wait for my blow", _wait_for_blow, func(on: bool) -> void: _wait_for_blow = on))
 	rules.add_child(_toggle("Can't be hurt", _unhurt, func(on: bool) -> void: _unhurt = on))
 	column.add_child(rules)
+
+	# The combo practice: one of the big ones does one of its combos over and
+	# over, to learn its timing (when to roll).
+	column.add_child(MenuStyle.label("Combo practice", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
+	var kind_row := HBoxContainer.new()
+	kind_row.add_child(_small("<", func() -> void: _step_drill_kind(-1)))
+	_drill_kind_label = MenuStyle.label("", MenuStyle.BODY_SIZE - 2, MenuStyle.CREAM)
+	_drill_kind_label.custom_minimum_size = Vector2(150.0, 0.0)
+	_drill_kind_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kind_row.add_child(_drill_kind_label)
+	kind_row.add_child(_small(">", func() -> void: _step_drill_kind(1)))
+	column.add_child(kind_row)
+	var combo_row := HBoxContainer.new()
+	combo_row.add_child(_small("<", func() -> void: _step_drill_combo(-1)))
+	_drill_combo_label = MenuStyle.label("", MenuStyle.BODY_SIZE - 2, MenuStyle.CREAM)
+	_drill_combo_label.custom_minimum_size = Vector2(150.0, 0.0)
+	_drill_combo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	combo_row.add_child(_drill_combo_label)
+	combo_row.add_child(_small(">", func() -> void: _step_drill_combo(1)))
+	column.add_child(combo_row)
+	var drill_row := HBoxContainer.new()
+	drill_row.add_child(_small("Practise", start_drill))
+	drill_row.add_child(_small("Stop", stop_drill))
+	drill_row.add_child(_toggle("Enraged", false, _set_drill_enraged))
+	column.add_child(drill_row)
+	_refresh_drill()
 	_root.visible = false
 	_refresh_look.call_deferred()
 	_populate.call_deferred()
@@ -270,6 +311,83 @@ func _hold(body: Node, still: bool) -> void:
 	# and not still going the way it was (a shot at it leads by its velocity)
 	if still and body is CharacterBody3D:
 		(body as CharacterBody3D).velocity = Vector3.ZERO
+
+
+## The combos of the kind picked, by name (from the one called up; the
+## ogre's are its class's).
+func _drill_names() -> Array:
+	var out: Array = []
+	if _drill_body != null and is_instance_valid(_drill_body):
+		var list: Variant = OgreFighter.COMBOS if _drill_body is OgreFighter else _drill_body.get(&"_hand_combos")
+		if list is Array:
+			for c: Dictionary in list:
+				out.append(String(c["name"]).replace("_", " "))
+	elif _drill_kind == 0:
+		for c: Dictionary in OgreFighter.COMBOS:
+			out.append(String(c["name"]).replace("_", " "))
+	return out
+
+
+func _refresh_drill() -> void:
+	if _drill_kind_label == null:
+		return
+	_drill_kind_label.text = String(DRILL_KINDS[_drill_kind][0])
+	var names := _drill_names()
+	if names.is_empty():
+		_drill_combo_label.text = "combo %d" % (_drill_combo + 1)
+	else:
+		_drill_combo = posmod(_drill_combo, names.size())
+		_drill_combo_label.text = "%d. %s" % [_drill_combo + 1, names[_drill_combo]]
+
+
+func _step_drill_kind(by: int) -> void:
+	_drill_kind = posmod(_drill_kind + by, DRILL_KINDS.size())
+	_drill_combo = 0
+	if _drill_body != null and is_instance_valid(_drill_body):
+		start_drill()
+	_refresh_drill()
+
+
+func _step_drill_combo(by: int) -> void:
+	var names := _drill_names()
+	_drill_combo = posmod(_drill_combo + by, maxi(names.size(), 1))
+	_apply_drill()
+	_refresh_drill()
+
+
+## The practice begun (again): the floor cleared, the kind called up in front
+## of him, fighting at once, set to its combo.
+func start_drill() -> void:
+	_clear()
+	var was := _wait_for_blow
+	_wait_for_blow = false
+	_drill_body = call_up(String(DRILL_KINDS[_drill_kind][1]), false, null)
+	_wait_for_blow = was
+	if _drill_body == null:
+		return
+	# no kneeling in the middle of it: the timing is the point here
+	_drill_body.set(&"stance", 0.0)
+	_apply_drill()
+	_refresh_drill()
+
+
+func _set_drill_enraged(on: bool) -> void:
+	_drill_enraged = on
+	_apply_drill()
+
+
+func stop_drill() -> void:
+	if _drill_body != null and is_instance_valid(_drill_body):
+		_drill_body.queue_free()
+	_drill_body = null
+	_refresh_drill()
+
+
+func _apply_drill() -> void:
+	if _drill_body == null or not is_instance_valid(_drill_body):
+		return
+	_drill_body.set(&"drill_combo", _drill_combo)
+	_drill_body.set(&"raging", _drill_enraged)
 
 
 func _step_look(by: int) -> void:

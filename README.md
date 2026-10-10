@@ -10078,3 +10078,51 @@ blow fells is his to pick (the idea: a combo's last).
 - `tests/ogre_combo_test.gd`: each combo in order, every blow landing, down
   only by its felling blow; a string is no combo. `ogre_test`'s string part
   turns the combos off.
+
+### Combos round 2: reading him, hugging, the glint, rage, the critical, the others, practice (2026-10-10 evening, the user's word: "do all of it")
+
+- **A perfect dodge no longer covers him after the roll.** The user: after a
+  perfect dodge a combo's next blow went through him. The shadow
+  (`ShadowTrail`) stretched `Player._safe_until` by 1.2 s; now it is only its
+  look (and the stamina back). Only the roll itself is safe.
+- **Reading him** (`COMBOS` "branch"): `three_read` (wide, backhand, then: he
+  rolled under the backhand → the overhead held for the end of his roll; he
+  backed off → the held leap; else the overhead) and `five_read` (the run of
+  three, then: backed off → the whirl sliding at him, rolled → the held
+  overhead, else the whirl). `OgreFighter._read_him`, `branch_far` 1.5 m.
+- **Hugging it** (`close` combos, `close_combo_chance` 0.6 instead of the
+  kick): `headbutt` (head limb, beats a shield aside) → overhead; `stamp`
+  (`CR_OG_Stomp`: its foot down bursts the ground round it, an aftershock, a
+  stagger) → whirl; `shove` (`CR_OG_Mutant_Swipe`, the free left hand, "guard")
+  → the two-handed club. At a raised shield from its reach, `shield_break`
+  (swipe, wide, overhead); "guard" combos are 4x likelier at a shield, half
+  otherwise.
+- **The glint** (`OgreFighter._watch_hold`/`_glint`, every peer from the act
+  clock): the moment any swing stops at the top of its wind-up, a white-gold
+  flash and sparks off the club's end and a low growl.
+- **Enraged**: `rage` tails (three +whirl-slide, delayed_leap +ground blow,
+  feint +held leap, five_spin_slide +great leap; the tail's end fells, the old
+  close only staggers) and two rage-only combos, `fury` (club two-handed,
+  whirl-slide, ground blow) and `storm` (wide, backhand, wide, backhand, held
+  overhead).
+- **The critical** (`Player._try_riposte`, Elden Ring's): one of the big ones
+  down on its knee (`PackBrute.crit_open()`), he within `crit_reach` 3.2 m (at
+  the ogre's size) in front of it (80 deg): the attack is the critical — put
+  before it (`crit_spot`), the whole jump attack (`SkinnedRig.riposte`, the
+  `plunge` clip from its start, `crit_time` 1.25 s), the blade in at 62 %:
+  a cut's worth x `crit_power` 1.5, a critical, on top of the stance's own x3
+  (`net_riposte_hit`, host). Nothing lands on him through it. Behind it: a
+  plain cut. `tests/riposte_test.gd` (tariel, warrior, rogue).
+- **The troll, the golem and the orc** get combos made by hand too
+  (`PackBrute._hand_combos`, `_hand_move`, `start_hand_combo`, `_hand_next`;
+  opened `hand_combo_chance` 0.4/0.55 in front, off cooldown; the felling move
+  a fresh chain). Troll: right, left, uppercut / hook, headbutt / free-hand
+  swipe, great leap (+uppercut enraged). Golem (slow, 0.8x): right, hook, both
+  fists down into the ground / swipe, right, uppercut (+hammer). Orc (its sword
+  on the great axe swings): wide, backhand, overhead / two quick, whirl
+  (+overhead). `tests/brute_combo_test.gd`.
+- **Combo practice** on the test arena's board (F1): pick the ogre, troll,
+  golem or orc and one of its combos, "Practise": it does nothing but that one
+  combo, over and over, coming in to it each time (`drill_combo`; the ogre
+  prowls through its breath); "Enraged" puts the rage tails on. No kneeling
+  there. `tests/combo_drill_test.gd`.
