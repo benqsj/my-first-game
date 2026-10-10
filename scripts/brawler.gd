@@ -506,8 +506,17 @@ func _run_act(delta: float) -> void:
 	if _anim.current_clip() != clip:
 		return
 	var want := _clip_time(act, _act_time)
+	# Played at the rate the act clock moves it: held still through a swing
+	# held at the top, slowed through a slow wind-up. (Played at the move's
+	# own rate there, the clip ran ahead and was pulled back each tick: the
+	# ogre shook at the top of a held swing.)
+	_anim.set_speed(maxf((_clip_time(act, _act_time + RATE_PROBE) - want) / RATE_PROBE, 0.0))
 	if absf(_anim.clip_position() - want) > 0.015 and want < _anim.clip_length(clip):
 		_anim.seek(want)
+
+
+## How far ahead the act clock is looked at for the clip's rate (s).
+const RATE_PROBE := 0.004
 
 
 func _after(what: int) -> void:
