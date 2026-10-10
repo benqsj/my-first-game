@@ -240,7 +240,9 @@ func _physics_process(delta: float) -> void:
 			net_clear.rpc()
 		return
 
-	_act_time += delta
+	# held in a bite ([HitFeel]): the move's clock stops with its clip, or the
+	# blow lands on the clock while the clip still stands
+	_act_time += delta * HitFeel.pace(self)
 	_cooldown = maxf(_cooldown - delta, 0.0)
 	_regen_wait = maxf(_regen_wait - delta, 0.0)
 	if act != Act.BLOCK and act != Act.BREAK and _regen_wait <= 0.0:

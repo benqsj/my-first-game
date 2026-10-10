@@ -957,6 +957,7 @@ func _physics_process(delta: float) -> void:
 		_process_downed(delta)
 		return
 
+	_take_back_push()
 	_read_actions()
 
 	if state == State.DASHING or state == State.DODGING:
@@ -966,6 +967,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_process_locomotion(delta)
 
+	_carry_push(delta)
 	_slide_off_steep_ground(delta)
 	velocity.y = maxf(velocity.y, -max_fall_speed)
 	_impact_speed = maxf(-velocity.y, 0.0)
@@ -3380,6 +3382,28 @@ var review_face: String = ""
 const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch"]
 ## How long the big reel holds him (seconds).
 @export var big_stagger_time: float = 0.95
+## The blow felt landing (hit stop, [HitFeel]): how long the one who struck
+## and he himself are held still (s, [the striker, him]), for a heavy blow
+## that makes him reel and for one that fells him. A string's lighter blows
+## hold neither: its quick run on from blow to blow is the point of it.
+@export var reel_stop: Vector2 = Vector2(0.11, 0.07)
+@export var fell_stop: Vector2 = Vector2(0.14, 0.09)
+## The blow's shove carrying him back over the ground on his feet, dying away
+## by `shove_friction` (m/s²): its start (m/s) for a reel and for a lighter
+## blow, `shove_force_gain` more per unit of the weapon's force
+## ([method _swept]), `shove_most` at most. A blow with more of its string
+## still to come shoves him only `shove_mid_string` of it, so the next one
+## still reaches him.
+@export var reel_shove: float = 2.4
+@export var flinch_shove: float = 0.9
+@export var shove_force_gain: float = 1.2
+@export var shove_most: float = 3.5
+@export var shove_friction: float = 9.0
+@export var shove_mid_string: float = 0.35
+## The shove under way (flat, m/s), and what of it was laid on his velocity
+## last tick (taken back off before the controller works on his own pace).
+var _flinch_push := Vector3.ZERO
+var _push_applied := Vector3.ZERO
 ## A flinch's spray this long or longer is the big reel ([method _flinch]).
 const BIG_STAGGER_SPRAY := 3.5
 
@@ -3668,17 +3692,20 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		return
 	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
 		if _staggers_only(blows):
-			# heavy, but alone: he reels and stays on his feet
-			velocity += away * (2.0 + _heft(damage) * blow_shove)
+			# heavy, but alone: he reels and stays on his feet, shoved back
+			# over the ground; the two held a beat as it lands
+			_shove(away, reel_shove, 1.0)
+			_stop_striker(combo, reel_stop.x)
 			_free_swing = false
 			_commit(big_stagger_time)
 			net_react.rpc(Reaction.FLINCH, at, spray * BIG_STAGGER_SPRAY)
 			return
+		_stop_striker(combo, fell_stop.x)
 		_knock_down(away, damage, how)
 		# the fall's kind rides on the spray's length (10 + kind)
 		net_react.rpc(Reaction.KNOCKDOWN, at, spray * _fall_spray_length())
 		return
-	velocity += away * (2.0 + _heft(damage) * blow_shove)
+	_shove(away, flinch_shove, shove_mid_string if blow < blows - 1 else 1.0)
 	_free_swing = false
 	_commit(0.2 + _heft(damage) * blow_stagger)
 	# how hard it was rides on the spray's length (1 the lightest, 2 the
@@ -3700,6 +3727,64 @@ func _heft(damage: float) -> float:
 	return minf(damage, blow_heft_cap)
 
 
+## A blow that got through shoves him back over the ground on his feet
+## ([member reel_shove]): `base` m/s and more by the weapon's force, `share`
+## of it; it dies away in [method _carry_push]. A new blow's shove takes the
+## place of what is left of the last.
+func _shove(away: Vector3, base: float, share: float) -> void:
+	var way := Vector3(away.x, 0.0, away.z)
+	if way.length_squared() < 0.0001:
+		return
+	_flinch_push = way.normalized() * minf(base + shove_force_gain * _blow_force, shove_most) * share
+
+
+## The one who struck (the first part of a combo's key) held still a beat as
+## the blow lands on him ([HitFeel]); on the peer that drives this body, as
+## the shield's hold is.
+func _stop_striker(combo: String, seconds: float) -> void:
+	if not combo.begins_with("/"):
+		return
+	var striker := get_node_or_null(NodePath(combo.get_slice("#", 0))) as Node3D
+	if striker != null and striker != self:
+		HitFeel.hold(striker, seconds)
+
+
+## Whether he is held still in a blow's bite now (his own rig's hit stop).
+func _held_in_bite() -> bool:
+	return rig != null and rig.has_method(&"in_hitstop") and bool(rig.call(&"in_hitstop"))
+
+
+## The blow's shove carried on (every tick, on his feet): laid on his
+## velocity after the controller has had its say, so the stick does not eat
+## it, and dying away by `shove_friction`; held still with him in a bite.
+func _carry_push(delta: float) -> void:
+	if _flinch_push == Vector3.ZERO:
+		return
+	if state != State.GROUNDED and state != State.AIRBORNE:
+		_flinch_push = Vector3.ZERO
+		return
+	if _held_in_bite():
+		return
+	velocity.x += _flinch_push.x
+	velocity.z += _flinch_push.z
+	_push_applied = _flinch_push
+	_flinch_push = _flinch_push.move_toward(Vector3.ZERO,
+			shove_friction * delta * (1.0 if is_on_floor() else 0.3))
+
+
+## Last tick's shove taken back off his velocity — as much of it as is still
+## in it (a wall may have taken some) — so the controller works on his own.
+func _take_back_push() -> void:
+	if _push_applied == Vector3.ZERO:
+		return
+	if state == State.GROUNDED or state == State.AIRBORNE:
+		var dir := _push_applied.normalized()
+		var flat := Vector3(velocity.x, 0.0, velocity.z)
+		var along := clampf(flat.dot(dir), 0.0, _push_applied.length())
+		velocity -= dir * along
+	_push_applied = Vector3.ZERO
+
+
 func _forget_combos_from(combo: String) -> void:
 	var attacker := combo.get_slice("#", 0)
 	for key: String in _combo_landed.keys():
@@ -3717,6 +3802,9 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.FLINCH:
 			_interrupt_skill()
 			_flinch(blow)
+			# the big reel: held a beat as the blow lands ([member reel_stop])
+			if blow.length() >= BIG_STAGGER_SPRAY - 0.1 and rig != null and rig.has_method(&"hitstop"):
+				rig.call(&"hitstop", reel_stop.y)
 			_rig_says(&"hurt")
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
@@ -3729,6 +3817,9 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			if rig != null:
 				if rig.has_method(&"fall"):
 					var lies := float(rig.call(&"fall", kind, force, number))
+					# held a beat as the felling blow lands ([member fell_stop])
+					if rig.has_method(&"hitstop"):
+						rig.call(&"hitstop", fell_stop.y)
 					if rig.has_method(&"jolt"):
 						rig.call(&"jolt", Vector3(blow.x, 0.0, blow.z), force)
 					if lies > 0.0 and is_multiplayer_authority() and state == State.DOWNED and not _down_flying:
@@ -4192,6 +4283,8 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	_down_flying = _down_kind == SkinnedRig.Fall.FLY and rig != null and rig.has_method(&"fall") \
 			and bool(rig.call(&"falls_directional"))
 	state = State.DOWNED
+	_flinch_push = Vector3.ZERO
+	_push_applied = Vector3.ZERO
 	_down_timer = down_time + 0.8
 	_getting_up = false
 	_down_for = 0.0
@@ -4225,6 +4318,10 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 
 
 func _process_downed(delta: float) -> void:
+	# held still a beat as the felling blow lands ([member fell_stop]): the
+	# throw waits for it, nothing dies away
+	if _held_in_bite():
+		return
 	_down_for += delta
 	if _rise_left > 0.0:
 		# set over to where the get-up begins, a share each frame ([method rise])

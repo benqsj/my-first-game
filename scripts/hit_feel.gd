@@ -26,6 +26,16 @@ const FLASH_TIME := 0.1
 const MAX_MESHES := 48
 
 static var _shader: Shader
+## Holds counted on the game's own clock (physics frames) instead of the real
+## one: for films and tests that step the game slower than real time.
+static var frame_clock: bool = false
+
+
+## Now, in milliseconds, on the clock holds are counted on.
+static func now_ms() -> int:
+	if frame_clock:
+		return int(Engine.get_physics_frames() * 1000.0 / float(Engine.physics_ticks_per_second))
+	return Time.get_ticks_msec()
 
 
 ## Both halves of the bite on `victim`: held, and lit. A big one (its
@@ -55,7 +65,7 @@ static func hold(victim: Node3D, seconds: float) -> void:
 	var tree := victim.get_tree()
 	if tree == null:
 		return
-	var until := Time.get_ticks_msec() + int(seconds * 1000.0)
+	var until := now_ms() + int(seconds * 1000.0)
 	var was := int(victim.get_meta(&"bite_until")) if victim.has_meta(&"bite_until") else 0
 	victim.set_meta(&"bite_until", maxi(was, until))
 	for node in victim.find_children("*", "AnimationPlayer", true, false):
@@ -76,7 +86,7 @@ static func hold(victim: Node3D, seconds: float) -> void:
 static func pace(creature: Node) -> float:
 	if creature == null or not creature.has_meta(&"bite_until"):
 		return 1.0
-	if Time.get_ticks_msec() < int(creature.get_meta(&"bite_until")):
+	if now_ms() < int(creature.get_meta(&"bite_until")):
 		return HELD_RATE
 	creature.remove_meta(&"bite_until")
 	return 1.0
@@ -91,7 +101,7 @@ static func hold_share(creature: Node) -> float:
 ## Whether `creature` is held in a bite now.
 static func is_held(creature: Node) -> bool:
 	return creature != null and creature.has_meta(&"bite_until") \
-			and Time.get_ticks_msec() < int(creature.get_meta(&"bite_until"))
+			and now_ms() < int(creature.get_meta(&"bite_until"))
 
 const HELD_RATE := 0.04
 
@@ -99,7 +109,7 @@ const HELD_RATE := 0.04
 static func _let_go(player: AnimationPlayer) -> void:
 	if not is_instance_valid(player) or not player.has_meta(&"bite_until"):
 		return
-	if Time.get_ticks_msec() + 2 < int(player.get_meta(&"bite_until")):
+	if now_ms() + 2 < int(player.get_meta(&"bite_until")):
 		return
 	player.callback_mode_process = int(player.get_meta(&"bite_mode")) as AnimationMixer.AnimationCallbackModeProcess
 	player.remove_meta(&"bite_until")

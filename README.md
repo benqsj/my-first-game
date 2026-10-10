@@ -9945,3 +9945,41 @@ thing: from Poti to Batumi I get there far too fast."
   heaps and dead trees. The bonfire and the spawn are on the west street just
   inside the gate.
 - Fog thinner (0.00035) for the bigger land.
+
+
+## The blow felt landing, and the ogre's held swing steady (2026-10-10, the user's word)
+
+Plan: the project doc `claude/hit_feel_plan.md` (stages 1 and 2).
+
+**The ogre shook at the top of a held swing.** A brawler's clip is kept where
+the move's clock says it is ([Brawler] `_run_act`): drawn frames step the clip
+at the move's own rate, and each physics tick pulled it back if it had run
+more than 15 ms ahead. Through a swing held at the top (`PackBrute._holds`) the
+clock stands still, so the clip ran ahead every drawn frame and was pulled
+back every tick: on a 120 Hz screen it jumped back and forth every other
+frame. The clip is now played at the rate the act clock moves it
+(`RATE_PROBE` ahead): still through a hold, slowed through a slow wind-up.
+
+**Hit stop when a blow lands on a hero** ([HitFeel], `Player.reel_stop`,
+`fell_stop`): a heavy blow that makes him reel holds the one who struck 0.11 s
+and him 0.07 s; one that fells him 0.14 s and 0.09 s (the fall, its shove and
+its timers wait for it). A string's lighter blows hold neither, so the
+string still runs on quickly (`OgreFighter.string_follow_after`). Every
+[Fighter]'s act clock now runs at `HitFeel.pace` too, so a held creature's
+blow waits with its clip rather than landing on the clock while the clip
+stands (that also makes a hero's bite on a pack creature a real pause).
+`HitFeel.frame_clock` counts holds in physics frames for films and tests.
+
+**The shove carries him over the ground** (`reel_shove`, `flinch_shove`,
+`shove_force_gain`, `shove_most`, `shove_friction`, `shove_mid_string`): a
+blow that gets through no longer adds a jolt to his velocity that the
+controller ate in a tick; it sets `_flinch_push`, laid on after the
+controller (`_carry_push`, taken back off next tick by `_take_back_push`)
+and dying away at 9 m/s². A reel: 2.4 m/s + 1.2 per unit of the weapon's
+force (~0.3-0.7 m). A lighter blow 0.9 m/s; with more of its string to come
+0.35 of that, so the next blow still reaches him. Held still through his own
+hit stop; dropped by a roll, a dash, a fall, a climb.
+
+Test: `tests/blow_landing_test.gd`. Films: `_shots_tmp/hf_film.gd -- <tag>`,
+`_shots_tmp/tremble_film.gd -- <tag>` (--fixed-fps 120), side by side with
+`_shots_tmp/hff/sbs.sh`.
