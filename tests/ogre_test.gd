@@ -151,6 +151,7 @@ func _strings() -> void:
 	var ogre := _ogre(a, _ahead(hero, 3.2))
 	# its strings alone (its hand-made combos: ogre_combo_test)
 	ogre.combo_chance = Vector2.ZERO
+	ogre.close_combo_chance = 0.0
 	var strings := await _watch(hero, ogre, 45.0)
 	var kinds := _kinds_in(strings)
 	var light := 0
@@ -180,6 +181,7 @@ func _raging() -> void:
 	var ogre := _ogre(a, _ahead(hero, 3.2))
 	# its strings alone (its hand-made combos: ogre_combo_test)
 	ogre.combo_chance = Vector2.ZERO
+	ogre.close_combo_chance = 0.0
 	await physics_frame
 	ogre.net_rage()
 	var strings := await _watch(hero, ogre, 40.0)
@@ -349,6 +351,7 @@ func _falls() -> void:
 	ogre.finisher_from = Vector2i(2, 2)
 	# the strings alone here (its hand-made combos: ogre_combo_test)
 	ogre.combo_chance = Vector2.ZERO
+	ogre.close_combo_chance = 0.0
 	var start := hero.global_position
 	var recent: Array = []
 	var downs: Array = []

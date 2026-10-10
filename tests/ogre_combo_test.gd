@@ -90,13 +90,15 @@ func _run() -> void:
 				down_at = _f
 			if ogre.act == Fighter.Act.NONE and _f > 60 and (down_at > 0 or acts.size() >= moves.size()):
 				break
+		# as it ran (a branch may have changed its close)
+		moves = ogre.last_combo_moves
 		var blows := 0
 		for m: int in moves:
 			blows += ogre._blow_moments(m).size()
 		var name := String(c["name"])
 		_check("%s: its moves in order" % name, acts.slice(0, moves.size()) == moves, "%s vs %s" % [acts, moves])
 		_check("%s: every blow found him" % name, _hits.size() >= blows, "%d of %d" % [_hits.size(), blows])
-		var last_fells := (c["fells"] as Array).has(moves.size() - 1)
+		var last_fells := (ogre._combo_fells_at as Array).has(moves.size() - 1) or (c["fells"] as Array).has(moves.size() - 1)
 		_check("%s: down only by its felling blow" % name,
 				down_at > 0 and (not last_fells or _hits.size() > 0 and down_at >= int(_hits[_hits.size() - 1]) - 2),
 				"down at %d, hits %s" % [down_at, _hits])
@@ -153,6 +155,53 @@ func _run() -> void:
 	_check("the whirl from afar slides at him through the turn", before < 0.6 and slid > 3.5,
 			"%.2f m before the turn, %.2f in all" % [before, slid])
 	_check("...and comes round on him", not _hits.is_empty(), "%s" % [_hits])
+	# reading him before a combo's close
+	await _arena()
+	var rd := await _ogre(OgreFighter.OG_HORIZ)
+	rd._saw_roll = true
+	var after_roll: int = rd._read_him(OgreFighter.COMBOS[7]["branch"][2], OgreFighter.OG_DOWN)
+	rd._saw_roll = false
+	var stood: int = rd._read_him(OgreFighter.COMBOS[7]["branch"][2], OgreFighter.OG_DOWN)
+	var away2 := rd.global_position - _hero.global_position
+	away2.y = 0.0
+	rd.global_position += away2.normalized() * 4.0
+	var backed: int = rd._read_him(OgreFighter.COMBOS[8]["branch"][1], OgreFighter.OG_SPIN)
+	_check("rolled under it: the overhead held for the end of his roll", after_roll == OgreFighter.OG_DOWN_HELD, str(after_roll))
+	_check("stood: its close as made", stood == OgreFighter.OG_DOWN, str(stood))
+	_check("backed off: the whirl slides at him", backed == OgreFighter.OG_SPIN_SLIDE, str(backed))
+	rd.queue_free()
+	# enraged, a combo runs on and its new close fells
+	await _arena()
+	var rg := await _ogre(OgreFighter.OG_HORIZ)
+	rg.raging = true
+	rg.start_combo(0)
+	_check("enraged, it runs longer", rg.last_combo_moves.size() == 4 and rg._combo_fells_at == [3],
+			"%s %s" % [rg.last_combo_moves, rg._combo_fells_at])
+	rg.queue_free()
+	# hugging it: one of its close combos
+	await _arena()
+	var hg := await _ogre(OgreFighter.OG_HEADBUTT)
+	var aw := hg.global_position - _hero.global_position
+	aw.y = 0.0
+	hg.global_position = _hero.global_position + aw.normalized() * 0.9
+	hg.close_combo_chance = 1.0
+	var took: bool = hg._try_combo(hg._distance_to(_hero))
+	var which := int(hg.combos_made[-1]) if not hg.combos_made.is_empty() else -1
+	_check("hugging it: a close combo", took and which >= 0 and bool(OgreFighter.COMBOS[which].get("close", false)),
+			"%s %d" % [took, which])
+	hg.queue_free()
+	# a held blow shows itself: the glint as it stops at the top
+	await _arena()
+	var gl := await _ogre(OgreFighter.OG_BACK)
+	gl.start_combo(3)
+	var glinted := false
+	for i in 60 * 6:
+		await physics_frame
+		if gl.act == OgreFighter.OG_DOWN_HELD and gl._glint_serial == gl.act_serial:
+			glinted = true
+			break
+	_check("a held blow glints as it stops", glinted, "")
+	gl.queue_free()
 	# a string still comes as it did
 	await _arena()
 	var o := await _ogre(OgreFighter.SWEEP)
