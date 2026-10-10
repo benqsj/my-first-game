@@ -381,8 +381,8 @@ var profile: CharacterProfile
 var state: State = State.AIRBORNE
 var is_invulnerable: bool = false
 ## Until when (in [method _now] seconds) no blow lands: the whole length of an
-## evade — even one cut short by running into a wall or a body — and, after a
-## perfect dodge with its shadow, as long as the shadow is shed.
+## evade — even one cut short by running into a wall or a body. (A perfect
+## dodge's shadow no longer stretches it, 2026-10-10.)
 var _safe_until: float = 0.0
 ## Health and stamina, taken from the profile on spawn. Everything that hurts or
 ## tires the body goes through [method _take_damage] and [method _spend].
@@ -3623,10 +3623,10 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		if evading and not _evade_was_perfect \
 				and _now() - _evade_started_at <= perfect_dodge_window:
 			_evade_was_perfect = true
-			# With the shadow (the assassin, Avtandil) nothing lands while it
-			# is being shed.
-			if profile != null and profile.shadow_dodge:
-				_safe_until = maxf(_safe_until, _now() + ShadowTrail.GUARD)
+			# The shadow (the assassin, Avtandil, Tariel) is only its look: it no
+			# longer covers him after the roll (the user's word, 2026-10-10: a
+			# combo's next blow went through him after a perfect dodge). Only
+			# the roll itself is safe, as in Elden Ring.
 			stamina = minf(stamina + (profile.roll_stamina if profile != null else 20.0), max_stamina)
 			_winded = false
 			net_react.rpc(Reaction.PERFECT_DODGE, global_position, Vector3.ZERO)

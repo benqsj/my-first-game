@@ -103,6 +103,32 @@ func _run() -> void:
 		_check("%s: counted" % name, ogre.combos_made == [i] and ogre.finishers_made == 1,
 				"%s %d" % [ogre.combos_made, ogre.finishers_made])
 		ogre.queue_free()
+	# a perfect roll under its first blow: the next one still lands (the
+	# user's word, 2026-10-10: after a perfect dodge the combo went through him)
+	await _arena()
+	var od := await _ogre(OgreFighter.OG_HORIZ)
+	var at0 := _hero.global_position
+	od.start_combo(0)
+	var first: float = od._blow_moments(OgreFighter.OG_HORIZ)[0]
+	var rolled := false
+	var perfect := [false]
+	_hero.perfect_dodged.connect(func() -> void: perfect[0] = true)
+	_f = 0
+	while _f < 60 * 6:
+		await physics_frame
+		_f += 1
+		if not rolled and od.act == OgreFighter.OG_HORIZ and od._act_time >= first - 0.1:
+			rolled = true
+			_hero.set("_dash_cooldown_timer", 0.0)
+			_hero.call(&"_start_evade", false)
+		if rolled and _hero.state != Player.State.DASHING and _hero.state != Player.State.DODGING \
+				and _hits.is_empty():
+			# back where it swings, after the roll
+			_hero.global_position = Vector3(at0.x, _hero.global_position.y, at0.z)
+		if od.act == OgreFighter.OG_DOWN or od.act == Fighter.Act.NONE and _f > 60:
+			break
+	_check("a perfect roll under the first blow", perfect[0], "")
+	_check("...and the next blow of the combo lands", not _hits.is_empty(), "%s" % [_hits])
 	# the drawn-out whirl from well off: it slides at him through the turn,
 	# not before it, and comes round on him as it gets there
 	await _arena()

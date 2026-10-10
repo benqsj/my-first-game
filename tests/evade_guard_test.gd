@@ -1,9 +1,9 @@
 extends SceneTree
 
 ## The evades' cover: no blow lands for the whole of a roll or a dodge — even
-## one cut short by running into a body or a wall — and, for the heroes who
-## shed a shadow on a perfect dodge (the assassin, Avtandil), none lands while
-## the shadow is being shed ([member Player._safe_until], [const ShadowTrail.GUARD]).
+## one cut short by running into a body or a wall; after it, blows land again,
+## even while a perfect dodge's shadow is being shed (2026-10-10: a combo's next
+## blow went through him) ([member Player._safe_until]).
 ##
 ##     godot --path . --headless --script res://tests/evade_guard_test.gd
 
@@ -71,13 +71,10 @@ func _check_perfect(who: String) -> void:
 	was = _player.health
 	_player.receive_blow(20.0, orc, 0, 3, 22)
 	await _wait(3)
-	var shadow := _player.profile != null and _player.profile.shadow_dodge
-	if shadow:
-		_check("%s: while the shadow is shed, nothing lands" % who, is_equal_approx(_player.health, was),
-				"%.0f -> %.0f" % [was, _player.health])
-	else:
-		_check("%s (no shadow): after the roll, blows land" % who, _player.health < was,
-				"%.0f -> %.0f" % [was, _player.health])
+	# with the shadow or without, only the roll is covered: a combo's next
+	# blow lands (the user's word, 2026-10-10)
+	_check("%s: after the roll, even while the shadow is shed, blows land" % who, _player.health < was,
+			"%.0f -> %.0f" % [was, _player.health])
 	orc.queue_free()
 	await _wait(int(ShadowTrail.GUARD * 60.0) + 10)
 

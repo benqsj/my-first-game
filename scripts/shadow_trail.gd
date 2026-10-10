@@ -15,8 +15,9 @@ extends Node3D
 
 ## How long it keeps shedding, how often, and how long each copy lasts.
 @export var shedding: float = 1.0
-## How long after a perfect dodge nothing lands on the body that sheds it
-## (read by [Player]): the shedding and the last copies fading.
+## The shedding and the last copies fading (s). It used to keep blows off the
+## body that sheds it; since 2026-10-10 only the roll itself does (a combo's
+## next blow lands).
 const GUARD := 1.2
 const EVERY := 0.07
 @export var every: float = EVERY
