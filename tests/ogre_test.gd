@@ -343,6 +343,8 @@ func _falls() -> void:
 	# often (it is 3 and 4 in the game).
 	ogre.string_most = 2
 	ogre.finisher_from = Vector2i(2, 2)
+	# the strings alone here (its hand-made combos: ogre_combo_test)
+	ogre.combo_chance = Vector2.ZERO
 	var start := hero.global_position
 	var recent: Array = []
 	var downs: Array = []

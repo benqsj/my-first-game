@@ -55,6 +55,13 @@ extends PackBrute
 ##   enough of them, heavy ones above all, put it down on a knee, open.
 ## * **Rage** ([PackBrute]): at half its health — and its strings run longer,
 ##   with the pound and the great blow in them.
+## * **Combos** (`COMBOS`, the user's word 2026-10-10: a new combo, Elden
+##   Ring's way): besides the strings weighed swing by swing, a few combos
+##   made by hand, always the same moves in the same order, so they can be
+##   learnt — Mixamo's great axe and great sword swings on its club. Their
+##   last blow (`fells` in each) throws him down by itself; the ones before
+##   only stagger. Some hold the closing blow at the top a beat (the delayed
+##   finisher). Opened now and then instead of a string (`combo_chance`).
 
 @export_group("Pound")
 @export var pound_clip: StringName = &"CR_GroundPound"
@@ -170,6 +177,11 @@ extends PackBrute
 @export var jump_slam_close: float = 0.55
 @export var jump_slam_most: float = 7.0
 
+@export_group("Combos")
+## How often it opens a combo of its own (`COMBOS`) rather than a string, he
+## in front and in reach of its first move: calm, enraged.
+@export var combo_chance: Vector2 = Vector2(0.4, 0.55)
+
 @export_group("Strings")
 ## The closing swing of a string this long or longer (calm, enraged) throws
 ## him down even if it is a light one — if every blow of the string before
@@ -207,6 +219,55 @@ const LUNGE := 140
 const LEAP_SLAM := 141
 const RUN_SLAM := 143
 const CATCH := 144
+## The combos' own moves (Mixamo's great axe and great sword, 2026-10-10).
+const OG_HORIZ := 150
+const OG_BACK := 151
+const OG_DOWN := 152
+const OG_SPIN := 153
+const OG_TWIN := 154
+const OG_DOUBLE := 155
+const OG_TRIPLE := 156
+const OG_JUMP := 157
+const OG_DOWN_HELD := 158
+const OG_JUMP_HELD := 159
+## ...and fresh from Mixamo (vepxis-art/mixamo_ogre): its two-handed club
+## combo, the one-handed one, the club down into the ground two-handed, and
+## a great leap down on him.
+const OG_CLUB2H := 160
+const OG_CLUB1H := 161
+const OG_GROUND := 162
+const OG_MJUMP := 163
+## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
+## moments (shares of the clip; empty: where the club reaches furthest),
+## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
+## the blow] or [] (always held, when given)].
+const COMBO_MOVES := {
+	OG_HORIZ: [&"CR_OG_Attack_Horizontal", Vector3(0.95, 0.1, 0.8), false, 0.6, [], &"og_horiz", []],
+	OG_BACK: [&"CR_OG_Attack_Backhand", Vector3(0.95, 0.08, 0.62), false, 0.6, [], &"og_back", []],
+	OG_DOWN: [&"CR_OG_Attack_Downward", Vector3(0.9, 0.05, 0.75), true, 1.1, [], &"og_down", []],
+	OG_SPIN: [&"CR_OG_Attack_360", Vector3(0.9, 0.0, 0.7), true, 1.2, [], &"og_spin", []],
+	OG_TWIN: [&"CR_OG_Combo_3", Vector3(0.95, 0.12, 0.9), false, 0.5, [0.372, 0.617], &"og_twin", []],
+	OG_DOUBLE: [&"CR_OG_Combo_1", Vector3(0.95, 0.1, 0.85), false, 0.5, [0.372, 0.639], &"og_double", []],
+	OG_TRIPLE: [&"CR_OG_Combo_2", Vector3(0.95, 0.08, 0.85), false, 0.45, [0.217, 0.406, 0.617], &"og_triple", []],
+	OG_JUMP: [&"CR_OG_Jump_Attack", Vector3(0.9, 0.05, 0.85), true, 1.25, [], &"og_jump", []],
+	OG_DOWN_HELD: [&"CR_OG_Attack_Downward", Vector3(0.9, 0.05, 0.75), true, 1.15, [], &"og_down", [0.7, 1.0, 0.22]],
+	OG_JUMP_HELD: [&"CR_OG_Jump_Attack", Vector3(0.9, 0.05, 0.85), true, 1.3, [], &"og_jump", [0.5, 0.75, 0.3]],
+	OG_CLUB2H: [&"CR_OG_Club_Combo2H", Vector3(1.0, 0.36, 0.85), false, 0.5, [0.517, 0.728], &"og_club", []],
+	OG_CLUB1H: [&"CR_OG_Club_Combo1H", Vector3(1.0, 0.22, 0.85), false, 0.45, [0.35, 0.594, 0.739], &"og_club", []],
+	OG_GROUND: [&"CR_OG_Zombie_Overhead", Vector3(0.95, 0.05, 0.6), true, 1.2, [], &"og_ground", []],
+	OG_MJUMP: [&"CR_OG_Mutant_Jump", Vector3(0.95, 0.02, 0.8), true, 1.35, [], &"og_mjump", []],
+}
+## Its combos made by hand: name, its moves in order, which of them throw
+## him down by themselves (by their place; the others only stagger), and how
+## often it picks it.
+const COMBOS := [
+	{"name": &"three", "moves": [OG_HORIZ, OG_BACK, OG_DOWN], "fells": [2], "weight": 1.0},
+	{"name": &"delayed_leap", "moves": [OG_TWIN, OG_JUMP_HELD], "fells": [1], "weight": 0.8},
+	{"name": &"five_spin", "moves": [OG_TRIPLE, OG_SPIN], "fells": [1], "weight": 0.7},
+	{"name": &"feint", "moves": [OG_BACK, OG_HORIZ, OG_DOWN_HELD], "fells": [2], "weight": 0.8},
+	{"name": &"club_ground", "moves": [OG_CLUB2H, OG_GROUND], "fells": [1], "weight": 0.8},
+	{"name": &"club_leap", "moves": [OG_CLUB1H, OG_MJUMP], "fells": [1], "weight": 0.6},
+]
 ## A leap's flight drawn out: act -> [clip s it leaves the ground, clip s it
 ## lands, how many times slower the flight is played], and how high the
 ## body is lifted on top of the clip's own jump (m at its size).
@@ -298,6 +359,13 @@ var moves_made: Array[int] = []
 var _closing: bool = false
 var _kind_blows: Dictionary = {}
 var finishers_made: int = 0
+## Host: the combo it is on (`COMBOS`, -1 none), the place in it, the one to
+## open with next ([method start_combo]), the last it made; counts.
+var _combo: int = -1
+var _combo_step: int = 0
+var _combo_pending: int = -1
+var _last_combo: int = -1
+var combos_made: Array[int] = []
 ## Host: the leaps' waits and speed, the run-up at him, whether he is running
 ## from it (and how long the gap has been opening), the gap a tick ago.
 var _leap_slam_wait: float = 4.0
@@ -343,6 +411,8 @@ func _ready() -> void:
 		_special_strike(what, "", float(sw[3]), int(sw[6]))
 		if bool(sw[2]):
 			_holds[what] = [0.3, 0.3, 0.75, 0.22]
+	for what: int in COMBO_MOVES:
+		_combo_move(what)
 	_holds.erase(CATCH)
 	_holds[HEAVY] = [0.35, 0.25, 0.6, 0.2]
 	# The roll-catch is always held, a roll's length.
@@ -368,6 +438,29 @@ func _ready() -> void:
 		for bone in foot_bones:
 			_ankles.append(_skeleton.find_bone(bone))
 	Sfx.warm([WHOOSH_HEAVY, WHOOSH_LIGHT, ROAR_SOUND, ROAR_SHORT_SOUND] + GRUNTS + CLUB_GROUND + STEPS)
+
+
+## One of the combos' moves: its clip, its blows (where the club reaches
+## furthest, or at the moments given), held at the top if it is so made.
+func _combo_move(what: int) -> void:
+	var c: Array = COMBO_MOVES[what]
+	_special(what, c[0], c[1])
+	var at: Array = c[4]
+	if at.is_empty():
+		_special_strike(what, "", float(c[3]), 99)
+	else:
+		var bones := strike_bones if not strike_bones.is_empty() else PackedStringArray([String(weapon_bone)])
+		var limbs: Array = []
+		for i in at.size():
+			limbs.append("weapon")
+		_strikes_table[what] = [bones, limbs, float(c[3]), 99, 0.5, PackedFloat32Array(at)]
+		if _anim != null:
+			var from := _gap_that_lands(what, _moves_table[what], float(at[0]))
+			if from > 0.0:
+				_strike_from[what] = from
+	var held: Array = c[6]
+	if not held.is_empty():
+		_holds[what] = [1.0, float(held[0]), float(held[1]), float(held[2])]
 
 
 ## Act seconds of a move when its club is lowest, in front.
@@ -447,6 +540,8 @@ func _own_move(delta: float) -> bool:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
 		_open(LUNGE)
+		return true
+	if _try_combo(gap):
 		return true
 	var pick := _pick_opener(gap)
 	if pick >= 0:
@@ -544,11 +639,42 @@ func _begin_attack() -> void:
 	if attacks.is_empty():
 		super()
 		return
+	if _try_combo(_distance_to(_quarry)):
+		return
 	var pick := _pick_opener(_distance_to(_quarry))
 	if pick >= 0:
 		_open(pick)
 	else:
 		super()
+
+
+## Host: now and then one of its combos instead of a string, if he is in
+## front and its first move lands from here.
+func _try_combo(gap: float) -> bool:
+	if _rng.randf() >= (combo_chance.y if raging else combo_chance.x):
+		return false
+	if _where_he_is() != &"front":
+		return false
+	var options: Array = []
+	for i in COMBOS.size():
+		var c: Dictionary = COMBOS[i]
+		if not _fits(int((c["moves"] as Array)[0]), gap):
+			continue
+		options.append([i, float(c["weight"]) * (0.2 if i == _last_combo else 1.0)])
+	var pick := _weighed(options)
+	if pick < 0:
+		return false
+	mode = Mode.FIGHT
+	start_combo(pick)
+	return true
+
+
+## Host: combo `which` of `COMBOS` begun now, turned to him.
+func start_combo(which: int) -> void:
+	if _quarry != null:
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_combo_pending = which
+	_open(int((COMBOS[which]["moves"] as Array)[0]))
 
 
 ## A string begun with `what`.
@@ -565,6 +691,12 @@ func _open(what: int) -> void:
 	_chain_blow = 0
 	_kind_blows.clear()
 	_closing = false
+	_combo = _combo_pending
+	_combo_pending = -1
+	_combo_step = 0
+	if _combo >= 0:
+		_last_combo = _combo
+		combos_made.append(_combo)
 	if SWINGS.has(what) and what != KICK and what != LUNGE:
 		_last_opener = what
 	if what == KICK:
@@ -589,7 +721,19 @@ func _begin_move(what: int, prev: int = -1) -> void:
 	_closing = _closes(what)
 	if what == CATCH:
 		catches_made += 1
-	if _closing and _finishes() and _strikes_table.has(what) and int((_strikes_table[what] as Array)[3]) > 1:
+	if _combo >= 0 and _combo_fells():
+		# A combo's felling blow: a fresh combo to him, its blows his last,
+		# so it throws him down by itself (Elden Ring's finisher).
+		finishers_made += 1
+		_chain_serial = 2000000 + act_serial + 1
+		_chain_blow = 0
+		var keep: Array = _strikes_table[what]
+		var close := keep.duplicate()
+		close[3] = _blow_moments(what).size()
+		_strikes_table[what] = close
+		_begin(what)
+		_strikes_table[what] = keep
+	elif _closing and _finishes() and _strikes_table.has(what) and int((_strikes_table[what] as Array)[3]) > 1:
 		# The close of a long string: its last blow fells him, if every blow
 		# of its kind in the string found him (they count as one combo).
 		finishers_made += 1
@@ -614,7 +758,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 
 ## Its blows brought down on him from above: felled by one, he is crushed
 ## down where he stands ([method Player.receive_blow] asks).
-const OVERHEAD := [SMASH, JUMP_SLAM, LEAP_SLAM, CATCH]
+const OVERHEAD := [SMASH, JUMP_SLAM, LEAP_SLAM, CATCH, OG_DOWN, OG_DOWN_HELD, OG_JUMP, OG_JUMP_HELD, OG_GROUND, OG_MJUMP]
 
 
 func blow_from_above() -> bool:
@@ -640,6 +784,8 @@ func blow_held() -> bool:
 
 ## The blow it is dealing now, by name (&"" none): [member BLOW_NAMES].
 func blow_name() -> StringName:
+	if COMBO_MOVES.has(act):
+		return COMBO_MOVES[act][5]
 	return BLOW_NAMES.get(act, &"")
 
 
@@ -727,6 +873,11 @@ func _weighed_ahead(what: int) -> bool:
 	return SWINGS.has(what) and what != KICK and what != LUNGE
 
 
+## Whether the combo's move now is one of its felling blows.
+func _combo_fells() -> bool:
+	return _combo >= 0 and (COMBOS[_combo]["fells"] as Array).has(_combo_step)
+
+
 ## Whether the string closing on `what` now is long enough to fell him.
 func _finishes() -> bool:
 	return _string_count >= (finisher_from.y if raging else finisher_from.x)
@@ -734,6 +885,8 @@ func _finishes() -> bool:
 
 
 func _closes(what: int) -> bool:
+	if _combo >= 0:
+		return _combo_step >= (COMBOS[_combo]["moves"] as Array).size() - 1
 	if not _weighed_ahead(what):
 		return false
 	var most := string_most_raging if raging else string_most
@@ -762,6 +915,15 @@ func _follow(what: int) -> Dictionary:
 ## What the string runs on into after `what`, or -1: weighed, never the same
 ## swing twice running, only one that lands from where he is now.
 func _next_in_string(what: int) -> int:
+	if _combo >= 0:
+		# a combo: its next move, whatever (only him down, or out of breath,
+		# break it off)
+		var moves: Array = COMBOS[_combo]["moves"]
+		if _quarry == null or _quarry_down() or _combo_step + 1 >= moves.size() \
+				or stamina < attack_cost * 0.25:
+			return -1
+		_combo_step += 1
+		return int(moves[_combo_step])
 	if _quarry == null or _quarry_down() or not FOLLOW.has(what):
 		return -1
 	if _string_count >= (string_most_raging if raging else string_most):
@@ -1070,7 +1232,7 @@ func _move_length(what: int) -> float:
 	# a swing the string goes on from: on into the next soon after its last
 	# blow, its own recovery cut (the user's word, 2026-10-10: the pauses
 	# in its strings were so long he could not tell it was a string)
-	if what == act and SWINGS.has(what) and not _closing and _string_count > 0:
+	if what == act and (SWINGS.has(what) or COMBO_MOVES.has(what)) and not _closing and _string_count > 0:
 		var ms := _blow_moments(what)
 		if not ms.is_empty():
 			length = minf(length, ms[ms.size() - 1] + string_follow_after)
@@ -1142,6 +1304,8 @@ func _watch_blows(t0: float) -> void:
 func _shakes_after(what: int) -> bool:
 	if FLIGHTS.has(what) or what == HEAVY or what == JUMP_SLAM:
 		return true
+	if COMBO_MOVES.has(what):
+		return bool(COMBO_MOVES[what][2]) and _closing
 	return SWINGS.has(what) and bool(SWINGS[what][2]) and _closing
 
 
@@ -1217,7 +1381,7 @@ func _after(what: int) -> void:
 			_lunge_wait = _rng.randf_range(lunge_cooldown.x, lunge_cooldown.y)
 		LEAP_SLAM:
 			_leap_slam_wait = _rng.randf_range(leap_slam_cooldown.x, leap_slam_cooldown.y) * (0.7 if raging else 1.0)
-	var stringed := SWINGS.has(what) or what == POUND or what == HEAVY or FLIGHTS.has(what)
+	var stringed := SWINGS.has(what) or COMBO_MOVES.has(what) or what == POUND or what == HEAVY or FLIGHTS.has(what)
 	var next := -1
 	if stringed and not is_dead and _decides():
 		next = _next_in_string(what)
@@ -1236,6 +1400,7 @@ func _after(what: int) -> void:
 	_chain_serial = -1
 	_chain_blow = 0
 	_closing = false
+	_combo = -1
 #endregion
 
 
@@ -1311,6 +1476,8 @@ func _play_locomotion(delta: float) -> void:
 
 
 func _is_heavy(what: int) -> bool:
+	if COMBO_MOVES.has(what):
+		return bool(COMBO_MOVES[what][2])
 	return what == HEAVY or what == STOMP or (SWINGS.has(what) and bool(SWINGS[what][2]))
 
 

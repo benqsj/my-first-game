@@ -10042,3 +10042,32 @@ time between its strings, and its club went on through him at every blow.
   his sword up over his head, so his right stays rocked back, as before.)
 
 Films: `ogre_timeline.gd -- <tag> [back] [film]`, `dir_film.gd -- <tag>`.
+
+### The ogre's combos made by hand (2026-10-10, the user's word)
+
+The user: a new combo for the ogre, Elden Ring's way, from the clips we have
+and new ones off Mixamo; several to choose from, the old strings kept; which
+blow fells is his to pick (the idea: a combo's last).
+
+- `OgreFighter.COMBOS`: always the same moves in the same order, so they can be
+  learnt. **three** (wide swing, backhand, overhead), **delayed_leap** (two quick
+  swings, a leap held 0.5-0.75 s at the top), **five_spin** (a run of three, a
+  360 whirl), **feint** (backhand, wide, overhead held 0.7-1 s), **club_ground**
+  (two of the two-handed club combo, both hands down into the ground),
+  **club_leap** (three of the one-handed club combo, a great leap down on him).
+- Their moves (`COMBO_MOVES`, acts 150-163) are Mixamo's: the great axe and
+  great sword packs already in `vepxis-art/mixamo_orc`, `mixamo_warrior`, and
+  eight new in `vepxis-art/mixamo_ogre`, baked onto the pack's skeleton as
+  `CR_OG_*` (`tools/creature_clips.gd`, 141 clips). A move of several blows
+  takes them at moments given by hand (shares of its clip).
+- `fells` in each: its moves (by place) that throw him down by themselves —
+  a fresh combo to him ([member ClipFighter._chain_serial]), so the earlier
+  blows need not all have landed. The rest stagger. Their falls:
+  `Player.BLOW_FALLS` og_down / og_ground (as the smash), og_jump / og_mjump
+  (as the jump slam), og_spin (as the whirl).
+- Opened instead of a string `combo_chance` of the time (0.4, enraged 0.55), he
+  in front and in reach of its first move; the same combo again a fifth as
+  likely. The strings weighed swing by swing are as they were.
+- `tests/ogre_combo_test.gd`: each combo in order, every blow landing, down
+  only by its felling blow; a string is no combo. `ogre_test`'s string part
+  turns the combos off.

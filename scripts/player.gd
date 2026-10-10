@@ -3471,6 +3471,13 @@ const BLOW_FALLS := {
 	&"run_slam": {"any": [[10, "keep"]]},
 	&"sweep": {"any": [[5, ""]], "back": [[22, ""]]},
 	&"chop": {"any": [[20, ""]]},
+	# the ogre's combos' felling blows (2026-10-10): its overhead as the
+	# smash's, its leap as the jump slam's, its spin as the whirl's
+	&"og_down": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
+	&"og_jump": {"any": [[10, "keep"]]},
+	&"og_spin": {"any": [[5, ""]], "back": [[22, ""]]},
+	&"og_ground": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
+	&"og_mjump": {"any": [[10, "keep"]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
