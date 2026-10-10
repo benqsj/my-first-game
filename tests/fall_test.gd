@@ -46,7 +46,7 @@ func _run() -> void:
 	_foe = Node3D.new()
 	# a striker that names its blow, as the ogre does (OgreFighter.blow_name)
 	var naming := GDScript.new()
-	naming.source_code = "extends Node3D\nvar named: StringName = &\"\"\nfunc blow_name() -> StringName:\n\treturn named\n"
+	naming.source_code = "extends Node3D\nvar named: StringName = &\"\"\nvar held := false\nfunc blow_name() -> StringName:\n\treturn named\nfunc blow_held() -> bool:\n\treturn held\n"
 	naming.reload()
 	_foe.set_script(naming)
 	world.add_child(_foe)
@@ -103,6 +103,11 @@ func _run() -> void:
 	var reel_r := await _reeled(Vector3(2, 0, 0), 40.0, &"cleave")
 	_check("...from his right the mirrored one", String(reel_r["clip"]) == "TR_Big_Side_Hit_M"
 			and not reel_r["downed"], str(reel_r))
+	_foe.set(&"held", true)
+	var held := await _reeled(Vector3(0, 0, -2), 40.0, &"smash")
+	_foe.set(&"held", false)
+	_check("...but held at the top, then brought down, it fells him", held["downed"], str(held))
+	await _wait(260)
 	var slam_alone := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"jump_slam")
 	_check("its jump slam alone still fells him", slam_alone["number"] == 10, str(slam_alone))
 	var smash := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"smash", true)

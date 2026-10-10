@@ -3375,7 +3375,9 @@ var review_face: String = ""
 ## fall: a string's close still fells him, and so does the pound's club
 ## itself on him (the user's word, 2026-10-10: he fell to almost every
 ## string). The slams, the great blow and the leaps fell as ever.
-const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch", &"pound"]
+## A held swing (it stops at the top, then strikes) and the pound's ring are
+## heavy ones: they fell (the user's word, 10-10 10:33).
+const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch"]
 ## How long the big reel holds him (seconds).
 @export var big_stagger_time: float = 0.95
 ## A flinch's spray this long or longer is the big reel ([method _flinch]).
@@ -3383,9 +3385,7 @@ const BIG_STAGGER_SPRAY := 3.5
 
 
 func _staggers_only(blows: int) -> bool:
-	if blows > 1 or not STAGGERS_ONLY.has(_blow_name):
-		return false
-	return not (_blow_name == &"pound" and _blow_weapon)
+	return blows <= 1 and STAGGERS_ONLY.has(_blow_name) and not _blow_held
 
 
 ## The blow that came last, by its name ([method receive_blow]).
@@ -3394,6 +3394,7 @@ var _blow_name: StringName = &""
 ## not the way its sweep leant: [method _blow_fall]).
 var _blow_source: Vector3 = Vector3.ZERO
 var _blow_weapon: bool = false
+var _blow_held: bool = false
 ## The fall picked for the blow that felled him ([constant BLOW_FALLS]): its
 ## number ([constant SkinnedRig.REVIEW], 0 none) and how he is turned for it.
 var _down_number: int = 0
@@ -3483,6 +3484,9 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 	# the weapon itself met him (not only the blow's shock): "@w"
 	if not named.is_empty() and WeaponSweep.motion_on(self).length() >= 0.5:
 		named = StringName(String(named) + "@w")
+	# held at the top of its wind-up, then brought down: "@h"
+	if not named.is_empty() and from.has_method(&"blow_held") and bool(from.call(&"blow_held")):
+		named = StringName(String(named) + "@h")
 	net_blow.rpc_id(get_multiplayer_authority(), damage, _swept(away.normalized()), from.global_position,
 			key, blow, blows, magic, named)
 
@@ -3539,8 +3543,10 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
 	var how := _blow_kind(combo)
-	_blow_weapon = String(named).ends_with("@w")
-	_blow_name = StringName(String(named).trim_suffix("@w"))
+	_blow_held = String(named).ends_with("@h")
+	var bare := String(named).trim_suffix("@h")
+	_blow_weapon = bare.ends_with("@w")
+	_blow_name = StringName(bare.trim_suffix("@w"))
 	_blow_source = source
 	# the weapon's force and pitch ride on `away` ([method _swept])
 	_blow_pitch = clampf(away.y, -1.0, 1.0)
