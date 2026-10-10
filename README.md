@@ -10068,6 +10068,13 @@ blow fells is his to pick (the idea: a combo's last).
 - Opened instead of a string `combo_chance` of the time (0.4, enraged 0.55), he
   in front and in reach of its first move; the same combo again a fifth as
   likely. The strings weighed swing by swing are as they were.
+- **five_spin_slide** (the user's word, 19:29: combo 3 again, its closing whirl
+  slowed, and him far off it slides at him as it turns): `OG_SPIN_SLIDE` is the
+  360 at 0.85x, and from where it turns away (13 % of the clip) to the club
+  round on him (33 %) drawn out 1.6x as a [constant FLIGHTS] span with no lift:
+  the slide (`_flight_speed`, ≤ `spin_slide_most` 9 m) runs exactly over the
+  turn, so it arrives as the club comes round, never slid up and then turned.
+  Turned after him till 85 % of it; running does not beat it, a roll does.
 - `tests/ogre_combo_test.gd`: each combo in order, every blow landing, down
   only by its felling blow; a string is no combo. `ogre_test`'s string part
   turns the combos off.

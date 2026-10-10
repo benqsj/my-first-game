@@ -149,6 +149,8 @@ func _strings() -> void:
 	var a: Array = await _arena()
 	var hero: Player = a[2]
 	var ogre := _ogre(a, _ahead(hero, 3.2))
+	# its strings alone (its hand-made combos: ogre_combo_test)
+	ogre.combo_chance = Vector2.ZERO
 	var strings := await _watch(hero, ogre, 45.0)
 	var kinds := _kinds_in(strings)
 	var light := 0
@@ -176,6 +178,8 @@ func _raging() -> void:
 	var a: Array = await _arena()
 	var hero: Player = a[2]
 	var ogre := _ogre(a, _ahead(hero, 3.2))
+	# its strings alone (its hand-made combos: ogre_combo_test)
+	ogre.combo_chance = Vector2.ZERO
 	await physics_frame
 	ogre.net_rage()
 	var strings := await _watch(hero, ogre, 40.0)

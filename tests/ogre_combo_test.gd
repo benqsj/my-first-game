@@ -103,6 +103,30 @@ func _run() -> void:
 		_check("%s: counted" % name, ogre.combos_made == [i] and ogre.finishers_made == 1,
 				"%s %d" % [ogre.combos_made, ogre.finishers_made])
 		ogre.queue_free()
+	# the drawn-out whirl from well off: it slides at him through the turn,
+	# not before it, and comes round on him as it gets there
+	await _arena()
+	var sp := await _ogre(OgreFighter.OG_SPIN_SLIDE)
+	var away := sp.global_position - _hero.global_position
+	away.y = 0.0
+	sp.global_position += away.normalized() * 5.0
+	var him := _hero.global_position
+	var from := sp.global_position
+	sp._open(OgreFighter.OG_SPIN_SLIDE)
+	var span: Vector2 = sp._flight_span(OgreFighter.OG_SPIN_SLIDE)
+	var before := -1.0
+	_f = 0
+	while _f < 60 * 4 and sp.act == OgreFighter.OG_SPIN_SLIDE:
+		await physics_frame
+		_f += 1
+		if _hits.is_empty():
+			_hero.global_position = Vector3(him.x, _hero.global_position.y, him.z)
+		if before < 0.0 and sp._act_time >= span.x:
+			before = Vector2(sp.global_position.x - from.x, sp.global_position.z - from.z).length()
+	var slid := Vector2(sp.global_position.x - from.x, sp.global_position.z - from.z).length()
+	_check("the whirl from afar slides at him through the turn", before < 0.6 and slid > 3.5,
+			"%.2f m before the turn, %.2f in all" % [before, slid])
+	_check("...and comes round on him", not _hits.is_empty(), "%s" % [_hits])
 	# a string still comes as it did
 	await _arena()
 	var o := await _ogre(OgreFighter.SWEEP)

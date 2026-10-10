@@ -176,6 +176,9 @@ extends PackBrute
 @export var chase_flight_commit: float = 0.85
 @export var jump_slam_close: float = 0.55
 @export var jump_slam_most: float = 7.0
+## The drawn-out whirl ([constant OG_SPIN_SLIDE]) slides no further than this
+## (m at its size).
+@export var spin_slide_most: float = 9.0
 
 @export_group("Combos")
 ## How often it opens a combo of its own (`COMBOS`) rather than a string, he
@@ -237,6 +240,11 @@ const OG_CLUB2H := 160
 const OG_CLUB1H := 161
 const OG_GROUND := 162
 const OG_MJUMP := 163
+## The whirl closing the run of three, drawn out (the user's word, 10-10
+## 19:29): slower, and him off out of its reach it slides at him through the
+## turn, so it comes round on him as it gets to him, not slid up and then
+## turned ([constant FLIGHTS], no lift).
+const OG_SPIN_SLIDE := 164
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -256,6 +264,7 @@ const COMBO_MOVES := {
 	OG_CLUB1H: [&"CR_OG_Club_Combo1H", Vector3(1.0, 0.22, 0.85), false, 0.45, [0.35, 0.594, 0.739], &"og_club", []],
 	OG_GROUND: [&"CR_OG_Zombie_Overhead", Vector3(0.95, 0.05, 0.6), true, 1.2, [], &"og_ground", []],
 	OG_MJUMP: [&"CR_OG_Mutant_Jump", Vector3(0.95, 0.02, 0.8), true, 1.35, [], &"og_mjump", []],
+	OG_SPIN_SLIDE: [&"CR_OG_Attack_360", Vector3(0.85, 0.0, 0.7), true, 1.25, [], &"og_spin", []],
 }
 ## Its combos made by hand: name, its moves in order, which of them throw
 ## him down by themselves (by their place; the others only stagger), and how
@@ -267,6 +276,7 @@ const COMBOS := [
 	{"name": &"feint", "moves": [OG_BACK, OG_HORIZ, OG_DOWN_HELD], "fells": [2], "weight": 0.8},
 	{"name": &"club_ground", "moves": [OG_CLUB2H, OG_GROUND], "fells": [1], "weight": 0.8},
 	{"name": &"club_leap", "moves": [OG_CLUB1H, OG_MJUMP], "fells": [1], "weight": 0.6},
+	{"name": &"five_spin_slide", "moves": [OG_TRIPLE, OG_SPIN_SLIDE], "fells": [1], "weight": 0.7},
 ]
 ## A leap's flight drawn out: act -> [clip s it leaves the ground, clip s it
 ## lands, how many times slower the flight is played], and how high the
@@ -274,6 +284,8 @@ const COMBOS := [
 const FLIGHTS := {
 	LEAP_SLAM: [0.05, 0.45, 1.4, 1.0],
 	RUN_SLAM: [0.87, 1.62, 1.05, 0.55],
+	# from where it turns away (13 % of the clip) to the club round on him (33 %)
+	OG_SPIN_SLIDE: [0.41, 1.05, 1.6, 0.0],
 }
 
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, how often
@@ -747,7 +759,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		_begin(what)
 	if FLIGHTS.has(what) and _quarry != null:
 		var span := _flight_span(what)
-		_flight_speed = _close_speed_for(what, span.y, span.x)
+		_flight_speed = _flight_capped(what, _close_speed_for(what, span.y, span.x))
 	if what == LUNGE and _quarry != null:
 		var until := _blow_moments(LUNGE)[0]
 		var m: Array = _moves_table[LUNGE]
@@ -1033,9 +1045,17 @@ func _track_before_blow(delta: float) -> void:
 		_lunge_speed = _close_speed_for(LUNGE, _blow_moments(LUNGE)[0], 0.0)
 	elif FLIGHTS.has(act):
 		var span := _flight_span(act)
-		_flight_speed = _close_speed_for(act, span.y, span.x, true)
+		_flight_speed = _flight_capped(act, _close_speed_for(act, span.y, span.x, true))
 	elif act == JUMP_SLAM:
 		_jump_closing()
+
+
+## The drawn-out whirl's slide kept within `spin_slide_most`; a leap's not.
+func _flight_capped(what: int, speed: float) -> float:
+	if what != OG_SPIN_SLIDE:
+		return speed
+	var span := _flight_span(what)
+	return minf(speed, spin_slide_most * visual_scale / 1.6 / maxf(span.y - span.x, 0.15))
 
 
 ## The moves running does not beat ([member chase_lead_most]): the leaps, the
@@ -1302,7 +1322,7 @@ func _watch_blows(t0: float) -> void:
 ## the great blow always, a heavy swing when it closes its string alone or
 ## last (combos stay as they were).
 func _shakes_after(what: int) -> bool:
-	if FLIGHTS.has(what) or what == HEAVY or what == JUMP_SLAM:
+	if (FLIGHTS.has(what) and float((FLIGHTS[what] as Array)[3]) > 0.0) or what == HEAVY or what == JUMP_SLAM:
 		return true
 	if COMBO_MOVES.has(what):
 		return bool(COMBO_MOVES[what][2]) and _closing
