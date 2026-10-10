@@ -330,6 +330,16 @@ var _draw_zoom_now: float = 0.0
 ## **perfectly**: the body leaves a shadow trail for a second
 ## ([ShadowTrail]) and the roll's stamina comes back.
 @export var perfect_dodge_window: float = 0.3
+## The critical (the user's pick, 2026-10-10, Elden Ring's): one of the big
+## ones down on its knee within `crit_reach` m (at the ogre's size) in front
+## of it, the attack is the critical — he is put before it and leaps, driving
+## the blade down into it (the whole jump attack, `crit_time` s; the blade in
+## at `crit_hit_at` of it), worth `crit_power` of a cut on top of its own
+## `stance_crit`. Nothing lands on him through it.
+@export var crit_reach: float = 3.2
+@export var crit_time: float = 1.25
+@export var crit_hit_at: float = 0.62
+@export var crit_power: float = 1.5
 ## Until there are potions and a fire to rest at, health comes back slowly on
 ## its own once nothing has hurt him for `mend_after` seconds.
 @export var mend_after: float = 10.0
@@ -403,6 +413,13 @@ var _guard_raised_at: float = -100.0
 ## When the current roll started, and whether it has already been perfect.
 var _evade_started_at: float = -100.0
 var _evade_was_perfect: bool = false
+## The critical under way: on whom, how long it has left, whether the blade
+## has gone in, and where he was put to deal it.
+var _crit_on: Node3D = null
+var _crit_left: float = 0.0
+var _crit_struck: bool = false
+var _crit_from := Vector3.ZERO
+var crits_dealt: int = 0
 var _hud: PlayerHud
 var _inventory: Inventory
 ## Which shield is carried ([enum Inventory.Shields]). Only the round one
@@ -955,6 +972,12 @@ func _physics_process(delta: float) -> void:
 	# out of it.
 	if state == State.DOWNED:
 		_process_downed(delta)
+		return
+
+	# The critical is played out by hand too: put before it, the leap, the
+	# blade in.
+	if _crit_left > 0.0:
+		_process_riposte(delta)
 		return
 
 	_take_back_push()
@@ -3051,6 +3074,8 @@ func _aim_pitch() -> float:
 ## A press during a swing is remembered rather than eaten, so a flurry is one
 ## press per cut at the player's own rhythm instead of a timing test.
 func _attack(heavy: bool = false) -> void:
+	if not is_committed() and state == State.GROUNDED and _try_riposte():
+		return
 	if is_committed():
 		if heavy:
 			_heavy_buffer = attack_buffer_time
@@ -3503,6 +3528,94 @@ var _down_for: float = 0.0
 ## How many blows of each creature's current combo have landed clean, by
 ## attacker and combo. A combo only knocks him down if every blow of it did.
 var _combo_landed: Dictionary = {}
+
+## The big one down on its knee in reach and in front of it, if any.
+func _riposte_target() -> Node3D:
+	if has_bow() or weapons_stowed():
+		return null
+	for node in get_tree().get_nodes_in_group(&"enemy"):
+		var b := node as PackBrute
+		if b == null or not b.crit_open():
+			continue
+		var to := global_position - b.global_position
+		to.y = 0.0
+		if to.length() > crit_reach * b.visual_scale / 1.6:
+			continue
+		if to.length_squared() > 0.01 and b._forward().angle_to(to.normalized()) > deg_to_rad(80.0):
+			continue
+		return b
+	return null
+
+
+## The attack, on a big one down on its knee before him: the critical.
+func _try_riposte() -> bool:
+	var b := _riposte_target()
+	if b == null or rig == null or not rig.has_method(&"riposte"):
+		return false
+	_crit_on = b
+	_crit_left = crit_time
+	_crit_struck = false
+	_crit_from = global_position
+	is_invulnerable = true
+	_attack_buffer = 0.0
+	_heavy_buffer = 0.0
+	_commit(crit_time)
+	velocity = Vector3.ZERO
+	net_riposte.rpc(crit_time)
+	return true
+
+
+@rpc("authority", "call_local", "reliable")
+func net_riposte(seconds: float) -> void:
+	if rig != null and rig.has_method(&"riposte"):
+		rig.call(&"riposte", seconds)
+
+
+## Through the critical: carried before it and turned to it over the first
+## fifth, held there; the blade in at `crit_hit_at`.
+func _process_riposte(delta: float) -> void:
+	_crit_left -= delta
+	var b := _crit_on as PackBrute
+	velocity = Vector3.ZERO
+	if b != null and is_instance_valid(b):
+		var spot: Vector3 = b.crit_spot()
+		var u := clampf((crit_time - _crit_left) / (crit_time * 0.2), 0.0, 1.0)
+		var at := _crit_from.lerp(spot, u * u * (3.0 - 2.0 * u))
+		global_position = Vector3(at.x, global_position.y, at.z)
+		var to := b.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-18.0 * delta))
+		if not _crit_struck and crit_time - _crit_left >= crit_time * crit_hit_at:
+			_crit_struck = true
+			crits_dealt += 1
+			if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+				net_riposte_hit.rpc_id(1, b.get_path())
+			else:
+				net_riposte_hit(b.get_path())
+			if camera != null and camera.current:
+				ImpactFx.knock(camera, (b.global_position - global_position).normalized(), 0.12, 0.14, 0.45)
+	if _crit_left <= 0.0:
+		_crit_left = 0.0
+		_crit_on = null
+		is_invulnerable = false
+
+
+## Host: the critical's blade in — a cut's worth times `crit_power`, a critical
+## (its own `stance_crit` on top, [PackBrute]).
+@rpc("any_peer", "call_local", "reliable")
+func net_riposte_hit(path: NodePath) -> void:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		return
+	var b := get_node_or_null(path) as PackBrute
+	if b == null or b.is_dead:
+		return
+	var worth := cut_worth(b)
+	var at := b.global_position + Vector3.UP * 1.1 * b.visual_scale / 1.6
+	var hit := HitInfo.make(float(worth[0]) * crit_power, at, (b.global_position - global_position).normalized(),
+			true, true, self)
+	b.hurtbox().take(hit)
+
 
 ## A creature landed a blow. Called on the host, which is the only peer whose
 ## creatures think; applied on the peer that drives this body, because that is

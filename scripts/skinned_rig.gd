@@ -2185,6 +2185,18 @@ func plunge(seconds: float) -> void:
 	_plunge_slam()
 
 
+## The critical on a creature down on its knee (the user's pick, 2026-10-10,
+## Elden Ring's): the whole jump attack — up, and the blade driven down into it
+## — over `seconds`. Its blow is the hero's to deal ([method Player._riposte]),
+## not the blade's sweep.
+func riposte(seconds: float) -> bool:
+	var clip: StringName = clips.get(&"plunge", &"")
+	if clip.is_empty() or not _anim.has_animation(clip):
+		return false
+	var length := _anim.get_animation(clip).length
+	return _play_action(clip, Role.FREE, length / maxf(seconds, 0.2), 0.06, 0.0, 1.0)
+
+
 ## A jump attack whose blade goes into the ground (the moves' `jump_attack`
 ## `slam`, the knight's): it shakes the ground there as the charge's does.
 func _plunge_slam() -> void:
