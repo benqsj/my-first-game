@@ -158,5 +158,40 @@ func _run() -> void:
 	var reel: float = (_hero.get(&"_flinch_push") as Vector3).length()
 	_check("a string's blow shoves far less than a reel", mid > 0.0 and mid < reel * 0.3, "%.2f vs %.2f m/s" % [mid, reel])
 
+	# -- a heavy blow from in front: the side's reel with the rock back laid
+	# over it ([HitBlend]); from the side, the reel alone
+	var rig := _hero.rig as SkinnedRig
+	var ahead2 := -_hero.global_basis.z
+	ahead2.y = 0.0
+	for i in 60:
+		await physics_frame
+	rig.big_hit(-ahead2.normalized(), SkinnedRig.From.FRONT)
+	var front_mix: float = float(rig.last_blend.get("weight", 0.0))
+	for i in 80:
+		await physics_frame
+	var side_way := ahead2.normalized().cross(Vector3.UP)
+	rig.big_hit(side_way, SkinnedRig.From.LEFT)
+	var side_mix: float = float(rig.last_blend.get("weight", 0.0))
+	_check("a heavy blow from in front mixes in the rock back, from the side not",
+			front_mix > 0.4 and side_mix < 0.05, "front %.2f, side %.2f" % [front_mix, side_mix])
+
+	# -- the ogre left to itself does not stand about between its strings
+	await _arena()
+	var fwd := -_hero.global_basis.z
+	fwd.y = 0.0
+	var spot := _hero.global_position
+	ogre = _panel.call_up(OGRE, false, spot + fwd.normalized() * 6.0) as OgreFighter
+	ogre.max_health = 99999.0
+	ogre.health = 99999.0
+	var standing := 0
+	for i in 60 * 20:
+		await physics_frame
+		_hero.global_position = Vector3(spot.x, _hero.global_position.y, spot.z)
+		if i > 120 and ogre.act == Fighter.Act.NONE \
+				and Vector3(ogre.velocity.x, 0.0, ogre.velocity.z).length() < 0.25:
+			standing += 1
+	_check("the ogre does not stand about between its strings", standing < 60 * 2,
+			"%.1f s of 18 stood still" % (standing / 60.0))
+
 	print("All checks passed." if _failures == 0 else "%d check(s) FAILED." % _failures)
 	quit(1 if _failures > 0 else 0)

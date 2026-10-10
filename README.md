@@ -10011,3 +10011,34 @@ hitching. So:
   `SkinnedRig.struck_ground` there.
 * **The ogre's held swing creeps** on at 7 % of its pace at the top
   (`PackBrute.HOLD_CREEP`) instead of standing dead still.
+
+
+### The ogre does not stand about, its club stops on him, reactions between sides (2026-10-10, round 3)
+
+The user: the ogre should land its blows so they are seen, with no pauses where
+none are wanted; and the reactions blended by where the blow came from.
+
+Measured first (`_shots_tmp/ogre_timeline.gd`, its own mind, 40 s, Tariel
+standing in its reach): it stood dead still 14.8 s of the 40, 1.0-3.2 s at a
+time between its strings, and its club went on through him at every blow.
+
+* **Shorter recovery** after a string (`OgreFighter.recover` 0.5-1.1 s, was
+  1.0-1.9; raging 0.25-0.6) and **not stood still through it**: it prowls
+  round him (`prowl_speed` 0.8 m/s, sideways on its strafe clips, facing him,
+  kept to its reach), now and then the other way (`prowl_turn_every`), never
+  more than `prowl_arc` 30° round from where it last came at him (it does not
+  end up behind him, on the camera's side). Over him while he is down too. 40 s
+  measured again: 0.1 s standing.
+* **The club stops on him** at every blow that gets through
+  (`Player.flinch_stop`: 0.04 s for a blow with more of its string to come,
+  0.055 for the last), and he is shaken a little (`struck_shake.z`).
+* **Between sides** ([HitBlend], a SkeletonModifier3D first on the skeleton):
+  a second hit clip laid over the one playing at the same share of its length,
+  by how far round the blow came. A big reel from in front: the side's
+  reel (now picked by which side of his front the blow leant to) with the
+  heavy rock back (`KV_CombatDamage02`) over it, half at dead front, none from
+  the side. A light blow between his left and his front: the head knocked
+  round and the rock back mixed. (A mirrored head blow for his right threw
+  his sword up over his head, so his right stays rocked back, as before.)
+
+Films: `ogre_timeline.gd -- <tag> [back] [film]`, `dir_film.gd -- <tag>`.

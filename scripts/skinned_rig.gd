@@ -1037,6 +1037,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	_airborne_now = airborne
 	_blocking_now = blocking
 	_hold_stop(delta)
+	_tick_blend()
 	_tick_drag(delta)
 	_sheath_tick(delta)
 	_plunge_left = maxf(_plunge_left - delta, 0.0)
@@ -2423,13 +2424,84 @@ func flinch_from(away: Vector3, from: int, heft: float) -> void:
 		return
 	if _role == Role.SWING or _role == Role.DOWN:
 		return
+	# a light one between two sides: the nearer side's clip, the other's
+	# laid over it by how far round the blow came ([HitBlend])
+	var other := &""
+	var mix := 0.0
+	if k < FLINCH_HEAVY and from != From.BACK:
+		var a := clampf(_blow_angle(away), -90.0, 90.0)
+		var lo := -90.0 if a < 0.0 else 0.0
+		var t := (a - lo) / 90.0
+		var near_side: StringName = _light_side(lo if t < 0.5 else lo + 90.0)
+		other = _light_side(lo + 90.0 if t < 0.5 else lo)
+		mix = minf(t, 1.0 - t)
+		if _anim.has_animation(near_side):
+			clip = near_side
 	# a light one quick and over; a heavy one played out, slower
 	_play_action(clip, Role.HIT, lerpf(1.45, 1.05, k), 0.05)
+	_blend_with(clip, other, mix)
 	# the shield arm where it was: the body reels, the shield stays before him
 	var arm := _mq.get("arm") as ArmHold
 	if arm != null and holds_shield():
 		arm.hold(_action_left)
 	last_flinch = {"from": from, "clip": clip, "heft": k}
+
+
+## The light flinch for a blow from `deg` (-90 his left, 0 in front, 90 his
+## right): from his left his head knocked round (`SS_Head_Impact` goes only
+## that way; mirrored, from his right, it threw his sword up over his head),
+## else rocked back.
+func _light_side(deg: float) -> StringName:
+	if deg < -45.0:
+		return HEAD_HIT
+	return &"KV_CombatDamage01"
+
+
+## Where a blow going `away` (world) came from, round him: 0 in front, 90
+## from his right, -90 his left, ±180 behind.
+func _blow_angle(away: Vector3) -> float:
+	var body := get_parent_node_3d()
+	while body != null and not body is CharacterBody3D:
+		body = body.get_parent_node_3d()
+	var b := body.global_basis if body != null else global_basis
+	var from := -Vector3(away.x, 0.0, away.z)
+	return rad_to_deg(atan2(from.dot(b.x), from.dot(-b.z)))
+
+
+## `other`'s pose laid over the hit clip `main` playing, `weight` of it (up
+## to 0.5), through the rest of `main` ([HitBlend]); none if `other` is not
+## there.
+func _blend_with(main: StringName, other: StringName, weight: float) -> void:
+	var blend := _mq.get("blend") as HitBlend if _on_mq else null
+	if blend == null:
+		return
+	if other == &"" or weight < 0.03 or not _anim.has_animation(other) or other == main:
+		blend.weight = 0.0
+		last_blend = {}
+		return
+	blend.clip = _anim.get_animation(other)
+	blend.weight = clampf(weight, 0.0, 0.5)
+	blend.share = 0.0
+	_blend_main = main
+	last_blend = {"main": main, "other": other, "weight": blend.weight}
+
+
+## Each frame: the laid-over clip kept at the main one's share, let go when
+## the hit clip is over.
+func _tick_blend() -> void:
+	var blend := _mq.get("blend") as HitBlend if _on_mq else null
+	if blend == null or blend.weight <= 0.0:
+		return
+	if _role == Role.HIT and _act_clip == _blend_main:
+		blend.share = _progress()
+	else:
+		blend.weight = 0.0
+
+
+## The hit clip the [HitBlend] is laid over, and the last blend, for a test.
+var _blend_main: StringName = &""
+var last_blend: Dictionary = {}
+const HEAD_HIT := "SS_Head_Impact"
 
 
 ## A heavy blow that does not fell him (the user's word, 2026-10-10): Mixamo's
@@ -2445,11 +2517,17 @@ func big_hit(away: Vector3, from: int) -> void:
 		lean.strike(away, LEAN_THROW.y)
 	if _role == Role.DOWN or _role == Role.GET_UP:
 		return
-	var clip := BIG_HIT + ("_M" if from == From.RIGHT else "")
+	# bent away from the side it came from (from in front, by which side of
+	# his front it leant to: the rock back is laid over it, [HitBlend])
+	var clip := BIG_HIT + ("_M" if _blow_angle(away) > 0.0 else "")
 	if not _anim.has_animation(clip):
 		flinch_from(away, from, 1.0)
 		return
 	_play_action(StringName(clip), Role.HIT, BIG_HIT_RATE, 0.06)
+	# from in front of him, the heavy rock back laid over the side's reel,
+	# the more the nearer in front it came ([HitBlend])
+	var front := clampf(1.0 - absf(_blow_angle(away)) / 90.0, 0.0, 1.0)
+	_blend_with(StringName(clip), &"KV_CombatDamage02", 0.5 * front)
 	var arm := _mq.get("arm") as ArmHold
 	if arm != null and holds_shield():
 		arm.hold(_action_left)
@@ -3155,6 +3233,10 @@ func _build_mannequin() -> bool:
 	player.add_animation_library(&"", lib)
 	var holder := player.get_node(player.root_node)
 	player.root_motion_track = NodePath(String(holder.get_path_to(skel)) + ":root")
+	# first: a second hit clip laid over the one playing ([HitBlend])
+	var blend := HitBlend.new()
+	blend.name = "HitBlend"
+	skel.add_child(blend)
 	var stride := StrideModifier.new()
 	stride.name = "Stride"
 	skel.add_child(stride)
@@ -3182,7 +3264,7 @@ func _build_mannequin() -> bool:
 	ground.name = "FootGround"
 	skel.add_child(ground)
 	_mq = {"node": node, "skel": skel, "anim": player, "stride": stride, "strike": strike, "lib": lib,
-			"own": own, "feet": feet, "lean": lean, "arm": arm}
+			"own": own, "feet": feet, "lean": lean, "arm": arm, "blend": blend}
 	_mannequin_built(skel)
 	return true
 
