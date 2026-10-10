@@ -3371,6 +3371,23 @@ func _heavy_blow() -> int:
 ## BLOW_FALLS]); 0 the game's own choice.
 var review_fall: int = 0
 var review_face: String = ""
+## Blows that, landing alone, only make him reel (TR_Big_Side_Hit), not
+## fall: a string's close still fells him, and so does the pound's club
+## itself on him (the user's word, 2026-10-10: he fell to almost every
+## string). The slams, the great blow and the leaps fell as ever.
+const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch", &"pound"]
+## How long the big reel holds him (seconds).
+@export var big_stagger_time: float = 0.95
+## A flinch's spray this long or longer is the big reel ([method _flinch]).
+const BIG_STAGGER_SPRAY := 3.5
+
+
+func _staggers_only(blows: int) -> bool:
+	if blows > 1 or not STAGGERS_ONLY.has(_blow_name):
+		return false
+	return not (_blow_name == &"pound" and _blow_weapon)
+
+
 ## The blow that came last, by its name ([method receive_blow]).
 var _blow_name: StringName = &""
 ## ...and where it was dealt from (the side it came from is the striker's,
@@ -3642,6 +3659,13 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
 		return
 	if blow >= blows - 1 and int(_combo_landed[combo]) >= blows:
+		if _staggers_only(blows):
+			# heavy, but alone: he reels and stays on his feet
+			velocity += away * (2.0 + _heft(damage) * blow_shove)
+			_free_swing = false
+			_commit(big_stagger_time)
+			net_react.rpc(Reaction.FLINCH, at, spray * BIG_STAGGER_SPRAY)
+			return
 		_knock_down(away, damage, how)
 		# the fall's kind rides on the spray's length (10 + kind)
 		net_react.rpc(Reaction.KNOCKDOWN, at, spray * _fall_spray_length())
@@ -3810,6 +3834,10 @@ func _flinch(blow: Vector3) -> void:
 		rig.flinch()
 		return
 	var away := Vector3(blow.x, 0.0, blow.z)
+	if blow.length() >= BIG_STAGGER_SPRAY - 0.1 and rig.has_method(&"big_hit"):
+		rig.call(&"big_hit", away.normalized() if away.length_squared() > 0.000001 else global_basis.z,
+				blow_side(away))
+		return
 	var heft := clampf(blow.length() - 1.0, 0.0, 1.0)
 	rig.call(&"flinch_from", away.normalized() if away.length_squared() > 0.000001 else global_basis.z,
 			blow_side(away), heft)

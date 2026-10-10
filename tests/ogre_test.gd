@@ -565,6 +565,8 @@ func _slide() -> void:
 		ogre.rotation.y = atan2(-to.x, -to.z)
 		await physics_frame
 		ogre._holds[OgreFighter.SMASH] = [1.0, 0.6, 0.6, 0.22]
+		if hero.rig is SkinnedRig:
+			(hero.rig as SkinnedRig).last_flinch = {}
 		ogre._open(OgreFighter.SMASH)
 		var sp := ogre._slide_span(OgreFighter.SMASH)
 		var near := hero.global_position
@@ -589,7 +591,11 @@ func _slide() -> void:
 					hero.global_position = Vector3(spot.x, hero.global_position.y, spot.z)
 			if how == "rolled":
 				hero.is_invulnerable = absf(ogre._act_time - blow) < 0.3
-			downed = downed or hero.state == Player.State.DOWNED
+			# felled, or (a heavy blow alone, the hero's side since 2026-10-10)
+			# reeling on his feet: either way it caught him
+			var hero_rig := hero.rig as SkinnedRig
+			var reeled := hero_rig != null and String(hero_rig.last_flinch.get("clip", "")).begins_with("TR_Big_Side_Hit")
+			downed = downed or hero.state == Player.State.DOWNED or reeled
 		hero.is_invulnerable = false
 		var slid := Vector2(ogre.global_position.x - from.x, ogre.global_position.z - from.z).length()
 		match how:
@@ -597,7 +603,7 @@ func _slide() -> void:
 				_check("held, him backed off: planted through its hold", drift < 0.12, "%.2f m" % drift)
 				_check("and it slides at him as it lets go", ogre.slides_made == 1 and slid > 2.5,
 						"slid %d, %.1f m" % [ogre.slides_made, slid])
-				_check("and its blow throws him down", downed, "ogre %.1f m from him" % ogre._distance_to(hero))
+				_check("and its blow throws him down (or, alone, reels him)", downed, "ogre %.1f m from him" % ogre._distance_to(hero))
 			"near":
 				_check("held, him shuffling in reach: no glide, no rocking", drift < 0.12, "%.2f m" % drift)
 				_check("and no slide, and it fells him", ogre.slides_made == 0 and downed,

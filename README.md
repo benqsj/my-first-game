@@ -2612,6 +2612,18 @@ longer used.
   back is thrown over along it (`SkinnedRig.jolt` → HitLean, `JOLT` 6–10).
   `FootFlat` now also works on the falls' `F_` copies of his own clips (the
   boots folded over lying and getting up, the user saw it).
+- **Heavy, but alone: he reels, not falls** (the user's word, 2026-10-10:
+  he fell to almost every string). `Player.STAGGERS_ONLY` — the ogre's
+  smash, cleave, whirl, roll-catch and the pound's shock — landing as a
+  lone blow (`blows` 1) play Mixamo's Big Side Hit
+  (`SkinnedRig.big_hit`, `TR_Big_Side_Hit`, mirrored `_M` at load for a
+  blow from his right; his back thrown over too) and hold him
+  `big_stagger_time` 0.95 s, on his feet; it rides to the peers as a
+  flinch whose spray is `BIG_STAGGER_SPRAY` long. A string's close still
+  fells him, so does the pound's club itself on him, and the slams, the
+  great blow and the leaps fell as ever. Any side swing caught in his back
+  (cleave, whirl, sweep, wide, low, backhand) falls with Avtandil's Death
+  Right 02 (22); the great blow from behind folds him forward as he stands.
   `TR_Shoulder_Hit_Fall` (13) is kept for being splashed with something
   (poison...), the arcade.
 - Down on his knee (a broken guard, a dodge spent out), a second blow throws

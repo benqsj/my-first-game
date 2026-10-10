@@ -96,16 +96,25 @@ func _run() -> void:
 			and not (crush.get("weighed", {}) as Dictionary).is_empty(), str(back.get("weighed")))
 
 	# the falls the user picked per blow (Player.BLOW_FALLS)
-	var smash := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"smash")
+	# a heavy blow alone only makes him reel (Big Side Hit), on his feet
+	var reel := await _reeled(Vector3(-2, 0, 0), 40.0, &"smash")
+	_check("the ogre's smash alone: he reels, not felled (Big Side Hit)", not reel["downed"]
+			and String(reel["clip"]).begins_with("TR_Big_Side_Hit"), str(reel))
+	var reel_r := await _reeled(Vector3(2, 0, 0), 40.0, &"cleave")
+	_check("...from his right the mirrored one", String(reel_r["clip"]) == "TR_Big_Side_Hit_M"
+			and not reel_r["downed"], str(reel_r))
+	var slam_alone := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"jump_slam")
+	_check("its jump slam alone still fells him", slam_alone["number"] == 10, str(slam_alone))
+	var smash := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"smash", true)
 	_check("the ogre's smash in front: onto his face, thrown the blow's way (10)", smash["number"] == 10
 			and smash["moved"].z > 0.3, str(smash))
 	var slam := await _fell(Vector3(0, 0, -2), 40.0, &"", Vector3.ZERO, false, &"leap_slam")
 	_check("its leap slam: onto his face the way he faces, not turned (10)", slam["number"] == 10
 			and slam["faced"] > 0.9 and slam["moved"].z < -0.3, str(slam))
-	var cleave_back := await _fell(Vector3(0, 0, 2), 40.0, &"", Vector3.ZERO, false, &"cleave")
+	var cleave_back := await _fell(Vector3(0, 0, 2), 40.0, &"", Vector3.ZERO, false, &"cleave", true)
 	_check("its cleave from behind: Death Right 02, the blow's way (22)", cleave_back["number"] == 22
 			and cleave_back["moved"].z < -0.3, str(cleave_back))
-	var smash_side := await _fell(Vector3(-2, 0, 0), 40.0, &"", Vector3.ZERO, false, &"smash")
+	var smash_side := await _fell(Vector3(-2, 0, 0), 40.0, &"", Vector3.ZERO, false, &"smash", true)
 	_check("its smash from a side: forward onto his stomach as he stands (27)",
 			smash_side["number"] == 27 and not smash_side["on_back"] and absf(smash_side["faced"]) < 0.2
 			and smash_side["moved"].z < -0.3, str(smash_side))
@@ -114,7 +123,7 @@ func _run() -> void:
 			and heavy["faced"] > 0.9 and heavy["moved"].z < 0.1, str(heavy))
 	var sweep := await _fell(Vector3(0, 0, -2), 12.0, &"", Vector3.ZERO, false, &"sweep")
 	_check("a string's close (sweep): thrown back flying (5)", sweep["number"] == 5, str(sweep))
-	var pound := await _fell(Vector3(0, 0, -2), 40.0, &"ground", Vector3.ZERO, false, &"pound")
+	var pound := await _fell(Vector3(0, 0, -2), 40.0, &"ground", Vector3.ZERO, false, &"pound", true)
 	_check("in the pound's ring: over backwards (14)", pound["number"] == 14 and pound["faced"] > 0.9
 			and pound["on_back"], str(pound))
 	var pounded := await _fell(Vector3(0, 0, -2), 40.0, &"ground", Vector3(0, -20, 4), false, &"pound")
@@ -163,8 +172,27 @@ func _run() -> void:
 	quit(1 if _failures > 0 else 0)
 
 
+## A blow named `named` landing alone: whether he went down, and the flinch.
+func _reeled(from: Vector3, damage: float, named: StringName) -> Dictionary:
+	_hero.global_position = Vector3(0, _hero.global_position.y, 0)
+	_hero.rotation.y = 0.0
+	_hero.velocity = Vector3.ZERO
+	await _wait(40)
+	_foe.global_position = _hero.global_position + from
+	_foe.set(&"named", named)
+	_serial += 1
+	if _hero.has_meta(&"blow_sweep"):
+		_hero.remove_meta(&"blow_sweep")
+	_hero.receive_blow(damage, _foe, 0, 1, _serial)
+	await _wait(10)
+	var rig := _hero.rig as SkinnedRig
+	var got := {"downed": _hero.state == Player.State.DOWNED, "clip": rig.last_flinch.get("clip", &"")}
+	await _wait(90)
+	return got
+
+
 func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 = Vector3.ZERO,
-		magic: bool = false, named: StringName = &"") -> Dictionary:
+		magic: bool = false, named: StringName = &"", closes: bool = false) -> Dictionary:
 	_hero.global_position = Vector3(0, _hero.global_position.y, 0)
 	_hero.rotation.y = 0.0
 	_hero.velocity = Vector3.ZERO
@@ -177,7 +205,17 @@ func _fell(from: Vector3, damage: float, how: StringName = &"", sweep: Vector3 =
 	elif _hero.has_meta(&"blow_sweep"):
 		_hero.remove_meta(&"blow_sweep")
 	_foe.set(&"named", named)
-	_hero.receive_blow(damage, _foe, 0, 1, _serial, magic, how)
+	if closes:
+		# the close of a string of two: the first lands, the second fells
+		_hero.receive_blow(damage * 0.3, _foe, 0, 2, _serial, magic, how)
+		await _wait(50)
+		_hero.global_position = Vector3(p0.x, _hero.global_position.y, p0.z)
+		_hero.rotation.y = 0.0
+		_hero.velocity = Vector3.ZERO
+		await physics_frame
+		if sweep != Vector3.ZERO:
+			_hero.set_meta(&"blow_sweep", [sweep, Engine.get_physics_frames()])
+	_hero.receive_blow(damage, _foe, 1 if closes else 0, 2 if closes else 1, _serial, magic, how)
 	var to_foe := _foe.global_position - _hero.global_position
 	to_foe.y = 0.0
 	var faced := (-_hero.global_basis.z).dot(to_foe.normalized())

@@ -269,8 +269,12 @@ func _ogre_pound() -> void:
 	var down := await _until(360, hero, start, func() -> bool:
 		if ogre.act == OgreFighter.POUND:
 			pounded[0] = true
-		return pounded[0] and hero.state == Player.State.DOWNED, ogre)
-	_check("the ogre's pound sends a shock out that fells him", down, "pounded %s" % pounded[0])
+		# felled, or (its shock alone, not the club: the hero's side since
+		# 2026-10-10) reeling on his feet
+		var hero_rig := hero.rig as SkinnedRig
+		var reeled := hero_rig != null and String(hero_rig.last_flinch.get("clip", "")).begins_with("TR_Big_Side_Hit")
+		return pounded[0] and (hero.state == Player.State.DOWNED or reeled), ogre)
+	_check("the ogre's pound sends a shock out that catches him (fells or reels him)", down, "pounded %s" % pounded[0])
 	await _done(world)
 
 

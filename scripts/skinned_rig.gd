@@ -2410,6 +2410,34 @@ func flinch_from(away: Vector3, from: int, heft: float) -> void:
 	last_flinch = {"from": from, "clip": clip, "heft": k}
 
 
+## A heavy blow that does not fell him (the user's word, 2026-10-10): Mixamo's
+## Big Side Hit, his body bent over away from it and back up, on his feet
+## (mirrored for a blow from his right); his back thrown over along it too.
+func big_hit(away: Vector3, from: int) -> void:
+	if not _on_mq:
+		flinch()
+		return
+	_rouse()
+	var lean := _mq.get("lean") as HitLean
+	if lean != null:
+		lean.strike(away, LEAN_THROW.y)
+	if _role == Role.DOWN or _role == Role.GET_UP:
+		return
+	var clip := BIG_HIT + ("_M" if from == From.RIGHT else "")
+	if not _anim.has_animation(clip):
+		flinch_from(away, from, 1.0)
+		return
+	_play_action(StringName(clip), Role.HIT, BIG_HIT_RATE, 0.06)
+	var arm := _mq.get("arm") as ArmHold
+	if arm != null and holds_shield():
+		arm.hold(_action_left)
+	last_flinch = {"from": from, "clip": StringName(clip), "heft": 1.0}
+## The big reel's clip (bends him over to his right: a blow from his left),
+## and how fast it is played.
+const BIG_HIT := "TR_Big_Side_Hit"
+const BIG_HIT_RATE := 1.15
+
+
 ## A blow caught on the raised shield (TARIEL_POLISH.md 8, as the user asked
 ## on 2026-10-04): the shield stays where the guard holds it — no clip, the
 ## guard's own hit turned it over — and the blow goes into his body instead,
@@ -4308,6 +4336,8 @@ func _ready_falls(lib: AnimationLibrary, skel: Skeleton3D) -> void:
 		var rest := skel.get_bone_global_rest(pelvis)
 		_pelvis_front = (rest.basis.inverse() * Vector3(0.0, 0.0, 1.0)).normalized()
 	_sample_get_ups(lib, skel)
+	if lib.has_animation(BIG_HIT) and not lib.has_animation(BIG_HIT + "_M"):
+		lib.add_animation(BIG_HIT + "_M", _mirrored(lib.get_animation(BIG_HIT), skel))
 	_falls_ready = true
 
 
