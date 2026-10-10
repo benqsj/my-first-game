@@ -2240,12 +2240,14 @@ func hitstop(seconds: float) -> void:
 	if _anim == null or seconds <= 0.0:
 		return
 	if _stop_left <= 0.0:
-		_stop_rate = _anim.speed_scale
+		_stop_rate = _ease_to if _ease_left > 0.0 else _anim.speed_scale
+		_ease_left = 0.0
 		_anim.speed_scale = _stop_rate * STOP_RATE
 	_stop_left = maxf(_stop_left, seconds)
-	# The swing's clock is held too, or it would end short of its clip.
+	# The swing's clock is held too, or it would end short of its clip
+	# (and by what the easing out of it costs).
 	if _role != Role.NONE:
-		_action_left += seconds
+		_action_left += seconds + STOP_EASE * (1.0 - HitFeel.EASE_FROM) * 0.5
 
 
 ## The hold let go early (he got where he was going): what was left of it
@@ -2256,6 +2258,7 @@ func end_hitstop() -> void:
 	if _role != Role.NONE:
 		_action_left -= _stop_left
 	_stop_left = 0.0
+	_ease_left = 0.0
 	if absf(_anim.speed_scale - _stop_rate * STOP_RATE) < 0.0001:
 		_anim.speed_scale = _stop_rate
 
@@ -2277,11 +2280,30 @@ func trim_hitstop(share: float) -> void:
 ## The hold over: the clip goes on at the rate it had — unless something else
 ## has set a rate of its own in the meantime, which is left alone.
 func _hold_stop(delta: float) -> void:
+	if _ease_left > 0.0:
+		# easing back out of a hold (unless something set a rate of its own)
+		if absf(_anim.speed_scale - _ease_set) > 0.0001:
+			_ease_left = 0.0
+		else:
+			_ease_left = maxf(_ease_left - delta, 0.0)
+			_ease_set = lerpf(_ease_to, _ease_to * HitFeel.EASE_FROM, _ease_left / STOP_EASE)
+			_anim.speed_scale = _ease_set
 	if _stop_left <= 0.0:
 		return
 	_stop_left -= delta
 	if _stop_left <= 0.0 and absf(_anim.speed_scale - _stop_rate * STOP_RATE) < 0.0001:
-		_anim.speed_scale = _stop_rate
+		# not snapped from still to full: eased back over STOP_EASE
+		_ease_to = _stop_rate
+		_ease_left = STOP_EASE
+		_ease_set = _stop_rate * HitFeel.EASE_FROM
+		_anim.speed_scale = _ease_set
+
+
+## How long a clip takes to come back to its pace out of a hold (s).
+const STOP_EASE := 0.07
+var _ease_left: float = 0.0
+var _ease_to: float = 1.0
+var _ease_set: float = 0.0
 
 
 ## Hurt: a grunt.
@@ -3913,7 +3935,20 @@ const FALL_MIRROR := [&"TR_Thrown_Side", &"KV_CombatDeath01"]
 ## then struck onto it.
 const FALL_IMPACT := [&"LiftAir_Fall_Impact", 1.0, 0.85]
 ## How much faster a fall plays per unit of the weapon's force.
-const FALL_FORCE_PACE := 0.22
+const FALL_FORCE_PACE := 0.1
+## ...and how much faster again till he meets the ground (the club's pace).
+const FALL_DROP_PACE := 0.55
+## He has met the ground: his hips this low (m, at his size), or this far
+## through the fall to where he lies still.
+const FALL_GROUND_HIPS := 0.42
+const FALL_GROUND_SHARE := 0.65
+## Coming down at the weapon's pace ([constant FALL_DROP_PACE]), and the
+## fall's own pace after it, and where in its clip it began.
+var _fall_dropping: bool = false
+var _fall_drop_to: float = 1.0
+var _fall_from: float = 0.0
+## Down on the ground at the end of a fall's drop (the view thuds, dust).
+signal struck_ground(at: Vector3)
 ## A launch that never leaves the ground lands after this long anyway.
 const FALL_AIR_MOST := 0.45
 ## Getting up off his back: [clip, times `get_up_time`, from, until (shares
@@ -4016,7 +4051,13 @@ func fall(kind: int, force: float = 0.0, number: int = 0) -> float:
 	# a harder blow throws him over faster
 	var rate := float(pick[1]) * (1.0 + FALL_FORCE_PACE * clampf(force, 0.0, 1.5))
 	var from := float(pick[3])
-	_play_action(clip, Role.DOWN, rate, 0.08 if kind == Fall.FLY else 0.06, from)
+	# and down to the ground at the weapon's pace (the user's word,
+	# 2026-10-10: the club came down fast and he went down at his own)
+	var drop := 1.0 if kind == Fall.FLY else 1.0 + FALL_DROP_PACE * clampf(force, 0.0, 1.5)
+	_play_action(clip, Role.DOWN, rate * drop, 0.08 if kind == Fall.FLY else 0.06, from)
+	_fall_dropping = drop > 1.001
+	_fall_drop_to = rate
+	_fall_from = from
 	_fall_kind = kind
 	_fall_settle = float(pick[2])
 	_fall_own_up = float(pick[4]) if pick.size() > 4 else -1.0
@@ -4061,8 +4102,27 @@ func _fall_tick(delta: float, airborne: bool) -> void:
 			_fall_settle = float(FALL_IMPACT[2])
 			landed_fall.emit()
 		return
+	if _fall_dropping:
+		var hips_low := false
+		var pelvis := _skel.find_bone("pelvis") if _skel != null else -1
+		if pelvis >= 0:
+			var at := _skel.global_transform * _skel.get_bone_global_pose(pelvis).origin
+			hips_low = at.y - global_position.y < FALL_GROUND_HIPS * global_basis.get_scale().y
+		var through := (_progress() - _fall_from) / maxf(_fall_settle - _fall_from, 0.01)
+		if hips_low or through >= FALL_GROUND_SHARE:
+			# on the ground: the rest of the fall at its own pace
+			_fall_dropping = false
+			if _stop_left > 0.0:
+				_stop_rate = _fall_drop_to
+			elif _ease_left > 0.0:
+				_ease_to = _fall_drop_to
+			elif _anim.speed_scale > 0.0:
+				_anim.speed_scale = _fall_drop_to
+			_fall_rate = _fall_drop_to
+			struck_ground.emit(global_position)
 	if _anim.speed_scale > 0.0 and _progress() >= _fall_settle:
 		_anim.speed_scale = 0.0
+		_ease_left = 0.0
 
 
 ## A launch come down onto the ground ([constant Fall.FLY]).

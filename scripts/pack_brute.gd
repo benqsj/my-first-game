@@ -317,6 +317,11 @@ func _windup_end(what: int, lead: float = -1.0) -> float:
 	return maxf(ms[0] - lead, 0.0) if not ms.is_empty() else 0.0
 
 
+## Through a swing held at the top its clip creeps on at this share of its
+## pace (the user's word, 2026-10-10: dead still there read as a freeze).
+const HOLD_CREEP := 0.07
+
+
 ## How long this swing is held at the top of its wind-up (0: not this time).
 ## Picked from the swing's serial, so every peer holds it alike.
 func _hold_of(what: int) -> float:
@@ -350,10 +355,14 @@ func _clip_time(what: int, t: float) -> float:
 		var k := float(sh[0])
 		var slow := float(sh[1])
 		var hold := float(sh[2])
+		# held, but not dead still: the wind-up stops a little short of the
+		# top and creeps on up to it through the hold (its blow, and all
+		# after it, where they were)
+		var creep := minf(hold * HOLD_CREEP, k * 0.5)
 		if t < k * slow:
-			t = t / slow
+			t = t / slow * (k - creep) / maxf(k, 0.0001)
 		elif t < k * slow + hold:
-			t = k
+			t = k - creep + creep * (t - k * slow) / maxf(hold, 0.0001)
 		else:
 			t = t - k * (slow - 1.0) - hold
 	return super(what, t)

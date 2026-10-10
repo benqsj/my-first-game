@@ -1,7 +1,7 @@
 extends SceneTree
 ## The blow felt landing (the user's word, 2026-10-10; claude/hit_feel_plan.md):
-## * the ogre's swing held at the top of its wind-up stands still there (it
-##   shook: its clip ran ahead of the move's clock and was pulled back);
+## * the ogre's swing held at the top of its wind-up creeps on there, never
+##   pulled back (it shook: its clip ran ahead of the move's clock);
 ## * a heavy blow that makes him reel, and one that fells him, hold the ogre
 ##   and him a beat as they land (hit stop);
 ## * a reel shoves him back over the ground on his feet, dying away; a blow
@@ -95,14 +95,18 @@ func _run() -> void:
 		if ogre.act == OgreFighter.CLEAVE and t > hold_at + 0.1 and t < hold_at + 0.6:
 			spots.append(ogre._anim.clip_position())
 			rates.append(ogre._anim._player.speed_scale)
-	var spread := 0.0
-	for s: float in spots:
-		spread = maxf(spread, absf(s - float(spots[0]))) if not spots.is_empty() else 0.0
+	# held, it creeps on slowly (PackBrute.HOLD_CREEP) and is never pulled back
+	var back := 0
+	for i in range(1, spots.size()):
+		if float(spots[i]) < float(spots[i - 1]) - 0.0005:
+			back += 1
+	var spread: float = float(spots[spots.size() - 1]) - float(spots[0]) if spots.size() > 1 else 0.0
 	var fastest := 0.0
 	for r: float in rates:
 		fastest = maxf(fastest, r)
-	_check("a held swing stands still at the top", spots.size() > 10 and spread < 0.004 and fastest < 0.01,
-			"%d ticks, clip moved %.4f s, fastest rate %.3f" % [spots.size(), spread, fastest])
+	_check("a held swing creeps at the top, never pulled back", spots.size() > 10 and back == 0
+			and spread > 0.0 and spread < 0.08 and fastest < 0.15,
+			"%d ticks, pulled back %d, clip moved %.4f s, fastest rate %.3f" % [spots.size(), back, spread, fastest])
 
 	# -- a heavy blow alone: he reels, both held a beat, shoved back on his feet
 	ogre = await _swing(OgreFighter.SMASH, 0.0, 1)

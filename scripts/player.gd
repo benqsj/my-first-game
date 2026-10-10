@@ -1001,6 +1001,8 @@ func _spawn_character() -> void:
 	_smoother = VisualSmoother.attach(self, body)
 	if rig != null and rig.has_signal(&"slammed"):
 		rig.connect(&"slammed", _on_slammed)
+	if rig != null and rig.has_signal(&"struck_ground"):
+		rig.connect(&"struck_ground", _on_struck_ground)
 	if rig != null and rig.has_signal(&"wound_up"):
 		rig.connect(&"wound_up", _on_wound_up)
 	# His own body wears the hair picked on the hero select; everybody else's
@@ -3386,8 +3388,17 @@ const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch"]
 ## and he himself are held still (s, [the striker, him]), for a heavy blow
 ## that makes him reel and for one that fells him. A string's lighter blows
 ## hold neither: its quick run on from blow to blow is the point of it.
-@export var reel_stop: Vector2 = Vector2(0.11, 0.07)
-@export var fell_stop: Vector2 = Vector2(0.14, 0.09)
+@export var reel_stop: Vector2 = Vector2(0.09, 0.06)
+@export var fell_stop: Vector2 = Vector2(0.12, 0.08)
+## Shaken where he is held (m along the blow, [HitShake]): a reel, a fall.
+@export var struck_shake: Vector2 = Vector2(0.04, 0.055)
+## His own view knocked along the blow and shaken ([ImpactFx.knock]):
+## [knock, shake, seconds] for a lighter blow (times its heft), a reel and a
+## fall; and the thud as he meets the ground.
+@export var view_flinch: Vector3 = Vector3(0.05, 0.05, 0.2)
+@export var view_reel: Vector3 = Vector3(0.13, 0.13, 0.32)
+@export var view_fell: Vector3 = Vector3(0.18, 0.2, 0.4)
+@export var view_ground: Vector3 = Vector3(0.1, 0.12, 0.28)
 ## The blow's shove carrying him back over the ground on his feet, dying away
 ## by `shove_friction` (m/s²): its start (m/s) for a reel and for a lighter
 ## blow, `shove_force_gain` more per unit of the weapon's force
@@ -3749,6 +3760,22 @@ func _stop_striker(combo: String, seconds: float) -> void:
 		HitFeel.hold(striker, seconds)
 
 
+## His own view knocked along a blow that got through him and shaken
+## ([ImpactFx.knock]): `how` = [knock, shake, seconds]. Only in his window.
+func _view_struck(along: Vector3, how: Vector3) -> void:
+	if how.x <= 0.0 or not is_multiplayer_authority() or camera == null or not camera.current:
+		return
+	ImpactFx.knock(camera, Vector3(along.x, 0.0, along.z), how.x, how.y, how.z)
+
+
+## Down on the ground at the end of a fall's drop ([signal SkinnedRig.struck_ground]):
+## the view thuds, dust off the ground.
+func _on_struck_ground(at: Vector3) -> void:
+	DustRing.burst(Blood.world_of(self), at + Vector3.UP * 0.05, 0.7)
+	if is_multiplayer_authority() and camera != null and camera.current:
+		ImpactFx.knock(camera, Vector3.DOWN, view_ground.x, view_ground.y, view_ground.z)
+
+
 ## Whether he is held still in a blow's bite now (his own rig's hit stop).
 func _held_in_bite() -> bool:
 	return rig != null and rig.has_method(&"in_hitstop") and bool(rig.call(&"in_hitstop"))
@@ -3802,9 +3829,14 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 		Reaction.FLINCH:
 			_interrupt_skill()
 			_flinch(blow)
-			# the big reel: held a beat as the blow lands ([member reel_stop])
-			if blow.length() >= BIG_STAGGER_SPRAY - 0.1 and rig != null and rig.has_method(&"hitstop"):
+			# the big reel: held a beat as the blow lands ([member reel_stop]),
+			# shaken there; his view knocked the way the blow went
+			var big := blow.length() >= BIG_STAGGER_SPRAY - 0.1
+			if big and rig != null and rig.has_method(&"hitstop"):
 				rig.call(&"hitstop", reel_stop.y)
+				HitShake.shake(rig, blow, struck_shake.x, reel_stop.y + HitFeel.SHAKE_AFTER)
+			var k := 1.0 if big else clampf(blow.length() - 1.0, 0.0, 1.0)
+			_view_struck(blow, view_reel if big else view_flinch * k)
 			_rig_says(&"hurt")
 			Blood.splatter(Blood.world_of(self), at, blow)
 		Reaction.KNOCKDOWN:
@@ -3817,9 +3849,12 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			if rig != null:
 				if rig.has_method(&"fall"):
 					var lies := float(rig.call(&"fall", kind, force, number))
-					# held a beat as the felling blow lands ([member fell_stop])
+					# held a beat as the felling blow lands ([member fell_stop]),
+					# shaken there; his view knocked the way the blow went
 					if rig.has_method(&"hitstop"):
 						rig.call(&"hitstop", fell_stop.y)
+						HitShake.shake(rig, blow, struck_shake.y, fell_stop.y + HitFeel.SHAKE_AFTER)
+					_view_struck(blow, view_fell)
 					if rig.has_method(&"jolt"):
 						rig.call(&"jolt", Vector3(blow.x, 0.0, blow.z), force)
 					if lies > 0.0 and is_multiplayer_authority() and state == State.DOWNED and not _down_flying:

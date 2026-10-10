@@ -9983,3 +9983,31 @@ hit stop; dropped by a roll, a dash, a fall, a climb.
 Test: `tests/blow_landing_test.gd`. Films: `_shots_tmp/hf_film.gd -- <tag>`,
 `_shots_tmp/tremble_film.gd -- <tag>` (--fixed-fps 120), side by side with
 `_shots_tmp/hff/sbs.sh`.
+
+
+### The hold shakes, eases out, and is seen; the fall comes down at the club's pace (2026-10-10, round 2)
+
+The user: the blow is felt now, but the moment it lands still catches ("ჭედვა"),
+in the blow and in the swing. A hold that is only still reads as the game
+hitching. So:
+
+* **Shaken where it is held** ([HitShake], a SkeletonModifier3D laid last on
+  the skeleton): the hips jolted to and fro along the blow (26 a second,
+  dying away). Tariel struck: 4 cm on a reel, 5.5 on a fall
+  (`Player.struck_shake`); a creature bitten by a hero's blade: 2.5-4.5 cm by
+  the cut's weight, at its size, even an ogre that does not stop for it
+  (`HitFeel.bite`, `SHAKE_*`).
+* **Eased out of it**: a rig's clip comes back from 30 % of its pace to all of
+  it over 0.07 s (`SkinnedRig.STOP_EASE`), a creature's over 70 ms
+  (`HitFeel.EASE_FROM`, `EASE_MS`), not snapped from still to full. Holds a
+  little shorter: `reel_stop` (0.09, 0.06), `fell_stop` (0.12, 0.08).
+* **His own view knocked** along a blow that got through him
+  (`view_flinch` x its heft, `view_reel`, `view_fell`), and thudding down as he
+  meets the ground (`view_ground`, dust).
+* **The fall at the club's pace down to the ground**: played
+  `1 + 0.55 x force` faster (`FALL_DROP_PACE`) till his hips are low
+  (`FALL_GROUND_HIPS` 0.42 m) or 65 % of the way to lying still, then at its own
+  pace (`FALL_FORCE_PACE` now 0.1 over the whole fall);
+  `SkinnedRig.struck_ground` there.
+* **The ogre's held swing creeps** on at 7 % of its pace at the top
+  (`PackBrute.HOLD_CREEP`) instead of standing dead still.

@@ -13,6 +13,11 @@ static func stop_for(weight: float) -> float:
 	return clampf(LIGHT_STOP + PER_WEIGHT * (weight - 1.0), MIN_STOP, MAX_STOP)
 
 const LIGHT_STOP := 0.07
+## How far a bitten body is shaken (m) at a light cut and a heavy one, and
+## how long it goes on shaking after its hold.
+const SHAKE_LIGHT := 0.025
+const SHAKE_HEAVY := 0.045
+const SHAKE_AFTER := 0.06
 const PER_WEIGHT := 0.09
 const MIN_STOP := 0.04
 const MAX_STOP := 0.14
@@ -42,11 +47,17 @@ static func now_ms() -> int:
 ## `bite_hold` under 1, [PackBrute]) is held that share of it, or not at all:
 ## a blade does not stop an ogre's swing (Elden Ring's big ones take the cut
 ## without a pause; only their stance gives).
-static func bite(victim: Node3D, weight: float) -> void:
+static func bite(victim: Node3D, weight: float, along: Vector3 = Vector3.ZERO) -> void:
 	if victim == null or not victim.is_inside_tree():
 		return
 	var seconds := stop_for(weight) * hold_share(victim)
 	hold(victim, seconds)
+	# shaken where it is held (a big one that does not stop for a blade
+	# still feels it a little): read as struck, not as the game catching
+	var size := float(victim.get(&"visual_scale")) if victim.get(&"visual_scale") is float else 1.0
+	HitShake.shake(victim, along, lerpf(SHAKE_LIGHT, SHAKE_HEAVY, clampf((weight - 1.0) / 0.6, 0.0, 1.0))
+			* clampf(size, 0.6, 1.6) * maxf(hold_share(victim), 0.35),
+			maxf(stop_for(weight), 0.06) + SHAKE_AFTER)
 	flash(victim, lerpf(FLASH_LIGHT, FLASH_HEAVY, clampf((weight - 1.0) / 0.6, 0.0, 1.0)))
 
 
@@ -86,8 +97,13 @@ static func hold(victim: Node3D, seconds: float) -> void:
 static func pace(creature: Node) -> float:
 	if creature == null or not creature.has_meta(&"bite_until"):
 		return 1.0
-	if now_ms() < int(creature.get_meta(&"bite_until")):
+	var until := int(creature.get_meta(&"bite_until"))
+	var now := now_ms()
+	if now < until:
 		return HELD_RATE
+	# eased back out of it, not snapped from still to full
+	if now < until + EASE_MS:
+		return lerpf(EASE_FROM, 1.0, float(now - until) / float(EASE_MS))
 	creature.remove_meta(&"bite_until")
 	return 1.0
 
@@ -104,6 +120,9 @@ static func is_held(creature: Node) -> bool:
 			and now_ms() < int(creature.get_meta(&"bite_until"))
 
 const HELD_RATE := 0.04
+## Out of a hold: from this share of its pace back to all of it over EASE_MS.
+const EASE_FROM := 0.3
+const EASE_MS := 70
 
 
 static func _let_go(player: AnimationPlayer) -> void:
