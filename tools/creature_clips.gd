@@ -199,6 +199,9 @@ const MIXAMO := [
 	["CR_OG_Stomp", "res://assets/creatures/anim/mixamo/OG_Stomp.fbx", false, 0.0, -1.0],
 	["CR_OG_Mutant_Jump", "res://assets/creatures/anim/mixamo/OG_Mutant_Jump.fbx", false, 0.0, -1.0],
 	["CR_OG_Zombie_Overhead", "res://assets/creatures/anim/mixamo/OG_Zombie_Overhead.fbx", false, 0.0, -1.0],
+	# Its grab (2026-10-11, the user's word): Mixamo's one-handed choke lift,
+	# mirrored — its free left hand; the right keeps the club.
+	["CR_OG_Choke_Lift", "res://assets/creatures/anim/mixamo/OG_Choke_Lift_L.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
