@@ -229,10 +229,23 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 ## reaches with its left, lifts him off the ground by the neck, holds him up
 ## a moment and throws him down. No shield holds it; only a roll beats it.
 ## Its clip (Mixamo's one-hand choke lift, mirrored), played at this rate.
-@export var grab_clip: StringName = &"CR_OG_Choke_Lift"
-@export var grab_rate: float = 1.1
-## Clip seconds: its hand at him (he is caught in that window).
-@export var grab_catch: Vector2 = Vector2(1.2, 1.6)
+##
+## (2026-10-12, the user's word: a tell first — its arm drawn back — then from
+## up to 10 m off it slides in on him like a skill and snatches him.) The
+## snatch: Mixamo's mutant swipe, its free left arm drawn back
+## (`grab_cock.x` clip s), held there `grab_cock.y` s while it slides in on
+## him (the clip creeping to `grab_cock.z`), then swept forward.
+@export var grab_clip: StringName = &"CR_OG_Mutant_Swipe"
+@export var grab_rate: float = 1.0
+@export var grab_cock: Vector3 = Vector3(1.0, 0.45, 1.1)
+## How fast it slides in on him at most (m/s at its size), and how far out
+## in front of it its hand closes (m).
+@export var grab_dash: float = 24.0
+@export var grab_hand_out: float = 1.55
+## The hold: the choke lift's clip, its arm out in front.
+@export var hold_clip: StringName = &"CR_OG_Choke_Lift"
+## Clip seconds of the swipe: its hand at him (he is caught in that window).
+@export var grab_catch: Vector2 = Vector2(1.18, 1.36)
 ## Held (the user's word, 2026-10-11: its arm up over its head deformed it;
 ## then: "it must bend more"): bent forward over him from the waist
 ## (`grab_bend` degrees, [LeanModifier]), its arm out in front, him at its
@@ -249,7 +262,7 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var slam_rate: float = 1.0
 @export var slam_at: float = 1.6
 ## From how far it reaches for him (m at its size; it steps in on him).
-@export var grab_from: float = 4.2
+@export var grab_from: float = 10.0
 ## How far its hand may be from him and still close on him (m).
 @export var grab_radius: float = 1.0
 ## How often it reaches for him when it could — more behind a raised shield.
@@ -434,6 +447,8 @@ const TAUNT := 170
 const GRAB := 171
 ## ...and him smashed into the ground with both arms ([member slam_clip]).
 const GRAB_SLAM := 172
+## ...and between them, him held up at its face ([member hold_clip]).
+const GRAB_HOLD := 173
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -652,6 +667,8 @@ var _lean: LeanModifier
 var _held: Node3D = null
 var grabs_made: int = 0
 var grab_rolls: int = 0
+var grab_dashes: int = 0
+var _grab_dashed: bool = false
 var _grab_passed: int = 0
 ## Host: his casts seen so far (by hero), how long he has drawn, the punish
 ## due and its wait; a count for a test.
@@ -714,6 +731,9 @@ func _ready() -> void:
 	_special(TAUNT, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.96))
 	_special(GRAB, grab_clip, Vector3(grab_rate, 0.0, 0.97))
 	_kinds[GRAB] = &"crush"
+	if _anim != null and _anim.clip_length(hold_clip) > 0.0:
+		var hl := _anim.clip_length(hold_clip)
+		_special(GRAB_HOLD, hold_clip, Vector3(1.0, grab_lift.x / hl, grab_lift.y / hl))
 	if _anim != null and _anim.clip_length(slam_clip) > 0.0:
 		var sl := _anim.clip_length(slam_clip)
 		_special(GRAB_SLAM, slam_clip, Vector3(slam_rate, slam_span.x / sl, slam_span.y / sl))
@@ -1093,6 +1113,7 @@ func _try_grab(gap: float) -> bool:
 	mode = Mode.FIGHT
 	_spacing = &""
 	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_grab_dashed = false
 	_begin(GRAB)
 	return true
 
@@ -1110,6 +1131,20 @@ func grab_point() -> Vector3:
 	return _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin
 
 
+## Every peer: the way its grip faces out (from its elbow to its palm, along
+## the ground): he hangs out past its hand that way, not in its forearm.
+func grab_out() -> Vector3:
+	var out := _forward()
+	if _skeleton != null:
+		var e := _skeleton.find_bone("L_elbow_joint")
+		if e >= 0:
+			var d := grab_point() - _skeleton.global_transform * _skeleton.get_bone_global_pose(e).origin
+			d.y = 0.0
+			if d.length_squared() > 0.0001:
+				out = d.normalized()
+	return out
+
+
 ## Host, through the grab: turned after him till its hand goes out; caught in
 ## its window if its hand is at him (not rolling, not down); missed, it gives
 ## up soon after; held `grab_hold` s, then the slam ([constant GRAB_SLAM]).
@@ -1117,6 +1152,11 @@ func _grab_run() -> void:
 	if act == GRAB_SLAM:
 		if _held != null and _clip_time(GRAB_SLAM, _act_time) >= slam_at:
 			_throw_held()
+		return
+	if act == GRAB_HOLD:
+		# held long enough: up over its head with him and down
+		if _held != null and _act_time >= grab_hold:
+			_begin(GRAB_SLAM)
 		return
 	var ct := _clip_time(GRAB, _act_time)
 	var hero := _quarry as Player
@@ -1126,22 +1166,17 @@ func _grab_run() -> void:
 		_held = hero
 		grabs_caught += 1
 		_grab_caught_serial = act_serial
-		_act_length = _grab_marks().y + 0.5
 		# his body in its hand is no wall to it (else it shoved itself off
 		# across the field)
 		add_collision_exception_with(hero)
 		hero.add_collision_exception_with(self)
-		hero.grab_by(self, maxf(_grab_marks().y - _act_time + (slam_at - slam_span.x) / slam_rate, 0.2))
+		hero.grab_by(self, grab_hold + (slam_at - slam_span.x) / slam_rate + 0.3)
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
 			net_grab_caught.rpc()
 		else:
 			net_grab_caught()
-	if _held == null and ct > grab_catch.y + 0.05:
-		# missed: back to it after a short recovery
-		_act_length = minf(_act_length, (grab_catch.y + 0.75) / grab_rate)
-	# held long enough: up over its head with him and down
-	if _held != null and _act_time >= _grab_marks().y:
-		_begin(GRAB_SLAM)
+		# up to its face with him (its swipe's own end is a miss's)
+		_begin(GRAB_HOLD)
 
 
 func _can_catch(hero: Player) -> bool:
@@ -1386,11 +1421,11 @@ func net_grab_caught() -> void:
 	Sfx.play_any(self, GRUNTS, self, 0.8, 0.0)
 
 
-## The grab's clock, him caught: act seconds where its catch window ends and
-## where the hold ends (the slam then).
+## The snatch's clock: act seconds where its arm is drawn back and where it
+## lets the swipe go (the slide in between).
 func _grab_marks() -> Vector2:
-	var t0 := grab_catch.y / grab_rate
-	return Vector2(t0, t0 + grab_hold)
+	var t0 := grab_cock.x / grab_rate
+	return Vector2(t0, t0 + grab_cock.y)
 
 
 ## Every peer: thrown down — the thud of him, earth and grit, the view shaken.
@@ -2049,15 +2084,28 @@ func _extra_velocity(delta: float) -> Vector3:
 		if _slide_serial == act_serial:
 			return _forward() * _slide_speed if _act_time <= held.y else Vector3.ZERO
 	if act == GRAB:
-		# in on him through the reach, so its hand comes to him
-		var reach_at := grab_catch.x / grab_rate
-		if _held == null and _quarry != null and _act_time >= 0.35 and _act_time <= reach_at:
-			if _act_time < reach_at - 0.2:
-				_face(_quarry.global_position - global_position, get_physics_process_delta_time(), turn_speed * 2.0)
+		# turned after him through the wind-up; its arm drawn back, slid in
+		# on him (a skill's dash) so its hand comes to him as it sweeps
+		var m := _grab_marks()
+		var reach_at := m.y + (grab_catch.x - grab_cock.z) / grab_rate
+		if _held == null and _quarry != null and _act_time <= reach_at:
+			if _act_time < reach_at - 0.08:
+				_face(_quarry.global_position - global_position, get_physics_process_delta_time(), turn_speed * 3.0)
 				_reframe()
-			var hand_out := 1.35 * visual_scale / 1.6
-			var short := _distance_to(_quarry) - hand_out
-			return _forward() * clampf(short / maxf(reach_at - _act_time, 0.15), 0.0, 6.0)
+			if _act_time >= m.x - 0.05:
+				var s := visual_scale / 1.6
+				var short := _distance_to(_quarry) - grab_hand_out * s
+				var speed := clampf(short / maxf(reach_at - _act_time, 0.1), 0.0, grab_dash * s)
+				if speed > 4.0 and not _grab_dashed:
+					_grab_dashed = true
+					grab_dashes += 1
+					if is_inside_tree() and multiplayer.has_multiplayer_peer():
+						net_slide.rpc()
+					else:
+						net_slide()
+				return _forward() * speed
+		return Vector3.ZERO
+	if act == GRAB_HOLD:
 		return Vector3.ZERO
 	if act == LUNGE:
 		if _act_time <= _blow_moments(LUNGE)[0]:
@@ -2392,11 +2440,15 @@ func _flight_warp(what: int) -> Vector3:
 
 
 func _clip_time(what: int, t: float) -> float:
-	if what == GRAB and act == GRAB and _grab_caught_serial == act_serial:
+	if what == GRAB:
 		var m := _grab_marks()
 		if t <= m.x:
 			return t * grab_rate
-		return lerpf(grab_catch.y, grab_lift.y, clampf((t - m.x) / maxf(grab_hold, 0.01), 0.0, 1.0))
+		if t <= m.y:
+			return lerpf(grab_cock.x, grab_cock.z, (t - m.x) / maxf(grab_cock.y, 0.01))
+		return grab_cock.z + (t - m.y) * grab_rate
+	if what == GRAB_HOLD:
+		return grab_lift.x + (grab_lift.y - grab_lift.x) * clampf(t / maxf(grab_hold, 0.01), 0.0, 1.0)
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
 		if t > w.x:
@@ -2408,6 +2460,8 @@ func _clip_time(what: int, t: float) -> float:
 
 
 func _move_length(what: int) -> float:
+	if what == GRAB_HOLD:
+		return grab_hold + 0.25
 	var length := super(what)
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
@@ -2450,9 +2504,9 @@ func _run_act(delta: float) -> void:
 	if act == RAGE and _rage_pushed != act_serial and _act_time >= rage_roar_at:
 		_rage_pushed = act_serial
 		_rage_throw()
-	if act == GRAB or act == GRAB_SLAM:
+	if act == GRAB or act == GRAB_HOLD or act == GRAB_SLAM:
 		_grab_run()
-	if _held != null and ((act != GRAB and act != GRAB_SLAM) or is_dead):
+	if _held != null and ((act != GRAB_HOLD and act != GRAB_SLAM and act != GRAB) or is_dead):
 		_drop_held()
 	if (act == POUND or act == POUND_2 or act == POUND_3) and not _pounded and _act_time >= _pound_time(act):
 		_pounded = true
@@ -2668,6 +2722,7 @@ func _process(delta: float) -> void:
 	_watch_hold()
 	_strain_in_hold()
 	_bend_over_him(delta)
+	_grab_tell()
 	_lift_in_flight()
 	if _strikes_table.has(act):
 		var ms := _blow_moments(act)
@@ -2707,16 +2762,38 @@ func _watch_hold() -> void:
 	_glint()
 
 
+## Every peer: the grab's tell — as its arm is drawn back, a flash off its
+## open hand and a growl, then the rush of its slide.
+var _told_serial: int = -1
+
+
+func _grab_tell() -> void:
+	if act != GRAB or is_dead or _told_serial == act_serial:
+		return
+	if _heard_clock < _grab_marks().x - 0.2:
+		return
+	_told_serial = act_serial
+	var at := grab_point()
+	SkillFx.particles(Blood.world_of(self), at, {
+		"amount": 30, "life": 0.5, "one_shot": true, "explosiveness": 1.0, "add": true,
+		"speed": Vector2(1.5, 4.0), "dir": Vector3.UP, "spread": 180.0, "gravity": Vector3.ZERO,
+		"damping": 5.0, "size": Vector2(0.14, 0.3), "grow": -0.6, "sphere": 0.1,
+		"colors": [Color(1.0, 0.6, 0.4, 0.0), Color(1.0, 0.45, 0.2, 1.0), Color(0.9, 0.15, 0.05, 0.0)],
+	})
+	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 0.8, -3.0)
+
+
 ## Every peer: bent forward over him through its reach and its hold, and up
 ## out of it into the slam (whose own clip bends it low).
 func _bend_over_him(delta: float) -> void:
 	if _lean == null:
 		return
 	var want := 0.0
-	if act == GRAB and not is_dead:
-		var reach_at := grab_catch.x / grab_rate
-		want = 0.65 * clampf((_heard_clock - 0.3) / maxf(reach_at - 0.3, 0.05), 0.0, 1.0)
-		if _grab_caught_serial == act_serial:
+	if not is_dead:
+		if act == GRAB and _heard_clock >= _grab_marks().x - 0.1:
+			# leaning into its slide and its swipe
+			want = 0.45
+		elif act == GRAB_HOLD:
 			want = 1.0
 	_lean.amount = move_toward(_lean.amount, want, delta * (2.5 if want > _lean.amount else 4.0))
 	_lean.facing = _forward()

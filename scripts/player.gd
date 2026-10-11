@@ -3830,6 +3830,10 @@ func _hang() -> void:
 		if b >= 0:
 			neck = skel.global_transform * skel.get_bone_global_pose(b).origin - global_position
 	var want := hand - neck
+	# out past its palm (its hand round his throat, not through him: the
+	# user's word, 2026-10-12)
+	if by.has_method(&"grab_out"):
+		want += (by.call(&"grab_out") as Vector3) * HELD_OUT
 	# snatched up at once (drawn over a long moment it read as a slide)
 	var u := clampf(_held_time / 0.06, 0.0, 1.0)
 	global_position = _held_from.lerp(want, u)
@@ -3837,6 +3841,8 @@ func _hang() -> void:
 
 ## Where he hangs from a hand that holds him: this far below it (m).
 const HELD_NECK := 1.45
+## ...and this far out past its palm (m).
+const HELD_OUT := 0.2
 
 
 ## Only the host deals creatures' blows. A local call reports sender 0.

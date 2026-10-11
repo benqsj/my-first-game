@@ -10291,3 +10291,16 @@ blow fells is his to pick (the idea: a combo's last).
   he is let go on the ground under its hands: stone thrown up round him
   (RockWave 3.6 m), earth, blood, two cracks, its roar, the view jolted hard
   (`_shake_view`).
+
+- 2026-10-12 (the user's word: its hand went through him, as if it lifted
+  him by its elbow; a tell first — its arm drawn back — then from up to 10 m
+  it slides in on him like a skill, snatches him, lifts him and throws him
+  down): **the snatch** is Mixamo's mutant swipe (`grab_clip`), its free left
+  arm drawn back by `grab_cock.x` with a flash off its open hand and a growl
+  (`_grab_tell`), held there `grab_cock.y` 0.45 s while it slides in on him
+  (`grab_dash` up to 24 m/s, its hand `grab_hand_out` 1.55 m out in front;
+  `grab_from` 10 m), then swept forward — caught in `grab_catch`. Missed, its
+  swipe goes through (a beat to punish). **Held** (`GRAB_HOLD` 173, the choke
+  lift's arm-out pose, bent over him, `grab_hold` 1.2 s) he hangs out past
+  its palm (`grab_out`: elbow → palm, `Player.HELD_OUT` 0.2 m), his throat in
+  its hand, not its forearm through him; then the slam as before.
