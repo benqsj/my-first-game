@@ -10173,3 +10173,10 @@ blow fells is his to pick (the idea: a combo's last).
   the first of them. A combo's moves no longer take a string's finisher.
 - ogre_combo_test: the three in order, three quakes; him 30 m off, only the
   third reaches him. combo_drill_test gives the troll 26 s.
+
+- 2026-10-11 later (the user's word: not spikes one by one, the ground itself
+  lifting): `RockWave` now breaks the ground round the blow into slabs, ring on
+  ring (`RING` 1.35 m, `ACROSS` 1.6 m), each thrown up as the front passes
+  (`LIFT` 0.95 m near the blow, 0.35 at the edge), its near edge highest,
+  hanging, dropped back flush with a bounce, then gone; one MultiMesh of one
+  slab mesh (an earth top, broken dark sides).
