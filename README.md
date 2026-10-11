@@ -10278,3 +10278,16 @@ blow fells is his to pick (the idea: a combo's last).
   ground under him) and falls as `grab` → fall 28, `LiftAir_Fall_Impact`.
   **Blood**: round its mouth a little lower; a bloody ogre's club (or arm)
   bloodied round its head (two decals, no normal fade).
+
+- 2026-10-11 late, again (the user's word: the blood back up on its mouth,
+  its lower teeth plainly bloody, blood down its chest; the grab "must bend
+  more", the slam "a swing of the arm, smashed into the ground"): the mouth's
+  decal back where it was, a second one on its lower teeth (no normal fade,
+  stronger), a smear on its chest (`chest_joint`). The grab: `LeanModifier`
+  (`scripts/lean_modifier.gd`, a SkeletonModifier3D) bends it forward from
+  the waist (`grab_bend` 26°) through the reach and the hold; then
+  `GRAB_SLAM` 172 — `CR_OG_Zombie_Overhead` from 0.72 s: both arms up over
+  its head with him and down into the ground, bent low; at `slam_at` 1.6 s
+  he is let go on the ground under its hands: stone thrown up round him
+  (RockWave 3.6 m), earth, blood, two cracks, its roar, the view jolted hard
+  (`_shake_view`).

@@ -3781,7 +3781,8 @@ func net_released() -> void:
 	# on his feet first: the user's word, 2026-10-11)
 	if was != null:
 		var space := get_world_3d().direct_space_state
-		var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.5,
+		# (from above where it held him: slammed down, his feet are under it)
+		var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 3.0,
 				global_position + Vector3.DOWN * 6.0, 1)
 		q.exclude = [get_rid()]
 		var hit := space.intersect_ray(q)

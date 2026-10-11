@@ -231,16 +231,23 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 ## Its clip (Mixamo's one-hand choke lift, mirrored), played at this rate.
 @export var grab_clip: StringName = &"CR_OG_Choke_Lift"
 @export var grab_rate: float = 1.1
-## Clip seconds: its hand at him (he is caught in that window), the throw.
+## Clip seconds: its hand at him (he is caught in that window).
 @export var grab_catch: Vector2 = Vector2(1.2, 1.6)
-@export var grab_throw_at: float = 4.05
-## Held (the user's word, 2026-10-11: its arm up over its head deformed it):
-## its arm stays out in front, him at its face, `grab_hold` s while the clip
-## creeps from `grab_lift.x` to `.y` (clip s); then in `grab_heave` s it heaves
-## him up (on to `grab_lift.z`) and brings him down at its own pace.
+## Held (the user's word, 2026-10-11: its arm up over its head deformed it;
+## then: "it must bend more"): bent forward over him from the waist
+## (`grab_bend` degrees, [LeanModifier]), its arm out in front, him at its
+## face, `grab_hold` s while the clip creeps from `grab_lift.x` to `.y`.
 @export var grab_hold: float = 1.2
-@export var grab_lift: Vector3 = Vector3(1.6, 1.95, 3.75)
-@export var grab_heave: float = 0.3
+@export var grab_lift: Vector2 = Vector2(1.6, 1.95)
+@export var grab_bend: float = 26.0
+## Then the slam (the user's word: "swing its arm down, smash him into the
+## ground"): both arms up over its head with him and down into the ground,
+## bent low (`slam_clip` from `slam_span.x` to `.y` clip s, at `slam_rate`);
+## he hits the ground at `slam_at` (clip s).
+@export var slam_clip: StringName = &"CR_OG_Zombie_Overhead"
+@export var slam_span: Vector2 = Vector2(0.72, 2.7)
+@export var slam_rate: float = 1.0
+@export var slam_at: float = 1.6
 ## From how far it reaches for him (m at its size; it steps in on him).
 @export var grab_from: float = 4.2
 ## How far its hand may be from him and still close on him (m).
@@ -425,6 +432,8 @@ const POUND_3 := 169
 const TAUNT := 170
 ## Its grab ([member grab_clip]).
 const GRAB := 171
+## ...and him smashed into the ground with both arms ([member slam_clip]).
+const GRAB_SLAM := 172
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -638,6 +647,8 @@ var _grab_serial: int = -1
 ## Every peer: the grab act in which its hand closed on him (its clock is
 ## warped from then: [method _clip_time]).
 var _grab_caught_serial: int = -1
+## Every peer: its waist bent over him ([LeanModifier]).
+var _lean: LeanModifier
 var _held: Node3D = null
 var grabs_made: int = 0
 var grab_rolls: int = 0
@@ -703,6 +714,13 @@ func _ready() -> void:
 	_special(TAUNT, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.96))
 	_special(GRAB, grab_clip, Vector3(grab_rate, 0.0, 0.97))
 	_kinds[GRAB] = &"crush"
+	if _anim != null and _anim.clip_length(slam_clip) > 0.0:
+		var sl := _anim.clip_length(slam_clip)
+		_special(GRAB_SLAM, slam_clip, Vector3(slam_rate, slam_span.x / sl, slam_span.y / sl))
+	if _skeleton != null:
+		_lean = LeanModifier.new()
+		_lean.bend = grab_bend
+		_skeleton.add_child(_lean)
 	for what: int in SWINGS:
 		var sw: Array = SWINGS[what]
 		_special(what, sw[0], sw[1])
@@ -988,13 +1006,30 @@ func _roar_shake() -> void:
 	if near <= 0.0:
 		return
 	ImpactFx.knock(cam, Vector3.DOWN, 0.1 * near, 0.12, 0.5)
+	_shake_tween(cam, roar_shake.x * near, roar_shake.y)
+
+
+## Every peer: a hard jolt of the view and its rumble dying away (`kick`, the
+## knock down at once), harder the nearer he is.
+func _shake_view(strength: float, time: float, kick: float) -> void:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return
+	var near := clampf(1.0 - cam.global_position.distance_to(global_position) / 28.0, 0.0, 1.0)
+	if near <= 0.0:
+		return
+	ImpactFx.knock(cam, Vector3.DOWN, kick * near, 0.08, 0.4)
+	_shake_tween(cam, strength * near, time)
+
+
+func _shake_tween(cam: Camera3D, strength: float, time: float) -> void:
 	var tw := cam.create_tween()
 	var steps := 34
-	var step := roar_shake.y / float(steps)
+	var step := time / float(steps)
 	for i in steps:
 		var u := float(i) / float(steps)
 		# up hard in the first tenth, then the rumble dying away
-		var k := roar_shake.x * near * (minf(u / 0.08, 1.0) * pow(1.0 - u, 1.4))
+		var k := strength * (minf(u / 0.08, 1.0) * pow(1.0 - u, 1.4))
 		tw.tween_property(cam, "h_offset", randf_range(-k, k), step)
 		tw.parallel().tween_property(cam, "v_offset", randf_range(-k, k) * 0.8, step)
 	tw.tween_property(cam, "h_offset", 0.0, 0.1)
@@ -1077,8 +1112,12 @@ func grab_point() -> Vector3:
 
 ## Host, through the grab: turned after him till its hand goes out; caught in
 ## its window if its hand is at him (not rolling, not down); missed, it gives
-## up soon after; held, he is thrown down at `grab_throw_at`.
+## up soon after; held `grab_hold` s, then the slam ([constant GRAB_SLAM]).
 func _grab_run() -> void:
+	if act == GRAB_SLAM:
+		if _held != null and _clip_time(GRAB_SLAM, _act_time) >= slam_at:
+			_throw_held()
+		return
 	var ct := _clip_time(GRAB, _act_time)
 	var hero := _quarry as Player
 	if _held == null and _grab_serial != act_serial and ct >= grab_catch.x and ct <= grab_catch.y \
@@ -1087,12 +1126,12 @@ func _grab_run() -> void:
 		_held = hero
 		grabs_caught += 1
 		_grab_caught_serial = act_serial
-		_act_length = _grab_length()
+		_act_length = _grab_marks().y + 0.5
 		# his body in its hand is no wall to it (else it shoved itself off
 		# across the field)
 		add_collision_exception_with(hero)
 		hero.add_collision_exception_with(self)
-		hero.grab_by(self, maxf(_grab_throw_time() - _act_time, 0.2))
+		hero.grab_by(self, maxf(_grab_marks().y - _act_time + (slam_at - slam_span.x) / slam_rate, 0.2))
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
 			net_grab_caught.rpc()
 		else:
@@ -1100,8 +1139,9 @@ func _grab_run() -> void:
 	if _held == null and ct > grab_catch.y + 0.05:
 		# missed: back to it after a short recovery
 		_act_length = minf(_act_length, (grab_catch.y + 0.75) / grab_rate)
-	if _held != null and ct >= grab_throw_at:
-		_throw_held()
+	# held long enough: up over its head with him and down
+	if _held != null and _act_time >= _grab_marks().y:
+		_begin(GRAB_SLAM)
 
 
 func _can_catch(hero: Player) -> bool:
@@ -1244,8 +1284,32 @@ func _bloody_mouth() -> void:
 	# laid in the head bone's frame (the attachment follows it from the next
 	# frame on)
 	var bone := _skeleton.global_transform * _skeleton.get_bone_global_pose(head)
-	var want := Transform3D(Basis(x, y, z), bone.origin + fwd * 0.3 * s + Vector3.DOWN * 0.14 * s)
+	# (back up on its mouth: lower it went down its throat — the user's word)
+	var want := Transform3D(Basis(x, y, z), bone.origin + fwd * 0.3 * s + Vector3.DOWN * 0.06 * s)
 	decal.transform = bone.affine_inverse() * want
+	# its lower teeth bloodied too, plainly (painted whatever way they face)
+	var teeth := decal.duplicate() as Decal
+	teeth.name = "GoreTeeth"
+	teeth.normal_fade = 0.0
+	teeth.albedo_mix = 1.0
+	teeth.modulate = Color(0.42, 0.02, 0.015)
+	teeth.size = Vector3(0.34, 0.5, 0.14) * s
+	hold.add_child(teeth)
+	teeth.transform = bone.affine_inverse() * Transform3D(Basis(x, y, z),
+			bone.origin + fwd * 0.22 * s + Vector3.DOWN * 0.1 * s)
+	# and down its chest, from where it drools and from what it ate
+	var chest := _skeleton.find_bone("chest_joint")
+	if chest >= 0:
+		var on_chest := BoneAttachment3D.new()
+		on_chest.bone_name = "chest_joint"
+		_skeleton.add_child(on_chest)
+		var smear := decal.duplicate() as Decal
+		smear.name = "GoreChest"
+		smear.size = Vector3(0.75, 1.2, 0.85) * s
+		on_chest.add_child(smear)
+		var cb := _skeleton.global_transform * _skeleton.get_bone_global_pose(chest)
+		smear.transform = cb.affine_inverse() * Transform3D(Basis(x, y, z),
+				cb.origin + fwd * 0.3 * s + Vector3.UP * 0.12 * s)
 
 
 ## Every peer: its weapon's head bloodied (a [Decal] round it, painting it
@@ -1322,32 +1386,28 @@ func net_grab_caught() -> void:
 	Sfx.play_any(self, GRUNTS, self, 0.8, 0.0)
 
 
-## The grab's clock, him caught: act seconds where its catch window ends, the
-## hold ends, the heave ends.
-func _grab_marks() -> Vector3:
+## The grab's clock, him caught: act seconds where its catch window ends and
+## where the hold ends (the slam then).
+func _grab_marks() -> Vector2:
 	var t0 := grab_catch.y / grab_rate
-	return Vector3(t0, t0 + grab_hold, t0 + grab_hold + grab_heave)
-
-
-## Act seconds of the throw, and of the whole grab, him caught.
-func _grab_throw_time() -> float:
-	return _grab_marks().z + maxf(grab_throw_at - grab_lift.z, 0.0)
-
-
-func _grab_length() -> float:
-	var end := _anim.clip_length(grab_clip) * 0.97 if _anim != null else grab_throw_at + 1.5
-	return _grab_marks().z + (grab_throw_at - grab_lift.z) + (end - grab_throw_at) / grab_rate
+	return Vector2(t0, t0 + grab_hold)
 
 
 ## Every peer: thrown down — the thud of him, earth and grit, the view shaken.
 @rpc("authority", "call_local", "reliable")
 func net_grab_throw(at: Vector3) -> void:
 	var into := Blood.world_of(self)
-	GroundFx.eruption(into, at + Vector3.UP * 0.05, 0.8, false)
+	var s := visual_scale / 1.6
+	# the ground breaking under him: stone thrown up round him, earth and grit,
+	# blood, the crack of it, its roar, the view jolted hard
+	RockWave.spawn(into, at, 3.6 * s, 0.75 * s, 16.0, act_serial * 7 + 3)
+	GroundFx.eruption(into, at + Vector3.UP * 0.05, 1.3 * s, false)
 	ImpactFx.thud(self, at + Vector3.UP * 0.2, true)
-	_sound_at(CLUB_GROUND, at, 0.85, 1.0)
-	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 1.0, -4.0)
-	WindBlast.shake(self, 0.12, 0.45, 16.0)
+	Blood.splatter(into, at + Vector3.UP * 0.4, Vector3.UP, null, 1.6)
+	_sound_at(CLUB_GROUND, at, 0.68, 5.0)
+	_sound_at(CLUB_GROUND, at, 0.9, 1.0)
+	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 0.95, -1.0)
+	_shake_view(0.42, 0.9, 0.16)
 
 
 ## Host, a string ended: how it keeps its distance now, and how long.
@@ -2336,16 +2396,7 @@ func _clip_time(what: int, t: float) -> float:
 		var m := _grab_marks()
 		if t <= m.x:
 			return t * grab_rate
-		if t <= m.y:
-			return lerpf(grab_catch.y, grab_lift.y, (t - m.x) / maxf(grab_hold, 0.01))
-		if t <= m.z:
-			var u := (t - m.y) / maxf(grab_heave, 0.01)
-			return lerpf(grab_lift.y, grab_lift.z, u * u)
-		var down := t - m.z
-		var to_throw := grab_throw_at - grab_lift.z
-		if down <= to_throw:
-			return grab_lift.z + down
-		return grab_throw_at + (down - to_throw) * grab_rate
+		return lerpf(grab_catch.y, grab_lift.y, clampf((t - m.x) / maxf(grab_hold, 0.01), 0.0, 1.0))
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
 		if t > w.x:
@@ -2399,9 +2450,9 @@ func _run_act(delta: float) -> void:
 	if act == RAGE and _rage_pushed != act_serial and _act_time >= rage_roar_at:
 		_rage_pushed = act_serial
 		_rage_throw()
-	if act == GRAB:
+	if act == GRAB or act == GRAB_SLAM:
 		_grab_run()
-	if _held != null and (act != GRAB or is_dead):
+	if _held != null and ((act != GRAB and act != GRAB_SLAM) or is_dead):
 		_drop_held()
 	if (act == POUND or act == POUND_2 or act == POUND_3) and not _pounded and _act_time >= _pound_time(act):
 		_pounded = true
@@ -2616,6 +2667,7 @@ func _process(delta: float) -> void:
 		_heard_clock += delta
 	_watch_hold()
 	_strain_in_hold()
+	_bend_over_him(delta)
 	_lift_in_flight()
 	if _strikes_table.has(act):
 		var ms := _blow_moments(act)
@@ -2653,6 +2705,21 @@ func _watch_hold() -> void:
 		return
 	_glint_serial = act_serial
 	_glint()
+
+
+## Every peer: bent forward over him through its reach and its hold, and up
+## out of it into the slam (whose own clip bends it low).
+func _bend_over_him(delta: float) -> void:
+	if _lean == null:
+		return
+	var want := 0.0
+	if act == GRAB and not is_dead:
+		var reach_at := grab_catch.x / grab_rate
+		want = 0.65 * clampf((_heard_clock - 0.3) / maxf(reach_at - 0.3, 0.05), 0.0, 1.0)
+		if _grab_caught_serial == act_serial:
+			want = 1.0
+	_lean.amount = move_toward(_lean.amount, want, delta * (2.5 if want > _lean.amount else 4.0))
+	_lean.facing = _forward()
 
 
 ## Every peer: through a swing held at the top it is not frozen but straining

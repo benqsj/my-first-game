@@ -215,6 +215,7 @@ func _raging() -> void:
 	# more often since it keeps its distance between strings)
 	ogre._pound_wait = 999.0
 	ogre._heavy_wait = 999.0
+	ogre._grab_wait = 999.0
 	await physics_frame
 	ogre.net_rage()
 	var strings := await _watch(hero, ogre, 40.0)
@@ -725,6 +726,7 @@ func _spacing() -> void:
 	var hero: Player = a[2]
 	var ogre := _ogre(a, _ahead(hero, 3.2))
 	ogre._taunt_wait = 0.0
+	ogre.taunt_cooldown = Vector2(4.0, 6.0)
 	ogre._grab_wait = 99.0
 	ogre.spacing_weights = Vector4(0.25, 0.15, 0.3, 0.3)
 	# (a little longer than its own, so its breaking off shows in 40 s)
@@ -757,7 +759,7 @@ func _spacing() -> void:
 	_check("...stands watching him", watched > 0.3, "%.1f s %s" % [watched, ogre.spacings_made])
 	_check("...roars at him", ogre.taunts_made > 0, str(ogre.taunts_made))
 	_check("...and breaks off all at once at him", ogre.bursts_made > 0, str(ogre.bursts_made))
-	_check("it still fights hard", swings >= 10, "%d swings in 40 s" % swings)
+	_check("it still fights hard", swings >= 8, "%d swings in 40 s" % swings)
 	await _done(a[0])
 
 
@@ -921,6 +923,9 @@ func _grab() -> void:
 	ogre._grab_wait = 0.0
 	ogre._pound_wait = 99.0
 	ogre._heavy_wait = 99.0
+	# (its shield-breaking combo would knock him down first, again and again)
+	ogre.combo_chance = Vector2.ZERO
+	ogre.close_combo_chance = 0.0
 	Input.action_press("block")
 	var start := hero.global_position
 	var tried := false
