@@ -19,7 +19,8 @@ extends SceneTree
 ## * falls: a heavy blow throws him down by itself, a light one only
 ##   staggers him, but the close of a long string fells him;
 ## * gait: it trots after him, and runs once he plainly runs from it, each
-##   clip at about its own pace;
+##   clip at about its own pace (2026-10-11: no trot — it runs at him, the
+##   run at about its own pace);
 ## * from afar: 8-14 m off it leaps at him, 12-22 m it runs at him and
 ##   springs; both follow him and throw him down;
 ## * the roll-catch answers a roll; a swing follows him till late, then is
@@ -419,9 +420,10 @@ func _gait() -> void:
 		var pace := Vector2(ogre.velocity.x, ogre.velocity.z).length()
 		if f > 40 and ogre.act == Fighter.Act.NONE and pace > 1.0:
 			trot[1] += 1
-			if ogre._anim.current_clip() == ogre.trot_clip and absf(float(ogre._anim.get(&"_player").speed_scale) - 1.0) < 0.35:
+			var scale_now := float(ogre._anim.get(&"_player").speed_scale)
+			if ogre._anim.current_clip() == ogre.run_clip and scale_now > 0.6 and scale_now < 1.35:
 				trot[0] += 1
-	_check("coming at him it trots, at about the trot's own pace", trot[0] > trot[1] * 0.7, "%d of %d" % trot)
+	_check("coming at him it runs (no trot), at about the run's own pace", trot[0] > trot[1] * 0.7, "%d of %d" % trot)
 	# He runs from it, straight away at a sprint.
 	var away := (hero.global_position - ogre.global_position)
 	away.y = 0.0
@@ -437,7 +439,7 @@ func _gait() -> void:
 		if f > 90:
 			ran[1] += 1
 			var pace := Vector2(ogre.velocity.x, ogre.velocity.z).length()
-			if ogre.running_after and pace > 5.0 and ogre._anim.current_clip() == ogre.run_clip \
+			if (ogre.running_after or ogre.runs_after) and pace > 5.0 and ogre._anim.current_clip() == ogre.run_clip \
 					and float(ogre._anim.get(&"_player").speed_scale) > 0.6 and float(ogre._anim.get(&"_player").speed_scale) < 1.35:
 				ran[0] += 1
 	_check("him running from it, it runs, at about the run's own pace", ran[0] > ran[1] * 0.6,

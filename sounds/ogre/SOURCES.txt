@@ -7,6 +7,9 @@ roar_short.wav     <- 344 Audio, Dinosaurs, "T Rex" (0.25-2.2 s, x0.8)
 grunt_1..3.wav     <- 344 Audio, Dog Vocalisations, "Dog Shuffle, Grunt, Movement, Lying Down" (x0.62, low-passed)
 club_ground_1..4   <- 344 Audio, Medieval Weapons Vol. 2, "Spear And Stick Impact, Wooden MKH 2" (x0.66)
                       + Bass Drops & Downers, "Bass Drop & Downer Fast 16" under it
-step_1..3.wav      <- the same wooden impacts (x0.42, low-passed at 900 Hz)
+step_1..3.wav      <- (2026-10-11, the wooden ones knocked) Cinematic Fight Vol. 1, "4 x Punch, Body 02"
+                      (x0.44-0.52, low-passed at 650 Hz) + a driven sub thump falling from 70-84 Hz
+                      + low-passed noise (a crunch of earth) + a little of the fast bass drop
+                      (vepxis-art/tools/ogre_steps.py)
 whoosh_heavy/light <- 344 Audio, Elemental Palette Designed Vol. 1, "Wind, Rush, Whoosh, Long x5 01" (x0.62 / x0.9)
 crit.wav           <- 344 Audio, Cinematic Fight Vol. 1, "4 x Punch, Body 02" (x0.7) + the bass drop

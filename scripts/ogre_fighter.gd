@@ -152,6 +152,9 @@ extends PackBrute
 @export var trot_clip: StringName = &"CR_OgreTrot"
 @export var trot_above: float = 2.9
 @export var run_gait_above: float = 4.9
+## No trot (the user's word, 2026-10-11: the jog out, its quick run in its
+## place): coming at him it runs, at `run_speed`, as it did only when he ran.
+@export var runs_after: bool = true
 ## Its run, when he runs from it: the gap opening this fast (m/s) for this
 ## long (s) with him this far off.
 @export var run_speed: float = 6.0
@@ -765,7 +768,7 @@ func _watch_flight(gap: float, delta: float) -> void:
 		running_after = true
 	elif running_after and (gap < flee_from - 1.0 or _opening <= 0.0):
 		running_after = false
-	chase_speed = _pace(run_speed if running_after else _trot_speed)
+	chase_speed = _pace(run_speed if running_after or runs_after else _trot_speed)
 
 
 ## The Brawler's own choosing goes through the strings too.
@@ -820,6 +823,9 @@ func _try_combo(gap: float) -> bool:
 	var options: Array = []
 	for i in COMBOS.size():
 		var c: Dictionary = COMBOS[i]
+		# never weighed (the triple pound: opened when its pound is due)
+		if float(c["weight"]) <= 0.0:
+			continue
 		if bool(c.get("close", false)) != hugging:
 			continue
 		if bool(c.get("rage_only", false)) and not raging:
@@ -1863,7 +1869,7 @@ func _play_locomotion(delta: float) -> void:
 	if pace > to_run and not run_clip.is_empty():
 		clip = run_clip
 	elif pace > to_trot:
-		clip = trot_clip
+		clip = run_clip if runs_after and not run_clip.is_empty() else trot_clip
 	_anim.play(clip, 0.25, gait_rate(clip, pace))
 
 

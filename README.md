@@ -10186,3 +10186,10 @@ blow fells is his to pick (the idea: a combo's last).
   crags of grey stone (three shapes, each tinted, a red-hot underside), a
   glowing crack under each while it is up (additive, dying as it drops), two
   chips flung off each, and the crags sink into the ground as they settle.
+
+- 2026-10-11 (the user's word: the jog out, its quick run in its place; its
+  steps knocked like wood, heavier): the ogre `runs_after` — coming at him it
+  runs at `run_speed` with `run_clip`, no trot. Its steps are new
+  (`sounds/ogre/step_1..3.wav`: a body punch pitched down, a sub thump, a crunch
+  of earth). A combo of weight 0 (the triple pound) is no longer looked at in
+  `_try_combo` (its pound has no strike: `_fits` erred).
