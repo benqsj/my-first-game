@@ -416,6 +416,13 @@ var _evade_was_perfect: bool = false
 ## The critical under way: on whom, how long it has left, whether the blade
 ## has gone in, and where he was put to deal it.
 var _crit_on: Node3D = null
+## In a creature's grip (the ogre's, 2026-10-11): who holds him, how long
+## still (s), where he was caught from; how many times (for a test).
+var _held_by: Node3D = null
+var _held_left: float = 0.0
+var _held_from: Vector3 = Vector3.ZERO
+var _held_time: float = 0.0
+var grabbed_count: int = 0
 var _crit_left: float = 0.0
 var _crit_struck: bool = false
 var _crit_from := Vector3.ZERO
@@ -539,6 +546,9 @@ var _shot_rng := RandomNumberGenerator.new()
 ## `state` are this class's own business.
 var net_state: int = 0
 var net_blocking: bool = false
+## How many skills he has used (carried to every peer, so the host's
+## creatures see a cast: the ogre punishes it, 2026-10-11).
+var net_casts: int = 0
 var net_crouching: bool = false
 var net_airborne: bool = false
 var net_stowed: bool = false
@@ -972,6 +982,11 @@ func _physics_process(delta: float) -> void:
 	# out of it.
 	if state == State.DOWNED:
 		_process_downed(delta)
+		return
+
+	# Held up in a creature's grip: carried by its hand till it lets go.
+	if _held_by != null:
+		_process_held(delta)
 		return
 
 	# The critical is played out by hand too: put before it, the leap, the
@@ -3691,6 +3706,101 @@ func _blow_kind(combo: String) -> String:
 	return combo.get_slice("!", 1) if combo.contains("!") else ""
 
 
+## Any peer: whether he holds his shield up, draws his bow (or gathers a
+## bolt), as this peer knows it (his own peer from his state, the others
+## from what the synchronizer carries).
+func guarding() -> bool:
+	return is_blocking if is_multiplayer_authority() else net_blocking
+
+
+func drawing() -> bool:
+	return _drawing if is_multiplayer_authority() else net_draw > 0.0
+
+
+## Host: a creature has him in its grip for `seconds` (it carries him by its
+## [method grab_point] till it lets go: [method release_grab]).
+func grab_by(by: Node3D, seconds: float) -> void:
+	if multiplayer.has_multiplayer_peer():
+		net_grabbed.rpc_id(get_multiplayer_authority(), by.get_path(), seconds)
+	else:
+		net_grabbed(by.get_path(), seconds)
+
+
+## Host: let go (its blow, if any, comes after).
+func release_grab() -> void:
+	if multiplayer.has_multiplayer_peer():
+		net_released.rpc_id(get_multiplayer_authority())
+	else:
+		net_released()
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_grabbed(path: NodePath, seconds: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_dead:
+		return
+	var by := get_node_or_null(path) as Node3D
+	if by == null:
+		return
+	_held_by = by
+	_held_left = seconds + 1.0
+	_held_from = global_position
+	_held_time = 0.0
+	grabbed_count += 1
+	state = State.GROUNDED
+	velocity = Vector3.ZERO
+	_attack_buffer = 0.0
+	_heavy_buffer = 0.0
+	_crit_left = 0.0
+	is_blocking = false
+	net_held.rpc(seconds)
+
+
+@rpc("any_peer", "call_local", "reliable")
+func net_released() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority():
+		return
+	_held_by = null
+	_held_left = 0.0
+
+
+## Every peer: the look of him held up, kicking.
+@rpc("authority", "call_local", "reliable")
+func net_held(seconds: float) -> void:
+	if rig != null and rig.has_method(&"held"):
+		rig.call(&"held", seconds)
+
+
+## In the grip: drawn in to its hand over a moment, then hung from it by the
+## neck, facing it; let go of if it is gone, dead, or holds on too long.
+func _process_held(delta: float) -> void:
+	_held_left -= delta
+	_held_time += delta
+	velocity = Vector3.ZERO
+	var by := _held_by
+	if by == null or not is_instance_valid(by) or bool(by.get("is_dead")) or _held_left <= 0.0 \
+			or not by.has_method(&"grab_point"):
+		_held_by = null
+		return
+	var hand: Vector3 = by.call(&"grab_point")
+	var want := hand - Vector3.UP * HELD_NECK
+	var u := clampf(_held_time / 0.22, 0.0, 1.0)
+	global_position = _held_from.lerp(want, u * u * (3.0 - 2.0 * u))
+	var to := by.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() > 0.0001:
+		rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-14.0 * delta))
+
+
+## Where he hangs from a hand that holds him: this far below it (m).
+const HELD_NECK := 1.45
+
+
 ## Only the host deals creatures' blows. A local call reports sender 0.
 @rpc("any_peer", "call_local", "reliable")
 func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
@@ -6024,6 +6134,7 @@ func use_skill(slot: int) -> bool:
 	if not went:
 		return false
 	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
+	net_casts += 1
 	skill_used.emit(slot, id)
 	return true
 

@@ -176,6 +176,54 @@ extends PackBrute
 ## Him walking into its reach while it keeps its distance: at him at once,
 ## this often.
 @export var punish_close: float = 0.7
+## Its name on the great enemy's bar at the bottom of his view ([PlayerHud]);
+## with one it has no bar over its head.
+@export var boss_name: String = "Mountain Ogre"
+@export_group("Death")
+## Its death heavy and slow (the user's word, 2026-10-11): down on its knees,
+## then over on its face (`CR_MG_Death`) at this rate; the ground takes it
+## this far into the clip (share) — a thud, earth thrown up, the view shaken.
+## Lying there, it goes to ash and embers as it sinks.
+@export var heavy_death_clip: StringName = &"CR_MG_Death"
+@export var death_rate: float = 0.6
+@export var death_lands: float = 0.62
+@export_group("Second phase")
+## Its rage made a second phase (the user's word, 2026-10-11): the roar
+## throws whoever stands near it back off his feet (a jump clears it), and
+## from then on its club burns and molten cracks run through its skin.
+## Seconds into the rage that the roar comes; how far it throws; its worth.
+@export var rage_roar_at: float = 0.75
+@export var rage_push_radius: float = 6.0
+@export var rage_push_share: float = 0.2
+@export_group("Punish")
+## Him casting near it, or drawing his bow / gathering a bolt (the user's
+## word, 2026-10-11: Elden Ring's punish of the flask and the spell): it is
+## at him at once — a swing in reach, a lunge, a leap, a run and spring —
+## from as far as this (m at its size); a draw held this long first (s); and
+## not again for so long (s).
+@export var punish_reach: float = 22.0
+@export var punish_draw_after: float = 0.45
+@export var punish_wait_time: float = 2.5
+@export_group("Grab")
+## Its free hand at him (the user's word, 2026-10-11: Elden Ring's grabs): it
+## reaches with its left, lifts him off the ground by the neck, holds him up
+## a moment and throws him down. No shield holds it; only a roll beats it.
+## Its clip (Mixamo's one-hand choke lift, mirrored), played at this rate.
+@export var grab_clip: StringName = &"CR_OG_Choke_Lift"
+@export var grab_rate: float = 1.1
+## Clip seconds: its hand at him (he is caught in that window), the throw.
+@export var grab_catch: Vector2 = Vector2(1.2, 1.6)
+@export var grab_throw_at: float = 3.95
+## From how far it reaches for him (m at its size; it steps in on him).
+@export var grab_from: float = 4.2
+## How far its hand may be from him and still close on him (m).
+@export var grab_radius: float = 1.0
+## How often it reaches for him when it could — more behind a raised shield.
+@export var grab_chance: float = 0.25
+@export var grab_chance_guarded: float = 0.7
+@export var grab_cooldown: Vector2 = Vector2(12.0, 20.0)
+## The throw's worth (a share of `hit_damage`).
+@export var grab_share: float = 1.8
 @export_group("Gait")
 ## Its trot coming at him (the walk is `walk_clip`, the run `run_clip`); the
 ## paces it changes from walk to trot and from trot to run (m/s).
@@ -348,6 +396,8 @@ const POUND_2 := 168
 const POUND_3 := 169
 ## Its roar at him while it keeps its distance (`CR_OG_Battlecry`).
 const TAUNT := 170
+## Its grab ([member grab_clip]).
+const GRAB := 171
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -554,6 +604,32 @@ var _spacing_held: float = 0.0
 var _taunt_wait: float = 8.0
 var _rush_left: float = 0.0
 var spacings_made: Dictionary = {}
+## Host: the grab — its wait, the act it last tried to catch him in, whom it
+## holds; counts for a test.
+var _grab_wait: float = 6.0
+var _grab_serial: int = -1
+var _held: Node3D = null
+var grabs_made: int = 0
+var grab_rolls: int = 0
+var _grab_passed: int = 0
+## Host: his casts seen so far (by hero), how long he has drawn, the punish
+## due and its wait; a count for a test.
+var _seen_casts: Dictionary = {}
+var _drawn_for: float = 0.0
+var _punish_left: float = 0.0
+var _punish_wait: float = 0.0
+var punishes_made: int = 0
+## Host: the rage roar's throw done (its act serial); a count for a test.
+## Every peer: the burning club and the cracks.
+var _rage_pushed: int = -1
+var rage_throws: int = 0
+var _club_fire: GPUParticles3D
+## Every peer: the ground's thud and the ash heard/shown once.
+var _death_landed: bool = false
+var _ashed: bool = false
+var _cracks: ShaderMaterial
+var grabs_caught: int = 0
+var grab_throws: int = 0
 var bursts_made: int = 0
 var taunts_made: int = 0
 var catches_made: int = 0
@@ -589,6 +665,8 @@ func _ready() -> void:
 	_windups[HEAVY] = [heavy_slow, heavy_lead]
 	_special(STOMP, stomp_clip, stomp_part)
 	_special(TAUNT, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.96))
+	_special(GRAB, grab_clip, Vector3(grab_rate, 0.0, 0.97))
+	_kinds[GRAB] = &"crush"
 	for what: int in SWINGS:
 		var sw: Array = SWINGS[what]
 		_special(what, sw[0], sw[1])
@@ -730,6 +808,8 @@ func _own_move(delta: float) -> bool:
 			return true
 		return _prowl(gap, delta, stomp_reach * 0.7)
 	_taunt_wait = maxf(_taunt_wait - delta, 0.0)
+	if _punish(gap, delta):
+		return true
 	if _spacing != &"" and _keep_distance(gap, delta):
 		return true
 	if _from_afar(gap, delta):
@@ -746,6 +826,9 @@ func _own_move(delta: float) -> bool:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
 		_open(HEAVY)
+		return true
+	_grab_wait = maxf(_grab_wait - delta, 0.0)
+	if _try_grab(gap):
 		return true
 	if (_cooldown > 0.0 or stamina < attack_cost) and _prowl(gap, delta, strike_off):
 		return true
@@ -771,6 +854,275 @@ func _own_move(delta: float) -> bool:
 		_move_towards(_quarry.global_position, _pace(run_speed), delta)
 		return true
 	return super(delta)
+
+
+## Host: him casting, or drawing a while, near it: at him at once, by the
+## gap — a swing in reach, a lunge, a leap, a run and spring (true if it
+## went).
+func _punish(gap: float, delta: float) -> bool:
+	_punish_wait = maxf(_punish_wait - delta, 0.0)
+	var hero := _quarry as Player
+	if hero == null or hero.is_dead:
+		return false
+	var key := hero.get_instance_id()
+	var casts := hero.net_casts
+	if casts != int(_seen_casts.get(key, casts)):
+		_punish_left = 1.0
+	_seen_casts[key] = casts
+	_drawn_for = _drawn_for + delta if hero.drawing() else 0.0
+	if _drawn_for >= punish_draw_after:
+		_punish_left = maxf(_punish_left, 0.3)
+	_punish_left = maxf(_punish_left - delta, 0.0)
+	var s := visual_scale / 1.6
+	if _punish_left <= 0.0 or _punish_wait > 0.0 or stamina < attack_cost or gap > punish_reach * s \
+			or hero.state == Player.State.DOWNED:
+		return false
+	_punish_left = 0.0
+	_punish_wait = punish_wait_time
+	_drawn_for = 0.0
+	punishes_made += 1
+	_spacing = &""
+	_cooldown = 0.0
+	mode = Mode.FIGHT
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	if gap >= run_slam_from:
+		_charging = true
+		_charge_time = 0.0
+		mode = Mode.CHASE
+		_move_towards(_quarry.global_position, _pace(run_speed), delta)
+		return true
+	if gap >= leap_slam_from:
+		_open(LEAP_SLAM)
+		return true
+	if gap >= lunge_from:
+		_open(LUNGE)
+		return true
+	var pick := _pick_opener(gap)
+	if pick >= 0:
+		_open(pick)
+		return true
+	_rush_left = 1.2
+	return false
+
+
+## Host: the rage roar — everyone on the ground near it thrown back off his
+## feet.
+func _rage_throw() -> void:
+	var r := rage_push_radius * visual_scale / 1.6
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var who := node as Node3D
+		if who == null or not who.has_method(&"receive_blow") or bool(who.get("is_dead")):
+			continue
+		var rel := who.global_position - global_position
+		if absf(rel.y) > 2.0 or Vector2(rel.x, rel.z).length() > r:
+			continue
+		rage_throws += 1
+		who.call(&"receive_blow", hit_damage * rage_push_share, self, 0, 1, act_serial * 1000 + 93, false, &"ground")
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_rage_blast.rpc()
+	else:
+		net_rage_blast()
+
+
+## Every peer: the roar's blast — dust and grit driven out along the ground
+## all round (no ring), the view shaken hard.
+@rpc("authority", "call_local", "reliable")
+func net_rage_blast() -> void:
+	var into := Blood.world_of(self)
+	var s := visual_scale / 1.6
+	SkillFx.particles(into, global_position + Vector3.UP * 0.3, {
+		"amount": 90, "life": 0.9, "one_shot": true, "explosiveness": 0.95, "add": false,
+		"speed": Vector2(6.0, 11.0) * s, "dir": Vector3(1, 0.15, 0), "spread": 180.0,
+		"gravity": Vector3(0, -2.0, 0), "damping": 6.0, "size": Vector2(0.4, 0.9) * s, "grow": 0.6,
+		"sphere": 0.6 * s,
+		"colors": [Color(0.55, 0.5, 0.45, 0.0), Color(0.5, 0.45, 0.4, 0.45), Color(0.45, 0.42, 0.4, 0.0)],
+	})
+	GroundFx.eruption(into, global_position + Vector3.UP * 0.05, 1.1 * s, false)
+	WindBlast.shake(self, 0.22, 0.7, 20.0)
+
+
+## Enraged, over the pack's red glow: molten cracks through its skin, and its
+## club burning.
+func _glow_on() -> void:
+	super()
+	if body == null:
+		return
+	_cracks = ShaderMaterial.new()
+	_cracks.shader = load("res://assets/fx/rage_cracks.gdshader") as Shader
+	_cracks.set_shader_parameter(&"glow", rage_glow)
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		mi.material_overlay = _cracks
+	if _skeleton != null and _weapon >= 0:
+		var hold := BoneAttachment3D.new()
+		hold.bone_name = String(weapon_bone)
+		_skeleton.add_child(hold)
+		_club_fire = SkillFx.particles(hold, Vector3.ZERO, {
+			"amount": 110, "life": 0.6, "one_shot": false, "add": true,
+			"speed": Vector2(0.4, 1.4), "dir": Vector3.UP, "spread": 25.0, "gravity": Vector3(0, 3.0, 0),
+			"damping": 0.5, "size": Vector2(0.18, 0.4), "grow": -0.5,
+			"box": Vector3(0.32, 0.06, 0.06),
+			"colors": [Color(1.0, 0.85, 0.45, 0.0), Color(1.0, 0.55, 0.12, 0.9), Color(0.8, 0.12, 0.02, 0.0)],
+		})
+		if _club_fire != null:
+			_club_fire.position = Vector3(weapon_tip.x * 0.62, 0.0, 0.0)
+			var light := OmniLight3D.new()
+			light.light_color = Color(1.0, 0.5, 0.15)
+			light.light_energy = 1.4
+			light.omni_range = 2.6 * visual_scale / 1.6
+			light.shadow_enabled = false
+			hold.add_child(light)
+			light.position = Vector3(weapon_tip.x * 0.7, 0.0, 0.0)
+
+
+## Host: its grab, if it is due and he is near enough (one roll each time it
+## could; a raised shield makes it likelier).
+func _try_grab(gap: float) -> bool:
+	if _grab_wait > 0.0 or _cooldown > 0.0 or stamina < attack_cost or not (_quarry is Player):
+		return false
+	var s := visual_scale / 1.6
+	if gap > grab_from * s or gap < 0.8 * s:
+		return false
+	var hero := _quarry as Player
+	if hero.is_dead or hero.state == Player.State.DOWNED:
+		return false
+	grab_rolls += 1
+	# each time it lets him off, likelier the next
+	var chance := (grab_chance_guarded if hero.guarding() else grab_chance) + 0.2 * _grab_passed
+	if _rng.randf() >= chance:
+		_grab_passed += 1
+		_grab_wait = _rng.randf_range(1.2, 2.2)
+		return false
+	_grab_passed = 0
+	_grab_wait = _rng.randf_range(grab_cooldown.x, grab_cooldown.y) * (0.7 if raging else 1.0)
+	grabs_made += 1
+	mode = Mode.FIGHT
+	_spacing = &""
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_begin(GRAB)
+	return true
+
+
+## Every peer: where its grip is — its left wrist, a little out in front.
+func grab_point() -> Vector3:
+	if _skeleton == null:
+		return global_position + Vector3.UP * 2.0 * visual_scale / 1.6
+	var b := _skeleton.find_bone("L_wrist_joint")
+	if b < 0:
+		return global_position + Vector3.UP * 2.0 * visual_scale / 1.6
+	# (out in front of the wrist, so he hangs off its hand and not in its
+	# chest)
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin + _forward() * 0.45 * visual_scale / 1.6
+
+
+## Host, through the grab: turned after him till its hand goes out; caught in
+## its window if its hand is at him (not rolling, not down); missed, it gives
+## up soon after; held, he is thrown down at `grab_throw_at`.
+func _grab_run() -> void:
+	var ct := _clip_time(GRAB, _act_time)
+	var hero := _quarry as Player
+	if _held == null and _grab_serial != act_serial and ct >= grab_catch.x and ct <= grab_catch.y \
+			and hero != null and _can_catch(hero):
+		_grab_serial = act_serial
+		_held = hero
+		grabs_caught += 1
+		hero.grab_by(self, maxf((grab_throw_at - ct) / grab_rate, 0.2))
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_grab_caught.rpc()
+		else:
+			net_grab_caught()
+	if _held == null and ct > grab_catch.y + 0.05:
+		# missed: back to it after a short recovery
+		_act_length = minf(_act_length, (grab_catch.y + 0.75) / grab_rate)
+	if _held != null and ct >= grab_throw_at:
+		_throw_held()
+
+
+func _can_catch(hero: Player) -> bool:
+	if hero.is_dead or hero.is_invulnerable or hero.state != Player.State.GROUNDED \
+			and hero.state != Player.State.AIRBORNE:
+		return false
+	var hand := grab_point()
+	var rel := hero.global_position - hand
+	var up := -rel.y
+	rel.y = 0.0
+	return rel.length() <= grab_radius * visual_scale / 1.6 and up >= 0.4 and up <= 3.4 * visual_scale / 1.6
+
+
+## Host: down with him — let go, and the blow of the ground (no shield, no
+## roll: he is in its hand).
+func _throw_held() -> void:
+	var hero := _held as Player
+	_held = null
+	if hero == null or not is_instance_valid(hero):
+		return
+	grab_throws += 1
+	hero.release_grab()
+	hero.receive_blow(hit_damage * grab_share, self, 0, 1, act_serial * 1000 + 91, false, &"crush")
+	var at := Vector3(hero.global_position.x, global_position.y, hero.global_position.z)
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_grab_throw.rpc(at)
+	else:
+		net_grab_throw(at)
+
+
+## Host: it lost its hold (struck down, stance broken, the act cut): he drops.
+func _drop_held() -> void:
+	var hero := _held as Player
+	_held = null
+	if hero != null and is_instance_valid(hero):
+		hero.release_grab()
+
+
+## Every peer: its death played heavy and slow — a last groan as it goes.
+func _play_act() -> void:
+	if act == Act.DEAD and not heavy_death_clip.is_empty() and _anim != null:
+		_anim.play(heavy_death_clip, 0.2, death_rate, 1.0, true)
+		Sfx.play(self, ROAR_SOUND, self, Vector3.ZERO, 0.62, -3.0)
+		return
+	super()
+
+
+## Every peer, dead: the thud as it comes down on its face, then ash and
+## embers off it as it sinks.
+func _watch_death() -> void:
+	if heavy_death_clip.is_empty() or _anim == null:
+		return
+	var length := _anim.clip_length(heavy_death_clip) / maxf(death_rate, 0.01)
+	if not _death_landed and _corpse_age >= length * death_lands:
+		_death_landed = true
+		var into := Blood.world_of(self)
+		var at := global_position + _forward() * 1.4 * visual_scale / 1.6
+		GroundFx.eruption(into, at + Vector3.UP * 0.05, 1.3 * visual_scale / 1.6, false)
+		ImpactFx.thud(self, at + Vector3.UP * 0.2, true)
+		_sound_at(CLUB_GROUND, at, 0.7, 3.0)
+		WindBlast.shake(self, 0.18, 0.6, 22.0)
+	if not _ashed and _corpse_age >= corpse_linger - 0.6:
+		_ashed = true
+		var s := visual_scale / 1.6
+		SkillFx.particles(Blood.world_of(self), global_position + Vector3.UP * 0.4 * s, {
+			"amount": 160, "life": 2.6, "one_shot": false, "explosiveness": 0.0, "add": true,
+			"speed": Vector2(0.3, 1.3), "dir": Vector3.UP, "spread": 25.0, "gravity": Vector3(0, 0.6, 0),
+			"damping": 0.3, "size": Vector2(0.04, 0.1), "grow": -0.4,
+			"box": Vector3(0.9, 0.3, 1.5) * s, "free_after": corpse_sink_time + 2.8,
+			"colors": [Color(1.0, 0.85, 0.5, 0.0), Color(1.0, 0.7, 0.3, 0.9), Color(0.9, 0.3, 0.05, 0.0)],
+		})
+
+
+## Every peer: its hand closes on him — a grunt.
+@rpc("authority", "call_local", "reliable")
+func net_grab_caught() -> void:
+	Sfx.play_any(self, GRUNTS, self, 0.8, 0.0)
+
+
+## Every peer: thrown down — the thud of him, earth and grit, the view shaken.
+@rpc("authority", "call_local", "reliable")
+func net_grab_throw(at: Vector3) -> void:
+	var into := Blood.world_of(self)
+	GroundFx.eruption(into, at + Vector3.UP * 0.05, 0.8, false)
+	ImpactFx.thud(self, at + Vector3.UP * 0.2, true)
+	_sound_at(CLUB_GROUND, at, 0.85, 1.0)
+	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 1.0, -4.0)
+	WindBlast.shake(self, 0.12, 0.45, 16.0)
 
 
 ## Host, a string ended: how it keeps its distance now, and how long.
@@ -1182,6 +1534,7 @@ const BLOW_NAMES := {
 	SMASH: &"smash", CLEAVE: &"cleave", JUMP_SLAM: &"jump_slam", WHIRL: &"whirl",
 	KICK: &"kick", LUNGE: &"lunge", LEAP_SLAM: &"leap_slam", RUN_SLAM: &"run_slam",
 	CATCH: &"catch", POUND: &"pound", POUND_2: &"pound", POUND_3: &"pound", HEAVY: &"heavy", STOMP: &"stomp",
+	GRAB: &"grab",
 }
 
 
@@ -1410,6 +1763,17 @@ func _extra_velocity(delta: float) -> Vector3:
 			return Vector3.ZERO
 		if _slide_serial == act_serial:
 			return _forward() * _slide_speed if _act_time <= held.y else Vector3.ZERO
+	if act == GRAB:
+		# in on him through the reach, so its hand comes to him
+		var reach_at := grab_catch.x / grab_rate
+		if _held == null and _quarry != null and _act_time >= 0.35 and _act_time <= reach_at:
+			if _act_time < reach_at - 0.2:
+				_face(_quarry.global_position - global_position, get_physics_process_delta_time(), turn_speed * 2.0)
+				_reframe()
+			var hand_out := 1.35 * visual_scale / 1.6
+			var short := _distance_to(_quarry) - hand_out
+			return _forward() * clampf(short / maxf(reach_at - _act_time, 0.15), 0.0, 6.0)
+		return Vector3.ZERO
 	if act == LUNGE:
 		if _act_time <= _blow_moments(LUNGE)[0]:
 			return _forward() * _lunge_speed
@@ -1793,6 +2157,13 @@ func _run_act(delta: float) -> void:
 		return
 	if was == act and serial == act_serial and _strikes_table.has(act):
 		_watch_blows(t0)
+	if act == RAGE and _rage_pushed != act_serial and _act_time >= rage_roar_at:
+		_rage_pushed = act_serial
+		_rage_throw()
+	if act == GRAB:
+		_grab_run()
+	if _held != null and (act != GRAB or is_dead):
+		_drop_held()
 	if (act == POUND or act == POUND_2 or act == POUND_3) and not _pounded and _act_time >= _pound_time(act):
 		_pounded = true
 		var k := 0 if act == POUND else (1 if act == POUND_2 else 2)
@@ -1983,7 +2354,19 @@ func _after(what: int) -> void:
 ## and the weight of its feet.
 func _process(delta: float) -> void:
 	super(delta)
+	# a great enemy: its bar is at the bottom of his view, not over its head
+	if not boss_name.is_empty():
+		if _health_bar != null:
+			_health_bar.visible = false
+		if _stamina_bar != null:
+			_stamina_bar.visible = false
 	if is_dead:
+		_watch_death()
+		# its fire out with it
+		if _cracks != null:
+			_cracks.set_shader_parameter(&"beat", 0.0)
+		if _club_fire != null:
+			_club_fire.emitting = false
 		return
 	if act_serial != _heard_serial:
 		_heard_serial = act_serial

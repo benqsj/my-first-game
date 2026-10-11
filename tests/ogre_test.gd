@@ -40,6 +40,19 @@ extends SceneTree
 ##   sweep slides round at him if he backed off.
 ## * whirl: a heavy, grounded spin — its hips never bob up above standing
 ##   (the old clip rose 0.37 m and dropped), and it lands on him.
+## * grab: its free hand closes on him — through a raised shield too — he is
+##   lifted off the ground, held, and thrown down; rolled (i-frames at its
+##   reach) it misses and gives up soon; behind a shield it reaches for him
+##   in a free fight.
+## * punish: him casting near it, it is at him at once — a swing in reach, a
+##   lunge from 6 m, a leap from 11 m; drawing his bow a while at 6 m, a
+##   lunge; left alone at 11 m it does not leap at once.
+## * phase: enraged, its roar throws him off his feet near it; its club burns
+##   and cracks glow in its skin.
+## * bar: fighting him, its name and health across the bottom of his view
+##   (none over its head); killed, "ENEMY FELLED".
+## * death: slow — on its knees, over on its face, the ground's thud; then
+##   ash as it sinks; a great enemy, it always drops something.
 ##
 ##   godot --headless --path . --script res://tests/ogre_test.gd [-- <part>...]
 
@@ -61,7 +74,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var only := OS.get_cmdline_user_args()
 	var parts := ["strings", "raging", "sides", "steady", "stance", "rings", "falls", "gait", "afar", "catch",
-			"track", "slide", "outrun", "spacing", "strain", "whirl"]
+			"track", "slide", "outrun", "spacing", "strain", "whirl", "grab", "punish", "phase", "bar", "death"]
 	for part: String in parts:
 		if only.is_empty() or only.has(part):
 			await call("_" + part)
@@ -337,7 +350,9 @@ func _rings() -> void:
 			continue
 		for node in world.find_children("*", "MeshInstance3D", true, false):
 			var mi := node as MeshInstance3D
-			if mi.mesh is TorusMesh or mi is DustRing:
+			# (at its feet: his own fall's dust, thrown by its roar, is his)
+			if (mi.mesh is TorusMesh or mi is DustRing) \
+					and mi.global_position.distance_to(ogre.global_position) < 2.5:
 				rings += 1
 	_check("enraged, no ring at its feet", raged and rings == 0, "raged %s, %d rings seen" % [raged, rings])
 	await _done(world)
@@ -727,7 +742,7 @@ func _spacing() -> void:
 				watched += 1.0 / 60.0
 		if ogre.act_serial != serial:
 			serial = ogre.act_serial
-			if ogre._strikes_table.has(ogre.act):
+			if ogre._strikes_table.has(ogre.act) or ogre.act == OgreFighter.GRAB:
 				swings += 1
 	_check("between its strings it walks round him", strafed > 1.0, "%.1f s" % strafed)
 	_check("...backs off from him", backed > 0.5, "%.1f s" % backed)
@@ -826,4 +841,201 @@ func _whirl() -> void:
 	_check("the whirl: through its spin its hips never bob up above standing", top - stand < 0.06,
 			"standing %.2f, highest %.2f, lowest %.2f" % [stand, top, low])
 	_check("the whirl: it lands on him", hit)
+	await _done(a[0])
+
+
+func _grab_once(how: String) -> Dictionary:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 2.6))
+	ogre.sight_range = 0.0
+	for i in 20:
+		await physics_frame
+	ogre._quarry = hero
+	var to := hero.global_position - ogre.global_position
+	to.y = 0.0
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	if how == "shield":
+		Input.action_press("block")
+	var start := hero.global_position
+	ogre._begin(OgreFighter.GRAB)
+	var lift := 0.0
+	var held := false
+	var downed := false
+	var length := 0.0
+	var f := 0
+	while f < 60 * 8:
+		await physics_frame
+		f += 1
+		if how == "rolled":
+			var ct := ogre._clip_time(OgreFighter.GRAB, ogre._act_time)
+			hero.is_invulnerable = ogre.act == OgreFighter.GRAB and ct > ogre.grab_catch.x - 0.2 and ct < ogre.grab_catch.y + 0.2
+		held = held or hero._held_by == ogre
+		lift = maxf(lift, hero.global_position.y - start.y)
+		downed = downed or hero.state == Player.State.DOWNED
+		if ogre.act == OgreFighter.GRAB:
+			length = ogre._act_time
+		elif f > 30 and (downed or how == "rolled"):
+			break
+	Input.action_release("block")
+	hero.is_invulnerable = false
+	var out := {"caught": ogre.grabs_caught, "held": held, "lift": lift, "thrown": ogre.grab_throws,
+			"downed": downed, "length": length, "free": hero._held_by == null}
+	await _done(a[0])
+	return out
+
+
+func _grab() -> void:
+	var r := await _grab_once("plain")
+	_check("grab: its hand closes on him", int(r.caught) == 1 and bool(r.held), str(r))
+	_check("grab: he is lifted off the ground", float(r.lift) > 0.8, "%.2f m" % float(r.lift))
+	_check("grab: and thrown down", int(r.thrown) == 1 and bool(r.downed) and bool(r.free), str(r))
+	r = await _grab_once("shield")
+	_check("grab: a raised shield does not hold it", int(r.caught) == 1 and bool(r.downed), str(r))
+	r = await _grab_once("rolled")
+	_check("grab: rolled under, it misses and gives up soon", int(r.caught) == 0 and float(r.length) < 2.4, str(r))
+	# behind a raised shield, in a free fight, it reaches for him
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.0))
+	ogre._grab_wait = 0.0
+	ogre._pound_wait = 99.0
+	ogre._heavy_wait = 99.0
+	Input.action_press("block")
+	var start := hero.global_position
+	var tried := false
+	var guarded := false
+	for f in 60 * 30:
+		await physics_frame
+		hero.stamina = hero.max_stamina
+		guarded = guarded or hero.guarding()
+		if hero.state != Player.State.DOWNED and hero._held_by == null:
+			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if ogre.grabs_made > 0:
+			tried = true
+			break
+	Input.action_release("block")
+	_check("grab: behind a shield it reaches for him", tried, "grabs %d, rolls %d, guarded %s, wait %.1f" % [ogre.grabs_made, ogre.grab_rolls, guarded, ogre._grab_wait])
+	await _done(a[0])
+
+
+func _punish_once(off: float, how: String) -> Array:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, off))
+	ogre._leap_slam_wait = 99.0
+	ogre._run_slam_wait = 99.0
+	ogre._lunge_wait = 99.0
+	ogre._pound_wait = 99.0
+	ogre._heavy_wait = 99.0
+	ogre._grab_wait = 99.0
+	ogre.spacing_time = Vector2.ZERO
+	var start := hero.global_position
+	for i in 30:
+		await physics_frame
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		ogre.global_position = _ahead(hero, off)
+		ogre.velocity = Vector3.ZERO
+		ogre._cooldown = 99.0
+	var acts := []
+	var serial := ogre.act_serial
+	for f in 60:
+		await physics_frame
+		hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		ogre._cooldown = maxf(ogre._cooldown, 0.0) if ogre.act != Fighter.Act.NONE else 99.0
+		if how == "cast" and f == 2:
+			hero.net_casts += 1
+		if how == "draw":
+			hero._drawing = true
+		if ogre.act_serial != serial:
+			serial = ogre.act_serial
+			acts.append(ogre.act)
+		if ogre._charging and not acts.has(-2):
+			acts.append(-2)
+	hero._drawing = false
+	var out := [acts, ogre.punishes_made]
+	await _done(a[0])
+	return out
+
+
+func _punish() -> void:
+	var r := await _punish_once(2.6, "cast")
+	_check("punish: him casting in its reach, a swing at once", int(r[1]) == 1 and not (r[0] as Array).is_empty()
+			and OgreFighter.SWINGS.has((r[0] as Array)[0]), str(r))
+	r = await _punish_once(6.0, "cast")
+	_check("punish: him casting 6 m off, a lunge", (r[0] as Array).has(OgreFighter.LUNGE), str(r))
+	r = await _punish_once(11.0, "cast")
+	_check("punish: him casting 11 m off, a leap", (r[0] as Array).has(OgreFighter.LEAP_SLAM), str(r))
+	r = await _punish_once(6.0, "draw")
+	_check("punish: him drawing his bow 6 m off, a lunge", (r[0] as Array).has(OgreFighter.LUNGE), str(r))
+	r = await _punish_once(11.0, "none")
+	_check("punish: left alone 11 m off, no leap at once", not (r[0] as Array).has(OgreFighter.LEAP_SLAM)
+			and int(r[1]) == 0, str(r))
+
+
+func _phase() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.0))
+	ogre.max_health = 1000.0
+	ogre.health = 400.0
+	var start := hero.global_position
+	var downed := false
+	for f in 60 * 4:
+		await physics_frame
+		if not downed and hero.state != Player.State.DOWNED:
+			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		downed = downed or hero.state == Player.State.DOWNED
+		if ogre.raging and downed and f > 120:
+			break
+	_check("phase: enraged, its roar throws him off his feet", ogre.raging and ogre.rage_throws > 0 and downed,
+			"raging %s, throws %d, downed %s" % [ogre.raging, ogre.rage_throws, downed])
+	_check("phase: its club burns, cracks glow in its skin", ogre._club_fire != null and ogre._cracks != null)
+	await _done(a[0])
+
+
+func _bar() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 4.0))
+	var hud := hero._hud
+	var shown := false
+	for f in 60 * 3:
+		await physics_frame
+		shown = shown or (hud != null and hud.boss_shown)
+	_check("bar: fighting him, its bar across the bottom", shown and hud._boss == ogre, str(shown))
+	_check("bar: none over its head", not ogre._health_bar.visible)
+	ogre.health = 1.0
+	ogre.max_health = 100.0
+	var felled := false
+	ogre.call(&"_die")
+	for f in 60 * 2:
+		await physics_frame
+		felled = felled or (hud._felled.modulate.a > 0.5)
+	_check("bar: killed, ENEMY FELLED", felled and not hud.boss_shown)
+	await _done(a[0])
+
+
+func _death() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 5.0))
+	ogre.sight_range = 0.0
+	for i in 10:
+		await physics_frame
+	ogre.call(&"_die")
+	var clip := StringName()
+	var landed_at := -1.0
+	var t := 0.0
+	while t < 9.0 and not ogre._ashed:
+		await physics_frame
+		t += 1.0 / 60.0
+		if t < 0.5:
+			clip = ogre._anim.current_clip()
+		if ogre._death_landed and landed_at < 0.0:
+			landed_at = t
+	_check("death: slow, on its knees and over on its face", clip == &"CR_MG_Death" and landed_at > 1.5,
+			"%s, down at %.1f s" % [clip, landed_at])
+	_check("death: then ash as it sinks", ogre._ashed, "%.1f s" % t)
+	_check("death: a great enemy, it always drops something", LootDrop.chance_of(ogre) >= 1.0)
 	await _done(a[0])

@@ -66,6 +66,9 @@ properties/17/replication_mode = 2
 properties/18/path = NodePath(".:net_look")
 properties/18/spawn = true
 properties/18/replication_mode = 2
+properties/19/path = NodePath(".:net_casts")
+properties/19/spawn = true
+properties/19/replication_mode = 2
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2

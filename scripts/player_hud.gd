@@ -76,6 +76,16 @@ var _purse: Purse
 var _gold_by: int = 0
 var _gold_time: float = 9.0
 var _poison: HeroPoison
+## The great enemy shown (one with a `boss_name`), what a blow took off it
+## lingering, how long it has been out of the fight, the felled words' clock.
+var _boss: Node3D = null
+var _boss_lost: float = -1.0
+var _boss_lost_wait: float = 0.0
+var _boss_off: float = 0.0
+var _boss_look: float = 0.0
+var _felled: Label
+var _felled_time: float = 9.0
+var boss_shown: bool = false
 const POISONED := Color(0.36, 0.7, 0.12)
 
 const GOLD := Color(0.95, 0.78, 0.36)
@@ -84,6 +94,16 @@ const GOLD_DEEP := Color(0.55, 0.38, 0.12)
 const MAX_BAR := 480.0
 
 const SLOT := 62.0
+## The great enemy's bar (Elden Ring's, the user's word 2026-10-11): across
+## the bottom above the skills, its name over it; how wide (share of the
+## view), how high, how far above the skills; how near it must be fighting
+## to be shown (m); "ENEMY FELLED" in gold when it dies.
+const BOSS_WIDTH := 0.56
+const BOSS_HEIGHT := 9.0
+const BOSS_ABOVE := 38.0
+const BOSS_NEAR := 45.0
+const BOSS_HEALTH := Color(0.62, 0.07, 0.06)
+const BOSS_GOLD := Color(0.93, 0.8, 0.5)
 const SLOT_GAP := 12.0
 const SLOT_BOTTOM := 34.0
 const SLOT_FILL := Color(0.08, 0.07, 0.06, 0.78)
@@ -124,6 +144,20 @@ func _ready() -> void:
 	_death.add_theme_constant_override("shadow_offset_y", 3)
 	_death.modulate.a = 0.0
 	add_child(_death)
+
+	_felled = Label.new()
+	_felled.text = "ENEMY FELLED"
+	_felled.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_felled.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_felled.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_felled.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_felled.add_theme_font_size_override("font_size", 58)
+	_felled.add_theme_color_override("font_color", BOSS_GOLD)
+	_felled.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	_felled.add_theme_constant_override("shadow_offset_x", 2)
+	_felled.add_theme_constant_override("shadow_offset_y", 3)
+	_felled.modulate.a = 0.0
+	add_child(_felled)
 	if player != null:
 		player.skill_used.connect(_on_skill_used)
 
@@ -145,6 +179,7 @@ func _process(delta: float) -> void:
 			_ready_flash[slot] = 0.0
 		_last_left[slot] = left
 		_ready_flash[slot] += delta
+	_watch_boss(delta)
 	_said_time += delta
 	_found_time += delta
 	_gain_time += delta
@@ -192,6 +227,7 @@ func _draw_bars() -> void:
 	_bar(at, minf(player.max_stamina * STAMINA_SCALE, MAX_BAR), STAMINA_HEIGHT,
 			maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0),
 			STAMINA_SPENT if winded else STAMINA, 0.0, Color.TRANSPARENT)
+	_draw_boss()
 	_draw_skills()
 	_draw_level()
 	_draw_gold()
@@ -722,6 +758,81 @@ func _icon(id: StringName, rect: Rect2) -> void:
 			_bars.draw_circle(c + Vector2(9, 12), 3.5, venom)
 			_bars.draw_colored_polygon(PackedVector2Array([c + Vector2(9, 5), c + Vector2(12, 11),
 					c + Vector2(6, 11)]), venom)
+
+
+## The great enemy near him and fighting: the nearest creature with a
+## `boss_name` that is roused (chasing or fighting), kept while it fights and
+## a few seconds after; its death brings up "ENEMY FELLED".
+func _watch_boss(delta: float) -> void:
+	_felled_time += delta
+	var shown := clampf(_felled_time / 0.5, 0.0, 1.0) * (1.0 - clampf((_felled_time - 3.5) / 1.2, 0.0, 1.0))
+	_felled.modulate.a = shown
+	if _boss != null and (not is_instance_valid(_boss)):
+		_boss = null
+	if _boss != null:
+		if bool(_boss.get("is_dead")):
+			_boss = null
+			_felled_time = 0.0
+		else:
+			var roused := int(_boss.get("mode")) == Fighter.Mode.CHASE or int(_boss.get("mode")) == Fighter.Mode.FIGHT
+			var near := _boss.global_position.distance_to(player.global_position) <= BOSS_NEAR
+			_boss_off = 0.0 if roused and near else _boss_off + delta
+			if _boss_off > 4.0:
+				_boss = null
+	if _boss != null:
+		var h := float(_boss.get("health"))
+		if _boss_lost < h:
+			_boss_lost = h
+			_boss_lost_wait = 0.0
+		elif _boss_lost > h:
+			_boss_lost_wait += delta
+			if _boss_lost_wait > 0.6:
+				_boss_lost = move_toward(_boss_lost, h, float(_boss.get("max_health")) * 0.4 * delta)
+	else:
+		_boss_look -= delta
+		if _boss_look <= 0.0:
+			_boss_look = 0.4
+			_boss = _find_boss()
+			_boss_lost = -1.0
+			_boss_off = 0.0
+	boss_shown = _boss != null
+
+
+func _find_boss() -> Node3D:
+	var best: Node3D = null
+	var best_d := BOSS_NEAR
+	for node in get_tree().get_nodes_in_group(&"enemy"):
+		var f := node as Node3D
+		if f == null or bool(f.get("is_dead")):
+			continue
+		var named: Variant = f.get("boss_name")
+		if not (named is String) or (named as String).is_empty():
+			continue
+		var m := int(f.get("mode"))
+		if m != Fighter.Mode.CHASE and m != Fighter.Mode.FIGHT:
+			continue
+		var d := f.global_position.distance_to(player.global_position)
+		if d < best_d:
+			best_d = d
+			best = f
+	return best
+
+
+func _draw_boss() -> void:
+	if _boss == null:
+		return
+	var view := _bars.size
+	var width := view.x * BOSS_WIDTH
+	var at := Vector2((view.x - width) * 0.5, view.y - SLOT_BOTTOM - SLOT - BOSS_ABOVE - BOSS_HEIGHT)
+	var full := float(_boss.get("max_health"))
+	var h := float(_boss.get("health"))
+	_bar(at, width, BOSS_HEIGHT, h / maxf(full, 1.0), BOSS_HEALTH,
+			_boss_lost / maxf(full, 1.0), HEALTH_LOST)
+	var font := ThemeDB.fallback_font
+	_bars.draw_string(font, at + Vector2(1, -7), String(_boss.get("boss_name")), HORIZONTAL_ALIGNMENT_LEFT,
+			-1, 17, Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, at + Vector2(0, -8), String(_boss.get("boss_name")), HORIZONTAL_ALIGNMENT_LEFT,
+			-1, 17, BOSS_GOLD)
 
 
 ## One bar: a dark frame with a thin gilt edge, what is left, and — if asked —

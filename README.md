@@ -10218,3 +10218,34 @@ blow fells is his to pick (the idea: a combo's last).
   `held_side_chance` 0.3 (and slide round at him like the rest). **The whirl**
   is the club's own 360 (`CR_OG_Attack_360` at 0.82) — the sword pack's
   `CR_HeavyD` bobbed its hips 0.37 m up and down on the spot.
+
+- 2026-10-11 night, round 2 (the user's word: Elden Ring's grab, punish, a
+  second phase, the great enemy's bar, a heavy death and its loot):
+  **Grab** (`GRAB` 171, `CR_OG_Choke_Lift` = Mixamo's Superhuman Choke Lift,
+  mirrored to its free left hand): `_try_grab` rolls (`grab_chance` 0.25,
+  `grab_chance_guarded` 0.7 behind a raised shield, likelier each time it
+  lets him off) from up to `grab_from` 4.2 m, stepping in on him through the
+  reach; caught in `grab_catch` (clip s) if its wrist is within `grab_radius`
+  of him and he is not rolling (i-frames beat it; a shield does not). Held,
+  he hangs from `grab_point()` (`Player.grab_by` → `net_grabbed` on his own
+  peer, `_process_held`, rig `held()` = `LiftAir_Idle`), lifted ~1.9 m, and is
+  thrown down at `grab_throw_at` (a "crush" blow, `grab_share` 1.8; earth,
+  thud, shake). Missed, it gives up soon after. Its stance broken or the act
+  cut, he drops. **Punish**: him casting a skill (`Player.net_casts`, carried
+  to every peer) or drawing his bow / gathering a bolt `punish_draw_after`
+  0.45 s within `punish_reach` 22 m: at him at once by the gap — a swing, a
+  lunge, a leap, a run and spring (`punish_wait_time` 2.5 s between).
+  **Second phase**: the rage's roar (`rage_roar_at`) throws whoever is on the
+  ground within `rage_push_radius` 6 m back off his feet (a "ground" blow: a
+  jump clears it), dust driven out all round (no ring); from then on its club
+  burns (fire and light on `weapon_bone`) and molten cracks glow in its skin
+  (`assets/fx/rage_cracks.gdshader`, an additive overlay, voronoi edges in
+  body space). **The great enemy's bar** (`OgreFighter.boss_name` "Mountain
+  Ogre"): `PlayerHud` shows the nearest roused creature with a `boss_name`
+  across the bottom above the skills, its name in gold over it, what a blow
+  took lingering; none over its head; its death brings up "ENEMY FELLED".
+  **Death**: `CR_MG_Death` at `death_rate` 0.6 — onto its knees, over on its
+  face, the ground's thud at `death_lands`; a groan; it lies `corpse_linger` 7
+  s and goes to embers as it sinks (3 s). The ogre is worth 8 wolves
+  (`Leveling.WEIGHT`): a great enemy, it always drops something
+  ([LootDrop]).

@@ -2197,6 +2197,16 @@ func riposte(seconds: float) -> bool:
 	return _play_action(clip, Role.FREE, length / maxf(seconds, 0.2), 0.06, 0.0, 1.0)
 
 
+## Held up in a creature's grip (the ogre's, 2026-10-11): kicking in the
+## air for `seconds`.
+func held(seconds: float) -> bool:
+	var clip := &"LiftAir_Idle"
+	if not _anim.has_animation(clip):
+		return false
+	var length := _anim.get_animation(clip).length
+	return _play_action(clip, Role.FREE, clampf(length / maxf(seconds, 0.2), 0.5, 1.5), 0.12, 0.0, 1.0)
+
+
 ## A jump attack whose blade goes into the ground (the moves' `jump_attack`
 ## `slam`, the knight's): it shakes the ground there as the charge's does.
 func _plunge_slam() -> void:

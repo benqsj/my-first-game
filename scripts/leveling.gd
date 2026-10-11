@@ -25,7 +25,8 @@ extends Node
 ## | … 9 | 11 | 9.1 % |
 ##
 ## Other creatures are worth so many wolves (`WEIGHT`): an imp 0.6, a puglin
-## 0.8, an orc 3, Arkdeva 12. What is left over from a level carries into the
+## 0.8, an orc 3, the ogre 8 (a great enemy: it always drops something,
+## [LootDrop]), Arkdeva 12. What is left over from a level carries into the
 ## next, counted in wolves.
 
 ## Every creature's level, shown over its head ([CombatText]): what it is,
@@ -34,7 +35,7 @@ const LEVEL_OF := {&"imp": 1, &"puglin": 2, &"wolf": 3, &"orc": 6, &"skeleton_lo
 const LEVEL_OTHER := 1
 
 ## What each creature is worth, in wolves.
-const WEIGHT := {&"wolf": 1.0, &"imp": 0.6, &"puglin": 0.8, &"orc": 3.0, &"skeleton_lord": 8.0, &"arkdeva": 12.0}
+const WEIGHT := {&"wolf": 1.0, &"imp": 0.6, &"puglin": 0.8, &"orc": 3.0, &"skeleton_lord": 8.0, &"arkdeva": 12.0, &"ogre": 8.0}
 ## What a creature with no line of its own is worth, in wolves.
 const WEIGHT_OTHER := 0.5
 const MAX_LEVEL := 10
