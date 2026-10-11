@@ -10139,3 +10139,19 @@ blow fells is his to pick (the idea: a combo's last).
   off it starts in the wind-up and the turn comes on the way, near it turns
   and shoots in at the end; turned after where he will be till the last 15 %.
   ogre_combo_test: from 5, 12 and 18 m it gets there (top ~23 m/s) and hits.
+
+### The ogre polished (2026-10-11 afternoon, the user's word)
+
+- Combos a little quicker again: `combo_pace` (1.5, 1.32), `hand_pace` 1.42.
+- Its leaps from afar quicker through the air: `FLIGHTS` slow 1.4 -> 0.8
+  (LEAP_SLAM), 1.05 -> 0.75 (RUN_SLAM); a leap comes down 0.5 m inside its
+  reach (`_close_speed_for`), else from 14 m it landed short.
+- The great blow (the glowing club, `HEAVY`) does not miss him by walking off:
+  it turns after where he will be all through its wind-up (`_chases`, from 0),
+  commits `heavy_commit` 0.12 s before the blow, and him out of its reach it
+  closes on him over the last `heavy_close` 0.5 s (`heavy_close_most` 8 m).
+  The ground it strikes bursts up in rock all round (`net_rocks`:
+  `heavy_rocks` 9 rows of the golem's shards, `heavy_rock_length` 6 m, no
+  ring) and the blow goes through the ground to everyone on it within
+  `heavy_quake_radius` 7 m (`PackBrute._quake(..., ring = false)`; jump or
+  roll). ogre_combo_test: it follows him walking off; the ground bursts.

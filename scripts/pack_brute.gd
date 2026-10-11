@@ -122,7 +122,7 @@ var _holds: Dictionary = {}
 @export var hand_combo_chance: Vector2 = Vector2(0.4, 0.55)
 ## Its combos' moves played this much quicker than their clips (the user's
 ## word, 2026-10-11: too slow).
-@export var hand_pace: float = 1.3
+@export var hand_pace: float = 1.42
 ## The practice (the test arena's board, 2026-10-10): >= 0, it does nothing
 ## but this one of its combos, over and over — it comes in to it, opens it, gets
 ## its breath, and again.
@@ -431,10 +431,12 @@ func _blow_worth(_what: int) -> float:
 #region The quake
 ## Host: a shock out along the ground from `at`, `radius` wide, worth `worth`
 ## to whoever is on the ground as it passes under him.
-func _quake(at: Vector3, radius: float, worth: float) -> void:
+func _quake(at: Vector3, radius: float, worth: float, ring: bool = true) -> void:
 	quakes_made += 1
 	_quakes.append({"at": at, "t": 0.0, "r": radius, "worth": worth * _blow_worth(0),
 			"id": act_serial * 1000 + 90 + _quakes.size(), "caught": {}})
+	if not ring:
+		return
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
 		net_quake.rpc(at, radius)
 	else:

@@ -349,6 +349,8 @@ func _falls() -> void:
 	# often (it is 3 and 4 in the game).
 	ogre.string_most = 2
 	ogre.finisher_from = Vector2i(2, 2)
+	# a steadier sample of its strings (a light close is a weighed chance)
+	ogre._rng.seed = 5
 	# the strings alone here (its hand-made combos: ogre_combo_test)
 	ogre.combo_chance = Vector2.ZERO
 	ogre.close_combo_chance = 0.0
@@ -363,7 +365,7 @@ func _falls() -> void:
 	hero.struck.connect(func(_d: float, blocked: bool) -> void:
 		if not blocked and LIGHT_OK.has(ogre.act) and not (ogre._closing and ogre._finishes()):
 			staggers[0] += 1)
-	for f in 50 * 60:
+	for f in 80 * 60:
 		await physics_frame
 		_hold_off(ogre)
 		if ogre.act_serial != serial:

@@ -88,6 +88,22 @@ extends PackBrute
 @export var heavy_lead: float = 0.18
 @export var heavy_share: float = 1.5
 @export var heavy_cooldown: Vector2 = Vector2(8.0, 13.0)
+## The great blow does not miss him by his walking off (the user's word,
+## 2026-10-11): it turns after where he will be through its glowing wind-up
+## till `heavy_commit` s before the blow, and him out of its reach it closes on
+## him over its last `heavy_close` s (`heavy_close_most` m at most; a roll
+## still beats it).
+@export var heavy_commit: float = 0.12
+@export var heavy_close: float = 0.5
+@export var heavy_close_most: float = 8.0
+## ...and the ground it strikes bursts up in rock all round (rows of stone
+## out from the club, `heavy_rocks` of them, `heavy_rock_length` m), and the
+## blow goes through the ground to everyone on it within `heavy_quake_radius`
+## m (at its size): they are thrown down (jump it, or roll).
+@export var heavy_rocks: int = 9
+@export var heavy_rock_length: float = 6.0
+@export var heavy_quake_radius: float = 7.0
+@export var heavy_quake_share: float = 0.8
 
 @export_group("Stomp")
 @export var stomp_clip: StringName = &"CR_Heavy2"
@@ -193,7 +209,7 @@ extends PackBrute
 @export var spin_slide_most: float = 24.0
 ## Its combos' moves played this much quicker than the clips (the user's word,
 ## 2026-10-11: they were too slow): light, heavy.
-@export var combo_pace: Vector2 = Vector2(1.35, 1.2)
+@export var combo_pace: Vector2 = Vector2(1.5, 1.32)
 
 @export_group("Combos")
 ## How often it opens a combo of its own (`COMBOS`) rather than a string, he
@@ -341,8 +357,10 @@ const COMBOS := [
 ## lands, how many times slower the flight is played], and how high the
 ## body is lifted on top of the clip's own jump (m at its size).
 const FLIGHTS := {
-	LEAP_SLAM: [0.05, 0.45, 1.4, 1.0],
-	RUN_SLAM: [0.87, 1.62, 1.05, 0.55],
+	# (2026-10-11, the user's word: quicker through the air at him — the
+	# flights played quicker than the clips, not drawn out)
+	LEAP_SLAM: [0.05, 0.45, 0.8, 1.0],
+	RUN_SLAM: [0.87, 1.62, 0.75, 0.55],
 }
 
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, how often
@@ -1152,6 +1170,12 @@ func _extra_velocity(delta: float) -> Vector3:
 		var span := _jump_span()
 		if _act_time >= span.x and _act_time <= span.y:
 			return _forward() * _jump_speed
+	if act == HEAVY and _heavy_speed > 0.0:
+		var hs := _heavy_span()
+		if _act_time >= hs.x and _act_time <= hs.y:
+			return _forward() * _heavy_speed
+		if _act_time < hs.x:
+			return Vector3.ZERO
 	if FLIGHTS.has(act):
 		var span := _flight_span(act)
 		if _act_time >= span.x and _act_time <= span.y:
@@ -1171,6 +1195,8 @@ func _commit_at(what: int) -> float:
 		return 0.0
 	if what == JUMP_SLAM:
 		return ms[0] - chase_commit
+	if what == HEAVY:
+		return ms[0] - heavy_commit
 	if what == OG_SPIN_SLIDE and _spin_from >= 0.0:
 		# after him till the last 15 % of its dash
 		return ms[0] - maxf(0.15 * (ms[0] - _spin_from), 0.06)
@@ -1210,6 +1236,8 @@ func _track_before_blow(delta: float) -> void:
 		_jump_closing()
 	elif act == OG_SPIN_SLIDE:
 		_spin_dash(true)
+	elif act == HEAVY:
+		_heavy_closing()
 
 
 ## Host: the sliding whirl's dash at him ([member spin_dash_speed]): from when
@@ -1247,12 +1275,15 @@ func _spin_dash(ahead: bool) -> void:
 ## The moves running does not beat ([member chase_lead_most]): the leaps, the
 ## jump slam, a held swing.
 func _chases(what: int) -> bool:
-	return FLIGHTS.has(what) or what == JUMP_SLAM or what == OG_SPIN_SLIDE or _slide_span(what).x >= 0.0
+	return FLIGHTS.has(what) or what == JUMP_SLAM or what == OG_SPIN_SLIDE or what == HEAVY \
+			or _slide_span(what).x >= 0.0
 
 
 ## Act seconds from which a chasing move is on its way at him (the leap off
 ## the ground, the jump slam closing, the held swing let go).
 func _chase_from(what: int) -> float:
+	if what == HEAVY:
+		return 0.0
 	if what == OG_SPIN_SLIDE:
 		return _spin_from if _spin_from >= 0.0 else INF
 	if FLIGHTS.has(what):
@@ -1309,6 +1340,32 @@ func _jump_span() -> Vector2:
 
 ## Host: the jump slam's speed onto where he will be, if he is out of its
 ## reach; none if he is in it (it lands where it stands, as it always did).
+## The great blow's closing on him: act seconds [from, its blow].
+func _heavy_span() -> Vector2:
+	var ms := _blow_moments(HEAVY)
+	if ms.is_empty():
+		return Vector2(-1.0, -1.0)
+	return Vector2(maxf(ms[0] - heavy_close, 0.0), ms[0])
+
+
+var _heavy_speed: float = 0.0
+
+
+## Host: the great blow's speed onto where he will be, him out of its reach
+## (none in it: it comes down where it stands).
+func _heavy_closing() -> void:
+	var span := _heavy_span()
+	if span.x < 0.0:
+		return
+	var reach := float(_strike_from.get(HEAVY, strike_off))
+	var gap := _gap_to(_quarry_ahead(HEAVY))
+	if gap <= reach + slide_slack * visual_scale / 1.6:
+		_heavy_speed = 0.0
+		return
+	_heavy_speed = clampf(_close_speed_for(HEAVY, span.y, span.x, true), 0.0,
+			heavy_close_most * visual_scale / 1.6 / maxf(span.y - span.x, 0.15))
+
+
 func _jump_closing() -> void:
 	var span := _jump_span()
 	if span.x < 0.0:
@@ -1337,6 +1394,10 @@ func _close_speed_for(what: int, until: float, from: float, ahead: bool = false)
 	var m: Array = _moves_table[what]
 	var own := _hips(m[0], _clip_time(what, blow)).x - _hips(m[0], _clip_time(what, _act_time)).x
 	var short := float(_strike_from.get(what, strike_off))
+	if FLIGHTS.has(what):
+		# a leap comes down a little inside its reach: quicker through the air,
+		# it overshot less and landed short of him from far (2026-10-11)
+		short -= 0.5 * visual_scale / 1.6
 	var left := maxf(until - maxf(from, _act_time), 0.15)
 	var gap := _gap_to(_quarry_ahead(what)) if ahead else _distance_to(_quarry)
 	return maxf(gap - short - own, 0.0) / left
@@ -1479,6 +1540,17 @@ func _run_act(delta: float) -> void:
 	elif act == STOMP and not _pounded and _act_time >= _stomp_at:
 		_pounded = true
 		_stomp_down()
+	elif act == HEAVY and not _pounded and _act_time >= _blow_moments(HEAVY)[0]:
+		# the great blow into the ground: rock bursting up all round, and
+		# everyone on the ground near it thrown down
+		_pounded = true
+		var tip := _weapon_tip_at()
+		var at := Vector3(tip.x, global_position.y, tip.z)
+		_quake(at, heavy_quake_radius * visual_scale / 1.6, hit_damage * heavy_quake_share, false)
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_rocks.rpc(at, act_serial)
+		else:
+			net_rocks(at, act_serial)
 	elif act == OG_STOMP_FOOT and not _pounded and _act_time >= _blow_moments(OG_STOMP_FOOT)[0]:
 		# its foot down: the ground bursts up round it (it staggers him)
 		_pounded = true
@@ -1557,6 +1629,25 @@ func _aftershock(at: Vector3, id: int) -> void:
 		if absf(rel.y) > 2.0 or Vector2(rel.x, rel.z).length() > aftershock_radius * visual_scale / 1.6:
 			continue
 		who.call(&"receive_blow", hit_damage * aftershock_share * _blow_worth(0), self, 0, 2, id, false, &"ground")
+
+
+## Every peer: the great blow's rock — rows of stone bursting up out from where
+## the club went in, all the way round, grit thrown up, the view shaken hard.
+@rpc("authority", "call_local", "reliable")
+func net_rocks(at: Vector3, seed_of: int) -> void:
+	var into := Blood.world_of(self)
+	var n := maxi(heavy_rocks, 3)
+	var turn := fposmod(float(seed_of) * 0.618, 1.0) * TAU
+	var s := visual_scale / 1.6
+	for i in n:
+		var a := turn + TAU * float(i) / float(n)
+		var way := Vector3(sin(a), 0.0, cos(a))
+		GroundFx.shards(into, at + way * 0.6 * s, way, heavy_rock_length * s * randf_range(0.8, 1.15),
+				0.9 * s, 16.0, Color(1.0, 0.42, 0.12))
+	GroundFx.eruption(into, at, 1.3 * s, false)
+	ImpactFx.thud(self, at, true)
+	_sound_at(CLUB_GROUND, at, 0.7, 3.0)
+	WindBlast.shake(self, 0.22, 0.6, 16.0)
 
 
 ## Every peer: the ground bursting up again ahead of where the club fell —

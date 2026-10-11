@@ -159,6 +159,27 @@ func _run() -> void:
 				"%.1f m, top %.1f m/s" % [slid, top])
 		_check("...and comes round on him as it gets there", not _hits.is_empty(), "%s" % [_hits])
 		sp.queue_free()
+	# the great blow (2026-10-11): it turns after him through its glowing
+	# wind-up and closes on him, so walking off does not beat it; the ground it
+	# strikes bursts up in rock and throws down whoever is on it near
+	await _arena()
+	var hv := await _ogre(OgreFighter.HEAVY)
+	hv._open(OgreFighter.HEAVY)
+	var side := (hv.global_position - _hero.global_position).cross(Vector3.UP).normalized()
+	var h0 := _hero.global_position
+	var quakes0: int = hv.quakes_made
+	_f = 0
+	while _f < 60 * 5 and hv.act == OgreFighter.HEAVY:
+		await physics_frame
+		_f += 1
+		# he walks off sideways and back through the wind-up, 4.5 m in all
+		if _hits.is_empty():
+			var u := clampf(float(_f) / 90.0, 0.0, 1.0)
+			var to := h0 + side * 3.0 * u + (_hero.global_position - hv.global_position).normalized() * 1.5 * u
+			_hero.global_position = Vector3(to.x, _hero.global_position.y, to.z)
+	_check("the great blow follows him walking off", not _hits.is_empty(), "%s" % [_hits])
+	_check("its ground bursts and shakes", hv.quakes_made > quakes0, "%d" % hv.quakes_made)
+	hv.queue_free()
 	# reading him before a combo's close
 	await _arena()
 	var rd := await _ogre(OgreFighter.OG_HORIZ)
