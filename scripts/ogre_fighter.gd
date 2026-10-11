@@ -217,6 +217,16 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var rage_push_share: float = 0.02
 ## The roar's shake: how hard (m of the view's offset) and how long (s).
 @export var roar_shake: Vector2 = Vector2(0.32, 1.7)
+## After the roar (the user's word, 2026-10-12: no colour on its skin — its
+## club driven once into the ground and the stone coming up onto it): the
+## clip of that blow and its part ([rate, from, to] shares), how many stones
+## end up set in its club, how big (share of the club's length), and how
+## much harder it hits from then on (over the pack's own `rage_harder`).
+@export var arm_clip: StringName = &"CR_Heavy2"
+@export var arm_part: Vector3 = Vector3(0.95, 0.0, 0.9)
+@export var arm_stones: int = 9
+@export var arm_stone_size: float = 0.17
+@export var rage_damage: float = 1.5
 @export_group("Punish")
 ## Him casting near it, or drawing his bow / gathering a bolt (the user's
 ## word, 2026-10-11: Elden Ring's punish of the flask and the spell): it is
@@ -239,9 +249,12 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var grab_clip: StringName = &"CR_OG_Mutant_Swipe"
 @export var grab_rate: float = 1.0
 @export var grab_cock: Vector3 = Vector3(1.0, 0.45, 1.1)
-## How fast it slides in on him at most (m/s at its size), and how far out
-## in front of it its hand comes down (m).
-@export var grab_dash: float = 24.0
+## How fast it slides in on him at most (m/s at its size), how long the
+## slide takes (s: planted till then, its hand lit — then at him at once, the
+## user's word 2026-10-12: "0.2 s and it is on me"), and how far out in front
+## of it its hand comes down (m).
+@export var grab_dash: float = 60.0
+@export var grab_dash_time: float = 0.2
 @export var grab_hand_out: float = 1.55
 ## Clip seconds of the swipe: its hand at him (he is struck in that window),
 ## and its hand into the ground.
@@ -435,6 +448,9 @@ const POUND_3 := 169
 const TAUNT := 170
 ## Its grab ([member grab_clip]).
 const GRAB := 171
+## Enraged, after the roar: its club driven into the ground, stone coming up
+## onto it ([member arm_clip]).
+const RAGE_ARM := 174
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -671,6 +687,10 @@ var punishes_made: int = 0
 var _rage_pushed: int = -1
 var rage_throws: int = 0
 var _club_fire: GPUParticles3D
+## Every peer: the stones set in its club once enraged; a count for a test.
+var _club_stones: BoneAttachment3D
+var clubs_armed: int = 0
+var _armed_serial: int = -1
 ## Its looks, as picked ([member varied]): skin, blood, arm (index of each).
 var skin_index: int = 0
 var bloody: bool = false
@@ -721,6 +741,8 @@ func _ready() -> void:
 	_special(GRAB, grab_clip, Vector3(grab_rate, 0.0, 0.97))
 	_kinds[GRAB] = &"smash"
 	_make_grab_glow()
+	if _anim != null and _anim.clip_length(arm_clip) > 0.0:
+		_special(RAGE_ARM, arm_clip, arm_part)
 	if _skeleton != null:
 		_lean = LeanModifier.new()
 		_lean.bend = grab_bend
@@ -1040,37 +1062,95 @@ func _shake_tween(cam: Camera3D, strength: float, time: float) -> void:
 	tw.parallel().tween_property(cam, "v_offset", 0.0, 0.1)
 
 
-## Enraged, over the pack's red glow: molten cracks through its skin, and its
-## club burning.
+## Enraged: no colour on its skin, no fire (the user's word, 2026-10-12) —
+## its rage shows in its club armed with stone ([method net_club_armed]),
+## its roar and its pace.
 func _glow_on() -> void:
-	super()
-	if body == null:
+	pass
+
+
+## Enraged it hits harder still (`rage_damage`, the user's word 2026-10-12).
+func _blow_worth(_what: int) -> float:
+	return rage_damage if raging else 1.0
+
+
+## Host, its club driven into the ground after the roar: earth and stone
+## burst up there and stone sets in its club.
+func _arm_club() -> void:
+	var tip := _weapon_tip_at()
+	var at := Vector3(tip.x, global_position.y, tip.z)
+	clubs_armed += 1
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_club_armed.rpc(at)
+	else:
+		net_club_armed(at)
+
+
+## Every peer: the club in the ground — rock bursting up round it, the crack
+## and the jolt — and stones flying up out of the ground onto the club, set
+## in it from now on.
+@rpc("authority", "call_local", "reliable")
+func net_club_armed(at: Vector3) -> void:
+	var into := Blood.world_of(self)
+	var s := visual_scale / 1.6
+	RockWave.spawn(into, at, 3.0 * s, 0.85 * s, 14.0, act_serial * 5 + 11)
+	GroundFx.eruption(into, at + Vector3.UP * 0.05, 1.4 * s, false)
+	ImpactFx.thud(self, at + Vector3.UP * 0.2, true)
+	_sound_at(CLUB_GROUND, at, 0.62, 6.0)
+	_sound_at(CLUB_GROUND, at, 0.85, 2.0)
+	_shake_view(0.38, 0.9, 0.14)
+	# grit and chips thrown up round the club as the stone comes onto it
+	SkillFx.particles(into, at + Vector3.UP * 0.1, {
+		"amount": 40, "life": 0.7, "one_shot": true, "explosiveness": 0.9, "add": false,
+		"speed": Vector2(2.5, 6.0) * s, "dir": Vector3.UP, "spread": 30.0, "gravity": Vector3(0, -9.0, 0),
+		"damping": 0.5, "size": Vector2(0.08, 0.2) * s, "sphere": 0.4 * s,
+		"colors": [Color(0.42, 0.4, 0.37, 1.0), Color(0.38, 0.36, 0.33, 1.0), Color(0.33, 0.31, 0.29, 0.0)],
+	})
+	_set_stones()
+
+
+## Every peer: stones set into its club along its far half — each flying in
+## a moment (from small, turned) as the ground lets go of it.
+func _set_stones() -> void:
+	if _skeleton == null or _weapon < 0 or _club_stones != null:
 		return
-	_cracks = ShaderMaterial.new()
-	_cracks.shader = load("res://assets/fx/rage_cracks.gdshader") as Shader
-	_cracks.set_shader_parameter(&"glow", rage_glow)
-	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
-		mi.material_overlay = _cracks
-	if _skeleton != null and _weapon >= 0:
-		var hold := BoneAttachment3D.new()
-		hold.bone_name = String(weapon_bone)
-		_skeleton.add_child(hold)
-		_club_fire = SkillFx.particles(hold, Vector3.ZERO, {
-			"amount": 110, "life": 0.6, "one_shot": false, "add": true,
-			"speed": Vector2(0.4, 1.4), "dir": Vector3.UP, "spread": 25.0, "gravity": Vector3(0, 3.0, 0),
-			"damping": 0.5, "size": Vector2(0.18, 0.4), "grow": -0.5,
-			"box": Vector3(0.32, 0.06, 0.06),
-			"colors": [Color(1.0, 0.85, 0.45, 0.0), Color(1.0, 0.55, 0.12, 0.9), Color(0.8, 0.12, 0.02, 0.0)],
-		})
-		if _club_fire != null:
-			_club_fire.position = Vector3(weapon_tip.x * 0.62, 0.0, 0.0)
-			var light := OmniLight3D.new()
-			light.light_color = Color(1.0, 0.5, 0.15)
-			light.light_energy = 1.4
-			light.omni_range = 2.6 * visual_scale / 1.6
-			light.shadow_enabled = false
-			hold.add_child(light)
-			light.position = Vector3(weapon_tip.x * 0.7, 0.0, 0.0)
+	_club_stones = BoneAttachment3D.new()
+	_club_stones.name = "ClubStones"
+	_club_stones.bone_name = String(weapon_bone)
+	_skeleton.add_child(_club_stones)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(name) + 77
+	var length := weapon_tip.x
+	var count := maxi(arm_stones, 0)
+	# plain grey stone (the ground's crags are red-hot underneath)
+	var stone := StandardMaterial3D.new()
+	stone.albedo_color = Color(0.46, 0.44, 0.41)
+	stone.roughness = 0.95
+	stone.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for i in count:
+		var mi := MeshInstance3D.new()
+		mi.name = "Stone%d" % i
+		mi.mesh = RockWave._crag_mesh(i % RockWave.SHAPES)
+		mi.material_override = stone
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var along := lerpf(0.5, 0.97, (float(i) + rng.randf()) / float(count)) * length
+		var turn := float(i) * 2.39996 + rng.randf_range(-0.3, 0.3)
+		var out := Vector3(0.0, cos(turn), sin(turn))
+		var size := arm_stone_size * length * rng.randf_range(0.7, 1.25)
+		# set in the wood: most of it standing out of the club
+		var spot := Vector3(along, 0.0, 0.0) + out * (length * 0.05 + size * 0.55)
+		# its top (+Y of the crag) out from the club, turned a bit at random
+		var up := out
+		var side := Vector3.RIGHT.cross(up).normalized()
+		var basis := Basis(side, up, side.cross(up)).rotated(up, rng.randf() * TAU)
+		mi.transform = Transform3D(basis.scaled(Vector3(size, size * 0.9, size)), spot)
+		_club_stones.add_child(mi)
+		var full := mi.transform
+		mi.transform = Transform3D(basis.scaled(Vector3.ONE * size * 0.05), spot - out * length * 0.5)
+		var tw := mi.create_tween()
+		tw.tween_interval(0.05 + 0.03 * float(i))
+		tw.tween_property(mi, "transform", full, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 
 
 ## Host: its grab, if it is due and he is near enough (one roll each time it
@@ -1139,7 +1219,7 @@ func _grab_run() -> void:
 			and hero != null and _can_catch(hero):
 		_grab_serial = act_serial
 		grabs_caught += 1
-		hero.receive_blow(hit_damage * grab_share, self, 0, 1, act_serial * 1000 + 91, false, &"smash")
+		hero.receive_blow(hit_damage * grab_share * _blow_worth(GRAB), self, 0, 1, act_serial * 1000 + 91, false, &"smash")
 	if _smashed_serial != act_serial and ct >= grab_smash_at:
 		_smashed_serial = act_serial
 		grab_throws += 1
@@ -2018,6 +2098,8 @@ func _extra_velocity(delta: float) -> Vector3:
 			return Vector3.ZERO
 		if _slide_serial == act_serial:
 			return _forward() * _slide_speed if _act_time <= held.y else Vector3.ZERO
+	if act == RAGE_ARM:
+		return Vector3.ZERO
 	if act == GRAB:
 		# turned after him through the wind-up; its arm drawn back, slid in
 		# on him (a skill's dash) so its hand comes to him as it sweeps
@@ -2027,10 +2109,10 @@ func _extra_velocity(delta: float) -> Vector3:
 			if _act_time < reach_at - 0.08:
 				_face(_quarry.global_position - global_position, get_physics_process_delta_time(), turn_speed * 3.0)
 				_reframe()
-			if _act_time >= m.x - 0.05:
+			if _act_time >= reach_at - grab_dash_time:
 				var s := visual_scale / 1.6
 				var short := _distance_to(_quarry) - grab_hand_out * s
-				var speed := clampf(short / maxf(reach_at - _act_time, 0.1), 0.0, grab_dash * s)
+				var speed := clampf(short / maxf(reach_at - _act_time, 0.03), 0.0, grab_dash * s)
 				if speed > 4.0 and not _grab_dashed:
 					_grab_dashed = true
 					grab_dashes += 1
@@ -2435,6 +2517,13 @@ func _run_act(delta: float) -> void:
 		_rage_throw()
 	if act == GRAB:
 		_grab_run()
+	if act == RAGE_ARM and _armed_serial != act_serial and _act_time > 0.35:
+		# the club down by the ground: in
+		var tip := _weapon_tip_at()
+		if tip.y - global_position.y < 0.45 * visual_scale / 1.6 \
+				or _act_time >= _move_length(RAGE_ARM) * 0.8:
+			_armed_serial = act_serial
+			_arm_club()
 	if (act == POUND or act == POUND_2 or act == POUND_3) and not _pounded and _act_time >= _pound_time(act):
 		_pounded = true
 		var k := 0 if act == POUND else (1 if act == POUND_2 else 2)
@@ -2605,6 +2694,12 @@ func _after(what: int) -> void:
 	if stringed and not is_dead and _decides():
 		next = _next_in_string(what)
 	super(what)
+	if what == RAGE and not is_dead and _decides() and _moves_table.has(RAGE_ARM):
+		# its club driven into the ground, the stone coming up onto it
+		velocity.x = 0.0
+		velocity.z = 0.0
+		_begin(RAGE_ARM)
+		return
 	if next >= 0:
 		# On into the next, turned a little after him.
 		if _quarry != null:

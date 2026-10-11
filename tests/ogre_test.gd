@@ -292,6 +292,12 @@ func _stance() -> void:
 	var light := _stance_of(ogre, hero, 20.0, 1.0)
 	var heavy := _stance_of(ogre, hero, 20.0, 1.6)
 	_check("a heavy blow fills its stance faster than a light one", heavy > light * 2.0, "%.1f against %.1f" % [heavy, light])
+	# (the user's word, 2026-10-12: light cuts broke it far too easily — it is
+	# the heavy blows that should)
+	var lights := ceili(ogre.stance / maxf(light, 0.01))
+	var heavies := ceili(ogre.stance / maxf(heavy, 0.01))
+	_check("light cuts alone take a great many to break it, heavy blows a few", lights >= 25 and heavies >= 2
+			and heavies <= 5, "%d light cuts, %d heavy blows" % [lights, heavies])
 	ogre.stance_taken = 0.0
 	var cuts := 0
 	while ogre.act != PackBrute.STANCE and cuts < 40:
@@ -1033,24 +1039,37 @@ func _phase() -> void:
 	var downed := false
 	var shook := 0.0
 	var after := -1
-	for f in 60 * 6:
+	var armed_downed := false
+	var crags := 0
+	for f in 60 * 9:
 		await physics_frame
 		if hero.state != Player.State.DOWNED:
 			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
 		if ogre.rage_throws > 0 and after < 0:
 			after = f
-		if after >= 0:
+		if after >= 0 and ogre.clubs_armed == 0:
 			downed = downed or hero.state == Player.State.DOWNED
 			var cam := hero.get_viewport().get_camera_3d()
 			if cam != null:
 				shook = maxf(shook, absf(cam.h_offset) + absf(cam.v_offset))
-			if f - after > 50 and ogre.raging:
+		if ogre.clubs_armed > 0:
+			crags = maxi(crags, _crags(a[0]))
+			if f - after > 200:
 				break
 	var reeled := hero.rig is SkinnedRig and not (hero.rig as SkinnedRig).last_flinch.is_empty()
 	_check("phase: enraged, its roar staggers him, not off his feet", ogre.raging and ogre.rage_throws > 0 and reeled
 			and not downed, "raging %s, throws %d, reeled %s, downed %s" % [ogre.raging, ogre.rage_throws, reeled, downed])
 	_check("phase: the roar shakes the view hard", shook > 0.1, "%.2f" % shook)
-	_check("phase: its club burns, cracks glow in its skin", ogre._club_fire != null and ogre._cracks != null)
+	var tinted := false
+	for mi: MeshInstance3D in ogre.body.find_children("*", "MeshInstance3D", true, false):
+		tinted = tinted or mi.material_overlay != null
+	_check("phase: no colour on its skin, no fire", not tinted and ogre._club_fire == null and ogre._cracks == null)
+	var stones := ogre._club_stones.get_child_count() if ogre._club_stones != null else 0
+	_check("phase: after the roar its club into the ground, stone bursting up", ogre.clubs_armed == 1 and crags >= 1,
+			"armed %d, crags %d" % [ogre.clubs_armed, crags])
+	_check("phase: and stone set in its club", stones == ogre.arm_stones, "%d stones" % stones)
+	_check("phase: enraged it hits harder", is_equal_approx(ogre._blow_worth(OgreFighter.HEAVY), ogre.rage_damage)
+			and ogre.rage_damage >= 1.5, str(ogre._blow_worth(OgreFighter.HEAVY)))
 	await _done(a[0])
 
 

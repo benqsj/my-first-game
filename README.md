@@ -10331,3 +10331,19 @@ blow fells is his to pick (the idea: a combo's last).
   break off its spacing with the swipe; first wait 4 s, `grab_chance` 0.4,
   `grab_cooldown` (9, 15) s. In a plain fight it swipes at ~8 s and again
   (ogre_test "swipes"). `recover` (0.9, 1.2), `recover_raging` (0.6, 0.85).
+
+- 2026-10-12 (the user's word: light cuts broke its stance far too easily —
+  heavy blows should; no colour on its skin when it rages — its club driven
+  into the ground and stone set on it, and harder blows; its swipe's slide
+  0.2 s): **stance** — `PackBrute.stance_light_share` (a cut under 1.15
+  `cut_weight`, or a shot, puts in only that share; the ogre 0.2, its
+  `stance` 180): ~45 light cuts, 3 heavy blows. (The blow on it while it
+  kneels wants its own animation — later.) **Rage** — `_glow_on` is empty for
+  the ogre (no red overlay, no cracks, no fire); after the roar `RAGE_ARM`
+  174 (`arm_clip` CR_Heavy2): the club down by the ground → `net_club_armed`
+  — RockWave 3 m, eruption, two cracks, a jolt, grit — and `arm_stones` 9
+  grey stones (RockWave's crag shapes, plain stone material) fly onto its
+  far half and stay (`_club_stones` on the weapon bone). Its blows from then
+  on × `rage_damage` 1.5 (`_blow_worth`, the swipe too). **Swipe** — planted
+  with its hand lit till `grab_dash_time` 0.2 s before its hand reaches him,
+  then at him at once (`grab_dash` up to 60 m/s).

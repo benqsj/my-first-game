@@ -69,6 +69,10 @@ extends Brawler
 @export var stance: float = 0.0
 ## Seconds with nothing landing before its stance is whole again.
 @export var stance_rest: float = 10.0
+## What a light cut (a swing lighter than a finisher's, `cut_weight` under
+## 1.15) or a shot puts into it, as a share of the above (the ogre 0.2: the
+## user's word, 2026-10-12 — light cuts broke it far too easily).
+@export var stance_light_share: float = 1.0
 ## How long it stays down on its knee, open.
 @export var stance_down: float = 2.6
 ## The first blow on it while it is down: this many times as hard.
@@ -770,14 +774,14 @@ func receive_hit(hit: HitInfo) -> bool:
 ## weight (twice: the damage has it once already), a shot or a spell less.
 func _stance_weight(from: Node3D, magic: bool) -> float:
 	if not _by_blade or from == null:
-		return 0.75 if magic else 0.5
+		return 0.75 if magic else 0.5 * stance_light_share
 	var w := 1.0
 	var rig: Variant = from.get(&"rig")
 	if rig is Object:
 		var cw: Variant = (rig as Object).get(&"cut_weight")
 		if cw is float:
 			w = float(cw)
-	return w * w
+	return w * w * (stance_light_share if w < 1.15 else 1.0)
 
 
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
