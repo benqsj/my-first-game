@@ -131,30 +131,34 @@ func _run() -> void:
 			break
 	_check("a perfect roll under the first blow", perfect[0], "")
 	_check("...and the next blow of the combo lands", not _hits.is_empty(), "%s" % [_hits])
-	# the drawn-out whirl from well off: it slides at him through the turn,
-	# not before it, and comes round on him as it gets there
-	await _arena()
-	var sp := await _ogre(OgreFighter.OG_SPIN_SLIDE)
-	var away := sp.global_position - _hero.global_position
-	away.y = 0.0
-	sp.global_position += away.normalized() * 5.0
-	var him := _hero.global_position
-	var from := sp.global_position
-	sp._open(OgreFighter.OG_SPIN_SLIDE)
-	var span: Vector2 = sp._flight_span(OgreFighter.OG_SPIN_SLIDE)
-	var before := -1.0
-	_f = 0
-	while _f < 60 * 4 and sp.act == OgreFighter.OG_SPIN_SLIDE:
-		await physics_frame
-		_f += 1
-		if _hits.is_empty():
-			_hero.global_position = Vector3(him.x, _hero.global_position.y, him.z)
-		if before < 0.0 and sp._act_time >= span.x:
-			before = Vector2(sp.global_position.x - from.x, sp.global_position.z - from.z).length()
-	var slid := Vector2(sp.global_position.x - from.x, sp.global_position.z - from.z).length()
-	_check("the whirl from afar slides at him through the turn", before < 0.6 and slid > 3.5,
-			"%.2f m before the turn, %.2f in all" % [before, slid])
-	_check("...and comes round on him", not _hits.is_empty(), "%s" % [_hits])
+	# the sliding whirl from well off (the user's word, 2026-10-11): it shoots
+	# at him fast, as the heroes' glide, from 5 m and from 18 m alike, and
+	# comes round on him as it gets there
+	for off: float in [5.0, 12.0, 18.0]:
+		await _arena()
+		var sp := await _ogre(OgreFighter.OG_SPIN_SLIDE)
+		var away := sp.global_position - _hero.global_position
+		away.y = 0.0
+		sp.global_position += away.normalized() * off
+		var him := _hero.global_position
+		var from := sp.global_position
+		sp._open(OgreFighter.OG_SPIN_SLIDE)
+		var last := from
+		var top := 0.0
+		_f = 0
+		while _f < 60 * 4 and sp.act == OgreFighter.OG_SPIN_SLIDE:
+			await physics_frame
+			_f += 1
+			if _hits.is_empty():
+				_hero.global_position = Vector3(him.x, _hero.global_position.y, him.z)
+			var step := Vector2(sp.global_position.x - last.x, sp.global_position.z - last.z).length() * 60.0
+			top = maxf(top, step)
+			last = sp.global_position
+		var slid := Vector2(sp.global_position.x - from.x, sp.global_position.z - from.z).length()
+		_check("the whirl from %.0f m: it slides at him fast" % off, slid > off * 0.8 and top > 12.0,
+				"%.1f m, top %.1f m/s" % [slid, top])
+		_check("...and comes round on him as it gets there", not _hits.is_empty(), "%s" % [_hits])
+		sp.queue_free()
 	# reading him before a combo's close
 	await _arena()
 	var rd := await _ogre(OgreFighter.OG_HORIZ)

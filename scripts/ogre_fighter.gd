@@ -183,9 +183,17 @@ extends PackBrute
 @export var chase_flight_commit: float = 0.85
 @export var jump_slam_close: float = 0.55
 @export var jump_slam_most: float = 7.0
-## The drawn-out whirl ([constant OG_SPIN_SLIDE]) slides no further than this
-## (m at its size).
-@export var spin_slide_most: float = 9.0
+## The whirl that slides ([constant OG_SPIN_SLIDE], the user's word 2026-10-11:
+## fast, as Tariel's and the assassin's glide at a foe, and from 15-20 m too):
+## him off out of its reach, it shoots at him at `spin_dash_speed` (m/s at its
+## size), timed to get there as the club comes round — far off, the slide
+## starts in its wind-up and the turn comes on the way; near, it turns and
+## shoots in at the end. No further than `spin_slide_most` m.
+@export var spin_dash_speed: float = 20.0
+@export var spin_slide_most: float = 24.0
+## Its combos' moves played this much quicker than the clips (the user's word,
+## 2026-10-11: they were too slow): light, heavy.
+@export var combo_pace: Vector2 = Vector2(1.35, 1.2)
 
 @export_group("Combos")
 ## How often it opens a combo of its own (`COMBOS`) rather than a string, he
@@ -284,7 +292,7 @@ const COMBO_MOVES := {
 	OG_CLUB1H: [&"CR_OG_Club_Combo1H", Vector3(1.0, 0.22, 0.85), false, 0.45, [0.35, 0.594, 0.739], &"og_club", []],
 	OG_GROUND: [&"CR_OG_Zombie_Overhead", Vector3(0.95, 0.05, 0.6), true, 1.2, [], &"og_ground", []],
 	OG_MJUMP: [&"CR_OG_Mutant_Jump", Vector3(0.95, 0.02, 0.8), true, 1.35, [], &"og_mjump", []],
-	OG_SPIN_SLIDE: [&"CR_OG_Attack_360", Vector3(0.85, 0.0, 0.7), true, 1.25, [], &"og_spin", []],
+	OG_SPIN_SLIDE: [&"CR_OG_Attack_360", Vector3(1.0, 0.0, 0.7), true, 1.25, [], &"og_spin", []],
 	# [.., limbs that strike (as `attack_limbs`), the kind of blow]
 	OG_HEADBUTT: [&"CR_OG_Headbutt", Vector3(1.0, 0.1, 0.7), false, 0.4, [], &"og_headbutt", [],
 			"head_joint>head_joint@0.11,0.13,0:0.24", &"guard"],
@@ -335,8 +343,6 @@ const COMBOS := [
 const FLIGHTS := {
 	LEAP_SLAM: [0.05, 0.45, 1.4, 1.0],
 	RUN_SLAM: [0.87, 1.62, 1.05, 0.55],
-	# from where it turns away (13 % of the clip) to the club round on him (33 %)
-	OG_SPIN_SLIDE: [0.41, 1.05, 1.6, 0.0],
 }
 
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, how often
@@ -516,7 +522,9 @@ func _ready() -> void:
 ## furthest, or at the moments given), held at the top if it is so made.
 func _combo_move(what: int) -> void:
 	var c: Array = COMBO_MOVES[what]
-	_special(what, c[0], c[1])
+	var part: Vector3 = c[1]
+	part.x *= combo_pace.y if bool(c[2]) else combo_pace.x
+	_special(what, c[0], part)
 	var at: Array = c[4]
 	if c.size() > 7 and not String(c[7]).is_empty():
 		_special_strike(what, String(c[7]), float(c[3]), 99)
@@ -869,7 +877,11 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		_begin(what)
 	if FLIGHTS.has(what) and _quarry != null:
 		var span := _flight_span(what)
-		_flight_speed = _flight_capped(what, _close_speed_for(what, span.y, span.x))
+		_flight_speed = _close_speed_for(what, span.y, span.x)
+	_spin_on = false
+	_spin_from = -1.0
+	if what == OG_SPIN_SLIDE and _quarry != null:
+		_spin_dash(false)
 	if what == LUNGE and _quarry != null:
 		var until := _blow_moments(LUNGE)[0]
 		var m: Array = _moves_table[LUNGE]
@@ -1124,6 +1136,18 @@ func _extra_velocity(delta: float) -> Vector3:
 		if _act_time <= _blow_moments(LUNGE)[0]:
 			return _forward() * _lunge_speed
 		return Vector3.ZERO
+	if act == OG_SPIN_SLIDE:
+		var ms := _blow_moments(act)
+		if _spin_from >= 0.0 and not ms.is_empty() and _act_time >= _spin_from and _act_time <= ms[0]:
+			if not _spin_on:
+				_spin_on = true
+				spin_dashes += 1
+				if is_inside_tree() and multiplayer.has_multiplayer_peer():
+					net_slide.rpc()
+				else:
+					net_slide()
+			return _forward() * _spin_speed
+		return Vector3.ZERO
 	if act == JUMP_SLAM and _jump_speed > 0.0:
 		var span := _jump_span()
 		if _act_time >= span.x and _act_time <= span.y:
@@ -1147,6 +1171,9 @@ func _commit_at(what: int) -> float:
 		return 0.0
 	if what == JUMP_SLAM:
 		return ms[0] - chase_commit
+	if what == OG_SPIN_SLIDE and _spin_from >= 0.0:
+		# after him till the last 15 % of its dash
+		return ms[0] - maxf(0.15 * (ms[0] - _spin_from), 0.06)
 	var heavy := _is_heavy(what)
 	return ms[0] - (commit_lead.y if heavy else commit_lead.x)
 
@@ -1178,28 +1205,56 @@ func _track_before_blow(delta: float) -> void:
 		_lunge_speed = _close_speed_for(LUNGE, _blow_moments(LUNGE)[0], 0.0)
 	elif FLIGHTS.has(act):
 		var span := _flight_span(act)
-		_flight_speed = _flight_capped(act, _close_speed_for(act, span.y, span.x, true))
+		_flight_speed = _close_speed_for(act, span.y, span.x, true)
 	elif act == JUMP_SLAM:
 		_jump_closing()
+	elif act == OG_SPIN_SLIDE:
+		_spin_dash(true)
 
 
-## The drawn-out whirl's slide kept within `spin_slide_most`; a leap's not.
-func _flight_capped(what: int, speed: float) -> float:
-	if what != OG_SPIN_SLIDE:
-		return speed
-	var span := _flight_span(what)
-	return minf(speed, spin_slide_most * visual_scale / 1.6 / maxf(span.y - span.x, 0.15))
+## Host: the sliding whirl's dash at him ([member spin_dash_speed]): from when
+## (act s, -1 none: he is in its reach) and how fast, to be on him as the club
+## comes round; once on its way, only its speed, to where he will be.
+var _spin_from: float = -1.0
+var _spin_speed: float = 0.0
+var _spin_on: bool = false
+var spin_dashes: int = 0
+
+
+func _spin_dash(ahead: bool) -> void:
+	var ms := _blow_moments(OG_SPIN_SLIDE)
+	if ms.is_empty() or _quarry == null:
+		return
+	var blow := ms[0]
+	var m: Array = _moves_table[OG_SPIN_SLIDE]
+	var own := _hips(m[0], _clip_time(OG_SPIN_SLIDE, blow)).x - _hips(m[0], _clip_time(OG_SPIN_SLIDE, _act_time)).x
+	var reach := float(_strike_from.get(OG_SPIN_SLIDE, strike_off))
+	var gap := _gap_to(_quarry_ahead(OG_SPIN_SLIDE)) if ahead else _distance_to(_quarry)
+	var d := clampf(gap - reach - own, 0.0, spin_slide_most * visual_scale / 1.6)
+	var left := maxf(blow - _act_time, 0.05)
+	if _spin_on:
+		_spin_speed = d / left
+		return
+	if d < 0.3:
+		_spin_from = -1.0
+		_spin_speed = 0.0
+		return
+	var window := minf(d / (spin_dash_speed * visual_scale / 1.6), left)
+	_spin_from = blow - window
+	_spin_speed = d / maxf(window, 0.05)
 
 
 ## The moves running does not beat ([member chase_lead_most]): the leaps, the
 ## jump slam, a held swing.
 func _chases(what: int) -> bool:
-	return FLIGHTS.has(what) or what == JUMP_SLAM or _slide_span(what).x >= 0.0
+	return FLIGHTS.has(what) or what == JUMP_SLAM or what == OG_SPIN_SLIDE or _slide_span(what).x >= 0.0
 
 
 ## Act seconds from which a chasing move is on its way at him (the leap off
 ## the ground, the jump slam closing, the held swing let go).
 func _chase_from(what: int) -> float:
+	if what == OG_SPIN_SLIDE:
+		return _spin_from if _spin_from >= 0.0 else INF
 	if FLIGHTS.has(what):
 		return _flight_span(what).x
 	if what == JUMP_SLAM:

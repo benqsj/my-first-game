@@ -120,6 +120,9 @@ var _holds: Dictionary = {}
 ## How often it opens one of its combos made by hand (`_hand_combos`, its
 ## kind's) instead of a plain attack, he in front: calm, enraged.
 @export var hand_combo_chance: Vector2 = Vector2(0.4, 0.55)
+## Its combos' moves played this much quicker than their clips (the user's
+## word, 2026-10-11: too slow).
+@export var hand_pace: float = 1.3
 ## The practice (the test arena's board, 2026-10-10): >= 0, it does nothing
 ## but this one of its combos, over and over — it comes in to it, opens it, gets
 ## its breath, and again.
@@ -250,7 +253,7 @@ func _drill(delta: float) -> bool:
 ## (shares of the clip) for a move of several.
 func _hand_move(what: int, clip: StringName, part: Vector3, share: float, limbs: String = "",
 		moments: Array = []) -> void:
-	_special(what, clip, part)
+	_special(what, clip, Vector3(part.x * hand_pace, part.y, part.z))
 	_special_strike(what, limbs, share, 99)
 	if not moments.is_empty():
 		var s: Array = _strikes_table[what]

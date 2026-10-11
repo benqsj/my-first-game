@@ -10126,3 +10126,16 @@ blow fells is his to pick (the idea: a combo's last).
   combo, over and over, coming in to it each time (`drill_combo`; the ogre
   prowls through its breath); "Enraged" puts the rage tails on. No kneeling
   there. `tests/combo_drill_test.gd`.
+
+### Combos round 3: quicker, and the whirl's dash (2026-10-11, the user's word)
+
+- The new combos were too slow: the ogre's combo moves play `combo_pace`
+  (light 1.35x, heavy 1.2x) of their clips, the troll's, golem's and orc's
+  `hand_pace` 1.3x. Holds are as long as they were.
+- The sliding whirl (`OG_SPIN_SLIDE`: combo 3b, five_read's backed-off close,
+  fury) dashes at him like the heroes' glide (`spin_dash_speed` 20 m/s at its
+  size, `spin_slide_most` 24 m): it is no longer a slowed flight; the dash is
+  timed to end at the blow (`_spin_dash`: from blow - distance/speed), so far
+  off it starts in the wind-up and the turn comes on the way, near it turns
+  and shoots in at the end; turned after where he will be till the last 15 %.
+  ogre_combo_test: from 5, 12 and 18 m it gets there (top ~23 m/s) and hits.
