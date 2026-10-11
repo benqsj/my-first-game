@@ -47,7 +47,8 @@ extends SceneTree
 ## * punish: him casting near it, it is at him at once — a swing in reach, a
 ##   lunge from 6 m, a leap from 11 m; drawing his bow a while at 6 m, a
 ##   lunge; left alone at 11 m it does not leap at once.
-## * phase: enraged, its roar throws him off his feet near it; its club burns
+## * phase: enraged, its roar staggers him near it (not off his feet), the
+##   view shaken hard; its club burns
 ##   and cracks glow in its skin.
 ## * bar: fighting him, its name and health across the bottom of his view
 ##   (none over its head); killed, "ENEMY FELLED".
@@ -724,6 +725,7 @@ func _spacing() -> void:
 	var hero: Player = a[2]
 	var ogre := _ogre(a, _ahead(hero, 3.2))
 	ogre._taunt_wait = 0.0
+	ogre._grab_wait = 99.0
 	ogre.spacing_weights = Vector4(0.25, 0.15, 0.3, 0.3)
 	# (a little longer than its own, so its breaking off shows in 40 s)
 	ogre.spacing_time = Vector2(2.0, 3.0)
@@ -869,6 +871,8 @@ func _grab_once(how: String) -> Dictionary:
 	var held := false
 	var downed := false
 	var length := 0.0
+	var thrown_up := -1.0
+	var neck_gap := 0.0
 	var f := 0
 	while f < 60 * 8:
 		await physics_frame
@@ -878,6 +882,13 @@ func _grab_once(how: String) -> Dictionary:
 			hero.is_invulnerable = ogre.act == OgreFighter.GRAB and ct > ogre.grab_catch.x - 0.2 and ct < ogre.grab_catch.y + 0.2
 		held = held or hero._held_by == ogre
 		lift = maxf(lift, hero.global_position.y - start.y)
+		if hero._held_by == ogre and hero._held_time > 0.1 and ogre._act_time < ogre._grab_marks().y:
+			var skel := hero.rig.get(&"_skel") as Skeleton3D
+			var nb := skel.find_bone("neck_01")
+			var neck := skel.global_transform * skel.get_bone_global_pose(nb).origin
+			neck_gap = maxf(neck_gap, neck.distance_to(ogre.grab_point()))
+		if ogre.grab_throws > 0 and thrown_up < 0.0:
+			thrown_up = hero.global_position.y - start.y
 		downed = downed or hero.state == Player.State.DOWNED
 		if ogre.act == OgreFighter.GRAB:
 			length = ogre._act_time
@@ -886,6 +897,7 @@ func _grab_once(how: String) -> Dictionary:
 	Input.action_release("block")
 	hero.is_invulnerable = false
 	var out := {"caught": ogre.grabs_caught, "held": held, "lift": lift, "thrown": ogre.grab_throws,
+			"thrown_up": thrown_up, "neck_gap": neck_gap,
 			"downed": downed, "length": length, "free": hero._held_by == null}
 	await _done(a[0])
 	return out
@@ -895,6 +907,8 @@ func _grab() -> void:
 	var r := await _grab_once("plain")
 	_check("grab: its hand closes on him", int(r.caught) == 1 and bool(r.held), str(r))
 	_check("grab: he is lifted off the ground", float(r.lift) > 0.8, "%.2f m" % float(r.lift))
+	_check("grab: held by the neck, in its palm", float(r.neck_gap) < 0.12, "%.2f m" % float(r.neck_gap))
+	_check("grab: thrown down, on the ground at once", float(r.thrown_up) < 0.3, "%.2f m" % float(r.thrown_up))
 	_check("grab: and thrown down", int(r.thrown) == 1 and bool(r.downed) and bool(r.free), str(r))
 	r = await _grab_once("shield")
 	_check("grab: a raised shield does not hold it", int(r.caught) == 1 and bool(r.downed), str(r))
@@ -985,17 +999,29 @@ func _phase() -> void:
 	var ogre := _ogre(a, _ahead(hero, 3.0))
 	ogre.max_health = 1000.0
 	ogre.health = 400.0
+	if hero.rig is SkinnedRig:
+		(hero.rig as SkinnedRig).last_flinch = {}
 	var start := hero.global_position
 	var downed := false
-	for f in 60 * 4:
+	var shook := 0.0
+	var after := -1
+	for f in 60 * 6:
 		await physics_frame
-		if not downed and hero.state != Player.State.DOWNED:
+		if hero.state != Player.State.DOWNED:
 			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
-		downed = downed or hero.state == Player.State.DOWNED
-		if ogre.raging and downed and f > 120:
-			break
-	_check("phase: enraged, its roar throws him off his feet", ogre.raging and ogre.rage_throws > 0 and downed,
-			"raging %s, throws %d, downed %s" % [ogre.raging, ogre.rage_throws, downed])
+		if ogre.rage_throws > 0 and after < 0:
+			after = f
+		if after >= 0:
+			downed = downed or hero.state == Player.State.DOWNED
+			var cam := hero.get_viewport().get_camera_3d()
+			if cam != null:
+				shook = maxf(shook, absf(cam.h_offset) + absf(cam.v_offset))
+			if f - after > 50 and ogre.raging:
+				break
+	var reeled := hero.rig is SkinnedRig and not (hero.rig as SkinnedRig).last_flinch.is_empty()
+	_check("phase: enraged, its roar staggers him, not off his feet", ogre.raging and ogre.rage_throws > 0 and reeled
+			and not downed, "raging %s, throws %d, reeled %s, downed %s" % [ogre.raging, ogre.rage_throws, reeled, downed])
+	_check("phase: the roar shakes the view hard", shook > 0.1, "%.2f" % shook)
 	_check("phase: its club burns, cracks glow in its skin", ogre._club_fire != null and ogre._cracks != null)
 	await _done(a[0])
 

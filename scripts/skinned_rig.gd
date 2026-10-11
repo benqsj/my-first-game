@@ -3968,6 +3968,8 @@ const REVIEW := {
 	# folded over to his left (mirrored for his right), from where he sways
 	16: [Fall.RIGHT, [&"KV_CombatDeath01", 1.25, 0.72, 0.4]],
 	17: [Fall.BACK, [&"KV_CombatDeath03", 1.1, 0.66, 0.25]],
+	# slammed down on his back out of the ogre's grip: the impact itself
+	28: [Fall.BACK, [&"LiftAir_Fall_Impact", 1.0, 0.85, 0.0]],
 }
 
 

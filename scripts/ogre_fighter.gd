@@ -206,12 +206,15 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var death_lands: float = 0.62
 @export_group("Second phase")
 ## Its rage made a second phase (the user's word, 2026-10-11): the roar
-## throws whoever stands near it back off his feet (a jump clears it), and
-## from then on its club burns and molten cracks run through its skin.
-## Seconds into the rage that the roar comes; how far it throws; its worth.
+## staggers whoever stands near it — not off his feet (the user's word, later
+## that night) — the view shaken hard and long; and from then on its club
+## burns and molten cracks run through its skin. Seconds into the rage that
+## the roar comes; how far it reaches; its worth (a stagger, barely a wound).
 @export var rage_roar_at: float = 0.75
 @export var rage_push_radius: float = 6.0
-@export var rage_push_share: float = 0.2
+@export var rage_push_share: float = 0.02
+## The roar's shake: how hard (m of the view's offset) and how long (s).
+@export var roar_shake: Vector2 = Vector2(0.32, 1.7)
 @export_group("Punish")
 ## Him casting near it, or drawing his bow / gathering a bolt (the user's
 ## word, 2026-10-11: Elden Ring's punish of the flask and the spell): it is
@@ -230,7 +233,14 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var grab_rate: float = 1.1
 ## Clip seconds: its hand at him (he is caught in that window), the throw.
 @export var grab_catch: Vector2 = Vector2(1.2, 1.6)
-@export var grab_throw_at: float = 3.95
+@export var grab_throw_at: float = 4.05
+## Held (the user's word, 2026-10-11: its arm up over its head deformed it):
+## its arm stays out in front, him at its face, `grab_hold` s while the clip
+## creeps from `grab_lift.x` to `.y` (clip s); then in `grab_heave` s it heaves
+## him up (on to `grab_lift.z`) and brings him down at its own pace.
+@export var grab_hold: float = 1.2
+@export var grab_lift: Vector3 = Vector3(1.6, 1.95, 3.75)
+@export var grab_heave: float = 0.3
 ## From how far it reaches for him (m at its size; it steps in on him).
 @export var grab_from: float = 4.2
 ## How far its hand may be from him and still close on him (m).
@@ -625,6 +635,9 @@ var spacings_made: Dictionary = {}
 ## holds; counts for a test.
 var _grab_wait: float = 6.0
 var _grab_serial: int = -1
+## Every peer: the grab act in which its hand closed on him (its clock is
+## warped from then: [method _clip_time]).
+var _grab_caught_serial: int = -1
 var _held: Node3D = null
 var grabs_made: int = 0
 var grab_rolls: int = 0
@@ -940,7 +953,8 @@ func _rage_throw() -> void:
 		if absf(rel.y) > 2.0 or Vector2(rel.x, rel.z).length() > r:
 			continue
 		rage_throws += 1
-		who.call(&"receive_blow", hit_damage * rage_push_share, self, 0, 1, act_serial * 1000 + 93, false, &"ground")
+		# a stagger, never a fall (99 blows to fell)
+		who.call(&"receive_blow", hit_damage * rage_push_share, self, 0, 99, act_serial * 1000 + 93, false, &"ground")
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
 		net_rage_blast.rpc()
 	else:
@@ -961,7 +975,30 @@ func net_rage_blast() -> void:
 		"colors": [Color(0.55, 0.5, 0.45, 0.0), Color(0.5, 0.45, 0.4, 0.45), Color(0.45, 0.42, 0.4, 0.0)],
 	})
 	GroundFx.eruption(into, global_position + Vector3.UP * 0.05, 1.1 * s, false)
-	WindBlast.shake(self, 0.22, 0.7, 20.0)
+	_roar_shake()
+
+
+## Every peer: the roar's shake — the view jolted at once and rumbling on
+## through the roar, dying away; harder the nearer he is.
+func _roar_shake() -> void:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return
+	var near := clampf(1.0 - cam.global_position.distance_to(global_position) / 28.0, 0.0, 1.0)
+	if near <= 0.0:
+		return
+	ImpactFx.knock(cam, Vector3.DOWN, 0.1 * near, 0.12, 0.5)
+	var tw := cam.create_tween()
+	var steps := 34
+	var step := roar_shake.y / float(steps)
+	for i in steps:
+		var u := float(i) / float(steps)
+		# up hard in the first tenth, then the rumble dying away
+		var k := roar_shake.x * near * (minf(u / 0.08, 1.0) * pow(1.0 - u, 1.4))
+		tw.tween_property(cam, "h_offset", randf_range(-k, k), step)
+		tw.parallel().tween_property(cam, "v_offset", randf_range(-k, k) * 0.8, step)
+	tw.tween_property(cam, "h_offset", 0.0, 0.1)
+	tw.parallel().tween_property(cam, "v_offset", 0.0, 0.1)
 
 
 ## Enraged, over the pack's red glow: molten cracks through its skin, and its
@@ -1029,12 +1066,13 @@ func _try_grab(gap: float) -> bool:
 func grab_point() -> Vector3:
 	if _skeleton == null:
 		return global_position + Vector3.UP * 2.0 * visual_scale / 1.6
-	var b := _skeleton.find_bone("L_wrist_joint")
+	var b := _skeleton.find_bone("L_midFinger_joint1")
+	if b < 0:
+		b = _skeleton.find_bone("L_wrist_joint")
 	if b < 0:
 		return global_position + Vector3.UP * 2.0 * visual_scale / 1.6
-	# (out in front of the wrist, so he hangs off its hand and not in its
-	# chest)
-	return _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin + _forward() * 0.45 * visual_scale / 1.6
+	# its palm (the root of its middle finger)
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin
 
 
 ## Host, through the grab: turned after him till its hand goes out; caught in
@@ -1048,7 +1086,13 @@ func _grab_run() -> void:
 		_grab_serial = act_serial
 		_held = hero
 		grabs_caught += 1
-		hero.grab_by(self, maxf((grab_throw_at - ct) / grab_rate, 0.2))
+		_grab_caught_serial = act_serial
+		_act_length = _grab_length()
+		# his body in its hand is no wall to it (else it shoved itself off
+		# across the field)
+		add_collision_exception_with(hero)
+		hero.add_collision_exception_with(self)
+		hero.grab_by(self, maxf(_grab_throw_time() - _act_time, 0.2))
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
 			net_grab_caught.rpc()
 		else:
@@ -1079,6 +1123,7 @@ func _throw_held() -> void:
 	if hero == null or not is_instance_valid(hero):
 		return
 	grab_throws += 1
+	_unclasp(hero)
 	hero.release_grab()
 	hero.receive_blow(hit_damage * grab_share, self, 0, 1, act_serial * 1000 + 91, false, &"crush")
 	var at := Vector3(hero.global_position.x, global_position.y, hero.global_position.z)
@@ -1093,7 +1138,14 @@ func _drop_held() -> void:
 	var hero := _held as Player
 	_held = null
 	if hero != null and is_instance_valid(hero):
+		_unclasp(hero)
 		hero.release_grab()
+
+
+func _unclasp(hero: Node) -> void:
+	if hero is PhysicsBody3D:
+		remove_collision_exception_with(hero)
+		(hero as PhysicsBody3D).remove_collision_exception_with(self)
 
 
 ## Its looks picked from its name (before the blows are measured: the arm's
@@ -1154,6 +1206,7 @@ func _wear_looks() -> void:
 			src.free()
 	if bloody:
 		_bloody_mouth.call_deferred()
+		_bloody_arm.call_deferred()
 
 
 ## Every peer: blood round its mouth and down its chin (a [Decal] on its head,
@@ -1191,8 +1244,40 @@ func _bloody_mouth() -> void:
 	# laid in the head bone's frame (the attachment follows it from the next
 	# frame on)
 	var bone := _skeleton.global_transform * _skeleton.get_bone_global_pose(head)
-	var want := Transform3D(Basis(x, y, z), bone.origin + fwd * 0.3 * s + Vector3.DOWN * 0.06 * s)
+	var want := Transform3D(Basis(x, y, z), bone.origin + fwd * 0.3 * s + Vector3.DOWN * 0.14 * s)
 	decal.transform = bone.affine_inverse() * want
+
+
+## Every peer: its weapon's head bloodied (a [Decal] round it, painting it
+## all round: no normal fade; kept out past its fist).
+func _bloody_arm() -> void:
+	if _skeleton == null or _weapon < 0 or not is_inside_tree():
+		return
+	for m in find_children("*", "GeometryInstance3D", true, false):
+		var g := m as GeometryInstance3D
+		if not (g is GPUParticles3D) and not (g is Label3D):
+			g.layers |= Blood.WOUND_LAYER
+	var hold := BoneAttachment3D.new()
+	hold.bone_name = String(weapon_bone)
+	_skeleton.add_child(hold)
+	var reach := weapon_tip.x
+	for k in 2:
+		var decal := Decal.new()
+		decal.name = "ArmGore"
+		decal.texture_albedo = Blood.wound_texture()
+		decal.modulate = Color(0.3, 0.012, 0.01)
+		decal.albedo_mix = 0.92
+		decal.normal_fade = 0.0
+		decal.cull_mask = Blood.WOUND_LAYER
+		decal.upper_fade = 0.1
+		decal.lower_fade = 0.1
+		# along the club's head, the runs of blood down it toward the fist;
+		# one from each side
+		decal.size = Vector3(0.5, 0.55, reach * 0.5)
+		hold.add_child(decal)
+		var y := Vector3(0, 0, 1) * (1.0 if k == 0 else -1.0)
+		var z := Vector3(-1, 0, 0)
+		decal.transform = Transform3D(Basis(y.cross(z), y, z), Vector3(reach * 0.84, 0.0, 0.0))
 
 
 ## Every peer: its death played heavy and slow — a last groan as it goes.
@@ -1233,7 +1318,25 @@ func _watch_death() -> void:
 ## Every peer: its hand closes on him — a grunt.
 @rpc("authority", "call_local", "reliable")
 func net_grab_caught() -> void:
+	_grab_caught_serial = act_serial
 	Sfx.play_any(self, GRUNTS, self, 0.8, 0.0)
+
+
+## The grab's clock, him caught: act seconds where its catch window ends, the
+## hold ends, the heave ends.
+func _grab_marks() -> Vector3:
+	var t0 := grab_catch.y / grab_rate
+	return Vector3(t0, t0 + grab_hold, t0 + grab_hold + grab_heave)
+
+
+## Act seconds of the throw, and of the whole grab, him caught.
+func _grab_throw_time() -> float:
+	return _grab_marks().z + maxf(grab_throw_at - grab_lift.z, 0.0)
+
+
+func _grab_length() -> float:
+	var end := _anim.clip_length(grab_clip) * 0.97 if _anim != null else grab_throw_at + 1.5
+	return _grab_marks().z + (grab_throw_at - grab_lift.z) + (end - grab_throw_at) / grab_rate
 
 
 ## Every peer: thrown down — the thud of him, earth and grit, the view shaken.
@@ -2229,6 +2332,20 @@ func _flight_warp(what: int) -> Vector3:
 
 
 func _clip_time(what: int, t: float) -> float:
+	if what == GRAB and act == GRAB and _grab_caught_serial == act_serial:
+		var m := _grab_marks()
+		if t <= m.x:
+			return t * grab_rate
+		if t <= m.y:
+			return lerpf(grab_catch.y, grab_lift.y, (t - m.x) / maxf(grab_hold, 0.01))
+		if t <= m.z:
+			var u := (t - m.y) / maxf(grab_heave, 0.01)
+			return lerpf(grab_lift.y, grab_lift.z, u * u)
+		var down := t - m.z
+		var to_throw := grab_throw_at - grab_lift.z
+		if down <= to_throw:
+			return grab_lift.z + down
+		return grab_throw_at + (down - to_throw) * grab_rate
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
 		if t > w.x:

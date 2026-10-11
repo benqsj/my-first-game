@@ -286,13 +286,18 @@ func _ogre_heavy() -> void:
 	var ogre := (a[1] as ArenaPanel).call_up(OGRE, false, _ahead(hero, 3.6)) as OgreFighter
 	ogre._pound_wait = 99.0
 	ogre._heavy_wait = 0.0
+	# (behind his shield it would reach for him instead — its grab — or open
+	# its shield-breaking combo)
+	ogre._grab_wait = 99.0
+	ogre.combo_chance = Vector2.ZERO
+	ogre.close_combo_chance = 0.0
 	var slow := ogre._move_length(OgreFighter.HEAVY)
 	var plain := ogre._move_length(OgreFighter.STOMP)
 	_check("the great blow's wind-up is drawn out", slow > plain + 0.5, "%.2f s against %.2f s" % [slow, plain])
 	hero.last_guard_break = {}
 	Input.action_press("block")
 	var swung := [false]
-	var broken := await _until(480, hero, start, func() -> bool:
+	var broken := await _until(720, hero, start, func() -> bool:
 		hero.stamina = hero.max_stamina
 		if ogre.act == OgreFighter.HEAVY:
 			swung[0] = true

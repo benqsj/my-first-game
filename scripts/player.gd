@@ -774,6 +774,8 @@ func _toast(text: String) -> void:
 ## driven from the replicated mirrors rather than from anything it works out
 ## for itself.
 func _process(delta: float) -> void:
+	if _held_by != null and is_multiplayer_authority():
+		_hang()
 	var mine := is_multiplayer_authority()
 	if mine:
 		# Smooth follow keeps the camera stable even though the body only moves
@@ -3518,6 +3520,9 @@ const BLOW_FALLS := {
 	&"og_spin": {"any": [[5, ""]], "back": [[22, ""]]},
 	&"og_ground": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
 	&"og_mjump": {"any": [[10, "keep"]]},
+	# thrown down out of its hand: on his back at once, the ground's impact
+	# (2026-10-11, the user's word: not onto his feet first)
+	&"grab": {"any": [[28, "foe"]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
@@ -3745,6 +3750,8 @@ func net_grabbed(path: NodePath, seconds: float) -> void:
 	if by == null:
 		return
 	_held_by = by
+	if by is PhysicsBody3D:
+		add_collision_exception_with(by)
 	_held_left = seconds + 1.0
 	_held_from = global_position
 	_held_time = 0.0
@@ -3765,8 +3772,22 @@ func net_released() -> void:
 		return
 	if not is_multiplayer_authority():
 		return
+	var was := _held_by
 	_held_by = null
 	_held_left = 0.0
+	if was is PhysicsBody3D and is_instance_valid(was):
+		remove_collision_exception_with(was)
+	# thrown down: on the ground at once, where its hand let go (no landing
+	# on his feet first: the user's word, 2026-10-11)
+	if was != null:
+		var space := get_world_3d().direct_space_state
+		var q := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.5,
+				global_position + Vector3.DOWN * 6.0, 1)
+		q.exclude = [get_rid()]
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			global_position = hit["position"] as Vector3
+		velocity = Vector3.ZERO
 
 
 ## Every peer: the look of him held up, kicking.
@@ -3787,14 +3808,30 @@ func _process_held(delta: float) -> void:
 			or not by.has_method(&"grab_point"):
 		_held_by = null
 		return
-	var hand: Vector3 = by.call(&"grab_point")
-	var want := hand - Vector3.UP * HELD_NECK
-	var u := clampf(_held_time / 0.22, 0.0, 1.0)
-	global_position = _held_from.lerp(want, u * u * (3.0 - 2.0 * u))
+	_hang()
 	var to := by.global_position - global_position
 	to.y = 0.0
 	if to.length_squared() > 0.0001:
 		rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-14.0 * delta))
+
+
+## Held: his neck put in its palm (from where his neck is on him now); run
+## each physics tick and each drawn frame, so the grip does not lag its hand.
+func _hang() -> void:
+	var by := _held_by
+	if by == null or not is_instance_valid(by) or not by.has_method(&"grab_point"):
+		return
+	var hand: Vector3 = by.call(&"grab_point")
+	var neck := Vector3.UP * HELD_NECK
+	var skel: Skeleton3D = rig.get(&"_skel") as Skeleton3D if rig != null else null
+	if skel != null:
+		var b := skel.find_bone("neck_01")
+		if b >= 0:
+			neck = skel.global_transform * skel.get_bone_global_pose(b).origin - global_position
+	var want := hand - neck
+	# snatched up at once (drawn over a long moment it read as a slide)
+	var u := clampf(_held_time / 0.06, 0.0, 1.0)
+	global_position = _held_from.lerp(want, u)
 
 
 ## Where he hangs from a hand that holds him: this far below it (m).

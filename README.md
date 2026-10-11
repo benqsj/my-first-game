@@ -10261,3 +10261,20 @@ blow fells is his to pick (the idea: a combo's last).
   `vepxis-art/tools/ogre_arms.py`): a morning star, an obsidian great hammer,
   a bone mace — each turned onto the club's bone with its own `weapon_tip`
   (set before the blows are measured).
+
+- 2026-10-11 late (the user's word on round 2): **the rage roar** no longer
+  throws him off his feet — it staggers him (99 blows to fell) — and shakes
+  the view hard and long (`roar_shake` 0.32 m over 1.7 s: jolted at once,
+  the rumble dying away, harder the nearer). **The grab**: no slide (he is
+  snatched up in 0.06 s); his neck put in its palm (`grab_point` = the root
+  of its middle finger; `Player._hang` from where his `neck_01` is, every
+  tick and every drawn frame); its arm kept out in front, him at its face
+  (the clip's overhead lift deformed its shoulder): the act clock is warped
+  once its hand closes (`_clip_time`: reach → `grab_hold` 1.2 s creeping
+  `grab_lift` 1.6→1.95 → a quick heave to 3.75 in `grab_heave` 0.3 s → down
+  at its own pace, thrown at 4.05); his body is no wall to it while held
+  (collision exceptions both ways: it shoved itself off across the field);
+  thrown, he is on the ground at once (`net_released` drops him onto the
+  ground under him) and falls as `grab` → fall 28, `LiftAir_Fall_Impact`.
+  **Blood**: round its mouth a little lower; a bloody ogre's club (or arm)
+  bloodied round its head (two decals, no normal fade).
