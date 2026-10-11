@@ -24,7 +24,7 @@ extends SceneTree
 ## * from afar: 8-14 m off it leaps at him, 12-22 m it runs at him and
 ##   springs; both follow him and throw him down;
 ## * the roll-catch answers a roll; a swing follows him till late, then is
-##   locked; a lone heavy blow's aftershock;
+##   locked; no aftershock after its blows (off, 2026-10-11);
 ## * slide: a held swing, him backed off and aside during the hold, slides
 ##   at him as it lets go and throws him down; rolled through (i-frames at
 ##   its blow), it misses.
@@ -488,7 +488,7 @@ func _afar() -> void:
 		_check("%s: up off the ground" % name, lift > 0.3, "%.2f m" % lift)
 		_check("%s: it comes down on him, stepped aside, and throws him down" % name, downed,
 				"ogre %.1f m from him" % ogre._distance_to(hero))
-		_check("%s: the ground shakes again after it" % name, ogre.aftershocks_made > 0, str(shocks))
+		_check("%s: no unseen second burst after it" % name, ogre.aftershocks_made == 0, str(shocks))
 		await _done(a[0])
 
 

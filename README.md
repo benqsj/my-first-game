@@ -10193,3 +10193,10 @@ blow fells is his to pick (the idea: a combo's last).
   (`sounds/ogre/step_1..3.wav`: a body punch pitched down, a sub thump, a crunch
   of earth). A combo of weight 0 (the triple pound) is no longer looked at in
   `_try_combo` (its pound has no strike: `_fits` erred).
+
+- 2026-10-11 evening (the user's word: a club into the ground sometimes hits
+  like a blow out of the ground, small stones falling — take it out): the
+  aftershock after its ground blows is off (`aftershocks_follow` false). It
+  came 0.4 s after the blow, 1.1 m ahead of the club, unseen till it struck,
+  and staggered him. The great blow's and the pound's rock stay; its stamping
+  foot (`OG_STOMP_FOOT`) still bursts the ground (seen coming).

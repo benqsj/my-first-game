@@ -190,6 +190,12 @@ extends PackBrute
 @export var aftershock_ahead: float = 1.1
 @export var aftershock_radius: float = 2.6
 @export var aftershock_share: float = 0.45
+## Whether its blows into the ground answer a beat later with that second,
+## unseen burst ahead of the club. Off (the user's word, 2026-10-11): it read
+## as a hit out of nowhere, small stones and a stagger with nothing to warn
+## of it; the rock of the great blow and the pound stays. Its stamping foot
+## still uses the burst (seen coming).
+@export var aftershocks_follow: bool = false
 ## A held swing (the user's word, 2026-10-09): planted through its wind-up
 ## and its hold — no stepping in or backing off, so no glide and no rocking
 ## to and fro as he moves round it; let go with him out of its reach (by
@@ -1632,7 +1638,7 @@ func _watch_blows(t0: float) -> void:
 				if absf(_act_time - m) < 0.3:
 					_saw_roll = true
 	var last := ms[ms.size() - 1]
-	if t0 < last and _act_time >= last and _shakes_after(act):
+	if aftershocks_follow and t0 < last and _act_time >= last and _shakes_after(act):
 		_shock_look = Vector2(act_serial, _act_time + 0.35)
 	# From its blow on, the first moment the club is down by the ground.
 	if int(_shock_look.x) == act_serial and _act_time <= _shock_look.y:
