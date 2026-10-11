@@ -182,13 +182,13 @@ func _run() -> void:
 	_check("the great blow follows him walking off", not _hits.is_empty(), "%s" % [_hits])
 	_check("its ground bursts and shakes", hv.quakes_made > quakes0, "%d" % hv.quakes_made)
 	hv.queue_free()
-	# the pound three times (2026-10-11): its rock out 10, 20, 40 m — him 30 m
+	# the pound three times (2026-10-11): its rock out 5, 10, 20 m — him 15 m
 	# off, only the third reaches him
 	await _arena()
 	var pd := await _ogre(OgreFighter.POUND)
 	var pa := pd.global_position - _hero.global_position
 	pa.y = 0.0
-	var far_at := pd.global_position - pa.normalized() * 30.0
+	var far_at := pd.global_position - pa.normalized() * 15.0
 	_hero.global_position = Vector3(far_at.x, _hero.global_position.y, far_at.z)
 	pd.start_combo(pd._combo_named(&"triple_pound"))
 	var q0: int = pd.quakes_made
@@ -210,7 +210,7 @@ func _run() -> void:
 			_hero.global_position = Vector3(far_at.x, _hero.global_position.y, far_at.z)
 	_check("the pound three times", pacts.slice(0, 3) == [OgreFighter.POUND, OgreFighter.POUND_2, OgreFighter.POUND_3]
 			and pd.quakes_made - q0 == 3, "%s, %d quakes" % [pacts, pd.quakes_made - q0])
-	_check("30 m off, only the third's rock reaches him", _hits.size() == 1, "%s" % [_hits])
+	_check("15 m off, only the third's rock reaches him", _hits.size() == 1, "%s" % [_hits])
 	pd.queue_free()
 	# reading him before a combo's close
 	await _arena()

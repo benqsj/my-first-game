@@ -77,8 +77,9 @@ extends PackBrute
 @export var pound_share: float = 0.85
 ## The pound three times (the user's word, 2026-10-11): a slam, a second one
 ## quick on it, and a third held overhead a beat and brought down hardest —
-## each sends rock out further (m, at its size: 10, 20, 40), no ring.
-@export var pound_reaches: Vector3 = Vector3(10.0, 20.0, 40.0)
+## each sends rock out further (m, at its size: 5, 10, 20 — 40 was too far,
+## the user's word), no ring.
+@export var pound_reaches: Vector3 = Vector3(5.0, 10.0, 20.0)
 
 @export var pound_from: float = 1.5
 @export var pound_to: float = 5.0

@@ -10180,3 +10180,9 @@ blow fells is his to pick (the idea: a combo's last).
   (`LIFT` 0.95 m near the blow, 0.35 at the edge), its near edge highest,
   hanging, dropped back flush with a bounce, then gone; one MultiMesh of one
   slab mesh (an earth top, broken dark sides).
+
+- 2026-10-11 later still (the user's word: 40 m is too big, 5/10/20; and give the
+  stones another look): `pound_reaches` 5, 10, 20 m. `RockWave`'s slabs are now
+  crags of grey stone (three shapes, each tinted, a red-hot underside), a
+  glowing crack under each while it is up (additive, dying as it drops), two
+  chips flung off each, and the crags sink into the ground as they settle.
