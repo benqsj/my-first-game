@@ -129,8 +129,9 @@ extends PackBrute
 @export var string_follow_after: float = 0.32
 @export var string_most_raging: int = 5
 ## Its breath got back after a string ends (s), calm and enraged.
-@export var recover: Vector2 = Vector2(0.5, 1.1)
-@export var recover_raging: Vector2 = Vector2(0.25, 0.6)
+## (half a second longer, the user's word 2026-10-12: a breath between strings)
+@export var recover: Vector2 = Vector2(1.0, 1.6)
+@export var recover_raging: Vector2 = Vector2(0.75, 1.1)
 ## Between its strings (and over him while he is down) it does not stand dead
 ## still (the user's word, 2026-10-10: it stood about a third of a fight): it
 ## prowls round him at this pace (m/s at its size), keeping to its reach,
@@ -225,51 +226,39 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var punish_draw_after: float = 0.45
 @export var punish_wait_time: float = 2.5
 @export_group("Grab")
-## Its free hand at him (the user's word, 2026-10-11: Elden Ring's grabs): it
-## reaches with its left, lifts him off the ground by the neck, holds him up
-## a moment and throws him down. No shield holds it; only a roll beats it.
-## Its clip (Mixamo's one-hand choke lift, mirrored), played at this rate.
-##
-## (2026-10-12, the user's word: a tell first — its arm drawn back — then from
-## up to 10 m off it slides in on him like a skill and snatches him.) The
-## snatch: Mixamo's mutant swipe, its free left arm drawn back
-## (`grab_cock.x` clip s), held there `grab_cock.y` s while it slides in on
-## him (the clip creeping to `grab_cock.z`), then swept forward.
+## Its free hand swung down on him (the user's word, 2026-10-11/12: Elden
+## Ring's grabs; then, the lift never sat right in its hand — "just swing that
+## arm down and smash him into the ground"): a tell first — its free left arm
+## drawn back, its hand lit cold blue like a spell being cast — then from up
+## to 10 m it slides in on him like a skill and brings the arm down on him,
+## into the ground, stone bursting up. No shield holds it; only a roll beats
+## it. Mixamo's mutant swipe: the arm drawn back by `grab_cock.x` (clip s),
+## held there `grab_cock.y` s while it slides in (the clip creeping to
+## `grab_cock.z`), then swept down.
 @export var grab_clip: StringName = &"CR_OG_Mutant_Swipe"
 @export var grab_rate: float = 1.0
 @export var grab_cock: Vector3 = Vector3(1.0, 0.45, 1.1)
 ## How fast it slides in on him at most (m/s at its size), and how far out
-## in front of it its hand closes (m).
+## in front of it its hand comes down (m).
 @export var grab_dash: float = 24.0
 @export var grab_hand_out: float = 1.55
-## The hold: the choke lift's clip, its arm out in front.
-@export var hold_clip: StringName = &"CR_OG_Choke_Lift"
-## Clip seconds of the swipe: its hand at him (he is caught in that window).
+## Clip seconds of the swipe: its hand at him (he is struck in that window),
+## and its hand into the ground.
 @export var grab_catch: Vector2 = Vector2(1.18, 1.36)
-## Held (the user's word, 2026-10-11: its arm up over its head deformed it;
-## then: "it must bend more"): bent forward over him from the waist
-## (`grab_bend` degrees, [LeanModifier]), its arm out in front, him at its
-## face, `grab_hold` s while the clip creeps from `grab_lift.x` to `.y`.
-@export var grab_hold: float = 1.2
-@export var grab_lift: Vector2 = Vector2(1.6, 1.95)
+@export var grab_smash_at: float = 1.4
+## Leaning into the swipe ([LeanModifier]), degrees at full.
 @export var grab_bend: float = 26.0
-## Then the slam (the user's word: "swing its arm down, smash him into the
-## ground"): both arms up over its head with him and down into the ground,
-## bent low (`slam_clip` from `slam_span.x` to `.y` clip s, at `slam_rate`);
-## he hits the ground at `slam_at` (clip s).
-@export var slam_clip: StringName = &"CR_OG_Zombie_Overhead"
-@export var slam_span: Vector2 = Vector2(0.72, 2.7)
-@export var slam_rate: float = 1.0
-@export var slam_at: float = 1.6
-## From how far it reaches for him (m at its size; it steps in on him).
+## Its hand's light through the tell.
+@export var grab_glow: Color = Color(0.35, 0.62, 1.0)
+## From how far it comes at him (m at its size; it slides in on him).
 @export var grab_from: float = 10.0
-## How far its hand may be from him and still close on him (m).
+## How far its hand may be from him and still strike him (m).
 @export var grab_radius: float = 1.0
-## How often it reaches for him when it could — more behind a raised shield.
+## How often it does it when it could — more behind a raised shield.
 @export var grab_chance: float = 0.25
 @export var grab_chance_guarded: float = 0.7
 @export var grab_cooldown: Vector2 = Vector2(12.0, 20.0)
-## The throw's worth (a share of `hit_damage`).
+## The blow's worth (a share of `hit_damage`).
 @export var grab_share: float = 1.8
 @export_group("Gait")
 ## Its trot coming at him (the walk is `walk_clip`, the run `run_clip`); the
@@ -445,10 +434,6 @@ const POUND_3 := 169
 const TAUNT := 170
 ## Its grab ([member grab_clip]).
 const GRAB := 171
-## ...and him smashed into the ground with both arms ([member slam_clip]).
-const GRAB_SLAM := 172
-## ...and between them, him held up at its face ([member hold_clip]).
-const GRAB_HOLD := 173
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -661,10 +646,13 @@ var _grab_wait: float = 6.0
 var _grab_serial: int = -1
 ## Every peer: the grab act in which its hand closed on him (its clock is
 ## warped from then: [method _clip_time]).
-var _grab_caught_serial: int = -1
+var _smashed_serial: int = -1
+## Every peer: its hand's light and sparks through the tell.
+var _glow_hand: OmniLight3D
+var _glow_sparks: GPUParticles3D
+var _glow_core: MeshInstance3D
 ## Every peer: its waist bent over him ([LeanModifier]).
 var _lean: LeanModifier
-var _held: Node3D = null
 var grabs_made: int = 0
 var grab_rolls: int = 0
 var grab_dashes: int = 0
@@ -730,13 +718,8 @@ func _ready() -> void:
 	_special(STOMP, stomp_clip, stomp_part)
 	_special(TAUNT, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.96))
 	_special(GRAB, grab_clip, Vector3(grab_rate, 0.0, 0.97))
-	_kinds[GRAB] = &"crush"
-	if _anim != null and _anim.clip_length(hold_clip) > 0.0:
-		var hl := _anim.clip_length(hold_clip)
-		_special(GRAB_HOLD, hold_clip, Vector3(1.0, grab_lift.x / hl, grab_lift.y / hl))
-	if _anim != null and _anim.clip_length(slam_clip) > 0.0:
-		var sl := _anim.clip_length(slam_clip)
-		_special(GRAB_SLAM, slam_clip, Vector3(slam_rate, slam_span.x / sl, slam_span.y / sl))
+	_kinds[GRAB] = &"smash"
+	_make_grab_glow()
 	if _skeleton != null:
 		_lean = LeanModifier.new()
 		_lean.bend = grab_bend
@@ -1145,38 +1128,27 @@ func grab_out() -> Vector3:
 	return out
 
 
-## Host, through the grab: turned after him till its hand goes out; caught in
-## its window if its hand is at him (not rolling, not down); missed, it gives
-## up soon after; held `grab_hold` s, then the slam ([constant GRAB_SLAM]).
+## Host, through the swipe: struck in its window if its hand is at him (not
+## rolling, not down) — a crushing blow that throws him down; its hand into the
+## ground at `grab_smash_at`, hit or miss.
 func _grab_run() -> void:
-	if act == GRAB_SLAM:
-		if _held != null and _clip_time(GRAB_SLAM, _act_time) >= slam_at:
-			_throw_held()
-		return
-	if act == GRAB_HOLD:
-		# held long enough: up over its head with him and down
-		if _held != null and _act_time >= grab_hold:
-			_begin(GRAB_SLAM)
-		return
 	var ct := _clip_time(GRAB, _act_time)
 	var hero := _quarry as Player
-	if _held == null and _grab_serial != act_serial and ct >= grab_catch.x and ct <= grab_catch.y \
+	if _grab_serial != act_serial and ct >= grab_catch.x and ct <= grab_catch.y \
 			and hero != null and _can_catch(hero):
 		_grab_serial = act_serial
-		_held = hero
 		grabs_caught += 1
-		_grab_caught_serial = act_serial
-		# his body in its hand is no wall to it (else it shoved itself off
-		# across the field)
-		add_collision_exception_with(hero)
-		hero.add_collision_exception_with(self)
-		hero.grab_by(self, grab_hold + (slam_at - slam_span.x) / slam_rate + 0.3)
+		hero.receive_blow(hit_damage * grab_share, self, 0, 1, act_serial * 1000 + 91, false, &"smash")
+	if _smashed_serial != act_serial and ct >= grab_smash_at:
+		_smashed_serial = act_serial
+		grab_throws += 1
+		var hand := grab_point()
+		var at := Vector3(hand.x, global_position.y, hand.z)
+		var hit := _grab_serial == act_serial
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
-			net_grab_caught.rpc()
+			net_grab_throw.rpc(at, hit)
 		else:
-			net_grab_caught()
-		# up to its face with him (its swipe's own end is a miss's)
-		_begin(GRAB_HOLD)
+			net_grab_throw(at, hit)
 
 
 func _can_catch(hero: Player) -> bool:
@@ -1187,40 +1159,7 @@ func _can_catch(hero: Player) -> bool:
 	var rel := hero.global_position - hand
 	var up := -rel.y
 	rel.y = 0.0
-	return rel.length() <= grab_radius * visual_scale / 1.6 and up >= 0.4 and up <= 3.4 * visual_scale / 1.6
-
-
-## Host: down with him — let go, and the blow of the ground (no shield, no
-## roll: he is in its hand).
-func _throw_held() -> void:
-	var hero := _held as Player
-	_held = null
-	if hero == null or not is_instance_valid(hero):
-		return
-	grab_throws += 1
-	_unclasp(hero)
-	hero.release_grab()
-	hero.receive_blow(hit_damage * grab_share, self, 0, 1, act_serial * 1000 + 91, false, &"crush")
-	var at := Vector3(hero.global_position.x, global_position.y, hero.global_position.z)
-	if is_inside_tree() and multiplayer.has_multiplayer_peer():
-		net_grab_throw.rpc(at)
-	else:
-		net_grab_throw(at)
-
-
-## Host: it lost its hold (struck down, stance broken, the act cut): he drops.
-func _drop_held() -> void:
-	var hero := _held as Player
-	_held = null
-	if hero != null and is_instance_valid(hero):
-		_unclasp(hero)
-		hero.release_grab()
-
-
-func _unclasp(hero: Node) -> void:
-	if hero is PhysicsBody3D:
-		remove_collision_exception_with(hero)
-		(hero as PhysicsBody3D).remove_collision_exception_with(self)
+	return rel.length() <= grab_radius * visual_scale / 1.6 and up >= -0.3 and up <= 3.4 * visual_scale / 1.6
 
 
 ## Its looks picked from its name (before the blows are measured: the arm's
@@ -1414,13 +1353,6 @@ func _watch_death() -> void:
 		})
 
 
-## Every peer: its hand closes on him — a grunt.
-@rpc("authority", "call_local", "reliable")
-func net_grab_caught() -> void:
-	_grab_caught_serial = act_serial
-	Sfx.play_any(self, GRUNTS, self, 0.8, 0.0)
-
-
 ## The snatch's clock: act seconds where its arm is drawn back and where it
 ## lets the swipe go (the slide in between).
 func _grab_marks() -> Vector2:
@@ -1428,9 +1360,10 @@ func _grab_marks() -> Vector2:
 	return Vector2(t0, t0 + grab_cock.y)
 
 
-## Every peer: thrown down — the thud of him, earth and grit, the view shaken.
+## Every peer: its hand into the ground — stone thrown up, earth and grit, the
+## crack of it, its roar, the view jolted hard; his blood if it struck him.
 @rpc("authority", "call_local", "reliable")
-func net_grab_throw(at: Vector3) -> void:
+func net_grab_throw(at: Vector3, hit: bool) -> void:
 	var into := Blood.world_of(self)
 	var s := visual_scale / 1.6
 	# the ground breaking under him: stone thrown up round him, earth and grit,
@@ -1438,7 +1371,8 @@ func net_grab_throw(at: Vector3) -> void:
 	RockWave.spawn(into, at, 3.6 * s, 0.75 * s, 16.0, act_serial * 7 + 3)
 	GroundFx.eruption(into, at + Vector3.UP * 0.05, 1.3 * s, false)
 	ImpactFx.thud(self, at + Vector3.UP * 0.2, true)
-	Blood.splatter(into, at + Vector3.UP * 0.4, Vector3.UP, null, 1.6)
+	if hit:
+		Blood.splatter(into, at + Vector3.UP * 0.4, Vector3.UP, null, 1.6)
 	_sound_at(CLUB_GROUND, at, 0.68, 5.0)
 	_sound_at(CLUB_GROUND, at, 0.9, 1.0)
 	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 0.95, -1.0)
@@ -2088,7 +2022,7 @@ func _extra_velocity(delta: float) -> Vector3:
 		# on him (a skill's dash) so its hand comes to him as it sweeps
 		var m := _grab_marks()
 		var reach_at := m.y + (grab_catch.x - grab_cock.z) / grab_rate
-		if _held == null and _quarry != null and _act_time <= reach_at:
+		if _quarry != null and _act_time <= reach_at:
 			if _act_time < reach_at - 0.08:
 				_face(_quarry.global_position - global_position, get_physics_process_delta_time(), turn_speed * 3.0)
 				_reframe()
@@ -2104,8 +2038,6 @@ func _extra_velocity(delta: float) -> Vector3:
 					else:
 						net_slide()
 				return _forward() * speed
-		return Vector3.ZERO
-	if act == GRAB_HOLD:
 		return Vector3.ZERO
 	if act == LUNGE:
 		if _act_time <= _blow_moments(LUNGE)[0]:
@@ -2447,8 +2379,6 @@ func _clip_time(what: int, t: float) -> float:
 		if t <= m.y:
 			return lerpf(grab_cock.x, grab_cock.z, (t - m.x) / maxf(grab_cock.y, 0.01))
 		return grab_cock.z + (t - m.y) * grab_rate
-	if what == GRAB_HOLD:
-		return grab_lift.x + (grab_lift.y - grab_lift.x) * clampf(t / maxf(grab_hold, 0.01), 0.0, 1.0)
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
 		if t > w.x:
@@ -2460,8 +2390,6 @@ func _clip_time(what: int, t: float) -> float:
 
 
 func _move_length(what: int) -> float:
-	if what == GRAB_HOLD:
-		return grab_hold + 0.25
 	var length := super(what)
 	if FLIGHTS.has(what) and _anim != null:
 		var w := _flight_warp(what)
@@ -2504,10 +2432,8 @@ func _run_act(delta: float) -> void:
 	if act == RAGE and _rage_pushed != act_serial and _act_time >= rage_roar_at:
 		_rage_pushed = act_serial
 		_rage_throw()
-	if act == GRAB or act == GRAB_HOLD or act == GRAB_SLAM:
+	if act == GRAB:
 		_grab_run()
-	if _held != null and ((act != GRAB_HOLD and act != GRAB_SLAM and act != GRAB) or is_dead):
-		_drop_held()
 	if (act == POUND or act == POUND_2 or act == POUND_3) and not _pounded and _act_time >= _pound_time(act):
 		_pounded = true
 		var k := 0 if act == POUND else (1 if act == POUND_2 else 2)
@@ -2711,6 +2637,10 @@ func _process(delta: float) -> void:
 			_cracks.set_shader_parameter(&"beat", 0.0)
 		if _club_fire != null:
 			_club_fire.emitting = false
+		if _glow_hand != null:
+			_glow_hand.visible = false
+			_glow_sparks.emitting = false
+			_glow_core.visible = false
 		return
 	if act_serial != _heard_serial:
 		_heard_serial = act_serial
@@ -2762,12 +2692,93 @@ func _watch_hold() -> void:
 	_glint()
 
 
-## Every peer: the grab's tell — as its arm is drawn back, a flash off its
-## open hand and a growl, then the rush of its slide.
+## Every peer: the swipe's tell — from the moment its arm starts back its
+## hand kindles cold blue, a light and a stream of sparks, brightest at the
+## top (the user's word, 2026-10-12: "like a skill being cast"), out as the
+## arm comes down; at the top a flare and a growl, then the rush of its slide.
 var _told_serial: int = -1
+var grab_glow_peak: float = 0.0
+
+
+func _make_grab_glow() -> void:
+	if _skeleton == null:
+		return
+	var bone := "L_midFinger_joint1" if _skeleton.find_bone("L_midFinger_joint1") >= 0 else "L_wrist_joint"
+	if _skeleton.find_bone(bone) < 0:
+		return
+	var hold := BoneAttachment3D.new()
+	hold.name = "GrabGlow"
+	hold.bone_name = bone
+	_skeleton.add_child(hold)
+	var s := visual_scale / 1.6
+	_glow_hand = OmniLight3D.new()
+	_glow_hand.light_color = grab_glow
+	_glow_hand.omni_range = 4.5 * s
+	_glow_hand.light_energy = 0.0
+	_glow_hand.shadow_enabled = false
+	_glow_hand.visible = false
+	hold.add_child(_glow_hand)
+	var c := grab_glow
+	# the hand's own blaze: a soft round glow on it, facing the view
+	_glow_core = MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE * 1.1 * s
+	_glow_core.mesh = quad
+	var fall := Gradient.new()
+	fall.set_color(0, Color(1, 1, 1, 1))
+	fall.set_color(1, Color(1, 1, 1, 0))
+	fall.add_point(0.25, Color(1, 1, 1, 0.75))
+	var tex := GradientTexture2D.new()
+	tex.gradient = fall
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 64
+	tex.height = 64
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.albedo_texture = tex
+	m.albedo_color = Color(c.r, c.g, c.b, 0.0)
+	_glow_core.material_override = m
+	_glow_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_glow_core.visible = false
+	hold.add_child(_glow_core)
+	_glow_sparks = SkillFx.particles(hold, Vector3.ZERO, {
+		"amount": 120, "life": 0.5, "one_shot": false, "add": true,
+		"speed": Vector2(0.4, 1.6), "dir": Vector3.UP, "spread": 180.0, "gravity": Vector3(0, 2.0, 0),
+		"damping": 2.0, "size": Vector2(0.22 * s, 0.5 * s), "grow": -0.6, "sphere": 0.3 * s,
+		"colors": [Color(0.85, 0.95, 1.0, 0.0), Color(c.r, c.g, c.b, 0.95), Color(c.r * 0.4, c.g * 0.5, c.b, 0.0)],
+	})
+	_glow_sparks.emitting = false
+
+
+## Every peer: how lit its hand is now (0..1) — rising through the draw,
+## full while held back and sliding in, gone as the arm comes down.
+func _grab_glow_now() -> float:
+	if act != GRAB or is_dead:
+		return 0.0
+	var ct := _clip_time(GRAB, _heard_clock)
+	if ct >= grab_catch.x:
+		return 0.0
+	return clampf(ct / maxf(grab_cock.x, 0.01), 0.0, 1.0) * clampf((grab_catch.x - ct) / 0.08, 0.0, 1.0)
 
 
 func _grab_tell() -> void:
+	var lit := _grab_glow_now()
+	if _glow_hand != null:
+		var flick := 1.0 + 0.12 * sin(_heard_clock * 37.0)
+		_glow_hand.light_energy = lit * 6.0 * flick
+		_glow_hand.visible = lit > 0.01
+		_glow_sparks.emitting = lit > 0.15
+		_glow_sparks.amount_ratio = clampf(lit, 0.0, 1.0)
+		_glow_core.visible = lit > 0.01
+		var cm := _glow_core.material_override as StandardMaterial3D
+		cm.albedo_color.a = lit * (0.85 + 0.15 * sin(_heard_clock * 23.0))
+		_glow_core.scale = Vector3.ONE * (0.6 + 0.4 * lit)
+		grab_glow_peak = maxf(grab_glow_peak, _glow_hand.light_energy)
 	if act != GRAB or is_dead or _told_serial == act_serial:
 		return
 	if _heard_clock < _grab_marks().x - 0.2:
@@ -2778,7 +2789,7 @@ func _grab_tell() -> void:
 		"amount": 30, "life": 0.5, "one_shot": true, "explosiveness": 1.0, "add": true,
 		"speed": Vector2(1.5, 4.0), "dir": Vector3.UP, "spread": 180.0, "gravity": Vector3.ZERO,
 		"damping": 5.0, "size": Vector2(0.14, 0.3), "grow": -0.6, "sphere": 0.1,
-		"colors": [Color(1.0, 0.6, 0.4, 0.0), Color(1.0, 0.45, 0.2, 1.0), Color(0.9, 0.15, 0.05, 0.0)],
+		"colors": [Color(0.8, 0.92, 1.0, 0.0), Color(grab_glow.r, grab_glow.g, grab_glow.b, 1.0), Color(0.1, 0.25, 0.9, 0.0)],
 	})
 	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 0.8, -3.0)
 
@@ -2790,11 +2801,10 @@ func _bend_over_him(delta: float) -> void:
 		return
 	var want := 0.0
 	if not is_dead:
-		if act == GRAB and _heard_clock >= _grab_marks().x - 0.1:
-			# leaning into its slide and its swipe
-			want = 0.45
-		elif act == GRAB_HOLD:
-			want = 1.0
+		if act == GRAB and _heard_clock >= _grab_marks().x - 0.1 \
+				and _clip_time(GRAB, _heard_clock) < grab_smash_at + 0.4:
+			# leaning into its slide and down into its swipe
+			want = 0.4 if _clip_time(GRAB, _heard_clock) < grab_cock.z else 1.0
 	_lean.amount = move_toward(_lean.amount, want, delta * (2.5 if want > _lean.amount else 4.0))
 	_lean.facing = _forward()
 

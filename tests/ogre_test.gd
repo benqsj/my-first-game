@@ -40,11 +40,13 @@ extends SceneTree
 ##   sweep slides round at him if he backed off.
 ## * whirl: a heavy, grounded spin — its hips never bob up above standing
 ##   (the old clip rose 0.37 m and dropped), and it lands on him.
-## * grab: its free hand closes on him — through a raised shield too — he is
-##   lifted off the ground, held, and thrown down; from 8 m it slides in on
-##   him with its arm drawn back (2026-10-12) and snatches him; rolled (i-frames at its
-##   reach) it misses and gives up soon; behind a shield it reaches for him
-##   in a free fight.
+## * grab: its free hand swung down on him (2026-10-12, no lift any more) —
+##   through a raised shield too — he is smashed down where he stands, its
+##   hand into the ground throwing stone up; its hand lit blue through the
+##   draw and out as it comes down; from 8 m it slides in on him with its arm
+##   drawn back and smashes him; rolled (i-frames at its reach) it misses,
+##   the ground still bursts; behind a shield it reaches for him in a free
+##   fight.
 ## * punish: him casting near it, it is at him at once — a swing in reach, a
 ##   lunge from 6 m, a leap from 11 m; drawing his bow a while at 6 m, a
 ##   lunge; left alone at 11 m it does not leap at once.
@@ -730,7 +732,7 @@ func _spacing() -> void:
 	ogre._taunt_wait = 0.0
 	ogre.taunt_cooldown = Vector2(4.0, 6.0)
 	ogre._grab_wait = 99.0
-	ogre.spacing_weights = Vector4(0.2, 0.1, 0.4, 0.3)
+	ogre.spacing_weights = Vector4(0.15, 0.1, 0.15, 0.6)
 	# (a little longer than its own, so its breaking off shows in 40 s)
 	ogre.spacing_time = Vector2(2.0, 3.0)
 	var start := hero.global_position
@@ -870,59 +872,69 @@ func _grab_once(how: String, off: float = 2.6) -> Dictionary:
 	if how == "shield":
 		Input.action_press("block")
 	var start := hero.global_position
+	var crags := _crags(a[0])
 	ogre._begin(OgreFighter.GRAB)
 	var lift := 0.0
-	var held := false
 	var downed := false
 	var length := 0.0
-	var thrown_up := -1.0
-	var neck_gap := 0.0
+	var glow_cocked := 0.0
+	var glow_after := 0.0
+	var most_crags := 0
 	var f := 0
 	while f < 60 * 8:
 		await physics_frame
 		f += 1
+		var ct := ogre._clip_time(OgreFighter.GRAB, ogre._act_time)
 		if how == "rolled":
-			var ct := ogre._clip_time(OgreFighter.GRAB, ogre._act_time)
 			hero.is_invulnerable = ogre.act == OgreFighter.GRAB and ct > ogre.grab_catch.x - 0.2 and ct < ogre.grab_catch.y + 0.2
-		held = held or hero._held_by == ogre
 		lift = maxf(lift, hero.global_position.y - start.y)
-		if hero._held_by == ogre and hero._held_time > 0.15 and ogre.act == OgreFighter.GRAB_HOLD:
-			var skel := hero.rig.get(&"_skel") as Skeleton3D
-			var nb := skel.find_bone("neck_01")
-			var neck := skel.global_transform * skel.get_bone_global_pose(nb).origin
-			neck_gap = maxf(neck_gap, neck.distance_to(ogre.grab_point() + ogre.grab_out() * Player.HELD_OUT))
-		if ogre.grab_throws > 0 and thrown_up < 0.0:
-			thrown_up = hero.global_position.y - start.y
+		if ogre.act == OgreFighter.GRAB and ogre._glow_hand != null:
+			var e := ogre._glow_hand.light_energy if ogre._glow_hand.visible else 0.0
+			if ct >= ogre.grab_cock.x and ct < ogre.grab_cock.z:
+				glow_cocked = maxf(glow_cocked, e)
+			if ct > ogre.grab_catch.x + 0.05:
+				glow_after = maxf(glow_after, e)
 		downed = downed or hero.state == Player.State.DOWNED
+		if f % 6 == 0:
+			most_crags = maxi(most_crags, _crags(a[0]) - crags)
 		if ogre.act == OgreFighter.GRAB:
 			length = ogre._act_time
 		elif f > 30 and (downed or how == "rolled"):
 			break
 	Input.action_release("block")
 	hero.is_invulnerable = false
-	var out := {"caught": ogre.grabs_caught, "held": held, "lift": lift, "thrown": ogre.grab_throws,
-			"dashes": ogre.grab_dashes, "moved": (ogre.global_position - _ahead(hero, 0.0)).length(),
-			"thrown_up": thrown_up, "neck_gap": neck_gap,
-			"downed": downed, "length": length, "free": hero._held_by == null}
+	var out := {"caught": ogre.grabs_caught, "lift": lift, "smashed": ogre.grab_throws,
+			"dashes": ogre.grab_dashes, "crags": most_crags,
+			"glow_cocked": glow_cocked, "glow_after": glow_after,
+			"downed": downed, "length": length, "fall": hero._down_number}
 	await _done(a[0])
 	return out
 
 
+## Stone thrown up anywhere in the world (RockWave crags).
+func _crags(root: Node) -> int:
+	var n := 0
+	for node in root.find_children("*", "", true, false):
+		if node.get_script() == RockWave:
+			n += 1
+	return n
+
+
 func _grab() -> void:
 	var r := await _grab_once("plain")
-	_check("grab: its hand closes on him", int(r.caught) == 1 and bool(r.held), str(r))
-	_check("grab: he is lifted off the ground", float(r.lift) > 0.8, "%.2f m" % float(r.lift))
-	_check("grab: held by the neck, his throat in its hand", float(r.neck_gap) < 0.12, "%.2f m" % float(r.neck_gap))
-	_check("grab: thrown down, on the ground at once", float(r.thrown_up) < 0.3, "%.2f m" % float(r.thrown_up))
-	_check("grab: and thrown down", int(r.thrown) == 1 and bool(r.downed) and bool(r.free), str(r))
+	_check("swipe: its hand comes down on him", int(r.caught) == 1, str(r))
+	_check("swipe: not lifted, smashed down where he stands", float(r.lift) < 0.4 and bool(r.downed), str(r))
+	_check("swipe: its hand into the ground, stone thrown up", int(r.smashed) == 1 and int(r.crags) >= 1, str(r))
+	_check("swipe: its hand lit blue through the draw, out as it comes down",
+			float(r.glow_cocked) > 3.0 and float(r.glow_after) < 0.5, str(r))
 	r = await _grab_once("shield")
-	_check("grab: a raised shield does not hold it", int(r.caught) == 1 and bool(r.downed), str(r))
+	_check("swipe: a raised shield does not hold it", int(r.caught) == 1 and bool(r.downed), str(r))
 	r = await _grab_once("rolled")
-	_check("grab: rolled under, it misses (its swipe through, a beat to punish)", int(r.caught) == 0
-			and float(r.length) < 3.4, str(r))
-	# from 8 m off: its arm drawn back, it slides in on him and snatches him
+	_check("swipe: rolled under, it misses — the ground still bursts, a beat to punish", int(r.caught) == 0
+			and int(r.smashed) == 1 and float(r.length) < 3.4, str(r))
+	# from 8 m off: its arm drawn back, it slides in on him and smashes him
 	r = await _grab_once("plain", 8.0)
-	_check("grab: from 8 m it slides in on him and snatches him", int(r.dashes) == 1 and int(r.caught) == 1
+	_check("swipe: from 8 m it slides in on him and smashes him down", int(r.dashes) == 1 and int(r.caught) == 1
 			and bool(r.downed), str(r))
 	# behind a raised shield, in a free fight, it reaches for him
 	var a: Array = await _arena()
@@ -943,7 +955,7 @@ func _grab() -> void:
 		await physics_frame
 		hero.stamina = hero.max_stamina
 		guarded = guarded or hero.guarding()
-		if hero.state != Player.State.DOWNED and hero._held_by == null:
+		if hero.state != Player.State.DOWNED:
 			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
 		if ogre.grabs_made > 0:
 			tried = true

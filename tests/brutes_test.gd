@@ -291,13 +291,15 @@ func _ogre_heavy() -> void:
 	ogre._grab_wait = 99.0
 	ogre.combo_chance = Vector2.ZERO
 	ogre.close_combo_chance = 0.0
+	# (its spacing between strings is not what is tried here)
+	ogre.spacing_time = Vector2.ZERO
 	var slow := ogre._move_length(OgreFighter.HEAVY)
 	var plain := ogre._move_length(OgreFighter.STOMP)
 	_check("the great blow's wind-up is drawn out", slow > plain + 0.5, "%.2f s against %.2f s" % [slow, plain])
 	hero.last_guard_break = {}
 	Input.action_press("block")
 	var swung := [false]
-	var broken := await _until(720, hero, start, func() -> bool:
+	var broken := await _until(960, hero, start, func() -> bool:
 		hero.stamina = hero.max_stamina
 		if ogre.act == OgreFighter.HEAVY:
 			swung[0] = true

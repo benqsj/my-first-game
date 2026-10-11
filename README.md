@@ -10304,3 +10304,22 @@ blow fells is his to pick (the idea: a combo's last).
   lift's arm-out pose, bent over him, `grab_hold` 1.2 s) he hangs out past
   its palm (`grab_out`: elbow → palm, `Player.HELD_OUT` 0.2 m), his throat in
   its hand, not its forearm through him; then the slam as before.
+
+- 2026-10-12 (the user's word: still it sat on its forearm; "instead of the
+  catch, just swing that arm down and smash him into the ground"; its hand lit
+  blue or red as it is drawn back, so it reads as a skill being cast; half a
+  second more between its strings): **no lift any more** — the swipe itself
+  is the blow. In `grab_catch` its hand finds him (`_can_catch`) and he takes
+  a "smash" blow (`grab_share` × `hit_damage`; no shield takes it, only a
+  roll — `Player._blow_kind`), crushed down where he stands (`BLOW_FALLS`
+  grab → fall 10). At `grab_smash_at` 1.4 s (clip) its hand goes into the
+  ground, hit or miss (`net_grab_throw(at, hit)`): stone thrown up (RockWave
+  3.6 m), earth, two cracks, its roar, the view jolted; blood only if it
+  struck. It leans into the slide and down into the swipe (LeanModifier).
+  **The cast**: from the start of the draw its left hand kindles cold blue
+  (`grab_glow`) — an OmniLight, a bright additive ball and a stream of sparks
+  on a BoneAttachment at `L_midFinger_joint1` (`_make_grab_glow`,
+  `_grab_glow_now`), full while held back and sliding in, out as the arm
+  comes down; a blue flare and a growl at the top. `GRAB_HOLD` / `GRAB_SLAM`
+  and the hold exports are gone (Player's `grab_by` API stays unused).
+  **Between strings** `recover` (1.0, 1.6) s, raging (0.75, 1.1) — +0.5 s.

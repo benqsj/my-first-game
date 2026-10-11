@@ -3520,9 +3520,9 @@ const BLOW_FALLS := {
 	&"og_spin": {"any": [[5, ""]], "back": [[22, ""]]},
 	&"og_ground": {"front": [[10, ""]], "side": [[27, "keep"]], "back": [[27, "keep"]]},
 	&"og_mjump": {"any": [[10, "keep"]]},
-	# thrown down out of its hand: on his back at once, the ground's impact
-	# (2026-10-11, the user's word: not onto his feet first)
-	&"grab": {"any": [[28, "foe"]]},
+	# its free hand swung down on him: crushed down where he stands, into the
+	# ground (2026-10-12, the user's word: no lift, the swing smashes him down)
+	&"grab": {"any": [[10, "keep"]]},
 }
 ## The last blow's force and pitch ([method _swept]), on the peer that owns him.
 var _blow_force: float = 0.0
@@ -3707,6 +3707,8 @@ func _swept(away: Vector3) -> Vector3:
 ## * "stomp": a blow at him where he lies — it finds him on the ground (a roll
 ##   out still clears it), and no shield takes it.
 ## * "spike": stone out of the ground under him — no shield takes it.
+## * "smash": the ogre's free hand swung down on him, into the ground — no
+##   shield takes it (only a roll beats it).
 func _blow_kind(combo: String) -> String:
 	return combo.get_slice("!", 1) if combo.contains("!") else ""
 
@@ -3922,7 +3924,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		_combo_landed[combo] = -999
 		_crumple(damage * (0.4 if how == "guard" else 0.8), away)
 		return
-	if is_blocking and how != "ground" and how != "stomp" and how != "spike" and facing.normalized().dot(toward.normalized()) > 0.2:
+	if is_blocking and how != "ground" and how != "stomp" and how != "spike" and how != "smash" and facing.normalized().dot(toward.normalized()) > 0.2:
 		_combo_landed[combo] = -999
 		# Caught on the shield: a step back, and it costs stamina to hold — never
 		# more than most of the bar, so even a raid boss's blow can be taken on
