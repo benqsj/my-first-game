@@ -10155,3 +10155,21 @@ blow fells is his to pick (the idea: a combo's last).
   ring) and the blow goes through the ground to everyone on it within
   `heavy_quake_radius` 7 m (`PackBrute._quake(..., ring = false)`; jump or
   roll). ogre_combo_test: it follows him walking off; the ground bursts.
+
+### Rock instead of rings: the great blow out to 20 m, the pound three times (2026-10-11, the user's word)
+
+- `RockWave` (scripts/rock_wave.gd): stone bursting up out of the ground and
+  running out from a blow all round, rising as the front passes, standing,
+  sinking back; one MultiMesh (the golem's shard rows, one per way out with
+  their own dust, choked the GPU at 40 m: Metal fence timeouts, black frames),
+  a few puffs of grit off the front; earth-coloured.
+- The great blow: rock out to `heavy_rock_length` 20 m (was 6), the blow
+  through the ground to everyone on it within `heavy_quake_radius` 20 m,
+  going out with the rock at `rock_pace` 22 m/s (`PackBrute._quake(..., pace)`).
+- The pound, when due, is `triple_pound` (a "relentless" combo: it goes on
+  with him down): POUND, POUND_2 (quick, 1.6x, from 25 % of the clip),
+  POUND_3 (held overhead 0.55-0.75 s, glinting) — rock and the blow out to
+  `pound_reaches` 10, 20, 40 m, no ring. A single pound in a raging string is
+  the first of them. A combo's moves no longer take a string's finisher.
+- ogre_combo_test: the three in order, three quakes; him 30 m off, only the
+  third reaches him. combo_drill_test gives the troll 26 s.

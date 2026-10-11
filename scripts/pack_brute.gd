@@ -431,10 +431,11 @@ func _blow_worth(_what: int) -> float:
 #region The quake
 ## Host: a shock out along the ground from `at`, `radius` wide, worth `worth`
 ## to whoever is on the ground as it passes under him.
-func _quake(at: Vector3, radius: float, worth: float, ring: bool = true) -> void:
+func _quake(at: Vector3, radius: float, worth: float, ring: bool = true, pace: float = -1.0) -> void:
 	quakes_made += 1
 	_quakes.append({"at": at, "t": 0.0, "r": radius, "worth": worth * _blow_worth(0),
-			"id": act_serial * 1000 + 90 + _quakes.size(), "caught": {}})
+			"id": act_serial * 1000 + 90 + _quakes.size(), "caught": {},
+			"pace": pace if pace > 0.0 else QuakeRing.SPEED})
 	if not ring:
 		return
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
@@ -459,7 +460,7 @@ func _physics_process(delta: float) -> void:
 	for i in range(_quakes.size() - 1, -1, -1):
 		var q := _quakes[i]
 		q.t = float(q.t) + delta
-		var front := QuakeRing.front(q.t)
+		var front := float(q.t) * float(q.get("pace", QuakeRing.SPEED))
 		var caught: Dictionary = q.caught
 		for node in get_tree().get_nodes_in_group(&"player"):
 			var who := node as Node3D

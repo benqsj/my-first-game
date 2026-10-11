@@ -69,7 +69,8 @@ func _run() -> void:
 	await physics_frame
 	var troll := _panel._drill_body as TrollFighter
 	_check("the troll called up for it", troll != null and troll.drill_combo == 2 and troll.raging, "")
-	for i in 60 * 16:
+	# (its leap and the uppercut throw him down: he lies a while between)
+	for i in 60 * 26:
 		await physics_frame
 		if _hero.state != Player.State.DOWNED:
 			_hero.global_position = Vector3(at.x, _hero.global_position.y, at.z)

@@ -94,15 +94,17 @@ func _run() -> void:
 		moves = ogre.last_combo_moves
 		var blows := 0
 		for m: int in moves:
-			blows += ogre._blow_moments(m).size()
+			if ogre._strikes_table.has(m):
+				blows += ogre._blow_moments(m).size()
 		var name := String(c["name"])
 		_check("%s: its moves in order" % name, acts.slice(0, moves.size()) == moves, "%s vs %s" % [acts, moves])
-		_check("%s: every blow found him" % name, _hits.size() >= blows, "%d of %d" % [_hits.size(), blows])
+		_check("%s: every blow found him" % name, _hits.size() >= blows or bool(c.get("relentless", false)), "%d of %d" % [_hits.size(), blows])
 		var last_fells := (ogre._combo_fells_at as Array).has(moves.size() - 1) or (c["fells"] as Array).has(moves.size() - 1)
 		_check("%s: down only by its felling blow" % name,
 				down_at > 0 and (not last_fells or _hits.size() > 0 and down_at >= int(_hits[_hits.size() - 1]) - 2),
 				"down at %d, hits %s" % [down_at, _hits])
-		_check("%s: counted" % name, ogre.combos_made == [i] and ogre.finishers_made == 1,
+		var finishers := 1 if not (c["fells"] as Array).is_empty() else 0
+		_check("%s: counted" % name, ogre.combos_made == [i] and ogre.finishers_made == finishers,
 				"%s %d" % [ogre.combos_made, ogre.finishers_made])
 		ogre.queue_free()
 	# a perfect roll under its first blow: the next one still lands (the
@@ -180,6 +182,36 @@ func _run() -> void:
 	_check("the great blow follows him walking off", not _hits.is_empty(), "%s" % [_hits])
 	_check("its ground bursts and shakes", hv.quakes_made > quakes0, "%d" % hv.quakes_made)
 	hv.queue_free()
+	# the pound three times (2026-10-11): its rock out 10, 20, 40 m — him 30 m
+	# off, only the third reaches him
+	await _arena()
+	var pd := await _ogre(OgreFighter.POUND)
+	var pa := pd.global_position - _hero.global_position
+	pa.y = 0.0
+	var far_at := pd.global_position - pa.normalized() * 30.0
+	_hero.global_position = Vector3(far_at.x, _hero.global_position.y, far_at.z)
+	pd.start_combo(pd._combo_named(&"triple_pound"))
+	var q0: int = pd.quakes_made
+	var pacts: Array = []
+	_f = 0
+	while _f < 60 * 8:
+		await physics_frame
+		_f += 1
+		if _hero.state != Player.State.DOWNED:
+			_hero.global_position = Vector3(far_at.x, _hero.global_position.y, far_at.z)
+		if pd.act != Fighter.Act.NONE and (pacts.is_empty() or pacts[-1] != pd.act):
+			pacts.append(pd.act)
+		if pd.act == Fighter.Act.NONE and _f > 60 and pd.quakes_made - q0 >= 3:
+			break
+	# its rock still running out to him
+	for i in 150:
+		await physics_frame
+		if _hero.state != Player.State.DOWNED:
+			_hero.global_position = Vector3(far_at.x, _hero.global_position.y, far_at.z)
+	_check("the pound three times", pacts.slice(0, 3) == [OgreFighter.POUND, OgreFighter.POUND_2, OgreFighter.POUND_3]
+			and pd.quakes_made - q0 == 3, "%s, %d quakes" % [pacts, pd.quakes_made - q0])
+	_check("30 m off, only the third's rock reaches him", _hits.size() == 1, "%s" % [_hits])
+	pd.queue_free()
 	# reading him before a combo's close
 	await _arena()
 	var rd := await _ogre(OgreFighter.OG_HORIZ)

@@ -75,6 +75,11 @@ extends PackBrute
 @export var pound_part: Vector3 = Vector3(1.0, 0.0, 0.92)
 @export var pound_radius: float = 5.5
 @export var pound_share: float = 0.85
+## The pound three times (the user's word, 2026-10-11): a slam, a second one
+## quick on it, and a third held overhead a beat and brought down hardest —
+## each sends rock out further (m, at its size: 10, 20, 40), no ring.
+@export var pound_reaches: Vector3 = Vector3(10.0, 20.0, 40.0)
+
 @export var pound_from: float = 1.5
 @export var pound_to: float = 5.0
 @export var pound_cooldown: Vector2 = Vector2(9.0, 14.0)
@@ -97,12 +102,14 @@ extends PackBrute
 @export var heavy_close: float = 0.5
 @export var heavy_close_most: float = 8.0
 ## ...and the ground it strikes bursts up in rock all round (rows of stone
-## out from the club, `heavy_rocks` of them, `heavy_rock_length` m), and the
+## out from the club to `heavy_rock_length` m, [RockWave]), and the
 ## blow goes through the ground to everyone on it within `heavy_quake_radius`
 ## m (at its size): they are thrown down (jump it, or roll).
-@export var heavy_rocks: int = 9
-@export var heavy_rock_length: float = 6.0
-@export var heavy_quake_radius: float = 7.0
+@export var heavy_rock_length: float = 20.0
+@export var heavy_quake_radius: float = 20.0
+## How fast its rock runs out over the ground (m/s): the blow through the
+## ground goes out with it.
+@export var rock_pace: float = 22.0
 @export var heavy_quake_share: float = 0.8
 
 @export_group("Stomp")
@@ -289,6 +296,9 @@ const OG_SPIN_SLIDE := 164
 const OG_HEADBUTT := 165
 const OG_STOMP_FOOT := 166
 const OG_SWIPE := 167
+## The pound's second (quick) and third (held overhead, then brought down).
+const POUND_2 := 168
+const POUND_3 := 169
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -352,6 +362,10 @@ const COMBOS := [
 			"rage_only": true},
 	{"name": &"storm", "moves": [OG_HORIZ, OG_BACK, OG_HORIZ, OG_BACK, OG_DOWN_HELD], "fells": [4],
 			"weight": 0.8, "rage_only": true},
+	# The pound three times, its rock further each time (opened when its pound
+	# is due, never weighed among the others).
+	{"name": &"triple_pound", "moves": [POUND, POUND_2, POUND_3], "fells": [], "weight": 0.0,
+			"relentless": true},
 ]
 ## A leap's flight drawn out: act -> [clip s it leaves the ground, clip s it
 ## lands, how many times slower the flight is played], and how high the
@@ -494,6 +508,13 @@ var _foot_down: Array[bool] = [true, true]
 func _ready() -> void:
 	super()
 	_special(POUND, pound_clip, pound_part)
+	_special(POUND_2, pound_clip, Vector3(pound_part.x * 1.6, 0.25, pound_part.z))
+	_special(POUND_3, pound_clip, pound_part)
+	# the club itself on him in each (it only staggers: the rock throws him)
+	for p: int in [POUND_2, POUND_3]:
+		_special_strike(p, "", pound_share * 0.6, 99)
+	# the third held overhead a beat, glinting ([method _watch_hold])
+	_holds[POUND_3] = [1.0, 0.55, 0.75, 0.25]
 	_special(HEAVY, heavy_clip, heavy_part)
 	_special_strike(HEAVY, "", heavy_share, 1)
 	_kinds[HEAVY] = &"crush"
@@ -565,6 +586,17 @@ func _combo_move(what: int) -> void:
 		_holds[what] = [1.0, float(held[0]), float(held[1]), float(held[2])]
 
 
+## Act seconds of the pound's slam (`what` one of the three), its hold put in.
+func _pound_time(what: int) -> float:
+	var t := _club_down(what)
+	var sh := _shape(what)
+	if sh.is_empty():
+		return t
+	var k := float(sh[0])
+	var slow := float(sh[1])
+	return t * slow if t <= k else t + k * (slow - 1.0) + float(sh[2])
+
+
 ## Act seconds of a move when its club is lowest, in front.
 func _club_down(what: int) -> float:
 	var m: Array = _moves_table[what]
@@ -626,8 +658,7 @@ func _own_move(delta: float) -> bool:
 		return true
 	if _pound_wait <= 0.0 and gap >= pound_from and gap <= pound_to and stamina >= attack_cost:
 		mode = Mode.FIGHT
-		_face(_quarry.global_position - global_position, 1.0, 50.0)
-		_open(POUND)
+		start_combo(_combo_named(&"triple_pound"))
 		return true
 	var want := float(_strike_from.get(HEAVY, strike_off))
 	if _heavy_wait <= 0.0 and _cooldown <= 0.0 and gap <= want + 0.6 and gap >= want - 1.2 \
@@ -807,6 +838,13 @@ func _try_combo(gap: float) -> bool:
 	return true
 
 
+func _combo_named(name: StringName) -> int:
+	for i in COMBOS.size():
+		if COMBOS[i]["name"] == name:
+			return i
+	return 0
+
+
 ## Host: combo `which` of `COMBOS` begun now, turned to him.
 func start_combo(which: int) -> void:
 	if _quarry != null:
@@ -881,7 +919,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		_strikes_table[what] = close
 		_begin(what)
 		_strikes_table[what] = keep
-	elif _closing and _finishes() and _strikes_table.has(what) and int((_strikes_table[what] as Array)[3]) > 1:
+	elif _combo < 0 and _closing and _finishes() and _strikes_table.has(what) and int((_strikes_table[what] as Array)[3]) > 1:
 		# The close of a long string: its last blow fells him, if every blow
 		# of its kind in the string found him (they count as one combo).
 		finishers_made += 1
@@ -923,7 +961,7 @@ const BLOW_NAMES := {
 	SWEEP: &"sweep", CHOP: &"chop", BACKHAND: &"backhand", WIDE: &"wide", LOW: &"low",
 	SMASH: &"smash", CLEAVE: &"cleave", JUMP_SLAM: &"jump_slam", WHIRL: &"whirl",
 	KICK: &"kick", LUNGE: &"lunge", LEAP_SLAM: &"leap_slam", RUN_SLAM: &"run_slam",
-	CATCH: &"catch", POUND: &"pound", HEAVY: &"heavy", STOMP: &"stomp",
+	CATCH: &"catch", POUND: &"pound", POUND_2: &"pound", POUND_3: &"pound", HEAVY: &"heavy", STOMP: &"stomp",
 }
 
 
@@ -1091,7 +1129,9 @@ func _next_in_string(what: int) -> int:
 	if _combo >= 0:
 		# a combo: its next move, whatever (only him down, or out of breath,
 		# break it off)
-		if _quarry == null or _quarry_down() or _combo_step + 1 >= _combo_moves.size() \
+		# (a relentless one, the pound's three, goes on with him down)
+		var on_him := bool(COMBOS[_combo].get("relentless", false)) or not _quarry_down()
+		if _quarry == null or not on_him or _combo_step + 1 >= _combo_moves.size() \
 				or stamina < attack_cost * 0.25:
 			return -1
 		_combo_step += 1
@@ -1533,10 +1573,17 @@ func _run_act(delta: float) -> void:
 		return
 	if was == act and serial == act_serial and _strikes_table.has(act):
 		_watch_blows(t0)
-	if act == POUND and not _pounded and _act_time >= _pound_at:
+	if (act == POUND or act == POUND_2 or act == POUND_3) and not _pounded and _act_time >= _pound_time(act):
 		_pounded = true
-		_quake(_weapon_tip_at() * Vector3(1, 0, 1) + Vector3.UP * global_position.y, pound_radius,
-				hit_damage * pound_share)
+		var k := 0 if act == POUND else (1 if act == POUND_2 else 2)
+		var tip := _weapon_tip_at()
+		var at := Vector3(tip.x, global_position.y, tip.z)
+		var reach := pound_reaches[k] * visual_scale / 1.6
+		_quake(at, reach, hit_damage * pound_share * (1.0 + 0.25 * k), false, rock_pace)
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_rocks.rpc(at, act_serial, reach, 1.0 + 0.35 * k)
+		else:
+			net_rocks(at, act_serial, reach, 1.0 + 0.35 * k)
 	elif act == STOMP and not _pounded and _act_time >= _stomp_at:
 		_pounded = true
 		_stomp_down()
@@ -1546,11 +1593,12 @@ func _run_act(delta: float) -> void:
 		_pounded = true
 		var tip := _weapon_tip_at()
 		var at := Vector3(tip.x, global_position.y, tip.z)
-		_quake(at, heavy_quake_radius * visual_scale / 1.6, hit_damage * heavy_quake_share, false)
+		_quake(at, heavy_quake_radius * visual_scale / 1.6, hit_damage * heavy_quake_share, false, rock_pace)
+		var length := heavy_rock_length * visual_scale / 1.6
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
-			net_rocks.rpc(at, act_serial)
+			net_rocks.rpc(at, act_serial, length, 1.4)
 		else:
-			net_rocks(at, act_serial)
+			net_rocks(at, act_serial, length, 1.4)
 	elif act == OG_STOMP_FOOT and not _pounded and _act_time >= _blow_moments(OG_STOMP_FOOT)[0]:
 		# its foot down: the ground bursts up round it (it staggers him)
 		_pounded = true
@@ -1634,20 +1682,14 @@ func _aftershock(at: Vector3, id: int) -> void:
 ## Every peer: the great blow's rock — rows of stone bursting up out from where
 ## the club went in, all the way round, grit thrown up, the view shaken hard.
 @rpc("authority", "call_local", "reliable")
-func net_rocks(at: Vector3, seed_of: int) -> void:
+func net_rocks(at: Vector3, seed_of: int, length: float, size: float) -> void:
 	var into := Blood.world_of(self)
-	var n := maxi(heavy_rocks, 3)
-	var turn := fposmod(float(seed_of) * 0.618, 1.0) * TAU
 	var s := visual_scale / 1.6
-	for i in n:
-		var a := turn + TAU * float(i) / float(n)
-		var way := Vector3(sin(a), 0.0, cos(a))
-		GroundFx.shards(into, at + way * 0.6 * s, way, heavy_rock_length * s * randf_range(0.8, 1.15),
-				0.9 * s, 16.0, Color(1.0, 0.42, 0.12))
-	GroundFx.eruption(into, at, 1.3 * s, false)
+	RockWave.spawn(into, at, length, size * s, rock_pace, seed_of)
+	GroundFx.eruption(into, at, (0.9 + 0.3 * size) * s, false)
 	ImpactFx.thud(self, at, true)
-	_sound_at(CLUB_GROUND, at, 0.7, 3.0)
-	WindBlast.shake(self, 0.22, 0.6, 16.0)
+	_sound_at(CLUB_GROUND, at, 0.75 - 0.05 * size, 2.0 + size)
+	WindBlast.shake(self, 0.12 + 0.08 * size, 0.5 + 0.15 * size, 16.0)
 
 
 ## Every peer: the ground bursting up again ahead of where the club fell —
@@ -1690,7 +1732,8 @@ func _after(what: int) -> void:
 			_lunge_wait = _rng.randf_range(lunge_cooldown.x, lunge_cooldown.y)
 		LEAP_SLAM:
 			_leap_slam_wait = _rng.randf_range(leap_slam_cooldown.x, leap_slam_cooldown.y) * (0.7 if raging else 1.0)
-	var stringed := SWINGS.has(what) or COMBO_MOVES.has(what) or what == POUND or what == HEAVY or FLIGHTS.has(what)
+	var stringed := SWINGS.has(what) or COMBO_MOVES.has(what) or what == POUND or what == POUND_2 \
+			or what == POUND_3 or what == HEAVY or FLIGHTS.has(what)
 	var next := -1
 	if stringed and not is_dead and _decides():
 		next = _next_in_string(what)
@@ -1834,7 +1877,7 @@ func _on_new_act() -> void:
 		Sfx.play(self, ROAR_SOUND, self, Vector3.ZERO, 0.95, 2.0)
 	elif act == STANCE:
 		Sfx.play_any(self, GRUNTS, self, 0.8, -2.0)
-	elif act == POUND or act == HEAVY:
+	elif act == POUND or act == POUND_3 or act == HEAVY:
 		Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 1.1, -6.0)
 	elif _is_heavy(act) and randf() < 0.45:
 		Sfx.play_any(self, GRUNTS, self, 1.0, -7.0)
