@@ -53,6 +53,8 @@ extends SceneTree
 ##   (none over its head); killed, "ENEMY FELLED".
 ## * death: slow — on its knees, over on its face, the ground's thud; then
 ##   ash as it sinks; a great enemy, it always drops something.
+## * looks: no two alike — of ten, several skins, several arms, some with
+##   blood round the mouth; the same name, the same ogre.
 ##
 ##   godot --headless --path . --script res://tests/ogre_test.gd [-- <part>...]
 
@@ -74,7 +76,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var only := OS.get_cmdline_user_args()
 	var parts := ["strings", "raging", "sides", "steady", "stance", "rings", "falls", "gait", "afar", "catch",
-			"track", "slide", "outrun", "spacing", "strain", "whirl", "grab", "punish", "phase", "bar", "death"]
+			"track", "slide", "outrun", "spacing", "strain", "whirl", "grab", "punish", "phase", "bar", "death", "looks"]
 	for part: String in parts:
 		if only.is_empty() or only.has(part):
 			await call("_" + part)
@@ -208,6 +210,10 @@ func _raging() -> void:
 	# its strings alone (its hand-made combos: ogre_combo_test)
 	ogre.combo_chance = Vector2.ZERO
 	ogre.close_combo_chance = 0.0
+	# (its strings only: the pound and the great blow, single moves, come
+	# more often since it keeps its distance between strings)
+	ogre._pound_wait = 999.0
+	ogre._heavy_wait = 999.0
 	await physics_frame
 	ogre.net_rage()
 	var strings := await _watch(hero, ogre, 40.0)
@@ -1039,3 +1045,33 @@ func _death() -> void:
 	_check("death: then ash as it sinks", ogre._ashed, "%.1f s" % t)
 	_check("death: a great enemy, it always drops something", LootDrop.chance_of(ogre) >= 1.0)
 	await _done(a[0])
+
+
+func _looks() -> void:
+	var a: Array = await _arena()
+	var world: World = a[0]
+	var hero: Player = a[2]
+	var scene: PackedScene = load(OGRE)
+	var skins := {}
+	var arms := {}
+	var bloody := 0
+	var same := true
+	for k in 10:
+		var o := scene.instantiate() as OgreFighter
+		o.name = "Ogre_%d" % k
+		o.sight_range = 0.0
+		world.add_child(o)
+		o.global_position = _ahead(hero, 12.0, (float(k) - 4.5) * 2.5)
+		skins[o.skin_index] = true
+		arms[o.arm_index] = true
+		bloody += 1 if o.bloody else 0
+		var twin := scene.instantiate() as OgreFighter
+		twin.name = o.name
+		twin._pick_looks()
+		same = same and twin.skin_index == o.skin_index and twin.arm_index == o.arm_index and twin.bloody == o.bloody
+		twin.free()
+	await physics_frame
+	_check("looks: of ten, several skins and arms, some bloody", skins.size() >= 3 and arms.size() >= 2 and bloody >= 1,
+			"skins %s, arms %s, bloody %d" % [skins.keys(), arms.keys(), bloody])
+	_check("looks: the same name, the same ogre (every peer alike)", same)
+	await _done(world)

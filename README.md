@@ -10249,3 +10249,15 @@ blow fells is his to pick (the idea: a combo's last).
   s and goes to embers as it sinks (3 s). The ogre is worth 8 wolves
   (`Leveling.WEIGHT`): a great enemy, it always drops something
   ([LootDrop]).
+
+- 2026-10-11 night, round 3 (the old plan's round 2 item 1, the user's word):
+  **no two ogres alike**, picked from its name (each from its own hash, so
+  every peer sees the same ogre; `varied`): one of four skins
+  (`OgreFighter.SKINS` on the body's `color1`: the pack's, dark ochre, olive,
+  green-grey); blood round the mouth and down the chin on about a third
+  (`bloody_share`; a [Decal] on `head_joint`, only on itself through
+  `Blood.WOUND_LAYER`); and in its hand its club (40 %) or one of the pack's
+  arms (`ARMS`, `assets/creatures/ogre_arms.glb` from
+  `vepxis-art/tools/ogre_arms.py`): a morning star, an obsidian great hammer,
+  a bone mace — each turned onto the club's bone with its own `weapon_tip`
+  (set before the blows are measured).

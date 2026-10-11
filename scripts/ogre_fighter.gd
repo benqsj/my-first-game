@@ -179,6 +179,23 @@ extends PackBrute
 ## Its name on the great enemy's bar at the bottom of his view ([PlayerHud]);
 ## with one it has no bar over its head.
 @export var boss_name: String = "Mountain Ogre"
+@export_group("Looks")
+## No two alike (round 2 of the old plan, the user's word 2026-10-11): one of
+## four skins, blood round the mouth on about a third, and in its hand its
+## club or one of the pack's other arms — picked from its name, so every peer
+## sees the same ogre. Off for a test that wants the plain one.
+@export var varied: bool = true
+@export var bloody_share: float = 0.34
+## The skins (the pack's `color1` on its body): the pack's own, dark ochre,
+## olive, green-grey.
+const SKINS := [Color(0.7799, 0.6072, 0.3507), Color(0.55, 0.40, 0.25), Color(0.50, 0.50, 0.36),
+		Color(0.42, 0.47, 0.36)]
+## Its arms: [name in `ARMS_FILE` ("" = its own club), scale, the weapon's
+## end out along the club's bone (`weapon_tip` x), how often]. The pack's
+## weapons have their head along +Z (Blender's -Y); turned onto the club's +X.
+const ARMS_FILE := "res://assets/creatures/ogre_arms.glb"
+const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHammer", 0.95, 0.7, 0.2],
+		["BoneMace", 1.1, 0.84, 0.2]]
 @export_group("Death")
 ## Its death heavy and slow (the user's word, 2026-10-11): down on its knees,
 ## then over on its face (`CR_MG_Death`) at this rate; the ground takes it
@@ -624,6 +641,10 @@ var punishes_made: int = 0
 var _rage_pushed: int = -1
 var rage_throws: int = 0
 var _club_fire: GPUParticles3D
+## Its looks, as picked ([member varied]): skin, blood, arm (index of each).
+var skin_index: int = 0
+var bloody: bool = false
+var arm_index: int = 0
 ## Every peer: the ground's thud and the ash heard/shown once.
 var _death_landed: bool = false
 var _ashed: bool = false
@@ -650,7 +671,9 @@ var _strain_serial: int = -1
 
 
 func _ready() -> void:
+	_pick_looks()
 	super()
+	_wear_looks()
 	_special(POUND, pound_clip, pound_part)
 	_special(POUND_2, pound_clip, Vector3(pound_part.x * 1.6, 0.25, pound_part.z))
 	_special(POUND_3, pound_clip, pound_part)
@@ -1071,6 +1094,105 @@ func _drop_held() -> void:
 	_held = null
 	if hero != null and is_instance_valid(hero):
 		hero.release_grab()
+
+
+## Its looks picked from its name (before the blows are measured: the arm's
+## length is the club's reach).
+func _pick_looks() -> void:
+	if not varied:
+		return
+	# (each from a hash of its own: one generator seeded from like names drew
+	# like skins)
+	skin_index = posmod(hash(String(name) + "/skin"), SKINS.size())
+	bloody = float(posmod(hash(String(name) + "/blood"), 1000)) / 1000.0 < bloody_share
+	var r := float(posmod(hash(String(name) + "/arm"), 1000)) / 1000.0
+	arm_index = 0
+	for i in ARMS.size():
+		r -= float((ARMS[i] as Array)[3])
+		if r < 0.0:
+			arm_index = i
+			break
+	if arm_index > 0:
+		weapon_tip = Vector3(float((ARMS[arm_index] as Array)[2]), 0.0, 0.0)
+
+
+## Every peer: the skin on its body, the arm in its hand, the blood on it.
+func _wear_looks() -> void:
+	if not varied or body == null:
+		return
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		if not String(mi.name).begins_with("Ogre_Body"):
+			continue
+		if mi.material_override is ShaderMaterial:
+			var mo := (mi.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+			mo.set_shader_parameter(&"color1", SKINS[skin_index])
+			mi.material_override = mo
+		for i in mi.get_surface_override_material_count():
+			var m := mi.get_active_material(i) as ShaderMaterial
+			if m != null:
+				var mm := m.duplicate() as ShaderMaterial
+				mm.set_shader_parameter(&"color1", SKINS[skin_index])
+				mi.set_surface_override_material(i, mm)
+	if arm_index > 0 and _skeleton != null:
+		var arm: Array = ARMS[arm_index]
+		var scene := load(ARMS_FILE) as PackedScene
+		var src: Node = scene.instantiate() if scene != null else null
+		var mesh := src.find_child(String(arm[0]), true, false) as MeshInstance3D if src != null else null
+		if mesh != null:
+			var club := _skeleton.find_child("Ogre_Club", true, false) as Node3D
+			if club != null:
+				club.visible = false
+			var hold := BoneAttachment3D.new()
+			hold.bone_name = String(weapon_bone)
+			_skeleton.add_child(hold)
+			var held := MeshInstance3D.new()
+			held.name = "Arm"
+			held.mesh = mesh.mesh
+			held.transform = Transform3D(Basis(Vector3.UP, PI * 0.5).scaled(Vector3.ONE * float(arm[1])), Vector3.ZERO)
+			hold.add_child(held)
+		if src != null:
+			src.free()
+	if bloody:
+		_bloody_mouth.call_deferred()
+
+
+## Every peer: blood round its mouth and down its chin (a [Decal] on its head,
+## marking only itself: [constant Blood.WOUND_LAYER]).
+func _bloody_mouth() -> void:
+	if _skeleton == null or not is_inside_tree():
+		return
+	var head := _skeleton.find_bone("head_joint")
+	if head < 0:
+		return
+	if not has_meta(&"wound_layer"):
+		set_meta(&"wound_layer", true)
+		for m in find_children("*", "GeometryInstance3D", true, false):
+			var g := m as GeometryInstance3D
+			if not (g is GPUParticles3D) and not (g is Label3D):
+				g.layers |= Blood.WOUND_LAYER
+	var hold := BoneAttachment3D.new()
+	hold.bone_name = "head_joint"
+	_skeleton.add_child(hold)
+	var s := visual_scale / 1.6
+	var fwd := _forward()
+	# its -Y into the face from in front; its +Z (the runs of blood) down
+	var y := fwd
+	var z := Vector3.DOWN
+	var x := y.cross(z).normalized()
+	var decal := Decal.new()
+	decal.name = "Gore"
+	decal.texture_albedo = Blood.wound_texture()
+	decal.modulate = Color(0.32, 0.015, 0.012)
+	decal.albedo_mix = 0.9
+	decal.normal_fade = 0.3
+	decal.cull_mask = Blood.WOUND_LAYER
+	decal.size = Vector3(0.5, 1.2, 0.7) * s
+	hold.add_child(decal)
+	# laid in the head bone's frame (the attachment follows it from the next
+	# frame on)
+	var bone := _skeleton.global_transform * _skeleton.get_bone_global_pose(head)
+	var want := Transform3D(Basis(x, y, z), bone.origin + fwd * 0.3 * s + Vector3.DOWN * 0.06 * s)
+	decal.transform = bone.affine_inverse() * want
 
 
 ## Every peer: its death played heavy and slow — a last groan as it goes.
