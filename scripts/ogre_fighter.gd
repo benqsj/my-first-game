@@ -146,6 +146,36 @@ extends PackBrute
 @export var lunge_to: float = 8.0
 @export var lunge_cooldown: Vector2 = Vector2(6.0, 10.0)
 @export var kick_cooldown: float = 4.0
+@export_group("Spacing")
+## Between its strings it keeps its distance a while, as Elden Ring's great
+## ones do (the user's word, 2026-10-11): it walks round him, backs off a
+## few steps, or stands and watches him — and now and then beats its chest
+## and roars at him — then comes at him all at once. How long (s), calm and
+## enraged; 0 for none.
+@export var spacing_time: Vector2 = Vector2(0.9, 2.0)
+@export var spacing_time_raging: Vector2 = Vector2(0.4, 1.0)
+## How it keeps its distance: round him, back off, stand watching, roar.
+@export var spacing_weights: Vector4 = Vector4(0.45, 0.25, 0.15, 0.15)
+## Walking round him (m/s at its size), and how much further out than its
+## reach it keeps meanwhile (m).
+@export var spacing_prowl_speed: float = 1.15
+@export var spacing_keep: float = 0.7
+## Backing off: its pace (m/s) and the furthest off it backs to (m).
+@export var back_off_speed: float = 1.8
+@export var back_off_to: float = 5.0
+## The roar at him: its wait between two (s); only with him this far off.
+@export var taunt_cooldown: Vector2 = Vector2(14.0, 24.0)
+@export var taunt_from: float = 4.0
+## Seconds into it that the roar comes.
+@export var taunt_roar_at: float = 0.75
+## Its spacing broken off all at once (per second, once it has kept its
+## distance `burst_after` s): then in at him at its run, or a lunge or a
+## leap from where it is.
+@export var burst_rate: float = 1.2
+@export var burst_after: float = 0.35
+## Him walking into its reach while it keeps its distance: at him at once,
+## this often.
+@export var punish_close: float = 0.7
 @export_group("Gait")
 ## Its trot coming at him (the walk is `walk_clip`, the run `run_clip`); the
 ## paces it changes from walk to trot and from trot to run (m/s).
@@ -184,6 +214,10 @@ extends PackBrute
 ## The roll-catch's hold, and how often it answers a roll with it.
 @export var catch_hold: Vector2 = Vector2(0.42, 0.55)
 @export var catch_chance: float = 0.65
+## How often a heavy swing (and the great blow) is held at the top of its
+## wind-up, and a sweep from the side (the user's word, 2026-10-11: more).
+@export var held_chance: float = 0.5
+@export var held_side_chance: float = 0.3
 ## The aftershock: how long after the blow, how far ahead of the club, how
 ## wide, and its worth (a share of `hit_damage`; it staggers, never fells).
 @export var aftershock_after: float = 0.4
@@ -255,6 +289,9 @@ const GRUNTS := [SOUNDS + "grunt_1.wav", SOUNDS + "grunt_2.wav", SOUNDS + "grunt
 const CLUB_GROUND := [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_3.wav",
 		SOUNDS + "club_ground_4.wav"]
 const STEPS := [SOUNDS + "step_1.wav", SOUNDS + "step_2.wav", SOUNDS + "step_3.wav"]
+## A rising creak and rush of air as a held swing is about to come down
+## (vepxis-art/tools/ogre_strain.py).
+const STRAIN_SOUND := SOUNDS + "strain_rise.wav"
 
 const POUND := 113
 const HEAVY := 114
@@ -309,6 +346,8 @@ const OG_SWIPE := 167
 ## The pound's second (quick) and third (held overhead, then brought down).
 const POUND_2 := 168
 const POUND_3 := 169
+## Its roar at him while it keeps its distance (`CR_OG_Battlecry`).
+const TAUNT := 170
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -400,7 +439,10 @@ const SWINGS := {
 	SMASH: [&"CR_Heavy1", Vector3(1.0, 0.0, 0.92), true, 1.05, 0.9, &"front", 1],
 	CLEAVE: [&"CR_Heavy3", Vector3(1.0, 0.0, 0.92), true, 1.0, 0.8, &"front", 1],
 	JUMP_SLAM: [&"CR_Heavy4", Vector3(1.0, 0.0, 0.92), true, 1.2, 0.5, &"front", 1],
-	WHIRL: [&"CR_HeavyD", Vector3(0.9, 0.0, 0.95), true, 1.35, 0.3, &"front", 1],
+	# (2026-10-11, the user's word: the sword pack's spin bobbed up and down
+	# on the spot, its hips rising 0.37 m and dropping; the club's own 360,
+	# low and grounded, in its place, played heavier)
+	WHIRL: [&"CR_OG_Attack_360", Vector3(0.82, 0.0, 0.88), true, 1.35, 0.3, &"front", 1],
 	KICK: [&"CR_Kick", Vector3(0.95, 0.0, 0.85), false, 0.35, 0.0, &"front", 99],
 	LUNGE: [&"CR_SwordDash", Vector3(0.9, 0.0, 0.9), false, 0.7, 0.0, &"front", 99],
 	# The smash, held a beat for the end of his roll: never an opener.
@@ -503,6 +545,17 @@ var _saw_roll: bool = false
 var _shocks: Array = []
 var _shock_look: Vector2 = Vector2(-1, 0)
 var aftershocks_made: int = 0
+## Host: keeping its distance between strings ([member spacing_time]): how
+## (&"prowl", &"back", &"watch"; &"" not), how long still, how long so far;
+## the roar's wait; the dash in after it; counts for a test.
+var _spacing: StringName = &""
+var _spacing_left: float = 0.0
+var _spacing_held: float = 0.0
+var _taunt_wait: float = 8.0
+var _rush_left: float = 0.0
+var spacings_made: Dictionary = {}
+var bursts_made: int = 0
+var taunts_made: int = 0
 var catches_made: int = 0
 ## Every peer: the body lifted through a leap.
 var _lifted: bool = false
@@ -513,6 +566,11 @@ var _heard_clock: float = 0.0
 var _heard: int = 0
 var _ankles: PackedInt32Array = PackedInt32Array()
 var _foot_down: Array[bool] = [true, true]
+## Every peer: the body at rest (x, z), whether it trembles now, and the held
+## swing whose strain was last heard.
+var _body_rest_xz := Vector2.ZERO
+var _trembling: bool = false
+var _strain_serial: int = -1
 
 
 func _ready() -> void:
@@ -530,6 +588,7 @@ func _ready() -> void:
 	_kinds[HEAVY] = &"crush"
 	_windups[HEAVY] = [heavy_slow, heavy_lead]
 	_special(STOMP, stomp_clip, stomp_part)
+	_special(TAUNT, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.96))
 	for what: int in SWINGS:
 		var sw: Array = SWINGS[what]
 		_special(what, sw[0], sw[1])
@@ -537,11 +596,15 @@ func _ready() -> void:
 		# of a long string, [method _begin_move]).
 		_special_strike(what, "", float(sw[3]), int(sw[6]))
 		if bool(sw[2]):
-			_holds[what] = [0.3, 0.3, 0.75, 0.22]
+			_holds[what] = [held_chance, 0.3, 0.75, 0.22]
 	for what: int in COMBO_MOVES:
 		_combo_move(what)
 	_holds.erase(CATCH)
-	_holds[HEAVY] = [0.35, 0.25, 0.6, 0.2]
+	_holds[HEAVY] = [held_chance, 0.25, 0.6, 0.2]
+	# its sweeps round from the side held too, now and then (and slid round
+	# at him on letting go, as the heavy ones)
+	for side: int in [WIDE, LOW]:
+		_holds[side] = [held_side_chance, 0.3, 0.6, 0.2]
 	# The roll-catch is always held, a roll's length.
 	_holds[CATCH] = [1.0, catch_hold.x, catch_hold.y, 0.3]
 	_special(LEAP_SLAM, leap_slam_clip, leap_slam_part)
@@ -564,7 +627,9 @@ func _ready() -> void:
 	if _skeleton != null:
 		for bone in foot_bones:
 			_ankles.append(_skeleton.find_bone(bone))
-	Sfx.warm([WHOOSH_HEAVY, WHOOSH_LIGHT, ROAR_SOUND, ROAR_SHORT_SOUND] + GRUNTS + CLUB_GROUND + STEPS)
+	Sfx.warm([WHOOSH_HEAVY, WHOOSH_LIGHT, ROAR_SOUND, ROAR_SHORT_SOUND, STRAIN_SOUND] + GRUNTS + CLUB_GROUND + STEPS)
+	if body != null:
+		_body_rest_xz = Vector2(body.position.x, body.position.z)
 
 
 ## One of the combos' moves: its clip, its blows (where the club reaches
@@ -664,6 +729,9 @@ func _own_move(delta: float) -> bool:
 			_move_towards(_quarry.global_position, chase_speed, delta)
 			return true
 		return _prowl(gap, delta, stomp_reach * 0.7)
+	_taunt_wait = maxf(_taunt_wait - delta, 0.0)
+	if _spacing != &"" and _keep_distance(gap, delta):
+		return true
 	if _from_afar(gap, delta):
 		return true
 	if _pound_wait <= 0.0 and gap >= pound_from and gap <= pound_to and stamina >= attack_cost:
@@ -671,7 +739,9 @@ func _own_move(delta: float) -> bool:
 		start_combo(_combo_named(&"triple_pound"))
 		return true
 	var want := float(_strike_from.get(HEAVY, strike_off))
-	if _heavy_wait <= 0.0 and _cooldown <= 0.0 and gap <= want + 0.6 and gap >= want - 1.2 \
+	# (from as far as it keeps its distance between strings: the great blow
+	# closes on him over its last half second)
+	if _heavy_wait <= 0.0 and _cooldown <= 0.0 and gap <= want + 1.2 and gap >= want - 1.2 \
 			and stamina >= attack_cost:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
@@ -695,7 +765,144 @@ func _own_move(delta: float) -> bool:
 			_face(_quarry.global_position - global_position, 1.0, 50.0)
 		_open(pick)
 		return true
+	if _rush_left > 0.0:
+		_rush_left -= delta
+		mode = Mode.CHASE
+		_move_towards(_quarry.global_position, _pace(run_speed), delta)
+		return true
 	return super(delta)
+
+
+## Host, a string ended: how it keeps its distance now, and how long.
+func _start_spacing() -> void:
+	var span := spacing_time_raging if raging else spacing_time
+	if span.y <= 0.0:
+		return
+	_spacing_left = _rng.randf_range(span.x, span.y)
+	_spacing_held = 0.0
+	_rush_left = 0.0
+	_spacing = _spacing_kind()
+	spacings_made[_spacing] = int(spacings_made.get(_spacing, 0)) + 1
+
+
+func _spacing_kind() -> StringName:
+	var w := spacing_weights
+	if _taunt_wait > 0.0 or _quarry == null:
+		w.w = 0.0
+	var total := w.x + w.y + w.z + w.w
+	if total <= 0.0:
+		return &"prowl"
+	var r := _rng.randf() * total
+	if r < w.x:
+		return &"prowl"
+	if r < w.x + w.y:
+		return &"back"
+	if r < w.x + w.y + w.z:
+		return &"watch"
+	return &"taunt"
+
+
+## Host, between its strings: keeping its distance — round him, backing off,
+## watching him, or roaring at him — till its time is out or it breaks off
+## all at once and comes at him (false: on to its choosing as ever).
+func _keep_distance(gap: float, delta: float) -> bool:
+	_spacing_left -= delta
+	var can := _cooldown <= 0.0 and stamina >= attack_cost
+	# (its breath back first: the dash in is timed from then)
+	if can or _spacing_held < 0.0:
+		_spacing_held += delta
+	# Him off and away, or its time out: on as ever.
+	if _spacing_left <= 0.0 or gap > back_off_to + 5.0:
+		_spacing = &""
+		return false
+	# Him walking in on it, into its reach: at him.
+	if can and gap < strike_off + 0.3 and _spacing_held > 0.25 and _coming_in() > 1.0:
+		if _rng.randf() < punish_close:
+			_spacing = &""
+			return false
+		# ...or it gives ground before him a little first
+		_spacing = &"back"
+		_spacing_held = -0.8
+	# All at once, at him.
+	if can and _spacing != &"taunt" and _spacing_held >= burst_after and _rng.randf() < burst_rate * delta:
+		_burst(gap)
+		return false
+	mode = Mode.FIGHT
+	# Standing or roaring in his face is no way to keep its distance: a few
+	# steps back first.
+	var kind := _spacing
+	var stand_off := strike_off + 0.8
+	if kind == &"taunt":
+		stand_off = maxf(stand_off, taunt_from + 0.3)
+	if (kind == &"watch" or kind == &"taunt") and gap < stand_off - 0.2:
+		kind = &"back"
+	match kind:
+		&"taunt":
+			if _taunt_wait > 0.0:
+				_spacing = &"watch"
+			elif gap >= taunt_from:
+				_spacing = &"watch"
+				_taunt_wait = _rng.randf_range(taunt_cooldown.x, taunt_cooldown.y) * (0.6 if raging else 1.0)
+				taunts_made += 1
+				velocity.x = 0.0
+				velocity.z = 0.0
+				_face(_quarry.global_position - global_position, 1.0, 50.0)
+				_begin(TAUNT)
+				# the roar done, it may come at him at once
+				_spacing_left = maxf(_spacing_left, 0.8)
+				_spacing_held = burst_after
+				return true
+		&"back":
+			if gap < (back_off_to if _spacing == &"back" else stand_off):
+				var away := global_position - _quarry.global_position
+				away.y = 0.0
+				_face(-away, delta, turn_speed)
+				var want := away.normalized() * back_off_speed * clampf(visual_scale / 1.6, 0.6, 1.6)
+				velocity.x = move_toward(velocity.x, want.x, acceleration * delta)
+				velocity.z = move_toward(velocity.z, want.z, acceleration * delta)
+				# backing off to roar at him: its time holds till it is off
+				if _spacing == &"taunt" and _taunt_wait <= 0.0:
+					_spacing_left = maxf(_spacing_left, 0.3)
+				return true
+			if _spacing == &"back":
+				_spacing = &"prowl"
+		&"watch":
+			_face(_quarry.global_position - global_position, delta, turn_speed)
+			velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
+			velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
+			return true
+	var was := prowl_speed
+	prowl_speed = spacing_prowl_speed
+	var went := _prowl(gap, delta, strike_off + spacing_keep)
+	prowl_speed = was
+	if not went:
+		_spacing = &""
+	return went
+
+
+## Host: how fast he comes at it (m/s; away, below 0).
+func _coming_in() -> float:
+	var body := _quarry as CharacterBody3D
+	if body == null:
+		return 0.0
+	var to := global_position - body.global_position
+	to.y = 0.0
+	if to.length_squared() < 0.0001:
+		return 0.0
+	return Vector3(body.velocity.x, 0.0, body.velocity.z).dot(to.normalized())
+
+
+## Host: its spacing broken off — a lunge or a leap if he is at their gap,
+## else in at him at its run (its choosing takes over once he is in reach).
+func _burst(gap: float) -> void:
+	_spacing = &""
+	_spacing_left = 0.0
+	bursts_made += 1
+	if gap >= lunge_from and gap <= lunge_to:
+		_lunge_wait = 0.0
+	elif gap >= leap_slam_from and gap <= leap_slam_to and _rng.randf() < 0.5:
+		_leap_slam_wait = 0.0
+	_rush_left = 1.6
 
 
 ## Host, between its strings: round him at `prowl_speed`, facing him, kept
@@ -1761,6 +1968,8 @@ func _after(what: int) -> void:
 	if stringed:
 		var r := recover_raging if raging else recover
 		_cooldown = _rng.randf_range(r.x, r.y)
+		if not is_dead and _decides() and drill_combo < 0:
+			_start_spacing()
 	_string_count = 0
 	_chain_serial = -1
 	_chain_blow = 0
@@ -1784,6 +1993,7 @@ func _process(delta: float) -> void:
 	else:
 		_heard_clock += delta
 	_watch_hold()
+	_strain_in_hold()
 	_lift_in_flight()
 	if _strikes_table.has(act):
 		var ms := _blow_moments(act)
@@ -1799,6 +2009,12 @@ func _process(delta: float) -> void:
 						0.95 if _is_heavy(act) else 1.05, -4.0 if _is_heavy(act) else -9.0)
 			elif _is_heavy(act):
 				_club_lands()
+	elif act == TAUNT:
+		# the roar itself, as its chest comes up
+		if _heard == 0 and _heard_clock >= taunt_roar_at:
+			_heard = 1
+			Sfx.play(self, ROAR_SOUND, self, Vector3.ZERO, 1.05, -1.0)
+			WindBlast.shake(self, 0.05, 0.6, 18.0)
 	elif act == Act.NONE:
 		_footfalls()
 
@@ -1815,6 +2031,38 @@ func _watch_hold() -> void:
 		return
 	_glint_serial = act_serial
 	_glint()
+
+
+## Every peer: through a swing held at the top it is not frozen but straining
+## (the user's word, 2026-10-11: the hold read as lag) — its body trembles,
+## harder as the hold runs out, and a creak and rush of air rise to the
+## moment it lets go.
+func _strain_in_hold() -> void:
+	if body == null:
+		return
+	var on := false
+	if not is_dead and _holds.has(act):
+		var sh := _shape(act)
+		if not sh.is_empty() and float(sh[2]) > 0.0:
+			var top := float(sh[0]) * float(sh[1])
+			var hold := float(sh[2])
+			var u := (_heard_clock - top) / hold
+			if u >= 0.0 and u <= 1.0:
+				on = true
+				var amp := (0.004 + 0.012 * u * u) * visual_scale
+				var c := _heard_clock
+				body.position.x = _body_rest_xz.x + amp * sin(c * 73.0) * cos(c * 21.0)
+				body.position.z = _body_rest_xz.y + amp * sin(c * 61.0 + 1.3)
+			if _strain_serial != act_serial and _heard_clock >= top + maxf(hold - 0.5, 0.0) \
+					and _heard_clock < top + hold:
+				_strain_serial = act_serial
+				Sfx.play(self, STRAIN_SOUND, null, _weapon_tip_at(), 0.95, -6.0)
+	if on:
+		_trembling = true
+	elif _trembling:
+		_trembling = false
+		body.position.x = _body_rest_xz.x
+		body.position.z = _body_rest_xz.y
 
 
 ## A glint off the club's end — a hard white-gold flash and sparks — and a
@@ -1888,6 +2136,8 @@ func _is_heavy(what: int) -> bool:
 func _on_new_act() -> void:
 	if act == RAGE:
 		Sfx.play(self, ROAR_SOUND, self, Vector3.ZERO, 0.95, 2.0)
+	elif act == TAUNT:
+		Sfx.play_any(self, GRUNTS, self, 0.75, -4.0)
 	elif act == STANCE:
 		Sfx.play_any(self, GRUNTS, self, 0.8, -2.0)
 	elif act == POUND or act == POUND_3 or act == HEAVY:

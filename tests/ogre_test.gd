@@ -29,6 +29,18 @@ extends SceneTree
 ##   at him as it lets go and throws him down; rolled through (i-frames at
 ##   its blow), it misses.
 ##
+## Spacing (2026-10-11, the user's word: between its strings like Elden
+## Ring's great ones):
+## * between its strings it walks round him, backs off, stands watching, and
+##   now and then roars at him, then breaks off all at once at him; it still
+##   fights as hard (strings keep coming).
+## * strain: a held swing is not frozen — its body trembles through the hold
+##   and is still again after, a creak rises to the letting go; heavy swings
+##   held about half the time, the side sweeps sometimes too, and a held side
+##   sweep slides round at him if he backed off.
+## * whirl: a heavy, grounded spin — its hips never bob up above standing
+##   (the old clip rose 0.37 m and dropped), and it lands on him.
+##
 ##   godot --headless --path . --script res://tests/ogre_test.gd [-- <part>...]
 
 const OGRE := "res://scenes/enemies/pack/ogre.tscn"
@@ -49,7 +61,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var only := OS.get_cmdline_user_args()
 	var parts := ["strings", "raging", "sides", "steady", "stance", "rings", "falls", "gait", "afar", "catch",
-			"track", "slide", "outrun"]
+			"track", "slide", "outrun", "spacing", "strain", "whirl"]
 	for part: String in parts:
 		if only.is_empty() or only.has(part):
 			await call("_" + part)
@@ -684,3 +696,134 @@ func _outrun() -> void:
 		else:
 			_check("%s: it still catches him" % c[0], downed, "ran %.1f m, ogre %.1f m from him" % [ran, ogre._distance_to(hero)])
 		await _done(a[0])
+
+
+func _spacing() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.2))
+	ogre._taunt_wait = 0.0
+	ogre.spacing_weights = Vector4(0.25, 0.15, 0.3, 0.3)
+	# (a little longer than its own, so its breaking off shows in 40 s)
+	ogre.spacing_time = Vector2(2.0, 3.0)
+	var start := hero.global_position
+	var backed := 0.0
+	var strafed := 0.0
+	var watched := 0.0
+	var serial := -1
+	var swings := 0
+	for f in int(40.0 * 60.0):
+		await physics_frame
+		if hero.state != Player.State.DOWNED:
+			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if ogre.act == Fighter.Act.NONE and ogre._spacing != &"":
+			var v := Vector3(ogre.velocity.x, 0.0, ogre.velocity.z)
+			var fwd := ogre._forward()
+			if v.dot(fwd) < -0.6:
+				backed += 1.0 / 60.0
+			if absf(v.dot(fwd.cross(Vector3.UP))) > 0.6:
+				strafed += 1.0 / 60.0
+			if ogre._spacing == &"watch" and v.length() < 0.2:
+				watched += 1.0 / 60.0
+		if ogre.act_serial != serial:
+			serial = ogre.act_serial
+			if ogre._strikes_table.has(ogre.act):
+				swings += 1
+	_check("between its strings it walks round him", strafed > 1.0, "%.1f s" % strafed)
+	_check("...backs off from him", backed > 0.5, "%.1f s" % backed)
+	_check("...stands watching him", watched > 0.3, "%.1f s %s" % [watched, ogre.spacings_made])
+	_check("...roars at him", ogre.taunts_made > 0, str(ogre.taunts_made))
+	_check("...and breaks off all at once at him", ogre.bursts_made > 0, str(ogre.bursts_made))
+	_check("it still fights hard", swings >= 10, "%d swings in 40 s" % swings)
+	await _done(a[0])
+
+
+func _strain() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 3.0))
+	ogre.sight_range = 0.0
+	await physics_frame
+	_check("heavy swings held about half the time", absf(float(ogre._holds[OgreFighter.SMASH][0]) - 0.5) < 0.01,
+			str(ogre._holds[OgreFighter.SMASH]))
+	_check("the side sweeps held sometimes too", ogre._holds.has(OgreFighter.WIDE) and ogre._holds.has(OgreFighter.LOW))
+	ogre._quarry = hero
+	var to := hero.global_position - ogre.global_position
+	to.y = 0.0
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	ogre._holds[OgreFighter.SMASH] = [1.0, 0.7, 0.7, 0.22]
+	ogre._open(OgreFighter.SMASH)
+	var sh := ogre._shape(OgreFighter.SMASH)
+	var top := float(sh[0]) * float(sh[1])
+	var rest := ogre.body.position
+	var shook := 0.0
+	var after := 0.0
+	while ogre.act == OgreFighter.SMASH:
+		await physics_frame
+		var d := ogre.body.position - rest
+		var off := Vector2(d.x, d.z).length()
+		if ogre._heard_clock > top + 0.05 and ogre._heard_clock < top + float(sh[2]):
+			shook = maxf(shook, off)
+		elif ogre._heard_clock > top + float(sh[2]) + 0.1:
+			after = maxf(after, off)
+	_check("held, its body trembles", shook > 0.004 * ogre.visual_scale, "%.4f m" % shook)
+	_check("...and is still again after", after < 0.0005, "%.4f m" % after)
+	_check("a creak rises to the letting go", ogre._strain_serial >= 0)
+	# a held side sweep, him backed off and aside: it slides round at him
+	await _done(a[0])
+	a = await _arena()
+	hero = a[2]
+	ogre = _ogre(a, _ahead(hero, 3.0))
+	ogre.sight_range = 0.0
+	await physics_frame
+	ogre._quarry = hero
+	to = hero.global_position - ogre.global_position
+	to.y = 0.0
+	var away := to.normalized()
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	ogre._holds[OgreFighter.WIDE] = [1.0, 0.6, 0.6, 0.2]
+	var slid := ogre.slides_made
+	ogre._open(OgreFighter.WIDE)
+	var spot := hero.global_position + away * 3.0 + away.cross(Vector3.UP) * 1.0
+	while ogre.act == OgreFighter.WIDE:
+		await physics_frame
+		hero.global_position = Vector3(spot.x, hero.global_position.y, spot.z)
+	_check("a held side sweep slides round at him", ogre.slides_made > slid, str(ogre.slides_made - slid))
+	await _done(a[0])
+
+
+func _whirl() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 2.4))
+	ogre.sight_range = 0.0
+	for i in 20:
+		await physics_frame
+	ogre._quarry = hero
+	var to := hero.global_position - ogre.global_position
+	to.y = 0.0
+	ogre.rotation.y = atan2(-to.x, -to.z)
+	ogre._holds.erase(OgreFighter.WHIRL)
+	var sk := ogre._skeleton
+	var pel := sk.find_bone("pelvis_joint")
+	var stand := (sk.global_transform * sk.get_bone_global_pose(pel).origin).y - ogre.global_position.y
+	if hero.rig is SkinnedRig:
+		(hero.rig as SkinnedRig).last_flinch = {}
+	ogre._open(OgreFighter.WHIRL)
+	var top := -INF
+	var low := INF
+	var hp := hero.health
+	var hit := false
+	while ogre.act == OgreFighter.WHIRL:
+		await physics_frame
+		var y := (sk.global_transform * sk.get_bone_global_pose(pel).origin).y - ogre.global_position.y
+		# through the spin and its blow (standing up after it is no bob)
+		if ogre._act_time <= ogre._blow_moments(OgreFighter.WHIRL)[0] + 0.4:
+			top = maxf(top, y)
+		low = minf(low, y)
+		hit = hit or hero.state == Player.State.DOWNED or hero.health < hp \
+				or (hero.rig is SkinnedRig and not (hero.rig as SkinnedRig).last_flinch.is_empty())
+	_check("the whirl: through its spin its hips never bob up above standing", top - stand < 0.06,
+			"standing %.2f, highest %.2f, lowest %.2f" % [stand, top, low])
+	_check("the whirl: it lands on him", hit)
+	await _done(a[0])

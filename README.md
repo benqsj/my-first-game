@@ -10200,3 +10200,21 @@ blow fells is his to pick (the idea: a combo's last).
   came 0.4 s after the blow, 1.1 m ahead of the club, unseen till it struck,
   and staggered him. The great blow's and the pound's rock stay; its stamping
   foot (`OG_STOMP_FOOT`) still bursts the ground (seen coming).
+
+- 2026-10-11 night (the user's word: like Elden Ring's great ones; the held
+  swing alive; the whirl's bounce): **spacing** — after a string the ogre keeps
+  its distance `spacing_time` (0.9–2 s, enraged 0.4–1): walks round him
+  (strafe clips, `spacing_prowl_speed`, at reach + `spacing_keep`), backs off
+  (`back_off_speed` to `back_off_to`), stands watching him, or now and then
+  (`taunt_cooldown` 14–24 s) beats its chest and roars at him (`TAUNT` 170,
+  `CR_OG_Battlecry`, roar at `taunt_roar_at`); it breaks off all at once
+  (`burst_rate`/s once its breath is back: a lunge or a leap if he is at
+  their gap, else in at its run), and him walking in on it is met at once
+  (`punish_close`). The great blow is opened from 1.2 m further off (it
+  closes on him anyway). **Held swings strain**: the body trembles through the
+  hold, harder to its end, and `sounds/ogre/strain_rise.wav` (a creak and a
+  rising rush, `vepxis-art/tools/ogre_strain.py`) rises to the letting go;
+  heavies are held `held_chance` 0.5 (was 0.3), the side sweeps WIDE/LOW
+  `held_side_chance` 0.3 (and slide round at him like the rest). **The whirl**
+  is the club's own 360 (`CR_OG_Attack_360` at 0.82) — the sword pack's
+  `CR_HeavyD` bobbed its hips 0.37 m up and down on the spot.
