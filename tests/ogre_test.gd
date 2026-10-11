@@ -47,6 +47,8 @@ extends SceneTree
 ##   drawn back and smashes him; rolled (i-frames at its reach) it misses,
 ##   the ground still bursts; behind a shield it reaches for him in a free
 ##   fight.
+## * swipes: in a plain free fight (nothing turned off) it swipes at him
+##   within 45 s, more than once (the user's word, 2026-10-12: it never came).
 ## * punish: him casting near it, it is at him at once — a swing in reach, a
 ##   lunge from 6 m, a leap from 11 m; drawing his bow a while at 6 m, a
 ##   lunge; left alone at 11 m it does not leap at once.
@@ -80,7 +82,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var only := OS.get_cmdline_user_args()
 	var parts := ["strings", "raging", "sides", "steady", "stance", "rings", "falls", "gait", "afar", "catch",
-			"track", "slide", "outrun", "spacing", "strain", "whirl", "grab", "punish", "phase", "bar", "death", "looks"]
+			"track", "slide", "outrun", "spacing", "strain", "whirl", "grab", "swipes", "punish", "phase", "bar", "death", "looks"]
 	for part: String in parts:
 		if only.is_empty() or only.has(part):
 			await call("_" + part)
@@ -376,7 +378,7 @@ const LIGHT_OK := [OgreFighter.SWEEP, OgreFighter.CHOP, OgreFighter.BACKHAND, Og
 
 ## Its moves held out of the way (the leaps, the pound, the great blow).
 func _hold_off(ogre: OgreFighter, keep: Array = []) -> void:
-	for n: String in ["_leap_slam_wait", "_run_slam_wait", "_lunge_wait", "_pound_wait", "_heavy_wait"]:
+	for n: String in ["_leap_slam_wait", "_run_slam_wait", "_lunge_wait", "_pound_wait", "_heavy_wait", "_grab_wait"]:
 		if not keep.has(n):
 			ogre.set(n, 99.0)
 
@@ -1127,3 +1129,25 @@ func _looks() -> void:
 			"skins %s, arms %s, bloody %d" % [skins.keys(), arms.keys(), bloody])
 	_check("looks: the same name, the same ogre (every peer alike)", same)
 	await _done(world)
+
+
+
+func _swipes() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var ogre := _ogre(a, _ahead(hero, 5.0))
+	ogre.max_health = 99999.0
+	ogre.health = 99999.0
+	hero.immortal = true
+	var start := hero.global_position
+	var first := -1.0
+	for f in 60 * 45:
+		await physics_frame
+		hero.stamina = hero.max_stamina
+		if hero.state != Player.State.DOWNED:
+			hero.global_position = Vector3(start.x, hero.global_position.y, start.z)
+		if ogre.grabs_made > 0 and first < 0.0:
+			first = f / 60.0
+	_check("swipes: in a plain fight it swipes at him, more than once", ogre.grabs_made >= 2,
+			"swipes %d (first at %.1f s), rolls %d" % [ogre.grabs_made, first, ogre.grab_rolls])
+	await _done(a[0])

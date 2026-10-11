@@ -129,9 +129,10 @@ extends PackBrute
 @export var string_follow_after: float = 0.32
 @export var string_most_raging: int = 5
 ## Its breath got back after a string ends (s), calm and enraged.
-## (half a second longer, the user's word 2026-10-12: a breath between strings)
-@export var recover: Vector2 = Vector2(1.0, 1.6)
-@export var recover_raging: Vector2 = Vector2(0.75, 1.1)
+## (the user's word 2026-10-12: a breath between strings — 0.9–1.2 s, raging
+## 0.6–0.85 s)
+@export var recover: Vector2 = Vector2(0.9, 1.2)
+@export var recover_raging: Vector2 = Vector2(0.6, 0.85)
 ## Between its strings (and over him while he is down) it does not stand dead
 ## still (the user's word, 2026-10-10: it stood about a third of a fight): it
 ## prowls round him at this pace (m/s at its size), keeping to its reach,
@@ -255,9 +256,9 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 ## How far its hand may be from him and still strike him (m).
 @export var grab_radius: float = 1.0
 ## How often it does it when it could — more behind a raised shield.
-@export var grab_chance: float = 0.25
+@export var grab_chance: float = 0.4
 @export var grab_chance_guarded: float = 0.7
-@export var grab_cooldown: Vector2 = Vector2(12.0, 20.0)
+@export var grab_cooldown: Vector2 = Vector2(9.0, 15.0)
 ## The blow's worth (a share of `hit_damage`).
 @export var grab_share: float = 1.8
 @export_group("Gait")
@@ -642,7 +643,7 @@ var _rush_left: float = 0.0
 var spacings_made: Dictionary = {}
 ## Host: the grab — its wait, the act it last tried to catch him in, whom it
 ## holds; counts for a test.
-var _grab_wait: float = 6.0
+var _grab_wait: float = 4.0
 var _grab_serial: int = -1
 ## Every peer: the grab act in which its hand closed on him (its clock is
 ## warped from then: [method _clip_time]).
@@ -865,7 +866,10 @@ func _own_move(delta: float) -> bool:
 			return true
 		return _prowl(gap, delta, stomp_reach * 0.7)
 	_taunt_wait = maxf(_taunt_wait - delta, 0.0)
+	# (its swipe may break off its spacing, as soon as its breath is back)
 	if _punish(gap, delta):
+		return true
+	if _try_grab(gap):
 		return true
 	if _spacing != &"" and _keep_distance(gap, delta):
 		return true
@@ -883,9 +887,6 @@ func _own_move(delta: float) -> bool:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
 		_open(HEAVY)
-		return true
-	_grab_wait = maxf(_grab_wait - delta, 0.0)
-	if _try_grab(gap):
 		return true
 	if (_cooldown > 0.0 or stamina < attack_cost) and _prowl(gap, delta, strike_off):
 		return true
@@ -2511,6 +2512,11 @@ func _shakes_after(what: int) -> bool:
 func _physics_process(delta: float) -> void:
 	_watch_his_run(delta)
 	super(delta)
+	# its swipe's wait runs all the time, through its strings too (the user's
+	# word, 2026-10-12: in a real fight it never came — its wait only ran
+	# between strings, so 12–20 s became a minute)
+	if _decides() and act != GRAB and not is_dead:
+		_grab_wait = maxf(_grab_wait - delta, 0.0)
 	if _shocks.is_empty() or is_dead or not _decides():
 		return
 	for i in range(_shocks.size() - 1, -1, -1):

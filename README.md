@@ -10323,3 +10323,11 @@ blow fells is his to pick (the idea: a combo's last).
   comes down; a blue flare and a growl at the top. `GRAB_HOLD` / `GRAB_SLAM`
   and the hold exports are gone (Player's `grab_by` API stays unused).
   **Between strings** `recover` (1.0, 1.6) s, raging (0.75, 1.1) — +0.5 s.
+
+- 2026-10-12 (the user's word: in a real fight it never swiped; between
+  strings 0.9–1.2 s, raging 0.6–0.85 s): its swipe's wait (`_grab_wait`)
+  ran only between strings, so 12–20 s became a minute — now it runs all the
+  time on the host (`_physics_process`, not during the swipe itself); it may
+  break off its spacing with the swipe; first wait 4 s, `grab_chance` 0.4,
+  `grab_cooldown` (9, 15) s. In a plain fight it swipes at ~8 s and again
+  (ogre_test "swipes"). `recover` (0.9, 1.2), `recover_raging` (0.6, 0.85).
