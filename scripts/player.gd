@@ -146,6 +146,10 @@ var sprinting: bool = false
 ## Attacking within this long of an evade's end (or pressed during it) throws
 ## the roll's own attack ([constant SkinnedRig.ROLL_ATTACK]): a quick thrust.
 @export var roll_attack_window: float = 0.35
+## An evade pressed while a blow has him reeling is kept and thrown the moment
+## he has his feet again (the user's word 2026-10-13, as Souls does): if it
+## comes no later than this after the reel.
+@export var reel_dodge_keep: float = 0.3
 ## Off the ground, a blow this low (m over his feet) passes under him: his
 ## legs are up (Elden Ring's jump over a sweep).
 @export var jump_clear_low: float = 0.55
@@ -158,6 +162,9 @@ var _backstepping: bool = false
 var _dodged_from: String = ""
 var _dodged_at: float = -INF
 var _roll_cut_asked: bool = false
+## Till when a blow has him reeling (an evade pressed in it is kept).
+var _reel_until: float = -INF
+var _reel_dodge_asked: bool = false
 
 @export_group("Crouch")
 ## Speed while crouched. Creeping is the point of it.
@@ -1202,6 +1209,18 @@ func _read_actions() -> void:
 			_attack_buffer = 0.0
 			_heavy_buffer = 0.0
 		else:
+			if Input.is_action_just_pressed("dash") and _now() < _reel_until:
+				_reel_dodge_asked = true
+			return
+
+	# An evade pressed while he reeled: thrown now he has his feet, ahead of
+	# any cut asked for meanwhile.
+	if _reel_dodge_asked:
+		_reel_dodge_asked = false
+		if _now() - _reel_until <= reel_dodge_keep:
+			_attack_buffer = 0.0
+			_heavy_buffer = 0.0
+			_press_dash()
 			return
 
 	if Input.is_action_just_pressed("heal") and _drink():
@@ -4108,6 +4127,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			_stop_striker(combo, reel_stop.x)
 			_free_swing = false
 			_commit(big_stagger_time)
+			_reel_until = _now() + big_stagger_time
 			net_react.rpc(Reaction.FLINCH, at, spray * BIG_STAGGER_SPRAY)
 			return
 		_stop_striker(combo, fell_stop.x)
@@ -4121,6 +4141,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	_stop_striker(combo, flinch_stop.x if blow < blows - 1 else flinch_stop.y)
 	_free_swing = false
 	_commit(0.2 + _heft(damage) * blow_stagger)
+	_reel_until = _now() + 0.2 + _heft(damage) * blow_stagger
 	# how hard it was rides on the spray's length (1 the lightest, 2 the
 	# heaviest; the blood takes only its way): [method _flinch]
 	net_react.rpc(Reaction.FLINCH, at, spray * (1.0 + hit_heft(damage)))

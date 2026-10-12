@@ -109,16 +109,18 @@ func _run() -> void:
 	for i in 6:
 		await physics_frame
 	hero._attack(false)
+	# the hero's own (Tariel's Sword_Dash), or every hero's thrust
+	var own_clip: StringName = (hero.rig.call(&"cut_spec", "roll_attack") as Dictionary)["clip"]
 	var clip := &""
 	var frames := 6
 	for i in 60:
 		await physics_frame
 		frames += 1
 		var c: StringName = hero.rig.call(&"current_clip")
-		if c == SkinnedRig.ROLL_ATTACK["clip"]:
+		if c == own_clip:
 			clip = c
 			break
-	_check("an attack pressed in a roll: its own quick thrust after it", clip == SkinnedRig.ROLL_ATTACK["clip"], str(hero.rig.call(&"current_clip")))
+	_check("an attack pressed in a roll: its own quick thrust after it", clip == own_clip, str(hero.rig.call(&"current_clip")))
 	# out of the landing, not after the getting up (the user's word 2026-10-13)
 	var whole := int(ceil(hero.dash_duration * Engine.physics_ticks_per_second))
 	_check("...straight out of the landing, before the roll's end", frames < whole, "%d frames of %d" % [frames, whole])
@@ -127,7 +129,7 @@ func _run() -> void:
 	# and an attack long after a roll is the plain string
 	hero._attack(false)
 	await physics_frame
-	_check("long after a roll, the plain cut", hero.rig.call(&"current_clip") != SkinnedRig.ROLL_ATTACK["clip"],
+	_check("long after a roll, the plain cut", hero.rig.call(&"current_clip") != own_clip,
 			str(hero.rig.call(&"current_clip")))
 	for i in 90:
 		await physics_frame
@@ -147,6 +149,34 @@ func _run() -> void:
 	hero.receive_blow(20.0, foe, 0, 1, 7004)
 	await physics_frame
 	_check("...a high one does not", hero.health < hp, "%.0f -> %.0f" % [hp, hero.health])
+
+	# struck and reeling: an evade pressed then is kept and thrown as he has
+	# his feet again (the user's word 2026-10-13, Souls' way)
+	for i in 600:
+		await physics_frame
+		if hero.state == Player.State.GROUNDED and not hero.is_committed() and i > 60:
+			break
+	var before := "%d" % hero.state
+	hero.stamina = hero.max_stamina
+	hero.receive_blow(20.0, foe, 0, 2, 7005)
+	await physics_frame
+	var reeling := hero.is_committed()
+	Input.action_press(&"move_forward")
+	await physics_frame
+	Input.action_press(&"dash")
+	await physics_frame
+	await physics_frame
+	Input.action_release(&"dash")
+	var lost_then := hero.state != Player.State.DASHING and hero.state != Player.State.DODGING
+	var rolled := false
+	for i in 90:
+		await physics_frame
+		if hero.state == Player.State.DASHING or hero.state == Player.State.DODGING:
+			rolled = true
+			break
+	Input.action_release(&"move_forward")
+	_check("an evade pressed while he reels is thrown as he recovers", reeling and lost_then and rolled,
+			"state %s, reeling %s, not at once %s, rolled %s" % [before, reeling, lost_then, rolled])
 	await _done(a[0])
 	print("dodge_er_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)
