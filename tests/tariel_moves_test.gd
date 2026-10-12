@@ -162,10 +162,16 @@ func _check_bash() -> void:
 	_check("at nothing it drives him on 2-3.5 m", went > 2.0 and went < 3.5, "(%.2f m)" % went)
 	await _settle()
 	player.rotation.y = 0.0
-	# Without the shield up the dash is the evade, as ever.
+	# Without the shield up the dash is the evade, as ever (a way pushed:
+	# with none it is the step back).
 	_fresh()
-	await _tap("dash")
+	Input.action_press("move_forward")
 	await physics_frame
+	await physics_frame
+	await _tap("dash")
+	# (held over the frame the press is read in)
+	await physics_frame
+	Input.action_release("move_forward")
 	_check("without the shield the dash is the evade", rig._anim.current_animation == "Sword_Dash",
 			"(%s)" % rig._anim.current_animation)
 	orc.queue_free()

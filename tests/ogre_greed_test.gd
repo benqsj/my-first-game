@@ -189,6 +189,9 @@ func _run() -> void:
 		var start_at := hero.global_position
 		var hp := hero.health
 		var lead := float(c[1])
+		# (a roll: a way pushed; with none it is the step back)
+		Input.action_press("move_forward")
+		await physics_frame
 		if lead < 0.0:
 			hero._start_evade(false)
 			for i in int(-lead * 60.0):
@@ -198,6 +201,7 @@ func _run() -> void:
 		ogre._quake(start_at + fwd.normalized() * 2.0, 5.0, 40.0, false, 22.0)
 		if lead >= 0.0:
 			hero._start_evade(false)
+		Input.action_release("move_forward")
 		for i in 60:
 			await physics_frame
 		_check(String(c[0]), (hero.health < hp) == bool(c[2]), "health %.0f -> %.0f" % [hp, hero.health])

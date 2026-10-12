@@ -77,7 +77,7 @@ extends Brawler
 @export var stance_down: float = 2.6
 ## How long the stone a quake throws up stays up under him, dangerous (s):
 ## a roll must cover its rising, not only the blow before it.
-@export var quake_linger: float = 0.35
+@export var quake_linger: float = 0.2
 ## The first blow on it while it is down: this many times as hard.
 @export var stance_crit: float = 3.0
 ## Or, if above 0, that first blow takes just this share of its whole health
@@ -646,6 +646,12 @@ func _show_windup(delta: float) -> void:
 	if share < 1.0 and randf() < delta * 22.0 * (0.3 + share):
 		SkillFx.burst(Blood.world_of(self), tip, Color(1.0, 0.55, 0.15), 3, Vector2(0.5, 1.5), Vector3.UP, 70.0,
 				Vector2(0.02, 0.04), Vector3(0, 1.5, 0), 0.4)
+
+
+## Where its weapon's end is now, for a hero asking whether its blow passes
+## under his jump ([method Player._low_blow]).
+func weapon_tip_now() -> Vector3:
+	return _weapon_tip_at()
 
 
 ## Where its weapon's end is now (its right fist where it has none).

@@ -97,8 +97,22 @@ const SHADOW_SLIDE := 92
 ## And his third, the shadow lance (the moves' `shadow_lance`).
 const SHADOW_LANCE := 93
 ## The moves' spec each of those styles plays.
+## The attack out of a roll (the user's word, 2026-10-12: Elden Ring's rolling
+## attack, a quick thrust): Kevin's polearm thrust (KV_AttackPolearm01), the
+## blade drawn back under the shield arm and driven straight in with a lunge,
+## from a little into its wind-up; the string goes on from its second blow.
+const ROLL_CUT := 94
+const ROLL_ATTACK := {"clip": &"KV_AttackPolearm01", "rate": 1.3, "weight": 1.15, "from": 0.12,
+	"until": 0.78, "string_at": 1, "window": Vector2(0.26, 0.42), "trail": Vector2(0.24, 0.44)}
+## The step back with no way pushed (the user's word, 2026-10-12: Elden
+## Ring's backstep): the archer's Mixamo dodge backward, lent to every hero
+## on the mannequin, its hop only.
+const BACKSTEP_CLIP := &"AV_Dodge_Backward"
+const BACKSTEP_FROM_HERO := "avtandil"
+const BACKSTEP_PART := 0.42
+## The moves' spec each of those styles plays.
 const CUT_SPECS := {RUN_CUT: "run_attack", RISING_CUT: "rising_cut", SHADOW_SLIDE: "shadow_slide",
-	SHADOW_LANCE: "shadow_lance"}
+	SHADOW_LANCE: "shadow_lance", ROLL_CUT: "roll_attack"}
 ## Clips that cut more than once: every window its own blow (a new attack
 ## serial, a new whoosh), as shares of the clip.
 var cut_windows: Dictionary = {}
@@ -1727,14 +1741,17 @@ func attack(style: int = -1) -> void:
 		# The running cut: a sweep thrown out of the run, lunging; the string
 		# goes on from its second blow after it (its spec's `string_at`). The
 		# rising cut, the skill, is played the same way.
-		var rc: Dictionary = moves[CUT_SPECS[style]]
-		_attack_style = AttackStyle.SIDE
+		var rc: Dictionary = cut_spec(CUT_SPECS[style])
+		if rc.has("window") and not cut_window.has(rc["clip"]):
+			cut_window[rc["clip"]] = rc["window"]
+			trail_window[rc["clip"]] = rc.get("trail", rc["window"])
+		_attack_style = AttackStyle.THRUST if style == ROLL_CUT else AttackStyle.SIDE
 		_heavy_now = false
 		cut_weight = float(rc.get("weight", 1.0))
 		_last_attack_at = Time.get_ticks_msec() / 1000.0
 		_flurry_slot = int(rc.get("string_at", 0))
 		if _play_action(rc["clip"], Role.SWING, float(rc.get("rate", 1.0)) * mq_swing_scale, 0.06,
-				0.0, float(rc.get("until", 1.0))):
+				float(rc.get("from", 0.0)), float(rc.get("until", 1.0))):
 			_cut_slam = float(rc.get("slam", -1.0))
 			_slam_done = false
 			_hold_at = float(rc.get("hold", -1.0))
@@ -1939,13 +1956,27 @@ func has_run_cut() -> bool:
 
 ## A cut of the moves' `key` spec ("run_attack", "rising_cut") to throw.
 func has_cut(key: String) -> bool:
-	return _on_mq and moves.has(key) and _anim != null \
-			and _anim.has_animation((moves[key] as Dictionary)["clip"])
+	var spec := cut_spec(key)
+	return _on_mq and not spec.is_empty() and _anim != null and _anim.has_animation(spec["clip"])
 
 
-## The moves' `key` spec, or {}.
+## The moves' `key` spec, or {} (the roll's attack: every hero's, unless his
+## moves give one of their own).
 func cut_spec(key: String) -> Dictionary:
-	return moves.get(key, {}) if _on_mq else {}
+	if not _on_mq:
+		return {}
+	if key == "roll_attack" and not moves.has(key):
+		return ROLL_ATTACK
+	return moves.get(key, {})
+
+
+## The step back's hop, fitted to `duration` s (false: no clip for it).
+func backstep(duration: float) -> bool:
+	if _anim == null or not _anim.has_animation(BACKSTEP_CLIP):
+		return false
+	var length := _anim.get_animation(BACKSTEP_CLIP).length
+	return _play_action(BACKSTEP_CLIP, Role.ROLL, length * BACKSTEP_PART / maxf(duration, 0.05), 0.05,
+			0.0, BACKSTEP_PART)
 
 
 ## The running cut's spec ([Swordsman] `RUN_ATTACK`), or {}.
@@ -3240,6 +3271,11 @@ func _build_mannequin() -> bool:
 		var other := HERO_LIB % mq_borrow[clip]
 		if ResourceLoader.exists(other) and (load(other) as AnimationLibrary).has_animation(clip):
 			lib.add_animation(clip, (load(other) as AnimationLibrary).get_animation(clip))
+	# the step back's hop, lent by the archer to every hero
+	if not lib.has_animation(BACKSTEP_CLIP) and ResourceLoader.exists(HERO_LIB % BACKSTEP_FROM_HERO):
+		var lender := load(HERO_LIB % BACKSTEP_FROM_HERO) as AnimationLibrary
+		if lender.has_animation(BACKSTEP_CLIP):
+			lib.add_animation(BACKSTEP_CLIP, lender.get_animation(BACKSTEP_CLIP))
 	# the guard broken under a heavy blow: the warrior's fall to one knee
 	# ([method guard_crumple]), for any hero on the mannequin
 	if not lib.has_animation(CRUMPLE) and ResourceLoader.exists(HERO_LIB % CRUMPLE_FROM_HERO):

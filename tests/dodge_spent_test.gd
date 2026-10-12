@@ -74,8 +74,11 @@ func _try(last: bool, damage: float, after: int) -> Dictionary:
 	var cost: float = _hero.profile.roll_stamina if _hero.profile != null else 20.0
 	_hero.stamina = cost * 0.9 if last else _hero.max_stamina
 	_hero._winded = false
+	# a roll (a way pushed): with none it is the step back, cheaper
+	Input.action_press("move_forward")
 	_hero.call(&"_press_dash")
 	await _wait(2)
+	Input.action_release("move_forward")
 	var evading := _hero.state == Player.State.DASHING or _hero.state == Player.State.DODGING
 	if after >= 0:
 		for i in 240:

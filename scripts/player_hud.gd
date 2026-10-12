@@ -828,7 +828,7 @@ func _find_boss() -> Node3D:
 	var best_d := BOSS_NEAR
 	for node in get_tree().get_nodes_in_group(&"enemy"):
 		var f := node as Node3D
-		if f == null or bool(f.get("is_dead")):
+		if f == null or f.get("is_dead") == true:
 			continue
 		var named: Variant = f.get("boss_name")
 		if not (named is String) or (named as String).is_empty():

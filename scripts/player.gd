@@ -134,6 +134,23 @@ var sprinting: bool = false
 ## Invulnerability window measured from the start of the dodge. Longer than the
 ## roll's, because the dodge is the deliberate, committed one.
 @export var dodge_iframes: float = 0.45
+## (the user's word, 2026-10-12: Elden Ring's) the evade is untouchable only
+## for its first `dash_iframes` / `dodge_iframes`: what is left of it is a
+## recovery a blow finds him in — a roll thrown too early is punished.
+## No way pushed, the dodge button steps him back (`backstep_*`): short, a
+## little untouchable, cheaper, still facing what he faced.
+@export var backstep_time: float = 0.42
+@export var backstep_speed: float = 6.5
+@export var backstep_iframes: float = 0.2
+@export var backstep_stamina: float = 12.0
+## Attacking within this long of an evade's end (or pressed during it) throws
+## the roll's own attack ([constant SkinnedRig.ROLL_ATTACK]): a quick thrust.
+@export var roll_attack_window: float = 0.35
+## Off the ground, a blow this low (m over his feet) passes under him: his
+## legs are up (Elden Ring's jump over a sweep).
+@export var jump_clear_low: float = 0.55
+var _backstepping: bool = false
+var _roll_cut_asked: bool = false
 
 @export_group("Crouch")
 ## Speed while crouched. Creeping is the point of it.
@@ -1669,11 +1686,44 @@ func _start_evade(chained: bool) -> bool:
 		started = _try_dash(false, false, chained)
 		if started:
 			_upgrade_to_dodge()
+	elif get_movement_direction().is_zero_approx() and state == State.GROUNDED:
+		# no way pushed: a step back, still facing it
+		started = _try_backstep(chained)
+		if not started:
+			started = _try_dash(false, false, chained)
 	else:
 		started = _try_dash(false, false, chained)
 	if started:
 		_move_sound(kind)
 	return started
+
+
+## The step back: short and quick, untouchable only at its start, cheaper
+## than a roll; he keeps facing the way he faced (the rig's `backstep`).
+func _try_backstep(chained: bool) -> bool:
+	if rig == null or not rig.has_method(&"backstep"):
+		return false
+	if _dash_cooldown_timer > 0.0 and not chained:
+		return false
+	if not _spend(backstep_stamina):
+		return false
+	if not bool(rig.call(&"backstep", backstep_time)):
+		stamina += backstep_stamina
+		return false
+	_dash_direction = global_transform.basis.z
+	_dash_direction.y = 0.0
+	_dash_direction = _dash_direction.normalized()
+	state = State.DASHING
+	_backstepping = true
+	_roll_cut_asked = false
+	_evade_started_at = _now()
+	_evade_was_perfect = false
+	_dash_timer = backstep_time
+	_dash_cooldown_timer = dash_cooldown + backstep_time
+	is_invulnerable = backstep_iframes > 0.0
+	_safe_until = maxf(_safe_until, _now() + backstep_iframes)
+	dash_started.emit(_dash_direction)
+	return true
 
 
 ## Locked on something and pushing mostly left or right.
@@ -1719,7 +1769,9 @@ func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = fa
 	_dash_timer = dash_duration
 	_dash_cooldown_timer = dash_cooldown + dash_duration
 	is_invulnerable = dash_iframes > 0.0
-	_safe_until = maxf(_safe_until, _now() + dash_duration)
+	_safe_until = maxf(_safe_until, _now() + dash_iframes)
+	_backstepping = false
+	_roll_cut_asked = false
 
 	if not keep_facing:
 		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
@@ -1754,7 +1806,7 @@ func _upgrade_to_dodge() -> bool:
 	_dodge_timer = dodge_duration
 	_dash_cooldown_timer = dash_cooldown + dodge_duration
 	is_invulnerable = dodge_iframes > 0.0
-	_safe_until = maxf(_safe_until, _now() + dodge_duration)
+	_safe_until = maxf(_safe_until, _now() + dodge_iframes)
 	dodge_started.emit(_dash_direction)
 	return true
 
@@ -1763,13 +1815,13 @@ func _upgrade_to_dodge() -> bool:
 ## and what the rig is doing, not in how the body is moved.
 func _process_dash(delta: float) -> void:
 	var dodging := state == State.DODGING
-	var length := dodge_duration if dodging else dash_duration
+	var length := dodge_duration if dodging else (backstep_time if _backstepping else dash_duration)
 	var left := _dodge_timer if dodging else _dash_timer
-	var iframes := dodge_iframes if dodging else dash_iframes
+	var iframes := dodge_iframes if dodging else (backstep_iframes if _backstepping else dash_iframes)
 
 	# Ease the evade out so it does not end with a hard velocity cut.
 	var t := clampf(left / maxf(length, 0.001), 0.0, 1.0)
-	var speed := (dodge_speed if dodging else dash_speed) * lerpf(0.55, 1.0, t)
+	var speed := (dodge_speed if dodging else (backstep_speed if _backstepping else dash_speed)) * lerpf(0.55, 1.0, t)
 	# Where the clip puts the feet down, the travel stops: no skating on after
 	# the landing.
 	var land := _land_at(dodging)
@@ -1806,14 +1858,14 @@ func _evade_landed() -> bool:
 	var land := _land_at(dodging)
 	if land >= 1.0:
 		return false
-	var length := dodge_duration if dodging else dash_duration
+	var length := dodge_duration if dodging else (backstep_time if _backstepping else dash_duration)
 	var left := _dodge_timer if dodging else _dash_timer
 	return 1.0 - left / maxf(length, 0.001) >= land + 0.02
 
 
 ## Where in this evade the feet land ([member CharacterProfile.dodge_land_at]).
 func _land_at(dodging: bool) -> float:
-	if profile == null:
+	if profile == null or (_backstepping and not dodging):
 		return 1.0
 	return profile.dodge_land_at if dodging else profile.dash_land_at
 
@@ -1822,6 +1874,12 @@ func _end_dash() -> void:
 	var dodging := state == State.DODGING
 	_evade_ended_at = _now()
 	is_invulnerable = false
+	_backstepping = false
+	if _roll_cut_asked:
+		# an attack pressed during it: the roll's own, as soon as he is up
+		_roll_cut_asked = false
+		_attack_buffer = attack_buffer_time
+		_buffer_other = false
 	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
 	# Bleed off the evade so the player keeps a bit of momentum — unless the
 	# clip has already landed him, when there is none left to keep.
@@ -2920,7 +2978,7 @@ func net_cast() -> void:
 ## True while rolling or dashing out of the way of something: a spell that was
 ## hunting this body lets go of it.
 func is_evading() -> bool:
-	return state == State.DODGING or state == State.DASHING
+	return (state == State.DODGING or state == State.DASHING) and (is_invulnerable or _now() < _safe_until)
 
 
 ## The arrow, on every peer.
@@ -3130,6 +3188,11 @@ func _attack(heavy: bool = false) -> void:
 		else:
 			_attack_buffer = attack_buffer_time
 		return
+	if state == State.DASHING or state == State.DODGING:
+		# pressed in the roll: its own attack the moment he is up out of it
+		if not heavy:
+			_roll_cut_asked = true
+		return
 	if state != State.GROUNDED and state != State.AIRBORNE:
 		return
 	# The sword away: one press draws it, and the cut goes as it comes out
@@ -3158,6 +3221,8 @@ func _attack(heavy: bool = false) -> void:
 	var run_cut := not heavy and _run_cut_ready()
 	if run_cut:
 		cost *= run_cut_stamina
+	# straight out of a roll: the roll's attack, a quick thrust
+	var roll_cut := not heavy and not run_cut and _roll_cut_ready()
 	# what he holds sets what a blow costs (the assassin: two blades dearer,
 	# one cheaper, [method SkinnedRogueRig.blow_stamina])
 	if not heavy and rig != null and rig.has_method(&"blow_stamina"):
@@ -3233,6 +3298,8 @@ func _attack(heavy: bool = false) -> void:
 			style = SkinnedRig.HEAVY + blow
 		elif run_cut:
 			style = SkinnedRig.RUN_CUT
+		elif roll_cut:
+			style = SkinnedRig.ROLL_CUT
 		net_attack.rpc(style)
 		if run_cut:
 			_mark_sure(_sure_pick())
@@ -3679,6 +3746,9 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		magic: bool = false, how: StringName = &"") -> void:
 	if from == null:
 		return
+	# Off the ground, a low blow passes under his legs (a jump over a sweep).
+	if how.is_empty() and not is_on_floor() and state != State.DOWNED and _low_blow(from):
+		return
 	var away := global_position - from.global_position
 	away.y = 0.0
 	if away.length_squared() < 0.0001:
@@ -3914,10 +3984,10 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		_forget_combos_from(combo)
 		_combo_landed[combo] = 0
 
-	# Rolling, dashing or already on the ground: the blow goes through empty air.
-	# The whole evade counts, not only its first few frames.
-	var evading := state == State.DASHING or state == State.DODGING \
-			or _now() - _evade_started_at <= maxf(dash_duration, 0.0) and _now() < _safe_until
+	# In an evade's untouchable start, or on the ground: the blow goes through
+	# empty air. Its recovery after does not (the user's word, 2026-10-12:
+	# Elden Ring's — a roll thrown too early is caught at its end).
+	var evading := (state == State.DASHING or state == State.DODGING) and (is_invulnerable or _now() < _safe_until)
 	if is_invulnerable or evading or state == State.DOWNED or _now() < _safe_until:
 		_combo_landed[combo] = -999
 		if evading and not _evade_was_perfect \
@@ -5415,6 +5485,26 @@ func net_release_cut(leap: bool = false) -> void:
 
 ## A cut out of a run: on his feet, the first of a string, at a run, with the
 ## shield down, and a rig with a running cut.
+## Straight out of an evade (within `roll_attack_window` of its end), on his
+## feet, with the roll's attack to throw.
+func _roll_cut_ready() -> bool:
+	if state != State.GROUNDED or not is_on_floor() or is_blocking or _swing_chain != 0:
+		return false
+	if _now() - _evade_ended_at > roll_attack_window:
+		return false
+	return rig != null and rig.has_method(&"has_cut") and bool(rig.call(&"has_cut", "roll_attack"))
+
+
+## Whether `from`'s blow now is low enough to pass under a jump: its weapon
+## (where the creature can say, [method weapon_low]) under `jump_clear_low`
+## over his feet.
+func _low_blow(from: Node3D) -> bool:
+	if not from.has_method(&"weapon_tip_now"):
+		return false
+	var tip: Vector3 = from.call(&"weapon_tip_now")
+	return tip.y - global_position.y < jump_clear_low and tip.y < global_position.y + 0.2
+
+
 func _run_cut_ready() -> bool:
 	if state != State.GROUNDED or not is_on_floor() or _swing_chain != 0 or is_blocking:
 		return false
@@ -7620,8 +7710,7 @@ func _watch_pvp_blades() -> void:
 ## Whether a blow landing on him now goes through empty air: an evade, its
 ## safe time, or on the ground (asked by the stone of a quake, [PackBrute]).
 func untouchable_now() -> bool:
-	return is_dead or is_invulnerable or state == State.DASHING or state == State.DODGING \
-			or state == State.DOWNED or _now() < _safe_until
+	return is_dead or is_invulnerable or state == State.DOWNED or _now() < _safe_until
 
 
 func receive_hit(hit: HitInfo) -> bool:
@@ -7635,6 +7724,5 @@ func receive_hit(hit: HitInfo) -> bool:
 			return false
 		damage *= hero.pvp_damage_scale
 	receive_blow(damage, source, 0, 1, hit.serial, hit.magic)
-	return not (is_invulnerable or state == State.DASHING or state == State.DODGING \
-			or state == State.DOWNED)
+	return not (is_invulnerable or state == State.DOWNED or _now() < _safe_until)
 #endregion

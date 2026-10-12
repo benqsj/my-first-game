@@ -151,10 +151,13 @@ func _initialize() -> void:
 
 	# A blow thrown into a roll finds nobody.
 	_struck.clear()
+	# (in its untouchable start: its recovery is open, as in Elden Ring)
 	player.state = Player.State.DODGING
+	player.is_invulnerable = true
 	player.receive_blow(8.0, pug, 0, 3, 999)
 	await _wait(2)
 	player.state = Player.State.GROUNDED
+	player.is_invulnerable = false
 	_check("a blow thrown into a dodge does not land", _struck.is_empty())
 
 	# --- Cut down, and cleared away ----------------------------------------------

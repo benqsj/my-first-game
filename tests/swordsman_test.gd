@@ -66,11 +66,23 @@ func _initialize() -> void:
 		_check("string %d is A, B, C" % (round + 1), seen == Swordsman.STRING, str(seen))
 		await _frames(180)
 
-	# the evade, standing
+	# standing, no way pushed: the step back (Elden Ring's backstep, the
+	# user's word 2026-10-12)
 	await _frames(30)
-	var from := player.global_position
 	await _tap("dash")
 	await physics_frame
+	_check("standing, the evade is the step back", rig._anim.current_animation == String(SkinnedRig.BACKSTEP_CLIP),
+			"(%s)" % rig._anim.current_animation)
+	await _frames(90)
+	# the evade, pushed ahead
+	var from := player.global_position
+	Input.action_press("move_forward")
+	await physics_frame
+	await physics_frame
+	await _tap("dash")
+	# (held over the frame the press is read in)
+	await physics_frame
+	Input.action_release("move_forward")
 	var clip := rig._anim.current_animation
 	_check("the evade is Sword_Dash", clip == "Sword_Dash", "(%s at x%.2f)" % [clip, rig._anim.speed_scale])
 	var cut := false

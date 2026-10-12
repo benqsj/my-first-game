@@ -10491,8 +10491,37 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   ground never found him): a quake's shock passed under him in one frame,
   and a roll begun for the blow before it (the whole evade is untouchable)
   covered that frame, so stone never hit a hero who had rolled at all. Now
-  the stone stays up under him `PackBrute.quake_linger` 0.35 s after its
+  the stone stays up under him `PackBrute.quake_linger` 0.2 s after its
   front reaches him; while it is up and he is on the ground and not in an
   evade (`Player.untouchable_now()`), it catches him. A roll timed for the
   stone, or a jump over it, clears it; one spent on the blow before it does
   not. `ogre_greed_test` checks both.
+
+### The evade made Elden Ring's (2026-10-12, the user's picks 1, 3, 4, 5 of `claude/dodge_vs_eldenring.md`)
+
+- **Untouchable only at its start.** An evade went through every blow from
+  its first frame to its last (the state alone counted). Now only its
+  `dash_iframes` (0.3 s of the 0.45 s roll) / `dodge_iframes` (0.45 of 0.7)
+  are; the rest is a recovery a blow lands in, so a roll thrown too early is
+  caught at its end. `is_evading()` (the weapon's graze for a perfect dodge)
+  and `untouchable_now()` follow the same. A quake's stone stays up 0.2 s
+  (`quake_linger`): a roll timed for it clears it, one spent on the blow
+  before it does not.
+- **The step back** (`backstep_*`): the dodge pressed with no way pushed (on
+  his feet): ~2 m back in 0.42 s, untouchable its first 0.2 s, 12 stamina
+  (a roll 20), still facing what he faced. The hop is the archer's Mixamo
+  "Standing Dodge Backward" (`AV_Dodge_Backward`, its first 42 %), lent to
+  every hero on the mannequin (`SkinnedRig.BACKSTEP_CLIP`).
+- **The roll's own attack** (`SkinnedRig.ROLL_ATTACK`, style `ROLL_CUT`):
+  attack pressed in an evade (or within `roll_attack_window` 0.35 s of its
+  end) throws a quick thrust as he comes up — Kevin's polearm thrust
+  (`KV_AttackPolearm01`: the blade drawn back under the shield arm and driven
+  straight in with a lunge; from 0.12 of it, x1.3, cut 0.26–0.42), worth
+  1.15 of a cut; the string goes on from its second blow. Long after a roll
+  an attack is the plain string.
+- **A jump over a sweep**: off the ground, a creature's blow whose weapon is
+  under `jump_clear_low` 0.55 m over his feet passes under him
+  (`PackBrute.weapon_tip_now()`).
+- Tests: `dodge_er_test` (all four); `swordsman_test`, `tariel_moves_test`,
+  `dodge_spent_test` now push a way for the roll (none is the step back);
+  `fighter_test`'s blow into a dodge is in its untouchable start.
