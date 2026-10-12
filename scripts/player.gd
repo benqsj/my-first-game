@@ -302,11 +302,6 @@ static var pvp_mode: bool = false
 @export var draw_zoom_degrees: float = 7.0
 @export var draw_zoom_speed: float = 5.0
 var _fov_rest: float = -1.0
-## The spring arm's own length, and how much a great foe near draws it back.
-var _spring_rest: float = -1.0
-var _great_pull: float = 0.0
-var _great_want: float = 0.0
-var _great_look: float = 0.0
 var _draw_zoom_now: float = 0.0
 ## Ground closer than this under the crosshair is not what the player is
 ## shooting at — it is the ground they are standing on.
@@ -377,14 +372,6 @@ var m_def: float = 0.0
 @export var camera_height: float = 1.5
 ## Higher values make the camera stick to the player more rigidly.
 @export var camera_follow_speed: float = 22.0
-## A great foe near (the ogre, the user's word 2026-10-12: half again as
-## tall): the view drawn back by `great_foe_pull` metres for each metre it
-## stands over `great_foe_from`, at most `great_foe_most`, while one stands
-## within `great_foe_near` m.
-@export var great_foe_from: float = 2.5
-@export var great_foe_pull: float = 0.9
-@export var great_foe_most: float = 2.5
-@export var great_foe_near: float = 14.0
 #endregion
 
 @onready var camera_rig: Node3D = $CameraRig
@@ -977,7 +964,6 @@ func _physics_process(delta: float) -> void:
 	_tick_vitals(delta)
 	_tick_combat(delta)
 	_track_target(delta)
-	_great_foe_view(delta)
 	_track_pierce(delta)
 	if has_bow():
 		_tick_bow(delta)
@@ -2669,39 +2655,6 @@ func _hunting_me(who: Node3D) -> bool:
 
 
 ## Keeps the camera on the target and lets go when there is nothing left to hold.
-## Draws the view back while a great foe stands near, so it is seen whole
-## (`great_foe_from`); eased in and out, looked for four times a second.
-func _great_foe_view(delta: float) -> void:
-	if spring_arm == null or not is_multiplayer_authority():
-		return
-	if _spring_rest < 0.0:
-		_spring_rest = spring_arm.spring_length
-	_great_look -= delta
-	if _great_look <= 0.0:
-		_great_look = 0.25
-		_great_want = 0.0
-		for foe: Node in get_tree().get_nodes_in_group(&"enemy"):
-			var who := foe as Node3D
-			if who == null or who.get(&"is_dead") == true:
-				continue
-			var h: Variant = who.get(&"body_height")
-			var s: Variant = who.get(&"visual_scale")
-			if h == null:
-				continue
-			# a pack creature's body is sized before its `visual_scale`, a
-			# brute's in metres as it stands
-			var tall := float(h) * (float(s) if s != null and who is Fighter else 1.0)
-			if tall <= great_foe_from:
-				continue
-			var gap := who.global_position - global_position
-			gap.y = 0.0
-			if gap.length() > great_foe_near:
-				continue
-			_great_want = maxf(_great_want, minf((tall - great_foe_from) * great_foe_pull, great_foe_most))
-	_great_pull = move_toward(_great_pull, _great_want, delta * (1.6 if _great_want > _great_pull else 0.8))
-	spring_arm.spring_length = _spring_rest + _great_pull
-
-
 func _track_target(delta: float) -> void:
 	if target == null:
 		return
