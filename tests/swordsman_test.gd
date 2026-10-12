@@ -2,8 +2,10 @@ extends SceneTree
 ## Tariel's sword and shield on the mannequin, as [Swordsman] designs it,
 ## driven by the game's own inputs in the world:
 ## - the string is A -> B -> C, the same every time;
-## - the evade is Sword_Dash, played at its rate, cutting on the way, going
-##   ahead, and given up as soon as he moves off once the dash is over;
+## - the evade is a roll (Roll_Dive_From_Standing, the user's word
+##   2026-10-13), going ahead, its getting up given up as soon as he moves
+##   off once the dash is over; an attack pressed in it is Sword_Dash,
+##   cutting;
 ## - the jump attack is Sword_GroundPound: the blade held over the head in the
 ##   air, played on at near its own pace when he lands, to its end, the chop
 ##   cutting.
@@ -84,22 +86,41 @@ func _initialize() -> void:
 	await physics_frame
 	Input.action_release("move_forward")
 	var clip := rig._anim.current_animation
-	_check("the evade is Sword_Dash", clip == "Sword_Dash", "(%s at x%.2f)" % [clip, rig._anim.speed_scale])
-	var cut := false
+	var roll := String(Swordsman.ROLL["clip"])
+	_check("the evade is the roll", clip == roll, "(%s at x%.2f)" % [clip, rig._anim.speed_scale])
 	var ahead := -player.global_transform.basis.z
 	while player.state == Player.State.DASHING:
 		await physics_frame
-		if not rig.get_cutting_edge().is_empty():
-			cut = true
 	var went := (player.global_position - from).dot(ahead)
-	_check("it cuts on the way", cut)
-	_check("it goes ahead 1.5-4 m", went > 1.5 and went < 4.0, "(%.2f m)" % went)
-	_check("still in it after the dash (its recovery)", rig._anim.current_animation == "Sword_Dash")
+	_check("it goes ahead 2-5 m", went > 2.0 and went < 5.0, "(%.2f m)" % went)
+	_check("still in it after the dash (getting up)", rig._anim.current_animation == roll,
+			"(%s)" % rig._anim.current_animation)
 	Input.action_press("move_forward")
 	await _frames(12)
-	_check("moving off gives it up", rig._anim.current_animation != "Sword_Dash",
+	_check("moving off gives it up", rig._anim.current_animation != roll,
 			"(%s)" % rig._anim.current_animation)
 	Input.action_release("move_forward")
+	await _frames(90)
+
+	# an attack pressed in the roll: Sword_Dash, cutting, out of its landing
+	Input.action_press("move_forward")
+	await physics_frame
+	await physics_frame
+	await _tap("dash")
+	await physics_frame
+	Input.action_release("move_forward")
+	await _frames(8)
+	await _tap("attack")
+	var dash_cut := false
+	var cut := false
+	for i in 90:
+		await physics_frame
+		if rig._anim.current_animation == "Sword_Dash":
+			dash_cut = true
+			if not rig.get_cutting_edge().is_empty():
+				cut = true
+	_check("an attack in the roll is Sword_Dash", dash_cut)
+	_check("...and it cuts", cut)
 	await _frames(90)
 
 	# the jump attack

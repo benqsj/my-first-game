@@ -11,10 +11,12 @@ extends RefCounted
 ##   back to guard by their own "_Rec"; C (a leap round the blade) ends
 ##   standing;
 ## - no move has another played in its place at random ("alts" emptied);
-## - the evade is Sword_Dash: low and forward, the blade drawn across on the
-##   way (a light cut, `EVADE.weight`), played whole: the dash is its lunge
-##   and its cut, the rest (the low hold and the rising) is its recovery,
-##   which moving off releases;
+## - the evade is a roll (the user's word 2026-10-13): Roll_Dive_From_Standing,
+##   its dive and roll (`ROLL.from` to `ROLL.share`) fitted to the dash, its
+##   getting up played on at `ROLL.rise_rate` where he stands; UAL 2 has no
+##   roll. Sword_Dash, the evade that cut on the way till then, is the roll's
+##   attack (`ROLL_ATTACK`): an attack pressed in a roll or straight out of
+##   one is the lunge low and forward with the blade drawn across;
 ## - the jump attack is Sword_GroundPound, which starts in UAL 2's aerial pose:
 ##   in the air it plays up to the blade raised over the head (`hold`) and
 ##   holds it there; landing, it plays on, the blade into the ground, at its
@@ -29,6 +31,15 @@ const RECOVER := {&"Sword_Regular_A": &"Sword_Regular_A_Rec", &"Sword_Regular_B"
 ## rate: Sword_Dash is 1.57 s; at 1.3 its lunge and cut (to 0.585 s of the
 ## clip) fill a 0.45 s dash, the cut at ~0.2-0.3 s of it.
 const EVADE := {"clip": &"Sword_Dash", "rate": 1.3, "weight": 0.6, "cut": Vector2(0.16, 0.25)}
+## The roll: from the crouch into the dive (0.17 of 2.4 s) to down on his
+## heels (0.64), fitted to the dash; standing up out of it (to `rise_until`)
+## at `rise_rate` (stills: _shots_tmp/ogf/clips/dive.jpg).
+const ROLL := {"clip": &"Roll_Dive_From_Standing", "from": 0.17, "share": 0.64, "rise_rate": 1.4,
+	"rise_until": 0.8}
+## Out of the roll: Sword_Dash from the blade wound up behind him, through
+## the lunge and its cut, to standing up out of it; worth a strong cut.
+const ROLL_ATTACK := {"clip": &"Sword_Dash", "rate": 1.5, "weight": 1.15, "from": 0.0, "until": 0.88,
+	"string_at": 1, "window": Vector2(0.16, 0.25), "trail": Vector2(0.1, 0.3)}
 ## hold: the blade at its highest (0.167 s of 1.167); cut: the chop, from the
 ## top to the blade in the ground (0.23-0.35 s), as shares.
 const JUMP_ATTACK := {"clip": &"Sword_GroundPound", "hold": 0.143, "cut": Vector2(0.19, 0.3)}
@@ -115,16 +126,22 @@ static func apply(t: Dictionary) -> void:
 		for c: StringName in s["clips"]:
 			t["flurry_part"][c] = Vector2(0.0, 1.0)
 			_measure(t, c)
-	var evade := EVADE.duplicate()
+	# the roll, and Sword_Dash its attack, cutting where it is measured to
+	t["clips"][&"roll"] = ROLL["clip"]
+	t["roll_share"] = {ROLL["clip"]: float(ROLL["share"])}
+	t["roll_from"] = {ROLL["clip"]: float(ROLL["from"])}
+	t["roll_rise"] = Vector2(float(ROLL["rise_rate"]), float(ROLL["rise_until"]))
+	var evade: Dictionary = ROLL_ATTACK.duplicate()
 	var cuts: Array = Moveset.clip_meta(evade["clip"]).get("cuts", [])
 	if not cuts.is_empty():
-		evade["cut"] = Vector2(float(cuts[0][0]), float(cuts[0][1]))
-	t["evade"] = evade
-	t["cut_window"][evade["clip"]] = evade["cut"]
+		evade["window"] = Vector2(float(cuts[0][0]), float(cuts[0][1]))
 	# the arc drawn behind the cut: the measured trail it falls in
 	for w: Array in Moveset.clip_meta(evade["clip"]).get("trails", []):
-		if float(w[0]) <= evade["cut"].x and float(w[1]) >= evade["cut"].y:
-			t["trail_window"][evade["clip"]] = Vector2(float(w[0]), float(w[1]))
+		if float(w[0]) <= evade["window"].x and float(w[1]) >= evade["window"].y:
+			evade["trail"] = Vector2(float(w[0]), float(w[1]))
+	t["roll_attack"] = evade
+	t["cut_window"][evade["clip"]] = evade["window"]
+	t["trail_window"][evade["clip"]] = evade["trail"]
 	var jump: Dictionary = JUMP_ATTACK.duplicate()
 	t["jump_attack"] = jump
 	t["clips"][&"plunge"] = jump["clip"]

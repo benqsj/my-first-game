@@ -10550,3 +10550,17 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   not already come in that low is bent forward from the waist till it does
   (most 44°), and only one that cannot falls back to the old fit. A kick, a
   butt or a foot stamp is left as it was. Its stance gaps change with it.
+- 2026-10-13 (the user's word: struck, an evade pressed while he reels was
+  lost; Souls keeps it): a dodge pressed in a blow's reel
+  (`_reel_until`, set where the blow commits him) is kept and thrown the
+  moment he has his feet, ahead of any cut asked for meanwhile, if no later
+  than `reel_dodge_keep` 0.3 s after the reel.
+- Tariel rolls (the user's word the same day): his evade is
+  `Roll_Dive_From_Standing` (UAL 2 has no roll; the dive with sword and
+  shield held), its crouch-to-heels part (0.17-0.64, `Swordsman.ROLL`,
+  `moves.roll_from`/`roll_share`) fitted to a 0.55 s dash at 9.5 m/s
+  (`dash_land_at` 0.9), its getting up played on at x1.4 where he stands
+  (`moves.roll_rise`). `Sword_Dash`, his evade that cut till now, is his
+  roll's attack (`Swordsman.ROLL_ATTACK`: from the blade wound up behind, the
+  lunge and its cut, x1.5 to 0.88 of it, worth 1.15 of a cut) in place of
+  every hero's thrust.

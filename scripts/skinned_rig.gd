@@ -2393,10 +2393,13 @@ func dodge(duration: float) -> void:
 	# the locomotion picks up instead.
 	var roll: StringName = _mq_roll() if _on_mq else clips[&"roll"]
 	var share := roll_share
+	var from := 0.0
 	if _on_mq:
 		share = float((moves.get("roll_share", {}) as Dictionary).get(roll, roll_share))
+		# a roll whose clip stands a while before it goes (Tariel's dive)
+		from = float((moves.get("roll_from", {}) as Dictionary).get(roll, 0.0))
 	var length := _anim.get_animation(roll).length if _anim.has_animation(roll) else 1.0
-	_play_action(roll, Role.ROLL, length * share / maxf(duration, 0.05), 0.05, 0.0, share)
+	_play_action(roll, Role.ROLL, length * (share - from) / maxf(duration, 0.05), 0.05, from, share)
 
 
 func dodge_clip(duration: float) -> bool:
@@ -2406,7 +2409,13 @@ func dodge_clip(duration: float) -> bool:
 	var length := _anim.get_animation(roll).length if _anim.has_animation(roll) else 0.0
 	if length <= 0.0:
 		return false
-	return _play_action(roll, Role.ROLL, length / maxf(duration, 0.05), 0.06)
+	var from := 0.0
+	var until := 1.0
+	if _on_mq and (moves.get("roll_from", {}) as Dictionary).has(roll):
+		# a roll with a start and an end of its own: those, a longer evade
+		from = float(moves["roll_from"][roll])
+		until = minf(float(moves["roll_rise"].y) if moves.has("roll_rise") else 1.0, 1.0)
+	return _play_action(roll, Role.ROLL, length * (until - from) / maxf(duration, 0.05), 0.06, from, until)
 
 
 func hit() -> void:
@@ -3419,6 +3428,11 @@ func _wear_moves() -> void:
 	# the picked blows were made at the game's pace (UAL 2's) or near it
 	# (Kevin's): not hurried as the Mixamo ones were
 	swing_rate = MQ_SWING_RATE * mq_swing_scale
+	if moves.has("roll_rise"):
+		# up out of a roll at its own pace where he stands ([Swordsman] ROLL)
+		roll_rise_rate = float(moves["roll_rise"].x)
+		roll_rise_until = float(moves["roll_rise"].y)
+		roll_out_blend = 0.25
 	if moves.has("jump_attack"):
 		# from the aerial pose up to the blade over the head, held till the
 		# ground; the landing plays on from there ([Swordsman])

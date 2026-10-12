@@ -172,7 +172,7 @@ func _check_bash() -> void:
 	# (held over the frame the press is read in)
 	await physics_frame
 	Input.action_release("move_forward")
-	_check("without the shield the dash is the evade", rig._anim.current_animation == "Sword_Dash",
+	_check("without the shield the dash is the evade", rig._anim.current_animation == String(Swordsman.ROLL["clip"]),
 			"(%s)" % rig._anim.current_animation)
 	orc.queue_free()
 	await _settle()
