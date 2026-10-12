@@ -10353,3 +10353,11 @@ blow fells is his to pick (the idea: a combo's last).
   blow ×1.6 puts in ~106 — 9 of them; a light cut ~5); `arm_stones` 20
   (`arm_stone_size` 0.15) from a third of the way up the club to its end.
   The stone is set on it every time it rages at half its health.
+
+- 2026-10-12 (the user's word: some swings far too slow — the spinning close
+  came so late that a late roll still cleared it): its spinning close
+  `OG_SPIN` (five_spin, five_read, stamp) rate 1.25 from 0.12 of the clip —
+  first blow 0.41 s (was 0.89 s); `OG_SPIN_SLIDE` 1.3 from 0.12 — 0.39 s (was
+  0.80); `OG_DOUBLE` 1.15 — 0.74 s (was 0.89); `WHIRL` 1.0 from 0.06 — 0.87 s
+  (was 1.29). The rest (0.3–0.6 s) unchanged; the heavy blow stays slow on
+  purpose. `_shots_tmp/blow_times.gd` prints every swing's first blow.

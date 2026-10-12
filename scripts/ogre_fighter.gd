@@ -455,13 +455,15 @@ const RAGE_ARM := 174
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
 ## the blow] or [] (always held, when given)].
+## (the spins and the double sped up, their slow start cut — the user's word
+## 2026-10-12: the spinning close came so slowly a late roll still cleared it)
 const COMBO_MOVES := {
 	OG_HORIZ: [&"CR_OG_Attack_Horizontal", Vector3(0.95, 0.1, 0.8), false, 0.6, [], &"og_horiz", []],
 	OG_BACK: [&"CR_OG_Attack_Backhand", Vector3(0.95, 0.08, 0.62), false, 0.6, [], &"og_back", []],
 	OG_DOWN: [&"CR_OG_Attack_Downward", Vector3(0.9, 0.05, 0.75), true, 1.1, [], &"og_down", []],
-	OG_SPIN: [&"CR_OG_Attack_360", Vector3(0.9, 0.0, 0.7), true, 1.2, [], &"og_spin", []],
+	OG_SPIN: [&"CR_OG_Attack_360", Vector3(1.25, 0.12, 0.7), true, 1.2, [], &"og_spin", []],
 	OG_TWIN: [&"CR_OG_Combo_3", Vector3(0.95, 0.12, 0.9), false, 0.5, [0.372, 0.617], &"og_twin", []],
-	OG_DOUBLE: [&"CR_OG_Combo_1", Vector3(0.95, 0.1, 0.85), false, 0.5, [0.372, 0.639], &"og_double", []],
+	OG_DOUBLE: [&"CR_OG_Combo_1", Vector3(1.15, 0.1, 0.85), false, 0.5, [0.372, 0.639], &"og_double", []],
 	OG_TRIPLE: [&"CR_OG_Combo_2", Vector3(0.95, 0.08, 0.85), false, 0.45, [0.217, 0.406, 0.617], &"og_triple", []],
 	OG_JUMP: [&"CR_OG_Jump_Attack", Vector3(0.9, 0.05, 0.85), true, 1.25, [], &"og_jump", []],
 	OG_DOWN_HELD: [&"CR_OG_Attack_Downward", Vector3(0.9, 0.05, 0.75), true, 1.15, [], &"og_down", [0.7, 1.0, 0.22]],
@@ -470,7 +472,7 @@ const COMBO_MOVES := {
 	OG_CLUB1H: [&"CR_OG_Club_Combo1H", Vector3(1.0, 0.22, 0.85), false, 0.45, [0.35, 0.594, 0.739], &"og_club", []],
 	OG_GROUND: [&"CR_OG_Zombie_Overhead", Vector3(0.95, 0.05, 0.6), true, 1.2, [], &"og_ground", []],
 	OG_MJUMP: [&"CR_OG_Mutant_Jump", Vector3(0.95, 0.02, 0.8), true, 1.35, [], &"og_mjump", []],
-	OG_SPIN_SLIDE: [&"CR_OG_Attack_360", Vector3(1.0, 0.0, 0.7), true, 1.25, [], &"og_spin", []],
+	OG_SPIN_SLIDE: [&"CR_OG_Attack_360", Vector3(1.3, 0.12, 0.7), true, 1.25, [], &"og_spin", []],
 	# [.., limbs that strike (as `attack_limbs`), the kind of blow]
 	OG_HEADBUTT: [&"CR_OG_Headbutt", Vector3(1.0, 0.1, 0.7), false, 0.4, [], &"og_headbutt", [],
 			"head_joint>head_joint@0.11,0.13,0:0.24", &"guard"],
@@ -545,7 +547,7 @@ const SWINGS := {
 	# (2026-10-11, the user's word: the sword pack's spin bobbed up and down
 	# on the spot, its hips rising 0.37 m and dropping; the club's own 360,
 	# low and grounded, in its place, played heavier)
-	WHIRL: [&"CR_OG_Attack_360", Vector3(0.82, 0.0, 0.88), true, 1.35, 0.3, &"front", 1],
+	WHIRL: [&"CR_OG_Attack_360", Vector3(1.0, 0.06, 0.88), true, 1.35, 0.3, &"front", 1],
 	KICK: [&"CR_Kick", Vector3(0.95, 0.0, 0.85), false, 0.35, 0.0, &"front", 99],
 	LUNGE: [&"CR_SwordDash", Vector3(0.9, 0.0, 0.9), false, 0.7, 0.0, &"front", 99],
 	# The smash, held a beat for the end of his roll: never an opener.
