@@ -37,7 +37,12 @@ const EVADE := {"clip": &"Sword_Dash", "rate": 1.3, "weight": 0.6, "cut": Vector
 ## set straight, [SkinnedRig] OWN_FOOT_FIX). The shield held as it was seen
 ## picked (`SHIELD_TURN`, UAL 2's Idle_Shield's measure).
 const STANCE := &"SS_Idle"
-const GUARD := &"SS_Block_Idle"
+## The guard (the user's pick, 2026-10-13, after the pack's block idle stood
+## too wide): UAL 2's Shield_OneShot, a raise and a lowering of the shield,
+## stood still with the shield up before the face (`GUARD_HELD`: at 0.3 of
+## it, stills _shots_tmp/ogf/clips/oneshot.jpg).
+const GUARD := &"Shield_Guard"
+const GUARD_HELD := [&"Shield_OneShot", 0.3]
 const SHIELD_TURN := 2.3
 ## The roll: from the crouch into the dive (0.17 of 2.4 s) to down on his
 ## heels (0.64), fitted to the dash; standing up out of it (to `rise_until`)
@@ -136,6 +141,7 @@ static func apply(t: Dictionary) -> void:
 			_measure(t, c)
 	# the stance and the guard
 	t["guard"] = STANCE
+	t["held_poses"] = {GUARD: GUARD_HELD}
 	t["clips"][&"block_idle"] = GUARD
 	(t["alts"] as Dictionary).erase(STANCE)
 	if not (t["looping"] as Array).has(STANCE):

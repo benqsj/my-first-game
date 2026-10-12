@@ -3405,6 +3405,32 @@ func _fix_own_feet(lib: AnimationLibrary, skel: Skeleton3D, own: Dictionary, deg
 			lib.add_animation(n, anim)
 
 
+## `src` stood still where it is at `share` of it: every track one value, a
+## second long, looping.
+static func _held_pose(src: Animation, share: float) -> Animation:
+	var at := src.length * share
+	var out := Animation.new()
+	out.length = 1.0
+	out.loop_mode = Animation.LOOP_LINEAR
+	for t in src.get_track_count():
+		var kind := src.track_get_type(t)
+		var value: Variant
+		match kind:
+			Animation.TYPE_ROTATION_3D:
+				value = src.rotation_track_interpolate(t, at)
+			Animation.TYPE_POSITION_3D:
+				value = src.position_track_interpolate(t, at)
+			Animation.TYPE_SCALE_3D:
+				value = src.scale_track_interpolate(t, at)
+			_:
+				continue
+		var n := out.add_track(kind)
+		out.track_set_path(n, src.track_get_path(t))
+		out.track_insert_key(n, 0.0, value)
+		out.track_insert_key(n, 1.0, value)
+	return out
+
+
 ## For a rig to add what it hangs off the mannequin's skeleton (a bow's
 ## modifier), once it is built.
 func _mannequin_built(_skel_mq: Skeleton3D) -> void:
@@ -3466,6 +3492,13 @@ func _wear_moves() -> void:
 		return
 	moves = Moveset.build(kind, _own_tables["clips"])
 	_set_tables(_own_tables)
+	var hl: AnimationLibrary = _mq["lib"]
+	# a pose held still out of a clip that moves through it (Tariel's guard:
+	# Shield_OneShot with the shield up, [Swordsman] GUARD_HELD)
+	for held: StringName in (moves.get("held_poses", {}) as Dictionary):
+		var spec: Array = moves["held_poses"][held]
+		if not hl.has_animation(held) and hl.has_animation(spec[0]):
+			hl.add_animation(held, _held_pose(hl.get_animation(spec[0]), float(spec[1])))
 	for slot: StringName in moves["clips"]:
 		var clip: StringName = moves["clips"][slot]
 		if clip != &"" and _anim.has_animation(clip):

@@ -10576,3 +10576,9 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
     (`Swordsman.STANCE`/`GUARD`), picked from UAL 2's, Kevin's, his own and
     four new from Mixamo (TR_Axe_Idle, TR_Ready_Idle, TR_Block_Axe,
     TR_Block_Arms, in tariel_extra, kept unused).
+  - the guard then made UAL 2's `Shield_OneShot` stood still at 0.3 of it,
+    the shield up before the face and the feet close (the user's pick: the
+    pack's block idle stood too wide): `Swordsman.GUARD` "Shield_Guard",
+    `GUARD_HELD`; built at load by `moves.held_poses` /
+    `SkinnedRig._held_pose` (every track sampled there, a second long,
+    looping). Walking with it up, the walk's legs under it.
