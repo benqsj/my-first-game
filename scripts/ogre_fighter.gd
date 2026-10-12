@@ -227,6 +227,45 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var arm_stones: int = 20
 @export var arm_stone_size: float = 0.15
 @export var rage_damage: float = 1.5
+@export_group("Get off me")
+## (the user's word, 2026-10-12: greed must cost — souls-like) cut at
+## `getoff_hits` times in `getoff_window` s, or stood under it `getoff_under`
+## s (within `getoff_under_gap` m at 1.6), it stamps the ground round itself
+## as soon as it is free: a grunt and its foot up first (the tell), then the
+## ground bursting out to `getoff_radius` (m at 1.6) — a stagger worth
+## `getoff_share` of `hit_damage`, never a fall. Then not again for
+## `getoff_cooldown` s.
+@export var getoff_hits: int = 3
+@export var getoff_window: float = 2.0
+@export var getoff_under: float = 1.2
+@export var getoff_under_gap: float = 1.25
+@export var getoff_radius: float = 3.0
+@export var getoff_share: float = 0.3
+@export var getoff_rate: float = 0.9
+@export var getoff_cooldown: Vector2 = Vector2(7.0, 11.0)
+## (the same: a giant winds up slowly) a string's first swing comes no
+## sooner than this many seconds after it starts it — its wind-up drawn out,
+## the blow as quick as ever; the swings it runs on into are as they were.
+@export var opener_least: float = 0.6
+## (the same, phase 2 a fight of its own) enraged, its overhead blows break the
+## ground where they land: rock bursting up round it out to `rage_ground_radius`
+## (m at 1.6), worth `rage_ground_share` — a roll or a jump clears it, standing
+## off at middle reach no longer does.
+@export var rage_ground_radius: float = 4.0
+@export var rage_ground_share: float = 0.45
+## (the same) where its body is struck: a cut low on its legs fills its stance
+## `legs_stance` times as much; one high on its head bites `head_damage`
+## times as deep. Shares of its height: legs under `legs_below`, the head over
+## `head_above`.
+@export var legs_stance: float = 1.5
+@export var head_damage: float = 1.3
+@export var legs_below: float = 0.35
+@export var head_above: float = 0.78
+## (the same) two fighting it: its health grown by this share for each hero
+## past the first near it (Elden Ring's), back to its own at home.
+@export var party_health: float = 0.6
+## (the same) between the camera and him, it fades so he is seen.
+@export var fade_between: float = 0.55
 @export_group("Punish")
 ## Him casting near it, or drawing his bow / gathering a bolt (the user's
 ## word, 2026-10-11: Elden Ring's punish of the flask and the spell): it is
@@ -472,6 +511,8 @@ const GRAB := 171
 ## Enraged, after the roar: its club driven into the ground, stone coming up
 ## onto it ([member arm_clip]).
 const RAGE_ARM := 174
+## Its stamp round itself, when he is greedy or under it ([member getoff_hits]).
+const GETOFF := 175
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, its blows'
 ## moments (shares of the clip; empty: where the club reaches furthest),
 ## name ([member BLOW_NAMES]), held at the top [shortest, longest, s before
@@ -695,6 +736,23 @@ var _glow_sparks: GPUParticles3D
 var _glow_core: MeshInstance3D
 ## Every peer: its waist bent over him ([LeanModifier]).
 var _lean: LeanModifier
+## Whether the swing now is the first of its string (drawn-out wind-up,
+## [member opener_least]); every peer has it with `act`.
+var act_opens: bool = false
+## Host: when his cuts landed lately, how long he has stood under it, and
+## the stamp's due, its wait, and how many it has made.
+var _cut_times: Array = []
+var _under_for: float = 0.0
+var _getoff_due: bool = false
+var _getoff_wait: float = 0.0
+var getoffs_made: int = 0
+## Its stance share from where the cut now landed (legs), for [method _stance_weight].
+var _part_stance: float = 1.0
+## Its own health before more heroes came ([member party_health]).
+var _own_health: float = -1.0
+## How faded it is now (every peer, his own camera's).
+var _faded: float = 0.0
+var rage_grounds: int = 0
 ## Its bend over swings that would go over his head (`stoop_most`).
 var _stoop: LeanModifier
 ## what -> degrees it bends through that swing.
@@ -779,6 +837,7 @@ func _ready() -> void:
 	_windups[HEAVY] = [heavy_slow, heavy_lead]
 	_special(STOMP, stomp_clip, stomp_part)
 	_special(TAUNT, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.96))
+	_special(GETOFF, &"CR_OG_Stomp", Vector3(getoff_rate, 0.05, 0.75))
 	_special(GRAB, grab_clip, Vector3(grab_rate, 0.0, 0.97))
 	_kinds[GRAB] = &"smash"
 	_make_grab_glow()
@@ -904,6 +963,8 @@ func _own_move(delta: float) -> bool:
 	_stomp_wait = maxf(_stomp_wait - delta, 0.0)
 	_lunge_wait = maxf(_lunge_wait - delta, 0.0)
 	_kick_wait = maxf(_kick_wait - delta, 0.0)
+	if _getoff(_distance_to(_quarry)):
+		return true
 	_leap_slam_wait = maxf(_leap_slam_wait - delta, 0.0)
 	_run_slam_wait = maxf(_run_slam_wait - delta, 0.0)
 	var gap := _distance_to(_quarry)
@@ -1856,6 +1917,7 @@ func _begin_move(what: int, prev: int = -1) -> void:
 		_chain_blow += n
 		var kind := _combo_kind(prev)
 		_kind_blows[kind] = int(_kind_blows.get(kind, 0)) + n
+	act_opens = prev < 0 and (SWINGS.has(what) or COMBO_MOVES.has(what))
 	_string_count += 1
 	_pounded = false
 	_jump_speed = 0.0
@@ -2602,6 +2664,22 @@ func _run_act(delta: float) -> void:
 			net_rocks.rpc(at, act_serial, length, 1.4)
 		else:
 			net_rocks(at, act_serial, length, 1.4)
+	elif raging and OVERHEAD.has(act) and not FLIGHTS.has(act) and act != CATCH and not _pounded \
+			and _strikes_table.has(act) and _act_time >= _blow_moments(act)[0]:
+		# enraged, the ground breaks under its overhead blows
+		_pounded = true
+		var tip := _weapon_tip_at()
+		var at := Vector3(tip.x, global_position.y, tip.z)
+		var s := visual_scale / 1.6
+		rage_grounds += 1
+		_quake(at, rage_ground_radius * s, hit_damage * rage_ground_share, false, rock_pace)
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_rocks.rpc(at, act_serial, rage_ground_radius * s, 0.6)
+		else:
+			net_rocks(at, act_serial, rage_ground_radius * s, 0.6)
+	elif act == GETOFF and not _pounded and _act_time >= _getoff_at():
+		_pounded = true
+		_getoff_shock()
 	elif FLIGHTS.has(act) and not _pounded and _act_time >= _blow_moments(act)[0]:
 		# down out of its leap: the ground breaks under it, rock bursting up
 		# all round, whoever stands near thrown down
@@ -2670,6 +2748,9 @@ func _physics_process(delta: float) -> void:
 	# between strings, so 12–20 s became a minute)
 	if _decides() and act != GRAB and not is_dead:
 		_grab_wait = maxf(_grab_wait - delta, 0.0)
+	if _decides() and not is_dead:
+		_watch_under(delta)
+		_watch_party()
 	if _shocks.is_empty() or is_dead or not _decides():
 		return
 	for i in range(_shocks.size() - 1, -1, -1):
@@ -2764,6 +2845,15 @@ func _after(what: int) -> void:
 		velocity.z = 0.0
 		_begin(RAGE_ARM)
 		return
+	if stringed and not is_dead and _decides() and _getoff_due and _quarry != null \
+			and _getoff(_distance_to(_quarry)):
+		# its string broken off for the stamp: he was greedy, or under it
+		_string_count = 0
+		_chain_serial = -1
+		_chain_blow = 0
+		_closing = false
+		_combo = -1
+		return
 	if next >= 0:
 		# On into the next, turned a little after him.
 		if _quarry != null:
@@ -2818,6 +2908,7 @@ func _process(delta: float) -> void:
 	_strain_in_hold()
 	_bend_over_him(delta)
 	_stoop_into(delta)
+	_fade_if_between(delta)
 	_grab_tell()
 	_lift_in_flight()
 	_take_off()
@@ -3034,6 +3125,198 @@ func _posed_frames(what: int, m: Array, frames: Array, from: float, to: float, s
 	return out
 
 
+## A string's first swing drawn out to `opener_least` s before its blow (its
+## wind-up slowed; held swings and the slow great blow are slow enough).
+func _shape(what: int) -> Array:
+	var sh := super(what)
+	if _in_lin or not sh.is_empty() or what != act or not act_opens or opener_least <= 0.0 \
+			or not (SWINGS.has(what) or COMBO_MOVES.has(what)) or not _strikes_table.has(what):
+		return sh
+	var lead := 0.1
+	var k := _windup_end(what, lead)
+	if k <= 0.05 or k + lead >= opener_least:
+		return sh
+	return [k, minf((opener_least - lead) / k, 4.0), 0.0]
+
+
+## Host: his cuts on it, counted for its stamp; where on its body it is struck.
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	var tall := maxf(body_height * visual_scale, 0.5)
+	var up := (at.y - global_position.y) / tall
+	_part_stance = legs_stance if up < legs_below else 1.0
+	if up > head_above:
+		damage *= head_damage
+	var bled := super(damage, at, blow, from, magic)
+	_part_stance = 1.0
+	if bled and not is_dead and from != null and from.is_in_group(&"player") and _decides():
+		var now := Time.get_ticks_msec() / 1000.0
+		_cut_times.append(now)
+		while not _cut_times.is_empty() and now - float(_cut_times[0]) > getoff_window:
+			_cut_times.pop_front()
+		if _cut_times.size() >= getoff_hits:
+			_getoff_due = true
+	return bled
+
+
+func _stance_weight(from: Node3D, magic: bool) -> float:
+	return super(from, magic) * _part_stance
+
+
+## Host, every tick: its health grown for each more hero fighting it.
+func _watch_party() -> void:
+	if _own_health < 0.0:
+		_own_health = max_health
+	if party_health <= 0.0 or mode == Mode.GUARD or mode == Mode.RETURN:
+		return
+	var n := 0
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var who := node as Node3D
+		if who == null or bool(who.get("is_dead")):
+			continue
+		if who.global_position.distance_to(global_position) <= sight_range * 1.5:
+			n += 1
+	var want := _own_health * (1.0 + party_health * maxf(n - 1, 0))
+	if want > max_health + 0.5:
+		health += want - max_health
+		max_health = want
+
+
+func _made_whole() -> void:
+	super()
+	if _own_health > 0.0 and max_health > _own_health:
+		max_health = _own_health
+		health = max_health
+	if _club_stones != null:
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_club_clean.rpc()
+		else:
+			net_club_clean()
+
+
+## Every peer: the stone off its club again (home and calm).
+@rpc("authority", "call_local", "reliable")
+func net_club_clean() -> void:
+	if _club_stones != null:
+		_club_stones.queue_free()
+		_club_stones = null
+
+
+## Every peer, his own camera: faded while it stands between the camera and
+## the hero the camera follows, so he is never lost behind it.
+func _fade_if_between(delta: float) -> void:
+	if fade_between <= 0.0 or body == null or not is_inside_tree():
+		return
+	var cam := get_viewport().get_camera_3d()
+	var want := 0.0
+	if cam != null and not is_dead:
+		var me: Node3D = null
+		for node in get_tree().get_nodes_in_group(&"player"):
+			var p := node as Node3D
+			if p != null and p.is_multiplayer_authority():
+				me = p
+				break
+		if me != null:
+			var from := cam.global_position
+			var to := me.global_position + Vector3.UP * 1.0
+			var r := body_radius * visual_scale
+			var bottom := global_position + Vector3.UP * r
+			var top := global_position + Vector3.UP * maxf(body_height * visual_scale - r, r)
+			var pts := Geometry3D.get_closest_points_between_segments(from, to, bottom, top)
+			var nearer := from.distance_to(global_position) < from.distance_to(me.global_position)
+			if nearer and (pts[0] as Vector3).distance_to(pts[1]) < r * 1.1:
+				want = fade_between
+	_faded = move_toward(_faded, want, delta * 3.0)
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		mi.transparency = _faded
+
+
+## Host, every tick: how long he has stood in under it.
+func _watch_under(delta: float) -> void:
+	_getoff_wait = maxf(_getoff_wait - delta, 0.0)
+	if _quarry == null or not is_instance_valid(_quarry):
+		_under_for = 0.0
+		return
+	if _distance_to(_quarry) <= getoff_under_gap * visual_scale / 1.6:
+		_under_for += delta
+		if _under_for >= getoff_under:
+			_getoff_due = true
+	else:
+		_under_for = 0.0
+
+
+## Host, free between moves: its stamp, if it is due and he is near.
+func _getoff(gap: float) -> bool:
+	if not _getoff_due:
+		return false
+	if _getoff_wait > 0.0 or _quarry_down() or gap > getoff_radius * visual_scale / 1.6:
+		_getoff_due = false
+		_cut_times.clear()
+		return false
+	_getoff_due = false
+	_cut_times.clear()
+	_under_for = 0.0
+	_getoff_wait = _rng.randf_range(getoff_cooldown.x, getoff_cooldown.y)
+	getoffs_made += 1
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	act_opens = false
+	_pounded = false
+	_begin(GETOFF)
+	return true
+
+
+## Act seconds its stamping foot comes down (as its foot stamp's, at its pace).
+func _getoff_at() -> float:
+	var ms := _blow_moments(OG_STOMP_FOOT)
+	if ms.is_empty():
+		return 0.4
+	return ms[0] * float((_moves_table[OG_STOMP_FOOT] as Array)[1]) / maxf(getoff_rate, 0.01)
+
+
+## Host: the stamp's burst — everyone on the ground near staggered back.
+func _getoff_shock() -> void:
+	var r := getoff_radius * visual_scale / 1.6
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var who := node as Node3D
+		if who == null or not who.has_method(&"receive_blow") or bool(who.get("is_dead")):
+			continue
+		var rel := who.global_position - global_position
+		if absf(rel.y) > 2.0 or Vector2(rel.x, rel.z).length() > r:
+			continue
+		who.call(&"receive_blow", hit_damage * getoff_share * _blow_worth(0), self, 0, 99,
+				act_serial * 1000 + 95, false, &"ground")
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_getoff.rpc()
+	else:
+		net_getoff()
+
+
+## Every peer: the stamp's burst — earth thrown up round its foot and out
+## along the ground (no ring), the crack of it, the view jolted.
+@rpc("authority", "call_local", "reliable")
+func net_getoff() -> void:
+	var into := Blood.world_of(self)
+	var s := visual_scale / 1.6
+	var foot := global_position
+	if _skeleton != null:
+		var b := _skeleton.find_bone("R_toe_joint")
+		if b >= 0:
+			foot = _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin
+	foot.y = global_position.y
+	GroundFx.eruption(into, foot + Vector3.UP * 0.05, 1.1 * s, false)
+	SkillFx.particles(into, global_position + Vector3.UP * 0.2, {
+		"amount": 70, "life": 0.7, "one_shot": true, "explosiveness": 0.95, "add": false,
+		"speed": Vector2(5.0, 9.0) * s, "dir": Vector3(1, 0.1, 0), "spread": 180.0,
+		"gravity": Vector3(0, -2.0, 0), "damping": 7.0, "size": Vector2(0.3, 0.7) * s, "grow": 0.6,
+		"sphere": 0.5 * s,
+		"colors": [Color(0.55, 0.5, 0.45, 0.0), Color(0.5, 0.45, 0.4, 0.5), Color(0.45, 0.42, 0.4, 0.0)],
+	})
+	ImpactFx.thud(self, foot + Vector3.UP * 0.2, true)
+	_sound_at(CLUB_GROUND, foot, 0.8, 2.0)
+	WindBlast.shake(self, 0.16, 0.4, 16.0)
+
+
 ## Host: a swing begun nearer him than its blow lands from has the clip's
 ## own step in shortened, so it does not walk into him and bring its club
 ## down beyond him (a step the size of a giant's, 2026-10-12).
@@ -3240,6 +3523,9 @@ func _is_heavy(what: int) -> bool:
 
 
 func _on_new_act() -> void:
+	if act == GETOFF:
+		# its foot up: the grunt that says it is coming
+		Sfx.play_any(self, GRUNTS, self, 0.8, 2.0)
 	if act == RAGE:
 		Sfx.play(self, ROAR_SOUND, self, Vector3.ZERO, 0.95, 2.0)
 	elif act == TAUNT:

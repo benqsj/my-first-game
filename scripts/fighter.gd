@@ -377,6 +377,7 @@ func _think(delta: float) -> void:
 				health = max_health
 				stamina = max_stamina
 				_wait = 1.0
+				_made_whole()
 			else:
 				_move_towards(_home, speed * 1.6, delta)
 
@@ -424,6 +425,12 @@ func _rouse(who: Node3D) -> void:
 		if mate != null and mate != self and not mate.is_dead and mate.mode == Mode.GUARD:
 			mate._quarry = who
 			mate.mode = Mode.CHASE
+
+
+## Host: home again after a fight and made whole; a kind puts the rest of
+## itself back as it was (the ogre's rage, its stoned club).
+func _made_whole() -> void:
+	pass
 
 
 func _go_home() -> void:

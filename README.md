@@ -10438,3 +10438,52 @@ blow fells is his to pick (the idea: a combo's last).
   blow on it kneeling takes just that share of its whole health, whatever
   struck it (laid on before its defence). The ogre 0.1: 52 of 520 (was 44,
   3× a cut).
+
+### The ogre made a souls-like fight (2026-10-12, the user's word: "it must be hard to kill, you must learn it")
+
+From the analysis (project doc `claude/ogre_soulslike_analysis.md`); the user
+took every proposal, the riposte at 10 % rather than 15–17 %.
+
+- **Its blows hard.** `hit_damage` 72 (was 42): through Tariel's defence a
+  light swing ~10 % of his health, a heavy one ~17 %, the swipe ~30 %, the
+  leap with its ground ~35 %; enraged ×1.5.
+- **No stamina to run out of** (`attack_cost` 0): no rhythm of rests to wait
+  for.
+- **Flasks** (`Player.flask_*`, R — `Controls`): four, each mending 40 % of
+  his health. The drink (UAL 2's `Consume`, ~1.35 s) holds him to a walk and
+  cannot be rolled out of; the health comes at 0.65 of it, and a blow landing
+  before that spills it, flask gone all the same. All four back after a
+  death. The ogre takes a drink for a spell and is at him for it
+  (`net_casts`). Four vials under his stamina bar (`PlayerHud._draw_flasks`).
+- **Its stamp round itself** ("get off me", `GETOFF`, `getoff_*`): cut 3
+  times within 2 s, or hugged within ~1.9 m for 1.2 s, then as soon as it is
+  between moves (its string broken off for it): a grunt and its foot up
+  (~0.4 s), the ground bursting out to 4.5 m — a stagger worth 0.3 of a blow,
+  never a fall. Not again for 7–11 s.
+- **A giant's wind-up** (`opener_least` 0.6, `act_opens` replicated): a
+  string's or a combo's first swing comes no sooner than 0.6 s (its wind-up
+  drawn out, the blow as quick); the swings it runs on into stay quick.
+- **The riposte** a tenth of its health (`stance_crit_share`).
+- **Combos more than strings** (`combo_chance` 0.7 calm, 0.8 enraged).
+- **Phase 2 changes the fight**: enraged, its overhead blows break the ground
+  where they land — a quake out to 6 m worth 0.45 (a roll or a jump clears
+  it), so standing off at middle reach is no longer safe.
+- **Where it is struck**: a cut low on its legs (under 0.35 of its height)
+  fills its stance ×1.5; one on its head (over 0.78) bites ×1.3.
+- **Two fighting it**: its health grows by 0.6 for each hero past the first
+  near it (`party_health`), back to its own at home.
+- **Home and whole, calm again** (`Fighter._made_whole`, `PackBrute.net_calm`):
+  a retry is the whole fight — rage undone, the stone off its club.
+- **Between the camera and him it fades** (`fade_between` 0.55).
+- **A bot against it** (`tests/ogre_duel_test.gd`, prints DUEL lines; `--
+  good` etc. for one): Tariel through his own buttons, three ways — rolls in
+  time ("good"), late and half the time not ("bad"), cuts and cuts ("greedy").
+  Numbers now (calm then enraged, 520 health): the good roller dies in 55–65 s
+  with the ogre at 35–41 %; the bad one in 40–46 s (ogre 84–92 %); the greedy
+  one in 32–50 s (ogre 83–85 %), hurt half again as fast for each second as
+  the good one. The bot never found the moment for a flask: low on health
+  ~9 s of a fight, half of it on the ground, the rest under its blows — a
+  flask has to be made room for, as in Elden Ring.
+- Tests: `ogre_greed_test`, `flask_test`, `ogre_duel_test`, with
+  `ogre_test`, `ogre_combo_test`, `riposte_test`, `creature_blows_test`,
+  `brutes_test`, `blow_landing_test`.

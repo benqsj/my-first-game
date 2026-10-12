@@ -342,7 +342,10 @@ func _stance() -> void:
 func _cut(ogre: OgreFighter, hero: Player, damage: float, weight: float) -> void:
 	if hero.rig != null and hero.rig.get(&"cut_weight") != null:
 		hero.rig.set(&"cut_weight", weight)
-	var hit := HitInfo.make(damage * weight, ogre.global_position + Vector3.UP * 1.5, Vector3.FORWARD, false, true, hero)
+	# on its middle (low on its legs a cut fills its stance more, high on its
+	# head it bites deeper: [member OgreFighter.legs_stance])
+	var hit := HitInfo.make(damage * weight, ogre.global_position + Vector3.UP * 0.5 * ogre.body_height * ogre.visual_scale,
+			Vector3.FORWARD, false, true, hero)
 	hit.by_blade = true
 	ogre.receive_hit(hit)
 

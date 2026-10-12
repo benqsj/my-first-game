@@ -688,6 +688,48 @@ func net_rage() -> void:
 	_glow_on()
 
 
+## Host: home and whole again — calm again too, so the next fight begins at
+## its beginning (the user's word, 2026-10-12: a retry must be the whole fight).
+func _made_whole() -> void:
+	stance_taken = 0.0
+	if not raging:
+		return
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_calm.rpc()
+	else:
+		net_calm()
+
+
+## Every peer: its rage undone ([method net_rage] backwards).
+@rpc("authority", "call_local", "reliable")
+func net_calm() -> void:
+	if not raging:
+		return
+	raging = false
+	speed /= rage_pace
+	chase_speed /= rage_pace
+	close_speed /= rage_pace
+	attack_cooldown /= 0.4
+	stamina_regen /= 1.6
+	for what: int in _moves_table:
+		if what != RAGE and what != ROAR and what != PIECES and what != REFORM:
+			var m: Array = (_moves_table[what] as Array).duplicate()
+			m[1] = float(m[1]) / rage_pace
+			_moves_table[what] = m
+	_glow_off()
+
+
+func _glow_off() -> void:
+	if body != null:
+		for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+			if mi.material_overlay == _glow:
+				mi.material_overlay = null
+	if _glow_light != null:
+		_glow_light.queue_free()
+		_glow_light = null
+	_glow = null
+
+
 func _glow_on() -> void:
 	if body == null:
 		return
