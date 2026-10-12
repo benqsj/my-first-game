@@ -308,6 +308,12 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var stoop_most: float = 44.0
 @export var stoop_step: float = 4.0
 @export var stoop_margin: float = 8.0
+## The body each swing is fitted to (the user's word 2026-10-13: playing the
+## assassin, the club went over his head and still hurt him): the chest of
+## the shortest hero and below, (low, high, m from his middle the club must
+## come), so the club is seen to go into him, not over him; a swing that
+## cannot be bent so far is fitted to the sweep's own body as before.
+@export var stoop_body: Vector3 = Vector3(0.0, 1.2, 0.22)
 ## Its hand's light through the tell.
 @export var grab_glow: Color = Color(0.35, 0.62, 1.0)
 ## From how far it comes at him (m at its size; it slides in on him).
@@ -3058,37 +3064,55 @@ func _fit_stoops() -> void:
 	if _anim == null or _stoop == null:
 		return
 	for what: int in _strikes_table:
-		if _strike_from.has(what) or what == GRAB:
+		if what == GRAB:
 			continue
 		var s: Array = _strikes_table[what]
 		if s.size() < 6 or (s[5] as PackedFloat32Array).is_empty():
 			continue
 		var moments: PackedFloat32Array = s[5]
-		# the least bend that lands the most of its blows from about one gap
-		# (a string of blows from one place), then a little deeper, if that
-		# lands as many, so the club meets him across the chest rather than
-		# grazing the top of his head
-		var best_bend := -1.0
-		var best_score := 0
-		var best_from := -1.0
-		var bend := stoop_step
-		while bend <= stoop_most + 0.01:
-			var got := _stoop_score(what, moments, bend)
-			if int(got[0]) > best_score:
-				best_score = int(got[0])
-				best_bend = bend
-				best_from = float(got[1])
-			bend += stoop_step
-		if best_bend < 0.0:
+		# a kick or a butt (a limb, not the club) only bent if it would miss
+		# outright, as before
+		if (_limbs_of.has(what) or what in [KICK, OG_HEADBUTT, OG_STOMP_FOOT]) and _strike_from.has(what):
 			continue
-		var deeper := minf(best_bend + stoop_margin, stoop_most)
-		var got := _stoop_score(what, moments, deeper)
-		if int(got[0]) >= best_score:
-			best_bend = deeper
-			best_from = float(got[1])
-		_stoops[what] = best_bend
-		_strike_from[what] = best_from
+		_fit_body = stoop_body
+		# a swing that already comes into his chest, as it is, is left as it is
+		if _gap_that_lands(what, _moves_table[what], moments[0]) > 0.0:
+			_fit_body = Vector3.ZERO
+			continue
+		if not _fit_stoop(what, moments) and not _strike_from.has(what):
+			_fit_body = Vector3.ZERO
+			_fit_stoop(what, moments)
+		_fit_body = Vector3.ZERO
 	_measure_bend = 0.0
+
+
+## The least bend that lands `what` on the body being fitted to (false: none).
+func _fit_stoop(what: int, moments: PackedFloat32Array) -> bool:
+	# the least bend that lands the most of its blows from about one gap
+	# (a string of blows from one place), then a little deeper, if that
+	# lands as many, so the club meets him across the chest rather than
+	# grazing the top of his head
+	var best_bend := -1.0
+	var best_score := 0
+	var best_from := -1.0
+	var bend := stoop_step
+	while bend <= stoop_most + 0.01:
+		var got := _stoop_score(what, moments, bend)
+		if int(got[0]) > best_score:
+			best_score = int(got[0])
+			best_bend = bend
+			best_from = float(got[1])
+		bend += stoop_step
+	if best_bend < 0.0:
+		return false
+	var deeper := minf(best_bend + stoop_margin, stoop_most)
+	var got := _stoop_score(what, moments, deeper)
+	if int(got[0]) >= best_score:
+		best_bend = deeper
+		best_from = float(got[1])
+	_stoops[what] = best_bend
+	_strike_from[what] = best_from
+	return true
 
 
 ## [how many of the blows land bent `bend` from about the gap the first lands

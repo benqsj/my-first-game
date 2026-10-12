@@ -95,6 +95,10 @@ const PIECES := 120
 const REFORM := 121
 
 var _weapon: int = -1
+## While fitting a swing to a man (a creature that bends over its blows): the
+## body it must meet, (low, high, how near its axis), in place of the sweep's
+## own; zero: the sweep's.
+var _fit_body: Vector3 = Vector3.ZERO
 ## Act -> the gap its blow lands from (`strike_at_reach`), else `strike_off`.
 var _strike_from: Dictionary = {}
 ## Parsed `attack_limbs` / `big_limbs`: act -> [[from bone, to bone, tip, radius], ...].
@@ -277,6 +281,12 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 	var s := maxf(visual_scale, 0.01)
 	# The limb grows with the creature; the hero does not.
 	var touch := radius * s + WeaponSweep.BODY_RADIUS + WeaponSweep.GRAZE - 0.05
+	var body_low := WeaponSweep.BODY_LOW
+	var body_high := WeaponSweep.BODY_HIGH
+	if _fit_body != Vector3.ZERO:
+		body_low = _fit_body.x
+		body_high = _fit_body.y
+		touch = radius * s + _fit_body.z
 	# A sample counts only moving as fast as a blow must (`blow_min_speed`,
 	# at the stretch's far end, in act seconds), as the sweep will count it.
 	var step_act := (share_before + share_after) * length / 14.0 / rate
@@ -286,8 +296,8 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 	var last := -1.0
 	var d := 0.5
 	while d <= strike_off + 1.2:
-		var low := fwd * d / s + Vector3.UP * WeaponSweep.BODY_LOW / s
-		var high := fwd * d / s + Vector3.UP * WeaponSweep.BODY_HIGH / s
+		var low := fwd * d / s + Vector3.UP * body_low / s
+		var high := fwd * d / s + Vector3.UP * body_high / s
 		var hit := false
 		for fi in frames.size():
 			var frame: Array = frames[fi]
