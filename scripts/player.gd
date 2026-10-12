@@ -1846,6 +1846,12 @@ func _process_dash(delta: float) -> void:
 	if _evade_queued and _evade_landed():
 		_end_dash()
 		return
+	# So does an attack pressed in it: the roll's thrust comes straight out of
+	# the landing, one move with it (the user's word 2026-10-13: it waited out
+	# the getting up and read as a second press).
+	if _roll_cut_asked and _evade_landed():
+		_end_dash()
+		return
 
 	# Going face-first into a wall should stop the evade, not scrape along it.
 	if dash_cancels_on_wall and is_on_wall() and get_wall_normal().dot(_dash_direction) < -0.6:

@@ -110,13 +110,18 @@ func _run() -> void:
 		await physics_frame
 	hero._attack(false)
 	var clip := &""
+	var frames := 6
 	for i in 60:
 		await physics_frame
+		frames += 1
 		var c: StringName = hero.rig.call(&"current_clip")
 		if c == SkinnedRig.ROLL_ATTACK["clip"]:
 			clip = c
 			break
 	_check("an attack pressed in a roll: its own quick thrust after it", clip == SkinnedRig.ROLL_ATTACK["clip"], str(hero.rig.call(&"current_clip")))
+	# out of the landing, not after the getting up (the user's word 2026-10-13)
+	var whole := int(ceil(hero.dash_duration * Engine.physics_ticks_per_second))
+	_check("...straight out of the landing, before the roll's end", frames < whole, "%d frames of %d" % [frames, whole])
 	for i in 90:
 		await physics_frame
 	# and an attack long after a roll is the plain string

@@ -10535,3 +10535,18 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   the club clears its stone too; one thrown too early (the club never met
   him in it), or none, does not. And `dash_iframes` 0.35 (was 0.3) of the
   0.45 s roll.
+- 2026-10-13 (the user's word, playing the assassin: an attack pressed in
+  the roll waited out the whole of it, getting up and all, and read as a
+  second press): the roll's thrust now comes straight out of its landing
+  (`_process_dash`: `_roll_cut_asked` and `_evade_landed()` end the evade
+  there, as a queued evade does), and no frame of standing between them.
+  A hero whose evade has no landing point waits for its end as before; a
+  hero with no blade (bow, staff) has no thrust.
+- The same day, the ogre's club over the assassin's head: the swings were
+  fitted (`OgreFighter._fit_stoops`) to the sweep's own body, 1.78 m tall
+  and a hand wider than a man, so a club going over a 1.80 m man still
+  "landed". Now each club swing is fitted to `stoop_body` (ground to 1.2 m,
+  the club within 0.22 m of his middle; `Brawler._fit_body`): one that does
+  not already come in that low is bent forward from the waist till it does
+  (most 44°), and only one that cannot falls back to the old fit. A kick, a
+  butt or a foot stamp is left as it was. Its stance gaps change with it.
