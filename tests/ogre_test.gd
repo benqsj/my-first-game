@@ -48,7 +48,7 @@ extends SceneTree
 ##   the ground still bursts; behind a shield it reaches for him in a free
 ##   fight.
 ## * swipes: in a plain free fight (nothing turned off) it swipes at him
-##   within 45 s, more than once (the user's word, 2026-10-12: it never came).
+##   within 60 s, more than once (the user's word, 2026-10-12: it never came).
 ## * punish: him casting near it, it is at him at once — a swing in reach, a
 ##   lunge from 6 m, a leap from 11 m; drawing his bow a while at 6 m, a
 ##   lunge; left alone at 11 m it does not leap at once.
@@ -289,19 +289,21 @@ func _stance() -> void:
 	for i in 20:
 		await physics_frame
 	# A light cut and a heavy blow of the same damage: the heavy fills more.
-	var light := _stance_of(ogre, hero, 20.0, 1.0)
-	var heavy := _stance_of(ogre, hero, 20.0, 1.6)
+	# (a hero's cut is worth about 26 at the start)
+	var light := _stance_of(ogre, hero, 26.0, 1.0)
+	var heavy := _stance_of(ogre, hero, 26.0, 1.6)
 	_check("a heavy blow fills its stance faster than a light one", heavy > light * 2.0, "%.1f against %.1f" % [heavy, light])
 	# (the user's word, 2026-10-12: light cuts broke it far too easily — it is
 	# the heavy blows that should)
 	var lights := ceili(ogre.stance / maxf(light, 0.01))
 	var heavies := ceili(ogre.stance / maxf(heavy, 0.01))
-	_check("light cuts alone take a great many to break it, heavy blows a few", lights >= 25 and heavies >= 2
-			and heavies <= 5, "%d light cuts, %d heavy blows" % [lights, heavies])
+	# (and some 8-9 heavy blows, the user's word later that night)
+	_check("light cuts alone take a great many to break it, heavy blows 8-9", lights >= 60 and heavies >= 8
+			and heavies <= 9, "%d light cuts, %d heavy blows" % [lights, heavies])
 	ogre.stance_taken = 0.0
 	var cuts := 0
 	while ogre.act != PackBrute.STANCE and cuts < 40:
-		_cut(ogre, hero, 20.0, 1.6)
+		_cut(ogre, hero, 26.0, 1.6)
 		cuts += 1
 		await physics_frame
 	_check("enough blows put it down on a knee", ogre.act == PackBrute.STANCE and ogre.stance_breaks == 1,
@@ -1160,7 +1162,7 @@ func _swipes() -> void:
 	hero.immortal = true
 	var start := hero.global_position
 	var first := -1.0
-	for f in 60 * 45:
+	for f in 60 * 60:
 		await physics_frame
 		hero.stamina = hero.max_stamina
 		if hero.state != Player.State.DOWNED:

@@ -10347,3 +10347,9 @@ blow fells is his to pick (the idea: a combo's last).
   on × `rage_damage` 1.5 (`_blow_worth`, the swipe too). **Swipe** — planted
   with its hand lit till `grab_dash_time` 0.2 s before its hand reaches him,
   then at him at once (`grab_dash` up to 60 m/s).
+
+- 2026-10-12 (the user's word: 3 heavy blows is far too few — some 8-9;
+  more stones on its club): the ogre's `stance` 900 (a hero's 26 cut: a heavy
+  blow ×1.6 puts in ~106 — 9 of them; a light cut ~5); `arm_stones` 20
+  (`arm_stone_size` 0.15) from a third of the way up the club to its end.
+  The stone is set on it every time it rages at half its health.

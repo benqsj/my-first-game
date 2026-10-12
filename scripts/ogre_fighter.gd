@@ -224,8 +224,8 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 ## much harder it hits from then on (over the pack's own `rage_harder`).
 @export var arm_clip: StringName = &"CR_Heavy2"
 @export var arm_part: Vector3 = Vector3(0.95, 0.0, 0.9)
-@export var arm_stones: int = 9
-@export var arm_stone_size: float = 0.17
+@export var arm_stones: int = 20
+@export var arm_stone_size: float = 0.15
 @export var rage_damage: float = 1.5
 @export_group("Punish")
 ## Him casting near it, or drawing his bow / gathering a bolt (the user's
@@ -1133,7 +1133,7 @@ func _set_stones() -> void:
 		mi.mesh = RockWave._crag_mesh(i % RockWave.SHAPES)
 		mi.material_override = stone
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-		var along := lerpf(0.5, 0.97, (float(i) + rng.randf()) / float(count)) * length
+		var along := lerpf(0.32, 0.98, (float(i) + rng.randf()) / float(count)) * length
 		var turn := float(i) * 2.39996 + rng.randf_range(-0.3, 0.3)
 		var out := Vector3(0.0, cos(turn), sin(turn))
 		var size := arm_stone_size * length * rng.randf_range(0.7, 1.25)
