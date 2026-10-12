@@ -10424,3 +10424,12 @@ blow fells is his to pick (the idea: a combo's last).
   went into the ground): the lock's camera aimed steeply up at a high point
   and so swung down under him; now it is kept at least
   `lock_camera_floor` (0.7 m) over his feet whatever it looks at.
+- 2026-10-12 evening (the user's word: the view now too far out — put it back;
+  the leap now so long in the air there was time to think; and it came down
+  on nothing): the great-foe camera pull taken out again (the view as it
+  was, 4.5 m); the leap's flight played 1/0.6 quicker (~0.65 s in the air
+  after its ~0.5 s crouch, its blow at 1.22 s); and its landing breaks the
+  ground — rock bursting up round where it comes down (`net_rocks`), a quake
+  out to `leap_land_radius` 5 m at 1.6 (7.5 m now) worth
+  `leap_land_share` 0.9 of `hit_damage`, throwing down whoever stands on it,
+  on top of the club's own blow.

@@ -304,7 +304,14 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 ## second, with a roar), then a high leap of a second's flight, the club
 ## brought down with it, and a long stoop after as it gets up.
 @export var leap_slam_clip: StringName = &"CR_OG_Mutant_Jump"
-@export var leap_slam_part: Vector3 = Vector3(0.9, 0.0, 0.78)
+@export var leap_slam_part: Vector3 = Vector3(1.0, 0.0, 0.78)
+## (the user's word, the same evening: so long in the air he had time to
+## think; and it came down on nothing) its landing breaks the ground: rock
+## bursting up round it out to `leap_land_radius` (m at 1.6), worth
+## `leap_land_share` of `hit_damage` to whoever stands on it.
+@export var leap_land_radius: float = 5.0
+@export var leap_land_share: float = 0.9
+@export var leap_rock_length: float = 6.0
 ## Share of `leap_slam_clip` its club comes down on the ground.
 @export var leap_slam_lands: float = 0.45
 @export var leap_slam_from: float = 8.0
@@ -543,7 +550,7 @@ const FLIGHTS := {
 	# flights played quicker than the clips, not drawn out)
 	# (2026-10-12, the user's word: no time to answer the leap) both now at
 	# the clips' own pace through the air: the leap out of its crouch
-	LEAP_SLAM: [0.5, 1.62, 1.0, 0.25],
+	LEAP_SLAM: [0.5, 1.62, 0.6, 0.25],
 	RUN_SLAM: [0.87, 1.62, 1.0, 0.55],
 }
 
@@ -2595,6 +2602,18 @@ func _run_act(delta: float) -> void:
 			net_rocks.rpc(at, act_serial, length, 1.4)
 		else:
 			net_rocks(at, act_serial, length, 1.4)
+	elif FLIGHTS.has(act) and not _pounded and _act_time >= _blow_moments(act)[0]:
+		# down out of its leap: the ground breaks under it, rock bursting up
+		# all round, whoever stands near thrown down
+		_pounded = true
+		var s := visual_scale / 1.6
+		var tip := _weapon_tip_at()
+		var at := Vector3(tip.x, global_position.y, tip.z).lerp(global_position, 0.5)
+		_quake(at, leap_land_radius * s, hit_damage * leap_land_share, false, rock_pace)
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_rocks.rpc(at, act_serial, leap_rock_length * s, 0.8)
+		else:
+			net_rocks(at, act_serial, leap_rock_length * s, 0.8)
 	elif act == OG_STOMP_FOOT and not _pounded and _act_time >= _blow_moments(OG_STOMP_FOOT)[0]:
 		# its foot down: the ground bursts up round it (it staggers him)
 		_pounded = true
