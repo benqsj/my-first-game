@@ -39,6 +39,8 @@ static func apply() -> void:
 	_keys(&"dash", [dodge_key()])
 	_keys(&"walk", [walk_key()])
 	_keys(&"sprint", [sprint_key()])
+	# a flask (the user's word, 2026-10-12): R, as Elden Ring has it
+	_keys(&"heal", [KEY_R])
 	for i in SKILL_KEYS.size():
 		var action := StringName("skill_%d" % (i + 1))
 		if not InputMap.has_action(action):

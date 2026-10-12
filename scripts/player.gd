@@ -343,6 +343,26 @@ var _draw_zoom_now: float = 0.0
 @export var crit_time: float = 1.25
 @export var crit_hit_at: float = 0.62
 @export var crit_power: float = 1.5
+@export_group("Flasks")
+## The flasks he carries into a fight (the user's word, 2026-10-12: a fight
+## that is hard to die in needs something to manage — Elden Ring's flask):
+## `flask_count` of them, each mending `flask_heal` of his whole health. The
+## drink (`Consume`, `flask_rate`) roots him to a walk and cannot be rolled
+## out of; the health comes at `flask_heal_at` of it, and a blow that lands
+## before that spills it — the flask is gone all the same. All of them
+## again when he gets up after a death ([method _respawn]).
+@export var flask_count: int = 4
+@export var flask_heal: float = 0.4
+@export var flask_rate: float = 1.0
+@export var flask_heal_at: float = 0.65
+const FLASK_CLIP := &"Consume"
+## The flasks he has left.
+var flasks_left: int = 4
+## On the clock `_now()` reads: while he drinks, and when the health comes
+## (below 0: none coming).
+var _drink_until: float = -100.0
+var _drink_heal_at: float = -1.0
+@export_group("Vitals")
 ## Until there are potions and a fire to rest at, health comes back slowly on
 ## its own once nothing has hurt him for `mend_after` seconds.
 @export var mend_after: float = 10.0
@@ -1160,6 +1180,9 @@ func _read_actions() -> void:
 		else:
 			return
 
+	if Input.is_action_just_pressed("heal") and _drink():
+		return
+
 	if Input.is_action_just_pressed("stow"):
 		_set_weapons_stowed(not weapons_stowed())
 
@@ -1276,8 +1299,8 @@ func _process_locomotion(delta: float) -> void:
 	# in the air, where the arc is the jump's and not the sword's. What follows is
 	# damped, which is where the weight belongs: standing there hitting something
 	# is not a way to cross ground.
-	if _now() < _coat_until or _now() < cast_walk_until:
-		# Coating the blade (or a spell's gesture) he walks on — slowed to a
+	if _now() < _coat_until or _now() < cast_walk_until or _now() < _drink_until:
+		# Coating the blade (or a spell's gesture, or a flask) he walks on — slowed to a
 		# walk, legs walking — rather than sliding along in a standing pose.
 		speed = minf(speed, walk_speed)
 	elif is_committed() and not _free_swing:
@@ -5834,6 +5857,9 @@ func _take_damage(amount: float) -> bool:
 	if is_dead or amount <= 0.0:
 		return false
 	_struck_lately = true
+	# struck through a drink before it went down: spilt
+	_drink_heal_at = -1.0
+	_drink_until = -100.0
 	health = maxf(health - amount, 1.0 if immortal else 0.0)
 	_since_hurt = 0.0
 	if health <= 0.0:
@@ -5871,6 +5897,9 @@ func _die() -> void:
 func _respawn() -> void:
 	is_dead = false
 	health = max_health
+	flasks_left = flask_count
+	_drink_heal_at = -1.0
+	_drink_until = -100.0
 	stamina = max_stamina
 	_winded = false
 	_since_hurt = 0.0
@@ -5901,6 +5930,9 @@ func _tick_timers(delta: float) -> void:
 	if not bitten:
 		_commit_timer = maxf(_commit_timer - delta, 0.0)
 	_root_timer = maxf(_root_timer - delta, 0.0)
+	if _drink_heal_at >= 0.0 and _now() >= _drink_heal_at:
+		_drink_heal_at = -1.0
+		net_heal(max_health * flask_heal)
 	if not bitten and not _rig_drawing():
 		_attack_buffer = maxf(_attack_buffer - delta, 0.0)
 		_heavy_buffer = maxf(_heavy_buffer - delta, 0.0)
@@ -7339,6 +7371,54 @@ func net_elf_moonfall(at: Vector3, damage: float, critical: bool) -> void:
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
 	elf().show_moonfall(at, damage, critical)
+
+
+## A flask drunk, on his own peer: too little to drink from, or busy, or off
+## his feet, nothing. Every peer sees it ([method net_drink]); a creature that
+## punishes a spell punishes this too (`net_casts`).
+func _drink() -> bool:
+	if flasks_left <= 0 or is_dead or state != State.GROUNDED or is_committed() or _drawing \
+			or _now() < _crumpled_until or not is_on_floor():
+		return false
+	var length := 1.2
+	if rig != null and rig.has_method(&"play_part"):
+		var got := float(rig.call(&"play_part", FLASK_CLIP, flask_rate, 0.0, 1.0, 0.12))
+		if got > 0.0:
+			length = got
+			rig.set(&"walk_under", true)
+	if is_blocking:
+		is_blocking = false
+		block_changed.emit(false)
+	flasks_left -= 1
+	_commit(length)
+	_drink_until = _now() + length
+	_drink_heal_at = _now() + length * flask_heal_at
+	net_casts += 1
+	net_drink.rpc()
+	return true
+
+
+## Whether he is at a flask now.
+func drinking() -> bool:
+	return _now() < _drink_until
+
+
+## Every peer: the flask's glow about him as he drinks.
+@rpc("any_peer", "call_local", "reliable")
+func net_drink() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	SkillFx.particles(into, global_position + Vector3.UP * 1.0, {
+		"amount": 36, "life": 1.1, "one_shot": false, "explosiveness": 0.0, "add": true,
+		"speed": Vector2(0.2, 0.8), "dir": Vector3.UP, "spread": 40.0, "gravity": Vector3(0, 0.8, 0),
+		"damping": 0.5, "size": Vector2(0.04, 0.1), "grow": -0.5, "box": Vector3(0.35, 0.6, 0.35),
+		"free_after": 1.6,
+		"colors": [Color(1.0, 0.85, 0.45, 0.0), Color(1.0, 0.72, 0.3, 0.9), Color(0.9, 0.4, 0.1, 0.0)],
+	})
 
 
 ## Healed `amount` (the elf's Moonwell): the host asks, his own peer, where his

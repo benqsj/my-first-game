@@ -227,11 +227,36 @@ func _draw_bars() -> void:
 	_bar(at, minf(player.max_stamina * STAMINA_SCALE, MAX_BAR), STAMINA_HEIGHT,
 			maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0),
 			STAMINA_SPENT if winded else STAMINA, 0.0, Color.TRANSPARENT)
+	_draw_flasks(at + Vector2(0.0, STAMINA_HEIGHT + GAP + 4.0))
 	_draw_boss()
 	_draw_skills()
 	_draw_level()
 	_draw_gold()
 	_draw_found()
+
+
+## His flasks under the bars (R): each a small vial, lit while it is full.
+func _draw_flasks(at: Vector2) -> void:
+	var count := int(player.get(&"flask_count")) if player.get(&"flask_count") != null else 0
+	if count <= 0:
+		return
+	var left := int(player.get(&"flasks_left"))
+	for k in count:
+		var c := at + Vector2(7.0 + k * 17.0, 9.0)
+		var full := k < left
+		# the neck, then the round of it
+		_bars.draw_rect(Rect2(c + Vector2(-2.0, -9.0), Vector2(4.0, 5.0)), Color(0.05, 0.04, 0.03, 0.85))
+		_bars.draw_circle(c, 6.5, Color(0.05, 0.04, 0.03, 0.85))
+		if full:
+			_bars.draw_circle(c, 5.0, Color(0.95, 0.62, 0.18))
+			_bars.draw_circle(c + Vector2(-1.5, -1.5), 1.6, Color(1.0, 0.92, 0.6, 0.9))
+		else:
+			_bars.draw_circle(c, 5.0, Color(0.22, 0.18, 0.14, 0.9))
+	var font := UiArt.font("bold")
+	var text := "%d" % left
+	var x := at.x + 7.0 + count * 17.0
+	_bars.draw_string(font, Vector2(x + 1.0, at.y + 15.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, Vector2(x, at.y + 14.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.86, 0.5))
 
 
 ## He picked up `what` ([LootItem]): its picture and name, a moment, low in
