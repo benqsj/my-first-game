@@ -77,6 +77,10 @@ extends Brawler
 @export var stance_down: float = 2.6
 ## The first blow on it while it is down: this many times as hard.
 @export var stance_crit: float = 3.0
+## Or, if above 0, that first blow takes just this share of its whole health
+## whatever struck it (the ogre 0.1: the user's word, 2026-10-12 — a riposte
+## worth at most a tenth of it).
+@export var stance_crit_share: float = 0.0
 ## Going down on its knee: the clip, [rate, -, the share of it it kneels at].
 ## It comes back up the same way, slower.
 @export var stance_clip: StringName = &"CR_LayDown"
@@ -788,6 +792,9 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 	var crit := false
 	if act == STANCE and _crit_open and from != null and from.is_in_group(&"player"):
 		damage *= stance_crit
+		if stance_crit_share > 0.0:
+			# laid on before its defence, so what it loses is the share itself
+			damage = max_health * stance_crit_share * (Defence.SCALE + maxf(m_def if magic else p_def, 0.0)) / Defence.SCALE
 		crit = true
 	var was := velocity
 	var bled := super(damage, at, blow, from, magic)

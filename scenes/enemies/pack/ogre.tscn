@@ -115,6 +115,7 @@ corpse_sink_time = 3.0
 corpse_sink_depth = 2.6
 stance = 900.0
 stance_light_share = 0.2
+stance_crit_share = 0.1
 stance_rest = 10.0
 bite_hold = 0.0
 shove_share = 0.1

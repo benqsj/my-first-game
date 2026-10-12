@@ -10433,3 +10433,8 @@ blow fells is his to pick (the idea: a combo's last).
   out to `leap_land_radius` 5 m at 1.6 (7.5 m now) worth
   `leap_land_share` 0.9 of `hit_damage`, throwing down whoever stands on it,
   on top of the club's own blow.
+- 2026-10-12 (the user's word: a riposte on it down on its knee worth at most
+  a tenth of its health): `PackBrute.stance_crit_share` — above 0, the first
+  blow on it kneeling takes just that share of its whole health, whatever
+  struck it (laid on before its defence). The ogre 0.1: 52 of 520 (was 44,
+  3× a cut).

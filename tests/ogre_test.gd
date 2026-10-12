@@ -316,8 +316,11 @@ func _stance() -> void:
 	var after := ogre.health
 	_cut(ogre, hero, 20.0, 1.0)
 	var plain := after - ogre.health
-	_check("down, the first blow on it is a critical", ogre.crits_taken == 1 and crit > plain * (ogre.stance_crit - 0.3),
+	_check("down, the first blow on it is a critical", ogre.crits_taken == 1 and crit > plain * 2.0,
 			"%.1f against %.1f" % [crit, plain])
+	# (the user's word, 2026-10-12: a riposte worth at most a tenth of it)
+	_check("the critical takes a tenth of its health", absf(crit - ogre.max_health * 0.1) < 2.0,
+			"%.1f of %.0f" % [crit, ogre.max_health])
 	var up := false
 	for i in 300:
 		await physics_frame
