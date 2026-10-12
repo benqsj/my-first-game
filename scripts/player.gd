@@ -233,6 +233,9 @@ static var pvp_mode: bool = false
 ## *down* on a fight is what shows the ground between the two of you; aimed flat
 ## at a target, that ground is a sliver and everything reads as a silhouette.
 @export_range(0.0, 60.0) var lock_camera_tilt: float = 14.0
+## Locked, the camera kept at least this high over his feet (m), however
+## high the point it looks at.
+@export var lock_camera_floor: float = 0.7
 ## How fast the body turns to face one. Quicker than a running turn: facing the
 ## thing you are fighting is not something to carve into.
 @export var lock_turn_speed: float = 16.0
@@ -2734,8 +2737,13 @@ func _track_target(delta: float) -> void:
 	# ground between the two disappears. `lock_camera_tilt` is what lifts it.
 	var flat := Vector2(to_them.x, to_them.z).length()
 	var aimed := atan2(to_them.y, flat) - deg_to_rad(lock_camera_tilt)
+	# Locked on a high point (a great foe's head) from close by, the aim
+	# looks steeply up and swung the camera down under him, into the ground
+	# (the user's word, 2026-10-12): never lower than `lock_camera_floor`
+	# over his feet.
+	var floor_up := asin(clampf((camera_height - lock_camera_floor) / maxf(spring_arm.spring_length, 0.5), -1.0, 1.0))
 	spring_arm.rotation.x = lerp_angle(spring_arm.rotation.x,
-			clampf(aimed, deg_to_rad(min_pitch_deg), deg_to_rad(max_pitch_deg)),
+			clampf(aimed, deg_to_rad(min_pitch_deg), minf(deg_to_rad(max_pitch_deg), floor_up)),
 			weight * 0.7)
 
 
