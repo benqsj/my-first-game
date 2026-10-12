@@ -206,5 +206,31 @@ func _run() -> void:
 			await physics_frame
 		_check(String(c[0]), (hero.health < hp) == bool(c[2]), "health %.0f -> %.0f" % [hp, hero.health])
 		await _done(a[0])
+	# rolled through its blow: the stone that blow breaks does not find him,
+	# though the roll's untouchable start is over when it rises
+	a = await _arena()
+	hero = a[2]
+	(a[1] as ArenaPanel)._unhurt = false
+	ogre = _ogre(a, 12.0)
+	ogre.sight_range = 0.0
+	await physics_frame
+	var hp0 := hero.health
+	Input.action_press("move_forward")
+	await physics_frame
+	hero._start_evade(false)
+	Input.action_release("move_forward")
+	for i in 6:
+		await physics_frame
+	hero.receive_blow(40.0, ogre, 0, 1, 4242)
+	for i in int(hero.dash_iframes * 60.0) + 4:
+		await physics_frame
+	var fwd2 := -hero.global_basis.z
+	fwd2.y = 0.0
+	ogre._quake(hero.global_position + fwd2.normalized() * 1.0, 5.0, 40.0, false, 22.0)
+	for i in 40:
+		await physics_frame
+	_check("rolled through its blow, the stone of that blow does not find him", hero.health == hp0,
+			"health %.0f -> %.0f" % [hp0, hero.health])
+	await _done(a[0])
 	print("ogre_greed_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)

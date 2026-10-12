@@ -121,7 +121,7 @@ var sprinting: bool = false
 @export var dash_duration: float = 0.45
 @export var dash_cooldown: float = 0.22
 ## Invulnerability window measured from the start of the dash.
-@export var dash_iframes: float = 0.3
+@export var dash_iframes: float = 0.35
 ## Dashes are ignored while airborne when false.
 @export var allow_air_dash: bool = false
 ## Cut the roll short when it runs into a wall rather than grinding along it.
@@ -150,6 +150,13 @@ var sprinting: bool = false
 ## legs are up (Elden Ring's jump over a sweep).
 @export var jump_clear_low: float = 0.55
 var _backstepping: bool = false
+## (the user's word, 2026-10-12: he rolled through the club, and then the
+## stone it broke out of the ground caught him — no one roll could clear
+## both) a blow rolled through covers the ground-shock that same creature
+## breaks with it for `dodge_shock_cover` s: [method untouchable_now].
+@export var dodge_shock_cover: float = 0.8
+var _dodged_from: String = ""
+var _dodged_at: float = -INF
 var _roll_cut_asked: bool = false
 
 @export_group("Crouch")
@@ -3990,6 +3997,11 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	var evading := (state == State.DASHING or state == State.DODGING) and (is_invulnerable or _now() < _safe_until)
 	if is_invulnerable or evading or state == State.DOWNED or _now() < _safe_until:
 		_combo_landed[combo] = -999
+		if evading:
+			# rolled through its blow: the ground it breaks with that blow
+			# does not find him either ([method untouchable_now])
+			_dodged_from = combo.get_slice("#", 0)
+			_dodged_at = _now()
 		if evading and not _evade_was_perfect \
 				and _now() - _evade_started_at <= perfect_dodge_window:
 			_evade_was_perfect = true
@@ -7709,7 +7721,10 @@ func _watch_pvp_blades() -> void:
 ## own peer decides that, in [method net_blow]).
 ## Whether a blow landing on him now goes through empty air: an evade, its
 ## safe time, or on the ground (asked by the stone of a quake, [PackBrute]).
-func untouchable_now() -> bool:
+func untouchable_now(by: Node = null) -> bool:
+	if by != null and not _dodged_from.is_empty() and String(by.get_path()) == _dodged_from \
+			and _now() - _dodged_at <= dodge_shock_cover:
+		return true
 	return is_dead or is_invulnerable or state == State.DOWNED or _now() < _safe_until
 
 

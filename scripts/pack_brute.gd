@@ -490,7 +490,7 @@ func _physics_process(delta: float) -> void:
 			var since := float(q.t) - d / maxf(float(q.get("pace", QuakeRing.SPEED)), 0.1)
 			if since > quake_linger:
 				continue
-			if who.has_method(&"untouchable_now") and bool(who.call(&"untouchable_now")):
+			if who.has_method(&"untouchable_now") and bool(who.call(&"untouchable_now", self)):
 				continue
 			if who is CharacterBody3D and not (who as CharacterBody3D).is_on_floor():
 				continue

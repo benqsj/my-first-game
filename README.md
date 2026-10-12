@@ -10525,3 +10525,13 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
 - Tests: `dodge_er_test` (all four); `swordsman_test`, `tariel_moves_test`,
   `dodge_spent_test` now push a way for the roll (none is the step back);
   `fighter_test`'s blow into a dodge is in its untouchable start.
+- 2026-10-13 (the user's word: he rolled through the club coming down, and
+  then the stone it broke out of the ground caught him): no one roll could
+  clear both — the stone rises at his feet ~0.1 s after the blow and stays
+  up 0.2 s, so covering both with the roll's untouchable start alone would
+  need it the whole roll long. Now a blow rolled through (in the roll's
+  untouchable start) covers the ground-shock that same creature breaks for
+  `Player.dodge_shock_cover` 0.8 s (`untouchable_now(by)`): a roll timed on
+  the club clears its stone too; one thrown too early (the club never met
+  him in it), or none, does not. And `dash_iframes` 0.35 (was 0.3) of the
+  0.45 s roll.
