@@ -454,6 +454,20 @@ func _falls() -> void:
 	await _done(a[0])
 
 
+## How much bigger than at 1.6 the ogre is, read off its scene.
+func _size_of(_a: Array) -> float:
+	var probe := (load("res://scenes/enemies/pack/ogre.tscn") as PackedScene).instantiate() as OgreFighter
+	var s := probe.visual_scale / 1.6
+	probe.free()
+	return s
+
+
+## The slowest its run may be played and still be its run: a bigger one's
+## stride comes slower (as the square root of its size, from 0.6 at 1.6).
+func _least_rate(ogre: OgreFighter) -> float:
+	return 0.6 * sqrt(1.6 / ogre.visual_scale) - 0.05
+
+
 func _gait() -> void:
 	var a: Array = await _arena()
 	var hero: Player = a[2]
@@ -470,7 +484,7 @@ func _gait() -> void:
 		if f > 40 and ogre.act == Fighter.Act.NONE and pace > 1.0:
 			trot[1] += 1
 			var scale_now := float(ogre._anim.get(&"_player").speed_scale)
-			if ogre._anim.current_clip() == ogre.run_clip and scale_now > 0.6 and scale_now < 1.35:
+			if ogre._anim.current_clip() == ogre.run_clip and scale_now > _least_rate(ogre) and scale_now < 1.35:
 				trot[0] += 1
 	_check("coming at him it runs (no trot), at about the run's own pace", trot[0] > trot[1] * 0.7, "%d of %d" % trot)
 	# He runs from it, straight away at a sprint.
@@ -489,7 +503,7 @@ func _gait() -> void:
 			ran[1] += 1
 			var pace := Vector2(ogre.velocity.x, ogre.velocity.z).length()
 			if (ogre.running_after or ogre.runs_after) and pace > 5.0 and ogre._anim.current_clip() == ogre.run_clip \
-					and float(ogre._anim.get(&"_player").speed_scale) > 0.6 and float(ogre._anim.get(&"_player").speed_scale) < 1.35:
+					and float(ogre._anim.get(&"_player").speed_scale) > _least_rate(ogre) and float(ogre._anim.get(&"_player").speed_scale) < 1.35:
 				ran[0] += 1
 	_check("him running from it, it runs, at about the run's own pace", ran[0] > ran[1] * 0.6,
 			"%d of %d (gap from %.1f)" % [ran[0], ran[1], gap])
@@ -501,6 +515,8 @@ func _afar() -> void:
 		var a: Array = await _arena()
 		var hero: Player = a[2]
 		var off := 11.0 if which == OgreFighter.LEAP_SLAM else 18.0
+		# its ranges grow with it (written for 1.6)
+		off *= _size_of(a)
 		var ogre := _ogre(a, _ahead(hero, off))
 		await physics_frame
 		ogre._rouse(hero)
@@ -834,7 +850,7 @@ func _strain() -> void:
 func _whirl() -> void:
 	var a: Array = await _arena()
 	var hero: Player = a[2]
-	var ogre := _ogre(a, _ahead(hero, 2.4))
+	var ogre := _ogre(a, _ahead(hero, 2.4 * _size_of(a)))
 	ogre.sight_range = 0.0
 	for i in 20:
 		await physics_frame
@@ -1015,16 +1031,18 @@ func _punish_once(off: float, how: String) -> Array:
 
 
 func _punish() -> void:
-	var r := await _punish_once(2.6, "cast")
+	# its ranges grow with it (written for 1.6)
+	var k := _size_of([])
+	var r := await _punish_once(2.6 * k, "cast")
 	_check("punish: him casting in its reach, a swing at once", int(r[1]) == 1 and not (r[0] as Array).is_empty()
 			and OgreFighter.SWINGS.has((r[0] as Array)[0]), str(r))
-	r = await _punish_once(6.0, "cast")
+	r = await _punish_once(6.0 * k, "cast")
 	_check("punish: him casting 6 m off, a lunge", (r[0] as Array).has(OgreFighter.LUNGE), str(r))
-	r = await _punish_once(11.0, "cast")
+	r = await _punish_once(11.0 * k, "cast")
 	_check("punish: him casting 11 m off, a leap", (r[0] as Array).has(OgreFighter.LEAP_SLAM), str(r))
-	r = await _punish_once(6.0, "draw")
+	r = await _punish_once(6.0 * k, "draw")
 	_check("punish: him drawing his bow 6 m off, a lunge", (r[0] as Array).has(OgreFighter.LUNGE), str(r))
-	r = await _punish_once(11.0, "none")
+	r = await _punish_once(11.0 * k, "none")
 	_check("punish: left alone 11 m off, no leap at once", not (r[0] as Array).has(OgreFighter.LEAP_SLAM)
 			and int(r[1]) == 0, str(r))
 

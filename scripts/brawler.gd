@@ -273,6 +273,7 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 	var share_before := blow_window.x * rate / length
 	var share_after := blow_window.y * rate / length
 	var frames := _anim.sample_stretches(m[0], stretches, at - share_before, at + share_after, 14)
+	frames = _posed_frames(what, m, frames, at - share_before, at + share_after, 14)
 	var s := maxf(visual_scale, 0.01)
 	# The limb grows with the creature; the hero does not.
 	var touch := radius * s + WeaponSweep.BODY_RADIUS + WeaponSweep.GRAZE - 0.05
@@ -321,6 +322,12 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 		return -1.0
 	# The middle: a step either way still lands.
 	return lerpf(float(best[0]), float(best[1]), 0.5)
+
+
+## The frames a blow is measured on as the creature will strike them: as
+## the clip has them here; a creature bending over its swings puts its bend in.
+func _posed_frames(_what: int, _m: Array, frames: Array, _from: float, _to: float, _steps: int) -> Array:
+	return frames
 
 
 ## Under `too_close`: backs off while the next blow is still to come.

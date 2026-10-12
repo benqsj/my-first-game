@@ -5763,7 +5763,7 @@ arena's board.
 |---|---|---|---|
 | Orc | `scenes/creatures/orc.tscn` | falchion, armour | x1.1 |
 | Goblin | `goblin.tscn` | club | x0.65 |
-| Ogre | `ogre.tscn` | great club | x1.6 |
+| Ogre | `ogre.tscn` | great club | x2.4 (was x1.6, 2026-10-12) |
 | Troll | `troll.tscn` | none | x1.6 |
 | Ghoul | `ghoul.tscn` | none (claws) | x0.95 |
 | Golem | `golem.tscn` | none (stone fists) | x1.8 |
@@ -5895,7 +5895,7 @@ deaths):
 |---|---|---|---|
 | Orc | x1.1 | falchion | four cuts, a three-cut combo, a kick |
 | Goblin | x0.65 | club | quick cuts and a kick, darts aside |
-| Ogre | x1.6 | great club | four two-handed strikes, a ground slam |
+| Ogre | x2.4 | great club | four two-handed strikes, a ground slam |
 | Troll | x1.6 | fists | punches, hook, uppercut, a two-fisted slam, a kick |
 | Ghoul | x0.95 | claws | rake, hook, punches, a fist combo, the bite; darts aside |
 | Golem | x1.8 | stone fists | punch, hook, uppercut, slam; hard to hurt |
@@ -10361,3 +10361,51 @@ blow fells is his to pick (the idea: a combo's last).
   0.80); `OG_DOUBLE` 1.15 — 0.74 s (was 0.89); `WHIRL` 1.0 from 0.06 — 0.87 s
   (was 1.29). The rest (0.3–0.6 s) unchanged; the heavy blow stays slow on
   purpose. `_shots_tmp/blow_times.gd` prints every swing's first blow.
+
+### The ogre half again as tall (2026-10-12, the user's word)
+
+- **Size.** `visual_scale` 2.4 (was 1.6): head joint ~3.7 m, some 4.2 m
+  standing, twice Tariel. What is sized before `visual_scale` grows by
+  itself (`weapon_radius`, every reach measured off the clips). Its body
+  (`body_radius` / `body_height` / `bar_height`) had been written already
+  multiplied by 1.6 and was multiplied again by the hurt capsule (a 4.7 m
+  tall hurt capsule on a ~2.8 m ogre): now 0.42 / 1.85 / 1.9 before the
+  scale — 1.0 m round, 4.44 m tall. (The troll, at 2.96 × 1.6, has the same
+  double size still.) What is in metres was set by hand: the collision
+  capsule 0.96 / 4.32 (centre 2.16),
+  `step_height` 0.96, `reach` 4.5, `strike_off` 3.6, `too_close` 0.6,
+  `corpse_sink_depth` 2.6, `sight_range` 20. Its ranges written for 1.6
+  (`SIZED_RANGES`: pound, stomp, lunge, back-off, taunt, flee, leap and
+  run-and-spring) are grown by `visual_scale / 1.6` at `_ready`; the rest
+  already were where they are used.
+- **Pace.** A bigger stride comes slower: walk 2.6 m/s, chase and close 4.4,
+  its run 6.6 (Tariel 6.3); `trot_above` 3.5, `run_gait_above` 5.9. Clips
+  are played at the rate the feet keep to the ground (walk ~0.7, run ~0.6:
+  heavy, no sliding). `ogre_test`'s gait checks take the slower rate of a
+  bigger body (0.6 × √(1.6 / scale)).
+- **Bent over its swings** (`stoop_most` 44°, `stoop_step` 4, `stoop_margin`
+  8). At its new height its flat swings went over a man's head (club at
+  2.0–2.5 m: `WIDE`, `LOW`, `WHIRL`, `OG_HORIZ`, `OG_SPIN`, the twin, the
+  jump...). At load (`_fit_stoops`) each swing that finds no gap it lands
+  from is measured bent forward from the waist in 4° steps: the least bend
+  that lands most of its blows from one gap, then 8° deeper if that lands as
+  many (the club across his chest, not grazing his head). Through the swing a
+  second `LeanModifier` (`_stoop`) bends it so by its first blow and lets it
+  up after its last. A modifier bends the drawn body only (a bone's pose read
+  in physics is unbent), so the blows' sweep bends the club's points itself
+  (`_stooped`), and the reach is measured on bent frames
+  (`Brawler._posed_frames`, a hook that leaves other creatures alone). Now:
+  WIDE 12°, LOW 16, WHIRL 16, OG_HORIZ 24, OG_BACK 12, OG_SPIN / SPIN_SLIDE 16,
+  OG_TWIN 12, OG_TRIPLE 16, OG_JUMP 36, OG_CLUB2H 20, OG_CLUB1H 40, the
+  headbutt 36, OG_SWIPE 12.
+- **No walking into him.** A swing begun nearer him than its blow lands from
+  has the clip's own step in shortened (`_stretch`), so the giant's step does
+  not carry it into him and bring the club down beyond him (the leap after
+  the twin closed 1.2 m in 0.2 s onto his body).
+- **The view drawn back** (`Player.great_foe_*`): a foe standing over 2.5 m
+  (`body_height` × scale for pack creatures, in metres for the old brutes)
+  within 14 m pulls the camera back 0.9 m for each metre over, at most
+  2.5 m, eased in and out: the ogre 4.5 → ~6.2 m. Others that tall (troll,
+  golem, dragons, Arkdeva) get it too.
+- Tests: `ogre_test` (its distances × size), `ogre_combo_test`,
+  `creature_blows_test`, `riposte_test`, `brutes_test`, `blow_landing_test`.

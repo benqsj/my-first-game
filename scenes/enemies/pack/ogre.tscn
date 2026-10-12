@@ -6,8 +6,8 @@
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_body"]
-radius = 0.64
-height = 2.88
+radius = 0.96
+height = 4.32
 
 [sub_resource type="SceneReplicationConfig" id="Repl_body"]
 properties/0/path = NodePath("NetSmooth:net_position")
@@ -45,10 +45,10 @@ properties/9/replication_mode = 1
 collision_layer = 4
 collision_mask = 7
 script = ExtResource("1_fighter")
-speed = 2.2
+speed = 2.6
 roam_radius = 3.0
 rest_time = 2.4
-step_height = 0.64
+step_height = 0.96
 walk_clip = &"CR_OgreWalk"
 back_clip = &"CR_WalkBack"
 strafe_r_clip = &"CR_StrafeR"
@@ -57,20 +57,20 @@ idle_clip = &"CR_HeavyIdle"
 fidget_clip = &"CR_HeavyIdle"
 fidget_interval = 0.0
 loop_clips = PackedStringArray("CR_HeavyIdle", "CR_Walk", "CR_Run", "CR_OgreWalk", "CR_OgreTrot", "CR_StrafeL", "CR_StrafeR", "CR_WalkBack")
-sight_range = 16
+sight_range = 20
 leash_radius = 40.0
-chase_speed = 3.8
+chase_speed = 4.4
 chase_retime_max = 2.4
 max_health = 520
-bar_height = 3.6
-body_radius = 0.576
-body_height = 2.96
+bar_height = 1.9
+body_radius = 0.42
+body_height = 1.85
 max_stamina = 100
 block_chance = 0.0
 dash_chance = 0.0
 p_def = 35
 m_def = 10
-reach = 3.0
+reach = 4.5
 hit_damage = 42
 attack_cooldown = Vector2(0.4, 1.0)
 attack_clip = &"CR_Heavy1"
@@ -85,11 +85,11 @@ clip_meta = "res://assets/creatures/anim/biped_clip_meta.json"
 settle_on_ground = false
 hips_bone = "pelvis_joint"
 foot_bones = PackedStringArray("L_ankle_joint", "R_ankle_joint")
-visual_scale = 1.6
+visual_scale = 2.4
 run_clip = &"CR_Run"
-run_above = 3.0
-strike_off = 2.4
-close_speed = 3.8
+run_above = 3.6
+strike_off = 3.6
+close_speed = 4.4
 weapon_bone = &"R_equip_joint"
 weapon_tip = Vector3(0.92, 0, 0)
 weapon_radius = 0.18
@@ -101,7 +101,7 @@ attack_limbs = PackedStringArray("", "", "")
 attack_blows = PackedInt32Array(1, 1, 1)
 strike_at_reach = true
 blows_to_fell = 3
-too_close = 0.4
+too_close = 0.6
 steady_in_attack = true
 hit_cost = 0.0
 attack_cost = 10.0
@@ -112,6 +112,7 @@ rage_at = 0.5
 rage_call = 25.0
 corpse_linger = 7.0
 corpse_sink_time = 3.0
+corpse_sink_depth = 2.6
 stance = 900.0
 stance_light_share = 0.2
 stance_rest = 10.0
@@ -119,9 +120,12 @@ bite_hold = 0.0
 shove_share = 0.1
 flinch_share = 0.35
 crit_sound = "res://sounds/ogre/crit.wav"
+trot_above = 3.5
+run_gait_above = 5.9
+run_speed = 6.6
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.44, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.16, 0)
 shape = SubResource("Capsule_body")
 
 [node name="Visuals" type="Node3D" parent="."]
