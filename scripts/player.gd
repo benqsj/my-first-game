@@ -7617,6 +7617,13 @@ func _watch_pvp_blades() -> void:
 ## ([method receive_blow]: his roll, his shield, his armour). True when it is
 ## likely to have drawn blood (not while he is rolling, dashing or down: his
 ## own peer decides that, in [method net_blow]).
+## Whether a blow landing on him now goes through empty air: an evade, its
+## safe time, or on the ground (asked by the stone of a quake, [PackBrute]).
+func untouchable_now() -> bool:
+	return is_dead or is_invulnerable or state == State.DASHING or state == State.DODGING \
+			or state == State.DOWNED or _now() < _safe_until
+
+
 func receive_hit(hit: HitInfo) -> bool:
 	var source := hit.attacker()
 	if is_dead or source == null:

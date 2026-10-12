@@ -75,6 +75,9 @@ extends Brawler
 @export var stance_light_share: float = 1.0
 ## How long it stays down on its knee, open.
 @export var stance_down: float = 2.6
+## How long the stone a quake throws up stays up under him, dangerous (s):
+## a roll must cover its rising, not only the blow before it.
+@export var quake_linger: float = 0.35
 ## The first blow on it while it is down: this many times as hard.
 @export var stance_crit: float = 3.0
 ## Or, if above 0, that first blow takes just this share of its whole health
@@ -480,11 +483,22 @@ func _physics_process(delta: float) -> void:
 			var d := Vector2(rel.x, rel.z).length()
 			if d > float(q.r) + 0.4 or d > front:
 				continue
+			# The stone stays up under him a while (`quake_linger`): a roll
+			# that was for the blow itself, over by then, does not clear it
+			# (the user's word, 2026-10-12: dodging the club, the stone never
+			# found him); one timed for the stone does, or a jump over it.
+			var since := float(q.t) - d / maxf(float(q.get("pace", QuakeRing.SPEED)), 0.1)
+			if since > quake_linger:
+				continue
+			if who.has_method(&"untouchable_now") and bool(who.call(&"untouchable_now")):
+				continue
+			if who is CharacterBody3D and not (who as CharacterBody3D).is_on_floor():
+				continue
 			caught[who] = true
 			# The ground jumping under him puts him down — if he is on it.
 			who.call(&"receive_blow", float(q.worth) * lerpf(1.0, 0.6, d / maxf(float(q.r), 0.1)), self, 0, 1,
 					int(q.id), false, &"ground")
-		if front > float(q.r) + 1.0:
+		if front > float(q.r) + 1.0 + quake_linger * float(q.get("pace", QuakeRing.SPEED)):
 			_quakes.remove_at(i)
 #endregion
 

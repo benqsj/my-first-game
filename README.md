@@ -10487,3 +10487,12 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
 - Tests: `ogre_greed_test`, `flask_test`, `ogre_duel_test`, with
   `ogre_test`, `ogre_combo_test`, `riposte_test`, `creature_blows_test`,
   `brutes_test`, `blow_landing_test`.
+- 2026-10-12 late (the user's word: dodging the club, the stone out of the
+  ground never found him): a quake's shock passed under him in one frame,
+  and a roll begun for the blow before it (the whole evade is untouchable)
+  covered that frame, so stone never hit a hero who had rolled at all. Now
+  the stone stays up under him `PackBrute.quake_linger` 0.35 s after its
+  front reaches him; while it is up and he is on the ground and not in an
+  evade (`Player.untouchable_now()`), it catches him. A roll timed for the
+  stone, or a jump over it, clears it; one spent on the blow before it does
+  not. `ogre_greed_test` checks both.

@@ -176,5 +176,31 @@ func _run() -> void:
 			"raging %s, speed %.2f" % [ogre.raging, ogre.speed])
 	_check("its blows hard (hit_damage 72)", ogre.hit_damage >= 70.0, str(ogre.hit_damage))
 	await _done(a[0])
+	# the stone of a quake stays up a while: a roll that was over before it
+	# rose is no shelter; one over its rising is; a jump too
+	for c: Array in [["a roll for the blow before it, over as the stone rises: caught", -0.3, true],
+			["a roll over the stone's rising: clear", 0.0, false]]:
+		a = await _arena()
+		hero = a[2]
+		(a[1] as ArenaPanel)._unhurt = false
+		ogre = _ogre(a, 12.0)
+		ogre.sight_range = 0.0
+		await physics_frame
+		var start_at := hero.global_position
+		var hp := hero.health
+		var lead := float(c[1])
+		if lead < 0.0:
+			hero._start_evade(false)
+			for i in int(-lead * 60.0):
+				await physics_frame
+		var fwd := -hero.global_basis.z
+		fwd.y = 0.0
+		ogre._quake(start_at + fwd.normalized() * 2.0, 5.0, 40.0, false, 22.0)
+		if lead >= 0.0:
+			hero._start_evade(false)
+		for i in 60:
+			await physics_frame
+		_check(String(c[0]), (hero.health < hp) == bool(c[2]), "health %.0f -> %.0f" % [hp, hero.health])
+		await _done(a[0])
 	print("ogre_greed_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
 	quit(1 if _failed > 0 else 0)
