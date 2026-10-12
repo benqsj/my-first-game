@@ -10564,3 +10564,15 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   roll's attack (`Swordsman.ROLL_ATTACK`: from the blade wound up behind, the
   lunge and its cut, x1.5 to 0.88 of it, worth 1.15 of a cut) in place of
   every hero's thrust.
+- 2026-10-13, Tariel's feet and stances (the user's word: the boots folded
+  rolling and crouched; a new fighting stance and shield guard):
+  - his own Mixamo sword-and-shield clips (SS_*) and rolls (Roll_*) came onto
+    the mannequin with each foot bent ~52 degrees up at the ankle and the
+    toes ~55 off their rest (`_shots_tmp/ankle_probe.gd`: 42-60 against
+    90-120 in every other clip). `SkinnedRig.OWN_FOOT_FIX` turns them back
+    as the library is built (copies; SS_Power_Up and his TR_ falls came
+    straight and are left).
+  - his stance in a fight is the pack's `SS_Idle`, his guard `SS_Block_Idle`
+    (`Swordsman.STANCE`/`GUARD`), picked from UAL 2's, Kevin's, his own and
+    four new from Mixamo (TR_Axe_Idle, TR_Ready_Idle, TR_Block_Axe,
+    TR_Block_Arms, in tariel_extra, kept unused).

@@ -179,7 +179,7 @@ func _initialize() -> void:
 	var mq_idle: StringName = rig.clips[&"idle"]
 	_check("YOUR OWN on the mannequin, with the picked moves", rig.on_mannequin()
 			and rig._anim != anim and rig.moves.get("kind") == &"sword" and mq_idle == &"KV_Idle01"
-			and rig.clips[&"block_idle"] == &"KV_BlockShield01_Loop" and not rig._strings.is_empty()
+			and rig.clips[&"block_idle"] == Swordsman.GUARD and not rig._strings.is_empty()
 			and rig._anim.has_animation(rig.flurry[0]) and not (anim.get_parent() as Node3D).is_visible_in_tree(),
 			"on %s, kind %s, idle %s, block %s, flurry %s" % [rig.on_mannequin(), rig.moves.get("kind"), mq_idle,
 			rig.clips.get(&"block_idle"), rig.flurry])

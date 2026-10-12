@@ -31,6 +31,14 @@ const RECOVER := {&"Sword_Regular_A": &"Sword_Regular_A_Rec", &"Sword_Regular_B"
 ## rate: Sword_Dash is 1.57 s; at 1.3 its lunge and cut (to 0.585 s of the
 ## clip) fill a 0.45 s dash, the cut at ~0.2-0.3 s of it.
 const EVADE := {"clip": &"Sword_Dash", "rate": 1.3, "weight": 0.6, "cut": Vector2(0.16, 0.25)}
+## His stance in a fight and his guard behind the shield (the user's picks,
+## 2026-10-13, out of UAL 2's, Kevin's, Mixamo's and his own): the Mixamo
+## sword-and-shield pack's own idle and block idle, his clips (their feet
+## set straight, [SkinnedRig] OWN_FOOT_FIX). The shield held as it was seen
+## picked (`SHIELD_TURN`, UAL 2's Idle_Shield's measure).
+const STANCE := &"SS_Idle"
+const GUARD := &"SS_Block_Idle"
+const SHIELD_TURN := 2.3
 ## The roll: from the crouch into the dive (0.17 of 2.4 s) to down on his
 ## heels (0.64), fitted to the dash; standing up out of it (to `rise_until`)
 ## at `rise_rate` (stills: _shots_tmp/ogf/clips/dive.jpg).
@@ -126,6 +134,16 @@ static func apply(t: Dictionary) -> void:
 		for c: StringName in s["clips"]:
 			t["flurry_part"][c] = Vector2(0.0, 1.0)
 			_measure(t, c)
+	# the stance and the guard
+	t["guard"] = STANCE
+	t["clips"][&"block_idle"] = GUARD
+	(t["alts"] as Dictionary).erase(STANCE)
+	if not (t["looping"] as Array).has(STANCE):
+		t["looping"].append(STANCE)
+	if not (t["looping"] as Array).has(GUARD):
+		t["looping"].append(GUARD)
+	t["shield_turn"][STANCE] = SHIELD_TURN
+	t["shield_turn"][GUARD] = SHIELD_TURN
 	# the roll, and Sword_Dash its attack, cutting where it is measured to
 	t["clips"][&"roll"] = ROLL["clip"]
 	t["roll_share"] = {ROLL["clip"]: float(ROLL["share"])}
