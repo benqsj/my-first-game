@@ -494,6 +494,21 @@ var maker_on_mannequin: bool = true
 const MANNEQUIN_SCENE := "res://assets/anim/lab/ual2_mannequin.glb"
 const KEVIN_LIB := "res://assets/anim/lab/kevin_lib.res"
 const HERO_LIB := "res://assets/anim/heroes/%s_mannequin.res"
+## A hero whose own clips came onto the mannequin with the feet bent up at the
+## ankle (degrees): Tariel's (the user saw the boots fold, 2026-10-13, rolling
+## and crouched). Measured (_shots_tmp/ankle_probe.gd, shin to the ball of the
+## foot): his own clips 42-60 degrees, against 90-120 in UAL 2's, Kevin's and
+## every other hero's own; each of his feet turned down this much in all of
+## them. His toes too were bent ~55 degrees off their rest standing still
+## (5-10 in the others'): each ball turned by what brings it to its rest in
+## the clip named (his own standing).
+const OWN_FOOT_FIX := {&"tariel": [52.0, &"SS_Idle"]}
+## Which of his clips came bent (by name): the Mixamo sword-and-shield pack
+## and the rolls with it; his falls and get-ups (TR_), brought in later by
+## another way, came straight (measured: 110-160 at the ankle, toes ~20).
+const OWN_FOOT_BENT := ["SS_", "Roll_"]
+## ...but for these, brought in with the falls (straight).
+const OWN_FOOT_STRAIGHT := [&"SS_Power_Up"]
 const MANNEQUIN_FIGURE := "res://assets/polysplit/mannequin_%s.glb"
 ## Clips another hero's library lends this one on the mannequin (clip ->
 ## hero): the mage's spell is Tariel's.
@@ -3291,6 +3306,8 @@ func _build_mannequin() -> bool:
 		var theirs := load(HERO_LIB % CRUMPLE_FROM_HERO) as AnimationLibrary
 		if theirs.has_animation(CRUMPLE):
 			lib.add_animation(CRUMPLE, theirs.get_animation(CRUMPLE))
+	if OWN_FOOT_FIX.has(polysplit_hero):
+		_fix_own_feet(lib, skel, own, float(OWN_FOOT_FIX[polysplit_hero][0]), OWN_FOOT_FIX[polysplit_hero][1])
 	if FALL_HEROES.has(polysplit_hero):
 		_ready_falls(lib, skel, own)
 	for n: StringName in lib.get_animation_list():
@@ -3334,6 +3351,58 @@ func _build_mannequin() -> bool:
 			"own": own, "feet": feet, "lean": lean, "arm": arm, "blend": blend}
 	_mannequin_built(skel)
 	return true
+
+
+## The hero's own clips (`own`) with each foot turned down `deg` about its
+## ankle's hinge (the line square to the shin and the foot at rest), in copies:
+## the library's clips are shared with whoever else loads it.
+func _fix_own_feet(lib: AnimationLibrary, skel: Skeleton3D, own: Dictionary, deg: float,
+		stand: StringName) -> void:
+	var turns := {}
+	var ref: Animation = lib.get_animation(stand) if lib.has_animation(stand) else null
+	for side: String in ["l", "r"]:
+		var f := skel.find_bone("foot_" + side)
+		var b := skel.find_bone("ball_" + side)
+		var k := skel.find_bone("calf_" + side)
+		if f < 0 or b < 0 or k < 0:
+			continue
+		var rest := skel.get_bone_global_rest(f)
+		var to_knee := rest.basis.inverse() * (skel.get_bone_global_rest(k).origin - rest.origin)
+		var to_ball := rest.basis.inverse() * (skel.get_bone_global_rest(b).origin - rest.origin)
+		var hinge := to_knee.normalized().cross(to_ball.normalized()).normalized()
+		turns[":foot_" + side] = Quaternion(hinge, deg_to_rad(deg))
+		if ref != null:
+			for t in ref.get_track_count():
+				if ref.track_get_type(t) == Animation.TYPE_ROTATION_3D and ref.track_get_key_count(t) > 0 \
+						and String(ref.track_get_path(t)).ends_with(":ball_" + side):
+					var stood: Quaternion = ref.track_get_key_value(t, 0)
+					turns[":ball_" + side] = stood.inverse() * skel.get_bone_rest(b).basis.get_rotation_quaternion()
+	if turns.is_empty():
+		return
+	for n: StringName in own:
+		# only the clips that came bent: the old sword-and-shield pack and his
+		# rolls (`OWN_FOOT_BENT`), not the falls and get-ups brought in later
+		if not Array(OWN_FOOT_BENT).any(func(p: String) -> bool: return String(n).begins_with(p)):
+			continue
+		if OWN_FOOT_STRAIGHT.has(n):
+			continue
+		var src := lib.get_animation(n)
+		var anim := (src.duplicate(true)) as Animation
+		var changed := false
+		for t in anim.get_track_count():
+			if anim.track_get_type(t) != Animation.TYPE_ROTATION_3D:
+				continue
+			var path := String(anim.track_get_path(t))
+			for tail: String in turns:
+				if not path.ends_with(tail):
+					continue
+				var q: Quaternion = turns[tail]
+				for i in anim.track_get_key_count(t):
+					anim.track_set_key_value(t, i, (anim.track_get_key_value(t, i) as Quaternion) * q)
+				changed = true
+		if changed:
+			lib.remove_animation(n)
+			lib.add_animation(n, anim)
 
 
 ## For a rig to add what it hangs off the mannequin's skeleton (a bow's
