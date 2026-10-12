@@ -10409,3 +10409,18 @@ blow fells is his to pick (the idea: a combo's last).
   golem, dragons, Arkdeva) get it too.
 - Tests: `ogre_test` (its distances × size), `ogre_combo_test`,
   `creature_blows_test`, `riposte_test`, `brutes_test`, `blow_landing_test`.
+- 2026-10-12 (the user's word: the leap came too quick to answer — it
+  sprang straight off a standing swing, `CR_Heavy4`, and was on him a third
+  of a second later from 12–21 m): `LEAP_SLAM` is Mixamo's mutant jump now
+  (`CR_OG_Mutant_Jump`, rate 0.9): a roar as it drops into its crouch (the
+  tell, ~0.55 s), earth kicked back off its feet and a grunt as it pushes off
+  (`_take_off`), a high leap of ~1.2 s through the air, its club down where
+  it lands (`leap_slam_lands` 0.45 of the clip, its blow at 1.85 s, was
+  0.32), and a long stoop getting up after: the time to punish it. Both
+  flights at their clips' own pace (`FLIGHTS` warp 1.0; the run and spring's
+  was 0.75). It still turns after him to 85 % of its flight: run off and it
+  follows; a roll at its landing beats it.
+- 2026-10-12 (the user's word: locked on its head from close by, the view
+  went into the ground): the lock's camera aimed steeply up at a high point
+  and so swung down under him; now it is kept at least
+  `lock_camera_floor` (0.7 m) over his feet whatever it looks at.

@@ -298,8 +298,15 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var flee_from: float = 5.0
 
 @export_group("From afar")
-@export var leap_slam_clip: StringName = &"CR_Heavy4"
-@export var leap_slam_part: Vector3 = Vector3(1.0, 0.0, 0.92)
+## (2026-10-12, the user's word: its leap came too quick to answer — it
+## sprang at once off a standing swing and was on him in a third of a
+## second) Mixamo's mutant jump: down into a crouch first (the tell, half a
+## second, with a roar), then a high leap of a second's flight, the club
+## brought down with it, and a long stoop after as it gets up.
+@export var leap_slam_clip: StringName = &"CR_OG_Mutant_Jump"
+@export var leap_slam_part: Vector3 = Vector3(0.9, 0.0, 0.78)
+## Share of `leap_slam_clip` its club comes down on the ground.
+@export var leap_slam_lands: float = 0.45
 @export var leap_slam_from: float = 8.0
 @export var leap_slam_to: float = 14.0
 @export var leap_slam_cooldown: Vector2 = Vector2(8.0, 12.0)
@@ -534,8 +541,10 @@ const COMBOS := [
 const FLIGHTS := {
 	# (2026-10-11, the user's word: quicker through the air at him — the
 	# flights played quicker than the clips, not drawn out)
-	LEAP_SLAM: [0.05, 0.45, 0.8, 1.0],
-	RUN_SLAM: [0.87, 1.62, 0.75, 0.55],
+	# (2026-10-12, the user's word: no time to answer the leap) both now at
+	# the clips' own pace through the air: the leap out of its crouch
+	LEAP_SLAM: [0.5, 1.62, 1.0, 0.25],
+	RUN_SLAM: [0.87, 1.62, 1.0, 0.55],
 }
 
 ## what -> [clip, [rate, from, to], heavy, share of `hit_damage`, how often
@@ -795,6 +804,13 @@ func _ready() -> void:
 	_holds[CATCH] = [1.0, catch_hold.x, catch_hold.y, 0.3]
 	_special(LEAP_SLAM, leap_slam_clip, leap_slam_part)
 	_special_strike(LEAP_SLAM, "", leap_slam_share, 1)
+	# its blow where it lands, not where the club is out furthest in the air
+	var ls: Array = _strikes_table[LEAP_SLAM]
+	_strikes_table[LEAP_SLAM] = [ls[0], ls[1], ls[2], ls[3], 0.6, PackedFloat32Array([leap_slam_lands])]
+	if _anim != null:
+		var lands_from := _gap_that_lands(LEAP_SLAM, _moves_table[LEAP_SLAM], leap_slam_lands)
+		if lands_from > 0.0:
+			_strike_from[LEAP_SLAM] = lands_from
 	_special(RUN_SLAM, run_slam_clip, run_slam_part)
 	_special_strike(RUN_SLAM, "", run_slam_share, 1)
 	# Down on him club first out of the run: no shield holds it.
@@ -2620,7 +2636,7 @@ func _watch_blows(t0: float) -> void:
 ## the great blow always, a heavy swing when it closes its string alone or
 ## last (combos stay as they were).
 func _shakes_after(what: int) -> bool:
-	if (FLIGHTS.has(what) and float((FLIGHTS[what] as Array)[3]) > 0.0) or what == HEAVY or what == JUMP_SLAM:
+	if FLIGHTS.has(what) or what == HEAVY or what == JUMP_SLAM:
 		return true
 	if COMBO_MOVES.has(what):
 		return bool(COMBO_MOVES[what][2]) and _closing
@@ -2785,6 +2801,7 @@ func _process(delta: float) -> void:
 	_stoop_into(delta)
 	_grab_tell()
 	_lift_in_flight()
+	_take_off()
 	if _strikes_table.has(act):
 		var ms := _blow_moments(act)
 		while _heard < ms.size() * 2:
@@ -3132,6 +3149,33 @@ func _glint() -> void:
 	Sfx.play_any(self, GRUNTS, self, 0.72, -2.0)
 
 
+## Every peer: a leap's push off the ground — earth kicked back off its feet,
+## a grunt, the ground felt.
+var _took_off: int = -1
+
+
+func _take_off() -> void:
+	if not FLIGHTS.has(act) or is_dead or _took_off == act_serial or _anim == null:
+		return
+	if _heard_clock < _flight_span(act).x - 0.05:
+		return
+	_took_off = act_serial
+	_sound_at(GRUNTS, global_position + Vector3.UP * 1.6 * visual_scale, 0.8, 0.0)
+	_sound_at(CLUB_GROUND, global_position, 0.6, -8.0)
+	var into := Blood.world_of(self)
+	var back := -_forward()
+	var s := visual_scale / 1.6
+	for side: float in [-0.4, 0.4]:
+		var at := global_position + back * 0.2 * s + _forward().cross(Vector3.UP) * side * s
+		SkillFx.particles(into, at + Vector3.UP * 0.08, {
+			"amount": 16, "life": 0.9, "one_shot": true, "explosiveness": 0.9, "add": false,
+			"speed": Vector2(1.0, 3.0), "dir": back + Vector3.UP * 0.8, "spread": 45.0, "gravity": Vector3(0, -4.0, 0),
+			"damping": 1.2, "size": Vector2(0.2, 0.45), "grow": 0.5, "sphere": 0.25 * s,
+			"colors": [Color(0.6, 0.55, 0.47, 0.0), Color(0.58, 0.53, 0.46, 0.5), Color(0.55, 0.5, 0.45, 0.0)],
+		})
+	WindBlast.shake(self, 0.06, 0.25, 10.0)
+
+
 ## Every peer: through a leap's flight the body is carried higher than the
 ## clip's own jump, an arc over the act clock; back on the ground after.
 func _lift_in_flight() -> void:
@@ -3185,6 +3229,9 @@ func _on_new_act() -> void:
 		Sfx.play_any(self, GRUNTS, self, 0.8, -2.0)
 	elif act == POUND or act == POUND_3 or act == HEAVY:
 		Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 1.1, -6.0)
+	elif act == LEAP_SLAM:
+		# down into its crouch: the roar that says it is coming
+		Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 0.95, -1.0)
 	elif _is_heavy(act) and randf() < 0.45:
 		Sfx.play_any(self, GRUNTS, self, 1.0, -7.0)
 
