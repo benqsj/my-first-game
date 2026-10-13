@@ -20,6 +20,15 @@ func _initialize() -> void:
 	world.creature_think_distance = 0.0
 	_player = world.player()
 	var enemies := world.get_node("Enemies")
+	# The mist village holds the two-bladed raiders now (2026-10-13): the old
+	# orcs, a guard and a great axe, are brought in here for this test.
+	for old_orc: String in ["res://scenes/enemies/orc.tscn", "res://scenes/enemies/orc_greataxe.tscn"]:
+		var old := (load(old_orc) as PackedScene).instantiate() as Node3D
+		old.position = Vector3(10.0 + 2.5 * float(old_orc.length() % 2), 0.2, -190.0)
+		old.set("band", &"old_orcs")
+		old.set("camp_centre", Vector3(10.0, 0.0, -190.0))
+		enemies.add_child(old)
+	await _wait(2)
 	var imp: Fighter = null
 	var orc: OrcWarrior = null
 	var ark: Arkdeva = null

@@ -81,11 +81,16 @@ const CAMPS: Array[Array] = [
 	# (Out on the east fields: the hill behind the village is the wolves'.)
 	[&"puglin", Vector2(82.0, -14.0), 4],
 	# The orcs have taken the mist village for their den (the map's `mist`):
-	# two with great axes in its yard and four standing guard round it. The
-	# city's land gate opens when they are dead ([LandsPlaces]). They used to
-	# wade in the bay off the pier.
-	[&"orc_greataxe", Vector2(10.0, -190.0), 2],
-	[&"orc_guard", Vector2(10.0, -190.0), 4],
+	# three pairs of raiders with a blade in each hand, never more than two
+	# together (the user's word, 2026-10-13), each pair on clear ground of its
+	# own some 15 m from the next (measured: _shots_tmp/mist_spots.gd). The
+	# city's land gate opens when they are dead ([LandsPlaces]: within 20 m of
+	# its middle). They used to be the Meshy orcs, two great axes and four
+	# guards, all in the yard.
+	# A duellist and a skirmisher; two duellists; the chief and a duellist.
+	[&"orc_pair_skirm", Vector2(18.0, -187.0), 2],
+	[&"orc_raider", Vector2(4.0, -180.0), 2],
+	[&"orc_pair_chief", Vector2(10.0, -205.5), 2, 1.4],
 	# And two Arkdevas, each alone in a lair cut into the wood with its webs:
 	# the web ravine in the big wood's south-east corner, far from the tracks
 	# and the imps (level 8), and the marsh lair east of the mere (level 9).
@@ -105,13 +110,17 @@ const CAMP_SCENES := {
 	&"orc": "res://scenes/enemies/orc.tscn",
 	&"orc_greataxe": "res://scenes/enemies/orc_greataxe.tscn",
 	&"orc_guard": "res://scenes/enemies/orc.tscn",
+	&"orc_raider": "res://scenes/enemies/pack/orc.tscn",
+	&"orc_pair_skirm": "res://scenes/enemies/pack/orc.tscn",
+	&"orc_pair_chief": "res://scenes/enemies/pack/orc_chief.tscn",
+	&"orc_skirmisher": "res://scenes/enemies/pack/orc_skirmisher.tscn",
 	&"arkdeva": "res://scenes/enemies/arkdeva.tscn",
 	&"skeleton_warrior": "res://scenes/enemies/pack/skeleton_warrior.tscn",
 	&"skeleton_mage": "res://scenes/enemies/pack/skeleton_mage.tscn",
 	&"skeleton_archer": "res://scenes/enemies/pack/skeleton_archer.tscn",
 }
 ## Kinds whose bands are mixed: every second member is the other scene.
-const ORC_MIX := {&"orc": &"orc_greataxe"}
+const ORC_MIX := {&"orc": &"orc_greataxe", &"orc_pair_skirm": &"orc_skirmisher", &"orc_pair_chief": &"orc_raider"}
 ## How far from the middle of its camp each member stands.
 const CAMP_SPREAD := 2.6
 
@@ -434,7 +443,7 @@ func _build_camps() -> void:
 			body.name = "%s_%d_%d" % [String(kind).capitalize(), i, k]
 			var angle := TAU * float(k) / float(count) + float(i)
 			# One alone stands in the middle of its ground.
-			var spread := CAMP_SPREAD if count > 1 else 0.0
+			var spread := (float(camp[3]) if camp.size() > 3 else CAMP_SPREAD) if count > 1 else 0.0
 			var at := Vector3(centre.x + cos(angle) * spread, 0.2,
 					centre.y + sin(angle) * spread)
 			body.position = at
@@ -634,11 +643,13 @@ func _play_music_in_village() -> void:
 func _orcs_on(me: Node3D) -> bool:
 	for node in get_tree().get_nodes_in_group("enemy"):
 		var orc := node as OrcWarrior
-		if orc == null or orc.is_dead:
-			continue
-		if orc.global_position.distance_to(me.global_position) > 35.0:
-			continue
-		if orc.mode == Brute.Mode.CHASE or orc.mode == Brute.Mode.FIGHT:
+		if orc != null and not orc.is_dead and orc.global_position.distance_to(me.global_position) <= 35.0 \
+				and (orc.mode == Brute.Mode.CHASE or orc.mode == Brute.Mode.FIGHT):
+			return true
+		# the raiders of the mist village (2026-10-13)
+		var raider := node as OrcFighter
+		if raider != null and not raider.is_dead and raider.global_position.distance_to(me.global_position) <= 35.0 \
+				and (raider.mode == Fighter.Mode.CHASE or raider.mode == Fighter.Mode.FIGHT):
 			return true
 	return false
 #endregion
