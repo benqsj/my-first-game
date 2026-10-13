@@ -25,6 +25,9 @@ const MQ := "res://assets/anim/lab/ual2_mannequin.glb"
 const KV := "res://assets/anim/lab/kevin_lib.res"
 ## The mage hero's own clips on the mannequin (casts, the staff held).
 const MAGE := "res://assets/anim/heroes/mage_mannequin.res"
+## Tariel's own sword-and-shield clips on the mannequin (the orc's hilt blow,
+## its flourish, its cross cut, 2026-10-13).
+const TARIEL := "res://assets/anim/heroes/tariel_mannequin.res"
 const FIG := "res://assets/creatures/Skeleton_Base.fbx"
 const OUT := "res://assets/creatures/anim/biped_clips.scn"
 const META := "res://assets/creatures/anim/biped_clip_meta.json"
@@ -149,6 +152,34 @@ const CLIPS := [
 	["CR_LayDown", "IdleToLay", false],
 	["CR_KipUp", "KipUp", false],
 	["CR_Knockback", "Hit_Knockback", false],
+	# The orc's own (2026-10-13, the user's word: not the ogre's combos): a
+	# blade in each hand — the left hand's cuts, both at once, its guard of
+	# crossed blades and the blow it turns aside, drawing both; the leaping
+	# cuts; a cross cut, the hilt in his face, a flourish, a stamp of a kick.
+	["CR_SlashL1", "KV_Attack1H01_L", false],
+	["CR_SlashL2", "KV_Attack1H02_L", false],
+	["CR_SlashL3", "KV_Attack1H03_L", false],
+	["CR_SlashL4", "KV_Attack1H04_L", false],
+	["CR_SlashL5", "KV_Attack1H05_L", false],
+	["CR_DW1", "KV_AttackDW01", false],
+	["CR_DW2", "KV_AttackDW02", false],
+	["CR_ParryDW", "KV_ParryDW01_Loop", true],
+	["CR_ParryDWHit", "KV_ParryDW01_Hit", false],
+	["CR_DrawBoth", "KV_UnsheatheHips01_Both", false],
+	["CR_KickL", "KV_AttackKick02_L", false],
+	["CR_CombatEnter", "KV_CombatEnter1H01", false],
+	["CR_AerialA", "Sword_Aerial_A", false],
+	["CR_AerialB", "Sword_Aerial_B", false],
+	["CR_AerialCombo", "Sword_Aerial_Combo", false],
+	["CR_LightCombo", "Sword_Light_Combo", false],
+	["CR_Hilt", "SS_Hilt_Melee", false],
+	["CR_CrossSlash", "SS_Cross_Slash", false],
+	["CR_SwordPlay", "SS_Sword_Play_Idle", false],
+	["CR_PowerUp", "SS_Power_Up", false],
+	["CR_SpartaKick", "SS_Sparta_Kick", false],
+	["CR_LowAttack", "SS_Low_Attack", false],
+	["CR_HighAttack", "SS_High_Attack", false],
+	["CR_RollQuick", "Roll_Quick_To_Run", false],
 ]
 
 ## Clips straight out of Mixamo (without skin, on X Bot), carried onto the
@@ -269,6 +300,11 @@ func _run() -> void:
 			load(MAGE) as AnimationLibrary]:
 		for clip: StringName in src_lib.get_animation_list():
 			lib.add_animation(clip, src_lib.get_animation(clip))
+	# Tariel's only where the rest have none of that name
+	var tariel := load(TARIEL) as AnimationLibrary
+	for clip: StringName in tariel.get_animation_list():
+		if not lib.has_animation(clip):
+			lib.add_animation(clip, tariel.get_animation(clip))
 	for clip: StringName in lib.get_animation_list():
 		Moveset.complete(lib.get_animation(clip), src)
 	for lib_name: StringName in player.get_animation_library_list():
