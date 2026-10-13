@@ -6,8 +6,8 @@
 [ext_resource type="Script" path="res://scripts/pack_dress.gd" id="4_dress"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_body"]
-radius = 0.44
-height = 1.98
+radius = 0.64
+height = 2.88
 
 [sub_resource type="SceneReplicationConfig" id="Repl_body"]
 properties/0/path = NodePath("NetSmooth:net_position")
@@ -45,30 +45,30 @@ properties/9/replication_mode = 1
 collision_layer = 4
 collision_mask = 7
 script = ExtResource("1_fighter")
-speed = 1.6
+speed = 2.0
 roam_radius = 3.0
 rest_time = 2.4
-step_height = 0.44
+step_height = 0.64
 walk_clip = &"CR_Walk"
 idle_clip = &"CR_Idle"
 fidget_clip = &"CR_Idle"
 fidget_interval = 0.0
 loop_clips = PackedStringArray("CR_Idle", "CR_CombatIdle", "CR_Walk", "CR_Run", "CR_StrafeL", "CR_StrafeR", "CR_WalkBack")
-sight_range = 15
+sight_range = 18
 leash_radius = 37.5
-chase_speed = 4.4
+chase_speed = 5.0
 chase_retime_max = 2.4
-max_health = 260
-bar_height = 2.475
-body_radius = 0.396
-body_height = 2.035
+max_health = 380
+bar_height = 2.0
+body_radius = 0.36
+body_height = 1.85
 max_stamina = 100
 block_chance = 0.0
 dash_chance = 0.1
 p_def = 25
 m_def = 10
-reach = 2.25
-hit_damage = 26
+reach = 3.2
+hit_damage = 34
 attack_cooldown = Vector2(0.15, 0.5)
 attack_clip = &"CR_Slash1"
 block_clip = &"CR_Hit"
@@ -82,11 +82,11 @@ clip_meta = "res://assets/creatures/anim/biped_clip_meta.json"
 settle_on_ground = false
 hips_bone = "pelvis_joint"
 foot_bones = PackedStringArray("L_ankle_joint", "R_ankle_joint")
-visual_scale = 1.1
+visual_scale = 1.6
 run_clip = &"CR_Run"
-run_above = 2.8
-strike_off = 1.65
-close_speed = 4.4
+run_above = 3.4
+strike_off = 2.4
+close_speed = 5.0
 weapon_bone = &"R_equip_joint"
 weapon_tip = Vector3(1.1, 0, 0)
 weapon_radius = 0.12
@@ -98,7 +98,7 @@ attack_limbs = PackedStringArray("", "", "", "", "", "R_knee_joint>R_toe_joint:0
 attack_blows = PackedInt32Array(1, 1, 1, 1, 3, 1)
 strike_at_reach = true
 blows_to_fell = 3
-too_close = 0.35
+too_close = 0.5
 steady_in_attack = true
 hit_cost = 0.0
 attack_cost = 10.0
@@ -110,11 +110,21 @@ strafe_r_clip = &"CR_StrafeR"
 back_clip = &"CR_WalkBack"
 rage_at = 0.5
 rage_call = 25.0
+leap_from = 5.5
+leap_to = 12.0
+corpse_sink_depth = 2.2
+stoop_most = 40.0
+pack_turns = 2
+stance = 320.0
+stance_light_share = 0.3
+stance_rest = 8.0
+stance_crit_share = 0.12
+crit_sound = "res://sounds/ogre/crit.wav"
 leap_clip = &"CR_Leap"
 leap_limbs = "pelvis_joint>head_joint:0.34|R_equip_joint>R_equip_joint@1.1,0,0:0.14"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.99, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.44, 0)
 shape = SubResource("Capsule_body")
 
 [node name="Visuals" type="Node3D" parent="."]

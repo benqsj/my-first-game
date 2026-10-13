@@ -10,6 +10,10 @@ extends Node3D
 ## faster, and bursts after `FUSE`: every hero within `BLAST` takes the blast,
 ## the nearer the harder, thrown off his feet if he is close.
 ##
+## **An axe** is the orc's ([OrcFighter]): a hand axe hurled nearly flat,
+## turning end over end; it staggers whoever it meets and sticks in the ground
+## where it falls a moment before it is gone.
+##
 ## **A boulder** is the troll's ([TrollFighter]): torn out of the ground and
 ## hurled, it throws down whoever it meets (a shield takes it, at a cost),
 ## and bursts into rubble where it lands.
@@ -17,7 +21,7 @@ extends Node3D
 ## Made on every peer from the goblin's own message; only the host's lands
 ## blows (`hurts`).
 
-enum Kind { STONE, BOMB, BOULDER }
+enum Kind { STONE, BOMB, BOULDER, AXE }
 
 const GRAVITY := 9.8
 const FUSE := 1.0
@@ -60,7 +64,14 @@ static func throw(into: Node, from: Vector3, velocity: Vector3, what: int, worth
 	shot.global_position = from
 	shot._vel = velocity
 	shot._spin = Vector3(randf_range(-9, 9), randf_range(-5, 5), randf_range(-9, 9))
+	if what == Kind.AXE:
+		# end over end, about the axis across its flight
+		shot._spin = Vector3(-16.0, 0.0, 0.0)
 	shot._build()
+	if what == Kind.AXE:
+		var flat := Vector3(velocity.x, 0.0, velocity.z)
+		if flat.length_squared() > 0.0001:
+			shot.look_at(from + flat, Vector3.UP)
 	return shot
 
 
@@ -85,6 +96,11 @@ func _build() -> void:
 		mat.roughness = 1.0
 		_model.scale = Vector3(1.1, 0.85, 1.0)
 		_model.rotation = Vector3(randf(), randf(), randf()) * TAU
+	elif kind == Kind.AXE:
+		_model.mesh = _axe_mesh()
+		_model.scale = Vector3.ONE * 1.6
+		mat.albedo_color = Color(0.36, 0.25, 0.16)
+		mat.roughness = 0.8
 	elif kind == Kind.STONE:
 		var m := SphereMesh.new()
 		m.radius = 0.08
@@ -128,7 +144,8 @@ func _build() -> void:
 		_fuse_light.omni_range = 1.8
 		_fuse_light.shadow_enabled = false
 		add_child(_fuse_light)
-	(_model.mesh as PrimitiveMesh).material = mat
+	if _model.mesh is PrimitiveMesh:
+		(_model.mesh as PrimitiveMesh).material = mat
 	add_child(_model)
 	add_to_group(&"missile")
 
@@ -177,7 +194,8 @@ func _physics_process(delta: float) -> void:
 
 func _strike_hero(hero: Node3D, at: Vector3) -> void:
 	if hero.has_method(&"receive_blow"):
-		hero.call(&"receive_blow", damage, self, 0, 1, serial)
+		# an axe staggers; the rest fell
+		hero.call(&"receive_blow", damage, self, 0, 3 if kind == Kind.AXE else 1, serial)
 	_crack(at, -_vel.normalized())
 
 
@@ -189,6 +207,19 @@ func _crack(at: Vector3, normal: Vector3) -> void:
 		GroundFx.eruption(into, at, 0.75)
 		DustRing.burst(into, at, 1.0)
 		ImpactFx.thud(self, at, true)
+	elif kind == Kind.AXE:
+		HitFx.spawn(into, &"stone", at, normal, 0.5)
+		if normal.y > 0.5:
+			# stuck in the ground a while, its haft up
+			var stuck := MeshInstance3D.new()
+			stuck.mesh = _model.mesh
+			stuck.material_override = (_model.mesh as Mesh).surface_get_material(0)
+			into.add_child(stuck)
+			stuck.global_position = at + Vector3.UP * 0.12
+			stuck.global_rotation = Vector3(deg_to_rad(randf_range(20.0, 40.0)), randf() * TAU, 0.0)
+			var fade := stuck.create_tween()
+			fade.tween_interval(4.0)
+			fade.tween_callback(stuck.queue_free)
 	else:
 		HitFx.spawn(into, &"stone", at, normal, 0.6)
 		DustRing.burst(into, at, 0.35)
@@ -243,3 +274,23 @@ func _burst() -> void:
 	if _fuse != null and is_instance_valid(_fuse):
 		_fuse.emitting = false
 	queue_free()
+
+
+
+## A hand axe: a haft, and an iron head on its end (the head along +z).
+func _axe_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var haft := BoxMesh.new()
+	haft.size = Vector3(0.05, 0.05, 0.62)
+	st.append_from(haft, 0, Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.05)))
+	var head := BoxMesh.new()
+	head.size = Vector3(0.04, 0.22, 0.16)
+	st.append_from(head, 0, Transform3D(Basis.IDENTITY, Vector3(0, 0.08, 0.22)))
+	var m := st.commit()
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.35, 0.38, 0.4)
+	iron.metallic = 0.7
+	iron.roughness = 0.4
+	m.surface_set_material(0, iron)
+	return m

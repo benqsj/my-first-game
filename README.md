@@ -5761,7 +5761,7 @@ arena's board.
 
 | Arena entry | Scene | Arms | Size |
 |---|---|---|---|
-| Orc | `scenes/creatures/orc.tscn` | falchion, armour | x1.1 |
+| Orc | `scenes/creatures/orc.tscn` | falchion, armour | x1.6 (was x1.1, 2026-10-13) |
 | Goblin | `goblin.tscn` | club | x0.65 |
 | Ogre | `ogre.tscn` | great club | x2.4 (was x1.6, 2026-10-12) |
 | Troll | `troll.tscn` | none | x1.6 |
@@ -5893,7 +5893,7 @@ deaths):
 
 | Creature | Size | Arms | Attacks |
 |---|---|---|---|
-| Orc | x1.1 | falchion | four cuts, a three-cut combo, a kick |
+| Orc | x1.6 | falchion | eight combos, a lunge, war cry, shoulder charge, thrown axe; a band takes turns |
 | Goblin | x0.65 | club | quick cuts and a kick, darts aside |
 | Ogre | x2.4 | great club | four two-handed strikes, a ground slam |
 | Troll | x1.6 | fists | punches, hook, uppercut, a two-fisted slam, a kick |
@@ -10587,3 +10587,59 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
     2.4] — eased from 0.24 of the clip to 0.42 and back over 2.4 s, looping
     (`SkinnedRig._held_pose`): the shield up all the while, the sword arm
     and the body moving a little.
+
+### The orc made over (2026-10-13, the user's word: polish it, combos, half again as tall as a man, skills)
+
+- **Size.** `visual_scale` 1.6 (was 1.1): head joint 2.72 m, some 2.9 m
+  standing, half again Tariel's 1.95. Its body numbers had been written
+  already x1.1 and were x1.1 again by the hurt capsule; now written before
+  the scale (`body_radius` 0.36, `body_height` 1.85, `bar_height` 2.0). By
+  hand in metres: collision capsule 0.64 / 2.88 (centre 1.44), `step_height`
+  0.64, `reach` 3.2, `strike_off` 2.4, `too_close` 0.5, `sight_range` 18,
+  leap 5.5–12 m, `corpse_sink_depth` 2.2. Walk 2.0, chase and close 5.0
+  (a duellist: quicker than the ogre). Health 380, `hit_damage` 34.
+- **Bent over its swings** (`stoop_most` 40): the ogre's stoop fitting
+  (`_fit_stoops`, `stoop_body`, the bend in the sweep and the reach measure)
+  moved into [PackBrute], so any brute can have it (`stoop_most` > 0; the ogre
+  44, set in its scene). The orc's flat cuts bend 16–28°.
+- **Eight combos made by hand** (`_hand_combos`): `three` and `twin_spin`
+  (the great-axe clips, as before), `quick` (Slash1, Slash2, Slash4; enraged
+  Slash3 on), `low_high` (Low_Slash under him, Downward_Slash over him: a
+  jump, then a roll), `lunge` (its "far" one, below), `butt` (Slash3, a butt
+  of the head, Downward), `power` (Slash1, Power_Slash), `frenzy` (enraged
+  only: four cuts and the spin). Its great cuts (Power_Slash, Downward,
+  Downward_Slash, Slash2) are held at the top now and then (`feint_chance`
+  0.45): a roll too early is caught. PackBrute's combos take `"far"` (opened
+  by its kind from off) and `"rage_only"`.
+- **The lunge** (`lunge_from` 4.5..`lunge_to` 7.5, every 6–10 s): SwordDash
+  played slow, sped across the gap to its blow and stopping `lunge_stop` 1.9
+  m off him, then Downward_Slash, which fells.
+- **Skills, each with its tell** (`OrcFighter`):
+  - *War cry* (`OG_Battlecry`): him at least 4.5 m off, it roars; it and
+    every orc within 16 m are emboldened 12 s (walk/chase x1.15, cooldowns
+    x0.6, blows x1.2, a red light pulsing on the chest) and come for him.
+    Every 26–36 s; a waiting orc may cry too.
+  - *Shoulder charge* (7–13 m, every 9–14 s): `CR_Call`'s start (blade up,
+    a grunt) as its tell, then `CR_ShieldDash` driven at him at ~10 m/s for up
+    to 0.75 s; met within 2.1 m it is a "guard" blow that beats a shield down
+    and fells him (`charge_share` 0.9).
+  - *Thrown axe* (8–18 m, every 7–12 s; waiting its turn in a band every
+    5–9 s): `CR_Throw`, the axe leaving its hand at 25 %: [GoblinShot] `AXE`,
+    a hand axe turning end over end, a stagger (`throw_share` 0.55); it sticks
+    in the ground 4 s where it falls.
+  - *Punish* (within 14 m): a flask at his lips or a spell cast and it is at
+    him at once — the charge or the axe from far, the lunge, else a combo.
+- **A band takes turns** (`PackBrute.pack_turns`, the orc 2): only the
+  nearest two (and any in the middle of a blow on him) fight; the rest keep
+  `turn_wait_gap` 5.5 m off, circling and facing him (`_await_turn`), and
+  throw their axes. Enraged, an orc waits for no one.
+- **Stance** 320 (`stance_light_share` 0.3, rest 8 s, riposte 12 %): heavy
+  blows put it on a knee for the critical.
+- **Enraged, a second blade**: its falchion's mesh again on `L_equip_joint`
+  (placed by the skin's bind pose of the right hand, turned 180° about z),
+  shown while it rages (`_glow_on` / `_glow_off`).
+- **Its voice**: the ogre's grunts, roar and whooshes pitched up x1.25.
+- `tests/orc_test.gd`: size, combos, stoops, lunge, cry, charge, axe, turns,
+  punish, stance, second blade. Films: `_shots_tmp/orc_combo_film.gd -- <tag>
+  <combo...>`, `orc_skill_film.gd -- <tag> cry charge throw rage stance
+  punish`, `orc_pack_film.gd`, `orc_rage_still.gd`.
