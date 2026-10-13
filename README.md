@@ -10582,3 +10582,8 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
     `GUARD_HELD`; built at load by `moves.held_poses` /
     `SkinnedRig._held_pose` (every track sampled there, a second long,
     looping). Walking with it up, the walk's legs under it.
+  - the guard breathes (the user's word: it stood stiff as a tree, the
+    sword fixed, walking too): `GUARD_HELD` [Shield_OneShot, 0.24, 0.42,
+    2.4] — eased from 0.24 of the clip to 0.42 and back over 2.4 s, looping
+    (`SkinnedRig._held_pose`): the shield up all the while, the sword arm
+    and the body moving a little.

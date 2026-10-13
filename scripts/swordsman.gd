@@ -39,10 +39,12 @@ const EVADE := {"clip": &"Sword_Dash", "rate": 1.3, "weight": 0.6, "cut": Vector
 const STANCE := &"SS_Idle"
 ## The guard (the user's pick, 2026-10-13, after the pack's block idle stood
 ## too wide): UAL 2's Shield_OneShot, a raise and a lowering of the shield,
-## stood still with the shield up before the face (`GUARD_HELD`: at 0.3 of
-## it, stills _shots_tmp/ogf/clips/oneshot.jpg).
+## held with the shield up before the face (`GUARD_HELD`, stills
+## _shots_tmp/ogf/clips/oneshot.jpg).
 const GUARD := &"Shield_Guard"
-const GUARD_HELD := [&"Shield_OneShot", 0.3]
+## Held from 0.24 to 0.42 of it and back over 2.4 s: the shield up all the
+## while, the sword and the body breathing (the user's word: it stood stiff).
+const GUARD_HELD := [&"Shield_OneShot", 0.24, 0.42, 2.4]
 const SHIELD_TURN := 2.3
 ## The roll: from the crouch into the dive (0.17 of 2.4 s) to down on his
 ## heels (0.64), fitted to the dash; standing up out of it (to `rise_until`)

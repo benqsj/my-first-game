@@ -3405,29 +3405,34 @@ func _fix_own_feet(lib: AnimationLibrary, skel: Skeleton3D, own: Dictionary, deg
 			lib.add_animation(n, anim)
 
 
-## `src` stood still where it is at `share` of it: every track one value, a
-## second long, looping.
-static func _held_pose(src: Animation, share: float) -> Animation:
-	var at := src.length * share
+## `src` held between `from` and `to` of it (shares): eased there and back
+## over `period` s and looping, so the pose stays but breathes (the user's
+## word 2026-10-13: the guard stood stiff as a tree, the sword fixed); one
+## share for both: stood still.
+static func _held_pose(src: Animation, from: float, to: float, period: float) -> Animation:
 	var out := Animation.new()
-	out.length = 1.0
+	out.length = period
 	out.loop_mode = Animation.LOOP_LINEAR
+	var steps := 1 if is_equal_approx(from, to) else 12
 	for t in src.get_track_count():
 		var kind := src.track_get_type(t)
-		var value: Variant
-		match kind:
-			Animation.TYPE_ROTATION_3D:
-				value = src.rotation_track_interpolate(t, at)
-			Animation.TYPE_POSITION_3D:
-				value = src.position_track_interpolate(t, at)
-			Animation.TYPE_SCALE_3D:
-				value = src.scale_track_interpolate(t, at)
-			_:
-				continue
+		if kind != Animation.TYPE_ROTATION_3D and kind != Animation.TYPE_POSITION_3D \
+				and kind != Animation.TYPE_SCALE_3D:
+			continue
 		var n := out.add_track(kind)
 		out.track_set_path(n, src.track_get_path(t))
-		out.track_insert_key(n, 0.0, value)
-		out.track_insert_key(n, 1.0, value)
+		for i in steps + 1:
+			var phase := float(i) / float(steps)
+			var at := src.length * lerpf(from, to, 0.5 - 0.5 * cos(phase * TAU))
+			var value: Variant
+			match kind:
+				Animation.TYPE_ROTATION_3D:
+					value = src.rotation_track_interpolate(t, at)
+				Animation.TYPE_POSITION_3D:
+					value = src.position_track_interpolate(t, at)
+				_:
+					value = src.scale_track_interpolate(t, at)
+			out.track_insert_key(n, phase * period, value)
 	return out
 
 
@@ -3498,7 +3503,8 @@ func _wear_moves() -> void:
 	for held: StringName in (moves.get("held_poses", {}) as Dictionary):
 		var spec: Array = moves["held_poses"][held]
 		if not hl.has_animation(held) and hl.has_animation(spec[0]):
-			hl.add_animation(held, _held_pose(hl.get_animation(spec[0]), float(spec[1])))
+			hl.add_animation(held, _held_pose(hl.get_animation(spec[0]), float(spec[1]),
+					float(spec[2]) if spec.size() > 2 else float(spec[1]), float(spec[3]) if spec.size() > 3 else 1.0))
 	for slot: StringName in moves["clips"]:
 		var clip: StringName = moves["clips"][slot]
 		if clip != &"" and _anim.has_animation(clip):
