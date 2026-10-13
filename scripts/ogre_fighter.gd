@@ -301,19 +301,6 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 @export var grab_smash_at: float = 1.4
 ## Leaning into the swipe ([LeanModifier]), degrees at full.
 @export var grab_bend: float = 26.0
-## Its swings that pass over a man's head at its size (the user's word
-## 2026-10-12: the ogre half again as tall): bent forward from the waist
-## through them, by the least of these degrees that brings the club onto him
-## (measured at load, [method _fit_stoops]), no more than `stoop_most`.
-@export var stoop_most: float = 44.0
-@export var stoop_step: float = 4.0
-@export var stoop_margin: float = 8.0
-## The body each swing is fitted to (the user's word 2026-10-13: playing the
-## assassin, the club went over his head and still hurt him): the chest of
-## the shortest hero and below, (low, high, m from his middle the club must
-## come), so the club is seen to go into him, not over him; a swing that
-## cannot be bent so far is fitted to the sweep's own body as before.
-@export var stoop_body: Vector3 = Vector3(0.0, 1.2, 0.22)
 ## Its hand's light through the tell.
 @export var grab_glow: Color = Color(0.35, 0.62, 1.0)
 ## From how far it comes at him (m at its size; it slides in on him).
@@ -759,12 +746,6 @@ var _own_health: float = -1.0
 ## How faded it is now (every peer, his own camera's).
 var _faded: float = 0.0
 var rage_grounds: int = 0
-## Its bend over swings that would go over his head (`stoop_most`).
-var _stoop: LeanModifier
-## what -> degrees it bends through that swing.
-var _stoops: Dictionary = {}
-## While measuring a swing's reach: the bend to measure it with.
-var _measure_bend: float = 0.0
 var grabs_made: int = 0
 var grab_rolls: int = 0
 var grab_dashes: int = 0
@@ -853,9 +834,6 @@ func _ready() -> void:
 		_lean = LeanModifier.new()
 		_lean.bend = grab_bend
 		_skeleton.add_child(_lean)
-		_stoop = LeanModifier.new()
-		_stoop.bend = 1.0
-		_skeleton.add_child(_stoop)
 	for what: int in SWINGS:
 		var sw: Array = SWINGS[what]
 		_special(what, sw[0], sw[1])
@@ -2913,7 +2891,6 @@ func _process(delta: float) -> void:
 	_watch_hold()
 	_strain_in_hold()
 	_bend_over_him(delta)
-	_stoop_into(delta)
 	_fade_if_between(delta)
 	_grab_tell()
 	_lift_in_flight()
@@ -3058,95 +3035,12 @@ func _grab_tell() -> void:
 	Sfx.play(self, ROAR_SHORT_SOUND, self, Vector3.ZERO, 0.8, -3.0)
 
 
-## Each swing that finds no gap it lands from (its club over a man's head at
-## this size): the least bend forward from the waist that brings it onto him.
-func _fit_stoops() -> void:
-	if _anim == null or _stoop == null:
-		return
-	for what: int in _strikes_table:
-		if what == GRAB:
-			continue
-		var s: Array = _strikes_table[what]
-		if s.size() < 6 or (s[5] as PackedFloat32Array).is_empty():
-			continue
-		var moments: PackedFloat32Array = s[5]
-		# a kick or a butt (a limb, not the club) only bent if it would miss
-		# outright, as before
-		if (_limbs_of.has(what) or what in [KICK, OG_HEADBUTT, OG_STOMP_FOOT]) and _strike_from.has(what):
-			continue
-		_fit_body = stoop_body
-		# a swing that already comes into his chest, as it is, is left as it is
-		if _gap_that_lands(what, _moves_table[what], moments[0]) > 0.0:
-			_fit_body = Vector3.ZERO
-			continue
-		if not _fit_stoop(what, moments) and not _strike_from.has(what):
-			_fit_body = Vector3.ZERO
-			_fit_stoop(what, moments)
-		_fit_body = Vector3.ZERO
-	_measure_bend = 0.0
-
-
-## The least bend that lands `what` on the body being fitted to (false: none).
-func _fit_stoop(what: int, moments: PackedFloat32Array) -> bool:
-	# the least bend that lands the most of its blows from about one gap
-	# (a string of blows from one place), then a little deeper, if that
-	# lands as many, so the club meets him across the chest rather than
-	# grazing the top of his head
-	var best_bend := -1.0
-	var best_score := 0
-	var best_from := -1.0
-	var bend := stoop_step
-	while bend <= stoop_most + 0.01:
-		var got := _stoop_score(what, moments, bend)
-		if int(got[0]) > best_score:
-			best_score = int(got[0])
-			best_bend = bend
-			best_from = float(got[1])
-		bend += stoop_step
-	if best_bend < 0.0:
-		return false
-	var deeper := minf(best_bend + stoop_margin, stoop_most)
-	var got := _stoop_score(what, moments, deeper)
-	if int(got[0]) >= best_score:
-		best_bend = deeper
-		best_from = float(got[1])
-	_stoops[what] = best_bend
-	_strike_from[what] = best_from
-	return true
-
-
-## [how many of the blows land bent `bend` from about the gap the first lands
-## from, that gap] (0 if the first does not land).
-func _stoop_score(what: int, moments: PackedFloat32Array, bend: float) -> Array:
-	_measure_bend = bend
-	var first := _gap_that_lands(what, _moves_table[what], moments[0])
-	var n := 0
-	if first > 0.0:
-		n = 1
-		for k in range(1, moments.size()):
-			var g := _gap_that_lands(what, _moves_table[what], moments[k])
-			if g > 0.0 and absf(g - first) <= 0.7 * visual_scale / 1.6:
-				n += 1
-	_measure_bend = 0.0
-	return [n, first]
-
-
-## The blow's frames with its bend from the waist put in, as the stoop's
-## modifier will bend it.
-func _posed_frames(what: int, m: Array, frames: Array, from: float, to: float, steps: int) -> Array:
-	var bend := _measure_bend if _measure_bend > 0.0 else float(_stoops.get(what, 0.0))
-	if bend <= 0.0 or _stoop == null:
-		return frames
-	var waist := _anim.sample_stretches(m[0], [[_stoop.bones[0], _stoop.bones[0], null]], from, to, steps)
-	var turn := Basis(Vector3.UP.cross(reach_forward.normalized()).normalized(), deg_to_rad(bend))
-	var out: Array = []
-	for i in frames.size():
-		var w: Vector3 = (waist[i][0] as Array)[0] if i < waist.size() and not (waist[i] as Array).is_empty() else Vector3.ZERO
-		var frame: Array = []
-		for part: Array in frames[i]:
-			frame.append([w + turn * ((part[0] as Vector3) - w), w + turn * ((part[1] as Vector3) - w)])
-		out.append(frame)
-	return out
+## Its grab is no swing; a kick, a butt or a stamp (a limb, not the club)
+## only bent if it would miss outright, as before.
+func _stoop_skip(what: int) -> bool:
+	if what == GRAB:
+		return true
+	return (_limbs_of.has(what) or what in [KICK, OG_HEADBUTT, OG_STOMP_FOOT]) and _strike_from.has(what)
 
 
 ## A string's first swing drawn out to `opener_least` s before its blow (its
@@ -3358,50 +3252,6 @@ func _begin(what: int) -> void:
 	var room := _distance_to(_quarry) - float(_strike_from.get(what, strike_off))
 	if room < own:
 		_stretch = clampf(room / own, 0.0, 1.0)
-
-
-## Its club and limbs where they strike, its stoop put in: the bend is laid
-## on by a modifier after the poses are read, so the sweep bends them itself.
-func _weapon_part() -> Array:
-	return _stooped(super())
-
-
-func _own_part(what: int) -> Array:
-	return _stooped(super(what))
-
-
-func _stooped(parts: Array) -> Array:
-	if _stoop == null or _stoop.amount <= 0.01 or _skeleton == null:
-		return parts
-	var waist := _skeleton.find_bone(_stoop.bones[0])
-	if waist < 0:
-		return parts
-	var w := _skeleton.global_transform * _skeleton.get_bone_global_pose(waist).origin
-	var f := _forward()
-	var turn := Basis(Vector3.UP.cross(f).normalized(), deg_to_rad(_stoop.amount))
-	var out: Array = []
-	for part: Array in parts:
-		var bent := part.duplicate()
-		bent[0] = w + turn * ((part[0] as Vector3) - w)
-		bent[1] = w + turn * ((part[1] as Vector3) - w)
-		out.append(bent)
-	return out
-
-
-## Every peer: through a swing that would pass over his head at its size,
-## bent forward from the waist — into it by its first blow, out after its last.
-func _stoop_into(delta: float) -> void:
-	if _stoop == null:
-		return
-	var want := 0.0
-	var rate := 90.0
-	if not is_dead and _stoops.has(act):
-		var ms := _blow_moments(act)
-		if not ms.is_empty() and _heard_clock < ms[ms.size() - 1] + 0.3:
-			want = float(_stoops[act])
-			rate = want / maxf(ms[0] - 0.08, 0.12)
-	_stoop.amount = move_toward(_stoop.amount, want, delta * rate)
-	_stoop.facing = _forward()
 
 
 ## Every peer: bent forward over him through its reach and its hold, and up

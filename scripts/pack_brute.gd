@@ -143,7 +143,8 @@ var _holds: Dictionary = {}
 ## troll, the golem and the orc): [{"name", "moves", "fells", "weight",
 ## "rage"?}] — always the same moves in the same order, the ones at `fells`
 ## throwing him down by themselves, the rest staggering; enraged, a `rage`
-## tail runs on and its last fells instead. Set by its kind in `_ready`, its
+## tail runs on and its last fells instead; "rage_only" ones only enraged;
+## "far" ones its kind opens itself from off. Set by its kind in `_ready`, its
 ## moves with [method _hand_move]. (The ogre has its own, richer.)
 var _hand_combos: Array = []
 ## A fist's stretch, its radius to fill in (the troll's, the golem's).
@@ -171,6 +172,48 @@ var _stance_clock: float = 0.0
 var _stance_serial: int = -1
 
 
+@export_group("Pack turns")
+## How many of its kind with turns (`pack_turns` > 0) come at one hero at once
+## (the user's word, 2026-10-13, Souls' bands): the nearest so many fight;
+## the rest keep `turn_wait_gap` off, circling him, facing him, till one of
+## them drops back or falls. 0: it never waits its turn.
+@export var pack_turns: int = 0
+@export var turn_wait_gap: float = 5.5
+@export var turn_wait_speed: float = 1.7
+
+## Host: which way it circles while it waits (1 or -1), till it turns about;
+## how long it has waited all told (the tests).
+var _circle_dir: float = 1.0
+var _circle_for: float = 0.0
+var turn_waited: float = 0.0
+
+@export_group("Stoop")
+## Its swings that pass over a man's head at its size (the user's word
+## 2026-10-12: the ogre half again as tall; 2026-10-13 the orc too): bent
+## forward from the waist through them, by the least of these degrees that
+## brings its weapon onto him (measured at load, [method _fit_stoops]), no
+## more than `stoop_most`. 0: never bent.
+@export var stoop_most: float = 0.0
+@export var stoop_step: float = 4.0
+@export var stoop_margin: float = 8.0
+## The body each swing is fitted to (the user's word 2026-10-13: playing the
+## assassin, the club went over his head and still hurt him): the chest of
+## the shortest hero and below, (low, high, m from his middle the weapon must
+## come), so it is seen to go into him, not over him; a swing that cannot be
+## bent so far is fitted to the sweep's own body as before.
+@export var stoop_body: Vector3 = Vector3(0.0, 1.2, 0.22)
+
+## Its bend over swings that would go over his head (`stoop_most`).
+var _stoop: LeanModifier
+## what -> degrees it bends through that swing.
+var _stoops: Dictionary = {}
+## While measuring a swing's reach: the bend to measure it with.
+var _measure_bend: float = 0.0
+## Every peer: the serial and clock of the move it bends through.
+var _stoop_serial: int = -1
+var _stoop_clock: float = 0.0
+
+
 func _ready() -> void:
 	super()
 	if not rage_clip.is_empty():
@@ -184,6 +227,10 @@ func _ready() -> void:
 	_leap_wait = _rng.randf_range(1.0, leap_cooldown * 0.5)
 	if stance > 0.0:
 		_moves_table[STANCE] = [stance_clip, stance_part.x, 0.0, stance_part.z]
+	if stoop_most > 0.0 and _skeleton != null:
+		_stoop = LeanModifier.new()
+		_stoop.bend = 1.0
+		_skeleton.add_child(_stoop)
 
 
 ## A move of its own beyond its attacks: [clip, rate, from, to].
@@ -225,6 +272,8 @@ func _think(delta: float) -> void:
 	_quarry = _pick_quarry()
 	if _quarry == null:
 		super(delta)
+		return
+	if _await_turn(delta):
 		return
 	if _own_move(delta):
 		return
@@ -297,6 +346,9 @@ func _try_hand_combo(gap: float) -> bool:
 		if drill and i != drill_combo:
 			continue
 		var c: Dictionary = _hand_combos[i]
+		# one only enraged; one opened from off (its kind's own, [method _own_move])
+		if (bool(c.get("rage_only", false)) and not raging and not drill) or bool(c.get("far", false)):
+			continue
 		var first := int((c["moves"] as Array)[0])
 		var want := float(_strike_from.get(first, strike_off))
 		if (gap < want - 0.9 and not drill) or gap > want + 1.4:
@@ -664,6 +716,7 @@ func _weapon_tip_at() -> Vector3:
 func _process(delta: float) -> void:
 	super(delta)
 	_show_stance(delta)
+	_stoop_into(delta)
 	if not _windups.is_empty():
 		_show_windup(delta)
 	if _glow != null:
@@ -993,4 +1046,215 @@ func _flinch_body(blow: Vector3) -> void:
 	if _hit_react == null:
 		_hit_react = HitReact.on_body(body)
 	_hit_react.strike(blow, FLINCH_THROW * flinch_share)
+#endregion
+
+
+#region Bent over its swings
+## Each swing that finds no gap it lands from (its weapon over a man's head
+## at this size): the least bend forward from the waist that brings it onto
+## him. Its kind calls it once all its moves are in.
+func _fit_stoops() -> void:
+	if _anim == null or _stoop == null:
+		return
+	for what: int in _strikes_table:
+		if _stoop_skip(what):
+			continue
+		var s: Array = _strikes_table[what]
+		if s.size() < 6 or (s[5] as PackedFloat32Array).is_empty():
+			continue
+		var moments: PackedFloat32Array = s[5]
+		_fit_body = stoop_body
+		# a swing that already comes into his chest, as it is, is left as it is
+		if _gap_that_lands(what, _moves_table[what], moments[0]) > 0.0:
+			_fit_body = Vector3.ZERO
+			continue
+		if not _fit_stoop(what, moments) and not _strike_from.has(what):
+			_fit_body = Vector3.ZERO
+			_fit_stoop(what, moments)
+		_fit_body = Vector3.ZERO
+	_measure_bend = 0.0
+
+
+## A move never bent: a kick or a butt (a limb, not the weapon) only if it
+## would miss outright.
+func _stoop_skip(what: int) -> bool:
+	if what == LEAP:
+		# it comes down on him body and all
+		return true
+	return _limbs_of.has(what) and _strike_from.has(what)
+
+
+## The least bend that lands `what` on the body being fitted to (false: none).
+func _fit_stoop(what: int, moments: PackedFloat32Array) -> bool:
+	# the least bend that lands the most of its blows from about one gap
+	# (a string of blows from one place), then a little deeper, if that
+	# lands as many, so the weapon meets him across the chest rather than
+	# grazing the top of his head
+	var best_bend := -1.0
+	var best_score := 0
+	var best_from := -1.0
+	var bend := stoop_step
+	while bend <= stoop_most + 0.01:
+		var got := _stoop_score(what, moments, bend)
+		if int(got[0]) > best_score:
+			best_score = int(got[0])
+			best_bend = bend
+			best_from = float(got[1])
+		bend += stoop_step
+	if best_bend < 0.0:
+		return false
+	var deeper := minf(best_bend + stoop_margin, stoop_most)
+	var got := _stoop_score(what, moments, deeper)
+	if int(got[0]) >= best_score:
+		best_bend = deeper
+		best_from = float(got[1])
+	_stoops[what] = best_bend
+	_strike_from[what] = best_from
+	return true
+
+
+## [how many of the blows land bent `bend` from about the gap the first lands
+## from, that gap] (0 if the first does not land).
+func _stoop_score(what: int, moments: PackedFloat32Array, bend: float) -> Array:
+	_measure_bend = bend
+	var first := _gap_that_lands(what, _moves_table[what], moments[0])
+	var n := 0
+	if first > 0.0:
+		n = 1
+		for k in range(1, moments.size()):
+			var g := _gap_that_lands(what, _moves_table[what], moments[k])
+			if g > 0.0 and absf(g - first) <= 0.7 * visual_scale / 1.6:
+				n += 1
+	_measure_bend = 0.0
+	return [n, first]
+
+
+## The blow's frames with its bend from the waist put in, as the stoop's
+## modifier will bend it.
+func _posed_frames(what: int, m: Array, frames: Array, from: float, to: float, steps: int) -> Array:
+	var bend := _measure_bend if _measure_bend > 0.0 else float(_stoops.get(what, 0.0))
+	if bend <= 0.0 or _stoop == null:
+		return frames
+	var waist := _anim.sample_stretches(m[0], [[_stoop.bones[0], _stoop.bones[0], null]], from, to, steps)
+	var turn := Basis(Vector3.UP.cross(reach_forward.normalized()).normalized(), deg_to_rad(bend))
+	var out: Array = []
+	for i in frames.size():
+		var w: Vector3 = (waist[i][0] as Array)[0] if i < waist.size() and not (waist[i] as Array).is_empty() else Vector3.ZERO
+		var frame: Array = []
+		for part: Array in frames[i]:
+			frame.append([w + turn * ((part[0] as Vector3) - w), w + turn * ((part[1] as Vector3) - w)])
+		out.append(frame)
+	return out
+
+
+## Its weapon and limbs where they strike, its stoop put in: the bend is laid
+## on by a modifier after the poses are read, so the sweep bends them itself.
+func _weapon_part() -> Array:
+	return _stooped(super())
+
+
+func _own_part(what: int) -> Array:
+	return _stooped(super(what))
+
+
+func _stooped(parts: Array) -> Array:
+	if _stoop == null or _stoop.amount <= 0.01 or _skeleton == null:
+		return parts
+	var waist := _skeleton.find_bone(_stoop.bones[0])
+	if waist < 0:
+		return parts
+	var w := _skeleton.global_transform * _skeleton.get_bone_global_pose(waist).origin
+	var f := _forward()
+	var turn := Basis(Vector3.UP.cross(f).normalized(), deg_to_rad(_stoop.amount))
+	var out: Array = []
+	for part: Array in parts:
+		var bent := part.duplicate()
+		bent[0] = w + turn * ((part[0] as Vector3) - w)
+		bent[1] = w + turn * ((part[1] as Vector3) - w)
+		out.append(bent)
+	return out
+
+
+## Every peer: through a swing that would pass over his head at its size,
+## bent forward from the waist — into it by its first blow, out after its last.
+func _stoop_into(delta: float) -> void:
+	if _stoop == null:
+		return
+	if act_serial != _stoop_serial:
+		_stoop_serial = act_serial
+		_stoop_clock = 0.0
+	else:
+		_stoop_clock += delta
+	var want := 0.0
+	var rate := 90.0
+	if not is_dead and _stoops.has(act):
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _stoop_clock < ms[ms.size() - 1] + 0.3:
+			want = float(_stoops[act])
+			rate = want / maxf(ms[0] - 0.08, 0.12)
+	_stoop.amount = move_toward(_stoop.amount, want, delta * rate)
+	_stoop.facing = _forward()
+#endregion
+
+
+#region Pack turns
+## Host: not its turn (see `pack_turns`): it keeps off him, circling and
+## facing him (true while it waits).
+func _await_turn(delta: float) -> bool:
+	# enraged it waits for no one
+	if pack_turns <= 0 or raging or _quarry == null or drill_combo >= 0 or _my_turn():
+		return false
+	mode = Mode.FIGHT
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	var gap := to.length()
+	if gap < 0.01:
+		return false
+	var dir := to / gap
+	if act == Act.NONE and _while_waiting(delta):
+		return true
+	_circle_for -= delta
+	if _circle_for <= 0.0:
+		_circle_for = _rng.randf_range(1.8, 3.6)
+		_circle_dir = -_circle_dir if _rng.randf() < 0.5 else _circle_dir
+	var want := dir.cross(Vector3.UP) * _circle_dir * 0.7
+	var keep := turn_wait_gap
+	var pace := turn_wait_speed
+	if gap < keep - 0.8:
+		want -= dir
+	elif gap > keep + 1.2:
+		want += dir * 1.5
+		if gap > keep + 4.0:
+			pace = chase_speed
+	want = want.normalized() * pace
+	velocity.x = move_toward(velocity.x, want.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, want.z, acceleration * delta)
+	_face(to, delta, turn_speed)
+	turn_waited += delta
+	return true
+
+
+## Its kind's own doing while it waits its turn (true if it took a move).
+func _while_waiting(_delta: float) -> bool:
+	return false
+
+
+## Whether fewer than `pack_turns` of its kind are before it on him: those
+## nearer him, and those in the middle of a blow on him.
+func _my_turn() -> bool:
+	var mine := _distance_to(_quarry)
+	var before := 0
+	for node in get_tree().get_nodes_in_group(&"enemy"):
+		var o := node as PackBrute
+		if o == null or o == self or o.is_dead or o.pack_turns <= 0 or o._quarry != _quarry:
+			continue
+		if o.mode != Mode.FIGHT and o.mode != Mode.CHASE:
+			continue
+		var theirs := o._distance_to(_quarry)
+		var striking := o.act != Act.NONE and theirs < o.reach + 2.0
+		if striking or theirs < mine - 0.4 or (absf(theirs - mine) <= 0.4 and o.get_instance_id() < get_instance_id()):
+			before += 1
+			if before >= pack_turns:
+				return false
+	return true
 #endregion
