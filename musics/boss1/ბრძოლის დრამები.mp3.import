@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://cvgfm028m0mr7"
+path="res://.godot/imported/ბრძოლის დრამები.mp3-d5f187cb905456cc13d579cf202d4c44.mp3str"
+
+[deps]
+
+source_file="res://musics/boss1/ბრძოლის დრამები.mp3"
+dest_files=["res://.godot/imported/ბრძოლის დრამები.mp3-d5f187cb905456cc13d579cf202d4c44.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://ddckopvqy25ju"
+path="res://.godot/imported/Sword Draw.mp3-cf908e84659fa4435fe6ef261353c363.mp3str"
+
+[deps]
+
+source_file="res://musics/fight/Sword Draw.mp3"
+dest_files=["res://.godot/imported/Sword Draw.mp3-cf908e84659fa4435fe6ef261353c363.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://hff750d54yfa"
+path="res://.godot/imported/ქართველო გამარჯვებაა.mp3-018aff8c3f54d6de7484de8aaa8f1f8a.mp3str"
+
+[deps]
+
+source_file="res://musics/like-hunter/ქართველო გამარჯვებაა.mp3"
+dest_files=["res://.godot/imported/ქართველო გამარჯვებაა.mp3-018aff8c3f54d6de7484de8aaa8f1f8a.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

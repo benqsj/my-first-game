@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://ddi3bonq176y8"
+path="res://.godot/imported/ქართველო გამარჯვებაა.wav-1757553c583caff4465a7d4fb08d6d0c.sample"
+
+[deps]
+
+source_file="res://musics/like-hunter/ქართველო გამარჯვებაა.wav"
+dest_files=["res://.godot/imported/ქართველო გამარჯვებაა.wav-1757553c583caff4465a7d4fb08d6d0c.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bmf1fn3me4sw6"
+path="res://.godot/imported/Frost of the North.mp3-ccda5547c8d55f9db95dca5bdbdf23ef.mp3str"
+
+[deps]
+
+source_file="res://musics/fight/Frost of the North.mp3"
+dest_files=["res://.godot/imported/Frost of the North.mp3-ccda5547c8d55f9db95dca5bdbdf23ef.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
