@@ -119,12 +119,15 @@ leap_to = 12.0
 corpse_sink_depth = 2.2
 stoop_most = 40.0
 pack_turns = 2
+hand_pace = 1.15
+hand_tail = 0.62
 stance = 320.0
 stance_light_share = 0.3
 stance_rest = 8.0
 stance_crit_share = 0.12
 crit_sound = "res://sounds/ogre/crit.wav"
 leap_clip = &"CR_Leap"
+leap_part = Vector3(1.6, 0.1, 0.56)
 leap_limbs = "pelvis_joint>head_joint:0.34|R_equip_joint>R_equip_joint@1.1,0,0:0.14"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

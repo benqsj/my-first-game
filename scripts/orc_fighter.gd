@@ -53,8 +53,8 @@ extends PackBrute
 
 @export_group("Lunge")
 ## From how far it lunges at him (m), and how often.
-@export var lunge_from: float = 4.5
-@export var lunge_to: float = 7.5
+@export var lunge_from: float = 3.8
+@export var lunge_to: float = 5.8
 @export var lunge_cooldown: Vector2 = Vector2(6.0, 10.0)
 ## Never nearer him than this at the end of it (m).
 @export var lunge_stop: float = 1.9
@@ -212,23 +212,23 @@ func _ready() -> void:
 	var l := "%s>%s@%s,%s,%s:%s" % [second_bone, second_bone, second_tip.x, second_tip.y, second_tip.z, weapon_radius]
 	var both := "%s>%s@%s,%s,%s:%s|%s" % [weapon_bone, weapon_bone, weapon_tip.x, weapon_tip.y, weapon_tip.z,
 			weapon_radius, l]
-	_hand_move(O_R2, &"CR_Slash2", Vector3(1.0, 0.05, 0.56), 0.5, r)
-	_hand_move(O_R5, &"CR_Slash5", Vector3(1.0, 0.0, 0.55), 0.5, r)
-	_hand_move(O_L1, &"CR_SlashL1", Vector3(1.0, 0.0, 0.5), 0.5, l)
-	_hand_move(O_L2, &"CR_SlashL2", Vector3(1.0, 0.05, 0.55), 0.5, l)
-	_hand_move(O_L4, &"CR_SlashL4", Vector3(1.0, 0.1, 0.62), 0.55, l)
-	_hand_move(O_L5, &"CR_SlashL5", Vector3(1.0, 0.0, 0.5), 0.5, l)
-	_hand_move(O_DW1, &"CR_DW1", Vector3(1.0, 0.1, 0.72), 1.0, both)
-	_hand_move(O_DW2, &"CR_DW2", Vector3(1.0, 0.1, 0.7), 1.0, both)
+	_hand_move(O_R2, &"CR_Slash2", Vector3(1.0, 0.05, 0.72), 0.5, r)
+	_hand_move(O_R5, &"CR_Slash5", Vector3(1.0, 0.0, 0.75), 0.5, r)
+	_hand_move(O_L1, &"CR_SlashL1", Vector3(1.0, 0.0, 0.72), 0.5, l)
+	_hand_move(O_L2, &"CR_SlashL2", Vector3(1.0, 0.05, 0.75), 0.5, l)
+	_hand_move(O_L4, &"CR_SlashL4", Vector3(1.0, 0.1, 0.8), 0.55, l)
+	_hand_move(O_L5, &"CR_SlashL5", Vector3(1.0, 0.0, 0.72), 0.5, l)
+	_hand_move(O_DW1, &"CR_DW1", Vector3(1.0, 0.1, 0.85), 1.0, both)
+	_hand_move(O_DW2, &"CR_DW2", Vector3(1.0, 0.1, 0.85), 1.0, both)
 	_hand_move(O_CROSS, &"CR_CrossSlash", Vector3(1.15, 0.2, 0.72), 0.9, r)
 	_hand_move(O_LOW, &"CR_LowAttack", Vector3(1.1, 0.2, 0.66), 0.6, r)
 	_hand_move(O_HIGH, &"CR_HighAttack", Vector3(1.0, 0.15, 0.7), 1.0, r)
-	_hand_move(O_HILT, &"CR_Hilt", Vector3(1.1, 0.05, 0.55), 0.35, "R_wrist_joint>R_wrist_joint:0.4")
+	_hand_move(O_HILT, &"CR_Hilt", Vector3(1.0, 0.05, 0.75), 0.35, "R_wrist_joint>R_wrist_joint:0.4")
 	_kinds[O_HILT] = &"guard"
 	_hand_move(O_KICKL, &"CR_KickL", Vector3(1.1, 0.1, 0.8), 0.45, "L_knee_joint>L_toe_joint:0.15")
 	_kinds[O_KICKL] = &"guard"
-	_hand_move(O_AERA, &"CR_AerialA", Vector3(0.35, 0.0, 1.0), 0.8, r)
-	_hand_move(O_AERB, &"CR_AerialB", Vector3(0.7, 0.0, 0.9), 1.0, r)
+	_hand_move(O_AERA, &"CR_AerialA", Vector3(0.75, 0.0, 1.0), 0.8, r)
+	_hand_move(O_AERB, &"CR_AerialB", Vector3(1.0, 0.0, 0.95), 1.0, r)
 	_peaks_move(O_LIGHTC, &"CR_LightCombo", Vector3(1.05, 0.05, 0.85), 0.45, r, 3)
 	_special(O_DRAW, &"CR_DrawBoth", Vector3(1.0, 0.0, 1.0))
 	_special(O_TAUNT, &"CR_SwordPlay", Vector3(1.15, 0.05, 0.42))

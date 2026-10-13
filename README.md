@@ -10700,3 +10700,12 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   (`World._orcs_on`). Tests that wanted the old orcs in the world
   (combat_core, vitals, sweep, boss) bring a guard and a great axe in
   themselves.
+- **Paced to be seen** (2026-10-14, the user's word: the moves of a combo ran
+  into each other, the blows went unseen; the leap came down too slowly):
+  `PackBrute.hand_tail` (default 0.32 s; the orc 0.62) — how long a combo's
+  move runs on after its blow before the next — and the orc's `hand_pace`
+  1.15 (was 1.42); its cuts' parts run on to 0.72–0.85 of their clips, so
+  each blow and its follow-through read (a move ~0.65–0.75 s, was ~0.4). The
+  leap `leap_part` 1.6 (was 1.15) and cut at 0.56: ~0.8 s from 9 m. The
+  leaping cuts at their own pace (AerialA 0.75, AerialB 1.0; it was slowed
+  to 0.35 to cross the gap) from 3.8–5.8 m.

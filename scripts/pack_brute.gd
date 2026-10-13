@@ -134,6 +134,9 @@ var _holds: Dictionary = {}
 ## Its combos' moves played this much quicker than their clips (the user's
 ## word, 2026-10-11: too slow).
 @export var hand_pace: float = 1.42
+## A combo's move with more to come runs on this long after its last blow
+## before the next begins (s).
+@export var hand_tail: float = 0.32
 ## The practice (the test arena's board, 2026-10-10): >= 0, it does nothing
 ## but this one of its combos, over and over — it comes in to it, opens it, gets
 ## its breath, and again.
@@ -632,7 +635,7 @@ func _move_length(what: int) -> float:
 			and _strikes_table.has(what):
 		var ms := _blow_moments(what)
 		if not ms.is_empty():
-			length = minf(length, ms[ms.size() - 1] + 0.32)
+			length = minf(length, ms[ms.size() - 1] + hand_tail)
 	return length
 
 
