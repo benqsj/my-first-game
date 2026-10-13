@@ -1,0 +1,33 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemies/pack/orc.tscn" id="1_orc"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_chief"]
+radius = 0.74
+height = 3.33
+
+[node name="Orc" instance=ExtResource("1_orc")]
+role = &"chief"
+visual_scale = 1.85
+step_height = 0.74
+reach = 3.7
+strike_off = 2.8
+too_close = 0.58
+corpse_sink_depth = 2.5
+max_health = 620
+hit_damage = 40
+p_def = 35
+stance = 480.0
+cry_cooldown = Vector2(16.0, 24.0)
+cry_range = 22.0
+block_chance = 0.45
+counter_chance = 1.0
+rage_at = 0.6
+
+[node name="CollisionShape3D" parent="." index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.665, 0)
+shape = SubResource("Capsule_chief")
+
+[node name="Dress" parent="Visuals" index="1"]
+body = "Body_OrcGrey"
+objects = "Objects_OrcChief"

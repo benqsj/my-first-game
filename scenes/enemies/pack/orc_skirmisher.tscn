@@ -1,0 +1,19 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemies/pack/orc.tscn" id="1_orc"]
+
+[node name="Orc" instance=ExtResource("1_orc")]
+role = &"skirmisher"
+keep_off = 7.0
+max_health = 300
+hit_damage = 28
+throw_from = 6.0
+throw_cooldown = Vector2(3.0, 5.5)
+throw_waiting = Vector2(3.0, 5.0)
+hand_combo_chance = Vector2(0.25, 0.4)
+dash_chance = 0.4
+block_chance = 0.2
+
+[node name="Dress" parent="Visuals" index="1"]
+body = "Body_OrcDark"
+objects = "Objects_OrcSkirm"

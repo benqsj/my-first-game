@@ -10643,3 +10643,60 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   punish, stance, second blade. Films: `_shots_tmp/orc_combo_film.gd -- <tag>
   <combo...>`, `orc_skill_film.gd -- <tag> cry charge throw rage stance
   punish`, `orc_pack_film.gd`, `orc_rage_still.gd`.
+
+### The orc, a raider of its own (2026-10-13, branch perfect-orc; the user's word: "it must not look like the ogre's combos", everything proposed, never more than two together)
+
+- **None of the ogre's clips.** `tools/creature_clips.gd` bakes 24 more onto
+  the pack skeleton: Kevin's left-hand cuts (`CR_SlashL1..5`), two-bladed
+  cuts (`CR_DW1/2`), the crossed-blades guard and its turn (`CR_ParryDW`,
+  `CR_ParryDWHit`), drawing both (`CR_DrawBoth`), the left kick (`CR_KickL`);
+  UAL 2's leaping cuts (`CR_AerialA/B/Combo`) and light combo
+  (`CR_LightCombo`); Tariel's hilt blow, cross cut, low and high cuts, sword
+  play and power-up (`CR_Hilt`, `CR_CrossSlash`, `CR_LowAttack`,
+  `CR_HighAttack`, `CR_SwordPlay`, `CR_PowerUp`, read from
+  `tariel_mannequin.res` only where no other library has the name). The
+  old clips' meta is unchanged. `orc_test` checks no move of the orc is
+  the ogre's.
+- **Two blades, always** (`_make_second` on `L_equip_joint`, `second_tip`
+  -1.1 along its bone). Left-hand and two-bladed moves strike with their own
+  stretches (limbs `L_equip_joint@-1.1,0,0` and both). Its plain attacks too
+  (`attacks`: Slash2, Slash5, SlashL2, SlashL5, DW1).
+- **Combos** (O_* 180–199): `twin_flurry` R-L-R-L-both (enraged on into
+  DW2), `low_high` (Tariel's low and high cuts, travelling — shortened to the
+  room before him, `_begin` / `_stretch`, never sideways, `_carry`), `hilt`
+  (Slash5, the hilt in his face, a "guard" blow, both blades), `kick_cut`,
+  `cross`, `light` (three blows, the last fells), the far one (`lunge`: the
+  leaping cuts AerialA→AerialB, sped across 4.5–7.5 m), `frenzy` (enraged:
+  six), and `counter` (only after a parry). A string's cut steps in or back to
+  where it lands through its wind-up (`_extra_velocity`), so a string follows
+  him. Feints on HighAttack, Cross, DW2, Slash2.
+- **Guard and counter**: the Fighter's block with `CR_ParryDW`
+  (`block_chance` 0.35, `react_range` 5, `block_hold` 1.1, `block_cost` 30):
+  a cut caught is turned aside — he reels (a 1-point stagger) — and the
+  counter starts at once (`counter_chance`). His heavy swing
+  (`rig.is_heavy()`) through the guard breaks it (Act.BREAK) and bleeds it;
+  so do three caught in a row (stamina). Spells and blows from behind go
+  through.
+- **Footwork**: `dash_chance` 0.25 at his swings, and after a string of its
+  own a bound out of reach, aside or back (`sidestep_after` 0.45, dash 7 m/s).
+- **Bearing**: first roused 4.7+ m off it draws both blades (`O_DRAW`); him
+  down (or drinking beyond its punish reach) it twirls its blades at him
+  (`O_TAUNT`, `taunt_chance` 0.5, every 10–18 s); under 22 % health with no
+  kin on him it backs off 2.5 s (`wary_*`, once per 14 s). War cry is now
+  `CR_PowerUp`; the shield kick `CR_KickL`.
+- **Roles** (`role`, scenes inheriting `pack/orc.tscn`): duelist (the plain
+  orc); **skirmisher** (`orc_skirmisher.tscn`: `keep_off` 7 m, axes every
+  3–5.5 s, darker skin, blue cloth; caught close it stands and fights half the
+  time); **chief** (`orc_chief.tscn`: x1.85, 620 health, stance 480, roars
+  every 16–24 s over 22 m, grey skin, black and gilt). New palettes in
+  `PackCreature.MATERIALS`.
+- **The mist village** (`World.CAMPS`): the Meshy orcs gone; three pairs of
+  raiders on clear ground (probed: `_shots_tmp/mist_spots.gd`), 15–25 m apart:
+  duellist + skirmisher at (18, -187), two duellists at (4, -180), the chief
+  and a duellist at (10, -205.5) (spread 1.4: a building behind). Camp rows
+  take a 4th field, the spread. `sight_range` 13 so a pair does not wake the
+  next; `pack_turns` 2 all the same. The land gate still opens when all are
+  dead (`camp_centre` within 20 m); the fight music knows them
+  (`World._orcs_on`). Tests that wanted the old orcs in the world
+  (combat_core, vitals, sweep, boss) bring a guard and a great axe in
+  themselves.

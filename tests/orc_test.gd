@@ -65,6 +65,8 @@ func _orc(off: float, aside: float = 0.0) -> OrcFighter:
 	o._cry_wait = 999.0
 	o._charge_wait = 999.0
 	o._throw_wait = 999.0
+	o._drawn = true
+	o._taunt_wait = 999.0
 	return o
 
 
@@ -93,6 +95,8 @@ func _run() -> void:
 	await _throw()
 	await _turns()
 	await _punish()
+	await _guard()
+	await _bearing()
 	await _stance()
 	await _rage()
 	print("orc_test: %s" % ("all passed" if _failures == 0 else "%d FAILED" % _failures))
@@ -107,7 +111,15 @@ func _size() -> void:
 	var head := sk.global_transform * sk.get_bone_global_pose(sk.find_bone("head_joint"))
 	var tall := head.origin.y - o.global_position.y
 	_check("half again as tall as a man (head ~2.7 m)", tall > 2.5 and tall < 3.0, "%.2f m" % tall)
-	_check("eight combos made by hand", o._hand_combos.size() == 8, str(o._hand_combos.size()))
+	_check("eight combos made by hand, and its counter", o._hand_combos.size() == 9, str(o._hand_combos.size()))
+	var ogre_clips: Array = []
+	for what: int in o._moves_table:
+		var clip := String((o._moves_table[what] as Array)[0])
+		if clip.begins_with("CR_OG_") or clip in ["CR_Slash1", "CR_Slash3", "CR_Slash4", "CR_SwordDash", "CR_Heavy1",
+				"CR_Heavy2", "CR_Heavy3", "CR_Heavy4", "CR_Kick", "CR_LightD", "CR_RegB"]:
+			ogre_clips.append(clip)
+	_check("none of its moves is the ogre's", ogre_clips.is_empty(), str(ogre_clips))
+	_check("a blade in each hand from the first", o._second != null and o._second.visible)
 	_check("its flat cuts bent down onto a man", o._stoops.size() >= 3, str(o._stoops))
 
 
@@ -135,7 +147,7 @@ func _cry() -> void:
 			"%d cries, %.1f / %.1f s" % [o.cries_made, o._bold_left, mate._bold_left])
 	_check("quicker for it", mate.chase_speed > pace, "%.1f -> %.1f" % [pace, mate.chase_speed])
 	_check("an orc far off is not", far._bold_left <= 0.0)
-	_check("harder blows while it lasts", o._blow_worth(OrcFighter.O_S1) > 1.05, str(o._blow_worth(OrcFighter.O_S1)))
+	_check("harder blows while it lasts", o._blow_worth(OrcFighter.O_R2) > 1.05, str(o._blow_worth(OrcFighter.O_R2)))
 
 
 func _charge() -> void:
@@ -151,7 +163,7 @@ func _charge() -> void:
 
 func _throw() -> void:
 	await _arena()
-	var o := _orc(14.0)
+	var o := _orc(12.0)
 	o._throw_wait = 0.0
 	o.hand_combo_chance = Vector2.ZERO
 	o.chase_speed = 0.0
@@ -223,3 +235,57 @@ func _rage() -> void:
 	await _run_for(10)
 	_check("enraged, a second blade in its left hand", o.raging and o._second != null and o._second.visible)
 	_check("and the frenzy among its combos", o._combo_named(&"frenzy") >= 0)
+
+
+func _guard() -> void:
+	await _arena()
+	var o := _orc(3.0)
+	o.hand_combo_chance = Vector2.ZERO
+	await _run_for(10)
+	o._start(Fighter.Act.BLOCK)
+	var at := o.global_position + Vector3.UP * 1.5
+	var bled := o._receive(20.0, at, Vector3.FORWARD, _hero)
+	_check("a cut on its crossed blades is turned aside", not bled and o.parries_made == 1, "bled %s, %d parries" % [bled, o.parries_made])
+	_check("and it answers at once with its counter", o.counters_made == 1 and o._hand_combo == o._combo_named(OrcFighter.COUNTER_COMBO),
+			"%d counters, combo %d" % [o.counters_made, o._hand_combo])
+	await _run_for(90)
+	_check("the counter lands on him", _hits >= 1, "%d hits" % _hits)
+	# three caught in a row: its guard broken
+	var broke := false
+	o.stamina = o.max_stamina
+	for k in 5:
+		o._start(Fighter.Act.BLOCK)
+		o._receive(20.0, at, Vector3.FORWARD, _hero)
+		if o.act == Fighter.Act.BREAK:
+			broke = true
+			break
+	_check("cut after cut on its guard breaks it open", broke)
+
+
+func _bearing() -> void:
+	await _arena()
+	var o := _orc(6.0)
+	o._drawn = false
+	await _run_for(30)
+	_check("first roused, it draws both blades", o.act == OrcFighter.O_DRAW or o._drawn, "act %d" % o.act)
+	o._taunt_wait = 0.0
+	o.taunt_chance = 1.0
+	_hero.state = Player.State.DOWNED
+	var seen := false
+	for f in 120:
+		await physics_frame
+		if o.act == OrcFighter.O_TAUNT:
+			seen = true
+			break
+	_hero.state = Player.State.GROUNDED
+	_check("him down, it twirls its blades at him", seen and o.taunts_made >= 1, "%d taunts" % o.taunts_made)
+	o.rage_at = 0.0
+	o.health = o.max_health * 0.15
+	o._wary_wait = 0.0
+	var backed := false
+	var d0 := o._distance_to(_hero)
+	for f in 300:
+		await physics_frame
+		if o.wary_made > 0:
+			backed = true
+	_check("badly hurt and alone, it backs off a while", backed, "%.1f -> %.1f m" % [d0, o._distance_to(_hero)])

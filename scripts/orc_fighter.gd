@@ -1,43 +1,51 @@
 class_name OrcFighter
 extends PackBrute
 
-## The orc (Polysplit's Biped Creatures, CREATURES_PACK.md): a falchion and
-## a temper (the user's picks, 2026-10-07).
+## The orc (Polysplit's Biped Creatures, CREATURES_PACK.md): half again as
+## tall as a man, a falchion in each hand — a raider, quick and dirty, nothing
+## like the ogre (the user's word, 2026-10-13: "it must not look like the
+## ogre's combos"; none of the ogre's clips is its own).
 ##
-## * **The leap** ([PackBrute]): from off, it springs at him, falchion and
-##   body, and comes down on him — down he goes.
-## * **A boot through his shield.** He crouches behind his shield in front of
-##   it (`kick_after` s of it): it kicks the shield aside (`CR_Kick`, a "guard"
-##   blow: caught on the shield it beats his guard down, [method
-##   Player._crumple]) and goes straight in after it with the falchion while
-##   he is open.
+## * **Two blades** (`second_bone`): its falchion again in its left hand,
+##   always; its cuts come from either hand and from both at once
+##   (`_limbs` L / BOTH), strings that change hands Elden Ring's way.
+## * **Its guard** (the Fighter's block, `block_clip` crossed blades): him
+##   swinging at it within `react_range`, it may raise both blades; a cut
+##   caught there is turned aside — he reels a breath — and it answers at
+##   once with its counter. A heavy blow (his charged or heavy swing) or three
+##   caught in a row (`block_cost`) breaks the guard open. A spell goes
+##   through it; so does a blow from behind.
+## * **Footwork** (`dash_chance`, `sidestep_*`): it steps aside from his
+##   swings, and between its strings it circles and steps in and out.
+## * **Dirty**: the hilt in his face (a "guard" blow), a boot through his
+##   shield, the shoulder charge, the thrown axe.
+## * **The leap** ([PackBrute]) and the leaping cuts (`Sword_Aerial`): from
+##   off it is on him in one bound, both cuts on the way down.
 ## * **Rage** ([PackBrute]): cut to half its health it roars, glows red, comes
-##   on quicker and hits harder, and the orcs about come at the roar.
-## * **A duellist** (the user's word, 2026-10-13: polish the orc, combos,
-##   half again as tall as a man): eight combos made by hand, Elden Ring's way
-##   — quick strings of cuts, a low sweep and a cut from above (a jump, then a
-##   roll), a butt of the head in the middle of a string, a great cut held
-##   back a beat (a feint, `_holds`), and enraged a frenzy of five. From off
-##   (`lunge_from`..`lunge_to`) it lunges at him, falchion first, and cuts down.
+##   on quicker and hits harder; and the frenzy among its combos.
 ## * **Skills, each with its tell** (2026-10-13):
-##   - **the war cry** (`OG_Battlecry`): him a way off and its kin about, it
-##     stops and roars; it and every orc within `cry_range` are emboldened
-##     for `cry_time` s — quicker on their feet and between blows, harder
-##     blows, a red light on their chests — and come for him. A long opening.
-##   - **the shoulder charge**: from `charge_from`..`charge_to` off it beats
-##     its chest and grunts (`CR_Call`'s start), then drives at him shoulder
-##     first (`CR_ShieldDash`): a "guard" blow that beats a shield down and
-##     throws him off his feet. A roll to the side.
-##   - **the thrown axe** (`CR_Throw`): him far off, or it waiting its turn in
-##     a band, it hurls a hand axe at him, spinning ([GoblinShot] AXE): a
-##     stagger; a shield takes it, a roll or a step aside lets it by.
-##   - **punished**: a flask drunk or a spell cast within `punish_reach`, it is
-##     at him at once — the lunge, the charge, the axe or a combo, by the gap.
+##   - **the war cry** (`SS_Power_Up`): it and every orc within `cry_range`
+##     emboldened for `cry_time` s.
+##   - **the shoulder charge**: `CR_Call`'s start as its tell, then
+##     `CR_ShieldDash` driven at him.
+##   - **the thrown axe** (`CR_Throw`, [GoblinShot] AXE): a stagger.
+##   - **punished**: a flask drunk or a spell cast within `punish_reach`.
+## * **Its bearing** (`taunt_*`): him down or drinking far off, it twirls its
+##   blades at him (`SS_Sword_Play_Idle`) instead of rushing in; first roused,
+##   it draws both (`KV_UnsheatheHips01_Both`). Badly hurt and alone it backs
+##   off a while.
+
+## Its part in a band (2026-10-13): "duelist" (in close, blades and
+## guard), "skirmisher" (keeps `keep_off` m off him and throws, in only when
+## he turns away or comes on), "chief" (bigger, roars its kin on more often).
+@export var role: StringName = &"duelist"
+## The skirmisher's distance from him (0: it comes in like any).
+@export var keep_off: float = 0.0
 
 @export_group("Kick")
-@export var kick_clip: StringName = &"CR_Kick"
-@export var kick_part: Vector3 = Vector3(1.25, 0.0, 0.9)
-@export var kick_limbs: String = "R_knee_joint>R_toe_joint:0.14"
+@export var kick_clip: StringName = &"CR_KickL"
+@export var kick_part: Vector3 = Vector3(1.1, 0.1, 0.8)
+@export var kick_limbs: String = "L_knee_joint>L_toe_joint:0.15"
 ## How long he must hold his shield up in front of it before it kicks.
 @export var kick_after: float = 0.35
 @export var kick_cooldown: float = 3.0
@@ -86,29 +94,52 @@ extends PackBrute
 ## there against the right hand's hold.
 @export var second_bone: String = "L_equip_joint"
 @export var second_turn: Transform3D = Transform3D(Basis(Vector3.FORWARD, PI), Vector3.ZERO)
+## The left blade's end, in its bone (the right's `weapon_tip`, turned).
+@export var second_tip: Vector3 = Vector3(-1.1, 0.0, 0.0)
 @export_group("Punish")
 @export var punish_reach: float = 14.0
+@export_group("Guard")
+## The chance it raises its blades to his swing (the rest: a step aside, or
+## it takes it), and how much of his blade's worth he feels turned aside.
+@export var counter_chance: float = 1.0
+## Its guard held no longer than this at a stretch (s).
+@export var guard_most: float = 1.6
+## After a string of its, the chance it steps out of reach, aside or back.
+@export var sidestep_after: float = 0.45
+@export_group("Bearing")
+## How often it stands off and twirls its blades at him, him down or far.
+@export var taunt_chance: float = 0.5
+@export var taunt_cooldown: Vector2 = Vector2(10.0, 18.0)
+## Under this share of its health, its kin gone, it backs off a while.
+@export var wary_below: float = 0.22
+@export var wary_for: float = 2.5
 @export_group("Feints")
 ## How often its great cuts are held back a beat before they come down.
 @export var feint_chance: float = 0.45
 
 const KICK := 112
-## Its combos' moves (2026-10-10): Mixamo's great axe swings, its sword one-handed.
-const O_HORIZ := 180
-const O_BACK := 181
-const O_DOWN := 182
-const O_TWIN := 183
-const O_SPIN := 184
-## Its duellist's moves (2026-10-13).
-const O_S1 := 185
-const O_S2 := 186
-const O_S3 := 187
-const O_S4 := 188
-const O_LUNGE := 190
-const O_BUTT := 191
-const O_POWER := 192
-const O_LOW := 193
-const O_DSLASH := 194
+## Its moves (2026-10-13): none of them the ogre's. R right hand, L left,
+## DW both.
+const O_R2 := 180
+const O_R5 := 181
+const O_L1 := 182
+const O_L2 := 183
+const O_L4 := 184
+const O_L5 := 185
+const O_DW1 := 186
+const O_DW2 := 187
+const O_CROSS := 188
+const O_LOW := 189
+const O_HIGH := 190
+const O_HILT := 191
+const O_KICKL := 192
+const O_AERA := 193
+const O_AERB := 194
+const O_LIGHTC := 199
+const O_DRAW := 200
+const O_TAUNT := 201
+## kept for the leap at him (its far combo opens with it)
+const O_LUNGE := O_AERA
 const O_CRY := 195
 const O_BRACE := 196
 const O_CHARGE := 197
@@ -122,6 +153,7 @@ const WHOOSH_HEAVY := SOUNDS + "whoosh_heavy.wav"
 const VOICE := 1.25
 ## Its combos, by name.
 const LUNGE_COMBO := &"lunge"
+const COUNTER_COMBO := &"counter"
 
 var _shield_for: float = 0.0
 var _kick_wait: float = 0.0
@@ -130,6 +162,18 @@ var _follow_up: float = 0.0
 var _lunge_wait: float = 3.0
 var _lunge_speed: float = 0.0
 var lunges_made: int = 0
+var parries_made: int = 0
+var counters_made: int = 0
+var guard_breaks: int = 0
+var taunts_made: int = 0
+var _taunt_wait: float = 4.0
+var _drawn: bool = false
+var _wary_left: float = 0.0
+var _wary_wait: float = 0.0
+var wary_made: int = 0
+var _stand_for: float = 0.0
+var _stand_wait: float = 0.0
+var _guard_for: float = 0.0
 var _cry_wait: float = 2.0
 var _charge_wait: float = 3.0
 var _throw_wait: float = 3.0
@@ -162,39 +206,51 @@ func _ready() -> void:
 	# Not a blow that fells him by itself.
 	_special_strike(KICK, kick_limbs, kick_share, 3)
 	_kinds[KICK] = &"guard"
-	_hand_move(O_HORIZ, &"CR_OG_Attack_Horizontal", Vector3(1.05, 0.1, 0.8), 0.6)
-	_hand_move(O_BACK, &"CR_OG_Attack_Backhand", Vector3(1.05, 0.08, 0.62), 0.6)
-	_hand_move(O_DOWN, &"CR_OG_Attack_Downward", Vector3(1.0, 0.05, 0.75), 1.15)
-	_hand_move(O_TWIN, &"CR_OG_Combo_3", Vector3(1.05, 0.12, 0.9), 0.5, "", [0.372, 0.617])
-	_hand_move(O_SPIN, &"CR_OG_Attack_360", Vector3(1.0, 0.0, 0.7), 1.2)
-	# its combos made by hand ([PackBrute] `_hand_combos`)
-	# the duellist's (2026-10-13): its own sword clips, quick
-	_hand_move(O_S1, &"CR_Slash1", Vector3(1.0, 0.0, 0.62), 0.5)
-	_hand_move(O_S2, &"CR_Slash2", Vector3(1.0, 0.05, 0.58), 0.5)
-	_hand_move(O_S3, &"CR_Slash3", Vector3(1.0, 0.0, 0.55), 0.5)
-	_hand_move(O_S4, &"CR_Slash4", Vector3(1.0, 0.0, 0.66), 0.6)
-	_hand_move(O_LUNGE, &"CR_SwordDash", Vector3(0.5, 0.0, 0.5), 0.7)
-	_hand_move(O_BUTT, &"CR_OG_Headbutt", Vector3(1.2, 0.12, 0.62), 0.4, "head_joint>head_joint:0.3")
-	_hand_move(O_POWER, &"CR_OG_Power_Slash", Vector3(1.0, 0.3, 1.0), 1.1)
-	_hand_move(O_LOW, &"CR_OG_Low_Slash", Vector3(1.1, 0.2, 0.7), 0.6)
-	_hand_move(O_DSLASH, &"CR_OG_Downward_Slash", Vector3(1.0, 0.1, 0.78), 1.0)
-	# its great cuts now and then held back at the top (a feint: a roll too
-	# early is caught)
-	for what: int in [O_POWER, O_DOWN, O_DSLASH, O_S2]:
-		_holds[what] = [feint_chance, 0.3, 0.7, 0.22]
+	# its left blade, always in hand
+	_draw_second(true)
+	var r := ""
+	var l := "%s>%s@%s,%s,%s:%s" % [second_bone, second_bone, second_tip.x, second_tip.y, second_tip.z, weapon_radius]
+	var both := "%s>%s@%s,%s,%s:%s|%s" % [weapon_bone, weapon_bone, weapon_tip.x, weapon_tip.y, weapon_tip.z,
+			weapon_radius, l]
+	_hand_move(O_R2, &"CR_Slash2", Vector3(1.0, 0.05, 0.56), 0.5, r)
+	_hand_move(O_R5, &"CR_Slash5", Vector3(1.0, 0.0, 0.55), 0.5, r)
+	_hand_move(O_L1, &"CR_SlashL1", Vector3(1.0, 0.0, 0.5), 0.5, l)
+	_hand_move(O_L2, &"CR_SlashL2", Vector3(1.0, 0.05, 0.55), 0.5, l)
+	_hand_move(O_L4, &"CR_SlashL4", Vector3(1.0, 0.1, 0.62), 0.55, l)
+	_hand_move(O_L5, &"CR_SlashL5", Vector3(1.0, 0.0, 0.5), 0.5, l)
+	_hand_move(O_DW1, &"CR_DW1", Vector3(1.0, 0.1, 0.72), 1.0, both)
+	_hand_move(O_DW2, &"CR_DW2", Vector3(1.0, 0.1, 0.7), 1.0, both)
+	_hand_move(O_CROSS, &"CR_CrossSlash", Vector3(1.15, 0.2, 0.72), 0.9, r)
+	_hand_move(O_LOW, &"CR_LowAttack", Vector3(1.1, 0.2, 0.66), 0.6, r)
+	_hand_move(O_HIGH, &"CR_HighAttack", Vector3(1.0, 0.15, 0.7), 1.0, r)
+	_hand_move(O_HILT, &"CR_Hilt", Vector3(1.1, 0.05, 0.55), 0.35, "R_wrist_joint>R_wrist_joint:0.4")
+	_kinds[O_HILT] = &"guard"
+	_hand_move(O_KICKL, &"CR_KickL", Vector3(1.1, 0.1, 0.8), 0.45, "L_knee_joint>L_toe_joint:0.15")
+	_kinds[O_KICKL] = &"guard"
+	_hand_move(O_AERA, &"CR_AerialA", Vector3(0.35, 0.0, 1.0), 0.8, r)
+	_hand_move(O_AERB, &"CR_AerialB", Vector3(0.7, 0.0, 0.9), 1.0, r)
+	_peaks_move(O_LIGHTC, &"CR_LightCombo", Vector3(1.05, 0.05, 0.85), 0.45, r, 3)
+	_special(O_DRAW, &"CR_DrawBoth", Vector3(1.0, 0.0, 1.0))
+	_special(O_TAUNT, &"CR_SwordPlay", Vector3(1.15, 0.05, 0.42))
+	# its heavier cuts now and then held at the top (a feint: a roll too early
+	# is caught)
+	for what: int in [O_HIGH, O_CROSS, O_DW2, O_R2]:
+		_holds[what] = [feint_chance, 0.3, 0.65, 0.22]
 	_hand_combos = [
-		{"name": &"three", "moves": [O_HORIZ, O_BACK, O_DOWN], "fells": [2], "weight": 1.0},
-		{"name": &"twin_spin", "moves": [O_TWIN, O_SPIN], "fells": [1], "weight": 0.8, "rage": [O_DOWN]},
-		{"name": &"quick", "moves": [O_S1, O_S2, O_S4], "fells": [2], "weight": 1.2, "rage": [O_S3]},
-		{"name": &"low_high", "moves": [O_LOW, O_DSLASH], "fells": [1], "weight": 0.9},
-		{"name": LUNGE_COMBO, "moves": [O_LUNGE, O_DSLASH], "fells": [1], "weight": 1.0, "far": true},
-		{"name": &"butt", "moves": [O_S3, O_BUTT, O_DOWN], "fells": [2], "weight": 0.8},
-		{"name": &"power", "moves": [O_S1, O_POWER], "fells": [1], "weight": 0.9},
-		{"name": &"frenzy", "moves": [O_S1, O_S2, O_S3, O_S4, O_SPIN], "fells": [4], "weight": 1.4,
+		{"name": &"twin_flurry", "moves": [O_R2, O_L2, O_R5, O_L5, O_DW1], "fells": [4], "weight": 1.3,
+				"rage": [O_DW2]},
+		{"name": &"low_high", "moves": [O_LOW, O_HIGH], "fells": [1], "weight": 1.0},
+		{"name": &"hilt", "moves": [O_R5, O_HILT, O_DW2], "fells": [2], "weight": 0.9},
+		{"name": &"kick_cut", "moves": [O_L1, O_KICKL, O_DW1], "fells": [2], "weight": 0.9},
+		{"name": &"cross", "moves": [O_L4, O_CROSS], "fells": [1], "weight": 1.0},
+		{"name": &"light", "moves": [O_LIGHTC], "fells": [0], "weight": 0.8},
+		{"name": LUNGE_COMBO, "moves": [O_AERA, O_AERB], "fells": [1], "weight": 1.0, "far": true},
+		{"name": &"frenzy", "moves": [O_L1, O_R2, O_L2, O_R5, O_DW1, O_DW2], "fells": [5], "weight": 1.5,
 				"rage_only": true},
+		{"name": COUNTER_COMBO, "moves": [O_DW1, O_L2], "fells": [1], "weight": 0.0, "far": true},
 	]
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
-	_special(O_CRY, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.8))
+	_special(O_CRY, &"CR_PowerUp", Vector3(1.1, 0.0, 0.8))
 	_special(O_BRACE, &"CR_Call", Vector3(1.0, 0.0, 0.7))
 	_special(O_CHARGE, &"CR_ShieldDash", Vector3(0.75, 0.0, 0.7))
 	_special(O_THROW, &"CR_Throw", Vector3(1.1, 0.0, 0.62))
@@ -212,6 +268,10 @@ func _own_move(delta: float) -> bool:
 	_lunge_wait = maxf(_lunge_wait - delta, 0.0)
 	if drill_combo < 0:
 		if _punish_left > 0.0 and _punish():
+			return true
+		if _try_draw() or _try_taunt(delta) or _wary(delta):
+			return true
+		if _keep_off(delta):
 			return true
 		if _try_cry() or _try_charge() or _try_throw():
 			return true
@@ -274,9 +334,14 @@ func _after(what: int) -> void:
 		_kick_wait = kick_cooldown * (0.6 if raging else 1.0)
 		_shield_for = 0.0
 		_follow_up = 1.6
+	var in_combo := _hand_combo >= 0
 	super(what)
 	if what == KICK:
 		_cooldown = 0.0
+	# a string done: now and then a step out of his reach, aside or back
+	if in_combo and _hand_combo < 0 and act == Act.NONE and not is_dead and _decides() \
+			and _quarry != null and _rng.randf() < sidestep_after:
+		_step_aside(_rng.randf() < 0.5)
 
 
 ## Host: from off, now and then, it lunges at him falchion first and cuts down
@@ -321,6 +386,15 @@ func _extra_velocity(delta: float) -> Vector3:
 		return Vector3.ZERO
 	if act == O_CRY or act == O_BRACE or act == O_THROW:
 		return Vector3.ZERO
+	if _hand_combo >= 0 and act != O_LUNGE and _strikes_table.has(act) and _quarry != null:
+		# a string's cut steps in (or back) to where it lands, through its
+		# wind-up, so the string follows him
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _act_time < ms[0]:
+			var off := _distance_to(_quarry) - float(_strike_from.get(act, strike_off))
+			var pace := clampf(off / maxf(ms[0] - _act_time, 0.12), -2.5, 6.0)
+			if absf(off) > 0.15:
+				return super(delta) + _forward() * pace
 	if act == O_LUNGE and _lunge_speed > 0.0:
 		if _act_time <= _blow_moments(O_LUNGE)[0] and (_quarry == null or _distance_to(_quarry) > lunge_stop):
 			return _forward() * _lunge_speed
@@ -594,6 +668,13 @@ func _crossed(what: int, at: float, t0: float) -> bool:
 func _physics_process(delta: float) -> void:
 	super(delta)
 	if _decides():
+		if act == Act.BLOCK:
+			_guard_for += delta
+		elif _guard_for > 0.0:
+			# out of its guard: at him, not standing about
+			if _guard_for >= guard_most * 0.5 and not is_dead:
+				_cooldown = 0.0
+			_guard_for = 0.0
 		_watch_for_openings(delta)
 		_cry_wait = maxf(_cry_wait - delta, 0.0)
 		_charge_wait = maxf(_charge_wait - delta, 0.0)
@@ -610,7 +691,7 @@ func _process(delta: float) -> void:
 	if _bold_light != null:
 		_bold_shown = maxf(_bold_shown - delta, 0.0)
 		var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
-		_bold_light.light_energy = 0.0 if is_dead or _bold_shown <= 0.0 else (0.8 + 0.6 * beat) * minf(_bold_shown, 1.0)
+		_bold_light.light_energy = 0.0 if is_dead or _bold_shown <= 0.0 else (0.45 + 0.35 * beat) * minf(_bold_shown, 1.0)
 	if act_serial != _voiced_serial:
 		_voiced_serial = act_serial
 		_voiced_clock = 0.0
@@ -625,24 +706,13 @@ func _process(delta: float) -> void:
 		return
 	var ms := _blow_moments(act)
 	if _voiced_whoosh < ms.size() and _voiced_clock >= ms[_voiced_whoosh] - 0.12:
-		var heavy := act in [O_DOWN, O_POWER, O_DSLASH, O_SPIN, O_CHARGE]
+		var heavy := act in [O_DW1, O_DW2, O_HIGH, O_CROSS, O_CHARGE, O_AERB]
 		Sfx.play(self, WHOOSH_HEAVY if heavy else WHOOSH, self, Vector3.UP * 1.4 * visual_scale,
 				randf_range(1.15, 1.35), -5.0)
 		_voiced_whoosh += 1
 
 
-## Every peer: enraged it draws a second blade into its left hand (the user's
-## word, 2026-10-13: rage looks).
-func _glow_on() -> void:
-	super()
-	_draw_second(true)
-
-
-func _glow_off() -> void:
-	super()
-	_draw_second(false)
-
-
+## Every peer: its second blade, in its left hand from the first.
 func _draw_second(out: bool) -> void:
 	if _second == null and out:
 		_second = _make_second()
@@ -685,3 +755,221 @@ func _make_second() -> Node3D:
 	copy.transform = second_turn * bind
 	hold.add_child(copy)
 	return hold
+
+
+#region Its own (2026-10-13): two blades, guard and counter, footwork, bearing
+## A move of several blows, its blows where its blade moves fastest (the
+## last `most` of them in its part).
+func _peaks_move(what: int, clip: StringName, part: Vector3, share: float, limbs: String, most: int) -> void:
+	var peaks: Array = []
+	if _anim != null:
+		for p in _anim.measure_peaks(clip, PackedStringArray([String(weapon_bone)]), 0.3, 0.12):
+			if p >= part.y + 0.02 and p <= part.z - 0.02:
+				peaks.append(p)
+	while peaks.size() > most:
+		peaks.remove_at(0)
+	_hand_move(what, clip, part, share / maxf(float(peaks.size()), 1.0) * 1.6, limbs, peaks)
+
+
+## Host: a blow caught on its crossed blades is turned aside — he reels a
+## breath — and it answers at once; a heavy one breaks its guard open.
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	var guarding := act == Act.BLOCK and not is_dead and _decides()
+	if guarding and not magic and from != null and _heavy_from(from) and _faces(from):
+		# his heavy blow through its blades: the guard broken, and it bleeds
+		guard_breaks += 1
+		_start(Act.BREAK)
+		guarding = false
+	var bled := super(damage, at, blow, from, magic)
+	if guarding and not bled and not is_dead and act == Act.BLOCK and from != null:
+		parries_made += 1
+		_turn_aside(from)
+	return bled
+
+
+func _faces(from: Node3D) -> bool:
+	var to_them := from.global_position - global_position
+	to_them.y = 0.0
+	return _forward().dot(to_them.normalized()) > 0.0
+
+
+func _heavy_from(from: Node3D) -> bool:
+	var rig: Variant = from.get(&"rig")
+	return rig is Object and (rig as Object).has_method(&"is_heavy") and bool((rig as Object).call(&"is_heavy"))
+
+
+## Host: his blade turned aside — a reel of his — and its counter, at once.
+func _turn_aside(from: Node3D) -> void:
+	if from.has_method(&"receive_blow") and _distance_to(from) <= reach + 1.0:
+		# barely a scratch: the jolt of his blade knocked away
+		from.call(&"receive_blow", 1.0, self, 0, 3, act_serial * 10 + 3)
+	if counter_chance <= 0.0 or _rng.randf() >= counter_chance or stamina < attack_cost * 0.5:
+		return
+	var which := _combo_named(COUNTER_COMBO)
+	if which < 0:
+		return
+	counters_made += 1
+	_quarry = from
+	_cooldown = 0.0
+	start_hand_combo(which)
+
+
+## Host: a cut that carries it far over the ground (Tariel's travelling
+## cuts) shortened to the room before him, so it does not run through him and
+## out past; and none of them carries it sideways off him.
+func _begin(what: int) -> void:
+	super(what)
+	if not _decides() or _quarry == null or not _strikes_table.has(what):
+		return
+	var ms := _blow_moments(what)
+	if ms.is_empty():
+		return
+	var clip := _clip_of(what)
+	var own := _hips(clip, _clip_time(what, ms[ms.size() - 1])).x - _hips(clip, _clip_time(what, 0.0)).x
+	if own < 0.3:
+		return
+	var room := _distance_to(_quarry) - float(_strike_from.get(what, strike_off)) * 0.35 - 1.2
+	_stretch = clampf(room / own, 0.0, 1.0)
+
+
+func _carry(delta: float) -> Vector3:
+	var v := super(delta)
+	if _strikes_table.has(act):
+		v -= _move_right * v.dot(_move_right)
+	return v
+
+
+## Its hilt and its kick are no swings to bend over (the rest as [PackBrute]).
+func _stoop_skip(what: int) -> bool:
+	return what == O_KICKL or what == KICK or super(what)
+
+
+## Host: his swing begun at it: its guard, its step aside — but its guard
+## not held on and on while he swings at the air (`guard_most` s, then it
+## goes for him).
+func _answer_swing(knight: Node3D) -> void:
+	if act == Act.BLOCK and _guard_for >= guard_most:
+		return
+	super(knight)
+
+
+## Host: out of his reach in a bound, aside or back (its dash, [Fighter]).
+func _step_aside(back: bool) -> void:
+	if _quarry == null or stamina < dash_cost:
+		return
+	var to_me := global_position - _quarry.global_position
+	to_me.y = 0.0
+	if to_me.length_squared() < 0.0001:
+		return
+	var side := to_me.normalized().cross(Vector3.UP) * (1.0 if _rng.randf() < 0.5 else -1.0)
+	_dash_dir = (to_me.normalized() * (1.0 if back else 0.3) + side * (0.25 if back else 0.9)).normalized()
+	stamina -= dash_cost
+	_regen_wait = regen_delay
+	_face(-to_me, 1.0, 1000.0)
+	_start(Act.DASH)
+
+
+## Host: first roused near him, it draws both blades.
+func _try_draw() -> bool:
+	if _drawn:
+		return false
+	_drawn = true
+	# not with him already in its face
+	if _distance_to(_quarry) > sight_range or _distance_to(_quarry) < reach + 1.5 or _quarry_down():
+		return false
+	mode = Mode.FIGHT
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_begin(O_DRAW)
+	return true
+
+
+## Host: him down, or drinking far off, it stands and twirls its blades at
+## him instead of rushing in, now and then.
+func _try_taunt(delta: float) -> bool:
+	_taunt_wait = maxf(_taunt_wait - delta, 0.0)
+	if _taunt_wait > 0.0 or raging:
+		return false
+	var hero := _quarry as Player
+	var down := _quarry_down()
+	var far_drink := hero != null and hero.drinking() and _distance_to(_quarry) > punish_reach
+	if not down and not far_drink:
+		return false
+	_taunt_wait = _rng.randf_range(taunt_cooldown.x, taunt_cooldown.y)
+	if _rng.randf() >= taunt_chance:
+		return false
+	taunts_made += 1
+	mode = Mode.FIGHT
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_begin(O_TAUNT)
+	return true
+
+
+## Host: badly hurt and no kin fighting with it, it backs off him a while
+## (`wary_for` s, then not again for a good while), facing him.
+func _wary(delta: float) -> bool:
+	_wary_wait = maxf(_wary_wait - delta, 0.0)
+	if _wary_left > 0.0:
+		_wary_left -= delta
+	elif raging or _wary_wait > 0.0 or health > max_health * wary_below or _quarry == null:
+		return false
+	else:
+		for node in get_tree().get_nodes_in_group(&"enemy"):
+			var o := node as OrcFighter
+			if o != null and o != self and not o.is_dead and o._quarry == _quarry:
+				return false
+		_wary_left = wary_for
+		_wary_wait = 14.0
+		wary_made += 1
+	var away := global_position - _quarry.global_position
+	away.y = 0.0
+	if away.length() > 7.0:
+		return false
+	var v := away.normalized() * speed
+	velocity.x = move_toward(velocity.x, v.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, v.z, acceleration * delta)
+	_face(-away, delta, turn_speed)
+	return true
+#endregion
+
+
+#region The skirmisher
+## Host: the skirmisher keeps `keep_off` off him, facing him, its axes
+## coming; a bound back when he is on it; in to cut only now and then.
+func _keep_off(delta: float) -> bool:
+	if keep_off <= 0.0 or raging or _quarry_down():
+		return false
+	var gap := _distance_to(_quarry)
+	if _try_throw():
+		return true
+	if gap >= keep_off:
+		# far enough: it waits there, circling a little
+		var to := _quarry.global_position - global_position
+		to.y = 0.0
+		var round_him := to.normalized().cross(Vector3.UP) * 0.8
+		velocity.x = move_toward(velocity.x, round_him.x, acceleration * delta)
+		velocity.z = move_toward(velocity.z, round_him.z, acceleration * delta)
+		_face(to, delta, turn_speed)
+		mode = Mode.FIGHT
+		return gap < keep_off + 4.0
+	if gap < keep_off * 0.45 and stamina >= dash_cost and _rng.randf() < 0.04:
+		_step_aside(true)
+		return true
+	# caught close, it stands and fights a while (as often as not)
+	_stand_for = maxf(_stand_for - delta, 0.0)
+	if _stand_for > 0.0:
+		return false
+	if gap <= reach + 0.4 and _stand_wait <= 0.0:
+		_stand_wait = 1.5
+		if _rng.randf() < 0.5:
+			_stand_for = 2.5
+			return false
+	_stand_wait = maxf(_stand_wait - delta, 0.0)
+	var away := global_position - _quarry.global_position
+	away.y = 0.0
+	var v := away.normalized() * speed * 1.2
+	velocity.x = move_toward(velocity.x, v.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, v.z, acceleration * delta)
+	_face(-away, delta, turn_speed)
+	mode = Mode.FIGHT
+	return true
+#endregion
