@@ -134,6 +134,9 @@ extends PackBrute
 @export var outfit: String = ""
 ## Its cape (CAPES): "" none.
 @export var cape: String = ""
+## Only these of its combos (by name; empty: all of them) — two orcs in one
+## place fighting each its own way (the user's word, 2026-10-14).
+@export var combo_set: PackedStringArray = PackedStringArray()
 @export_group("Looks")
 ## Its chest this much wider across, each collarbone set out this far
 ## (skeleton units) — broader shoulders ([BulkModifier]).
@@ -208,6 +211,10 @@ const O_GSD := 218
 const O_GSS := 219
 const O_GSSL := 220
 const O_GSCR := 221
+## UAL 2's fourth heavy cut and its whole heavy combo (the user liked UAL's
+## heavy blows, 2026-10-14).
+const O_HD := 222
+const O_HCOMBO := 223
 ## Its looks (2026-10-14, the user's word: another colour, blood, more on it):
 ## the skin's green, picked from its name.
 ## (the user kept two of six, 2026-10-14: the dark forest green with red
@@ -383,6 +390,8 @@ func _ready() -> void:
 	]
 	if grip != &"blades":
 		_grip_moves()
+	if not combo_set.is_empty():
+		_hand_combos = _hand_combos.filter(func(c: Dictionary) -> bool: return combo_set.has(String(c["name"])))
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
 	_pick_looks()
 	_wear_looks()
@@ -1440,22 +1449,30 @@ func _grip_moves() -> void:
 		moves = [O_H1, O_H2, O_H3, O_H4, O_HA, O_HB, O_HC, O_GP, O_GSC, O_GSP, O_GSL, O_GSD, O_GSS, O_GSSL, O_GSCR, O_HILT]
 		_special(O_DRAW, &"CR_Enter2H", Vector3(1.0, 0.0, 1.0))
 		_special(O_TAUNT, &"CR_GS_Pose", Vector3(1.0, 0.0, 1.0))
+		_hand_move(O_HD, &"CR_HeavyD", Vector3(1.0, 0.0, 1.0), 1.1, r)
+		_peaks_move(O_HCOMBO, &"CR_HeavyCombo", Vector3(1.0, 0.05, 0.92), 0.55, r, 3)
+		moves.append_array([O_HD, O_HCOMBO])
+		# (the user's picks, 2026-10-14: cleave, power, heavy_string,
+		# sweep_slam, turn_cleave; UAL's heavy cuts; the high spin)
 		_hand_combos = [
 			# a wide cut, back the other way, and down through him
 			{"name": &"cleave", "moves": [O_GSL, O_H2, O_GSD], "fells": [2], "weight": 1.3},
 			# a slow wind-up, the whole weight in one cut
 			{"name": &"power", "moves": [O_H1, O_GSP], "fells": [1], "weight": 1.0},
-			{"name": &"heavy_string", "moves": [O_HA, O_HB, O_HC], "fells": [2], "weight": 0.9},
-			{"name": &"sweep_slam", "moves": [O_H3, O_GP], "fells": [1], "weight": 0.9},
-			{"name": &"turn_cleave", "moves": [O_H2, O_KICKL, O_H4], "fells": [2], "weight": 0.7},
-			{"name": &"hilt", "moves": [O_H1, O_HILT, O_GSD], "fells": [2], "weight": 0.8},
-			# low across his legs, up again, and the whole weight down
-			{"name": &"low_rise", "moves": [O_GSCR, O_GSP], "fells": [1], "weight": 0.9},
-			# from off: the slide in under him, then the cut down
-			{"name": LUNGE_COMBO, "moves": [O_GSSL, O_GSD], "fells": [1], "weight": 1.0, "far": true},
-			# the spinning cut that carries it through him, and the slam
-			{"name": &"whirl", "moves": [O_GSS, O_GP], "fells": [1], "weight": 0.9},
-			{"name": &"frenzy", "moves": [O_GSL, O_H2, O_GSS, O_GP], "fells": [3], "weight": 1.5,
+			{"name": &"heavy_string", "moves": [O_HA, O_HB, O_HC], "fells": [2], "weight": 1.1},
+			{"name": &"sweep_slam", "moves": [O_H3, O_GP], "fells": [1], "weight": 1.0},
+			{"name": &"turn_cleave", "moves": [O_H2, O_KICKL, O_H4], "fells": [2], "weight": 0.9},
+			# UAL's: two heavy cuts and its crushing fourth
+			{"name": &"ual_crush", "moves": [O_HA, O_HB, O_HD], "fells": [2], "weight": 1.0},
+			# UAL's cuts, then the high spin through him
+			{"name": &"ual_spin", "moves": [O_HB, O_HC, O_GSS], "fells": [2], "weight": 1.0},
+			# UAL's whole heavy combo
+			{"name": &"heavy_combo", "moves": [O_HCOMBO], "fells": [0], "weight": 0.8},
+			# the high spin, then down through him
+			{"name": &"spin_cleave", "moves": [O_GSS, O_GSD], "fells": [1], "weight": 1.0},
+			# from off: the high spin that carries it in
+			{"name": LUNGE_COMBO, "moves": [O_GSS], "fells": [0], "weight": 1.0, "far": true},
+			{"name": &"frenzy", "moves": [O_HA, O_HB, O_HC, O_GSS, O_GP], "fells": [4], "weight": 1.5,
 					"rage_only": true},
 			{"name": COUNTER_COMBO, "moves": [O_H1], "fells": [0], "weight": 0.0, "far": true},
 			{"name": TRAP_COMBO, "moves": [O_GSP], "fells": [0], "weight": 0.0, "far": true},

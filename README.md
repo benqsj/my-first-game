@@ -10795,3 +10795,11 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
 - The other hand on the haft: `TwoHandGrip` (a SkeletonModifier3D, two-bone IK) draws the left hand onto the weapon's line while the clip has it near (`near` 0.45 / `far` 0.85). The arm bends to reach, the elbow stays on its side and the hand keeps its turn. The clips were made for a man, and on the orc's longer, broader arms the hand fell beside the grip.
 - With the hero down, it no longer waits: `stab_chance` is 0.9 (1.0 for great weapons) and it tries again after 1.2 s. A great sword stabs with Mixamo's downward slash.
 - Reel: `_shots_tmp/orc_gs_reel.gd` (-- dir items: combo names, m:<move id>, down_stab, cry) films each item from the side at half speed. The finished reel is `orc/reelout/greatsword_reel.mp4`.
+- The user's picks: cleave, power, heavy_string, sweep_slam, turn_cleave, UAL's heavy cuts and the high spin. low_rise, hilt, whirl and the slide are gone.
+  - New combos: ual_crush (UAL A › B › D), ual_spin (UAL B › C › high spin), heavy_combo (UAL's Sword_Heavy_Combo), spin_cleave (high spin › downward slash).
+  - The lunge from afar is now the high spin; frenzy is UAL A › B › C › high spin › slam.
+- `combo_set`: only the named combos.
+- The test arena opens with two great-sword orcs, one on each side (`ArenaPanel.ARENA_ORCS`), each with its own combos:
+  - **the executioner:** great sword, Warlord, black cape; cleave, power, turn_cleave, spin_cleave.
+  - **the berserker:** curved great sword, Ashen, crimson cape; heavy_string, sweep_slam, ual_crush, ual_spin, heavy_combo.
+  - F1 "Everyone" calls up every creature as before; "The two orcs" calls these two again.
