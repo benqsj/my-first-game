@@ -75,6 +75,11 @@ var _frozen: bool = false
 ## hero loses no health here. Both on by default: this is a place to look.
 var _wait_for_blow: bool = true
 var _unhurt: bool = true
+## The test arena's own board (its four orcs waiting, the hero unhurt, the
+## creatures waiting for his first blow); false: the same board in a solo
+## game's world (the user's word, 2026-10-15), where it only calls up what is
+## picked, every rule off, and clears only what it called up.
+@export var in_arena: bool = true
 ## The combo practice: which of `DRILL_KINDS`, which combo, the one called up
 ## for it (none: not practising), and the labels showing them.
 var _drill_kind: int = 0
@@ -87,6 +92,9 @@ var _drill_enraged: bool = false
 
 func _ready() -> void:
 	layer = 20
+	if not in_arena:
+		_wait_for_blow = false
+		_unhurt = false
 	_root = PanelContainer.new()
 	_root.add_theme_stylebox_override("panel", MenuStyle.panel_style(Color(0.08, 0.09, 0.11, 0.88)))
 	_root.position = Vector2(16.0, 16.0)
@@ -94,7 +102,7 @@ func _ready() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
 	_root.add_child(column)
-	column.add_child(MenuStyle.label("TEST ARENA  (F1)", MenuStyle.BODY_SIZE + 1, MenuStyle.GOLD))
+	column.add_child(MenuStyle.label("ADMIN MODE  (F1)", MenuStyle.BODY_SIZE + 1, MenuStyle.GOLD))
 
 	var looks := HBoxContainer.new()
 	looks.add_child(_small("<", func() -> void: _step_look(-1)))
@@ -200,7 +208,8 @@ func _ready() -> void:
 			_picked.call())
 	add_child(_preview)
 	_refresh_look.call_deferred()
-	_populate.call_deferred()
+	if in_arena:
+		_populate.call_deferred()
 
 
 ## "< value >" under a small heading, calling `picked` with the index.
@@ -495,7 +504,9 @@ func _clear() -> void:
 	if creatures == null:
 		return
 	for child in creatures.get_children():
-		child.queue_free()
+		# (in the world, only what was called up here)
+		if in_arena or String(child.name).begins_with("Arena_"):
+			child.queue_free()
 
 
 func _heal() -> void:

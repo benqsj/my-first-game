@@ -10807,3 +10807,6 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - **the executioner** and **the berserker**, each with its own combos;
   - **the warchief** (`orc_chief.tscn`, ×1.85): both sets of combos, an ornate great sword, the "Warchief" gear (the chief's black and gilt, gilded pauldrons, an armet) and a crimson cape. It rests longer between combos (`combo_rest` 2.4–3.4 s) so it is not always in one;
   - **the raider**: its own two falchions, Rust gear.
+- **Admin mode (F1), everywhere:** the arena's board (`ArenaPanel`) is now titled "ADMIN MODE". `World._ready` adds it to every world that does not already have one: the solo world and the V5 world. It is not added in an online game.
+  - In the arena it works as before.
+  - In a world (`in_arena = false`) it only calls up what is picked, in front of the hero. "Wait for my blow" and "Can't be hurt" start off, and "Clear" removes only what it called up (`Arena_*`).

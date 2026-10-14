@@ -159,6 +159,14 @@ func _ready() -> void:
 	_add_marsh_song()
 	_creatures = get_node_or_null("Enemies")
 	_watch_kills()
+	# F1 in a solo game too: the arena's board, to call up any creature here
+	# (the user's word, 2026-10-15). Not with others in the game.
+	var net_node := get_node_or_null("/root/Net")
+	if not has_node("ArenaPanel") and not (net_node != null and bool(net_node.call("is_online"))):
+		var board := ArenaPanel.new()
+		board.name = "ArenaPanel"
+		board.in_arena = false
+		add_child(board)
 	# Levels over the creatures, and what each blow took off them.
 	var words := CombatText.new()
 	words.name = "CombatText"
