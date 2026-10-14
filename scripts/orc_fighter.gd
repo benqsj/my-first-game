@@ -119,14 +119,31 @@ extends PackBrute
 ## `join_for` s all the same, so now and then both are on him.
 @export var join_every: Vector2 = Vector2(9.0, 15.0)
 @export var join_for: float = 3.5
+@export_group("Arms")
+## What it holds (2026-10-14, the user's word: our weapons on the monsters
+## too, picked on the arena's board): one of Polysplit's Advanced Weapons
+## ([PolysplitLook] `AW`, worn on the mannequin's figure and skinned to the
+## same bones) by name — "" its own falchion; on the left, "" the falchion
+## again, "none" an empty hand. A weapon for both hands leaves the left empty.
+@export var arm_right: String = ""
+@export var arm_left: String = ""
+## normal, ornate, obsidian, bone (black: obsidian's models, dull)
+@export var arm_style: String = "obsidian"
+## What it wears over its own gear (OUTFITS): "" its raider's straps and
+## steel as they are.
+@export var outfit: String = ""
 @export_group("Looks")
+## Its chest this much wider across, each collarbone set out this far
+## (skeleton units) — broader shoulders ([BulkModifier]).
+@export var chest_width: float = 1.28
+@export var shoulder_out: float = 0.09
 ## Its skin, paint and blood picked from its name; -1 each to pick (a scene
 ## or a test can set them).
 @export var varied: bool = true
 @export var force_skin: int = -1
 @export var force_paint: int = -1
 @export var force_blood: int = -1
-@export var bloody_share: float = 0.45
+@export var bloody_share: float = 1.0
 @export_group("Down on him")
 ## Him down within reach, now and then it drives a blade down into him.
 @export var stab_chance: float = 0.65
@@ -167,10 +184,11 @@ const O_TAUNT := 201
 const O_STAB := 202
 ## Its looks (2026-10-14, the user's word: another colour, blood, more on it):
 ## the skin's green, picked from its name.
-const SKINS := [Color(0.4392, 0.6549, 0.2941), Color(0.20, 0.36, 0.13), Color(0.36, 0.40, 0.33),
-		Color(0.42, 0.36, 0.15), Color(0.14, 0.26, 0.21)]
-## Its war paint: none, red bands across its eyes, a black mask, a white skull.
-const PAINTS := [&"", &"red_bands", &"black_mask", &"white_skull"]
+## (the user kept two of six, 2026-10-14: the dark forest green with red
+## bands, the swamp brown with the white skull — both bloodied)
+const SKINS := [Color(0.20, 0.36, 0.13), Color(0.42, 0.36, 0.15)]
+## Its war paint, with its skin: red bands across its eyes, a white skull.
+const PAINTS := [&"red_bands", &"white_skull"]
 ## its slide in at him from off (the user's word, 2026-10-14: no leaping in;
 ## a sudden slide and a cut): Tariel's low cut, travelling, opens its far combo
 const O_LUNGE := O_LOW
@@ -248,13 +266,24 @@ var _second: Node3D
 
 
 func _ready() -> void:
+	# its arms first: their reach is what its blows are measured with
+	_equip_arms()
 	super()
 	_special(KICK, kick_clip, kick_part)
 	# Not a blow that fells him by itself.
 	_special_strike(KICK, kick_limbs, kick_share, 3)
 	_kinds[KICK] = &"guard"
-	# its left blade, always in hand
-	_draw_second(true)
+	# broader at the shoulders (the user's word, 2026-10-14)
+	if _skeleton != null and chest_width > 1.0:
+		var bulk := BulkModifier.new()
+		bulk.chest_width = chest_width
+		bulk.shoulder_out = shoulder_out
+		_skeleton.add_child(bulk)
+		_skeleton.move_child(bulk, 0)
+	# its left blade, always in hand (its own falchion again, unless it holds
+	# another weapon there or none)
+	if arm_left == "":
+		_draw_second(true)
 	var r := ""
 	var l := "%s>%s@%s,%s,%s:%s" % [second_bone, second_bone, second_tip.x, second_tip.y, second_tip.z, weapon_radius]
 	var both := "%s>%s@%s,%s,%s:%s|%s" % [weapon_bone, weapon_bone, weapon_tip.x, weapon_tip.y, weapon_tip.z,
@@ -319,6 +348,7 @@ func _ready() -> void:
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
 	_pick_looks()
 	_wear_looks()
+	_wear_outfit()
 	_special(O_CRY, &"CR_PowerUp", Vector3(1.1, 0.0, 0.8))
 	_special(O_BRACE, &"CR_Call", Vector3(1.0, 0.0, 0.7))
 	_special(O_CHARGE, &"CR_ShieldDash", Vector3(0.75, 0.0, 0.7))
@@ -1128,7 +1158,7 @@ func _pick_looks() -> void:
 	if not varied:
 		return
 	skin_index = force_skin if force_skin >= 0 else posmod(hash(String(name) + "/skin"), SKINS.size())
-	paint_index = force_paint if force_paint >= 0 else posmod(hash(String(name) + "/paint"), PAINTS.size())
+	paint_index = force_paint if force_paint >= 0 else skin_index
 	bloody = force_blood == 1 if force_blood >= 0 \
 			else float(posmod(hash(String(name) + "/blood"), 1000)) / 1000.0 < bloody_share
 
@@ -1140,7 +1170,7 @@ func _wear_looks() -> void:
 	var dress := body.get_node_or_null(^"Dress")
 	var skin_mat: Material = PackCreature.material(String(dress.get(&"body"))) if dress != null else null
 	# (the skirmisher and the chief keep the skins of their own palettes)
-	if skin_mat != null and role == &"duelist" and (force_skin >= 0 or skin_index > 0):
+	if skin_mat != null and role == &"duelist":
 		var mine := (skin_mat as ShaderMaterial).duplicate() as ShaderMaterial
 		var c: Color = SKINS[skin_index]
 		mine.set_shader_parameter(&"color1", Vector3(c.r, c.g, c.b))
@@ -1156,11 +1186,12 @@ func _paint_and_blood() -> void:
 		return
 	for m in find_children("*", "GeometryInstance3D", true, false):
 		var g := m as GeometryInstance3D
-		if not (g is GPUParticles3D) and not (g is Label3D):
+		# (not the pieces worn over its gear: no paint or blood thrown on them)
+		if not (g is GPUParticles3D) and not (g is Label3D) and not String(g.name).begins_with("Wear_"):
 			g.layers |= Blood.WOUND_LAYER
 	var s := visual_scale / 1.6
 	var fwd := _forward()
-	var paint: StringName = PAINTS[paint_index]
+	var paint: StringName = PAINTS[clampi(paint_index, 0, PAINTS.size() - 1)]
 	if paint != &"":
 		_face_decal("head_joint", _paint_texture(paint), Color.WHITE, Vector3(0.46, 0.7, 0.34) * s,
 				fwd * 0.26 * s + Vector3.UP * 0.12 * s, 1.0)
@@ -1266,4 +1297,174 @@ static func _paint_texture(which: StringName) -> ImageTexture:
 	var tex := ImageTexture.create_from_image(img)
 	_paints[which] = tex
 	return tex
+#endregion
+
+
+#region Arms (2026-10-14)
+const ARMS_FIGURE := "res://assets/polysplit/mannequin_m.glb"
+## What it may hold, by hand (PolysplitLook.AW names).
+const RIGHT_ARMS := ["", "shortsword", "longsword", "curvedsword", "greatsword", "curvedgreatsword", "axe",
+		"greataxe", "hammer", "greathammer", "mace", "morningstar", "flail", "spear", "poleaxe", "dagger"]
+const LEFT_ARMS := ["", "none", "axe", "shortsword", "mace", "hammer", "dagger"]
+const ARM_STYLES := ["normal", "ornate", "obsidian", "black", "bone"]
+## The figure's weapons are a man's; in an orc's fist they are this much bigger.
+const ARM_SIZE := 1.45
+static var _figure: Node3D
+
+
+## Before its blows are measured: the weapons it holds put in its hands, the
+## reach of each taken from the weapon (its farthest point from the hand).
+func _equip_arms() -> void:
+	if arm_right == "" and arm_left == "":
+		return
+	var skel := body.find_child("Skeleton3D", true, false) as Skeleton3D if body != null else null
+	if skel == null:
+		return
+	var own := body.find_child("Orc_Sword", true, false) as MeshInstance3D
+	var two_hands := false
+	if arm_right != "":
+		var kind: StringName = PolysplitLook.AW.get(arm_right, {}).get("kind", &"sword")
+		two_hands = kind == &"two_hands" or kind == &"spear"
+		var tip := _put_in_hand(skel, own, "ps_w_aw_%s_%s" % [arm_right, PolysplitLook.STYLE_MODELS.get(arm_style, arm_style)],
+				String(weapon_bone))
+		if tip != Vector3.ZERO:
+			weapon_tip = tip
+			if own != null:
+				own.visible = false
+			if arm_right in ["hammer", "greathammer", "mace", "morningstar", "flail"]:
+				weapon_radius = 0.2
+	if two_hands and arm_left == "":
+		arm_left = "none"
+	if arm_left == "none":
+		# an empty left hand: its fist
+		second_tip = Vector3(0.25, 0.0, 0.0)
+	elif arm_left != "":
+		var tip := _put_in_hand(skel, own, "ps_o_aw_%s_%s" % [arm_left, PolysplitLook.STYLE_MODELS.get(arm_style, arm_style)],
+				second_bone)
+		if tip != Vector3.ZERO:
+			second_tip = tip
+	# the scene's own blows name the falchions' reach: theirs now
+	var r_at := "@%s,%s,%s:" % [weapon_tip.x, weapon_tip.y, weapon_tip.z]
+	var l_at := "@%s,%s,%s:" % [second_tip.x, second_tip.y, second_tip.z]
+	var limbs := PackedStringArray()
+	for spec in attack_limbs:
+		limbs.append(spec.replace("@1.1,0,0:", r_at).replace("@-1.1,0,0:", l_at))
+	attack_limbs = limbs
+	leap_limbs = leap_limbs.replace("@1.1,0,0:", r_at)
+
+
+## The figure's weapon mesh `mesh_name` skinned to this skeleton (bound by
+## bone name; a bind with no bone here goes to the pelvis — no weapon is
+## weighted to one), next to its own meshes; the weapon's farthest point
+## from `bone` in that bone's frame (ZERO if there is no such mesh).
+func _put_in_hand(skel: Skeleton3D, beside: MeshInstance3D, mesh_name: String, bone: String) -> Vector3:
+	if _figure == null:
+		var scene := load(ARMS_FIGURE) as PackedScene
+		if scene == null:
+			return Vector3.ZERO
+		_figure = scene.instantiate() as Node3D
+	var src := _figure.find_child(mesh_name, true, false) as MeshInstance3D
+	if src == null or src.skin == null:
+		return Vector3.ZERO
+	var skin := src.skin.duplicate() as Skin
+	var hand_bind := Transform3D.IDENTITY
+	var bigger := Transform3D(Basis.from_scale(Vector3.ONE * ARM_SIZE), Vector3.ZERO)
+	for i in skin.get_bind_count():
+		# bigger about each bone (the weapon hangs on the hand alone)
+		skin.set_bind_pose(i, bigger * skin.get_bind_pose(i))
+		var bn := String(skin.get_bind_name(i))
+		if skel.find_bone(bn) < 0:
+			skin.set_bind_name(i, &"pelvis_joint")
+		if bn == bone:
+			hand_bind = skin.get_bind_pose(i)
+	var mi := MeshInstance3D.new()
+	mi.name = "Arm_" + mesh_name
+	mi.mesh = src.mesh
+	mi.skin = skin
+	var parent := beside.get_parent() if beside != null else skel.get_parent()
+	parent.add_child(mi)
+	mi.transform = beside.transform if beside != null else Transform3D.IDENTITY
+	mi.skeleton = mi.get_path_to(skel)
+	var mat := src.get_active_material(0)
+	var albedo: Texture2D = (mat as StandardMaterial3D).albedo_texture if mat is StandardMaterial3D else null
+	if albedo != null:
+		mi.material_override = PolysplitLook.aw_material(arm_style, albedo)
+	# its reach: the farthest corner of it from the hand, in the hand's frame
+	var box := src.mesh.get_aabb()
+	var far := Vector3.ZERO
+	for k in 8:
+		var p := hand_bind * box.get_endpoint(k)
+		if p.length() > far.length():
+			far = p
+	return far * 0.92
+#endregion
+
+
+
+#region Outfits (2026-10-14)
+## Darker gear for it, the user's word: brutal, fine and fearsome, Elden
+## Ring's colours — blackened and rusted iron, black leather, old crimson —
+## and the mannequin's pieces worn over its own (a piece: mesh, how much
+## bigger than a man's, its tint).
+const OUTFITS := {
+	"": {"objects": "", "pieces": []},
+	"Ashen": {"objects": "Objects_OrcAshen", "pieces": []},
+	"Rust": {"objects": "Objects_OrcRust", "pieces": [["ps_x_knight_pauldrons", 1.3, Color(0.5, 0.27, 0.16)]]},
+	"Iron hood": {"objects": "Objects_OrcAshen", "pieces": [["ps_x_knight_pauldrons", 1.3, Color(0.3, 0.3, 0.32)],
+			["ps_hat_hood", 1.35, Color(0.32, 0.08, 0.08)]]},
+	"Warlord": {"objects": "Objects_OrcAshen", "pieces": [["ps_x_knight_pauldrons", 1.3, Color(0.42, 0.36, 0.26)],
+			["ps_x_warlock_cape", 1.3, Color(0.36, 0.06, 0.07)], ["ps_hat_greathelm", 1.4, Color(0.34, 0.33, 0.34)]]},
+}
+
+
+func _wear_outfit() -> void:
+	var o: Dictionary = OUTFITS.get(outfit, {})
+	if o.is_empty() or body == null or _skeleton == null:
+		return
+	var dress := body.get_node_or_null(^"Dress")
+	if String(o["objects"]) != "" and dress != null:
+		var old: Material = PackCreature.material(String(dress.get(&"objects")))
+		var new: Material = PackCreature.material(String(o["objects"]))
+		for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+			for i in mi.get_surface_override_material_count():
+				if mi.get_surface_override_material(i) == old:
+					mi.set_surface_override_material(i, new)
+	var beside := body.find_child("Orc_Head", true, false) as MeshInstance3D
+	for piece: Array in o["pieces"]:
+		_wear_piece(String(piece[0]), float(piece[1]), piece[2], beside)
+
+
+## One of the mannequin's pieces on it, made `size` bigger about each bone it
+## hangs on and tinted.
+func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstance3D) -> void:
+	if _figure == null:
+		var scene := load(ARMS_FIGURE) as PackedScene
+		if scene == null:
+			return
+		_figure = scene.instantiate() as Node3D
+	var src := _figure.find_child(mesh_name, true, false) as MeshInstance3D
+	if src == null or src.skin == null:
+		return
+	var skin := src.skin.duplicate() as Skin
+	var bigger := Transform3D(Basis.from_scale(Vector3.ONE * size), Vector3.ZERO)
+	for i in skin.get_bind_count():
+		skin.set_bind_pose(i, bigger * skin.get_bind_pose(i))
+		if _skeleton.find_bone(String(skin.get_bind_name(i))) < 0:
+			skin.set_bind_name(i, &"chest_joint")
+	var mi := MeshInstance3D.new()
+	mi.name = "Wear_" + mesh_name
+	mi.mesh = src.mesh
+	mi.skin = skin
+	var parent := beside.get_parent() if beside != null else _skeleton
+	parent.add_child(mi)
+	mi.transform = beside.transform if beside != null else Transform3D.IDENTITY
+	mi.skeleton = mi.get_path_to(_skeleton)
+	for i in src.mesh.get_surface_count():
+		var m := src.get_active_material(i)
+		if m is StandardMaterial3D:
+			var mine := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
+			mine.albedo_color = mine.albedo_color * tint
+			mi.set_surface_override_material(i, mine)
+		elif m is ShaderMaterial:
+			mi.set_surface_override_material(i, m)
 #endregion

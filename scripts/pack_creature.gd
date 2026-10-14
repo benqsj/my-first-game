@@ -82,6 +82,12 @@ const MATERIALS := {
 			Vector3(0, 0, 0.25), Vector3(0, 0.4, 0.25)],
 	"Objects_OrcChief": [Color(0.0980, 0.0902, 0.1020), Color(0.3490, 0.2196, 0.1176), Color(0.7490, 0.5804, 0.2196), Color(0.8000, 0.8000, 0.8000), Color(0.2039, 0.8706, 0.9490), Color(0.8078, 0.0235, 0.1608),
 			Vector3(0, 0, 0.25), Vector3(0, 0.4, 0.25)],
+	# The orc's darker gear (2026-10-14): blackened iron, black leather and old
+	# crimson; rusted iron, oiled leather and dirty bone cloth.
+	"Objects_OrcAshen": [Color(0.2000, 0.0200, 0.0280), Color(0.0600, 0.0450, 0.0400), Color(0.1300, 0.1250, 0.1350), Color(0.8000, 0.8000, 0.8000), Color(0.2039, 0.8706, 0.9490), Color(0.8078, 0.0235, 0.1608),
+			Vector3(0, 0, 0.55), Vector3(0, 0.3, 0.35)],
+	"Objects_OrcRust": [Color(0.3500, 0.3000, 0.2200), Color(0.0600, 0.0500, 0.0450), Color(0.3000, 0.1300, 0.0600), Color(0.8000, 0.8000, 0.8000), Color(0.2039, 0.8706, 0.9490), Color(0.8078, 0.0235, 0.1608),
+			Vector3(0, 0, 0.3), Vector3(0, 0.3, 0.15)],
 	"Objects_SkelArcher": [Color(0.8805, 0.6159, 0.3461), Color(0.2510, 0.2471, 0.1529), Color(0.6180, 0.6180, 0.6180), Color(0.8000, 0.8000, 0.8000), Color(0.2039, 0.8706, 0.9490), Color(0.8078, 0.0235, 0.1608),
 			Vector3(0, 0, 0.25), Vector3(0, 0.4, 0.25)],
 	"Objects_SkelMage": [Color(0.3836, 0.2980, 0.3637), Color(0.3719, 0.4906, 0.3162), Color(0.6180, 0.6180, 0.6180), Color(0.8000, 0.8000, 0.8000), Color(0.2996, 0.2002, 0.5535), Color(0.8078, 0.0235, 0.1608),

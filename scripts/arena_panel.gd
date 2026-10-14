@@ -44,12 +44,8 @@ const ENTRIES: Array[Array] = [
 ## its looks (skin, paint, blood: [OrcFighter] `force_*`), the skirmisher, the
 ## chief, and a pair. Not in the opening ring: its own row on the board.
 const ORC_LOOKS: Array[Array] = [
-	["1 green", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 0, "force_paint": 0, "force_blood": 0}],
-	["2 forest, red bands, blood", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 1, "force_paint": 1, "force_blood": 1}],
-	["3 ash, black mask", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 2, "force_paint": 2, "force_blood": 0}],
-	["4 swamp brown, skull, blood", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 3, "force_paint": 3, "force_blood": 1}],
-	["5 dark swamp, red bands", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 4, "force_paint": 1, "force_blood": 0}],
-	["6 forest, black mask, blood", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 1, "force_paint": 2, "force_blood": 1}],
+	["Forest, red bands", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 0}],
+	["Swamp brown, skull", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 1}],
 	["Skirmisher", "res://scenes/enemies/pack/orc_skirmisher.tscn", {}],
 	["Chief", "res://scenes/enemies/pack/orc_chief.tscn", {}],
 ]
@@ -65,6 +61,9 @@ const DRILL_KINDS: Array[Array] = [
 ]
 
 var _root: Control
+## The orc's corner and what is picked in it: version, right, left, make.
+var _orc_room: Control
+var _orc_pick: Array[int] = [0, 0, 0, 2, 0]
 var _look_label: Label
 var _count: int = 0
 var _frozen: bool = false
@@ -114,18 +113,35 @@ func _ready() -> void:
 		list.add_child(MenuStyle.label("Bosses" if boss else "Creatures", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
 		for entry: Array in ENTRIES:
 			if bool(entry[2]) == boss and ResourceLoader.exists(String(entry[1])):
-				list.add_child(_small(String(entry[0]), _call_up.bind(String(entry[1]), boss)))
+				if String(entry[0]) == "Orc":
+					# the orc opens its own corner: its versions and its arms
+					list.add_child(_small("Orc  >", func() -> void: _orc_room.visible = not _orc_room.visible))
+				else:
+					list.add_child(_small(String(entry[0]), _call_up.bind(String(entry[1]), boss)))
 		lists.add_child(list)
-	# the orc's versions, in two columns of their own
+	# the orc's corner (2026-10-14): which version, what it holds in each
+	# hand and in what make, then called up as picked
 	var orcs := VBoxContainer.new()
 	orcs.add_theme_constant_override("separation", 4)
-	orcs.add_child(MenuStyle.label("Orc versions", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
-	for look: Array in ORC_LOOKS:
-		orcs.add_child(_small(String(look[0]), func() -> void: call_up(String(look[1]), false, null, look[2])))
-	orcs.add_child(_small("All of them", _call_up_orcs))
-	orcs.add_child(_small("A pair", func() -> void:
-		call_up(String(ORC_LOOKS[1][1]), false, null, ORC_LOOKS[1][2])
-		call_up(String(ORC_LOOKS[6][1]), false, null, ORC_LOOKS[6][2])))
+	orcs.visible = false
+	_orc_room = orcs
+	orcs.add_child(MenuStyle.label("Orc", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
+	var names: Array = ORC_LOOKS.map(func(l: Array) -> String: return String(l[0]))
+	orcs.add_child(_stepper("Version", names, func(i: int) -> void: _orc_pick[0] = i))
+	orcs.add_child(_stepper("Right hand", OrcFighter.RIGHT_ARMS.map(_arm_name),
+			func(i: int) -> void: _orc_pick[1] = i))
+	orcs.add_child(_stepper("Left hand", OrcFighter.LEFT_ARMS.map(_arm_name),
+			func(i: int) -> void: _orc_pick[2] = i))
+	orcs.add_child(_stepper("Make", OrcFighter.ARM_STYLES, func(i: int) -> void: _orc_pick[3] = i))
+	orcs.add_child(_stepper("Gear", OrcFighter.OUTFITS.keys().map(func(k: String) -> String:
+			return "its own" if k == "" else k), func(i: int) -> void: _orc_pick[4] = i))
+	var go := HBoxContainer.new()
+	go.add_child(_small("Call up", _call_up_picked_orc))
+	go.add_child(_small("A pair", func() -> void:
+		_call_up_picked_orc()
+		call_up(String(ORC_LOOKS[2][1]), false, null, ORC_LOOKS[2][2])))
+	go.add_child(_small("All versions", _call_up_orcs))
+	orcs.add_child(go)
 	lists.add_child(orcs)
 
 	column.add_child(MenuStyle.label("The floor", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
@@ -167,6 +183,45 @@ func _ready() -> void:
 	_root.visible = false
 	_refresh_look.call_deferred()
 	_populate.call_deferred()
+
+
+## "< value >" under a small heading, calling `picked` with the index.
+func _stepper(title: String, values: Array, picked: Callable) -> Control:
+	var box := VBoxContainer.new()
+	box.add_child(MenuStyle.label(title, MenuStyle.BODY_SIZE - 4, MenuStyle.GOLD_DIM))
+	var row := HBoxContainer.new()
+	var shown := MenuStyle.label(String(values[0]), MenuStyle.BODY_SIZE - 3, MenuStyle.CREAM)
+	shown.custom_minimum_size = Vector2(150.0, 0.0)
+	shown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var at := [0]
+	var step := func(by: int) -> void:
+		at[0] = wrapi(at[0] + by, 0, values.size())
+		shown.text = String(values[at[0]])
+		picked.call(at[0])
+	row.add_child(_small("<", func() -> void: step.call(-1)))
+	row.add_child(shown)
+	row.add_child(_small(">", func() -> void: step.call(1)))
+	box.add_child(row)
+	return box
+
+
+static func _arm_name(id: String) -> String:
+	if id == "":
+		return "its own falchion"
+	if id == "none":
+		return "empty"
+	return String(PolysplitLook.AW.get(id, {}).get("name", id)).replace(" (NEW)", "").capitalize()
+
+
+## The orc as picked in its corner.
+func _call_up_picked_orc() -> void:
+	var look: Array = ORC_LOOKS[_orc_pick[0]]
+	var props: Dictionary = (look[2] as Dictionary).duplicate()
+	props["arm_right"] = OrcFighter.RIGHT_ARMS[_orc_pick[1]]
+	props["arm_left"] = OrcFighter.LEFT_ARMS[_orc_pick[2]]
+	props["arm_style"] = OrcFighter.ARM_STYLES[_orc_pick[3]]
+	props["outfit"] = OrcFighter.OUTFITS.keys()[_orc_pick[4]]
+	call_up(String(look[1]), false, null, props)
 
 
 func _small(text: String, pressed: Callable) -> Button:

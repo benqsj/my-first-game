@@ -302,9 +302,20 @@ func _run() -> void:
 			lib.add_animation(clip, src_lib.get_animation(clip))
 	# Tariel's only where the rest have none of that name
 	var tariel := load(TARIEL) as AnimationLibrary
+	var his := {}
 	for clip: StringName in tariel.get_animation_list():
 		if not lib.has_animation(clip):
 			lib.add_animation(clip, tariel.get_animation(clip))
+			his[clip] = true
+	# his own sword-and-shield clips came with the feet bent up at the ankle
+	# (SkinnedRig.OWN_FOOT_FIX: the boots folded on him; the orc's feet too,
+	# the user's word 2026-10-14): put right here as on him
+	if not his.has(&"SS_Idle") and tariel.has_animation(&"SS_Idle"):
+		lib.add_animation(&"SS_Idle", tariel.get_animation(&"SS_Idle"))
+	var fixer := SkinnedRig.new()
+	fixer._fix_own_feet(lib, src, his, float(SkinnedRig.OWN_FOOT_FIX[&"tariel"][0]),
+			SkinnedRig.OWN_FOOT_FIX[&"tariel"][1])
+	fixer.free()
 	for clip: StringName in lib.get_animation_list():
 		Moveset.complete(lib.get_animation(clip), src)
 	for lib_name: StringName in player.get_animation_library_list():

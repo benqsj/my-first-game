@@ -102,6 +102,7 @@ func _run() -> void:
 	await _down_and_trap()
 	await _stance()
 	await _rage()
+	await _arms()
 	print("orc_test: %s" % ("all passed" if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)
 
@@ -384,4 +385,26 @@ func _down_and_trap() -> void:
 	_check("struck at in its taunt: out of the way and the heavy blow back", o.traps_sprung == 1 and _falls >= 1,
 			"%d traps, %d falls" % [o.traps_sprung, _falls])
 	_check("its blows hurt (60)", o.hit_damage >= 55.0, "%.0f" % o.hit_damage)
+
+
+## Our weapons and gear on it (2026-10-14): a great axe in both hands, the
+## warlord's pieces, and its blows still land with it.
+func _arms() -> void:
+	await _arena()
+	var o := _panel.call_up(ORC, false, _ahead(3.5), {"arm_right": "greataxe", "arm_style": "black",
+			"outfit": "Warlord"}) as OrcFighter
+	o.max_health = 99999.0
+	o.health = 99999.0
+	for w in ["_leap_wait", "_lunge_wait", "_cry_wait", "_charge_wait", "_throw_wait", "_taunt_wait"]:
+		o.set(w, 999.0)
+	o._drawn = true
+	var own := o.body.find_child("Orc_Sword", true, false) as MeshInstance3D
+	var arm := o.body.find_child("Arm_ps_w_aw_greataxe_obsidian", true, false) as MeshInstance3D
+	_check("the great axe in its hands, its falchion put away", arm != null and own != null and not own.visible)
+	_check("and its left hand empty for it", o.arm_left == "none" and (o._second == null or not o._second.visible))
+	_check("its reach the axe's", o.weapon_tip.x > 0.9 and o.weapon_tip.x < 1.6, str(o.weapon_tip))
+	var worn := o.body.find_children("Wear_*", "MeshInstance3D", true, false)
+	_check("the warlord's pieces worn", worn.size() == 3, str(worn.size()))
+	await _run_for(600, func() -> bool: return _hits > 0 or _falls > 0)
+	_check("and its blows land with it", _hits > 0 or _falls > 0, "%d hits, %d falls" % [_hits, _falls])
 

@@ -10754,3 +10754,11 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
      (`force_skin` / `force_paint` / `force_blood` to set them). The
      skirmisher wears the black mask, the chief the white skull.
      `_shots_tmp/orc_looks.gd` lines six up.
+
+### Orc — arms, gear, shoulders (2026-10-14)
+- Two looks only: forest green with red bands, swamp brown with the white skull, both bloodied.
+- Feet: the clips taken from Tariel's library get his foot fix (`SkinnedRig._fix_own_feet`) when baked onto the pack skeleton, so the feet no longer twist in them.
+- Shoulders: `BulkModifier` (a SkeletonModifier3D) widens the chest across the collarbones (`chest_width` 1.28) and sets the shoulders out (`shoulder_out` 0.09); the poses are the clips' own.
+- Arms: `arm_right` / `arm_left` / `arm_style` put Polysplit's Advanced Weapons (from the mannequin, skinned to the same bones by name, ×1.45) in its hands; the reach of its blows is taken from the weapon. A two-hander leaves the left hand empty.
+- Gear: `outfit` — Ashen (blackened iron, black leather, old crimson), Rust, Iron hood (pauldrons and hood), Warlord (pauldrons, cape, great helm).
+- F1: "Orc >" opens the orc's corner: version, right hand, left hand, make, gear, then Call up / A pair / All versions.
