@@ -10814,3 +10814,9 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - The wayside cross at the western fire (`tp_west_r`, lands_places "wayside_cross") is now a plain standing stone.
   - The 37 crosses and cross-topped grave markers in the graveyard's three NecroPOLY chunks are cut out of the meshes. They were picked by eye from contact sheets of every loose part (vepxis-art/necropoly/README).
   - `necro_boxes.json` is rebaked from the cut chunks with the same boxes.py; rerun on the old chunks it reproduces the old file exactly.
+
+## Third-party packs (2026-10-15)
+The packs the user brought in from the Godot Asset Library, what each is for, where it lives and its licence: see `THIRD_PARTY_ASSETS.md`.
+- **Stylized Nature MegaKit** (Quaternius, CC0): for the environment.
+- **Slavic World Free** (EmacEArt).
+- **Shard Shatter** (`addons/ShardShatter`, MIT): for skills and magic.
