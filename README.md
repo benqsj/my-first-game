@@ -10810,3 +10810,7 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
 - **Admin mode (F1), everywhere:** the arena's board (`ArenaPanel`) is now titled "ADMIN MODE". `World._ready` adds it to every world that does not already have one: the solo world and the V5 world. It is not added in an online game.
   - In the arena it works as before.
   - In a world (`in_arena = false`) it only calls up what is picked, in front of the hero. "Wait for my blow" and "Can't be hurt" start off, and "Clear" removes only what it called up (`Arena_*`).
+- No crosses in the game (the user's word, 2026-10-15):
+  - The wayside cross at the western fire (`tp_west_r`, lands_places "wayside_cross") is now a plain standing stone.
+  - The 37 crosses and cross-topped grave markers in the graveyard's three NecroPOLY chunks are cut out of the meshes. They were picked by eye from contact sheets of every loose part (vepxis-art/necropoly/README).
+  - `necro_boxes.json` is rebaked from the cut chunks with the same boxes.py; rerun on the old chunks it reproduces the old file exactly.

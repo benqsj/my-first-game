@@ -645,8 +645,9 @@ func _build_landmarks() -> void:
 				_box(Vector3(1.3, 3.6, 0.9), Transform3D(Basis(Vector3.UP, turn), at + Vector3(0, 1.6, 0)), "stone_dark")
 				_box(Vector3(1.0, 0.9, 1.0), Transform3D(Basis(Vector3.UP, turn), at + Vector3(0, 3.8, 0)), "stone_dark")
 			"wayside_cross":
-				_box(Vector3(0.3, 3.0, 0.3), Transform3D(Basis(Vector3.UP, turn), at + Vector3(0, 1.3, 0)), "stone")
-				_box(Vector3(1.4, 0.28, 0.28), Transform3D(Basis(Vector3.UP, turn), at + Vector3(0, 2.2, 0)), "stone", false)
+				# no cross in the game (the user's word, 2026-10-15): a plain
+				# standing stone by the way instead
+				_box(Vector3(0.8, 2.4, 0.55), Transform3D(Basis(Vector3.UP, turn), at + Vector3(0, 1.1, 0)), "stone")
 			"hillfort_ring":
 				for i in 28:
 					var a := TAU * i / 28.0
