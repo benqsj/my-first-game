@@ -119,6 +119,18 @@ extends PackBrute
 ## `join_for` s all the same, so now and then both are on him.
 @export var join_every: Vector2 = Vector2(9.0, 15.0)
 @export var join_for: float = 3.5
+@export_group("Looks")
+## Its skin, paint and blood picked from its name; -1 each to pick (a scene
+## or a test can set them).
+@export var varied: bool = true
+@export var force_skin: int = -1
+@export var force_paint: int = -1
+@export var force_blood: int = -1
+@export var bloody_share: float = 0.45
+@export_group("Down on him")
+## Him down within reach, now and then it drives a blade down into him.
+@export var stab_chance: float = 0.65
+@export var stab_share: float = 0.7
 @export_group("Bearing")
 ## How often it stands off and twirls its blades at him, him down or far.
 @export var taunt_chance: float = 0.5
@@ -151,6 +163,14 @@ const O_AERB := 194
 const O_LIGHTC := 199
 const O_DRAW := 200
 const O_TAUNT := 201
+## Down on him where he lies (2026-10-14).
+const O_STAB := 202
+## Its looks (2026-10-14, the user's word: another colour, blood, more on it):
+## the skin's green, picked from its name.
+const SKINS := [Color(0.4392, 0.6549, 0.2941), Color(0.20, 0.36, 0.13), Color(0.36, 0.40, 0.33),
+		Color(0.42, 0.36, 0.15), Color(0.14, 0.26, 0.21)]
+## Its war paint: none, red bands across its eyes, a black mask, a white skull.
+const PAINTS := [&"", &"red_bands", &"black_mask", &"white_skull"]
 ## its slide in at him from off (the user's word, 2026-10-14: no leaping in;
 ## a sudden slide and a cut): Tariel's low cut, travelling, opens its far combo
 const O_LUNGE := O_LOW
@@ -168,6 +188,8 @@ const VOICE := 1.25
 ## Its combos, by name.
 const LUNGE_COMBO := &"lunge"
 const COUNTER_COMBO := &"counter"
+## Struck at in the middle of its taunt or its drawing: it was waiting for it.
+const TRAP_COMBO := &"trap"
 
 var _shield_for: float = 0.0
 var _kick_wait: float = 0.0
@@ -192,6 +214,13 @@ var _join_left: float = 0.0
 var _join_wait: float = 8.0
 var _waited_seen: float = 0.0
 var joins_made: int = 0
+var stabs_made: int = 0
+var traps_sprung: int = 0
+var _trap_now: bool = false
+var _stab_wait: float = 0.0
+var skin_index: int = 0
+var paint_index: int = 0
+var bloody: bool = false
 var _cry_wait: float = 2.0
 var _charge_wait: float = 3.0
 var _throw_wait: float = 3.0
@@ -250,6 +279,11 @@ func _ready() -> void:
 	_peaks_move(O_LIGHTC, &"CR_LightCombo", Vector3(1.05, 0.05, 0.85), 0.45, r, 3)
 	_special(O_DRAW, &"CR_DrawBoth", Vector3(1.0, 0.0, 1.0))
 	_special(O_TAUNT, &"CR_SwordPlay", Vector3(1.15, 0.05, 0.42))
+	# down into him where he lies: the leaping cut's last, the blade down
+	_hand_move(O_STAB, &"CR_AerialB", Vector3(0.9, 0.0, 0.95), stab_share, r)
+	_kinds[O_STAB] = &"stomp"
+	_slow_to[O_STAB] = windup_least
+	_snap[O_STAB] = swing_snap
 	# every cut drawn back where he can see it (the user's word, 2026-10-14:
 	# heavy swings, seen coming; too quick to answer): at least `windup_least`
 	# from its start to its blow; the second of a string a little less
@@ -280,8 +314,11 @@ func _ready() -> void:
 		{"name": &"frenzy", "moves": [O_L1, O_R2, O_L2, O_R5, O_L5, O_DW2], "fells": [5], "weight": 1.5,
 				"rage_only": true},
 		{"name": COUNTER_COMBO, "moves": [O_DW1], "fells": [0], "weight": 0.0, "far": true},
+		{"name": TRAP_COMBO, "moves": [O_DW2], "fells": [0], "weight": 0.0, "far": true},
 	]
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
+	_pick_looks()
+	_wear_looks()
 	_special(O_CRY, &"CR_PowerUp", Vector3(1.1, 0.0, 0.8))
 	_special(O_BRACE, &"CR_Call", Vector3(1.0, 0.0, 0.7))
 	_special(O_CHARGE, &"CR_ShieldDash", Vector3(0.75, 0.0, 0.7))
@@ -300,6 +337,8 @@ func _own_move(delta: float) -> bool:
 	_lunge_wait = maxf(_lunge_wait - delta, 0.0)
 	if drill_combo < 0:
 		if _punish_left > 0.0 and _punish():
+			return true
+		if _spring_trap() or _try_stab(delta):
 			return true
 		if _try_draw() or _try_taunt(delta) or _wary(delta):
 			return true
@@ -892,6 +931,18 @@ func _stoop_skip(what: int) -> bool:
 func _answer_swing(knight: Node3D) -> void:
 	if act == Act.BLOCK and _guard_for >= guard_most:
 		return
+	# struck at in its taunt or its drawing: it was waiting for that — out of
+	# the way, and the heavy blow back (the user's word, 2026-10-14)
+	if (act == O_TAUNT or act == O_DRAW) and knight != null and not is_dead and _decides() \
+			and _distance_to(knight) <= react_range + 1.0:
+		_quarry = knight
+		_trap_now = true
+		traps_sprung += 1
+		_step_aside(false)
+		if act != Act.DASH:
+			# no breath for a bound: straight at him
+			_start(Act.NONE)
+		return
 	super(knight)
 
 
@@ -1028,4 +1079,190 @@ func _keep_off(delta: float) -> bool:
 	_face(-away, delta, turn_speed)
 	mode = Mode.FIGHT
 	return true
+#endregion
+
+
+#region Down on him, its trap (2026-10-14)
+## Host: its bound out of his swing done, the heavy blow back at once.
+func _spring_trap() -> bool:
+	if not _trap_now or act != Act.NONE:
+		return false
+	_trap_now = false
+	var which := _combo_named(TRAP_COMBO)
+	if which < 0 or _quarry_down():
+		return false
+	_cooldown = 0.0
+	start_hand_combo(which)
+	return true
+
+
+## Host: him down within reach, now and then it drives a blade down into him
+## (a "stomp" blow: only a man on the ground takes it) — not waiting for him
+## to get up.
+func _try_stab(delta: float) -> bool:
+	_stab_wait = maxf(_stab_wait - delta, 0.0)
+	if not _quarry_down() or _stab_wait > 0.0 or stamina < attack_cost:
+		return false
+	var gap := _distance_to(_quarry)
+	var want := float(_strike_from.get(O_STAB, strike_off))
+	if gap > want + 4.0:
+		return false
+	if gap > want + 0.4:
+		# in to him
+		mode = Mode.FIGHT
+		_move_towards(_quarry.global_position, close_speed, delta)
+		return true
+	_stab_wait = 2.5
+	if _rng.randf() >= stab_chance:
+		return false
+	stabs_made += 1
+	mode = Mode.FIGHT
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_begin(O_STAB)
+	return true
+#endregion
+
+
+#region Looks (2026-10-14)
+func _pick_looks() -> void:
+	if not varied:
+		return
+	skin_index = force_skin if force_skin >= 0 else posmod(hash(String(name) + "/skin"), SKINS.size())
+	paint_index = force_paint if force_paint >= 0 else posmod(hash(String(name) + "/paint"), PAINTS.size())
+	bloody = force_blood == 1 if force_blood >= 0 \
+			else float(posmod(hash(String(name) + "/blood"), 1000)) / 1000.0 < bloody_share
+
+
+## Every peer: its skin's green, its war paint, the blood on it and its blades.
+func _wear_looks() -> void:
+	if not varied or body == null:
+		return
+	var dress := body.get_node_or_null(^"Dress")
+	var skin_mat: Material = PackCreature.material(String(dress.get(&"body"))) if dress != null else null
+	if skin_mat != null and (force_skin >= 0 or skin_index > 0):
+		var mine := (skin_mat as ShaderMaterial).duplicate() as ShaderMaterial
+		var c: Color = SKINS[skin_index]
+		mine.set_shader_parameter(&"color1", Vector3(c.r, c.g, c.b))
+		for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+			for i in mi.get_surface_override_material_count():
+				if mi.get_surface_override_material(i) == skin_mat:
+					mi.set_surface_override_material(i, mine)
+	_paint_and_blood.call_deferred()
+
+
+func _paint_and_blood() -> void:
+	if _skeleton == null or not is_inside_tree():
+		return
+	for m in find_children("*", "GeometryInstance3D", true, false):
+		var g := m as GeometryInstance3D
+		if not (g is GPUParticles3D) and not (g is Label3D):
+			g.layers |= Blood.WOUND_LAYER
+	var s := visual_scale / 1.6
+	var fwd := _forward()
+	var paint: StringName = PAINTS[paint_index]
+	if paint != &"":
+		_face_decal("head_joint", _paint_texture(paint), Color.WHITE, Vector3(0.46, 0.7, 0.34) * s,
+				fwd * 0.26 * s + Vector3.UP * 0.12 * s, 1.0)
+		if paint == &"red_bands":
+			# and three red stripes down its chest
+			_face_decal("chest_joint", _paint_texture(&"chest_bands"), Color.WHITE, Vector3(0.7, 0.9, 0.8) * s,
+					fwd * 0.3 * s, 0.95)
+	if bloody:
+		_face_decal("chest_joint", Blood.wound_texture(), Color(0.24, 0.0, 0.0), Vector3(0.9, 1.0, 1.1) * s,
+				fwd * 0.3 * s + Vector3.DOWN * 0.1 * s, 1.0)
+		_face_decal("head_joint", Blood.wound_texture(), Color(0.26, 0.0, 0.0), Vector3(0.45, 0.8, 0.7) * s,
+				fwd * 0.28 * s + Vector3.DOWN * 0.14 * s, 1.0)
+		_blade_blood(String(weapon_bone), weapon_tip.x)
+		if _second != null:
+			_blade_blood(second_bone, second_tip.x)
+
+
+## A decal laid on its front at `bone`, from in front, its runs downward.
+func _face_decal(bone_name: String, tex: Texture2D, tint: Color, size: Vector3, off: Vector3, mix: float) -> void:
+	var bone := _skeleton.find_bone(bone_name)
+	if bone < 0:
+		return
+	var hold := BoneAttachment3D.new()
+	hold.bone_name = bone_name
+	_skeleton.add_child(hold)
+	var fwd := _forward()
+	var y := fwd
+	var z := Vector3.DOWN
+	var x := y.cross(z).normalized()
+	var decal := Decal.new()
+	decal.texture_albedo = tex
+	decal.modulate = tint
+	decal.albedo_mix = mix
+	decal.normal_fade = 0.3
+	decal.cull_mask = Blood.WOUND_LAYER
+	decal.size = size
+	hold.add_child(decal)
+	var at := _skeleton.global_transform * _skeleton.get_bone_global_pose(bone)
+	decal.transform = at.affine_inverse() * Transform3D(Basis(x, y, z), at.origin + off)
+
+
+## Blood along a blade, both faces.
+func _blade_blood(bone_name: String, reach: float) -> void:
+	var hold := BoneAttachment3D.new()
+	hold.bone_name = bone_name
+	_skeleton.add_child(hold)
+	for k in 2:
+		var decal := Decal.new()
+		decal.texture_albedo = Blood.wound_texture()
+		decal.modulate = Color(0.24, 0.0, 0.0)
+		decal.albedo_mix = 1.0
+		decal.normal_fade = 0.0
+		decal.cull_mask = Blood.WOUND_LAYER
+		decal.upper_fade = 0.1
+		decal.lower_fade = 0.1
+		decal.size = Vector3(0.45, 0.5, absf(reach) * 0.85)
+		hold.add_child(decal)
+		var y := Vector3(0, 0, 1) * (1.0 if k == 0 else -1.0)
+		var z := Vector3(-1, 0, 0) * signf(reach)
+		decal.transform = Transform3D(Basis(y.cross(z), y, z), Vector3(reach * 0.7, 0.0, 0.0))
+
+
+static var _paints: Dictionary = {}
+
+
+## Its paint drawn once (64 x 64, the decal's +Z down the image).
+static func _paint_texture(which: StringName) -> ImageTexture:
+	if _paints.has(which):
+		return _paints[which]
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for py in n:
+		for px in n:
+			var u := float(px) / float(n - 1)
+			var v := float(py) / float(n - 1)
+			var c := Color(0, 0, 0, 0)
+			match which:
+				&"red_bands":
+					# two bands across the eyes and one lower over the mouth
+					if (v > 0.30 and v < 0.40) or (v > 0.44 and v < 0.52) or (v > 0.70 and v < 0.75 and absf(u - 0.5) < 0.3):
+						c = Color(0.62, 0.05, 0.03, 0.95)
+				&"black_mask":
+					# a black band over the eyes, ragged at its ends
+					var edge := 0.52 + 0.06 * sin(u * 31.0)
+					if v > 0.22 and v < edge and absf(u - 0.5) < 0.49:
+						c = Color(0.04, 0.04, 0.05, 0.95)
+				&"white_skull":
+					# white over the brow and down the cheeks, dark round the eyes
+					var eye := minf(Vector2(u - 0.33, v - 0.40).length(), Vector2(u - 0.67, v - 0.40).length())
+					if eye < 0.09:
+						c = Color(0.05, 0.04, 0.04, 0.95)
+					elif v > 0.2 and v < 0.62 and absf(u - 0.5) < 0.42:
+						c = Color(0.86, 0.83, 0.76, 0.9)
+					elif v >= 0.62 and v < 0.8 and absf(u - 0.5) < 0.42 and fmod(u * 10.0, 1.0) < 0.5:
+						c = Color(0.86, 0.83, 0.76, 0.9)
+				&"chest_bands":
+					# three red stripes, slanting
+					var w := fmod(u * 3.0 + v * 0.6, 1.0)
+					if w < 0.28 and v > 0.1 and v < 0.9:
+						c = Color(0.6, 0.05, 0.03, 0.9)
+			img.set_pixel(px, py, c)
+	var tex := ImageTexture.create_from_image(img)
+	_paints[which] = tex
+	return tex
 #endregion

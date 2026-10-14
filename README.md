@@ -10736,3 +10736,21 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   5. A pair takes turns: `pack_turns` 1, the other keeps 6.5 m off, circling
      and watching, throwing; every 9–15 s of waiting it comes in for 3.5 s
      (`join_every`, `join_for`) if fewer than two are on him.
+- **Round 4** (2026-10-14, the user's list):
+  1. Him down, it does not wait for him to get up: within reach it walks in
+     and drives a blade down into him (`O_STAB`, AerialB's downward cut, a
+     "stomp" blow only a man on the ground takes; `stab_chance` 0.65, every
+     2.5 s at most); otherwise its taunt as before.
+  2. Its taunt and its drawing are a trap: his swing begun at it then
+     (`_answer_swing`) and it bounds aside and comes straight back with the
+     heavy two-bladed thrust that fells him (`TRAP_COMBO`, `traps_sprung`).
+     Its war cry is still an opening.
+  3. Its blows hurt: `hit_damage` 60 (was 34; a light cut ~30, a two-bladed
+     thrust 60, an axe ~33); the skirmisher 48, the chief 70.
+  4. Looks: its skin's green picked from its name (`SKINS`, five), war paint
+     (`PAINTS`: red bands across the eyes and down the chest, a black mask, a
+     white skull; decals drawn at load, `_paint_texture`) and blood on its
+     chest, its mouth and both blades (`bloody_share` 0.45), all from its name
+     (`force_skin` / `force_paint` / `force_blood` to set them). The
+     skirmisher wears the black mask, the chief the white skull.
+     `_shots_tmp/orc_looks.gd` lines six up.

@@ -99,6 +99,7 @@ func _run() -> void:
 	await _bearing()
 	await _pace()
 	await _pair()
+	await _down_and_trap()
 	await _stance()
 	await _rage()
 	print("orc_test: %s" % ("all passed" if _failures == 0 else "%d FAILED" % _failures))
@@ -113,7 +114,7 @@ func _size() -> void:
 	var head := sk.global_transform * sk.get_bone_global_pose(sk.find_bone("head_joint"))
 	var tall := head.origin.y - o.global_position.y
 	_check("half again as tall as a man (head ~2.7 m)", tall > 2.5 and tall < 3.0, "%.2f m" % tall)
-	_check("eight combos made by hand, and its counter", o._hand_combos.size() == 9, str(o._hand_combos.size()))
+	_check("eight combos made by hand, its counter and its trap", o._hand_combos.size() == 10, str(o._hand_combos.size()))
 	var ogre_clips: Array = []
 	for what: int in o._moves_table:
 		var clip := String((o._moves_table[what] as Array)[0])
@@ -348,4 +349,39 @@ func _pair() -> void:
 	_check("a pair: mostly one at him at a time", both < one / 3 + 1, "%d frames both, %d one" % [both, one])
 	_check("the other throws its axes from off", a.throws_made + b.throws_made >= 1, "%d" % (a.throws_made + b.throws_made))
 	_check("and comes in now and then", a.joins_made + b.joins_made >= 1, "%d" % (a.joins_made + b.joins_made))
+
+
+## 2026-10-14 (the user's word): him down, it does not wait for him to get
+## up; struck at in its taunt it was waiting for it — out of the way and the
+## heavy blow back; its blows hurt.
+func _down_and_trap() -> void:
+	await _arena()
+	var o := _orc(3.0)
+	o.hand_combo_chance = Vector2.ZERO
+	o.stab_chance = 1.0
+	o.taunt_chance = 0.0
+	await _run_for(10)
+	var foe := Node3D.new()
+	_world.add_child(foe)
+	foe.global_position = o.global_position
+	_hero.receive_blow(5.0, foe, 0, 1, 77)
+	_hero.down_time = 6.0
+	await _run_for(3)
+	_hero.set(&"_down_timer", 6.0)
+	var hits0 := _hits
+	await _run_for(240, func() -> bool: return _hits > hits0)
+	_check("him down, it drives a blade down into him", o.stabs_made >= 1 and _hits > hits0,
+			"%d stabs, %d hits" % [o.stabs_made, _hits - hits0])
+	_hero.set(&"_down_timer", 0.0)
+	await _arena()
+	o = _orc(3.0)
+	o.hand_combo_chance = Vector2.ZERO
+	await _run_for(10)
+	o._begin(OrcFighter.O_TAUNT)
+	await _run_for(10)
+	o._answer_swing(_hero)
+	await _run_for(150, func() -> bool: return _falls > 0)
+	_check("struck at in its taunt: out of the way and the heavy blow back", o.traps_sprung == 1 and _falls >= 1,
+			"%d traps, %d falls" % [o.traps_sprung, _falls])
+	_check("its blows hurt (60)", o.hit_damage >= 55.0, "%.0f" % o.hit_damage)
 

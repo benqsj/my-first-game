@@ -6,7 +6,8 @@
 role = &"skirmisher"
 keep_off = 7.0
 max_health = 300
-hit_damage = 28
+hit_damage = 48
+force_paint = 2
 throw_from = 6.0
 throw_cooldown = Vector2(3.0, 5.5)
 throw_waiting = Vector2(3.0, 5.0)
