@@ -82,6 +82,9 @@ func _watch_others() -> void:
 			if row["start"] == INF:
 				row["start"] = body.position.y
 			row["sank"] = minf(row["sank"], body.position.y - row["start"])
+			# shattered away ([DeathShatter]) counts as gone down
+			if not body.visible:
+				row["sank"] = minf(row["sank"], -1.0)
 		_others[e.name] = row
 
 

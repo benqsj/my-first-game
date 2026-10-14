@@ -75,6 +75,9 @@ const ACT_REEL := 98
 @export var corpse_linger: float = 5.0
 @export var corpse_sink_time: float = 1.6
 @export var corpse_sink_depth: float = 2.6
+## Past [member corpse_linger] the corpse glows over and breaks into gold
+## shards ([DeathShatter]) instead of sinking into the ground.
+@export var death_shards: bool = true
 
 var health: float = 0.0
 var mode: int = Mode.GUARD
@@ -108,6 +111,7 @@ var _act_length: float = 0.0
 var _cooldown: float = 0.0
 var _corpse_age: float = 0.0
 var _cleared: bool = false
+var _shards_begun: bool = false
 var _body_rest_y: float = 0.0
 ## Waves of thorns in the ground, host side: each catches a player once as its
 ## front runs under them.
@@ -256,8 +260,13 @@ func _process(delta: float) -> void:
 	else:
 		_corpse_age += delta
 		if _corpse_age > corpse_linger and body != null:
-			var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
-			body.position.y = _body_rest_y - sunk * sunk * corpse_sink_depth
+			if death_shards:
+				if not _shards_begun:
+					_shards_begun = true
+					DeathShatter.start(self, body, corpse_sink_time * 0.75)
+			else:
+				var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
+				body.position.y = _body_rest_y - sunk * sunk * corpse_sink_depth
 	if act_serial != _played_serial:
 		_played_serial = act_serial
 		_shown_time = 0.0

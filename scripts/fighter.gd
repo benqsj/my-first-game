@@ -138,6 +138,9 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var corpse_linger: float = 4.0
 @export var corpse_sink_time: float = 1.2
 @export var corpse_sink_depth: float = 1.6
+## Past [member corpse_linger] the corpse glows over and breaks into gold
+## shards ([DeathShatter]) instead of sinking into the ground.
+@export var death_shards: bool = true
 #endregion
 
 ## Replicated state. See the class notes.
@@ -171,6 +174,7 @@ var _blows_done: int = 0
 ## Per attacker, by node name: the last swing answered and the last one taken.
 var _corpse_age: float = 0.0
 var _cleared: bool = false
+var _shards_begun: bool = false
 ## The bones the reel from a parry bends, and how far into it this peer is.
 var _reel_bones: Dictionary = {}
 ## The combo's blows as its fists ([WeaponSweep]), host side.
@@ -273,8 +277,13 @@ func _process(delta: float) -> void:
 		if not dies_by_clip:
 			_topple()
 		if _corpse_age > corpse_linger and body != null:
-			var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
-			body.position.y = _body_rest_y + FALL_LIFT * visual_scale - sunk * sunk * corpse_sink_depth
+			if death_shards and get("shatter_on_death") != true:
+				if not _shards_begun:
+					_shards_begun = true
+					DeathShatter.start(self, body, corpse_sink_time * 0.75)
+			else:
+				var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
+				body.position.y = _body_rest_y + FALL_LIFT * visual_scale - sunk * sunk * corpse_sink_depth
 
 	if _anim == null:
 		return
