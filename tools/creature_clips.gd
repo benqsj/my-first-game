@@ -249,6 +249,32 @@ const MIXAMO := [
 	# Its grab (2026-10-11, the user's word): Mixamo's one-handed choke lift,
 	# mirrored — its free left hand; the right keeps the club.
 	["CR_OG_Choke_Lift", "res://assets/creatures/anim/mixamo/OG_Choke_Lift_L.fbx", false, 0.0, -1.0],
+	# The orc with a great weapon (2026-10-14, the user's word: two-handed, it
+	# ran bent and looking aside): Mixamo's great sword pack — its stance,
+	# walk and run with the sword held, its guard and the blow it takes, and
+	# the high spinning cut (vepxis-art/mixamo_orc/GA_*).
+	["CR_GS_Idle", "res://assets/creatures/anim/mixamo/GS_Idle.fbx", true, 0.0, -1.0],
+	["CR_GS_Walk", "res://assets/creatures/anim/mixamo/GS_Walk.fbx", true, 0.0, -1.0],
+	["CR_GS_Run", "res://assets/creatures/anim/mixamo/GS_Run.fbx", true, 0.0, -1.0],
+	["CR_GS_Block", "res://assets/creatures/anim/mixamo/GS_Block_Idle.fbx", true, 0.0, -1.0],
+	["CR_GS_Impact", "res://assets/creatures/anim/mixamo/GS_Impact.fbx", false, 0.0, -1.0],
+	["CR_GS_HighSpin", "res://assets/creatures/anim/mixamo/GS_High_Spin_Attack.fbx", false, 0.0, -1.0],
+	# ...and the rest of the pack, fresh (2026-10-14, the user's OK): its
+	# strafes and its walk and run backwards, the blow on its guard and on its
+	# head, the hilt in his face, the slide in from a run, the crouching cut,
+	# its powering up, drawing it, and its pose struck at him.
+	["CR_GS_WalkBack", "res://assets/creatures/anim/mixamo/GS_Walk_Back.fbx", true, 0.0, -1.0],
+	["CR_GS_RunBack", "res://assets/creatures/anim/mixamo/GS_Run_Back.fbx", true, 0.0, -1.0],
+	["CR_GS_StrafeL", "res://assets/creatures/anim/mixamo/GS_Strafe_L.fbx", true, 0.0, -1.0],
+	["CR_GS_StrafeR", "res://assets/creatures/anim/mixamo/GS_Strafe_R.fbx", true, 0.0, -1.0],
+	["CR_GS_BlockedImpact", "res://assets/creatures/anim/mixamo/GS_Blocked_Impact.fbx", false, 0.0, -1.0],
+	["CR_GS_HeadImpact", "res://assets/creatures/anim/mixamo/GS_Head_Impact.fbx", false, 0.0, -1.0],
+	["CR_GS_Hilt", "res://assets/creatures/anim/mixamo/GS_Hilt.fbx", false, 0.0, -1.0],
+	["CR_GS_Slide", "res://assets/creatures/anim/mixamo/GS_Slide_Attack.fbx", false, 0.0, -1.0],
+	["CR_GS_CrouchSlash", "res://assets/creatures/anim/mixamo/GS_Crouch_Slash.fbx", false, 0.0, -1.0],
+	["CR_GS_PowerUp", "res://assets/creatures/anim/mixamo/GS_Power_Up.fbx", false, 0.0, -1.0],
+	["CR_GS_Draw", "res://assets/creatures/anim/mixamo/GS_Draw.fbx", false, 0.0, -1.0],
+	["CR_GS_Pose", "res://assets/creatures/anim/mixamo/GS_Strike_Pose.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
@@ -265,7 +291,9 @@ const MIXAMO_NAMES := {
 ## Clips made of two baked here: the legs (and hips) of the first, the body
 ## from the waist up of the second, the second looped under the first's
 ## length. The skeleton warrior walking in behind its raised shield.
-## [name here, legs from, waist up from]
+## [name here, legs from, waist up from (, the bones whose limbs are taken
+## instead of the waist's)]
+const ARMS := ["L_clavicle_joint", "R_clavicle_joint"]
 const LAYERED := [
 	["CR_ShieldWalk", "CR_Walk", "CR_Block"],
 	["CR_ShieldBack", "CR_WalkBack", "CR_Block"],
@@ -273,19 +301,22 @@ const LAYERED := [
 	["CR_ShieldR", "CR_StrafeR", "CR_Block"],
 	# the orc's great weapon at rest on its shoulder as it walks and runs, held
 	# before it roused; a polearm the same (2026-10-14)
-	["CR_ShoulderWalk", "CR_Walk", "CR_Shoulder"],
-	["CR_ShoulderRun", "CR_Run", "CR_Shoulder"],
-	["CR_HeavyWalk", "CR_Walk", "CR_HeavyIdle"],
-	["CR_HeavyRun", "CR_Run", "CR_HeavyIdle"],
-	["CR_HeavyBack", "CR_WalkBack", "CR_HeavyIdle"],
-	["CR_HeavyL", "CR_StrafeL", "CR_HeavyIdle"],
-	["CR_HeavyR", "CR_StrafeR", "CR_HeavyIdle"],
-	["CR_PoleWalk", "CR_Walk", "CR_HoldPole"],
-	["CR_PoleRun", "CR_Run", "CR_PoleIdle"],
-	["CR_PoleGuardWalk", "CR_Walk", "CR_PoleIdle"],
-	["CR_PoleBack", "CR_WalkBack", "CR_PoleIdle"],
-	["CR_PoleL", "CR_StrafeL", "CR_PoleIdle"],
-	["CR_PoleR", "CR_StrafeR", "CR_PoleIdle"],
+	# (the arms alone, from the collarbones: the stance's twisted body and
+	# its head turned aside on a run's legs bent it at the waist and looked
+	# away from where it ran — the user's word, 2026-10-14)
+	["CR_ShoulderWalk", "CR_Walk", "CR_Shoulder", ARMS],
+	["CR_ShoulderRun", "CR_Run", "CR_Shoulder", ARMS],
+	["CR_HeavyWalk", "CR_Walk", "CR_HeavyIdle", ARMS],
+	["CR_HeavyRun", "CR_Run", "CR_HeavyIdle", ARMS],
+	["CR_HeavyBack", "CR_WalkBack", "CR_HeavyIdle", ARMS],
+	["CR_HeavyL", "CR_StrafeL", "CR_HeavyIdle", ARMS],
+	["CR_HeavyR", "CR_StrafeR", "CR_HeavyIdle", ARMS],
+	["CR_PoleWalk", "CR_Walk", "CR_HoldPole", ARMS],
+	["CR_PoleRun", "CR_Run", "CR_PoleIdle", ARMS],
+	["CR_PoleGuardWalk", "CR_Walk", "CR_PoleIdle", ARMS],
+	["CR_PoleBack", "CR_WalkBack", "CR_PoleIdle", ARMS],
+	["CR_PoleL", "CR_StrafeL", "CR_PoleIdle", ARMS],
+	["CR_PoleR", "CR_StrafeR", "CR_PoleIdle", ARMS],
 ]
 
 var _map := {}  # figure bone -> mannequin bone
@@ -616,14 +647,17 @@ func _layer(out_lib: AnimationLibrary, meta: Dictionary, fig: Skeleton3D) -> voi
 			continue
 		var anim := legs.duplicate(true) as Animation
 		var swapped := 0
+		var roots: Array = [waist]
+		if c.size() > 3:
+			roots = (c[3] as Array).map(func(n: String) -> int: return fig.find_bone(n))
 		for tr in anim.get_track_count():
 			if anim.track_get_type(tr) != Animation.TYPE_ROTATION_3D:
 				continue
 			var bone := fig.find_bone(String(anim.track_get_path(tr)).get_slice(":", 1))
 			var b := bone
-			while b >= 0 and b != waist:
+			while b >= 0 and not roots.has(b):
 				b = fig.get_bone_parent(b)
-			if b != waist:
+			if b < 0:
 				continue
 			var src := upper.find_track(anim.track_get_path(tr), Animation.TYPE_ROTATION_3D)
 			if src < 0:

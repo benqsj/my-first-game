@@ -198,6 +198,16 @@ const O_P1 := 211
 const O_P2 := 212
 const O_P3 := 213
 const O_P4 := 214
+## Mixamo's great sword pack (2026-10-14, the user's word: two-handed blows
+## and combos fine and telling): its combo slash, the power slash, the low
+## slash, the downward one, the high spin.
+const O_GSC := 215
+const O_GSP := 216
+const O_GSL := 217
+const O_GSD := 218
+const O_GSS := 219
+const O_GSSL := 220
+const O_GSCR := 221
 ## Its looks (2026-10-14, the user's word: another colour, blood, more on it):
 ## the skin's green, picked from its name.
 ## (the user kept two of six, 2026-10-14: the dark forest green with red
@@ -367,7 +377,7 @@ func _ready() -> void:
 	_pick_looks()
 	_wear_looks()
 	_wear_outfit()
-	_special(O_CRY, &"CR_PowerUp", Vector3(1.1, 0.0, 0.8))
+	_special(O_CRY, &"CR_GS_PowerUp" if grip == &"heavy" else &"CR_PowerUp", Vector3(1.1, 0.0, 0.8))
 	_special(O_BRACE, &"CR_Call", Vector3(1.0, 0.0, 0.7))
 	_special(O_CHARGE, &"CR_ShieldDash", Vector3(0.75, 0.0, 0.7))
 	_special(O_THROW, &"CR_Throw", Vector3(1.1, 0.0, 0.62))
@@ -1323,7 +1333,11 @@ const ARMS_FIGURE := "res://assets/polysplit/mannequin_m.glb"
 ## What it may hold, by hand (PolysplitLook.AW names).
 const RIGHT_ARMS := ["", "shortsword", "longsword", "curvedsword", "greatsword", "curvedgreatsword", "axe",
 		"greataxe", "hammer", "greathammer", "mace", "morningstar", "flail", "spear", "poleaxe", "dagger"]
-const LEFT_ARMS := ["", "none", "axe", "shortsword", "mace", "hammer", "dagger"]
+## (the left hand may hold any one-handed weapon the right may: the same
+## in both, the user's word, 2026-10-14; one the pack made only for the right
+## hand is turned over into the left as its own falchion is)
+const LEFT_ARMS := ["", "none", "shortsword", "longsword", "curvedsword", "axe", "hammer", "mace", "morningstar",
+		"flail", "dagger"]
 const ARM_STYLES := ["normal", "ornate", "obsidian", "black", "bone"]
 ## The figure's weapons are a man's; in an orc's fist they are this much bigger.
 const ARM_SIZE := 1.45
@@ -1339,18 +1353,25 @@ func _grip_stance() -> void:
 	var heavy := grip == &"heavy"
 	idle_clip = &"CR_Shoulder" if heavy else &"CR_HoldPole"
 	fidget_clip = idle_clip
-	guard_idle_clip = &"CR_HeavyIdle" if heavy else &"CR_PoleIdle"
-	block_clip = &"CR_Parry2H" if heavy else &"CR_ParryPole"
+	# (roused, Mixamo's great sword stance, walk and run: the sword held
+	# before it, facing where it goes)
+	guard_idle_clip = &"CR_GS_Idle" if heavy else &"CR_PoleIdle"
+	block_clip = &"CR_GS_Block" if heavy else &"CR_ParryPole"
 	# its feet the same, its arms holding the weapon as they go
 	walk_clip = &"CR_ShoulderWalk" if heavy else &"CR_PoleWalk"
-	roused_walk_clip = &"CR_HeavyWalk" if heavy else &"CR_PoleGuardWalk"
-	run_clip = &"CR_HeavyRun" if heavy else &"CR_PoleRun"
-	back_clip = &"CR_HeavyBack" if heavy else &"CR_PoleBack"
-	strafe_l_clip = &"CR_HeavyL" if heavy else &"CR_PoleL"
-	strafe_r_clip = &"CR_HeavyR" if heavy else &"CR_PoleR"
+	roused_walk_clip = &"CR_GS_Walk" if heavy else &"CR_PoleGuardWalk"
+	run_clip = &"CR_GS_Run" if heavy else &"CR_PoleRun"
+	back_clip = &"CR_GS_WalkBack" if heavy else &"CR_PoleBack"
+	strafe_l_clip = &"CR_GS_StrafeL" if heavy else &"CR_PoleL"
+	strafe_r_clip = &"CR_GS_StrafeR" if heavy else &"CR_PoleR"
+	if heavy:
+		back_run_clip = &"CR_GS_RunBack"
+		hit_clip = &"CR_GS_HeadImpact"
 	var loops := Array(loop_clips)
 	for c: StringName in [idle_clip, guard_idle_clip, block_clip, walk_clip, roused_walk_clip, run_clip, back_clip,
-			strafe_l_clip, strafe_r_clip]:
+			strafe_l_clip, strafe_r_clip, back_run_clip]:
+		if c == &"":
+			continue
 		if not loops.has(String(c)):
 			loops.append(String(c))
 	loop_clips = PackedStringArray(loops)
@@ -1386,20 +1407,39 @@ func _grip_moves() -> void:
 		_hand_move(O_HB, &"CR_HeavyB", Vector3(1.0, 0.0, 1.0), 0.9, r)
 		_hand_move(O_HC, &"CR_HeavyC", Vector3(1.0, 0.0, 1.0), 1.0, r)
 		_hand_move(O_GP, &"CR_GroundPound", Vector3(1.0, 0.0, 0.9), 1.2, r)
-		moves = [O_H1, O_H2, O_H3, O_H4, O_HA, O_HB, O_HC, O_GP]
+		# the great sword's own, a man's sword-work at an orc's weight
+		_peaks_move(O_GSC, &"CR_OG_Combo_Slash", Vector3(0.95, 0.05, 0.88), 0.55, r, 3)
+		_hand_move(O_GSP, &"CR_OG_Power_Slash", Vector3(0.95, 0.05, 0.85), 1.2, r)
+		_hand_move(O_GSL, &"CR_OG_Low_Slash", Vector3(1.0, 0.05, 0.8), 0.8, r)
+		_hand_move(O_GSD, &"CR_OG_Downward_Slash", Vector3(0.95, 0.05, 0.85), 1.1, r)
+		_hand_move(O_GSS, &"CR_GS_HighSpin", Vector3(1.05, 0.05, 0.85), 1.1, r)
+		_hand_move(O_GSSL, &"CR_GS_Slide", Vector3(1.0, 0.0, 0.85), 0.9, r)
+		_hand_move(O_GSCR, &"CR_GS_CrouchSlash", Vector3(1.0, 0.05, 0.85), 0.8, r)
+		# the pommel in his face (its own, the sword's)
+		_hand_move(O_HILT, &"CR_GS_Hilt", Vector3(1.0, 0.05, 0.8), 0.35, "R_wrist_joint>R_wrist_joint:0.45")
+		_kinds[O_HILT] = &"guard"
+		moves = [O_H1, O_H2, O_H3, O_H4, O_HA, O_HB, O_HC, O_GP, O_GSC, O_GSP, O_GSL, O_GSD, O_GSS, O_GSSL, O_GSCR, O_HILT]
 		_special(O_DRAW, &"CR_Enter2H", Vector3(1.0, 0.0, 1.0))
+		_special(O_TAUNT, &"CR_GS_Pose", Vector3(1.0, 0.0, 1.0))
 		_hand_combos = [
-			{"name": &"cleave", "moves": [O_H1, O_H2], "fells": [1], "weight": 1.3},
-			{"name": &"sweep_slam", "moves": [O_H3, O_GP], "fells": [1], "weight": 1.0},
-			{"name": &"heavy_string", "moves": [O_HA, O_HB, O_HC], "fells": [2], "weight": 1.1},
-			{"name": &"overhead", "moves": [O_H4], "fells": [0], "weight": 0.9},
-			{"name": &"turn_cleave", "moves": [O_H2, O_KICKL, O_H4], "fells": [2], "weight": 0.8},
-			{"name": &"hilt", "moves": [O_H1, O_HILT, O_GP], "fells": [2], "weight": 0.7},
-			{"name": LUNGE_COMBO, "moves": [O_HA, O_H4], "fells": [1], "weight": 1.0, "far": true},
-			{"name": &"frenzy", "moves": [O_H1, O_H2, O_H3, O_HC, O_GP], "fells": [4], "weight": 1.5,
+			# a wide cut, back the other way, and down through him
+			{"name": &"cleave", "moves": [O_GSL, O_H2, O_GSD], "fells": [2], "weight": 1.3},
+			# a slow wind-up, the whole weight in one cut
+			{"name": &"power", "moves": [O_H1, O_GSP], "fells": [1], "weight": 1.0},
+			{"name": &"heavy_string", "moves": [O_HA, O_HB, O_HC], "fells": [2], "weight": 0.9},
+			{"name": &"sweep_slam", "moves": [O_H3, O_GP], "fells": [1], "weight": 0.9},
+			{"name": &"turn_cleave", "moves": [O_H2, O_KICKL, O_H4], "fells": [2], "weight": 0.7},
+			{"name": &"hilt", "moves": [O_H1, O_HILT, O_GSD], "fells": [2], "weight": 0.8},
+			# low across his legs, up again, and the whole weight down
+			{"name": &"low_rise", "moves": [O_GSCR, O_GSP], "fells": [1], "weight": 0.9},
+			# from off: the slide in under him, then the cut down
+			{"name": LUNGE_COMBO, "moves": [O_GSSL, O_GSD], "fells": [1], "weight": 1.0, "far": true},
+			# the spinning cut that carries it through him, and the slam
+			{"name": &"whirl", "moves": [O_GSS, O_GP], "fells": [1], "weight": 0.9},
+			{"name": &"frenzy", "moves": [O_GSL, O_H2, O_GSS, O_GP], "fells": [3], "weight": 1.5,
 					"rage_only": true},
 			{"name": COUNTER_COMBO, "moves": [O_H1], "fells": [0], "weight": 0.0, "far": true},
-			{"name": TRAP_COMBO, "moves": [O_H4], "fells": [0], "weight": 0.0, "far": true},
+			{"name": TRAP_COMBO, "moves": [O_GSP], "fells": [0], "weight": 0.0, "far": true},
 		]
 	else:
 		_hand_move(O_P1, &"CR_Polearm1", Vector3(1.0, 0.0, 0.85), 0.9, r)
@@ -1460,8 +1500,10 @@ func _equip_arms() -> void:
 		# an empty left hand: its fist
 		second_tip = Vector3(0.25, 0.0, 0.0)
 	elif arm_left != "":
-		var tip := _put_in_hand(skel, own, "ps_o_aw_%s_%s" % [arm_left, PolysplitLook.STYLE_MODELS.get(arm_style, arm_style)],
-				second_bone)
+		var style: String = PolysplitLook.STYLE_MODELS.get(arm_style, arm_style)
+		var tip := _put_in_hand(skel, own, "ps_o_aw_%s_%s" % [arm_left, style], second_bone)
+		if tip == Vector3.ZERO:
+			tip = _turn_into_left(skel, "ps_w_aw_%s_%s" % [arm_left, style])
 		if tip != Vector3.ZERO:
 			second_tip = tip
 	# the scene's own blows name the falchions' reach: theirs now
@@ -1472,6 +1514,55 @@ func _equip_arms() -> void:
 		limbs.append(spec.replace("@1.1,0,0:", r_at).replace("@-1.1,0,0:", l_at))
 	attack_limbs = limbs
 	leap_limbs = leap_limbs.replace("@1.1,0,0:", r_at)
+
+
+## The right hand's weapon `mesh_name` in the left: unskinned, held on the
+## left hand where it rests on the right, turned over (`second_turn`); its
+## farthest point from the hand in the left hand's frame.
+func _turn_into_left(skel: Skeleton3D, mesh_name: String) -> Vector3:
+	if _figure == null:
+		var scene := load(ARMS_FIGURE) as PackedScene
+		if scene == null:
+			return Vector3.ZERO
+		_figure = scene.instantiate() as Node3D
+	var src := _figure.find_child(mesh_name, true, false) as MeshInstance3D
+	var fig := src.get_node_or_null(src.skeleton) as Skeleton3D if src != null and src.skin != null else null
+	if fig == null or skel.find_bone(second_bone) < 0:
+		return Vector3.ZERO
+	# the bone it is weighted to (the figure's weapon_r) and where that rests
+	# on the right hand
+	var held := -1
+	var bind := Transform3D.IDENTITY
+	for i in src.skin.get_bind_count():
+		if String(src.skin.get_bind_name(i)).begins_with("weapon"):
+			held = fig.find_bone(String(src.skin.get_bind_name(i)))
+			bind = src.skin.get_bind_pose(i)
+	var hand := fig.find_bone(String(weapon_bone))
+	if held < 0 or hand < 0:
+		return Vector3.ZERO
+	var on_hand := fig.get_bone_global_rest(hand).affine_inverse() * fig.get_bone_global_rest(held) * bind
+	var bigger := Transform3D(Basis.from_scale(Vector3.ONE * ARM_SIZE), Vector3.ZERO)
+	var place := second_turn * bigger * on_hand
+	var hold := BoneAttachment3D.new()
+	hold.name = "LeftArm"
+	hold.bone_name = second_bone
+	skel.add_child(hold)
+	var mi := MeshInstance3D.new()
+	mi.name = "Arm_" + mesh_name + "_left"
+	mi.mesh = src.mesh
+	mi.transform = place
+	var mat := src.get_active_material(0)
+	var albedo: Texture2D = (mat as StandardMaterial3D).albedo_texture if mat is StandardMaterial3D else null
+	if albedo != null:
+		mi.material_override = PolysplitLook.aw_material(arm_style, albedo)
+	hold.add_child(mi)
+	var box := src.mesh.get_aabb()
+	var far := Vector3.ZERO
+	for k in 8:
+		var p := place * box.get_endpoint(k)
+		if p.length() > far.length():
+			far = p
+	return far * 0.92
 
 
 ## `src`'s skin made for `skel`: a bone it lacks (the figure's weapon_r and

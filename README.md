@@ -10771,3 +10771,22 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - The walking and running clips with the weapon held are LAYERED in `tools/creature_clips.gd` (legs from the walk, waist up from the stance).
 - F1: picking a creature shows it in a second panel on the right (`CreaturePreview`), turning slowly in its arms and gear, with its own Call up button. The creature is the real scene in a world of its own, with its mind switched off.
 - Capes on their own (`cape`, `OrcFighter.CAPES`), worn with any gear or none: Black cape, Crimson cape, Hide cape, Grey mantle. Each is one flat cloth colour. Warlord no longer has a cape of its own. F1 adds a "Cape" picker to the orc corner. The preview turns only when you drag it with the mouse, and starts facing the camera.
+
+### Orc — two-handed, done properly (2026-10-14, round 7)
+- The same weapon in both hands: the left hand may hold any one-handed weapon. A weapon the pack made only for the right hand (`ps_w_aw_*`) is mirrored into the left with `_turn_into_left`, the way its falchion is.
+- The heavy grip runs and walks with Mixamo's great sword pack (`CR_GS_Run`, `CR_GS_Walk`, `CR_GS_WalkBack`, `CR_GS_RunBack`, `CR_GS_StrafeL/R`), stands in `CR_GS_Idle` and guards in `CR_GS_Block`. The earlier layered run bent it at the waist and turned its head aside.
+- Clips still LAYERED take only the arms, from the collarbones (`ARMS`).
+- 12 clips fresh from Mixamo (with the user's OK), in `vepxis-art/mixamo_orc/GS_*.fbx`:
+  - strafes, walk back and run back;
+  - blocked impact and head impact;
+  - hilt, slide attack and crouching slash;
+  - power up, draw and strike-a-pose.
+- Heavy combos, each checked to land on a still Tariel (`_shots_tmp/orc_arm_probe.gd`, film `orc_gs_film.gd` → `_shots_tmp/orc/gs/greatsword_orc.mp4`):
+  - **cleave:** low slash, Kevin's back cut, then the downward slash.
+  - **power:** a 2H cut, then the power slash.
+  - **low_rise:** a crouching cut, then the power slash.
+  - **hilt:** the pommel in his face, then the downward slash.
+  - **lunge:** the slide in from afar, then the cut down.
+  - **whirl:** the high spin, then the slam.
+  - **heavy_string, sweep_slam, turn_cleave, frenzy, counter and trap.**
+  - Its war cry is the great sword's powering up; its taunt is the strike-a-pose.
