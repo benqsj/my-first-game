@@ -1139,7 +1139,8 @@ func _wear_looks() -> void:
 		return
 	var dress := body.get_node_or_null(^"Dress")
 	var skin_mat: Material = PackCreature.material(String(dress.get(&"body"))) if dress != null else null
-	if skin_mat != null and (force_skin >= 0 or skin_index > 0):
+	# (the skirmisher and the chief keep the skins of their own palettes)
+	if skin_mat != null and role == &"duelist" and (force_skin >= 0 or skin_index > 0):
 		var mine := (skin_mat as ShaderMaterial).duplicate() as ShaderMaterial
 		var c: Color = SKINS[skin_index]
 		mine.set_shader_parameter(&"color1", Vector3(c.r, c.g, c.b))

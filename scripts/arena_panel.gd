@@ -40,6 +40,19 @@ const ENTRIES: Array[Array] = [
 	["Skeleton mage", "res://scenes/enemies/pack/skeleton_mage.tscn", false],
 	["Skeleton lord", "res://scenes/enemies/pack/skeleton_lord.tscn", true],
 ]
+## The orc's versions (2026-10-14, the user's word: all of them up from F1):
+## its looks (skin, paint, blood: [OrcFighter] `force_*`), the skirmisher, the
+## chief, and a pair. Not in the opening ring: its own row on the board.
+const ORC_LOOKS: Array[Array] = [
+	["1 green", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 0, "force_paint": 0, "force_blood": 0}],
+	["2 forest, red bands, blood", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 1, "force_paint": 1, "force_blood": 1}],
+	["3 ash, black mask", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 2, "force_paint": 2, "force_blood": 0}],
+	["4 swamp brown, skull, blood", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 3, "force_paint": 3, "force_blood": 1}],
+	["5 dark swamp, red bands", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 4, "force_paint": 1, "force_blood": 0}],
+	["6 forest, black mask, blood", "res://scenes/enemies/pack/orc.tscn", {"force_skin": 1, "force_paint": 2, "force_blood": 1}],
+	["Skirmisher", "res://scenes/enemies/pack/orc_skirmisher.tscn", {}],
+	["Chief", "res://scenes/enemies/pack/orc_chief.tscn", {}],
+]
 ## How far in front of the hero a creature is called up, and a boss.
 const AHEAD := 7.0
 const AHEAD_BOSS := 13.0
@@ -103,6 +116,17 @@ func _ready() -> void:
 			if bool(entry[2]) == boss and ResourceLoader.exists(String(entry[1])):
 				list.add_child(_small(String(entry[0]), _call_up.bind(String(entry[1]), boss)))
 		lists.add_child(list)
+	# the orc's versions, in two columns of their own
+	var orcs := VBoxContainer.new()
+	orcs.add_theme_constant_override("separation", 4)
+	orcs.add_child(MenuStyle.label("Orc versions", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
+	for look: Array in ORC_LOOKS:
+		orcs.add_child(_small(String(look[0]), func() -> void: call_up(String(look[1]), false, null, look[2])))
+	orcs.add_child(_small("All of them", _call_up_orcs))
+	orcs.add_child(_small("A pair", func() -> void:
+		call_up(String(ORC_LOOKS[1][1]), false, null, ORC_LOOKS[1][2])
+		call_up(String(ORC_LOOKS[6][1]), false, null, ORC_LOOKS[6][2])))
+	lists.add_child(orcs)
 
 	column.add_child(MenuStyle.label("The floor", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
 	var tools := HBoxContainer.new()
@@ -231,7 +255,7 @@ func _populate() -> void:
 
 ## Calls a creature up in front of the hero, facing him, on ground of its own
 ## (or at `where`, facing the arena's middle).
-func call_up(path: String, boss: bool = false, where: Variant = null) -> Node3D:
+func call_up(path: String, boss: bool = false, where: Variant = null, props: Dictionary = {}) -> Node3D:
 	var hero := _hero()
 	var creatures := _world().get_node_or_null("Enemies") if _world() != null else null
 	var scene := load(path) as PackedScene
@@ -254,6 +278,8 @@ func call_up(path: String, boss: bool = false, where: Variant = null) -> Node3D:
 	body.set("camp_centre", Vector3(at.x, 0.0, at.z))
 	body.position = at
 	body.rotation.y = atan2(-ahead.x, -ahead.z) + PI
+	for key: String in props:
+		body.set(StringName(key), props[key])
 	creatures.add_child(body)
 	if _frozen:
 		_hold(body, true)
@@ -281,6 +307,25 @@ func _make_wait(body: Node) -> void:
 
 func _call_up(path: String, boss: bool) -> void:
 	call_up(path, boss)
+
+
+## Every version of the orc in a row in front of the hero, a pace apart.
+func _call_up_orcs() -> void:
+	var hero := _hero()
+	if hero == null:
+		return
+	var ahead := -hero.global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized() if ahead.length() > 0.01 else Vector3.FORWARD
+	var side := ahead.cross(Vector3.UP)
+	for i in ORC_LOOKS.size():
+		var look: Array = ORC_LOOKS[i]
+		var at := hero.global_position + ahead * 10.0 + side * (float(i) - float(ORC_LOOKS.size() - 1) * 0.5) * 3.4
+		var body := call_up(String(look[1]), false, at, look[2])
+		if body != null:
+			# facing him, not the arena's middle
+			var to := hero.global_position - at
+			body.rotation.y = atan2(to.x, to.z) + PI
 
 
 func _clear() -> void:
