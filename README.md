@@ -10790,3 +10790,5 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - **whirl:** the high spin, then the slam.
   - **heavy_string, sweep_slam, turn_cleave, frenzy, counter and trap.**
   - Its war cry is the great sword's powering up; its taunt is the strike-a-pose.
+- Great swords are smaller in an orc's hand: ×1.15 instead of ×1.45 (`ARM_SIZES`).
+- A great weapon strikes from its length. `strike_off` and `reach` are taken from the weapon's tip, and `Brawler.strike_far` (the default 0.5 is unchanged; the orc's great weapons use 0.78) picks the far part of the gaps its blow lands from. Its cuts now land from about 3.1–3.5 m instead of 1.2–2.6.

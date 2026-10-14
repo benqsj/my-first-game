@@ -1341,6 +1341,12 @@ const LEFT_ARMS := ["", "none", "shortsword", "longsword", "curvedsword", "axe",
 const ARM_STYLES := ["normal", "ornate", "obsidian", "black", "bone"]
 ## The figure's weapons are a man's; in an orc's fist they are this much bigger.
 const ARM_SIZE := 1.45
+## ...save the great swords, long already (the user's word, 2026-10-14: too
+## long; it should reach him from off with it, not walk in).
+const ARM_SIZES := {"greatsword": 1.15, "curvedgreatsword": 1.15}
+## A great weapon: its blows from this far out along the reach that lands
+## (0.5 the middle, 1 its very tip).
+const FAR_SHARE := 0.78
 static var _figure: Node3D
 ## How it holds what it holds: blades (one in a hand), heavy (a great weapon
 ## in both), pole (a spear or a poleaxe).
@@ -1484,7 +1490,7 @@ func _equip_arms() -> void:
 		var kind: StringName = PolysplitLook.AW.get(arm_right, {}).get("kind", &"sword")
 		two_hands = kind == &"two_hands" or kind == &"spear"
 		var tip := _put_in_hand(skel, own, "ps_w_aw_%s_%s" % [arm_right, PolysplitLook.STYLE_MODELS.get(arm_style, arm_style)],
-				String(weapon_bone))
+				String(weapon_bone), float(ARM_SIZES.get(arm_right, ARM_SIZE)))
 		if tip != Vector3.ZERO:
 			weapon_tip = tip
 			if own != null:
@@ -1494,6 +1500,12 @@ func _equip_arms() -> void:
 	if two_hands:
 		grip = &"pole" if PolysplitLook.AW.get(arm_right, {}).get("kind", &"") == &"spear" else &"heavy"
 		_grip_stance()
+		# its reach the weapon's: it strikes from where the blade's far part
+		# meets him, and stops short there
+		var long := weapon_tip.length() * visual_scale
+		strike_off = maxf(strike_off, long * 0.95)
+		reach = maxf(reach, strike_off + 0.9)
+		strike_far = FAR_SHARE
 	if two_hands and arm_left == "":
 		arm_left = "none"
 	if arm_left == "none":
@@ -1592,7 +1604,8 @@ func _rebound(src: MeshInstance3D, skel: Skeleton3D, size: float) -> Skin:
 ## bone name; a bind with no bone here goes to the pelvis — no weapon is
 ## weighted to one), next to its own meshes; the weapon's farthest point
 ## from `bone` in that bone's frame (ZERO if there is no such mesh).
-func _put_in_hand(skel: Skeleton3D, beside: MeshInstance3D, mesh_name: String, bone: String) -> Vector3:
+func _put_in_hand(skel: Skeleton3D, beside: MeshInstance3D, mesh_name: String, bone: String,
+		size: float = ARM_SIZE) -> Vector3:
 	if _figure == null:
 		var scene := load(ARMS_FIGURE) as PackedScene
 		if scene == null:
@@ -1601,7 +1614,7 @@ func _put_in_hand(skel: Skeleton3D, beside: MeshInstance3D, mesh_name: String, b
 	var src := _figure.find_child(mesh_name, true, false) as MeshInstance3D
 	if src == null or src.skin == null:
 		return Vector3.ZERO
-	var skin := _rebound(src, skel, ARM_SIZE)
+	var skin := _rebound(src, skel, size)
 	var hand_bind := Transform3D.IDENTITY
 	for i in skin.get_bind_count():
 		if String(skin.get_bind_name(i)) == bone:

@@ -64,6 +64,10 @@ extends ClipFighter
 ## back before swinging, and backs off through a swing's wind-up, so a cut
 ## made from too close does not pass behind him.
 @export var too_close: float = 0.0
+## Where along the widest run of gaps its blow lands from it strikes: 0.5 the
+## middle (a step either way still lands), more for a long weapon kept at
+## its length (the orc's great sword, 2026-10-14).
+@export var strike_far: float = 0.5
 ## The clip it takes a hit with, and a shout it gives now and then when roused.
 @export var hit_clip: StringName = &""
 @export var roar_clip: StringName = &""
@@ -331,7 +335,7 @@ func _gap_that_lands(what: int, m: Array, at: float) -> float:
 	if best.is_empty():
 		return -1.0
 	# The middle: a step either way still lands.
-	return lerpf(float(best[0]), float(best[1]), 0.5)
+	return lerpf(float(best[0]), float(best[1]), strike_far)
 
 
 ## The frames a blow is measured on as the creature will strike them: as
