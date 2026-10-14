@@ -10770,3 +10770,4 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - **pole** (spear, poleaxe): polearm stance, guard, thrusts and sweeps.
   - The walking and running clips with the weapon held are LAYERED in `tools/creature_clips.gd` (legs from the walk, waist up from the stance).
 - F1: picking a creature shows it in a second panel on the right (`CreaturePreview`), turning slowly in its arms and gear, with its own Call up button. The creature is the real scene in a world of its own, with its mind switched off.
+- Capes on their own (`cape`, `OrcFighter.CAPES`), worn with any gear or none: Black cape, Crimson cape, Hide cape, Grey mantle. Each is one flat cloth colour. Warlord no longer has a cape of its own. F1 adds a "Cape" picker to the orc corner. The preview turns only when you drag it with the mouse, and starts facing the camera.

@@ -392,7 +392,7 @@ func _down_and_trap() -> void:
 func _arms() -> void:
 	await _arena()
 	var o := _panel.call_up(ORC, false, _ahead(3.5), {"arm_right": "greataxe", "arm_style": "black",
-			"outfit": "Warlord"}) as OrcFighter
+			"outfit": "Warlord", "cape": "Crimson cape"}) as OrcFighter
 	o.max_health = 99999.0
 	o.health = 99999.0
 	for w in ["_leap_wait", "_lunge_wait", "_cry_wait", "_charge_wait", "_throw_wait", "_taunt_wait"]:
@@ -428,7 +428,7 @@ func _arms() -> void:
 	await _run_for(600, func() -> bool: return _hits > 0 or _falls > 0)
 	_check("and its thrusts land", _hits > 0 or _falls > 0, "%d hits, %d falls" % [_hits, _falls])
 	# the board's second panel: the orc shown, not in the world's fight
-	_panel._orc_pick = [0, 4, 0, 0, 4]
+	_panel._orc_pick = [0, 4, 0, 0, 4, 1]
 	_panel._preview_orc()
 	for i in 5:
 		await process_frame

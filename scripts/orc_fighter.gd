@@ -132,6 +132,8 @@ extends PackBrute
 ## What it wears over its own gear (OUTFITS): "" its raider's straps and
 ## steel as they are.
 @export var outfit: String = ""
+## Its cape (CAPES): "" none.
+@export var cape: String = ""
 @export_group("Looks")
 ## Its chest this much wider across, each collarbone set out this far
 ## (skeleton units) — broader shoulders ([BulkModifier]).
@@ -1549,13 +1551,27 @@ const OUTFITS := {
 	"Iron hood": {"objects": "Objects_OrcAshen", "pieces": [["ps_x_knight_pauldrons", 1.3, Color(0.3, 0.3, 0.32)],
 			["ps_hat_hood", 1.35, Color(0.32, 0.08, 0.08)]]},
 	"Warlord": {"objects": "Objects_OrcAshen", "pieces": [["ps_x_knight_pauldrons", 1.3, Color(0.42, 0.36, 0.26)],
-			["ps_x_warlock_cape", 1.3, Color(0.36, 0.06, 0.07)], ["ps_hat_greathelm", 1.4, Color(0.34, 0.33, 0.34)]]},
+			["ps_hat_greathelm", 1.4, Color(0.34, 0.33, 0.34)]]},
+}
+## Its cape, worn with any gear or none (the user's word, 2026-10-14: the
+## cape on its own): [the mannequin's piece, how much bigger, its tint].
+const CAPES := {
+	"": [],
+	"Black cape": ["ps_x_warlock_cape", 1.3, Color(0.05, 0.045, 0.05)],
+	"Crimson cape": ["ps_x_warlock_cape", 1.3, Color(0.34, 0.025, 0.035)],
+	"Hide cape": ["ps_x_archer_cape", 1.3, Color(0.24, 0.14, 0.07)],
+	"Grey mantle": ["ps_x_sorcerer_cloak", 1.3, Color(0.17, 0.17, 0.16)],
 }
 
 
 func _wear_outfit() -> void:
+	if body == null or _skeleton == null:
+		return
+	var c: Array = CAPES.get(cape, [])
+	if not c.is_empty():
+		_wear_piece(String(c[0]), float(c[1]), c[2], body.find_child("Orc_Head", true, false) as MeshInstance3D, true)
 	var o: Dictionary = OUTFITS.get(outfit, {})
-	if o.is_empty() or body == null or _skeleton == null:
+	if o.is_empty():
 		return
 	var dress := body.get_node_or_null(^"Dress")
 	if String(o["objects"]) != "" and dress != null:
@@ -1572,7 +1588,7 @@ func _wear_outfit() -> void:
 
 ## One of the mannequin's pieces on it, made `size` bigger about each bone it
 ## hangs on and tinted.
-func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstance3D) -> void:
+func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstance3D, flat: bool = false) -> void:
 	if _figure == null:
 		var scene := load(ARMS_FIGURE) as PackedScene
 		if scene == null:
@@ -1592,7 +1608,14 @@ func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstan
 	mi.skeleton = mi.get_path_to(_skeleton)
 	for i in src.mesh.get_surface_count():
 		var m := src.get_active_material(i)
-		if m is StandardMaterial3D:
+		if flat:
+			# cloth of one colour (its texture would tint it all one blue)
+			var cloth := StandardMaterial3D.new()
+			cloth.albedo_color = tint
+			cloth.roughness = 0.95
+			cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
+			mi.set_surface_override_material(i, cloth)
+		elif m is StandardMaterial3D:
 			var mine := (m as StandardMaterial3D).duplicate() as StandardMaterial3D
 			mine.albedo_color = mine.albedo_color * tint
 			mi.set_surface_override_material(i, mine)

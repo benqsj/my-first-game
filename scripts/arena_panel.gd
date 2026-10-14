@@ -63,7 +63,7 @@ const DRILL_KINDS: Array[Array] = [
 var _root: Control
 ## The orc's corner and what is picked in it: version, right, left, make.
 var _orc_room: Control
-var _orc_pick: Array[int] = [0, 0, 0, 2, 0]
+var _orc_pick: Array[int] = [0, 0, 0, 2, 0, 0]
 ## The second panel, on the right: what is picked, before it is called up
 ## (the user's word, 2026-10-14), and what its button calls up.
 var _preview: CreaturePreview
@@ -143,6 +143,8 @@ func _ready() -> void:
 	orcs.add_child(_stepper("Make", OrcFighter.ARM_STYLES, func(i: int) -> void: _orc_set(3, i)))
 	orcs.add_child(_stepper("Gear", OrcFighter.OUTFITS.keys().map(func(k: String) -> String:
 			return "its own" if k == "" else k), func(i: int) -> void: _orc_set(4, i)))
+	orcs.add_child(_stepper("Cape", OrcFighter.CAPES.keys().map(func(k: String) -> String:
+			return "none" if k == "" else k), func(i: int) -> void: _orc_set(5, i)))
 	var go := HBoxContainer.new()
 	go.add_child(_small("Call up", _call_up_picked_orc))
 	go.add_child(_small("A pair", func() -> void:
@@ -235,6 +237,7 @@ func _orc_props() -> Dictionary:
 	props["arm_left"] = OrcFighter.LEFT_ARMS[_orc_pick[2]]
 	props["arm_style"] = OrcFighter.ARM_STYLES[_orc_pick[3]]
 	props["outfit"] = OrcFighter.OUTFITS.keys()[_orc_pick[4]]
+	props["cape"] = OrcFighter.CAPES.keys()[_orc_pick[5]]
 	return props
 
 
@@ -256,6 +259,8 @@ func _preview_orc() -> void:
 		note += " · left: " + _arm_name(String(props["arm_left"]))
 	if String(props["outfit"]) != "":
 		note += " · " + String(props["outfit"])
+	if String(props["cape"]) != "":
+		note += " · " + String(props["cape"])
 	_show_pick(String(ORC_LOOKS[_orc_pick[0]][1]), props, "Orc — " + String(ORC_LOOKS[_orc_pick[0]][0]), note,
 			_call_up_picked_orc)
 
