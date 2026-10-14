@@ -148,7 +148,7 @@ extends PackBrute
 @export var bloody_share: float = 1.0
 @export_group("Down on him")
 ## Him down within reach, now and then it drives a blade down into him.
-@export var stab_chance: float = 0.65
+@export var stab_chance: float = 0.9
 @export var stab_share: float = 0.7
 @export_group("Bearing")
 ## How often it stands off and twirls its blades at him, him down or far.
@@ -306,6 +306,16 @@ func _ready() -> void:
 		bulk.shoulder_out = shoulder_out
 		_skeleton.add_child(bulk)
 		_skeleton.move_child(bulk, 0)
+	# its other hand on the haft of a great weapon (the user's word,
+	# 2026-10-14), after all else has moved the arms
+	if _skeleton != null and grip != &"blades":
+		var hold := TwoHandGrip.new()
+		hold.hand_bone = String(weapon_bone)
+		hold.axis = weapon_tip.normalized()
+		var long := weapon_tip.length()
+		hold.along = Vector2(-0.17 * long, -0.05 * long) if arm_right.ends_with("sword") \
+				else Vector2(-0.15 * long, 0.55 * long)
+		_skeleton.add_child(hold)
 	# its left blade, always in hand (its own falchion again, unless it holds
 	# another weapon there or none)
 	if arm_left == "":
@@ -1170,7 +1180,7 @@ func _try_stab(delta: float) -> bool:
 		mode = Mode.FIGHT
 		_move_towards(_quarry.global_position, close_speed, delta)
 		return true
-	_stab_wait = 2.5
+	_stab_wait = 1.2
 	if _rng.randf() >= stab_chance:
 		return false
 	stabs_made += 1
@@ -1357,6 +1367,9 @@ var grip: StringName = &"blades"
 ## held in both hands roused, its guard and its plain blows that weapon's.
 func _grip_stance() -> void:
 	var heavy := grip == &"heavy"
+	# him down, it does not wait for him to stand: down with the weapon at
+	# once (the user's word, 2026-10-14)
+	stab_chance = 1.0
 	idle_clip = &"CR_Shoulder" if heavy else &"CR_HoldPole"
 	fidget_clip = idle_clip
 	# (roused, Mixamo's great sword stance, walk and run: the sword held
@@ -1469,8 +1482,8 @@ func _grip_moves() -> void:
 		_slow_to[what] = windup_least
 		_snap[what] = swing_snap
 	_holds[moves[0]] = [feint_chance, 0.3, 0.65, 0.22]
-	# down into him where he lies: the great weapon's overhead
-	_hand_move(O_STAB, &"CR_Heavy4" if heavy else &"CR_Polearm1", Vector3(1.0, 0.0, 0.85), stab_share, r)
+	# down into him where he lies: the great sword's downward cut
+	_hand_move(O_STAB, &"CR_OG_Downward_Slash" if heavy else &"CR_Polearm1", Vector3(0.95, 0.05, 0.85), stab_share, r)
 	_kinds[O_STAB] = &"stomp"
 	_slow_to[O_STAB] = windup_least
 	_snap[O_STAB] = swing_snap

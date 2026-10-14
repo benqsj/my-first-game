@@ -10792,3 +10792,6 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - Its war cry is the great sword's powering up; its taunt is the strike-a-pose.
 - Great swords are smaller in an orc's hand: ×1.15 instead of ×1.45 (`ARM_SIZES`).
 - A great weapon strikes from its length. `strike_off` and `reach` are taken from the weapon's tip, and `Brawler.strike_far` (the default 0.5 is unchanged; the orc's great weapons use 0.78) picks the far part of the gaps its blow lands from. Its cuts now land from about 3.1–3.5 m instead of 1.2–2.6.
+- The other hand on the haft: `TwoHandGrip` (a SkeletonModifier3D, two-bone IK) draws the left hand onto the weapon's line while the clip has it near (`near` 0.45 / `far` 0.85). The arm bends to reach, the elbow stays on its side and the hand keeps its turn. The clips were made for a man, and on the orc's longer, broader arms the hand fell beside the grip.
+- With the hero down, it no longer waits: `stab_chance` is 0.9 (1.0 for great weapons) and it tries again after 1.2 s. A great sword stabs with Mixamo's downward slash.
+- Reel: `_shots_tmp/orc_gs_reel.gd` (-- dir items: combo names, m:<move id>, down_stab, cry) films each item from the side at half speed. The finished reel is `orc/reelout/greatsword_reel.mp4`.
