@@ -163,6 +163,33 @@ extends PackBrute
 @export_group("Feints")
 ## How often its great cuts are held back a beat before they come down.
 @export var feint_chance: float = 0.45
+@export_group("Swing weight")
+## Each cut in three paces, Elden Ring's (claude/orc_quality_plan.md, phase
+## 1): [wind-up, cut, follow-through] played at these shares of its clip's
+## pace — slow up, quick through him, heavy after. Two blades' cuts, a great
+## weapon's (harder); a blade's heavy cuts and a polearm's between them.
+@export var tempo_on: bool = true
+@export var tempo_light: Vector3 = Vector3(0.78, 1.45, 0.82)
+@export var tempo_heavy: Vector3 = Vector3(0.62, 1.85, 0.7)
+## How long before and after each blow the cut runs quick (s of its clip at
+## its own pace), a light cut's and a great weapon's.
+@export var cut_span_light: Vector2 = Vector2(0.18, 0.07)
+@export var cut_span_heavy: Vector2 = Vector2(0.26, 0.1)
+## It turns hard after him through the wind-up (times `turn_speed`), and stops
+## turning so long before the blow (s), a light cut's and a great weapon's.
+@export var track_windup: float = 1.1
+@export var track_lock: Vector2 = Vector2(0.25, 0.36)
+## Its blade's streak, only through the cut: from this share of the blade out
+## to its end (a light one narrow, a heavy one broad), these colours.
+@export var trail_on: bool = true
+@export var trail_from: Vector2 = Vector2(0.55, 0.12)
+@export var trail_light: Color = Color(0.2, 0.2, 0.22, 0.5)
+@export var trail_heavy: Color = Color(1.0, 0.48, 0.18, 0.3)
+## A heavy blow's weapon end this near the ground (m) at its blow cracks it:
+## a dark split, dust thrown up, the ground's thud, the view shaken if it is
+## within `shake_reach` m (no hit-stop on a creature this big).
+@export var ground_touch: float = 0.5
+@export var shake_reach: float = 9.0
 
 const KICK := 112
 ## Its moves (2026-10-13): none of them the ogre's. R right hand, L left,
@@ -296,6 +323,24 @@ var _bold_light: OmniLight3D
 var _bold_shown: float = 0.0
 ## Every peer: its second blade, out while it rages.
 var _second: Node3D
+## The cuts played in three paces (`tempo_on`), and while one is being
+## measured at its plain pace (in [PackBrute]'s own time), true.
+var _tempo_moves: Dictionary = {}
+var _tempo_raw: bool = false
+## Every peer: its blades' streaks [right, left] and the ends they follow;
+## which blows of the act have cracked the ground.
+var _trails: Array[SwordTrail] = []
+var _trail_ends: Array[Node3D] = []
+var _cracked: int = 0
+const STRAIN := SOUNDS + "strain_rise.wav"
+const GROUND := [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_3.wav",
+		SOUNDS + "club_ground_4.wav"]
+## A blade's cuts with the weight of a great weapon in them.
+const HEAVY_CUTS := [O_DW1, O_DW2, O_HIGH, O_CROSS, O_AERB, O_STAB]
+## Cut with the left blade alone, with both; struck with no blade.
+const LEFT_CUTS := [O_L1, O_L2, O_L4, O_L5]
+const BOTH_CUTS := [O_DW1, O_DW2]
+const BLADELESS := [KICK, O_KICKL, O_HILT]
 
 
 func _ready() -> void:
@@ -403,7 +448,9 @@ func _ready() -> void:
 	_cry_wait = _rng.randf_range(0.5, 3.0)
 	_charge_wait = _rng.randf_range(3.0, charge_cooldown.x)
 	_throw_wait = _rng.randf_range(2.0, throw_cooldown.x)
-	Sfx.warm([ROAR_SOUND, WHOOSH, WHOOSH_HEAVY] + GRUNTS)
+	Sfx.warm([ROAR_SOUND, WHOOSH, WHOOSH_HEAVY, STRAIN] + GRUNTS + GROUND)
+	_weigh_swings()
+	_make_trails()
 	# half again as tall as a man (the user's word, 2026-10-13): its flat
 	# cuts bent down onto him ([method PackBrute._fit_stoops])
 	_fit_stoops()
@@ -846,6 +893,7 @@ func _physics_process(delta: float) -> void:
 ## Every peer: its voice and its blade's rush; the light on its chest.
 func _process(delta: float) -> void:
 	super(delta)
+	_show_trails()
 	if _bold_light != null:
 		_bold_shown = maxf(_bold_shown - delta, 0.0)
 		var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
@@ -854,8 +902,12 @@ func _process(delta: float) -> void:
 		_voiced_serial = act_serial
 		_voiced_clock = 0.0
 		_voiced_whoosh = 0
+		_cracked = 0
 		if not is_dead and _strikes_table.has(act) and randf() < 0.45:
 			Sfx.play_any(self, GRUNTS, self, VOICE * randf_range(0.95, 1.08), -4.0)
+		elif not is_dead and _tempo_moves.has(act) and _weight_of(act) >= 0.9 and randf() < 0.6:
+			# a great weapon heaved up: the strain of it under the wind-up
+			Sfx.play(self, STRAIN, self, Vector3.UP * 2.4 * visual_scale, VOICE * randf_range(0.95, 1.05), -9.0)
 		if act == O_BRACE:
 			Sfx.play_any(self, GRUNTS, self, VOICE * 0.9, 0.0)
 	else:
@@ -863,11 +915,11 @@ func _process(delta: float) -> void:
 	if is_dead or not _strikes_table.has(act):
 		return
 	var ms := _blow_moments(act)
-	if _voiced_whoosh < ms.size() and _voiced_clock >= ms[_voiced_whoosh] - 0.12:
-		var heavy := act in [O_DW1, O_DW2, O_HIGH, O_CROSS, O_CHARGE, O_AERB]
-		Sfx.play(self, WHOOSH_HEAVY if heavy else WHOOSH, self, Vector3.UP * 1.4 * visual_scale,
-				randf_range(1.15, 1.35), -5.0)
+	var weight := _weight_of(act) if act != O_CHARGE else 0.5
+	if _voiced_whoosh < ms.size() and _voiced_clock >= ms[_voiced_whoosh] - (0.12 + 0.06 * weight):
+		_whoosh(weight)
 		_voiced_whoosh += 1
+	_ground_blows(ms, weight)
 
 
 ## Every peer: its second blade, in its left hand from the first.
@@ -1759,4 +1811,240 @@ func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstan
 			mi.set_surface_override_material(i, mine)
 		elif m is ShaderMaterial:
 			mi.set_surface_override_material(i, m)
+#endregion
+
+
+#region The weight of a swing (claude/orc_quality_plan.md, phase 1)
+## How heavy a move is: 0 a blade's quick cut, 1 a great weapon's.
+func _weight_of(what: int) -> float:
+	if grip == &"heavy":
+		return 1.0
+	if grip == &"pole":
+		return 0.6
+	return 0.5 if what in HEAVY_CUTS else 0.0
+
+
+## After its moves are made: every cut of its (those drawn out to
+## `windup_least`) played in three paces. The drawn-out wind-up is now the
+## tempo's slow one, so what [PackBrute] draws it out to is set so that the
+## time from the cut's start to its blow stays about `windup_least`; its
+## quick fall from the top, the tempo's cut.
+func _weigh_swings() -> void:
+	_tempo_moves.clear()
+	if not tempo_on:
+		return
+	for what: int in _slow_to.keys():
+		if not _strikes_table.has(what):
+			continue
+		_tempo_moves[what] = true
+		_snap.erase(what)
+		var w := _weight_of(what)
+		var tempo := tempo_light.lerp(tempo_heavy, w)
+		var lead := lerpf(cut_span_light.x, cut_span_heavy.x, w)
+		_slow_to[what] = maxf(tempo.x * (windup_least * 1.05 - lead / tempo.y) + lead, 0.2)
+
+
+## [plain time (s, as [PackBrute] plays it), act time] at each change of
+## pace through a cut ([] for a move played plain).
+func _tempo_knots(what: int) -> PackedVector2Array:
+	if _tempo_raw or not _tempo_moves.has(what) or _anim == null:
+		return PackedVector2Array()
+	_tempo_raw = true
+	var ms := _blow_moments(what)
+	var length := _move_length(what)
+	_tempo_raw = false
+	if ms.is_empty():
+		return PackedVector2Array()
+	var w := _weight_of(what)
+	var tempo := tempo_light.lerp(tempo_heavy, w)
+	var span := cut_span_light.lerp(cut_span_heavy, w)
+	var out := PackedVector2Array([Vector2.ZERO])
+	var u := 0.0
+	var t := 0.0
+	for i in ms.size():
+		# up to the cut: the wind-up slow (between blows, its own pace)
+		var a := clampf(ms[i] - span.x * (1.0 if i == 0 else 0.6), u, length)
+		var b := clampf(ms[i] + span.y, a, length)
+		if a > u:
+			t += (a - u) / (tempo.x if i == 0 else 1.0)
+			u = a
+			out.append(Vector2(u, t))
+		if b > u:
+			t += (b - u) / tempo.y
+			u = b
+			out.append(Vector2(u, t))
+	if length > u:
+		t += (length - u) / tempo.z
+		out.append(Vector2(length, t))
+	return out
+
+
+## Act time `t` to plain time, along `knots` (past their end, at its pace).
+static func _knot_plain(knots: PackedVector2Array, t: float) -> float:
+	for i in range(1, knots.size()):
+		if t <= knots[i].y:
+			var a := knots[i - 1]
+			var b := knots[i]
+			return lerpf(a.x, b.x, (t - a.y) / maxf(b.y - a.y, 0.00001))
+	var last := knots[knots.size() - 1]
+	return last.x + t - last.y
+
+
+## Plain time `u` to act time, along `knots`.
+static func _knot_act(knots: PackedVector2Array, u: float) -> float:
+	for i in range(1, knots.size()):
+		if u <= knots[i].x:
+			var a := knots[i - 1]
+			var b := knots[i]
+			return lerpf(a.y, b.y, (u - a.x) / maxf(b.x - a.x, 0.00001))
+	var last := knots[knots.size() - 1]
+	return last.y + u - last.x
+
+
+func _clip_time(what: int, t: float) -> float:
+	var knots := _tempo_knots(what)
+	if not knots.is_empty():
+		t = _knot_plain(knots, t)
+	return super(what, t)
+
+
+func _move_length(what: int) -> float:
+	var knots := _tempo_knots(what)
+	if knots.is_empty():
+		return super(what)
+	return knots[knots.size() - 1].y
+
+
+func _blow_moments(what: int) -> PackedFloat32Array:
+	var ms := super(what)
+	var knots := _tempo_knots(what)
+	if knots.is_empty():
+		return ms
+	var out := PackedFloat32Array()
+	for m in ms:
+		out.append(_knot_act(knots, m))
+	return out
+
+
+## Through its cuts' wind-up it turns hard after him; then it is locked.
+func _track_rate(what: int) -> float:
+	if not _tempo_moves.has(what):
+		return super(what)
+	return turn_speed * track_windup
+
+
+func _track_lock(what: int) -> float:
+	if not _tempo_moves.has(what):
+		return super(what)
+	return lerpf(track_lock.x, track_lock.y, _weight_of(what))
+
+
+## Every peer: a streak behind each blade it holds, drawn only through a cut.
+func _make_trails() -> void:
+	if not trail_on or _skeleton == null or _weapon < 0:
+		return
+	var heavy := grip != &"blades"
+	var sides := 2 if not heavy and arm_left != "none" and _skeleton.find_bone(second_bone) >= 0 else 1
+	for i in sides:
+		var base := Node3D.new()
+		var tip := Node3D.new()
+		base.top_level = true
+		tip.top_level = true
+		add_child(base)
+		add_child(tip)
+		var trail := SwordTrail.new()
+		trail.name = "OrcTrail%d" % i
+		trail.sample_count = 14
+		trail.fade_time = 0.22 if heavy else 0.15
+		trail.tint = trail_heavy if heavy else trail_light
+		trail.inner_edge_alpha = 0.15 if heavy else 0.3
+		add_child(trail)
+		trail.setup(base, tip)
+		if not heavy:
+			# a dark streak, not a bright one: laid over what is behind it
+			(trail.material_override as StandardMaterial3D).blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+		_trails.append(trail)
+		_trail_ends.append_array([base, tip])
+
+
+## Every peer: the blades' ends followed, and streaking only from a little
+## before each blow to just after it.
+func _show_trails() -> void:
+	if _trails.is_empty():
+		return
+	var cutting := false
+	var weight := 0.0
+	if not is_dead and _tempo_moves.has(act) and not act in BLADELESS and act_serial == _voiced_serial:
+		weight = _weight_of(act)
+		var lead := 0.11 + 0.06 * weight
+		for m in _blow_moments(act):
+			if _voiced_clock >= m - lead and _voiced_clock <= m + 0.05 + 0.03 * weight:
+				cutting = true
+				break
+	var from := lerpf(trail_from.x, trail_from.y, weight)
+	for i in _trails.size():
+		var tip: Vector3
+		var hand: Vector3
+		if i == 0:
+			tip = _weapon_tip_at()
+			hand = _skeleton.global_transform * _skeleton.get_bone_global_pose(_weapon).origin
+		else:
+			var bone := _skeleton.find_bone(second_bone)
+			var pose := _skeleton.get_bone_global_pose(bone)
+			tip = _skeleton.global_transform * (pose * second_tip)
+			hand = _skeleton.global_transform * pose.origin
+		_trail_ends[i * 2].global_position = hand.lerp(tip, from)
+		_trail_ends[i * 2 + 1].global_position = tip
+		var used := (act in LEFT_CUTS) if i == 1 else not act in LEFT_CUTS
+		if act in BOTH_CUTS:
+			used = true
+		_trails[i].emitting = cutting and used
+
+
+## Every peer: the rush of its blade, deeper and louder the heavier it is.
+func _whoosh(weight: float) -> void:
+	var at := Vector3.UP * 1.4 * visual_scale
+	if weight >= 0.9:
+		Sfx.play(self, WHOOSH_HEAVY, self, at, randf_range(0.78, 0.88), -2.0)
+		ImpactFx.rush(self, self, true, -7.0)
+	elif weight >= 0.5:
+		Sfx.play(self, WHOOSH_HEAVY, self, at, randf_range(1.0, 1.12), -4.0)
+	else:
+		Sfx.play(self, WHOOSH, self, at, randf_range(1.15, 1.35), -5.0)
+
+
+## Every peer: a heavy blow whose weapon end comes down to the ground about
+## its blow cracks it, once a blow.
+func _ground_blows(ms: PackedFloat32Array, weight: float) -> void:
+	if weight < 0.5 or not _tempo_moves.has(act) or act in BLADELESS or _skeleton == null:
+		return
+	for i in mini(ms.size(), 30):
+		if _cracked & (1 << i) != 0:
+			continue
+		if _voiced_clock < ms[i] - 0.04 or _voiced_clock > ms[i] + 0.22:
+			continue
+		var tip := _weapon_tip_at()
+		if tip.y - global_position.y <= ground_touch:
+			_cracked |= 1 << i
+			_crack_ground(Vector3(tip.x, global_position.y, tip.z), weight)
+
+
+func _crack_ground(at: Vector3, weight: float) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	Sfx.play_any(self, GROUND, null, VOICE * randf_range(0.82, 0.92), -3.0 + 3.0 * weight)
+	var size := (1.1 + 1.1 * weight) * visual_scale / 1.6
+	var crack := DarkFx.decal(world, at, DarkFx.CRACK, size, Color(0.1, 0.08, 0.06, 1.0), 0.0, 0.9)
+	crack.rotation.y = randf() * TAU
+	var tw := crack.create_tween()
+	tw.tween_interval(2.5)
+	tw.tween_property(crack, "modulate:a", 0.0, 2.5).set_ease(Tween.EASE_IN)
+	tw.tween_callback(crack.queue_free)
+	# dust thrown up off it, and grit
+	SkillFx.burst(world, at + Vector3.UP * 0.1, Color(0.46, 0.4, 0.32, 0.6), int(18 + 14 * weight),
+			Vector2(1.2, 3.5), Vector3.UP, 75.0, Vector2(0.08, 0.16), Vector3(0, -2.0, 0), 0.9)
+	SkillFx.burst(world, at + Vector3.UP * 0.1, Color(0.24, 0.2, 0.15, 1.0), int(8 + 8 * weight),
+			Vector2(2.5, 5.5), Vector3.UP, 55.0, Vector2(0.03, 0.06), Vector3(0, -12.0, 0), 0.7)
+	WindBlast.shake(self, 0.05 + 0.06 * weight, 0.32, shake_reach)
 #endregion

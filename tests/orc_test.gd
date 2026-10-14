@@ -304,8 +304,21 @@ func _pace() -> void:
 	await _run_for(10)
 	var first := o._blow_moments(OrcFighter.O_L2)[0]
 	_check("a cut wound up long enough to see", first >= o.windup_least - 0.06, "%.2f s" % first)
-	var sh: Array = o._shape(OrcFighter.O_L2)
-	_check("and coming down faster than its clip", sh.size() > 4 and float(sh[4]) > 1.0, str(sh))
+	# three paces (claude/orc_quality_plan.md phase 1): slow up, quick
+	# through him, heavy after — the clip's own rate against each
+	var rate := float((o._moves_table[OrcFighter.O_L2] as Array)[1])
+	var length := o._move_length(OrcFighter.O_L2)
+	var pace := func(t: float) -> float:
+		return (o._clip_time(OrcFighter.O_L2, t + 0.01) - o._clip_time(OrcFighter.O_L2, t - 0.01)) / 0.02 / rate
+	var up: float = pace.call(first * 0.3)
+	var cut: float = pace.call(first)
+	var after: float = pace.call((first + length) * 0.5 + 0.1)
+	_check("and coming down faster than its clip", cut > 1.2 and up < 1.0,
+			"up %.2f, cut %.2f" % [up, cut])
+	_check("its follow-through heavy, slower than its clip", after < 0.95, "%.2f" % after)
+	_check("it turns hard after him, then is locked before the blow",
+			o._track_rate(OrcFighter.O_L2) > o.turn_speed * 0.5 and o._track_lock(OrcFighter.O_L2) >= 0.25,
+			"%.2f, %.2f s" % [o._track_rate(OrcFighter.O_L2), o._track_lock(OrcFighter.O_L2)])
 	o.start_hand_combo(o._combo_named(&"kick_cut"))
 	var fell_at := -1.0
 	var dw_at := -1.0

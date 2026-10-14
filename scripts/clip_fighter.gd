@@ -141,6 +141,13 @@ func _strike_off_for(_what: int) -> float:
 ## How fast it turns to follow him before an attack's first blow.
 func _track_rate(_what: int) -> float:
 	return turn_speed * 0.5
+
+
+## How long before an attack's first blow it stops turning to follow him (s):
+## from there the swing is locked on where he was, so a step aside then is a
+## dodge (Elden Ring's: hard tracking through the wind-up, none in the cut).
+func _track_lock(_what: int) -> float:
+	return 0.2
 #endregion
 
 
@@ -419,7 +426,7 @@ func _track_before_blow(delta: float) -> void:
 	if _quarry == null:
 		return
 	var first := _blow_moments(act)[0]
-	if _act_time < first - 0.2:
+	if _act_time < first - _track_lock(act):
 		_face(_quarry.global_position - global_position, delta, _track_rate(act))
 		_reframe()
 
