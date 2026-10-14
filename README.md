@@ -10803,3 +10803,7 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   - **the executioner:** great sword, Warlord, black cape; cleave, power, turn_cleave, spin_cleave.
   - **the berserker:** curved great sword, Ashen, crimson cape; heavy_string, sweep_slam, ual_crush, ual_spin, heavy_combo.
   - F1 "Everyone" calls up every creature as before; "The two orcs" calls these two again.
+- The test arena opens with four orcs (2026-10-15):
+  - **the executioner** and **the berserker**, each with its own combos;
+  - **the warchief** (`orc_chief.tscn`, ×1.85): both sets of combos, an ornate great sword, the "Warchief" gear (the chief's black and gilt, gilded pauldrons, an armet) and a crimson cape. It rests longer between combos (`combo_rest` 2.4–3.4 s) so it is not always in one;
+  - **the raider**: its own two falchions, Rust gear.

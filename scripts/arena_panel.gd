@@ -160,7 +160,7 @@ func _ready() -> void:
 	tools.add_child(_small("Hold still", _toggle_freeze))
 	tools.add_child(_small("Clear", _clear))
 	tools.add_child(_small("Everyone", _populate_all))
-	tools.add_child(_small("The two orcs", _populate))
+	tools.add_child(_small("The four orcs", _populate))
 	column.add_child(tools)
 	var rules := HBoxContainer.new()
 	rules.add_child(_toggle("Wait for my blow", _wait_for_blow, func(on: bool) -> void: _wait_for_blow = on))
@@ -365,14 +365,22 @@ func _rig() -> SkinnedRig:
 ## fighting its own way (the user's word, 2026-10-14: the rest put away —
 ## called up from F1 when wanted, or all of them with "Everyone").
 const ARENA_ORCS := [
-	["The executioner", Vector3(-7.0, 0.0, -12.0), {"arm_right": "greatsword", "arm_style": "normal",
-			"outfit": "Warlord", "cape": "Black cape", "force_skin": 0,
-			"combo_set": ["cleave", "power", "turn_cleave", "spin_cleave", "lunge", "counter",
+	["The executioner", "res://scenes/enemies/pack/orc.tscn", Vector3(-10.0, 0.0, -12.0),
+			{"arm_right": "greatsword", "arm_style": "normal", "outfit": "Warlord", "cape": "Black cape",
+			"force_skin": 0, "combo_set": ["cleave", "power", "turn_cleave", "spin_cleave", "lunge", "counter",
 					"trap", "frenzy"]}],
-	["The berserker", Vector3(7.0, 0.0, -12.0), {"arm_right": "curvedgreatsword", "arm_style": "obsidian",
-			"outfit": "Ashen", "cape": "Crimson cape", "force_skin": 1,
-			"combo_set": ["heavy_string", "sweep_slam", "ual_crush", "ual_spin", "heavy_combo",
+	["The berserker", "res://scenes/enemies/pack/orc.tscn", Vector3(-3.5, 0.0, -12.0),
+			{"arm_right": "curvedgreatsword", "arm_style": "obsidian", "outfit": "Ashen", "cape": "Crimson cape",
+			"force_skin": 1, "combo_set": ["heavy_string", "sweep_slam", "ual_crush", "ual_spin", "heavy_combo",
 					"lunge", "counter", "trap", "frenzy"]}],
+	# both their ways, a chief: bigger, the gilt of its rank, a breath longer
+	# between its combos so it is not always in one (the user's word, 2026-10-15)
+	["The warchief", "res://scenes/enemies/pack/orc_chief.tscn", Vector3(3.5, 0.0, -14.0),
+			{"arm_right": "greatsword", "arm_style": "ornate", "outfit": "Warchief", "cape": "Crimson cape",
+			"combo_rest": Vector2(2.4, 3.4)}],
+	# its two blades, as it was made
+	["The raider", "res://scenes/enemies/pack/orc.tscn", Vector3(10.0, 0.0, -12.0),
+			{"force_skin": 0, "outfit": "Rust"}],
 ]
 
 
@@ -382,7 +390,7 @@ func _populate() -> void:
 		await get_tree().process_frame
 	var hero := _hero()
 	for o: Array in ARENA_ORCS:
-		var body := call_up("res://scenes/enemies/pack/orc.tscn", false, o[1], o[2])
+		var body := call_up(String(o[1]), false, o[2], o[3])
 		# turned to him, not to the middle
 		if body != null and hero != null:
 			var to := hero.global_position - body.global_position

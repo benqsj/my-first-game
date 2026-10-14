@@ -1686,6 +1686,10 @@ const OUTFITS := {
 			["ps_hat_hood", 1.35, Color(0.32, 0.08, 0.08)]]},
 	"Warlord": {"objects": "Objects_OrcAshen", "pieces": [["ps_x_knight_pauldrons", 1.3, Color(0.42, 0.36, 0.26)],
 			["ps_hat_greathelm", 1.4, Color(0.34, 0.33, 0.34)]]},
+	# the chief's own black and gilt, gilded pauldrons and a dark helm with
+	# gold on it: one above the others (2026-10-15)
+	"Warchief": {"objects": "", "pieces": [["ps_x_knight_pauldrons", 1.35, Color(0.62, 0.48, 0.2)],
+			["ps_hat_armet", 1.4, Color(0.3, 0.26, 0.18)]]},
 }
 ## Its cape, worn with any gear or none (the user's word, 2026-10-14: the
 ## cape on its own): [the mannequin's piece, how much bigger, its tint].
