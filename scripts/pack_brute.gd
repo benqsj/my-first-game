@@ -129,6 +129,10 @@ var _holds: Dictionary = {}
 ## act -> the least time from its start to its blow (s): a quick clip's
 ## wind-up played slower to it, no glow (the orc's, 2026-10-14).
 var _slow_to: Dictionary = {}
+## act -> how much quicker than its clip a drawn-out wind-up's swing comes
+## down, from the top of it to its blow (the user's word, 2026-10-14: heavy
+## up, then fast down).
+var _snap: Dictionary = {}
 
 @export_group("Combos")
 ## How often it opens one of its combos made by hand (`_hand_combos`, its
@@ -610,7 +614,14 @@ func _shape(what: int) -> Array:
 			slow = minf((least - lead) / k, 4.0)
 	if slow == 1.0 and hold <= 0.0:
 		return []
-	return [_windup_end(what, lead), slow, hold]
+	var k := _windup_end(what, lead)
+	if _snap.has(what) and slow > 1.0:
+		_in_lin = true
+		var base := super._blow_moments(what)
+		_in_lin = false
+		if not base.is_empty() and base[0] > k:
+			return [k, slow, hold, base[0], maxf(float(_snap[what]), 1.0)]
+	return [k, slow, hold]
 
 
 func _clip_time(what: int, t: float) -> float:
@@ -629,6 +640,12 @@ func _clip_time(what: int, t: float) -> float:
 			t = t / slow * (k - creep) / maxf(k, 0.0001)
 		elif t < k * slow + hold:
 			t = k - creep + creep * (t - k * slow) / maxf(hold, 0.0001)
+		elif sh.size() > 4:
+			# down from the top quicker, to its blow; its own pace after
+			var b := float(sh[3])
+			var snap := float(sh[4])
+			var t2 := t - k * slow - hold
+			t = k + t2 * snap if t2 < (b - k) / snap else b + t2 - (b - k) / snap
 		else:
 			t = t - k * (slow - 1.0) - hold
 	return super(what, t)
@@ -641,6 +658,8 @@ func _move_length(what: int) -> float:
 	var sh := _shape(what)
 	if not sh.is_empty():
 		length += float(sh[0]) * (float(sh[1]) - 1.0) + float(sh[2])
+		if sh.size() > 4:
+			length -= (float(sh[3]) - float(sh[0])) * (1.0 - 1.0 / float(sh[4]))
 	# a hand-made combo's move with more to come: on soon after its last blow
 	if what == act and _hand_combo >= 0 and _hand_step < _hand_moves.size() - 1 \
 			and _strikes_table.has(what):
@@ -659,8 +678,15 @@ func _blow_moments(what: int) -> PackedFloat32Array:
 	var slow := float(sh[1])
 	var hold := float(sh[2])
 	var out := PackedFloat32Array()
+	var b := float(sh[3]) if sh.size() > 4 else INF
+	var snap := float(sh[4]) if sh.size() > 4 else 1.0
 	for m in ms:
-		out.append(m * slow if m <= k else m + k * (slow - 1.0) + hold)
+		if m <= k:
+			out.append(m * slow)
+		elif m <= b:
+			out.append(k * slow + hold + (m - k) / snap)
+		else:
+			out.append(k * slow + hold + (b - k) / snap + (m - b))
 	return out
 
 

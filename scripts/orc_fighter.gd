@@ -53,8 +53,8 @@ extends PackBrute
 
 @export_group("Lunge")
 ## From how far it lunges at him (m), and how often.
-@export var lunge_from: float = 3.8
-@export var lunge_to: float = 5.8
+@export var lunge_from: float = 4.0
+@export var lunge_to: float = 7.0
 @export var lunge_cooldown: Vector2 = Vector2(6.0, 10.0)
 ## Never nearer him than this at the end of it (m).
 @export var lunge_stop: float = 1.9
@@ -80,11 +80,11 @@ extends PackBrute
 ## How long it drives on (s) before it gives up on meeting him.
 @export var charge_time: float = 0.75
 @export_group("Thrown axe")
-@export var throw_from: float = 8.0
+@export var throw_from: float = 7.0
 @export var throw_to: float = 18.0
-@export var throw_cooldown: Vector2 = Vector2(7.0, 12.0)
+@export var throw_cooldown: Vector2 = Vector2(4.5, 8.0)
 ## Waiting its turn in a band, it throws now and then (s between).
-@export var throw_waiting: Vector2 = Vector2(5.0, 9.0)
+@export var throw_waiting: Vector2 = Vector2(3.5, 6.0)
 @export var throw_share: float = 0.55
 ## Where in its clip the axe leaves its hand (share).
 @export var throw_at: float = 0.25
@@ -101,6 +101,11 @@ extends PackBrute
 @export_group("Pace")
 ## The least time from a cut's start to its blow (s).
 @export var windup_least: float = 0.62
+## From the top of a drawn-out wind-up down to its blow this much quicker
+## than its clip (heavy up, fast down).
+@export var swing_snap: float = 1.35
+## After a combo of its, so long before the next (s): his window to answer.
+@export var combo_rest: Vector2 = Vector2(1.3, 2.0)
 @export_group("Guard")
 ## The chance it raises its blades to his swing (the rest: a step aside, or
 ## it takes it), and how much of his blade's worth he feels turned aside.
@@ -109,6 +114,11 @@ extends PackBrute
 @export var guard_most: float = 1.6
 ## After a string of its, the chance it steps out of reach, aside or back.
 @export var sidestep_after: float = 0.45
+@export_group("Turns")
+## Waiting its turn in a pair (`pack_turns` 1), every so often it comes in for
+## `join_for` s all the same, so now and then both are on him.
+@export var join_every: Vector2 = Vector2(9.0, 15.0)
+@export var join_for: float = 3.5
 @export_group("Bearing")
 ## How often it stands off and twirls its blades at him, him down or far.
 @export var taunt_chance: float = 0.5
@@ -141,8 +151,9 @@ const O_AERB := 194
 const O_LIGHTC := 199
 const O_DRAW := 200
 const O_TAUNT := 201
-## kept for the leap at him (its far combo opens with it)
-const O_LUNGE := O_AERA
+## its slide in at him from off (the user's word, 2026-10-14: no leaping in;
+## a sudden slide and a cut): Tariel's low cut, travelling, opens its far combo
+const O_LUNGE := O_LOW
 const O_CRY := 195
 const O_BRACE := 196
 const O_CHARGE := 197
@@ -177,6 +188,10 @@ var wary_made: int = 0
 var _stand_for: float = 0.0
 var _stand_wait: float = 0.0
 var _guard_for: float = 0.0
+var _join_left: float = 0.0
+var _join_wait: float = 8.0
+var _waited_seen: float = 0.0
+var joins_made: int = 0
 var _cry_wait: float = 2.0
 var _charge_wait: float = 3.0
 var _throw_wait: float = 3.0
@@ -241,24 +256,30 @@ func _ready() -> void:
 	for what: int in [O_R2, O_R5, O_L1, O_L2, O_L4, O_L5, O_DW1, O_DW2, O_CROSS, O_LOW, O_HIGH, O_HILT, O_KICKL,
 			O_AERB, O_LIGHTC, KICK]:
 		_slow_to[what] = windup_least
+		_snap[what] = swing_snap
 	for i in attacks.size():
 		_slow_to[ATTACK_BASE + i] = windup_least
+		_snap[ATTACK_BASE + i] = swing_snap
+	# its plain two-bladed thrust throws him down by itself, as in its combos
+	# (the user's word: two blades in him and he fell a second after)
+	var dw: int = ATTACK_BASE + attacks.find(&"CR_DW1")
+	if _strikes_table.has(dw):
+		(_strikes_table[dw] as Array)[3] = 1
 	# its heavier cuts now and then held at the top (a feint: a roll too early
 	# is caught)
 	for what: int in [O_HIGH, O_CROSS, O_DW2, O_R2]:
 		_holds[what] = [feint_chance, 0.3, 0.65, 0.22]
 	_hand_combos = [
-		{"name": &"twin_flurry", "moves": [O_R2, O_L2, O_R5, O_L5, O_DW1], "fells": [4], "weight": 1.3,
-				"rage": [O_DW2]},
+		{"name": &"twin_flurry", "moves": [O_R2, O_L2, O_R5, O_L5, O_DW1], "fells": [4], "weight": 1.3},
 		{"name": &"low_high", "moves": [O_LOW, O_HIGH], "fells": [1], "weight": 1.0},
 		{"name": &"hilt", "moves": [O_R5, O_HILT, O_DW2], "fells": [2], "weight": 0.9},
 		{"name": &"kick_cut", "moves": [O_L1, O_KICKL, O_DW1], "fells": [2], "weight": 0.9},
 		{"name": &"cross", "moves": [O_L4, O_CROSS], "fells": [1], "weight": 1.0},
 		{"name": &"light", "moves": [O_LIGHTC], "fells": [0], "weight": 0.8},
-		{"name": LUNGE_COMBO, "moves": [O_AERA, O_AERB], "fells": [1], "weight": 1.0, "far": true},
-		{"name": &"frenzy", "moves": [O_L1, O_R2, O_L2, O_R5, O_DW1, O_DW2], "fells": [5], "weight": 1.5,
+		{"name": LUNGE_COMBO, "moves": [O_LOW, O_DW2], "fells": [1], "weight": 1.0, "far": true},
+		{"name": &"frenzy", "moves": [O_L1, O_R2, O_L2, O_R5, O_L5, O_DW2], "fells": [5], "weight": 1.5,
 				"rage_only": true},
-		{"name": COUNTER_COMBO, "moves": [O_DW1, O_L2], "fells": [1], "weight": 0.0, "far": true},
+		{"name": COUNTER_COMBO, "moves": [O_DW1], "fells": [0], "weight": 0.0, "far": true},
 	]
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
 	_special(O_CRY, &"CR_PowerUp", Vector3(1.1, 0.0, 0.8))
@@ -350,9 +371,11 @@ func _after(what: int) -> void:
 	if what == KICK:
 		_cooldown = 0.0
 	# a string done: now and then a step out of his reach, aside or back
-	if in_combo and _hand_combo < 0 and act == Act.NONE and not is_dead and _decides() \
-			and _quarry != null and _rng.randf() < sidestep_after:
-		_step_aside(_rng.randf() < 0.5)
+	if in_combo and _hand_combo < 0 and not is_dead and _decides():
+		# its breath between combos: his window (souls-like)
+		_cooldown = maxf(_cooldown, _rng.randf_range(combo_rest.x, combo_rest.y))
+		if act == Act.NONE and _quarry != null and _rng.randf() < sidestep_after:
+			_step_aside(_rng.randf() < 0.5)
 
 
 ## Host: from off, now and then, it lunges at him falchion first and cuts down
@@ -372,10 +395,9 @@ func _try_lunge() -> bool:
 	if to.length_squared() > 0.0001 and rad_to_deg(_forward().angle_to(to.normalized())) > 50.0:
 		return false
 	start_hand_combo(which)
-	var until := _blow_moments(O_LUNGE)[0]
-	var lands := float(_strike_from.get(O_LUNGE, strike_off))
-	# it comes to where its blow lands, not into him
-	_lunge_speed = maxf(gap - maxf(lands, lunge_stop), 0.0) / maxf(until - 0.05, 0.15)
+	# the low cut carries it in itself (shortened to the room, [method
+	# _begin]); its wind-up steps it the rest of the way
+	_lunge_speed = 0.0
 	_lunge_wait = _rng.randf_range(lunge_cooldown.x, lunge_cooldown.y) * (0.6 if raging else 1.0)
 	lunges_made += 1
 	return true
@@ -397,7 +419,7 @@ func _extra_velocity(delta: float) -> Vector3:
 		return Vector3.ZERO
 	if act == O_CRY or act == O_BRACE or act == O_THROW:
 		return Vector3.ZERO
-	if _hand_combo >= 0 and act != O_LUNGE and _strikes_table.has(act) and _quarry != null:
+	if _hand_combo >= 0 and _strikes_table.has(act) and _quarry != null:
 		# a string's cut steps in (or back) to where it lands, through its
 		# wind-up, so the string follows him
 		var ms := _blow_moments(act)
@@ -679,6 +701,15 @@ func _crossed(what: int, at: float, t0: float) -> bool:
 func _physics_process(delta: float) -> void:
 	super(delta)
 	if _decides():
+		# waiting its turn, now and then it comes in for a while all the same
+		_join_left = maxf(_join_left - delta, 0.0)
+		if turn_waited > _waited_seen:
+			_waited_seen = turn_waited
+			_join_wait -= delta
+			if _join_wait <= 0.0:
+				_join_wait = _rng.randf_range(join_every.x, join_every.y)
+				_join_left = join_for
+				joins_made += 1
 		if act == Act.BLOCK:
 			_guard_for += delta
 		elif _guard_for > 0.0:
@@ -862,6 +893,20 @@ func _answer_swing(knight: Node3D) -> void:
 	if act == Act.BLOCK and _guard_for >= guard_most:
 		return
 	super(knight)
+
+
+## Whose turn: its own while it has joined in (`_join_left`), else as the band.
+func _my_turn() -> bool:
+	if _join_left > 0.0 and _quarry != null:
+		var on_him := 0
+		for node in get_tree().get_nodes_in_group(&"enemy"):
+			var o := node as OrcFighter
+			if o != null and o != self and not o.is_dead and o._quarry == _quarry and o.act != Act.NONE \
+					and o._distance_to(_quarry) < o.reach + 2.0:
+				on_him += 1
+		if on_him < 2:
+			return true
+	return super()
 
 
 ## Host: out of his reach in a bound, aside or back (its dash, [Fighter]).

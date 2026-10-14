@@ -10718,3 +10718,21 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   1.0) and waits `hand_tail` 0.7 s after a blow before the next move: a
   blow every ~1–1.2 s in a string (was ~0.4), the feints later still.
 
+- **Souls-like pacing** (2026-10-14, the user's list):
+  1. A breath between its combos (`combo_rest` 1.3–2.0 s on its cooldown
+     when a combo ends), his window to answer; the step aside after as before.
+  2. The two-bladed thrusts fell him as they land: DW1 and DW2 are felling
+     blows wherever they stand in a combo (`frenzy` ends on DW2 alone; the
+     `counter` is DW1 alone; `twin_flurry` lost its rage tail, which moved
+     the fall to a later blow), and its plain DW1 attack fells by itself.
+  3. Heavy up, fast down: `PackBrute._snap` (act -> factor) plays a drawn-out
+     wind-up's swing from its top to its blow that much quicker than the clip
+     (`_shape` carries [k, slow, hold, blow, snap]; `_clip_time`,
+     `_blow_moments`, `_move_length` follow); the orc's `swing_snap` 1.35.
+  4. No leaping in: the leap only every 40 s at most (`leap_cooldown`); its
+     far opening (4–7 m) is a sudden slide — Tariel's travelling low cut
+     (`O_LUNGE` is `O_LOW`), then the two-bladed thrust; axes thrown more
+     (`throw_from` 7, every 4.5–8 s; waiting, every 3.5–6 s).
+  5. A pair takes turns: `pack_turns` 1, the other keeps 6.5 m off, circling
+     and watching, throwing; every 9–15 s of waiting it comes in for 3.5 s
+     (`join_every`, `join_for`) if fewer than two are on him.

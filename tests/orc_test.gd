@@ -97,6 +97,8 @@ func _run() -> void:
 	await _punish()
 	await _guard()
 	await _bearing()
+	await _pace()
+	await _pair()
 	await _stance()
 	await _rage()
 	print("orc_test: %s" % ("all passed" if _failures == 0 else "%d FAILED" % _failures))
@@ -289,3 +291,61 @@ func _bearing() -> void:
 		if o.wary_made > 0:
 			backed = true
 	_check("badly hurt and alone, it backs off a while", backed, "%.1f -> %.1f m" % [d0, o._distance_to(_hero)])
+
+
+## 2026-10-14 (the user's word): heavy swings seen coming, fast down; a breath
+## between combos; the two-bladed thrust fells at once; no leaping in.
+func _pace() -> void:
+	await _arena()
+	var o := _orc(3.0)
+	o.hand_combo_chance = Vector2.ZERO
+	await _run_for(10)
+	var first := o._blow_moments(OrcFighter.O_L2)[0]
+	_check("a cut wound up long enough to see", first >= o.windup_least - 0.06, "%.2f s" % first)
+	var sh: Array = o._shape(OrcFighter.O_L2)
+	_check("and coming down faster than its clip", sh.size() > 4 and float(sh[4]) > 1.0, str(sh))
+	o.start_hand_combo(o._combo_named(&"kick_cut"))
+	var fell_at := -1.0
+	var dw_at := -1.0
+	var t := 0.0
+	while o._hand_combo >= 0 and t < 8.0:
+		await physics_frame
+		t += 1.0 / 60.0
+		if o.act == OrcFighter.O_DW1 and dw_at < 0.0:
+			dw_at = t + o._blow_moments(OrcFighter.O_DW1)[0]
+		if _hero.state == Player.State.DOWNED and fell_at < 0.0:
+			fell_at = t
+	_check("a breath after its combo before the next", o._cooldown >= o.combo_rest.x - 0.1, "%.2f s" % o._cooldown)
+	_check("the two-bladed thrust throws him down as it lands", fell_at > 0.0 and absf(fell_at - dw_at) < 0.35,
+			"blow %.2f, down %.2f" % [dw_at, fell_at])
+	_check("its far opening slides in, no leap", OrcFighter.O_LUNGE == OrcFighter.O_LOW and o.leap_cooldown >= 30.0)
+
+
+## A pair: one at him, the other off, watching and throwing, in now and then.
+func _pair() -> void:
+	await _arena()
+	var a := _orc(5.0, -2.0)
+	var b := _orc(5.0, 2.0)
+	for o: OrcFighter in [a, b]:
+		o._throw_wait = 2.0
+		o._lunge_wait = 3.0
+		o._join_wait = 6.0
+	var both := 0
+	var one := 0
+	var at := _hero.global_position
+	for f in 60 * 16:
+		await physics_frame
+		if _hero.state != Player.State.DOWNED:
+			_hero.global_position = Vector3(at.x, _hero.global_position.y, at.z)
+		var on := 0
+		for o: OrcFighter in [a, b]:
+			if o.act != Fighter.Act.NONE and o._distance_to(_hero) < o.reach + 2.0 and o.act != OrcFighter.O_THROW:
+				on += 1
+		if on == 2:
+			both += 1
+		elif on == 1:
+			one += 1
+	_check("a pair: mostly one at him at a time", both < one / 3 + 1, "%d frames both, %d one" % [both, one])
+	_check("the other throws its axes from off", a.throws_made + b.throws_made >= 1, "%d" % (a.throws_made + b.throws_made))
+	_check("and comes in now and then", a.joins_made + b.joins_made >= 1, "%d" % (a.joins_made + b.joins_made))
+
