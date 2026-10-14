@@ -11,7 +11,9 @@ extends PanelContainer
 signal call_up_pressed
 
 const VIEW_SIZE := Vector2(340.0, 440.0)
-const TURN_SPEED := 0.45
+## How far a pixel of the mouse dragged across it turns it (radians); it
+## turns only so (the user's word, 2026-10-14: not by itself).
+const DRAG_TURN := 0.012
 
 var _view: SubViewport
 var _stage: Node3D
@@ -32,6 +34,8 @@ func _ready() -> void:
 	var box := SubViewportContainer.new()
 	box.stretch = true
 	box.custom_minimum_size = VIEW_SIZE
+	box.mouse_default_cursor_shape = Control.CURSOR_DRAG
+	box.gui_input.connect(_on_drag)
 	column.add_child(box)
 	_view = SubViewport.new()
 	_view.own_world_3d = true
@@ -129,15 +133,26 @@ func _process(delta: float) -> void:
 	var anim: Variant = _shown.get(&"_anim")
 	if anim is SkeletonAnim:
 		(anim as SkeletonAnim).advance(delta)
-	_stage.rotation.y += delta * TURN_SPEED
 	if _frame_wait > 0:
 		_frame_wait -= 1
 		if _frame_wait == 0:
 			_frame()
 
 
-## The camera on all of it, whatever its size.
+## Dragged across with the left button held: turned about.
+func _on_drag(event: InputEvent) -> void:
+	var drag := event as InputEventMouseMotion
+	if drag != null and (drag.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		_stage.rotation.y += drag.relative.x * DRAG_TURN
+		accept_event()
+
+
+## The camera on all of it, whatever its size; its face toward the camera.
 func _frame() -> void:
+	if _shown.has_method(&"_forward"):
+		var f: Vector3 = _shown.call(&"_forward")
+		if Vector2(f.x, f.z).length() > 0.01:
+			_stage.rotation.y -= atan2(f.x, f.z)
 	var box := AABB()
 	var first := true
 	for n in _shown.find_children("*", "VisualInstance3D", true, false):
