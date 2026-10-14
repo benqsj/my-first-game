@@ -126,6 +126,9 @@ var _ember_mat: StandardMaterial3D
 ## act -> [chance, shortest, longest, seconds before the blow it holds at]: a
 ## delayed swing ([method _hold_of]).
 var _holds: Dictionary = {}
+## act -> the least time from its start to its blow (s): a quick clip's
+## wind-up played slower to it, no glow (the orc's, 2026-10-14).
+var _slow_to: Dictionary = {}
 
 @export_group("Combos")
 ## How often it opens one of its combos made by hand (`_hand_combos`, its
@@ -596,9 +599,17 @@ func _shape(what: int) -> Array:
 		return []
 	var slow := float((_windups[what] as Array)[0]) if _windups.has(what) else 1.0
 	var hold := _hold_of(what)
+	var lead := float((_holds[what] as Array)[3]) if hold > 0.0 else -1.0
+	if slow == 1.0 and _slow_to.has(what):
+		# drawn out to at least so long before its blow, so he sees it come
+		if lead < 0.0:
+			lead = 0.1
+		var k := _windup_end(what, lead)
+		var least := float(_slow_to[what])
+		if k > 0.02 and k + lead < least:
+			slow = minf((least - lead) / k, 4.0)
 	if slow == 1.0 and hold <= 0.0:
 		return []
-	var lead := float((_holds[what] as Array)[3]) if hold > 0.0 else -1.0
 	return [_windup_end(what, lead), slow, hold]
 
 

@@ -98,6 +98,9 @@ extends PackBrute
 @export var second_tip: Vector3 = Vector3(-1.1, 0.0, 0.0)
 @export_group("Punish")
 @export var punish_reach: float = 14.0
+@export_group("Pace")
+## The least time from a cut's start to its blow (s).
+@export var windup_least: float = 0.62
 @export_group("Guard")
 ## The chance it raises its blades to his swing (the rest: a step aside, or
 ## it takes it), and how much of his blade's worth he feels turned aside.
@@ -232,6 +235,14 @@ func _ready() -> void:
 	_peaks_move(O_LIGHTC, &"CR_LightCombo", Vector3(1.05, 0.05, 0.85), 0.45, r, 3)
 	_special(O_DRAW, &"CR_DrawBoth", Vector3(1.0, 0.0, 1.0))
 	_special(O_TAUNT, &"CR_SwordPlay", Vector3(1.15, 0.05, 0.42))
+	# every cut drawn back where he can see it (the user's word, 2026-10-14:
+	# heavy swings, seen coming; too quick to answer): at least `windup_least`
+	# from its start to its blow; the second of a string a little less
+	for what: int in [O_R2, O_R5, O_L1, O_L2, O_L4, O_L5, O_DW1, O_DW2, O_CROSS, O_LOW, O_HIGH, O_HILT, O_KICKL,
+			O_AERB, O_LIGHTC, KICK]:
+		_slow_to[what] = windup_least
+	for i in attacks.size():
+		_slow_to[ATTACK_BASE + i] = windup_least
 	# its heavier cuts now and then held at the top (a feint: a roll too early
 	# is caught)
 	for what: int in [O_HIGH, O_CROSS, O_DW2, O_R2]:

@@ -10709,3 +10709,12 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
   leap `leap_part` 1.6 (was 1.15) and cut at 0.56: ~0.8 s from 9 m. The
   leaping cuts at their own pace (AerialA 0.75, AerialB 1.0; it was slowed
   to 0.35 to cross the gap) from 3.8–5.8 m.
+- **Heavier, seen coming** (2026-10-14, the user's word: still too quick, the
+  swords must swing heavily and be seen, too many blows to answer):
+  `PackBrute._slow_to` (act -> least seconds from its start to its blow) draws
+  a quick clip's wind-up out to it, no glow (unlike `_windups`); the orc puts
+  every cut, its plain attacks and its kick at `windup_least` 0.62 s (they
+  came at 0.2–0.3 s), plays its combos at the clips' own pace (`hand_pace`
+  1.0) and waits `hand_tail` 0.7 s after a blow before the next move: a
+  blow every ~1–1.2 s in a string (was ~0.4), the feints later still.
+
