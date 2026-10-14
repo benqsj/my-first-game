@@ -64,6 +64,10 @@ var _root: Control
 ## The orc's corner and what is picked in it: version, right, left, make.
 var _orc_room: Control
 var _orc_pick: Array[int] = [0, 0, 0, 2, 0]
+## The second panel, on the right: what is picked, before it is called up
+## (the user's word, 2026-10-14), and what its button calls up.
+var _preview: CreaturePreview
+var _picked: Callable = Callable()
 var _look_label: Label
 var _count: int = 0
 var _frozen: bool = false
@@ -115,9 +119,13 @@ func _ready() -> void:
 			if bool(entry[2]) == boss and ResourceLoader.exists(String(entry[1])):
 				if String(entry[0]) == "Orc":
 					# the orc opens its own corner: its versions and its arms
-					list.add_child(_small("Orc  >", func() -> void: _orc_room.visible = not _orc_room.visible))
+					list.add_child(_small("Orc  >", func() -> void:
+						_orc_room.visible = not _orc_room.visible
+						if _orc_room.visible:
+							_preview_orc()))
 				else:
-					list.add_child(_small(String(entry[0]), _call_up.bind(String(entry[1]), boss)))
+					# picked: shown on the right, called up from there
+					list.add_child(_small(String(entry[0]), _pick.bind(String(entry[1]), boss, String(entry[0]))))
 		lists.add_child(list)
 	# the orc's corner (2026-10-14): which version, what it holds in each
 	# hand and in what make, then called up as picked
@@ -127,14 +135,14 @@ func _ready() -> void:
 	_orc_room = orcs
 	orcs.add_child(MenuStyle.label("Orc", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
 	var names: Array = ORC_LOOKS.map(func(l: Array) -> String: return String(l[0]))
-	orcs.add_child(_stepper("Version", names, func(i: int) -> void: _orc_pick[0] = i))
+	orcs.add_child(_stepper("Version", names, func(i: int) -> void: _orc_set(0, i)))
 	orcs.add_child(_stepper("Right hand", OrcFighter.RIGHT_ARMS.map(_arm_name),
-			func(i: int) -> void: _orc_pick[1] = i))
+			func(i: int) -> void: _orc_set(1, i)))
 	orcs.add_child(_stepper("Left hand", OrcFighter.LEFT_ARMS.map(_arm_name),
-			func(i: int) -> void: _orc_pick[2] = i))
-	orcs.add_child(_stepper("Make", OrcFighter.ARM_STYLES, func(i: int) -> void: _orc_pick[3] = i))
+			func(i: int) -> void: _orc_set(2, i)))
+	orcs.add_child(_stepper("Make", OrcFighter.ARM_STYLES, func(i: int) -> void: _orc_set(3, i)))
 	orcs.add_child(_stepper("Gear", OrcFighter.OUTFITS.keys().map(func(k: String) -> String:
-			return "its own" if k == "" else k), func(i: int) -> void: _orc_pick[4] = i))
+			return "its own" if k == "" else k), func(i: int) -> void: _orc_set(4, i)))
 	var go := HBoxContainer.new()
 	go.add_child(_small("Call up", _call_up_picked_orc))
 	go.add_child(_small("A pair", func() -> void:
@@ -181,6 +189,12 @@ func _ready() -> void:
 	column.add_child(drill_row)
 	_refresh_drill()
 	_root.visible = false
+	_preview = CreaturePreview.new()
+	_preview.visible = false
+	_preview.call_up_pressed.connect(func() -> void:
+		if _picked.is_valid():
+			_picked.call())
+	add_child(_preview)
 	_refresh_look.call_deferred()
 	_populate.call_deferred()
 
@@ -213,15 +227,60 @@ static func _arm_name(id: String) -> String:
 	return String(PolysplitLook.AW.get(id, {}).get("name", id)).replace(" (NEW)", "").capitalize()
 
 
-## The orc as picked in its corner.
-func _call_up_picked_orc() -> void:
+## What is picked in the orc's corner, as it would be set on the orc.
+func _orc_props() -> Dictionary:
 	var look: Array = ORC_LOOKS[_orc_pick[0]]
 	var props: Dictionary = (look[2] as Dictionary).duplicate()
 	props["arm_right"] = OrcFighter.RIGHT_ARMS[_orc_pick[1]]
 	props["arm_left"] = OrcFighter.LEFT_ARMS[_orc_pick[2]]
 	props["arm_style"] = OrcFighter.ARM_STYLES[_orc_pick[3]]
 	props["outfit"] = OrcFighter.OUTFITS.keys()[_orc_pick[4]]
-	call_up(String(look[1]), false, null, props)
+	return props
+
+
+## The orc as picked in its corner.
+func _call_up_picked_orc() -> void:
+	call_up(String(ORC_LOOKS[_orc_pick[0]][1]), false, null, _orc_props())
+
+
+func _orc_set(which: int, i: int) -> void:
+	_orc_pick[which] = i
+	_preview_orc()
+
+
+func _preview_orc() -> void:
+	var props := _orc_props()
+	var right := String(props["arm_right"])
+	var note := "%s · %s" % [_arm_name(right), String(props["arm_style"])]
+	if String(props["arm_left"]) not in ["", "none"]:
+		note += " · left: " + _arm_name(String(props["arm_left"]))
+	if String(props["outfit"]) != "":
+		note += " · " + String(props["outfit"])
+	_show_pick(String(ORC_LOOKS[_orc_pick[0]][1]), props, "Orc — " + String(ORC_LOOKS[_orc_pick[0]][0]), note,
+			_call_up_picked_orc)
+
+
+## A creature of the lists picked: shown on the right, called up from there.
+func _pick(path: String, boss: bool, title: String) -> void:
+	_show_pick(path, {}, title, "", func() -> void: call_up(path, boss))
+
+
+func _show_pick(path: String, props: Dictionary, title: String, note: String, go: Callable) -> void:
+	if _preview == null:
+		return
+	_picked = go
+	_preview.visible = true
+	_preview.show_creature(path, props, title, note)
+	_place_preview.call_deferred()
+
+
+## The second panel against the right edge.
+func _place_preview() -> void:
+	if _preview == null:
+		return
+	_preview.reset_size()
+	var wide := _preview.get_viewport_rect().size.x
+	_preview.position = Vector2(wide - _preview.size.x - 16.0, 16.0)
 
 
 func _small(text: String, pressed: Callable) -> Button:
@@ -259,6 +318,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func toggle() -> void:
 	_root.visible = not _root.visible
+	if _preview != null:
+		_preview.visible = _root.visible and _picked.is_valid()
+		if not _root.visible:
+			_preview.clear()
+			_picked = Callable()
 	var hero := _hero()
 	if hero != null:
 		hero.menu_open = _root.visible

@@ -180,6 +180,22 @@ const CLIPS := [
 	["CR_LowAttack", "SS_Low_Attack", false],
 	["CR_HighAttack", "SS_High_Attack", false],
 	["CR_RollQuick", "Roll_Quick_To_Run", false],
+	# The orc's arms (2026-10-14, the user's word: a great sword on its
+	# shoulder): a weapon at rest on the shoulder, Kevin's two-handed and
+	# polearm stances, guards and the blows they take, and drawing them.
+	["CR_Shoulder", "KV_ObjectGripShoulder01_R", true],
+	["CR_Shoulder2", "KV_ObjectGripShoulder02_R", true],
+	["CR_Hold2H", "KV_WeaponHold2H01", true],
+	["CR_HoldPole", "KV_WeaponHoldPolearm01", true],
+	["CR_Parry2H", "KV_Parry2H01_Loop", true],
+	["CR_Parry2HHit", "KV_Parry2H01_Hit", false],
+	["CR_PoleIdle", "KV_CombatIdlePolearm01", true],
+	["CR_ParryPole", "KV_ParryPolearm01_Loop", true],
+	["CR_ParryPoleHit", "KV_ParryPolearm01_Hit", false],
+	["CR_Enter2H", "KV_CombatEnter2H01", false],
+	["CR_EnterPole", "KV_CombatEnterPolearm01", false],
+	["CR_Polearm1", "KV_AttackPolearm01", false],
+	["CR_Polearm3", "KV_AttackPolearm03", false],
 ]
 
 ## Clips straight out of Mixamo (without skin, on X Bot), carried onto the
@@ -255,6 +271,21 @@ const LAYERED := [
 	["CR_ShieldBack", "CR_WalkBack", "CR_Block"],
 	["CR_ShieldL", "CR_StrafeL", "CR_Block"],
 	["CR_ShieldR", "CR_StrafeR", "CR_Block"],
+	# the orc's great weapon at rest on its shoulder as it walks and runs, held
+	# before it roused; a polearm the same (2026-10-14)
+	["CR_ShoulderWalk", "CR_Walk", "CR_Shoulder"],
+	["CR_ShoulderRun", "CR_Run", "CR_Shoulder"],
+	["CR_HeavyWalk", "CR_Walk", "CR_HeavyIdle"],
+	["CR_HeavyRun", "CR_Run", "CR_HeavyIdle"],
+	["CR_HeavyBack", "CR_WalkBack", "CR_HeavyIdle"],
+	["CR_HeavyL", "CR_StrafeL", "CR_HeavyIdle"],
+	["CR_HeavyR", "CR_StrafeR", "CR_HeavyIdle"],
+	["CR_PoleWalk", "CR_Walk", "CR_HoldPole"],
+	["CR_PoleRun", "CR_Run", "CR_PoleIdle"],
+	["CR_PoleGuardWalk", "CR_Walk", "CR_PoleIdle"],
+	["CR_PoleBack", "CR_WalkBack", "CR_PoleIdle"],
+	["CR_PoleL", "CR_StrafeL", "CR_PoleIdle"],
+	["CR_PoleR", "CR_StrafeR", "CR_PoleIdle"],
 ]
 
 var _map := {}  # figure bone -> mannequin bone

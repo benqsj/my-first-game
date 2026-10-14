@@ -182,6 +182,20 @@ const O_DRAW := 200
 const O_TAUNT := 201
 ## Down on him where he lies (2026-10-14).
 const O_STAB := 202
+## A great weapon's blows (2026-10-14): Kevin's two-handed cuts, UAL 2's
+## heavy ones, the slam; a polearm's thrusts and sweeps.
+const O_H1 := 203
+const O_H2 := 204
+const O_H3 := 205
+const O_H4 := 206
+const O_HA := 207
+const O_HB := 208
+const O_HC := 209
+const O_GP := 210
+const O_P1 := 211
+const O_P2 := 212
+const O_P3 := 213
+const O_P4 := 214
 ## Its looks (2026-10-14, the user's word: another colour, blood, more on it):
 ## the skin's green, picked from its name.
 ## (the user kept two of six, 2026-10-14: the dark forest green with red
@@ -345,6 +359,8 @@ func _ready() -> void:
 		{"name": COUNTER_COMBO, "moves": [O_DW1], "fells": [0], "weight": 0.0, "far": true},
 		{"name": TRAP_COMBO, "moves": [O_DW2], "fells": [0], "weight": 0.0, "far": true},
 	]
+	if grip != &"blades":
+		_grip_moves()
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
 	_pick_looks()
 	_wear_looks()
@@ -1310,6 +1326,106 @@ const ARM_STYLES := ["normal", "ornate", "obsidian", "black", "bone"]
 ## The figure's weapons are a man's; in an orc's fist they are this much bigger.
 const ARM_SIZE := 1.45
 static var _figure: Node3D
+## How it holds what it holds: blades (one in a hand), heavy (a great weapon
+## in both), pole (a spear or a poleaxe).
+var grip: StringName = &"blades"
+
+
+## Before its parts are read: a great weapon carried on its shoulder at rest,
+## held in both hands roused, its guard and its plain blows that weapon's.
+func _grip_stance() -> void:
+	var heavy := grip == &"heavy"
+	idle_clip = &"CR_Shoulder" if heavy else &"CR_HoldPole"
+	fidget_clip = idle_clip
+	guard_idle_clip = &"CR_HeavyIdle" if heavy else &"CR_PoleIdle"
+	block_clip = &"CR_Parry2H" if heavy else &"CR_ParryPole"
+	# its feet the same, its arms holding the weapon as they go
+	walk_clip = &"CR_ShoulderWalk" if heavy else &"CR_PoleWalk"
+	roused_walk_clip = &"CR_HeavyWalk" if heavy else &"CR_PoleGuardWalk"
+	run_clip = &"CR_HeavyRun" if heavy else &"CR_PoleRun"
+	back_clip = &"CR_HeavyBack" if heavy else &"CR_PoleBack"
+	strafe_l_clip = &"CR_HeavyL" if heavy else &"CR_PoleL"
+	strafe_r_clip = &"CR_HeavyR" if heavy else &"CR_PoleR"
+	var loops := Array(loop_clips)
+	for c: StringName in [idle_clip, guard_idle_clip, block_clip, walk_clip, roused_walk_clip, run_clip, back_clip,
+			strafe_l_clip, strafe_r_clip]:
+		if not loops.has(String(c)):
+			loops.append(String(c))
+	loop_clips = PackedStringArray(loops)
+	var plain: Array[StringName] = [&"CR_Polearm1", &"CR_Polearm2", &"CR_Polearm3"]
+	if heavy:
+		plain = [&"CR_Heavy1", &"CR_Heavy2", &"CR_Heavy3"]
+	attacks = plain
+	var parts: Array[Vector3] = []
+	var limbs := PackedStringArray()
+	var blows := PackedInt32Array()
+	for c in plain:
+		parts.append(Vector3(1.0, 0.0, 0.85))
+		limbs.append("")
+		blows.append(1)
+	attack_parts = parts
+	attack_limbs = limbs
+	attack_blows = blows
+	attack_clip = plain[0]
+
+
+## After its own moves: a great weapon's or a polearm's in their place —
+## their own strings, counter and trap, drawn from its back.
+func _grip_moves() -> void:
+	var r := ""
+	var heavy := grip == &"heavy"
+	var moves: Array[int] = []
+	if heavy:
+		_hand_move(O_H1, &"CR_Heavy1", Vector3(1.0, 0.0, 0.85), 1.0, r)
+		_hand_move(O_H2, &"CR_Heavy2", Vector3(1.0, 0.0, 0.85), 1.0, r)
+		_hand_move(O_H3, &"CR_Heavy3", Vector3(1.0, 0.0, 0.85), 1.0, r)
+		_hand_move(O_H4, &"CR_Heavy4", Vector3(1.0, 0.0, 0.85), 1.1, r)
+		_hand_move(O_HA, &"CR_HeavyA", Vector3(1.0, 0.0, 1.0), 0.9, r)
+		_hand_move(O_HB, &"CR_HeavyB", Vector3(1.0, 0.0, 1.0), 0.9, r)
+		_hand_move(O_HC, &"CR_HeavyC", Vector3(1.0, 0.0, 1.0), 1.0, r)
+		_hand_move(O_GP, &"CR_GroundPound", Vector3(1.0, 0.0, 0.9), 1.2, r)
+		moves = [O_H1, O_H2, O_H3, O_H4, O_HA, O_HB, O_HC, O_GP]
+		_special(O_DRAW, &"CR_Enter2H", Vector3(1.0, 0.0, 1.0))
+		_hand_combos = [
+			{"name": &"cleave", "moves": [O_H1, O_H2], "fells": [1], "weight": 1.3},
+			{"name": &"sweep_slam", "moves": [O_H3, O_GP], "fells": [1], "weight": 1.0},
+			{"name": &"heavy_string", "moves": [O_HA, O_HB, O_HC], "fells": [2], "weight": 1.1},
+			{"name": &"overhead", "moves": [O_H4], "fells": [0], "weight": 0.9},
+			{"name": &"turn_cleave", "moves": [O_H2, O_KICKL, O_H4], "fells": [2], "weight": 0.8},
+			{"name": &"hilt", "moves": [O_H1, O_HILT, O_GP], "fells": [2], "weight": 0.7},
+			{"name": LUNGE_COMBO, "moves": [O_HA, O_H4], "fells": [1], "weight": 1.0, "far": true},
+			{"name": &"frenzy", "moves": [O_H1, O_H2, O_H3, O_HC, O_GP], "fells": [4], "weight": 1.5,
+					"rage_only": true},
+			{"name": COUNTER_COMBO, "moves": [O_H1], "fells": [0], "weight": 0.0, "far": true},
+			{"name": TRAP_COMBO, "moves": [O_H4], "fells": [0], "weight": 0.0, "far": true},
+		]
+	else:
+		_hand_move(O_P1, &"CR_Polearm1", Vector3(1.0, 0.0, 0.85), 0.9, r)
+		_hand_move(O_P2, &"CR_Polearm2", Vector3(1.0, 0.0, 0.85), 0.9, r)
+		_hand_move(O_P3, &"CR_Polearm3", Vector3(1.0, 0.0, 0.85), 1.0, r)
+		_hand_move(O_P4, &"CR_Polearm4", Vector3(1.0, 0.0, 0.85), 1.1, r)
+		moves = [O_P1, O_P2, O_P3, O_P4]
+		_special(O_DRAW, &"CR_EnterPole", Vector3(1.0, 0.0, 1.0))
+		_hand_combos = [
+			{"name": &"thrusts", "moves": [O_P1, O_P2], "fells": [1], "weight": 1.3},
+			{"name": &"sweeps", "moves": [O_P3, O_P4], "fells": [1], "weight": 1.1},
+			{"name": &"long", "moves": [O_P1, O_P3, O_P2, O_P4], "fells": [3], "weight": 0.8},
+			{"name": &"kick_thrust", "moves": [O_P2, O_KICKL, O_P4], "fells": [2], "weight": 0.8},
+			{"name": LUNGE_COMBO, "moves": [O_P2], "fells": [0], "weight": 1.0, "far": true},
+			{"name": &"frenzy", "moves": [O_P1, O_P2, O_P3, O_P4, O_P1], "fells": [4], "weight": 1.5,
+					"rage_only": true},
+			{"name": COUNTER_COMBO, "moves": [O_P1], "fells": [0], "weight": 0.0, "far": true},
+			{"name": TRAP_COMBO, "moves": [O_P4], "fells": [0], "weight": 0.0, "far": true},
+		]
+	for what: int in moves:
+		_slow_to[what] = windup_least
+		_snap[what] = swing_snap
+	_holds[moves[0]] = [feint_chance, 0.3, 0.65, 0.22]
+	# down into him where he lies: the great weapon's overhead
+	_hand_move(O_STAB, &"CR_Heavy4" if heavy else &"CR_Polearm1", Vector3(1.0, 0.0, 0.85), stab_share, r)
+	_kinds[O_STAB] = &"stomp"
+	_slow_to[O_STAB] = windup_least
+	_snap[O_STAB] = swing_snap
 
 
 ## Before its blows are measured: the weapons it holds put in its hands, the
@@ -1333,6 +1449,9 @@ func _equip_arms() -> void:
 				own.visible = false
 			if arm_right in ["hammer", "greathammer", "mace", "morningstar", "flail"]:
 				weapon_radius = 0.2
+	if two_hands:
+		grip = &"pole" if PolysplitLook.AW.get(arm_right, {}).get("kind", &"") == &"spear" else &"heavy"
+		_grip_stance()
 	if two_hands and arm_left == "":
 		arm_left = "none"
 	if arm_left == "none":
@@ -1353,6 +1472,29 @@ func _equip_arms() -> void:
 	leap_limbs = leap_limbs.replace("@1.1,0,0:", r_at)
 
 
+## `src`'s skin made for `skel`: a bone it lacks (the figure's weapon_r and
+## weapon_l, its coat tails) bound to the nearest of its forebears it has,
+## where it rests on that one; all of it `size` bigger about each bone.
+func _rebound(src: MeshInstance3D, skel: Skeleton3D, size: float) -> Skin:
+	var skin := src.skin.duplicate() as Skin
+	var fig := src.get_node_or_null(src.skeleton) as Skeleton3D
+	var bigger := Transform3D(Basis.from_scale(Vector3.ONE * size), Vector3.ZERO)
+	for i in skin.get_bind_count():
+		var name := String(skin.get_bind_name(i))
+		var bind := skin.get_bind_pose(i)
+		if skel.find_bone(name) < 0:
+			var b := fig.find_bone(name) if fig != null else -1
+			var rel := Transform3D.IDENTITY
+			while b >= 0 and skel.find_bone(fig.get_bone_name(b)) < 0:
+				rel = fig.get_bone_rest(b) * rel
+				b = fig.get_bone_parent(b)
+			name = fig.get_bone_name(b) if b >= 0 else "pelvis_joint"
+			bind = rel * bind
+			skin.set_bind_name(i, StringName(name))
+		skin.set_bind_pose(i, bigger * bind)
+	return skin
+
+
 ## The figure's weapon mesh `mesh_name` skinned to this skeleton (bound by
 ## bone name; a bind with no bone here goes to the pelvis — no weapon is
 ## weighted to one), next to its own meshes; the weapon's farthest point
@@ -1366,16 +1508,10 @@ func _put_in_hand(skel: Skeleton3D, beside: MeshInstance3D, mesh_name: String, b
 	var src := _figure.find_child(mesh_name, true, false) as MeshInstance3D
 	if src == null or src.skin == null:
 		return Vector3.ZERO
-	var skin := src.skin.duplicate() as Skin
+	var skin := _rebound(src, skel, ARM_SIZE)
 	var hand_bind := Transform3D.IDENTITY
-	var bigger := Transform3D(Basis.from_scale(Vector3.ONE * ARM_SIZE), Vector3.ZERO)
 	for i in skin.get_bind_count():
-		# bigger about each bone (the weapon hangs on the hand alone)
-		skin.set_bind_pose(i, bigger * skin.get_bind_pose(i))
-		var bn := String(skin.get_bind_name(i))
-		if skel.find_bone(bn) < 0:
-			skin.set_bind_name(i, &"pelvis_joint")
-		if bn == bone:
+		if String(skin.get_bind_name(i)) == bone:
 			hand_bind = skin.get_bind_pose(i)
 	var mi := MeshInstance3D.new()
 	mi.name = "Arm_" + mesh_name
@@ -1445,12 +1581,7 @@ func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstan
 	var src := _figure.find_child(mesh_name, true, false) as MeshInstance3D
 	if src == null or src.skin == null:
 		return
-	var skin := src.skin.duplicate() as Skin
-	var bigger := Transform3D(Basis.from_scale(Vector3.ONE * size), Vector3.ZERO)
-	for i in skin.get_bind_count():
-		skin.set_bind_pose(i, bigger * skin.get_bind_pose(i))
-		if _skeleton.find_bone(String(skin.get_bind_name(i))) < 0:
-			skin.set_bind_name(i, &"chest_joint")
+	var skin := _rebound(src, _skeleton, size)
 	var mi := MeshInstance3D.new()
 	mi.name = "Wear_" + mesh_name
 	mi.mesh = src.mesh

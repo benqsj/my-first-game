@@ -405,6 +405,36 @@ func _arms() -> void:
 	_check("its reach the axe's", o.weapon_tip.x > 0.9 and o.weapon_tip.x < 1.6, str(o.weapon_tip))
 	var worn := o.body.find_children("Wear_*", "MeshInstance3D", true, false)
 	_check("the warlord's pieces worn", worn.size() == 3, str(worn.size()))
+	_check("held as a great weapon: on its shoulder at rest, its own strings",
+			o.grip == &"heavy" and o.idle_clip == &"CR_Shoulder" and o._combo_named(&"cleave") >= 0,
+			"%s %s" % [o.grip, o.idle_clip])
+	# the figure's weapon bone (weapon_r) is not the orc's: bound where it
+	# hangs, under the right hand, not dropped to the hips
+	var hips := 0
+	for i in arm.skin.get_bind_count():
+		hips += 1 if String(arm.skin.get_bind_name(i)) == "pelvis_joint" else 0
+	_check("the axe in its hand, not at its hips", hips == 1, "%d bound to the pelvis" % hips)
 	await _run_for(600, func() -> bool: return _hits > 0 or _falls > 0)
 	_check("and its blows land with it", _hits > 0 or _falls > 0, "%d hits, %d falls" % [_hits, _falls])
+	# a spear
+	await _arena()
+	var p := _panel.call_up(ORC, false, _ahead(4.0), {"arm_right": "spear"}) as OrcFighter
+	p.max_health = 99999.0
+	p.health = 99999.0
+	for w in ["_leap_wait", "_lunge_wait", "_cry_wait", "_charge_wait", "_throw_wait", "_taunt_wait"]:
+		p.set(w, 999.0)
+	p._drawn = true
+	_check("a spear held as a polearm", p.grip == &"pole" and p._combo_named(&"thrusts") >= 0, str(p.grip))
+	await _run_for(600, func() -> bool: return _hits > 0 or _falls > 0)
+	_check("and its thrusts land", _hits > 0 or _falls > 0, "%d hits, %d falls" % [_hits, _falls])
+	# the board's second panel: the orc shown, not in the world's fight
+	_panel._orc_pick = [0, 4, 0, 0, 4]
+	_panel._preview_orc()
+	for i in 5:
+		await process_frame
+	var shown := _panel._preview._shown
+	_check("the board shows the orc picked before it is called up", shown is OrcFighter
+			and (shown as OrcFighter).arm_right == "greatsword" and not shown.is_in_group(&"enemy")
+			and shown.process_mode == Node.PROCESS_MODE_DISABLED)
+	_panel._preview.clear()
 

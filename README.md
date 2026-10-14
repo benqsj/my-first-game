@@ -10762,3 +10762,11 @@ took every proposal, the riposte at 10 % rather than 15–17 %.
 - Arms: `arm_right` / `arm_left` / `arm_style` put Polysplit's Advanced Weapons (from the mannequin, skinned to the same bones by name, ×1.45) in its hands; the reach of its blows is taken from the weapon. A two-hander leaves the left hand empty.
 - Gear: `outfit` — Ashen (blackened iron, black leather, old crimson), Rust, Iron hood (pauldrons and hood), Warlord (pauldrons, cape, great helm).
 - F1: "Orc >" opens the orc's corner: version, right hand, left hand, make, gear, then Call up / A pair / All versions.
+
+### Orc — great weapons held right, the board's preview (2026-10-14)
+- The mannequin's weapons hang on its `weapon_r` / `weapon_l` bones, which the orc lacks. `_rebound` binds every missing bone to its nearest forebear the orc has, at the rest offset, so a weapon sits in the hand instead of at the hips. The worn pieces (cape tails) go the same way.
+- Grip by weapon kind (`grip`):
+  - **heavy** (great sword, great axe, great hammer): at rest it carries the weapon on its shoulder (`CR_Shoulder` = KV_ObjectGripShoulder01_R) as it stands, walks and runs. Roused it takes the two-handed stance (`CR_HeavyIdle`). Its guard is `CR_Parry2H`. Its strings are Kevin's 2H cuts, UAL 2's heavy cuts and the slam (cleave, sweep_slam, heavy_string, overhead...).
+  - **pole** (spear, poleaxe): polearm stance, guard, thrusts and sweeps.
+  - The walking and running clips with the weapon held are LAYERED in `tools/creature_clips.gd` (legs from the walk, waist up from the stance).
+- F1: picking a creature shows it in a second panel on the right (`CreaturePreview`), turning slowly in its arms and gear, with its own Call up button. The creature is the real scene in a world of its own, with its mind switched off.
