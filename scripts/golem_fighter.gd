@@ -28,6 +28,22 @@ extends PackBrute
 ## * its stone hardens under blows (cracks glowing, `harden_take` of each)
 ##   until its poise gives — then the shell bursts and it is open, taking
 ##   `open_take` more, for `open_for` s.
+##
+## **Round 2** (2026-10-15, the user's word: more of its own moves, never the
+## same thing over and over, and now and then quick strings, so it is not
+## easily killed):
+## * three paces mixed: slow (fists glowing, both fists brought down like a
+##   hammer, a leap that comes down on him), middling (sweeps and rams, now
+##   and then held at the top — a delayed blow) and quick (arm swats, a chop,
+##   a stamping kick, no wind-up);
+## * quick strings ("rockslide": four blows ~0.45 s apart) and strings that
+##   change pace under him (quick, quick, then the slow hammer);
+## * pressed — `counter_hits` of his blows inside `counter_window` s — it
+##   answers at once: a shove through his guard and two swats;
+## * from off it rams him (a lunge, `CR_Polearm4`, sliding the gap) or leaps;
+## * its shell bursting it stands dazed (`CR_Stun`), and as its stone closes
+##   again it flexes it back on (`CR_PowerUp`, a glow);
+## * its combos picked away from the last two it made.
 
 @export_group("Steady")
 ## Damage (before its defence) that staggers it by itself.
@@ -56,6 +72,23 @@ extends PackBrute
 @export var wall_count: int = 5
 @export var wall_radius: float = 3.4
 @export var wall_for: float = 6.0
+@export_group("Counter")
+## Pressed: this many of his blows inside `counter_window` s and it answers
+## at once (no wind-up), him within `counter_reach` m; then not again for a
+## while.
+@export var counter_hits: int = 3
+@export var counter_window: float = 2.5
+@export var counter_reach: float = 4.5
+@export var counter_cooldown: Vector2 = Vector2(6.0, 9.0)
+@export_group("From off")
+## Him `far_from`–`far_to` m off: now and then it rams him or leaps on him.
+@export var far_from: float = 4.5
+@export var far_to: float = 10.0
+@export var far_cooldown: Vector2 = Vector2(7.0, 11.0)
+## The ram's slide over the gap, at most this fast (m/s).
+@export var ram_speed: float = 13.0
+## The slide is over the last this many seconds before its blow.
+@export var ram_burst: float = 0.55
 @export_group("Spikes")
 @export var spikes_clip: StringName = &"CR_GroundPound"
 @export var spikes_part: Vector3 = Vector3(0.9, 0.0, 0.92)
@@ -68,7 +101,7 @@ extends PackBrute
 @export var spikes_cooldown: Vector2 = Vector2(6.0, 9.0)
 
 const SPIKES := 118
-const WALL := 119
+const WALL := 117
 ## Its combos' moves (2026-10-10; made its own 2026-10-15 — no ogre's, none
 ## the troll's): both fists down, shoulder rams, its arms swept, the quake leap.
 const G_SLAM := 185
@@ -77,10 +110,37 @@ const G_BASH2 := 187
 const G_SWEEP := 188
 const G_SWEEP2 := 189
 const G_QUAKE := 190
-## Its moves that break the ground where they land.
-const GROUND_MOVES := [G_SLAM, G_QUAKE, G_SWEEP2]
+## Round 2: both fists brought down like a hammer, a leap down onto him, a
+## low smash, a side swing, a quick chop; arm swats, a kick, a shove; the ram.
+const G_HAMMER := 191
+const G_LEAPHAM := 192
+const G_LOW := 193
+const G_SIDE := 194
+const G_CHOP := 195
+const G_SWAT := 196
+const G_SWAT_L := 197
+const G_KICK := 198
+const G_SHOVE := 199
+const G_RAM := 200
+## Not blows: dazed as its shell bursts, flexing it back on.
+const G_DAZE := 201
+const G_ARMOUR := 202
+## Its moves that break the ground where they land (the big ones).
+const GROUND_MOVES := [G_SLAM, G_QUAKE, G_SWEEP2, G_HAMMER, G_LEAPHAM, G_LOW]
+const BIG_GROUND := [G_QUAKE, G_LEAPHAM]
+## Its paces.
+const SLOW_MOVES := [G_SLAM, G_QUAKE, G_HAMMER, G_LEAPHAM]
+const MID_MOVES := [G_BASH, G_BASH2, G_SWEEP, G_SWEEP2, G_SIDE, G_LOW]
+const QUICK_MOVES := [G_SWAT, G_SWAT_L, G_CHOP, G_KICK, G_SHOVE, G_RAM]
+const COUNTER_COMBO := &"counter"
+const QUAKE_COMBO := &"quake"
+const RAM_COMBO := &"ram_far"
 const BOTH := "L_elbow_joint>L_midFinger_joint3:0.2|R_elbow_joint>R_midFinger_joint3:0.2"
 const SHOULDERS := "L_shoulder_joint>L_elbow_joint:0.32|R_shoulder_joint>R_elbow_joint:0.32"
+const RIGHT := "R_elbow_joint>R_midFinger_joint3:0.24"
+const LEFT := "L_elbow_joint>L_midFinger_joint3:0.24"
+const KICK_LEG := "R_knee_joint>R_toe_joint:0.22"
+const RAMMED := "L_shoulder_joint>L_elbow_joint:0.36|R_shoulder_joint>R_elbow_joint:0.36|pelvis_joint>head_joint:0.45"
 
 var _poise_taken: float = 0.0
 var _since_hit: float = 99.0
@@ -104,13 +164,25 @@ var _ground_done: int = 0
 var _step_clock: float = 0.0
 var _shell_mat: StandardMaterial3D
 var _shell_shown: float = 0.0
+## Host: when his blows landed (its own clock), the counter's and the far
+## moves' waits; how often it answered.
+var _clock: float = 0.0
+var _hit_times: Array[float] = []
+var _counter_wait: float = 3.0
+var _far_wait: float = 4.0
+var counters_made: int = 0
+var rams_made: int = 0
+var dazes: int = 0
+var armours: int = 0
+var _was_open: bool = false
 
 
 func _ready() -> void:
 	# its plain blows its own too (none of the troll's fists)
-	attacks = [&"CR_ShieldBash", &"CR_Staff1", &"CR_GroundPound"] as Array[StringName]
-	attack_parts = [Vector3(0.85, 0.0, 0.9), Vector3(0.85, 0.0, 0.9), Vector3(0.9, 0.0, 0.92)] as Array[Vector3]
-	attack_limbs = PackedStringArray([SHOULDERS, BOTH, BOTH])
+	# (round 2: its plain blows are the quick ones, not its combos' over again)
+	attacks = [&"CR_Slash1", &"CR_SlashL1", &"CR_Kick"] as Array[StringName]
+	attack_parts = [Vector3(1.2, 0.0, 0.85), Vector3(1.2, 0.0, 0.85), Vector3(1.15, 0.0, 0.85)] as Array[Vector3]
+	attack_limbs = PackedStringArray([RIGHT, LEFT, KICK_LEG])
 	attack_blows = PackedInt32Array([1, 1, 1])
 	attack_clip = &"CR_ShieldBash"
 	# it never runs
@@ -121,6 +193,9 @@ func _ready() -> void:
 	_set_combos()
 	_special(SPIKES, spikes_clip, spikes_part)
 	_special(WALL, &"CR_MG_Raise", Vector3(1.0, 0.0, 0.85))
+	_special(G_DAZE, &"CR_Stun", Vector3(1.0, 0.0, 0.92))
+	_special(G_ARMOUR, &"CR_PowerUp", Vector3(1.5, 0.05, 0.6))
+	_far_wait = _rng.randf_range(3.0, far_cooldown.x)
 	if _anim != null:
 		_wall_at = _anim.clip_length(&"CR_MG_Raise") * 0.55
 	_wall_wait = _rng.randf_range(5.0, wall_cooldown.x)
@@ -153,6 +228,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 	velocity.x = was.x
 	velocity.z = was.z
 	_since_hit = 0.0
+	_hit_times.append(_clock)
 	_poise_taken += raw
 	if raw >= poise_heavy or _poise_taken >= poise:
 		_stagger()
@@ -172,7 +248,12 @@ func _stagger() -> void:
 	if act == PIECES or act == REFORM:
 		return
 	_sweeps.clear()
-	_start(Act.REACT_KNOCK)
+	# dazed through the time its shell is open (round 2)
+	if _moves_table.has(G_DAZE):
+		dazes += 1
+		_begin(G_DAZE)
+	else:
+		_start(Act.REACT_KNOCK)
 
 
 ## A skill that would throw it about counts as a heavy blow, no more.
@@ -217,30 +298,98 @@ func parried(_by: Node3D) -> void:
 ## other, and both fists down; a ram and a sweep; from off, the quake leap.
 func _set_combos() -> void:
 	hand_pace = 1.0
+	hand_combo_chance = Vector2(0.7, 0.8)
 	_hand_move(G_SLAM, &"CR_GroundPound", Vector3(0.9, 0.0, 0.92), 1.5, BOTH)
 	_hand_move(G_BASH, &"CR_ShieldBash", Vector3(0.85, 0.0, 0.9), 0.8, SHOULDERS)
 	_hand_move(G_BASH2, &"CR_ShieldBash2", Vector3(0.85, 0.0, 0.9), 0.9, SHOULDERS)
 	_hand_move(G_SWEEP, &"CR_Staff1", Vector3(0.85, 0.0, 0.9), 0.9, BOTH)
 	_hand_move(G_SWEEP2, &"CR_Staff2", Vector3(0.85, 0.0, 0.9), 1.0, BOTH)
 	_hand_move(G_QUAKE, &"CR_RunJumpSlam", Vector3(0.9, 0.0, 0.92), 1.6, BOTH)
-	for what: int in [G_SLAM, G_BASH, G_BASH2, G_SWEEP, G_SWEEP2, G_QUAKE]:
+	# round 2
+	_hand_move(G_HAMMER, &"CR_Heavy2", Vector3(0.9, 0.0, 0.88), 1.5, BOTH)
+	_hand_move(G_LEAPHAM, &"CR_Heavy4", Vector3(0.95, 0.0, 0.9), 1.5, BOTH)
+	_hand_move(G_LOW, &"CR_HeavyA", Vector3(0.95, 0.0, 0.92), 1.1, BOTH)
+	_hand_move(G_SIDE, &"CR_Heavy3", Vector3(0.95, 0.0, 0.88), 1.0, BOTH)
+	_hand_move(G_CHOP, &"CR_Heavy1", Vector3(1.35, 0.0, 0.8), 0.6, BOTH)
+	_hand_move(G_SWAT, &"CR_Slash1", Vector3(1.35, 0.0, 0.78), 0.45, RIGHT)
+	_hand_move(G_SWAT_L, &"CR_SlashL1", Vector3(1.35, 0.0, 0.78), 0.45, LEFT)
+	_hand_move(G_KICK, &"CR_Kick", Vector3(1.3, 0.0, 0.8), 0.55, KICK_LEG)
+	_hand_move(G_SHOVE, &"CR_ShieldBash", Vector3(1.4, 0.0, 0.8), 0.4, SHOULDERS)
+	# (a long lunge, shoulder first: its blow late enough to slide the gap)
+	_hand_move(G_RAM, &"CR_Polearm4", Vector3(1.0, 0.0, 0.8), 1.1, BOTH + "|" + RAMMED)
+	for what: int in SLOW_MOVES:
 		# slow up (and glowing), then all of it at once
 		_windups[what] = [1.9, 0.22]
 		_snap[what] = 1.4
+	for what: int in QUICK_MOVES:
+		# quick, but not past seeing: its wind-up at least so long
+		_slow_to[what] = 0.42
+	_windups[G_HAMMER] = [2.3, 0.22]
+	# the ram: its lunge drawn out over the slide, so it covers the gap
+	_slow_to[G_RAM] = 0.85
+	for what: int in MID_MOVES:
+		# a little drawn out; now and then held at the top (a delayed blow)
+		_windups[what] = [1.3, 0.2]
+		_snap[what] = 1.3
+		_holds[what] = [0.35, 0.35, 0.8, 0.25]
 	_kinds[G_SLAM] = &"crush"
 	_kinds[G_QUAKE] = &"crush"
+	_kinds[G_HAMMER] = &"crush"
+	_kinds[G_LEAPHAM] = &"crush"
+	_kinds[G_KICK] = &"guard"
+	_kinds[G_SHOVE] = &"guard"
 	_hand_combos = [
 		{"name": &"crush", "moves": [G_BASH, G_SLAM], "fells": [1], "weight": 1.0},
-		{"name": &"sweeps", "moves": [G_SWEEP, G_SWEEP2, G_SLAM], "fells": [2], "weight": 1.0},
-		{"name": &"ram", "moves": [G_BASH2, G_SWEEP2], "fells": [1], "weight": 0.8},
-		{"name": &"quake", "moves": [G_QUAKE], "fells": [0], "weight": 1.0, "far": true},
+		{"name": &"sweeps", "moves": [G_SWEEP, G_SWEEP2, G_SLAM], "fells": [2], "weight": 0.8},
+		{"name": &"ram", "moves": [G_BASH2, G_KICK, G_HAMMER], "fells": [2], "weight": 0.9},
+		# quick: four blows close together
+		{"name": &"rockslide", "moves": [G_SWAT, G_SWAT_L, G_CHOP, G_KICK], "fells": [3], "weight": 1.0},
+		# the pace changed under him: quick, quick, then the slow hammer
+		{"name": &"avalanche", "moves": [G_SWAT_L, G_SWAT, G_HAMMER], "fells": [2], "weight": 0.9},
+		{"name": &"breaker", "moves": [G_SIDE, G_LOW, G_LEAPHAM], "fells": [2], "weight": 0.8},
+		{"name": COUNTER_COMBO, "moves": [G_SHOVE, G_SWAT, G_SWAT_L], "fells": [2], "weight": 0.0, "far": true},
+		{"name": QUAKE_COMBO, "moves": [G_QUAKE], "fells": [0], "weight": 1.0, "far": true},
+		{"name": RAM_COMBO, "moves": [G_RAM, G_SWAT_L, G_CHOP], "fells": [2], "weight": 1.0, "far": true},
 	]
+
+
+func _combo_index(name: StringName) -> int:
+	for i in _hand_combos.size():
+		if StringName((_hand_combos[i] as Dictionary)["name"]) == name:
+			return i
+	return -1
 
 
 func _own_move(delta: float) -> bool:
 	_spikes_wait = maxf(_spikes_wait - delta, 0.0)
 	_wall_wait = maxf(_wall_wait - delta, 0.0)
+	_counter_wait = maxf(_counter_wait - delta, 0.0)
+	_far_wait = maxf(_far_wait - delta, 0.0)
 	var gap := _distance_to(_quarry)
+	# pressed, it answers at once
+	if _counter_wait <= 0.0 and gap <= counter_reach and not _quarry_down() and drill_combo < 0:
+		var recent := 0
+		for t in _hit_times:
+			if _clock - t <= counter_window:
+				recent += 1
+		if recent >= counter_hits:
+			var c := _combo_index(COUNTER_COMBO)
+			if c >= 0:
+				counters_made += 1
+				_hit_times.clear()
+				_counter_wait = _rng.randf_range(counter_cooldown.x, counter_cooldown.y)
+				start_hand_combo(c)
+				return true
+	# from off, now and then: the ram or the leap down on him
+	if _far_wait <= 0.0 and gap >= far_from and gap <= far_to and not _quarry_down() \
+			and stamina >= attack_cost and drill_combo < 0:
+		var c := _combo_index(RAM_COMBO if _rng.randf() < 0.55 else QUAKE_COMBO)
+		if c >= 0:
+			_far_wait = _rng.randf_range(far_cooldown.x, far_cooldown.y)
+			if StringName((_hand_combos[c] as Dictionary)["name"]) == RAM_COMBO:
+				rams_made += 1
+			start_hand_combo(c)
+			return true
 	if _wall_wait <= 0.0 and gap >= wall_from and gap <= wall_to and not _quarry_down() and stamina >= attack_cost:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
@@ -262,6 +411,21 @@ func _run_act(delta: float) -> void:
 	super(delta)
 	if is_dead or not _decides():
 		return
+	# the ram: it slides the gap so its shoulder lands on him
+	if act == G_RAM and _quarry != null:
+		var ms := _blow_moments(G_RAM)
+		if not ms.is_empty() and _act_time < ms[0]:
+			var to := _quarry.global_position - global_position
+			to.y = 0.0
+			var off := maxf(to.length() - reach * 0.75, 0.0)
+			var left := maxf(ms[0] - _act_time, 0.08)
+			_face(to, delta, turn_speed * 2.0)
+			# gathered, then all at once over the last of it
+			var v := Vector3.ZERO
+			if left <= ram_burst:
+				v = _forward() * minf(off / left, ram_speed)
+			velocity.x = v.x
+			velocity.z = v.z
 	if act == WALL and not _walled and _act_time >= _wall_at:
 		_walled = true
 		_raise_walls()
@@ -307,8 +471,21 @@ func _physics_process(delta: float) -> void:
 	_since_hit += delta
 	if _since_hit > poise_rest:
 		_poise_taken = maxf(_poise_taken - poise_mend * delta, 0.0)
+	_clock += delta
+	while not _hit_times.is_empty() and _clock - _hit_times[0] > counter_window:
+		_hit_times.remove_at(0)
 	if _decides() and not is_dead:
 		_open_left = maxf(_open_left - delta, 0.0)
+		# its stone closing again: it flexes it back on, if it is free to
+		var open := _open_left > 0.0
+		if _was_open and not open and act == Act.NONE and _moves_table.has(G_ARMOUR):
+			armours += 1
+			_begin(G_ARMOUR)
+			if is_inside_tree() and multiplayer.has_multiplayer_peer():
+				net_armour.rpc()
+			else:
+				net_armour()
+		_was_open = open
 		var hard := _open_left <= 0.0 and _poise_taken >= poise * harden_at
 		if hard != hardened:
 			if is_inside_tree() and multiplayer.has_multiplayer_peer():
@@ -383,7 +560,7 @@ func _process(delta: float) -> void:
 		var ms := _blow_moments(act)
 		while _ground_done < ms.size() and _ground_clock >= ms[_ground_done]:
 			_ground_done += 1
-			_break_ground(act == G_QUAKE)
+			_break_ground(act in BIG_GROUND)
 	# the ground shaking under its steps
 	var pace := Vector2(velocity.x, velocity.z).length()
 	if act == Act.NONE and pace > 0.4 and is_on_floor():
@@ -395,6 +572,19 @@ func _process(delta: float) -> void:
 			WindBlast.shake(self, 0.025, 0.18, 11.0)
 			SkillFx.burst(Blood.world_of(self), global_position + Vector3.UP * 0.1, Color(0.45, 0.4, 0.33, 0.5), 5,
 					Vector2(0.4, 1.2), Vector3.UP, 70.0, Vector2(0.08, 0.16), Vector3(0, -1.0, 0), 0.6)
+
+
+## Every peer: its stone closing over it again — a glow run over it, grit.
+@rpc("authority", "call_local", "reliable")
+func net_armour() -> void:
+	var world := Blood.world_of(self)
+	var mid := global_position + Vector3.UP * 1.7 * visual_scale / 1.8
+	SkillFx.burst(world, mid, shell_glow, 30, Vector2(1.0, 3.0), Vector3.UP, 180.0,
+			Vector2(0.03, 0.07), Vector3(0, 2.0, 0), 0.8)
+	SkillFx.burst(world, mid, Color(0.42, 0.4, 0.38), 16, Vector2(0.5, 2.0), Vector3.UP, 180.0,
+			Vector2(0.05, 0.12), Vector3(0, -9.0, 0), 0.8)
+	Sfx.play(self, "res://sounds/ogre/club_ground_2.wav", self, Vector3.UP * 2.0 * visual_scale, 0.8, -4.0)
+	_shell_shown = 1.0
 
 
 ## Every peer: its fists into the ground — the ground breaks round them.

@@ -104,6 +104,7 @@ func _run() -> void:
 	await _golem_spikes()
 	await _troll_feral()
 	await _golem_fortress()
+	await _golem_rhythm()
 	await _reform(GOLEM, "the golem")
 	await _reform(SKELETON, "a skeleton")
 	print("brutes_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
@@ -419,17 +420,17 @@ func _golem_steady() -> void:
 		golem._receive(15.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
 		for i in 30:
 			await physics_frame
-			reeled = reeled or golem.act == Fighter.Act.REACT_KNOCK
+			reeled = reeled or golem.act == Fighter.Act.REACT_KNOCK or golem.act == GolemFighter.G_DAZE
 	_check("light blows apart do not stop the golem", not reeled)
 	golem._receive(60.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
 	await physics_frame
-	_check("a heavy one staggers it", golem.act == Fighter.Act.REACT_KNOCK)
+	_check("a heavy one staggers it", golem.act in [Fighter.Act.REACT_KNOCK, GolemFighter.G_DAZE])
 	for i in 200:
 		await physics_frame
 	for k in 5:
 		golem._receive(20.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
 		await physics_frame
-	_check("and so does a string of them", golem.act == Fighter.Act.REACT_KNOCK)
+	_check("and so does a string of them", golem.act in [Fighter.Act.REACT_KNOCK, GolemFighter.G_DAZE])
 	await _done(world)
 
 
@@ -571,4 +572,125 @@ func _golem_fortress() -> void:
 		if walls > 0:
 			break
 	_check("it raises stone walls round him", golem.walls_raised >= 1 and walls >= 3, "%d walls" % walls)
+	await _done(world)
+
+
+## Round 2 (the user's word: more moves, not the same over and over, quick
+## strings now and then): three paces, the quick strings, the counter, the
+## ram from off, dazed and armoured again, its combos varied.
+func _golem_rhythm() -> void:
+	var a: Array = await _arena()
+	var world: World = a[0]
+	var hero: Player = a[2]
+	var start := hero.global_position
+	var golem := (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 3.2)) as GolemFighter
+	var clips := {}
+	for what: int in golem._strikes_table:
+		clips[(golem._moves_table[what] as Array)[0]] = true
+	_check("the golem has many blows of its own", clips.size() >= 14, "%d clips" % clips.size())
+	var quick := golem._blow_moments(GolemFighter.G_SWAT)[0]
+	var slow := golem._blow_moments(GolemFighter.G_HAMMER)[0]
+	_check("quick blows and slow ones", quick < 0.55 and slow > 1.3, "swat %.2f s, hammer %.2f s" % [quick, slow])
+	var rs: Array = (golem._hand_combos[golem._combo_index(&"rockslide")] as Dictionary)["moves"]
+	var t := 0.0
+	var gaps := []
+	for what: int in rs:
+		var ms := golem._blow_moments(what)
+		gaps.append(t + ms[0])
+		t += golem._move_length(what)
+	var span := float(gaps[-1]) - float(gaps[0])
+	_check("its quick string: four blows close together", span < 2.6, "%.2f s first to last" % span)
+	for i in 20:
+		await physics_frame
+	golem._rouse(hero)
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	golem._far_wait = 999.0
+	golem._counter_wait = 0.0
+	golem._cooldown = 3.0
+	for k in 3:
+		golem._receive(6.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	var countered := false
+	for i in 40:
+		await physics_frame
+		_hold(hero, start)
+		if golem.act == GolemFighter.G_SHOVE:
+			countered = true
+			break
+	_check("pressed, it answers at once", countered and golem.counters_made == 1)
+	await _done(world)
+	# the ram from off: it slides the gap
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	start = hero.global_position
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 8.5)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem._rouse(hero)
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	var struck := [0]
+	hero.struck.connect(func(_d: float, _b: bool) -> void: struck[0] += 1)
+	golem._face(hero.global_position - golem.global_position, 1.0, 50.0)
+	golem.start_hand_combo(golem._combo_index(&"ram_far"))
+	var top := 0.0
+	var least := 99.0
+	var at_blow := -1.0
+	var blow_at := golem._blow_moments(GolemFighter.G_RAM)[0]
+	for i in 100:
+		await physics_frame
+		_hold(hero, start)
+		top = maxf(top, Vector2(golem.velocity.x, golem.velocity.z).length())
+		least = minf(least, golem._distance_to(hero))
+		if golem.act == GolemFighter.G_RAM and at_blow < 0.0 and golem._act_time >= blow_at:
+			at_blow = golem._distance_to(hero)
+	_check("from off it rams him, sliding the gap", top > 5.0 and struck[0] >= 1,
+			"%.1f m/s, struck %d, closest %.2f, at the blow %.2f (reach %.2f)" % [top, struck[0], least, at_blow, golem.reach])
+	await _done(world)
+	# dazed as the shell bursts, armoured again after
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 8.0)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem.sight_range = 0.0
+	golem._receive(60.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	await physics_frame
+	var dazed := golem.act == GolemFighter.G_DAZE
+	var armoured := false
+	for i in 260:
+		await physics_frame
+		armoured = armoured or golem.act == GolemFighter.G_ARMOUR
+	_check("its shell burst it stands dazed, then flexes its stone back on", dazed and armoured)
+	await _done(world)
+	# its combos varied: against him standing, never one three times running
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	start = hero.global_position
+	hero.max_health = 1000000.0
+	hero.health = hero.max_health
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 3.0)) as GolemFighter
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	golem._rouse(hero)
+	for i in 60 * 40:
+		await physics_frame
+		_hold(hero, start)
+		hero.health = hero.max_health
+	var made: Array = golem.hand_combos_made
+	var kinds := {}
+	var run := 1
+	var most := 1
+	for i in made.size():
+		kinds[made[i]] = true
+		if i > 0:
+			run = run + 1 if made[i] == made[i - 1] else 1
+			most = maxi(most, run)
+	var names := []
+	for i in made:
+		names.append(String((golem._hand_combos[i] as Dictionary)["name"]))
+	_check("its combos varied", kinds.size() >= 3 and most < 3, ", ".join(names))
 	await _done(world)

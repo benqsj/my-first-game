@@ -363,7 +363,10 @@ func _try_hand_combo(gap: float) -> bool:
 		var want := float(_strike_from.get(first, strike_off))
 		if (gap < want - 0.9 and not drill) or gap > want + 1.4:
 			continue
+		# away from the last it made, and the one before (not the same over and over)
 		var w := float(c["weight"]) * (0.2 if i == _hand_last else 1.0)
+		if hand_combos_made.size() >= 2 and i == hand_combos_made[-2] and i != _hand_last:
+			w *= 0.5
 		options.append([i, w])
 		total += w
 	if options.is_empty() or total <= 0.0:
