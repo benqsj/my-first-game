@@ -1117,8 +1117,10 @@ func _fetch_velocity(delta: float) -> Vector3:
 
 
 #region Its fall from the sky (2026-10-15, the user's word: up high, hanging
-## there, down on him; then: seen — up where he looks at it, in front of him
-## as he faces it, and down blade first into the ground on him)
+## there, down on him; seen, in front of him as he faces it; down blade first
+## into the ground on him. Then: running away must not save him, only a
+## dodge; something going on while it hangs; down on him fast, a moment to
+## react)
 @export_group("Skyfall")
 @export var sky_height: float = 12.0
 ## How far from him, out the way it was from him, it hangs (m): in front of
@@ -1126,13 +1128,15 @@ func _fetch_velocity(delta: float) -> Vector3:
 @export var sky_far: float = 24.0
 @export var sky_crouch: float = 0.45
 @export var sky_rise: float = 0.9
+## Up there, its blade raised over its head, gathering (a light growing on
+## the blade, sparks off it, the air stirring round it), following him.
 @export var sky_hang: float = 2.1
-## It follows him through its hang, but stops so long before it dives: the
-## spot is set, his to leave.
-@export var sky_lock: float = 0.7
-## Its dive (s) at him blade first, leaning into it this far (degrees), and
-## its time after, the blade in the ground.
-@export var sky_dive: float = 0.6
+## The last of its hang the blade flashes: now.
+@export var sky_tell: float = 0.3
+## Its dive (s) at him blade first — on him wherever he has run, out of it
+## only by a dodge — leaning into it this far (degrees); its time after,
+## the blade in the ground.
+@export var sky_dive: float = 0.25
 @export var sky_pitch: float = 35.0
 @export var sky_recover: float = 1.0
 @export var sky_from: float = 6.0
@@ -1144,12 +1148,16 @@ func _fetch_velocity(delta: float) -> Vector3:
 @export var sky_radius: float = 3.0
 @export var sky_quake: float = 6.0
 
+## Every peer: the light on its blade as it gathers up there, and the coal
+## swelling at its end (seen from far below).
+var _sky_glow: OmniLight3D
+var _sky_coal: MeshInstance3D
+var _sky_coal_mat: StandardMaterial3D
 
-## Its going up: [crouched by, up by, hanging till].
+
+## Its going up: [crouched by, up by].
 func _sky_times() -> PackedFloat32Array:
-	var a := sky_crouch
-	var b := a + sky_rise
-	return PackedFloat32Array([a, b, b + sky_hang])
+	return PackedFloat32Array([sky_crouch, sky_crouch + sky_rise])
 
 
 ## Host: him off far enough, now and then — up into the sky.
@@ -1176,82 +1184,83 @@ func _try_leap() -> bool:
 	return true
 
 
-## Host: from its hang, down at where he was when it locked on.
+## Host: up at the top — its hang, then its dive, one move.
 func _begin_dive() -> void:
-	_sky_dive_from = global_position
-	var at := _sky_land
-	var flat := Vector3(at.x - _sky_dive_from.x, 0.0, at.z - _sky_dive_from.z)
-	var reach_out := weapon_tip.length() * visual_scale * 0.8
-	# it lands short of him: its blade's point goes in where he was
-	_sky_land = at - (flat.normalized() * reach_out if flat.length_squared() > 0.01 else Vector3.ZERO)
-	_sky_land.y = _sky_from.y
-	_sky_on = at
 	_begin(O_SKYDIVE)
 
 
-## Where in its clips it is: the leap's crouch, its going up, tucked up there;
-## then the leaping cut's raised blade, brought forward as it dives, and
-## down into the ground as it lands.
+## Where in its clips it is: the leap's crouch and its going up; then the
+## leaping cut's blade raised over its head (rocking a little as it gathers),
+## brought forward as it dives, and down into the ground as it lands.
 func _sky_clip(what: int, t: float) -> float:
 	if what == O_SKYDIVE:
 		var cut := _anim.clip_length(&"CR_AerialB") if _anim != null else 0.57
-		if t < sky_dive * 0.35:
-			return cut * lerpf(0.0, 0.25, t / (sky_dive * 0.35))
-		if t < sky_dive:
-			return cut * lerpf(0.25, 0.5, (t - sky_dive * 0.35) / (sky_dive * 0.65))
-		return minf(cut * 0.5 + (t - sky_dive) * 0.5, cut * 0.98)
+		if t < sky_hang:
+			return cut * (0.17 + 0.03 * sin(t * 4.0))
+		var d := t - sky_hang
+		if d < sky_dive:
+			return cut * lerpf(0.2, 0.5, d / sky_dive)
+		return minf(cut * 0.5 + (d - sky_dive) * 0.5, cut * 0.98)
 	var len := _anim.clip_length(leap_clip) if _anim != null else 2.2
 	var ts := _sky_times()
 	if t < ts[0]:
 		return len * lerpf(0.0, 0.1, t / ts[0])
-	if t < ts[1]:
-		return len * lerpf(0.1, 0.3, (t - ts[0]) / (ts[1] - ts[0]))
-	return len * lerpf(0.3, 0.36, clampf((t - ts[1]) / (ts[2] - ts[1]), 0.0, 1.0))
+	return len * lerpf(0.1, 0.3, clampf((t - ts[0]) / (ts[1] - ts[0]), 0.0, 1.0))
 
 
 ## Host: its body driven up, held, dived; the ground struck.
 func _run_sky(delta: float) -> void:
 	var t := _act_time
 	var want := global_position
+	var ground := _sky_from.y
+	if _quarry != null:
+		# out in front of him, the way it came from, wherever he goes
+		var hang := _quarry.global_position + _sky_dir * sky_far
+		_sky_on = _sky_on.lerp(Vector3(hang.x, ground, hang.z), clampf(delta * 2.5, 0.0, 1.0))
+		_face(_quarry.global_position - global_position, delta, turn_speed)
 	if act == O_SKY:
 		var ts := _sky_times()
-		var ground := _sky_from.y
-		if _quarry != null and t < ts[2] - sky_lock:
-			# out in front of him, the way it came from, wherever he goes
-			var hang := _quarry.global_position + _sky_dir * sky_far
-			_sky_on = _sky_on.lerp(Vector3(hang.x, ground, hang.z), clampf(delta * 2.5, 0.0, 1.0))
-			_sky_land = _quarry.global_position
-		if _quarry != null:
-			_face(_quarry.global_position - global_position, delta, turn_speed)
 		if t < ts[0]:
 			want = _sky_from
-		elif t < ts[1]:
-			var k := (t - ts[0]) / (ts[1] - ts[0])
+		else:
+			var k := clampf((t - ts[0]) / (ts[1] - ts[0]), 0.0, 1.0)
 			var flat := _sky_from.lerp(_sky_on, 1.0 - pow(1.0 - k, 2.0))
 			want = Vector3(flat.x, ground + sky_height * (1.0 - pow(1.0 - k, 2.2)), flat.z)
-		else:
-			want = Vector3(_sky_on.x, ground + sky_height + sin((t - ts[1]) * 2.0) * 0.25, _sky_on.z)
 		velocity = (want - global_position) / maxf(delta, 0.001)
 		return
-	# the dive
-	_face(_sky_on - global_position, delta, turn_speed * 2.0)
-	if t < sky_dive:
-		var k := t / sky_dive
-		want = _sky_dive_from.lerp(_sky_land, k * k * 0.4 + k * 0.6)
+	if t < sky_hang:
+		want = Vector3(_sky_on.x, ground + sky_height + sin(t * 2.0) * 0.25, _sky_on.z)
+		_sky_dive_from = want
+		velocity = (want - global_position) / maxf(delta, 0.001)
+		return
+	var d := t - sky_hang
+	if d < sky_dive:
+		# at him where he is now, all the way down: running does not save him
+		if _quarry != null:
+			_sky_land = Vector3(_quarry.global_position.x, ground, _quarry.global_position.z)
+		var flat := Vector3(_sky_land.x - _sky_dive_from.x, 0.0, _sky_land.z - _sky_dive_from.z)
+		var reach_out := weapon_tip.length() * visual_scale * 0.8
+		var land := _sky_land - (flat.normalized() * reach_out if flat.length_squared() > 0.01 else Vector3.ZERO)
+		var k := d / sky_dive
+		want = _sky_dive_from.lerp(land, k * k * 0.5 + k * 0.5)
 		velocity = (want - global_position) / maxf(delta, 0.001)
 		return
 	if not _sky_landed:
 		_sky_landed = true
-		_sky_strike(_sky_on)
+		if _quarry != null:
+			_sky_land = Vector3(_quarry.global_position.x, ground, _quarry.global_position.z)
+		_sky_on = _sky_land
+		_sky_strike(_sky_land)
 		if is_inside_tree() and multiplayer.has_multiplayer_peer():
-			net_sky_land.rpc(_sky_on)
+			net_sky_land.rpc(_sky_land)
 		else:
-			net_sky_land(_sky_on)
+			net_sky_land(_sky_land)
 	velocity.x = 0.0
 	velocity.z = 0.0
 
 
-## Host: whoever is under its blade crushed; the shock out along the ground.
+## Host: whoever is under its blade crushed (a dodge his only way out); the
+## shock out along the ground.
 func _sky_strike(at: Vector3) -> void:
 	var r := sky_radius * visual_scale / 1.6
 	for node in get_tree().get_nodes_in_group(&"player"):
@@ -1294,15 +1303,76 @@ func net_sky_land(at: Vector3) -> void:
 	WindBlast.shake(self, 0.28, 0.7, 32.0)
 
 
-## Every peer: the roar at the top, and the rush of its dive.
+## Every peer: the roar at the top, its blade gathering up there, the flash
+## and the rush of its dive.
 func _sky_sounds(t0: float, t: float) -> void:
 	if act == O_SKY:
 		var ts := _sky_times()
-		if t0 < ts[1] and t >= ts[1]:
+		if t0 < ts[1] - 0.2 and t >= ts[1] - 0.2:
 			Sfx.play(self, ROAR_SOUND, self, Vector3.UP * 2.0 * visual_scale, VOICE * 0.9, 2.0)
-	elif t0 <= 0.0001:
-		Sfx.play(self, WHOOSH_HEAVY, self, Vector3.UP * 1.0, 0.6, 4.0)
-		ImpactFx.rush(self, self, true, 0.0)
+		return
+	if t0 <= 0.0001:
+		Sfx.play(self, STRAIN, self, Vector3.UP * 2.4 * visual_scale, VOICE * 0.85, -2.0)
+	var tell := sky_hang - sky_tell
+	if t0 < tell and t >= tell:
+		Sfx.play(self, WHOOSH_HEAVY, self, Vector3.UP * 1.0, 1.3, 2.0)
+	if t0 < sky_hang and t >= sky_hang:
+		Sfx.play(self, WHOOSH_HEAVY, self, Vector3.UP * 1.0, 0.6, 6.0)
+		ImpactFx.rush(self, self, true, 2.0)
+
+
+## Every peer: up there its blade gathers — a light growing on it, sparks
+## and embers off it, the air stirring about it — and flashes at the end.
+func _sky_gather(delta: float) -> void:
+	var on := act == O_SKYDIVE and not is_dead and act_serial == _voiced_serial and _voiced_clock < sky_hang + 0.1
+	if not on:
+		if _sky_glow != null:
+			_sky_glow.light_energy = move_toward(_sky_glow.light_energy, 0.0, 30.0 * delta)
+		if _sky_coal != null:
+			_sky_coal.visible = false
+		return
+	var t := _voiced_clock
+	var tip := _weapon_tip_at()
+	var mid := tip.lerp(_hand_at(), 0.5)
+	if _sky_glow == null:
+		_sky_glow = OmniLight3D.new()
+		_sky_glow.light_color = Color(1.0, 0.5, 0.18)
+		_sky_glow.shadow_enabled = false
+		_sky_glow.top_level = true
+		add_child(_sky_glow)
+	var g := clampf(t / maxf(sky_hang - sky_tell, 0.1), 0.0, 1.0)
+	var flash := t >= sky_hang - sky_tell
+	_sky_glow.global_position = mid
+	_sky_glow.omni_range = (3.0 + 4.0 * g) * visual_scale / 1.6
+	_sky_glow.light_energy = 9.0 if flash else 0.6 + 3.5 * g * g
+	if _sky_coal == null:
+		_sky_coal = MeshInstance3D.new()
+		var ball := SphereMesh.new()
+		ball.radius = 1.0
+		ball.height = 2.0
+		ball.radial_segments = 12
+		ball.rings = 6
+		_sky_coal.mesh = ball
+		_sky_coal_mat = SkillFx.glow(Color(1.0, 0.55, 0.18), 4.0)
+		_sky_coal.material_override = _sky_coal_mat
+		_sky_coal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_sky_coal.top_level = true
+		add_child(_sky_coal)
+	_sky_coal.visible = true
+	_sky_coal.global_position = tip
+	var beat := 0.85 + 0.15 * sin(t * 26.0)
+	_sky_coal.scale = Vector3.ONE * (1.4 if flash else (0.15 + 0.55 * g) * beat) * visual_scale / 1.6
+	_sky_coal_mat.albedo_color.a = 0.95 if flash else 0.4 + 0.5 * g
+	var world := Blood.world_of(self)
+	if randf() < delta * (18.0 + 40.0 * g):
+		SkillFx.burst(world, mid.lerp(tip, randf()), Color(1.0, 0.6, 0.2), 4, Vector2(0.8, 3.0), Vector3.UP, 120.0,
+				Vector2(0.05, 0.11), Vector3(0, -2.0, 0), 0.6)
+	if randf() < delta * 5.0:
+		WindBlast.mist(world, global_position + Vector3.UP * 1.5 * visual_scale, 4, 1.5 * visual_scale,
+				Vector2(0.6, 1.4), 0.9)
+	if flash and randf() < delta * 40.0:
+		SkillFx.burst(world, tip, Color(1.0, 0.9, 0.6), 6, Vector2(2.0, 5.0), Vector3.UP, 180.0,
+				Vector2(0.03, 0.06), Vector3.ZERO, 0.25)
 
 
 ## Every peer: leaning into its dive, blade first, and up again after.
@@ -1311,11 +1381,11 @@ func _tilt_dive() -> void:
 		return
 	var lean := 0.0
 	if act == O_SKYDIVE and not is_dead and act_serial == _voiced_serial:
-		var t := _voiced_clock
-		if t < sky_dive:
-			lean = smoothstep(0.0, sky_dive * 0.5, t)
-		else:
-			lean = 1.0 - smoothstep(sky_dive, sky_dive + 0.35, t)
+		var d := _voiced_clock - sky_hang
+		if d >= 0.0 and d < sky_dive:
+			lean = smoothstep(0.0, sky_dive * 0.6, d)
+		elif d >= sky_dive:
+			lean = 1.0 - smoothstep(sky_dive, sky_dive + 0.35, d)
 	if lean <= 0.001:
 		if _sky_tilted:
 			body.transform.basis = _sky_basis
@@ -1461,6 +1531,7 @@ func _process(delta: float) -> void:
 	if (act == O_SKY or act == O_SKYDIVE) and act_serial == _voiced_serial:
 		_sky_sounds(_voiced_clock, _voiced_clock + delta)
 	_tilt_dive()
+	_sky_gather(delta)
 	if _bold_light != null:
 		_bold_shown = maxf(_bold_shown - delta, 0.0)
 		var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
@@ -2488,9 +2559,9 @@ func _clip_time(what: int, t: float) -> float:
 
 func _move_length(what: int) -> float:
 	if what == O_SKY:
-		return _sky_times()[2]
+		return _sky_times()[1]
 	if what == O_SKYDIVE:
-		return sky_dive + sky_recover
+		return sky_hang + sky_dive + sky_recover
 	var knots := _tempo_knots(what)
 	if knots.is_empty():
 		return super(what)

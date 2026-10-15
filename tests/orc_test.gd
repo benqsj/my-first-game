@@ -253,7 +253,7 @@ func _turns() -> void:
 		var near := 0
 		for o: OrcFighter in orcs:
 			if o.act != Fighter.Act.NONE and o._distance_to(_hero) < o.reach + 2.0 and o.act != PackBrute.LEAP \
-					and o.act != OrcFighter.O_SKY and o.act != OrcFighter.O_FETCH \
+					and o.act != OrcFighter.O_SKY and o.act != OrcFighter.O_SKYDIVE and o.act != OrcFighter.O_FETCH \
 					and o.act != OrcFighter.O_LUNGE and o.act != OrcFighter.O_THROW and o.act != OrcFighter.O_CRY:
 				near += 1
 		most = maxi(most, near)
@@ -531,10 +531,42 @@ func _skyfall() -> void:
 	_check("it goes up high", o.skyfalls_made >= 1 and top >= 10.0 and top <= 16.0, "%.1f m" % top)
 	_check("out in front of him the way it came, to be seen", seen[2] >= 18.0 and seen[2] <= 30.0, "%.1f m off" % seen[2])
 	_check("and hangs there ~2 s", seen[1] >= 1.8 and seen[1] <= 3.6, "%.2f s above 8 m" % seen[1])
-	_check("down blade first on him: crushed, off his feet", o.sky_hits >= 1 and _falls >= 1,
+	_check("down blade first on him, fast: crushed, off his feet", o.sky_hits >= 1 and _falls >= 1,
 			"%d hits, %d falls" % [o.sky_hits, _falls])
 	_check("back on the ground, upright", absf(o.global_position.y - ground) < 0.6 and not o._sky_tilted,
 			"%.2f" % (o.global_position.y - ground))
+	# running from it does not save him (the user's word, 2026-10-15)
+	await _arena()
+	o = _orc(12.0)
+	o._leap_wait = 0.0
+	o.hand_combo_chance = Vector2.ZERO
+	var spot := _hero.global_position
+	var side := (o.global_position - spot).cross(Vector3.UP).normalized()
+	var ran := 0.0
+	for f in 60 * 7:
+		await physics_frame
+		if o.act == OrcFighter.O_SKYDIVE and _hero.state != Player.State.DOWNED:
+			spot += side * 6.0 / 60.0
+			ran += 6.0 / 60.0
+		if _hero.state != Player.State.DOWNED:
+			_hero.global_position = Vector3(spot.x, _hero.global_position.y, spot.z)
+		if o._sky_landed and o.act != OrcFighter.O_SKYDIVE:
+			break
+	_check("running from it does not save him", o.sky_hits >= 1, "ran %.1f m, %d hits" % [ran, o.sky_hits])
+	# a dodge at the moment does
+	await _arena()
+	o = _orc(12.0)
+	o._leap_wait = 0.0
+	o.hand_combo_chance = Vector2.ZERO
+	var dodged := false
+	for f in 60 * 7:
+		await physics_frame
+		if not dodged and o.act == OrcFighter.O_SKYDIVE and o._act_time >= o.sky_hang - 0.02:
+			dodged = true
+			_hero.set("_safe_until", Time.get_ticks_msec() / 1000.0 + 0.45)
+		if o._sky_landed and o.act != OrcFighter.O_SKYDIVE:
+			break
+	_check("a dodge as it comes down does", dodged and o.sky_hits == 0, "%d hits" % o.sky_hits)
 
 
 ## 2026-10-15 (the user's word): no fall — down on its knees, out of reach,
