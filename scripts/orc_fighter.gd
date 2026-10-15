@@ -39,6 +39,8 @@ extends PackBrute
 ## guard), "skirmisher" (keeps `keep_off` m off him and throws, in only when
 ## he turns away or comes on), "chief" (bigger, roars its kin on more often).
 @export var role: StringName = &"duelist"
+## What it is called over its bar ("" plain "Orc"): "Warrior Orc", "Orc Lord".
+@export var title: String = ""
 ## The skirmisher's distance from him (0: it comes in like any).
 @export var keep_off: float = 0.0
 
@@ -79,7 +81,15 @@ extends PackBrute
 @export var charge_meets: float = 2.1
 ## How long it drives on (s) before it gives up on meeting him.
 @export var charge_time: float = 0.75
-@export_group("Thrown axe")
+@export_group("Thrown sword")
+## (the user's word, 2026-10-15: no axes) It throws its own blade at him: it
+## flies at `throw_speed` to where he will be and stops in the air there,
+## him struck or not, turning slowly; `fetch_wait` s later it slides to it at
+## `fetch_speed`, takes it in hand and cuts him with it (its "fetch" combo).
+@export var throw_speed: float = 24.0
+@export var throw_hit_radius: float = 1.0
+@export var fetch_wait: float = 0.45
+@export var fetch_speed: float = 17.0
 @export var throw_from: float = 7.0
 @export var throw_to: float = 18.0
 @export var throw_cooldown: Vector2 = Vector2(4.5, 8.0)
@@ -117,7 +127,9 @@ extends PackBrute
 @export_group("Turns")
 ## Waiting its turn in a pair (`pack_turns` 1), every so often it comes in for
 ## `join_for` s all the same, so now and then both are on him.
-@export var join_every: Vector2 = Vector2(9.0, 15.0)
+## (12-18 s since 2026-10-15: it no longer throws while it waits, so it
+## waits more of the time, and joined more often than meant)
+@export var join_every: Vector2 = Vector2(12.0, 18.0)
 @export var join_for: float = 3.5
 @export_group("Arms")
 ## What it holds (2026-10-14, the user's word: our weapons on the monsters
@@ -134,6 +146,12 @@ extends PackBrute
 @export var outfit: String = ""
 ## Its cape (CAPES): "" none.
 @export var cape: String = ""
+## Hair on its head (the user's word, 2026-10-15: the lord bare-headed, with
+## hair): one of the mannequin's (`ps_hair_N`, `ps_hairb_N`), "" none, this
+## much bigger about its head, of one colour.
+@export var hair: String = ""
+@export var hair_size: float = 1.4
+@export var hair_tint: Color = Color(0.05, 0.045, 0.04)
 ## Only these of its combos (by name; empty: all of them) — two orcs in one
 ## place fighting each its own way (the user's word, 2026-10-14).
 @export var combo_set: PackedStringArray = PackedStringArray()
@@ -163,6 +181,16 @@ extends PackBrute
 @export_group("Feints")
 ## How often its great cuts are held back a beat before they come down.
 @export var feint_chance: float = 0.45
+@export_group("Death")
+## Its death (the user's word, 2026-10-15): it does not fall, it goes down on
+## its knees (`CR_MG_Death` to `kneel_at` s, played `kneel_rate` fast), out of
+## reach of blades and bodies, and breaks into shards there.
+@export var kneel_death: bool = true
+@export var kneel_clip: StringName = &"CR_MG_Death"
+@export var kneel_at: float = 1.85
+@export var kneel_rate: float = 1.4
+## How long after it dies it bursts (s): a breath on its knees.
+@export var kneel_for: float = 2.0
 @export_group("Swing weight")
 ## Each cut in three paces, Elden Ring's (claude/orc_quality_plan.md, phase
 ## 1): [wind-up, cut, follow-through] played at these shares of its clip's
@@ -256,6 +284,10 @@ const O_CRY := 195
 const O_BRACE := 196
 const O_CHARGE := 197
 const O_THROW := 198
+## Its slide to its thrown blade (2026-10-15), and its fall from the sky.
+const O_FETCH := 224
+const O_SKY := 225
+const FETCH_COMBO := &"fetch"
 const SOUNDS := "res://sounds/ogre/"
 const ROAR_SOUND := SOUNDS + "roar_short.wav"
 const GRUNTS := [SOUNDS + "grunt_1.wav", SOUNDS + "grunt_2.wav", SOUNDS + "grunt_3.wav"]
@@ -323,6 +355,26 @@ var _bold_light: OmniLight3D
 var _bold_shown: float = 0.0
 ## Every peer: its second blade, out while it rages.
 var _second: Node3D
+## Every peer: its thrown blade in the air — the holder flown, the mesh it
+## stands for (hidden in its hand), its streak; where it flies from and to,
+## how long, how far along. Host: hits and catches made.
+var _thrown: Node3D
+var _thrown_blade: MeshInstance3D
+var _thrown_trail: SwordTrail
+var _throw_from: Vector3
+var _throw_to: Vector3
+var _throw_flight: float = 0.5
+var _throw_t: float = 0.0
+var _throw_id: int = 0
+var throw_hits: int = 0
+var fetches_made: int = 0
+## Its fall from the sky: host, those let pass under it; every peer, where
+## it went up from and is coming down on.
+var _sky_from: Vector3
+var _sky_on: Vector3
+var _sky_landed: bool = false
+var skyfalls_made: int = 0
+var sky_hits: int = 0
 ## The cuts played in three paces (`tempo_on`), and while one is being
 ## measured at its plain pace (in [PackBrute]'s own time), true.
 var _tempo_moves: Dictionary = {}
@@ -448,7 +500,20 @@ func _ready() -> void:
 	_cry_wait = _rng.randf_range(0.5, 3.0)
 	_charge_wait = _rng.randf_range(3.0, charge_cooldown.x)
 	_throw_wait = _rng.randf_range(2.0, throw_cooldown.x)
+	# its blade thrown and fetched: what it cuts with when it has it back
+	_special(O_FETCH, run_clip if run_clip != &"" else walk_clip, Vector3(1.6, 0.0, 1.0))
+	var fetch_cut := O_GSD if grip == &"heavy" else (O_P2 if grip == &"pole" else O_HIGH)
+	_hand_combos.append({"name": FETCH_COMBO, "moves": [fetch_cut], "fells": [0], "weight": 0.0, "far": true})
+	_special(O_SKY, leap_clip, Vector3(1.0, 0.0, 1.0))
+	_leap_wait = _rng.randf_range(sky_cooldown.x * 0.4, sky_cooldown.x)
 	Sfx.warm([ROAR_SOUND, WHOOSH, WHOOSH_HEAVY, STRAIN] + GRUNTS + GROUND)
+	if kneel_death and _anim != null and _anim.clip_length(kneel_clip) > 0.0:
+		death_clip = kneel_clip
+		dies_by_clip = true
+		death_pace = kneel_rate
+		death_hold = kneel_at
+		corpse_linger = kneel_for
+		death_shards = true
 	_weigh_swings()
 	_make_trails()
 	# half again as tall as a man (the user's word, 2026-10-13): its flat
@@ -520,6 +585,14 @@ func _shielded(who: Node3D) -> bool:
 
 
 func _after(what: int) -> void:
+	if what == O_THROW and not is_dead and _decides() and _thrown != null:
+		_begin_fetch()
+		return
+	if what == O_FETCH and not is_dead and _decides():
+		_catch_blade()
+		return
+	if what == O_SKY:
+		_sky_done()
 	if what == O_BRACE and not is_dead and _decides():
 		# out of its tell straight into the charge
 		super(what)
@@ -580,8 +653,10 @@ func _extra_velocity(delta: float) -> Vector3:
 				_face(_quarry.global_position - global_position, delta, 2.0)
 			return _forward() * _charge_speed
 		return Vector3.ZERO
-	if act == O_CRY or act == O_BRACE or act == O_THROW:
+	if act == O_CRY or act == O_BRACE or act == O_THROW or act == O_SKY:
 		return Vector3.ZERO
+	if act == O_FETCH:
+		return _fetch_velocity(delta)
 	if _hand_combo >= 0 and _strikes_table.has(act) and _quarry != null:
 		# a string's cut steps in (or back) to where it lands, through its
 		# wind-up, so the string follows him
@@ -754,40 +829,396 @@ func _while_waiting(_delta: float) -> bool:
 		return true
 	if _try_cry():
 		return true
-	if _throw_wait > 0.0 or act != Act.NONE or stamina < attack_cost or _quarry_down() or not _facing_him(30.0):
+	# (no throw while it waits: it would come in after its blade)
+	return false
+
+
+## Host: its blade leaves its hand, at where he will be.
+func _release_axe() -> void:
+	if _quarry == null or _held_blade() == null:
+		return
+	throws_made += 1
+	var from := _weapon_tip_at().lerp(_hand_at(), 0.5)
+	var target := _quarry.global_position + Vector3.UP * 1.1
+	var gap := (target - from).length()
+	var flight := clampf(gap / maxf(throw_speed, 1.0), 0.2, 1.0)
+	if _quarry is CharacterBody3D:
+		var v := (_quarry as CharacterBody3D).velocity
+		target += Vector3(v.x, 0.0, v.z) * flight * 0.6
+	# it hangs a breath in the air, then it goes after it
+	_act_length = maxf(_act_length, _act_time + flight + 0.35)
+	var id := act_serial * 100 + throws_made
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_sword_out.rpc(target, flight, id)
+	else:
+		net_sword_out(target, flight, id)
+
+
+## Every peer: its blade out of its hand and flying, turning end over end.
+@rpc("authority", "call_local", "reliable")
+func net_sword_out(to: Vector3, flight: float, id: int) -> void:
+	var blade := _held_blade()
+	var world := Blood.world_of(self)
+	if blade == null or world == null or _skeleton == null:
+		return
+	_sword_home()
+	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(_weapon)
+	var centre := hand * (weapon_tip * 0.5)
+	_thrown = Node3D.new()
+	_thrown.name = "ThrownBlade"
+	world.add_child(_thrown)
+	_thrown.global_transform = Transform3D(hand.basis, centre)
+	var copy := MeshInstance3D.new()
+	copy.mesh = blade.mesh
+	copy.material_override = blade.material_override
+	for k in blade.get_surface_override_material_count():
+		copy.set_surface_override_material(k, blade.get_surface_override_material(k))
+	_thrown.add_child(copy)
+	copy.global_transform = hand * blade.skin.get_bind_pose(_blade_bind(blade))
+	# its streak, and a faint light on it
+	var base := Node3D.new()
+	var tip := Node3D.new()
+	_thrown.add_child(base)
+	_thrown.add_child(tip)
+	base.global_position = hand * (weapon_tip * 0.2)
+	tip.global_position = hand * weapon_tip
+	_thrown_trail = SwordTrail.new()
+	_thrown_trail.sample_count = 16
+	_thrown_trail.fade_time = 0.2
+	_thrown_trail.tint = trail_heavy if grip != &"blades" else Color(0.85, 0.85, 0.9, 0.35)
+	world.add_child(_thrown_trail)
+	_thrown_trail.setup(base, tip)
+	_thrown_trail.emitting = true
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.6, 0.3)
+	glow.light_energy = 0.6
+	glow.omni_range = 2.5
+	glow.shadow_enabled = false
+	_thrown.add_child(glow)
+	blade.visible = false
+	_thrown_blade = blade
+	_throw_from = centre
+	_throw_to = to
+	_throw_flight = maxf(flight, 0.05)
+	_throw_t = 0.0
+	_throw_id = id
+	Sfx.play(self, WHOOSH_HEAVY, null, centre, 0.9, 0.0)
+
+
+## Host: it struck him on the way — it stops where it is (every peer).
+@rpc("authority", "call_local", "reliable")
+func net_sword_stop(at: Vector3) -> void:
+	if _thrown == null:
+		return
+	_throw_to = at
+	_throw_t = maxf(_throw_t, _throw_flight)
+	_thrown.global_position = at
+
+
+## Every peer: its thrown blade back in its hand (caught, or the throw cut
+## short).
+@rpc("authority", "call_local", "reliable")
+func net_sword_back() -> void:
+	_sword_home()
+
+
+func _sword_home() -> void:
+	if _thrown != null:
+		var at := _thrown.global_position
+		_thrown.queue_free()
+		_thrown = null
+		if not is_dead:
+			SkillFx.burst(Blood.world_of(self), at, Color(1.0, 0.7, 0.4), 10, Vector2(1.0, 3.0), Vector3.UP, 180.0,
+					Vector2(0.02, 0.04), Vector3.ZERO, 0.3)
+	if _thrown_trail != null:
+		_thrown_trail.emitting = false
+		var t := _thrown_trail
+		get_tree().create_timer(0.5, false).timeout.connect(func() -> void:
+			if is_instance_valid(t):
+				t.queue_free())
+		_thrown_trail = null
+	if _thrown_blade != null:
+		_thrown_blade.visible = true
+		_thrown_blade = null
+
+
+## Every peer: the thrown blade flown on (and, host, him struck by it).
+func _fly_blade(delta: float) -> void:
+	if _thrown == null:
+		return
+	var was := _thrown.global_position
+	_throw_t += delta
+	var u := clampf(_throw_t / _throw_flight, 0.0, 1.0)
+	var at := _throw_from.lerp(_throw_to, u)
+	var across := (_throw_to - _throw_from).cross(Vector3.UP)
+	if across.length_squared() < 0.0001:
+		across = Vector3.RIGHT
+	across = across.normalized()
+	var spin: float
+	if u < 1.0:
+		spin = u * 2.5 * TAU
+		_thrown_trail.emitting = true
+	else:
+		# hanging there, turning ever slower, a little rise and fall
+		var since := _throw_t - _throw_flight
+		spin = 2.5 * TAU + 3.0 * (1.0 - exp(-since * 1.4))
+		at.y += sin(since * 3.2) * 0.07
+		_thrown_trail.emitting = false
+	var basis0: Basis = _thrown.get_meta(&"basis0") if _thrown.has_meta(&"basis0") else _thrown.global_basis
+	if not _thrown.has_meta(&"basis0"):
+		_thrown.set_meta(&"basis0", basis0)
+	_thrown.global_transform = Transform3D(Basis(across, spin) * basis0, at)
+	if u >= 1.0 or not _decides() or _quarry == null:
+		return
+	# host: him in its way
+	var him := _quarry.global_position + Vector3.UP * 1.0
+	var seg := at - was
+	var k := clampf((him - was).dot(seg) / maxf(seg.length_squared(), 0.0001), 0.0, 1.0)
+	if (was + seg * k).distance_to(him) > throw_hit_radius * visual_scale / 1.6:
+		return
+	if _quarry.has_method(&"untouchable_now") and bool(_quarry.call(&"untouchable_now", self)):
+		return
+	throw_hits += 1
+	_quarry.call(&"receive_blow", hit_damage * throw_share * _blow_worth(O_THROW), self, 0, 2, _throw_id)
+	ImpactFx.strike(self, him, &"flesh", 1.4)
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_sword_stop.rpc(at)
+	else:
+		net_sword_stop(at)
+
+
+## The blade in its right hand as drawn: the weapon put in it, else its own.
+func _held_blade() -> MeshInstance3D:
+	if body == null:
+		return null
+	for mi: MeshInstance3D in body.find_children("Arm_ps_w_aw_*", "MeshInstance3D", true, false):
+		if mi.visible and mi.skin != null:
+			return mi
+	var own := body.find_child("Orc_Sword", true, false) as MeshInstance3D
+	return own if own != null and own.visible and own.skin != null else null
+
+
+func _blade_bind(mi: MeshInstance3D) -> int:
+	for i in mi.skin.get_bind_count():
+		var bone := mi.skin.get_bind_bone(i)
+		if String(mi.skin.get_bind_name(i)) == String(weapon_bone) \
+				or (bone >= 0 and bone == _weapon):
+			return i
+	return 0
+
+
+func _hand_at() -> Vector3:
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(_weapon).origin
+
+
+## Host: out of its throw, after its blade (the throw done with it in the
+## air); caught, its cut.
+func _begin_fetch() -> void:
+	fetches_made += 1
+	_begin(O_FETCH)
+	_act_length = fetch_wait + 3.0
+
+
+func _catch_blade() -> void:
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_sword_back.rpc()
+	else:
+		net_sword_back()
+	var which := _combo_named(FETCH_COMBO)
+	if which >= 0 and _quarry != null and not _quarry_down():
+		_cooldown = 0.0
+		start_hand_combo(which)
+	else:
+		_start(Act.NONE)
+
+
+func _fetch_velocity(delta: float) -> Vector3:
+	if _thrown == null:
+		return Vector3.ZERO
+	var to := _thrown.global_position - global_position
+	to.y = 0.0
+	if _act_time < fetch_wait:
+		_face(to, delta, turn_speed)
+		return Vector3.ZERO
+	var near := 1.25 * visual_scale / 1.6
+	if to.length() <= near:
+		return Vector3.ZERO
+	_face(to, delta, turn_speed * 3.0)
+	return to.normalized() * minf(fetch_speed, (to.length() - near) / maxf(delta, 0.001))
+#endregion
+
+
+#region Its fall from the sky (2026-10-15, the user's word: not the odd flying
+## leap — high up, 20-30 m, hanging there 2-3 s, then down feet first on him,
+## the ground breaking)
+@export_group("Skyfall")
+@export var sky_height: float = 24.0
+@export var sky_crouch: float = 0.45
+@export var sky_rise: float = 0.8
+@export var sky_hang: float = 2.4
+## It follows him over the ground through its hang, but stops so long before
+## it drops: the spot is set, his to leave.
+@export var sky_lock: float = 0.7
+@export var sky_drop_speed: float = 40.0
+@export var sky_recover: float = 0.9
+@export var sky_from: float = 6.0
+@export var sky_to: float = 22.0
+@export var sky_cooldown: Vector2 = Vector2(30.0, 45.0)
+## What it does to him under it (a crushing blow, `sky_radius` m about where
+## it lands) and the shock out from there along the ground (`sky_quake`).
+@export var sky_share: float = 1.3
+@export var sky_radius: float = 3.0
+@export var sky_quake: float = 6.0
+
+
+func _sky_times() -> PackedFloat32Array:
+	var a := sky_crouch
+	var b := a + sky_rise
+	var c := b + sky_hang
+	var d := c + sky_height / maxf(sky_drop_speed, 1.0)
+	return PackedFloat32Array([a, b, c, d, d + sky_recover])
+
+
+## Host: him off far enough, now and then — up into the sky instead of the
+## leap.
+func _try_leap() -> bool:
+	if _leap_wait > 0.0 or _quarry_down() or stamina < attack_cost or _quarry == null:
 		return false
-	_throw_wait = _rng.randf_range(throw_waiting.x, throw_waiting.y)
-	_begin_throw()
+	var gap := _distance_to(_quarry)
+	if gap < sky_from or gap > sky_to:
+		return false
+	mode = Mode.FIGHT
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_leap_wait = _rng.randf_range(sky_cooldown.x, sky_cooldown.y) * (0.6 if raging else 1.0)
+	skyfalls_made += 1
+	_sky_from = global_position
+	_sky_on = _quarry.global_position
+	_sky_landed = false
+	for who in get_tree().get_nodes_in_group(&"player"):
+		if who is PhysicsBody3D:
+			add_collision_exception_with(who)
+	_begin(O_SKY)
 	return true
 
 
-## Host: the axe leaves its hand, onto where he will be.
-func _release_axe() -> void:
-	if _quarry == null:
+## Where in its leap's clip it is, by its fall's own clock: crouched, going
+## up, hanging tucked, coming down legs first, landed.
+func _sky_clip(t: float) -> float:
+	var len := _anim.clip_length(leap_clip) if _anim != null else 2.2
+	var ts := _sky_times()
+	if t < ts[0]:
+		return len * lerpf(0.0, 0.1, t / ts[0])
+	if t < ts[1]:
+		return len * lerpf(0.1, 0.3, (t - ts[0]) / (ts[1] - ts[0]))
+	if t < ts[2]:
+		return len * lerpf(0.3, 0.36, (t - ts[1]) / (ts[2] - ts[1]))
+	if t < ts[3]:
+		return len * lerpf(0.36, 0.47, (t - ts[2]) / maxf(ts[3] - ts[2], 0.01))
+	return minf(len * 0.47 + (t - ts[3]), len * 0.85)
+
+
+## Host: where its body should be this far into the fall.
+func _sky_place(t: float, delta: float) -> Vector3:
+	var ts := _sky_times()
+	var ground := _sky_from.y
+	if _quarry != null and t < ts[2] - sky_lock:
+		# over him, wherever he goes (a little behind his pace)
+		var him := _quarry.global_position
+		_sky_on = _sky_on.lerp(Vector3(him.x, ground, him.z), clampf(delta * 2.5, 0.0, 1.0))
+	if t < ts[0]:
+		return _sky_from
+	if t < ts[1]:
+		var k := (t - ts[0]) / (ts[1] - ts[0])
+		var flat := _sky_from.lerp(_sky_on, k)
+		return Vector3(flat.x, ground + sky_height * (1.0 - pow(1.0 - k, 2.2)), flat.z)
+	if t < ts[2]:
+		var since := t - ts[1]
+		return Vector3(_sky_on.x, ground + sky_height + sin(since * 2.0) * 0.25, _sky_on.z)
+	if t < ts[3]:
+		var k := (t - ts[2]) / (ts[3] - ts[2])
+		return Vector3(_sky_on.x, ground + sky_height * (1.0 - k), _sky_on.z)
+	return Vector3(_sky_on.x, ground, _sky_on.z)
+
+
+## Host: its body driven up, held, and dropped; the ground struck.
+func _run_sky(delta: float) -> void:
+	var t := _act_time
+	var ts := _sky_times()
+	if _quarry != null and t < ts[3]:
+		_face(_quarry.global_position - global_position, delta, turn_speed)
+	if t < ts[3]:
+		var want := _sky_place(t, delta)
+		velocity = (want - global_position) / maxf(delta, 0.001)
 		return
-	throws_made += 1
-	var from := global_position + Vector3.UP * 1.6 * visual_scale
-	if _skeleton != null and _skeleton.find_bone(String(throw_hand)) >= 0:
-		from = _skeleton.global_transform * _skeleton.get_bone_global_pose(_skeleton.find_bone(String(throw_hand))).origin
-	var target := _quarry.global_position + Vector3.UP * 1.1
-	var gap := Vector3(target.x - from.x, 0.0, target.z - from.z).length()
-	var flight := clampf(gap / 19.0, 0.3, 0.95)
-	if _quarry is CharacterBody3D:
-		var v := (_quarry as CharacterBody3D).velocity
-		target += Vector3(v.x, 0.0, v.z) * flight * 0.5
-	var throw_v := (target - from) / flight + Vector3.UP * 0.5 * GoblinShot.GRAVITY * flight
-	var id := act_serial * 100 + throws_made
-	var worth := hit_damage * throw_share * _blow_worth(O_THROW)
-	if is_inside_tree() and multiplayer.has_multiplayer_peer():
-		net_axe.rpc(from, throw_v, worth, id)
-	else:
-		net_axe(from, throw_v, worth, id)
+	if not _sky_landed:
+		_sky_landed = true
+		var at := Vector3(global_position.x, _sky_from.y, global_position.z)
+		_sky_strike(at)
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_sky_land.rpc(at)
+		else:
+			net_sky_land(at)
+	velocity.x = 0.0
+	velocity.z = 0.0
 
 
+## Host: whoever is under it crushed; the shock out along the ground.
+func _sky_strike(at: Vector3) -> void:
+	var r := sky_radius * visual_scale / 1.6
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var who := node as Node3D
+		if who == null or not who.has_method(&"receive_blow") or bool(who.get("is_dead")):
+			continue
+		var rel := who.global_position - at
+		if absf(rel.y) > 2.5 or Vector2(rel.x, rel.z).length() > r:
+			continue
+		if who.has_method(&"untouchable_now") and bool(who.call(&"untouchable_now", self)):
+			continue
+		sky_hits += 1
+		who.call(&"receive_blow", hit_damage * sky_share * _blow_worth(O_SKY), self, 0, 1,
+				act_serial * 1000 + 77, false, &"crush")
+	_quake(at, sky_quake * visual_scale / 1.6, hit_damage * 0.45, false, 18.0)
+
+
+## Every peer: it lands — the ground breaks under it, stone and dust thrown
+## up, the view shaken hard near it.
 @rpc("authority", "call_local", "reliable")
-func net_axe(from: Vector3, v: Vector3, worth: float, id: int) -> void:
-	GoblinShot.throw(Blood.world_of(self), from, v, GoblinShot.Kind.AXE, worth, self, _decides(), id)
-	Sfx.play(self, WHOOSH, null, from, 1.3, -2.0)
+func net_sky_land(at: Vector3) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var s := visual_scale / 1.6
+	RockWave.spawn(world, at, 4.2 * s, 0.85 * s, 16.0, act_serial * 13 + 5)
+	var crack := DarkFx.decal(world, at, DarkFx.CRACK, 6.0 * s, Color(0.09, 0.07, 0.05, 1.0), 0.0, 0.92)
+	crack.rotation.y = randf() * TAU
+	var tw := crack.create_tween()
+	tw.tween_interval(3.5)
+	tw.tween_property(crack, "modulate:a", 0.0, 3.0).set_ease(Tween.EASE_IN)
+	tw.tween_callback(crack.queue_free)
+	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.45, 0.39, 0.31, 0.65), 60, Vector2(2.0, 6.0), Vector3.UP, 80.0,
+			Vector2(0.12, 0.3), Vector3(0, -1.5, 0), 1.5)
+	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.26, 0.23, 0.2, 1.0), 40, Vector2(4.0, 10.0), Vector3.UP, 60.0,
+			Vector2(0.05, 0.12), Vector3(0, -16.0, 0), 1.1)
+	Sfx.play_any(self, GROUND, null, 0.62, 6.0)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.28, 0.7, 32.0)
+
+
+## Every peer: the roar at the top, and the rush of its drop.
+func _sky_sounds(t0: float, t: float) -> void:
+	var ts := _sky_times()
+	if t0 < ts[1] and t >= ts[1]:
+		Sfx.play(self, ROAR_SOUND, self, Vector3.UP * 2.0 * visual_scale, VOICE * 0.9, 2.0)
+	if t0 < ts[2] and t >= ts[2]:
+		Sfx.play(self, WHOOSH_HEAVY, self, Vector3.UP * 1.0, 0.6, 4.0)
+		ImpactFx.rush(self, self, true, 0.0)
+
+
+func _sky_done() -> void:
+	for who in get_tree().get_nodes_in_group(&"player"):
+		if who is PhysicsBody3D:
+			remove_collision_exception_with(who)
+#endregion
 
 
 func _facing_him(most: float) -> bool:
@@ -845,6 +1276,21 @@ func _run_act(delta: float) -> void:
 	super(delta)
 	if is_dead or not _decides() or act != was:
 		return
+	if was == O_SKY:
+		_run_sky(delta)
+		return
+	if was == O_FETCH and _thrown != null and _act_time >= fetch_wait:
+		var to := _thrown.global_position - global_position
+		to.y = 0.0
+		if to.length() <= 1.3 * visual_scale / 1.6:
+			_catch_blade()
+			return
+	if _thrown != null and act != O_THROW and act != O_FETCH:
+		# struck out of it, or another move: its blade back in hand
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_sword_back.rpc()
+		else:
+			net_sword_back()
 	if was == O_CHARGE and not _charge_met and _quarry != null and _act_time <= charge_time + 0.1:
 		_charge_into_him()
 	elif was == O_CRY and _crossed(O_CRY, cry_at, t0):
@@ -894,6 +1340,9 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	_show_trails()
+	_fly_blade(delta)
+	if act == O_SKY and act_serial == _voiced_serial:
+		_sky_sounds(_voiced_clock, _voiced_clock + delta)
 	if _bold_light != null:
 		_bold_shown = maxf(_bold_shown - delta, 0.0)
 		var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
@@ -1043,6 +1492,9 @@ func _begin(what: int) -> void:
 
 
 func _carry(delta: float) -> Vector3:
+	if act == O_FETCH or act == O_SKY:
+		_last_hips = _hips(_clip_of(act), _clip_time(act, _act_time))
+		return Vector3.ZERO
 	var v := super(delta)
 	if _strikes_table.has(act):
 		v -= _move_right * v.dot(_move_right)
@@ -1742,6 +2194,10 @@ const OUTFITS := {
 	# gold on it: one above the others (2026-10-15)
 	"Warchief": {"objects": "", "pieces": [["ps_x_knight_pauldrons", 1.35, Color(0.62, 0.48, 0.2)],
 			["ps_hat_armet", 1.4, Color(0.3, 0.26, 0.18)]]},
+	# the Orc Lord's (the user's word, 2026-10-15: not the gilt, no helmet):
+	# bare-headed, blackened iron on its shoulders, a blood-dark scarf
+	"Lord": {"objects": "Objects_OrcAshen", "pieces": [["ps_x_knight_pauldrons", 1.35, Color(0.17, 0.16, 0.16)],
+			["ps_x_knight_neckscarf", 1.35, Color(0.32, 0.05, 0.04)]]},
 }
 ## Its cape, worn with any gear or none (the user's word, 2026-10-14: the
 ## cape on its own): [the mannequin's piece, how much bigger, its tint].
@@ -1760,6 +2216,8 @@ func _wear_outfit() -> void:
 	var c: Array = CAPES.get(cape, [])
 	if not c.is_empty():
 		_wear_piece(String(c[0]), float(c[1]), c[2], body.find_child("Orc_Head", true, false) as MeshInstance3D, true)
+	if hair != "":
+		_wear_piece(hair, hair_size, hair_tint, body.find_child("Orc_Head", true, false) as MeshInstance3D, true)
 	var o: Dictionary = OUTFITS.get(outfit, {})
 	if o.is_empty():
 		return
@@ -1902,6 +2360,8 @@ static func _knot_act(knots: PackedVector2Array, u: float) -> float:
 
 
 func _clip_time(what: int, t: float) -> float:
+	if what == O_SKY:
+		return _sky_clip(t)
 	var knots := _tempo_knots(what)
 	if not knots.is_empty():
 		t = _knot_plain(knots, t)
@@ -1909,6 +2369,8 @@ func _clip_time(what: int, t: float) -> float:
 
 
 func _move_length(what: int) -> float:
+	if what == O_SKY:
+		return _sky_times()[4]
 	var knots := _tempo_knots(what)
 	if knots.is_empty():
 		return super(what)

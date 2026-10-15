@@ -202,10 +202,11 @@ func _orc_leap() -> void:
 	orc._leap_wait = 0.0
 	var leapt := [false]
 	var down := await _until(360, hero, start, func() -> bool:
-		if orc.act == PackBrute.LEAP:
+		# (2026-10-15: the orc's leap is its fall from the sky)
+		if orc.act == PackBrute.LEAP or orc.act == OrcFighter.O_SKY:
 			leapt[0] = true
 		return leapt[0] and hero.state == Player.State.DOWNED, orc)
-	_check("the orc leaps at him from off and fells him", down, "leapt %s, %.1f m off" % [leapt[0], orc._distance_to(hero)])
+	_check("the orc leaps at him from off (out of the sky) and fells him", down, "leapt %s, %.1f m off" % [leapt[0], orc._distance_to(hero)])
 	await _done(world)
 
 

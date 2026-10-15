@@ -98,6 +98,9 @@ func _run() -> void:
 	await _guard()
 	await _bearing()
 	await _pace()
+	await _skyfall()
+	await _kneel_death()
+	await _names()
 	await _pair()
 	await _down_and_trap()
 	await _stance()
@@ -115,7 +118,7 @@ func _size() -> void:
 	var head := sk.global_transform * sk.get_bone_global_pose(sk.find_bone("head_joint"))
 	var tall := head.origin.y - o.global_position.y
 	_check("half again as tall as a man (head ~2.7 m)", tall > 2.5 and tall < 3.0, "%.2f m" % tall)
-	_check("eight combos made by hand, its counter and its trap", o._hand_combos.size() == 10, str(o._hand_combos.size()))
+	_check("eight combos made by hand, its counter, its trap and its fetch", o._hand_combos.size() == 11, str(o._hand_combos.size()))
 	var ogre_clips: Array = []
 	for what: int in o._moves_table:
 		var clip := String((o._moves_table[what] as Array)[0])
@@ -174,9 +177,18 @@ func _throw() -> void:
 	o.close_speed = 0.0
 	o.speed = 0.0
 	await _run_for(150, func() -> bool: return _hits > 0)
-	_check("from far off a thrown axe finds him", o.throws_made >= 1 and _hits >= 1,
-			"%d throws, %d hits" % [o.throws_made, _hits])
+	# (2026-10-15, the user's word: its own blade thrown, not axes)
+	_check("from far off its thrown blade finds him", o.throws_made >= 1 and o.throw_hits >= 1 and _hits >= 1,
+			"%d throws, %d hits" % [o.throws_made, o.throw_hits])
 	_check("and only staggers him", _falls == 0, "%d falls" % _falls)
+	var hung := o._thrown != null
+	var blade_gone := o._held_blade() == null
+	var h0 := _hits
+	await _run_for(240, func() -> bool: return _hits > h0)
+	_check("the blade stops in the air at him, out of its hand", hung and blade_gone)
+	_check("it slides to its blade, takes it and cuts him with it",
+			o.fetches_made >= 1 and o._thrown == null and o._held_blade() != null and _hits > h0,
+			"%d fetches, hits %d -> %d, gap %.1f" % [o.fetches_made, h0, _hits, o._distance_to(_hero)])
 
 
 func _turns() -> void:
@@ -197,6 +209,7 @@ func _turns() -> void:
 		var near := 0
 		for o: OrcFighter in orcs:
 			if o.act != Fighter.Act.NONE and o._distance_to(_hero) < o.reach + 2.0 and o.act != PackBrute.LEAP \
+					and o.act != OrcFighter.O_SKY and o.act != OrcFighter.O_FETCH \
 					and o.act != OrcFighter.O_LUNGE and o.act != OrcFighter.O_THROW and o.act != OrcFighter.O_CRY:
 				near += 1
 		most = maxi(most, near)
@@ -361,7 +374,6 @@ func _pair() -> void:
 		elif on == 1:
 			one += 1
 	_check("a pair: mostly one at him at a time", both < one / 3 + 1, "%d frames both, %d one" % [both, one])
-	_check("the other throws its axes from off", a.throws_made + b.throws_made >= 1, "%d" % (a.throws_made + b.throws_made))
 	_check("and comes in now and then", a.joins_made + b.joins_made >= 1, "%d" % (a.joins_made + b.joins_made))
 
 
@@ -451,3 +463,67 @@ func _arms() -> void:
 			and shown.process_mode == Node.PROCESS_MODE_DISABLED)
 	_panel._preview.clear()
 
+
+## 2026-10-15 (the user's word): up 20-30 m, hanging there 2-3 s, down feet
+## first on him, the ground broken.
+func _skyfall() -> void:
+	await _arena()
+	var o := _orc(12.0)
+	o._leap_wait = 0.0
+	o.hand_combo_chance = Vector2.ZERO
+	var ground := o.global_position.y
+	var seen := [0.0, 0.0]
+	await _run_for(60 * 8, func() -> bool:
+		seen[0] = maxf(seen[0], o.global_position.y - ground)
+		if o.global_position.y - ground > 18.0:
+			seen[1] += 1.0 / 60.0
+		return o.skyfalls_made > 0 and o.act != OrcFighter.O_SKY and o._sky_landed)
+	var top: float = seen[0]
+	var high_for: float = seen[1]
+	_check("it goes up into the sky, 20-30 m", o.skyfalls_made >= 1 and top >= 20.0 and top <= 30.5, "%.1f m" % top)
+	_check("and hangs there 2-3 s", high_for >= 2.0 and high_for <= 3.6, "%.2f s above 18 m" % high_for)
+	_check("down on him: crushed, off his feet", o.sky_hits >= 1 and _falls >= 1, "%d hits, %d falls" % [o.sky_hits, _falls])
+	_check("back on the ground", absf(o.global_position.y - ground) < 0.6, "%.2f" % (o.global_position.y - ground))
+
+
+## 2026-10-15 (the user's word): no fall — down on its knees, out of reach,
+## then it breaks into shards out of its own body.
+func _kneel_death() -> void:
+	await _arena()
+	var o := _orc(5.0)
+	o.hand_combo_chance = Vector2.ZERO
+	await _run_for(20)
+	var head := o._skeleton.find_bone("head_joint")
+	var stood := (o._skeleton.global_transform * o._skeleton.get_bone_global_pose(head).origin).y - o.global_position.y
+	o._die()
+	await _run_for(int(60 * (o.kneel_at / o.kneel_rate + 0.3)))
+	var knelt := (o._skeleton.global_transform * o._skeleton.get_bone_global_pose(head).origin).y - o.global_position.y
+	_check("killed, it goes down on its knees, not over", knelt < stood * 0.85 and knelt > stood * 0.4,
+			"head %.2f -> %.2f m" % [stood, knelt])
+	_check("and nothing bumps into it", o.collision_layer == 0)
+	var at := o.global_position
+	await _run_for(int(60 * (o.kneel_for - o.kneel_at / o.kneel_rate)) + 6)
+	var shards: Node3D = null
+	for n in _world.find_children("DeathShatter*", "Node3D", true, false):
+		shards = n
+	var gone := not is_instance_valid(o) or not o.body.visible
+	var from := -1.0
+	if shards != null:
+		for p in shards.find_children("*", "GPUParticles3D", true, false):
+			from = Vector2((p as Node3D).global_position.x - at.x, (p as Node3D).global_position.z - at.z).length()
+	_check("then it is gone, its shards out of its body where it knelt", gone and shards != null and from >= 0.0 and from < 1.5,
+			"shards %s, %.2f m from it" % [shards != null, from])
+
+
+## 2026-10-15: what the arena's four are called.
+func _names() -> void:
+	var titles := []
+	for o: Array in ArenaPanel.ARENA_ORCS:
+		titles.append(String((o[3] as Dictionary).get("title", "")))
+	_check("two Warrior Orcs, the Orc Lord, the raider", titles == ["Warrior Orc", "Warrior Orc", "Orc Lord", "Orc Raider"],
+			str(titles))
+	var lord: Dictionary = ArenaPanel.ARENA_ORCS[2][3]
+	_check("the lord bare-headed, its great sword black", lord.get("arm_style") == "obsidian" and lord.get("hair", "") != ""
+			and not str(OrcFighter.OUTFITS[lord.get("outfit")]["pieces"]).contains("hat"))
+	_check("the warriors' swords bone", ArenaPanel.ARENA_ORCS[0][3]["arm_style"] == "bone"
+			and ArenaPanel.ARENA_ORCS[1][3]["arm_style"] == "bone")

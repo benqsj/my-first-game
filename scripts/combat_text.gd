@@ -131,7 +131,10 @@ func _tag(creature: Node3D, wanted: bool, mine: int) -> void:
 		tag.outline_render_priority = 1
 		var level := Leveling.level_of(creature)
 		var kind := Leveling.kind_of(creature)
-		tag.text = "Lv %d  %s" % [level, NAMES.get(kind, String(kind).capitalize())]
+		# a creature with a name of its own (an Orc Lord) is called by it
+		var own: Variant = creature.get(&"title")
+		var called: String = own if own is String and own != "" else NAMES.get(kind, String(kind).capitalize())
+		tag.text = "Lv %d  %s" % [level, called]
 		creature.add_child(tag)
 		tag.position = Vector3(0.0, _bar_height(creature) + 0.22, 0.0)
 		_tags[id] = tag
