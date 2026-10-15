@@ -375,8 +375,8 @@ func _rig() -> SkinnedRig:
 ## called up from F1 when wanted, or all of them with "Everyone").
 const ARENA_ORCS := [
 	# (the user's word, 2026-10-15) two Warrior Orcs, each its own combos, in
-	# bone; the Orc Lord with all of them, bare-headed, its black great sword
-	# glowing; the raider with its two blades as it was
+	# bone; the Orc Lord with all of them, bare-headed (no hair: the user did
+	# not like it), its great sword black; the raider with its two blades
 	["Warrior Orc", "res://scenes/enemies/pack/orc.tscn", Vector3(-10.0, 0.0, -12.0),
 			{"title": "Warrior Orc", "arm_right": "greatsword", "arm_style": "bone", "outfit": "Warlord",
 			"cape": "Black cape", "force_skin": 0, "combo_set": ["cleave", "power", "turn_cleave", "spin_cleave",
@@ -386,8 +386,8 @@ const ARENA_ORCS := [
 			"cape": "Crimson cape", "force_skin": 1, "combo_set": ["heavy_string", "sweep_slam", "ual_crush",
 					"ual_spin", "heavy_combo", "lunge", "counter", "trap", "frenzy"]}],
 	["Orc Lord", "res://scenes/enemies/pack/orc_chief.tscn", Vector3(3.5, 0.0, -14.0),
-			{"title": "Orc Lord", "arm_right": "greatsword", "arm_style": "obsidian", "outfit": "Lord",
-			"cape": "Black cape", "hair": "ps_hair_11", "force_skin": 0, "force_paint": 0, "combo_rest": Vector2(2.4, 3.4)}],
+			{"title": "Orc Lord", "arm_right": "greatsword", "arm_style": "black", "outfit": "Lord",
+			"cape": "Black cape", "force_skin": 0, "force_paint": 0, "combo_rest": Vector2(2.4, 3.4)}],
 	["Orc Raider", "res://scenes/enemies/pack/orc.tscn", Vector3(10.0, 0.0, -12.0),
 			{"title": "Orc Raider", "force_skin": 0, "outfit": "Rust"}],
 ]

@@ -176,19 +176,58 @@ func _throw() -> void:
 	o.chase_speed = 0.0
 	o.close_speed = 0.0
 	o.speed = 0.0
-	await _run_for(150, func() -> bool: return _hits > 0)
-	# (2026-10-15, the user's word: its own blade thrown, not axes)
+	var t := [-1.0, -1.0, 0.0]
+	var frame := [0]
+	await _run_for(150, func() -> bool:
+		frame[0] += 1
+		if o.act == OrcFighter.O_THROW and t[0] < 0.0:
+			t[0] = frame[0] / 60.0
+		if o._thrown != null and o._throw_t < o._throw_flight:
+			var axis: Vector3 = o._thrown.global_basis * o._thrown_tip_local
+			t[2] = maxf(t[2], axis.normalized().dot(o._thrown_dir))
+		return _hits > 0)
+	# (2026-10-15, the user's word: its own blade thrown, straight, a trail)
 	_check("from far off its thrown blade finds him", o.throws_made >= 1 and o.throw_hits >= 1 and _hits >= 1,
 			"%d throws, %d hits" % [o.throws_made, o.throw_hits])
+	_check("point first, like a spear", t[2] > 0.9, "%.2f" % t[2])
 	_check("and only staggers him", _falls == 0, "%d falls" % _falls)
-	var hung := o._thrown != null
 	var blade_gone := o._held_blade() == null
 	var h0 := _hits
-	await _run_for(240, func() -> bool: return _hits > h0)
-	_check("the blade stops in the air at him, out of its hand", hung and blade_gone)
-	_check("it slides to its blade, takes it and cuts him with it",
-			o.fetches_made >= 1 and o._thrown == null and o._held_blade() != null and _hits > h0,
-			"%d fetches, hits %d -> %d, gap %.1f" % [o.fetches_made, h0, _hits, o._distance_to(_hero)])
+	await _run_for(240, func() -> bool:
+		frame[0] += 1
+		if o._thrown == null and t[1] < 0.0 and o.fetches_made > 0:
+			t[1] = frame[0] / 60.0
+		return _hits > h0)
+	_check("the blade out of its hand, then back in it", blade_gone and o._held_blade() != null)
+	_check("it is at its blade within a second of the throw", t[1] > 0.0 and t[1] - t[0] < 1.0,
+			"%.2f s" % (t[1] - t[0]))
+	_check("it spins through him with it", o.fetches_made >= 1 and _hits > h0
+			and o.hand_combos_made.has(o._combo_named(OrcFighter.FETCH_COMBO)),
+			"%d fetches, hits %d -> %d" % [o.fetches_made, h0, _hits])
+	# him gone further than `fetch_reach` from the blade: the spin misses
+	await _arena()
+	o = _orc(12.0)
+	o._throw_wait = 0.0
+	o.hand_combo_chance = Vector2.ZERO
+	o.attack_cooldown = Vector2(9.0, 9.0)
+	o.chase_speed = 0.0
+	o.close_speed = 0.0
+	o.speed = 0.0
+	var gone := false
+	var spot := _hero.global_position
+	for f in 300:
+		await physics_frame
+		if o._thrown != null and not gone:
+			gone = true
+			var side := (o.global_position - spot).cross(Vector3.UP).normalized()
+			spot += side * 7.5
+		if not gone:
+			spot = _hero.global_position
+		if _hero.state != Player.State.DOWNED:
+			_hero.global_position = Vector3(spot.x, _hero.global_position.y, spot.z)
+	var spun := o._spin_serial >= 0
+	_check("further than 5 m from its blade, its spin cannot reach him", spun and o.throw_hits == 0 and _hits == 0,
+			"spun %s, hits %d" % [spun, _hits])
 
 
 func _turns() -> void:
@@ -472,18 +511,25 @@ func _skyfall() -> void:
 	o._leap_wait = 0.0
 	o.hand_combo_chance = Vector2.ZERO
 	var ground := o.global_position.y
-	var seen := [0.0, 0.0]
+	var seen := [0.0, 0.0, 0.0, false]
 	await _run_for(60 * 8, func() -> bool:
-		seen[0] = maxf(seen[0], o.global_position.y - ground)
-		if o.global_position.y - ground > 18.0:
+		var up := o.global_position.y - ground
+		if up > seen[0]:
+			seen[0] = up
+			seen[2] = Vector2(o.global_position.x - _hero.global_position.x, o.global_position.z - _hero.global_position.z).length()
+		if up > 8.0:
 			seen[1] += 1.0 / 60.0
-		return o.skyfalls_made > 0 and o.act != OrcFighter.O_SKY and o._sky_landed)
+		if o.act == OrcFighter.O_SKYDIVE:
+			seen[3] = true
+		return seen[3] and o.act != OrcFighter.O_SKYDIVE)
 	var top: float = seen[0]
-	var high_for: float = seen[1]
-	_check("it goes up into the sky, 20-30 m", o.skyfalls_made >= 1 and top >= 20.0 and top <= 30.5, "%.1f m" % top)
-	_check("and hangs there 2-3 s", high_for >= 2.0 and high_for <= 3.6, "%.2f s above 18 m" % high_for)
-	_check("down on him: crushed, off his feet", o.sky_hits >= 1 and _falls >= 1, "%d hits, %d falls" % [o.sky_hits, _falls])
-	_check("back on the ground", absf(o.global_position.y - ground) < 0.6, "%.2f" % (o.global_position.y - ground))
+	_check("it goes up high", o.skyfalls_made >= 1 and top >= 10.0 and top <= 16.0, "%.1f m" % top)
+	_check("out in front of him the way it came, to be seen", seen[2] >= 18.0 and seen[2] <= 30.0, "%.1f m off" % seen[2])
+	_check("and hangs there ~2 s", seen[1] >= 1.8 and seen[1] <= 3.6, "%.2f s above 8 m" % seen[1])
+	_check("down blade first on him: crushed, off his feet", o.sky_hits >= 1 and _falls >= 1,
+			"%d hits, %d falls" % [o.sky_hits, _falls])
+	_check("back on the ground, upright", absf(o.global_position.y - ground) < 0.6 and not o._sky_tilted,
+			"%.2f" % (o.global_position.y - ground))
 
 
 ## 2026-10-15 (the user's word): no fall — down on its knees, out of reach,
@@ -523,7 +569,7 @@ func _names() -> void:
 	_check("two Warrior Orcs, the Orc Lord, the raider", titles == ["Warrior Orc", "Warrior Orc", "Orc Lord", "Orc Raider"],
 			str(titles))
 	var lord: Dictionary = ArenaPanel.ARENA_ORCS[2][3]
-	_check("the lord bare-headed, its great sword black", lord.get("arm_style") == "obsidian" and lord.get("hair", "") != ""
+	_check("the lord bare-headed, its great sword black", lord.get("arm_style") == "black" and lord.get("hair", "") == ""
 			and not str(OrcFighter.OUTFITS[lord.get("outfit")]["pieces"]).contains("hat"))
 	_check("the warriors' swords bone", ArenaPanel.ARENA_ORCS[0][3]["arm_style"] == "bone"
 			and ArenaPanel.ARENA_ORCS[1][3]["arm_style"] == "bone")
