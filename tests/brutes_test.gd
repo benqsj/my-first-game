@@ -105,6 +105,7 @@ func _run() -> void:
 	await _troll_feral()
 	await _golem_fortress()
 	await _golem_rhythm()
+	await _golem_round3()
 	await _reform(GOLEM, "the golem")
 	await _reform(SKELETON, "a skeleton")
 	print("brutes_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
@@ -590,7 +591,7 @@ func _golem_rhythm() -> void:
 	_check("the golem has many blows of its own", clips.size() >= 14, "%d clips" % clips.size())
 	var quick := golem._blow_moments(GolemFighter.G_SWAT)[0]
 	var slow := golem._blow_moments(GolemFighter.G_HAMMER)[0]
-	_check("quick blows and slow ones", quick < 0.55 and slow > 1.3, "swat %.2f s, hammer %.2f s" % [quick, slow])
+	_check("quick blows and slow ones", quick < 0.55 and slow > 0.75, "swat %.2f s, hammer %.2f s" % [quick, slow])
 	var rs: Array = (golem._hand_combos[golem._combo_index(&"rockslide")] as Dictionary)["moves"]
 	var t := 0.0
 	var gaps := []
@@ -693,4 +694,172 @@ func _golem_rhythm() -> void:
 	for i in made:
 		names.append(String((golem._hand_combos[i] as Dictionary)["name"]))
 	_check("its combos varied", kinds.size() >= 3 and most < 3, ", ".join(names))
+	await _done(world)
+
+
+## Round 3 (the user's list): thorns where its fists come down, all round and
+## far out; its kick's line of them; its fist thrown, him dragged back and the
+## combo on him (a roll slips it); the thorn field; quick leaps; the maul.
+func _golem_round3() -> void:
+	var a: Array = await _arena()
+	var world: World = a[0]
+	var hero: Player = a[2]
+	var start := hero.global_position
+	hero.max_health = 1000000.0
+	hero.health = hero.max_health
+	var golem := (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 3.0)) as GolemFighter
+	var leap := golem._blow_moments(GolemFighter.G_QUAKE)[0]
+	var slam := golem._blow_moments(GolemFighter.G_SLAM)[0]
+	_check("its leap and its fists down are quick now, still seen coming", leap < 1.6 and slam < 1.0 and slam > 0.45, "leap %.2f s, slam %.2f s" % [leap, slam])
+	for i in 20:
+		await physics_frame
+	# thorns all round where its fists come down: him 3.5 m off is caught
+	var before := golem.bursts_hurt
+	hero.global_position = golem.global_position + golem._forward() * (1.6 + 3.2)
+	start = hero.global_position
+	golem._break_ground(false)
+	for i in 40:
+		await physics_frame
+		_hold(hero, start)
+	var spikes := world.find_children("*", "GroundFx", true, false).size()
+	_check("thorns burst up all round where its fists come down, out past 4 m", golem.bursts_hurt > before
+			and golem.burst_radius >= 4.5, "%d hurt, %d thorn bursts" % [golem.bursts_hurt - before, spikes])
+	await _done(world)
+	# its kick: a line of thorns from its foot
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	start = hero.global_position
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 3.0)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem._rouse(hero)
+	golem._face(hero.global_position - golem.global_position, 1.0, 50.0)
+	golem._begin(GolemFighter.G_KICK)
+	var ran := false
+	for i in 90:
+		await physics_frame
+		_hold(hero, start)
+		ran = ran or golem._runs.size() > 0
+	_check("its kick runs thorns out from its foot", ran)
+	await _done(world)
+	# its fist thrown: caught, dragged back, the combo on him
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	hero.max_health = 1000000.0
+	hero.health = hero.max_health
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 12.0)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem._rouse(hero)
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	golem._far_wait = 999.0
+	golem._field_wait = 999.0
+	golem._fist_wait = 0.0
+	var held := false
+	var least := 99.0
+	var combo := false
+	for i in 400:
+		await physics_frame
+		held = held or hero._held_by == golem
+		least = minf(least, golem._distance_to(hero))
+		if golem._hand_combo >= 0 and StringName((golem._hand_combos[golem._hand_combo] as Dictionary)["name"]) == &"reel_in":
+			combo = true
+			break
+	_check("its fist flies at him, catches him, drags him back and the combo is on him",
+			golem.fists_thrown >= 1 and held and least < 4.0 and combo,
+			"thrown %d, held %s, closest %.1f m, combo %s" % [golem.fists_thrown, held, least, combo])
+	await _done(world)
+	# a roll slips it
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	start = hero.global_position
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 12.0)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem._rouse(hero)
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	golem._far_wait = 999.0
+	golem._field_wait = 999.0
+	golem._fist_wait = 0.0
+	for i in 200:
+		await physics_frame
+		_hold(hero, start)
+		hero.state = Player.State.DODGING
+		hero.is_invulnerable = true
+	hero.is_invulnerable = false
+	hero.state = Player.State.GROUNDED
+	_check("a roll slips its fist", golem.fists_thrown >= 1 and golem.fists_caught == 0)
+	await _done(world)
+	# the thorn field under him
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	start = hero.global_position
+	hero.max_health = 1000000.0
+	hero.health = hero.max_health
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 8.0)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem._rouse(hero)
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	golem._far_wait = 999.0
+	golem._fist_wait = 999.0
+	golem._field_wait = 0.0
+	var hurt0 := golem.bursts_hurt
+	for i in 300:
+		await physics_frame
+		_hold(hero, start)
+		hero.health = hero.max_health
+	_check("the ground under him glows and bursts, following him", golem.fields_cast >= 1 and golem.bursts_hurt > hurt0,
+			"%d cast, %d hurt" % [golem.fields_cast, golem.bursts_hurt - hurt0])
+	await _done(world)
+	# risen again, it fights with a maul
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	start = hero.global_position
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 6.0)) as GolemFighter
+	for i in 20:
+		await physics_frame
+	golem.sight_range = 0.0
+	golem.health = 1.0
+	golem._receive(50.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	for i in int((golem.reform_after + golem.reform_time) * 60.0) + 260:
+		await physics_frame
+		_hold(hero, start)
+	var maul := golem.find_child("GolemMaul", true, false)
+	var names := []
+	for c: Dictionary in golem._hand_combos:
+		names.append(String(c["name"]))
+	_check("risen again, the stone flies into its hand: a maul, and the maul's strings", golem.armed and maul != null
+			and golem._grip_learnt and names.has("maul_crush") and golem.idle_clip == &"CR_HeavyIdle",
+			"armed %s, maul %s, grip %s, %s" % [golem.armed, maul != null, golem._grip_learnt, str(names)])
+	# and its maul's blows land
+	hero.max_health = 1000000.0
+	hero.health = hero.max_health
+	hero.global_position = golem.global_position + golem._forward() * 3.0
+	start = hero.global_position
+	golem.sight_range = 14.0
+	golem._rouse(hero)
+	golem._spikes_wait = 999.0
+	golem._wall_wait = 999.0
+	golem._far_wait = 999.0
+	golem._field_wait = 999.0
+	var struck := [0]
+	hero.struck.connect(func(_d: float, _b: bool) -> void: struck[0] += 1)
+	var swung := {}
+	for i in 60 * 14:
+		await physics_frame
+		_hold(hero, start)
+		hero.health = hero.max_health
+		if golem.act in GolemFighter.WEAPON_MOVES:
+			swung[golem.act] = true
+	_check("its maul's blows land on him", swung.size() >= 2 and struck[0] >= 3,
+			"%d of its maul's moves, struck %d" % [swung.size(), struck[0]])
 	await _done(world)

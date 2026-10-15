@@ -44,6 +44,21 @@ extends PackBrute
 ## * its shell bursting it stands dazed (`CR_Stun`), and as its stone closes
 ##   again it flexes it back on (`CR_PowerUp`, a glow);
 ## * its combos picked away from the last two it made.
+##
+## **Round 3** (2026-10-15, the user's list):
+## * its leaps and its fists into the ground quick again (no long glow);
+## * thorns, not rocks, where its fists come down, all round and far out
+##   ([method GroundFx.spike_burst], `burst_radius`), hurting who stands in
+##   them (`burst_share`); its kick runs a line of them out from its foot;
+## * **its fist thrown** (`fist_from`–`fist_to` m): the fist flies off its arm
+##   on a glowing tether, catches him ([Player] `grab_by`, a roll's untouchable
+##   frames slip it), drags him back to it and the combo is on him at once;
+## * **thorn field**: the ground under him glows, then bursts — three times,
+##   following him;
+## * more combos ("quarry", "landslide", "reel_in");
+## * **its maul**: risen again after it fell to pieces, the stone of the
+##   ground flies into its hand as a great maul and it fights with that —
+##   its own two-handed strings (`_arm_maul`).
 
 @export_group("Steady")
 ## Damage (before its defence) that staggers it by itself.
@@ -89,16 +104,43 @@ extends PackBrute
 @export var ram_speed: float = 13.0
 ## The slide is over the last this many seconds before its blow.
 @export var ram_burst: float = 0.55
+@export_group("Thorns")
+## Where its fists come down: thorns out to this far all round (big blows
+## `burst_big`), rising outward at `burst_pace` m/s; standing in them (and
+## not under its fist itself) costs `burst_share` of a blow.
+@export var burst_radius: float = 4.6
+@export var burst_big: float = 7.0
+@export var burst_pace: float = 14.0
+@export var burst_share: float = 0.45
+## Its kick: a line of thorns out from its foot.
+@export var kick_spikes: float = 7.0
+@export_group("Fist")
+## Him `fist_from`–`fist_to` m off: its fist thrown at him, flying at
+## `fist_speed` out to `fist_range`, back at `fist_back` m/s.
+@export var fist_from: float = 6.0
+@export var fist_to: float = 17.0
+@export var fist_cooldown: Vector2 = Vector2(10.0, 14.0)
+@export var fist_speed: float = 30.0
+@export var fist_back: float = 22.0
+@export var fist_range: float = 19.0
+@export_group("Thorn field")
+## Him `field_from`–`field_to` m off: the ground under him three times.
+@export var field_from: float = 3.0
+@export var field_to: float = 14.0
+@export var field_cooldown: Vector2 = Vector2(12.0, 16.0)
+@export var field_tell: float = 0.65
+@export var field_radius: float = 2.6
+@export var field_share: float = 0.7
 @export_group("Spikes")
 @export var spikes_clip: StringName = &"CR_GroundPound"
-@export var spikes_part: Vector3 = Vector3(0.9, 0.0, 0.92)
+@export var spikes_part: Vector3 = Vector3(1.25, 0.0, 0.92)
 @export var spikes_from: float = 3.5
 @export var spikes_to: float = 13.0
 @export var spikes_length: float = 14.0
 @export var spikes_pace: float = 11.0
 @export var spikes_size: float = 1.1
 @export var spikes_share: float = 0.9
-@export var spikes_cooldown: Vector2 = Vector2(6.0, 9.0)
+@export var spikes_cooldown: Vector2 = Vector2(9.0, 13.0)
 
 const SPIKES := 118
 const WALL := 117
@@ -125,16 +167,32 @@ const G_RAM := 200
 ## Not blows: dazed as its shell bursts, flexing it back on.
 const G_DAZE := 201
 const G_ARMOUR := 202
+## Round 3: the fist thrown, the thorn field.
+const G_FIST := 203
+const G_FIELD := 204
+## Round 3, with its maul (risen again).
+const W_H1 := 210
+const W_H2 := 211
+const W_H3 := 212
+const W_H4 := 213
+const W_COMBO := 214
+const W_LOW := 215
+const W_HIGH := 216
+const W_SPIN := 217
+const WEAPON_MOVES := [W_H1, W_H2, W_H3, W_H4, W_COMBO, W_LOW, W_HIGH, W_SPIN]
 ## Its moves that break the ground where they land (the big ones).
-const GROUND_MOVES := [G_SLAM, G_QUAKE, G_SWEEP2, G_HAMMER, G_LEAPHAM, G_LOW]
-const BIG_GROUND := [G_QUAKE, G_LEAPHAM]
-## Its paces.
-const SLOW_MOVES := [G_SLAM, G_QUAKE, G_HAMMER, G_LEAPHAM]
-const MID_MOVES := [G_BASH, G_BASH2, G_SWEEP, G_SWEEP2, G_SIDE, G_LOW]
+const GROUND_MOVES := [G_SLAM, G_QUAKE, G_SWEEP2, G_HAMMER, G_LEAPHAM, G_LOW, W_H2, W_H4, W_LOW]
+const BIG_GROUND := [G_QUAKE, G_LEAPHAM, W_H4]
+## Its paces (the leaps quick: round 3).
+const SLOW_MOVES := [G_SLAM, G_HAMMER, W_H2]
+const MID_MOVES := [G_BASH, G_BASH2, G_SWEEP, G_SWEEP2, G_SIDE, G_LOW, W_LOW, W_HIGH]
 const QUICK_MOVES := [G_SWAT, G_SWAT_L, G_CHOP, G_KICK, G_SHOVE, G_RAM]
 const COUNTER_COMBO := &"counter"
 const QUAKE_COMBO := &"quake"
 const RAM_COMBO := &"ram_far"
+const REEL_COMBO := &"reel_in"
+## The fist's flight.
+enum Fist { NONE, OUT, BACK, HOLDING }
 const BOTH := "L_elbow_joint>L_midFinger_joint3:0.2|R_elbow_joint>R_midFinger_joint3:0.2"
 const SHOULDERS := "L_shoulder_joint>L_elbow_joint:0.32|R_shoulder_joint>R_elbow_joint:0.32"
 const RIGHT := "R_elbow_joint>R_midFinger_joint3:0.24"
@@ -175,6 +233,33 @@ var rams_made: int = 0
 var dazes: int = 0
 var armours: int = 0
 var _was_open: bool = false
+## Round 3. Host: the fist's and the field's waits, the thorn bursts and the
+## field's spots hurting; every peer: the fist where it is, its looks; armed.
+var _fist_wait: float = 6.0
+var _field_wait: float = 8.0
+var _fist_at: float = 0.6
+var _fist_thrown: bool = false
+var _fist_state: int = Fist.NONE
+var _fist_pos: Vector3 = Vector3.ZERO
+var _fist_dir: Vector3 = Vector3.FORWARD
+var _fist_went: float = 0.0
+var _fist_held: Node3D = null
+var _fist_mesh: Node3D
+var _tether: MeshInstance3D
+var _hide_hand: BoneHide
+var _field_at: float = 0.9
+var _fielded: bool = false
+var _fields: Array[Dictionary] = []
+var _bursts: Array[Dictionary] = []
+var fists_thrown: int = 0
+var fists_caught: int = 0
+var fields_cast: int = 0
+var bursts_hurt: int = 0
+var armed: bool = false
+var _maul: Node3D
+var _grip_local: Vector3 = Vector3.ZERO
+var _grip_learnt: bool = false
+var _kick_serial: int = -1
 
 
 func _ready() -> void:
@@ -185,6 +270,12 @@ func _ready() -> void:
 	attack_limbs = PackedStringArray([RIGHT, LEFT, KICK_LEG])
 	attack_blows = PackedInt32Array([1, 1, 1])
 	attack_clip = &"CR_ShieldBash"
+	# its maul's stance and walk, for when it has one (round 3)
+	var loops := Array(loop_clips)
+	for c in ["CR_HeavyIdle", "CR_HeavyWalk", "CR_HeavyBack", "CR_HeavyL", "CR_HeavyR"]:
+		if not loops.has(c):
+			loops.append(c)
+	loop_clips = PackedStringArray(loops)
 	# it never runs
 	run_clip = &""
 	chase_speed = minf(chase_speed, 2.6)
@@ -196,6 +287,23 @@ func _ready() -> void:
 	_special(G_DAZE, &"CR_Stun", Vector3(1.0, 0.0, 0.92))
 	_special(G_ARMOUR, &"CR_PowerUp", Vector3(1.5, 0.05, 0.6))
 	_far_wait = _rng.randf_range(3.0, far_cooldown.x)
+	_special(G_FIST, &"CR_MG_Throw", Vector3(1.3, 0.0, 0.9))
+	_special(G_FIELD, &"CR_MG_Ground", Vector3(1.6, 0.0, 0.8))
+	_fist_wait = _rng.randf_range(4.0, fist_cooldown.x)
+	_field_wait = _rng.randf_range(6.0, field_cooldown.x)
+	if _anim != null:
+		var best := -1.0
+		for pk in _anim.measure_peaks(&"CR_MG_Throw", PackedStringArray(["R_wrist_joint"]), 0.5, 0.08):
+			if pk > 0.2 and pk < 0.85 and best < 0.0:
+				best = pk
+		if best < 0.0:
+			best = 0.5
+		_fist_at = best * _anim.clip_length(&"CR_MG_Throw") / 1.3
+		_field_at = 0.5 * _anim.clip_length(&"CR_MG_Ground") / 1.6
+	if _skeleton != null:
+		_hide_hand = BoneHide.new()
+		_hide_hand.bone_name = "R_wrist_joint"
+		_skeleton.add_child(_hide_hand)
 	if _anim != null:
 		_wall_at = _anim.clip_length(&"CR_MG_Raise") * 0.55
 	_wall_wait = _rng.randf_range(5.0, wall_cooldown.x)
@@ -299,15 +407,15 @@ func parried(_by: Node3D) -> void:
 func _set_combos() -> void:
 	hand_pace = 1.0
 	hand_combo_chance = Vector2(0.7, 0.8)
-	_hand_move(G_SLAM, &"CR_GroundPound", Vector3(0.9, 0.0, 0.92), 1.5, BOTH)
+	_hand_move(G_SLAM, &"CR_GroundPound", Vector3(1.2, 0.0, 0.92), 1.5, BOTH)
 	_hand_move(G_BASH, &"CR_ShieldBash", Vector3(0.85, 0.0, 0.9), 0.8, SHOULDERS)
 	_hand_move(G_BASH2, &"CR_ShieldBash2", Vector3(0.85, 0.0, 0.9), 0.9, SHOULDERS)
 	_hand_move(G_SWEEP, &"CR_Staff1", Vector3(0.85, 0.0, 0.9), 0.9, BOTH)
 	_hand_move(G_SWEEP2, &"CR_Staff2", Vector3(0.85, 0.0, 0.9), 1.0, BOTH)
-	_hand_move(G_QUAKE, &"CR_RunJumpSlam", Vector3(0.9, 0.0, 0.92), 1.6, BOTH)
+	_hand_move(G_QUAKE, &"CR_RunJumpSlam", Vector3(1.55, 0.0, 0.92), 1.6, BOTH)
 	# round 2
-	_hand_move(G_HAMMER, &"CR_Heavy2", Vector3(0.9, 0.0, 0.88), 1.5, BOTH)
-	_hand_move(G_LEAPHAM, &"CR_Heavy4", Vector3(0.95, 0.0, 0.9), 1.5, BOTH)
+	_hand_move(G_HAMMER, &"CR_Heavy2", Vector3(1.05, 0.0, 0.88), 1.5, BOTH)
+	_hand_move(G_LEAPHAM, &"CR_Heavy4", Vector3(1.35, 0.0, 0.9), 1.5, BOTH)
 	_hand_move(G_LOW, &"CR_HeavyA", Vector3(0.95, 0.0, 0.92), 1.1, BOTH)
 	_hand_move(G_SIDE, &"CR_Heavy3", Vector3(0.95, 0.0, 0.88), 1.0, BOTH)
 	_hand_move(G_CHOP, &"CR_Heavy1", Vector3(1.35, 0.0, 0.8), 0.6, BOTH)
@@ -318,13 +426,17 @@ func _set_combos() -> void:
 	# (a long lunge, shoulder first: its blow late enough to slide the gap)
 	_hand_move(G_RAM, &"CR_Polearm4", Vector3(1.0, 0.0, 0.8), 1.1, BOTH + "|" + RAMMED)
 	for what: int in SLOW_MOVES:
-		# slow up (and glowing), then all of it at once
-		_windups[what] = [1.9, 0.22]
-		_snap[what] = 1.4
+		# up (and glowing), then all of it at once — not long (round 3)
+		_windups[what] = [1.3, 0.2]
+		_snap[what] = 1.5
 	for what: int in QUICK_MOVES:
 		# quick, but not past seeing: its wind-up at least so long
 		_slow_to[what] = 0.42
-	_windups[G_HAMMER] = [2.3, 0.22]
+	_windups[G_HAMMER] = [1.5, 0.2]
+	# quick, but its fists down seen coming (their clips strike early)
+	_windups.erase(G_SLAM)
+	_slow_to[G_SLAM] = 0.55
+	_slow_to[G_LEAPHAM] = 0.6
 	# the ram: its lunge drawn out over the slide, so it covers the gap
 	_slow_to[G_RAM] = 0.85
 	for what: int in MID_MOVES:
@@ -350,7 +462,12 @@ func _set_combos() -> void:
 		{"name": COUNTER_COMBO, "moves": [G_SHOVE, G_SWAT, G_SWAT_L], "fells": [2], "weight": 0.0, "far": true},
 		{"name": QUAKE_COMBO, "moves": [G_QUAKE], "fells": [0], "weight": 1.0, "far": true},
 		{"name": RAM_COMBO, "moves": [G_RAM, G_SWAT_L, G_CHOP], "fells": [2], "weight": 1.0, "far": true},
+		# round 3
+		{"name": &"quarry", "moves": [G_CHOP, G_KICK, G_SLAM], "fells": [2], "weight": 0.9},
+		{"name": &"landslide", "moves": [G_SWAT, G_SIDE, G_LOW], "fells": [2], "weight": 0.9},
+		{"name": REEL_COMBO, "moves": [G_SWAT_L, G_CHOP, G_HAMMER], "fells": [2], "weight": 0.0, "far": true},
 	]
+	_maul_moves()
 
 
 func _combo_index(name: StringName) -> int:
@@ -365,7 +482,16 @@ func _own_move(delta: float) -> bool:
 	_wall_wait = maxf(_wall_wait - delta, 0.0)
 	_counter_wait = maxf(_counter_wait - delta, 0.0)
 	_far_wait = maxf(_far_wait - delta, 0.0)
+	_fist_wait = maxf(_fist_wait - delta, 0.0)
+	_field_wait = maxf(_field_wait - delta, 0.0)
 	var gap := _distance_to(_quarry)
+	# its fist away: it stands and waits for it, turned to him
+	if _fist_state != Fist.NONE:
+		mode = Mode.FIGHT
+		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
+		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
+		_face(_quarry.global_position - global_position, delta, turn_speed)
+		return true
 	# pressed, it answers at once
 	if _counter_wait <= 0.0 and gap <= counter_reach and not _quarry_down() and drill_combo < 0:
 		var recent := 0
@@ -380,6 +506,24 @@ func _own_move(delta: float) -> bool:
 				_counter_wait = _rng.randf_range(counter_cooldown.x, counter_cooldown.y)
 				start_hand_combo(c)
 				return true
+	# its fist thrown at him from off (not with the maul in its hands)
+	if not armed and _fist_wait <= 0.0 and gap >= fist_from and gap <= fist_to and not _quarry_down() \
+			and stamina >= attack_cost and drill_combo < 0 and _quarry is Player:
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_fist_thrown = false
+		_fist_wait = _rng.randf_range(fist_cooldown.x, fist_cooldown.y)
+		_begin(G_FIST)
+		return true
+	# the ground under him, three times
+	if _field_wait <= 0.0 and gap >= field_from and gap <= field_to and not _quarry_down() \
+			and stamina >= attack_cost and drill_combo < 0:
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_fielded = false
+		_field_wait = _rng.randf_range(field_cooldown.x, field_cooldown.y)
+		_begin(G_FIELD)
+		return true
 	# from off, now and then: the ram or the leap down on him
 	if _far_wait <= 0.0 and gap >= far_from and gap <= far_to and not _quarry_down() \
 			and stamina >= attack_cost and drill_combo < 0:
@@ -426,6 +570,21 @@ func _run_act(delta: float) -> void:
 				v = _forward() * minf(off / left, ram_speed)
 			velocity.x = v.x
 			velocity.z = v.z
+	if act == G_FIST:
+		if _quarry != null and _act_time < _fist_at:
+			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
+		if not _fist_thrown and _act_time >= _fist_at:
+			_fist_thrown = true
+			_throw_fist()
+	if act == G_FIELD:
+		if _quarry != null and _act_time < _field_at:
+			_face(_quarry.global_position - global_position, delta, turn_speed)
+		if not _fielded and _act_time >= _field_at:
+			_fielded = true
+			fields_cast += 1
+			for k in 3:
+				_fields.append({"t": -0.62 * float(k), "marked": false, "at": Vector3.ZERO,
+						"id": act_serial * 1000 + 300 + k})
 	if act == WALL and not _walled and _act_time >= _wall_at:
 		_walled = true
 		_raise_walls()
@@ -450,18 +609,20 @@ func _after(what: int) -> void:
 
 
 ## Host: a run of spikes from `from` along `way`, seen everywhere.
-func _spike_run(from: Vector3, way: Vector3) -> void:
-	_runs.append({"from": from, "dir": way, "t": 0.0, "caught": {}, "id": act_serial * 1000 + 95})
+func _spike_run(from: Vector3, way: Vector3, length: float = -1.0) -> void:
+	if length <= 0.0:
+		length = spikes_length
+	_runs.append({"from": from, "dir": way, "t": 0.0, "caught": {}, "id": act_serial * 1000 + 95, "length": length})
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
-		net_spikes.rpc(from, way)
+		net_spikes.rpc(from, way, length)
 	else:
-		net_spikes(from, way)
+		net_spikes(from, way, length)
 
 
 @rpc("authority", "call_local", "reliable")
-func net_spikes(from: Vector3, way: Vector3) -> void:
+func net_spikes(from: Vector3, way: Vector3, length: float = 14.0) -> void:
 	var world := Blood.world_of(self)
-	GroundFx.shards(world, from, way, spikes_length, spikes_size, spikes_pace, reform_glow)
+	GroundFx.shards(world, from, way, length, spikes_size, spikes_pace, reform_glow)
 	GroundFx.eruption(world, from, 0.8, false)
 	ImpactFx.thud(self, from, true)
 
@@ -492,6 +653,10 @@ func _physics_process(delta: float) -> void:
 				net_harden.rpc(hard)
 			else:
 				net_harden(hard)
+	if _decides() and not is_dead:
+		_fly_fist(delta)
+		_run_fields(delta)
+		_run_bursts(delta)
 	if _runs.is_empty() or not _decides():
 		return
 	for i in range(_runs.size() - 1, -1, -1):
@@ -510,14 +675,14 @@ func _physics_process(delta: float) -> void:
 				continue
 			var d := rel.dot(ahead)
 			# Under him as that row comes up (a moment after the front passes).
-			if d < 0.4 or d > minf(front - 0.3, spikes_length):
+			if d < 0.4 or d > minf(front - 0.3, float(run.get("length", spikes_length))):
 				continue
 			if absf(rel.dot(side)) > GroundFx.wave_width(d, spikes_size) * 0.5 + 0.35:
 				continue
 			caught[who] = true
 			who.call(&"receive_blow", hit_damage * spikes_share * _blow_worth(SPIKES), self, 0, 1, int(run.id),
 					false, &"spike")
-		if front > spikes_length + 1.0:
+		if front > float(run.get("length", spikes_length)) + 1.0:
 			_runs.remove_at(i)
 #endregion
 
@@ -561,6 +726,18 @@ func _process(delta: float) -> void:
 		while _ground_done < ms.size() and _ground_clock >= ms[_ground_done]:
 			_ground_done += 1
 			_break_ground(act in BIG_GROUND)
+	# its kick: thorns run out from its foot (host)
+	# (not mid-string: they would put him down before its next blow)
+	if _decides() and _is_kick(act) and _kick_serial != act_serial \
+			and (_hand_combo < 0 or _hand_step >= _hand_moves.size() - 1):
+		var km := _blow_moments(act)
+		if not km.is_empty() and _ground_clock >= km[0]:
+			_kick_serial = act_serial
+			var foot := global_position + _forward() * 1.4 * visual_scale / 1.8
+			foot.y = global_position.y
+			_spike_run(foot, _forward(), kick_spikes)
+	_show_fist(delta)
+	_show_maul(delta)
 	# the ground shaking under its steps
 	var pace := Vector2(velocity.x, velocity.z).length()
 	if act == Act.NONE and pace > 0.4 and is_on_floor():
@@ -587,24 +764,65 @@ func net_armour() -> void:
 	_shell_shown = 1.0
 
 
-## Every peer: its fists into the ground — the ground breaks round them.
+## Every peer: its fists into the ground — thorns burst up all round,
+## outward (round 3: thorns, not rocks, and far out); the host hurts by the
+## same numbers ([method _run_bursts]).
 func _break_ground(quake: bool) -> void:
 	var world := Blood.world_of(self)
 	var at := global_position + _forward() * 1.6 * visual_scale / 1.8
 	at.y = global_position.y
 	var s := visual_scale / 1.8
-	RockWave.spawn(world, at, (5.0 if quake else 2.8) * s, (0.9 if quake else 0.7) * s, 15.0, act_serial * 17 + _ground_done)
+	var r := (burst_big if quake else burst_radius) * s
+	GroundFx.spike_burst(world, at, r, (1.25 if quake else 1.0) * s, burst_pace, shell_glow, act_serial * 17 + _ground_done)
 	var crack := DarkFx.decal(world, at, DarkFx.CRACK, (5.0 if quake else 3.2) * s, Color(0.09, 0.07, 0.05, 1.0), 0.0, 0.9)
 	crack.rotation.y = randf() * TAU
 	var tw := crack.create_tween()
 	tw.tween_interval(3.0)
 	tw.tween_property(crack, "modulate:a", 0.0, 2.5).set_ease(Tween.EASE_IN)
 	tw.tween_callback(crack.queue_free)
-	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.45, 0.39, 0.31, 0.65), 40, Vector2(1.5, 5.0), Vector3.UP, 80.0,
+	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.45, 0.39, 0.31, 0.65), 30, Vector2(1.5, 5.0), Vector3.UP, 80.0,
 			Vector2(0.1, 0.25), Vector3(0, -1.5, 0), 1.2)
 	Sfx.play_any(self, ["res://sounds/ogre/club_ground_1.wav", "res://sounds/ogre/club_ground_3.wav"], null, 0.7, 4.0)
 	ImpactFx.thud(self, at, true)
 	WindBlast.shake(self, 0.16 if quake else 0.1, 0.45, 18.0)
+	if _decides():
+		_bursts.append({"at": at, "r": r, "t": 0.0, "caught": {}, "id": act_serial * 1000 + 200 + _ground_done})
+
+
+## Host: who stands in a burst's thorns as they reach him (on the ground; not
+## right under its fist, which its blow itself has).
+func _run_bursts(delta: float) -> void:
+	for i in range(_bursts.size() - 1, -1, -1):
+		var b := _bursts[i]
+		b.t = float(b.t) + delta
+		var front := float(b.t) * burst_pace
+		var caught: Dictionary = b.caught
+		for node in get_tree().get_nodes_in_group(&"player"):
+			var who := node as Node3D
+			if who == null or caught.has(who) or not who.has_method(&"receive_blow") or bool(who.get("is_dead")):
+				continue
+			var rel := who.global_position - (b.at as Vector3)
+			if absf(rel.y) > 0.9:
+				continue
+			rel.y = 0.0
+			var d := rel.length()
+			if d < 1.5 or d > float(b.r) or d > front - 0.2:
+				continue
+			caught[who] = true
+			bursts_hurt += 1
+			who.call(&"receive_blow", hit_damage * burst_share, self, 0, 1, int(b.id), false, &"spike")
+		if front > float(b.r) + 1.0:
+			_bursts.remove_at(i)
+
+
+func _is_kick(what: int) -> bool:
+	if what == G_KICK:
+		return true
+	if what == Act.NONE or not _moves_table.has(what):
+		return false
+	if (_moves_table[what] as Array)[0] == &"CR_Kick":
+		return true
+	return false
 
 
 ## Every peer: its cracks glowing as its stone hardens; dark when open.
@@ -686,4 +904,450 @@ func net_walls(spots: PackedVector3Array, centre: Vector3) -> void:
 		tw.tween_callback(wall.queue_free)
 		SkillFx.burst(world, at + Vector3.UP * 0.3, Color(0.45, 0.39, 0.31, 0.65), 18, Vector2(1.0, 4.0), Vector3.UP, 70.0,
 				Vector2(0.1, 0.22), Vector3(0, -2.0, 0), 1.0)
+#endregion
+
+
+#region Round 3: the fist thrown
+## Host: its fist off its arm at him, aimed at where he will be.
+func _throw_fist() -> void:
+	if _quarry == null:
+		return
+	fists_thrown += 1
+	var from := _palm()
+	var aim := _quarry.global_position + Vector3.UP * 1.2
+	if _quarry is CharacterBody3D:
+		var v := (_quarry as CharacterBody3D).velocity
+		aim += Vector3(v.x, 0.0, v.z) * clampf(from.distance_to(aim) / fist_speed, 0.0, 0.6)
+	var dir := (aim - from).normalized()
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_fist.rpc(Fist.OUT, from, dir)
+	else:
+		net_fist(Fist.OUT, from, dir)
+
+
+## Every peer: the fist's flight begun, or turned about (`state`), from `at`.
+@rpc("authority", "call_local", "reliable")
+func net_fist(state: int, at: Vector3, dir: Vector3) -> void:
+	var was := _fist_state
+	_fist_state = state
+	_fist_pos = at
+	if state == Fist.OUT:
+		_fist_dir = dir
+		_fist_went = 0.0
+		var world := Blood.world_of(self)
+		Sfx.play_any(self, ["res://sounds/whoosh_heavy.wav"], self, 0.75, 2.0)
+		WindBlast.speed_lines(world, at, dir, 6.0, 14)
+		SkillFx.burst(world, at, shell_glow, 18, Vector2(1.0, 4.0), -dir, 50.0, Vector2(0.03, 0.06), Vector3.ZERO, 0.5)
+	elif state == Fist.HOLDING:
+		ImpactFx.strike(self, at, &"stone", 1.6)
+		SkillFx.burst(Blood.world_of(self), at, Color(0.42, 0.4, 0.38), 20, Vector2(1.5, 5.0), Vector3.UP, 180.0,
+				Vector2(0.05, 0.12), Vector3(0, -12.0, 0), 0.8)
+	elif state == Fist.NONE and was != Fist.NONE:
+		# back on its arm
+		ImpactFx.thud(self, at, false)
+		SkillFx.burst(Blood.world_of(self), at, shell_glow, 14, Vector2(0.5, 2.0), Vector3.UP, 180.0,
+				Vector2(0.03, 0.06), Vector3.ZERO, 0.4)
+
+
+## Host: the fist flying out, catching him, coming back with him or without.
+func _fly_fist(delta: float) -> void:
+	if _fist_state == Fist.NONE:
+		return
+	if _fist_state == Fist.OUT:
+		var step := fist_speed * delta
+		_fist_pos += _fist_dir * step
+		_fist_went += step
+		for node in get_tree().get_nodes_in_group(&"player"):
+			var who := node as Player
+			if who == null or who.is_dead:
+				continue
+			var chest := who.global_position + Vector3.UP * 1.1
+			if chest.distance_to(_fist_pos) > 1.25:
+				continue
+			# a roll's untouchable frames slip it
+			if who.is_evading():
+				continue
+			_fist_held = who
+			fists_caught += 1
+			who.grab_by(self, 4.0)
+			_send_fist(Fist.HOLDING)
+			return
+		var ground := global_position.y
+		if _fist_went >= fist_range or _fist_pos.y < ground + 0.3:
+			_send_fist(Fist.BACK)
+		return
+	# back to its arm (with him, to just in front of it)
+	var home := _palm()
+	var to := home - _fist_pos
+	var stop := 0.4
+	if _fist_state == Fist.HOLDING:
+		home = global_position + _forward() * 2.4 * visual_scale / 1.8 + Vector3.UP * 1.6
+		to = home - _fist_pos
+		stop = 0.3
+	var d := to.length()
+	var step := fist_back * delta
+	if d <= maxf(stop, step):
+		_fist_pos = home
+		var held := _fist_held
+		_fist_held = null
+		_send_fist(Fist.NONE)
+		if held != null and is_instance_valid(held):
+			held.release_grab()
+			# and the combo on him at once
+			var c := _combo_index(REEL_COMBO)
+			if c >= 0 and not is_dead:
+				start_hand_combo(c)
+		return
+	_fist_pos += to / d * step
+
+
+func _send_fist(state: int) -> void:
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_fist.rpc(state, _fist_pos, _fist_dir)
+	else:
+		net_fist(state, _fist_pos, _fist_dir)
+
+
+## Where its palm is (its right hand's middle finger root).
+func _palm() -> Vector3:
+	if _skeleton == null:
+		return global_position + Vector3.UP * 2.0 * visual_scale / 1.8
+	var b := _skeleton.find_bone("R_midFinger_joint1")
+	if b < 0:
+		b = _skeleton.find_bone("R_wrist_joint")
+	if b < 0:
+		return global_position + Vector3.UP * 2.0 * visual_scale / 1.8
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin
+
+
+## [Player] `grab_by`: he hangs from its flying fist (kept up off the ground).
+func grab_point() -> Vector3:
+	var at := _fist_pos if _fist_state != Fist.NONE else _palm()
+	at.y = maxf(at.y, global_position.y + 1.65)
+	return at
+
+
+## Every peer: the fist, its glowing tether to the arm, the hand gone from the arm.
+func _show_fist(delta: float) -> void:
+	if _hide_hand != null:
+		_hide_hand.shown = move_toward(_hide_hand.shown, 0.0 if _fist_state != Fist.NONE else 1.0, delta * 12.0)
+	if _fist_state == Fist.NONE:
+		if _fist_mesh != null:
+			_fist_mesh.visible = false
+			_tether.visible = false
+		return
+	if not _decides():
+		# the other peers fly it the same way
+		if _fist_state == Fist.OUT:
+			_fist_pos += _fist_dir * fist_speed * delta
+		else:
+			var home := _palm() if _fist_state == Fist.BACK else \
+					global_position + _forward() * 2.4 * visual_scale / 1.8 + Vector3.UP * 1.6
+			_fist_pos = _fist_pos.move_toward(home, fist_back * delta)
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	if _fist_mesh == null:
+		_fist_mesh = Node3D.new()
+		_fist_mesh.name = "GolemFist"
+		_fist_mesh.top_level = true
+		var rock := MeshInstance3D.new()
+		rock.mesh = RockWave._crag_mesh(1)
+		rock.material_override = RockWave._crag_material()
+		var glow := StandardMaterial3D.new()
+		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		glow.albedo_color = Color(shell_glow, 0.35)
+		glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		rock.material_overlay = glow
+		rock.scale = Vector3.ONE * 0.55 * visual_scale / 1.8
+		_fist_mesh.add_child(rock)
+		var light := OmniLight3D.new()
+		light.light_color = shell_glow
+		light.light_energy = 1.6
+		light.omni_range = 3.0
+		_fist_mesh.add_child(light)
+		add_child(_fist_mesh)
+		_tether = MeshInstance3D.new()
+		_tether.name = "GolemTether"
+		_tether.top_level = true
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.05
+		cyl.bottom_radius = 0.05
+		cyl.height = 1.0
+		cyl.radial_segments = 6
+		_tether.mesh = cyl
+		var tm := StandardMaterial3D.new()
+		tm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		tm.albedo_color = shell_glow
+		_tether.material_override = tm
+		add_child(_tether)
+	_fist_mesh.visible = true
+	_fist_mesh.global_position = _fist_pos
+	_fist_mesh.rotate_y(delta * 9.0)
+	var arm := _wrist()
+	var span := _fist_pos - arm
+	var len := span.length()
+	_tether.visible = len > 0.3
+	if len > 0.3:
+		var up := span / len
+		var side := up.cross(Vector3.UP if absf(up.y) < 0.95 else Vector3.RIGHT).normalized()
+		var basis := Basis(side, up, side.cross(up)).orthonormalized()
+		_tether.global_transform = Transform3D(basis.scaled(Vector3(1.0, len, 1.0)), arm + span * 0.5)
+	if _fist_state == Fist.OUT and Engine.get_process_frames() % 3 == 0:
+		SkillFx.burst(world, _fist_pos, shell_glow, 3, Vector2(0.2, 0.8), -_fist_dir, 40.0,
+				Vector2(0.03, 0.05), Vector3.ZERO, 0.35)
+
+
+func _wrist() -> Vector3:
+	if _skeleton == null:
+		return global_position + Vector3.UP * 2.0
+	var b := _skeleton.find_bone("R_elbow_joint")
+	var w := _skeleton.find_bone("R_wrist_joint")
+	if b < 0 or w < 0:
+		return _palm()
+	# the stump: the wrist as the arm has it (the hand shrunk away)
+	var e := _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin
+	var r := _skeleton.global_transform * _skeleton.get_bone_global_pose(w).origin
+	return e.lerp(r, 0.9)
+#endregion
+
+
+#region Round 3: the thorn field
+## Host: each spot of the field: marked under him (glowing), then bursting.
+func _run_fields(delta: float) -> void:
+	for i in range(_fields.size() - 1, -1, -1):
+		var f := _fields[i]
+		f.t = float(f.t) + delta
+		if float(f.t) < 0.0:
+			continue
+		if not bool(f.marked):
+			f.marked = true
+			var at := global_position
+			if _quarry != null and is_instance_valid(_quarry):
+				at = _quarry.global_position
+			at.y = global_position.y if absf(at.y - global_position.y) > 3.0 else at.y
+			f.at = at
+			if is_inside_tree() and multiplayer.has_multiplayer_peer():
+				net_field_mark.rpc(at)
+			else:
+				net_field_mark(at)
+			continue
+		if float(f.t) >= field_tell and not bool(f.get("burst", false)):
+			f.burst = true
+			if is_inside_tree() and multiplayer.has_multiplayer_peer():
+				net_field_burst.rpc(f.at, int(f.id))
+			else:
+				net_field_burst(f.at, int(f.id))
+			for node in get_tree().get_nodes_in_group(&"player"):
+				var who := node as Node3D
+				if who == null or not who.has_method(&"receive_blow") or bool(who.get("is_dead")):
+					continue
+				var rel := who.global_position - (f.at as Vector3)
+				if absf(rel.y) > 0.9 or Vector2(rel.x, rel.z).length() > field_radius * 0.9:
+					continue
+				bursts_hurt += 1
+				who.call(&"receive_blow", hit_damage * field_share, self, 0, 1, int(f.id), false, &"spike")
+		if float(f.t) > field_tell + 0.3:
+			_fields.remove_at(i)
+
+
+## Every peer: the ground under him glowing, cracking — a moment to get off it.
+@rpc("authority", "call_local", "reliable")
+func net_field_mark(at: Vector3) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var crack := DarkFx.decal(world, at, DarkFx.CRACK, field_radius * 1.6, Color(0.09, 0.07, 0.05, 1.0), 0.0, 0.9)
+	crack.rotation.y = randf() * TAU
+	var tw := crack.create_tween()
+	tw.tween_interval(field_tell + 1.5)
+	tw.tween_property(crack, "modulate:a", 0.0, 1.0)
+	tw.tween_callback(crack.queue_free)
+	SkillFx.light(world, at + Vector3.UP * 0.3, shell_glow, 2.2, field_radius * 1.4, field_tell + 0.2)
+	SkillFx.burst(world, at + Vector3.UP * 0.1, shell_glow, 16, Vector2(0.3, 1.6), Vector3.UP, 60.0,
+			Vector2(0.03, 0.06), Vector3(0, 1.0, 0), field_tell)
+	Sfx.play_any(self, ["res://sounds/ogre/club_ground_2.wav"], null, 0.6, -6.0)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_field_burst(at: Vector3, id: int) -> void:
+	var world := Blood.world_of(self)
+	GroundFx.spike_burst(world, at, field_radius, 1.1, 22.0, shell_glow, id)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.08, 0.3, 14.0)
+#endregion
+
+
+#region Round 3: its maul, risen again
+## Its maul's moves (every peer has them; used once it is armed).
+func _maul_moves() -> void:
+	var w := "R_wrist_joint>R_wrist_joint@0,0.9,0:0.5"
+	_hand_move(W_H1, &"CR_Heavy1", Vector3(1.2, 0.0, 0.85), 0.9, w)
+	_hand_move(W_H2, &"CR_Heavy2", Vector3(1.1, 0.0, 0.85), 1.4, w)
+	_hand_move(W_H3, &"CR_Heavy3", Vector3(1.2, 0.0, 0.85), 1.0, w)
+	_hand_move(W_H4, &"CR_Heavy4", Vector3(1.3, 0.0, 0.88), 1.5, w)
+	_hand_move(W_LOW, &"CR_LowAttack", Vector3(1.2, 0.0, 0.85), 1.0, w)
+	_hand_move(W_HIGH, &"CR_HighAttack", Vector3(1.2, 0.0, 0.85), 1.0, w)
+	_hand_move(W_SPIN, &"CR_GS_HighSpin", Vector3(1.2, 0.0, 0.85), 1.1, w)
+	var peaks: Array = []
+	if _anim != null:
+		for pk in _anim.measure_peaks(&"CR_HeavyCombo", PackedStringArray(["R_wrist_joint"]), 0.35, 0.12):
+			if pk >= 0.04 and pk <= 0.9:
+				peaks.append(pk)
+	while peaks.size() > 4:
+		peaks.remove_at(0)
+	_hand_move(W_COMBO, &"CR_HeavyCombo", Vector3(1.2, 0.0, 0.92), 0.6, w, peaks)
+	_kinds[W_H2] = &"crush"
+	_kinds[W_H4] = &"crush"
+	_windups[W_H2] = [1.3, 0.2]
+	_snap[W_H2] = 1.5
+	for what: int in [W_LOW, W_HIGH]:
+		_holds[what] = [0.35, 0.35, 0.7, 0.25]
+
+
+## Every peer: risen again, the stone of the ground flies into its hand as a
+## maul; the host gives it the maul's strings.
+func _arm_maul() -> void:
+	armed = true
+	idle_clip = &"CR_HeavyIdle"
+	guard_idle_clip = &"CR_HeavyIdle"
+	walk_clip = &"CR_HeavyWalk"
+	back_clip = &"CR_HeavyBack"
+	strafe_l_clip = &"CR_HeavyL"
+	strafe_r_clip = &"CR_HeavyR"
+	_forge_maul()
+	if not _decides():
+		return
+	hand_combo_chance = Vector2(0.85, 0.9)
+	_hand_last = -1
+	_hand_combos = [
+		{"name": &"maul_crush", "moves": [W_H1, W_H3, W_H2], "fells": [2], "weight": 1.0},
+		{"name": &"maul_storm", "moves": [W_COMBO], "fells": [0], "weight": 0.9},
+		{"name": &"maul_spin", "moves": [W_SPIN, W_H4], "fells": [1], "weight": 0.9},
+		{"name": &"maul_low", "moves": [W_LOW, W_HIGH, W_H2], "fells": [2], "weight": 0.9},
+		{"name": &"maul_quick", "moves": [W_H1, W_H3, W_H1], "fells": [2], "weight": 0.8},
+		{"name": COUNTER_COMBO, "moves": [G_SHOVE, W_H3], "fells": [1], "weight": 0.0, "far": true},
+		{"name": QUAKE_COMBO, "moves": [W_H4], "fells": [0], "weight": 1.0, "far": true},
+		{"name": RAM_COMBO, "moves": [G_RAM, W_H1, W_H2], "fells": [2], "weight": 1.0, "far": true},
+		{"name": REEL_COMBO, "moves": [W_H1, W_H2], "fells": [1], "weight": 0.0, "far": true},
+	]
+
+
+## Every peer: the maul made — chunks of the ground fly up into its hand.
+func _forge_maul() -> void:
+	var world := Blood.world_of(self)
+	if world == null or _skeleton == null:
+		return
+	var hold := BoneAttachment3D.new()
+	hold.name = "GolemMaulHold"
+	hold.bone_name = "R_wrist_joint"
+	_skeleton.add_child(hold)
+	_maul = Node3D.new()
+	_maul.name = "GolemMaul"
+	hold.add_child(_maul)
+	# (laid along its grip each frame; what is in it grows into its hand)
+	var body := Node3D.new()
+	body.name = "Body"
+	_maul.add_child(body)
+	# its own grey stone (the ground's crags are earth-brown)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.56, 0.6, 0.62)
+	mat.roughness = 1.0
+	var handle := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.07
+	cyl.bottom_radius = 0.085
+	cyl.height = 1.3
+	cyl.radial_segments = 7
+	handle.mesh = cyl
+	handle.material_override = mat
+	handle.position = Vector3(0.0, 0.2, 0.0)
+	body.add_child(handle)
+	var head := MeshInstance3D.new()
+	head.mesh = RockWave._crag_mesh(2)
+	head.material_override = mat
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.albedo_color = Color(shell_glow, 0.07)
+	head.material_overlay = glow
+	head.scale = Vector3(0.7, 0.46, 0.46)
+	head.position = Vector3(0.0, 0.92, 0.0)
+	head.rotation = Vector3(0.0, 0.0, PI * 0.5)
+	body.add_child(head)
+	# a second stone bound on it: a rough head, not a block
+	var lump := MeshInstance3D.new()
+	lump.mesh = RockWave._crag_mesh(0)
+	lump.material_override = mat
+	lump.scale = Vector3(0.42, 0.36, 0.5)
+	lump.position = Vector3(0.0, 0.98, 0.08)
+	body.add_child(lump)
+	body.scale = Vector3.ONE * 0.05
+	# the chunks flying up into its hand
+	var hand := _palm()
+	for i in 9:
+		var a := TAU * float(i) / 9.0 + randf_range(-0.2, 0.2)
+		var from := global_position + Vector3(cos(a), 0.0, sin(a)) * randf_range(1.8, 3.2)
+		var chunk := MeshInstance3D.new()
+		chunk.mesh = RockWave._crag_mesh(i % RockWave.SHAPES)
+		chunk.material_override = mat
+		chunk.scale = Vector3.ONE * randf_range(0.18, 0.3)
+		chunk.top_level = true
+		add_child(chunk)
+		chunk.global_position = from
+		var tw := chunk.create_tween()
+		tw.tween_interval(0.08 * i)
+		var fly := func(k: float) -> void:
+			var to := _palm()
+			chunk.global_position = from.lerp(to, k * k) + Vector3.UP * sin(k * PI) * 1.4
+			chunk.rotate_x(0.2)
+		tw.tween_method(fly, 0.0, 1.0, 0.75)
+		tw.tween_callback(chunk.queue_free)
+		SkillFx.burst(world, from, Color(0.45, 0.39, 0.31, 0.65), 6, Vector2(0.8, 2.5), Vector3.UP, 60.0,
+				Vector2(0.06, 0.14), Vector3(0, -6.0, 0), 0.7)
+	var grow := body.create_tween()
+	grow.tween_interval(1.45)
+	grow.tween_property(body, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	grow.tween_callback(_maul_made)
+	SkillFx.light(world, hand, shell_glow, 2.5, 5.0, 1.8)
+
+
+func _maul_made() -> void:
+	SkillFx.burst(Blood.world_of(self), _palm(), shell_glow, 30, Vector2(1.0, 4.0), Vector3.UP, 180.0,
+			Vector2(0.03, 0.07), Vector3.ZERO, 0.6)
+	ImpactFx.strike(self, _palm(), &"stone", 1.8)
+	WindBlast.shake(self, 0.1, 0.35, 16.0)
+
+
+## Every peer: the maul laid along its grip — the line from its left hand to
+## its right while both hold it (learnt in its right hand's own frame), the
+## head out past its right hand; its blows reach to the head.
+func _show_maul(_delta: float) -> void:
+	if not armed and act == REFORM and not is_dead:
+		_arm_maul()
+	if _maul == null or _skeleton == null:
+		return
+	var r := _skeleton.find_bone("R_wrist_joint")
+	var l := _skeleton.find_bone("L_wrist_joint")
+	if r < 0 or l < 0:
+		return
+	var rp := _skeleton.get_bone_global_pose(r)
+	var lp := _skeleton.get_bone_global_pose(l)
+	var span := rp.origin - lp.origin
+	if span.length() < 0.42 and span.length() > 0.05:
+		var local := (rp.basis.inverse() * span).normalized()
+		_grip_local = local if not _grip_learnt else _grip_local.slerp(local, 0.08).normalized()
+		if not _grip_learnt:
+			_grip_learnt = true
+			# its blows out to the maul's head
+			for what: int in WEAPON_MOVES:
+				for st: Array in _limbs_of.get(what, []):
+					st[2] = _grip_local * 0.92
+	if not _grip_learnt:
+		return
+	var up := _grip_local
+	var side := up.cross(Vector3.FORWARD if absf(up.z) < 0.9 else Vector3.RIGHT).normalized()
+	_maul.transform = Transform3D(Basis(side, up, side.cross(up)).orthonormalized(), Vector3.ZERO)
 #endregion

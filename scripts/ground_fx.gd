@@ -51,6 +51,8 @@ var _ahead: Vector3 = Vector3.FORWARD
 var _crumbled: bool = false
 var _length: float = 0.0
 var _glow: OmniLight3D
+## The shards thrown up all round a point ([method spike_burst]), not along a line.
+var _radial: bool = false
 
 
 ## Metres from the start the front of a wave has reached after `t` seconds.
@@ -200,6 +202,87 @@ static func shards(into: Node, from: Vector3, direction: Vector3, length: float,
 	return fx
 
 
+## The golem's blows (2026-10-15, the user's word: thorns, not rocks, and
+## further out): the shards of [method shards] bursting up all round `at`,
+## out to `radius`, ring after ring outward at `pace` m/s, scattered (no
+## clean ring), the tallest about the middle of the way out, leaning out.
+## The host hurts by the same numbers: a ring at `d` is up at `d / pace` s.
+static func spike_burst(into: Node, at: Vector3, radius: float, size: float = 1.0, pace: float = 14.0,
+		glow: Color = Color(1.0, 0.62, 0.25), seed_of: int = 0) -> GroundFx:
+	if into == null:
+		return null
+	var fx := GroundFx.new()
+	fx._kind = Kind.SHARDS
+	fx._radial = true
+	fx._base_y = at.y
+	fx._pace = pace
+	fx._from = at
+	fx._length = radius
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector3i(roundi(at.x * 10.0), roundi(at.z * 10.0), seed_of))
+	var last := 0.0
+	var d := 0.7
+	while d <= radius:
+		var n := 3 + floori(d * 2.4)
+		var row_delay := d / pace
+		fx._rows.append([d, row_delay, false])
+		var turn := rng.randf() * TAU
+		for i in n:
+			var a := turn + TAU * float(i) / float(n) + rng.randf_range(-0.35, 0.35) * TAU / float(n)
+			var dd := d + rng.randf_range(-0.22, 0.22)
+			var out := Vector3(cos(a), 0.0, sin(a))
+			var pos := at + out * dd
+			var k := dd / radius
+			# tallest a third of the way out, low at the middle and the rim
+			var s := rng.randf_range(0.75, 1.2) * size * (0.55 + 0.75 * sin(clampf(k * 1.25 + 0.15, 0.0, 1.0) * PI))
+			var tall := s * rng.randf_range(0.9, 1.5)
+			var delay := row_delay + rng.randf() * 0.05
+			last = maxf(last, delay)
+			var angle := atan2(out.x, out.z)
+			var lean := 0.22 + k * 0.4 + rng.randf_range(-0.08, 0.08)
+			var basis := Basis.from_euler(Vector3(cos(angle) * lean, rng.randf() * TAU, -sin(angle) * lean))
+			basis = basis * Basis.from_scale(Vector3(s * 1.3, tall, s * 1.3))
+			var tone := rng.randf_range(0.82, 1.12)
+			fx._items.append([Vector3(pos.x, at.y, pos.z), basis, delay, tall, Color(tone, tone * 0.98, tone * 0.95)])
+			if rng.randf() < 0.35:
+				var foot := pos + Vector3(rng.randf_range(-0.3, 0.3), 0.0, rng.randf_range(-0.3, 0.3)) * size
+				var small := s * rng.randf_range(0.35, 0.55)
+				var b2 := Basis.from_euler(Vector3(rng.randf_range(-0.6, 0.6), rng.randf() * TAU, rng.randf_range(-0.6, 0.6)))
+				b2 = b2 * Basis.from_scale(Vector3(small, small * rng.randf_range(0.8, 1.3), small))
+				fx._items.append([Vector3(foot.x, at.y, foot.z), b2, delay + 0.03, small, Color(tone * 0.9, tone * 0.88, tone * 0.85)])
+		d += 0.55
+	fx._end = last + WAVE_HOLD + 0.7
+	fx._mm = MultiMesh.new()
+	fx._mm.transform_format = MultiMesh.TRANSFORM_3D
+	fx._mm.use_colors = true
+	fx._mm.mesh = _shard()
+	fx._mm.instance_count = fx._items.size()
+	for i in fx._items.size():
+		fx._mm.set_instance_color(i, (fx._items[i] as Array)[4])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = fx._mm
+	fx._material = StandardMaterial3D.new()
+	fx._material.vertex_color_use_as_albedo = true
+	fx._material.vertex_color_is_srgb = true
+	fx._material.albedo_color = Color(1, 1, 1)
+	fx._material.roughness = 0.95
+	fx._material.metallic_specular = 0.25
+	mmi.material_override = fx._material
+	mmi.custom_aabb = AABB(Vector3(-radius - 4.0, -3.0, -radius - 4.0), Vector3(radius * 2.0 + 8.0, 8.0, radius * 2.0 + 8.0))
+	fx.add_child(mmi)
+	fx.top_level = true
+	into.add_child(fx)
+	fx.global_position = at
+	fx._glow = OmniLight3D.new()
+	fx._glow.light_color = glow
+	fx._glow.omni_range = radius * 1.1
+	fx._glow.light_energy = 0.0
+	fx._glow.shadow_enabled = false
+	fx.add_child(fx._glow)
+	fx._place()
+	return fx
+
+
 ## The crack the shards come up through: a jagged strip along the ground,
 ## dark with a glowing seam, opening a little ahead of the front.
 func _add_crack(length: float, size: float, glow: Color, rng: RandomNumberGenerator) -> void:
@@ -337,10 +420,11 @@ func _place() -> void:
 		Kind.SHARDS:
 			var crumble_from := _end - 0.7
 			var front := _t * _pace + 0.9
-			_crack_mat.set_shader_parameter(&"front", front)
-			_crack_mat.set_shader_parameter(&"fade", clampf((_end - _t) / 0.7, 0.0, 1.0))
+			if _crack_mat != null:
+				_crack_mat.set_shader_parameter(&"front", front)
+				_crack_mat.set_shader_parameter(&"fade", clampf((_end - _t) / 0.7, 0.0, 1.0))
 			if _glow != null:
-				_glow.position = _ahead * minf(_t * _pace, _length) + Vector3.UP * 0.4
+				_glow.position = (Vector3.ZERO if _radial else _ahead * minf(_t * _pace, _length)) + Vector3.UP * 0.4
 				_glow.light_energy = 1.4 * clampf(1.0 - (_t - crumble_from) / 0.4, 0.0, 1.0) if _t > crumble_from \
 						else 1.4 * clampf(_t * 6.0, 0.0, 1.0)
 			for i in _items.size():
@@ -440,6 +524,9 @@ func _burst_rows() -> void:
 			continue
 		row[2] = true
 		var d := float(row[0])
+		if _radial:
+			_burst_ring(into, d)
+			continue
 		var at := _from + _ahead * d
 		var width := wave_width(d)
 		SkillFx.particles(into, at + Vector3.UP * 0.2, {
@@ -459,9 +546,36 @@ func _burst_rows() -> void:
 			ImpactFx.thud(self, at, d < 1.5)
 
 
+## A ring of [method spike_burst] coming up: grit off it all round (no dust
+## ring drawn on the ground: scattered puffs), a crunch for the first ones.
+func _burst_ring(into: Node, d: float) -> void:
+	var n := 3 + floori(d * 0.8)
+	for i in n:
+		var a := TAU * float(i) / float(n) + d
+		var at := _from + Vector3(cos(a), 0.0, sin(a)) * d
+		SkillFx.particles(into, at + Vector3.UP * 0.2, {
+			"amount": 5, "life": 0.7, "one_shot": true, "explosiveness": 0.95, "add": false,
+			"speed": Vector2(1.5, 4.0), "dir": Vector3.UP, "spread": 40.0, "gravity": Vector3(0, -12, 0),
+			"damping": 0.5, "size": Vector2(0.05, 0.11), "sphere": 0.4,
+			"colors": [Color(0.45, 0.4, 0.35, 1.0), Color(0.42, 0.37, 0.32, 1.0), Color(0.4, 0.36, 0.32, 0.0)],
+		})
+	if d < 1.5:
+		ImpactFx.thud(self, _from, true)
+
+
 ## The end: chips of it spill off as it goes down.
 func _crumble() -> void:
 	var into := get_parent()
+	if _radial:
+		for i in 6:
+			var a := TAU * float(i) / 6.0
+			SkillFx.particles(into, _from + Vector3(cos(a), 0.0, sin(a)) * _length * 0.5 + Vector3.UP * 0.4, {
+				"amount": 6, "life": 0.9, "one_shot": true, "explosiveness": 0.6, "add": false,
+				"speed": Vector2(0.3, 1.4), "dir": Vector3.UP, "spread": 80.0, "gravity": Vector3(0, -9, 0),
+				"size": Vector2(0.05, 0.1), "sphere": _length * 0.3,
+				"colors": [Color(0.42, 0.38, 0.34, 1.0), Color(0.4, 0.36, 0.32, 0.0)],
+			})
+		return
 	for row: Array in _rows:
 		var d := float(row[0])
 		if fmod(d, 1.35) > 0.45:
