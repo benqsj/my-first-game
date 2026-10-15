@@ -176,31 +176,35 @@ func _throw() -> void:
 	o.chase_speed = 0.0
 	o.close_speed = 0.0
 	o.speed = 0.0
-	var t := [-1.0, -1.0, 0.0]
+	var t := [-1.0, -1.0, 0.0, true]
 	var frame := [0]
 	await _run_for(150, func() -> bool:
 		frame[0] += 1
 		if o.act == OrcFighter.O_THROW and t[0] < 0.0:
 			t[0] = frame[0] / 60.0
 		if o._thrown != null and o._throw_t < o._throw_flight:
-			var axis: Vector3 = o._thrown.global_basis * o._thrown_tip_local
-			t[2] = maxf(t[2], axis.normalized().dot(o._thrown_dir))
+			# how far its length has turned from where it left the hand
+			var axis: Vector3 = (o._thrown.global_basis * o._thrown_tip_local).normalized()
+			var first: Vector3 = (o._thrown_basis * o._thrown_tip_local).normalized()
+			t[2] = maxf(t[2], rad_to_deg(axis.angle_to(first)))
 		return _hits > 0)
 	# (2026-10-15, the user's word: its own blade thrown, straight, a trail)
 	_check("from far off its thrown blade finds him", o.throws_made >= 1 and o.throw_hits >= 1 and _hits >= 1,
 			"%d throws, %d hits" % [o.throws_made, o.throw_hits])
-	_check("point first, like a spear", t[2] > 0.9, "%.2f" % t[2])
+	_check("turning end over end as it flies", t[2] > 120.0, "%.0f deg" % t[2])
 	_check("and only staggers him", _falls == 0, "%d falls" % _falls)
 	var blade_gone := o._held_blade() == null
 	var h0 := _hits
 	await _run_for(240, func() -> bool:
 		frame[0] += 1
+		if o.act == OrcFighter.O_FETCH and o._thrown != null and o._throw_t < o._throw_flight:
+			t[3] = false
 		if o._thrown == null and t[1] < 0.0 and o.fetches_made > 0:
 			t[1] = frame[0] / 60.0
 		return _hits > h0)
 	_check("the blade out of its hand, then back in it", blade_gone and o._held_blade() != null)
-	_check("it is at its blade within a second of the throw", t[1] > 0.0 and t[1] - t[0] < 1.0,
-			"%.2f s" % (t[1] - t[0]))
+	_check("it does not slide off after it till the blade has stopped", t[3] and t[1] > 0.0,
+			"%.2f s from the throw to the catch" % (t[1] - t[0]))
 	_check("it spins through him with it", o.fetches_made >= 1 and _hits > h0
 			and o.hand_combos_made.has(o._combo_named(OrcFighter.FETCH_COMBO)),
 			"%d fetches, hits %d -> %d" % [o.fetches_made, h0, _hits])
@@ -226,8 +230,9 @@ func _throw() -> void:
 		if _hero.state != Player.State.DOWNED:
 			_hero.global_position = Vector3(spot.x, _hero.global_position.y, spot.z)
 	var spun := o._spin_serial >= 0
-	_check("further than 5 m from its blade, its spin cannot reach him", spun and o.throw_hits == 0 and _hits == 0,
-			"spun %s, hits %d" % [spun, _hits])
+	_check("him further than 5 m off: it only takes its blade back, no swing",
+			o.fetches_made >= 1 and o._held_blade() != null and not spun and _hits == 0,
+			"%d fetches, spun %s, hits %d" % [o.fetches_made, spun, _hits])
 
 
 func _turns() -> void:

@@ -86,12 +86,12 @@ extends PackBrute
 ## spear or an arrow, a trail behind it, and in under a second it is at it)
 ## It throws its own blade at him point first at `throw_speed` to where he
 ## will be; struck or not, it stops in the air there, hanging, humming.
-## `fetch_after` s after it lets go it slides after it at `fetch_speed`,
-## takes it in hand and spins through him with it — if he is still within
-## `fetch_reach` m of the blade; further off, the spin cuts the air.
-@export var throw_speed: float = 30.0
+## When it has stopped (and `fetch_after` s more) it slides to it at
+## `fetch_speed` and takes it in hand: him within `fetch_reach` m, it spins
+## through him with it; further off, it only takes it back.
+@export var throw_speed: float = 24.0
 @export var throw_hit_radius: float = 1.0
-@export var fetch_after: float = 0.12
+@export var fetch_after: float = 0.05
 @export var fetch_speed: float = 30.0
 @export var fetch_reach: float = 5.0
 @export var throw_from: float = 7.0
@@ -371,6 +371,7 @@ var _thrown_blade: MeshInstance3D
 var _thrown_trail: SwordTrail
 var _thrown_tails: Array[GlowTail] = []
 var _thrown_dir: Vector3 = Vector3.FORWARD
+var _spin_axis: Vector3 = Vector3.RIGHT
 var _thrown_basis: Basis
 var _thrown_tip_local: Vector3
 var _released_at: float = -1.0
@@ -885,7 +886,7 @@ func _release_axe() -> void:
 		target += Vector3(v.x, 0.0, v.z) * flight * 0.6
 	flight = clampf((target - from).length() / maxf(throw_speed, 1.0), 0.15, 0.8)
 	_released_at = _act_time
-	_act_length = maxf(_act_length, _act_time + fetch_after + 0.05)
+	_act_length = maxf(_act_length, _act_time + flight + fetch_after + 0.05)
 	var id := act_serial * 100 + throws_made
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
 		net_sword_out.rpc(target, flight, id)
@@ -904,10 +905,15 @@ func net_sword_out(to: Vector3, flight: float, id: int) -> void:
 	_sword_home()
 	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(_weapon)
 	var centre := hand * (weapon_tip * 0.5)
-	var along := (hand.basis * weapon_tip).normalized()
 	_thrown_dir = (to - centre).normalized() if (to - centre).length_squared() > 0.01 else _forward()
-	# turned so its point leads, the way it flies
-	_thrown_basis = Basis(Quaternion(along, _thrown_dir)) * hand.basis
+	_thrown_basis = hand.basis
+	# turned about a line across both its length and its flight: end over
+	# end whichever way it was held
+	var length_way := (hand.basis * weapon_tip).normalized()
+	_spin_axis = length_way.cross(_thrown_dir)
+	if _spin_axis.length_squared() < 0.04:
+		_spin_axis = _thrown_dir.cross(Vector3.UP)
+	_spin_axis = _spin_axis.normalized() if _spin_axis.length_squared() > 0.0001 else Vector3.RIGHT
 	_thrown = Node3D.new()
 	_thrown.name = "ThrownBlade"
 	world.add_child(_thrown)
@@ -920,47 +926,29 @@ func net_sword_out(to: Vector3, flight: float, id: int) -> void:
 	_thrown.add_child(copy)
 	copy.global_transform = hand * blade.skin.get_bind_pose(_blade_bind(blade))
 	_thrown_tip_local = _thrown.global_transform.affine_inverse() * (hand * weapon_tip)
-	_thrown.global_transform = Transform3D(_thrown_basis, centre)
-	var heavy := grip != &"blades"
-	# the tail off its point and a fainter one off its pommel
+	# its streak along the blade, turning end over end (the user liked it so,
+	# 2026-10-15: the straight throw was not as good), and a faint light
+	var base := Node3D.new()
+	var tip := Node3D.new()
+	_thrown.add_child(base)
+	_thrown.add_child(tip)
+	base.global_position = hand * (weapon_tip * 0.2)
+	tip.global_position = hand * weapon_tip
 	_thrown_tails.clear()
-	for k in 2:
-		var tail := GlowTail.new()
-		tail.width = (0.22 if heavy else 0.14) * (1.0 if k == 0 else 0.6)
-		tail.life = 0.32 if k == 0 else 0.2
-		tail.head_colour = Color(1.0, 0.85, 0.6, 0.95) if heavy else Color(0.92, 0.95, 1.0, 0.9)
-		tail.tail_colour = Color(1.0, 0.4, 0.1, 0.0) if heavy else Color(0.6, 0.7, 0.85, 0.0)
-		world.add_child(tail)
-		tail.head = _thrown
-		tail.head_offset = _thrown_tip_local * (1.0 if k == 0 else -0.9)
-		_thrown_tails.append(tail)
-	# a band of torn air across the blade, as an arrow's
-	var left := Node3D.new()
-	var right := Node3D.new()
-	_thrown.add_child(left)
-	_thrown.add_child(right)
-	var across := _thrown_dir.cross(Vector3.UP)
-	if across.length_squared() < 0.0001:
-		across = Vector3.RIGHT
-	across = across.normalized() * 0.35 * visual_scale / 1.6
-	left.global_position = centre - across
-	right.global_position = centre + across
 	_thrown_trail = SwordTrail.new()
-	_thrown_trail.sample_count = 18
-	_thrown_trail.fade_time = 0.25
-	_thrown_trail.inner_edge_alpha = 1.0
-	_thrown_trail.tint = Color(0.95, 0.9, 0.85, 0.22)
+	_thrown_trail.sample_count = 16
+	_thrown_trail.fade_time = 0.2
+	_thrown_trail.tint = trail_heavy if grip != &"blades" else Color(0.85, 0.85, 0.9, 0.35)
 	world.add_child(_thrown_trail)
-	_thrown_trail.setup(left, right)
+	_thrown_trail.setup(base, tip)
 	_thrown_trail.emitting = true
 	var glow := OmniLight3D.new()
 	glow.name = "Glow"
-	glow.light_color = Color(1.0, 0.6, 0.3) if heavy else Color(0.75, 0.85, 1.0)
-	glow.light_energy = 1.2
-	glow.omni_range = 3.0
+	glow.light_color = Color(1.0, 0.6, 0.3)
+	glow.light_energy = 0.6
+	glow.omni_range = 2.5
 	glow.shadow_enabled = false
 	_thrown.add_child(glow)
-	WindBlast.speed_lines(world, centre, _thrown_dir, (to - centre).length(), 14)
 	blade.visible = false
 	_thrown_blade = blade
 	_throw_from = centre
@@ -968,8 +956,7 @@ func net_sword_out(to: Vector3, flight: float, id: int) -> void:
 	_throw_flight = maxf(flight, 0.05)
 	_throw_t = 0.0
 	_throw_id = id
-	Sfx.play(self, WHOOSH_HEAVY, null, centre, 1.1, 2.0)
-	ImpactFx.rush(self, _thrown, heavy, 0.0)
+	Sfx.play(self, WHOOSH_HEAVY, null, centre, 0.9, 0.0)
 
 
 ## Host: it struck him on the way — it stops where it is (every peer).
@@ -1023,23 +1010,18 @@ func _fly_blade(delta: float) -> void:
 	_throw_t += delta
 	var u := clampf(_throw_t / _throw_flight, 0.0, 1.0)
 	var at := _throw_from.lerp(_throw_to, u)
-	var roll := _throw_t * 9.0
-	var glow := _thrown.get_node_or_null(^"Glow") as OmniLight3D
-	if u >= 1.0:
+	var across := _spin_axis
+	var spin: float
+	if u < 1.0:
+		spin = u * 2.5 * TAU
+		_thrown_trail.emitting = true
+	else:
+		# hanging there, turning ever slower, a little rise and fall
 		var since := _throw_t - _throw_flight
-		# held in the air: a hard tremble along its length, dying down
-		at += _thrown_dir * sin(since * 70.0) * 0.05 * exp(-since * 4.0)
-		roll = _throw_flight * 9.0 + since * 2.0
-		if glow != null:
-			glow.light_energy = 1.0 + 0.6 * sin(since * 18.0)
-		if _thrown_trail != null:
-			_thrown_trail.emitting = false
-		if randf() < delta * 14.0:
-			var world := Blood.world_of(self)
-			var tip := _thrown.global_transform * _thrown_tip_local
-			SkillFx.burst(world, at.lerp(tip, randf()), Color(0.9, 0.85, 0.8, 0.5), 2, Vector2(0.4, 1.0),
-					-_thrown_dir, 60.0, Vector2(0.03, 0.06), Vector3.ZERO, 0.35)
-	_thrown.global_transform = Transform3D(Basis(_thrown_dir, roll) * _thrown_basis, at)
+		spin = 2.5 * TAU + 3.0 * (1.0 - exp(-since * 1.4))
+		at.y += sin(since * 3.2) * 0.07
+		_thrown_trail.emitting = false
+	_thrown.global_transform = Transform3D(Basis(across, spin) * _thrown_basis, at)
 	if u >= 1.0 or not _decides() or _quarry == null:
 		return
 	# host: him in its way
@@ -1099,7 +1081,9 @@ func _catch_blade() -> void:
 	else:
 		net_sword_back()
 	var which := _combo_named(FETCH_COMBO)
-	if which >= 0 and _quarry != null and not _quarry_down():
+	var near := _quarry != null and Vector2(_quarry.global_position.x - _caught_at.x,
+			_quarry.global_position.z - _caught_at.z).length() <= fetch_reach
+	if which >= 0 and near and not _quarry_down():
 		_cooldown = 0.0
 		start_hand_combo(which)
 		_spin_serial = act_serial
@@ -1400,8 +1384,8 @@ func _run_act(delta: float) -> void:
 	if was == O_SKY or was == O_SKYDIVE:
 		_run_sky(delta)
 		return
-	if was == O_THROW and _thrown != null and _released_at >= 0.0 and _act_time >= _released_at + fetch_after:
-		# hardly out of its hand and it goes after it
+	if was == O_THROW and _thrown != null and _released_at >= 0.0 and _throw_t >= _throw_flight + fetch_after:
+		# the blade stopped in the air: then, and not before, it goes after it
 		_begin_fetch()
 		return
 	if was == O_FETCH and _thrown != null and _throw_t >= _throw_flight:
