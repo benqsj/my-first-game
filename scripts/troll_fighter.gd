@@ -13,6 +13,16 @@ extends PackBrute
 ## * **Its wounds close.** It wins back `regen` of its health a second, the
 ##   wounds seen closing (green motes rising off it); fire or frost on it
 ##   (burning or chilled, [Afflictions]) stops that for `regen_stopped` s.
+##
+## **Its way of fighting** (2026-10-15, the user's word: the troll and the
+## golem must fight each their own way, nothing alike) — a feral pouncer,
+## quick and never still, everything the golem is not:
+## * on all fours from off (`CR_CrawlRun`), fast, and springing at him;
+## * long, quick strings — claws, a bite, knee, kicks, fists — 4–6 blows;
+## * a hop aside from his swings (`dash_chance`);
+## * its bite closes its wounds (`bite_heal` of its health);
+## * badly hurt it goes berserk (`rage_at`): quicker still, harder;
+## * easily jolted, but straight back at him.
 
 @export_group("Boulder")
 @export var pick_clip: StringName = &"CR_Harvest"
@@ -24,6 +34,11 @@ extends PackBrute
 @export var hurl_cooldown: Vector2 = Vector2(6.0, 10.0)
 @export var boulder_share: float = 1.1
 
+@export_group("Feral")
+## Its bite closes this share of its wounds.
+@export var bite_heal: float = 0.05
+## On all fours past this pace (m/s).
+@export var crawl_clip: StringName = &"CR_CrawlRun"
 @export_group("Regeneration")
 ## Share of its health won back a second.
 @export var regen: float = 0.012
@@ -32,14 +47,22 @@ extends PackBrute
 
 const PICK := 116
 const HURL := 117
-## Its combos' moves (2026-10-10).
+## Its combos' moves (2026-10-10; made its own 2026-10-15 — no ogre's, none
+## the golem's).
 const T_PUNCH := 180
 const T_PUNCH_L := 181
 const T_UPPER := 182
-const T_HOOK := 183
-const T_HEADBUTT := 184
-const T_SWIPE := 185
-const T_LEAP := 186
+const T_SCRATCH := 187
+const T_BITE := 188
+const T_KNEE := 189
+const T_KICK := 190
+const T_SPARTA := 191
+const T_PCOMBO := 192
+const T_JUMPUP := 193
+const CLAWS := "L_elbow_joint>L_midFinger_joint3:0.16|R_elbow_joint>R_midFinger_joint3:0.16"
+const MOUTH := "head_joint>head_joint@0.11,0.13,0:0.3"
+const KNEES := "L_thigh_joint>L_knee_joint:0.22|R_thigh_joint>R_knee_joint:0.22"
+const SHINS := "L_knee_joint>L_toe_joint:0.15|R_knee_joint>R_toe_joint:0.15"
 
 var _hurl_wait: float = 3.0
 var _hurled: bool = false
@@ -56,9 +79,27 @@ var healing: bool = false
 var _mote_clock: float = 0.0
 var _heal_glow: StandardMaterial3D
 var _heal_shown: bool = false
+## Host: bites that closed its wounds (the tests).
+var bites_healed: int = 0
 
 
 func _ready() -> void:
+	# never still: on all fours when it runs, and a hop aside from his swings
+	if crawl_clip != &"":
+		run_clip = crawl_clip
+		if not Array(loop_clips).has(String(crawl_clip)):
+			loop_clips = PackedStringArray(Array(loop_clips) + [String(crawl_clip)])
+	chase_speed = maxf(chase_speed, 6.2)
+	close_speed = maxf(close_speed, 5.0)
+	dash_chance = maxf(dash_chance, 0.35)
+	dash_clip = &"CR_Dodge"
+	# badly hurt, berserk: quicker still and harder (a howl, CR_Surprise)
+	if rage_at <= 0.0:
+		rage_at = 0.35
+		rage_clip = &"CR_Surprise"
+		rage_part = Vector3(1.4, 0.0, 0.6)
+		rage_pace = 1.3
+	hand_tail = minf(hand_tail, 0.2)
 	super()
 	_set_combos()
 	_special(PICK, pick_clip, pick_part)
@@ -78,23 +119,75 @@ func _ready() -> void:
 	_hurl_wait = _rng.randf_range(2.0, hurl_cooldown.x)
 
 
-## Its combos made by hand ([PackBrute] `_hand_combos`): a right, a left and the
-## uppercut that throws him; a hook and a headbutt; its free hand swung and a
-## great leap down on him (enraged, the uppercut after).
+## Its combos made by hand ([PackBrute] `_hand_combos`): long and quick —
+## claws raking, the bite, a jumping uppercut; fists, a knee, the kick that
+## throws him; fists, claws, a kick and the uppercut (enraged, more claws).
 func _set_combos() -> void:
 	var both := (FIST_L + "|" + FIST_R) % ["0.14", "0.14"]
-	_hand_move(T_PUNCH, &"CR_Punch1", Vector3(1.0, 0.0, 0.85), 0.5, FIST_R % "0.14")
-	_hand_move(T_PUNCH_L, &"CR_PunchL", Vector3(1.0, 0.0, 0.85), 0.5, FIST_L % "0.14")
-	_hand_move(T_UPPER, &"CR_Uppercut", Vector3(0.95, 0.0, 0.9), 1.1, both)
-	_hand_move(T_HOOK, &"CR_Hook", Vector3(1.0, 0.0, 0.9), 0.6, both)
-	_hand_move(T_HEADBUTT, &"CR_OG_Headbutt", Vector3(1.0, 0.1, 0.7), 0.9, "head_joint>head_joint@0.11,0.13,0:0.24")
-	_hand_move(T_SWIPE, &"CR_OG_Mutant_Swipe", Vector3(1.0, 0.2, 0.8), 0.6, FIST_L % "0.18")
-	_hand_move(T_LEAP, &"CR_OG_Mutant_Jump", Vector3(0.95, 0.02, 0.8), 1.3, both)
+	_hand_move(T_PUNCH, &"CR_Punch1", Vector3(1.1, 0.0, 0.85), 0.4, FIST_R % "0.14")
+	_hand_move(T_PUNCH_L, &"CR_PunchL", Vector3(1.1, 0.0, 0.85), 0.4, FIST_L % "0.14")
+	_hand_move(T_UPPER, &"CR_Uppercut", Vector3(1.0, 0.0, 0.9), 1.0, both)
+	_peaks_hand(T_SCRATCH, &"CR_ZombieScratch", Vector3(1.15, 0.05, 0.9), 0.35, CLAWS, 3,
+			["L_wrist_joint", "R_wrist_joint"])
+	_hand_move(T_BITE, &"CR_ZombieBite", Vector3(1.15, 0.05, 0.85), 0.5, MOUTH)
+	_hand_move(T_KNEE, &"CR_Knee", Vector3(1.0, 0.0, 0.9), 0.45, KNEES)
+	_hand_move(T_KICK, &"CR_Kick2", Vector3(1.05, 0.0, 0.9), 0.5, SHINS)
+	_hand_move(T_SPARTA, &"CR_SpartaKick", Vector3(1.0, 0.1, 0.85), 0.9, SHINS)
+	_kinds[T_SPARTA] = &"guard"
+	# (its fists close in a flurry, a wider reach so none slips past him)
+	_peaks_hand(T_PCOMBO, &"CR_PunchCombo", Vector3(1.1, 0.02, 0.92), 0.35,
+			(FIST_L + "|" + FIST_R) % ["0.22", "0.22"], 3,
+			["L_wrist_joint", "R_wrist_joint"])
+	_hand_move(T_JUMPUP, &"CR_Punch2", Vector3(1.0, 0.05, 0.9), 1.0, both)
 	_hand_combos = [
-		{"name": &"one_two_upper", "moves": [T_PUNCH, T_PUNCH_L, T_UPPER], "fells": [2], "weight": 1.0},
-		{"name": &"hook_headbutt", "moves": [T_HOOK, T_HEADBUTT], "fells": [1], "weight": 0.8},
-		{"name": &"swipe_leap", "moves": [T_SWIPE, T_LEAP], "fells": [1], "weight": 0.7, "rage": [T_UPPER]},
+		{"name": &"frenzy_claws", "moves": [T_SCRATCH, T_BITE, T_JUMPUP], "fells": [2], "weight": 1.2,
+				"rage": [T_SCRATCH]},
+		{"name": &"brawl", "moves": [T_PCOMBO, T_KNEE, T_SPARTA], "fells": [2], "weight": 1.0},
+		{"name": &"hounding", "moves": [T_PUNCH, T_PUNCH_L, T_SCRATCH, T_KICK, T_UPPER], "fells": [4],
+				"weight": 1.0},
+		{"name": &"maul", "moves": [T_BITE, T_SCRATCH, T_PUNCH, T_PUNCH_L, T_SPARTA], "fells": [4], "weight": 0.8,
+				"rage_only": true},
 	]
+
+
+## A move of several blows, its blows where `bones` move fastest (the last
+## `most` of them in its part).
+func _peaks_hand(what: int, clip: StringName, part: Vector3, share: float, limbs: String, most: int,
+		bones: Array) -> void:
+	var peaks: Array = []
+	if _anim != null:
+		for p in _anim.measure_peaks(clip, PackedStringArray(bones), 0.3, 0.1):
+			if p >= part.y + 0.02 and p <= part.z - 0.02:
+				peaks.append(p)
+	while peaks.size() > most:
+		peaks.remove_at(0)
+	_hand_move(what, clip, part, share, limbs, peaks)
+
+
+## Host: its teeth in him — its own wounds close by it.
+func _blow_reached(who: Node3D, what: int) -> void:
+	super(who, what)
+	if what != T_BITE or is_dead:
+		return
+	health = minf(health + max_health * bite_heal, max_health)
+	bites_healed += 1
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_bite.rpc()
+	else:
+		net_bite()
+
+
+## Every peer: blood off its teeth, its wounds seen closing.
+@rpc("authority", "call_local", "reliable")
+func net_bite() -> void:
+	var world := Blood.world_of(self)
+	var mouth := global_position + Vector3.UP * 2.0 * visual_scale
+	if _skeleton != null and _skeleton.find_bone("head_joint") >= 0:
+		mouth = _skeleton.global_transform * _skeleton.get_bone_global_pose(_skeleton.find_bone("head_joint")).origin
+	SkillFx.burst(world, mouth, Color(0.55, 0.03, 0.02), 14, Vector2(1.0, 3.0), Vector3.UP, 90.0,
+			Vector2(0.03, 0.06), Vector3(0, -9.0, 0), 0.6)
+	SkillFx.burst(world, global_position + Vector3.UP * 1.4 * visual_scale, regen_tint, 22, Vector2(0.4, 1.4),
+			Vector3.UP, 60.0, Vector2(0.05, 0.1), Vector3(0, 1.6, 0), 1.0)
 
 
 func _own_move(delta: float) -> bool:

@@ -102,6 +102,8 @@ func _run() -> void:
 	await _troll_leap()
 	await _golem_steady()
 	await _golem_spikes()
+	await _troll_feral()
+	await _golem_fortress()
 	await _reform(GOLEM, "the golem")
 	await _reform(SKELETON, "a skeleton")
 	print("brutes_test: %s" % ("all passed" if _failed == 0 else "%d FAILED" % _failed))
@@ -485,4 +487,88 @@ func _reform(scene: String, what: String) -> void:
 	f._receive(50.0, f.global_position + Vector3.UP, Vector3.FORWARD, hero)
 	await physics_frame
 	_check("cut down again, it is dead for good", f.is_dead)
+	await _done(world)
+
+
+## 2026-10-15 (the user's word): the troll and the golem, each its own way.
+func _troll_feral() -> void:
+	var a: Array = await _arena()
+	var world: World = a[0]
+	var hero: Player = a[2]
+	var start := hero.global_position
+	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 16.0)) as TrollFighter
+	troll._hurl_wait = 999.0
+	troll._leap_wait = 999.0
+	troll._rouse(hero)
+	var crawled := false
+	var top := 0.0
+	for i in 240:
+		await physics_frame
+		_hold(hero, start)
+		if troll._anim.current_clip() == &"CR_CrawlRun":
+			crawled = true
+		top = maxf(top, Vector2(troll.velocity.x, troll.velocity.z).length())
+		if troll._distance_to(hero) < troll.reach:
+			break
+	_check("the troll comes on all fours, fast", crawled and top > 4.5, "%.1f m/s" % top)
+	troll.health = troll.max_health * 0.5
+	var before := troll.health
+	troll._stopped_for = 999.0
+	troll._blow_reached(hero, TrollFighter.T_BITE)
+	_check("its bite closes its wounds", troll.health > before + 1.0 and troll.bites_healed == 1,
+			"%.0f -> %.0f" % [before, troll.health])
+	_check("it hops aside from his swings", troll.dash_chance >= 0.3 and troll.dash_clip == &"CR_Dodge")
+	await _done(world)
+
+
+func _golem_fortress() -> void:
+	var a: Array = await _arena()
+	var world: World = a[0]
+	var hero: Player = a[2]
+	var golem := (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 14.0)) as GolemFighter
+	_check("the golem never runs", golem.run_clip == &"" and golem.chase_speed <= 2.6)
+	var shared := []
+	var troll_clips := [&"CR_Punch1", &"CR_PunchL", &"CR_Hook", &"CR_Uppercut", &"CR_ZombieScratch", &"CR_ZombieBite"]
+	for what: int in golem._moves_table:
+		var clip: StringName = (golem._moves_table[what] as Array)[0]
+		if clip in troll_clips or String(clip).begins_with("CR_OG_"):
+			shared.append(clip)
+	_check("none of its blows the troll's or the ogre's", shared.is_empty(), str(shared))
+	for i in 20:
+		await physics_frame
+	golem.sight_range = 0.0
+	var h0 := golem.health
+	golem._receive(30.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	golem._receive(30.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	for i in 3:
+		await physics_frame
+	var hard := golem.hardened
+	var h1 := golem.health
+	golem._receive(20.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	var hard_cost := h1 - golem.health
+	_check("under blows its stone hardens", hard, "poise %.0f" % golem._poise_taken)
+	golem._receive(40.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	await physics_frame
+	var h2 := golem.health
+	golem._receive(20.0, golem.global_position + Vector3.UP, Vector3.FORWARD, hero)
+	var open_cost := h2 - golem.health
+	_check("then the shell bursts and it is open", golem.shells_burst >= 1 and open_cost > hard_cost * 2.0,
+			"hard %.1f, open %.1f (from %.0f)" % [hard_cost, open_cost, h0])
+	await _done(world)
+	a = await _arena()
+	world = a[0]
+	hero = a[2]
+	var start := hero.global_position
+	golem = (a[1] as ArenaPanel).call_up(GOLEM, false, _ahead(hero, 8.0)) as GolemFighter
+	golem._wall_wait = 0.0
+	golem._spikes_wait = 999.0
+	golem.hand_combo_chance = Vector2.ZERO
+	var walls := 0
+	for i in 240:
+		await physics_frame
+		_hold(hero, start)
+		walls = world.find_children("GolemWall*", "StaticBody3D", true, false).size()
+		if walls > 0:
+			break
+	_check("it raises stone walls round him", golem.walls_raised >= 1 and walls >= 3, "%d walls" % walls)
 	await _done(world)
