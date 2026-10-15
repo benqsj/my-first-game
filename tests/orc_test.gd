@@ -230,9 +230,9 @@ func _throw() -> void:
 		if _hero.state != Player.State.DOWNED:
 			_hero.global_position = Vector3(spot.x, _hero.global_position.y, spot.z)
 	var spun := o._spin_serial >= 0
-	_check("him further than 5 m off: it only takes its blade back, no swing",
-			o.fetches_made >= 1 and o._held_blade() != null and not spun and _hits == 0,
-			"%d fetches, spun %s, hits %d" % [o.fetches_made, spun, _hits])
+	_check("him further than 5 m off: at the end of its turn it slides at him and the blow lands",
+			o.fetches_made >= 1 and o._held_blade() != null and spun and o.throw_hits == 0 and _hits >= 1,
+			"%d fetches, spun %s, hits %d, gap %.1f" % [o.fetches_made, spun, _hits, o._distance_to(_hero)])
 
 
 func _turns() -> void:

@@ -87,8 +87,9 @@ extends PackBrute
 ## It throws its own blade at him point first at `throw_speed` to where he
 ## will be; struck or not, it stops in the air there, hanging, humming.
 ## When it has stopped (and `fetch_after` s more) it slides to it at
-## `fetch_speed` and takes it in hand: him within `fetch_reach` m, it spins
-## through him with it; further off, it only takes it back.
+## `fetch_speed`, takes it in hand and spins: him within `fetch_reach` m, it
+## steps into the spin; further off, at the end of its turn it slides at him
+## as fast and the blow lands.
 @export var throw_speed: float = 24.0
 @export var throw_hit_radius: float = 1.0
 @export var fetch_after: float = 0.05
@@ -696,6 +697,15 @@ func _extra_velocity(delta: float) -> Vector3:
 			var off := _distance_to(_quarry) - float(_strike_from.get(act, strike_off))
 			if near and off > 0.1:
 				return _forward() * clampf(off / maxf(ms[0] - _act_time, 0.1), 0.0, 14.0)
+			# (the user's word, 2026-10-15) him further off: at the end of its
+			# turn, before the blade comes round, a sudden slide at him as
+			# fast as the one to the blade, and the blow lands
+			var left := ms[0] - _act_time
+			if not near and off > 0.1 and left <= off / fetch_speed + 0.06:
+				if randf() < delta * 30.0:
+					SkillFx.burst(Blood.world_of(self), global_position + Vector3.UP * 0.1, Color(0.45, 0.4, 0.33, 0.5),
+							3, Vector2(0.5, 1.5), Vector3.UP, 70.0, Vector2(0.08, 0.16), Vector3(0, -1, 0), 0.5)
+				return _forward() * minf(fetch_speed, off / maxf(delta, 0.001))
 		return Vector3.ZERO
 	if _hand_combo >= 0 and _strikes_table.has(act) and _quarry != null:
 		# a string's cut steps in (or back) to where it lands, through its
@@ -1081,9 +1091,7 @@ func _catch_blade() -> void:
 	else:
 		net_sword_back()
 	var which := _combo_named(FETCH_COMBO)
-	var near := _quarry != null and Vector2(_quarry.global_position.x - _caught_at.x,
-			_quarry.global_position.z - _caught_at.z).length() <= fetch_reach
-	if which >= 0 and near and not _quarry_down():
+	if which >= 0 and _quarry != null and not _quarry_down():
 		_cooldown = 0.0
 		start_hand_combo(which)
 		_spin_serial = act_serial
