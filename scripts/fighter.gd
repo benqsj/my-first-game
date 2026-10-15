@@ -138,9 +138,15 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var corpse_linger: float = 4.0
 @export var corpse_sink_time: float = 1.2
 @export var corpse_sink_depth: float = 1.6
-## Past [member corpse_linger] the corpse glows over and breaks into gold
-## shards ([DeathShatter]) instead of sinking into the ground.
+## Past [member corpse_linger] the corpse breaks into gold shards out of its
+## body as it lies or kneels ([DeathShatter]) instead of sinking into the
+## ground.
 @export var death_shards: bool = true
+## Its death clip played this fast, and held where it is at this many of the
+## clip's seconds (-1: played to its end) — down on its knees, say, till it
+## breaks apart (the user's word, 2026-10-15: no fall, it kneels and bursts).
+@export var death_pace: float = 1.0
+@export var death_hold: float = -1.0
 #endregion
 
 ## Replicated state. See the class notes.
@@ -280,7 +286,7 @@ func _process(delta: float) -> void:
 			if death_shards and get("shatter_on_death") != true:
 				if not _shards_begun:
 					_shards_begun = true
-					DeathShatter.start(self, body, corpse_sink_time * 0.75)
+					DeathShatter.start(self, body, 0.0)
 			else:
 				var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
 				body.position.y = _body_rest_y + FALL_LIFT * visual_scale - sunk * sunk * corpse_sink_depth
@@ -302,7 +308,9 @@ func _process(delta: float) -> void:
 			_anim.play(break_clip, 0.15, 1.2, 1.0, true)
 	# Dead, the knock back plays only as far as the blow throwing it back; the
 	# fall itself is the body going over (`_topple`).
-	if not is_dead or dies_by_clip or _corpse_age < FREEZE_AT:
+	var held_dead := is_dead and dies_by_clip and death_hold >= 0.0 \
+			and _anim.current_clip() == death_clip and _anim.clip_position() >= death_hold
+	if (not is_dead or dies_by_clip or _corpse_age < FREEZE_AT) and not held_dead:
 		_anim.advance(delta * HitFeel.pace(self))
 	if _decides() and not is_dead:
 		WeaponSweep.run(_sweeps, _act_time, act_serial, get_tree(), delta)
@@ -323,7 +331,7 @@ func _play_act() -> void:
 		Act.BREAK:
 			_anim.play(break_clip, 0.08, 1.0, 1.0, true)
 		Act.DEAD:
-			_anim.play(death_clip, 0.08, 1.0, 1.0, true)
+			_anim.play(death_clip, 0.08, death_pace, 1.0, true)
 		Act.REEL:
 			# The combo that threw the blow, run back the way it came.
 			_reel_clock = 0.0

@@ -263,7 +263,7 @@ func _process(delta: float) -> void:
 			if death_shards:
 				if not _shards_begun:
 					_shards_begun = true
-					DeathShatter.start(self, body, corpse_sink_time * 0.75)
+					DeathShatter.start(self, body, 0.0)
 			else:
 				var sunk := clampf((_corpse_age - corpse_linger) / maxf(corpse_sink_time, 0.001), 0.0, 1.0)
 				body.position.y = _body_rest_y - sunk * sunk * corpse_sink_depth
