@@ -10936,3 +10936,19 @@ counting as one; the rest get `Fighter.held_back`: puglins stand off at
 a time at a hero). Music: `Music` tracks `dungeon` (Frost of the North,
 Sword Draw) and `dungeon_boss` (ბრძოლის დრამები), chosen by
 `Dungeon.music_wanted()`; `orc_fight` is now boss-fight-terittory.mp3.
+
+Round 5 (2026-10-20): every room's creatures are made as the dungeon loads
+(`Dungeon._spawn_all`), standing in their rooms asleep (leash 0.01), hidden
+till the gate before their room opens and not thinking till the room before
+wakes — no stall when a room wakes. The hall's runner is gone: a cobbled aisle
+between standing braziers; moss low on the walls. The day goes down room by
+room (`PHASES`, `_to_phase` over 7 s): afternoon, late afternoon, golden
+hour, sunset, night at the lord with stars, the Milky Way and the moon; a sky
+shader of its own (`SKY_SHADER`) with drifting clouds. Held-back creatures
+wait spread round the hero on two rings (`_spread`, `HOLD_RINGS` 8.5/11.5)
+and one thing at a time is thrown at a hero (`Fighter.throw_gap` 2 s). Room 4
+holds the two orcs alone; at a lone hero they take turns (`_lead_orcs`,
+`PackBrute.turn_led`): a blow on the waiting one brings it in, and they change
+over every 14–22 s. Rooms give `xp` on clearing and show `lv`
+(`Leveling.level_of` reads a `level` meta): the hero meets the orcs (Lv 7) at
+6–7 and the lord (Lv 8) at 7.

@@ -51,18 +51,21 @@ const ORC_LORD := {"arm_right": "greatsword", "arm_style": "black", "outfit": "L
 ## Per dungeon: its rooms. Each: kind ("hall" under a roof, "court" open with
 ## windows, "terrace" open with one side over the drop, "throne" the boss's
 ## court on the cliff), width, length, wall height, and its creatures as
-## [scene, count, props]. Twice the floor of the first round (the user's
+## [scene, count, props], "lv" the level they show and "xp" what clearing
+## it gives on top of them (wolves' worth: the hero comes to the lord at level
+## 7, the user's word, 2026-10-20). Twice the floor of the first round (the user's
 ## word, 2026-10-20). The first dungeon: imps; imps and puglins; puglins and
-## imps; the two orcs with imps; the lord of the orcs alone. Closing it brings
+## imps; the two orcs, taking turns; the lord of the orcs alone. Closing it brings
 ## the hero to its top level whatever he has gained on the way.
 const ROOMS := {
 	0: [
-		{"kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0, "foes": [[IMP, 6]]},
-		{"kind": "court", "w": 52.0, "l": 64.0, "h": 11.0, "foes": [[IMP, 5], [PUGLIN, 5]]},
-		{"kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true, "foes": [[PUGLIN, 7], [IMP, 5]]},
-		{"kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0,
-				"foes": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [IMP, 4]]},
-		{"kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0, "foes": [[ORC_CHIEF, 1, ORC_LORD]]},
+		{"kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0, "lv": 1, "xp": 1.5, "foes": [[IMP, 6]]},
+		{"kind": "court", "w": 52.0, "l": 64.0, "h": 11.0, "lv": 3, "xp": 2.5, "foes": [[IMP, 5], [PUGLIN, 5]]},
+		{"kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true, "lv": 5, "xp": 3.0,
+				"foes": [[PUGLIN, 7], [IMP, 5]]},
+		{"kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0, "lv": 7, "xp": 3.5,
+				"foes": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]},
+		{"kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0, "lv": 8, "foes": [[ORC_CHIEF, 1, ORC_LORD]]},
 	],
 }
 ## The boss of each dungeon: the scene in its last room that has to fall.
@@ -70,6 +73,11 @@ const BOSS := {0: ORC_CHIEF}
 ## How many may set on each hero at once, an orc near him counting as one
 ## (the user's word: at most two; the rest throw from off).
 const CROWD := 2
+## Seconds between any two things thrown at one hero (the user's word: so
+## many waiting made a hail of it).
+const THROW_GAP := 2.0
+## Held back, they wait round him on these rings, spread out evenly.
+const HOLD_RINGS := [8.5, 11.5]
 
 ## Which dungeon this is (from [member Game.dungeon_id]; 0 when there is none).
 @export var id: int = 0
@@ -97,6 +105,22 @@ var _columns: Array[Dictionary] = []
 var _crowd_clock: float = 0.0
 ## The small ones let at the heroes just now ([method _hold_back_crowd]).
 var _holders: Array[Node3D] = []
+## Every room's creatures, made when the dungeon loads (no stall when a room
+## wakes, the user's word): asleep where they stand till theirs does.
+var _room_foes: Array = []
+## The pair of orcs taking turns at a lone hero: whose turn, since when, and
+## each one's health at the last look (a blow on the other one hands it over).
+var _orc_on: Node3D = null
+var _orc_since: float = 0.0
+var _orc_hand_over: float = 16.0
+var _orc_health: Dictionary = {}
+## The light of the day, room by room (0 afternoon .. 4 night), and its tween.
+var _phase: float = 0.0
+var _phase_tween: Tween
+var _sky_mat: ShaderMaterial
+var _sun: DirectionalLight3D
+var _sun_yaw: float = 0.0
+var _env: Environment
 var _scars: int = 0
 var _wall_mat: ShaderMaterial
 var _trim_mat: StandardMaterial3D
@@ -275,6 +299,21 @@ void fragment() {
 	// Darker towards the floor, as old stone is, and a little moss low down.
 	c *= 0.72 + 0.28 * smoothstep(0.0, 4.0, wpos.y);
 	c = mix(c, vec3(0.13, 0.17, 0.10), 0.25 * smoothstep(1.2, 0.0, wpos.y) * step(0.6, n));
+	// Water stains running down from the joints, here and there.
+	float col = floor(u / 0.9);
+	float stain = step(0.82, hash(vec2(col, 3.0))) * smoothstep(0.0, 0.5, fract(u / 0.9))
+			* smoothstep(1.0, 0.5, fract(u / 0.9));
+	c *= 1.0 - 0.35 * stain * smoothstep(0.0, 6.0, wpos.y);
+	// Moss low on the walls, in soft patches, dark.
+	vec2 mq = vec2(u, wpos.y) * 0.9;
+	float mn = fract(sin(dot(floor(mq), vec2(12.9, 78.2))) * 43758.5);
+	vec2 mf = fract(mq);
+	vec2 mu = mf * mf * (3.0 - 2.0 * mf);
+	float m00 = hash(floor(mq)); float m10 = hash(floor(mq) + vec2(1.0, 0.0));
+	float m01 = hash(floor(mq) + vec2(0.0, 1.0)); float m11 = hash(floor(mq) + vec2(1.0, 1.0));
+	float mv = mix(mix(m00, m10, mu.x), mix(m01, m11, mu.x), mu.y);
+	float moss = smoothstep(0.58, 0.8, mv) * smoothstep(3.2, 0.2, wpos.y) * step(0.0, wpos.y) * step(abs(wnorm.y), 0.5);
+	c = mix(c, vec3(0.09, 0.13, 0.06) * (0.8 + 0.4 * mn), moss * 0.75);
 	ALBEDO = c;
 	ROUGHNESS = 0.9;
 }
@@ -368,6 +407,12 @@ func _ready() -> void:
 	add_to_group(&"ground_scars")
 	_build_hud()
 	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
+	Fighter.throw_gap = THROW_GAP
+	_spawn_all.call_deferred()
+
+
+func _exit_tree() -> void:
+	Fighter.throw_gap = 0.0
 
 
 func _room(i: int) -> Dictionary:
@@ -466,6 +511,7 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("course", 1.7)
 		m.set_shader_parameter("wear", 0.45 if not r.has("hole") else 0.75)
 		m.set_shader_parameter("border", 2.2)
+		m.set_shader_parameter("aisle", 2.6)
 	else:
 		m.set_shader_parameter("slab", 1.8)
 		m.set_shader_parameter("course", 1.25)
@@ -479,42 +525,177 @@ func _floor_mat(i: int) -> ShaderMaterial:
 	return m
 
 
-## Late afternoon over the palace: a warm sun low in a clear sky.
+## The light, room by room (the user's word, 2026-10-20: clouds, the day
+## going down as he goes on, night at the boss with the moon and stars): sun
+## height (degrees; below 0 it has set), its colour and strength, the sky's top,
+## horizon and ground, the fill light's colour and strength, the haze, how much
+## night (stars, the moon), how cloudy.
+const PHASES := [
+	{"elev": 52.0, "sun": Color(1.0, 0.92, 0.8), "sun_e": 1.3, "top": Color(0.20, 0.40, 0.70),
+			"hor": Color(0.82, 0.80, 0.74), "gnd": Color(0.30, 0.28, 0.26), "amb": Color(0.62, 0.61, 0.60),
+			"amb_e": 1.45, "fog": Color(0.66, 0.70, 0.78), "night": 0.0, "cloud": 0.45},
+	{"elev": 34.0, "sun": Color(1.0, 0.86, 0.66), "sun_e": 1.25, "top": Color(0.20, 0.37, 0.66),
+			"hor": Color(0.92, 0.76, 0.58), "gnd": Color(0.30, 0.27, 0.24), "amb": Color(0.64, 0.60, 0.56),
+			"amb_e": 1.4, "fog": Color(0.72, 0.68, 0.66), "night": 0.0, "cloud": 0.5},
+	{"elev": 15.0, "sun": Color(1.0, 0.70, 0.44), "sun_e": 1.1, "top": Color(0.22, 0.30, 0.56),
+			"hor": Color(1.0, 0.60, 0.36), "gnd": Color(0.28, 0.22, 0.20), "amb": Color(0.66, 0.55, 0.50),
+			"amb_e": 1.3, "fog": Color(0.80, 0.58, 0.46), "night": 0.0, "cloud": 0.55},
+	{"elev": 3.0, "sun": Color(1.0, 0.46, 0.26), "sun_e": 0.8, "top": Color(0.10, 0.12, 0.32),
+			"hor": Color(0.86, 0.36, 0.28), "gnd": Color(0.16, 0.12, 0.14), "amb": Color(0.55, 0.46, 0.52),
+			"amb_e": 1.15, "fog": Color(0.52, 0.32, 0.36), "night": 0.3, "cloud": 0.55},
+	{"elev": 38.0, "sun": Color(0.62, 0.70, 1.0), "sun_e": 0.55, "top": Color(0.012, 0.018, 0.06),
+			"hor": Color(0.07, 0.09, 0.18), "gnd": Color(0.03, 0.03, 0.05), "amb": Color(0.42, 0.48, 0.66),
+			"amb_e": 0.95, "fog": Color(0.10, 0.12, 0.20), "night": 1.0, "cloud": 0.4},
+]
+
+const SKY_SHADER := """
+shader_type sky;
+uniform vec4 top_col : source_color = vec4(0.2, 0.4, 0.7, 1.0);
+uniform vec4 hor_col : source_color = vec4(0.8, 0.8, 0.74, 1.0);
+uniform vec4 gnd_col : source_color = vec4(0.3, 0.28, 0.26, 1.0);
+uniform vec4 sun_col : source_color = vec4(1.0, 0.9, 0.8, 1.0);
+uniform float night = 0.0;
+uniform float cloud = 0.5;
+float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+	float v = 0.0; float a = 0.5;
+	for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 11.7; a *= 0.5; }
+	return v;
+}
+void sky() {
+	vec3 d = EYEDIR;
+	float y = d.y;
+	vec3 c = mix(hor_col.rgb, top_col.rgb, pow(clamp(y, 0.0, 1.0), 0.5));
+	if (y < 0.0) { c = mix(hor_col.rgb, gnd_col.rgb, clamp(-y * 4.0, 0.0, 1.0)); }
+	// Stars, at night, twinkling.
+	if (night > 0.01 && y > 0.0) {
+		vec3 q = d * 260.0;
+		vec3 cell = floor(q);
+		float h = hash3(cell);
+		float star = step(0.986, h) * smoothstep(0.32, 0.0, length(fract(q) - 0.5));
+		float tw = 0.65 + 0.35 * sin(TIME * (2.0 + h * 3.0) + h * 60.0);
+		c += vec3(1.0, 0.95, 0.88) * star * tw * night * smoothstep(0.0, 0.25, y) * 2.2;
+		// the Milky Way, faint
+		float band = exp(-pow(dot(d, normalize(vec3(0.5, 0.2, -0.8))) * 3.2, 2.0));
+		c += vec3(0.10, 0.10, 0.16) * band * fbm(d.xz * 9.0 + d.y * 4.0) * night;
+	}
+	// The sun, or at night the moon, and the glow round it.
+	float sd = dot(d, LIGHT0_DIRECTION);
+	if (LIGHT0_ENABLED) {
+		float glow = pow(max(sd, 0.0), 48.0) * 0.6 + pow(max(sd, 0.0), 6.0) * 0.18;
+		c += sun_col.rgb * glow * mix(1.0, 0.35, night);
+		float size = mix(0.99965, 0.9993, night);
+		float disc = smoothstep(size, size + 0.00012, sd);
+		vec3 moon = vec3(0.92, 0.93, 1.0) * (0.8 + 0.25 * fbm(d.xy * 400.0)) * 1.6;
+		c = mix(c, mix(sun_col.rgb * 8.0, moon, night), disc);
+	}
+	// Clouds on a high plane, drifting, lit on the side the light is.
+	if (y > 0.0) {
+		vec2 uv = d.xz / (y + 0.15) * 0.9 + vec2(TIME * 0.004, TIME * 0.0016);
+		float n = fbm(uv * 1.4);
+		float cov = smoothstep(1.0 - cloud, 1.0 - cloud + 0.28, n) * smoothstep(0.0, 0.18, y);
+		vec3 l2 = normalize(vec3(LIGHT0_DIRECTION.x, 0.0001, LIGHT0_DIRECTION.z));
+		float toward = clamp(0.5 + 0.5 * dot(normalize(vec3(d.x, 0.0001, d.z)), l2), 0.0, 1.0);
+		vec3 lit = mix(hor_col.rgb * 1.15 + sun_col.rgb * 0.25, vec3(0.30, 0.33, 0.42), night);
+		vec3 dark = mix(mix(top_col.rgb, hor_col.rgb, 0.5) * 0.7, vec3(0.04, 0.045, 0.07), night);
+		vec3 cc = mix(dark, lit, clamp(n * 0.7 + toward * 0.5, 0.0, 1.0));
+		cc += sun_col.rgb * pow(max(sd, 0.0), 12.0) * 0.6 * (1.0 - night);
+		c = mix(c, cc, cov * 0.92);
+	}
+	COLOR = c;
+}
+"""
+
+
+## The sky (a shader of its own: clouds, stars, the moon), the light and the
+## haze, set to the first room's afternoon.
 func _sky() -> void:
 	var root: Node = owner if owner != null else get_parent()
 	var env_node := root.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	if env_node == null or env_node.environment == null:
 		return
-	var env := env_node.environment
-	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.20, 0.38, 0.66)
-	mat.sky_horizon_color = Color(0.88, 0.72, 0.56)
-	mat.sky_curve = 0.14
-	mat.ground_horizon_color = Color(0.58, 0.50, 0.44)
-	mat.ground_bottom_color = Color(0.20, 0.18, 0.17)
-	mat.sun_angle_max = 8.0
-	mat.sun_curve = 0.05
+	_env = env_node.environment
+	var shader := Shader.new()
+	shader.code = SKY_SHADER
+	_sky_mat = ShaderMaterial.new()
+	_sky_mat.shader = shader
 	var sky := Sky.new()
-	sky.sky_material = mat
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	# Late afternoon, not dusk (the user's word, 2026-10-20: inside nothing
-	# showed, the colours lost; the test arena is pleasanter): a warm sun, a
-	# bright neutral fill that reaches under the roofs, a pale haze far off.
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_color = Color(0.62, 0.60, 0.58)
-	env.ambient_light_sky_contribution = 0.45
-	env.ambient_light_energy = 1.45
-	env.fog_light_color = Color(0.62, 0.64, 0.72)
-	env.fog_density = 0.0007
-	env.fog_sky_affect = 0.25
-	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.05
-	var sun := root.get_node_or_null("Sun") as DirectionalLight3D
-	if sun != null:
-		sun.light_color = Color(1.0, 0.87, 0.7)
-		sun.light_energy = 1.3
+	sky.sky_material = _sky_mat
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
+	sky.radiance_size = Sky.RADIANCE_SIZE_64
+	_env.background_mode = Environment.BG_SKY
+	_env.sky = sky
+	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	_env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	_env.fog_density = 0.0007
+	_env.fog_sky_affect = 0.2
+	_env.adjustment_enabled = true
+	_env.adjustment_saturation = 1.12
+	_env.adjustment_contrast = 1.05
+	_sun = root.get_node_or_null("Sun") as DirectionalLight3D
+	if _sun != null:
+		_sun_yaw = _sun.rotation.y
+	_apply_phase(0.0)
+
+
+## Over `seconds`, to the light of room `to`.
+func _to_phase(to: float, seconds: float) -> void:
+	if _phase_tween != null and _phase_tween.is_valid():
+		_phase_tween.kill()
+	_phase_tween = create_tween()
+	_phase_tween.tween_method(_apply_phase, _phase, to, seconds)
+
+
+func _apply_phase(t: float) -> void:
+	_phase = t
+	var i := clampi(int(floorf(t)), 0, PHASES.size() - 1)
+	var j := mini(i + 1, PHASES.size() - 1)
+	var u := clampf(t - float(i), 0.0, 1.0)
+	var a: Dictionary = PHASES[i]
+	var b: Dictionary = PHASES[j]
+	var top: Color = (a["top"] as Color).lerp(b["top"], u)
+	var hor: Color = (a["hor"] as Color).lerp(b["hor"], u)
+	var sun_c: Color = (a["sun"] as Color).lerp(b["sun"], u)
+	var night := lerpf(float(a["night"]), float(b["night"]), u)
+	var elev := lerpf(float(a["elev"]), float(b["elev"]), u)
+	var sun_e := lerpf(float(a["sun_e"]), float(b["sun_e"]), u)
+	var yaw := _sun_yaw
+	# Into the night: the sun goes down, then the moon comes up, elsewhere.
+	if float(b["night"]) > 0.9 and float(a["night"]) < 0.9:
+		if u < 0.5:
+			elev = lerpf(float(a["elev"]), -6.0, u * 2.0)
+			sun_e = lerpf(float(a["sun_e"]), 0.0, u * 2.0)
+			sun_c = a["sun"]
+		else:
+			elev = float(b["elev"])
+			yaw = _sun_yaw + PI * 0.7
+			sun_e = lerpf(0.0, float(b["sun_e"]), (u - 0.5) * 2.0)
+			sun_c = b["sun"]
+	elif float(a["night"]) > 0.9:
+		yaw = _sun_yaw + PI * 0.7
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("top_col", top)
+		_sky_mat.set_shader_parameter("hor_col", hor)
+		_sky_mat.set_shader_parameter("gnd_col", (a["gnd"] as Color).lerp(b["gnd"], u))
+		_sky_mat.set_shader_parameter("sun_col", sun_c)
+		_sky_mat.set_shader_parameter("night", night)
+		_sky_mat.set_shader_parameter("cloud", lerpf(float(a["cloud"]), float(b["cloud"]), u))
+	if _env != null:
+		_env.ambient_light_color = (a["amb"] as Color).lerp(b["amb"], u)
+		_env.ambient_light_energy = lerpf(float(a["amb_e"]), float(b["amb_e"]), u)
+		_env.fog_light_color = (a["fog"] as Color).lerp(b["fog"], u)
+	if _sun != null:
+		_sun.rotation = Vector3(-deg_to_rad(maxf(elev, -6.0)), yaw, 0.0)
+		_sun.light_color = sun_c
+		_sun.light_energy = maxf(sun_e, 0.0)
+		_sun.visible = sun_e > 0.01
 
 
 func _build_room(i: int) -> void:
@@ -600,25 +781,62 @@ func _build_room(i: int) -> void:
 	_motes(room, w, l, h)
 	if kind != "hall":
 		return
-	# A runner down a hall's middle.
-	var rug := MeshInstance3D.new()
-	var rm := BoxMesh.new()
-	rm.size = Vector3(4.0, 0.03, l - 6.0)
-	rug.mesh = rm
-	var rug_mat := StandardMaterial3D.new()
-	rug_mat.albedo_color = Color(0.30, 0.04, 0.07)
-	rug_mat.roughness = 1.0
-	rug.material_override = rug_mat
-	rug.position = Vector3(0.0, 0.015, 0.0)
-	room.add_child(rug)
-	for side: float in [-1.0, 1.0]:
-		var edge := MeshInstance3D.new()
-		var em := BoxMesh.new()
-		em.size = Vector3(0.22, 0.035, l - 6.0)
-		edge.mesh = em
-		edge.material_override = _gold_mat
-		edge.position = Vector3(side * 1.9, 0.018, 0.0)
-		room.add_child(edge)
+	# Down a hall's middle, a cobbled aisle between standing braziers (the red
+	# runner went, the user's word, 2026-10-20).
+	var step := 12.0
+	var count := int((l - 10.0) / step)
+	for k in count:
+		var z := -l * 0.5 + 8.0 + float(k) * step
+		for side: float in [-1.0, 1.0]:
+			_standing_brazier(room, Vector3(side * 4.2, 0.0, z))
+
+
+## An iron bowl of fire on three legs, waist high.
+func _standing_brazier(room: Node3D, at: Vector3) -> void:
+	var holder := Node3D.new()
+	holder.position = at
+	room.add_child(holder)
+	for k in 3:
+		var a := TAU * float(k) / 3.0
+		var leg := MeshInstance3D.new()
+		var lm := BoxMesh.new()
+		lm.size = Vector3(0.07, 1.15, 0.07)
+		leg.mesh = lm
+		leg.material_override = _iron_mat
+		leg.position = Vector3(sin(a) * 0.28, 0.55, cos(a) * 0.28)
+		leg.rotation = Vector3(cos(a) * 0.22, 0.0, -sin(a) * 0.22)
+		holder.add_child(leg)
+	var bowl := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = 0.55
+	bm.bottom_radius = 0.22
+	bm.height = 0.38
+	bm.radial_segments = 12
+	bowl.mesh = bm
+	bowl.material_override = _iron_mat
+	bowl.position = Vector3(0.0, 1.22, 0.0)
+	holder.add_child(bowl)
+	var coals := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.48
+	cm.bottom_radius = 0.48
+	cm.height = 0.04
+	coals.mesh = cm
+	var hot := StandardMaterial3D.new()
+	hot.albedo_color = Color(0.2, 0.05, 0.02)
+	hot.emission_enabled = true
+	hot.emission = Color(1.0, 0.35, 0.08)
+	hot.emission_energy_multiplier = 2.5
+	coals.material_override = hot
+	coals.position = Vector3(0.0, 1.39, 0.0)
+	holder.add_child(coals)
+	holder.add_child(_flame(Vector3(0.0, 1.42, 0.0), 1.7, 22))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.62, 0.3)
+	light.light_energy = 1.6
+	light.omni_range = 10.0
+	light.position = Vector3(0.0, 2.0, 0.0)
+	holder.add_child(light)
 
 
 func _solid(parent: Node3D, mat: Material, size: Vector3, at: Vector3, block: bool = true) -> StaticBody3D:
@@ -1065,7 +1283,7 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 		for hero in standing:
 			gap = minf(gap, body.global_position.distance_to(hero.global_position))
 		if body is PackBrute:
-			if gap < 9.0:
+			if gap < 9.0 and not (body as PackBrute).held_back:
 				brutes += 1
 			continue
 		if "held_back" in body:
@@ -1086,8 +1304,81 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 	while keep.size() > allowed:
 		keep.pop_back()
 	_holders = keep
+	var waiting: Array[Fighter] = []
 	for pair: Array in small:
-		(pair[1] as Node).set("held_back", not keep.has(pair[1]))
+		var held: bool = not keep.has(pair[1])
+		(pair[1] as Node).set("held_back", held)
+		if held:
+			waiting.append(pair[1])
+	_spread(waiting, standing)
+
+
+## The ones held back, round each hero on `HOLD_RINGS` at even bearings (the
+## user's word: no more than three in a place), each kept to the side of him
+## it is on so none crosses another.
+func _spread(waiting: Array[Fighter], standing: Array[Player]) -> void:
+	if standing.is_empty():
+		return
+	var by_hero := {}
+	for body in waiting:
+		var best: Player = standing[0]
+		for hero in standing:
+			if hero.global_position.distance_squared_to(body.global_position) \
+					< best.global_position.distance_squared_to(body.global_position):
+				best = hero
+		if not by_hero.has(best):
+			by_hero[best] = []
+		var off := body.global_position - best.global_position
+		(by_hero[best] as Array).append([atan2(off.x, off.z), body])
+	for hero: Player in by_hero:
+		var list: Array = by_hero[hero]
+		list.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+		var n := list.size()
+		var start := float(list[0][0])
+		for k in n:
+			var body: Fighter = list[k][1]
+			body.held_angle = start + TAU * float(k) / float(n)
+			body.held_radius = float(HOLD_RINGS[k % HOLD_RINGS.size()])
+
+
+## Two orcs (or more) at one lone hero take turns (the user's word): one at
+## him, the other off, waiting; a blow on the waiting one brings it in and
+## sends the other off, and every so often they change over by themselves.
+## With more heroes they fight as they would.
+func _lead_orcs(standing: Array[Player]) -> void:
+	var orcs: Array[PackBrute] = []
+	for body in _alive:
+		var o := body as PackBrute
+		if o != null and is_instance_valid(o) and not o.is_dead:
+			orcs.append(o)
+	if orcs.size() < 2 or standing.size() != 1:
+		for o in orcs:
+			o.turn_led = false
+			o.held_back = false
+		_orc_on = null
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	var on := _orc_on as PackBrute
+	if on == null or not orcs.has(on):
+		on = orcs[0]
+		_orc_since = now
+		_orc_hand_over = randf_range(14.0, 22.0)
+	# A blow on one that waits: its turn now.
+	for o in orcs:
+		var was := float(_orc_health.get(o, o.health))
+		if o != on and o.health < was - 0.01:
+			on = o
+			_orc_since = now
+			_orc_hand_over = randf_range(14.0, 22.0)
+		_orc_health[o] = o.health
+	if now - _orc_since > _orc_hand_over and on.act == Fighter.Act.NONE:
+		on = orcs[(orcs.find(on) + 1) % orcs.size()]
+		_orc_since = now
+		_orc_hand_over = randf_range(14.0, 22.0)
+	_orc_on = on
+	for o in orcs:
+		o.turn_led = true
+		o.held_back = o != on
 
 
 ## Every peer: an orc's heavy blow has cracked the floor at `at` (called by
@@ -1526,6 +1817,11 @@ func _process(delta: float) -> void:
 	_crowd_clock -= delta
 	if _crowd_clock <= 0.0:
 		_crowd_clock = 0.2
+		var standing: Array[Player] = []
+		for hero in heroes:
+			if not hero.is_dead:
+				standing.append(hero)
+		_lead_orcs(standing)
 		_hold_back_crowd(heroes)
 	if _exit != null:
 		for hero in heroes:
@@ -1536,60 +1832,89 @@ func _process(delta: float) -> void:
 				return
 
 
-## Room `i`'s creatures come: in the far half of it, roused at once.
+## Every room's creatures, made at once as the dungeon loads, standing in the
+## far half of their rooms, asleep (they see no one: their leash is nothing),
+## and all but the first two rooms not even thinking yet.
+func _spawn_all() -> void:
+	var level_root: Node = owner if owner != null else get_parent()
+	var creatures := level_root.get_node_or_null("Enemies")
+	_room_foes.clear()
+	for i in rooms.size():
+		var mine: Array[Node3D] = []
+		_room_foes.append(mine)
+		if creatures == null:
+			continue
+		var c := centre(i)
+		var r := _room(i)
+		var w: float = r["w"]
+		var l: float = r["l"]
+		var k := 0
+		for entry: Array in r["foes"]:
+			var scene := load(String(entry[0])) as PackedScene
+			if scene == null:
+				continue
+			for n in int(entry[1]):
+				var body := scene.instantiate() as Node3D
+				body.name = "D%d_R%d_%d" % [id, i, k]
+				var across := (float(k % 4) - 1.5) * (w - 12.0) / 3.0
+				var row := floorf(float(k) / 4.0)
+				var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.2, -l * 0.08 - row * 3.0)
+				if String(entry[0]) == BOSS.get(id, ""):
+					at = c + Vector3(0.0, 0.2, -l * 0.2)
+				body.position = at
+				body.rotation.y = 0.0
+				if entry.size() > 2:
+					var props: Dictionary = entry[2]
+					for key: String in props:
+						body.set(StringName(key), props[key])
+				body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
+				body.set("camp_centre", Vector3(c.x, 0.0, c.z))
+				if "leash_radius" in body:
+					body.set("leash_radius", 0.01)
+				if r.has("lv"):
+					body.set_meta(&"level", int(r["lv"]))
+				if i >= 2:
+					body.process_mode = Node.PROCESS_MODE_DISABLED
+				# out of sight till the gate before its room opens (its bars and
+				# name would show through the walls)
+				body.visible = i == 0
+				creatures.add_child(body)
+				mine.append(body)
+				k += 1
+
+
+## Room `i`'s creatures, already standing in it, wake and come at him; the
+## room after it starts to stir (thinking, still asleep).
 func _wake(i: int) -> void:
 	current = i
 	_alive.clear()
-	_spawned = 0
+	_holders.clear()
+	_orc_on = null
 	# The gate behind him comes down again.
 	if i > 0:
 		_set_gate(i - 1, false)
-	var level_root: Node = owner if owner != null else get_parent()
-	var creatures := level_root.get_node_or_null("Enemies")
-	if creatures == null:
-		return
-	var c := centre(i)
-	var r := _room(i)
-	var w: float = r["w"]
-	var l: float = r["l"]
-	var list: Array = r["foes"]
-	var total := 0
-	for entry: Array in list:
-		total += int(entry[1])
-	var k := 0
-	var hero := _nearest_hero(c)
-	for entry: Array in list:
-		var scene := load(String(entry[0])) as PackedScene
-		if scene == null:
+	if _room_foes.size() != rooms.size():
+		_spawn_all()
+	var l: float = _room(i)["l"]
+	var hero := _nearest_hero(centre(i))
+	for body: Node3D in _room_foes[i]:
+		if not is_instance_valid(body):
 			continue
-		for n in int(entry[1]):
-			var body := scene.instantiate() as Node3D
-			body.name = "D%d_R%d_%d" % [id, i, k]
-			# A loose crowd over the far half of the room.
-			var across := (float(k % 4) - 1.5) * (w - 12.0) / 3.0
-			var row := floorf(float(k) / 4.0)
-			var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.2, -l * 0.08 - row * 3.0)
-			if String(entry[0]) == BOSS.get(id, ""):
-				at = c + Vector3(0.0, 0.2, -l * 0.2)
-			body.position = at
-			body.rotation.y = 0.0
-			if entry.size() > 2:
-				var props: Dictionary = entry[2]
-				for key: String in props:
-					body.set(StringName(key), props[key])
-			body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
-			body.set("camp_centre", Vector3(c.x, 0.0, c.z))
-			if "leash_radius" in body:
-				body.set("leash_radius", l)
-			creatures.add_child(body)
-			_alive.append(body)
-			_spawned += 1
-			k += 1
-			if hero != null and body.has_method("_rouse"):
-				body.call_deferred("_rouse", hero)
+		body.process_mode = Node.PROCESS_MODE_INHERIT
+		if "leash_radius" in body:
+			body.set("leash_radius", l)
+		_alive.append(body)
+		if hero != null and body.has_method("_rouse"):
+			body.call_deferred("_rouse", hero)
+	_spawned = _alive.size()
+	if i + 1 < _room_foes.size():
+		for body: Node3D in _room_foes[i + 1]:
+			if is_instance_valid(body):
+				body.process_mode = Node.PROCESS_MODE_INHERIT
+	_to_phase(float(i), 7.0)
 	var last := i == rooms.size() - 1
 	_say("ბოსი: ორკების მბრძანებელი" if last else "ოთახი %d / %d" % [i + 1, rooms.size()], 3.0)
-	if total == 0:
+	if _spawned == 0:
 		_clear(i)
 
 
@@ -1611,6 +1936,13 @@ func _clear(i: int) -> void:
 		return
 	cleared[i] = true
 	room_cleared.emit(i)
+	# What clearing the room is worth on top of its creatures.
+	var bonus := float(_room(i).get("xp", 0.0))
+	if bonus > 0.0:
+		for hero in _heroes():
+			var book := hero.get_node_or_null("Leveling") as Leveling
+			if book != null and not hero.is_dead:
+				book.gain(bonus)
 	# The fallen get up when the room is clear (the user's word: in a band,
 	# the dead wait for the others to clear the room).
 	for hero in _heroes():
@@ -1618,6 +1950,10 @@ func _clear(i: int) -> void:
 			var at := hero.global_position
 			hero.call("_respawn")
 			hero.global_position = at
+	if i + 1 < _room_foes.size():
+		for body: Node3D in _room_foes[i + 1]:
+			if is_instance_valid(body):
+				body.visible = true
 	if i < rooms.size() - 1:
 		_set_gate(i, true)
 		_say("კარი გაიღო", 2.0)

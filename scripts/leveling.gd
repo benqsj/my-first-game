@@ -89,6 +89,9 @@ static func worth(creature: Node) -> float:
 
 ## A creature's level.
 static func level_of(creature: Node) -> int:
+	# a place can set its own (a dungeon's rooms, deeper ones higher)
+	if creature.has_meta(&"level"):
+		return int(creature.get_meta(&"level"))
 	return int(LEVEL_OF.get(kind_of(creature), LEVEL_OTHER))
 
 

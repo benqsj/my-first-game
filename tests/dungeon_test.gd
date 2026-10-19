@@ -76,6 +76,8 @@ func _dungeon() -> void:
 	var book := hero.get_node("Leveling") as Leveling
 	_check("comes in at level 1", book.level == 1, str(book.level))
 	var creatures := world.get_node("Enemies")
+	_check("every room's creatures made at the start", creatures.get_child_count() == 31,
+			str(creatures.get_child_count()))
 	var counts: Array[int] = []
 	for r in d.rooms.size():
 		hero.global_position = d.centre(r) + Vector3(0.0, 0.3, 4.0)
@@ -83,7 +85,7 @@ func _dungeon() -> void:
 		_check("room %d wakes" % (r + 1), d.current == r, str(d.current))
 		var alive := 0
 		for body in creatures.get_children():
-			if not bool(body.get("is_dead")):
+			if not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R%d_" % r):
 				alive += 1
 		counts.append(alive)
 		var expected := 0
@@ -98,7 +100,7 @@ func _dungeon() -> void:
 			var at_him := 0
 			var held := 0
 			for body in creatures.get_children():
-				if not bool(body.get("is_dead")) and "held_back" in body:
+				if not bool(body.get("is_dead")) and "held_back" in body and String(body.name).begins_with("D0_R2_"):
 					if bool(body.get("held_back")):
 						held += 1
 					else:
@@ -106,10 +108,22 @@ func _dungeon() -> void:
 			_check("only two let at him", at_him <= Dungeon.CROWD and held >= expected - Dungeon.CROWD,
 					"%d at him, %d held" % [at_him, held])
 			_check("the dungeon's music", d.music_wanted() == &"dungeon")
+		if r == 3:
+			# The two orcs at a lone hero: one at him, the other waiting.
+			await _wait(30)
+			var waiting := 0
+			for body in creatures.get_children():
+				if body is PackBrute and not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R3_"):
+					if (body as PackBrute).held_back:
+						waiting += 1
+			_check("the orcs take turns", waiting == 1, str(waiting))
+			_check("orcs show level 7", Leveling.level_of(creatures.get_node("D0_R3_0")) == 7)
 		if r == 4:
+			_check("comes to the lord at level 7", book.level == 7, str(book.level))
+			_check("the lord shows level 8", Leveling.level_of(creatures.get_node("D0_R4_0")) == 8)
 			_check("the boss's music", d.music_wanted() == &"dungeon_boss")
 		for body in creatures.get_children():
-			if not bool(body.get("is_dead")) and body.has_method("_die"):
+			if not bool(body.get("is_dead")) and body.has_method("_die") and String(body.name).begins_with("D0_R%d_" % r):
 				body.call("_die")
 		await _wait(80)
 		_check("room %d cleared" % (r + 1), d.cleared[r])

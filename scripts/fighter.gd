@@ -167,6 +167,15 @@ var is_dead: bool = false:
 ## of them at him at once): it stays back, out of reach, and only throws if it
 ## can. Host only.
 var held_back: bool = false
+## Where it waits while held back: round him at this bearing and distance
+## (set with `held_back`; radius 0: its own choice).
+var held_angle: float = 0.0
+var held_radius: float = 0.0
+## Seconds between any two things thrown at one hero, whoever throws them (a
+## [Dungeon] sets it: so many held back would otherwise fill the air). 0: no
+## limit.
+static var throw_gap: float = 0.0
+static var _throw_times: Dictionary = {}
 
 var _health_bar: HealthBar
 var _stamina_bar: HealthBar
@@ -364,6 +373,42 @@ func _play_locomotion(_delta: float) -> void:
 
 
 #region Thinking
+## Whether a throw at `at` may go now (see `throw_gap`); taking it if so.
+static func claim_throw(at: Node3D) -> bool:
+	if throw_gap <= 0.0 or at == null:
+		return true
+	var key := at.get_instance_id()
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - float(_throw_times.get(key, -100.0)) < throw_gap:
+		return false
+	_throw_times[key] = now
+	return true
+
+
+## Held back: the spot round him it waits at ([member held_angle]), or, with no
+## place given, `fallback` metres off him where it is.
+func _held_spot(fallback: float) -> Vector3:
+	var ang := held_angle
+	var r := held_radius
+	if r <= 0.0:
+		var away := global_position - _quarry.global_position
+		ang = atan2(away.x, away.z)
+		r = fallback
+	return _quarry.global_position + Vector3(sin(ang), 0.0, cos(ang)) * r
+
+
+## Goes to `spot` face on to him, sideways or backwards as it must.
+func _hold_to(spot: Vector3, pace: float, delta: float) -> void:
+	var to_spot := spot - global_position
+	to_spot.y = 0.0
+	_face(_quarry.global_position - global_position, delta, turn_speed)
+	var want := Vector3.ZERO
+	if to_spot.length() > 0.4:
+		want = to_spot.normalized() * minf(pace, to_spot.length() * 1.5)
+	velocity.x = move_toward(velocity.x, want.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, want.z, acceleration * delta)
+
+
 func _think(delta: float) -> void:
 	_quarry = _pick_quarry()
 	match mode:

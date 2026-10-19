@@ -875,7 +875,7 @@ func _begin_throw() -> void:
 ## Host, waiting its turn in a band ([method PackBrute._await_turn]): an axe
 ## at him now and then.
 func _while_waiting(_delta: float) -> bool:
-	if _punish_left > 0.0 and _punish():
+	if _punish_left > 0.0 and not (turn_led and held_back) and _punish():
 		return true
 	if _try_cry():
 		return true
@@ -1719,6 +1719,8 @@ func _answer_swing(knight: Node3D) -> void:
 
 ## Whose turn: its own while it has joined in (`_join_left`), else as the band.
 func _my_turn() -> bool:
+	if turn_led:
+		return not held_back
 	if _join_left > 0.0 and _quarry != null:
 		var on_him := 0
 		for node in get_tree().get_nodes_in_group(&"enemy"):

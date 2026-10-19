@@ -117,8 +117,6 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 
 ## Who holds a turn at whom: quarry's instance id -> the imps going in at him.
 static var _turns: Dictionary = {}
-## Quarry's instance id -> when the last coal was flung at him (one at a time).
-static var _thrown_at: Dictionary = {}
 
 var _tactic: int = Tactic.CLOSE
 var _tactic_left: float = 0.0
@@ -284,27 +282,19 @@ func _think(delta: float) -> void:
 					_set_tactic(Tactic.CLOSE)
 
 
-## Held back: round him out of reach, now and then a coal.
+## Held back: at its place round him, out of reach, now and then a coal.
 func _hang_back(gap: float, delta: float) -> void:
 	mode = Mode.FIGHT
-	if gap > held_ring.y + 4.0:
+	if gap > held_ring.y + 6.0:
 		_move_towards(_quarry.global_position, chase_speed, delta)
 		return
-	var key := _quarry.get_instance_id()
-	var now := Time.get_ticks_msec() / 1000.0
-	if _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y \
-			and now - float(_thrown_at.get(key, -10.0)) > 1.3:
-		_thrown_at[key] = now
+	if _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y and Fighter.claim_throw(_quarry):
 		_throw_wait = _rng.randf_range(throw_every.x, throw_every.y)
 		_face(_quarry.global_position - global_position, 1.0, 1000.0)
 		_flung = false
 		_begin(THROW)
 		return
-	var keep := ring
-	ring = held_ring
-	_circle(gap, delta)
-	ring = keep
-
+	_hold_to(_held_spot((held_ring.x + held_ring.y) * 0.5), strafe_speed * 1.4, delta)
 
 func _run_act(delta: float) -> void:
 	if act == THROW and not _flung and _act_time >= _act_length * 0.45:

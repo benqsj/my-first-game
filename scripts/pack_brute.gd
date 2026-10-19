@@ -188,6 +188,9 @@ var _stance_serial: int = -1
 ## the rest keep `turn_wait_gap` off, circling him, facing him, till one of
 ## them drops back or falls. 0: it never waits its turn.
 @export var pack_turns: int = 0
+## Whose turn is decided from outside (a [Dungeon]): its turn while it is not
+## `held_back`, whatever its kind would say.
+var turn_led: bool = false
 @export var turn_wait_gap: float = 5.5
 @export var turn_wait_speed: float = 1.7
 
@@ -1244,8 +1247,9 @@ func _stoop_into(delta: float) -> void:
 ## Host: not its turn (see `pack_turns`): it keeps off him, circling and
 ## facing him (true while it waits).
 func _await_turn(delta: float) -> bool:
-	# enraged it waits for no one
-	if pack_turns <= 0 or raging or _quarry == null or drill_combo >= 0 or _my_turn():
+	# enraged it waits for no one — unless told to
+	var told := turn_led and held_back
+	if _quarry == null or (not told and (pack_turns <= 0 or raging or drill_combo >= 0 or _my_turn())):
 		return false
 	mode = Mode.FIGHT
 	var to := _quarry.global_position - global_position
@@ -1261,7 +1265,7 @@ func _await_turn(delta: float) -> bool:
 		_circle_for = _rng.randf_range(1.8, 3.6)
 		_circle_dir = -_circle_dir if _rng.randf() < 0.5 else _circle_dir
 	var want := dir.cross(Vector3.UP) * _circle_dir * 0.7
-	var keep := turn_wait_gap
+	var keep := turn_wait_gap + (2.5 if told else 0.0)
 	var pace := turn_wait_speed
 	if gap < keep - 0.8:
 		want -= dir
@@ -1285,6 +1289,8 @@ func _while_waiting(_delta: float) -> bool:
 ## Whether fewer than `pack_turns` of its kind are before it on him: those
 ## nearer him, and those in the middle of a blow on him.
 func _my_turn() -> bool:
+	if turn_led:
+		return not held_back
 	var mine := _distance_to(_quarry)
 	var before := 0
 	for node in get_tree().get_nodes_in_group(&"enemy"):
