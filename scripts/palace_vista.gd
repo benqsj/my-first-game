@@ -6,7 +6,7 @@ extends Node3D
 ## height and tint maps (`assets/world/v5/`) and built once into one coarse
 ## mesh far below and round the palace, which stands on a crag of its own in
 ## the middle of them. The mountains ringing the v5 lands rise round the
-## horizon; the sea lies in the low ground; a moon over it all.
+## horizon; the sea lies in the low ground.
 ##
 ## Seen, not walked: no collision, no shadows; the fog does the distance.
 
@@ -16,7 +16,7 @@ const STEP := 6
 ## How far below the palace's floor the lands' sea level lies.
 const DROP := 140.0
 ## Snow from here up (the lands' own metres, before the drop).
-const SNOW := 230.0
+const SNOW := 290.0
 
 const GROUND_SHADER := """
 shader_type spatial;
@@ -59,7 +59,6 @@ void fragment() {
 func _ready() -> void:
 	_build_lands()
 	_build_sea()
-	_build_moon()
 
 
 func _read(file: String, size: int) -> PackedByteArray:
@@ -156,7 +155,7 @@ func _build_sea() -> void:
 	plane.size = Vector2(9000.0, 9000.0)
 	sea.mesh = plane
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.06, 0.07, 0.14)
+	mat.albedo_color = Color(0.09, 0.2, 0.3)
 	mat.metallic = 0.4
 	mat.roughness = 0.12
 	sea.material_override = mat
@@ -164,17 +163,3 @@ func _build_sea() -> void:
 	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(sea)
 
-
-func _build_moon() -> void:
-	var moon := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 60.0
-	sphere.height = 120.0
-	moon.mesh = sphere
-	var mm := StandardMaterial3D.new()
-	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mm.albedo_color = Color(0.95, 0.9, 1.0)
-	moon.material_override = mm
-	moon.position = Vector3(500.0, 420.0, -1500.0)
-	moon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(moon)

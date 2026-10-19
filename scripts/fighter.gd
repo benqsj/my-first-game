@@ -163,6 +163,11 @@ var is_dead: bool = false:
 		if is_dead:
 			_lie_down()
 
+## Kept off him by whoever runs the fight (a [Dungeon], 2026-10-20: not all
+## of them at him at once): it stays back, out of reach, and only throws if it
+## can. Host only.
+var held_back: bool = false
+
 var _health_bar: HealthBar
 var _stamina_bar: HealthBar
 var _played_serial: int = -1

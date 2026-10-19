@@ -10922,3 +10922,17 @@ Room 4 holds two different orcs (two swords; a long sword, fewer combos),
 room 5 the Orc Lord (`orc_chief`, great sword, black cape). Small creatures
 take turns: only 2 (+1 per hero) of them may strike at once, the rest hold
 back (`Fighter._cooldown`).
+
+Round 4 (2026-10-20): light and floors. Late afternoon instead of dusk: a warm
+sun (1.3), a bright neutral fill under the roofs (ambient 1.45), brighter
+torches and braziers, a pale haze far off. The floor shader is brute stone:
+rough-cut slabs in courses, chipped, with gritty joints, and cobbles (small
+round stones, each a dome of its own) along the walls, up the throne room's
+aisle and where a slab is gone; the relief bends the normal. The crowd:
+`Dungeon._hold_back_crowd` lets `CROWD` (2) at each hero, an orc near him
+counting as one; the rest get `Fighter.held_back`: puglins stand off at
+8.5 m throwing mud (and only the ones let at him roll), imps circle at
+7.5–10 m and fling burning coals (`MudBall.fling(..., coal = true)`, one at
+a time at a hero). Music: `Music` tracks `dungeon` (Frost of the North,
+Sword Draw) and `dungeon_boss` (ბრძოლის დრამები), chosen by
+`Dungeon.music_wanted()`; `orc_fight` is now boss-fight-terittory.mp3.

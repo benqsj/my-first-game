@@ -92,6 +92,22 @@ func _dungeon() -> void:
 		_check("room %d holds its %d" % [r + 1, expected], alive == expected, str(alive))
 		if r < d.gates.size():
 			_check("its gate is down", d.gates[r].position.y < 0.1)
+		if r == 2:
+			# The crowd: of the twelve, two at him at most; the rest held back.
+			await _wait(40)
+			var at_him := 0
+			var held := 0
+			for body in creatures.get_children():
+				if not bool(body.get("is_dead")) and "held_back" in body:
+					if bool(body.get("held_back")):
+						held += 1
+					else:
+						at_him += 1
+			_check("only two let at him", at_him <= Dungeon.CROWD and held >= expected - Dungeon.CROWD,
+					"%d at him, %d held" % [at_him, held])
+			_check("the dungeon's music", d.music_wanted() == &"dungeon")
+		if r == 4:
+			_check("the boss's music", d.music_wanted() == &"dungeon_boss")
 		for body in creatures.get_children():
 			if not bool(body.get("is_dead")) and body.has_method("_die"):
 				body.call("_die")

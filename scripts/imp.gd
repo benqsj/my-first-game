@@ -43,6 +43,8 @@ const HIT_F := 31
 const HIT_L := 32
 const HIT_R := 33
 const STAGGER := 34
+## Held back, it flings a burning coal at him from out of reach.
+const THROW := 35
 
 ## act -> [clip, rate, from, to]: which clip, how fast, and the share of it
 ## played (past a slow wind-up, short of a long settle).
@@ -62,6 +64,7 @@ const MOVES := {
 	HIT_L: [&"IP_Hit_L", 1.3, 0.0, 0.8],
 	HIT_R: [&"IP_Hit_R", 1.3, 0.0, 0.8],
 	STAGGER: [&"IP_Stagger", 1.2, 0.0, 0.85],
+	THROW: [&"IP_Swipe_R", 1.2, 0.15, 0.8],
 }
 ## Attack -> [bones whose speed marks a blow, which limb lands it ("claw" /
 ## "weapon"), share of hit_damage, blows the player counts it as].
@@ -101,6 +104,12 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 @export var evade_iframes: float = 0.5
 ## How far a sidestep carries it, metres at its size.
 @export var dodge_distance: float = 2.6
+## Held back ([member Fighter.held_back]): the ring it waits at, how far it
+## throws from, seconds between its own throws, what a coal does.
+@export var held_ring: Vector2 = Vector2(7.5, 10.0)
+@export var throw_range: Vector2 = Vector2(5.0, 14.0)
+@export var throw_every: Vector2 = Vector2(3.5, 6.0)
+@export var coal_damage: float = 6.0
 ## Share of a hit clip's travel it is thrown by (lighter creatures more).
 @export var knock_scale: float = 1.0
 ## Fraction of its health one blow must take to stagger it rather than flinch it.
@@ -108,12 +117,16 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 
 ## Who holds a turn at whom: quarry's instance id -> the imps going in at him.
 static var _turns: Dictionary = {}
+## Quarry's instance id -> when the last coal was flung at him (one at a time).
+static var _thrown_at: Dictionary = {}
 
 var _tactic: int = Tactic.CLOSE
 var _tactic_left: float = 0.0
 var _circle_sign: float = 1.0
 var _dodge_dir: Vector3 = Vector3.ZERO
 var _counter: bool = false
+var _throw_wait: float = 2.0
+var _flung: bool = false
 
 
 func _ready() -> void:
@@ -232,6 +245,11 @@ func _think(delta: float) -> void:
 		return
 	var gap := _distance_to(_quarry)
 	_tactic_left -= delta
+	_throw_wait -= delta
+	if held_back:
+		_release()
+		_hang_back(gap, delta)
+		return
 	match _tactic:
 		Tactic.CLOSE:
 			mode = Mode.CHASE
@@ -264,6 +282,60 @@ func _think(delta: float) -> void:
 				if gap > ring.y + 3.0:
 					_release()
 					_set_tactic(Tactic.CLOSE)
+
+
+## Held back: round him out of reach, now and then a coal.
+func _hang_back(gap: float, delta: float) -> void:
+	mode = Mode.FIGHT
+	if gap > held_ring.y + 4.0:
+		_move_towards(_quarry.global_position, chase_speed, delta)
+		return
+	var key := _quarry.get_instance_id()
+	var now := Time.get_ticks_msec() / 1000.0
+	if _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y \
+			and now - float(_thrown_at.get(key, -10.0)) > 1.3:
+		_thrown_at[key] = now
+		_throw_wait = _rng.randf_range(throw_every.x, throw_every.y)
+		_face(_quarry.global_position - global_position, 1.0, 1000.0)
+		_flung = false
+		_begin(THROW)
+		return
+	var keep := ring
+	ring = held_ring
+	_circle(gap, delta)
+	ring = keep
+
+
+func _run_act(delta: float) -> void:
+	if act == THROW and not _flung and _act_time >= _act_length * 0.45:
+		_flung = true
+		_let_fly()
+	super(delta)
+
+
+func _let_fly() -> void:
+	if _quarry == null:
+		return
+	var from := global_position + Vector3.UP * 1.6 * maxf(visual_scale, 0.01) + _forward() * 0.4
+	var target := _quarry.global_position + Vector3.UP * 1.2
+	var v: Variant = _quarry.get(&"velocity")
+	var flight := clampf(from.distance_to(target) / 14.0, 0.4, 1.0)
+	if v is Vector3:
+		target += Vector3((v as Vector3).x, 0.0, (v as Vector3).z) * flight * 0.6
+	var vel := (target - from) / flight + Vector3.UP * 0.5 * MudBall.GRAVITY * flight
+	net_throw.rpc(from, vel)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_throw(from: Vector3, vel: Vector3) -> void:
+	MudBall.fling(Blood.world_of(self), from, vel, self, _decides(), true)
+
+
+## A coal of its found someone (host): it burns, a little.
+func mud_landed(who: Node3D) -> void:
+	if who == null or not who.has_method(&"receive_blow"):
+		return
+	who.call(&"receive_blow", coal_damage, self, 0, 2, act_serial * 7 + 3)
 
 
 func _set_tactic(what: int) -> void:

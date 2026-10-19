@@ -24,15 +24,20 @@ var _done: bool = false
 var _lump: MeshInstance3D
 var _shadow: MeshInstance3D
 var _drip_in: float = 0.0
+## A burning coal (an imp's) rather than mud: glows, sheds sparks, leaves no patch.
+var ember: bool = false
 
 static var _material: StandardMaterial3D
 static var _lump_mesh: ArrayMesh
 static var _drop_mesh: SphereMesh
 static var _shadow_mat: StandardMaterial3D
+static var _ember_mat: StandardMaterial3D
 
 
-static func fling(world: Node, from: Vector3, vel: Vector3, thrower: Node3D, host: bool) -> MudBall:
+static func fling(world: Node, from: Vector3, vel: Vector3, thrower: Node3D, host: bool,
+		coal: bool = false) -> MudBall:
 	var ball := MudBall.new()
+	ball.ember = coal
 	ball._vel = vel
 	ball._thrower = thrower
 	ball._host = host
@@ -55,6 +60,17 @@ static func mud() -> StandardMaterial3D:
 		_material.rim = 0.7
 		_material.rim_tint = 0.35
 	return _material
+
+
+## A coal: glowing orange-red, bright enough to read in any light.
+static func coal() -> StandardMaterial3D:
+	if _ember_mat == null:
+		_ember_mat = StandardMaterial3D.new()
+		_ember_mat.albedo_color = Color(0.25, 0.06, 0.02)
+		_ember_mat.emission_enabled = true
+		_ember_mat.emission = Color(1.0, 0.42, 0.1)
+		_ember_mat.emission_energy_multiplier = 3.0
+	return _ember_mat
 
 
 ## A lump rather than a ball: a sphere pushed in and out by a few lobes.
@@ -123,7 +139,7 @@ func _ready() -> void:
 	top_level = true
 	_lump = MeshInstance3D.new()
 	_lump.mesh = lump_mesh()
-	_lump.material_override = mud()
+	_lump.material_override = coal() if ember else mud()
 	add_child(_lump)
 	if _shadow_mat == null:
 		_shadow_mat = StandardMaterial3D.new()
@@ -187,7 +203,7 @@ func _physics_process(delta: float) -> void:
 	if _drip_in <= 0.0:
 		_drip_in = 0.035
 		MudDrop.spawn(get_parent(), to, _vel * 0.2 + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)),
-				randf_range(0.03, 0.06))
+				randf_range(0.03, 0.06), ember)
 	if _age > LIFE:
 		queue_free()
 
@@ -198,9 +214,9 @@ func _splash(at: Vector3, ground: bool, normal: Vector3 = Vector3.UP) -> void:
 	DustRing.burst(world, at, 0.45)
 	for i in 14:
 		var out := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized() * randf_range(1.5, 4.0)
-		MudDrop.spawn(world, at + Vector3.UP * 0.1, out + normal * randf_range(1.5, 4.0), randf_range(0.03, 0.08))
+		MudDrop.spawn(world, at + Vector3.UP * 0.1, out + normal * randf_range(1.5, 4.0), randf_range(0.03, 0.08), ember)
 	Sfx.play(world, SPLAT_SOUND, null, at, randf_range(0.5, 0.6), -4.0)
-	if ground and normal.y > 0.6:
+	if ground and normal.y > 0.6 and not ember:
 		var patch := MudPatch.new()
 		world.add_child(patch)
 		patch.global_position = at + normal * 0.02
@@ -212,11 +228,11 @@ class MudDrop extends MeshInstance3D:
 	var _v := Vector3.ZERO
 	var _t := 0.0
 
-	static func spawn(world: Node, at: Vector3, vel: Vector3, size: float) -> void:
+	static func spawn(world: Node, at: Vector3, vel: Vector3, size: float, spark: bool = false) -> void:
 		var d := MudDrop.new()
 		d._v = vel
 		d.mesh = MudBall.drop_mesh()
-		d.material_override = MudBall.mud()
+		d.material_override = MudBall.coal() if spark else MudBall.mud()
 		d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		d.scale = Vector3.ONE * size
 		world.add_child(d)

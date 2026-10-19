@@ -17,8 +17,13 @@ extends Node
 const TRACKS := {
 	&"menu": ["res://unverified/sounds/tower-music/safe_haven_mini.mp3"],
 	&"world": ["res://unverified/sounds/tower-music/safe_haven.mp3", "res://unverified/sounds/tower-music/kind-of-year.mp3"],
-	## When the orcs come for you.
-	&"orc_fight": ["res://unverified/sounds/fight/orc_fight.mp3"],
+	## When the orcs come for you (2026-10-20: the user's own track for it,
+	## in place of the old orc_fight.mp3).
+	&"orc_fight": ["res://musics/fight/boss-fight-terittory.mp3"],
+	## Inside a dungeon, room to room.
+	&"dungeon": ["res://musics/fight/Frost of the North.mp3", "res://musics/fight/Sword Draw.mp3"],
+	## A dungeon's last room, its boss up.
+	&"dungeon_boss": ["res://musics/boss1/ბრძოლის დრამები.mp3"],
 }
 
 ## Loudness of the music, in decibels, under everything else.

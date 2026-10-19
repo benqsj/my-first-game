@@ -115,6 +115,8 @@ enum Roll { RUSH, TURN }
 @export var throw_every: Vector2 = Vector2(4.0, 7.0)
 ## Inside this it walks in on him to cut rather than throw from where it is.
 @export var close_in: float = 4.2
+## Held back ([member Fighter.held_back]): how far off him it stands, throwing.
+@export var held_ring: float = 8.5
 ## Share of puglins that spring out of their ball at him, and from how far.
 @export_range(0.0, 1.0) var leaper_share: float = 0.45
 @export var leap_range: Vector2 = Vector2(2.8, 4.8)
@@ -313,14 +315,19 @@ func _band_think(delta: float) -> void:
 				b["centre"] = c
 				# All of them at once, in their balls.
 				if _clock >= float(b["next_roll"]) and gap > 2.0 and gap < 11.0:
-					var idle := true
+					# Only the ones let at him roll (the rest are held back).
+					var rollers: Array[Puglin] = []
 					for p in mates:
+						if not p.held_back:
+							rollers.append(p)
+					var idle := not rollers.is_empty()
+					for p in rollers:
 						idle = idle and (p.act == Act.NONE)
 					if idle:
 						b["next_roll"] = _clock + _rng.randf_range(roll_every.x, roll_every.y)
 						_volley_serial += 1
-						for p in mates:
-							p._curl_up(p._quarry if p._quarry != null else _quarry, _volley_serial, mates.size(),
+						for p in rollers:
+							p._curl_up(p._quarry if p._quarry != null else _quarry, _volley_serial, rollers.size(),
 									_rng.randi_range(2, 3))
 
 
@@ -360,6 +367,9 @@ func _think(delta: float) -> void:
 	var b := _band()
 	var state := Band.SCATTER if b.is_empty() else int(b["state"])
 	var gap := _distance_to(_quarry)
+	if held_back:
+		_hang_back(gap, b, delta)
+		return
 	# Close enough to cut at: it cuts, bunched or not.
 	if gap < reach and _cooldown <= 0.0 and stamina >= attack_cost:
 		_face(_quarry.global_position - global_position, 1.0, 1000.0)
@@ -400,6 +410,25 @@ func _think(delta: float) -> void:
 			var spot := _quarry.global_position + Vector3(sin(_slot_angle), 0.0, cos(_slot_angle)) * (stand_off + 1.5)
 			_slot_angle += delta * 0.25
 			_walk_to(spot, speed, delta)
+
+
+## Held back: out of reach, round him at `held_ring`, throwing mud when the
+## band's turn to throw comes round.
+func _hang_back(gap: float, b: Dictionary, delta: float) -> void:
+	if gap > throw_range.x and gap < throw_range.y and _clock >= _next_throw \
+			and (b.is_empty() or _clock >= float(b["next_throw"])):
+		_next_throw = _clock + _rng.randf_range(throw_every.x, throw_every.y)
+		if not b.is_empty():
+			b["next_throw"] = _clock + 1.6
+		_face(_quarry.global_position - global_position, 1.0, 1000.0)
+		_begin(THROW)
+		return
+	var away := global_position - _quarry.global_position
+	away.y = 0.0
+	if away.length_squared() < 0.01:
+		away = Vector3.FORWARD
+	var ang := atan2(away.x, away.z) + delta * 0.2
+	_walk_to(_quarry.global_position + Vector3(sin(ang), 0.0, cos(ang)) * held_ring, speed * 1.2, delta)
 
 
 ## Walks to `spot`, face on to him the whole way (sideways or backwards if it

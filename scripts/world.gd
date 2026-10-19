@@ -673,7 +673,11 @@ func _play_music_in_village() -> void:
 		if who.is_multiplayer_authority():
 			me = who
 	var want := &""
-	if me != null:
+	# A dungeon chooses its own: room to room, then the boss.
+	var rooms := get_node_or_null("Level/Rooms")
+	if rooms != null and rooms.has_method(&"music_wanted"):
+		want = StringName(rooms.call(&"music_wanted"))
+	elif me != null:
 		var now := Time.get_ticks_msec() / 1000.0
 		if _orcs_on(me):
 			_fight_music_until = now + 5.0

@@ -15,7 +15,7 @@ extends Node3D
 ## some open to the sky — a courtyard with windows onto the mountains, a
 ## terrace with one side open over a sea of cloud far below, and the boss's
 ## court on the cliff's edge. Built in code from `ROOMS`: floors, walls,
-## columns, banners, torches, iron gates, and round it all the sky, the moon,
+## columns, banners, torches, iron gates, and round it all the sky, the sun,
 ## the mountains and the cloud below.
 ##
 ## Levels: the hero comes in at the dungeon's first level ([Leveling] is new
@@ -67,10 +67,8 @@ const ROOMS := {
 }
 ## The boss of each dungeon: the scene in its last room that has to fall.
 const BOSS := {0: ORC_CHIEF}
-## How many of the small ones (imps, puglins) may set on the heroes at once:
-## this many, and one more for every hero (the user's word: not all of them
-## at once). The rest keep off, circling, until one of the near ones falls
-## back.
+## How many may set on each hero at once, an orc near him counting as one
+## (the user's word: at most two; the rest throw from off).
 const CROWD := 2
 
 ## Which dungeon this is (from [member Game.dungeon_id]; 0 when there is none).
@@ -97,6 +95,8 @@ var _beam_shader: Shader
 ## Every column standing: {room, at, h, thick, parts (meshes), blocker, broken}.
 var _columns: Array[Dictionary] = []
 var _crowd_clock: float = 0.0
+## The small ones let at the heroes just now ([method _hold_back_crowd]).
+var _holders: Array[Node3D] = []
 var _scars: int = 0
 var _wall_mat: ShaderMaterial
 var _trim_mat: StandardMaterial3D
@@ -115,21 +115,26 @@ var _gate_goal: Dictionary = {}
 
 const FLOOR_SHADER := """
 shader_type spatial;
-uniform vec4 stone_a : source_color = vec4(0.30, 0.28, 0.30, 1.0);
-uniform vec4 stone_b : source_color = vec4(0.22, 0.20, 0.24, 1.0);
-uniform vec4 grout : source_color = vec4(0.07, 0.06, 0.08, 1.0);
-uniform vec4 border_col : source_color = vec4(0.12, 0.10, 0.14, 1.0);
-uniform vec4 inlay_col : source_color = vec4(0.42, 0.20, 0.50, 1.0);
-uniform vec4 gold : source_color = vec4(0.78, 0.58, 0.22, 1.0);
-uniform float tile = 2.0;
-uniform float shine = 0.4;
-uniform float rows = 0.0;
+// Brute stone, built (the user's word, 2026-10-20: not a chessboard; round
+// stones to make it): big rough-cut slabs in courses, chipped at the edges,
+// dark joints full of grit; along the walls, down an aisle and where a slab
+// is gone, cobbles - small round stones, each its own dome and shade. The
+// relief is a height field; its slope bends the normal.
+uniform vec4 slab_a : source_color = vec4(0.46, 0.42, 0.38, 1.0);
+uniform vec4 slab_b : source_color = vec4(0.30, 0.28, 0.27, 1.0);
+uniform vec4 cobble_a : source_color = vec4(0.50, 0.46, 0.40, 1.0);
+uniform vec4 cobble_b : source_color = vec4(0.28, 0.26, 0.25, 1.0);
+uniform vec4 grit : source_color = vec4(0.07, 0.06, 0.055, 1.0);
+uniform float slab = 2.2;
+uniform float course = 1.5;
+uniform float pebble = 0.26;
 uniform vec2 centre = vec2(0.0);
 uniform vec2 half_size = vec2(20.0);
-uniform float border = 2.6;
-uniform float inlay = 1.0;
+uniform float border = 2.4;
+uniform float aisle = 0.0;
 uniform float wear = 0.5;
 uniform float wet = 0.0;
+uniform float relief = 0.05;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -138,81 +143,115 @@ float noise(vec2 p) {
 	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
 			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
-vec2 voronoi(vec2 x) {
+// Nearest and second-nearest feature distance, and the nearest one's id.
+vec3 voronoi(vec2 x) {
 	vec2 n = floor(x); vec2 f = fract(x);
-	float m1 = 8.0; float m2 = 8.0;
+	float m1 = 8.0; float m2 = 8.0; float id = 0.0;
 	for (int j = -1; j <= 1; j++) {
 		for (int i = -1; i <= 1; i++) {
 			vec2 g = vec2(float(i), float(j));
-			vec2 o = vec2(hash(n + g), hash(n + g + 17.3));
+			vec2 o = 0.15 + 0.7 * vec2(hash(n + g), hash(n + g + 17.3));
 			float d = length(g + o - f);
-			if (d < m1) { m2 = m1; m1 = d; } else if (d < m2) { m2 = d; }
+			if (d < m1) { m2 = m1; m1 = d; id = hash(n + g + 5.1); } else if (d < m2) { m2 = d; }
 		}
 	}
-	return vec2(m1, m2);
+	return vec3(m1, m2, id);
+}
+float jit(float k, float row) { return (hash(vec2(k, row)) - 0.5) * 0.7; }
+// Slabs in courses, each course its own run of lengths: distance to the slab's
+// edge (m) and its id.
+vec2 slabs(vec2 p) {
+	float row = floor(p.y / course);
+	float y0 = row * course;
+	float xs = p.x / slab + hash(vec2(row, 3.1)) * 7.0;
+	float k = floor(xs);
+	float b0 = k + jit(k, row);
+	float b1 = k + 1.0 + jit(k + 1.0, row);
+	if (xs < b0) { b1 = b0; k -= 1.0; b0 = k + jit(k, row); }
+	else if (xs > b1) { k += 1.0; b0 = b1; b1 = k + 1.0 + jit(k + 1.0, row); }
+	float ex = min(xs - b0, b1 - xs) * slab;
+	float ey = min(p.y - y0, y0 + course - p.y);
+	return vec2(min(ex, ey), hash(vec2(k, row) + 0.37));
+}
+// x: height 0..1, y: kind (0 slab, 1 cobble, 2 joint), z: id, w: slab gone.
+vec4 ground(vec2 p) {
+	vec2 lp = p - centre;
+	vec2 dw = half_size - abs(lp);
+	float to_wall = min(dw.x, dw.y);
+	vec2 s = slabs(p);
+	float gone = step(hash(vec2(s.y, 9.7)), 0.05 + 0.08 * wear);
+	bool cob = to_wall < border || abs(lp.x) < aisle || gone > 0.5;
+	if (cob) {
+		vec3 v = voronoi(p / pebble);
+		float r = (v.y - v.x) / (v.x + v.y + 0.0001);
+		float h = sin(clamp(r * 2.4, 0.0, 1.0) * 1.5708) * (0.75 + 0.25 * v.z);
+		return vec4(h * 0.8 - gone * 0.2, 1.0, v.z, gone);
+	}
+	float e = s.x + (noise(p * 2.3) - 0.5) * 0.16 * (0.5 + wear) + (noise(p * 7.0) - 0.5) * 0.05;
+	if (e < 0.03) {
+		vec3 g = voronoi(p / 0.07);
+		return vec4(0.12 * smoothstep(0.0, 0.5, (g.y - g.x) / (g.x + g.y + 0.0001)), 2.0, g.z, 0.0);
+	}
+	float top = smoothstep(0.03, 0.16, e);
+	float pits = noise(p * 3.1 + s.y * 9.0) * 0.6 + noise(p * 11.0) * 0.4;
+	float tilt = (hash(vec2(s.y, 1.3)) - 0.5) * 0.25;
+	return vec4(top * (0.82 + 0.12 * pits + tilt * 0.4), 0.0, s.y, 0.0);
 }
 void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
-	vec2 lp = wpos.xz - centre;
+	vec2 p = wpos.xz;
+	vec2 lp = p - centre;
 	vec2 dw = half_size - abs(lp);
 	float to_wall = min(dw.x, dw.y);
-	vec2 p = wpos.xz / tile;
-	p.x += rows * mod(floor(p.y), 2.0) * 0.5;
-	vec2 cell = floor(p);
-	vec2 f = fract(p);
-	float n = hash(cell);
-	// Marble: slabs, each its own shade, veined.
-	float check = (1.0 - rows) * mod(cell.x + cell.y, 2.0) + rows * step(0.5, n);
-	vec3 c = mix(stone_a.rgb, stone_b.rgb, check) * (0.82 + 0.3 * n);
-	float vein = noise(wpos.xz * 0.9 + n * 7.0) + noise(wpos.xz * 2.7) * 0.5;
-	c = mix(c, c * 1.35, smoothstep(0.02, 0.0, abs(vein - 0.75)) * (1.0 - rows) * 0.8);
-	float joint = step(f.x, 0.02) + step(0.98, f.x) + step(f.y, 0.02) + step(0.98, f.y);
-	float rough = mix(0.85, 0.22, shine) + 0.12 * n;
-	// A dark border along the walls, a gold line inside it.
-	if (to_wall < border) {
-		c = border_col.rgb * (0.85 + 0.3 * noise(wpos.xz * 1.3));
-		joint = 0.0;
-		rough = 0.3;
+	vec4 g = ground(p);
+	float h = g.x;
+	float far = smoothstep(18.0, 55.0, length(VERTEX));
+	float e = 0.025;
+	float hx = ground(p + vec2(e, 0.0)).x - h;
+	float hz = ground(p + vec2(0.0, e)).x - h;
+	float k = relief * (1.0 - far * 0.8) / e;
+	vec3 nw = normalize(vec3(-hx * k, 1.0, -hz * k));
+	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	vec3 c;
+	float rough;
+	float mottle = noise(p * 0.6 + g.z * 13.0) * 0.6 + noise(p * 5.0) * 0.25 + noise(p * 19.0) * 0.15;
+	if (g.y < 0.5) {
+		c = mix(slab_a.rgb, slab_b.rgb, g.z) * (0.72 + 0.45 * mottle);
+		// Worn: the high middle of a slab paler, its edge darker.
+		c *= 0.6 + 0.45 * h;
+		rough = 0.88 - 0.25 * h * (1.0 - wet);
+		// Cracks running across in patches.
+		float patch = smoothstep(1.0 - wear, 1.0 - wear + 0.2, noise(p * 0.05 + 3.0));
+		vec3 v = voronoi(p * 0.5);
+		float crack = (1.0 - smoothstep(0.0, 0.04, v.y - v.x)) * patch;
+		c = mix(c, grit.rgb, crack * 0.85);
+	} else if (g.y < 1.5) {
+		c = mix(cobble_a.rgb, cobble_b.rgb, g.z) * (0.8 + 0.35 * mottle);
+		c *= 0.28 + 0.8 * clamp(h, 0.0, 1.0);
+		c = mix(c, grit.rgb, g.w * 0.35);
+		rough = 0.8 - 0.3 * h;
+	} else {
+		c = grit.rgb * (0.8 + 2.5 * h) + vec3(0.02, 0.03, 0.0) * noise(p * 4.0);
+		rough = 1.0;
 	}
-	float line = smoothstep(0.07, 0.0, abs(to_wall - border));
-	// Lozenges down the middle, laid in purple stone ringed in gold.
-	float lz = 0.0;
-	if (inlay > 0.5 && to_wall > border + 1.0) {
-		vec2 q = vec2(lp.x, mod(lp.y, 9.0) - 4.5);
-		float d = abs(q.x) / 3.2 + abs(q.y) / 4.2;
-		if (d < 1.0) {
-			lz = 1.0;
-			c = mix(inlay_col.rgb, stone_a.rgb * 1.15, step(0.55, d)) * (0.85 + 0.25 * noise(wpos.xz * 2.0));
-			joint = 0.0;
-			rough = 0.25;
-		}
-		line = max(line, smoothstep(0.035, 0.0, abs(d - 1.0)) + smoothstep(0.03, 0.0, abs(d - 0.55)));
-	}
-	c = mix(c, grout.rgb, clamp(joint, 0.0, 1.0));
-	c = mix(c, gold.rgb, clamp(line, 0.0, 1.0));
-	// Wear: cracks running across the floor in patches, a slab gone here and there.
-	float patch = smoothstep(1.0 - wear, 1.0 - wear + 0.18, noise(wpos.xz * 0.045 + 3.0));
-	vec2 v = voronoi(wpos.xz * 0.55);
-	float crack = (1.0 - smoothstep(0.0, 0.045, v.y - v.x)) * patch;
-	c = mix(c, grout.rgb * 0.6, crack);
-	float gone = step(hash(cell + 41.0), 0.04 * wear) * step(border, to_wall) * (1.0 - lz);
-	c = mix(c, vec3(0.09, 0.08, 0.08) * (0.6 + 0.8 * noise(wpos.xz * 4.0)), gone);
-	rough = mix(rough, 1.0, max(gone, crack));
-	// Grime towards the walls.
-	c *= mix(0.55, 1.0, smoothstep(0.0, 3.5, to_wall));
-	// Rain standing in the hollows of the open ones.
-	float pool = smoothstep(0.62, 0.7, noise(wpos.xz * 0.07 + 11.0)) * wet;
-	c *= 1.0 - pool * 0.35;
-	rough = mix(rough, 0.04, pool);
+	// Moss and dirt in the low places near the walls.
+	float low = 1.0 - smoothstep(0.1, 0.5, h);
+	float moss = low * smoothstep(5.0, 0.5, to_wall) * smoothstep(0.45, 0.7, noise(p * 0.8 + 5.0));
+	c = mix(c, vec3(0.16, 0.19, 0.09), moss * 0.6);
+	c *= mix(0.62, 1.0, smoothstep(0.0, 3.0, to_wall));
+	// Rain standing in the hollows of the open rooms.
+	float pool = smoothstep(0.6, 0.68, noise(p * 0.07 + 11.0)) * wet * (0.5 + 0.5 * low);
+	c *= 1.0 - pool * 0.4;
+	rough = mix(rough, 0.18, pool);
 	ALBEDO = c;
 	ROUGHNESS = rough;
-	SPECULAR = 0.3 + 0.35 * shine + pool * 0.3;
+	SPECULAR = 0.35 + pool * 0.1;
 }
 """
 
 const WALL_SHADER := """
 shader_type spatial;
-uniform vec4 stone : source_color = vec4(0.27, 0.25, 0.28, 1.0);
+uniform vec4 stone : source_color = vec4(0.42, 0.38, 0.34, 1.0);
 uniform vec4 grout : source_color = vec4(0.08, 0.07, 0.09, 1.0);
 varying vec3 wpos;
 varying vec3 wnorm;
@@ -387,7 +426,7 @@ func _materials() -> void:
 	_beam_shader = Shader.new()
 	_beam_shader.code = BEAM_SHADER
 	_rock_mat = StandardMaterial3D.new()
-	_rock_mat.albedo_color = Color(0.27, 0.25, 0.27)
+	_rock_mat.albedo_color = Color(0.40, 0.37, 0.33)
 	_rock_mat.roughness = 0.95
 	_wall_mat = ShaderMaterial.new()
 	var ws := Shader.new()
@@ -412,8 +451,8 @@ func _materials() -> void:
 	_wood_mat.roughness = 0.9
 
 
-## Room `i`'s floor: marble in the halls, flagstones under the sky, each
-## with its border along its walls, its inlay down the middle and its wear.
+## Room `i`'s floor: big slabs in the halls, smaller flags under the sky,
+## cobbles along the walls (and up the throne room's aisle), its wear.
 func _floor_mat(i: int) -> ShaderMaterial:
 	var r := _room(i)
 	var kind: String = r["kind"]
@@ -423,25 +462,24 @@ func _floor_mat(i: int) -> ShaderMaterial:
 	m.set_shader_parameter("centre", Vector2(c.x, c.z))
 	m.set_shader_parameter("half_size", Vector2(float(r["w"]) * 0.5, float(r["l"]) * 0.5))
 	if kind == "hall":
-		m.set_shader_parameter("tile", 2.4)
-		m.set_shader_parameter("shine", 0.8)
-		m.set_shader_parameter("stone_a", Color(0.42, 0.39, 0.43))
-		m.set_shader_parameter("stone_b", Color(0.14, 0.12, 0.16))
-		m.set_shader_parameter("inlay", 0.0)
-		m.set_shader_parameter("wear", 0.45 if not r.has("hole") else 0.7)
+		m.set_shader_parameter("slab", 2.6)
+		m.set_shader_parameter("course", 1.7)
+		m.set_shader_parameter("wear", 0.45 if not r.has("hole") else 0.75)
+		m.set_shader_parameter("border", 2.2)
 	else:
-		m.set_shader_parameter("tile", 1.5)
-		m.set_shader_parameter("shine", 0.15)
-		m.set_shader_parameter("rows", 1.0)
-		m.set_shader_parameter("stone_a", Color(0.44, 0.41, 0.38))
-		m.set_shader_parameter("stone_b", Color(0.33, 0.31, 0.30))
-		m.set_shader_parameter("border_col", Color(0.20, 0.18, 0.19))
-		m.set_shader_parameter("wear", 0.6)
+		m.set_shader_parameter("slab", 1.8)
+		m.set_shader_parameter("course", 1.25)
+		m.set_shader_parameter("slab_a", Color(0.50, 0.46, 0.41))
+		m.set_shader_parameter("slab_b", Color(0.34, 0.32, 0.30))
+		m.set_shader_parameter("border", 3.2)
+		m.set_shader_parameter("wear", 0.65)
 		m.set_shader_parameter("wet", 1.0 if kind != "throne" else 0.6)
+		if kind == "throne":
+			m.set_shader_parameter("aisle", 3.0)
 	return m
 
 
-## Dusk over the palace: a violet sky, a low moon.
+## Late afternoon over the palace: a warm sun low in a clear sky.
 func _sky() -> void:
 	var root: Node = owner if owner != null else get_parent()
 	var env_node := root.get_node_or_null("WorldEnvironment") as WorldEnvironment
@@ -449,25 +487,34 @@ func _sky() -> void:
 		return
 	var env := env_node.environment
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.05, 0.04, 0.14)
-	mat.sky_horizon_color = Color(0.52, 0.30, 0.46)
-	mat.sky_curve = 0.12
-	mat.ground_horizon_color = Color(0.30, 0.20, 0.32)
-	mat.ground_bottom_color = Color(0.05, 0.03, 0.08)
+	mat.sky_top_color = Color(0.20, 0.38, 0.66)
+	mat.sky_horizon_color = Color(0.88, 0.72, 0.56)
+	mat.sky_curve = 0.14
+	mat.ground_horizon_color = Color(0.58, 0.50, 0.44)
+	mat.ground_bottom_color = Color(0.20, 0.18, 0.17)
 	mat.sun_angle_max = 8.0
 	mat.sun_curve = 0.05
 	var sky := Sky.new()
 	sky.sky_material = mat
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
+	# Late afternoon, not dusk (the user's word, 2026-10-20: inside nothing
+	# showed, the colours lost; the test arena is pleasanter): a warm sun, a
+	# bright neutral fill that reaches under the roofs, a pale haze far off.
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 0.6
-	env.fog_density = 0.0011
+	env.ambient_light_color = Color(0.62, 0.60, 0.58)
+	env.ambient_light_sky_contribution = 0.45
+	env.ambient_light_energy = 1.45
+	env.fog_light_color = Color(0.62, 0.64, 0.72)
+	env.fog_density = 0.0007
 	env.fog_sky_affect = 0.25
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.12
+	env.adjustment_contrast = 1.05
 	var sun := root.get_node_or_null("Sun") as DirectionalLight3D
 	if sun != null:
-		sun.light_color = Color(0.7, 0.66, 0.92)
-		sun.light_energy = 0.6
+		sun.light_color = Color(1.0, 0.87, 0.7)
+		sun.light_energy = 1.3
 
 
 func _build_room(i: int) -> void:
@@ -807,7 +854,7 @@ func _hang_banner(room: Node3D, at: Vector3, side: float, long: float) -> void:
 
 ## A hall's roof: a flat ceiling on deep beams, iron braziers hanging from it.
 ## Where `hole` is set, the roof has fallen in over the middle: the sky
-## through it, moonlight down it, its beams broken and the rubble under it.
+## through it, sunlight down it, its beams broken and the rubble under it.
 func _ceiling(room: Node3D, w: float, l: float, h: float, hole: bool = false) -> void:
 	var hz := 0.0
 	var hl := 0.0
@@ -848,21 +895,21 @@ func _ceiling(room: Node3D, w: float, l: float, h: float, hole: bool = false) ->
 		beam.mesh = cyl
 		var bm := ShaderMaterial.new()
 		bm.shader = _beam_shader
-		bm.set_shader_parameter("tint", Color(0.65, 0.62, 1.0))
-		bm.set_shader_parameter("strength", 0.1)
+		bm.set_shader_parameter("tint", Color(1.0, 0.88, 0.66))
+		bm.set_shader_parameter("strength", 0.03)
 		beam.material_override = bm
 		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		beam.position = Vector3(0.0, h * 0.5, hz)
 		room.add_child(beam)
-		var moon := SpotLight3D.new()
-		moon.light_color = Color(0.7, 0.68, 1.0)
-		moon.light_energy = 6.0
-		moon.spot_range = h + 8.0
-		moon.spot_angle = 28.0
-		moon.shadow_enabled = true
-		moon.position = Vector3(0.0, h + 4.0, hz)
-		moon.rotation.x = -PI * 0.5
-		room.add_child(moon)
+		var shaft := SpotLight3D.new()
+		shaft.light_color = Color(1.0, 0.88, 0.7)
+		shaft.light_energy = 4.0
+		shaft.spot_range = h + 8.0
+		shaft.spot_angle = 28.0
+		shaft.shadow_enabled = true
+		shaft.position = Vector3(0.0, h + 4.0, hz)
+		shaft.rotation.x = -PI * 0.5
+		room.add_child(shaft)
 		_rubble(room, Vector3(2.0, 0.0, hz + 1.5), 3.2, 24, 99)
 		_rubble(room, Vector3(-5.0, 0.0, hz - 3.0), 2.0, 12, 7)
 		# A beam come down, one end on the floor.
@@ -911,9 +958,9 @@ func _hanging_brazier(room: Node3D, top: Vector3, h: float) -> void:
 	_deco(room, _iron_mat, bowl, at)
 	room.add_child(_flame(at + Vector3(0.0, 0.2, 0.0), 2.2, 40))
 	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.6, 0.3)
-	light.light_energy = 2.6
-	light.omni_range = 18.0
+	light.light_color = Color(1.0, 0.66, 0.36)
+	light.light_energy = 3.4
+	light.omni_range = 22.0
 	light.position = at + Vector3(0.0, 0.6, 0.0)
 	room.add_child(light)
 
@@ -999,34 +1046,48 @@ func _vista() -> void:
 		k += 1
 
 
-## Not all of the small ones at once (the user's word, 2026-10-20: a band of
-## puglins all cutting together cannot be beaten): only the `CROWD` nearest a
-## hero (one more for each hero) may start a blow; the rest are kept from it
-## (their own attack's cooldown held up), so they circle, throw, wait.
+## Not all of them at once (the user's word, 2026-10-20: a band of puglins
+## rolling together cannot be beaten; at most two at him, the rest throwing
+## from off): `CROWD` a hero may be fought by at a time, an orc near him
+## counting as one. The ones let at him keep their turn while they are near;
+## the rest are held back ([member Fighter.held_back]): out of reach, throwing.
 func _hold_back_crowd(heroes: Array[Player]) -> void:
 	var standing: Array[Player] = []
 	for hero in heroes:
 		if not hero.is_dead:
 			standing.append(hero)
-	if standing.is_empty():
-		return
 	var small: Array = []
+	var brutes := 0
 	for body in _alive:
-		if not is_instance_valid(body) or bool(body.get("is_dead")) or not "_cooldown" in body:
-			continue
-		if body is PackBrute:
+		if not is_instance_valid(body) or bool(body.get("is_dead")):
 			continue
 		var gap := INF
 		for hero in standing:
 			gap = minf(gap, body.global_position.distance_to(hero.global_position))
-		small.append([gap, body])
-	small.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
-	var allowed := CROWD + standing.size()
-	for k in small.size():
-		if k < allowed:
+		if body is PackBrute:
+			if gap < 9.0:
+				brutes += 1
 			continue
-		var body: Node = small[k][1]
-		body.set("_cooldown", maxf(float(body.get("_cooldown")), 0.45))
+		if "held_back" in body:
+			small.append([gap, body])
+	var allowed := maxi(CROWD * standing.size() - brutes, 0)
+	# Those that have their turn keep it while near; the nearest fill the rest.
+	var keep: Array[Node3D] = []
+	for h in _holders:
+		for pair: Array in small:
+			if pair[1] == h and float(pair[0]) < 11.0:
+				keep.append(h)
+	small.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	for pair: Array in small:
+		if keep.size() >= allowed:
+			break
+		if not keep.has(pair[1]):
+			keep.append(pair[1])
+	while keep.size() > allowed:
+		keep.pop_back()
+	_holders = keep
+	for pair: Array in small:
+		(pair[1] as Node).set("held_back", not keep.has(pair[1]))
 
 
 ## Every peer: an orc's heavy blow has cracked the floor at `at` (called by
@@ -1195,7 +1256,7 @@ func _high_windows(room: Node3D, w: float, l: float, h: float) -> void:
 				beam.mesh = cyl
 				var bm := ShaderMaterial.new()
 				bm.shader = _beam_shader
-				bm.set_shader_parameter("tint", Color(0.85, 0.55, 1.0))
+				bm.set_shader_parameter("tint", Color(1.0, 0.8, 0.6))
 				bm.set_shader_parameter("strength", 0.045)
 				beam.material_override = bm
 				beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1279,9 +1340,9 @@ func _throne(room: Node3D, l: float) -> void:
 		_deco(room, _iron_mat, bowl, at)
 		room.add_child(_flame(at + Vector3(0.0, 0.25, 0.0), 3.0, 50))
 		var light := OmniLight3D.new()
-		light.light_color = Color(1.0, 0.55, 0.25)
-		light.light_energy = 3.0
-		light.omni_range = 16.0
+		light.light_color = Color(1.0, 0.6, 0.3)
+		light.light_energy = 3.6
+		light.omni_range = 20.0
 		light.position = at + Vector3(0.0, 1.0, 0.0)
 		room.add_child(light)
 
@@ -1381,9 +1442,9 @@ func _torch(room: Node3D, at: Vector3) -> void:
 	holder.add_child(cup)
 	holder.add_child(_flame(Vector3(0.0, 0.22, 0.0), 1.2, 18))
 	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.62, 0.3)
-	light.light_energy = 1.8
-	light.omni_range = 11.0
+	light.light_color = Color(1.0, 0.64, 0.32)
+	light.light_energy = 2.6
+	light.omni_range = 14.0
 	light.position = Vector3(0.0, 0.4, 0.0)
 	holder.add_child(light)
 
@@ -1416,6 +1477,14 @@ func _say(text: String, seconds: float) -> void:
 	_banner.text = text
 	_banner.show()
 	_banner_until = Time.get_ticks_msec() / 1000.0 + seconds
+
+
+## The music for now ([World] asks): the boss's while its room is fought,
+## otherwise the dungeon's.
+func music_wanted() -> StringName:
+	if current == rooms.size() - 1 and not is_closed:
+		return &"dungeon_boss"
+	return &"dungeon"
 
 
 func _heroes() -> Array[Player]:
