@@ -1489,7 +1489,12 @@ func _start() -> void:
 	if _game != null:
 		_game.choose(_chosen)
 		# A solo game in the world opens with the story ([Intro]).
-		_game.set(&"story_pending", not _arena and not _v5)
+		# The open world is peaceful now, its creatures behind the five gates
+		# ([Portals]); the story's opening (armed by the wolves' quest) waits
+		# for the quests to come back (the user's word, 2026-10-19).
+		_game.set(&"peaceful", not _arena and not _v5)
+		_game.set(&"story_pending", false)
+		_game.set(&"portal_return", -1)
 	# A solo game is a game with nobody else in it, which is not the same as a
 	# game with a peer left over from last time still holding a socket open.
 	if _net != null:

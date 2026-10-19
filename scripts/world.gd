@@ -144,6 +144,7 @@ var _fight_music_until: float = 0.0
 
 
 func _ready() -> void:
+	_peaceful_world()
 	if old_places:
 		_dress_village()
 		# The old graveyard and the dead wood round Arkdeva's lairs ([NecroPlaces]).
@@ -430,6 +431,51 @@ func _on_left(peer: int) -> void:
 ## different game. `visibility_range_end` is a *drawing* cull — the creature goes
 ## on prowling, it is simply not drawn, and it is not drawn into the sun's shadow
 ## map either, which is where most of the saving is.
+## A solo game in the open world (the menu's [member Game.peaceful]): no camps,
+## none of the creatures placed in the level, no quests (the user's word,
+## 2026-10-19: the creatures are behind the gates now, the quests to come), and
+## the five gates up ([Portals]). Coming back out of a dungeon, the heroes
+## stand before the gate they went in by.
+func _peaceful_world() -> void:
+	var game := get_node_or_null("/root/Game")
+	if game == null or not bool(game.get(&"peaceful")) or not raise_camps:
+		return
+	raise_camps = false
+	var creatures := get_node_or_null("Enemies")
+	if creatures != null:
+		for body in creatures.get_children():
+			creatures.remove_child(body)
+			body.queue_free()
+	for path: String in ["Quests", "People/Datvi"]:
+		var node := get_node_or_null(path)
+		if node != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	var gates := Portals.new()
+	gates.name = "Portals"
+	add_child(gates)
+	var back := int(game.get(&"portal_return"))
+	if back >= 0 and _points != null:
+		var at := Portals.arrival(back)
+		for i in _points.get_child_count():
+			(_points.get_child(i) as Node3D).position = at + Vector3(float(i % 2) * 1.2 - 0.6, 0.0, floorf(float(i) / 2.0) * 1.2)
+		game.set(&"portal_return", -1)
+	# His level outside the dungeons, given back once he stands in the world.
+	call_deferred(&"_give_back_levels", game)
+
+
+func _give_back_levels(game: Node) -> void:
+	var best: Dictionary = game.get(&"best_level")
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Player
+		if hero == null or not hero.is_multiplayer_authority():
+			continue
+		var book := hero.get_node_or_null("Leveling") as Leveling
+		var top := int(best.get(game.call(&"character"), 1))
+		if book != null and top > 1:
+			book.raise_to(top)
+
+
 ## Puts every band from `CAMPS` into the level. Deterministic — no random
 ## numbers — so the same creature has the same name and place on every peer.
 func _build_camps() -> void:

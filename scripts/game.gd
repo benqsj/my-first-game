@@ -37,6 +37,24 @@ var _chosen: StringName = DEFAULT
 ## A new story to begin: the menu's Start sets it for a solo game, and the
 ## level's [Intro] takes it (and clears it) to play the opening film.
 var story_pending: bool = false
+## A solo game in the open world without its camps: the creatures are behind
+## the five gates now ([Portals], portal_dungeons_plan.md). Set by the menu.
+var peaceful: bool = false
+## Which dungeon is being loaded ([Dungeon]), -1 for none.
+var dungeon_id: int = -1
+## Which gate the hero comes back out by, -1 for the usual spawn.
+var portal_return: int = -1
+## The dungeons closed this session (index -> true), and each hero's best
+## level so far (id -> level): what he has outside the dungeons.
+var closed_portals: Dictionary = {}
+var best_level: Dictionary = {}
+
+
+## Dungeon `index` is closed: its gate is marked, and the hero keeps its last level.
+func close_portal(index: int) -> void:
+	closed_portals[index] = true
+	var top := int(Portals.DEFS[clampi(index, 0, Portals.DEFS.size() - 1)]["to"])
+	best_level[_chosen] = maxi(int(best_level.get(_chosen, 1)), top)
 ## Each hero's hair, picked on the hero select: id -> an index into the rig's
 ## `hairs`. Remembered between runs.
 var _hairs: Dictionary = {}

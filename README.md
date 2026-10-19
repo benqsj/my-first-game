@@ -10871,3 +10871,39 @@ The packs the user brought in from the Godot Asset Library, what each is for, wh
 - **More combos**: quarry (chop, kick, slam), landslide (swat, side swing, low smash), reel_in (after the fist).
 - **Its maul**: cut down and rising again (REFORM), nine chunks of the ground fly up into its right hand and a grey stone maul grows there (`_forge_maul`); from then it stands, walks and fights two-handed (`CR_HeavyIdle`/`Walk`/`Back`/`L`/`R`) with the maul's strings: maul_crush (Heavy1, Heavy3, Heavy2), maul_storm (`CR_HeavyCombo`, 4 blows), maul_spin (`CR_GS_HighSpin`, Heavy4), maul_low (`CR_LowAttack`, `CR_HighAttack`, Heavy2), maul_quick, and its counter, ram, leap and reel_in on the maul. The maul lies along the line from its left hand to its right while both hold it, learnt in the right wrist's own frame (`_grip_local`), the head out past the right hand; its blows reach to the head (the limbs' tips set when learnt).
 - brutes_test `golem_round3` (quick, thorns all round, kick line, fist caught/pulled/combo, a roll slips it, the field, the maul and its blows landing); brute_combo_test drills every combo. Film `_shots_tmp/g3_film.gd -- <tag> golem <frames> <off> [maul]`, `_shots_tmp/g3/film/golem3_old_vs_new.mp4`.
+
+## The gates and the dungeons (2026-10-19)
+
+The open world of a solo game (ALONE) is peaceful now: `Game.peaceful` (set by
+the menu) makes `World._peaceful_world()` raise no camps, drop the level's own
+wolves and golems, drop the quests (`Quests`, Datvi; the story's opening is off
+until the quests come back) and put up the five gates ([Portals],
+`scripts/portals.gd`, `PortalLook` for the arch and its whirl). Tests that load
+`greybox_world.tscn` directly are untouched (peaceful is off there).
+
+| Gate | Dungeon | Levels | Built |
+| --- | --- | --- | --- |
+| I | ორკების სასახლე | 1–10 | yes |
+| II | ჩონჩხების აკლდამა | 10–20 | not yet |
+| III | ტროლების მღვიმე | 20–30 | not yet |
+| IV | დემონების ტაძარი | 30–40 | not yet |
+| V | დრაკონის ციხე | 40–50 | not yet |
+
+The gates stand south of the village (x 44–100, z −16…−24), facing the square;
+the writing over one shows as the hero comes near; F goes in.
+
+`scenes/world/dungeon.tscn` + `scripts/dungeon.gd` ([Dungeon]): rooms built in
+code (24 × 28 m, stone walls 6.5 m, pillars, torches, a red runner), one after
+another along −Z, an iron portcullis in each far wall. A room wakes when a hero
+is 2 m inside it: its creatures come in the far half, roused; its last one down
+raises the gate ahead, and the gate behind comes down as he goes on. The first
+dungeon: 5 imps; 4 imps + 4 puglins; 4 puglins, 3 imps, 4 orcs; 3 orcs, 3
+skirmishers, 3 puglins, 3 imps; the ogre with 2 orcs. Leveling is new in every
+level loaded, so a dungeon is entered at level 1; closing it raises him to its
+top level (`Leveling.raise_to`), `Game.close_portal` keeps that level for the
+open world (`Game.best_level`), and a way out (a gate) stands where the boss
+was. Dying: the fallen get up when their room is cleared; all of them down,
+they are taken back out by the gate after 3 s.
+
+    godot --headless --path . --script res://tests/dungeon_test.gd -- world
+    godot --headless --path . --script res://tests/dungeon_test.gd -- dungeon

@@ -31,7 +31,7 @@ extends Node
 
 ## Every creature's level, shown over its head ([CombatText]): what it is,
 ## against where the heroes start.
-const LEVEL_OF := {&"imp": 1, &"puglin": 2, &"wolf": 3, &"orc": 6, &"skeleton_lord": 8, &"arkdeva": 10}
+const LEVEL_OF := {&"imp": 1, &"puglin": 2, &"wolf": 3, &"orc": 6, &"skeleton_lord": 8, &"arkdeva": 10, &"ogre": 9}
 const LEVEL_OTHER := 1
 
 ## What each creature is worth, in wolves.
@@ -140,6 +140,18 @@ func gain(wolves: float) -> void:
 		net_progress.rpc(new_level, new_xp, first)
 	else:
 		net_progress(new_level, new_xp, first)
+
+
+## The host brings him straight up to `top` (no further than the last level):
+## a dungeon closed, or his level outside it given back.
+func raise_to(top: int) -> void:
+	var goal := mini(top, MAX_LEVEL)
+	if level >= goal:
+		return
+	var need := (100.0 - xp) / wolf_share(level)
+	for at in range(level + 1, goal):
+		need += float(wolves_for(at))
+	gain(need + EPSILON)
 
 
 ## From the host: where this hero now stands. Each level gained grows him here.
