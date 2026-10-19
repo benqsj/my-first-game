@@ -30,7 +30,7 @@ const LOOK_AT := Vector2(72.0, 30.0)
 
 ## How near a gate a hero has to stand to go in, and to read it.
 @export var reach: float = 3.0
-@export var read_from: float = 11.0
+@export var read_from: float = 13.0
 
 var gates: Array[Node3D] = []
 var _labels: Array[Label3D] = []
@@ -85,7 +85,7 @@ func _build_gate(i: int) -> void:
 	label.font_size = 64
 	label.outline_size = 14
 	label.pixel_size = 0.006
-	label.position = Vector3(0.0, 5.6, 0.0)
+	label.position = Vector3(0.0, 8.6, 0.0)
 	label.modulate = Color(0.92, 0.85, 1.0, 0.0)
 	label.outline_modulate = Color(0.05, 0.0, 0.1, 0.0)
 	label.text = "%s  %s\nლეველი %d–%d%s" % [ROMAN[i], d["name"], int(d["from"]), int(d["to"]),

@@ -67,7 +67,7 @@ func _dungeon() -> void:
 	_check("five rooms", d.rooms.size() == 5)
 	_check("four iron gates", d.gates.size() == 4)
 	var hero := world.player()
-	_check("a hero in the first room", hero != null and Dungeon.room_at(hero.global_position) == 0,
+	_check("a hero in the first room", hero != null and d.room_at(hero.global_position) == 0,
 			str(hero.global_position if hero != null else Vector3.ZERO))
 	if hero == null:
 		return
@@ -77,7 +77,7 @@ func _dungeon() -> void:
 	var creatures := world.get_node("Enemies")
 	var counts: Array[int] = []
 	for r in d.rooms.size():
-		hero.global_position = Dungeon.centre(r) + Vector3(0.0, 0.3, 4.0)
+		hero.global_position = d.centre(r) + Vector3(0.0, 0.3, 4.0)
 		await _wait(20)
 		_check("room %d wakes" % (r + 1), d.current == r, str(d.current))
 		var alive := 0

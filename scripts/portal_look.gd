@@ -2,29 +2,41 @@ class_name PortalLook
 extends Node3D
 
 ## A dungeon's gate as it stands (the user's word, 2026-10-19: "ლამაზად
-## გაკეთებული მოშავო მოიასამისფრო პორტალი"): a pointed arch of dark stone,
-## and in it a slow black-and-violet whirl, motes drawn into it, a violet
-## light on the ground before it. No ring on the ground: the light alone.
+## გაკეთებული მოშავო მოიასამისფრო პორტალი"; 2026-10-20: more beautiful). A
+## pointed arch of dark voussoirs on two posts, old letters (asomtavruli)
+## burning violet down the posts, three square steps, a brazier of violet fire
+## either side, shards of the same stone turning round it, and in the opening
+## a slow black-and-violet whirl with a heat-haze shimmer round its rim. No
+## ring on the ground.
 ##
 ## Built in code, the same for the five gates in the open world and the way
 ## out of a dungeon; `tint` gives each its own violet.
 
 ## The whirl's colour at its rim (its heart is near black).
 @export var tint: Color = Color(0.55, 0.22, 0.95)
-## The opening's height; the arch is built round it.
-@export var tall: float = 3.9
-@export var wide: float = 2.5
+## The opening: its width and the height its arch springs from.
+@export var span: float = 3.0
+@export var spring: float = 3.4
 
-var _light: OmniLight3D
-var _veil: MeshInstance3D
+var _lights: Array[OmniLight3D] = []
+var _shards: Array[MeshInstance3D] = []
+var _runes: Array[Label3D] = []
 var _t: float = 0.0
+
+## The top of the opening (a pointed arch of two arcs, each of radius `span`).
+var apex: float:
+	get:
+		return spring + span * 0.866
 
 const VEIL_SHADER := """
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
 
 uniform vec4 rim : source_color = vec4(0.55, 0.22, 0.95, 1.0);
-uniform float speed = 0.35;
+uniform float span = 3.0;
+uniform float spring = 3.4;
+uniform float tall = 6.0;
+uniform float speed = 0.3;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -39,30 +51,66 @@ float fbm(vec2 p) {
 	return v;
 }
 
+// How far inside the opening a point is, in metres (negative outside).
+float inside(vec2 p) {
+	float half = span * 0.5;
+	if (p.y < spring) {
+		return min(min(half - abs(p.x), p.y), 9.0);
+	}
+	float a = span - length(p - vec2(half, spring));
+	float b = span - length(p - vec2(-half, spring));
+	return min(min(a, b), half - abs(p.x) + 1.0);
+}
+
 void fragment() {
-	// The opening: an oval with a pointed top, 0 at its heart, 1 at its edge.
-	vec2 q = (UV - vec2(0.5, 0.55)) * vec2(2.0, 2.2);
-	float edge = length(vec2(q.x, q.y * (q.y < 0.0 ? 1.12 : 0.92)));
-	if (edge > 1.0) { discard; }
-	float r = edge;
-	float a = atan(q.y, q.x);
-	// The whirl: noise in polar space, turned faster near the heart.
-	float turn = TIME * speed + 1.6 / (r + 0.35);
-	vec2 p = vec2(cos(a + turn), sin(a + turn)) * (1.4 + r * 2.2);
-	float swirl = fbm(p * 1.6 + vec2(TIME * 0.12, 0.0));
-	float arms = 0.5 + 0.5 * sin(a * 3.0 + turn * 2.2 + swirl * 5.0);
-	float glow = smoothstep(0.15, 1.0, r) * (0.55 + 0.45 * arms) * (0.6 + 0.8 * swirl);
-	vec3 deep = vec3(0.02, 0.0, 0.05);
-	vec3 col = mix(deep, rim.rgb * 1.6, clamp(glow, 0.0, 1.0));
-	col += rim.rgb * pow(smoothstep(0.82, 1.0, r), 2.0) * 1.4;
+	vec2 p = vec2((UV.x - 0.5) * span, (1.0 - UV.y) * tall);
+	float d = inside(p);
+	if (d < 0.0) { discard; }
+	float edge = 1.0 - clamp(d / (span * 0.42), 0.0, 1.0);
+	vec2 c = p - vec2(0.0, tall * 0.48);
+	float r = length(c / vec2(span * 0.5, tall * 0.5));
+	float a = atan(c.y, c.x);
+	// The whirl: noise in polar space, turning faster near the heart.
+	float turn = TIME * speed + 1.8 / (r + 0.3);
+	vec2 q = vec2(cos(a + turn), sin(a + turn)) * (1.3 + r * 2.4);
+	float swirl = fbm(q * 1.7 + vec2(TIME * 0.11, 0.0));
+	float arms = 0.5 + 0.5 * sin(a * 3.0 + turn * 2.4 + swirl * 5.5);
+	float glow = smoothstep(0.1, 1.0, r) * (0.5 + 0.5 * arms) * (0.55 + 0.9 * swirl);
+	vec3 deep = vec3(0.015, 0.0, 0.04);
+	vec3 col = mix(deep, rim.rgb * 1.7, clamp(glow, 0.0, 1.0));
+	// Stars far in: a few specks drawn inwards.
+	vec2 sp = vec2(a * 6.0, log(r + 0.05) * 6.0 + TIME * 1.2);
+	float star = step(0.985, hash(floor(sp * 3.0))) * smoothstep(0.7, 0.1, r);
+	col += vec3(0.85, 0.75, 1.0) * star * 1.4;
+	// The rim: bright, flickering like lightning now and then.
+	float flick = 0.75 + 0.25 * sin(TIME * 7.0 + a * 4.0) + step(0.97, noise(vec2(TIME * 3.0, a * 2.0))) * 1.2;
+	col += rim.rgb * pow(edge, 3.0) * 2.2 * flick;
 	ALBEDO = col;
-	ALPHA = clamp(0.92 - smoothstep(0.93, 1.0, r) * 0.8, 0.0, 1.0);
+	ALPHA = clamp(0.95 - pow(edge, 8.0) * 0.4, 0.0, 1.0);
+}
+"""
+
+## A shimmer just round the opening: the air bent by what is in there.
+const HAZE_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform float strength = 0.012;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment() {
+	vec2 c = UV - vec2(0.5, 0.52);
+	float r = length(c * vec2(1.0, 0.8));
+	float band = smoothstep(0.5, 0.36, r) * smoothstep(0.2, 0.34, r);
+	if (band < 0.01) { discard; }
+	vec2 wob = vec2(sin(UV.y * 40.0 + TIME * 3.0), cos(UV.x * 37.0 - TIME * 2.6)) * strength * band;
+	ALBEDO = texture(screen_tex, SCREEN_UV + wob).rgb;
+	ALPHA = band;
 }
 """
 
 const STONE_SHADER := """
 shader_type spatial;
-uniform vec4 stone : source_color = vec4(0.10, 0.09, 0.12, 1.0);
+uniform vec4 stone : source_color = vec4(0.11, 0.10, 0.13, 1.0);
 uniform vec4 vein : source_color = vec4(0.55, 0.22, 0.95, 1.0);
 varying vec3 wpos;
 float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
@@ -71,12 +119,16 @@ void fragment() {
 	vec3 cell = floor(wpos * vec3(2.2, 3.0, 2.2));
 	float n = hash(cell);
 	ALBEDO = stone.rgb * (0.75 + 0.5 * n);
-	ROUGHNESS = 0.85;
+	ROUGHNESS = 0.7;
+	SPECULAR = 0.4;
 	// Faint violet veins that breathe with the gate.
-	float v = smoothstep(0.985, 1.0, hash(floor(wpos * 9.0)));
-	EMISSION = vein.rgb * v * (0.6 + 0.4 * sin(TIME * 1.3 + n * 6.0));
+	float v = smoothstep(0.982, 1.0, hash(floor(wpos * 9.0)));
+	EMISSION = vein.rgb * v * (0.7 + 0.5 * sin(TIME * 1.3 + n * 6.0));
 }
 """
+
+## Asomtavruli, down the posts.
+const RUNES := ["Ⴀ", "Ⴁ", "Ⴂ", "Ⴃ", "Ⴄ", "Ⴅ", "Ⴆ", "Ⴇ", "Ⴈ", "Ⴉ", "Ⴊ", "Ⴋ"]
 
 
 func _ready() -> void:
@@ -85,94 +137,238 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	if _light != null:
-		_light.light_energy = 2.4 + sin(_t * 1.7) * 0.35 + sin(_t * 4.3) * 0.12
+	for i in _lights.size():
+		_lights[i].light_energy = (2.6 if i == 0 else 1.4) + sin(_t * (1.7 + float(i)) + float(i)) * 0.35 \
+				+ sin(_t * 4.3 + float(i) * 2.0) * 0.12
+	var n := _shards.size()
+	for i in n:
+		var a := _t * 0.35 + TAU * float(i) / float(n)
+		var s := _shards[i]
+		s.position = Vector3(cos(a) * (span * 0.5 + 1.6), apex * 0.55 + sin(_t * 0.9 + float(i) * 1.7) * 0.6
+				+ float(i % 3) * 0.9, sin(a) * 1.1)
+		s.rotation = Vector3(_t * 0.8 + float(i), _t * 1.1, 0.3)
+	for i in _runes.size():
+		_runes[i].modulate.a = 0.55 + 0.45 * sin(_t * 1.6 - float(i) * 0.5)
+
+
+func _stone_mat() -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = STONE_SHADER
+	mat.shader = shader
+	mat.set_shader_parameter("vein", tint)
+	return mat
 
 
 func _build() -> void:
-	var stone := ShaderMaterial.new()
-	var stone_shader := Shader.new()
-	stone_shader.code = STONE_SHADER
-	stone.shader = stone_shader
-	stone.set_shader_parameter("vein", tint)
-	var half := wide * 0.5
-	var post := 0.62
-	# Two posts, a step at their feet, and a pointed arch of three stones.
+	var stone := _stone_mat()
+	var half := span * 0.5
+	var post := 0.75
+	var depth := 0.95
+	# Three square steps.
+	for k in 3:
+		var w := span + 3.2 - float(k) * 0.7
+		_box(stone, Vector3(w, 0.22, 2.6 - float(k) * 0.5), Vector3(0.0, 0.11 + float(k) * 0.22, 0.0))
+	var base := 0.66
+	# The posts: plinth, shaft, capital.
 	for side: float in [-1.0, 1.0]:
-		_box(stone, Vector3(post, tall * 0.78, post), Vector3(side * (half + post * 0.5), tall * 0.39, 0.0))
-		_box(stone, Vector3(post * 1.35, 0.35, post * 1.35), Vector3(side * (half + post * 0.5), 0.175, 0.0))
-		# The springing stones leaning in to the keystone.
-		var lean := _box(stone, Vector3(post * 0.9, half * 1.25, post * 0.95),
-				Vector3(side * half * 0.5, tall * 0.78 + half * 0.36, 0.0))
-		lean.rotation.z = side * 0.9
-	_box(stone, Vector3(post * 0.85, post * 1.2, post * 1.05), Vector3(0.0, tall * 0.78 + half * 0.78, 0.0))
-	# Spikes of the same stone at the arch's shoulders.
+		var x := side * (half + post * 0.5)
+		_box(stone, Vector3(post * 1.4, 0.5, depth * 1.3), Vector3(x, base + 0.25, 0.0))
+		_box(stone, Vector3(post, spring - 0.5, depth), Vector3(x, base + 0.5 + (spring - 0.5) * 0.5, 0.0))
+		_box(stone, Vector3(post * 1.35, 0.32, depth * 1.25), Vector3(x, base + spring + 0.16, 0.0))
+	# The arch: voussoirs round two arcs of radius `span`, springing at the posts.
+	var ring := 0.7
+	var count := 7
 	for side: float in [-1.0, 1.0]:
-		var spike := MeshInstance3D.new()
+		var centre := Vector2(-side * half, base + spring + 0.32)
+		for k in count:
+			# From the springing (angle 0 / 180) up to the apex (60 / 120).
+			var t := (float(k) + 0.5) / float(count)
+			var ang := deg_to_rad(lerpf(0.0, 60.0, t))
+			if side < 0.0:
+				ang = PI - ang
+			var rr := span + ring * 0.5
+			var at := Vector2(centre.x + cos(ang) * rr, centre.y + sin(ang) * rr)
+			var piece := _box(stone, Vector3(ring, span * deg_to_rad(60.0) / float(count) * 1.02 + 0.06, depth),
+					Vector3(at.x, at.y, 0.0))
+			piece.rotation.z = ang
+	var top := base + spring + 0.32 + span * 0.866
+	_box(stone, Vector3(0.85, 1.25, depth * 1.15), Vector3(0.0, top + 0.55, 0.0))
+	# Spires on the capitals, and the old letters down the posts.
+	for side: float in [-1.0, 1.0]:
+		var x := side * (half + post * 0.5)
+		var spire := MeshInstance3D.new()
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = 0.16
-		cone.height = 0.9
-		cone.radial_segments = 5
-		spike.mesh = cone
-		spike.material_override = stone
-		spike.position = Vector3(side * (half + post * 0.5), tall * 0.78 + 0.45, 0.0)
-		add_child(spike)
+		cone.bottom_radius = 0.24
+		cone.height = 1.3
+		cone.radial_segments = 4
+		spire.mesh = cone
+		spire.material_override = stone
+		spire.position = Vector3(x, base + spring + 0.32 + 0.65, 0.0)
+		spire.rotation.y = PI * 0.25
+		add_child(spire)
+		for k in 4:
+			for face: float in [-1.0, 1.0]:
+				var rune := Label3D.new()
+				rune.text = RUNES[(k * 3 + (0 if side < 0.0 else 7) + (0 if face > 0.0 else 2)) % RUNES.size()]
+				rune.font_size = 72
+				rune.pixel_size = 0.005
+				rune.outline_size = 0
+				rune.modulate = tint.lightened(0.35)
+				rune.position = Vector3(x, base + 0.9 + float(k) * 0.62, face * (depth * 0.5 + 0.01))
+				rune.rotation.y = 0.0 if face > 0.0 else PI
+				rune.shaded = false
+				add_child(rune)
+				_runes.append(rune)
 
-	_veil = MeshInstance3D.new()
+	var tall := apex + 0.05
+	var veil_mesh := MeshInstance3D.new()
 	var quad := QuadMesh.new()
-	quad.size = Vector2(wide + 0.05, tall + 0.2)
-	_veil.mesh = quad
+	quad.size = Vector2(span, tall)
+	veil_mesh.mesh = quad
 	var veil := ShaderMaterial.new()
 	var veil_shader := Shader.new()
 	veil_shader.code = VEIL_SHADER
 	veil.shader = veil_shader
 	veil.set_shader_parameter("rim", tint)
-	_veil.material_override = veil
-	_veil.position = Vector3(0.0, tall * 0.5 + 0.05, 0.0)
-	_veil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_veil)
+	veil.set_shader_parameter("span", span)
+	veil.set_shader_parameter("spring", spring + 0.32)
+	veil.set_shader_parameter("tall", tall)
+	veil_mesh.material_override = veil
+	veil_mesh.position = Vector3(0.0, base + tall * 0.5, 0.0)
+	veil_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(veil_mesh)
+	# The shimmer, a hand's breadth before the whirl.
+	var haze := MeshInstance3D.new()
+	var hq := QuadMesh.new()
+	hq.size = Vector2(span + 2.6, tall + 2.0)
+	haze.mesh = hq
+	var haze_mat := ShaderMaterial.new()
+	var haze_shader := Shader.new()
+	haze_shader.code = HAZE_SHADER
+	haze_mat.shader = haze_shader
+	haze.material_override = haze_mat
+	haze.position = Vector3(0.0, base + tall * 0.5, 0.12)
+	haze.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(haze)
 
-	# Motes drifting in from round about and swallowed.
+	add_child(_motes(Vector3(0.0, base + tall * 0.5, 0.0), 64, 2.8, -1.7))
+	_lights.append(_light(Vector3(0.0, base + tall * 0.45, 1.1), 9.0))
+	# A brazier of violet fire either side.
+	for side: float in [-1.0, 1.0]:
+		var x := side * (half + 2.3)
+		_box(stone, Vector3(0.55, 1.1, 0.55), Vector3(x, 0.55, 0.6))
+		var bowl := MeshInstance3D.new()
+		var bm := CylinderMesh.new()
+		bm.top_radius = 0.42
+		bm.bottom_radius = 0.18
+		bm.height = 0.3
+		bm.radial_segments = 8
+		bowl.mesh = bm
+		bowl.material_override = stone
+		bowl.position = Vector3(x, 1.25, 0.6)
+		add_child(bowl)
+		add_child(_fire(Vector3(x, 1.38, 0.6)))
+		_lights.append(_light(Vector3(x, 1.9, 0.6), 5.0))
+	# Shards turning round it.
+	var shard_mat := StandardMaterial3D.new()
+	shard_mat.albedo_color = Color(0.06, 0.04, 0.09)
+	shard_mat.emission_enabled = true
+	shard_mat.emission = tint
+	shard_mat.emission_energy_multiplier = 1.6
+	shard_mat.metallic = 0.6
+	shard_mat.roughness = 0.25
+	for i in 6:
+		var shard := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.13
+		sm.height = 0.62
+		sm.radial_segments = 4
+		sm.rings = 2
+		shard.mesh = sm
+		shard.material_override = shard_mat
+		shard.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(shard)
+		_shards.append(shard)
+
+
+func _light(at: Vector3, reach: float) -> OmniLight3D:
+	var light := OmniLight3D.new()
+	light.light_color = tint.lightened(0.15)
+	light.light_energy = 2.4
+	light.omni_range = reach
+	light.position = at
+	add_child(light)
+	return light
+
+
+func _dot_mesh(size: float) -> QuadMesh:
+	var dot := QuadMesh.new()
+	dot.size = Vector2(size, size)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	dot.material = mat
+	return dot
+
+
+## Motes drifting in from round about and swallowed.
+func _motes(at: Vector3, amount: int, radius: float, pull: float) -> GPUParticles3D:
 	var motes := GPUParticles3D.new()
-	motes.amount = 48
+	motes.amount = amount
 	motes.lifetime = 2.6
-	motes.position = Vector3(0.0, tall * 0.5, 0.0)
+	motes.position = at
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE_SURFACE
-	pm.emission_sphere_radius = 2.4
-	pm.radial_accel_min = -1.6
-	pm.radial_accel_max = -0.9
+	pm.emission_sphere_radius = radius
+	pm.radial_accel_min = pull
+	pm.radial_accel_max = pull * 0.55
 	pm.gravity = Vector3.ZERO
 	pm.scale_min = 0.5
-	pm.scale_max = 1.2
+	pm.scale_max = 1.3
 	var fade := Gradient.new()
 	fade.set_color(0, Color(tint, 0.0))
-	fade.add_point(0.3, Color(tint.lightened(0.3), 0.9))
+	fade.add_point(0.3, Color(tint.lightened(0.35), 0.95))
 	fade.set_color(fade.get_point_count() - 1, Color(tint, 0.0))
 	var ramp := GradientTexture1D.new()
 	ramp.gradient = fade
 	pm.color_ramp = ramp
 	motes.process_material = pm
-	var dot := QuadMesh.new()
-	dot.size = Vector2(0.07, 0.07)
-	var dot_mat := StandardMaterial3D.new()
-	dot_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	dot_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	dot_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	dot_mat.vertex_color_use_as_albedo = true
-	dot_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	dot.material = dot_mat
-	motes.draw_pass_1 = dot
-	motes.visibility_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))
-	add_child(motes)
+	motes.draw_pass_1 = _dot_mesh(0.07)
+	motes.visibility_aabb = AABB(Vector3(-5, -5, -5), Vector3(10, 10, 10))
+	return motes
 
-	_light = OmniLight3D.new()
-	_light.light_color = tint.lightened(0.15)
-	_light.light_energy = 2.4
-	_light.omni_range = 8.0
-	_light.position = Vector3(0.0, tall * 0.45, 0.9)
-	add_child(_light)
+
+## Violet fire.
+func _fire(at: Vector3) -> GPUParticles3D:
+	var fire := GPUParticles3D.new()
+	fire.amount = 44
+	fire.lifetime = 0.8
+	fire.position = at
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.2
+	pm.direction = Vector3.UP
+	pm.spread = 14.0
+	pm.initial_velocity_min = 0.7
+	pm.initial_velocity_max = 1.3
+	pm.gravity = Vector3(0.0, 0.5, 0.0)
+	pm.scale_min = 0.8
+	pm.scale_max = 1.6
+	var fade := Gradient.new()
+	fade.set_color(0, Color(tint.lightened(0.25), 0.9))
+	fade.add_point(0.4, Color(tint, 0.6))
+	fade.set_color(fade.get_point_count() - 1, Color(tint.darkened(0.4), 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	fire.process_material = pm
+	fire.draw_pass_1 = _dot_mesh(0.14)
+	return fire
 
 
 func _box(mat: Material, size: Vector3, at: Vector3) -> MeshInstance3D:
