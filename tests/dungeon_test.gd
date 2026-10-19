@@ -65,6 +65,7 @@ func _dungeon() -> void:
 	await _wait(40)
 	var d := world.get_node("Level/Rooms") as Dungeon
 	_check("five rooms", d.rooms.size() == 5)
+	_check("the orc lord is the boss", String(Dungeon.BOSS[0]).ends_with("orc_chief.tscn"))
 	_check("four iron gates", d.gates.size() == 4)
 	var hero := world.player()
 	_check("a hero in the first room", hero != null and d.room_at(hero.global_position) == 0,
@@ -85,9 +86,10 @@ func _dungeon() -> void:
 			if not bool(body.get("is_dead")):
 				alive += 1
 		counts.append(alive)
-		if r > 0:
-			_check("room %d holds more than room %d" % [r + 1, r], alive >= counts[r - 1] or r == d.rooms.size() - 1,
-					"%d vs %d" % [alive, counts[r - 1]])
+		var expected := 0
+		for entry: Array in d.rooms[r]["foes"]:
+			expected += int(entry[1])
+		_check("room %d holds its %d" % [r + 1, expected], alive == expected, str(alive))
 		if r < d.gates.size():
 			_check("its gate is down", d.gates[r].position.y < 0.1)
 		for body in creatures.get_children():

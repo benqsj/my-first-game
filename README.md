@@ -10907,3 +10907,18 @@ they are taken back out by the gate after 3 s.
 
     godot --headless --path . --script res://tests/dungeon_test.gd -- world
     godot --headless --path . --script res://tests/dungeon_test.gd -- dungeon
+
+Round 3 (2026-10-20): the rooms are about twice as big (44×56 up to 66×78 m,
+walls 6–24 m): a hall, a court open to the sky, a great hall with a broken
+roof (moonlight falls through), a terrace open to the east, and the throne
+under the sky. Floors are a per-room shader (marble, inlay, cracks, missing
+slabs, puddles); stained-glass windows throw slanted beams; rubble and fallen
+columns lie about. Below and round the palace lie the v5 lands themselves
+(`scripts/palace_vista.gd`, [PalaceVista]: the v5 height and tint maps, one
+coarse mesh 140 m below, snow on the peaks, a sea). The orcs' ground blows
+(`_crack_ground`, `net_sky_land`) call the group `ground_scars`: the dungeon
+leaves a lasting crack and rubble there, and a column close by may fall.
+Room 4 holds two different orcs (two swords; a long sword, fewer combos),
+room 5 the Orc Lord (`orc_chief`, great sword, black cape). Small creatures
+take turns: only 2 (+1 per hero) of them may strike at once, the rest hold
+back (`Fighter._cooldown`).

@@ -37,25 +37,41 @@ const PUGLIN := "res://scenes/enemies/puglin.tscn"
 const ORC := "res://scenes/enemies/pack/orc.tscn"
 const ORC_SKIRM := "res://scenes/enemies/pack/orc_skirmisher.tscn"
 const OGRE := "res://scenes/enemies/pack/ogre.tscn"
+const ORC_CHIEF := "res://scenes/enemies/pack/orc_chief.tscn"
+
+## The orcs of the first dungeon (the user's word, 2026-10-20): before the last
+## room two of different kinds, one with two swords, one with a long sword,
+## neither with its whole run of combos; in the last, the lord of the orcs with
+## his great sword.
+const ORC_TWO_SWORDS := {"hand_combo_chance": Vector2(0.3, 0.55)}
+const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_combo_chance": Vector2(0.15, 0.4)}
+const ORC_LORD := {"arm_right": "greatsword", "arm_style": "black", "outfit": "Lord", "cape": "Black cape",
+		"combo_rest": Vector2(2.4, 3.4)}
 
 ## Per dungeon: its rooms. Each: kind ("hall" under a roof, "court" open with
 ## windows, "terrace" open with one side over the drop, "throne" the boss's
 ## court on the cliff), width, length, wall height, and its creatures as
-## [scene, count]. The first dungeon (the user's word: 5 in the first room, 8
-## in the second, the first room's kinds coming back with the new ones). Worth
-## (in wolves, [Leveling]): 3, 5.6, 15.2, 20.4, 14 — about 58 of the 63 that
-## take him from 1 to 10; closing it gives the rest.
+## [scene, count, props]. Twice the floor of the first round (the user's
+## word, 2026-10-20). The first dungeon: imps; imps and puglins; puglins and
+## imps; the two orcs with imps; the lord of the orcs alone. Closing it brings
+## the hero to its top level whatever he has gained on the way.
 const ROOMS := {
 	0: [
-		{"kind": "hall", "w": 30.0, "l": 38.0, "h": 13.0, "foes": [[IMP, 5]]},
-		{"kind": "court", "w": 36.0, "l": 44.0, "h": 9.0, "foes": [[IMP, 4], [PUGLIN, 4]]},
-		{"kind": "hall", "w": 34.0, "l": 48.0, "h": 18.0, "foes": [[PUGLIN, 4], [IMP, 3], [ORC, 4]]},
-		{"kind": "terrace", "w": 38.0, "l": 46.0, "h": 11.0, "foes": [[ORC, 3], [ORC_SKIRM, 3], [PUGLIN, 3], [IMP, 3]]},
-		{"kind": "throne", "w": 46.0, "l": 54.0, "h": 5.0, "foes": [[OGRE, 1], [ORC, 2]]},
+		{"kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0, "foes": [[IMP, 6]]},
+		{"kind": "court", "w": 52.0, "l": 64.0, "h": 11.0, "foes": [[IMP, 5], [PUGLIN, 5]]},
+		{"kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true, "foes": [[PUGLIN, 7], [IMP, 5]]},
+		{"kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0,
+				"foes": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [IMP, 4]]},
+		{"kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0, "foes": [[ORC_CHIEF, 1, ORC_LORD]]},
 	],
 }
 ## The boss of each dungeon: the scene in its last room that has to fall.
-const BOSS := {0: OGRE}
+const BOSS := {0: ORC_CHIEF}
+## How many of the small ones (imps, puglins) may set on the heroes at once:
+## this many, and one more for every hero (the user's word: not all of them
+## at once). The rest keep off, circling, until one of the near ones falls
+## back.
+const CROWD := 2
 
 ## Which dungeon this is (from [member Game.dungeon_id]; 0 when there is none).
 @export var id: int = 0
@@ -74,8 +90,14 @@ var is_closed: bool = false
 var gates: Array[Node3D] = []
 var _alive: Array[Node3D] = []
 var _spawned: int = 0
-var _floor_hall: ShaderMaterial
-var _floor_open: ShaderMaterial
+var _floor_shader: Shader
+var _rock_mat: StandardMaterial3D
+var _glass_shader: Shader
+var _beam_shader: Shader
+## Every column standing: {room, at, h, thick, parts (meshes), blocker, broken}.
+var _columns: Array[Dictionary] = []
+var _crowd_clock: float = 0.0
+var _scars: int = 0
 var _wall_mat: ShaderMaterial
 var _trim_mat: StandardMaterial3D
 var _iron_mat: StandardMaterial3D
@@ -96,26 +118,95 @@ shader_type spatial;
 uniform vec4 stone_a : source_color = vec4(0.30, 0.28, 0.30, 1.0);
 uniform vec4 stone_b : source_color = vec4(0.22, 0.20, 0.24, 1.0);
 uniform vec4 grout : source_color = vec4(0.07, 0.06, 0.08, 1.0);
+uniform vec4 border_col : source_color = vec4(0.12, 0.10, 0.14, 1.0);
+uniform vec4 inlay_col : source_color = vec4(0.42, 0.20, 0.50, 1.0);
+uniform vec4 gold : source_color = vec4(0.78, 0.58, 0.22, 1.0);
 uniform float tile = 2.0;
 uniform float shine = 0.4;
 uniform float rows = 0.0;
+uniform vec2 centre = vec2(0.0);
+uniform vec2 half_size = vec2(20.0);
+uniform float border = 2.6;
+uniform float inlay = 1.0;
+uniform float wear = 0.5;
+uniform float wet = 0.0;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+vec2 voronoi(vec2 x) {
+	vec2 n = floor(x); vec2 f = fract(x);
+	float m1 = 8.0; float m2 = 8.0;
+	for (int j = -1; j <= 1; j++) {
+		for (int i = -1; i <= 1; i++) {
+			vec2 g = vec2(float(i), float(j));
+			vec2 o = vec2(hash(n + g), hash(n + g + 17.3));
+			float d = length(g + o - f);
+			if (d < m1) { m2 = m1; m1 = d; } else if (d < m2) { m2 = d; }
+		}
+	}
+	return vec2(m1, m2);
+}
 void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
+	vec2 lp = wpos.xz - centre;
+	vec2 dw = half_size - abs(lp);
+	float to_wall = min(dw.x, dw.y);
 	vec2 p = wpos.xz / tile;
-	// Flagstones in running rows when `rows` is set, a chequer otherwise.
 	p.x += rows * mod(floor(p.y), 2.0) * 0.5;
 	vec2 cell = floor(p);
 	vec2 f = fract(p);
 	float n = hash(cell);
+	// Marble: slabs, each its own shade, veined.
 	float check = (1.0 - rows) * mod(cell.x + cell.y, 2.0) + rows * step(0.5, n);
-	vec3 c = mix(stone_a.rgb, stone_b.rgb, check) * (0.8 + 0.32 * n);
-	float joint = step(f.x, 0.025) + step(0.975, f.x) + step(f.y, 0.025) + step(0.975, f.y);
+	vec3 c = mix(stone_a.rgb, stone_b.rgb, check) * (0.82 + 0.3 * n);
+	float vein = noise(wpos.xz * 0.9 + n * 7.0) + noise(wpos.xz * 2.7) * 0.5;
+	c = mix(c, c * 1.35, smoothstep(0.02, 0.0, abs(vein - 0.75)) * (1.0 - rows) * 0.8);
+	float joint = step(f.x, 0.02) + step(0.98, f.x) + step(f.y, 0.02) + step(0.98, f.y);
+	float rough = mix(0.85, 0.22, shine) + 0.12 * n;
+	// A dark border along the walls, a gold line inside it.
+	if (to_wall < border) {
+		c = border_col.rgb * (0.85 + 0.3 * noise(wpos.xz * 1.3));
+		joint = 0.0;
+		rough = 0.3;
+	}
+	float line = smoothstep(0.07, 0.0, abs(to_wall - border));
+	// Lozenges down the middle, laid in purple stone ringed in gold.
+	float lz = 0.0;
+	if (inlay > 0.5 && to_wall > border + 1.0) {
+		vec2 q = vec2(lp.x, mod(lp.y, 9.0) - 4.5);
+		float d = abs(q.x) / 3.2 + abs(q.y) / 4.2;
+		if (d < 1.0) {
+			lz = 1.0;
+			c = mix(inlay_col.rgb, stone_a.rgb * 1.15, step(0.55, d)) * (0.85 + 0.25 * noise(wpos.xz * 2.0));
+			joint = 0.0;
+			rough = 0.25;
+		}
+		line = max(line, smoothstep(0.035, 0.0, abs(d - 1.0)) + smoothstep(0.03, 0.0, abs(d - 0.55)));
+	}
 	c = mix(c, grout.rgb, clamp(joint, 0.0, 1.0));
+	c = mix(c, gold.rgb, clamp(line, 0.0, 1.0));
+	// Wear: cracks running across the floor in patches, a slab gone here and there.
+	float patch = smoothstep(1.0 - wear, 1.0 - wear + 0.18, noise(wpos.xz * 0.045 + 3.0));
+	vec2 v = voronoi(wpos.xz * 0.55);
+	float crack = (1.0 - smoothstep(0.0, 0.045, v.y - v.x)) * patch;
+	c = mix(c, grout.rgb * 0.6, crack);
+	float gone = step(hash(cell + 41.0), 0.04 * wear) * step(border, to_wall) * (1.0 - lz);
+	c = mix(c, vec3(0.09, 0.08, 0.08) * (0.6 + 0.8 * noise(wpos.xz * 4.0)), gone);
+	rough = mix(rough, 1.0, max(gone, crack));
+	// Grime towards the walls.
+	c *= mix(0.55, 1.0, smoothstep(0.0, 3.5, to_wall));
+	// Rain standing in the hollows of the open ones.
+	float pool = smoothstep(0.62, 0.7, noise(wpos.xz * 0.07 + 11.0)) * wet;
+	c *= 1.0 - pool * 0.35;
+	rough = mix(rough, 0.04, pool);
 	ALBEDO = c;
-	ROUGHNESS = mix(0.85, 0.25, shine) + 0.15 * n;
-	SPECULAR = 0.3 + 0.3 * shine;
+	ROUGHNESS = rough;
+	SPECULAR = 0.3 + 0.35 * shine + pool * 0.3;
 }
 """
 
@@ -147,6 +238,46 @@ void fragment() {
 	c = mix(c, vec3(0.13, 0.17, 0.10), 0.25 * smoothstep(1.2, 0.0, wpos.y) * step(0.6, n));
 	ALBEDO = c;
 	ROUGHNESS = 0.9;
+}
+"""
+
+## Stained glass high in a hall's walls: lead lines, panes of violet, crimson,
+## gold and blue, lit from outside.
+const GLASS_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment() {
+	vec2 uv = UV;
+	// A pointed head.
+	vec2 q = vec2((uv.x - 0.5) * 2.0, (0.32 - uv.y) / 0.32);
+	if (uv.y < 0.32) {
+		float a = length(q - vec2(-1.0, 0.0));
+		float b = length(q - vec2(1.0, 0.0));
+		if (a > 2.0 || b > 2.0) { discard; }
+	}
+	vec2 g = uv * vec2(4.0, 9.0);
+	vec2 cell = floor(g);
+	vec2 f = fract(g);
+	float n = hash(cell);
+	vec3 pane = n < 0.3 ? vec3(0.45, 0.12, 0.7) : (n < 0.55 ? vec3(0.7, 0.08, 0.12) : (n < 0.8 ? vec3(0.85, 0.6, 0.15) : vec3(0.15, 0.25, 0.75)));
+	float lead = step(f.x, 0.06) + step(0.94, f.x) + step(f.y, 0.08) + step(0.92, f.y);
+	vec3 c = mix(pane * (0.8 + 0.5 * hash(cell + 3.0)), vec3(0.02), clamp(lead, 0.0, 1.0));
+	ALBEDO = c * 1.6;
+}
+"""
+
+## A shaft of light: soft at its sides, fading towards its foot.
+const BEAM_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, blend_add, depth_draw_never, shadows_disabled;
+uniform vec4 tint : source_color = vec4(0.75, 0.6, 1.0, 1.0);
+uniform float strength = 0.18;
+void fragment() {
+	float side = pow(abs(dot(NORMAL, VIEW)), 2.0);
+	float along = smoothstep(0.0, 0.15, UV.y) * (1.0 - smoothstep(0.55, 1.0, UV.y));
+	float flicker = 0.85 + 0.15 * sin(TIME * 0.7 + UV.y * 6.0);
+	ALBEDO = tint.rgb * strength * side * along * flicker;
 }
 """
 
@@ -194,6 +325,8 @@ func _ready() -> void:
 		_build_room(i)
 	_vista()
 	_place_marks()
+	# Where the orcs' heavy blows crack the floor ([OrcFighter]).
+	add_to_group(&"ground_scars")
 	_build_hud()
 	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
 
@@ -247,21 +380,15 @@ func _place_marks() -> void:
 
 
 func _materials() -> void:
-	var fs := Shader.new()
-	fs.code = FLOOR_SHADER
-	_floor_hall = ShaderMaterial.new()
-	_floor_hall.shader = fs
-	_floor_hall.set_shader_parameter("tile", 2.4)
-	_floor_hall.set_shader_parameter("shine", 0.75)
-	_floor_hall.set_shader_parameter("stone_a", Color(0.36, 0.33, 0.37))
-	_floor_hall.set_shader_parameter("stone_b", Color(0.16, 0.14, 0.18))
-	_floor_open = ShaderMaterial.new()
-	_floor_open.shader = fs
-	_floor_open.set_shader_parameter("tile", 1.6)
-	_floor_open.set_shader_parameter("shine", 0.15)
-	_floor_open.set_shader_parameter("rows", 1.0)
-	_floor_open.set_shader_parameter("stone_a", Color(0.40, 0.37, 0.34))
-	_floor_open.set_shader_parameter("stone_b", Color(0.31, 0.29, 0.28))
+	_floor_shader = Shader.new()
+	_floor_shader.code = FLOOR_SHADER
+	_glass_shader = Shader.new()
+	_glass_shader.code = GLASS_SHADER
+	_beam_shader = Shader.new()
+	_beam_shader.code = BEAM_SHADER
+	_rock_mat = StandardMaterial3D.new()
+	_rock_mat.albedo_color = Color(0.27, 0.25, 0.27)
+	_rock_mat.roughness = 0.95
 	_wall_mat = ShaderMaterial.new()
 	var ws := Shader.new()
 	ws.code = WALL_SHADER
@@ -285,6 +412,35 @@ func _materials() -> void:
 	_wood_mat.roughness = 0.9
 
 
+## Room `i`'s floor: marble in the halls, flagstones under the sky, each
+## with its border along its walls, its inlay down the middle and its wear.
+func _floor_mat(i: int) -> ShaderMaterial:
+	var r := _room(i)
+	var kind: String = r["kind"]
+	var m := ShaderMaterial.new()
+	m.shader = _floor_shader
+	var c := centre(i)
+	m.set_shader_parameter("centre", Vector2(c.x, c.z))
+	m.set_shader_parameter("half_size", Vector2(float(r["w"]) * 0.5, float(r["l"]) * 0.5))
+	if kind == "hall":
+		m.set_shader_parameter("tile", 2.4)
+		m.set_shader_parameter("shine", 0.8)
+		m.set_shader_parameter("stone_a", Color(0.42, 0.39, 0.43))
+		m.set_shader_parameter("stone_b", Color(0.14, 0.12, 0.16))
+		m.set_shader_parameter("inlay", 0.0)
+		m.set_shader_parameter("wear", 0.45 if not r.has("hole") else 0.7)
+	else:
+		m.set_shader_parameter("tile", 1.5)
+		m.set_shader_parameter("shine", 0.15)
+		m.set_shader_parameter("rows", 1.0)
+		m.set_shader_parameter("stone_a", Color(0.44, 0.41, 0.38))
+		m.set_shader_parameter("stone_b", Color(0.33, 0.31, 0.30))
+		m.set_shader_parameter("border_col", Color(0.20, 0.18, 0.19))
+		m.set_shader_parameter("wear", 0.6)
+		m.set_shader_parameter("wet", 1.0 if kind != "throne" else 0.6)
+	return m
+
+
 ## Dusk over the palace: a violet sky, a low moon.
 func _sky() -> void:
 	var root: Node = owner if owner != null else get_parent()
@@ -306,7 +462,7 @@ func _sky() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_sky_contribution = 0.6
-	env.fog_density = 0.0035
+	env.fog_density = 0.0011
 	env.fog_sky_affect = 0.25
 	var sun := root.get_node_or_null("Sun") as DirectionalLight3D
 	if sun != null:
@@ -320,7 +476,6 @@ func _build_room(i: int) -> void:
 	var w: float = r["w"]
 	var l: float = r["l"]
 	var h: float = r["h"]
-	var open := kind != "hall"
 	var c := centre(i)
 	var room := Node3D.new()
 	room.name = "Room%d" % (i + 1)
@@ -331,9 +486,9 @@ func _build_room(i: int) -> void:
 	var near := l * 0.5 + WALL_T * 0.5
 
 	# The floor (with the strip under the next doorway), and the rock under it.
-	_solid(room, _floor_hall if not open else _floor_open, Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T),
-			Vector3(0.0, -0.5, -WALL_T * 0.5))
-	_solid(room, _wall_mat, Vector3(w + WALL_T * 2.0, 60.0, l + WALL_T), Vector3(0.0, -31.0, -WALL_T * 0.5), false)
+	_solid(room, _floor_mat(i), Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T), Vector3(0.0, -0.5, -WALL_T * 0.5))
+	# The palace's own footings, going down into the crag.
+	_solid(room, _wall_mat, Vector3(w + WALL_T * 2.0, 24.0, l + WALL_T), Vector3(0.0, -13.0, -WALL_T * 0.5), false)
 
 	# The long walls; the terrace has one side open over the drop.
 	for side: float in [-1.0, 1.0]:
@@ -378,18 +533,27 @@ func _build_room(i: int) -> void:
 
 	# Columns: two rows in a hall (and a tall vault on beams), along the walls elsewhere.
 	if kind == "hall":
-		_hall_columns(room, w, l, h)
-		_ceiling(room, w, l, h)
+		_hall_columns(room, i, w, l, h)
+		_ceiling(room, w, l, h, r.has("hole"))
+		_high_windows(room, w, l, h)
 	elif kind == "court":
-		_wall_columns(room, w, l, h)
+		_wall_columns(room, i, w, l, h)
 		_basin(room)
+		_fallen_column(room, Vector3(-w * 0.25, 0.0, l * 0.22), 0.6)
 	elif kind == "terrace":
-		_wall_columns(room, w, l, h, true)
+		_wall_columns(room, i, w, l, h, true)
+		_fallen_column(room, Vector3(w * 0.18, 0.0, -l * 0.28), -0.4)
 	else:
-		_ruins(room, w, l)
+		_ruins(room, i, w, l)
 		_dais(room, l)
+		_throne(room, l)
 
-	# A runner down the middle.
+	_wainscot(room, kind, w, l)
+	_rubble_round(room, i, w, l)
+	_motes(room, w, l, h)
+	if kind != "hall":
+		return
+	# A runner down a hall's middle.
 	var rug := MeshInstance3D.new()
 	var rm := BoxMesh.new()
 	rm.size = Vector3(4.0, 0.03, l - 6.0)
@@ -447,7 +611,7 @@ func _trim(parent: Node3D, size: Vector3, at: Vector3) -> void:
 
 
 ## An invisible wall: only something to stop the heroes.
-func _blocker(parent: Node3D, size: Vector3, at: Vector3) -> void:
+func _blocker(parent: Node3D, size: Vector3, at: Vector3) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.position = at
 	var shape := CollisionShape3D.new()
@@ -456,6 +620,7 @@ func _blocker(parent: Node3D, size: Vector3, at: Vector3) -> void:
 	shape.shape = bs
 	body.add_child(shape)
 	parent.add_child(body)
+	return body
 
 
 ## A courtyard's long wall: piers and high arched windows onto the mountains.
@@ -473,12 +638,13 @@ func _window_wall(room: Node3D, x: float, l: float, h: float) -> void:
 			_solid(room, _wall_mat, Vector3(WALL_T, h, pier), Vector3(x, h * 0.5, mid - WALL_T * 0.5 + s * (win + pier) * 0.5))
 		_solid(room, _wall_mat, Vector3(WALL_T, sill, win), Vector3(x, sill * 0.5, mid - WALL_T * 0.5))
 		_solid(room, _wall_mat, Vector3(WALL_T, h - head, win), Vector3(x, head + (h - head) * 0.5, mid - WALL_T * 0.5))
-		# The window's pointed head, in carved stone.
-		for s: float in [-1.0, 1.0]:
-			var box := BoxMesh.new()
-			box.size = Vector3(WALL_T + 0.1, win * 0.62, 0.35)
-			var piece := _deco(room, _trim_mat, box, Vector3(x, head - win * 0.2, mid - WALL_T * 0.5 + s * win * 0.25))
-			piece.rotation.x = s * 0.9
+		# A carved lintel and sill.
+		var lintel := BoxMesh.new()
+		lintel.size = Vector3(WALL_T + 0.3, 0.5, win + 0.8)
+		_deco(room, _trim_mat, lintel, Vector3(x, head + 0.25, mid - WALL_T * 0.5))
+		var sill_box := BoxMesh.new()
+		sill_box.size = Vector3(WALL_T + 0.4, 0.3, win + 0.6)
+		_deco(room, _trim_mat, sill_box, Vector3(x, sill + 0.15, mid - WALL_T * 0.5))
 		_blocker(room, Vector3(WALL_T, head - sill, win), Vector3(x, sill + (head - sill) * 0.5, mid - WALL_T * 0.5))
 
 
@@ -565,13 +731,13 @@ func _door_frame(room: Node3D, at: Vector3) -> void:
 
 
 ## Two rows of tall columns down a hall, banners between, torches on them.
-func _hall_columns(room: Node3D, w: float, l: float, h: float) -> void:
+func _hall_columns(room: Node3D, i: int, w: float, l: float, h: float) -> void:
 	var n := maxi(3, int(l / 9.0))
 	for k in n:
 		var z := l * 0.5 - (float(k) + 0.5) * l / float(n)
 		for side: float in [-1.0, 1.0]:
 			var x := side * (w * 0.5 - 4.5)
-			_column(room, Vector3(x, 0.0, z), h, 1.0)
+			_column(room, i, Vector3(x, 0.0, z), h, 1.15)
 			if k % 2 == 0:
 				_torch(room, Vector3(x - side * 0.85, 3.6, z))
 			# Banners on the walls between the columns.
@@ -579,7 +745,7 @@ func _hall_columns(room: Node3D, w: float, l: float, h: float) -> void:
 				_hang_banner(room, Vector3(side * (w * 0.5 - 0.1), h - 2.2, z - l / float(n) * 0.5), side, minf(7.0, h * 0.45))
 
 
-func _wall_columns(room: Node3D, w: float, l: float, h: float, one_side: bool = false) -> void:
+func _wall_columns(room: Node3D, i: int, w: float, l: float, h: float, one_side: bool = false) -> void:
 	var n := maxi(3, int(l / 10.0))
 	for k in n:
 		var z := l * 0.5 - (float(k) + 0.5) * l / float(n)
@@ -587,12 +753,12 @@ func _wall_columns(room: Node3D, w: float, l: float, h: float, one_side: bool = 
 			if one_side and side > 0.0:
 				continue
 			var x := side * (w * 0.5 - 0.9)
-			_column(room, Vector3(x, 0.0, z), h * 0.9, 0.8)
+			_column(room, i, Vector3(x, 0.0, z), h * 0.9, 0.9)
 			if k % 2 == 1:
 				_torch(room, Vector3(x - side * 0.7, 3.4, z))
 
 
-func _column(room: Node3D, at: Vector3, h: float, thick: float) -> void:
+func _column(room: Node3D, i: int, at: Vector3, h: float, thick: float) -> void:
 	var base := BoxMesh.new()
 	base.size = Vector3(thick * 2.0, 0.6, thick * 2.0)
 	_solid(room, _trim_mat, base.size, at + Vector3(0.0, 0.3, 0.0))
@@ -600,13 +766,23 @@ func _column(room: Node3D, at: Vector3, h: float, thick: float) -> void:
 	shaft.top_radius = thick * 0.62
 	shaft.bottom_radius = thick * 0.7
 	shaft.height = h - 1.4
-	shaft.radial_segments = 12
-	_deco(room, _wall_mat, shaft, at + Vector3(0.0, 0.6 + (h - 1.4) * 0.5, 0.0))
-	_blocker(room, Vector3(thick * 1.3, h, thick * 1.3), at + Vector3(0.0, h * 0.5, 0.0))
+	shaft.radial_segments = 14
+	var parts: Array[MeshInstance3D] = []
+	parts.append(_deco(room, _wall_mat, shaft, at + Vector3(0.0, 0.6 + (h - 1.4) * 0.5, 0.0)))
+	var blocker := _blocker(room, Vector3(thick * 1.3, h, thick * 1.3), at + Vector3(0.0, h * 0.5, 0.0))
 	var cap := BoxMesh.new()
 	cap.size = Vector3(thick * 1.9, 0.8, thick * 1.9)
-	_deco(room, _trim_mat, cap, at + Vector3(0.0, h - 0.4, 0.0))
-
+	parts.append(_deco(room, _trim_mat, cap, at + Vector3(0.0, h - 0.4, 0.0)))
+	# Gilded rings at the shaft's foot and neck.
+	for y: float in [1.0, h - 1.0]:
+		var band := CylinderMesh.new()
+		band.top_radius = thick * 0.74
+		band.bottom_radius = thick * 0.74
+		band.height = 0.18
+		band.radial_segments = 14
+		parts.append(_deco(room, _gold_mat, band, at + Vector3(0.0, y, 0.0)))
+	_columns.append({"room": i, "at": room.position + at, "local": at, "h": h, "thick": thick,
+			"parts": parts, "blocker": blocker, "node": room, "broken": false})
 
 func _hang_banner(room: Node3D, at: Vector3, side: float, long: float) -> void:
 	var cloth := BoxMesh.new()
@@ -630,21 +806,93 @@ func _hang_banner(room: Node3D, at: Vector3, side: float, long: float) -> void:
 
 
 ## A hall's roof: a flat ceiling on deep beams, iron braziers hanging from it.
-func _ceiling(room: Node3D, w: float, l: float, h: float) -> void:
-	var slab := BoxMesh.new()
-	slab.size = Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T * 2.0)
-	_deco(room, _wood_mat, slab, Vector3(0.0, h + 0.5, -WALL_T * 0.5))
+## Where `hole` is set, the roof has fallen in over the middle: the sky
+## through it, moonlight down it, its beams broken and the rubble under it.
+func _ceiling(room: Node3D, w: float, l: float, h: float, hole: bool = false) -> void:
+	var hz := 0.0
+	var hl := 0.0
+	var hw := 0.0
+	if hole:
+		hz = -l * 0.08
+		hl = 16.0
+		hw = 14.0
+	var full_l := l + WALL_T * 2.0
+	if not hole:
+		var slab := BoxMesh.new()
+		slab.size = Vector3(w + WALL_T * 2.0, 1.0, full_l)
+		_deco(room, _wood_mat, slab, Vector3(0.0, h + 0.5, -WALL_T * 0.5))
+	else:
+		# Four slabs round the hole.
+		var near_l := (l * 0.5 + WALL_T) - (hz + hl * 0.5)
+		var far_l := (hz - hl * 0.5) - (-l * 0.5 - WALL_T * 2.0)
+		var a := BoxMesh.new()
+		a.size = Vector3(w + WALL_T * 2.0, 1.0, near_l)
+		_deco(room, _wood_mat, a, Vector3(0.0, h + 0.5, hz + hl * 0.5 + near_l * 0.5))
+		var b := BoxMesh.new()
+		b.size = Vector3(w + WALL_T * 2.0, 1.0, far_l)
+		_deco(room, _wood_mat, b, Vector3(0.0, h + 0.5, hz - hl * 0.5 - far_l * 0.5))
+		for side: float in [-1.0, 1.0]:
+			var sw := (w + WALL_T * 2.0 - hw) * 0.5
+			var c := BoxMesh.new()
+			c.size = Vector3(sw, 1.0, hl)
+			_deco(room, _wood_mat, c, Vector3(side * (hw * 0.5 + sw * 0.5), h + 0.5, hz))
+		# Moonlight down through it, and what fell.
+		var beam := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = hw * 0.45
+		cyl.bottom_radius = hw * 0.6
+		cyl.height = h + 2.0
+		cyl.radial_segments = 16
+		cyl.cap_top = false
+		cyl.cap_bottom = false
+		beam.mesh = cyl
+		var bm := ShaderMaterial.new()
+		bm.shader = _beam_shader
+		bm.set_shader_parameter("tint", Color(0.65, 0.62, 1.0))
+		bm.set_shader_parameter("strength", 0.1)
+		beam.material_override = bm
+		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		beam.position = Vector3(0.0, h * 0.5, hz)
+		room.add_child(beam)
+		var moon := SpotLight3D.new()
+		moon.light_color = Color(0.7, 0.68, 1.0)
+		moon.light_energy = 6.0
+		moon.spot_range = h + 8.0
+		moon.spot_angle = 28.0
+		moon.shadow_enabled = true
+		moon.position = Vector3(0.0, h + 4.0, hz)
+		moon.rotation.x = -PI * 0.5
+		room.add_child(moon)
+		_rubble(room, Vector3(2.0, 0.0, hz + 1.5), 3.2, 24, 99)
+		_rubble(room, Vector3(-5.0, 0.0, hz - 3.0), 2.0, 12, 7)
+		# A beam come down, one end on the floor.
+		var fallen := BoxMesh.new()
+		fallen.size = Vector3(0.9, 0.8, 15.0)
+		var fb := _deco(room, _wood_mat, fallen, Vector3(-3.0, 3.6, hz + 2.0))
+		fb.rotation = Vector3(0.5, 0.35, 0.0)
 	var n := int(l / 5.0)
 	for k in n + 1:
-		var beam := BoxMesh.new()
-		beam.size = Vector3(w, 0.9, 0.7)
-		_deco(room, _wood_mat, beam, Vector3(0.0, h - 0.45, l * 0.5 - float(k) * l / float(n)))
+		var z := l * 0.5 - float(k) * l / float(n)
+		if hole and absf(z - hz) < hl * 0.5:
+			# Its broken ends sticking out over the hole.
+			for side: float in [-1.0, 1.0]:
+				var stub := BoxMesh.new()
+				stub.size = Vector3((w - hw) * 0.5 + 1.5, 0.9, 0.7)
+				var st := _deco(room, _wood_mat, stub, Vector3(side * (hw * 0.5 + (w - hw) * 0.25 - 0.75), h - 0.45, z))
+				st.rotation.z = side * 0.06
+			continue
+		var beam_box := BoxMesh.new()
+		beam_box.size = Vector3(w, 0.9, 0.7)
+		_deco(room, _wood_mat, beam_box, Vector3(0.0, h - 0.45, z))
 	for side: float in [-1.0, 1.0]:
 		var long := BoxMesh.new()
 		long.size = Vector3(0.8, 1.1, l)
 		_deco(room, _wood_mat, long, Vector3(side * (w * 0.5 - 4.5), h - 1.0, 0.0))
 	for k in 3:
-		_hanging_brazier(room, Vector3(0.0, h, l * 0.5 - (float(k) + 0.5) * l / 3.0), h)
+		var z := l * 0.5 - (float(k) + 0.5) * l / 3.0
+		if hole and absf(z - hz) < hl * 0.5 + 2.0:
+			continue
+		_hanging_brazier(room, Vector3(0.0, h, z), h)
 
 
 func _hanging_brazier(room: Node3D, top: Vector3, h: float) -> void:
@@ -697,80 +945,345 @@ func _basin(room: Node3D) -> void:
 
 
 ## Broken columns round the boss's court.
-func _ruins(room: Node3D, w: float, l: float) -> void:
+func _ruins(room: Node3D, i: int, w: float, l: float) -> void:
 	var heights: Array[float] = [7.0, 3.2, 9.0, 1.8, 5.5, 8.0, 2.4, 6.5]
 	for k in 8:
 		var side := -1.0 if k % 2 == 0 else 1.0
-		var z := l * 0.5 - 6.0 - floorf(float(k) / 2.0) * (l - 16.0) / 3.0
-		_column(room, Vector3(side * (w * 0.5 - 3.0), 0.0, z), heights[k], 1.1)
+		var z := l * 0.5 - 8.0 - floorf(float(k) / 2.0) * (l - 24.0) / 3.0
+		_column(room, i, Vector3(side * (w * 0.5 - 3.0), 0.0, z), heights[k], 1.2)
 		if k % 3 == 0:
 			_torch(room, Vector3(side * (w * 0.5 - 4.2), 1.2, z))
 
 
 ## A raised dais at the far end, where the way out will stand.
 func _dais(room: Node3D, l: float) -> void:
-	for k in 2:
-		_solid(room, _trim_mat, Vector3(14.0 - float(k) * 3.0, 0.3, 8.0 - float(k) * 2.0),
-				Vector3(0.0, 0.15 + float(k) * 0.3, -l * 0.5 + 5.0))
+	for k in 3:
+		_solid(room, _trim_mat, Vector3(20.0 - float(k) * 3.5, 0.3, 11.0 - float(k) * 2.5),
+				Vector3(0.0, 0.15 + float(k) * 0.3, -l * 0.5 + 6.0 - float(k) * 0.6))
 
 
-## The sky's furniture seen from the open rooms: mountains on every side, a
-## moon, and the sea of cloud far below.
+## What is seen from the open rooms: the v5 lands far below and round the
+## palace, their mountains on the horizon ([PalaceVista]), and the crag the
+## palace stands on going down to them.
 func _vista() -> void:
 	var mid := (centre(0) + centre(rooms.size() - 1)) * 0.5
-	var far_mat := StandardMaterial3D.new()
-	far_mat.albedo_color = Color(0.13, 0.10, 0.20)
-	far_mat.roughness = 1.0
-	var snow_mat := StandardMaterial3D.new()
-	snow_mat.albedo_color = Color(0.55, 0.50, 0.66)
-	snow_mat.roughness = 1.0
+	var lands := PalaceVista.new()
+	lands.name = "Vista"
+	# The palace over the middle of the lands' basin.
+	lands.position = Vector3(mid.x - 560.0, 0.0, mid.z + 120.0)
+	add_child(lands)
+	# The crag: great rocks under the palace's footprint, down into the lands.
+	var last := rooms.size() - 1
+	var far_z := centre(last).z - float(_room(last)["l"]) * 0.5
+	var near_z := centre(0).z + float(_room(0)["l"]) * 0.5
+	var widest := 0.0
+	for r: Dictionary in rooms:
+		widest = maxf(widest, float(r["w"]))
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 4242 + id
-	for k in 26:
-		var a := TAU * float(k) / 26.0 + rng.randf_range(-0.08, 0.08)
-		var dist := rng.randf_range(380.0, 620.0)
-		var tall := rng.randf_range(90.0, 230.0)
-		var cone := CylinderMesh.new()
-		cone.top_radius = 0.0
-		cone.bottom_radius = tall * rng.randf_range(0.7, 1.1)
-		cone.height = tall
-		cone.radial_segments = 6
-		var at := mid + Vector3(cos(a) * dist, -60.0 + tall * 0.5, sin(a) * dist)
-		var m := _deco(self, far_mat, cone, at)
-		m.rotation.y = rng.randf() * TAU
-		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var cap := CylinderMesh.new()
-		cap.top_radius = 0.0
-		cap.bottom_radius = cone.bottom_radius * 0.28
-		cap.height = tall * 0.28
-		cap.radial_segments = 6
-		var s := _deco(self, snow_mat, cap, at + Vector3(0.0, tall * 0.36 + 0.5, 0.0))
-		s.rotation.y = m.rotation.y
-		s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var cloud := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(2400.0, 2400.0)
-	cloud.mesh = plane
-	var cm := ShaderMaterial.new()
-	var cs := Shader.new()
-	cs.code = CLOUD_SHADER
-	cm.shader = cs
-	cloud.material_override = cm
-	cloud.position = mid + Vector3(0.0, -55.0, 0.0)
-	cloud.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(cloud)
-	var moon := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 38.0
-	sphere.height = 76.0
-	moon.mesh = sphere
-	var mm := StandardMaterial3D.new()
-	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mm.albedo_color = Color(0.95, 0.9, 1.0)
-	moon.material_override = mm
-	moon.position = mid + Vector3(260.0, 230.0, -700.0)
-	moon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(moon)
+	rng.seed = 77 + id
+	var k := 0
+	var z := near_z
+	while z > far_z - 10.0:
+		var crag := MeshInstance3D.new()
+		crag.mesh = RockWave._crag_mesh(k % RockWave.SHAPES)
+		var box := crag.mesh.get_aabb()
+		var want := Vector3(widest * rng.randf_range(1.0, 1.5), PalaceVista.DROP + 40.0, rng.randf_range(50.0, 80.0))
+		crag.scale = Vector3(want.x / maxf(box.size.x, 0.01), want.y / maxf(box.size.y, 0.01), want.z / maxf(box.size.z, 0.01))
+		crag.position = Vector3(rng.randf_range(-6.0, 6.0), 0.0, z - 20.0)
+		crag.position.y = -24.0 - (box.position.y + box.size.y) * crag.scale.y
+		crag.rotation.y = rng.randf_range(-0.3, 0.3)
+		crag.material_override = _rock_mat
+		crag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(crag)
+		z -= 45.0
+		k += 1
+
+
+## Not all of the small ones at once (the user's word, 2026-10-20: a band of
+## puglins all cutting together cannot be beaten): only the `CROWD` nearest a
+## hero (one more for each hero) may start a blow; the rest are kept from it
+## (their own attack's cooldown held up), so they circle, throw, wait.
+func _hold_back_crowd(heroes: Array[Player]) -> void:
+	var standing: Array[Player] = []
+	for hero in heroes:
+		if not hero.is_dead:
+			standing.append(hero)
+	if standing.is_empty():
+		return
+	var small: Array = []
+	for body in _alive:
+		if not is_instance_valid(body) or bool(body.get("is_dead")) or not "_cooldown" in body:
+			continue
+		if body is PackBrute:
+			continue
+		var gap := INF
+		for hero in standing:
+			gap = minf(gap, body.global_position.distance_to(hero.global_position))
+		small.append([gap, body])
+	small.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
+	var allowed := CROWD + standing.size()
+	for k in small.size():
+		if k < allowed:
+			continue
+		var body: Node = small[k][1]
+		body.set("_cooldown", maxf(float(body.get("_cooldown")), 0.45))
+
+
+## Every peer: an orc's heavy blow has cracked the floor at `at` (called by
+## [OrcFighter] through the "ground_scars" group). The crack stays, stone is
+## thrown up round it, and a column near enough comes down.
+func scar(at: Vector3, weight: float) -> void:
+	if room_at(at) < 0:
+		return
+	_scars += 1
+	var crack := DarkFx.decal(self, at, DarkFx.CRACK, 2.2 + 1.8 * weight, Color(0.07, 0.06, 0.05, 1.0), 0.0, 0.95)
+	crack.rotation.y = randf() * TAU
+	_rubble(self, at - global_position, 0.6 + 0.8 * weight, int(3 + 5 * weight), _scars * 31)
+	if weight < 0.6:
+		return
+	for col in _columns:
+		if bool(col["broken"]):
+			continue
+		var c: Vector3 = col["at"]
+		if Vector2(c.x - at.x, c.z - at.z).length() < float(col["thick"]) + 2.2 * weight:
+			_topple(col, at)
+			break
+
+
+## A column brought down: a stump stands, its drums lie where it fell.
+func _topple(col: Dictionary, from: Vector3) -> void:
+	col["broken"] = true
+	for part: MeshInstance3D in col["parts"]:
+		part.visible = false
+	var blocker: StaticBody3D = col["blocker"]
+	if is_instance_valid(blocker):
+		blocker.queue_free()
+	var room: Node3D = col["node"]
+	var at: Vector3 = col["local"]
+	var thick: float = col["thick"]
+	var stump := CylinderMesh.new()
+	stump.top_radius = thick * 0.66
+	stump.bottom_radius = thick * 0.7
+	stump.height = 2.2
+	stump.radial_segments = 14
+	_deco(room, _wall_mat, stump, at + Vector3(0.0, 1.1, 0.0))
+	_blocker(room, Vector3(thick * 1.3, 2.2, thick * 1.3), at + Vector3(0.0, 1.1, 0.0))
+	var away := (col["at"] as Vector3) - from
+	away.y = 0.0
+	away = away.normalized() if away.length() > 0.01 else Vector3.FORWARD
+	var h: float = col["h"]
+	var drums := 3
+	for k in drums:
+		var drum := CylinderMesh.new()
+		drum.top_radius = thick * 0.64
+		drum.bottom_radius = thick * 0.64
+		drum.height = (h - 3.0) / float(drums)
+		drum.radial_segments = 14
+		var where := at + away * (2.4 + float(k) * (drum.height + 0.3)) + Vector3(0.0, thick * 0.64, 0.0)
+		var d := _deco(room, _wall_mat, drum, where)
+		d.rotation = Vector3(PI * 0.5, atan2(away.x, away.z), randf_range(-0.2, 0.2))
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, (col["at"] as Vector3) + Vector3.UP * 2.0, Color(0.5, 0.45, 0.4, 0.6), 40,
+				Vector2(1.5, 5.0), Vector3.UP, 80.0, Vector2(0.12, 0.3), Vector3(0, -2.0, 0), 1.6)
+
+
+## Broken stone in a heap at `at` (in `parent`'s frame): `size` across, `count` pieces.
+func _rubble(parent: Node3D, at: Vector3, size: float, count: int, seed_n: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_n
+	for k in count:
+		var piece := MeshInstance3D.new()
+		if k % 3 == 0:
+			var block := BoxMesh.new()
+			block.size = Vector3(rng.randf_range(0.5, 1.3), rng.randf_range(0.35, 0.7), rng.randf_range(0.5, 1.0)) * clampf(size / 2.0, 0.4, 1.4)
+			piece.mesh = block
+			piece.material_override = _wall_mat
+		else:
+			piece.mesh = RockWave._crag_mesh(k % RockWave.SHAPES)
+			piece.material_override = _rock_mat
+			var s := rng.randf_range(0.25, 0.75) * size * 0.6
+			piece.scale = Vector3(s, s * rng.randf_range(0.5, 0.9), s)
+		var a := rng.randf() * TAU
+		var r := sqrt(rng.randf()) * size
+		piece.position = at + Vector3(cos(a) * r, rng.randf_range(0.0, 0.25) * (1.0 - r / maxf(size, 0.01)) * size, sin(a) * r)
+		piece.rotation = Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))
+		parent.add_child(piece)
+
+
+## Heaps along the walls and in the corners, where the palace has begun to come down.
+func _rubble_round(room: Node3D, i: int, w: float, l: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 500 + i * 17 + id
+	for k in 4:
+		var side := -1.0 if k % 2 == 0 else 1.0
+		var z := rng.randf_range(-l * 0.4, l * 0.4)
+		_rubble(room, Vector3(side * (w * 0.5 - 2.0), 0.0, z), rng.randf_range(1.2, 2.6), rng.randi_range(8, 16), rng.randi())
+
+
+## A column lying where it fell long ago, in drums.
+func _fallen_column(room: Node3D, at: Vector3, yaw: float) -> void:
+	var dir := Vector3(sin(yaw), 0.0, cos(yaw))
+	for k in 4:
+		var drum := CylinderMesh.new()
+		drum.top_radius = 0.6
+		drum.bottom_radius = 0.6
+		drum.height = 2.2
+		drum.radial_segments = 14
+		var d := _deco(room, _wall_mat, drum, at + dir * (float(k) * 2.5 + randf_range(-0.2, 0.2)) + Vector3(0.0, 0.6, 0.0))
+		d.rotation = Vector3(PI * 0.5, yaw, float(k) * 0.3)
+	_solid(room, _trim_mat, Vector3(2.0, 0.6, 2.0), at - dir * 2.0 + Vector3(0.0, 0.3, 0.0))
+	var lying := _blocker(room, Vector3(1.2, 1.2, 10.0), at + dir * 3.75 + Vector3(0.0, 0.6, 0.0))
+	lying.rotation.y = yaw
+	_rubble(room, at + dir * 5.0, 1.4, 8, int(at.x * 13.0 + at.z))
+
+
+## A dark panelled band along the foot of the walls.
+func _wainscot(room: Node3D, kind: String, w: float, l: float) -> void:
+	if kind == "throne":
+		return
+	for side: float in [-1.0, 1.0]:
+		if kind == "terrace" and side > 0.0:
+			continue
+		var box := BoxMesh.new()
+		box.size = Vector3(0.25, 1.5, l)
+		_deco(room, _wood_mat if kind == "hall" else _trim_mat, box, Vector3(side * (w * 0.5 - 0.12), 0.75, 0.0))
+		var rail := BoxMesh.new()
+		rail.size = Vector3(0.32, 0.12, l)
+		_deco(room, _gold_mat if kind == "hall" else _trim_mat, rail, Vector3(side * (w * 0.5 - 0.14), 1.52, 0.0))
+
+
+## Tall stained-glass windows high in a hall's long walls, light slanting in.
+func _high_windows(room: Node3D, w: float, l: float, h: float) -> void:
+	var n := maxi(3, int(l / 14.0))
+	var tall := minf(h * 0.38, 9.0)
+	var wide := 2.6
+	for k in n:
+		var z := l * 0.5 - (float(k) + 0.5) * l / float(n)
+		for side: float in [-1.0, 1.0]:
+			var x := side * (w * 0.5 - 0.02)
+			var glass := MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2(wide, tall)
+			glass.mesh = q
+			var gm := ShaderMaterial.new()
+			gm.shader = _glass_shader
+			glass.material_override = gm
+			glass.position = Vector3(x, h - 2.5 - tall * 0.5, z)
+			glass.rotation.y = -side * PI * 0.5
+			glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			room.add_child(glass)
+			# A carved frame.
+			for e: float in [-1.0, 1.0]:
+				var jamb := BoxMesh.new()
+				jamb.size = Vector3(0.35, tall + 0.4, 0.3)
+				_deco(room, _trim_mat, jamb, Vector3(x - side * 0.15, glass.position.y, z + e * (wide * 0.5 + 0.15)))
+			var sill := BoxMesh.new()
+			sill.size = Vector3(0.5, 0.3, wide + 0.9)
+			_deco(room, _trim_mat, sill, Vector3(x - side * 0.2, glass.position.y - tall * 0.5 - 0.15, z))
+			# Light slanting down from it across the hall, on one side only.
+			if side < 0.0 and k % 2 == 0:
+				var beam := MeshInstance3D.new()
+				var cyl := CylinderMesh.new()
+				cyl.top_radius = wide * 0.35
+				cyl.bottom_radius = wide * 0.6
+				var length := (h - 2.5) * 1.6
+				cyl.height = length
+				cyl.radial_segments = 12
+				cyl.cap_top = false
+				cyl.cap_bottom = false
+				beam.mesh = cyl
+				var bm := ShaderMaterial.new()
+				bm.shader = _beam_shader
+				bm.set_shader_parameter("tint", Color(0.85, 0.55, 1.0))
+				bm.set_shader_parameter("strength", 0.045)
+				beam.material_override = bm
+				beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				var top := Vector3(x, h - 2.5 - tall * 0.5, z)
+				var foot := Vector3(x * 0.15, 0.0, z - 3.0)
+				beam.position = (top + foot) * 0.5
+				var dir := (top - foot).normalized()
+				beam.basis = Basis(Quaternion(Vector3.UP, dir))
+				room.add_child(beam)
+
+
+## Dust hanging in the air of a room, lit where the light is.
+func _motes(room: Node3D, w: float, l: float, h: float) -> void:
+	var dust := GPUParticles3D.new()
+	dust.amount = 160
+	dust.lifetime = 14.0
+	dust.preprocess = 14.0
+	dust.position = Vector3(0.0, minf(h, 12.0) * 0.5, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w * 0.45, minf(h, 12.0) * 0.45, l * 0.45)
+	pm.gravity = Vector3(0.0, -0.02, 0.0)
+	pm.initial_velocity_min = 0.02
+	pm.initial_velocity_max = 0.12
+	pm.spread = 180.0
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.4
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1.0, 0.9, 0.8, 0.0))
+	fade.add_point(0.5, Color(1.0, 0.9, 0.8, 0.35))
+	fade.set_color(fade.get_point_count() - 1, Color(1.0, 0.9, 0.8, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	dust.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.035, 0.035)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	qm.vertex_color_use_as_albedo = true
+	q.material = qm
+	dust.draw_pass_1 = q
+	dust.visibility_aabb = AABB(Vector3(-w, -h, -l) * 0.6, Vector3(w, h, l) * 1.2)
+	room.add_child(dust)
+
+
+## The orc lord's seat on the dais, braziers either side of it.
+func _throne(room: Node3D, l: float) -> void:
+	var z := -l * 0.5 + 3.4
+	var y := 0.9
+	_solid(room, _wall_mat, Vector3(3.2, 1.0, 2.6), Vector3(0.0, y + 0.5, z))
+	_solid(room, _wall_mat, Vector3(3.2, 5.5, 0.7), Vector3(0.0, y + 2.75, z - 1.0))
+	for side: float in [-1.0, 1.0]:
+		_solid(room, _wall_mat, Vector3(0.5, 1.6, 2.6), Vector3(side * 1.6, y + 1.3, z))
+		var horn := CylinderMesh.new()
+		horn.top_radius = 0.0
+		horn.bottom_radius = 0.25
+		horn.height = 1.8
+		horn.radial_segments = 6
+		var hn := _deco(room, _iron_mat, horn, Vector3(side * 1.4, y + 6.1, z - 1.0))
+		hn.rotation.z = -side * 0.35
+	var seat := BoxMesh.new()
+	seat.size = Vector3(2.4, 0.15, 2.0)
+	_deco(room, _cloth_mat, seat, Vector3(0.0, y + 1.08, z + 0.1))
+	var skull := SphereMesh.new()
+	skull.radius = 0.45
+	skull.height = 0.8
+	_deco(room, _trim_mat, skull, Vector3(0.0, y + 5.0, z - 0.6))
+	for side: float in [-1.0, 1.0]:
+		var bowl := CylinderMesh.new()
+		bowl.top_radius = 0.9
+		bowl.bottom_radius = 0.4
+		bowl.height = 0.6
+		var at := Vector3(side * 6.0, y + 1.6, z + 1.0)
+		_solid(room, _iron_mat, Vector3(0.4, 1.6, 0.4), at + Vector3(0.0, -0.9, 0.0))
+		_deco(room, _iron_mat, bowl, at)
+		room.add_child(_flame(at + Vector3(0.0, 0.25, 0.0), 3.0, 50))
+		var light := OmniLight3D.new()
+		light.light_color = Color(1.0, 0.55, 0.25)
+		light.light_energy = 3.0
+		light.omni_range = 16.0
+		light.position = at + Vector3(0.0, 1.0, 0.0)
+		room.add_child(light)
 
 
 ## An iron portcullis filling the doorway at `at`; raised by `_set_gate`.
@@ -941,6 +1454,10 @@ func _process(delta: float) -> void:
 		if left == 0 and _spawned > 0:
 			_clear(current)
 	_tick_gates(delta)
+	_crowd_clock -= delta
+	if _crowd_clock <= 0.0:
+		_crowd_clock = 0.2
+		_hold_back_crowd(heroes)
 	if _exit != null:
 		for hero in heroes:
 			var gap := hero.global_position - _exit.global_position
@@ -987,6 +1504,10 @@ func _wake(i: int) -> void:
 				at = c + Vector3(0.0, 0.2, -l * 0.2)
 			body.position = at
 			body.rotation.y = 0.0
+			if entry.size() > 2:
+				var props: Dictionary = entry[2]
+				for key: String in props:
+					body.set(StringName(key), props[key])
 			body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
 			body.set("camp_centre", Vector3(c.x, 0.0, c.z))
 			if "leash_radius" in body:
@@ -998,7 +1519,7 @@ func _wake(i: int) -> void:
 			if hero != null and body.has_method("_rouse"):
 				body.call_deferred("_rouse", hero)
 	var last := i == rooms.size() - 1
-	_say("ბოსი!" if last else "ოთახი %d / %d" % [i + 1, rooms.size()], 2.5)
+	_say("ბოსი: ორკების მბრძანებელი" if last else "ოთახი %d / %d" % [i + 1, rooms.size()], 3.0)
 	if total == 0:
 		_clear(i)
 
@@ -1052,7 +1573,7 @@ func _close() -> void:
 	_exit = PortalLook.new()
 	_exit.name = "WayOut"
 	_exit.tint = Portals.DEFS[id]["tint"]
-	_exit.position = centre(last) + Vector3(0.0, 0.6, -float(_room(last)["l"]) * 0.5 + 5.0)
+	_exit.position = centre(last) + Vector3(0.0, 0.0, -float(_room(last)["l"]) * 0.5 + 15.0)
 	add_child(_exit)
 	closed.emit()
 

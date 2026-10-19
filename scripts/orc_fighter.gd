@@ -1298,6 +1298,7 @@ func net_sky_land(at: Vector3) -> void:
 	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.26, 0.23, 0.2, 1.0), 40, Vector2(4.0, 10.0), Vector3.UP, 60.0,
 			Vector2(0.05, 0.12), Vector3(0, -16.0, 0), 1.1)
 	Sfx.play_any(self, GROUND, null, 0.62, 6.0)
+	get_tree().call_group(&"ground_scars", &"scar", at, 1.6)
 	ImpactFx.strike(self, at + Vector3.UP * 0.2, &"stone", 2.0)
 	ImpactFx.thud(self, at, true)
 	WindBlast.shake(self, 0.28, 0.7, 32.0)
@@ -2700,4 +2701,6 @@ func _crack_ground(at: Vector3, weight: float) -> void:
 	SkillFx.burst(world, at + Vector3.UP * 0.1, Color(0.24, 0.2, 0.15, 1.0), int(8 + 8 * weight),
 			Vector2(2.5, 5.5), Vector3.UP, 55.0, Vector2(0.03, 0.06), Vector3(0, -12.0, 0), 0.7)
 	WindBlast.shake(self, 0.05 + 0.06 * weight, 0.32, shake_reach)
+	# A floor that keeps its scars (the dungeons' palace, [Dungeon]).
+	get_tree().call_group(&"ground_scars", &"scar", at, weight)
 #endregion
