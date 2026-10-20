@@ -69,6 +69,7 @@ var _looks: Dictionary = {}
 ## What each hero has found and carries ([method Player.gain]): item keys
 ## ([method Inventory.key_of]), by the hero's id.
 var _owned: Dictionary = {}
+var _worn: Dictionary = {}
 var _graphics: Graphics.Level = Graphics.Level.HIGH
 ## Every hero's profile, once loaded, kept for the run ([method profile_of]).
 var _profiles: Dictionary = {}
@@ -294,6 +295,17 @@ func look(id: StringName) -> Dictionary:
 func set_look(id: StringName, made: Dictionary) -> void:
 	_looks[id] = made.duplicate(true)
 	_save_settings()
+
+
+## What hero `id` has on and in his hands now (the bag's choices: his look
+## and outfit), kept from one level to the next (the user's word, 2026-10-20:
+## what he took up in the land did not come with him into the dungeon).
+func worn(id: StringName) -> Dictionary:
+	return (_worn.get(id, {}) as Dictionary).duplicate(true)
+
+
+func set_worn(id: StringName, made: Dictionary, garb: int) -> void:
+	_worn[id] = {"look": made.duplicate(true), "garb": garb}
 
 
 ## What hero `id` has found and carries (item keys, [method Inventory.key_of]).

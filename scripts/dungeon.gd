@@ -49,10 +49,14 @@ const ORC_CHIEF := "res://scenes/enemies/pack/orc_chief.tscn"
 ## place two of different kinds, one with two swords, one with a long sword,
 ## neither with its whole run of combos; in the last, the lord of the orcs with
 ## his great sword.
-const ORC_TWO_SWORDS := {"hand_combo_chance": Vector2(0.3, 0.55)}
-const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_combo_chance": Vector2(0.15, 0.4)}
+## Here they are harder than out in the land (the user's word, 2026-10-20: a
+## hero come up through the dungeon killed them far too easily): about twice
+## the health, harder blows; the lord most of all.
+const ORC_TWO_SWORDS := {"hand_combo_chance": Vector2(0.3, 0.55), "max_health": 720.0, "hit_damage": 72.0}
+const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_combo_chance": Vector2(0.15, 0.4),
+		"max_health": 720.0, "hit_damage": 76.0}
 const ORC_LORD := {"arm_right": "greatsword", "arm_style": "black", "outfit": "Lord", "cape": "Black cape",
-		"combo_rest": Vector2(2.4, 3.4)}
+		"combo_rest": Vector2(2.0, 3.0), "max_health": 1650.0, "hit_damage": 92.0}
 
 ## Where a portal can lead: what it is called, how it is built ("hall" under a
 ## roof, "court" open with windows, "terrace" open on one side over the drop,
@@ -102,8 +106,9 @@ const REWARDS := {
 ## (the user's word: at most two; the rest throw from off).
 const CROWD := 2
 ## Seconds between any two things thrown at one hero (the user's word: so
-## many waiting made a hail of it).
-const THROW_GAP := 2.0
+## many waiting made a hail of it; then, 2 s still too few to get out of the
+## way of all of them: a rest from all throwing after each).
+const THROW_GAP := 5.0
 ## Held back, they wait round him on these rings, spread out evenly.
 const HOLD_RINGS := [8.5, 11.5]
 
@@ -185,6 +190,15 @@ var _drip_in: float = 4.0
 var _thunder_in: float = 20.0
 var _owl_in: float = 12.0
 var _models: Dictionary = {}
+## Where the place's hanging braziers creak from, and the clocks of the other
+## sounds that come now and then (bats, the eagle, a banner in the wind).
+var _creaks: Array[Vector3] = []
+var _creak_in: float = 8.0
+var _bats_in: float = 9.0
+var _eagle_in: float = 10.0
+var _flap_in: float = 7.0
+## Birds circling the island in the sky: {node, centre, radius, height, speed, at}.
+var _birds: Array[Dictionary] = []
 ## The sea of cloud under the island in the sky, lit with the day.
 var _cloud_sea: ShaderMaterial
 
@@ -575,6 +589,8 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false) -> v
 	centres[i] = origin(i, place)
 	current = i
 	_woken = false
+	_creaks.clear()
+	_birds.clear()
 	_alive.clear()
 	_holders.clear()
 	_orc_on = null
@@ -937,6 +953,7 @@ func _process(delta: float) -> void:
 		_lead_orcs(standing)
 		_hold_back_crowd(heroes)
 	_now_and_then(delta, heroes)
+	_fly_birds(delta)
 	for k in choices.size():
 		for hero in heroes:
 			var gap := hero.global_position - choices[k].global_position
@@ -1297,10 +1314,12 @@ func _build_room(i: int) -> void:
 		_basin(room)
 		_fallen_column(room, Vector3(-w * 0.25, 0.0, l * 0.22), 0.6)
 	elif kind == "terrace":
+		_blades_in_floor(room, w, l, 8)
 		_wall_columns(room, i, w, l, h, true)
 		_fallen_column(room, Vector3(w * 0.18, 0.0, -l * 0.28), -0.4)
 	else:
 		_ruins(room, i, w, l)
+		_blades_in_floor(room, w, l, 14)
 		_dais(room, l)
 		_throne(room, l)
 
@@ -1691,6 +1710,7 @@ func _ceiling(room: Node3D, w: float, l: float, h: float, hole: bool = false) ->
 
 func _hanging_brazier(room: Node3D, top: Vector3, h: float) -> void:
 	var drop := minf(h - 6.0, 9.0)
+	_creaks.append(room.position + top + Vector3(0.0, -drop * 0.5, 0.0))
 	var chain := CylinderMesh.new()
 	chain.top_radius = 0.04
 	chain.bottom_radius = 0.04
@@ -2352,15 +2372,20 @@ func _ambience(i: int) -> void:
 	var parts: Array = []
 	match kind:
 		"hall":
-			parts = [["wind_loop.wav", -24.0]]
-		"court", "terrace", "throne":
+			# the orcs' drums somewhere deep in their palace
+			parts = [["wind_loop.wav", -24.0], ["drums_far_loop.wav", -25.0]]
+		"court", "terrace":
+			parts = [["wind_loop.wav", -15.0], ["drums_far_loop.wav", -30.0]]
+		"throne":
 			parts = [["wind_loop.wav", -15.0]]
 		"cave":
-			parts = [["cave_loop.wav", -9.0]]
+			parts = [["cave_loop.wav", -9.0], ["crystal_hum_loop.wav", -17.0]]
 		"forest":
 			parts = [["wind_loop.wav", -22.0]]
 			if not night:
 				parts.append(["birds_loop.wav", -12.0])
+			else:
+				parts.append(["crickets_loop.wav", -12.0])
 		"sky":
 			parts = [["wind_strong_loop.wav", -10.0]]
 	for part: Array in parts:
@@ -2396,6 +2421,31 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 		_thunder_in = _rng.randf_range(25.0, 50.0)
 		if _phase >= 2.5 and kind != "cave":
 			Sfx.play_flat(self, SND + "thunder.wav", _rng.randf_range(0.85, 1.1), -11.0)
+	_creak_in -= delta
+	if _creak_in <= 0.0:
+		_creak_in = _rng.randf_range(7.0, 15.0)
+		if not _creaks.is_empty():
+			var at: Vector3 = _creaks[_rng.randi() % _creaks.size()]
+			Sfx.play(self, SND + "creak.wav", null, at, 1.0, 2.0, 0.12)
+	_bats_in -= delta
+	if _bats_in <= 0.0:
+		_bats_in = _rng.randf_range(9.0, 20.0)
+		if kind == "cave":
+			var at := centre(current) + Vector3(_rng.randf_range(-15.0, 15.0), float(r["h"]) - 3.0,
+					_rng.randf_range(-15.0, 15.0))
+			Sfx.play(self, SND + "bats.wav", null, at, 1.0, 2.0, 0.1)
+			_bat_flock(at)
+	_eagle_in -= delta
+	if _eagle_in <= 0.0:
+		_eagle_in = _rng.randf_range(12.0, 26.0)
+		if kind == "sky" or (kind == "terrace" and _phase < 2.5):
+			Sfx.play_flat(self, SND + "eagle.wav", _rng.randf_range(0.92, 1.08), -9.0)
+	_flap_in -= delta
+	if _flap_in <= 0.0:
+		_flap_in = _rng.randf_range(6.0, 13.0)
+		if kind in ["court", "terrace", "throne", "sky"]:
+			var at := near + Vector3(_rng.randf_range(-14.0, 14.0), 4.0, _rng.randf_range(-14.0, 14.0))
+			Sfx.play(self, SND + "flap.wav", null, at, 1.0, -2.0, 0.15)
 	_owl_in -= delta
 	if _owl_in <= 0.0:
 		_owl_in = _rng.randf_range(14.0, 28.0)
@@ -2631,8 +2681,11 @@ func _build_cave(room: Node3D, i: int) -> void:
 	for k in 10:
 		var name: String = ["Mushroom_Brown", "Mushroom_Dark_Red", "Mushroom_Grey", "Mushroom_Red_Spotted"][k % 4]
 		var x := (w * 0.44) * (1.0 if k % 2 == 0 else -1.0) + _rng.randf_range(-2.0, 2.0)
-		_prop(room, name, Vector3(x, 0.0, _rng.randf_range(-l * 0.4, l * 0.4)), _rng.randf_range(0.6, 1.4),
+		var shroom := _prop(room, name, Vector3(x, 0.0, _rng.randf_range(-l * 0.4, l * 0.4)), _rng.randf_range(0.6, 1.4),
 				_rng.randf_range(0.0, TAU), false)
+		if k % 3 == 0:
+			_glow(shroom, [Color(0.2, 0.9, 0.8), Color(0.5, 0.9, 0.3), Color(0.3, 0.6, 1.0)][k % 3])
+	_mist(room, w, l, 0.4, Color(0.55, 0.5, 0.7), 0.35)
 	_torch(room, Vector3(-w * 0.3, 2.8, l * 0.5 - 2.0))
 	_torch(room, Vector3(w * 0.3, 2.8, l * 0.5 - 2.0))
 	_motes(room, w, l, h)
@@ -2742,6 +2795,10 @@ func _build_forest(room: Node3D, i: int) -> void:
 		_prop(room, small[k % small.size()], Vector3(_rng.randf_range(-w * 0.48, w * 0.48), 0.0,
 				_rng.randf_range(-l * 0.48, l * 0.48)), _rng.randf_range(0.3, 0.7), _rng.randf_range(0.0, TAU), false)
 	_fireflies(room, w, l)
+	_stream(room, w, l)
+	_mist(room, w, l, 0.3, Color(0.92, 0.94, 0.96), 0.3)
+	if i < 3:
+		_butterflies(room, w, l)
 
 
 ## Fireflies over the clearing (seen once it grows dark).
@@ -2841,5 +2898,312 @@ func _build_sky(room: Node3D, i: int) -> void:
 	room.add_child(sea)
 	_cloud_sea = cm
 	_apply_phase(_phase)
+	_cloud_puffs(room)
+	_circling_birds(room)
 	_motes(room, w, l, 10.0)
+#endregion
+
+
+#region More to see (round 7)
+const WATER_SHADER := """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 deep : source_color = vec4(0.03, 0.16, 0.26, 1.0);
+uniform vec4 shallow : source_color = vec4(0.14, 0.40, 0.50, 1.0);
+uniform float flow = 0.8;
+varying vec3 wpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = wpos.xz * 0.9 + vec2(0.0, TIME * flow);
+	float a = noise(p * 1.7);
+	float b = noise(p * 4.3 + 7.0 - vec2(TIME * 0.3, 0.0));
+	float edge = abs(UV.x - 0.5) * 2.0;
+	ALBEDO = mix(deep.rgb, shallow.rgb, edge * 0.7 + a * 0.3);
+	float foam = smoothstep(0.78, 0.95, b) * 0.5 + smoothstep(0.8, 1.0, edge) * 0.4;
+	ALBEDO = mix(ALBEDO, vec3(0.85, 0.9, 0.9), foam);
+	vec3 nw = normalize(vec3((a - 0.5) * 0.6, 1.0, (b - 0.5) * 0.6));
+	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	ROUGHNESS = 0.16;
+	SPECULAR = 0.35;
+}
+"""
+
+const MIST_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+uniform vec4 tint : source_color = vec4(0.9, 0.92, 0.95, 1.0);
+uniform float thick = 0.35;
+varying vec3 wpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = wpos.xz * 0.06 + vec2(TIME * 0.01, TIME * 0.004);
+	float n = noise(p) * 0.6 + noise(p * 2.7) * 0.4;
+	float d = clamp(1.0 - length(UV - 0.5) * 2.0, 0.0, 1.0);
+	ALBEDO = tint.rgb;
+	ALPHA = smoothstep(0.35, 0.8, n) * d * thick;
+}
+"""
+
+
+## A flock of bats out of the dark of the roof, gone again.
+func _bat_flock(at: Vector3) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 18
+	p.lifetime = 2.6
+	p.one_shot = true
+	p.explosiveness = 0.85
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 1.5
+	pm.direction = Vector3(_rng.randf_range(-1.0, 1.0), -0.2, _rng.randf_range(-1.0, 1.0)).normalized()
+	pm.spread = 50.0
+	pm.initial_velocity_min = 6.0
+	pm.initial_velocity_max = 10.0
+	pm.gravity = Vector3.ZERO
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 2.5
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.45, 0.2)
+	var qm := StandardMaterial3D.new()
+	qm.albedo_color = Color(0.03, 0.025, 0.03)
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-30, -10, -30), Vector3(60, 20, 60))
+	add_child(p)
+	p.global_position = at
+	p.emitting = true
+	get_tree().create_timer(3.5).timeout.connect(p.queue_free)
+
+
+## A stream across the forest's clearing, stepping stones over it, its sound.
+func _stream(room: Node3D, w: float, l: float) -> void:
+	var z := l * 0.12
+	var water := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(3.2, w + 80.0)
+	water.mesh = plane
+	var mat := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = WATER_SHADER
+	mat.shader = sh
+	water.material_override = mat
+	water.rotation.y = PI * 0.5 + 0.12
+	water.position = Vector3(0.0, 0.04, z)
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(water)
+	# its banks: stones along both sides
+	for k in 40:
+		var x := -w * 0.55 + float(k) * (w * 1.1 / 40.0)
+		for side: float in [-1.0, 1.0]:
+			var at := Vector3(x, 0.0, z + side * 1.9 + x * 0.12 + _rng.randf_range(-0.3, 0.3))
+			_prop(room, "Rock_%d" % _rng.randi_range(1, 9), at, _rng.randf_range(0.25, 0.6), _rng.randf_range(0.0, TAU), false)
+	for k in 3:
+		var x := -6.0 + float(k) * 6.0
+		_prop(room, "Stepping_Stone_%d" % (k + 1), Vector3(x, 0.02, z + x * 0.12), 0.25, _rng.randf_range(0.0, TAU), false)
+	var stream := _loop("stream_loop.wav")
+	if stream != null:
+		for x: float in [-w * 0.3, w * 0.3]:
+			var sound := AudioStreamPlayer3D.new()
+			sound.stream = stream
+			sound.volume_db = -6.0
+			sound.unit_size = 5.0
+			sound.max_distance = 30.0
+			sound.bus = &"Dungeon"
+			sound.position = Vector3(x, 0.3, z + x * 0.12)
+			room.add_child(sound)
+			sound.play(_rng.randf_range(0.0, 10.0))
+
+
+## Mist lying low over the ground, drifting.
+func _mist(room: Node3D, w: float, l: float, y: float, tint: Color, thick: float) -> void:
+	var mat := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = MIST_SHADER
+	mat.shader = sh
+	mat.set_shader_parameter("tint", tint)
+	mat.set_shader_parameter("thick", thick)
+	for k in 10:
+		var m := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(_rng.randf_range(16.0, 30.0), _rng.randf_range(16.0, 30.0))
+		m.mesh = plane
+		m.material_override = mat
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		m.position = Vector3(_rng.randf_range(-w * 0.45, w * 0.45), y + _rng.randf_range(0.0, 0.8),
+				_rng.randf_range(-l * 0.45, l * 0.45))
+		room.add_child(m)
+
+
+## Butterflies over the flowers, by day.
+func _butterflies(room: Node3D, w: float, l: float) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 26
+	p.lifetime = 8.0
+	p.position = Vector3(0.0, 1.0, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w * 0.42, 0.6, l * 0.42)
+	pm.gravity = Vector3.ZERO
+	pm.initial_velocity_min = 0.4
+	pm.initial_velocity_max = 1.0
+	pm.spread = 180.0
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 1.2
+	pm.turbulence_noise_scale = 2.0
+	var cols := Gradient.new()
+	cols.set_color(0, Color(1.0, 0.85, 0.2))
+	cols.add_point(0.5, Color(0.95, 0.4, 0.75))
+	cols.set_color(cols.get_point_count() - 1, Color(0.4, 0.75, 1.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = cols
+	pm.color_initial_ramp = ramp
+	pm.scale_min = 0.8
+	pm.scale_max = 1.3
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.16, 0.12)
+	var qm := StandardMaterial3D.new()
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	qm.vertex_color_use_as_albedo = true
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-w, -2, -l), Vector3(w * 2.0, 8.0, l * 2.0))
+	room.add_child(p)
+
+
+## Some of a cave's mushrooms give a light of their own.
+func _glow(m: MeshInstance3D, tint: Color) -> void:
+	if m == null:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint.darkened(0.4)
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.emission_energy_multiplier = 1.8
+	m.material_override = mat
+	var light := OmniLight3D.new()
+	light.light_color = tint
+	light.light_energy = 0.8
+	light.omni_range = 4.0
+	light.position = Vector3(0.0, 0.6 / maxf(m.scale.y, 0.01), 0.0)
+	m.add_child(light)
+
+
+## Clouds drifting by at the island's own height.
+func _cloud_puffs(room: Node3D) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.55)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+	mat.roughness = 1.0
+	for k in 14:
+		var puff := Node3D.new()
+		var a := _rng.randf_range(0.0, TAU)
+		var far := _rng.randf_range(60.0, 220.0)
+		puff.position = Vector3(sin(a) * far, _rng.randf_range(-35.0, 20.0), cos(a) * far)
+		for b in _rng.randi_range(4, 7):
+			var s := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			var r := _rng.randf_range(4.0, 9.0)
+			sm.radius = r
+			sm.height = r * 1.4
+			sm.radial_segments = 12
+			sm.rings = 6
+			s.mesh = sm
+			s.material_override = mat
+			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			s.position = Vector3(_rng.randf_range(-10.0, 10.0), _rng.randf_range(-2.0, 2.0), _rng.randf_range(-5.0, 5.0))
+			puff.add_child(s)
+		room.add_child(puff)
+
+
+## Birds circling the island, far off and near.
+func _circling_birds(room: Node3D) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.08, 0.07, 0.07)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for k in 7:
+		var bird := Node3D.new()
+		for side: float in [-1.0, 1.0]:
+			var wing := MeshInstance3D.new()
+			var wm := BoxMesh.new()
+			wm.size = Vector3(1.4, 0.05, 0.45)
+			wing.mesh = wm
+			wing.material_override = mat
+			wing.position = Vector3(side * 0.7, 0.0, 0.0)
+			wing.name = "L" if side < 0.0 else "R"
+			bird.add_child(wing)
+		room.add_child(bird)
+		_birds.append({"node": bird, "radius": _rng.randf_range(40.0, 120.0), "height": _rng.randf_range(8.0, 40.0),
+				"speed": _rng.randf_range(0.08, 0.2) * (1.0 if k % 2 == 0 else -1.0), "at": _rng.randf_range(0.0, TAU)})
+
+
+func _fly_birds(delta: float) -> void:
+	for b in _birds:
+		var node := b["node"] as Node3D
+		if not is_instance_valid(node):
+			continue
+		b["at"] = float(b["at"]) + float(b["speed"]) * delta
+		var a: float = b["at"]
+		var r: float = b["radius"]
+		node.position = Vector3(sin(a) * r, float(b["height"]) + sin(a * 3.0) * 2.0, cos(a) * r)
+		node.rotation.y = a + (PI * 0.5 if float(b["speed"]) > 0.0 else -PI * 0.5)
+		var flap := sin(Time.get_ticks_msec() / 1000.0 * 7.0 + r) * 0.5
+		(node.get_node("L") as Node3D).rotation.z = flap
+		(node.get_node("R") as Node3D).rotation.z = -flap
+
+
+## Blades left standing in the floor where the orcs' fights were.
+func _blades_in_floor(room: Node3D, w: float, l: float, count: int) -> void:
+	for k in count:
+		var sword := Node3D.new()
+		var blade := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		var long := _rng.randf_range(0.9, 1.5)
+		bm.size = Vector3(0.09, long, 0.025)
+		blade.mesh = bm
+		blade.material_override = _iron_mat
+		blade.position = Vector3(0.0, long * 0.5 - 0.25, 0.0)
+		sword.add_child(blade)
+		var guard := MeshInstance3D.new()
+		var gm := BoxMesh.new()
+		gm.size = Vector3(0.36, 0.05, 0.06)
+		guard.mesh = gm
+		guard.material_override = _gold_mat if k % 3 == 0 else _iron_mat
+		guard.position = Vector3(0.0, long - 0.25, 0.0)
+		sword.add_child(guard)
+		var grip := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.025
+		cm.bottom_radius = 0.025
+		cm.height = 0.22
+		grip.mesh = cm
+		grip.material_override = _wood_mat
+		grip.position = Vector3(0.0, long - 0.12, 0.0)
+		sword.add_child(grip)
+		var x := _rng.randf_range(-w * 0.42, w * 0.42)
+		var z := _rng.randf_range(-l * 0.4, l * 0.4)
+		if absf(x) < 4.0:
+			x += 6.0 * signf(x + 0.01)
+		sword.position = Vector3(x, 0.0, z)
+		sword.rotation = Vector3(_rng.randf_range(-0.35, 0.35), _rng.randf_range(0.0, TAU), _rng.randf_range(-0.35, 0.35))
+		room.add_child(sword)
 #endregion

@@ -172,8 +172,8 @@ var held_back: bool = false
 var held_angle: float = 0.0
 var held_radius: float = 0.0
 ## Seconds between any two things thrown at one hero, whoever throws them (a
-## [Dungeon] sets it: so many held back would otherwise fill the air). 0: no
-## limit.
+## [Dungeon] sets it: so many held back would otherwise fill the air; each gap
+## a little longer or shorter). 0: no limit.
 static var throw_gap: float = 0.0
 static var _throw_times: Dictionary = {}
 
@@ -377,7 +377,7 @@ func _play_locomotion(_delta: float) -> void:
 static func throw_free(at: Node3D) -> bool:
 	if throw_gap <= 0.0 or at == null:
 		return true
-	return Time.get_ticks_msec() / 1000.0 - float(_throw_times.get(at.get_instance_id(), -100.0)) >= throw_gap
+	return Time.get_ticks_msec() / 1000.0 >= float(_throw_times.get(at.get_instance_id(), -100.0))
 
 
 ## Whether a throw at `at` may go now (see `throw_gap`); taking it if so.
@@ -386,9 +386,10 @@ static func claim_throw(at: Node3D) -> bool:
 		return true
 	var key := at.get_instance_id()
 	var now := Time.get_ticks_msec() / 1000.0
-	if now - float(_throw_times.get(key, -100.0)) < throw_gap:
+	if now < float(_throw_times.get(key, -100.0)):
 		return false
-	_throw_times[key] = now
+	# the next one no sooner than this, a little more or less each time
+	_throw_times[key] = now + throw_gap * randf_range(0.85, 1.3)
 	return true
 
 

@@ -56,6 +56,27 @@ func _world() -> void:
 			print("    gate %d at %s, ground %.2f" % [i + 1, at, Terrain.height_under(at.x, at.z, 1.8)])
 	var hero := world.player()
 	_check("a hero", hero != null)
+	if hero == null:
+		return
+	# What he has on now comes with him into a dungeon.
+	var made: Dictionary = hero.look.duplicate(true)
+	if made.is_empty():
+		print("    (no look to carry: not on the mannequin)")
+		return
+	made["o"] = "none"
+	hero.set_look(made)
+	hero.remember_worn()
+	var o_before := String(hero.look.get("o", ""))
+	world.queue_free()
+	await _wait(10)
+	game.set(&"peaceful", false)
+	game.set(&"dungeon_id", 0)
+	var inside: World = load("res://scenes/world/dungeon.tscn").instantiate()
+	root.add_child(inside)
+	await _wait(60)
+	var there := inside.player()
+	_check("what he had on comes with him", there != null and String(there.look.get("o", "?")) == o_before,
+			"%s / %s" % [o_before, String(there.look.get("o", "?")) if there != null else "-"])
 
 
 func _dungeon() -> void:

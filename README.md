@@ -10975,3 +10975,15 @@ thunder far off once the day goes, an owl in the forest at night, stone
 crumbling under the orcs' blows, a column's thud, the portals' hum and
 whoosh, a war horn when the lord wakes. The world's sounds go through a bus
 of the dungeon's own (`Sfx.bus` = "Dungeon") with an echo after the place.
+
+Round 7 (2026-10-20): after anything is thrown at a hero, nothing else is
+for 4–6.5 s (`Fighter.throw_gap` 5, each gap ×0.85–1.3). The orcs here are
+about twice as hard (720 health; the lord 1650, blows 92). What he has on and
+in his hands is kept from one level to the next (`Game.worn`, set by
+`Player.remember_worn` whenever the bag changes it), so it comes with him into
+a dungeon and back out. More to see and hear: a stream across the forest (its
+own water and sound), mist low in the forest and the cave, butterflies by
+day, glowing mushrooms, bats out of the cave's roof, clouds and circling
+birds round the island in the sky, blades left standing in the floor of the
+terrace and the lord's court; the orcs' drums far off in the palace, crickets
+at night, the crystals' hum, chains creaking, banners in the wind, an eagle.

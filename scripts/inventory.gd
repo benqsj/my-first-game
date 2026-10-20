@@ -295,6 +295,7 @@ func equip(kind: int) -> void:
 			look["o"] = _off_hand_before if _off_hand_before not in ["", "none"] else "his_shield"
 			player.set_look(look)
 	player.set_shield(kind)
+	player.remember_worn()
 	_dress_portrait()
 	_root.queue_redraw()
 
@@ -310,6 +311,7 @@ func take_off() -> void:
 	_off_hand_before = String(look.get("o", ""))
 	look["o"] = "none"
 	player.set_look(look)
+	player.remember_worn()
 	_dress_portrait()
 	_root.queue_redraw()
 
@@ -330,6 +332,7 @@ func _look() -> Dictionary:
 
 func _use(i: int) -> void:
 	_use_item(i)
+	player.remember_worn()
 	# what was put on is on him now, not in the bag: the choice stays in it
 	_chosen = clampi(_chosen, 0, maxi(_items().size() - 1, 0))
 	# what he now wears, on him at once in the bag's picture of him

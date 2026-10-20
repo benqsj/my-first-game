@@ -1107,7 +1107,14 @@ func _spawn_character() -> void:
 	if chooser != null and is_multiplayer_authority() and chooser.has_method(&"hair"):
 		# the look before the face, so YOUR OWN comes up as it was made
 		if chooser.has_method(&"look"):
-			set_look(chooser.call(&"look", chooser.call(&"character")))
+			var made: Dictionary = chooser.call(&"look", chooser.call(&"character"))
+			# what he had on in the last level, if anything, over the made look
+			var worn: Dictionary = chooser.call(&"worn", chooser.call(&"character")) if chooser.has_method(&"worn") else {}
+			if worn.has("look") and not (worn["look"] as Dictionary).is_empty():
+				made = worn["look"]
+			set_look(made)
+			if int(worn.get("garb", -1)) >= 0:
+				set_garb.call_deferred(int(worn["garb"]))
 		set_face(int(chooser.call(&"face", chooser.call(&"character"))))
 		set_hair(int(chooser.call(&"hair", chooser.call(&"character"))))
 		if chooser.has_method(&"tint"):
@@ -5831,6 +5838,14 @@ func set_garb(index: int) -> void:
 	garb = index
 	if rig != null and rig.has_method(&"set_garb"):
 		rig.call(&"set_garb", index)
+
+
+## What he has on now kept for the next level ([method Game.worn]).
+func remember_worn() -> void:
+	var game := get_node_or_null(^"/root/Game")
+	if game == null or not game.has_method(&"set_worn") or not is_multiplayer_authority():
+		return
+	game.call(&"set_worn", game.call(&"character"), look, garb)
 
 
 ## What he has found and carries ([GEAR_SETS.md] §5.7, the user's word
