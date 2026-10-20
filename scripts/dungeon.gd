@@ -224,6 +224,16 @@ var _iron_mat: StandardMaterial3D
 var _cloth_mat: StandardMaterial3D
 var _gold_mat: StandardMaterial3D
 var _wood_mat: StandardMaterial3D
+## The fires' look, shared by all of them ([method _flame]).
+var _fire_mat: ShaderMaterial
+var _coals_mat: ShaderMaterial
+var _fire_quads: Dictionary = {}
+var _ember_draw: QuadMesh
+var _ember_pms: Dictionary = {}
+## The fires' lights, flickering: {light, base, at}.
+var _fire_lights: Array[Dictionary] = []
+## The kit's trees with their leaves taken off, by the mesh they came from.
+var _bare_meshes: Dictionary = {}
 var _back_out_at: float = -1.0
 var _watched: Dictionary = {}
 var _layer: CanvasLayer
@@ -1558,6 +1568,7 @@ func _heroes() -> Array[Player]:
 
 func _process(delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
+	_flicker_fires(now)
 	if not _going:
 		_usual_ms = lerpf(_usual_ms, minf(delta * 1000.0, 100.0), 0.05)
 	if _banner != null and _banner.visible and now > _banner_until:
@@ -1956,6 +1967,8 @@ func _place_look(night: float = 0.0) -> void:
 	_env.volumetric_fog_enabled = false
 	_env.fog_density = 0.0007
 	_env.adjustment_contrast = 1.05
+	_env.adjustment_saturation = 1.12
+	_env.fog_sky_affect = 0.2
 	match kind:
 		"hall", "court", "terrace", "throne":
 			# the gold is the day's: by night only the torches' warmth is left
@@ -2011,6 +2024,32 @@ func _place_look(night: float = 0.0) -> void:
 			# Stormveil's grey over the gold
 			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.6, 0.62, 0.66), 0.4)
 			_env.adjustment_contrast = 1.1
+		"forest":
+			# the dead wood (the user's word, 2026-10-20: dark, a wood one is
+			# afraid of): little light gets through, cold and grey-green, a
+			# mist one cannot see far into, the sky shut out
+			_env.ambient_light_color = Color(0.40, 0.46, 0.46)
+			_env.ambient_light_energy *= 0.85
+			_env.fog_light_color = Color(0.20, 0.24, 0.25)
+			_env.fog_density = 0.013
+			_env.fog_sky_affect = 0.7
+			_env.adjustment_contrast = 1.15
+			_env.adjustment_saturation = 0.72
+			_env.glow_hdr_threshold = 0.9
+			_env.volumetric_fog_enabled = true
+			_env.volumetric_fog_density = 0.01
+			_env.volumetric_fog_albedo = Color(0.6, 0.66, 0.68)
+			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+			_env.volumetric_fog_length = 55.0
+			_env.volumetric_fog_ambient_inject = 0.12
+			if _sky_mat != null:
+				var dim := 1.0 - 0.6 * clampf(night, 0.0, 1.0)
+				_sky_mat.set_shader_parameter("cloud", 0.95)
+				_sky_mat.set_shader_parameter("top_col", Color(0.1 * dim, 0.11 * dim, 0.13 * dim))
+				_sky_mat.set_shader_parameter("hor_col", Color(0.3 * dim, 0.34 * dim, 0.35 * dim))
+			if _sun != null:
+				_sun.light_energy *= 0.55
+				_sun.light_color = _sun.light_color.lerp(Color(0.72, 0.8, 0.88), 0.5)
 		"cave":
 			_env.ambient_light_color = Color(0.30, 0.38, 0.62)
 			_env.ambient_light_energy = 1.05
@@ -2186,12 +2225,12 @@ func _standing_brazier(room: Node3D, at: Vector3) -> void:
 	cm.bottom_radius = 0.48
 	cm.height = 0.04
 	coals.mesh = cm
-	var hot := StandardMaterial3D.new()
-	hot.albedo_color = Color(0.2, 0.05, 0.02)
-	hot.emission_enabled = true
-	hot.emission = Color(1.0, 0.35, 0.08)
-	hot.emission_energy_multiplier = 2.5
-	coals.material_override = hot
+	if _coals_mat == null:
+		var sh := Shader.new()
+		sh.code = COALS_SHADER
+		_coals_mat = ShaderMaterial.new()
+		_coals_mat.shader = sh
+	coals.material_override = _coals_mat
 	coals.position = Vector3(0.0, 1.39, 0.0)
 	holder.add_child(coals)
 	holder.add_child(_flame(Vector3(0.0, 1.42, 0.0), 1.7, 22))
@@ -2201,7 +2240,7 @@ func _standing_brazier(room: Node3D, at: Vector3) -> void:
 	light.light_energy = 1.6
 	light.omni_range = 10.0
 	light.position = Vector3(0.0, 2.0, 0.0)
-	holder.add_child(light)
+	holder.add_child(_fire_light(light))
 
 
 func _solid(parent: Node3D, mat: Material, size: Vector3, at: Vector3, block: bool = true) -> StaticBody3D:
@@ -2548,7 +2587,7 @@ func _hanging_brazier(room: Node3D, top: Vector3, h: float) -> void:
 	light.light_energy = 3.4
 	light.omni_range = 22.0
 	light.position = at + Vector3(0.0, 0.6, 0.0)
-	room.add_child(light)
+	room.add_child(_fire_light(light))
 
 
 ## The courtyard's dry basin in the middle.
@@ -2982,7 +3021,7 @@ func _throne(room: Node3D, l: float) -> void:
 		light.light_energy = 3.6
 		light.omni_range = 20.0
 		light.position = at + Vector3(0.0, 1.0, 0.0)
-		room.add_child(light)
+		room.add_child(_fire_light(light))
 
 
 ## An iron portcullis filling the doorway at `at`, down.
@@ -3030,40 +3069,110 @@ func _build_gate(room: Node3D, at: Vector3) -> Node3D:
 	return gate
 
 
-func _flame(at: Vector3, size: float, amount: int) -> GPUParticles3D:
-	var flame := GPUParticles3D.new()
-	flame.amount = amount
-	flame.lifetime = 0.6
-	flame.position = at
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	pm.emission_sphere_radius = 0.08 * size
-	pm.direction = Vector3.UP
-	pm.spread = 12.0
-	pm.initial_velocity_min = 0.5 * size
-	pm.initial_velocity_max = 0.9 * size
-	pm.gravity = Vector3(0.0, 0.6, 0.0)
-	pm.scale_min = 0.7
-	pm.scale_max = 1.3
-	var fade := Gradient.new()
-	fade.set_color(0, Color(1.0, 0.75, 0.3, 0.95))
-	fade.set_color(1, Color(0.9, 0.2, 0.05, 0.0))
-	var ramp := GradientTexture1D.new()
-	ramp.gradient = fade
-	pm.color_ramp = ramp
-	flame.process_material = pm
-	var q := QuadMesh.new()
-	q.size = Vector2(0.18, 0.24) * size
-	var qm := StandardMaterial3D.new()
-	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	qm.vertex_color_use_as_albedo = true
-	q.material = qm
-	flame.draw_pass_1 = q
-	flame.visibility_aabb = AABB(Vector3(-2, -1, -2), Vector3(4, 5, 4))
-	return flame
+## A fire (the user's word, 2026-10-20: the palace's fires prettier): a flame
+## drawn whole by a shader, its tongues licking up and tearing off, white-gold
+## at its root and dark red at its tips, sparks going up from it. Its light
+## flickers ([method _fire_light]).
+func _flame(at: Vector3, size: float, amount: int) -> Node3D:
+	var fire := Node3D.new()
+	fire.position = at
+	if _fire_mat == null:
+		var sh := Shader.new()
+		sh.code = FLAME_SHADER
+		_fire_mat = ShaderMaterial.new()
+		_fire_mat.shader = sh
+	var small := size < 1.0
+	var dims := Vector2(0.55, 0.85) * size if not small else Vector2(0.3, 0.5) * size
+	var key := snappedf(size, 0.05)
+	var quad: QuadMesh = _fire_quads.get(key) as QuadMesh
+	if quad == null:
+		quad = QuadMesh.new()
+		quad.size = dims
+		quad.center_offset = Vector3(0.0, dims.y * 0.42, 0.0)
+		quad.material = _fire_mat
+		_fire_quads[key] = quad
+	var body := MeshInstance3D.new()
+	body.mesh = quad
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.custom_aabb = AABB(Vector3(-dims.x * 0.5, -0.1, -dims.x * 0.5), Vector3(dims.x, dims.y + 0.2, dims.x))
+	fire.add_child(body)
+	if small:
+		return fire
+	fire.add_child(_embers(size, maxi(4, amount / 4)))
+	return fire
+
+
+## Sparks going up from a fire, swirling, dying out.
+func _embers(size: float, amount: int) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = 1.8
+	p.local_coords = true
+	p.randomness = 0.6
+	if _ember_draw == null:
+		_ember_draw = QuadMesh.new()
+		_ember_draw.size = Vector2(0.035, 0.035)
+		var qm := StandardMaterial3D.new()
+		qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		qm.vertex_color_use_as_albedo = true
+		qm.albedo_color = Color(4.0, 2.6, 1.4)
+		_ember_draw.material = qm
+	var key := snappedf(size, 0.05)
+	var pm: ParticleProcessMaterial = _ember_pms.get(key) as ParticleProcessMaterial
+	if pm == null:
+		pm = ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		pm.emission_sphere_radius = 0.1 * size
+		pm.direction = Vector3.UP
+		pm.spread = 22.0
+		pm.initial_velocity_min = 0.6 * size
+		pm.initial_velocity_max = 1.3 * size
+		pm.gravity = Vector3(0.0, 0.25, 0.0)
+		pm.damping_min = 0.2
+		pm.damping_max = 0.6
+		pm.turbulence_enabled = true
+		pm.turbulence_noise_strength = 1.4
+		pm.turbulence_noise_scale = 1.6
+		pm.turbulence_influence_min = 0.05
+		pm.turbulence_influence_max = 0.15
+		pm.scale_min = 0.5
+		pm.scale_max = 1.4
+		var fade := Gradient.new()
+		fade.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
+		fade.colors = PackedColorArray([Color(1.0, 0.85, 0.5, 1.0), Color(1.0, 0.45, 0.1, 0.9), Color(0.6, 0.1, 0.0, 0.0)])
+		var ramp := GradientTexture1D.new()
+		ramp.gradient = fade
+		pm.color_ramp = ramp
+		_ember_pms[key] = pm
+	p.process_material = pm
+	p.draw_pass_1 = _ember_draw
+	p.visibility_aabb = AABB(Vector3(-2, -0.5, -2) * size, Vector3(4, 5, 4) * size)
+	return p
+
+
+## A fire's light, flickering with it ([method _flicker_fires]).
+func _fire_light(light: OmniLight3D) -> OmniLight3D:
+	_fire_lights.append({"light": light, "base": light.light_energy, "at": _rng.randf_range(0.0, 100.0)})
+	return light
+
+
+func _flicker_fires(now: float) -> void:
+	var k := 0
+	while k < _fire_lights.size():
+		var f: Dictionary = _fire_lights[k]
+		var obj: Variant = f["light"]
+		if not is_instance_valid(obj):
+			_fire_lights.remove_at(k)
+			continue
+		var light := obj as OmniLight3D
+		if light.is_visible_in_tree():
+			var t := now + float(f["at"])
+			light.light_energy = float(f["base"]) * (0.86 + 0.07 * sin(t * 7.3) + 0.05 * sin(t * 13.7 + 1.3)
+					+ 0.03 * sin(t * 23.1 + 2.1))
+		k += 1
 
 
 func _torch(room: Node3D, at: Vector3) -> void:
@@ -3084,7 +3193,7 @@ func _torch(room: Node3D, at: Vector3) -> void:
 	light.light_energy = 2.6
 	light.omni_range = 14.0
 	light.position = Vector3(0.0, 0.4, 0.0)
-	holder.add_child(light)
+	holder.add_child(_fire_light(light))
 
 
 func _build_hud() -> void:
@@ -3201,11 +3310,10 @@ func _ambience(i: int) -> void:
 		"cave":
 			parts = [["cave_loop.wav", -9.0], ["crystal_hum_loop.wav", -17.0]]
 		"forest":
-			parts = [["wind_loop.wav", -22.0]]
-			if not night:
-				parts.append(["birds_loop.wav", -12.0])
-			else:
-				parts.append(["crickets_loop.wav", -12.0])
+			# the dead wood: the wind in bare boughs, no bird sings in it
+			parts = [["wind_loop.wav", -14.0]]
+			if night:
+				parts.append(["crickets_loop.wav", -18.0])
 		"sky":
 			parts = [["wind_strong_loop.wav", -10.0]]
 		"crypt":
@@ -3289,7 +3397,7 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_owl_in -= delta
 	if _owl_in <= 0.0:
 		_owl_in = _rng.randf_range(14.0, 28.0)
-		if (kind == "forest" or kind == "swamp") and _phase >= 2.8:
+		if kind == "forest" or (kind == "swamp" and _phase >= 2.8):
 			var at := near + Vector3(_rng.randf_range(-25.0, 25.0), 8.0, _rng.randf_range(-25.0, 25.0))
 			Sfx.play(self, SND + "owl.wav", null, at, 1.0, 0.0, 0.08)
 
@@ -3573,22 +3681,31 @@ func _crystals(room: Node3D, at: Vector3, tint: Color) -> void:
 	room.add_child(light)
 
 
-## A forest on the mountain (the user's word: in a forest): a clearing of grass
-## and earth ringed by tall trees, stones standing in a ring at its middle,
-## logs, stumps, rocks, ferns and flowers, fireflies once the day goes.
+## A forest on the mountain, dead and dark (the user's word, 2026-10-20: more
+## brutal, trees without leaves, darker, a thick wood one is afraid of; no
+## flowers): a clearing of bare earth, dead leaves and roots, walled round by a
+## wood of bare black trees four deep, tall and close; standing stones in a
+## ring, sharpened stakes with skulls on them, bones, logs; mist on the ground,
+## crows over it, the light cold and little of it ([method _place_look]).
 func _build_forest(room: Node3D, i: int) -> void:
 	var r := _room(i)
 	var w: float = r["w"]
 	var l: float = r["l"]
 	var ground := ShaderMaterial.new()
 	ground.shader = _ground_shader
+	ground.set_shader_parameter("grass_a", Color(0.09, 0.10, 0.06))
+	ground.set_shader_parameter("grass_b", Color(0.15, 0.14, 0.08))
+	ground.set_shader_parameter("earth", Color(0.13, 0.095, 0.065))
+	ground.set_shader_parameter("moss", Color(0.07, 0.10, 0.05))
+	ground.set_shader_parameter("leaves", Color(0.24, 0.14, 0.07))
+	ground.set_shader_parameter("bare_from", 0.32)
 	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
 	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
 	_bounds(room, w, l)
-	# The wood round the clearing, two and three deep.
-	for ring in 3:
-		var out := 3.0 + float(ring) * 7.0
-		var step := 5.5 + float(ring) * 1.5
+	# The wood round the clearing, four deep and close, taller further in.
+	for ring in 4:
+		var out := 2.5 + float(ring) * 5.0
+		var step := 3.8 + float(ring) * 1.0
 		for side in 4:
 			var long := (l if side < 2 else w) + out * 2.0
 			var n := int(long / step)
@@ -3600,14 +3717,17 @@ func _build_forest(room: Node3D, i: int) -> void:
 					1: at = Vector3(w * 0.5 + out, 0.0, along)
 					2: at = Vector3(along, 0.0, -l * 0.5 - out)
 					_: at = Vector3(along, 0.0, l * 0.5 + out)
-				at += Vector3(_rng.randf_range(-2.0, 2.0), 0.0, _rng.randf_range(-2.0, 2.0))
-				_nature(room, _a_tree(), at, _rng.randf_range(1.5, 2.4), _rng.randf_range(0.0, TAU), ring == 0)
-	# A few inside, near the edge, that one can walk round.
-	for k in 7:
-		var x := (w * _rng.randf_range(0.3, 0.44)) * (1.0 if k % 2 == 0 else -1.0)
-		var z := _rng.randf_range(-l * 0.42, l * 0.42)
-		_nature(room, _a_tree(), Vector3(x, 0.0, z), _rng.randf_range(1.3, 1.9), _rng.randf_range(0.0, TAU))
+				at += Vector3(_rng.randf_range(-1.6, 1.6), 0.0, _rng.randf_range(-1.6, 1.6))
+				var tall := _rng.randf_range(1.6, 2.5) + float(ring) * 0.25
+				_nature(room, _a_dead_tree(), at, tall, _rng.randf_range(0.0, TAU), ring == 0, true)
+	# Some inside, near the edge, that one can walk round; their boughs creak.
+	for k in 10:
+		var x := (w * _rng.randf_range(0.26, 0.44)) * (1.0 if k % 2 == 0 else -1.0)
+		var z := _rng.randf_range(-l * 0.44, l * 0.44)
+		_nature(room, _a_dead_tree(), Vector3(x, 0.0, z), _rng.randf_range(1.5, 2.2), _rng.randf_range(0.0, TAU), true, true)
 		_post(room, Vector3(x, 0.0, z), 0.55, 4.0)
+		if k % 2 == 0:
+			_creaks.append(room.position + Vector3(x, 6.0, z))
 	# Standing stones in a ring at the middle, one fallen.
 	for k in 7:
 		var a := float(k) / 7.0 * TAU
@@ -3624,38 +3744,152 @@ func _build_forest(room: Node3D, i: int) -> void:
 		var s := _deco(room, _wall_mat, stone, at + Vector3(0.0, tall * 0.5, 0.0))
 		s.rotation = Vector3(_rng.randf_range(-0.06, 0.06), a, _rng.randf_range(-0.06, 0.06))
 		_blocker(room, Vector3(1.0, tall, 1.0), at + Vector3(0.0, tall * 0.5, 0.0))
+	# Sharpened stakes, a skull on some: the wood's warning.
+	for k in 14:
+		var a := _rng.randf_range(0.0, TAU)
+		var at := Vector3(sin(a) * w * _rng.randf_range(0.3, 0.46), 0.0, cos(a) * l * _rng.randf_range(0.3, 0.46))
+		_stake(room, at, k % 3 == 0)
+	for k in 8:
+		var at := Vector3(_rng.randf_range(-w * 0.42, w * 0.42), 0.0, _rng.randf_range(-l * 0.42, l * 0.42))
+		if absf(at.x) < 4.0 and absf(at.z) < 12.0:
+			continue
+		_bones(room, at)
 	# What lies about.
-	for k in 10:
+	for k in 14:
 		var x := _rng.randf_range(-w * 0.46, w * 0.46)
 		var z := _rng.randf_range(-l * 0.46, l * 0.46)
 		if absf(x) < 6.0 and absf(z) < 14.0:
 			continue
 		_prop(room, ["Log_1", "Log_3", "Stump_1", "Stump_2"][k % 4], Vector3(x, 0.0, z), _rng.randf_range(0.9, 1.3),
 				_rng.randf_range(0.0, TAU), false)
-	var bits := [["Rock_Medium_1", 1.2], ["Rock_Medium_2", 1.0], ["Rock_Medium_3", 1.4], ["Bush_Common", 1.3],
-			["Bush_Common_Flowers", 1.3], ["Fern_1", 1.4], ["Plant_1_Big", 1.2], ["Plant_7_Big", 1.2],
-			["Mushroom_Common", 1.4], ["Mushroom_Laetiporus", 1.2]]
-	for k in 46:
+	var bits := [["Rock_Medium_1", 1.2], ["Rock_Medium_2", 1.0], ["Rock_Medium_3", 1.4], ["Fern_1", 1.2],
+			["Mushroom_Common", 1.3], ["Mushroom_Laetiporus", 1.1]]
+	for k in 30:
 		var bit: Array = bits[k % bits.size()]
 		var x := _rng.randf_range(-w * 0.47, w * 0.47)
 		var z := _rng.randf_range(-l * 0.47, l * 0.47)
 		if absf(x) < 6.0 and absf(z) < 14.0:
 			continue
-		# most of it near the edge of the wood
 		if _rng.randf() < 0.6:
 			x = signf(x + 0.01) * _rng.randf_range(w * 0.3, w * 0.48)
 		_nature(room, String(bit[0]), Vector3(x, 0.0, z), float(bit[1]) * _rng.randf_range(0.8, 1.3),
 				_rng.randf_range(0.0, TAU), false)
-	var small := ["Grass_Common_Tall", "Grass_Wispy_Tall", "Grass_Common_Short", "Flower_3_Group", "Flower_4_Group",
-			"Clover_1", "Clover_2", "Grass_Wispy_Short", "Pebble_Round_2", "Flower_3_Single"]
-	for k in 220:
-		_nature(room, small[k % small.size()], Vector3(_rng.randf_range(-w * 0.49, w * 0.49), 0.0,
-				_rng.randf_range(-l * 0.49, l * 0.49)), _rng.randf_range(0.9, 1.6), _rng.randf_range(0.0, TAU), false)
-	_fireflies(room, w, l)
+	# dead grass, roots out of the earth, fallen leaves (the graveyard kit's)
+	var dead := ["EA_Swamp_Grass_Hill_Dead_01a", "EA_Swamp_Grass_Hill_Dead_01c", "EA_Swamp_Root_03c",
+			"EA_Swamp_Root_04d", "EA_Swamp_Dirt_Root_04a", "EA_Environment_Nature_Root_2c", "EA_Swamp_Leaf_01a",
+			"EA_Swamp_Stones_02a"]
+	for k in 90:
+		var at := Vector3(_rng.randf_range(-w * 0.49, w * 0.49), 0.0, _rng.randf_range(-l * 0.49, l * 0.49))
+		var bit: String = dead[k % dead.size()]
+		var size := _rng.randf_range(0.4, 0.75) if bit.contains("Hill") else _rng.randf_range(0.9, 1.6)
+		_necro_put(room, bit, at, _rng.randf_range(0.0, TAU), size, false)
+	for k in 60:
+		_nature(room, ["Pebble_Round_2", "Pebble_Round_4", "Pebble_Square_3"][k % 3],
+				Vector3(_rng.randf_range(-w * 0.49, w * 0.49), 0.0, _rng.randf_range(-l * 0.49, l * 0.49)),
+				_rng.randf_range(0.8, 1.3), _rng.randf_range(0.0, TAU), false)
 	_stream(room, w, l)
-	_mist(room, w, l, 0.3, Color(0.92, 0.94, 0.96), 0.16)
-	if i < 3:
-		_butterflies(room, w, l)
+	_mist(room, w, l, 0.3, Color(0.42, 0.46, 0.48), 0.22)
+	_falling_leaves(room, w, l)
+	_circling_birds(room)
+
+
+## The dead wood's trees: bare ones, and the twisted ones with their leaves
+## stripped.
+func _a_dead_tree() -> String:
+	if _rng.randf() < 0.7:
+		return "DeadTree_%d" % _rng.randi_range(1, 5)
+	return "TwistedTree_%d" % _rng.randi_range(1, 5)
+
+
+## A sharpened stake driven into the earth, leaning, a skull on it if `skull`.
+func _stake(room: Node3D, at: Vector3, skull: bool) -> void:
+	var holder := Node3D.new()
+	holder.position = at
+	holder.rotation = Vector3(_rng.randf_range(-0.25, 0.25), _rng.randf_range(0.0, TAU), _rng.randf_range(-0.25, 0.25))
+	room.add_child(holder)
+	var tall := _rng.randf_range(1.8, 2.6)
+	var pole := CylinderMesh.new()
+	pole.top_radius = 0.07
+	pole.bottom_radius = 0.09
+	pole.height = tall
+	pole.radial_segments = 6
+	var pm := MeshInstance3D.new()
+	pm.mesh = pole
+	pm.material_override = _wood_mat
+	pm.position = Vector3(0.0, tall * 0.5, 0.0)
+	holder.add_child(pm)
+	var tip := CylinderMesh.new()
+	tip.top_radius = 0.0
+	tip.bottom_radius = 0.07
+	tip.height = 0.35
+	tip.radial_segments = 6
+	var tm := MeshInstance3D.new()
+	tm.mesh = tip
+	tm.material_override = _wood_mat
+	tm.position = Vector3(0.0, tall + 0.17, 0.0)
+	holder.add_child(tm)
+	if skull:
+		if _bone_mat == null:
+			_bone_mat = StandardMaterial3D.new()
+			_bone_mat.albedo_color = Color(0.78, 0.74, 0.64)
+			_bone_mat.roughness = 0.8
+		var head := SphereMesh.new()
+		head.radius = 0.15
+		head.height = 0.3
+		head.radial_segments = 10
+		head.rings = 6
+		var hm := MeshInstance3D.new()
+		hm.mesh = head
+		hm.material_override = _bone_mat
+		hm.position = Vector3(0.0, tall - 0.05, 0.0)
+		hm.scale = Vector3(1.0, 0.9, 1.15)
+		holder.add_child(hm)
+		var jaw := BoxMesh.new()
+		jaw.size = Vector3(0.18, 0.08, 0.14)
+		var jm := MeshInstance3D.new()
+		jm.mesh = jaw
+		jm.material_override = _bone_mat
+		jm.position = Vector3(0.0, tall - 0.2, 0.06)
+		holder.add_child(jm)
+	_blocker(room, Vector3(0.3, tall, 0.3), at + Vector3(0.0, tall * 0.5, 0.0))
+
+
+## Dead leaves coming down through the bare wood, slowly, turning.
+func _falling_leaves(room: Node3D, w: float, l: float) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 70
+	p.lifetime = 9.0
+	p.preprocess = 9.0
+	p.position = Vector3(0.0, 9.0, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w * 0.5, 1.0, l * 0.5)
+	pm.gravity = Vector3(0.3, -0.9, 0.1)
+	pm.initial_velocity_min = 0.0
+	pm.initial_velocity_max = 0.3
+	pm.damping_min = 0.5
+	pm.damping_max = 1.0
+	pm.angle_min = -180.0
+	pm.angle_max = 180.0
+	pm.angular_velocity_min = -120.0
+	pm.angular_velocity_max = 120.0
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 1.2
+	pm.scale_min = 0.7
+	pm.scale_max = 1.3
+	pm.color = Color(0.32, 0.2, 0.1)
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.12, 0.09)
+	var qm := StandardMaterial3D.new()
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.vertex_color_use_as_albedo = true
+	qm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	qm.roughness = 1.0
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-w, -12, -l), Vector3(w * 2.0, 16.0, l * 2.0))
+	room.add_child(p)
 
 
 ## Fireflies over the clearing (seen once it grows dark).
@@ -3697,6 +3931,95 @@ func _fireflies(room: Node3D, w: float, l: float) -> void:
 	p.visibility_aabb = AABB(Vector3(-w, -2, -l), Vector3(w * 2.0, 6.0, l * 2.0))
 	room.add_child(p)
 
+
+const COALS_SHADER := """
+shader_type spatial;
+// A brazier's bed of coals: black lumps, the gaps between them glowing and
+// breathing, brighter in the middle under the flame.
+varying vec3 lpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float cells(vec2 p) {
+	vec2 n = floor(p); vec2 f = fract(p);
+	float m1 = 8.0; float m2 = 8.0;
+	for (int j = -1; j <= 1; j++) {
+		for (int i = -1; i <= 1; i++) {
+			vec2 g = vec2(float(i), float(j));
+			vec2 o = vec2(hash(n + g), hash(n + g + 7.3));
+			float d = length(g + o - f);
+			if (d < m1) { m2 = m1; m1 = d; } else if (d < m2) { m2 = d; }
+		}
+	}
+	return m2 - m1;
+}
+void vertex() { lpos = VERTEX; }
+void fragment() {
+	vec2 p = lpos.xz * 9.0;
+	float gap = 1.0 - smoothstep(0.0, 0.22, cells(p));
+	float breathe = 0.6 + 0.4 * noise(p * 0.5 + vec2(TIME * 0.7, -TIME * 0.4));
+	float mid = 1.0 - smoothstep(0.0, 0.5, length(lpos.xz));
+	float glow = gap * breathe * (0.5 + 0.8 * mid) + mid * 0.25 * breathe;
+	ALBEDO = vec3(0.05, 0.04, 0.035) * (0.6 + 0.8 * hash(floor(p)));
+	ROUGHNESS = 0.95;
+	EMISSION = mix(vec3(0.8, 0.12, 0.02), vec3(1.0, 0.5, 0.12), glow) * glow * 2.6;
+}
+"""
+
+const FLAME_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+// A flame (the user's word, 2026-10-20: prettier fires): turned always to the
+// eye about its own upright, tongues of it licking up through moving noise and
+// tearing off at the top, hottest low in its middle. Each fire its own by where
+// it stands.
+varying float seed;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+	float v = 0.0; float a = 0.5;
+	for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.1 + 1.3; a *= 0.5; }
+	return v;
+}
+void vertex() {
+	vec3 o = MODEL_MATRIX[3].xyz;
+	seed = fract(sin(dot(o, vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 50.0;
+	vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), INV_VIEW_MATRIX[2].xyz));
+	vec3 face = normalize(cross(side, vec3(0.0, 1.0, 0.0)));
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(side * length(MODEL_MATRIX[0].xyz), 0.0),
+			vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(face, 0.0), vec4(o, 1.0));
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+}
+void fragment() {
+	float y = 1.0 - UV.y;
+	float x = UV.x * 2.0 - 1.0;
+	float t = TIME + seed;
+	float n = fbm(vec2(x * 1.7 + seed, y * 2.3 - t * 2.0));
+	float m = fbm(vec2(x * 3.6 - seed * 0.5, y * 4.6 - t * 3.3));
+	float sway = (noise(vec2(t * 0.8, seed)) - 0.5) * 0.45 * y * y;
+	float xx = x + (n - 0.5) * 0.6 * y + sway;
+	float width = 0.8 * pow(max(1.0 - y, 0.0), 0.65) * smoothstep(-0.04, 0.2, y) + 0.04;
+	float body = 1.0 - smoothstep(width * 0.3, width, abs(xx));
+	float tear = smoothstep(0.12, 0.5, m * 1.3 - y * 0.95 + 0.38);
+	float heat = body * tear * smoothstep(0.0, 0.07, y);
+	float core = body * (1.0 - smoothstep(0.05, 0.5, y + abs(xx) * 1.5));
+	float h = clamp(heat * (0.5 + 0.7 * (1.0 - y)) + core * 0.7, 0.0, 1.6);
+	vec3 c = mix(vec3(0.5, 0.05, 0.01), vec3(1.0, 0.34, 0.05), smoothstep(0.04, 0.4, h));
+	c = mix(c, vec3(1.0, 0.68, 0.22), smoothstep(0.4, 0.8, h));
+	c = mix(c, vec3(1.0, 0.86, 0.6), smoothstep(1.0, 1.45, h));
+	ALBEDO = c * 1.7;
+	ALPHA = clamp(h * 1.15, 0.0, 1.0);
+}
+"""
 
 const ROCK_SHADER := """
 shader_type spatial;
@@ -3818,7 +4141,8 @@ void fragment() {
 ## A model of the nature kit in glTF/ (the stylized trees, bushes, ferns,
 ## flowers, grass, rocks: the user's word, 2026-10-20, our own pretty
 ## low-poly trees), `scale` times its own size, turned `yaw`.
-func _nature(room: Node3D, name: String, at: Vector3, scale: float, yaw: float, shadow: bool = true) -> Node3D:
+func _nature(room: Node3D, name: String, at: Vector3, scale: float, yaw: float, shadow: bool = true,
+		bare: bool = false) -> Node3D:
 	var path := "res://glTF/%s.gltf" % name
 	var scene: PackedScene = _models.get(path) as PackedScene
 	if scene == null:
@@ -3839,10 +4163,33 @@ func _nature(room: Node3D, name: String, at: Vector3, scale: float, yaw: float, 
 		scale *= 0.45
 	n.scale = Vector3.ONE * scale
 	room.add_child(n)
+	if bare:
+		_strip_leaves(n)
 	if not shadow:
 		for m in n.find_children("*", "GeometryInstance3D", true, false):
 			(m as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n
+
+
+## A tree of the kit with its leaves taken off (the dead wood's).
+func _strip_leaves(n: Node3D) -> void:
+	for node in n.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var am := mi.mesh as ArrayMesh
+		if am == null:
+			continue
+		var bare: ArrayMesh = _bare_meshes.get(am) as ArrayMesh
+		if bare == null:
+			bare = am.duplicate() as ArrayMesh
+			for k in range(bare.get_surface_count() - 1, -1, -1):
+				var m := bare.surface_get_material(k)
+				if m != null and m.resource_name.to_lower().contains("lea"):
+					bare.surface_remove(k)
+			_bare_meshes[am] = bare
+		if bare.get_surface_count() == 0:
+			mi.visible = false
+		else:
+			mi.mesh = bare
 
 
 ## The forest's trees, at random, the big leafy ones most of all.
@@ -4302,7 +4649,7 @@ func _candles(room: Node3D, at: Vector3, light: bool = true) -> void:
 		l.light_energy = 1.4
 		l.omni_range = 7.0
 		l.position = at + Vector3(0.0, 0.8, 0.0)
-		room.add_child(l)
+		room.add_child(_fire_light(l))
 
 
 ## Old bones lying: a few long ones and a skull.
@@ -4635,7 +4982,7 @@ func _build_rampart(room: Node3D, i: int) -> void:
 		glow.light_energy = 2.4
 		glow.omni_range = 10.0
 		glow.position = at + Vector3(0.0, 1.2, 0.0)
-		room.add_child(glow)
+		room.add_child(_fire_light(glow))
 	_arrows(room, w, l, 40)
 	_blades_in_floor(room, w, l, 8)
 	for k in 6:

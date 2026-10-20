@@ -11068,3 +11068,25 @@ repeated). What it was, and what was done:
   making new ones for every level and every portal. [WorldMap] takes no
   photograph in a dungeon (it tried eight times in the first half minute,
   each a stall). Volumetric fog: off on Low, a 48-cell grid on Medium.
+
+Fires and the dead wood (2026-10-20, the user's word: the palace's fires are
+not liked; no flowers in the forest, a more brutal one, trees without leaves,
+darker, a thick wood one is afraid of). Every fire in the dungeon is now
+`Dungeon._flame`: one quad turned to the eye about its upright, drawn whole by
+`FLAME_SHADER` (tongues licking up through moving noise and tearing off at the
+top, white-gold at the root, dark red at the tips, each fire its own by where it
+stands), with sparks (`_embers`, local coordinates) going up from the bigger
+ones. A brazier's coals are `COALS_SHADER` (black lumps, the gaps glowing and
+breathing). Every fire's light flickers (`_fire_light` registers it,
+`_flicker_fires` from `_process`). Smoke was tried and dropped (its puffs came
+out white). The forest (`_build_forest`) is a dead wood: the kit's `DeadTree_*`
+and `TwistedTree_*` with their leaves taken off (`_nature(..., bare)`,
+`_strip_leaves`: the leaf surfaces removed, meshes cached), four rings deep and
+close, taller further in; dead grass, roots and leaves from the graveyard kit,
+sharpened stakes with skulls (`_stake`), bones, falling dead leaves
+(`_falling_leaves`), crows (`_circling_birds`), creaking boughs; no flowers,
+butterflies or fireflies. Its air (`_place_look` "forest"): grey-green ambient,
+a cold dimmed sun, thick fog (0.013, volumetric 0.01) so the wood stands black
+against it, the sky shut in, saturation 0.72. Its sound: the wind in bare
+boughs, an owl at any hour, no birds. Medium: forest 11.3 ms, hall 11.0 ms.
+The portals' pictures of the palace places and the forest were made again.
