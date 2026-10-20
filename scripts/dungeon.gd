@@ -82,6 +82,10 @@ const PLACES := {
 	"forest": {"name": "ტყე", "kind": "forest", "w": 58.0, "l": 64.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 52.0, "l": 58.0, "h": 0.0, "lift": 160.0},
 	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
+	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
+	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
+	"mountain": {"name": "ქარიშხლის ბილიკი", "kind": "mountain", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
+	"rampart": {"name": "ციხის გალავანი", "kind": "rampart", "w": 26.0, "l": 80.0, "h": 0.0},
 }
 
 ## Per dungeon, its run: each step the places its portals may lead to, the
@@ -93,13 +97,16 @@ const PLACES := {
 const RUN := {
 	0: [
 		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 8]]}},
-		{"places": ["court", "cave", "forest"], "lv": 3, "xp": 2.5, "reach": 4,
+		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 3, "xp": 2.5, "reach": 4,
 				"foes": {"court": [[IMP, 5], [PUGLIN, 5]], "cave": [[PUGLIN, 6], [GOBLIN, 4]],
-						"forest": [[GOBLIN, 5], [IMP, 4]]}},
-		{"places": ["great_hall", "cave", "sky", "forest"], "lv": 5, "xp": 3.0, "reach": 6,
+						"forest": [[GOBLIN, 5], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
+						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
+		{"places": ["great_hall", "cave", "sky", "forest", "crypt", "swamp", "mountain"], "lv": 5, "xp": 3.0, "reach": 6,
 				"foes": {"great_hall": [[PUGLIN, 5], [IMP, 5]], "cave": [[PUGLIN, 5], [GOBLIN, 5]],
-						"sky": [[IMP, 5], [GOBLIN, 5]], "forest": [[GOBLIN, 5], [PUGLIN, 5]]}},
-		{"places": ["terrace", "forest", "sky", "cave"], "lv": 7, "xp": 3.5, "reach": 7,
+						"sky": [[IMP, 5], [GOBLIN, 5]], "forest": [[GOBLIN, 5], [PUGLIN, 5]],
+						"crypt": [[IMP, 5], [GOBLIN, 5]], "swamp": [[PUGLIN, 5], [GOBLIN, 5]],
+						"mountain": [[GOBLIN, 5], [IMP, 5]]}},
+		{"places": ["terrace", "forest", "sky", "cave", "rampart", "mountain"], "lv": 7, "xp": 3.5, "reach": 7,
 				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]}},
 		{"places": ["throne"], "lv": 8, "foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
@@ -124,6 +131,8 @@ const THROW_GAP := 5.0
 const HOLD_RINGS := [8.5, 11.5]
 
 const SND := "res://assets/sounds/dungeon/"
+## A picture of each place, seen inside the portal that leads to it.
+const PREVIEWS := "res://assets/dungeon/previews/%s.png"
 
 ## Which dungeon this is (from [member Game.dungeon_id]; 0 when there is none).
 @export var id: int = 0
@@ -210,6 +219,15 @@ var _drip_in: float = 4.0
 var _thunder_in: float = 20.0
 var _owl_in: float = 12.0
 var _models: Dictionary = {}
+## The graveyard kit's meshes and materials ([method _necro]), bone.
+var _necro_meshes: Dictionary = {}
+var _necro_mat: ShaderMaterial
+var _necro_glow: StandardMaterial3D
+var _bone_mat: StandardMaterial3D
+var _banner_mat: ShaderMaterial
+## The clocks of the stones from a hall's roof and the lightning.
+var _stones_in: float = 10.0
+var _storm_in: float = 6.0
 ## Where the place's hanging braziers creak from, and the clocks of the other
 ## sounds that come now and then (bats, the eagle, a banner in the wind).
 var _creaks: Array[Vector3] = []
@@ -247,6 +265,8 @@ uniform float wet = 0.0;
 uniform float relief = 0.05;
 // A cave's floor: round stones all over, no slabs.
 uniform float rocky = 0.0;
+// Snow lying in the hollows (the mountain).
+uniform float snow = 0.0;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -350,6 +370,8 @@ void fragment() {
 	float low = 1.0 - smoothstep(0.1, 0.5, h);
 	float moss = low * smoothstep(5.0, 0.5, to_wall) * smoothstep(0.45, 0.7, noise(p * 0.8 + 5.0));
 	c = mix(c, vec3(0.16, 0.19, 0.09), moss * 0.6);
+	float drift = smoothstep(0.62, 0.8, noise(p * 0.12 + 21.0) + noise(p * 0.9) * 0.2) * snow;
+	c = mix(c, vec3(0.86, 0.88, 0.93), drift * (1.0 - h * 0.6) * 0.8);
 	c *= mix(0.62, 1.0, smoothstep(0.0, 3.0, to_wall));
 	// Rain standing in the hollows of the open rooms.
 	float pool = smoothstep(0.6, 0.68, noise(p * 0.07 + 11.0)) * wet * (0.5 + 0.5 * low);
@@ -364,7 +386,14 @@ void fragment() {
 const GROUND_SHADER := """
 shader_type spatial;
 // The forest's floor: grass in clumps and swathes, bare earth between, moss
-// and fallen leaves, a trodden path down the middle.
+// and fallen leaves, a trodden path down the middle (the swamp's: darker).
+uniform vec4 grass_a : source_color = vec4(0.20, 0.32, 0.10, 1.0);
+uniform vec4 grass_b : source_color = vec4(0.32, 0.42, 0.14, 1.0);
+uniform vec4 earth : source_color = vec4(0.26, 0.19, 0.12, 1.0);
+uniform vec4 moss : source_color = vec4(0.13, 0.22, 0.08, 1.0);
+uniform vec4 leaves : source_color = vec4(0.42, 0.24, 0.10, 1.0);
+uniform float path_amount = 0.8;
+uniform float bare_from = 0.55;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -384,19 +413,14 @@ void fragment() {
 	float big = fbm(p * 0.05);
 	float mid = fbm(p * 0.3 + 4.0);
 	float fine = noise(p * 6.0) * 0.5 + noise(p * 17.0) * 0.5;
-	vec3 grass_a = vec3(0.20, 0.32, 0.10);
-	vec3 grass_b = vec3(0.32, 0.42, 0.14);
-	vec3 earth = vec3(0.26, 0.19, 0.12);
-	vec3 moss = vec3(0.13, 0.22, 0.08);
-	vec3 leaves = vec3(0.42, 0.24, 0.10);
-	vec3 c = mix(grass_a, grass_b, mid) * (0.8 + 0.35 * fine);
-	float bare = smoothstep(0.55, 0.7, big + (mid - 0.5) * 0.4);
-	c = mix(c, earth * (0.8 + 0.4 * fine), bare);
-	c = mix(c, moss, smoothstep(0.62, 0.8, fbm(p * 0.12 + 9.0)) * 0.6);
-	c = mix(c, leaves * (0.7 + 0.5 * fine), smoothstep(0.7, 0.85, fbm(p * 0.4 + 2.0)) * 0.7);
+	vec3 c = mix(grass_a.rgb, grass_b.rgb, mid) * (0.8 + 0.35 * fine);
+	float bare = smoothstep(bare_from, bare_from + 0.15, big + (mid - 0.5) * 0.4);
+	c = mix(c, earth.rgb * (0.8 + 0.4 * fine), bare);
+	c = mix(c, moss.rgb, smoothstep(0.62, 0.8, fbm(p * 0.12 + 9.0)) * 0.6);
+	c = mix(c, leaves.rgb * (0.7 + 0.5 * fine), smoothstep(0.7, 0.85, fbm(p * 0.4 + 2.0)) * 0.7);
 	// the path the creatures have trodden, down the middle
 	float path = smoothstep(2.6, 1.2, abs(p.x - sin(p.y * 0.05) * 3.0) + (mid - 0.5) * 2.0);
-	c = mix(c, earth * 0.9, path * 0.8);
+	c = mix(c, earth.rgb * 0.9, path * path_amount);
 	ALBEDO = c;
 	ROUGHNESS = 0.95;
 	// blades of grass: the normal ruffled where it grows
@@ -669,6 +693,8 @@ func _spawn_room(i: int) -> void:
 			if "leash_radius" in body:
 				body.set("leash_radius", 0.01)
 			body.set_meta(&"level", int(r["lv"]))
+			if body.has_signal(&"hurt"):
+				body.connect(&"hurt", _on_foe_hurt.bind(body))
 			if k >= AT_ONCE:
 				# a later wave's: out of sight under the floor, not thinking
 				body.position = c + Vector3(float(k) * 1.5, -40.0, 0.0)
@@ -763,9 +789,10 @@ func _wake(i: int) -> void:
 	_orc_on = null
 	var l: float = _room(i)["l"]
 	var hero := _nearest_hero(centre(i))
-	for body: Node3D in _room_foes[i]:
-		if not is_instance_valid(body) or _reserve.has(body):
+	for item: Variant in _room_foes[i]:
+		if not is_instance_valid(item) or _reserve.has(item):
 			continue
+		var body := item as Node3D
 		if "leash_radius" in body:
 			body.set("leash_radius", l)
 		_alive.append(body)
@@ -874,6 +901,10 @@ func _offer(next: int) -> void:
 		gate.name = "Choice%d" % k
 		if reward != "":
 			gate.tint = REWARDS[reward]["tint"]
+		# what is behind it, seen in it
+		var view := PREVIEWS % place
+		if ResourceLoader.exists(view):
+			gate.view = load(view) as Texture2D
 		var side := 0.0 if take == 1 else (-1.0 if k == 0 else 1.0)
 		gate.position = centre(current) + Vector3(side * 9.0, 0.0, -l * 0.5 + 10.0)
 		gate.set_meta(&"place", place)
@@ -1172,6 +1203,37 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("wet", 0.8)
 		m.set_shader_parameter("border", 0.0)
 		return m
+	if kind == "crypt":
+		m.set_shader_parameter("slab", 2.0)
+		m.set_shader_parameter("course", 1.4)
+		m.set_shader_parameter("slab_a", Color(0.40, 0.39, 0.36))
+		m.set_shader_parameter("slab_b", Color(0.26, 0.26, 0.25))
+		m.set_shader_parameter("cobble_a", Color(0.34, 0.33, 0.31))
+		m.set_shader_parameter("cobble_b", Color(0.16, 0.16, 0.16))
+		m.set_shader_parameter("wear", 0.75)
+		m.set_shader_parameter("border", 2.0)
+		m.set_shader_parameter("aisle", 2.2)
+		m.set_shader_parameter("wet", 0.4)
+		return m
+	if kind == "mountain":
+		m.set_shader_parameter("rocky", 1.0)
+		m.set_shader_parameter("pebble", 1.3)
+		m.set_shader_parameter("relief", 0.1)
+		m.set_shader_parameter("cobble_a", Color(0.44, 0.44, 0.46))
+		m.set_shader_parameter("cobble_b", Color(0.24, 0.24, 0.27))
+		m.set_shader_parameter("wet", 1.0)
+		m.set_shader_parameter("snow", 1.0)
+		m.set_shader_parameter("border", 0.0)
+		return m
+	if kind == "rampart":
+		m.set_shader_parameter("slab", 1.6)
+		m.set_shader_parameter("course", 1.1)
+		m.set_shader_parameter("slab_a", Color(0.50, 0.49, 0.47))
+		m.set_shader_parameter("slab_b", Color(0.34, 0.34, 0.34))
+		m.set_shader_parameter("wear", 0.7)
+		m.set_shader_parameter("border", 1.0)
+		m.set_shader_parameter("wet", 0.5)
+		return m
 	if kind == "sky":
 		m.set_shader_parameter("slab", 2.0)
 		m.set_shader_parameter("course", 1.4)
@@ -1234,6 +1296,7 @@ uniform vec4 gnd_col : source_color = vec4(0.3, 0.28, 0.26, 1.0);
 uniform vec4 sun_col : source_color = vec4(1.0, 0.9, 0.8, 1.0);
 uniform float night = 0.0;
 uniform float cloud = 0.5;
+uniform float flash = 0.0;
 float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -1287,7 +1350,7 @@ void sky() {
 		cc += sun_col.rgb * pow(max(sd, 0.0), 12.0) * 0.6 * (1.0 - night);
 		c = mix(c, cc, cov * 0.92);
 	}
-	COLOR = c;
+	COLOR = c + vec3(0.75, 0.8, 1.0) * flash * (0.4 + 0.6 * clamp(y + 0.3, 0.0, 1.0));
 }
 """
 
@@ -1416,6 +1479,42 @@ func _place_look(night: float = 0.0) -> void:
 				_env.volumetric_fog_emission = Color(0.06, 0.045, 0.02)
 				_env.volumetric_fog_length = 70.0
 				_env.volumetric_fog_ambient_inject = 0.15
+		"crypt":
+			# the catacombs: cold grey stone, the candles' warmth in it
+			_env.ambient_light_color = Color(0.40, 0.44, 0.48)
+			_env.ambient_light_energy = 1.1
+			_env.fog_light_color = Color(0.16, 0.18, 0.18)
+			_env.fog_density = 0.009
+			_env.glow_intensity = 1.2
+			_env.glow_bloom = 0.16
+			_env.glow_hdr_threshold = 0.85
+			_env.volumetric_fog_enabled = true
+			_env.volumetric_fog_density = 0.012
+			_env.volumetric_fog_albedo = Color(0.75, 0.78, 0.75)
+			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+			_env.volumetric_fog_length = 50.0
+			_env.volumetric_fog_ambient_inject = 0.1
+		"swamp":
+			# sickly, green: the poison swamps'
+			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.45, 0.55, 0.35), 0.6)
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.55, 0.62, 0.45), 0.45)
+			_env.fog_density = 0.004
+		"mountain":
+			# the storm: dark, cold, the clouds down on the peaks
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.42, 0.46, 0.55), 0.6)
+			_env.ambient_light_energy *= 0.8
+			_env.fog_light_color = Color(0.32, 0.35, 0.42).lerp(_env.fog_light_color, 0.3)
+			_env.fog_density = 0.006
+			if _sky_mat != null:
+				_sky_mat.set_shader_parameter("cloud", 0.92)
+				_sky_mat.set_shader_parameter("top_col", Color(0.16, 0.18, 0.24))
+				_sky_mat.set_shader_parameter("hor_col", Color(0.36, 0.38, 0.44))
+			if _sun != null:
+				_sun.light_energy *= 0.45
+		"rampart":
+			# Stormveil's grey over the gold
+			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.6, 0.62, 0.66), 0.4)
+			_env.adjustment_contrast = 1.1
 		"cave":
 			_env.ambient_light_color = Color(0.30, 0.38, 0.62)
 			_env.ambient_light_energy = 1.05
@@ -1455,6 +1554,18 @@ func _build_room(i: int) -> void:
 			return
 		"sky":
 			_build_sky(room, i)
+			return
+		"crypt":
+			_build_crypt(room, i)
+			return
+		"swamp":
+			_build_swamp(room, i)
+			return
+		"mountain":
+			_build_mountain(room, i)
+			return
+		"rampart":
+			_build_rampart(room, i)
 			return
 	var last := kind == "throne"
 	var far := -l * 0.5 - WALL_T * 0.5
@@ -1508,6 +1619,7 @@ func _build_room(i: int) -> void:
 
 	# Columns: two rows in a hall (and a tall vault on beams), along the walls elsewhere.
 	if kind == "hall":
+		_battle_remains(room, w, l)
 		_hall_columns(room, i, w, l, h)
 		_ceiling(room, w, l, h, r.has("hole"))
 		_high_windows(room, w, l, h)
@@ -1800,9 +1912,10 @@ func _column(room: Node3D, i: int, at: Vector3, h: float, thick: float) -> void:
 			"parts": parts, "blocker": blocker, "node": room, "broken": false})
 
 func _hang_banner(room: Node3D, at: Vector3, side: float, long: float) -> void:
-	var cloth := BoxMesh.new()
-	cloth.size = Vector3(0.08, long, 2.0)
-	_deco(room, _cloth_mat, cloth, at + Vector3(-side * 0.1, -long * 0.5, 0.0))
+	var cloth := QuadMesh.new()
+	cloth.size = Vector2(2.0, long)
+	var cl := _deco(room, _torn_cloth(), cloth, at + Vector3(-side * 0.1, -long * 0.5, 0.0))
+	cl.rotation.y = PI * 0.5
 	for z: float in [-0.75, 0.75]:
 		var stripe := BoxMesh.new()
 		stripe.size = Vector3(0.09, long, 0.14)
@@ -2533,7 +2646,7 @@ func _echo(kind: String) -> void:
 			echo.room_size = 0.85
 			echo.damping = 0.35
 			echo.wet = 0.26
-		"cave":
+		"cave", "crypt":
 			echo.room_size = 0.95
 			echo.damping = 0.25
 			echo.wet = 0.38
@@ -2592,6 +2705,16 @@ func _ambience(i: int) -> void:
 				parts.append(["crickets_loop.wav", -12.0])
 		"sky":
 			parts = [["wind_strong_loop.wav", -10.0]]
+		"crypt":
+			parts = [["cave_loop.wav", -14.0]]
+		"swamp":
+			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
+			if night:
+				parts.append(["crickets_loop.wav", -15.0])
+		"mountain":
+			parts = [["wind_strong_loop.wav", -8.0], ["rain_loop.wav", -9.0]]
+		"rampart":
+			parts = [["wind_loop.wav", -14.0], ["drums_far_loop.wav", -27.0]]
 	for part: Array in parts:
 		var stream := _loop(String(part[0]))
 		if stream == null:
@@ -2617,7 +2740,7 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_drip_in -= delta
 	if _drip_in <= 0.0:
 		_drip_in = _rng.randf_range(1.5, 5.0)
-		if kind == "cave" or r.has("hole"):
+		if kind == "cave" or kind == "crypt" or r.has("hole"):
 			var at := near + Vector3(_rng.randf_range(-12.0, 12.0), 3.0, _rng.randf_range(-12.0, 12.0))
 			Sfx.play(self, SND + "drip_%d.wav" % _rng.randi_range(1, 3), null, at, 1.0, -4.0, 0.15)
 	_thunder_in -= delta
@@ -2647,13 +2770,23 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_flap_in -= delta
 	if _flap_in <= 0.0:
 		_flap_in = _rng.randf_range(6.0, 13.0)
-		if kind in ["court", "terrace", "throne", "sky"]:
+		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain"]:
 			var at := near + Vector3(_rng.randf_range(-14.0, 14.0), 4.0, _rng.randf_range(-14.0, 14.0))
 			Sfx.play(self, SND + "flap.wav", null, at, 1.0, -2.0, 0.15)
+	_stones_in -= delta
+	if _stones_in <= 0.0:
+		_stones_in = _rng.randf_range(8.0, 16.0)
+		if kind == "hall" or kind == "crypt":
+			_falling_stones(near, float(r["h"]))
+	_storm_in -= delta
+	if _storm_in <= 0.0:
+		_storm_in = _rng.randf_range(7.0, 15.0)
+		if kind == "mountain":
+			_lightning()
 	_owl_in -= delta
 	if _owl_in <= 0.0:
 		_owl_in = _rng.randf_range(14.0, 28.0)
-		if kind == "forest" and _phase >= 2.8:
+		if (kind == "forest" or kind == "swamp") and _phase >= 2.8:
 			var at := near + Vector3(_rng.randf_range(-25.0, 25.0), 8.0, _rng.randf_range(-25.0, 25.0))
 			Sfx.play(self, SND + "owl.wav", null, at, 1.0, 0.0, 0.08)
 
@@ -3605,3 +3738,584 @@ func _blades_in_floor(room: Node3D, w: float, l: float, count: int) -> void:
 		sword.rotation = Vector3(_rng.randf_range(-0.35, 0.35), _rng.randf_range(0.0, TAU), _rng.randf_range(-0.35, 0.35))
 		room.add_child(sword)
 #endregion
+
+
+#region Round 10: more places (the crypt, the swamp, the stormy mountain, the rampart)
+## The graveyard kit's props (assets/necropoly: candles, chains, lanterns, the
+## tomb niche, the swamp's grass, roots and stones), dressed as [NecroPlaces]
+## dresses them: its palette, and a glow for what burns.
+func _necro(name: String) -> Mesh:
+	if _necro_meshes.is_empty():
+		_necro_mat = ShaderMaterial.new()
+		_necro_mat.shader = load("res://shaders/necro.gdshader")
+		_necro_mat.set_shader_parameter(&"palette", load("res://assets/necropoly/necro_palette.png"))
+		_necro_mat.set_shader_parameter(&"ours", 1.0)
+		_necro_glow = StandardMaterial3D.new()
+		_necro_glow.albedo_color = Color(1.0, 0.62, 0.25)
+		_necro_glow.emission_enabled = true
+		_necro_glow.emission = Color(1.0, 0.55, 0.2)
+		_necro_glow.emission_energy_multiplier = 3.0
+		var scene := load("res://assets/necropoly/necro_props.glb") as PackedScene
+		if scene != null:
+			var root := scene.instantiate()
+			for node in root.find_children("*", "MeshInstance3D", true, false):
+				var mi := node as MeshInstance3D
+				var am := mi.mesh as ArrayMesh
+				if am == null:
+					continue
+				var copy := am.duplicate() as ArrayMesh
+				for k in copy.get_surface_count():
+					var m := copy.surface_get_material(k)
+					var lit := m != null and m.resource_name.contains("glow")
+					copy.surface_set_material(k, _necro_glow if lit else _necro_mat)
+				_necro_meshes[String(mi.name)] = copy
+			root.free()
+	return _necro_meshes.get(name) as Mesh
+
+
+func _necro_put(room: Node3D, name: String, at: Vector3, yaw: float, size: float = 1.0, shadow: bool = true) -> MeshInstance3D:
+	var mesh := _necro(name)
+	if mesh == null:
+		return null
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size * 0.4), at)
+	if not shadow:
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(mi)
+	return mi
+
+
+## A cluster of candles burning, with the little light they give.
+func _candles(room: Node3D, at: Vector3, light: bool = true) -> void:
+	for k in _rng.randi_range(2, 4):
+		_necro_put(room, ["EA_Candle_01a", "EA_Candle_01b", "EA_Candle_01c"][k % 3],
+				at + Vector3(_rng.randf_range(-0.35, 0.35), 0.0, _rng.randf_range(-0.35, 0.35)), _rng.randf_range(0.0, TAU),
+				_rng.randf_range(0.8, 1.3), false)
+	room.add_child(_flame(at + Vector3(0.0, 0.45, 0.0), 0.6, 8))
+	if light:
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.62, 0.3)
+		l.light_energy = 1.4
+		l.omni_range = 7.0
+		l.position = at + Vector3(0.0, 0.8, 0.0)
+		room.add_child(l)
+
+
+## Old bones lying: a few long ones and a skull.
+func _bones(room: Node3D, at: Vector3) -> void:
+	if _bone_mat == null:
+		_bone_mat = StandardMaterial3D.new()
+		_bone_mat.albedo_color = Color(0.78, 0.74, 0.64)
+		_bone_mat.roughness = 0.8
+	for k in _rng.randi_range(3, 6):
+		var b := CylinderMesh.new()
+		b.top_radius = 0.04
+		b.bottom_radius = 0.05
+		b.height = _rng.randf_range(0.35, 0.7)
+		b.radial_segments = 6
+		var m := _deco(room, _bone_mat, b, at + Vector3(_rng.randf_range(-0.6, 0.6), 0.05, _rng.randf_range(-0.6, 0.6)))
+		m.rotation = Vector3(PI * 0.5, _rng.randf_range(0.0, TAU), 0.0)
+	var skull := SphereMesh.new()
+	skull.radius = 0.13
+	skull.height = 0.24
+	skull.radial_segments = 10
+	skull.rings = 5
+	_deco(room, _bone_mat, skull, at + Vector3(0.0, 0.12, 0.0))
+
+
+## A crypt under the palace (the user's word: under the ground; Elden Ring's
+## catacombs): a long low vault on ribs, the dead in niches in its walls and
+## in stone coffins down its sides, candles burning on them, chains hanging,
+## bones on the floor, a cold grey air with the candles' warmth in it.
+func _build_crypt(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	var h: float = r["h"]
+	var stone := _wall_mat.duplicate() as ShaderMaterial
+	stone.set_shader_parameter("stone", Color(0.36, 0.35, 0.33))
+	_solid(room, _floor_mat(i), Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T * 2.0), Vector3(0.0, -0.5, 0.0))
+	for side: float in [-1.0, 1.0]:
+		_solid(room, stone, Vector3(WALL_T, h, l + WALL_T * 2.0), Vector3(side * (w + WALL_T) * 0.5, h * 0.5, 0.0))
+		_solid(room, stone, Vector3(w + WALL_T * 2.0, h, WALL_T), Vector3(0.0, h * 0.5, side * (l + WALL_T) * 0.5))
+	# the vault: a flat roof on ribs, an arch of stone every six metres
+	_solid(room, stone, Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T * 2.0), Vector3(0.0, h + 0.5, 0.0), false)
+	var step := 6.0
+	var n := int(l / step)
+	for k in n + 1:
+		var z := -l * 0.5 + float(k) * step
+		var rib := BoxMesh.new()
+		rib.size = Vector3(w, 0.8, 0.9)
+		_deco(room, _trim_mat, rib, Vector3(0.0, h - 0.4, z))
+		for side: float in [-1.0, 1.0]:
+			var pier := BoxMesh.new()
+			pier.size = Vector3(1.2, h, 1.2)
+			_deco(room, stone, pier, Vector3(side * (w * 0.5 - 0.6), h * 0.5, z))
+			_blocker(room, Vector3(1.2, h, 1.2), Vector3(side * (w * 0.5 - 0.6), h * 0.5, z))
+			# the dead in their niche between the piers
+			if k < n:
+				var nz := z + step * 0.5
+				var niche := _necro_put(room, "EA_Bld_Tomb_Niche_Clean_Class_A_01c",
+						Vector3(side * (w * 0.5 - 0.2), 0.0, nz), PI * 0.5 * -side, 2.2)
+				if niche == null:
+					var box := BoxMesh.new()
+					box.size = Vector3(0.8, 2.2, 3.2)
+					_deco(room, _trim_mat, box, Vector3(side * (w * 0.5 - 0.4), 1.1, nz))
+				_candles(room, Vector3(side * (w * 0.5 - 1.6), 0.0, nz + _rng.randf_range(-1.0, 1.0)), k % 2 == 0)
+				if _rng.randf() < 0.5:
+					_bones(room, Vector3(side * (w * 0.5 - 2.4), 0.0, nz + _rng.randf_range(-1.5, 1.5)))
+	# stone coffins down the middle in two rows, candles on some
+	for k in 6:
+		var z := -l * 0.32 + float(k) * l * 0.13
+		for side: float in [-1.0, 1.0]:
+			if _rng.randf() < 0.25:
+				continue
+			var x := side * w * 0.22
+			var coffin := BoxMesh.new()
+			coffin.size = Vector3(1.4, 0.9, 2.6)
+			_deco(room, stone, coffin, Vector3(x, 0.45, z))
+			var lid := BoxMesh.new()
+			lid.size = Vector3(1.6, 0.25, 2.8)
+			var ld := _deco(room, _trim_mat, lid, Vector3(x, 1.02, z))
+			if _rng.randf() < 0.3:
+				# pushed aside
+				ld.position += Vector3(side * 0.5, -0.1, 0.3)
+				ld.rotation = Vector3(0.0, 0.3, side * 0.25)
+			_blocker(room, Vector3(1.4, 1.2, 2.6), Vector3(x, 0.6, z))
+			if _rng.randf() < 0.6:
+				_candles(room, Vector3(x + _rng.randf_range(-0.4, 0.4), 1.15, z + _rng.randf_range(-0.8, 0.8)), _rng.randf() < 0.5)
+	# chains hanging from the ribs, creaking
+	for k in 8:
+		var at := Vector3(_rng.randf_range(-w * 0.35, w * 0.35), h - 0.8, -l * 0.5 + _rng.randf_range(3.0, l - 3.0))
+		var chain := _necro_put(room, "EA_Decor_Chain_01a" if k % 2 == 0 else "EA_Decor_Chain_01b", at, _rng.randf_range(0.0, TAU), 3.0)
+		if chain == null:
+			var c := CylinderMesh.new()
+			c.top_radius = 0.04
+			c.bottom_radius = 0.04
+			c.height = 2.5
+			_deco(room, _iron_mat, c, at - Vector3(0.0, 1.25, 0.0))
+		_creaks.append(room.position + at)
+	for k in 10:
+		_bones(room, Vector3(_rng.randf_range(-w * 0.4, w * 0.4), 0.0, _rng.randf_range(-l * 0.45, l * 0.45)))
+	_rubble_round(room, i, w, l)
+	_mist(room, w, l, 0.3, Color(0.55, 0.6, 0.58), 0.3)
+	_motes(room, w, l, h)
+	for side: float in [-1.0, 1.0]:
+		_torch(room, Vector3(side * 3.5, 3.0, l * 0.5 - 0.6))
+
+
+## A swamp (the user's word: somewhere else again): dark mud and moss, pools of
+## still green water, dead trees and twisted roots, reeds and swamp grass, a
+## low sickly mist, frogs and the night's crickets.
+func _build_swamp(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	var ground := ShaderMaterial.new()
+	ground.shader = _ground_shader
+	ground.set_shader_parameter("grass_a", Color(0.16, 0.20, 0.09))
+	ground.set_shader_parameter("grass_b", Color(0.24, 0.27, 0.11))
+	ground.set_shader_parameter("earth", Color(0.17, 0.13, 0.09))
+	ground.set_shader_parameter("moss", Color(0.12, 0.18, 0.08))
+	ground.set_shader_parameter("leaves", Color(0.22, 0.17, 0.09))
+	ground.set_shader_parameter("path_amount", 0.0)
+	ground.set_shader_parameter("bare_from", 0.42)
+	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
+	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
+	_bounds(room, w, l)
+	# pools of still water
+	var water := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = WATER_SHADER
+	water.shader = sh
+	water.set_shader_parameter("deep", Color(0.04, 0.08, 0.05))
+	water.set_shader_parameter("shallow", Color(0.16, 0.22, 0.12))
+	water.set_shader_parameter("flow", 0.04)
+	for k in 9:
+		var pool := MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		var rad := _rng.randf_range(3.0, 7.5)
+		disc.top_radius = rad
+		disc.bottom_radius = rad
+		disc.height = 0.02
+		disc.radial_segments = 20
+		pool.mesh = disc
+		pool.material_override = water
+		pool.scale = Vector3(1.0, 1.0, _rng.randf_range(0.6, 1.4))
+		pool.rotation.y = _rng.randf_range(0.0, TAU)
+		pool.position = Vector3(_rng.randf_range(-w * 0.4, w * 0.4), 0.03, _rng.randf_range(-l * 0.4, l * 0.4))
+		pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		room.add_child(pool)
+		for m in 4:
+			var a := _rng.randf_range(0.0, TAU)
+			_prop(room, "Cattail_%d" % _rng.randi_range(1, 5), pool.position + Vector3(sin(a), 0.0, cos(a)) * rad * 0.95,
+					_rng.randf_range(1.2, 2.0), _rng.randf_range(0.0, TAU), false)
+	# the dead wood round it, and inside
+	for ring in 2:
+		var out := 3.0 + float(ring) * 8.0
+		for side in 4:
+			var long := (l if side < 2 else w) + out * 2.0
+			var count := int(long / 7.0)
+			for k in count:
+				var along := -long * 0.5 + (float(k) + _rng.randf_range(0.1, 0.9)) * 7.0
+				var at := Vector3.ZERO
+				match side:
+					0: at = Vector3(-w * 0.5 - out, 0.0, along)
+					1: at = Vector3(w * 0.5 + out, 0.0, along)
+					2: at = Vector3(along, 0.0, -l * 0.5 - out)
+					_: at = Vector3(along, 0.0, l * 0.5 + out)
+				var name := "DeadTree_%d" % _rng.randi_range(1, 5) if _rng.randf() < 0.65 else "TwistedTree_%d" % _rng.randi_range(1, 5)
+				_nature(room, name, at, _rng.randf_range(1.1, 1.7), _rng.randf_range(0.0, TAU), ring == 0)
+	for k in 6:
+		var x := (w * _rng.randf_range(0.25, 0.42)) * (1.0 if k % 2 == 0 else -1.0)
+		var z := _rng.randf_range(-l * 0.4, l * 0.4)
+		_nature(room, "DeadTree_%d" % _rng.randi_range(1, 5), Vector3(x, 0.0, z), _rng.randf_range(1.0, 1.4), _rng.randf_range(0.0, TAU))
+		_post(room, Vector3(x, 0.0, z), 0.5, 4.0)
+	var swampy := ["EA_Swamp_Grass_01a", "EA_Swamp_Grass_01f", "EA_Swamp_Grass_02a", "EA_Swamp_Grass_02e",
+			"EA_Swamp_Grass_04a", "EA_Swamp_Grass_Hill_Dead_01a", "EA_Swamp_Grass_Hill_Dead_01c",
+			"EA_Swamp_Root_03c", "EA_Swamp_Root_04d", "EA_Swamp_Stones_02a", "EA_Swamp_Dirt_Root_04a",
+			"EA_Environment_Nature_Root_2c", "EA_Swamp_Leaf_01a"]
+	for k in 110:
+		var at := Vector3(_rng.randf_range(-w * 0.49, w * 0.49), 0.0, _rng.randf_range(-l * 0.49, l * 0.49))
+		var bit: String = swampy[k % swampy.size()]
+		# the grassy hummocks are big as they are
+		var size := _rng.randf_range(0.5, 0.9) if bit.contains("Hill") else _rng.randf_range(0.9, 1.6)
+		_necro_put(room, bit, at, _rng.randf_range(0.0, TAU), size, false)
+	for k in 12:
+		_prop(room, ["Log_1", "Log_3", "Stump_1", "Stump_2"][k % 4], Vector3(_rng.randf_range(-w * 0.45, w * 0.45), 0.0,
+				_rng.randf_range(-l * 0.45, l * 0.45)), _rng.randf_range(0.9, 1.3), _rng.randf_range(0.0, TAU), false)
+	_mist(room, w, l, 0.25, Color(0.55, 0.62, 0.45), 0.4)
+	_fireflies(room, w, l)
+
+
+## A mountain path in a storm (the user's word: a stormy mountain path):
+## a broken shelf of rock high among the peaks, cliffs round it, a few pines
+## bent by the wind, snow in the hollows, rain driven across it, the sky dark
+## and lit by lightning.
+func _build_mountain(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	_solid(room, _floor_mat(i), Vector3(w + 20.0, 1.0, l + 20.0), Vector3(0.0, -0.5, 0.0))
+	_crag_under(room, w + 30.0, l + 30.0, PalaceVista.DROP + 120.0, -1.0)
+	_bounds(room, w, l)
+	# cliffs: great rocks along both long sides, the near and far ends open to
+	# the drop; grey, snow on what faces up
+	var cliff := _rock_mat.duplicate() as ShaderMaterial
+	cliff.set_shader_parameter("rock_a", Color(0.44, 0.45, 0.48))
+	cliff.set_shader_parameter("rock_b", Color(0.20, 0.21, 0.24))
+	cliff.set_shader_parameter("band", Color(0.52, 0.52, 0.55))
+	cliff.set_shader_parameter("moss", Color(0.86, 0.88, 0.93))
+	cliff.set_shader_parameter("moss_amount", 0.9)
+	cliff.set_shader_parameter("wet", 0.5)
+	for side: float in [-1.0, 1.0]:
+		var z := -l * 0.5 - 6.0
+		while z < l * 0.5 + 6.0:
+			var tall := _rng.randf_range(14.0, 34.0)
+			_boulder(room, Vector3(side * (w * 0.5 + _rng.randf_range(3.0, 8.0)), -2.0, z),
+					Vector3(_rng.randf_range(12.0, 20.0), tall, _rng.randf_range(10.0, 16.0)), _rng.randf_range(0.0, TAU), cliff)
+			z += _rng.randf_range(7.0, 11.0)
+	# boulders on the shelf to fight round
+	for k in 9:
+		var at := Vector3(_rng.randf_range(-w * 0.4, w * 0.4), 0.0, _rng.randf_range(-l * 0.4, l * 0.4))
+		if absf(at.x) < 5.0 and at.z > 0.0:
+			continue
+		var size := _rng.randf_range(2.0, 4.5)
+		_boulder(room, at - Vector3(0.0, 0.3, 0.0), Vector3(size * 1.3, size, size * 1.1), _rng.randf_range(0.0, TAU), cliff)
+		_blocker(room, Vector3(size, size, size * 0.9), at + Vector3(0.0, size * 0.4, 0.0))
+	for k in 10:
+		var x := (w * _rng.randf_range(0.36, 0.5)) * (1.0 if k % 2 == 0 else -1.0)
+		_nature(room, "Pine_%d" % _rng.randi_range(1, 5), Vector3(x, 0.0, _rng.randf_range(-l * 0.45, l * 0.45)),
+				_rng.randf_range(1.2, 2.0), _rng.randf_range(0.0, TAU))
+	for k in 40:
+		_nature(room, ["Grass_Wispy_Tall", "Grass_Wispy_Short", "Pebble_Round_3", "Rock_Medium_2"][k % 4],
+				Vector3(_rng.randf_range(-w * 0.48, w * 0.48), 0.0, _rng.randf_range(-l * 0.48, l * 0.48)),
+				_rng.randf_range(0.8, 1.4), _rng.randf_range(0.0, TAU), false)
+	# an old shrine of the road: a broken arch and a cairn
+	for side: float in [-1.0, 1.0]:
+		_column(room, i, Vector3(side * 4.0, 0.0, -l * 0.3), 7.0, 0.9)
+	var lintel := BoxMesh.new()
+	lintel.size = Vector3(9.5, 0.9, 1.4)
+	var lt := _deco(room, _trim_mat, lintel, Vector3(0.6, 7.2, -l * 0.3))
+	lt.rotation.z = -0.08
+	_rain(room, w, l)
+
+
+## Rain driven across a place.
+func _rain(room: Node3D, w: float, l: float) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 3500
+	p.lifetime = 1.2
+	p.position = Vector3(0.0, 22.0, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w * 0.7, 1.0, l * 0.7)
+	pm.direction = Vector3(0.25, -1.0, 0.1)
+	pm.spread = 3.0
+	pm.initial_velocity_min = 18.0
+	pm.initial_velocity_max = 24.0
+	pm.gravity = Vector3(0.0, -10.0, 0.0)
+	pm.particle_flag_align_y = true
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.025, 0.7)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.albedo_color = Color(0.75, 0.8, 0.9, 0.35)
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.billboard_keep_scale = true
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-w, -30, -l), Vector3(w * 2.0, 40.0, l * 2.0))
+	room.add_child(p)
+
+
+## The castle's rampart (the user's word: a broken castle wall): a long
+## walk along the top of the wall, its battlements broken here and there and
+## the gaps blocked with rubble, a tower at each end, fires still burning from
+## the fighting, arrows stuck in the stones, banners torn by the wind.
+func _build_rampart(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	_solid(room, _floor_mat(i), Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T * 2.0), Vector3(0.0, -0.5, 0.0))
+	_solid(room, _wall_mat, Vector3(w + WALL_T * 2.0, 40.0, l + WALL_T * 2.0), Vector3(0.0, -20.5, 0.0), false)
+	_crag_under(room, w + 20.0, l + 20.0, PalaceVista.DROP + 40.0, -40.0)
+	_bounds(room, w, l)
+	# the battlements: a breast-high wall, merlons on it, broken in places
+	for side: float in [-1.0, 1.0]:
+		var x := side * (w * 0.5 + WALL_T * 0.5)
+		var z := -l * 0.5
+		while z < l * 0.5:
+			var piece := minf(_rng.randf_range(5.0, 9.0), l * 0.5 - z)
+			var broken := _rng.randf() < 0.2
+			var hh := 1.4 if broken else 2.2
+			_solid(room, _wall_mat, Vector3(WALL_T, hh, piece), Vector3(x, hh * 0.5, z + piece * 0.5))
+			if broken:
+				_rubble(room, Vector3(x - side * 1.2, 0.0, z + piece * 0.5), 2.0, 10, int(z * 7.0))
+			else:
+				var mz := z + 0.8
+				while mz < z + piece - 0.6:
+					var merlon := BoxMesh.new()
+					merlon.size = Vector3(WALL_T, 1.1, 1.0)
+					_deco(room, _wall_mat, merlon, Vector3(x, hh + 0.55, mz))
+					mz += 2.0
+			z += piece
+	# a tower at each end
+	for end: float in [-1.0, 1.0]:
+		var tower := CylinderMesh.new()
+		tower.top_radius = w * 0.42
+		tower.bottom_radius = w * 0.45
+		tower.height = 26.0
+		tower.radial_segments = 16
+		_deco(room, _wall_mat, tower, Vector3(0.0, 13.0 - 6.0, end * (l * 0.5 + w * 0.42)))
+		var roof := CylinderMesh.new()
+		roof.top_radius = 0.0
+		roof.bottom_radius = w * 0.5
+		roof.height = 10.0
+		roof.radial_segments = 16
+		var rf := _deco(room, _wood_mat, roof, Vector3(0.0, 25.0, end * (l * 0.5 + w * 0.42)))
+		if end > 0.0:
+			# its roof half burnt away
+			rf.scale = Vector3(1.0, 0.55, 1.0)
+			rf.rotation.z = 0.25
+	# what the fighting left: fires, arrows, blades
+	for k in 5:
+		var at := Vector3(_rng.randf_range(-w * 0.35, w * 0.35), 0.0, -l * 0.4 + float(k) * l * 0.2)
+		_rubble(room, at, 1.4, 8, k * 13)
+		room.add_child(_flame(at + Vector3(0.0, 0.4, 0.0), 2.4, 30))
+		_crackle(room, at + Vector3(0.0, 0.4, 0.0))
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(1.0, 0.55, 0.25)
+		glow.light_energy = 2.4
+		glow.omni_range = 10.0
+		glow.position = at + Vector3(0.0, 1.2, 0.0)
+		room.add_child(glow)
+	_arrows(room, w, l, 40)
+	_blades_in_floor(room, w, l, 8)
+	for k in 6:
+		var side := -1.0 if k % 2 == 0 else 1.0
+		_hang_banner(room, Vector3(side * (w * 0.5 + 0.6), 6.0, -l * 0.35 + floorf(float(k) / 2.0) * l * 0.35), side, 4.5)
+		var pole := CylinderMesh.new()
+		pole.top_radius = 0.07
+		pole.bottom_radius = 0.07
+		pole.height = 6.4
+		_deco(room, _wood_mat, pole, Vector3(side * (w * 0.5 + 0.75), 3.0, -l * 0.35 + floorf(float(k) / 2.0) * l * 0.35))
+
+
+## Arrows stuck in the floor where a volley came down.
+func _arrows(room: Node3D, w: float, l: float, count: int) -> void:
+	var fletch := StandardMaterial3D.new()
+	fletch.albedo_color = Color(0.7, 0.66, 0.6)
+	for k in count:
+		var arrow := Node3D.new()
+		var shaft := CylinderMesh.new()
+		shaft.top_radius = 0.015
+		shaft.bottom_radius = 0.015
+		shaft.height = 0.75
+		shaft.radial_segments = 5
+		var s := MeshInstance3D.new()
+		s.mesh = shaft
+		s.material_override = _wood_mat
+		s.position = Vector3(0.0, 0.3, 0.0)
+		arrow.add_child(s)
+		var f := MeshInstance3D.new()
+		var fm := BoxMesh.new()
+		fm.size = Vector3(0.12, 0.16, 0.01)
+		f.mesh = fm
+		f.material_override = fletch
+		f.position = Vector3(0.0, 0.62, 0.0)
+		arrow.add_child(f)
+		arrow.position = Vector3(_rng.randf_range(-w * 0.45, w * 0.45), 0.0, _rng.randf_range(-l * 0.45, l * 0.45))
+		arrow.rotation = Vector3(_rng.randf_range(-0.5, 0.5), _rng.randf_range(0.0, TAU), _rng.randf_range(-0.5, 0.5))
+		room.add_child(arrow)
+
+
+## A flash of lightning over a stormy place, its thunder after it.
+func _lightning() -> void:
+	if _sky_mat == null:
+		return
+	var tw := create_tween()
+	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 0.0, 1.0, 0.05)
+	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 1.0, 0.2, 0.12)
+	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 0.2, 0.9, 0.06)
+	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 0.9, 0.0, 0.4)
+	var bolt := OmniLight3D.new()
+	bolt.light_color = Color(0.8, 0.85, 1.0)
+	bolt.light_energy = 0.0
+	bolt.omni_range = 220.0
+	bolt.shadow_enabled = false
+	add_child(bolt)
+	bolt.global_position = centre(current) + Vector3(_rng.randf_range(-40.0, 40.0), 70.0, _rng.randf_range(-40.0, 40.0))
+	var lt := create_tween()
+	lt.tween_property(bolt, "light_energy", 6.0, 0.05)
+	lt.tween_property(bolt, "light_energy", 1.0, 0.12)
+	lt.tween_property(bolt, "light_energy", 5.0, 0.06)
+	lt.tween_property(bolt, "light_energy", 0.0, 0.4)
+	lt.tween_callback(bolt.queue_free)
+	get_tree().create_timer(_rng.randf_range(0.4, 1.4)).timeout.connect(func() -> void:
+		Sfx.play_flat(self, SND + "thunder.wav", _rng.randf_range(0.9, 1.15), -2.0))
+#endregion
+
+
+#region Round 10: the first hall livelier, blows seen
+## What a fight long ago left in a hall: shields broken and spears, bones.
+func _battle_remains(room: Node3D, w: float, l: float) -> void:
+	for k in 9:
+		var at := Vector3(_rng.randf_range(-w * 0.42, w * 0.42), 0.0, _rng.randf_range(-l * 0.42, l * 0.42))
+		if absf(at.x) < 3.5:
+			at.x += 6.0 * signf(at.x + 0.01)
+		var shield := CylinderMesh.new()
+		shield.top_radius = 0.5
+		shield.bottom_radius = 0.5
+		shield.height = 0.06
+		shield.radial_segments = 14
+		var sh := _deco(room, _wood_mat, shield, at + Vector3(0.0, 0.05, 0.0))
+		sh.rotation = Vector3(_rng.randf_range(-0.3, 0.3), 0.0, _rng.randf_range(-0.3, 0.3))
+		var rim := CylinderMesh.new()
+		rim.top_radius = 0.53
+		rim.bottom_radius = 0.53
+		rim.height = 0.04
+		rim.radial_segments = 14
+		_deco(room, _iron_mat, rim, at + Vector3(0.0, 0.03, 0.0))
+		var spear := CylinderMesh.new()
+		spear.top_radius = 0.03
+		spear.bottom_radius = 0.03
+		spear.height = 2.4
+		spear.radial_segments = 5
+		var sp := _deco(room, _wood_mat, spear, at + Vector3(_rng.randf_range(-1.0, 1.0), 0.05, _rng.randf_range(-1.0, 1.0)))
+		sp.rotation = Vector3(PI * 0.5, _rng.randf_range(0.0, TAU), 0.0)
+		if k % 2 == 0:
+			_bones(room, at + Vector3(1.2, 0.0, 0.6))
+	_arrows(room, w, l, 18)
+
+
+## Now and then a few stones and dust come down from a hall's roof near him.
+func _falling_stones(near: Vector3, h: float) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var at := near + Vector3(_rng.randf_range(-9.0, 9.0), 0.0, _rng.randf_range(-9.0, 9.0))
+	at.y = centre(current).y
+	for k in _rng.randi_range(2, 5):
+		var stone := MeshInstance3D.new()
+		stone.mesh = RockWave._crag_mesh(_rng.randi_range(0, RockWave.SHAPES - 1))
+		var box := stone.mesh.get_aabb()
+		var size := _rng.randf_range(0.12, 0.3)
+		stone.scale = Vector3.ONE * size / maxf(box.size.x, 0.01)
+		stone.material_override = _rock_mat
+		world.add_child(stone)
+		var from := at + Vector3(_rng.randf_range(-0.8, 0.8), h - 0.5, _rng.randf_range(-0.8, 0.8))
+		stone.global_position = from
+		var fall := sqrt(2.0 * (h - 0.5) / 9.8) * _rng.randf_range(0.95, 1.1)
+		var tw := create_tween()
+		tw.tween_property(stone, "global_position:y", at.y + 0.1, fall).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.parallel().tween_property(stone, "rotation", Vector3(_rng.randf_range(-6.0, 6.0), 0.0, _rng.randf_range(-6.0, 6.0)), fall)
+		tw.tween_interval(6.0)
+		tw.tween_callback(stone.queue_free)
+	SkillFx.burst(world, at + Vector3.UP * (h - 0.5), Color(0.7, 0.62, 0.5, 0.6), 30, Vector2(0.2, 1.0), Vector3.DOWN,
+			40.0, Vector2(0.08, 0.2), Vector3(0, -3.0, 0), 2.5)
+	var land := sqrt(2.0 * (h - 0.5) / 9.8)
+	get_tree().create_timer(land).timeout.connect(func() -> void:
+		DustRing.burst(world, at + Vector3.UP * 0.05, 0.5)
+		Sfx.play(self, SND + "crumble.wav", null, at, _rng.randf_range(1.2, 1.5), -12.0))
+
+
+## A blow on one of them seen: a warm flash where it struck and a few sparks.
+func _on_foe_hurt(_remaining: float, body: Node3D) -> void:
+	if not is_instance_valid(body):
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - float(body.get_meta(&"flashed", -1.0)) < 0.1:
+		return
+	body.set_meta(&"flashed", now)
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var at := body.global_position + Vector3.UP * 1.1 * maxf(float(body.get("visual_scale")) if "visual_scale" in body else 1.0, 0.5)
+	var flash := OmniLight3D.new()
+	flash.light_color = Color(1.0, 0.78, 0.45)
+	flash.light_energy = 3.5
+	flash.omni_range = 4.5
+	world.add_child(flash)
+	flash.global_position = at
+	var tw := flash.create_tween()
+	tw.tween_property(flash, "light_energy", 0.0, 0.16)
+	tw.tween_callback(flash.queue_free)
+	SkillFx.burst(world, at, Color(1.0, 0.8, 0.4), 14, Vector2(2.0, 5.0), Vector3.UP, 180.0, Vector2(0.03, 0.07),
+			Vector3(0, -6.0, 0), 0.35)
+#endregion
+
+
+## The banners' cloth, torn: ragged at the foot, holed (the user's word: torn banners).
+func _torn_cloth() -> ShaderMaterial:
+	if _banner_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 cloth : source_color = vec4(0.30, 0.08, 0.38, 1.0);
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+varying vec3 wpos;
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = vec2(wpos.x + wpos.z, wpos.y);
+	float ragged = noise(vec2(p.x * 3.0, 0.0)) * 0.25 + noise(vec2(p.x * 9.0, 1.0)) * 0.1;
+	if (UV.y > 0.72 + ragged) { discard; }
+	if (noise(p * 2.2) > 0.82) { discard; }
+	float burn = smoothstep(0.62, 0.8, UV.y + ragged * 0.5);
+	ALBEDO = mix(cloth.rgb * (0.75 + 0.35 * noise(p * 6.0)), vec3(0.05, 0.03, 0.02), burn);
+	ROUGHNESS = 0.95;
+}
+"""
+		_banner_mat = ShaderMaterial.new()
+		_banner_mat.shader = sh
+	return _banner_mat

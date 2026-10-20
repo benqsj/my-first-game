@@ -14,6 +14,9 @@ extends Node3D
 
 ## The whirl's colour at its rim (its heart is near black).
 @export var tint: Color = Color(0.55, 0.22, 0.95)
+## What is on the other side, seen in the heart of the whirl (a dungeon's
+## portals: a picture of the place they lead to, the user's word 2026-10-20).
+@export var view: Texture2D
 ## The opening: its width and the height its arch springs from.
 @export var span: float = 3.0
 @export var spring: float = 3.4
@@ -37,6 +40,8 @@ uniform float span = 3.0;
 uniform float spring = 3.4;
 uniform float tall = 6.0;
 uniform float speed = 0.3;
+uniform sampler2D view_tex : source_color, filter_linear_mipmap;
+uniform float has_view = 0.0;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -78,6 +83,13 @@ void fragment() {
 	float glow = smoothstep(0.1, 1.0, r) * (0.5 + 0.5 * arms) * (0.55 + 0.9 * swirl);
 	vec3 deep = vec3(0.015, 0.0, 0.04);
 	vec3 col = mix(deep, rim.rgb * 1.7, clamp(glow, 0.0, 1.0));
+	// the place beyond, swimming in the heart of it
+	if (has_view > 0.5) {
+		vec2 vuv = UV + vec2(sin(a * 3.0 + TIME * 1.3), cos(a * 2.0 - TIME)) * 0.012 * r;
+		vec3 pic = texture(view_tex, vuv).rgb;
+		float show = (1.0 - smoothstep(0.35, 0.9, r)) * (0.85 + 0.1 * swirl);
+		col = mix(col, pic * 1.08, show);
+	}
 	// Stars far in: a few specks drawn inwards.
 	vec2 sp = vec2(a * 6.0, log(r + 0.05) * 6.0 + TIME * 1.2);
 	float star = step(0.985, hash(floor(sp * 3.0))) * smoothstep(0.7, 0.1, r);
@@ -235,6 +247,9 @@ func _build() -> void:
 	veil.set_shader_parameter("span", span)
 	veil.set_shader_parameter("spring", spring + 0.32)
 	veil.set_shader_parameter("tall", tall)
+	if view != null:
+		veil.set_shader_parameter("view_tex", view)
+		veil.set_shader_parameter("has_view", 1.0)
 	veil_mesh.material_override = veil
 	veil_mesh.position = Vector3(0.0, base + tall * 0.5, 0.0)
 	veil_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

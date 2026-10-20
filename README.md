@@ -11011,3 +11011,22 @@ has its own air (`_place_look`, after the day's): the palace's halls in a
 golden haze with volumetric fog, pale warm stone (Leyndell's colours), the
 gold only by day; the cave a deep blue with blue-grey rock flecked with
 starlight, blue and gold crystals, blue mist and fog (the underground cities').
+
+Round 10 (2026-10-20): four places more: the crypt (`_build_crypt`: a low
+vault on ribs, the dead in tomb niches, stone coffins down its sides, candles,
+chains, bones; cold grey air with volumetric fog), the swamp (`_build_swamp`:
+dark mud and moss, still green pools, dead and twisted trees, reeds, the
+graveyard kit's swamp grass, roots and stones, frogs), the stormy mountain
+path (`_build_mountain`: a shelf of rock 60 m up among snow-capped cliffs,
+pines, rain, lightning with its thunder through the sky shader's `flash`)
+and the castle's rampart (`_build_rampart`: battlements broken here and
+there, a tower at each end, fires still burning, arrows in the stones, torn
+banners). The graveyard kit (assets/necropoly) is loaded as [NecroPlaces]
+loads it (`_necro`, `_necro_put`). Each portal shows a picture of where it
+leads in the heart of its whirl (`PortalLook.view`; the pictures in
+`assets/dungeon/previews/`, made by `_shots_tmp/previews.gd`). The first hall
+has what an old fight left (shields, spears, bones, arrows), its banners are
+torn (`_torn_cloth`), and now and then stones and dust come down from its
+roof (`_falling_stones`). A blow on one of them is seen: a warm flash and
+sparks where it struck (`_on_foe_hurt`, on the creatures' `hurt` signal).
+New sounds (made in code): rain, frogs.

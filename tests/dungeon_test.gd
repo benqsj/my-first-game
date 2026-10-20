@@ -106,6 +106,7 @@ func _dungeon() -> void:
 			var n := d.choices.size()
 			_check("step %d: %s" % [r + 1, "one portal" if r == d.steps.size() - 1 else "two portals"],
 					n == (1 if r == d.steps.size() - 1 else 2), str(n))
+			_check("  each with a picture of where it goes", d.choices[0].view != null)
 			if n == 2:
 				var a := d.choices[0]
 				var b := d.choices[1]
