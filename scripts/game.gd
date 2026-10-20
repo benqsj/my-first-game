@@ -42,6 +42,9 @@ var story_pending: bool = false
 var peaceful: bool = false
 ## Which dungeon is being loaded ([Dungeon]), -1 for none.
 var dungeon_id: int = -1
+## A dungeon place to be put straight into on loading it, to look round
+## (F1's "Rooms", [ArenaPanel]): "" for the run as usual.
+var view_place: String = ""
 ## Which gate the hero comes back out by, -1 for the usual spawn.
 var portal_return: int = -1
 ## The dungeons closed (index -> true), and each hero's best level so far

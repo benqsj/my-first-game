@@ -70,9 +70,6 @@ const ORC_CHIEF := "res://scenes/enemies/pack/orc_chief.tscn"
 ## hero come up through the dungeon killed them far too easily): about twice
 ## the health, harder blows; the lord most of all.
 const ORC_TWO_SWORDS := {"hand_combo_chance": Vector2(0.3, 0.55), "max_health": 720.0, "hit_damage": 72.0}
-## Behind a tower shield (the user's word, 2026-10-21: a shield orc, go round it).
-const ORC_SHIELD := {"arm_right": "axe", "arm_left": "towershield", "arm_style": "normal", "hand_combo_chance": Vector2(0.1, 0.3),
-		"max_health": 680.0, "hit_damage": 70.0, "role": "shield"}
 const SHAMAN := {"role": "shaman"}
 const ELITE := {"role": "elite"}
 const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_combo_chance": Vector2(0.15, 0.4),
@@ -133,12 +130,22 @@ const RUN := {
 						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
 						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
 						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
-		# the shield orc and the long sword, taking turns
+		# one orc, with two swords (the user's word, 2026-10-21: the shield orc
+		# not liked; one, the two-sword one)
 		{"places": ["terrace", "forest", "sky", "cave", "rampart", "mountain"], "lv": 7, "xp": 3.5, "reach": 7,
-				"foes": {"*": [[ORC, 1, ORC_SHIELD], [ORC, 1, ORC_LONG_SWORD]]}},
+				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS]]}},
 		{"places": ["throne"], "lv": 8, "foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
 }
+## Each place, to look round it from F1 ([method view_place]): the step whose
+## light (day into night) it is seen in, and what it is called on the board.
+const VIEW := {
+	"hall": [0, "Hall"], "court": [1, "Court"], "cave": [1, "Cave"], "forest": [1, "Forest"],
+	"crypt": [1, "Crypt"], "swamp": [1, "Swamp"], "great_hall": [2, "Broken hall"], "sky": [2, "Sky island"],
+	"mountain": [2, "Storm path"], "spring": [2, "Holy spring"], "prison": [2, "Prisoners' room"],
+	"terrace": [3, "Terrace"], "rampart": [3, "Rampart"], "throne": [4, "Lord's court"],
+}
+
 ## The boss of each dungeon: the scene in its last place that has to fall.
 const BOSS := {0: ORC_CHIEF}
 ## What waits behind a portal (the user's word): its name and the portal's colour.
@@ -645,6 +652,19 @@ func _ready() -> void:
 	# everything the run will show drawn once there ([method _warm_up]).
 	_premake.call_deferred()
 	_warm_up.call_deferred()
+	if game != null and String(game.get(&"view_place")) != "":
+		var asked := String(game.get(&"view_place"))
+		game.set(&"view_place", "")
+		_view_after_warm_up.call_deferred(asked)
+
+
+## The place asked for from the open world's F1, once the loading is done.
+func _view_after_warm_up(place: String) -> void:
+	while get_tree().root.find_child("PipelineWarmup", true, false) != null:
+		await get_tree().process_frame
+	for k in 5:
+		await get_tree().process_frame
+	view_place(place)
 
 
 func _exit_tree() -> void:
@@ -1658,6 +1678,46 @@ func _on_hero_died(fallen: Player) -> void:
 			return
 	_say("დამარცხდი", BACK_OUT_AFTER)
 	_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
+
+
+## Straight into `place` to look round it (the user's word, 2026-10-21: to
+## see every room and say what to change; F1's "Rooms", [ArenaPanel]): built
+## in its light, him at its door, no portals; its creatures only if `with_foes`
+## (then they wake and fight as in the run).
+func view_place(place: String, with_foes: bool = false) -> void:
+	if not PLACES.has(place) or _going:
+		return
+	var step := int(VIEW.get(place, [1])[0])
+	for ch in choices:
+		ch.queue_free()
+	choices.clear()
+	if is_instance_valid(_exit):
+		_exit.queue_free()
+	_exit = null
+	_take_down(current)
+	cleared[step] = false
+	_arrive_at(step, place, "", false, "")
+	for gate in _ready_choices:
+		if is_instance_valid(gate):
+			gate.queue_free()
+	_ready_choices.clear()
+	if not with_foes:
+		for body: Variant in _room_foes[step]:
+			if is_instance_valid(body):
+				(body as Node).queue_free()
+		_room_foes[step] = []
+		_reserve.clear()
+		_alive.clear()
+		# nothing to wake, nothing to clear: no portals come
+		_woken = true
+		cleared[step] = true
+	_to_phase(float(step), 0.05)
+	var slot := 0
+	for hero in _heroes():
+		hero.global_position = entry_point(slot, step)
+		hero.velocity = Vector3.ZERO
+		slot += 1
+	_say(String(PLACES[place]["name"]), 3.0)
 
 
 ## Up again where he fell, with half his health (the blessing "მეორე სუნთქვა").

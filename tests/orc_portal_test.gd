@@ -2,7 +2,8 @@ extends SceneTree
 ## The orc palace's round 12 (claude/orc_portal_ideas.md, 2026-10-21):
 ## - blessings ([Boons]): three lights laid, one walked into and taken, what
 ##   each does on a blow (fire, frost, the third's knock), on him (iron, swift);
-## - roles ([FoeRoles]): the shield orc's front, the shaman's call, the elite;
+## - roles ([FoeRoles]): the shaman's call, the elite; one two-sword orc;
+## - every room to look round from F1 ([method Dungeon.view_place]);
 ## - goals ([RoomGoal]): the captain falls and the rest run; the totems ward
 ##   and hold the place till broken; holding out till the time is up;
 ## - the places of rest ([RestSpot]): the spring heals, the prisoner is freed;
@@ -124,21 +125,18 @@ func _roles() -> void:
 	_check("the shaman's call: its kin burn red", empowered)
 	_check("the shaman keeps back", shaman.size() == 1 and shaman[0].held_back)
 	await _go(3, "terrace")
-	var orc := _foes("shield")
-	_check("a shield orc before the lord", orc.size() == 1)
-	if orc.size() == 1:
-		var o := orc[0]
-		await _wait(20)
-		var ahead := -o.global_transform.basis.z
-		ahead.y = 0.0
-		hero.global_position = o.global_position + ahead.normalized() * 2.0
-		var hp := o.health
-		o.take_hit(50.0, o.global_position + Vector3.UP, -ahead, false, true, hero, false)
-		_check("a blow from in front rings off the shield", is_equal_approx(o.health, hp), "%.0f -> %.0f" % [hp, o.health])
-		hero.global_position = o.global_position - ahead.normalized() * 2.0
-		hp = o.health
-		o.take_hit(50.0, o.global_position + Vector3.UP, ahead, false, true, hero, false)
-		_check("from behind it bleeds", o.health < hp, "%.0f -> %.0f" % [hp, o.health])
+	var orcs := _foes("")
+	_check("one orc before the lord, with two swords", orcs.size() == 1 and FoeRoles.role_of(orcs[0]) == &"",
+			str(orcs.size()))
+	# every room to look round (F1's "Rooms")
+	for place: String in Dungeon.VIEW:
+		d.view_place(place)
+		await _wait(3)
+		var step := int(Dungeon.VIEW[place][0])
+		if String(d.rooms[step]["place"]) != place or not d._room_foes[step].is_empty() or not d.choices.is_empty():
+			_check("look round %s" % place, false)
+			return
+	_check("every room to look round, empty, no portals", true)
 
 
 func _goals() -> void:

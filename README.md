@@ -11136,3 +11136,13 @@ game — these first, done finely; every idea kept in claude/orc_portal_ideas.md
   its street from then on).
 - Tests: `tests/orc_portal_test.gd` (all of it); `dungeon_test` walks plain
   places. Medium: hall 11.5 ms (1 300 draws), great hall 11.3, the rest 9–12.
+
+Rooms to look round, and one orc (2026-10-21, the user's word: to see every
+room and say what to change; the shield orc not liked, one two-sword orc):
+F1's board has "Rooms (orc portal)": a button for each place of
+`Dungeon.VIEW` (and "With creatures"). In the dungeon it is
+[method Dungeon.view_place] (built in its own light, him at its door, no
+portals; empty unless with creatures); from the open world it loads the
+dungeon with [member Game.view_place] and goes there once the loading is
+done. Step 4 is now one orc with two swords (`ORC_TWO_SWORDS`); the shield
+orc's role ([FoeRoles] "shield") stays in the code, unused.

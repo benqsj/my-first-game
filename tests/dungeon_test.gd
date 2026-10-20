@@ -182,7 +182,11 @@ func _dungeon() -> void:
 				if body is PackBrute and not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R3_"):
 					if (body as PackBrute).held_back:
 						waiting += 1
-			_check("the orcs take turns", waiting == 1, str(waiting))
+			var orcs := 0
+			for body in creatures.get_children():
+				if body is PackBrute and not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R3_"):
+					orcs += 1
+			_check("one orc, with two swords", orcs == 1 and waiting == 0, "%d orcs, %d waiting" % [orcs, waiting])
 			_check("orcs show level 7", Leveling.level_of(creatures.get_node("D0_R3_0")) == 7)
 		if r == 4:
 			_check("comes to the lord at level 7", book.level == 7, str(book.level))
