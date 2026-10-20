@@ -92,6 +92,10 @@ void fragment() {
 """
 
 static var _sound_made: AudioStreamWAV
+## The beam's two shaders, made once and shared: made afresh at every level
+## each was compiled again as he went up (a stall at the level, 2026-10-20).
+static var _cone_shader: Shader
+static var _glow_shader: Shader
 
 var _age: float = 0.0
 var _tint: Color
@@ -133,8 +137,10 @@ func _build(tint: Color) -> void:
 		_body_y = _body.position.y
 		_body_turn = _body.rotation.y
 
-	var shader := Shader.new()
-	shader.code = CONE_SHADER
+	if _cone_shader == null:
+		_cone_shader = Shader.new()
+		_cone_shader.code = CONE_SHADER
+	var shader := _cone_shader
 	_cone = ShaderMaterial.new()
 	_cone.shader = shader
 	_cone.set_shader_parameter(&"tint", tint)
@@ -191,8 +197,10 @@ func _build(tint: Color) -> void:
 
 
 func _glow(colour: Color, rays: float) -> ShaderMaterial:
-	var shader := Shader.new()
-	shader.code = GLOW_SHADER
+	if _glow_shader == null:
+		_glow_shader = Shader.new()
+		_glow_shader.code = GLOW_SHADER
+	var shader := _glow_shader
 	var m := ShaderMaterial.new()
 	m.shader = shader
 	m.set_shader_parameter(&"tint", colour)

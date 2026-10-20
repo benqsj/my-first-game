@@ -163,10 +163,23 @@ func _process(delta: float) -> void:
 		_runes[i].modulate.a = 0.55 + 0.45 * sin(_t * 1.6 - float(i) * 0.5)
 
 
+## One shader per kind of code, made once for every portal: made afresh each
+## time, every portal that opened was compiled anew (2026-10-20).
+static var _shaders: Dictionary = {}
+
+
+static func _shared(code: String) -> Shader:
+	var key := code.hash()
+	if not _shaders.has(key):
+		var shader := Shader.new()
+		shader.code = code
+		_shaders[key] = shader
+	return _shaders[key]
+
+
 func _stone_mat() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
-	var shader := Shader.new()
-	shader.code = STONE_SHADER
+	var shader := _shared(STONE_SHADER)
 	mat.shader = shader
 	mat.set_shader_parameter("vein", tint)
 	return mat
@@ -240,8 +253,7 @@ func _build() -> void:
 	quad.size = Vector2(span, tall)
 	veil_mesh.mesh = quad
 	var veil := ShaderMaterial.new()
-	var veil_shader := Shader.new()
-	veil_shader.code = VEIL_SHADER
+	var veil_shader := _shared(VEIL_SHADER)
 	veil.shader = veil_shader
 	veil.set_shader_parameter("rim", tint)
 	veil.set_shader_parameter("span", span)
@@ -260,8 +272,7 @@ func _build() -> void:
 	hq.size = Vector2(span + 2.6, tall + 2.0)
 	haze.mesh = hq
 	var haze_mat := ShaderMaterial.new()
-	var haze_shader := Shader.new()
-	haze_shader.code = HAZE_SHADER
+	var haze_shader := _shared(HAZE_SHADER)
 	haze_mat.shader = haze_shader
 	haze.material_override = haze_mat
 	haze.position = Vector3(0.0, base + tall * 0.5, 0.12)

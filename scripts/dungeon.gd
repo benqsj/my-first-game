@@ -34,6 +34,12 @@ const BACK_OUT_AFTER := 3.0
 const STEP_GAP := 420.0
 ## Seconds the screen takes to go dark, and to come back.
 const FADE := 0.45
+## A frame quicker than this (ms) counts as settled ([method _settle]), and
+## the most frames the dark is held for that.
+const SETTLED_MS := 26.0
+const SETTLE_MAX := 50
+## Where [method _warm_up] puts the places up, out of the way of the run's.
+const WARM_AT := Vector3(0.0, 0.0, 4000.0)
 ## Seconds after he arrives that a place's creatures wake.
 const WAKE_AFTER := 1.2
 ## At most this many of a place's creatures are up at once (the user's word,
@@ -170,6 +176,21 @@ var _going: bool = false
 var _room_nodes: Array[Node3D] = []
 var _alive: Array[Node3D] = []
 var _spawned: int = 0
+## The run's creatures, read in once ([method _load_foes]).
+var _scenes: Dictionary = {}
+## Per step, the creatures made for it at the start ([method _premake]), in the
+## order its list has them.
+var _premade: Dictionary = {}
+## The portals out of the place he is in, made as he came, hidden till it is
+## cleared ([method _prepare_offer]); and the rift its next wave will come by.
+var _ready_choices: Array[PortalLook] = []
+var _rift_ready: PortalLook = null
+var _exit_ready: PortalLook = null
+var _sounds: Array[Resource] = []
+## Materials held so their shaders stay made ([method _keep_materials]).
+var _kept: Dictionary = {}
+## A usual frame here lately (ms), for [method _settle] to measure by.
+var _usual_ms: float = 16.0
 var _floor_shader: Shader
 var _ground_shader: Shader
 var _rock_mat: ShaderMaterial
@@ -544,6 +565,10 @@ void fragment() {
 
 
 func _ready() -> void:
+	# Every lamp put up in here keeps the shadow it was made with when the
+	# graphics setting is put on ([Graphics]).
+	get_tree().node_added.connect(_on_node_added)
+	add_to_group(&"dungeon")
 	var game := get_node_or_null("/root/Game")
 	if game != null and int(game.get(&"dungeon_id")) >= 0:
 		id = int(game.get(&"dungeon_id"))
@@ -553,6 +578,12 @@ func _ready() -> void:
 	cleared.resize(steps.size())
 	cleared.fill(false)
 	_rng.randomize()
+	if game != null and game.has_signal(&"graphics_changed"):
+		game.connect(&"graphics_changed", func(_level: Graphics.Level) -> void: _apply_phase(_phase))
+	# Every creature of the run read in now, behind the loading screen: the
+	# first puglin used to be read in as he stepped through (0.3 s).
+	_load_foes()
+	_load_sounds()
 	_materials()
 	_sky()
 	_sound_bus()
@@ -566,9 +597,15 @@ func _ready() -> void:
 	add_to_group(&"ground_scars")
 	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
 	Fighter.throw_gap = THROW_GAP
+	# The run's orcs and its lord made now, behind the loading screen, and
+	# everything the run will show drawn once there ([method _warm_up]).
+	_premake.call_deferred()
+	_warm_up.call_deferred()
 
 
 func _exit_tree() -> void:
+	if get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.disconnect(_on_node_added)
 	Fighter.throw_gap = 0.0
 	Sfx.bus = &"Master"
 	if _bus >= 0 and _bus < AudioServer.bus_count and AudioServer.get_bus_name(_bus) == &"Dungeon":
@@ -649,6 +686,7 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false) -> v
 		_spawn_room(i)
 	_ambience(i)
 	_drip_in = _rng.randf_range(2.0, 5.0)
+	_prepare_offer(i + 1)
 
 
 ## Place `i`'s creatures, standing in its far half, asleep (they see no one:
@@ -670,18 +708,28 @@ func _spawn_room(i: int) -> void:
 	var w: float = r["w"]
 	var l: float = r["l"]
 	var k := 0
+	# the ones made at the start for this step, if any ([method _premake])
+	var made: Array = _premade.get(i, [])
+	_premade.erase(i)
 	for entry: Array in r["foes"]:
-		var scene := load(String(entry[0])) as PackedScene
+		var scene := _foe_scene(String(entry[0]))
 		if scene == null:
 			continue
 		for n in int(entry[1]):
-			var body := scene.instantiate() as Node3D
-			body.name = "D%d_R%d_%d" % [id, i, k]
 			var across := (float(k % 4) - 1.5) * (w - 14.0) / 3.0
 			var row := floorf(float(k) / 4.0)
 			var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.3, -l * 0.08 - row * 3.0)
 			if String(entry[0]) == BOSS.get(id, ""):
 				at = c + Vector3(0.0, 0.3, -l * 0.2)
+			if not made.is_empty() and is_instance_valid(made[0]) \
+					and String((made[0] as Node).get_meta(&"scene", "")) == String(entry[0]):
+				var ready_made := made.pop_front() as Node3D
+				_take_up(ready_made, at, c, int(r["lv"]))
+				mine.append(ready_made)
+				k += 1
+				continue
+			var body := scene.instantiate() as Node3D
+			body.name = "D%d_R%d_%d" % [id, i, k]
 			body.position = at
 			body.rotation.y = 0.0
 			if entry.size() > 2:
@@ -705,6 +753,122 @@ func _spawn_room(i: int) -> void:
 			mine.append(body)
 			k += 1
 	waves = 2 if not _reserve.is_empty() else 1
+	# its rift made now too, out of sight and out of the way, if it has one
+	if is_instance_valid(_rift_ready):
+		_rift_ready.queue_free()
+	_rift_ready = null
+	if waves > 1:
+		_rift_ready = _make_rift(c, l)
+		_rift_ready.visible = false
+		_rift_ready.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+## Each of the run's creatures read in, so none is read in as he steps
+## through a portal.
+func _load_foes() -> void:
+	for step: Dictionary in steps:
+		var by: Dictionary = step["foes"]
+		for list: Array in by.values():
+			for entry: Array in list:
+				_foe_scene(String(entry[0]))
+
+
+## The dungeon's sounds read in now too, and held: the first thunder over the
+## rampart was read off the disk as it rolled (a 70 ms stall).
+func _load_sounds() -> void:
+	for file in ResourceLoader.list_directory(SND):
+		if file.get_extension() == "wav":
+			var stream := load(SND + file)
+			if stream != null:
+				_sounds.append(stream)
+	# and the dungeon's music, the lord's too: read in as his court came up,
+	# it was a stall just as the dark lifted there
+	var music := get_node_or_null("/root/Music")
+	if music != null and music.get_script() != null:
+		var tracks: Dictionary = (music.get_script() as Script).get_script_constant_map().get("TRACKS", {})
+		for key: StringName in [&"dungeon", &"dungeon_boss"]:
+			for path: String in tracks.get(key, []):
+				if ResourceLoader.exists(path):
+					_sounds.append(load(path))
+
+
+func _foe_scene(path: String) -> PackedScene:
+	if not _scenes.has(path):
+		_scenes[path] = load(path) as PackedScene if ResourceLoader.exists(path) else null
+	return _scenes[path]
+
+
+func _creatures_node() -> Node:
+	var level_root: Node = owner if owner != null else get_parent()
+	return level_root.get_node_or_null("Enemies") if level_root != null else null
+
+
+## The creatures of every step past the first that has the same ones wherever
+## its portal leads — the two orcs, the lord — made now, behind the loading
+## screen. Each takes 0.15–0.4 s to set itself up (its blows measured off its
+## clips), and made as he came through the portal that was the freeze the
+## user saw (2026-10-20). Out of sight under everything and not thinking till
+## their place comes ([method _take_up]).
+func _premake() -> void:
+	var holder := _creatures_node()
+	if holder == null:
+		return
+	for i in range(1, steps.size()):
+		var by: Dictionary = steps[i]["foes"]
+		if by.size() != 1 or not by.has("*"):
+			continue
+		var list: Array[Node3D] = []
+		var k := 0
+		for entry: Array in by["*"]:
+			var scene := _foe_scene(String(entry[0]))
+			if scene == null:
+				continue
+			for n in int(entry[1]):
+				var body := scene.instantiate() as Node3D
+				body.name = "D%d_R%d_%d" % [id, i, k]
+				var away := Vector3(float(i * 10 + k) * 4.0, -300.0, 0.0)
+				body.position = away
+				if entry.size() > 2:
+					var props: Dictionary = entry[2]
+					for key: String in props:
+						body.set(StringName(key), props[key])
+				body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
+				body.set("camp_centre", away)
+				if "leash_radius" in body:
+					body.set("leash_radius", 0.01)
+				body.set_meta(&"level", int(steps[i].get("lv", 1)))
+				body.set_meta(&"scene", String(entry[0]))
+				body.visible = false
+				body.process_mode = Node.PROCESS_MODE_DISABLED
+				holder.add_child(body)
+				list.append(body)
+				k += 1
+		_premade[i] = list
+
+
+## One made at the start, put where its place wants it (asleep, like the rest).
+func _take_up(body: Node3D, at: Vector3, c: Vector3, lv: int) -> void:
+	body.global_position = at
+	body.rotation.y = 0.0
+	if "velocity" in body:
+		body.set("velocity", Vector3.ZERO)
+	if "_home" in body:
+		body.set("_home", at)
+	body.set("camp_centre", Vector3(c.x, c.y, c.z))
+	body.set_meta(&"level", lv)
+	if body.has_method(&"_pick_target"):
+		body.call(&"_pick_target")
+	if body.has_signal(&"hurt"):
+		body.connect(&"hurt", _on_foe_hurt.bind(body))
+	body.visible = true
+	body.process_mode = Node.PROCESS_MODE_INHERIT
+
+
+## A lamp put up in here remembers whether it was made with a shadow, so the
+## graphics setting does not give every candle one ([Graphics]).
+func _on_node_added(node: Node) -> void:
+	if node is Light3D and not node.has_meta(&"designed_shadow"):
+		node.set_meta(&"designed_shadow", (node as Light3D).shadow_enabled)
 
 
 ## The rift the next wave comes out of: in the far half of the place, a
@@ -712,12 +876,13 @@ func _spawn_room(i: int) -> void:
 func _open_rift() -> void:
 	var c := centre(current)
 	var l: float = _room(current)["l"]
-	_rift = PortalLook.new()
-	_rift.name = "Rift"
-	_rift.tint = Color(0.85, 0.12, 0.2)
-	_rift.position = c + Vector3(_rng.randf_range(-6.0, 6.0), 0.0, -l * 0.22)
-	_rift.scale = Vector3(0.02, 0.02, 0.02)
-	add_child(_rift)
+	if is_instance_valid(_rift_ready):
+		_rift = _rift_ready
+		_rift_ready = null
+		_rift.visible = true
+		_rift.process_mode = Node.PROCESS_MODE_INHERIT
+	else:
+		_rift = _make_rift(c, l)
 	_rift_out = false
 	# it opens slowly: out of a point of light, growing, the air drawn into it
 	var grow := create_tween()
@@ -732,6 +897,16 @@ func _open_rift() -> void:
 	_rift_at = Time.get_ticks_msec() / 1000.0 + RIFT_TIME
 	Sfx.play(self, SND + "portal_open.wav", null, _rift.position + Vector3.UP * 2.0, 0.8, 4.0)
 	_say("ტალღა %d / %d" % [wave + 1, waves], 2.5)
+
+
+func _make_rift(c: Vector3, l: float) -> PortalLook:
+	var rift := PortalLook.new()
+	rift.name = "Rift"
+	rift.tint = Color(0.85, 0.12, 0.2)
+	rift.position = c + Vector3(_rng.randf_range(-6.0, 6.0), 0.0, -l * 0.22)
+	rift.scale = Vector3(0.02, 0.02, 0.02)
+	add_child(rift)
+	return rift
 
 
 ## The rest of them out of the rift, one after another, at him; the rift
@@ -884,6 +1059,48 @@ func _give(what: String) -> void:
 ## The portals out of the place just cleared, to step `next`: two, each to a
 ## place of its own with a reward of its own (one, to the lord).
 func _offer(next: int) -> void:
+	var made := _ready_choices
+	_ready_choices = []
+	var gates: Array[PortalLook] = []
+	for gate in made:
+		if is_instance_valid(gate):
+			gates.append(gate)
+	if gates.is_empty():
+		gates = _make_choices(next)
+	for gate in gates:
+		gate.visible = true
+		gate.process_mode = Node.PROCESS_MODE_INHERIT
+		choices.append(gate)
+		Sfx.play(self, SND + "portal_open.wav", null, gate.position + Vector3.UP * 2.0, 1.0, 2.0)
+	_say("აირჩიე გზა" if gates.size() > 1 else "გზა ბოსისკენ", 3.0)
+
+
+## The portals out of the place just come to, made as he comes (behind the
+## dark) and kept out of sight and out of the way till it is cleared: made as
+## the last creature fell, two portals were a stall at that moment.
+func _prepare_offer(next: int) -> void:
+	for gate in _ready_choices:
+		if is_instance_valid(gate):
+			gate.queue_free()
+	_ready_choices = []
+	if next >= steps.size():
+		# the last place: its way out instead
+		if not is_instance_valid(_exit_ready):
+			_exit_ready = _make_exit()
+			_exit_ready.visible = false
+			_exit_ready.process_mode = Node.PROCESS_MODE_DISABLED
+		return
+	_ready_choices = _make_choices(next)
+	for gate in _ready_choices:
+		gate.visible = false
+		# out of the physics as well: its stones do not stand in his way
+		gate.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+## Two portals to step `next` (one, to the lord), each to a place of its own
+## with a reward of its own, at the far end of the place he is in.
+func _make_choices(next: int) -> Array[PortalLook]:
+	var out: Array[PortalLook] = []
 	var pool: Array = (steps[next]["places"] as Array).duplicate()
 	var here := String(_room(current)["place"])
 	if pool.size() > 2:
@@ -930,9 +1147,10 @@ func _offer(next: int) -> void:
 		what.no_depth_test = true
 		what.position = Vector3(0.0, 8.5, 0.0)
 		gate.add_child(what)
-		choices.append(gate)
-		Sfx.play(self, SND + "portal_open.wav", null, gate.position + Vector3.UP * 2.0, 1.0, 2.0)
-	_say("აირჩიე გზა" if take > 1 else "გზა ბოსისკენ", 3.0)
+		out.append(gate)
+	return out
+
+
 
 
 ## Through portal `k`: the screen goes dark, the next place is built behind
@@ -960,13 +1178,278 @@ func take(k: int) -> void:
 		hero.velocity = Vector3.ZERO
 		slot += 1
 	_to_phase(float(next), 0.05)
-	# a few frames behind the dark: the new place drawn once, its shaders made
-	for f in 6:
-		await get_tree().process_frame
+	# behind the dark till the new place draws smoothly: whatever it shows
+	# for the first time made now, not in front of him
+	await _settle()
 	var back := create_tween()
 	back.tween_property(_fade, "color:a", 0.0, FADE)
 	_wake_at = Time.get_ticks_msec() / 1000.0 + WAKE_AFTER
 	_going = false
+
+
+## Frames go by till three in a row come quickly ([constant SETTLED_MS]),
+## at least four, at most [constant SETTLE_MAX] (a slow machine is not held
+## in the dark for ever).
+func _settle() -> void:
+	var quick := 0
+	var limit := maxf(SETTLED_MS, _usual_ms * 1.5)
+	var last := Time.get_ticks_usec()
+	for f in SETTLE_MAX:
+		await get_tree().process_frame
+		var now := Time.get_ticks_usec()
+		quick = quick + 1 if float(now - last) / 1000.0 < limit else 0
+		last = now
+		if f >= 3 and quick >= 3:
+			return
+
+
+## Everything the run will show, shown to the renderer once behind the
+## loading screen ([SceneLoader] waits while a node called PipelineWarmup is
+## there, as for the open world's [PipelineWarmup]): every other place put up
+## out of the way and looked at from three sides, one of each creature, the
+## lord and his orcs, the portals, the shards of the dead, the sparks, the
+## heroes' own skills. Godot makes what it draws the first time it draws it,
+## and made in front of him each of those was a stall (the user's word,
+## 2026-10-20: it sticks going through a portal).
+func _warm_up() -> void:
+	if DisplayServer.get_name() == "headless" or not is_inside_tree():
+		return
+	var started := Time.get_ticks_msec()
+	var level_root: Node = owner if owner != null else get_parent()
+	var mark := Node.new()
+	mark.name = "PipelineWarmup"
+	level_root.add_child(mark)
+	var was_going := _going
+	_going = true
+	if _bus >= 0 and _bus < AudioServer.bus_count:
+		AudioServer.set_bus_mute(_bus, true)
+	var dark := _fade.color.a if _fade != null else 0.0
+	if _fade != null:
+		_fade.color.a = 1.0
+	var eye := Camera3D.new()
+	eye.fov = 95.0
+	eye.far = 520.0
+	add_child(eye)
+	var keep := {"current": current, "creaks": _creaks.duplicate(), "birds": _birds.duplicate(),
+			"sea": _cloud_sea, "layers": _cloud_layer_mats.duplicate()}
+	var here := String(_room(current).get("place", ""))
+	var n := 0
+	for place: String in PLACES:
+		if place == here:
+			continue
+		var p: Dictionary = PLACES[place]
+		var i := rooms.size()
+		var r := {"place": place, "kind": p["kind"], "w": p["w"], "l": p["l"], "h": p["h"], "name": p["name"],
+				"foes": [], "lv": 1, "xp": 0.0, "reach": 0, "reward": ""}
+		if p.has("hole"):
+			r["hole"] = true
+		rooms.append(r)
+		centres.append(WARM_AT + Vector3(0.0, float(p.get("lift", 0.0)), float(n) * 300.0))
+		_build_room(i)
+		current = i
+		_place_look(0.0)
+		var c := centre(i)
+		var l: float = r["l"]
+		var h := maxf(float(r["h"]), 8.0)
+		for pose: Array in [[Vector3(0.0, 2.5, l * 0.5 - 3.0), Vector3(0.0, 2.0, 0.0)],
+				[Vector3(0.0, h + 14.0, -l * 0.35), Vector3(0.0, 0.0, l * 0.1)]]:
+			eye.make_current()
+			eye.global_position = c + (pose[0] as Vector3)
+			eye.look_at(c + (pose[1] as Vector3))
+			await get_tree().process_frame
+			await get_tree().process_frame
+		if i < _room_nodes.size() and is_instance_valid(_room_nodes[i]):
+			_room_nodes[i].free()
+		_room_nodes.resize(i)
+		var cols: Array[Dictionary] = []
+		for col in _columns:
+			if int(col["room"]) != i:
+				cols.append(col)
+		_columns = cols
+		rooms.resize(i)
+		centres.resize(i)
+		n += 1
+	current = int(keep["current"])
+	_creaks.assign(keep["creaks"])
+	_birds.assign(keep["birds"])
+	_cloud_sea = keep["sea"]
+	_cloud_layer_mats.assign(keep["layers"])
+	_apply_phase(_phase)
+
+	# The creatures, the portals, the fights' own: in a row before the eye.
+	var stage := Node3D.new()
+	stage.name = "WarmStage"
+	add_child(stage)
+	stage.global_position = WARM_AT + Vector3(0.0, 0.0, -400.0)
+	eye.make_current()
+	eye.global_position = stage.global_position + Vector3(0.0, 3.0, 9.0)
+	eye.look_at(stage.global_position + Vector3(0.0, 1.5, 0.0))
+	var shown: Array[Node3D] = []
+	var x := -6.0
+	var made_paths := {}
+	for list: Array in _premade.values():
+		for body: Variant in list:
+			if is_instance_valid(body):
+				made_paths[String((body as Node).get_meta(&"scene", ""))] = true
+	for path: String in _scenes:
+		var scene: PackedScene = _scenes[path]
+		if scene == null or made_paths.has(path):
+			continue
+		var body := scene.instantiate() as Node3D
+		if "leash_radius" in body:
+			body.set("leash_radius", 0.01)
+		body.process_mode = Node.PROCESS_MODE_DISABLED
+		body.position = Vector3(x, 0.0, 0.0)
+		stage.add_child(body)
+		shown.append(body)
+		x += 3.0
+	var lent: Array[Node3D] = []
+	for list: Array in _premade.values():
+		for body: Variant in list:
+			if is_instance_valid(body):
+				var b := body as Node3D
+				b.global_position = stage.global_position + Vector3(x, 0.0, -2.0)
+				b.visible = true
+				lent.append(b)
+				x += 3.5
+	for k in 2:
+		var gate := PortalLook.new()
+		gate.tint = REWARDS["blade"]["tint"] if k == 0 else Color(0.85, 0.12, 0.2)
+		var view := PREVIEWS % "cave"
+		if k == 0 and ResourceLoader.exists(view):
+			gate.view = load(view) as Texture2D
+		gate.position = Vector3(-4.0 + float(k) * 8.0, 0.0, -6.0)
+		stage.add_child(gate)
+	# the letters the portals and the banner write with, at their sizes: each
+	# new letter was drawn into the font's cache as the portals opened
+	var letters := "0123456789/:. "
+	for code in range(0x10D0, 0x10F1):
+		letters += String.chr(code)
+	for sizes: Vector2i in [Vector2i(72, 14), Vector2i(56, 12)]:
+		var words := Label3D.new()
+		words.text = letters
+		words.font_size = sizes.x
+		words.outline_size = sizes.y
+		words.pixel_size = 0.004
+		words.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		words.no_depth_test = true
+		words.position = Vector3(0.0, 4.0 + float(sizes.x) * 0.01, 2.0)
+		stage.add_child(words)
+	if _banner != null:
+		_banner.text = letters
+		_banner.show()
+		_banner_until = 0.0
+	var props := MudBall.warm_props()
+	stage.add_child(props)
+	props.position = Vector3(0.0, 1.5, 5.0)
+	var ember := MeshInstance3D.new()
+	ember.mesh = MudBall.lump_mesh()
+	ember.material_override = MudBall.coal()
+	ember.position = Vector3(0.6, 0.0, 0.0)
+	props.add_child(ember)
+	RogueSkills.warm(props)
+	MageSkills.warm(props)
+	DarkSkills.warm(props)
+	ScreenMud.prepare(get_tree())
+	ScreenMud.splat(get_tree(), 1.0)
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, stage.global_position + Vector3(0.0, 2.0, 3.0), Color(1.0, 0.8, 0.4), 14,
+				Vector2(2.0, 5.0), Vector3.UP, 180.0, Vector2(0.03, 0.07), Vector3(0, -6.0, 0), 0.35)
+	# the light he goes up in at a new level (its sound kept quiet)
+	var lifted := Node3D.new()
+	stage.add_child(lifted)
+	lifted.position = Vector3(3.0, 0.0, 2.0)
+	var beam := LevelBeam.on(lifted)
+	if beam != null:
+		for node in beam.find_children("*", "AudioStreamPlayer3D", true, false):
+			(node as AudioStreamPlayer3D).stop()
+	# the cave's bats, gone round as a flock
+	_bat_flock(stage.global_position + Vector3(0.0, 3.0, 0.0))
+	# one of them broken as the dead are: lit, then in shards
+	var breaking: DeathShatter = null
+	if not shown.is_empty():
+		breaking = DeathShatter.start(self, shown[0])
+	for f in 40:
+		eye.make_current()
+		await get_tree().process_frame
+		if f % 3 == 1:
+			_keep_materials(level_root)
+		if f >= 6 and (breaking == null or not is_instance_valid(breaking)):
+			break
+	# What each of those was drawn with, held for as long as the dungeon is
+	# up. Godot makes a material's shader for each kind of material and lets
+	# it go when the last one of that kind is gone: the shards of the dead, the
+	# bats, the sparks were each made afresh every time they came round again
+	# (a death cost 40–100 ms; the bats near a second).
+	_keep_materials(level_root)
+	ScreenMud.clear(get_tree())
+	for b in lent:
+		if is_instance_valid(b):
+			b.visible = false
+			b.global_position = Vector3(b.global_position.x, -300.0, 0.0)
+	# out of sight, and gone once what the skills and the sparks left timed
+	# on it has run out
+	# (the one in shards goes with the stage: its shards still hold it)
+	for body in shown.slice(1):
+		if is_instance_valid(body):
+			body.queue_free()
+	stage.visible = false
+	get_tree().create_timer(6.0).timeout.connect(stage.queue_free)
+
+	# the view back to the hero's own eye
+	var hers := _hero_eye()
+	eye.queue_free()
+	if hers != null:
+		hers.make_current()
+	if _fade != null:
+		_fade.color.a = dark
+	if _bus >= 0 and _bus < AudioServer.bus_count:
+		AudioServer.set_bus_mute(_bus, false)
+	_going = was_going
+	mark.queue_free()
+	# the dungeon's name, now that it can be seen
+	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
+	print("Dungeon: warm-up %d ms" % (Time.get_ticks_msec() - started))
+
+
+func _keep_materials(under: Node) -> void:
+	for node in under.find_children("*", "GeometryInstance3D", true, false):
+		var g := node as GeometryInstance3D
+		_keep(g.material_override)
+		_keep(g.material_overlay)
+		var meshes: Array[Mesh] = []
+		if g is MeshInstance3D:
+			var mi := g as MeshInstance3D
+			meshes.append(mi.mesh)
+			for k in mi.get_surface_override_material_count():
+				_keep(mi.get_surface_override_material(k))
+		elif g is GPUParticles3D:
+			var gp := g as GPUParticles3D
+			_keep(gp.process_material)
+			for k in gp.draw_passes:
+				meshes.append(gp.get_draw_pass_mesh(k))
+		for mesh in meshes:
+			if mesh == null:
+				continue
+			for k in mesh.get_surface_count():
+				_keep(mesh.surface_get_material(k))
+			if mesh is PrimitiveMesh:
+				_keep((mesh as PrimitiveMesh).material)
+
+
+func _keep(m: Material) -> void:
+	if m == null or not (m is BaseMaterial3D or m is ParticleProcessMaterial):
+		return
+	_kept[m.get_instance_id()] = m
+
+
+## The camera the hero is seen through.
+func _hero_eye() -> Camera3D:
+	for hero in _heroes():
+		if hero.is_multiplayer_authority() and hero.camera != null:
+			return hero.camera
+	return null
 
 
 ## The place left behind, and what is left of its creatures, taken down.
@@ -1006,14 +1489,25 @@ func _close() -> void:
 		if book != null:
 			book.raise_to(top)
 	_say("%s დაიხურა!" % String(Portals.DEFS[id]["name"]), 4.0)
-	# The way out, on the dais at the far end.
-	var last := current
-	_exit = PortalLook.new()
-	_exit.name = "WayOut"
-	_exit.tint = Portals.DEFS[id]["tint"]
-	_exit.position = centre(last) + Vector3(0.0, 0.0, -float(_room(last)["l"]) * 0.5 + 15.0)
-	add_child(_exit)
+	# The way out, on the dais at the far end (made as he came in, hidden).
+	if is_instance_valid(_exit_ready):
+		_exit = _exit_ready
+		_exit_ready = null
+		_exit.visible = true
+		_exit.process_mode = Node.PROCESS_MODE_INHERIT
+	else:
+		_exit = _make_exit()
 	closed.emit()
+
+
+func _make_exit() -> PortalLook:
+	var last := current
+	var gate := PortalLook.new()
+	gate.name = "WayOut"
+	gate.tint = Portals.DEFS[id]["tint"]
+	gate.position = centre(last) + Vector3(0.0, 0.0, -float(_room(last)["l"]) * 0.5 + 15.0)
+	add_child(gate)
+	return gate
 
 
 func _watch_deaths(heroes: Array[Player]) -> void:
@@ -1064,6 +1558,8 @@ func _heroes() -> Array[Player]:
 
 func _process(delta: float) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
+	if not _going:
+		_usual_ms = lerpf(_usual_ms, minf(delta * 1000.0, 100.0), 0.05)
 	if _banner != null and _banner.visible and now > _banner_until:
 		_banner.hide()
 	var heroes := _heroes()
@@ -1529,6 +2025,13 @@ func _place_look(night: float = 0.0) -> void:
 			_env.volumetric_fog_emission = Color(0.01, 0.015, 0.04)
 			_env.volumetric_fog_length = 60.0
 			_env.volumetric_fog_ambient_inject = 0.2
+	# Low has neither (the graphics setting's word, [Graphics]): the plain fog
+	# a little thicker in the volumetric's place.
+	if Graphics.current == Graphics.Level.LOW:
+		_env.glow_enabled = false
+		if _env.volumetric_fog_enabled:
+			_env.volumetric_fog_enabled = false
+			_env.fog_density *= 1.6
 
 
 func _build_room(i: int) -> void:

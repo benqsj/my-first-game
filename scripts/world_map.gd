@@ -223,6 +223,11 @@ func _photograph() -> void:
 			_givers.append(node)
 	if DisplayServer.get_name() == "headless":
 		return
+	# Not in a dungeon: there is no map of it to take, and each try — all of
+	# it drawn at once, from above, eight times over the first half minute —
+	# was a stall in the first fight (2026-10-20).
+	if not get_tree().get_nodes_in_group(&"dungeon").is_empty():
+		return
 	# Not on the first frame: on a machine meeting the level for the first time
 	# the renderer is still compiling its shaders, and anything whose shader is
 	# not ready yet is simply not drawn — the photograph comes out as nothing

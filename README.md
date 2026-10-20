@@ -11030,3 +11030,41 @@ torn (`_torn_cloth`), and now and then stones and dust come down from its
 roof (`_falling_stones`). A blow on one of them is seen: a warm flash and
 sparks where it struck (`_on_foe_hurt`, on the creatures' `hurt` signal).
 New sounds (made in code): rain, frogs.
+
+Dungeon performance (2026-10-20, the user's word: it sticks going through a
+portal, and Medium drops frames). Measured on the M1 at 1600×900 with
+`_shots_tmp/dperf.gd` (each place's frame), `dflow.gd` (the run as played,
+frames split into seen and behind the dark) and `dspike.gd` (single events
+repeated). What it was, and what was done:
+- The first hall cost 16.6 ms a frame on Medium (2 680 draws): [Graphics]
+  gave every light in the scene a shadow when the setting was put on, and
+  the hall's braziers and candles each redrew it all again. A light now
+  keeps the shadow it was made with when it says so (meta `designed_shadow`,
+  which the dungeon sets on every light put up in it): 10 ms, 770 draws.
+  Every place is now 8.5–11.5 ms on Medium.
+- Going through a portal froze the game 0.2–0.5 s and then stuttered: the
+  orcs and the lord set themselves up as they were made (0.15 / 0.4 s:
+  their blows measured off their clips), the puglins and goblins were read
+  off the disk the first time, and everything new was compiled as it was
+  first seen. Now every creature of the run is read in at the start, the
+  orcs and the lord are made then (`_premake`, hidden under everything, not
+  thinking, `_take_up` when their place comes), the portals out of a place
+  and its rift are made as he comes in, behind the dark, hidden and out of
+  the physics (`_prepare_offer`, `_rift_ready`, `_exit_ready`), and the
+  dark is held till frames come quickly again (`_settle`). The dark lasts
+  ~0.55 s in all; no frame he sees there is slow.
+- Behind the loading screen (a node named PipelineWarmup keeps
+  [SceneLoader] up, as in the open world) every other place is put up out
+  of the way and looked at, one of each creature, the lord and his orcs,
+  the portals, the letters, the dead breaking, the level's light, the bats,
+  the heroes' skills (`_warm_up`, ~2.5 s); what they were drawn with is held
+  for as long as the dungeon is up (`_keep_materials`): Godot lets a kind of
+  material's shader go when the last one is gone, so the shards of every
+  death, the bats (near a second, for their turbulence) and the sparks were
+  compiled afresh each time they came round.
+- The dungeon's sounds and music are read in at the start (`_load_sounds`):
+  the first thunder and the lord's drums were read off the disk as they
+  played. [LevelBeam] and [PortalLook] share their shaders instead of
+  making new ones for every level and every portal. [WorldMap] takes no
+  photograph in a dungeon (it tried eight times in the first half minute,
+  each a stall). Volumetric fog: off on Low, a 48-cell grid on Medium.

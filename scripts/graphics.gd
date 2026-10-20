@@ -46,6 +46,10 @@ const REACH := {Level.LOW: 130.0, Level.MEDIUM: 180.0, Level.HIGH: 240.0}
 ## 1600×900 window every figure in README was measured in, and is drawn
 ## smaller and brought up with FSR rather than at five times the cost.
 const PIXEL_BUDGET := {Level.LOW: 1.0e6, Level.MEDIUM: 1.6e6, Level.HIGH: 2.4e6}
+## The grid the volumetric fog is worked out on, per setting (Godot's own is
+## 64 × 64; it is off altogether on Low).
+const VFOG_SIZE := {Level.LOW: 32, Level.MEDIUM: 48, Level.HIGH: 64}
+const VFOG_DEPTH := {Level.LOW: 32, Level.MEDIUM: 48, Level.HIGH: 64}
 ## The sun's shadow filter per setting (the project's own is SOFT_MEDIUM): one
 ## step softer on High and two on Medium, ~1.5 ms over the wood and the hamlet
 ## for an edge that is hard to tell apart in play.
@@ -150,7 +154,13 @@ static func _apply_lights(scene: Node, level: Level) -> void:
 	RenderingServer.directional_shadow_atlas_set_size(2048 if level == Level.MEDIUM else 4096, true)
 	for node in scene.find_children("*", "Light3D", true, false):
 		var light := node as Light3D
-		light.shadow_enabled = level != Level.LOW
+		# A light that says how it was made (meta `designed_shadow`) keeps a
+		# shadow only if it was made with one: the dungeon's braziers and
+		# candles were given one here when the setting was put on, and each
+		# such lamp redraws everything in its reach six times over — the first
+		# hall's 2 700 draws a frame (2026-10-20).
+		var designed := bool(light.get_meta(&"designed_shadow", true))
+		light.shadow_enabled = level != Level.LOW and designed
 		var sun := light as DirectionalLight3D
 		if sun == null:
 			continue
@@ -180,6 +190,11 @@ static func _apply_environment(scene: Node, level: Level) -> void:
 		# On every setting now: past the setting's reach nothing is drawn, and
 		# the fog is what keeps that edge from being seen.
 		env.fog_enabled = true
+		# The air you can see light in (the dungeon's halls and caves): not on Low.
+		if level == Level.LOW:
+			env.volumetric_fog_enabled = false
+	# and on Medium drawn on a coarser grid, ~half the cells of High's
+	RenderingServer.environment_set_volumetric_fog_volume_size(VFOG_SIZE[level], VFOG_DEPTH[level])
 
 
 ## The grass is most of the cost of the world, and it already has the three
