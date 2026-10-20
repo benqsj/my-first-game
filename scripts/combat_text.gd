@@ -133,6 +133,8 @@ func _tag(creature: Node3D, wanted: bool, mine: int) -> void:
 		var kind := Leveling.kind_of(creature)
 		# a creature with a name of its own (an Orc Lord) is called by it
 		var own: Variant = creature.get(&"title")
+		if (own == null or own == "") and creature.has_meta(&"title"):
+			own = creature.get_meta(&"title")
 		var called: String = own if own is String and own != "" else NAMES.get(kind, String(kind).capitalize())
 		tag.text = "Lv %d  %s" % [level, called]
 		creature.add_child(tag)

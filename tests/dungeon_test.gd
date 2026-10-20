@@ -113,7 +113,9 @@ func _dungeon() -> void:
 				_check("  to two places, for two rewards",
 						a.get_meta(&"place") != b.get_meta(&"place") and a.get_meta(&"reward") != b.get_meta(&"reward"),
 						"%s/%s %s/%s" % [a.get_meta(&"place"), a.get_meta(&"reward"), b.get_meta(&"place"), b.get_meta(&"reward")])
-			# Walk into the first of them.
+			# Walk into the first of them (a plain place: the goals have
+			# their own test, orc_portal_test.gd).
+			d.choices[0].set_meta(&"goal", "")
 			hero.global_position = d.choices[0].global_position + Vector3(0.0, 0.3, 0.4)
 			for f in 200:
 				await physics_frame

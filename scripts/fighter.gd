@@ -167,6 +167,14 @@ var is_dead: bool = false:
 ## of them at him at once): it stays back, out of reach, and only throws if it
 ## can. Host only.
 var held_back: bool = false
+## A shield before it ([FoeRoles] "shield"): a blow from within this cosine of
+## its facing rings off the shield while it is not swinging or reeling; 0 for
+## none. Every fourth in a row knocks the shield aside and it reels.
+var front_guard: float = 0.0
+## What share of each blow and burn reaches it ([RoomGoal] "totems": warded
+## while the totems stand).
+var ward: float = 1.0
+var _rung: int = 0
 ## Where it waits while held back: round him at this bearing and distance
 ## (set with `held_back`; radius 0: its own choice).
 var held_angle: float = 0.0
@@ -750,7 +758,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
-	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from), 0.0)
+	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from) * ward, 0.0)
 	hurt.emit(health)
 	if health <= 0.0:
 		_die()
@@ -830,6 +838,17 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 	# Out of the way: the dash's first moments are a clean miss.
 	if act == Act.DASH and _act_time < dash_iframes:
 		return false
+	# Rung off a shield held before it, when it is not swinging.
+	if front_guard > 0.0 and from != null and not magic and (act == Act.NONE or act == Act.BLOCK):
+		var to_them := from.global_position - global_position
+		to_them.y = 0.0
+		if to_them.length_squared() > 0.0001 and _forward().dot(to_them.normalized()) > front_guard:
+			_rung += 1
+			net_clash.rpc(at)
+			if _rung >= 4:
+				_rung = 0
+				react(&"knock", from, -to_them.normalized() * 2.5)
+			return false
 	# Caught on the guard, if the guard faces the blow.
 	if act == Act.BLOCK and from != null:
 		var to_them := from.global_position - global_position
@@ -851,8 +870,8 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 		# bites deeper.
 		damage *= Recoil.RIPOSTE
 	damage = Defence.against(damage, p_def, m_def, magic)
-	# Marked by the hunter, everything bites deeper.
-	damage *= Afflictions.factor(self, from)
+	# Marked by the hunter, everything bites deeper; warded, less.
+	damage *= Afflictions.factor(self, from) * ward
 	health = maxf(health - damage, 0.0)
 	stamina = maxf(stamina - hit_cost, 0.0)
 	_regen_wait = regen_delay

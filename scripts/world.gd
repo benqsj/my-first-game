@@ -462,6 +462,24 @@ func _peaceful_world() -> void:
 		game.set(&"portal_return", -1)
 	# His level outside the dungeons, given back once he stands in the world.
 	call_deferred(&"_give_back_levels", game)
+	_freed_in_village(game)
+
+
+## The prisoners he freed in the dungeons ([method Game.free_prisoner]), each
+## living in the village now, walking its street (the user's word,
+## 2026-10-21: the one he frees comes to live there).
+func _freed_in_village(game: Node) -> void:
+	var freed: Array = game.get(&"freed") if game.get(&"freed") != null else []
+	for k in freed.size():
+		var man := Villager.new()
+		man.name = "Freed%d" % k
+		man.variant = 3 + k
+		var walk: Array[Vector3] = []
+		for n in 3:
+			walk.append(spread(STREET[(k * 3 + n) % STREET.size()]))
+		man.spots = walk
+		man.position = walk[0]
+		add_child(man)
 
 
 func _give_back_levels(game: Node) -> void:

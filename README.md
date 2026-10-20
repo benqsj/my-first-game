@@ -11090,3 +11090,49 @@ a cold dimmed sun, thick fog (0.013, volumetric 0.01) so the wood stands black
 against it, the sky shut in, saturation 0.72. Its sound: the wind in bare
 boughs, an owl at any hour, no birds. Medium: forest 11.3 ms, hall 11.0 ms.
 The portals' pictures of the palace places and the forest were made again.
+
+The orc palace, round 12 (2026-10-21, the user's word: what makes it a good
+game — these first, done finely; every idea kept in claude/orc_portal_ideas.md):
+- **For good.** [Game] keeps what he wears (`worn`), the dungeons closed, his
+  best level and the prisoners freed in `user://settings.cfg` (not under the
+  tests, and a save never wipes what it does not write). The lord always leaves
+  his black blade in the kind the hero's class holds (`Dungeon.LORD_GIFT`,
+  [method Inventory.special_arm], [LootDrop] meta `gift`): "The Orc Lord's
+  Long Sword" for Tariel.
+- **The orcs' palace** ([OrcSpoils], `scripts/orc_spoils.gd`, from
+  `_build_room`): their banners (a blood-red hide, three white claws, torn,
+  stirring) on the columns and by the gate, tents of sewn hides with a skull
+  on a stake, a boar turning on a spit over a fire, a campfire with a pot,
+  cages with the dead (one hung from the roof), gibbets out over the drop on
+  the terrace, barricades of stakes, racks of axes and spears, the palace's
+  goods heaped as loot (town kit's barrels and crates), heaps of bones, old
+  blood (decals), stakes with skulls up the lord's court. Skulls have eyes.
+- **Blessings** ([Boons], `scripts/boons.gd`): "კურთხევა" behind one portal
+  most times; clearing that place lays three lights (name and what it does
+  over each); he walks into one. Twelve: fire on a blow, frost, sparks on a
+  dodge, every third blow knocks back, lightning to two more, heal on a kill,
+  a burst when one dies, a share of each blow back as life, fury low on
+  health ([member Player.dealt_scale]), iron skin ([member Player.taken_scale]),
+  swift feet, a second breath once. Listed on the screen's left.
+- **Roles** ([FoeRoles], `scripts/foe_roles.gd`, "role" in a creature's
+  props): the shield orc (tower shield; [member Fighter.front_guard] — a blow
+  from in front rings off while it is not swinging, the fourth knocks it
+  aside), the goblin shaman (kept back on the far ring; every 6.5–8.5 s it
+  raises its staff and three of its kin burn red for 7 s: quicker, harder,
+  healed a little), the elite (in a second wave: bigger, three times the
+  health, embers off it; gathers fire into itself for 1.1 s and throws it off
+  all round). Step 2 has a shaman in most places, step 3 an elite, step 4 the
+  shield orc and the long sword.
+- **Goals** ([RoomGoal], `scripts/room_goal.gd`; steps 2 and 3, written on the
+  portal): kill the captain (banner on its back) and the rest run; break three
+  orc totems ([OrcTotem], three blows each) — while they stand, the creatures
+  take a third ([member Fighter.ward]) and the place does not clear; hold out
+  40 s with the rift open (twice the creatures, one out every 2.6 s while
+  fewer than five are up).
+- **Rest** ([RestSpot], `scripts/rest_spot.gd`): before the orcs, half the
+  time, one portal leads to the holy spring (step in: whole health and flasks
+  again) or the prisoners' room (come to the living man's cage: he gives a
+  thing for the bag and goes to live in the village — [World] walks him down
+  its street from then on).
+- Tests: `tests/orc_portal_test.gd` (all of it); `dungeon_test` walks plain
+  places. Medium: hall 11.5 ms (1 300 draws), great hall 11.3, the rest 9–12.

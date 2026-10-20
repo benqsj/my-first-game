@@ -70,10 +70,21 @@ const ORC_CHIEF := "res://scenes/enemies/pack/orc_chief.tscn"
 ## hero come up through the dungeon killed them far too easily): about twice
 ## the health, harder blows; the lord most of all.
 const ORC_TWO_SWORDS := {"hand_combo_chance": Vector2(0.3, 0.55), "max_health": 720.0, "hit_damage": 72.0}
+## Behind a tower shield (the user's word, 2026-10-21: a shield orc, go round it).
+const ORC_SHIELD := {"arm_right": "axe", "arm_left": "towershield", "arm_style": "normal", "hand_combo_chance": Vector2(0.1, 0.3),
+		"max_health": 680.0, "hit_damage": 70.0, "role": "shield"}
+const SHAMAN := {"role": "shaman"}
+const ELITE := {"role": "elite"}
 const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_combo_chance": Vector2(0.15, 0.4),
 		"max_health": 720.0, "hit_damage": 76.0}
 const ORC_LORD := {"arm_right": "greatsword", "arm_style": "black", "outfit": "Lord", "cape": "Black cape",
 		"combo_rest": Vector2(2.0, 3.0), "max_health": 1650.0, "hit_damage": 92.0}
+## What the lord leaves him (the user's word, 2026-10-21: his sword, for good):
+## his black blade, in the kind the hero's class holds — the great sword for
+## a knight, a long sword for a swordsman, a curved one for a rogue, a staff, a
+## bow ([method Inventory.special_arm]).
+const LORD_GIFT := "aw_greatsword_obsidian,aw_longsword_obsidian,aw_curvedsword_obsidian,aw_staff_obsidian,aw_longbow_obsidian"
+const LORD_GIFT_NAME := "The Orc Lord's"
 
 ## Where a portal can lead: what it is called, how it is built ("hall" under a
 ## roof, "court" open with windows, "terrace" open on one side over the drop,
@@ -92,6 +103,9 @@ const PLACES := {
 	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
 	"mountain": {"name": "ქარიშხლის ბილიკი", "kind": "mountain", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
 	"rampart": {"name": "ციხის გალავანი", "kind": "rampart", "w": 26.0, "l": 80.0, "h": 0.0},
+	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
+	"spring": {"name": "წმინდა წყარო", "kind": "spring", "w": 36.0, "l": 44.0, "h": 12.0, "rest": "სიცოცხლე ბოლომდე"},
+	"prison": {"name": "ტყვეების ოთახი", "kind": "prison", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "გაათავისუფლე ტყვე"},
 }
 
 ## Per dungeon, its run: each step the places its portals may lead to, the
@@ -103,17 +117,25 @@ const PLACES := {
 const RUN := {
 	0: [
 		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 8]]}},
+		# a goblin shaman with most of them, kept back, from here on (the
+		# user's word, 2026-10-21: roles in the fight)
 		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 3, "xp": 2.5, "reach": 4,
-				"foes": {"court": [[IMP, 5], [PUGLIN, 5]], "cave": [[PUGLIN, 6], [GOBLIN, 4]],
-						"forest": [[GOBLIN, 5], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
+				"foes": {"court": [[IMP, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 5]],
+						"cave": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [GOBLIN, 3]],
+						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
 						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
+		# and an elite in the second wave
 		{"places": ["great_hall", "cave", "sky", "forest", "crypt", "swamp", "mountain"], "lv": 5, "xp": 3.0, "reach": 6,
-				"foes": {"great_hall": [[PUGLIN, 5], [IMP, 5]], "cave": [[PUGLIN, 5], [GOBLIN, 5]],
-						"sky": [[IMP, 5], [GOBLIN, 5]], "forest": [[GOBLIN, 5], [PUGLIN, 5]],
-						"crypt": [[IMP, 5], [GOBLIN, 5]], "swamp": [[PUGLIN, 5], [GOBLIN, 5]],
-						"mountain": [[GOBLIN, 5], [IMP, 5]]}},
+				"foes": {"great_hall": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4], [PUGLIN, 1, ELITE]],
+						"cave": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
+						"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
+						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 4], [GOBLIN, 1, ELITE]],
+						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
+						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
+						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
+		# the shield orc and the long sword, taking turns
 		{"places": ["terrace", "forest", "sky", "cave", "rampart", "mountain"], "lv": 7, "xp": 3.5, "reach": 7,
-				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]}},
+				"foes": {"*": [[ORC, 1, ORC_SHIELD], [ORC, 1, ORC_LONG_SWORD]]}},
 		{"places": ["throne"], "lv": 8, "foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
 }
@@ -121,6 +143,7 @@ const RUN := {
 const BOSS := {0: ORC_CHIEF}
 ## What waits behind a portal (the user's word): its name and the portal's colour.
 const REWARDS := {
+	"boon": {"name": "კურთხევა", "tint": Color(1.0, 0.86, 0.45)},
 	"life": {"name": "სიცოცხლე", "tint": Color(0.95, 0.22, 0.28)},
 	"gold": {"name": "ოქრო", "tint": Color(1.0, 0.76, 0.2)},
 	"blade": {"name": "ხმლის ძალა", "tint": Color(0.45, 0.75, 1.0)},
@@ -161,6 +184,14 @@ var is_closed: bool = false
 var choices: Array[PortalLook] = []
 ## Rewards given so far, by name.
 var rewards_given: Array[String] = []
+## The run's blessings ([Boons]).
+var boons: Boons
+## What the place he is in asks of him besides killing them all ([RoomGoal]),
+## or null.
+var _goal: RoomGoal
+## The next place's first creature is its captain ([RoomGoal] "captain").
+var _captain_next: bool = false
+var _goal_nag: float = 0.0
 var _woken: bool = false
 ## The creatures still to come (each place's, made with it, hidden till their
 ## wave), which wave this is of how many, and the rift they come out of.
@@ -599,6 +630,9 @@ func _ready() -> void:
 	_sound_bus()
 	_vista()
 	_build_hud()
+	boons = Boons.new(self)
+	add_child(boons)
+	boons.show_list(_layer)
 	# The first place: the first step's own.
 	_arrive_at(0, String(steps[0]["places"][0]), "", true)
 	_apply_phase(_phase)
@@ -667,16 +701,23 @@ func _place_marks() -> void:
 
 ## Step `i`, at `place`: built, its creatures made (asleep), the light of the
 ## day moved on, and `reward` waiting for it to be cleared.
-func _arrive_at(i: int, place: String, reward: String, later: bool = false) -> void:
+func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal: String = "") -> void:
 	var p: Dictionary = PLACES[place]
 	var step: Dictionary = steps[i]
 	var foes_by: Dictionary = step["foes"]
 	var foes: Array = foes_by.get(place, foes_by.get("*", []))
+	# holding out, they keep coming: twice as many wait
+	if goal == "survive":
+		foes = foes + foes
+	if p.has("rest"):
+		foes = []
 	var r := {"place": place, "kind": p["kind"], "w": p["w"], "l": p["l"], "h": p["h"],
 			"name": p["name"], "foes": foes, "lv": step.get("lv", 1), "xp": step.get("xp", 0.0),
-			"reach": step.get("reach", 0), "reward": reward}
+			"reach": step.get("reach", 0), "reward": reward, "goal": goal}
 	if p.has("hole"):
 		r["hole"] = true
+	if p.has("rest"):
+		r["xp"] = 0.0
 	while rooms.size() <= i:
 		rooms.append({})
 		centres.append(Vector3.ZERO)
@@ -690,10 +731,16 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false) -> v
 	_holders.clear()
 	_orc_on = null
 	_build_room(i)
+	if is_instance_valid(_goal):
+		_goal.queue_free()
+	_goal = null
+	_captain_next = goal == "captain"
 	if later:
 		_spawn_room.call_deferred(i)
 	else:
 		_spawn_room(i)
+		if goal != "":
+			_goal = RoomGoal.make(self, i, goal)
 	_ambience(i)
 	_drip_in = _rng.randf_range(2.0, 5.0)
 	_prepare_offer(i + 1)
@@ -736,21 +783,32 @@ func _spawn_room(i: int) -> void:
 				var ready_made := made.pop_front() as Node3D
 				_take_up(ready_made, at, c, int(r["lv"]))
 				mine.append(ready_made)
+				boons.watch(ready_made)
 				k += 1
 				continue
 			var body := scene.instantiate() as Node3D
 			body.name = "D%d_R%d_%d" % [id, i, k]
 			body.position = at
 			body.rotation.y = 0.0
+			var role := ""
 			if entry.size() > 2:
 				var props: Dictionary = entry[2]
 				for key: String in props:
 					body.set(StringName(key), props[key])
+				role = String(props.get("role", ""))
+			if role == "" and _captain_next:
+				_captain_next = false
+				role = "captain"
+			if role != "":
+				FoeRoles.before(body, role)
 			body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
 			body.set("camp_centre", Vector3(c.x, c.y, c.z))
 			if "leash_radius" in body:
 				body.set("leash_radius", 0.01)
 			body.set_meta(&"level", int(r["lv"]))
+			if String(entry[0]) == BOSS.get(id, ""):
+				body.set_meta(&"gift", LORD_GIFT)
+				body.set_meta(&"gift_name", LORD_GIFT_NAME)
 			if body.has_signal(&"hurt"):
 				body.connect(&"hurt", _on_foe_hurt.bind(body))
 			if k >= AT_ONCE:
@@ -761,6 +819,9 @@ func _spawn_room(i: int) -> void:
 				_reserve.append(body)
 			creatures.add_child(body)
 			mine.append(body)
+			boons.watch(body)
+			if role != "":
+				FoeRoles.after(body, role, self)
 			k += 1
 	waves = 2 if not _reserve.is_empty() else 1
 	# its rift made now too, out of sight and out of the way, if it has one
@@ -838,19 +899,28 @@ func _premake() -> void:
 				body.name = "D%d_R%d_%d" % [id, i, k]
 				var away := Vector3(float(i * 10 + k) * 4.0, -300.0, 0.0)
 				body.position = away
+				var role := ""
 				if entry.size() > 2:
 					var props: Dictionary = entry[2]
 					for key: String in props:
 						body.set(StringName(key), props[key])
+					role = String(props.get("role", ""))
+				if role != "":
+					FoeRoles.before(body, role)
 				body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
 				body.set("camp_centre", away)
 				if "leash_radius" in body:
 					body.set("leash_radius", 0.01)
 				body.set_meta(&"level", int(steps[i].get("lv", 1)))
 				body.set_meta(&"scene", String(entry[0]))
+				if String(entry[0]) == BOSS.get(id, ""):
+					body.set_meta(&"gift", LORD_GIFT)
+					body.set_meta(&"gift_name", LORD_GIFT_NAME)
 				body.visible = false
 				body.process_mode = Node.PROCESS_MODE_DISABLED
 				holder.add_child(body)
+				if role != "":
+					FoeRoles.after(body, role, self)
 				list.append(body)
 				k += 1
 		_premade[i] = list
@@ -988,6 +1058,8 @@ func _wake(i: int) -> void:
 	if last:
 		Sfx.play_flat(self, SND + "horn.wav", 1.0, -3.0)
 	_say("ბოსი: ორკების მბრძანებელი" if last else String(_room(i)["name"]), 3.0)
+	if is_instance_valid(_goal):
+		_goal.start()
 	if _spawned == 0:
 		_clear(i)
 
@@ -1040,6 +1112,11 @@ func _clear(i: int) -> void:
 ## What waits behind the portal he chose, his now.
 func _give(what: String) -> void:
 	rewards_given.append(what)
+	if what == "boon":
+		# three lights in the middle of the place: he walks into the one he wants
+		boons.lay(centre(current) + Vector3(0.0, 0.0, float(_room(current)["l"]) * 0.2), self)
+		_say("აირჩიე კურთხევა", 3.0)
+		return
 	for hero in _heroes():
 		if hero.is_dead:
 			continue
@@ -1116,18 +1193,34 @@ func _make_choices(next: int) -> Array[PortalLook]:
 	if pool.size() > 2:
 		pool.erase(here)
 	pool.shuffle()
+	# before the orcs, now and then, a place to get one's breath back behind
+	# one of the two (the user's word, 2026-10-21): the spring when he is hurt
+	if next == steps.size() - 2 - 1 and pool.size() >= 2 and _rng.randf() < 0.5:
+		var low := false
+		for hero in _heroes():
+			if hero.health < hero.max_health * 0.6:
+				low = true
+		pool[1] = "spring" if low or _rng.randf() < 0.5 else "prison"
 	var take := mini(2, pool.size())
+	# a blessing behind one of the two, most times (the user's word,
+	# 2026-10-21: the reward should change how he fights); never two
 	var gifts: Array = REWARDS.keys()
+	gifts.erase("boon")
 	gifts.shuffle()
+	if _rng.randf() < 0.75 and not boons.offer(1).is_empty():
+		gifts.insert(_rng.randi_range(0, 1), "boon")
 	var last := next == steps.size() - 1
 	var l: float = _room(current)["l"]
 	for k in take:
 		var place := String(pool[k])
-		var reward := "" if last else String(gifts[k])
+		var rest: bool = (PLACES[place] as Dictionary).has("rest")
+		var reward := "" if last or rest else String(gifts[k])
 		var gate := PortalLook.new()
 		gate.name = "Choice%d" % k
 		if reward != "":
 			gate.tint = REWARDS[reward]["tint"]
+		elif rest:
+			gate.tint = Color(0.45, 0.8, 1.0)
 		# what is behind it, seen in it
 		var view := PREVIEWS % place
 		if ResourceLoader.exists(view):
@@ -1136,6 +1229,8 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		gate.position = centre(current) + Vector3(side * 9.0, 0.0, -l * 0.5 + 10.0)
 		gate.set_meta(&"place", place)
 		gate.set_meta(&"reward", reward)
+		var goal := "" if rest else RoomGoal.pick(_rng, next, steps.size() - 1)
+		gate.set_meta(&"goal", goal)
 		add_child(gate)
 		var title := Label3D.new()
 		title.text = String(PLACES[place]["name"])
@@ -1148,15 +1243,29 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		title.position = Vector3(0.0, 9.6, 0.0)
 		gate.add_child(title)
 		var what := Label3D.new()
-		what.text = ("ჯილდო: " + String(REWARDS[reward]["name"])) if reward != "" else "ბოსი"
+		what.text = ("ჯილდო: " + String(REWARDS[reward]["name"])) if reward != "" \
+				else (String(PLACES[place]["rest"]) if rest else "ბოსი")
 		what.font_size = 56
 		what.pixel_size = 0.012
 		what.outline_size = 12
-		what.modulate = REWARDS[reward]["tint"] if reward != "" else Color(1.0, 0.4, 0.35)
+		what.modulate = REWARDS[reward]["tint"] if reward != "" \
+				else (Color(0.6, 0.9, 1.0) if rest else Color(1.0, 0.4, 0.35))
+
 		what.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		what.no_depth_test = true
 		what.position = Vector3(0.0, 8.5, 0.0)
 		gate.add_child(what)
+		if goal != "":
+			var aim := Label3D.new()
+			aim.text = "მიზანი: " + String(RoomGoal.KINDS[goal]["name"])
+			aim.font_size = 48
+			aim.pixel_size = 0.012
+			aim.outline_size = 12
+			aim.modulate = Color(1.0, 0.7, 0.45)
+			aim.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			aim.no_depth_test = true
+			aim.position = Vector3(0.0, 7.55, 0.0)
+			gate.add_child(aim)
 		out.append(gate)
 	return out
 
@@ -1172,6 +1281,7 @@ func take(k: int) -> void:
 	var gate := choices[k]
 	var place := String(gate.get_meta(&"place"))
 	var reward := String(gate.get_meta(&"reward"))
+	var goal := String(gate.get_meta(&"goal", ""))
 	var next := current + 1
 	Sfx.play_flat(self, SND + "portal_whoosh.wav", 1.0, -2.0)
 	var tw := create_tween()
@@ -1181,7 +1291,7 @@ func take(k: int) -> void:
 		c.queue_free()
 	choices.clear()
 	_take_down(current)
-	_arrive_at(next, place, reward)
+	_arrive_at(next, place, reward, false, goal)
 	var slot := 0
 	for hero in _heroes():
 		hero.global_position = entry_point(slot, next)
@@ -1330,6 +1440,9 @@ func _warm_up() -> void:
 			gate.view = load(view) as Texture2D
 		gate.position = Vector3(-4.0 + float(k) * 8.0, 0.0, -6.0)
 		stage.add_child(gate)
+	# a blessing's light and its lightning (their materials made now)
+	boons._light(&"chain", stage.global_position + Vector3(6.0, 0.0, -3.0), stage)
+	boons._bolt(stage.global_position + Vector3(-3.0, 1.5, 0.0), stage.global_position + Vector3(3.0, 1.5, 0.0))
 	# the letters the portals and the banner write with, at their sizes: each
 	# new letter was drawn into the font's cache as the portals opened
 	var letters := "0123456789/:. "
@@ -1480,6 +1593,10 @@ func _take_down(i: int) -> void:
 	if is_instance_valid(_rift):
 		_rift.queue_free()
 	_rift = null
+	if is_instance_valid(_goal):
+		_goal.queue_free()
+	_goal = null
+	boons.clear_lights()
 	var keep: Array[Dictionary] = []
 	for col in _columns:
 		if int(col["room"]) != i:
@@ -1530,13 +1647,32 @@ func _watch_deaths(heroes: Array[Player]) -> void:
 		hero.set(&"respawn_time", 9999.0)
 
 
-func _on_hero_died(_hero: Player) -> void:
+func _on_hero_died(fallen: Player) -> void:
+	# The second breath, if he has it: up again where he fell, half himself.
+	if boons != null and boons.save_from_death(fallen):
+		get_tree().create_timer(1.4).timeout.connect(_second_breath.bind(fallen))
+		return
 	# Alone (or all of them down): back out by the gate.
 	for hero in _heroes():
 		if not hero.is_dead:
 			return
 	_say("დამარცხდი", BACK_OUT_AFTER)
 	_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
+
+
+## Up again where he fell, with half his health (the blessing "მეორე სუნთქვა").
+func _second_breath(hero: Player) -> void:
+	if not is_instance_valid(hero) or not hero.is_dead:
+		return
+	var at := hero.global_position
+	hero.call(&"_respawn")
+	hero.global_position = at
+	hero.health = hero.max_health * 0.5
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, at + Vector3.UP, Boons.ALL[&"second"]["tint"], 80, Vector2(2.0, 6.0), Vector3.UP, 180.0,
+				Vector2(0.05, 0.14), Vector3(0, -1.0, 0), 1.2)
+	_say("მეორე სუნთქვა!", 2.5)
 
 
 ## Back to the open world, by the gate this dungeon is behind.
@@ -1575,6 +1711,8 @@ func _process(delta: float) -> void:
 		_banner.hide()
 	var heroes := _heroes()
 	_watch_deaths(heroes)
+	for hero in heroes:
+		boons.watch_hero(hero)
 	if _back_out_at > 0.0 and now >= _back_out_at:
 		_back_out_at = -1.0
 		leave()
@@ -1591,17 +1729,27 @@ func _process(delta: float) -> void:
 			_wake_at = -1.0
 			_wake(current)
 	if _woken and not cleared[current]:
+		var goal := _goal if is_instance_valid(_goal) else null
+		if goal != null:
+			goal.tick(delta)
 		var left := 0
 		for body in _alive:
 			if is_instance_valid(body) and not bool(body.get("is_dead")):
 				left += 1
-		if left == 0 and _spawned > 0:
+		if goal != null and goal.takes_waves():
+			if left == 0 and goal.may_clear():
+				_clear(current)
+		elif left == 0 and _spawned > 0:
 			var coming := 0
 			for body in _reserve:
 				if is_instance_valid(body) and not bool(body.get("is_dead")):
 					coming += 1
 			if coming == 0:
-				_clear(current)
+				if goal == null or goal.may_clear():
+					_clear(current)
+				elif now >= _goal_nag:
+					_goal_nag = now + 8.0
+					_say("დაანგრიე ტოტემები!", 2.5)
 			elif _rift_at < 0.0:
 				if _rift_due < 0.0:
 					_rift_due = now + RIFT_DUE
@@ -2109,6 +2257,9 @@ func _build_room(i: int) -> void:
 		"rampart":
 			_build_rampart(room, i)
 			return
+		"spring", "prison":
+			RestSpot.build(self, room, i, kind)
+			return
 	var last := kind == "throne"
 	var far := -l * 0.5 - WALL_T * 0.5
 	var near := l * 0.5 + WALL_T * 0.5
@@ -2179,6 +2330,9 @@ func _build_room(i: int) -> void:
 		_dais(room, l)
 		_throne(room, l)
 
+	# the orcs' own over it all (the user's word, 2026-10-21: one should see
+	# the orcs have taken it)
+	OrcSpoils.dress(self, room, kind, w, l, h, kind == "hall" and not r.has("hole"))
 	_wainscot(room, kind, w, l)
 	_rubble_round(room, i, w, l)
 	_motes(room, w, l, h)
@@ -2667,6 +2821,9 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 		if body is PackBrute:
 			if gap < 9.0 and not (body as PackBrute).held_back:
 				brutes += 1
+			continue
+		# the shaman keeps back by itself ([FoeRoles])
+		if FoeRoles.role_of(body) == &"shaman":
 			continue
 		if "held_back" in body:
 			small.append([gap, body])
@@ -3809,8 +3966,8 @@ func _stake(room: Node3D, at: Vector3, skull: bool) -> void:
 	room.add_child(holder)
 	var tall := _rng.randf_range(1.8, 2.6)
 	var pole := CylinderMesh.new()
-	pole.top_radius = 0.07
-	pole.bottom_radius = 0.09
+	pole.top_radius = 0.09
+	pole.bottom_radius = 0.12
 	pole.height = tall
 	pole.radial_segments = 6
 	var pm := MeshInstance3D.new()
@@ -3820,7 +3977,7 @@ func _stake(room: Node3D, at: Vector3, skull: bool) -> void:
 	holder.add_child(pm)
 	var tip := CylinderMesh.new()
 	tip.top_radius = 0.0
-	tip.bottom_radius = 0.07
+	tip.bottom_radius = 0.09
 	tip.height = 0.35
 	tip.radial_segments = 6
 	var tm := MeshInstance3D.new()
@@ -3829,28 +3986,7 @@ func _stake(room: Node3D, at: Vector3, skull: bool) -> void:
 	tm.position = Vector3(0.0, tall + 0.17, 0.0)
 	holder.add_child(tm)
 	if skull:
-		if _bone_mat == null:
-			_bone_mat = StandardMaterial3D.new()
-			_bone_mat.albedo_color = Color(0.78, 0.74, 0.64)
-			_bone_mat.roughness = 0.8
-		var head := SphereMesh.new()
-		head.radius = 0.15
-		head.height = 0.3
-		head.radial_segments = 10
-		head.rings = 6
-		var hm := MeshInstance3D.new()
-		hm.mesh = head
-		hm.material_override = _bone_mat
-		hm.position = Vector3(0.0, tall - 0.05, 0.0)
-		hm.scale = Vector3(1.0, 0.9, 1.15)
-		holder.add_child(hm)
-		var jaw := BoxMesh.new()
-		jaw.size = Vector3(0.18, 0.08, 0.14)
-		var jm := MeshInstance3D.new()
-		jm.mesh = jaw
-		jm.material_override = _bone_mat
-		jm.position = Vector3(0.0, tall - 0.2, 0.06)
-		holder.add_child(jm)
+		OrcSpoils._skull(self, holder, Vector3(0.0, tall - 0.02, 0.0), 1.15)
 	_blocker(room, Vector3(0.3, tall, 0.3), at + Vector3(0.0, tall * 0.5, 0.0))
 
 

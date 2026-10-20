@@ -407,6 +407,10 @@ var _drink_heal_at: float = -1.0
 var unarmed: bool = false
 ## Physical and magical defence (p.def, m.def), from the profile ([Defence]).
 var p_def: float = 0.0
+## What the dungeon's blessings make of his cuts and of the blows he takes
+## ([Boons]): shares, 1 for none.
+var dealt_scale: float = 1.0
+var taken_scale: float = 1.0
 var m_def: float = 0.0
 
 @export_group("Physics")
@@ -4000,7 +4004,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		return
 	# What his armour takes off it — or, a spell's, his m.def. (Tariel's
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
-	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic)
+	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic) * taken_scale
 	var how := _blow_kind(combo)
 	_blow_held = String(named).ends_with("@h")
 	var bare := String(named).trim_suffix("@h")
@@ -7357,6 +7361,7 @@ func cut_worth(target: Node3D = null) -> Array:
 	# A heavy blow, or the last cut of a string, is worth more.
 	if rig != null and rig.get(&"cut_weight") != null:
 		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))
+	worth[0] = float(worth[0]) * dealt_scale
 	if profile == null:
 		return worth
 	var crit_was := profile.crit_damage if bool(worth[1]) else 1.0

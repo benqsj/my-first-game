@@ -1,0 +1,225 @@
+extends SceneTree
+## The orc palace's round 12 (claude/orc_portal_ideas.md, 2026-10-21):
+## - blessings ([Boons]): three lights laid, one walked into and taken, what
+##   each does on a blow (fire, frost, the third's knock), on him (iron, swift);
+## - roles ([FoeRoles]): the shield orc's front, the shaman's call, the elite;
+## - goals ([RoomGoal]): the captain falls and the rest run; the totems ward
+##   and hold the place till broken; holding out till the time is up;
+## - the places of rest ([RestSpot]): the spring heals, the prisoner is freed;
+## - what is won is his for good: the lord's blade for his class.
+##   Godot --headless --path . --script res://tests/orc_portal_test.gd
+
+var _failures := 0
+var d: Dungeon
+var hero: Player
+
+
+func _check(what: String, ok: bool, detail: String = "") -> void:
+	print("  %s - %s %s" % ["ok  " if ok else "FAIL", what, detail])
+	if not ok:
+		_failures += 1
+
+
+func _wait(n: int) -> void:
+	for i in n:
+		await physics_frame
+
+
+func _initialize() -> void:
+	_run.call_deferred()
+
+
+func _go(step: int, place: String, goal: String = "") -> void:
+	for ch in d.choices:
+		ch.queue_free()
+	d.choices.clear()
+	d._take_down(d.current)
+	# (a step is gone through once in a run; here some twice)
+	d.cleared[step] = false
+	d._arrive_at(step, place, "", false, goal)
+	hero.global_position = d.entry_point(0, step)
+	hero.velocity = Vector3.ZERO
+	await _wait(20)
+
+
+func _foes(role: String) -> Array[Fighter]:
+	var out: Array[Fighter] = []
+	for item: Variant in d._room_foes[d.current]:
+		if is_instance_valid(item) and (role == "" or String((item as Node).get_meta(&"role", "")) == role):
+			out.append(item as Fighter)
+	return out
+
+
+func _run() -> void:
+	root.get_node("Game").set(&"dungeon_id", 0)
+	var world: World = load("res://scenes/world/dungeon.tscn").instantiate()
+	root.add_child(world)
+	current_scene = world
+	await _wait(90)
+	hero = world.player()
+	hero.immortal = true
+	d = world.get_node("Level/Rooms") as Dungeon
+	await _boons()
+	await _roles()
+	await _goals()
+	await _rest()
+	_gift()
+	print("orc_portal_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
+	quit(1 if _failures > 0 else 0)
+
+
+func _boons() -> void:
+	print("blessings")
+	await _go(1, "court")
+	var c := d.centre(1)
+	d.boons.lay(c, d)
+	await _wait(2)
+	_check("three lights laid", d.boons._lights.size() == 3, str(d.boons._lights.size()))
+	var first: Dictionary = d.boons._lights[0]
+	var id := StringName(first["id"])
+	hero.global_position = (first["node"] as Node3D).global_position
+	await _wait(5)
+	_check("walked into one, it is his", d.boons.has(id), String(id))
+	_check("the others gone out", d.boons._lights.is_empty())
+	for b: StringName in [&"burn", &"frost", &"third", &"iron", &"swift"]:
+		d.boons.take(b)
+	_check("iron: blows hurt less", absf(hero.taken_scale - Boons.IRON_TAKEN) < 0.01, str(hero.taken_scale))
+	d._wake(1)
+	await _wait(10)
+	var foe: Fighter = null
+	for f in _foes(""):
+		if f.visible and f.process_mode != Node.PROCESS_MODE_DISABLED and FoeRoles.role_of(f) == &"":
+			foe = f
+			break
+	_check("a creature to try them on", foe != null)
+	if foe != null:
+		hero.global_position = foe.global_position + Vector3(0.0, 0.0, 2.0)
+		var hit := HitInfo.make(20.0, foe.global_position + Vector3.UP, Vector3.FORWARD, false, true, hero)
+		hit.by_blade = true
+		foe.hurtbox().take(hit)
+		var marks := Afflictions.of(foe, false)
+		_check("fire on it", marks != null and marks.is_burning())
+		_check("frost on it", marks != null and marks.is_chilled())
+
+
+func _roles() -> void:
+	print("roles")
+	await _go(2, "great_hall")
+	var shaman := _foes("shaman")
+	var elite := _foes("elite")
+	_check("a shaman in the great hall", shaman.size() == 1)
+	_check("an elite in its second wave", elite.size() == 1 and d._reserve.has(elite[0]))
+	if elite.size() == 1:
+		_check("the elite bigger and harder", elite[0].visual_scale > 1.5 and elite[0].max_health > 300.0,
+				"%.2f %.0f" % [elite[0].visual_scale, elite[0].max_health])
+	d._wake(2)
+	var empowered := false
+	for f in 400:
+		await physics_frame
+		for item: Variant in d._alive:
+			if is_instance_valid(item) and (item as Node).has_meta(&"empowered_until"):
+				empowered = true
+		if empowered:
+			break
+	_check("the shaman's call: its kin burn red", empowered)
+	_check("the shaman keeps back", shaman.size() == 1 and shaman[0].held_back)
+	await _go(3, "terrace")
+	var orc := _foes("shield")
+	_check("a shield orc before the lord", orc.size() == 1)
+	if orc.size() == 1:
+		var o := orc[0]
+		await _wait(20)
+		var ahead := -o.global_transform.basis.z
+		ahead.y = 0.0
+		hero.global_position = o.global_position + ahead.normalized() * 2.0
+		var hp := o.health
+		o.take_hit(50.0, o.global_position + Vector3.UP, -ahead, false, true, hero, false)
+		_check("a blow from in front rings off the shield", is_equal_approx(o.health, hp), "%.0f -> %.0f" % [hp, o.health])
+		hero.global_position = o.global_position - ahead.normalized() * 2.0
+		hp = o.health
+		o.take_hit(50.0, o.global_position + Vector3.UP, ahead, false, true, hero, false)
+		_check("from behind it bleeds", o.health < hp, "%.0f -> %.0f" % [hp, o.health])
+
+
+func _goals() -> void:
+	print("goals")
+	# the captain: down, and the rest run
+	await _go(1, "court", "captain")
+	var captain := _foes("captain")
+	_check("a captain among them", captain.size() == 1)
+	d._wake(1)
+	await _wait(20)
+	if captain.size() == 1:
+		captain[0].call(&"_die")
+		await _wait(30)
+		_check("the captain down: the place is clear", d.cleared[1])
+	# the totems: warded while they stand, the place held till they fall
+	await _go(1, "cave", "totems")
+	d._wake(1)
+	await _wait(10)
+	var goal := d._goal
+	_check("three totems", goal != null and goal._totems.size() == 3)
+	var warded := 0
+	for f in _foes(""):
+		if f.ward < 1.0:
+			warded += 1
+	_check("its creatures warded", warded > 0, str(warded))
+	for f in _foes(""):
+		if is_instance_valid(f) and not f.is_dead:
+			f.call(&"_die")
+	for body: Variant in d._reserve:
+		if is_instance_valid(body):
+			(body as Fighter).call(&"_die")
+	await _wait(40)
+	_check("all down, totems standing: not clear yet", not d.cleared[1])
+	if goal != null:
+		for t in goal._totems:
+			for k in OrcTotem.BLOWS:
+				t._last_hit = -1.0
+				t.receive_hit(HitInfo.make(10.0, t.global_position + Vector3.UP, Vector3.FORWARD, false, false, hero))
+		await _wait(20)
+		_check("totems broken: clear", d.cleared[1])
+	# holding out
+	await _go(2, "crypt", "survive")
+	d._wake(2)
+	await _wait(10)
+	_check("the rift stands open", is_instance_valid(d._rift))
+	if d._goal != null:
+		d._goal._left = 0.5
+	await _wait(80)
+	_check("held out: clear", d.cleared[2])
+
+
+func _rest() -> void:
+	print("rest")
+	await _go(2, "spring")
+	d._wake(2)
+	await _wait(10)
+	_check("the spring: clear at once", d.cleared[2])
+	var spot := d._room_nodes[2].get_node_or_null(^"Rest") as RestSpot
+	hero.health = hero.max_health * 0.3
+	if spot != null:
+		hero.global_position = spot.global_position + Vector3(0.0, 0.5, 1.0)
+	await _wait(10)
+	_check("in the water, healed whole", hero.health >= hero.max_health - 0.5, "%.0f/%.0f" % [hero.health, hero.max_health])
+	await _go(2, "prison")
+	d._wake(2)
+	await _wait(10)
+	spot = d._room_nodes[2].get_node_or_null(^"Rest") as RestSpot
+	var game := root.get_node("Game")
+	var before := (game.get(&"freed") as Array).size()
+	if spot != null and spot._cage != null:
+		hero.global_position = spot._cage.global_position + Vector3(-2.0, 0.5, 0.0)
+	await _wait(10)
+	_check("the prisoner freed, to live in the village", (game.get(&"freed") as Array).size() == before + 1)
+
+
+func _gift() -> void:
+	print("the lord's gift")
+	var bag := hero.get_node_or_null(^"Inventory") as Inventory
+	if bag == null:
+		print("    (no bag)")
+		return
+	var item := bag.special_arm(Dungeon.LORD_GIFT, Dungeon.LORD_GIFT_NAME)
+	_check("the lord's blade for his class", not item.is_empty() and String(item.get("name", "")).begins_with("The Orc Lord's"),
+			String(item.get("name", "-")))
