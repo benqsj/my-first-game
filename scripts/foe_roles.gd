@@ -39,9 +39,9 @@ render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
 uniform vec4 tint : source_color = vec4(1.0, 0.6, 0.2, 1.0);
 uniform float amount = 1.0;
 void fragment() {
-	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.2);
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.5);
 	float breathe = 0.8 + 0.2 * sin(TIME * 3.0);
-	ALBEDO = tint.rgb * amount * (0.12 + 1.6 * rim) * breathe;
+	ALBEDO = tint.rgb * amount * (0.03 + 1.5 * rim) * breathe;
 }
 """
 
