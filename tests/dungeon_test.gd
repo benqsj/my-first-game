@@ -136,17 +136,40 @@ func _dungeon() -> void:
 		for entry: Array in d.rooms[r]["foes"]:
 			expected += int(entry[1])
 		_check("place %d holds its %d" % [r + 1, expected], alive == expected, str(alive))
+		if r == 1 or r == 2:
+			# No more than five up at once; the rest come through a rift once those are down.
+			var up := 0
+			for body in creatures.get_children():
+				if not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R%d_" % r) and (body as Node3D).visible:
+					up += 1
+			_check("  %d of them up at once" % up, up <= Dungeon.AT_ONCE and up > 0 and d.waves == int(ceil(float(expected) / 5.0)),
+					"%d waves" % d.waves)
+		if r == 1:
+			for body in creatures.get_children():
+				if not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R1_") and (body as Node3D).visible:
+					body.call("_die")
+			for f in 400:
+				await physics_frame
+				if d.wave >= 2:
+					break
+			await _wait(10)
+			var next := 0
+			for body in creatures.get_children():
+				if not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R1_") and (body as Node3D).visible:
+					next += 1
+			_check("  the next wave out of the rift", d.wave == 2 and next > 0, "wave %d, %d up" % [d.wave, next])
 		if r == 2:
 			await _wait(40)
 			var at_him := 0
 			var held := 0
 			for body in creatures.get_children():
-				if not bool(body.get("is_dead")) and "held_back" in body and String(body.name).begins_with("D0_R2_"):
+				if not bool(body.get("is_dead")) and "held_back" in body and String(body.name).begins_with("D0_R2_") \
+						and (body as Node3D).visible:
 					if bool(body.get("held_back")):
 						held += 1
 					else:
 						at_him += 1
-			_check("only two let at him", at_him <= Dungeon.CROWD and held >= expected - Dungeon.CROWD,
+			_check("only two let at him", at_him <= Dungeon.CROWD and held >= 1,
 					"%d at him, %d held" % [at_him, held])
 			_check("the dungeon's music", d.music_wanted() == &"dungeon")
 		if r == 3:

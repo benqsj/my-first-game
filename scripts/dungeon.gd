@@ -36,6 +36,12 @@ const STEP_GAP := 420.0
 const FADE := 0.45
 ## Seconds after he arrives that a place's creatures wake.
 const WAKE_AFTER := 1.2
+## At most this many of a place's creatures are up at once (the user's word,
+## 2026-10-20: so many together was too much); the rest come in waves through
+## a rift that opens in the place once those are down.
+const AT_ONCE := 5
+## Seconds the rift stands open before the next wave comes out of it.
+const RIFT_TIME := 1.8
 
 const IMP := "res://scenes/enemies/imp.tscn"
 const PUGLIN := "res://scenes/enemies/puglin.tscn"
@@ -136,6 +142,13 @@ var choices: Array[PortalLook] = []
 ## Rewards given so far, by name.
 var rewards_given: Array[String] = []
 var _woken: bool = false
+## The creatures still to come (each place's, made with it, hidden till their
+## wave), which wave this is of how many, and the rift they come out of.
+var _reserve: Array[Node3D] = []
+var wave: int = 0
+var waves: int = 1
+var _rift: PortalLook = null
+var _rift_at: float = -1.0
 var _wake_at: float = -1.0
 var _going: bool = false
 var _room_nodes: Array[Node3D] = []
@@ -143,8 +156,8 @@ var _alive: Array[Node3D] = []
 var _spawned: int = 0
 var _floor_shader: Shader
 var _ground_shader: Shader
-var _rock_mat: StandardMaterial3D
-var _cave_mat: StandardMaterial3D
+var _rock_mat: ShaderMaterial
+var _cave_mat: ShaderMaterial
 var _glass_shader: Shader
 var _beam_shader: Shader
 ## Every column standing: {room, at, h, thick, parts (meshes), blocker, broken}.
@@ -201,6 +214,7 @@ var _flap_in: float = 7.0
 var _birds: Array[Dictionary] = []
 ## The sea of cloud under the island in the sky, lit with the day.
 var _cloud_sea: ShaderMaterial
+var _cloud_layer_mats: Array[ShaderMaterial] = []
 
 const FLOOR_SHADER := """
 shader_type spatial;
@@ -612,6 +626,9 @@ func _spawn_room(i: int) -> void:
 		_room_foes.append([])
 	var mine: Array[Node3D] = []
 	_room_foes[i] = mine
+	_reserve.clear()
+	wave = 1
+	waves = 1
 	if creatures == null:
 		return
 	var c := centre(i)
@@ -642,9 +659,68 @@ func _spawn_room(i: int) -> void:
 			if "leash_radius" in body:
 				body.set("leash_radius", 0.01)
 			body.set_meta(&"level", int(r["lv"]))
+			if k >= AT_ONCE:
+				# a later wave's: out of sight under the floor, not thinking
+				body.position = c + Vector3(float(k) * 1.5, -40.0, 0.0)
+				body.visible = false
+				body.process_mode = Node.PROCESS_MODE_DISABLED
+				_reserve.append(body)
 			creatures.add_child(body)
 			mine.append(body)
 			k += 1
+	waves = 1 + int(ceil(float(maxi(k - AT_ONCE, 0)) / float(AT_ONCE)))
+
+
+## The rift the next wave comes out of: in the far half of the place, a
+## moment before they come.
+func _open_rift() -> void:
+	var c := centre(current)
+	var l: float = _room(current)["l"]
+	_rift = PortalLook.new()
+	_rift.name = "Rift"
+	_rift.tint = Color(0.85, 0.12, 0.2)
+	_rift.position = c + Vector3(_rng.randf_range(-6.0, 6.0), 0.0, -l * 0.22)
+	add_child(_rift)
+	_rift_at = Time.get_ticks_msec() / 1000.0 + RIFT_TIME
+	Sfx.play(self, SND + "portal_open.wav", null, _rift.position + Vector3.UP * 2.0, 0.8, 4.0)
+	_say("ტალღა %d / %d" % [wave + 1, waves], 2.5)
+
+
+## The next of them out of the rift, at him, the rift closing after them.
+func _next_wave() -> void:
+	_rift_at = -1.0
+	wave += 1
+	var l: float = _room(current)["l"]
+	var hero := _nearest_hero(centre(current))
+	var out := 0
+	var at: Vector3 = _rift.global_position if is_instance_valid(_rift) else centre(current)
+	while out < AT_ONCE and not _reserve.is_empty():
+		var body: Node3D = _reserve.pop_front()
+		if not is_instance_valid(body) or bool(body.get("is_dead")):
+			continue
+		var a := TAU * float(out) / float(AT_ONCE)
+		body.global_position = at + Vector3(sin(a) * 2.2, 0.3, 2.0 + cos(a) * 1.4)
+		body.visible = true
+		body.process_mode = Node.PROCESS_MODE_INHERIT
+		if "leash_radius" in body:
+			body.set("leash_radius", l)
+		_alive.append(body)
+		_spawned += 1
+		if hero != null and body.has_method("_rouse"):
+			body.call_deferred("_rouse", hero)
+		out += 1
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, at + Vector3.UP * 2.0, Color(0.9, 0.2, 0.3), 60, Vector2(2.0, 6.0), Vector3.UP,
+				180.0, Vector2(0.08, 0.2), Vector3(0, -1.0, 0), 1.2)
+	Sfx.play(self, SND + "portal_whoosh.wav", null, at + Vector3.UP * 2.0, 0.9, 4.0)
+	if is_instance_valid(_rift):
+		var gone := _rift
+		_rift = null
+		var tw := create_tween()
+		tw.tween_interval(1.5)
+		tw.tween_property(gone, "scale", Vector3(0.01, 0.01, 0.01), 0.5)
+		tw.tween_callback(gone.queue_free)
 
 
 ## The place's creatures wake and come at him.
@@ -656,7 +732,7 @@ func _wake(i: int) -> void:
 	var l: float = _room(i)["l"]
 	var hero := _nearest_hero(centre(i))
 	for body: Node3D in _room_foes[i]:
-		if not is_instance_valid(body):
+		if not is_instance_valid(body) or _reserve.has(body):
 			continue
 		if "leash_radius" in body:
 			body.set("leash_radius", l)
@@ -840,6 +916,12 @@ func _take_down(i: int) -> void:
 				body.queue_free()
 		_room_foes[i] = []
 	_cloud_sea = null
+	_cloud_layer_mats.clear()
+	_reserve.clear()
+	_rift_at = -1.0
+	if is_instance_valid(_rift):
+		_rift.queue_free()
+	_rift = null
 	var keep: Array[Dictionary] = []
 	for col in _columns:
 		if int(col["room"]) != i:
@@ -942,7 +1024,16 @@ func _process(delta: float) -> void:
 			if is_instance_valid(body) and not bool(body.get("is_dead")):
 				left += 1
 		if left == 0 and _spawned > 0:
-			_clear(current)
+			var coming := 0
+			for body in _reserve:
+				if is_instance_valid(body) and not bool(body.get("is_dead")):
+					coming += 1
+			if coming == 0:
+				_clear(current)
+			elif _rift_at < 0.0:
+				_open_rift()
+			elif now >= _rift_at:
+				_next_wave()
 	_crowd_clock -= delta
 	if _crowd_clock <= 0.0:
 		_crowd_clock = 0.2
@@ -976,12 +1067,27 @@ func _materials() -> void:
 	_glass_shader.code = GLASS_SHADER
 	_beam_shader = Shader.new()
 	_beam_shader.code = BEAM_SHADER
-	_rock_mat = StandardMaterial3D.new()
-	_rock_mat.albedo_color = Color(0.40, 0.37, 0.33)
-	_rock_mat.roughness = 0.95
-	_cave_mat = StandardMaterial3D.new()
-	_cave_mat.albedo_color = Color(0.24, 0.21, 0.19)
-	_cave_mat.roughness = 0.9
+	var rock := Shader.new()
+	rock.code = ROCK_SHADER
+	_rock_mat = ShaderMaterial.new()
+	_rock_mat.shader = rock
+	_rock_mat.set_shader_parameter("scale", 0.08)
+	_rock_mat.set_shader_parameter("rock_a", Color(0.48, 0.44, 0.40))
+	_rock_mat.set_shader_parameter("rock_b", Color(0.30, 0.28, 0.27))
+	_rock_mat.set_shader_parameter("band", Color(0.58, 0.48, 0.38))
+	_rock_mat.set_shader_parameter("wet", 0.0)
+	_rock_mat.set_shader_parameter("moss_amount", 0.6)
+	_cave_mat = ShaderMaterial.new()
+	_cave_mat.shader = rock
+	_cave_mat.set_shader_parameter("scale", 0.3)
+	_cave_mat.set_shader_parameter("rock_a", Color(0.34, 0.29, 0.27))
+	_cave_mat.set_shader_parameter("rock_b", Color(0.16, 0.14, 0.15))
+	_cave_mat.set_shader_parameter("band", Color(0.42, 0.30, 0.24))
+	_cave_mat.set_shader_parameter("moss", Color(0.10, 0.20, 0.16))
+	_cave_mat.set_shader_parameter("fleck", Color(0.7, 0.5, 1.0))
+	_cave_mat.set_shader_parameter("fleck_glow", 1.6)
+	_cave_mat.set_shader_parameter("wet", 0.6)
+	_cave_mat.set_shader_parameter("moss_amount", 0.35)
 	_ground_shader = Shader.new()
 	_ground_shader.code = GROUND_SHADER
 	_wall_mat = ShaderMaterial.new()
@@ -1031,7 +1137,7 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("course", 1.4)
 		m.set_shader_parameter("slab_a", Color(0.56, 0.52, 0.48))
 		m.set_shader_parameter("slab_b", Color(0.40, 0.38, 0.36))
-		m.set_shader_parameter("wear", 0.85)
+		m.set_shader_parameter("wear", 0.4)
 		m.set_shader_parameter("border", 2.0)
 		return m
 	if kind == "hall":
@@ -1219,10 +1325,10 @@ func _apply_phase(t: float) -> void:
 		_env.ambient_light_color = (a["amb"] as Color).lerp(b["amb"], u)
 		_env.ambient_light_energy = lerpf(float(a["amb_e"]), float(b["amb_e"]), u)
 		_env.fog_light_color = (a["fog"] as Color).lerp(b["fog"], u)
-	if _cloud_sea != null:
-		var lit := hor.lerp(Color(1, 1, 1), 0.45) * lerpf(1.0, 0.35, night)
-		_cloud_sea.set_shader_parameter("top", lit)
-		_cloud_sea.set_shader_parameter("low", lit.darkened(0.45))
+	var lit := hor.lerp(Color(1, 1, 1), 0.5) * lerpf(1.0, 0.3, night)
+	for m in _cloud_layer_mats:
+		m.set_shader_parameter("top", lit.lerp(sun_c, 0.15))
+		m.set_shader_parameter("low", lit.darkened(0.35).lerp(top, 0.25))
 	if _sun != null:
 		_sun.rotation = Vector3(-deg_to_rad(maxf(elev, -6.0)), yaw, 0.0)
 		_sun.light_color = sun_c
@@ -2652,6 +2758,17 @@ func _build_cave(room: Node3D, i: int) -> void:
 			t.rotation.x = PI
 			t.position = Vector3(x, h - tall * 0.5 + 1.5, z)
 		room.add_child(t)
+	# Boulders fallen from the roof, here and there.
+	for k in 12:
+		var x := signf(_rng.randf() - 0.5) * _rng.randf_range(w * 0.2, w * 0.46)
+		var rock := _nature(room, "Rock_Medium_%d" % _rng.randi_range(1, 3), Vector3(x, 0.0, _rng.randf_range(-l * 0.45, l * 0.45)),
+				_rng.randf_range(1.8, 3.6), _rng.randf_range(0.0, TAU))
+		if rock != null:
+			for m in rock.find_children("*", "MeshInstance3D", true, false):
+				(m as MeshInstance3D).material_override = _cave_mat
+	for k in 30:
+		_nature(room, "Pebble_Round_%d" % _rng.randi_range(1, 5), Vector3(_rng.randf_range(-w * 0.45, w * 0.45), 0.0,
+				_rng.randf_range(-l * 0.45, l * 0.45)), _rng.randf_range(1.0, 2.2), _rng.randf_range(0.0, TAU), false)
 	# Crystals in clusters, glowing.
 	var tints := [Color(0.6, 0.3, 1.0), Color(0.25, 0.7, 1.0), Color(0.85, 0.35, 0.95)]
 	for k in 9:
@@ -2734,8 +2851,6 @@ func _build_forest(room: Node3D, i: int) -> void:
 	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
 	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
 	_bounds(room, w, l)
-	var trees := ["Tree_Oak_1", "Tree_Oak_2", "Tree_Oak_3", "Tree_Oak_5", "Tree_Pine_1", "Tree_Pine_2",
-			"Tree_Pine_4", "GiantFir_A", "GiantFir_B", "Tree_Cedar_1", "Tree_Cedar_2"]
 	# The wood round the clearing, two and three deep.
 	for ring in 3:
 		var out := 3.0 + float(ring) * 7.0
@@ -2752,14 +2867,12 @@ func _build_forest(room: Node3D, i: int) -> void:
 					2: at = Vector3(along, 0.0, -l * 0.5 - out)
 					_: at = Vector3(along, 0.0, l * 0.5 + out)
 				at += Vector3(_rng.randf_range(-2.0, 2.0), 0.0, _rng.randf_range(-2.0, 2.0))
-				_prop(room, trees[_rng.randi() % trees.size()], at, _rng.randf_range(11.0, 20.0),
-						_rng.randf_range(0.0, TAU), ring == 0)
+				_nature(room, _a_tree(), at, _rng.randf_range(1.5, 2.4), _rng.randf_range(0.0, TAU), ring == 0)
 	# A few inside, near the edge, that one can walk round.
 	for k in 7:
 		var x := (w * _rng.randf_range(0.3, 0.44)) * (1.0 if k % 2 == 0 else -1.0)
 		var z := _rng.randf_range(-l * 0.42, l * 0.42)
-		_prop(room, trees[_rng.randi() % trees.size()], Vector3(x, 0.0, z), _rng.randf_range(10.0, 16.0),
-				_rng.randf_range(0.0, TAU))
+		_nature(room, _a_tree(), Vector3(x, 0.0, z), _rng.randf_range(1.3, 1.9), _rng.randf_range(0.0, TAU))
 		_post(room, Vector3(x, 0.0, z), 0.55, 4.0)
 	# Standing stones in a ring at the middle, one fallen.
 	for k in 7:
@@ -2778,25 +2891,35 @@ func _build_forest(room: Node3D, i: int) -> void:
 		s.rotation = Vector3(_rng.randf_range(-0.06, 0.06), a, _rng.randf_range(-0.06, 0.06))
 		_blocker(room, Vector3(1.0, tall, 1.0), at + Vector3(0.0, tall * 0.5, 0.0))
 	# What lies about.
-	var bits := [["Log_1", 1.0], ["Log_3", 1.0], ["Stump_1", 1.1], ["Stump_2", 1.0], ["Rock_1", 1.4], ["Rock_3", 1.8],
-			["Rock_5", 1.2], ["Bush_1", 1.4], ["Bush_3", 1.6], ["Bush_4", 1.2], ["Mushroom_Red_Spotted", 0.5],
-			["Mushroom_Brown", 0.4]]
-	for k in 34:
-		var bit: Array = bits[k % bits.size()]
+	for k in 10:
 		var x := _rng.randf_range(-w * 0.46, w * 0.46)
 		var z := _rng.randf_range(-l * 0.46, l * 0.46)
 		if absf(x) < 6.0 and absf(z) < 14.0:
 			continue
-		_prop(room, String(bit[0]), Vector3(x, 0.0, z), float(bit[1]) * _rng.randf_range(0.8, 1.3),
+		_prop(room, ["Log_1", "Log_3", "Stump_1", "Stump_2"][k % 4], Vector3(x, 0.0, z), _rng.randf_range(0.9, 1.3),
 				_rng.randf_range(0.0, TAU), false)
-	var small := ["Grass_Clump_1", "Grass_Clump_2", "Grass_Clump_3", "Flower_Daisy_1", "Flower_Violet_1",
-			"Flower_Bellflower_1"]
-	for k in 90:
-		_prop(room, small[k % small.size()], Vector3(_rng.randf_range(-w * 0.48, w * 0.48), 0.0,
-				_rng.randf_range(-l * 0.48, l * 0.48)), _rng.randf_range(0.3, 0.7), _rng.randf_range(0.0, TAU), false)
+	var bits := [["Rock_Medium_1", 1.2], ["Rock_Medium_2", 1.0], ["Rock_Medium_3", 1.4], ["Bush_Common", 1.3],
+			["Bush_Common_Flowers", 1.3], ["Fern_1", 1.4], ["Plant_1_Big", 1.2], ["Plant_7_Big", 1.2],
+			["Mushroom_Common", 1.4], ["Mushroom_Laetiporus", 1.2]]
+	for k in 46:
+		var bit: Array = bits[k % bits.size()]
+		var x := _rng.randf_range(-w * 0.47, w * 0.47)
+		var z := _rng.randf_range(-l * 0.47, l * 0.47)
+		if absf(x) < 6.0 and absf(z) < 14.0:
+			continue
+		# most of it near the edge of the wood
+		if _rng.randf() < 0.6:
+			x = signf(x + 0.01) * _rng.randf_range(w * 0.3, w * 0.48)
+		_nature(room, String(bit[0]), Vector3(x, 0.0, z), float(bit[1]) * _rng.randf_range(0.8, 1.3),
+				_rng.randf_range(0.0, TAU), false)
+	var small := ["Grass_Common_Tall", "Grass_Wispy_Tall", "Grass_Common_Short", "Flower_3_Group", "Flower_4_Group",
+			"Clover_1", "Clover_2", "Grass_Wispy_Short", "Pebble_Round_2", "Flower_3_Single"]
+	for k in 220:
+		_nature(room, small[k % small.size()], Vector3(_rng.randf_range(-w * 0.49, w * 0.49), 0.0,
+				_rng.randf_range(-l * 0.49, l * 0.49)), _rng.randf_range(0.9, 1.6), _rng.randf_range(0.0, TAU), false)
 	_fireflies(room, w, l)
 	_stream(room, w, l)
-	_mist(room, w, l, 0.3, Color(0.92, 0.94, 0.96), 0.3)
+	_mist(room, w, l, 0.3, Color(0.92, 0.94, 0.96), 0.16)
 	if i < 3:
 		_butterflies(room, w, l)
 
@@ -2841,10 +2964,194 @@ func _fireflies(room: Node3D, w: float, l: float) -> void:
 	room.add_child(p)
 
 
-## An island in the sky (the user's word: up in the sky): a broken floor of the
-## palace's stone on a great rock, a low wall round it with gaps (unseen walls
-## in them), columns standing and fallen, little islands floating round with
-## a tree on each, and the clouds a long way under.
+const ROCK_SHADER := """
+shader_type spatial;
+// Rock as it is (the user's word, 2026-10-20: the cave's textures prettier):
+// laid down in strata, cracked, flecked with what glitters, moss and damp in
+// its hollows and low down, its face broken by its own relief. All in the
+// world's frame, so any rock of any size takes it.
+uniform vec4 rock_a : source_color = vec4(0.36, 0.32, 0.29, 1.0);
+uniform vec4 rock_b : source_color = vec4(0.22, 0.20, 0.20, 1.0);
+uniform vec4 band : source_color = vec4(0.46, 0.38, 0.31, 1.0);
+uniform vec4 moss : source_color = vec4(0.16, 0.22, 0.10, 1.0);
+uniform vec4 fleck : source_color = vec4(0.75, 0.6, 1.0, 1.0);
+uniform float scale = 0.35;
+uniform float wet = 0.4;
+uniform float moss_amount = 0.5;
+uniform float fleck_glow = 0.0;
+varying vec3 wpos;
+varying vec3 wnorm;
+float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float noise(vec3 p) {
+	vec3 i = floor(p); vec3 f = fract(p);
+	vec3 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), u.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), u.x), u.y),
+			mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), u.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), u.x), u.y), u.z);
+}
+float fbm(vec3 p) {
+	float v = 0.0; float a = 0.5;
+	for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 3.1; a *= 0.5; }
+	return v;
+}
+float cells(vec3 p) {
+	vec3 n = floor(p); vec3 f = fract(p);
+	float m1 = 8.0; float m2 = 8.0;
+	for (int k = -1; k <= 1; k++) {
+		for (int j = -1; j <= 1; j++) {
+			for (int i = -1; i <= 1; i++) {
+				vec3 g = vec3(float(i), float(j), float(k));
+				vec3 o = vec3(hash(n + g), hash(n + g + 7.3), hash(n + g + 13.1));
+				float d = length(g + o - f);
+				if (d < m1) { m2 = m1; m1 = d; } else if (d < m2) { m2 = d; }
+			}
+		}
+	}
+	return m2 - m1;
+}
+float height(vec3 p) {
+	vec3 q = p * scale * 2.2;
+	return noise(q) * 0.55 + noise(q * 2.3 + 1.7) * 0.3 + noise(q * 5.1 + 4.2) * 0.15;
+}
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	vec3 p = wpos;
+	float n = fbm(p * scale);
+	// strata: bands along the height, wavering
+	float s = sin((p.y + fbm(p * scale * 0.5) * 6.0) * 1.3) * 0.5 + 0.5;
+	vec3 c = mix(rock_b.rgb, rock_a.rgb, n);
+	c = mix(c, band.rgb * (0.8 + 0.4 * n), smoothstep(0.8, 0.97, s) * 0.3);
+	// cracks
+	float cr = 1.0 - smoothstep(0.0, 0.025, cells(p * scale * 0.7));
+	c *= 1.0 - cr * 0.4 * smoothstep(0.35, 0.6, fbm(p * scale * 0.3 + 9.0));
+	// moss and damp where it faces up and low down
+	float up = clamp(wnorm.y, 0.0, 1.0);
+	float m = smoothstep(0.45, 0.75, fbm(p * scale * 1.7 + 5.0)) * (0.4 + 0.6 * up) * moss_amount;
+	c = mix(c, moss.rgb * (0.7 + 0.5 * n), m);
+	// flecks that catch the light (and in the cave, glow faintly)
+	float fl = step(0.985, hash(floor(p * 9.0)));
+	ALBEDO = mix(c, fleck.rgb, fl * 0.6);
+	EMISSION = fleck.rgb * fl * fleck_glow;
+	ROUGHNESS = mix(0.95, 0.35, max(fl, wet * 0.5));
+	// its relief, from its own height field
+	float e = 0.06;
+	float h0 = height(p);
+	vec3 g = vec3(height(p + vec3(e, 0, 0)) - h0, height(p + vec3(0, e, 0)) - h0, height(p + vec3(0, 0, e)) - h0) / e;
+	vec3 nw = normalize(wnorm - (g - wnorm * dot(g, wnorm)) * 0.35);
+	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+}
+"""
+
+const CLOUD_LAYER_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+// One layer of the sea of cloud under the island: soft, broken, drifting, lit
+// with the day, fading out far off so it has no edge.
+uniform vec4 top : source_color = vec4(1.0, 0.96, 0.92, 1.0);
+uniform vec4 low : source_color = vec4(0.6, 0.62, 0.72, 1.0);
+uniform float cover = 0.5;
+uniform float seed = 0.0;
+uniform float opacity = 0.85;
+uniform vec2 middle = vec2(0.0);
+varying vec3 wpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+	float v = 0.0; float a = 0.5;
+	for (int i = 0; i < 6; i++) { v += a * noise(p); p = p * 2.02 + 1.7; a *= 0.5; }
+	return v;
+}
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = wpos.xz * 0.008 + vec2(seed, seed * 0.7) + vec2(TIME * 0.003, TIME * 0.0012);
+	float n = fbm(p);
+	float body = smoothstep(1.0 - cover, 1.0 - cover + 0.22, n);
+	float far = length(wpos.xz - middle);
+	float fade = 1.0 - smoothstep(500.0, 1200.0, far);
+	ALBEDO = mix(low.rgb, top.rgb, smoothstep(0.4, 0.9, n + 0.15));
+	ALPHA = body * fade * opacity;
+}
+"""
+
+
+## A model of the nature kit in glTF/ (the stylized trees, bushes, ferns,
+## flowers, grass, rocks: the user's word, 2026-10-20, our own pretty
+## low-poly trees), `scale` times its own size, turned `yaw`.
+func _nature(room: Node3D, name: String, at: Vector3, scale: float, yaw: float, shadow: bool = true) -> Node3D:
+	var path := "res://glTF/%s.gltf" % name
+	var scene: PackedScene = _models.get(path) as PackedScene
+	if scene == null:
+		if not ResourceLoader.exists(path):
+			return null
+		scene = load(path) as PackedScene
+		_models[path] = scene
+	if scene == null:
+		return null
+	var n := scene.instantiate() as Node3D
+	n.position = at
+	n.rotation.y = yaw
+	# the kit's twisted trees stand twice as tall as the rest, its flowers
+	# as tall as a man
+	if name.begins_with("TwistedTree"):
+		scale *= 0.5
+	elif name.begins_with("Flower"):
+		scale *= 0.45
+	n.scale = Vector3.ONE * scale
+	room.add_child(n)
+	if not shadow:
+		for m in n.find_children("*", "GeometryInstance3D", true, false):
+			(m as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return n
+
+
+## The forest's trees, at random, the big leafy ones most of all.
+func _a_tree() -> String:
+	var roll := _rng.randf()
+	if roll < 0.55:
+		return "CommonTree_%d" % _rng.randi_range(1, 5)
+	if roll < 0.9:
+		return "Pine_%d" % _rng.randi_range(1, 5)
+	if roll < 0.96:
+		return "TwistedTree_%d" % _rng.randi_range(1, 5)
+	return "DeadTree_%d" % _rng.randi_range(1, 5)
+
+
+## The sea of cloud under the island: soft layers one over another.
+func _cloud_layers(room: Node3D) -> void:
+	_cloud_layer_mats.clear()
+	var sh := Shader.new()
+	sh.code = CLOUD_LAYER_SHADER
+	for k in 4:
+		var m := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(2600.0, 2600.0)
+		m.mesh = plane
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		mat.set_shader_parameter("seed", float(k) * 13.7)
+		mat.set_shader_parameter("cover", 0.42 + float(k) * 0.08)
+		mat.set_shader_parameter("opacity", 0.55 + float(k) * 0.12)
+		mat.set_shader_parameter("middle", Vector2(room.global_position.x, room.global_position.z))
+		m.material_override = mat
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		m.position = Vector3(0.0, -78.0 + float(k) * 7.0, 0.0)
+		room.add_child(m)
+		_cloud_layer_mats.append(mat)
+	_apply_phase(_phase)
+
+
+## An island in the sky (the user's word: up in the sky; then, prettier,
+## without the clouds in front): an old paved floor on a great rock, grass and
+## flowers grown over its edges, trees on it, broken columns, a low wall round
+## it with gaps (unseen walls in them), little islands floating round with
+## trees of their own, birds, and a soft sea of cloud far under.
 func _build_sky(room: Node3D, i: int) -> void:
 	var r := _room(i)
 	var w: float = r["w"]
@@ -2856,11 +3163,19 @@ func _build_sky(room: Node3D, i: int) -> void:
 				Vector3(w * (1.15 - float(k) * 0.18), 30.0 + float(k) * 12.0, l * (1.15 - float(k) * 0.18)),
 				_rng.randf_range(0.0, TAU), _rock_mat, false)
 		_hang(rock, -1.0 - float(k) * 6.0)
+	# grass over the rock's rim, round the floor
+	var lawn := ShaderMaterial.new()
+	lawn.shader = _ground_shader
+	for side in 4:
+		var along := w + 12.0 if side < 2 else l + 12.0
+		var strip := Vector3(along, 0.6, 5.0) if side < 2 else Vector3(5.0, 0.6, along)
+		var at := Vector3(0.0, -0.25, (l * 0.5 + 4.0) * (1.0 if side == 0 else -1.0)) if side < 2 \
+				else Vector3((w * 0.5 + 4.0) * (1.0 if side == 2 else -1.0), -0.25, 0.0)
+		_solid(room, lawn, strip, at, false)
 	_bounds(room, w, l)
-	_balustrade(room, Vector3(-w * 0.5 - 0.5, 0.0, 0.0), l + 2.0)
-	_balustrade(room, Vector3(w * 0.5 + 0.5, 0.0, 0.0), l + 2.0)
-	_balustrade_across(room, Vector3(0.0, 0.0, -l * 0.5 - 0.5), w + 2.0)
-	_balustrade_across(room, Vector3(0.0, 0.0, l * 0.5 + 0.5), w + 2.0)
+	for side: float in [-1.0, 1.0]:
+		_balustrade(room, Vector3(side * (w * 0.5 + 0.5), 0.0, 0.0), l + 2.0)
+		_balustrade_across(room, Vector3(0.0, 0.0, side * (l * 0.5 + 0.5)), w + 2.0)
 	for k in 6:
 		var x := (w * 0.5 - 4.0) * (1.0 if k % 2 == 0 else -1.0)
 		var z := -l * 0.35 + floorf(float(k) / 2.0) * l * 0.35
@@ -2869,38 +3184,51 @@ func _build_sky(room: Node3D, i: int) -> void:
 			continue
 		_column(room, i, Vector3(x, 0.0, z), _rng.randf_range(6.0, 10.0), 1.1)
 	_rubble_round(room, i, w, l)
-	# Little islands round about.
+	# trees on the grass outside the wall, and bushes and flowers against it
+	for k in 10:
+		var side := k % 4
+		var at := Vector3(_rng.randf_range(-w * 0.5, w * 0.5), 0.0, (l * 0.5 + 4.0) * (1.0 if side == 0 else -1.0)) \
+				if side < 2 else Vector3((w * 0.5 + 4.0) * (1.0 if side == 2 else -1.0), 0.0, _rng.randf_range(-l * 0.5, l * 0.5))
+		_nature(room, "CommonTree_%d" % _rng.randi_range(1, 5) if k % 3 != 2 else "TwistedTree_%d" % _rng.randi_range(1, 5),
+				at, _rng.randf_range(1.0, 1.5), _rng.randf_range(0.0, TAU))
+	for k in 60:
+		var on_floor := k % 3 == 0
+		var x := _rng.randf_range(-w * 0.5 - 4.0, w * 0.5 + 4.0)
+		var z := _rng.randf_range(-l * 0.5 - 4.0, l * 0.5 + 4.0)
+		if on_floor:
+			x = (w * 0.5 - 1.0) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		elif absf(x) < w * 0.5 and absf(z) < l * 0.5:
+			continue
+		var bit: String = ["Grass_Wispy_Tall", "Grass_Common_Tall", "Flower_3_Group", "Flower_4_Group", "Bush_Common_Flowers",
+				"Fern_1", "Clover_1"][k % 7]
+		_nature(room, bit, Vector3(x, 0.0, z), _rng.randf_range(0.9, 1.5), _rng.randf_range(0.0, TAU), false)
+	# Little islands round about, each with its tree and its grass.
 	for k in 9:
 		var a := float(k) / 9.0 * TAU + _rng.randf_range(-0.2, 0.2)
 		var far := _rng.randf_range(70.0, 150.0)
 		var at := Vector3(sin(a) * far, _rng.randf_range(-30.0, 25.0), cos(a) * far)
-		var size := _rng.randf_range(8.0, 22.0)
-		var top := _boulder(room, at, Vector3(size, 2.0, size), _rng.randf_range(0.0, TAU), _rock_mat, false)
+		var size := _rng.randf_range(8.0, 20.0)
+		var top := MeshInstance3D.new()
+		var disc := CylinderMesh.new()
+		disc.top_radius = size * 0.5
+		disc.bottom_radius = size * 0.42
+		disc.height = 1.2
+		disc.radial_segments = 10
+		top.mesh = disc
+		top.material_override = lawn
 		top.position = at
-		var under := _boulder(room, at, Vector3(size * 0.9, size * 1.4, size * 0.9), 0.0, _rock_mat, false)
-		_hang(under, at.y + 0.2)
-		_prop(room, ["Tree_Pine_2", "Tree_Oak_3", "GiantFir_C"][k % 3], at + Vector3(0.0, 1.6, 0.0), size * 0.7,
-				_rng.randf_range(0.0, TAU), false)
-	# The sea of cloud far under, and clouds drifting by at the island's height.
-	var sea := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(5000.0, 5000.0)
-	sea.mesh = plane
-	var cm := ShaderMaterial.new()
-	var cs := Shader.new()
-	cs.code = CLOUD_SHADER
-	cm.shader = cs
-	cm.set_shader_parameter("top", Color(0.92, 0.88, 0.86))
-	cm.set_shader_parameter("low", Color(0.55, 0.58, 0.68))
-	sea.material_override = cm
-	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	sea.position = Vector3(0.0, -55.0, 0.0)
-	room.add_child(sea)
-	_cloud_sea = cm
-	_apply_phase(_phase)
-	_cloud_puffs(room)
+		top.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		room.add_child(top)
+		var under := _boulder(room, at, Vector3(size * 0.95, size * 1.3, size * 0.95), _rng.randf_range(0.0, TAU), _rock_mat, false)
+		_hang(under, at.y - 0.4)
+		_nature(room, _a_tree(), at + Vector3(0.0, 0.6, 0.0), size * 0.12, _rng.randf_range(0.0, TAU), false)
+		for g in 4:
+			_nature(room, "Grass_Wispy_Tall", at + Vector3(_rng.randf_range(-size, size) * 0.3, 0.6,
+					_rng.randf_range(-size, size) * 0.3), 1.2, _rng.randf_range(0.0, TAU), false)
+	_cloud_layers(room)
 	_circling_birds(room)
 	_motes(room, w, l, 10.0)
+
 #endregion
 
 
@@ -3105,34 +3433,6 @@ func _glow(m: MeshInstance3D, tint: Color) -> void:
 	light.omni_range = 4.0
 	light.position = Vector3(0.0, 0.6 / maxf(m.scale.y, 0.01), 0.0)
 	m.add_child(light)
-
-
-## Clouds drifting by at the island's own height.
-func _cloud_puffs(room: Node3D) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.55)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
-	mat.roughness = 1.0
-	for k in 14:
-		var puff := Node3D.new()
-		var a := _rng.randf_range(0.0, TAU)
-		var far := _rng.randf_range(60.0, 220.0)
-		puff.position = Vector3(sin(a) * far, _rng.randf_range(-35.0, 20.0), cos(a) * far)
-		for b in _rng.randi_range(4, 7):
-			var s := MeshInstance3D.new()
-			var sm := SphereMesh.new()
-			var r := _rng.randf_range(4.0, 9.0)
-			sm.radius = r
-			sm.height = r * 1.4
-			sm.radial_segments = 12
-			sm.rings = 6
-			s.mesh = sm
-			s.material_override = mat
-			s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			s.position = Vector3(_rng.randf_range(-10.0, 10.0), _rng.randf_range(-2.0, 2.0), _rng.randf_range(-5.0, 5.0))
-			puff.add_child(s)
-		room.add_child(puff)
 
 
 ## Birds circling the island, far off and near.

@@ -10987,3 +10987,15 @@ day, glowing mushrooms, bats out of the cave's roof, clouds and circling
 birds round the island in the sky, blades left standing in the floor of the
 terrace and the lord's court; the orcs' drums far off in the palace, crickets
 at night, the crystals' hum, chains creaking, banners in the wind, an eagle.
+
+Round 8 (2026-10-20): no more than five of a place's creatures up at once
+(`Dungeon.AT_ONCE`); the rest wait hidden under the floor, and when those are
+down a red rift opens in the place's far half and the next wave comes out of
+it (`_open_rift`, `_next_wave`, `RIFT_TIME`). The forest and the sky island
+are furnished from the stylized nature kit in `glTF/` (`_nature`: its leafy
+and twisted trees, pines, dead trees, bushes, ferns, flowers, grass, clover,
+mushrooms, rocks, pebbles); the cave's and the crags' rock is `ROCK_SHADER`
+(strata, cracks, moss, flecks that glow in the cave, its own relief); the sky
+island has grass round its paving, trees on it and on the little islands,
+and a soft sea of cloud in layers far under (`CLOUD_LAYER_SHADER`) in place
+of the cloud plane and puffs.
