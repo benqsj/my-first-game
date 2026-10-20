@@ -149,15 +149,21 @@ func _think(delta: float) -> void:
 	var alone := allies == 0 and not bold
 	# A stone or a bomb, from off.
 	if _throw_wait <= 0.0 and gap >= throw_from and gap <= throw_to and not _quarry_down() \
-			and stamina >= attack_cost:
+			and stamina >= attack_cost and Fighter.throw_free(_quarry):
 		mode = Mode.FIGHT
 		_face(to, delta, turn_speed * 2.0)
 		if _forward().dot(to.normalized()) > 0.85:
+			Fighter.claim_throw(_quarry)
 			_thrown = false
 			_slow(delta, 6.0)
 			_begin(THROW)
 		else:
 			_slow(delta, 4.0)
+		return
+	# Held back (a [Dungeon]'s crowd): off at its place round him, throwing.
+	if held_back:
+		mode = Mode.FIGHT
+		_hold_to(_held_spot(9.0), chase_speed, delta)
 		return
 	if alone or _feared:
 		if gap > cornered:

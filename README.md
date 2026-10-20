@@ -10952,3 +10952,26 @@ holds the two orcs alone; at a lone hero they take turns (`_lead_orcs`,
 over every 14–22 s. Rooms give `xp` on clearing and show `lv`
 (`Leveling.level_of` reads a `level` meta): the hero meets the orcs (Lv 7) at
 6–7 and the lord (Lv 8) at 7.
+
+Round 6 (2026-10-20): the run of places (the user's word: Archero's rooms
+and Hades' doors together). `Dungeon.RUN[id]` is five steps; each step lists
+the places its portals may lead to (`PLACES`: the palace's hall, court, broken
+hall, terrace and throne court, and a cave, a forest and an island in the
+sky) and the creatures in each. A place cleared opens two portals
+(`_offer`), each to a place of its own with a reward of its own written over
+it (`REWARDS`: life +20 % and healed, 60 gold, blows +15 %, skill cooldowns
+−20 %; given when that place is cleared, `_give`); the last step has one, to
+the lord. Walking into one (`take`) fades to black, takes the old place down,
+builds the new one 420 m on (the sky island 160 m up over a sea of cloud) with
+its creatures asleep in it, moves the heroes to its near end and the day on,
+and fades back; it wakes 1.2 s later. Each step's `reach` tops the hero up
+(he meets the lord at 7). Goblins join the small ones (held back, they throw
+from their place).
+
+Sounds (all made in code, `vepxis-art/tools/dungeon_sounds.py`, in
+`assets/sounds/dungeon/`): wind (soft, strong), the cave's breath, birds,
+fire crackle on every brazier (3D), drips in the cave and the broken hall,
+thunder far off once the day goes, an owl in the forest at night, stone
+crumbling under the orcs' blows, a column's thud, the portals' hum and
+whoosh, a war horn when the lord wakes. The world's sounds go through a bus
+of the dungeon's own (`Sfx.bus` = "Dungeon") with an echo after the place.

@@ -9,6 +9,9 @@ extends RefCounted
 ## disk read.
 
 static var _cache: Dictionary = {}
+## The bus the world's sounds go to (a [Dungeon] sends them through its own
+## echo while it stands).
+static var bus: StringName = &"Master"
 
 
 ## Plays `path` at `where` (a node it follows, or a point if `where` is null
@@ -27,7 +30,7 @@ static func play(owner: Node, path: String, where: Node3D = null, at: Vector3 = 
 	player.pitch_scale = maxf(pitch * randf_range(1.0 - spread, 1.0 + spread), 0.05)
 	player.unit_size = 6.0
 	player.max_distance = 60.0
-	player.bus = &"Master"
+	player.bus = bus
 	if where != null:
 		where.add_child(player)
 	else:
@@ -51,7 +54,7 @@ static func play_flat(owner: Node, path: String, pitch: float = 1.0, volume_db: 
 	player.stream = stream
 	player.volume_db = volume_db
 	player.pitch_scale = maxf(pitch * randf_range(0.97, 1.03), 0.05)
-	player.bus = &"Master"
+	player.bus = bus
 	owner.add_child(player)
 	player.finished.connect(player.queue_free)
 	player.play()

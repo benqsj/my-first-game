@@ -2,27 +2,26 @@ class_name Dungeon
 extends Node3D
 
 ## A dungeon behind one of the open world's gates ([Portals],
-## portal_dungeons_plan.md): a palace of rooms one after another (the user's
-## word: Archero's way). The hero stands in the first; its creatures come, and
-## when the last of them is down the iron gate at its far end goes up. The
-## gate behind comes down as he goes through. The last room is the boss's;
-## the boss down, the dungeon is closed: what it gives is on the floor, the
-## hero is brought up to the dungeon's top level, and a gate out stands at the
-## far end.
+## portal_dungeons_plan.md): a run of places, one after another (the user's
+## word: Archero's rooms and Hades' doors together, 2026-10-20). The hero stands
+## in the first, a hall of the palace; its creatures come, and when the last of
+## them is down two portals open at its far end, each with the place it leads
+## to and the reward that waits there written over it — a cave, a forest, an
+## island in the sky, a court or a broken hall of the palace. He walks into the
+## one he wants: the screen goes dark a moment and he is there. The reward is
+## his when that place is cleared. The last place is the lord's court on the
+## palace's roof, at night; the lord down, the dungeon is closed: the hero is
+## brought up to its top level and a way out stands where the lord was.
 ##
-## The rooms are big and high (the user's word, 2026-10-20) and not all of them
-## under a roof: some are halls (a ceiling on beams, braziers hanging from it),
-## some open to the sky — a courtyard with windows onto the mountains, a
-## terrace with one side open over a sea of cloud far below, and the boss's
-## court on the cliff's edge. Built in code from `ROOMS`: floors, walls,
-## columns, banners, torches, iron gates, and round it all the sky, the sun,
-## the mountains and the cloud below.
+## Places are built when they are chosen (behind the dark), each far from the
+## others; the one left behind is taken down. Its creatures are made with it,
+## asleep where they stand, and wake a moment after he comes.
 ##
-## Levels: the hero comes in at the dungeon's first level ([Leveling] is new
-## in every level loaded) and the creatures carry him up as they fall; a
-## dungeon closed tops him up to its last. Dying alone in here puts him back
-## by the gate he came in by; in a band, the fallen get up when the room is
-## cleared.
+## Levels: the hero comes in at the dungeon's first level ([Leveling] is new in
+## every level loaded) and the creatures carry him up as they fall; each place
+## cleared tops him up to its `reach`, so he meets the lord at 7. Dying alone in
+## here puts him back by the gate he came in by; in a band, the fallen get up
+## when the place is cleared.
 
 const WALL_T := 1.6
 const DOOR_W := 6.0
@@ -31,16 +30,23 @@ const DOOR_H := 7.5
 const BLOCK_H := 60.0
 ## How long after dying alone he is taken back out.
 const BACK_OUT_AFTER := 3.0
+## How far apart the places of one run are built (m, along −Z).
+const STEP_GAP := 420.0
+## Seconds the screen takes to go dark, and to come back.
+const FADE := 0.45
+## Seconds after he arrives that a place's creatures wake.
+const WAKE_AFTER := 1.2
 
 const IMP := "res://scenes/enemies/imp.tscn"
 const PUGLIN := "res://scenes/enemies/puglin.tscn"
+const GOBLIN := "res://scenes/enemies/pack/goblin.tscn"
 const ORC := "res://scenes/enemies/pack/orc.tscn"
 const ORC_SKIRM := "res://scenes/enemies/pack/orc_skirmisher.tscn"
 const OGRE := "res://scenes/enemies/pack/ogre.tscn"
 const ORC_CHIEF := "res://scenes/enemies/pack/orc_chief.tscn"
 
 ## The orcs of the first dungeon (the user's word, 2026-10-20): before the last
-## room two of different kinds, one with two swords, one with a long sword,
+## place two of different kinds, one with two swords, one with a long sword,
 ## neither with its whole run of combos; in the last, the lord of the orcs with
 ## his great sword.
 const ORC_TWO_SWORDS := {"hand_combo_chance": Vector2(0.3, 0.55)}
@@ -48,28 +54,50 @@ const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_com
 const ORC_LORD := {"arm_right": "greatsword", "arm_style": "black", "outfit": "Lord", "cape": "Black cape",
 		"combo_rest": Vector2(2.4, 3.4)}
 
-## Per dungeon: its rooms. Each: kind ("hall" under a roof, "court" open with
-## windows, "terrace" open with one side over the drop, "throne" the boss's
-## court on the cliff), width, length, wall height, and its creatures as
-## [scene, count, props], "lv" the level they show and "xp" what clearing
-## it gives on top of them (wolves' worth: the hero comes to the lord at level
-## 7, the user's word, 2026-10-20). Twice the floor of the first round (the user's
-## word, 2026-10-20). The first dungeon: imps; imps and puglins; puglins and
-## imps; the two orcs, taking turns; the lord of the orcs alone. Closing it brings
-## the hero to its top level whatever he has gained on the way.
-const ROOMS := {
+## Where a portal can lead: what it is called, how it is built ("hall" under a
+## roof, "court" open with windows, "terrace" open on one side over the drop,
+## "throne" the lord's court on the roof, "cave", "forest", "sky" an island
+## over the clouds), how big, how high its walls, how far up it stands.
+const PLACES := {
+	"hall": {"name": "სასახლის დარბაზი", "kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0},
+	"court": {"name": "სასახლის ეზო", "kind": "court", "w": 52.0, "l": 64.0, "h": 11.0},
+	"great_hall": {"name": "ჩანგრეული დარბაზი", "kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true},
+	"terrace": {"name": "ტერასა", "kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0},
+	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
+	"forest": {"name": "ტყე", "kind": "forest", "w": 58.0, "l": 64.0, "h": 0.0},
+	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 52.0, "l": 58.0, "h": 0.0, "lift": 160.0},
+	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
+}
+
+## Per dungeon, its run: each step the places its portals may lead to, the
+## creatures in each ("*" any of them) as [scene, count, props], the level
+## they show ("lv"), what clearing it gives on top of them ("xp", wolves'
+## worth) and the level it tops him up to ("reach"). The first dungeon: imps in
+## the hall; imps and puglins, puglins and goblins, or goblins and imps; more
+## of them; the two orcs, taking turns; the lord of the orcs alone.
+const RUN := {
 	0: [
-		{"kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0, "lv": 1, "xp": 1.5, "foes": [[IMP, 6]]},
-		{"kind": "court", "w": 52.0, "l": 64.0, "h": 11.0, "lv": 3, "xp": 2.5, "foes": [[IMP, 5], [PUGLIN, 5]]},
-		{"kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true, "lv": 5, "xp": 3.0,
-				"foes": [[PUGLIN, 7], [IMP, 5]]},
-		{"kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0, "lv": 7, "xp": 3.5,
-				"foes": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]},
-		{"kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0, "lv": 8, "foes": [[ORC_CHIEF, 1, ORC_LORD]]},
+		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 6]]}},
+		{"places": ["court", "cave", "forest"], "lv": 3, "xp": 2.5, "reach": 4,
+				"foes": {"court": [[IMP, 5], [PUGLIN, 5]], "cave": [[PUGLIN, 6], [GOBLIN, 4]],
+						"forest": [[GOBLIN, 5], [IMP, 4]]}},
+		{"places": ["great_hall", "cave", "sky", "forest"], "lv": 5, "xp": 3.0, "reach": 6,
+				"foes": {"great_hall": [[PUGLIN, 7], [IMP, 5]], "cave": [[PUGLIN, 7], [GOBLIN, 5]],
+						"sky": [[IMP, 8], [GOBLIN, 4]], "forest": [[GOBLIN, 6], [PUGLIN, 5]]}},
+		{"places": ["terrace", "forest", "sky", "cave"], "lv": 7, "xp": 3.5, "reach": 7,
+				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]}},
+		{"places": ["throne"], "lv": 8, "foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
 }
-## The boss of each dungeon: the scene in its last room that has to fall.
+## The boss of each dungeon: the scene in its last place that has to fall.
 const BOSS := {0: ORC_CHIEF}
+## What waits behind a portal (the user's word): its name and the portal's colour.
+const REWARDS := {
+	"life": {"name": "სიცოცხლე", "tint": Color(0.95, 0.22, 0.28)},
+	"gold": {"name": "ოქრო", "tint": Color(1.0, 0.76, 0.2)},
+	"blade": {"name": "ხმლის ძალა", "tint": Color(0.45, 0.75, 1.0)},
+	"skill": {"name": "სკილების სისწრაფე", "tint": Color(0.72, 0.38, 1.0)},
+}
 ## How many may set on each hero at once, an orc near him counting as one
 ## (the user's word: at most two; the rest throw from off).
 const CROWD := 2
@@ -79,25 +107,39 @@ const THROW_GAP := 2.0
 ## Held back, they wait round him on these rings, spread out evenly.
 const HOLD_RINGS := [8.5, 11.5]
 
+const SND := "res://assets/sounds/dungeon/"
+
 ## Which dungeon this is (from [member Game.dungeon_id]; 0 when there is none).
 @export var id: int = 0
 
 signal room_cleared(index: int)
 signal closed
 
+## The run's steps (from `RUN`).
+var steps: Array = []
+## The places he has been to, one per step so far: {place, kind, w, l, h,
+## foes, lv, xp, reach, reward}.
 var rooms: Array = []
-## Each room's middle (on the floor) and its near and far ends (z).
+## Each place's middle, on its floor.
 var centres: Array[Vector3] = []
-## Room index the heroes are in, -1 before the first wakes.
+## The place the heroes are in.
 var current: int = -1
 var cleared: Array[bool] = []
 var is_closed: bool = false
-## The iron gate at the far end of each room (none after the last).
-var gates: Array[Node3D] = []
+## The portals open now, each with its meta "place" and "reward".
+var choices: Array[PortalLook] = []
+## Rewards given so far, by name.
+var rewards_given: Array[String] = []
+var _woken: bool = false
+var _wake_at: float = -1.0
+var _going: bool = false
+var _room_nodes: Array[Node3D] = []
 var _alive: Array[Node3D] = []
 var _spawned: int = 0
 var _floor_shader: Shader
+var _ground_shader: Shader
 var _rock_mat: StandardMaterial3D
+var _cave_mat: StandardMaterial3D
 var _glass_shader: Shader
 var _beam_shader: Shader
 ## Every column standing: {room, at, h, thick, parts (meshes), blocker, broken}.
@@ -105,8 +147,7 @@ var _columns: Array[Dictionary] = []
 var _crowd_clock: float = 0.0
 ## The small ones let at the heroes just now ([method _hold_back_crowd]).
 var _holders: Array[Node3D] = []
-## Every room's creatures, made when the dungeon loads (no stall when a room
-## wakes, the user's word): asleep where they stand till theirs does.
+## Each place's creatures, made with it: asleep where they stand till it wakes.
 var _room_foes: Array = []
 ## The pair of orcs taking turns at a lone hero: whose turn, since when, and
 ## each one's health at the last look (a blow on the other one hands it over).
@@ -114,7 +155,7 @@ var _orc_on: Node3D = null
 var _orc_since: float = 0.0
 var _orc_hand_over: float = 16.0
 var _orc_health: Dictionary = {}
-## The light of the day, room by room (0 afternoon .. 4 night), and its tween.
+## The light of the day, place by place (0 afternoon .. 4 night), and its tween.
 var _phase: float = 0.0
 var _phase_tween: Tween
 var _sky_mat: ShaderMaterial
@@ -133,9 +174,19 @@ var _watched: Dictionary = {}
 var _layer: CanvasLayer
 var _banner: Label
 var _banner_until: float = 0.0
+var _fade: ColorRect
 var _exit: PortalLook = null
-## Gate index -> the height it is going to.
-var _gate_goal: Dictionary = {}
+var _rng := RandomNumberGenerator.new()
+## The sounds: the bus with the place's echo, the place's own (looped), and
+## the clocks of the ones that come now and then.
+var _bus: int = -1
+var _amb: Array[AudioStreamPlayer] = []
+var _drip_in: float = 4.0
+var _thunder_in: float = 20.0
+var _owl_in: float = 12.0
+var _models: Dictionary = {}
+## The sea of cloud under the island in the sky, lit with the day.
+var _cloud_sea: ShaderMaterial
 
 const FLOOR_SHADER := """
 shader_type spatial;
@@ -159,6 +210,8 @@ uniform float aisle = 0.0;
 uniform float wear = 0.5;
 uniform float wet = 0.0;
 uniform float relief = 0.05;
+// A cave's floor: round stones all over, no slabs.
+uniform float rocky = 0.0;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -204,7 +257,7 @@ vec4 ground(vec2 p) {
 	float to_wall = min(dw.x, dw.y);
 	vec2 s = slabs(p);
 	float gone = step(hash(vec2(s.y, 9.7)), 0.05 + 0.08 * wear);
-	bool cob = to_wall < border || abs(lp.x) < aisle || gone > 0.5;
+	bool cob = rocky > 0.5 || to_wall < border || abs(lp.x) < aisle || gone > 0.5;
 	if (cob) {
 		vec3 v = voronoi(p / pebble);
 		float r = (v.y - v.x) / (v.x + v.y + 0.0001);
@@ -270,6 +323,50 @@ void fragment() {
 	ALBEDO = c;
 	ROUGHNESS = rough;
 	SPECULAR = 0.35 + pool * 0.1;
+}
+"""
+
+const GROUND_SHADER := """
+shader_type spatial;
+// The forest's floor: grass in clumps and swathes, bare earth between, moss
+// and fallen leaves, a trodden path down the middle.
+varying vec3 wpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+	float v = 0.0; float a = 0.5;
+	for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.07; a *= 0.5; }
+	return v;
+}
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = wpos.xz;
+	float big = fbm(p * 0.05);
+	float mid = fbm(p * 0.3 + 4.0);
+	float fine = noise(p * 6.0) * 0.5 + noise(p * 17.0) * 0.5;
+	vec3 grass_a = vec3(0.20, 0.32, 0.10);
+	vec3 grass_b = vec3(0.32, 0.42, 0.14);
+	vec3 earth = vec3(0.26, 0.19, 0.12);
+	vec3 moss = vec3(0.13, 0.22, 0.08);
+	vec3 leaves = vec3(0.42, 0.24, 0.10);
+	vec3 c = mix(grass_a, grass_b, mid) * (0.8 + 0.35 * fine);
+	float bare = smoothstep(0.55, 0.7, big + (mid - 0.5) * 0.4);
+	c = mix(c, earth * (0.8 + 0.4 * fine), bare);
+	c = mix(c, moss, smoothstep(0.62, 0.8, fbm(p * 0.12 + 9.0)) * 0.6);
+	c = mix(c, leaves * (0.7 + 0.5 * fine), smoothstep(0.7, 0.85, fbm(p * 0.4 + 2.0)) * 0.7);
+	// the path the creatures have trodden, down the middle
+	float path = smoothstep(2.6, 1.2, abs(p.x - sin(p.y * 0.05) * 3.0) + (mid - 0.5) * 2.0);
+	c = mix(c, earth * 0.9, path * 0.8);
+	ALBEDO = c;
+	ROUGHNESS = 0.95;
+	// blades of grass: the normal ruffled where it grows
+	vec3 nw = normalize(vec3((noise(p * 9.0) - 0.5) * 0.5 * (1.0 - bare), 1.0, (noise(p * 9.0 + 3.1) - 0.5) * 0.5 * (1.0 - bare)));
+	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 }
 """
 
@@ -391,65 +488,61 @@ func _ready() -> void:
 	var game := get_node_or_null("/root/Game")
 	if game != null and int(game.get(&"dungeon_id")) >= 0:
 		id = int(game.get(&"dungeon_id"))
-	if not ROOMS.has(id):
+	if not RUN.has(id):
 		id = 0
-	rooms = ROOMS[id]
-	cleared.resize(rooms.size())
+	steps = RUN[id]
+	cleared.resize(steps.size())
 	cleared.fill(false)
-	_lay_out()
+	_rng.randomize()
 	_materials()
 	_sky()
-	for i in rooms.size():
-		_build_room(i)
+	_sound_bus()
 	_vista()
+	_build_hud()
+	# The first place: the first step's own.
+	_arrive_at(0, String(steps[0]["places"][0]), "", true)
 	_place_marks()
 	# Where the orcs' heavy blows crack the floor ([OrcFighter]).
 	add_to_group(&"ground_scars")
-	_build_hud()
 	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
 	Fighter.throw_gap = THROW_GAP
-	_spawn_all.call_deferred()
 
 
 func _exit_tree() -> void:
 	Fighter.throw_gap = 0.0
+	Sfx.bus = &"Master"
+	if _bus >= 0 and _bus < AudioServer.bus_count and AudioServer.get_bus_name(_bus) == &"Dungeon":
+		AudioServer.remove_bus(_bus)
 
 
 func _room(i: int) -> Dictionary:
-	return rooms[i]
+	return rooms[clampi(i, 0, rooms.size() - 1)]
 
 
-## Each room's middle: the first at the origin, the rest one after another
-## along −Z with a wall between.
-func _lay_out() -> void:
-	centres.clear()
-	var z := 0.0
-	for i in rooms.size():
-		var l: float = _room(i)["l"]
-		if i > 0:
-			z -= l * 0.5
-		centres.append(Vector3(0.0, 0.0, z))
-		z -= l * 0.5 + WALL_T
-	return
+## Where step `i`'s place is built: one after another along −Z, far apart,
+## the island in the sky high up.
+func origin(i: int, place: String) -> Vector3:
+	return Vector3(0.0, float(PLACES[place].get("lift", 0.0)), -STEP_GAP * float(i))
 
 
-## The middle of room `i`, on the floor.
+## The middle of place `i`, on its floor.
 func centre(i: int) -> Vector3:
 	return centres[clampi(i, 0, centres.size() - 1)]
 
 
-## Where the heroes stand when the dungeon is loaded: the near end of room 0.
-func entry_point(slot: int) -> Vector3:
-	var l: float = _room(0)["l"]
-	return centre(0) + Vector3(-1.5 + float(slot % 4) * 1.0, 0.1, l * 0.5 - 4.0 + floorf(float(slot) / 4.0))
+## Where the heroes stand as they come into place `i`: its near end.
+func entry_point(slot: int, i: int = 0) -> Vector3:
+	var l: float = _room(i)["l"]
+	return centre(i) + Vector3(-1.5 + float(slot % 4) * 1.0, 0.3, l * 0.5 - 6.0 + floorf(float(slot) / 4.0))
 
 
-## The room a point stands in (-1 outside them all).
+## The place a point stands in (-1 outside them all).
 func room_at(p: Vector3) -> int:
 	for i in rooms.size():
 		var c := centre(i)
 		var r := _room(i)
-		if absf(p.z - c.z) <= float(r["l"]) * 0.5 and absf(p.x) <= float(r["w"]) * 0.5 + 0.5:
+		if absf(p.z - c.z) <= float(r["l"]) * 0.5 + 0.5 and absf(p.x - c.x) <= float(r["w"]) * 0.5 + 0.5 \
+				and absf(p.y - c.y) < 40.0:
 			return i
 	return -1
 
@@ -460,7 +553,403 @@ func _place_marks() -> void:
 	if marks == null:
 		return
 	for i in marks.get_child_count():
-		(marks.get_child(i) as Node3D).position = entry_point(i)
+		(marks.get_child(i) as Node3D).position = entry_point(i, 0)
+
+
+## Step `i`, at `place`: built, its creatures made (asleep), the light of the
+## day moved on, and `reward` waiting for it to be cleared.
+func _arrive_at(i: int, place: String, reward: String, later: bool = false) -> void:
+	var p: Dictionary = PLACES[place]
+	var step: Dictionary = steps[i]
+	var foes_by: Dictionary = step["foes"]
+	var foes: Array = foes_by.get(place, foes_by.get("*", []))
+	var r := {"place": place, "kind": p["kind"], "w": p["w"], "l": p["l"], "h": p["h"],
+			"name": p["name"], "foes": foes, "lv": step.get("lv", 1), "xp": step.get("xp", 0.0),
+			"reach": step.get("reach", 0), "reward": reward}
+	if p.has("hole"):
+		r["hole"] = true
+	while rooms.size() <= i:
+		rooms.append({})
+		centres.append(Vector3.ZERO)
+	rooms[i] = r
+	centres[i] = origin(i, place)
+	current = i
+	_woken = false
+	_alive.clear()
+	_holders.clear()
+	_orc_on = null
+	_build_room(i)
+	if later:
+		_spawn_room.call_deferred(i)
+	else:
+		_spawn_room(i)
+	_ambience(i)
+	_drip_in = _rng.randf_range(2.0, 5.0)
+
+
+## Place `i`'s creatures, standing in its far half, asleep (they see no one:
+## their leash is nothing).
+func _spawn_room(i: int) -> void:
+	var level_root: Node = owner if owner != null else get_parent()
+	var creatures := level_root.get_node_or_null("Enemies")
+	while _room_foes.size() <= i:
+		_room_foes.append([])
+	var mine: Array[Node3D] = []
+	_room_foes[i] = mine
+	if creatures == null:
+		return
+	var c := centre(i)
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	var k := 0
+	for entry: Array in r["foes"]:
+		var scene := load(String(entry[0])) as PackedScene
+		if scene == null:
+			continue
+		for n in int(entry[1]):
+			var body := scene.instantiate() as Node3D
+			body.name = "D%d_R%d_%d" % [id, i, k]
+			var across := (float(k % 4) - 1.5) * (w - 14.0) / 3.0
+			var row := floorf(float(k) / 4.0)
+			var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.3, -l * 0.08 - row * 3.0)
+			if String(entry[0]) == BOSS.get(id, ""):
+				at = c + Vector3(0.0, 0.3, -l * 0.2)
+			body.position = at
+			body.rotation.y = 0.0
+			if entry.size() > 2:
+				var props: Dictionary = entry[2]
+				for key: String in props:
+					body.set(StringName(key), props[key])
+			body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
+			body.set("camp_centre", Vector3(c.x, c.y, c.z))
+			if "leash_radius" in body:
+				body.set("leash_radius", 0.01)
+			body.set_meta(&"level", int(r["lv"]))
+			creatures.add_child(body)
+			mine.append(body)
+			k += 1
+
+
+## The place's creatures wake and come at him.
+func _wake(i: int) -> void:
+	_woken = true
+	_alive.clear()
+	_holders.clear()
+	_orc_on = null
+	var l: float = _room(i)["l"]
+	var hero := _nearest_hero(centre(i))
+	for body: Node3D in _room_foes[i]:
+		if not is_instance_valid(body):
+			continue
+		if "leash_radius" in body:
+			body.set("leash_radius", l)
+		_alive.append(body)
+		if hero != null and body.has_method("_rouse"):
+			body.call_deferred("_rouse", hero)
+	_spawned = _alive.size()
+	var last := i == steps.size() - 1
+	if last:
+		Sfx.play_flat(self, SND + "horn.wav", 1.0, -3.0)
+	_say("ბოსი: ორკების მბრძანებელი" if last else String(_room(i)["name"]), 3.0)
+	if _spawned == 0:
+		_clear(i)
+
+
+func _nearest_hero(to: Vector3) -> Player:
+	var best: Player = null
+	var gap := INF
+	for hero in _heroes():
+		if hero.is_dead:
+			continue
+		var d := hero.global_position.distance_to(to)
+		if d < gap:
+			gap = d
+			best = hero
+	return best
+
+
+func _clear(i: int) -> void:
+	if cleared[i]:
+		return
+	cleared[i] = true
+	room_cleared.emit(i)
+	var r := _room(i)
+	# What clearing it is worth on top of its creatures, and the level it
+	# brings him to at least.
+	for hero in _heroes():
+		var book := hero.get_node_or_null("Leveling") as Leveling
+		if book == null or hero.is_dead:
+			continue
+		var bonus := float(r.get("xp", 0.0))
+		if bonus > 0.0:
+			book.gain(bonus)
+		if int(r.get("reach", 0)) > 0:
+			book.raise_to(int(r["reach"]))
+	# The fallen get up when the place is clear (the user's word: in a band,
+	# the dead wait for the others to clear the room).
+	for hero in _heroes():
+		if hero.is_dead and hero.has_method("_respawn"):
+			var at := hero.global_position
+			hero.call("_respawn")
+			hero.global_position = at
+	if String(r.get("reward", "")) != "":
+		_give(String(r["reward"]))
+	if i < steps.size() - 1:
+		_offer(i + 1)
+	else:
+		_close()
+
+
+## What waits behind the portal he chose, his now.
+func _give(what: String) -> void:
+	rewards_given.append(what)
+	for hero in _heroes():
+		if hero.is_dead:
+			continue
+		match what:
+			"life":
+				hero.max_health *= 1.2
+				if hero.profile != null:
+					hero.profile.max_health = hero.max_health
+				hero.health = hero.max_health
+			"gold":
+				var purse := Purse.of(hero)
+				if purse != null:
+					purse.give(60)
+			"blade":
+				var book := hero.get_node_or_null("Leveling") as Leveling
+				if book != null:
+					book.boost_blows(1.15)
+			"skill":
+				hero.skill_haste *= 0.8
+		var world := Blood.world_of(self)
+		if world != null:
+			SkillFx.burst(world, hero.global_position + Vector3.UP * 1.2, REWARDS[what]["tint"], 50,
+					Vector2(1.0, 3.5), Vector3.UP, 180.0, Vector2(0.06, 0.16), Vector3(0, 1.0, 0), 1.4)
+	_say("ჯილდო: %s" % String(REWARDS[what]["name"]), 3.0)
+
+
+## The portals out of the place just cleared, to step `next`: two, each to a
+## place of its own with a reward of its own (one, to the lord).
+func _offer(next: int) -> void:
+	var pool: Array = (steps[next]["places"] as Array).duplicate()
+	var here := String(_room(current)["place"])
+	if pool.size() > 2:
+		pool.erase(here)
+	pool.shuffle()
+	var take := mini(2, pool.size())
+	var gifts: Array = REWARDS.keys()
+	gifts.shuffle()
+	var last := next == steps.size() - 1
+	var l: float = _room(current)["l"]
+	for k in take:
+		var place := String(pool[k])
+		var reward := "" if last else String(gifts[k])
+		var gate := PortalLook.new()
+		gate.name = "Choice%d" % k
+		if reward != "":
+			gate.tint = REWARDS[reward]["tint"]
+		var side := 0.0 if take == 1 else (-1.0 if k == 0 else 1.0)
+		gate.position = centre(current) + Vector3(side * 9.0, 0.0, -l * 0.5 + 10.0)
+		gate.set_meta(&"place", place)
+		gate.set_meta(&"reward", reward)
+		add_child(gate)
+		var title := Label3D.new()
+		title.text = String(PLACES[place]["name"])
+		title.font_size = 72
+		title.pixel_size = 0.012
+		title.outline_size = 14
+		title.modulate = Color(1.0, 0.96, 0.9)
+		title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		title.no_depth_test = true
+		title.position = Vector3(0.0, 9.6, 0.0)
+		gate.add_child(title)
+		var what := Label3D.new()
+		what.text = ("ჯილდო: " + String(REWARDS[reward]["name"])) if reward != "" else "ბოსი"
+		what.font_size = 56
+		what.pixel_size = 0.012
+		what.outline_size = 12
+		what.modulate = REWARDS[reward]["tint"] if reward != "" else Color(1.0, 0.4, 0.35)
+		what.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		what.no_depth_test = true
+		what.position = Vector3(0.0, 8.5, 0.0)
+		gate.add_child(what)
+		choices.append(gate)
+		Sfx.play(self, SND + "portal_open.wav", null, gate.position + Vector3.UP * 2.0, 1.0, 2.0)
+	_say("აირჩიე გზა" if take > 1 else "გზა ბოსისკენ", 3.0)
+
+
+## Through portal `k`: the screen goes dark, the next place is built behind
+## the dark and the heroes are put in it, the dark lifts.
+func take(k: int) -> void:
+	if _going or k < 0 or k >= choices.size():
+		return
+	_going = true
+	var gate := choices[k]
+	var place := String(gate.get_meta(&"place"))
+	var reward := String(gate.get_meta(&"reward"))
+	var next := current + 1
+	Sfx.play_flat(self, SND + "portal_whoosh.wav", 1.0, -2.0)
+	var tw := create_tween()
+	tw.tween_property(_fade, "color:a", 1.0, FADE)
+	await tw.finished
+	for c in choices:
+		c.queue_free()
+	choices.clear()
+	_take_down(current)
+	_arrive_at(next, place, reward)
+	var slot := 0
+	for hero in _heroes():
+		hero.global_position = entry_point(slot, next)
+		hero.velocity = Vector3.ZERO
+		slot += 1
+	_to_phase(float(next), 0.05)
+	# a few frames behind the dark: the new place drawn once, its shaders made
+	for f in 6:
+		await get_tree().process_frame
+	var back := create_tween()
+	back.tween_property(_fade, "color:a", 0.0, FADE)
+	_wake_at = Time.get_ticks_msec() / 1000.0 + WAKE_AFTER
+	_going = false
+
+
+## The place left behind, and what is left of its creatures, taken down.
+func _take_down(i: int) -> void:
+	if i < _room_nodes.size() and is_instance_valid(_room_nodes[i]):
+		_room_nodes[i].queue_free()
+	if i < _room_foes.size():
+		for body: Node3D in _room_foes[i]:
+			if is_instance_valid(body):
+				body.queue_free()
+		_room_foes[i] = []
+	_cloud_sea = null
+	var keep: Array[Dictionary] = []
+	for col in _columns:
+		if int(col["room"]) != i:
+			keep.append(col)
+	_columns = keep
+
+
+func _close() -> void:
+	is_closed = true
+	var game := get_node_or_null("/root/Game")
+	if game != null and game.has_method(&"close_portal"):
+		game.call(&"close_portal", id)
+	# Up to the dungeon's last level.
+	var top := int(Portals.DEFS[id]["to"])
+	for hero in _heroes():
+		var book := hero.get_node_or_null("Leveling") as Leveling
+		if book != null:
+			book.raise_to(top)
+	_say("%s დაიხურა!" % String(Portals.DEFS[id]["name"]), 4.0)
+	# The way out, on the dais at the far end.
+	var last := current
+	_exit = PortalLook.new()
+	_exit.name = "WayOut"
+	_exit.tint = Portals.DEFS[id]["tint"]
+	_exit.position = centre(last) + Vector3(0.0, 0.0, -float(_room(last)["l"]) * 0.5 + 15.0)
+	add_child(_exit)
+	closed.emit()
+
+
+func _watch_deaths(heroes: Array[Player]) -> void:
+	for hero in heroes:
+		if _watched.has(hero.get_instance_id()):
+			continue
+		_watched[hero.get_instance_id()] = true
+		hero.died.connect(_on_hero_died.bind(hero))
+		# Here a hero gets up only when his place is cleared, or by the gate outside.
+		hero.set(&"respawn_time", 9999.0)
+
+
+func _on_hero_died(_hero: Player) -> void:
+	# Alone (or all of them down): back out by the gate.
+	for hero in _heroes():
+		if not hero.is_dead:
+			return
+	_say("დამარცხდი", BACK_OUT_AFTER)
+	_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
+
+
+## Back to the open world, by the gate this dungeon is behind.
+func leave() -> void:
+	set_process(false)
+	var game := get_node_or_null("/root/Game")
+	if game != null:
+		game.set(&"portal_return", id)
+		game.set(&"dungeon_id", -1)
+	SceneLoader.go(get_tree(), Portals.WORLD)
+
+
+## The music for now ([World] asks): the boss's while its place is fought,
+## otherwise the dungeon's.
+func music_wanted() -> StringName:
+	if current == steps.size() - 1 and not is_closed:
+		return &"dungeon_boss"
+	return &"dungeon"
+
+
+func _heroes() -> Array[Player]:
+	var out: Array[Player] = []
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var body := node as Player
+		if body != null:
+			out.append(body)
+	return out
+
+
+func _process(delta: float) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if _banner != null and _banner.visible and now > _banner_until:
+		_banner.hide()
+	var heroes := _heroes()
+	_watch_deaths(heroes)
+	if _back_out_at > 0.0 and now >= _back_out_at:
+		_back_out_at = -1.0
+		leave()
+		return
+	if _going:
+		return
+	# The place wakes a moment after he comes (the first, when he is in it).
+	if not _woken and current >= 0:
+		if _wake_at < 0.0:
+			for hero in heroes:
+				if not hero.is_dead and room_at(hero.global_position) == current:
+					_wake_at = now + WAKE_AFTER
+		elif now >= _wake_at:
+			_wake_at = -1.0
+			_wake(current)
+	if _woken and not cleared[current]:
+		var left := 0
+		for body in _alive:
+			if is_instance_valid(body) and not bool(body.get("is_dead")):
+				left += 1
+		if left == 0 and _spawned > 0:
+			_clear(current)
+	_crowd_clock -= delta
+	if _crowd_clock <= 0.0:
+		_crowd_clock = 0.2
+		var standing: Array[Player] = []
+		for hero in heroes:
+			if not hero.is_dead:
+				standing.append(hero)
+		_lead_orcs(standing)
+		_hold_back_crowd(heroes)
+	_now_and_then(delta, heroes)
+	for k in choices.size():
+		for hero in heroes:
+			var gap := hero.global_position - choices[k].global_position
+			if not hero.is_dead and Vector2(gap.x, gap.z).length() < 1.8 and absf(gap.y) < 3.0:
+				take(k)
+				return
+	if _exit != null:
+		for hero in heroes:
+			var gap := hero.global_position - _exit.global_position
+			gap.y = 0.0
+			if not hero.is_dead and gap.length() < 2.2:
+				leave()
+				return
 
 
 func _materials() -> void:
@@ -473,6 +962,11 @@ func _materials() -> void:
 	_rock_mat = StandardMaterial3D.new()
 	_rock_mat.albedo_color = Color(0.40, 0.37, 0.33)
 	_rock_mat.roughness = 0.95
+	_cave_mat = StandardMaterial3D.new()
+	_cave_mat.albedo_color = Color(0.24, 0.21, 0.19)
+	_cave_mat.roughness = 0.9
+	_ground_shader = Shader.new()
+	_ground_shader.code = GROUND_SHADER
 	_wall_mat = ShaderMaterial.new()
 	var ws := Shader.new()
 	ws.code = WALL_SHADER
@@ -506,6 +1000,23 @@ func _floor_mat(i: int) -> ShaderMaterial:
 	var c := centre(i)
 	m.set_shader_parameter("centre", Vector2(c.x, c.z))
 	m.set_shader_parameter("half_size", Vector2(float(r["w"]) * 0.5, float(r["l"]) * 0.5))
+	if kind == "cave":
+		m.set_shader_parameter("rocky", 1.0)
+		m.set_shader_parameter("pebble", 0.9)
+		m.set_shader_parameter("relief", 0.09)
+		m.set_shader_parameter("cobble_a", Color(0.34, 0.30, 0.27))
+		m.set_shader_parameter("cobble_b", Color(0.17, 0.16, 0.16))
+		m.set_shader_parameter("wet", 0.8)
+		m.set_shader_parameter("border", 0.0)
+		return m
+	if kind == "sky":
+		m.set_shader_parameter("slab", 2.0)
+		m.set_shader_parameter("course", 1.4)
+		m.set_shader_parameter("slab_a", Color(0.56, 0.52, 0.48))
+		m.set_shader_parameter("slab_b", Color(0.40, 0.38, 0.36))
+		m.set_shader_parameter("wear", 0.85)
+		m.set_shader_parameter("border", 2.0)
+		return m
 	if kind == "hall":
 		m.set_shader_parameter("slab", 2.6)
 		m.set_shader_parameter("course", 1.7)
@@ -691,6 +1202,10 @@ func _apply_phase(t: float) -> void:
 		_env.ambient_light_color = (a["amb"] as Color).lerp(b["amb"], u)
 		_env.ambient_light_energy = lerpf(float(a["amb_e"]), float(b["amb_e"]), u)
 		_env.fog_light_color = (a["fog"] as Color).lerp(b["fog"], u)
+	if _cloud_sea != null:
+		var lit := hor.lerp(Color(1, 1, 1), 0.45) * lerpf(1.0, 0.35, night)
+		_cloud_sea.set_shader_parameter("top", lit)
+		_cloud_sea.set_shader_parameter("low", lit.darkened(0.45))
 	if _sun != null:
 		_sun.rotation = Vector3(-deg_to_rad(maxf(elev, -6.0)), yaw, 0.0)
 		_sun.light_color = sun_c
@@ -709,9 +1224,24 @@ func _build_room(i: int) -> void:
 	room.name = "Room%d" % (i + 1)
 	room.position = c
 	add_child(room)
-	var last := i == rooms.size() - 1
+	while _room_nodes.size() <= i:
+		_room_nodes.append(null)
+	_room_nodes[i] = room
+	match kind:
+		"cave":
+			_build_cave(room, i)
+			return
+		"forest":
+			_build_forest(room, i)
+			return
+		"sky":
+			_build_sky(room, i)
+			return
+	var last := kind == "throne"
 	var far := -l * 0.5 - WALL_T * 0.5
 	var near := l * 0.5 + WALL_T * 0.5
+	# The crag under it, down into the lands.
+	_crag_under(room, w + WALL_T * 2.0, l + WALL_T * 2.0, PalaceVista.DROP + 40.0, -24.0)
 
 	# The floor (with the strip under the next doorway), and the rock under it.
 	_solid(room, _floor_mat(i), Vector3(w + WALL_T * 2.0, 1.0, l + WALL_T), Vector3(0.0, -0.5, -WALL_T * 0.5))
@@ -731,15 +1261,13 @@ func _build_room(i: int) -> void:
 			_window_wall(room, x, l, h)
 		else:
 			_solid(room, _wall_mat, Vector3(WALL_T, h, l + WALL_T * 2.0), Vector3(x, h * 0.5, -WALL_T * 0.5))
-	# The near wall, in the first room only (the rest share the last room's far one).
-	if i == 0:
-		_solid(room, _wall_mat, Vector3(w + WALL_T * 2.0, h, WALL_T), Vector3(0.0, h * 0.5, near))
-	# The far wall: as high as the higher of the two rooms, with a gate, or the
-	# boss's court's open end over the drop.
+	# The near wall, where he came in by.
+	_solid(room, _wall_mat, Vector3(w + WALL_T * 2.0, h, WALL_T), Vector3(0.0, h * 0.5, near))
+	# The far wall with its gate (shut: the way on is by the portals), or the
+	# lord's court's open end over the drop.
 	if not last:
-		var nxt := _room(i + 1)
-		var wall_h := maxf(h, float(nxt["h"]))
-		var wall_w := maxf(w, float(nxt["w"])) + WALL_T * 2.0
+		var wall_h := h
+		var wall_w := w + WALL_T * 2.0
 		var piece := (wall_w - DOOR_W) * 0.5
 		for side: float in [-1.0, 1.0]:
 			_solid(room, _wall_mat, Vector3(piece, wall_h, WALL_T),
@@ -747,7 +1275,7 @@ func _build_room(i: int) -> void:
 		_solid(room, _wall_mat, Vector3(DOOR_W, wall_h - DOOR_H, WALL_T),
 				Vector3(0.0, DOOR_H + (wall_h - DOOR_H) * 0.5, far))
 		_door_frame(room, Vector3(0.0, 0.0, far))
-		gates.append(_build_gate(room, Vector3(0.0, 0.0, far)))
+		_build_gate(room, Vector3(0.0, 0.0, far))
 	else:
 		_balustrade_across(room, Vector3(0.0, 0.0, -l * 0.5 + 0.3), w)
 
@@ -831,6 +1359,7 @@ func _standing_brazier(room: Node3D, at: Vector3) -> void:
 	coals.position = Vector3(0.0, 1.39, 0.0)
 	holder.add_child(coals)
 	holder.add_child(_flame(Vector3(0.0, 1.42, 0.0), 1.7, 22))
+	_crackle(holder, Vector3(0.0, 1.4, 0.0))
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.62, 0.3)
 	light.light_energy = 1.6
@@ -1175,6 +1704,7 @@ func _hanging_brazier(room: Node3D, top: Vector3, h: float) -> void:
 	var at := top + Vector3(0.0, -drop - 0.25, 0.0)
 	_deco(room, _iron_mat, bowl, at)
 	room.add_child(_flame(at + Vector3(0.0, 0.2, 0.0), 2.2, 40))
+	_crackle(room, at)
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.66, 0.36)
 	light.light_energy = 3.4
@@ -1231,37 +1761,12 @@ func _dais(room: Node3D, l: float) -> void:
 ## palace, their mountains on the horizon ([PalaceVista]), and the crag the
 ## palace stands on going down to them.
 func _vista() -> void:
-	var mid := (centre(0) + centre(rooms.size() - 1)) * 0.5
 	var lands := PalaceVista.new()
 	lands.name = "Vista"
 	# The palace over the middle of the lands' basin.
-	lands.position = Vector3(mid.x - 560.0, 0.0, mid.z + 120.0)
+	var mid := -STEP_GAP * float(steps.size() - 1) * 0.5
+	lands.position = Vector3(-560.0, 0.0, mid + 120.0)
 	add_child(lands)
-	# The crag: great rocks under the palace's footprint, down into the lands.
-	var last := rooms.size() - 1
-	var far_z := centre(last).z - float(_room(last)["l"]) * 0.5
-	var near_z := centre(0).z + float(_room(0)["l"]) * 0.5
-	var widest := 0.0
-	for r: Dictionary in rooms:
-		widest = maxf(widest, float(r["w"]))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77 + id
-	var k := 0
-	var z := near_z
-	while z > far_z - 10.0:
-		var crag := MeshInstance3D.new()
-		crag.mesh = RockWave._crag_mesh(k % RockWave.SHAPES)
-		var box := crag.mesh.get_aabb()
-		var want := Vector3(widest * rng.randf_range(1.0, 1.5), PalaceVista.DROP + 40.0, rng.randf_range(50.0, 80.0))
-		crag.scale = Vector3(want.x / maxf(box.size.x, 0.01), want.y / maxf(box.size.y, 0.01), want.z / maxf(box.size.z, 0.01))
-		crag.position = Vector3(rng.randf_range(-6.0, 6.0), 0.0, z - 20.0)
-		crag.position.y = -24.0 - (box.position.y + box.size.y) * crag.scale.y
-		crag.rotation.y = rng.randf_range(-0.3, 0.3)
-		crag.material_override = _rock_mat
-		crag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(crag)
-		z -= 45.0
-		k += 1
 
 
 ## Not all of them at once (the user's word, 2026-10-20: a band of puglins
@@ -1388,6 +1893,7 @@ func scar(at: Vector3, weight: float) -> void:
 	if room_at(at) < 0:
 		return
 	_scars += 1
+	Sfx.play(self, SND + "crumble.wav", null, at, randf_range(0.9, 1.1), -3.0 + 4.0 * weight)
 	var crack := DarkFx.decal(self, at, DarkFx.CRACK, 2.2 + 1.8 * weight, Color(0.07, 0.06, 0.05, 1.0), 0.0, 0.95)
 	crack.rotation.y = randf() * TAU
 	_rubble(self, at - global_position, 0.6 + 0.8 * weight, int(3 + 5 * weight), _scars * 31)
@@ -1405,6 +1911,7 @@ func scar(at: Vector3, weight: float) -> void:
 ## A column brought down: a stump stands, its drums lie where it fell.
 func _topple(col: Dictionary, from: Vector3) -> void:
 	col["broken"] = true
+	Sfx.play(self, SND + "thud.wav", null, col["at"], randf_range(0.9, 1.05), 4.0)
 	for part: MeshInstance3D in col["parts"]:
 		part.visible = false
 	var blocker: StaticBody3D = col["blocker"]
@@ -1638,7 +2145,7 @@ func _throne(room: Node3D, l: float) -> void:
 		room.add_child(light)
 
 
-## An iron portcullis filling the doorway at `at`; raised by `_set_gate`.
+## An iron portcullis filling the doorway at `at`, down.
 func _build_gate(room: Node3D, at: Vector3) -> Node3D:
 	var gate := StaticBody3D.new()
 	gate.name = "Gate"
@@ -1744,6 +2251,12 @@ func _build_hud() -> void:
 	_layer = CanvasLayer.new()
 	_layer.layer = 5
 	add_child(_layer)
+	# The dark the heroes go through from one place to the next.
+	_fade = ColorRect.new()
+	_fade.color = Color(0.0, 0.0, 0.0, 0.0)
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_layer.add_child(_fade)
 	_banner = Label.new()
 	_banner.anchor_left = 0.5
 	_banner.anchor_right = 0.5
@@ -1770,260 +2283,563 @@ func _say(text: String, seconds: float) -> void:
 	_banner_until = Time.get_ticks_msec() / 1000.0 + seconds
 
 
-## The music for now ([World] asks): the boss's while its room is fought,
-## otherwise the dungeon's.
-func music_wanted() -> StringName:
-	if current == rooms.size() - 1 and not is_closed:
-		return &"dungeon_boss"
-	return &"dungeon"
+#region Sounds
+## The dungeon's own bus, its echo after the place (a hall rings, a cave
+## more, the open air hardly), the world's sounds sent through it ([Sfx]).
+func _sound_bus() -> void:
+	_bus = AudioServer.get_bus_index(&"Dungeon")
+	if _bus < 0:
+		_bus = AudioServer.bus_count
+		AudioServer.add_bus(_bus)
+		AudioServer.set_bus_name(_bus, &"Dungeon")
+		AudioServer.set_bus_send(_bus, &"Master")
+		var echo := AudioEffectReverb.new()
+		AudioServer.add_bus_effect(_bus, echo)
+	Sfx.bus = &"Dungeon"
 
 
-func _heroes() -> Array[Player]:
-	var out: Array[Player] = []
-	for node in get_tree().get_nodes_in_group(&"player"):
-		var body := node as Player
-		if body != null:
-			out.append(body)
-	return out
-
-
-func _process(delta: float) -> void:
-	var now := Time.get_ticks_msec() / 1000.0
-	if _banner != null and _banner.visible and now > _banner_until:
-		_banner.hide()
-	var heroes := _heroes()
-	_watch_deaths(heroes)
-	if _back_out_at > 0.0 and now >= _back_out_at:
-		_back_out_at = -1.0
-		leave()
+func _echo(kind: String) -> void:
+	if _bus < 0 or AudioServer.get_bus_effect_count(_bus) == 0:
 		return
-	# A room wakes when a living hero is well inside it.
-	for hero in heroes:
-		if hero.is_dead:
-			continue
-		var r := room_at(hero.global_position)
-		if r > current and r >= 0 and (r == 0 or cleared[r - 1]):
-			var c := centre(r)
-			if hero.global_position.z < c.z + float(_room(r)["l"]) * 0.5 - 3.0:
-				_wake(r)
-	if current >= 0 and not cleared[current]:
-		var left := 0
-		for body in _alive:
-			if is_instance_valid(body) and not bool(body.get("is_dead")):
-				left += 1
-		if left == 0 and _spawned > 0:
-			_clear(current)
-	_tick_gates(delta)
-	_crowd_clock -= delta
-	if _crowd_clock <= 0.0:
-		_crowd_clock = 0.2
-		var standing: Array[Player] = []
-		for hero in heroes:
-			if not hero.is_dead:
-				standing.append(hero)
-		_lead_orcs(standing)
-		_hold_back_crowd(heroes)
-	if _exit != null:
-		for hero in heroes:
-			var gap := hero.global_position - _exit.global_position
-			gap.y = 0.0
-			if not hero.is_dead and gap.length() < 2.2:
-				leave()
-				return
+	var echo := AudioServer.get_bus_effect(_bus, 0) as AudioEffectReverb
+	if echo == null:
+		return
+	match kind:
+		"hall":
+			echo.room_size = 0.85
+			echo.damping = 0.35
+			echo.wet = 0.26
+		"cave":
+			echo.room_size = 0.95
+			echo.damping = 0.25
+			echo.wet = 0.38
+		"court", "throne":
+			echo.room_size = 0.5
+			echo.damping = 0.6
+			echo.wet = 0.1
+		_:
+			echo.room_size = 0.3
+			echo.damping = 0.8
+			echo.wet = 0.04
+	echo.dry = 1.0
 
 
-## Every room's creatures, made at once as the dungeon loads, standing in the
-## far half of their rooms, asleep (they see no one: their leash is nothing),
-## and all but the first two rooms not even thinking yet.
-func _spawn_all() -> void:
-	var level_root: Node = owner if owner != null else get_parent()
-	var creatures := level_root.get_node_or_null("Enemies")
-	_room_foes.clear()
-	for i in rooms.size():
-		var mine: Array[Node3D] = []
-		_room_foes.append(mine)
-		if creatures == null:
+## A sound that goes round and round.
+func _loop(file: String) -> AudioStream:
+	var path := SND + file
+	if not ResourceLoader.exists(path):
+		return null
+	var stream := load(path) as AudioStream
+	var wav := stream as AudioStreamWAV
+	if wav != null and wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		wav.loop_begin = 0
+		wav.loop_end = int(wav.get_length() * float(wav.mix_rate))
+	return stream
+
+
+## The place's own sound (wind through the windows, the cave's breath, birds
+## or by night nothing but the wind), and its echo.
+func _ambience(i: int) -> void:
+	for player in _amb:
+		if is_instance_valid(player):
+			player.queue_free()
+	_amb.clear()
+	var r := _room(i)
+	var kind: String = r["kind"]
+	_echo(kind)
+	var night := i >= 3
+	var parts: Array = []
+	match kind:
+		"hall":
+			parts = [["wind_loop.wav", -24.0]]
+		"court", "terrace", "throne":
+			parts = [["wind_loop.wav", -15.0]]
+		"cave":
+			parts = [["cave_loop.wav", -9.0]]
+		"forest":
+			parts = [["wind_loop.wav", -22.0]]
+			if not night:
+				parts.append(["birds_loop.wav", -12.0])
+		"sky":
+			parts = [["wind_strong_loop.wav", -10.0]]
+	for part: Array in parts:
+		var stream := _loop(String(part[0]))
+		if stream == null:
 			continue
-		var c := centre(i)
-		var r := _room(i)
-		var w: float = r["w"]
-		var l: float = r["l"]
-		var k := 0
-		for entry: Array in r["foes"]:
-			var scene := load(String(entry[0])) as PackedScene
-			if scene == null:
+		var player := AudioStreamPlayer.new()
+		player.stream = stream
+		player.volume_db = -60.0
+		player.bus = &"Master"
+		add_child(player)
+		player.play(_rng.randf_range(0.0, 8.0))
+		create_tween().tween_property(player, "volume_db", float(part[1]), 2.5)
+		_amb.append(player)
+
+
+## The sounds that come now and then: drips in the cave and the broken hall,
+## thunder far off once the day goes, an owl in the forest at night.
+func _now_and_then(delta: float, heroes: Array[Player]) -> void:
+	if heroes.is_empty() or current < 0 or rooms.is_empty():
+		return
+	var r := _room(current)
+	var kind: String = r["kind"]
+	var near := heroes[0].global_position
+	_drip_in -= delta
+	if _drip_in <= 0.0:
+		_drip_in = _rng.randf_range(1.5, 5.0)
+		if kind == "cave" or r.has("hole"):
+			var at := near + Vector3(_rng.randf_range(-12.0, 12.0), 3.0, _rng.randf_range(-12.0, 12.0))
+			Sfx.play(self, SND + "drip_%d.wav" % _rng.randi_range(1, 3), null, at, 1.0, -4.0, 0.15)
+	_thunder_in -= delta
+	if _thunder_in <= 0.0:
+		_thunder_in = _rng.randf_range(25.0, 50.0)
+		if _phase >= 2.5 and kind != "cave":
+			Sfx.play_flat(self, SND + "thunder.wav", _rng.randf_range(0.85, 1.1), -11.0)
+	_owl_in -= delta
+	if _owl_in <= 0.0:
+		_owl_in = _rng.randf_range(14.0, 28.0)
+		if kind == "forest" and _phase >= 2.8:
+			var at := near + Vector3(_rng.randf_range(-25.0, 25.0), 8.0, _rng.randf_range(-25.0, 25.0))
+			Sfx.play(self, SND + "owl.wav", null, at, 1.0, 0.0, 0.08)
+
+
+## A fire's crackle where it burns, heard close by.
+func _crackle(holder: Node3D, at: Vector3) -> void:
+	var stream := _loop("fire_loop.wav")
+	if stream == null:
+		return
+	var player := AudioStreamPlayer3D.new()
+	player.stream = stream
+	player.volume_db = -4.0
+	player.unit_size = 2.2
+	player.max_distance = 14.0
+	player.bus = &"Dungeon"
+	player.position = at
+	holder.add_child(player)
+	player.play(_rng.randf_range(0.0, 7.0))
+#endregion
+
+
+#region Places beyond the palace
+## A model of the forest kit (assets/forest), loaded once.
+func _kit(name: String) -> Mesh:
+	if _models.has(name):
+		return _models[name]
+	var path := "res://assets/forest/%s.obj" % name
+	var mesh: Mesh = load(path) as Mesh if ResourceLoader.exists(path) else null
+	_models[name] = mesh
+	return mesh
+
+
+## A kit model in `room` at `at`, `tall` metres high, turned `yaw`.
+func _prop(room: Node3D, name: String, at: Vector3, tall: float, yaw: float, shadow: bool = true) -> MeshInstance3D:
+	var mesh := _kit(name)
+	if mesh == null:
+		return null
+	var m := MeshInstance3D.new()
+	m.mesh = mesh
+	var box := mesh.get_aabb()
+	var s := tall / maxf(box.size.y, 0.01)
+	m.scale = Vector3.ONE * s
+	m.position = at - Vector3(0.0, box.position.y * s, 0.0)
+	m.rotation.y = yaw
+	if not shadow:
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(m)
+	return m
+
+
+## A trunk nobody walks through.
+func _post(room: Node3D, at: Vector3, radius: float, tall: float) -> void:
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = radius
+	cyl.height = tall
+	shape.shape = cyl
+	body.add_child(shape)
+	body.position = at + Vector3(0.0, tall * 0.5, 0.0)
+	room.add_child(body)
+
+
+## Unseen walls round a place without walls of its own.
+func _bounds(room: Node3D, w: float, l: float) -> void:
+	_blocker(room, Vector3(1.0, BLOCK_H, l + 2.0), Vector3(-w * 0.5 - 0.5, BLOCK_H * 0.5, 0.0))
+	_blocker(room, Vector3(1.0, BLOCK_H, l + 2.0), Vector3(w * 0.5 + 0.5, BLOCK_H * 0.5, 0.0))
+	_blocker(room, Vector3(w + 2.0, BLOCK_H, 1.0), Vector3(0.0, BLOCK_H * 0.5, -l * 0.5 - 0.5))
+	_blocker(room, Vector3(w + 2.0, BLOCK_H, 1.0), Vector3(0.0, BLOCK_H * 0.5, l * 0.5 + 0.5))
+
+
+## Great rocks under a place's footprint, down into the lands far below.
+func _crag_under(room: Node3D, w: float, l: float, depth: float, top: float = -1.0) -> void:
+	var z := l * 0.5
+	var k := 0
+	while z > -l * 0.5 - 10.0:
+		var crag := MeshInstance3D.new()
+		crag.mesh = RockWave._crag_mesh(k % RockWave.SHAPES)
+		var box := crag.mesh.get_aabb()
+		var want := Vector3(w * _rng.randf_range(1.0, 1.4), depth, _rng.randf_range(40.0, 70.0))
+		crag.scale = Vector3(want.x / maxf(box.size.x, 0.01), want.y / maxf(box.size.y, 0.01), want.z / maxf(box.size.z, 0.01))
+		crag.position = Vector3(_rng.randf_range(-5.0, 5.0), 0.0, z - 15.0)
+		crag.position.y = top - (box.position.y + box.size.y) * crag.scale.y
+		crag.rotation.y = _rng.randf_range(-0.3, 0.3)
+		crag.material_override = _rock_mat
+		crag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		room.add_child(crag)
+		z -= 40.0
+		k += 1
+
+
+## A rock of `size` (x, y, z metres) at `at`, turned `yaw`, in `mat`.
+func _boulder(room: Node3D, at: Vector3, size: Vector3, yaw: float, mat: Material, shadow: bool = true) -> MeshInstance3D:
+	var crag := MeshInstance3D.new()
+	crag.mesh = RockWave._crag_mesh(_rng.randi_range(0, RockWave.SHAPES - 1))
+	var box := crag.mesh.get_aabb()
+	crag.scale = Vector3(size.x / maxf(box.size.x, 0.01), size.y / maxf(box.size.y, 0.01), size.z / maxf(box.size.z, 0.01))
+	crag.position = at - Vector3(0.0, box.position.y * crag.scale.y, 0.0)
+	crag.rotation.y = yaw
+	crag.material_override = mat
+	if not shadow:
+		crag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(crag)
+	return crag
+
+
+## A rock turned upside down under something, its top at `top` (its own
+## frame's height), hanging down from there.
+func _hang(rock: MeshInstance3D, top: float) -> void:
+	rock.rotation.x = PI
+	var box := rock.mesh.get_aabb()
+	rock.position.y = top + box.position.y * rock.scale.y
+
+
+## A cave (the user's word: under the ground, in a cave): a floor of rough
+## round stones, walls and a roof of rock with a crack of daylight in it,
+## stone teeth up from the floor and down from the roof, crystals that glow
+## violet and blue and light the rock round them, a still pool, mushrooms.
+func _build_cave(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	var h: float = r["h"]
+	_solid(room, _floor_mat(i), Vector3(w + 30.0, 1.0, l + 30.0), Vector3(0.0, -0.5, 0.0))
+	_bounds(room, w, l)
+	# The walls: great rocks all round, leaning in.
+	var per := 10.0
+	for side in 4:
+		var long := l if side < 2 else w
+		var n := int(long / per) + 2
+		for k in n:
+			var along := -long * 0.5 - 4.0 + float(k) * per + _rng.randf_range(-2.0, 2.0)
+			var out := _rng.randf_range(2.0, 5.0)
+			var at := Vector3.ZERO
+			match side:
+				0: at = Vector3(-w * 0.5 - out, -1.0, along)
+				1: at = Vector3(w * 0.5 + out, -1.0, along)
+				2: at = Vector3(along, -1.0, -l * 0.5 - out)
+				_: at = Vector3(along, -1.0, l * 0.5 + out)
+			var rock := _boulder(room, at, Vector3(_rng.randf_range(12.0, 18.0), h + _rng.randf_range(2.0, 8.0),
+					_rng.randf_range(10.0, 15.0)), _rng.randf_range(0.0, TAU), _cave_mat)
+			rock.rotation.z = _rng.randf_range(-0.15, 0.15)
+	# The roof: slabs of rock, one crack of daylight left between them.
+	var gap_x := _rng.randf_range(-w * 0.15, w * 0.15)
+	var gap_z := -l * 0.12
+	for gx in 3:
+		for gz in 3:
+			var at := Vector3((float(gx) - 1.0) * w * 0.36, h + 1.0, (float(gz) - 1.0) * l * 0.36)
+			if absf(at.x - gap_x) < w * 0.2 and absf(at.z - gap_z) < l * 0.2:
 				continue
-			for n in int(entry[1]):
-				var body := scene.instantiate() as Node3D
-				body.name = "D%d_R%d_%d" % [id, i, k]
-				var across := (float(k % 4) - 1.5) * (w - 12.0) / 3.0
-				var row := floorf(float(k) / 4.0)
-				var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.2, -l * 0.08 - row * 3.0)
-				if String(entry[0]) == BOSS.get(id, ""):
-					at = c + Vector3(0.0, 0.2, -l * 0.2)
-				body.position = at
-				body.rotation.y = 0.0
-				if entry.size() > 2:
-					var props: Dictionary = entry[2]
-					for key: String in props:
-						body.set(StringName(key), props[key])
-				body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
-				body.set("camp_centre", Vector3(c.x, 0.0, c.z))
-				if "leash_radius" in body:
-					body.set("leash_radius", 0.01)
-				if r.has("lv"):
-					body.set_meta(&"level", int(r["lv"]))
-				if i >= 2:
-					body.process_mode = Node.PROCESS_MODE_DISABLED
-				# out of sight till the gate before its room opens (its bars and
-				# name would show through the walls)
-				body.visible = i == 0
-				creatures.add_child(body)
-				mine.append(body)
-				k += 1
+			var slab := _boulder(room, at, Vector3(w * 0.45, 9.0, l * 0.45), _rng.randf_range(0.0, TAU), _cave_mat)
+			_hang(slab, h + 9.0)
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 3.0
+	cyl.bottom_radius = 5.0
+	cyl.height = h + 6.0
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	beam.mesh = cyl
+	var bm := ShaderMaterial.new()
+	bm.shader = _beam_shader
+	bm.set_shader_parameter("tint", Color(1.0, 0.9, 0.7))
+	bm.set_shader_parameter("strength", 0.05)
+	beam.material_override = bm
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beam.position = Vector3(gap_x, (h + 6.0) * 0.5, gap_z)
+	room.add_child(beam)
+	var shaft := SpotLight3D.new()
+	shaft.light_color = Color(1.0, 0.9, 0.72)
+	shaft.light_energy = 5.0
+	shaft.spot_range = h + 14.0
+	shaft.spot_angle = 22.0
+	shaft.position = Vector3(gap_x, h + 10.0, gap_z)
+	shaft.rotation.x = -PI * 0.5
+	room.add_child(shaft)
+	# Stone teeth.
+	for k in 26:
+		var up := k % 2 == 0
+		var tooth := CylinderMesh.new()
+		var tall := _rng.randf_range(2.0, 6.5)
+		tooth.top_radius = 0.05
+		tooth.bottom_radius = _rng.randf_range(0.5, 1.3)
+		tooth.height = tall
+		tooth.radial_segments = 7
+		tooth.rings = 1
+		var edge := _rng.randf()
+		var x := (_rng.randf_range(0.32, 0.48) * (1.0 if _rng.randf() < 0.5 else -1.0)) * w if edge < 0.7 \
+				else _rng.randf_range(-w * 0.4, w * 0.4)
+		var z := _rng.randf_range(-l * 0.45, l * 0.45)
+		var t := MeshInstance3D.new()
+		t.mesh = tooth
+		t.material_override = _cave_mat
+		if up:
+			t.position = Vector3(x, tall * 0.5, z)
+			if absf(x) < w * 0.3:
+				continue
+			_post(room, Vector3(x, 0.0, z), tooth.bottom_radius * 0.7, tall)
+		else:
+			t.rotation.x = PI
+			t.position = Vector3(x, h - tall * 0.5 + 1.5, z)
+		room.add_child(t)
+	# Crystals in clusters, glowing.
+	var tints := [Color(0.6, 0.3, 1.0), Color(0.25, 0.7, 1.0), Color(0.85, 0.35, 0.95)]
+	for k in 9:
+		var tint: Color = tints[k % tints.size()]
+		var a := float(k) / 9.0 * TAU + _rng.randf_range(-0.2, 0.2)
+		var at := Vector3(sin(a) * w * 0.42, 0.0, cos(a) * l * 0.42)
+		_crystals(room, at, tint)
+	# A still pool, faintly lit from under.
+	var pool := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 5.5
+	disc.bottom_radius = 5.5
+	disc.height = 0.05
+	disc.radial_segments = 28
+	pool.mesh = disc
+	var pm := StandardMaterial3D.new()
+	pm.albedo_color = Color(0.02, 0.05, 0.07)
+	pm.metallic = 0.0
+	pm.roughness = 0.12
+	pm.metallic_specular = 0.2
+	pm.emission_enabled = true
+	pm.emission = Color(0.1, 0.4, 0.5)
+	pm.emission_energy_multiplier = 0.4
+	pool.material_override = pm
+	pool.position = Vector3(w * 0.22, 0.03, l * 0.18)
+	room.add_child(pool)
+	for k in 10:
+		var name: String = ["Mushroom_Brown", "Mushroom_Dark_Red", "Mushroom_Grey", "Mushroom_Red_Spotted"][k % 4]
+		var x := (w * 0.44) * (1.0 if k % 2 == 0 else -1.0) + _rng.randf_range(-2.0, 2.0)
+		_prop(room, name, Vector3(x, 0.0, _rng.randf_range(-l * 0.4, l * 0.4)), _rng.randf_range(0.6, 1.4),
+				_rng.randf_range(0.0, TAU), false)
+	_torch(room, Vector3(-w * 0.3, 2.8, l * 0.5 - 2.0))
+	_torch(room, Vector3(w * 0.3, 2.8, l * 0.5 - 2.0))
+	_motes(room, w, l, h)
 
 
-## Room `i`'s creatures, already standing in it, wake and come at him; the
-## room after it starts to stir (thinking, still asleep).
-func _wake(i: int) -> void:
-	current = i
-	_alive.clear()
-	_holders.clear()
-	_orc_on = null
-	# The gate behind him comes down again.
-	if i > 0:
-		_set_gate(i - 1, false)
-	if _room_foes.size() != rooms.size():
-		_spawn_all()
-	var l: float = _room(i)["l"]
-	var hero := _nearest_hero(centre(i))
-	for body: Node3D in _room_foes[i]:
-		if not is_instance_valid(body):
+## A cluster of crystals at `at`, glowing `tint`, with the light they give.
+func _crystals(room: Node3D, at: Vector3, tint: Color) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint.darkened(0.5)
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.emission_energy_multiplier = 2.6
+	mat.roughness = 0.15
+	mat.metallic = 0.3
+	for k in _rng.randi_range(4, 7):
+		var c := CylinderMesh.new()
+		var tall := _rng.randf_range(0.8, 2.6)
+		c.top_radius = 0.02
+		c.bottom_radius = _rng.randf_range(0.14, 0.32)
+		c.height = tall
+		c.radial_segments = 6
+		c.rings = 1
+		var m := MeshInstance3D.new()
+		m.mesh = c
+		m.material_override = mat
+		m.position = at + Vector3(_rng.randf_range(-0.8, 0.8), tall * 0.4, _rng.randf_range(-0.8, 0.8))
+		m.rotation = Vector3(_rng.randf_range(-0.5, 0.5), _rng.randf_range(0.0, TAU), _rng.randf_range(-0.5, 0.5))
+		room.add_child(m)
+	var light := OmniLight3D.new()
+	light.light_color = tint
+	light.light_energy = 2.2
+	light.omni_range = 11.0
+	light.position = at + Vector3(0.0, 1.4, 0.0)
+	room.add_child(light)
+
+
+## A forest on the mountain (the user's word: in a forest): a clearing of grass
+## and earth ringed by tall trees, stones standing in a ring at its middle,
+## logs, stumps, rocks, ferns and flowers, fireflies once the day goes.
+func _build_forest(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	var ground := ShaderMaterial.new()
+	ground.shader = _ground_shader
+	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
+	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
+	_bounds(room, w, l)
+	var trees := ["Tree_Oak_1", "Tree_Oak_2", "Tree_Oak_3", "Tree_Oak_5", "Tree_Pine_1", "Tree_Pine_2",
+			"Tree_Pine_4", "GiantFir_A", "GiantFir_B", "Tree_Cedar_1", "Tree_Cedar_2"]
+	# The wood round the clearing, two and three deep.
+	for ring in 3:
+		var out := 3.0 + float(ring) * 7.0
+		var step := 5.5 + float(ring) * 1.5
+		for side in 4:
+			var long := (l if side < 2 else w) + out * 2.0
+			var n := int(long / step)
+			for k in n:
+				var along := -long * 0.5 + (float(k) + _rng.randf_range(0.1, 0.9)) * step
+				var at := Vector3.ZERO
+				match side:
+					0: at = Vector3(-w * 0.5 - out, 0.0, along)
+					1: at = Vector3(w * 0.5 + out, 0.0, along)
+					2: at = Vector3(along, 0.0, -l * 0.5 - out)
+					_: at = Vector3(along, 0.0, l * 0.5 + out)
+				at += Vector3(_rng.randf_range(-2.0, 2.0), 0.0, _rng.randf_range(-2.0, 2.0))
+				_prop(room, trees[_rng.randi() % trees.size()], at, _rng.randf_range(11.0, 20.0),
+						_rng.randf_range(0.0, TAU), ring == 0)
+	# A few inside, near the edge, that one can walk round.
+	for k in 7:
+		var x := (w * _rng.randf_range(0.3, 0.44)) * (1.0 if k % 2 == 0 else -1.0)
+		var z := _rng.randf_range(-l * 0.42, l * 0.42)
+		_prop(room, trees[_rng.randi() % trees.size()], Vector3(x, 0.0, z), _rng.randf_range(10.0, 16.0),
+				_rng.randf_range(0.0, TAU))
+		_post(room, Vector3(x, 0.0, z), 0.55, 4.0)
+	# Standing stones in a ring at the middle, one fallen.
+	for k in 7:
+		var a := float(k) / 7.0 * TAU
+		var at := Vector3(sin(a) * 8.0, 0.0, cos(a) * 8.0 - 4.0)
+		if k == 3:
+			var lying := BoxMesh.new()
+			lying.size = Vector3(1.2, 1.0, 3.6)
+			var d := _deco(room, _wall_mat, lying, at + Vector3(0.0, 0.5, 0.0))
+			d.rotation.y = a + 0.6
 			continue
-		body.process_mode = Node.PROCESS_MODE_INHERIT
-		if "leash_radius" in body:
-			body.set("leash_radius", l)
-		_alive.append(body)
-		if hero != null and body.has_method("_rouse"):
-			body.call_deferred("_rouse", hero)
-	_spawned = _alive.size()
-	if i + 1 < _room_foes.size():
-		for body: Node3D in _room_foes[i + 1]:
-			if is_instance_valid(body):
-				body.process_mode = Node.PROCESS_MODE_INHERIT
-	_to_phase(float(i), 7.0)
-	var last := i == rooms.size() - 1
-	_say("ბოსი: ორკების მბრძანებელი" if last else "ოთახი %d / %d" % [i + 1, rooms.size()], 3.0)
-	if _spawned == 0:
-		_clear(i)
-
-
-func _nearest_hero(to: Vector3) -> Player:
-	var best: Player = null
-	var gap := INF
-	for hero in _heroes():
-		if hero.is_dead:
+		var stone := BoxMesh.new()
+		var tall := _rng.randf_range(2.8, 4.2)
+		stone.size = Vector3(1.3, tall, 0.8)
+		var s := _deco(room, _wall_mat, stone, at + Vector3(0.0, tall * 0.5, 0.0))
+		s.rotation = Vector3(_rng.randf_range(-0.06, 0.06), a, _rng.randf_range(-0.06, 0.06))
+		_blocker(room, Vector3(1.0, tall, 1.0), at + Vector3(0.0, tall * 0.5, 0.0))
+	# What lies about.
+	var bits := [["Log_1", 1.0], ["Log_3", 1.0], ["Stump_1", 1.1], ["Stump_2", 1.0], ["Rock_1", 1.4], ["Rock_3", 1.8],
+			["Rock_5", 1.2], ["Bush_1", 1.4], ["Bush_3", 1.6], ["Bush_4", 1.2], ["Mushroom_Red_Spotted", 0.5],
+			["Mushroom_Brown", 0.4]]
+	for k in 34:
+		var bit: Array = bits[k % bits.size()]
+		var x := _rng.randf_range(-w * 0.46, w * 0.46)
+		var z := _rng.randf_range(-l * 0.46, l * 0.46)
+		if absf(x) < 6.0 and absf(z) < 14.0:
 			continue
-		var d := hero.global_position.distance_to(to)
-		if d < gap:
-			gap = d
-			best = hero
-	return best
+		_prop(room, String(bit[0]), Vector3(x, 0.0, z), float(bit[1]) * _rng.randf_range(0.8, 1.3),
+				_rng.randf_range(0.0, TAU), false)
+	var small := ["Grass_Clump_1", "Grass_Clump_2", "Grass_Clump_3", "Flower_Daisy_1", "Flower_Violet_1",
+			"Flower_Bellflower_1"]
+	for k in 90:
+		_prop(room, small[k % small.size()], Vector3(_rng.randf_range(-w * 0.48, w * 0.48), 0.0,
+				_rng.randf_range(-l * 0.48, l * 0.48)), _rng.randf_range(0.3, 0.7), _rng.randf_range(0.0, TAU), false)
+	_fireflies(room, w, l)
 
 
-func _clear(i: int) -> void:
-	if cleared[i]:
-		return
-	cleared[i] = true
-	room_cleared.emit(i)
-	# What clearing the room is worth on top of its creatures.
-	var bonus := float(_room(i).get("xp", 0.0))
-	if bonus > 0.0:
-		for hero in _heroes():
-			var book := hero.get_node_or_null("Leveling") as Leveling
-			if book != null and not hero.is_dead:
-				book.gain(bonus)
-	# The fallen get up when the room is clear (the user's word: in a band,
-	# the dead wait for the others to clear the room).
-	for hero in _heroes():
-		if hero.is_dead and hero.has_method("_respawn"):
-			var at := hero.global_position
-			hero.call("_respawn")
-			hero.global_position = at
-	if i + 1 < _room_foes.size():
-		for body: Node3D in _room_foes[i + 1]:
-			if is_instance_valid(body):
-				body.visible = true
-	if i < rooms.size() - 1:
-		_set_gate(i, true)
-		_say("კარი გაიღო", 2.0)
-	else:
-		_close()
+## Fireflies over the clearing (seen once it grows dark).
+func _fireflies(room: Node3D, w: float, l: float) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 90
+	p.lifetime = 6.0
+	p.position = Vector3(0.0, 1.6, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w * 0.45, 1.2, l * 0.45)
+	pm.gravity = Vector3.ZERO
+	pm.initial_velocity_min = 0.1
+	pm.initial_velocity_max = 0.4
+	pm.direction = Vector3.UP
+	pm.spread = 180.0
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.6
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1.0, 0.9, 0.3, 0.0))
+	fade.add_point(0.3, Color(1.0, 0.92, 0.35, 1.0))
+	fade.add_point(0.7, Color(0.9, 1.0, 0.4, 1.0))
+	fade.set_color(fade.get_point_count() - 1, Color(1.0, 0.9, 0.3, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.09, 0.09)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	qm.vertex_color_use_as_albedo = true
+	qm.albedo_color = Color(2.0, 2.0, 1.2)
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-w, -2, -l), Vector3(w * 2.0, 6.0, l * 2.0))
+	room.add_child(p)
 
 
-func _close() -> void:
-	is_closed = true
-	var game := get_node_or_null("/root/Game")
-	if game != null and game.has_method(&"close_portal"):
-		game.call(&"close_portal", id)
-	# Up to the dungeon's last level.
-	var top := int(Portals.DEFS[id]["to"])
-	for hero in _heroes():
-		var book := hero.get_node_or_null("Leveling") as Leveling
-		if book != null:
-			book.raise_to(top)
-	_say("%s დაიხურა!" % String(Portals.DEFS[id]["name"]), 4.0)
-	# The way out, on the dais at the far end.
-	var last := rooms.size() - 1
-	_exit = PortalLook.new()
-	_exit.name = "WayOut"
-	_exit.tint = Portals.DEFS[id]["tint"]
-	_exit.position = centre(last) + Vector3(0.0, 0.0, -float(_room(last)["l"]) * 0.5 + 15.0)
-	add_child(_exit)
-	closed.emit()
-
-
-## Gate `i` (at the far end of room `i`) up or down.
-func _set_gate(i: int, open: bool) -> void:
-	if i < 0 or i >= gates.size():
-		return
-	_gate_goal[i] = (DOOR_H - 0.2) if open else 0.0
-	var shape := gates[i].get_child(0) as CollisionShape3D
-	if shape != null:
-		shape.set_deferred(&"disabled", open)
-
-
-func _tick_gates(delta: float) -> void:
-	for i: int in _gate_goal:
-		var g := gates[i]
-		var goal: float = _gate_goal[i]
-		g.position.y = move_toward(g.position.y, goal, delta * 3.0)
-
-
-func _watch_deaths(heroes: Array[Player]) -> void:
-	for hero in heroes:
-		if _watched.has(hero.get_instance_id()):
+## An island in the sky (the user's word: up in the sky): a broken floor of the
+## palace's stone on a great rock, a low wall round it with gaps (unseen walls
+## in them), columns standing and fallen, little islands floating round with
+## a tree on each, and the clouds a long way under.
+func _build_sky(room: Node3D, i: int) -> void:
+	var r := _room(i)
+	var w: float = r["w"]
+	var l: float = r["l"]
+	_solid(room, _floor_mat(i), Vector3(w + 6.0, 1.0, l + 6.0), Vector3(0.0, -0.5, 0.0))
+	# The rock it stands on, narrowing down to a point.
+	for k in 5:
+		var rock := _boulder(room, Vector3(_rng.randf_range(-6.0, 6.0), 0.0, _rng.randf_range(-8.0, 8.0)),
+				Vector3(w * (1.15 - float(k) * 0.18), 30.0 + float(k) * 12.0, l * (1.15 - float(k) * 0.18)),
+				_rng.randf_range(0.0, TAU), _rock_mat, false)
+		_hang(rock, -1.0 - float(k) * 6.0)
+	_bounds(room, w, l)
+	_balustrade(room, Vector3(-w * 0.5 - 0.5, 0.0, 0.0), l + 2.0)
+	_balustrade(room, Vector3(w * 0.5 + 0.5, 0.0, 0.0), l + 2.0)
+	_balustrade_across(room, Vector3(0.0, 0.0, -l * 0.5 - 0.5), w + 2.0)
+	_balustrade_across(room, Vector3(0.0, 0.0, l * 0.5 + 0.5), w + 2.0)
+	for k in 6:
+		var x := (w * 0.5 - 4.0) * (1.0 if k % 2 == 0 else -1.0)
+		var z := -l * 0.35 + floorf(float(k) / 2.0) * l * 0.35
+		if k == 3:
+			_fallen_column(room, Vector3(x * 0.6, 0.0, z), 0.9)
 			continue
-		_watched[hero.get_instance_id()] = true
-		hero.died.connect(_on_hero_died.bind(hero))
-		# Here a hero gets up only when his room is cleared, or by the gate outside.
-		hero.set(&"respawn_time", 9999.0)
-
-
-func _on_hero_died(_hero: Player) -> void:
-	# Alone (or all of them down): back out by the gate.
-	for hero in _heroes():
-		if not hero.is_dead:
-			return
-	_say("დამარცხდი", BACK_OUT_AFTER)
-	_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
-
-
-## Back to the open world, by the gate this dungeon is behind.
-func leave() -> void:
-	set_process(false)
-	var game := get_node_or_null("/root/Game")
-	if game != null:
-		game.set(&"portal_return", id)
-		game.set(&"dungeon_id", -1)
-	SceneLoader.go(get_tree(), Portals.WORLD)
+		_column(room, i, Vector3(x, 0.0, z), _rng.randf_range(6.0, 10.0), 1.1)
+	_rubble_round(room, i, w, l)
+	# Little islands round about.
+	for k in 9:
+		var a := float(k) / 9.0 * TAU + _rng.randf_range(-0.2, 0.2)
+		var far := _rng.randf_range(70.0, 150.0)
+		var at := Vector3(sin(a) * far, _rng.randf_range(-30.0, 25.0), cos(a) * far)
+		var size := _rng.randf_range(8.0, 22.0)
+		var top := _boulder(room, at, Vector3(size, 2.0, size), _rng.randf_range(0.0, TAU), _rock_mat, false)
+		top.position = at
+		var under := _boulder(room, at, Vector3(size * 0.9, size * 1.4, size * 0.9), 0.0, _rock_mat, false)
+		_hang(under, at.y + 0.2)
+		_prop(room, ["Tree_Pine_2", "Tree_Oak_3", "GiantFir_C"][k % 3], at + Vector3(0.0, 1.6, 0.0), size * 0.7,
+				_rng.randf_range(0.0, TAU), false)
+	# The sea of cloud far under, and clouds drifting by at the island's height.
+	var sea := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(5000.0, 5000.0)
+	sea.mesh = plane
+	var cm := ShaderMaterial.new()
+	var cs := Shader.new()
+	cs.code = CLOUD_SHADER
+	cm.shader = cs
+	cm.set_shader_parameter("top", Color(0.92, 0.88, 0.86))
+	cm.set_shader_parameter("low", Color(0.55, 0.58, 0.68))
+	sea.material_override = cm
+	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	sea.position = Vector3(0.0, -55.0, 0.0)
+	room.add_child(sea)
+	_cloud_sea = cm
+	_apply_phase(_phase)
+	_motes(room, w, l, 10.0)
+#endregion

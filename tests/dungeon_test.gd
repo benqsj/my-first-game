@@ -2,10 +2,11 @@ extends SceneTree
 ## The gates and the dungeons (portal_dungeons_plan.md, 2026-10-19):
 ## - `world`: a solo game's open world is peaceful (no camps, none of the
 ##   level's own creatures, no quests) and the five gates stand in it;
-## - `dungeon`: the first dungeon's five rooms, each waking as the hero walks
-##   in, its iron gate going up when the last of it is down, the room after
-##   holding more; the boss down, the dungeon is closed, the hero is at its
-##   last level (10) and a way out stands.
+## - `dungeon`: the first dungeon's run of five places: the first a hall, then
+##   each time two portals to two places with two rewards, the one walked
+##   into built and its creatures woken; the reward given when it is cleared;
+##   the lord last; the dungeon closed, the hero at its last level (10) and
+##   a way out standing.
 ##   Godot --headless --path . --script res://tests/dungeon_test.gd -- world|dungeon
 
 var _failures := 0
@@ -64,11 +65,11 @@ func _dungeon() -> void:
 	root.add_child(world)
 	await _wait(40)
 	var d := world.get_node("Level/Rooms") as Dungeon
-	_check("five rooms", d.rooms.size() == 5)
+	_check("five steps", d.steps.size() == 5)
 	_check("the orc lord is the boss", String(Dungeon.BOSS[0]).ends_with("orc_chief.tscn"))
-	_check("four iron gates", d.gates.size() == 4)
+	_check("one place built to start with", d.rooms.size() == 1 and String(d.rooms[0]["place"]) == "hall")
 	var hero := world.player()
-	_check("a hero in the first room", hero != null and d.room_at(hero.global_position) == 0,
+	_check("a hero in the first place", hero != null and d.room_at(hero.global_position) == 0,
 			str(hero.global_position if hero != null else Vector3.ZERO))
 	if hero == null:
 		return
@@ -76,13 +77,35 @@ func _dungeon() -> void:
 	var book := hero.get_node("Leveling") as Leveling
 	_check("comes in at level 1", book.level == 1, str(book.level))
 	var creatures := world.get_node("Enemies")
-	_check("every room's creatures made at the start", creatures.get_child_count() == 31,
-			str(creatures.get_child_count()))
 	var counts: Array[int] = []
-	for r in d.rooms.size():
-		hero.global_position = d.centre(r) + Vector3(0.0, 0.3, 4.0)
-		await _wait(20)
-		_check("room %d wakes" % (r + 1), d.current == r, str(d.current))
+	var seen: Array[String] = []
+	for r in d.steps.size():
+		if r > 0:
+			# Two portals (one to the lord), each its own place and reward.
+			var n := d.choices.size()
+			_check("step %d: %s" % [r + 1, "one portal" if r == d.steps.size() - 1 else "two portals"],
+					n == (1 if r == d.steps.size() - 1 else 2), str(n))
+			if n == 2:
+				var a := d.choices[0]
+				var b := d.choices[1]
+				_check("  to two places, for two rewards",
+						a.get_meta(&"place") != b.get_meta(&"place") and a.get_meta(&"reward") != b.get_meta(&"reward"),
+						"%s/%s %s/%s" % [a.get_meta(&"place"), a.get_meta(&"reward"), b.get_meta(&"place"), b.get_meta(&"reward")])
+			# Walk into the first of them.
+			hero.global_position = d.choices[0].global_position + Vector3(0.0, 0.3, 0.4)
+			for f in 200:
+				await physics_frame
+				if d.rooms.size() == r + 1 and d.current == r and d.choices.is_empty() and not d._going:
+					break
+			_check("  through it to place %d (%s)" % [r + 1, d.rooms[r]["place"] if d.rooms.size() > r else "-"],
+					d.current == r and d.room_at(hero.global_position) == r, str(hero.global_position))
+		seen.append(String(d.rooms[r]["place"]))
+		# It wakes a moment after he comes.
+		for f in 160:
+			await physics_frame
+			if d._woken:
+				break
+		_check("place %d wakes" % (r + 1), d._woken)
 		var alive := 0
 		for body in creatures.get_children():
 			if not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R%d_" % r):
@@ -91,11 +114,8 @@ func _dungeon() -> void:
 		var expected := 0
 		for entry: Array in d.rooms[r]["foes"]:
 			expected += int(entry[1])
-		_check("room %d holds its %d" % [r + 1, expected], alive == expected, str(alive))
-		if r < d.gates.size():
-			_check("its gate is down", d.gates[r].position.y < 0.1)
+		_check("place %d holds its %d" % [r + 1, expected], alive == expected, str(alive))
 		if r == 2:
-			# The crowd: of the twelve, two at him at most; the rest held back.
 			await _wait(40)
 			var at_him := 0
 			var held := 0
@@ -109,7 +129,6 @@ func _dungeon() -> void:
 					"%d at him, %d held" % [at_him, held])
 			_check("the dungeon's music", d.music_wanted() == &"dungeon")
 		if r == 3:
-			# The two orcs at a lone hero: one at him, the other waiting.
 			await _wait(30)
 			var waiting := 0
 			for body in creatures.get_children():
@@ -122,15 +141,18 @@ func _dungeon() -> void:
 			_check("comes to the lord at level 7", book.level == 7, str(book.level))
 			_check("the lord shows level 8", Leveling.level_of(creatures.get_node("D0_R4_0")) == 8)
 			_check("the boss's music", d.music_wanted() == &"dungeon_boss")
+		var health_before := hero.max_health
 		for body in creatures.get_children():
 			if not bool(body.get("is_dead")) and body.has_method("_die") and String(body.name).begins_with("D0_R%d_" % r):
 				body.call("_die")
-		await _wait(80)
-		_check("room %d cleared" % (r + 1), d.cleared[r])
-		if r < d.gates.size():
-			_check("its gate is up", d.gates[r].position.y > 2.0, "%.2f" % d.gates[r].position.y)
-		print("    level %d after room %d" % [book.level, r + 1])
+		await _wait(60)
+		_check("place %d cleared" % (r + 1), d.cleared[r])
+		if r > 0 and r < d.steps.size() - 1:
+			_check("  its reward given (%s)" % d.rooms[r]["reward"], d.rewards_given.size() == r)
+			if String(d.rooms[r]["reward"]) == "life":
+				_check("  more life", hero.max_health > health_before, "%.0f > %.0f" % [hero.max_health, health_before])
+		print("    level %d after place %d" % [book.level, r + 1])
 	_check("the dungeon is closed", d.is_closed)
 	_check("the hero is at level 10", book.level == 10, str(book.level))
 	_check("a way out stands", world.get_node_or_null("Level/Rooms/WayOut") != null)
-	print("    rooms held %s" % str(counts))
+	print("    places %s, held %s" % [str(seen), str(counts)])

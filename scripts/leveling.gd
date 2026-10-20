@@ -175,15 +175,32 @@ func net_progress(new_level: int, new_xp: float, percent: float) -> void:
 	gained.emit(percent)
 
 
-## One level's worth, onto this body and its own copy of the profile (which is
-## what every blow and shot reads).
-func _grow() -> void:
-	if _player == null or _player.profile == null:
+## Its blows (cuts, shots and spells) this much harder from now on, onto its
+## own copy of the profile (a dungeon's reward).
+func boost_blows(factor: float) -> void:
+	if not _own_copy():
 		return
+	var p := _player.profile
+	p.damage *= factor
+	if "m_atk" in p:
+		p.set("m_atk", float(p.get("m_atk")) * factor)
+
+
+func _own_copy() -> bool:
+	if _player == null or _player.profile == null:
+		return false
 	if not _own_profile:
 		_hero = StringName(_player.profile.resource_path.get_file().get_basename())
 		_player.profile = _player.profile.duplicate() as CharacterProfile
 		_own_profile = true
+	return true
+
+
+## One level's worth, onto this body and its own copy of the profile (which is
+## what every blow and shot reads).
+func _grow() -> void:
+	if not _own_copy():
+		return
 	var p := _player.profile
 	var g: Dictionary = GROWTH.get(_hero, {})
 	var hp := float(g.get("hp", 0.0))

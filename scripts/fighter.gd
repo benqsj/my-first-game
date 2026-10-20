@@ -373,6 +373,13 @@ func _play_locomotion(_delta: float) -> void:
 
 
 #region Thinking
+## Whether a throw at `at` could go now (see `throw_gap`), without taking it.
+static func throw_free(at: Node3D) -> bool:
+	if throw_gap <= 0.0 or at == null:
+		return true
+	return Time.get_ticks_msec() / 1000.0 - float(_throw_times.get(at.get_instance_id(), -100.0)) >= throw_gap
+
+
 ## Whether a throw at `at` may go now (see `throw_gap`); taking it if so.
 static func claim_throw(at: Node3D) -> bool:
 	if throw_gap <= 0.0 or at == null:

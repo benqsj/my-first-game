@@ -452,6 +452,8 @@ var _safe_until: float = 0.0
 ## tires the body goes through [method _take_damage] and [method _spend].
 var health: float = 120.0
 var max_health: float = 120.0
+## Every skill's cooldown times this (a dungeon's reward makes it shorter).
+var skill_haste: float = 1.0
 var stamina: float = 100.0
 var max_stamina: float = 100.0
 ## Fallen, and waiting to be put back at the start.
@@ -6293,7 +6295,7 @@ func skill_cooldown_left(slot: int) -> float:
 ## Its whole cooldown, for the bar to draw the rest against.
 func skill_cooldown(slot: int) -> float:
 	var id := skill_in(slot)
-	return float(SKILLS[id]["cooldown"]) if id != &"" else 0.0
+	return float(SKILLS[id]["cooldown"]) * skill_haste if id != &"" else 0.0
 
 
 ## Uses the skill in `slot`, if there is one, it is ready and the body is free
@@ -6348,7 +6350,7 @@ func use_skill(slot: int) -> bool:
 			went = elf().moonfall(float(SKILLS[id]["stamina"]))
 	if not went:
 		return false
-	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"])
+	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"]) * skill_haste
 	net_casts += 1
 	skill_used.emit(slot, id)
 	return true
