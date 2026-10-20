@@ -1,0 +1,3 @@
+POLYGON - Fantasy Rivals Pack v1.4.1 (Synty Studios), Unity Asset Store; source: vepxis-art/new-style/.../*.unitypackage.
+The user's picks (2026-10-19), each cut out of Characters.fbx / Characters_BR.fbx into its own glb with
+FantasyRivals_01_A.png embedded (Blender 4.2, no animations; Synty's 49-bone humanoid rig).
