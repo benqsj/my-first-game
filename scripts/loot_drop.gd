@@ -56,16 +56,20 @@ func drop(creature: Node3D, heroes: Array[Player]) -> void:
 		if _rng.randf() >= chance:
 			continue
 		var draw := _rng.randi()
+		# a boss's own gift, if it has one (meta "gift": a blade's id, and
+		# "gift_name" what it is called), before anything else
+		var gift := String(creature.get_meta(&"gift", ""))
+		var title := String(creature.get_meta(&"gift_name", ""))
 		var peer := hero.get_multiplayer_authority()
 		if is_inside_tree() and multiplayer.has_multiplayer_peer() and peer != multiplayer.get_unique_id():
-			net_loot.rpc_id(peer, creature.global_position, hero.get_path(), draw)
+			net_loot.rpc_id(peer, creature.global_position, hero.get_path(), draw, gift, title)
 		else:
-			net_loot(creature.global_position, hero.get_path(), draw)
+			net_loot(creature.global_position, hero.get_path(), draw, gift, title)
 
 
 ## On the hero's own peer: something from his own bag where the creature fell.
 @rpc("any_peer", "call_local", "reliable")
-func net_loot(at: Vector3, hero_path: NodePath, draw: int) -> void:
+func net_loot(at: Vector3, hero_path: NodePath, draw: int, gift: String = "", title: String = "") -> void:
 	if not _from_host():
 		return
 	var hero := get_node_or_null(hero_path) as Player
@@ -76,7 +80,9 @@ func net_loot(at: Vector3, hero_path: NodePath, draw: int) -> void:
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = draw
-	var item := bag.roll_loot(rng)
+	var item := bag.special_arm(gift, title) if gift != "" else {}
+	if item.is_empty():
+		item = bag.roll_loot(rng)
 	if item.is_empty():
 		return
 	var into := Blood.world_of(self)

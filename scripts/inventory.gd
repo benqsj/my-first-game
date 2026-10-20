@@ -565,6 +565,35 @@ func roll_loot(rng: RandomNumberGenerator) -> Dictionary:
 	return pool[pool.size() - 1]
 
 
+## A boss's own arm for him to find (the user's word, 2026-10-21: the orc
+## lord's sword, his for good): the first of `ids` (comma-separated, as
+## [method PolysplitLook.styled] names them) that his class can hold and he has
+## not got, called "`title` <its name>". Empty when none is.
+func special_arm(ids: String, title: String = "") -> Dictionary:
+	_start_kit()
+	if player == null or player.profile == null:
+		return {}
+	var blades := _blades()
+	var bows := _bows()
+	for id: String in ids.split(",", false):
+		var item := {}
+		var was := _tab
+		_tab = Tab.WEAPONS
+		if blades.has(id) and not player.owns("blade:" + id):
+			item = _blade_item(player.profile, id)
+		elif bows.has(id) and not player.owns("bow:" + id):
+			item = _bow_item(player.profile, id)
+		_tab = was
+		if item.is_empty():
+			continue
+		if title != "":
+			item["name"] = "%s %s" % [title, PolysplitLook.arm_name(id).capitalize()]
+		item["tab"] = Tab.WEAPONS
+		item["loot_key"] = key_of(item)
+		return item
+	return {}
+
+
 ## The picture of a found thing (its baked one, or the arm's), or null.
 func picture_of(item: Dictionary) -> Texture2D:
 	if item.has("pic"):

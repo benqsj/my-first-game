@@ -44,10 +44,14 @@ var peaceful: bool = false
 var dungeon_id: int = -1
 ## Which gate the hero comes back out by, -1 for the usual spawn.
 var portal_return: int = -1
-## The dungeons closed this session (index -> true), and each hero's best
-## level so far (id -> level): what he has outside the dungeons.
+## The dungeons closed (index -> true), and each hero's best level so far
+## (id -> level): what he has outside the dungeons. Kept between runs (the
+## user's word, 2026-10-21: what is won in a dungeon is his for good).
 var closed_portals: Dictionary = {}
 var best_level: Dictionary = {}
+## The prisoners freed in the dungeons (their keys, [Dungeon]): each one
+## comes to live in the village. Kept between runs.
+var freed: Array[String] = []
 
 
 ## Dungeon `index` is closed: its gate is marked, and the hero keeps its last level.
@@ -55,6 +59,15 @@ func close_portal(index: int) -> void:
 	closed_portals[index] = true
 	var top := int(Portals.DEFS[clampi(index, 0, Portals.DEFS.size() - 1)]["to"])
 	best_level[_chosen] = maxi(int(best_level.get(_chosen, 1)), top)
+	_save_settings()
+
+
+## A prisoner freed in a dungeon (`who`): he will be in the village from now on.
+func free_prisoner(who: String) -> void:
+	if who == "" or freed.has(who):
+		return
+	freed.append(who)
+	_save_settings()
 ## Each hero's hair, picked on the hero select: id -> an index into the rig's
 ## `hairs`. Remembered between runs.
 var _hairs: Dictionary = {}
@@ -306,6 +319,9 @@ func worn(id: StringName) -> Dictionary:
 
 func set_worn(id: StringName, made: Dictionary, garb: int) -> void:
 	_worn[id] = {"look": made.duplicate(true), "garb": garb}
+	# and for good (the user's word, 2026-10-21: the lord's sword his for
+	# good, not for the session)
+	_save_settings()
 
 
 ## What hero `id` has found and carries (item keys, [method Inventory.key_of]).
@@ -417,10 +433,33 @@ func _load_settings() -> void:
 			var keys: Variant = file.get_value("owned", key, [])
 			if keys is Array:
 				_owned[StringName(key)] = keys
+	# what he wears and how far he has come: not for the tests, which start
+	# from nothing every time
+	if Inventory.under_test():
+		return
+	if file.has_section("worn"):
+		for key in file.get_section_keys("worn"):
+			var made: Variant = file.get_value("worn", key, {})
+			if made is Dictionary:
+				_worn[StringName(key)] = made
+	var closed: Variant = file.get_value("progress", "closed", [])
+	if closed is Array:
+		for index: Variant in closed:
+			closed_portals[int(index)] = true
+	var best: Variant = file.get_value("progress", "best_level", {})
+	if best is Dictionary:
+		for key: Variant in best:
+			best_level[StringName(String(key))] = int(best[key])
+	var out: Variant = file.get_value("progress", "freed", [])
+	if out is Array:
+		for who: Variant in out:
+			freed.append(String(who))
 
 
 func _save_settings() -> void:
 	var file := ConfigFile.new()
+	# over what is there: a test run leaves what he wears and has won alone
+	file.load(SETTINGS)
 	file.set_value("video", "graphics", int(_graphics))
 	file.set_value("video", "display", _display)
 	for id: StringName in _hairs:
@@ -433,5 +472,14 @@ func _save_settings() -> void:
 		file.set_value("look", String(id), _looks[id])
 	for id: StringName in _owned:
 		file.set_value("owned", String(id), _owned[id])
+	if not Inventory.under_test():
+		for id: StringName in _worn:
+			file.set_value("worn", String(id), _worn[id])
+		file.set_value("progress", "closed", closed_portals.keys())
+		var best := {}
+		for id: StringName in best_level:
+			best[String(id)] = int(best_level[id])
+		file.set_value("progress", "best_level", best)
+		file.set_value("progress", "freed", freed)
 	file.save(SETTINGS)
 #endregion
