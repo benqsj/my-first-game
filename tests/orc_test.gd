@@ -570,7 +570,7 @@ func _skyfall() -> void:
 
 
 ## 2026-10-15 (the user's word): no fall — down on its knees, out of reach,
-## then it breaks into shards out of its own body.
+## then it breaks into shards out of its own body (2026-10-20: lit up first).
 func _kneel_death() -> void:
 	await _arena()
 	var o := _orc(5.0)
@@ -585,7 +585,14 @@ func _kneel_death() -> void:
 			"head %.2f -> %.2f m" % [stood, knelt])
 	_check("and nothing bumps into it", o.collision_layer == 0)
 	var at := o.global_position
-	await _run_for(int(60 * (o.kneel_for - o.kneel_at / o.kneel_rate)) + 6)
+	await _run_for(int(60 * (o.kneel_for - o.kneel_at / o.kneel_rate)) + 6 + int(60 * DeathShatter.GLOW_TIME * 0.5))
+	# (2026-10-20, the user's word) lit up first
+	var lit := false
+	if is_instance_valid(o) and o.body != null:
+		for g in o.body.find_children("*", "GeometryInstance3D", true, false):
+			lit = lit or (g as GeometryInstance3D).material_overlay != null
+	_check("it lights up before it breaks", lit)
+	await _run_for(int(60 * DeathShatter.GLOW_TIME * 0.5) + 6)
 	var shards: Node3D = null
 	for n in _world.find_children("DeathShatter*", "Node3D", true, false):
 		shards = n

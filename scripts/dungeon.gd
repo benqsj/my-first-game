@@ -40,8 +40,13 @@ const WAKE_AFTER := 1.2
 ## 2026-10-20: so many together was too much); the rest come in waves through
 ## a rift that opens in the place once those are down.
 const AT_ONCE := 5
-## Seconds the rift stands open before the next wave comes out of it.
-const RIFT_TIME := 1.8
+## Seconds the rift stands open before the next wave comes out of it: a
+## breath after the last of the first is down, it opens slowly (the user's
+## word: not at once, and fine to see), then they come out one by one. Never
+## more than two waves in a place.
+const RIFT_DUE := 1.6
+const RIFT_GROW := 2.2
+const RIFT_TIME := RIFT_GROW + 0.5
 
 const IMP := "res://scenes/enemies/imp.tscn"
 const PUGLIN := "res://scenes/enemies/puglin.tscn"
@@ -87,13 +92,13 @@ const PLACES := {
 ## of them; the two orcs, taking turns; the lord of the orcs alone.
 const RUN := {
 	0: [
-		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 6]]}},
+		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 8]]}},
 		{"places": ["court", "cave", "forest"], "lv": 3, "xp": 2.5, "reach": 4,
 				"foes": {"court": [[IMP, 5], [PUGLIN, 5]], "cave": [[PUGLIN, 6], [GOBLIN, 4]],
 						"forest": [[GOBLIN, 5], [IMP, 4]]}},
 		{"places": ["great_hall", "cave", "sky", "forest"], "lv": 5, "xp": 3.0, "reach": 6,
-				"foes": {"great_hall": [[PUGLIN, 7], [IMP, 5]], "cave": [[PUGLIN, 7], [GOBLIN, 5]],
-						"sky": [[IMP, 8], [GOBLIN, 4]], "forest": [[GOBLIN, 6], [PUGLIN, 5]]}},
+				"foes": {"great_hall": [[PUGLIN, 5], [IMP, 5]], "cave": [[PUGLIN, 5], [GOBLIN, 5]],
+						"sky": [[IMP, 5], [GOBLIN, 5]], "forest": [[GOBLIN, 5], [PUGLIN, 5]]}},
 		{"places": ["terrace", "forest", "sky", "cave"], "lv": 7, "xp": 3.5, "reach": 7,
 				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]}},
 		{"places": ["throne"], "lv": 8, "foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
@@ -148,7 +153,9 @@ var _reserve: Array[Node3D] = []
 var wave: int = 0
 var waves: int = 1
 var _rift: PortalLook = null
+var _rift_out: bool = false
 var _rift_at: float = -1.0
+var _rift_due: float = -1.0
 var _wake_at: float = -1.0
 var _going: bool = false
 var _room_nodes: Array[Node3D] = []
@@ -400,7 +407,7 @@ void fragment() {
 
 const WALL_SHADER := """
 shader_type spatial;
-uniform vec4 stone : source_color = vec4(0.42, 0.38, 0.34, 1.0);
+uniform vec4 stone : source_color = vec4(0.55, 0.49, 0.40, 1.0);
 uniform vec4 grout : source_color = vec4(0.08, 0.07, 0.09, 1.0);
 varying vec3 wpos;
 varying vec3 wnorm;
@@ -529,6 +536,7 @@ func _ready() -> void:
 	_build_hud()
 	# The first place: the first step's own.
 	_arrive_at(0, String(steps[0]["places"][0]), "", true)
+	_apply_phase(_phase)
 	_place_marks()
 	# Where the orcs' heavy blows crack the floor ([OrcFighter]).
 	add_to_group(&"ground_scars")
@@ -569,6 +577,8 @@ func room_at(p: Vector3) -> int:
 	for i in rooms.size():
 		var c := centre(i)
 		var r := _room(i)
+		if r.is_empty():
+			continue
 		if absf(p.z - c.z) <= float(r["l"]) * 0.5 + 0.5 and absf(p.x - c.x) <= float(r["w"]) * 0.5 + 0.5 \
 				and absf(p.y - c.y) < 40.0:
 			return i
@@ -668,7 +678,7 @@ func _spawn_room(i: int) -> void:
 			creatures.add_child(body)
 			mine.append(body)
 			k += 1
-	waves = 1 + int(ceil(float(maxi(k - AT_ONCE, 0)) / float(AT_ONCE)))
+	waves = 2 if not _reserve.is_empty() else 1
 
 
 ## The rift the next wave comes out of: in the far half of the place, a
@@ -680,47 +690,69 @@ func _open_rift() -> void:
 	_rift.name = "Rift"
 	_rift.tint = Color(0.85, 0.12, 0.2)
 	_rift.position = c + Vector3(_rng.randf_range(-6.0, 6.0), 0.0, -l * 0.22)
+	_rift.scale = Vector3(0.02, 0.02, 0.02)
 	add_child(_rift)
+	_rift_out = false
+	# it opens slowly: out of a point of light, growing, the air drawn into it
+	var grow := create_tween()
+	grow.tween_property(_rift, "scale", Vector3.ONE, RIFT_GROW).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var world := Blood.world_of(self)
+	if world != null:
+		for k in 3:
+			get_tree().create_timer(RIFT_GROW * float(k) / 3.0).timeout.connect(func() -> void:
+				if is_instance_valid(_rift):
+					SkillFx.burst(world, _rift.global_position + Vector3.UP * 2.6, Color(0.95, 0.25, 0.3), 40,
+							Vector2(0.5, 2.0), Vector3.UP, 180.0, Vector2(0.05, 0.14), Vector3(0, 0.6, 0), 1.0))
 	_rift_at = Time.get_ticks_msec() / 1000.0 + RIFT_TIME
 	Sfx.play(self, SND + "portal_open.wav", null, _rift.position + Vector3.UP * 2.0, 0.8, 4.0)
 	_say("ტალღა %d / %d" % [wave + 1, waves], 2.5)
 
 
-## The next of them out of the rift, at him, the rift closing after them.
+## The rest of them out of the rift, one after another, at him; the rift
+## closing after them.
 func _next_wave() -> void:
-	_rift_at = -1.0
+	_rift_out = true
 	wave += 1
 	var l: float = _room(current)["l"]
-	var hero := _nearest_hero(centre(current))
-	var out := 0
 	var at: Vector3 = _rift.global_position if is_instance_valid(_rift) else centre(current)
-	while out < AT_ONCE and not _reserve.is_empty():
-		var body: Node3D = _reserve.pop_front()
+	var out := 0
+	var list: Array[Node3D] = _reserve.duplicate()
+	_reserve.clear()
+	for body in list:
 		if not is_instance_valid(body) or bool(body.get("is_dead")):
 			continue
-		var a := TAU * float(out) / float(AT_ONCE)
-		body.global_position = at + Vector3(sin(a) * 2.2, 0.3, 2.0 + cos(a) * 1.4)
-		body.visible = true
-		body.process_mode = Node.PROCESS_MODE_INHERIT
-		if "leash_radius" in body:
-			body.set("leash_radius", l)
+		var a := TAU * float(out) / float(maxi(list.size(), 1))
+		var spot := at + Vector3(sin(a) * 2.4, 0.3, 2.2 + cos(a) * 1.4)
 		_alive.append(body)
 		_spawned += 1
-		if hero != null and body.has_method("_rouse"):
-			body.call_deferred("_rouse", hero)
+		get_tree().create_timer(0.45 * float(out)).timeout.connect(_step_out.bind(body, spot, l))
 		out += 1
-	var world := Blood.world_of(self)
-	if world != null:
-		SkillFx.burst(world, at + Vector3.UP * 2.0, Color(0.9, 0.2, 0.3), 60, Vector2(2.0, 6.0), Vector3.UP,
-				180.0, Vector2(0.08, 0.2), Vector3(0, -1.0, 0), 1.2)
-	Sfx.play(self, SND + "portal_whoosh.wav", null, at + Vector3.UP * 2.0, 0.9, 4.0)
 	if is_instance_valid(_rift):
 		var gone := _rift
 		_rift = null
 		var tw := create_tween()
-		tw.tween_interval(1.5)
-		tw.tween_property(gone, "scale", Vector3(0.01, 0.01, 0.01), 0.5)
+		tw.tween_interval(0.45 * float(out) + 1.8)
+		tw.tween_property(gone, "scale", Vector3(0.02, 0.02, 0.02), 1.2).set_trans(Tween.TRANS_SINE)
 		tw.tween_callback(gone.queue_free)
+
+
+## One of the next wave out of the rift at `spot`.
+func _step_out(body: Node3D, spot: Vector3, l: float) -> void:
+	if not is_instance_valid(body) or bool(body.get("is_dead")):
+		return
+	body.global_position = spot
+	body.visible = true
+	body.process_mode = Node.PROCESS_MODE_INHERIT
+	if "leash_radius" in body:
+		body.set("leash_radius", l)
+	var hero := _nearest_hero(spot)
+	if hero != null and body.has_method("_rouse"):
+		body.call_deferred("_rouse", hero)
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, spot + Vector3.UP * 1.2, Color(0.9, 0.2, 0.3), 30, Vector2(1.0, 3.5), Vector3.UP,
+				180.0, Vector2(0.06, 0.16), Vector3(0, -1.0, 0), 0.9)
+	Sfx.play(self, SND + "portal_whoosh.wav", null, spot + Vector3.UP, randf_range(1.0, 1.25), -2.0)
 
 
 ## The place's creatures wake and come at him.
@@ -911,14 +943,16 @@ func _take_down(i: int) -> void:
 	if i < _room_nodes.size() and is_instance_valid(_room_nodes[i]):
 		_room_nodes[i].queue_free()
 	if i < _room_foes.size():
-		for body: Node3D in _room_foes[i]:
+		for body: Variant in _room_foes[i]:
 			if is_instance_valid(body):
-				body.queue_free()
+				(body as Node).queue_free()
 		_room_foes[i] = []
+	_alive.clear()
 	_cloud_sea = null
 	_cloud_layer_mats.clear()
 	_reserve.clear()
 	_rift_at = -1.0
+	_rift_due = -1.0
 	if is_instance_valid(_rift):
 		_rift.queue_free()
 	_rift = null
@@ -1031,8 +1065,12 @@ func _process(delta: float) -> void:
 			if coming == 0:
 				_clear(current)
 			elif _rift_at < 0.0:
-				_open_rift()
-			elif now >= _rift_at:
+				if _rift_due < 0.0:
+					_rift_due = now + RIFT_DUE
+				elif now >= _rift_due:
+					_rift_due = -1.0
+					_open_rift()
+			elif now >= _rift_at and not _rift_out:
 				_next_wave()
 	_crowd_clock -= delta
 	if _crowd_clock <= 0.0:
@@ -1080,12 +1118,14 @@ func _materials() -> void:
 	_cave_mat = ShaderMaterial.new()
 	_cave_mat.shader = rock
 	_cave_mat.set_shader_parameter("scale", 0.3)
-	_cave_mat.set_shader_parameter("rock_a", Color(0.34, 0.29, 0.27))
-	_cave_mat.set_shader_parameter("rock_b", Color(0.16, 0.14, 0.15))
-	_cave_mat.set_shader_parameter("band", Color(0.42, 0.30, 0.24))
-	_cave_mat.set_shader_parameter("moss", Color(0.10, 0.20, 0.16))
-	_cave_mat.set_shader_parameter("fleck", Color(0.7, 0.5, 1.0))
-	_cave_mat.set_shader_parameter("fleck_glow", 1.6)
+	# under the earth as the Eternal Cities lie (the user's word, 2026-10-20:
+	# Elden Ring's colours): blue-grey rock, flecked with points of starlight
+	_cave_mat.set_shader_parameter("rock_a", Color(0.30, 0.33, 0.42))
+	_cave_mat.set_shader_parameter("rock_b", Color(0.10, 0.11, 0.17))
+	_cave_mat.set_shader_parameter("band", Color(0.36, 0.40, 0.55))
+	_cave_mat.set_shader_parameter("moss", Color(0.08, 0.22, 0.26))
+	_cave_mat.set_shader_parameter("fleck", Color(0.75, 0.88, 1.0))
+	_cave_mat.set_shader_parameter("fleck_glow", 3.0)
 	_cave_mat.set_shader_parameter("wet", 0.6)
 	_cave_mat.set_shader_parameter("moss_amount", 0.35)
 	_ground_shader = Shader.new()
@@ -1095,7 +1135,7 @@ func _materials() -> void:
 	ws.code = WALL_SHADER
 	_wall_mat.shader = ws
 	_trim_mat = StandardMaterial3D.new()
-	_trim_mat.albedo_color = Color(0.42, 0.39, 0.40)
+	_trim_mat.albedo_color = Color(0.70, 0.63, 0.50)
 	_trim_mat.roughness = 0.75
 	_iron_mat = StandardMaterial3D.new()
 	_iron_mat.albedo_color = Color(0.09, 0.085, 0.08)
@@ -1127,8 +1167,8 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("rocky", 1.0)
 		m.set_shader_parameter("pebble", 0.9)
 		m.set_shader_parameter("relief", 0.09)
-		m.set_shader_parameter("cobble_a", Color(0.34, 0.30, 0.27))
-		m.set_shader_parameter("cobble_b", Color(0.17, 0.16, 0.16))
+		m.set_shader_parameter("cobble_a", Color(0.30, 0.32, 0.40))
+		m.set_shader_parameter("cobble_b", Color(0.12, 0.13, 0.18))
 		m.set_shader_parameter("wet", 0.8)
 		m.set_shader_parameter("border", 0.0)
 		return m
@@ -1143,6 +1183,10 @@ func _floor_mat(i: int) -> ShaderMaterial:
 	if kind == "hall":
 		m.set_shader_parameter("slab", 2.6)
 		m.set_shader_parameter("course", 1.7)
+		m.set_shader_parameter("slab_a", Color(0.62, 0.56, 0.45))
+		m.set_shader_parameter("slab_b", Color(0.45, 0.40, 0.33))
+		m.set_shader_parameter("cobble_a", Color(0.55, 0.49, 0.40))
+		m.set_shader_parameter("cobble_b", Color(0.33, 0.29, 0.25))
 		m.set_shader_parameter("wear", 0.45 if not r.has("hole") else 0.75)
 		m.set_shader_parameter("border", 2.2)
 		m.set_shader_parameter("aisle", 2.6)
@@ -1334,6 +1378,58 @@ func _apply_phase(t: float) -> void:
 		_sun.light_color = sun_c
 		_sun.light_energy = maxf(sun_e, 0.0)
 		_sun.visible = sun_e > 0.01
+	_place_look(night)
+
+
+## Each place's own air over the day's (the user's word, 2026-10-20: the
+## palace's and the cave's colours as Elden Ring's): the palace's halls in a
+## golden haze, the light through them thick enough to see, Leyndell's warm
+## pale stone; the cave a deep blue under the earth, its own mist, its
+## crystals and flecks bright in it like the underground cities' starlight.
+func _place_look(night: float = 0.0) -> void:
+	if _env == null or rooms.is_empty() or current < 0 or current >= rooms.size():
+		return
+	var kind := String(_room(current).get("kind", ""))
+	_env.glow_enabled = true
+	_env.glow_intensity = 0.9
+	_env.glow_bloom = 0.08
+	_env.glow_hdr_threshold = 1.0
+	_env.volumetric_fog_enabled = false
+	_env.fog_density = 0.0007
+	_env.adjustment_contrast = 1.05
+	match kind:
+		"hall", "court", "terrace", "throne":
+			# the gold is the day's: by night only the torches' warmth is left
+			var day := 1.0 - clampf(night, 0.0, 1.0)
+			var gold := Color(0.92, 0.72, 0.42)
+			_env.fog_light_color = _env.fog_light_color.lerp(gold, 0.5 * day)
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.78, 0.66, 0.50), 0.35 * day)
+			_env.adjustment_contrast = 1.12
+			_env.glow_intensity = 1.1
+			_env.glow_bloom = 0.14
+			_env.glow_hdr_threshold = 0.85
+			if kind == "hall":
+				_env.fog_density = 0.0035
+				_env.volumetric_fog_enabled = true
+				_env.volumetric_fog_density = 0.0035
+				_env.volumetric_fog_albedo = Color(0.95, 0.82, 0.6)
+				_env.volumetric_fog_emission = Color(0.06, 0.045, 0.02)
+				_env.volumetric_fog_length = 70.0
+				_env.volumetric_fog_ambient_inject = 0.15
+		"cave":
+			_env.ambient_light_color = Color(0.30, 0.38, 0.62)
+			_env.ambient_light_energy = 1.05
+			_env.fog_light_color = Color(0.14, 0.2, 0.38)
+			_env.fog_density = 0.006
+			_env.glow_intensity = 1.25
+			_env.glow_bloom = 0.18
+			_env.glow_hdr_threshold = 0.8
+			_env.volumetric_fog_enabled = true
+			_env.volumetric_fog_density = 0.008
+			_env.volumetric_fog_albedo = Color(0.6, 0.72, 1.0)
+			_env.volumetric_fog_emission = Color(0.01, 0.015, 0.04)
+			_env.volumetric_fog_length = 60.0
+			_env.volumetric_fog_ambient_inject = 0.2
 
 
 func _build_room(i: int) -> void:
@@ -1979,8 +2075,10 @@ func _spread(waiting: Array[Fighter], standing: Array[Player]) -> void:
 func _lead_orcs(standing: Array[Player]) -> void:
 	var orcs: Array[PackBrute] = []
 	for body in _alive:
+		if not is_instance_valid(body):
+			continue
 		var o := body as PackBrute
-		if o != null and is_instance_valid(o) and not o.is_dead:
+		if o != null and not o.is_dead:
 			orcs.append(o)
 	if orcs.size() < 2 or standing.size() != 1:
 		for o in orcs:
@@ -2770,7 +2868,7 @@ func _build_cave(room: Node3D, i: int) -> void:
 		_nature(room, "Pebble_Round_%d" % _rng.randi_range(1, 5), Vector3(_rng.randf_range(-w * 0.45, w * 0.45), 0.0,
 				_rng.randf_range(-l * 0.45, l * 0.45)), _rng.randf_range(1.0, 2.2), _rng.randf_range(0.0, TAU), false)
 	# Crystals in clusters, glowing.
-	var tints := [Color(0.6, 0.3, 1.0), Color(0.25, 0.7, 1.0), Color(0.85, 0.35, 0.95)]
+	var tints := [Color(0.3, 0.6, 1.0), Color(0.25, 0.85, 1.0), Color(1.0, 0.75, 0.35)]
 	for k in 9:
 		var tint: Color = tints[k % tints.size()]
 		var a := float(k) / 9.0 * TAU + _rng.randf_range(-0.2, 0.2)
@@ -2802,7 +2900,7 @@ func _build_cave(room: Node3D, i: int) -> void:
 				_rng.randf_range(0.0, TAU), false)
 		if k % 3 == 0:
 			_glow(shroom, [Color(0.2, 0.9, 0.8), Color(0.5, 0.9, 0.3), Color(0.3, 0.6, 1.0)][k % 3])
-	_mist(room, w, l, 0.4, Color(0.55, 0.5, 0.7), 0.35)
+	_mist(room, w, l, 0.4, Color(0.45, 0.58, 0.85), 0.32)
 	_torch(room, Vector3(-w * 0.3, 2.8, l * 0.5 - 2.0))
 	_torch(room, Vector3(w * 0.3, 2.8, l * 0.5 - 2.0))
 	_motes(room, w, l, h)

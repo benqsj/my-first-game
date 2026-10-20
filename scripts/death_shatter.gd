@@ -7,8 +7,10 @@ extends Node3D
 ## (2026-10-15, the user's word: the shards seemed to come from somewhere
 ## else, and the whole body lighting up first was not liked.) The shards now
 ## come out of the body as it is posed — down on its knees, lying over — from
-## points along its bones; nothing glows over it first: after `delay` it is
-## gone at once, a short flash and its shards in its place.
+## points along its bones. (2026-10-20, the user's word again: its breaking
+## up was hard to see; first the dead one lights up, then it breaks.) After
+## `delay` it glows, gold from the edges in, for `GLOW_TIME`, and then is gone
+## at once, a short flash and its shards in its place.
 ##
 ## Lives in the world, not on the corpse, so the corpse can be cleared while
 ## its shards still fly. Every peer starts its own.
@@ -19,6 +21,20 @@ const SHARDS := preload("res://addons/ShardShatter/ShatterParticles.tscn")
 const GLOW := Color(1.0, 0.86, 0.6)
 const EMBER := Color(1.0, 0.6, 0.22)
 const SHARD_LIFE := 2.2
+## How long it glows before it breaks.
+const GLOW_TIME := 0.85
+const GLOW_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
+uniform vec4 glow : source_color = vec4(1.0, 0.82, 0.5, 1.0);
+uniform float amount = 0.0;
+void fragment() {
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	float flicker = 0.85 + 0.15 * sin(TIME * 40.0 + FRAGCOORD.y * 0.05);
+	ALBEDO = glow.rgb * amount * (0.35 + 1.8 * rim) * flicker;
+}
+"""
+static var _glow_shader: Shader
 ## Points laid along each bone (from its parent to it).
 const ALONG := 3
 
@@ -26,6 +42,7 @@ var _body: WeakRef
 var _delay := 0.0
 var _time := 0.0
 var _burst := false
+var _glow: ShaderMaterial
 
 
 ## Breaks `body` (a corpse's visual root) into shards after `delay` seconds.
@@ -53,7 +70,25 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	if _time >= _delay:
+		# lit up first, then broken
+		var t := (_time - _delay) / GLOW_TIME
+		if t < 1.0:
+			_light_up(body, t)
+			return
 		_shatter(body)
+
+
+## The body glowing over itself, `t` (0..1) of the way to breaking.
+func _light_up(body: Node3D, t: float) -> void:
+	if _glow == null:
+		if _glow_shader == null:
+			_glow_shader = Shader.new()
+			_glow_shader.code = GLOW_SHADER
+		_glow = ShaderMaterial.new()
+		_glow.shader = _glow_shader
+		for g in body.find_children("*", "GeometryInstance3D", true, false):
+			(g as GeometryInstance3D).material_overlay = _glow
+	_glow.set_shader_parameter("amount", t * t * 2.2)
 
 
 ## Where the body is now, as points along its bones (world space); its

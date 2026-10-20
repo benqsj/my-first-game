@@ -10999,3 +10999,15 @@ mushrooms, rocks, pebbles); the cave's and the crags' rock is `ROCK_SHADER`
 island has grass round its paving, trees on it and on the little islands,
 and a soft sea of cloud in layers far under (`CLOUD_LAYER_SHADER`) in place
 of the cloud plane and puffs.
+
+Round 9 (2026-10-20): never more than two waves in a place (each step's
+creatures 10 at most: five, then the rest). The rift no longer opens at once:
+1.6 s after the last of the first wave falls it grows out of a point of light
+over 2.2 s, sparks drawn into it, and then the rest step out of it one by one
+(`_step_out`, 0.45 s apart), and it closes slowly after them. A creature
+breaking into shards now lights up first: `DeathShatter` glows gold over the
+body from its edges in for `GLOW_TIME` (0.85 s) before it breaks. Each place
+has its own air (`_place_look`, after the day's): the palace's halls in a
+golden haze with volumetric fog, pale warm stone (Leyndell's colours), the
+gold only by day; the cave a deep blue with blue-grey rock flecked with
+starlight, blue and gold crystals, blue mist and fog (the underground cities').
