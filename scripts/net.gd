@@ -49,7 +49,7 @@ var roster: Dictionary = {}
 
 ## The relay games in different homes meet at ([RelayPeer], `relay/server.py`).
 ## `--relay <url>` on the command line puts another in its place (a test).
-const RELAY_URL := "wss://vepxis-relay.usectl.app/ws"
+const RELAY_URL := "wss://vepxis-relay.usectl.com/ws"
 var relay_url: String = RELAY_URL
 ## The room's code while hosting or joined through the relay ("" otherwise).
 var room_code: String = ""
