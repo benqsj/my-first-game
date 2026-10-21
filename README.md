@@ -11181,3 +11181,16 @@ health his rage ([PackBrute]) is his second stage: the sky goes red,
 lightning, embers on the wind, two of his guard (made with him, out of sight)
 come out of the fire by his throne. Down, his guard fall with him and the
 sun comes up (`_to_phase(2.5)`).
+
+The village grows with his runs (2026-10-21, the user's word: every run
+should leave something; [Trades], `scripts/trades.gd`): every creature of the
+orc portal leaves him tusks ("ორკის ეშვი": 1, a named one 3, the lord 20),
+counted at the screen's right in the dungeon and kept for good in
+[Game] (`tusks`, even when he falls). The first three prisoners he frees take
+up trades at stalls along the village street ([VillageTrade],
+`World.STALLS`): the smith (+8% to his blows a level, 5 levels), the healer
+(+1 flask a level, 3), the priest (a blessing laid before the portal's first
+place; then four lights to choose from instead of three). [F] at a stall
+shows the next level and its price; [F] again buys it, put on him at once
+and on every hero made after ([method Trades.apply] from
+`World._build_player`). Kept in `user://settings.cfg` [progress] tusks/trades.

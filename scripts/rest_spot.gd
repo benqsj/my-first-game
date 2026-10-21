@@ -208,7 +208,13 @@ func _set_free(hero: Player) -> void:
 			tw.tween_property(m, "position:y", -1.4, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	var shout := _cage.get_node_or_null(^"Shout") as Label3D
 	if shout != null:
-		shout.text = "მადლობა, გმირო! მე %s ვარ.\nეს შენთვის შემოვინახე —\nსოფელში დაგელოდები." % _name
+		var trade := Trades.trade_of(_freed_count() - 1)
+		if trade != "":
+			# the first three take up a trade in the village ([Trades])
+			shout.text = "მადლობა, გმირო! მე %s ვარ.\nსოფელში %s ვიქნები —\nორკის ეშვებით მომაკითხე." \
+					% [_name, String(Trades.ALL[trade]["name"])]
+		else:
+			shout.text = "მადლობა, გმირო! მე %s ვარ.\nეს შენთვის შემოვინახე —\nსოფელში დაგელოდები." % _name
 		shout.font_size = 40
 		shout.position.y = 3.2
 	# what he kept hidden from the orcs: something for the bag

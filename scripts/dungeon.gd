@@ -253,6 +253,7 @@ var _phase: float = 0.0
 var _phase_tween: Tween
 var _sky_mat: ShaderMaterial
 var _lord_fight: LordFight
+var _tusk_label: Label
 var _sun: DirectionalLight3D
 var _sun_yaw: float = 0.0
 var _env: Environment
@@ -641,6 +642,9 @@ func _ready() -> void:
 	boons = Boons.new(self)
 	add_child(boons)
 	boons.show_list(_layer)
+	_tusk_counter()
+	if game != null and Trades.level(game, "priest") >= 2:
+		boons.lights = 4
 	# The first place: the first step's own.
 	_arrive_at(0, String(steps[0]["places"][0]), "", true)
 	_apply_phase(_phase)
@@ -653,10 +657,78 @@ func _ready() -> void:
 	# everything the run will show drawn once there ([method _warm_up]).
 	_premake.call_deferred()
 	_warm_up.call_deferred()
+	if game != null and Trades.level(game, "priest") >= 1 and String(game.get(&"view_place")) == "":
+		_priest_gift.call_deferred()
 	if game != null and String(game.get(&"view_place")) != "":
 		var asked := String(game.get(&"view_place"))
 		game.set(&"view_place", "")
 		_view_after_warm_up.call_deferred(asked)
+
+
+## The village priest's gift ([Trades]): a blessing to choose before the
+## first place's creatures, once the loading is done.
+func _priest_gift() -> void:
+	while get_tree().root.find_child("PipelineWarmup", true, false) != null:
+		await get_tree().process_frame
+	for k in 20:
+		await get_tree().process_frame
+	if current != 0 or boons == null:
+		return
+	boons.lay(centre(0) + Vector3(0.0, 0.0, float(_room(0)["l"]) * 0.5 - 14.0), self)
+	_say("მღვდლის კურთხევა — აირჩიე", 3.5)
+
+
+#region The orcs' tusks
+## A creature of the portal watched: the blessings' doings on it, and the
+## tusks it leaves when it dies ([Trades]).
+func _watch_foe(body: Node3D) -> void:
+	boons.watch(body)
+	if body.has_signal(&"died") and not body.has_meta(&"tusks_watched"):
+		body.set_meta(&"tusks_watched", true)
+		body.connect(&"died", _on_tusks.bind(body))
+
+
+func _on_tusks(body: Node3D) -> void:
+	if not is_instance_valid(body):
+		return
+	var n := Trades.tusks_for(body)
+	var game := get_node_or_null("/root/Game")
+	if game != null and game.has_method(&"add_tusks"):
+		game.call(&"add_tusks", n)
+	_show_tusks(n)
+
+
+## The count at the screen's right, under the map.
+func _tusk_counter() -> void:
+	_tusk_label = Label.new()
+	_tusk_label.anchor_left = 1.0
+	_tusk_label.anchor_right = 1.0
+	_tusk_label.offset_left = -260
+	_tusk_label.offset_right = -24
+	_tusk_label.offset_top = 228
+	_tusk_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_tusk_label.add_theme_font_size_override("font_size", 21)
+	_tusk_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.7))
+	_tusk_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	_tusk_label.add_theme_constant_override("outline_size", 6)
+	_tusk_label.pivot_offset = Vector2(236, 14)
+	_tusk_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_layer.add_child(_tusk_label)
+	_show_tusks(0)
+
+
+func _show_tusks(gained: int) -> void:
+	if _tusk_label == null:
+		return
+	var game := get_node_or_null("/root/Game")
+	var have := int(game.get(&"tusks")) if game != null and game.get(&"tusks") != null else 0
+	_tusk_label.text = "ორკის ეშვი: %d" % have
+	if gained > 0:
+		_tusk_label.text += "   +%d" % gained
+		var tw := _tusk_label.create_tween()
+		tw.tween_property(_tusk_label, "scale", Vector2(1.25, 1.25), 0.08)
+		tw.tween_property(_tusk_label, "scale", Vector2.ONE, 0.25)
+#endregion
 
 
 ## The place asked for from the open world's F1, once the loading is done.
@@ -807,7 +879,7 @@ func _spawn_room(i: int) -> void:
 				var ready_made := made.pop_front() as Node3D
 				_take_up(ready_made, at, c, int(r["lv"]))
 				mine.append(ready_made)
-				boons.watch(ready_made)
+				_watch_foe(ready_made)
 				k += 1
 				continue
 			var body := scene.instantiate() as Node3D
@@ -843,7 +915,7 @@ func _spawn_room(i: int) -> void:
 				_reserve.append(body)
 			creatures.add_child(body)
 			mine.append(body)
-			boons.watch(body)
+			_watch_foe(body)
 			if role != "":
 				FoeRoles.after(body, role, self)
 			k += 1

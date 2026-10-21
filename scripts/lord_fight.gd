@@ -74,7 +74,7 @@ func setup(d: Dungeon, i: int) -> void:
 		body.visible = false
 		body.process_mode = Node.PROCESS_MODE_DISABLED
 		creatures.add_child(body)
-		d.boons.watch(body)
+		d._watch_foe(body)
 		guards.append(body)
 
 

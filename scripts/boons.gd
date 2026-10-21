@@ -34,6 +34,9 @@ const ALL := {
 }
 ## How many lights a blessing place leaves.
 const OFFERED := 3
+## How many lights are laid to choose from (the village's priest makes it
+## four, [Trades]).
+var lights: int = OFFERED
 ## How near he walks to a light to take it.
 const TAKE_AT := 1.6
 
@@ -93,7 +96,7 @@ func offer(n: int = OFFERED) -> Array[StringName]:
 ## The lights of three blessings round `at` (a place just cleared).
 func lay(at: Vector3, into: Node3D) -> void:
 	clear_lights()
-	var ids := offer()
+	var ids := offer(lights)
 	var n := ids.size()
 	for k in n:
 		# in a shallow arc, far enough apart that their words do not run together

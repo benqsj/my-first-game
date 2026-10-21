@@ -9,6 +9,8 @@ extends SceneTree
 ## - the places of rest ([RestSpot]): the spring heals, the prisoner is freed;
 ## - the lord's fight ([LordFight]): his name, his bar, his second stage with
 ##   his guard, the guard falling with him;
+## - the village grows ([Trades]): the orcs' tusks counted, the freed men's
+##   trades bought at their stalls ([VillageTrade]) and put on him;
 ## - what is won is his for good: the lord's blade for his class.
 ##   Godot --headless --path . --script res://tests/orc_portal_test.gd
 
@@ -67,6 +69,7 @@ func _run() -> void:
 	await _goals()
 	await _rest()
 	await _lord()
+	await _trades()
 	_gift()
 	print("orc_portal_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)
@@ -225,6 +228,8 @@ func _lord() -> void:
 	var lord := fight.lord as PackBrute
 	_check("his name on his bar", String(lord.get_meta(&"boss_name", "")).begins_with(LordFight.NAME))
 	_check("his guard made, out of sight", fight.guards.size() == LordFight.GUARDS and not fight.guards[0].visible)
+	var game := root.get_node("Game")
+	var tusks_before := int(game.get(&"tusks"))
 	d._wake(4)
 	await _wait(30)
 	lord.health = lord.max_health * 0.45
@@ -246,6 +251,35 @@ func _lord() -> void:
 		if is_instance_valid(g) and bool(g.get("is_dead")):
 			down += 1
 	_check("down: his guard fall with him", fight.won and down == LordFight.GUARDS, str(down))
+	await _wait(10)
+	var got := int(game.get(&"tusks")) - tusks_before
+	_check("his tusks and his guards'", got == Trades.LORD_TUSKS + LordFight.GUARDS, str(got))
+
+
+func _trades() -> void:
+	print("the village's trades")
+	var game := root.get_node("Game")
+	var freed: Array = game.get(&"freed")
+	_check("the first freed is the smith", Trades.trade_of(0) == "smith" and Trades.open(game, "smith"),
+			str(freed.size()))
+	game.set(&"tusks", 100)
+	var stall := VillageTrade.new()
+	stall.trade = "smith"
+	stall.man_name = "გიორგი"
+	d.add_child(stall)
+	stall.global_position = hero.global_position + Vector3(1.5, 0.0, 0.0)
+	await _wait(5)
+	var scale_before := hero.dealt_scale
+	stall.interact()
+	stall.interact()
+	_check("bought at his stall: his blade sharper", Trades.level(game, "smith") == 1
+			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"tusks")) == 92,
+			"%d %.3f %d" % [Trades.level(game, "smith"), hero.dealt_scale / scale_before, int(game.get(&"tusks"))])
+	_check("a trade whose man is not freed: shut", not bool(game.call(&"buy_trade", "priest")))
+	game.set(&"tusks", 3)
+	stall.interact()
+	_check("too few tusks: nothing", Trades.level(game, "smith") == 1)
+	stall.queue_free()
 
 
 func _gift() -> void:

@@ -55,6 +55,11 @@ var best_level: Dictionary = {}
 ## The prisoners freed in the dungeons (their keys, [Dungeon]): each one
 ## comes to live in the village. Kept between runs.
 var freed: Array[String] = []
+## The orcs' tusks he has brought out of the portals, and what he has bought
+## with them of the freed men's trades (trade -> level, [Trades]). Kept
+## between runs, even when he falls.
+var tusks: int = 0
+var trade_levels: Dictionary = {}
 
 
 ## Dungeon `index` is closed: its gate is marked, and the hero keeps its last level.
@@ -63,6 +68,27 @@ func close_portal(index: int) -> void:
 	var top := int(Portals.DEFS[clampi(index, 0, Portals.DEFS.size() - 1)]["to"])
 	best_level[_chosen] = maxi(int(best_level.get(_chosen, 1)), top)
 	_save_settings()
+
+
+## `n` more tusks (an orc of the portal down, [Dungeon]).
+func add_tusks(n: int) -> void:
+	if n <= 0:
+		return
+	tusks += n
+	_save_settings()
+
+
+## The next level of `trade` bought, if it is open and he has the tusks.
+func buy_trade(trade: String) -> bool:
+	if not Trades.open(self, trade):
+		return false
+	var price := Trades.cost(self, trade)
+	if price < 0 or tusks < price:
+		return false
+	tusks -= price
+	trade_levels[trade] = int(trade_levels.get(trade, 0)) + 1
+	_save_settings()
+	return true
 
 
 ## A prisoner freed in a dungeon (`who`): he will be in the village from now on.
@@ -457,6 +483,11 @@ func _load_settings() -> void:
 	if out is Array:
 		for who: Variant in out:
 			freed.append(String(who))
+	tusks = int(file.get_value("progress", "tusks", 0))
+	var levels: Variant = file.get_value("progress", "trades", {})
+	if levels is Dictionary:
+		for key: Variant in levels:
+			trade_levels[String(key)] = int(levels[key])
 
 
 func _save_settings() -> void:
@@ -484,5 +515,7 @@ func _save_settings() -> void:
 			best[String(id)] = int(best_level[id])
 		file.set_value("progress", "best_level", best)
 		file.set_value("progress", "freed", freed)
+		file.set_value("progress", "tusks", tusks)
+		file.set_value("progress", "trades", trade_levels)
 	file.save(SETTINGS)
 #endregion

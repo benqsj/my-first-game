@@ -329,6 +329,10 @@ func _build_player(data: Variant) -> Node:
 	var poison := HeroPoison.new()
 	poison.name = "HeroPoison"
 	body.add_child(poison)
+	# what he has bought in the village, put on him once he is up ([Trades])
+	var game := get_node_or_null("/root/Game")
+	if game != null:
+		body.ready.connect(Trades.apply.bind(body, game), CONNECT_ONE_SHOT)
 	# Before the tree as well: the spawner decides who to tell about this body
 	# the moment it arrives, and a peer still loading must not be one of them.
 	NetSmooth.guard(body.get_node_or_null("Body") as MultiplayerSynchronizer)
@@ -471,6 +475,19 @@ func _peaceful_world() -> void:
 func _freed_in_village(game: Node) -> void:
 	var freed: Array = game.get(&"freed") if game.get(&"freed") != null else []
 	for k in freed.size():
+		# the first three ply their trades at their stalls ([Trades])
+		var trade := Trades.trade_of(k)
+		if trade != "":
+			var stall := VillageTrade.new()
+			stall.name = "Trade_%s" % trade
+			stall.trade = trade
+			stall.man_name = String(freed[k]).get_slice(":", 1)
+			stall.variant = 3 + k
+			var at := spread(STALLS[k])
+			stall.position = Vector3(at.x, Terrain.height_under(at.x, at.z, 1.5), at.z)
+			stall.rotation.y = STALL_YAW[k]
+			add_child(stall)
+			continue
 		var man := Villager.new()
 		man.name = "Freed%d" % k
 		man.variant = 3 + k
@@ -630,6 +647,12 @@ const STREET := [
 	Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(78, 0, 46), Vector3(90, 0, 47),
 	Vector3(60, 0, 44), Vector3(50, 0, 43.5),
 ]
+
+
+## The freed men's stalls ([VillageTrade]): the smith's, the healer's, the
+## priest's, along the street (spread with it), and which way each faces.
+const STALLS := [Vector3(50.5, 0, 46.5), Vector3(60, 0, 47.5), Vector3(74, 0, 46.5)]
+const STALL_YAW := [PI, PI, PI]
 
 
 ## Where a point of the village as it stands in the scene ends up once the
