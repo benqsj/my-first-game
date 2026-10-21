@@ -11,6 +11,8 @@ extends SceneTree
 ##   his guard, the guard falling with him;
 ## - the village grows ([Trades]): the orcs' tusks counted, the freed men's
 ##   trades bought at their stalls ([VillageTrade]) and put on him;
+## - a cursed portal's place: its creatures stronger, their tusks twice;
+## - the treasure goblin: out as the place wakes, running, caught or gone;
 ## - what is won is his for good: the lord's blade for his class.
 ##   Godot --headless --path . --script res://tests/orc_portal_test.gd
 
@@ -70,6 +72,8 @@ func _run() -> void:
 	await _rest()
 	await _lord()
 	await _trades()
+	await _cursed()
+	await _treasure()
 	_gift()
 	print("orc_portal_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)
@@ -109,8 +113,11 @@ func _boons() -> void:
 		_check("frost on it", marks != null and marks.is_chilled())
 		# the doubles: frost and the third blow make the shatter
 		var offered := d.boons.offer(3)
-		_check("a double offered when both halves are his", offered.has(&"shatter") and not offered.has(&"storm_fire"),
-				str(offered))
+		var duo_ok := false
+		for o in offered:
+			if Boons.DUOS.has(o):
+				duo_ok = d.boons.duo_ready(o)
+		_check("a double offered when both halves are his", duo_ok and d.boons.duo_ready(&"shatter"), str(offered))
 		d.boons.take(&"shatter")
 		var before := foe.health
 		for k in 3:
@@ -305,6 +312,64 @@ func _trades() -> void:
 	stall.interact()
 	_check("too few tusks: nothing", Trades.level(game, "smith") == 1)
 	stall.queue_free()
+
+
+func _cursed() -> void:
+	print("a cursed place")
+	var game := root.get_node("Game")
+	d._curse_next = true
+	await _go(1, "court")
+	var foes := _foes("")
+	var all_cursed := not foes.is_empty()
+	for f in foes:
+		if not f.has_meta(&"cursed"):
+			all_cursed = false
+	_check("its creatures cursed: stronger", all_cursed and bool(d._room(1).get("cursed", false)), str(foes.size()))
+	d._wake(1)
+	await _wait(10)
+	var plain: Fighter = null
+	for f in foes:
+		if FoeRoles.role_of(f) == &"" and f.visible:
+			plain = f
+			break
+	var before := int(game.get(&"tusks"))
+	if plain != null:
+		plain._die()
+	await _wait(5)
+	_check("a cursed one's tusks twice", int(game.get(&"tusks")) - before == 2, str(int(game.get(&"tusks")) - before))
+	await _go(1, "court")
+	_check("the next place not cursed", not bool(d._room(1).get("cursed", false)))
+
+
+func _treasure() -> void:
+	print("the treasure goblin")
+	var game := root.get_node("Game")
+	await _go(2, "great_hall")
+	if is_instance_valid(d._treasure) and is_instance_valid(d._treasure.body):
+		d._treasure.body.queue_free()
+	d._treasure = TreasureGoblin.make(d, 2)
+	var t := d._treasure
+	_check("made out of sight", t != null and not t.body.visible)
+	d._wake(2)
+	for f in 240:
+		await physics_frame
+	_check("out, and not one of the place's to clear", t.body.visible and not d._alive.has(t.body))
+	var start := t.body.global_position
+	hero.global_position = start + Vector3(0.0, 0.3, 3.0)
+	await _wait(60)
+	_check("it runs from him", t.body.global_position.distance_to(hero.global_position) > 3.5,
+			"%.1f" % t.body.global_position.distance_to(hero.global_position))
+	var before := int(game.get(&"tusks"))
+	t.body._die()
+	await _wait(10)
+	_check("caught: tusks and gold", t.caught and int(game.get(&"tusks")) - before == TreasureGoblin.TUSKS,
+			str(int(game.get(&"tusks")) - before))
+	# one let be: gone when its time is up
+	var t2 := TreasureGoblin.make(d, 2)
+	t2.release()
+	t2._left = 0.05
+	await _wait(10)
+	_check("let be: gone with its gold", not is_instance_valid(t2))
 
 
 func _gift() -> void:

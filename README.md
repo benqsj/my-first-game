@@ -11210,3 +11210,18 @@ to read it) — the time against his best (a new record, the first win), the
 places gone through, what fell to him, the tusks won and in all, the
 blessings he had, a word on the village's trades. [Game] keeps `runs`,
 `wins`, `best_time`. A room looked round from F1 is no run.
+
+Risk and surprise (2026-10-21):
+- **Cursed portals** (`CURSE_CHANCE` 0.35 from the second step, never the
+  lord's): one of the two dark red, "☠ წყეული". Its place's creatures have
+  1.5× health and hit 1.3× harder, a dark red light in them
+  ([method Dungeon._curse]); blood in its air; their tusks twice; its reward
+  twice (a blessing with one light more and a gift besides).
+- **The treasure goblin** ([TreasureGoblin], `scripts/treasure_goblin.gd`;
+  0.3 of the places before the lord): made with the place out of sight, out
+  2.5 s after it wakes at its far end, glittering, his name over it; it only
+  runs (never throws or calls), round the place, for 20 s, then is gone
+  through a crack in the air. Caught: 10 tusks, a heap of gold, a thing for
+  the bag. Not one of the place's: it clears without it.
+- The broken hall's plants under the hole: no clover (it stood as great dark
+  balls).

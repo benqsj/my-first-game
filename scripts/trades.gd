@@ -75,6 +75,8 @@ static func open(game: Node, trade: String) -> bool:
 static func tusks_for(body: Node) -> int:
 	if body.has_meta(&"gift"):
 		return LORD_TUSKS
+	if body.has_meta(&"treasure"):
+		return TreasureGoblin.TUSKS
 	if String(body.get_meta(&"role", "")) != "":
 		return ROLE_TUSKS
 	return 1

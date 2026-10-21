@@ -30,6 +30,12 @@ const DOOR_H := 7.5
 const BLOCK_H := 60.0
 ## How long after dying alone he is taken back out.
 const BACK_OUT_AFTER := 3.0
+## How often one of the two portals is a cursed one, and what the curse
+## makes of its creatures.
+const CURSE_CHANCE := 0.35
+const CURSE_HEALTH := 1.5
+const CURSE_HARDER := 1.3
+
 ## When a run's summary is up, he is let read it before he is taken out.
 const SUMMARY_WAIT := 8.0
 ## How far apart the places of one run are built (m, along −Z).
@@ -264,6 +270,10 @@ var run_tusks: int = 0
 var _run_over: bool = false
 ## A room looked round from F1, not a run.
 var _viewing: bool = false
+## The portal he went through was a cursed one ([method _curse]).
+var _curse_next: bool = false
+var _curse_mat: ShaderMaterial
+var _treasure: TreasureGoblin
 var _sun: DirectionalLight3D
 var _sun_yaw: float = 0.0
 var _env: Environment
@@ -675,6 +685,25 @@ func _ready() -> void:
 		_view_after_warm_up.call_deferred(asked)
 
 
+## A creature of a cursed place: hardier, harder, a dark red light in it.
+func _curse(body: Node3D) -> void:
+	FoeRoles._scale_stat(body, &"max_health", CURSE_HEALTH)
+	FoeRoles._scale_stat(body, &"hit_damage", CURSE_HARDER)
+	if "health" in body and "max_health" in body:
+		body.set(&"health", body.get(&"max_health"))
+	body.set_meta(&"cursed", true)
+	if body.has_meta(&"rim"):
+		return
+	if _curse_mat == null:
+		var sh := Shader.new()
+		sh.code = FoeRoles.RIM_SHADER
+		_curse_mat = ShaderMaterial.new()
+		_curse_mat.shader = sh
+		_curse_mat.set_shader_parameter(&"tint", Color(0.75, 0.02, 0.06))
+		_curse_mat.set_shader_parameter(&"amount", 0.7)
+	FoeRoles._overlay(body, _curse_mat)
+
+
 ## Seconds since the run's first place woke.
 func run_seconds() -> float:
 	return Time.get_ticks_msec() / 1000.0 - _run_start if _run_start >= 0.0 else 0.0
@@ -715,7 +744,7 @@ func _watch_foe(body: Node3D) -> void:
 func _on_tusks(body: Node3D) -> void:
 	if not is_instance_valid(body):
 		return
-	var n := Trades.tusks_for(body)
+	var n := Trades.tusks_for(body) * (2 if bool(_room(current).get("cursed", false)) else 1)
 	run_kills += 1
 	run_tusks += n
 	var game := get_node_or_null("/root/Game")
@@ -834,7 +863,8 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 		foes = []
 	var r := {"place": place, "kind": p["kind"], "w": p["w"], "l": p["l"], "h": p["h"],
 			"name": p["name"], "foes": foes, "lv": step.get("lv", 1), "xp": step.get("xp", 0.0),
-			"reach": step.get("reach", 0), "reward": reward, "goal": goal}
+			"reach": step.get("reach", 0), "reward": reward, "goal": goal, "cursed": _curse_next}
+	_curse_next = false
 	if p.has("hole"):
 		r["hole"] = true
 	if p.has("rest"):
@@ -948,6 +978,15 @@ func _spawn_room(i: int) -> void:
 				FoeRoles.after(body, role, self)
 			k += 1
 	waves = 2 if not _reserve.is_empty() else 1
+	if bool(r.get("cursed", false)):
+		for body in mine:
+			_curse(body)
+	# now and then a goblin with a sack of gold ([TreasureGoblin])
+	if is_instance_valid(_treasure) and is_instance_valid(_treasure.body):
+		_treasure.body.queue_free()
+	_treasure = null
+	if i < steps.size() - 1 and not mine.is_empty() and not _viewing and _rng.randf() < TreasureGoblin.CHANCE:
+		_treasure = TreasureGoblin.make(self, i)
 	# the lord's court: his fight's own doings, his guard made now
 	if is_instance_valid(_lord_fight):
 		_lord_fight.queue_free()
@@ -970,6 +1009,7 @@ func _spawn_room(i: int) -> void:
 ## Each of the run's creatures read in, so none is read in as he steps
 ## through a portal.
 func _load_foes() -> void:
+	_foe_scene(TreasureGoblin.SCENE)
 	for step: Dictionary in steps:
 		var by: Dictionary = step["foes"]
 		for list: Array in by.values():
@@ -1199,6 +1239,8 @@ func _wake(i: int) -> void:
 		_say(String(_room(i)["name"]), 3.0)
 	if is_instance_valid(_goal):
 		_goal.start()
+	if is_instance_valid(_treasure):
+		get_tree().create_timer(2.5).timeout.connect(_treasure.release)
 	if _spawned == 0:
 		_clear(i)
 
@@ -1241,7 +1283,22 @@ func _clear(i: int) -> void:
 			hero.call("_respawn")
 			hero.global_position = at
 	if String(r.get("reward", "")) != "":
-		_give(String(r["reward"]))
+		var what := String(r["reward"])
+		if bool(r.get("cursed", false)):
+			# its reward twice over: a blessing with one light more and a
+			# gift besides, or the gift twice
+			if what == "boon":
+				var others: Array = REWARDS.keys()
+				others.erase("boon")
+				_give(String(others[_rng.randi() % others.size()]))
+				boons.lights += 1
+				_give(what)
+				boons.lights -= 1
+			else:
+				_give(what)
+				_give(what)
+		else:
+			_give(what)
 	if i < steps.size() - 1:
 		_offer(i + 1)
 	else:
@@ -1354,6 +1411,9 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		gifts.insert(_rng.randi_range(0, 1), "boon")
 	var last := next == steps.size() - 1
 	var l: float = _room(current)["l"]
+	var cursed_one := -1
+	if not last and next >= 1 and _rng.randf() < CURSE_CHANCE:
+		cursed_one = _rng.randi_range(0, take - 1)
 	for k in take:
 		var place := String(pool[k])
 		var rest: bool = (PLACES[place] as Dictionary).has("rest")
@@ -1374,6 +1434,11 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		gate.set_meta(&"reward", reward)
 		var goal := "" if rest else RoomGoal.pick(_rng, next, steps.size() - 1)
 		gate.set_meta(&"goal", goal)
+		# now and then one is cursed (the user's word, 2026-10-21: a risk worth
+		# taking): its creatures stronger, its reward twice
+		if k == cursed_one and reward != "":
+			gate.set_meta(&"cursed", true)
+			gate.tint = Color(0.6, 0.04, 0.08)
 		add_child(gate)
 		var title := Label3D.new()
 		title.text = String(PLACES[place]["name"])
@@ -1398,6 +1463,17 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		what.no_depth_test = true
 		what.position = Vector3(0.0, 8.5, 0.0)
 		gate.add_child(what)
+		if bool(gate.get_meta(&"cursed", false)):
+			var curse := Label3D.new()
+			curse.text = "☠ წყეული: ძლიერი მტრები — ორმაგი ჯილდო ☠"
+			curse.font_size = 46
+			curse.pixel_size = 0.012
+			curse.outline_size = 12
+			curse.modulate = Color(1.0, 0.25, 0.22)
+			curse.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			curse.no_depth_test = true
+			curse.position = Vector3(0.0, 6.6 if goal != "" else 7.55, 0.0)
+			gate.add_child(curse)
 		if goal != "":
 			var aim := Label3D.new()
 			aim.text = "მიზანი: " + String(RoomGoal.KINDS[goal]["name"])
@@ -1424,6 +1500,7 @@ func take(k: int) -> void:
 	var gate := choices[k]
 	var place := String(gate.get_meta(&"place"))
 	var reward := String(gate.get_meta(&"reward"))
+	_curse_next = bool(gate.get_meta(&"cursed", false))
 	var goal := String(gate.get_meta(&"goal", ""))
 	var next := current + 1
 	Sfx.play_flat(self, SND + "portal_whoosh.wav", 1.0, -2.0)
@@ -2399,6 +2476,13 @@ func _place_look(night: float = 0.0) -> void:
 			_env.volumetric_fog_emission = Color(0.01, 0.015, 0.04)
 			_env.volumetric_fog_length = 60.0
 			_env.volumetric_fog_ambient_inject = 0.2
+	# a cursed place: blood in its air ([method _curse])
+	if bool(_room(current).get("cursed", false)):
+		_env.fog_light_color = _env.fog_light_color.lerp(Color(0.45, 0.03, 0.04), 0.75)
+		_env.fog_density = maxf(_env.fog_density, 0.004)
+		_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.95, 0.3, 0.28), 0.45)
+		_env.volumetric_fog_albedo = _env.volumetric_fog_albedo.lerp(Color(0.9, 0.15, 0.12), 0.7)
+		_env.adjustment_saturation *= 0.9
 	# Low has neither (the graphics setting's word, [Graphics]): the plain fog
 	# a little thicker in the volumetric's place.
 	if Graphics.current == Graphics.Level.LOW:
@@ -2889,7 +2973,7 @@ func _ceiling(room: Node3D, w: float, l: float, h: float, hole: bool = false) ->
 		for k in 26:
 			var ga := _rng.randf_range(0.0, TAU)
 			var at := Vector3(sin(ga) * _rng.randf_range(0.5, hw * 0.45), 0.0, hz + cos(ga) * _rng.randf_range(0.5, hl * 0.45))
-			_nature(room, ["Grass_Wispy_Short", "Grass_Common_Short", "Fern_1", "Clover_1", "Clover_2"][k % 5], at,
+			_nature(room, ["Grass_Wispy_Short", "Grass_Common_Short", "Fern_1"][k % 3], at,
 					_rng.randf_range(0.8, 1.3), _rng.randf_range(0.0, TAU), false)
 		for k in 8:
 			var side := -1.0 if k % 2 == 0 else 1.0
