@@ -11325,16 +11325,35 @@ Icon: `Vepxis/Assets.xcassets/AppIcon` (from icon.svg). Save data lives in
   every frame over 33 ms. Run the release template as `Vepxis` with the pack
   beside it as `Vepxis.pck` (`_shots_tmp/rel/`).
 
-### The village's people in the poly heroes' old looks (2026-10-22, the user's word)
+### The village's people (2026-10-22, the user's word, second pass)
 
-Tariel's looks the hero select no longer offers (Blink's low poly man as THE
-SQUIRE and THE KNIGHT, Synty's Sidekicks as THE PALADIN, THE HOODED, THE SWORN
-and THE IRON KNIGHT) are the village's people now: a [Villager] with `look`
-set wears Tariel's rig (`SkinnedRig.npc_look` keeps the old faces and comes up
-in that one), at ease (`SS_Look_Around_Idle`, a guard `TR_Ready_Idle`), sword
-and shield hidden unless `armed`. The rig's own `animate()` walks them.
-`World.FOLK`: a guard in the paladin's plate at the street's west end and a
-hooded man walking between the stalls, there from the first. The prisoner in
-the orc palace's cage crouches in `Villager.freed_look(k)` (the squire first),
-and the man freed keeps that look at his stall and in the street.
+Of the poly heroes' old looks only Blink's man stays (THE SQUIRE in the
+leathers: the prisoner and the men he frees; THE KNIGHT in the plate and
+kettle hat: the guard); Synty's Sidekicks are no one's. The village is peopled
+from the hero select's Polysplit parts: men, women and elves (`race` "elf",
+pointed ears), unarmed, in their own clothes and colours (`World.FOLK`,
+`World.folk_look()`): the guard at the street's west end, an old man under
+the great tree, a woman at the spring, an elf woman, an elf man, a man on the
+square, and three who walk the street.
+Each [Villager] stands on a [FolkBody]: an unseen UAL2 mannequin playing
+everyday clips — Kevin's `KV_Idle01` and `KV_Walk01_Forward`, UAL2's
+`Idle_FoldArms`, `Yes`, `Idle_No` now and then, the mage's `MG_Crouch` for the
+prisoner — and the figure following it ([FigureFollower]; Blink's man by
+`FolkBody.BLINK_MAP`, the Polysplit figure by `SkinnedRig.polysplit_map`).
+No hero rig: no fighter's stance, no looking about for enemies.
 `tests/village_folk_test.gd`.
+
+### The windmill, climbing in the portals, solid rocks, a climb seen by the others (2026-10-22, the user's word)
+
+- The windmill before the orc palace's gate is gone (`World._dress_village`
+  frees it; the scene keeps the node).
+- No wall is climbed in a portal's rooms (`Player._in_dungeon()`): their walls
+  go on up unseen to keep the heroes in, and a climber went on up them into
+  the sky. Ledges are still mantled.
+- Rocks and trees in the rooms are solid: `Dungeon._boulder()` gives each
+  rock its hull (`_rock_body`, made at the rock's own stretch), the kit's
+  rocks and trees (`_nature`) a hull or a trunk (`_solid_nature`). Rocks hung
+  under a floor are left without.
+- Somebody else's climb is shown: the remote body's `wall_climb()` / `climb()`
+  follow his replicated state and the drive on the wall is read off his
+  replicated velocity (`Player._show_net_climb()`). `tests/net_climb_test.gd`.

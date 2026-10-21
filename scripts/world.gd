@@ -619,14 +619,47 @@ func _freed_in_village(game: Node) -> void:
 
 
 ## The village's own people, there from the first (the user's word,
-## 2026-10-22: one or two NPCs in the village; the poly heroes no hero wears
-## any more): a guard in the paladin's plate at the street's west end, sword
-## and shield on him, and a hooded man walking between the stalls.
+## 2026-10-22: the knight's look kept, the rest of the poly heroes' gone, and
+## the village peopled with men, women and elves of the Polysplit parts): a
+## guard in the knight's plate at the street's west end, a woman at the
+## spring, an old man under the great tree, elves, and a few who walk the
+## street. Each a [Villager] on a [FolkBody].
 const FOLK := [
-	{"name": "Guard", "look": &"paladin", "armed": true, "at": Vector3(33.5, 0, 44.5), "yaw": PI * 0.5, "walk": []},
-	{"name": "Hooded", "look": &"hooded", "armed": false, "at": Vector3(56, 0, 42.5), "yaw": 0.0,
-			"walk": [Vector3(56, 0, 42.5), Vector3(66, 0, 42), Vector3(60, 0, 44), Vector3(50, 0, 43.5)]},
+	{"name": "Guard", "look": &"knight", "at": Vector3(33.5, 0, 44.5), "yaw": PI * 0.5, "walk": []},
+	{"name": "Elder", "look": &"ps", "at": Vector3(69.5, 0, 46.0), "yaw": PI,
+			"ps": {"g": "m", "top": "sorcerer", "bottom": "sorcerer", "hat": "", "beard": 6, "hair": 2, "hc": 8,
+					"skin": 4, "cloth": 12}, "walk": []},
+	{"name": "Woman_Spring", "look": &"ps", "at": Vector3(54.5, 0, 45.5), "yaw": -PI * 0.5,
+			"ps": {"g": "f", "top": "hunter", "bottom": "hunter", "hat": "", "hair": 11, "hc": 3, "skin": 1,
+					"cloth": 3}, "walk": [Vector3(54.5, 0, 45.5), Vector3(52, 0, 41.5)]},
+	{"name": "Woman_Walker", "look": &"ps", "at": Vector3(46, 0, 41.5), "yaw": 0.0,
+			"ps": {"g": "f", "top": "archer", "bottom": "archer", "hat": "beret", "hair": 5, "hc": 6, "skin": 5,
+					"cloth": 7}, "walk": [Vector3(46, 0, 41.5), Vector3(56, 0, 42.5), Vector3(66, 0, 42), Vector3(50, 0, 43.5)]},
+	{"name": "Man_Walker", "look": &"ps", "at": Vector3(76, 0, 41.5), "yaw": 0.0,
+			"ps": {"g": "m", "top": "fighter", "bottom": "fighter", "hat": "felted", "beard": 2, "hair": 4, "hc": 2,
+					"skin": 1, "cloth": 5}, "walk": [Vector3(76, 0, 41.5), Vector3(84, 0, 43), Vector3(66, 0, 42), Vector3(60, 0, 44)]},
+	{"name": "Elf_Woman", "look": &"ps", "at": Vector3(73.0, 0, 43.0), "yaw": -PI * 0.75,
+			"ps": {"g": "f", "race": "elf", "top": "sorcerer", "bottom": "sorcerer", "hat": "circlet", "hair": 11,
+					"hc": 5, "skin": 5, "cloth": 7}, "walk": []},
+	{"name": "Elf_Man", "look": &"ps", "at": Vector3(90, 0, 47), "yaw": PI,
+			"ps": {"g": "m", "race": "elf", "top": "hunter", "bottom": "hunter", "hat": "", "hair": 8, "hc": 5,
+					"skin": 5, "cloth": 4}, "walk": [Vector3(90, 0, 47), Vector3(78, 0, 46), Vector3(84, 0, 43)]},
+	{"name": "Man_Square", "look": &"ps", "at": Vector3(62, 0, 46.5), "yaw": PI * 0.8,
+			"ps": {"g": "m", "top": "archer", "bottom": "hunter", "hat": "tyrolean", "beard": 4, "hair": 3, "hc": 1,
+					"skin": 7, "cloth": 10}, "walk": []},
 ]
+
+
+## A whole look out of FOLK's few words: a face, no arms, nothing on the back.
+static func folk_look(part: Dictionary) -> Dictionary:
+	var look := {"g": "m", "race": "", "cls": "fighter", "top": "fighter", "bottom": "fighter", "extras": [],
+			"hat": "", "eyes": 1, "brows": 1, "mouth": 1, "beard": 0, "hair": 3, "skin": 1, "hc": 1,
+			"cloth": 1, "w": "none", "o": "none", "ws": PolysplitLook.STYLES[0]}
+	look.merge(part, true)
+	look["cls"] = look["top"]
+	if look["g"] == "f":
+		look["beard"] = 0
+	return look
 
 
 func _village_folk() -> void:
@@ -636,7 +669,8 @@ func _village_folk() -> void:
 		man.name = "Folk_%s" % who["name"]
 		man.variant = 20 + k
 		man.look = who["look"]
-		man.armed = who["armed"]
+		if who.has("ps"):
+			man.ps_look = folk_look(who["ps"])
 		var walk: Array[Vector3] = []
 		for p: Vector3 in who["walk"]:
 			walk.append(spread(p))
@@ -783,10 +817,6 @@ const VILLAGE := Rect2(20.0, 6.0, 96.0, 72.0)
 ## towers) and from the street (z), this much: the lot grows with the houses.
 const SPREAD_FROM := Vector2(30.0, 42.0)
 const SPREAD := Vector2(1.12, 1.4)
-## The windmill, the one building left of the old kit: out past the south fence
-## on the flat by the fields, made bigger across and up.
-const MILL := Vector2(50.0, -3.0)
-const MILL_GROWTH := Vector2(1.3, 1.55)
 ## Along the street between the rows and round the square, as the village
 ## stood before it was spread (spread with it): where the villagers walked
 ## before they were taken out to be made anew, and what the props keep clear of.
@@ -810,17 +840,19 @@ static func spread(at: Vector3) -> Vector3:
 			SPREAD_FROM.y + (at.z - SPREAD_FROM.y) * SPREAD.y)
 
 
-## The houses ([VillageHouses]), the windmill out past the wall, a low stone wall
+## The houses ([VillageHouses]), a low stone wall
 ## round the lot ([VillageWall]) broken where the ways come in, the props. No
 ## villagers for now: the people are to be made anew (only Datvi stays).
 func _dress_village() -> void:
 	var village := get_node_or_null("Level/Village") as Node3D
 	if village == null:
 		return
+	# The windmill is gone (the user's word, 2026-10-22: it stood before the
+	# orc palace's gate): taken out of the scene as it loads.
 	var mill := village.get_node_or_null("Windmill") as Node3D
 	if mill != null:
-		mill.position = Vector3(MILL.x, Terrain.height_under(MILL.x, MILL.y, 5.0) - 0.15, MILL.y)
-		_grow_building(mill, Vector3(MILL_GROWTH.x, MILL_GROWTH.y, MILL_GROWTH.x))
+		village.remove_child(mill)
+		mill.free()
 	VillageHouses.dress(village)
 	VillageWall.dress(village)
 	VillageProps.dress(village)

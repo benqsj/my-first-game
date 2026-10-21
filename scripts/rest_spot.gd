@@ -141,9 +141,6 @@ func _drink(hero: Player) -> void:
 
 
 #region The prison
-## How the prisoner waits in his cage (Tariel's clips: he is on Tariel's rig).
-const PRISONER_CLIP := &"SS_Left_Crouch_Idle"
-
 func _build_prison(room: Node3D, w: float, l: float, h: float) -> void:
 	OrcSpoils._materials()
 	var rng := RandomNumberGenerator.new()
@@ -165,7 +162,7 @@ func _build_prison(room: Node3D, w: float, l: float, h: float) -> void:
 	_man = Villager.new()
 	_man.variant = 3 + _freed_count()
 	_man.look = Villager.freed_look(_freed_count())
-	_man.stand_clip = PRISONER_CLIP
+	_man.crouched = true
 	_cage.add_child(_man)
 	_man.set_process(false)
 	_name = NAMES[_freed_count() % NAMES.size()]

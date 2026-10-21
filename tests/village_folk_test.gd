@@ -1,11 +1,11 @@
 extends SceneTree
 
-## The village's people in the poly heroes' old looks (the user's word,
-## 2026-10-22): the guard and the hooded man are there from the first, on
-## Tariel's rig in their look (not YOUR OWN), the guard armed and the other
-## not; the men he frees wear the look they had in the cage; the hooded man
-## walks; the release pack keeps what the game reads that is not a resource
-## (the palace vista's height maps).
+## The village's people (the user's word, 2026-10-22): men, women and elves
+## of the Polysplit parts and the knight on guard, there from the first, each
+## on a [FolkBody] at ease (not a fighter's clips) and unarmed; the men he
+## frees wear the look they had in the cage (the squire, the knight); the
+## walkers walk; the release pack keeps what the game reads that is not a
+## resource (the palace vista's height maps).
 ##
 ##     godot --headless --path . --script res://tests/village_folk_test.gd
 
@@ -20,29 +20,32 @@ func _initialize() -> void:
 	var world: World = load("res://scenes/world/greybox_world.tscn").instantiate()
 	root.add_child(world)
 	await _wait(10)
+	var kinds := {}
 	for who: Dictionary in World.FOLK:
 		var man := world.get_node_or_null("Folk_%s" % who["name"]) as Villager
 		_check("%s is in the village" % who["name"], man != null)
 		if man == null:
 			continue
-		var rig: Node = null
-		var fig := man.get_node_or_null("Figure")
-		if fig != null and fig.get_child_count() > 0:
-			rig = fig.get_child(0)
-		_check("%s is on the hero's rig" % who["name"], rig is SkinnedRig)
-		if rig is SkinnedRig:
-			var r := rig as SkinnedRig
-			_check("%s wears %s" % [who["name"], who["look"]], r.faces[r.face] == who["look"], String(r.faces[r.face]))
-			var shown := 0
-			var arms := 0
-			for m: MeshInstance3D in r.find_children("*", "MeshInstance3D", true, false):
-				if m.is_visible_in_tree():
-					shown += 1
-					var n := String(m.name).to_lower()
-					if n.contains("sword") or n.contains("shield"):
-						arms += 1
-			_check("%s has a body to see" % who["name"], shown > 0)
-			_check("%s %s" % [who["name"], "armed" if who["armed"] else "unarmed"], (arms > 0) == bool(who["armed"]), "%d arms shown" % arms)
+		var body := man.get_node_or_null("Body") as FolkBody
+		_check("%s has a body of the village's" % who["name"], body != null)
+		if body == null:
+			continue
+		var shown := 0
+		var arms := 0
+		for m: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+			if m.is_visible_in_tree():
+				shown += 1
+				var n := String(m.name).to_lower()
+				if n.contains("sword") or n.contains("shield") or n.begins_with("ps_w_") or n.begins_with("ps_o_"):
+					arms += 1
+		_check("%s is seen" % who["name"], shown > 0)
+		_check("%s goes unarmed" % who["name"], arms == 0, "%d arms shown" % arms)
+		var anim := body.find_children("*", "AnimationPlayer", true, false).front() as AnimationPlayer
+		_check("%s stands at ease, not on guard" % who["name"], anim != null and String(anim.current_animation).begins_with("folk/"),
+				String(anim.current_animation) if anim != null else "")
+		kinds[String(man.ps_look.get("g", "m")) + String(man.ps_look.get("race", ""))] = true
+	_check("men, women and elves among them", kinds.has("m") and kinds.has("f") and (kinds.has("melf") or kinds.has("felf")), str(kinds.keys()))
+	_check("only the squire and the knight of the poly heroes", Villager.FREED == [&"squire", &"knight"])
 	# the freed: their cage look, in order
 	_check("the first freed is the squire", Villager.freed_look(0) == &"squire")
 	var freed3 := world.get_node_or_null("Freed3") as Villager
@@ -50,13 +53,13 @@ func _initialize() -> void:
 	var smith := world.get_node_or_null("Trade_smith") as VillageTrade
 	_check("the smith at his stall in the first freed man's look", smith != null and (smith.get_node("Man") as Villager).look == Villager.freed_look(0))
 	# the hooded man walks
-	var hooded := world.get_node_or_null("Folk_Hooded") as Villager
+	var hooded := world.get_node_or_null("Folk_Woman_Walker") as Villager
 	if hooded != null:
 		# (he stops to watch a hero who comes near: the hero stands off)
 		world.player().global_position = Vector3(0.0, 0.5, -40.0)
 		var from := hooded.global_position
 		await _wait(60 * 9)
-		_check("the hooded man walks about", hooded.global_position.distance_to(from) > 1.0,
+		_check("a woman walks the street", hooded.global_position.distance_to(from) > 1.0,
 				"%.2f m" % hooded.global_position.distance_to(from))
 	# what the export must carry besides resources
 	var cfg := ConfigFile.new()
