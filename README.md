@@ -11171,3 +11171,13 @@ round them with F1): new builder `scripts/place_build.gd` ([PlaceBuild]).
 - **Holy spring**: a fountain ([method PlaceBuild.fountain]: eight-sided basin,
   gold rosettes, two bowls spilling, a jet, four spouts); its wall stops him,
   he drinks at the rim.
+
+The orc lord's fight (2026-10-21, the user's word: what makes a player stay;
+[LordFight], `scripts/lord_fight.gd`): as his court wakes his name comes up
+across the screen (ღრაშაკი, ორკების მბრძანებელი), the braziers blaze, the
+horn; his bar with his name along the screen's foot ([PlayerHud] reads a
+`boss_name` meta as well as the property; no tag over his head). At half his
+health his rage ([PackBrute]) is his second stage: the sky goes red,
+lightning, embers on the wind, two of his guard (made with him, out of sight)
+come out of the fire by his throne. Down, his guard fall with him and the
+sun comes up (`_to_phase(2.5)`).

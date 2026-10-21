@@ -252,6 +252,7 @@ var _orc_health: Dictionary = {}
 var _phase: float = 0.0
 var _phase_tween: Tween
 var _sky_mat: ShaderMaterial
+var _lord_fight: LordFight
 var _sun: DirectionalLight3D
 var _sun_yaw: float = 0.0
 var _env: Environment
@@ -847,6 +848,15 @@ func _spawn_room(i: int) -> void:
 				FoeRoles.after(body, role, self)
 			k += 1
 	waves = 2 if not _reserve.is_empty() else 1
+	# the lord's court: his fight's own doings, his guard made now
+	if is_instance_valid(_lord_fight):
+		_lord_fight.queue_free()
+	_lord_fight = null
+	if i == steps.size() - 1:
+		_lord_fight = LordFight.new()
+		_lord_fight.name = "LordFight"
+		add_child(_lord_fight)
+		_lord_fight.setup(self, i)
 	# its rift made now too, out of sight and out of the way, if it has one
 	if is_instance_valid(_rift_ready):
 		_rift_ready.queue_free()
@@ -1078,9 +1088,13 @@ func _wake(i: int) -> void:
 			body.call_deferred("_rouse", hero)
 	_spawned = _alive.size()
 	var last := i == steps.size() - 1
-	if last:
+	if last and is_instance_valid(_lord_fight):
+		_lord_fight.wake()
+	elif last:
 		Sfx.play_flat(self, SND + "horn.wav", 1.0, -3.0)
-	_say("ბოსი: ორკების მბრძანებელი" if last else String(_room(i)["name"]), 3.0)
+		_say("ბოსი: ორკების მბრძანებელი", 3.0)
+	else:
+		_say(String(_room(i)["name"]), 3.0)
 	if is_instance_valid(_goal):
 		_goal.start()
 	if _spawned == 0:

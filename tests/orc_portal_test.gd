@@ -7,6 +7,8 @@ extends SceneTree
 ## - goals ([RoomGoal]): the captain falls and the rest run; the totems ward
 ##   and hold the place till broken; holding out till the time is up;
 ## - the places of rest ([RestSpot]): the spring heals, the prisoner is freed;
+## - the lord's fight ([LordFight]): his name, his bar, his second stage with
+##   his guard, the guard falling with him;
 ## - what is won is his for good: the lord's blade for his class.
 ##   Godot --headless --path . --script res://tests/orc_portal_test.gd
 
@@ -64,6 +66,7 @@ func _run() -> void:
 	await _roles()
 	await _goals()
 	await _rest()
+	await _lord()
 	_gift()
 	print("orc_portal_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)
@@ -210,6 +213,39 @@ func _rest() -> void:
 		hero.global_position = spot._cage.global_position + Vector3(-2.0, 0.5, 0.0)
 	await _wait(10)
 	_check("the prisoner freed, to live in the village", (game.get(&"freed") as Array).size() == before + 1)
+
+
+func _lord() -> void:
+	print("the lord")
+	await _go(4, "throne")
+	var fight := d._lord_fight
+	_check("his fight made with his court", fight != null and fight.lord != null)
+	if fight == null or fight.lord == null:
+		return
+	var lord := fight.lord as PackBrute
+	_check("his name on his bar", String(lord.get_meta(&"boss_name", "")).begins_with(LordFight.NAME))
+	_check("his guard made, out of sight", fight.guards.size() == LordFight.GUARDS and not fight.guards[0].visible)
+	d._wake(4)
+	await _wait(30)
+	lord.health = lord.max_health * 0.45
+	for f in 200:
+		await physics_frame
+		if fight.phase == 1:
+			break
+	await _wait(150)
+	_check("half gone: his rage, his second stage", fight.phase == 1 and lord.raging)
+	var out := 0
+	for g in fight.guards:
+		if is_instance_valid(g) and g.visible and d._alive.has(g):
+			out += 1
+	_check("his guard out of the fire", out == LordFight.GUARDS, str(out))
+	lord._die()
+	await _wait(20)
+	var down := 0
+	for g in fight.guards:
+		if is_instance_valid(g) and bool(g.get("is_dead")):
+			down += 1
+	_check("down: his guard fall with him", fight.won and down == LordFight.GUARDS, str(down))
 
 
 func _gift() -> void:

@@ -80,7 +80,9 @@ func _process(delta: float) -> void:
 		if far < NUMBER_RANGE and health < was - 0.05:
 			_number(creature, was - health, _critical(creature))
 		# Lying in pieces ([Brawler] coming back together): no name over it.
-		_tag(creature, far < TAG_RANGE and not dead and creature.get("out_of_fight") != true, mine)
+		# a great one's name is on its bar at the foot of the screen ([LordFight])
+		_tag(creature, far < TAG_RANGE and not dead and creature.get("out_of_fight") != true
+				and not creature.has_meta(&"boss_name"), mine)
 	# Forget what has gone.
 	for key: int in _tags.keys():
 		if not is_instance_id_valid(key):

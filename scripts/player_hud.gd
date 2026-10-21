@@ -830,8 +830,7 @@ func _find_boss() -> Node3D:
 		var f := node as Node3D
 		if f == null or f.get("is_dead") == true:
 			continue
-		var named: Variant = f.get("boss_name")
-		if not (named is String) or (named as String).is_empty():
+		if _title_of(f).is_empty():
 			continue
 		var m := int(f.get("mode"))
 		if m != Fighter.Mode.CHASE and m != Fighter.Mode.FIGHT:
@@ -854,10 +853,18 @@ func _draw_boss() -> void:
 	_bar(at, width, BOSS_HEIGHT, h / maxf(full, 1.0), BOSS_HEALTH,
 			_boss_lost / maxf(full, 1.0), HEALTH_LOST)
 	var font := ThemeDB.fallback_font
-	_bars.draw_string(font, at + Vector2(1, -7), String(_boss.get("boss_name")), HORIZONTAL_ALIGNMENT_LEFT,
-			-1, 17, Color(0, 0, 0, 0.8))
-	_bars.draw_string(font, at + Vector2(0, -8), String(_boss.get("boss_name")), HORIZONTAL_ALIGNMENT_LEFT,
-			-1, 17, BOSS_GOLD)
+	var title := _title_of(_boss)
+	_bars.draw_string(font, at + Vector2(1, -7), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0, 0, 0, 0.8))
+	_bars.draw_string(font, at + Vector2(0, -8), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BOSS_GOLD)
+
+
+## A great enemy's name: its `boss_name` (the ogre's), or one put on it as
+## meta (the orc lord's, [LordFight]). Empty: not one.
+func _title_of(f: Node) -> String:
+	var named: Variant = f.get("boss_name")
+	if named is String and not (named as String).is_empty():
+		return named
+	return String(f.get_meta(&"boss_name", ""))
 
 
 ## One bar: a dark frame with a thin gilt edge, what is left, and — if asked —
