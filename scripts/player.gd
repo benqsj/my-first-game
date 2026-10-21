@@ -636,6 +636,9 @@ var net_tint: int = 0
 var net_look: String = ""
 ## The `net_look` last put on the rig, so it is only worn again when it changes.
 var _net_look_worn: String = ""
+## The state last shown of somebody else's body, for the moves that start on a
+## change of it (taking hold of a wall, a pull-up): see `_show_net_climb()`.
+var _net_state_shown: int = -1
 ## How long is left of the attack currently being committed to, and an attack
 ## pressed while it runs, waiting for it to end.
 var _commit_timer: float = 0.0
@@ -879,6 +882,8 @@ func _process(delta: float) -> void:
 		rig.call(&"set_look", PolysplitLook.from_wire(net_look))
 	if state == State.WALLCLIMB:
 		rig.climb_drive(_wall_drive, velocity.length(), _wall_hold_distance())
+	if not mine:
+		_show_net_climb()
 	# `velocity` is replicated, so the pace is right for everyone. `is_on_floor()`
 	# is not: it is the answer from a physics tick this body never took.
 	var planar := Vector3(velocity.x, 0.0, velocity.z).length()
@@ -981,6 +986,26 @@ var _lean_pitch_speed := 0.0
 var _lean_prev_flat := Vector3.ZERO
 var _lean_prev_dir := Vector3.FORWARD
 var _skid_at := -100000
+
+
+## Somebody else's climb, as he climbs it (the user's word, 2026-10-22: the
+## other player did not see the wall climb). His own wall_climb()/climb() are
+## called from his physics, which runs only on his machine; here they follow
+## the replicated state, and the drive on the wall (sideways, up) is read off
+## his replicated velocity in his own frame (he faces the wall).
+func _show_net_climb() -> void:
+	if net_state != _net_state_shown:
+		if net_state == State.WALLCLIMB:
+			rig.wall_climb(true)
+		elif _net_state_shown == State.WALLCLIMB:
+			rig.wall_climb(false)
+		if net_state == State.CLIMBING:
+			rig.climb(climb_duration)
+		_net_state_shown = net_state
+	if net_state == State.WALLCLIMB:
+		var local := global_basis.inverse() * velocity
+		var drive := Vector2(local.x, local.y) / maxf(wall_climb_speed, 0.01)
+		rig.climb_drive(drive.limit_length(1.0), velocity.length(), _wall_hold_distance())
 
 
 ## Copies the parts of the internal state that other peers have to see into the
@@ -2337,7 +2362,7 @@ func _wall_hold_distance() -> float:
 ## Takes hold of whatever steep face is in front of the body. `direction` is the
 ## way to feel in, defaulting to whichever way the body is facing.
 func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
-	if not wall_climb_enabled or _wall_cooldown_timer > 0.0:
+	if not wall_climb_enabled or _wall_cooldown_timer > 0.0 or _in_dungeon():
 		return false
 	if profile != null and not profile.can_climb:
 		return false
@@ -2367,6 +2392,14 @@ func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
 	return true
 
 
+## No wall is climbed in a portal's rooms (the user's word, 2026-10-22: he
+## climbed a room's wall on up into the sky): their walls go on up unseen to
+## keep the heroes in, and a climber went up the unseen part. Ledges within
+## reach are still mantled.
+func _in_dungeon() -> bool:
+	return is_inside_tree() and not get_tree().get_nodes_in_group(&"dungeon").is_empty()
+
+
 ## Catches a face in mid-air. This is the move that makes jumping at a house
 ## work: nothing is pressed, the jump simply ends on the wall.
 ##
@@ -2377,7 +2410,7 @@ func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
 ## What is asked instead is intent: the stick pointing at the face, or the body
 ## already touching one.
 func _try_catch_wall(steer: Vector3) -> bool:
-	if not wall_climb_enabled or _wall_cooldown_timer > 0.0:
+	if not wall_climb_enabled or _wall_cooldown_timer > 0.0 or _in_dungeon():
 		return false
 
 	# Touching one is intent enough; otherwise the stick has to be pointing at it.
