@@ -1,6 +1,6 @@
 extends SceneTree
 ## The orc palace's round 12 (claude/orc_portal_ideas.md, 2026-10-21):
-## - blessings ([Boons]), and their doubles (frost + the third: the shatter): three lights laid, one walked into and taken, what
+## - blessings ([Boons]), and their doubles (frost + the death burst: the shatter): three lights laid, one walked into and taken, what
 ##   each does on a blow (fire, frost, the third's knock), on him (iron, swift);
 ## - roles ([FoeRoles]): the shaman's call, the elite; one two-sword orc;
 ## - every room to look round from F1 ([method Dungeon.view_place]);
@@ -94,7 +94,7 @@ func _boons() -> void:
 	await _wait(5)
 	_check("walked into one, it is his", d.boons.has(id), String(id))
 	_check("the others gone out", d.boons._lights.is_empty())
-	for b: StringName in [&"burn", &"frost", &"third", &"iron", &"swift"]:
+	for b: StringName in [&"burn", &"frost", &"burst", &"iron", &"swift"]:
 		d.boons.take(b)
 	_check("iron: blows hurt less", absf(hero.taken_scale - Boons.IRON_TAKEN) < 0.01, str(hero.taken_scale))
 	d._wake(1)
@@ -389,6 +389,12 @@ func _story() -> void:
 	game.set(&"wins", 0)
 	var again := LordFight.greeting(game)
 	_check("the lord remembers", first != again and again.begins_with("2"), again)
+	# fallen: the numbers up, and a button to rise in the village
+	var lost := RunSummary.make(d, false)
+	await _wait(3)
+	_check("fallen: his summary and the button to rise", lost._rise != null and not lost._risen and d._back_out_at < 0.0)
+	lost.queue_free()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 func _gift() -> void:

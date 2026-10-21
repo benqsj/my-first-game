@@ -7,6 +7,8 @@ extends CanvasLayer
 ## blessings he had — and what is new in the village for them.
 
 var won: bool = false
+var _rise: Button
+var _risen: bool = false
 var lines: Dictionary = {}
 var _box: PanelContainer
 
@@ -82,6 +84,17 @@ func _ready() -> void:
 		_line(col, "კურთხევები: " + ", ".join(PackedStringArray(names)), 19, Color(0.8, 0.82, 0.95))
 	col.add_child(HSeparator.new())
 	_line(col, "ეშვები სოფელში დახარჯე — მჭედელთან, მკურნალთან, მღვდელთან.", 17, Color(0.7, 0.7, 0.66))
+	if not won:
+		# fallen: he rises in the village when he says so
+		_rise = Button.new()
+		_rise.text = "გაცოცხლდი სოფელში   [F]"
+		_rise.custom_minimum_size = Vector2(320, 52)
+		_rise.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_rise.add_theme_font_size_override("font_size", 24)
+		_rise.pressed.connect(rise)
+		col.add_child(_rise)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_rise.grab_focus.call_deferred()
 	_box.modulate.a = 0.0
 	var tw := create_tween()
 	tw.tween_property(_box, "modulate:a", 1.0, 0.6)
@@ -89,6 +102,24 @@ func _ready() -> void:
 		tw.tween_interval(11.0)
 		tw.tween_property(_box, "modulate:a", 0.0, 1.0)
 		tw.tween_callback(queue_free)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _rise == null or _risen or event.is_echo():
+		return
+	if event.is_action_pressed(&"interact") or event.is_action_pressed(&"ui_accept"):
+		get_viewport().set_input_as_handled()
+		rise()
+
+
+## Up again in the village: out of the dungeon by its gate ([method Dungeon.leave]).
+func rise() -> void:
+	if _risen:
+		return
+	_risen = true
+	var d := get_parent() as Dungeon
+	if d != null:
+		d.leave()
 
 
 func _line(into: Container, text: String, size: int, tint: Color) -> void:

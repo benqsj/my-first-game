@@ -199,7 +199,8 @@ func _dungeon() -> void:
 		await _wait(60)
 		_check("place %d cleared" % (r + 1), d.cleared[r])
 		if r > 0 and r < d.steps.size() - 1:
-			_check("  its reward given (%s)" % d.rooms[r]["reward"], d.rewards_given.size() == r)
+			# (a cursed place gives its reward twice over)
+			_check("  its reward given (%s)" % d.rooms[r]["reward"], d.rewards_given.size() >= r)
 			if String(d.rooms[r]["reward"]) == "life":
 				_check("  more life", hero.max_health > health_before, "%.0f > %.0f" % [hero.max_health, health_before])
 		print("    level %d after place %d" % [book.level, r + 1])

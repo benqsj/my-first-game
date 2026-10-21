@@ -118,6 +118,11 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var hit_damage: float = 8.0
 ## Rate the combo is played at: faster swings, less time to answer them.
 @export var attack_speed: float = 1.0
+## Held back ([method _hold_to]): further than this from its place it turns
+## and runs there; nearer, it keeps facing him and shuffles, no faster than
+## [constant HOLD_SHUFFLE].
+const HOLD_RUN_FROM := 2.5
+const HOLD_SHUFFLE := 2.0
 ## Seconds between one combo and the next, picked between the two.
 @export var attack_cooldown: Vector2 = Vector2(1.4, 3.0)
 
@@ -417,10 +422,21 @@ func _held_spot(fallback: float) -> Vector3:
 func _hold_to(spot: Vector3, pace: float, delta: float) -> void:
 	var to_spot := spot - global_position
 	to_spot.y = 0.0
-	_face(_quarry.global_position - global_position, delta, turn_speed)
 	var want := Vector3.ZERO
-	if to_spot.length() > 0.4:
-		want = to_spot.normalized() * minf(pace, to_spot.length() * 1.5)
+	if to_spot.length() > HOLD_RUN_FROM:
+		# far from its place: it turns and runs there, as anything runs (the
+		# user's word, 2026-10-21: the goblins ran unnaturally — sideways and
+		# backwards at a full run, facing him)
+		_face(to_spot, delta, turn_speed)
+		var facing := -global_transform.basis.z
+		facing.y = 0.0
+		var alignment := clampf(facing.normalized().dot(to_spot.normalized()), 0.0, 1.0)
+		want = to_spot.normalized() * pace * alignment
+	else:
+		# near it: facing him, a shuffle, never a sideways sprint
+		_face(_quarry.global_position - global_position, delta, turn_speed)
+		if to_spot.length() > 0.4:
+			want = to_spot.normalized() * minf(minf(pace, HOLD_SHUFFLE), to_spot.length() * 1.5)
 	velocity.x = move_toward(velocity.x, want.x, acceleration * delta)
 	velocity.z = move_toward(velocity.z, want.z, acceleration * delta)
 

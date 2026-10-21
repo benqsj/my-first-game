@@ -20,7 +20,6 @@ const ALL := {
 	&"burn": {"name": "ცეცხლის ხმალი", "text": "დარტყმა მტერს ცეცხლს უკიდებს", "tint": Color(1.0, 0.45, 0.1)},
 	&"sparks": {"name": "ნაპერწკლების ნაბიჯი", "text": "დაძვრენისას ნაპერწკლები\nსცვივა და ახლოს მდგომებს წვავს",
 			"tint": Color(1.0, 0.75, 0.25)},
-	&"third": {"name": "მესამე დარტყმა", "text": "ყოველი მესამე დარტყმა\nმტერს უკან აგდებს", "tint": Color(0.85, 0.85, 0.95)},
 	&"thirst": {"name": "სისხლის წყურვილი", "text": "მოკლული მტერი\nსიცოცხლეს გიბრუნებს", "tint": Color(0.9, 0.12, 0.15)},
 	&"chain": {"name": "ელვის ჯაჭვი", "text": "დარტყმა ხანდახან ელვას\nგადასცემს ორ ახლო მტერს", "tint": Color(0.45, 0.7, 1.0)},
 	&"frost": {"name": "ყინვის კბილი", "text": "დარტყმა მტერს ყინავს\nდა ანელებს", "tint": Color(0.6, 0.92, 1.0)},
@@ -36,7 +35,7 @@ const ALL := {
 	# he holds both halves ([const DUOS]), and first among the lights
 	&"storm_fire": {"name": "მეხის ცეცხლი", "text": "ელვა უფრო ხშირად გადადის\nდა ვისაც მოხვდება, ცეცხლი ეკიდება",
 			"tint": Color(1.0, 0.6, 0.25)},
-	&"shatter": {"name": "ყინულის მსხვრევა", "text": "მესამე დარტყმა გაყინულ მტერს\nამსხვრევს — ყინული ირგვლივ იფანტება",
+	&"shatter": {"name": "ყინულის მსხვრევა", "text": "ყოველი მესამე დარტყმა გაყინულ მტერს\nამსხვრევს — ყინული ირგვლივ იფანტება",
 			"tint": Color(0.7, 0.95, 1.0)},
 	&"ember_dance": {"name": "ცეცხლის ცეკვა", "text": "დაძვრენის ნაპერწკლები ფართოდ\nიფანტება და დიდხანს წვავს",
 			"tint": Color(1.0, 0.4, 0.15)},
@@ -44,7 +43,7 @@ const ALL := {
 ## The doubles and the two blessings each is made of.
 const DUOS := {
 	&"storm_fire": [&"burn", &"chain"],
-	&"shatter": [&"frost", &"third"],
+	&"shatter": [&"frost", &"burst"],
 	&"ember_dance": [&"sparks", &"burn"],
 }
 const STORM_CHANCE := 0.5
@@ -137,11 +136,49 @@ func lay(at: Vector3, into: Node3D) -> void:
 	clear_lights()
 	var ids := offer(lights)
 	var n := ids.size()
+	var placed: Array[Vector3] = []
 	for k in n:
 		# in a shallow arc, far enough apart that their words do not run together
 		var across := (float(k) - float(n - 1) * 0.5) * 6.5
 		var back := absf(float(k) - float(n - 1) * 0.5) * 1.5
-		_lights.append({"node": _light(ids[k], at + Vector3(across, 0.0, back), into), "id": ids[k]})
+		var spot := clear_spot(into, at + Vector3(across, 0.0, back), placed)
+		placed.append(spot)
+		_lights.append({"node": _light(ids[k], spot, into), "id": ids[k]})
+
+
+## Where a light can stand near `want`: on open floor, nothing solid there
+## (the user's word, 2026-10-21: they came up on the crypt's tombs and the
+## like), and not on top of another light. Looked for round `want` outwards.
+static func clear_spot(into: Node3D, want: Vector3, others: Array[Vector3]) -> Vector3:
+	if not into.is_inside_tree():
+		return want
+	var space := into.get_world_3d().direct_space_state
+	var ball := SphereShape3D.new()
+	ball.radius = 1.1
+	var ask := PhysicsShapeQueryParameters3D.new()
+	ask.shape = ball
+	ask.collision_mask = 1
+	for ring in 7:
+		var count := 1 if ring == 0 else 10
+		for k in count:
+			var a := TAU * float(k) / float(count) + float(ring) * 0.4
+			var spot := want + Vector3(sin(a), 0.0, cos(a)) * float(ring) * 1.6
+			var near_other := false
+			for o in others:
+				if Vector2(o.x - spot.x, o.z - spot.z).length() < 4.5:
+					near_other = true
+			if near_other:
+				continue
+			ask.transform = Transform3D(Basis(), spot + Vector3.UP * 1.4)
+			if not space.intersect_shape(ask, 1).is_empty():
+				continue
+			# floor under it, not far below nor above where it was meant
+			var down := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 3.0, spot + Vector3.DOWN * 3.0, 1)
+			var hit := space.intersect_ray(down)
+			if hit.is_empty() or absf((hit["position"] as Vector3).y - want.y) > 0.6:
+				continue
+			return Vector3(spot.x, (hit["position"] as Vector3).y, spot.z)
+	return want
 
 
 func clear_lights() -> void:
@@ -301,11 +338,7 @@ func _on_struck(hit: HitInfo, body: Node3D) -> void:
 			var cold := Afflictions.of(body, false)
 			if cold != null and cold.is_chilled():
 				_shatter(hero, body)
-		if has(&"third") and int(_cuts[key]) % 3 == 0 and body.has_method(&"react"):
-			var push := body.global_position - hero.global_position
-			push.y = 0.0
-			body.call(&"react", &"knock", hero, push.normalized() * THIRD_PUSH)
-			_flash(body.global_position + Vector3.UP * 1.2, ALL[&"third"]["tint"])
+		# (the third blow's knock gone: the user's word, 2026-10-21)
 		if has(&"chain") and _rng.randf() < (STORM_CHANCE if has(&"storm_fire") else CHAIN_CHANCE):
 			_chain(hero, body, hit.damage * CHAIN_SHARE)
 	if has(&"burn"):

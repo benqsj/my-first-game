@@ -49,17 +49,19 @@ const THROW := 35
 ## act -> [clip, rate, from, to]: which clip, how fast, and the share of it
 ## played (past a slow wind-up, short of a long settle).
 const MOVES := {
-	SWIPE: [&"IP_Swipe_L", 1.55, 0.22, 0.78],
-	MACE: [&"IP_Swipe_R", 1.5, 0.22, 0.8],
-	COMBO: [&"IP_Combo2", 1.35, 0.08, 0.86],
-	SLAM: [&"IP_Overhead", 1.3, 0.1, 0.8],
-	POUNCE: [&"IP_Pounce", 1.25, 0.1, 0.88],
-	FLIP: [&"IP_FlipKick", 1.2, 0.0, 0.9],
-	HOP: [&"IP_HopBack", 1.5, 0.12, 0.8],
-	BACKFLIP: [&"IP_Backflip", 1.35, 0.1, 0.85],
-	DODGE_L: [&"IP_Dodge_L", 1.3, 0.0, 0.85],
-	DODGE_R: [&"IP_Dodge_R", 1.3, 0.0, 0.85],
-	TAUNT: [&"IP_Flex", 1.3, 0.12, 0.5],
+	# quicker all round (the user's word, 2026-10-21: the imps looked slowed
+	# down, their flips as in slow motion)
+	SWIPE: [&"IP_Swipe_L", 1.8, 0.22, 0.78],
+	MACE: [&"IP_Swipe_R", 1.75, 0.22, 0.8],
+	COMBO: [&"IP_Combo2", 1.6, 0.08, 0.86],
+	SLAM: [&"IP_Overhead", 1.55, 0.1, 0.8],
+	POUNCE: [&"IP_Pounce", 1.6, 0.1, 0.88],
+	FLIP: [&"IP_FlipKick", 1.65, 0.0, 0.9],
+	HOP: [&"IP_HopBack", 1.8, 0.12, 0.8],
+	BACKFLIP: [&"IP_Backflip", 1.75, 0.1, 0.85],
+	DODGE_L: [&"IP_Dodge_L", 1.6, 0.0, 0.85],
+	DODGE_R: [&"IP_Dodge_R", 1.6, 0.0, 0.85],
+	TAUNT: [&"IP_Flex", 1.4, 0.12, 0.5],
 	HIT_F: [&"IP_Hit_F", 1.3, 0.0, 0.8],
 	HIT_L: [&"IP_Hit_L", 1.3, 0.0, 0.8],
 	HIT_R: [&"IP_Hit_R", 1.3, 0.0, 0.8],

@@ -130,12 +130,13 @@ func _initialize() -> void:
 	var from_here := imp.global_position
 	var evaded := false
 	await _swing_at(player, imp, false)
+	var carried := 0.0
 	for i in 40:
 		await physics_frame
 		evaded = evaded or Imp.EVADES.has(imp.act)
+		carried = maxf(carried, imp.global_position.distance_to(from_here))
 	_check("a cut at it and it gets out of the way", evaded)
-	_check("and the evade carries it off", imp.global_position.distance_to(from_here) > 1.3,
-			"%.2f m" % imp.global_position.distance_to(from_here))
+	_check("and the evade carries it off", carried > 1.3, "%.2f m" % carried)
 	_check("the cut finds nothing", is_equal_approx(imp.health, health_before),
 			"%.0f -> %.0f" % [health_before, imp.health])
 	_check("it never raises a guard", imp.block_chance == 0.0)
@@ -232,6 +233,11 @@ func _top(f: Node3D) -> float:
 
 
 func _swing_at(player: Player, f: Fighter, hold: bool = true) -> void:
+	# he may still be down from its last blow (it is quicker now): up first
+	for i in 240:
+		if player.state == Player.State.GROUNDED and not player.is_committed():
+			break
+		await physics_frame
 	var spot := f.global_position
 	player.global_position = spot + Vector3(0.0, 0.1, 1.6)
 	player.velocity = Vector3.ZERO

@@ -36,8 +36,6 @@ const CURSE_CHANCE := 0.35
 const CURSE_HEALTH := 1.5
 const CURSE_HARDER := 1.3
 
-## When a run's summary is up, he is let read it before he is taken out.
-const SUMMARY_WAIT := 8.0
 ## How far apart the places of one run are built (m, along −Z).
 const STEP_GAP := 420.0
 ## Seconds the screen takes to go dark, and to come back.
@@ -121,7 +119,7 @@ const PLACES := {
 ## of them; the two orcs, taking turns; the lord of the orcs alone.
 const RUN := {
 	0: [
-		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 8]]}},
+		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 5], [GOBLIN, 3]]}},
 		# a goblin shaman with most of them, kept back, from here on (the
 		# user's word, 2026-10-21: roles in the fight)
 		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 3, "xp": 2.5, "reach": 4,
@@ -901,6 +899,35 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 	_prepare_offer(i + 1)
 
 
+## A place's creatures one by one, their kinds taken in turn (the user's
+## word, 2026-10-21: never a wave of goblins only, then of imps only — mixed,
+## an imp, a goblin…); the elite, which comes with the second wave, last.
+static func mixed(foes: Array) -> Array:
+	var lists: Array = []
+	var last: Array = []
+	for entry: Array in foes:
+		var one := entry.duplicate()
+		one[1] = 1
+		var role := String((entry[2] as Dictionary).get("role", "")) if entry.size() > 2 else ""
+		var many: Array = []
+		for n in int(entry[1]):
+			many.append(one)
+		if role == "elite":
+			last.append_array(many)
+		else:
+			lists.append(many)
+	var out: Array = []
+	var left := true
+	while left:
+		left = false
+		for many: Array in lists:
+			if not many.is_empty():
+				out.append(many.pop_front())
+				left = true
+	out.append_array(last)
+	return out
+
+
 ## Place `i`'s creatures, standing in its far half, asleep (they see no one:
 ## their leash is nothing).
 func _spawn_room(i: int) -> void:
@@ -923,7 +950,7 @@ func _spawn_room(i: int) -> void:
 	# the ones made at the start for this step, if any ([method _premake])
 	var made: Array = _premade.get(i, [])
 	_premade.erase(i)
-	for entry: Array in r["foes"]:
+	for entry: Array in mixed(r["foes"]):
 		var scene := _foe_scene(String(entry[0]))
 		if scene == null:
 			continue
@@ -1894,10 +1921,11 @@ func _on_hero_died(fallen: Player) -> void:
 		if game != null and game.has_method(&"beaten_by_lord"):
 			game.call(&"beaten_by_lord")
 		_lord_fight.speak(LordFight.gloat())
-	var wait := BACK_OUT_AFTER
-	if end_run(false) != null:
-		wait = SUMMARY_WAIT
-	_back_out_at = Time.get_ticks_msec() / 1000.0 + wait
+	# the run's summary up, and he goes back when he says so (the user's
+	# word, 2026-10-21: a button to rise in the village, the numbers to look
+	# at till then); no run (a room looked round): out after a moment
+	if end_run(false) == null:
+		_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
 
 
 ## Straight into `place` to look round it (the user's word, 2026-10-21: to
