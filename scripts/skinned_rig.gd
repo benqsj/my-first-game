@@ -463,6 +463,11 @@ const CUSTOM := &"custom"
 ## in the models and the code, for the tests that still try them on (and the
 ## film of how the game grew).
 static var old_looks: bool = false
+## A look the hero no longer offers, worn by one of the village's people
+## instead ([Villager]; the user's word, 2026-10-22: the poly heroes we no
+## longer use are the NPCs): the rig keeps its old faces and comes up in this
+## one. Empty for a hero.
+@export var npc_look: StringName = &""
 ## And the people that figure is of ([constant PolysplitLook.RACES]): every
 ## look worn is made of it, whatever was saved.
 @export var race: String = ""
@@ -585,7 +590,7 @@ func _ready() -> void:
 	_configure()
 	if polysplit_hero != &"":
 		_add_maker()
-		if maker_only or not old_looks:
+		if (maker_only or not old_looks) and npc_look == &"":
 			_only_maker()
 	_own_moves = {"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(),
 			"heavy": heavy.duplicate(true)}
@@ -619,6 +624,8 @@ func _ready() -> void:
 	_setup_figure()
 	set_shield(shield_kind)
 	set_garb(garb)
+	if npc_look != &"" and faces.has(npc_look):
+		face = faces.find(npc_look)
 	set_face(face)
 	_set_base(clips[&"idle"], 0.0, 1.0)
 	# Read off the disk now, not on the first swing.

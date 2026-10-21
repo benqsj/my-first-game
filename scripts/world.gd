@@ -500,6 +500,7 @@ func _peaceful_world() -> void:
 	# His level outside the dungeons, given back once he stands in the world.
 	call_deferred(&"_give_back_levels", game)
 	_freed_in_village(game)
+	_village_folk()
 	_hub_bounds()
 
 
@@ -608,11 +609,41 @@ func _freed_in_village(game: Node) -> void:
 		var man := Villager.new()
 		man.name = "Freed%d" % k
 		man.variant = 3 + k
+		man.look = Villager.freed_look(k)
 		var walk: Array[Vector3] = []
 		for n in 3:
 			walk.append(spread(STREET[(k * 3 + n) % STREET.size()]))
 		man.spots = walk
 		man.position = walk[0]
+		add_child(man)
+
+
+## The village's own people, there from the first (the user's word,
+## 2026-10-22: one or two NPCs in the village; the poly heroes no hero wears
+## any more): a guard in the paladin's plate at the street's west end, sword
+## and shield on him, and a hooded man walking between the stalls.
+const FOLK := [
+	{"name": "Guard", "look": &"paladin", "armed": true, "at": Vector3(33.5, 0, 44.5), "yaw": PI * 0.5, "walk": []},
+	{"name": "Hooded", "look": &"hooded", "armed": false, "at": Vector3(56, 0, 42.5), "yaw": 0.0,
+			"walk": [Vector3(56, 0, 42.5), Vector3(66, 0, 42), Vector3(60, 0, 44), Vector3(50, 0, 43.5)]},
+]
+
+
+func _village_folk() -> void:
+	for k in FOLK.size():
+		var who: Dictionary = FOLK[k]
+		var man := Villager.new()
+		man.name = "Folk_%s" % who["name"]
+		man.variant = 20 + k
+		man.look = who["look"]
+		man.armed = who["armed"]
+		var walk: Array[Vector3] = []
+		for p: Vector3 in who["walk"]:
+			walk.append(spread(p))
+		man.spots = walk
+		var at := spread(who["at"])
+		man.position = Vector3(at.x, Terrain.height_under(at.x, at.z, 1.5), at.z)
+		man.rotation.y = who["yaw"]
 		add_child(man)
 
 

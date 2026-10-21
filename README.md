@@ -11285,3 +11285,56 @@ host). Hardened runtime on. `ITSAppUsesNonExemptEncryption = false`.
 Bundle id `com.benqsj.vepxis`, version in the target's MARKETING_VERSION.
 Icon: `Vepxis/Assets.xcassets/AppIcon` (from icon.svg). Save data lives in
 `~/Library/Containers/com.benqsj.vepxis/` when sandboxed.
+
+### What goes into the pack, and timing the exported game (2026-10-22, release_polish_plan.md round 1)
+
+- The macOS preset still exports "all resources", but `exclude_filter` leaves
+  out what nothing in the game reaches: the Unity leftovers (FBX, FBX (Unity),
+  Objects, Prefabs, Terrain, Textures, Demo, Skybox, OBJ), the looks no hero
+  wears (avtandil_anna, tariel_darkknight, avtandil_blink, avtandil_sidekick,
+  tariel_polysplit), the unused creatures and sounds of `unverified/` and
+  `assets/monsters/`, the music not in Music's lists, and the user's loose
+  world GLBs. The list comes from `tools/pack_needs.gd` (every res:// path the
+  code, scenes and resources name, format strings and folder prefixes widened,
+  closed over ResourceLoader's dependencies) and `tools/pck_sizes.py` (what a
+  pack holds, by source file). Run both again after adding assets that are
+  loaded by a built path, and add a folder to the filter only when nothing in
+  it is reached.
+- `include_filter` takes `assets/world/v5/*.gz`: PalaceVista reads its height
+  and colour maps with FileAccess, and a non-resource file is only packed when
+  named there (the TestFlight build up to 2026-10-22 had the dungeon's vista
+  without its ground: "PalaceVista: v5 heights missing").
+- 143 textures the editor never saw in 3D (the importer's "detect 3D" happens
+  only when the editor draws them) were Lossless: no VRAM compression, 4x the
+  video memory. Set to VRAM Compressed (normal maps as normal maps). The UI's,
+  the dye swatches (read with get_pixel), the previews and the fx are left as
+  they were.
+- Pack 1.68 GB -> 0.90 GB.
+- Shader Baker (`shader_baker/enabled`) is off: it bakes only with the editor's
+  renderer (not `--headless`), and without Xcode's Metal Toolchain
+  (`xcodebuild -downloadComponent MetalToolchain`) it bakes SPIR-V only, which
+  the Metal driver then failed to read ("Not enough bytes for uniform in shader
+  container") and the first start took 30 s. Turn it on, and drop
+  `--headless` in godot_embed.sh, once the toolchain is installed.
+- An export template takes no `--script`/`--main-pack`, so `Game` starts a
+  probe when `VEPXIS_PROBE=/abs/path.gd` is set (a GDScript extending Node,
+  compiled at run time). The round's probe (`_shots_tmp/rprobe.gd`, args in
+  `VEPXIS_PROBE_ARGS`, lines also to `VEPXIS_PROBE_OUT`) goes menu -> START ->
+  the village and its five gates -> the orc portal's hall, court, crypt,
+  forest, great hall, swamp and throne, each fought and cleared, and lists
+  every frame over 33 ms. Run the release template as `Vepxis` with the pack
+  beside it as `Vepxis.pck` (`_shots_tmp/rel/`).
+
+### The village's people in the poly heroes' old looks (2026-10-22, the user's word)
+
+Tariel's looks the hero select no longer offers (Blink's low poly man as THE
+SQUIRE and THE KNIGHT, Synty's Sidekicks as THE PALADIN, THE HOODED, THE SWORN
+and THE IRON KNIGHT) are the village's people now: a [Villager] with `look`
+set wears Tariel's rig (`SkinnedRig.npc_look` keeps the old faces and comes up
+in that one), at ease (`SS_Look_Around_Idle`, a guard `TR_Ready_Idle`), sword
+and shield hidden unless `armed`. The rig's own `animate()` walks them.
+`World.FOLK`: a guard in the paladin's plate at the street's west end and a
+hooded man walking between the stalls, there from the first. The prisoner in
+the orc palace's cage crouches in `Villager.freed_look(k)` (the squire first),
+and the man freed keeps that look at his stall and in the street.
+`tests/village_folk_test.gd`.

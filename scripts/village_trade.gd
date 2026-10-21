@@ -29,6 +29,7 @@ func _ready() -> void:
 	_man = Villager.new()
 	_man.name = "Man"
 	_man.variant = variant
+	_man.look = Villager.freed_look(variant - 3)
 	_man.position = Vector3(0.0, 0.0, -0.9)
 	var stand: Array[Vector3] = [to_global(Vector3(0.0, 0.0, -0.9))]
 	_man.spots = stand
