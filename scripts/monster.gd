@@ -113,6 +113,12 @@ func _ready() -> void:
 		if settle_on_ground:
 			_settle_on_ground()
 		_start_animation()
+		# Drawn between its physics ticks, as the heroes are (the user's word,
+		# 2026-10-22: the orcs walked as if the game stuttered, though it did
+		# not): the body moves sixty times a second, the screen is drawn at
+		# whatever rate it manages, and a frame with no tick in it showed the
+		# creature standing, the next with two showed it jumping on.
+		VisualSmoother.attach(self, body)
 
 	_fidget_in = _rng.randf_range(2.0, maxf(fidget_interval, 2.0))
 	_pick_target()
