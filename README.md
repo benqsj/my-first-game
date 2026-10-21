@@ -11146,3 +11146,28 @@ portals; empty unless with creatures); from the open world it loads the
 dungeon with [member Game.view_place] and goes there once the loading is
 done. Step 4 is now one orc with two swords (`ORC_TWO_SWORDS`); the shield
 orc's role ([FoeRoles] "shield") stays in the code, unused.
+
+The rooms gone over one by one (2026-10-21, the user's word after looking
+round them with F1): new builder `scripts/place_build.gd` ([PlaceBuild]).
+- **Cave**: rebuilt — damp rock floor, the stone teeth only in solid clumps
+  against the walls, crystals glowing in the walls (none out of the floor),
+  a still pool, the middle clear.
+- **Forest**: the standing stones, the stream and pebbles gone; stakes, bones
+  and logs only in the outer band (`_forest_edge`).
+- **Crypt**: a barrel vault of stone ribs and piers, niches with candles,
+  three tombs, candle wheels, a chapel at the end (altar, glass, statues);
+  its fog thinned.
+- **Mist**: the mist planes fade soft where they meet things and near the
+  camera (depth texture) — no more lines across him.
+- **Swamp**: no bushes, grass or cattails; five ragged dark pools
+  ([method PlaceBuild.pool], `shine` low so they do not lie white); bare trees.
+- **Broken hall**: the fallen beam lies on the rubble; grass and ivy under the
+  hole in the roof.
+- **Sky island**: green trees only (`_a_green_tree`), no flowers; grass only
+  outside the wall.
+- **Storm path**: wet rock shelf, no stones in the middle, puddles with rain
+  splashing, finer rain; he is wet there ([method PlaceBuild.wet]: a dark
+  glossy film, drips off him).
+- **Holy spring**: a fountain ([method PlaceBuild.fountain]: eight-sided basin,
+  gold rosettes, two bowls spilling, a jet, four spouts); its wall stops him,
+  he drinks at the rim.

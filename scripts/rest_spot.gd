@@ -16,25 +16,6 @@ extends Node3D
 ## middle of the place, watches for the hero.
 
 const NAMES := ["გიორგი", "დავითი", "ლევანი", "ზურაბი", "ვახტანგი", "ირაკლი", "ბექა", "ნიკა"]
-const WATER_SHADER := """
-shader_type spatial;
-render_mode unshaded, cull_disabled;
-// Holy water: deep blue at the rim, bright at its heart, rings drifting out.
-uniform float used = 0.0;
-varying vec3 lpos;
-void vertex() { lpos = VERTEX; }
-void fragment() {
-	float r = length(lpos.xz);
-	float rings = 0.5 + 0.5 * sin(r * 9.0 - TIME * 2.2);
-	vec3 deep = vec3(0.05, 0.2, 0.35);
-	vec3 bright = vec3(0.6, 1.4, 1.8);
-	float heart = 1.0 - smoothstep(0.0, 3.0, r);
-	vec3 c = mix(deep, bright, heart * (0.6 + 0.4 * rings));
-	ALBEDO = mix(c, deep * 0.8, used);
-	ALPHA = 1.0;
-}
-"""
-
 var kind: String = ""
 var _d: Dungeon
 var _used: bool = false
@@ -76,68 +57,18 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 #region The spring
 func _build_spring(room: Node3D, w: float, l: float) -> void:
 	var stone := _d._trim_mat
-	var rim := CylinderMesh.new()
-	rim.top_radius = 3.6
-	rim.bottom_radius = 3.9
-	rim.height = 0.7
-	rim.radial_segments = 28
-	_d._deco(self, stone, rim, Vector3(0.0, 0.35, 0.0))
-	var sh := Shader.new()
-	sh.code = WATER_SHADER
-	_water = ShaderMaterial.new()
-	_water.shader = sh
-	var pool := CylinderMesh.new()
-	pool.top_radius = 3.3
-	pool.bottom_radius = 3.3
-	pool.height = 0.06
-	pool.radial_segments = 28
-	_d._deco(self, _water, pool, Vector3(0.0, 0.62, 0.0))
-	# a pillar in its middle, water running down it
-	var pillar := CylinderMesh.new()
-	pillar.top_radius = 0.35
-	pillar.bottom_radius = 0.5
-	pillar.height = 2.2
-	pillar.radial_segments = 12
-	_d._deco(self, stone, pillar, Vector3(0.0, 1.1, 0.0))
-	var bowl := CylinderMesh.new()
-	bowl.top_radius = 1.1
-	bowl.bottom_radius = 0.4
-	bowl.height = 0.4
-	bowl.radial_segments = 18
-	_d._deco(self, stone, bowl, Vector3(0.0, 2.3, 0.0))
-	var spill := GPUParticles3D.new()
-	spill.amount = 60
-	spill.lifetime = 0.9
-	spill.position = Vector3(0.0, 2.45, 0.0)
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	pm.emission_ring_radius = 1.05
-	pm.emission_ring_inner_radius = 0.95
-	pm.emission_ring_height = 0.02
-	pm.emission_ring_axis = Vector3.UP
-	pm.direction = Vector3.DOWN
-	pm.spread = 8.0
-	pm.initial_velocity_min = 0.3
-	pm.initial_velocity_max = 0.6
-	pm.gravity = Vector3(0.0, -6.0, 0.0)
-	pm.color = Color(0.6, 1.2, 1.6, 0.8)
-	spill.process_material = pm
-	var drop := QuadMesh.new()
-	drop.size = Vector2(0.05, 0.16)
-	var dm := StandardMaterial3D.new()
-	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	dm.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
-	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	dm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	dm.vertex_color_use_as_albedo = true
-	drop.material = dm
-	spill.draw_pass_1 = drop
-	add_child(spill)
+	# a fountain of pale stone and gold (the user's word, 2026-10-21: "a good fountain")
+	_water = PlaceBuild.fountain(_d, self)["water"]
+	# its eight-sided wall stops him: he drinks from the rim
+	for k in 8:
+		var a := TAU * float(k) / 8.0
+		var face := _d._blocker(self, Vector3(4.6, 1.2, 0.5), Vector3(sin(a) * 5.4, 0.6, cos(a) * 5.4))
+		face.rotation.y = a
 	_light = OmniLight3D.new()
 	_light.light_color = Color(0.55, 0.85, 1.0)
-	_light.light_energy = 3.0
-	_light.omni_range = 12.0
-	_light.position = Vector3(0.0, 2.0, 0.0)
+	_light.light_energy = 1.8
+	_light.omni_range = 14.0
+	_light.position = Vector3(0.0, 3.0, 0.0)
 	add_child(_light)
 	# a shaft of light down on it from above
 	var beam := CylinderMesh.new()
@@ -159,7 +90,7 @@ func _build_spring(room: Node3D, w: float, l: float) -> void:
 		var a := PI * 0.25 + TAU * float(k) / 4.0
 		var bench := BoxMesh.new()
 		bench.size = Vector3(2.4, 0.45, 0.6)
-		var b := _d._deco(self, stone, bench, Vector3(sin(a) * 6.5, 0.23, cos(a) * 6.5))
+		var b := _d._deco(self, stone, bench, Vector3(sin(a) * 8.6, 0.23, cos(a) * 8.6))
 		b.rotation.y = a
 	for k in 6:
 		var side := -1.0 if k % 2 == 0 else 1.0
@@ -315,7 +246,7 @@ func _process(_delta: float) -> void:
 		match kind:
 			"spring":
 				var gap := Vector2(hero.global_position.x - global_position.x, hero.global_position.z - global_position.z)
-				if gap.length() < 3.6:
+				if gap.length() < 6.8:
 					_drink(hero)
 					return
 			"prison":
