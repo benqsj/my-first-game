@@ -64,6 +64,11 @@ var trade_levels: Dictionary = {}
 var runs: int = 0
 var wins: int = 0
 var best_time: float = 0.0
+## The palace's story read so far ([LoreStone]), and how often he has stood
+## before the orc lord and how often the lord has beaten him ([LordFight]).
+var lore_read: int = 0
+var lord_met: int = 0
+var lord_beat: int = 0
 
 
 ## Dungeon `index` is closed: its gate is marked, and the hero keeps its last level.
@@ -79,6 +84,21 @@ func add_tusks(n: int) -> void:
 	if n <= 0:
 		return
 	tusks += n
+	_save_settings()
+
+
+func read_lore() -> void:
+	lore_read += 1
+	_save_settings()
+
+
+func meet_lord() -> void:
+	lord_met += 1
+	_save_settings()
+
+
+func beaten_by_lord() -> void:
+	lord_beat += 1
 	_save_settings()
 
 
@@ -504,6 +524,9 @@ func _load_settings() -> void:
 	runs = int(file.get_value("progress", "runs", 0))
 	wins = int(file.get_value("progress", "wins", 0))
 	best_time = float(file.get_value("progress", "best_time", 0.0))
+	lore_read = int(file.get_value("progress", "lore_read", 0))
+	lord_met = int(file.get_value("progress", "lord_met", 0))
+	lord_beat = int(file.get_value("progress", "lord_beat", 0))
 	var levels: Variant = file.get_value("progress", "trades", {})
 	if levels is Dictionary:
 		for key: Variant in levels:
@@ -539,6 +562,9 @@ func _save_settings() -> void:
 		file.set_value("progress", "runs", runs)
 		file.set_value("progress", "wins", wins)
 		file.set_value("progress", "best_time", best_time)
+		file.set_value("progress", "lore_read", lore_read)
+		file.set_value("progress", "lord_met", lord_met)
+		file.set_value("progress", "lord_beat", lord_beat)
 		file.set_value("progress", "trades", trade_levels)
 	file.save(SETTINGS)
 #endregion

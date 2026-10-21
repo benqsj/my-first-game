@@ -11225,3 +11225,11 @@ Risk and surprise (2026-10-21):
   the bag. Not one of the place's: it clears without it.
 - The broken hall's plants under the hole: no clover (it stood as great dark
   balls).
+
+The story, a little each run (2026-10-21): a stone with the palace's story
+([LoreStone], `scripts/lore_stone.gd`) stands in the second or third place;
+come up to it and the next of eight pieces is read out over it ([Game]
+`lore_read`). The lord speaks ([method LordFight.speak], along the screen's
+foot): as he comes, by what has passed between them (first meeting, how
+often he has beaten him, a win before: [Game] `lord_met`, `lord_beat`,
+`wins`); at his rage; as he falls; and over him when he has beaten him.

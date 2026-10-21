@@ -274,6 +274,7 @@ var _viewing: bool = false
 var _curse_next: bool = false
 var _curse_mat: ShaderMaterial
 var _treasure: TreasureGoblin
+var _lore_put: bool = false
 var _sun: DirectionalLight3D
 var _sun_yaw: float = 0.0
 var _env: Environment
@@ -981,6 +982,11 @@ func _spawn_room(i: int) -> void:
 	if bool(r.get("cursed", false)):
 		for body in mine:
 			_curse(body)
+	# a piece of the palace's story, once a run, in the second or third place
+	if not _lore_put and not _viewing and (i == 2 or (i == 1 and _rng.randf() < 0.5)) \
+			and i < _room_nodes.size() and is_instance_valid(_room_nodes[i]):
+		_lore_put = true
+		LoreStone.put(_room_nodes[i], c + Vector3(w * 0.5 - 3.0, 0.0, l * 0.32), -PI * 0.5)
 	# now and then a goblin with a sack of gold ([TreasureGoblin])
 	if is_instance_valid(_treasure) and is_instance_valid(_treasure.body):
 		_treasure.body.queue_free()
@@ -1143,13 +1149,18 @@ func _open_rift() -> void:
 	var world := Blood.world_of(self)
 	if world != null:
 		for k in 3:
-			get_tree().create_timer(RIFT_GROW * float(k) / 3.0).timeout.connect(func() -> void:
-				if is_instance_valid(_rift):
-					SkillFx.burst(world, _rift.global_position + Vector3.UP * 2.6, Color(0.95, 0.25, 0.3), 40,
-							Vector2(0.5, 2.0), Vector3.UP, 180.0, Vector2(0.05, 0.14), Vector3(0, 0.6, 0), 1.0))
+			get_tree().create_timer(RIFT_GROW * float(k) / 3.0).timeout.connect(_rift_burst)
 	_rift_at = Time.get_ticks_msec() / 1000.0 + RIFT_TIME
 	Sfx.play(self, SND + "portal_open.wav", null, _rift.position + Vector3.UP * 2.0, 0.8, 4.0)
 	_say("ტალღა %d / %d" % [wave + 1, waves], 2.5)
+
+
+## The air drawn into the opening rift (on a timer: the place may be gone).
+func _rift_burst() -> void:
+	var world := Blood.world_of(self)
+	if world != null and is_instance_valid(_rift):
+		SkillFx.burst(world, _rift.global_position + Vector3.UP * 2.6, Color(0.95, 0.25, 0.3), 40,
+				Vector2(0.5, 2.0), Vector3.UP, 180.0, Vector2(0.05, 0.14), Vector3(0, 0.6, 0), 1.0)
 
 
 func _make_rift(c: Vector3, l: float) -> PortalLook:
@@ -1877,6 +1888,12 @@ func _on_hero_died(fallen: Player) -> void:
 		if not hero.is_dead:
 			return
 	_say("დამარცხდი", BACK_OUT_AFTER)
+	# beaten by the lord: he remembers it ([LordFight])
+	if is_instance_valid(_lord_fight) and _woken and current == steps.size() - 1 and not _lord_fight.won:
+		var game := get_node_or_null("/root/Game")
+		if game != null and game.has_method(&"beaten_by_lord"):
+			game.call(&"beaten_by_lord")
+		_lord_fight.speak(LordFight.gloat())
 	var wait := BACK_OUT_AFTER
 	if end_run(false) != null:
 		wait = SUMMARY_WAIT

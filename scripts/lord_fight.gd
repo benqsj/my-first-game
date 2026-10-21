@@ -33,6 +33,7 @@ var won: bool = false
 var _card: CanvasLayer
 var _embers: GPUParticles3D
 var _flare_lights: Array[Dictionary] = []
+var _woke: bool = false
 
 
 ## His bar's name, and his rage at half his health, put on him as he is made.
@@ -80,10 +81,16 @@ func setup(d: Dungeon, i: int) -> void:
 
 ## The court woken: his name across the screen, the fires up, the horn.
 func wake() -> void:
-	if lord == null:
+	if lord == null or _woke:
 		return
+	_woke = true
 	_show_card()
 	Sfx.play_flat(_d, Dungeon.SND + "horn.wav", 0.9, -2.0)
+	var game := _d.get_node_or_null("/root/Game")
+	var line := greeting(game)
+	if game != null and game.has_method(&"meet_lord"):
+		game.call(&"meet_lord")
+	get_tree().create_timer(4.4).timeout.connect(speak.bind(line))
 	_flare(2.6, 0.4)
 	get_tree().create_timer(2.2).timeout.connect(_flare.bind(1.3, 2.5))
 
@@ -110,6 +117,7 @@ func _process(_delta: float) -> void:
 #region His second stage
 func _second() -> void:
 	phase = 1
+	speak("ტკივილი?! მცველებო — აქეთ! ცეცხლიდან!")
 	_d._say("%s გაცოფდა!" % NAME, 3.0)
 	Sfx.play_flat(_d, Dungeon.SND + "thunder.wav", 0.85, 0.0)
 	_d._lightning()
@@ -223,6 +231,7 @@ func _ember_wind() -> void:
 #region Down
 func _on_down() -> void:
 	won = true
+	speak("შენ... მხოლოდ ერთი ხარ... ჩვენ — ურიცხვნი ვართ...")
 	for body in guards:
 		if is_instance_valid(body) and not bool(body.get("is_dead")) and body.visible:
 			if body.has_method("_die"):
@@ -240,6 +249,57 @@ func _dawn() -> void:
 	_d._to_phase(2.5, 10.0)
 	_d._say("მზე ამოდის", 3.0)
 	get_tree().create_timer(3.5).timeout.connect(_d.end_run.bind(true))
+#endregion
+
+
+#region His words
+## What he says as he comes, by what has passed between them before (the
+## user's word, 2026-10-21: he remembers).
+static func greeting(game: Node) -> String:
+	var met := int(game.get(&"lord_met")) if game != null and game.get(&"lord_met") != null else 0
+	var beat := int(game.get(&"lord_beat")) if game != null and game.get(&"lord_beat") != null else 0
+	var wins := int(game.get(&"wins")) if game != null and game.get(&"wins") != null else 0
+	if wins > 0:
+		return "ისევ შენ, ჩემი ხმლის ქურდო? ამჯერად ჩემს სასახლეს ცოცხალი ვერ დატოვებ."
+	if met == 0:
+		return "ადამიანი? ჩემს სასახლეში? შენი თავი ჩემს ძელს დაამშვენებს."
+	if beat > 0:
+		return "%d-ჯერ დაგამარცხე, პატარა გმირო. ისევ მოხვედი მოსაკვდავად?" % beat
+	return "ისევ შენ... ამჯერად ბოლომდე მივალთ."
+
+
+## What he says when he has beaten him.
+static func gloat() -> String:
+	return "კიდევ ერთი ძვალი ჩემს კოშკს. მოდი ხვალაც — დაგელოდები."
+
+
+## A line of his, along the foot of the screen.
+func speak(line: String) -> void:
+	if not is_inside_tree():
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	var l := Label.new()
+	l.text = "%s:  %s" % [NAME, line]
+	l.anchor_left = 0.5
+	l.anchor_right = 0.5
+	l.anchor_top = 0.74
+	l.offset_left = -520
+	l.offset_right = 520
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", 26)
+	l.add_theme_color_override("font_color", Color(0.95, 0.8, 0.55))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	l.add_theme_constant_override("outline_size", 8)
+	layer.add_child(l)
+	add_child(layer)
+	l.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(l, "modulate:a", 1.0, 0.3)
+	tw.tween_interval(4.5)
+	tw.tween_property(l, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(layer.queue_free)
 #endregion
 
 

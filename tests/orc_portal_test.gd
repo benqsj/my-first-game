@@ -13,6 +13,7 @@ extends SceneTree
 ##   trades bought at their stalls ([VillageTrade]) and put on him;
 ## - a cursed portal's place: its creatures stronger, their tusks twice;
 ## - the treasure goblin: out as the place wakes, running, caught or gone;
+## - the story: a stone's tale read, the lord's words remembering him;
 ## - what is won is his for good: the lord's blade for his class.
 ##   Godot --headless --path . --script res://tests/orc_portal_test.gd
 
@@ -74,6 +75,7 @@ func _run() -> void:
 	await _trades()
 	await _cursed()
 	await _treasure()
+	await _story()
 	_gift()
 	print("orc_portal_test: %s" % ("All checks passed." if _failures == 0 else "%d FAILED" % _failures))
 	quit(1 if _failures > 0 else 0)
@@ -370,6 +372,23 @@ func _treasure() -> void:
 	t2._left = 0.05
 	await _wait(10)
 	_check("let be: gone with its gold", not is_instance_valid(t2))
+
+
+func _story() -> void:
+	print("the palace's story")
+	var game := root.get_node("Game")
+	var before := int(game.get(&"lore_read"))
+	var stone := LoreStone.put(d, hero.global_position + Vector3(3.0, 0.0, 0.0), 0.0)
+	await _wait(10)
+	_check("the stone read as he comes up to it", stone._read and int(game.get(&"lore_read")) == before + 1
+			and stone._label.text.begins_with(LoreStone.TALES[mini(before, LoreStone.TALES.size() - 1)].left(10)))
+	stone.queue_free()
+	var first := LordFight.greeting(null)
+	game.set(&"lord_met", 2)
+	game.set(&"lord_beat", 2)
+	game.set(&"wins", 0)
+	var again := LordFight.greeting(game)
+	_check("the lord remembers", first != again and again.begins_with("2"), again)
 
 
 func _gift() -> void:

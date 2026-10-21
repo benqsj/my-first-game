@@ -361,15 +361,8 @@ static func empower(f: Fighter, from: Vector3, dungeon: Dungeon) -> void:
 	if world != null:
 		SkillFx.burst(world, to, Color(1.0, 0.25, 0.1), 30, Vector2(1.0, 3.0), Vector3.UP, 180.0,
 				Vector2(0.05, 0.12), Vector3(0, 1.0, 0), 0.8)
-	f.get_tree().create_timer(EMPOWER_TIME).timeout.connect(func() -> void:
-		if not is_instance_valid(f):
-			return
-		f.remove_meta(&"empowered_until")
-		f.chase_speed /= EMPOWER_PACE
-		f.hit_damage /= EMPOWER_HARDER
-		f.attack_speed /= 1.15
-		if not f.is_dead:
-			_overlay(f, f.get_meta(&"rim") as Material if f.has_meta(&"rim") else null))
+	# by its id: it may be gone (its place taken down) when the time is up
+	f.get_tree().create_timer(EMPOWER_TIME).timeout.connect(FoeRoles._unempower.bind(f.get_instance_id()))
 #endregion
 
 
@@ -395,12 +388,32 @@ func _think_elite(delta: float) -> void:
 	var mid := _body.global_position + Vector3.UP * 1.2 * _body.visual_scale
 	if world != null:
 		for k in 3:
-			get_tree().create_timer(float(k) * ELITE_GATHER / 3.0).timeout.connect(func() -> void:
-				if is_instance_valid(_body):
-					SkillFx.burst(world, _body.global_position + Vector3.UP * 1.2 * _body.visual_scale,
-							Color(1.0, 0.45, 0.1), 40, Vector2(-5.0, -3.0), Vector3.UP, 180.0, Vector2(0.06, 0.14),
-							Vector3.ZERO, 0.5))
+			get_tree().create_timer(float(k) * ELITE_GATHER / 3.0).timeout.connect(_gather_burst)
 	Sfx.play(_body, Dungeon.SND + "portal_whoosh.wav", null, mid, 0.55, 3.0)
+
+
+## Flames falling in to the elite as it gathers its fire (on a timer).
+func _gather_burst() -> void:
+	if not is_instance_valid(_body):
+		return
+	var world := Blood.world_of(_body)
+	if world != null:
+		SkillFx.burst(world, _body.global_position + Vector3.UP * 1.2 * _body.visual_scale,
+				Color(1.0, 0.45, 0.1), 40, Vector2(-5.0, -3.0), Vector3.UP, 180.0, Vector2(0.06, 0.14),
+				Vector3.ZERO, 0.5)
+
+
+## The shaman's call worn off the one it was on (`id`, if it is still about).
+static func _unempower(id: int) -> void:
+	var f := instance_from_id(id) as Fighter
+	if f == null or not is_instance_valid(f):
+		return
+	f.remove_meta(&"empowered_until")
+	f.chase_speed /= EMPOWER_PACE
+	f.hit_damage /= EMPOWER_HARDER
+	f.attack_speed /= 1.15
+	if not f.is_dead:
+		_overlay(f, f.get_meta(&"rim") as Material if f.has_meta(&"rim") else null)
 
 
 func _nova() -> void:

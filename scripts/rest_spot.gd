@@ -233,13 +233,20 @@ func _walk_off() -> void:
 	_man.reparent(_d)
 	_man.spots = [out, out + Vector3(0.0, 0.0, -6.0)]
 	_man.set_process(true)
-	get_tree().create_timer(7.0).timeout.connect(func() -> void:
-		if is_instance_valid(_man):
-			var world := Blood.world_of(_d)
-			if world != null:
-				SkillFx.burst(world, _man.global_position + Vector3.UP, Color(1.0, 0.9, 0.6), 30, Vector2(1.0, 3.0),
-						Vector3.UP, 180.0, Vector2(0.05, 0.12), Vector3(0, 0.5, 0), 1.0)
-			_man.queue_free())
+	# on the man himself, not on this place (it may be gone by then)
+	var man := _man
+	var t := man.get_tree().create_timer(7.0)
+	t.timeout.connect(RestSpot._man_gone.bind(man), CONNECT_ONE_SHOT)
+
+
+static func _man_gone(man: Node3D) -> void:
+	if not is_instance_valid(man):
+		return
+	var world := Blood.world_of(man)
+	if world != null:
+		SkillFx.burst(world, man.global_position + Vector3.UP, Color(1.0, 0.9, 0.6), 30, Vector2(1.0, 3.0),
+				Vector3.UP, 180.0, Vector2(0.05, 0.12), Vector3(0, 0.5, 0), 1.0)
+	man.queue_free()
 #endregion
 
 
