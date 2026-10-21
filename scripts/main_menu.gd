@@ -689,6 +689,10 @@ func _face_of(id: StringName, card: Control) -> Control:
 		return slot.get_child(0) as Control
 	var face := CharacterPortrait.of(_profile(id), slot.custom_minimum_size, CharacterPortrait.Frame.BUST)
 	face.name = "Face"
+	# in the look made for him (YOUR OWN, his only one now), as on the stage
+	if face.rig() != null and _game != null and _game.has_method(&"look"):
+		face.rig().set(&"tint", int(_game.call(&"tint", id)) if _game.has_method(&"tint") else 0)
+		face.rig().set(&"ps_look", _game.call(&"look", id))
 	slot.add_child(face)
 	face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return face

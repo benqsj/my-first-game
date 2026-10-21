@@ -75,7 +75,9 @@ func _ready() -> void:
 	for child in get_parent().get_children():
 		var sync := child as MultiplayerSynchronizer
 		if sync != null:
-			_interval = maxf(sync.replication_interval, 0.016)
+			# (the world's SpawnGate replicates nothing: not the pace)
+			if sync.name != &"SpawnGate":
+				_interval = maxf(sync.replication_interval, 0.016)
 			NetSmooth.guard(sync)
 	# Spawned with a snapshot already in hand: file it now that there is a body.
 	if _body != null and net_stamp != 0.0 and not _driving():

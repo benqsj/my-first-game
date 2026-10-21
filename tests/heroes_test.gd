@@ -14,6 +14,8 @@ var _player: Player
 
 
 func _initialize() -> void:
+	# the heroes' old looks, which these try on ([member SkinnedRig.old_looks])
+	SkinnedRig.old_looks = true
 	for path in ["res://unverified/sounds/tariel/swing_1.wav", "res://unverified/sounds/bow/draw.wav", "res://unverified/sounds/bow/release.wav",
 			"res://unverified/sounds/tower-music/kind-of-year.mp3",
 			"res://unverified/sounds/tariel/air_1.wav", "res://unverified/sounds/tariel/air_6.wav", "res://unverified/sounds/tariel/hit_1.wav",

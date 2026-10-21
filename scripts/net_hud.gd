@@ -54,6 +54,8 @@ func _refresh() -> void:
 	else:
 		var ping: int = net.call("ping_ms")
 		_line.text = "ONLINE  ·  ping %d ms  ·  %d players" % [ping, roster.size()]
+		if bool(net.get("apart")):
+			_line.text += "  ·  გუნდი პორტალშია: მიდი პორტალთან და დააჭირე F"
 		var colour := Color(0.93, 0.89, 0.84, 0.75)
 		if ping > 120:
 			colour = Color(0.95, 0.45, 0.4, 0.9)

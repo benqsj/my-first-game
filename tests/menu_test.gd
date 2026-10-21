@@ -13,6 +13,8 @@ var _game: Node
 
 
 func _initialize() -> void:
+	# the heroes' old looks, which these try on ([member SkinnedRig.old_looks])
+	SkinnedRig.old_looks = true
 	# Autoloads are nodes under the root; the global identifier for one is not
 	# resolved when a --script main loop is compiled.
 	_game = root.get_node_or_null("Game")

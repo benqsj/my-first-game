@@ -18,6 +18,8 @@ var _failed := 0
 
 
 func _initialize() -> void:
+	# the heroes' old looks, which these try on ([member SkinnedRig.old_looks])
+	SkinnedRig.old_looks = true
 	_run.call_deferred()
 
 

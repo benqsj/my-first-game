@@ -457,6 +457,12 @@ const CUSTOM := &"custom"
 ## A hero who is only ever the maker's figure (the elves, 2026-10-05): his
 ## own looks are not offered, YOUR OWN is all there is.
 @export var maker_only: bool = false
+## The heroes' looks before YOUR OWN (Tariel's nine, the archer's, the fox
+## mask…) offered again. Off: every hero is YOUR OWN only (the user's word,
+## 2026-10-21: one version each, the ones worked on). The looks themselves stay
+## in the models and the code, for the tests that still try them on (and the
+## film of how the game grew).
+static var old_looks: bool = false
 ## And the people that figure is of ([constant PolysplitLook.RACES]): every
 ## look worn is made of it, whatever was saved.
 @export var race: String = ""
@@ -579,7 +585,7 @@ func _ready() -> void:
 	_configure()
 	if polysplit_hero != &"":
 		_add_maker()
-		if maker_only:
+		if maker_only or not old_looks:
 			_only_maker()
 	_own_moves = {"flurry": flurry.duplicate(), "flurry_part": flurry_part.duplicate(),
 			"heavy": heavy.duplicate(true)}

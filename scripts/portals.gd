@@ -173,6 +173,13 @@ func enter(i: int) -> bool:
 		return false
 	# with others, all of them go in together ([method Net.travel])
 	var net := get_node_or_null("/root/Net")
+	# joined while the party was in a dungeon: he follows them in at their
+	# next door ([method Net.ask_join_party])
+	if net != null and bool(net.call("party_away")):
+		net.call("ask_join_party")
+		_prompt.text = "გუნდი პორტალშია — შეუერთდები, როცა შემდეგ კარს გაივლიან"
+		_note_until = Time.get_ticks_msec() / 1000.0 + 5.0
+		return false
 	if net != null:
 		net.call("travel", DUNGEON, {"dungeon_id": i, "portal_return": i})
 		return true

@@ -47,6 +47,10 @@ var dungeon_id: int = -1
 var view_place: String = ""
 ## Which gate the hero comes back out by, -1 for the usual spawn.
 var portal_return: int = -1
+## Brought into a dungeon late, through the door the others are taking
+## ([method Net.bring_waiting]): the place to be built first instead of the
+## first step's ({step, place, reward, cursed, goal, plan, lore_put}).
+var join_at: Dictionary = {}
 ## The dungeons closed (index -> true), and each hero's best level so far
 ## (id -> level): what he has outside the dungeons. Kept between runs (the
 ## user's word, 2026-10-21: what is won in a dungeon is his for good).

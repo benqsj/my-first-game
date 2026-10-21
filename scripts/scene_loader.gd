@@ -38,7 +38,10 @@ static func go(tree: SceneTree, path: String) -> void:
 	# One at a time: a second click on START while the first is under way is
 	# not a second load.
 	for child in tree.root.get_children():
-		if child is SceneLoader:
+		# (one that has just finished is on its way out: its `_then` is what
+		# calls this, and handing the path back to it lost the journey — a
+		# client sent on by the host as his first place settled stayed put)
+		if child is SceneLoader and not child.is_queued_for_deletion():
 			# with others, the host may send everyone on while this one is
 			# still settling: it goes there next, once this is done
 			if (child as SceneLoader)._path != path:

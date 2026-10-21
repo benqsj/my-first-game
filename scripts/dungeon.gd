@@ -681,7 +681,12 @@ func _ready() -> void:
 	# everything the run will show drawn once there ([method _warm_up]).
 	_premake.call_deferred()
 	_warm_up.call_deferred()
-	if game != null and Trades.level(game, "priest") >= 1 and String(game.get(&"view_place")) == "":
+	# brought in late, at the party's door ([method Net.bring_waiting])
+	var join: Dictionary = game.get(&"join_at") if game != null else {}
+	if not join.is_empty():
+		game.set(&"join_at", {})
+		_join_party.call_deferred(join)
+	elif game != null and Trades.level(game, "priest") >= 1 and String(game.get(&"view_place")) == "":
 		_priest_gift.call_deferred()
 	if game != null and String(game.get(&"view_place")) != "":
 		var asked := String(game.get(&"view_place"))
@@ -892,6 +897,22 @@ func _show_tusks(gained: int) -> void:
 
 
 ## The place asked for from the open world's F1, once the loading is done.
+## Come in late, behind the others: the place they are going into built in
+## the first one's stead, its creatures the same ones (named for the place).
+func _join_party(join: Dictionary) -> void:
+	_take_down(current)
+	_lore_put = bool(join.get("lore_put", _lore_put))
+	_curse_next = bool(join.get("cursed", false))
+	_arrival_plan = join.get("plan", {}) as Dictionary
+	_arrive_at(int(join["step"]), String(join["place"]), String(join["reward"]), false, String(join.get("goal", "")))
+	_arrival_plan = {}
+	_to_phase(float(current), 0.05)
+	for hero in _heroes():
+		if mine(hero):
+			hero.global_position = entry_point(_slot_of(hero, 0), current)
+			hero.velocity = Vector3.ZERO
+
+
 func _view_after_warm_up(place: String) -> void:
 	while get_tree().root.find_child("PipelineWarmup", true, false) != null:
 		await get_tree().process_frame
@@ -949,7 +970,7 @@ func _place_marks() -> void:
 	if marks == null:
 		return
 	for i in marks.get_child_count():
-		(marks.get_child(i) as Node3D).position = entry_point(i, 0)
+		(marks.get_child(i) as Node3D).position = entry_point(i, maxi(current, 0))
 
 
 ## Step `i`, at `place`: built, its creatures made (asleep), the light of the
@@ -996,6 +1017,10 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 		if goal != "":
 			_goal = RoomGoal.make(self, i, goal)
 	_ambience(i)
+	# the marks a body is spawned on, at this place's door (somebody brought
+	# in late, [method Net.bring_waiting])
+	if not later:
+		_place_marks()
 	_drip_in = _rng.randf_range(2.0, 5.0)
 	# wet through in the storm, dry elsewhere
 	for hero in _heroes():
@@ -1710,6 +1735,12 @@ func take(k: int) -> void:
 	var plan := {"treasure": _rng.randf() < TreasureGoblin.CHANCE, "lore": _rng.randf() < 0.5}
 	if online():
 		net_take.rpc(k, plan)
+		# whoever waits in the village to follow comes in behind them
+		var gate := choices[k]
+		_net().call("bring_waiting", {"dungeon_id": id, "portal_return": id, "join_at": {
+			"step": current + 1, "place": String(gate.get_meta(&"place")),
+			"reward": String(gate.get_meta(&"reward")), "cursed": bool(gate.get_meta(&"cursed", false)),
+			"goal": String(gate.get_meta(&"goal", "")), "plan": plan, "lore_put": _lore_put}})
 	_go_through(k, plan)
 
 

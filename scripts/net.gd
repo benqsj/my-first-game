@@ -24,7 +24,7 @@ const MAX_PLAYERS := 4
 ## a joiner only lists hosts that speak the same one.
 const DISCOVERY_PORT := 7778
 const BEACON := "VEPXIS"
-const PROTOCOL := 2
+const PROTOCOL := 3
 ## How often a host calls out, and how long a joiner remembers a host that has
 ## gone quiet.
 const BEACON_EVERY := 1.0
@@ -72,6 +72,28 @@ var _announce_as: StringName = &""
 ## screen has nowhere to put them, and what it drops it never gets again.
 var _in_world: Dictionary = {}
 
+## Host: where the party is (the open world, or a dungeon's scene). Somebody
+## who joins while it is not the open world is put there alone ([member apart]).
+var _place: String = WORLD
+## Host: of those, the ones who walked into a portal to follow the party, and
+## the ones brought in through a door and not yet arrived (the next place
+## waits for them, [method everyone_in]).
+var _door: Dictionary = {}
+var _coming: Dictionary = {}
+## Client: in the open world alone, the party in a dungeon (the user's word,
+## 2026-10-21: whoever joins then comes into the village, and follows them in
+## through a portal). Nothing is sent to or taken from the others meanwhile.
+var apart: bool = false
+## Client: whether the host has said where the party is yet, and whether the
+## level is up and waiting for that.
+var _where_known: bool = false
+var _enter_owed: bool = false
+## Client: the peers the host says are in the place, and since when (msec):
+## only those are sent this game's own body ([method sees]).
+var _seen: Dictionary = {}
+## Client, apart: the level should give this game its own body, here alone.
+signal alone_in_village()
+
 ## Games heard on the local network: address -> { name, players, max, seen }.
 var games: Dictionary = {}
 var _beacon: PacketPeerUDP
@@ -113,6 +135,7 @@ func host(character: StringName) -> bool:
 		return false
 	roster = {1: character}
 	_in_world = {1: true}
+	_place = WORLD
 	_beacon = PacketPeerUDP.new()
 	_beacon.set_broadcast_enabled(true)
 	_beacon_in = 0.0
@@ -154,6 +177,13 @@ func leave() -> void:
 	_announce_as = &""
 	roster.clear()
 	_in_world.clear()
+	_place = WORLD
+	_door.clear()
+	_coming.clear()
+	apart = false
+	_where_known = false
+	_enter_owed = false
+	_seen.clear()
 	stop_looking()
 	if _beacon != null:
 		_beacon.close()
@@ -216,7 +246,16 @@ func character_of(peer: int) -> StringName:
 ## who we are: the host spawns us the instant it hears, and only now is there a
 ## level here for that body — and everyone else's — to arrive in.
 func entered_world() -> void:
-	if not is_online() or multiplayer.is_server() or _announce_as == &"":
+	if not is_online() or multiplayer.is_server():
+		return
+	# not before the host has said where the party is ([method net_where])
+	if not _where_known:
+		_enter_owed = true
+		return
+	if apart:
+		alone_in_village.emit()
+		return
+	if _announce_as == &"":
 		return
 	announce.rpc_id(1, _announce_as)
 	_announce_as = &""
@@ -228,8 +267,20 @@ func entered_world() -> void:
 ## of it — which is also how somebody who joins late gets everyone already
 ## there.
 func sees(peer: int) -> bool:
-	return peer == 1 or not is_online() or not multiplayer.is_server() \
-			or _in_world.has(peer)
+	if not is_online():
+		return true
+	if multiplayer.is_server():
+		return peer == 1 or _in_world.has(peer)
+	# A client sends its own body only to the host and to those the host says
+	# are in the place, a moment after (their copy of it comes from the host's
+	# spawn): sent to a game still loading, the first packet is lost and the
+	# path it names is never found there again — a third player stood in grey,
+	# no body, nothing working (the user's word, 2026-10-21).
+	if apart:
+		return false
+	if peer == 1:
+		return true
+	return _seen.has(peer) and Time.get_ticks_msec() - int(_seen[peer]) > 800
 
 
 ## How long a message takes to reach the host and come back, in milliseconds.
@@ -371,6 +422,7 @@ func _on_hosted(code: String, peer: RelayPeer, character: StringName) -> void:
 	room_code = code
 	roster = {1: character}
 	_in_world = {1: true}
+	_place = WORLD
 	lobby_changed.emit()
 	room_ready.emit(code)
 	SceneLoader.go(get_tree(), WORLD)
@@ -431,6 +483,9 @@ func travel(path: String, settings: Dictionary = {}) -> void:
 		return
 	# nobody is in the new place till they say so
 	_in_world = {1: true}
+	_place = path
+	_door.clear()
+	_coming.clear()
 	net_travel.rpc(path, settings)
 
 
@@ -444,6 +499,9 @@ func ask_travel(path: String, settings: Dictionary) -> void:
 func net_travel(path: String, settings: Dictionary) -> void:
 	_set_game(settings)
 	if not multiplayer.is_server():
+		apart = false
+		_where_known = true
+		_seen.clear()
 		# say who we are again once the new place is up: the host gives us a
 		# body there ([method entered_world])
 		_announce_as = roster.get(multiplayer.get_unique_id(), _fallback_character()) as StringName
@@ -468,6 +526,9 @@ func everyone_in() -> bool:
 	if not is_online():
 		return true
 	for peer: int in roster:
+		if not _in_world.has(peer):
+			return false
+	for peer: int in _coming:
 		if not _in_world.has(peer):
 			return false
 	return true
@@ -497,31 +558,90 @@ func announce(character: StringName) -> void:
 	# Announcing is only done from inside the level, so from now on this peer
 	# can be sent the level's bodies.
 	_in_world[who] = true
+	_coming.erase(who)
 	roster[who] = character
-	sync_roster.rpc(roster)
+	sync_roster.rpc(roster, _in_world.keys())
 	lobby_changed.emit()
 	player_announced.emit(who, character)
 
 
 ## The host's copy of the roster, sent to everyone whenever it changes.
 @rpc("authority", "call_local", "reliable")
-func sync_roster(sent: Dictionary) -> void:
+func sync_roster(sent: Dictionary, inside: Array) -> void:
 	roster = sent.duplicate()
+	if not multiplayer.is_server():
+		var now := Time.get_ticks_msec()
+		for peer: Variant in inside:
+			if not _seen.has(int(peer)):
+				_seen[int(peer)] = now
+		for peer: int in _seen.keys():
+			if not inside.has(peer):
+				_seen.erase(peer)
 	lobby_changed.emit()
+
+
+## Host to somebody who has just connected: whether the party is in the open
+## world (`home`), or off in a dungeon, so he plays the village alone till he
+## follows them in ([member apart]).
+@rpc("authority", "call_remote", "reliable")
+func net_where(home: bool) -> void:
+	apart = not home
+	_where_known = true
+	if _enter_owed:
+		_enter_owed = false
+		entered_world()
+
+
+## Client, apart: whether a portal walked into should bring him to the party
+## rather than take anyone anywhere.
+func party_away() -> bool:
+	return is_online() and not multiplayer.is_server() and apart
+
+
+## Client, apart, at a portal: "bring me in" — at the party's next door.
+func ask_join_party() -> void:
+	if party_away():
+		join_party.rpc_id(1)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func join_party() -> void:
+	if not multiplayer.is_server() or _place == WORLD:
+		return
+	_door[multiplayer.get_remote_sender_id()] = true
+
+
+## Host, in a dungeon at a door the party is taking: everybody waiting in the
+## village to follow is brought in, into the place behind it (`settings` for
+## [Game], `join_at` among them, [Dungeon]). The place waits for them.
+func bring_waiting(settings: Dictionary) -> void:
+	if not is_online() or not multiplayer.is_server():
+		return
+	for who: int in _door.keys():
+		if not multiplayer.get_peers().has(who):
+			continue
+		_coming[who] = true
+		net_travel.rpc_id(who, _place, settings)
+	_door.clear()
 
 #endregion
 
 
 #region Connection callbacks
-func _on_peer_connected(_who: int) -> void:
+func _on_peer_connected(who: int) -> void:
+	if multiplayer.is_server():
+		net_where.rpc_id(who, _place == WORLD)
 	lobby_changed.emit()
 
 
 func _on_peer_disconnected(who: int) -> void:
 	roster.erase(who)
 	_in_world.erase(who)
+	_door.erase(who)
+	_coming.erase(who)
+	_seen.erase(who)
 	if multiplayer.is_server():
-		sync_roster.rpc(roster)
+		sync_roster.rpc(roster, _in_world.keys())
 	player_left.emit(who)
 	lobby_changed.emit()
 

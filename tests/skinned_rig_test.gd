@@ -12,6 +12,8 @@ var _dir := ""
 
 
 func _initialize() -> void:
+	# the heroes' old looks, which these try on ([member SkinnedRig.old_looks])
+	SkinnedRig.old_looks = true
 	var args := OS.get_cmdline_user_args()
 	_dir = args[0] if args.size() > 0 else ""
 	var world: World = load("res://scenes/world/greybox_world.tscn").instantiate()

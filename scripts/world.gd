@@ -185,6 +185,7 @@ func _ready() -> void:
 	if net != null:
 		net.connect("player_announced", _on_announced)
 		net.connect("player_left", _on_left)
+		net.connect("alone_in_village", _on_alone)
 
 	# Only the host spawns anybody. Offline, `is_host()` is true and the roster
 	# is empty, so this is also what starts a solo game.
@@ -336,7 +337,39 @@ func _build_player(data: Variant) -> Node:
 	# Before the tree as well: the spawner decides who to tell about this body
 	# the moment it arrives, and a peer still loading must not be one of them.
 	NetSmooth.guard(body.get_node_or_null("Body") as MultiplayerSynchronizer)
+	# And one of the host's own on every body: the spawner tells a peer about
+	# a body only once each of the host's synchronizers on it may be seen by
+	# him, and a body driven by somebody else had none of the host's — so a
+	# third player was sent the second one's body while still loading, lost it,
+	# and with it the spawner's path: nothing was ever spawned for him again
+	# (grey, no body; the user's word, 2026-10-21).
+	var gate := MultiplayerSynchronizer.new()
+	gate.name = "SpawnGate"
+	gate.root_path = NodePath("..")
+	var config := SceneReplicationConfig.new()
+	config.add_property(NodePath(".:visible"))
+	config.property_set_spawn(NodePath(".:visible"), true)
+	config.property_set_replication_mode(NodePath(".:visible"), SceneReplicationConfig.REPLICATION_MODE_NEVER)
+	gate.replication_config = config
+	body.add_child(gate)
+	gate.set_multiplayer_authority(1)
+	NetSmooth.guard(gate)
 	return body
+
+
+## Joined while the party is off in a dungeon: his own body, here alone, not
+## the host's to spawn ([member Net.apart]); a portal takes him to them.
+func _on_alone() -> void:
+	var net := get_node_or_null("/root/Net")
+	if net == null:
+		return
+	var mine: int = net.call("local_id")
+	if _players.has_node(str(mine)):
+		return
+	var game := get_node_or_null("/root/Game")
+	var body := _build_player({"peer": mine,
+			"character": String(game.call("character") if game != null else &"tariel"), "point": 0})
+	_players.add_child(body)
 
 
 ## Every creature's death is experience for the heroes near it — handed out by
