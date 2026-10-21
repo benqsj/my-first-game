@@ -268,11 +268,6 @@ func _build_mode() -> Control:
 			_arena = false
 			_v5 = false
 			_show(Page.CHARACTERS)))
-	buttons.add_child(MenuStyle.button("NEW WORLD (V5)", func() -> void:
-			_multiplayer = false
-			_arena = false
-			_v5 = true
-			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("WITH COMPANIONS", func() -> void:
 			_multiplayer = true
 			_v5 = false

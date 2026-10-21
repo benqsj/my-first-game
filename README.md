@@ -11233,3 +11233,23 @@ come up to it and the next of eight pieces is read out over it ([Game]
 foot): as he comes, by what has passed between them (first meeting, how
 often he has beaten him, a win before: [Game] `lord_met`, `lord_beat`,
 `wins`); at his rage; as he falls; and over him when he has beaten him.
+
+Round 16 (2026-10-21, the user's word after playing):
+- **Running**: a creature held back by the dungeon's crowd ([method Fighter._hold_to])
+  turns and runs to its place when it is far from it (`HOLD_RUN_FROM` 2.5 m),
+  and only shuffles facing him when near (`HOLD_SHUFFLE` 2 m/s) — the goblins
+  had sprinted sideways and backwards at him.
+- **Imps** quicker: chase 6 m/s, every move played ~1.25× faster (the flips
+  no longer slow motion), legs never under 0.8 of their clip (`gait_floor`).
+- **Mixed**: a place's creatures taken kind by kind in turn ([method Dungeon.mixed]);
+  the elite last; the first hall imps and goblins.
+- **Blessings' lights** stand on clear floor ([method Boons.clear_spot]: no
+  solid within 1.1 m, floor under it). "მესამე დარტყმა" (the knock back) gone;
+  the shatter is now frost + the death burst (every third cut on a frozen one).
+- **Fallen**: the run's summary stays up with a button "გაცოცხლდი სოფელში"
+  ([F] / Enter); he goes back out only when he presses it.
+- **The open world is the hub only**: the lands round the core, their places
+  and mood and the waystones out of `greybox_world.tscn` (lands_test gone);
+  "NEW WORLD (V5)" out of the menu; in the hub ([method World._hub_bounds])
+  rock cliffs round the village and the gates (`HUB_MIN`/`HUB_MAX`), walls
+  behind them, ground out to the far mountains.

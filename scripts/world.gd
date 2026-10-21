@@ -467,6 +467,90 @@ func _peaceful_world() -> void:
 	# His level outside the dungeons, given back once he stands in the world.
 	call_deferred(&"_give_back_levels", game)
 	_freed_in_village(game)
+	_hub_bounds()
+
+
+## The hub is all there is of the open world now (the user's word,
+## 2026-10-21: the other lands out, only the middle — the village and the
+## five gates): cliffs of rock round it, walls he cannot pass behind them,
+## and ground out to the mountains so nothing shows past the edge.
+const HUB_MIN := Vector2(-25.0, -62.0)
+const HUB_MAX := Vector2(128.0, 122.0)
+const HUB_ROCK := "res://unverified/assets/rock/rock.glb"
+
+
+func _hub_bounds() -> void:
+	var holder := Node3D.new()
+	holder.name = "HubBounds"
+	add_child(holder)
+	# ground out to the far mountains, under the level's own
+	var far := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(2400.0, 2400.0)
+	far.mesh = plane
+	var grass := StandardMaterial3D.new()
+	grass.albedo_color = Color(0.2, 0.25, 0.14)
+	grass.roughness = 1.0
+	far.material_override = grass
+	far.position = Vector3(50.0, -2.5, 30.0)
+	far.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(far)
+	# rock walls along the four sides, and the hard edge behind them
+	var rock := load(HUB_ROCK) as PackedScene
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var sides := [[Vector2(HUB_MIN.x, HUB_MIN.y), Vector2(HUB_MAX.x, HUB_MIN.y)],
+			[Vector2(HUB_MAX.x, HUB_MIN.y), Vector2(HUB_MAX.x, HUB_MAX.y)],
+			[Vector2(HUB_MAX.x, HUB_MAX.y), Vector2(HUB_MIN.x, HUB_MAX.y)],
+			[Vector2(HUB_MIN.x, HUB_MAX.y), Vector2(HUB_MIN.x, HUB_MIN.y)]]
+	for side: Array in sides:
+		var a: Vector2 = side[0]
+		var b: Vector2 = side[1]
+		var length := a.distance_to(b)
+		var out := Vector2(b.y - a.y, a.x - b.x).normalized()
+		# out: away from the middle
+		var mid := (HUB_MIN + HUB_MAX) * 0.5
+		if out.dot((a + b) * 0.5 - mid) < 0.0:
+			out = -out
+		if rock != null:
+			var n := int(length / 7.0) + 1
+			for k in n:
+				var t := float(k) / float(maxi(n - 1, 1))
+				var p := a.lerp(b, t) + out * rng.randf_range(1.5, 5.0)
+				var r := rock.instantiate() as Node3D
+				holder.add_child(r)
+				var tall := rng.randf_range(8.0, 14.0)
+				_size_to(r, tall)
+				var y := Terrain.height_under(p.x, p.y, 3.0) if absf(p.x) < 120.0 else -2.5
+				r.global_position = Vector3(p.x, y - 1.0, p.y)
+				r.rotation.y = rng.randf_range(0.0, TAU)
+		var wall := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(length + 4.0, 40.0, 2.0)
+		shape.shape = box
+		wall.add_child(shape)
+		holder.add_child(wall)
+		var c := (a + b) * 0.5 + out * 1.0
+		wall.global_position = Vector3(c.x, 15.0, c.y)
+		wall.rotation.y = atan2(-(b - a).y, (b - a).x)
+
+
+## A model scaled so it stands `tall` metres (its own height measured).
+static func _size_to(body: Node3D, tall: float) -> void:
+	var box := AABB()
+	var first := true
+	for node in body.find_children("*", "MeshInstance3D", true, false):
+		var m := node as MeshInstance3D
+		if m.mesh == null:
+			continue
+		var piece := (body.global_transform.affine_inverse() * m.global_transform) * m.mesh.get_aabb()
+		box = piece if first else box.merge(piece)
+		first = false
+	if first or box.size.y <= 0.001:
+		return
+	var s := tall / box.size.y
+	body.scale = Vector3(s * 1.4, s, s * 1.4)
 
 
 ## The prisoners he freed in the dungeons ([method Game.free_prisoner]), each

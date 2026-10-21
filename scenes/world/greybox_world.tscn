@@ -35,10 +35,6 @@
 [ext_resource type="Script" path="res://scripts/quest_giver.gd" id="49_giver"]
 [ext_resource type="PackedScene" path="res://unverified/assets/bearnpc/bear1.glb" id="50_bear"]
 [ext_resource type="Script" path="res://scripts/terrain.gd" id="60_terrain"]
-[ext_resource type="Script" path="res://scripts/lands.gd" id="61_lands"]
-[ext_resource type="Script" path="res://scripts/lands_places.gd" id="62_places"]
-[ext_resource type="Script" path="res://scripts/waystones.gd" id="63_waystones"]
-[ext_resource type="Script" path="res://scripts/lands_mood.gd" id="64_mood"]
 [ext_resource type="Script" path="res://scripts/intro.gd" id="90_intro"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
@@ -521,18 +517,6 @@ water_clip = Rect2(-140, -470, 280, 220)
 mist_cards = 10
 
 [node name="Pier" parent="Bay" instance=ExtResource("45_harbour")]
-
-[node name="Lands" type="StaticBody3D" parent="."]
-script = ExtResource("61_lands")
-
-[node name="LandsPlaces" type="Node3D" parent="."]
-script = ExtResource("62_places")
-
-[node name="Waystones" type="Node3D" parent="."]
-script = ExtResource("63_waystones")
-
-[node name="LandsMood" type="Node" parent="."]
-script = ExtResource("64_mood")
 
 [node name="Meadows" type="Node" parent="."]
 script = ExtResource("53_meadows")
