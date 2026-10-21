@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b5ghlga3jtani"
 path.s3tc="res://.godot/imported/village_props_T_WoodTrim_Normal.png-2e6d19fff5ff8a27e5ad7d705592889c.s3tc.ctex"
+path.etc2="res://.godot/imported/village_props_T_WoodTrim_Normal.png-2e6d19fff5ff8a27e5ad7d705592889c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/village_props_T_WoodTrim_Normal.png"
-dest_files=["res://.godot/imported/village_props_T_WoodTrim_Normal.png-2e6d19fff5ff8a27e5ad7d705592889c.s3tc.ctex"]
+dest_files=["res://.godot/imported/village_props_T_WoodTrim_Normal.png-2e6d19fff5ff8a27e5ad7d705592889c.s3tc.ctex", "res://.godot/imported/village_props_T_WoodTrim_Normal.png-2e6d19fff5ff8a27e5ad7d705592889c.etc2.ctex"]
 
 [params]
 

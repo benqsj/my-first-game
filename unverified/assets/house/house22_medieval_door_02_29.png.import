@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ddiaixeal1vm6"
 path.s3tc="res://.godot/imported/house22_medieval_door_02_29.png-df574b59ad29fe4aaba048d76f26f827.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_medieval_door_02_29.png-df574b59ad29fe4aaba048d76f26f827.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_medieval_door_02_29.png"
-dest_files=["res://.godot/imported/house22_medieval_door_02_29.png-df574b59ad29fe4aaba048d76f26f827.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_medieval_door_02_29.png-df574b59ad29fe4aaba048d76f26f827.s3tc.ctex", "res://.godot/imported/house22_medieval_door_02_29.png-df574b59ad29fe4aaba048d76f26f827.etc2.ctex"]
 
 [params]
 

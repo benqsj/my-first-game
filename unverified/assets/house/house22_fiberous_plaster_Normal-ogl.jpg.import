@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8wwnet5rpy2e"
 path.s3tc="res://.godot/imported/house22_fiberous_plaster_Normal-ogl.jpg-7c9bc0241a7b52fcc00938281bd2f6f1.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_fiberous_plaster_Normal-ogl.jpg-7c9bc0241a7b52fcc00938281bd2f6f1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_fiberous_plaster_Normal-ogl.jpg"
-dest_files=["res://.godot/imported/house22_fiberous_plaster_Normal-ogl.jpg-7c9bc0241a7b52fcc00938281bd2f6f1.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_fiberous_plaster_Normal-ogl.jpg-7c9bc0241a7b52fcc00938281bd2f6f1.s3tc.ctex", "res://.godot/imported/house22_fiberous_plaster_Normal-ogl.jpg-7c9bc0241a7b52fcc00938281bd2f6f1.etc2.ctex"]
 
 [params]
 

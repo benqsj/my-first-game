@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://4plfwnw7d2to"
 path.s3tc="res://.godot/imported/Mountain.png-c1970a0497ddc95eeac2b3c9b81324f1.s3tc.ctex"
+path.etc2="res://.godot/imported/Mountain.png-c1970a0497ddc95eeac2b3c9b81324f1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Mountain.png"
-dest_files=["res://.godot/imported/Mountain.png-c1970a0497ddc95eeac2b3c9b81324f1.s3tc.ctex"]
+dest_files=["res://.godot/imported/Mountain.png-c1970a0497ddc95eeac2b3c9b81324f1.s3tc.ctex", "res://.godot/imported/Mountain.png-c1970a0497ddc95eeac2b3c9b81324f1.etc2.ctex"]
 
 [params]
 

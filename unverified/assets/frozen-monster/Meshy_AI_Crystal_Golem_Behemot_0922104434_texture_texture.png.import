@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8r7jcwqyjjmw"
 path.s3tc="res://.godot/imported/Meshy_AI_Crystal_Golem_Behemot_0922104434_texture_texture.png-55818277359b0b2ef62dd502e84602a4.s3tc.ctex"
+path.etc2="res://.godot/imported/Meshy_AI_Crystal_Golem_Behemot_0922104434_texture_texture.png-55818277359b0b2ef62dd502e84602a4.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/frozen-monster/Meshy_AI_Crystal_Golem_Behemot_0922104434_texture_texture.png"
-dest_files=["res://.godot/imported/Meshy_AI_Crystal_Golem_Behemot_0922104434_texture_texture.png-55818277359b0b2ef62dd502e84602a4.s3tc.ctex"]
+dest_files=["res://.godot/imported/Meshy_AI_Crystal_Golem_Behemot_0922104434_texture_texture.png-55818277359b0b2ef62dd502e84602a4.s3tc.ctex", "res://.godot/imported/Meshy_AI_Crystal_Golem_Behemot_0922104434_texture_texture.png-55818277359b0b2ef62dd502e84602a4.etc2.ctex"]
 
 [params]
 

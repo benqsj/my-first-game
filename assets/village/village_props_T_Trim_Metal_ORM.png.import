@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d0urbp148wnpc"
 path.s3tc="res://.godot/imported/village_props_T_Trim_Metal_ORM.png-ebb81bb8394beb86f4f25ce704b7c760.s3tc.ctex"
+path.etc2="res://.godot/imported/village_props_T_Trim_Metal_ORM.png-ebb81bb8394beb86f4f25ce704b7c760.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/village_props_T_Trim_Metal_ORM.png"
-dest_files=["res://.godot/imported/village_props_T_Trim_Metal_ORM.png-ebb81bb8394beb86f4f25ce704b7c760.s3tc.ctex"]
+dest_files=["res://.godot/imported/village_props_T_Trim_Metal_ORM.png-ebb81bb8394beb86f4f25ce704b7c760.s3tc.ctex", "res://.godot/imported/village_props_T_Trim_Metal_ORM.png-ebb81bb8394beb86f4f25ce704b7c760.etc2.ctex"]
 
 [params]
 

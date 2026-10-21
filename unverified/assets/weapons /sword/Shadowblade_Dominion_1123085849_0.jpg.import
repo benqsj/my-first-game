@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b6t42tgfujwqc"
 path.s3tc="res://.godot/imported/Shadowblade_Dominion_1123085849_0.jpg-f0ccee044c5ebf4189ad3701fecf9f39.s3tc.ctex"
+path.etc2="res://.godot/imported/Shadowblade_Dominion_1123085849_0.jpg-f0ccee044c5ebf4189ad3701fecf9f39.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/weapons /sword/Shadowblade_Dominion_1123085849_0.jpg"
-dest_files=["res://.godot/imported/Shadowblade_Dominion_1123085849_0.jpg-f0ccee044c5ebf4189ad3701fecf9f39.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shadowblade_Dominion_1123085849_0.jpg-f0ccee044c5ebf4189ad3701fecf9f39.s3tc.ctex", "res://.godot/imported/Shadowblade_Dominion_1123085849_0.jpg-f0ccee044c5ebf4189ad3701fecf9f39.etc2.ctex"]
 
 [params]
 

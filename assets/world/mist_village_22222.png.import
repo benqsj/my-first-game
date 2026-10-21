@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjbx1ectguryk"
 path.s3tc="res://.godot/imported/mist_village_22222.png-2e57b6a85934c2de4f86114a996a2c6c.s3tc.ctex"
+path.etc2="res://.godot/imported/mist_village_22222.png-2e57b6a85934c2de4f86114a996a2c6c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/world/mist_village_22222.png"
-dest_files=["res://.godot/imported/mist_village_22222.png-2e57b6a85934c2de4f86114a996a2c6c.s3tc.ctex"]
+dest_files=["res://.godot/imported/mist_village_22222.png-2e57b6a85934c2de4f86114a996a2c6c.s3tc.ctex", "res://.godot/imported/mist_village_22222.png-2e57b6a85934c2de4f86114a996a2c6c.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dk1xq64cfj610"
 path.s3tc="res://.godot/imported/T_Props_metalness.png-e62d6149e0a28dab1bc195ae282e5245.s3tc.ctex"
+path.etc2="res://.godot/imported/T_Props_metalness.png-e62d6149e0a28dab1bc195ae282e5245.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/TextureMaps/T_Props_metalness.png"
-dest_files=["res://.godot/imported/T_Props_metalness.png-e62d6149e0a28dab1bc195ae282e5245.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_Props_metalness.png-e62d6149e0a28dab1bc195ae282e5245.s3tc.ctex", "res://.godot/imported/T_Props_metalness.png-e62d6149e0a28dab1bc195ae282e5245.etc2.ctex"]
 
 [params]
 

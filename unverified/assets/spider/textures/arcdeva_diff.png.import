@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ciivm3bp7si4l"
 path.s3tc="res://.godot/imported/arcdeva_diff.png-41c0ac3a4c4fab8397bb2d91e228b22e.s3tc.ctex"
+path.etc2="res://.godot/imported/arcdeva_diff.png-41c0ac3a4c4fab8397bb2d91e228b22e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/spider/textures/arcdeva_diff.png"
-dest_files=["res://.godot/imported/arcdeva_diff.png-41c0ac3a4c4fab8397bb2d91e228b22e.s3tc.ctex"]
+dest_files=["res://.godot/imported/arcdeva_diff.png-41c0ac3a4c4fab8397bb2d91e228b22e.s3tc.ctex", "res://.godot/imported/arcdeva_diff.png-41c0ac3a4c4fab8397bb2d91e228b22e.etc2.ctex"]
 
 [params]
 

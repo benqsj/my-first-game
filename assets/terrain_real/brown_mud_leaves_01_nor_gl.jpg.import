@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bymsm8qe546fq"
 path.s3tc="res://.godot/imported/brown_mud_leaves_01_nor_gl.jpg-ac788ae3095c2f220e38cc728bc72efd.s3tc.ctex"
+path.etc2="res://.godot/imported/brown_mud_leaves_01_nor_gl.jpg-ac788ae3095c2f220e38cc728bc72efd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/terrain_real/brown_mud_leaves_01_nor_gl.jpg"
-dest_files=["res://.godot/imported/brown_mud_leaves_01_nor_gl.jpg-ac788ae3095c2f220e38cc728bc72efd.s3tc.ctex"]
+dest_files=["res://.godot/imported/brown_mud_leaves_01_nor_gl.jpg-ac788ae3095c2f220e38cc728bc72efd.s3tc.ctex", "res://.godot/imported/brown_mud_leaves_01_nor_gl.jpg-ac788ae3095c2f220e38cc728bc72efd.etc2.ctex"]
 
 [params]
 

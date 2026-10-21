@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bwlcout8ryk6e"
 path.s3tc="res://.godot/imported/ogre_arms_medievalTexture_normal_col.png-8b957562935810109b9e6d4708c28fb3.s3tc.ctex"
+path.etc2="res://.godot/imported/ogre_arms_medievalTexture_normal_col.png-8b957562935810109b9e6d4708c28fb3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/creatures/ogre_arms_medievalTexture_normal_col.png"
-dest_files=["res://.godot/imported/ogre_arms_medievalTexture_normal_col.png-8b957562935810109b9e6d4708c28fb3.s3tc.ctex"]
+dest_files=["res://.godot/imported/ogre_arms_medievalTexture_normal_col.png-8b957562935810109b9e6d4708c28fb3.s3tc.ctex", "res://.godot/imported/ogre_arms_medievalTexture_normal_col.png-8b957562935810109b9e6d4708c28fb3.etc2.ctex"]
 
 [params]
 

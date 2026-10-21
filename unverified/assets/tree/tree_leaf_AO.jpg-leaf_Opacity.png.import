@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cu6blxp0ax2sc"
 path.s3tc="res://.godot/imported/tree_leaf_AO.jpg-leaf_Opacity.png-51871bef5e2b34ed4ab05f6bfefa4072.s3tc.ctex"
+path.etc2="res://.godot/imported/tree_leaf_AO.jpg-leaf_Opacity.png-51871bef5e2b34ed4ab05f6bfefa4072.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/tree/tree_leaf_AO.jpg-leaf_Opacity.png"
-dest_files=["res://.godot/imported/tree_leaf_AO.jpg-leaf_Opacity.png-51871bef5e2b34ed4ab05f6bfefa4072.s3tc.ctex"]
+dest_files=["res://.godot/imported/tree_leaf_AO.jpg-leaf_Opacity.png-51871bef5e2b34ed4ab05f6bfefa4072.s3tc.ctex", "res://.godot/imported/tree_leaf_AO.jpg-leaf_Opacity.png-51871bef5e2b34ed4ab05f6bfefa4072.etc2.ctex"]
 
 [params]
 

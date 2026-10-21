@@ -3,16 +3,17 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cp5nyjbf64i06"
-path.s3tc="res://.godot/imported/Bark_TwistedTree_Normal.png-dad2fa2c7981d5fc416d16bcd6ed2e4d.s3tc.ctex"
+path.s3tc="res://.godot/imported/Bark_TwistedTree_Normal.png-86b13ae1fc8a1f70f86bcd41e5c8b132.s3tc.ctex"
+path.etc2="res://.godot/imported/Bark_TwistedTree_Normal.png-86b13ae1fc8a1f70f86bcd41e5c8b132.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
-source_file="res://textures/Bark_TwistedTree_Normal.png"
-dest_files=["res://.godot/imported/Bark_TwistedTree_Normal.png-dad2fa2c7981d5fc416d16bcd6ed2e4d.s3tc.ctex"]
+source_file="res://Textures/Bark_TwistedTree_Normal.png"
+dest_files=["res://.godot/imported/Bark_TwistedTree_Normal.png-86b13ae1fc8a1f70f86bcd41e5c8b132.s3tc.ctex", "res://.godot/imported/Bark_TwistedTree_Normal.png-86b13ae1fc8a1f70f86bcd41e5c8b132.etc2.ctex"]
 
 [params]
 
@@ -27,7 +28,7 @@ compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=1
-roughness/src_normal="res://textures/Bark_TwistedTree_Normal.png"
+roughness/src_normal="res://Textures/Bark_TwistedTree_Normal.png"
 process/channel_remap/red=0
 process/channel_remap/green=1
 process/channel_remap/blue=2

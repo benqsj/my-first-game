@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://oxxb6x3xblu2"
 path.s3tc="res://.godot/imported/Leaf.png-65a15cbb7140137142eca446a8ebfdf0.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaf.png-65a15cbb7140137142eca446a8ebfdf0.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Leaf.png"
-dest_files=["res://.godot/imported/Leaf.png-65a15cbb7140137142eca446a8ebfdf0.s3tc.ctex"]
+dest_files=["res://.godot/imported/Leaf.png-65a15cbb7140137142eca446a8ebfdf0.s3tc.ctex", "res://.godot/imported/Leaf.png-65a15cbb7140137142eca446a8ebfdf0.etc2.ctex"]
 
 [params]
 

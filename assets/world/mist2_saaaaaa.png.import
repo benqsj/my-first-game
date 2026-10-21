@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bn0hsh7u1sm1o"
 path.s3tc="res://.godot/imported/mist2_saaaaaa.png-4e95ba117ba04d6901bc79aa107bce26.s3tc.ctex"
+path.etc2="res://.godot/imported/mist2_saaaaaa.png-4e95ba117ba04d6901bc79aa107bce26.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/world/mist2_saaaaaa.png"
-dest_files=["res://.godot/imported/mist2_saaaaaa.png-4e95ba117ba04d6901bc79aa107bce26.s3tc.ctex"]
+dest_files=["res://.godot/imported/mist2_saaaaaa.png-4e95ba117ba04d6901bc79aa107bce26.s3tc.ctex", "res://.godot/imported/mist2_saaaaaa.png-4e95ba117ba04d6901bc79aa107bce26.etc2.ctex"]
 
 [params]
 

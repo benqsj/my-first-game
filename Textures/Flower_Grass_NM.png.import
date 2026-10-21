@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6o5ts7gofa56"
 path.s3tc="res://.godot/imported/Flower_Grass_NM.png-e1bb65a9312cef2b58f4f14fed3f6caf.s3tc.ctex"
+path.etc2="res://.godot/imported/Flower_Grass_NM.png-e1bb65a9312cef2b58f4f14fed3f6caf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://Textures/Flower_Grass_NM.png"
-dest_files=["res://.godot/imported/Flower_Grass_NM.png-e1bb65a9312cef2b58f4f14fed3f6caf.s3tc.ctex"]
+dest_files=["res://.godot/imported/Flower_Grass_NM.png-e1bb65a9312cef2b58f4f14fed3f6caf.s3tc.ctex", "res://.godot/imported/Flower_Grass_NM.png-e1bb65a9312cef2b58f4f14fed3f6caf.etc2.ctex"]
 
 [params]
 

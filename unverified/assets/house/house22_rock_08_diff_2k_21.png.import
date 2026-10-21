@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://blg5fq4l2wcax"
 path.s3tc="res://.godot/imported/house22_rock_08_diff_2k_21.png-e6f2ac56c2c4c4e9cf40f9a0cbefcd78.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_rock_08_diff_2k_21.png-e6f2ac56c2c4c4e9cf40f9a0cbefcd78.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_rock_08_diff_2k_21.png"
-dest_files=["res://.godot/imported/house22_rock_08_diff_2k_21.png-e6f2ac56c2c4c4e9cf40f9a0cbefcd78.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_rock_08_diff_2k_21.png-e6f2ac56c2c4c4e9cf40f9a0cbefcd78.s3tc.ctex", "res://.godot/imported/house22_rock_08_diff_2k_21.png-e6f2ac56c2c4c4e9cf40f9a0cbefcd78.etc2.ctex"]
 
 [params]
 

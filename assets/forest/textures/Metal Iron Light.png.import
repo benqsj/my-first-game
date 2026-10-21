@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6py5jlfdh1l6"
 path.s3tc="res://.godot/imported/Metal Iron Light.png-4c727c2dff3c296667a7ef8c83edfb7a.s3tc.ctex"
+path.etc2="res://.godot/imported/Metal Iron Light.png-4c727c2dff3c296667a7ef8c83edfb7a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Metal Iron Light.png"
-dest_files=["res://.godot/imported/Metal Iron Light.png-4c727c2dff3c296667a7ef8c83edfb7a.s3tc.ctex"]
+dest_files=["res://.godot/imported/Metal Iron Light.png-4c727c2dff3c296667a7ef8c83edfb7a.s3tc.ctex", "res://.godot/imported/Metal Iron Light.png-4c727c2dff3c296667a7ef8c83edfb7a.etc2.ctex"]
 
 [params]
 

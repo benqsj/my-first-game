@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://1onsi4awqgrs"
 path.s3tc="res://.godot/imported/T_Barracks_normal.png-1ee6906e74c717e28a19e85a5d2c0626.s3tc.ctex"
+path.etc2="res://.godot/imported/T_Barracks_normal.png-1ee6906e74c717e28a19e85a5d2c0626.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/area/HighLandsFantasyBuildings/Barracks/TextureMaps/T_Barracks_normal.png"
-dest_files=["res://.godot/imported/T_Barracks_normal.png-1ee6906e74c717e28a19e85a5d2c0626.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_Barracks_normal.png-1ee6906e74c717e28a19e85a5d2c0626.s3tc.ctex", "res://.godot/imported/T_Barracks_normal.png-1ee6906e74c717e28a19e85a5d2c0626.etc2.ctex"]
 
 [params]
 

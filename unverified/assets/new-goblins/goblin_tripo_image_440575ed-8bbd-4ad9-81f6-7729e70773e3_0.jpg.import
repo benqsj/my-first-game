@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bads378cpty2e"
 path.s3tc="res://.godot/imported/goblin_tripo_image_440575ed-8bbd-4ad9-81f6-7729e70773e3_0.jpg-69b62d7dbb3721263fb7406a94b8133a.s3tc.ctex"
+path.etc2="res://.godot/imported/goblin_tripo_image_440575ed-8bbd-4ad9-81f6-7729e70773e3_0.jpg-69b62d7dbb3721263fb7406a94b8133a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/new-goblins/goblin_tripo_image_440575ed-8bbd-4ad9-81f6-7729e70773e3_0.jpg"
-dest_files=["res://.godot/imported/goblin_tripo_image_440575ed-8bbd-4ad9-81f6-7729e70773e3_0.jpg-69b62d7dbb3721263fb7406a94b8133a.s3tc.ctex"]
+dest_files=["res://.godot/imported/goblin_tripo_image_440575ed-8bbd-4ad9-81f6-7729e70773e3_0.jpg-69b62d7dbb3721263fb7406a94b8133a.s3tc.ctex", "res://.godot/imported/goblin_tripo_image_440575ed-8bbd-4ad9-81f6-7729e70773e3_0.jpg-69b62d7dbb3721263fb7406a94b8133a.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bwnf58g6e4pdr"
 path.s3tc="res://.godot/imported/forest_leaves_02_nor_gl.jpg-fa305612b5106980563001acd673d626.s3tc.ctex"
+path.etc2="res://.godot/imported/forest_leaves_02_nor_gl.jpg-fa305612b5106980563001acd673d626.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/terrain_real/forest_leaves_02_nor_gl.jpg"
-dest_files=["res://.godot/imported/forest_leaves_02_nor_gl.jpg-fa305612b5106980563001acd673d626.s3tc.ctex"]
+dest_files=["res://.godot/imported/forest_leaves_02_nor_gl.jpg-fa305612b5106980563001acd673d626.s3tc.ctex", "res://.godot/imported/forest_leaves_02_nor_gl.jpg-fa305612b5106980563001acd673d626.etc2.ctex"]
 
 [params]
 

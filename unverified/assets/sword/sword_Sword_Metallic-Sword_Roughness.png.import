@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://0lh8qry0pu66"
 path.s3tc="res://.godot/imported/sword_Sword_Metallic-Sword_Roughness.png-d1d5a738e50943b62cf0b4b9702d129e.s3tc.ctex"
+path.etc2="res://.godot/imported/sword_Sword_Metallic-Sword_Roughness.png-d1d5a738e50943b62cf0b4b9702d129e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/sword/sword_Sword_Metallic-Sword_Roughness.png"
-dest_files=["res://.godot/imported/sword_Sword_Metallic-Sword_Roughness.png-d1d5a738e50943b62cf0b4b9702d129e.s3tc.ctex"]
+dest_files=["res://.godot/imported/sword_Sword_Metallic-Sword_Roughness.png-d1d5a738e50943b62cf0b4b9702d129e.s3tc.ctex", "res://.godot/imported/sword_Sword_Metallic-Sword_Roughness.png-d1d5a738e50943b62cf0b4b9702d129e.etc2.ctex"]
 
 [params]
 

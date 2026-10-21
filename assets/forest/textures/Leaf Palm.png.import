@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8r5cnsb78ols"
 path.s3tc="res://.godot/imported/Leaf Palm.png-7805a4482c81c88ba3df856b8c063d49.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaf Palm.png-7805a4482c81c88ba3df856b8c063d49.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Leaf Palm.png"
-dest_files=["res://.godot/imported/Leaf Palm.png-7805a4482c81c88ba3df856b8c063d49.s3tc.ctex"]
+dest_files=["res://.godot/imported/Leaf Palm.png-7805a4482c81c88ba3df856b8c063d49.s3tc.ctex", "res://.godot/imported/Leaf Palm.png-7805a4482c81c88ba3df856b8c063d49.etc2.ctex"]
 
 [params]
 

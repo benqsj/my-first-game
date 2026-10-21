@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cs2xlu1ceaonh"
 path.s3tc="res://.godot/imported/village_props_Leaves_NormalTree_C.png-dc179f909a53a57fb5b292afcaa95cd7.s3tc.ctex"
+path.etc2="res://.godot/imported/village_props_Leaves_NormalTree_C.png-dc179f909a53a57fb5b292afcaa95cd7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/village_props_Leaves_NormalTree_C.png"
-dest_files=["res://.godot/imported/village_props_Leaves_NormalTree_C.png-dc179f909a53a57fb5b292afcaa95cd7.s3tc.ctex"]
+dest_files=["res://.godot/imported/village_props_Leaves_NormalTree_C.png-dc179f909a53a57fb5b292afcaa95cd7.s3tc.ctex", "res://.godot/imported/village_props_Leaves_NormalTree_C.png-dc179f909a53a57fb5b292afcaa95cd7.etc2.ctex"]
 
 [params]
 

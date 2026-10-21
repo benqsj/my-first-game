@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://da45kf73xh4v5"
 path.s3tc="res://.godot/imported/M_5_BaseColor.jpg-5_Alpha.png-13c313b7f27c2ad69165f7df8e90ee04.s3tc.ctex"
+path.etc2="res://.godot/imported/M_5_BaseColor.jpg-5_Alpha.png-13c313b7f27c2ad69165f7df8e90ee04.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/rockMen/M_5_BaseColor.jpg-5_Alpha.png"
-dest_files=["res://.godot/imported/M_5_BaseColor.jpg-5_Alpha.png-13c313b7f27c2ad69165f7df8e90ee04.s3tc.ctex"]
+dest_files=["res://.godot/imported/M_5_BaseColor.jpg-5_Alpha.png-13c313b7f27c2ad69165f7df8e90ee04.s3tc.ctex", "res://.godot/imported/M_5_BaseColor.jpg-5_Alpha.png-13c313b7f27c2ad69165f7df8e90ee04.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ksqo03jtn241"
 path.s3tc="res://.godot/imported/grass2_Wild_Grass_1_Default_grass_green_and_orange_bottom_Color.jpg-ca9bbe3a98071a5fffa932b418fa4a12.s3tc.ctex"
+path.etc2="res://.godot/imported/grass2_Wild_Grass_1_Default_grass_green_and_orange_bottom_Color.jpg-ca9bbe3a98071a5fffa932b418fa4a12.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/grass/grass2_Wild_Grass_1_Default_grass_green_and_orange_bottom_Color.jpg"
-dest_files=["res://.godot/imported/grass2_Wild_Grass_1_Default_grass_green_and_orange_bottom_Color.jpg-ca9bbe3a98071a5fffa932b418fa4a12.s3tc.ctex"]
+dest_files=["res://.godot/imported/grass2_Wild_Grass_1_Default_grass_green_and_orange_bottom_Color.jpg-ca9bbe3a98071a5fffa932b418fa4a12.s3tc.ctex", "res://.godot/imported/grass2_Wild_Grass_1_Default_grass_green_and_orange_bottom_Color.jpg-ca9bbe3a98071a5fffa932b418fa4a12.etc2.ctex"]
 
 [params]
 

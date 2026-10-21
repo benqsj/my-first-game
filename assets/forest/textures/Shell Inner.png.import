@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://y1hiu7sxcs6v"
 path.s3tc="res://.godot/imported/Shell Inner.png-076d9c01121235974b3f7fef1680a295.s3tc.ctex"
+path.etc2="res://.godot/imported/Shell Inner.png-076d9c01121235974b3f7fef1680a295.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Shell Inner.png"
-dest_files=["res://.godot/imported/Shell Inner.png-076d9c01121235974b3f7fef1680a295.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shell Inner.png-076d9c01121235974b3f7fef1680a295.s3tc.ctex", "res://.godot/imported/Shell Inner.png-076d9c01121235974b3f7fef1680a295.etc2.ctex"]
 
 [params]
 

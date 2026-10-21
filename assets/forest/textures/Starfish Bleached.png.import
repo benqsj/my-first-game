@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://h2p8q7o6mf3j"
 path.s3tc="res://.godot/imported/Starfish Bleached.png-16088957b9bc0fcab56d00baba687902.s3tc.ctex"
+path.etc2="res://.godot/imported/Starfish Bleached.png-16088957b9bc0fcab56d00baba687902.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Starfish Bleached.png"
-dest_files=["res://.godot/imported/Starfish Bleached.png-16088957b9bc0fcab56d00baba687902.s3tc.ctex"]
+dest_files=["res://.godot/imported/Starfish Bleached.png-16088957b9bc0fcab56d00baba687902.s3tc.ctex", "res://.godot/imported/Starfish Bleached.png-16088957b9bc0fcab56d00baba687902.etc2.ctex"]
 
 [params]
 

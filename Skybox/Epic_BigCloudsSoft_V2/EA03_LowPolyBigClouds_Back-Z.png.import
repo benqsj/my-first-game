@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkfalwd4qv3xd"
 path.s3tc="res://.godot/imported/EA03_LowPolyBigClouds_Back-Z.png-c22dcd4d92c18c06475f4e3b90b9cdeb.s3tc.ctex"
+path.etc2="res://.godot/imported/EA03_LowPolyBigClouds_Back-Z.png-c22dcd4d92c18c06475f4e3b90b9cdeb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://Skybox/Epic_BigCloudsSoft_V2/EA03_LowPolyBigClouds_Back-Z.png"
-dest_files=["res://.godot/imported/EA03_LowPolyBigClouds_Back-Z.png-c22dcd4d92c18c06475f4e3b90b9cdeb.s3tc.ctex"]
+dest_files=["res://.godot/imported/EA03_LowPolyBigClouds_Back-Z.png-c22dcd4d92c18c06475f4e3b90b9cdeb.s3tc.ctex", "res://.godot/imported/EA03_LowPolyBigClouds_Back-Z.png-c22dcd4d92c18c06475f4e3b90b9cdeb.etc2.ctex"]
 
 [params]
 

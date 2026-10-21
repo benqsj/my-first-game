@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://tan6c4ke7xym"
 path.s3tc="res://.godot/imported/Shell Salmon.png-e47508fd48527ce2f42cbf581b7368be.s3tc.ctex"
+path.etc2="res://.godot/imported/Shell Salmon.png-e47508fd48527ce2f42cbf581b7368be.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Shell Salmon.png"
-dest_files=["res://.godot/imported/Shell Salmon.png-e47508fd48527ce2f42cbf581b7368be.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shell Salmon.png-e47508fd48527ce2f42cbf581b7368be.s3tc.ctex", "res://.godot/imported/Shell Salmon.png-e47508fd48527ce2f42cbf581b7368be.etc2.ctex"]
 
 [params]
 

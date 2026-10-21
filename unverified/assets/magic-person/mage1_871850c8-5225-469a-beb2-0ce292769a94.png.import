@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cx0c3tihk5cu"
 path.s3tc="res://.godot/imported/mage1_871850c8-5225-469a-beb2-0ce292769a94.png-26c33f61025d2c5066f0a484ba7c3b30.s3tc.ctex"
+path.etc2="res://.godot/imported/mage1_871850c8-5225-469a-beb2-0ce292769a94.png-26c33f61025d2c5066f0a484ba7c3b30.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/magic-person/mage1_871850c8-5225-469a-beb2-0ce292769a94.png"
-dest_files=["res://.godot/imported/mage1_871850c8-5225-469a-beb2-0ce292769a94.png-26c33f61025d2c5066f0a484ba7c3b30.s3tc.ctex"]
+dest_files=["res://.godot/imported/mage1_871850c8-5225-469a-beb2-0ce292769a94.png-26c33f61025d2c5066f0a484ba7c3b30.s3tc.ctex", "res://.godot/imported/mage1_871850c8-5225-469a-beb2-0ce292769a94.png-26c33f61025d2c5066f0a484ba7c3b30.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ciflwvdnujfr7"
 path.s3tc="res://.godot/imported/T_TownCenter_normal.png-b22880d0db17fc7f7a41922c1e28c7af.s3tc.ctex"
+path.etc2="res://.godot/imported/T_TownCenter_normal.png-b22880d0db17fc7f7a41922c1e28c7af.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/area/HighLandsFantasyBuildings/TownCenter/TextureMaps/T_TownCenter_normal.png"
-dest_files=["res://.godot/imported/T_TownCenter_normal.png-b22880d0db17fc7f7a41922c1e28c7af.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_TownCenter_normal.png-b22880d0db17fc7f7a41922c1e28c7af.s3tc.ctex", "res://.godot/imported/T_TownCenter_normal.png-b22880d0db17fc7f7a41922c1e28c7af.etc2.ctex"]
 
 [params]
 

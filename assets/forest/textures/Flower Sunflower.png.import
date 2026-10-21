@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3cmkbjxa1jx1"
 path.s3tc="res://.godot/imported/Flower Sunflower.png-40d99797ffd1ea847c4177c58855fce6.s3tc.ctex"
+path.etc2="res://.godot/imported/Flower Sunflower.png-40d99797ffd1ea847c4177c58855fce6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Flower Sunflower.png"
-dest_files=["res://.godot/imported/Flower Sunflower.png-40d99797ffd1ea847c4177c58855fce6.s3tc.ctex"]
+dest_files=["res://.godot/imported/Flower Sunflower.png-40d99797ffd1ea847c4177c58855fce6.s3tc.ctex", "res://.godot/imported/Flower Sunflower.png-40d99797ffd1ea847c4177c58855fce6.etc2.ctex"]
 
 [params]
 

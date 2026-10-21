@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1urv36fyylah"
 path.s3tc="res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.s3tc.ctex"
+path.etc2="res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/grass/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg"
-dest_files=["res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.s3tc.ctex"]
+dest_files=["res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.s3tc.ctex", "res://.godot/imported/grass_light_grass2_Wild_Grass_1_Default_1_grass_green_Color.jpg-739f62f0324df76381345d175c4a785a.etc2.ctex"]
 
 [params]
 

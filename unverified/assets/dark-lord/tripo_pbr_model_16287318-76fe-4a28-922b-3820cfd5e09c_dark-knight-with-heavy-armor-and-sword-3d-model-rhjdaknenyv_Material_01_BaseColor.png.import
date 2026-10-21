@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dv5hmukytj1tm"
 path.s3tc="res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_Material_01_BaseColor.png-2609c39c03a396f1594c1fbb56719ad7.s3tc.ctex"
+path.etc2="res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_Material_01_BaseColor.png-2609c39c03a396f1594c1fbb56719ad7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/dark-lord/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_Material_01_BaseColor.png"
-dest_files=["res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_Material_01_BaseColor.png-2609c39c03a396f1594c1fbb56719ad7.s3tc.ctex"]
+dest_files=["res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_Material_01_BaseColor.png-2609c39c03a396f1594c1fbb56719ad7.s3tc.ctex", "res://.godot/imported/tripo_pbr_model_16287318-76fe-4a28-922b-3820cfd5e09c_dark-knight-with-heavy-armor-and-sword-3d-model-rhjdaknenyv_Material_01_BaseColor.png-2609c39c03a396f1594c1fbb56719ad7.etc2.ctex"]
 
 [params]
 

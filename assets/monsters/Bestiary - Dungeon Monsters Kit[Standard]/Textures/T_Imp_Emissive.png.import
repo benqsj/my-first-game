@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dfl03r8hx6lro"
 path.s3tc="res://.godot/imported/T_Imp_Emissive.png-acb54519660ec5996c771031606f9e97.s3tc.ctex"
+path.etc2="res://.godot/imported/T_Imp_Emissive.png-acb54519660ec5996c771031606f9e97.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Textures/T_Imp_Emissive.png"
-dest_files=["res://.godot/imported/T_Imp_Emissive.png-acb54519660ec5996c771031606f9e97.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_Imp_Emissive.png-acb54519660ec5996c771031606f9e97.s3tc.ctex", "res://.godot/imported/T_Imp_Emissive.png-acb54519660ec5996c771031606f9e97.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dbgijb5m2yiw4"
 path.s3tc="res://.godot/imported/uremi_bump_rock_05k - Copy.jpg-4cf09d160438dd51a3e5698d088c50f6.s3tc.ctex"
+path.etc2="res://.godot/imported/uremi_bump_rock_05k - Copy.jpg-4cf09d160438dd51a3e5698d088c50f6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/uremi /uremi_bump_rock_05k - Copy.jpg"
-dest_files=["res://.godot/imported/uremi_bump_rock_05k - Copy.jpg-4cf09d160438dd51a3e5698d088c50f6.s3tc.ctex"]
+dest_files=["res://.godot/imported/uremi_bump_rock_05k - Copy.jpg-4cf09d160438dd51a3e5698d088c50f6.s3tc.ctex", "res://.godot/imported/uremi_bump_rock_05k - Copy.jpg-4cf09d160438dd51a3e5698d088c50f6.etc2.ctex"]
 
 [params]
 

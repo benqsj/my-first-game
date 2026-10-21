@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://camvcco5tv25u"
 path.s3tc="res://.godot/imported/Cattail.png-f0a88eb40f497e929633487c623d2f60.s3tc.ctex"
+path.etc2="res://.godot/imported/Cattail.png-f0a88eb40f497e929633487c623d2f60.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Cattail.png"
-dest_files=["res://.godot/imported/Cattail.png-f0a88eb40f497e929633487c623d2f60.s3tc.ctex"]
+dest_files=["res://.godot/imported/Cattail.png-f0a88eb40f497e929633487c623d2f60.s3tc.ctex", "res://.godot/imported/Cattail.png-f0a88eb40f497e929633487c623d2f60.etc2.ctex"]
 
 [params]
 

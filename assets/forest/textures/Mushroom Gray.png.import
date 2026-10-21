@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dxcfrycs1jyxb"
 path.s3tc="res://.godot/imported/Mushroom Gray.png-f3b8b6fbdc4fc27f98c58864ad9a808a.s3tc.ctex"
+path.etc2="res://.godot/imported/Mushroom Gray.png-f3b8b6fbdc4fc27f98c58864ad9a808a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Mushroom Gray.png"
-dest_files=["res://.godot/imported/Mushroom Gray.png-f3b8b6fbdc4fc27f98c58864ad9a808a.s3tc.ctex"]
+dest_files=["res://.godot/imported/Mushroom Gray.png-f3b8b6fbdc4fc27f98c58864ad9a808a.s3tc.ctex", "res://.godot/imported/Mushroom Gray.png-f3b8b6fbdc4fc27f98c58864ad9a808a.etc2.ctex"]
 
 [params]
 

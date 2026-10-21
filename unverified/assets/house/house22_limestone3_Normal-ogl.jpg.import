@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://v1lb8o7hw2gs"
 path.s3tc="res://.godot/imported/house22_limestone3_Normal-ogl.jpg-a6f68c54fff7dc77ce0e89a208f4349e.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_limestone3_Normal-ogl.jpg-a6f68c54fff7dc77ce0e89a208f4349e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_limestone3_Normal-ogl.jpg"
-dest_files=["res://.godot/imported/house22_limestone3_Normal-ogl.jpg-a6f68c54fff7dc77ce0e89a208f4349e.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_limestone3_Normal-ogl.jpg-a6f68c54fff7dc77ce0e89a208f4349e.s3tc.ctex", "res://.godot/imported/house22_limestone3_Normal-ogl.jpg-a6f68c54fff7dc77ce0e89a208f4349e.etc2.ctex"]
 
 [params]
 

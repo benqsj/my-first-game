@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cgxua5dx8vr8d"
 path.s3tc="res://.godot/imported/Wood End.png-1ff24b75fd0d311607a1282251033ee6.s3tc.ctex"
+path.etc2="res://.godot/imported/Wood End.png-1ff24b75fd0d311607a1282251033ee6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Wood End.png"
-dest_files=["res://.godot/imported/Wood End.png-1ff24b75fd0d311607a1282251033ee6.s3tc.ctex"]
+dest_files=["res://.godot/imported/Wood End.png-1ff24b75fd0d311607a1282251033ee6.s3tc.ctex", "res://.godot/imported/Wood End.png-1ff24b75fd0d311607a1282251033ee6.etc2.ctex"]
 
 [params]
 

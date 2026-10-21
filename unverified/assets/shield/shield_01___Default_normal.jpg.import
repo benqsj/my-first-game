@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxbjt7knvm423"
 path.s3tc="res://.godot/imported/shield_01___Default_normal.jpg-350d58fbfb8427ba2e66b2c86a774558.s3tc.ctex"
+path.etc2="res://.godot/imported/shield_01___Default_normal.jpg-350d58fbfb8427ba2e66b2c86a774558.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/shield/shield_01___Default_normal.jpg"
-dest_files=["res://.godot/imported/shield_01___Default_normal.jpg-350d58fbfb8427ba2e66b2c86a774558.s3tc.ctex"]
+dest_files=["res://.godot/imported/shield_01___Default_normal.jpg-350d58fbfb8427ba2e66b2c86a774558.s3tc.ctex", "res://.godot/imported/shield_01___Default_normal.jpg-350d58fbfb8427ba2e66b2c86a774558.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cullcvq55ouum"
 path.s3tc="res://.godot/imported/Leaves Cedar.png-5ea6ad02d0c80fa14d9f09230aae5076.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaves Cedar.png-5ea6ad02d0c80fa14d9f09230aae5076.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Leaves Cedar.png"
-dest_files=["res://.godot/imported/Leaves Cedar.png-5ea6ad02d0c80fa14d9f09230aae5076.s3tc.ctex"]
+dest_files=["res://.godot/imported/Leaves Cedar.png-5ea6ad02d0c80fa14d9f09230aae5076.s3tc.ctex", "res://.godot/imported/Leaves Cedar.png-5ea6ad02d0c80fa14d9f09230aae5076.etc2.ctex"]
 
 [params]
 

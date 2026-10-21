@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkj7444mgtg6b"
 path.s3tc="res://.godot/imported/house22_TreeBark_01_basecolor_13.png-bfe1c9a4971be42f7afc8ce4cabb5941.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_TreeBark_01_basecolor_13.png-bfe1c9a4971be42f7afc8ce4cabb5941.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_TreeBark_01_basecolor_13.png"
-dest_files=["res://.godot/imported/house22_TreeBark_01_basecolor_13.png-bfe1c9a4971be42f7afc8ce4cabb5941.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_TreeBark_01_basecolor_13.png-bfe1c9a4971be42f7afc8ce4cabb5941.s3tc.ctex", "res://.godot/imported/house22_TreeBark_01_basecolor_13.png-bfe1c9a4971be42f7afc8ce4cabb5941.etc2.ctex"]
 
 [params]
 

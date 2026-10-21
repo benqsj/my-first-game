@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cyb7x6jsle37e"
 path.s3tc="res://.godot/imported/house22_old-clay-roof-tiles_base_2k.jpg-98716058159bf3d9c5b9dacb55da3e10.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_old-clay-roof-tiles_base_2k.jpg-98716058159bf3d9c5b9dacb55da3e10.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_old-clay-roof-tiles_base_2k.jpg"
-dest_files=["res://.godot/imported/house22_old-clay-roof-tiles_base_2k.jpg-98716058159bf3d9c5b9dacb55da3e10.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_old-clay-roof-tiles_base_2k.jpg-98716058159bf3d9c5b9dacb55da3e10.s3tc.ctex", "res://.godot/imported/house22_old-clay-roof-tiles_base_2k.jpg-98716058159bf3d9c5b9dacb55da3e10.etc2.ctex"]
 
 [params]
 

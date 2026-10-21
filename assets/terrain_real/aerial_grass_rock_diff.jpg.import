@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://btdwfsng4i675"
 path.s3tc="res://.godot/imported/aerial_grass_rock_diff.jpg-a0e7e19caf23b04690981d3fcc14d5cb.s3tc.ctex"
+path.etc2="res://.godot/imported/aerial_grass_rock_diff.jpg-a0e7e19caf23b04690981d3fcc14d5cb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/terrain_real/aerial_grass_rock_diff.jpg"
-dest_files=["res://.godot/imported/aerial_grass_rock_diff.jpg-a0e7e19caf23b04690981d3fcc14d5cb.s3tc.ctex"]
+dest_files=["res://.godot/imported/aerial_grass_rock_diff.jpg-a0e7e19caf23b04690981d3fcc14d5cb.s3tc.ctex", "res://.godot/imported/aerial_grass_rock_diff.jpg-a0e7e19caf23b04690981d3fcc14d5cb.etc2.ctex"]
 
 [params]
 

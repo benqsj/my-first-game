@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dhgxj18i6g51b"
 path.s3tc="res://.godot/imported/village_props_Flowers.png-8c47789af24016fca1ca59381c436dcb.s3tc.ctex"
+path.etc2="res://.godot/imported/village_props_Flowers.png-8c47789af24016fca1ca59381c436dcb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/village_props_Flowers.png"
-dest_files=["res://.godot/imported/village_props_Flowers.png-8c47789af24016fca1ca59381c436dcb.s3tc.ctex"]
+dest_files=["res://.godot/imported/village_props_Flowers.png-8c47789af24016fca1ca59381c436dcb.s3tc.ctex", "res://.godot/imported/village_props_Flowers.png-8c47789af24016fca1ca59381c436dcb.etc2.ctex"]
 
 [params]
 

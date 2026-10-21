@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cib3av72exthn"
 path.s3tc="res://.godot/imported/uremi_wood-4_smooth.png-a48a6fbc2ed3a3d6029fbb17db168eaf.s3tc.ctex"
+path.etc2="res://.godot/imported/uremi_wood-4_smooth.png-a48a6fbc2ed3a3d6029fbb17db168eaf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/uremi /uremi_wood-4_smooth.png"
-dest_files=["res://.godot/imported/uremi_wood-4_smooth.png-a48a6fbc2ed3a3d6029fbb17db168eaf.s3tc.ctex"]
+dest_files=["res://.godot/imported/uremi_wood-4_smooth.png-a48a6fbc2ed3a3d6029fbb17db168eaf.s3tc.ctex", "res://.godot/imported/uremi_wood-4_smooth.png-a48a6fbc2ed3a3d6029fbb17db168eaf.etc2.ctex"]
 
 [params]
 

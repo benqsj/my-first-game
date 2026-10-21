@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bp4lf1gwdkefo"
 path.s3tc="res://.godot/imported/T_Windmill_metalness.png-068d0b4d842bcc2df6551eeb663ef09d.s3tc.ctex"
+path.etc2="res://.godot/imported/T_Windmill_metalness.png-068d0b4d842bcc2df6551eeb663ef09d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/area/HighLandsFantasyBuildings/Windmill/TextureMaps/T_Windmill_metalness.png"
-dest_files=["res://.godot/imported/T_Windmill_metalness.png-068d0b4d842bcc2df6551eeb663ef09d.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_Windmill_metalness.png-068d0b4d842bcc2df6551eeb663ef09d.s3tc.ctex", "res://.godot/imported/T_Windmill_metalness.png-068d0b4d842bcc2df6551eeb663ef09d.etc2.ctex"]
 
 [params]
 

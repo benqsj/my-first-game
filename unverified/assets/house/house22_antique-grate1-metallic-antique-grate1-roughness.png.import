@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b2i8p5m6f1mna"
 path.s3tc="res://.godot/imported/house22_antique-grate1-metallic-antique-grate1-roughness.png-f6b9ef6087e2936c242184710f526095.s3tc.ctex"
+path.etc2="res://.godot/imported/house22_antique-grate1-metallic-antique-grate1-roughness.png-f6b9ef6087e2936c242184710f526095.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/house/house22_antique-grate1-metallic-antique-grate1-roughness.png"
-dest_files=["res://.godot/imported/house22_antique-grate1-metallic-antique-grate1-roughness.png-f6b9ef6087e2936c242184710f526095.s3tc.ctex"]
+dest_files=["res://.godot/imported/house22_antique-grate1-metallic-antique-grate1-roughness.png-f6b9ef6087e2936c242184710f526095.s3tc.ctex", "res://.godot/imported/house22_antique-grate1-metallic-antique-grate1-roughness.png-f6b9ef6087e2936c242184710f526095.etc2.ctex"]
 
 [params]
 

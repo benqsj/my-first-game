@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dfdgv5hdr2o7c"
 path.s3tc="res://.godot/imported/Mushroom Red Spotted.png-e64a03aa74da7469edc9db475a594cf4.s3tc.ctex"
+path.etc2="res://.godot/imported/Mushroom Red Spotted.png-e64a03aa74da7469edc9db475a594cf4.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Mushroom Red Spotted.png"
-dest_files=["res://.godot/imported/Mushroom Red Spotted.png-e64a03aa74da7469edc9db475a594cf4.s3tc.ctex"]
+dest_files=["res://.godot/imported/Mushroom Red Spotted.png-e64a03aa74da7469edc9db475a594cf4.s3tc.ctex", "res://.godot/imported/Mushroom Red Spotted.png-e64a03aa74da7469edc9db475a594cf4.etc2.ctex"]
 
 [params]
 

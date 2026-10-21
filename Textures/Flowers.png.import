@@ -3,16 +3,17 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://brykxh7471yec"
-path.s3tc="res://.godot/imported/Flowers.png-de2bdc3ccbb9b3fb12da48bd950fabeb.s3tc.ctex"
+path.s3tc="res://.godot/imported/Flowers.png-9f19627a03efcfb12d0b780b5a4bbfc2.s3tc.ctex"
+path.etc2="res://.godot/imported/Flowers.png-9f19627a03efcfb12d0b780b5a4bbfc2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
-source_file="res://textures/Flowers.png"
-dest_files=["res://.godot/imported/Flowers.png-de2bdc3ccbb9b3fb12da48bd950fabeb.s3tc.ctex"]
+source_file="res://Textures/Flowers.png"
+dest_files=["res://.godot/imported/Flowers.png-9f19627a03efcfb12d0b780b5a4bbfc2.s3tc.ctex", "res://.godot/imported/Flowers.png-9f19627a03efcfb12d0b780b5a4bbfc2.etc2.ctex"]
 
 [params]
 

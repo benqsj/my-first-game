@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bw6uuwmt20sun"
 path.s3tc="res://.godot/imported/Mushroom Stem.png-6b9c9d39776e066557b1076ea4e6a975.s3tc.ctex"
+path.etc2="res://.godot/imported/Mushroom Stem.png-6b9c9d39776e066557b1076ea4e6a975.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Mushroom Stem.png"
-dest_files=["res://.godot/imported/Mushroom Stem.png-6b9c9d39776e066557b1076ea4e6a975.s3tc.ctex"]
+dest_files=["res://.godot/imported/Mushroom Stem.png-6b9c9d39776e066557b1076ea4e6a975.s3tc.ctex", "res://.godot/imported/Mushroom Stem.png-6b9c9d39776e066557b1076ea4e6a975.etc2.ctex"]
 
 [params]
 

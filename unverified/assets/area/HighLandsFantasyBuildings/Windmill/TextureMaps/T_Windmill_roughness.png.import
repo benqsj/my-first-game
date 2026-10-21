@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwpd2o2xe3qrb"
 path.s3tc="res://.godot/imported/T_Windmill_roughness.png-cd76979a2743efd06d0c85e85c498268.s3tc.ctex"
+path.etc2="res://.godot/imported/T_Windmill_roughness.png-cd76979a2743efd06d0c85e85c498268.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/area/HighLandsFantasyBuildings/Windmill/TextureMaps/T_Windmill_roughness.png"
-dest_files=["res://.godot/imported/T_Windmill_roughness.png-cd76979a2743efd06d0c85e85c498268.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_Windmill_roughness.png-cd76979a2743efd06d0c85e85c498268.s3tc.ctex", "res://.godot/imported/T_Windmill_roughness.png-cd76979a2743efd06d0c85e85c498268.etc2.ctex"]
 
 [params]
 

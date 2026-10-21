@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bqrvxoe7j35et"
 path.s3tc="res://.godot/imported/Bark Log.png-aef2b5890f4a186156f1eb860f21e441.s3tc.ctex"
+path.etc2="res://.godot/imported/Bark Log.png-aef2b5890f4a186156f1eb860f21e441.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Bark Log.png"
-dest_files=["res://.godot/imported/Bark Log.png-aef2b5890f4a186156f1eb860f21e441.s3tc.ctex"]
+dest_files=["res://.godot/imported/Bark Log.png-aef2b5890f4a186156f1eb860f21e441.s3tc.ctex", "res://.godot/imported/Bark Log.png-aef2b5890f4a186156f1eb860f21e441.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bb0rv7ohcbs7s"
 path.s3tc="res://.godot/imported/Bark Palm.png-8aca761e0aeb1752520ad52bf8a6c8fc.s3tc.ctex"
+path.etc2="res://.godot/imported/Bark Palm.png-8aca761e0aeb1752520ad52bf8a6c8fc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/forest/textures/Bark Palm.png"
-dest_files=["res://.godot/imported/Bark Palm.png-8aca761e0aeb1752520ad52bf8a6c8fc.s3tc.ctex"]
+dest_files=["res://.godot/imported/Bark Palm.png-8aca761e0aeb1752520ad52bf8a6c8fc.s3tc.ctex", "res://.godot/imported/Bark Palm.png-8aca761e0aeb1752520ad52bf8a6c8fc.etc2.ctex"]
 
 [params]
 

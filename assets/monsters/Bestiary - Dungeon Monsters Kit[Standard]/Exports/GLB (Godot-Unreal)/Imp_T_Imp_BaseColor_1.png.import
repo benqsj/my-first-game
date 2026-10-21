@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cbnbib3lmmfer"
 path.s3tc="res://.godot/imported/Imp_T_Imp_BaseColor_1.png-84cd7388d2aac6a87c0a07c9322e7fa9.s3tc.ctex"
+path.etc2="res://.godot/imported/Imp_T_Imp_BaseColor_1.png-84cd7388d2aac6a87c0a07c9322e7fa9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/Bestiary - Dungeon Monsters Kit[Standard]/Exports/GLB (Godot-Unreal)/Imp_T_Imp_BaseColor_1.png"
-dest_files=["res://.godot/imported/Imp_T_Imp_BaseColor_1.png-84cd7388d2aac6a87c0a07c9322e7fa9.s3tc.ctex"]
+dest_files=["res://.godot/imported/Imp_T_Imp_BaseColor_1.png-84cd7388d2aac6a87c0a07c9322e7fa9.s3tc.ctex", "res://.godot/imported/Imp_T_Imp_BaseColor_1.png-84cd7388d2aac6a87c0a07c9322e7fa9.etc2.ctex"]
 
 [params]
 

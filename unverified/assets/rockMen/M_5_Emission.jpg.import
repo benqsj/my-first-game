@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://yyigxh43gb1v"
 path.s3tc="res://.godot/imported/M_5_Emission.jpg-fa84ef0e86e284acd0ee0f8130e63129.s3tc.ctex"
+path.etc2="res://.godot/imported/M_5_Emission.jpg-fa84ef0e86e284acd0ee0f8130e63129.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/rockMen/M_5_Emission.jpg"
-dest_files=["res://.godot/imported/M_5_Emission.jpg-fa84ef0e86e284acd0ee0f8130e63129.s3tc.ctex"]
+dest_files=["res://.godot/imported/M_5_Emission.jpg-fa84ef0e86e284acd0ee0f8130e63129.s3tc.ctex", "res://.godot/imported/M_5_Emission.jpg-fa84ef0e86e284acd0ee0f8130e63129.etc2.ctex"]
 
 [params]
 

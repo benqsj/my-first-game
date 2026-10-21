@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dyt4aq788mhgy"
 path.s3tc="res://.godot/imported/T_Props_diffuse.png-5ebdbe54eb7206525f25ec9d68b95c04.s3tc.ctex"
+path.etc2="res://.godot/imported/T_Props_diffuse.png-5ebdbe54eb7206525f25ec9d68b95c04.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://unverified/assets/area/HighLandsFantasyBuildings/MiscProps/TextureMaps/T_Props_diffuse.png"
-dest_files=["res://.godot/imported/T_Props_diffuse.png-5ebdbe54eb7206525f25ec9d68b95c04.s3tc.ctex"]
+dest_files=["res://.godot/imported/T_Props_diffuse.png-5ebdbe54eb7206525f25ec9d68b95c04.s3tc.ctex", "res://.godot/imported/T_Props_diffuse.png-5ebdbe54eb7206525f25ec9d68b95c04.etc2.ctex"]
 
 [params]
 

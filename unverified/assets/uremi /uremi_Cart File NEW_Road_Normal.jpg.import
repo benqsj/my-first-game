@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bu0wognlj2ijq"
 path.s3tc="res://.godot/imported/uremi_Cart File NEW_Road_Normal.jpg-6db6dd710046bc3141b212be4823eabd.s3tc.ctex"
+path.etc2="res://.godot/imported/uremi_Cart File NEW_Road_Normal.jpg-6db6dd710046bc3141b212be4823eabd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://unverified/assets/uremi /uremi_Cart File NEW_Road_Normal.jpg"
-dest_files=["res://.godot/imported/uremi_Cart File NEW_Road_Normal.jpg-6db6dd710046bc3141b212be4823eabd.s3tc.ctex"]
+dest_files=["res://.godot/imported/uremi_Cart File NEW_Road_Normal.jpg-6db6dd710046bc3141b212be4823eabd.s3tc.ctex", "res://.godot/imported/uremi_Cart File NEW_Road_Normal.jpg-6db6dd710046bc3141b212be4823eabd.etc2.ctex"]
 
 [params]
 
