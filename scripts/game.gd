@@ -60,6 +60,10 @@ var freed: Array[String] = []
 ## between runs, even when he falls.
 var tusks: int = 0
 var trade_levels: Dictionary = {}
+## Runs through the portals, the ones won, and the fastest win (s, 0: none).
+var runs: int = 0
+var wins: int = 0
+var best_time: float = 0.0
 
 
 ## Dungeon `index` is closed: its gate is marked, and the hero keeps its last level.
@@ -76,6 +80,19 @@ func add_tusks(n: int) -> void:
 		return
 	tusks += n
 	_save_settings()
+
+
+## A run ended ([RunSummary]): counted, and its time against the best.
+func end_run(won: bool, seconds: float) -> Dictionary:
+	runs += 1
+	var new_best := false
+	if won:
+		wins += 1
+		if best_time <= 0.0 or seconds < best_time:
+			new_best = best_time > 0.0
+			best_time = seconds
+	_save_settings()
+	return {"runs": runs, "wins": wins, "best": best_time, "new_best": new_best}
 
 
 ## The next level of `trade` bought, if it is open and he has the tusks.
@@ -484,6 +501,9 @@ func _load_settings() -> void:
 		for who: Variant in out:
 			freed.append(String(who))
 	tusks = int(file.get_value("progress", "tusks", 0))
+	runs = int(file.get_value("progress", "runs", 0))
+	wins = int(file.get_value("progress", "wins", 0))
+	best_time = float(file.get_value("progress", "best_time", 0.0))
 	var levels: Variant = file.get_value("progress", "trades", {})
 	if levels is Dictionary:
 		for key: Variant in levels:
@@ -516,6 +536,9 @@ func _save_settings() -> void:
 		file.set_value("progress", "best_level", best)
 		file.set_value("progress", "freed", freed)
 		file.set_value("progress", "tusks", tusks)
+		file.set_value("progress", "runs", runs)
+		file.set_value("progress", "wins", wins)
+		file.set_value("progress", "best_time", best_time)
 		file.set_value("progress", "trades", trade_levels)
 	file.save(SETTINGS)
 #endregion

@@ -11203,3 +11203,10 @@ one shatters it, the ice cutting and chilling those round), ცეცხლი�
 (sparks + burn: the sparks fly wider and burn long). Fury now builds on what
 he had (the smith's edge). While the village wants its three tradesmen the
 rest place comes oftener, and oftener the prisoners.
+
+The run's end ([RunSummary], `scripts/run_summary.gd`, 2026-10-21): won (at
+the dawn after the lord) or lost (all down; he is taken out after 8 s, not 3,
+to read it) — the time against his best (a new record, the first win), the
+places gone through, what fell to him, the tusks won and in all, the
+blessings he had, a word on the village's trades. [Game] keeps `runs`,
+`wins`, `best_time`. A room looked round from F1 is no run.

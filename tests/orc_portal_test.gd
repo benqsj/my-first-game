@@ -267,6 +267,18 @@ func _lord() -> void:
 	await _wait(10)
 	var got := int(game.get(&"tusks")) - tusks_before
 	_check("his tusks and his guards'", got == Trades.LORD_TUSKS + LordFight.GUARDS, str(got))
+	# the run's end: its summary up at the dawn
+	d._viewing = false
+	d._run_over = false
+	if d._run_start < 0.0:
+		d._run_start = 0.0
+	for f in 600:
+		await physics_frame
+		if d.get_node_or_null(^"RunSummary") != null:
+			break
+	var summary := d.get_node_or_null(^"RunSummary") as RunSummary
+	_check("won: the run's summary", summary != null and summary.won and int(summary.lines["tusks"]) >= Trades.LORD_TUSKS,
+			str(summary.lines if summary != null else {}))
 
 
 func _trades() -> void:

@@ -30,6 +30,8 @@ const DOOR_H := 7.5
 const BLOCK_H := 60.0
 ## How long after dying alone he is taken back out.
 const BACK_OUT_AFTER := 3.0
+## When a run's summary is up, he is let read it before he is taken out.
+const SUMMARY_WAIT := 8.0
 ## How far apart the places of one run are built (m, along −Z).
 const STEP_GAP := 420.0
 ## Seconds the screen takes to go dark, and to come back.
@@ -254,6 +256,14 @@ var _phase_tween: Tween
 var _sky_mat: ShaderMaterial
 var _lord_fight: LordFight
 var _tusk_label: Label
+## This run: when its first place woke, what fell, the tusks won, whether it
+## is over ([RunSummary]).
+var _run_start: float = -1.0
+var run_kills: int = 0
+var run_tusks: int = 0
+var _run_over: bool = false
+## A room looked round from F1, not a run.
+var _viewing: bool = false
 var _sun: DirectionalLight3D
 var _sun_yaw: float = 0.0
 var _env: Environment
@@ -665,6 +675,20 @@ func _ready() -> void:
 		_view_after_warm_up.call_deferred(asked)
 
 
+## Seconds since the run's first place woke.
+func run_seconds() -> float:
+	return Time.get_ticks_msec() / 1000.0 - _run_start if _run_start >= 0.0 else 0.0
+
+
+## The run over, won or lost: its summary up, once ([RunSummary]). Null if it
+## was over already, or this was no run (a room looked round from F1).
+func end_run(won: bool) -> RunSummary:
+	if _run_over or _run_start < 0.0 or _viewing:
+		return null
+	_run_over = true
+	return RunSummary.make(self, won)
+
+
 ## The village priest's gift ([Trades]): a blessing to choose before the
 ## first place's creatures, once the loading is done.
 func _priest_gift() -> void:
@@ -692,6 +716,8 @@ func _on_tusks(body: Node3D) -> void:
 	if not is_instance_valid(body):
 		return
 	var n := Trades.tusks_for(body)
+	run_kills += 1
+	run_tusks += n
 	var game := get_node_or_null("/root/Game")
 	if game != null and game.has_method(&"add_tusks"):
 		game.call(&"add_tusks", n)
@@ -728,6 +754,8 @@ func _show_tusks(gained: int) -> void:
 		var tw := _tusk_label.create_tween()
 		tw.tween_property(_tusk_label, "scale", Vector2(1.25, 1.25), 0.08)
 		tw.tween_property(_tusk_label, "scale", Vector2.ONE, 0.25)
+		tw.tween_interval(1.8)
+		tw.tween_callback(_show_tusks.bind(0))
 #endregion
 
 
@@ -1144,6 +1172,8 @@ func _step_out(body: Node3D, spot: Vector3, l: float) -> void:
 ## The place's creatures wake and come at him.
 func _wake(i: int) -> void:
 	_woken = true
+	if _run_start < 0.0:
+		_run_start = Time.get_ticks_msec() / 1000.0
 	_alive.clear()
 	_holders.clear()
 	_orc_on = null
@@ -1770,7 +1800,10 @@ func _on_hero_died(fallen: Player) -> void:
 		if not hero.is_dead:
 			return
 	_say("დამარცხდი", BACK_OUT_AFTER)
-	_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
+	var wait := BACK_OUT_AFTER
+	if end_run(false) != null:
+		wait = SUMMARY_WAIT
+	_back_out_at = Time.get_ticks_msec() / 1000.0 + wait
 
 
 ## Straight into `place` to look round it (the user's word, 2026-10-21: to
@@ -1780,6 +1813,7 @@ func _on_hero_died(fallen: Player) -> void:
 func view_place(place: String, with_foes: bool = false) -> void:
 	if not PLACES.has(place) or _going:
 		return
+	_viewing = true
 	var step := int(VIEW.get(place, [1])[0])
 	for ch in choices:
 		ch.queue_free()

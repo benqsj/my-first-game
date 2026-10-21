@@ -239,6 +239,7 @@ func _on_down() -> void:
 func _dawn() -> void:
 	_d._to_phase(2.5, 10.0)
 	_d._say("მზე ამოდის", 3.0)
+	get_tree().create_timer(3.5).timeout.connect(_d.end_run.bind(true))
 #endregion
 
 
