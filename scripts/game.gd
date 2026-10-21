@@ -171,12 +171,32 @@ const DISPLAYS := {
 }
 
 
+## A timing probe for the exported game (release_polish_plan.md §1.1): an
+## export template takes no `--script`, so `VEPXIS_PROBE=/abs/path.gd` names a
+## GDScript (extends Node) that is compiled here and put beside the scenes,
+## outliving them. Nobody sets it but the measuring scripts.
+func _start_probe() -> void:
+	var path := OS.get_environment("VEPXIS_PROBE")
+	if path == "" or not FileAccess.file_exists(path):
+		return
+	var code := GDScript.new()
+	code.source_code = FileAccess.get_file_as_string(path)
+	if code.reload() != OK:
+		push_error("Game: the probe %s did not compile." % path)
+		return
+	var probe := Node.new()
+	probe.set_script(code)
+	probe.name = "Probe"
+	get_tree().root.add_child.call_deferred(probe)
+
+
 func _ready() -> void:
 	Controls.apply()
 	# Closing is ours to decide: see `_notification`.
 	get_tree().set_auto_accept_quit(false)
 	_load_settings()
 	_apply_display()
+	_start_probe()
 	var argv := OS.get_cmdline_user_args()
 	var connect_as := ""
 	var address := "127.0.0.1"
