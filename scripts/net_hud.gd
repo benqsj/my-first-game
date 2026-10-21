@@ -42,7 +42,11 @@ func _refresh() -> void:
 		_line.text = ""
 		return
 	var roster: Dictionary = net.get("roster")
-	if multiplayer.is_server():
+	var code := String(net.get("room_code"))
+	if multiplayer.is_server() and code != "":
+		_line.text = "HOSTING  ·  კოდი: %s  ·  %d/%d players" % [code, roster.size(), NetScript.MAX_PLAYERS]
+		_line.add_theme_font_size_override("font_size", 20)
+	elif multiplayer.is_server():
 		var addresses: Array[String] = NetScript.lan_addresses()
 		var where := ", ".join(addresses) if not addresses.is_empty() else "no network found"
 		_line.text = "HOSTING  ·  others join at %s  ·  %d/%d players" \

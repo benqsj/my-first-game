@@ -47,6 +47,16 @@ signal games_changed()
 ## written before the world loads; everyone else's arrives by `announce`.
 var roster: Dictionary = {}
 
+## The relay games in different homes meet at ([RelayPeer], `relay/server.py`).
+## `--relay <url>` on the command line puts another in its place (a test).
+const RELAY_URL := "wss://vepxis-relay.usectl.app/ws"
+var relay_url: String = RELAY_URL
+## The room's code while hosting or joined through the relay ("" otherwise).
+var room_code: String = ""
+## A room asked for and not yet given: polled here till the relay answers.
+var _pending: RelayPeer
+signal room_ready(code: String)
+
 ## Where the world is, so hosting and joining both end up in the same place.
 const WORLD := "res://scenes/world/greybox_world.tscn"
 
@@ -82,6 +92,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_call_out(delta)
 	_listen()
+	if _pending != null:
+		_pending.poll()
 
 
 #region Getting in and out
@@ -137,6 +149,8 @@ func join(address: String, character: StringName) -> bool:
 ## game is.
 func leave() -> void:
 	_joining_as = &""
+	room_code = ""
+	_pending = null
 	_announce_as = &""
 	roster.clear()
 	_in_world.clear()
@@ -329,6 +343,69 @@ func _listen() -> void:
 			changed = true
 	if changed:
 		games_changed.emit()
+#endregion
+
+
+#region Through the relay (games in different homes)
+## Opens a room on the relay and, once it has a code, loads the world.
+func host_online(character: StringName) -> bool:
+	leave()
+	_together_in_hub()
+	var peer := RelayPeer.new()
+	if peer.host(relay_url, PROTOCOL) != OK:
+		hosting_failed.emit(_why("no_relay"))
+		return false
+	peer.hosted.connect(_on_hosted.bind(peer, character), CONNECT_ONE_SHOT)
+	peer.failed.connect(func(why: String) -> void:
+		_pending = null
+		hosting_failed.emit(_why(why)))
+	_pending = peer
+	return true
+
+
+func _on_hosted(code: String, peer: RelayPeer, character: StringName) -> void:
+	_pending = null
+	if not _open(peer):
+		hosting_failed.emit("There is no multiplayer to host with yet.")
+		return
+	room_code = code
+	roster = {1: character}
+	_in_world = {1: true}
+	lobby_changed.emit()
+	room_ready.emit(code)
+	SceneLoader.go(get_tree(), WORLD)
+
+
+## Into the room with `code` on the relay; the world loads once in.
+func join_code(code: String, character: StringName) -> bool:
+	leave()
+	_together_in_hub()
+	var peer := RelayPeer.new()
+	if peer.join(relay_url, code, PROTOCOL) != OK:
+		join_failed.emit(_why("no_relay"))
+		return false
+	peer.failed.connect(func(why: String) -> void:
+		join_failed.emit(_why(why))
+		leave())
+	if not _open(peer):
+		join_failed.emit("There is no multiplayer to join with yet.")
+		return false
+	room_code = code.strip_edges().to_upper()
+	_joining_as = character
+	return true
+
+
+static func _why(why: String) -> String:
+	match why:
+		"no_room":
+			return "ასეთი კოდით თამაში არ არის."
+		"full":
+			return "თამაში სავსეა."
+		"version":
+			return "მასპინძელს სხვა ვერსია აქვს."
+		"no_relay":
+			return "სერვერთან კავშირი ვერ დამყარდა."
+	return "კავშირის შეცდომა (%s)." % why
 #endregion
 
 

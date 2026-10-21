@@ -176,6 +176,7 @@ func _ready() -> void:
 	var argv := OS.get_cmdline_user_args()
 	var connect_as := ""
 	var address := "127.0.0.1"
+	var relay := ""
 	for at in argv.size():
 		var word: String = argv[at]
 		var id := StringName(word.to_lower())
@@ -183,6 +184,13 @@ func _ready() -> void:
 			_chosen = id
 		elif word == "--host":
 			connect_as = "host"
+		elif word == "--host-online":
+			connect_as = "host_online"
+		elif word == "--join-code" and at + 1 < argv.size():
+			connect_as = "join_code"
+			address = argv[at + 1]
+		elif word == "--relay" and at + 1 < argv.size():
+			relay = argv[at + 1]
 		elif word == "--join":
 			connect_as = "join"
 			# The next word is the address, unless it is a character name or
@@ -197,7 +205,7 @@ func _ready() -> void:
 	if connect_as != "":
 		# Deferred: the other autoloads are not up yet, and neither is anything
 		# to change scene *to*.
-		_auto_connect.call_deferred(connect_as, address)
+		_auto_connect.call_deferred(connect_as, address, relay)
 
 
 ## Command is the evade on a Mac, and Q puts the weapons away — so Command-Q
@@ -218,15 +226,22 @@ func _notification(what: int) -> void:
 ##
 ##     godot --path . -- --host tariel
 ##     godot --path . -- --join 127.0.0.1 avtandil
-func _auto_connect(how: String, address: String) -> void:
+func _auto_connect(how: String, address: String, relay: String = "") -> void:
 	var net := get_node_or_null("/root/Net")
 	if net == null:
 		push_error("Game: asked to %s, but there is no Net autoload." % how)
 		return
-	if how == "host":
-		net.call("host", _chosen)
-	else:
-		net.call("join", address, _chosen)
+	if relay != "":
+		net.set(&"relay_url", relay)
+	match how:
+		"host":
+			net.call("host", _chosen)
+		"host_online":
+			net.call("host_online", _chosen)
+		"join_code":
+			net.call("join_code", address, _chosen)
+		_:
+			net.call("join", address, _chosen)
 
 
 ## Who is being played, as an id.

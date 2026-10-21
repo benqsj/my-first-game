@@ -86,6 +86,7 @@ var _found_note: Label
 ## The button at the bottom of the character page, which says different things
 ## depending on whether there is anyone else to wait for.
 var _go: Button
+var _code: LineEdit
 ## Under the stage: the picked hero's face and hair, each stepped through with
 ## two arrows (shown only for a hero who has a choice of it): kind -> the row.
 var _pick_rows: Dictionary = {}
@@ -448,6 +449,37 @@ func _build_connect() -> Control:
 	host.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	buttons.add_child(host)
 	page.add_child(buttons)
+
+	# Over the internet, through the relay: the host is given a code to tell
+	# the others (the user's word, 2026-10-21: friends in other homes)
+	page.add_child(MenuStyle.label("over the internet — with a code:", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
+	var online := HBoxContainer.new()
+	online.alignment = BoxContainer.ALIGNMENT_CENTER
+	online.add_theme_constant_override("separation", 14)
+	var host_online := MenuStyle.button("HOST ONLINE", func() -> void: _host_online())
+	host_online.custom_minimum_size = Vector2(240.0, MenuStyle.BUTTON_HEIGHT)
+	host_online.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	online.add_child(host_online)
+	_code = LineEdit.new()
+	_code.name = "Code"
+	_code.placeholder_text = "CODE"
+	_code.max_length = 8
+	_code.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_code.custom_minimum_size = Vector2(160.0, MenuStyle.BUTTON_HEIGHT)
+	_code.add_theme_font_size_override("font_size", MenuStyle.BUTTON_SIZE - 2)
+	var code_field := MenuStyle.panel_style(Color(0.0, 0.0, 0.0, 0.5))
+	code_field.border_color = MenuStyle.GOLD_DIM
+	code_field.border_width_bottom = 1
+	_code.add_theme_stylebox_override("normal", code_field)
+	_code.add_theme_stylebox_override("focus", code_field)
+	_code.add_theme_color_override("font_color", MenuStyle.CREAM)
+	_code.text_submitted.connect(func(_typed: String) -> void: _join_code())
+	online.add_child(_code)
+	var join_online := MenuStyle.button("JOIN BY CODE", func() -> void: _join_code())
+	join_online.custom_minimum_size = Vector2(220.0, MenuStyle.BUTTON_HEIGHT)
+	join_online.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	online.add_child(join_online)
+	page.add_child(online)
 
 	# Hosts on this Wi-Fi call out once a second; each one heard is a button.
 	page.add_child(MenuStyle.label("games on your network:", MenuStyle.BODY_SIZE, MenuStyle.GOLD_DIM))
@@ -1505,6 +1537,29 @@ func _host() -> void:
 		_on_net_trouble("Networking is not available in this build.")
 		return
 	_net.call("host", _chosen)
+
+
+## A room on the relay; the world loads once it has a code ([method Net.host_online]).
+func _host_online() -> void:
+	if _game != null:
+		_game.choose(_chosen)
+	if _net == null:
+		_on_net_trouble("Networking is not available in this build.")
+		return
+	if _trouble != null:
+		_trouble.text = "სერვერთან დაკავშირება..."
+	_net.call("host_online", _chosen)
+
+
+## Into the room whose code was typed.
+func _join_code() -> void:
+	if _game != null:
+		_game.choose(_chosen)
+	if _net == null or _code == null or _code.text.strip_edges() == "":
+		return
+	if _trouble != null:
+		_trouble.text = "შესვლა %s..." % _code.text.strip_edges().to_upper()
+	_net.call("join_code", _code.text, _chosen)
 
 
 ## Connects to whatever was typed. The world is loaded by [Net] once the
