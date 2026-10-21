@@ -11194,3 +11194,12 @@ place; then four lights to choose from instead of three). [F] at a stall
 shows the next level and its price; [F] again buys it, put on him at once
 and on every hero made after ([method Trades.apply] from
 `World._build_player`). Kept in `user://settings.cfg` [progress] tusks/trades.
+
+Doubles of the blessings ([Boons] `DUOS`, 2026-10-21): two blessings he
+holds made one, offered (always among the lights, marked ★) once both halves
+are his — მეხის ცეცხლი (burn + chain: the lightning jumps oftener and sets
+alight), ყინულის მსხვრევა (frost + the third: the third blow on a frozen
+one shatters it, the ice cutting and chilling those round), ცეცხლის ცეკვა
+(sparks + burn: the sparks fly wider and burn long). Fury now builds on what
+he had (the smith's edge). While the village wants its three tradesmen the
+rest place comes oftener, and oftener the prisoners.

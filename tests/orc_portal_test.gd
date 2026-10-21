@@ -1,6 +1,6 @@
 extends SceneTree
 ## The orc palace's round 12 (claude/orc_portal_ideas.md, 2026-10-21):
-## - blessings ([Boons]): three lights laid, one walked into and taken, what
+## - blessings ([Boons]), and their doubles (frost + the third: the shatter): three lights laid, one walked into and taken, what
 ##   each does on a blow (fire, frost, the third's knock), on him (iron, swift);
 ## - roles ([FoeRoles]): the shaman's call, the elite; one two-sword orc;
 ## - every room to look round from F1 ([method Dungeon.view_place]);
@@ -107,6 +107,19 @@ func _boons() -> void:
 		var marks := Afflictions.of(foe, false)
 		_check("fire on it", marks != null and marks.is_burning())
 		_check("frost on it", marks != null and marks.is_chilled())
+		# the doubles: frost and the third blow make the shatter
+		var offered := d.boons.offer(3)
+		_check("a double offered when both halves are his", offered.has(&"shatter") and not offered.has(&"storm_fire"),
+				str(offered))
+		d.boons.take(&"shatter")
+		var before := foe.health
+		for k in 3:
+			var cut := HitInfo.make(20.0, foe.global_position + Vector3.UP, Vector3.FORWARD, false, true, hero)
+			cut.by_blade = true
+			foe.hurtbox().take(cut)
+			await _wait(2)
+		_check("the third blow on the frozen one shatters it", d.boons.shattered == 1,
+				"%d, %.0f" % [d.boons.shattered, before - foe.health])
 
 
 func _roles() -> void:

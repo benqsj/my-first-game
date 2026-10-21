@@ -1304,12 +1304,16 @@ func _make_choices(next: int) -> Array[PortalLook]:
 	pool.shuffle()
 	# before the orcs, now and then, a place to get one's breath back behind
 	# one of the two (the user's word, 2026-10-21): the spring when he is hurt
-	if next == steps.size() - 2 - 1 and pool.size() >= 2 and _rng.randf() < 0.5:
+	# — oftener, and oftener the prisoners, while the village wants its three
+	# tradesmen ([Trades])
+	var game := get_node_or_null("/root/Game")
+	var wanted := game != null and game.get(&"freed") != null and (game.get(&"freed") as Array).size() < Trades.ORDER.size()
+	if next == steps.size() - 2 - 1 and pool.size() >= 2 and _rng.randf() < (0.75 if wanted else 0.5):
 		var low := false
 		for hero in _heroes():
 			if hero.health < hero.max_health * 0.6:
 				low = true
-		pool[1] = "spring" if low or _rng.randf() < 0.5 else "prison"
+		pool[1] = "spring" if low or _rng.randf() < (0.3 if wanted else 0.5) else "prison"
 	var take := mini(2, pool.size())
 	# a blessing behind one of the two, most times (the user's word,
 	# 2026-10-21: the reward should change how he fights); never two

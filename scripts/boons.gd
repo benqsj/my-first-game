@@ -31,7 +31,26 @@ const ALL := {
 			"tint": Color(1.0, 0.5, 0.2)},
 	&"second": {"name": "მეორე სუნთქვა", "text": "ერთხელ სიკვდილს გადაურჩები:\nნახევარი სიცოცხლით დგები", "tint": Color(1.0, 0.92, 0.6)},
 	&"leech": {"name": "ვამპირის პირი", "text": "დარტყმის ნაწილი\nსიცოცხლედ გიბრუნდება", "tint": Color(0.7, 0.1, 0.35)},
+	# the doubles: two blessings he has, made one (the user's word,
+	# 2026-10-21: every run a different way of fighting) — offered only when
+	# he holds both halves ([const DUOS]), and first among the lights
+	&"storm_fire": {"name": "მეხის ცეცხლი", "text": "ელვა უფრო ხშირად გადადის\nდა ვისაც მოხვდება, ცეცხლი ეკიდება",
+			"tint": Color(1.0, 0.6, 0.25)},
+	&"shatter": {"name": "ყინულის მსხვრევა", "text": "მესამე დარტყმა გაყინულ მტერს\nამსხვრევს — ყინული ირგვლივ იფანტება",
+			"tint": Color(0.7, 0.95, 1.0)},
+	&"ember_dance": {"name": "ცეცხლის ცეკვა", "text": "დაძვრენის ნაპერწკლები ფართოდ\nიფანტება და დიდხანს წვავს",
+			"tint": Color(1.0, 0.4, 0.15)},
 }
+## The doubles and the two blessings each is made of.
+const DUOS := {
+	&"storm_fire": [&"burn", &"chain"],
+	&"shatter": [&"frost", &"third"],
+	&"ember_dance": [&"sparks", &"burn"],
+}
+const STORM_CHANCE := 0.5
+const SHATTER_DAMAGE := 80.0
+const SHATTER_RADIUS := 3.8
+const EMBER_REACH := 1.6         # times the sparks' reach
 ## How many lights a blessing place leaves.
 const OFFERED := 3
 ## How many lights are laid to choose from (the village's priest makes it
@@ -59,6 +78,8 @@ const BURST_RADIUS := 4.5
 const BURST_DAMAGE := 55.0
 const LEECH_SHARE := 0.05
 
+## How many have been shattered (the tests look).
+var shattered: int = 0
 ## What has been taken so far, in order.
 var taken: Array[StringName] = []
 ## The lights standing now: {node, id}.
@@ -85,11 +106,29 @@ func has(id: StringName) -> bool:
 ## Up to `n` blessings not yet taken, at random.
 func offer(n: int = OFFERED) -> Array[StringName]:
 	var left: Array[StringName] = []
+	var ready: Array[StringName] = []
 	for id: StringName in ALL:
-		if not taken.has(id):
-			left.append(id)
+		if taken.has(id):
+			continue
+		if DUOS.has(id):
+			if duo_ready(id):
+				ready.append(id)
+			continue
+		left.append(id)
 	left.shuffle()
+	ready.shuffle()
+	# one double, if one is ready, always among them
+	if not ready.is_empty():
+		left.insert(_rng.randi_range(0, maxi(mini(n, left.size()) - 1, 0)), ready[0])
 	return left.slice(0, mini(n, left.size()))
+
+
+## Whether he holds both halves of double `id`.
+func duo_ready(id: StringName) -> bool:
+	for half: StringName in DUOS.get(id, []):
+		if not taken.has(half):
+			return false
+	return DUOS.has(id)
 
 
 #region Taking them
@@ -144,7 +183,7 @@ func _light(id: StringName, at: Vector3, into: Node3D) -> Node3D:
 	light.position = Vector3(0.0, 1.6, 0.0)
 	holder.add_child(light)
 	var title := Label3D.new()
-	title.text = String(info["name"])
+	title.text = ("★ %s ★" % String(info["name"])) if DUOS.has(id) else String(info["name"])
 	title.font_size = 60
 	title.pixel_size = 0.0075
 	title.outline_size = 14
@@ -189,7 +228,8 @@ func _process(_delta: float) -> void:
 	if has(&"fury") and _dungeon != null:
 		for hero in _dungeon._heroes():
 			var left := clampf(hero.health / maxf(hero.max_health, 1.0), 0.0, 1.0)
-			hero.dealt_scale = 1.0 + FURY_MOST * clampf((1.0 - left) / 0.85, 0.0, 1.0)
+			hero.dealt_scale = float(hero.get_meta(&"dealt_base", 1.0)) \
+					* (1.0 + FURY_MOST * clampf((1.0 - left) / 0.85, 0.0, 1.0))
 
 
 ## `id` taken (at `where`, the light he took it from).
@@ -219,6 +259,10 @@ func _put_on(hero: Player, id: StringName) -> void:
 			hero.taken_scale *= IRON_TAKEN
 		&"swift":
 			hero.run_speed *= SWIFT
+		&"fury":
+			# on top of what he had (the village smith's edge, [Trades])
+			if not hero.has_meta(&"dealt_base"):
+				hero.set_meta(&"dealt_base", hero.dealt_scale)
 #endregion
 
 
@@ -253,12 +297,16 @@ func _on_struck(hit: HitInfo, body: Node3D) -> void:
 	if hit.by_blade:
 		var key := hero.get_instance_id()
 		_cuts[key] = int(_cuts.get(key, 0)) + 1
+		if has(&"shatter") and int(_cuts[key]) % 3 == 0:
+			var cold := Afflictions.of(body, false)
+			if cold != null and cold.is_chilled():
+				_shatter(hero, body)
 		if has(&"third") and int(_cuts[key]) % 3 == 0 and body.has_method(&"react"):
 			var push := body.global_position - hero.global_position
 			push.y = 0.0
 			body.call(&"react", &"knock", hero, push.normalized() * THIRD_PUSH)
 			_flash(body.global_position + Vector3.UP * 1.2, ALL[&"third"]["tint"])
-		if has(&"chain") and _rng.randf() < CHAIN_CHANCE:
+		if has(&"chain") and _rng.randf() < (STORM_CHANCE if has(&"storm_fire") else CHAIN_CHANCE):
 			_chain(hero, body, hit.damage * CHAIN_SHARE)
 	if has(&"burn"):
 		var marks := Afflictions.of(body)
@@ -305,11 +353,34 @@ func _on_dodge(_dir: Vector3, hero: Player) -> void:
 	if world != null:
 		SkillFx.burst(world, at, ALL[&"sparks"]["tint"], 50, Vector2(2.0, 5.0), Vector3.UP, 120.0,
 				Vector2(0.04, 0.1), Vector3(0, -7.0, 0), 0.8)
-	for other in _foes_near(at, SPARK_RADIUS, null):
+	var dance := has(&"ember_dance")
+	if dance and world != null:
+		SkillFx.burst(world, at, ALL[&"ember_dance"]["tint"], 70, Vector2(4.0, 8.0), Vector3.UP, 170.0,
+				Vector2(0.05, 0.12), Vector3(0, -6.0, 0), 1.0)
+	for other in _foes_near(at, SPARK_RADIUS * (EMBER_REACH if dance else 1.0), null):
 		_hurt(other, SPARK_DAMAGE * _level_share(), at, hero, true)
 		var marks := Afflictions.of(other)
 		if marks != null:
-			marks.apply(&"burn", 1.5, hero, SPARK_DAMAGE * 0.15)
+			marks.apply(&"burn", BURN_SECONDS if dance else 1.5, hero, SPARK_DAMAGE * (0.3 if dance else 0.15))
+
+
+## The third blow on a frozen one: it shatters, the ice flying round chills
+## and cuts the near.
+func _shatter(hero: Player, body: Node3D) -> void:
+	shattered += 1
+	var at := body.global_position + Vector3.UP * 1.1
+	var tint: Color = ALL[&"shatter"]["tint"]
+	var world := Blood.world_of(body)
+	if world != null:
+		SkillFx.burst(world, at, tint, 80, Vector2(3.0, 9.0), Vector3.UP, 180.0, Vector2(0.05, 0.16),
+				Vector3(0, -8.0, 0), 0.7)
+	ImpactFx.strike(body, at, &"guard")
+	_hurt(body, SHATTER_DAMAGE * _level_share(), at, hero, true)
+	for other in _foes_near(at, SHATTER_RADIUS, body):
+		_hurt(other, SHATTER_DAMAGE * 0.5 * _level_share(), at, hero, true)
+		var marks := Afflictions.of(other)
+		if marks != null:
+			marks.apply(&"chill", FROST_SECONDS, hero, 0.0)
 
 
 ## Lightning from `from` to up to two others near it.
@@ -322,8 +393,13 @@ func _chain(hero: Player, from: Node3D, damage: float) -> void:
 	for k in mini(2, near.size()):
 		var other: Node3D = near[k]
 		var to := other.global_position + Vector3.UP * 1.2
-		_bolt(last, to)
+		var fire := has(&"storm_fire")
+		_bolt(last, to, Color(1.6, 0.8, 0.3) if fire else Color(0.75, 0.9, 1.5))
 		_hurt(other, damage, to, hero, true)
+		if fire:
+			var marks := Afflictions.of(other)
+			if marks != null:
+				marks.apply(&"burn", BURN_SECONDS, hero, damage * BURN_SHARE)
 		last = to
 
 
@@ -458,7 +534,7 @@ func _redraw_list() -> void:
 	_list.add_child(head)
 	for id in taken:
 		var row := Label.new()
-		row.text = "◆ " + String(ALL[id]["name"])
+		row.text = ("★ " if DUOS.has(id) else "◆ ") + String(ALL[id]["name"])
 		row.add_theme_font_size_override("font_size", 19)
 		row.add_theme_color_override("font_color", (ALL[id]["tint"] as Color).lerp(Color.WHITE, 0.3))
 		row.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
