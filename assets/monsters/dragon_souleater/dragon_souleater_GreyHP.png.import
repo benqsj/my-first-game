@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cdnko4fk0jdkd"
-path="res://.godot/imported/dragon_souleater_GreyHP.png-a78703a54e9bc4acfb193f81c2a09915.ctex"
+path.s3tc="res://.godot/imported/dragon_souleater_GreyHP.png-a78703a54e9bc4acfb193f81c2a09915.s3tc.ctex"
+path.etc2="res://.godot/imported/dragon_souleater_GreyHP.png-a78703a54e9bc4acfb193f81c2a09915.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8ab0f11a85d90e7dc4fef73d9355930c"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/dragon_souleater/dragon_souleater_GreyHP.png"
-dest_files=["res://.godot/imported/dragon_souleater_GreyHP.png-a78703a54e9bc4acfb193f81c2a09915.ctex"]
+dest_files=["res://.godot/imported/dragon_souleater_GreyHP.png-a78703a54e9bc4acfb193f81c2a09915.s3tc.ctex", "res://.godot/imported/dragon_souleater_GreyHP.png-a78703a54e9bc4acfb193f81c2a09915.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

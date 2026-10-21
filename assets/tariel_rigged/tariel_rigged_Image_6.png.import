@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cv2b4yej7o2ws"
-path="res://.godot/imported/tariel_rigged_Image_6.png-1cb32423474b54a6291d72a96d796de5.ctex"
+path.s3tc="res://.godot/imported/tariel_rigged_Image_6.png-1cb32423474b54a6291d72a96d796de5.s3tc.ctex"
+path.etc2="res://.godot/imported/tariel_rigged_Image_6.png-1cb32423474b54a6291d72a96d796de5.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c372735efedc89006556e398a52d9c0e"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/tariel_rigged/tariel_rigged_Image_6.png"
-dest_files=["res://.godot/imported/tariel_rigged_Image_6.png-1cb32423474b54a6291d72a96d796de5.ctex"]
+dest_files=["res://.godot/imported/tariel_rigged_Image_6.png-1cb32423474b54a6291d72a96d796de5.s3tc.ctex", "res://.godot/imported/tariel_rigged_Image_6.png-1cb32423474b54a6291d72a96d796de5.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

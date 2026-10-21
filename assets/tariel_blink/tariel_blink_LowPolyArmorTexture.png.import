@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dr777b5a2tb63"
-path="res://.godot/imported/tariel_blink_LowPolyArmorTexture.png-d6cb7686516e3466a1f0b422bcf81505.ctex"
+path.s3tc="res://.godot/imported/tariel_blink_LowPolyArmorTexture.png-d6cb7686516e3466a1f0b422bcf81505.s3tc.ctex"
+path.etc2="res://.godot/imported/tariel_blink_LowPolyArmorTexture.png-d6cb7686516e3466a1f0b422bcf81505.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e739b929f239decbbfa08f4a397c4efa"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/tariel_blink/tariel_blink_LowPolyArmorTexture.png"
-dest_files=["res://.godot/imported/tariel_blink_LowPolyArmorTexture.png-d6cb7686516e3466a1f0b422bcf81505.ctex"]
+dest_files=["res://.godot/imported/tariel_blink_LowPolyArmorTexture.png-d6cb7686516e3466a1f0b422bcf81505.s3tc.ctex", "res://.godot/imported/tariel_blink_LowPolyArmorTexture.png-d6cb7686516e3466a1f0b422bcf81505.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

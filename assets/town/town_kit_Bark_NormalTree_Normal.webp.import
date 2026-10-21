@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://jr6rxfjwy7t4"
-path="res://.godot/imported/town_kit_Bark_NormalTree_Normal.webp-fb534c99402aba44821f93cd8e7f4c24.ctex"
+path.s3tc="res://.godot/imported/town_kit_Bark_NormalTree_Normal.webp-fb534c99402aba44821f93cd8e7f4c24.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_Bark_NormalTree_Normal.webp-fb534c99402aba44821f93cd8e7f4c24.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c257657582d89da169f2ac82634046e5"
@@ -14,17 +16,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_Bark_NormalTree_Normal.webp"
-dest_files=["res://.godot/imported/town_kit_Bark_NormalTree_Normal.webp-fb534c99402aba44821f93cd8e7f4c24.ctex"]
+dest_files=["res://.godot/imported/town_kit_Bark_NormalTree_Normal.webp-fb534c99402aba44821f93cd8e7f4c24.s3tc.ctex", "res://.godot/imported/town_kit_Bark_NormalTree_Normal.webp-fb534c99402aba44821f93cd8e7f4c24.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

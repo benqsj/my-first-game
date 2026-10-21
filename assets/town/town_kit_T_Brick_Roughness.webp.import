@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b3q8vp72i8tn6"
-path="res://.godot/imported/town_kit_T_Brick_Roughness.webp-21bd63185c04a3443a62e9d2d66149a9.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Brick_Roughness.webp-21bd63185c04a3443a62e9d2d66149a9.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Brick_Roughness.webp-21bd63185c04a3443a62e9d2d66149a9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "aebc7214ba9d550cffe1770c5b2a9798"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Brick_Roughness.webp"
-dest_files=["res://.godot/imported/town_kit_T_Brick_Roughness.webp-21bd63185c04a3443a62e9d2d66149a9.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Brick_Roughness.webp-21bd63185c04a3443a62e9d2d66149a9.s3tc.ctex", "res://.godot/imported/town_kit_T_Brick_Roughness.webp-21bd63185c04a3443a62e9d2d66149a9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

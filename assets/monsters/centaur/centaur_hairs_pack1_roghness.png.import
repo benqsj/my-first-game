@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dl1gf5x0fmblf"
-path="res://.godot/imported/centaur_hairs_pack1_roghness.png-6f0e89d254db08a514de2094e5190f77.ctex"
+path.s3tc="res://.godot/imported/centaur_hairs_pack1_roghness.png-6f0e89d254db08a514de2094e5190f77.s3tc.ctex"
+path.etc2="res://.godot/imported/centaur_hairs_pack1_roghness.png-6f0e89d254db08a514de2094e5190f77.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ae246cb9313db8331d3ac272e14175cc"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/centaur/centaur_hairs_pack1_roghness.png"
-dest_files=["res://.godot/imported/centaur_hairs_pack1_roghness.png-6f0e89d254db08a514de2094e5190f77.ctex"]
+dest_files=["res://.godot/imported/centaur_hairs_pack1_roghness.png-6f0e89d254db08a514de2094e5190f77.s3tc.ctex", "res://.godot/imported/centaur_hairs_pack1_roghness.png-6f0e89d254db08a514de2094e5190f77.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

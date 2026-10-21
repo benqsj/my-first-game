@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d10bvayd7x2u3"
-path="res://.godot/imported/town_kit_T_MetalOrnaments_Roughness.webp-70cef3c5903caba9e50e43682f3520cd.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_MetalOrnaments_Roughness.webp-70cef3c5903caba9e50e43682f3520cd.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_MetalOrnaments_Roughness.webp-70cef3c5903caba9e50e43682f3520cd.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "75ccf4923ac9fb6644dec2f11a81e8b9"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_MetalOrnaments_Roughness.webp"
-dest_files=["res://.godot/imported/town_kit_T_MetalOrnaments_Roughness.webp-70cef3c5903caba9e50e43682f3520cd.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_MetalOrnaments_Roughness.webp-70cef3c5903caba9e50e43682f3520cd.s3tc.ctex", "res://.godot/imported/town_kit_T_MetalOrnaments_Roughness.webp-70cef3c5903caba9e50e43682f3520cd.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

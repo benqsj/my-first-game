@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://3bymqwtab0gy"
-path="res://.godot/imported/minotaur_t_minotaur1_axe_AlbedoTransparency.png-919494d32863ec57438d6792001849f6.ctex"
+path.s3tc="res://.godot/imported/minotaur_t_minotaur1_axe_AlbedoTransparency.png-919494d32863ec57438d6792001849f6.s3tc.ctex"
+path.etc2="res://.godot/imported/minotaur_t_minotaur1_axe_AlbedoTransparency.png-919494d32863ec57438d6792001849f6.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ab517c2bb9c316619f7a127045585ee2"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/minotaur/minotaur_t_minotaur1_axe_AlbedoTransparency.png"
-dest_files=["res://.godot/imported/minotaur_t_minotaur1_axe_AlbedoTransparency.png-919494d32863ec57438d6792001849f6.ctex"]
+dest_files=["res://.godot/imported/minotaur_t_minotaur1_axe_AlbedoTransparency.png-919494d32863ec57438d6792001849f6.s3tc.ctex", "res://.godot/imported/minotaur_t_minotaur1_axe_AlbedoTransparency.png-919494d32863ec57438d6792001849f6.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

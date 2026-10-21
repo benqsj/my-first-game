@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://danlb47v31ab8"
-path="res://.godot/imported/town_kit_T_Trim_Metal_BaseColor.webp-d929a7572d9e595e44f7d3b9c69f5424.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Trim_Metal_BaseColor.webp-d929a7572d9e595e44f7d3b9c69f5424.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Trim_Metal_BaseColor.webp-d929a7572d9e595e44f7d3b9c69f5424.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "119eac6d1f158652b2c851ef8105e89d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Trim_Metal_BaseColor.webp"
-dest_files=["res://.godot/imported/town_kit_T_Trim_Metal_BaseColor.webp-d929a7572d9e595e44f7d3b9c69f5424.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Trim_Metal_BaseColor.webp-d929a7572d9e595e44f7d3b9c69f5424.s3tc.ctex", "res://.godot/imported/town_kit_T_Trim_Metal_BaseColor.webp-d929a7572d9e595e44f7d3b9c69f5424.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

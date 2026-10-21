@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cgvt834yoi31r"
-path="res://.godot/imported/dragon_usurper_GreenHP.png-8f609cdda805a251196a133a0f3529f3.ctex"
+path.s3tc="res://.godot/imported/dragon_usurper_GreenHP.png-8f609cdda805a251196a133a0f3529f3.s3tc.ctex"
+path.etc2="res://.godot/imported/dragon_usurper_GreenHP.png-8f609cdda805a251196a133a0f3529f3.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "833101ae097381a47e3630ddd1e9d3ef"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/dragon_usurper/dragon_usurper_GreenHP.png"
-dest_files=["res://.godot/imported/dragon_usurper_GreenHP.png-8f609cdda805a251196a133a0f3529f3.ctex"]
+dest_files=["res://.godot/imported/dragon_usurper_GreenHP.png-8f609cdda805a251196a133a0f3529f3.s3tc.ctex", "res://.godot/imported/dragon_usurper_GreenHP.png-8f609cdda805a251196a133a0f3529f3.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://mcq6cqmwci7s"
-path="res://.godot/imported/demon_T_Monster_Body_Albedo_Skin1.png-73598f3b0f0738d7ebb73256cf900944.ctex"
+path.s3tc="res://.godot/imported/demon_T_Monster_Body_Albedo_Skin1.png-73598f3b0f0738d7ebb73256cf900944.s3tc.ctex"
+path.etc2="res://.godot/imported/demon_T_Monster_Body_Albedo_Skin1.png-73598f3b0f0738d7ebb73256cf900944.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e15fc870ee824b82a4579dfffdc226d4"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/demon/demon_T_Monster_Body_Albedo_Skin1.png"
-dest_files=["res://.godot/imported/demon_T_Monster_Body_Albedo_Skin1.png-73598f3b0f0738d7ebb73256cf900944.ctex"]
+dest_files=["res://.godot/imported/demon_T_Monster_Body_Albedo_Skin1.png-73598f3b0f0738d7ebb73256cf900944.s3tc.ctex", "res://.godot/imported/demon_T_Monster_Body_Albedo_Skin1.png-73598f3b0f0738d7ebb73256cf900944.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

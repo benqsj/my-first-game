@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bplveqvb6xvhr"
-path="res://.godot/imported/village_houses_T_Brick_BaseColor.png-77a5f9782c1d1ee28ba81584b4e6d4dc.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_Brick_BaseColor.png-77a5f9782c1d1ee28ba81584b4e6d4dc.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_Brick_BaseColor.png-77a5f9782c1d1ee28ba81584b4e6d4dc.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "57e0f1f7b3ce6a0acf5ce48a06f3648d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_Brick_BaseColor.png"
-dest_files=["res://.godot/imported/village_houses_T_Brick_BaseColor.png-77a5f9782c1d1ee28ba81584b4e6d4dc.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_Brick_BaseColor.png-77a5f9782c1d1ee28ba81584b4e6d4dc.s3tc.ctex", "res://.godot/imported/village_houses_T_Brick_BaseColor.png-77a5f9782c1d1ee28ba81584b4e6d4dc.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

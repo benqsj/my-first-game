@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://05s04vvl7j5t"
-path="res://.godot/imported/village_houses_T_Plaster_ORM.png-08b3f934003176c6caa97816947f9a72.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_Plaster_ORM.png-08b3f934003176c6caa97816947f9a72.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_Plaster_ORM.png-08b3f934003176c6caa97816947f9a72.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "980232083d83adae9806223caa7d23fa"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_Plaster_ORM.png"
-dest_files=["res://.godot/imported/village_houses_T_Plaster_ORM.png-08b3f934003176c6caa97816947f9a72.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_Plaster_ORM.png-08b3f934003176c6caa97816947f9a72.s3tc.ctex", "res://.godot/imported/village_houses_T_Plaster_ORM.png-08b3f934003176c6caa97816947f9a72.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

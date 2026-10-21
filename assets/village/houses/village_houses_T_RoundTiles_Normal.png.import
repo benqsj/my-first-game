@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://7gp5hcn74l3a"
-path="res://.godot/imported/village_houses_T_RoundTiles_Normal.png-61b78c77e9c9fadcb4f11df25d03de0a.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_RoundTiles_Normal.png-61b78c77e9c9fadcb4f11df25d03de0a.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_RoundTiles_Normal.png-61b78c77e9c9fadcb4f11df25d03de0a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ec250a2bb57d761c3f5d242e2fcdfc02"
@@ -14,17 +16,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_RoundTiles_Normal.png"
-dest_files=["res://.godot/imported/village_houses_T_RoundTiles_Normal.png-61b78c77e9c9fadcb4f11df25d03de0a.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_RoundTiles_Normal.png-61b78c77e9c9fadcb4f11df25d03de0a.s3tc.ctex", "res://.godot/imported/village_houses_T_RoundTiles_Normal.png-61b78c77e9c9fadcb4f11df25d03de0a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://3j13twngaajb"
-path="res://.godot/imported/gras2_Wild_Grass_1_Default_grass_green_Color.jpg-9e226424f971cf466cf7c40921d0d94e.ctex"
+path.s3tc="res://.godot/imported/gras2_Wild_Grass_1_Default_grass_green_Color.jpg-9e226424f971cf466cf7c40921d0d94e.s3tc.ctex"
+path.etc2="res://.godot/imported/gras2_Wild_Grass_1_Default_grass_green_Color.jpg-9e226424f971cf466cf7c40921d0d94e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "3bf4ba8c7c289b011470429acb300c41"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/grass2/gras2_Wild_Grass_1_Default_grass_green_Color.jpg"
-dest_files=["res://.godot/imported/gras2_Wild_Grass_1_Default_grass_green_Color.jpg-9e226424f971cf466cf7c40921d0d94e.ctex"]
+dest_files=["res://.godot/imported/gras2_Wild_Grass_1_Default_grass_green_Color.jpg-9e226424f971cf466cf7c40921d0d94e.s3tc.ctex", "res://.godot/imported/gras2_Wild_Grass_1_Default_grass_green_Color.jpg-9e226424f971cf466cf7c40921d0d94e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxb8wg283jvcj"
-path="res://.godot/imported/avtandil_rigged_T_Ranger_ORM.png-63a837a68c516fdcc7710a1b2681fc1a.ctex"
+path.s3tc="res://.godot/imported/avtandil_rigged_T_Ranger_ORM.png-63a837a68c516fdcc7710a1b2681fc1a.s3tc.ctex"
+path.etc2="res://.godot/imported/avtandil_rigged_T_Ranger_ORM.png-63a837a68c516fdcc7710a1b2681fc1a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "274cd791d6290873a1356542cfc2ed7c"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/avtandil_rigged/avtandil_rigged_T_Ranger_ORM.png"
-dest_files=["res://.godot/imported/avtandil_rigged_T_Ranger_ORM.png-63a837a68c516fdcc7710a1b2681fc1a.ctex"]
+dest_files=["res://.godot/imported/avtandil_rigged_T_Ranger_ORM.png-63a837a68c516fdcc7710a1b2681fc1a.s3tc.ctex", "res://.godot/imported/avtandil_rigged_T_Ranger_ORM.png-63a837a68c516fdcc7710a1b2681fc1a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

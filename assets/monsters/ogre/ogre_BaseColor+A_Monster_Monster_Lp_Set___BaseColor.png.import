@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkh3ouv2l301r"
-path="res://.godot/imported/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png-5ae637f1d32d5386080ae59b5669da12.ctex"
+path.s3tc="res://.godot/imported/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png-5ae637f1d32d5386080ae59b5669da12.s3tc.ctex"
+path.etc2="res://.godot/imported/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png-5ae637f1d32d5386080ae59b5669da12.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "cba8d41146e3bc5f5b09c26830a1b165"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/ogre/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png"
-dest_files=["res://.godot/imported/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png-5ae637f1d32d5386080ae59b5669da12.ctex"]
+dest_files=["res://.godot/imported/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png-5ae637f1d32d5386080ae59b5669da12.s3tc.ctex", "res://.godot/imported/ogre_BaseColor+A_Monster_Monster_Lp_Set___BaseColor.png-5ae637f1d32d5386080ae59b5669da12.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

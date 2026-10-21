@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b5flx3ta3i40r"
-path="res://.godot/imported/town_kit_T_Trim_Cloth_BaseColor.webp-4b80f1313a183706888aa7fdc428817b.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Trim_Cloth_BaseColor.webp-4b80f1313a183706888aa7fdc428817b.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Trim_Cloth_BaseColor.webp-4b80f1313a183706888aa7fdc428817b.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9d7ad9bb2da346c7daf60d45567f7fe2"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Trim_Cloth_BaseColor.webp"
-dest_files=["res://.godot/imported/town_kit_T_Trim_Cloth_BaseColor.webp-4b80f1313a183706888aa7fdc428817b.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Trim_Cloth_BaseColor.webp-4b80f1313a183706888aa7fdc428817b.s3tc.ctex", "res://.godot/imported/town_kit_T_Trim_Cloth_BaseColor.webp-4b80f1313a183706888aa7fdc428817b.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

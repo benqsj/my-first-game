@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bp4yowmphleg3"
-path="res://.godot/imported/centaur_Centaur_arms_Base_Color.png-271bb30ae16e7ec8581a30dd10fe589e.ctex"
+path.s3tc="res://.godot/imported/centaur_Centaur_arms_Base_Color.png-271bb30ae16e7ec8581a30dd10fe589e.s3tc.ctex"
+path.etc2="res://.godot/imported/centaur_Centaur_arms_Base_Color.png-271bb30ae16e7ec8581a30dd10fe589e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "84771d5f21962da50507a2fe88658df4"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/centaur/centaur_Centaur_arms_Base_Color.png"
-dest_files=["res://.godot/imported/centaur_Centaur_arms_Base_Color.png-271bb30ae16e7ec8581a30dd10fe589e.ctex"]
+dest_files=["res://.godot/imported/centaur_Centaur_arms_Base_Color.png-271bb30ae16e7ec8581a30dd10fe589e.s3tc.ctex", "res://.godot/imported/centaur_Centaur_arms_Base_Color.png-271bb30ae16e7ec8581a30dd10fe589e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://y4deols74okf"
-path="res://.godot/imported/warrior_wr_s2_sword_Sword2_Base_Color.png-d2b2cd777a79bba4fa579b043388e68b.ctex"
+path.s3tc="res://.godot/imported/warrior_wr_s2_sword_Sword2_Base_Color.png-d2b2cd777a79bba4fa579b043388e68b.s3tc.ctex"
+path.etc2="res://.godot/imported/warrior_wr_s2_sword_Sword2_Base_Color.png-d2b2cd777a79bba4fa579b043388e68b.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "cf2704ac212119b10ddbeaa29f2abbc9"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/warrior/warrior_wr_s2_sword_Sword2_Base_Color.png"
-dest_files=["res://.godot/imported/warrior_wr_s2_sword_Sword2_Base_Color.png-d2b2cd777a79bba4fa579b043388e68b.ctex"]
+dest_files=["res://.godot/imported/warrior_wr_s2_sword_Sword2_Base_Color.png-d2b2cd777a79bba4fa579b043388e68b.s3tc.ctex", "res://.godot/imported/warrior_wr_s2_sword_Sword2_Base_Color.png-d2b2cd777a79bba4fa579b043388e68b.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

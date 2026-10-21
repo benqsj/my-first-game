@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://wv04piqvw3up"
-path="res://.godot/imported/rogue_rigged_T_Ranger_blood_BaseColor.png-f4e489dd76414a4d1bce56449ca1ad5d.ctex"
+path.s3tc="res://.godot/imported/rogue_rigged_T_Ranger_blood_BaseColor.png-f4e489dd76414a4d1bce56449ca1ad5d.s3tc.ctex"
+path.etc2="res://.godot/imported/rogue_rigged_T_Ranger_blood_BaseColor.png-f4e489dd76414a4d1bce56449ca1ad5d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "eab64092bdd1b72a499b7d082bf09dab"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/rogue_rigged/rogue_rigged_T_Ranger_blood_BaseColor.png"
-dest_files=["res://.godot/imported/rogue_rigged_T_Ranger_blood_BaseColor.png-f4e489dd76414a4d1bce56449ca1ad5d.ctex"]
+dest_files=["res://.godot/imported/rogue_rigged_T_Ranger_blood_BaseColor.png-f4e489dd76414a4d1bce56449ca1ad5d.s3tc.ctex", "res://.godot/imported/rogue_rigged_T_Ranger_blood_BaseColor.png-f4e489dd76414a4d1bce56449ca1ad5d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

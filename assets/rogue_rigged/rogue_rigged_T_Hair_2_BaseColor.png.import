@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bowyub7inwcqq"
-path="res://.godot/imported/rogue_rigged_T_Hair_2_BaseColor.png-1900837e2aef37de7b46c2f98739257c.ctex"
+path.s3tc="res://.godot/imported/rogue_rigged_T_Hair_2_BaseColor.png-1900837e2aef37de7b46c2f98739257c.s3tc.ctex"
+path.etc2="res://.godot/imported/rogue_rigged_T_Hair_2_BaseColor.png-1900837e2aef37de7b46c2f98739257c.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8f3b2b667eb6f8a1a6e5018e34a30bf9"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/rogue_rigged/rogue_rigged_T_Hair_2_BaseColor.png"
-dest_files=["res://.godot/imported/rogue_rigged_T_Hair_2_BaseColor.png-1900837e2aef37de7b46c2f98739257c.ctex"]
+dest_files=["res://.godot/imported/rogue_rigged_T_Hair_2_BaseColor.png-1900837e2aef37de7b46c2f98739257c.s3tc.ctex", "res://.godot/imported/rogue_rigged_T_Hair_2_BaseColor.png-1900837e2aef37de7b46c2f98739257c.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

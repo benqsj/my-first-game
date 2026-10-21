@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b1fywjsyg5o8j"
-path="res://.godot/imported/town_kit_T_Brick_BaseColor.webp-6a2896b288c12edaa5232a8a9272455a.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Brick_BaseColor.webp-6a2896b288c12edaa5232a8a9272455a.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Brick_BaseColor.webp-6a2896b288c12edaa5232a8a9272455a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5ac978679379368a5a7cd177a37aa56e"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Brick_BaseColor.webp"
-dest_files=["res://.godot/imported/town_kit_T_Brick_BaseColor.webp-6a2896b288c12edaa5232a8a9272455a.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Brick_BaseColor.webp-6a2896b288c12edaa5232a8a9272455a.s3tc.ctex", "res://.godot/imported/town_kit_T_Brick_BaseColor.webp-6a2896b288c12edaa5232a8a9272455a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

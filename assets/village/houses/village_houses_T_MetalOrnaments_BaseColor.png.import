@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dif7wtfqt8svf"
-path="res://.godot/imported/village_houses_T_MetalOrnaments_BaseColor.png-abe0bd29b210ebb3b43de39e4a0a5f41.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_MetalOrnaments_BaseColor.png-abe0bd29b210ebb3b43de39e4a0a5f41.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_MetalOrnaments_BaseColor.png-abe0bd29b210ebb3b43de39e4a0a5f41.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "7171b61b81d270ac2e83b4043b09d506"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_MetalOrnaments_BaseColor.png"
-dest_files=["res://.godot/imported/village_houses_T_MetalOrnaments_BaseColor.png-abe0bd29b210ebb3b43de39e4a0a5f41.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_MetalOrnaments_BaseColor.png-abe0bd29b210ebb3b43de39e4a0a5f41.s3tc.ctex", "res://.godot/imported/village_houses_T_MetalOrnaments_BaseColor.png-abe0bd29b210ebb3b43de39e4a0a5f41.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

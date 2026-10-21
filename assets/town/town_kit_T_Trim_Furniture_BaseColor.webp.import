@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3ye6kaf6b4ic"
-path="res://.godot/imported/town_kit_T_Trim_Furniture_BaseColor.webp-2b0f592f234b8e3ab38ed73615e555fd.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Trim_Furniture_BaseColor.webp-2b0f592f234b8e3ab38ed73615e555fd.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Trim_Furniture_BaseColor.webp-2b0f592f234b8e3ab38ed73615e555fd.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8a9636be8037372e3ac3e105e99aebdf"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Trim_Furniture_BaseColor.webp"
-dest_files=["res://.godot/imported/town_kit_T_Trim_Furniture_BaseColor.webp-2b0f592f234b8e3ab38ed73615e555fd.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Trim_Furniture_BaseColor.webp-2b0f592f234b8e3ab38ed73615e555fd.s3tc.ctex", "res://.godot/imported/town_kit_T_Trim_Furniture_BaseColor.webp-2b0f592f234b8e3ab38ed73615e555fd.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

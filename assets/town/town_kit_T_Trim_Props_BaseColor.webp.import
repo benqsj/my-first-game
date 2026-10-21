@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://0afa31u2xgj"
-path="res://.godot/imported/town_kit_T_Trim_Props_BaseColor.webp-ba51c5bf831f236db06fcf466e6d2d7f.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Trim_Props_BaseColor.webp-ba51c5bf831f236db06fcf466e6d2d7f.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Trim_Props_BaseColor.webp-ba51c5bf831f236db06fcf466e6d2d7f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9e2fd48d8f92d93790a053a9392708c3"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Trim_Props_BaseColor.webp"
-dest_files=["res://.godot/imported/town_kit_T_Trim_Props_BaseColor.webp-ba51c5bf831f236db06fcf466e6d2d7f.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Trim_Props_BaseColor.webp-ba51c5bf831f236db06fcf466e6d2d7f.s3tc.ctex", "res://.godot/imported/town_kit_T_Trim_Props_BaseColor.webp-ba51c5bf831f236db06fcf466e6d2d7f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsxfjxikxiqcq"
-path="res://.godot/imported/village_houses_T_WoodTrim_Normal.png-784727ba8946215e685b7eca05b88e3b.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_WoodTrim_Normal.png-784727ba8946215e685b7eca05b88e3b.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_WoodTrim_Normal.png-784727ba8946215e685b7eca05b88e3b.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "86a5cee9a64e087cc987c81169fe85dd"
@@ -14,17 +16,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_WoodTrim_Normal.png"
-dest_files=["res://.godot/imported/village_houses_T_WoodTrim_Normal.png-784727ba8946215e685b7eca05b88e3b.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_WoodTrim_Normal.png-784727ba8946215e685b7eca05b88e3b.s3tc.ctex", "res://.godot/imported/village_houses_T_WoodTrim_Normal.png-784727ba8946215e685b7eca05b88e3b.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

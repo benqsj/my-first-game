@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bic8n5t3xirtu"
-path="res://.godot/imported/village_houses_T_UnevenBrick_Roughness.png-043630123eb9fbc760ebb66cc9a0859e.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_UnevenBrick_Roughness.png-043630123eb9fbc760ebb66cc9a0859e.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_UnevenBrick_Roughness.png-043630123eb9fbc760ebb66cc9a0859e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c0c19fb683d14e0b4b4cfa4d8f8d15dc"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_UnevenBrick_Roughness.png"
-dest_files=["res://.godot/imported/village_houses_T_UnevenBrick_Roughness.png-043630123eb9fbc760ebb66cc9a0859e.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_UnevenBrick_Roughness.png-043630123eb9fbc760ebb66cc9a0859e.s3tc.ctex", "res://.godot/imported/village_houses_T_UnevenBrick_Roughness.png-043630123eb9fbc760ebb66cc9a0859e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

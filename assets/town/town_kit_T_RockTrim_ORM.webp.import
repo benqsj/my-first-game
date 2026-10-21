@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dnenyd76utocs"
-path="res://.godot/imported/town_kit_T_RockTrim_ORM.webp-3962eaa3d45270a26c9e9eea060fad1a.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_RockTrim_ORM.webp-3962eaa3d45270a26c9e9eea060fad1a.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_RockTrim_ORM.webp-3962eaa3d45270a26c9e9eea060fad1a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ee15e8644c8199bd6955c2dc02c950c3"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_RockTrim_ORM.webp"
-dest_files=["res://.godot/imported/town_kit_T_RockTrim_ORM.webp-3962eaa3d45270a26c9e9eea060fad1a.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_RockTrim_ORM.webp-3962eaa3d45270a26c9e9eea060fad1a.s3tc.ctex", "res://.godot/imported/town_kit_T_RockTrim_ORM.webp-3962eaa3d45270a26c9e9eea060fad1a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://03u2miplr8q0"
-path="res://.godot/imported/villager_871850c8-5225-469a-beb2-0ce292769a94.png-57c21321b9e57c29440449e8156bce9d.ctex"
+path.s3tc="res://.godot/imported/villager_871850c8-5225-469a-beb2-0ce292769a94.png-57c21321b9e57c29440449e8156bce9d.s3tc.ctex"
+path.etc2="res://.godot/imported/villager_871850c8-5225-469a-beb2-0ce292769a94.png-57c21321b9e57c29440449e8156bce9d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "99169ad4c7c1dc4e0dd4230b6212be66"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/villager/villager_871850c8-5225-469a-beb2-0ce292769a94.png"
-dest_files=["res://.godot/imported/villager_871850c8-5225-469a-beb2-0ce292769a94.png-57c21321b9e57c29440449e8156bce9d.ctex"]
+dest_files=["res://.godot/imported/villager_871850c8-5225-469a-beb2-0ce292769a94.png-57c21321b9e57c29440449e8156bce9d.s3tc.ctex", "res://.godot/imported/villager_871850c8-5225-469a-beb2-0ce292769a94.png-57c21321b9e57c29440449e8156bce9d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

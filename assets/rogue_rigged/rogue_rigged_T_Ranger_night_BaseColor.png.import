@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bvie8qryvhe1j"
-path="res://.godot/imported/rogue_rigged_T_Ranger_night_BaseColor.png-bd21da119de6416a336e75de450f0da4.ctex"
+path.s3tc="res://.godot/imported/rogue_rigged_T_Ranger_night_BaseColor.png-bd21da119de6416a336e75de450f0da4.s3tc.ctex"
+path.etc2="res://.godot/imported/rogue_rigged_T_Ranger_night_BaseColor.png-bd21da119de6416a336e75de450f0da4.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e7483dbd7fc6ceb72290790344405553"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/rogue_rigged/rogue_rigged_T_Ranger_night_BaseColor.png"
-dest_files=["res://.godot/imported/rogue_rigged_T_Ranger_night_BaseColor.png-bd21da119de6416a336e75de450f0da4.ctex"]
+dest_files=["res://.godot/imported/rogue_rigged_T_Ranger_night_BaseColor.png-bd21da119de6416a336e75de450f0da4.s3tc.ctex", "res://.godot/imported/rogue_rigged_T_Ranger_night_BaseColor.png-bd21da119de6416a336e75de450f0da4.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

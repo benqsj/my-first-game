@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cbpt77b56cx6p"
-path="res://.godot/imported/avtandil_rigged_T_Hair_2_BaseColor.png-29ca57f436448cf05aec015405fbfecb.ctex"
+path.s3tc="res://.godot/imported/avtandil_rigged_T_Hair_2_BaseColor.png-29ca57f436448cf05aec015405fbfecb.s3tc.ctex"
+path.etc2="res://.godot/imported/avtandil_rigged_T_Hair_2_BaseColor.png-29ca57f436448cf05aec015405fbfecb.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8f3b2b667eb6f8a1a6e5018e34a30bf9"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/avtandil_rigged/avtandil_rigged_T_Hair_2_BaseColor.png"
-dest_files=["res://.godot/imported/avtandil_rigged_T_Hair_2_BaseColor.png-29ca57f436448cf05aec015405fbfecb.ctex"]
+dest_files=["res://.godot/imported/avtandil_rigged_T_Hair_2_BaseColor.png-29ca57f436448cf05aec015405fbfecb.s3tc.ctex", "res://.godot/imported/avtandil_rigged_T_Hair_2_BaseColor.png-29ca57f436448cf05aec015405fbfecb.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

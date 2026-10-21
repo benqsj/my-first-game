@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwg1raaewyxsl"
-path="res://.godot/imported/village_houses_T_UnevenBrick_Normal.png-5afa689b914dcaa1c16145ba9ce68635.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_UnevenBrick_Normal.png-5afa689b914dcaa1c16145ba9ce68635.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_UnevenBrick_Normal.png-5afa689b914dcaa1c16145ba9ce68635.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f450de1b1189dcd0bd0b54db98748f30"
@@ -14,17 +16,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_UnevenBrick_Normal.png"
-dest_files=["res://.godot/imported/village_houses_T_UnevenBrick_Normal.png-5afa689b914dcaa1c16145ba9ce68635.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_UnevenBrick_Normal.png-5afa689b914dcaa1c16145ba9ce68635.s3tc.ctex", "res://.godot/imported/village_houses_T_UnevenBrick_Normal.png-5afa689b914dcaa1c16145ba9ce68635.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

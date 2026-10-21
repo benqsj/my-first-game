@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b6k6moh5dwl2o"
-path="res://.godot/imported/centaur_hairs_pack1_color_alpha.png-c52de2a142973ecf062bc9a970fb3cb9.ctex"
+path.s3tc="res://.godot/imported/centaur_hairs_pack1_color_alpha.png-c52de2a142973ecf062bc9a970fb3cb9.s3tc.ctex"
+path.etc2="res://.godot/imported/centaur_hairs_pack1_color_alpha.png-c52de2a142973ecf062bc9a970fb3cb9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "dbe89ec8b00b939a6236dd3cc3920fd4"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/centaur/centaur_hairs_pack1_color_alpha.png"
-dest_files=["res://.godot/imported/centaur_hairs_pack1_color_alpha.png-c52de2a142973ecf062bc9a970fb3cb9.ctex"]
+dest_files=["res://.godot/imported/centaur_hairs_pack1_color_alpha.png-c52de2a142973ecf062bc9a970fb3cb9.s3tc.ctex", "res://.godot/imported/centaur_hairs_pack1_color_alpha.png-c52de2a142973ecf062bc9a970fb3cb9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

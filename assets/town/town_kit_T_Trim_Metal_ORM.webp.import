@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dd7ubf65vco4b"
-path="res://.godot/imported/town_kit_T_Trim_Metal_ORM.webp-31f0a4a97e3380a02efb1d995e9a1af8.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_Trim_Metal_ORM.webp-31f0a4a97e3380a02efb1d995e9a1af8.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_Trim_Metal_ORM.webp-31f0a4a97e3380a02efb1d995e9a1af8.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f2bf0a619f78a8cb18292aea9972c874"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_Trim_Metal_ORM.webp"
-dest_files=["res://.godot/imported/town_kit_T_Trim_Metal_ORM.webp-31f0a4a97e3380a02efb1d995e9a1af8.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_Trim_Metal_ORM.webp-31f0a4a97e3380a02efb1d995e9a1af8.s3tc.ctex", "res://.godot/imported/town_kit_T_Trim_Metal_ORM.webp-31f0a4a97e3380a02efb1d995e9a1af8.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

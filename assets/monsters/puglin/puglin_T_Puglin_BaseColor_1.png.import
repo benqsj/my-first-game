@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bdl3s7j5ii611"
-path="res://.godot/imported/puglin_T_Puglin_BaseColor_1.png-dfb3359fc916f4cdfde518ff46f227c0.ctex"
+path.s3tc="res://.godot/imported/puglin_T_Puglin_BaseColor_1.png-dfb3359fc916f4cdfde518ff46f227c0.s3tc.ctex"
+path.etc2="res://.godot/imported/puglin_T_Puglin_BaseColor_1.png-dfb3359fc916f4cdfde518ff46f227c0.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "244ab0eaf79c7f58f4828378dcf8eb27"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/puglin/puglin_T_Puglin_BaseColor_1.png"
-dest_files=["res://.godot/imported/puglin_T_Puglin_BaseColor_1.png-dfb3359fc916f4cdfde518ff46f227c0.ctex"]
+dest_files=["res://.godot/imported/puglin_T_Puglin_BaseColor_1.png-dfb3359fc916f4cdfde518ff46f227c0.s3tc.ctex", "res://.godot/imported/puglin_T_Puglin_BaseColor_1.png-dfb3359fc916f4cdfde518ff46f227c0.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

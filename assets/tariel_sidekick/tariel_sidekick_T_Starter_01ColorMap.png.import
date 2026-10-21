@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bbgge3unupwlu"
-path="res://.godot/imported/tariel_sidekick_T_Starter_01ColorMap.png-425782d370e5c1565e38fad95c5e686a.ctex"
+path.s3tc="res://.godot/imported/tariel_sidekick_T_Starter_01ColorMap.png-425782d370e5c1565e38fad95c5e686a.s3tc.ctex"
+path.etc2="res://.godot/imported/tariel_sidekick_T_Starter_01ColorMap.png-425782d370e5c1565e38fad95c5e686a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "823a0e223b05e2e1f1f4591e448abf22"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/tariel_sidekick/tariel_sidekick_T_Starter_01ColorMap.png"
-dest_files=["res://.godot/imported/tariel_sidekick_T_Starter_01ColorMap.png-425782d370e5c1565e38fad95c5e686a.ctex"]
+dest_files=["res://.godot/imported/tariel_sidekick_T_Starter_01ColorMap.png-425782d370e5c1565e38fad95c5e686a.s3tc.ctex", "res://.godot/imported/tariel_sidekick_T_Starter_01ColorMap.png-425782d370e5c1565e38fad95c5e686a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

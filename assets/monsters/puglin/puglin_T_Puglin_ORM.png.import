@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://7110oq0df6jh"
-path="res://.godot/imported/puglin_T_Puglin_ORM.png-b4756824d7280e15fc9f6f2cc07f6daa.ctex"
+path.s3tc="res://.godot/imported/puglin_T_Puglin_ORM.png-b4756824d7280e15fc9f6f2cc07f6daa.s3tc.ctex"
+path.etc2="res://.godot/imported/puglin_T_Puglin_ORM.png-b4756824d7280e15fc9f6f2cc07f6daa.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9605784a4978f93d07da5f64bd3070c0"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/puglin/puglin_T_Puglin_ORM.png"
-dest_files=["res://.godot/imported/puglin_T_Puglin_ORM.png-b4756824d7280e15fc9f6f2cc07f6daa.ctex"]
+dest_files=["res://.godot/imported/puglin_T_Puglin_ORM.png-b4756824d7280e15fc9f6f2cc07f6daa.s3tc.ctex", "res://.godot/imported/puglin_T_Puglin_ORM.png-b4756824d7280e15fc9f6f2cc07f6daa.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

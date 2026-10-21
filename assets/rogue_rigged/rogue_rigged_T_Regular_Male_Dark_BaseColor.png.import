@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://btwlhpjgws5q8"
-path="res://.godot/imported/rogue_rigged_T_Regular_Male_Dark_BaseColor.png-92e07e5bb0e4b2a5d837174508c56ec8.ctex"
+path.s3tc="res://.godot/imported/rogue_rigged_T_Regular_Male_Dark_BaseColor.png-92e07e5bb0e4b2a5d837174508c56ec8.s3tc.ctex"
+path.etc2="res://.godot/imported/rogue_rigged_T_Regular_Male_Dark_BaseColor.png-92e07e5bb0e4b2a5d837174508c56ec8.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "de15005e90b2e986c24c0429838f5e44"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/rogue_rigged/rogue_rigged_T_Regular_Male_Dark_BaseColor.png"
-dest_files=["res://.godot/imported/rogue_rigged_T_Regular_Male_Dark_BaseColor.png-92e07e5bb0e4b2a5d837174508c56ec8.ctex"]
+dest_files=["res://.godot/imported/rogue_rigged_T_Regular_Male_Dark_BaseColor.png-92e07e5bb0e4b2a5d837174508c56ec8.s3tc.ctex", "res://.godot/imported/rogue_rigged_T_Regular_Male_Dark_BaseColor.png-92e07e5bb0e4b2a5d837174508c56ec8.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

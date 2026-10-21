@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bhmrym7qcvgxy"
-path="res://.godot/imported/avtandil_rigged_T_Regular_Male_Normal.png-28fd10f7e8e1d8769057fd9b5d2fb531.ctex"
+path.s3tc="res://.godot/imported/avtandil_rigged_T_Regular_Male_Normal.png-28fd10f7e8e1d8769057fd9b5d2fb531.s3tc.ctex"
+path.etc2="res://.godot/imported/avtandil_rigged_T_Regular_Male_Normal.png-28fd10f7e8e1d8769057fd9b5d2fb531.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "3ca5f5abf8dcb6d5a0c76828bddd18bb"
@@ -14,17 +16,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/avtandil_rigged/avtandil_rigged_T_Regular_Male_Normal.png"
-dest_files=["res://.godot/imported/avtandil_rigged_T_Regular_Male_Normal.png-28fd10f7e8e1d8769057fd9b5d2fb531.ctex"]
+dest_files=["res://.godot/imported/avtandil_rigged_T_Regular_Male_Normal.png-28fd10f7e8e1d8769057fd9b5d2fb531.s3tc.ctex", "res://.godot/imported/avtandil_rigged_T_Regular_Male_Normal.png-28fd10f7e8e1d8769057fd9b5d2fb531.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

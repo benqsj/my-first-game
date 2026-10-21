@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://xtu30xrqeb73"
-path="res://.godot/imported/village_houses_T_RockTrim_BaseColor.png-b3e190c065be5412720961baec6c3297.ctex"
+path.s3tc="res://.godot/imported/village_houses_T_RockTrim_BaseColor.png-b3e190c065be5412720961baec6c3297.s3tc.ctex"
+path.etc2="res://.godot/imported/village_houses_T_RockTrim_BaseColor.png-b3e190c065be5412720961baec6c3297.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "7903bfd883772fb1bc898d81df1595b4"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/village/houses/village_houses_T_RockTrim_BaseColor.png"
-dest_files=["res://.godot/imported/village_houses_T_RockTrim_BaseColor.png-b3e190c065be5412720961baec6c3297.ctex"]
+dest_files=["res://.godot/imported/village_houses_T_RockTrim_BaseColor.png-b3e190c065be5412720961baec6c3297.s3tc.ctex", "res://.godot/imported/village_houses_T_RockTrim_BaseColor.png-b3e190c065be5412720961baec6c3297.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

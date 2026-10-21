@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://tnt5x43l5gcd"
-path="res://.godot/imported/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png-38d893059cecc78b20d2b287f7af404a.ctex"
+path.s3tc="res://.godot/imported/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png-38d893059cecc78b20d2b287f7af404a.s3tc.ctex"
+path.etc2="res://.godot/imported/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png-38d893059cecc78b20d2b287f7af404a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "babd0c14e42036ef94c097108eaf74b4"
@@ -14,17 +16,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/warrior/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png"
-dest_files=["res://.godot/imported/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png-38d893059cecc78b20d2b287f7af404a.ctex"]
+dest_files=["res://.godot/imported/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png-38d893059cecc78b20d2b287f7af404a.s3tc.ctex", "res://.godot/imported/warrior_wr_s2_sword_n_Sword2_Normal_OpenGL.png-38d893059cecc78b20d2b287f7af404a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

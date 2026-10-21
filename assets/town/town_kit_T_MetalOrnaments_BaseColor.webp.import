@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://crf7hm7r8m5p7"
-path="res://.godot/imported/town_kit_T_MetalOrnaments_BaseColor.webp-1133a794c066953c5471af7a0d916aed.ctex"
+path.s3tc="res://.godot/imported/town_kit_T_MetalOrnaments_BaseColor.webp-1133a794c066953c5471af7a0d916aed.s3tc.ctex"
+path.etc2="res://.godot/imported/town_kit_T_MetalOrnaments_BaseColor.webp-1133a794c066953c5471af7a0d916aed.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e6d70036a2e2fc4dd12935b889385c0c"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/town/town_kit_T_MetalOrnaments_BaseColor.webp"
-dest_files=["res://.godot/imported/town_kit_T_MetalOrnaments_BaseColor.webp-1133a794c066953c5471af7a0d916aed.ctex"]
+dest_files=["res://.godot/imported/town_kit_T_MetalOrnaments_BaseColor.webp-1133a794c066953c5471af7a0d916aed.s3tc.ctex", "res://.godot/imported/town_kit_T_MetalOrnaments_BaseColor.webp-1133a794c066953c5471af7a0d916aed.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
