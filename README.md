@@ -11269,3 +11269,19 @@ portal or the way out asks the host. No totems goal with others yet.
 [SceneLoader] goes on to a place asked for while it was still loading.
 Checked with two headless games on one machine (`_shots_tmp/coop.gd`):
 hall → swamp, the same portals, the dead the same.
+
+## Xcode project and TestFlight (xcode/)
+
+`xcode/Vepxis.xcodeproj` wraps the Godot game as a real macOS app target so
+Xcode signs it, archives it and uploads it to App Store Connect / TestFlight.
+There is no source code in the target: the build phase `xcode/godot_embed.sh`
+puts the Godot export template (debug for Debug, release for Release/Archive)
+in `Contents/MacOS/Vepxis` and the game pack (`--export-pack "macOS"`, cached
+in `xcode/build/Vepxis.pck`) in `Contents/Resources/Vepxis.pck`. Archive always
+re-exports the pack and stamps the build number as `yymmdd.HHMM`. A plain build
+reuses the cached pack unless `VEPXIS_EXPORT=always` is set.
+Sandbox entitlements: app-sandbox, network.client (relay), network.server (LAN
+host). Hardened runtime on. `ITSAppUsesNonExemptEncryption = false`.
+Bundle id `com.benqsj.vepxis`, version in the target's MARKETING_VERSION.
+Icon: `Vepxis/Assets.xcassets/AppIcon` (from icon.svg). Save data lives in
+`~/Library/Containers/com.benqsj.vepxis/` when sandboxed.
