@@ -4216,7 +4216,8 @@ func _crag_under(room: Node3D, w: float, l: float, depth: float, top: float = -1
 
 
 ## A rock of `size` (x, y, z metres) at `at`, turned `yaw`, in `mat`.
-func _boulder(room: Node3D, at: Vector3, size: Vector3, yaw: float, mat: Material, shadow: bool = true) -> MeshInstance3D:
+func _boulder(room: Node3D, at: Vector3, size: Vector3, yaw: float, mat: Material, shadow: bool = true,
+		solid: bool = true) -> MeshInstance3D:
 	var crag := MeshInstance3D.new()
 	crag.mesh = RockWave._crag_mesh(_rng.randi_range(0, RockWave.SHAPES - 1))
 	var box := crag.mesh.get_aabb()
@@ -4227,7 +4228,39 @@ func _boulder(room: Node3D, at: Vector3, size: Vector3, yaw: float, mat: Materia
 	if not shadow:
 		crag.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	room.add_child(crag)
+	if solid:
+		_rock_body(crag)
 	return crag
+
+
+## A rock one cannot walk into (the user's word, 2026-10-22: the heroes went
+## through the rocks): its hull, made at its own size — the body under the
+## stretched rock undoes the stretch, and the hull's points take it instead,
+## so it is never scaled unevenly. It goes on turning with the rock (a rock
+## hung upside down, tipped).
+func _rock_body(crag: MeshInstance3D) -> void:
+	var hull: ConvexPolygonShape3D = _hulls.get(crag.mesh) as ConvexPolygonShape3D
+	if hull == null:
+		hull = crag.mesh.create_convex_shape(true, true) as ConvexPolygonShape3D
+		_hulls[crag.mesh] = hull
+	if hull == null:
+		return
+	var pts := PackedVector3Array()
+	for p in hull.points:
+		pts.append(p * crag.scale)
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = pts
+	var body := StaticBody3D.new()
+	body.name = "Solid"
+	body.scale = Vector3(1.0 / crag.scale.x, 1.0 / crag.scale.y, 1.0 / crag.scale.z)
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	body.add_child(col)
+	crag.add_child(body)
+
+
+## Each rock shape's hull, made once.
+var _hulls: Dictionary = {}
 
 
 ## A rock turned upside down under something, its top at `top` (its own
@@ -4680,10 +4713,47 @@ func _nature(room: Node3D, name: String, at: Vector3, scale: float, yaw: float, 
 	room.add_child(n)
 	if bare:
 		_strip_leaves(n)
+	_solid_nature(n, name)
 	if not shadow:
 		for m in n.find_children("*", "GeometryInstance3D", true, false):
 			(m as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n
+
+
+## Trees and rocks of the kit stand in the way (the user's word, 2026-10-22:
+## the heroes walked through them): a trunk for a tree, its hull for a rock,
+## in the model's own frame (the node is scaled evenly).
+func _solid_nature(n: Node3D, name: String) -> void:
+	var holder: Node3D = n
+	var shape: Shape3D = null
+	var at := Vector3.ZERO
+	if name.contains("Tree"):
+		var trunk := CylinderShape3D.new()
+		trunk.radius = 0.45
+		trunk.height = 6.0
+		shape = trunk
+		at = Vector3(0.0, 3.0, 0.0)
+	elif name.begins_with("Rock_"):
+		var meshes := n.find_children("*", "MeshInstance3D", true, false)
+		if meshes.is_empty():
+			return
+		var mesh := meshes[0] as MeshInstance3D
+		var hull: ConvexPolygonShape3D = _hulls.get(mesh.mesh) as ConvexPolygonShape3D
+		if hull == null:
+			hull = mesh.mesh.create_convex_shape(true, true) as ConvexPolygonShape3D
+			_hulls[mesh.mesh] = hull
+		shape = hull
+		# in the mesh's own frame, whatever the model's nodes do to it
+		holder = mesh
+	if shape == null:
+		return
+	var body := StaticBody3D.new()
+	body.name = "Solid"
+	var col := CollisionShape3D.new()
+	col.shape = shape
+	col.position = at
+	body.add_child(col)
+	holder.add_child(body)
 
 
 ## A tree of the kit with its leaves taken off (the dead wood's).
@@ -4764,7 +4834,7 @@ func _build_sky(room: Node3D, i: int) -> void:
 	for k in 5:
 		var rock := _boulder(room, Vector3(_rng.randf_range(-6.0, 6.0), 0.0, _rng.randf_range(-8.0, 8.0)),
 				Vector3(w * (1.15 - float(k) * 0.18), 30.0 + float(k) * 12.0, l * (1.15 - float(k) * 0.18)),
-				_rng.randf_range(0.0, TAU), _rock_mat, false)
+				_rng.randf_range(0.0, TAU), _rock_mat, false, false)
 		_hang(rock, -1.0 - float(k) * 6.0)
 	# grass over the rock's rim, round the floor
 	var lawn := ShaderMaterial.new()
@@ -4819,7 +4889,7 @@ func _build_sky(room: Node3D, i: int) -> void:
 		top.position = at
 		top.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		room.add_child(top)
-		var under := _boulder(room, at, Vector3(size * 0.95, size * 1.3, size * 0.95), _rng.randf_range(0.0, TAU), _rock_mat, false)
+		var under := _boulder(room, at, Vector3(size * 0.95, size * 1.3, size * 0.95), _rng.randf_range(0.0, TAU), _rock_mat, false, false)
 		_hang(under, at.y - 0.4)
 		_nature(room, _a_green_tree(), at + Vector3(0.0, 0.6, 0.0), size * 0.12, _rng.randf_range(0.0, TAU), false)
 		for g in 4:

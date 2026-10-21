@@ -186,7 +186,8 @@ static func cave(d: Dungeon, room: Node3D, i: int) -> void:
 			var at := Vector3((float(gx) - 1.0) * w * 0.36, h + 1.0, (float(gz) - 1.0) * l * 0.36)
 			if absf(at.x - gap.x) < w * 0.2 and absf(at.z - gap.z) < l * 0.2:
 				continue
-			var slab := d._boulder(room, at, Vector3(w * 0.45, 9.0, l * 0.45), rng.randf_range(0.0, TAU), d._cave_mat)
+			var slab := d._boulder(room, at, Vector3(w * 0.45, 9.0, l * 0.45), rng.randf_range(0.0, TAU), d._cave_mat,
+					true, false)
 			d._hang(slab, h + 9.0)
 	var beam := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
