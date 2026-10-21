@@ -171,6 +171,11 @@ func enter(i: int) -> bool:
 		_prompt.text = "%s — ეს დანჯენი ჯერ მზად არ არის" % d["name"]
 		_note_until = Time.get_ticks_msec() / 1000.0 + 2.0
 		return false
+	# with others, all of them go in together ([method Net.travel])
+	var net := get_node_or_null("/root/Net")
+	if net != null:
+		net.call("travel", DUNGEON, {"dungeon_id": i, "portal_return": i})
+		return true
 	var game := get_node_or_null("/root/Game")
 	if game != null:
 		game.set(&"dungeon_id", i)

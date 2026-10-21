@@ -90,6 +90,7 @@ func _process(delta: float) -> void:
 ## announce it to yet.
 func host(character: StringName) -> bool:
 	leave()
+	_together_in_hub()
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(PORT, MAX_PLAYERS)
 	if err != OK:
@@ -113,6 +114,7 @@ func host(character: StringName) -> bool:
 ## handshake has nothing to be in the world *with*.
 func join(address: String, character: StringName) -> bool:
 	leave()
+	_together_in_hub()
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(address.strip_edges(), PORT)
 	if err != OK:
@@ -327,6 +329,79 @@ func _listen() -> void:
 			changed = true
 	if changed:
 		games_changed.emit()
+#endregion
+
+
+#region Going somewhere together
+## A game with others is played as the solo one is now: the open world is the
+## hub of the five gates ([member Game.peaceful]).
+func _together_in_hub() -> void:
+	_set_game({"peaceful": true, "story_pending": false, "portal_return": -1, "dungeon_id": -1})
+
+
+
+## Host: everyone to `path` at once — a gate into a dungeon, the way back out
+## (the user's word, 2026-10-21: to play the portals together). `settings` are
+## [Game]'s fields to set on every peer first (`dungeon_id`, `portal_return`).
+## Offline: just this one. A client asks the host ([method ask_travel]).
+func travel(path: String, settings: Dictionary = {}) -> void:
+	if not is_online():
+		_set_game(settings)
+		SceneLoader.go(get_tree(), path)
+		return
+	if not multiplayer.is_server():
+		ask_travel.rpc_id(1, path, settings)
+		return
+	# nobody is in the new place till they say so
+	_in_world = {1: true}
+	net_travel.rpc(path, settings)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func ask_travel(path: String, settings: Dictionary) -> void:
+	if multiplayer.is_server():
+		travel(path, settings)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_travel(path: String, settings: Dictionary) -> void:
+	_set_game(settings)
+	if not multiplayer.is_server():
+		# say who we are again once the new place is up: the host gives us a
+		# body there ([method entered_world])
+		_announce_as = roster.get(multiplayer.get_unique_id(), _fallback_character()) as StringName
+	SceneLoader.go(get_tree(), path)
+
+
+func _set_game(settings: Dictionary) -> void:
+	var game := get_node_or_null("/root/Game")
+	if game == null:
+		return
+	for key: String in settings:
+		game.set(StringName(key), settings[key])
+
+
+func _fallback_character() -> StringName:
+	var game := get_node_or_null("/root/Game")
+	return game.call("character") if game != null else &"tariel"
+
+
+## Host: whether every peer of the roster has come into the place.
+func everyone_in() -> bool:
+	if not is_online():
+		return true
+	for peer: int in roster:
+		if not _in_world.has(peer):
+			return false
+	return true
+
+
+## The order of the peers (the host first): where each stands at a door.
+func slot_of(peer: int) -> int:
+	var ids: Array = roster.keys()
+	ids.sort()
+	var at := ids.find(peer)
+	return maxi(at, 0)
 #endregion
 
 

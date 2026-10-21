@@ -273,6 +273,11 @@ var _curse_next: bool = false
 var _curse_mat: ShaderMaterial
 var _treasure: TreasureGoblin
 var _lore_put: bool = false
+## The host's throws for the place being gone into ([method take]).
+var _arrival_plan: Dictionary = {}
+## What the portals being made ready lead to ([method _prepare_offer]).
+var _ready_specs: Array = []
+var _asked_at: float = -10.0
 var _sun: DirectionalLight3D
 var _sun_yaw: float = 0.0
 var _env: Environment
@@ -703,6 +708,105 @@ func _curse(body: Node3D) -> void:
 	FoeRoles._overlay(body, _curse_mat)
 
 
+#region Together (the user's word, 2026-10-21: the portals in co-op)
+## The host runs the place — wakes it, clears it, opens its rift, picks what
+## its portals lead to and its blessings — and tells the others, whose games
+## do the same on their side ([method net_wake], [method net_clear],
+## [method net_take], [method net_rift], [method net_wave], [method net_lay],
+## [method net_boon]). The creatures are the host's, made with the same names
+## everywhere so their bodies are sent across. Each game puts rewards and
+## blessings on its own hero only ([method mine]).
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
+func online() -> bool:
+	var n := _net()
+	return n != null and bool(n.call("is_online"))
+
+
+## Whether this game runs the place (the host, or alone).
+func decides() -> bool:
+	var n := _net()
+	return n == null or bool(n.call("is_host"))
+
+
+## Whether `hero` is this game's own.
+func mine(hero: Node) -> bool:
+	return not online() or hero.is_multiplayer_authority()
+
+
+func _slot_of(hero: Node, fallback: int) -> int:
+	var n := _net()
+	if n == null or not online():
+		return fallback
+	return int(n.call("slot_of", hero.get_multiplayer_authority()))
+
+
+## A client's part: its own hero walking into a portal or the way out asks
+## the host.
+func _as_client(heroes: Array[Player]) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _asked_at < 0.6:
+		return
+	for hero in heroes:
+		if not mine(hero) or hero.is_dead:
+			continue
+		for k in choices.size():
+			var gap := hero.global_position - choices[k].global_position
+			if Vector2(gap.x, gap.z).length() < 1.8 and absf(gap.y) < 3.0:
+				_asked_at = now
+				ask_take.rpc_id(1, k)
+				return
+		if _exit != null:
+			var out := hero.global_position - _exit.global_position
+			out.y = 0.0
+			if out.length() < 2.2:
+				_asked_at = now
+				leave()
+				return
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_wake(i: int) -> void:
+	if i == current and not _woken:
+		_wake(i)
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_rift() -> void:
+	if _rift_at < 0.0:
+		_open_rift()
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_wave() -> void:
+	if not _rift_out:
+		_next_wave()
+
+
+## Host: blessings' lights laid at `at` — the same ones in every game.
+func lay_lights(at: Vector3) -> void:
+	var ids := boons.offer(boons.lights)
+	boons.lay(at, self, ids)
+	if online():
+		net_lay.rpc(at, ids)
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_lay(at: Vector3, ids: Array) -> void:
+	var list: Array[StringName] = []
+	for one: Variant in ids:
+		list.append(StringName(one))
+	boons.lay(at, self, list)
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_boon(id: StringName, where: Vector3) -> void:
+	boons.take(id, where)
+#endregion
+
+
 ## Seconds since the run's first place woke.
 func run_seconds() -> float:
 	return Time.get_ticks_msec() / 1000.0 - _run_start if _run_start >= 0.0 else 0.0
@@ -724,9 +828,9 @@ func _priest_gift() -> void:
 		await get_tree().process_frame
 	for k in 20:
 		await get_tree().process_frame
-	if current != 0 or boons == null:
+	if current != 0 or boons == null or not decides():
 		return
-	boons.lay(centre(0) + Vector3(0.0, 0.0, float(_room(0)["l"]) * 0.5 - 14.0), self)
+	lay_lights(centre(0) + Vector3(0.0, 0.0, float(_room(0)["l"]) * 0.5 - 14.0))
 	_say("მღვდლის კურთხევა — აირჩიე", 3.5)
 
 
@@ -1010,7 +1114,7 @@ func _spawn_room(i: int) -> void:
 		for body in mine:
 			_curse(body)
 	# a piece of the palace's story, once a run, in the second or third place
-	if not _lore_put and not _viewing and (i == 2 or (i == 1 and _rng.randf() < 0.5)) \
+	if not _lore_put and not _viewing and (i == 2 or (i == 1 and bool(_arrival_plan.get("lore", _rng.randf() < 0.5)))) \
 			and i < _room_nodes.size() and is_instance_valid(_room_nodes[i]):
 		_lore_put = true
 		LoreStone.put(_room_nodes[i], c + Vector3(w * 0.5 - 3.0, 0.0, l * 0.32), -PI * 0.5)
@@ -1018,7 +1122,8 @@ func _spawn_room(i: int) -> void:
 	if is_instance_valid(_treasure) and is_instance_valid(_treasure.body):
 		_treasure.body.queue_free()
 	_treasure = null
-	if i < steps.size() - 1 and not mine.is_empty() and not _viewing and _rng.randf() < TreasureGoblin.CHANCE:
+	if i < steps.size() - 1 and not mine.is_empty() and not _viewing \
+			and bool(_arrival_plan.get("treasure", _rng.randf() < TreasureGoblin.CHANCE)):
 		_treasure = TreasureGoblin.make(self, i)
 	# the lord's court: his fight's own doings, his guard made now
 	if is_instance_valid(_lord_fight):
@@ -1178,6 +1283,8 @@ func _open_rift() -> void:
 		for k in 3:
 			get_tree().create_timer(RIFT_GROW * float(k) / 3.0).timeout.connect(_rift_burst)
 	_rift_at = Time.get_ticks_msec() / 1000.0 + RIFT_TIME
+	if decides() and online():
+		net_rift.rpc()
 	Sfx.play(self, SND + "portal_open.wav", null, _rift.position + Vector3.UP * 2.0, 0.8, 4.0)
 	_say("ტალღა %d / %d" % [wave + 1, waves], 2.5)
 
@@ -1203,6 +1310,8 @@ func _make_rift(c: Vector3, l: float) -> PortalLook:
 ## The rest of them out of the rift, one after another, at him; the rift
 ## closing after them.
 func _next_wave() -> void:
+	if decides() and online():
+		net_wave.rpc()
 	_rift_out = true
 	wave += 1
 	var l: float = _room(current)["l"]
@@ -1279,6 +1388,8 @@ func _wake(i: int) -> void:
 		_goal.start()
 	if is_instance_valid(_treasure):
 		get_tree().create_timer(2.5).timeout.connect(_treasure.release)
+	if decides() and online():
+		net_wake.rpc(i)
 	if _spawned == 0:
 		_clear(i)
 
@@ -1296,17 +1407,42 @@ func _nearest_hero(to: Vector3) -> Player:
 	return best
 
 
+## The place cleared — decided by the host, which tells the others what comes
+## of it ([method net_clear]): the next portals, the cursed place's extra gift.
 func _clear(i: int) -> void:
+	if cleared[i] or not decides():
+		return
+	var plan := {}
+	var r := _room(i)
+	if bool(r.get("cursed", false)) and String(r.get("reward", "")) == "boon":
+		var others: Array = REWARDS.keys()
+		others.erase("boon")
+		plan["extra"] = String(others[_rng.randi() % others.size()])
+	if i < steps.size() - 1:
+		plan["specs"] = _ready_specs if not _ready_specs.is_empty() else _choice_specs(i + 1)
+	_ready_specs = []
+	_apply_clear(i, plan)
+	if online():
+		net_clear.rpc(i, plan)
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_clear(i: int, plan: Dictionary) -> void:
+	if i == current and not cleared[i]:
+		_apply_clear(i, plan)
+
+
+func _apply_clear(i: int, plan: Dictionary) -> void:
 	if cleared[i]:
 		return
 	cleared[i] = true
 	room_cleared.emit(i)
 	var r := _room(i)
 	# What clearing it is worth on top of its creatures, and the level it
-	# brings him to at least.
+	# brings him to at least (the host's to give: [Leveling]).
 	for hero in _heroes():
 		var book := hero.get_node_or_null("Leveling") as Leveling
-		if book == null or hero.is_dead:
+		if book == null or hero.is_dead or not decides():
 			continue
 		var bonus := float(r.get("xp", 0.0))
 		if bonus > 0.0:
@@ -1316,7 +1452,7 @@ func _clear(i: int) -> void:
 	# The fallen get up when the place is clear (the user's word: in a band,
 	# the dead wait for the others to clear the room).
 	for hero in _heroes():
-		if hero.is_dead and hero.has_method("_respawn"):
+		if hero.is_dead and hero.has_method("_respawn") and mine(hero):
 			var at := hero.global_position
 			hero.call("_respawn")
 			hero.global_position = at
@@ -1326,9 +1462,7 @@ func _clear(i: int) -> void:
 			# its reward twice over: a blessing with one light more and a
 			# gift besides, or the gift twice
 			if what == "boon":
-				var others: Array = REWARDS.keys()
-				others.erase("boon")
-				_give(String(others[_rng.randi() % others.size()]))
+				_give(String(plan.get("extra", "gold")))
 				boons.lights += 1
 				_give(what)
 				boons.lights -= 1
@@ -1338,7 +1472,7 @@ func _clear(i: int) -> void:
 		else:
 			_give(what)
 	if i < steps.size() - 1:
-		_offer(i + 1)
+		_offer(i + 1, plan.get("specs", []))
 	else:
 		_close()
 
@@ -1347,12 +1481,15 @@ func _clear(i: int) -> void:
 func _give(what: String) -> void:
 	rewards_given.append(what)
 	if what == "boon":
-		# three lights in the middle of the place: he walks into the one he wants
-		boons.lay(centre(current) + Vector3(0.0, 0.0, float(_room(current)["l"]) * 0.2), self)
+		# three lights in the middle of the place: he walks into the one he
+		# wants (laid by the host, the same for everyone: [method net_lay])
+		if decides():
+			lay_lights(centre(current) + Vector3(0.0, 0.0, float(_room(current)["l"]) * 0.2))
 		_say("აირჩიე კურთხევა", 3.0)
 		return
 	for hero in _heroes():
-		if hero.is_dead:
+		# each his own: a reward is put on him by his own game
+		if hero.is_dead or not mine(hero):
 			continue
 		match what:
 			"life":
@@ -1379,7 +1516,7 @@ func _give(what: String) -> void:
 
 ## The portals out of the place just cleared, to step `next`: two, each to a
 ## place of its own with a reward of its own (one, to the lord).
-func _offer(next: int) -> void:
+func _offer(next: int, specs: Array = []) -> void:
 	var made := _ready_choices
 	_ready_choices = []
 	var gates: Array[PortalLook] = []
@@ -1387,7 +1524,7 @@ func _offer(next: int) -> void:
 		if is_instance_valid(gate):
 			gates.append(gate)
 	if gates.is_empty():
-		gates = _make_choices(next)
+		gates = _gates_from(specs, next) if not specs.is_empty() else _make_choices(next)
 	for gate in gates:
 		gate.visible = true
 		gate.process_mode = Node.PROCESS_MODE_INHERIT
@@ -1411,7 +1548,10 @@ func _prepare_offer(next: int) -> void:
 			_exit_ready.visible = false
 			_exit_ready.process_mode = Node.PROCESS_MODE_DISABLED
 		return
-	_ready_choices = _make_choices(next)
+	if not decides():
+		return
+	_ready_specs = _choice_specs(next)
+	_ready_choices = _gates_from(_ready_specs, next)
 	for gate in _ready_choices:
 		gate.visible = false
 		# out of the physics as well: its stones do not stand in his way
@@ -1421,12 +1561,18 @@ func _prepare_offer(next: int) -> void:
 ## Two portals to step `next` (one, to the lord), each to a place of its own
 ## with a reward of its own, at the far end of the place he is in.
 func _make_choices(next: int) -> Array[PortalLook]:
-	var out: Array[PortalLook] = []
+	return _gates_from(_choice_specs(next), next)
+
+
+## What the two portals to step `next` lead to — decided by the host alone and
+## sent to the others ([method net_clear]): place, reward, goal, cursed.
+func _choice_specs(next: int) -> Array:
+	var out: Array = []
 	var pool: Array = (steps[next]["places"] as Array).duplicate()
 	var here := String(_room(current)["place"])
 	if pool.size() > 2:
 		pool.erase(here)
-	pool.shuffle()
+	_shuffle(pool)
 	# before the orcs, now and then, a place to get one's breath back behind
 	# one of the two (the user's word, 2026-10-21): the spring when he is hurt
 	# — oftener, and oftener the prisoners, while the village wants its three
@@ -1444,11 +1590,10 @@ func _make_choices(next: int) -> Array[PortalLook]:
 	# 2026-10-21: the reward should change how he fights); never two
 	var gifts: Array = REWARDS.keys()
 	gifts.erase("boon")
-	gifts.shuffle()
+	_shuffle(gifts)
 	if _rng.randf() < 0.75 and not boons.offer(1).is_empty():
 		gifts.insert(_rng.randi_range(0, 1), "boon")
 	var last := next == steps.size() - 1
-	var l: float = _room(current)["l"]
 	var cursed_one := -1
 	if not last and next >= 1 and _rng.randf() < CURSE_CHANCE:
 		cursed_one = _rng.randi_range(0, take - 1)
@@ -1456,6 +1601,34 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		var place := String(pool[k])
 		var rest: bool = (PLACES[place] as Dictionary).has("rest")
 		var reward := "" if last or rest else String(gifts[k])
+		var goal := "" if rest else RoomGoal.pick(_rng, next, steps.size() - 1)
+		# with others, no totems: who broke one is not told to the rest yet
+		if goal == "totems" and online():
+			goal = ""
+		out.append({"place": place, "reward": reward, "goal": goal, "cursed": k == cursed_one and reward != ""})
+	return out
+
+
+## Shuffled by the dungeon's own dice (not the engine's, which no one else shares).
+func _shuffle(list: Array) -> void:
+	for k in range(list.size() - 1, 0, -1):
+		var j := _rng.randi_range(0, k)
+		var t: Variant = list[k]
+		list[k] = list[j]
+		list[j] = t
+
+
+## The portals themselves, from what they lead to ([method _choice_specs]).
+func _gates_from(specs: Array, _next: int) -> Array[PortalLook]:
+	var out: Array[PortalLook] = []
+	var l: float = _room(current)["l"]
+	var take := specs.size()
+	for k in take:
+		var spec: Dictionary = specs[k]
+		var place := String(spec["place"])
+		var rest: bool = (PLACES[place] as Dictionary).has("rest")
+		var reward := String(spec["reward"])
+		var goal := String(spec["goal"])
 		var gate := PortalLook.new()
 		gate.name = "Choice%d" % k
 		if reward != "":
@@ -1470,11 +1643,10 @@ func _make_choices(next: int) -> Array[PortalLook]:
 		gate.position = centre(current) + Vector3(side * 9.0, 0.0, -l * 0.5 + 10.0)
 		gate.set_meta(&"place", place)
 		gate.set_meta(&"reward", reward)
-		var goal := "" if rest else RoomGoal.pick(_rng, next, steps.size() - 1)
 		gate.set_meta(&"goal", goal)
 		# now and then one is cursed (the user's word, 2026-10-21: a risk worth
 		# taking): its creatures stronger, its reward twice
-		if k == cursed_one and reward != "":
+		if bool(spec.get("cursed", false)):
 			gate.set_meta(&"cursed", true)
 			gate.tint = Color(0.6, 0.04, 0.08)
 		add_child(gate)
@@ -1532,9 +1704,32 @@ func _make_choices(next: int) -> Array[PortalLook]:
 ## Through portal `k`: the screen goes dark, the next place is built behind
 ## the dark and the heroes are put in it, the dark lifts.
 func take(k: int) -> void:
+	if _going or k < 0 or k >= choices.size() or not decides():
+		return
+	# what the place behind it holds that is left to chance, the host's throw
+	var plan := {"treasure": _rng.randf() < TreasureGoblin.CHANCE, "lore": _rng.randf() < 0.5}
+	if online():
+		net_take.rpc(k, plan)
+	_go_through(k, plan)
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_take(k: int, plan: Dictionary) -> void:
+	_go_through(k, plan)
+
+
+## A client walked into portal `k`: the host takes everyone through.
+@rpc("any_peer", "call_remote", "reliable")
+func ask_take(k: int) -> void:
+	if decides():
+		take(k)
+
+
+func _go_through(k: int, plan: Dictionary) -> void:
 	if _going or k < 0 or k >= choices.size():
 		return
 	_going = true
+	_arrival_plan = plan
 	var gate := choices[k]
 	var place := String(gate.get_meta(&"place"))
 	var reward := String(gate.get_meta(&"reward"))
@@ -1550,10 +1745,13 @@ func take(k: int) -> void:
 	choices.clear()
 	_take_down(current)
 	_arrive_at(next, place, reward, false, goal)
+	_arrival_plan = {}
 	var slot := 0
 	for hero in _heroes():
-		hero.global_position = entry_point(slot, next)
-		hero.velocity = Vector3.ZERO
+		# each game puts its own hero at the door, at his own place in the line
+		if mine(hero):
+			hero.global_position = entry_point(_slot_of(hero, slot), next)
+			hero.velocity = Vector3.ZERO
 		slot += 1
 	_to_phase(float(next), 0.05)
 	# behind the dark till the new place draws smoothly: whatever it shows
@@ -1986,6 +2184,10 @@ func _second_breath(hero: Player) -> void:
 
 ## Back to the open world, by the gate this dungeon is behind.
 func leave() -> void:
+	# with others: everyone goes back together, when the host says
+	if online():
+		_net().call("travel", Portals.WORLD, {"portal_return": id, "dungeon_id": -1})
+		return
 	set_process(false)
 	var game := get_node_or_null("/root/Game")
 	if game != null:
@@ -2028,8 +2230,14 @@ func _process(delta: float) -> void:
 		return
 	if _going:
 		return
-	# The place wakes a moment after he comes (the first, when he is in it).
-	if not _woken and current >= 0:
+	if not decides():
+		_as_client(heroes)
+		_now_and_then(delta, heroes)
+		_fly_birds(delta)
+		return
+	# The place wakes a moment after he comes (the first, when he is in it) —
+	# with others, once all of them have come into the dungeon.
+	if not _woken and current >= 0 and bool(_net().call("everyone_in") if _net() != null else true):
 		if _wake_at < 0.0:
 			for hero in heroes:
 				if not hero.is_dead and room_at(hero.global_position) == current:

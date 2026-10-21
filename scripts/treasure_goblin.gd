@@ -123,6 +123,9 @@ func _on_caught() -> void:
 	if world != null:
 		SkillFx.burst(world, at + Vector3.UP, Color(1.0, 0.82, 0.25), 120, Vector2(3.0, 9.0), Vector3.UP, 170.0,
 				Vector2(0.06, 0.16), Vector3(0, -6.0, 0), 1.3)
+	if not _d.decides():
+		_d._say("ოქრო! %s დაიჭირე" % NAME, 3.0)
+		return
 	var bank := CoinBank.of(_d)
 	if bank != null:
 		bank.drop(at, GOLD)

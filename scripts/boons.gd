@@ -132,9 +132,9 @@ func duo_ready(id: StringName) -> bool:
 
 #region Taking them
 ## The lights of three blessings round `at` (a place just cleared).
-func lay(at: Vector3, into: Node3D) -> void:
+func lay(at: Vector3, into: Node3D, chosen: Array[StringName] = []) -> void:
 	clear_lights()
-	var ids := offer(lights)
+	var ids := chosen if not chosen.is_empty() else offer(lights)
 	var n := ids.size()
 	var placed: Array[Vector3] = []
 	for k in n:
@@ -248,7 +248,8 @@ func _light(id: StringName, at: Vector3, into: Node3D) -> Node3D:
 
 ## He walks into a light: that blessing is his, the others go out.
 func _process(_delta: float) -> void:
-	if _dungeon != null and not _lights.is_empty():
+	# (the host's to decide which he walked into, with others: [method Dungeon.net_boon])
+	if _dungeon != null and not _lights.is_empty() and _dungeon.decides():
 		for hero in _dungeon._heroes():
 			if hero.is_dead:
 				continue
@@ -264,6 +265,8 @@ func _process(_delta: float) -> void:
 	# fury: what he deals rises as his health falls
 	if has(&"fury") and _dungeon != null:
 		for hero in _dungeon._heroes():
+			if not _dungeon.mine(hero):
+				continue
 			var left := clampf(hero.health / maxf(hero.max_health, 1.0), 0.0, 1.0)
 			hero.dealt_scale = float(hero.get_meta(&"dealt_base", 1.0)) \
 					* (1.0 + FURY_MOST * clampf((1.0 - left) / 0.85, 0.0, 1.0))
@@ -276,9 +279,13 @@ func take(id: StringName, where: Vector3 = Vector3.INF) -> void:
 	taken.append(id)
 	var tint: Color = ALL[id]["tint"]
 	clear_lights()
+	if _dungeon != null and _dungeon.decides() and _dungeon.online():
+		_dungeon.net_boon.rpc(id, where)
 	if _dungeon != null:
 		for hero in _dungeon._heroes():
-			_put_on(hero, id)
+			# each game puts it on its own hero
+			if _dungeon.mine(hero):
+				_put_on(hero, id)
 		_dungeon._say("კურთხევა: %s" % String(ALL[id]["name"]), 3.0)
 		var world := Blood.world_of(_dungeon)
 		if world != null and where != Vector3.INF:
@@ -323,6 +330,8 @@ func watch_hero(hero: Player) -> void:
 		return
 	hero.set_meta(&"boons_watched", true)
 	hero.dodge_started.connect(_on_dodge.bind(hero))
+	if _dungeon != null and not _dungeon.mine(hero):
+		return
 	for id in taken:
 		_put_on(hero, id)
 

@@ -11253,3 +11253,19 @@ Round 16 (2026-10-21, the user's word after playing):
   "NEW WORLD (V5)" out of the menu; in the hub ([method World._hub_bounds])
   rock cliffs round the village and the gates (`HUB_MIN`/`HUB_MAX`), walls
   behind them, ground out to the far mountains.
+
+The portals in co-op (2026-10-21; the user's word: to test playing
+together): a game hosted or joined is the hub of the five gates
+(`Net._together_in_hub`). A gate taken by anyone takes everyone
+([method Net.travel]: the host sends all to the scene, each says who he is
+again there and is given a body); the way out and "rise in the village" the
+same. In the dungeon the host runs the place and tells the others
+([Dungeon] `net_wake`, `net_clear` with what the portals lead to, `net_take`
+with its throws for the treasure and the stone, `net_rift`, `net_wave`,
+`net_lay`, `net_boon`); creatures are made with the same names in every
+game so their bodies are sent across; rewards and blessings are put by each
+game on its own hero ([method Dungeon.mine]); a client walking into a
+portal or the way out asks the host. No totems goal with others yet.
+[SceneLoader] goes on to a place asked for while it was still loading.
+Checked with two headless games on one machine (`_shots_tmp/coop.gd`):
+hall → swamp, the same portals, the dead the same.

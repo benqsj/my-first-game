@@ -23,6 +23,8 @@ const SETTLE_MAX := 900
 enum Step { SHOW, LOADING, SWAPPED, DONE }
 
 var _path: String = ""
+## Where to go once this load is done (asked for while it was under way).
+var _then: String = ""
 var _step: Step = Step.SHOW
 var _shown: int = 0
 var _waited: int = 0
@@ -37,6 +39,10 @@ static func go(tree: SceneTree, path: String) -> void:
 	# not a second load.
 	for child in tree.root.get_children():
 		if child is SceneLoader:
+			# with others, the host may send everyone on while this one is
+			# still settling: it goes there next, once this is done
+			if (child as SceneLoader)._path != path:
+				(child as SceneLoader)._then = path
 			return
 	var screen := SceneLoader.new()
 	screen._path = path
@@ -119,6 +125,8 @@ func _process(_delta: float) -> void:
 			if (settled and _waited > 2) or _waited > SETTLE_MAX:
 				_step = Step.DONE
 				queue_free()
+				if _then != "":
+					SceneLoader.go.call_deferred(get_tree(), _then)
 
 
 func _set_progress(share: float) -> void:
