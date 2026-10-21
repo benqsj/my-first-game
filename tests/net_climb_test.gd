@@ -4,7 +4,8 @@ extends SceneTree
 ## player did not see the wall climb): a body this peer does not own takes the
 ## climbing pose when its replicated state says it is on a wall, moves its
 ## limbs to its replicated velocity, and lets go when the state does; a
-## pull-up is played the same way. And no wall is climbed in a portal's rooms.
+## pull-up is played the same way. No wall is climbed in a portal's rooms, and
+## the heroes do not walk through one another.
 ##
 ##     godot --headless --path . --script res://tests/net_climb_test.gd
 
@@ -35,6 +36,14 @@ func _initialize() -> void:
 	other.velocity = Vector3.ZERO
 	await _wait(40)
 	_check("let go by his state", not rig.is_wall_climbing())
+	# the heroes stand in each other's way
+	var hero0 := world.player()
+	other.global_position = hero0.global_position + Vector3(2.0, 0.0, 0.0)
+	await _wait(3)
+	var hit := hero0.move_and_collide(Vector3(3.0, 0.0, 0.0), true)
+	_check("one hero does not walk through another", hit != null and hit.get_collider() == other,
+			str(hit.get_collider()) if hit != null else "nothing hit")
+	_check("but none climbs onto another", hero0._climb_mask() & Player.HERO_LAYER == 0)
 	# and the portal's rooms: nothing to climb
 	var hero := world.player()
 	_check("walls are climbed out here", not hero._in_dungeon())

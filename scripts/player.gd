@@ -2179,7 +2179,13 @@ func _stand_up() -> bool:
 ## not a creature (no pulling up onto an orc's shoulders, nor a wall made of a
 ## troll; the user's word, 2026-10-06).
 func _climb_mask() -> int:
-	return collision_mask & ~ENEMY_LAYER
+	return collision_mask & ~ENEMY_LAYER & ~HERO_LAYER
+
+
+## The heroes' own layer (2): they stand in each other's way (the user's
+## word, 2026-10-22: the players must not pass through each other), but no
+## one climbs onto another or stands on his head.
+const HERO_LAYER := 2
 
 
 ## The physics layer every creature's body is on (4: the third).
@@ -2194,7 +2200,8 @@ func _slip_off_creatures() -> void:
 	for i in get_slide_collision_count():
 		var hit := get_slide_collision(i)
 		var who := hit.get_collider() as Node3D
-		if who == null or not who.is_in_group("enemy") or hit.get_normal().dot(up_direction) < 0.3:
+		if who == null or not (who.is_in_group("enemy") or who.is_in_group("player")) \
+				or hit.get_normal().dot(up_direction) < 0.3:
 			continue
 		var away := global_position - who.global_position
 		away.y = 0.0
