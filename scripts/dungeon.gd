@@ -1791,16 +1791,23 @@ func _rest_pick(low: bool, wanted: bool) -> String:
 ##   blade and the altar of gold (shared out over the heroes), each blessing,
 ##   half the village smith's edge. Against what a run is expected to have
 ##   given by then (`EXPECT_POWER` by the last step, from nothing at the
-##   first), the excess goes on the bosses' health in full (to `POWER_MOST`),
-##   and from the sixth step on, on the other creatures' as its square root;
-##   on a boss's blows, half of it (to `POWER_HIT_MOST`).
+##   first), only part of the excess is made up for (the user's word,
+##   2026-10-22: "the boss should grow with how strong we got, but not all
+##   the way — or growing stronger would mean nothing"): `BOSS_SHARE` of it
+##   on a boss's health (to `POWER_MOST`), `HIT_SHARE` on its blows (to
+##   `POWER_HIT_MOST`), from the sixth step on `FOE_SHARE` on the other
+##   creatures' health. A strong run still kills them sooner than a weak one.
 ## * **How many they are**: each hero past the first, a boss (and the lord's
 ##   guard) `COOP_BOSS` more health, the others `COOP_FOE` more; the big
 ##   ones' stance `COOP_STANCE` more (two blades break it twice as fast).
 ## The host reckons it as a place wakes and tells everyone ([method net_harden]).
 const EXPECT_POWER := 1.3
-const POWER_MOST := 2.2
-const POWER_HIT_MOST := 1.3
+const BOSS_SHARE := 0.5
+const HIT_SHARE := 0.25
+const FOE_SHARE := 0.25
+const POWER_MOST := 1.6
+const POWER_HIT_MOST := 1.2
+const FOE_MOST := 1.4
 const COOP_BOSS := 0.85
 const COOP_FOE := 0.5
 const COOP_STANCE := 0.5
@@ -1829,13 +1836,13 @@ func run_power() -> float:
 ## run has made `power` times heavier: {boss, foe, hit, stance} multipliers.
 func hard_factors(i: int, heroes: int, power: float) -> Dictionary:
 	var along := float(stage_of(i) - 1) / float(maxi(stage_count() - 1, 1))
-	var excess := clampf(power / lerpf(1.0, EXPECT_POWER, along), 1.0, POWER_MOST)
+	var excess := maxf(power / lerpf(1.0, EXPECT_POWER, along), 1.0) - 1.0
 	var more := float(maxi(heroes, 1) - 1)
 	return {
-		"boss": excess * (1.0 + COOP_BOSS * more),
+		"boss": minf(1.0 + BOSS_SHARE * excess, POWER_MOST) * (1.0 + COOP_BOSS * more),
 		"guard": 1.0 + COOP_BOSS * more,
-		"foe": (sqrt(excess) if stage_of(i) >= 6 else 1.0) * (1.0 + COOP_FOE * more),
-		"hit": minf(1.0 + 0.5 * (excess - 1.0), POWER_HIT_MOST),
+		"foe": (minf(1.0 + FOE_SHARE * excess, FOE_MOST) if stage_of(i) >= 6 else 1.0) * (1.0 + COOP_FOE * more),
+		"hit": minf(1.0 + HIT_SHARE * excess, POWER_HIT_MOST),
 		"stance": 1.0 + COOP_STANCE * more,
 	}
 

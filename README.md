@@ -11574,9 +11574,12 @@ tells everyone (`net_harden`), once per creature (`hardened` meta).
 - `run_power()`: what the run made their blows: each "blade" reward ×1.15, the
   merchant's blade ×1.1 and the altar of gold ×1.2 (shared over the heroes,
   `deals_made`), each blessing +6%, half the village smith's edge.
-- Against `EXPECT_POWER` (1.3 by the last step, 1 at the first) the excess
-  (≤ `POWER_MOST` 2.2) goes on a boss's health, half of it on its blows
-  (≤ ×1.3); from the sixth step on, its root on the other creatures' health.
+- Against `EXPECT_POWER` (1.3 by the last step, 1 at the first), only part of
+  the excess is made up for (the user's word: growing stronger must still be
+  worth it): half on a boss's health (≤ ×1.6), a quarter on its blows
+  (≤ ×1.2), from the sixth step a quarter on the other creatures' (≤ ×1.4).
+  Five blade rewards: the lord 1650 -> 2101, his blows 92 -> 105 — harder,
+  yet killed sooner than on a run that gave none.
 - Each hero past the first: a boss and the lord's guard +85% health, the other
   creatures +50%, the big ones' stance +50%.
 - Test: `tests/run_hardness_test.gd`.

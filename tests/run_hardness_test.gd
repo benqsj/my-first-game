@@ -49,8 +49,9 @@ func _run() -> void:
 	f = d.hard_factors(last, 1, Dungeon.EXPECT_POWER)
 	_check("one hero, what a run is expected to give: as it was", _near(f["boss"], 1.0), str(f))
 	f = d.hard_factors(last, 1, Dungeon.EXPECT_POWER * 2.0)
-	_check("blows twice as heavy as expected: the boss twice the health", _near(f["boss"], 2.0)
-			and _near(f["hit"], Dungeon.POWER_HIT_MOST) and _near(f["foe"], sqrt(2.0)), str(f))
+	_check("blows twice as heavy as expected: only part made up for", _near(f["boss"], 1.0 + Dungeon.BOSS_SHARE)
+			and _near(f["hit"], minf(1.0 + Dungeon.HIT_SHARE, Dungeon.POWER_HIT_MOST)) and _near(f["foe"], 1.0 + Dungeon.FOE_SHARE)
+			and f["boss"] < 2.0, str(f))
 	f = d.hard_factors(last, 1, 9.0)
 	_check("no more than POWER_MOST", _near(f["boss"], Dungeon.POWER_MOST), str(f))
 	f = d.hard_factors(1, 1, 3.0)
@@ -87,10 +88,12 @@ func _run() -> void:
 	d._wake(last)
 	await _wait(5)
 	var want := d.hard_factors(last, 1, d.run_power())
-	_check("the lord's health by the run's power", _near(float(lord.get(&"max_health")) / hp0, want["boss"])
-			and float(lord.get(&"max_health")) > hp0 * 1.4, "%.0f -> %.0f" % [hp0, float(lord.get(&"max_health"))])
+	var excess := d.run_power() / Dungeon.EXPECT_POWER
+	_check("the lord's health by part of the run's power: harder, still sooner killed",
+			_near(float(lord.get(&"max_health")) / hp0, want["boss"]) and float(lord.get(&"max_health")) > hp0 * 1.2
+			and float(lord.get(&"max_health")) / hp0 < excess, "%.0f -> %.0f (power over expected %.2f)" % [hp0, float(lord.get(&"max_health")), excess])
 	_check("and whole", _near(float(lord.get(&"health")), float(lord.get(&"max_health"))))
-	_check("his blows heavier", float(lord.get(&"hit_damage")) > hit0 * 1.2, "%.0f -> %.0f" % [hit0, float(lord.get(&"hit_damage"))])
+	_check("his blows heavier", float(lord.get(&"hit_damage")) > hit0 * 1.1, "%.0f -> %.0f" % [hit0, float(lord.get(&"hit_damage"))])
 	if guard0 > 0.0:
 		_check("one hero: his guard as it was", _near(float(d._lord_fight.guards[0].get(&"max_health")), guard0))
 	var once := float(lord.get(&"max_health"))
