@@ -121,6 +121,13 @@ extends PackBrute
 @export var swing_snap: float = 1.35
 ## After a combo of its, so long before the next (s): his window to answer.
 @export var combo_rest: Vector2 = Vector2(1.3, 2.0)
+## Its body thrown into its cuts, from the waist (degrees; light cut, great
+## weapon): leant back as the weapon goes up, hard forward through the blow,
+## held there a beat (s) and then upright again, slower after a heavy one.
+## Zero: its clips alone.
+@export var heft_back: Vector2 = Vector2(5.0, 11.0)
+@export var heft_through: Vector2 = Vector2(8.0, 17.0)
+@export var heft_hold: Vector2 = Vector2(0.1, 0.3)
 @export_group("Guard")
 ## The chance it raises its blades to his swing (the rest: a step aside, or
 ## it takes it), and how much of his blade's worth he feels turned aside.
@@ -358,6 +365,12 @@ var _seen_casts: int = -1
 var _punish_left: float = 0.0
 ## Every peer: the act its sounds were last made for, and its clock.
 var _voiced_serial: int = -1
+## Its waist thrown into the cut (`heft_back`/`heft_through`), sprung: its
+## lean (degrees) and how fast it is going, and the move's own clock.
+var _heft: LeanModifier
+var _heft_vel: float = 0.0
+var _heft_serial: int = -1
+var _heft_clock: float = 0.0
 var _voiced_clock: float = 0.0
 var _voiced_whoosh: int = 0
 var _bold_light: OmniLight3D
@@ -433,6 +446,12 @@ func _ready() -> void:
 		bulk.shoulder_out = shoulder_out
 		_skeleton.add_child(bulk)
 		_skeleton.move_child(bulk, 0)
+	# its weight into its cuts, before its other hand finds the haft
+	if _skeleton != null and (heft_back != Vector2.ZERO or heft_through != Vector2.ZERO):
+		_heft = LeanModifier.new()
+		_heft.name = "Heft"
+		_heft.bend = 1.0
+		_skeleton.add_child(_heft)
 	# its other hand on the haft of a great weapon (the user's word,
 	# 2026-10-14), after all else has moved the arms
 	if _skeleton != null and grip != &"blades":
@@ -1527,6 +1546,7 @@ func _physics_process(delta: float) -> void:
 ## Every peer: its voice and its blade's rush; the light on its chest.
 func _process(delta: float) -> void:
 	super(delta)
+	_heft_into(delta)
 	_show_trails()
 	_fly_blade(delta)
 	if (act == O_SKY or act == O_SKYDIVE) and act_serial == _voiced_serial:
@@ -2466,6 +2486,43 @@ func _wear_piece(mesh_name: String, size: float, tint: Color, beside: MeshInstan
 
 #region The weight of a swing (claude/orc_quality_plan.md, phase 1)
 ## How heavy a move is: 0 a blade's quick cut, 1 a great weapon's.
+## Every peer: the waist leant back as the weapon rises, thrown forward
+## through each blow, held a beat after the last and let come upright — a
+## spring a little under critical, quick into the blow, slow out of it, so
+## the weight shows and settles with a little give.
+func _heft_into(delta: float) -> void:
+	if _heft == null:
+		return
+	delta = minf(delta, 0.05)
+	if act_serial != _heft_serial:
+		_heft_serial = act_serial
+		_heft_clock = 0.0
+	else:
+		_heft_clock += delta * HitFeel.pace(self)
+	var want := 0.0
+	var stiff := 40.0
+	if not is_dead and _strikes_table.has(act):
+		var ms := _blow_moments(act)
+		if not ms.is_empty():
+			var w := clampf(_weight_of(act), 0.0, 1.0)
+			var last := ms[ms.size() - 1]
+			if _heft_clock > last + lerpf(heft_hold.x, heft_hold.y, w):
+				# upright again, slower after a great weapon's blow
+				stiff = lerpf(40.0, 16.0, w)
+			else:
+				want = lerpf(heft_through.x, heft_through.y, w)
+				stiff = 260.0
+				for i in ms.size():
+					if _heft_clock < ms[i] - 0.09:
+						# going up: leant back (less between the blows of a string)
+						want = -lerpf(heft_back.x, heft_back.y, w) * (1.0 if i == 0 else 0.5)
+						stiff = 45.0
+						break
+	_heft_vel += (stiff * (want - _heft.amount) - 1.4 * sqrt(stiff) * _heft_vel) * delta
+	_heft.amount += _heft_vel * delta
+	_heft.facing = _forward()
+
+
 func _weight_of(what: int) -> float:
 	if grip == &"heavy":
 		return 1.0

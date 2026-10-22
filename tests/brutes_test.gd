@@ -100,6 +100,7 @@ func _run() -> void:
 	await _troll_boulder()
 	await _troll_regen()
 	await _troll_leap()
+	await _troll_stance()
 	await _golem_steady()
 	await _golem_spikes()
 	await _troll_feral()
@@ -341,6 +342,26 @@ func _ogre_stomp() -> void:
 			stomped[0] = true
 		return stomped[0] and struck.size() > 0, ogre)
 	_check("him down, the ogre treads on him where he lies", hit, "stomped %s, %s" % [stomped[0], str(struck)])
+	await _done(world)
+
+
+## Elden Ring's stance on the troll too: heavy blows fill it, it goes down
+## on a knee, open to a critical.
+func _troll_stance() -> void:
+	var a: Array = await _arena()
+	var world: World = a[0]
+	var hero: Player = a[2]
+	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 4.0)) as TrollFighter
+	troll._hurl_wait = 99.0
+	troll._leap_wait = 99.0
+	for k in 8:
+		troll._add_stance(60.0)
+		for f in 10:
+			await world.get_tree().physics_frame
+	for f in 20:
+		await world.get_tree().physics_frame
+	_check("the troll's stance breaks under heavy blows, and it kneels open", troll.stance_breaks >= 1 and troll.crit_open(),
+			"%d breaks, open %s" % [troll.stance_breaks, troll.crit_open()])
 	await _done(world)
 
 

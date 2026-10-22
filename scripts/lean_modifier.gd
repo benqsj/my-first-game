@@ -9,7 +9,8 @@ extends SkeletonModifier3D
 @export var bones: PackedStringArray = PackedStringArray(["waist_joint"])
 @export var shares: PackedFloat32Array = PackedFloat32Array([1.0])
 @export var bend: float = 24.0
-## 0..1, set from the creature each frame.
+## Set from the creature each frame: 0..1 for its stoop; below 0 it leans
+## back (the orc's heft, [member OrcFighter.heft_back]).
 var amount: float = 0.0
 ## The way the creature faces, in the world (set with `amount`).
 var facing: Vector3 = Vector3.FORWARD
@@ -19,7 +20,7 @@ var _idx := PackedInt32Array()
 
 func _process_modification() -> void:
 	var skel := get_skeleton()
-	if skel == null or amount <= 0.001:
+	if skel == null or absf(amount) <= 0.001:
 		return
 	if _idx.is_empty():
 		for n in bones:

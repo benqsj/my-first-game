@@ -11383,3 +11383,24 @@ skirmisher too):
 - `footfall_sounds` / `_pitch` / `_db` / `_dust`: a `Footsteps` of its own
   (now taking its own sounds, bones, pitch and a dull dust puff, no ring) —
   the ogre's steps at 1.15, -12 dB.
+
+### The orc's weight in its cuts; the troll's stance (2026-10-22, gameplay_plan.md item 2)
+
+What there already was: its blows never stopped by a cut (hyper armour all
+through), the stance and its break to a knee and a critical (orc, chief,
+ogre), three paces to a swing, the lock before the blow, its rest after a
+combo (`combo_rest`), the ground cracked under a heavy blow, and on him the
+held beat, the knock of the view and the slide.
+
+- **The body thrown into the cut** (`OrcFighter._heft_into`, every peer): a
+  second `LeanModifier` on its waist ("Heft"; `amount` may now go below 0, a
+  lean back) driven by a spring a little under critical off the move's own
+  blow moments: leant back `heft_back` degrees as the weapon rises (half
+  between the blows of a string), thrown forward `heft_through` through each
+  blow (stiff, ~0.1 s), held `heft_hold`, then upright, slower after a great
+  weapon's. Each pair is light cut .. great weapon by `_weight_of`.
+  `heft_back = heft_through = Vector2.ZERO`: its clips alone.
+- **The troll's stance** (`scenes/enemies/pack/troll.tscn`): 380, light cuts
+  a third, whole again after 8 s, its critical a tenth of its health — as the
+  orc's. It walks as the orc now does too (steps round, its tread heard).
+  `brutes_test._troll_stance`.
