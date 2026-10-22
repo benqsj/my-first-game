@@ -22,6 +22,10 @@ extends CharacterBody3D
 ## golem use.
 
 @export_group("Movement")
+## How fast it does all it does (the user's word, 2026-10-23: the minotaur
+## too slow; from F1 any creature tried faster): its clips and its moves'
+## clocks ([method HitFeel.pace]) and its paces on the ground ([constant PACED]).
+@export var tempo: float = 1.0
 @export var speed: float = 1.6
 @export var acceleration: float = 6.0
 @export var turn_speed: float = 6.0
@@ -104,6 +108,10 @@ var _body_rest_y: float = 0.0
 func _ready() -> void:
 	add_to_group(&"enemy")
 	_home = global_position
+	if not is_equal_approx(tempo, 1.0):
+		var t := tempo
+		tempo = 1.0
+		set_tempo(t)
 	_rng.randomize()
 
 	if body != null:
@@ -186,6 +194,24 @@ func _guess_skin_dir() -> String:
 			return node.scene_file_path.get_base_dir() \
 					.get_base_dir().get_base_dir().path_join("Textures")
 	return ""
+
+
+## The paces [member tempo] speeds up with it.
+const PACED: Array[StringName] = [&"speed", &"chase_speed", &"dash_speed", &"close_speed",
+		&"charge_speed"]
+## Those paces as they were at a tempo of 1.
+var _paced_from: Dictionary = {}
+
+
+## Its tempo set (see [member tempo]): its paces on the ground with it.
+func set_tempo(t: float) -> void:
+	if _paced_from.is_empty():
+		for p: StringName in PACED:
+			if p in self:
+				_paced_from[p] = float(get(p)) / maxf(tempo, 0.01)
+	tempo = maxf(t, 0.1)
+	for p: StringName in _paced_from:
+		set(p, float(_paced_from[p]) * tempo)
 
 
 func _start_animation() -> void:

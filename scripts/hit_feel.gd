@@ -93,19 +93,20 @@ static func hold(victim: Node3D, seconds: float) -> void:
 
 
 ## The rate a creature that steps its own clips steps them at: all but still
-## while a bite holds it, else 1.
+## while a bite holds it, else its own tempo ([member Monster.tempo]).
 static func pace(creature: Node) -> float:
+	var tempo := (creature as Monster).tempo if creature is Monster else 1.0
 	if creature == null or not creature.has_meta(&"bite_until"):
-		return 1.0
+		return tempo
 	var until := int(creature.get_meta(&"bite_until"))
 	var now := now_ms()
 	if now < until:
-		return HELD_RATE
+		return HELD_RATE * tempo
 	# eased back out of it, not snapped from still to full
 	if now < until + EASE_MS:
-		return lerpf(EASE_FROM, 1.0, float(now - until) / float(EASE_MS))
+		return lerpf(EASE_FROM, 1.0, float(now - until) / float(EASE_MS)) * tempo
 	creature.remove_meta(&"bite_until")
-	return 1.0
+	return tempo
 
 
 ## The share of a bite `creature` is held for (its `bite_hold`, else all).

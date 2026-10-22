@@ -39,7 +39,25 @@ const ENTRIES: Array[Array] = [
 	["Skeleton archer", "res://scenes/enemies/pack/skeleton_archer.tscn", false],
 	["Skeleton mage", "res://scenes/enemies/pack/skeleton_mage.tscn", false],
 	["Skeleton lord", "res://scenes/enemies/pack/skeleton_lord.tscn", true],
+	# (the user's word, 2026-10-23: every creature the game uses up here)
+	["Imp", "res://scenes/enemies/imp.tscn", false],
+	["Puglin", "res://scenes/enemies/puglin.tscn", false],
+	["Wolf", "res://scenes/enemies/wolf.tscn", false],
+	["Ghost skull", "res://scenes/enemies/pack/ghost_skull.tscn", false],
+	["Dragonet", "res://scenes/enemies/pack/dragonet.tscn", false],
+	["Orc skirmisher", "res://scenes/enemies/pack/orc_skirmisher.tscn", false],
+	["Minotaur", "res://scenes/enemies/minotaur.tscn", true],
+	["Pig butcher", "res://scenes/enemies/pack/pig_butcher.tscn", true],
+	["Orc Lord", "res://scenes/enemies/pack/orc_chief.tscn", true],
+	["Centaur", "res://scenes/enemies/centaur.tscn", true],
+	["Demon", "res://scenes/enemies/demon.tscn", true],
+	["Arkdeva", "res://scenes/enemies/arkdeva.tscn", true],
 ]
+## How much faster than its own a creature goes (the user's word, 2026-10-23:
+## from F1, a creature's clips and combos sped up): what is called up from
+## then on, and at once what stands on the floor ([member Monster.tempo]).
+## The first is the one shown at the start.
+const TEMPOS: Array[float] = [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.75, 2.0, 0.7, 0.8, 0.9]
 ## The orc's versions (2026-10-14, the user's word: all of them up from F1):
 ## its looks (skin, paint, blood: [OrcFighter] `force_*`), the skirmisher, the
 ## chief, and a pair. Not in the opening ring: its own row on the board.
@@ -74,6 +92,8 @@ var _frozen: bool = false
 ## Creatures wait for the hero's first blow before they fight back, and the
 ## hero loses no health here. Both on by default: this is a place to look.
 var _wait_for_blow: bool = true
+## One of [constant TEMPOS].
+var _tempo: float = 1.0
 var _unhurt: bool = true
 ## The test arena's own board (its four orcs waiting, the hero unhurt, the
 ## creatures waiting for his first blow); false: the same board in a solo
@@ -187,6 +207,8 @@ func _ready() -> void:
 	rules.add_child(_toggle("Wait for my blow", _wait_for_blow, func(on: bool) -> void: _wait_for_blow = on))
 	rules.add_child(_toggle("Can't be hurt", _unhurt, func(on: bool) -> void: _unhurt = on))
 	column.add_child(rules)
+	column.add_child(_stepper("Speed (clips, combos, paces)", TEMPOS.map(func(t: float) -> String:
+			return "x%.2f" % t), _set_tempo))
 
 	# The combo practice: one of the big ones does one of its combos over and
 	# over, to learn its timing (when to roll).
@@ -483,6 +505,9 @@ func call_up(path: String, boss: bool = false, where: Variant = null, props: Dic
 	body.rotation.y = atan2(-ahead.x, -ahead.z) + PI
 	for key: String in props:
 		body.set(StringName(key), props[key])
+	if body is Monster:
+		body.set_meta(&"own_tempo", (body as Monster).tempo)
+		(body as Monster).tempo *= _tempo
 	creatures.add_child(body)
 	if _frozen:
 		_hold(body, true)
@@ -539,6 +564,21 @@ func _clear() -> void:
 		# (in the world, only what was called up here)
 		if in_arena or String(child.name).begins_with("Arena_"):
 			child.queue_free()
+
+
+## Every creature on the floor (and what is called up next) at `TEMPOS[i]`
+## times its own pace.
+func _set_tempo(i: int) -> void:
+	_tempo = TEMPOS[i]
+	var creatures := _world().get_node_or_null("Enemies") if _world() != null else null
+	if creatures == null:
+		return
+	for child in creatures.get_children():
+		var m := child as Monster
+		if m != null and (in_arena or String(m.name).begins_with("Arena_")):
+			if not m.has_meta(&"own_tempo"):
+				m.set_meta(&"own_tempo", m.tempo)
+			m.set_tempo(float(m.get_meta(&"own_tempo")) * _tempo)
 
 
 func _heal() -> void:

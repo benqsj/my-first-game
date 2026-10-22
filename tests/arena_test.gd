@@ -39,10 +39,10 @@ func _run() -> void:
 	hero.immortal = true
 	var creatures := world.get_node("Enemies")
 	await _wait(20)
-	var present := 0
-	for entry: Array in ArenaPanel.ENTRIES:
-		present += 1 if ResourceLoader.exists(String(entry[1])) else 0
-	_check("no camp raised; one of every kind stands there from the start", creatures.get_child_count() == present,
+	# (since 2026-10-14 the arena opens with its orcs only, the rest called
+	# up from F1 or all at once with "Everyone")
+	var present := ArenaPanel.ARENA_ORCS.size()
+	_check("no camp raised; the arena's orcs stand there from the start", creatures.get_child_count() == present,
 			"%d of %d" % [creatures.get_child_count(), present])
 	var still := 0
 	await _wait(120)
