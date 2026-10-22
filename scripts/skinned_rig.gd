@@ -1089,6 +1089,16 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 				_anim.speed_scale = _wind_fast
 			_whoosh()
 			wound_up.emit(_wind_lunge)
+		if _hcharge_at > 0.0 and _role == Role.SWING:
+			# A heavy blow gathered (the charged heavy): held near the top of
+			# its wind-up, coming on only by a breath, till he lets it go.
+			if not _hcharge_held and through >= _hcharge_at:
+				_hcharge_held = true
+				_hcharge_speed = _anim.speed_scale
+				_anim.speed_scale = _hcharge_speed * HEAVY_CHARGE_CREEP
+			if _hcharge_held:
+				_action_left += delta * (1.0 - HEAVY_CHARGE_CREEP)
+				_swing_commit += delta
 		if _hold_at > 0.0 and _role == Role.SWING:
 			# The running cut wound up: held at its `hold` till it is let go.
 			if not _holding and through >= _hold_at:
@@ -1103,7 +1113,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 				and _in_window(through)
 		if _attack_cutting:
 			_strike_world()
-		if _role == Role.SWING and not _air_cut and _hold_at <= 0.0:
+		if _role == Role.SWING and not _air_cut and _hold_at <= 0.0 and not _hcharge_held:
 			_pace_phase(through, delta)
 		if (_role == Role.SWING and (_heavy_now or _cut_slam > 0.0) or _role == Role.PLUNGE and _cut_slam > 0.0) \
 				and not _slam_done:
@@ -1460,6 +1470,8 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 	_hold_at = -1.0
 	_holding = false
 	_wind_at = -1.0
+	_hcharge_at = -1.0
+	_hcharge_held = false
 	_role = role
 	_recovering = false
 	_cut_slam = -1.0
@@ -1544,7 +1556,7 @@ var _trail_cut := Vector2.ZERO
 ## Inside the clip's `trail_window`: the arc is drawn though the blade may not
 ## be cutting yet (or any more).
 func _in_trail() -> bool:
-	if _holding:
+	if _holding or _hcharge_held:
 		return false  # wound up and held: no blade moving yet
 	if _role != Role.SWING and _role != Role.PLUNGE and not (_role == Role.ROLL and _evade_cut):
 		return false
@@ -2025,6 +2037,59 @@ func wind_left() -> float:
 	if _wind_at <= 0.0 or _role != Role.SWING or _action_len <= 0.0:
 		return 0.0
 	return _action_len * maxf(_wind_at - _progress(), 0.0) / maxf(_action_rate, 0.01)
+
+
+#region The charged heavy (gameplay_plan.md B/C, 2026-10-22)
+## How fast a gathered heavy blow still comes on, as a share of its pace.
+const HEAVY_CHARGE_CREEP := 0.04
+var _hcharge_at: float = -1.0
+var _hcharge_held: bool = false
+var _hcharge_speed: float = 1.0
+
+
+## Where the heavy blow in hand is held while it is gathered: a little over
+## half way from where it starts to its cut, and before any wind-up's end.
+## -1 when it is no heavy blow or has no cut to go by.
+func heavy_charge_point() -> float:
+	if _role != Role.SWING or not _heavy_now or _action_len <= 0.0:
+		return -1.0
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	if w == Vector2.ZERO or w.x <= _action_from:
+		return -1.0
+	var at := _action_from + (w.x - _action_from) * 0.55
+	if _wind_at > 0.0:
+		at = minf(at, _wind_at - 0.01)
+	return at if at > _progress() else -1.0
+
+
+## Holds the heavy blow in hand at `at` of its clip when it gets there.
+func charge_heavy(at: float) -> void:
+	if _role != Role.SWING or not _heavy_now or at <= 0.0:
+		return
+	_hcharge_at = at
+	_hcharge_held = false
+
+
+## Whether a heavy blow is held gathered now.
+func heavy_charge_held() -> bool:
+	return _hcharge_held and _role == Role.SWING
+
+
+## Lets the gathered blow go, `weight` times as heavy as it was.
+func let_heavy_go(weight: float) -> void:
+	if _role == Role.SWING and _heavy_now:
+		cut_weight *= weight
+	if _hcharge_held and _role == Role.SWING and _stop_left <= 0.0:
+		_anim.speed_scale = _hcharge_speed
+	_hcharge_at = -1.0
+	_hcharge_held = false
+
+
+## A heavy blow just begun made heavier (the guard counter).
+func weigh_heavy(weight: float) -> void:
+	if _role == Role.SWING and _heavy_now:
+		cut_weight *= weight
+#endregion
 
 
 ## A running cut wound up and held, not yet let go.

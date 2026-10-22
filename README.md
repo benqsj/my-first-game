@@ -11516,3 +11516,25 @@ tell, Death).
   had been made, made twice over under a clashing name, and the place never
   cleared. Ones made at the start past `AT_ONCE` go to the second wave as the
   others do; any left over are freed.
+
+### The charged heavy and the guard counter (2026-10-22, gameplay_plan.md C)
+Elden Ring's two, on [Player] (`#region The charged heavy and the guard
+counter`) and [SkinnedRig] (`#region The charged heavy`):
+- **Charged heavy.** A heavy blow whose button is still down when it starts
+  (the block button for a hero with no shield — the assassin; the attack
+  button out of the guard for Tariel) is held at `heavy_charge_point()` — 55%
+  of the way from its start to its cut, before any wind-up's end — coming on
+  at 4% of its pace, its clock (`_action_left`, `_swing_commit`) and his
+  commitment held with it. Let go (or full at `heavy_charge_max`, 1 s) it goes
+  on at its own pace, `cut_weight` × (1 + `heavy_charge_bonus` × share): up to
+  1.6 the damage and, as stance goes by the weight twice over, 2.56 the
+  stance. A tap is not held. While held: [HeavyGather] on the blade (sparks
+  drawn in, a growing light and core), a flash if let go half full or more.
+  The warrior has none (his block button is his second string; his run has
+  its own held charge already).
+- **Guard counter.** Tariel's heavy blow out of his guard thrown within
+  `guard_counter_window` (0.8 s) of a blow taken on the shield (`_blocked_at`)
+  is × `guard_counter_weight` (1.4), once, with the shield's ring and a flash.
+- Over the network: `net_charge_heavy`, `net_heavy_gather`, `net_let_heavy_go`,
+  `net_guard_counter`, so every peer's copy of the blow is as heavy.
+- Test: `tests/heavy_charge_test.gd -- tariel|rogue`.

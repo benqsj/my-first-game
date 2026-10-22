@@ -1037,6 +1037,7 @@ func _physics_process(delta: float) -> void:
 	_game_t += delta
 	_tick_timers(delta)
 	_tick_charge()
+	_tick_heavy_charge(delta)
 	_tick_shade(delta)
 	_track_sure(delta)
 	_judge_whiff()
@@ -3386,6 +3387,8 @@ func _attack(heavy: bool = false) -> void:
 		elif roll_cut:
 			style = SkinnedRig.ROLL_CUT
 		net_attack.rpc(style)
+		if blow >= 0 and not airborne:
+			_heavy_begun(blow)
 		if run_cut:
 			_mark_sure(_sure_pick())
 		elif _sure_foe != null:
@@ -3494,6 +3497,123 @@ func _on_slammed(at: Vector3, heft: float) -> void:
 
 ## Heavy blows cost this many light cuts' stamina.
 @export var heavy_stamina: float = 1.6
+
+#region The charged heavy and the guard counter (gameplay_plan.md, 2026-10-22)
+## Elden Ring's two: a heavy blow held back while its button is held, let go
+## heavier the longer it was gathered (to `heavy_charge_max` s: as much again
+## as `heavy_charge_bonus`, its weight on a big one's stance twice over); and
+## a shield hero's heavy blow thrown out of his guard within
+## `guard_counter_window` s of a blow taken on the shield, heavier by
+## `guard_counter_weight`, the shield's ring and a flash with it.
+@export var heavy_charge_max: float = 1.0
+@export var heavy_charge_bonus: float = 0.6
+@export var guard_counter_window: float = 0.8
+@export var guard_counter_weight: float = 1.4
+var _hcharging: bool = false
+var _hcharge_from: float = -1.0
+var _hcharge_serial: int = -1
+var _hgather: HeavyGather = null
+## When the last blow was taken on his shield (-100: none lately).
+var _blocked_at: float = -100.0
+## Guard counters thrown (tests).
+var counters_thrown: int = 0
+## Heavy blows let go gathered, and how far the last one was (tests).
+var charges_let_go: int = 0
+var last_charge: float = 0.0
+
+
+## The button his heavy blow is on: the block button for a hero with no
+## shield, the attack button for one who throws it out of his guard.
+func _heavy_button_down() -> bool:
+	if _has_heavy():
+		return Input.is_action_pressed("block")
+	if _guard_heavy():
+		return Input.is_action_pressed("attack")
+	return false
+
+
+## A heavy blow just thrown: a counter if it comes out of a guard that has just
+## held, and gathered while its button stays down.
+func _heavy_begun(blow: int) -> void:
+	if rig == null or not rig.has_method(&"charge_heavy"):
+		return
+	if _guard_heavy() and _now() - _blocked_at <= guard_counter_window:
+		_blocked_at = -100.0
+		counters_thrown += 1
+		net_guard_counter.rpc(guard_counter_weight)
+	if _forced_heavy >= 0 or blow < 0 or not _heavy_button_down():
+		return
+	var at := float(rig.call(&"heavy_charge_point"))
+	if at <= 0.0:
+		return
+	_hcharging = true
+	_hcharge_from = -1.0
+	_hcharge_serial = int(rig.get(&"attack_serial"))
+	net_charge_heavy.rpc(at)
+
+
+func _tick_heavy_charge(delta: float) -> void:
+	if not _hcharging:
+		return
+	if rig == null or int(rig.get(&"attack_serial")) != _hcharge_serial or is_dead:
+		# struck out of it, or something else begun: nothing to let go
+		_hcharging = false
+		net_heavy_gather.rpc(false, 0.0)
+		return
+	var held := bool(rig.call(&"heavy_charge_held"))
+	if held:
+		if _hcharge_from < 0.0:
+			_hcharge_from = _game_t
+			net_heavy_gather.rpc(true, 0.0)
+		# the swing waits for him: so does his commitment to it
+		_commit_timer += delta
+	var full := held and _game_t - _hcharge_from >= heavy_charge_max
+	if _heavy_button_down() and not full and state == State.GROUNDED:
+		return
+	_hcharging = false
+	var share := 0.0
+	if _hcharge_from >= 0.0:
+		share = clampf((_game_t - _hcharge_from) / heavy_charge_max, 0.0, 1.0)
+		charges_let_go += 1
+		last_charge = share
+	net_let_heavy_go.rpc(1.0 + heavy_charge_bonus * share, share)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_charge_heavy(at: float) -> void:
+	if rig != null and rig.has_method(&"charge_heavy"):
+		rig.call(&"charge_heavy", at)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_heavy_gather(on: bool, share: float) -> void:
+	if is_instance_valid(_hgather):
+		_hgather.let_go(share)
+	_hgather = null
+	if on and rig != null:
+		_hgather = HeavyGather.on(rig, heavy_charge_max)
+		Sfx.play(self, ULT_CHARGE, self, Vector3.ZERO, 0.8, -14.0, 0.0)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_let_heavy_go(weight: float, share: float) -> void:
+	if rig != null and rig.has_method(&"let_heavy_go"):
+		rig.call(&"let_heavy_go", weight)
+	if is_instance_valid(_hgather):
+		_hgather.let_go(share)
+	_hgather = null
+
+
+@rpc("authority", "call_local", "reliable")
+func net_guard_counter(weight: float) -> void:
+	if rig == null:
+		return
+	if rig.has_method(&"weigh_heavy"):
+		rig.call(&"weigh_heavy", weight)
+	var at := global_position + Vector3.UP * 1.3 - global_basis.z * 0.5
+	ParryFlash.burst(Blood.world_of(self), at, -global_basis.z, 0.7)
+	Sfx.play(self, PARRY_SOUND, self, at - global_position, 1.25, -4.0)
+#endregion
 ## A heavy blow named outright (the sprint's slide), not picked by the
 ## string: -1 none.
 var _forced_heavy: int = -1
@@ -4148,6 +4268,7 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 			_take_damage(damage * 0.5)
 			return
 		_struck_lately = true
+		_blocked_at = _now()
 		struck.emit(damage, true)
 		# The one who struck is held with him for the beat ([HitFeel]): the
 		# blow felt stopping on the shield.
