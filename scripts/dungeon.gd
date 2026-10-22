@@ -119,6 +119,10 @@ const PLACES := {
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
 	"spring": {"name": "წმინდა წყარო", "kind": "spring", "w": 36.0, "l": 44.0, "h": 12.0, "rest": "სიცოცხლე ბოლომდე"},
 	"prison": {"name": "ტყვეების ოთახი", "kind": "prison", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "გაათავისუფლე ტყვე"},
+	# and the two quiet places of the portal's own (the user's word,
+	# 2026-10-22: a merchant, an altar) ([PortalEvent])
+	"merchant": {"name": "ვაჭარი", "kind": "merchant", "w": 32.0, "l": 42.0, "h": 11.0, "rest": "იყიდე ოქროთი"},
+	"altar": {"name": "სამსხვერპლო", "kind": "altar", "w": 32.0, "l": 42.0, "h": 13.0, "rest": "შესწირე და მიიღე"},
 }
 
 ## Per dungeon, its run: each step the places its portals may lead to, the
@@ -176,13 +180,18 @@ const RUN := {
 ## The steps a place to rest (the spring, the prisoners) may be offered
 ## before, beside the step's own place (1-based, the rests not counted); and
 ## before every boss, the spring always.
-const REST_BEFORE := [3, 8]
+const REST_BEFORE := [3, 6, 8]
+## Spike traps in the floor ([SpikeTrap]): from this step on, in this share of
+## the places.
+const TRAPS_FROM := 3
+const TRAP_CHANCE := 0.6
 ## Each place, to look round it from F1 ([method view_place]): the step whose
 ## light (day into night) it is seen in, and what it is called on the board.
 const VIEW := {
 	"hall": [0, "Hall"], "court": [2, "Court"], "cave": [2, "Cave"], "forest": [2, "Forest"],
 	"crypt": [2, "Crypt"], "swamp": [2, "Swamp"], "great_hall": [5, "Broken hall"], "sky": [5, "Sky island"],
 	"mountain": [5, "Storm path"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
+	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
 	"terrace": [7, "Terrace"], "rampart": [7, "Rampart"], "throne": [9, "Lord's court"],
 }
 
@@ -1484,6 +1493,7 @@ func _step_out(body: Node3D, spot: Vector3, l: float) -> void:
 ## The place's creatures wake and come at him.
 func _wake(i: int) -> void:
 	_woken = true
+	_lay_traps(i)
 	if _run_start < 0.0:
 		_run_start = Time.get_ticks_msec() / 1000.0
 	_alive.clear()
@@ -1718,7 +1728,7 @@ func _choice_specs(next: int) -> Array:
 		for hero in _heroes():
 			if hero.health < hero.max_health * 0.6:
 				low = true
-		pool[1] = "spring" if low or _rng.randf() < (0.3 if wanted else 0.5) else "prison"
+		pool[1] = _rest_pick(low, wanted)
 	var take := mini(2, pool.size())
 	# a blessing behind one of the two, most times (the user's word,
 	# 2026-10-21: the reward should change how he fights); never two
@@ -1741,6 +1751,72 @@ func _choice_specs(next: int) -> Array:
 			goal = ""
 		out.append({"place": place, "reward": reward, "goal": goal, "cursed": k == cursed_one and reward != ""})
 	return out
+
+
+## Which place to rest behind the second portal: the spring when he is hurt;
+## else the prisoners (oftener while the village wants its tradesmen), the
+## merchant (only with gold to spend), the altar, now and then the spring.
+func _rest_pick(low: bool, wanted: bool) -> String:
+	if low:
+		return "spring"
+	var gold := 0
+	for hero in _heroes():
+		var purse := Purse.of(hero)
+		if purse != null:
+			gold = maxi(gold, purse.gold)
+	var weights := {"prison": 2.0 if wanted else 0.8, "altar": 1.0, "spring": 0.5,
+			"merchant": 1.5 if gold >= 35 else 0.0}
+	var total := 0.0
+	for k: String in weights:
+		total += float(weights[k])
+	var roll := _rng.randf() * total
+	for k: String in weights:
+		roll -= float(weights[k])
+		if roll <= 0.0 and float(weights[k]) > 0.0:
+			return k
+	return "spring"
+
+
+## Spike traps in the floor of place `i` as it wakes ([SpikeTrap]; the user's
+## word, 2026-10-22): from the third step on, not in a boss's place nor a
+## quiet one; the same on every peer (its own dice, from the dungeon and the
+## step). Laid as it wakes, when its floor has long been there to find.
+func _lay_traps(i: int) -> void:
+	if _viewing or is_rest(i) or is_boss(i) or stage_of(i) < TRAPS_FROM:
+		return
+	if i < _room_nodes.size() and is_instance_valid(_room_nodes[i]) and _room_nodes[i].has_node(^"Spikes0"):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 104729 * (i + 1) + 7 * id + 3
+	if rng.randf() > TRAP_CHANCE:
+		return
+	SpikeTrap.lay(self, i, rng)
+
+
+## The merchant's or the altar's keeper in the place he is in ([PortalEvent]).
+func _event_here() -> PortalEvent:
+	if current < 0 or current >= _room_nodes.size() or not is_instance_valid(_room_nodes[current]):
+		return null
+	return _room_nodes[current].get_node_or_null(^"Event") as PortalEvent
+
+
+## A deal asked for by a hero on another peer: the host makes it, or not.
+@rpc("any_peer", "call_remote", "reliable")
+func net_ask_deal(k: int, hero: NodePath) -> void:
+	if not decides():
+		return
+	var ev := _event_here()
+	var who := get_node_or_null(hero) as Player
+	if ev != null and who != null:
+		ev.host_deal(k, who)
+
+
+## The host's word: the deal made, on every peer.
+@rpc("authority", "call_local", "reliable")
+func net_deal_done(k: int, hero: NodePath) -> void:
+	var ev := _event_here()
+	if ev != null:
+		ev.deal_done(k, get_node_or_null(hero) as Player)
 
 
 ## Shuffled by the dungeon's own dice (not the engine's, which no one else shares).
@@ -1768,7 +1844,7 @@ func _gates_from(specs: Array, _next: int) -> Array[PortalLook]:
 		if reward != "":
 			gate.tint = REWARDS[reward]["tint"]
 		elif rest:
-			gate.tint = Color(0.45, 0.8, 1.0)
+			gate.tint = {"merchant": Color(1.0, 0.72, 0.3), "altar": Color(0.75, 0.12, 0.16)}.get(place, Color(0.45, 0.8, 1.0))
 		# what is behind it, seen in it
 		var view := PREVIEWS % place
 		if ResourceLoader.exists(view):
@@ -2925,6 +3001,9 @@ func _build_room(i: int) -> void:
 			return
 		"spring", "prison":
 			RestSpot.build(self, room, i, kind)
+			return
+		"merchant", "altar":
+			PortalEvent.build(self, room, i, kind)
 			return
 	var last := kind == "throne"
 	var far := -l * 0.5 - WALL_T * 0.5

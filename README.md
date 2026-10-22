@@ -11538,3 +11538,31 @@ counter`) and [SkinnedRig] (`#region The charged heavy`):
 - Over the network: `net_charge_heavy`, `net_heavy_gather`, `net_let_heavy_go`,
   `net_guard_counter`, so every peer's copy of the blow is as heavy.
 - Test: `tests/heavy_charge_test.gd -- tariel|rogue`.
+
+### The portal's merchant, altar and spike traps (2026-10-22, gameplay_plan.md item 6)
+- **Two more quiet places** ([PortalEvent], `scripts/portal_event.gd`), put in
+  between steps as the spring and the prisoners are (`Dungeon.PLACES` with
+  "rest": not steps of the run):
+  - **merchant** ("ვაჭარი"): his camp (tents, barrels, a fire) and a stall
+    with three of `WARES` on it (the step's own dice): flasks filled (35), life
+    whole (45), +15% life (70), +10% blade (80), a blessing (100, its lights
+    laid before the stall). Walk up to one, [F], paid out of the [Purse].
+  - **altar** ("სამსხვერპლო"): two altars before a shrine, one or the other:
+    blood (a fifth of his life for this run, for a blessing's lights) or gold
+    (half his gold, at least 30, for a blade +20%).
+  - The host makes every deal (`host_deal`); a hero on another peer asks
+    through `Dungeon.net_ask_deal`, all are told by `net_deal_done`, and what
+    was bought is put on him by his own game.
+  - Offered (`Dungeon._rest_pick`) behind the second portal before steps 3, 6
+    and 8 (`REST_BEFORE`): hurt, the spring; else the prisoners (oftener
+    while the village wants its tradesmen), the altar, the merchant (only with
+    35 gold or more), now and then the spring. Their portals are gold and dark
+    red; their pictures are in `assets/dungeon/previews/`.
+- **Spike traps** ([SpikeTrap]): from the third step on, in three of five
+  places (`TRAPS_FROM`, `TRAP_CHANCE`, the step's own dice), 3-5 iron grates
+  laid on open floor as the place wakes (off its middle, apart). Each now and
+  then glows and rattles (0.9 s, a creak), then its spikes come up (0.75 s, a
+  clang and grit): a hero on it loses 14% of his life (a "spike" blow: no
+  shield takes it, a jump clears it), a creature 70. Still once the place is
+  cleared. Lead them onto it.
+- Tests: `tests/portal_event_test.gd`, `tests/spike_trap_test.gd`.
