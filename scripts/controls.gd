@@ -64,3 +64,24 @@ static func _keys(action: StringName, keys: Array) -> void:
 ## What to call the evade's key on screen.
 static func dodge_name() -> String:
 	return "Command" if is_mac() else "Ctrl"
+
+
+## [key, what it does], in the order a newcomer needs them.
+static func rows() -> Array:
+	return [
+		["W A S D", "სიარული"],
+		["Shift", "სირბილი (დაჭერილი, სტამინა იხარჯება)"],
+		[Controls.dodge_name(), "აცილება (გადაგორება)"],
+		["Space", "ხტომა"],
+		["მაუსის მარცხენა", "დარტყმა"],
+		["მაუსის მარჯვენა", "ბლოკი / ფარი"],
+		["E", "მიზანზე დამაგრება"],
+		["R", "ფლასკი (სიცოცხლე)"],
+		["1  2  3  4", "უნარები"],
+		["F", "კარიბჭე, ვაჭარი, ტყვე"],
+		["C", "ჩაცუცქვა"],
+		["Q", "იარაღის ჩაგება"],
+		["I  /  M", "ჩანთა / რუკა"],
+		["F11", "სრული ეკრანი"],
+		["Esc", "პაუზა"],
+	]

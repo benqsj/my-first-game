@@ -56,6 +56,9 @@ var room_code: String = ""
 ## A room asked for and not yet given: polled here till the relay answers.
 var _pending: RelayPeer
 signal room_ready(code: String)
+## Why the last game with others ended under him, for the front screen to say
+## when he lands back on it (it is read and cleared there).
+var last_trouble: String = ""
 
 ## Where the world is, so hosting and joining both end up in the same place.
 const WORLD := "res://scenes/world/greybox_world.tscn"
@@ -454,7 +457,7 @@ static func _why(why: String) -> String:
 		"full":
 			return "თამაში სავსეა."
 		"version":
-			return "მასპინძელს სხვა ვერსია აქვს."
+			return "მასპინძელს სხვა ვერსია აქვს — განაახლეთ ორივემ TestFlight-ში."
 		"no_relay":
 			return "სერვერთან კავშირი ვერ დამყარდა."
 	return "კავშირის შეცდომა (%s)." % why
@@ -665,6 +668,7 @@ func _on_connect_failed() -> void:
 
 
 func _on_host_lost() -> void:
+	last_trouble = "კავშირი გაწყდა: მასპინძელი თამაშიდან გავიდა."
 	join_failed.emit("The host closed the game.")
 	leave()
 	SceneLoader.go(get_tree(), "res://scenes/ui/main_menu.tscn")

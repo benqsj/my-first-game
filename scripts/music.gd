@@ -61,6 +61,23 @@ func play(track: StringName) -> void:
 	_fade_to(_list[0])
 
 
+## How loud the music is set to, 0..1 (the settings' slider): at 1 it plays
+## at `volume_db` as made, at 0 it is silent.
+var _loudness: float = 1.0
+var _made_db: float = NAN
+
+
+func set_loudness(level: float) -> void:
+	if is_nan(_made_db):
+		_made_db = volume_db
+	_loudness = clampf(level, 0.0, 1.0)
+	volume_db = _made_db + linear_to_db(maxf(_loudness, 0.0001)) if _loudness > 0.001 else -80.0
+	# what is playing now, unless a fade is carrying it
+	var now := _players[_current] if not _players.is_empty() else null
+	if now != null and now.playing and (_fade == null or not _fade.is_running()):
+		now.volume_db = volume_db
+
+
 ## Fades the music out altogether.
 func stop() -> void:
 	_track = &""

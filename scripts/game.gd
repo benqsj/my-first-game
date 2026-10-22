@@ -158,6 +158,15 @@ var _graphics: Graphics.Level = Graphics.Level.HIGH
 var _profiles: Dictionary = {}
 ## How the game sits on the screen: one of [constant DISPLAYS]'s keys.
 var _display: String = "window"
+## The rest of the settings page (release_polish_plan §3): the screen's sync,
+## a cap on frames a second (0: none), and how loud all of it and the music
+## are (0..1).
+var _vsync: bool = true
+var _fps_cap: int = 0
+var _volume: float = 1.0
+var _music_volume: float = 1.0
+## The frame caps offered, in order (0: none).
+const FPS_CAPS: Array[int] = [30, 60, 120, 0]
 
 ## The choices: a window of the size it opened at, bigger windows, or the whole
 ## screen. The pictures scale with the window (stretch mode `canvas_items`), so
@@ -196,6 +205,8 @@ func _ready() -> void:
 	get_tree().set_auto_accept_quit(false)
 	_load_settings()
 	_apply_display()
+	_apply_frames()
+	_apply_volumes.call_deferred()
 	_start_probe()
 	var argv := OS.get_cmdline_user_args()
 	var connect_as := ""
@@ -487,6 +498,75 @@ func set_display(key: String) -> void:
 	_save_settings()
 
 
+## The setting a first run starts on, by the graphics chip: High on Apple's
+## larger chips and anything after the M2, Medium on a base M1/M2 and on
+## what is not known, Low on Intel's own graphics.
+static func suggested_graphics() -> Graphics.Level:
+	var chip := RenderingServer.get_video_adapter_name().to_lower()
+	if chip.contains("intel"):
+		return Graphics.Level.LOW
+	if chip.begins_with("apple m"):
+		var big := chip.contains("pro") or chip.contains("max") or chip.contains("ultra")
+		var later := not (chip.begins_with("apple m1") or chip.begins_with("apple m2"))
+		return Graphics.Level.HIGH if big or later else Graphics.Level.MEDIUM
+	return Graphics.Level.MEDIUM
+
+
+func vsync() -> bool:
+	return _vsync
+
+
+func fps_cap() -> int:
+	return _fps_cap
+
+
+func volume() -> float:
+	return _volume
+
+
+func music_volume() -> float:
+	return _music_volume
+
+
+func set_vsync(on: bool) -> void:
+	_vsync = on
+	_apply_frames()
+	_save_settings()
+
+
+func set_fps_cap(cap: int) -> void:
+	_fps_cap = maxi(cap, 0)
+	_apply_frames()
+	_save_settings()
+
+
+## How loud: all of it (`which` "volume") or the music ("music"), 0..1.
+## Applied at once; stored when `keep` (a slider stores as it is let go).
+func set_volume(which: String, level: float, keep: bool = true) -> void:
+	if which == "music":
+		_music_volume = clampf(level, 0.0, 1.0)
+	else:
+		_volume = clampf(level, 0.0, 1.0)
+	_apply_volumes()
+	if keep:
+		_save_settings()
+
+
+func _apply_frames() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if _vsync else DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = _fps_cap
+
+
+func _apply_volumes() -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(_volume, 0.0001)))
+	AudioServer.set_bus_mute(0, _volume <= 0.001)
+	var music := get_node_or_null(^"/root/Music")
+	if music != null and music.has_method(&"set_loudness"):
+		music.call(&"set_loudness", _music_volume)
+
+
 func _apply_display() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
@@ -514,9 +594,16 @@ func _apply_display() -> void:
 func _load_settings() -> void:
 	var file := ConfigFile.new()
 	if file.load(SETTINGS) != OK:
+		# the very first run: a setting the machine can hold, not the
+		# designed one (a tester's base M1 at High was the stall he met first)
+		_graphics = suggested_graphics()
 		return
-	var level := int(file.get_value("video", "graphics", Graphics.Level.HIGH))
-	_graphics = Graphics.from_int(level)
+	var level := int(file.get_value("video", "graphics", -1))
+	_graphics = Graphics.from_int(level) if level >= 0 else suggested_graphics()
+	_vsync = bool(file.get_value("video", "vsync", true))
+	_fps_cap = int(file.get_value("video", "fps_cap", 0))
+	_volume = clampf(float(file.get_value("audio", "volume", 1.0)), 0.0, 1.0)
+	_music_volume = clampf(float(file.get_value("audio", "music", 1.0)), 0.0, 1.0)
 	var shown := String(file.get_value("video", "display", "window"))
 	_display = shown if DISPLAYS.has(shown) else "window"
 	if file.has_section("hair"):
@@ -578,6 +665,10 @@ func _save_settings() -> void:
 	file.load(SETTINGS)
 	file.set_value("video", "graphics", int(_graphics))
 	file.set_value("video", "display", _display)
+	file.set_value("video", "vsync", _vsync)
+	file.set_value("video", "fps_cap", _fps_cap)
+	file.set_value("audio", "volume", _volume)
+	file.set_value("audio", "music", _music_volume)
 	for id: StringName in _hairs:
 		file.set_value("hair", String(id), int(_hairs[id]))
 	for id: StringName in _faces:

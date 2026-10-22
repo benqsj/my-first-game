@@ -13,6 +13,8 @@ const NetScript := preload("res://scripts/net.gd")
 
 var _line: Label
 var _tick := 0.0
+## The room code put on the clipboard once, to paste to the others.
+var _copied := ""
 
 
 func _ready() -> void:
@@ -44,7 +46,10 @@ func _refresh() -> void:
 	var roster: Dictionary = net.get("roster")
 	var code := String(net.get("room_code"))
 	if multiplayer.is_server() and code != "":
-		_line.text = "HOSTING  ·  კოდი: %s  ·  %d/%d players" % [code, roster.size(), NetScript.MAX_PLAYERS]
+		if _copied != code:
+			_copied = code
+			DisplayServer.clipboard_set(code)
+		_line.text = "HOSTING  ·  კოდი: %s (დაკოპირდა)  ·  %d/%d players" % [code, roster.size(), NetScript.MAX_PLAYERS]
 		_line.add_theme_font_size_override("font_size", 20)
 	elif multiplayer.is_server():
 		var addresses: Array[String] = NetScript.lan_addresses()

@@ -11424,3 +11424,22 @@ the level hidden in turn (`_shots_tmp/hubcost2.gd`, `portalcost.gd`,
 - **The cliffs round the village** (`World._hub_bounds`, ~100 rocks, 5.6 M
   triangles at full detail) cast no shadow and take their coarser shapes
   sooner (`lod_bias` 0.5): 1–2 ms, looked at side by side and the same.
+
+### Settings, controls, which build, co-op words (2026-10-22, release_polish_plan round 4)
+
+- **Settings** (front menu; the pause menu has the two sliders too): VSync
+  on/off, a frame cap (30/60/120/none), how loud everything is (the Master
+  bus) and the music (`Music.set_loudness`, under its own `volume_db`).
+  Stored in `user://settings.cfg` (`video/vsync`, `video/fps_cap`,
+  `audio/volume`, `audio/music`). A first run starts at
+  `Game.suggested_graphics()`: High on Apple's Pro/Max/Ultra and anything
+  after the M2, Medium on a base M1/M2 or what is not known, Low on Intel's
+  graphics.
+- **CONTROLS** page in the front menu and in the pause menu, from
+  `Controls.rows()` (the evade's key named as this machine has it).
+- **Which build**, bottom left of the front menu: `MainMenu.build_name()` —
+  the version, and in the exported app the CFBundleVersion the TestFlight
+  archive stamps into its Info.plist.
+- **Co-op words**: the host gone, the front screen says why he is back there
+  (`Net.last_trouble`); a version mismatch says to update in TestFlight; the
+  host's room code is put on the clipboard (`NetHud`).

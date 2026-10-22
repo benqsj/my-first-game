@@ -47,7 +47,7 @@ const ROSTER_TOP := 120.0
 ## Appended rather than inserted: the pages are addressed by number from the
 ## tests, and renumbering them to make room in the middle is a change nobody
 ## asked for.
-enum Page { ROOT, MODE, CHARACTERS, SETTINGS, CONNECT }
+enum Page { ROOT, MODE, CHARACTERS, SETTINGS, CONNECT, CONTROLS }
 
 ## Whether the character page leads to a game or to the host/join page. The
 ## character has to be picked either way and *first*, because it is sent with
@@ -64,6 +64,9 @@ var _stages: Dictionary = {}
 var _stage_box: Control
 var _graphics_buttons: Dictionary = {}
 var _display_buttons: Dictionary = {}
+var _vsync_buttons: Dictionary = {}
+var _cap_buttons: Dictionary = {}
+var _volume_sliders: Dictionary = {}
 ## Seconds the menu has been up: what the stage's light breathes by.
 var _stage_clock: float = 0.0
 ## The display choices on the settings page, in order: [Game]'s keys.
@@ -146,7 +149,7 @@ func _ready() -> void:
 	# themselves — every profile, and a model of whoever is looked at — and
 	# building it up front is what used to keep this screen from coming up for
 	# ten seconds and more, on the way in and again on the way back from a game.
-	for page: Page in [Page.ROOT, Page.MODE, Page.SETTINGS, Page.CONNECT]:
+	for page: Page in [Page.ROOT, Page.MODE, Page.SETTINGS, Page.CONNECT, Page.CONTROLS]:
 		_page_of(page)
 	_show(Page.ROOT)
 
@@ -187,6 +190,8 @@ func _build(page: Page) -> Control:
 			return _build_characters()
 		Page.SETTINGS:
 			return _build_settings()
+		Page.CONTROLS:
+			return _build_controls()
 		Page.CONNECT:
 			return _build_connect()
 	return _build_root()
@@ -225,8 +230,22 @@ func _build_root() -> Control:
 	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	buttons.add_child(MenuStyle.word_button("PLAY", func() -> void: _show(Page.MODE)))
 	buttons.add_child(MenuStyle.word_button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
+	buttons.add_child(MenuStyle.word_button("CONTROLS", func() -> void: _show(Page.CONTROLS)))
 	buttons.add_child(MenuStyle.word_button("EXIT", func() -> void: get_tree().quit()))
 	column.add_child(buttons)
+	# why he is back here, if a game with others ended under him ([Net])
+	var left_why := String(_net.get(&"last_trouble")) if _net != null and _net.get(&"last_trouble") != null else ""
+	if left_why != "":
+		column.add_child(MenuStyle.label(left_why, MenuStyle.BODY_SIZE, Color(0.95, 0.55, 0.45)))
+		_net.set(&"last_trouble", "")
+
+	# which build this is, for a tester to say (the app's own build number)
+	var build := MenuStyle.label(build_name(), MenuStyle.BODY_SIZE - 4, Color(MenuStyle.GOLD_DIM, 0.7))
+	build.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	build.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	build.offset_left = 36.0
+	build.offset_bottom = -26.0
+	page.add_child(build)
 
 	var foot := MenuStyle.label("1 – 4 players  ·  LAN co-op  ·  early build", MenuStyle.BODY_SIZE - 3,
 			Color(MenuStyle.GOLD_DIM, 0.8))
@@ -560,6 +579,48 @@ func _build_settings() -> Control:
 		_display_buttons[key] = button
 		screen_row.add_child(button)
 	page.add_child(screen_row)
+
+	var frames_row := HBoxContainer.new()
+	frames_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	frames_row.add_theme_constant_override("separation", 10)
+	frames_row.add_child(MenuStyle.label("VSYNC", MenuStyle.BUTTON_SIZE - 2, MenuStyle.CREAM))
+	for on: bool in [true, false]:
+		var button := MenuStyle.button("ON" if on else "OFF", func() -> void: _set_vsync(on))
+		button.custom_minimum_size = Vector2(90.0, MenuStyle.BUTTON_HEIGHT - 8.0)
+		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE)
+		_vsync_buttons[on] = button
+		frames_row.add_child(button)
+	frames_row.add_child(MenuStyle.label("   FPS", MenuStyle.BUTTON_SIZE - 2, MenuStyle.CREAM))
+	for cap: int in Game.FPS_CAPS:
+		var button := MenuStyle.button(str(cap) if cap > 0 else "NO LIMIT", func() -> void: _set_cap(cap))
+		button.custom_minimum_size = Vector2(90.0 if cap > 0 else 128.0, MenuStyle.BUTTON_HEIGHT - 8.0)
+		button.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE)
+		_cap_buttons[cap] = button
+		frames_row.add_child(button)
+	page.add_child(frames_row)
+
+	for which: String in ["volume", "music"]:
+		var sound_row := HBoxContainer.new()
+		sound_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		sound_row.add_theme_constant_override("separation", 14)
+		var name_label := MenuStyle.label("SOUND" if which == "volume" else "MUSIC", MenuStyle.BUTTON_SIZE - 2, MenuStyle.CREAM)
+		name_label.custom_minimum_size = Vector2(110.0, 0.0)
+		sound_row.add_child(name_label)
+		var slider := HSlider.new()
+		slider.min_value = 0.0
+		slider.max_value = 1.0
+		slider.step = 0.05
+		slider.custom_minimum_size = Vector2(380.0, 28.0)
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		slider.value_changed.connect(func(v: float) -> void:
+			if _game != null:
+				_game.set_volume(which, v, false))
+		slider.drag_ended.connect(func(_changed: bool) -> void:
+			if _game != null:
+				_game.set_volume(which, slider.value, true))
+		_volume_sliders[which] = slider
+		sound_row.add_child(slider)
+		page.add_child(sound_row)
 
 	page.add_child(MenuStyle.label(
 			"Medium keeps a shorter shadow and draws at 85% of the resolution.\n"
@@ -1626,12 +1687,76 @@ func _refresh_graphics() -> void:
 		var button := _display_buttons[key] as Button
 		MenuStyle.style_button(button, key == shown)
 		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var synced: bool = _game.vsync() if _game != null else true
+	for on: bool in _vsync_buttons:
+		MenuStyle.style_button(_vsync_buttons[on] as Button, on == synced)
+		(_vsync_buttons[on] as Button).alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var capped: int = _game.fps_cap() if _game != null else 0
+	for cap: int in _cap_buttons:
+		MenuStyle.style_button(_cap_buttons[cap] as Button, cap == capped)
+		(_cap_buttons[cap] as Button).alignment = HORIZONTAL_ALIGNMENT_CENTER
+	for which: String in _volume_sliders:
+		var slider := _volume_sliders[which] as HSlider
+		var level: float = (_game.music_volume() if which == "music" else _game.volume()) if _game != null else 1.0
+		slider.set_value_no_signal(level)
 
 
 func _set_display(key: String) -> void:
 	if _game != null:
 		_game.set_display(key)
 	_refresh_graphics()
+
+
+func _set_vsync(on: bool) -> void:
+	if _game != null:
+		_game.set_vsync(on)
+	_refresh_graphics()
+
+
+func _set_cap(cap: int) -> void:
+	if _game != null:
+		_game.set_fps_cap(cap)
+	_refresh_graphics()
+
+
+## "Vepxis 0.2  ·  build 261022.0815": the version, and the app's own build
+## number where there is one (the TestFlight build stamps CFBundleVersion
+## into the app's Info.plist beside the binary).
+static func build_name() -> String:
+	var out := "Vepxis %s" % String(ProjectSettings.get_setting("application/config/version", "0.1"))
+	var plist := OS.get_executable_path().get_base_dir().path_join("../Info.plist")
+	# (only the exported game's own: run from the editor's binary, the plist
+	# beside it is Godot's)
+	if OS.has_feature("template") and FileAccess.file_exists(plist):
+		var text := FileAccess.get_file_as_string(plist)
+		var at := text.find("<key>CFBundleVersion</key>")
+		if at >= 0:
+			var from := text.find("<string>", at)
+			var to := text.find("</string>", from)
+			if from >= 0 and to > from:
+				out += "  ·  build %s" % text.substr(from + 8, to - from - 8)
+	return out
+
+
+## What each key does, as the game has them on this machine ([Controls]).
+func _build_controls() -> Control:
+	var made := _card_page("CONTROLS")
+	var page := made[1] as VBoxContainer
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 40)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for row: Array in Controls.rows():
+		grid.add_child(MenuStyle.label(String(row[0]), MenuStyle.BODY_SIZE, MenuStyle.GOLD))
+		grid.add_child(MenuStyle.label(String(row[1]), MenuStyle.BODY_SIZE, MenuStyle.CREAM))
+	page.add_child(grid)
+	var buttons := MenuStyle.button_column()
+	buttons.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
+	page.add_child(buttons)
+	return made[0]
+
 #endregion
 
 

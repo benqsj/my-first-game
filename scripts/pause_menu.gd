@@ -11,7 +11,7 @@ extends CanvasLayer
 
 const MENU := "res://scenes/ui/main_menu.tscn"
 
-enum Page { ROOT, SETTINGS }
+enum Page { ROOT, SETTINGS, CONTROLS }
 
 var _page: Page = Page.ROOT
 var _pages: Dictionary = {}
@@ -38,7 +38,7 @@ func _ready() -> void:
 	shade.color = Color(MenuStyle.SLATE_DEEP, 0.78)
 	_screen.add_child(shade)
 
-	for page: Page in [Page.ROOT, Page.SETTINGS]:
+	for page: Page in [Page.ROOT, Page.SETTINGS, Page.CONTROLS]:
 		var built := _build(page)
 		_screen.add_child(built)
 		_pages[page] = built
@@ -103,6 +103,8 @@ func _online() -> bool:
 func _build(page: Page) -> Control:
 	if page == Page.SETTINGS:
 		return _build_settings()
+	if page == Page.CONTROLS:
+		return _build_controls()
 	return _build_root()
 
 
@@ -112,6 +114,7 @@ func _build_root() -> Control:
 	var buttons := MenuStyle.button_column()
 	buttons.add_child(MenuStyle.button("RESUME", resume))
 	buttons.add_child(MenuStyle.button("SETTINGS", func() -> void: _show(Page.SETTINGS)))
+	buttons.add_child(MenuStyle.button("CONTROLS", func() -> void: _show(Page.CONTROLS)))
 	buttons.add_child(MenuStyle.button("EXIT TO MAIN MENU", quit_to_menu, true))
 	column.add_child(buttons)
 	return column
@@ -133,6 +136,49 @@ func _build_settings() -> Control:
 		row.add_child(button)
 	column.add_child(row)
 
+	# how loud, here too: it is in the middle of a fight that one wants it
+	for which: String in ["volume", "music"]:
+		var sound_row := HBoxContainer.new()
+		sound_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		sound_row.add_theme_constant_override("separation", 14)
+		var name_label := MenuStyle.label("SOUND" if which == "volume" else "MUSIC", MenuStyle.BUTTON_SIZE, MenuStyle.CREAM)
+		name_label.custom_minimum_size = Vector2(120.0, 0.0)
+		sound_row.add_child(name_label)
+		var slider := HSlider.new()
+		slider.min_value = 0.0
+		slider.max_value = 1.0
+		slider.step = 0.05
+		slider.custom_minimum_size = Vector2(380.0, 28.0)
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if _game != null:
+			slider.value = float(_game.call(&"music_volume") if which == "music" else _game.call(&"volume"))
+		slider.value_changed.connect(func(v: float) -> void:
+			if _game != null:
+				_game.call(&"set_volume", which, v, false))
+		slider.drag_ended.connect(func(_changed: bool) -> void:
+			if _game != null:
+				_game.call(&"set_volume", which, slider.value, true))
+		sound_row.add_child(slider)
+		column.add_child(sound_row)
+
+	var buttons := MenuStyle.button_column()
+	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
+	column.add_child(buttons)
+	return column
+
+
+func _build_controls() -> Control:
+	var column := MenuStyle.page_column()
+	column.add_child(MenuStyle.heading("CONTROLS"))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 40)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for row: Array in Controls.rows():
+		grid.add_child(MenuStyle.label(String(row[0]), MenuStyle.BODY_SIZE, MenuStyle.GOLD))
+		grid.add_child(MenuStyle.label(String(row[1]), MenuStyle.BODY_SIZE, MenuStyle.CREAM))
+	column.add_child(grid)
 	var buttons := MenuStyle.button_column()
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	column.add_child(buttons)

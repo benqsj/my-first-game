@@ -47,7 +47,8 @@ func _check_menu() -> void:
 	# The choosing of a hero is built when it is first opened: it is the page
 	# that needs every hero loaded and modelled, and building it up front was
 	# most of the ten seconds and more the menu took to come up.
-	_check("the menu builds every page but the heroes'", pages.size() == 4 and not pages.has(2),
+	# (and the controls' page, 2026-10-22)
+	_check("the menu builds every page but the heroes'", pages.size() == 5 and not pages.has(2),
 			"%d" % pages.size())
 	_check("and no hero's model at all yet",
 			menu.find_children("*", "CharacterPortrait", true, false).is_empty())
@@ -60,7 +61,7 @@ func _check_menu() -> void:
 
 	menu.call("_show", 2)
 	await _wait(2)
-	_check("and the heroes' page when it is opened", pages.size() == 5)
+	_check("and the heroes' page when it is opened", pages.size() == 6)
 	var cards: Dictionary = menu.get("_cards")
 	var stages: Dictionary = menu.get("_stages")
 	_check("with only the picked one's model on the stage", stages.size() == 1,
