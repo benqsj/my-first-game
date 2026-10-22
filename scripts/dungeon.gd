@@ -432,6 +432,9 @@ uniform float snow = 0.0;
 // photographed cobbles where cobbles lie, and the land's photographed rock
 // worked into each slab's face. 0 leaves the drawn stone alone.
 uniform float photo = 0.0;
+// Cobbles all over, as the village's streets (the user's word, 2026-10-23):
+// no slabs at all.
+uniform float all_cob = 0.0;
 uniform sampler2D cob_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D cob_nor : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D stone_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -485,8 +488,8 @@ vec4 ground(vec2 p) {
 	vec2 dw = half_size - abs(lp);
 	float to_wall = min(dw.x, dw.y);
 	vec2 s = slabs(p);
-	float gone = step(hash(vec2(s.y, 9.7)), 0.05 + 0.08 * wear);
-	bool cob = rocky > 0.5 || to_wall < border || abs(lp.x) < aisle || gone > 0.5;
+	float gone = step(hash(vec2(s.y, 9.7)), (0.05 + 0.08 * wear) * (1.0 - photo * 0.6));
+	bool cob = rocky > 0.5 || all_cob > 0.5 || to_wall < border || abs(lp.x) < aisle || gone > 0.5;
 	if (cob) {
 		vec3 v = voronoi(p / pebble);
 		float r = (v.y - v.x) / (v.x + v.y + 0.0001);
@@ -539,12 +542,14 @@ void fragment() {
 		float patch = smoothstep(1.0 - wear, 1.0 - wear + 0.2, noise(p * 0.05 + 3.0));
 		vec3 v = voronoi(p * 0.5);
 		float crack = (1.0 - smoothstep(0.0, 0.04, v.y - v.x)) * patch;
-		c = mix(c, grit.rgb, crack * 0.85);
+		c = mix(c, grit.rgb, crack * mix(0.85, 0.25, photo));
 	} else if (g.y < 1.5) {
 		if (photo_cob) {
 			// the village square's cobbles, the room's own cast over them
 			vec2 cuv = p / cob_tile;
 			vec3 ct = texture(cob_tex, cuv).rgb;
+			// broad light and dark over it, so its tiles do not show
+			ct *= 0.86 + 0.28 * (noise(p * 0.07 + 3.3) * 0.7 + noise(p * 0.21) * 0.3);
 			vec3 tone = mix(cobble_a.rgb, cobble_b.rgb, 0.45) / vec3(0.134, 0.113, 0.089);
 			c = ct * cob_tint.rgb * clamp(tone, vec3(0.5), vec3(1.6));
 			nmap = texture(cob_nor, cuv).rgb;
@@ -564,7 +569,7 @@ void fragment() {
 	// Moss and dirt in the low places near the walls.
 	float low = 1.0 - smoothstep(0.1, 0.5, h);
 	float moss = low * smoothstep(5.0, 0.5, to_wall) * smoothstep(0.45, 0.7, noise(p * 0.8 + 5.0));
-	c = mix(c, vec3(0.16, 0.19, 0.09), moss * 0.6);
+	c = mix(c, vec3(0.16, 0.19, 0.09), moss * mix(0.6, 0.15, photo));
 	float drift = smoothstep(0.62, 0.8, noise(p * 0.12 + 21.0) + noise(p * 0.9) * 0.2) * snow;
 	c = mix(c, vec3(0.86, 0.88, 0.93), drift * (1.0 - h * 0.6) * 0.8);
 	c *= mix(0.62, 1.0, smoothstep(0.0, 3.0, to_wall));
@@ -652,7 +657,7 @@ void fragment() {
 
 const WALL_SHADER := """
 shader_type spatial;
-uniform vec4 stone : source_color = vec4(0.47, 0.44, 0.40, 1.0);
+uniform vec4 stone : source_color = vec4(0.52, 0.47, 0.40, 1.0);
 uniform vec4 grout : source_color = vec4(0.08, 0.07, 0.09, 1.0);
 // The land's photographed rock in each block's face (the user's word,
 // 2026-10-23), its grain over the block's own colour. 0: the drawn stone.
@@ -687,7 +692,7 @@ void fragment() {
 	c = mix(c, grout.rgb, clamp(joint, 0.0, 1.0));
 	// Darker towards the floor, as old stone is, and a little moss low down.
 	c *= 0.72 + 0.28 * smoothstep(0.0, 4.0, wpos.y);
-	c = mix(c, vec3(0.13, 0.17, 0.10), 0.25 * smoothstep(1.2, 0.0, wpos.y) * step(0.6, n));
+	c = mix(c, vec3(0.13, 0.17, 0.10), 0.25 * (1.0 - photo * 0.7) * smoothstep(1.2, 0.0, wpos.y) * step(0.6, n));
 	// Water stains running down from the joints, here and there.
 	float col = floor(u / 0.9);
 	float stain = step(0.82, hash(vec2(col, 3.0))) * smoothstep(0.0, 0.5, fract(u / 0.9))
@@ -702,7 +707,7 @@ void fragment() {
 	float m01 = hash(floor(mq) + vec2(0.0, 1.0)); float m11 = hash(floor(mq) + vec2(1.0, 1.0));
 	float mv = mix(mix(m00, m10, mu.x), mix(m01, m11, mu.x), mu.y);
 	float moss = smoothstep(0.58, 0.8, mv) * smoothstep(3.2, 0.2, wpos.y) * step(0.0, wpos.y) * step(abs(wnorm.y), 0.5);
-	c = mix(c, vec3(0.09, 0.13, 0.06) * (0.8 + 0.4 * mn), moss * 0.75);
+	c = mix(c, vec3(0.09, 0.13, 0.06) * (0.8 + 0.4 * mn), moss * mix(0.75, 0.22, photo));
 	ALBEDO = c;
 	ROUGHNESS = 0.9;
 }
@@ -2775,9 +2780,10 @@ func _materials() -> void:
 	_cave_mat.set_shader_parameter("scale", 0.3)
 	# under the earth as the Eternal Cities lie (the user's word, 2026-10-20:
 	# Elden Ring's colours): blue-grey rock, flecked with points of starlight
-	_cave_mat.set_shader_parameter("rock_a", Color(0.30, 0.33, 0.42))
-	_cave_mat.set_shader_parameter("rock_b", Color(0.10, 0.11, 0.17))
-	_cave_mat.set_shader_parameter("band", Color(0.36, 0.40, 0.55))
+	# (2026-10-23: the land's grey rock now, only a cold cast left)
+	_cave_mat.set_shader_parameter("rock_a", Color(0.40, 0.40, 0.42))
+	_cave_mat.set_shader_parameter("rock_b", Color(0.17, 0.17, 0.19))
+	_cave_mat.set_shader_parameter("band", Color(0.46, 0.45, 0.47))
 	_cave_mat.set_shader_parameter("moss", Color(0.08, 0.22, 0.26))
 	_cave_mat.set_shader_parameter("fleck", Color(0.75, 0.88, 1.0))
 	_cave_mat.set_shader_parameter("fleck_glow", 3.0)
@@ -2840,8 +2846,8 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("rocky", 1.0)
 		m.set_shader_parameter("pebble", 0.9)
 		m.set_shader_parameter("relief", 0.09)
-		m.set_shader_parameter("cobble_a", Color(0.30, 0.32, 0.40))
-		m.set_shader_parameter("cobble_b", Color(0.12, 0.13, 0.18))
+		m.set_shader_parameter("cobble_a", Color(0.38, 0.38, 0.40))
+		m.set_shader_parameter("cobble_b", Color(0.17, 0.17, 0.19))
 		m.set_shader_parameter("wet", 0.8)
 		m.set_shader_parameter("border", 0.0)
 		return m
@@ -2867,6 +2873,8 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("snow", 1.0)
 		m.set_shader_parameter("border", 0.0)
 		return m
+	if kind in ["court", "terrace", "sky", "rampart", "spring", "prison", "merchant", "altar"]:
+		m.set_shader_parameter("all_cob", 1.0)
 	if kind == "rampart":
 		m.set_shader_parameter("slab", 1.6)
 		m.set_shader_parameter("course", 1.1)
@@ -2910,22 +2918,28 @@ func _floor_mat(i: int) -> ShaderMaterial:
 ## height (degrees; below 0 it has set), its colour and strength, the sky's top,
 ## horizon and ground, the fill light's colour and strength, the haze, how much
 ## night (stars, the moon), how cloudy.
+## (2026-10-23, the user's word: inside the portal the light and colours as
+## out in the land, where everything is pleasant to look at, near and far:
+## the land's own sun, sky, fill light and haze through the whole run; only
+## the last steps go into a golden late afternoon, and the lord's court into
+## a bright moonlit night that still shows a man as he is.)
+const LAND_SUN := Color(1.0, 0.98, 0.95)
 const PHASES := [
-	{"elev": 52.0, "sun": Color(1.0, 0.92, 0.8), "sun_e": 1.3, "top": Color(0.20, 0.40, 0.70),
-			"hor": Color(0.82, 0.80, 0.74), "gnd": Color(0.30, 0.28, 0.26), "amb": Color(0.58, 0.64, 0.60),
-			"amb_e": 1.45, "fog": Color(0.67, 0.71, 0.73), "night": 0.0, "cloud": 0.45},
-	{"elev": 34.0, "sun": Color(1.0, 0.86, 0.66), "sun_e": 1.25, "top": Color(0.20, 0.37, 0.66),
-			"hor": Color(0.92, 0.76, 0.58), "gnd": Color(0.30, 0.27, 0.24), "amb": Color(0.64, 0.60, 0.56),
-			"amb_e": 1.4, "fog": Color(0.72, 0.68, 0.66), "night": 0.0, "cloud": 0.5},
-	{"elev": 15.0, "sun": Color(1.0, 0.70, 0.44), "sun_e": 1.1, "top": Color(0.22, 0.30, 0.56),
-			"hor": Color(1.0, 0.60, 0.36), "gnd": Color(0.28, 0.22, 0.20), "amb": Color(0.66, 0.55, 0.50),
-			"amb_e": 1.3, "fog": Color(0.80, 0.58, 0.46), "night": 0.0, "cloud": 0.55},
-	{"elev": 3.0, "sun": Color(1.0, 0.46, 0.26), "sun_e": 0.8, "top": Color(0.10, 0.12, 0.32),
-			"hor": Color(0.86, 0.36, 0.28), "gnd": Color(0.16, 0.12, 0.14), "amb": Color(0.55, 0.46, 0.52),
-			"amb_e": 1.15, "fog": Color(0.52, 0.32, 0.36), "night": 0.3, "cloud": 0.55},
-	{"elev": 38.0, "sun": Color(0.62, 0.70, 1.0), "sun_e": 0.55, "top": Color(0.012, 0.018, 0.06),
-			"hor": Color(0.07, 0.09, 0.18), "gnd": Color(0.03, 0.03, 0.05), "amb": Color(0.42, 0.48, 0.66),
-			"amb_e": 0.95, "fog": Color(0.10, 0.12, 0.20), "night": 1.0, "cloud": 0.4},
+	{"elev": 45.0, "sun": LAND_SUN, "sun_e": 1.1, "top": Color(0.36, 0.50, 0.72),
+			"hor": Color(0.70, 0.74, 0.76), "gnd": Color(0.21, 0.23, 0.19), "amb": Color(0.58, 0.64, 0.60),
+			"amb_e": 1.9, "fog": Color(0.67, 0.71, 0.73), "night": 0.0, "cloud": 0.4},
+	{"elev": 42.0, "sun": LAND_SUN, "sun_e": 1.1, "top": Color(0.36, 0.50, 0.72),
+			"hor": Color(0.70, 0.74, 0.76), "gnd": Color(0.21, 0.23, 0.19), "amb": Color(0.58, 0.64, 0.60),
+			"amb_e": 1.9, "fog": Color(0.67, 0.71, 0.73), "night": 0.0, "cloud": 0.45},
+	{"elev": 36.0, "sun": Color(1.0, 0.95, 0.88), "sun_e": 1.1, "top": Color(0.35, 0.49, 0.71),
+			"hor": Color(0.74, 0.75, 0.74), "gnd": Color(0.21, 0.22, 0.19), "amb": Color(0.60, 0.64, 0.60),
+			"amb_e": 1.85, "fog": Color(0.69, 0.71, 0.72), "night": 0.0, "cloud": 0.45},
+	{"elev": 22.0, "sun": Color(1.0, 0.88, 0.72), "sun_e": 1.1, "top": Color(0.33, 0.45, 0.68),
+			"hor": Color(0.84, 0.76, 0.66), "gnd": Color(0.22, 0.21, 0.18), "amb": Color(0.62, 0.62, 0.58),
+			"amb_e": 1.75, "fog": Color(0.74, 0.71, 0.68), "night": 0.0, "cloud": 0.5},
+	{"elev": 40.0, "sun": Color(0.72, 0.80, 1.0), "sun_e": 0.75, "top": Color(0.05, 0.08, 0.18),
+			"hor": Color(0.20, 0.25, 0.36), "gnd": Color(0.06, 0.07, 0.09), "amb": Color(0.52, 0.58, 0.70),
+			"amb_e": 1.55, "fog": Color(0.24, 0.28, 0.36), "night": 1.0, "cloud": 0.35},
 ]
 
 const SKY_SHADER := """
@@ -3025,6 +3039,12 @@ func _sky() -> void:
 	_sun = root.get_node_or_null("Sun") as DirectionalLight3D
 	if _sun != null:
 		_sun_yaw = _sun.rotation.y
+		# the land's sun: its shadows as soft, as far
+		_sun.shadow_opacity = 0.72
+		_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		_sun.directional_shadow_split_1 = 0.26
+		_sun.directional_shadow_blend_splits = true
+		_sun.directional_shadow_max_distance = 95.0
 	_apply_phase(0.0)
 
 
@@ -3109,33 +3129,21 @@ func _place_look(night: float = 0.0) -> void:
 			# the gold is the day's: by night only the torches' warmth is left
 			var day := 1.0 - clampf(night, 0.0, 1.0)
 			var gold := Color(0.92, 0.72, 0.42)
-			# only a breath of it now: the land's own air (the user's word,
-			# 2026-10-23: inside the portal, the colours of the world he left)
-			_env.fog_light_color = _env.fog_light_color.lerp(gold, 0.15 * day)
-			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.78, 0.66, 0.50), 0.1 * day)
-			_env.adjustment_contrast = 1.06
-			_env.glow_intensity = 1.0
-			_env.glow_bloom = 0.1
-			_env.glow_hdr_threshold = 0.9
-			if kind == "hall":
-				_env.fog_density = 0.0025
-				_env.volumetric_fog_enabled = true
-				_env.volumetric_fog_density = 0.002
-				_env.volumetric_fog_albedo = Color(0.88, 0.84, 0.76)
-				_env.volumetric_fog_emission = Color(0.02, 0.016, 0.008)
-				_env.volumetric_fog_length = 70.0
-				_env.volumetric_fog_ambient_inject = 0.15
+			# the land's own air (the user's word, 2026-10-23: inside the
+			# portal, the colours of the world he left), no gold haze
+			_env.fog_light_color = _env.fog_light_color.lerp(gold, 0.05 * day)
 		"crypt":
-			# the catacombs: cold grey stone, the candles' warmth in it
-			_env.ambient_light_color = Color(0.40, 0.44, 0.48)
-			_env.ambient_light_energy = 1.1
-			_env.fog_light_color = Color(0.16, 0.18, 0.18)
+			# the catacombs: cold grey stone, the candles' warmth in it, but
+			# a man still seen as he is (2026-10-23)
+			_env.ambient_light_color = Color(0.52, 0.56, 0.58)
+			_env.ambient_light_energy = 1.45
+			_env.fog_light_color = Color(0.30, 0.32, 0.33)
 			_env.fog_density = 0.004
 			_env.glow_intensity = 1.2
 			_env.glow_bloom = 0.16
 			_env.glow_hdr_threshold = 0.85
 			_env.volumetric_fog_enabled = true
-			_env.volumetric_fog_density = 0.0045
+			_env.volumetric_fog_density = 0.0025
 			_env.volumetric_fog_albedo = Color(0.75, 0.78, 0.75)
 			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 			_env.volumetric_fog_length = 50.0
@@ -3147,8 +3155,8 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_density = 0.004
 		"mountain":
 			# the storm: dark, cold, the clouds down on the peaks
-			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.42, 0.46, 0.55), 0.6)
-			_env.ambient_light_energy *= 0.8
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.48, 0.52, 0.58), 0.4)
+			_env.ambient_light_energy *= 0.9
 			_env.fog_light_color = Color(0.32, 0.35, 0.42).lerp(_env.fog_light_color, 0.3)
 			_env.fog_density = 0.006
 			if _sky_mat != null:
@@ -3156,7 +3164,7 @@ func _place_look(night: float = 0.0) -> void:
 				_sky_mat.set_shader_parameter("top_col", Color(0.16, 0.18, 0.24))
 				_sky_mat.set_shader_parameter("hor_col", Color(0.36, 0.38, 0.44))
 			if _sun != null:
-				_sun.light_energy *= 0.45
+				_sun.light_energy *= 0.7
 		"rampart":
 			# Stormveil's grey over the gold
 			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.6, 0.62, 0.66), 0.4)
@@ -3165,16 +3173,17 @@ func _place_look(night: float = 0.0) -> void:
 			# the dead wood (the user's word, 2026-10-20: dark, a wood one is
 			# afraid of): little light gets through, cold and grey-green, a
 			# mist one cannot see far into, the sky shut out
-			_env.ambient_light_color = Color(0.40, 0.46, 0.46)
-			_env.ambient_light_energy *= 0.85
-			_env.fog_light_color = Color(0.20, 0.24, 0.25)
-			_env.fog_density = 0.013
-			_env.fog_sky_affect = 0.7
-			_env.adjustment_contrast = 1.15
-			_env.adjustment_saturation = 0.72
+			# (2026-10-23: still the dead wood, but the land's colours in it)
+			_env.ambient_light_color = Color(0.50, 0.56, 0.52)
+			_env.ambient_light_energy *= 0.9
+			_env.fog_light_color = Color(0.36, 0.40, 0.40)
+			_env.fog_density = 0.009
+			_env.fog_sky_affect = 0.6
+			_env.adjustment_contrast = 1.06
+			_env.adjustment_saturation = 0.95
 			_env.glow_hdr_threshold = 0.9
 			_env.volumetric_fog_enabled = true
-			_env.volumetric_fog_density = 0.01
+			_env.volumetric_fog_density = 0.006
 			_env.volumetric_fog_albedo = Color(0.6, 0.66, 0.68)
 			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 			_env.volumetric_fog_length = 55.0
@@ -3185,20 +3194,21 @@ func _place_look(night: float = 0.0) -> void:
 				_sky_mat.set_shader_parameter("top_col", Color(0.1 * dim, 0.11 * dim, 0.13 * dim))
 				_sky_mat.set_shader_parameter("hor_col", Color(0.3 * dim, 0.34 * dim, 0.35 * dim))
 			if _sun != null:
-				_sun.light_energy *= 0.55
-				_sun.light_color = _sun.light_color.lerp(Color(0.72, 0.8, 0.88), 0.5)
+				_sun.light_energy *= 0.75
+				_sun.light_color = _sun.light_color.lerp(Color(0.85, 0.9, 0.92), 0.4)
 		"cave":
-			_env.ambient_light_color = Color(0.30, 0.38, 0.62)
-			_env.ambient_light_energy = 1.05
-			_env.fog_light_color = Color(0.14, 0.2, 0.38)
-			_env.fog_density = 0.006
+			# (2026-10-23: the land's grey under the earth, a cold cast only)
+			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
+			_env.ambient_light_energy = 1.5
+			_env.fog_light_color = Color(0.26, 0.30, 0.36)
+			_env.fog_density = 0.005
 			_env.glow_intensity = 1.25
 			_env.glow_bloom = 0.18
 			_env.glow_hdr_threshold = 0.8
 			_env.volumetric_fog_enabled = true
-			_env.volumetric_fog_density = 0.008
-			_env.volumetric_fog_albedo = Color(0.6, 0.72, 1.0)
-			_env.volumetric_fog_emission = Color(0.01, 0.015, 0.04)
+			_env.volumetric_fog_density = 0.004
+			_env.volumetric_fog_albedo = Color(0.7, 0.76, 0.85)
+			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 			_env.volumetric_fog_length = 60.0
 			_env.volumetric_fog_ambient_inject = 0.2
 	# a cursed place: blood in its air ([method _curse])
@@ -3217,7 +3227,37 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_density *= 1.6
 
 
+## A fire low enough to walk into (the user's word, 2026-10-23: in places he
+## went through the fire) gets a post round it no one goes through.
+func _block_fires(room: Node3D) -> void:
+	if room == null:
+		return
+	for n in room.find_children("*", "Node3D", true, false):
+		if not n.is_in_group(&"dungeon_flame"):
+			continue
+		var f := n as Node3D
+		var low := f.global_position.y - room.global_position.y
+		if low > 2.2 or low < -0.5:
+			continue
+		var r := clampf(float(f.get_meta(&"size", 1.0)) * 0.3, 0.3, 0.9)
+		var post := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = r
+		cyl.height = 2.4
+		shape.shape = cyl
+		post.add_child(shape)
+		room.add_child(post)
+		post.global_position = Vector3(f.global_position.x, room.global_position.y + 1.2, f.global_position.z)
+
+
 func _build_room(i: int) -> void:
+	_build_room_body(i)
+	if i < _room_nodes.size():
+		_block_fires(_room_nodes[i])
+
+
+func _build_room_body(i: int) -> void:
 	var r := _room(i)
 	var kind: String = r["kind"]
 	var w: float = r["w"]
@@ -3696,13 +3736,8 @@ func _ceiling(room: Node3D, w: float, l: float, h: float, hole: bool = false) ->
 		fb.rotation = Vector3(0.09, 0.55, 0.04)
 		var lie := _blocker(room, Vector3(0.9, 1.2, 13.0), Vector3(-2.5, 0.6, hz + 1.0))
 		lie.rotation.y = 0.55
-		# what has grown where the sky comes in: grass and ferns in the light,
-		# ivy hanging down over the broken edge
-		for k in 26:
-			var ga := _rng.randf_range(0.0, TAU)
-			var at := Vector3(sin(ga) * _rng.randf_range(0.5, hw * 0.45), 0.0, hz + cos(ga) * _rng.randf_range(0.5, hl * 0.45))
-			_nature(room, ["Grass_Wispy_Short", "Grass_Common_Short", "Fern_1"][k % 3], at,
-					_rng.randf_range(0.8, 1.3), _rng.randf_range(0.0, TAU), false)
+		# ivy hanging down over the broken edge (no grass on the floor: the
+		# user's word, 2026-10-23, too much of it)
 		for k in 8:
 			var side := -1.0 if k % 2 == 0 else 1.0
 			var at := Vector3(side * hw * 0.5, h - 0.3, hz + _rng.randf_range(-hl * 0.4, hl * 0.4))
@@ -4246,6 +4281,8 @@ func _build_gate(room: Node3D, at: Vector3) -> Node3D:
 func _flame(at: Vector3, size: float, amount: int) -> Node3D:
 	var fire := Node3D.new()
 	fire.position = at
+	fire.add_to_group(&"dungeon_flame")
+	fire.set_meta(&"size", size)
 	if _fire_mat == null:
 		var sh := Shader.new()
 		sh.code = FLAME_SHADER
@@ -5993,18 +6030,8 @@ func _build_rampart(room: Node3D, i: int) -> void:
 			# its roof half burnt away
 			rf.scale = Vector3(1.0, 0.55, 1.0)
 			rf.rotation.z = 0.25
-	# what the fighting left: fires, arrows, blades
-	for k in 5:
-		var at := Vector3(_rng.randf_range(-w * 0.35, w * 0.35), 0.0, -l * 0.4 + float(k) * l * 0.2)
-		_rubble(room, at, 1.4, 8, k * 13)
-		room.add_child(_flame(at + Vector3(0.0, 0.4, 0.0), 2.4, 30))
-		_crackle(room, at + Vector3(0.0, 0.4, 0.0))
-		var glow := OmniLight3D.new()
-		glow.light_color = Color(1.0, 0.55, 0.25)
-		glow.light_energy = 2.4
-		glow.omni_range = 10.0
-		glow.position = at + Vector3(0.0, 1.2, 0.0)
-		room.add_child(_fire_light(glow))
+	# what the fighting left: arrows, blades (the fires lying in the way gone:
+	# the user's word, 2026-10-23, he walked through them)
 	_arrows(room, w, l, 40)
 	_blades_in_floor(room, w, l, 8)
 	for k in 6:

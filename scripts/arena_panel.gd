@@ -108,6 +108,9 @@ var _drill_body: Node3D = null
 var _drill_kind_label: Label
 var _drill_combo_label: Label
 var _drill_enraged: bool = false
+## The board's scroll and what is in it.
+var _scroll: ScrollContainer
+var _column: VBoxContainer
 ## The rooms' corner: whether a room is shown with its creatures.
 var _rooms_with_foes: bool = false
 
@@ -121,9 +124,17 @@ func _ready() -> void:
 	_root.add_theme_stylebox_override("panel", MenuStyle.panel_style(Color(0.08, 0.09, 0.11, 0.88)))
 	_root.position = Vector2(16.0, 16.0)
 	add_child(_root)
+	# the board scrolls when it is taller than the screen (the user's word,
+	# 2026-10-23: the bottom of it went under the screen's edge)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_root.add_child(_scroll)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
-	_root.add_child(column)
+	_scroll.add_child(column)
+	_column = column
+	get_viewport().size_changed.connect(_fit_height)
 	column.add_child(MenuStyle.label("ADMIN MODE  (F1)", MenuStyle.BODY_SIZE + 1, MenuStyle.GOLD))
 
 	var looks := HBoxContainer.new()
@@ -388,6 +399,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func toggle() -> void:
 	_root.visible = not _root.visible
+	_fit_height()
 	if _preview != null:
 		_preview.visible = _root.visible and _picked.is_valid()
 		if not _root.visible:
@@ -398,6 +410,15 @@ func toggle() -> void:
 		hero.menu_open = _root.visible
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if _root.visible else Input.MOUSE_MODE_CAPTURED
 	_refresh_look()
+
+
+## As tall as what is on it, but no taller than the screen.
+func _fit_height() -> void:
+	if _scroll == null or _column == null:
+		return
+	var room := get_viewport().get_visible_rect().size.y - 48.0
+	_scroll.custom_minimum_size.y = minf(_column.get_combined_minimum_size().y, maxf(room, 200.0))
+	_root.reset_size()
 
 
 func is_open() -> bool:

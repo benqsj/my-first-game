@@ -751,8 +751,6 @@ static func apply(figure: Node3D, look: Dictionary) -> void:
 	figure.set_meta(&"ps_female", String(look.get("g", "m")) == "f")
 	dye(figure, int(look.get("skin", 1)), int(look.get("cloth", 1)), int(look.get("hc", look.get("skin", 1))))
 	wear_style(figure, String(look.get("ws", STYLES[0])))
-	# a man's bare chest drawn: its muscles, not one flat colour ([SkinRelief])
-	SkinRelief.dress(figure)
 
 
 ## Elves' ears: the head's ears drawn up and back into points. The ear is the
