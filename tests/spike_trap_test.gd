@@ -37,7 +37,7 @@ func _run() -> void:
 	var hero := world.player()
 	var step := 2
 	d._take_down(d.current)
-	d._arrive_at(step, "court", "")
+	d._arrive_at(step, "crypt", "")
 	await _wait(20)
 	var c := d.centre(step)
 	hero.global_position = c + Vector3(0, 0.3, float(d._room(step)["l"]) * 0.45)
