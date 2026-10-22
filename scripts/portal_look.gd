@@ -24,6 +24,11 @@ extends Node3D
 var _lights: Array[OmniLight3D] = []
 var _shards: Array[MeshInstance3D] = []
 var _runes: Array[Label3D] = []
+## Its stones, each [mesh, the node standing where it goes] until they are
+## drawn as one ([method _merge_stones]).
+var _stones: Array = []
+## False: each stone its own mesh, as before (to measure against).
+static var merge_stones: bool = true
 var _t: float = 0.0
 
 ## The top of the opening (a pointed arch of two arcs, each of radius `span`).
@@ -222,17 +227,16 @@ func _build() -> void:
 	# Spires on the capitals, and the old letters down the posts.
 	for side: float in [-1.0, 1.0]:
 		var x := side * (half + post * 0.5)
-		var spire := MeshInstance3D.new()
+		var spire := Node3D.new()
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
 		cone.bottom_radius = 0.24
 		cone.height = 1.3
 		cone.radial_segments = 4
-		spire.mesh = cone
-		spire.material_override = stone
 		spire.position = Vector3(x, base + spring + 0.32 + 0.65, 0.0)
 		spire.rotation.y = PI * 0.25
 		add_child(spire)
+		_stones.append([cone, spire])
 		for k in 4:
 			for face: float in [-1.0, 1.0]:
 				var rune := Label3D.new()
@@ -285,16 +289,15 @@ func _build() -> void:
 	for side: float in [-1.0, 1.0]:
 		var x := side * (half + 2.3)
 		_box(stone, Vector3(0.55, 1.1, 0.55), Vector3(x, 0.55, 0.6))
-		var bowl := MeshInstance3D.new()
+		var bowl := Node3D.new()
 		var bm := CylinderMesh.new()
 		bm.top_radius = 0.42
 		bm.bottom_radius = 0.18
 		bm.height = 0.3
 		bm.radial_segments = 8
-		bowl.mesh = bm
-		bowl.material_override = stone
 		bowl.position = Vector3(x, 1.25, 0.6)
 		add_child(bowl)
+		_stones.append([bm, bowl])
 		add_child(_fire(Vector3(x, 1.38, 0.6)))
 		_lights.append(_light(Vector3(x, 1.9, 0.6), 5.0))
 	# Shards turning round it.
@@ -317,6 +320,33 @@ func _build() -> void:
 		shard.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(shard)
 		_shards.append(shard)
+	_merge_stones(stone)
+
+
+## All its stones drawn as one mesh (each its own shadow and light passes
+## before: ~30 a gate, the village's five gates 2000 draw calls). Each keeps
+## its own collision where it stands; the stone's look is laid by world
+## position, so nothing shows the join.
+func _merge_stones(stone: Material) -> void:
+	if _stones.is_empty():
+		return
+	if not merge_stones:
+		for part: Array in _stones:
+			var one := MeshInstance3D.new()
+			one.mesh = part[0] as Mesh
+			one.material_override = stone
+			(part[1] as Node3D).add_child(one)
+		_stones.clear()
+		return
+	var st := SurfaceTool.new()
+	for part: Array in _stones:
+		st.append_from(part[0] as Mesh, 0, (part[1] as Node3D).transform)
+	var whole := MeshInstance3D.new()
+	whole.name = "Stones"
+	whole.mesh = st.commit()
+	whole.material_override = stone
+	add_child(whole)
+	_stones.clear()
 
 
 func _light(at: Vector3, reach: float) -> OmniLight3D:
@@ -325,6 +355,11 @@ func _light(at: Vector3, reach: float) -> OmniLight3D:
 	light.light_energy = 2.4
 	light.omni_range = reach
 	light.position = at
+	# no shadow, whatever the graphics setting: three lamps a gate, each
+	# redrawing all in its reach six times over, were 4-5 ms of the
+	# village's frame (its five gates: 15 lamps, ~2000 draws)
+	light.shadow_enabled = false
+	light.set_meta(&"designed_shadow", false)
 	add_child(light)
 	return light
 
@@ -397,14 +432,15 @@ func _fire(at: Vector3) -> GPUParticles3D:
 	return fire
 
 
-func _box(mat: Material, size: Vector3, at: Vector3) -> MeshInstance3D:
-	var mesh := MeshInstance3D.new()
+## A block of its stone `size` at `at`: where it stands (turned as the
+## caller turns it) and its collision now, its look with the rest at the end.
+func _box(_mat: Material, size: Vector3, at: Vector3) -> Node3D:
+	var mesh := Node3D.new()
 	var box := BoxMesh.new()
 	box.size = size
-	mesh.mesh = box
-	mesh.material_override = mat
 	mesh.position = at
 	add_child(mesh)
+	_stones.append([box, mesh])
 	# Solid, so the hero walks round the posts rather than through them.
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()

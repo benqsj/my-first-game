@@ -11404,3 +11404,23 @@ held beat, the knock of the view and the slide.
   a third, whole again after 8 s, its critical a tenth of its health — as the
   orc's. It walks as the orc now does too (steps round, its tread heard).
   `brutes_test._troll_stance`.
+
+### What the village cost to draw (2026-10-22, release_polish_plan round 3)
+
+Measured in the editor's game window, M1, Medium, 1600×900, each big part of
+the level hidden in turn (`_shots_tmp/hubcost2.gd`, `portalcost.gd`,
+`rockcost.gd`). Median frame at the spawn 17.3 ms → 12.7 ms, before the gates
+13.4–15.6 → 11.1–13.2; draw calls at the spawn 3266 → 1127.
+
+- **The gates' lamps had shadows.** [Graphics] gives a shadow to every light
+  that does not say how it was made (meta `designed_shadow`); the dungeon
+  marks its own, the village did not, so each gate's three lamps redrew all
+  in their reach six times a frame: 15 lamps, ~2000 draws, 4–5 ms. A
+  `PortalLook` lamp is made without one and says so.
+- **A gate's stones are one mesh** (`PortalLook._merge_stones`): ~30 boxes,
+  spires and bowls merged by SurfaceTool, each block keeping its collision; the
+  stone shader is laid by world position, so nothing shows the joins.
+  `PortalLook.merge_stones = false` builds them one by one, to measure against.
+- **The cliffs round the village** (`World._hub_bounds`, ~100 rocks, 5.6 M
+  triangles at full detail) cast no shadow and take their coarser shapes
+  sooner (`lod_bias` 0.5): 1–2 ms, looked at side by side and the same.

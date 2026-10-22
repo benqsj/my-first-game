@@ -553,6 +553,13 @@ func _hub_bounds() -> void:
 				var p := a.lerp(b, t) + out * rng.randf_range(1.5, 5.0)
 				var r := rock.instantiate() as Node3D
 				holder.add_child(r)
+				# ~100 of them, 5.6 million triangles at full detail: no
+				# shadow (the sun's reach stops short of most) and their
+				# coarser shapes sooner — the look the same, ~1-2 ms off the
+				# village's frame (release_polish_plan round 3)
+				for m in r.find_children("*", "MeshInstance3D", true, false):
+					(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					(m as MeshInstance3D).lod_bias = 0.5
 				var tall := rng.randf_range(8.0, 14.0)
 				_size_to(r, tall)
 				var y := Terrain.height_under(p.x, p.y, 3.0) if absf(p.x) < 120.0 else -2.5
