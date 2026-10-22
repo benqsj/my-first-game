@@ -11709,3 +11709,9 @@ run dry, winded, he runs on at the plain pace. `jog_speed` is kept up each tick
 (a blessing that quickens his run quickens it). The knight's charge settles to
 its own pace at once out of the faster sprint. Tests updated: stride_test,
 great_sword_charge_test.
+
+
+## Portal in the land's colours, bare chest, creature tempo (2026-10-23)
+- Inside the portal the floors, walls, rock and forest ground use the overworld's photographed textures (village cobbles, terrain_real rock/grass/earth/leaves) and the overworld's air; see `Dungeon.PHOTO`.
+- `SkinRelief`: a man's bare torso shows chest, belly, collarbones, shoulder blades and spine (shader over the flat pack skin).
+- `Monster.tempo`: a creature's clips, move clock and paces together; the minotaur runs at 1.2. F1 has a Speed stepper and every creature the game uses.
