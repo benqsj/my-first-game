@@ -77,6 +77,10 @@ const BUTCHER := "res://scenes/enemies/pack/pig_butcher.tscn"
 ## several at once, no higher than a sword reaches) ([Flyer]).
 const SKULL := "res://scenes/enemies/pack/ghost_skull.tscn"
 const DRAGONET := "res://scenes/enemies/pack/dragonet.tscn"
+## The minotaur, an elite of the second half (the user's word, 2026-10-22,
+## monster_polish_plan.md: the new ones as elites at steps 6-9): its charge,
+## its axe into the ground ([MinotaurFighter]).
+const MINOTAUR := "res://scenes/enemies/minotaur.tscn"
 
 ## The orcs of the first dungeon (the user's word, 2026-10-20): before the last
 ## place two of different kinds, one with two swords, one with a long sword,
@@ -163,9 +167,9 @@ const RUN := {
 		# skulls come in (the user's word, 2026-10-22: flyers, several at once)
 		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 6, "xp": 3.0, "reach": 5,
 				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKULL, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
-		# 7 — the dragonets' fire
+		# 7 — the dragonets' fire; the minotaur last, in the elite's place
 		{"places": ["great_hall", "sky", "mountain", "swamp"], "lv": 7, "xp": 3.5, "reach": 6,
-				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 3], [DRAGONET, 2], [GOBLIN, 1, ELITE]]}},
+				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 3], [DRAGONET, 2], [MINOTAUR, 1]]}},
 		# 8 — a troll, and what follows it about, the two kinds of flyer over it
 		{"places": ["terrace", "rampart", "cave", "forest"], "lv": 7, "xp": 3.5, "reach": 7,
 				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [SKULL, 2], [DRAGONET, 1]]}},

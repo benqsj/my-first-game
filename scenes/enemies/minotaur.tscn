@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" path="res://scripts/brawler.gd" id="1_fighter"]
+[ext_resource type="Script" path="res://scripts/minotaur_fighter.gd" id="1_fighter"]
 [ext_resource type="PackedScene" path="res://assets/monsters/minotaur/minotaur.glb" id="2_model"]
 [ext_resource type="Script" path="res://scripts/net_smooth.gd" id="net_smooth"]
 
@@ -83,19 +83,41 @@ dies_by_clip = true
 clip_meta = "res://assets/monsters/minotaur/minotaur_clip_meta.json"
 run_clip = &"MN_run"
 run_above = 2.6
-weapon_tip = Vector3(0, 0.6, 0)
-weapon_radius = 0.45
+weapon_tip = Vector3(0.1, 0.17, 1.2)
+weapon_radius = 0.42
 strike_off = 1.68
 close_speed = 3.6
 attacks = Array[StringName]([&"MN_attack1", &"MN_attack2", &"MN_attack3"])
-strike_bones = PackedStringArray("hand_r")
-weapon_bone = &"hand_r"
+strike_bones = PackedStringArray("mino_weapon_axe")
+weapon_bone = &"mino_weapon_axe"
 hit_clip = &"MN_hit_1"
 strafe_l_clip = &"MN_walk_strafe_left45"
 strafe_r_clip = &"MN_walk_strafe_right45"
 back_clip = &"MN_walk_back"
 big_attacks = Array[StringName]([&"MN_attack4_kick", &"MN_attack5_kick"])
 big_reach = 4.0
+roar_clip = &"MN_Thump"
+roar_every = Vector2(14, 24)
+rage_at = 0.5
+rage_clip = &"MN_Roar"
+rage_part = Vector3(1.1, 0.0, 0.55)
+leap_clip = &"MN_MJump"
+leap_part = Vector3(1.1, 0.05, 0.72)
+leap_land = 0.45
+leap_from = 5.0
+leap_to = 9.0
+leap_cooldown = 22.0
+leap_limbs = "pelvis>head:0.45|mino_weapon_axe>mino_weapon_axe@0.1,0.17,1.2:0.42"
+stance = 650.0
+stance_light_share = 0.3
+stance_rest = 9.0
+stance_crit_share = 0.1
+stance_clip = &"MN_ULay"
+stance_part = Vector3(1.2, 0.0, 0.36)
+bite_hold = 0.0
+shove_share = 0.1
+flinch_share = 0.3
+hand_combo_chance = Vector2(0.55, 0.7)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.28, 0)
