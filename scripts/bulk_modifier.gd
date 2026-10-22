@@ -15,6 +15,9 @@ extends SkeletonModifier3D
 @export var keep: PackedStringArray = PackedStringArray(["neck_joint"])
 @export var chest_width: float = 1.18
 @export var shoulder_out: float = 0.06
+## The collarbones let down this far as they go out (skeleton units): broad,
+## not shrugged (the user's word, 2026-10-22: spread, not raised).
+@export var shoulder_drop: float = 0.0
 
 var _chest := -1
 var _clav := PackedInt32Array()
@@ -46,6 +49,10 @@ func _process_modification() -> void:
 	var across := Vector3.RIGHT
 	if _clav.size() == 2 and _clav[0] >= 0 and _clav[1] >= 0:
 		across = (clav_was[0].origin - clav_was[1].origin).normalized()
+	# across and level (the skeleton stands Y up): the chest widened sideways
+	# only, not up into its neck
+	across.y = 0.0
+	across = across.normalized() if across.length_squared() > 0.000001 else Vector3.RIGHT
 	var local_across := (chest.basis.inverse() * across).normalized()
 	var stretch := Basis.IDENTITY.scaled(Vector3.ONE) 
 	# scale along `local_across` only: I + (k - 1) a aᵀ
@@ -61,9 +68,10 @@ func _process_modification() -> void:
 			continue
 		var was: Transform3D = clav_was[i]
 		var out := (was.origin - chest.origin)
-		out = out - out.project(chest.basis.y.normalized())
+		# straight out sideways, level: never up the neck
+		out.y = 0.0
 		var side := out.normalized() if out.length_squared() > 0.000001 else across
-		skel.set_bone_global_pose(b, Transform3D(was.basis, was.origin + side * shoulder_out))
+		skel.set_bone_global_pose(b, Transform3D(was.basis, was.origin + side * shoulder_out + Vector3.DOWN * shoulder_drop))
 	for i in _keep.size():
 		if _keep[i] >= 0:
 			skel.set_bone_global_pose(_keep[i], keep_was[i])

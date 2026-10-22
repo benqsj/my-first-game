@@ -171,9 +171,12 @@ extends PackBrute
 ## Its chest this much wider across, each collarbone set out this far
 ## (skeleton units) — broader shoulders ([BulkModifier]). Broader again
 ## (the user's word, 2026-10-22: "I remember the orcs much broader in the
-## shoulders, massive; here they are not"): 1.28 / 0.09 -> 1.65 / 0.2.
-@export var chest_width: float = 1.65
-@export var shoulder_out: float = 0.2
+## shoulders, massive; here they are not"), and spread, not raised (the
+## same day: 1.65 across had them shrugged): the chest 1.4 across, the
+## collarbones 0.3 out and let down 0.12 as they go.
+@export var chest_width: float = 1.4
+@export var shoulder_out: float = 0.3
+@export var shoulder_drop: float = 0.12
 ## Its skin, paint and blood picked from its name; -1 each to pick (a scene
 ## or a test can set them).
 @export var varied: bool = true
@@ -446,6 +449,7 @@ func _ready() -> void:
 		var bulk := BulkModifier.new()
 		bulk.chest_width = chest_width
 		bulk.shoulder_out = shoulder_out
+		bulk.shoulder_drop = shoulder_drop
 		_skeleton.add_child(bulk)
 		_skeleton.move_child(bulk, 0)
 	# its weight into its cuts, before its other hand finds the haft
