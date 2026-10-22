@@ -12,3 +12,4 @@ visual_scale = 1.5
 max_health = 1100.0
 hit_damage = 85.0
 stance = 520.0
+varied = false

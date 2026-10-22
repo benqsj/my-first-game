@@ -11662,6 +11662,20 @@ The minotaur's neck drew up straight as a man's on the clips from Mixamo and
 UAL 2: its back, neck and shoulders are no longer laid onto the T-pose
 (`align_skip` in mon_build.py), they turn from its own idle's set
 (`stance_from`), the neck and head only part of the way (`damp`).
+**The user's second look (2026-10-23):** his cleaver now and then held "the
+wrong way" — measured (`_shots_tmp/rev_probe.gd`): its edge lay flat across
+the swing, not leading it; turned 260° about its haft (`cleaver_roll`) it
+leads in the axe set's cuts. His blood was the orc's (its chest and head
+decals and war paint): off (`varied = false`); instead his apron is white
+linen soaked in blood (`pig_butcher_white.glb`: the apron's faces given
+their own material and a front-on projection, `vepxis-art/tools/butcher_apron.py`,
+the cloth `apron_bloody.png`). He played the orc's great-axe combos one for
+one: now his own — Mixamo's one-handed axe set (`three_chops`, `chop_chop`,
+`spin_cleave`, `sweep_back`), the one-handed club string, the two-handed one,
+the overhead bash into the ground split, UAL 2's sword string, and enraged
+`slaughter` and `frenzy`; his plain blows the axe set's, his kick Sparta's,
+his foot on him lying (Mixamo's stomp); no battle cry, no shield charge. The
+orc's counter, trap and fetch answers are made of his blows.
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

@@ -22,7 +22,8 @@ extends OrcFighter
 ##   ending in the chop; the chop held at the top, then the ground.
 ## * **His coming in**: woken, he roars, and his name comes up on the screen.
 
-const FIGURE := "res://assets/monsters/synty_rivals/pig_butcher.glb"
+## (his apron made white and bloodied: vepxis-art/tools/butcher_apron.py)
+const FIGURE := "res://assets/monsters/synty_rivals/pig_butcher_white.glb"
 ## The figure's size against the rig's (the rig is drawn at `visual_scale`):
 ## at 1 he stands ~2.6 m.
 @export var figure_scale: float = 1.0
@@ -55,14 +56,24 @@ const B_DOWN := 243
 const B_POUND := 244
 const B_HOOK := 245
 const B_INTRO := 246
+const B_C1 := 247
+const B_C2 := 248
+const B_C3 := 249
+const B_HORIZ := 250
+const B_BACK := 251
+const B_SPIN := 252
+const B_CLUB1 := 253
+const B_BASH := 254
 const HOOK_COMBO := &"hooked"
+## His foot (a stamp on him lying).
+const FEET := "R_knee_joint>R_ankle_joint:0.3|L_knee_joint>L_ankle_joint:0.3"
 
 enum Hook { NONE, OUT, PULL, BACK }
 
 ## The cleaver's size (1: Synty's, 1.5 m) and a turn about its haft (degrees)
 ## to set its edge.
 @export var cleaver_scale: float = 1.15
-@export var cleaver_roll: float = 0.0
+@export var cleaver_roll: float = 260.0
 @export var cleaver_radius: float = 0.3
 ## The haft's grip on the cleaver (its height up the haft, the cleaver's own
 ## units), where the palm is between wrist and knuckles, which way its edge
@@ -424,13 +435,77 @@ func _butcher_moves() -> void:
 		var peaks := _anim.measure_peaks(&"CR_Throw", PackedStringArray(["L_wrist_joint"]), 0.6, 0.12)
 		var best := float(peaks[0]) if not peaks.is_empty() else 0.4
 		_hook_at = best * _anim.clip_length(&"CR_Throw")
-	_hand_combos.append_array([
-		{"name": &"cleaver_three", "moves": [B_CLEAVE3], "fells": [0], "weight": 1.2},
-		{"name": &"butcher_string", "moves": [B_REG, B_DOWN], "fells": [1], "weight": 1.1},
-		{"name": &"chop_and_split", "moves": [B_DOWN, B_POUND], "fells": [1], "weight": 0.9},
+	# his own blows, not the orc's (the user's word, 2026-10-23: he played the
+	# orc's combos one for one): Mixamo's one-handed axe set — its strings
+	# and its single cuts — the one-handed club string, the overhead bash
+	_hand_move(B_C1, &"CR_OG_Combo_1", Vector3(1.0 / hp, 0.03, 0.85), 0.7, "", _blows_in(&"CR_OG_Combo_1", 2))
+	_hand_move(B_C2, &"CR_OG_Combo_2", Vector3(1.0 / hp, 0.03, 0.85), 0.7, "", _blows_in(&"CR_OG_Combo_2", 3))
+	_hand_move(B_C3, &"CR_OG_Combo_3", Vector3(1.0 / hp, 0.03, 0.85), 0.75, "", _blows_in(&"CR_OG_Combo_3", 2))
+	_hand_move(B_HORIZ, &"CR_OG_Attack_Horizontal", Vector3(1.0 / hp, 0.05, 0.8), 0.9, "")
+	_hand_move(B_BACK, &"CR_OG_Attack_Backhand", Vector3(1.0 / hp, 0.05, 0.75), 0.85, "")
+	_hand_move(B_SPIN, &"CR_OG_Attack_360", Vector3(1.05 / hp, 0.05, 0.75), 1.0, "")
+	_hand_move(B_CLUB1, &"CR_OG_Club_Combo1H", Vector3(1.0 / hp, 0.03, 0.85), 0.7, "", _blows_in(&"CR_OG_Club_Combo1H", 3))
+	_hand_move(B_BASH, &"CR_OG_Bash", Vector3(1.0 / hp, 0.05, 0.8), 1.15, "")
+	for what: int in [B_C1, B_C2, B_C3, B_CLUB1, B_HORIZ, B_BACK]:
+		_slow_to[what] = 0.5
+	_windups[B_BASH] = [1.35, 0.2]
+	_snap[B_BASH] = 1.35
+	_kinds[B_BASH] = &"crush"
+	_holds[B_SPIN] = [0.35, 0.3, 0.7, 0.25]
+	_holds[B_C3] = [0.3, 0.3, 0.6, 0.25]
+	# his plain blows the axe set's too
+	var plain: Array[StringName] = [&"CR_OG_Attack_Downward", &"CR_OG_Attack_Horizontal", &"CR_OG_Attack_Backhand"]
+	for i in plain.size():
+		_hand_move(ATTACK_BASE + i, plain[i], Vector3(1.0 / hp, 0.05, 0.8), 1.0, "")
+	attacks = plain
+	# his boot, and his foot down on him where he lies
+	_special(KICK, &"CR_SpartaKick", Vector3(1.1, 0.0, 0.8))
+	_hand_move(O_STAB, &"CR_OG_Stomp", Vector3(1.0 / hp, 0.05, 0.8), 0.9, FEET)
+	_kinds[O_STAB] = &"stomp"
+	hand_combo_chance = Vector2(0.75, 0.9)
+	_hand_combos = [
+		# Mixamo: three chops on end
+		{"name": &"three_chops", "moves": [B_C2], "fells": [0], "weight": 1.2},
+		{"name": &"chop_chop", "moves": [B_C1, B_DOWN], "fells": [1], "weight": 1.0},
+		{"name": &"spin_cleave", "moves": [B_SPIN, B_C3], "fells": [1], "weight": 0.9},
+		{"name": &"sweep_back", "moves": [B_HORIZ, B_BACK, B_DOWN], "fells": [2], "weight": 1.0},
+		{"name": &"club_string", "moves": [B_CLUB1], "fells": [0], "weight": 0.9},
+		{"name": &"cleaver_three", "moves": [B_CLEAVE3], "fells": [0], "weight": 0.8},
+		{"name": &"bash_split", "moves": [B_BASH, B_POUND], "fells": [1], "weight": 0.8},
+		{"name": &"chop_and_split", "moves": [B_DOWN, B_POUND], "fells": [1], "weight": 0.8},
+		# UAL 2's sword string, then the chop
+		{"name": &"butcher_string", "moves": [B_REG, B_DOWN], "fells": [1], "weight": 1.0},
 		{"name": &"slaughter", "moves": [B_POUND, B_POUND, B_POUND], "fells": [2], "weight": 1.4, "rage_only": true},
+		{"name": &"frenzy", "moves": [B_C1, B_HORIZ, B_C2], "fells": [2], "weight": 1.2, "rage_only": true},
 		{"name": HOOK_COMBO, "moves": [B_DOWN], "fells": [0], "weight": 0.0, "far": true},
-	])
+		# (the orc's own kinds of answer, in his blows)
+		{"name": COUNTER_COMBO, "moves": [B_BACK], "fells": [0], "weight": 0.0, "far": true},
+		{"name": TRAP_COMBO, "moves": [B_HORIZ], "fells": [0], "weight": 0.0, "far": true},
+		{"name": FETCH_COMBO, "moves": [B_SPIN], "fells": [0], "weight": 0.0, "far": true},
+	]
+
+
+## The moments of a clip's blows (its weapon hand at its fastest), if there
+## are `n` of them; else none (each move's blow put where it reaches).
+func _blows_in(clip: StringName, n: int) -> Array:
+	if _anim == null or _anim.clip_length(clip) <= 0.0:
+		return []
+	var peaks := _anim.measure_peaks(clip, PackedStringArray(["R_wrist_joint"]), 0.6, 0.12)
+	if peaks.size() < n:
+		return []
+	var out := []
+	for i in n:
+		out.append(float(peaks[i]))
+	return out
+
+
+## Not the orc's battle cry nor its shield-first charge.
+func _try_cry() -> bool:
+	return false
+
+
+func _try_charge() -> bool:
+	return false
 
 
 func _own_move(delta: float) -> bool:
