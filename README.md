@@ -11583,3 +11583,69 @@ tells everyone (`net_harden`), once per creature (`hardened` meta).
 - Each hero past the first: a boss and the lord's guard +85% health, the other
   creatures +50%, the big ones' stance +50%.
 - Test: `tests/run_hardness_test.gd`.
+
+### The minotaur made a boss of its own (2026-10-22, monster_polish_plan.md session 1)
+`scenes/enemies/minotaur.tscn` now runs [MinotaurFighter]
+(`scripts/minotaur_fighter.gd`, a [PackBrute]), on its own skeleton still:
+- **Its new clips** (`vepxis-art/tools/mon_build.py minotaur`: `MINO_CLIPS`
+  from the Mixamo files we had, `MINO_UAL2` from UAL 2's glb carried as
+  Mixamo's are, "Head" its one other name): MN_Roar, Battlecry, Thump,
+  Tackle, Combo1-3, Downward, Spin, Backhand, RunJump, Stomp, Club2H, MJump,
+  Headbutt, Dizzy, KnockOver, BigHit; UHeavyCombo, UPound, UHeavyD, UDash,
+  UThrow, UTransform, ULay, UUnlay, UKnock, UUpper (45 clips, ~3.2 m).
+- **Its blows on its axe**: the axe is bound to `mino_weapon_axe`; its head
+  is 1.2 m out along it (`weapon_tip`). Before, the blow was 0.6 m from the
+  hand.
+- **PackBrute's**: a stance (650, light cuts 0.3) it goes down on its knee
+  from (MN_ULay), a critical then (a tenth of its health); a rage at half
+  (MN_Roar); no hit-stop on it (`bite_hold` 0); MN_MJump its leap.
+- **The charge** (7-17 m off, every 10-15 s): MN_Battlecry with its eyes
+  lit red (a light on its head), then head down at him, gathering pace to
+  9 m/s, steering only its first 0.3 s, dust at its feet. Caught, he is
+  thrown down ("crush"); a roll's untouchable frames let it by. Missed (past
+  him by 2.5 m, 16 m run, or a wall), it stands dazed (MN_Dizzy, ~1.4 s),
+  open. Enraged, its first miss it turns about at once and comes again.
+- **The axe into the ground** (`M_POUND`, MN_UPound, a slow glowing wind-up):
+  a crack ([GroundCrack], `scripts/ground_crack.gd`) runs out along the
+  ground at him, 9 m at 13 m/s: a line of cracks and thrown stone, not a
+  ring. On the ground within 0.9 m of it as it passes: thrown down
+  ("ground": a jump or a roll clears it, no shield takes it).
+- **Its combos** (`_hand_combos`): `three_and_pound` (Mixamo's three axe
+  cuts, then the pound), `heavy_string` (UAL 2's heavy string), `bull` (its
+  own three, the overhead now and then held: a delayed swing), `trample`
+  (kick, horns, chop), `reaper` (spin, then the heavy blow down), and
+  enraged `fury` (four, ended in the ground).
+- **In the run**: the elite of step 7, in place of the goblin elite
+  (`Dungeon.MINOTAUR`).
+
+### The butcher's own (2026-10-22, monster_polish_plan.md session 2)
+[PigButcher] (`scripts/pig_butcher.gd`):
+- **His axe was never there**: `arm_style = "iron"` is no style the pack
+  has, so `OrcFighter._equip_arms` found no mesh, and the orc's own falchion
+  was hidden. Now "normal".
+- **His cleaver** (the user's word: a butcher's weapon, bloodier than the
+  orc's blade): Synty's own `SM_Wep_PigButcher_01`
+  (`assets/monsters/synty_rivals/butcher_cleaver.glb`, made by
+  `vepxis-art/tools/butcher_props.py`), held where the great axe's copy was,
+  along its haft, edge to the axe's blade side, x1.15 (~1.7 m). Four blood
+  decals on its faces, drops off its edge now and then, and a bigger
+  splatter on him when it lands (`net_gore`).
+- **His blows where the cleaver is**: `_weapon_part` and `_own_part` give the
+  cleaver's blade from 35% to 95% of its length, not the unseen axe's;
+  `_weapon_tip_at` too (the wind-up's glow sits on the cleaver).
+- **The hook** (Synty's `SM_Gen_Prop_Hook_01`, `meat_hook.glb`, x2.6, on a
+  chain): from 6-15 m off, every 8-13 s (sooner enraged), CR_Throw, and the
+  hook flies at where he will be, 24 m/s, 17 m. Caught: a blow (a quarter),
+  held ([method Player.grab_by]), hauled to his feet at 11 m/s, then the
+  `hooked` combo (headbutt, chop). A roll slips it. His blade throw is off.
+- **The ground split**: CR_GroundPound sends a [GroundCrack] at him;
+  `chop_and_split` (the chop held at the top now and then, then the pound),
+  and enraged `slaughter`: three running.
+- **Combos**: `cleaver_three` (Mixamo's two-handed club string, three blows)
+  and `butcher_string` (UAL 2's sword string, then his head into him), beside
+  the orc's own.
+- **His coming in**: woken the first time (`_rouse`), he roars where he
+  stands (CR_OG_Battlecry) and "ყასაბი — სასახლის ჯალათი" comes up across the
+  lower screen and goes (`net_intro`). The music is not changed (the user's
+  word: not yet).
+- Test: `tests/monster_polish_test.gd` (both).
