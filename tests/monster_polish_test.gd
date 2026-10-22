@@ -8,7 +8,8 @@ extends SceneTree
 ##   and leaves it dazed; its axe into the ground sends a crack that fells him;
 ##   its combos (Mixamo's, UAL 2's) are there and play;
 ## * the butcher: his cleaver in his hand, seen, and his blows where it is;
-##   his hook catches him from off and hauls him in, a roll slips it; his
+##   his own Mixamo strings (2026-10-23), any of them again or another; his
+##   hook (off now: the user's word) catches him from off and hauls him in, a roll slips it; his
 ##   three blows into the ground (enraged) crack it out at him; woken, he
 ##   roars his name.
 ##
@@ -77,6 +78,7 @@ func _run() -> void:
 	await _mino_crack()
 	await _mino_combos()
 	await _butcher_cleaver()
+	await _butcher_combos()
 	await _butcher_hook()
 	await _butcher_hook_rolled()
 	await _butcher_slaughter()
@@ -220,12 +222,38 @@ func _butcher_cleaver() -> void:
 	await _done(a[0])
 
 
+func _butcher_combos() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var spot := hero.global_position
+	var b := (a[1] as ArenaPanel).call_up(BUTCHER, false, _ahead(hero, 4.0)) as PigButcher
+	b.set(&"_hook_wait", 999.0)
+	_check("his hook is off unless asked", not b.hook_on)
+	var names := []
+	for c: Dictionary in b.get(&"_hand_combos"):
+		names.append(String(c["name"]))
+	_check("his own strings: the sword string, the thrust, the leap, the low spin", names.has("sword_string")
+			and names.has("thrust_cut") and names.has("leap_in") and names.has("low_spin")
+			and not names.has("sweep_back"), str(names))
+	_check("the same combo not held back from coming again", is_equal_approx(b.repeat_damp, 1.0))
+	b.drill_combo = names.find("sword_string")
+	for i in 600:
+		_hold(hero, spot)
+		if b.hand_combos_made.size() > 0:
+			break
+		await physics_frame
+	_check("Mixamo's sword string played", b.hand_combos_made.has(names.find("sword_string")),
+			str(b.hand_combos_made))
+	await _done(a[0])
+
+
 func _butcher_hook() -> void:
 	var a: Array = await _arena()
 	var hero: Player = a[2]
 	var spot := hero.global_position
 	var b := (a[1] as ArenaPanel).call_up(BUTCHER, false, _ahead(hero, 11.0)) as PigButcher
 	b.hand_combo_chance = Vector2.ZERO
+	b.hook_on = true
 	b.set(&"_hook_wait", 0.0)
 	var start := hero.global_position.distance_to(b.global_position)
 	var nearest := start
@@ -247,6 +275,7 @@ func _butcher_hook_rolled() -> void:
 	var spot := hero.global_position
 	var b := (a[1] as ArenaPanel).call_up(BUTCHER, false, _ahead(hero, 11.0)) as PigButcher
 	b.hand_combo_chance = Vector2.ZERO
+	b.hook_on = true
 	b.set(&"_hook_wait", 0.0)
 	var rolled := 0
 	for i in 420:

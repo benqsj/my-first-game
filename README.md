@@ -11676,6 +11676,16 @@ the overhead bash into the ground split, UAL 2's sword string, and enraged
 `slaughter` and `frenzy`; his plain blows the axe set's, his kick Sparta's,
 his foot on him lying (Mixamo's stomp); no battle cry, no shield charge. The
 orc's counter, trap and fetch answers are made of his blows.
+**The user's third look (2026-10-23):** twelve fresh from Mixamo
+(`vepxis-art/mixamo_butcher/`, baked by `tools/creature_clips.gd` as
+`CR_BU_*`); the user kept four: the one-handed sword string (`sword_string`,
+three blows run together), the thrust and cut (`thrust_cut`), the run and leap
+down on him (`leap_in`, opened from ~4.5 m: its travel in the meta), the low
+spin (`low_spin`), and their mixes (`string_and_spin`, `thrust_and_string`,
+`leap_and_thrust`, enraged `butchery`). `sweep_back` (one cut three times
+over) is gone. His hook is off (`hook_on`, the user's word), and with it the
+headbutt that followed it. He picks his combos mixed, the same one again as
+likely as another (`PackBrute.repeat_damp` 1.0; others keep 0.2).
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

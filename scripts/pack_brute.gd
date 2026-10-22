@@ -148,6 +148,9 @@ var _snap: Dictionary = {}
 ## but this one of its combos, over and over — it comes in to it, opens it, gets
 ## its breath, and again.
 @export var drill_combo: int = -1
+## How much less likely the combo it just made is picked again (1: not at
+## all, the same may well come twice).
+var repeat_damp: float = 0.2
 
 ## Its combos made by hand (the user's word, 2026-10-10: as the ogre's, for the
 ## troll, the golem and the orc): [{"name", "moves", "fells", "weight",
@@ -367,8 +370,8 @@ func _try_hand_combo(gap: float) -> bool:
 		if (gap < want - 0.9 and not drill) or gap > want + 1.4:
 			continue
 		# away from the last it made, and the one before (not the same over and over)
-		var w := float(c["weight"]) * (0.2 if i == _hand_last else 1.0)
-		if hand_combos_made.size() >= 2 and i == hand_combos_made[-2] and i != _hand_last:
+		var w := float(c["weight"]) * (repeat_damp if i == _hand_last else 1.0)
+		if repeat_damp < 1.0 and hand_combos_made.size() >= 2 and i == hand_combos_made[-2] and i != _hand_last:
 			w *= 0.5
 		options.append([i, w])
 		total += w

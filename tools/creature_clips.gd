@@ -275,6 +275,22 @@ const MIXAMO := [
 	["CR_GS_PowerUp", "res://assets/creatures/anim/mixamo/GS_Power_Up.fbx", false, 0.0, -1.0],
 	["CR_GS_Draw", "res://assets/creatures/anim/mixamo/GS_Draw.fbx", false, 0.0, -1.0],
 	["CR_GS_Pose", "res://assets/creatures/anim/mixamo/GS_Strike_Pose.fbx", false, 0.0, -1.0],
+	# The butcher's own (2026-10-23, the user's word: give him strings of his
+	# own that run on, not the orc's): Mixamo's sword strings, its cuts in
+	# and out, a thrust and cut, a swipe, a leap at him, a low spin, a kick,
+	# the torch-in-hand two-blow strings (vepxis-art/mixamo_butcher/).
+	["CR_BU_OneHand_Sword_Combo", "res://assets/creatures/anim/mixamo/BU_OneHand_Sword_Combo.fbx", false, 0.0, -1.0],
+	["CR_BU_TwoHand_Sword_Combo", "res://assets/creatures/anim/mixamo/BU_TwoHand_Sword_Combo.fbx", false, 0.0, -1.0],
+	["CR_BU_Thrust_Slash", "res://assets/creatures/anim/mixamo/BU_Thrust_Slash.fbx", false, 0.0, -1.0],
+	["CR_BU_Outward_Slash", "res://assets/creatures/anim/mixamo/BU_Outward_Slash.fbx", false, 0.0, -1.0],
+	["CR_BU_Inward_Slash", "res://assets/creatures/anim/mixamo/BU_Inward_Slash.fbx", false, 0.0, -1.0],
+	["CR_BU_Zombie_Swipe", "res://assets/creatures/anim/mixamo/BU_Zombie_Swipe.fbx", false, 0.0, -1.0],
+	["CR_BU_Run_Jump_Attack", "res://assets/creatures/anim/mixamo/BU_Run_Jump_Attack.fbx", false, 0.0, -1.0],
+	["CR_BU_Attack_360_Low", "res://assets/creatures/anim/mixamo/BU_Attack_360_Low.fbx", false, 0.0, -1.0],
+	["CR_BU_Kick_Axe", "res://assets/creatures/anim/mixamo/BU_Kick_Axe.fbx", false, 0.0, -1.0],
+	["CR_BU_Torch_Combo_03", "res://assets/creatures/anim/mixamo/BU_Torch_Combo_03.fbx", false, 0.0, -1.0],
+	["CR_BU_Torch_Combo_04", "res://assets/creatures/anim/mixamo/BU_Torch_Combo_04.fbx", false, 0.0, -1.0],
+	["CR_BU_Torch_Combo_05", "res://assets/creatures/anim/mixamo/BU_Torch_Combo_05.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

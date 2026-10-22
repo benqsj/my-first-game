@@ -64,6 +64,12 @@ const B_BACK := 251
 const B_SPIN := 252
 const B_CLUB1 := 253
 const B_BASH := 254
+## Mixamo's, his own (2026-10-23, the user's pick): the one-handed sword
+## string, the thrust and cut, the leap at him from a run, the low spin.
+const B_SWORD3 := 255
+const B_THRUST := 256
+const B_LEAP := 257
+const B_LOWSPIN := 258
 const HOOK_COMBO := &"hooked"
 ## His foot (a stamp on him lying).
 const FEET := "R_knee_joint>R_ankle_joint:0.3|L_knee_joint>L_ankle_joint:0.3"
@@ -84,6 +90,8 @@ enum Hook { NONE, OUT, PULL, BACK }
 @export var fist_sign: float = 1.0
 
 @export_group("Hook")
+## The hook thrown at him from afar (off: the user's word, 2026-10-23).
+@export var hook_on: bool = false
 @export var hook_from: float = 6.0
 @export var hook_to: float = 15.0
 @export var hook_cooldown: Vector2 = Vector2(8.0, 13.0)
@@ -462,13 +470,30 @@ func _butcher_moves() -> void:
 	_special(KICK, &"CR_SpartaKick", Vector3(1.1, 0.0, 0.8))
 	_hand_move(O_STAB, &"CR_OG_Stomp", Vector3(1.0 / hp, 0.05, 0.8), 0.9, FEET)
 	_kinds[O_STAB] = &"stomp"
+	# Mixamo's, fresh for him (2026-10-23, the user's pick of twelve)
+	_hand_move(B_SWORD3, &"CR_BU_OneHand_Sword_Combo", Vector3(1.0 / hp, 0.03, 0.85), 0.75, "", _blows_in(&"CR_BU_OneHand_Sword_Combo", 3))
+	_hand_move(B_THRUST, &"CR_BU_Thrust_Slash", Vector3(1.0 / hp, 0.03, 0.85), 0.75, "", _blows_in(&"CR_BU_Thrust_Slash", 2))
+	_hand_move(B_LEAP, &"CR_BU_Run_Jump_Attack", Vector3(1.0 / hp, 0.03, 0.85), 1.1, "")
+	_kinds[B_LEAP] = &"crush"
+	_hand_move(B_LOWSPIN, &"CR_BU_Attack_360_Low", Vector3(1.0 / hp, 0.03, 0.85), 0.9, "")
+	for what: int in [B_SWORD3, B_THRUST, B_LOWSPIN]:
+		_slow_to[what] = 0.5
 	hand_combo_chance = Vector2(0.75, 0.9)
+	# any of them any time, the same again now and then (the user's word:
+	# mixed up, not one after another in turn)
+	repeat_damp = 1.0
 	_hand_combos = [
 		# Mixamo: three chops on end
 		{"name": &"three_chops", "moves": [B_C2], "fells": [0], "weight": 1.2},
 		{"name": &"chop_chop", "moves": [B_C1, B_DOWN], "fells": [1], "weight": 1.0},
 		{"name": &"spin_cleave", "moves": [B_SPIN, B_C3], "fells": [1], "weight": 0.9},
-		{"name": &"sweep_back", "moves": [B_HORIZ, B_BACK, B_DOWN], "fells": [2], "weight": 1.0},
+		{"name": &"sword_string", "moves": [B_SWORD3], "fells": [0], "weight": 1.2},
+		{"name": &"thrust_cut", "moves": [B_THRUST], "fells": [0], "weight": 1.1},
+		{"name": &"leap_in", "moves": [B_LEAP], "fells": [0], "weight": 1.0},
+		{"name": &"low_spin", "moves": [B_LOWSPIN], "fells": [0], "weight": 1.0},
+		{"name": &"string_and_spin", "moves": [B_SWORD3, B_LOWSPIN], "fells": [1], "weight": 0.9},
+		{"name": &"thrust_and_string", "moves": [B_THRUST, B_SWORD3], "fells": [1], "weight": 0.8},
+		{"name": &"leap_and_thrust", "moves": [B_LEAP, B_THRUST], "fells": [1], "weight": 0.8},
 		{"name": &"club_string", "moves": [B_CLUB1], "fells": [0], "weight": 0.9},
 		{"name": &"cleaver_three", "moves": [B_CLEAVE3], "fells": [0], "weight": 0.8},
 		{"name": &"bash_split", "moves": [B_BASH, B_POUND], "fells": [1], "weight": 0.8},
@@ -477,6 +502,7 @@ func _butcher_moves() -> void:
 		{"name": &"butcher_string", "moves": [B_REG, B_DOWN], "fells": [1], "weight": 1.0},
 		{"name": &"slaughter", "moves": [B_POUND, B_POUND, B_POUND], "fells": [2], "weight": 1.4, "rage_only": true},
 		{"name": &"frenzy", "moves": [B_C1, B_HORIZ, B_C2], "fells": [2], "weight": 1.2, "rage_only": true},
+		{"name": &"butchery", "moves": [B_SWORD3, B_THRUST, B_LOWSPIN], "fells": [2], "weight": 1.2, "rage_only": true},
 		{"name": HOOK_COMBO, "moves": [B_DOWN], "fells": [0], "weight": 0.0, "far": true},
 		# (the orc's own kinds of answer, in his blows)
 		{"name": COUNTER_COMBO, "moves": [B_BACK], "fells": [0], "weight": 0.0, "far": true},
@@ -518,7 +544,7 @@ func _own_move(delta: float) -> bool:
 			_face(_quarry.global_position - global_position, delta, turn_speed)
 		return true
 	var gap := _distance_to(_quarry)
-	if drill_combo < 0 and _hook_wait <= 0.0 and gap >= hook_from and gap <= hook_to and not _quarry_down() \
+	if hook_on and drill_combo < 0 and _hook_wait <= 0.0 and gap >= hook_from and gap <= hook_to and not _quarry_down() \
 			and stamina >= attack_cost and _quarry is Player:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
