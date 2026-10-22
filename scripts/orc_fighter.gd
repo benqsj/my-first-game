@@ -169,9 +169,11 @@ extends PackBrute
 @export var combo_set: PackedStringArray = PackedStringArray()
 @export_group("Looks")
 ## Its chest this much wider across, each collarbone set out this far
-## (skeleton units) — broader shoulders ([BulkModifier]).
-@export var chest_width: float = 1.28
-@export var shoulder_out: float = 0.09
+## (skeleton units) — broader shoulders ([BulkModifier]). Broader again
+## (the user's word, 2026-10-22: "I remember the orcs much broader in the
+## shoulders, massive; here they are not"): 1.28 / 0.09 -> 1.65 / 0.2.
+@export var chest_width: float = 1.65
+@export var shoulder_out: float = 0.2
 ## Its skin, paint and blood picked from its name; -1 each to pick (a scene
 ## or a test can set them).
 @export var varied: bool = true
