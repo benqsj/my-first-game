@@ -11648,6 +11648,20 @@ tells everyone (`net_harden`), once per creature (`hardened` meta).
   stands (CR_OG_Battlecry) and "ყასაბი — სასახლის ჯალათი" comes up across the
   lower screen and goes (`net_intro`). The music is not changed (the user's
   word: not yet).
+**After the user's look (same day):** the butcher's cleaver sat on his wrist,
+54° off a fist's line, and his left hand was drawn onto its blade by the orc's
+[TwoHandGrip] (so the hook seemed thrown from the swinging hand). Now his
+right hand is turned so the line across his palm lies along the great axe's
+line (`_hand_twist`, after each [FigureFollower] pose), his fingers closed
+round the haft (`_fist`, the left loosely), the haft through the middle of the
+palm (`haft_grip`, `palm_share`, `edge_sign`), and the TwoHandGrip off: his
+left hand is free, and CR_Throw (UAL 2's overhand throw, the left hand on
+this skeleton) lets the hook go from it. His headbutt is gone: the string and
+the hook end in the chop.
+The minotaur's neck drew up straight as a man's on the clips from Mixamo and
+UAL 2: its back, neck and shoulders are no longer laid onto the T-pose
+(`align_skip` in mon_build.py), they turn from its own idle's set
+(`stance_from`), the neck and head only part of the way (`damp`).
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

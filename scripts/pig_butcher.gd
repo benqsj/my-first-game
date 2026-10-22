@@ -12,13 +12,14 @@ extends OrcFighter
 ## * **His cleaver**, Synty's own for him, bloodied, in place of the great axe;
 ##   its blows are where the cleaver is seen ([method _weapon_part]), not
 ##   where the orc's unseen axe would be.
-## * **The hook** on its chain: from off he hurls it at him; caught, he is
-##   hauled in to the butcher's feet and met with the headbutt and the chop.
+## * **The hook** on its chain: from off he hurls it at him with his free
+##   left hand; caught, he is hauled in to the butcher's feet and met with the
+##   chop.
 ##   A roll slips it.
 ## * **The ground split**: the cleaver brought down so the ground cracks out
 ##   at him along a line; enraged, three of them running.
 ## * **Combos**: Mixamo's two-handed club string; UAL 2's sword string
-##   ending in his head; the chop held at the top, then the ground.
+##   ending in the chop; the chop held at the top, then the ground.
 ## * **His coming in**: woken, he roars, and his name comes up on the screen.
 
 const FIGURE := "res://assets/monsters/synty_rivals/pig_butcher.glb"
@@ -50,7 +51,6 @@ const CHAIN_SOUND := "res://sounds/whoosh_heavy.wav"
 
 const B_CLEAVE3 := 240
 const B_REG := 241
-const B_BUTT := 242
 const B_DOWN := 243
 const B_POUND := 244
 const B_HOOK := 245
@@ -64,6 +64,13 @@ enum Hook { NONE, OUT, PULL, BACK }
 @export var cleaver_scale: float = 1.15
 @export var cleaver_roll: float = 0.0
 @export var cleaver_radius: float = 0.3
+## The haft's grip on the cleaver (its height up the haft, the cleaver's own
+## units), where the palm is between wrist and knuckles, which way its edge
+## faces (1: the knuckles' way), which way the fingers close (1 or -1).
+@export var haft_grip: float = 0.12
+@export var palm_share: float = 0.55
+@export var edge_sign: float = 1.0
+@export var fist_sign: float = 1.0
 
 @export_group("Hook")
 @export var hook_from: float = 6.0
@@ -83,6 +90,11 @@ enum Hook { NONE, OUT, PULL, BACK }
 
 ## Every peer: the cleaver as it is held, and where on it its blow is.
 var _cleaver: Node3D
+var _fig_skel: Skeleton3D
+var _fig_hand: int = -1
+var _hand_twist: Quaternion = Quaternion.IDENTITY
+## [bone, its rest turn, the bend laid on it]
+var _curls: Array = []
 var _edge_from: Vector3
 var _edge_to: Vector3
 ## Host: the hook's flight, where it is, which way, who it has.
@@ -192,27 +204,53 @@ func _arm_cleaver(fig_skel: Skeleton3D) -> void:
 	if axe == null or not ResourceLoader.exists(CLEAVER):
 		return
 	var grip := axe.get_parent() as Node3D
+	_fig_skel = fig_skel
+	_fig_hand = fig_skel.find_bone("Hand_R")
+	# the great axe's line: what its blows were measured along
 	var box := axe.get_aabb()
 	var hand := grip.global_position
 	var far := hand
-	var mid := Vector3.ZERO
 	for k in 8:
 		var p := axe.global_transform * box.get_endpoint(k)
-		mid += p / 8.0
 		if p.distance_to(hand) > far.distance_to(hand):
 			far = p
 	var up := (far - hand).normalized()
-	# the blade side: where the axe's bulk lies off its haft
-	var off := mid - hand
-	off -= up * off.dot(up)
-	var edge := off.normalized() if off.length() > 0.01 else up.cross(Vector3.UP).normalized()
+	# his hand turned so a fist would hold that line: the line across his
+	# palm (from his little finger's side to his first finger's) laid on it
+	var across := (_bone_at("IndexFinger_01.001") - _bone_at("Finger_01.001")).normalized()
+	var g0 := (fig_skel.global_transform * fig_skel.get_bone_global_pose(_fig_hand)).basis.orthonormalized()
+	var turn := Basis(Quaternion(across, up))
+	_hand_twist = (g0.inverse() * turn * g0).get_rotation_quaternion()
+	# and closed: the right hand round the haft, the left loosely
+	_curls.clear()
+	_fist(["Finger_01.001", "Finger_02.001", "Finger_03.001"], [75.0, 85.0, 60.0], across, fist_sign)
+	_fist(["IndexFinger_01.001", "IndexFinger_02.001", "IndexFinger_03.001"], [70.0, 85.0, 60.0], across, fist_sign)
+	_fist(["Thumb_02.001", "Thumb_03.001"], [25.0, 35.0], across, fist_sign)
+	var across_l := (_bone_at("IndexFinger_01") - _bone_at("Finger_01")).normalized()
+	_fist(["Finger_01", "Finger_02", "Finger_03"], [40.0, 45.0, 30.0], across_l, -fist_sign)
+	_fist(["IndexFinger_01", "IndexFinger_02", "IndexFinger_03"], [35.0, 45.0, 30.0], across_l, -fist_sign)
+	if follower != null and not follower.followed.is_connected(_after_follow):
+		follower.followed.connect(_after_follow)
+	_after_follow()
+	fig_skel.force_update_all_bone_transforms()
+	# the cleaver in that fist: its haft through the palm, along the line,
+	# its edge the way the knuckles face
+	var hand_now := fig_skel.global_transform * fig_skel.get_bone_global_pose(_fig_hand)
+	var base := _bone_at("Finger_01.001")
+	var tip := _bone_at("Finger_02.001")
+	var knuckles := (tip - base)
+	knuckles -= up * knuckles.dot(up)
+	var edge := knuckles.normalized() * edge_sign if knuckles.length() > 0.001 else up.cross(Vector3.UP).normalized()
 	edge = edge.rotated(up, deg_to_rad(cleaver_roll))
 	var x := up.cross(edge).normalized()
-	var basis := Basis(x, up, x.cross(up).normalized()).scaled(Vector3.ONE * cleaver_scale)
+	var palm := hand_now.origin.lerp(base, palm_share)
+	var want := Transform3D(Basis(x, up, edge).orthonormalized().scaled(Vector3.ONE * cleaver_scale),
+			palm + up * haft_grip * cleaver_scale)
 	_cleaver = (load(CLEAVER) as PackedScene).instantiate() as Node3D
 	_cleaver.name = "Cleaver"
 	grip.add_child(_cleaver)
-	_cleaver.global_transform = Transform3D(basis, hand)
+	# the attachment's frame as the turned hand has it now (it follows from here)
+	_cleaver.transform = hand_now.affine_inverse() * want
 	var top := 1.27
 	var side := 0.15
 	for n in _cleaver.find_children("*", "MeshInstance3D", true, false):
@@ -224,6 +262,42 @@ func _arm_cleaver(fig_skel: Skeleton3D) -> void:
 	_edge_from = Vector3(0.0, top * 0.35, side)
 	_edge_to = Vector3(0.0, top * 0.95, side)
 	_bloody_cleaver(top, side)
+	# the left hand is his own (the hook is thrown from it): not drawn onto
+	# the haft as the orc's is onto its great axe's
+	if _skeleton != null:
+		for c in _skeleton.get_children():
+			if c is TwoHandGrip:
+				(c as TwoHandGrip).active = false
+
+
+func _bone_at(name: String) -> Vector3:
+	var b := _fig_skel.find_bone(name)
+	if b < 0:
+		return _fig_skel.global_position
+	return _fig_skel.global_transform * _fig_skel.get_bone_global_pose(b).origin
+
+
+## Each of `names` (one finger, root first) bent `angles` degrees about the
+## line across the palm (`across`, the world as the hand stands now).
+func _fist(names: Array, angles: Array, across: Vector3, sign: float) -> void:
+	for i in names.size():
+		var b := _fig_skel.find_bone(String(names[i]))
+		if b < 0:
+			continue
+		var g := (_fig_skel.global_transform * _fig_skel.get_bone_global_pose(b)).basis.orthonormalized()
+		var axis := (g.inverse() * across).normalized()
+		var rest := _fig_skel.get_bone_rest(b).basis.get_rotation_quaternion()
+		_curls.append([b, rest, Quaternion(axis, deg_to_rad(float(angles[i])) * sign)])
+
+
+## Every peer, each time the figure is posed off the rig: his right hand
+## turned onto the haft, his fingers closed.
+func _after_follow() -> void:
+	if _fig_skel == null or _fig_hand < 0:
+		return
+	_fig_skel.set_bone_pose_rotation(_fig_hand, _fig_skel.get_bone_pose_rotation(_fig_hand) * _hand_twist)
+	for c: Array in _curls:
+		_fig_skel.set_bone_pose_rotation(int(c[0]), (c[1] as Quaternion) * (c[2] as Quaternion))
 
 
 ## Blood on both faces of the blade and its edge, more than an orc's blade
@@ -336,7 +410,6 @@ func _butcher_moves() -> void:
 	# UAL 2's sword string, then his head into him
 	_hand_move(B_REG, &"CR_SwordCombo", Vector3(0.85 / hp, 0.0, 0.75), 0.7, "", [0.083, 0.239, 0.517])
 	_slow_to[B_REG] = 0.55
-	_hand_move(B_BUTT, &"CR_OG_Headbutt", Vector3(1.1 / hp, 0.1, 0.75), 0.6, "neck_joint>head_joint:0.34")
 	_hand_move(B_DOWN, &"CR_OG_Attack_Downward", Vector3(1.0 / hp, 0.05, 0.8), 1.1, "")
 	_holds[B_DOWN] = [0.45, 0.35, 0.8, 0.25]
 	_hand_move(B_POUND, &"CR_GroundPound", Vector3(0.8 / hp, 0.0, 0.95), 1.0, "")
@@ -345,16 +418,18 @@ func _butcher_moves() -> void:
 	_kinds[B_POUND] = &"crush"
 	_special(B_HOOK, &"CR_Throw", Vector3(1.0, 0.0, 0.75))
 	_special(B_INTRO, &"CR_OG_Battlecry", Vector3(1.0, 0.0, 0.9))
+	# (UAL 2's overhand throw is thrown with the left hand on this skeleton;
+	# the hook leaves that hand at the wrist's fastest)
 	if _anim != null and _anim.clip_length(&"CR_Throw") > 0.0:
-		var peaks := _anim.measure_peaks(&"CR_Throw", PackedStringArray(["R_wrist_joint"]), 0.6, 0.12)
+		var peaks := _anim.measure_peaks(&"CR_Throw", PackedStringArray(["L_wrist_joint"]), 0.6, 0.12)
 		var best := float(peaks[0]) if not peaks.is_empty() else 0.4
 		_hook_at = best * _anim.clip_length(&"CR_Throw")
 	_hand_combos.append_array([
 		{"name": &"cleaver_three", "moves": [B_CLEAVE3], "fells": [0], "weight": 1.2},
-		{"name": &"butcher_string", "moves": [B_REG, B_BUTT], "fells": [1], "weight": 1.1},
+		{"name": &"butcher_string", "moves": [B_REG, B_DOWN], "fells": [1], "weight": 1.1},
 		{"name": &"chop_and_split", "moves": [B_DOWN, B_POUND], "fells": [1], "weight": 0.9},
 		{"name": &"slaughter", "moves": [B_POUND, B_POUND, B_POUND], "fells": [2], "weight": 1.4, "rage_only": true},
-		{"name": HOOK_COMBO, "moves": [B_BUTT, B_DOWN], "fells": [1], "weight": 0.0, "far": true},
+		{"name": HOOK_COMBO, "moves": [B_DOWN], "fells": [0], "weight": 0.0, "far": true},
 	])
 
 
