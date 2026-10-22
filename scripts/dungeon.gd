@@ -72,6 +72,11 @@ const TROLL := "res://scenes/enemies/pack/troll.tscn"
 ## butcher (the user's pick, 2026-10-22), fighting as an orc with a great axe
 ## ([PigButcher]).
 const BUTCHER := "res://scenes/enemies/pack/pig_butcher.tscn"
+## The flyers of the second half (the user's word, 2026-10-22: Quaternius'
+## Ghost_Skull throwing souls, Dragon_Evolved throwing fire, a torch's size,
+## several at once, no higher than a sword reaches) ([Flyer]).
+const SKULL := "res://scenes/enemies/pack/ghost_skull.tscn"
+const DRAGONET := "res://scenes/enemies/pack/dragonet.tscn"
 
 ## The orcs of the first dungeon (the user's word, 2026-10-20): before the last
 ## place two of different kinds, one with two swords, one with a long sword,
@@ -150,18 +155,19 @@ const RUN := {
 		# 2026-10-22: ten steps, every fifth a boss)
 		{"places": ["court"], "lv": 5, "xp": 4.0, "reach": 5, "boss": true, "boss_name": "ყასაბი",
 				"foes": {"*": [[BUTCHER, 1]]}},
-		# 6 — the second half: an orc among them, the elite still last
+		# 6 — the second half: an orc among them, the elite still last; the
+		# skulls come in (the user's word, 2026-10-22: flyers, several at once)
 		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 6, "xp": 3.0, "reach": 5,
-				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
-		# 7
+				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKULL, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
+		# 7 — the dragonets' fire
 		{"places": ["great_hall", "sky", "mountain", "swamp"], "lv": 7, "xp": 3.5, "reach": 6,
-				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 4], [GOBLIN, 1, ELITE]]}},
-		# 8 — a troll, and what follows it about
+				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 3], [DRAGONET, 2], [GOBLIN, 1, ELITE]]}},
+		# 8 — a troll, and what follows it about, the two kinds of flyer over it
 		{"places": ["terrace", "rampart", "cave", "forest"], "lv": 7, "xp": 3.5, "reach": 7,
-				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 3]]}},
-		# 9 — the two orcs, taking turns
+				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [SKULL, 2], [DRAGONET, 1]]}},
+		# 9 — the two orcs, taking turns, and dragonets throwing
 		{"places": ["terrace", "sky", "mountain", "rampart"], "lv": 8, "xp": 4.0, "reach": 7,
-				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]}},
+				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [DRAGONET, 2]]}},
 		# 10 — the lord of the orcs
 		{"places": ["throne"], "lv": 8, "boss": true, "boss_name": "ორკების მბრძანებელი",
 				"foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
@@ -1175,6 +1181,12 @@ func _spawn_room(i: int) -> void:
 					and String((made[0] as Node).get_meta(&"scene", "")) == String(entry[0]):
 				var ready_made := made.pop_front() as Node3D
 				_take_up(ready_made, at, c, int(r["lv"]))
+				if k >= AT_ONCE:
+					# a later wave's, as below
+					ready_made.position = c + Vector3(float(k) * 1.5, -40.0, 0.0)
+					ready_made.visible = false
+					ready_made.process_mode = Node.PROCESS_MODE_DISABLED
+					_reserve.append(ready_made)
 				mine.append(ready_made)
 				_watch_foe(ready_made)
 				k += 1
@@ -1216,6 +1228,10 @@ func _spawn_room(i: int) -> void:
 			if role != "":
 				FoeRoles.after(body, role, self)
 			k += 1
+	# any made at the start and not wanted after all
+	for spare: Variant in made:
+		if is_instance_valid(spare):
+			(spare as Node).queue_free()
 	waves = 2 if not _reserve.is_empty() else 1
 	if bool(r.get("cursed", false)):
 		for body in mine:
@@ -1308,7 +1324,9 @@ func _premake() -> void:
 			continue
 		var list: Array[Node3D] = []
 		var k := 0
-		for entry: Array in by["*"]:
+		# in the order the place will want them ([method mixed]), or one of a
+		# kind is asked for where another was made, and made twice over
+		for entry: Array in mixed(by["*"]):
 			var scene := _foe_scene(String(entry[0]))
 			if scene == null:
 				continue
@@ -3484,8 +3502,8 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 			if gap < 9.0 and not (body as PackBrute).held_back:
 				brutes += 1
 			continue
-		# the shaman keeps back by itself ([FoeRoles])
-		if FoeRoles.role_of(body) == &"shaman":
+		# the shaman keeps back by itself ([FoeRoles]), and the flyers do
+		if FoeRoles.role_of(body) == &"shaman" or body is Flyer:
 			continue
 		if "held_back" in body:
 			small.append([gap, body])

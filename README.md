@@ -11490,3 +11490,29 @@ the level hidden in turn (`_shots_tmp/hubcost2.gd`, `portalcost.gd`,
 - `dungeon_test`: ten steps, two portals each, the spring beside each boss,
   the first boss alone, a rest put in still ten. `orc_portal_test`: the lord
   at step 10.
+
+### Flyers: the skull's souls and the dragonet's fire (2026-10-22, the user's word)
+`scripts/flyer.gd` ([Flyer] extends [Fighter]): Quaternius' `Ghost_Skull` and
+`Dragon_Evolved` (`scenes/enemies/pack/ghost_skull.tscn`, `dragonet.tscn`), at
+`visual_scale` 0.12/0.13 — a thrown torch's size — playing their own clips
+(`clip_source` is the model; Flying_Idle, Fast_Flying, Headbutt as the throw's
+tell, Death).
+- **Flight.** No gravity while it lives; it holds 0.95–1.4 m over the floor
+  (a ray down every 0.25 s), bobbing, so the sword reaches it. Dead, gravity
+  comes back and it drops.
+- **Keeping off.** A ring 5.5–8.5 m round him (the dragonet 4.5–7.5), wheeling
+  round, backing off when he is close — never faster than `fly_speed` (4.2,
+  below a hero's run), so it can be caught.
+- **Throwing.** Every 3.5–6.5 s, through `Fighter.claim_throw` (the dungeon's
+  gap between things thrown at one hero holds for them too): it slows, plays
+  the Headbutt for 0.5 s and lets go a [SpellBolt] against the heroes, hunting
+  him — blue souls from the skull, orange fire from the dragonet.
+- **In the run** (`Dungeon.RUN`): three skulls at step 6, two dragonets at 7,
+  two skulls and a dragonet over the troll at 8, two dragonets with the two
+  orcs at 9. They are left out of `_hold_back_crowd` (they keep off by
+  themselves and do not take the two places at him).
+- `Dungeon._premake` now makes a step's creatures in `mixed()` order, the
+  order the place asks for them: otherwise a kind was asked for where another
+  had been made, made twice over under a clashing name, and the place never
+  cleared. Ones made at the start past `AT_ONCE` go to the second wave as the
+  others do; any left over are freed.
