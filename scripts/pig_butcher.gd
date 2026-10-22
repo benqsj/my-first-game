@@ -90,6 +90,15 @@ enum Hook { NONE, OUT, PULL, BACK }
 @export var fist_sign: float = 1.0
 
 @export_group("Hook")
+## The cut in the air his cleaver leaves, as the heroes' blades do (Tariel's
+## look); drawn while its edge goes faster than this (m/s) in a blow.
+const ARC_STYLE := {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35, "smear": 1.0,
+		"tip_overshoot": 0.12}
+@export var arc_speed: float = 6.0
+## Dust where his cleaver comes down into the ground: its edge within this of
+## the ground (m), coming down at least this fast (m/s).
+@export var dust_touch: float = 0.12
+@export var dust_fall: float = 2.5
 ## The hook thrown at him from afar (off: the user's word, 2026-10-23).
 @export var hook_on: bool = false
 @export var hook_from: float = 6.0
@@ -132,6 +141,14 @@ var _cracks: Array[GroundCrack] = []
 var _pound_cracked: int = -1
 var _introduced: bool = false
 var _drip_in: float = 0.0
+## Every peer: the cut in the air his cleaver leaves (the heroes' own), and
+## where its edge was last frame (its speed; the dust where it meets the ground).
+var _arc: BladeArc
+var _arc_last: Vector3 = Vector3.INF
+var _low_last: Vector3 = Vector3.INF
+var _dust_wait: float = 0.0
+## dust thrown up where his cleaver meets the ground, counted (tests)
+var ground_dusts: int = 0
 ## For the tests.
 var hooks_thrown: int = 0
 var hooks_caught: int = 0
@@ -281,6 +298,7 @@ func _arm_cleaver(fig_skel: Skeleton3D) -> void:
 	_edge_from = Vector3(0.0, top * 0.35, side)
 	_edge_to = Vector3(0.0, top * 0.95, side)
 	_bloody_cleaver(top, side)
+	_make_arc(top, side)
 	# the left hand is his own (the hook is thrown from it): not drawn onto
 	# the haft as the orc's is onto its great axe's
 	if _skeleton != null:
@@ -338,6 +356,75 @@ func _bloody_cleaver(top: float, side: float) -> void:
 		var z := Vector3.DOWN
 		decal.transform = Transform3D(Basis(y.cross(z), y, z), Vector3(0.0, top * (0.72 if k < 2 else 0.45), side * 1.1))
 		decal.size = Vector3(0.7 if k < 2 else 0.55, 0.3, top * (0.55 if k < 2 else 0.4))
+
+
+## Every peer: the heroes' cut in the air (Tariel's look), along his blade.
+func _make_arc(top: float, side: float) -> void:
+	var base := Marker3D.new()
+	base.position = Vector3(0.0, top * 0.3, side)
+	_cleaver.add_child(base)
+	var tip := Marker3D.new()
+	tip.position = Vector3(0.0, top * 1.0, side)
+	_cleaver.add_child(tip)
+	_arc = BladeArc.new()
+	_arc.name = "CleaverArc"
+	add_child(_arc)
+	_arc.setup(base, tip)
+	for key: String in ARC_STYLE:
+		_arc.set(key, ARC_STYLE[key])
+	_arc.restyle()
+
+
+## Every peer: the cut drawn while the cleaver swings hard in a blow; and
+## where it comes down into the ground, dust thrown up there, that moment.
+func _cleaver_air(delta: float) -> void:
+	_dust_wait = maxf(_dust_wait - delta, 0.0)
+	if _cleaver == null or not is_instance_valid(_cleaver) or delta <= 0.0:
+		return
+	var t := _cleaver.global_transform
+	var tip := t * _edge_to
+	var swinging := act != Act.NONE and _strikes().has(act) and not is_dead
+	var fast := _arc_last != Vector3.INF and tip.distance_to(_arc_last) / delta > arc_speed
+	_arc_last = tip
+	if _arc != null:
+		_arc.emitting = swinging and fast and _cleaver.is_visible_in_tree()
+	# the lowest of its edge
+	var low := tip
+	for k in 4:
+		var p := t * _edge_from.lerp(_edge_to, float(k) / 3.0)
+		if p.y < low.y:
+			low = p
+	var ground := global_position.y
+	var was := _low_last
+	_low_last = low
+	if not swinging or was == Vector3.INF or _dust_wait > 0.0:
+		return
+	var falling := (was.y - low.y) / delta
+	if low.y <= ground + dust_touch and was.y > ground + dust_touch and falling > dust_fall:
+		_dust_wait = 0.35
+		ground_dusts += 1
+		_ground_dust(Vector3(low.x, ground + 0.05, low.z), clampf(falling / 10.0, 0.7, 1.4))
+
+
+## Every peer: dust off the ground where the cleaver went in (no ring).
+func _ground_dust(at: Vector3, power: float) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	# a low cloud of earth (as the footfalls' puff, bigger), and grit thrown
+	# up and falling back
+	SkillFx.particles(world, at, {
+		"amount": int(14 * power), "life": 1.1, "one_shot": true, "explosiveness": 0.95, "add": false,
+		"speed": Vector2(0.6, 1.8) * power, "dir": Vector3.UP, "spread": 75.0, "gravity": Vector3(0, -0.3, 0),
+		"damping": 2.2, "size": Vector2(0.3, 0.55) * power, "grow": 0.6, "sphere": 0.2,
+		"colors": [Color(0.55, 0.49, 0.41, 0.0), Color(0.52, 0.46, 0.39, 0.55), Color(0.5, 0.45, 0.38, 0.0)],
+	})
+	SkillFx.particles(world, at, {
+		"amount": int(16 * power), "life": 0.7, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(2.0, 4.0) * power, "dir": Vector3.UP, "spread": 40.0, "gravity": Vector3(0, -12.0, 0),
+		"damping": 0.5, "size": Vector2(0.03, 0.06), "sphere": 0.1,
+		"colors": [Color(0.3, 0.26, 0.21, 1.0), Color(0.28, 0.24, 0.2, 1.0), Color(0.28, 0.24, 0.2, 0.0)],
+	})
 
 
 ## Every peer: now and then a drop off the cleaver's edge.
@@ -482,6 +569,9 @@ func _butcher_moves() -> void:
 	# any of them any time, the same again now and then (the user's word:
 	# mixed up, not one after another in turn)
 	repeat_damp = 1.0
+	# in to him on his feet before a string, not glided the last of the way
+	# (the user's word, 2026-10-23: he slid)
+	combo_slack = 0.45
 	_hand_combos = [
 		# Mixamo: three chops on end
 		{"name": &"three_chops", "moves": [B_C2], "fells": [0], "weight": 1.2},
@@ -523,6 +613,30 @@ func _blows_in(clip: StringName, n: int) -> Array:
 	for i in n:
 		out.append(float(peaks[i]))
 	return out
+
+
+## Not the orc's fall from the sky (the user's word, 2026-10-23: another's).
+func _try_leap() -> bool:
+	return false
+
+
+## Host: in a string, before each of its blows (not only the first) he turns
+## after him, and what the clip carries goes the way he now faces: a dodged
+## string does not run on the way it began (the user's word, 2026-10-23).
+func _carry(delta: float) -> Vector3:
+	if _quarry != null and _strikes().has(act) and _blow_moments(act).size() > 1:
+		var ms := _blow_moments(act)
+		var next := -1.0
+		var prev := -1.0
+		for m in ms:
+			if m > _act_time:
+				next = m
+				break
+			prev = m
+		if prev >= 0.0 and next > 0.0 and _act_time > prev + 0.08 and _act_time < next - _track_lock(act):
+			_face(_quarry.global_position - global_position, delta, _track_rate(act))
+			_reframe()
+	return super(delta)
 
 
 ## Not the orc's battle cry nor its shield-first charge.
@@ -593,6 +707,7 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	_drip(delta)
+	_cleaver_air(delta)
 	_draw_hook()
 #endregion
 

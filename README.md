@@ -11686,6 +11686,20 @@ spin (`low_spin`), and their mixes (`string_and_spin`, `thrust_and_string`,
 over) is gone. His hook is off (`hook_on`, the user's word), and with it the
 headbutt that followed it. He picks his combos mixed, the same one again as
 likely as another (`PackBrute.repeat_damp` 1.0; others keep 0.2).
+**The user's fourth look (2026-10-23):** he slid. Measured
+(`_shots_tmp/slide_probe.gd`: metres moved in each act): the orc's glide in
+under a blow at 5 m/s from up to 1.4 m short (`close_speed`, the combo's
+`combo_slack`), its sidestep after a string on the dodge clip, and its fall
+from the sky (the stone thrown up where it lands: the orc's, not his). Now
+he walks in to 0.45 m of his first blow's reach (`combo_slack`), glides at
+most 1.5 m/s, no sidestep, no skyfall (`_try_leap`). In a string he turns
+after him before each blow (`_carry`), not only the first, and the clip's
+own travel goes the way he now faces: a dodged string does not run on the
+way it began. His cleaver leaves the heroes' cut in the air ([BladeArc],
+Tariel's look, `ARC_STYLE`) while its edge goes faster than `arc_speed`
+in a blow; where its edge comes down into the ground (within `dust_touch`,
+falling faster than `dust_fall`) a cloud of earth and grit goes up, that
+frame (`ground_dusts`).
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

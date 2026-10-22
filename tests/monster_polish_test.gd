@@ -236,6 +236,9 @@ func _butcher_combos() -> void:
 			and names.has("thrust_cut") and names.has("leap_in") and names.has("low_spin")
 			and not names.has("sweep_back"), str(names))
 	_check("the same combo not held back from coming again", is_equal_approx(b.repeat_damp, 1.0))
+	_check("no glide in, no sidestep, not the orc's fall from the sky", b.combo_slack < 0.6
+			and b.close_speed <= 1.6 and b.sidestep_after == 0.0 and not b.call(&"_try_leap"))
+	_check("his cleaver leaves the heroes' cut in the air", b.get(&"_arc") is BladeArc)
 	b.drill_combo = names.find("sword_string")
 	for i in 600:
 		_hold(hero, spot)
@@ -244,6 +247,13 @@ func _butcher_combos() -> void:
 		await physics_frame
 	_check("Mixamo's sword string played", b.hand_combos_made.has(names.find("sword_string")),
 			str(b.hand_combos_made))
+	b.drill_combo = names.find("chop_and_split")
+	for i in 900:
+		_hold(hero, spot)
+		if b.hand_combos_made.has(names.find("chop_and_split")) and b.act == Fighter.Act.NONE:
+			break
+		await physics_frame
+	_check("dust off the ground where his cleaver goes in", b.ground_dusts > 0, "dusts %d" % b.ground_dusts)
 	await _done(a[0])
 
 

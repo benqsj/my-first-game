@@ -151,6 +151,9 @@ var _snap: Dictionary = {}
 ## How much less likely the combo it just made is picked again (1: not at
 ## all, the same may well come twice).
 var repeat_damp: float = 0.2
+## How much further off than its first blow lands from it opens a combo (m):
+## the rest is closed in the combo itself (a glide, if its clip does not walk).
+var combo_slack: float = 1.4
 
 ## Its combos made by hand (the user's word, 2026-10-10: as the ogre's, for the
 ## troll, the golem and the orc): [{"name", "moves", "fells", "weight",
@@ -367,7 +370,7 @@ func _try_hand_combo(gap: float) -> bool:
 			continue
 		var first := int((c["moves"] as Array)[0])
 		var want := float(_strike_from.get(first, strike_off))
-		if (gap < want - 0.9 and not drill) or gap > want + 1.4:
+		if (gap < want - 0.9 and not drill) or gap > want + combo_slack:
 			continue
 		# away from the last it made, and the one before (not the same over and over)
 		var w := float(c["weight"]) * (repeat_damp if i == _hand_last else 1.0)
