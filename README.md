@@ -11684,3 +11684,14 @@ view knocked harder and shaken (`bite_knock_big`, down a little for a heavy
 blow) and, under the steel, a deep body-blow ([ImpactFx.thud]) and for a
 heavy blow the rush of air ([ImpactFx.rush]). Only he feels the view; all
 hear. Test: `tests/bite_felt_test.gd`.
+
+
+### The run is the old sprint, free; Shift faster still, for stamina (2026-10-23, the user's word)
+[Player]: with nothing held he runs at `run_speed` (the pace Shift used to
+give; `jog_share` 1.0), his legs Kevin's sprint ([SkinnedRig] `_sprint_from`
+just past the walk-to-run pace), and it costs nothing. Shift: `sprint_share`
+(1.3) times that, paid `sprint_stamina` (14) a second in a fight or out of it;
+run dry, winded, he runs on at the plain pace. `jog_speed` is kept up each tick
+(a blessing that quickens his run quickens it). The knight's charge settles to
+its own pace at once out of the faster sprint. Tests updated: stride_test,
+great_sword_charge_test.

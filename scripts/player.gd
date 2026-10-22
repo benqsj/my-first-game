@@ -49,17 +49,22 @@ enum State { GROUNDED, AIRBORNE, DASHING, DODGING, SLIDING, CLIMBING, WALLCLIMB,
 @export_group("Movement")
 ## Speed while the walk modifier is held.
 @export var walk_speed: float = 3.6
-## Speed with the sprint held (Shift): his whole run, paid for in stamina
-## (`sprint_stamina`). With no modifier he jogs (`jog_share` of it).
+## His run with no modifier held (the user's word, 2026-10-23: the pace
+## Shift used to give, as his plain run, Kevin's sprint for its legs, and
+## free); with Shift held he goes faster still (`sprint_share` of it), paid
+## for in stamina (`sprint_stamina`).
 @export var run_speed: float = 7.2
-## The pace with no modifier held, as a share of `run_speed`: a jog, Kevin's
-## run played near its own pace; Shift is the run, Kevin's sprint (the user's
-## word, 2026-10-04: going off at once at a run was too fast).
-@export_range(0.3, 1.0) var jog_share: float = 0.66
-## Stamina a second the sprint costs while he is really going at it. Run dry
-## and he is winded: he jogs until it has come back past a fifth.
-@export var sprint_stamina: float = 12.0
-## The jog's pace, m/s (`run_speed` x `jog_share`, set with the profile).
+## The plain pace as a share of `run_speed` (1: the whole run; it was a jog
+## at 0.66 till 2026-10-23).
+@export_range(0.3, 1.0) var jog_share: float = 1.0
+## Shift: this much faster than the run.
+@export var sprint_share: float = 1.3
+## Stamina a second the sprint costs while he is really going at it, in a
+## fight or out of it. Run dry and he is winded: he runs (no faster) until it
+## has come back past a fifth.
+@export var sprint_stamina: float = 14.0
+## The plain pace, m/s (`run_speed` x `jog_share`; kept up each tick, so a
+## blessing that quickens his run quickens it).
 var jog_speed: float = 4.75
 ## Going at a sprint this tick (the key held, moving, the stamina there).
 var sprinting: bool = false
@@ -1382,7 +1387,8 @@ func _process_locomotion(delta: float) -> void:
 	var direction := get_movement_direction()
 	var walking := Input.is_action_pressed("walk")
 	sprinting = _wants_sprint(direction, walking)
-	var speed := walk_speed if walking else (run_speed if sprinting else jog_speed)
+	jog_speed = run_speed * jog_share
+	var speed := walk_speed if walking else (run_speed * sprint_share if sprinting else jog_speed)
 	if _crouching:
 		speed = crouch_speed
 	# Nobody aims at a sprint. Holding the string costs most of the run, which is
@@ -1434,7 +1440,7 @@ func _process_locomotion(delta: float) -> void:
 	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
 	# The sprint costs only while it is a sprint: on the ground, faster than
 	# the jog (not slowed by a swing, the draw, the shield).
-	if sprinting and on_floor and speed > jog_speed and in_combat():
+	if sprinting and on_floor and speed > jog_speed + 0.05:
 		_spend(sprint_stamina * delta)
 	elif sprinting and speed <= jog_speed:
 		sprinting = false
@@ -1479,7 +1485,10 @@ func _process_locomotion(delta: float) -> void:
 				var pace := run_speed * float(_charge_spec.get("pace", 1.0))
 				# (from the pace he had, not what the stick left of it: the
 				# skill runs in without it)
-				horizontal = Vector3(velocity.x, 0.0, velocity.z).move_toward(aim * pace, ground_acceleration * delta)
+				# (never faster than the charge's own pace: out of the sprint,
+				# faster since 2026-10-23, he settles to it at once)
+				horizontal = Vector3(velocity.x, 0.0, velocity.z).limit_length(pace).move_toward(aim * pace, ground_acceleration * delta)
+				_air_speed_cap = minf(_air_speed_cap, pace)
 				rotation.y = lerp_angle(rotation.y, atan2(-aim.x, -aim.z), 1.0 - exp(-lock_turn_speed * delta))
 	else:
 		# In the air the stick steers the arc rather than driving it: the jump
@@ -6186,8 +6195,8 @@ func _wants_sprint(direction: Vector3, walking: bool) -> bool:
 		return false
 	if not InputMap.has_action(&"sprint") or not Input.is_action_pressed(&"sprint"):
 		return false
-	# out of a fight it costs nothing, so being winded does not stop it
-	return not in_combat() or (stamina > 0.0 and not _winded)
+	# it costs stamina in a fight and out of it (the user's word, 2026-10-23)
+	return stamina > 0.0 and not _winded
 
 
 func _now() -> float:

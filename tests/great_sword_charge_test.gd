@@ -141,13 +141,17 @@ func _initialize() -> void:
 	player.global_position = Vector3(0.0, 0.5, 26.0)
 	player.rotation.y = 0.0
 	await _frames(30)
-	foe.global_position = player.global_position + Vector3(0, 0, -11.0)
+	# (the sprint's run-up before the press is a third faster since
+	# 2026-10-23: it starts that much further off)
+	foe.global_position = player.global_position + Vector3(0, 0, -12.4)
 	player._hold_target(foe)
 	r = await _charge(true, "attack", 3.0, "")
 	_check("locked on: the blade down on it by himself", r.get("last", &"") == GreatSword.CHARGE["clip"] and r["slam"],
 			str(r.get("last", &"")))
 	print("    the blade into the ground %.2f m from its middle" % float(r.get("slam_d", -1.0)))
-	_check("near enough to reach it", float(r.get("slam_d", 9.0)) < 3.2 and float(r.get("slam_d", 0.0)) > 1.0,
+	# (out of the faster sprint since 2026-10-23 it lands a little nearer
+	# his middle, 0.9 m against 1.15: still on him, not past him)
+	_check("near enough to reach it", float(r.get("slam_d", 9.0)) < 3.2 and float(r.get("slam_d", 0.0)) > 0.8,
 			"%.2f m" % float(r.get("slam_d", -1.0)))
 	player._drop_target()
 

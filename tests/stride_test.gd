@@ -55,6 +55,14 @@ func _initialize() -> void:
 	if player.profile != null and player.profile.can_block:
 		paces.append(["guarded walk", ["block", "move_forward"]])
 	for pace: Array in paces:
+		# each pace from a whole bar (the sprint costs it now, in a fight or out),
+		# and from the same spot (a faster sprint ran him on onto other ground)
+		player.stamina = player.max_stamina
+		player.set(&"_winded", false)
+		player.global_position = Vector3(0.0, 0.5, 26.0)
+		player.velocity = Vector3.ZERO
+		for i in 20:
+			await physics_frame
 		for a: String in pace[1]:
 			Input.action_press(a)
 		for i in 90:
@@ -98,15 +106,16 @@ func _initialize() -> void:
 		var median := slides[int(slides.size() * 0.5)] if not slides.is_empty() else INF
 		var speed := Vector2(player.velocity.x, player.velocity.z).length()
 		if pace[0] == "jog":
-			_check("with nothing held he jogs (Kevin's run, at his jog's pace)",
-					clip == "KV_Run01_Forward" and absf(speed - player.jog_speed) < 0.3
-					and player.stamina >= player.max_stamina - 0.01,
-					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.jog_speed, player.stamina])
-		if pace[0] == "sprint":
-			_check("Shift: the sprint at his run's pace, out of a fight free",
+			# (the user's word, 2026-10-23: the plain run is what Shift was)
+			_check("with nothing held he runs (Kevin's sprint, at his run's pace), free",
 					clip == "KV_Sprint01_Forward" and absf(speed - player.run_speed) < 0.4
 					and player.stamina >= player.max_stamina - 0.01,
 					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.run_speed, player.stamina])
+		if pace[0] == "sprint":
+			_check("Shift: faster still, and it costs stamina",
+					clip == "KV_Sprint01_Forward" and absf(speed - player.run_speed * player.sprint_share) < 0.5
+					and player.stamina < player.max_stamina - 5.0,
+					"(%s, %.1f of %.1f m/s, stamina %.0f)" % [clip, speed, player.run_speed * player.sprint_share, player.stamina])
 		if pace[0] == "sprint":
 			# in a fight it costs
 			for a: String in pace[1]:

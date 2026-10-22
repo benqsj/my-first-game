@@ -1380,7 +1380,7 @@ func _direction_clip(planar: float) -> StringName:
 	# the picked sprint only past his own run (a body with no jog: at his
 	# run's pace Kevin's sprint was his run, legs flung wide)
 	if _on_mq and run and clips.has(&"sprint") and _body != null and _body.get(&"run_speed") != null \
-			and planar > float(_body.get(&"run_speed")) * 1.1:
+			and planar > float(_body.get(&"run_speed")) * 0.85:
 		return clips[&"sprint"]
 	return clips[&"run"] if run else clips[&"walk"]
 
@@ -1394,9 +1394,11 @@ func _run_from() -> float:
 	return minf(run_threshold, 0.5 * (float(_body.get(&"walk_speed")) + float(_body.get(&"jog_speed"))))
 
 
-## The pace the legs go over from the jog to the sprint: halfway between them.
+## The pace the legs go over from the jog to the sprint: a little past where
+## they go from the walk to a run — his plain run is Kevin's sprint now (the
+## user's word, 2026-10-23); the jog only on the way up to it.
 func _sprint_from() -> float:
-	return 0.5 * (float(_body.get(&"jog_speed")) + float(_body.get(&"run_speed")))
+	return _run_from() + 0.4
 
 
 ## From this pace (m/s) behind the raised shield his legs jog (`guard_jog`,
