@@ -59,6 +59,32 @@ extends Fighter
 @export var claw_radius: float = 0.1
 @export var foot_radius: float = 0.11
 
+@export_group("Gait")
+## Its steps round where it stands: clips whose feet step about in place
+## turning left and right (its mind turns the body; these only move the legs,
+## so a turn is walked round, not spun on planted feet). Empty: it turns on its
+## idle.
+@export var turn_l_clip: StringName = &""
+@export var turn_r_clip: StringName = &""
+## How far one play of a turn clip turns as it was made (rad): they are
+## played at the rate that keeps their steps to how fast it turns.
+@export var turn_clip_angle: float = PI / 2.0
+## Turning quicker than this where it stands (rad/s), it steps round.
+@export var turn_steps_above: float = 0.9
+## Standing, or nearly, it comes round no quicker than this (rad/s); on the
+## move up to twice it. 0: as quick as its `turn_speed` takes it. A big body
+## swings round; it does not spin on the spot.
+@export var stand_turn_max: float = 0.0
+## The cross-fade from its walk into its stand (s).
+@export var settle_fade: float = 0.25
+## A footfall heard (one of these) each time a foot comes down walking or
+## running, pitched so, so loud; empty for none.
+@export var footfall_sounds: PackedStringArray = PackedStringArray()
+@export var footfall_pitch: float = 1.0
+@export var footfall_db: float = -10.0
+## How big the puff of dust off each footfall is (0: none).
+@export var footfall_dust: float = 0.0
+
 static var _metas: Dictionary = {}
 static var _moment_cache: Dictionary = {}
 
@@ -81,6 +107,14 @@ var _foot_l: int = -1
 var _foot_r: int = -1
 var _calf_l: int = -1
 var _calf_r: int = -1
+## How fast it is turning (rad/s), smoothed, read off its own yaw frame to
+## frame (so every peer sees it alike), and the stepping kept up a moment
+## after a turn so the feet finish their step.
+var _yaw_rate: float = 0.0
+var _last_yaw: float = 0.0
+var _yaw_frame: int = -10
+var _turn_hold: float = 0.0
+var _footsteps: Footsteps
 
 
 func _ready() -> void:
@@ -98,6 +132,24 @@ func _ready() -> void:
 		_foot_r = _skeleton.find_bone("ball_r")
 		_calf_l = _skeleton.find_bone("calf_l")
 		_calf_r = _skeleton.find_bone("calf_r")
+	if not footfall_sounds.is_empty() and body != null and foot_bones.size() == 2:
+		_footsteps = Footsteps.new()
+		_footsteps.name = "Footsteps"
+		_footsteps.sounds.assign(Array(footfall_sounds))
+		_footsteps.pitch = footfall_pitch
+		_footsteps.volume_db = footfall_db
+		_footsteps.bone_names = foot_bones
+		_footsteps.dust = footfall_dust
+		# heights by its size: an orc's foot lifts further than a man's
+		var s := maxf(visual_scale, 0.01)
+		_footsteps.lift_height = 0.06 * s
+		_footsteps.plant_height = 0.03 * s
+		_footsteps.min_speed = 0.6
+		_footsteps.min_gap = 0.22
+		add_child(_footsteps)
+		if not _footsteps.attach(body):
+			_footsteps.queue_free()
+			_footsteps = null
 
 
 #region What a kind says
@@ -357,14 +409,20 @@ func _carry(delta: float) -> Vector3:
 
 
 #region Moving about
-func _play_locomotion(_delta: float) -> void:
+func _play_locomotion(delta: float) -> void:
 	var planar := Vector3(velocity.x, 0.0, velocity.z)
 	var pace := planar.length()
 	var roused := mode == Mode.CHASE or mode == Mode.FIGHT
+	_watch_turn(delta)
+	if _footsteps != null:
+		_footsteps.tick(delta, pace, true, self)
 	if pace < 0.15:
+		if _step_round(delta):
+			return
 		if _anim.current_clip() != idle_clip or _anim.clip_progress() >= 1.0:
-			_anim.play(idle_clip, 0.25, 1.0)
+			_anim.play(idle_clip, settle_fade, 1.0)
 		return
+	_turn_hold = 0.0
 	var ahead := _forward()
 	var right := ahead.cross(Vector3.UP)
 	var fwd := planar.dot(ahead)
@@ -389,6 +447,53 @@ func _play_locomotion(_delta: float) -> void:
 	_anim.play(clip, 0.2, rate)
 	if reverse:
 		_anim.rewind(rate)
+
+
+## How fast it is turning, from its yaw since the last frame it walked or
+## stood (after a move, counted afresh).
+func _watch_turn(delta: float) -> void:
+	var frame := Engine.get_process_frames()
+	if frame - _yaw_frame > 1 or delta <= 0.0:
+		_yaw_rate = 0.0
+	else:
+		var turned := wrapf(rotation.y - _last_yaw, -PI, PI) / delta
+		_yaw_rate = lerpf(_yaw_rate, turned, 1.0 - exp(-12.0 * delta))
+	_last_yaw = rotation.y
+	_yaw_frame = frame
+
+
+## Standing and turning: its turn clip, the left or the right, at the pace of
+## the turn, kept a moment after so the step comes down. False when it is not.
+func _step_round(delta: float) -> bool:
+	if turn_l_clip.is_empty() or turn_r_clip.is_empty():
+		return false
+	_turn_hold = maxf(_turn_hold - delta, 0.0)
+	var now := _anim.current_clip()
+	var stepping := now == turn_l_clip or now == turn_r_clip
+	var quick := absf(_yaw_rate) > turn_steps_above * (0.6 if stepping else 1.0)
+	if not quick and (_turn_hold <= 0.0 or not stepping):
+		return false
+	var clip := now
+	if quick:
+		# yaw growing is a turn to its left
+		clip = turn_l_clip if _yaw_rate > 0.0 else turn_r_clip
+		_turn_hold = 0.35
+	var natural := turn_clip_angle / maxf(_anim.clip_length(clip), 0.01)
+	var rate := clampf(absf(_yaw_rate) / natural, 0.8, 2.2)
+	_anim.play(clip, 0.2, rate)
+	return true
+
+
+## A cap on how quick it comes round outside its moves (`stand_turn_max`).
+func _face(direction: Vector3, delta: float, rate: float) -> void:
+	if stand_turn_max <= 0.0 or act != Act.NONE or delta <= 0.0:
+		super(direction, delta, rate)
+		return
+	var was := rotation.y
+	super(direction, delta, rate)
+	var pace := Vector2(velocity.x, velocity.z).length()
+	var most := stand_turn_max * lerpf(1.0, 2.0, clampf(pace / 3.0, 0.0, 1.0)) * delta
+	rotation.y = was + clampf(wrapf(rotation.y - was, -PI, PI), -most, most)
 
 
 ## Whether at `pace` it goes at its run rather than its walk.

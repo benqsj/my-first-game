@@ -302,7 +302,9 @@ func _guard() -> void:
 	await _arena()
 	var o := _orc(3.0)
 	o.hand_combo_chance = Vector2.ZERO
-	await _run_for(10)
+	# time to come round to him: called up facing off, it swings round no
+	# quicker than its `stand_turn_max`, and parries only what is before it
+	await _run_for(60)
 	o._start(Fighter.Act.BLOCK)
 	var at := o.global_position + Vector3.UP * 1.5
 	var bled := o._receive(20.0, at, Vector3.FORWARD, _hero)

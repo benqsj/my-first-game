@@ -65,6 +65,10 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 ## The walk cycle may be run this much faster than authored while chasing. The
 ## library has no run, so a chase is a hurried shamble.
 @export var chase_retime_max: float = 3.0
+## How fast it gets up to its pace going after something (m/s²); 0 for twice
+## `acceleration`. A big creature's lower: it leans into its first steps and
+## gathers speed, rather than being at a run the moment it sets off.
+@export var gait_accel: float = 0.0
 
 @export_group("Health")
 @export var max_health: float = 90.0
@@ -565,8 +569,9 @@ func _move_towards(point: Vector3, pace: float, delta: float) -> void:
 	var facing := -global_transform.basis.z
 	facing.y = 0.0
 	var alignment := clampf(facing.normalized().dot(direction), 0.0, 1.0)
-	velocity.x = move_toward(velocity.x, direction.x * pace * alignment, acceleration * 2.0 * delta)
-	velocity.z = move_toward(velocity.z, direction.z * pace * alignment, acceleration * 2.0 * delta)
+	var gain := gait_accel if gait_accel > 0.0 else acceleration * 2.0
+	velocity.x = move_toward(velocity.x, direction.x * pace * alignment, gain * delta)
+	velocity.z = move_toward(velocity.z, direction.z * pace * alignment, gain * delta)
 
 
 func _face(direction: Vector3, delta: float, rate: float) -> void:

@@ -11357,3 +11357,29 @@ No hero rig: no fighter's stance, no looking about for enemies.
 - Somebody else's climb is shown: the remote body's `wall_climb()` / `climb()`
   follow his replicated state and the drive on the wall is read off his
   replicated velocity (`Player._show_net_climb()`). `tests/net_climb_test.gd`.
+
+### The orc's walk: a run, a slower start, steps round, its tread (2026-10-22, gameplay_plan.md A2–A4)
+
+Measured first (per tick: pace, clip, rate, turn, the planted foot's slide).
+Its feet kept to the ground at a steady walk; what read wrong was a chase at
+5 m/s played on its walk at 1.41 times (quick little steps, no weight), a
+start from a stand to full pace in 0.3 s, and turns where it stood spun on
+still feet. All new settings are off by default (`ClipFighter`, `Fighter`)
+and on for the pack orc (`scenes/enemies/pack/orc.tscn`, so its chief and
+skirmisher too):
+
+- `walk_rate_max` 1.2: over ~4.2 m/s it runs (CR_Run at ~0.68): long, few
+  strides, as a big body goes.
+- `Fighter.gait_accel` 8 m/s² in `_move_towards` (0: twice `acceleration`,
+  as before): it gathers pace over ~0.6 s.
+- `gait_floor` 0.2, `settle_fade` 0.4 (walk into stand).
+- `turn_l_clip` / `turn_r_clip` (CR_TurnL / CR_TurnR, which step in place and
+  do not turn the hips): standing and turning quicker than `turn_steps_above`,
+  it plays them at the turn's own pace (`turn_clip_angle` a play), and keeps
+  stepping 0.35 s after. Read off its yaw frame to frame, so every peer sees it.
+- `stand_turn_max` 4.5 rad/s: outside its moves, standing, it comes round no
+  quicker (twice that on the move). `orc_test`'s guard check waits 60 ticks
+  for it to face him.
+- `footfall_sounds` / `_pitch` / `_db` / `_dust`: a `Footsteps` of its own
+  (now taking its own sounds, bones, pitch and a dull dust puff, no ring) —
+  the ogre's steps at 1.15, -12 dB.
