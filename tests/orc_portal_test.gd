@@ -242,7 +242,8 @@ func _rest() -> void:
 
 func _lord() -> void:
 	print("the lord")
-	await _go(4, "throne")
+	# (the tenth step, 2026-10-22: ten of them now)
+	await _go(9, "throne")
 	var fight := d._lord_fight
 	_check("his fight made with his court", fight != null and fight.lord != null)
 	if fight == null or fight.lord == null:
@@ -252,7 +253,7 @@ func _lord() -> void:
 	_check("his guard made, out of sight", fight.guards.size() == LordFight.GUARDS and not fight.guards[0].visible)
 	var game := root.get_node("Game")
 	var tusks_before := int(game.get(&"tusks"))
-	d._wake(4)
+	d._wake(9)
 	await _wait(30)
 	lord.health = lord.max_health * 0.45
 	for f in 200:

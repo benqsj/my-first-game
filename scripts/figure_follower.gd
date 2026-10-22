@@ -42,6 +42,11 @@ var damp: Dictionary = {}
 const DAMP_FULL_FROM := 0.6109  # 35 degrees
 const DAMP_FULL_AT := 1.3963  # 80 degrees
 var mids: Dictionary = {}
+## The turn from the rig's skeleton's own frame into the figure's, where the
+## two are not made the same way up (a Synty figure: centimetres, Z up, under
+## a turned and shrunk skeleton node), set before `setup()`; each turn of the
+## rig is carried across it. Identity for two alike.
+var space: Basis = Basis.IDENTITY
 var _damp: PackedFloat32Array = PackedFloat32Array()
 var _mid: Dictionary = {}
 
@@ -95,8 +100,9 @@ func setup(src: Skeleton3D, dst: Skeleton3D, map: Dictionary, hips: StringName) 
 	_hips = dst.find_bone(String(hips))
 	if _hips >= 0 and _from[_hips] >= 0:
 		var h_src := _src_rest[_from[_hips]].origin.y
+		var up := (space * Vector3.UP).normalized()
 		if h_src > 0.01:
-			_scale = _dst_rest[_hips].origin.y / h_src
+			_scale = _dst_rest[_hips].origin.dot(up) / h_src
 	src.skeleton_updated.connect(follow)
 	follow()
 	return true
@@ -123,13 +129,13 @@ func follow() -> void:
 			g.origin = parent_g * rest_local.origin
 		elif s >= 0:
 			var pose := source.get_bone_global_pose(s).orthonormalized()
-			var turn := pose.basis * _src_rest[s].basis.inverse()
+			var turn := _across(pose.basis * _src_rest[s].basis.inverse())
 			if _damp[t] < 1.0:
 				var q := turn.get_rotation_quaternion()
 				turn = Basis(Quaternion.IDENTITY.slerp(q, _damp_at(t, q)))
 			g.basis = turn * _dst_rest[t].basis
 			if t == _hips:
-				g.origin = _dst_rest[t].origin + (pose.origin - _src_rest[s].origin) * _scale
+				g.origin = _dst_rest[t].origin + space * (pose.origin - _src_rest[s].origin) * _scale
 			else:
 				g.origin = parent_g * rest_local.origin
 		else:
@@ -151,4 +157,11 @@ func _damp_at(t: int, q: Quaternion) -> float:
 
 func _turn(s: int) -> Basis:
 	var pose := source.get_bone_global_pose(s).orthonormalized()
-	return pose.basis * _src_rest[s].basis.inverse()
+	return _across(pose.basis * _src_rest[s].basis.inverse())
+
+
+## A turn made in the rig's frame, as the same turn in the figure's.
+func _across(turn: Basis) -> Basis:
+	if space == Basis.IDENTITY:
+		return turn
+	return space * turn * space.inverse()

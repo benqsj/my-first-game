@@ -11460,3 +11460,33 @@ the level hidden in turn (`_shots_tmp/hubcost2.gd`, `portalcost.gd`,
   the arch to ~25 m, seen from across the village, and its hum
   (`crystal_hum_loop`, each gate a note of its own, heard within ~26 m). No
   ring on the ground.
+
+### The orcs' palace in ten steps; the butcher at the fifth (2026-10-22, gameplay_plan.md D)
+
+- `Dungeon.RUN[0]` has ten steps, the fifth and the tenth a boss's
+  (`"boss": true`, `"boss_name"`): 1 imps and goblins, 2–3 the mixed rooms
+  with a shaman and an elite, 4 the two-sword orc, **5 the butcher alone in the
+  court**, 6 an orc skirmisher among goblins, 7 the long-sword orc with imps,
+  8 a troll with its band, 9 the two orcs taking turns, 10 the lord. Levels
+  1–8; the hero meets the lord at about 7–8 and leaves at 10 as before.
+- **A place to rest is not a step** (the user's word): going through a spring
+  or prisoners' portal puts a rest step in before the step it leads to
+  (`_rest_between`: `steps`, `cleared` and what was made ahead move on with
+  it), so the run still counts ten. `is_rest`, `stage_of(i)` (1-based, a rest
+  the step it comes before), `stage_count()`, `is_boss(i)`; the light of a
+  step is its share of the run (`light_of`). Before each boss the spring is
+  always the second portal; before the 3rd and the 8th, now and then the
+  spring or the prisoners. Never two rests running, no curse or goal on a
+  boss's portal.
+- **The run's map** along the top (`_draw_map`): a mark a step, gold when
+  cleared, the bosses red diamonds, the one he is in ringed; in a rest, a small
+  blue mark between two.
+- **The butcher** (`scenes/enemies/pack/pig_butcher.tscn`, `PigButcher`): an
+  orc with a great axe at `visual_scale` 1.5 (its moves, stance, rage), its own
+  meshes hidden and Synty's pig butcher worn over it, ~2.6 m, his skeleton
+  following the orc's (`FigureFollower`, with the new `space`: the turn from
+  the rig's skeleton frame to a Synty skeleton's, centimetres and Z up). The
+  axe is made again unskinned in his own right hand. 1100 health.
+- `dungeon_test`: ten steps, two portals each, the spring beside each boss,
+  the first boss alone, a rest put in still ten. `orc_portal_test`: the lord
+  at step 10.

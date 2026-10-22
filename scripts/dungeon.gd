@@ -67,6 +67,11 @@ const ORC := "res://scenes/enemies/pack/orc.tscn"
 const ORC_SKIRM := "res://scenes/enemies/pack/orc_skirmisher.tscn"
 const OGRE := "res://scenes/enemies/pack/ogre.tscn"
 const ORC_CHIEF := "res://scenes/enemies/pack/orc_chief.tscn"
+const TROLL := "res://scenes/enemies/pack/troll.tscn"
+## The boss halfway through ([constant RUN], the fifth step): Synty's pig
+## butcher (the user's pick, 2026-10-22), fighting as an orc with a great axe
+## ([PigButcher]).
+const BUTCHER := "res://scenes/enemies/pack/pig_butcher.tscn"
 
 ## The orcs of the first dungeon (the user's word, 2026-10-20): before the last
 ## place two of different kinds, one with two swords, one with a long sword,
@@ -119,16 +124,17 @@ const PLACES := {
 ## of them; the two orcs, taking turns; the lord of the orcs alone.
 const RUN := {
 	0: [
+		# 1
 		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 5], [GOBLIN, 3]]}},
-		# a goblin shaman with most of them, kept back, from here on (the
+		# 2 — a goblin shaman with most of them, kept back, from here on (the
 		# user's word, 2026-10-21: roles in the fight)
-		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 3, "xp": 2.5, "reach": 4,
+		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
 				"foes": {"court": [[IMP, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 5]],
 						"cave": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [GOBLIN, 3]],
 						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
 						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
-		# and an elite in the second wave
-		{"places": ["great_hall", "cave", "sky", "forest", "crypt", "swamp", "mountain"], "lv": 5, "xp": 3.0, "reach": 6,
+		# 3 — and an elite in the second wave
+		{"places": ["great_hall", "cave", "sky", "forest", "crypt", "swamp", "mountain"], "lv": 3, "xp": 2.5, "reach": 3,
 				"foes": {"great_hall": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4], [PUGLIN, 1, ELITE]],
 						"cave": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
 						"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
@@ -136,20 +142,42 @@ const RUN := {
 						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
 						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
 						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
-		# one orc, with two swords (the user's word, 2026-10-21: the shield orc
-		# not liked; one, the two-sword one)
-		{"places": ["terrace", "forest", "sky", "cave", "rampart", "mountain"], "lv": 7, "xp": 3.5, "reach": 7,
+		# 4 — one orc, with two swords (the user's word, 2026-10-21: the
+		# shield orc not liked; one, the two-sword one)
+		{"places": ["terrace", "forest", "sky", "cave", "rampart", "mountain"], "lv": 4, "xp": 3.0, "reach": 4,
 				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS]]}},
-		{"places": ["throne"], "lv": 8, "foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
+		# 5 — the first boss, alone in the palace's court (the user's word,
+		# 2026-10-22: ten steps, every fifth a boss)
+		{"places": ["court"], "lv": 5, "xp": 4.0, "reach": 5, "boss": true, "boss_name": "ყასაბი",
+				"foes": {"*": [[BUTCHER, 1]]}},
+		# 6 — the second half: an orc among them, the elite still last
+		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 6, "xp": 3.0, "reach": 5,
+				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
+		# 7
+		{"places": ["great_hall", "sky", "mountain", "swamp"], "lv": 7, "xp": 3.5, "reach": 6,
+				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 4], [GOBLIN, 1, ELITE]]}},
+		# 8 — a troll, and what follows it about
+		{"places": ["terrace", "rampart", "cave", "forest"], "lv": 7, "xp": 3.5, "reach": 7,
+				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 3]]}},
+		# 9 — the two orcs, taking turns
+		{"places": ["terrace", "sky", "mountain", "rampart"], "lv": 8, "xp": 4.0, "reach": 7,
+				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD]]}},
+		# 10 — the lord of the orcs
+		{"places": ["throne"], "lv": 8, "boss": true, "boss_name": "ორკების მბრძანებელი",
+				"foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
 }
+## The steps a place to rest (the spring, the prisoners) may be offered
+## before, beside the step's own place (1-based, the rests not counted); and
+## before every boss, the spring always.
+const REST_BEFORE := [3, 8]
 ## Each place, to look round it from F1 ([method view_place]): the step whose
 ## light (day into night) it is seen in, and what it is called on the board.
 const VIEW := {
-	"hall": [0, "Hall"], "court": [1, "Court"], "cave": [1, "Cave"], "forest": [1, "Forest"],
-	"crypt": [1, "Crypt"], "swamp": [1, "Swamp"], "great_hall": [2, "Broken hall"], "sky": [2, "Sky island"],
-	"mountain": [2, "Storm path"], "spring": [2, "Holy spring"], "prison": [2, "Prisoners' room"],
-	"terrace": [3, "Terrace"], "rampart": [3, "Rampart"], "throne": [4, "Lord's court"],
+	"hall": [0, "Hall"], "court": [2, "Court"], "cave": [2, "Cave"], "forest": [2, "Forest"],
+	"crypt": [2, "Crypt"], "swamp": [2, "Swamp"], "great_hall": [5, "Broken hall"], "sky": [5, "Sky island"],
+	"mountain": [5, "Storm path"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
+	"terrace": [7, "Terrace"], "rampart": [7, "Rampart"], "throne": [9, "Lord's court"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.
@@ -648,7 +676,8 @@ func _ready() -> void:
 		id = int(game.get(&"dungeon_id"))
 	if not RUN.has(id):
 		id = 0
-	steps = RUN[id]
+	# its own copy: a place to rest put in between is a step of this run only
+	steps = (RUN[id] as Array).duplicate(true)
 	cleared.resize(steps.size())
 	cleared.fill(false)
 	_rng.randomize()
@@ -906,7 +935,7 @@ func _join_party(join: Dictionary) -> void:
 	_arrival_plan = join.get("plan", {}) as Dictionary
 	_arrive_at(int(join["step"]), String(join["place"]), String(join["reward"]), false, String(join.get("goal", "")))
 	_arrival_plan = {}
-	_to_phase(float(current), 0.05)
+	_to_phase(light_of(current), 0.05)
 	for hero in _heroes():
 		if mine(hero):
 			hero.global_position = entry_point(_slot_of(hero, 0), current)
@@ -932,6 +961,57 @@ func _exit_tree() -> void:
 
 func _room(i: int) -> Dictionary:
 	return rooms[clampi(i, 0, rooms.size() - 1)]
+
+
+## Whether step `i` is a place to rest put in between ([method _rest_between]):
+## not one of the run's steps as the heroes count them.
+func is_rest(i: int) -> bool:
+	return bool((steps[clampi(i, 0, steps.size() - 1)] as Dictionary).get("rest", false))
+
+
+## Which of the run's steps `i` is, counted from 1, the rests left out (a rest
+## is the step it comes before).
+func stage_of(i: int) -> int:
+	var n := 0
+	for k in mini(i + 1, steps.size()):
+		if not is_rest(k):
+			n += 1
+	return maxi(n + (1 if is_rest(i) else 0), 1)
+
+
+## How many steps the run has, the rests left out (10).
+func stage_count() -> int:
+	var n := 0
+	for k in steps.size():
+		if not is_rest(k):
+			n += 1
+	return n
+
+
+## Whether step `i` is a boss's.
+func is_boss(i: int) -> bool:
+	return bool((steps[clampi(i, 0, steps.size() - 1)] as Dictionary).get("boss", false))
+
+
+## The light of step `i` (day into night, [constant PHASES]): its share of
+## the whole run, whatever its length.
+func light_of(i: int) -> float:
+	var of := maxi(stage_count() - 1, 1)
+	return float(stage_of(i) - 1) * float(PHASES.size() - 1) / float(of)
+
+
+## A place to rest put in at step `at`, the step that was there next after it
+## (the user's word, 2026-10-22: the spring and the prisoners are not steps).
+## Every peer does it as it goes through ([method _go_through]).
+func _rest_between(at: int, place: String) -> void:
+	var before: Dictionary = steps[at]
+	steps.insert(at, {"places": [place], "lv": before.get("lv", 1), "foes": {}, "rest": true})
+	cleared.insert(at, false)
+	# what was made ahead for the steps after it moves on with them
+	var moved := {}
+	for k: int in _premade:
+		moved[k + 1 if k >= at else k] = _premade[k]
+	_premade = moved
 
 
 ## Where step `i`'s place is built: one after another along −Z, far apart,
@@ -1022,6 +1102,8 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 	if not later:
 		_place_marks()
 	_drip_in = _rng.randf_range(2.0, 5.0)
+	if _map != null:
+		_map.queue_redraw()
 	# wet through in the storm, dry elsewhere
 	for hero in _heroes():
 		PlaceBuild.wet(hero, String(p["kind"]) == "mountain")
@@ -1087,7 +1169,7 @@ func _spawn_room(i: int) -> void:
 			var across := (float(k % 4) - 1.5) * (w - 14.0) / 3.0
 			var row := floorf(float(k) / 4.0)
 			var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.3, -l * 0.08 - row * 3.0)
-			if String(entry[0]) == BOSS.get(id, ""):
+			if String(entry[0]) == BOSS.get(id, "") or is_boss(i):
 				at = c + Vector3(0.0, 0.3, -l * 0.2)
 			if not made.is_empty() and is_instance_valid(made[0]) \
 					and String((made[0] as Node).get_meta(&"scene", "")) == String(entry[0]):
@@ -1404,11 +1486,11 @@ func _wake(i: int) -> void:
 	var last := i == steps.size() - 1
 	if last and is_instance_valid(_lord_fight):
 		_lord_fight.wake()
-	elif last:
+	elif is_boss(i):
 		Sfx.play_flat(self, SND + "horn.wav", 1.0, -3.0)
-		_say("ბოსი: ორკების მბრძანებელი", 3.0)
+		_say("ბოსი: %s" % String(steps[i].get("boss_name", "")), 3.0)
 	else:
-		_say(String(_room(i)["name"]), 3.0)
+		_say("%d/%d  ·  %s" % [stage_of(i), stage_count(), String(_room(i)["name"])], 3.0)
 	if is_instance_valid(_goal):
 		_goal.start()
 	if is_instance_valid(_treasure):
@@ -1462,6 +1544,8 @@ func _apply_clear(i: int, plan: Dictionary) -> void:
 		return
 	cleared[i] = true
 	room_cleared.emit(i)
+	if _map != null:
+		_map.queue_redraw()
 	var r := _room(i)
 	# What clearing it is worth on top of its creatures, and the level it
 	# brings him to at least (the host's to give: [Leveling]).
@@ -1604,7 +1688,14 @@ func _choice_specs(next: int) -> Array:
 	# tradesmen ([Trades])
 	var game := get_node_or_null("/root/Game")
 	var wanted := game != null and game.get(&"freed") != null and (game.get(&"freed") as Array).size() < Trades.ORDER.size()
-	if next == steps.size() - 2 - 1 and pool.size() >= 2 and _rng.randf() < (0.75 if wanted else 0.5):
+	# (never two rests one after the other)
+	var resting := (PLACES.get(here, {}) as Dictionary).has("rest")
+	if not resting and is_boss(next):
+		# before a boss, the spring always, beside the way to him (the user's
+		# word, 2026-10-22: it is not a step)
+		pool = [pool[0], "spring"]
+	elif not resting and REST_BEFORE.has(stage_of(next)) and pool.size() >= 2 \
+			and _rng.randf() < (0.75 if wanted else 0.5):
 		var low := false
 		for hero in _heroes():
 			if hero.health < hero.max_health * 0.6:
@@ -1620,13 +1711,13 @@ func _choice_specs(next: int) -> Array:
 		gifts.insert(_rng.randi_range(0, 1), "boon")
 	var last := next == steps.size() - 1
 	var cursed_one := -1
-	if not last and next >= 1 and _rng.randf() < CURSE_CHANCE:
+	if not last and next >= 1 and not is_boss(next) and _rng.randf() < CURSE_CHANCE:
 		cursed_one = _rng.randi_range(0, take - 1)
 	for k in take:
 		var place := String(pool[k])
 		var rest: bool = (PLACES[place] as Dictionary).has("rest")
 		var reward := "" if last or rest else String(gifts[k])
-		var goal := "" if rest else RoomGoal.pick(_rng, next, steps.size() - 1)
+		var goal := "" if rest or is_boss(next) else RoomGoal.pick(_rng, next, steps.size() - 1)
 		# with others, no totems: who broke one is not told to the rest yet
 		if goal == "totems" and online():
 			goal = ""
@@ -1767,6 +1858,8 @@ func _go_through(k: int, plan: Dictionary) -> void:
 	_curse_next = bool(gate.get_meta(&"cursed", false))
 	var goal := String(gate.get_meta(&"goal", ""))
 	var next := current + 1
+	if (PLACES[place] as Dictionary).has("rest"):
+		_rest_between(next, place)
 	Sfx.play_flat(self, SND + "portal_whoosh.wav", 1.0, -2.0)
 	var tw := create_tween()
 	tw.tween_property(_fade, "color:a", 1.0, FADE)
@@ -1784,7 +1877,7 @@ func _go_through(k: int, plan: Dictionary) -> void:
 			hero.global_position = entry_point(_slot_of(hero, slot), next)
 			hero.velocity = Vector3.ZERO
 		slot += 1
-	_to_phase(float(next), 0.05)
+	_to_phase(light_of(next), 0.05)
 	# behind the dark till the new place draws smoothly: whatever it shows
 	# for the first time made now, not in front of him
 	await _settle()
@@ -2189,7 +2282,7 @@ func view_place(place: String, with_foes: bool = false) -> void:
 		# nothing to wake, nothing to clear: no portals come
 		_woken = true
 		cleared[step] = true
-	_to_phase(float(step), 0.05)
+	_to_phase(light_of(step), 0.05)
 	var slot := 0
 	for hero in _heroes():
 		hero.global_position = entry_point(slot, step)
@@ -2230,7 +2323,7 @@ func leave() -> void:
 ## The music for now ([World] asks): the boss's while its place is fought,
 ## otherwise the dungeon's.
 func music_wanted() -> StringName:
-	if current == steps.size() - 1 and not is_closed:
+	if is_boss(current) and not is_closed and not cleared[current]:
 		return &"dungeon_boss"
 	return &"dungeon"
 
@@ -3948,6 +4041,71 @@ func _build_hud() -> void:
 	_banner.add_theme_constant_override("outline_size", 8)
 	_banner.hide()
 	_layer.add_child(_banner)
+	# the run's map along the top: its ten steps, the bosses marked, where he is
+	_map = Control.new()
+	_map.name = "RunMap"
+	_map.anchor_left = 0.5
+	_map.anchor_right = 0.5
+	_map.offset_left = -230.0
+	_map.offset_right = 230.0
+	_map.offset_top = 18.0
+	_map.offset_bottom = 56.0
+	_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map.draw.connect(_draw_map)
+	_layer.add_child(_map)
+
+
+## The run's map (the user's word, 2026-10-22): a mark a step, joined, gold
+## for those cleared, the one he is in ringed bright; a boss's mark larger, a
+## red diamond; in a place to rest, a small blue drop between the steps it
+## sits between, not one of them.
+func _draw_map() -> void:
+	var n := stage_count()
+	if n <= 1:
+		return
+	var w := _map.size.x
+	var y := _map.size.y * 0.5
+	var gap := w / float(n - 1)
+	var here := stage_of(current)
+	var resting := is_rest(current)
+	var gold := Color(1.0, 0.84, 0.45)
+	var dim := Color(0.75, 0.7, 0.85, 0.55)
+	var font := ThemeDB.fallback_font
+	_map.draw_line(Vector2(0.0, y), Vector2(w, y), Color(0.0, 0.0, 0.0, 0.55), 5.0)
+	_map.draw_line(Vector2(0.0, y), Vector2(gap * float(here - 1), y), Color(gold, 0.85), 2.0)
+	if here < n:
+		_map.draw_line(Vector2(gap * float(here - 1), y), Vector2(w, y), dim, 2.0)
+	var stage := 0
+	for k in steps.size():
+		if is_rest(k):
+			continue
+		var x := gap * float(stage)
+		var boss := is_boss(k)
+		var done := k < cleared.size() and cleared[k]
+		var size := 9.0 if boss else 6.0
+		var fill := gold if done else (Color(0.95, 0.3, 0.25) if boss else Color(0.2, 0.18, 0.26))
+		var edge := Color(0.95, 0.35, 0.3) if boss else (gold if done else dim)
+		if boss:
+			var pts := PackedVector2Array([Vector2(x, y - size), Vector2(x + size, y), Vector2(x, y + size), Vector2(x - size, y)])
+			_map.draw_colored_polygon(pts, fill)
+			pts.append(pts[0])
+			_map.draw_polyline(pts, edge, 2.0)
+		else:
+			_map.draw_circle(Vector2(x, y), size, fill)
+			_map.draw_arc(Vector2(x, y), size, 0.0, TAU, 20, edge, 1.5)
+		if stage + 1 == here and not resting:
+			_map.draw_arc(Vector2(x, y), size + 5.0, 0.0, TAU, 28, Color(1.0, 0.95, 0.8), 2.5)
+		if font != null:
+			_map.draw_string(font, Vector2(x - 8.0, y + size + 14.0), str(stage + 1), HORIZONTAL_ALIGNMENT_CENTER, 16.0, 11,
+					Color(1.0, 0.95, 0.85, 0.85 if stage + 1 == here else 0.5))
+		stage += 1
+	if resting:
+		var x := gap * (float(here - 1) - 0.5)
+		_map.draw_circle(Vector2(x, y), 5.0, Color(0.45, 0.8, 1.0))
+		_map.draw_arc(Vector2(x, y), 10.0, 0.0, TAU, 24, Color(0.75, 0.92, 1.0), 2.0)
+
+
+var _map: Control
 
 
 func _say(text: String, seconds: float) -> void:

@@ -23,8 +23,9 @@ static func make(d: Dungeon, did_win: bool) -> RunSummary:
 	if game != null and game.has_method(&"end_run"):
 		record = game.call(&"end_run", did_win, seconds)
 	var cleared := 0
-	for c: bool in d.cleared:
-		if c:
+	# the run's steps, a place to rest not one of them
+	for k in d.cleared.size():
+		if d.cleared[k] and not d.is_rest(k):
 			cleared += 1
 	var names: Array[String] = []
 	if d.boons != null:
@@ -32,7 +33,7 @@ static func make(d: Dungeon, did_win: bool) -> RunSummary:
 			names.append(String(Boons.ALL[id]["name"]))
 	s.lines = {
 		"time": seconds, "best": float(record.get("best", 0.0)), "new_best": bool(record.get("new_best", false)),
-		"places": cleared, "of": d.steps.size(), "kills": d.run_kills, "tusks": d.run_tusks,
+		"places": cleared, "of": d.stage_count(), "kills": d.run_kills, "tusks": d.run_tusks,
 		"tusks_all": int(game.get(&"tusks")) if game != null else 0, "boons": names,
 		"runs": int(record.get("runs", 0)), "wins": int(record.get("wins", 0)),
 	}

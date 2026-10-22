@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/enemies/pack/orc.tscn" id="1_orc"]
+[ext_resource type="Script" path="res://scripts/pig_butcher.gd" id="2_pig"]
+
+[node name="Orc" instance=ExtResource("1_orc")]
+script = ExtResource("2_pig")
+title = "ყასაბი"
+arm_right = "greataxe"
+arm_style = "iron"
+visual_scale = 1.5
+max_health = 1100.0
+hit_damage = 85.0
+stance = 520.0

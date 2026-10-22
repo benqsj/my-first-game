@@ -86,7 +86,9 @@ func _dungeon() -> void:
 	root.add_child(world)
 	await _wait(40)
 	var d := world.get_node("Level/Rooms") as Dungeon
-	_check("five steps", d.steps.size() == 5)
+	# (the user's word, 2026-10-22: ten steps, every fifth a boss)
+	_check("ten steps, the fifth and the tenth a boss's", d.steps.size() == 10 and d.stage_count() == 10
+			and d.is_boss(4) and d.is_boss(9) and not d.is_boss(3), str(d.steps.size()))
 	_check("the orc lord is the boss", String(Dungeon.BOSS[0]).ends_with("orc_chief.tscn"))
 	_check("one place built to start with", d.rooms.size() == 1 and String(d.rooms[0]["place"]) == "hall")
 	var hero := world.player()
@@ -102,12 +104,15 @@ func _dungeon() -> void:
 	var seen: Array[String] = []
 	for r in d.steps.size():
 		if r > 0:
-			# Two portals (one to the lord), each its own place and reward.
+			# Two portals, each its own place and reward; before a boss, his
+			# and the spring.
 			var n := d.choices.size()
-			_check("step %d: %s" % [r + 1, "one portal" if r == d.steps.size() - 1 else "two portals"],
-					n == (1 if r == d.steps.size() - 1 else 2), str(n))
+			_check("step %d: two portals" % (r + 1), n == 2, str(n))
 			_check("  each with a picture of where it goes", d.choices[0].view != null)
-			if n == 2:
+			if n == 2 and d.is_boss(r):
+				_check("  the boss's way, and the spring beside it", String(d.choices[1].get_meta(&"place")) == "spring"
+						and String(d.choices[0].get_meta(&"place")) != "spring")
+			elif n == 2:
 				var a := d.choices[0]
 				var b := d.choices[1]
 				_check("  to two places, for two rewards",
@@ -187,10 +192,13 @@ func _dungeon() -> void:
 				if body is PackBrute and not bool(body.get("is_dead")) and String(body.name).begins_with("D0_R3_"):
 					orcs += 1
 			_check("one orc, with two swords", orcs == 1 and waiting == 0, "%d orcs, %d waiting" % [orcs, waiting])
-			_check("orcs show level 7", Leveling.level_of(creatures.get_node("D0_R3_0")) == 7)
+			_check("the orc shows level 4", Leveling.level_of(creatures.get_node("D0_R3_0")) == 4)
 		if r == 4:
-			_check("comes to the lord at level 7", book.level == 7, str(book.level))
-			_check("the lord shows level 8", Leveling.level_of(creatures.get_node("D0_R4_0")) == 8)
+			_check("the first boss, alone", alive == 1 and d.is_boss(4), str(alive))
+			_check("  its music", d.music_wanted() == &"dungeon_boss")
+		if r == 9:
+			_check("comes to the lord at level 7 or more", book.level >= 7, str(book.level))
+			_check("the lord shows level 8", Leveling.level_of(creatures.get_node("D0_R9_0")) == 8)
 			_check("the boss's music", d.music_wanted() == &"dungeon_boss")
 		var health_before := hero.max_health
 		for body in creatures.get_children():
@@ -208,3 +216,10 @@ func _dungeon() -> void:
 	_check("the hero is at level 10", book.level == 10, str(book.level))
 	_check("a way out stands", world.get_node_or_null("Level/Rooms/WayOut") != null)
 	print("    places %s, held %s" % [str(seen), str(counts)])
+	# A place to rest put in between is not a step (the user's word,
+	# 2026-10-22): the run still counts ten, the rest the step it comes before.
+	d._rest_between(5, "spring")
+	_check("a rest put in: still ten steps", d.steps.size() == 11 and d.stage_count() == 10
+			and d.is_rest(5) and d.stage_of(5) == 6 and d.stage_of(6) == 6 and d.stage_of(10) == 10
+			and d.is_boss(10) and not d.cleared[5],
+			"%d steps, %d counted, rest at 5 is %d" % [d.steps.size(), d.stage_count(), d.stage_of(5)])
