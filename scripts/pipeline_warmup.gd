@@ -48,6 +48,9 @@ extends Node
 var _camera: Camera3D
 var _cover: CanvasLayer
 var _props: Node3D
+## A stand-in body broken into shards a pose after it glows ([DeathShatter]).
+var _shatter: DeathShatter
+var _shatter_body: Node3D
 var _restore: Camera3D
 var _poses: Array[Transform3D] = []
 var _pose: int = 0
@@ -112,6 +115,55 @@ func _ready() -> void:
 	DarkSkills.warm(_props)
 	ScreenMud.prepare(get_tree())
 	ScreenMud.splat(get_tree(), 1.0)
+	# after the level's own setting-up: the shards live in the level, and the
+	# level takes no child while it is still readying its own
+	_warm_spoils.call_deferred()
+
+
+## What a kill leaves, built now: the first of each stalled a frame in a
+## room, ~0.1 s in the exported game (release_polish_plan round 2) — its loot
+## and its gold with their lights, and the body lit up and broken into shards.
+## All only drawn: nothing picks them up, and they go with the camera.
+func _warm_spoils() -> void:
+	if _props == null or not is_instance_valid(_props) or not _props.is_inside_tree():
+		return
+	var loot := LootItem.lay(_props, _props.global_position, {}, null)
+	loot.set_process(false)
+	loot.position = Vector3(-0.4, -0.6, 0.0)
+	var gold := Coins.scatter(_props, _props.global_position, 3, -1)
+	gold.set_process(false)
+	gold.position = Vector3(0.4, -1.0, 0.0)
+	# and the portals that open when a place is cleared (made hidden ahead,
+	# drawn for the first time as they open: up to a second's stall, cold),
+	# with what is seen in them and the names over them
+	var gate := PortalLook.new()
+	var view := Dungeon.PREVIEWS % "hall"
+	if ResourceLoader.exists(view):
+		gate.view = load(view) as Texture2D
+	_props.add_child(gate)
+	gate.position = Vector3(0.0, -0.9, -1.5)
+	gate.scale = Vector3.ONE * 0.12
+	var title := Label3D.new()
+	title.text = "ჯილდო"
+	title.font_size = 56
+	title.pixel_size = 0.004
+	title.outline_size = 12
+	title.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	title.no_depth_test = true
+	_props.add_child(title)
+	title.position = Vector3(0.0, 0.4, 0.0)
+	var dummy := MeshInstance3D.new()
+	var capsule := CapsuleMesh.new()
+	capsule.radius = 0.12
+	capsule.height = 0.6
+	dummy.mesh = capsule
+	_props.add_child(dummy)
+	dummy.position = Vector3(0.0, 0.1, -0.3)
+	_shatter_body = dummy
+	_shatter = DeathShatter.start(_props, dummy, 0.0)
+	if _shatter != null and _shatter.is_inside_tree():
+		_shatter.set_process(false)
+		_shatter._light_up(dummy, 0.5)
 
 
 func _process(_delta: float) -> void:
@@ -120,6 +172,10 @@ func _process(_delta: float) -> void:
 		return
 
 	_pose += 1
+	if _pose == 2 and _shatter != null and is_instance_valid(_shatter) and _shatter.is_inside_tree() \
+			and is_instance_valid(_shatter_body):
+		# lit for a pose, now broken: its shards and its flash
+		_shatter._shatter(_shatter_body)
 	if _pose >= _poses.size():
 		_finish()
 		return

@@ -101,9 +101,10 @@ static func warm(at: Node3D) -> void:
 	# what is left behind them, freed with `at` or after a second
 	for n in at.get_children():
 		if n is ShadowGrasp or n is DarkRift or n is BlackSun:
-			n.get_tree().create_timer(1.0, false).timeout.connect(func() -> void:
-				if is_instance_valid(n):
-					n.queue_free())
+			# its own method, not a lambda holding it: freed first with `at`,
+			# the connection goes with it (a lambda was left holding a freed
+			# node: "Lambda capture at index 0 was freed", every warm-up)
+			n.get_tree().create_timer(1.0, false).timeout.connect(n.queue_free)
 
 
 ## Where she points: her lock if it is within `REACH`, else `AHEAD` of her; on
