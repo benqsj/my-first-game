@@ -11660,3 +11660,13 @@ up), or with a boss (or one as big) roused within 18 m, it stands
 `camera_reach_big` (2.6 m) further off (4.5 -> 7.1 m), eased in and out, so
 the whole of the orc lord is in view. The lock is changed from one to the
 next by a flick of the mouse sideways (as before). Test: `tests/camera_test.gd`.
+
+### A cut landing felt by the hero (2026-10-22, gameplay_plan B2)
+`Player._bite_felt` (from `net_bite`, on every peer): on a small one, besides
+its hold, his view knocked a little the way the blade went
+(`bite_knock_small`, more for a heavy blow); on a big one that does not stop
+for a blade (`HitFeel.hold_share` under 1: no hit-stop on big monsters), the
+view knocked harder and shaken (`bite_knock_big`, down a little for a heavy
+blow) and, under the steel, a deep body-blow ([ImpactFx.thud]) and for a
+heavy blow the rush of air ([ImpactFx.rush]). Only he feels the view; all
+hear. Test: `tests/bite_felt_test.gd`.

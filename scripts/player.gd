@@ -7549,6 +7549,36 @@ func net_bite(path: NodePath, weight: float) -> void:
 	var share := HitFeel.hold_share(who)
 	if share < 1.0 and rig != null and rig.has_method(&"trim_hitstop"):
 		rig.call(&"trim_hitstop", lerpf(0.45, 1.0, share))
+	_bite_felt(who, weight, share)
+
+
+## The weight of a cut that landed, in his hands and ears (the user's word,
+## 2026-10-22; gameplay_plan B2): on a small one the hold above and a little
+## knock of the view the way the blade went; on a big one that does not stop
+## for it, no more hold but the view knocked harder (`bite_knock_big`) and
+## shaken, and under the steel a deep body-blow — and a heavy blow into it
+## the rush of air too. Everyone hears; only he feels the view.
+@export var bite_knock_small: float = 0.022
+@export var bite_knock_big: float = 0.075
+func _bite_felt(who: Node3D, weight: float, share: float) -> void:
+	if who == null or not who.is_inside_tree():
+		return
+	var big := clampf(1.0 - share, 0.0, 1.0)
+	var heavy := clampf((weight - 1.0) / 0.8, 0.0, 1.0)
+	if is_multiplayer_authority() and camera != null:
+		var along := who.global_position - global_position
+		along.y = 0.0
+		along = along.normalized() if along.length_squared() > 0.0001 else -global_basis.z
+		if big > 0.1:
+			ImpactFx.knock(camera, along + Vector3.DOWN * 0.3 * heavy,
+					bite_knock_big * lerpf(0.7, 1.3, heavy) * lerpf(0.6, 1.0, big), 0.03 + 0.05 * heavy, 0.28 + 0.12 * heavy)
+		else:
+			ImpactFx.nudge(camera, along, bite_knock_small * lerpf(1.0, 1.8, heavy))
+	if big > 0.3:
+		var chest := who.global_position + Vector3.UP * minf(1.3 * float(who.get(&"visual_scale") if who.get(&"visual_scale") is float else 1.0), 2.4)
+		ImpactFx.thud(self, chest, heavy > 0.4)
+		if heavy > 0.5:
+			ImpactFx.rush(self, who, true, -12.0 + 4.0 * heavy)
 
 
 ## Puts an affliction on a creature on every peer, with a burst where it
