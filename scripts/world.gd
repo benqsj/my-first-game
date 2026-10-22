@@ -502,6 +502,10 @@ func _peaceful_world() -> void:
 	_freed_in_village(game)
 	_village_folk()
 	_hub_bounds()
+	# the village alive between the fights: wind, birds, smoke ([HubLife])
+	var life := HubLife.new()
+	life.name = "HubLife"
+	add_child(life)
 
 
 ## The hub is all there is of the open world now (the user's word,

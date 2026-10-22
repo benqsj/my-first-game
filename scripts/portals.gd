@@ -91,8 +91,43 @@ func _build_gate(i: int) -> void:
 	label.text = "%s  %s\nლეველი %d–%d%s" % [ROMAN[i], d["name"], int(d["from"]), int(d["to"]),
 			"" if bool(d["ready"]) else "\n(ჯერ მზად არ არის)"]
 	holder.add_child(label)
+	_beacon(holder, d["tint"], i)
 	gates.append(holder)
 	_labels.append(label)
+
+
+## Each gate seen from across the village and heard as one comes near
+## (release_polish_plan §4): its own violet rising slowly out of the arch, a
+## thin column of motes high over it, and its hum, each gate a note of its own.
+## No ring on the ground.
+func _beacon(holder: Node3D, tint: Color, i: int) -> void:
+	var motes := SkillFx.particles(holder, holder.global_position + Vector3.UP * 7.5, {
+		"amount": 40, "life": 7.0, "one_shot": false, "add": true,
+		"speed": Vector2(2.4, 3.4), "dir": Vector3.UP, "spread": 4.0, "damping": 0.0,
+		"size": Vector2(0.45, 0.85), "grow": 0.2, "sphere": 0.7,
+		"colors": [Color(tint, 0.0), Color(tint.lightened(0.1), 0.9), Color(tint.darkened(0.2), 0.0)],
+	})
+	motes.name = "Beacon"
+	motes.visibility_aabb = AABB(Vector3(-3.0, -1.0, -3.0), Vector3(6.0, 28.0, 6.0))
+	motes.preprocess = 7.0
+	var hum_path := "res://assets/sounds/dungeon/crystal_hum_loop.wav"
+	if ResourceLoader.exists(hum_path):
+		var stream := load(hum_path) as AudioStream
+		var wav := stream as AudioStreamWAV
+		if wav != null and wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
+			wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			wav.loop_begin = 0
+			wav.loop_end = int(wav.get_length() * float(wav.mix_rate))
+		var hum := AudioStreamPlayer3D.new()
+		hum.name = "Hum"
+		hum.stream = stream
+		hum.volume_db = -14.0
+		hum.unit_size = 4.0
+		hum.max_distance = 26.0
+		hum.pitch_scale = [0.85, 0.95, 1.0, 1.1, 1.2][i % 5]
+		hum.position = Vector3.UP * 3.0
+		holder.add_child(hum)
+		hum.play(float(i) * 0.7)
 
 
 func _build_hud() -> void:

@@ -11443,3 +11443,20 @@ the level hidden in turn (`_shots_tmp/hubcost2.gd`, `portalcost.gd`,
 - **Co-op words**: the host gone, the front screen says why he is back there
   (`Net.last_trouble`); a version mismatch says to update in TestFlight; the
   host's room code is put on the clipboard (`NetHud`).
+
+### The village alive; the gates seen from afar (2026-10-22, release_polish_plan round 5)
+
+- `HubLife` (made by `World._peaceful_world`, every peer its own): the wind
+  over everything (`wind_loop`, low, from nowhere), birds in three stands of
+  trees (`birds_loop`, 3D), an eagle's cry far up now and then, a flock of
+  nine wheeling 18–28 m over the square (one MultiMesh, the wings beaten in
+  its shader, now and then gliding), smoke from the chimneys of six houses
+  and the smithy's two, its forge's fire heard beside it.
+- The chimneys are where `vepxis-art/village/houses/village.py` put them
+  (`chimney=(x, y)`: x and -z in the building's frame); the top is the
+  highest point of the building's mesh within a step of that spot. The houses
+  are put up after HubLife is made, so the smoke is laid deferred.
+- Each gate (`Portals._beacon`): a thin column of its own colour rising out of
+  the arch to ~25 m, seen from across the village, and its hum
+  (`crystal_hum_loop`, each gate a note of its own, heard within ~26 m). No
+  ring on the ground.
