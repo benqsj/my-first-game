@@ -167,23 +167,10 @@ static func dress(d: Dungeon, room: Node3D, kind: String, w: float, l: float, h:
 	rng.seed = hash(kind) + int(w * 13.0 + l)
 	match kind:
 		"hall":
+			# (the user's word, 2026-10-23: the tents, the fires, the wooden
+			# spikes and the pig on the spit gone; the blood and the arrows kept)
 			_banners_on_columns(d, room, w, l, h)
 			_gate_banners(d, room, l, h)
-			_tent(d, room, Vector3(-11.0, 0.0, l * 0.12), 0.6, rng)
-			_tent(d, room, Vector3(11.5, 0.0, -l * 0.05), -2.4, rng)
-			_roast(d, room, Vector3(-10.0, 0.0, -l * 0.17), rng)
-			_cage(d, room, Vector3(13.5, 0.0, -l * 0.3), rng)
-			if has_roof:
-				_hanging_cage(d, room, Vector3(-8.5, 0.0, l * 0.3), h, minf(h - 6.5, 9.0))
-			_barricade(d, room, Vector3(-13.5, 0.0, l * 0.3), PI * 0.5, 5, rng)
-			_barricade(d, room, Vector3(13.5, 0.0, l * 0.22), PI * 0.5, 4, rng)
-			_loot(d, room, Vector3(14.0, 0.0, -l * 0.18), rng)
-			_loot(d, room, Vector3(-14.5, 0.0, -l * 0.02), rng)
-			_rack(d, room, Vector3(-14.5, 0.0, l * 0.06), PI * 0.5)
-			_rack(d, room, Vector3(14.8, 0.0, l * 0.06), -PI * 0.5)
-			_campfire(d, room, Vector3(7.5, 0.0, l * 0.12), rng)
-			_bone_heap(d, room, Vector3(8.5, 0.0, l * 0.26), rng)
-			_bone_heap(d, room, Vector3(-7.5, 0.0, -l * 0.36), rng)
 			_blood(d, room, w, l, 12, rng)
 		"court":
 			_wall_banners(d, room, w, l, h)

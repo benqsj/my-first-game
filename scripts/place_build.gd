@@ -37,7 +37,9 @@ void fragment() {
 	if (r > 0.92) { discard; }
 	float edge = smoothstep(0.55, 0.92, r);
 	vec2 p = wpos.xz;
-	float ripple = sin(length(fract(p * 0.12) - 0.5) * 40.0 - TIME * 1.6) * 0.5 + 0.5;
+	// (2026-10-23, the user's word: not baked flat on the floor) a breeze's
+	// slow small waves over it instead of rings laid out on a grid
+	float ripple = noise(p * 2.2 + vec2(TIME * 0.35, TIME * 0.21)) * 0.6 + noise(p * 4.7 - vec2(TIME * 0.5, 0.0)) * 0.4;
 	float scum = smoothstep(0.55, 0.75, fbm(p * 0.35 + vec2(TIME * 0.01, 0.0))) * weed_amount;
 	float dots = step(0.82, noise(p * 6.0)) * weed_amount;
 	vec3 c = mix(deep.rgb, shallow.rgb, edge);
@@ -45,12 +47,15 @@ void fragment() {
 	ALBEDO = c;
 	EMISSION = glow_tint.rgb * glow * (1.0 - edge);
 	float weedy = max(scum, dots);
-	ROUGHNESS = mix(0.22, 0.9, weedy);
-	SPECULAR = shine * (1.0 - weedy);
-	vec3 nw = normalize(vec3((noise(p * 1.3 + TIME * 0.15) - 0.5) * 0.12 + (ripple - 0.5) * 0.03,
+	ROUGHNESS = mix(0.03, 0.9, weedy);
+	// the sky given back more at a slant, as water does
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	SPECULAR = clamp(shine + fres * 0.45, 0.0, 1.0) * (1.0 - weedy);
+	vec3 nw = normalize(vec3((noise(p * 1.3 + TIME * 0.15) - 0.5) * 0.08 + (ripple - 0.5) * 0.06,
 			1.0, (noise(p * 1.3 - TIME * 0.12 + 5.0) - 0.5) * 0.12));
 	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
-	ALPHA = 1.0 - smoothstep(0.84, 0.92, r);
+	// its shore soft: the mud seen through the shallows
+	ALPHA = (1.0 - smoothstep(0.62, 0.92, r)) * mix(0.96, 0.7, edge);
 }
 """
 
@@ -738,10 +743,49 @@ static func _jet(at: Vector3, dir: Vector3, speed: float, spread: float, amount:
 	return p
 
 
+static var _soft_dot: Texture2D
+static var _streak: Texture2D
+
+
+## A soft round spot, bright in the middle, gone at its edge: for drops,
+## splashes, fireflies (the user's word, 2026-10-23: no squares).
+static func soft_dot() -> Texture2D:
+	if _soft_dot == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.add_point(0.35, Color(1, 1, 1, 0.55))
+		g.set_color(g.get_point_count() - 1, Color(1, 1, 1, 0))
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		t.width = 64
+		t.height = 64
+		_soft_dot = t
+	return _soft_dot
+
+
+## A falling drop's streak: soft at its sides, fading at both ends.
+static func streak() -> Texture2D:
+	if _streak == null:
+		var img := Image.create(16, 64, false, Image.FORMAT_RGBA8)
+		for y in 64:
+			var v := float(y) / 63.0
+			var along := sin(v * PI) * (0.4 + 0.6 * v)
+			for x in 16:
+				var u := (float(x) + 0.5) / 16.0
+				var across := pow(maxf(1.0 - absf(u - 0.5) * 2.0, 0.0), 1.5)
+				img.set_pixel(x, y, Color(1, 1, 1, across * along))
+		_streak = ImageTexture.create_from_image(img)
+	return _streak
+
+
 static func _drop_mesh(size: Vector2) -> QuadMesh:
 	var q := QuadMesh.new()
 	q.size = size
 	var m := StandardMaterial3D.new()
+	m.albedo_texture = soft_dot()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.billboard_keep_scale = true
@@ -767,22 +811,28 @@ static func puddles(d: Dungeon, room: Node3D, w: float, l: float) -> void:
 ## The rain landing: small splashes all over the floor.
 static func splashes(room: Node3D, w: float, l: float) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
-	p.amount = 500
-	p.lifetime = 0.25
+	p.amount = 700
+	p.lifetime = 0.22
 	p.position = Vector3(0.0, 0.05, 0.0)
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	pm.emission_box_extents = Vector3(w * 0.5, 0.0, l * 0.5)
 	pm.direction = Vector3.UP
 	pm.spread = 40.0
-	pm.initial_velocity_min = 0.6
-	pm.initial_velocity_max = 1.4
+	pm.initial_velocity_min = 0.5
+	pm.initial_velocity_max = 1.1
 	pm.gravity = Vector3(0.0, -8.0, 0.0)
 	pm.scale_min = 0.5
-	pm.scale_max = 1.2
-	pm.color = Color(0.8, 0.85, 0.95, 0.5)
+	pm.scale_max = 1.0
+	pm.color = Color(0.8, 0.85, 0.95, 0.35)
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 1))
+	fade.set_color(1, Color(1, 1, 1, 0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
 	p.process_material = pm
-	p.draw_pass_1 = _drop_mesh(Vector2(0.04, 0.08))
+	p.draw_pass_1 = _drop_mesh(Vector2(0.07, 0.07))
 	p.visibility_aabb = AABB(Vector3(-w, -1, -l), Vector3(w * 2.0, 3.0, l * 2.0))
 	room.add_child(p)
 	return p

@@ -83,7 +83,7 @@ func _run() -> void:
 
 func _boons() -> void:
 	print("blessings")
-	await _go(1, "court")
+	await _go(1, "forest")
 	var c := d.centre(1)
 	d.boons.lay(c, d)
 	await _wait(2)
@@ -133,10 +133,10 @@ func _boons() -> void:
 
 func _roles() -> void:
 	print("roles")
-	await _go(2, "great_hall")
+	await _go(2, "swamp")
 	var shaman := _foes("shaman")
 	var elite := _foes("elite")
-	_check("a shaman in the great hall", shaman.size() == 1)
+	_check("a shaman in the swamp", shaman.size() == 1)
 	_check("an elite in its second wave", elite.size() == 1 and d._reserve.has(elite[0]))
 	if elite.size() == 1:
 		_check("the elite bigger and harder", elite[0].visual_scale > 1.5 and elite[0].max_health > 300.0,
@@ -170,7 +170,7 @@ func _roles() -> void:
 func _goals() -> void:
 	print("goals")
 	# the captain: down, and the rest run
-	await _go(1, "court", "captain")
+	await _go(1, "forest", "captain")
 	var captain := _foes("captain")
 	_check("a captain among them", captain.size() == 1)
 	d._wake(1)
@@ -180,7 +180,7 @@ func _goals() -> void:
 		await _wait(30)
 		_check("the captain down: the place is clear", d.cleared[1])
 	# the totems: warded while they stand, the place held till they fall
-	await _go(1, "cave", "totems")
+	await _go(1, "crypt", "totems")
 	d._wake(1)
 	await _wait(10)
 	var goal := d._goal
@@ -321,7 +321,7 @@ func _cursed() -> void:
 	print("a cursed place")
 	var game := root.get_node("Game")
 	d._curse_next = true
-	await _go(1, "court")
+	await _go(1, "forest")
 	var foes := _foes("")
 	var all_cursed := not foes.is_empty()
 	for f in foes:
@@ -340,14 +340,14 @@ func _cursed() -> void:
 		plain._die()
 	await _wait(5)
 	_check("a cursed one's tusks twice", int(game.get(&"tusks")) - before == 2, str(int(game.get(&"tusks")) - before))
-	await _go(1, "court")
+	await _go(1, "forest")
 	_check("the next place not cursed", not bool(d._room(1).get("cursed", false)))
 
 
 func _treasure() -> void:
 	print("the treasure goblin")
 	var game := root.get_node("Game")
-	await _go(2, "great_hall")
+	await _go(2, "swamp")
 	if is_instance_valid(d._treasure) and is_instance_valid(d._treasure.body):
 		d._treasure.body.queue_free()
 	d._treasure = TreasureGoblin.make(d, 2)

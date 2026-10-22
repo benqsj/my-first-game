@@ -34,11 +34,17 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	var h: float = r["h"]
 	d._crag_under(room, w + Dungeon.WALL_T * 2.0, l + Dungeon.WALL_T * 2.0, PalaceVista.DROP + 40.0, -24.0)
 	d._solid(room, d._floor_mat(i), Vector3(w + Dungeon.WALL_T * 2.0, 1.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -0.5, 0.0))
-	d._solid(room, d._wall_mat, Vector3(w + Dungeon.WALL_T * 2.0, 24.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -13.0, 0.0), false)
+	# the prisoners' room in a stone of its own, darker and colder than the
+	# palace's (the user's word, 2026-10-23: other walls, another floor)
+	var walls := d._wall_mat
+	if what == "prison":
+		walls = d._wall_mat.duplicate() as ShaderMaterial
+		walls.set_shader_parameter("stone", Color(0.40, 0.40, 0.42))
+	d._solid(room, walls, Vector3(w + Dungeon.WALL_T * 2.0, 24.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -13.0, 0.0), false)
 	for side: float in [-1.0, 1.0]:
-		d._solid(room, d._wall_mat, Vector3(Dungeon.WALL_T, h, l + Dungeon.WALL_T * 2.0),
+		d._solid(room, walls, Vector3(Dungeon.WALL_T, h, l + Dungeon.WALL_T * 2.0),
 				Vector3(side * (w + Dungeon.WALL_T) * 0.5, h * 0.5, 0.0))
-		d._solid(room, d._wall_mat, Vector3(w + Dungeon.WALL_T * 2.0, h, Dungeon.WALL_T),
+		d._solid(room, walls, Vector3(w + Dungeon.WALL_T * 2.0, h, Dungeon.WALL_T),
 				Vector3(0.0, h * 0.5, side * (l + Dungeon.WALL_T) * 0.5))
 	d._wall_columns(room, i, w, l, h)
 	d._motes(room, w, l, h)
@@ -176,12 +182,10 @@ func _build_prison(room: Node3D, w: float, l: float, h: float) -> void:
 	shout.position = Vector3(0.0, 2.9, 0.0)
 	shout.name = "Shout"
 	_cage.add_child(shout)
-	# the orcs' marks on it: bones, blood, their banners, a brazier for light
+	# the orcs' marks on it: blood, their banners (the braziers and the bones
+	# in the middle gone: the user's word, 2026-10-23)
 	OrcSpoils._wall_banners(_d, room, w, l, h)
-	OrcSpoils._bone_heap(_d, room, Vector3(-3.0, 0.0, l * 0.1), rng)
 	OrcSpoils._blood(_d, room, w, l, 10, rng)
-	_d._standing_brazier(room, Vector3(-3.0, 0.0, l * 0.04))
-	_d._standing_brazier(room, Vector3(3.0, 0.0, l * 0.22))
 	position = Vector3.ZERO
 
 

@@ -113,7 +113,7 @@ const PLACES := {
 	"great_hall": {"name": "ჩანგრეული დარბაზი", "kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true},
 	"terrace": {"name": "ტერასა", "kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0},
 	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
-	"forest": {"name": "ტყე", "kind": "forest", "w": 58.0, "l": 64.0, "h": 0.0},
+	"forest": {"name": "ტყე", "kind": "forest", "w": 70.0, "l": 78.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 52.0, "l": 58.0, "h": 0.0, "lift": 160.0},
 	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
 	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
@@ -141,37 +141,35 @@ const RUN := {
 		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 5], [GOBLIN, 3]]}},
 		# 2 — a goblin shaman with most of them, kept back, from here on (the
 		# user's word, 2026-10-21: roles in the fight)
-		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
-				"foes": {"court": [[IMP, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 5]],
-						"cave": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [GOBLIN, 3]],
-						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
+		# (the court, the cave and the broken hall gone from the run: the user's
+		# word, 2026-10-23, not liked)
+		{"places": ["forest", "crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
+				"foes": {"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
 						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
 		# 3 — and an elite in the second wave
-		{"places": ["great_hall", "cave", "sky", "forest", "crypt", "swamp", "mountain"], "lv": 3, "xp": 2.5, "reach": 3,
-				"foes": {"great_hall": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4], [PUGLIN, 1, ELITE]],
-						"cave": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
-						"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
+		{"places": ["sky", "forest", "crypt", "swamp", "mountain"], "lv": 3, "xp": 2.5, "reach": 3,
+				"foes": {"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
 						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 4], [GOBLIN, 1, ELITE]],
 						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
 						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
 						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
 		# 4 — one orc, with two swords (the user's word, 2026-10-21: the
 		# shield orc not liked; one, the two-sword one)
-		{"places": ["terrace", "forest", "sky", "cave", "rampart", "mountain"], "lv": 4, "xp": 3.0, "reach": 4,
+		{"places": ["terrace", "forest", "sky", "rampart", "mountain"], "lv": 4, "xp": 3.0, "reach": 4,
 				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS]]}},
-		# 5 — the first boss, alone in the palace's court (the user's word,
-		# 2026-10-22: ten steps, every fifth a boss)
-		{"places": ["court"], "lv": 5, "xp": 4.0, "reach": 5, "boss": true, "boss_name": "ყასაბი",
+		# 5 — the first boss, alone in the palace's hall (the user's word,
+		# 2026-10-22: ten steps, every fifth a boss; the court gone 2026-10-23)
+		{"places": ["hall"], "lv": 5, "xp": 4.0, "reach": 5, "boss": true, "boss_name": "ყასაბი",
 				"foes": {"*": [[BUTCHER, 1]]}},
 		# 6 — the second half: an orc among them, the elite still last; the
 		# skulls come in (the user's word, 2026-10-22: flyers, several at once)
-		{"places": ["court", "cave", "forest", "crypt", "swamp"], "lv": 6, "xp": 3.0, "reach": 5,
+		{"places": ["hall", "forest", "crypt", "swamp"], "lv": 6, "xp": 3.0, "reach": 5,
 				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKULL, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
 		# 7 — the dragonets' fire; the minotaur last, in the elite's place
-		{"places": ["great_hall", "sky", "mountain", "swamp"], "lv": 7, "xp": 3.5, "reach": 6,
+		{"places": ["sky", "mountain", "swamp", "crypt"], "lv": 7, "xp": 3.5, "reach": 6,
 				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 3], [DRAGONET, 2], [MINOTAUR, 1]]}},
 		# 8 — a troll, and what follows it about, the two kinds of flyer over it
-		{"places": ["terrace", "rampart", "cave", "forest"], "lv": 7, "xp": 3.5, "reach": 7,
+		{"places": ["terrace", "rampart", "forest", "swamp"], "lv": 7, "xp": 3.5, "reach": 7,
 				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [SKULL, 2], [DRAGONET, 1]]}},
 		# 9 — the two orcs, taking turns, and dragonets throwing
 		{"places": ["terrace", "sky", "mountain", "rampart"], "lv": 8, "xp": 4.0, "reach": 7,
@@ -192,8 +190,8 @@ const TRAP_CHANCE := 0.6
 ## Each place, to look round it from F1 ([method view_place]): the step whose
 ## light (day into night) it is seen in, and what it is called on the board.
 const VIEW := {
-	"hall": [0, "Hall"], "court": [2, "Court"], "cave": [2, "Cave"], "forest": [2, "Forest"],
-	"crypt": [2, "Crypt"], "swamp": [2, "Swamp"], "great_hall": [5, "Broken hall"], "sky": [5, "Sky island"],
+	"hall": [0, "Hall"], "forest": [2, "Forest"],
+	"crypt": [2, "Crypt"], "swamp": [2, "Swamp"], "sky": [5, "Sky island"],
 	"mountain": [5, "Storm path"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
 	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
 	"terrace": [7, "Terrace"], "rampart": [7, "Rampart"], "throne": [9, "Lord's court"],
@@ -234,6 +232,8 @@ const PHOTO := {
 	"earth": "res://assets/terrain_real/forest_ground_04_diff.jpg",
 	"earth_nor": "res://assets/terrain_real/forest_ground_04_nor_gl.jpg",
 	"leaves": "res://assets/terrain_real/forest_leaves_02_diff.jpg",
+	"mud": "res://assets/terrain_real/brown_mud_02_diff.jpg",
+	"mud_nor": "res://assets/terrain_real/brown_mud_02_nor_gl.jpg",
 }
 ## A picture of each place, seen inside the portal that leads to it.
 const PREVIEWS := "res://assets/dungeon/previews/%s.png"
@@ -604,6 +604,10 @@ uniform sampler2D n_grass : hint_normal, filter_linear_mipmap_anisotropic, repea
 uniform sampler2D t_earth : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D n_earth : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D t_leaves : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+// Wet mud in patches here and there (the user's word, 2026-10-23).
+uniform sampler2D t_mud : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D n_mud : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float mud = 0.0;
 varying vec3 wpos;
 float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 float tone(vec3 want, float ref) { return clamp(lum(want) / ref, 0.5, 1.3); }
@@ -643,10 +647,17 @@ void fragment() {
 	// the path the creatures have trodden, down the middle
 	float path = smoothstep(2.6, 1.2, abs(p.x - sin(p.y * 0.05) * 3.0) + (mid - 0.5) * 2.0);
 	c = mix(c, e_col * 0.9, path * path_amount);
+	// the mud: its own soft-edged patches, darker, wet, shining a little
+	float mp = smoothstep(0.58, 0.68, fbm(p * 0.06 + 17.0) + (fine - 0.5) * 0.08) * mud * photo;
+	vec2 muv = p / 3.2;
+	c = mix(c, texture(t_mud, muv).rgb * 0.5, mp);
+	float wet_edge = smoothstep(0.5, 0.58, fbm(p * 0.06 + 17.0)) * mud * photo * (1.0 - mp);
+	c *= 1.0 - wet_edge * 0.25;
 	ALBEDO = c;
-	ROUGHNESS = 0.95;
+	ROUGHNESS = mix(0.95, 0.7, mp);
 	if (photo > 0.5) {
-		NORMAL_MAP = mix(texture(n_grass, guv).rgb, texture(n_earth, euv).rgb, max(bare, path * path_amount));
+		NORMAL_MAP = mix(mix(texture(n_grass, guv).rgb, texture(n_earth, euv).rgb, max(bare, path * path_amount)),
+				texture(n_mud, muv).rgb, mp);
 	} else {
 		// blades of grass: the normal ruffled where it grows
 		vec3 nw = normalize(vec3((noise(p * 9.0) - 0.5) * 0.5 * (1.0 - bare), 1.0, (noise(p * 9.0 + 3.1) - 0.5) * 0.5 * (1.0 - bare)));
@@ -1609,6 +1620,10 @@ func _wake(i: int) -> void:
 		var body := item as Node3D
 		if "leash_radius" in body:
 			body.set("leash_radius", l)
+		# from anywhere in the place they see him (the user's word,
+		# 2026-10-23: as he comes in, every one of them)
+		if "sight_range" in body:
+			body.set("sight_range", maxf(float(body.get("sight_range")), l * 1.5))
 		_alive.append(body)
 		if hero != null and body.has_method("_rouse"):
 			body.call_deferred("_rouse", hero)
@@ -2753,6 +2768,8 @@ func _ground_mat() -> ShaderMaterial:
 	m.set_shader_parameter("t_earth", _photo_tex("earth"))
 	m.set_shader_parameter("n_earth", _photo_tex("earth_nor"))
 	m.set_shader_parameter("t_leaves", _photo_tex("leaves"))
+	m.set_shader_parameter("t_mud", _photo_tex("mud"))
+	m.set_shader_parameter("n_mud", _photo_tex("mud_nor"))
 	return m
 
 
@@ -2873,8 +2890,19 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("snow", 1.0)
 		m.set_shader_parameter("border", 0.0)
 		return m
-	if kind in ["court", "terrace", "sky", "rampart", "spring", "prison", "merchant", "altar"]:
+	if kind in ["court", "terrace", "sky", "rampart", "spring", "merchant", "altar"]:
 		m.set_shader_parameter("all_cob", 1.0)
+	if kind == "prison":
+		# big dark flags, cold, worn (the user's word, 2026-10-23: another floor)
+		m.set_shader_parameter("slab", 1.9)
+		m.set_shader_parameter("course", 1.3)
+		m.set_shader_parameter("slab_a", Color(0.36, 0.36, 0.37))
+		m.set_shader_parameter("slab_b", Color(0.25, 0.25, 0.27))
+		m.set_shader_parameter("cobble_a", Color(0.34, 0.33, 0.33))
+		m.set_shader_parameter("cobble_b", Color(0.18, 0.18, 0.19))
+		m.set_shader_parameter("border", 1.2)
+		m.set_shader_parameter("wear", 0.5)
+		return m
 	if kind == "rampart":
 		m.set_shader_parameter("slab", 1.6)
 		m.set_shader_parameter("course", 1.1)
@@ -3121,6 +3149,7 @@ func _place_look(night: float = 0.0) -> void:
 	_env.glow_hdr_threshold = 1.0
 	_env.volumetric_fog_enabled = false
 	_env.fog_density = 0.0021
+	_env.fog_height_density = 0.0
 	_env.adjustment_contrast = 1.03
 	_env.adjustment_saturation = 1.06
 	_env.fog_sky_affect = 0.2
@@ -3182,12 +3211,12 @@ func _place_look(night: float = 0.0) -> void:
 			_env.adjustment_contrast = 1.06
 			_env.adjustment_saturation = 0.95
 			_env.glow_hdr_threshold = 0.9
-			_env.volumetric_fog_enabled = true
-			_env.volumetric_fog_density = 0.006
-			_env.volumetric_fog_albedo = Color(0.6, 0.66, 0.68)
-			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
-			_env.volumetric_fog_length = 55.0
-			_env.volumetric_fog_ambient_inject = 0.12
+			# low mist over the ground, thinning upward: the height fog (cheap,
+			# no volumetric, the user's word, 2026-10-23: light to draw)
+			_env.fog_light_color = Color(0.62, 0.66, 0.66)
+			_env.fog_density = 0.005
+			_env.fog_height = centre(current).y + 1.5
+			_env.fog_height_density = 0.03
 			if _sky_mat != null:
 				var dim := 1.0 - 0.6 * clampf(night, 0.0, 1.0)
 				_sky_mat.set_shader_parameter("cloud", 0.95)
@@ -3375,16 +3404,8 @@ func _build_room_body(i: int) -> void:
 	_wainscot(room, kind, w, l)
 	_rubble_round(room, i, w, l)
 	_motes(room, w, l, h)
-	if kind != "hall":
-		return
-	# Down a hall's middle, a cobbled aisle between standing braziers (the red
-	# runner went, the user's word, 2026-10-20).
-	var step := 12.0
-	var count := int((l - 10.0) / step)
-	for k in count:
-		var z := -l * 0.5 + 8.0 + float(k) * step
-		for side: float in [-1.0, 1.0]:
-			_standing_brazier(room, Vector3(side * 4.2, 0.0, z))
+	# (the standing braziers down the hall's aisle gone: the user's word,
+	# 2026-10-23)
 
 
 ## An iron bowl of fire on three legs, waist high.
@@ -4834,6 +4855,7 @@ func _build_forest(room: Node3D, i: int) -> void:
 	ground.set_shader_parameter("moss", Color(0.07, 0.10, 0.05))
 	ground.set_shader_parameter("leaves", Color(0.24, 0.14, 0.07))
 	ground.set_shader_parameter("bare_from", 0.32)
+	ground.set_shader_parameter("mud", 1.0)
 	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
 	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
 	_bounds(room, w, l)
@@ -4855,14 +4877,12 @@ func _build_forest(room: Node3D, i: int) -> void:
 				at += Vector3(_rng.randf_range(-1.6, 1.6), 0.0, _rng.randf_range(-1.6, 1.6))
 				var tall := _rng.randf_range(1.6, 2.5) + float(ring) * 0.25
 				_nature(room, _a_dead_tree(), at, tall, _rng.randf_range(0.0, TAU), ring == 0, true)
-	# Some inside, near the edge, that one can walk round; their boughs creak.
-	for k in 10:
-		var x := (w * _rng.randf_range(0.26, 0.44)) * (1.0 if k % 2 == 0 else -1.0)
-		var z := _rng.randf_range(-l * 0.44, l * 0.44)
-		_nature(room, _a_dead_tree(), Vector3(x, 0.0, z), _rng.randf_range(1.5, 2.2), _rng.randf_range(0.0, TAU), true, true)
-		_post(room, Vector3(x, 0.0, z), 0.55, 4.0)
-		if k % 2 == 0:
-			_creaks.append(room.position + Vector3(x, 6.0, z))
+	# (no trees inside any more, nor anything lying about the floor: the
+	# user's word, 2026-10-23 — nothing for them to go behind, the clearing
+	# open from end to end; the boughs still creak at the wood's edge)
+	for k in 5:
+		_creaks.append(room.position + Vector3((w * 0.5 + 3.0) * (1.0 if k % 2 == 0 else -1.0), 6.0,
+				_rng.randf_range(-l * 0.4, l * 0.4)))
 	# Sharpened stakes, a skull on some: the wood's warning.
 	# (the user's word, 2026-10-21: the middle cleared — the standing stones,
 	# the stream and its stones, what lay about it gone; all of it now at the
@@ -4871,29 +4891,10 @@ func _build_forest(room: Node3D, i: int) -> void:
 		var a := _rng.randf_range(0.0, TAU)
 		var at := _forest_edge(w, l, a)
 		_stake(room, at, k % 3 == 0)
-	for k in 6:
-		_bones(room, _forest_edge(w, l, _rng.randf_range(0.0, TAU)))
-	# What lies about, at the edge.
-	for k in 10:
-		var at := _forest_edge(w, l, _rng.randf_range(0.0, TAU))
-		_prop(room, ["Log_1", "Log_3", "Stump_1", "Stump_2"][k % 4], at, _rng.randf_range(0.9, 1.3),
-				_rng.randf_range(0.0, TAU), false)
-	var bits := [["Rock_Medium_1", 1.2], ["Rock_Medium_2", 1.0], ["Rock_Medium_3", 1.4], ["Fern_1", 1.2],
-			["Mushroom_Common", 1.3], ["Mushroom_Laetiporus", 1.1]]
-	for k in 24:
-		var bit: Array = bits[k % bits.size()]
-		_nature(room, String(bit[0]), _forest_edge(w, l, _rng.randf_range(0.0, TAU)), float(bit[1]) * _rng.randf_range(0.8, 1.3),
-				_rng.randf_range(0.0, TAU), false)
-	# dead grass, roots out of the earth, fallen leaves (the graveyard kit's)
-	var dead := ["EA_Swamp_Grass_Hill_Dead_01a", "EA_Swamp_Grass_Hill_Dead_01c", "EA_Swamp_Root_03c",
-			"EA_Swamp_Root_04d", "EA_Swamp_Dirt_Root_04a", "EA_Environment_Nature_Root_2c", "EA_Swamp_Leaf_01a",
-			"EA_Swamp_Stones_02a"]
-	for k in 70:
-		var at := _forest_edge(w, l, _rng.randf_range(0.0, TAU))
-		var bit: String = dead[k % dead.size()]
-		var size := _rng.randf_range(0.4, 0.75) if bit.contains("Hill") else _rng.randf_range(0.9, 1.6)
-		_necro_put(room, bit, at, _rng.randf_range(0.0, TAU), size, false)
-	_mist(room, w, l, 0.3, Color(0.42, 0.46, 0.48), 0.22)
+	# mist lying on the clearing in two soft layers, drifting (the user's word,
+	# 2026-10-23: pretty, and light to draw: sheets, no volumetric fog)
+	_mist(room, w, l, 0.35, Color(0.74, 0.78, 0.78), 0.3, 14)
+	_mist(room, w, l, 1.6, Color(0.70, 0.74, 0.75), 0.16, 8)
 	_falling_leaves(room, w, l)
 	_circling_birds(room)
 
@@ -5011,7 +5012,7 @@ func _fireflies(room: Node3D, w: float, l: float) -> void:
 	pm.color_ramp = ramp
 	p.process_material = pm
 	var q := QuadMesh.new()
-	q.size = Vector2(0.09, 0.09)
+	q.size = Vector2(0.22, 0.22)
 	var qm := StandardMaterial3D.new()
 	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
@@ -5019,6 +5020,8 @@ func _fireflies(room: Node3D, w: float, l: float) -> void:
 	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	qm.vertex_color_use_as_albedo = true
 	qm.albedo_color = Color(2.0, 2.0, 1.2)
+	# a soft round glow (the user's word, 2026-10-23: not squares)
+	qm.albedo_texture = PlaceBuild.soft_dot()
 	q.material = qm
 	p.draw_pass_1 = q
 	p.visibility_aabb = AABB(Vector3(-w, -2, -l), Vector3(w * 2.0, 6.0, l * 2.0))
@@ -5518,7 +5521,7 @@ void fragment() {
 	float soft = clamp((VERTEX.z - behind.z) / 1.6, 0.0, 1.0);
 	float near = clamp((-VERTEX.z - 1.0) / 6.0, 0.0, 1.0);
 	ALBEDO = tint.rgb;
-	ALPHA = smoothstep(0.35, 0.8, n) * d * thick * soft * near;
+	ALPHA = smoothstep(0.25, 0.85, n) * smoothstep(0.0, 0.7, d) * thick * soft * near;
 }
 """
 
@@ -5596,17 +5599,17 @@ func _stream(room: Node3D, w: float, l: float) -> void:
 
 
 ## Mist lying low over the ground, drifting.
-func _mist(room: Node3D, w: float, l: float, y: float, tint: Color, thick: float) -> void:
+func _mist(room: Node3D, w: float, l: float, y: float, tint: Color, thick: float, count: int = 10) -> void:
 	var mat := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = MIST_SHADER
 	mat.shader = sh
 	mat.set_shader_parameter("tint", tint)
 	mat.set_shader_parameter("thick", thick)
-	for k in 10:
+	for k in count:
 		var m := MeshInstance3D.new()
 		var plane := PlaneMesh.new()
-		plane.size = Vector2(_rng.randf_range(16.0, 30.0), _rng.randf_range(16.0, 30.0))
+		plane.size = Vector2(_rng.randf_range(18.0, 34.0), _rng.randf_range(18.0, 34.0))
 		m.mesh = plane
 		m.material_override = mat
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -5845,6 +5848,7 @@ func _build_swamp(room: Node3D, i: int) -> void:
 	ground.set_shader_parameter("leaves", Color(0.18, 0.13, 0.07))
 	ground.set_shader_parameter("path_amount", 0.0)
 	ground.set_shader_parameter("bare_from", 0.3)
+	ground.set_shader_parameter("mud", 1.0)
 	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
 	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
 	_bounds(room, w, l)
@@ -5854,7 +5858,8 @@ func _build_swamp(room: Node3D, i: int) -> void:
 			Vector3(-w * 0.18, 0.0, l * 0.18), Vector3(w * 0.12, 0.0, -l * 0.36), Vector3(w * 0.3, 0.0, l * 0.3)]
 	for at in spots:
 		PlaceBuild.pool(room, at + Vector3(_rng.randf_range(-2.0, 2.0), 0.03, _rng.randf_range(-2.0, 2.0)),
-				Vector2(_rng.randf_range(11.0, 16.0), _rng.randf_range(8.0, 12.0)), _rng.randf_range(0.0, TAU))
+				Vector2(_rng.randf_range(11.0, 16.0), _rng.randf_range(8.0, 12.0)), _rng.randf_range(0.0, TAU),
+				{"weed_amount": 0.18, "shine": 0.22, "deep": Color(0.02, 0.04, 0.035), "shallow": Color(0.09, 0.11, 0.07)})
 	# the dead wood round it, and inside
 	for ring in 2:
 		var out := 3.0 + float(ring) * 8.0
@@ -5871,22 +5876,30 @@ func _build_swamp(room: Node3D, i: int) -> void:
 					_: at = Vector3(along, 0.0, l * 0.5 + out)
 				var name := "DeadTree_%d" % _rng.randi_range(1, 5) if _rng.randf() < 0.65 else "TwistedTree_%d" % _rng.randi_range(1, 5)
 				_nature(room, name, at, _rng.randf_range(1.1, 1.7), _rng.randf_range(0.0, TAU), ring == 0, true)
-	for k in 6:
-		var x := (w * _rng.randf_range(0.25, 0.42)) * (1.0 if k % 2 == 0 else -1.0)
-		var z := _rng.randf_range(-l * 0.4, l * 0.4)
-		_nature(room, "DeadTree_%d" % _rng.randi_range(1, 5), Vector3(x, 0.0, z), _rng.randf_range(1.0, 1.4), _rng.randf_range(0.0, TAU))
-		_post(room, Vector3(x, 0.0, z), 0.5, 4.0)
-	# no bushes nor grass (the user's word): roots out of the mud, stones,
-	# rotten logs, toward the edges
-	var swampy := ["EA_Swamp_Root_03c", "EA_Swamp_Root_04d", "EA_Swamp_Stones_02a", "EA_Swamp_Dirt_Root_04a",
-			"EA_Environment_Nature_Root_2c"]
-	for k in 36:
-		var at := _forest_edge(w, l, _rng.randf_range(0.0, TAU))
-		_necro_put(room, swampy[k % swampy.size()], at, _rng.randf_range(0.0, TAU), _rng.randf_range(0.9, 1.5), false)
-	for k in 10:
-		_prop(room, ["Log_1", "Log_3", "Stump_1", "Stump_2"][k % 4], _forest_edge(w, l, _rng.randf_range(0.0, TAU)),
-				_rng.randf_range(0.9, 1.3), _rng.randf_range(0.0, TAU), false)
-	_mist(room, w, l, 0.25, Color(0.55, 0.62, 0.45), 0.22)
+	# behind the dead ones, green trees among bare: one or two green, then
+	# bare again (the user's word, 2026-10-23); nothing lying on the floor,
+	# no trees inside
+	for ring in 2:
+		var out := 19.0 + float(ring) * 8.0
+		var nth := 0
+		for side in 4:
+			var long := (l if side < 2 else w) + out * 2.0
+			var count := int(long / 8.0)
+			for k in count:
+				var along := -long * 0.5 + (float(k) + _rng.randf_range(0.15, 0.85)) * 8.0
+				var at := Vector3.ZERO
+				match side:
+					0: at = Vector3(-w * 0.5 - out, 0.0, along)
+					1: at = Vector3(w * 0.5 + out, 0.0, along)
+					2: at = Vector3(along, 0.0, -l * 0.5 - out)
+					_: at = Vector3(along, 0.0, l * 0.5 + out)
+				nth += 1
+				if nth % 3 != 0:
+					_nature(room, _a_green_tree(), at, _rng.randf_range(1.3, 1.9), _rng.randf_range(0.0, TAU), false)
+				else:
+					_nature(room, "DeadTree_%d" % _rng.randi_range(1, 5), at, _rng.randf_range(1.2, 1.7),
+							_rng.randf_range(0.0, TAU), false, true)
+	_mist(room, w, l, 0.25, Color(0.66, 0.72, 0.62), 0.24, 12)
 	_fireflies(room, w, l)
 
 
@@ -5903,8 +5916,8 @@ func _build_mountain(room: Node3D, i: int) -> void:
 	# the rain finer, and the wet felt on him)
 	var shelf := _rock_mat.duplicate() as ShaderMaterial
 	shelf.set_shader_parameter("scale", 0.3)
-	shelf.set_shader_parameter("rock_a", Color(0.30, 0.31, 0.34))
-	shelf.set_shader_parameter("rock_b", Color(0.14, 0.15, 0.17))
+	shelf.set_shader_parameter("rock_a", Color(0.26, 0.27, 0.30))
+	shelf.set_shader_parameter("rock_b", Color(0.11, 0.12, 0.14))
 	shelf.set_shader_parameter("band", Color(0.36, 0.36, 0.38))
 	shelf.set_shader_parameter("moss", Color(0.16, 0.2, 0.12))
 	shelf.set_shader_parameter("moss_amount", 0.35)
@@ -5967,12 +5980,15 @@ func _rain(room: Node3D, w: float, l: float) -> void:
 	pm.gravity = Vector3(0.0, -10.0, 0.0)
 	pm.particle_flag_align_y = true
 	p.process_material = pm
+	# thin streaks soft at their edges and ends (the user's word, 2026-10-23:
+	# squares, like hail)
 	var q := QuadMesh.new()
-	q.size = Vector2(0.01, 0.6)
+	q.size = Vector2(0.035, 0.9)
 	var qm := StandardMaterial3D.new()
 	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	qm.albedo_color = Color(0.8, 0.85, 0.95, 0.3)
+	qm.albedo_color = Color(0.82, 0.86, 0.92, 0.22)
+	qm.albedo_texture = PlaceBuild.streak()
 	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	qm.billboard_keep_scale = true
 	q.material = qm
@@ -5993,6 +6009,12 @@ func _build_rampart(room: Node3D, i: int) -> void:
 	_solid(room, _wall_mat, Vector3(w + WALL_T * 2.0, 40.0, l + WALL_T * 2.0), Vector3(0.0, -20.5, 0.0), false)
 	_crag_under(room, w + 20.0, l + 20.0, PalaceVista.DROP + 40.0, -40.0)
 	_bounds(room, w, l)
+	# over the battlements' whole thickness and beyond, and the ends, so no
+	# one climbs onto them and off (the user's word, 2026-10-23: he jumped
+	# over and fell)
+	for side: float in [-1.0, 1.0]:
+		_blocker(room, Vector3(WALL_T + 3.0, BLOCK_H, l + 8.0), Vector3(side * (w * 0.5 + WALL_T * 0.5 + 1.0), BLOCK_H * 0.5, 0.0))
+		_blocker(room, Vector3(w + 8.0, BLOCK_H, 3.0), Vector3(0.0, BLOCK_H * 0.5, side * (l * 0.5 + 1.5)))
 	# the battlements: a breast-high wall, merlons on it, broken in places
 	for side: float in [-1.0, 1.0]:
 		var x := side * (w * 0.5 + WALL_T * 0.5)
@@ -6102,7 +6124,9 @@ func _lightning() -> void:
 #region Round 10: the first hall livelier, blows seen
 ## What a fight long ago left in a hall: shields broken and spears, bones.
 func _battle_remains(room: Node3D, w: float, l: float) -> void:
-	for k in 9:
+	# only the arrows now (the user's word, 2026-10-23: nothing else lying
+	# about the hall's floor)
+	for k in 0:
 		var at := Vector3(_rng.randf_range(-w * 0.42, w * 0.42), 0.0, _rng.randf_range(-l * 0.42, l * 0.42))
 		if absf(at.x) < 3.5:
 			at.x += 6.0 * signf(at.x + 0.01)
