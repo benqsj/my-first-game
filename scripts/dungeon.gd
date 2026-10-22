@@ -220,6 +220,21 @@ const THROW_GAP := 5.0
 const HOLD_RINGS := [8.5, 11.5]
 
 const SND := "res://assets/sounds/dungeon/"
+## The land's own photographed ground and rock, brought in through the portal
+## (the user's word, 2026-10-23: inside, the colours and textures of the world
+## he left): the village square's cobbles and the land's rock, grass, earth and
+## leaves.
+const PHOTO := {
+	"cob": "res://assets/village/ground/cobble_diff.jpg",
+	"cob_nor": "res://assets/village/ground/cobble_nor.jpg",
+	"rock": "res://assets/terrain_real/aerial_rocks_02_diff.jpg",
+	"rock_nor": "res://assets/terrain_real/aerial_rocks_02_nor_gl.jpg",
+	"grass": "res://assets/terrain_real/grass004/Grass004_1K-JPG_Color.jpg",
+	"grass_nor": "res://assets/terrain_real/grass004/Grass004_1K-JPG_NormalGL.jpg",
+	"earth": "res://assets/terrain_real/forest_ground_04_diff.jpg",
+	"earth_nor": "res://assets/terrain_real/forest_ground_04_nor_gl.jpg",
+	"leaves": "res://assets/terrain_real/forest_leaves_02_diff.jpg",
+}
 ## A picture of each place, seen inside the portal that leads to it.
 const PREVIEWS := "res://assets/dungeon/previews/%s.png"
 
@@ -412,8 +427,22 @@ uniform float relief = 0.05;
 uniform float rocky = 0.0;
 // Snow lying in the hollows (the mountain).
 uniform float snow = 0.0;
+// The outside world's own stone (the user's word, 2026-10-23: inside the
+// portal the colours and textures of the land he left): the village square's
+// photographed cobbles where cobbles lie, and the land's photographed rock
+// worked into each slab's face. 0 leaves the drawn stone alone.
+uniform float photo = 0.0;
+uniform sampler2D cob_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D cob_nor : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D stone_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D stone_nor : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float cob_tile = 4.0;
+uniform float stone_tile = 3.6;
+// The square's cobbles are laid with this tint over them in the village.
+uniform vec4 cob_tint : source_color = vec4(0.74, 0.70, 0.64, 1.0);
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 float noise(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p);
 	vec2 u = f * f * (3.0 - 2.0 * f);
@@ -487,13 +516,22 @@ void fragment() {
 	float hx = ground(p + vec2(e, 0.0)).x - h;
 	float hz = ground(p + vec2(0.0, e)).x - h;
 	float k = relief * (1.0 - far * 0.8) / e;
+	// the square's cobbles bring their own relief
+	bool photo_cob = photo > 0.5 && g.y > 0.5 && g.y < 1.5 && rocky < 0.5;
+	if (photo_cob) { k = 0.0; }
 	vec3 nw = normalize(vec3(-hx * k, 1.0, -hz * k));
 	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 	vec3 c;
 	float rough;
+	vec2 suv = p / stone_tile + vec2(g.z * 7.3, g.z * 3.1);
+	vec3 st = texture(stone_tex, suv).rgb;
+	// the rock's grain, not its colour: its light and dark over the slab's own
+	float grain = mix(1.0, clamp(lum(st) / 0.11, 0.65, 1.35), photo * 0.7);
+	vec3 nmap = vec3(0.5, 0.5, 1.0);
 	float mottle = noise(p * 0.6 + g.z * 13.0) * 0.6 + noise(p * 5.0) * 0.25 + noise(p * 19.0) * 0.15;
 	if (g.y < 0.5) {
-		c = mix(slab_a.rgb, slab_b.rgb, g.z) * (0.72 + 0.45 * mottle);
+		c = mix(slab_a.rgb, slab_b.rgb, g.z) * mix(0.72 + 0.45 * mottle, 0.85 + 0.2 * mottle, photo) * grain;
+		nmap = mix(nmap, texture(stone_nor, suv).rgb, photo * 0.7);
 		// Worn: the high middle of a slab paler, its edge darker.
 		c *= 0.6 + 0.45 * h;
 		rough = 0.88 - 0.25 * h * (1.0 - wet);
@@ -503,10 +541,22 @@ void fragment() {
 		float crack = (1.0 - smoothstep(0.0, 0.04, v.y - v.x)) * patch;
 		c = mix(c, grit.rgb, crack * 0.85);
 	} else if (g.y < 1.5) {
-		c = mix(cobble_a.rgb, cobble_b.rgb, g.z) * (0.8 + 0.35 * mottle);
-		c *= 0.28 + 0.8 * clamp(h, 0.0, 1.0);
-		c = mix(c, grit.rgb, g.w * 0.35);
-		rough = 0.8 - 0.3 * h;
+		if (photo_cob) {
+			// the village square's cobbles, the room's own cast over them
+			vec2 cuv = p / cob_tile;
+			vec3 ct = texture(cob_tex, cuv).rgb;
+			vec3 tone = mix(cobble_a.rgb, cobble_b.rgb, 0.45) / vec3(0.134, 0.113, 0.089);
+			c = ct * cob_tint.rgb * clamp(tone, vec3(0.5), vec3(1.6));
+			nmap = texture(cob_nor, cuv).rgb;
+			h = clamp(lum(ct) * 2.2, 0.0, 1.0);
+			rough = 0.85 - 0.2 * h;
+		} else {
+			c = mix(cobble_a.rgb, cobble_b.rgb, g.z) * (0.8 + 0.35 * mottle) * grain;
+			c *= 0.28 + 0.8 * clamp(h, 0.0, 1.0);
+			c = mix(c, grit.rgb, g.w * 0.35);
+			rough = 0.8 - 0.3 * h;
+			nmap = mix(nmap, texture(stone_nor, suv).rgb, photo * 0.6);
+		}
 	} else {
 		c = grit.rgb * (0.8 + 2.5 * h) + vec3(0.02, 0.03, 0.0) * noise(p * 4.0);
 		rough = 1.0;
@@ -525,6 +575,7 @@ void fragment() {
 	ALBEDO = c;
 	ROUGHNESS = rough;
 	SPECULAR = 0.35 + pool * 0.1;
+	NORMAL_MAP = nmap;
 }
 """
 
@@ -539,7 +590,18 @@ uniform vec4 moss : source_color = vec4(0.13, 0.22, 0.08, 1.0);
 uniform vec4 leaves : source_color = vec4(0.42, 0.24, 0.10, 1.0);
 uniform float path_amount = 0.8;
 uniform float bare_from = 0.55;
+// The land's own photographed ground (the user's word, 2026-10-23): its
+// grass, earth and fallen leaves, each as light or dark as the place's colour
+// asks. 0 leaves the drawn ground alone.
+uniform float photo = 0.0;
+uniform sampler2D t_grass : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D n_grass : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D t_earth : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D n_earth : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D t_leaves : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 varying vec3 wpos;
+float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+float tone(vec3 want, float ref) { return clamp(lum(want) / ref, 0.5, 1.3); }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p);
@@ -558,26 +620,45 @@ void fragment() {
 	float big = fbm(p * 0.05);
 	float mid = fbm(p * 0.3 + 4.0);
 	float fine = noise(p * 6.0) * 0.5 + noise(p * 17.0) * 0.5;
-	vec3 c = mix(grass_a.rgb, grass_b.rgb, mid) * (0.8 + 0.35 * fine);
+	vec3 g_col = mix(grass_a.rgb, grass_b.rgb, mid) * (0.8 + 0.35 * fine);
+	vec3 e_col = earth.rgb * (0.8 + 0.4 * fine);
+	vec3 l_col = leaves.rgb * (0.7 + 0.5 * fine);
+	vec2 guv = p / 2.5;
+	vec2 euv = p / 3.0;
+	if (photo > 0.5) {
+		g_col = texture(t_grass, guv).rgb * tone(mix(grass_a.rgb, grass_b.rgb, mid), 0.09);
+		e_col = texture(t_earth, euv).rgb * tone(earth.rgb, 0.035);
+		l_col = texture(t_leaves, euv * 1.2).rgb * tone(leaves.rgb, 0.06);
+	}
+	vec3 c = g_col;
 	float bare = smoothstep(bare_from, bare_from + 0.15, big + (mid - 0.5) * 0.4);
-	c = mix(c, earth.rgb * (0.8 + 0.4 * fine), bare);
-	c = mix(c, moss.rgb, smoothstep(0.62, 0.8, fbm(p * 0.12 + 9.0)) * 0.6);
-	c = mix(c, leaves.rgb * (0.7 + 0.5 * fine), smoothstep(0.7, 0.85, fbm(p * 0.4 + 2.0)) * 0.7);
+	c = mix(c, e_col, bare);
+	c = mix(c, moss.rgb * mix(1.0, lum(g_col) / 0.14, photo), smoothstep(0.62, 0.8, fbm(p * 0.12 + 9.0)) * 0.6);
+	c = mix(c, l_col, smoothstep(0.7, 0.85, fbm(p * 0.4 + 2.0)) * 0.7);
 	// the path the creatures have trodden, down the middle
 	float path = smoothstep(2.6, 1.2, abs(p.x - sin(p.y * 0.05) * 3.0) + (mid - 0.5) * 2.0);
-	c = mix(c, earth.rgb * 0.9, path * path_amount);
+	c = mix(c, e_col * 0.9, path * path_amount);
 	ALBEDO = c;
 	ROUGHNESS = 0.95;
-	// blades of grass: the normal ruffled where it grows
-	vec3 nw = normalize(vec3((noise(p * 9.0) - 0.5) * 0.5 * (1.0 - bare), 1.0, (noise(p * 9.0 + 3.1) - 0.5) * 0.5 * (1.0 - bare)));
-	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	if (photo > 0.5) {
+		NORMAL_MAP = mix(texture(n_grass, guv).rgb, texture(n_earth, euv).rgb, max(bare, path * path_amount));
+	} else {
+		// blades of grass: the normal ruffled where it grows
+		vec3 nw = normalize(vec3((noise(p * 9.0) - 0.5) * 0.5 * (1.0 - bare), 1.0, (noise(p * 9.0 + 3.1) - 0.5) * 0.5 * (1.0 - bare)));
+		NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	}
 }
 """
 
 const WALL_SHADER := """
 shader_type spatial;
-uniform vec4 stone : source_color = vec4(0.55, 0.49, 0.40, 1.0);
+uniform vec4 stone : source_color = vec4(0.47, 0.44, 0.40, 1.0);
 uniform vec4 grout : source_color = vec4(0.08, 0.07, 0.09, 1.0);
+// The land's photographed rock in each block's face (the user's word,
+// 2026-10-23), its grain over the block's own colour. 0: the drawn stone.
+uniform float photo = 0.0;
+uniform sampler2D stone_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D stone_nor : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 varying vec3 wpos;
 varying vec3 wnorm;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -595,6 +676,13 @@ void fragment() {
 	vec2 f = fract(p);
 	float n = hash(cell);
 	vec3 c = stone.rgb * (0.7 + 0.45 * n);
+	vec2 tuv = vec2(u, wpos.y) / 2.4 + vec2(n * 5.3, n * 2.9);
+	vec3 st = texture(stone_tex, tuv).rgb;
+	c *= mix(1.0, clamp(dot(st, vec3(0.2126, 0.7152, 0.0722)) / 0.11, 0.6, 1.45), photo * 0.75);
+	// a block's edges chipped back, a little darker
+	float edge = min(min(f.x, 1.0 - f.x) * 1.4, min(f.y, 1.0 - f.y) * 0.7);
+	c *= mix(1.0, 0.8 + 0.2 * smoothstep(0.0, 0.08, edge), photo);
+	NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), texture(stone_nor, tuv).rgb, photo * 0.8);
 	float joint = step(f.x, 0.02) + step(0.98, f.x) + step(f.y, 0.04) + step(0.96, f.y);
 	c = mix(c, grout.rgb, clamp(joint, 0.0, 1.0));
 	// Darker towards the floor, as old stone is, and a little moss low down.
@@ -2639,6 +2727,30 @@ func _process(delta: float) -> void:
 				return
 
 
+## [constant PHOTO]'s textures, loaded once.
+var _photo: Dictionary = {}
+
+
+func _photo_tex(key: String) -> Texture2D:
+	if not _photo.has(key):
+		var path: String = PHOTO[key]
+		_photo[key] = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	return _photo[key]
+
+
+## The forest's and the swamp's ground, the land's photographed one in it.
+func _ground_mat() -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = _ground_shader
+	m.set_shader_parameter("photo", 1.0)
+	m.set_shader_parameter("t_grass", _photo_tex("grass"))
+	m.set_shader_parameter("n_grass", _photo_tex("grass_nor"))
+	m.set_shader_parameter("t_earth", _photo_tex("earth"))
+	m.set_shader_parameter("n_earth", _photo_tex("earth_nor"))
+	m.set_shader_parameter("t_leaves", _photo_tex("leaves"))
+	return m
+
+
 func _materials() -> void:
 	_floor_shader = Shader.new()
 	_floor_shader.code = FLOOR_SHADER
@@ -2656,6 +2768,8 @@ func _materials() -> void:
 	_rock_mat.set_shader_parameter("band", Color(0.58, 0.48, 0.38))
 	_rock_mat.set_shader_parameter("wet", 0.0)
 	_rock_mat.set_shader_parameter("moss_amount", 0.6)
+	_rock_mat.set_shader_parameter("photo", 1.0)
+	_rock_mat.set_shader_parameter("photo_tex", _photo_tex("rock"))
 	_cave_mat = ShaderMaterial.new()
 	_cave_mat.shader = rock
 	_cave_mat.set_shader_parameter("scale", 0.3)
@@ -2669,15 +2783,28 @@ func _materials() -> void:
 	_cave_mat.set_shader_parameter("fleck_glow", 3.0)
 	_cave_mat.set_shader_parameter("wet", 0.6)
 	_cave_mat.set_shader_parameter("moss_amount", 0.35)
+	_cave_mat.set_shader_parameter("photo", 0.8)
+	_cave_mat.set_shader_parameter("photo_tex", _photo_tex("rock"))
 	_ground_shader = Shader.new()
 	_ground_shader.code = GROUND_SHADER
 	_wall_mat = ShaderMaterial.new()
 	var ws := Shader.new()
 	ws.code = WALL_SHADER
 	_wall_mat.shader = ws
+	_wall_mat.set_shader_parameter("photo", 1.0)
+	_wall_mat.set_shader_parameter("stone_tex", _photo_tex("rock"))
+	_wall_mat.set_shader_parameter("stone_nor", _photo_tex("rock_nor"))
+	# the dressed stone's colour the village's grey-brown, not the old beige;
+	# the land's rock in its face
 	_trim_mat = StandardMaterial3D.new()
-	_trim_mat.albedo_color = Color(0.70, 0.63, 0.50)
-	_trim_mat.roughness = 0.75
+	_trim_mat.albedo_color = Color(0.56, 0.53, 0.48)
+	_trim_mat.roughness = 0.8
+	_trim_mat.normal_enabled = true
+	_trim_mat.normal_texture = _photo_tex("rock_nor")
+	_trim_mat.normal_scale = 0.7
+	_trim_mat.uv1_triplanar = true
+	_trim_mat.uv1_world_triplanar = true
+	_trim_mat.uv1_scale = Vector3(0.4, 0.4, 0.4)
 	_iron_mat = StandardMaterial3D.new()
 	_iron_mat.albedo_color = Color(0.09, 0.085, 0.08)
 	_iron_mat.metallic = 0.85
@@ -2701,6 +2828,11 @@ func _floor_mat(i: int) -> ShaderMaterial:
 	var kind: String = r["kind"]
 	var m := ShaderMaterial.new()
 	m.shader = _floor_shader
+	m.set_shader_parameter("photo", 1.0)
+	m.set_shader_parameter("cob_tex", _photo_tex("cob"))
+	m.set_shader_parameter("cob_nor", _photo_tex("cob_nor"))
+	m.set_shader_parameter("stone_tex", _photo_tex("rock"))
+	m.set_shader_parameter("stone_nor", _photo_tex("rock_nor"))
 	var c := centre(i)
 	m.set_shader_parameter("centre", Vector2(c.x, c.z))
 	m.set_shader_parameter("half_size", Vector2(float(r["w"]) * 0.5, float(r["l"]) * 0.5))
@@ -2755,18 +2887,16 @@ func _floor_mat(i: int) -> ShaderMaterial:
 	if kind == "hall":
 		m.set_shader_parameter("slab", 2.6)
 		m.set_shader_parameter("course", 1.7)
-		m.set_shader_parameter("slab_a", Color(0.62, 0.56, 0.45))
-		m.set_shader_parameter("slab_b", Color(0.45, 0.40, 0.33))
-		m.set_shader_parameter("cobble_a", Color(0.55, 0.49, 0.40))
-		m.set_shader_parameter("cobble_b", Color(0.33, 0.29, 0.25))
+		m.set_shader_parameter("slab_a", Color(0.50, 0.45, 0.38))
+		m.set_shader_parameter("slab_b", Color(0.36, 0.32, 0.27))
 		m.set_shader_parameter("wear", 0.45 if not r.has("hole") else 0.75)
 		m.set_shader_parameter("border", 2.2)
 		m.set_shader_parameter("aisle", 2.6)
 	else:
 		m.set_shader_parameter("slab", 1.8)
 		m.set_shader_parameter("course", 1.25)
-		m.set_shader_parameter("slab_a", Color(0.50, 0.46, 0.41))
-		m.set_shader_parameter("slab_b", Color(0.34, 0.32, 0.30))
+		m.set_shader_parameter("slab_a", Color(0.49, 0.44, 0.38))
+		m.set_shader_parameter("slab_b", Color(0.35, 0.31, 0.27))
 		m.set_shader_parameter("border", 3.2)
 		m.set_shader_parameter("wear", 0.65)
 		m.set_shader_parameter("wet", 1.0 if kind != "throne" else 0.6)
@@ -2782,8 +2912,8 @@ func _floor_mat(i: int) -> ShaderMaterial:
 ## night (stars, the moon), how cloudy.
 const PHASES := [
 	{"elev": 52.0, "sun": Color(1.0, 0.92, 0.8), "sun_e": 1.3, "top": Color(0.20, 0.40, 0.70),
-			"hor": Color(0.82, 0.80, 0.74), "gnd": Color(0.30, 0.28, 0.26), "amb": Color(0.62, 0.61, 0.60),
-			"amb_e": 1.45, "fog": Color(0.66, 0.70, 0.78), "night": 0.0, "cloud": 0.45},
+			"hor": Color(0.82, 0.80, 0.74), "gnd": Color(0.30, 0.28, 0.26), "amb": Color(0.58, 0.64, 0.60),
+			"amb_e": 1.45, "fog": Color(0.67, 0.71, 0.73), "night": 0.0, "cloud": 0.45},
 	{"elev": 34.0, "sun": Color(1.0, 0.86, 0.66), "sun_e": 1.25, "top": Color(0.20, 0.37, 0.66),
 			"hor": Color(0.92, 0.76, 0.58), "gnd": Color(0.30, 0.27, 0.24), "amb": Color(0.64, 0.60, 0.56),
 			"amb_e": 1.4, "fog": Color(0.72, 0.68, 0.66), "night": 0.0, "cloud": 0.5},
@@ -2888,8 +3018,10 @@ func _sky() -> void:
 	_env.fog_density = 0.0007
 	_env.fog_sky_affect = 0.2
 	_env.adjustment_enabled = true
-	_env.adjustment_saturation = 1.12
-	_env.adjustment_contrast = 1.05
+	_env.adjustment_saturation = 1.06
+	_env.adjustment_contrast = 1.03
+	_env.ssao_enabled = true
+	_env.ssao_intensity = 1.1
 	_sun = root.get_node_or_null("Sun") as DirectionalLight3D
 	if _sun != null:
 		_sun_yaw = _sun.rotation.y
@@ -2968,27 +3100,29 @@ func _place_look(night: float = 0.0) -> void:
 	_env.glow_bloom = 0.08
 	_env.glow_hdr_threshold = 1.0
 	_env.volumetric_fog_enabled = false
-	_env.fog_density = 0.0007
-	_env.adjustment_contrast = 1.05
-	_env.adjustment_saturation = 1.12
+	_env.fog_density = 0.0021
+	_env.adjustment_contrast = 1.03
+	_env.adjustment_saturation = 1.06
 	_env.fog_sky_affect = 0.2
 	match kind:
 		"hall", "court", "terrace", "throne":
 			# the gold is the day's: by night only the torches' warmth is left
 			var day := 1.0 - clampf(night, 0.0, 1.0)
 			var gold := Color(0.92, 0.72, 0.42)
-			_env.fog_light_color = _env.fog_light_color.lerp(gold, 0.5 * day)
-			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.78, 0.66, 0.50), 0.35 * day)
-			_env.adjustment_contrast = 1.12
-			_env.glow_intensity = 1.1
-			_env.glow_bloom = 0.14
-			_env.glow_hdr_threshold = 0.85
+			# only a breath of it now: the land's own air (the user's word,
+			# 2026-10-23: inside the portal, the colours of the world he left)
+			_env.fog_light_color = _env.fog_light_color.lerp(gold, 0.15 * day)
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.78, 0.66, 0.50), 0.1 * day)
+			_env.adjustment_contrast = 1.06
+			_env.glow_intensity = 1.0
+			_env.glow_bloom = 0.1
+			_env.glow_hdr_threshold = 0.9
 			if kind == "hall":
-				_env.fog_density = 0.0035
+				_env.fog_density = 0.0025
 				_env.volumetric_fog_enabled = true
-				_env.volumetric_fog_density = 0.0035
-				_env.volumetric_fog_albedo = Color(0.95, 0.82, 0.6)
-				_env.volumetric_fog_emission = Color(0.06, 0.045, 0.02)
+				_env.volumetric_fog_density = 0.002
+				_env.volumetric_fog_albedo = Color(0.88, 0.84, 0.76)
+				_env.volumetric_fog_emission = Color(0.02, 0.016, 0.008)
 				_env.volumetric_fog_length = 70.0
 				_env.volumetric_fog_ambient_inject = 0.15
 		"crypt":
@@ -4656,8 +4790,7 @@ func _build_forest(room: Node3D, i: int) -> void:
 	var r := _room(i)
 	var w: float = r["w"]
 	var l: float = r["l"]
-	var ground := ShaderMaterial.new()
-	ground.shader = _ground_shader
+	var ground := _ground_mat()
 	ground.set_shader_parameter("grass_a", Color(0.09, 0.10, 0.06))
 	ground.set_shader_parameter("grass_b", Color(0.15, 0.14, 0.08))
 	ground.set_shader_parameter("earth", Color(0.13, 0.095, 0.065))
@@ -4959,6 +5092,11 @@ uniform float scale = 0.35;
 uniform float wet = 0.4;
 uniform float moss_amount = 0.5;
 uniform float fleck_glow = 0.0;
+// The land's photographed rock over the drawn one (the user's word,
+// 2026-10-23), laid on from the three sides; its grain, the rock's colour.
+uniform float photo = 0.0;
+uniform sampler2D photo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float photo_tile = 4.0;
 varying vec3 wpos;
 varying vec3 wnorm;
 float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
@@ -5010,6 +5148,14 @@ void fragment() {
 	float up = clamp(wnorm.y, 0.0, 1.0);
 	float m = smoothstep(0.45, 0.75, fbm(p * scale * 1.7 + 5.0)) * (0.4 + 0.6 * up) * moss_amount;
 	c = mix(c, moss.rgb * (0.7 + 0.5 * n), m);
+	if (photo > 0.0) {
+		vec3 bw = pow(abs(wnorm), vec3(4.0));
+		bw /= (bw.x + bw.y + bw.z);
+		vec3 tq = p / photo_tile;
+		vec3 t = texture(photo_tex, tq.zy).rgb * bw.x + texture(photo_tex, tq.xz).rgb * bw.y
+				+ texture(photo_tex, tq.xy).rgb * bw.z;
+		c *= mix(1.0, clamp(dot(t, vec3(0.2126, 0.7152, 0.0722)) / 0.11, 0.4, 1.9), photo);
+	}
 	// flecks that catch the light (and in the cave, glow faintly)
 	float fl = step(0.985, hash(floor(p * 9.0)));
 	ALBEDO = mix(c, fleck.rgb, fl * 0.6);
@@ -5212,8 +5358,7 @@ func _build_sky(room: Node3D, i: int) -> void:
 				_rng.randf_range(0.0, TAU), _rock_mat, false, false)
 		_hang(rock, -1.0 - float(k) * 6.0)
 	# grass over the rock's rim, round the floor
-	var lawn := ShaderMaterial.new()
-	lawn.shader = _ground_shader
+	var lawn := _ground_mat()
 	for side in 4:
 		var along := w + 12.0 if side < 2 else l + 12.0
 		var strip := Vector3(along, 0.6, 5.0) if side < 2 else Vector3(5.0, 0.6, along)
@@ -5654,8 +5799,7 @@ func _build_swamp(room: Node3D, i: int) -> void:
 	var r := _room(i)
 	var w: float = r["w"]
 	var l: float = r["l"]
-	var ground := ShaderMaterial.new()
-	ground.shader = _ground_shader
+	var ground := _ground_mat()
 	# mud more than grass
 	ground.set_shader_parameter("grass_a", Color(0.11, 0.12, 0.07))
 	ground.set_shader_parameter("grass_b", Color(0.15, 0.15, 0.08))
