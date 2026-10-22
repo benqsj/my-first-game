@@ -11566,3 +11566,17 @@ counter`) and [SkinnedRig] (`#region The charged heavy`):
   shield takes it, a jump clears it), a creature 70. Still once the place is
   cleared. Lead them onto it.
 - Tests: `tests/portal_event_test.gd`, `tests/spike_trap_test.gd`.
+
+### The run kept hard (2026-10-22, the user's word: the last boss too easy on a strong run, and very quick for two)
+`Dungeon` (`#region Kept hard however strong they grow, however many they are`):
+as a place wakes the host reckons `hard_factors(i, heroes, run_power())` and
+tells everyone (`net_harden`), once per creature (`hardened` meta).
+- `run_power()`: what the run made their blows: each "blade" reward ×1.15, the
+  merchant's blade ×1.1 and the altar of gold ×1.2 (shared over the heroes,
+  `deals_made`), each blessing +6%, half the village smith's edge.
+- Against `EXPECT_POWER` (1.3 by the last step, 1 at the first) the excess
+  (≤ `POWER_MOST` 2.2) goes on a boss's health, half of it on its blows
+  (≤ ×1.3); from the sixth step on, its root on the other creatures' health.
+- Each hero past the first: a boss and the lord's guard +85% health, the other
+  creatures +50%, the big ones' stance +50%.
+- Test: `tests/run_hardness_test.gd`.

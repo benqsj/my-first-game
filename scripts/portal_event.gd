@@ -340,6 +340,7 @@ func deal_done(k: int, hero: Player) -> void:
 	var id := String(deal["id"])
 	deal["sold"] = true
 	done.append(id)
+	_d.deals_made.append(id)
 	if kind == "altar":
 		_used = true
 		for other: Dictionary in _deals:

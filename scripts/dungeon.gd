@@ -240,6 +240,9 @@ var is_closed: bool = false
 var choices: Array[PortalLook] = []
 ## Rewards given so far, by name.
 var rewards_given: Array[String] = []
+## What was bought at the merchant's or given at the altar this run, by any
+## hero ([PortalEvent]).
+var deals_made: Array[String] = []
 ## The run's blessings ([Boons]).
 var boons: Boons
 ## What the place he is in asks of him besides killing them all ([RoomGoal]),
@@ -1494,6 +1497,8 @@ func _step_out(body: Node3D, spot: Vector3, l: float) -> void:
 func _wake(i: int) -> void:
 	_woken = true
 	_lay_traps(i)
+	if decides() and not _viewing:
+		_hold_hard(i)
 	if _run_start < 0.0:
 		_run_start = Time.get_ticks_msec() / 1000.0
 	_alive.clear()
@@ -1775,6 +1780,110 @@ func _rest_pick(low: bool, wanted: bool) -> String:
 		if roll <= 0.0 and float(weights[k]) > 0.0:
 			return k
 	return "spring"
+
+
+#region Kept hard however strong they grow, however many they are
+## (the user's word, 2026-10-22: some runs he came to the last boss so strong
+## he killed him easily; and two together killed him very quickly)
+##
+## * **How strong the run has made them** ([method run_power]): what it has
+##   given that makes blows heavier — each "blade" reward, the merchant's
+##   blade and the altar of gold (shared out over the heroes), each blessing,
+##   half the village smith's edge. Against what a run is expected to have
+##   given by then (`EXPECT_POWER` by the last step, from nothing at the
+##   first), the excess goes on the bosses' health in full (to `POWER_MOST`),
+##   and from the sixth step on, on the other creatures' as its square root;
+##   on a boss's blows, half of it (to `POWER_HIT_MOST`).
+## * **How many they are**: each hero past the first, a boss (and the lord's
+##   guard) `COOP_BOSS` more health, the others `COOP_FOE` more; the big
+##   ones' stance `COOP_STANCE` more (two blades break it twice as fast).
+## The host reckons it as a place wakes and tells everyone ([method net_harden]).
+const EXPECT_POWER := 1.3
+const POWER_MOST := 2.2
+const POWER_HIT_MOST := 1.3
+const COOP_BOSS := 0.85
+const COOP_FOE := 0.5
+const COOP_STANCE := 0.5
+
+
+## How much heavier the run has made their blows (1: nothing yet).
+func run_power() -> float:
+	var p := 1.0
+	for r in rewards_given:
+		if r == "blade":
+			p *= 1.15
+	var n := maxi(_heroes().size(), 1)
+	for d in deals_made:
+		if d == "blade":
+			p *= pow(1.1, 1.0 / float(n))
+		elif d == "gold":
+			p *= pow(PortalEvent.GOLD_BLADE, 1.0 / float(n))
+	p *= 1.0 + 0.06 * float(boons.taken.size()) if boons != null else 1.0
+	var game := get_node_or_null("/root/Game")
+	if game != null:
+		p *= 1.0 + 0.5 * float(Trades.ALL["smith"]["per"]) * float(Trades.level(game, "smith"))
+	return p
+
+
+## What place `i` asks of its creatures, for `heroes` heroes whose blows the
+## run has made `power` times heavier: {boss, foe, hit, stance} multipliers.
+func hard_factors(i: int, heroes: int, power: float) -> Dictionary:
+	var along := float(stage_of(i) - 1) / float(maxi(stage_count() - 1, 1))
+	var excess := clampf(power / lerpf(1.0, EXPECT_POWER, along), 1.0, POWER_MOST)
+	var more := float(maxi(heroes, 1) - 1)
+	return {
+		"boss": excess * (1.0 + COOP_BOSS * more),
+		"guard": 1.0 + COOP_BOSS * more,
+		"foe": (sqrt(excess) if stage_of(i) >= 6 else 1.0) * (1.0 + COOP_FOE * more),
+		"hit": minf(1.0 + 0.5 * (excess - 1.0), POWER_HIT_MOST),
+		"stance": 1.0 + COOP_STANCE * more,
+	}
+
+
+## Host: place `i` as it wakes, made as hard as the heroes now are.
+func _hold_hard(i: int) -> void:
+	var standing := 0
+	for hero in _heroes():
+		if not hero.is_dead:
+			standing += 1
+	var f := hard_factors(i, standing, run_power())
+	if online():
+		net_harden.rpc(i, f)
+	else:
+		net_harden(i, f)
+
+
+## On every peer: the creatures of place `i` (and the lord's guard) made
+## harder by `f` ([method hard_factors]), once.
+@rpc("authority", "call_local", "reliable")
+func net_harden(i: int, f: Dictionary) -> void:
+	last_hardness = f.duplicate()
+	var bodies: Array = []
+	if i < _room_foes.size():
+		bodies.append_array(_room_foes[i])
+	var guards: Array = []
+	if is_boss(i) and is_instance_valid(_lord_fight):
+		guards.append_array(_lord_fight.guards)
+	for item: Variant in bodies + guards:
+		if not is_instance_valid(item) or (item as Node).has_meta(&"hardened"):
+			continue
+		var body := item as Node3D
+		body.set_meta(&"hardened", true)
+		var guard := guards.has(body)
+		var big := is_boss(i) and not guard
+		var hp := float(f["guard"]) if guard else (float(f["boss"]) if big else float(f["foe"]))
+		FoeRoles._scale_stat(body, &"max_health", hp)
+		if big:
+			FoeRoles._scale_stat(body, &"hit_damage", float(f["hit"]))
+		if "stance" in body:
+			FoeRoles._scale_stat(body, &"stance", float(f["stance"]))
+		if "health" in body and "max_health" in body:
+			body.set(&"health", body.get(&"max_health"))
+
+
+## The last place's hardness, as it woke (tests).
+var last_hardness: Dictionary = {}
+#endregion
 
 
 ## Spike traps in the floor of place `i` as it wakes ([SpikeTrap]; the user's
