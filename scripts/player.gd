@@ -427,6 +427,21 @@ var m_def: float = 0.0
 @export var camera_height: float = 1.5
 ## Higher values make the camera stick to the player more rigidly.
 @export var camera_follow_speed: float = 22.0
+## How far the view stands off him, and how much further on a great foe (one
+## locked on, or a boss roused near him), so the whole of it is in the view
+## (the user's word, 2026-10-22: a wider view on a boss).
+@export var camera_reach: float = 4.5
+@export var camera_reach_big: float = 2.6
+## Pulled in by a wall it comes in at once; past it, it eases back out at
+## this pace (m/s) rather than jumping.
+@export var camera_out_speed: float = 3.5
+## The arm is a ball of this radius swept out from him, not a thin ray: the
+## view never comes so near a wall that it sees through it.
+@export var camera_probe: float = 0.35
+var _arm_len: float = 4.5
+var _big_view: float = 0.0
+var _big_seen_at: float = -10.0
+var _big_near: bool = false
 #endregion
 
 @onready var camera_rig: Node3D = $CameraRig
@@ -733,6 +748,13 @@ func _ready() -> void:
 
 	# Stop the spring arm from colliding with our own capsule.
 	spring_arm.add_excluded_object(get_rid())
+	# a ball, not a ray, swept out along it
+	var probe := SphereShape3D.new()
+	probe.radius = camera_probe
+	spring_arm.shape = probe
+	spring_arm.margin = 0.12
+	_arm_len = camera_reach
+	spring_arm.spring_length = camera_reach
 
 	# Whose body is this?
 	#
@@ -856,6 +878,7 @@ func _process(delta: float) -> void:
 					1.0 - exp(-glide_turn_speed * delta))
 		var weight := 1.0 - exp(-follow_speed * delta)
 		camera_rig.global_position = camera_rig.global_position.lerp(follow, weight)
+		_tend_arm(delta)
 		_publish_net_state()
 
 	# Somebody else's charge, as his body comes over the wire (his own is
@@ -2819,6 +2842,51 @@ func _hunting_me(who: Node3D) -> bool:
 	if mode != null and (who is Fighter or who is Brute):
 		return quarry == self and (int(mode) == Fighter.Mode.CHASE or int(mode) == Fighter.Mode.FIGHT)
 	return true
+
+
+## The arm's length: out to `camera_reach` (and `camera_reach_big` further
+## while a great foe is fought), in at once to whatever is behind him, and
+## back out from it at `camera_out_speed`, never a jump.
+func _tend_arm(delta: float) -> void:
+	_big_view = move_toward(_big_view, _big_fight(), delta * 0.8)
+	var want := camera_reach + camera_reach_big * _big_view
+	var hit := spring_arm.get_hit_length()
+	if hit < spring_arm.spring_length - 0.05:
+		# something in the way: where it stops it, from there on out slowly
+		_arm_len = minf(_arm_len, hit)
+	_arm_len = minf(_arm_len + camera_out_speed * delta, want)
+	if _arm_len > want:
+		_arm_len = move_toward(_arm_len, want, camera_out_speed * delta)
+	spring_arm.spring_length = _arm_len
+
+
+## 0..1: how great a foe he is fighting — the one locked on by its size, or
+## a boss (or one as big) roused within reach of him.
+func _big_fight() -> float:
+	if target != null and is_instance_valid(target):
+		return _greatness(target)
+	if _now() - _big_seen_at > 0.5:
+		_big_seen_at = _now()
+		_big_near = false
+		for node in get_tree().get_nodes_in_group(&"enemy"):
+			var foe := node as Node3D
+			if foe == null or not foe.visible or foe.get(&"is_dead") == true:
+				continue
+			if foe.global_position.distance_squared_to(global_position) > 18.0 * 18.0:
+				continue
+			var mode: Variant = foe.get(&"mode")
+			if mode != null and int(mode) != Fighter.Mode.CHASE and int(mode) != Fighter.Mode.FIGHT:
+				continue
+			if _greatness(foe) >= 0.99:
+				_big_near = true
+				break
+	return 1.0 if _big_near else 0.0
+
+
+static func _greatness(foe: Node3D) -> float:
+	if foe.has_meta(&"boss_name"):
+		return 1.0
+	return clampf((_body_radius(foe) - 0.55) / 0.5, 0.0, 1.0)
 
 
 ## Keeps the camera on the target and lets go when there is nothing left to hold.

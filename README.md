@@ -11649,3 +11649,14 @@ tells everyone (`net_harden`), once per creature (`hardened` meta).
   lower screen and goes (`net_intro`). The music is not changed (the user's
   word: not yet).
 - Test: `tests/monster_polish_test.gd` (both).
+
+### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)
+[Player] (`_tend_arm`, `_big_fight`): the spring arm is a ball
+(`camera_probe` 0.35 m) swept out from him, so the view never comes near enough
+a wall or a pillar to see through it; pulled in by one it comes in at once,
+and eases back out at `camera_out_speed` (3.5 m/s) instead of jumping. Locked
+on a great foe (one with a `boss_name`, or by its size from 0.55 m of radius
+up), or with a boss (or one as big) roused within 18 m, it stands
+`camera_reach_big` (2.6 m) further off (4.5 -> 7.1 m), eased in and out, so
+the whole of the orc lord is in view. The lock is changed from one to the
+next by a flick of the mouse sideways (as before). Test: `tests/camera_test.gd`.
