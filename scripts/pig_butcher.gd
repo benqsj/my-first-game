@@ -96,6 +96,19 @@ enum Hook { NONE, OUT, PULL, BACK }
 ## look); drawn while its edge goes faster than this (m/s) in a blow.
 const ARC_STYLE := {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35, "smear": 1.0,
 		"tip_overshoot": 0.04}
+## Where (bearing off his front, degrees, + to his left) each blow of a move
+## really crosses a man's height, and when (act seconds, at his pace) where
+## the wrist's fastest moment was off the cut — measured with
+## `_shots_tmp/move_probe.gd` (2026-10-23, the user's word: standing still,
+## his strings still missed). Spins land all round and need none.
+const CUT_AIM := {
+	240: [-42.0, 0.0, -32.0], 241: [16.0, 23.0, -35.0], 247: [-3.0, 40.0], 248: [6.0, 4.0, -8.0],
+	249: [-18.0, -18.0], 250: [-6.0], 251: [-12.0], 253: [-15.0, -39.0, -16.0], 254: [13.0],
+	255: [23.0, -46.0, -5.0], 256: [-12.0, -5.0], 257: [-15.0], 62: [-9.0],
+}
+const CUT_AT := {
+	240: [1.08, 2.08, 2.93], 247: [1.47, 2.18], 255: [0.80, 1.55, 2.35],
+}
 ## The cleaver's edge, in its own frame: its blade runs from the haft (z ~0)
 ## out to z 0.365 (measured, `_shots_tmp/cleaver_aabb.gd`).
 const ARC_EDGE_Z := 0.3
@@ -175,6 +188,10 @@ var _low_last: Vector3 = Vector3.INF
 var _dust_wait: float = 0.0
 ## dust thrown up where his cleaver meets the ground, counted (tests)
 var ground_dusts: int = 0
+## Every peer: his pace his rage's from the first; his cleaver's rot (enraged).
+var _fierce: bool = false
+var _rot: Node3D
+var _rot_lamp: OmniLight3D
 var _turn_frame: int = -1
 ## Host: him going round to his side — how fast (degrees a second about him,
 ## smoothed), where he was last, and the wait before the next spin at it.
@@ -187,6 +204,8 @@ var side_spins: int = 0
 ## his blows that reached him, all and his spins' (tests, probes)
 var blows_landed: int = 0
 var spin_blows_landed: int = 0
+## Host: each move's blows swung and landed ({act: [swung, landed]}; probes)
+var blow_tally: Dictionary = {}
 var _turn_left: float = 0.0
 ## For the tests.
 var hooks_thrown: int = 0
@@ -564,6 +583,8 @@ func _own_part(what: int) -> Array:
 func _blow_reached(who: Node3D, what: int) -> void:
 	super(who, what)
 	blows_landed += 1
+	if blow_tally.has(what):
+		(blow_tally[what] as Array)[1] += 1
 	if what == B_SPIN or what == B_LOWSPIN:
 		spin_blows_landed += 1
 	if who == null or not _decides() or bool(who.get("net_blocking")) or bool(who.get("is_blocking")):
@@ -645,7 +666,7 @@ func _butcher_moves() -> void:
 	_hand_move(B_LOWSPIN, &"CR_BU_Attack_360_Low", Vector3(1.0 / hp, 0.03, 0.85), 0.9, "")
 	for what: int in [B_SWORD3, B_THRUST, B_LOWSPIN]:
 		_slow_to[what] = 0.5
-	hand_combo_chance = Vector2(0.75, 0.9)
+	hand_combo_chance = Vector2(0.9, 0.9)
 	# any of them any time, the same again now and then (the user's word:
 	# mixed up, not one after another in turn)
 	repeat_damp = 1.0
@@ -672,9 +693,9 @@ func _butcher_moves() -> void:
 		{"name": &"chop_and_split", "moves": [B_DOWN, B_POUND], "fells": [1], "weight": 0.8},
 		# UAL 2's sword string, then the chop
 		{"name": &"butcher_string", "moves": [B_REG, B_DOWN], "fells": [1], "weight": 1.0},
-		{"name": &"slaughter", "moves": [B_POUND, B_POUND, B_POUND], "fells": [2], "weight": 1.4, "rage_only": true},
-		{"name": &"frenzy", "moves": [B_C1, B_HORIZ, B_C2], "fells": [2], "weight": 1.2, "rage_only": true},
-		{"name": &"butchery", "moves": [B_SWORD3, B_THRUST, B_LOWSPIN], "fells": [2], "weight": 1.2, "rage_only": true},
+		{"name": &"slaughter", "moves": [B_POUND, B_POUND, B_POUND], "fells": [2], "weight": 0.7, "always": true},
+		{"name": &"frenzy", "moves": [B_C1, B_HORIZ, B_C2], "fells": [2], "weight": 0.9, "always": true},
+		{"name": &"butchery", "moves": [B_SWORD3, B_THRUST, B_LOWSPIN], "fells": [2], "weight": 1.0, "always": true},
 		{"name": HOOK_COMBO, "moves": [B_DOWN], "fells": [0], "weight": 0.0, "far": true},
 		# (the orc's own kinds of answer, in his blows)
 		{"name": COUNTER_COMBO, "moves": [B_BACK], "fells": [0], "weight": 0.0, "far": true},
@@ -684,6 +705,8 @@ func _butcher_moves() -> void:
 		{"name": SIDE_SPIN, "moves": [B_SPIN], "fells": [0], "weight": 0.0, "far": true},
 		{"name": SIDE_LOW, "moves": [B_LOWSPIN], "fells": [0], "weight": 0.0, "far": true},
 	]
+
+	_always_fierce()
 
 
 ## The moments of a clip's blows (its weapon hand at its fastest), if there
@@ -743,6 +766,137 @@ func _blow_window_for(what: int) -> Vector2:
 	return super(what)
 
 
+## Every peer: from the first he fights at the pace the others keep for their
+## rage — quick on his feet, in his swings, hardly a breath between strings,
+## all his strings his (the user's word, 2026-10-23: as fast as enraged, and
+## always so); his rage is only his cleaver's rot ([method net_rage]).
+func _always_fierce() -> void:
+	if _fierce:
+		return
+	_fierce = true
+	_moves_table.erase(RAGE)
+	speed *= rage_pace
+	chase_speed *= rage_pace
+	close_speed *= rage_pace
+	attack_cooldown *= 0.4
+	stamina_regen *= 1.6
+	for what: int in _moves_table:
+		var m: Array = (_moves_table[what] as Array).duplicate()
+		m[1] = float(m[1]) * rage_pace
+		_moves_table[what] = m
+
+
+## Every peer: at half his health his blows land harder (`rage_harder`) and
+## his cleaver rots — a green flame up it, a reek off it, flies all round it;
+## he himself does not redden. His pace was his rage's from the first.
+@rpc("authority", "call_local", "reliable")
+func net_rage() -> void:
+	if raging:
+		return
+	raging = true
+	_rot_on()
+
+
+@rpc("authority", "call_local", "reliable")
+func net_calm() -> void:
+	if not raging:
+		return
+	raging = false
+	_rot_off()
+
+
+## (Not the red glow on his body the others take.)
+func _glow_on() -> void:
+	pass
+
+
+func _glow_off() -> void:
+	pass
+
+
+func _rot_on() -> void:
+	_rot_off()
+	if _cleaver == null or not is_instance_valid(_cleaver):
+		return
+	var top := _edge_to.y / 0.95
+	var mid := Vector3(0.0, top * 0.66, ARC_EDGE_Z * 0.55)
+	var holder := Node3D.new()
+	holder.name = "Rot"
+	_cleaver.add_child(holder)
+	holder.position = mid
+	_rot = holder
+	var blade_len := top * 0.32
+	# the green flame licking up the blade, on it as it swings (in its own
+	# frame), and a few tongues left behind in the air
+	SkillFx.particles(holder, holder.global_position, {
+		"amount": 120, "life": 0.45, "explosiveness": 0.0, "tex": SkillFx.flame(), "local": true,
+		"speed": Vector2(0.2, 0.55), "dir": Vector3.UP, "spread": 15.0, "gravity": Vector3(0, 1.2, 0),
+		"damping": 0.5, "size": Vector2(0.14, 0.26), "grow": 0.2, "box": Vector3(0.06, blade_len, 0.2),
+		"colors": [Color(0.85, 1.0, 0.4, 0.0), Color(0.45, 1.0, 0.15, 1.0), Color(0.12, 0.65, 0.05, 0.7),
+				Color(0.04, 0.3, 0.02, 0.0)],
+	})
+	SkillFx.particles(holder, holder.global_position, {
+		"amount": 24, "life": 0.35, "explosiveness": 0.0, "tex": SkillFx.flame(),
+		"speed": Vector2(0.2, 0.6), "dir": Vector3.UP, "spread": 25.0, "gravity": Vector3(0, 1.5, 0),
+		"damping": 1.0, "size": Vector2(0.07, 0.13), "grow": 0.2, "box": Vector3(0.05, blade_len, 0.16),
+		"colors": [Color(0.6, 1.0, 0.3, 0.0), Color(0.3, 0.9, 0.12, 0.7), Color(0.05, 0.3, 0.02, 0.0)],
+	})
+	# its reek: a sickly green haze going up off it, not bright
+	SkillFx.particles(holder, holder.global_position, {
+		"amount": 18, "life": 1.6, "add": false, "local": true,
+		"speed": Vector2(0.15, 0.45), "dir": Vector3.UP, "spread": 35.0, "gravity": Vector3(0, 0.35, 0),
+		"damping": 0.6, "size": Vector2(0.3, 0.6), "grow": 0.5, "box": Vector3(0.05, blade_len, 0.18),
+		"colors": [Color(0.4, 0.5, 0.2, 0.0), Color(0.35, 0.48, 0.18, 0.28), Color(0.3, 0.4, 0.15, 0.0)],
+	})
+	# flies, many, about it every way, keeping to it as it swings
+	var flies := SkillFx.particles(holder, holder.global_position, {
+		"amount": 90, "life": 2.0, "add": false, "local": true,
+		"speed": Vector2(0.6, 1.4), "dir": Vector3.UP, "spread": 180.0, "gravity": Vector3.ZERO,
+		"damping": 0.0, "size": Vector2(0.03, 0.05), "grow": 0.05, "sphere": 0.5,
+		"orbit": -2.6, "tangent": 3.0,
+		"colors": [Color(0.04, 0.05, 0.03, 0.0), Color(0.04, 0.05, 0.03, 1.0), Color(0.04, 0.05, 0.03, 1.0),
+				Color(0.04, 0.05, 0.03, 0.0)],
+	})
+	var pm := flies.process_material as ParticleProcessMaterial
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 3.0
+	pm.turbulence_noise_scale = 1.5
+	pm.turbulence_noise_speed = Vector3(0.6, 0.6, 0.6)
+	pm.turbulence_influence_min = 0.4
+	pm.turbulence_influence_max = 0.8
+	# a sick green light off it
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(0.4, 1.0, 0.25)
+	# (small: the blade lit, not him gone green)
+	lamp.light_energy = 0.6
+	lamp.omni_range = 1.1
+	lamp.shadow_enabled = false
+	holder.add_child(lamp)
+	_rot_lamp = lamp
+	# the moment it takes: a puff of the green off it, no ring
+	SkillFx.particles(Blood.world_of(self), holder.global_position, {
+		"amount": 40, "life": 0.9, "one_shot": true, "explosiveness": 0.9, "tex": SkillFx.flame(),
+		"speed": Vector2(0.8, 2.4), "dir": Vector3.UP, "spread": 60.0, "gravity": Vector3(0, 1.5, 0),
+		"damping": 1.0, "size": Vector2(0.2, 0.4), "box": Vector3(0.05, blade_len, 0.2),
+		"colors": [Color(0.75, 1.0, 0.45, 0.0), Color(0.35, 0.95, 0.2, 0.9), Color(0.05, 0.25, 0.04, 0.0)],
+	})
+
+
+func _rot_off() -> void:
+	if _rot != null and is_instance_valid(_rot):
+		_rot.queue_free()
+	_rot = null
+	_rot_lamp = null
+
+
+## Host: its blows armed — counted (`blow_tally`).
+func _arm(what: int) -> void:
+	super(what)
+	if not blow_tally.has(what):
+		blow_tally[what] = [0, 0]
+	(blow_tally[what] as Array)[0] += _blow_moments(what).size()
+
+
 ## Not the orc's fall from the sky (the user's word, 2026-10-23: another's).
 func _try_leap() -> bool:
 	return false
@@ -754,17 +908,48 @@ func _try_leap() -> bool:
 func _carry(delta: float) -> Vector3:
 	if _quarry != null and _strikes().has(act) and _blow_moments(act).size() > 1:
 		var ms := _blow_moments(act)
-		var next := -1.0
+		var next := -1
 		var prev := -1.0
-		for m in ms:
-			if m > _act_time:
-				next = m
+		for i in ms.size():
+			if ms[i] > _act_time:
+				next = i
 				break
-			prev = m
-		if prev >= 0.0 and next > 0.0 and _act_time > prev + 0.08 and _act_time < next - _track_lock(act):
-			_face(_quarry.global_position - global_position, delta, _track_rate(act))
+			prev = ms[i]
+		if prev >= 0.0 and next > 0 and _act_time > prev + 0.08 and _act_time < ms[next] - _track_lock(act):
+			_face(_aimed(act, next), delta, _track_rate(act))
 			_reframe()
 	return super(delta)
+
+
+## Host: before a move's first blow, turned so its cut crosses him.
+func _track_before_blow(delta: float) -> void:
+	if _quarry == null:
+		return
+	var first := _blow_moments(act)[0]
+	if _act_time < first - _track_lock(act):
+		_face(_aimed(act, 0), delta, _track_rate(act))
+		_reframe()
+
+
+## The way to face so blow `i` of move `what` crosses him: the cleaver does
+## not cut along his nose in every swing — some come in from his side
+## (measured, `_shots_tmp/move_probe.gd`: the bearing off his front where the
+## blade passes at a man's height); turned that much off him, it meets him.
+func _aimed(what: int, i: int) -> Vector3:
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	var aims: Array = CUT_AIM.get(what, [])
+	if i < aims.size() and to.length_squared() > 0.0001:
+		to = to.rotated(Vector3.UP, -deg_to_rad(float(aims[i])))
+	return to
+
+
+## His blows where the cleaver really cuts (act seconds at his pace), where
+## the hand's fastest moment is not the cut (measured): else as measured.
+func _blow_moments(what: int) -> PackedFloat32Array:
+	if CUT_AT.has(what):
+		return PackedFloat32Array(CUT_AT[what])
+	return super(what)
 
 
 ## Host: in a string, his steps in under his blows never a glide faster than
@@ -834,6 +1019,9 @@ func _try_charge() -> bool:
 
 func _own_move(delta: float) -> bool:
 	_hook_wait = maxf(_hook_wait - delta, 0.0)
+	# at half his health, no stop to roar: his cleaver takes its rot
+	if rage_at > 0.0 and not raging and health <= max_health * rage_at and not is_dead:
+		_send_rage()
 	if _try_side(delta):
 		return true
 	if hook_state != Hook.NONE:
@@ -893,6 +1081,8 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	_drip(delta)
+	if _rot_lamp != null and is_instance_valid(_rot_lamp):
+		_rot_lamp.light_energy = 0.45 + 0.3 * absf(sin(Time.get_ticks_msec() * 0.011)) * randf_range(0.7, 1.0)
 	_draw_hook()
 #endregion
 

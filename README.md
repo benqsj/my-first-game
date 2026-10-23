@@ -11774,6 +11774,26 @@ _process. [BladeArc] now samples once the skeleton its blade rides is posed
 (its `skeleton_updated`), the marker's place off its bone's pose as it is
 then (`_now`); the butcher steps his own (`manual`, `tick` from
 `_after_follow`), and his dust is judged there too. Both lags now 0.
+**The user's eighth look (2026-10-23):** he fights from the first at the
+pace the others keep for their rage (`_always_fierce`: quicker on his feet
+and in his swings, `attack_cooldown` x0.4, his RAGE stop taken out of his
+moves; `slaughter`, `frenzy` and `butchery` his at any time). At half his
+health there is no stop to roar and no red on him (`_glow_on` empty): his
+blows land harder (`rage_harder` 1.35) and his cleaver rots (`_rot_on`) — a
+green flame up its blade (in the cleaver's own frame, so it stays on it),
+a reek, ninety flies going round it (turbulence on them), a small green
+light on the blade only.
+Standing still, his strings still missed (`_shots_tmp/miss_probe.gd`: each
+blow's moment, whether he was down, how far, the bearing; 31 swung, 22
+landed): some blows' moments were the wrist's fastest, not the cut, and some
+cuts cross a man's height well off his front (the sword string's second at
+46° to his right). Measured (`_shots_tmp/move_probe.gd`: where the blade's
+middle is out in front at a man's height, when, at what bearing), his blows
+now come where they cut (`CUT_AT`) and he turns so each crosses him
+(`CUT_AIM`, `_aimed`, before every blow): 49 swung, 48 landed.
+The cut in the air going out now and then: its sampling on its skeleton's
+`skeleton_updated` now falls back to its own _process any frame that signal
+did not come (`_unposed`); no gaps found in the arena (`_shots_tmp/arc_gaps.gd`).
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

@@ -59,6 +59,7 @@ var air: bool = false
 var manual: bool = false
 var _posed_by: Skeleton3D = null
 var _pending: float = 0.0
+var _unposed: bool = false
 
 const SHADER := preload("res://assets/fx/blade_arc.gdshader")
 
@@ -199,8 +200,14 @@ func _process(delta: float) -> void:
 			skel.skeleton_updated.connect(_on_posed)
 	if _posed_by == null:
 		_step(delta)
-	else:
-		_pending += delta
+		return
+	# its skeleton not posed since the last frame (nothing new on it, or
+	# posed some other way): stepped here, so the arc never stalls
+	if _unposed:
+		_step(_pending)
+		_pending = 0.0
+	_pending += delta
+	_unposed = true
 
 
 func _on_posed() -> void:
@@ -208,6 +215,7 @@ func _on_posed() -> void:
 		return
 	_step(_pending)
 	_pending = 0.0
+	_unposed = false
 
 
 func _blade_skeleton() -> Skeleton3D:

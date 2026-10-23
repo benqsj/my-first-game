@@ -80,6 +80,7 @@ func _run() -> void:
 	await _butcher_cleaver()
 	await _butcher_combos()
 	await _butcher_side()
+	await _butcher_rot()
 	await _butcher_hook()
 	await _butcher_hook_rolled()
 	await _butcher_slaughter()
@@ -238,7 +239,7 @@ func _butcher_combos() -> void:
 			and not names.has("sweep_back"), str(names))
 	_check("the same combo not held back from coming again", is_equal_approx(b.repeat_damp, 1.0))
 	_check("no glide in, no sidestep, not the orc's fall from the sky", b.combo_slack < 0.6
-			and b.close_speed <= 1.6 and b.sidestep_after == 0.0 and not b.call(&"_try_leap"))
+			and b.close_speed <= 1.5 * b.rage_pace + 0.01 and b.sidestep_after == 0.0 and not b.call(&"_try_leap"))
 	_check("his cleaver leaves the heroes' cut in the air (the bent air), stepped as he is posed",
 			b.get(&"_arc") is BladeArc and (b.get(&"_arc") as BladeArc).air and (b.get(&"_arc") as BladeArc).manual)
 	_check("no kick at him behind his shield, no snap round between blows", b.kick_after > 1000.0
@@ -282,6 +283,34 @@ func _butcher_side() -> void:
 		await physics_frame
 	_check("him going round close by, he spins on him", b.side_spins > 0, "spins %d" % b.side_spins)
 	_check("the spin lands at his side", b.spin_blows_landed > 0, "landed %d" % b.spin_blows_landed)
+	await _done(a[0])
+
+
+## The butcher at his rage's pace from the first; at half his health his
+## cleaver rots (green flame, flies), he does not redden (2026-10-23).
+func _butcher_rot() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var b := (a[1] as ArenaPanel).call_up(BUTCHER, false, _ahead(hero, 6.0)) as PigButcher
+	b.set(&"_hook_wait", 999.0)
+	for i in 30:
+		await physics_frame
+	_check("at his rage's pace from the first, not enraged", b.get(&"_fierce") and not b.raging
+			and not b._moves_table.has(PackBrute.RAGE))
+	b.health = b.max_health * 0.45
+	var spot := hero.global_position
+	for i in 240:
+		_hold(hero, spot)
+		if b.raging:
+			break
+		await physics_frame
+	for i in 5:
+		await physics_frame
+	var red := false
+	for mi: MeshInstance3D in b.body.find_children("*", "MeshInstance3D", true, false):
+		red = red or mi.material_overlay != null
+	_check("at half his health his cleaver rots (flame, flies), he himself not red", b.raging
+			and b.get(&"_rot") != null and (b.get(&"_rot") as Node).get_child_count() >= 4 and not red)
 	await _done(a[0])
 
 
