@@ -98,9 +98,11 @@ static func build(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 		var at := (_kit.get_node("Islet%d" % k) as Node3D).position
 		_put(room, "Islet%d" % k, at)
 		_dress_islet(d, room, at, ISLET_R[k], k, rng, grow)
-	_falls(room, rng)
 	for ring in ["Curb", "Walk", "Edge"]:
-		_put(room, ring, Vector3.ZERO)
+		var piece := _put(room, ring, Vector3.ZERO)
+		if ring == "Walk":
+			(piece as MeshInstance3D).material_override = _cobble_mat()
+	_pebbles(d, room, rng, grow)
 	_paving(room)
 	_floor_and_wall(room)
 	# the columns, gapped for the shrine and the way in
@@ -158,7 +160,7 @@ static func build(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 		var a3 := rng.randf_range(0.0, TAU)
 		d._nature(room, "Rock_Medium_%d" % (1 + k3 % 3), Vector3(sin(a3) * 29.6, -0.2, cos(a3) * 29.6),
 				rng.randf_range(0.6, 1.1), rng.randf_range(0.0, TAU), false)
-	_clouds(room, rng)
+	_cloud_sea(room)
 
 
 static func _put(room: Node3D, piece: String, at: Vector3, yaw: float = 0.0, s: float = 1.0) -> Node3D:
@@ -230,6 +232,149 @@ static func _solid_round(n: Node3D, radius: float, height: float) -> void:
 	s.position.y = height * 0.5
 	body.add_child(s)
 	n.add_child(body)
+
+
+## The walk the columns stand on: the village's own cobbles (Poly Haven's,
+## as in the town), worn, with moss in the joints toward the grass (the
+## user's word, 2026-10-23: not a bare band; stones, pebbles on it).
+const COBBLE := """
+shader_type spatial;
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap, repeat_enable;
+uniform sampler2D rough_tex : filter_linear_mipmap, repeat_enable;
+uniform sampler2D noise : filter_linear_mipmap, repeat_enable;
+uniform float tiles = 0.42;
+varying vec3 wpos;
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 uv = wpos.xz * tiles;
+	vec3 c = texture(albedo_tex, uv).rgb;
+	float m = texture(noise, wpos.xz * 0.05).r;
+	float r = length(wpos.xz - (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xz);
+	float moss = smoothstep(0.55, 0.75, m + smoothstep(24.0, 27.2, r) * 0.25);
+	c = mix(c * vec3(0.95, 0.93, 0.9), c * vec3(0.55, 0.72, 0.38), moss * 0.7);
+	ALBEDO = c;
+	NORMAL_MAP = texture(normal_tex, uv).rgb;
+	NORMAL_MAP_DEPTH = 1.2;
+	ROUGHNESS = texture(rough_tex, uv).r;
+}
+"""
+
+static func _cobble_mat() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = COBBLE
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("albedo_tex", load("res://assets/village/ground/cobble_diff.jpg"))
+	m.set_shader_parameter("normal_tex", load("res://assets/village/ground/cobble_nor.jpg"))
+	m.set_shader_parameter("rough_tex", load("res://assets/village/ground/cobble_rough.jpg"))
+	var nt := NoiseTexture2D.new()
+	var fn := FastNoiseLite.new()
+	fn.frequency = 0.05
+	nt.noise = fn
+	nt.seamless = true
+	m.set_shader_parameter("noise", nt)
+	return m
+
+
+## Pebbles and loose stones strewn on the walk, more round the columns' feet.
+static func _pebbles(d: Dungeon, room: Node3D, rng: RandomNumberGenerator, grow: float) -> void:
+	var names := ["Pebble_Round_1", "Pebble_Round_2", "Pebble_Round_3", "Pebble_Round_4", "Pebble_Round_5",
+			"Pebble_Square_1", "Pebble_Square_2", "Pebble_Square_3", "Pebble_Square_4", "Pebble_Square_5",
+			"RockPath_Round_Small_1", "RockPath_Round_Small_2", "RockPath_Square_Small_1"]
+	for k in int(220.0 * grow):
+		var a := rng.randf_range(0.0, TAU)
+		var near_col := rng.randf() < 0.45
+		var rr := COLUMN_R + rng.randf_range(-1.6, 1.6) if near_col else rng.randf_range(22.5, 27.0)
+		if near_col:
+			a = roundf(a / (TAU / 32.0)) * (TAU / 32.0) + rng.randf_range(-0.05, 0.05)
+		var p := Vector3(sin(a) * rr, WALK_TOP - 0.02, cos(a) * rr)
+		if absf(p.x) < 3.0 and p.z > 21.0:
+			continue
+		d._nature(room, names[rng.randi_range(0, names.size() - 1)], p, rng.randf_range(0.7, 1.6),
+				rng.randf_range(0.0, TAU), false)
+
+
+## The sea of cloud all round (the user's word, 2026-10-23: not balls, cloud,
+## and clouds all round): one wide sheet, its top billowing (three noises in
+## the vertex shader, its normals from the same), white and warm on the tops,
+## blue-grey in the hollows, rising round the island so its rock goes down
+## into it, sinking toward the horizon, drifting slowly. Finer on Ultra.
+const CLOUD_SEA := """
+shader_type spatial;
+render_mode specular_disabled, cull_disabled, diffuse_lambert_wrap;
+uniform sampler2D n1 : filter_linear_mipmap, repeat_enable;
+uniform sampler2D n2 : filter_linear_mipmap, repeat_enable;
+uniform float amp = 12.0;
+uniform vec4 top_col : source_color = vec4(0.86, 0.84, 0.80, 1.0);
+uniform vec4 low_col : source_color = vec4(0.46, 0.51, 0.64, 1.0);
+varying float hgt;
+float h_at(vec2 p) {
+	float a = textureLod(n1, p * 0.0035 + vec2(TIME * 0.0012, 0.0), 0.0).r;
+	float b = textureLod(n2, p * 0.011 - vec2(0.0, TIME * 0.002), 0.0).r;
+	float c = textureLod(n2, p * 0.032 + vec2(TIME * 0.003, 0.0), 0.0).r;
+	return smoothstep(0.18, 0.92, a * 0.6 + b * 0.32 + c * 0.08);
+}
+void vertex() {
+	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float d = length(w.xz - (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xz);
+	float h = h_at(w.xz);
+	float near = 1.0 - smoothstep(35.0, 130.0, d);
+	float far = smoothstep(500.0, 1300.0, d);
+	// under the island itself it goes down out of sight, so it never shows through the floor
+	float under = 1.0 - smoothstep(29.0, 33.0, d);
+	VERTEX.y += h * amp + near * 5.0 - far * 40.0 - under * 30.0;
+	hgt = h;
+	float e = 6.0;
+	float hx = h_at(w.xz + vec2(e, 0.0));
+	float hz = h_at(w.xz + vec2(0.0, e));
+	NORMAL = normalize(vec3(-(hx - h) * amp / e, 1.0, -(hz - h) * amp / e));
+}
+void fragment() {
+	ALBEDO = mix(low_col.rgb, top_col.rgb, smoothstep(0.05, 0.85, hgt));
+	ROUGHNESS = 1.0;
+	RIM = 0.15;
+	RIM_TINT = 0.8;
+}
+"""
+
+static func _cloud_sea(room: Node3D) -> void:
+	var subdiv := 360
+	match Graphics.current:
+		Graphics.Level.LOW:
+			subdiv = 150
+		Graphics.Level.MEDIUM:
+			subdiv = 260
+		Graphics.Level.ULTRA:
+			subdiv = 520
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(1800.0, 1800.0)
+	pm.subdivide_width = subdiv
+	pm.subdivide_depth = subdiv
+	var sh := Shader.new()
+	sh.code = CLOUD_SEA
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	for pair: Array in [["n1", 0.012, 3], ["n2", 0.02, 9]]:
+		var nt := NoiseTexture2D.new()
+		var fn := FastNoiseLite.new()
+		fn.frequency = float(pair[1])
+		fn.seed = int(pair[2])
+		fn.fractal_octaves = 3
+		nt.noise = fn
+		nt.seamless = true
+		nt.width = 512
+		nt.height = 512
+		m.set_shader_parameter(String(pair[0]), nt)
+	var sea := MeshInstance3D.new()
+	sea.name = "CloudSea"
+	sea.mesh = pm
+	sea.material_override = m
+	sea.position.y = -15.0
+	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# the billows rise past the flat plane's box
+	sea.custom_aabb = AABB(Vector3(-900.0, -60.0, -900.0), Vector3(1800.0, 90.0, 1800.0))
+	room.add_child(sea)
 
 
 const CLOUD := """

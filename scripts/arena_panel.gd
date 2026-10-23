@@ -523,7 +523,7 @@ func call_up(path: String, boss: bool = false, where: Variant = null, props: Dic
 	_count += 1
 	body.name = "Arena_%s_%d" % [path.get_file().get_basename(), _count]
 	body.set("band", StringName("arena_%d" % _count))
-	body.set("camp_centre", Vector3(at.x, 0.0, at.z))
+	body.set("camp_centre", Vector3(at.x, at.y - 0.2, at.z))
 	body.position = at
 	body.rotation.y = atan2(-ahead.x, -ahead.z) + PI
 	for key: String in props:

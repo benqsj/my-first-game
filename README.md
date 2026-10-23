@@ -11023,7 +11023,15 @@ less hazy, more saturated air ([method Dungeon._place_look], "sky"), and the
 lands' far mountains ([PalaceVista]) hidden round it. No flat clover on the
 rim (it flickered on the grass it lay on). The arena panel (F1) calls
 creatures up on the floor the hero stands on, not at y 0.2 (nothing could be
-called up 160 m up).
+called up 160 m up). Round three: no falls of water; the
+clouds no longer balls but one sea of cloud all round ([method SkyTemple._cloud_sea]:
+a wide sheet billowing in its vertex shader, white tops and blue-grey hollows,
+rising round the rock and sinking to the horizon, finer by the setting); the
+columns grey stone; the walk they stand on the village's cobbles (Poly
+Haven's) with moss toward the grass and pebbles strewn on it, more at the
+columns' feet. Creatures the arena panel calls up there now fight: their
+camp centre was at y 0, 160 m under them, so the hero was always "out of
+reach" of their camp ([member Fighter.camp_centre] is measured in 3D).
 
 Round 8 (2026-10-20): no more than five of a place's creatures up at once
 (`Dungeon.AT_ONCE`); the rest wait hidden under the floor, and when those are
