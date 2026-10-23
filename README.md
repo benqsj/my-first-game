@@ -986,27 +986,37 @@ turn, `safe_haven.mp3` and `kind-of-year.mp3`.
 
 ## Graphics
 
-One setting, three positions. `Graphics` applies it to the viewport and to
+One setting, four positions. `Graphics` applies it to the viewport and to
 whatever scene is loaded, so it can be changed before a level exists and again
 from inside one; `Game` remembers it in `user://settings.cfg`. The enum's values
-are what is written there, so Medium went on the end (`LOW, HIGH, MEDIUM`) and
-`Graphics.ORDER` is the order the menus show them in.
+are what is written there, so Medium and then Ultra went on the end
+(`LOW, HIGH, MEDIUM, ULTRA`) and `Graphics.ORDER` is the order the menus show
+them in. Ultra (2026-10-23, the user's word: low on the M1, the full look on a
+Windows PC with an RTX 3060) is what a desktop card can afford on top of High;
+a first run on an NVIDIA RTX or an AMD RX 6000 or later starts on it
+(`Game.suggested_graphics`).
 
-| | High | Medium | Low |
-| --- | ---- | ------ | --- |
-| sun's shadow | 2 cascades, 95 m | **1 cascade, 55 m**, 2048 map | **off** |
-| shadow filter | soft low | soft very low | hard |
-| render scale | 1.0 | **0.85**, FSR | **0.7**, FSR |
-| at most this many pixels drawn (then FSR) | 2.4 M | 1.6 M | 1.0 M |
-| edges | SMAA | FXAA | none |
-| texture mipmap bias | 0 | 0 | **+1.0** — surfaces go soft |
-| SSAO | on | off | off |
-| glow | on | on | off |
-| fog | on | on | on |
-| how far anything in the lands is drawn (`REACH`) | 240 m | 180 m | 130 m |
-| grass: draw distance, LOD bias | 130 m, 0.06 | 95 m, 0.04 | 60 m, 0.02 |
-| wood and meadow plants | as laid out | 80 % of the distance | 60 % |
-| loose stones, people | 110 m, 80 m | 80 m, 60 m | 55 m, 45 m |
+| | Ultra | High | Medium | Low |
+| --- | ----- | ---- | ------ | --- |
+| sun's shadow | **4 cascades, 1.6× the reach**, 8192 map | 2 cascades, 95 m | **1 cascade, 55 m**, 2048 map | **off** |
+| lamps' shadow map | twice the project's | the project's | the project's | off |
+| shadow filter | **soft high** | soft low | soft very low | hard |
+| render scale | 1.0 | 1.0 | **0.85**, FSR | **0.7**, FSR |
+| at most this many pixels drawn (then FSR) | 8.3 M (4K) | 2.4 M | 1.6 M | 1.0 M |
+| edges | **4× MSAA** | SMAA | FXAA | none |
+| texture mipmap bias | 0 | 0 | 0 | **+1.0** — surfaces go soft |
+| SSAO | on, **full size, high** | on, half size | off | off |
+| SSIL (indirect light) | **on, full size, high** | off | off | off |
+| volumetric fog grid | **96** | 64 | 48 | off |
+| glow | on | on | on | off |
+| fog | on | on | on | on |
+| how far anything in the lands is drawn (`REACH`) | **380 m** | 240 m | 180 m | 130 m |
+| grass: draw distance, LOD bias | **190 m, 0.1** | 130 m, 0.06 | 95 m, 0.04 | 60 m, 0.02 |
+| wood and meadow plants | **150 %** of the distance | as laid out | 80 % | 60 % |
+| loose stones, people | **170 m, 120 m** | 110 m, 80 m | 80 m, 60 m | 55 m, 45 m |
+
+Ultra has not been measured on an RTX yet (none to hand); on the M1 it is
+for looking, not playing.
 
 High was 2× MSAA until September 2026. Over the wood and the pier that cost 3.5–4
 ms a frame on an M1 — most of the way from 60 fps to 50 — and SMAA gets the

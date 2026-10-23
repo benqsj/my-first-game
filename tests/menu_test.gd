@@ -316,9 +316,21 @@ func _check_graphics() -> void:
 	_check("and draws between the two", root.scaling_3d_scale > 0.75 and root.scaling_3d_scale < 1.0,
 			"%.2f" % root.scaling_3d_scale)
 
+	Graphics.apply(self, Graphics.Level.ULTRA)
+	await _wait(2)
+	_check("ultra keeps the shadows, in four cascades and further",
+			sun.shadow_enabled and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			and sun.directional_shadow_max_distance > 100.0,
+			"mode %d, %.0f m" % [sun.directional_shadow_mode, sun.directional_shadow_max_distance])
+	_check("and smooths the edges with 4x MSAA", root.msaa_3d == Viewport.MSAA_4X)
+	_check("and draws the grass further than high", grass == null or grass.draw_distance > 150.0,
+			"%.0f m" % (grass.draw_distance if grass != null else 0.0))
+	_check("the menus offer four settings", Graphics.ORDER.size() == 4 and Graphics.label(Graphics.Level.ULTRA) == "ULTRA")
+
 	# The setting survives being asked for again, which is what a menu does.
 	Graphics.apply(self, Graphics.Level.HIGH)
 	await _wait(2)
+	_check("high gives the MSAA back", root.msaa_3d == Viewport.MSAA_DISABLED)
 	_check("and it all comes back", sun.shadow_enabled
 			and is_equal_approx(root.scaling_3d_scale, 1.0)
 			and (grass == null or grass.draw_distance > 100.0))

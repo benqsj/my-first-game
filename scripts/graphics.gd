@@ -3,12 +3,17 @@ extends Object
 
 ## The graphics settings, and what each one actually does.
 ##
-## Three positions on one knob. **High** is the game as it was tuned; **Low** is
+## Four positions on one knob. **High** is the game as it was tuned; **Low** is
 ## the same game with everything that costs a lot and shows little turned off —
 ## and, where that is not enough, drawn smaller and sharpened back up, which is
 ## the honest way to buy frames on a machine that does not have them.
 ## **Medium** sits between: the sun still casts, but over a shorter reach and in
 ## one cascade, and the picture is drawn at 85% and brought up with FSR.
+## **Ultra** (the user's word, 2026-10-23: low on the M1, the full look on a
+## Windows PC with an RTX 3060) is High with what a desktop card can afford
+## on top: 4x MSAA, four sun cascades over a longer reach in a bigger map with
+## the softest filter, full-size ambient occlusion and indirect light, finer
+## volumetric fog, and things drawn further out.
 ##
 ## Measured on an M1 over six places on the map, a frame costs about 11–16 ms
 ## on High, 8–11 on Medium and 4–8 on Low; `tests/perf_tour.gd` takes those
@@ -23,33 +28,34 @@ enum Level {
 	LOW, ## Shadows off, half the pixels, blurred textures. For weak hardware.
 	HIGH, ## As designed.
 	MEDIUM, ## One short shadow cascade, 85% of the pixels, FSR.
+	ULTRA, ## High and more, for a desktop graphics card.
 }
 
 ## How the settings are offered, cheapest first.
-const ORDER: Array[Level] = [Level.LOW, Level.MEDIUM, Level.HIGH]
+const ORDER: Array[Level] = [Level.LOW, Level.MEDIUM, Level.HIGH, Level.ULTRA]
 
 ## Per setting, how far out small things are still drawn, as a share of what the
 ## level asked for (the wood's plants and the meadows' flowers, which carry their
 ## own ranges) or in metres (the loose stones and the people, which do not).
-const DETAIL_SCALE := {Level.LOW: 0.6, Level.MEDIUM: 0.8, Level.HIGH: 1.0}
-const STONE_RANGE := {Level.LOW: 55.0, Level.MEDIUM: 80.0, Level.HIGH: 110.0}
-const PEOPLE_RANGE := {Level.LOW: 45.0, Level.MEDIUM: 60.0, Level.HIGH: 80.0}
+const DETAIL_SCALE := {Level.LOW: 0.6, Level.MEDIUM: 0.8, Level.HIGH: 1.0, Level.ULTRA: 1.5}
+const STONE_RANGE := {Level.LOW: 55.0, Level.MEDIUM: 80.0, Level.HIGH: 110.0, Level.ULTRA: 170.0}
+const PEOPLE_RANGE := {Level.LOW: 45.0, Level.MEDIUM: 60.0, Level.HIGH: 80.0, Level.ULTRA: 120.0}
 ## How far anything that stands in the lands is drawn at all, per setting, in
 ## metres: the trees, the lands' places, the city. Past it the fog has the
 ## world (Looks thickened it to that end), and the ground, the water and the
 ## far mountains, which cost little, go on to the horizon. Before this the
 ## city and the villages were drawn right across the map: from the spawn,
 ## ~6 000 draw calls a frame.
-const REACH := {Level.LOW: 130.0, Level.MEDIUM: 180.0, Level.HIGH: 240.0}
+const REACH := {Level.LOW: 130.0, Level.MEDIUM: 180.0, Level.HIGH: 240.0, Level.ULTRA: 380.0}
 ## The most pixels the 3D picture is drawn with, per setting. A window is under
 ## it; the full screen of a Retina Mac is 7 million pixels, five times the
 ## 1600×900 window every figure in README was measured in, and is drawn
 ## smaller and brought up with FSR rather than at five times the cost.
-const PIXEL_BUDGET := {Level.LOW: 1.0e6, Level.MEDIUM: 1.6e6, Level.HIGH: 2.4e6}
+const PIXEL_BUDGET := {Level.LOW: 1.0e6, Level.MEDIUM: 1.6e6, Level.HIGH: 2.4e6, Level.ULTRA: 8.3e6}
 ## The grid the volumetric fog is worked out on, per setting (Godot's own is
 ## 64 × 64; it is off altogether on Low).
-const VFOG_SIZE := {Level.LOW: 32, Level.MEDIUM: 48, Level.HIGH: 64}
-const VFOG_DEPTH := {Level.LOW: 32, Level.MEDIUM: 48, Level.HIGH: 64}
+const VFOG_SIZE := {Level.LOW: 32, Level.MEDIUM: 48, Level.HIGH: 64, Level.ULTRA: 96}
+const VFOG_DEPTH := {Level.LOW: 32, Level.MEDIUM: 48, Level.HIGH: 64, Level.ULTRA: 96}
 ## The sun's shadow filter per setting (the project's own is SOFT_MEDIUM): one
 ## step softer on High and two on Medium, ~1.5 ms over the wood and the hamlet
 ## for an edge that is hard to tell apart in play.
@@ -57,7 +63,10 @@ const SHADOW_FILTER := {
 	Level.LOW: RenderingServer.SHADOW_QUALITY_HARD,
 	Level.MEDIUM: RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW,
 	Level.HIGH: RenderingServer.SHADOW_QUALITY_SOFT_LOW,
+	Level.ULTRA: RenderingServer.SHADOW_QUALITY_SOFT_HIGH,
 }
+## Ultra's sun reaches this much further than the level designed it to.
+const ULTRA_SHADOW_REACH := 1.6
 
 
 ## The name a menu shows for `level`.
@@ -67,6 +76,8 @@ static func label(level: Level) -> String:
 			return "LOW"
 		Level.MEDIUM:
 			return "MEDIUM"
+		Level.ULTRA:
+			return "ULTRA"
 	return "HIGH"
 
 
@@ -126,8 +137,10 @@ static func _apply_viewport(window: Window, level: Level) -> void:
 	# picture to scale), nothing on Low. High used to be 2x MSAA, which cost
 	# 3.5–4 ms a frame on an M1 over the wood and the pier — most of the gap to
 	# 60 fps — for edges SMAA gets nearly as clean for a fraction of a ms.
-	window.msaa_3d = Viewport.MSAA_DISABLED
+	window.msaa_3d = Viewport.MSAA_4X if level == Level.ULTRA else Viewport.MSAA_DISABLED
 	match level:
+		Level.ULTRA:
+			window.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 		Level.HIGH:
 			window.screen_space_aa = Viewport.SCREEN_SPACE_AA_SMAA
 		Level.MEDIUM:
@@ -137,6 +150,9 @@ static func _apply_viewport(window: Window, level: Level) -> void:
 	window.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if scale < 0.999 else Viewport.SCALING_3D_MODE_BILINEAR
 	window.scaling_3d_scale = scale
 	window.fsr_sharpness = 0.2
+	# the lamps' and braziers' shadows: Ultra a map twice the size
+	var lamp_atlas := int(ProjectSettings.get_setting("rendering/lights_and_shadows/positional_shadow/atlas_size", 4096))
+	window.positional_shadow_atlas_size = lamp_atlas * 2 if level == Level.ULTRA else lamp_atlas
 	window.texture_mipmap_bias = 1.0 if level == Level.LOW else 0.0
 	window.use_debanding = level != Level.LOW
 
@@ -151,7 +167,12 @@ static func _apply_lights(scene: Node, level: Level) -> void:
 	# Medium's one cascade has the whole shadow map to itself, so a 2048 map
 	# gives it what each of High's two cascades gets out of 4096, for a
 	# quarter of the pixels to fill (~0.5 ms over the wood and the orc camp).
-	RenderingServer.directional_shadow_atlas_set_size(2048 if level == Level.MEDIUM else 4096, true)
+	var atlas := 4096
+	if level == Level.MEDIUM:
+		atlas = 2048
+	elif level == Level.ULTRA:
+		atlas = 8192
+	RenderingServer.directional_shadow_atlas_set_size(atlas, true)
 	for node in scene.find_children("*", "Light3D", true, false):
 		var light := node as Light3D
 		# A light that says how it was made (meta `designed_shadow`) keeps a
@@ -171,6 +192,9 @@ static func _apply_lights(scene: Node, level: Level) -> void:
 		if level == Level.MEDIUM:
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			sun.directional_shadow_max_distance = 55.0
+		elif level == Level.ULTRA:
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			sun.directional_shadow_max_distance = float(sun.get_meta(&"designed_reach")) * ULTRA_SHADOW_REACH
 		else:
 			sun.directional_shadow_mode = sun.get_meta(&"designed_mode") as DirectionalLight3D.ShadowMode
 			sun.directional_shadow_max_distance = float(sun.get_meta(&"designed_reach"))
@@ -184,8 +208,8 @@ static func _apply_environment(scene: Node, level: Level) -> void:
 		var env := (node as WorldEnvironment).environment
 		if env == null:
 			continue
-		env.ssao_enabled = level == Level.HIGH
-		env.ssil_enabled = false
+		env.ssao_enabled = level == Level.HIGH or level == Level.ULTRA
+		env.ssil_enabled = level == Level.ULTRA
 		env.glow_enabled = level != Level.LOW
 		# On every setting now: past the setting's reach nothing is drawn, and
 		# the fog is what keeps that edge from being seen.
@@ -195,6 +219,15 @@ static func _apply_environment(scene: Node, level: Level) -> void:
 			env.volumetric_fog_enabled = false
 	# and on Medium drawn on a coarser grid, ~half the cells of High's
 	RenderingServer.environment_set_volumetric_fog_volume_size(VFOG_SIZE[level], VFOG_DEPTH[level])
+	# Ultra works the ambient occlusion and indirect light out at full size
+	# and at the better quality; the rest keep Godot's half-size medium.
+	var ultra := level == Level.ULTRA
+	RenderingServer.environment_set_ssao_quality(
+			RenderingServer.ENV_SSAO_QUALITY_HIGH if ultra else RenderingServer.ENV_SSAO_QUALITY_MEDIUM,
+			not ultra, 0.5, 2, 50.0, 300.0)
+	RenderingServer.environment_set_ssil_quality(
+			RenderingServer.ENV_SSIL_QUALITY_HIGH if ultra else RenderingServer.ENV_SSIL_QUALITY_MEDIUM,
+			not ultra, 0.5, 4, 50.0, 300.0)
 
 
 ## The grass is most of the cost of the world, and it already has the three
@@ -212,6 +245,9 @@ static func _apply_grass(scene: Node, level: Level) -> void:
 			Level.MEDIUM:
 				field.lod_bias = 0.04
 				field.draw_distance = 95.0
+			Level.ULTRA:
+				field.lod_bias = 0.1
+				field.draw_distance = 190.0
 			_:
 				field.lod_bias = 0.06
 				field.draw_distance = 130.0

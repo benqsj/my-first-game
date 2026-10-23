@@ -498,11 +498,14 @@ func set_display(key: String) -> void:
 	_save_settings()
 
 
-## The setting a first run starts on, by the graphics chip: High on Apple's
+## The setting a first run starts on, by the graphics chip: Ultra on a
+## desktop card (an NVIDIA RTX, an AMD RX 6000 or later), High on Apple's
 ## larger chips and anything after the M2, Medium on a base M1/M2 and on
 ## what is not known, Low on Intel's own graphics.
 static func suggested_graphics() -> Graphics.Level:
 	var chip := RenderingServer.get_video_adapter_name().to_lower()
+	if chip.contains("rtx") or chip.contains("rx 6") or chip.contains("rx 7") or chip.contains("rx 9"):
+		return Graphics.Level.ULTRA
 	if chip.contains("intel"):
 		return Graphics.Level.LOW
 	if chip.begins_with("apple m"):
