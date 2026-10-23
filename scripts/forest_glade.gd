@@ -25,16 +25,29 @@ const RUIN_S := 1.3
 const BEAM := """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
-uniform vec4 tint : source_color = vec4(1.0, 0.95, 0.7, 1.0);
+uniform vec4 tint : source_color = vec4(1.0, 0.9, 0.64, 1.0);
 uniform float strength = 0.16;
 uniform float seed = 0.0;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 void fragment() {
-	float across = 1.0 - abs(UV.x - 0.5) * 2.0;
-	float along = smoothstep(0.0, 0.3, UV.y) * smoothstep(1.0, 0.6, UV.y);
-	float pulse = 0.75 + 0.25 * sin(TIME * 0.35 + seed);
-	float near = smoothstep(2.0, 10.0, length(VERTEX));
+	// soft across, the brightest down the middle, with finer streaks of
+	// light in it that drift a little
+	float x = UV.x - 0.5;
+	float across = exp(-x * x * 9.0);
+	float streak = 0.72 + 0.28 * sin(UV.x * 21.0 + seed * 5.0 + TIME * 0.15) * sin(UV.x * 8.0 - seed + TIME * 0.07);
+	// fading out up into the leaves and down where it meets the ground
+	float along = smoothstep(0.0, 0.32, UV.y) * (1.0 - smoothstep(0.82, 1.0, UV.y));
+	float pulse = 0.82 + 0.18 * sin(TIME * 0.3 + seed);
+	// a plane seen edge on is a hard line: let it go as it turns away
+	float face = smoothstep(0.12, 0.55, abs(dot(normalize(NORMAL), normalize(VIEW))));
+	// soft where it goes into the ground or a stone, no seam
+	float d = texture(depth_tex, SCREEN_UV).r;
+	vec4 scene = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
+	scene.xyz /= scene.w;
+	float soft = clamp((VERTEX.z - scene.z) / 1.6, 0.0, 1.0);
+	float near = smoothstep(1.5, 9.0, length(VERTEX));
 	ALBEDO = tint.rgb;
-	ALPHA = pow(across, 1.8) * along * strength * pulse * near;
+	ALPHA = clamp(across * streak * along * pulse * face * soft * near * strength, 0.0, 1.0);
 }
 """
 
@@ -109,7 +122,7 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	_paving(room, rng)
 	_roof(room, rng, grow)
 	_dust(room)
-	_beams(room, rng)
+	_beams(d, room, rng)
 
 
 static func _on_ring(a: float, r: float) -> Vector3:
@@ -349,30 +362,37 @@ static func _dust(room: Node3D) -> void:
 
 
 ## Shafts of sun slanting down through the leaves into the clearing.
-static func _beams(room: Node3D, rng: RandomNumberGenerator) -> void:
+static func _beams(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	var sh := Shader.new()
 	sh.code = BEAM
-	for k in 7:
+	# along the light itself: the sun's bearing, high (the forest's look
+	# puts it at 60 degrees, [method Dungeon._place_look])
+	var yaw := d._sun.rotation.y if d._sun != null else d._sun_yaw
+	var e := deg_to_rad(60.0)
+	var to_sun := Vector3(sin(yaw) * cos(e), sin(e), cos(yaw) * cos(e)).normalized()
+	var side := to_sun.cross(Vector3.UP).normalized()
+	var tilt := Basis(side, to_sun, side.cross(to_sun).normalized())
+	var lit := 1.0 if Graphics.current == Graphics.Level.ULTRA else 1.6
+	for k in 8:
 		var m := ShaderMaterial.new()
 		m.shader = sh
 		m.set_shader_parameter("seed", float(k) * 1.7)
-		# (brighter where there is no volumetric fog to show the real shafts)
-		var lit := 1.0 if Graphics.current == Graphics.Level.ULTRA else 1.8
-		m.set_shader_parameter("strength", rng.randf_range(0.04, 0.08) * lit)
-		var width := rng.randf_range(2.0, 4.5)
-		var length := 36.0
-		var foot := _on_ring(rng.randf_range(0.0, TAU), rng.randf_range(0.0, RING_R * 0.8))
-		var tilt := Basis(Vector3.RIGHT, deg_to_rad(32.0)).rotated(Vector3.UP, deg_to_rad(-35.0))
+		m.set_shader_parameter("strength", rng.randf_range(0.04, 0.085) * lit)
+		var width := rng.randf_range(1.6, 4.2)
+		var length := 40.0
+		# down through the open middle of the roof, onto the clearing
+		var foot := _on_ring(rng.randf_range(0.0, TAU), rng.randf_range(0.0, RING_R * 0.75))
 		var holder := Node3D.new()
 		holder.transform = Transform3D(tilt, foot)
 		room.add_child(holder)
-		for q in 2:
+		# three planes round the shaft, so it is round from wherever seen
+		for q in 3:
 			var quad := MeshInstance3D.new()
 			var qm := QuadMesh.new()
 			qm.size = Vector2(width, length)
 			quad.mesh = qm
 			quad.material_override = m
 			quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			quad.position = Vector3(0.0, length * 0.5, 0.0)
-			quad.rotation.y = float(q) * PI * 0.5
+			quad.position = Vector3(0.0, length * 0.5 - 1.0, 0.0)
+			quad.rotation.y = float(q) * PI / 3.0
 			holder.add_child(quad)
