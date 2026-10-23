@@ -11734,6 +11734,19 @@ him from a little before the blow to a little after (measured,
 `_shots_tmp/spin_probe.gd`), so their windows are wider (`_blow_window_for`:
 0.22/0.22 s the high one, 0.35/0.22 s the low). A hero going round him at
 3 m, 5 m/s: 1 blow landed in 22 s before, 7 now (3 of them spins).
+**The user's seventh look (2026-10-23):** his cut was not the heroes' (their
+blades bend the air behind them) and its line sat off his blade. Now his
+[BladeArc] wears the bent air (`BladeArc.air`; before only an arc on a
+[SkinnedRig] did), along the cleaver's edge (`ARC_EDGE_Z`, its blade from
+38% to 97% up). Its line was a frame behind the blade
+(`_shots_tmp/arc_lag.gd`: newest sample 0.15 m off, the blade's step a frame
+0.17 m) — and so was every hero's (`_shots_tmp/hero_arc_lag.gd`: 0.30 m
+against a step of 0.36 m): a blade's markers ride a [BoneAttachment3D] on a
+figure posed off its rig's skeleton, which is posed only after every
+_process. [BladeArc] now samples once the skeleton its blade rides is posed
+(its `skeleton_updated`), the marker's place off its bone's pose as it is
+then (`_now`); the butcher steps his own (`manual`, `tick` from
+`_after_follow`), and his dust is judged there too. Both lags now 0.
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

@@ -95,7 +95,10 @@ enum Hook { NONE, OUT, PULL, BACK }
 ## The cut in the air his cleaver leaves, as the heroes' blades do (Tariel's
 ## look); drawn while its edge goes faster than this (m/s) in a blow.
 const ARC_STYLE := {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35, "smear": 1.0,
-		"tip_overshoot": 0.12}
+		"tip_overshoot": 0.04}
+## The cleaver's edge, in its own frame: its blade runs from the haft (z ~0)
+## out to z 0.365 (measured, `_shots_tmp/cleaver_aabb.gd`).
+const ARC_EDGE_Z := 0.3
 @export var arc_speed: float = 6.0
 ## In a string: his glide in under a blow at most this (m/s), and him this
 ## much further off than the next blow lands (m), the string is left off.
@@ -162,6 +165,11 @@ var _drip_in: float = 0.0
 ## Every peer: the cut in the air his cleaver leaves (the heroes' own), and
 ## where its edge was last frame (its speed; the dust where it meets the ground).
 var _arc: BladeArc
+var _arc_base: Node3D
+var _arc_tip: Node3D
+var _air_frame: int = -1
+var _arc_base_local: Vector3
+var _arc_tip_local: Vector3
 var _arc_last: Vector3 = Vector3.INF
 var _low_last: Vector3 = Vector3.INF
 var _dust_wait: float = 0.0
@@ -366,6 +374,13 @@ func _after_follow() -> void:
 	_fig_skel.set_bone_pose_rotation(_fig_hand, _fig_skel.get_bone_pose_rotation(_fig_hand) * _hand_twist)
 	for c: Array in _curls:
 		_fig_skel.set_bone_pose_rotation(int(c[0]), (c[1] as Quaternion) * (c[2] as Quaternion))
+	_place_arc()
+	# the cut and the dust off the blade as it is now posed (not a frame late)
+	if is_inside_tree() and Engine.get_process_frames() != _air_frame:
+		_air_frame = Engine.get_process_frames()
+		_cleaver_air(get_process_delta_time())
+		if _arc != null:
+			_arc.tick(get_process_delta_time())
 
 
 ## Blood on both faces of the blade and its edge, more than an orc's blade
@@ -391,19 +406,50 @@ func _bloody_cleaver(top: float, side: float) -> void:
 
 ## Every peer: the heroes' cut in the air (Tariel's look), along his blade.
 func _make_arc(top: float, side: float) -> void:
+	# along his blade's edge (its far side from the haft), where it is blade,
+	# not haft; placed each time his figure is posed ([method _place_arc]),
+	# not as children of the cleaver: those are where it was a frame ago (the
+	# user's word, 2026-10-23: the line was off the blade)
+	_arc_base_local = Vector3(0.0, top * 0.38, ARC_EDGE_Z)
+	_arc_tip_local = Vector3(0.0, top * 0.97, ARC_EDGE_Z)
 	var base := Marker3D.new()
-	base.position = Vector3(0.0, top * 0.3, side)
-	_cleaver.add_child(base)
+	base.top_level = true
+	add_child(base)
 	var tip := Marker3D.new()
-	tip.position = Vector3(0.0, top * 1.0, side)
-	_cleaver.add_child(tip)
+	tip.top_level = true
+	add_child(tip)
+	_arc_base = base
+	_arc_tip = tip
+	_place_arc()
 	_arc = BladeArc.new()
 	_arc.name = "CleaverArc"
+	# the bent air the heroes' cuts leave, not the plain streak
+	_arc.air = true
+	_arc.manual = true
 	add_child(_arc)
 	_arc.setup(base, tip)
 	for key: String in ARC_STYLE:
 		_arc.set(key, ARC_STYLE[key])
 	_arc.restyle()
+
+
+## Every peer: the cleaver as it is this frame, from the pose just set (its
+## node's own transform is still last frame's until the skeleton updates).
+func _cleaver_now() -> Transform3D:
+	if _cleaver == null or not is_instance_valid(_cleaver):
+		return Transform3D.IDENTITY
+	var grip := _cleaver.get_parent() as BoneAttachment3D
+	if grip == null or _fig_skel == null or grip.bone_idx < 0:
+		return _cleaver.global_transform
+	return _fig_skel.global_transform * _fig_skel.get_bone_global_pose(grip.bone_idx) * _cleaver.transform
+
+
+func _place_arc() -> void:
+	if _arc_base == null or _arc_tip == null:
+		return
+	var t := _cleaver_now()
+	_arc_base.global_position = t * _arc_base_local
+	_arc_tip.global_position = t * _arc_tip_local
 
 
 ## Every peer: the cut drawn while the cleaver swings hard in a blow; and
@@ -412,7 +458,7 @@ func _cleaver_air(delta: float) -> void:
 	_dust_wait = maxf(_dust_wait - delta, 0.0)
 	if _cleaver == null or not is_instance_valid(_cleaver) or delta <= 0.0:
 		return
-	var t := _cleaver.global_transform
+	var t := _cleaver_now()
 	var tip := t * _edge_to
 	var swinging := act != Act.NONE and _strikes().has(act) and not is_dead
 	var fast := _arc_last != Vector3.INF and tip.distance_to(_arc_last) / delta > arc_speed
@@ -847,7 +893,6 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	_drip(delta)
-	_cleaver_air(delta)
 	_draw_hook()
 #endregion
 

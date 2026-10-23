@@ -50,6 +50,15 @@ extends MeshInstance3D
 @export var smoke_color: Color = Color(0.52, 0.55, 0.62)
 
 var emitting: bool = false
+## The bent air (the heroes' cut) in place of the smear, for an arc not on a
+## [SkinnedRig] (a creature's blade).
+var air: bool = false
+## Stepped by its owner ([method tick]) once the blade is posed each frame,
+## not in its own _process (which comes before a skeleton driven off another
+## is posed: the arc a frame behind the blade).
+var manual: bool = false
+var _posed_by: Skeleton3D = null
+var _pending: float = 0.0
 
 const SHADER := preload("res://assets/fx/blade_arc.gdshader")
 
@@ -131,6 +140,32 @@ func setup(blade_base: Node3D, blade_tip: Node3D) -> void:
 	_tip = blade_tip
 
 
+## The bone the marker rides ([BoneAttachment3D]) and where on it the marker
+## sits: [attachment, offset from it]; empty if it rides none.
+func _held_by(n: Node3D) -> Array:
+	var off := Transform3D.IDENTITY
+	var at: Node = n
+	while at != null and at is Node3D:
+		if at is BoneAttachment3D:
+			return [at, off]
+		off = (at as Node3D).transform * off
+		at = at.get_parent()
+	return []
+
+
+## Where a marker is this frame: off its bone's pose as it is now, not its
+## node's transform (an attachment follows its bone only once the skeleton is
+## updated, after this has run: the arc a frame behind the blade).
+func _now(n: Node3D, hold: Array) -> Vector3:
+	if hold.is_empty() or not is_instance_valid(hold[0]):
+		return n.global_position
+	var att := hold[0] as BoneAttachment3D
+	var skel := att.get_skeleton()
+	if skel == null or att.bone_idx < 0 or att.use_external_skeleton:
+		return n.global_position
+	return (skel.global_transform * skel.get_bone_global_pose(att.bone_idx) * (hold[1] as Transform3D)).origin
+
+
 ## Puts the bent air on, in place of the smear, once.
 func _wear_air() -> void:
 	_air_worn = true
@@ -149,14 +184,57 @@ const AIR_KEYS := ["strength", "split", "rim", "haze", "seam", "wave"]
 
 
 func _process(delta: float) -> void:
+	if manual:
+		return
+	# Sampled once the skeleton its blade rides is posed this frame (its
+	# `skeleton_updated`), where there is one: before that, the blade's
+	# markers are where it was a frame ago (a figure posed off its rig's
+	# skeleton is posed after every _process).
+	var skel := _blade_skeleton()
+	if skel != _posed_by:
+		if _posed_by != null and is_instance_valid(_posed_by) and _posed_by.skeleton_updated.is_connected(_on_posed):
+			_posed_by.skeleton_updated.disconnect(_on_posed)
+		_posed_by = skel
+		if skel != null:
+			skel.skeleton_updated.connect(_on_posed)
+	if _posed_by == null:
+		_step(delta)
+	else:
+		_pending += delta
+
+
+func _on_posed() -> void:
+	if manual or not is_inside_tree():
+		return
+	_step(_pending)
+	_pending = 0.0
+
+
+func _blade_skeleton() -> Skeleton3D:
+	if _tip == null or not is_instance_valid(_tip):
+		return null
+	var hold := _held_by(_tip)
+	if hold.is_empty():
+		return null
+	return (hold[0] as BoneAttachment3D).get_skeleton()
+
+
+## Its owner's own beat ([member manual]): one frame of it, the blade where
+## it is now.
+func tick(delta: float) -> void:
+	_step(delta)
+
+
+func _step(delta: float) -> void:
 	if _base == null or _tip == null:
 		return
-	if not _air_worn and get_parent() is SkinnedRig:
+	if not _air_worn and (air or get_parent() is SkinnedRig):
 		_wear_air()
 	_clock += delta
 	if emitting:
-		var b := _base.global_position
-		var t := _tip.global_position
+		# (looked up each time: a rig may move its markers to another mount)
+		var b := _now(_base, _held_by(_base))
+		var t := _now(_tip, _held_by(_tip))
 		t += (t - b) * tip_overshoot
 		# The pose only changes on a physics tick, and frames can come faster
 		# than ticks (a fast display, or slowed time). A frame that finds the
