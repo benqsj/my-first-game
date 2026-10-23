@@ -42,10 +42,15 @@ uniform vec4 scum_tint : source_color = vec4(0.36, 0.46, 0.14, 1.0);
 // of a few crests running out and dying, shown only in how the surface
 // bends the light (no colour of its own)
 uniform vec4 drops[32];
+uniform int drop_count = 0;
 uniform float drop_speed = 1.3;
 // silt held in the water: muddy, not clear
 uniform vec4 silt : source_color = vec4(0.40, 0.33, 0.21, 1.0);
 uniform float silt_amount = 0.0;
+// mud on the surface itself, patchy, and a very little green (the user's
+// word, 2026-10-24: the surface muddier, textured, hardly any green)
+uniform sampler2D mud_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float mud_cover = 0.0;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -66,9 +71,9 @@ void fragment() {
 	float h0 = waves(p);
 	vec2 slope = vec2((h0 - waves(p + vec2(e, 0.0))) / e, (h0 - waves(p + vec2(0.0, e))) / e) * wave;
 	vec2 calm = slope;
-	for (int i = 0; i < 32; i++) {
+	float lift = 0.0;
+	for (int i = 0; i < drop_count; i++) {
 		vec4 dr = drops[i];
-		if (dr.w <= 0.0 || dr.z > 3.0) { continue; }
 		vec2 off = p - dr.xy;
 		float dist = length(off);
 		float front = dr.z * drop_speed;
@@ -77,9 +82,10 @@ void fragment() {
 		// a short packet of crests behind the front, fading as it spreads
 		float k = 7.0;
 		float g = exp(-x * x / 0.18) * step(x, 0.25);
-		float amp = dr.w * exp(-dr.z * 1.1) / (1.0 + dist * 0.8) * smoothstep(0.0, 0.35, dist);
+		float amp = dr.w * exp(-dr.z * 1.1 / max(1.0, dr.w * 0.6)) / (1.0 + dist * 0.8) * smoothstep(0.0, 0.35, dist);
 		float dh = amp * (k * cos(k * x) * g + sin(k * x) * g * (-2.0 * x / 0.18));
 		slope -= (off / max(dist, 0.001)) * dh * 0.32;
+		lift += amp * sin(k * x) * g;
 	}
 	// tipped too far the surface gives back the grass and the trees (green
 	// blots): the ripples may tilt it only so much
@@ -128,6 +134,22 @@ void fragment() {
 	film *= 0.75 + 0.25 * noise(p * 9.0);
 	ALBEDO = mix(ALBEDO, scum_tint.rgb * (0.8 + 0.4 * noise(p * 4.0)), film);
 	EMISSION *= 1.0 - film;
+	if (mud_cover > 0.0) {
+		vec3 mt = texture(mud_tex, p * 0.16).rgb;
+		float patch = smoothstep(0.3, 0.75, noise(p * 0.22) * 0.65 + noise(p * 0.9) * 0.35);
+		float cover = mud_cover * (0.45 + 0.55 * patch) * smoothstep(0.0, 0.05, thick);
+		float green = smoothstep(0.72, 0.9, noise(p * 0.5 + 17.0)) * 0.35;
+		vec3 muck = mix(mt * vec3(0.78, 0.72, 0.62), mt * vec3(0.55, 0.68, 0.40), green);
+		ALBEDO = mix(ALBEDO, muck, cover);
+		EMISSION *= 1.0 - cover * 0.75;
+		ROUGHNESS = mix(ROUGHNESS, 0.5, cover * 0.6);
+	}
+	// the ripples' crests a little lighter and wetter, their troughs darker,
+	// so they read on the muddy skin too
+	float lit = clamp(lift * 0.55, -0.3, 0.3);
+	ALBEDO *= 1.0 + lit;
+	EMISSION *= 1.0 + lit;
+	ROUGHNESS = clamp(ROUGHNESS - abs(lit) * 0.6, 0.02, 1.0);
 	ROUGHNESS = mix(ROUGHNESS, 0.85, film);
 	SPECULAR = mix(SPECULAR, 0.2, film);
 	ALPHA = smoothstep(0.0, 0.025, thick);
@@ -168,7 +190,7 @@ const LOOKS := {
 	# the user's pick (2026-10-23, round 3: trees 23, 24, 26, 27 of the
 	# gallery): the nature kit's round green trees over green murky water
 	"green": {"shallow": Color(0.48, 0.40, 0.26), "deep": Color(0.14, 0.11, 0.06), "clarity": 0.10,
-			"scum": 0.0, "gloss": 0.45, "mist": 0.3, "silt": 0.75,
+			"scum": 0.0, "gloss": 0.45, "mist": 0.3, "silt": 0.75, "mud": 0.6,
 			"near": [["CommonTree_1", 11.0, 1], ["CommonTree_2", 11.0, 1], ["CommonTree_4", 12.0, 1],
 					["CommonTree_5", 11.0, 1]],
 			"far": [["CommonTree_1", 14.0, 1], ["CommonTree_2", 14.0, 1], ["CommonTree_4", 15.0, 1],
@@ -254,6 +276,8 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	water.set_shader_parameter("scum", look["scum"])
 	water.set_shader_parameter("gloss", look["gloss"])
 	water.set_shader_parameter("silt_amount", look.get("silt", 0.0))
+	water.set_shader_parameter("mud_tex", d._photo_tex("mud"))
+	water.set_shader_parameter("mud_cover", look.get("mud", 0.0))
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(w + 16.0, l + 16.0)
 	var sheet := MeshInstance3D.new()
@@ -460,10 +484,16 @@ static func _place(room: Node3D, path: String, at: Vector3, yaw: float, s: float
 
 
 ## A tree of a look's list standing `h` metres tall.
-static func _tree(d: Dungeon, room: Node3D, spec: Array, at: Vector3, yaw: float, k: float, solid: bool) -> void:
+static func _tree(d: Dungeon, room: Node3D, spec: Array, at: Vector3, yaw: float, k: float, solid: bool,
+		poor: bool = false) -> void:
 	var key: String = spec[0]
 	var path := ""
-	if key.begins_with("CommonTree_Dead") or key.begins_with("Willow"):
+	# a tree not close to the fight: the poor copy (a seventh of the faces)
+	var far_key := key.replace("CommonTree_", "FarTree_")
+	if poor and key.begins_with("CommonTree_") and not key.begins_with("CommonTree_Dead") \
+			and ResourceLoader.exists(KIT % far_key):
+		path = KIT % far_key
+	elif key.begins_with("CommonTree_Dead") or key.begins_with("Willow"):
 		path = KIT % key
 	elif key.begins_with("DeadTree") or key.begins_with("Twisted") or key.begins_with("CommonTree"):
 		path = NAT % key
@@ -589,10 +619,10 @@ static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 						rng.randf_range(0.85, 1.15) + float(row) * 0.1, row == 0)
 	# the wood behind: many trees, cheap (the user's word, 2026-10-23: far
 	# off they can be poor, only so that looking out one is in a wood)
-	_far_wood(room, w, l, rng, look, int(380.0 * grow), 16.0, 95.0, 0.85, 1.3)
+	_far_wood(room, w, l, rng, look, int(260.0 * grow), 16.0, 95.0, 0.85, 1.3)
 	# and further, bigger: the wood closing the view all round (no plain
 	# and sky seen between the trunks)
-	_far_wood(room, w, l, rng, look, int(260.0 * grow), 90.0, 170.0, 1.6, 2.4)
+	_far_wood(room, w, l, rng, look, int(170.0 * grow), 90.0, 170.0, 1.6, 2.4)
 	# groves: a few trees standing close together here and there
 	for g in 7:
 		var a := rng.randf_range(0.0, TAU)
@@ -620,7 +650,9 @@ static func _far_wood(room: Node3D, w: float, l: float, rng: RandomNumberGenerat
 		(spots[kind] as Array).append(Transform3D(Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3.ONE * s), at))
 	for kind in kinds.size():
 		var spec: Array = kinds[kind]
-		var path := NAT % String(spec[0])
+		# the poor copies made for far off (vepxis-art/world/far_trees.py)
+		var far_key := String(spec[0]).replace("CommonTree_", "FarTree_")
+		var path := KIT % far_key if ResourceLoader.exists(KIT % far_key) else NAT % String(spec[0])
 		var sc: PackedScene = _scenes.get(path) as PackedScene
 		if sc == null:
 			if not ResourceLoader.exists(path):

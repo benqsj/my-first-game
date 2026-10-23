@@ -37,6 +37,9 @@ var _wake := {}
 var water: ShaderMaterial
 var _drops := PackedVector4Array()
 var _next_drop: int = 0
+var _live := PackedVector4Array()
+var _rolling := {}
+var _roll_drop := {}
 var _splashes: Array[GPUParticles3D] = []
 var _next_splash: int = 0
 
@@ -56,8 +59,13 @@ func _ready() -> void:
 			"damping": 0.5, "size": Vector2(0.03, 0.06), "grow": 0.0, "sphere": 0.12,
 			"colors": [Color(0.85, 0.9, 0.92, 0.0), Color(0.85, 0.9, 0.92, 0.55), Color(0.85, 0.9, 0.92, 0.0)],
 		})
-		p.emitting = false
+		# fired once now, out of sight under the ground, so its shaders are
+		# built at the room's making and not at the first step in the water
+		p.emitting = true
 		_splashes.append(p)
+	# the step sounds read now, not at the first step
+	for path in WADE + WET:
+		Sfx._stream(path)
 
 
 func _physics_process(delta: float) -> void:
@@ -111,6 +119,22 @@ func _hero(hero: Player, delta: float) -> void:
 	# the wake: a wave now and then while he runs in the pond
 	var vel := Vector3(hero.velocity.x, 0.0, hero.velocity.z)
 	var planar := vel.length()
+	# a roll through the water (the user's word, 2026-10-24): a big ring as he
+	# goes down into it, more along the roll, a bigger splash
+	var id3 := hero.get_instance_id()
+	var rolling := hero.state == Player.State.DASHING or hero.state == Player.State.DODGING \
+			or hero.net_state == Player.State.DASHING or hero.net_state == Player.State.DODGING
+	if rolling and depth > 0.008:
+		if not bool(_rolling.get(id3, false)):
+			_drop(hero.global_position, 2.6)
+			_splash(Vector3(at.x, y + 0.02, at.z), 1.0)
+			_roll_drop[id3] = 0.07
+		var rt: float = float(_roll_drop.get(id3, 0.07)) - delta
+		if rt <= 0.0:
+			rt = 0.07
+			_drop(hero.global_position, 1.7)
+		_roll_drop[id3] = rt
+	_rolling[id3] = rolling
 	# anywhere there is water to stir, the pond and the wet ground alike
 	if depth > 0.008 and planar > 1.0:
 		var id2 := hero.get_instance_id()
@@ -144,4 +168,12 @@ func _age(delta: float) -> void:
 				d = Vector4(0.0, 0.0, 99.0, 0.0)
 			_drops[i] = d
 	if water != null:
-		water.set_shader_parameter(&"drops", _drops)
+		# only the live ones, packed at the front: the water loops over just those
+		_live.clear()
+		for i in DROPS:
+			if _drops[i].z < 99.0:
+				_live.append(_drops[i])
+		var n := _live.size()
+		_live.resize(DROPS)
+		water.set_shader_parameter(&"drops", _live)
+		water.set_shader_parameter(&"drop_count", n)
