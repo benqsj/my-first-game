@@ -516,7 +516,9 @@ func call_up(path: String, boss: bool = false, where: Variant = null, props: Dic
 		ahead = (Vector3(0.0, 0.0, -12.0) - at)
 		ahead.y = 0.0
 		ahead = -ahead.normalized()
-	at.y = 0.2
+	# on the floor the hero stands on: the island in the sky is 160 m up
+	# (the user's word, 2026-10-23: nothing could be called up there)
+	at.y = hero.global_position.y + 0.2
 	var body := scene.instantiate() as Node3D
 	_count += 1
 	body.name = "Arena_%s_%d" % [path.get_file().get_basename(), _count]

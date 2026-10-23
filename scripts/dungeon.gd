@@ -3143,6 +3143,11 @@ func _place_look(night: float = 0.0) -> void:
 	if _env == null or rooms.is_empty() or current < 0 or current >= rooms.size():
 		return
 	var kind := String(_room(current).get("kind", ""))
+	# the lands' far mountains: not round the island in the sky, which is
+	# all cloud below (the user's word, 2026-10-23)
+	var lands := get_node_or_null(^"Vista") as Node3D
+	if lands != null:
+		lands.visible = kind != "sky"
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3161,6 +3166,16 @@ func _place_look(night: float = 0.0) -> void:
 			# the land's own air (the user's word, 2026-10-23: inside the
 			# portal, the colours of the world he left), no gold haze
 			_env.fog_light_color = _env.fog_light_color.lerp(gold, 0.05 * day)
+		"sky":
+			# a golden afternoon over the clouds, the colours kept (the
+			# user's word, 2026-10-23: everything too white, the colours lost)
+			_env.fog_density = 0.0009
+			_env.fog_light_color = _env.fog_light_color.lerp(Color(1.0, 0.86, 0.66), 0.35)
+			_env.adjustment_saturation = 1.18
+			_env.adjustment_contrast = 1.07
+			if _sun != null:
+				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.82, 0.58), 0.5)
+				_sun.light_energy *= 1.12
 		"crypt":
 			# the catacombs: cold grey stone, the candles' warmth in it, but
 			# a man still seen as he is (2026-10-23)

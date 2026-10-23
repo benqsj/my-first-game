@@ -11011,7 +11011,19 @@ models are `assets/dungeon/sky_temple/sky_temple.glb` from
 and made linear); the statue is the knight baked into one mesh
 (`statue.res`, `_shots_tmp/sky/bake_statue.gd`). The place is 56 m square
 only so its round floor fits; one round body is the floor, with an unseen
-wall round the rim at 28.6 m, the columns and the shrine solid.
+wall round the rim at 28.6 m, the columns and the shrine solid. Round two (the
+user's word, the same day): the feet stand on what is drawn (the floor is
+walk-high inside the kerb); the columns warm sandstone and the walk a cooler
+grey, so it is not all white; the clouds one MultiMesh of smooth balls, white
+on top and blue-grey under, in clusters thick under the rim and thinning far
+off (by the graphics setting); bigger islets with groves, bushes and broken
+columns; falls of water off the island's sides and the big islet; the statue
+the knight as he was (no helm), facing the arena; the place's own golden,
+less hazy, more saturated air ([method Dungeon._place_look], "sky"), and the
+lands' far mountains ([PalaceVista]) hidden round it. No flat clover on the
+rim (it flickered on the grass it lay on). The arena panel (F1) calls
+creatures up on the floor the hero stands on, not at y 0.2 (nothing could be
+called up 160 m up).
 
 Round 8 (2026-10-20): no more than five of a place's creatures up at once
 (`Dungeon.AT_ONCE`); the rest wait hidden under the floor, and when those are
