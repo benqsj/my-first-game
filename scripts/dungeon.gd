@@ -3197,10 +3197,11 @@ func _place_look(night: float = 0.0) -> void:
 			_env.volumetric_fog_length = 50.0
 			_env.volumetric_fog_ambient_inject = 0.1
 		"swamp":
-			# sickly, green: the poison swamps'
-			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.45, 0.55, 0.35), 0.6)
-			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.55, 0.62, 0.45), 0.45)
-			_env.fog_density = 0.004
+			# the user's pick (2026-10-23, "v1_village"): a bright day over a
+			# green mere, a breath of green in the haze
+			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.72, 0.82, 0.74), 0.35)
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.62, 0.70, 0.58), 0.25)
+			_env.fog_density = 0.0028
 		"mountain":
 			# the storm: dark, cold, the clouds down on the peaks
 			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.48, 0.52, 0.58), 0.4)
@@ -5744,75 +5745,11 @@ func _bones(room: Node3D, at: Vector3) -> void:
 	_deco(room, _bone_mat, skull, at + Vector3(0.0, 0.12, 0.0))
 
 
-## A swamp (the user's word: somewhere else again): dark mud and moss, pools of
-## still green water, dead trees and twisted roots, reeds and swamp grass, a
-## low sickly mist, frogs and the night's crickets.
+## A swamp: the user's pick (2026-10-23, concept "v1_village"), a bright
+## mossy clearing between clear pools in real hollows; [SwampMere] builds it.
 func _build_swamp(room: Node3D, i: int) -> void:
 	var r := _room(i)
-	var w: float = r["w"]
-	var l: float = r["l"]
-	var ground := _ground_mat()
-	# mud more than grass
-	ground.set_shader_parameter("grass_a", Color(0.11, 0.12, 0.07))
-	ground.set_shader_parameter("grass_b", Color(0.15, 0.15, 0.08))
-	ground.set_shader_parameter("earth", Color(0.13, 0.10, 0.07))
-	ground.set_shader_parameter("moss", Color(0.10, 0.14, 0.06))
-	ground.set_shader_parameter("leaves", Color(0.18, 0.13, 0.07))
-	ground.set_shader_parameter("path_amount", 0.0)
-	ground.set_shader_parameter("bare_from", 0.3)
-	ground.set_shader_parameter("mud", 1.0)
-	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
-	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
-	_bounds(room, w, l)
-	# pools of still water (the user's word, 2026-10-21: not that water):
-	# a few great ones, ragged at their edges, weed and duckweed on them
-	var spots: Array[Vector3] = [Vector3(-w * 0.24, 0.0, -l * 0.2), Vector3(w * 0.26, 0.0, -l * 0.05),
-			Vector3(-w * 0.18, 0.0, l * 0.18), Vector3(w * 0.12, 0.0, -l * 0.36), Vector3(w * 0.3, 0.0, l * 0.3)]
-	for at in spots:
-		PlaceBuild.pool(room, at + Vector3(_rng.randf_range(-2.0, 2.0), 0.03, _rng.randf_range(-2.0, 2.0)),
-				Vector2(_rng.randf_range(11.0, 16.0), _rng.randf_range(8.0, 12.0)), _rng.randf_range(0.0, TAU),
-				{"weed_amount": 0.18, "shine": 0.22, "deep": Color(0.02, 0.04, 0.035), "shallow": Color(0.09, 0.11, 0.07)})
-	# the dead wood round it, and inside
-	for ring in 2:
-		var out := 3.0 + float(ring) * 8.0
-		for side in 4:
-			var long := (l if side < 2 else w) + out * 2.0
-			var count := int(long / 7.0)
-			for k in count:
-				var along := -long * 0.5 + (float(k) + _rng.randf_range(0.1, 0.9)) * 7.0
-				var at := Vector3.ZERO
-				match side:
-					0: at = Vector3(-w * 0.5 - out, 0.0, along)
-					1: at = Vector3(w * 0.5 + out, 0.0, along)
-					2: at = Vector3(along, 0.0, -l * 0.5 - out)
-					_: at = Vector3(along, 0.0, l * 0.5 + out)
-				var name := "DeadTree_%d" % _rng.randi_range(1, 5) if _rng.randf() < 0.65 else "TwistedTree_%d" % _rng.randi_range(1, 5)
-				_nature(room, name, at, _rng.randf_range(1.1, 1.7), _rng.randf_range(0.0, TAU), ring == 0, true)
-	# behind the dead ones, green trees among bare: one or two green, then
-	# bare again (the user's word, 2026-10-23); nothing lying on the floor,
-	# no trees inside
-	for ring in 2:
-		var out := 19.0 + float(ring) * 8.0
-		var nth := 0
-		for side in 4:
-			var long := (l if side < 2 else w) + out * 2.0
-			var count := int(long / 8.0)
-			for k in count:
-				var along := -long * 0.5 + (float(k) + _rng.randf_range(0.15, 0.85)) * 8.0
-				var at := Vector3.ZERO
-				match side:
-					0: at = Vector3(-w * 0.5 - out, 0.0, along)
-					1: at = Vector3(w * 0.5 + out, 0.0, along)
-					2: at = Vector3(along, 0.0, -l * 0.5 - out)
-					_: at = Vector3(along, 0.0, l * 0.5 + out)
-				nth += 1
-				if nth % 3 != 0:
-					_nature(room, _a_green_tree(), at, _rng.randf_range(1.3, 1.9), _rng.randf_range(0.0, TAU), false)
-				else:
-					_nature(room, "DeadTree_%d" % _rng.randi_range(1, 5), at, _rng.randf_range(1.2, 1.7),
-							_rng.randf_range(0.0, TAU), false, true)
-	_mist(room, w, l, 0.25, Color(0.66, 0.72, 0.62), 0.24, 12)
-	_fireflies(room, w, l)
+	SwampMere.build(self, room, r["w"], r["l"], _rng)
 
 
 ## A mountain path in a storm (the user's word: a stormy mountain path):

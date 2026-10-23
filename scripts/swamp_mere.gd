@@ -1,0 +1,556 @@
+class_name SwampMere
+extends Object
+
+## The swamp as the user chose it (2026-10-23, after four rounds): a wood
+## of the nature kit's round green trees (gallery picks 23, 24, 26, 27) close
+## round the clearing and inside its sides, one deep still pond on one side
+## with only mud under it and a wet mud rim, wet ground (a skin of water over
+## mud) on the other, mossy stones on the pond's shore. No bushes, flowers or
+## plants in the water; mist only out among the trees, none where the fight
+## is; round fireflies. The middle is open.
+##
+## Other looks are kept in LOOKS ("emerald", "willow", "dead", "black") for
+## trying; `variant` picks one. Tried and dropped: image-to-3D trees
+## (Hunyuan3D-2 mini on the Mac, see vepxis-art/NOTES.md), cattails, lilies.
+
+## How far under the ground the water lies.
+const WATER_Y := -0.12
+## How deep the hollows go at their deepest.
+const DEPTH := 0.5
+## The ground's mesh and collision step.
+const STEP := 0.5
+
+const WATER := """
+shader_type spatial;
+render_mode blend_mix, depth_draw_always, cull_back, specular_schlick_ggx;
+// Clear still water in a hollow (the user's word, 2026-10-21/23: not baked
+// flat on the floor): what lies under it seen through it and bent a little,
+// greener where it is deeper, its edge soft where the mud comes up to it, a
+// breeze's small waves, the sky and the trees in it.
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
+uniform vec4 shallow : source_color = vec4(0.62, 0.80, 0.78, 1.0);
+uniform vec4 deep : source_color = vec4(0.10, 0.27, 0.28, 1.0);
+// metres of water before it is all deep colour
+uniform float clarity = 0.55;
+uniform float wave = 0.035;
+// how much of the sky it gives back
+uniform float gloss = 0.55;
+// a green film of duckweed and slime in patches on top (0 none)
+uniform float scum = 0.0;
+uniform vec4 scum_tint : source_color = vec4(0.36, 0.46, 0.14, 1.0);
+varying vec3 wpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float waves(vec2 p) {
+	return noise(p * 0.9 + vec2(TIME * 0.22, TIME * 0.13)) * 0.6
+			+ noise(p * 2.3 - vec2(TIME * 0.31, -TIME * 0.17)) * 0.3
+			+ noise(p * 5.7 + vec2(0.0, TIME * 0.5)) * 0.1;
+}
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = wpos.xz;
+	float e = 0.08;
+	float h0 = waves(p);
+	vec3 nw = normalize(vec3((h0 - waves(p + vec2(e, 0.0))) / e * wave, 1.0,
+			(h0 - waves(p + vec2(0.0, e))) / e * wave));
+	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	// how much water the eye looks through to the bottom
+	float zb = texture(depth_tex, SCREEN_UV).r;
+	vec4 b = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, zb, 1.0);
+	b.xyz /= b.w;
+	float thick = max(VERTEX.z - b.z, 0.0);
+	vec2 bent = SCREEN_UV + nw.xz * 0.04 * smoothstep(0.0, 0.4, thick);
+	// not bent onto what stands in front of the water
+	float zb2 = texture(depth_tex, bent).r;
+	vec4 b2 = INV_PROJECTION_MATRIX * vec4(bent * 2.0 - 1.0, zb2, 1.0);
+	b2.xyz /= b2.w;
+	if (b2.z > VERTEX.z) { bent = SCREEN_UV; }
+	vec3 under = textureLod(screen_tex, bent, 0.0).rgb;
+	float t = 1.0 - exp(-thick / clarity);
+	vec3 seen = under * mix(vec3(1.0), shallow.rgb, 0.45);
+	// the water's own colour lit as the rest; what lies under it already lit
+	ALBEDO = deep.rgb * t;
+	EMISSION = seen * (1.0 - t * 0.9);
+	ROUGHNESS = 0.02;
+	METALLIC = 0.0;
+	// more of the trees and the sky given back at a grazing look
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	EMISSION *= 1.0 - fres * 0.5;
+	SPECULAR = gloss;
+	// a thin pale line where it meets the mud
+	float lip = 1.0 - smoothstep(0.0, 0.05, thick);
+	EMISSION += vec3(0.75, 0.85, 0.82) * lip * 0.12;
+	// the film: drifting a little, thicker toward the shore
+	float f = noise(p * 0.32 + vec2(TIME * 0.004, 0.0)) * 0.7 + noise(p * 1.7) * 0.3;
+	float film = smoothstep(0.55, 0.72, f + (1.0 - smoothstep(0.0, 0.3, thick)) * 0.35) * scum
+			* (1.0 - smoothstep(0.15, 0.6, thick));
+	film *= 0.75 + 0.25 * noise(p * 9.0);
+	ALBEDO = mix(ALBEDO, scum_tint.rgb * (0.8 + 0.4 * noise(p * 4.0)), film);
+	EMISSION *= 1.0 - film;
+	ROUGHNESS = mix(ROUGHNESS, 0.85, film);
+	SPECULAR = mix(SPECULAR, 0.2, film);
+	ALPHA = smoothstep(0.0, 0.025, thick);
+}
+"""
+
+## The water in the room's own frame, as fractions of its width and length:
+## [x, z, half-width, half-length, yaw, depth share]. The user's word
+## (2026-10-23, round 4): one pond on one side, and on the other only wet
+## ground, a skin of water over the mud (depth share small).
+const POOLS := [
+	[-0.25, 0.02, 0.21, 0.40, 0.12, 1.0],
+	[0.25, 0.20, 0.16, 0.20, -0.25, 0.12],
+	[0.22, -0.22, 0.15, 0.15, 0.5, 0.12],
+	[0.33, -0.02, 0.08, 0.10, 0.0, 0.12],
+	[0.10, -0.40, 0.10, 0.06, 0.3, 0.12],
+]
+
+## The swamp's looks (2026-10-23, round 2: the user wanted no flowers or
+## grass in the water, a swamp's water colour, other trees). Set `variant`
+## before a build. Trees are [scene, height in metres, weight]; "bare" ones
+## lose their leaves.
+const EA := "res://Prefabs/Nature/Tree/EA03_Nature_Tree_%s_PRE.prefab.scn"
+const KIT := "res://assets/dungeon/swamp/kit/%s.glb"
+const NAT := "res://glTF/%s.gltf"
+const LOOKS := {
+	# the same trees over deep emerald water, still as a mirror
+	"emerald": {"shallow": Color(0.30, 0.46, 0.38), "deep": Color(0.02, 0.10, 0.08), "clarity": 0.20,
+			"scum": 0.0, "gloss": 0.9, "mist": 0.3,
+			"near": [["CommonTree_1", 11.0, 1], ["CommonTree_2", 11.0, 1], ["CommonTree_4", 12.0, 1],
+					["CommonTree_5", 11.0, 1]],
+			"far": [["CommonTree_1", 14.0, 1], ["CommonTree_2", 14.0, 1], ["CommonTree_4", 15.0, 1],
+					["CommonTree_5", 14.0, 1]]},
+	# the user's pick (2026-10-23, round 3: trees 23, 24, 26, 27 of the
+	# gallery): the nature kit's round green trees over green murky water
+	"green": {"shallow": Color(0.42, 0.40, 0.26), "deep": Color(0.05, 0.12, 0.08), "clarity": 0.20,
+			"scum": 0.0, "gloss": 0.7, "mist": 0.3,
+			"near": [["CommonTree_1", 11.0, 1], ["CommonTree_2", 11.0, 1], ["CommonTree_4", 12.0, 1],
+					["CommonTree_5", 11.0, 1]],
+			"far": [["CommonTree_1", 14.0, 1], ["CommonTree_2", 14.0, 1], ["CommonTree_4", 15.0, 1],
+					["CommonTree_5", 14.0, 1]]},
+	# weeping willows over green murky water with duckweed on it
+	"willow": {"shallow": Color(0.34, 0.40, 0.18), "deep": Color(0.09, 0.15, 0.06), "clarity": 0.16,
+			"scum": 0.6, "gloss": 0.35, "mist": 0.18,
+			"near": [["03b", 12.0, 3], ["03c", 12.0, 3], ["05a", 10.0, 2], ["DeadTree_1", 11.0, 1]],
+			"far": [["03b", 15.0, 2], ["03c", 15.0, 2], ["01b", 15.0, 1], ["02b", 15.0, 1]]},
+	# a drowned dead wood over brown tea water, stumps and fallen logs
+	"dead": {"shallow": Color(0.42, 0.32, 0.16), "deep": Color(0.16, 0.10, 0.04), "clarity": 0.12,
+			"scum": 0.0, "gloss": 0.22, "mist": 0.26,
+			"near": [["DeadTree_1", 12.0, 3], ["DeadTree_2", 11.0, 3], ["CommonTree_Dead_1", 10.0, 1],
+					["CommonTree_Dead_3", 10.0, 1], ["05a", 10.0, 1]],
+			"far": [["DeadTree_3", 15.0, 1], ["DeadTree_4", 15.0, 1], ["01b", 14.0, 1], ["02c", 14.0, 1]]},
+	# old gnarled trees and willows over still black water like a mirror
+	"black": {"shallow": Color(0.12, 0.14, 0.10), "deep": Color(0.02, 0.03, 0.02), "clarity": 0.08,
+			"scum": 0.15, "gloss": 0.45, "mist": 0.32,
+			"near": [["05a", 11.0, 3], ["03b", 12.0, 2], ["DeadTree_2", 12.0, 2], ["03c", 12.0, 1]],
+			"far": [["05a", 14.0, 2], ["03b", 15.0, 1], ["DeadTree_1", 15.0, 1], ["02b", 14.0, 1]]},
+}
+static var variant := "green"
+static var _scenes := {}
+static var _heights := {}
+static var _water_shader: Shader
+
+
+## Builds the swamp into `room`, `w` by `l` metres.
+static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator) -> void:
+	var grow := 1.0
+	match Graphics.current:
+		Graphics.Level.LOW:
+			grow = 0.5
+		Graphics.Level.MEDIUM:
+			grow = 0.75
+		Graphics.Level.ULTRA:
+			grow = 1.4
+	var pools := _pools(w, l)
+	var noise := FastNoiseLite.new()
+	noise.seed = rng.randi()
+	noise.frequency = 0.09
+	# the ground: bright moss and grass, mud in patches, the hollows in it
+	var ground := d._ground_mat()
+	ground.set_shader_parameter("grass_a", Color(0.24, 0.36, 0.07))
+	ground.set_shader_parameter("grass_b", Color(0.36, 0.48, 0.10))
+	ground.set_shader_parameter("earth", Color(0.25, 0.17, 0.09))
+	ground.set_shader_parameter("moss", Color(0.30, 0.44, 0.08))
+	ground.set_shader_parameter("leaves", Color(0.26, 0.20, 0.09))
+	ground.set_shader_parameter("path_amount", 0.0)
+	ground.set_shader_parameter("bare_from", 0.46)
+	ground.set_shader_parameter("mud", 1.0)
+	var gw := w + 44.0
+	var gl := l + 44.0
+	_ground(room, ground, gw, gl, pools, noise)
+	_mud_bed(d, room, gw, gl, pools, noise)
+	# the land on round it, flat, under the trees further off
+	var far := 160.0
+	for side in 4:
+		var size := Vector3(far, 1.0, gl) if side < 2 else Vector3(gw + far * 2.0, 1.0, far)
+		var at := Vector3((gw + far) * 0.5 * (-1.0 if side == 0 else 1.0), -0.5, 0.0) if side < 2 \
+				else Vector3(0.0, -0.5, (gl + far) * 0.5 * (-1.0 if side == 2 else 1.0))
+		d._solid(room, ground, size, at)
+	d._bounds(room, w, l)
+	# the water in each hollow
+	if _water_shader == null:
+		_water_shader = Shader.new()
+		_water_shader.code = WATER
+	var look: Dictionary = LOOKS.get(variant, LOOKS["green"])
+	var water := ShaderMaterial.new()
+	water.shader = _water_shader
+	water.set_shader_parameter("shallow", look["shallow"])
+	water.set_shader_parameter("deep", look["deep"])
+	water.set_shader_parameter("clarity", look["clarity"])
+	water.set_shader_parameter("scum", look["scum"])
+	water.set_shader_parameter("gloss", look["gloss"])
+	# the wet ground: a skin of clear water over the mud, the sky in it
+	var wet := ShaderMaterial.new()
+	wet.shader = _water_shader
+	wet.set_shader_parameter("shallow", Color(0.55, 0.50, 0.40))
+	wet.set_shader_parameter("deep", Color(0.20, 0.24, 0.16))
+	wet.set_shader_parameter("clarity", 1.6)
+	wet.set_shader_parameter("scum", 0.0)
+	wet.set_shader_parameter("gloss", 0.45)
+	for pl: Dictionary in pools:
+		var shallow_pool: bool = float(pl["depth"]) < 0.5
+		var plane := PlaneMesh.new()
+		var span: float = maxf(pl["a"], pl["b"]) * 2.0 + 3.0
+		plane.size = Vector2(span, span)
+		var m := MeshInstance3D.new()
+		m.mesh = plane
+		m.material_override = wet if shallow_pool else water
+		m.position = Vector3(pl["at"].x, -0.025 if shallow_pool else WATER_Y, pl["at"].y)
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		room.add_child(m)
+		if not shallow_pool:
+			_dress_pool(room, pl, rng, grow, pools, noise)
+	# the trees and the sky given back by the water
+	var probe := ReflectionProbe.new()
+	probe.size = Vector3(w + 30.0, 30.0, l + 30.0)
+	probe.position = Vector3(0.0, 2.0, 0.0)
+	probe.box_projection = false
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE
+	probe.max_distance = 120.0
+	room.add_child(probe)
+	_woods(d, room, w, l, rng, grow, look)
+	_inner_trees(d, room, w, l, rng, look, pools)
+	_outer_mist(room, w, l, rng, look["mist"])
+	d._fireflies(room, w, l)
+
+
+## The pools in metres, with their ragged edges' seeds.
+static func _pools(w: float, l: float) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for p: Array in POOLS:
+		out.append({"at": Vector2(p[0] * w, p[1] * l), "a": p[2] * w, "b": p[3] * l, "yaw": p[4],
+				"depth": p[5]})
+	return out
+
+
+## How far into a pool a point lies: 0 at its middle, 1 at its shore.
+static func _into(pl: Dictionary, x: float, z: float, noise: FastNoiseLite) -> float:
+	var dx := x - (pl["at"] as Vector2).x
+	var dz := z - (pl["at"] as Vector2).y
+	var c := cos(pl["yaw"] as float)
+	var s := sin(pl["yaw"] as float)
+	var u := (dx * c - dz * s) / (pl["a"] as float)
+	var v := (dx * s + dz * c) / (pl["b"] as float)
+	var r := sqrt(u * u + v * v)
+	return r + (noise.get_noise_2d(x, z) * 0.22 if noise != null else 0.0)
+
+
+## The ground's height: the hollows dug soft into it.
+static func _height(x: float, z: float, pools: Array[Dictionary], noise: FastNoiseLite) -> float:
+	var h := 0.0
+	for pl in pools:
+		var r := _into(pl, x, z, noise)
+		if r < 1.35:
+			h = minf(h, -DEPTH * float(pl["depth"]) * (1.0 - smoothstep(0.55, 1.3, r)))
+	return h
+
+
+static func _ground(room: Node3D, mat: Material, gw: float, gl: float, pools: Array[Dictionary],
+		noise: FastNoiseLite) -> void:
+	var nx := int(gw / STEP) + 1
+	var nz := int(gl / STEP) + 1
+	var heights := PackedFloat32Array()
+	heights.resize(nx * nz)
+	for k in nz:
+		for i in nx:
+			heights[k * nx + i] = _height(-gw * 0.5 + i * STEP, -gl * 0.5 + k * STEP, pools, noise)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in nz:
+		for i in nx:
+			st.add_vertex(Vector3(-gw * 0.5 + i * STEP, heights[k * nx + i], -gl * 0.5 + k * STEP))
+	for k in nz - 1:
+		for i in nx - 1:
+			var a := k * nx + i
+			st.add_index(a)
+			st.add_index(a + 1)
+			st.add_index(a + nx)
+			st.add_index(a + 1)
+			st.add_index(a + nx + 1)
+			st.add_index(a + nx)
+	st.generate_normals()
+	var body := StaticBody3D.new()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	body.add_child(mi)
+	var shape := CollisionShape3D.new()
+	var hm := HeightMapShape3D.new()
+	hm.map_width = nx
+	hm.map_depth = nz
+	hm.map_data = heights
+	shape.shape = hm
+	shape.scale = Vector3(STEP, 1.0, STEP)
+	# the heightmap stands round its middle sample
+	shape.position = Vector3((nx - 1) * STEP * 0.5 - gw * 0.5, 0.0, (nz - 1) * STEP * 0.5 - gl * 0.5)
+	body.add_child(shape)
+	room.add_child(body)
+
+
+## Under the water only mud and silt, never grass (the user's word,
+## 2026-10-23): a skin of dark wet mud a little over the ground in each
+## hollow and a little past the water's edge (a wet mud rim). Opaque, so
+## the water sees it through the screen texture.
+static func _mud_bed(d: Dungeon, room: Node3D, _gw: float, _gl: float, pools: Array[Dictionary],
+		noise: FastNoiseLite) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = d._photo_tex("mud")
+	mat.albedo_color = Color(0.46, 0.38, 0.27)
+	mat.normal_enabled = d._photo_tex("mud_nor") != null
+	mat.normal_texture = d._photo_tex("mud_nor")
+	mat.uv1_triplanar = true
+	mat.uv1_world_triplanar = true
+	mat.uv1_scale = Vector3.ONE * 0.22
+	mat.roughness = 0.35
+	# cut where the vertex share falls under a half: a smooth shore line
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step := STEP
+	for pl in pools:
+		var span: float = maxf(pl["a"], pl["b"]) * 1.45
+		var c: Vector2 = pl["at"]
+		var n := int(span * 2.0 / step) + 1
+		var x0 := c.x - span
+		var z0 := c.y - span
+		var pts: Array[Vector3] = []
+		var alp: Array[float] = []
+		for k in n:
+			for i in n:
+				var x := x0 + i * step
+				var z := z0 + k * step
+				var r := _into(pl, x, z, noise)
+				pts.append(Vector3(x, _height(x, z, pools, noise) + 0.012, z))
+				alp.append(1.0 - smoothstep(1.0, 1.2, r))
+		for k in n - 1:
+			for i in n - 1:
+				var a := k * n + i
+				var quad := [a, a + 1, a + n, a + 1, a + n + 1, a + n]
+				if alp[a] + alp[a + 1] + alp[a + n] + alp[a + n + 1] <= 0.0:
+					continue
+				for q: int in quad:
+					st.set_color(Color(1, 1, 1, alp[q]))
+					st.set_normal(Vector3.UP)
+					st.add_vertex(pts[q])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(mi)
+
+
+## A point on a pool's shore (r = 1) or in it (r < 1), in metres.
+static func _on(pl: Dictionary, ang: float, r: float) -> Vector3:
+	var c := cos(pl["yaw"] as float)
+	var s := sin(pl["yaw"] as float)
+	var u := cos(ang) * (pl["a"] as float) * r
+	var v := sin(ang) * (pl["b"] as float) * r
+	return Vector3((pl["at"] as Vector2).x + u * c + v * s, 0.0, (pl["at"] as Vector2).y - u * s + v * c)
+
+
+## A pool's shore: nothing growing in the water (the user's word), only
+## mossy stones and a stump at the edge.
+static func _dress_pool(room: Node3D, pl: Dictionary, rng: RandomNumberGenerator, grow: float,
+		pools: Array[Dictionary], noise: FastNoiseLite) -> void:
+	var size: float = pl["a"] + pl["b"]
+	for k in int(size * 0.35 * grow) + 2:
+		var at := _on(pl, rng.randf_range(0.0, TAU), rng.randf_range(0.92, 1.12))
+		at.y = _height(at.x, at.z, pools, noise) - 0.12
+		_place(room, KIT % ("Rock_Moss_%d" % rng.randi_range(1, 7)), at, rng.randf_range(0.0, TAU),
+				rng.randf_range(0.5, 1.4))
+	if rng.randf() < 0.7:
+		var at2 := _on(pl, rng.randf_range(0.0, TAU), 1.02)
+		at2.y = _height(at2.x, at2.z, pools, noise) - 0.1
+		_place(room, KIT % "TreeStump_Moss", at2, rng.randf_range(0.0, TAU), rng.randf_range(1.2, 1.7))
+
+
+## One of a kit's scenes put down whole.
+static func _place(room: Node3D, path: String, at: Vector3, yaw: float, s: float) -> Node3D:
+	var sc: PackedScene = _scenes.get(path) as PackedScene
+	if sc == null:
+		if not ResourceLoader.exists(path):
+			return null
+		sc = load(path) as PackedScene
+		_scenes[path] = sc
+	var n := sc.instantiate() as Node3D
+	n.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * s), at)
+	room.add_child(n)
+	return n
+
+
+## A tree of a look's list standing `h` metres tall.
+static func _tree(d: Dungeon, room: Node3D, spec: Array, at: Vector3, yaw: float, k: float, solid: bool) -> void:
+	var key: String = spec[0]
+	var path := ""
+	if key.begins_with("CommonTree_Dead") or key.begins_with("Willow"):
+		path = KIT % key
+	elif key.begins_with("DeadTree") or key.begins_with("Twisted") or key.begins_with("CommonTree"):
+		path = NAT % key
+	else:
+		path = EA % key
+	var n := _place(room, path, at, yaw, 1.0)
+	if n == null:
+		return
+	if not _heights.has(path):
+		var ab := AABB()
+		var first := true
+		for g in n.find_children("*", "VisualInstance3D", true, false):
+			var gi := g as VisualInstance3D
+			var bb: AABB = (n.global_transform.affine_inverse() * gi.global_transform) * gi.get_aabb()
+			ab = bb if first else ab.merge(bb)
+			first = false
+		_heights[path] = maxf(ab.end.y, 0.5)
+	n.scale = Vector3.ONE * (float(spec[1]) * k / float(_heights[path]))
+	if key.begins_with("DeadTree") or key.begins_with("CommonTree_Dead"):
+		d._strip_leaves(n)
+	for g in n.find_children("*", "GeometryInstance3D", true, false):
+		if not solid:
+			(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if solid:
+		_trunk(n)
+
+
+static func _pick(list: Array, rng: RandomNumberGenerator) -> Array:
+	var total := 0
+	for e: Array in list:
+		total += int(e[2])
+	var r := rng.randi_range(1, total)
+	for e: Array in list:
+		r -= int(e[2])
+		if r <= 0:
+			return e
+	return list[0]
+
+
+## The trees round the clearing, two rows of the look's near trees, its far
+## ones behind; round bushes at their feet.
+static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator, grow: float,
+		look: Dictionary) -> void:
+	# three rows close round the clearing, near one another (the user's word:
+	# more trees), no bushes or flowers under them
+	for row in 3:
+		var out := 2.5 + float(row) * 6.0
+		var step := 6.0 + float(row) * 1.2
+		for side in 4:
+			var long := (l if side < 2 else w) + out * 2.0
+			var n := int(long / step)
+			for k in n:
+				var along := -long * 0.5 + (float(k) + rng.randf_range(0.25, 0.75)) * step
+				var at := Vector3.ZERO
+				match side:
+					0: at = Vector3(-w * 0.5 - out, 0.0, along)
+					1: at = Vector3(w * 0.5 + out, 0.0, along)
+					2: at = Vector3(along, 0.0, -l * 0.5 - out)
+					_: at = Vector3(along, 0.0, l * 0.5 + out)
+				if side == 3 and absf(at.x) < 7.0 and row == 0:
+					continue
+				at += Vector3(rng.randf_range(-1.5, 1.5), 0.0, rng.randf_range(-1.5, 1.5))
+				_tree(d, room, _pick(look["near"], rng), at, rng.randf_range(0.0, TAU),
+						rng.randf_range(0.85, 1.15) + float(row) * 0.1, row == 0)
+	# the wood behind
+	for k in int(110.0 * grow):
+		var a := rng.randf_range(0.0, TAU)
+		var dist := rng.randf_range(1.0, 1.4)
+		var at2 := Vector3(sin(a) * (w * 0.5 + 22.0) * dist, 0.0, cos(a) * (l * 0.5 + 22.0) * dist)
+		_tree(d, room, _pick(look["far"], rng), at2, rng.randf_range(0.0, TAU), rng.randf_range(0.85, 1.2), false)
+
+
+## A wood's feel (the user's word, 2026-10-23): trees inside the clearing
+## too, along its sides a few metres in, never in the water, the middle open.
+static func _inner_trees(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator,
+		look: Dictionary, pools: Array[Dictionary]) -> void:
+	for side in 4:
+		var long := (l if side < 2 else w) - 6.0
+		var step := 7.0
+		for k in int(long / step):
+			var along := -long * 0.5 + (float(k) + rng.randf_range(0.2, 0.8)) * step
+			var inset := rng.randf_range(2.0, 5.5)
+			var at := Vector3.ZERO
+			match side:
+				0: at = Vector3(-w * 0.5 + inset, 0.0, along)
+				1: at = Vector3(w * 0.5 - inset, 0.0, along)
+				2: at = Vector3(along, 0.0, -l * 0.5 + inset)
+				_: at = Vector3(along, 0.0, l * 0.5 - inset)
+			if side == 3 and absf(at.x) < 8.0:
+				continue
+			var dry := true
+			for pl in pools:
+				if _into(pl, at.x, at.z, null) < 1.35:
+					dry = false
+			if dry:
+				_tree(d, room, _pick(look["near"], rng), at, rng.randf_range(0.0, TAU), rng.randf_range(0.8, 1.05), true)
+
+
+## Mist only out among the trees round the clearing (the user's word,
+## 2026-10-23: none inside, where the fight is): soft layered cards in a band
+## beyond the edges, a low one and a higher one, thicker further out.
+static func _outer_mist(room: Node3D, w: float, l: float, rng: RandomNumberGenerator, thick: float) -> void:
+	var mat := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = Dungeon.MIST_SHADER
+	mat.shader = sh
+	mat.set_shader_parameter("tint", Color(0.82, 0.87, 0.82))
+	mat.set_shader_parameter("thick", maxf(thick, 0.3) * 1.6)
+	var hw := w * 0.5
+	var hl := l * 0.5
+	for k in 46:
+		var side := k % 4
+		var t := rng.randf_range(-0.55, 0.55)
+		var out := rng.randf_range(5.0, 34.0)
+		var at := Vector3.ZERO
+		match side:
+			0: at = Vector3(-hw - out, 0.0, t * (l + 40.0))
+			1: at = Vector3(hw + out, 0.0, t * (l + 40.0))
+			2: at = Vector3(t * (w + 40.0), 0.0, -hl - out)
+			_: at = Vector3(t * (w + 40.0), 0.0, hl + out)
+		at.y = 0.05 + rng.randf_range(0.0, 0.3)
+		var m := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(rng.randf_range(16.0, 28.0), rng.randf_range(16.0, 28.0))
+		m.mesh = plane
+		m.material_override = mat
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		m.position = at
+		m.rotation.y = rng.randf_range(0.0, TAU)
+		room.add_child(m)
+
+
+## A trunk nobody walks through.
+static func _trunk(n: Node3D) -> void:
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var c := CylinderShape3D.new()
+	c.radius = 1.0
+	c.height = 8.0
+	shape.shape = c
+	shape.position.y = 4.0
+	body.add_child(shape)
+	n.add_child(body)
