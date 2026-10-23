@@ -114,7 +114,7 @@ const PLACES := {
 	"terrace": {"name": "ტერასა", "kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0},
 	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
 	"forest": {"name": "ტყე", "kind": "forest", "w": 70.0, "l": 78.0, "h": 0.0},
-	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 52.0, "l": 58.0, "h": 0.0, "lift": 160.0},
+	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
 	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
 	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
 	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
@@ -5358,7 +5358,7 @@ func _a_green_tree() -> String:
 
 
 ## The sea of cloud under the island: soft layers one over another.
-func _cloud_layers(room: Node3D) -> void:
+func _cloud_layers(room: Node3D, base: float = -78.0) -> void:
 	_cloud_layer_mats.clear()
 	var sh := Shader.new()
 	sh.code = CLOUD_LAYER_SHADER
@@ -5375,89 +5375,23 @@ func _cloud_layers(room: Node3D) -> void:
 		mat.set_shader_parameter("middle", Vector2(room.global_position.x, room.global_position.z))
 		m.material_override = mat
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		m.position = Vector3(0.0, -78.0 + float(k) * 7.0, 0.0)
+		m.position = Vector3(0.0, base + float(k) * (7.0 if base < -60.0 else 4.0), 0.0)
 		room.add_child(m)
 		_cloud_layer_mats.append(mat)
 	_apply_phase(_phase)
 
 
-## An island in the sky (the user's word: up in the sky; then, prettier,
-## without the clouds in front): an old paved floor on a great rock, grass and
-## flowers grown over its edges, trees on it, broken columns, a low wall round
-## it with gaps (unseen walls in them), little islands floating round with
-## trees of their own, birds, and a soft sea of cloud far under.
+## An island in the sky: a round temple arena on a floating rock over a sea of
+## cloud (the user's pick of the concept pictures, 2026-10-23; [SkyTemple]
+## builds it). The place is 56 m square only so that its round floor fits:
+## an unseen wall stands round the rim at 28.6 m.
 func _build_sky(room: Node3D, i: int) -> void:
 	var r := _room(i)
-	var w: float = r["w"]
-	var l: float = r["l"]
-	_solid(room, _floor_mat(i), Vector3(w + 6.0, 1.0, l + 6.0), Vector3(0.0, -0.5, 0.0))
-	# The rock it stands on, narrowing down to a point.
-	for k in 5:
-		var rock := _boulder(room, Vector3(_rng.randf_range(-6.0, 6.0), 0.0, _rng.randf_range(-8.0, 8.0)),
-				Vector3(w * (1.15 - float(k) * 0.18), 30.0 + float(k) * 12.0, l * (1.15 - float(k) * 0.18)),
-				_rng.randf_range(0.0, TAU), _rock_mat, false, false)
-		_hang(rock, -1.0 - float(k) * 6.0)
-	# grass over the rock's rim, round the floor
-	var lawn := _ground_mat()
-	for side in 4:
-		var along := w + 12.0 if side < 2 else l + 12.0
-		var strip := Vector3(along, 0.6, 5.0) if side < 2 else Vector3(5.0, 0.6, along)
-		var at := Vector3(0.0, -0.25, (l * 0.5 + 4.0) * (1.0 if side == 0 else -1.0)) if side < 2 \
-				else Vector3((w * 0.5 + 4.0) * (1.0 if side == 2 else -1.0), -0.25, 0.0)
-		_solid(room, lawn, strip, at, false)
-	_bounds(room, w, l)
-	for side: float in [-1.0, 1.0]:
-		_balustrade(room, Vector3(side * (w * 0.5 + 0.5), 0.0, 0.0), l + 2.0)
-		_balustrade_across(room, Vector3(0.0, 0.0, side * (l * 0.5 + 0.5)), w + 2.0)
-	for k in 6:
-		var x := (w * 0.5 - 4.0) * (1.0 if k % 2 == 0 else -1.0)
-		var z := -l * 0.35 + floorf(float(k) / 2.0) * l * 0.35
-		if k == 3:
-			_fallen_column(room, Vector3(x * 0.6, 0.0, z), 0.9)
-			continue
-		_column(room, i, Vector3(x, 0.0, z), _rng.randf_range(6.0, 10.0), 1.1)
-	_rubble_round(room, i, w, l)
-	# trees on the grass outside the wall, and bushes and flowers against it
-	for k in 10:
-		var side := k % 4
-		var at := Vector3(_rng.randf_range(-w * 0.5, w * 0.5), 0.0, (l * 0.5 + 4.0) * (1.0 if side == 0 else -1.0)) \
-				if side < 2 else Vector3((w * 0.5 + 4.0) * (1.0 if side == 2 else -1.0), 0.0, _rng.randf_range(-l * 0.5, l * 0.5))
-		# green ones only (the user's word, 2026-10-21: not the red trees)
-		_nature(room, _a_green_tree(), at, _rng.randf_range(1.0, 1.5), _rng.randf_range(0.0, TAU))
-	# soft grass on the rim outside the wall only; the floor left clean
-	for k in 40:
-		var x := _rng.randf_range(-w * 0.5 - 4.0, w * 0.5 + 4.0)
-		var z := _rng.randf_range(-l * 0.5 - 4.0, l * 0.5 + 4.0)
-		if absf(x) < w * 0.5 + 0.8 and absf(z) < l * 0.5 + 0.8:
-			continue
-		var bit: String = ["Grass_Wispy_Tall", "Grass_Common_Tall", "Fern_1", "Grass_Common_Short"][k % 4]
-		_nature(room, bit, Vector3(x, 0.0, z), _rng.randf_range(0.9, 1.4), _rng.randf_range(0.0, TAU), false)
-	# Little islands round about, each with its tree and its grass.
-	for k in 9:
-		var a := float(k) / 9.0 * TAU + _rng.randf_range(-0.2, 0.2)
-		var far := _rng.randf_range(70.0, 150.0)
-		var at := Vector3(sin(a) * far, _rng.randf_range(-30.0, 25.0), cos(a) * far)
-		var size := _rng.randf_range(8.0, 20.0)
-		var top := MeshInstance3D.new()
-		var disc := CylinderMesh.new()
-		disc.top_radius = size * 0.5
-		disc.bottom_radius = size * 0.42
-		disc.height = 1.2
-		disc.radial_segments = 10
-		top.mesh = disc
-		top.material_override = lawn
-		top.position = at
-		top.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		room.add_child(top)
-		var under := _boulder(room, at, Vector3(size * 0.95, size * 1.3, size * 0.95), _rng.randf_range(0.0, TAU), _rock_mat, false, false)
-		_hang(under, at.y - 0.4)
-		_nature(room, _a_green_tree(), at + Vector3(0.0, 0.6, 0.0), size * 0.12, _rng.randf_range(0.0, TAU), false)
-		for g in 4:
-			_nature(room, "Grass_Wispy_Tall", at + Vector3(_rng.randf_range(-size, size) * 0.3, 0.6,
-					_rng.randf_range(-size, size) * 0.3), 1.2, _rng.randf_range(0.0, TAU), false)
-	_cloud_layers(room)
+	SkyTemple.build(self, room, _rng)
+	# the sea of cloud close under the island, so nothing shows below it
+	_cloud_layers(room, -40.0)
 	_circling_birds(room)
-	_motes(room, w, l, 10.0)
+	_motes(room, float(r["w"]) * 0.7, float(r["l"]) * 0.7, 10.0)
 
 #endregion
 

@@ -10998,6 +10998,21 @@ birds round the island in the sky, blades left standing in the floor of the
 terrace and the lord's court; the orcs' drums far off in the palace, crickets
 at night, the crystals' hum, chains creaking, banners in the wind, an eagle.
 
+**The island in the sky** (2026-10-23, the user's pick among AI concept
+pictures: one's round temple floor, another's sea of cloud) is [SkyTemple]
+(`scripts/sky_temple.gd`): a round arena of old paving (one polar-tile shader:
+courses, carved bands, moss in the joints, cracks) on a red-brown faceted
+floating rock, a ring of ionic columns (some broken, torn red banners), a
+shrine with a knight in stone at the far end, grass and ferns on the rim
+(more of them on Ultra, fewer on Medium and Low), little islets round about,
+heaps of cloud below the rim and the sea of cloud raised close under it. The
+models are `assets/dungeon/sky_temple/sky_temple.glb` from
+`vepxis-art/world/sky_temple.py` (Blender, background; colours given as seen
+and made linear); the statue is the knight baked into one mesh
+(`statue.res`, `_shots_tmp/sky/bake_statue.gd`). The place is 56 m square
+only so its round floor fits; one round body is the floor, with an unseen
+wall round the rim at 28.6 m, the columns and the shrine solid.
+
 Round 8 (2026-10-20): no more than five of a place's creatures up at once
 (`Dungeon.AT_ONCE`); the rest wait hidden under the floor, and when those are
 down a red rift opens in the place's far half and the next wave comes out of
