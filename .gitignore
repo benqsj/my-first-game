@@ -16,3 +16,6 @@
 # A fan model looked at before buying a dragon: kept out of the history.
 /assets/monsters/smaug_preview/
 /scenes/enemies/smaug_preview.tscn
+
+# over GitHub's 100 MB limit (108 MB): kept on disk, out of git (2026-10-24)
+/assets/monsters/kingslayer/kingslayer.glb
