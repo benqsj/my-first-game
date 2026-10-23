@@ -826,61 +826,46 @@ func _rot_on() -> void:
 	holder.position = mid
 	_rot = holder
 	var blade_len := top * 0.32
-	# the green flame licking up the blade, on it as it swings (in its own
-	# frame), and a few tongues left behind in the air
+	# no flame (the user's word, 2026-10-23): a green reek steaming up off the
+	# blade — soft, slow, left in the air as it swings and rising there
 	SkillFx.particles(holder, holder.global_position, {
-		"amount": 120, "life": 0.45, "explosiveness": 0.0, "tex": SkillFx.flame(), "local": true,
-		"speed": Vector2(0.2, 0.55), "dir": Vector3.UP, "spread": 15.0, "gravity": Vector3(0, 1.2, 0),
-		"damping": 0.5, "size": Vector2(0.14, 0.26), "grow": 0.2, "box": Vector3(0.06, blade_len, 0.2),
-		"colors": [Color(0.85, 1.0, 0.4, 0.0), Color(0.45, 1.0, 0.15, 1.0), Color(0.12, 0.65, 0.05, 0.7),
-				Color(0.04, 0.3, 0.02, 0.0)],
+		"amount": 70, "life": 1.5, "add": false,
+		"speed": Vector2(0.1, 0.35), "dir": Vector3.UP, "spread": 30.0, "gravity": Vector3(0, 0.55, 0),
+		"damping": 0.8, "size": Vector2(0.22, 0.42), "grow": 0.55, "box": Vector3(0.05, blade_len, 0.18),
+		"colors": [Color(0.42, 0.62, 0.2, 0.0), Color(0.38, 0.6, 0.18, 0.42), Color(0.32, 0.48, 0.16, 0.22),
+				Color(0.28, 0.4, 0.14, 0.0)],
 	})
+	# ...and close on the blade itself, a thin steam that stays with it
 	SkillFx.particles(holder, holder.global_position, {
-		"amount": 24, "life": 0.35, "explosiveness": 0.0, "tex": SkillFx.flame(),
-		"speed": Vector2(0.2, 0.6), "dir": Vector3.UP, "spread": 25.0, "gravity": Vector3(0, 1.5, 0),
-		"damping": 1.0, "size": Vector2(0.07, 0.13), "grow": 0.2, "box": Vector3(0.05, blade_len, 0.16),
-		"colors": [Color(0.6, 1.0, 0.3, 0.0), Color(0.3, 0.9, 0.12, 0.7), Color(0.05, 0.3, 0.02, 0.0)],
+		"amount": 30, "life": 0.8, "add": false, "local": true,
+		"speed": Vector2(0.05, 0.2), "dir": Vector3.UP, "spread": 40.0, "gravity": Vector3.ZERO,
+		"damping": 0.5, "size": Vector2(0.15, 0.28), "grow": 0.5, "box": Vector3(0.05, blade_len, 0.16),
+		"colors": [Color(0.45, 0.68, 0.22, 0.0), Color(0.42, 0.66, 0.2, 0.35), Color(0.35, 0.55, 0.18, 0.0)],
 	})
-	# its reek: a sickly green haze going up off it, not bright
-	SkillFx.particles(holder, holder.global_position, {
-		"amount": 18, "life": 1.6, "add": false, "local": true,
-		"speed": Vector2(0.15, 0.45), "dir": Vector3.UP, "spread": 35.0, "gravity": Vector3(0, 0.35, 0),
-		"damping": 0.6, "size": Vector2(0.3, 0.6), "grow": 0.5, "box": Vector3(0.05, blade_len, 0.18),
-		"colors": [Color(0.4, 0.5, 0.2, 0.0), Color(0.35, 0.48, 0.18, 0.28), Color(0.3, 0.4, 0.15, 0.0)],
-	})
-	# flies, many, about it every way, keeping to it as it swings
+	# flies, a swarm, about it every way, keeping to it as it swings: bigger
+	# and black, to be seen
 	var flies := SkillFx.particles(holder, holder.global_position, {
-		"amount": 90, "life": 2.0, "add": false, "local": true,
-		"speed": Vector2(0.6, 1.4), "dir": Vector3.UP, "spread": 180.0, "gravity": Vector3.ZERO,
-		"damping": 0.0, "size": Vector2(0.03, 0.05), "grow": 0.05, "sphere": 0.5,
-		"orbit": -2.6, "tangent": 3.0,
-		"colors": [Color(0.04, 0.05, 0.03, 0.0), Color(0.04, 0.05, 0.03, 1.0), Color(0.04, 0.05, 0.03, 1.0),
-				Color(0.04, 0.05, 0.03, 0.0)],
+		"amount": 160, "life": 2.2, "add": false, "local": true,
+		"speed": Vector2(0.8, 1.8), "dir": Vector3.UP, "spread": 180.0, "gravity": Vector3.ZERO,
+		"damping": 0.0, "size": Vector2(0.05, 0.08), "grow": 0.05, "sphere": 0.6,
+		"orbit": -2.8, "tangent": 3.4,
+		"colors": [Color(0.02, 0.02, 0.015, 0.0), Color(0.02, 0.02, 0.015, 1.0), Color(0.02, 0.02, 0.015, 1.0),
+				Color(0.02, 0.02, 0.015, 0.0)],
 	})
 	var pm := flies.process_material as ParticleProcessMaterial
 	pm.turbulence_enabled = true
-	pm.turbulence_noise_strength = 3.0
-	pm.turbulence_noise_scale = 1.5
-	pm.turbulence_noise_speed = Vector3(0.6, 0.6, 0.6)
+	pm.turbulence_noise_strength = 3.5
+	pm.turbulence_noise_scale = 1.4
+	pm.turbulence_noise_speed = Vector3(0.8, 0.8, 0.8)
 	pm.turbulence_influence_min = 0.4
-	pm.turbulence_influence_max = 0.8
-	# a sick green light off it
-	var lamp := OmniLight3D.new()
-	lamp.light_color = Color(0.4, 1.0, 0.25)
-	# (small: the blade lit, not him gone green)
-	lamp.light_energy = 0.6
-	lamp.omni_range = 1.1
-	lamp.shadow_enabled = false
-	holder.add_child(lamp)
-	_rot_lamp = lamp
-	# the moment it takes: a puff of the green off it, no ring
+	pm.turbulence_influence_max = 0.85
+	# the moment it takes: a puff of the reek off it, no ring
 	SkillFx.particles(Blood.world_of(self), holder.global_position, {
-		"amount": 40, "life": 0.9, "one_shot": true, "explosiveness": 0.9, "tex": SkillFx.flame(),
-		"speed": Vector2(0.8, 2.4), "dir": Vector3.UP, "spread": 60.0, "gravity": Vector3(0, 1.5, 0),
-		"damping": 1.0, "size": Vector2(0.2, 0.4), "box": Vector3(0.05, blade_len, 0.2),
-		"colors": [Color(0.75, 1.0, 0.45, 0.0), Color(0.35, 0.95, 0.2, 0.9), Color(0.05, 0.25, 0.04, 0.0)],
+		"amount": 30, "life": 1.6, "one_shot": true, "explosiveness": 0.9, "add": false,
+		"speed": Vector2(0.4, 1.2), "dir": Vector3.UP, "spread": 70.0, "gravity": Vector3(0, 0.5, 0),
+		"damping": 1.2, "size": Vector2(0.35, 0.7), "grow": 0.5, "box": Vector3(0.05, blade_len, 0.2),
+		"colors": [Color(0.42, 0.62, 0.2, 0.0), Color(0.38, 0.6, 0.18, 0.5), Color(0.28, 0.4, 0.14, 0.0)],
 	})
-
 
 func _rot_off() -> void:
 	if _rot != null and is_instance_valid(_rot):

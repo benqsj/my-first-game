@@ -309,8 +309,8 @@ func _butcher_rot() -> void:
 	var red := false
 	for mi: MeshInstance3D in b.body.find_children("*", "MeshInstance3D", true, false):
 		red = red or mi.material_overlay != null
-	_check("at half his health his cleaver rots (flame, flies), he himself not red", b.raging
-			and b.get(&"_rot") != null and (b.get(&"_rot") as Node).get_child_count() >= 4 and not red)
+	_check("at half his health his cleaver rots (green reek, flies), he himself not red", b.raging
+			and b.get(&"_rot") != null and (b.get(&"_rot") as Node).get_child_count() >= 3 and not red)
 	await _done(a[0])
 
 

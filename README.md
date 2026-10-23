@@ -11787,10 +11787,10 @@ pace the others keep for their rage (`_always_fierce`: quicker on his feet
 and in his swings, `attack_cooldown` x0.4, his RAGE stop taken out of his
 moves; `slaughter`, `frenzy` and `butchery` his at any time). At half his
 health there is no stop to roar and no red on him (`_glow_on` empty): his
-blows land harder (`rage_harder` 1.35) and his cleaver rots (`_rot_on`) — a
-green flame up its blade (in the cleaver's own frame, so it stays on it),
-a reek, ninety flies going round it (turbulence on them), a small green
-light on the blade only.
+blows land harder (`rage_harder` 1.35) and his cleaver rots (`_rot_on`) — no
+flame (the user's word: smoke, not fire) but a green reek steaming up off its
+blade, left in the air as it swings, a thin steam that stays on it, and a
+swarm of 160 black flies going round it (turbulence on them).
 Standing still, his strings still missed (`_shots_tmp/miss_probe.gd`: each
 blow's moment, whether he was down, how far, the bearing; 31 swung, 22
 landed): some blows' moments were the wrist's fastest, not the cut, and some
