@@ -3156,6 +3156,7 @@ func _place_look(night: float = 0.0) -> void:
 	_env.volumetric_fog_enabled = false
 	if _sun != null:
 		_sun.light_volumetric_fog_energy = 1.0
+	_env.ssr_enabled = false
 	_env.fog_density = 0.0021
 	_env.fog_height_density = 0.0
 	_env.adjustment_contrast = 1.03
@@ -3225,12 +3226,12 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_light_color = Color(0.20, 0.27, 0.19)
 			_env.fog_density = 0.009
 			_env.fog_height = centre(current).y + 1.2
-			_env.fog_height_density = 0.03
+			_env.fog_height_density = 0.012
 			_env.fog_sky_affect = 0.6
 			_env.adjustment_contrast = 1.1
 			_env.adjustment_saturation = 1.04
 			_env.volumetric_fog_enabled = true
-			_env.volumetric_fog_density = 0.012
+			_env.volumetric_fog_density = 0.007
 			_env.volumetric_fog_albedo = Color(0.78, 0.88, 0.68)
 			if _sky_mat != null:
 				_sky_mat.set_shader_parameter("top_col", Color(0.16, 0.22, 0.15))
@@ -3239,6 +3240,11 @@ func _place_look(night: float = 0.0) -> void:
 			_env.volumetric_fog_anisotropy = 0.65
 			_env.volumetric_fog_length = 70.0
 			_env.volumetric_fog_ambient_inject = 0.12
+			# the trees in the puddles (High and Ultra)
+			_env.ssr_enabled = Graphics.current >= Graphics.Level.HIGH
+			_env.ssr_max_steps = 48
+			_env.ssr_fade_in = 0.15
+			_env.ssr_fade_out = 2.0
 			if _sun != null:
 				_sun.light_energy *= 1.15
 				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.93, 0.78), 0.5)
@@ -4866,9 +4872,7 @@ func _build_forest(room: Node3D, i: int) -> void:
 	var l: float = r["l"]
 	ForestGlade.build(self, room, w, l, _rng)
 	_crag_under(room, w + 110.0, l + 110.0, PalaceVista.DROP + 60.0, -1.0)
-	# mist lying on the glade in two soft layers, drifting (the user's word,
-	# 2026-10-23: pretty, and light to draw: sheets, no volumetric fog)
-	_mist(room, w, l, 0.35, Color(0.62, 0.70, 0.58), 0.16, 10)
+	# (no sheets of mist: the volumetric fog is the air here, 2026-10-23)
 	_falling_leaves(room, w, l)
 	_circling_birds(room)
 

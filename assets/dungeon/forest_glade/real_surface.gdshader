@@ -15,16 +15,18 @@ uniform float scale = 0.35;       // tiles per metre
 uniform float moss_scale = 0.25;
 uniform float moss_amount = 0.8;  // 0 none .. 1 lots
 uniform float moss_up = 0.45;     // how much a face must look up to get moss
-uniform float moss_low = 0.0;     // extra moss near the ground, under this height (world, above the floor)
-uniform float floor_y = 0.0;
+uniform float moss_low = 0.0;     // extra moss near the foot, under this height
 uniform float normal_depth = 1.0;
+uniform float patchy = 0.0;       // 1: moss in patches even on what faces up (the paving)
 
 varying vec3 wp;
 varying vec3 wn;
+varying float above;  // height over the piece's own foot
 
 void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	above = wp.y - MODEL_MATRIX[3].y;
 }
 
 vec3 tri_nb(vec3 n, vec3 bw, vec3 p, float s) {
@@ -72,8 +74,9 @@ void fragment() {
 	// moss: on what faces up, broken up by its own texture at a large scale
 	float var = texture(moss_col, wp.xz * 0.045).g;
 	float up = nw.y * 0.75 + n.y * 0.25;
-	float low = moss_low > 0.0 ? (1.0 - smoothstep(0.0, moss_low, wp.y - floor_y)) * 0.6 : 0.0;
+	float low = moss_low > 0.0 ? (1.0 - smoothstep(0.0, moss_low, above)) * 0.6 : 0.0;
 	float m = smoothstep(moss_up - 0.18, moss_up + 0.18, up + (var - 0.4) * 0.9 + low) * moss_amount;
+	m *= mix(1.0, smoothstep(0.3, 0.62, texture(moss_col, wp.xz * 0.09).g * 1.7), patchy);
 	vec3 mcol = TRI(moss_col, moss_scale).rgb * moss_tint.rgb;
 	vec3 mn = tri_nm(n, bw, wp, moss_scale);
 	col = mix(col, mcol, m);

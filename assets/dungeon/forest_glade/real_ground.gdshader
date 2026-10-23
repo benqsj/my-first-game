@@ -43,14 +43,14 @@ void fragment() {
 	float r = 0.92;
 	c = mix(c, texture(leaf_col, p * leaf_scale).rgb, leaf);
 	n = mix(n, nrm(leaf_nor, p * leaf_scale), leaf);
-	vec3 mc = texture(mud_col, p * mud_scale).rgb * vec3(0.72, 0.58, 0.44);
+	vec3 mc = texture(mud_col, p * mud_scale).rgb * vec3(0.6, 0.48, 0.36);
 	// puddles in the lowest of the mud
-	float wet = smoothstep(0.75, 0.9, a * 0.6 + b * 0.4 + worn * 0.15) * mud;
+	float wet = smoothstep(0.82, 0.95, a * 0.6 + b * 0.4 + worn * 0.15) * mud;
 	c = mix(c, mc, mud);
 	n = normalize(mix(n, nrm(mud_nor, p * mud_scale), mud));
 	n = normalize(mix(n, vec3(0.0, 0.0, 1.0), wet * 0.85));
 	r = mix(r, 0.42, mud);
-	r = mix(r, 0.06, wet);
+	r = mix(r, 0.14, wet);
 	c *= 1.0 - wet * 0.35;
 	ALBEDO = c;
 	ROUGHNESS = r;

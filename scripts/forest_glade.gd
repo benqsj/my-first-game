@@ -78,6 +78,35 @@ static func _leaves() -> ShaderMaterial:
 	return m
 
 
+static func _vines() -> ShaderMaterial:
+	if _mats.has("vines"):
+		return _mats["vines"]
+	var m := ShaderMaterial.new()
+	m.shader = load(DIR + "real_leaves.gdshader")
+	m.set_shader_parameter("leaves", load(DIR + "vines.png"))
+	m.set_shader_parameter("tint", Color(0.8, 0.9, 0.72))
+	m.set_shader_parameter("sway", 0.2)
+	_mats["vines"] = m
+	return m
+
+
+## The small mushrooms' caps: a warm orange that holds a little light of its
+## own in the dark under the trees (concept 3).
+static func _caps() -> StandardMaterial3D:
+	if _mats.has("caps"):
+		return _mats["caps"]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.86, 0.42, 0.14)
+	m.roughness = 0.45
+	m.emission_enabled = true
+	m.emission = Color(1.0, 0.45, 0.12)
+	m.emission_energy_multiplier = 0.35
+	m.rim_enabled = true
+	m.rim = 0.4
+	_mats["caps"] = m
+	return m
+
+
 static func _ground(w: float, l: float) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = load(DIR + "real_ground.gdshader")
@@ -87,7 +116,7 @@ static func _ground(w: float, l: float) -> ShaderMaterial:
 	m.set_shader_parameter("mud_nor", _tex("mud_forest_nor_gl"))
 	m.set_shader_parameter("leaf_col", _tex("forest_leaves_02_Diffuse"))
 	m.set_shader_parameter("leaf_nor", _tex("forest_leaves_02_nor_gl"))
-	m.set_shader_parameter("moss_tint", Color(0.55, 0.68, 0.42))
+	m.set_shader_parameter("moss_tint", Color(0.5, 0.62, 0.4))
 	var noise := FastNoiseLite.new()
 	noise.frequency = 0.012
 	noise.fractal_octaves = 3
@@ -139,8 +168,31 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 				rng.randf_range(1.0, 1.5), k > 10)
 	# the floor of the wood: scanned rocks, ferns, roots, stumps, logs
 	_props_round(room, rng, grow)
+	_paving(room, rng)
+	_shrooms(room, rng, grow)
 	_roof(room, rng, grow)
+	_dust(room)
 	_beams(room, rng)
+
+
+## What is left of the shrine's paving: strips of broken slabs round under
+## the arches, missing here and there, moss and earth between.
+static func _paving(room: Node3D, rng: RandomNumberGenerator) -> void:
+	var n := 15
+	for k in n:
+		if rng.randf() < 0.22:
+			continue
+		var a := float(k) / float(n) * TAU + rng.randf_range(-0.08, 0.08)
+		_piece(room, ["Flags0", "Flags1", "Flags2"][k % 3], _on_ring(a, RING_R - rng.randf_range(1.0, 3.0)),
+				a + rng.randf_range(-0.1, 0.1), rng.randf_range(0.95, 1.15))
+
+
+## Little orange mushrooms in the moss: at the oaks' feet and the ruins'.
+static func _shrooms(room: Node3D, rng: RandomNumberGenerator, grow: float) -> void:
+	for k in int(46.0 * grow):
+		var r := RING_R + rng.randf_range(-1.5, 10.0)
+		_piece(room, ["Shrooms0", "Shrooms1", "Shrooms2"][k % 3], _on_ring(rng.randf_range(0.0, TAU), r),
+				rng.randf_range(0.0, TAU), rng.randf_range(1.0, 2.2))
 
 
 ## The roof of leaves high over the clearing (concept 3 is dark under it):
@@ -191,7 +243,21 @@ static func _dress_kit() -> void:
 		for s in mesh.get_surface_count():
 			var mat := mesh.surface_get_material(s)
 			var mat_name := String(mat.resource_name) if mat != null else ""
+			if mi.name.begins_with("Flags"):
+				var f := _surface("mossy_stone_wall", 0.85, 0.42, Color(0.86, 0.85, 0.8), 0.0)
+				f.set_shader_parameter("patchy", 1.0)
+				mi.set_surface_override_material(s, f)
+				continue
 			match mat_name:
+				"Vines":
+					mi.set_surface_override_material(s, _vines())
+				"Cap":
+					mi.set_surface_override_material(s, _caps())
+				"Stem":
+					var st := StandardMaterial3D.new()
+					st.albedo_color = Color(0.78, 0.72, 0.6)
+					st.roughness = 0.8
+					mi.set_surface_override_material(s, st)
 				"Bark":
 					mi.set_surface_override_material(s, _surface("jolcham_oak_bark_01", 0.55, 0.32, Color(0.85, 0.8, 0.74), 2.5))
 				"Leaves":
@@ -311,9 +377,6 @@ static func _props_round(room: Node3D, rng: RandomNumberGenerator, grow: float) 
 		var r := RING_R + rng.randf_range(-4.0, 14.0) if k % 6 else rng.randf_range(RING_R * 0.6, RING_R - 3.0)
 		_place(room, "fern_02", _on_ring(rng.randf_range(0.0, TAU), r), rng.randf_range(0.0, TAU),
 				rng.randf_range(2.4, 3.8), false)
-	for k in int(40.0 * grow):
-		_place(room, ["moss_01", "nettle_plant"][k % 2], _on_ring(rng.randf_range(0.0, TAU),
-				RING_R + rng.randf_range(-2.0, 12.0)), rng.randf_range(0.0, TAU), rng.randf_range(1.6, 2.6), false)
 	# roots, stumps and a fallen trunk or two
 	for k in int(12.0 * grow):
 		_place(room, ["root_cluster_01", "root_cluster_02", "pine_roots", "single_root"][k % 4],
@@ -325,6 +388,59 @@ static func _props_round(room: Node3D, rng: RandomNumberGenerator, grow: float) 
 	for k in 2:
 		_place(room, "dead_tree_trunk", _on_ring(rng.randf_range(0.0, TAU), RING_R + rng.randf_range(4.0, 8.0)),
 				rng.randf_range(0.0, TAU), 1.4)
+
+
+## Dust and seed-fluff drifting in the air, catching the light: soft round
+## motes (a square one reads as a pixel, not a mote).
+static func _dust(room: Node3D) -> void:
+	var dust := GPUParticles3D.new()
+	dust.amount = 220
+	dust.lifetime = 16.0
+	dust.preprocess = 16.0
+	dust.position = Vector3(0.0, 4.5, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(RING_R * 0.85, 4.0, RING_R * 0.85)
+	pm.gravity = Vector3(0.0, -0.015, 0.0)
+	pm.initial_velocity_min = 0.02
+	pm.initial_velocity_max = 0.1
+	pm.spread = 180.0
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.35
+	pm.turbulence_noise_scale = 6.0
+	pm.scale_min = 0.5
+	pm.scale_max = 1.3
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1.0, 0.92, 0.7, 0.0))
+	fade.add_point(0.5, Color(1.0, 0.92, 0.7, 0.55))
+	fade.set_color(fade.get_point_count() - 1, Color(1.0, 0.92, 0.7, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	dust.process_material = pm
+	var dot := GradientTexture2D.new()
+	dot.width = 32
+	dot.height = 32
+	dot.fill = GradientTexture2D.FILL_RADIAL
+	dot.fill_from = Vector2(0.5, 0.5)
+	dot.fill_to = Vector2(0.5, 0.0)
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	dot.gradient = g
+	var q := QuadMesh.new()
+	q.size = Vector2(0.07, 0.07)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	qm.vertex_color_use_as_albedo = true
+	qm.albedo_texture = dot
+	q.material = qm
+	dust.draw_pass_1 = q
+	dust.visibility_aabb = AABB(Vector3(-RING_R, -6.0, -RING_R), Vector3(RING_R * 2.0, 12.0, RING_R * 2.0))
+	room.add_child(dust)
 
 
 ## Shafts of sun slanting down through the leaves into the clearing.
