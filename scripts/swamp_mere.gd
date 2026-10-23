@@ -9,6 +9,19 @@ extends Object
 ## plants in the water; mist only out among the trees, none where the fight
 ## is; round fireflies. The middle is open.
 ##
+## IF THE USER SAYS THE SWAMP STUTTERS (2026-10-24; the project doc
+## claude/swamp_room.md has the numbers): at Medium on an M1 the room is
+## ~20 ms a frame against the forest's ~10, spread over many parts. In order:
+## the far wood (_far_wood, ~3 ms), the reflection probe (~2 ms), the water
+## (~2 ms), the near trees' shadows (~2 ms), the mud bed under the pools
+## (~1.5 ms, _mud_skin covers it), the rain (_drizzle), the outer mist. Cutting
+## the first three on Medium was tried (19833160) and the user liked it less
+## (reverted): ask which setting he plays, cut on that setting only, show him.
+## Measure with _shots_tmp/swamp_ai/perf6.gd, nothing else running.
+## STILL TO DO: the water step sounds (sounds/water) are made in Python and
+## sound bad (the user's word): replace with real free recordings, asking
+## him before any download.
+##
 ## Other looks are kept in LOOKS ("emerald", "willow", "dead", "black") for
 ## trying; `variant` picks one. Tried and dropped: image-to-3D trees
 ## (Hunyuan3D-2 mini on the Mac, see vepxis-art/NOTES.md), cattails, lilies.
