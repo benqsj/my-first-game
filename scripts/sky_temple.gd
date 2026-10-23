@@ -1,6 +1,8 @@
 class_name SkyTemple
 extends Object
 
+## (No grass and no flowers on it: the user's word, 2026-10-23; ferns,
+## bushes and stones only.)
 ## The island in the sky as the user chose it (2026-10-23, from the concept
 ## pictures: the second's round temple floor, the first's sea of cloud): a
 ## round arena of old paving on a red-brown floating rock, a ring of ionic
@@ -122,7 +124,7 @@ static func build(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 		if k % 8 == 2 and piece == "Column":
 			_put(room, "Banner", dir * (COLUMN_R - 0.7) + Vector3(0.0, 6.1, 0.0), a + PI)
 		for j in int(roundf(2.0 * grow)):
-			d._nature(room, ["Fern_1", "Grass_Common_Tall", "Grass_Wispy_Tall"][(k + j) % 3],
+			d._nature(room, "Fern_1",
 					dir * (25.6 + float(j % 3) * 1.1) + Vector3(rng.randf_range(-0.6, 0.6), 0.13, rng.randf_range(-0.6, 0.6)),
 					rng.randf_range(0.8, 1.2), rng.randf_range(0.0, TAU), false)
 	# the shrine, its stairs down to the arena, the knight in it
@@ -148,13 +150,13 @@ static func build(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 		room.add_child(statue)
 	_put(room, "CliffStairs", Vector3(0.0, 0.0, 28.5), PI)
 	# grass, ferns and clover on the rim, a few rocks
-	for k2 in int(160.0 * grow):
+	for k2 in int(90.0 * grow):
 		var a2 := rng.randf_range(0.0, TAU)
 		var rr := rng.randf_range(27.9, 30.6)
 		var p2 := Vector3(sin(a2) * rr, 0.0, cos(a2) * rr)
 		if absf(p2.x) < 2.5 and p2.z > 26.0:
 			continue
-		d._nature(room, ["Grass_Common_Tall", "Grass_Wispy_Tall", "Fern_1", "Bush_Common", "Fern_1", "Grass_Wispy_Tall", "Flower_4_Group"][k2 % 7],
+		d._nature(room, ["Fern_1", "Bush_Common", "Fern_1"][k2 % 3],
 				p2, rng.randf_range(0.8, 1.3), rng.randf_range(0.0, TAU), false)
 	for k3 in 10:
 		var a3 := rng.randf_range(0.0, TAU)
@@ -471,7 +473,7 @@ static func _dress_islet(d: Dungeon, room: Node3D, at: Vector3, r: float, k: int
 	for b in int((4.0 + r) * grow):
 		var a := rng.randf_range(0.0, TAU)
 		var rr := rng.randf_range(0.2, 0.85) * r
-		d._nature(room, ["Bush_Common", "Bush_Common_Flowers", "Fern_1", "Grass_Wispy_Tall", "Grass_Common_Tall", "Flower_3_Group", "Flower_4_Group"][b % 7],
+		d._nature(room, ["Bush_Common", "Fern_1"][b % 2],
 				at + Vector3(sin(a) * rr, 0.0, cos(a) * rr), rng.randf_range(0.8, 1.3), rng.randf_range(0.0, TAU), false)
 	d._nature(room, "Rock_Medium_%d" % (1 + k % 3), at + Vector3(r * 0.5, -0.2, -r * 0.3), rng.randf_range(0.5, 0.9),
 			rng.randf_range(0.0, TAU), false)
