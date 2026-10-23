@@ -128,7 +128,7 @@ const LOOKS := {
 					["CommonTree_5", 14.0, 1]]},
 	# the user's pick (2026-10-23, round 3: trees 23, 24, 26, 27 of the
 	# gallery): the nature kit's round green trees over green murky water
-	"green": {"shallow": Color(0.42, 0.40, 0.26), "deep": Color(0.05, 0.12, 0.08), "clarity": 0.20,
+	"green": {"shallow": Color(0.42, 0.40, 0.26), "deep": Color(0.05, 0.12, 0.08), "clarity": 0.12,
 			"scum": 0.0, "gloss": 0.7, "mist": 0.3,
 			"near": [["CommonTree_1", 11.0, 1], ["CommonTree_2", 11.0, 1], ["CommonTree_4", 12.0, 1],
 					["CommonTree_5", 11.0, 1]],
@@ -152,6 +152,15 @@ const LOOKS := {
 			"far": [["05a", 14.0, 2], ["03b", 15.0, 1], ["DeadTree_1", 15.0, 1], ["02b", 14.0, 1]]},
 }
 static var variant := "green"
+## Whether this build's swamp has the soft rain (about half the time).
+static var raining := false
+## For pictures: -1 the dice, 0 never, 1 always.
+static var rain_force := -1
+## The trees' own colours made a little deeper and cooler for the swamp (the
+## user's word, 2026-10-23: the trees a little another colour).
+const LEAF_TINT := Color(0.66, 0.80, 0.62)
+const BARK_TINT := Color(0.72, 0.70, 0.68)
+static var _tinted := {}
 static var _scenes := {}
 static var _heights := {}
 static var _water_shader: Shader
@@ -237,7 +246,21 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	_woods(d, room, w, l, rng, grow, look)
 	_inner_trees(d, room, w, l, rng, look, pools)
 	_outer_mist(room, w, l, rng, look["mist"])
+	raining = rng.randf() < 0.5 if rain_force < 0 else rain_force == 1
+	if raining:
+		_drizzle(room, w, l)
 	d._fireflies(room, w, l)
+	# smaller (the user's word, 2026-10-23: the fireflies too big)
+	var ff := room.get_child(room.get_child_count() - 1) as GPUParticles3D
+	if ff != null and ff.draw_pass_1 is QuadMesh:
+		(ff.draw_pass_1 as QuadMesh).size = Vector2(0.09, 0.09)
+	# the water under the feet: slowed, splashing, a wake
+	var wade := SwampWade.new()
+	wade.name = "SwampWade"
+	wade.pools = pools
+	wade.noise = noise
+	wade.water_y = WATER_Y
+	room.add_child(wade)
 
 
 ## The pools in metres, with their ragged edges' seeds.
@@ -431,11 +454,70 @@ static func _tree(d: Dungeon, room: Node3D, spec: Array, at: Vector3, yaw: float
 	n.scale = Vector3.ONE * (float(spec[1]) * k / float(_heights[path]))
 	if key.begins_with("DeadTree") or key.begins_with("CommonTree_Dead"):
 		d._strip_leaves(n)
+	_tint(n)
 	for g in n.find_children("*", "GeometryInstance3D", true, false):
 		if not solid:
 			(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if solid:
 		_trunk(n)
+
+
+## Each surface's material swapped for a deeper, cooler copy (made once).
+static func _tint(n: Node3D) -> void:
+	for node in n.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for k in mi.mesh.get_surface_count():
+			var m := mi.get_active_material(k) as StandardMaterial3D
+			if m == null:
+				continue
+			var t: StandardMaterial3D = _tinted.get(m) as StandardMaterial3D
+			if t == null:
+				t = m.duplicate() as StandardMaterial3D
+				var leaf := m.resource_name.to_lower().contains("lea")
+				t.albedo_color = m.albedo_color * (LEAF_TINT if leaf else BARK_TINT)
+				_tinted[m] = t
+			mi.set_surface_override_material(k, t)
+
+
+## A soft rain: fewer, fainter streaks than the storm's.
+static func _drizzle(room: Node3D, w: float, l: float) -> void:
+	var p := GPUParticles3D.new()
+	var amount := 2200
+	match Graphics.current:
+		Graphics.Level.LOW:
+			amount = 900
+		Graphics.Level.ULTRA:
+			amount = 3400
+	p.amount = amount
+	p.lifetime = 1.2
+	p.position = Vector3(0.0, 20.0, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(w * 0.75, 1.0, l * 0.75)
+	pm.direction = Vector3(0.08, -1.0, 0.04)
+	pm.spread = 2.0
+	pm.initial_velocity_min = 16.0
+	pm.initial_velocity_max = 20.0
+	pm.scale_min = 0.5
+	pm.scale_max = 1.0
+	pm.gravity = Vector3(0.0, -9.0, 0.0)
+	pm.particle_flag_align_y = true
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.025, 0.7)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.albedo_color = Color(0.80, 0.85, 0.90, 0.16)
+	qm.albedo_texture = PlaceBuild.streak()
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.billboard_keep_scale = true
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-w, -30, -l), Vector3(w * 2.0, 40.0, l * 2.0))
+	room.add_child(p)
 
 
 static func _pick(list: Array, rng: RandomNumberGenerator) -> Array:
@@ -475,12 +557,68 @@ static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 				at += Vector3(rng.randf_range(-1.5, 1.5), 0.0, rng.randf_range(-1.5, 1.5))
 				_tree(d, room, _pick(look["near"], rng), at, rng.randf_range(0.0, TAU),
 						rng.randf_range(0.85, 1.15) + float(row) * 0.1, row == 0)
-	# the wood behind
-	for k in int(110.0 * grow):
+	# the wood behind: many trees, cheap (the user's word, 2026-10-23: far
+	# off they can be poor, only so that looking out one is in a wood)
+	_far_wood(room, w, l, rng, look, int(380.0 * grow))
+
+
+## Trees far out drawn as one MultiMesh per kind and part: no shadows, no
+## collision, the engine's own LODs, gone past `fade` metres.
+static func _far_wood(room: Node3D, w: float, l: float, rng: RandomNumberGenerator, look: Dictionary,
+		count: int) -> void:
+	var kinds: Array = look["far"]
+	var spots := []
+	for k in kinds.size():
+		spots.append([])
+	for k in count:
 		var a := rng.randf_range(0.0, TAU)
-		var dist := rng.randf_range(1.0, 1.4)
-		var at2 := Vector3(sin(a) * (w * 0.5 + 22.0) * dist, 0.0, cos(a) * (l * 0.5 + 22.0) * dist)
-		_tree(d, room, _pick(look["far"], rng), at2, rng.randf_range(0.0, TAU), rng.randf_range(0.85, 1.2), false)
+		var out := rng.randf_range(16.0, 95.0)
+		var at := Vector3(sin(a) * (w * 0.5 + out), 0.0, cos(a) * (l * 0.5 + out))
+		var kind := rng.randi_range(0, kinds.size() - 1)
+		var s := rng.randf_range(0.85, 1.3)
+		(spots[kind] as Array).append(Transform3D(Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3.ONE * s), at))
+	for kind in kinds.size():
+		var spec: Array = kinds[kind]
+		var path := NAT % String(spec[0])
+		var sc: PackedScene = _scenes.get(path) as PackedScene
+		if sc == null:
+			if not ResourceLoader.exists(path):
+				continue
+			sc = load(path) as PackedScene
+			_scenes[path] = sc
+		var src := sc.instantiate() as Node3D
+		_tint(src)
+		var ab := AABB()
+		var first := true
+		for g in src.find_children("*", "MeshInstance3D", true, false):
+			var gi := g as MeshInstance3D
+			var bb: AABB = gi.transform * gi.get_aabb()
+			ab = bb if first else ab.merge(bb)
+			first = false
+		var base := float(spec[1]) / maxf(ab.end.y, 0.5)
+		for g in src.find_children("*", "MeshInstance3D", true, false):
+			var gi := g as MeshInstance3D
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.mesh = gi.mesh
+			var list: Array = spots[kind]
+			mm.instance_count = list.size()
+			for i in list.size():
+				var t: Transform3D = list[i]
+				mm.set_instance_transform(i, Transform3D(t.basis.scaled(Vector3.ONE * base), t.origin) * gi.transform)
+			# the tinted materials ride on a copy of the mesh's surfaces
+			var tinted := gi.mesh.duplicate() as ArrayMesh
+			if tinted != null:
+				for k in tinted.get_surface_count():
+					var mat := gi.get_active_material(k)
+					if mat != null:
+						tinted.surface_set_material(k, mat)
+				mm.mesh = tinted
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			room.add_child(mmi)
+		src.free()
 
 
 ## A wood's feel (the user's word, 2026-10-23): trees inside the clearing

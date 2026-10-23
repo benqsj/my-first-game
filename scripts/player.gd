@@ -461,6 +461,11 @@ var rig: CharacterRig
 var _smoother: VisualSmoother
 ## Footfall sounds off the rig's feet (`Footsteps`); null on a rig with no skeleton.
 var footsteps: Footsteps
+## How deep he stands in water, 0 (dry) to 1 (to the knee): set each frame by
+## whatever the water is ([SwampWade]); it slows him.
+var wade: float = 0.0
+## His pace at the deepest wade, as a share of what it would be.
+@export_range(0.2, 1.0) var wade_speed_scale: float = 0.62
 ## Who is being played. Taken from the Game autoload on spawn unless something
 ## has set it first, which is what the tests do.
 var profile: CharacterProfile
@@ -1391,6 +1396,10 @@ func _process_locomotion(delta: float) -> void:
 	var speed := walk_speed if walking else (run_speed * sprint_share if sprinting else jog_speed)
 	if _crouching:
 		speed = crouch_speed
+	# Water to the knee holds the legs back (the user's word, 2026-10-23:
+	# running through the swamp's water felt like dry ground).
+	if wade > 0.0:
+		speed *= lerpf(1.0, wade_speed_scale, clampf(wade, 0.0, 1.0))
 	# Nobody aims at a sprint. Holding the string costs most of the run, which is
 	# what makes choosing when to draw a decision rather than a formality.
 	if _drawing:

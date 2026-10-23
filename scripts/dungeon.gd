@@ -3197,11 +3197,20 @@ func _place_look(night: float = 0.0) -> void:
 			_env.volumetric_fog_length = 50.0
 			_env.volumetric_fog_ambient_inject = 0.1
 		"swamp":
-			# the user's pick (2026-10-23, "v1_village"): a bright day over a
-			# green mere, a breath of green in the haze
-			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.72, 0.82, 0.74), 0.35)
-			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.62, 0.70, 0.58), 0.25)
-			_env.fog_density = 0.0028
+			# a dim overcast wood over the mere (the user's word, 2026-10-23:
+			# everything too bright, a little darker), the village's colours kept
+			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.46, 0.52, 0.47), 0.55)
+			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.44, 0.52, 0.45), 0.45)
+			_env.ambient_light_energy *= 0.78
+			_env.fog_density = 0.004
+			_env.adjustment_saturation = 0.98
+			if _sky_mat != null:
+				_sky_mat.set_shader_parameter("cloud", 0.8)
+				_sky_mat.set_shader_parameter("top_col", Color(0.30, 0.36, 0.40))
+				_sky_mat.set_shader_parameter("hor_col", Color(0.52, 0.57, 0.58))
+			if _sun != null:
+				_sun.light_energy *= 0.6
+				_sun.light_color = _sun.light_color.lerp(Color(0.80, 0.86, 0.90), 0.4)
 		"mountain":
 			# the storm: dark, cold, the clouds down on the peaks
 			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.48, 0.52, 0.58), 0.4)
@@ -4638,6 +4647,8 @@ func _ambience(i: int) -> void:
 			parts = [["cave_loop.wav", -14.0]]
 		"swamp":
 			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
+			if SwampMere.raining:
+				parts.append(["rain_loop.wav", -17.0])
 			if night:
 				parts.append(["crickets_loop.wav", -15.0])
 		"mountain":
