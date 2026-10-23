@@ -451,7 +451,9 @@ static func _beams(room: Node3D, rng: RandomNumberGenerator) -> void:
 		var m := ShaderMaterial.new()
 		m.shader = sh
 		m.set_shader_parameter("seed", float(k) * 1.7)
-		m.set_shader_parameter("strength", rng.randf_range(0.04, 0.08))
+		# (brighter where there is no volumetric fog to show the real shafts)
+		var lit := 1.0 if Graphics.current == Graphics.Level.ULTRA else 1.8
+		m.set_shader_parameter("strength", rng.randf_range(0.04, 0.08) * lit)
 		var width := rng.randf_range(2.0, 4.5)
 		var length := 36.0
 		var foot := _on_ring(rng.randf_range(0.0, TAU), rng.randf_range(0.0, RING_R * 0.8))

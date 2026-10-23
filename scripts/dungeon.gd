@@ -3240,7 +3240,12 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_sky_affect = 0.6
 			_env.adjustment_contrast = 1.1
 			_env.adjustment_saturation = 1.04
-			_env.volumetric_fog_enabled = true
+			# the air you see the shafts in: on Ultra only (the user's word,
+			# 2026-10-23: it stuck on the Mac); below it the drawn shafts
+			# ([ForestGlade]) and a little more of the plain fog
+			_env.volumetric_fog_enabled = Graphics.current == Graphics.Level.ULTRA
+			if not _env.volumetric_fog_enabled:
+				_env.fog_density = 0.011
 			_env.volumetric_fog_density = 0.007
 			_env.volumetric_fog_albedo = Color(0.78, 0.88, 0.68)
 			if _sky_mat != null:
@@ -3250,8 +3255,8 @@ func _place_look(night: float = 0.0) -> void:
 			_env.volumetric_fog_anisotropy = 0.65
 			_env.volumetric_fog_length = 70.0
 			_env.volumetric_fog_ambient_inject = 0.12
-			# the trees in the puddles (High and Ultra)
-			_env.ssr_enabled = Graphics.current >= Graphics.Level.HIGH
+			# the trees in the puddles (Ultra)
+			_env.ssr_enabled = Graphics.current == Graphics.Level.ULTRA
 			_env.ssr_max_steps = 48
 			_env.ssr_fade_in = 0.15
 			_env.ssr_fade_out = 2.0
