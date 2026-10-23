@@ -162,7 +162,7 @@ void fragment() {
 ## not sink), and on the other wet ground, a skin of water over the mud
 ## filled out to its shores.
 const POOLS := [
-	[-0.25, 0.02, 0.21, 0.40, 0.12, 0.5],
+	[-0.25, 0.02, 0.21, 0.40, 0.12, 0.34],
 	[0.25, 0.10, 0.20, 0.33, -0.2, 0.24],
 	[0.24, -0.28, 0.18, 0.18, 0.5, 0.24],
 	[0.10, -0.42, 0.13, 0.08, 0.3, 0.24],
@@ -189,8 +189,8 @@ const LOOKS := {
 					["CommonTree_5", 14.0, 1]]},
 	# the user's pick (2026-10-23, round 3: trees 23, 24, 26, 27 of the
 	# gallery): the nature kit's round green trees over green murky water
-	"green": {"shallow": Color(0.48, 0.40, 0.26), "deep": Color(0.14, 0.11, 0.06), "clarity": 0.10,
-			"scum": 0.0, "gloss": 0.45, "mist": 0.3, "silt": 0.75, "mud": 0.6,
+	"green": {"shallow": Color(0.52, 0.45, 0.32), "deep": Color(0.16, 0.13, 0.08), "clarity": 0.28,
+			"scum": 0.0, "gloss": 0.45, "mist": 0.3, "silt": 0.3, "mud": 0.12,
 			"near": [["CommonTree_1", 11.0, 1], ["CommonTree_2", 11.0, 1], ["CommonTree_4", 12.0, 1],
 					["CommonTree_5", 11.0, 1]],
 			"far": [["CommonTree_1", 14.0, 1], ["CommonTree_2", 14.0, 1], ["CommonTree_4", 15.0, 1],
@@ -255,6 +255,7 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	var gl := l + 44.0
 	_ground(room, ground, gw, gl, pools, noise)
 	_mud_bed(d, room, gw, gl, pools, noise)
+	_mud_skin(d, room, w, l, pools, noise)
 	# the land on round it, flat, under the trees further off
 	var far := 160.0
 	for side in 4:
@@ -287,7 +288,7 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	room.add_child(sheet)
 	for pl: Dictionary in pools:
-		if float(pl["depth"]) >= 0.4:
+		if float(pl["depth"]) >= 0.3:
 			_dress_pool(room, pl, rng, grow, pools, noise)
 	# the trees and the sky given back by the water
 	var probe := ReflectionProbe.new()
@@ -411,7 +412,7 @@ static func _mud_bed(d: Dungeon, room: Node3D, _gw: float, _gl: float, pools: Ar
 	mat.alpha_scissor_threshold = 0.5
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var step := STEP
+	var step := STEP * 0.5
 	for pl in pools:
 		var span: float = maxf(pl["a"], pl["b"]) * 1.45
 		var c: Vector2 = pl["at"]
@@ -437,6 +438,89 @@ static func _mud_bed(d: Dungeon, room: Node3D, _gw: float, _gl: float, pools: Ar
 					st.set_color(Color(1, 1, 1, alp[q]))
 					st.set_normal(Vector3.UP)
 					st.add_vertex(pts[q])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(mi)
+
+
+## The clearing's ground trodden to mud where the fight is (the user's word,
+## 2026-10-24: the ground I stand on muddy, not the water): wet mud over most
+## of it in broad soft-edged patches, the grass left at the edges, a little
+## green in it. A skin a hair over the ground, cut by noise (opaque).
+const MUD_SKIN := """
+shader_type spatial;
+render_mode cull_back;
+uniform sampler2D t_mud : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D n_mud : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float cover = 0.7;
+varying vec3 wp;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = wp.xz;
+	float n = noise(p * 0.07) * 0.55 + noise(p * 0.27) * 0.3 + noise(p * 1.4) * 0.15;
+	float keep = n * COLOR.a + cover - 0.5;
+	if (keep < 0.5) { discard; }
+	vec2 uv = p * 0.22;
+	vec3 m = texture(t_mud, uv).rgb;
+	// wetter and darker deep in a patch, drier at its rim
+	float wet = smoothstep(0.5, 0.75, keep);
+	vec3 col = m * mix(vec3(0.78, 0.70, 0.58), vec3(0.55, 0.48, 0.38), wet);
+	float green = smoothstep(0.78, 0.95, noise(p * 0.9 + 31.0)) * 0.3;
+	col = mix(col, col * vec3(0.75, 1.0, 0.62), green);
+	ALBEDO = col;
+	ROUGHNESS = mix(0.85, 0.55, wet);
+	SPECULAR = 0.4;
+	NORMAL_MAP = texture(n_mud, uv).rgb;
+}
+"""
+
+
+static func _mud_skin(d: Dungeon, room: Node3D, w: float, l: float, pools: Array[Dictionary],
+		noise: FastNoiseLite) -> void:
+	var sh := Shader.new()
+	sh.code = MUD_SKIN
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	mat.set_shader_parameter("t_mud", d._photo_tex("mud"))
+	mat.set_shader_parameter("n_mud", d._photo_tex("mud_nor"))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step := STEP
+	var nx := int(w / step) + 1
+	var nz := int(l / step) + 1
+	var pts: Array[Vector3] = []
+	var alp: Array[float] = []
+	for k in nz:
+		for i in nx:
+			var x := -w * 0.5 + i * step
+			var z := -l * 0.5 + k * step
+			var h := _height(x, z, pools, noise)
+			pts.append(Vector3(x, h + 0.008, z))
+			# less toward the clearing's edges
+			var edge := minf(1.0 - absf(x) / (w * 0.5), 1.0 - absf(z) / (l * 0.5))
+			# under the water too (the pond's bed is the same mud): no strip of
+			# grass left between the two at the shore
+			alp.append(smoothstep(0.0, 0.25, edge))
+	for k in nz - 1:
+		for i in nx - 1:
+			var a0 := k * nx + i
+			var quad := [a0, a0 + 1, a0 + nx, a0 + 1, a0 + nx + 1, a0 + nx]
+			if alp[a0] + alp[a0 + 1] + alp[a0 + nx] + alp[a0 + nx + 1] <= 0.0:
+				continue
+			for q: int in quad:
+				st.set_color(Color(1, 1, 1, alp[q]))
+				st.set_normal(Vector3.UP)
+				st.set_tangent(Plane(1, 0, 0, 1))
+				st.add_vertex(pts[q])
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat

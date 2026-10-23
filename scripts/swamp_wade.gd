@@ -95,10 +95,10 @@ func _hero(hero: Player, delta: float) -> void:
 			continue
 		y = water_y
 		depth = maxf(depth, water_y - floor_y)
-		if float(pl["depth"]) < 0.4:
+		if float(pl["depth"]) < 0.3:
 			wet = true
 		else:
-			deep = maxf(deep, clampf((water_y - floor_y) / 0.5, 0.0, 1.0))
+			deep = maxf(deep, clampf((water_y - floor_y) / 0.25, 0.0, 1.0))
 	var was: float = hero.wade
 	hero.wade = deep
 	var fs := hero.footsteps
