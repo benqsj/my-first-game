@@ -37,6 +37,15 @@ uniform float gloss = 0.55;
 // a green film of duckweed and slime in patches on top (0 none)
 uniform float scum = 0.0;
 uniform vec4 scum_tint : source_color = vec4(0.36, 0.46, 0.14, 1.0);
+// ripples from feet in the water (the user's word, 2026-10-23: real waves,
+// not marks drawn on it): world x, z, seconds since, strength; each a ring
+// of a few crests running out and dying, shown only in how the surface
+// bends the light (no colour of its own)
+uniform vec4 drops[32];
+uniform float drop_speed = 1.3;
+// silt held in the water: muddy, not clear
+uniform vec4 silt : source_color = vec4(0.40, 0.33, 0.21, 1.0);
+uniform float silt_amount = 0.0;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -55,15 +64,40 @@ void fragment() {
 	vec2 p = wpos.xz;
 	float e = 0.08;
 	float h0 = waves(p);
-	vec3 nw = normalize(vec3((h0 - waves(p + vec2(e, 0.0))) / e * wave, 1.0,
-			(h0 - waves(p + vec2(0.0, e))) / e * wave));
+	vec2 slope = vec2((h0 - waves(p + vec2(e, 0.0))) / e, (h0 - waves(p + vec2(0.0, e))) / e) * wave;
+	vec2 calm = slope;
+	for (int i = 0; i < 32; i++) {
+		vec4 dr = drops[i];
+		if (dr.w <= 0.0 || dr.z > 3.0) { continue; }
+		vec2 off = p - dr.xy;
+		float dist = length(off);
+		float front = dr.z * drop_speed;
+		float x = dist - front;
+		if (abs(x) > 1.2) { continue; }
+		// a short packet of crests behind the front, fading as it spreads
+		float k = 7.0;
+		float g = exp(-x * x / 0.18) * step(x, 0.25);
+		float amp = dr.w * exp(-dr.z * 1.1) / (1.0 + dist * 0.8) * smoothstep(0.0, 0.35, dist);
+		float dh = amp * (k * cos(k * x) * g + sin(k * x) * g * (-2.0 * x / 0.18));
+		slope -= (off / max(dist, 0.001)) * dh * 0.32;
+	}
+	// tipped too far the surface gives back the grass and the trees (green
+	// blots): the ripples may tilt it only so much
+	vec2 rip = slope - calm;
+	float rl = length(rip);
+	if (rl > 0.22) { rip *= 0.22 / rl; }
+	slope = calm + rip;
+	vec3 nw = normalize(vec3(slope.x, 1.0, slope.y));
 	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 	// how much water the eye looks through to the bottom
 	float zb = texture(depth_tex, SCREEN_UV).r;
 	vec4 b = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, zb, 1.0);
 	b.xyz /= b.w;
 	float thick = max(VERTEX.z - b.z, 0.0);
-	vec2 bent = SCREEN_UV + nw.xz * 0.04 * smoothstep(0.0, 0.4, thick);
+	// what is under it bent by the breeze's waves, and only a little by the
+	// ripples (bent far, it fetched the grass from beside the pond)
+	vec2 bend = calm + clamp(slope - calm, vec2(-0.25), vec2(0.25)) * 0.25;
+	vec2 bent = SCREEN_UV + bend * 0.04 * smoothstep(0.0, 0.4, thick);
 	// not bent onto what stands in front of the water
 	float zb2 = texture(depth_tex, bent).r;
 	vec4 b2 = INV_PROJECTION_MATRIX * vec4(bent * 2.0 - 1.0, zb2, 1.0);
@@ -72,6 +106,9 @@ void fragment() {
 	vec3 under = textureLod(screen_tex, bent, 0.0).rgb;
 	float t = 1.0 - exp(-thick / clarity);
 	vec3 seen = under * mix(vec3(1.0), shallow.rgb, 0.45);
+	// the silt clouding it, a little uneven
+	float cloud = silt_amount * (0.8 + 0.2 * noise(p * 0.6)) * smoothstep(0.0, 0.08, thick);
+	seen = mix(seen, silt.rgb * 0.75, cloud);
 	// the water's own colour lit as the rest; what lies under it already lit
 	ALBEDO = deep.rgb * t;
 	EMISSION = seen * (1.0 - t * 0.9);
@@ -130,8 +167,8 @@ const LOOKS := {
 					["CommonTree_5", 14.0, 1]]},
 	# the user's pick (2026-10-23, round 3: trees 23, 24, 26, 27 of the
 	# gallery): the nature kit's round green trees over green murky water
-	"green": {"shallow": Color(0.42, 0.40, 0.26), "deep": Color(0.05, 0.12, 0.08), "clarity": 0.12,
-			"scum": 0.0, "gloss": 0.7, "mist": 0.3,
+	"green": {"shallow": Color(0.48, 0.40, 0.26), "deep": Color(0.14, 0.11, 0.06), "clarity": 0.10,
+			"scum": 0.0, "gloss": 0.45, "mist": 0.3, "silt": 0.75,
 			"near": [["CommonTree_1", 11.0, 1], ["CommonTree_2", 11.0, 1], ["CommonTree_4", 12.0, 1],
 					["CommonTree_5", 11.0, 1]],
 			"far": [["CommonTree_1", 14.0, 1], ["CommonTree_2", 14.0, 1], ["CommonTree_4", 15.0, 1],
@@ -216,6 +253,7 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	water.set_shader_parameter("clarity", look["clarity"])
 	water.set_shader_parameter("scum", look["scum"])
 	water.set_shader_parameter("gloss", look["gloss"])
+	water.set_shader_parameter("silt_amount", look.get("silt", 0.0))
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(w + 16.0, l + 16.0)
 	var sheet := MeshInstance3D.new()
@@ -251,6 +289,7 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	wade.name = "SwampWade"
 	wade.pools = pools
 	wade.noise = noise
+	wade.water = water
 	room.add_child(wade)
 
 
