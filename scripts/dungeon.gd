@@ -3228,24 +3228,24 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.6, 0.62, 0.66), 0.4)
 			_env.adjustment_contrast = 1.1
 		"forest":
-			# the deep old oak wood, realistic (the user's pick, 2026-10-23,
+			# the deep old oak wood, low poly lit richly (the user's pick, 2026-10-23,
 			# concept "real 3"): dim and green under the leaves, the sun
 			# coming down in shafts through the air you can see light in
-			_env.ambient_light_color = Color(0.42, 0.52, 0.40)
-			_env.ambient_light_energy *= 0.7
-			_env.fog_light_color = Color(0.20, 0.27, 0.19)
+			_env.ambient_light_color = Color(0.56, 0.63, 0.52)
+			_env.ambient_light_energy *= 1.05
+			_env.fog_light_color = Color(0.32, 0.40, 0.33)
 			_env.fog_density = 0.009
 			_env.fog_height = centre(current).y + 1.2
-			_env.fog_height_density = 0.012
+			_env.fog_height_density = 0.006
 			_env.fog_sky_affect = 0.6
-			_env.adjustment_contrast = 1.1
-			_env.adjustment_saturation = 1.04
+			_env.adjustment_contrast = 1.08
+			_env.adjustment_saturation = 1.1
 			# the air you see the shafts in: on Ultra only (the user's word,
 			# 2026-10-23: it stuck on the Mac); below it the drawn shafts
 			# ([ForestGlade]) and a little more of the plain fog
 			_env.volumetric_fog_enabled = Graphics.current == Graphics.Level.ULTRA
 			if not _env.volumetric_fog_enabled:
-				_env.fog_density = 0.011
+				_env.fog_density = 0.007
 			_env.volumetric_fog_density = 0.007
 			_env.volumetric_fog_albedo = Color(0.78, 0.88, 0.68)
 			if _sky_mat != null:
@@ -3264,6 +3264,10 @@ func _place_look(night: float = 0.0) -> void:
 				_sun.light_energy *= 1.15
 				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.93, 0.78), 0.5)
 				_sun.light_volumetric_fog_energy = 1.6
+				# high over the glade, so it comes down into the clearing
+				# between the crowns rather than in under them from the side
+				if _sun.rotation.x > -deg_to_rad(60.0):
+					_sun.rotation.x = -deg_to_rad(60.0)
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)

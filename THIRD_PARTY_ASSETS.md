@@ -59,18 +59,6 @@ It came in alongside the MegaKit; the user has not said what it is for yet.
 - An editor plugin that paints textured grass.
 - It is in the project but not enabled in project.godot.
 
-## Poly Haven scans (CC0) in the forest room (2026-10-23)
-- **Where:** `assets/dungeon/forest_glade/tex/` (textures, 2k) and `assets/dungeon/forest_glade/ph/` (models). These are in git.
-- **Licence:** CC0 (polyhaven.com). No credit is required. The originals are in `vepxis-art/downloads/polyhaven`, fetched by `vepxis-art/world/forest_ph_get.py`.
-- **Textures:**
-  - `forest_ground_04`: moss.
-  - `mud_forest`: wet mud.
-  - `forest_leaves_02`: fallen leaves.
-  - `mossy_stone_wall`: the arches and gates.
-  - `jolcham_oak_bark_01`: oak bark.
-- **Models:**
-  - `rock_moss_set_01` and `rock_moss_set_02`, `boulder_01`;
-  - `fern_02`, `moss_01`, `nettle_plant`;
-  - `root_cluster_01` and `root_cluster_02`, `pine_roots`, `single_root`;
-  - `tree_stump_01` and `tree_stump_02`, `dead_tree_trunk`.
-  - Each was decimated to 5–10k triangles, with textures at 1k, by `vepxis-art/world/ph_light.py`.
+## Poly Haven scans (CC0): tried in the forest, then taken out (2026-10-23)
+- **What happened:** the realistic forest used Poly Haven textures and scans. The user did not like the realistic look, so the forest went to low poly and the scans left the game.
+- **Where they still are:** `vepxis-art/downloads/polyhaven` (CC0), fetched by `vepxis-art/world/forest_ph_get.py`. Lighter versions of the models are in `.../polyhaven/light`, made by `vepxis-art/world/ph_light.py`.

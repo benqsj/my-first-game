@@ -10998,27 +10998,35 @@ birds round the island in the sky, blades left standing in the floor of the
 terrace and the lord's court; the orcs' drums far off in the palace, crickets
 at night, the crystals' hum, chains creaking, banners in the wind, an eagle.
 
-**The forest** (2026-10-23, realistic: the user found the first, drawn
-look too much like a cartoon and picked "real 3" of three new AI concepts,
-liking "real 1" too) is [ForestGlade] (`scripts/forest_glade.gd`). It is a deep
-old oak wood round a clearing of moss, wet mud and fallen leaves. A ring of
-mossy stone arches stands round the clearing, the ruin of a shrine, broken in
-places. Two ornate gateways with steps (from "real 1") stand outside the
-ring. The gnarled oaks' long boughs reach in over the clearing, and a roof of
-leaf cards closes it overhead, with holes. The sun comes down in shafts
-through the volumetric fog (on Medium and up). The light is dim and green
-([method Dungeon._place_look], "forest"). The place is 56 x 56 m, inside the
-ring.
-- **Shapes:** `assets/dungeon/forest_glade/forest_ruins.glb`, made by
-  `vepxis-art/world/forest_ruins.py`. It has no UVs except on the leaf cards.
-- **Look:** scanned Poly Haven textures (CC0), laid on in world space from
-  three sides by `real_surface.gdshader`, with moss on what faces up. The
-  floor is `real_ground.gdshader`. The crowns are `real_leaves.gdshader` over
-  a drawn oak-leaf card (`leaves_oak.png`, from
-  `vepxis-art/world/forest_leaf_card.py`).
-- **Props:** scanned Poly Haven rocks, ferns, roots, stumps and a fallen
-  trunk, decimated to 5–10k triangles (`vepxis-art/world/ph_light.py`). See
-  `THIRD_PARTY_ASSETS.md`.
+**The forest** (2026-10-23) is [ForestGlade] (`scripts/forest_glade.gd`). The
+user picked "real 3" of three AI concepts and liked "real 1" too. Its first
+build looked like a cartoon to him; the realistic one he did not like, though
+he liked its design. So it is low poly now, but the high-end kind, not a
+mini-game.
+
+It is a deep old oak wood round a clearing of moss and mud:
+- A ring of mossy stone arches stands round the clearing, the ruin of a
+  shrine, broken in places, its paving left in strips.
+- Two ornate gateways stand outside the ring.
+- Gnarled oaks reach in over the edge, with vines hanging from them.
+- A ring of leaf roof stands round an open middle, so the sun lies in the
+  clearing and the wood round it is in shade.
+- Shafts of sun come down, dust drifts in the air, and small orange
+  mushrooms glow a little.
+- The sun is put high here so it comes down between the crowns.
+- On Ultra the shafts are real, in volumetric fog, and the puddles take
+  reflections.
+
+How it is made:
+- **Shapes:** every shape is faceted and every face carries its own colour,
+  as a vertex colour, so there are no textures. They come from
+  `assets/dungeon/forest_glade/forest_lowpoly.glb`, made by
+  `vepxis-art/world/forest_lowpoly.py`: oaks, arches, gates, paving, rocks,
+  ferns, stumps, a log, mushrooms, the roof pieces and the faceted ground.
+- **Shaders:** `lp_solid.gdshader` for solid things, a little darker at
+  their feet, and `lp_foliage.gdshader` for leaves, lit through from behind
+  and swaying.
+- **Size:** 56 x 56 m, inside the ring.
 
 **The island in the sky** (2026-10-23, the user's pick among AI concept
 pictures: one's round temple floor, another's sea of cloud) is [SkyTemple]
