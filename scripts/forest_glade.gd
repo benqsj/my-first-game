@@ -24,7 +24,7 @@ const RUIN_S := 1.3
 ## The haze over the clearing: near white, so it lights the air and leaves
 ## the colours of the place alone.
 const HAZE_COLOUR := Color(0.94, 0.95, 0.93)
-const HAZE_DENSITY := 0.01
+const HAZE_DENSITY := 0.006  # (the user's pick, "C2", 2026-10-24)
 
 const BEAM := """
 shader_type spatial;

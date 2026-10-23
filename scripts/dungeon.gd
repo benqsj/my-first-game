@@ -3261,7 +3261,7 @@ func _place_look(night: float = 0.0) -> void:
 			if _sun != null:
 				_sun.light_energy *= 1.15
 				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.95, 0.84), 0.35)
-				_sun.light_volumetric_fog_energy = 1.6
+				_sun.light_volumetric_fog_energy = 2.5
 				# high over the glade, so it comes down into the clearing
 				# between the crowns rather than in under them from the side
 				if _sun.rotation.x > -deg_to_rad(60.0):
