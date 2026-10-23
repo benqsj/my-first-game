@@ -39,6 +39,8 @@ var _drops := PackedVector4Array()
 var _next_drop: int = 0
 var _live := PackedVector4Array()
 var _rolling := {}
+var _arcs_bright := {}
+var _arcs := {}
 var _roll_drop := {}
 var _splashes: Array[GPUParticles3D] = []
 var _next_splash: int = 0
@@ -99,6 +101,7 @@ func _hero(hero: Player, delta: float) -> void:
 			wet = true
 		else:
 			deep = maxf(deep, clampf((water_y - floor_y) / 0.25, 0.0, 1.0))
+	_bright_arcs(hero, at)
 	var was: float = hero.wade
 	hero.wade = deep
 	var fs := hero.footsteps
@@ -177,3 +180,36 @@ func _age(delta: float) -> void:
 		_live.resize(DROPS)
 		water.set_shader_parameter(&"drops", _live)
 		water.set_shader_parameter(&"drop_count", n)
+
+
+## The heroes' cut is bent air, made from the picture as it was before the
+## water was drawn: over the pond it bent the mud under it, the same colour
+## as the muddy water, and the cut was lost (the user's word, 2026-10-24).
+## Near the water its light edge, glow and tint are put up so it still reads;
+## away from it, back as they were.
+func _bright_arcs(hero: Player, at: Vector3) -> void:
+	var near := false
+	for pl in pools:
+		if SwampMere._into(pl, at.x, at.z, noise) < 1.35:
+			near = true
+			break
+	var id := hero.get_instance_id()
+	if bool(_arcs_bright.get(id, false)) == near:
+		return
+	var all_worn := true
+	if not _arcs.has(id):
+		_arcs[id] = hero.find_children("*", "BladeArc", true, false)
+	for n in _arcs[id]:
+		if not is_instance_valid(n):
+			continue
+		var arc := n as BladeArc
+		var m := arc.get(&"_air_material") as ShaderMaterial
+		if m == null:
+			# not worn yet (put on at its first swing): try again next frame
+			all_worn = false
+			continue
+		m.set_shader_parameter(&"rim", 0.7 if near else float(BladeArc.AIR_LOOK[2]))
+		m.set_shader_parameter(&"brighten", 0.35 if near else 0.04)
+		m.set_shader_parameter(&"tint_amount", 0.45 if near else 0.06)
+	if all_worn:
+		_arcs_bright[id] = near

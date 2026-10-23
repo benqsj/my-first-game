@@ -254,7 +254,7 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	var gw := w + 44.0
 	var gl := l + 44.0
 	_ground(room, ground, gw, gl, pools, noise)
-	# (the old mud bed under the pools is covered by the mud skin now)
+	_mud_bed(d, room, gw, gl, pools, noise)
 	_mud_skin(d, room, w, l, pools, noise)
 	# the land on round it, flat, under the trees further off
 	var far := 160.0
@@ -271,6 +271,11 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	var look: Dictionary = LOOKS.get(variant, LOOKS["green"])
 	var water := ShaderMaterial.new()
 	water.shader = _water_shader
+	# drawn first of everything see-through: what is over the water (the
+	# sword's arc, splashes, the rain) is drawn after it and so stays seen
+	# (the user's word, 2026-10-24: the blade's trail lost over the water and
+	# for a while after it)
+	water.render_priority = -100
 	water.set_shader_parameter("shallow", look["shallow"])
 	water.set_shader_parameter("deep", look["deep"])
 	water.set_shader_parameter("clarity", look["clarity"])
@@ -291,18 +296,13 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 		if float(pl["depth"]) >= 0.3:
 			_dress_pool(room, pl, rng, grow, pools, noise)
 	# the trees and the sky given back by the water
-	# (only High and Ultra: on Medium and Low the sky alone, ~2 ms an M1 frame)
-	var high := Graphics.current == Graphics.Level.HIGH or Graphics.current == Graphics.Level.ULTRA
 	var probe := ReflectionProbe.new()
 	probe.size = Vector3(w + 30.0, 30.0, l + 30.0)
 	probe.position = Vector3(0.0, 2.0, 0.0)
 	probe.box_projection = false
 	probe.update_mode = ReflectionProbe.UPDATE_ONCE
 	probe.max_distance = 120.0
-	if high:
-		room.add_child(probe)
-	else:
-		probe.free()
+	room.add_child(probe)
 	_woods(d, room, w, l, rng, grow, look)
 	_inner_trees(d, room, w, l, rng, look, pools)
 	_outer_mist(room, w, l, rng, look["mist"])
@@ -683,7 +683,7 @@ static func _pick(list: Array, rng: RandomNumberGenerator) -> Array:
 
 ## The trees round the clearing, two rows of the look's near trees, its far
 ## ones behind; round bushes at their feet.
-static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator, _grow: float,
+static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator, grow: float,
 		look: Dictionary) -> void:
 	# three rows close round the clearing, near one another (the user's word:
 	# more trees), no bushes or flowers under them
@@ -708,21 +708,10 @@ static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 						rng.randf_range(0.85, 1.15) + float(row) * 0.1, row == 0)
 	# the wood behind: many trees, cheap (the user's word, 2026-10-23: far
 	# off they can be poor, only so that looking out one is in a wood)
-	# by the setting: Medium a little more than half of High's, Low fewer, the
-	# second ring High and Ultra only (each ~1.5 ms on an M1 at Medium)
-	var far_k := 1.0
-	match Graphics.current:
-		Graphics.Level.MEDIUM:
-			far_k = 0.55
-		Graphics.Level.LOW:
-			far_k = 0.35
-		Graphics.Level.ULTRA:
-			far_k = 1.3
-	_far_wood(room, w, l, rng, look, int(260.0 * far_k), 16.0, 95.0, 0.85, 1.3)
+	_far_wood(room, w, l, rng, look, int(260.0 * grow), 16.0, 95.0, 0.85, 1.3)
 	# and further, bigger: the wood closing the view all round (no plain
 	# and sky seen between the trunks)
-	if Graphics.current == Graphics.Level.HIGH or Graphics.current == Graphics.Level.ULTRA:
-		_far_wood(room, w, l, rng, look, int(170.0 * far_k), 90.0, 170.0, 1.6, 2.4)
+	_far_wood(room, w, l, rng, look, int(170.0 * grow), 90.0, 170.0, 1.6, 2.4)
 	# groves: a few trees standing close together here and there
 	for g in 7:
 		var a := rng.randf_range(0.0, TAU)
