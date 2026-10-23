@@ -21,6 +21,10 @@ const OAKS := ["Oak0", "Oak1", "Oak2", "Oak3"]
 const RING_R := 27.0
 ## The ruins a little over a man's scale: the arches 7 m to the top.
 const RUIN_S := 1.3
+## The haze over the clearing: near white, so it lights the air and leaves
+## the colours of the place alone.
+const HAZE_COLOUR := Color(0.94, 0.95, 0.93)
+const HAZE_DENSITY := 0.01
 
 const BEAM := """
 shader_type spatial;
@@ -122,7 +126,12 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	_paving(room, rng)
 	_roof(room, rng, grow)
 	_dust(room)
-	_beams(d, room, rng)
+	# the light seen in the air: a haze over the clearing only, lit by the
+	# sun, the wood round it left clear and its colours as they are (the
+	# user's pick, 2026-10-24: no drawn shafts, the real light, the colours
+	# not changed). Not on Low, where there is no volumetric fog.
+	if Graphics.current != Graphics.Level.LOW:
+		_haze(room)
 
 
 static func _on_ring(a: float, r: float) -> Vector3:
@@ -361,7 +370,26 @@ static func _dust(room: Node3D) -> void:
 	room.add_child(dust)
 
 
-## Shafts of sun slanting down through the leaves into the clearing.
+## The haze over the clearing: a fog volume, white, thin, thicker low and
+## fading toward its edge.
+static func _haze(room: Node3D) -> void:
+	var fog := FogVolume.new()
+	fog.shape = RenderingServer.FOG_VOLUME_SHAPE_ELLIPSOID
+	fog.size = Vector3(RING_R * 2.3, 22.0, RING_R * 2.3)
+	fog.position = Vector3(0.0, 7.0, 0.0)
+	var m := FogMaterial.new()
+	m.density = HAZE_DENSITY
+	m.albedo = HAZE_COLOUR
+	m.emission = Color(0.0, 0.0, 0.0)
+	m.height_falloff = 0.06
+	m.edge_fade = 0.9
+	fog.material = m
+	fog.name = "Haze"
+	room.add_child(fog)
+
+
+## Shafts of sun slanting down through the leaves into the clearing (kept,
+## not used: the user preferred the haze, 2026-10-24).
 static func _beams(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	var sh := Shader.new()
 	sh.code = BEAM
