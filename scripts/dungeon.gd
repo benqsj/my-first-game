@@ -113,7 +113,7 @@ const PLACES := {
 	"great_hall": {"name": "ჩანგრეული დარბაზი", "kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true},
 	"terrace": {"name": "ტერასა", "kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0},
 	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
-	"forest": {"name": "ტყე", "kind": "forest", "w": 70.0, "l": 78.0, "h": 0.0},
+	"forest": {"name": "ტყე", "kind": "forest", "w": 76.0, "l": 86.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
 	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
 	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
@@ -3147,7 +3147,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = kind != "sky"
+		lands.visible = kind != "sky" and kind != "forest"
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3214,32 +3214,21 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.6, 0.62, 0.66), 0.4)
 			_env.adjustment_contrast = 1.1
 		"forest":
-			# the dead wood (the user's word, 2026-10-20: dark, a wood one is
-			# afraid of): little light gets through, cold and grey-green, a
-			# mist one cannot see far into, the sky shut out
-			# (2026-10-23: still the dead wood, but the land's colours in it)
-			_env.ambient_light_color = Color(0.50, 0.56, 0.52)
-			_env.ambient_light_energy *= 0.9
-			_env.fog_light_color = Color(0.36, 0.40, 0.40)
-			_env.fog_density = 0.009
-			_env.fog_sky_affect = 0.6
-			_env.adjustment_contrast = 1.06
-			_env.adjustment_saturation = 0.95
-			_env.glow_hdr_threshold = 0.9
-			# low mist over the ground, thinning upward: the height fog (cheap,
-			# no volumetric, the user's word, 2026-10-23: light to draw)
-			_env.fog_light_color = Color(0.62, 0.66, 0.66)
-			_env.fog_density = 0.005
+			# the old oak wood in the afternoon (the user's pick, 2026-10-23):
+			# green and gold under the leaves, the sun in beams, a light low
+			# mist (the height fog: cheap, no volumetric)
+			_env.ambient_light_color = Color(0.56, 0.64, 0.48)
+			_env.ambient_light_energy *= 0.85
+			_env.fog_light_color = Color(0.66, 0.70, 0.56)
+			_env.fog_density = 0.004
 			_env.fog_height = centre(current).y + 1.5
-			_env.fog_height_density = 0.03
-			if _sky_mat != null:
-				var dim := 1.0 - 0.6 * clampf(night, 0.0, 1.0)
-				_sky_mat.set_shader_parameter("cloud", 0.95)
-				_sky_mat.set_shader_parameter("top_col", Color(0.1 * dim, 0.11 * dim, 0.13 * dim))
-				_sky_mat.set_shader_parameter("hor_col", Color(0.3 * dim, 0.34 * dim, 0.35 * dim))
+			_env.fog_height_density = 0.025
+			_env.fog_sky_affect = 0.4
+			_env.adjustment_contrast = 1.06
+			_env.adjustment_saturation = 1.12
 			if _sun != null:
-				_sun.light_energy *= 0.75
-				_sun.light_color = _sun.light_color.lerp(Color(0.85, 0.9, 0.92), 0.4)
+				_sun.light_energy *= 0.95
+				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.86, 0.6), 0.45)
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -4853,63 +4842,20 @@ func _hang(rock: MeshInstance3D, top: float) -> void:
 	rock.position.y = top + box.position.y * rock.scale.y
 
 
-## A forest on the mountain, dead and dark (the user's word, 2026-10-20: more
-## brutal, trees without leaves, darker, a thick wood one is afraid of; no
-## flowers): a clearing of bare earth, dead leaves and roots, walled round by a
-## wood of bare black trees four deep, tall and close; standing stones in a
-## ring, sharpened stakes with skulls on them, bones, logs; mist on the ground,
-## crows over it, the light cold and little of it ([method _place_look]).
+## The forest (the user's pick of the concept pictures, 2026-10-23: an old
+## oak wood round a mossy glade; [ForestGlade] builds it): giant oaks round a
+## wide glade of moss and mud, ruined gates, beams of sun, a light mist low on
+## the ground, leaves coming down. Nothing in the glade to go behind.
 func _build_forest(room: Node3D, i: int) -> void:
 	var r := _room(i)
 	var w: float = r["w"]
 	var l: float = r["l"]
-	var ground := _ground_mat()
-	ground.set_shader_parameter("grass_a", Color(0.09, 0.10, 0.06))
-	ground.set_shader_parameter("grass_b", Color(0.15, 0.14, 0.08))
-	ground.set_shader_parameter("earth", Color(0.13, 0.095, 0.065))
-	ground.set_shader_parameter("moss", Color(0.07, 0.10, 0.05))
-	ground.set_shader_parameter("leaves", Color(0.24, 0.14, 0.07))
-	ground.set_shader_parameter("bare_from", 0.32)
-	ground.set_shader_parameter("mud", 1.0)
-	_solid(room, ground, Vector3(w + 90.0, 1.0, l + 90.0), Vector3(0.0, -0.5, 0.0))
-	_crag_under(room, w + 90.0, l + 90.0, PalaceVista.DROP + 60.0, -1.0)
-	_bounds(room, w, l)
-	# The wood round the clearing, four deep and close, taller further in.
-	for ring in 4:
-		var out := 2.5 + float(ring) * 5.0
-		var step := 3.8 + float(ring) * 1.0
-		for side in 4:
-			var long := (l if side < 2 else w) + out * 2.0
-			var n := int(long / step)
-			for k in n:
-				var along := -long * 0.5 + (float(k) + _rng.randf_range(0.1, 0.9)) * step
-				var at := Vector3.ZERO
-				match side:
-					0: at = Vector3(-w * 0.5 - out, 0.0, along)
-					1: at = Vector3(w * 0.5 + out, 0.0, along)
-					2: at = Vector3(along, 0.0, -l * 0.5 - out)
-					_: at = Vector3(along, 0.0, l * 0.5 + out)
-				at += Vector3(_rng.randf_range(-1.6, 1.6), 0.0, _rng.randf_range(-1.6, 1.6))
-				var tall := _rng.randf_range(1.6, 2.5) + float(ring) * 0.25
-				_nature(room, _a_dead_tree(), at, tall, _rng.randf_range(0.0, TAU), ring == 0, true)
-	# (no trees inside any more, nor anything lying about the floor: the
-	# user's word, 2026-10-23 — nothing for them to go behind, the clearing
-	# open from end to end; the boughs still creak at the wood's edge)
-	for k in 5:
-		_creaks.append(room.position + Vector3((w * 0.5 + 3.0) * (1.0 if k % 2 == 0 else -1.0), 6.0,
-				_rng.randf_range(-l * 0.4, l * 0.4)))
-	# Sharpened stakes, a skull on some: the wood's warning.
-	# (the user's word, 2026-10-21: the middle cleared — the standing stones,
-	# the stream and its stones, what lay about it gone; all of it now at the
-	# edge of the wood)
-	for k in 14:
-		var a := _rng.randf_range(0.0, TAU)
-		var at := _forest_edge(w, l, a)
-		_stake(room, at, k % 3 == 0)
-	# mist lying on the clearing in two soft layers, drifting (the user's word,
+	ForestGlade.build(self, room, w, l, _rng)
+	_crag_under(room, w + 110.0, l + 110.0, PalaceVista.DROP + 60.0, -1.0)
+	# mist lying on the glade in two soft layers, drifting (the user's word,
 	# 2026-10-23: pretty, and light to draw: sheets, no volumetric fog)
-	_mist(room, w, l, 0.35, Color(0.74, 0.78, 0.78), 0.3, 14)
-	_mist(room, w, l, 1.6, Color(0.70, 0.74, 0.75), 0.16, 8)
+	_mist(room, w, l, 0.35, Color(0.80, 0.84, 0.74), 0.24, 12)
+	_mist(room, w, l, 1.6, Color(0.78, 0.82, 0.72), 0.12, 6)
 	_falling_leaves(room, w, l)
 	_circling_birds(room)
 

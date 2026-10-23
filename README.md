@@ -10998,6 +10998,20 @@ birds round the island in the sky, blades left standing in the floor of the
 terrace and the lord's court; the orcs' drums far off in the palace, crickets
 at night, the crystals' hum, chains creaking, banners in the wind, an eagle.
 
+**The forest** (2026-10-23, the user's pick of four AI concept pictures,
+"tye1": an old oak wood round a mossy glade) is [ForestGlade]
+(`scripts/forest_glade.gd`): a wide glade of moss, grass and mud (the ground
+shader in greens), giant low-poly oaks with buttress roots and leaf-cluster
+crowns standing round it two deep like a wall, the kit's trees big and dark
+behind, ruined stone gates with steps at the far end and the sides, mossy
+boulders and big ferns at the edge, beams of sun slanting down (crossed
+additive quads), the two sheets of mist low on the ground, leaves coming
+down, a green-gold afternoon light ([method Dungeon._place_look], "forest"),
+the far mountains hidden. 76 x 86 m, nothing standing in the glade. The oaks
+and gates are `assets/dungeon/forest_glade/forest_glade.glb` from
+`vepxis-art/world/forest_glade.py`. (This replaced the dead dark wood of
+2026-10-20.)
+
 **The island in the sky** (2026-10-23, the user's pick among AI concept
 pictures: one's round temple floor, another's sea of cloud) is [SkyTemple]
 (`scripts/sky_temple.gd`): a round arena of old paving (one polar-tile shader:
