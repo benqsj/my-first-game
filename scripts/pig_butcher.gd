@@ -95,6 +95,14 @@ enum Hook { NONE, OUT, PULL, BACK }
 const ARC_STYLE := {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35, "smear": 1.0,
 		"tip_overshoot": 0.12}
 @export var arc_speed: float = 6.0
+## In a string: his glide in under a blow at most this (m/s), and him this
+## much further off than the next blow lands (m), the string is left off.
+@export var glide_most: float = 1.2
+## ...and none at all with him further than this beyond its reach (m).
+@export var glide_gap: float = 1.0
+## How quick he turns after him in a move (degrees a second).
+@export var act_turn_most: float = 200.0
+@export var string_leave: float = 2.5
 ## Dust where his cleaver comes down into the ground: its edge within this of
 ## the ground (m), coming down at least this fast (m/s).
 @export var dust_touch: float = 0.12
@@ -149,6 +157,8 @@ var _low_last: Vector3 = Vector3.INF
 var _dust_wait: float = 0.0
 ## dust thrown up where his cleaver meets the ground, counted (tests)
 var ground_dusts: int = 0
+var _turn_frame: int = -1
+var _turn_left: float = 0.0
 ## For the tests.
 var hooks_thrown: int = 0
 var hooks_caught: int = 0
@@ -572,6 +582,8 @@ func _butcher_moves() -> void:
 	# in to him on his feet before a string, not glided the last of the way
 	# (the user's word, 2026-10-23: he slid)
 	combo_slack = 0.45
+	# into the next of a string turned through its wind-up, not at once
+	chain_snap = 0.0
 	_hand_combos = [
 		# Mixamo: three chops on end
 		{"name": &"three_chops", "moves": [B_C2], "fells": [0], "weight": 1.2},
@@ -637,6 +649,52 @@ func _carry(delta: float) -> Vector3:
 			_face(_quarry.global_position - global_position, delta, _track_rate(act))
 			_reframe()
 	return super(delta)
+
+
+## Host: in a string, his steps in under his blows never a glide faster than
+## `glide_most` (the orc's string steps in at up to 6 m/s through each
+## wind-up); his leap at him carries him by its own run.
+func _extra_velocity(delta: float) -> Vector3:
+	var v := super(delta)
+	if _strikes().has(act):
+		var flat := Vector2(v.x, v.z)
+		# him well off (run, or round him): no glide after him at all — the
+		# blow goes where it goes, and he follows on his feet after it
+		var short := 0.0
+		if _quarry != null:
+			short = _distance_to(_quarry) - float(_strike_from.get(act, strike_off))
+		if short > glide_gap:
+			flat = Vector2.ZERO
+		elif flat.length() > glide_most:
+			flat = flat.normalized() * glide_most
+		v = Vector3(flat.x, v.y, flat.y)
+	return v
+
+
+## Host: in a move he turns no quicker than `act_turn_most` (degrees a
+## second): round on his feet, not spun on the spot.
+func _face(direction: Vector3, delta: float, rate: float) -> void:
+	var was := rotation.y
+	super(direction, delta, rate)
+	if act != Act.NONE and delta > 0.0 and delta < 0.5:
+		# (turned after him more than once a frame: one budget for the frame)
+		var frame := Engine.get_physics_frames()
+		if frame != _turn_frame:
+			_turn_frame = frame
+			_turn_left = deg_to_rad(act_turn_most) * delta
+		var turn := clampf(wrapf(rotation.y - was, -PI, PI), -_turn_left, _turn_left)
+		_turn_left -= absf(turn)
+		rotation.y = was + turn
+
+
+## Host: him run off well out of reach in a string, the rest of it is not
+## swung at the air: he goes after him instead.
+func _hand_next(what: int) -> int:
+	if _quarry != null and _hand_combo >= 0 and _hand_step + 1 < _hand_moves.size():
+		var next := int(_hand_moves[_hand_step + 1])
+		if _distance_to(_quarry) > float(_strike_from.get(next, strike_off)) + string_leave:
+			return -1
+	return super(what)
 
 
 ## Not the orc's battle cry nor its shield-first charge.

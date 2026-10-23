@@ -239,6 +239,8 @@ func _butcher_combos() -> void:
 	_check("no glide in, no sidestep, not the orc's fall from the sky", b.combo_slack < 0.6
 			and b.close_speed <= 1.6 and b.sidestep_after == 0.0 and not b.call(&"_try_leap"))
 	_check("his cleaver leaves the heroes' cut in the air", b.get(&"_arc") is BladeArc)
+	_check("no kick at him behind his shield, no snap round between blows", b.kick_after > 1000.0
+			and b.chain_snap == 0.0 and b.act_turn_most <= 240.0)
 	b.drill_combo = names.find("sword_string")
 	for i in 600:
 		_hold(hero, spot)

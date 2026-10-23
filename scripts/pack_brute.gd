@@ -154,6 +154,9 @@ var repeat_damp: float = 0.2
 ## How much further off than its first blow lands from it opens a combo (m):
 ## the rest is closed in the combo itself (a glide, if its clip does not walk).
 var combo_slack: float = 1.4
+## How far it turns at once after him going from one move of a string into
+## the next (degrees; 0: none, it turns through the next one's wind-up).
+var chain_snap: float = 55.0
 
 ## Its combos made by hand (the user's word, 2026-10-10: as the ogre's, for the
 ## troll, the golem and the orc): [{"name", "moves", "fells", "weight",
@@ -485,7 +488,7 @@ func _after(what: int) -> void:
 		_chain_blow += _blow_moments(what).size()
 		if _quarry != null:
 			var to := _quarry.global_position - global_position
-			rotation.y = rotate_toward(rotation.y, atan2(-to.x, -to.z), deg_to_rad(55.0))
+			rotation.y = rotate_toward(rotation.y, atan2(-to.x, -to.z), deg_to_rad(chain_snap))
 		_hand_begin(next)
 
 

@@ -11700,6 +11700,18 @@ Tariel's look, `ARC_STYLE`) while its edge goes faster than `arc_speed`
 in a blow; where its edge comes down into the ground (within `dust_touch`,
 falling faster than `dust_fall`) a cloud of earth and grit goes up, that
 frame (`ground_dusts`).
+**The user's fifth look (2026-10-23):** no kick (`kick_after` 99999: the
+orc's boot at a raised shield). Run from in a string, or gone round
+(`_shots_tmp/chase_probe.gd -- <scene> <secs> flee|circle [film]`: the hero
+moved off while it is in a move; metres moved per act, those not carried by
+the clip, the quickest turn): the orc's string steps in under each wind-up
+at up to 6 m/s, and he glided 10-14 m after a running hero. Now his glide in
+a move is at most `glide_most` 1.2 m/s, and none with him more than
+`glide_gap` 1 m beyond reach; him `string_leave` 2.5 m beyond the next
+blow's reach, the rest of the string is left off and he goes after him on
+his feet (`_hand_next`). He turns in a move at most `act_turn_most`
+200°/s, one budget a frame however often he is turned; from one move of a
+string into the next no 55° snap (`PackBrute.chain_snap`, 0 for him).
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)

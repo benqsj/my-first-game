@@ -15,3 +15,4 @@ stance = 520.0
 varied = false
 close_speed = 1.5
 sidestep_after = 0.0
+kick_after = 99999.0
