@@ -104,13 +104,14 @@ void fragment() {
 ## filled out to its shores.
 const POOLS := [
 	[-0.25, 0.02, 0.21, 0.40, 0.12, 0.5],
-	[0.25, 0.10, 0.19, 0.32, -0.2, 0.2],
-	[0.24, -0.28, 0.17, 0.17, 0.5, 0.2],
-	[0.10, -0.42, 0.12, 0.07, 0.3, 0.2],
+	[0.25, 0.10, 0.20, 0.33, -0.2, 0.24],
+	[0.24, -0.28, 0.18, 0.18, 0.5, 0.24],
+	[0.10, -0.42, 0.13, 0.08, 0.3, 0.24],
 ]
-## The water's surface in a hollow lies this share of its depth under the
-## ground, so the water fills it nearly to the shore (no bare mud ring).
-const FILL := 0.45
+## One water surface for the whole room, this far under the ground: it shows
+## only where a hollow dips below it, so every pool is the same water, filled
+## to its shore, with no seam where two meet (the user's word, 2026-10-23).
+const SURFACE := -0.07
 
 ## The swamp's looks (2026-10-23, round 2: the user wanted no flowers or
 ## grass in the water, a swamp's water colour, other trees). Set `variant`
@@ -215,26 +216,16 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	water.set_shader_parameter("clarity", look["clarity"])
 	water.set_shader_parameter("scum", look["scum"])
 	water.set_shader_parameter("gloss", look["gloss"])
-	# the wet ground: a skin of clear water over the mud, the sky in it
-	var wet := ShaderMaterial.new()
-	wet.shader = _water_shader
-	wet.set_shader_parameter("shallow", Color(0.55, 0.50, 0.40))
-	wet.set_shader_parameter("deep", Color(0.20, 0.24, 0.16))
-	wet.set_shader_parameter("clarity", 1.6)
-	wet.set_shader_parameter("scum", 0.0)
-	wet.set_shader_parameter("gloss", 0.45)
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(w + 16.0, l + 16.0)
+	var sheet := MeshInstance3D.new()
+	sheet.mesh = plane
+	sheet.material_override = water
+	sheet.position = Vector3(0.0, SURFACE, 0.0)
+	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(sheet)
 	for pl: Dictionary in pools:
-		var shallow_pool: bool = float(pl["depth"]) < 0.4
-		var plane := PlaneMesh.new()
-		var span: float = maxf(pl["a"], pl["b"]) * 2.0 + 3.0
-		plane.size = Vector2(span, span)
-		var m := MeshInstance3D.new()
-		m.mesh = plane
-		m.material_override = wet if shallow_pool else water
-		m.position = Vector3(pl["at"].x, float(pl["water"]), pl["at"].y)
-		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		room.add_child(m)
-		if not shallow_pool:
+		if float(pl["depth"]) >= 0.4:
 			_dress_pool(room, pl, rng, grow, pools, noise)
 	# the trees and the sky given back by the water
 	var probe := ReflectionProbe.new()
@@ -268,7 +259,7 @@ static func _pools(w: float, l: float) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for p: Array in POOLS:
 		out.append({"at": Vector2(p[0] * w, p[1] * l), "a": p[2] * w, "b": p[3] * l, "yaw": p[4],
-				"depth": p[5], "water": -DEPTH * float(p[5]) * FILL})
+				"depth": p[5], "water": SURFACE})
 	return out
 
 
@@ -370,9 +361,9 @@ static func _mud_bed(d: Dungeon, room: Node3D, _gw: float, _gl: float, pools: Ar
 			for i in n:
 				var x := x0 + i * step
 				var z := z0 + k * step
-				var r := _into(pl, x, z, noise)
-				pts.append(Vector3(x, _height(x, z, pools, noise) + 0.012, z))
-				alp.append(1.0 - smoothstep(0.97, 1.03, r))
+				var h := _height(x, z, pools, noise)
+				pts.append(Vector3(x, h + 0.012, z))
+				alp.append(1.0 - smoothstep(SURFACE - 0.012, SURFACE + 0.004, h))
 		for k in n - 1:
 			for i in n - 1:
 				var a := k * n + i

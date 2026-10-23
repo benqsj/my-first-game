@@ -26,6 +26,8 @@ const WET: Array[String] = [
 const WAVE := """
 shader_type spatial;
 render_mode blend_mix, unshaded, depth_draw_never, cull_disabled;
+// one wave of the wake: two soft arms opening back from his feet, as off a
+// boat; laid one after another as he runs, they spread and fade
 instance uniform float age = 1.0;
 instance uniform float seed = 0.0;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -38,16 +40,17 @@ float noise(vec2 p) {
 void fragment() {
 	// x across his way, y along it (1 ahead, -1 behind)
 	vec2 c = UV * 2.0 - 1.0;
-	float spread = mix(0.25, 1.0, sqrt(age));
-	// the crest: a bow whose ends trail back
-	float bow = c.y + 1.4 * c.x * c.x - 0.35;
-	float crest = exp(-pow(bow / (0.10 + 0.10 * age), 2.0));
-	float wide = 1.0 - smoothstep(spread * 0.7, spread, abs(c.x));
-	// the arms of the V carry the wave; behind him the water is calmer
-	float arms = 0.35 + 0.65 * smoothstep(0.05, 0.5, abs(c.x));
-	float n = smoothstep(0.25, 0.85, noise(c * 7.0 + seed) * 0.7 + noise(c * 15.0 - seed) * 0.3);
+	float back = 0.55 - c.y;
+	// the arms: |x| = back * slope, the slope opening as the wave ages
+	float slope = mix(0.35, 0.75, age);
+	float d = abs(abs(c.x) - back * slope);
+	float arm = exp(-pow(d / (0.05 + 0.07 * age), 2.0)) * step(0.0, back);
+	// the little lines between the arms, fainter
+	float cross = 0.25 * exp(-pow((c.y + 0.1 + 0.6 * age) / 0.05, 2.0)) * step(abs(c.x), back * slope);
+	float fade_back = 1.0 - smoothstep(0.9, 1.5, back);
+	float n = smoothstep(0.2, 0.8, noise(c * 7.0 + seed) * 0.7 + noise(c * 16.0 - seed) * 0.3);
 	ALBEDO = vec3(0.74, 0.80, 0.78);
-	ALPHA = crest * wide * arms * n * (1.0 - age) * 0.18;
+	ALPHA = (arm + cross) * fade_back * n * (1.0 - age) * 0.24;
 }
 """
 const WAVES := 24
@@ -116,6 +119,7 @@ func _hero(hero: Player, delta: float) -> void:
 	var deep := 0.0
 	var wet := false
 	var y := 0.0
+	var depth := 0.0
 	for pl in pools:
 		if SwampMere._into(pl, at.x, at.z, noise) >= 0.97:
 			continue
@@ -124,6 +128,7 @@ func _hero(hero: Player, delta: float) -> void:
 		if water_y <= floor_y:
 			continue
 		y = water_y
+		depth = maxf(depth, water_y - floor_y)
 		if float(pl["depth"]) < 0.4:
 			wet = true
 		else:
@@ -147,13 +152,15 @@ func _hero(hero: Player, delta: float) -> void:
 	# the wake: a wave now and then while he runs in the pond
 	var vel := Vector3(hero.velocity.x, 0.0, hero.velocity.z)
 	var planar := vel.length()
-	if deep > 0.02 and planar > 1.0:
+	# anywhere there is water to stir, the pond and the wet ground alike
+	if depth > 0.008 and planar > 1.0:
 		var id2 := hero.get_instance_id()
 		var t: float = float(_wake.get(id2, 0.0)) - delta
 		if t <= 0.0:
 			t = lerpf(0.30, 0.14, clampf(planar / 6.0, 0.0, 1.0))
 			var dir := global_transform.basis.inverse() * vel.normalized()
-			_wave(Vector3(at.x, y + 0.01, at.z), dir, lerpf(1.8, 3.0, clampf(planar / 6.0, 0.0, 1.0)))
+			_wave(Vector3(at.x, y + 0.006, at.z), dir, lerpf(1.8, 3.0, clampf(planar / 6.0, 0.0, 1.0))
+					* clampf(0.55 + depth * 4.0, 0.55, 1.0))
 		_wake[id2] = t
 
 
