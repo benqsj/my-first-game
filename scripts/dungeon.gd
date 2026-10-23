@@ -113,7 +113,8 @@ const PLACES := {
 	"great_hall": {"name": "ჩანგრეული დარბაზი", "kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true},
 	"terrace": {"name": "ტერასა", "kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0},
 	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
-	"forest": {"name": "ტყე", "kind": "forest", "w": 76.0, "l": 86.0, "h": 0.0},
+	# (56 by 56: inside the shrine's ring of arches, [ForestGlade].RING_R)
+	"forest": {"name": "ტყე", "kind": "forest", "w": 56.0, "l": 56.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
 	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
 	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
@@ -3153,6 +3154,8 @@ func _place_look(night: float = 0.0) -> void:
 	_env.glow_bloom = 0.08
 	_env.glow_hdr_threshold = 1.0
 	_env.volumetric_fog_enabled = false
+	if _sun != null:
+		_sun.light_volumetric_fog_energy = 1.0
 	_env.fog_density = 0.0021
 	_env.fog_height_density = 0.0
 	_env.adjustment_contrast = 1.03
@@ -3214,21 +3217,32 @@ func _place_look(night: float = 0.0) -> void:
 			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.6, 0.62, 0.66), 0.4)
 			_env.adjustment_contrast = 1.1
 		"forest":
-			# the old oak wood in the afternoon (the user's pick, 2026-10-23):
-			# green and gold under the leaves, the sun in beams, a light low
-			# mist (the height fog: cheap, no volumetric)
-			_env.ambient_light_color = Color(0.56, 0.64, 0.48)
-			_env.ambient_light_energy *= 0.85
-			_env.fog_light_color = Color(0.66, 0.70, 0.56)
-			_env.fog_density = 0.004
-			_env.fog_height = centre(current).y + 1.5
-			_env.fog_height_density = 0.025
-			_env.fog_sky_affect = 0.4
-			_env.adjustment_contrast = 1.06
-			_env.adjustment_saturation = 1.12
+			# the deep old oak wood, realistic (the user's pick, 2026-10-23,
+			# concept "real 3"): dim and green under the leaves, the sun
+			# coming down in shafts through the air you can see light in
+			_env.ambient_light_color = Color(0.42, 0.52, 0.40)
+			_env.ambient_light_energy *= 0.7
+			_env.fog_light_color = Color(0.20, 0.27, 0.19)
+			_env.fog_density = 0.009
+			_env.fog_height = centre(current).y + 1.2
+			_env.fog_height_density = 0.03
+			_env.fog_sky_affect = 0.6
+			_env.adjustment_contrast = 1.1
+			_env.adjustment_saturation = 1.04
+			_env.volumetric_fog_enabled = true
+			_env.volumetric_fog_density = 0.012
+			_env.volumetric_fog_albedo = Color(0.78, 0.88, 0.68)
+			if _sky_mat != null:
+				_sky_mat.set_shader_parameter("top_col", Color(0.16, 0.22, 0.15))
+				_sky_mat.set_shader_parameter("hor_col", Color(0.20, 0.27, 0.19))
+			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+			_env.volumetric_fog_anisotropy = 0.65
+			_env.volumetric_fog_length = 70.0
+			_env.volumetric_fog_ambient_inject = 0.12
 			if _sun != null:
-				_sun.light_energy *= 0.95
-				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.86, 0.6), 0.45)
+				_sun.light_energy *= 1.15
+				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.93, 0.78), 0.5)
+				_sun.light_volumetric_fog_energy = 1.6
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -4854,8 +4868,7 @@ func _build_forest(room: Node3D, i: int) -> void:
 	_crag_under(room, w + 110.0, l + 110.0, PalaceVista.DROP + 60.0, -1.0)
 	# mist lying on the glade in two soft layers, drifting (the user's word,
 	# 2026-10-23: pretty, and light to draw: sheets, no volumetric fog)
-	_mist(room, w, l, 0.35, Color(0.80, 0.84, 0.74), 0.24, 12)
-	_mist(room, w, l, 1.6, Color(0.78, 0.82, 0.72), 0.12, 6)
+	_mist(room, w, l, 0.35, Color(0.62, 0.70, 0.58), 0.16, 10)
 	_falling_leaves(room, w, l)
 	_circling_birds(room)
 

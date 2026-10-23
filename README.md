@@ -10998,19 +10998,27 @@ birds round the island in the sky, blades left standing in the floor of the
 terrace and the lord's court; the orcs' drums far off in the palace, crickets
 at night, the crystals' hum, chains creaking, banners in the wind, an eagle.
 
-**The forest** (2026-10-23, the user's pick of four AI concept pictures,
-"tye1": an old oak wood round a mossy glade) is [ForestGlade]
-(`scripts/forest_glade.gd`): a wide glade of moss, grass and mud (the ground
-shader in greens), giant low-poly oaks with buttress roots and leaf-cluster
-crowns standing round it two deep like a wall, the kit's trees big and dark
-behind, ruined stone gates with steps at the far end and the sides, mossy
-boulders and big ferns at the edge, beams of sun slanting down (crossed
-additive quads), the two sheets of mist low on the ground, leaves coming
-down, a green-gold afternoon light ([method Dungeon._place_look], "forest"),
-the far mountains hidden. 76 x 86 m, nothing standing in the glade. The oaks
-and gates are `assets/dungeon/forest_glade/forest_glade.glb` from
-`vepxis-art/world/forest_glade.py`. (This replaced the dead dark wood of
-2026-10-20.)
+**The forest** (2026-10-23, realistic: the user found the first, drawn
+look too much like a cartoon and picked "real 3" of three new AI concepts,
+liking "real 1" too) is [ForestGlade] (`scripts/forest_glade.gd`). It is a deep
+old oak wood round a clearing of moss, wet mud and fallen leaves. A ring of
+mossy stone arches stands round the clearing, the ruin of a shrine, broken in
+places. Two ornate gateways with steps (from "real 1") stand outside the
+ring. The gnarled oaks' long boughs reach in over the clearing, and a roof of
+leaf cards closes it overhead, with holes. The sun comes down in shafts
+through the volumetric fog (on Medium and up). The light is dim and green
+([method Dungeon._place_look], "forest"). The place is 56 x 56 m, inside the
+ring.
+- **Shapes:** `assets/dungeon/forest_glade/forest_ruins.glb`, made by
+  `vepxis-art/world/forest_ruins.py`. It has no UVs except on the leaf cards.
+- **Look:** scanned Poly Haven textures (CC0), laid on in world space from
+  three sides by `real_surface.gdshader`, with moss on what faces up. The
+  floor is `real_ground.gdshader`. The crowns are `real_leaves.gdshader` over
+  a drawn oak-leaf card (`leaves_oak.png`, from
+  `vepxis-art/world/forest_leaf_card.py`).
+- **Props:** scanned Poly Haven rocks, ferns, roots, stumps and a fallen
+  trunk, decimated to 5–10k triangles (`vepxis-art/world/ph_light.py`). See
+  `THIRD_PARTY_ASSETS.md`.
 
 **The island in the sky** (2026-10-23, the user's pick among AI concept
 pictures: one's round temple floor, another's sea of cloud) is [SkyTemple]

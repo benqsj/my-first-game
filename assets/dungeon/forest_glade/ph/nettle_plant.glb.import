@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://xajtqulkbos6"
-path="res://.godot/imported/forest_glade.glb-baeaef7867a8bc9cef406b065a632b9b.scn"
+uid="uid://dyg4kbntp1nrt"
+path="res://.godot/imported/nettle_plant.glb-3d6843ad14811768dfb3721d4d07b87f.scn"
 
 [deps]
 
-source_file="res://assets/dungeon/forest_glade/forest_glade.glb"
-dest_files=["res://.godot/imported/forest_glade.glb-baeaef7867a8bc9cef406b065a632b9b.scn"]
+source_file="res://assets/dungeon/forest_glade/ph/nettle_plant.glb"
+dest_files=["res://.godot/imported/nettle_plant.glb-3d6843ad14811768dfb3721d4d07b87f.scn"]
 
 [params]
 
