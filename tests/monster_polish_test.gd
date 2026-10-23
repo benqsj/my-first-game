@@ -79,6 +79,7 @@ func _run() -> void:
 	await _mino_combos()
 	await _butcher_cleaver()
 	await _butcher_combos()
+	await _butcher_side()
 	await _butcher_hook()
 	await _butcher_hook_rolled()
 	await _butcher_slaughter()
@@ -256,6 +257,30 @@ func _butcher_combos() -> void:
 			break
 		await physics_frame
 	_check("dust off the ground where his cleaver goes in", b.ground_dusts > 0, "dusts %d" % b.ground_dusts)
+	await _done(a[0])
+
+
+## Him going round the butcher close by: the butcher spins on him, and the
+## spin lands at his side (the user's word, 2026-10-23).
+func _butcher_side() -> void:
+	var a: Array = await _arena()
+	var hero: Player = a[2]
+	var b := (a[1] as ArenaPanel).call_up(BUTCHER, false, _ahead(hero, 3.0)) as PigButcher
+	b.set(&"_hook_wait", 999.0)
+	b.hand_combo_chance = Vector2.ZERO
+	for i in 120:
+		await physics_frame
+	for i in 900:
+		var off := hero.global_position - b.global_position
+		off.y = 0.0
+		if off.length() > 0.1:
+			var step := off.normalized().cross(Vector3.UP) + off.normalized() * clampf(2.6 - off.length(), -1.0, 1.0)
+			hero.global_position += step * 5.0 / 60.0
+		if b.spin_blows_landed > 0:
+			break
+		await physics_frame
+	_check("him going round close by, he spins on him", b.side_spins > 0, "spins %d" % b.side_spins)
+	_check("the spin lands at his side", b.spin_blows_landed > 0, "landed %d" % b.spin_blows_landed)
 	await _done(a[0])
 
 

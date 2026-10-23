@@ -71,6 +71,8 @@ const B_THRUST := 256
 const B_LEAP := 257
 const B_LOWSPIN := 258
 const HOOK_COMBO := &"hooked"
+const SIDE_SPIN := &"side_spin"
+const SIDE_LOW := &"side_low"
 ## His foot (a stamp on him lying).
 const FEET := "R_knee_joint>R_ankle_joint:0.3|L_knee_joint>L_ankle_joint:0.3"
 
@@ -103,6 +105,14 @@ const ARC_STYLE := {"life": 0.26, "intensity": 1.0, "sheet": 0.5, "taper": 0.35,
 ## How quick he turns after him in a move (degrees a second).
 @export var act_turn_most: float = 200.0
 @export var string_leave: float = 2.5
+## Him gone round to his side close by (further than `side_angle` off his
+## front, or going round him faster than `side_orbit` degrees a second),
+## he spins on him, the cleaver round the whole of him (the user's word,
+## 2026-10-23: running round him, nothing he swung found him).
+@export var side_angle: float = 60.0
+@export var side_orbit: float = 70.0
+@export var side_near: float = 4.2
+@export var side_cooldown: Vector2 = Vector2(3.5, 6.0)
 ## Dust where his cleaver comes down into the ground: its edge within this of
 ## the ground (m), coming down at least this fast (m/s).
 @export var dust_touch: float = 0.12
@@ -158,6 +168,17 @@ var _dust_wait: float = 0.0
 ## dust thrown up where his cleaver meets the ground, counted (tests)
 var ground_dusts: int = 0
 var _turn_frame: int = -1
+## Host: him going round to his side — how fast (degrees a second about him,
+## smoothed), where he was last, and the wait before the next spin at it.
+var _orbit_rate: float = 0.0
+var _orbit_last: float = INF
+var _orbit_frame: int = -10
+var _side_wait: float = 0.0
+## spins made at him gone round to his side (tests)
+var side_spins: int = 0
+## his blows that reached him, all and his spins' (tests, probes)
+var blows_landed: int = 0
+var spin_blows_landed: int = 0
 var _turn_left: float = 0.0
 ## For the tests.
 var hooks_thrown: int = 0
@@ -496,6 +517,9 @@ func _own_part(what: int) -> Array:
 ## Host: his cleaver gone into him: more of his blood than another's blow lets.
 func _blow_reached(who: Node3D, what: int) -> void:
 	super(who, what)
+	blows_landed += 1
+	if what == B_SPIN or what == B_LOWSPIN:
+		spin_blows_landed += 1
 	if who == null or not _decides() or bool(who.get("net_blocking")) or bool(who.get("is_blocking")):
 		return
 	var at := who.global_position + Vector3.UP * 1.2
@@ -610,6 +634,9 @@ func _butcher_moves() -> void:
 		{"name": COUNTER_COMBO, "moves": [B_BACK], "fells": [0], "weight": 0.0, "far": true},
 		{"name": TRAP_COMBO, "moves": [B_HORIZ], "fells": [0], "weight": 0.0, "far": true},
 		{"name": FETCH_COMBO, "moves": [B_SPIN], "fells": [0], "weight": 0.0, "far": true},
+		# him gone round to his side: a spin, high or low ([method _try_side])
+		{"name": SIDE_SPIN, "moves": [B_SPIN], "fells": [0], "weight": 0.0, "far": true},
+		{"name": SIDE_LOW, "moves": [B_LOWSPIN], "fells": [0], "weight": 0.0, "far": true},
 	]
 
 
@@ -625,6 +652,49 @@ func _blows_in(clip: StringName, n: int) -> Array:
 	for i in n:
 		out.append(float(peaks[i]))
 	return out
+
+
+## Host: his bearing on him, and how fast he goes round (smoothed), kept
+## every frame; him at his side close by, now and then, a spin at him.
+func _try_side(delta: float) -> bool:
+	_side_wait = maxf(_side_wait - delta, 0.0)
+	if _quarry == null or delta <= 0.0:
+		return false
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	var bearing := atan2(to.x, to.z)
+	var frame := Engine.get_physics_frames()
+	if frame - _orbit_frame > 2:
+		_orbit_last = INF
+	_orbit_frame = frame
+	if _orbit_last != INF:
+		var rate := absf(rad_to_deg(wrapf(bearing - _orbit_last, -PI, PI))) / delta
+		_orbit_rate = lerpf(_orbit_rate, rate, clampf(delta * 4.0, 0.0, 1.0))
+	_orbit_last = bearing
+	if drill_combo >= 0 or _side_wait > 0.0 or act != Act.NONE or _hand_combo >= 0 or _quarry_down() \
+			or stamina < attack_cost * 0.5 or to.length() > side_near or to.length() < 0.3:
+		return false
+	var off := rad_to_deg(_forward().angle_to(to.normalized()))
+	if off < side_angle and not (_orbit_rate > side_orbit and off > 30.0):
+		return false
+	var which := _combo_named(SIDE_SPIN if _rng.randf() < 0.55 else SIDE_LOW)
+	if which < 0:
+		return false
+	_side_wait = _rng.randf_range(side_cooldown.x, side_cooldown.y) * (0.6 if raging else 1.0)
+	side_spins += 1
+	start_hand_combo(which)
+	return true
+
+
+## Its spins land the whole way round (the cleaver goes round him from a
+## little before the blow to a little after: measured, `_shots_tmp/spin_probe.gd`),
+## not only where he faces.
+func _blow_window_for(what: int) -> Vector2:
+	if what == B_SPIN:
+		return Vector2(0.22, 0.22)
+	if what == B_LOWSPIN:
+		return Vector2(0.35, 0.22)
+	return super(what)
 
 
 ## Not the orc's fall from the sky (the user's word, 2026-10-23: another's).
@@ -690,6 +760,16 @@ func _face(direction: Vector3, delta: float, rate: float) -> void:
 ## Host: him run off well out of reach in a string, the rest of it is not
 ## swung at the air: he goes after him instead.
 func _hand_next(what: int) -> int:
+	# him gone round to his side mid-string: the rest of it is a spin
+	if _quarry != null and _hand_combo >= 0 and _hand_step + 1 < _hand_moves.size() and _decides():
+		var to := _quarry.global_position - global_position
+		to.y = 0.0
+		var next := int(_hand_moves[_hand_step + 1])
+		if to.length() < side_near and to.length() > 0.3 and next != B_SPIN and next != B_LOWSPIN \
+				and rad_to_deg(_forward().angle_to(to.normalized())) > side_angle + 10.0:
+			_hand_moves = _hand_moves.slice(0, _hand_step + 1)
+			_hand_moves.append(B_SPIN if _rng.randf() < 0.55 else B_LOWSPIN)
+			side_spins += 1
 	if _quarry != null and _hand_combo >= 0 and _hand_step + 1 < _hand_moves.size():
 		var next := int(_hand_moves[_hand_step + 1])
 		if _distance_to(_quarry) > float(_strike_from.get(next, strike_off)) + string_leave:
@@ -708,6 +788,8 @@ func _try_charge() -> bool:
 
 func _own_move(delta: float) -> bool:
 	_hook_wait = maxf(_hook_wait - delta, 0.0)
+	if _try_side(delta):
+		return true
 	if hook_state != Hook.NONE:
 		mode = Mode.FIGHT
 		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)

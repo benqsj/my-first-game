@@ -11712,6 +11712,18 @@ blow's reach, the rest of the string is left off and he goes after him on
 his feet (`_hand_next`). He turns in a move at most `act_turn_most`
 200°/s, one budget a frame however often he is turned; from one move of a
 string into the next no 55° snap (`PackBrute.chain_snap`, 0 for him).
+**The user's sixth look (2026-10-23):** running round him close by, nothing
+he swung found him. Now (`_try_side`, every frame his bearing on him and how
+fast he goes round, smoothed): him within `side_near` 4.2 m, more than
+`side_angle` 60° off his front or going round him faster than `side_orbit`
+70°/s (and 30° off), now and then (`side_cooldown` 3.5-6 s) he spins on
+him — `side_spin` (Mixamo's 360, high) or `side_low` (the low spin). Mid-
+string, him gone to his side, the rest of the string is a spin
+(`_hand_next`). The spins land the whole way round: the cleaver goes round
+him from a little before the blow to a little after (measured,
+`_shots_tmp/spin_probe.gd`), so their windows are wider (`_blow_window_for`:
+0.22/0.22 s the high one, 0.35/0.22 s the low). A hero going round him at
+3 m, 5 m/s: 1 blow landed in 22 s before, 7 now (3 of them spins).
 - Test: `tests/monster_polish_test.gd` (both).
 
 ### The view: no wall seen through, wider on a great foe (2026-10-22, gameplay_plan B1)
