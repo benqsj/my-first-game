@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bl3crfr4c384"
-path="res://.godot/imported/pig_butcher_white_apron_bloody.png-98d9b43c0f8fc0924653988f63146fba.ctex"
+path.s3tc="res://.godot/imported/pig_butcher_white_apron_bloody.png-98d9b43c0f8fc0924653988f63146fba.s3tc.ctex"
+path.etc2="res://.godot/imported/pig_butcher_white_apron_bloody.png-98d9b43c0f8fc0924653988f63146fba.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e177c45213d32c19efa3cc5417b16409"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/monsters/synty_rivals/pig_butcher_white_apron_bloody.png"
-dest_files=["res://.godot/imported/pig_butcher_white_apron_bloody.png-98d9b43c0f8fc0924653988f63146fba.ctex"]
+dest_files=["res://.godot/imported/pig_butcher_white_apron_bloody.png-98d9b43c0f8fc0924653988f63146fba.s3tc.ctex", "res://.godot/imported/pig_butcher_white_apron_bloody.png-98d9b43c0f8fc0924653988f63146fba.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +42,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
