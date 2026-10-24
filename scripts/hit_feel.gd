@@ -126,8 +126,13 @@ const EASE_FROM := 0.3
 const EASE_MS := 70
 
 
-static func _let_go(player: AnimationPlayer) -> void:
-	if not is_instance_valid(player) or not player.has_meta(&"bite_until"):
+## (`held` untyped: a timer's bound body may be freed by the time it rings,
+## and a typed argument fails before the check can run)
+static func _let_go(held: Variant) -> void:
+	if not is_instance_valid(held):
+		return
+	var player := held as AnimationPlayer
+	if player == null or not player.has_meta(&"bite_until"):
 		return
 	if now_ms() + 2 < int(player.get_meta(&"bite_until")):
 		return
