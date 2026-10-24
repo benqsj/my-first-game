@@ -528,14 +528,9 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 		var c: Vector2 = corners[k]
 		_knight(room, Vector3(c.x * (hw + 1.6), 0.0, c.y * (hl - 1.5) if c.y > 0 else -hl - 1.6), PI if c.y < 0 else 0.0,
 				true, String(heroes[k % heroes.size()]))
-	# the palace's doorway stopped up, a ward shimmering in it over the heap
-	var heap := _piece(room, "Barricade", Vector3(0.0, 0.0, hl + 0.9), PI)
-	if heap != null:
-		_box(heap, Vector3(7.8, 5.5, 2.6), Vector3(0.0, 2.75, 0.0))
-	_ward(room, Vector3(0.0, 4.6, hl + 1.6), Vector2(7.0, 9.0))
-	# where they fell: blood by the doorway, by a bench, dragged across
-	_blood(room, [Vector3(-2.5, 0.0, hl - 2.0), Vector3(3.0, 0.0, hl - 4.5), Vector3(-hw + 4.0, 0.0, 3.0),
-			Vector3(hw - 5.0, 0.0, -10.0), Vector3(6.0, 0.0, -4.0), Vector3(-11.0, 0.0, -hl + 8.0)], rng)
+	# a ward of light across the palace's doorway: no one goes back that way
+	# (the user, 2026-10-24: the door as it was, a magic barrier in it)
+	_ward(room, Vector3(0.0, 0.0, hl + 1.4), Vector2(7.2, 9.6))
 	_boats(d, room, rng)
 	for at: Vector3 in [Vector3(-19.0, 0.0, -hl + 5.0), Vector3(19.0, 0.0, -hl + 5.0), Vector3(-19.0, 0.0, hl - 12.0),
 			Vector3(19.0, 0.0, hl - 12.0)]:
@@ -565,7 +560,8 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 			_piece(room, "Cypress%d" % (absi(int(z)) % 2), Vector3(sx * (hw - 1.3), 0.95, z), rng.randf_range(0.0, TAU),
 					rng.randf_range(0.85, 1.0))
 			if z + 4.5 < hl - 8.0:
-				var b := _piece(room, "BenchMarble", Vector3(sx * (hw - 1.1), 0.0, z + 4.5), PI * 0.5)
+				var b := _piece(room, ["BenchMarble", "BenchRose", "BenchGreen"][rng.randi() % 3],
+						Vector3(sx * (hw - 1.1), 0.0, z + 4.5), PI * 0.5)
 				if b != null:
 					_box(b, Vector3(2.8, 0.6, 0.7), Vector3(0.0, 0.3, 0.0))
 		z += 9.0
@@ -573,27 +569,50 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	# mist lying on the water, motes of light on the terrace
 	_haze(room, Vector3(0.0, lake_y + 4.0, -170.0), Vector3(520.0, 14.0, 520.0), 0.005)
 	_motes(room, w, l, Color(1.0, 0.95, 0.82))
-## The ward in a stopped doorway: a faint shimmer of blue light in the
-## shape of its arch, moving slowly (no one wants to go that way).
+## A ward of light filling a doorway (no one wants to go that way): a veil
+## in the shape of its arch, deep blue in the middle, bright at its rim,
+## lines of light rising through it, a slow ripple, sparks drifting up in it
+## and a little blue light on the stone round it.
 const WARD := """
 shader_type spatial;
-render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, shadows_disabled;
-uniform vec4 tint : source_color = vec4(0.42, 0.62, 0.95, 1.0);
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled;
+uniform vec4 deep : source_color = vec4(0.10, 0.28, 0.85, 1.0);
+uniform vec4 rim : source_color = vec4(0.55, 0.85, 1.0, 1.0);
+uniform vec4 gold : source_color = vec4(1.0, 0.85, 0.5, 1.0);
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vnoise(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
 	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
 }
+// how far inside the arch (1 at its middle line, 0 at its edge, < 0 outside)
+float arch(vec2 uv) {
+	vec2 q = vec2((uv.x - 0.5) * 2.0, 1.0 - uv.y);
+	float top = 0.62;
+	float d = q.y < top ? abs(q.x) : length(vec2(q.x, (q.y - top) / (1.0 - top)));
+	return 1.0 - d;
+}
 void fragment() {
 	vec2 uv = UV;
-	// the arch: straight sides, a half circle on top
-	vec2 q = vec2((uv.x - 0.5) * 2.0, (1.0 - uv.y));
-	float top = 0.62;
-	float inside = q.y < top ? step(abs(q.x), 1.0) : step(length(vec2(q.x, (q.y - top) / (1.0 - top))), 1.0);
-	float n = vnoise(vec2(uv.x * 6.0, uv.y * 4.0 - TIME * 0.25)) * 0.6 + vnoise(vec2(uv.x * 14.0 + TIME * 0.2, uv.y * 9.0)) * 0.4;
-	float edge = 1.0 - smoothstep(0.0, 0.35, 1.0 - max(abs(q.x), q.y > top ? length(vec2(q.x, (q.y - top) / (1.0 - top))) : 0.0));
-	ALBEDO = tint.rgb;
-	ALPHA = inside * (0.28 + 0.34 * n + 0.45 * edge) * (0.85 + 0.15 * sin(TIME * 1.3));
+	float a = arch(uv);
+	if (a < 0.0) { discard; }
+	float t = TIME;
+	// a slow ripple across it
+	vec2 w = uv + vec2(sin(uv.y * 9.0 + t * 1.3) * 0.012, sin(uv.x * 7.0 - t) * 0.008);
+	// lines of light rising
+	float lines = pow(abs(sin(w.x * 46.0 + vnoise(vec2(w.x * 8.0, t * 0.3)) * 3.0)), 18.0);
+	float rise = vnoise(vec2(w.x * 22.0, w.y * 3.0 - t * 0.9));
+	lines *= smoothstep(0.35, 0.9, rise);
+	// soft clouds of light moving in it
+	float cloud = vnoise(w * vec2(5.0, 3.0) + vec2(0.0, -t * 0.35)) * 0.6 + vnoise(w * vec2(11.0, 7.0) + vec2(t * 0.2, 0.0)) * 0.4;
+	// the bright rim, and a thin gold line inside it
+	float edge = 1.0 - smoothstep(0.0, 0.12, a);
+	float inner = smoothstep(0.10, 0.13, a) * (1.0 - smoothstep(0.13, 0.16, a));
+	float breath = 0.85 + 0.15 * sin(t * 1.7);
+	vec3 c = deep.rgb * (0.25 + 0.45 * cloud) + rim.rgb * (edge * 1.4 + lines * 0.9) + gold.rgb * inner * 0.8;
+	// sparkles
+	vec2 cell = floor(uv * vec2(28.0, 40.0) + vec2(0.0, -t * 3.0));
+	c += rim.rgb * step(0.985, hash(cell)) * 1.2;
+	ALBEDO = c * breath;
 }
 """
 
@@ -605,8 +624,57 @@ static func _ward(room: Node3D, at: Vector3, size: Vector2) -> void:
 	mi.mesh = q
 	mi.material_override = _code("ward", WARD)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.position = at
+	mi.position = at + Vector3(0.0, size.y * 0.5, 0.0)
 	room.add_child(mi)
+	# no one through it
+	var block := Node3D.new()
+	block.position = at
+	room.add_child(block)
+	_box(block, Vector3(size.x + 0.4, size.y, 0.8), Vector3(0.0, size.y * 0.5, 0.0))
+	# its light on the stone round it
+	var light := OmniLight3D.new()
+	light.light_color = Color(0.45, 0.7, 1.0)
+	light.light_energy = 1.6
+	light.omni_range = 9.0
+	light.position = at + Vector3(0.0, 3.0, -1.2)
+	room.add_child(light)
+	# sparks drifting up in it, soft and round
+	var p := GPUParticles3D.new()
+	p.amount = 40
+	p.lifetime = 4.0
+	p.preprocess = 4.0
+	p.position = at + Vector3(0.0, 0.3, -0.2)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(size.x * 0.42, 0.2, 0.25)
+	pm.direction = Vector3.UP
+	pm.spread = 8.0
+	pm.initial_velocity_min = 0.8
+	pm.initial_velocity_max = 1.8
+	pm.gravity = Vector3.ZERO
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.4
+	var fade := Gradient.new()
+	fade.set_color(0, Color(0.6, 0.85, 1.0, 0.0))
+	fade.add_point(0.3, Color(0.7, 0.9, 1.0, 1.0))
+	fade.set_color(fade.get_point_count() - 1, Color(0.6, 0.85, 1.0, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	p.process_material = pm
+	var dot := QuadMesh.new()
+	dot.size = Vector2(0.12, 0.12)
+	var dm := StandardMaterial3D.new()
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	dm.vertex_color_use_as_albedo = true
+	dm.albedo_texture = PlaceBuild.soft_dot()
+	dot.material = dm
+	p.draw_pass_1 = dot
+	p.visibility_aabb = AABB(Vector3(-6, -1, -2), Vector3(12, 12, 4))
+	room.add_child(p)
 
 
 ## Blood where they fell (the orcs' own stains, [OrcSpoils]): a pool at each
