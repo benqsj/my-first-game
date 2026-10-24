@@ -40,6 +40,12 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	if what == "prison":
 		walls = d._wall_mat.duplicate() as ShaderMaterial
 		walls.set_shader_parameter("stone", Color(0.40, 0.40, 0.42))
+		# Ashen's look (the user's word, 2026-10-25): the blocks even and
+		# smooth, the joints soft, no moss; the light and the air do the rest
+		walls.set_shader_parameter("photo", 0.25)
+		walls.set_shader_parameter("mottle", 0.35)
+		walls.set_shader_parameter("moss_amt", 0.0)
+		walls.set_shader_parameter("grout", Color(0.31, 0.31, 0.33))
 	d._solid(room, walls, Vector3(w + Dungeon.WALL_T * 2.0, 24.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -13.0, 0.0), false)
 	for side: float in [-1.0, 1.0]:
 		d._solid(room, walls, Vector3(Dungeon.WALL_T, h, l + Dungeon.WALL_T * 2.0),

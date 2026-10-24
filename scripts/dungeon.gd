@@ -446,6 +446,8 @@ uniform float photo = 0.0;
 // Cobbles all over, as the village's streets (the user's word, 2026-10-23):
 // no slabs at all.
 uniform float all_cob = 0.0;
+// How much moss and dirt lies in the low places (the prisoners' room: none).
+uniform float moss_amt = 1.0;
 uniform sampler2D cob_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D cob_nor : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D stone_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -580,7 +582,7 @@ void fragment() {
 	// Moss and dirt in the low places near the walls.
 	float low = 1.0 - smoothstep(0.1, 0.5, h);
 	float moss = low * smoothstep(5.0, 0.5, to_wall) * smoothstep(0.45, 0.7, noise(p * 0.8 + 5.0));
-	c = mix(c, vec3(0.16, 0.19, 0.09), moss * mix(0.6, 0.15, photo));
+	c = mix(c, vec3(0.16, 0.19, 0.09), moss * mix(0.6, 0.15, photo) * moss_amt);
 	float drift = smoothstep(0.62, 0.8, noise(p * 0.12 + 21.0) + noise(p * 0.9) * 0.2) * snow;
 	c = mix(c, vec3(0.86, 0.88, 0.93), drift * (1.0 - h * 0.6) * 0.8);
 	c *= mix(0.62, 1.0, smoothstep(0.0, 3.0, to_wall));
@@ -686,6 +688,10 @@ uniform vec4 grout : source_color = vec4(0.08, 0.07, 0.09, 1.0);
 uniform float photo = 0.0;
 uniform sampler2D stone_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D stone_nor : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+// moss low down (0: none) and how much each block differs from the next
+// (the prisoners' room, Ashen's look: smooth, even stone)
+uniform float moss_amt = 1.0;
+uniform float mottle = 1.0;
 varying vec3 wpos;
 varying vec3 wnorm;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -702,7 +708,7 @@ void fragment() {
 	vec2 cell = floor(p);
 	vec2 f = fract(p);
 	float n = hash(cell);
-	vec3 c = stone.rgb * (0.7 + 0.45 * n);
+	vec3 c = stone.rgb * mix(1.0, 0.7 + 0.45 * n, mottle);
 	vec2 tuv = vec2(u, wpos.y) / 2.4 + vec2(n * 5.3, n * 2.9);
 	vec3 st = texture(stone_tex, tuv).rgb;
 	c *= mix(1.0, clamp(dot(st, vec3(0.2126, 0.7152, 0.0722)) / 0.11, 0.6, 1.45), photo * 0.75);
@@ -714,7 +720,7 @@ void fragment() {
 	c = mix(c, grout.rgb, clamp(joint, 0.0, 1.0));
 	// Darker towards the floor, as old stone is, and a little moss low down.
 	c *= 0.72 + 0.28 * smoothstep(0.0, 4.0, wpos.y);
-	c = mix(c, vec3(0.13, 0.17, 0.10), 0.25 * (1.0 - photo * 0.7) * smoothstep(1.2, 0.0, wpos.y) * step(0.6, n));
+	c = mix(c, vec3(0.13, 0.17, 0.10), 0.25 * (1.0 - photo * 0.7) * smoothstep(1.2, 0.0, wpos.y) * step(0.6, n) * moss_amt);
 	// Water stains running down from the joints, here and there.
 	float col = floor(u / 0.9);
 	float stain = step(0.82, hash(vec2(col, 3.0))) * smoothstep(0.0, 0.5, fract(u / 0.9))
@@ -729,7 +735,7 @@ void fragment() {
 	float m01 = hash(floor(mq) + vec2(0.0, 1.0)); float m11 = hash(floor(mq) + vec2(1.0, 1.0));
 	float mv = mix(mix(m00, m10, mu.x), mix(m01, m11, mu.x), mu.y);
 	float moss = smoothstep(0.58, 0.8, mv) * smoothstep(3.2, 0.2, wpos.y) * step(0.0, wpos.y) * step(abs(wnorm.y), 0.5);
-	c = mix(c, vec3(0.09, 0.13, 0.06) * (0.8 + 0.4 * mn), moss * mix(0.75, 0.22, photo));
+	c = mix(c, vec3(0.09, 0.13, 0.06) * (0.8 + 0.4 * mn), moss * mix(0.75, 0.22, photo) * moss_amt);
 	ALBEDO = c;
 	ROUGHNESS = 0.9;
 }
@@ -2994,6 +3000,16 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("cobble_b", Color(0.18, 0.18, 0.19))
 		m.set_shader_parameter("border", 1.2)
 		m.set_shader_parameter("wear", 0.5)
+		# Ashen's look (the user's word, 2026-10-25): even, quiet stone that
+		# takes the soft light, little grain, no moss
+		m.set_shader_parameter("photo", 0.35)
+		m.set_shader_parameter("relief", 0.03)
+		m.set_shader_parameter("moss_amt", 0.0)
+		m.set_shader_parameter("slab_a", Color(0.47, 0.46, 0.45))
+		m.set_shader_parameter("slab_b", Color(0.38, 0.37, 0.37))
+		m.set_shader_parameter("cobble_a", Color(0.46, 0.45, 0.44))
+		m.set_shader_parameter("cobble_b", Color(0.40, 0.39, 0.39))
+		m.set_shader_parameter("grit", Color(0.24, 0.24, 0.25))
 		return m
 	if kind == "rampart":
 		m.set_shader_parameter("slab", 1.6)
@@ -3254,6 +3270,25 @@ func _place_look(night: float = 0.0) -> void:
 	_env.adjustment_saturation = 1.06
 	_env.adjustment_brightness = 1.0
 	_env.fog_sky_affect = 0.2
+	# what the prisoners' room's Ashen look turns ([method _ashen_look]), back
+	# to the game's own for every other place
+	_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	_env.tonemap_exposure = 1.0
+	_env.tonemap_white = 1.0
+	_env.adjustment_color_correction = null
+	_env.fog_sun_scatter = 0.0
+	_env.fog_aerial_perspective = 0.0
+	_env.volumetric_fog_anisotropy = 0.2
+	_env.ssao_radius = 1.0
+	_env.ssao_intensity = 1.1
+	_env.ssao_power = 1.5
+	_env.ssao_detail = 0.5
+	_env.ssao_light_affect = 0.0
+	if _sun != null:
+		_sun.light_angular_distance = 0.0
+		_sun.shadow_opacity = 0.72
+		_sun.shadow_blur = 1.0
 	match kind:
 		"hall", "court", "terrace", "throne":
 			# the gold is the day's: by night only the torches' warmth is left
@@ -3381,6 +3416,8 @@ func _place_look(night: float = 0.0) -> void:
 					_sun.rotation.x = -deg_to_rad(60.0)
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			_terrace_look(kind)
+		"prison":
+			_ashen_look()
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3410,6 +3447,86 @@ func _place_look(night: float = 0.0) -> void:
 		if _env.volumetric_fog_enabled:
 			_env.volumetric_fog_enabled = false
 			_env.fog_density *= 1.6
+
+
+## The prisoners' room in Ashen's light (the user's word, 2026-10-25, a
+## shot of Ashen to go by): a high white overcast, no hard sun; the light
+## soft and even from the whole sky, shadows only as a faint pool under
+## things; a pale blue-grey air that thickens with distance until the far
+## wall is half gone, a low mist on the floor; colours muted, the blacks
+## lifted into a cool grey, the whites a little warm; a soft wide bloom.
+## Every hour of the run looks the same here.
+func _ashen_look() -> void:
+	var air := Color(0.66, 0.69, 0.72)
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("cloud", 1.0)
+		_sky_mat.set_shader_parameter("night", 0.0)
+		_sky_mat.set_shader_parameter("top_col", Color(0.60, 0.64, 0.68))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.80, 0.81, 0.80))
+		_sky_mat.set_shader_parameter("gnd_col", Color(0.42, 0.43, 0.44))
+		_sky_mat.set_shader_parameter("sun_col", Color(0.95, 0.92, 0.86))
+	# the fill does most of the lighting: the whole white sky
+	# (cool: what the sun does not reach goes blue-grey, what it does warm)
+	_env.ambient_light_color = Color(0.62, 0.68, 0.77)
+	_env.ambient_light_energy = 0.9
+	# the air: clear at hand, thickening with distance (depth fog: none
+	# nearer than 7 m, most of the way to grey at the far wall), the sky
+	# lost in it, a thin mist low on the floor
+	_env.fog_light_color = air
+	_env.fog_mode = Environment.FOG_MODE_DEPTH
+	_env.fog_density = 0.62
+	_env.fog_depth_begin = 7.0
+	_env.fog_depth_end = 75.0
+	_env.fog_depth_curve = 1.25
+	_env.fog_sky_affect = 0.7
+	_env.fog_sun_scatter = 0.1
+	_env.fog_height = centre(current).y + 0.8
+	_env.fog_height_density = 0.015
+	# a little light in the air you can see (High and Ultra), the shafts
+	_env.volumetric_fog_enabled = true
+	_env.volumetric_fog_density = 0.0025
+	_env.volumetric_fog_albedo = Color(0.90, 0.92, 0.94)
+	_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+	_env.volumetric_fog_anisotropy = 0.55
+	_env.volumetric_fog_length = 64.0
+	_env.volumetric_fog_ambient_inject = 0.06
+	# a soft, wide bloom on what is bright
+	_env.glow_intensity = 0.75
+	_env.glow_bloom = 0.14
+	_env.glow_hdr_threshold = 0.9
+	# the grade: AgX's gentle roll-off, low contrast, muted, the shadows a
+	# cool lifted grey and the whites a little warm
+	_env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	_env.tonemap_exposure = 1.05
+	_env.tonemap_white = 6.0
+	_env.adjustment_contrast = 0.98
+	_env.adjustment_saturation = 0.82
+	_env.adjustment_brightness = 1.02
+	var grade := Gradient.new()
+	grade.set_color(0, Color(0.09, 0.10, 0.13))
+	grade.add_point(0.4, Color(0.40, 0.42, 0.45))
+	grade.add_point(0.75, Color(0.77, 0.76, 0.74))
+	grade.set_color(grade.get_point_count() - 1, Color(1.0, 0.97, 0.92))
+	var lut := GradientTexture1D.new()
+	lut.gradient = grade
+	lut.width = 256
+	_env.adjustment_color_correction = lut
+	# soft, wide contact shade, as under an overcast sky
+	_env.ssao_radius = 2.6
+	_env.ssao_intensity = 1.5
+	_env.ssao_power = 1.25
+	_env.ssao_detail = 0.25
+	_env.ssao_light_affect = 0.2
+	if _sun != null:
+		# the sun behind the cloud: weak, high, its shadows wide and faint
+		_sun.visible = true
+		_sun.light_color = Color(1.0, 0.93, 0.84)
+		_sun.light_energy = 1.1
+		_sun.rotation.x = -deg_to_rad(46.0)
+		_sun.light_angular_distance = 4.0
+		_sun.shadow_opacity = 0.7
+		_sun.shadow_blur = 2.5
+		_sun.light_volumetric_fog_energy = 1.6
 
 
 ## The four terraces' light ([TerracePlaces]): clear skies, real sun on the
