@@ -35,11 +35,17 @@ const STATUE := "res://assets/dungeon/sky_temple/statue.res"
 ## each place its own heroes (the user's word, 2026-10-24: not the swordsman
 ## everywhere).
 const STATUES := "res://assets/dungeon/statues/%s.res"
+## The golden hall's look: "d" the open hall, the game's (the user's pick,
+## 2026-10-24); "a" walled all round, "b" the orcs' dusk, "c" the bright
+## white hall (the other looks shown, kept to choose from).
+static var hall_look := ""
+
 const PLACE_HEROES := {
 	"lake": ["avtandil", "elf_mage", "rogue", "warrior"],
+	"gold_hall": ["tariel", "mage"],
 	"clouds": ["dark_mage", "dark_archer"],
-	"fort": ["tariel", "elf_archer"],
-	"falls": ["mage", "dark_rogue"],
+	"fort": ["elf_archer", "dark_rogue"],
+	"falls": ["warrior", "avtandil"],
 }
 
 ## The lake's water: a wide sheet moved in slow waves, each facet lit flat
@@ -494,6 +500,8 @@ static func build(d: Dungeon, room: Node3D, kind: String, w: float, l: float, rn
 			_falls(d, room, w, l, rng)
 		"clouds":
 			_clouds(d, room, w, l, rng)
+		"gold_hall":
+			_gold_hall(d, room, w, l, rng)
 
 
 #region The lake
@@ -776,6 +784,189 @@ static func _smoke(holder: Node3D) -> void:
 	p.visibility_aabb = AABB(Vector3(-30, -2, -30), Vector3(60, 70, 60))
 	holder.add_child(p)
 #endregion
+
+
+#region The golden hall
+## The palace's great hall, after the sketch the user chose (2026-10-24):
+## pale cut stone with gold trim, tall windows down the sides, a round window
+## over the throne, two rows of cream columns with gilded capitals, the
+## timber roof broken open so the sun comes down in shafts, a cream floor
+## with rose lines and diamonds down the aisle, crimson banners, shields on
+## the walls, the feast's tables left laid, two heroes' statues by the
+## throne. No rubble on the floor (the user's word).
+static func _gold_hall(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator) -> void:
+	var hw := w * 0.5
+	var hl := l * 0.5
+	var h := 18.0
+	var look := hall_look if hall_look != "" else "d"
+	var white := look == "c"
+	var open_side := look == "d"
+	var orcs := look == "b"
+	_floor(d, room, "HFloorT" if white else "HFloor", w, l)
+	if not white:
+		# a long crimson runner from the doors to the throne's steps
+		var run := _piece(room, "HCarpet", Vector3(0.0, 0.0, 2.6), 0.0, 1.0, false)
+		if run != null:
+			run.scale.z = 47.0 / 48.0
+	# the walls: windows down both sides, the round window over the throne,
+	# the great doors behind the way in (look D: the left wall fallen)
+	var pre := "HWallW" if white else "HWall"
+	var walls := [
+		[Vector3(-hw - 0.8, 0.0, -hl - 1.6), Vector3(-hw - 0.8, 0.0, hl + 1.6), PI * 0.5, "broken" if open_side else pre],
+		[Vector3(hw + 0.8, 0.0, -hl - 1.6), Vector3(hw + 0.8, 0.0, hl + 1.6), -PI * 0.5, pre],
+		[Vector3(-hw - 1.6, 0.0, -hl - 0.8), Vector3(hw + 1.6, 0.0, -hl - 0.8), 0.0, pre + "Rose"],
+		[Vector3(-hw - 1.6, 0.0, hl + 0.8), Vector3(hw + 1.6, 0.0, hl + 0.8), PI, pre + "Door"],
+	]
+	for wl: Array in walls:
+		var a: Vector3 = wl[0]
+		var b: Vector3 = wl[1]
+		var along := b - a
+		var n := 7 if absf(along.z) > absf(along.x) else 5
+		for k in n:
+			var piece := String(wl[3])
+			if piece == "broken":
+				piece = "HWallBroken%d" % (k % 2)
+			elif piece != pre and k != int(n / 2.0):
+				piece = pre + "Plain"
+			var seg := _piece(room, piece, a + along * ((float(k) + 0.5) / float(n)), float(wl[2]))
+			if seg != null:
+				seg.scale.x = along.length() / float(n) / 8.0 * 1.003
+		var holder := Node3D.new()
+		holder.position = (a + b) * 0.5
+		room.add_child(holder)
+		var size := Vector3(absf(along.x) + 1.6, h + Dungeon.BLOCK_H, absf(along.z) + 1.6)
+		_box(holder, size, Vector3(0.0, size.y * 0.5, 0.0))
+	# two rows of columns, beams across on them, the roof on the beams
+	# (look D: the roof gone over the fallen side, the beams broken off)
+	var roof_from := -4.0 if open_side else -hw - 2.0
+	var zs: Array[float] = []
+	var z := -hl + 4.0
+	while z < hl - 2.0:
+		zs.append(z)
+		z += 8.0
+	for cz: float in zs:
+		for sx: float in [-1.0, 1.0]:
+			var col := _piece(room, "HColumn", Vector3(sx * 14.0, 0.0, cz), rng.randf_range(0.0, TAU))
+			if col != null:
+				_post_col(col, 1.0, h)
+		var x0 := roof_from - (rng.randf_range(2.0, 9.0) if open_side else 0.0)
+		var x1 := hw + 1.5
+		var beam := _piece(room, "HBeam", Vector3((x0 + x1) * 0.5, h - 0.6, cz), 0.0)
+		if beam != null:
+			beam.scale.x = (x1 - x0) / 48.0
+			_both_sides(beam)
+	# the roof's holes: the sun comes down there (the user's rule: never a
+	# roof that keeps the sun off the whole floor)
+	var holes := [Vector2(-12, 0), Vector2(4, 0), Vector2(-4, 16), Vector2(12, 16), Vector2(-12, 24)]
+	var px := -hw + 2.0
+	while px < hw:
+		var pz := -hl + 4.0
+		while pz < hl:
+			var open := px < roof_from
+			for hole: Vector2 in holes:
+				if absf(hole.x - px) < 4.1 and absf(hole.y - pz) < 4.1:
+					open = true
+			if not open:
+				var broken := open_side and px < roof_from + 8.0
+				for hole: Vector2 in holes:
+					if absf(hole.x - px) < 8.5 and absf(hole.y - pz) < 8.5 and rng.randf() < 0.5:
+						broken = true
+				var panel := _piece(room, "HRoofBroken" if broken else "HRoof", Vector3(px, h - 0.05, pz),
+						PI * 0.5 * float(rng.randi() % 4))
+				if panel != null:
+					_both_sides(panel)
+			pz += 8.0
+		px += 8.0
+	# (no rubble or fallen beams on the floor: the user's word, 2026-10-24,
+	# it looked bad)
+	# banners down the columns, facing the aisle: the palace's crimson, or
+	# (look B) the orcs' own hung over them
+	for k in zs.size():
+		if k % 2 == 1 and not orcs:
+			continue
+		for sx: float in [-1.0, 1.0]:
+			if open_side and sx < 0.0:
+				continue
+			_piece(room, "OrcBanner" if orcs else "BannerLong", Vector3(sx * 13.1, 12.5, zs[k]), -sx * PI * 0.5)
+	# shields on the walls between the windows
+	for k in 7:
+		var sz := -hl + (float(k) + 1.0) * l / 8.0
+		for sx: float in [-1.0, 1.0]:
+			if open_side and sx < 0.0:
+				continue
+			_piece(room, "HShield", Vector3(sx * (hw - 0.2), 6.0, sz), -sx * PI * 0.5, 1.2)
+	# the feast's tables, left laid, between the columns and the walls (look
+	# B: thrown over; look C: cypresses in marble pots between them)
+	for sx: float in [-1.0, 1.0]:
+		for k in 3:
+			var tz := -hl + 14.0 + float(k) * 13.0 + rng.randf_range(-1.0, 1.0)
+			var t := _piece(room, "HTableTipped" if orcs and rng.randf() < 0.6 else "HTable", Vector3(sx * 18.4, 0.0, tz),
+					PI * 0.5 + rng.randf_range(-0.06, 0.06) + (rng.randf_range(-0.4, 0.4) if orcs else 0.0))
+			if t != null:
+				_box(t, Vector3(5.0, 1.2, 1.4), Vector3(0.0, 0.6, 0.0))
+			if white:
+				var pz2 := tz + 6.5
+				if pz2 < hl - 6.0:
+					var pot := _piece(room, "PlanterMarble", Vector3(sx * 18.4, 0.0, pz2))
+					if pot != null:
+						_box(pot, Vector3(1.5, 1.2, 1.5), Vector3(0.0, 0.6, 0.0))
+					_piece(room, "Cypress%d" % (k % 2), Vector3(sx * 18.4, 0.95, pz2), rng.randf_range(0.0, TAU), 0.9)
+	if orcs:
+		_orc_camp(d, room, hw, hl, rng)
+	# two great banners either side of the round window
+	for sx: float in [-1.0, 1.0]:
+		_piece(room, "OrcBanner" if orcs else "BannerLong", Vector3(sx * 6.0, 13.5, -hl + 0.15), 0.0, 1.4)
+	# the throne on its dais under the round window, a hero's statue each side
+	var dais := _piece(room, "CDais", Vector3(0.0, 0.0, -hl + 4.0), 0.0, 0.9)
+	if dais != null:
+		_box(dais, Vector3(12.0, 0.9, 6.0), Vector3(0.0, 0.45, 0.0))
+		_box(dais, Vector3(2.4, 4.5, 2.0), Vector3(0.0, 2.2, -1.6))
+	var heroes: Array = PLACE_HEROES["gold_hall"]
+	for k in 2:
+		var sx := -1.0 if k == 0 else 1.0
+		_knight(room, Vector3(sx * 8.5, 0.0, -hl + 2.0), 0.0, false, String(heroes[k]))
+	if open_side:
+		# beyond the fallen wall: the crag the palace stands on, the valley far
+		# below, the peaks
+		for k in 6:
+			_crag(room, ["Cliff1", "Cliff0"][k % 2], Vector3(-hw - 14.0, -4.0, -hl + float(k) * l / 5.0),
+					rng.randf_range(0.9, 1.2), rng.randf_range(0.0, TAU), 0.0, 0.0, false)
+		_piece(room, "FValley", Vector3(-180.0, -95.0, -40.0), PI + 0.3, 1.6, false)
+	# the light in the air: a warm haze the shafts show in, motes of dust
+	_haze(room, Vector3(0.0, h * 0.45, 0.0), Vector3(w, h, l), 0.009 if orcs else 0.006)
+	_motes(room, w, l, Color(1.0, 0.86, 0.6), 220)
+
+
+## The orcs in the hall (look B): their hide tents by the far walls, stakes
+## round their camp, braziers down the aisle's sides, their loot heaped.
+static func _orc_camp(d: Dungeon, room: Node3D, hw: float, hl: float, rng: RandomNumberGenerator) -> void:
+	for at: Vector3 in [Vector3(-hw + 5.0, 0.0, hl - 9.0), Vector3(hw - 5.0, 0.0, -hl + 16.0)]:
+		var tent := _piece(room, "FTent", at, rng.randf_range(0.0, TAU), 0.8)
+		if tent != null:
+			_post_col(tent, 2.2, 4.0)
+	for k in 4:
+		var sx := -1.0 if k % 2 == 0 else 1.0
+		var bz := -hl + 18.0 + floorf(k / 2.0) * 18.0
+		_brazier(d, room, Vector3(sx * 7.5, 0.0, bz), 3.4)
+	for at: Vector3 in [Vector3(-hw + 9.0, 0.0, hl - 14.0), Vector3(hw - 9.0, 0.0, -hl + 22.0)]:
+		var bar := _piece(room, "Barricade", at, rng.randf_range(-0.3, 0.3) + PI * 0.5)
+		if bar != null:
+			_box(bar, Vector3(6.0, 1.6, 1.2), Vector3(0.0, 0.8, 0.0))
+	for k in 8:
+		var sx := -1.0 if k < 4 else 1.0
+		var at := Vector3(sx * rng.randf_range(16.5, 20.0), 0.0, rng.randf_range(-hl + 10.0, hl - 10.0))
+		var thing := _piece(room, "Barrel" if k % 2 == 0 else "Crate", at, rng.randf_range(0.0, TAU))
+		if thing != null:
+			_post_col(thing, 0.5, 1.0)
+#endregion
+
+
+## A piece seen from above as well (the roof's boards are drawn for the
+## eye under them; the sun's shadow wants their other side too).
+static func _both_sides(n: Node3D) -> void:
+	for g in n.find_children("*", "GeometryInstance3D", true, false) + [n]:
+		if g is GeometryInstance3D:
+			(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 
 
 #region The fortress

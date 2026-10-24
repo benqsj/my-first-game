@@ -108,7 +108,7 @@ const LORD_GIFT_NAME := "The Orc Lord's"
 ## "throne" the lord's court on the roof, "cave", "forest", "sky" an island
 ## over the clouds), how big, how high its walls, how far up it stands.
 const PLACES := {
-	"hall": {"name": "სასახლის დარბაზი", "kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0},
+	"hall": {"name": "სასახლის დარბაზი", "kind": "gold_hall", "w": 44.0, "l": 56.0, "h": 18.0},
 	"court": {"name": "სასახლის ეზო", "kind": "court", "w": 52.0, "l": 64.0, "h": 11.0},
 	"great_hall": {"name": "ჩანგრეული დარბაზი", "kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true},
 	# (the four terraces, low poly, [TerracePlaces]: the user's word,
@@ -3269,7 +3269,7 @@ func _place_look(night: float = 0.0) -> void:
 				# between the crowns rather than in under them from the side
 				if _sun.rotation.x > -deg_to_rad(60.0):
 					_sun.rotation.x = -deg_to_rad(60.0)
-		"lake", "fort", "falls", "clouds":
+		"lake", "fort", "falls", "clouds", "gold_hall":
 			_terrace_look(kind)
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
@@ -3315,6 +3315,11 @@ func _terrace_look(kind: String) -> void:
 				"thick": 0.0011, "top": Color(0.32, 0.54, 0.80), "hor": Color(0.80, 0.86, 0.88), "sat": 1.1},
 		"clouds": {"sun": Color(1.0, 0.86, 0.64), "power": 1.15, "up": 40.0, "fog": Color(1.0, 0.88, 0.70),
 				"thick": 0.0006, "top": Color(0.30, 0.54, 0.86), "hor": Color(0.86, 0.86, 0.84), "sat": 1.16},
+		# the golden hall, open on one side (the user's pick, 2026-10-24): the
+		# afternoon sun in over the fallen wall and down through the roof's
+		# holes; the air clear enough for the valley and the peaks
+		"gold_hall": {"sun": Color(1.0, 0.92, 0.78), "power": 1.25, "up": 42.0, "fog": Color(0.86, 0.86, 0.84),
+				"thick": 0.0005, "top": Color(0.34, 0.54, 0.82), "hor": Color(0.90, 0.84, 0.72), "sat": 1.08},
 	}
 	var lk: Dictionary = looks[kind]
 	_env.fog_light_color = _env.fog_light_color.lerp(lk["fog"], 0.6)
@@ -3330,6 +3335,21 @@ func _terrace_look(kind: String) -> void:
 		_sun.light_energy *= float(lk["power"])
 		# the sun up where it lays real shadow on the floor
 		_sun.rotation.x = -deg_to_rad(float(lk["up"]))
+	if kind == "gold_hall":
+		# under the roof: the shade warm and low, the sun's shafts seen in
+		# the dusty air where it comes through the holes
+		_env.ambient_light_color = Color(0.80, 0.72, 0.62)
+		_env.ambient_light_energy = minf(_env.ambient_light_energy, 0.75)
+		_env.volumetric_fog_enabled = true
+		_env.volumetric_fog_density = 0.003
+		_env.volumetric_fog_albedo = Color(1.0, 0.90, 0.74)
+		_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+		_env.volumetric_fog_length = 70.0
+		_env.volumetric_fog_ambient_inject = 0.05
+		if _sun != null:
+			_sun.light_volumetric_fog_energy = 3.0
+			# from the open side, over the fallen wall
+			_sun.rotation.y = deg_to_rad(-120.0)
 
 
 ## A fire low enough to walk into (the user's word, 2026-10-23: in places he
@@ -3401,7 +3421,7 @@ func _build_room_body(i: int) -> void:
 		"spring", "prison":
 			RestSpot.build(self, room, i, kind)
 			return
-		"lake", "fort", "falls", "clouds":
+		"lake", "fort", "falls", "clouds", "gold_hall":
 			TerracePlaces.build(self, room, kind, w, l, _rng)
 			return
 		"merchant", "altar":
@@ -4626,7 +4646,7 @@ func _echo(kind: String) -> void:
 	if echo == null:
 		return
 	match kind:
-		"hall":
+		"hall", "gold_hall":
 			echo.room_size = 0.85
 			echo.damping = 0.35
 			echo.wet = 0.26
@@ -4672,7 +4692,7 @@ func _ambience(i: int) -> void:
 	var night := i >= 3
 	var parts: Array = []
 	match kind:
-		"hall":
+		"hall", "gold_hall":
 			# the orcs' drums somewhere deep in their palace
 			parts = [["wind_loop.wav", -24.0], ["drums_far_loop.wav", -25.0]]
 		"court", "terrace":
@@ -4767,7 +4787,7 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_stones_in -= delta
 	if _stones_in <= 0.0:
 		_stones_in = _rng.randf_range(8.0, 16.0)
-		if kind == "hall" or kind == "crypt":
+		if kind in ["hall", "gold_hall", "crypt"]:
 			_falling_stones(near, float(r["h"]))
 	_storm_in -= delta
 	if _storm_in <= 0.0:
