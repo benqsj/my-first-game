@@ -3751,6 +3751,15 @@ func _set_run(clip: StringName) -> void:
 
 
 ## `clip`, or at random one of the clips picked to play in its place.
+## The take of a move with other takes ([method _alt]) when every peer must
+## pick the same one: set by the body just before the move — its owner draws
+## it and sends it with the move ([method Player.net_mantle],
+## [method Player.net_evade]) — and -1 again after (pick freely). Without it
+## each peer drew its own take (coop_seen_test, 2026-10-24: he pulled himself
+## up one way here, another way there).
+var pick_seed: int = -1
+
+
 func _alt(clip: StringName) -> StringName:
 	if not _on_mq:
 		return clip
@@ -3758,6 +3767,8 @@ func _alt(clip: StringName) -> StringName:
 	if others.is_empty():
 		return clip
 	var i := randi() % (others.size() + 1)
+	if pick_seed >= 0:
+		i = absi(hash([pick_seed, String(clip)])) % (others.size() + 1)
 	if i == 0:
 		return clip
 	var other: Variant = others[i - 1]
@@ -3834,6 +3845,14 @@ func _mq_base(planar: float, airborne: bool, blocking: bool) -> bool:
 	return false
 
 
+## How long off the ground before the landing is played: less for somebody
+## else's body, whose time in the air comes over the wire a beat short at
+## either end (coop_seen_test, 2026-10-24: the warrior's landing was not
+## seen by the other player).
+func _least_air() -> float:
+	return 0.35 if _body == null or _body.is_multiplayer_authority() else 0.2
+
+
 ## Each frame on the mannequin, before the base is picked: the jump's start
 ## and landing, and the guard let down when the fight is over.
 func _mq_tick(delta: float, planar: float, airborne: bool, vy: float, blocking: bool) -> void:
@@ -3843,7 +3862,7 @@ func _mq_tick(delta: float, planar: float, airborne: bool, vy: float, blocking: 
 		_air_clip = _alt(clips.get(&"air", &""))
 	if airborne:
 		_air_t += delta
-	elif _air_was and _air_t > 0.35 and _role == Role.NONE and planar <= idle_threshold:
+	elif _air_was and _air_t > _least_air() and _role == Role.NONE and planar <= idle_threshold:
 		var land: StringName = clips.get(&"land", &"")
 		if land != &"" and _anim.has_animation(land):
 			_play_action(land, Role.FREE, 1.4, 0.06, 0.0, 0.45)
@@ -4499,23 +4518,11 @@ func rise(duration: float) -> Dictionary:
 		_rise_backwards(duration)
 		last_fall["up"] = &""
 		return {}
-	# the get-up, and where in it, likest how he lies
-	var pick: Array = picks[_falls_made % picks.size()]
-	var start := -1.0
-	var begun_as: Array = []
-	var lies_so := _pose_marks()
-	var best := INF
-	var weighed := {}
-	for p: Array in picks:
-		for mark: Array in _up_marks.get(p[0], []):
-			var apart := _marks_apart(lies_so, mark[1])
-			if apart < float(weighed.get(p[0], [INF])[0]):
-				weighed[p[0]] = [snappedf(apart, 0.001), mark[0]]
-			if apart < best:
-				best = apart
-				pick = p
-				start = float(mark[0])
-				begun_as = mark
+	var chosen := _up_choice(picks)
+	var pick: Array = chosen[0]
+	var start: float = chosen[1]
+	var begun_as: Array = chosen[2]
+	var weighed: Dictionary = chosen[3]
 	var clip := _fall_clip(pick[0])
 	if clip == &"":
 		_rise_backwards(duration)
@@ -4563,6 +4570,53 @@ func rise(duration: float) -> Dictionary:
 	var shift: Vector3 = before[0] - turned
 	shift.y = 0.0
 	return {"yaw": yaw, "shift": shift, "time": takes, "blend": blend}
+
+
+## The get-up the body would take now, by its name ("" for none): its
+## owner asks before it gets up, and sends it, so every peer gets him up the
+## same way ([member rise_want]; coop_seen_test, 2026-10-24: each peer
+## matched its own copy's pose and picked another).
+func rise_pick() -> StringName:
+	if not _falls_ready or _role != Role.DOWN or _fall_own_up > 0.0:
+		return &""
+	var picks: Array = GET_UPS_BACK if _lying_on_back() else GET_UPS_FRONT
+	if picks.is_empty():
+		return &""
+	return StringName((_up_choice(picks)[0] as Array)[0])
+
+
+## The get-up [method rise] is to take, if a peer was told it: "" to pick
+## by the pose.
+var rise_want: StringName = &""
+
+
+## The get-up, and where in it, likest how he lies (only `rise_want`'s, if
+## it is one of them): [pick, start, the mark begun as, the weighing].
+func _up_choice(picks: Array) -> Array:
+	var pick: Array = picks[_falls_made % picks.size()]
+	var only := false
+	for p: Array in picks:
+		if rise_want != &"" and StringName(p[0]) == rise_want:
+			pick = p
+			only = true
+	var start := -1.0
+	var begun_as: Array = []
+	var lies_so := _pose_marks()
+	var best := INF
+	var weighed := {}
+	for p: Array in picks:
+		if only and p != pick:
+			continue
+		for mark: Array in _up_marks.get(p[0], []):
+			var apart := _marks_apart(lies_so, mark[1])
+			if apart < float(weighed.get(p[0], [INF])[0]):
+				weighed[p[0]] = [snappedf(apart, 0.001), mark[0]]
+			if apart < best:
+				best = apart
+				pick = p
+				start = float(mark[0])
+				begun_as = mark
+	return [pick, start, begun_as, weighed]
 
 
 ## The fall played back from where it is held (no clip to get up with).

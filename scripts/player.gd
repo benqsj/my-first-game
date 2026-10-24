@@ -1032,8 +1032,8 @@ func _show_net_climb() -> void:
 			rig.wall_climb(true)
 		elif _net_state_shown == State.WALLCLIMB:
 			rig.wall_climb(false)
-		if net_state == State.CLIMBING:
-			rig.climb(climb_duration)
+		# (the pull-up comes by its own call, [method net_mantle], with the
+		# take he played)
 		_net_state_shown = net_state
 	if net_state == State.WALLCLIMB:
 		var local := global_basis.inverse() * velocity
@@ -1816,6 +1816,7 @@ func _try_backstep(chained: bool) -> bool:
 	if not bool(rig.call(&"backstep", backstep_time)):
 		stamina += backstep_stamina
 		return false
+	net_evade.rpc(Evade.BACKSTEP, Vector2.ZERO, backstep_time, _dash_direction, -1)
 	_dash_direction = global_transform.basis.z
 	_dash_direction.y = 0.0
 	_dash_direction = _dash_direction.normalized()
@@ -1886,13 +1887,18 @@ func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = fa
 			# Which way the step goes, seen from the body: +x its right, -z ahead.
 			var local := global_transform.basis.inverse() * _dash_direction
 			rig.call(&"step_dodge", Vector2(local.x, local.z), dash_duration)
+			net_evade.rpc(Evade.STEP, Vector2(local.x, local.z), dash_duration, _dash_direction, -1)
 		else:
 			# An evade that cuts on the way (Tariel's dash) cannot be made
 			# with the sword away: it comes to the hand as the dash goes.
 			var moves: Variant = rig.get(&"moves")
 			if moves is Dictionary and (moves as Dictionary).has("evade"):
 				_set_weapons_stowed(false)
+			var take := randi() & 0x7fffffff
+			_take(take)
 			rig.dodge(dash_duration)
+			_take(-1)
+			net_evade.rpc(Evade.ROLL, Vector2.ZERO, dash_duration, _dash_direction, take)
 	dash_started.emit(_dash_direction)
 	return true
 
@@ -1905,8 +1911,13 @@ func _upgrade_to_dodge() -> bool:
 	if profile != null and profile.step_then_flip:
 		# A flip goes the way he is going, whichever way he was facing.
 		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
-	if rig != null and not rig.dodge_clip(dodge_duration):
+	var take := randi() & 0x7fffffff
+	_take(take)
+	var clipped := rig == null or rig.dodge_clip(dodge_duration)
+	_take(-1)
+	if not clipped:
 		return false  # No clip to upgrade to; the roll carries on as it is.
+	net_evade.rpc(Evade.DODGE, Vector2.ZERO, dodge_duration, _dash_direction, take)
 	_spend(profile.dodge_stamina if profile != null else 8.0)
 	state = State.DODGING
 	_dodge_timer = dodge_duration
@@ -1915,6 +1926,34 @@ func _upgrade_to_dodge() -> bool:
 	_safe_until = maxf(_safe_until, _now() + dodge_iframes)
 	dodge_started.emit(_dash_direction)
 	return true
+
+
+enum Evade { ROLL, STEP, BACKSTEP, DODGE }
+
+## His evade, as the others see it: the same roll, step, step back or long
+## dodge played on their copy of him (coop_seen_test, 2026-10-24: the other
+## player saw him sprint, not roll — the evade's clip was only started on
+## his own machine, and `dashing` alone shows no roll).
+## (`dir` the way it goes, which picks the roll's clip on the mannequin;
+## `take` which of its takes, [member SkinnedRig.pick_seed])
+@rpc("any_peer", "call_remote", "reliable")
+func net_evade(kind: int, way: Vector2, seconds: float, dir: Vector3, take: int) -> void:
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority() or rig == null:
+		return
+	_dash_direction = dir
+	_take(take)
+	match kind:
+		Evade.ROLL:
+			rig.dodge(seconds)
+		Evade.STEP:
+			if rig.has_method(&"step_dodge"):
+				rig.call(&"step_dodge", way, seconds)
+		Evade.BACKSTEP:
+			if rig.has_method(&"backstep"):
+				rig.call(&"backstep", seconds)
+		Evade.DODGE:
+			rig.dodge_clip(seconds)
+	_take(-1)
 
 
 ## Drives both evades. They differ in how long they last, how fast they travel
@@ -2285,8 +2324,28 @@ func _begin_mantle(landing: Vector3) -> void:
 	_plunging = false
 	_jump_buffer_timer = 0.0
 	if rig != null:
+		var take := randi() & 0x7fffffff
+		_take(take)
 		rig.climb(climb_duration)
+		_take(-1)
+		net_mantle.rpc(take)
 	climb_started.emit(landing)
+
+
+## The pull-up on the others' copies of him, the same take of it as his own.
+@rpc("any_peer", "call_remote", "reliable")
+func net_mantle(take: int) -> void:
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority() or rig == null:
+		return
+	_take(take)
+	rig.climb(climb_duration)
+	_take(-1)
+
+
+## Which take of a move with several the rig plays next ([member SkinnedRig.pick_seed]).
+func _take(take: int) -> void:
+	if rig != null and "pick_seed" in rig:
+		rig.set(&"pick_seed", take)
 
 
 ## Where the body would end up after mantling whatever is in front of it, or
@@ -3006,6 +3065,7 @@ func _tick_bow(delta: float) -> void:
 			_set_weapons_stowed(false)
 			if _is_bow():
 				_draw_sound = Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -12.0)
+				net_creak.rpc()
 	elif holding and _drawing:
 		_draw_timer += delta
 		# Held, a draw or a charge costs breath as it goes; run out and it goes.
@@ -4550,25 +4610,7 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			_thud()
 			Blood.splatter(Blood.world_of(self), at, blow.normalized())
 		Reaction.GET_UP:
-			if rig != null:
-				if rig.has_method(&"rise"):
-					# the body turned and set over to where he lies, so the
-					# getting up starts from the way he fell
-					var fix: Dictionary = rig.call(&"rise", get_up_time)
-					if is_multiplayer_authority():
-						if fix.has("yaw") and float(fix.get("blend", 0.0)) > 0.0:
-							# over the get-up's blend in, so the pose he lies in
-							# turns into its first one without a snap
-							_rise_turn = float(fix["yaw"])
-							_rise_shift = fix["shift"] as Vector3
-							_rise_left = float(fix["blend"])
-						elif fix.has("yaw"):
-							rotation.y += float(fix["yaw"])
-							global_position += fix["shift"] as Vector3
-						if fix.has("time") and _getting_up:
-							_down_timer = float(fix["time"])
-				else:
-					rig.get_up(get_up_time)
+			_show_rise(&"")
 		Reaction.ROLL_OUT:
 			Sfx.play(self, ROLL_SOUND, self, Vector3.ZERO, 1.0, MOVE_VOLUME[MoveSound.ROLL])
 			if rig != null:
@@ -4981,6 +5023,39 @@ func _blow_fall(away: Vector3) -> Array:
 	return picks[randi() % picks.size()]
 
 
+## Getting up off the ground, on every peer, the get-up `up` his own
+## machine picked ("" each its own: [method SkinnedRig.rise_pick]).
+@rpc("authority", "call_local", "reliable")
+func net_rise(up: StringName) -> void:
+	_show_rise(up)
+
+
+func _show_rise(up: StringName) -> void:
+	if rig != null and "rise_want" in rig:
+		rig.set(&"rise_want", up)
+	if rig != null:
+		if rig.has_method(&"rise"):
+			# the body turned and set over to where he lies, so the
+			# getting up starts from the way he fell
+			var fix: Dictionary = rig.call(&"rise", get_up_time)
+			if is_multiplayer_authority():
+				if fix.has("yaw") and float(fix.get("blend", 0.0)) > 0.0:
+					# over the get-up's blend in, so the pose he lies in
+					# turns into its first one without a snap
+					_rise_turn = float(fix["yaw"])
+					_rise_shift = fix["shift"] as Vector3
+					_rise_left = float(fix["blend"])
+				elif fix.has("yaw"):
+					rotation.y += float(fix["yaw"])
+					global_position += fix["shift"] as Vector3
+				if fix.has("time") and _getting_up:
+					_down_timer = float(fix["time"])
+		else:
+			rig.get_up(get_up_time)
+	if rig != null and "rise_want" in rig:
+		rig.set(&"rise_want", &"")
+
+
 func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	# how hard it was: the weapon's force, or the blow's weight, whichever is
 	# the more — it picks a light fall (dropped) or a heavy one (thrown) and
@@ -5090,7 +5165,8 @@ func _process_downed(delta: float) -> void:
 	if not _getting_up:
 		_getting_up = true
 		_down_timer = get_up_time
-		net_react.rpc(Reaction.GET_UP, Vector3.ZERO, Vector3.ZERO)
+		var up: StringName = rig.call(&"rise_pick") if rig != null and rig.has_method(&"rise_pick") else &""
+		net_rise.rpc(up)
 	else:
 		_stand_up_from_down()
 
@@ -7867,7 +7943,27 @@ func net_heal(amount: float) -> void:
 	var was := health
 	health = minf(health + amount, max_health)
 	if health - was >= 0.5:
-		HealNumber.pop(self, health - was)
+		net_healed.rpc(health - was)
+
+
+## The string's creak as his draw starts, heard by the others too
+## (coop_seen_test, 2026-10-24: only he heard it; a tap's draw is over before
+## [member net_draw] comes over the wire, so it is a call of its own).
+@rpc("any_peer", "call_remote", "unreliable")
+func net_creak() -> void:
+	if multiplayer.get_remote_sender_id() != get_multiplayer_authority():
+		return
+	Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -12.0)
+
+
+## The health he got back, seen by everyone: the green number and the motes
+## over him (coop_seen_test, 2026-10-24: only he saw his Moonwell's heal).
+@rpc("any_peer", "call_local", "reliable")
+func net_healed(amount: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != get_multiplayer_authority():
+		return
+	HealNumber.pop(self, amount)
 
 
 ## Her Dark Hands, on every peer: the circle opening at `at` ([ShadowGrasp]).
