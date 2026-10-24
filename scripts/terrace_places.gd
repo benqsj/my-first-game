@@ -39,6 +39,12 @@ const STATUES := "res://assets/dungeon/statues/%s.res"
 ## 2026-10-24); "a" walled all round, "b" the orcs' dusk, "c" the bright
 ## white hall (the other looks shown, kept to choose from).
 static var hall_look := ""
+## Rain in the golden hall's storm (F1's board turns it on and off; the
+## thunder and the lightning in the clouds go on either way).
+static var hall_rain := true
+## The golden hall's weather: "storm" (dark, thunder, lightning, rain if
+## [member hall_rain]) or "sun" (the bright afternoon). F2's board.
+static var hall_mood := "storm"
 
 const PLACE_HEROES := {
 	"lake": ["avtandil", "elf_mage", "rogue", "warrior"],
@@ -858,6 +864,34 @@ static func _gold_hall(d: Dungeon, room: Node3D, w: float, l: float, rng: Random
 	# the roof's holes: the sun comes down there (the user's rule: never a
 	# roof that keeps the sun off the whole floor)
 	var holes := [Vector2(-12, 0), Vector2(4, 0), Vector2(-4, 16), Vector2(12, 16), Vector2(-12, 24)]
+	# the stone on the columns: an architrave along each row, and over it the
+	# stone wall that once ran up to the ceiling, still hanging from it in
+	# places, broken off below (the user's word, 2026-10-24: stone in the
+	# ceiling too, so one sees it was all stone once)
+	var spans: Array[Vector2] = [Vector2(-hl, zs[0])]
+	for k in zs.size() - 1:
+		spans.append(Vector2(zs[k], zs[k + 1]))
+	spans.append(Vector2(zs[zs.size() - 1], hl))
+	for sx: float in [-1.0, 1.0]:
+		for sp: Vector2 in spans:
+			var mid := (sp.x + sp.y) * 0.5
+			var span := sp.y - sp.x
+			var arch := _piece(room, "HArchitrave", Vector3(sx * 14.0, 13.1, mid), PI * 0.5)
+			if arch != null:
+				arch.scale.x = span / 8.0 * 1.002
+			var roofed := sx * 14.0 > roof_from
+			var by_hole := false
+			for hole: Vector2 in holes:
+				if absf(hole.x - sx * 14.0) < 6.5 and absf(hole.y - mid) < 6.0:
+					by_hole = true
+			if not roofed or by_hole:
+				continue
+			var piece := "HAttic"
+			if rng.randf() < 0.5:
+				piece = "HAtticBroken%d" % (rng.randi() % 2)
+			var att := _piece(room, piece, Vector3(sx * 14.0, h - 0.39, mid), PI * 0.5)
+			if att != null:
+				att.scale.x = span / 8.0 * 1.002
 	var px := -hw + 2.0
 	while px < hw:
 		var pz := -hl + 4.0
@@ -867,12 +901,23 @@ static func _gold_hall(d: Dungeon, room: Node3D, w: float, l: float, rng: Random
 				if absf(hole.x - px) < 4.1 and absf(hole.y - pz) < 4.1:
 					open = true
 			if not open:
-				var broken := open_side and px < roof_from + 8.0
+				# a coffered bay; one next to a hole broken off towards it
+				# (its ragged side, the piece's -z, turned to the hole)
+				var toward := Vector2.ZERO
+				var near := 99.0
 				for hole: Vector2 in holes:
-					if absf(hole.x - px) < 8.5 and absf(hole.y - pz) < 8.5 and rng.randf() < 0.5:
-						broken = true
-				var panel := _piece(room, "HRoofBroken" if broken else "HRoof", Vector3(px, h - 0.05, pz),
-						PI * 0.5 * float(rng.randi() % 4))
+					var dd := Vector2(hole.x - px, hole.y - pz)
+					if absf(dd.x) < 8.5 and absf(dd.y) < 8.5 and dd.length() < near:
+						near = dd.length()
+						toward = dd
+				if open_side and px < roof_from + 8.0 and (toward == Vector2.ZERO or near > 8.0):
+					toward = Vector2(-8.0, 0.0)
+				var broken := toward != Vector2.ZERO and (absf(toward.x) < 0.5 or absf(toward.y) < 0.5)
+				var yaw := PI * 0.5 * float(rng.randi() % 4)
+				if broken:
+					yaw = atan2(-toward.x, -toward.y)
+				var panel := _piece(room, ("HCeilBroken%d" % (rng.randi() % 2)) if broken else "HCeil",
+						Vector3(px, h - 0.25, pz), yaw)
 				if panel != null:
 					_both_sides(panel)
 			pz += 8.0
@@ -924,7 +969,7 @@ static func _gold_hall(d: Dungeon, room: Node3D, w: float, l: float, rng: Random
 	var heroes: Array = PLACE_HEROES["gold_hall"]
 	for k in 2:
 		var sx := -1.0 if k == 0 else 1.0
-		_knight(room, Vector3(sx * 8.5, 0.0, -hl + 2.0), 0.0, false, String(heroes[k]))
+		_knight(room, Vector3(sx * 8.5, 0.0, -hl + 2.0), PI, false, String(heroes[k]))
 	if open_side:
 		# beyond the fallen wall: the crag the palace stands on, the valley far
 		# below, the peaks
@@ -932,9 +977,172 @@ static func _gold_hall(d: Dungeon, room: Node3D, w: float, l: float, rng: Random
 			_crag(room, ["Cliff1", "Cliff0"][k % 2], Vector3(-hw - 14.0, -4.0, -hl + float(k) * l / 5.0),
 					rng.randf_range(0.9, 1.2), rng.randf_range(0.0, TAU), 0.0, 0.0, false)
 		_piece(room, "FValley", Vector3(-180.0, -95.0, -40.0), PI + 0.3, 1.6, false)
+	# now and then dust trickles down from the broken edges of the roof
+	var edges: Array[Vector3] = []
+	for hole: Vector2 in holes:
+		for e: Vector2 in [Vector2(3.9, 0.0), Vector2(-3.9, 0.0), Vector2(0.0, 3.9), Vector2(0.0, -3.9)]:
+			if hole.x + e.x > roof_from and absf(hole.x + e.x) < hw and absf(hole.y + e.y) < hl:
+				edges.append(Vector3(hole.x + e.x, h - 0.3, hole.y + e.y))
+	if open_side:
+		for k in 5:
+			edges.append(Vector3(roof_from, h - 0.3, -hl + 6.0 + float(k) * (l - 12.0) / 4.0))
+	_dust_from_roof(room, edges)
+	if open_side:
+		_hall_storm_rain(room, hw, hl, l, roof_from, holes)
 	# the light in the air: a warm haze the shafts show in, motes of dust
 	_haze(room, Vector3(0.0, h * 0.45, 0.0), Vector3(w, h, l), 0.009 if orcs else 0.006)
 	_motes(room, w, l, Color(1.0, 0.86, 0.6), 220)
+
+
+## Dust trickling down now and then from one of `edges` (a broken roof's
+## edge, high up): a thin stream of soft motes that falls and spreads, seen
+## best where the sun's shafts come down. Each peer's own (only for the eye).
+static func _dust_from_roof(room: Node3D, edges: Array[Vector3]) -> void:
+	if edges.is_empty():
+		return
+	var streams: Array[GPUParticles3D] = []
+	for k in 3:
+		var p := GPUParticles3D.new()
+		p.amount = 60
+		p.lifetime = 5.0
+		p.one_shot = true
+		p.explosiveness = 0.35
+		p.emitting = false
+		var pm := ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = Vector3(0.5, 0.05, 0.5)
+		pm.direction = Vector3.DOWN
+		pm.spread = 12.0
+		pm.initial_velocity_min = 0.4
+		pm.initial_velocity_max = 1.2
+		pm.gravity = Vector3(0.0, -1.6, 0.0)
+		pm.damping_min = 0.4
+		pm.damping_max = 0.8
+		pm.turbulence_enabled = true
+		pm.turbulence_noise_strength = 0.4
+		pm.scale_min = 0.6
+		pm.scale_max = 1.6
+		var fade := Gradient.new()
+		fade.set_color(0, Color(0.86, 0.80, 0.70, 0.0))
+		fade.add_point(0.12, Color(0.86, 0.80, 0.70, 0.55))
+		fade.set_color(fade.get_point_count() - 1, Color(0.86, 0.80, 0.70, 0.0))
+		var ramp := GradientTexture1D.new()
+		ramp.gradient = fade
+		pm.color_ramp = ramp
+		p.process_material = pm
+		var q := QuadMesh.new()
+		q.size = Vector2(0.09, 0.09)
+		var qm := StandardMaterial3D.new()
+		qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		qm.vertex_color_use_as_albedo = true
+		qm.albedo_texture = PlaceBuild.soft_dot()
+		q.material = qm
+		p.draw_pass_1 = q
+		p.visibility_aabb = AABB(Vector3(-4.0, -20.0, -4.0), Vector3(8.0, 22.0, 8.0))
+		room.add_child(p)
+		streams.append(p)
+	var timer := Timer.new()
+	timer.wait_time = 2.0
+	timer.autostart = true
+	room.add_child(timer)
+	var turn := [0]
+	timer.timeout.connect(func() -> void:
+		var p := streams[turn[0] % streams.size()]
+		turn[0] += 1
+		if not is_instance_valid(p):
+			return
+		p.position = edges[randi() % edges.size()]
+		p.restart()
+		timer.wait_time = randf_range(2.5, 6.0))
+
+
+## The storm's rain over the open hall (look D): over the fallen side and
+## the valley, and down through the roof's holes; its sound with it. All of
+## it in the "hall_rain" group, for [method set_hall_rain].
+static func _hall_storm_rain(room: Node3D, hw: float, hl: float, l: float, roof_from: float, holes: Array) -> void:
+	var rain := Node3D.new()
+	rain.name = "HallRain"
+	rain.add_to_group(&"hall_rain")
+	room.add_child(rain)
+	var x0 := -hw - 34.0
+	_rain_box(rain, Vector3((x0 + roof_from) * 0.5, 22.0, 0.0), Vector3((roof_from - x0) * 0.5, 1.0, l * 0.5 + 10.0))
+	for hole: Vector2 in holes:
+		if hole.x > roof_from:
+			_rain_box(rain, Vector3(hole.x, 22.0, hole.y), Vector3(4.0, 1.0, 4.0))
+	var sound := AudioStreamPlayer.new()
+	sound.stream = load(Dungeon.SND + "rain_loop.wav")
+	sound.volume_db = -12.0
+	sound.bus = &"Master"
+	sound.autoplay = hall_rain and hall_mood == "storm"
+	sound.finished.connect(sound.play)
+	rain.add_child(sound)
+	set_hall_rain(hall_rain, rain)
+
+
+## The golden hall's weather (F2's board): the rain shown with it; the light
+## is the dungeon's to redo ([method Dungeon._apply_phase]).
+static func set_hall_mood(mood: String) -> void:
+	hall_mood = mood
+	set_hall_rain(hall_rain)
+
+
+## Rain streaks falling from a box (`half` its half size) at `at`.
+static func _rain_box(parent: Node3D, at: Vector3, half: Vector3) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = clampi(int(half.x * half.z * 4.0 * 1.1), 60, 6000)
+	p.lifetime = 1.1
+	p.preprocess = 1.0
+	p.position = at
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = half
+	pm.direction = Vector3(0.2, -1.0, 0.08)
+	pm.spread = 3.0
+	pm.initial_velocity_min = 22.0
+	pm.initial_velocity_max = 28.0
+	pm.scale_min = 0.6
+	pm.scale_max = 1.2
+	pm.gravity = Vector3(0.0, -10.0, 0.0)
+	pm.particle_flag_align_y = true
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.035, 0.9)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.albedo_color = Color(0.78, 0.82, 0.9, 0.2)
+	qm.albedo_texture = PlaceBuild.streak()
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.billboard_keep_scale = true
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-half.x - 4.0, -34.0, -half.z - 4.0), Vector3(half.x * 2.0 + 8.0, 38.0, half.z * 2.0 + 8.0))
+	parent.add_child(p)
+
+
+## The golden hall's rain on or off: `only` one rain node, else every one in
+## the tree (F1's board).
+static func set_hall_rain(on: bool, only: Node = null) -> void:
+	hall_rain = on
+	var nodes: Array = [only] if only != null else []
+	if only == null and Engine.get_main_loop() is SceneTree:
+		nodes = (Engine.get_main_loop() as SceneTree).get_nodes_in_group(&"hall_rain")
+	on = on and hall_mood == "storm"
+	for n: Variant in nodes:
+		if not is_instance_valid(n):
+			continue
+		var rain := n as Node3D
+		rain.visible = on
+		for ch in rain.get_children():
+			if ch is GPUParticles3D:
+				(ch as GPUParticles3D).emitting = on
+			elif ch is AudioStreamPlayer:
+				if on and not (ch as AudioStreamPlayer).playing:
+					(ch as AudioStreamPlayer).play()
+				elif not on:
+					(ch as AudioStreamPlayer).stop()
 
 
 ## The orcs in the hall (look B): their hide tents by the far walls, stakes
@@ -1213,7 +1421,7 @@ static func _clouds(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNum
 		_box(dais, Vector3(2.4, 4.5, 2.0), Vector3(0.0, 2.2, -1.6))
 	for sx: float in [-1.0, 1.0]:
 		_brazier(d, room, Vector3(sx * 7.6, 0.0, -hl + 4.5), 3.6)
-		_knight(room, Vector3(sx * 12.0, 0.0, -hl + 1.5), 0.0, false,
+		_knight(room, Vector3(sx * 12.0, 0.0, -hl + 1.5), PI, false,
 				String((PLACE_HEROES["clouds"] as Array)[0 if sx < 0.0 else 1]))
 	# cypresses in sandstone pots along the open side, urns between them
 	var cz := -hl + 6.0

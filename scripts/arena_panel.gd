@@ -111,8 +111,6 @@ var _drill_enraged: bool = false
 ## The board's scroll and what is in it.
 var _scroll: ScrollContainer
 var _column: VBoxContainer
-## The rooms' corner: whether a room is shown with its creatures.
-var _rooms_with_foes: bool = false
 
 
 func _ready() -> void:
@@ -147,16 +145,8 @@ func _ready() -> void:
 	column.add_child(MenuStyle.label("Look", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
 	column.add_child(looks)
 
-	# Every room of the orcs' portal, to go and look round (the user's word,
-	# 2026-10-21: to see them all and say what to change): pressed, he is
-	# put at its door; from the open world the dungeon is loaded for it.
-	column.add_child(MenuStyle.label("Rooms (orc portal)", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
-	var rooms := GridContainer.new()
-	rooms.columns = 7
-	for place: String in Dungeon.VIEW:
-		rooms.add_child(_small(String(Dungeon.VIEW[place][1]), _view_room.bind(place)))
-	column.add_child(rooms)
-	column.add_child(_toggle("With creatures", false, func(on: bool) -> void: _rooms_with_foes = on))
+	# (the rooms are F2's now, [RoomsPanel]: the user's word, 2026-10-24, F1
+	# for the creatures only)
 
 	var lists := HBoxContainer.new()
 	lists.add_theme_constant_override("separation", 10)
@@ -256,25 +246,6 @@ func _ready() -> void:
 	_refresh_look.call_deferred()
 	if in_arena:
 		_populate.call_deferred()
-
-
-## Into `place` of the orcs' portal: here if this is the dungeon, else the
-## dungeon loaded for it. The board closes so he can walk round.
-func _view_room(place: String) -> void:
-	var world := _world()
-	var rooms := world.get_node_or_null(^"Level/Rooms") as Dungeon if world != null else null
-	if is_open():
-		toggle()
-	if rooms != null:
-		rooms.view_place(place, _rooms_with_foes)
-		return
-	var game := get_node_or_null(^"/root/Game")
-	if game == null:
-		return
-	game.set(&"dungeon_id", 0)
-	game.set(&"portal_return", 0)
-	game.set(&"view_place", place)
-	SceneLoader.go(get_tree(), Portals.DUNGEON)
 
 
 ## "< value >" under a small heading, calling `picked` with the index.
@@ -400,6 +371,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func toggle() -> void:
 	_root.visible = not _root.visible
 	_fit_height()
+	# one board at a time: F2's closes when this one opens
+	var rooms_board := get_parent().get_node_or_null(^"RoomsPanel") as RoomsPanel if get_parent() != null else null
+	if _root.visible and rooms_board != null and rooms_board.is_open():
+		rooms_board.toggle()
 	if _preview != null:
 		_preview.visible = _root.visible and _picked.is_valid()
 		if not _root.visible:

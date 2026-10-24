@@ -168,6 +168,11 @@ func _ready() -> void:
 		board.name = "ArenaPanel"
 		board.in_arena = false
 		add_child(board)
+	# F2: the rooms' board ([RoomsPanel]), solo and in the arena alike
+	if not has_node("RoomsPanel") and not (net_node != null and bool(net_node.call("is_online"))):
+		var rooms_board := RoomsPanel.new()
+		rooms_board.name = "RoomsPanel"
+		add_child(rooms_board)
 	# Levels over the creatures, and what each blow took off them.
 	var words := CombatText.new()
 	words.name = "CombatText"

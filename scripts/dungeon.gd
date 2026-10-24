@@ -3151,7 +3151,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3164,6 +3164,7 @@ func _place_look(night: float = 0.0) -> void:
 	_env.fog_height_density = 0.0
 	_env.adjustment_contrast = 1.03
 	_env.adjustment_saturation = 1.06
+	_env.adjustment_brightness = 1.0
 	_env.fog_sky_affect = 0.2
 	match kind:
 		"hall", "court", "terrace", "throne":
@@ -3315,13 +3316,16 @@ func _terrace_look(kind: String) -> void:
 				"thick": 0.0011, "top": Color(0.32, 0.54, 0.80), "hor": Color(0.80, 0.86, 0.88), "sat": 1.1},
 		"clouds": {"sun": Color(1.0, 0.86, 0.64), "power": 1.15, "up": 40.0, "fog": Color(1.0, 0.88, 0.70),
 				"thick": 0.0006, "top": Color(0.30, 0.54, 0.86), "hor": Color(0.86, 0.86, 0.84), "sat": 1.16},
-		# the golden hall, open on one side (the user's pick, 2026-10-24): the
-		# afternoon sun in over the fallen wall and down through the roof's
-		# holes; the air clear enough for the valley and the peaks
-		"gold_hall": {"sun": Color(1.0, 0.92, 0.78), "power": 1.25, "up": 42.0, "fog": Color(0.86, 0.86, 0.84),
+		# the golden hall, open on one side, under a storm (the user's word,
+		# 2026-10-24: the dark one is better; thunder, lightning in the clouds)
+		"gold_hall": {"sun": Color(0.70, 0.76, 0.88), "power": 0.16, "up": 42.0, "fog": Color(0.34, 0.38, 0.44),
+				"thick": 0.0024, "top": Color(0.12, 0.14, 0.18), "hor": Color(0.28, 0.31, 0.36), "sat": 0.84},
+		# its bright afternoon (F2's board): the sun in over the fallen wall
+		"gold_hall_sun": {"sun": Color(1.0, 0.92, 0.78), "power": 1.25, "up": 42.0, "fog": Color(0.86, 0.86, 0.84),
 				"thick": 0.0005, "top": Color(0.34, 0.54, 0.82), "hor": Color(0.90, 0.84, 0.72), "sat": 1.08},
 	}
-	var lk: Dictionary = looks[kind]
+	var storm := kind == "gold_hall" and TerracePlaces.hall_mood == "storm"
+	var lk: Dictionary = looks["gold_hall_sun" if kind == "gold_hall" and not storm else kind]
 	_env.fog_light_color = _env.fog_light_color.lerp(lk["fog"], 0.6)
 	_env.fog_density = float(lk["thick"])
 	_env.adjustment_saturation = float(lk["sat"])
@@ -3335,19 +3339,28 @@ func _terrace_look(kind: String) -> void:
 		_sun.light_energy *= float(lk["power"])
 		# the sun up where it lays real shadow on the floor
 		_sun.rotation.x = -deg_to_rad(float(lk["up"]))
-	if kind == "gold_hall":
-		# under the roof: the shade warm and low, the sun's shafts seen in
-		# the dusty air where it comes through the holes
+	if kind == "gold_hall" and storm:
+		# the storm's light: cold and low, heavy cloud, a grey mist in the
+		# valley; the flashes come from [method _lightning]
+		if _sky_mat != null:
+			_sky_mat.set_shader_parameter("cloud", 1.0)
+		_env.ambient_light_color = Color(0.46, 0.50, 0.58)
+		_env.ambient_light_energy = 0.5
+		_env.adjustment_brightness = 0.8
+		_env.adjustment_contrast = 1.12
+	elif kind == "gold_hall":
+		# the bright afternoon: warm shade under the roof, the shafts seen
 		_env.ambient_light_color = Color(0.80, 0.72, 0.62)
 		_env.ambient_light_energy = minf(_env.ambient_light_energy, 0.75)
+	if kind == "gold_hall":
 		_env.volumetric_fog_enabled = true
-		_env.volumetric_fog_density = 0.003
-		_env.volumetric_fog_albedo = Color(1.0, 0.90, 0.74)
+		_env.volumetric_fog_density = 0.005 if storm else 0.003
+		_env.volumetric_fog_albedo = Color(0.70, 0.74, 0.80) if storm else Color(1.0, 0.90, 0.74)
 		_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 		_env.volumetric_fog_length = 70.0
 		_env.volumetric_fog_ambient_inject = 0.05
 		if _sun != null:
-			_sun.light_volumetric_fog_energy = 3.0
+			_sun.light_volumetric_fog_energy = 1.0 if storm else 3.0
 			# from the open side, over the fallen wall
 			_sun.rotation.y = deg_to_rad(-120.0)
 
@@ -4692,9 +4705,14 @@ func _ambience(i: int) -> void:
 	var night := i >= 3
 	var parts: Array = []
 	match kind:
-		"hall", "gold_hall":
+		"hall":
 			# the orcs' drums somewhere deep in their palace
 			parts = [["wind_loop.wav", -24.0], ["drums_far_loop.wav", -25.0]]
+		"gold_hall":
+			# the storm's wind in the open hall, the drums far off (the rain's
+			# own sound comes with the rain, TerracePlaces)
+			parts = [["wind_strong_loop.wav" if TerracePlaces.hall_mood == "storm" else "wind_loop.wav", -15.0],
+					["drums_far_loop.wav", -28.0]]
 		"court", "terrace":
 			parts = [["wind_loop.wav", -15.0], ["drums_far_loop.wav", -30.0]]
 		"throne":
@@ -4787,12 +4805,18 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_stones_in -= delta
 	if _stones_in <= 0.0:
 		_stones_in = _rng.randf_range(8.0, 16.0)
-		if kind in ["hall", "gold_hall", "crypt"]:
+		# (not the golden hall: under its ceiling stones fell from nowhere;
+		# dust trickles from its roof's broken edges, TerracePlaces)
+		if kind in ["hall", "crypt"]:
 			_falling_stones(near, float(r["h"]))
 	_storm_in -= delta
 	if _storm_in <= 0.0:
 		_storm_in = _rng.randf_range(7.0, 15.0)
 		if kind == "mountain":
+			_lightning()
+		elif kind == "gold_hall" and TerracePlaces.hall_mood == "storm":
+			# more often over the palace hall (the user's word, 2026-10-24)
+			_storm_in = _rng.randf_range(2.5, 6.0)
 			_lightning()
 	_owl_in -= delta
 	if _owl_in <= 0.0:
