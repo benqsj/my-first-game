@@ -503,6 +503,21 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 		_crag(room, ["Cliff1", "Cliff0", "Cliff2"][rng.randi() % 3], Vector3(sin(a) * r, lake_y + rng.randf_range(14.0, 40.0),
 				-cos(a) * r - 60.0), rng.randf_range(1.6, 2.6), rng.randf_range(0.0, TAU), 0.0, 0.0, false)
 	_ring(room, ["Mount0", "Mount1", "Mount2"], 420.0, 560.0, [-1.9, -1.2, -0.6, 0.0, 0.6, 1.2, 1.9], lake_y - 8.0, rng, 1.2, 1.8)
+	# cypresses in marble pots down both sides, benches between them
+	var z := -hl + 5.0
+	while z < hl - 8.0:
+		for sx: float in [-1.0, 1.0]:
+			var pot := _piece(room, "PlanterMarble", Vector3(sx * (hw - 1.3), 0.0, z))
+			if pot != null:
+				_box(pot, Vector3(1.5, 1.2, 1.5), Vector3(0.0, 0.6, 0.0))
+			_piece(room, "Cypress%d" % (int(z) % 2), Vector3(sx * (hw - 1.3), 0.95, z), rng.randf_range(0.0, TAU),
+					rng.randf_range(0.85, 1.0))
+			if z + 4.5 < hl - 8.0:
+				var b := _piece(room, "BenchMarble", Vector3(sx * (hw - 1.1), 0.0, z + 4.5), PI * 0.5)
+				if b != null:
+					_box(b, Vector3(2.8, 0.6, 0.7), Vector3(0.0, 0.3, 0.0))
+		z += 9.0
+	d._circling_birds(room)
 	# mist over the water, motes of light on the terrace
 	_haze(room, Vector3(0.0, lake_y + 6.0, -140.0), Vector3(700.0, 22.0, 520.0), 0.006)
 	_motes(room, w, l, Color(1.0, 0.95, 0.82))
@@ -545,6 +560,27 @@ static func _fort(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	_piece(room, "FTowerTall", Vector3(-hw - 12.0, 0.0, 6.0), 1.2)
 	_rail(room, Vector3(hw + 0.4, 0.0, -hl - 0.2), Vector3(hw + 0.4, 0.0, hl + 0.2), "BalusSand", "PostSand")
 	_edge(room, Vector3(hw + 0.7, 0.0, -hl - 2.0), Vector3(hw + 0.7, 0.0, hl + 2.0), "EdgeSand", Vector3.RIGHT, "Cliff1", 60.0, rng)
+	# the lord's banners down the walls' inner faces, fires by the gate,
+	# a striped tent and stores in the yard's near corner
+	var bz := -hl + 6.0
+	while bz < hl - 4.0:
+		_piece(room, "BannerLong", Vector3(-hw + 0.1, 7.6, bz), PI * 0.5)
+		bz += 10.0
+	for bx: float in [-hw + 6.0, -hw + 16.0, hw - 16.0]:
+		_piece(room, "BannerLong", Vector3(bx, 7.6, -hl + 0.1), 0.0)
+	var gate_x := -hw - 1.0 + 1.5 * (w + 2.0) / ceilf((w + 2.0) / 8.0)
+	for gx: float in [gate_x - 4.6, gate_x + 4.6]:
+		_brazier(d, room, Vector3(gx, 0.0, -hl + 2.2), 3.2)
+	var tent := _piece(room, "FTent", Vector3(hw - 5.5, 0.0, hl - 6.5), 0.4)
+	if tent != null:
+		_post_col(tent, 2.6, 4.0)
+	for k in 7:
+		var at := Vector3(hw - 2.0 - rng.randf_range(0.0, 3.0), 0.0, hl - 12.0 - rng.randf_range(0.0, 5.0)) if k < 4 \
+				else Vector3(-hw + 2.0 + rng.randf_range(0.0, 3.0), 0.0, -hl + 8.0 + rng.randf_range(0.0, 4.0))
+		var thing := _piece(room, "Barrel" if k % 2 == 0 else "Crate", at, rng.randf_range(0.0, TAU))
+		if thing != null:
+			_post_col(thing, 0.5, 1.0)
+	d._circling_birds(room)
 	# pines in the corners by the walls
 	for at: Vector3 in [Vector3(-hw + 3.0, 0.0, hl - 4.0), Vector3(-hw + 2.5, 0.0, hl - 11.0), Vector3(-hw + 3.0, 0.0, -hl + 3.0),
 			Vector3(hw - 3.5, 0.0, hl - 3.5)]:
@@ -606,6 +642,13 @@ static func _falls(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 		_box(fallen, Vector3(3.2, 1.0, 1.2), Vector3(0.0, 0.5, 0.0))
 	for at: Vector3 in [Vector3(-hw + 5.0, 0.0, 14.0), Vector3(hw - 4.0, 0.0, -6.0), Vector3(4.0, 0.0, hl - 2.5)]:
 		_piece(room, "WRubble", at, rng.randf_range(0.0, TAU))
+	# a pier and half its arch still standing
+	var arch := _piece(room, "WArchBroken", Vector3(-hw + 3.0, 0.0, -hl + 16.0), PI * 0.5)
+	if arch != null:
+		_post_col(arch, 0.85, 6.0)
+	for at: Vector3 in [Vector3(-hw + 2.0, 0.0, 8.0), Vector3(-hw + 2.0, 0.0, -8.0), Vector3(hw - 2.0, 0.0, 20.0)]:
+		_tree(room, "Cypress%d" % rng.randi_range(0, 1), at, rng.randf_range(0.0, TAU), rng.randf_range(0.9, 1.15))
+	d._circling_birds(room)
 	# broken rail along the open right side and the far end
 	for k in 8:
 		if rng.randf() < 0.35:
@@ -726,6 +769,17 @@ static func _clouds(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNum
 	for sx: float in [-1.0, 1.0]:
 		_brazier(d, room, Vector3(sx * 7.6, 0.0, -hl + 4.5), 3.6)
 		_knight(room, Vector3(sx * 12.0, 0.0, -hl + 1.5), 0.0, false)
+	# cypresses in sandstone pots along the open side, urns between them
+	var cz := -hl + 6.0
+	while cz < hl - 4.0:
+		var pot := _piece(room, "PlanterSand", Vector3(hw - 1.4, 0.0, cz))
+		if pot != null:
+			_box(pot, Vector3(1.5, 1.2, 1.5), Vector3(0.0, 0.6, 0.0))
+		_piece(room, "Cypress%d" % (int(cz) % 2), Vector3(hw - 1.4, 0.95, cz), rng.randf_range(0.0, TAU), rng.randf_range(0.9, 1.05))
+		cz += 10.0
+	for at: Vector3 in [Vector3(hw + 2.5, 9.0, -hl - 2.5), Vector3(hw + 2.5, 9.0, hl + 2.5)]:
+		_piece(room, "Banner", at + Vector3(-1.9, 0.0, 0.0), PI * 0.5)
+	d._circling_birds(room)
 	# the sea of cloud below, close under it (as the island's), rock under it
 	d._cloud_layers(room, -40.0)
 	for k in 6:

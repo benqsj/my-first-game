@@ -3308,13 +3308,13 @@ func _place_look(night: float = 0.0) -> void:
 func _terrace_look(kind: String) -> void:
 	var looks := {
 		"lake": {"sun": Color(1.0, 0.96, 0.88), "power": 1.12, "up": 46.0, "fog": Color(0.70, 0.82, 0.90),
-				"thick": 0.0011, "top": Color(0.28, 0.50, 0.80), "hor": Color(0.72, 0.84, 0.92), "sat": 1.12},
+				"thick": 0.0007, "top": Color(0.28, 0.50, 0.80), "hor": Color(0.72, 0.84, 0.92), "sat": 1.12},
 		"fort": {"sun": Color(1.0, 0.88, 0.70), "power": 1.15, "up": 30.0, "fog": Color(0.90, 0.84, 0.74),
-				"thick": 0.0011, "top": Color(0.36, 0.56, 0.82), "hor": Color(0.90, 0.84, 0.74), "sat": 1.0},
+				"thick": 0.0008, "top": Color(0.36, 0.56, 0.82), "hor": Color(0.90, 0.84, 0.74), "sat": 1.0},
 		"falls": {"sun": Color(1.0, 0.93, 0.80), "power": 1.15, "up": 52.0, "fog": Color(0.84, 0.88, 0.86),
-				"thick": 0.0016, "top": Color(0.32, 0.54, 0.80), "hor": Color(0.80, 0.86, 0.88), "sat": 1.1},
+				"thick": 0.0011, "top": Color(0.32, 0.54, 0.80), "hor": Color(0.80, 0.86, 0.88), "sat": 1.1},
 		"clouds": {"sun": Color(1.0, 0.86, 0.64), "power": 1.15, "up": 40.0, "fog": Color(1.0, 0.88, 0.70),
-				"thick": 0.0008, "top": Color(0.30, 0.54, 0.86), "hor": Color(0.86, 0.86, 0.84), "sat": 1.16},
+				"thick": 0.0006, "top": Color(0.30, 0.54, 0.86), "hor": Color(0.86, 0.86, 0.84), "sat": 1.16},
 	}
 	var lk: Dictionary = looks[kind]
 	_env.fog_light_color = _env.fog_light_color.lerp(lk["fog"], 0.6)
