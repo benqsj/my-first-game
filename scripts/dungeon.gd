@@ -111,16 +111,19 @@ const PLACES := {
 	"hall": {"name": "სასახლის დარბაზი", "kind": "hall", "w": 44.0, "l": 56.0, "h": 18.0},
 	"court": {"name": "სასახლის ეზო", "kind": "court", "w": 52.0, "l": 64.0, "h": 11.0},
 	"great_hall": {"name": "ჩანგრეული დარბაზი", "kind": "hall", "w": 50.0, "l": 70.0, "h": 24.0, "hole": true},
-	"terrace": {"name": "ტერასა", "kind": "terrace", "w": 56.0, "l": 66.0, "h": 14.0},
+	# (the four terraces, low poly, [TerracePlaces]: the user's word,
+	# 2026-10-24 — all four concepts, each its own place, in the stead of the
+	# old terrace, rampart, storm path and lord's court)
+	"terrace": {"name": "ტბის ტერასა", "kind": "lake", "w": 56.0, "l": 66.0, "h": 0.0},
 	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
 	# (56 by 56: inside the shrine's ring of arches, [ForestGlade].RING_R)
 	"forest": {"name": "ტყე", "kind": "forest", "w": 56.0, "l": 56.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
-	"throne": {"name": "ტახტის ეზო", "kind": "throne", "w": 66.0, "l": 78.0, "h": 6.0},
+	"throne": {"name": "ტახტის ეზო", "kind": "clouds", "w": 66.0, "l": 78.0, "h": 0.0, "lift": 160.0},
 	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
 	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
-	"mountain": {"name": "ქარიშხლის ბილიკი", "kind": "mountain", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
-	"rampart": {"name": "ციხის გალავანი", "kind": "rampart", "w": 26.0, "l": 80.0, "h": 0.0},
+	"mountain": {"name": "ჩანჩქერის ნანგრევები", "kind": "falls", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
+	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
 	"spring": {"name": "წმინდა წყარო", "kind": "spring", "w": 36.0, "l": 44.0, "h": 12.0, "rest": "სიცოცხლე ბოლომდე"},
 	"prison": {"name": "ტყვეების ოთახი", "kind": "prison", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "გაათავისუფლე ტყვე"},
@@ -193,9 +196,9 @@ const TRAP_CHANCE := 0.6
 const VIEW := {
 	"hall": [0, "Hall"], "forest": [2, "Forest"],
 	"crypt": [2, "Crypt"], "swamp": [2, "Swamp"], "sky": [5, "Sky island"],
-	"mountain": [5, "Storm path"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
+	"mountain": [5, "Waterfall ruins"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
 	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
-	"terrace": [7, "Terrace"], "rampart": [7, "Rampart"], "throne": [9, "Lord's court"],
+	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.
@@ -3148,7 +3151,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = kind != "sky" and kind != "forest"
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3266,6 +3269,8 @@ func _place_look(night: float = 0.0) -> void:
 				# between the crowns rather than in under them from the side
 				if _sun.rotation.x > -deg_to_rad(60.0):
 					_sun.rotation.x = -deg_to_rad(60.0)
+		"lake", "fort", "falls", "clouds":
+			_terrace_look(kind)
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3295,6 +3300,36 @@ func _place_look(night: float = 0.0) -> void:
 		if _env.volumetric_fog_enabled:
 			_env.volumetric_fog_enabled = false
 			_env.fog_density *= 1.6
+
+
+## The four terraces' light ([TerracePlaces]): clear skies, real sun on the
+## floor, each its own hour — the lake's late morning, the fortress's low
+## gold afternoon, the falls' bright haze, the clouds' golden day.
+func _terrace_look(kind: String) -> void:
+	var looks := {
+		"lake": {"sun": Color(1.0, 0.96, 0.88), "power": 1.12, "up": 46.0, "fog": Color(0.70, 0.82, 0.90),
+				"thick": 0.0011, "top": Color(0.28, 0.50, 0.80), "hor": Color(0.72, 0.84, 0.92), "sat": 1.12},
+		"fort": {"sun": Color(1.0, 0.88, 0.70), "power": 1.15, "up": 30.0, "fog": Color(0.90, 0.84, 0.74),
+				"thick": 0.0011, "top": Color(0.36, 0.56, 0.82), "hor": Color(0.90, 0.84, 0.74), "sat": 1.0},
+		"falls": {"sun": Color(1.0, 0.93, 0.80), "power": 1.15, "up": 52.0, "fog": Color(0.84, 0.88, 0.86),
+				"thick": 0.0016, "top": Color(0.32, 0.54, 0.80), "hor": Color(0.80, 0.86, 0.88), "sat": 1.1},
+		"clouds": {"sun": Color(1.0, 0.86, 0.64), "power": 1.15, "up": 40.0, "fog": Color(1.0, 0.88, 0.70),
+				"thick": 0.0008, "top": Color(0.30, 0.54, 0.86), "hor": Color(0.86, 0.86, 0.84), "sat": 1.16},
+	}
+	var lk: Dictionary = looks[kind]
+	_env.fog_light_color = _env.fog_light_color.lerp(lk["fog"], 0.6)
+	_env.fog_density = float(lk["thick"])
+	_env.adjustment_saturation = float(lk["sat"])
+	_env.adjustment_contrast = 1.07
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("cloud", 0.35)
+		_sky_mat.set_shader_parameter("top_col", lk["top"])
+		_sky_mat.set_shader_parameter("hor_col", lk["hor"])
+	if _sun != null:
+		_sun.light_color = _sun.light_color.lerp(lk["sun"], 0.6)
+		_sun.light_energy *= float(lk["power"])
+		# the sun up where it lays real shadow on the floor
+		_sun.rotation.x = -deg_to_rad(float(lk["up"]))
 
 
 ## A fire low enough to walk into (the user's word, 2026-10-23: in places he
@@ -3365,6 +3400,9 @@ func _build_room_body(i: int) -> void:
 			return
 		"spring", "prison":
 			RestSpot.build(self, room, i, kind)
+			return
+		"lake", "fort", "falls", "clouds":
+			TerracePlaces.build(self, room, kind, w, l, _rng)
 			return
 		"merchant", "altar":
 			PortalEvent.build(self, room, i, kind)
@@ -4662,6 +4700,12 @@ func _ambience(i: int) -> void:
 			parts = [["wind_strong_loop.wav", -8.0], ["rain_loop.wav", -9.0]]
 		"rampart":
 			parts = [["wind_loop.wav", -14.0], ["drums_far_loop.wav", -27.0]]
+		"lake", "falls":
+			parts = [["wind_loop.wav", -16.0]]
+		"fort":
+			parts = [["wind_loop.wav", -14.0], ["drums_far_loop.wav", -30.0]]
+		"clouds":
+			parts = [["wind_strong_loop.wav", -11.0]]
 	for part: Array in parts:
 		var stream := _loop(String(part[0]))
 		if stream == null:
@@ -4712,12 +4756,12 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_eagle_in -= delta
 	if _eagle_in <= 0.0:
 		_eagle_in = _rng.randf_range(12.0, 26.0)
-		if kind == "sky" or (kind == "terrace" and _phase < 2.5):
+		if kind in ["sky", "lake", "fort", "falls", "clouds"] and (kind == "sky" or _phase < 2.5):
 			Sfx.play_flat(self, SND + "eagle.wav", _rng.randf_range(0.92, 1.08), -9.0)
 	_flap_in -= delta
 	if _flap_in <= 0.0:
 		_flap_in = _rng.randf_range(6.0, 13.0)
-		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain"]:
+		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds"]:
 			var at := near + Vector3(_rng.randf_range(-14.0, 14.0), 4.0, _rng.randf_range(-14.0, 14.0))
 			Sfx.play(self, SND + "flap.wav", null, at, 1.0, -2.0, 0.15)
 	_stones_in -= delta
