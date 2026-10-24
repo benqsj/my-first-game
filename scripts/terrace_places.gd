@@ -31,6 +31,16 @@ const DIR := "res://assets/dungeon/terraces/"
 const KIT := DIR + "terraces_lowpoly.glb"
 const LP := "res://assets/dungeon/forest_glade/"
 const STATUE := "res://assets/dungeon/sky_temple/statue.res"
+## The heroes' statues, each baked as he stands (`_shots_tmp/bake_statues.gd`);
+## each place its own heroes (the user's word, 2026-10-24: not the swordsman
+## everywhere).
+const STATUES := "res://assets/dungeon/statues/%s.res"
+const PLACE_HEROES := {
+	"lake": ["avtandil", "elf_mage", "rogue", "warrior"],
+	"clouds": ["dark_mage", "dark_archer"],
+	"fort": ["tariel", "elf_archer"],
+	"falls": ["mage", "dark_rogue"],
+}
 
 ## The lake's water: a wide sheet moved in slow waves, each facet lit flat
 ## (low poly water), turquoise near, the sky's colour at a glance, a glitter
@@ -42,17 +52,25 @@ uniform vec4 shallow : source_color = vec4(0.42, 0.80, 0.76, 1.0);
 uniform vec4 deep : source_color = vec4(0.08, 0.36, 0.46, 1.0);
 uniform vec4 foam : source_color = vec4(0.92, 0.97, 0.96, 1.0);
 uniform vec4 far_col : source_color = vec4(0.60, 0.78, 0.84, 1.0);
-uniform float wave = 0.3;
+uniform float wave = 0.45;
 uniform float scale = 0.05;
-uniform float speed = 0.35;
+uniform float speed = 0.5;
 uniform float depth_reach = 9.0;
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 varying vec3 wp;
+varying float crest;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float h = sin(w.x * scale * 1.3 + TIME * speed) * 0.5 + sin(w.z * scale * 1.7 - TIME * speed * 0.8) * 0.35
-			+ sin((w.x + w.z) * scale * 3.1 + TIME * speed * 1.4) * 0.15;
+			+ sin((w.x + w.z) * scale * 3.1 + TIME * speed * 1.4) * 0.15
+			+ (vnoise(w.xz * 0.02 + vec2(TIME * 0.03, TIME * 0.02)) - 0.5) * 0.8;
 	VERTEX.y += h * wave;
+	crest = h;
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 void fragment() {
@@ -65,9 +83,16 @@ void fragment() {
 	behind.xyz /= behind.w;
 	float depth = clamp(VERTEX.z - behind.z, 0.0, 200.0);
 	float k = 1.0 - exp(-depth / depth_reach);
-	// in bands, as the land is
 	k = floor(k * 5.0) / 5.0;
 	vec3 c = mix(shallow.rgb, deep.rgb, k);
+	// slow patches of lighter and darker water drifting over it
+	float drift = vnoise(wp.xz * 0.012 + vec2(TIME * 0.015, -TIME * 0.01));
+	c *= 0.92 + 0.16 * floor(drift * 4.0) / 4.0;
+	// the crests a little lighter, as the light catches them
+	c = mix(c, c * 1.25 + vec3(0.04), smoothstep(0.35, 0.75, crest));
+	// streaks of wind on the water, moving
+	float wind = vnoise(vec2(wp.x * 0.05 + TIME * 0.12, wp.z * 0.012));
+	c += vec3(0.05) * step(0.72, wind);
 	float dist = length(VERTEX);
 	c = mix(c, far_col.rgb, clamp((dist - 260.0) / 500.0, 0.0, 0.7));
 	float fres = pow(1.0 - clamp(dot(n, normalize(VIEW)), 0.0, 1.0), 3.0);
@@ -75,7 +100,11 @@ void fragment() {
 	// a white line where it laps the shore
 	float lap = 1.0 - smoothstep(0.15, 0.9, depth + 0.25 * sin(TIME * 1.2 + wp.x * 0.3 + wp.z * 0.2));
 	c = mix(c, foam.rgb, lap * 0.85);
+	// glints of the sun winking on it
+	vec2 cell = floor(wp.xz * 0.7);
+	float glint = step(0.992, hash(cell + floor(TIME * 1.5 + hash(cell) * 7.0)));
 	ALBEDO = c;
+	EMISSION = vec3(1.0, 0.97, 0.88) * glint * 1.6 * (1.0 - clamp(dist / 300.0, 0.0, 1.0));
 	ALPHA = clamp(0.78 + k * 0.22 + lap, 0.0, 1.0);
 	ROUGHNESS = 0.15;
 	SPECULAR = 0.6;
@@ -114,6 +143,7 @@ void fragment() {
 static var _kit: Node3D
 static var _mats := {}
 static var _statue: Mesh
+static var _statues := {}
 
 
 static func _solid(foot_dark := 0.25, bright := 1.0, rough := 0.85) -> ShaderMaterial:
@@ -302,7 +332,11 @@ static func _crag(room: Node3D, piece: String, at: Vector3, s: float, yaw: float
 	return _piece(room, piece, p, yaw, s, false)
 
 
-static func _statue_mesh() -> Mesh:
+static func _statue_mesh(hero: String = "") -> Mesh:
+	if hero != "" and ResourceLoader.exists(STATUES % hero):
+		if not _statues.has(hero):
+			_statues[hero] = load(STATUES % hero) as Mesh
+		return _statues[hero]
 	if _statue == null and ResourceLoader.exists(STATUE):
 		_statue = load(STATUE) as Mesh
 	return _statue
@@ -310,11 +344,11 @@ static func _statue_mesh() -> Mesh:
 
 ## A knight in bronze (the hero's own shape, as the sky temple's) on a tall
 ## plinth.
-static func _knight(room: Node3D, at: Vector3, yaw: float, bronze: bool) -> void:
+static func _knight(room: Node3D, at: Vector3, yaw: float, bronze: bool, hero: String = "") -> void:
 	var p := _piece(room, "PostPlinth", at, yaw)
 	if p != null:
 		_box(p, Vector3(1.4, 3.0, 1.4), Vector3(0.0, 1.5, 0.0))
-	var m := _statue_mesh()
+	var m := _statue_mesh(hero)
 	if m == null:
 		_piece(room, "KnightBronze" if bronze else "KnightSand", at, yaw)
 		return
@@ -488,8 +522,21 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 		for bx: float in [6.5, 12.5]:
 			_piece(room, "BannerBlue", Vector3(sx * bx, 12.6, hl + 0.9), PI)
 	# the knights at the corners; great bronze urns where the fires were
-	for c: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
-		_knight(room, Vector3(c.x * (hw + 1.6), 0.0, c.y * (hl - 1.5) if c.y > 0 else -hl - 1.6), PI if c.y < 0 else 0.0, true)
+	var heroes: Array = PLACE_HEROES["lake"]
+	var corners := [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]
+	for k in corners.size():
+		var c: Vector2 = corners[k]
+		_knight(room, Vector3(c.x * (hw + 1.6), 0.0, c.y * (hl - 1.5) if c.y > 0 else -hl - 1.6), PI if c.y < 0 else 0.0,
+				true, String(heroes[k % heroes.size()]))
+	# the palace's doorway stopped up, a ward shimmering in it over the heap
+	var heap := _piece(room, "Barricade", Vector3(0.0, 0.0, hl + 0.9), PI)
+	if heap != null:
+		_box(heap, Vector3(7.8, 5.5, 2.6), Vector3(0.0, 2.75, 0.0))
+	_ward(room, Vector3(0.0, 4.6, hl + 1.6), Vector2(7.0, 9.0))
+	# where they fell: blood by the doorway, by a bench, dragged across
+	_blood(room, [Vector3(-2.5, 0.0, hl - 2.0), Vector3(3.0, 0.0, hl - 4.5), Vector3(-hw + 4.0, 0.0, 3.0),
+			Vector3(hw - 5.0, 0.0, -10.0), Vector3(6.0, 0.0, -4.0), Vector3(-11.0, 0.0, -hl + 8.0)], rng)
+	_boats(d, room, rng)
 	for at: Vector3 in [Vector3(-19.0, 0.0, -hl + 5.0), Vector3(19.0, 0.0, -hl + 5.0), Vector3(-19.0, 0.0, hl - 12.0),
 			Vector3(19.0, 0.0, hl - 12.0)]:
 		var urn := _piece(room, "UrnBronze", at, rng.randf_range(0.0, TAU), 1.3)
@@ -526,6 +573,140 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	# mist lying on the water, motes of light on the terrace
 	_haze(room, Vector3(0.0, lake_y + 4.0, -170.0), Vector3(520.0, 14.0, 520.0), 0.005)
 	_motes(room, w, l, Color(1.0, 0.95, 0.82))
+## The ward in a stopped doorway: a faint shimmer of blue light in the
+## shape of its arch, moving slowly (no one wants to go that way).
+const WARD := """
+shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, shadows_disabled;
+uniform vec4 tint : source_color = vec4(0.42, 0.62, 0.95, 1.0);
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+void fragment() {
+	vec2 uv = UV;
+	// the arch: straight sides, a half circle on top
+	vec2 q = vec2((uv.x - 0.5) * 2.0, (1.0 - uv.y));
+	float top = 0.62;
+	float inside = q.y < top ? step(abs(q.x), 1.0) : step(length(vec2(q.x, (q.y - top) / (1.0 - top))), 1.0);
+	float n = vnoise(vec2(uv.x * 6.0, uv.y * 4.0 - TIME * 0.25)) * 0.6 + vnoise(vec2(uv.x * 14.0 + TIME * 0.2, uv.y * 9.0)) * 0.4;
+	float edge = 1.0 - smoothstep(0.0, 0.35, 1.0 - max(abs(q.x), q.y > top ? length(vec2(q.x, (q.y - top) / (1.0 - top))) : 0.0));
+	ALBEDO = tint.rgb;
+	ALPHA = inside * (0.28 + 0.34 * n + 0.45 * edge) * (0.85 + 0.15 * sin(TIME * 1.3));
+}
+"""
+
+
+static func _ward(room: Node3D, at: Vector3, size: Vector2) -> void:
+	var q := QuadMesh.new()
+	q.size = size
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = _code("ward", WARD)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = at
+	room.add_child(mi)
+
+
+## Blood where they fell (the orcs' own stains, [OrcSpoils]): a pool at each
+## spot and a smear dragged off it. The box short: decals tint feet.
+static func _blood(room: Node3D, spots: Array, rng: RandomNumberGenerator) -> void:
+	OrcSpoils._materials()
+	for at: Vector3 in spots:
+		for k in 2:
+			var decal := Decal.new()
+			decal.texture_albedo = OrcSpoils._blood_tex
+			var s := rng.randf_range(2.4, 3.8)
+			decal.size = Vector3(s * (1.0 if k == 0 else 0.6), 0.5, s * (1.0 if k == 0 else 2.2))
+			# (the stain's own colour is near black: lifted to a deep red)
+			decal.modulate = Color(2.0, 0.7, 0.65)
+			var yaw := rng.randf_range(0.0, TAU)
+			decal.position = at + (Vector3.ZERO if k == 0 else Vector3(sin(yaw), 0.0, cos(yaw)) * s * 0.9) + Vector3(0.0, 0.05, 0.0)
+			decal.rotation.y = yaw
+			decal.upper_fade = 0.3
+			decal.lower_fade = 0.3
+			room.add_child(decal)
+
+
+## Boats out on the lake (the user's word, 2026-10-24): some afloat, two
+## burning and smoking, wrecks and their planks drifting; few faces (seen
+## far off), each bobbing on the swell.
+static func _boats(_d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
+	var water := -38.0
+	var list := [
+		["Boat", Vector3(-60.0, water, -130.0), false], ["BoatSmall", Vector3(40.0, water, -110.0), false],
+		["Boat", Vector3(70.0, water, -190.0), true], ["BoatSmall", Vector3(-30.0, water, -230.0), true],
+		["Boat", Vector3(-150.0, water, -150.0), false], ["Wreck", Vector3(15.0, water, -160.0), true],
+		["Wreck", Vector3(-80.0, water, -290.0), true], ["Wreck", Vector3(150.0, water, -150.0), false],
+		["BoatSmall", Vector3(-120.0, water, -260.0), false],
+	]
+	for b: Array in list:
+		var holder := Node3D.new()
+		holder.position = b[1]
+		holder.rotation.y = rng.randf_range(0.0, TAU)
+		room.add_child(holder)
+		var piece := String(b[0])
+		var boat := _piece(holder, piece, Vector3(0.0, -0.5 if piece != "Wreck" else -0.1, 0.0), 0.0, 2.2, false)
+		if boat != null:
+			# a burnt one leans over, blackened
+			if bool(b[2]) and piece != "Wreck":
+				boat.rotation.z = rng.randf_range(0.15, 0.35)
+		if bool(b[2]):
+			_smoke(holder)
+		# the swell under it
+		var tw := holder.create_tween().set_loops()
+		var t := rng.randf_range(2.6, 3.8)
+		var tilt := rng.randf_range(0.03, 0.06)
+		tw.tween_property(holder, "rotation:x", tilt, t).set_trans(Tween.TRANS_SINE)
+		tw.parallel().tween_property(holder, "position:y", water + 0.15, t).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(holder, "rotation:x", -tilt, t).set_trans(Tween.TRANS_SINE)
+		tw.parallel().tween_property(holder, "position:y", water - 0.15, t).set_trans(Tween.TRANS_SINE)
+
+
+## Smoke going up off a burnt boat: soft round dark puffs, rising, spreading.
+static func _smoke(holder: Node3D) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 26
+	p.lifetime = 12.0
+	p.preprocess = 12.0
+	p.position = Vector3(0.0, 1.5, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.8
+	pm.direction = Vector3.UP
+	pm.spread = 12.0
+	pm.initial_velocity_min = 1.4
+	pm.initial_velocity_max = 2.2
+	pm.gravity = Vector3(0.35, 0.15, 0.0)
+	pm.damping_min = 0.1
+	pm.damping_max = 0.2
+	var grow := Curve.new()
+	grow.add_point(Vector2(0.0, 0.3))
+	grow.add_point(Vector2(1.0, 1.0))
+	var gt := CurveTexture.new()
+	gt.curve = grow
+	pm.scale_curve = gt
+	var fade := Gradient.new()
+	fade.set_color(0, Color(0.16, 0.15, 0.14, 0.0))
+	fade.add_point(0.15, Color(0.18, 0.17, 0.16, 0.7))
+	fade.set_color(fade.get_point_count() - 1, Color(0.45, 0.45, 0.46, 0.0))
+	var ramp := GradientTexture1D.new()
+	ramp.gradient = fade
+	pm.color_ramp = ramp
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(9.0, 9.0)
+	var qm := StandardMaterial3D.new()
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.vertex_color_use_as_albedo = true
+	qm.albedo_texture = PlaceBuild.soft_dot()
+	q.material = qm
+	p.draw_pass_1 = q
+	p.visibility_aabb = AABB(Vector3(-30, -2, -30), Vector3(60, 70, 60))
+	holder.add_child(p)
 #endregion
 
 
@@ -773,7 +954,8 @@ static func _clouds(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNum
 		_box(dais, Vector3(2.4, 4.5, 2.0), Vector3(0.0, 2.2, -1.6))
 	for sx: float in [-1.0, 1.0]:
 		_brazier(d, room, Vector3(sx * 7.6, 0.0, -hl + 4.5), 3.6)
-		_knight(room, Vector3(sx * 12.0, 0.0, -hl + 1.5), 0.0, false)
+		_knight(room, Vector3(sx * 12.0, 0.0, -hl + 1.5), 0.0, false,
+				String((PLACE_HEROES["clouds"] as Array)[0 if sx < 0.0 else 1]))
 	# cypresses in sandstone pots along the open side, urns between them
 	var cz := -hl + 6.0
 	while cz < hl - 4.0:
