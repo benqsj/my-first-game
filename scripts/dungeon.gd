@@ -120,7 +120,9 @@ const PLACES := {
 	"forest": {"name": "ტყე", "kind": "forest", "w": 56.0, "l": 56.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
 	"throne": {"name": "ტახტის ეზო", "kind": "clouds", "w": 66.0, "l": 78.0, "h": 0.0, "lift": 160.0},
-	"crypt": {"name": "აკლდამა", "kind": "crypt", "w": 36.0, "l": 60.0, "h": 9.0},
+	# (the flooded crypt and the stone king's tomb behind it, low poly
+	# [CryptTomb]: the user's pick, 2026-10-24)
+	"crypt": {"name": "აკლდამა", "kind": "flood_crypt", "w": 44.0, "l": 100.0, "h": 15.0},
 	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
 	"mountain": {"name": "ჩანჩქერის ნანგრევები", "kind": "falls", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
 	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
@@ -289,6 +291,11 @@ var _going: bool = false
 var _room_nodes: Array[Node3D] = []
 var _alive: Array[Node3D] = []
 var _spawned: int = 0
+## The flooded crypt's stone king ([CryptTomb]): made with its creatures,
+## hidden under the floor, risen from his throne when they are all down; and
+## whether he has risen.
+var _king: Node3D = null
+var _king_up: bool = false
 ## The run's creatures, read in once ([method _load_foes]).
 var _scenes: Dictionary = {}
 ## Per step, the creatures made for it at the start ([method _premake]), in the
@@ -1357,6 +1364,10 @@ func _spawn_room(i: int) -> void:
 		if is_instance_valid(spare):
 			(spare as Node).queue_free()
 	waves = 2 if not _reserve.is_empty() else 1
+	_king = null
+	_king_up = false
+	if String(r["kind"]) == "flood_crypt":
+		_make_king(i, creatures, c)
 	if bool(r.get("cursed", false)):
 		for body in mine:
 			_curse(body)
@@ -1554,6 +1565,73 @@ func _make_rift(c: Vector3, l: float) -> PortalLook:
 	rift.scale = Vector3(0.02, 0.02, 0.02)
 	add_child(rift)
 	return rift
+
+
+## The stone king of the crypt (the user's word, 2026-10-24: the statue on
+## the throne gets up and fights): the golem's body in his crown and with his
+## sword, under the floor till he rises; every peer makes him the same.
+func _make_king(i: int, creatures: Node, c: Vector3) -> void:
+	var scene := load(CryptTomb.KING_SCENE) as PackedScene
+	if scene == null or creatures == null:
+		return
+	var body := scene.instantiate() as Node3D
+	body.name = "D%d_R%d_king" % [id, i]
+	body.position = c + Vector3(0.0, -40.0, -20.0)
+	body.visible = false
+	body.process_mode = Node.PROCESS_MODE_DISABLED
+	body.set("max_health", CryptTomb.KING_HEALTH)
+	body.set("band", StringName("dungeon_%d_room_%d" % [id, i]))
+	body.set("camp_centre", c + CryptTomb.KING_STAND)
+	if "leash_radius" in body:
+		body.set("leash_radius", 0.01)
+	body.set_meta(&"level", int(_room(i)["lv"]) + 1)
+	body.set_meta(&"boss_name", CryptTomb.KING_NAME)
+	if body.has_signal(&"hurt"):
+		body.connect(&"hurt", _on_foe_hurt.bind(body))
+	creatures.add_child(body)
+	if "health" in body:
+		body.set("health", CryptTomb.KING_HEALTH)
+	CryptTomb.dress_king(body)
+	_watch_foe(body)
+	_king = body
+
+
+@rpc("authority", "call_remote", "reliable")
+func net_king_rise() -> void:
+	_king_rise()
+
+
+## The statue crumbles, and the king stands before his throne; a moment
+## later he comes at the nearest of them.
+func _king_rise() -> void:
+	if _king_up or not is_instance_valid(_king):
+		return
+	_king_up = true
+	var c := centre(current)
+	var room: Node3D = _room_nodes[current] if current < _room_nodes.size() else null
+	CryptTomb.wake_statue(self, room)
+	Sfx.play_flat(self, SND + "horn.wav", 0.7, -2.0)
+	_say("%s გაიღვიძა!" % CryptTomb.KING_NAME, 3.0)
+	var body := _king
+	body.global_position = c + CryptTomb.KING_STAND
+	body.rotation.y = 0.0
+	body.visible = true
+	body.process_mode = Node.PROCESS_MODE_INHERIT
+	var l: float = _room(current)["l"]
+	if "leash_radius" in body:
+		body.set("leash_radius", l)
+	if "sight_range" in body:
+		body.set("sight_range", l * 1.5)
+	_alive.append(body)
+	_spawned += 1
+	if current < _room_foes.size():
+		(_room_foes[current] as Array).append(body)
+	get_tree().create_timer(1.2).timeout.connect(func() -> void:
+		if not is_instance_valid(body):
+			return
+		var hero := _nearest_hero(body.global_position)
+		if hero != null and body.has_method("_rouse"):
+			body.call("_rouse", hero))
 
 
 ## The rest of them out of the rift, one after another, at him; the rift
@@ -2603,6 +2681,10 @@ func view_place(place: String, with_foes: bool = false) -> void:
 			if is_instance_valid(body):
 				(body as Node).queue_free()
 		_room_foes[step] = []
+		# (and no king to rise in an empty crypt)
+		if is_instance_valid(_king):
+			_king.queue_free()
+		_king = null
 		_reserve.clear()
 		_alive.clear()
 		# nothing to wake, nothing to clear: no portals come
@@ -2711,7 +2793,13 @@ func _process(delta: float) -> void:
 			for body in _reserve:
 				if is_instance_valid(body) and not bool(body.get("is_dead")):
 					coming += 1
-			if coming == 0:
+			if coming == 0 and is_instance_valid(_king) and not _king_up:
+				# the crypt's last: the stone king rises from his throne
+				if decides():
+					_king_rise()
+					if online():
+						net_king_rise.rpc()
+			elif coming == 0:
 				if goal == null or goal.may_clear():
 					_clear(current)
 				elif now >= _goal_nag:
@@ -3151,7 +3239,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3184,6 +3272,27 @@ func _place_look(night: float = 0.0) -> void:
 			if _sun != null:
 				_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.82, 0.58), 0.5)
 				_sun.light_energy *= 1.12
+		"flood_crypt":
+			# the flooded crypt: dark blue-grey stone, the sun down in shafts
+			# through the broken vaults, whatever hour it is outside
+			_env.ambient_light_color = Color(0.34, 0.42, 0.50)
+			_env.ambient_light_energy = 0.7
+			_env.fog_light_color = Color(0.20, 0.26, 0.32)
+			_env.fog_density = 0.003
+			_env.glow_intensity = 1.2
+			_env.glow_bloom = 0.14
+			_env.glow_hdr_threshold = 0.85
+			_env.volumetric_fog_enabled = true
+			_env.volumetric_fog_density = 0.004
+			_env.volumetric_fog_albedo = Color(0.80, 0.86, 0.92)
+			_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+			_env.volumetric_fog_ambient_inject = 0.02
+			if _sun != null:
+				_sun.visible = true
+				_sun.light_color = Color(1.0, 0.95, 0.84)
+				_sun.light_energy = 1.5
+				_sun.rotation.x = -deg_to_rad(74.0)
+				_sun.light_volumetric_fog_energy = 4.0
 		"crypt":
 			# the catacombs: cold grey stone, the candles' warmth in it, but
 			# a man still seen as he is (2026-10-23)
@@ -3421,6 +3530,9 @@ func _build_room_body(i: int) -> void:
 			return
 		"crypt":
 			PlaceBuild.crypt(self, room, i)
+			return
+		"flood_crypt":
+			CryptTomb.build(self, room, w, l, _rng)
 			return
 		"swamp":
 			_build_swamp(room, i)
@@ -4663,7 +4775,7 @@ func _echo(kind: String) -> void:
 			echo.room_size = 0.85
 			echo.damping = 0.35
 			echo.wet = 0.26
-		"cave", "crypt":
+		"cave", "crypt", "flood_crypt":
 			echo.room_size = 0.95
 			echo.damping = 0.25
 			echo.wet = 0.38
@@ -4726,7 +4838,7 @@ func _ambience(i: int) -> void:
 				parts.append(["crickets_loop.wav", -18.0])
 		"sky":
 			parts = [["wind_strong_loop.wav", -10.0]]
-		"crypt":
+		"crypt", "flood_crypt":
 			parts = [["cave_loop.wav", -14.0]]
 		"swamp":
 			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
@@ -4769,7 +4881,7 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_drip_in -= delta
 	if _drip_in <= 0.0:
 		_drip_in = _rng.randf_range(1.5, 5.0)
-		if kind == "cave" or kind == "crypt" or r.has("hole"):
+		if kind == "cave" or kind == "crypt" or kind == "flood_crypt" or r.has("hole"):
 			var at := near + Vector3(_rng.randf_range(-12.0, 12.0), 3.0, _rng.randf_range(-12.0, 12.0))
 			Sfx.play(self, SND + "drip_%d.wav" % _rng.randi_range(1, 3), null, at, 1.0, -4.0, 0.15)
 	_thunder_in -= delta
