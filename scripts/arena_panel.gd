@@ -519,6 +519,14 @@ func call_up(path: String, boss: bool = false, where: Variant = null, props: Dic
 	# on the floor the hero stands on: the island in the sky is 160 m up
 	# (the user's word, 2026-10-23: nothing could be called up there)
 	at.y = hero.global_position.y + 0.2
+	# ...and on the floor where it stands, not at his height: he may be up on
+	# a step or a basin's rim (places_test, 2026-10-24: the spring's camps
+	# were left a metre over the floor)
+	var ray := PhysicsRayQueryParameters3D.create(Vector3(at.x, hero.global_position.y + 3.0, at.z),
+			Vector3(at.x, hero.global_position.y - 12.0, at.z), 1)
+	var ground := hero.get_world_3d().direct_space_state.intersect_ray(ray)
+	if not ground.is_empty():
+		at.y = (ground["position"] as Vector3).y + 0.2
 	var body := scene.instantiate() as Node3D
 	_count += 1
 	body.name = "Arena_%s_%d" % [path.get_file().get_basename(), _count]

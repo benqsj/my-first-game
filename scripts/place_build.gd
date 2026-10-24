@@ -397,12 +397,14 @@ static func crypt(d: Dungeon, room: Node3D, i: int) -> void:
 				if rng.randf() < 0.4:
 					d._bones(room, Vector3(side * (w * 0.5 - 2.3), 0.0, nz + rng.randf_range(-1.2, 1.2)))
 	# the tombs of the great down the middle, on plinths, their likeness on them
+	# (kept off the way out at −l/2+15: places_test, 2026-10-24, found the last
+	# tomb standing where the way out comes up)
 	for k in 3:
-		var z := l * 0.22 - float(k) * l * 0.22
+		var z := l * 0.27 - float(k) * l * 0.2
 		_tomb(d, room, Vector3(0.0, 0.0, z), stone, pale)
-	# wheels of candles hanging over the tombs
+	# wheels of candles hanging between the tombs
 	for k in 3:
-		_candle_wheel(d, room, Vector3(0.0, h * 0.8, l * 0.11 - float(k) * l * 0.22), h)
+		_candle_wheel(d, room, Vector3(0.0, h * 0.8, l * 0.17 - float(k) * l * 0.2), h)
 	# the shrine at the far end
 	_shrine(d, room, Vector3(0.0, 0.0, -l * 0.5 + 2.2), pale, stone, w, h)
 	for k in 6:

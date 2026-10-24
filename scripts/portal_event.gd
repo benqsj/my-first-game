@@ -91,8 +91,10 @@ func _dress(room: Node3D, i: int, w: float, l: float, h: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 6151 * (i + 1) + 17
 	if kind == "merchant":
-		OrcSpoils._tent(_d, room, Vector3(-w * 0.3, 0.0, -l * 0.18), 0.5, rng)
-		OrcSpoils._tent(_d, room, Vector3(w * 0.3, 0.0, -l * 0.22), -0.4, rng)
+		# (out to the sides, clear of the portals at (±9, −l/2+10): places_test,
+		# 2026-10-24, found the right tent where the right portal comes up)
+		OrcSpoils._tent(_d, room, Vector3(-w * 0.36, 0.0, -l * 0.04), 0.5, rng)
+		OrcSpoils._tent(_d, room, Vector3(w * 0.36, 0.0, -l * 0.02), -0.4, rng)
 		OrcSpoils._loot(_d, room, Vector3(-w * 0.22, 0.0, l * 0.05), rng)
 		OrcSpoils._loot(_d, room, Vector3(w * 0.24, 0.0, l * 0.12), rng)
 		OrcSpoils._campfire(_d, room, Vector3(w * 0.12, 0.0, l * 0.2), rng)
