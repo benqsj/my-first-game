@@ -37,14 +37,16 @@ const STATUE := "res://assets/dungeon/sky_temple/statue.res"
 ## of sun on the crests.
 const LAKE := """
 shader_type spatial;
-render_mode cull_disabled, specular_schlick_ggx;
-uniform vec4 shallow : source_color = vec4(0.30, 0.72, 0.70, 1.0);
-uniform vec4 deep : source_color = vec4(0.10, 0.38, 0.48, 1.0);
-uniform vec4 far_col : source_color = vec4(0.55, 0.72, 0.80, 1.0);
-uniform float wave = 0.35;
+render_mode blend_mix, depth_draw_always, cull_disabled, specular_schlick_ggx;
+uniform vec4 shallow : source_color = vec4(0.42, 0.80, 0.76, 1.0);
+uniform vec4 deep : source_color = vec4(0.08, 0.36, 0.46, 1.0);
+uniform vec4 foam : source_color = vec4(0.92, 0.97, 0.96, 1.0);
+uniform vec4 far_col : source_color = vec4(0.60, 0.78, 0.84, 1.0);
+uniform float wave = 0.3;
 uniform float scale = 0.05;
 uniform float speed = 0.35;
-uniform float far_from = 160.0;
+uniform float depth_reach = 9.0;
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 varying vec3 wp;
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -54,16 +56,28 @@ void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 void fragment() {
-	// flat facets: the normal of each little triangle as it lies
+	// flat facets: each little triangle's normal as it lies (low poly water)
 	vec3 n = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 	NORMAL = n;
-	float d = length(wp.xz - (INV_VIEW_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xz);
+	// how deep it is here: the ground behind it against the water
+	float d = texture(depth_tex, SCREEN_UV).r;
+	vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
+	behind.xyz /= behind.w;
+	float depth = clamp(VERTEX.z - behind.z, 0.0, 200.0);
+	float k = 1.0 - exp(-depth / depth_reach);
+	// in bands, as the land is
+	k = floor(k * 5.0) / 5.0;
+	vec3 c = mix(shallow.rgb, deep.rgb, k);
+	float dist = length(VERTEX);
+	c = mix(c, far_col.rgb, clamp((dist - 260.0) / 500.0, 0.0, 0.7));
 	float fres = pow(1.0 - clamp(dot(n, normalize(VIEW)), 0.0, 1.0), 3.0);
-	vec3 c = mix(shallow.rgb, deep.rgb, clamp(d / 120.0, 0.0, 1.0));
-	c = mix(c, far_col.rgb, clamp((d - far_from) / 500.0, 0.0, 0.85));
-	ALBEDO = mix(c, far_col.rgb, fres * 0.5);
-	ROUGHNESS = 0.18;
-	METALLIC = 0.0;
+	c = mix(c, far_col.rgb, fres * 0.45);
+	// a white line where it laps the shore
+	float lap = 1.0 - smoothstep(0.15, 0.9, depth + 0.25 * sin(TIME * 1.2 + wp.x * 0.3 + wp.z * 0.2));
+	c = mix(c, foam.rgb, lap * 0.85);
+	ALBEDO = c;
+	ALPHA = clamp(0.78 + k * 0.22 + lap, 0.0, 1.0);
+	ROUGHNESS = 0.15;
 	SPECULAR = 0.6;
 }
 """
@@ -449,6 +463,14 @@ static func build(d: Dungeon, room: Node3D, kind: String, w: float, l: float, rn
 
 
 #region The lake
+## (2026-10-24, the user on the first pass: the mountains out of the style,
+## the lake not like a lake, trees in the air and in the water, bits of the
+## terrace hanging in the air, everything one colour, no fires. Now: the
+## land round the lake is one faceted piece from Blender — the promontory
+## the terrace stands on, steep down into the water, the shores' beaches and
+## stepped cliffs, islands, the woods standing on it as it lies; the floor
+## cream with a slate border and rose rings, the pots terracotta, the
+## palace's face with a slate cornice and a terracotta roof, blue banners.)
 static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator) -> void:
 	var hw := w * 0.5
 	var hl := l * 0.5
@@ -462,55 +484,38 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 		_box(face, Vector3(34.0, 15.0, 2.0), Vector3(0.0, 7.5, 0.0))
 	for sx: float in [-1.0, 1.0]:
 		_rail(room, Vector3(sx * 17.2, 0.0, hl + 0.6), Vector3(sx * (hw + 0.3), 0.0, hl + 0.6), "BalusMarble", "PostMarble")
-		# the stairs down to the water at the near corners, past the rail
-		_piece(room, "StairsMarble", Vector3(sx * (hw + 4.6), 0.0, hl - 8.0), sx * PI * 0.5)
-	# the knights at the corners, the braziers well clear of the portals
+		# blue banners down the palace's face, either side of its arch
+		for bx: float in [6.5, 12.5]:
+			_piece(room, "BannerBlue", Vector3(sx * bx, 12.6, hl + 0.9), PI)
+	# the knights at the corners; great bronze urns where the fires were
 	for c: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
 		_knight(room, Vector3(c.x * (hw + 1.6), 0.0, c.y * (hl - 1.5) if c.y > 0 else -hl - 1.6), PI if c.y < 0 else 0.0, true)
-	for at: Vector3 in [Vector3(-19.0, 0.0, -hl + 6.0), Vector3(19.0, 0.0, -hl + 6.0), Vector3(-19.0, 0.0, hl - 12.0),
+	for at: Vector3 in [Vector3(-19.0, 0.0, -hl + 5.0), Vector3(19.0, 0.0, -hl + 5.0), Vector3(-19.0, 0.0, hl - 12.0),
 			Vector3(19.0, 0.0, hl - 12.0)]:
-		_brazier(d, room, at)
-	# the terrace's face of cut stone, the cliff under it down to the water
-	_edge(room, Vector3(-hw - 0.6, 0.0, hl + 1.0), Vector3(-hw - 0.6, 0.0, -hl - 0.6), "EdgeMarble", Vector3.LEFT, "Cliff2", 38.0, rng)
-	_edge(room, Vector3(hw + 0.6, 0.0, -hl - 0.6), Vector3(hw + 0.6, 0.0, hl + 1.0), "EdgeMarble", Vector3.RIGHT, "Cliff2", 38.0, rng)
-	_edge(room, Vector3(-hw - 0.6, 0.0, -hl - 0.6), Vector3(hw + 0.6, 0.0, -hl - 0.6), "EdgeMarble", Vector3.FORWARD, "Cliff2", 38.0, rng)
-	# the crag the terrace stands on, under it down into the water
-	for k in 10:
-		var a := float(k) / 10.0 * TAU
-		_crag(room, ["Cliff1", "Cliff0", "Cliff2"][k % 3], Vector3(sin(a) * (hw * 0.6), -4.5, cos(a) * (hl * 0.6)),
-				rng.randf_range(1.0, 1.3), rng.randf_range(0.0, TAU), 0.0, 0.0, false)
-	# the lake, its islands, the shores and the mountains round it
+		var urn := _piece(room, "UrnBronze", at, rng.randf_range(0.0, TAU), 1.3)
+		if urn != null:
+			_post_col(urn, 0.9, 2.4)
+	# the terrace's face of cut stone along its edges, on the promontory's rock
+	_edge(room, Vector3(-hw - 0.6, 0.0, hl + 1.0), Vector3(-hw - 0.6, 0.0, -hl - 0.6), "EdgeMarble", Vector3.LEFT, "", 0.0, rng)
+	_edge(room, Vector3(hw + 0.6, 0.0, -hl - 0.6), Vector3(hw + 0.6, 0.0, hl + 1.0), "EdgeMarble", Vector3.RIGHT, "", 0.0, rng)
+	_edge(room, Vector3(-hw - 0.6, 0.0, -hl - 0.6), Vector3(hw + 0.6, 0.0, -hl - 0.6), "EdgeMarble", Vector3.FORWARD, "", 0.0, rng)
+	# the land round the lake and its woods (one piece each), the water
+	var land := _piece(room, "LLand", Vector3.ZERO, 0.0, 1.0, false)
+	if land != null:
+		for g in land.find_children("*", "GeometryInstance3D", true, false) + [land]:
+			if g is GeometryInstance3D:
+				(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_piece(room, "LTrees", Vector3.ZERO, 0.0, 1.0, Graphics.current >= Graphics.Level.HIGH)
 	var lake_y := -38.0
-	_water(room, Vector3(0.0, lake_y, -120.0), 1400.0)
-	var grow := _grow()
-	for at: Vector3 in [Vector3(-70.0, lake_y, -110.0), Vector3(85.0, lake_y, -160.0), Vector3(-130.0, lake_y, -40.0),
-			Vector3(40.0, lake_y, -260.0)]:
-		var big := rng.randf() < 0.5
-		_piece(room, "LIsle1" if big else "LIsle0", at, rng.randf_range(0.0, TAU), rng.randf_range(0.9, 1.3), false)
-		for k in int((9 if big else 5) * grow):
-			var off := Vector3(rng.randf_range(-10.0, 10.0), 0.0, rng.randf_range(-8.0, 8.0)) * (1.6 if big else 0.9)
-			_piece(room, "Pine%d" % (k % 3), at + off + Vector3(0.0, (12.0 if big else 7.0) * 0.55, 0.0),
-					rng.randf_range(0.0, TAU), rng.randf_range(1.0, 1.6), false)
-	# forested slopes along the shores
-	for k in int(46 * grow):
-		var a := rng.randf_range(-PI * 0.75, PI * 0.75)
-		var r := rng.randf_range(210.0, 300.0)
-		var at := Vector3(sin(a) * r, lake_y + rng.randf_range(4.0, 26.0), -cos(a) * r - 60.0)
-		_piece(room, "Pine%d" % (k % 3), at, rng.randf_range(0.0, TAU), rng.randf_range(2.2, 3.4), false)
-	# the shores' cliffs round the water
-	for a: float in [-2.2, -1.8, -1.4, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.4, 1.8, 2.2]:
-		var r := rng.randf_range(220.0, 300.0)
-		_crag(room, ["Cliff1", "Cliff0", "Cliff2"][rng.randi() % 3], Vector3(sin(a) * r, lake_y + rng.randf_range(14.0, 40.0),
-				-cos(a) * r - 60.0), rng.randf_range(1.6, 2.6), rng.randf_range(0.0, TAU), 0.0, 0.0, false)
-	_ring(room, ["Mount0", "Mount1", "Mount2"], 420.0, 560.0, [-1.9, -1.2, -0.6, 0.0, 0.6, 1.2, 1.9], lake_y - 8.0, rng, 1.2, 1.8)
-	# cypresses in marble pots down both sides, benches between them
+	_water(room, Vector3(0.0, lake_y, -160.0), 1000.0)
+	# cypresses in terracotta pots down both sides, benches between them
 	var z := -hl + 5.0
 	while z < hl - 8.0:
 		for sx: float in [-1.0, 1.0]:
 			var pot := _piece(room, "PlanterMarble", Vector3(sx * (hw - 1.3), 0.0, z))
 			if pot != null:
 				_box(pot, Vector3(1.5, 1.2, 1.5), Vector3(0.0, 0.6, 0.0))
-			_piece(room, "Cypress%d" % (int(z) % 2), Vector3(sx * (hw - 1.3), 0.95, z), rng.randf_range(0.0, TAU),
+			_piece(room, "Cypress%d" % (absi(int(z)) % 2), Vector3(sx * (hw - 1.3), 0.95, z), rng.randf_range(0.0, TAU),
 					rng.randf_range(0.85, 1.0))
 			if z + 4.5 < hl - 8.0:
 				var b := _piece(room, "BenchMarble", Vector3(sx * (hw - 1.1), 0.0, z + 4.5), PI * 0.5)
@@ -518,8 +523,8 @@ static func _lake(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 					_box(b, Vector3(2.8, 0.6, 0.7), Vector3(0.0, 0.3, 0.0))
 		z += 9.0
 	d._circling_birds(room)
-	# mist over the water, motes of light on the terrace
-	_haze(room, Vector3(0.0, lake_y + 6.0, -140.0), Vector3(700.0, 22.0, 520.0), 0.006)
+	# mist lying on the water, motes of light on the terrace
+	_haze(room, Vector3(0.0, lake_y + 4.0, -170.0), Vector3(520.0, 14.0, 520.0), 0.005)
 	_motes(room, w, l, Color(1.0, 0.95, 0.82))
 #endregion
 
@@ -775,7 +780,7 @@ static func _clouds(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNum
 		var pot := _piece(room, "PlanterSand", Vector3(hw - 1.4, 0.0, cz))
 		if pot != null:
 			_box(pot, Vector3(1.5, 1.2, 1.5), Vector3(0.0, 0.6, 0.0))
-		_piece(room, "Cypress%d" % (int(cz) % 2), Vector3(hw - 1.4, 0.95, cz), rng.randf_range(0.0, TAU), rng.randf_range(0.9, 1.05))
+		_piece(room, "Cypress%d" % (absi(int(cz)) % 2), Vector3(hw - 1.4, 0.95, cz), rng.randf_range(0.0, TAU), rng.randf_range(0.9, 1.05))
 		cz += 10.0
 	for at: Vector3 in [Vector3(hw + 2.5, 9.0, -hl - 2.5), Vector3(hw + 2.5, 9.0, hl + 2.5)]:
 		_piece(room, "Banner", at + Vector3(-1.9, 0.0, 0.0), PI * 0.5)
