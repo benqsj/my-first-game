@@ -105,11 +105,27 @@ const W_CHOP := 255
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
+## Out of breath after a string or a great blow: stood, heaving, open.
+const T_WINDED := 213
 ## Kept for the tests of before: its great swing is the tree's now.
 const T_SWING := W_GREAT
 
 ## Its swings that carry it off its balance when they find nothing.
 const MISS_REELS := [W_GREAT, LEAP]
+## Its moves after which it is out of breath whatever else.
+const HEAVY_ENDS := [W_GREAT, W_CHOP, R_THROW, R_BOWL, P_GRAB, P_STOMP, LEAP]
+## How far each move's weight carries its body on after the blow: [pitch
+## forward deg, roll deg (+: over to its left), m/s carried on].
+const LEANS := {
+	P_JAB: [3.0, 0.0, 0.6], P_HOOK: [5.0, 7.0, 1.2], P_KNEES: [6.0, 0.0, 0.8],
+	P_CHASE: [7.0, 0.0, 1.8], P_HEADBUTT: [8.0, 0.0, 0.9], P_STOMP: [6.0, 0.0, 0.5],
+	W_GREAT: [6.0, 10.0, 2.0], W_TWO: [5.0, 5.0, 1.2], W_STRING: [5.0, 6.0, 1.2],
+	W_SCOOP: [-4.0, 0.0, 0.6], W_CHOP: [11.0, 0.0, 1.6], LEAP: [9.0, 0.0, 0.0],
+}
+## The tail of a blow, after `hand_tail`, played this much slower: the weight
+## coming back up (the user's word, 2026-10-25).
+const DRAG := 1.7
+
 ## Its blows that split the ground where they come down.
 const CRACKS := [W_CHOP]
 const FIST_RR := "R_elbow_joint>R_midFinger_joint3:0.3"
@@ -184,6 +200,15 @@ var grabs_made: int = 0
 var grabs_caught: int = 0
 var trees_broken: int = 0
 var bites_healed: int = 0
+var winded_made: int = 0
+## Host: the swing's weight carrying it on after the blow (m/s, along).
+var _carry_on: Vector3 = Vector3.ZERO
+var _carried_serial: int = -1
+## Every peer: its body leaned by the swing's weight (deg: pitch, roll), and
+## the body's own basis it is leaned from.
+var _lean: Vector2 = Vector2.ZERO
+var _body_basis: Basis
+var _body_basis_got: bool = false
 
 
 func _ready() -> void:
@@ -213,9 +238,11 @@ func _ready() -> void:
 	hit_damage = maxf(hit_damage, 52.0)
 	reach = 3.0
 	strike_off = 2.2
-	attack_cooldown = Vector2(1.4, 2.3)
-	attack_cost = 16.0
-	stamina_regen = minf(stamina_regen, 18.0)
+	# (the user's word, 2026-10-25: time for the hero to strike back, it must
+	# not be striking all the time)
+	attack_cooldown = Vector2(2.0, 3.0)
+	attack_cost = 22.0
+	stamina_regen = minf(stamina_regen, 14.0)
 	# its plain blows, bare: the jab and the hook
 	attacks = [&"CR_TR_Jab", &"CR_TR_Hook"] as Array[StringName]
 	attack_parts = [Vector3(1.0, 0.0, 0.85), Vector3(1.0, 0.05, 0.8)] as Array[Vector3]
@@ -248,7 +275,7 @@ func _ready() -> void:
 	rage_harder = 1.3
 	hand_pace = 1.0
 	hand_tail = 0.5
-	hand_combo_chance = Vector2(0.6, 0.75)
+	hand_combo_chance = Vector2(0.5, 0.65)
 	combo_slack = 0.7
 	repeat_damp = 0.3
 	_stance0 = stance
@@ -308,6 +335,7 @@ func _set_moves() -> void:
 	_special(T_REEL, &"CR_Stun", Vector3(1.25, 0.02, 0.48))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))
+	_special(T_WINDED, &"CR_IdleWounded", Vector3(0.8, 0.0, 1.0))
 	# heavy up, fast down (no glow)
 	_slow_to[P_HOOK] = 0.8
 	_snap[P_HOOK] = 1.3
@@ -523,6 +551,12 @@ func _after(what: int) -> void:
 	var missed := MISS_REELS.has(what) and _landed_serial != act_serial and not is_dead and _decides()
 	if missed:
 		_hand_combo = -1
+	# what this run of blows came to (a combo's every move, or this one)
+	var blows := _blow_moments(what).size() if _strikes().has(what) else 0
+	if _hand_combo >= 0 and _hand_step >= _hand_moves.size() - 1:
+		blows = 0
+		for m in _hand_moves:
+			blows += _blow_moments(int(m)).size()
 	super(what)
 	if missed and act == Act.NONE and not is_dead:
 		reels += 1
@@ -532,6 +566,67 @@ func _after(what: int) -> void:
 		return
 	if what == T_REEL or what == T_STAGGER:
 		_cooldown = maxf(_cooldown, 0.6)
+	if what == T_WINDED:
+		_cooldown = maxf(_cooldown, 0.7)
+		return
+	# a run of blows over (nothing after it): it stands heaving, open to him
+	if act == Act.NONE and not is_dead and _decides() and (blows > 0 or HEAVY_ENDS.has(what)):
+		var chance := 1.0 if blows >= 3 or HEAVY_ENDS.has(what) else (0.55 if blows == 2 else 0.25)
+		if _rng.randf() < chance:
+			_wind(what, blows)
+
+
+## Host: stood heaving for a while (shorter enraged), open: his blows rock
+## its balance the more.
+func _wind(what: int, blows: int) -> void:
+	winded_made += 1
+	velocity.x = 0.0
+	velocity.z = 0.0
+	_begin(T_WINDED)
+	var long := clampf(0.9 + 0.3 * float(blows), 1.3, 2.4)
+	if HEAVY_ENDS.has(what):
+		long = maxf(long, 1.8)
+	if raging:
+		long *= 0.65
+	_act_length = minf(_act_length, long) if _act_length > 0.0 else long
+
+
+## The weight after a blow: the clip after its last blow (and `hand_tail`)
+## played slower, so it comes back up heavily; on every peer alike.
+func _drag_from(what: int) -> float:
+	if not LEANS.has(what) or not _strikes().has(what):
+		return -1.0
+	var ms := _blow_moments(what)
+	return ms[ms.size() - 1] + hand_tail if not ms.is_empty() else -1.0
+
+
+func _clip_time(what: int, t: float) -> float:
+	var from := _drag_from(what)
+	if from > 0.0 and t > from:
+		t = from + (t - from) / DRAG
+	return super(what, t)
+
+
+func _move_length(what: int) -> float:
+	var length := super(what)
+	var from := _drag_from(what)
+	if from > 0.0 and length > from:
+		length = from + (length - from) * DRAG
+	return length
+
+
+## Host: the swing carrying it on along where it faced.
+func _extra_velocity(delta: float) -> Vector3:
+	var v := super(delta)
+	if not LEANS.has(act):
+		_carry_on = Vector3.ZERO
+		return v
+	var ms := _blow_moments(act)
+	if not ms.is_empty() and _carried_serial != act_serial and _act_time >= ms[ms.size() - 1]:
+		_carried_serial = act_serial
+		_carry_on = _forward() * float((LEANS[act] as Array)[2])
+	_carry_on = _carry_on.move_toward(Vector3.ZERO, 3.0 * delta)
+	return v + _carry_on
 
 
 func _run_act(delta: float) -> void:
@@ -783,8 +878,7 @@ func _make_tree() -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = TrollRock.mesh("Tree")
 	_tree_mat = TrollRock.material().duplicate() as ShaderMaterial
-	# (the bark read near black in the arena's grey light: lifted)
-	_tree_mat.set_shader_parameter("bright", 2.5)
+	_tree_mat.set_shader_parameter("bright", 1.15)
 	mi.material_override = _tree_mat
 	# its length (the model's +Y) along the hand's grip (the equip joint's +X)
 	mi.transform = Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
@@ -836,7 +930,7 @@ func net_tree(stage: int) -> void:
 			"colors": [Color(0.62, 0.48, 0.32, 1.0), Color(0.55, 0.42, 0.28, 1.0), Color(0.5, 0.38, 0.25, 0.0)],
 		})
 	if _tree_mat != null:
-		_tree_mat.set_shader_parameter("bright", 2.5 - 0.4 * float(mini(stage, 2)))
+		_tree_mat.set_shader_parameter("bright", 1.15 - 0.2 * float(mini(stage, 2)))
 	if stage < 3:
 		return
 	# burst: its bits fly, the root end falls
@@ -924,6 +1018,7 @@ func _drop_tree() -> void:
 #region Every peer: what is seen and heard
 func _process(delta: float) -> void:
 	super(delta)
+	_show_lean(delta)
 	if act_serial != _seen_serial:
 		_seen_serial = act_serial
 		_seen_clock = 0.0
@@ -1031,8 +1126,51 @@ func _bleed(delta: float) -> void:
 #endregion
 
 
+## Every peer: the body leaned on by its blow's weight from the blow until
+## its tail is done, then up again; over to the side with a swing across.
+func _show_lean(delta: float) -> void:
+	if body == null:
+		return
+	if not _body_basis_got:
+		_body_basis_got = true
+		_body_basis = body.transform.basis
+	if is_dead:
+		if _lean != Vector2.ZERO:
+			_lean = Vector2.ZERO
+			body.transform.basis = _body_basis
+		return
+	var want := Vector2.ZERO
+	if LEANS.has(act):
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _seen_clock >= ms[0] - 0.05:
+			var l: Array = LEANS[act]
+			var after := _seen_clock - ms[ms.size() - 1]
+			var k := 1.0
+			if after > hand_tail:
+				var tail := maxf(_act_length_seen() - ms[ms.size() - 1] - hand_tail, 0.2)
+				k = clampf(1.0 - (after - hand_tail) / tail, 0.0, 1.0)
+			want = Vector2(float(l[0]), float(l[1])) * k
+	elif act == T_WINDED:
+		want = Vector2(5.0, 0.0)
+	# down onto it quick, up off it slow
+	var rate := 40.0 if want.length() > _lean.length() else 9.0
+	_lean = _lean.move_toward(want, rate * delta)
+	body.transform.basis = Basis(Vector3.RIGHT, deg_to_rad(_lean.x)) * Basis(Vector3.FORWARD, deg_to_rad(_lean.y)) * _body_basis
+
+
+func _act_length_seen() -> float:
+	return _move_length(act) if act != Act.NONE else 0.0
+
+
 #region Host: its balance and its body
 func _add_stance(amount: float) -> void:
+	# stood heaving, or come back up off a blow: open, his blows rock it more
+	if act == T_WINDED:
+		amount *= 1.5
+	elif LEANS.has(act):
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _act_time > ms[ms.size() - 1]:
+			amount *= 1.25
 	super(amount)
 	if is_dead or stance <= 0.0 or act == STANCE or act == PIECES or act == RAGE or act == LEAP \
 			or act == W_UPROOT or act == P_GRAB:
