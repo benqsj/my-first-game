@@ -1659,43 +1659,119 @@ func net_tree(stage: int) -> void:
 		_tree = null
 
 
-## Every peer: as it uproots, the tree seen coming up out of the ground
-## beside it, earth flying, then into its hands (`net_arm`).
+## Every peer: as it uproots (2026-10-26, the user: it must take hold of the
+## tree and pull it out, not have it in its hand all at once): a broken
+## trunk pushes up out of the ground just where its hands reach down, its
+## roots still deep; it takes hold, rocks it, and as it heaves the tree
+## comes up out of the earth in its grip, turned as it goes into just the
+## way it is then held (`net_arm` makes that tree where this one is).
+const UP_RISE := Vector2(0.03, 0.17)   # the trunk out of the ground (shares)
+const UP_GRIP := 0.17                  # its hands close on it
+const UP_HEAVE := Vector2(0.6, 0.93)   # torn out and turned into its grip
+var _up_off: Transform3D               # the tree in its hand's frame, gripped
+var _up_spot: Transform3D              # the tree standing in the ground
+var _up_torn := false
+var _up_lost := -1                     # when its uprooting was cut short (ms)
+
+
 func _show_uproot() -> void:
 	if act != W_UPROOT or _skeleton == null:
+		# (cut short, it lets go and the trunk sinks back; a moment given
+		# first, for its arming to reach this peer)
+		if _rising != null and is_instance_valid(_rising) and not armed:
+			if _up_lost < 0:
+				_up_lost = Time.get_ticks_msec()
+			elif Time.get_ticks_msec() - _up_lost > 600:
+				var gone := _rising
+				_rising = null
+				var tw := gone.create_tween()
+				tw.tween_property(gone, "global_position", gone.global_position + Vector3.DOWN * 2.5, 0.8).set_ease(Tween.EASE_IN)
+				tw.tween_callback(gone.queue_free)
 		return
-	var m: Array = _moves_table[W_UPROOT]
-	var length := _anim.clip_length(m[0]) / float(m[1]) * (float(m[3]) - float(m[2])) if _anim != null else 3.0
-	var share := _seen_clock / maxf(length, 0.1)
-	if share >= 0.35 and _rising == null and not armed:
+	_up_lost = -1
+	if _rising == null and not armed:
 		var into := Blood.world_of(self)
-		if into == null:
+		var b := _skeleton.find_bone("R_equip_joint")
+		if into == null or b < 0:
 			return
+		var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(b)
 		_rising = Node3D.new()
+		_rising.name = "TrollTreeRising"
 		into.add_child(_rising)
-		var spot := global_position + _forward() * 1.6 * visual_scale / 1.6
-		_rising.global_position = spot + Vector3.DOWN * 2.6
 		var mi := MeshInstance3D.new()
 		mi.mesh = TrollRock.mesh("Tree")
-		mi.material_override = TrollRock.material()
-		# upright, roots down, growing up out of the ground
-		mi.transform = Transform3D(Basis(Vector3.RIGHT, PI).scaled(Vector3.ONE * tree_scale * visual_scale), Vector3.ZERO)
+		var mat := TrollRock.material().duplicate() as ShaderMaterial
+		mat.set_shader_parameter("bright", 1.15)
+		mi.material_override = mat
 		_rising.add_child(mi)
-		var tw := _rising.create_tween()
-		tw.tween_property(_rising, "global_position", spot + Vector3.UP * 0.6, length * 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		GroundFx.eruption(into, spot, 1.1, false)
-		GroundFx.weapon_dust(into, spot, 1.8)
-		WindBlast.shake(self, 0.14, 0.8, 20.0)
-		Sfx.play_any(self, [SOUNDS + "strain_rise.wav", SOUNDS + "roar.wav"], self, 0.8, 0.0)
-		for k in 6:
-			var piece := TrollRock.model(TrollRock.Kind.SMALL, k)
-			into.add_child(piece)
-			piece.global_position = spot + Vector3(randf_range(-0.6, 0.6), 0.2, randf_range(-0.6, 0.6))
-			var up := piece.create_tween()
-			up.tween_property(piece, "global_position", piece.global_position + Vector3(randf_range(-1.5, 1.5), randf_range(1.5, 3.0), randf_range(-1.5, 1.5)), 0.4).set_ease(Tween.EASE_OUT)
-			up.tween_property(piece, "global_position:y", spot.y + 0.05, 0.45).set_ease(Tween.EASE_IN)
-			up.tween_interval(2.5)
-			up.tween_callback(piece.queue_free)
+		# upright, roots down, its grip just at its hand, leaning a little
+		# toward it
+		var size := tree_scale * visual_scale
+		var lean := Basis(_forward().cross(Vector3.UP).normalized(), -0.12)
+		_up_spot = Transform3D(lean * Basis(Vector3.RIGHT, PI).scaled(Vector3.ONE * size), hand.origin)
+		_rising.global_transform = _up_spot.translated(Vector3.DOWN * 2.2)
+		_up_torn = false
+		var ground := Vector3(hand.origin.x, global_position.y, hand.origin.z)
+		GroundFx.weapon_dust(into, ground, 1.2)
+		WindBlast.shake(self, 0.08, 0.5, 20.0)
+		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.6, 0.0)
+		if not _skeleton.skeleton_updated.is_connected(_hold_rising):
+			_skeleton.skeleton_updated.connect(_hold_rising)
+	if _rising == null or not is_instance_valid(_rising):
+		return
+	var share := _uproot_share()
+	if share >= UP_HEAVE.x and not _up_torn:
+		_up_torn = true
+		var into := Blood.world_of(self)
+		if into != null:
+			var at := _rising.global_position
+			var spot := Vector3(at.x, global_position.y, at.z)
+			GroundFx.eruption(into, spot, 1.1, false)
+			GroundFx.weapon_dust(into, spot, 1.8)
+			WindBlast.shake(self, 0.14, 0.8, 20.0)
+			Sfx.play_any(self, [SOUNDS + "roar.wav", SOUNDS + "grunt_1.wav"], self, 0.8, 0.0)
+			for k in 6:
+				var piece := TrollRock.model(TrollRock.Kind.SMALL, k)
+				into.add_child(piece)
+				piece.global_position = spot + Vector3(randf_range(-0.6, 0.6), 0.2, randf_range(-0.6, 0.6))
+				var up := piece.create_tween()
+				up.tween_property(piece, "global_position", piece.global_position + Vector3(randf_range(-1.5, 1.5), randf_range(1.5, 3.0), randf_range(-1.5, 1.5)), 0.4).set_ease(Tween.EASE_OUT)
+				up.tween_property(piece, "global_position:y", spot.y + 0.05, 0.45).set_ease(Tween.EASE_IN)
+				up.tween_interval(2.5)
+				up.tween_callback(piece.queue_free)
+
+
+func _uproot_share() -> float:
+	var m: Array = _moves_table[W_UPROOT]
+	var length := _anim.clip_length(m[0]) / float(m[1]) * (float(m[3]) - float(m[2])) if _anim != null else 3.0
+	return _seen_clock / maxf(length, 0.1)
+
+
+## Every peer, each time its pose is made while it uproots: the tree put.
+func _hold_rising() -> void:
+	if _rising == null or not is_instance_valid(_rising) or act != W_UPROOT or armed:
+		return
+	var b := _skeleton.find_bone("R_equip_joint")
+	if b < 0:
+		return
+	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(b)
+	var share := _uproot_share()
+	if share < UP_GRIP:
+		# pushing up out of the ground, rocking as it comes
+		var rise := smoothstep(UP_RISE.x, UP_RISE.y, share)
+		var rock := Basis(Vector3.FORWARD, 0.05 * sin(share * 60.0) * (1.0 - rise))
+		_rising.global_transform = Transform3D(rock * _up_spot.basis, _up_spot.origin + Vector3.DOWN * 2.2 * (1.0 - rise))
+		_up_off = hand.affine_inverse() * _rising.global_transform
+		return
+	# in its grip: where its hands took it, then turned into how it is held
+	var held := Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
+	var w := smoothstep(UP_HEAVE.x, UP_HEAVE.y, share)
+	var off := _up_off.interpolate_with(held, w)
+	# (still rooted before the heave: it strains, the trunk trembling)
+	if share < UP_HEAVE.x:
+		var strain := smoothstep(UP_GRIP + 0.2, UP_HEAVE.x, share)
+		off = off.rotated_local(Vector3.RIGHT, 0.03 * strain * sin(share * 90.0))
+	_rising.global_transform = hand * off
 
 
 ## Every peer: the tree let go as it falls.
