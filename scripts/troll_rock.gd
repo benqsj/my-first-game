@@ -71,6 +71,13 @@ var _rumble_in: float = 0.0
 var _rising: float = 0.0
 ## The tree's size (its hand's scale and the troll's).
 var _size: float = 1.0
+## The tree's wake: where it has been (newest last), drawn as a ribbon of
+## torn air behind it, fading.
+var _wake: Array = []
+var _wake_mesh: MeshInstance3D
+var _wake_im: ImmediateMesh
+var _wake_fade: float = 1.0
+const WAKE_TIME := 0.45
 const BALL_RISE := 0.45
 ## Rolled this far between the scars it tears in the ground (m).
 const BALL_SCAR := 1.5
@@ -146,6 +153,7 @@ static func javelin(into: Node, from: Vector3, velocity: Vector3, worth: float, 
 	r.global_position = from
 	r._build()
 	r._aim_tree()
+	r._make_wake()
 	return r
 
 
@@ -201,6 +209,11 @@ func _radius() -> float:
 	if kind == Kind.TREE:
 		return 0.6
 	return SMALL_R if kind == Kind.SMALL else (BALL_R if kind == Kind.BALL else BIG_R)
+
+
+func _process(delta: float) -> void:
+	if kind == Kind.TREE:
+		_draw_wake(delta)
 
 
 func _physics_process(delta: float) -> void:
@@ -391,8 +404,13 @@ func _hit_heroes(from: Vector3, to: Vector3) -> bool:
 			continue
 		_hit[hero] = true
 		if hero.has_method(&"receive_blow"):
-			hero.call(&"receive_blow", damage, thrower if is_instance_valid(thrower) else self, 0,
-					3 if kind == Kind.SMALL else 1, serial)
+			if kind == Kind.TREE:
+				# the tree: him thrown back off it, head over heels ([Player])
+				hero.call(&"receive_blow", damage, thrower if is_instance_valid(thrower) else self, 0, 1, serial,
+						false, &"launch")
+			else:
+				hero.call(&"receive_blow", damage, thrower if is_instance_valid(thrower) else self, 0,
+						3 if kind == Kind.SMALL else 1, serial)
 		if kind == Kind.ROLL:
 			# it rolls on over him
 			return false
@@ -431,6 +449,57 @@ func _tree_trail(into: Node) -> void:
 		"damping": 1.5, "size": Vector2(0.3, 0.6), "grow": 1.0, "sphere": 0.5,
 		"colors": [Color(EARTH, 0.0), Color(EARTH, 0.3), Color(EARTH, 0.0)],
 	})
+
+
+func _make_wake() -> void:
+	_wake_im = ImmediateMesh.new()
+	_wake_mesh = MeshInstance3D.new()
+	_wake_mesh.mesh = _wake_im
+	_wake_mesh.top_level = true
+	_wake_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.vertex_color_use_as_albedo = true
+	_wake_mesh.material_override = m
+	add_child(_wake_mesh)
+	_wake_mesh.global_transform = Transform3D.IDENTITY
+
+
+## Every peer, every frame: the wake laid behind it: two ribbons crossed
+## (seen from any side), widest just behind it, thinning and fading out.
+func _draw_wake(delta: float) -> void:
+	if _wake_im == null:
+		return
+	var now := _age
+	if not _done:
+		_wake.append([global_position, now])
+	while not _wake.is_empty() and now - float((_wake[0] as Array)[1]) > WAKE_TIME:
+		_wake.pop_front()
+	if _done:
+		_wake_fade = maxf(_wake_fade - delta * 2.5, 0.0)
+	_wake_im.clear_surfaces()
+	if _wake.size() < 2 or _wake_fade <= 0.0:
+		return
+	var way := _vel.normalized() if _vel.length_squared() > 0.0001 else Vector3.FORWARD
+	var side := way.cross(Vector3.UP).normalized()
+	if side.length_squared() < 0.0001:
+		side = Vector3.RIGHT
+	var up := side.cross(way).normalized()
+	for across in [side, up]:
+		_wake_im.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+		for i in _wake.size():
+			var w: Array = _wake[i]
+			var k := 1.0 - (now - float(w[1])) / WAKE_TIME
+			var half := (0.08 + 0.42 * k) * _size
+			var c := Color(0.95, 0.93, 0.88, 0.32 * k * k * _wake_fade)
+			_wake_im.surface_set_color(c)
+			_wake_im.surface_add_vertex((w[0] as Vector3) + across * half)
+			_wake_im.surface_set_color(c)
+			_wake_im.surface_add_vertex((w[0] as Vector3) - across * half)
+		_wake_im.surface_end()
 
 
 ## The tree along its flight, the snapped end first (its root end, +Y in

@@ -985,6 +985,51 @@ func _lean(delta: float, planar: float, off_ground: bool) -> void:
 	_lean_pitch += _lean_pitch_speed * minf(delta, 0.05)
 	_lean_pitch = clampf(_lean_pitch, -pace_lean_back * 1.3, pace_lean_max * 1.3)
 	rig.transform.basis = Basis.from_euler(Vector3(_lean_pitch, 0.0, _lean_roll)) * _lean_rest
+	_tumble_show(delta)
+
+
+## Launched head over heels ([method net_tumble], the troll's tree, the
+## user's word 2026-10-25: thrown back and turned over in the air): the model
+## turned over backwards about his middle while he is off the ground, the
+## turn finished quickly as he comes down; on every peer.
+var _tumble_on: bool = false
+var _tumble_angle: float = 0.0
+var _tumble_rest_pos: Vector3 = Vector3.ZERO
+var _tumble_rest_got: bool = false
+const TUMBLE_SPEED := 7.5
+const TUMBLE_PIVOT := Vector3(0.0, 0.95, 0.0)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_tumble(on: bool) -> void:
+	_tumble_on = on
+	_tumble_angle = 0.0
+
+
+func _tumble_show(delta: float) -> void:
+	if rig == null:
+		return
+	if not _tumble_rest_got:
+		_tumble_rest_got = true
+		_tumble_rest_pos = rig.position
+	if not _tumble_on and _tumble_angle == 0.0:
+		return
+	var in_air := not is_on_floor() if is_multiplayer_authority() else net_airborne
+	if _tumble_on:
+		_tumble_angle += TUMBLE_SPEED * delta
+		# down: the turn it is in finished quickly, then he lies as he fell
+		if (not in_air and _tumble_angle > 0.6) or _tumble_angle > TAU * 2.0:
+			_tumble_on = false
+	else:
+		var to := ceilf(_tumble_angle / TAU - 0.15) * TAU
+		_tumble_angle = move_toward(_tumble_angle, to, TUMBLE_SPEED * 2.0 * delta)
+		if absf(_tumble_angle - to) < 0.001:
+			_tumble_angle = 0.0
+	var turn := Basis(Vector3.RIGHT, _tumble_angle)
+	rig.transform.basis = turn * rig.transform.basis
+	rig.position = _tumble_rest_pos + (TUMBLE_PIVOT - turn * TUMBLE_PIVOT)
+	if _tumble_angle == 0.0:
+		rig.position = _tumble_rest_pos
 
 
 @export_group("Lean")
@@ -4942,6 +4987,9 @@ func _fall_spray_length() -> float:
 ## side by one from that side, onto his face by one from behind; one in front
 ## throws him back, or, heavy enough, launches him through the air.
 func _fall_kind(away: Vector3, _damage: float, how: String) -> int:
+	# a blow that launches him (the troll's tree, thrown): back through the air
+	if how == "launch":
+		return SkinnedRig.Fall.FLY
 	var heavy := _blow_force >= SkinnedRig.FALL_TIERS.y
 	# a skill's blast or a shock through the ground (no weapon in it): thrown
 	# straight back from where it came, through the air if heavy, else flat
@@ -5080,7 +5128,7 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	# the fall picked for this blow, or by hand (the falls' review page)
 	_down_number = 0
 	_down_face = ""
-	var picked := _blow_fall(away)
+	var picked := _blow_fall(away) if how != "launch" else []
 	if review_fall > 0:
 		picked = [review_fall, review_face]
 	if not picked.is_empty() and rig != null and rig.has_method(&"numbered_kind"):
@@ -5123,6 +5171,10 @@ func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
 	if _down_flying:
 		var k := 1.0 + 0.25 * minf(_blow_force, 1.5)
 		velocity = away * fall_fly_push.x * k * carry + Vector3.UP * fall_fly_push.y * k
+		if how == "launch":
+			# thrown hard and high, and head over heels through the air
+			velocity = away * fall_fly_push.x * 1.7 * carry + Vector3.UP * fall_fly_push.y * 1.35
+			net_tumble.rpc(true)
 		_down_timer = 9.0  # till he comes down
 	_down_push = Vector3(velocity.x, 0.0, velocity.z)
 

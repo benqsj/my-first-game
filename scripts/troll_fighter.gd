@@ -145,7 +145,7 @@ const DOWN_HOLD := 1.3
 ## Moves held at the top of their wind-up (the user's word: lean back, hold
 ## the arm there, then throw): [clip share of the top, seconds held there,
 ## clip share of the release].
-const HOLD_AT := {W_THROW: [0.44, 0.75, 0.505], P_CLAP: [0.44, 0.5, 0.6]}
+const HOLD_AT := {W_THROW: [0.38, 0.6, 0.56], P_CLAP: [0.44, 0.5, 0.6]}
 
 ## Its swings that carry it off its balance when they find nothing.
 const MISS_REELS := [W_GREAT, LEAP, P_HOME]
@@ -444,7 +444,10 @@ func _set_moves() -> void:
 	_special(S_DOWN, &"CR_KipUp", Vector3(0.75, 0.0, 1.0))
 	# (one-handed, the pick off the ground cut away: up and back over its
 	# shoulder, held there, then over: the user's word, 2026-10-25)
-	_special(W_THROW, &"CR_TR_ThrowObject", Vector3(1.0, 0.33, 0.68))
+	# (since: Mixamo's goalkeeper's far overhand throw, the user's word
+	# 2026-10-25: a step in, the tree drawn right back, the other arm out
+	# before it, then over: a spear's throw)
+	_special(W_THROW, &"CR_TR_GKFarThrow", Vector3(0.95, 0.08, 0.8))
 	_special(R_RAIN, &"CR_TR_Roar", Vector3(1.15, 0.1, 0.62))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))

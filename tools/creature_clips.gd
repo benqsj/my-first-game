@@ -323,6 +323,7 @@ const MIXAMO := [
 	["CR_TR_Tackle", "res://assets/creatures/anim/mixamo/TR_Tackle.fbx", false, 0.0, -1.0],
 	["CR_TR_ThrowIn", "res://assets/creatures/anim/mixamo/TR_Throw_In.fbx", false, 0.0, -1.0],
 	["CR_TR_ThrowObject", "res://assets/creatures/anim/mixamo/TR_Throw_Object.fbx", false, 0.0, -1.0],
+	["CR_TR_GKFarThrow", "res://assets/creatures/anim/mixamo/TR_GK_Far_Throw.fbx", false, 0.0, -1.0],
 	["CR_TR_MutantRun", "res://assets/creatures/anim/mixamo/TR_Mutant_Run.fbx", true, 0.0, -1.0],
 ]
 
