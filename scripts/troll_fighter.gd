@@ -147,9 +147,11 @@ const DL_MOVES := [W_HA1, W_HA2, W_HA3, W_HB1, W_HB2, W_HB3, W_LUNGE, W_HA1F, W_
 ## Its body and his kept this far apart (at its size 1.6) at the nearest a
 ## DoubleL clip carries it: those clips stride on past the blow.
 const DL_ROOM := 1.5
-## A DoubleL string opened only where its strides, fitted to the gap by no
-## more than this either way, cover it whole (it strides its own length,
-## never slid nor short-stepped); and run on only while they still do.
+## A DoubleL blow opened only within this of the gap its own stride lands
+## from (never stretched: its feet keep to the ground); a string runs on only
+## while the next one's does.
+const DL_TOL := 0.35
+## (no longer used to stretch a stride)
 const DL_FIT := Vector2(0.88, 1.12)
 ## An old string opened only within this of the gap its first blow lands from.
 const OLD_FIT := 0.5
@@ -557,8 +559,9 @@ func _begin(what: int) -> void:
 	super(what)
 	if not (what in DL_MOVES) or _quarry == null or _anim == null:
 		return
-	var k := _dl_k(what, _distance_to(_quarry))
-	_stretch = clampf(k, DL_FIT.x, DL_FIT.y) if k > 0.0 else DL_FIT.x
+	# (its own stride, never stretched: any stretch slid its planted feet;
+	# it is opened only from where its own stride lands, `_dl_fits`)
+	_stretch = 1.0
 
 
 ## Host: the clip's own travel never bringing it nearer him than a body's
@@ -566,7 +569,8 @@ func _begin(what: int) -> void:
 ## been thrown).
 func _carry(delta: float) -> Vector3:
 	var v := super(delta)
-	if _quarry == null or not (act in DL_MOVES or act in DL_REST.values()):
+	# (only with him down: standing, a blow throws him back out of its way)
+	if _quarry == null or not _quarry_down() or not (act in DL_MOVES or act in DL_REST.values()):
 		return v
 	var to := _quarry.global_position - global_position
 	to.y = 0.0
@@ -624,8 +628,8 @@ func _dl_k(what: int, gap: float) -> float:
 
 
 func _dl_fits(what: int, gap: float) -> bool:
-	var k := _dl_k(what, gap)
-	return k >= DL_FIT.x and k <= DL_FIT.y
+	var want := float(_dl_lands.get(what, 2.4 * visual_scale / 1.6)) + _dl_stride(what)
+	return absf(gap - want) <= DL_TOL
 
 
 ## Every peer, once: the rest of each blow cut short for the next, from just
