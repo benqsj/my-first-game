@@ -3,7 +3,9 @@ extends SceneTree
 ## word, 2026-10-04): the block button raises nothing — no empty arm held up —
 ## and throws the other string instead, the one F6 would pick; the attack
 ## button keeps the string F6 picked. With his shield back, the block button
-## raises it again.
+## raises it again. With no shield the attack button throws the sword in both
+## hands, Mocap Online's TC combo ([Swordsman] TWO_HANDS; the user's word,
+## 2026-10-26).
 ##   Godot --headless --path . --script res://tests/shieldless_test.gd
 
 var _failures := 0
@@ -38,8 +40,10 @@ func _run() -> void:
 	_check("with his shield: he holds one", rig.holds_shield())
 	var sets: Array = rig.moves.get("string_sets", [])
 	_check("two strings to throw", sets.size() >= 2, str(sets.size()))
-	var main: Array = sets[rig._main_string]["clips"]
-	var other: Array = sets[(rig._main_string + 1) % sets.size()]["clips"]
+	var bare_at := int(rig.moves.get("shieldless_string", -1))
+	_check("a string for the sword in both hands", bare_at >= 2, str(bare_at))
+	var main: Array = sets[clampi(bare_at, 0, sets.size() - 1)]["clips"]
+	var other: Array = sets[(rig._main_string + 1) % maxi(bare_at, 2)]["clips"]
 
 	var bare := with_shield.duplicate(true)
 	bare["o"] = "none"
@@ -60,7 +64,7 @@ func _run() -> void:
 	await _wait(3)
 	var left := String(rig._act_clip)
 	Input.action_release("attack")
-	_check("the attack button keeps F6's string", left == String(main[0]), "%s (want %s)" % [left, main[0]])
+	_check("the attack button throws the two-handed string", left == String(main[0]), "%s (want %s)" % [left, main[0]])
 	await _wait(150)
 
 	hero.set_look(with_shield)

@@ -72,6 +72,17 @@ const STRINGS: Array = [
 		"recover": {&"Sword_Heavy_A": &"Sword_Heavy_A_Rec", &"Sword_Heavy_B": &"Sword_Heavy_B_Rec",
 			&"Sword_Heavy_C": &"Sword_Heavy_C_Rec"}},
 ]
+## With no shield in his hand, the sword in both (the user's word,
+## 2026-10-26): Mocap Online's TC sword combo, whole, a press per cut. The
+## clip (5.47 s) cut where the blade's tip is slowest between its five strokes
+## (measured in Blender off the sword, vepxis-art packs/mco_tc_sword/tip.py):
+## A diagonal down, B across with a lunge, C the turn and cut, D overhead to
+## the ground, E up from the ground and back to guard. Seconds; `cuts` where
+## the tip is past ~55 % of its top speed, `trails` a little wider.
+const TWO_HANDS := {"clip": &"TC_Sword_ATK_Combo_01", "name": "TC TWO HANDS  A-E", "length": 5.4667,
+	"parts": [[0.0, 1.2], [1.2, 2.03], [2.03, 3.17], [3.17, 4.13], [4.13, 5.4667]],
+	"cuts": [[0.7, 0.93], [1.47, 1.7], [2.43, 2.67], [3.93, 4.07], [4.2, 4.33]],
+	"trails": [[0.63, 1.0], [1.4, 1.77], [2.37, 2.73], [3.83, 4.1], [4.13, 4.43]]}
 ## The running cut (TARIEL_POLISH.md, 5): the first cut thrown at a run is
 ## UAL 2's Sword_Light_D, a wide sweep out of a lunge, its cut at 0.09-0.17 of
 ## 1.67 s (0.14-0.26 s at x1.1); the string goes on from B after it.
@@ -136,7 +147,8 @@ static func apply(t: Dictionary) -> void:
 	t["strings"] = [STRING.duplicate()]
 	t["recover"] = RECOVER.duplicate()
 	# both strings, each clip measured and played whole
-	t["string_sets"] = STRINGS
+	t["string_sets"] = STRINGS.duplicate()
+	_two_hands(t)
 	for s: Dictionary in STRINGS:
 		for c: StringName in s["clips"]:
 			t["flurry_part"][c] = Vector2(0.0, 1.0)
@@ -222,3 +234,24 @@ static func _measure(t: Dictionary, clip: StringName) -> void:
 			t["trail_window"][clip] = Vector2(float(trails[0][0]), float(trails[trails.size() - 1][1]))
 	if m.has("shield_turn"):
 		t["shield_turn"][clip] = float(m["shield_turn"])
+
+
+## The string with no shield in his hand (`TWO_HANDS`): its parts under
+## "<clip>#<n>" (as [method Moveset._combo] makes them), the last of
+## `string_sets`, named by "shieldless_string" ([method SkinnedRig.wear_other_string]).
+static func _two_hands(t: Dictionary) -> void:
+	var clip: StringName = TWO_HANDS["clip"]
+	var length := float(TWO_HANDS["length"])
+	var parts: Array[StringName] = []
+	for i in (TWO_HANDS["parts"] as Array).size():
+		var part := StringName("%s%s%d" % [clip, Moveset.PART_MARK, i + 1])
+		var p: Array = TWO_HANDS["parts"][i]
+		var c: Array = TWO_HANDS["cuts"][i]
+		var trail: Array = TWO_HANDS["trails"][i]
+		t["aliases"][part] = clip
+		t["flurry_part"][part] = Vector2(float(p[0]) / length, float(p[1]) / length)
+		t["cut_window"][part] = Vector2(float(c[0]) / length, float(c[1]) / length)
+		t["trail_window"][part] = Vector2(float(trail[0]) / length, float(trail[1]) / length)
+		parts.append(part)
+	(t["string_sets"] as Array).append({"name": TWO_HANDS["name"], "clips": parts, "recover": {}})
+	t["shieldless_string"] = (t["string_sets"] as Array).size() - 1

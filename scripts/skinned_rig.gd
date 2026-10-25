@@ -499,6 +499,9 @@ var _rig_mount_l: Node3D
 var maker_on_mannequin: bool = true
 const MANNEQUIN_SCENE := "res://assets/anim/lab/ual2_mannequin.glb"
 const KEVIN_LIB := "res://assets/anim/lab/kevin_lib.res"
+## Mocap Online's TC sword combo on the mannequin (vepxis-art tools/tc_godot.gd):
+## Tariel's string with no shield in his hand ([Swordsman] `TWO_HANDS`).
+const TC_LIB := "res://assets/anim/lab/tc_lib.res"
 const HERO_LIB := "res://assets/anim/heroes/%s_mannequin.res"
 ## A hero whose own clips came onto the mannequin with the feet bent up at the
 ## ankle (degrees): Tariel's (the user saw the boots fold, 2026-10-13, rolling
@@ -3352,6 +3355,8 @@ func _build_mannequin() -> bool:
 	var sources: Array[AnimationLibrary] = [player.get_animation_library(&"")]
 	if ResourceLoader.exists(KEVIN_LIB):
 		sources.append(load(KEVIN_LIB) as AnimationLibrary)
+	if ResourceLoader.exists(TC_LIB):
+		sources.append(load(TC_LIB) as AnimationLibrary)
 	for extra: String in mq_libs:
 		if ResourceLoader.exists(extra):
 			sources.append(load(extra) as AnimationLibrary)
@@ -3686,6 +3691,17 @@ func holds_shield() -> bool:
 	return o == "" or PolysplitLook.kind(o) == &"shield"
 
 
+## Whether this hero ever carries a shield ([PolysplitLook] ARMS): only he
+## lays it down for the sword in both hands. The warrior, who has none, keeps
+## his own strings with a sword.
+func _can_hold_shield() -> bool:
+	var arms: Dictionary = PolysplitLook.ARMS.get(polysplit_hero, {})
+	for o: String in arms.get("o", []):
+		if o != "none" and PolysplitLook.kind(o) == &"shield":
+			return true
+	return false
+
+
 ## How many strings he has to throw ([Swordsman] `STRINGS`).
 func string_count() -> int:
 	return (moves.get("string_sets", []) as Array).size() if _on_mq else 0
@@ -3705,7 +3721,14 @@ func wear_other_string(other: bool) -> void:
 	var count := string_count()
 	if count < 2:
 		return
-	var want := (_main_string + (1 if other else 0)) % count
+	# a string kept for when no shield is in his hand ([Swordsman] TWO_HANDS,
+	# the user's word 2026-10-26): the attack button throws it then; the
+	# block button the other of the strings before it, as it did
+	var bare := int(moves.get("shieldless_string", -1))
+	var plain := bare if bare >= 2 else count
+	var want := _main_string if not other else (_main_string + 1) % plain
+	if bare >= 0 and not other and not holds_shield() and _can_hold_shield():
+		want = bare
 	var modes: Array = moves.get("modes", [])
 	if not modes.is_empty():
 		want = int(modes[_mode]["strings"][1 if other else 0])

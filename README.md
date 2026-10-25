@@ -12072,3 +12072,23 @@ great_sword_charge_test.
 - Inside the portal the floors, walls, rock and forest ground use the overworld's photographed textures (village cobbles, terrain_real rock/grass/earth/leaves) and the overworld's air; see `Dungeon.PHOTO`.
 - `SkinRelief`: a man's bare torso shows chest, belly, collarbones, shoulder blades and spine (shader over the flat pack skin).
 - `Monster.tempo`: a creature's clips, move clock and paces together; the minotaur runs at 1.2. F1 has a Speed stepper and every creature the game uses.
+
+## Tariel with no shield: the sword in both hands, Mocap Online's TC combo (2026-10-26, the user's word)
+
+- Mocap Online's free TC Sword pack (MotusMan_v50) is on the mannequin as
+  `assets/anim/lab/tc_lib.res` (vepxis-art `tools/tc_godot.gd`, from
+  dl_godot.gd): TC_Sword_ATK_Combo_01 (5.47 s), TC_Ready_Idle, TC_Walk_F,
+  TC_Run_F. `SkinnedRig._build_mannequin()` adds it for every hero (`TC_LIB`).
+- `Swordsman.TWO_HANDS`: the combo cut in five where the blade's tip is
+  slowest between its strokes (A diagonal down, B across with a lunge, C the
+  turn and cut, D overhead to the ground, E up from the ground), parts
+  `TC_Sword_ATK_Combo_01#1..#5` with their cut and trail windows; the last of
+  `string_sets`, named by `moves["shieldless_string"]`.
+- `SkinnedRig.wear_other_string()`: with no shield in his hand (and only for a
+  hero who ever carries one, `_can_hold_shield()`), the attack button throws
+  it, a press per cut, at the picked blows' pace (x1.1). The block button
+  throws the other of the strings before it, as it did. With the shield back,
+  the attack button is F6's string again. Every peer wears the same string
+  (`net_wear_string`, the look is the same everywhere).
+- `tests/shieldless_test.gd` now wants the two-handed string on the attack
+  button with no shield.
