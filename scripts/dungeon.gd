@@ -3659,6 +3659,9 @@ func _marsh_look() -> void:
 	_env.ambient_light_color = Color(0.72, 0.74, 0.76)
 	_env.ambient_light_energy = 1.0
 	_env.tonemap_exposure = 1.08
+	# the picture's colours kept: its browns, olive moss and rust not greyed
+	_env.adjustment_saturation = 0.92
+	_env.adjustment_contrast = 1.0
 	if _sun != null:
 		_sun.light_energy = 1.0
 		_sun.light_color = Color(1.0, 0.95, 0.88)
