@@ -128,7 +128,7 @@ const PLACES := {
 	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
 	"spring": {"name": "წმინდა წყარო", "kind": "spring", "w": 36.0, "l": 44.0, "h": 12.0, "rest": "სიცოცხლე ბოლომდე"},
-	"prison": {"name": "ტყვეების ოთახი", "kind": "prison", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "გაათავისუფლე ტყვე"},
+	"prison": {"name": "ტყვეების ოთახი", "kind": "cell_cave", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "გაათავისუფლე ტყვე"},
 	# and the two quiet places of the portal's own (the user's word,
 	# 2026-10-22: a merchant, an altar) ([PortalEvent])
 	"merchant": {"name": "ვაჭარი", "kind": "merchant", "w": 32.0, "l": 42.0, "h": 11.0, "rest": "იყიდე ოქროთი"},
@@ -3255,7 +3255,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3416,8 +3416,8 @@ func _place_look(night: float = 0.0) -> void:
 					_sun.rotation.x = -deg_to_rad(60.0)
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			_terrace_look(kind)
-		"prison":
-			_ashen_look()
+		"prison", "cell_cave":
+			_ashen_look(kind == "cell_cave")
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3456,7 +3456,10 @@ func _place_look(night: float = 0.0) -> void:
 ## wall is half gone, a low mist on the floor; colours muted, the blacks
 ## lifted into a cool grey, the whites a little warm; a soft wide bloom.
 ## Every hour of the run looks the same here.
-func _ashen_look() -> void:
+## `cave`: the cells' cave under its roof (2026-10-25): the sky only through
+## the holes in it, the sun down through them in shafts, the rest lit by a
+## cool soft fill and the torches; the air closer and greyer.
+func _ashen_look(cave: bool = false) -> void:
 	var air := Color(0.66, 0.69, 0.72)
 	if _sky_mat != null:
 		_sky_mat.set_shader_parameter("cloud", 1.0)
@@ -3527,6 +3530,32 @@ func _ashen_look() -> void:
 		_sun.shadow_opacity = 0.7
 		_sun.shadow_blur = 2.5
 		_sun.light_volumetric_fog_energy = 1.6
+	if not cave:
+		return
+	# under the roof: the fill cooler and lower, the air closer and greyer,
+	# the sun high and strong enough to come down through the holes in
+	# shafts with edges, the shafts seen in the air (the haze under each
+	# hole is [CellCave]'s)
+	_env.ambient_light_color = Color(0.62, 0.67, 0.75)
+	_env.ambient_light_energy = 1.2
+	_env.fog_light_color = Color(0.46, 0.50, 0.55)
+	_env.fog_density = 0.34
+	_env.fog_depth_begin = 8.0
+	_env.fog_depth_end = 60.0
+	_env.fog_height_density = 0.0
+	_env.volumetric_fog_density = 0.0015
+	_env.volumetric_fog_ambient_inject = 0.02
+	_env.volumetric_fog_length = 48.0
+	_env.tonemap_exposure = 1.35
+	_env.glow_intensity = 0.85
+	_env.glow_bloom = 0.16
+	if _sun != null:
+		_sun.light_energy = 1.8
+		_sun.rotation.x = -deg_to_rad(70.0)
+		_sun.light_angular_distance = 1.5
+		_sun.shadow_opacity = 0.95
+		_sun.shadow_blur = 1.5
+		_sun.light_volumetric_fog_energy = 4.0
 
 
 ## The four terraces' light ([TerracePlaces]): clear skies, real sun on the
@@ -3660,7 +3689,7 @@ func _build_room_body(i: int) -> void:
 		"rampart":
 			_build_rampart(room, i)
 			return
-		"spring", "prison":
+		"spring", "prison", "cell_cave":
 			RestSpot.build(self, room, i, kind)
 			return
 		"lake", "fort", "falls", "clouds", "gold_hall":
@@ -4892,7 +4921,7 @@ func _echo(kind: String) -> void:
 			echo.room_size = 0.85
 			echo.damping = 0.35
 			echo.wet = 0.26
-		"cave", "crypt", "flood_crypt":
+		"cave", "crypt", "flood_crypt", "cell_cave":
 			echo.room_size = 0.95
 			echo.damping = 0.25
 			echo.wet = 0.38
@@ -4957,6 +4986,8 @@ func _ambience(i: int) -> void:
 			parts = [["wind_strong_loop.wav", -10.0]]
 		"crypt", "flood_crypt":
 			parts = [["cave_loop.wav", -14.0]]
+		"cell_cave":
+			parts = [["cave_loop.wav", -12.0], ["drums_far_loop.wav", -30.0]]
 		"swamp":
 			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
 			if SwampMere.raining:

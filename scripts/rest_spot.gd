@@ -23,6 +23,8 @@ var _water: ShaderMaterial
 var _light: OmniLight3D
 var _man: Villager
 var _cage: Node3D
+## the living man's gate in the cave's cells (it goes up when he is freed)
+var _gate: Node3D
 var _name: String = ""
 
 
@@ -32,6 +34,16 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	var w: float = r["w"]
 	var l: float = r["l"]
 	var h: float = r["h"]
+	if what == "cell_cave":
+		# the prisoners in cells cut into a cave, under its roof (the
+		# user's word, 2026-10-25): [CellCave] builds it all
+		var cave := RestSpot.new()
+		cave.name = "Rest"
+		cave.kind = what
+		cave._d = d
+		room.add_child(cave)
+		cave._build_cave(room, w, l)
+		return
 	d._crag_under(room, w + Dungeon.WALL_T * 2.0, l + Dungeon.WALL_T * 2.0, PalaceVista.DROP + 40.0, -24.0)
 	d._solid(room, d._floor_mat(i), Vector3(w + Dungeon.WALL_T * 2.0, 1.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -0.5, 0.0))
 	# the prisoners' room in a stone of its own, darker and colder than the
@@ -195,6 +207,35 @@ func _build_prison(room: Node3D, w: float, l: float, h: float) -> void:
 	position = Vector3.ZERO
 
 
+func _build_cave(room: Node3D, w: float, l: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	var cell := CellCave.build(_d, room, w, l, rng)
+	_cage = Node3D.new()
+	_cage.position = cell.get("at", Vector3(CellCave.BARS_X + 1.3, 0.0, 7.5))
+	room.add_child(_cage)
+	_gate = cell.get("gate") as Node3D
+	_man = Villager.new()
+	_man.variant = 3 + _freed_count()
+	_man.look = Villager.freed_look(_freed_count())
+	_man.crouched = true
+	_man.rotation.y = -PI * 0.5
+	_cage.add_child(_man)
+	_man.set_process(false)
+	_name = NAMES[_freed_count() % NAMES.size()]
+	var shout := Label3D.new()
+	shout.text = "მიშველე!"
+	shout.font_size = 52
+	shout.pixel_size = 0.01
+	shout.outline_size = 10
+	shout.modulate = Color(1.0, 0.92, 0.8)
+	shout.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	shout.position = Vector3(-1.4, 3.6, 0.0)
+	shout.name = "Shout"
+	_cage.add_child(shout)
+	position = Vector3.ZERO
+
+
 func _freed_count() -> int:
 	var game := get_node_or_null(^"/root/Game")
 	return (game.get(&"freed") as Array).size() if game != null and game.get(&"freed") != null else 0
@@ -212,6 +253,10 @@ func _set_free(hero: Player) -> void:
 		SkillFx.burst(world, _cage.global_position + Vector3.UP * 1.2, Color(1.0, 0.85, 0.5), 50, Vector2(1.5, 4.0),
 				Vector3.UP, 180.0, Vector2(0.05, 0.12), Vector3(0, -2.0, 0), 1.0)
 	ImpactFx.strike(self, _cage.global_position + Vector3.UP, &"guard")
+	# the cave cell's gate goes up into the rock
+	if _gate != null and is_instance_valid(_gate):
+		var lift := _gate.create_tween()
+		lift.tween_property(_gate, "position:y", 3.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	var bars := _cage.get_children()
 	for node in bars:
 		var m := node as MeshInstance3D
@@ -232,7 +277,8 @@ func _set_free(hero: Player) -> void:
 	# what he kept hidden from the orcs: something for the bag
 	var loot := LootDrop.of(self)
 	if loot != null:
-		loot.net_loot(_cage.global_position + Vector3(-1.8, 0.0, 0.0), hero.get_path(), randi())
+		var out := 2.8 if _gate != null else 1.8
+		loot.net_loot(_cage.global_position + Vector3(-out, 0.0, 0.0), hero.get_path(), randi())
 	_d._say("%s გათავისუფლდა — სოფელში იცხოვრებს" % _name, 3.5)
 	# he walks out, and away down the room, and is gone
 	get_tree().create_timer(2.5).timeout.connect(_walk_off)
@@ -274,7 +320,7 @@ func _process(_delta: float) -> void:
 				if gap.length() < 6.8:
 					_drink(hero)
 					return
-			"prison":
+			"prison", "cell_cave":
 				if _cage != null and hero.global_position.distance_to(_cage.global_position) < 3.0:
 					_set_free(hero)
 					return
