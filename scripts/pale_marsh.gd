@@ -283,7 +283,7 @@ static func _ready_kit() -> void:
 		for s in mesh.get_surface_count():
 			var mat := mesh.surface_get_material(s)
 			match String(mat.resource_name) if mat != null else "":
-				"Leaves":
+				"Leaves", "LeavesGreen":
 					mi.set_surface_override_material(s, _leaves())
 				"Grass":
 					mi.set_surface_override_material(s, TerracePlaces._foliage(0.08))

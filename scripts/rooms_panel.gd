@@ -17,6 +17,7 @@ var _column: VBoxContainer
 var _with_foes: bool = false
 var _mood_buttons: Dictionary = {}
 var _court_buttons: Dictionary = {}
+var _swamp_buttons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -66,6 +67,17 @@ func _ready() -> void:
 		_court_buttons[c[0]] = b
 		courts.add_child(b)
 	_column.add_child(courts)
+	# the swamp: low poly as the forest (2026-10-25) or as it was before;
+	# pressed, he is put in it
+	_column.add_child(MenuStyle.label("Swamp", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
+	var swamps := HBoxContainer.new()
+	for c: Array in [[true, "Low poly"], [false, "Old"]]:
+		var b := _small(String(c[1]), _set_swamp.bind(bool(c[0])))
+		b.toggle_mode = true
+		b.button_pressed = SwampMere.low_poly == c[0]
+		_swamp_buttons[c[0]] = b
+		swamps.add_child(b)
+	_column.add_child(swamps)
 	_root.visible = false
 
 
@@ -126,6 +138,14 @@ func _set_court(which: String) -> void:
 	for key: String in _court_buttons:
 		(_court_buttons[key] as Button).set_pressed_no_signal(key == which)
 	_view_room("throne")
+
+
+## The swamp low poly or as it was, and he is put in it (built anew).
+func _set_swamp(lp: bool) -> void:
+	SwampMere.low_poly = lp
+	for key: bool in _swamp_buttons:
+		(_swamp_buttons[key] as Button).set_pressed_no_signal(key == lp)
+	_view_room("swamp")
 
 
 func _dungeon() -> Dungeon:
