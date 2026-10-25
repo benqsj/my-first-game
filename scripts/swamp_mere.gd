@@ -208,6 +208,14 @@ const LOOKS := {
 					["CommonTree_5", 11.0, 1]],
 			"far": [["CommonTree_1", 14.0, 1], ["CommonTree_2", 14.0, 1], ["CommonTree_4", 15.0, 1],
 					["CommonTree_5", 14.0, 1]]},
+	# the user's pick (2026-10-25): the green swamp as it was, its trees the
+	# pale marsh's (tall thin grey trunks, big flat rust leaves, low poly,
+	# [PaleMarsh]'s kit), a third more of them, they being thin
+	"pale": {"shallow": Color(0.52, 0.45, 0.32), "deep": Color(0.16, 0.13, 0.08), "clarity": 0.28,
+			"scum": 0.0, "gloss": 0.45, "mist": 0.3, "silt": 0.3, "mud": 0.12, "step": 0.72,
+			"near": [["PTree0", 14.0, 1], ["PTree1", 16.0, 1], ["PTree2", 12.5, 1], ["PTree3", 17.5, 1],
+					["PTree4", 15.0, 1], ["PTree5", 13.0, 1]],
+			"far": [["PTreeFar", 16.0, 1]]},
 	# weeping willows over green murky water with duckweed on it
 	"willow": {"shallow": Color(0.34, 0.40, 0.18), "deep": Color(0.09, 0.15, 0.06), "clarity": 0.16,
 			"scum": 0.6, "gloss": 0.35, "mist": 0.18,
@@ -225,7 +233,7 @@ const LOOKS := {
 			"near": [["05a", 11.0, 3], ["03b", 12.0, 2], ["DeadTree_2", 12.0, 2], ["03c", 12.0, 1]],
 			"far": [["05a", 14.0, 2], ["03b", 15.0, 1], ["DeadTree_1", 15.0, 1], ["02b", 14.0, 1]]},
 }
-static var variant := "green"
+static var variant := "pale"
 ## Whether this build's swamp has the soft rain (about half the time).
 static var raining := false
 ## For pictures: -1 the dice, 0 never, 1 always.
@@ -589,6 +597,9 @@ static func _place(room: Node3D, path: String, at: Vector3, yaw: float, s: float
 static func _tree(d: Dungeon, room: Node3D, spec: Array, at: Vector3, yaw: float, k: float, solid: bool,
 		poor: bool = false) -> void:
 	var key: String = spec[0]
+	if key.begins_with("PTree"):
+		_kit_tree(room, key, float(spec[1]) * k, at, yaw, solid)
+		return
 	var path := ""
 	# a tree not close to the fight: the poor copy (a seventh of the faces)
 	var far_key := key.replace("CommonTree_", "FarTree_")
@@ -622,6 +633,23 @@ static func _tree(d: Dungeon, room: Node3D, spec: Array, at: Vector3, yaw: float
 			(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if solid:
 		_trunk(n)
+
+
+## A pale marsh tree (its kit, [PaleMarsh]) `h` metres tall.
+static var _kit_heights := {}
+static func _kit_tree(room: Node3D, key: String, h: float, at: Vector3, yaw: float, solid: bool) -> void:
+	PaleMarsh._ready_kit()
+	var n := PaleMarsh._piece(room, key, at, yaw)
+	if not _kit_heights.has(key):
+		var mi := n as MeshInstance3D
+		_kit_heights[key] = maxf(mi.get_aabb().end.y if mi != null else h, 0.5)
+	n.scale = Vector3.ONE * (h / float(_kit_heights[key]))
+	if solid:
+		TerracePlaces._post_col(n, 0.4 / n.scale.x, 6.0)
+	else:
+		for g in n.find_children("*", "GeometryInstance3D", true, false) + [n]:
+			if g is GeometryInstance3D:
+				(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Each surface's material swapped for a deeper, cooler copy (made once).
@@ -702,7 +730,7 @@ static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 	# more trees), no bushes or flowers under them
 	for row in 3:
 		var out := 2.5 + float(row) * 6.0
-		var step := 6.0 + float(row) * 1.2
+		var step := (6.0 + float(row) * 1.2) * float(look.get("step", 1.0))
 		for side in 4:
 			var long := (l if side < 2 else w) + out * 2.0
 			var n := int(long / step)
@@ -721,10 +749,11 @@ static func _woods(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 						rng.randf_range(0.85, 1.15) + float(row) * 0.1, row == 0)
 	# the wood behind: many trees, cheap (the user's word, 2026-10-23: far
 	# off they can be poor, only so that looking out one is in a wood)
-	_far_wood(room, w, l, rng, look, int(260.0 * grow), 16.0, 95.0, 0.85, 1.3)
+	var more := 1.0 / float(look.get("step", 1.0))
+	_far_wood(room, w, l, rng, look, int(260.0 * grow * more), 16.0, 95.0, 0.85, 1.3)
 	# and further, bigger: the wood closing the view all round (no plain
 	# and sky seen between the trunks)
-	_far_wood(room, w, l, rng, look, int(170.0 * grow), 90.0, 170.0, 1.6, 2.4)
+	_far_wood(room, w, l, rng, look, int(170.0 * grow * more), 90.0, 170.0, 1.6, 2.4)
 	# groves: a few trees standing close together here and there
 	for g in 7:
 		var a := rng.randf_range(0.0, TAU)
@@ -752,6 +781,15 @@ static func _far_wood(room: Node3D, w: float, l: float, rng: RandomNumberGenerat
 		(spots[kind] as Array).append(Transform3D(Basis(Vector3.UP, rng.randf_range(0.0, TAU)).scaled(Vector3.ONE * s), at))
 	for kind in kinds.size():
 		var spec: Array = kinds[kind]
+		if String(spec[0]).begins_with("PTree"):
+			PaleMarsh._ready_kit()
+			var src_mi := PaleMarsh._kit.get_node_or_null(String(spec[0])) as MeshInstance3D
+			var top := src_mi.get_aabb().end.y if src_mi != null else float(spec[1])
+			var where: Array[Transform3D] = []
+			for t: Transform3D in spots[kind]:
+				where.append(Transform3D(t.basis.scaled(Vector3.ONE * float(spec[1]) / maxf(top, 0.5)), t.origin))
+			PaleMarsh._many(room, String(spec[0]), where)
+			continue
 		# the poor copies made for far off (vepxis-art/world/far_trees.py)
 		var far_key := String(spec[0]).replace("CommonTree_", "FarTree_")
 		var path := KIT % far_key if ResourceLoader.exists(KIT % far_key) else NAT % String(spec[0])
@@ -802,7 +840,7 @@ static func _inner_trees(d: Dungeon, room: Node3D, w: float, l: float, rng: Rand
 		look: Dictionary, pools: Array[Dictionary]) -> void:
 	for side in 4:
 		var long := (l if side < 2 else w) - 6.0
-		var step := 7.0
+		var step := 7.0 * float(look.get("step", 1.0))
 		for k in int(long / step):
 			var along := -long * 0.5 + (float(k) + rng.randf_range(0.2, 0.8)) * step
 			var inset := rng.randf_range(2.0, 5.5)

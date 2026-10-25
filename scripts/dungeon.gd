@@ -159,16 +159,15 @@ const RUN := {
 		# user's word, 2026-10-21: roles in the fight)
 		# (the court, the cave and the broken hall gone from the run: the user's
 		# word, 2026-10-23, not liked)
-		{"places": ["forest", "crypt", "swamp", "marsh"], "lv": 2, "xp": 2.0, "reach": 3,
+		{"places": ["forest", "crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
 				"foes": {"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
-						"swamp": [[PUGLIN, 6], [GOBLIN, 4]], "marsh": [[PUGLIN, 6], [GOBLIN, 4]]}},
+						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
 		# 3 — and an elite in the second wave
-		{"places": ["sky", "forest", "crypt", "swamp", "mountain", "marsh"], "lv": 3, "xp": 2.5, "reach": 3,
+		{"places": ["sky", "forest", "crypt", "swamp", "mountain"], "lv": 3, "xp": 2.5, "reach": 3,
 				"foes": {"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
 						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 4], [GOBLIN, 1, ELITE]],
 						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
 						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
-						"marsh": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
 						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
 		# 4 — one orc, with two swords (the user's word, 2026-10-21: the
 		# shield orc not liked; one, the two-sword one)
@@ -218,7 +217,6 @@ const VIEW := {
 	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
 	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
 	"camp": [7, "Orc camp"],
-	"marsh": [2, "Pale marsh"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.
