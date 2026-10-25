@@ -142,6 +142,7 @@ const W_RB1 := 286
 const W_RB2 := 287
 const W_RA1X := 288
 const DL_REST := {W_HA1: W_RA1, W_HA2: W_RA2, W_HB1: W_RB1, W_HB2: W_RB2, W_HA1X: W_RA1X}
+const GRAB_ON := false
 const OLD_TREE := [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP, W_GOLF, W_BUTT]
 const DL_MOVES := [W_HA1, W_HA2, W_HA3, W_HB1, W_HB2, W_HB3, W_LUNGE, W_HA1F, W_HA1X, W_HB1F]
 ## Its body and his kept this far apart (at its size 1.6) at the nearest a
@@ -905,7 +906,9 @@ func _own_move(delta: float) -> bool:
 		else:
 			_begin(R_PICK)
 		return true
-	if not armed and _grab_wait <= 0.0 and gap <= grab_reach and _in_front(_quarry, 50.0):
+	# (the grab put away a while, the user, 2026-10-26: it wants much more
+	# work before it is shown again)
+	if GRAB_ON and not armed and _grab_wait <= 0.0 and gap <= grab_reach and _in_front(_quarry, 50.0):
 		_grab_wait = _rng.randf_range(grab_cooldown.x, grab_cooldown.y)
 		grabs_made += 1
 		_grab_tried = false
