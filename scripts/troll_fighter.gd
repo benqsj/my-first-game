@@ -125,6 +125,23 @@ const T_STAGGER := 212
 const T_WINDED := 213
 ## Kept for the tests of before: its great swing is the tree's now.
 const T_SWING := W_GREAT
+## Round 7 (the user's picks, 2026-10-25):
+## its skin turned to stone, healing behind it till it is broken open;
+const S_SKIN := 260
+## both palms thrust out, the air before them knocking down whoever is on it;
+const P_CLAP := 261
+## up and down on him body and all, then lying a breath, then up;
+const S_SPLASH := 262
+const S_DOWN := 263
+## its tree, near broken, thrown like a spear;
+const W_THROW := 258
+## a roar, and stones falling out of the sky round them (enraged).
+const R_RAIN := 245
+const SKIN_TIME := 4.5
+const SPLASH_LIFT := 0.35
+const SPLASH_FLY := 1.0
+const SPLASH_HIGH := 5.5
+const DOWN_HOLD := 1.3
 
 ## Its swings that carry it off its balance when they find nothing.
 const MISS_REELS := [W_GREAT, LEAP, P_HOME]
@@ -227,6 +244,40 @@ var grabs_made: int = 0
 var grabs_caught: int = 0
 var trees_broken: int = 0
 var bites_healed: int = 0
+## Round 7, host.
+var _skin_wait: float = 20.0
+var _skin_dmg: float = 0.0
+var _clap_wait: float = 6.0
+var _hug_for: float = 0.0
+var _splash_wait: float = 9.0
+var _sp_from: Vector3
+var _sp_to: Vector3
+var _sp_landed: int = -1
+var _clapped: int = -1
+var _thrown_tree: bool = false
+var _javelin_serial: int = -1
+var _rain_wait: float = 5.0
+var _rained: int = -1
+var _drops: Array = []
+var _throw_at: Node3D
+var _suns_made: bool = false
+var _sun_t: float = 0.0
+var _sun_level: int = 0
+var _sun_spent: int = -1
+## Every peer.
+var stoned: int = 0
+var _suns: Array = []
+var _stone_mat: StandardMaterial3D
+var _smoke_in: float = 0.0
+## For the probes.
+var skins_made: int = 0
+var skins_broken: int = 0
+var claps_made: int = 0
+var splashes_made: int = 0
+var trees_thrown: int = 0
+var rains_made: int = 0
+var heroes_thrown: int = 0
+var sun_falls: int = 0
 var winded_made: int = 0
 ## Host: the swing's weight carrying it on after the blow (m/s, along).
 var _carry_on: Vector3 = Vector3.ZERO
@@ -379,6 +430,15 @@ func _set_moves() -> void:
 	_kinds[W_BUTT] = &"guard"
 	_kinds[P_HOME] = &"crush"
 	_special(T_REEL, &"CR_Stun", Vector3(1.25, 0.02, 0.48))
+	# round 7: its own flex held, slow (the stone skin); the ground spell's
+	# blast, both palms thrust out; the leap; up off its back; the overhead
+	# throw (its tree); the roar (the rain)
+	_special(S_SKIN, &"CR_TR_Flex", Vector3(0.75, 0.05, 0.7))
+	_special(P_CLAP, &"CR_MG_Blast", Vector3(1.1, 0.3, 0.85))
+	_special(S_SPLASH, &"CR_Leap", Vector3(0.8, 0.0, 0.5))
+	_special(S_DOWN, &"CR_KipUp", Vector3(0.75, 0.0, 1.0))
+	_special(W_THROW, &"CR_TR_ThrowIn", Vector3(1.0, 0.25, 0.85))
+	_special(R_RAIN, &"CR_TR_Roar", Vector3(1.15, 0.1, 0.62))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))
 	_special(T_WINDED, &"CR_IdleWounded", Vector3(0.8, 0.0, 1.0))
@@ -502,6 +562,8 @@ func _own_move(delta: float) -> bool:
 		velocity = Vector3.ZERO
 		_begin(W_UPROOT)
 		return true
+	if _round7_move(delta, gap):
+		return true
 	if _quarry_down():
 		if _flex_wait <= 0.0 and gap < 9.0:
 			_flex_wait = _rng.randf_range(9.0, 14.0)
@@ -592,6 +654,8 @@ func _blow_reached(who: Node3D, what: int) -> void:
 
 
 func _after(what: int) -> void:
+	if _round7_after(what):
+		return
 	if what == R_PICK:
 		if _quarry != null:
 			_face(_quarry.global_position - global_position, 1.0, 50.0)
@@ -680,6 +744,8 @@ func _drag_from(what: int) -> float:
 
 
 func _clip_time(what: int, t: float) -> float:
+	if what == S_DOWN:
+		t = maxf(t - DOWN_HOLD, 0.0)
 	var from := _drag_from(what)
 	if from > 0.0 and t > from:
 		t = from + (t - from) / DRAG
@@ -688,6 +754,8 @@ func _clip_time(what: int, t: float) -> float:
 
 func _move_length(what: int) -> float:
 	var length := super(what)
+	if what == S_DOWN:
+		length += DOWN_HOLD
 	var from := _drag_from(what)
 	if from > 0.0 and length > from:
 		length = from + (length - from) * DRAG
@@ -713,6 +781,7 @@ func _run_act(delta: float) -> void:
 	if is_dead or not _decides():
 		_run_cracks(delta)
 		return
+	_round7_act(delta)
 	if act == T_REEL or act == T_TOTTER or act == T_STAGGER or act == W_UPROOT or act == P_FLEX:
 		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
@@ -908,14 +977,23 @@ func _run_grab() -> void:
 			_grabbed = who
 			grabs_caught += 1
 			who.grab_by(self, 6.0)
+			_throw_at = _other_hero(who, 14.0)
 			Sfx.play_any(self, [SOUNDS + "grunt_2.wav"], self, 0.8, 0.0)
 		else:
 			# nothing in its hand: the rest of the move is a stumble
 			_act_length = _act_time + 0.05
+	# another hero near: it turns him to that one, to throw him at him
+	if _grabbed != null and not _slammed and _throw_at != null and is_instance_valid(_throw_at):
+		_face(_throw_at.global_position - global_position, get_physics_process_delta_time(), turn_speed * 2.0)
 	if _grabbed != null and not _slammed and _act_time >= slam_t:
 		_slammed = true
 		var who := _grabbed
 		_let_go()
+		if _throw_at != null and is_instance_valid(_throw_at) and not bool(_throw_at.get("is_dead")) \
+				and is_instance_valid(who):
+			_hurl_hero(who, _throw_at)
+			_throw_at = null
+			return
 		if is_instance_valid(who) and who.has_method(&"receive_blow"):
 			who.call(&"receive_blow", hit_damage * slam_share * _blow_worth(P_GRAB), self, 0, 1, act_serial * 10 + 3)
 		var at := who.global_position if is_instance_valid(who) else global_position + _forward() * 2.0
@@ -991,6 +1069,8 @@ func _send_arm(on: bool) -> void:
 @rpc("authority", "call_local", "reliable")
 func net_arm(on: bool) -> void:
 	armed = on
+	if on:
+		_thrown_tree = false
 	if on:
 		tree_life = 1.0
 		_tree_stage = 0
@@ -1177,6 +1257,7 @@ func _process(delta: float) -> void:
 		_seen_clock += delta
 	_show_lean(delta)
 	_spray_earth()
+	_show_sun(delta)
 	_whoosh()
 	_show_rock()
 	_show_uproot()
@@ -1395,7 +1476,8 @@ func _add_stance(amount: float) -> void:
 			amount *= 1.25
 	super(amount)
 	if is_dead or stance <= 0.0 or act == STANCE or act == PIECES or act == RAGE or act == LEAP \
-			or act == W_UPROOT or act == P_GRAB:
+			or act == W_UPROOT or act == P_GRAB or act == S_SPLASH or act == S_DOWN or act == S_SKIN \
+			or act == R_RAIN or act == W_THROW:
 		return
 	var share := stance_taken / stance
 	if _rocked < 2 and share >= STAGGER_AT:
@@ -1413,6 +1495,13 @@ func _add_stance(amount: float) -> void:
 
 
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	# its stone skin: most of it turned, but every blow cracks it, a heavy one
+	# the more
+	if act == S_SKIN and _decides() and stoned == 1:
+		_skin_dmg += damage * (1.7 if damage >= 35.0 else 1.0)
+		damage *= 0.3
+		if _skin_dmg >= max_health * 0.06:
+			_skin_break()
 	var bled := super(damage, at, blow, from, magic)
 	if stance_taken <= 0.0 and act != STANCE:
 		_rocked = 0
@@ -1516,7 +1605,7 @@ func net_wound(bone_name: String, local: Vector3, way: Vector3, count: int) -> v
 
 #region Its wounds closing
 func _show_healing(delta: float) -> void:
-	var on := healing and not is_dead and body != null and act != PIECES
+	var on := healing and not is_dead and body != null and act != PIECES and stoned == 0
 	if on != _heal_shown:
 		_heal_shown = on
 		if body != null:
@@ -1552,6 +1641,8 @@ func _physics_process(delta: float) -> void:
 	if raging and not _rage_eased:
 		_rage_eased = true
 		attack_cooldown = Vector2(1.0, 1.7)
+		_rain_wait = 2.0
+	_round7_tick(delta)
 	var aff := Afflictions.of(self, false)
 	if aff != null and (aff.is_burning() or aff.is_chilled()):
 		_stopped_for = regen_stopped
@@ -1574,5 +1665,525 @@ func net_regen(on: bool) -> void:
 func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
 	if kind == &"burn" or kind == &"chill" or kind == &"freeze":
 		_stopped_for = regen_stopped
+	# fire cracks the stone skin open at once
+	if kind == &"burn" and act == S_SKIN and _decides() and stoned == 1:
+		_skin_break()
 	super(kind, from, push)
+#endregion
+
+
+#region Round 7: stone skin, the clap, the body splash, the tree thrown, the hero thrown, the rain, the sun
+## Host: one of the round's moves, if one is due (true if it took one).
+func _round7_move(delta: float, gap: float) -> bool:
+	_skin_wait = maxf(_skin_wait - delta, 0.0)
+	_clap_wait = maxf(_clap_wait - delta, 0.0)
+	_splash_wait = maxf(_splash_wait - delta, 0.0)
+	if not _suns_made:
+		_make_suns()
+	# them close about its legs (two, or one a while): both palms out
+	var near := 0
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Node3D
+		if hero != null and not bool(hero.get("is_dead")) and _distance_to(hero) <= 2.8:
+			near += 1
+	_hug_for = _hug_for + delta if near > 0 else maxf(_hug_for - delta * 0.5, 0.0)
+	if _clap_wait <= 0.0 and (near >= 2 or _hug_for >= 2.5) and not _quarry_down():
+		_clap_wait = _rng.randf_range(11.0, 15.0)
+		_hug_for = 0.0
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_begin(P_CLAP)
+		return true
+	# enraged: the sky falls on them
+	if raging and _rain_wait <= 0.0:
+		_rain_wait = _rng.randf_range(24.0, 30.0)
+		mode = Mode.FIGHT
+		velocity = Vector3.ZERO
+		_begin(R_RAIN)
+		return true
+	# the tree near broken: thrown at him
+	if armed and not _thrown_tree and tree_life < 0.4 and gap >= 5.0 and gap <= 18.0 and not _quarry_down():
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_begin(W_THROW)
+		return true
+	# hurt, him a little off: its skin to stone, healing behind it
+	if _skin_wait <= 0.0 and health < max_health * 0.75 and gap > 3.5:
+		_skin_wait = _rng.randf_range(30.0, 38.0)
+		_skin_dmg = 0.0
+		skins_made += 1
+		mode = Mode.FIGHT
+		velocity = Vector3.ZERO
+		_begin(S_SKIN)
+		_act_length = SKIN_TIME
+		_send(&"net_skin", [1])
+		return true
+	# from off: up, and down on him
+	if _splash_wait <= 0.0 and gap >= 6.0 and gap <= 14.0 and _in_front(_quarry, 40.0) \
+			and stamina >= attack_cost and not _quarry_down():
+		_splash_wait = _rng.randf_range(14.0, 20.0)
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_begin(S_SPLASH)
+		return true
+	return false
+
+
+## Host: what follows one of the round's moves (true if it took it).
+func _round7_after(what: int) -> bool:
+	if what == S_SPLASH:
+		_begin(S_DOWN)
+		return true
+	if what == S_SKIN and stoned == 1 and _decides():
+		# held out: whole again, and healed
+		health = minf(health + max_health * 0.12, max_health)
+		bites_healed += 1
+		_send(&"net_skin", [0])
+		_send(&"net_skin_healed", [])
+	if what == STANCE and stoned != 0 and _decides():
+		_send(&"net_skin", [0])
+	if what == S_DOWN:
+		_cooldown = maxf(_cooldown, 0.6)
+	return false
+
+
+## Host, every frame of a move of the round's.
+func _round7_act(delta: float) -> void:
+	if act == S_SPLASH:
+		_run_splash(delta)
+	elif act == P_CLAP:
+		var m: Array = _moves_table[P_CLAP]
+		var at_t := (0.6 - float(m[2])) * _anim.clip_length(m[0]) / float(m[1]) if _anim != null else 0.9
+		if _act_time < at_t and _quarry != null:
+			_face(_quarry.global_position - global_position, delta, turn_speed)
+		elif _clapped != act_serial:
+			_clapped = act_serial
+			_clap()
+	elif act == W_THROW:
+		var m: Array = _moves_table[W_THROW]
+		var at_t := (0.57 - float(m[2])) * _anim.clip_length(m[0]) / float(m[1]) if _anim != null else 0.9
+		if _act_time < at_t and _quarry != null:
+			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
+		elif _javelin_serial != act_serial and armed:
+			_javelin_serial = act_serial
+			_throw_tree()
+	elif act == R_RAIN and _rained != act_serial and _act_time >= 0.8:
+		_rained = act_serial
+		_call_rain()
+	elif act == S_SKIN or act == S_DOWN or act == R_RAIN:
+		velocity.x = 0.0
+		velocity.z = 0.0
+
+
+## Host, every frame: the falling stones due, the sun on it.
+func _round7_tick(delta: float) -> void:
+	for i in range(_drops.size() - 1, -1, -1):
+		var d: Array = _drops[i]
+		d[0] = float(d[0]) - delta
+		if float(d[0]) <= 0.0:
+			_send(&"net_drop", [d[1], int(d[2])])
+			_drops.remove_at(i)
+	if _rain_wait > 0.0 and raging and act == Act.NONE:
+		_rain_wait = maxf(_rain_wait - delta, 0.0)
+	# the sun: stood in it, it stiffens; long enough, it goes down in stone
+	var lit := -1
+	for i in _suns.size():
+		var s := _suns[i] as TrollSun
+		if s != null and s.covers(global_position):
+			lit = i
+	if lit >= 0 and act != STANCE and stoned == 0:
+		_sun_t += delta
+	else:
+		_sun_t = maxf(_sun_t - delta * 0.7, 0.0)
+	var level := mini(int(_sun_t / 0.55), 2)
+	if level != _sun_level:
+		_sun_level = level
+		_send(&"net_sun_level", [level])
+	if lit >= 0 and _sun_t >= 1.6:
+		_sun_t = 0.0
+		_sun_level = 0
+		sun_falls += 1
+		_hand_combo = -1
+		_send(&"net_sun_state", [lit, false])
+		_send(&"net_skin", [3])
+		_break_stance()
+		var idx := lit
+		get_tree().create_timer(20.0).timeout.connect(func() -> void:
+			if is_instance_valid(self) and not is_dead:
+				_send(&"net_sun_state", [idx, true]))
+
+
+## Host: an rpc to every peer (or straight, alone).
+func _send(method: StringName, args: Array) -> void:
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		callv(&"rpc", [method] + args)
+	else:
+		callv(method, args)
+
+
+func _other_hero(not_this: Node3D, within: float) -> Node3D:
+	var best: Node3D = null
+	var near := within
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Node3D
+		if hero == null or hero == not_this or bool(hero.get("is_dead")):
+			continue
+		var d := hero.global_position.distance_to(not_this.global_position)
+		if d < near:
+			near = d
+			best = hero
+	return best
+
+
+#region The body splash
+func _run_splash(delta: float) -> void:
+	var t := _act_time
+	if t < SPLASH_LIFT:
+		if _quarry != null:
+			_face(_quarry.global_position - global_position, delta, turn_speed)
+		_sp_from = global_position
+		return
+	if _sp_landed == act_serial:
+		return
+	if _sp_to == Vector3.ZERO or t - delta < SPLASH_LIFT:
+		var to := _quarry.global_position if _quarry != null else global_position + _forward() * 8.0
+		if _quarry is CharacterBody3D:
+			var qv := (_quarry as CharacterBody3D).velocity
+			to += Vector3(qv.x, 0.0, qv.z) * 0.45
+		var flat := Vector3(to.x - _sp_from.x, 0.0, to.z - _sp_from.z)
+		if flat.length() > 14.0:
+			flat = flat.normalized() * 14.0
+		# short of him by its own body, so it comes down on him, not past
+		if flat.length() > 1.2:
+			flat -= flat.normalized() * 0.6
+		_sp_to = Vector3(_sp_from.x + flat.x, _sp_from.y, _sp_from.z + flat.z)
+	var k := clampf((t - SPLASH_LIFT) / SPLASH_FLY, 0.0, 1.0)
+	var pos := _sp_from.lerp(_sp_to, k) + Vector3.UP * SPLASH_HIGH * 4.0 * k * (1.0 - k)
+	global_position = pos
+	velocity = Vector3.ZERO
+	if k >= 1.0:
+		_sp_landed = act_serial
+		_splash_land(_sp_to)
+		_sp_to = Vector3.ZERO
+
+
+func _splash_land(at: Vector3) -> void:
+	splashes_made += 1
+	_send(&"net_splash", [at])
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Node3D
+		if hero == null or bool(hero.get("is_dead")) or not hero.has_method(&"receive_blow"):
+			continue
+		if hero.global_position.distance_to(at) > 3.4 * visual_scale / 1.6:
+			continue
+		if hero.has_method(&"is_evading") and bool(hero.call(&"is_evading")):
+			continue
+		hero.call(&"receive_blow", hit_damage * 1.5, self, 0, 1, act_serial * 10 + 7, false, &"above")
+	for deg in [0.0, 72.0, 144.0, 216.0, 288.0]:
+		_crack(at, _forward().rotated(Vector3.UP, deg_to_rad(deg)), 4.5, 0.5)
+
+
+## Every peer: it comes down body and all — the ground broken round it,
+## stone thrown up, the view shaken hard near it.
+@rpc("authority", "call_local", "reliable")
+func net_splash(at: Vector3) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var s := visual_scale / 1.6
+	RockWave.spawn(world, at, 3.8 * s, 0.85 * s, 16.0, act_serial * 13 + 7)
+	var crack := DarkFx.decal(world, at, DarkFx.CRACK, 5.5 * s, Color(0.09, 0.07, 0.05, 1.0), 0.0, 0.92)
+	crack.rotation.y = randf() * TAU
+	var tw := crack.create_tween()
+	tw.tween_interval(3.5)
+	tw.tween_property(crack, "modulate:a", 0.0, 3.0).set_ease(Tween.EASE_IN)
+	tw.tween_callback(crack.queue_free)
+	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.45, 0.39, 0.31, 0.65), 60, Vector2(2.0, 6.0), Vector3.UP, 80.0,
+			Vector2(0.12, 0.3), Vector3(0, -1.5, 0), 1.5)
+	SkillFx.burst(world, at + Vector3.UP * 0.2, Color(0.26, 0.23, 0.2, 1.0), 40, Vector2(4.0, 10.0), Vector3.UP, 60.0,
+			Vector2(0.05, 0.12), Vector3(0, -16.0, 0), 1.1)
+	get_tree().call_group(&"ground_scars", &"scar", at, 1.6)
+	ImpactFx.strike(self, at + Vector3.UP * 0.2, &"stone", 2.0)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.3, 0.7, 30.0)
+	Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 0.5, 6.0)
+	Sfx.play_any(self, [SOUNDS + "grunt_1.wav"], self, 0.75, 0.0)
+#endregion
+
+
+#region The clap
+func _clap() -> void:
+	claps_made += 1
+	var front := global_position + _forward() * 1.4 * visual_scale / 1.6
+	_send(&"net_clap", [front, _forward()])
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Node3D
+		if hero == null or bool(hero.get("is_dead")) or not hero.has_method(&"receive_blow"):
+			continue
+		var d := _distance_to(hero)
+		if d > 3.4 and not (d <= 6.5 and _in_front(hero, 50.0)):
+			continue
+		if hero.has_method(&"is_evading") and bool(hero.call(&"is_evading")):
+			continue
+		hero.call(&"receive_blow", hit_damage * 0.9, self, 0, 1, act_serial * 10 + 8)
+
+
+## Every peer: both palms thrust out — the air before them torn, dust thrown
+## along the ground, the view knocked.
+@rpc("authority", "call_local", "reliable")
+func net_clap(at: Vector3, way: Vector3) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var up := at + Vector3.UP * 1.6 * visual_scale / 1.6
+	SkillFx.particles(world, up, {
+		"amount": 40, "life": 0.7, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(8.0, 16.0), "dir": way, "spread": 30.0, "gravity": Vector3.ZERO,
+		"damping": 9.0, "size": Vector2(0.3, 0.7), "grow": 1.6, "sphere": 0.4,
+		"colors": [Color(0.9, 0.88, 0.82, 0.0), Color(0.9, 0.88, 0.82, 0.35), Color(0.9, 0.88, 0.82, 0.0)],
+	})
+	for k in 3:
+		GroundFx.weapon_dust(world, at + way * (1.2 + 1.6 * k), 1.4 - 0.3 * k)
+	WindBlast.shake(self, 0.22, 0.45, 20.0)
+	Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 1.2, 4.0)
+	Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.9, 0.0)
+#endregion
+
+
+#region The tree thrown
+func _throw_tree() -> void:
+	if _quarry == null:
+		return
+	trees_thrown += 1
+	_thrown_tree = true
+	var from := _tree_head().lerp(_bone_at("R_equip_joint"), 0.5)
+	var target := _quarry.global_position + Vector3.UP * 0.6
+	var gap := Vector3(target.x - from.x, 0.0, target.z - from.z).length()
+	var flight := clampf(gap / 22.0, 0.35, 0.9)
+	var v := (target - from) / flight + Vector3.UP * 0.5 * TrollRock.GRAVITY * flight
+	_send(&"net_javelin", [from, v, hit_damage * 1.6, act_serial * 10 + 6, tree_scale * visual_scale])
+	_send_arm(false)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_javelin(from: Vector3, v: Vector3, worth: float, id: int, size: float) -> void:
+	if _tree != null and is_instance_valid(_tree):
+		_tree.queue_free()
+		_tree = null
+	Sfx.play_any(self, [SOUNDS + "roar_short.wav", SOUNDS + "grunt_2.wav"], self, 0.8, 0.0)
+	TrollRock.javelin(Blood.world_of(self), from, v, worth, self, _decides(), id, size)
+#endregion
+
+
+#region The hero thrown at the other
+func _hurl_hero(who: Node3D, at: Node3D) -> void:
+	heroes_thrown += 1
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var start := who.global_position
+	var way := Vector3(at.global_position.x - start.x, 0.0, at.global_position.z - start.z)
+	way = way.normalized() if way.length_squared() > 0.0001 else _forward()
+	# (the blow comes from behind him, the way he is to go: [Player] throws
+	# him away from where a blow came)
+	var mark := Node3D.new()
+	mark.name = "TrollThrow"
+	world.add_child(mark)
+	mark.global_position = start - way * 1.5 + Vector3.UP * 0.5
+	who.call(&"receive_blow", hit_damage * slam_share * 0.8 * _blow_worth(P_GRAB), mark, 0, 1, act_serial * 10 + 4)
+	_send(&"net_slam", [start])
+	var serial := act_serial
+	get_tree().create_timer(0.35).timeout.connect(func() -> void:
+		if is_instance_valid(at) and not bool(at.get("is_dead")) and not (at.has_method(&"is_evading")
+				and bool(at.call(&"is_evading"))):
+			var rel := at.global_position - start
+			rel.y = 0.0
+			var along := rel.dot(way)
+			if along > 0.0 and along < 9.0 and (rel - way * along).length() < 1.6:
+				mark.global_position = at.global_position - way * 1.5 + Vector3.UP * 0.5
+				at.call(&"receive_blow", 40.0 if not is_instance_valid(self) else hit_damage * 0.9, mark, 0, 1,
+						serial * 10 + 5)
+				if is_instance_valid(self):
+					_send(&"net_slam", [at.global_position])
+		if is_instance_valid(mark) and mark.is_inside_tree():
+			mark.get_tree().create_timer(1.5).timeout.connect(mark.queue_free))
+#endregion
+
+
+#region The rain
+func _call_rain() -> void:
+	rains_made += 1
+	var heroes: Array = []
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var hero := node as Node3D
+		if hero != null and not bool(hero.get("is_dead")):
+			heroes.append(hero)
+	if heroes.is_empty():
+		return
+	for i in 9:
+		var hero := heroes[i % heroes.size()] as Node3D
+		var spot := hero.global_position
+		if i >= heroes.size():
+			var a := _rng.randf() * TAU
+			spot += Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(1.5, 4.0)
+		_drops.append([0.3 + 0.3 * float(i), spot, act_serial * 100 + 50 + i])
+
+
+@rpc("authority", "call_local", "reliable")
+func net_drop(at: Vector3, id: int) -> void:
+	TrollRock.throw(Blood.world_of(self), at + Vector3.UP * 24.0, Vector3(0.0, -4.0, 0.0), TrollRock.Kind.BIG,
+			hit_damage * 1.2, self, _decides(), id)
+#endregion
+
+
+#region The stone skin, and the sun
+## Host: its stone skin broken open (enough blows, or fire): it goes down on
+## its knee, open, and gets none of the healing.
+func _skin_break() -> void:
+	skins_broken += 1
+	_send(&"net_skin", [2])
+	_break_stance()
+
+
+@rpc("authority", "call_local", "reliable")
+func net_skin(state: int) -> void:
+	var into := Blood.world_of(self)
+	var mid := global_position + Vector3.UP * 1.6 * visual_scale / 1.6
+	if state == 1:
+		stoned = 1
+		var tw := create_tween()
+		tw.tween_method(_apply_stone, 0.1, 0.93, 0.9)
+		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.7, 0.0)
+		if into != null:
+			SkillFx.burst(into, mid, Color(0.55, 0.53, 0.5, 0.7), 24, Vector2(0.5, 2.0), Vector3.UP, 90.0,
+					Vector2(0.1, 0.22), Vector3(0, -1.0, 0), 1.2)
+	elif state == 2:
+		# broken open: the stone off it in pieces
+		stoned = 0
+		_apply_stone(0.0)
+		if into != null:
+			HitFx.spawn(into, &"stone", mid, Vector3.UP, 1.8)
+			SkillFx.burst(into, mid, Color(0.5, 0.48, 0.45, 1.0), 40, Vector2(3.0, 7.0), Vector3.UP, 120.0,
+					Vector2(0.05, 0.14), Vector3(0, -14.0, 0), 1.0)
+			SkillFx.burst(into, mid, Color(0.55, 0.53, 0.5, 0.6), 20, Vector2(1.0, 3.0), Vector3.UP, 120.0,
+					Vector2(0.2, 0.4), Vector3(0, -1.0, 0), 1.2)
+		Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 1.1, 4.0)
+		WindBlast.shake(self, 0.12, 0.3, 16.0)
+	elif state == 3:
+		# the sun: gone to stone where it stands
+		stoned = 3
+		_apply_stone(0.92)
+		Sfx.play_any(self, [SOUNDS + "grunt_3.wav", SOUNDS + "roar_short.wav"], self, 0.65, 0.0)
+		if into != null:
+			SkillFx.burst(into, mid, Color(0.55, 0.53, 0.5, 0.7), 30, Vector2(0.5, 2.0), Vector3.UP, 120.0,
+					Vector2(0.12, 0.25), Vector3(0, 0.5, 0), 1.6)
+	else:
+		if stoned == 3 and into != null:
+			# the stone cracked off it as it comes back to itself
+			SkillFx.burst(into, mid, Color(0.5, 0.48, 0.45, 1.0), 24, Vector2(2.0, 5.0), Vector3.UP, 120.0,
+					Vector2(0.05, 0.12), Vector3(0, -14.0, 0), 0.9)
+		stoned = 0
+		_apply_stone(0.0)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_skin_healed() -> void:
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	SkillFx.burst(into, global_position + Vector3.UP * 1.4 * visual_scale / 1.6, regen_tint, 30, Vector2(0.5, 2.0),
+			Vector3.UP, 80.0, Vector2(0.06, 0.12), Vector3(0, 1.5, 0), 1.2)
+	Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.8, 0.0)
+
+
+## Every peer: the stone over its body, so far (0: none).
+func _apply_stone(a: float) -> void:
+	if body == null:
+		return
+	if _stone_mat == null:
+		_stone_mat = StandardMaterial3D.new()
+		_stone_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_stone_mat.roughness = 1.0
+		_stone_mat.albedo_color = Color(0.4, 0.39, 0.37, 0.0)
+	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+		if a <= 0.01:
+			if mi.material_overlay == _stone_mat:
+				mi.material_overlay = _glow if raging and _glow != null else null
+		else:
+			mi.material_overlay = _stone_mat
+	_stone_mat.albedo_color.a = a
+	if a <= 0.01:
+		_heal_shown = false
+
+
+## Host: the sun's shafts, two, either side of the ground between it and
+## him, set once it first sees him.
+func _make_suns() -> void:
+	_suns_made = true
+	if _quarry == null:
+		return
+	var base := global_position
+	var way := _quarry.global_position - base
+	way.y = 0.0
+	way = way.normalized() if way.length_squared() > 0.01 else _forward()
+	var side := way.cross(Vector3.UP).normalized()
+	var spots: Array = []
+	for at: Vector3 in [base + way * 4.0 + side * 7.0, base + way * 4.0 - side * 7.0]:
+		var down := get_world_3d().direct_space_state.intersect_ray(
+				PhysicsRayQueryParameters3D.create(at + Vector3.UP * 4.0, at + Vector3.DOWN * 10.0, 1))
+		spots.append((down["position"] as Vector3) if not down.is_empty() else at)
+	_send(&"net_suns", [spots])
+
+
+@rpc("authority", "call_local", "reliable")
+func net_suns(spots: Array) -> void:
+	for s in _suns:
+		if is_instance_valid(s):
+			(s as Node).queue_free()
+	_suns.clear()
+	var into := Blood.world_of(self)
+	for at: Vector3 in spots:
+		_suns.append(TrollSun.make(into, at))
+
+
+@rpc("authority", "call_local", "reliable")
+func net_sun_state(i: int, on: bool) -> void:
+	if i >= 0 and i < _suns.size() and is_instance_valid(_suns[i]):
+		(_suns[i] as TrollSun).set_active(on)
+
+
+## Every peer: how far the sun has stiffened it (0..2), its skin greying.
+@rpc("authority", "call_local", "reliable")
+func net_sun_level(level: int) -> void:
+	if stoned != 0:
+		return
+	_apply_stone(0.22 * float(level))
+
+
+## Every peer: stood in the sun its skin smokes.
+func _show_sun(delta: float) -> void:
+	if is_dead or _suns.is_empty():
+		return
+	var lit := false
+	for s in _suns:
+		if is_instance_valid(s) and (s as TrollSun).covers(global_position):
+			lit = true
+	if not lit:
+		return
+	_smoke_in -= delta
+	if _smoke_in > 0.0:
+		return
+	_smoke_in = 0.1
+	var at := global_position + Vector3.UP * randf_range(0.6, 2.6) * visual_scale / 1.6 \
+			+ Vector3(randf_range(-0.4, 0.4), 0.0, randf_range(-0.4, 0.4)) * visual_scale / 1.6
+	SkillFx.burst(Blood.world_of(self), at, Color(0.75, 0.72, 0.68, 0.5), 4, Vector2(0.4, 1.2), Vector3.UP, 30.0,
+			Vector2(0.15, 0.3), Vector3(0, 1.2, 0), 1.3)
+
+
+func _exit_tree() -> void:
+	for s in _suns:
+		if is_instance_valid(s):
+			(s as Node).queue_free()
+	_suns.clear()
+#endregion
 #endregion

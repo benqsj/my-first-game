@@ -2187,6 +2187,37 @@ before is gone; `assets/creatures/troll_club.glb` stays unused.)
 * **Kept**: slow up / fast down, held swings, its balance rocking and
   staggering and breaking, wounds where struck (slower, weaker balance),
   regeneration while nothing burns or freezes it, rage at 30 %.
+* **Round 7** (2026-10-25, the user's picks: everything offered but the rock
+  eaten):
+  * **Stone skin** (`S_SKIN`, its own flex held slow, 4.5 s): hurt below 75 %,
+    its skin goes to stone (a grey overlay, `net_skin`); blows take 30 %, but
+    every one cracks it (a heavy one 1.7x) and fire at once; 6 % of its health
+    so dealt breaks it open: the stone off it in pieces, down on its knee,
+    open to a critical. Held out, it is healed 12 %. Every 30-38 s.
+  * **The clap** (`P_CLAP`, the ground spell's blast, both palms thrust out):
+    two heroes about its legs, or one for 2.5 s, are thrown down (3.4 m round,
+    6.5 m before it); the air torn, dust along the ground. Every 11-15 s.
+  * **The body splash** (`S_SPLASH`, `CR_Leap`): 6-14 m off, up 5.5 m and down
+    on him in 1 s (led on his run), the ground broken round it as the orc's
+    sky-dive breaks it (`RockWave`, crack, scars), five cracks out; then on its
+    back 1.3 s and up (`CR_KipUp`): open.
+  * **The tree thrown** (`W_THROW`, `TrollRock.Kind.TREE`): its tree under
+    40 %, him 5-18 m off: thrown overhead like a spear, snapped end first, on
+    through whoever it meets, driven into the ground where it comes down
+    (cracks out ahead, the ground scarred, those near it thrown down), sunk
+    after 5 s. Bare-handed again till it uproots another.
+  * **The hero thrown** (co-op): with another hero within 14 m, the one it
+    has grabbed is turned to him and thrown at him (the blow from behind him,
+    a marker, so [Player] throws him that way); the other, on the line within
+    9 m and not rolling, goes down too. Not filmed (one hero in the arena).
+  * **The rain** (`R_RAIN`, enraged, every 24-30 s): a roar, and nine stones
+    fall from 24 m round them over three seconds (their own shadows the only
+    warning; each bursts as the thrown boulder does).
+  * **The sun** (`scripts/troll_sun.gd`, `TrollSun`): two shafts of light set
+    either side of the ground between it and him when it first sees him
+    (gold columns fading near the view, motes, a warm pool; no ring). Stood in
+    one it smokes and greys; 1.6 s in it, it goes down in stone (kneels, open)
+    and the shaft fades for 20 s. It does not shun them: lure it in.
 * **Colours**: `troll_rocks.py` had made its vertex colours linear and
   `lp_solid` makes them linear again: near black. Written as the palette now.
 * **Weight and openings** (2026-10-25, round 5): after a move's last blow

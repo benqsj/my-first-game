@@ -23,7 +23,11 @@ extends Node3D
 ##   far a breath, `BALL_TURN`) till it has gone by him; it bursts on him, on a
 ##   wall, or far off. A roll through it at the last moment clears it.
 
-enum Kind { BIG, ROLL, SMALL, BALL }
+## * **TREE** (2026-10-25): its tree, near broken, thrown like a spear, the
+##   snapped end first: it goes through whoever it meets, and stands where it
+##   comes down, driven into the ground, the ground split out from it.
+
+enum Kind { BIG, ROLL, SMALL, BALL, TREE }
 
 const FILE := "res://assets/creatures/troll_rocks.glb"
 const GRAVITY := 18.0
@@ -65,6 +69,8 @@ var _hunting: bool = true
 var _rumble_in: float = 0.0
 ## The ball coming up out of the ground before it rolls (s left).
 var _rising: float = 0.0
+## The tree's size (its hand's scale and the troll's).
+var _size: float = 1.0
 const BALL_RISE := 0.45
 ## Rolled this far between the scars it tears in the ground (m).
 const BALL_SCAR := 1.5
@@ -122,6 +128,27 @@ static func roll_ball(into: Node, from: Vector3, way: Vector3, worth: float, by:
 	return r
 
 
+## Every peer: its tree thrown from `from` at `velocity`.
+static func javelin(into: Node, from: Vector3, velocity: Vector3, worth: float, by: Node3D, host: bool, id: int,
+		size: float) -> TrollRock:
+	if into == null:
+		return null
+	var r := TrollRock.new()
+	r.kind = Kind.TREE
+	r.damage = worth
+	r.thrower = by
+	r.hurts = host
+	r.serial = id
+	r._vel = velocity
+	r._size = size
+	r._rng.seed = id
+	into.add_child(r)
+	r.global_position = from
+	r._build()
+	r._aim_tree()
+	return r
+
+
 static func mesh(name: String) -> Mesh:
 	if _meshes.is_empty():
 		var scene := load(FILE) as PackedScene
@@ -145,7 +172,9 @@ static func material() -> ShaderMaterial:
 ## A rock to hold or throw: the big ones `Boulder_n`, the small `Chunk_n`.
 static func model(what: int, pick: int) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	if what == Kind.BALL:
+	if what == Kind.TREE:
+		mi.mesh = mesh("Tree")
+	elif what == Kind.BALL:
 		mi.mesh = mesh("Ball")
 		mi.scale = Vector3.ONE * BALL_R
 	elif what == Kind.SMALL:
@@ -169,6 +198,8 @@ func _build() -> void:
 
 
 func _radius() -> float:
+	if kind == Kind.TREE:
+		return 0.6
 	return SMALL_R if kind == Kind.SMALL else (BALL_R if kind == Kind.BALL else BIG_R)
 
 
@@ -192,7 +223,10 @@ func _physics_process(delta: float) -> void:
 	var from := global_position
 	_vel.y -= GRAVITY * delta
 	var to := from + _vel * delta
-	_model.rotation += _spin * delta
+	if kind == Kind.TREE:
+		_aim_tree()
+	else:
+		_model.rotation += _spin * delta
 	if _hit_heroes(from, to):
 		return
 	var space := get_world_3d().direct_space_state
@@ -207,6 +241,9 @@ func _physics_process(delta: float) -> void:
 			var flat := Vector3(_vel.x, 0.0, _vel.z)
 			_vel = flat.normalized() * maxf(flat.length(), ROLL_SPEED) if flat.length() > 0.1 else Vector3.ZERO
 			_thud(at, 0.9)
+			return
+		if kind == Kind.TREE:
+			_stick(at)
 			return
 		_shatter(at, n)
 		return
@@ -362,9 +399,59 @@ func _hit_heroes(from: Vector3, to: Vector3) -> bool:
 		if kind == Kind.BALL:
 			_shatter(global_position - Vector3.UP * BALL_R * 0.5, -_vel.normalized())
 			return true
+		if kind == Kind.TREE:
+			# on through him
+			continue
 		_shatter(pts[0], -_vel.normalized())
 		return true
 	return false
+
+
+## The tree along its flight, the snapped end first (its root end, +Y in
+## the model, behind).
+func _aim_tree() -> void:
+	if _vel.length_squared() < 0.0001:
+		return
+	var y := -_vel.normalized()
+	var x := y.cross(Vector3.UP)
+	if x.length_squared() < 0.0001:
+		x = Vector3.RIGHT
+	x = x.normalized()
+	var z := x.cross(y).normalized()
+	_model.global_basis = Basis(x, y, z).scaled(Vector3.ONE * _size)
+
+
+## Every peer: the tree down, driven into the ground where it came, standing
+## there aslant, the ground split out ahead of it; whoever is near it thrown
+## down (the host); a while, then down into the ground and gone.
+func _stick(at: Vector3) -> void:
+	_done = true
+	var way := Vector3(_vel.x, 0.0, _vel.z)
+	way = way.normalized() if way.length_squared() > 0.0001 else Vector3.FORWARD
+	global_position = at + _vel.normalized() * 0.6 * _size
+	var into := Blood.world_of(self)
+	if into != null:
+		GroundFx.eruption(into, at, 1.0, false)
+		GroundFx.weapon_dust(into, at, 1.8)
+		HitFx.spawn(into, &"stone", at, Vector3.UP, 1.6)
+		for deg in [-28.0, 0.0, 28.0]:
+			GroundCrack.show(self, at, way.rotated(Vector3.UP, deg_to_rad(deg)), 4.5, 12.0)
+		_scar(at, 1.4)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.18, 0.45, 22.0)
+	Sfx.play_any(self, ["res://sounds/ogre/club_ground_2.wav", "res://sounds/ogre/club_ground_4.wav"], self, 0.6, 3.0)
+	if hurts:
+		for node in get_tree().get_nodes_in_group(&"player"):
+			var hero := node as Node3D
+			if hero == null or _hit.has(hero) or bool(hero.get("is_dead")) or not hero.has_method(&"receive_blow"):
+				continue
+			if hero.global_position.distance_to(at) > 2.6 or (hero.has_method(&"is_evading") and bool(hero.call(&"is_evading"))):
+				continue
+			hero.call(&"receive_blow", damage * 0.7, thrower if is_instance_valid(thrower) else self, 0, 1, serial + 1)
+	var tw := create_tween()
+	tw.tween_interval(5.0)
+	tw.tween_property(self, "global_position", global_position + Vector3.DOWN * 2.5 * _size, 1.6).set_ease(Tween.EASE_IN)
+	tw.tween_callback(queue_free)
 
 
 ## Every peer: dust and grit off it as it flies or rolls.
