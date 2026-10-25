@@ -2204,8 +2204,12 @@ before is gone; `assets/creatures/troll_club.glb` stays unused.)
     marks the hero's combo key `^b`; [Player] then reels him with the big side
     hit, which plays over his swing (a flinch does not), his attack buffer
     cleared.
-  * **The stone balls** (`R_GOLF`, Mixamo's golf drive, the long set-up cut
-    away): swung along the ground, a great ball of stone (`Ball` in
+  * **The stone balls** (`R_GOLF`; the golf drive went the wrong way and the
+    user disliked it: now Mixamo's ground spell `CR_MG_Ground`, both arms up,
+    both fists down into the ground on a knee, the ground shattered round them
+    (eruption, stones, six short cracks, no ring), timed off its fists' lowest
+    point on every peer; heaving them back up, the ball rises out of the
+    ground before it and rolls), a great ball of stone (`Ball` in
     `troll_rocks.glb`, radius 1.05) bursts up out of it in front and rolls
     after him (`TrollRock.Kind.BALL`: faster and faster up to 10 m/s, turning
     after him at 60 deg/s for 4.5 s or till it has gone by him, rumbling);

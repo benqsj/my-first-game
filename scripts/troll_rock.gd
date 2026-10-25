@@ -59,6 +59,9 @@ var _hit: Dictionary = {}
 var target: Node3D
 var _hunting: bool = true
 var _rumble_in: float = 0.0
+## The ball coming up out of the ground before it rolls (s left).
+var _rising: float = 0.0
+const BALL_RISE := 0.45
 
 
 ## Every peer: a rock of `what` thrown from `from` at `velocity`.
@@ -97,8 +100,9 @@ static func roll_ball(into: Node, from: Vector3, way: Vector3, worth: float, by:
 	var flat := Vector3(way.x, 0.0, way.z)
 	r._vel = (flat.normalized() if flat.length_squared() > 0.0001 else Vector3.FORWARD) * BALL_SPEED.x
 	r._rolling = true
+	r._rising = BALL_RISE
 	into.add_child(r)
-	r.global_position = from + Vector3.UP * BALL_R
+	r.global_position = from + Vector3.DOWN * BALL_R * 0.9
 	r._build()
 	return r
 
@@ -161,6 +165,9 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 	_trail(delta)
+	if _rising > 0.0:
+		_rise_up(delta)
+		return
 	if _rolling:
 		_roll(delta)
 		return
@@ -214,6 +221,18 @@ func _roll(delta: float) -> void:
 	global_position = to
 	if _rolled >= (BALL_FAR if kind == Kind.BALL else ROLL_FAR):
 		_shatter(global_position - Vector3.UP * _radius() * 0.8, Vector3.UP)
+
+
+## The ball up out of the ground, turning as it comes, earth falling off it.
+func _rise_up(delta: float) -> void:
+	_rising -= delta
+	var k := delta / BALL_RISE
+	global_position += Vector3.UP * BALL_R * 1.8 * k
+	var axis := Vector3.UP.cross(_vel.normalized())
+	if axis.length_squared() > 0.0001:
+		_model.rotate(axis.normalized(), 2.5 * delta)
+	if _rising <= 0.0:
+		_thud(global_position + Vector3.DOWN * BALL_R * 0.9, 1.0)
 
 
 ## The ball: faster and faster, turned after him as far as it may, till it

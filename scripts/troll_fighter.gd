@@ -95,9 +95,14 @@ const R_PICK := 240
 const R_THROW := 241
 const R_BOWL := 242
 const R_STONE := 243
-## The great stone ball: swung up out of the ground along it, sent rolling
-## after him, three times.
+## The great stone ball (the user's word, 2026-10-25: not a swing along the
+## ground, it went the wrong way): both fists brought down into the ground,
+## the ground shattering; as it heaves them back up, the ball rolls up out of
+## it at him. Three times.
 const R_GOLF := 244
+## Its fists in the ground, and up again with the ball (clip shares).
+const BALL_SLAM := 0.433
+const BALL_UP := 0.6
 ## Bare, its other way: both fists clasped and swung (a hammer, a great one
 ## round), a two-handed ram.
 const P_HAMMER := 226
@@ -165,6 +170,11 @@ var _balls_left: int = 0
 var _ball_wait: float = 8.0
 var _sprayed_serial: int = -1
 var balls_rolled: int = 0
+## Every peer: when its fists went into the ground (s into the move).
+var _slam_at: float = -1.0
+## Every peer, in the slam: how high its fists have been, and were last.
+var _hands_top: float = 0.0
+var _hands_last: float = 99.0
 var _rock_gone: bool = false
 ## Every peer: the rock seen in its hands.
 var _held: MeshInstance3D
@@ -357,7 +367,8 @@ func _set_moves() -> void:
 	_hand_move(P_RAM, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.7, fists)
 	_hand_move(W_GOLF, &"CR_TR_GolfDrive", Vector3(1.1, 0.47, 0.62), 1.2, TREE, [0.535])
 	_hand_move(W_BUTT, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.8, TREE)
-	_special(R_GOLF, &"CR_TR_GolfDrive", Vector3(1.1, 0.47, 0.62))
+	# Mixamo's ground spell: both arms up, down into the ground on a knee, up
+	_special(R_GOLF, &"CR_MG_Ground", Vector3(0.9, 0.15, 0.85))
 	_slow_to[P_HAMMER] = 0.7
 	_slow_to[P_HOME] = 1.15
 	_snap[P_HOME] = 1.4
@@ -708,7 +719,11 @@ func _run_act(delta: float) -> void:
 	if (act == R_THROW or act == R_BOWL or act == R_STONE or act == R_GOLF) and not _rock_gone:
 		if _quarry != null and _act_time < _release_time(act):
 			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
-		if _act_time >= _release_time(act):
+		var due := _act_time >= _release_time(act)
+		if act == R_GOLF:
+			# the ball comes as it heaves its fists back up out of the ground
+			due = _sprayed_serial == act_serial and _seen_clock >= _slam_at + 0.45
+		if due:
 			_rock_gone = true
 			if act == R_GOLF:
 				_release_ball()
@@ -737,7 +752,7 @@ func _run_act(delta: float) -> void:
 ## When in a throw its rock leaves its hands (s into the act).
 func _release_time(what: int) -> float:
 	var m: Array = _moves_table[what]
-	var at := 0.57 if what == R_THROW else (0.28 if what == R_BOWL else (0.535 if what == R_GOLF else 0.49))
+	var at := 0.57 if what == R_THROW else (0.28 if what == R_BOWL else (BALL_UP if what == R_GOLF else 0.49))
 	return (at - float(m[2])) * _anim.clip_length(m[0]) / maxf(float(m[1]), 0.01) if _anim != null else 0.8
 
 
@@ -802,7 +817,8 @@ func _release_ball() -> void:
 	if _quarry == null:
 		return
 	balls_rolled += 1
-	var from := global_position + _forward() * 2.0 * visual_scale / 1.6
+	# where its fists went in, a little on
+	var from := global_position + _forward() * 2.6 * visual_scale / 1.6
 	var way := _quarry.global_position - from
 	way.y = 0.0
 	if way.length_squared() < 0.01:
@@ -1134,14 +1150,16 @@ func _drop_tree() -> void:
 #region Every peer: what is seen and heard
 func _process(delta: float) -> void:
 	super(delta)
-	_show_lean(delta)
-	_spray_earth()
 	if act_serial != _seen_serial:
 		_seen_serial = act_serial
 		_seen_clock = 0.0
+		_hands_top = 0.0
+		_hands_last = 99.0
 		_on_move_shown()
 	else:
 		_seen_clock += delta
+	_show_lean(delta)
+	_spray_earth()
 	_whoosh()
 	_show_rock()
 	_show_uproot()
@@ -1277,12 +1295,14 @@ func _show_lean(delta: float) -> void:
 
 ## Every peer: a swing along the ground throws the earth up before it.
 func _spray_earth() -> void:
-	if (act != W_GOLF and act != R_GOLF) or _sprayed_serial == act_serial or is_dead:
+	if act == R_GOLF:
+		_shatter_ground()
 		return
-	var at_t := _release_time(R_GOLF) if act == R_GOLF else -1.0
-	if act == W_GOLF:
-		var ms := _blow_moments(act)
-		at_t = ms[0] if not ms.is_empty() else 1.0
+	if act != W_GOLF or _sprayed_serial == act_serial or is_dead:
+		return
+	var at_t := -1.0
+	var ms := _blow_moments(act)
+	at_t = ms[0] if not ms.is_empty() else 1.0
 	if _seen_clock < at_t - 0.05:
 		return
 	_sprayed_serial = act_serial
@@ -1300,6 +1320,47 @@ func _spray_earth() -> void:
 		"gravity": Vector3(0, -14, 0), "damping": 0.3, "size": Vector2(0.05, 0.12), "sphere": 0.4,
 		"colors": [Color(0.38, 0.29, 0.19, 1.0), Color(0.33, 0.25, 0.17, 1.0), Color(0.3, 0.23, 0.16, 0.0)],
 	})
+
+
+## Every peer: both its fists into the ground, the ground shattered round
+## them: earth and stones thrown up, short cracks out from them (lines, no
+## ring), the view shaken.
+func _shatter_ground() -> void:
+	if _sprayed_serial == act_serial or is_dead:
+		return
+	# (by its fists themselves: raised high, then brought down till they go
+	# no lower, so the ground breaks as they meet it, on every peer alike)
+	var low := _held_at(TrollRock.Kind.BIG).y - global_position.y
+	var m: Array = _moves_table[R_GOLF]
+	var by_clip := (BALL_SLAM - float(m[2])) * _anim.clip_length(m[0]) / maxf(float(m[1]), 0.01) if _anim != null else 0.9
+	var last := _hands_last
+	_hands_last = low
+	_hands_top = maxf(_hands_top, low)
+	var met := _hands_top > low + 1.0 * visual_scale / 1.6 and low >= last - 0.002
+	if not met and _seen_clock < by_clip + 2.0:
+		return
+	_sprayed_serial = act_serial
+	_slam_at = _seen_clock
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var hands := _held_at(TrollRock.Kind.BIG)
+	var at := Vector3(hands.x, global_position.y, hands.z)
+	GroundFx.eruption(into, at, 1.1, false)
+	GroundFx.weapon_dust(into, at, 2.0)
+	HitFx.spawn(into, &"stone", at + Vector3.UP * 0.2, Vector3.UP, 1.6)
+	SkillFx.particles(into, at + Vector3.UP * 0.2, {
+		"amount": 26, "life": 1.1, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(3.0, 7.5), "dir": Vector3.UP, "spread": 55.0, "gravity": Vector3(0, -16, 0),
+		"damping": 0.3, "size": Vector2(0.07, 0.18), "sphere": 0.5,
+		"colors": [Color(0.45, 0.42, 0.38, 1.0), Color(0.36, 0.28, 0.19, 1.0), Color(0.33, 0.26, 0.18, 0.0)],
+	})
+	var fwd := _forward()
+	for deg in [-70.0, -30.0, 0.0, 30.0, 70.0, 180.0]:
+		GroundCrack.show(self, at, fwd.rotated(Vector3.UP, deg_to_rad(deg)), 2.4 if absf(deg) < 100.0 else 1.4, 14.0)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.2, 0.5, 22.0)
+	Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 0.55, 4.0)
 
 
 func _act_length_seen() -> float:
