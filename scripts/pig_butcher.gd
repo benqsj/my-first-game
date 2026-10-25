@@ -113,13 +113,9 @@ const CUT_AT := {
 ## out to z 0.365 (measured, `_shots_tmp/cleaver_aabb.gd`).
 const ARC_EDGE_Z := 0.3
 @export var arc_speed: float = 6.0
-## In a string: his glide in under a blow at most this (m/s), and him this
-## much further off than the next blow lands (m), the string is left off.
-@export var glide_most: float = 1.2
-## ...and none at all with him further than this beyond its reach (m).
-@export var glide_gap: float = 1.0
-## How quick he turns after him in a move (degrees a second).
-@export var act_turn_most: float = 200.0
+## Him this much further off than the next blow lands (m), the string is
+## left off. (His glide and his turn in a move are held by [PackBrute]'s
+## `glide_most` and `act_turn_most`, set in `_ready`.)
 @export var string_leave: float = 2.5
 ## Him gone round to his side close by (further than `side_angle` off his
 ## front, or going round him faster than `side_orbit` degrees a second),
@@ -192,7 +188,6 @@ var ground_dusts: int = 0
 var _fierce: bool = false
 var _rot: Node3D
 var _rot_lamp: OmniLight3D
-var _turn_frame: int = -1
 ## Host: him going round to his side — how fast (degrees a second about him,
 ## smoothed), where he was last, and the wait before the next spin at it.
 var _orbit_rate: float = 0.0
@@ -206,7 +201,6 @@ var blows_landed: int = 0
 var spin_blows_landed: int = 0
 ## Host: each move's blows swung and landed ({act: [swung, landed]}; probes)
 var blow_tally: Dictionary = {}
-var _turn_left: float = 0.0
 ## For the tests.
 var hooks_thrown: int = 0
 var hooks_caught: int = 0
@@ -215,6 +209,9 @@ var cracks_hurt: int = 0
 
 
 func _ready() -> void:
+	act_turn_most = 200.0
+	glide_most = 1.2
+	glide_gap = 1.0
 	super()
 	_wear_figure()
 	_butcher_moves()
@@ -504,23 +501,7 @@ func _cleaver_air(delta: float) -> void:
 
 ## Every peer: dust off the ground where the cleaver went in (no ring).
 func _ground_dust(at: Vector3, power: float) -> void:
-	var world := Blood.world_of(self)
-	if world == null:
-		return
-	# a low cloud of earth (as the footfalls' puff, bigger), and grit thrown
-	# up and falling back
-	SkillFx.particles(world, at, {
-		"amount": int(14 * power), "life": 1.1, "one_shot": true, "explosiveness": 0.95, "add": false,
-		"speed": Vector2(0.6, 1.8) * power, "dir": Vector3.UP, "spread": 75.0, "gravity": Vector3(0, -0.3, 0),
-		"damping": 2.2, "size": Vector2(0.3, 0.55) * power, "grow": 0.6, "sphere": 0.2,
-		"colors": [Color(0.55, 0.49, 0.41, 0.0), Color(0.52, 0.46, 0.39, 0.55), Color(0.5, 0.45, 0.38, 0.0)],
-	})
-	SkillFx.particles(world, at, {
-		"amount": int(16 * power), "life": 0.7, "one_shot": true, "explosiveness": 1.0, "add": false,
-		"speed": Vector2(2.0, 4.0) * power, "dir": Vector3.UP, "spread": 40.0, "gravity": Vector3(0, -12.0, 0),
-		"damping": 0.5, "size": Vector2(0.03, 0.06), "sphere": 0.1,
-		"colors": [Color(0.3, 0.26, 0.21, 1.0), Color(0.28, 0.24, 0.2, 1.0), Color(0.28, 0.24, 0.2, 0.0)],
-	})
+	GroundFx.weapon_dust(Blood.world_of(self), at, power)
 
 
 ## Every peer: now and then a drop off the cleaver's edge.
@@ -939,38 +920,10 @@ func _blow_moments(what: int) -> PackedFloat32Array:
 
 ## Host: in a string, his steps in under his blows never a glide faster than
 ## `glide_most` (the orc's string steps in at up to 6 m/s through each
-## wind-up); his leap at him carries him by its own run.
+## wind-up); his leap at him carries him by its own run. In a move he turns
+## no quicker than `act_turn_most` ([PackBrute]).
 func _extra_velocity(delta: float) -> Vector3:
-	var v := super(delta)
-	if _strikes().has(act):
-		var flat := Vector2(v.x, v.z)
-		# him well off (run, or round him): no glide after him at all — the
-		# blow goes where it goes, and he follows on his feet after it
-		var short := 0.0
-		if _quarry != null:
-			short = _distance_to(_quarry) - float(_strike_from.get(act, strike_off))
-		if short > glide_gap:
-			flat = Vector2.ZERO
-		elif flat.length() > glide_most:
-			flat = flat.normalized() * glide_most
-		v = Vector3(flat.x, v.y, flat.y)
-	return v
-
-
-## Host: in a move he turns no quicker than `act_turn_most` (degrees a
-## second): round on his feet, not spun on the spot.
-func _face(direction: Vector3, delta: float, rate: float) -> void:
-	var was := rotation.y
-	super(direction, delta, rate)
-	if act != Act.NONE and delta > 0.0 and delta < 0.5:
-		# (turned after him more than once a frame: one budget for the frame)
-		var frame := Engine.get_physics_frames()
-		if frame != _turn_frame:
-			_turn_frame = frame
-			_turn_left = deg_to_rad(act_turn_most) * delta
-		var turn := clampf(wrapf(rotation.y - was, -PI, PI), -_turn_left, _turn_left)
-		_turn_left -= absf(turn)
-		rotation.y = was + turn
+	return _cap_glide(super(delta))
 
 
 ## Host: him run off well out of reach in a string, the rest of it is not

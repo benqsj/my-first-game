@@ -463,6 +463,26 @@ func _place() -> void:
 
 
 ## Builds the shared meshes now rather than on the first slam.
+## Dust off the ground where a weapon came down into it (no ring): a low
+## cloud of earth (as a footfall's puff, bigger) and grit thrown up and
+## falling back. `power` ~1 (the butcher's cleaver, the troll's club).
+static func weapon_dust(world: Node, at: Vector3, power: float) -> void:
+	if world == null:
+		return
+	SkillFx.particles(world, at, {
+		"amount": int(14 * power), "life": 1.1, "one_shot": true, "explosiveness": 0.95, "add": false,
+		"speed": Vector2(0.6, 1.8) * power, "dir": Vector3.UP, "spread": 75.0, "gravity": Vector3(0, -0.3, 0),
+		"damping": 2.2, "size": Vector2(0.3, 0.55) * power, "grow": 0.6, "sphere": 0.2,
+		"colors": [Color(0.55, 0.49, 0.41, 0.0), Color(0.52, 0.46, 0.39, 0.55), Color(0.5, 0.45, 0.38, 0.0)],
+	})
+	SkillFx.particles(world, at, {
+		"amount": int(16 * power), "life": 0.7, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(2.0, 4.0) * power, "dir": Vector3.UP, "spread": 40.0, "gravity": Vector3(0, -12.0, 0),
+		"damping": 0.5, "size": Vector2(0.03, 0.06), "sphere": 0.1,
+		"colors": [Color(0.3, 0.26, 0.21, 1.0), Color(0.28, 0.24, 0.2, 1.0), Color(0.28, 0.24, 0.2, 0.0)],
+	})
+
+
 static func prewarm() -> void:
 	_thorn()
 	_spike()

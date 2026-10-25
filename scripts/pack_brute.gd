@@ -191,6 +191,20 @@ var _stance_clock: float = 0.0
 var _stance_serial: int = -1
 
 
+@export_group("Weight")
+## In a move it turns no quicker than this (degrees a second): round on its
+## feet, not spun on the spot (the butcher's, 2026-10-23; the troll's
+## 2026-10-25). 0: no cap.
+@export var act_turn_most: float = 0.0
+## In a move's step in under its blow, no glide faster than this (m/s); and
+## none at all with him further than `glide_gap` beyond its reach (m): the
+## blow goes where it goes. Below 0: no cap.
+@export var glide_most: float = -1.0
+@export var glide_gap: float = 1.0
+var _act_turn_frame: int = -1
+var _act_turn_left: float = 0.0
+
+
 @export_group("Pack turns")
 ## How many of its kind with turns (`pack_turns` > 0) come at one hero at once
 ## (the user's word, 2026-10-13, Souls' bands): the nearest so many fight;
@@ -467,7 +481,38 @@ func _extra_velocity(delta: float) -> Vector3:
 		return Vector3.ZERO
 	if act == RAGE:
 		return Vector3.ZERO
-	return super(delta)
+	return _cap_glide(super(delta))
+
+
+## Host: a step in under a blow held to `glide_most` (see there).
+func _cap_glide(v: Vector3) -> Vector3:
+	if glide_most < 0.0 or not _strikes().has(act):
+		return v
+	var flat := Vector2(v.x, v.z)
+	var short := 0.0
+	if _quarry != null:
+		short = _distance_to(_quarry) - float(_strike_from.get(act, strike_off))
+	if short > glide_gap:
+		flat = Vector2.ZERO
+	elif flat.length() > glide_most:
+		flat = flat.normalized() * glide_most
+	return Vector3(flat.x, v.y, flat.y)
+
+
+## Host: in a move it turns no quicker than `act_turn_most` (one budget a
+## physics frame, however often it is turned in it).
+func _face(direction: Vector3, delta: float, rate: float) -> void:
+	var was := rotation.y
+	super(direction, delta, rate)
+	if act_turn_most <= 0.0 or act == Act.NONE or delta <= 0.0 or delta >= 0.5:
+		return
+	var frame := Engine.get_physics_frames()
+	if frame != _act_turn_frame:
+		_act_turn_frame = frame
+		_act_turn_left = deg_to_rad(act_turn_most) * delta
+	var turn := clampf(wrapf(rotation.y - was, -PI, PI), -_act_turn_left, _act_turn_left)
+	_act_turn_left -= absf(turn)
+	rotation.y = was + turn
 
 
 func _after(what: int) -> void:
