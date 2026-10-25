@@ -3384,6 +3384,17 @@ func _place_look(night: float = 0.0) -> void:
 			if _sun != null:
 				_sun.light_energy *= 0.6
 				_sun.light_color = _sun.light_color.lerp(Color(0.80, 0.86, 0.90), 0.4)
+			if SwampMere.low_poly:
+				# the low poly swamp less bright and gay (the user's word,
+				# 2026-10-25): a heavier, damper air, the greens dulled
+				_env.adjustment_saturation = 0.82
+				_env.adjustment_contrast = 1.08
+				_env.tonemap_exposure = 0.88
+				_env.fog_light_color = _env.fog_light_color.lerp(Color(0.38, 0.43, 0.38), 0.5)
+				_env.fog_density = 0.0055
+				_env.ambient_light_energy *= 0.85
+				if _sun != null:
+					_sun.light_energy *= 0.85
 		"mountain":
 			# the storm: dark, cold, the clouds down on the peaks
 			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.48, 0.52, 0.58), 0.4)

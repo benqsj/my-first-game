@@ -393,7 +393,8 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 ## the pools in it as in the smooth ground (that one kept to walk on).
 ## `area` in metres on the ground, facets `step` across, nothing inside
 ## `hole` (a finer ground there), `lift` over the smooth one.
-const LP_MOSS := [Color(0.24, 0.35, 0.12), Color(0.29, 0.40, 0.14), Color(0.33, 0.44, 0.16), Color(0.27, 0.37, 0.13)]
+## (a dull swamp moss, not the forest's bright one: the user's word, 2026-10-25)
+const LP_MOSS := [Color(0.22, 0.27, 0.13), Color(0.25, 0.29, 0.14), Color(0.27, 0.31, 0.16), Color(0.23, 0.26, 0.14)]
 const LP_MUD := [Color(0.33, 0.25, 0.17), Color(0.29, 0.22, 0.15), Color(0.37, 0.28, 0.19)]
 ## inside the clearing between the waters no bright moss (the user's word,
 ## 2026-10-25: the green between the waters spoils it): mud and a dull bog olive
@@ -457,7 +458,7 @@ static func _lp_ground(room: Node3D, area: Rect2, step: float, hole: Rect2, w: f
 					st.add_vertex(q)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	var mat := TerracePlaces._solid(0.0, 1.8, 1.0).duplicate() as ShaderMaterial
+	var mat := TerracePlaces._solid(0.0, 1.35, 1.0).duplicate() as ShaderMaterial
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	room.add_child(mi)
@@ -522,33 +523,40 @@ void fragment() {
 	vec3 nw = normalize(cross(dFdx(wp), dFdy(wp)));
 	if (nw.y < 0.0) { nw = -nw; }
 	c *= 1.0 + clamp(dot(nw.xz, vec2(0.7, 0.5)) * 7.0, -0.22, 0.22);
-	// the feet's rings and the wake (the user's word, 2026-10-25: running
-	// through it left no trace): the facets are too coarse to bend for them,
-	// so they are drawn here, crests and troughs in hard bands as the facets
-	float ring = 0.0;
+	// the feet's rings and the wake as the old water has them (the user's
+	// word, 2026-10-25: exactly as in the old swamp, no white marks): a
+	// short packet of crests bending the surface, crests a little lighter
+	// and wetter, troughs darker
+	vec2 slope = vec2(0.0);
+	float lift = 0.0;
 	for (int i = 0; i < drop_count; i++) {
 		vec4 dr = drops[i];
-		float dist = length(wp.xz - dr.xy);
+		vec2 off = wp.xz - dr.xy;
+		float dist = length(off);
 		float x = dist - dr.z * drop_speed;
 		if (abs(x) > 1.2) { continue; }
-		float amp = dr.w * exp(-dr.z * 1.1 / max(1.0, dr.w * 0.6)) / (1.0 + dist * 0.8);
-		ring += amp * sin(7.0 * x) * exp(-x * x / 0.18) * step(x, 0.25);
+		float k = 7.0;
+		float g = exp(-x * x / 0.18) * step(x, 0.25);
+		float amp = dr.w * exp(-dr.z * 1.1 / max(1.0, dr.w * 0.6)) / (1.0 + dist * 0.8) * smoothstep(0.0, 0.35, dist);
+		float dh = amp * (k * cos(k * x) * g + sin(k * x) * g * (-2.0 * x / 0.18));
+		slope -= (off / max(dist, 0.001)) * dh * 0.32;
+		lift += amp * sin(k * x) * g;
 	}
-	ring = clamp(ring * 2.4, -1.0, 1.0);
-	float band = floor(ring * 3.0 + 0.5) / 3.0;
-	c *= 1.0 + band * 0.32;
-	c = mix(c, foam.rgb, step(0.5, ring) * 0.5);
+	slope = clamp(slope, vec2(-0.35), vec2(0.35));
+	n = normalize(n + (VIEW_MATRIX * vec4(slope.x, 0.0, slope.y, 0.0)).xyz);
+	NORMAL = n;
+	float lit = clamp(lift * 0.55, -0.3, 0.3);
+	c *= 1.0 + lit;
 	float fres = pow(1.0 - clamp(dot(n, VIEW), 0.0, 1.0), 4.0);
 	c = mix(c, sky.rgb * 0.6, fres * 0.3);
-	// a thin pale line where it laps the mud
-	float lap = 1.0 - smoothstep(0.004, 0.02, depth + 0.003 * sin(TIME * 0.6 + wp.x * 1.1 + wp.z * 0.7));
-	c = mix(c, foam.rgb, lap * 0.55);
+	// (no pale line where it meets the mud: the user's word, 2026-10-25)
+	float lap = 0.0;
 	vec2 cell = floor(wp.xz * 1.6);
 	float glint = step(0.994, hash(cell + floor(TIME * 0.5 + hash(cell) * 7.0)));
 	ALBEDO = c;
 	EMISSION = vec3(1.0, 0.97, 0.88) * glint * 0.8;
-	ROUGHNESS = 0.25;
-	SPECULAR = 0.45;
+	ROUGHNESS = clamp(0.25 - abs(lit) * 0.5, 0.04, 1.0);
+	SPECULAR = 0.3;
 	ALPHA = clamp(0.80 + k * 0.2 + lap, 0.0, 1.0) * smoothstep(0.0, 0.01, depth);
 }
 """
