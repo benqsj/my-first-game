@@ -1,8 +1,8 @@
 extends SceneTree
 ## The knight's great sword on the mannequin, as [GreatSword] designs it,
 ## driven by the game's own inputs in the world (the user's word, 2026-10-06):
-## - the attack button throws the two-handed string, the block button the
-##   one-handed one (no heavy blow on it any more);
+## - the attack button throws the one-handed string, the block button the
+##   TC combo (the first way) or Kevin's two-handed one (the second);
 ## - a blow left alone comes back to guard slower than it cut, the last of a
 ##   string slower still.
 ##   Godot --headless --path . --script res://tests/great_sword_test.gd
@@ -107,8 +107,10 @@ func _initialize() -> void:
 	_check("the block button throws a string", rig.block_throws_string() and player._other_string_ready())
 	_check("no heavy blow on it", not player._has_heavy())
 	# (whichever string F6 last left picked in the game's settings)
-	rig._mode = 0
-	rig._main_string = GreatSword.MODES[0]["strings"][0]
+	# the way with Kevin's two-handed string on the block button (the first
+	# way is the TC combo there since 2026-10-26: checked at the end)
+	rig._mode = 1
+	rig._main_string = GreatSword.MODES[1]["strings"][0]
 	rig._wear_string(rig._main_string)
 	rig.wear_other_string(false)
 	await _frames(10)
@@ -194,7 +196,15 @@ func _initialize() -> void:
 	_check("F6: the block button throws Tariel's Heavy A-B-C", rmb == (Swordsman.STRINGS[1]["clips"] as Array)[0],
 			str(rmb))
 	rig.cycle_string()
-	_check("F6 again: one hand / two hands", rig._mode == 0 and rig._main_string == 1)
+	_check("F6 again: one hand / the TC combo", rig._mode == 0 and rig._main_string == 1)
+	# the first way: the block button throws the TC combo, heavy
+	await _frames(200)
+	player.stamina = player.max_stamina
+	await _next("block")
+	var tc := rig.current_swing()
+	_check("the block button: the TC combo's first blow", String(tc).begins_with(String(Swordsman.TWO_HANDS["clip"])),
+			str(tc))
+	_check("...weighing as a heavy blow", rig.cut_weight >= 1.5, "%.2f" % rig.cut_weight)
 
 	print("ALL PASSED" if _failures == 0 else "%d FAILED" % _failures)
 	quit(1 if _failures > 0 else 0)

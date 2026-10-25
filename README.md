@@ -12092,3 +12092,25 @@ great_sword_charge_test.
   (`net_wear_string`, the look is the same everywhere).
 - `tests/shieldless_test.gd` now wants the two-handed string on the attack
   button with no shield.
+
+### Ends on the blow from above; the blade held right; the knight's right button (2026-10-26, later)
+- Tariel's two-handed string is A-B-C-D: it ends on D, the blade into the
+  ground (the user's word); the clip's rise after it is left out (D played to
+  4.3 s of the clip).
+- The blade in his fist points where the pack's points (`tc_godot.gd`: the
+  right hand turned onto the pack's sword, its RH_MidFin_Prop bone's +Y,
+  against the figure's blade in the mannequin's hand_r); over his head in
+  D's wind-up it is kept rising (`LIFT_Y`), back and up over the shoulders,
+  not hanging down his back. While a TC blow plays the left fist is put on
+  the hilt (`SkinnedRig._hilt`, as the great sword's).
+- **The knight**: his first way of fighting (`GreatSword.MODES[0]`) is his
+  one-handed string on the attack button, as it was, and the TC combo A-D on
+  the block button (the right click): slower (`TC_RATE` 0.78, his wind-up
+  slowed again by `windup_pace`) and heavy (`TC_WEIGHTS` 1.5-2.1: the bite,
+  the shake and the sound of a heavy blow; D the heaviest). Kevin's
+  two-handed string is the second way (F6).
+- Moves may give a blow its own pace and weight (`moves["clip_rate"]`,
+  `moves["clip_weight"]`).
+- A string left alone is counted from the end of its last blow
+  (`_end_action`), not its start: the knight's slow blows outlast
+  `flurry_reset_after` and his string always started over.

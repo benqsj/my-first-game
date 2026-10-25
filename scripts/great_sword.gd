@@ -25,8 +25,11 @@ const STRINGS: Array = [
 ]
 ## The ways he fights, F6 going from one to the next: [the attack button's
 ## string, the block button's] (indices into the sets: 0 two hands, 1 one
-## hand, 2 Tariel's Heavy A-B-C), each with its name.
+## hand, 2 Tariel's Heavy A-B-C, 3 Mocap Online's TC combo), each with its
+## name. The first (the user's word, 2026-10-26): one hand on the attack
+## button as it was, the TC combo on the block button, slow and heavy.
 const MODES: Array = [
+	{"name": "ONE HAND  /  TC TWO HANDS", "strings": [1, 3]},
 	{"name": "ONE HAND  /  TWO HANDS", "strings": [1, 0]},
 	{"name": "TWO HANDS  /  TARIEL'S HEAVY A-B-C", "strings": [0, 2]},
 ]
@@ -60,6 +63,15 @@ const CHARGE := {"clip": &"KV_Attack2H02", "rate": 1.0, "weight": 2.3, "hold": 0
 ## (`slam`: the dust and the shake). It was his own Mixamo jump attack, the
 ## body coming down and the blade after it (the user's word, 2026-10-06).
 const JUMP_ATTACK := {"clip": &"KV_Attack2H04", "from": 0.12, "hold": 0.28, "slam": 0.429}
+
+
+## The TC combo on his block button ([Swordsman] TWO_HANDS, the user's word
+## 2026-10-26: slower and heavier than Tariel's, strong blows): each part's
+## pace (against Tariel's x1.1; the knight's wind-up is slowed again by his
+## `windup_pace`) and its weight (the bite, the shake, the sound: a heavy
+## blow's 1.8-2.1), D, the blade into the ground, the heaviest.
+const TC_RATE := 0.78
+const TC_WEIGHTS: Array[float] = [1.5, 1.5, 1.6, 2.1]
 
 
 ## Seconds of the clip before its cut each blow is played from (the other
@@ -108,3 +120,12 @@ static func apply(t: Dictionary) -> void:
 				for tr: Array in Moveset.clip_meta(c).get("trails", []):
 					if float(tr[0]) <= float(cuts[0][0]) and float(tr[1]) >= float(cuts[0][0]):
 						t["swing_from"][c] = float(tr[0])
+	# the TC combo, after the rest (its parts keep their own windows): the
+	# fourth set, the block button's in the first way he fights
+	var tc := Swordsman.two_hands_parts(t)
+	sets.append({"name": Swordsman.TWO_HANDS["name"], "clips": tc, "recover": {}})
+	t["clip_rate"] = {}
+	t["clip_weight"] = {}
+	for i in tc.size():
+		t["clip_rate"][tc[i]] = TC_RATE
+		t["clip_weight"][tc[i]] = TC_WEIGHTS[mini(i, TC_WEIGHTS.size() - 1)]

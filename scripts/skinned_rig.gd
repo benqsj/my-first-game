@@ -1513,6 +1513,11 @@ func _play_action(clip: StringName, role: Role, rate: float = 1.0, blend: float 
 
 
 func _end_action() -> void:
+	if _role == Role.SWING:
+		# a string left alone is counted from the end of its last blow, not
+		# its start: a slow blow longer than `flurry_reset_after` (the
+		# knight's TC combo, 1.5-2 s each) would else always start over
+		_last_attack_at = Time.get_ticks_msec() / 1000.0
 	_fall_kind = -1
 	_fall_own_up = -1.0
 	_crumpled = false
@@ -1855,12 +1860,18 @@ func attack(style: int = -1) -> void:
 		_flurry_slot = (_flurry_slot + 1) % flurry.size()
 		clip = flurry[_flurry_slot]
 	var part: Vector2 = flurry_part.get(clip, Vector2(0.0, 1.0))
-	var rate := float(clip_rate.get(clip, swing_rate)) * arms_pace()
+	# a blow's own pace and weight where the moves give them (the knight's
+	# TC combo, [GreatSword] TC_RATE / TC_WEIGHTS)
+	var own_rate: Dictionary = moves.get("clip_rate", {}) if _on_mq else {}
+	var rate := float(clip_rate.get(clip, own_rate.get(clip, swing_rate))) * arms_pace()
 	if _attack_style == AttackStyle.SIDE:
 		rate *= 1.0 + flurry_quicken * maxi(_flurry_slot, 0)
 		var last := _flurry_slot == flurry.size() - 1
 		if last:
 			cut_weight = finisher_weight
+		var own_weight: Dictionary = moves.get("clip_weight", {}) if _on_mq else {}
+		if own_weight.has(clip):
+			cut_weight = maxf(cut_weight, float(own_weight[clip]))
 		var least := finisher_min_time if last else flurry_min_time
 		if least > 0.0 and _anim.has_animation(clip):
 			var span := _anim.get_animation(clip).length * (part.y - part.x)
@@ -4013,7 +4024,10 @@ func _hilt(id: StringName) -> void:
 	if not _on_mq or _figure_skel == null or not _figs.has(id) or _figs[id]["skel"] != _figure_skel:
 		return
 	var kind: StringName = moves.get("kind", &"")
-	if kind != &"two_hands" and kind != &"spear":
+	# the sword in both hands with no shield ([Swordsman] TWO_HANDS): while
+	# one of its blows plays
+	var both := String(_act_clip).begins_with(String(Swordsman.TWO_HANDS["clip"]))
+	if kind != &"two_hands" and kind != &"spear" and not both:
 		return
 	# the sword away: nothing for the other hand to take hold of
 	if _sheath_k > 0.5:
