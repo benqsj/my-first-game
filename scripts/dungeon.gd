@@ -115,7 +115,9 @@ const PLACES := {
 	# 2026-10-24 — all four concepts, each its own place, in the stead of the
 	# old terrace, rampart, storm path and lord's court)
 	"terrace": {"name": "ტბის ტერასა", "kind": "lake", "w": 56.0, "l": 66.0, "h": 0.0},
-	"cave": {"name": "გამოქვაბული", "kind": "cave", "w": 54.0, "l": 62.0, "h": 15.0},
+	# two halls one after the other, a wave in each (the user's pick D + A,
+	# 2026-10-25) [TwinCave]; the old "cave" kind's code kept
+	"cave": {"name": "გამოქვაბული", "kind": "twin_cave", "w": 56.0, "l": 110.0, "h": 17.0},
 	# (56 by 56: inside the shrine's ring of arches, [ForestGlade].RING_R)
 	"forest": {"name": "ტყე", "kind": "forest", "w": 56.0, "l": 56.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
@@ -216,7 +218,7 @@ const VIEW := {
 	"mountain": [5, "Waterfall ruins"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
 	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
 	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
-	"camp": [7, "Orc camp"],
+	"camp": [7, "Orc camp"], "cave": [3, "Cave (two halls)"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.
@@ -1334,6 +1336,9 @@ func _spawn_room(i: int) -> void:
 			var at := c + Vector3(across + sin(float(k) * 2.3) * 1.2, 0.3, -l * 0.08 - row * 3.0)
 			if String(entry[0]) == BOSS.get(id, "") or is_boss(i):
 				at = c + Vector3(0.0, 0.3, -l * 0.2)
+			elif String(r["kind"]) == "twin_cave":
+				# the first wave in the den, the gate on still shut
+				at = c + Vector3(across * 0.6 + sin(float(k) * 2.3) * 1.0, 0.3, TwinCave.WAVE_ONE_Z - row * 3.0)
 			if not made.is_empty() and is_instance_valid(made[0]) \
 					and String((made[0] as Node).get_meta(&"scene", "")) == String(entry[0]):
 				var ready_made := made.pop_front() as Node3D
@@ -1578,6 +1583,7 @@ func _open_rift() -> void:
 		net_rift.rpc()
 	Sfx.play(self, SND + "portal_open.wav", null, _rift.position + Vector3.UP * 2.0, 0.8, 4.0)
 	_say("ტალღა %d / %d" % [wave + 1, waves], 2.5)
+	_open_twin_cave()
 
 
 ## The air drawn into the opening rift (on a timer: the place may be gone).
@@ -1802,6 +1808,7 @@ func _apply_clear(i: int, plan: Dictionary) -> void:
 		return
 	cleared[i] = true
 	room_cleared.emit(i)
+	_open_twin_cave()
 	if _map != null:
 		_map.queue_redraw()
 	var r := _room(i)
@@ -3280,7 +3287,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh", "twin_cave"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3454,6 +3461,8 @@ func _place_look(night: float = 0.0) -> void:
 			_terrace_look(kind)
 		"prison", "cell_cave":
 			_ashen_look(kind == "cell_cave")
+		"twin_cave":
+			_twin_cave_look()
 		"lord_court":
 			# its look (F2's board): the misty court, the camp, the royal court
 			var which := ThroneCourt.current()
@@ -3507,6 +3516,65 @@ func _place_look(night: float = 0.0) -> void:
 ## `cave`: the cells' cave under its roof (2026-10-25): the sky only through
 ## the holes in it, the sun down through them in shafts, the rest lit by a
 ## cool soft fill and the torches; the air closer and greyer.
+## The two-hall cave's own light ([TwinCave]): dark round the edges, the
+## stone pale; the sun's shaft down through the crystal hall's hole, the
+## crystals' glow, the den's torches.
+func _twin_cave_look() -> void:
+	# (the earlier light, a little lighter, over the pictures' pale colours:
+	# the user's word, 2026-10-26)
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("cloud", 0.6)
+		_sky_mat.set_shader_parameter("night", 0.0)
+		_sky_mat.set_shader_parameter("top_col", Color(0.34, 0.42, 0.56))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.56, 0.60, 0.68))
+		_sky_mat.set_shader_parameter("gnd_col", Color(0.22, 0.23, 0.26))
+		_sky_mat.set_shader_parameter("sun_col", Color(1.0, 0.92, 0.80))
+	_env.ambient_light_color = Color(0.60, 0.66, 0.78)
+	_env.ambient_light_energy = 1.2
+	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	_env.fog_light_color = Color(0.10, 0.11, 0.14)
+	_env.fog_density = 0.012
+	_env.fog_sky_affect = 0.0
+	_env.fog_height_density = 0.0
+	_env.volumetric_fog_enabled = true
+	_env.volumetric_fog_density = 0.0003
+	_env.volumetric_fog_albedo = Color(0.95, 0.92, 0.86)
+	_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+	_env.volumetric_fog_anisotropy = 0.6
+	_env.volumetric_fog_length = 64.0
+	_env.volumetric_fog_ambient_inject = 0.0
+	_env.glow_intensity = 0.8
+	_env.glow_bloom = 0.1
+	_env.glow_hdr_threshold = 1.0
+	_env.tonemap_mode = Environment.TONE_MAPPER_AGX
+	_env.tonemap_exposure = 1.6
+	_env.tonemap_white = 6.0
+	_env.adjustment_contrast = 1.05
+	_env.adjustment_saturation = 1.0
+	_env.ssao_radius = 2.0
+	_env.ssao_intensity = 1.8
+	_env.ssao_power = 1.4
+	if _sun != null:
+		_sun.visible = true
+		_sun.light_color = Color(1.0, 0.95, 0.88)
+		_sun.light_energy = 3.2
+		_sun.rotation.x = -deg_to_rad(72.0)
+		_sun.light_angular_distance = 1.0
+		_sun.shadow_opacity = 1.0
+		_sun.shadow_blur = 1.2
+		_sun.light_volumetric_fog_energy = 3.5
+
+
+## The rock in the two-hall cave's tunnel rolled away ([TwinCave]): as the
+## second wave comes, or as the place is cleared (one wave only); every peer
+## comes here by its own rift or clear.
+func _open_twin_cave() -> void:
+	if current < 0 or current >= rooms.size() or String(_room(current).get("kind", "")) != "twin_cave":
+		return
+	var room: Node3D = _room_nodes[current] if current < _room_nodes.size() else null
+	TwinCave.open_way(self, room)
+
+
 func _ashen_look(cave: bool = false) -> void:
 	var air := Color(0.66, 0.69, 0.72)
 	if _sky_mat != null:
@@ -3844,6 +3912,9 @@ func _build_room_body(i: int) -> void:
 	match kind:
 		"cave":
 			PlaceBuild.cave(self, room, i)
+			return
+		"twin_cave":
+			TwinCave.build(self, room, w, l, _rng)
 			return
 		"forest":
 			_build_forest(room, i)
@@ -5107,7 +5178,7 @@ func _echo(kind: String) -> void:
 			echo.room_size = 0.85
 			echo.damping = 0.35
 			echo.wet = 0.26
-		"cave", "crypt", "flood_crypt", "cell_cave":
+		"cave", "crypt", "flood_crypt", "cell_cave", "twin_cave":
 			echo.room_size = 0.95
 			echo.damping = 0.25
 			echo.wet = 0.38
@@ -5161,7 +5232,7 @@ func _ambience(i: int) -> void:
 			parts = [["wind_loop.wav", -15.0], ["drums_far_loop.wav", -30.0]]
 		"throne":
 			parts = [["wind_loop.wav", -15.0]]
-		"cave":
+		"cave", "twin_cave":
 			parts = [["cave_loop.wav", -9.0], ["crystal_hum_loop.wav", -17.0]]
 		"forest":
 			# the dead wood: the wind in bare boughs, no bird sings in it
@@ -5221,13 +5292,13 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_drip_in -= delta
 	if _drip_in <= 0.0:
 		_drip_in = _rng.randf_range(1.5, 5.0)
-		if kind == "cave" or kind == "crypt" or kind == "flood_crypt" or r.has("hole"):
+		if kind == "cave" or kind == "twin_cave" or kind == "crypt" or kind == "flood_crypt" or r.has("hole"):
 			var at := near + Vector3(_rng.randf_range(-12.0, 12.0), 3.0, _rng.randf_range(-12.0, 12.0))
 			Sfx.play(self, SND + "drip_%d.wav" % _rng.randi_range(1, 3), null, at, 1.0, -4.0, 0.15)
 	_thunder_in -= delta
 	if _thunder_in <= 0.0:
 		_thunder_in = _rng.randf_range(25.0, 50.0)
-		if _phase >= 2.5 and kind != "cave":
+		if _phase >= 2.5 and kind != "cave" and kind != "twin_cave":
 			Sfx.play_flat(self, SND + "thunder.wav", _rng.randf_range(0.85, 1.1), -11.0)
 	_creak_in -= delta
 	if _creak_in <= 0.0:
