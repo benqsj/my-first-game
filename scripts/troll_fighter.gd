@@ -142,6 +142,10 @@ const SPLASH_LIFT := 0.35
 const SPLASH_FLY := 1.0
 const SPLASH_HIGH := 5.5
 const DOWN_HOLD := 1.3
+## Moves held at the top of their wind-up (the user's word: lean back, hold
+## the arm there, then throw): [clip share of the top, seconds held there,
+## clip share of the release].
+const HOLD_AT := {W_THROW: [0.44, 0.75, 0.505], P_CLAP: [0.44, 0.5, 0.6]}
 
 ## Its swings that carry it off its balance when they find nothing.
 const MISS_REELS := [W_GREAT, LEAP, P_HOME]
@@ -268,6 +272,7 @@ var _sun_spent: int = -1
 var stoned: int = 0
 var _suns: Array = []
 var _stone_mat: StandardMaterial3D
+var _stone_shader: ShaderMaterial
 var _smoke_in: float = 0.0
 ## For the probes.
 var skins_made: int = 0
@@ -434,10 +439,12 @@ func _set_moves() -> void:
 	# blast, both palms thrust out; the leap; up off its back; the overhead
 	# throw (its tree); the roar (the rain)
 	_special(S_SKIN, &"CR_TR_Flex", Vector3(0.75, 0.05, 0.7))
-	_special(P_CLAP, &"CR_MG_Blast", Vector3(1.1, 0.3, 0.85))
+	_special(P_CLAP, &"CR_MG_Blast", Vector3(1.0, 0.3, 0.85))
 	_special(S_SPLASH, &"CR_Leap", Vector3(0.8, 0.0, 0.5))
 	_special(S_DOWN, &"CR_KipUp", Vector3(0.75, 0.0, 1.0))
-	_special(W_THROW, &"CR_TR_ThrowIn", Vector3(1.0, 0.25, 0.85))
+	# (one-handed, the pick off the ground cut away: up and back over its
+	# shoulder, held there, then over: the user's word, 2026-10-25)
+	_special(W_THROW, &"CR_TR_ThrowObject", Vector3(1.0, 0.33, 0.68))
 	_special(R_RAIN, &"CR_TR_Roar", Vector3(1.15, 0.1, 0.62))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))
@@ -746,6 +753,10 @@ func _drag_from(what: int) -> float:
 func _clip_time(what: int, t: float) -> float:
 	if what == S_DOWN:
 		t = maxf(t - DOWN_HOLD, 0.0)
+	if HOLD_AT.has(what):
+		var top := _held_time(what, 0)
+		if t > top:
+			t = maxf(top, t - float((HOLD_AT[what] as Array)[1]))
 	var from := _drag_from(what)
 	if from > 0.0 and t > from:
 		t = from + (t - from) / DRAG
@@ -756,6 +767,8 @@ func _move_length(what: int) -> float:
 	var length := super(what)
 	if what == S_DOWN:
 		length += DOWN_HOLD
+	if HOLD_AT.has(what):
+		length += float((HOLD_AT[what] as Array)[1])
 	var from := _drag_from(what)
 	if from > 0.0 and length > from:
 		length = from + (length - from) * DRAG
@@ -1258,6 +1271,8 @@ func _process(delta: float) -> void:
 	_show_lean(delta)
 	_spray_earth()
 	_show_sun(delta)
+	_show_held_move(delta)
+	_show_stone(delta)
 	_whoosh()
 	_show_rock()
 	_show_uproot()
@@ -1280,6 +1295,17 @@ func _process(delta: float) -> void:
 func _on_move_shown() -> void:
 	if is_dead:
 		return
+	if act == R_RAIN:
+		# its roar shakes the ground: stones hop about its feet, dust off it
+		var world := Blood.world_of(self)
+		if world != null:
+			var s := visual_scale / 1.6
+			TrollRock.scatter(world, global_position, 8, Vector2(0.5, 1.0), Vector2(0.5, 2.0), Vector2(2.0, 4.5),
+					Vector3.ZERO, act_serial, 3.0 * s, 1.0)
+			for k in 4:
+				var a := TAU * float(k) / 4.0 + randf()
+				GroundFx.weapon_dust(world, global_position + Vector3(cos(a), 0.0, sin(a)) * 2.5 * s, 1.0)
+		WindBlast.shake(self, 0.16, 1.4, 30.0)
 	if act == W_CHOP or act == W_GREAT or act == R_THROW or act == P_HOOK or act == LEAP:
 		Sfx.play_any(self, [SOUNDS + "strain_rise.wav", SOUNDS + "grunt_2.wav"], self, randf_range(0.85, 0.95), -6.0)
 	elif act == T_REEL or act == T_STAGGER:
@@ -1385,6 +1411,8 @@ func _show_lean(delta: float) -> void:
 			want = Vector2(float(l[0]), float(l[1])) * k
 	elif act == T_WINDED:
 		want = Vector2(5.0, 0.0)
+	elif HOLD_AT.has(act):
+		want = _held_lean()
 	# down onto it quick, up off it slow
 	var rate := 40.0 if want.length() > _lean.length() else 9.0
 	_lean = _lean.move_toward(want, rate * delta)
@@ -1605,7 +1633,7 @@ func net_wound(bone_name: String, local: Vector3, way: Vector3, count: int) -> v
 
 #region Its wounds closing
 func _show_healing(delta: float) -> void:
-	var on := healing and not is_dead and body != null and act != PIECES and stoned == 0
+	var on := healing and not is_dead and body != null and act != PIECES and stoned == 0 and _stone_a <= 0.0
 	if on != _heal_shown:
 		_heal_shown = on
 		if body != null:
@@ -1718,14 +1746,7 @@ func _round7_move(delta: float, gap: float) -> bool:
 		_act_length = SKIN_TIME
 		_send(&"net_skin", [1])
 		return true
-	# from off: up, and down on him
-	if _splash_wait <= 0.0 and gap >= 6.0 and gap <= 14.0 and _in_front(_quarry, 40.0) \
-			and stamina >= attack_cost and not _quarry_down():
-		_splash_wait = _rng.randf_range(14.0, 20.0)
-		mode = Mode.FIGHT
-		_face(_quarry.global_position - global_position, 1.0, 50.0)
-		_begin(S_SPLASH)
-		return true
+	# (the body splash taken out: the user did not like the leap at all)
 	return false
 
 
@@ -1752,16 +1773,14 @@ func _round7_act(delta: float) -> void:
 	if act == S_SPLASH:
 		_run_splash(delta)
 	elif act == P_CLAP:
-		var m: Array = _moves_table[P_CLAP]
-		var at_t := (0.6 - float(m[2])) * _anim.clip_length(m[0]) / float(m[1]) if _anim != null else 0.9
+		var at_t := _held_time(P_CLAP, 2)
 		if _act_time < at_t and _quarry != null:
 			_face(_quarry.global_position - global_position, delta, turn_speed)
 		elif _clapped != act_serial:
 			_clapped = act_serial
 			_clap()
 	elif act == W_THROW:
-		var m: Array = _moves_table[W_THROW]
-		var at_t := (0.57 - float(m[2])) * _anim.clip_length(m[0]) / float(m[1]) if _anim != null else 0.9
+		var at_t := _held_time(W_THROW, 2)
 		if _act_time < at_t and _quarry != null:
 			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
 		elif _javelin_serial != act_serial and armed:
@@ -1928,25 +1947,130 @@ func _clap() -> void:
 		hero.call(&"receive_blow", hit_damage * 0.9, self, 0, 1, act_serial * 10 + 8)
 
 
-## Every peer: both palms thrust out — the air before them torn, dust thrown
-## along the ground, the view knocked.
+## Every peer: both palms thrust out — the air before them torn, a wave of
+## dust and stones running out along the ground before it, the view knocked.
 @rpc("authority", "call_local", "reliable")
 func net_clap(at: Vector3, way: Vector3) -> void:
 	var world := Blood.world_of(self)
 	if world == null:
 		return
-	var up := at + Vector3.UP * 1.6 * visual_scale / 1.6
+	var s := visual_scale / 1.6
+	var up := at + Vector3.UP * 1.6 * s
 	SkillFx.particles(world, up, {
-		"amount": 40, "life": 0.7, "one_shot": true, "explosiveness": 1.0, "add": false,
-		"speed": Vector2(8.0, 16.0), "dir": way, "spread": 30.0, "gravity": Vector3.ZERO,
-		"damping": 9.0, "size": Vector2(0.3, 0.7), "grow": 1.6, "sphere": 0.4,
-		"colors": [Color(0.9, 0.88, 0.82, 0.0), Color(0.9, 0.88, 0.82, 0.35), Color(0.9, 0.88, 0.82, 0.0)],
+		"amount": 60, "life": 0.8, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(10.0, 20.0), "dir": way, "spread": 28.0, "gravity": Vector3.ZERO,
+		"damping": 10.0, "size": Vector2(0.4, 0.9), "grow": 1.8, "sphere": 0.5,
+		"colors": [Color(0.92, 0.9, 0.85, 0.0), Color(0.92, 0.9, 0.85, 0.45), Color(0.92, 0.9, 0.85, 0.0)],
 	})
-	for k in 3:
-		GroundFx.weapon_dust(world, at + way * (1.2 + 1.6 * k), 1.4 - 0.3 * k)
-	WindBlast.shake(self, 0.22, 0.45, 20.0)
-	Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 1.2, 4.0)
-	Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.9, 0.0)
+	# the wave out along the ground, a step at a time
+	for k in 6:
+		var d := (1.4 + 1.2 * float(k)) * s
+		var spot := at + way * d
+		get_tree().create_timer(0.06 * float(k)).timeout.connect(func() -> void:
+			if not is_instance_valid(world):
+				return
+			GroundFx.weapon_dust(world, spot, 1.5 - 0.15 * float(k))
+			SkillFx.burst(world, spot + Vector3.UP * 0.1, Color(0.46, 0.4, 0.32, 0.6), 10, Vector2(1.5, 4.0),
+					(way + Vector3.UP).normalized(), 50.0, Vector2(0.1, 0.22), Vector3(0, -2.0, 0), 0.8))
+	TrollRock.scatter(world, at + way * 1.6 * s, 7, Vector2(0.8, 1.5), Vector2(4.0, 8.0), Vector2(1.5, 3.5), way * 1.5,
+			act_serial)
+	WindBlast.shake(self, 0.3, 0.5, 24.0)
+	Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 1.1, 6.0)
+	Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.85, 2.0)
+	Sfx.play(self, SOUNDS + "whoosh_heavy.wav", self, Vector3.UP * 1.6 * s, 0.6, 4.0)
+#endregion
+
+
+#region The held moves (the tree thrown, the clap): leant back, held, over
+## Act time (s) of a held move's top (0), the end of its hold (1), its
+## release (2).
+func _held_time(what: int, which: int) -> float:
+	var h: Array = HOLD_AT[what]
+	var m: Array = _moves_table[what]
+	var length := _anim.clip_length(m[0]) if _anim != null else 3.0
+	var rate := maxf(float(m[1]), 0.01)
+	var top := (float(h[0]) - float(m[2])) * length / rate
+	if which == 0:
+		return top
+	if which == 1:
+		return top + float(h[1])
+	return (float(h[2]) - float(m[2])) * length / rate + float(h[1])
+
+
+## Every peer: how a held move leans it — back into the wind-up, trembling
+## while it is held, then over hard after the release.
+func _held_lean() -> Vector2:
+	var top := _held_time(act, 0)
+	var held := _held_time(act, 1)
+	var rel := _held_time(act, 2)
+	var back := -13.0 if act == W_THROW else -7.0
+	var t := _seen_clock
+	if t < top:
+		return Vector2(back * clampf(t / maxf(top, 0.1), 0.0, 1.0), 0.0)
+	if t < held:
+		var shake := sin(t * 47.0) * 1.2
+		return Vector2(back + shake, shake * 0.6)
+	if t < rel + 0.5:
+		return Vector2(10.0 if act == W_THROW else 9.0, 0.0)
+	return Vector2.ZERO
+
+
+var _held_fx_in: float = 0.0
+var _held_serial: int = -1
+var _held_flags: int = 0
+
+
+## Every peer: what is seen of a held move: the wind-up gathering (earth off
+## its tree's roots, dust drawn in at its feet, the air drawn to its palms),
+## the creak and grunt at the top, the rush of the release.
+func _show_held_move(delta: float) -> void:
+	if is_dead or not HOLD_AT.has(act):
+		return
+	if _held_serial != act_serial:
+		_held_serial = act_serial
+		_held_flags = 0
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var s := visual_scale / 1.6
+	var top := _held_time(act, 0)
+	var rel := _held_time(act, 2)
+	if _seen_clock >= top - 0.1 and _held_flags & 1 == 0:
+		_held_flags |= 1
+		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.75, 2.0)
+		Sfx.play_any(self, [SOUNDS + "grunt_2.wav", SOUNDS + "grunt_3.wav"], self, 0.7, 0.0)
+	if _seen_clock >= rel - 0.05 and _held_flags & 2 == 0:
+		_held_flags |= 2
+		Sfx.play(self, SOUNDS + "whoosh_heavy.wav", self, Vector3.UP * 2.0 * s, 0.55, 6.0)
+		WindBlast.shake(self, 0.12, 0.3, 18.0)
+		GroundFx.weapon_dust(world, global_position + _forward() * 1.2 * s, 1.3)
+	if _seen_clock > rel:
+		return
+	_held_fx_in -= delta
+	if _held_fx_in > 0.0:
+		return
+	_held_fx_in = 0.07
+	var gather := clampf(_seen_clock / maxf(top, 0.1), 0.2, 1.0)
+	# dust drawn in round its feet
+	var a := randf() * TAU
+	var ring := global_position + Vector3(cos(a), 0.05, sin(a)) * randf_range(1.6, 2.6) * s
+	SkillFx.burst(world, ring, Color(0.46, 0.4, 0.32, 0.45), 3, Vector2(1.0, 2.2) * gather,
+			(global_position - ring).normalized() + Vector3.UP * 0.2, 20.0, Vector2(0.12, 0.25), Vector3.ZERO, 0.6)
+	if act == W_THROW and _tree != null and is_instance_valid(_tree):
+		# earth shaken off its roots as it is swung up
+		var roots := _tree_head()
+		SkillFx.burst(world, roots, Color(0.35, 0.27, 0.18, 1.0), 3, Vector2(0.3, 1.2), Vector3.DOWN, 60.0,
+				Vector2(0.05, 0.1), Vector3(0, -10.0, 0), 0.9)
+		if randf() < 0.35:
+			SkillFx.burst(world, roots, Color(0.42, 0.5, 0.25, 1.0), 2, Vector2(0.3, 1.0), Vector3.DOWN, 80.0,
+					Vector2(0.06, 0.1), Vector3(0, -2.0, 0), 1.4)
+	elif act == P_CLAP:
+		# the air drawn to its palms
+		var hands := _held_at(TrollRock.Kind.BIG)
+		var b := randf() * TAU
+		var from := hands + Vector3(cos(b), randf_range(-0.4, 0.6), sin(b)) * 1.8 * s
+		SkillFx.burst(world, from, Color(0.95, 0.93, 0.88, 0.35), 2, Vector2(2.0, 3.5) * gather,
+				(hands - from).normalized(), 8.0, Vector2(0.15, 0.3), Vector3.ZERO, 0.45)
 #endregion
 
 
@@ -2031,6 +2155,18 @@ func _call_rain() -> void:
 
 @rpc("authority", "call_local", "reliable")
 func net_drop(at: Vector3, id: int) -> void:
+	# its warning: grit and pebbles trickling down out of the sky onto the
+	# spot, dust stirring there, as it comes
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.particles(world, at + Vector3.UP * 7.0, {
+			"amount": 14, "life": 1.3, "one_shot": true, "explosiveness": 0.3, "add": false,
+			"speed": Vector2(0.5, 2.0), "dir": Vector3.DOWN, "spread": 12.0, "gravity": Vector3(0, -9, 0),
+			"damping": 0.1, "size": Vector2(0.04, 0.09), "sphere": 0.6,
+			"colors": [Color(0.4, 0.37, 0.33, 1.0), Color(0.38, 0.35, 0.31, 1.0), Color(0.36, 0.33, 0.3, 0.0)],
+		})
+		SkillFx.burst(world, at + Vector3.UP * 0.1, Color(0.46, 0.4, 0.32, 0.45), 8, Vector2(0.3, 1.0), Vector3.UP, 80.0,
+				Vector2(0.15, 0.3), Vector3(0, 0.3, 0), 1.2)
 	TrollRock.throw(Blood.world_of(self), at + Vector3.UP * 24.0, Vector3(0.0, -4.0, 0.0), TrollRock.Kind.BIG,
 			hit_damage * 1.2, self, _decides(), id)
 #endregion
@@ -2048,42 +2184,46 @@ func _skin_break() -> void:
 @rpc("authority", "call_local", "reliable")
 func net_skin(state: int) -> void:
 	var into := Blood.world_of(self)
-	var mid := global_position + Vector3.UP * 1.6 * visual_scale / 1.6
+	var s := visual_scale / 1.6
+	var mid := global_position + Vector3.UP * 1.6 * s
 	if state == 1:
+		# the stone climbs it from its feet, dust off the line it climbs
 		stoned = 1
-		var tw := create_tween()
-		tw.tween_method(_apply_stone, 0.1, 0.93, 0.9)
-		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.7, 0.0)
+		_stone_to(1.05, 1.3)
+		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.65, 2.0)
+		Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.6, -2.0)
 		if into != null:
-			SkillFx.burst(into, mid, Color(0.55, 0.53, 0.5, 0.7), 24, Vector2(0.5, 2.0), Vector3.UP, 90.0,
-					Vector2(0.1, 0.22), Vector3(0, -1.0, 0), 1.2)
+			GroundFx.weapon_dust(into, global_position, 1.4)
+			TrollRock.scatter(into, global_position, 5, Vector2(0.6, 1.1), Vector2(1.0, 2.5), Vector2(2.0, 4.0),
+					Vector3.ZERO, act_serial, 1.2 * s)
 	elif state == 2:
-		# broken open: the stone off it in pieces
+		# broken open: the stone burst off it in pieces
 		stoned = 0
-		_apply_stone(0.0)
-		if into != null:
-			HitFx.spawn(into, &"stone", mid, Vector3.UP, 1.8)
-			SkillFx.burst(into, mid, Color(0.5, 0.48, 0.45, 1.0), 40, Vector2(3.0, 7.0), Vector3.UP, 120.0,
-					Vector2(0.05, 0.14), Vector3(0, -14.0, 0), 1.0)
-			SkillFx.burst(into, mid, Color(0.55, 0.53, 0.5, 0.6), 20, Vector2(1.0, 3.0), Vector3.UP, 120.0,
-					Vector2(0.2, 0.4), Vector3(0, -1.0, 0), 1.2)
-		Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 1.1, 4.0)
-		WindBlast.shake(self, 0.12, 0.3, 16.0)
+		_stone_burst(1.0)
+		Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 1.0, 6.0)
+		Sfx.play_any(self, [SOUNDS + "grunt_1.wav"], self, 0.75, 0.0)
+		WindBlast.shake(self, 0.18, 0.35, 18.0)
 	elif state == 3:
-		# the sun: gone to stone where it stands
+		# the sun: the last of it gone to stone where it stands
 		stoned = 3
-		_apply_stone(0.92)
-		Sfx.play_any(self, [SOUNDS + "grunt_3.wav", SOUNDS + "roar_short.wav"], self, 0.65, 0.0)
+		_stone_to(1.05, 0.35)
+		Sfx.play_any(self, [SOUNDS + "grunt_3.wav", SOUNDS + "roar_short.wav"], self, 0.6, 0.0)
 		if into != null:
-			SkillFx.burst(into, mid, Color(0.55, 0.53, 0.5, 0.7), 30, Vector2(0.5, 2.0), Vector3.UP, 120.0,
+			SkillFx.burst(into, mid, Color(0.6, 0.58, 0.54, 0.6), 30, Vector2(0.5, 2.0), Vector3.UP, 120.0,
 					Vector2(0.12, 0.25), Vector3(0, 0.5, 0), 1.6)
 	else:
-		if stoned == 3 and into != null:
-			# the stone cracked off it as it comes back to itself
-			SkillFx.burst(into, mid, Color(0.5, 0.48, 0.45, 1.0), 24, Vector2(2.0, 5.0), Vector3.UP, 120.0,
-					Vector2(0.05, 0.12), Vector3(0, -14.0, 0), 0.9)
+		if stoned == 3:
+			# back to itself out of the sun's stone: cracked off it
+			_stone_burst(0.7)
+			Sfx.play_any(self, [SOUNDS + "club_ground_3.wav"], self, 1.1, 2.0)
+		elif stoned == 1:
+			# held out: the shell let fall off it, top down, in pieces
+			_stone_to(0.0, 1.0)
+			_stone_crumble = 1.0
+			Sfx.play_any(self, [SOUNDS + "club_ground_1.wav"], self, 1.2, -2.0)
+		else:
+			_stone_to(0.0, 0.3)
 		stoned = 0
-		_apply_stone(0.0)
 
 
 @rpc("authority", "call_local", "reliable")
@@ -2096,23 +2236,92 @@ func net_skin_healed() -> void:
 	Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.8, 0.0)
 
 
-## Every peer: the stone over its body, so far (0: none).
+## Every peer: the stone over its body: up to this share of its height (0:
+## none), climbing to `_stone_want`; [method _show_stone] lays it each frame.
+var _stone_a: float = 0.0
+var _stone_want: float = 0.0
+var _stone_rate: float = 1.0
+var _stone_dust_in: float = 0.0
+var _stone_crumble: float = 0.0
+var _stone_opacity: float = 1.0
+
+
+func _stone_to(share: float, seconds: float) -> void:
+	_stone_want = share
+	_stone_rate = absf(share - _stone_a) / maxf(seconds, 0.05)
+	_stone_opacity = 1.0
+
+
+## Every peer: the stone burst off it, pieces flung out from all up its body.
+func _stone_burst(power: float) -> void:
+	var into := Blood.world_of(self)
+	var s := visual_scale / 1.6
+	if into != null and into is Node3D:
+		for h in [0.6, 1.5, 2.4]:
+			var at: Vector3 = global_position + Vector3.UP * float(h) * s
+			TrollRock.scatter(into as Node3D, at, int(5 * power) + 1, Vector2(0.8, 1.6), Vector2(3.0, 6.5) * power,
+					Vector2(1.5, 4.5), Vector3.ZERO, act_serial + int(h * 10.0), 0.4 * s)
+		HitFx.spawn(into, &"stone", global_position + Vector3.UP * 1.6 * s, Vector3.UP, 1.8)
+		SkillFx.burst(into, global_position + Vector3.UP * 1.6 * s, Color(0.5, 0.48, 0.45, 1.0), 40,
+				Vector2(3.0, 7.0), Vector3.UP, 120.0, Vector2(0.05, 0.14), Vector3(0, -14.0, 0), 1.0)
+		SkillFx.burst(into, global_position + Vector3.UP * 1.4 * s, Color(0.6, 0.58, 0.54, 0.6), 20,
+				Vector2(1.0, 3.0), Vector3.UP, 120.0, Vector2(0.25, 0.45), Vector3(0, -1.0, 0), 1.2)
+	_stone_a = 0.0
+	_stone_want = 0.0
+	_apply_stone(0.0)
+
+
+## Every peer: the stone's line up its body eased to where it is going, laid
+## on; dust off the line while it climbs, pieces off it while it falls away.
+func _show_stone(delta: float) -> void:
+	if _stone_a == _stone_want and _stone_a <= 0.0:
+		return
+	var was := _stone_a
+	_stone_a = move_toward(_stone_a, _stone_want, _stone_rate * delta)
+	_apply_stone(_stone_a)
+	var into := Blood.world_of(self)
+	if into == null or _stone_a == was:
+		return
+	_stone_dust_in -= delta
+	if _stone_dust_in > 0.0:
+		return
+	_stone_dust_in = 0.07
+	var s := visual_scale / 1.6
+	var a := randf() * TAU
+	var at := global_position + Vector3(cos(a) * 0.5 * s, _stone_a * STONE_TALL * s, sin(a) * 0.5 * s)
+	if _stone_a > was:
+		SkillFx.burst(into, at, Color(0.7, 0.67, 0.6, 0.6), 5, Vector2(0.4, 1.4), Vector3(cos(a), 0.3, sin(a)), 40.0,
+				Vector2(0.1, 0.2), Vector3(0, -1.5, 0), 0.8)
+	elif _stone_crumble > 0.0 and into is Node3D:
+		TrollRock.scatter(into as Node3D, at, 1, Vector2(0.6, 1.1), Vector2(0.5, 1.5), Vector2(0.0, 1.0), Vector3.ZERO,
+				int(Time.get_ticks_msec()) % 9973, 0.3 * s, 1.5)
+		SkillFx.burst(into, at, Color(0.6, 0.58, 0.54, 0.6), 4, Vector2(0.2, 0.8), Vector3.DOWN, 60.0,
+				Vector2(0.1, 0.2), Vector3(0, -4.0, 0), 0.8)
+		if _stone_a <= 0.0:
+			_stone_crumble = 0.0
+
+
+const STONE_TALL := 3.6
+
+
 func _apply_stone(a: float) -> void:
 	if body == null:
 		return
 	if _stone_mat == null:
+		_stone_shader = ShaderMaterial.new()
+		_stone_shader.shader = load("res://scripts/troll_stone.gdshader")
 		_stone_mat = StandardMaterial3D.new()
-		_stone_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_stone_mat.roughness = 1.0
-		_stone_mat.albedo_color = Color(0.4, 0.39, 0.37, 0.0)
+	var on := a > 0.005
 	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
-		if a <= 0.01:
-			if mi.material_overlay == _stone_mat:
+		if not on:
+			if mi.material_overlay == _stone_shader:
 				mi.material_overlay = _glow if raging and _glow != null else null
-		else:
-			mi.material_overlay = _stone_mat
-	_stone_mat.albedo_color.a = a
-	if a <= 0.01:
+		elif mi.material_overlay != _stone_shader:
+			mi.material_overlay = _stone_shader
+	if on:
+		_stone_shader.set_shader_parameter("top", global_position.y + a * STONE_TALL * visual_scale / 1.6)
+		_stone_shader.set_shader_parameter("opacity", _stone_opacity)
+	else:
 		_heal_shown = false
 
 
@@ -2157,7 +2366,8 @@ func net_sun_state(i: int, on: bool) -> void:
 func net_sun_level(level: int) -> void:
 	if stoned != 0:
 		return
-	_apply_stone(0.22 * float(level))
+	# the stone up its legs, then its body, as it stands in the light
+	_stone_to(0.3 * float(level), 0.4)
 
 
 ## Every peer: stood in the sun its skin smokes.

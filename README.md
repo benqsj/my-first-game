@@ -2218,6 +2218,27 @@ before is gone; `assets/creatures/troll_club.glb` stays unused.)
     (gold columns fading near the view, motes, a warm pool; no ring). Stood in
     one it smokes and greys; 1.6 s in it, it goes down in stone (kneels, open)
     and the shaft fades for 20 s. It does not shun them: lure it in.
+* **Round 7, second pass** (the user: none of it pleased, the leap least of
+  all; the tree thrown wanted a real throw — lean back, the arm held, then
+  over; everything lacked animation and effects):
+  * The body splash taken out of its choices (its code left, unused).
+  * Held wind-ups (`HOLD_AT`): the tree thrown is now Mixamo's one-handed
+    throw (the pick off the ground cut away): the tree drawn back over its
+    shoulder, leant back 13 deg and held 0.75 s trembling (earth and leaves
+    shaken off the roots, dust drawn in at its feet, a creak and a grunt),
+    then over (a rush, the lean thrown forward). In flight earth and leaves
+    shed off the roots, a shudder; where it lands a rock wave, a crack, stones
+    thrown, splinters. The clap the same: crouched, the air drawn to its
+    palms, held 0.5 s, then a wave of dust and stones running out along the
+    ground before it.
+  * Stone (`scripts/troll_stone.gdshader`, laid over its body): the stone
+    climbs it from its feet (faceted greys, wandering cracks, a pale line of
+    dust where it is taking it); the skin's stone falls off it top down in
+    pieces when held out, bursts off it when broken; in the sun it climbs its
+    legs, then all of it. `TrollRock.scatter` throws the pieces (falling to
+    the ground, lying, sinking).
+  * The rain: its roar shakes stones hopping about its feet; each stone's
+    spot warned by grit trickling down out of the sky onto it.
 * **Colours**: `troll_rocks.py` had made its vertex colours linear and
   `lp_solid` makes them linear again: near black. Written as the palette now.
 * **Weight and openings** (2026-10-25, round 5): after a move's last blow

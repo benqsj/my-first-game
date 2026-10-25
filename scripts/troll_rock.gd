@@ -407,6 +407,32 @@ func _hit_heroes(from: Vector3, to: Vector3) -> bool:
 	return false
 
 
+## Every peer, the tree in flight: earth and leaves shaken off its roots
+## behind it, splinters off its snapped end, a rush of dust after it.
+func _tree_trail(into: Node) -> void:
+	var back := -_vel.normalized() if _vel.length_squared() > 0.0001 else Vector3.UP
+	var roots := global_position + back * 1.3 * _size
+	SkillFx.particles(into, roots, {
+		"amount": 6, "life": 1.1, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(0.5, 2.0), "dir": back, "spread": 70.0, "gravity": Vector3(0, -9, 0),
+		"damping": 0.5, "size": Vector2(0.05, 0.11), "sphere": 0.35,
+		"colors": [Color(0.36, 0.27, 0.18, 1.0), Color(0.33, 0.25, 0.17, 1.0), Color(0.3, 0.23, 0.16, 0.0)],
+	})
+	if _rng.randf() < 0.6:
+		SkillFx.particles(into, roots, {
+			"amount": 3, "life": 1.6, "one_shot": true, "explosiveness": 1.0, "add": false,
+			"speed": Vector2(0.3, 1.2), "dir": back, "spread": 90.0, "gravity": Vector3(0, -2.5, 0),
+			"damping": 1.5, "size": Vector2(0.06, 0.1), "sphere": 0.4,
+			"colors": [Color(0.42, 0.5, 0.25, 1.0), Color(0.38, 0.45, 0.22, 1.0), Color(0.35, 0.4, 0.2, 0.0)],
+		})
+	SkillFx.particles(into, global_position, {
+		"amount": 3, "life": 0.8, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(0.2, 0.7), "dir": back, "spread": 60.0, "gravity": Vector3(0, 0.3, 0),
+		"damping": 1.5, "size": Vector2(0.3, 0.6), "grow": 1.0, "sphere": 0.5,
+		"colors": [Color(EARTH, 0.0), Color(EARTH, 0.3), Color(EARTH, 0.0)],
+	})
+
+
 ## The tree along its flight, the snapped end first (its root end, +Y in
 ## the model, behind).
 func _aim_tree() -> void:
@@ -418,7 +444,9 @@ func _aim_tree() -> void:
 		x = Vector3.RIGHT
 	x = x.normalized()
 	var z := x.cross(y).normalized()
-	_model.global_basis = Basis(x, y, z).scaled(Vector3.ONE * _size)
+	# a heavy shaft's shudder as it goes
+	var wob := sin(_age * 22.0) * 0.06
+	_model.global_basis = (Basis(x, y, z) * Basis(Vector3.RIGHT, wob)).scaled(Vector3.ONE * _size)
 
 
 ## Every peer: the tree down, driven into the ground where it came, standing
@@ -437,9 +465,23 @@ func _stick(at: Vector3) -> void:
 		for deg in [-28.0, 0.0, 28.0]:
 			GroundCrack.show(self, at, way.rotated(Vector3.UP, deg_to_rad(deg)), 4.5, 12.0)
 		_scar(at, 1.4)
+		RockWave.spawn(into, at + way * 0.8, 2.6, 0.7, 16.0, serial * 13 + 3)
+		var crack := DarkFx.decal(into, at, DarkFx.CRACK, 4.2, Color(0.09, 0.07, 0.05, 1.0), 0.0, 0.92)
+		crack.rotation.y = _rng.randf() * TAU
+		var ctw := crack.create_tween()
+		ctw.tween_interval(4.0)
+		ctw.tween_property(crack, "modulate:a", 0.0, 2.5).set_ease(Tween.EASE_IN)
+		ctw.tween_callback(crack.queue_free)
+		SkillFx.burst(into, at + Vector3.UP * 0.2, Color(0.45, 0.39, 0.31, 0.65), 50, Vector2(2.0, 6.0), Vector3.UP, 80.0,
+				Vector2(0.12, 0.3), Vector3(0, -1.5, 0), 1.5)
+		if into is Node3D:
+			scatter(into as Node3D, at, 9, Vector2(1.2, 2.4), Vector2(2.5, 6.0), Vector2(3.5, 7.0), way * 0.6, serial)
+		# splinters off it, earth off its roots
+		SkillFx.burst(into, global_position, Color(0.6, 0.47, 0.32, 1.0), 24, Vector2(2.0, 6.0), Vector3.UP, 100.0,
+				Vector2(0.04, 0.1), Vector3(0, -12.0, 0), 1.0)
 	ImpactFx.thud(self, at, true)
-	WindBlast.shake(self, 0.18, 0.45, 22.0)
-	Sfx.play_any(self, ["res://sounds/ogre/club_ground_2.wav", "res://sounds/ogre/club_ground_4.wav"], self, 0.6, 3.0)
+	WindBlast.shake(self, 0.3, 0.6, 28.0)
+	Sfx.play_any(self, ["res://sounds/ogre/club_ground_2.wav", "res://sounds/ogre/club_ground_4.wav"], self, 0.55, 6.0)
 	if hurts:
 		for node in get_tree().get_nodes_in_group(&"player"):
 			var hero := node as Node3D
@@ -462,6 +504,9 @@ func _trail(delta: float) -> void:
 	_trail_in = 0.05 if kind != Kind.SMALL else 0.09
 	var into := Blood.world_of(self)
 	if into == null:
+		return
+	if kind == Kind.TREE:
+		_tree_trail(into)
 		return
 	var at := global_position + (Vector3.DOWN * _radius() * 0.8 if _rolling else Vector3.ZERO)
 	var big := kind != Kind.SMALL
@@ -527,27 +572,39 @@ func _shatter(at: Vector3, normal: Vector3) -> void:
 
 ## Every peer: its pieces flung out, a bounce, then sunk into the ground.
 func _pieces(into: Node, at: Vector3, count: int) -> void:
+	var small := kind == Kind.SMALL
+	scatter(into as Node3D if into is Node3D else self, at, count,
+			Vector2(1.2, 2.2) * (0.6 if small else 1.0), Vector2(2.5, 5.5), Vector2(3.0, 6.5), Vector3.ZERO, serial)
+
+
+## Every peer: stone pieces thrown out from `at` (sizes `size`, out at
+## `speed`, up at `up`, leant along `bias`, from within `spread` of it), each
+## falling to the ground under it, a bounce, a while lying there, then down
+## into the ground and gone (the user's word, 2026-10-25: they hung in the
+## air; then, left lying, they stayed for good).
+static func scatter(into: Node3D, at: Vector3, count: int, size: Vector2, speed: Vector2, up: Vector2,
+		bias: Vector3 = Vector3.ZERO, seed: int = 0, spread: float = 0.0, lie: float = 2.0) -> void:
+	if into == null or not into.is_inside_tree():
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed * 7919 + count
 	var ground_y := at.y - 1.5
-	if is_inside_tree():
-		var down := get_world_3d().direct_space_state.intersect_ray(
-				PhysicsRayQueryParameters3D.create(at + Vector3.UP * 0.5, at + Vector3.DOWN * 8.0, 1))
-		if not down.is_empty():
-			ground_y = (down["position"] as Vector3).y
+	var down := into.get_world_3d().direct_space_state.intersect_ray(
+			PhysicsRayQueryParameters3D.create(at + Vector3.UP * 0.5, at + Vector3.DOWN * 8.0, 1))
+	if not down.is_empty():
+		ground_y = (down["position"] as Vector3).y
 	for i in count:
 		var p := MeshInstance3D.new()
 		p.mesh = mesh("Chunk_%d" % (i % 6))
 		p.material_override = material()
-		var s := _rng.randf_range(1.2, 2.2) * (1.0 if kind != Kind.SMALL else 0.6)
+		var s := rng.randf_range(size.x, size.y)
 		p.scale = Vector3.ONE * s
 		into.add_child(p)
-		p.global_position = at + Vector3.UP * 0.3
-		var a := _rng.randf() * TAU
+		var a := rng.randf() * TAU
 		var out := Vector3(cos(a), 0.0, sin(a))
-		var v := out * _rng.randf_range(2.5, 5.5) + Vector3.UP * _rng.randf_range(3.0, 6.5)
-		var spin := Vector3(_rng.randf_range(-9, 9), _rng.randf_range(-9, 9), _rng.randf_range(-9, 9))
-		# (the ground under where it burst, not the burst's own height: it burst
-		# on him at his chest, or at a ball's middle, and the pieces lay there
-		# in the air; the user's word, 2026-10-25)
+		p.global_position = at + Vector3.UP * 0.3 + out * rng.randf_range(0.0, spread)
+		var v := (out + bias).normalized() * rng.randf_range(speed.x, speed.y) + Vector3.UP * rng.randf_range(up.x, up.y)
+		var spin := Vector3(rng.randf_range(-9, 9), rng.randf_range(-9, 9), rng.randf_range(-9, 9))
 		var floor_y := ground_y
 		var state := {"v": v, "t": 0.0, "bounced": false}
 		var fly := func(dt: float) -> void:
@@ -571,7 +628,7 @@ func _pieces(into: Node, at: Vector3, count: int) -> void:
 			var last: float = state["t"]
 			state["t"] = k
 			fly.call(k - last), 0.0, 1.6, 1.6)
-		tw.tween_interval(2.0)
+		tw.tween_interval(lie)
 		# then down into the ground from where it lies (not from where it was
 		# thrown: that lifted it back up into the air) and gone
 		tw.tween_callback(func() -> void:
