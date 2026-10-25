@@ -1,73 +1,72 @@
 class_name TrollFighter
 extends PackBrute
 
-## The troll (Polysplit's Biped Creatures, CREATURES_PACK.md): big and hard to
-## keep down (the user's picks, 2026-10-07).
+## The troll (Polysplit's Biped Creatures, CREATURES_PACK.md): a giant that
+## fights with its own body and the ground it stands on (the user's pick,
+## 2026-10-25: the other bosses all carry weapons — the ogre a club, the golem
+## a maul, the orc an axe, the butcher a cleaver — so the troll none, until it
+## tears a tree out of the ground at half its health, and the tree breaks
+## under his blows).
 ##
-## **A great club, every blow heavy** (the user's word, 2026-10-25: it was so
-## quick it could not be fought; heavy blows and Elden Ring's way, the club
-## seen coming back after each blow, its balance lost, and its body breaking
-## little by little until the last blow breaks it). What was a feral pouncer
-## on all fours (2026-10-15) now carries a gnarled oak club in both hands
-## (`vepxis-art/creatures/troll_club.py`, laid along its grip as the golem's
-## maul is) and fights the way its weight lets it:
+## **Its first look, bare-handed** (fists closed, [HandFist]):
+## * a left jab, a great hook, knees and an uppercut (four blows), a headbutt
+##   with a hand on him, a stomp that splits the ground in three lines out in
+##   front (no rings), an uppercut chased in from a few steps off;
+## * **the grab** (`P_GRAB`): it reaches for him; caught, he is lifted, held up,
+##   and slammed into the ground. A roll slips the reach; in co-op the other
+##   hero's blows make it let go ([method _receive]);
+## * **the tackle** (its leap, [PackBrute]): from off, head down at him;
+##   missed, it stumbles;
+## * **rocks** ([TrollRock]): a boulder torn out of the ground and thrown over
+##   its head; one bowled along the ground at him; three stones one after
+##   another. Each is seen in its hands before it goes;
+## * at him lying, now and then, it flexes over him.
 ##
-## * **Slow up, fast down**: every swing's wind-up drawn out to at least its
-##   `_slow_to` (no glow: it is wood), and the club brought down quicker from
-##   the top (`_snap`); now and then held at the top (`_holds`, the delayed
-##   swing). It stops following him a beat before the blow (ClipFighter's
-##   lock), and in a move it turns no quicker than `act_turn_most`.
-## * **The club comes back**: each move plays out to the end of its clip, the
-##   club carried back up to its shoulder before anything else (`hand_tail`
-##   long, `attack_cooldown` long): that is the opening.
-## * **Off balance when it misses**: its great swings (`MISS_REELS`) that find
-##   nothing carry it round after the club, and it stands staggered a moment.
-## * **Its balance, little by little** (Elden Ring's stance): blows fill it;
-##   at `TOTTER_AT` it rocks back a step, at `STAGGER_AT` it is knocked off
-##   its stance and reels, and full it goes down on a knee, open to a critical.
-## * **Its body breaking**: at every `WOUND_AT` of its health a wound opens
-##   where it was struck (seen by all), it gets slower, and its balance breaks
-##   sooner; the last blow fells it, the club dropping out of its hands.
-## * **Its own swings** (2026-10-25, the user's word: not the ogre's): a
-##   batter's swings, a scoop up from between its legs, a butt-end jab, a
-##   swing and three knees; strung two, three and four together, each move's
-##   end running into the next's start ([method _set_moves]). It walks the
-##   brute's walk, the club on its shoulder, and roars as a brute does.
-## * **The leap**: from off it springs at him and brings the club down; the
-##   ground splits along a line (no rings) where it lands, as for its chop.
-## * **Its wounds close** a little while nothing burns or freezes it.
+## **Its second look** (at `uproot_at` of its health, once more at
+## `uproot_again_at` if the first broke): it tears a tree out of the ground,
+## roots and earth and all, and fights with it in both hands: Mixamo's great
+## swing and two-handed string, the club string (the one string kept from
+## before), the scoop up and the chop down. **The tree breaks**: every blow of
+## his on the troll splits it further (two crack stages, splinters flying);
+## broken, it bursts in its hands and the troll goes down on its knee, open.
+##
+## What it keeps from before (2026-10-25, the first passes): slow up and fast
+## down (`_slow_to`, `_snap`), delayed swings (`_holds`), a reel after a great
+## miss, its balance rocking, staggering and breaking (Elden Ring's stance),
+## its body wounded where struck and slower for it, its wounds closing while
+## nothing burns or freezes it.
 
-@export_group("Boulder")
-## Off since it holds the club (2026-10-25); the old throw kept for a kind
-## that wants it.
-@export var hurl_on: bool = false
-@export var pick_clip: StringName = &"CR_Harvest"
-@export var pick_part: Vector3 = Vector3(1.5, 0.12, 0.5)
-@export var hurl_clip: StringName = &"CR_Throw"
-@export var hurl_part: Vector3 = Vector3(1.1, 0.0, 0.85)
-@export var hurl_from: float = 6.0
-@export var hurl_to: float = 20.0
-@export var hurl_cooldown: Vector2 = Vector2(6.0, 10.0)
-@export var boulder_share: float = 1.1
+@export_group("Rocks")
+@export var rock_from: float = 6.0
+@export var rock_to: float = 22.0
+@export var rock_cooldown: Vector2 = Vector2(7.0, 11.0)
+## Of `hit_damage`: the boulder thrown, the one bowled, each stone.
+@export var rock_share: Vector3 = Vector3(1.4, 1.1, 0.45)
+
+@export_group("Grab")
+@export var grab_reach: float = 3.0
+@export var grab_cooldown: Vector2 = Vector2(10.0, 15.0)
+## Of `hit_damage`: the slam.
+@export var slam_share: float = 1.9
+## Of its health: what the other hero must deal it to make it let go.
+@export var grab_free: float = 0.035
+
+@export_group("Tree")
+const ROCKS_FILE := "res://assets/creatures/troll_rocks.glb"
+@export_range(0.0, 1.0) var uproot_at: float = 0.55
+@export_range(0.0, 1.0) var uproot_again_at: float = 0.22
+## The tree's size in its hand's frame (a man's; the troll drawn 1.6 times).
+@export var tree_scale: float = 0.85
+## How far out along its grip the root end reaches, and how thick it strikes.
+@export var tree_reach: float = 1.25
+@export var tree_radius: float = 0.42
+## What one of his blows takes off the tree (of 1), a heavy one more.
+@export var tree_wear: Vector2 = Vector2(0.07, 0.12)
 
 @export_group("Regeneration")
-## Share of its health won back a second.
 @export var regen: float = 0.004
 @export var regen_stopped: float = 6.0
 @export var regen_tint: Color = Color(0.45, 1.0, 0.35)
-
-@export_group("Club")
-const CLUB_FILE := "res://assets/creatures/troll_club.glb"
-## The club's size in its hand's frame (the model is ~1.64 m at 1; the hand's
-## frame is a man's, the troll drawn 1.6 times that).
-@export var club_scale: float = 0.75
-## How far out along its grip the club's head is (its blows reach to there).
-@export var club_reach: float = 0.86
-@export var club_radius: float = 0.24
-## Dust where the club's head comes down into the ground: within this of it
-## (m), coming down at least this fast (m/s).
-@export var dust_touch: float = 0.18
-@export var dust_fall: float = 3.0
 
 @export_group("Crack")
 @export var crack_reach: float = 7.5
@@ -76,161 +75,165 @@ const CLUB_FILE := "res://assets/creatures/troll_club.glb"
 @export var crack_share: float = 0.8
 
 @export_group("Body")
-## Its health's shares at which a wound opens and it slows.
 const WOUND_AT := [0.8, 0.6, 0.4, 0.2]
-## Each wound: its pace this much less, its stance this much less.
 @export var wound_slow: float = 0.06
 @export var wound_stance: float = 0.1
-## Its stance's shares at which it rocks back a step, and is staggered.
 const TOTTER_AT := 0.4
 const STAGGER_AT := 0.72
 
-const PICK := 116
-const HURL := 117
-## Its club's moves (2026-10-25; its own, not the ogre's: the user's word,
-## the same day — swings of a man with a heavy bat, a scoop up from between
-## its legs, a butt-end jab, a swing and three knees; Mixamo's, baked as
-## CR_TR_*). The chop (UAL's Heavy1) and the leap stay.
-const T_CHOP := 200
-## the great swing round at him, the batter's homerun (fells; missed, it reels)
-const T_SWING := 203
-## a quicker swing across (the batter's single)
-const T_BAT := 220
-## the batter's double: the second swing of a string
-const T_BAT2 := 221
-## the club swung up from between its legs (it throws him up)
-const T_SCOOP := 222
-## the butt of the club jabbed at him, close
-const T_BUTT := 223
-## a swing across and three knees into him: four blows
-const T_KNEES := 224
+## Bare-handed.
+const P_JAB := 230
+const P_HOOK := 231
+const P_KNEES := 232
+const P_CHASE := 233
+const P_HEADBUTT := 234
+const P_STOMP := 235
+const P_GRAB := 236
+const P_FLEX := 237
+## Rocks: torn out of the ground; thrown over its head, bowled, a stone.
+const R_PICK := 240
+const R_THROW := 241
+const R_BOWL := 242
+const R_STONE := 243
+## With the tree.
+const W_UPROOT := 250
+const W_GREAT := 251
+const W_TWO := 252
+const W_STRING := 253
+const W_SCOOP := 254
+const W_CHOP := 255
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
-## Its swings that carry it round off its balance when they find nothing.
-const MISS_REELS := [T_SWING]
-## Its blows that split the ground where the club comes down (its chop: the
-## one whose club goes into the ground, measured).
-const CRACKS := [T_CHOP]
-## Its club, from its right hand out along the grip (laid right once it has
-## felt both hands on it, [method _lay_club]).
-const CLUB := "R_wrist_joint>R_wrist_joint@0,0.86,0:0.24"
-const KNEES := "L_thigh_joint>L_knee_joint:0.24|R_thigh_joint>R_knee_joint:0.24"
+## Kept for the tests of before: its great swing is the tree's now.
+const T_SWING := W_GREAT
+
+## Its swings that carry it off its balance when they find nothing.
+const MISS_REELS := [W_GREAT, LEAP]
+## Its blows that split the ground where they come down.
+const CRACKS := [W_CHOP]
+const FIST_RR := "R_elbow_joint>R_midFinger_joint3:0.3"
+const FIST_LL := "L_elbow_joint>L_midFinger_joint3:0.3"
+const KNEES := "L_thigh_joint>L_knee_joint:0.26|R_thigh_joint>R_knee_joint:0.26"
+const HEAD := "head_joint>head_joint@0.11,0.13,0:0.34"
+const FOOT := "R_knee_joint>R_ankle_joint:0.25|L_knee_joint>L_ankle_joint:0.25"
+const BODY := "pelvis_joint>head_joint:0.5|L_shoulder_joint>R_shoulder_joint:0.4"
+const TREE := "R_equip_joint>R_equip_joint@1.25,0,0:0.42"
 const SOUNDS := "res://sounds/ogre/"
 
-var _hurl_wait: float = 3.0
-var _hurled: bool = false
-var _hurl_at: float = 0.5
-var _hand: int = -1
-## Every peer: the boulder in its hands, from the pick until it is thrown.
+## Host: its waits.
+var _rock_wait: float = 3.0
+var _grab_wait: float = 4.0
+var _flex_wait: float = 4.0
+var _chase_wait: float = 3.0
+## Host: the rock being thrown: its kind, how many stones are left, whether
+## it has gone.
+var _rock_kind: int = TrollRock.Kind.BIG
+## For the tests: the kind of rock it must throw next (-1: its choice).
+var rock_pick: int = -1
+var _stones_left: int = 0
+var _rock_gone: bool = false
+## Every peer: the rock seen in its hands.
 var _held: MeshInstance3D
-var _held_serial: int = -1
-var _held_clock: float = 0.0
-## Host: seconds its wounds are still kept from closing.
+var _held_kind: int = -1
+## Host: him in its grip, what the others have dealt it since, done.
+var _grabbed: Node3D
+var _grab_tried: bool = false
+var _slammed: bool = false
+var _freed_by: float = 0.0
+## Every peer: whether it holds the tree; the tree, its hold, its state.
+var armed: bool = false
+var uproots: int = 0
+var tree_life: float = 1.0
+var _tree_stage: int = 0
+var _tree_hold: BoneAttachment3D
+var _tree: Node3D
+var _tree_mat: ShaderMaterial
+var _rising: Node3D
+var _hand_fists: Array[HandFist] = []
+var _left_grip: TwoHandGrip
+## Every peer: the move shown and its clock.
+var _seen_serial: int = -1
+var _seen_clock: float = 0.0
+var _whooshed: int = -1
+## Host.
+var _landed_serial: int = -1
+var _cracked_serial: int = -1
+var _stomped_serial: int = -1
+var _cracks: Array[GroundCrack] = []
+var _rocked: int = 0
+var wounds: int = 0
+var _rage_eased: bool = false
+var _stance0: float = 0.0
 var _stopped_for: float = 0.0
-## Replicated (net_regen): its wounds closing now.
 var healing: bool = false
 var _mote_clock: float = 0.0
 var _heal_glow: StandardMaterial3D
 var _heal_shown: bool = false
-## Kept for the old tests: bites that closed its wounds (none now).
-var bites_healed: int = 0
-
-## Every peer: its club, and the grip it is laid along.
-var _club_hold: BoneAttachment3D
-var _club: Node3D
-var _grip_local: Vector3 = Vector3.UP
-var _grip_learnt: bool = false
-var _club_dropped: bool = false
-## Its club's stretch as `attack_limbs` reads one (set by [method _learn_grip]).
-var _club_spec: String = CLUB
-## Every peer: the move it shows and its clock (its sounds and dust).
-var _seen_serial: int = -1
-var _seen_clock: float = 0.0
-var _whooshed: int = -1
-var _tip_last: Vector3 = Vector3.INF
-var _dust_wait: float = 0.0
-## Host: the serial of the move whose blow last reached him; cracks let go.
-var _landed_serial: int = -1
-var _cracked_serial: int = -1
-var _cracks: Array[GroundCrack] = []
-## Host: how far through its stance it has rocked (0 none, 1 tottered, 2
-## staggered); its wounds; its pace and stance at the start.
-var _rocked: int = 0
-var wounds: int = 0
-var _rage_eased: bool = false
-## Every peer: where its wounds are (each bleeds now and then).
 var _wound_marks: Array[Marker3D] = []
 var _drip_in: float = 0.5
-var _stance0: float = 0.0
+var _tree_dropped: bool = false
+var _drop_in: float = -1.0
 ## For the tests and probes.
 var reels: int = 0
 var totters: int = 0
 var staggers: int = 0
 var cracks_made: int = 0
-var ground_dusts: int = 0
+var rocks_thrown: int = 0
+var grabs_made: int = 0
+var grabs_caught: int = 0
+var trees_broken: int = 0
+var bites_healed: int = 0
 
 
 func _ready() -> void:
-	# a heavy thing on two feet with a club in both hands: never on all fours,
-	# no hop aside, slow to come round
-	# at rest it breathes, the club in one hand, and walks the brute's walk
-	# with it on its shoulder (Mixamo's mutant's); in the fight, both hands on it
-	idle_clip = &"CR_TR_MutantIdle"
-	guard_idle_clip = &"CR_HeavyIdle"
-	fidget_clip = &"CR_TR_MutantIdle"
-	walk_clip = &"CR_TR_MutantWalk"
-	back_clip = &"CR_HeavyBack"
-	strafe_l_clip = &"CR_HeavyL"
-	strafe_r_clip = &"CR_HeavyR"
-	run_clip = &"CR_HeavyRun"
+	_bare_clips()
+	var loops := Array(loop_clips)
+	for c in ["CR_HeavyIdle", "CR_HeavyWalk", "CR_HeavyBack", "CR_HeavyL", "CR_HeavyR", "CR_HeavyRun",
+			"CR_TR_MutantIdle", "CR_TR_MutantWalk", "CR_TR_MutantRun", "CR_WalkBack", "CR_StrafeL", "CR_StrafeR"]:
+		if not loops.has(c):
+			loops.append(c)
+	loop_clips = PackedStringArray(loops)
 	hit_clip = &"CR_GS_Impact"
 	block_clip = &"CR_GS_Impact"
 	break_clip = &"CR_GS_Impact"
 	death_clip = &"CR_MG_Death"
-	var loops := Array(loop_clips)
-	for c in ["CR_HeavyIdle", "CR_HeavyWalk", "CR_HeavyBack", "CR_HeavyL", "CR_HeavyR", "CR_HeavyRun",
-			"CR_TR_MutantIdle", "CR_TR_MutantWalk"]:
-		if not loops.has(c):
-			loops.append(c)
-	loop_clips = PackedStringArray(loops)
 	speed = minf(speed, 1.6)
-	chase_speed = 3.3
+	chase_speed = 3.4
 	close_speed = 1.8
-	run_above = 2.6
+	run_above = 2.5
 	dash_chance = 0.0
 	stand_turn_max = 1.6
 	turn_speed = minf(turn_speed, 3.2)
-	act_turn_most = 75.0
+	act_turn_most = 85.0
 	glide_most = 0.9
 	glide_gap = 0.8
 	chain_snap = 0.0
-	max_health = maxf(max_health, 720.0)
-	hit_damage = maxf(hit_damage, 58.0)
-	reach = 3.4
-	strike_off = 2.7
-	attack_cooldown = Vector2(1.5, 2.5)
-	attack_cost = 18.0
+	max_health = maxf(max_health, 760.0)
+	hit_damage = maxf(hit_damage, 52.0)
+	reach = 3.0
+	strike_off = 2.2
+	attack_cooldown = Vector2(1.4, 2.3)
+	attack_cost = 16.0
 	stamina_regen = minf(stamina_regen, 18.0)
-	# its plain blows are the club too: a swing across, and the butt jabbed
-	# when he is close
-	attacks = [&"CR_TR_BatSingle", &"CR_TR_ButtSmash"] as Array[StringName]
-	attack_parts = [Vector3(1.0, 0.15, 0.68), Vector3(1.0, 0.2, 0.62)] as Array[Vector3]
-	attack_limbs = PackedStringArray([CLUB, CLUB])
+	# its plain blows, bare: the jab and the hook
+	attacks = [&"CR_TR_Jab", &"CR_TR_Hook"] as Array[StringName]
+	attack_parts = [Vector3(1.0, 0.0, 0.85), Vector3(1.0, 0.05, 0.8)] as Array[Vector3]
+	attack_limbs = PackedStringArray([FIST_LL, FIST_RR])
 	attack_blows = PackedInt32Array([1, 1])
-	attack_clip = &"CR_TR_BatSingle"
-	# the leap: the club brought down out of a spring at him
-	leap_clip = &"CR_Heavy4"
-	leap_part = Vector3(0.9, 0.0, 0.94)
-	leap_land = 0.32
-	leap_from = 5.0
-	leap_to = 9.5
-	leap_cooldown = 11.0
+	attack_clip = &"CR_TR_Jab"
+	# the tackle: head down at him from off
+	leap_clip = &"CR_TR_Tackle"
+	leap_part = Vector3(1.0, 0.05, 0.62)
+	leap_land = 0.39
+	leap_from = 5.5
+	leap_to = 12.0
+	leap_cooldown = 12.0
 	leap_quake = 0.0
-	leap_limbs = CLUB
-	leap_share = 1.4
-	# its balance (Elden Ring's): light cuts hardly shake it, heavy blows do
-	stance = 520.0
+	leap_limbs = BODY
+	leap_share = 1.3
+	# its balance (Elden Ring's)
+	stance = 540.0
 	stance_light_share = 0.4
 	stance_rest = 9.0
 	stance_down = 3.0
@@ -238,386 +241,285 @@ func _ready() -> void:
 	bite_hold = 0.0
 	shove_share = 0.15
 	flinch_share = 0.55
-	# enraged late, not at once: the brute's roar, harder, a little quicker
 	rage_at = 0.3
 	rage_clip = &"CR_TR_Roar"
 	rage_part = Vector3(1.15, 0.1, 0.62)
 	rage_pace = 1.12
 	rage_harder = 1.3
 	hand_pace = 1.0
-	hand_tail = 0.62
-	hand_combo_chance = Vector2(0.55, 0.7)
+	hand_tail = 0.5
+	hand_combo_chance = Vector2(0.6, 0.75)
 	combo_slack = 0.7
 	repeat_damp = 0.3
 	_stance0 = stance
 	super()
-	# its grip read off its two-handed stance before the moves are measured,
-	# so where each blow lands from is the club's reach, not its fingers'
-	_learn_grip()
 	_set_moves()
-	if _grip_learnt:
-		# its plain blows and the leap out to the club's head too, measured again
-		_reach_club()
-		for i in attacks.size():
-			_moment_at_reach(ATTACK_BASE + i)
-	# it closes in until the furthest of its blows would land, not short of it
-	var furthest := 0.0
-	for what: int in _strike_from:
-		furthest = maxf(furthest, float(_strike_from[what]))
-	if furthest > 0.0:
-		reach = furthest + 0.3
-	_special(PICK, pick_clip, pick_part)
-	_special(HURL, hurl_clip, hurl_part)
-	if _skeleton != null:
-		_hand = _skeleton.find_bone("R_wrist_joint")
-	if _anim != null and hurl_on:
-		var m: Array = _moves_table[HURL]
-		var length := _anim.clip_length(m[0])
-		var best := -1.0
-		for p in _anim.measure_peaks(m[0], PackedStringArray(["R_wrist_joint"]), 0.5, 0.08):
-			if p >= float(m[2]) and p <= float(m[3]):
-				best = p
-		if best < 0.0:
-			best = lerpf(float(m[2]), float(m[3]), 0.5)
-		_hurl_at = (best - float(m[2])) * length / maxf(float(m[1]), 0.01)
-	_hurl_wait = _rng.randf_range(2.0, hurl_cooldown.x)
-	_make_club()
+	_near_floor()
+	_set_combos()
+	_make_hands()
+	_rock_wait = _rng.randf_range(2.5, rock_cooldown.x)
+	_grab_wait = _rng.randf_range(4.0, grab_cooldown.x)
 
 
-## Its club's moves and strings. Every clip is a two-handed one (both hands
-## on the haft through all of it, measured: `_shots_tmp/troll_clips.gd`),
-## each played to its end so the club is seen to come back.
+func _bare_clips() -> void:
+	idle_clip = &"CR_TR_MutantIdle"
+	guard_idle_clip = &"CR_TR_MutantIdle"
+	fidget_clip = &"CR_TR_MutantIdle"
+	walk_clip = &"CR_TR_MutantWalk"
+	run_clip = &"CR_TR_MutantRun"
+	back_clip = &"CR_WalkBack"
+	strafe_l_clip = &"CR_StrafeL"
+	strafe_r_clip = &"CR_StrafeR"
+
+
+func _tree_clips() -> void:
+	idle_clip = &"CR_HeavyIdle"
+	guard_idle_clip = &"CR_HeavyIdle"
+	fidget_clip = &"CR_HeavyIdle"
+	walk_clip = &"CR_HeavyWalk"
+	run_clip = &"CR_HeavyRun"
+	back_clip = &"CR_HeavyBack"
+	strafe_l_clip = &"CR_HeavyL"
+	strafe_r_clip = &"CR_HeavyR"
+
+
+## Every move, both looks (every peer has them; the host picks by `armed`).
+## Parts and blow moments measured (`_shots_tmp/troll_clips3.gd`, stills).
 func _set_moves() -> void:
-	# (parts cut to the swing and its follow-through: the batter's set-up and
-	# his bat dropped and the run after it, the knee string's settling, left
-	# out; blow moments measured, `_shots_tmp/troll_clips2.gd`)
-	_hand_move(T_CHOP, &"CR_Heavy1", Vector3(0.9, 0.0, 0.97), 1.35, _club_spec)
-	_hand_move(T_SWING, &"CR_TR_Homerun", Vector3(1.0, 0.12, 0.5), 1.4, _club_spec)
-	_hand_move(T_BAT, &"CR_TR_BatSingle", Vector3(1.0, 0.15, 0.68), 0.9, _club_spec)
-	_hand_move(T_BAT2, &"CR_TR_BatDouble", Vector3(1.0, 0.2, 0.72), 1.0, _club_spec)
-	_hand_move(T_SCOOP, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.45), 1.1, _club_spec)
-	_hand_move(T_BUTT, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.7, _club_spec)
-	_hand_move(T_KNEES, &"CR_TR_KneeJab", Vector3(1.05, 0.12, 0.76), 0.6, _club_spec + "|" + KNEES,
-			[0.22, 0.41, 0.54, 0.67])
+	_hand_move(P_JAB, &"CR_TR_Jab", Vector3(1.0, 0.0, 0.85), 0.55, FIST_LL)
+	_hand_move(P_HOOK, &"CR_TR_Hook", Vector3(1.0, 0.05, 0.8), 1.0, FIST_RR)
+	_hand_move(P_KNEES, &"CR_TR_KneesUppercut", Vector3(1.05, 0.1, 0.8), 0.6,
+			KNEES + "|" + FIST_RR + "|" + FIST_LL, [0.26, 0.36, 0.46, 0.58])
+	_hand_move(P_CHASE, &"CR_TR_ChaseUppercut", Vector3(1.0, 0.0, 0.62), 1.2, FIST_RR + "|" + FIST_LL)
+	_hand_move(P_HEADBUTT, &"CR_TR_Headbutt", Vector3(1.0, 0.0, 0.72), 0.8, HEAD)
+	_hand_move(P_STOMP, &"CR_TR_Stomp", Vector3(0.95, 0.0, 0.9), 0.7, FOOT)
+	_special(P_GRAB, &"CR_TR_Slammer", Vector3(1.25, 0.05, 0.85))
+	_special(P_FLEX, &"CR_TR_Flex", Vector3(1.1, 0.05, 0.62))
+	_special(R_PICK, &"CR_Harvest", Vector3(1.4, 0.12, 0.5))
+	_special(R_THROW, &"CR_TR_ThrowIn", Vector3(1.0, 0.25, 0.85))
+	_special(R_BOWL, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.5))
+	_special(R_STONE, &"CR_TR_ThrowObject", Vector3(1.6, 0.12, 0.62))
+	_special(W_UPROOT, &"CR_TR_Lift", Vector3(2.4, 0.3, 0.92))
+	_hand_move(W_GREAT, &"CR_OG_Heavy_Swing", Vector3(1.15, 0.28, 0.82), 1.4, TREE)
+	_hand_move(W_TWO, &"CR_OG_TwoHand_Combo", Vector3(1.0, 0.05, 0.94), 0.85, TREE, [0.18, 0.39, 0.68])
+	_hand_move(W_STRING, &"CR_OG_Club_Combo2H", Vector3(1.1, 0.14, 0.86), 0.8, TREE, [0.25, 0.517, 0.728])
+	_hand_move(W_SCOOP, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.45), 1.1, TREE)
+	_hand_move(W_CHOP, &"CR_Heavy1", Vector3(0.9, 0.0, 0.97), 1.35, TREE)
 	_special(T_REEL, &"CR_Stun", Vector3(1.25, 0.02, 0.48))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))
-	# heavy up, then all of it at once (no glow: it is wood)
-	_slow_to[T_CHOP] = 1.05
-	_snap[T_CHOP] = 1.6
-	_slow_to[T_SWING] = 1.15
-	_snap[T_SWING] = 1.4
-	_slow_to[T_BAT] = 0.7
-	_slow_to[T_BAT2] = 0.75
-	_slow_to[T_SCOOP] = 0.8
-	_slow_to[T_BUTT] = 0.55
-	_slow_to[T_KNEES] = 0.7
-	_slow_to[LEAP] = 0.75
-	# held at the top now and then (Elden Ring's delayed swings)
-	_holds[T_CHOP] = [0.45, 0.4, 0.95, 0.25]
-	_holds[T_SWING] = [0.4, 0.35, 0.8, 0.25]
-	_holds[T_BAT2] = [0.25, 0.3, 0.6, 0.25]
-	_kinds[T_CHOP] = &"crush"
-	_kinds[T_SWING] = &"crush"
+	# heavy up, fast down (no glow)
+	_slow_to[P_HOOK] = 0.8
+	_snap[P_HOOK] = 1.3
+	_slow_to[P_JAB] = 0.45
+	_slow_to[P_HEADBUTT] = 0.75
+	_slow_to[P_STOMP] = 0.7
+	_slow_to[P_KNEES] = 0.6
+	_slow_to[W_CHOP] = 1.05
+	_snap[W_CHOP] = 1.6
+	_slow_to[W_TWO] = 0.7
+	_slow_to[W_SCOOP] = 0.8
+	_slow_to[LEAP] = 0.7
+	_holds[P_HOOK] = [0.35, 0.3, 0.7, 0.2]
+	_holds[W_CHOP] = [0.45, 0.4, 0.95, 0.25]
+	_holds[W_GREAT] = [0.3, 0.3, 0.6, 0.25]
+	_kinds[P_HEADBUTT] = &"guard"
+	_kinds[W_CHOP] = &"crush"
+	_kinds[W_GREAT] = &"crush"
 	_kinds[LEAP] = &"crush"
-	# its strings, each move's end running into the next's start: a swing's
-	# follow-through into the next swing's back-swing, the scoop's club high
-	# over its head into the chop down
-	_hand_combos = [
-		# two: a swing across, then the chop into the ground
-		{"name": &"swing_chop", "moves": [T_BAT, T_CHOP], "fells": [1], "weight": 1.0},
-		# two: up from between its legs, then straight down
-		{"name": &"scoop_chop", "moves": [T_SCOOP, T_CHOP], "fells": [1], "weight": 1.0},
-		# three: the batter's swings, the last the great one
-		{"name": &"batter", "moves": [T_BAT, T_BAT2, T_SWING], "fells": [2], "weight": 1.0},
-		# three: the butt jabbed, the scoop, the chop
-		{"name": &"butt_scoop_chop", "moves": [T_BUTT, T_SCOOP, T_CHOP], "fells": [2], "weight": 0.9},
-		# four: a swing and three knees
-		{"name": &"knees", "moves": [T_KNEES], "fells": [0], "weight": 0.8},
-		# four, enraged only: two swings, the scoop, the chop
-		{"name": &"storm", "moves": [T_BAT, T_BAT2, T_SCOOP, T_CHOP], "fells": [3], "weight": 1.2, "rage_only": true},
-	]
 
 
-#region The club (every peer)
-## The club in its right hand, laid along its grip each frame.
-func _make_club() -> void:
-	if _skeleton == null or _hand < 0:
-		return
-	var scene := load(CLUB_FILE) as PackedScene
-	if scene == null:
-		return
-	# (held off its body's tree, on its skeleton from outside: what is laid
-	# over all of the body — the rage's red, the green of its healing — is not
-	# laid on the wood)
-	_club_hold = BoneAttachment3D.new()
-	_club_hold.name = "TrollClubHold"
-	add_child(_club_hold)
-	_club_hold.use_external_skeleton = true
-	_club_hold.external_skeleton = _club_hold.get_path_to(_skeleton)
-	_club_hold.bone_name = "R_wrist_joint"
-	_club = Node3D.new()
-	_club.name = "TrollClub"
-	_club_hold.add_child(_club)
-	var model := scene.instantiate() as Node3D
-	model.scale = Vector3.ONE * club_scale
-	_club.add_child(model)
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://assets/dungeon/forest_glade/lp_solid.gdshader")
-	mat.set_shader_parameter("foot_dark", 0.0)
-	mat.set_shader_parameter("bright", 1.0)
-	for mi: MeshInstance3D in model.find_children("*", "MeshInstance3D", true, false):
-		mi.material_override = mat
-	_club.visible = _grip_learnt
+## Its bare blows measured landing nearer than its body lets him stand (the
+## clips' fists were made for a man's short reach): it opens them from where
+## the two bodies meet and steps the rest in under the blow.
+func _near_floor() -> void:
+	var meet := 1.5
+	for what in [ATTACK_BASE, ATTACK_BASE + 1, P_JAB, P_HOOK, P_KNEES, P_HEADBUTT, P_STOMP]:
+		if _strike_from.has(what):
+			_strike_from[what] = maxf(float(_strike_from[what]), meet)
+	# the chased uppercut is opened from a few steps off, run in
+	_strike_from[P_CHASE] = 3.1
+	# the tree's strings all opened from about one gap (else the approach
+	# crosses the furthest first and opens that one every time)
+	for what in [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP]:
+		_strike_from[what] = 1.9
 
 
-## Every peer: the line of its grip read off `CR_HeavyIdle`'s first pose
-## (both hands on the haft), in its right hand's frame; its club's blows
-## set out along it.
-func _learn_grip() -> void:
-	if _anim == null or _skeleton == null:
-		return
-	var player := _anim.get(&"_player") as AnimationPlayer
-	var r := _skeleton.find_bone("R_wrist_joint")
-	var l := _skeleton.find_bone("L_wrist_joint")
-	if player == null or r < 0 or l < 0 or not player.has_animation(&"CR_HeavyIdle"):
-		return
-	var was := player.current_animation
-	player.play(&"CR_HeavyIdle")
-	player.seek(0.0, true)
-	var rp: Transform3D = _anim.call(&"_posed", r)
-	var lp: Transform3D = _anim.call(&"_posed", l)
-	player.stop()
-	if not was.is_empty():
-		player.play(was)
-	var span := rp.origin - lp.origin
-	if span.length() < 0.05:
-		return
-	_grip_local = (rp.basis.inverse() * span).normalized()
-	_grip_learnt = true
-	var tip := _grip_local * club_reach
-	_club_spec = "R_wrist_joint>R_wrist_joint@%.4f,%.4f,%.4f:%.2f" % [tip.x, tip.y, tip.z, club_radius]
-	weapon_bone = &"R_wrist_joint"
-	weapon_tip = tip
-
-
-## Every peer: the club laid along the line from its left hand to its right
-## while both hold it (learnt in its right hand's own frame), the head out past
-## its right hand; its blows reach to the head.
-func _lay_club() -> void:
-	if _club == null or _skeleton == null or _club_dropped:
-		return
-	var r := _skeleton.find_bone("R_wrist_joint")
-	var l := _skeleton.find_bone("L_wrist_joint")
-	if r < 0 or l < 0:
-		return
-	var rp := _skeleton.get_bone_global_pose(r)
-	var lp := _skeleton.get_bone_global_pose(l)
-	var span := rp.origin - lp.origin
-	if span.length() < 0.42 and span.length() > 0.05:
-		var local := (rp.basis.inverse() * span).normalized()
-		_grip_local = local if not _grip_learnt else _grip_local.slerp(local, 0.08).normalized()
-		if not _grip_learnt:
-			_grip_learnt = true
-			_club.visible = true
-			_reach_club()
-	if not _grip_learnt:
-		return
-	var up := _grip_local
-	var side := up.cross(Vector3.FORWARD if absf(up.z) < 0.9 else Vector3.RIGHT).normalized()
-	_club.transform = Transform3D(Basis(side, up, side.cross(up)).orthonormalized(), Vector3.ZERO)
-
-
-## Its blows out to the club's head, the way its grip runs.
-func _reach_club() -> void:
-	weapon_bone = &"R_wrist_joint"
-	weapon_tip = _grip_local * club_reach
-	for what: int in _limbs_of.keys():
-		for st: Array in _limbs_of[what]:
-			if String(st[0]) == "R_wrist_joint" and String(st[1]) == "R_wrist_joint" and bool(st[4]):
-				st[2] = _grip_local * club_reach
-
-
-## Where the club's head is now.
-func _club_head() -> Vector3:
-	if _club == null or not _grip_learnt:
-		return _weapon_tip_at()
-	return _club.global_transform * (Vector3.UP * club_reach)
-
-
-## Every peer: the club let go as it falls, down onto the ground beside it.
-func _drop_club() -> void:
-	if _club == null or _club_dropped or not is_inside_tree():
-		return
-	_club_dropped = true
-	# out of its hand where it is, then down flat on the ground before it
-	var t := _club.global_transform
-	_club.top_level = true
-	_club.global_transform = t
-	var size := t.basis.get_scale().x
-	var floor_y := global_position.y
-	var side := _forward().cross(Vector3.UP).normalized()
-	var flat := Basis(side, -PI * 0.5) * Basis(Vector3.UP, randf_range(-0.6, 0.6))
-	var land := Transform3D(flat.scaled(Vector3.ONE * size),
-			Vector3(t.origin.x, floor_y + 0.1 * size, t.origin.z) + _forward() * 0.3 * size)
-	var tw := _club.create_tween()
-	tw.tween_property(_club, "global_transform", land, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func() -> void:
-		Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 0.8, -4.0)
-		_ground_dust(land.origin, 0.9))
-	tw.tween_interval(14.0)
-	tw.tween_callback(_club.queue_free)
-#endregion
-
-
-#region Every peer: what is heard and seen of its weight
-func _process(delta: float) -> void:
-	super(delta)
-	_lay_club()
-	if act_serial != _seen_serial:
-		_seen_serial = act_serial
-		_seen_clock = 0.0
-		_on_move_shown()
+## Its strings, by the look it has: two, three and four blows, each move's
+## end into the next's start.
+func _set_combos() -> void:
+	if armed:
+		_hand_combos = [
+			# the two-handed string, three blows
+			{"name": &"tree_three", "moves": [W_TWO], "fells": [0], "weight": 1.0},
+			# the club string (the one kept from before)
+			{"name": &"tree_string", "moves": [W_STRING], "fells": [0], "weight": 0.9},
+			# up from between its legs, then down into the ground
+			{"name": &"tree_scoop_chop", "moves": [W_SCOOP, W_CHOP], "fells": [1], "weight": 1.0},
+			# the great swing round (missed, it reels)
+			{"name": &"tree_great", "moves": [W_GREAT], "fells": [0], "weight": 0.7},
+			# four: the string of three, the chop after it
+			{"name": &"tree_four", "moves": [W_TWO, W_CHOP], "fells": [1], "weight": 0.8},
+			{"name": &"tree_storm", "moves": [W_SCOOP, W_CHOP, W_GREAT], "fells": [2], "weight": 1.1,
+					"rage_only": true},
+		]
 	else:
-		_seen_clock += delta
-	_whoosh()
-	_club_ground(delta)
-	if act_serial != _held_serial:
-		_held_serial = act_serial
-		_held_clock = 0.0
-		if act == PICK:
-			var at := global_position + _forward() * 0.9 * visual_scale
-			GroundFx.eruption(Blood.world_of(self), at, 0.5)
-		elif act != HURL:
-			_show_held(false)
-	else:
-		_held_clock += delta
-	if act == PICK and _held_clock >= 0.35 and not is_dead:
-		_show_held(true)
-	if _held != null and _held.visible:
-		_held.global_position = _hand_at() + Vector3.UP * 0.18 * visual_scale
-	if is_dead:
-		_show_held(false)
-		_drop_club_later()
-	_show_healing(delta)
-	_bleed(delta)
+		_hand_combos = [
+			# two: the jab and the great hook
+			{"name": &"jab_hook", "moves": [P_JAB, P_HOOK], "fells": [1], "weight": 1.0},
+			# two: its head into him, the stomp
+			{"name": &"head_stomp", "moves": [P_HEADBUTT, P_STOMP], "fells": [1], "weight": 0.9},
+			# three: jab, hook, stomp
+			{"name": &"brawl", "moves": [P_JAB, P_HOOK, P_STOMP], "fells": [2], "weight": 1.0},
+			# four: three knees and the uppercut
+			{"name": &"knees", "moves": [P_KNEES], "fells": [0], "weight": 0.9},
+			# from a few steps off: chased down, the uppercut
+			{"name": &"chase", "moves": [P_CHASE], "fells": [0], "weight": 0.6, "far": true},
+			{"name": &"fury", "moves": [P_HOOK, P_HEADBUTT, P_KNEES], "fells": [2], "weight": 1.2, "rage_only": true},
+		]
+	_hand_last = -1
 
 
-## Every peer: a drop of blood off one of its wounds now and then.
-func _bleed(delta: float) -> void:
-	if _wound_marks.is_empty() or is_dead:
+## Every peer: its fists closed, its left hand drawn onto the tree's haft.
+func _make_hands() -> void:
+	if _skeleton == null:
 		return
-	_drip_in -= delta
-	if _drip_in > 0.0:
+	for s in ["R", "L"]:
+		var f := HandFist.new()
+		f.name = "Fist" + s
+		f.side = s
+		f.close = 0.8
+		_skeleton.add_child(f)
+		_hand_fists.append(f)
+	_left_grip = TwoHandGrip.new()
+	_left_grip.name = "TreeGrip"
+	_left_grip.hand_bone = "R_equip_joint"
+	_left_grip.axis = Vector3.RIGHT
+	_left_grip.along = Vector2(-0.55, -0.18)
+	_left_grip.active = false
+	_skeleton.add_child(_left_grip)
+
+
+#region Host: what it chooses
+func _own_move(delta: float) -> bool:
+	_rock_wait = maxf(_rock_wait - delta, 0.0)
+	_grab_wait = maxf(_grab_wait - delta, 0.0)
+	_flex_wait = maxf(_flex_wait - delta, 0.0)
+	_chase_wait = maxf(_chase_wait - delta, 0.0)
+	var gap := _distance_to(_quarry)
+	# half its health gone: the tree (once more if the first broke)
+	if not armed and (uproots == 0 and health <= max_health * uproot_at
+			or uproots == 1 and health <= max_health * uproot_again_at):
+		mode = Mode.FIGHT
+		velocity = Vector3.ZERO
+		_begin(W_UPROOT)
+		return true
+	if _quarry_down():
+		if _flex_wait <= 0.0 and gap < 9.0:
+			_flex_wait = _rng.randf_range(9.0, 14.0)
+			mode = Mode.FIGHT
+			_face(_quarry.global_position - global_position, 1.0, 50.0)
+			_begin(P_FLEX)
+			return true
+		return false
+	if not armed and _rock_wait <= 0.0 and gap >= rock_from and gap <= rock_to and stamina >= attack_cost:
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		var r := _rng.randf()
+		_rock_kind = TrollRock.Kind.BIG if r < 0.45 else (TrollRock.Kind.ROLL if r < 0.75 else TrollRock.Kind.SMALL)
+		if rock_pick >= 0:
+			_rock_kind = rock_pick
+		_rock_gone = false
+		if _rock_kind == TrollRock.Kind.SMALL:
+			_stones_left = 3
+			_begin(R_STONE)
+		else:
+			_begin(R_PICK)
+		return true
+	if not armed and _grab_wait <= 0.0 and gap <= grab_reach and _in_front(_quarry, 50.0):
+		_grab_wait = _rng.randf_range(grab_cooldown.x, grab_cooldown.y)
+		grabs_made += 1
+		_grab_tried = false
+		_slammed = false
+		_grabbed = null
+		_freed_by = 0.0
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_begin(P_GRAB)
+		return true
+	# now and then, from a few steps off, it runs in under an uppercut
+	if not armed and _chase_wait <= 0.0 and _cooldown <= 0.0 and gap >= 2.4 and gap <= 4.2 \
+			and stamina >= attack_cost and _in_front(_quarry, 40.0):
+		_chase_wait = _rng.randf_range(6.0, 10.0)
+		if _rng.randf() < 0.5:
+			for i in _hand_combos.size():
+				if (_hand_combos[i] as Dictionary)["name"] == &"chase":
+					start_hand_combo(i)
+					return true
+	return super(delta)
+
+
+func _in_front(who: Node3D, degrees: float) -> bool:
+	var to := who.global_position - global_position
+	to.y = 0.0
+	return to.length_squared() < 0.0001 or rad_to_deg(_forward().angle_to(to.normalized())) <= degrees
+
+
+## Its plain blows only bare-handed; with the tree, one of the tree's strings.
+func _begin_attack() -> void:
+	if armed and not _hand_combos.is_empty():
+		var picks: Array[int] = []
+		for i in _hand_combos.size():
+			if not bool((_hand_combos[i] as Dictionary).get("rage_only", false)) or raging:
+				picks.append(i)
+		start_hand_combo(picks[_rng.randi() % picks.size()])
 		return
-	_drip_in = randf_range(0.25, 0.7) / float(_wound_marks.size())
-	var mark := _wound_marks[randi() % _wound_marks.size()]
-	if not is_instance_valid(mark) or not mark.is_inside_tree():
-		return
-	SkillFx.burst(Blood.world_of(self), mark.global_position, Color(0.45, 0.02, 0.015), 3, Vector2(0.2, 0.6),
-			Vector3.DOWN, 30.0, Vector2(0.03, 0.05), Vector3(0, -9.0, 0), 0.6)
+	super()
 
 
-var _drop_in: float = -1.0
+func _leaps() -> Array:
+	return [LEAP, P_CHASE]
 
 
-## Every peer: the club slips from its hands partway down.
-func _drop_club_later() -> void:
-	if _club_dropped:
-		return
-	if _drop_in < 0.0:
-		_drop_in = 0.55
-	_drop_in -= get_process_delta_time()
-	if _drop_in <= 0.0:
-		_drop_club()
+func _try_leap() -> bool:
+	if armed:
+		return false
+	return super()
 
 
-## Every peer, as a move begins: its breath and its strain.
-func _on_move_shown() -> void:
-	if is_dead:
-		return
-	if act == T_CHOP or act == T_SWING or act == LEAP or act == T_SCOOP:
-		Sfx.play_any(self, [SOUNDS + "strain_rise.wav", SOUNDS + "grunt_2.wav"], self, randf_range(0.85, 0.95), -6.0)
-	elif act == T_REEL or act == T_STAGGER:
-		Sfx.play_any(self, [SOUNDS + "grunt_1.wav", SOUNDS + "grunt_3.wav"], self, randf_range(0.8, 0.9), -4.0)
-
-
-## Every peer: the club heard through the air just before each of its blows.
-func _whoosh() -> void:
-	if is_dead or not _strikes().has(act):
-		return
-	var ms := _blow_moments(act)
-	for i in ms.size():
-		var key := act_serial * 16 + i
-		if key <= _whooshed:
-			continue
-		if _seen_clock >= ms[i] - 0.14:
-			_whooshed = key
-			var heavy := act == T_CHOP or act == T_SWING or act == LEAP or act == T_SCOOP or act == T_BAT2
-			Sfx.play(self, SOUNDS + ("whoosh_heavy.wav" if heavy else "whoosh_light.wav"), self,
-					Vector3.UP * 1.6 * visual_scale, randf_range(0.82, 0.92) if heavy else randf_range(0.9, 1.0), -3.0)
-		break
-
-
-## Every peer: where the club's head comes down into the ground, the thud,
-## dust and grit thrown up, the view shaken (no ring, no stop).
-func _club_ground(delta: float) -> void:
-	_dust_wait = maxf(_dust_wait - delta, 0.0)
-	if _club == null or not _grip_learnt or _club_dropped or delta <= 0.0:
-		_tip_last = Vector3.INF
-		return
-	var tip := _club_head()
-	var was := _tip_last
-	_tip_last = tip
-	if was == Vector3.INF or _dust_wait > 0.0 or not _strikes().has(act):
-		return
-	var ground := global_position.y
-	var falling := (was.y - tip.y) / delta
-	if tip.y <= ground + dust_touch and was.y > ground + dust_touch and falling > dust_fall:
-		_dust_wait = 0.4
-		ground_dusts += 1
-		var power := clampf(falling / 9.0, 0.8, 1.6)
-		var at := Vector3(tip.x, ground + 0.05, tip.z)
-		_ground_dust(at, power)
-		Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_2.wav",
-				SOUNDS + "club_ground_3.wav", SOUNDS + "club_ground_4.wav"], self, randf_range(0.85, 0.95), 0.0)
-		WindBlast.shake(self, 0.07 * power, 0.3, 14.0)
-
-
-func _ground_dust(at: Vector3, power: float) -> void:
-	GroundFx.weapon_dust(Blood.world_of(self), at, power)
-#endregion
-
-
-#region Host: the moves' weight
 func _blow_reached(who: Node3D, what: int) -> void:
 	super(who, what)
 	_landed_serial = act_serial
 
 
-func _own_move(delta: float) -> bool:
-	_hurl_wait = maxf(_hurl_wait - delta, 0.0)
-	var gap := _distance_to(_quarry)
-	if hurl_on and _hurl_wait <= 0.0 and gap >= hurl_from and gap <= hurl_to and not _quarry_down() \
-			and stamina >= attack_cost:
-		mode = Mode.FIGHT
-		_face(_quarry.global_position - global_position, 1.0, 50.0)
-		_begin(PICK)
-		return true
-	return super(delta)
-
-
 func _after(what: int) -> void:
-	if what == PICK:
+	if what == R_PICK:
 		if _quarry != null:
 			_face(_quarry.global_position - global_position, 1.0, 50.0)
-		_hurled = false
-		_begin(HURL)
+		_rock_gone = false
+		_begin(R_THROW if _rock_kind == TrollRock.Kind.BIG else R_BOWL)
 		return
-	if what == HURL:
-		_hurl_wait = _rng.randf_range(hurl_cooldown.x, hurl_cooldown.y)
-	# a great swing that found nothing: carried round after the club, it
-	# stands a moment off its balance, open
+	if what == R_THROW or what == R_BOWL:
+		_rock_wait = _rng.randf_range(rock_cooldown.x, rock_cooldown.y)
+	if what == R_STONE:
+		_stones_left -= 1
+		if _stones_left > 0 and _quarry != null and not is_dead and not _quarry_down():
+			_face(_quarry.global_position - global_position, 1.0, 50.0)
+			_rock_gone = false
+			_begin(R_STONE)
+			return
+		_rock_wait = _rng.randf_range(rock_cooldown.x, rock_cooldown.y)
+	if what == P_GRAB:
+		_let_go()
+		if not _slammed and not is_dead:
+			# it reached and caught nothing: it stumbles after its own reach
+			reels += 1
+			_begin(T_REEL)
+			return
+	if what == W_UPROOT:
+		uproots += 1
+		if not armed:
+			_send_arm(true)
 	var missed := MISS_REELS.has(what) and _landed_serial != act_serial and not is_dead and _decides()
 	if missed:
 		_hand_combo = -1
@@ -637,41 +539,182 @@ func _run_act(delta: float) -> void:
 	if is_dead or not _decides():
 		_run_cracks(delta)
 		return
-	if act == HURL:
-		if _quarry != null and _act_time < _hurl_at:
-			_face(_quarry.global_position - global_position, delta, turn_speed * 2.0)
-		if not _hurled and _act_time >= _hurl_at:
-			_hurled = true
-			_release()
-	if act == T_REEL or act == T_TOTTER or act == T_STAGGER:
+	if act == T_REEL or act == T_TOTTER or act == T_STAGGER or act == W_UPROOT or act == P_FLEX:
 		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
-	# the club down on the ground: it splits along a line out from it
-	if (CRACKS.has(act) or act == LEAP) and _cracked_serial != act_serial:
+	# the rock goes
+	if (act == R_THROW or act == R_BOWL or act == R_STONE) and not _rock_gone:
+		if _quarry != null and _act_time < _release_time(act):
+			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
+		if _act_time >= _release_time(act):
+			_rock_gone = true
+			_release_rock()
+	if act == P_GRAB:
+		_run_grab()
+	# the stomp: the ground split in three lines out in front
+	if act == P_STOMP and _stomped_serial != act_serial:
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _act_time >= ms[0]:
+			_stomped_serial = act_serial
+			for deg in [-32.0, 0.0, 32.0]:
+				_crack(_foot_at(), _forward().rotated(Vector3.UP, deg_to_rad(deg)), 5.0, 0.6)
+	# the tree down into the ground: a crack along a line
+	if CRACKS.has(act) and _cracked_serial != act_serial:
 		var ms := _blow_moments(act)
 		if not ms.is_empty() and _act_time >= ms[ms.size() - 1]:
 			_cracked_serial = act_serial
-			_crack()
+			var head := _tree_head()
+			_crack(Vector3(head.x, global_position.y, head.z), _aim_way(head), crack_reach, crack_share)
+			_wear_tree(0.03)
 	_run_cracks(delta)
 
 
-## Host: a crack let go from the club's head along the way it faces (at him,
-## if he is near enough in front).
-func _crack() -> void:
-	var head := _club_head()
-	var from := Vector3(head.x, global_position.y, head.z)
+## When in a throw its rock leaves its hands (s into the act).
+func _release_time(what: int) -> float:
+	var m: Array = _moves_table[what]
+	var at := 0.57 if what == R_THROW else (0.28 if what == R_BOWL else 0.49)
+	return (at - float(m[2])) * _anim.clip_length(m[0]) / maxf(float(m[1]), 0.01) if _anim != null else 0.8
+
+
+func _foot_at() -> Vector3:
+	if _skeleton == null:
+		return global_position
+	var b := _skeleton.find_bone("R_ankle_joint")
+	var p := _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin if b >= 0 else global_position
+	return Vector3(p.x, global_position.y, p.z) + _forward() * 0.4
+
+
+func _aim_way(from: Vector3) -> Vector3:
 	var way := _forward()
 	if _quarry != null:
 		var to := _quarry.global_position - from
 		to.y = 0.0
 		if to.length_squared() > 0.25 and to.normalized().dot(_forward()) > 0.5:
 			way = to.normalized()
-	cracks_made += 1
-	_cracks.append(GroundCrack.new(from, way, crack_reach, crack_speed, crack_width, 7000000 + act_serial))
-	if is_inside_tree() and multiplayer.has_multiplayer_peer():
-		net_crack.rpc(from, way)
+	return way
+#endregion
+
+
+#region Host: the rocks
+func _release_rock() -> void:
+	if _quarry == null:
+		return
+	rocks_thrown += 1
+	var kind := _rock_kind
+	var from := _held_at(kind)
+	var target := _quarry.global_position + Vector3.UP * 0.9
+	var v := Vector3.ZERO
+	var worth := hit_damage * _blow_worth(R_THROW)
+	if kind == TrollRock.Kind.ROLL:
+		# bowled low at his feet: it comes down a few metres off and rolls on
+		var flat := Vector3(target.x - from.x, 0.0, target.z - from.z)
+		v = flat.normalized() * 7.0 + Vector3.UP * 3.0
+		worth *= rock_share.y
 	else:
-		net_crack(from, way)
+		var gap := Vector3(target.x - from.x, 0.0, target.z - from.z).length()
+		var flight := clampf(gap / (13.0 if kind == TrollRock.Kind.BIG else 20.0), 0.45, 1.3)
+		if _quarry is CharacterBody3D:
+			var qv := (_quarry as CharacterBody3D).velocity
+			target += Vector3(qv.x, 0.0, qv.z) * flight * (0.5 if kind == TrollRock.Kind.BIG else 0.8)
+		v = (target - from) / flight + Vector3.UP * 0.5 * TrollRock.GRAVITY * flight
+		worth *= rock_share.x if kind == TrollRock.Kind.BIG else rock_share.z
+	var id := act_serial * 10 + rocks_thrown % 10
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_rock.rpc(kind, from, v, worth, id)
+	else:
+		net_rock(kind, from, v, worth, id)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_rock(kind: int, from: Vector3, v: Vector3, worth: float, id: int) -> void:
+	_show_held(-1)
+	TrollRock.throw(Blood.world_of(self), from, v, kind, worth, self, _decides(), id)
+
+
+## Where the rock is held: between its hands (or in its right, a stone).
+func _held_at(kind: int) -> Vector3:
+	if _skeleton == null:
+		return global_position + Vector3.UP * 2.5
+	var r := _bone_at("R_equip_joint")
+	if kind == TrollRock.Kind.SMALL:
+		return r
+	var l := _bone_at("L_equip_joint")
+	return r.lerp(l, 0.5)
+
+
+func _bone_at(name: String) -> Vector3:
+	var b := _skeleton.find_bone(name) if _skeleton != null else -1
+	if b < 0:
+		return global_position + Vector3.UP * 2.0 * visual_scale
+	return _skeleton.global_transform * _skeleton.get_bone_global_pose(b).origin
+#endregion
+
+
+#region Host: the grab and the slam
+func _run_grab() -> void:
+	var m: Array = _moves_table[P_GRAB]
+	var length := _anim.clip_length(m[0]) if _anim != null else 7.5
+	var reach_t := (0.18 - float(m[2])) * length / float(m[1])
+	var slam_t := (0.73 - float(m[2])) * length / float(m[1])
+	if not _grab_tried and _act_time >= reach_t:
+		_grab_tried = true
+		var who := _quarry as Player
+		if who != null and not who.is_dead and _distance_to(who) <= grab_reach + 0.6 and _in_front(who, 70.0) \
+				and not who.is_evading():
+			_grabbed = who
+			grabs_caught += 1
+			who.grab_by(self, 6.0)
+			Sfx.play_any(self, [SOUNDS + "grunt_2.wav"], self, 0.8, 0.0)
+		else:
+			# nothing in its hand: the rest of the move is a stumble
+			_act_length = _act_time + 0.05
+	if _grabbed != null and not _slammed and _act_time >= slam_t:
+		_slammed = true
+		var who := _grabbed
+		_let_go()
+		if is_instance_valid(who) and who.has_method(&"receive_blow"):
+			who.call(&"receive_blow", hit_damage * slam_share * _blow_worth(P_GRAB), self, 0, 1, act_serial * 10 + 3)
+		var at := who.global_position if is_instance_valid(who) else global_position + _forward() * 2.0
+		if is_inside_tree() and multiplayer.has_multiplayer_peer():
+			net_slam.rpc(at)
+		else:
+			net_slam(at)
+
+
+func _let_go() -> void:
+	if _grabbed != null and is_instance_valid(_grabbed) and _grabbed.has_method(&"release_grab"):
+		_grabbed.call(&"release_grab")
+	_grabbed = null
+
+
+## [Player] `grab_by`: he is held in its right hand, up off the ground.
+func grab_point() -> Vector3:
+	var at := _bone_at("R_equip_joint")
+	at.y = maxf(at.y - 0.6, global_position.y + 1.2)
+	return at
+
+
+@rpc("authority", "call_local", "reliable")
+func net_slam(at: Vector3) -> void:
+	var into := Blood.world_of(self)
+	GroundFx.weapon_dust(into, at, 1.6)
+	GroundFx.eruption(into, at, 0.7, false)
+	ImpactFx.thud(self, at, true)
+	WindBlast.shake(self, 0.18, 0.45, 18.0)
+	Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 0.7, 3.0)
+#endregion
+
+
+#region Host: cracks in the ground
+func _crack(from: Vector3, way: Vector3, far: float, share: float) -> void:
+	cracks_made += 1
+	var c := GroundCrack.new(from, way, far, crack_speed, crack_width, 7000000 + act_serial * 4 + cracks_made % 4)
+	c.set_meta(&"share", share)
+	_cracks.append(c)
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_crack.rpc(from, way, far)
+	else:
+		net_crack(from, way, far)
 
 
 func _run_cracks(delta: float) -> void:
@@ -680,23 +723,319 @@ func _run_cracks(delta: float) -> void:
 	for i in range(_cracks.size() - 1, -1, -1):
 		var c: GroundCrack = _cracks[i]
 		for who: Node3D in c.reached(delta, get_tree()):
-			who.call(&"receive_blow", hit_damage * crack_share * _blow_worth(0), self, 0, 1, c.id, false, &"ground")
+			who.call(&"receive_blow", hit_damage * float(c.get_meta(&"share", crack_share)) * _blow_worth(0), self, 0, 1,
+					c.id, false, &"ground")
 		if c.done():
 			_cracks.remove_at(i)
 
 
 @rpc("authority", "call_local", "reliable")
-func net_crack(from: Vector3, way: Vector3) -> void:
-	GroundCrack.show(self, from, way, crack_reach, crack_speed)
+func net_crack(from: Vector3, way: Vector3, far: float) -> void:
+	GroundCrack.show(self, from, way, far, crack_speed)
+#endregion
+
+
+#region The tree
+## Host: armed (or not), told to every peer.
+func _send_arm(on: bool) -> void:
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_arm.rpc(on)
+	else:
+		net_arm(on)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_arm(on: bool) -> void:
+	armed = on
+	if on:
+		tree_life = 1.0
+		_tree_stage = 0
+		_tree_clips()
+		_make_tree()
+	else:
+		_bare_clips()
+	if _left_grip != null:
+		_left_grip.active = on
+	if _decides():
+		_set_combos()
+		reach = 3.6 if on else 3.0
+		strike_off = 2.8 if on else 2.2
+
+
+func _make_tree() -> void:
+	if _skeleton == null:
+		return
+	if _rising != null and is_instance_valid(_rising):
+		_rising.queue_free()
+		_rising = null
+	if _tree_hold == null:
+		_tree_hold = BoneAttachment3D.new()
+		_tree_hold.name = "TrollTreeHold"
+		add_child(_tree_hold)
+		_tree_hold.use_external_skeleton = true
+		_tree_hold.external_skeleton = _tree_hold.get_path_to(_skeleton)
+		_tree_hold.bone_name = "R_equip_joint"
+	if _tree != null and is_instance_valid(_tree):
+		_tree.queue_free()
+	_tree = Node3D.new()
+	_tree.name = "TrollTree"
+	_tree_hold.add_child(_tree)
+	var mi := MeshInstance3D.new()
+	mi.mesh = TrollRock.mesh("Tree")
+	_tree_mat = TrollRock.material().duplicate() as ShaderMaterial
+	# (the bark read near black in the arena's grey light: lifted)
+	_tree_mat.set_shader_parameter("bright", 2.5)
+	mi.material_override = _tree_mat
+	# its length (the model's +Y) along the hand's grip (the equip joint's +X)
+	mi.transform = Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
+	_tree.add_child(mi)
+	_tree_dropped = false
+
+
+## Where the tree's root end is.
+func _tree_head() -> Vector3:
+	if _tree_hold != null and is_instance_valid(_tree_hold):
+		return _tree_hold.global_transform * (Vector3.RIGHT * tree_reach)
+	return global_position + _forward() * 2.5
+
+
+## Host: the tree worn by a blow; cracking at two thirds and one, burst at none.
+func _wear_tree(amount: float) -> void:
+	if not armed or is_dead:
+		return
+	tree_life = maxf(tree_life - amount, 0.0)
+	var stage := 3 if tree_life <= 0.0 else (2 if tree_life < 0.34 else (1 if tree_life < 0.67 else 0))
+	if stage == _tree_stage:
+		return
+	_tree_stage = stage
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_tree.rpc(stage)
+	else:
+		net_tree(stage)
+	if stage == 3:
+		trees_broken += 1
+		_hand_combo = -1
+		_send_arm(false)
+		# it is left on its knee, open
+		if stance > 0.0 and act != STANCE:
+			_break_stance()
+
+
+## Every peer: the tree splitting (1, 2) or bursting in its hands (3).
+@rpc("authority", "call_local", "reliable")
+func net_tree(stage: int) -> void:
+	_tree_stage = stage
+	var into := Blood.world_of(self)
+	var mid := _tree_head().lerp(_bone_at("R_equip_joint"), 0.5)
+	Sfx.play_any(self, [SOUNDS + "club_ground_3.wav", SOUNDS + "club_ground_1.wav"], self, 1.35 - 0.15 * stage, -2.0)
+	if into != null:
+		SkillFx.particles(into, mid, {
+			"amount": 10 + 10 * stage, "life": 0.9, "one_shot": true, "explosiveness": 1.0, "add": false,
+			"speed": Vector2(2.0, 5.0), "dir": Vector3.UP, "spread": 85.0, "gravity": Vector3(0, -10, 0),
+			"damping": 0.4, "size": Vector2(0.04, 0.09),
+			"colors": [Color(0.62, 0.48, 0.32, 1.0), Color(0.55, 0.42, 0.28, 1.0), Color(0.5, 0.38, 0.25, 0.0)],
+		})
+	if _tree_mat != null:
+		_tree_mat.set_shader_parameter("bright", 2.5 - 0.4 * float(mini(stage, 2)))
+	if stage < 3:
+		return
+	# burst: its bits fly, the root end falls
+	if into != null:
+		for i in 5:
+			var bit := MeshInstance3D.new()
+			bit.mesh = TrollRock.mesh("TreeBit_%d" % i)
+			bit.material_override = TrollRock.material()
+			bit.scale = Vector3.ONE * randf_range(1.6, 2.4)
+			into.add_child(bit)
+			bit.global_position = mid + Vector3(randf_range(-0.3, 0.3), randf_range(0.0, 0.4), randf_range(-0.3, 0.3))
+			var to := bit.global_position + Vector3(randf_range(-2.5, 2.5), 0.0, randf_range(-2.5, 2.5))
+			to.y = global_position.y + 0.05
+			var tw := bit.create_tween().set_parallel(true)
+			tw.tween_property(bit, "global_position", to, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw.tween_property(bit, "rotation", Vector3(randf() * 6, randf() * 6, randf() * 6), 0.7)
+			tw.chain().tween_interval(3.0)
+			tw.chain().tween_callback(bit.queue_free)
+		GroundFx.weapon_dust(into, Vector3(mid.x, global_position.y, mid.z), 1.2)
+	Sfx.play_any(self, [SOUNDS + "grunt_1.wav", SOUNDS + "roar_short.wav"], self, 0.8, 0.0)
+	if _tree != null and is_instance_valid(_tree):
+		_tree.queue_free()
+		_tree = null
+
+
+## Every peer: as it uproots, the tree seen coming up out of the ground
+## beside it, earth flying, then into its hands (`net_arm`).
+func _show_uproot() -> void:
+	if act != W_UPROOT or _skeleton == null:
+		return
+	var m: Array = _moves_table[W_UPROOT]
+	var length := _anim.clip_length(m[0]) / float(m[1]) * (float(m[3]) - float(m[2])) if _anim != null else 3.0
+	var share := _seen_clock / maxf(length, 0.1)
+	if share >= 0.35 and _rising == null and not armed:
+		var into := Blood.world_of(self)
+		if into == null:
+			return
+		_rising = Node3D.new()
+		into.add_child(_rising)
+		var spot := global_position + _forward() * 1.6 * visual_scale / 1.6
+		_rising.global_position = spot + Vector3.DOWN * 2.6
+		var mi := MeshInstance3D.new()
+		mi.mesh = TrollRock.mesh("Tree")
+		mi.material_override = TrollRock.material()
+		# upright, roots down, growing up out of the ground
+		mi.transform = Transform3D(Basis(Vector3.RIGHT, PI).scaled(Vector3.ONE * tree_scale * visual_scale), Vector3.ZERO)
+		_rising.add_child(mi)
+		var tw := _rising.create_tween()
+		tw.tween_property(_rising, "global_position", spot + Vector3.UP * 0.6, length * 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		GroundFx.eruption(into, spot, 1.1, false)
+		GroundFx.weapon_dust(into, spot, 1.8)
+		WindBlast.shake(self, 0.14, 0.8, 20.0)
+		Sfx.play_any(self, [SOUNDS + "strain_rise.wav", SOUNDS + "roar.wav"], self, 0.8, 0.0)
+		for k in 6:
+			var piece := TrollRock.model(TrollRock.Kind.SMALL, k)
+			into.add_child(piece)
+			piece.global_position = spot + Vector3(randf_range(-0.6, 0.6), 0.2, randf_range(-0.6, 0.6))
+			var up := piece.create_tween()
+			up.tween_property(piece, "global_position", piece.global_position + Vector3(randf_range(-1.5, 1.5), randf_range(1.5, 3.0), randf_range(-1.5, 1.5)), 0.4).set_ease(Tween.EASE_OUT)
+			up.tween_property(piece, "global_position:y", spot.y + 0.05, 0.45).set_ease(Tween.EASE_IN)
+			up.tween_interval(2.5)
+			up.tween_callback(piece.queue_free)
+
+
+## Every peer: the tree let go as it falls.
+func _drop_tree() -> void:
+	if _tree == null or not is_instance_valid(_tree) or _tree_dropped:
+		return
+	_tree_dropped = true
+	var t := _tree.global_transform
+	_tree.top_level = true
+	_tree.global_transform = t
+	var size := t.basis.get_scale().x
+	var side := _forward().cross(Vector3.UP).normalized()
+	var land := Transform3D(Basis(side, -PI * 0.5).scaled(Vector3.ONE * size),
+			Vector3(t.origin.x, global_position.y + 0.15 * size, t.origin.z) + _forward() * 0.3 * size)
+	var tw := _tree.create_tween()
+	tw.tween_property(_tree, "global_transform", land, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		GroundFx.weapon_dust(Blood.world_of(self), land.origin, 1.0)
+		Sfx.play_any(self, [SOUNDS + "club_ground_1.wav"], self, 0.7, -2.0))
+#endregion
+
+
+#region Every peer: what is seen and heard
+func _process(delta: float) -> void:
+	super(delta)
+	if act_serial != _seen_serial:
+		_seen_serial = act_serial
+		_seen_clock = 0.0
+		_on_move_shown()
+	else:
+		_seen_clock += delta
+	_whoosh()
+	_show_rock()
+	_show_uproot()
+	for f in _hand_fists:
+		# fists for blows; round the haft with the tree; slack at rest, bare
+		var want := 1.0 if armed else (0.95 if act != Act.NONE else 0.55)
+		f.close = move_toward(f.close, want, delta * 4.0)
+	if is_dead:
+		_show_held(-1)
+		if armed and not _tree_dropped:
+			if _drop_in < 0.0:
+				_drop_in = 0.55
+			_drop_in -= delta
+			if _drop_in <= 0.0:
+				_drop_tree()
+	_show_healing(delta)
+	_bleed(delta)
+
+
+func _on_move_shown() -> void:
+	if is_dead:
+		return
+	if act == W_CHOP or act == W_GREAT or act == R_THROW or act == P_HOOK or act == LEAP:
+		Sfx.play_any(self, [SOUNDS + "strain_rise.wav", SOUNDS + "grunt_2.wav"], self, randf_range(0.85, 0.95), -6.0)
+	elif act == T_REEL or act == T_STAGGER:
+		Sfx.play_any(self, [SOUNDS + "grunt_1.wav", SOUNDS + "grunt_3.wav"], self, randf_range(0.8, 0.9), -4.0)
+	elif act == P_FLEX:
+		Sfx.play_any(self, [SOUNDS + "roar_short.wav"], self, 0.85, 0.0)
+	elif act == R_PICK or act == R_STONE:
+		var at := global_position + _forward() * 0.9 * visual_scale / 1.6
+		GroundFx.eruption(Blood.world_of(self), at, 0.45 if act == R_STONE else 0.7, false)
+		GroundFx.weapon_dust(Blood.world_of(self), at, 1.0 if act == R_PICK else 0.6)
+
+
+## Every peer: the air before each blow.
+func _whoosh() -> void:
+	if is_dead or not _strikes().has(act):
+		return
+	var ms := _blow_moments(act)
+	for i in ms.size():
+		var key := act_serial * 16 + i
+		if key <= _whooshed:
+			continue
+		if _seen_clock >= ms[i] - 0.14:
+			_whooshed = key
+			var heavy := armed or act == P_HOOK or act == LEAP or act == P_CHASE
+			Sfx.play(self, SOUNDS + ("whoosh_heavy.wav" if heavy else "whoosh_light.wav"), self,
+					Vector3.UP * 1.6 * visual_scale, randf_range(0.82, 0.92) if heavy else randf_range(0.9, 1.0), -3.0)
+		break
+
+
+## Every peer: the rock in its hands from the pick to the throw.
+func _show_rock() -> void:
+	var kind := -1
+	if not is_dead:
+		if act == R_PICK and _seen_clock > 0.35:
+			kind = _rock_shown_kind()
+		elif (act == R_THROW or act == R_BOWL) and _seen_clock < _release_time(act):
+			kind = _rock_shown_kind()
+		elif act == R_STONE and _seen_clock > 0.35 and _seen_clock < _release_time(act):
+			kind = TrollRock.Kind.SMALL
+	_show_held(kind)
+	if _held != null and _held.visible:
+		_held.global_position = _held_at(kind) + (Vector3.UP * 0.1 if kind != TrollRock.Kind.SMALL else Vector3.ZERO)
+
+
+## The kind of rock it is shown holding (the host's choice is not sent: a
+## boulder for the overhead throw, the same for the bowl, a stone for a stone).
+func _rock_shown_kind() -> int:
+	return TrollRock.Kind.ROLL if act == R_BOWL else TrollRock.Kind.BIG
+
+
+func _show_held(kind: int) -> void:
+	if kind == _held_kind:
+		return
+	_held_kind = kind
+	if _held != null and is_instance_valid(_held):
+		_held.queue_free()
+		_held = null
+	if kind < 0:
+		return
+	_held = TrollRock.model(kind, act_serial)
+	_held.top_level = true
+	add_child(_held)
+
+
+func _bleed(delta: float) -> void:
+	if _wound_marks.is_empty() or is_dead:
+		return
+	_drip_in -= delta
+	if _drip_in > 0.0:
+		return
+	_drip_in = randf_range(0.25, 0.7) / float(_wound_marks.size())
+	var mark := _wound_marks[randi() % _wound_marks.size()]
+	if not is_instance_valid(mark) or not mark.is_inside_tree():
+		return
+	SkillFx.burst(Blood.world_of(self), mark.global_position, Color(0.45, 0.02, 0.015), 3, Vector2(0.2, 0.6),
+			Vector3.DOWN, 30.0, Vector2(0.03, 0.05), Vector3(0, -9.0, 0), 0.6)
 #endregion
 
 
 #region Host: its balance and its body
-## Blows fill its stance; partway it rocks back a step, further it is knocked
-## off it and reels (before it goes down on a knee, full).
 func _add_stance(amount: float) -> void:
 	super(amount)
-	if is_dead or stance <= 0.0 or act == STANCE or act == PIECES or act == RAGE or act == LEAP:
+	if is_dead or stance <= 0.0 or act == STANCE or act == PIECES or act == RAGE or act == LEAP \
+			or act == W_UPROOT or act == P_GRAB:
 		return
 	var share := stance_taken / stance
 	if _rocked < 2 and share >= STAGGER_AT:
@@ -717,23 +1056,27 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 	var bled := super(damage, at, blow, from, magic)
 	if stance_taken <= 0.0 and act != STANCE:
 		_rocked = 0
+	if bled and armed:
+		_wear_tree(tree_wear.y if damage >= 40.0 else tree_wear.x)
+	# him held: the other hero's blows make it let go
+	if bled and _grabbed != null and from != _grabbed and from != null and from.is_in_group(&"player"):
+		_freed_by += damage
+		if _freed_by >= max_health * grab_free:
+			_let_go()
+			_begin(T_STAGGER)
 	if bled and not is_dead and wounds < WOUND_AT.size() and health <= max_health * float(WOUND_AT[wounds]):
 		_wound(at, blow)
 	return bled
 
 
-## Host: a wound opens where it was struck; it is slower, its balance breaks
-## sooner. Seen by all ([method net_wound]).
 func _wound(at: Vector3, blow: Vector3) -> void:
 	wounds += 1
-	# slower by each (on top of whatever its rage has made of its pace)
 	var keep := (1.0 - wound_slow * float(wounds)) / (1.0 - wound_slow * float(wounds - 1))
 	speed *= keep
 	chase_speed *= keep
 	close_speed *= keep
 	stance = _stance0 * (1.0 - wound_stance * float(wounds))
 	if stance_taken >= stance and act != STANCE:
-		# what it has already taken is more than its wounded balance holds
 		_break_stance()
 	var bone := _nearest_bone(at)
 	if bone < 0:
@@ -747,7 +1090,6 @@ func _wound(at: Vector3, blow: Vector3) -> void:
 		net_wound(String(_skeleton.get_bone_name(bone)), local, way, wounds)
 
 
-## The body's bone nearest a point (a wound is laid on it).
 func _nearest_bone(at: Vector3) -> int:
 	if _skeleton == null:
 		return -1
@@ -767,17 +1109,15 @@ func _nearest_bone(at: Vector3) -> int:
 	return best
 
 
-## Every peer: a wound opened on bone `bone_name`, at `local` in its frame,
-## facing `way` (whence the blow came); the deeper the more it has.
 @rpc("authority", "call_local", "reliable")
 func net_wound(bone_name: String, local: Vector3, way: Vector3, count: int) -> void:
 	if _skeleton == null or _skeleton.find_bone(bone_name) < 0:
 		return
 	if not has_meta(&"wound_layer"):
 		set_meta(&"wound_layer", true)
-		for m in find_children("*", "GeometryInstance3D", true, false):
+		for m in body.find_children("*", "GeometryInstance3D", true, false) if body != null else []:
 			var g := m as GeometryInstance3D
-			if not (g is GPUParticles3D) and not (g is Label3D) and not (_club != null and _club.is_ancestor_of(g)):
+			if g != null and not (g is GPUParticles3D) and not (g is Label3D):
 				g.layers |= Blood.WOUND_LAYER
 	var hold := BoneAttachment3D.new()
 	hold.bone_name = bone_name
@@ -794,81 +1134,23 @@ func net_wound(bone_name: String, local: Vector3, way: Vector3, count: int) -> v
 	decal.modulate = Color(0.5, 0.03, 0.02)
 	decal.albedo_mix = 1.0
 	decal.cull_mask = Blood.WOUND_LAYER
-	# (in the bone's frame, which is the troll's size over: sized to a man's)
-	# (deep through it: where a blow lands is taken on its body's axis, so the
-	# box reaches out through the skin on the side it came from; the far
-	# side's skin faces away and is faded out)
+	# (deep through it: a blow's point is on its body's axis; the far side's
+	# skin faces away and is faded out)
 	decal.size = Vector3(0.6 * deep, 1.5, 0.9 * deep) * s * visual_scale / 1.6
 	decal.normal_fade = 0.4
 	hold.add_child(decal)
 	decal.transform = Transform3D(Basis(x, y, z), local + y * 0.25)
-	# it bleeds from there from now on, a drop now and then
 	var mark := Marker3D.new()
 	mark.name = "WoundAt%d" % count
 	hold.add_child(mark)
 	mark.position = local
 	_wound_marks.append(mark)
-	# blood out of it as it opens, and the grunt of it
 	var world := Blood.world_of(self)
 	var at := _skeleton.global_transform * _skeleton.get_bone_global_pose(_skeleton.find_bone(bone_name)) * local
 	if world != null:
 		SkillFx.burst(world, at, Color(0.5, 0.03, 0.02), 18, Vector2(1.0, 3.2), _skeleton.global_basis * y, 50.0,
 				Vector2(0.03, 0.07), Vector3(0, -9.0, 0), 0.7)
 	Sfx.play_any(self, [SOUNDS + "grunt_1.wav", SOUNDS + "grunt_3.wav"], self, randf_range(0.78, 0.86), -3.0)
-#endregion
-
-
-#region The boulder (off unless `hurl_on`)
-## Host: the boulder out of its hands, on an arc onto where he will be.
-func _release() -> void:
-	if _quarry == null:
-		return
-	var from := _hand_at() + Vector3.UP * 0.2
-	var target := _quarry.global_position + Vector3.UP * 0.9
-	var gap := Vector3(target.x - from.x, 0.0, target.z - from.z).length()
-	var flight := clampf(gap / 16.0, 0.4, 1.2)
-	if _quarry is CharacterBody3D:
-		var v := (_quarry as CharacterBody3D).velocity
-		target += Vector3(v.x, 0.0, v.z) * flight * 0.5
-	var throw_v := (target - from) / flight + Vector3.UP * 0.5 * GoblinShot.GRAVITY * flight
-	var worth := hit_damage * boulder_share * _blow_worth(HURL)
-	if is_inside_tree() and multiplayer.has_multiplayer_peer():
-		net_hurl.rpc(from, throw_v, worth, act_serial)
-	else:
-		net_hurl(from, throw_v, worth, act_serial)
-
-
-@rpc("authority", "call_local", "reliable")
-func net_hurl(from: Vector3, v: Vector3, worth: float, id: int) -> void:
-	_show_held(false)
-	GoblinShot.throw(Blood.world_of(self), from, v, GoblinShot.Kind.BOULDER, worth, self, _decides(), id * 100 + 7)
-
-
-func _hand_at() -> Vector3:
-	if _skeleton != null and _hand >= 0:
-		return _skeleton.global_transform * _skeleton.get_bone_global_pose(_hand).origin
-	return global_position + Vector3.UP * 2.0 * visual_scale
-
-
-func _show_held(on: bool) -> void:
-	if _held == null:
-		if not on:
-			return
-		_held = MeshInstance3D.new()
-		var m := SphereMesh.new()
-		m.radius = 0.42
-		m.height = 0.76
-		m.radial_segments = 7
-		m.rings = 4
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.4, 0.37, 0.33)
-		mat.roughness = 1.0
-		m.material = mat
-		_held.mesh = m
-		_held.top_level = true
-		_held.scale = Vector3(1.1, 0.85, 1.0)
-		add_child(_held)
-	_held.visible = on
 #endregion
 
 
@@ -885,12 +1167,9 @@ func _show_healing(delta: float) -> void:
 				_heal_glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 				_heal_glow.albedo_color = Color(regen_tint, 0.0)
 			for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
-				if _club != null and _club.is_ancestor_of(mi):
-					continue
 				mi.material_overlay = _heal_glow if on else null
 	if not on:
 		return
-	# A slow green pulse over it, and motes rising off its wounds.
 	_heal_glow.albedo_color.a = 0.05 + 0.05 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.0))
 	_mote_clock += delta
 	if _mote_clock < 0.2:
@@ -904,10 +1183,13 @@ func _show_healing(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	super(delta)
-	if is_dead or not _decides():
+	if is_dead:
+		if _decides():
+			_let_go()
+		return
+	if not _decides():
 		return
 	if raging and not _rage_eased:
-		# its rage quicker, but still a heavy thing: a breath between strings
 		_rage_eased = true
 		attack_cooldown = Vector2(1.0, 1.7)
 	var aff := Afflictions.of(self, false)
@@ -929,7 +1211,6 @@ func net_regen(on: bool) -> void:
 	healing = on
 
 
-## Burnt or frozen by a skill: its wounds stop closing.
 func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) -> void:
 	if kind == &"burn" or kind == &"chill" or kind == &"freeze":
 		_stopped_for = regen_stopped

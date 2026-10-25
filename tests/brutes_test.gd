@@ -353,7 +353,8 @@ func _troll_stance() -> void:
 	var world: World = a[0]
 	var hero: Player = a[2]
 	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 4.0)) as TrollFighter
-	troll._hurl_wait = 99.0
+	troll._rock_wait = 99.0
+	troll._grab_wait = 99.0
 	troll._leap_wait = 99.0
 	for k in 8:
 		troll._add_stance(60.0)
@@ -372,15 +373,16 @@ func _troll_boulder() -> void:
 	var hero: Player = a[2]
 	var start := hero.global_position
 	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 12.0)) as TrollFighter
-	# (off since it holds the club, 2026-10-25: switched on to test the throw)
-	troll.hurl_on = true
-	troll._hurl_wait = 0.0
+	# the boulder over its head (its other rocks are its choice)
+	troll.rock_pick = TrollRock.Kind.BIG
+	troll._rock_wait = 0.0
+	troll._grab_wait = 99.0
 	troll._leap_wait = 99.0
 	var struck := []
 	hero.struck.connect(func(d: float, b: bool) -> void: struck.append([d, b]))
 	var hurled := [false]
 	var hit := await _until(420, hero, start, func() -> bool:
-		if troll.act == TrollFighter.HURL:
+		if troll.act == TrollFighter.R_THROW:
 			hurled[0] = true
 		return hurled[0] and struck.size() > 0, troll)
 	_check("the troll hurls a boulder that reaches him", hit, "hurled %s" % hurled[0])
@@ -418,7 +420,8 @@ func _troll_leap() -> void:
 	var hero: Player = a[2]
 	var start := hero.global_position
 	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 8.0)) as TrollFighter
-	troll._hurl_wait = 99.0
+	troll._rock_wait = 99.0
+	troll._grab_wait = 99.0
 	troll._leap_wait = 0.0
 	var leapt := [false]
 	var down := await _until(360, hero, start, func() -> bool:
@@ -427,8 +430,7 @@ func _troll_leap() -> void:
 		return leapt[0] and hero.state == Player.State.DOWNED, troll)
 	for i in 30:
 		await physics_frame
-	_check("the troll leaps at him, fells him, and the ground shakes where it lands", down and troll.quakes_made > 0,
-			"leapt %s, %d quakes" % [leapt[0], troll.quakes_made])
+	_check("the troll tackles him from off and fells him", down, "tackled %s" % leapt[0])
 	await _done(world)
 
 
@@ -517,10 +519,11 @@ func _reform(scene: String, what: String) -> void:
 
 
 ## 2026-10-15 (the user's word): the troll and the golem, each its own way.
-## The troll with its club (2026-10-25, the user's word: heavy, Elden Ring's):
-## on two feet and slow, no hop aside, the club in its hands; a great swing
-## that finds nothing leaves it reeling; a wound slows it and weakens its
-## balance.
+## The troll (2026-10-25, the user's word: heavy, Elden Ring's, its own
+## moves): bare-handed and slow, no hop aside, fists closed; its grab catches
+## him and slams him down; at half its health it tears a tree out of the
+## ground; his blows break the tree, and broken it leaves the troll open; a
+## great swing that finds nothing leaves it reeling; a wound slows it.
 func _troll_heavy() -> void:
 	var a: Array = await _arena()
 	var world: World = a[0]
@@ -528,6 +531,8 @@ func _troll_heavy() -> void:
 	var start := hero.global_position
 	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 16.0)) as TrollFighter
 	troll._leap_wait = 999.0
+	troll._rock_wait = 999.0
+	troll._grab_wait = 999.0
 	troll._rouse(hero)
 	var top := 0.0
 	for i in 240:
@@ -536,15 +541,38 @@ func _troll_heavy() -> void:
 		top = maxf(top, Vector2(troll.velocity.x, troll.velocity.z).length())
 		if troll._distance_to(hero) < troll.reach:
 			break
-	_check("the troll comes on two feet, not fast", troll.run_clip == &"CR_HeavyRun" and top < 3.8, "%.1f m/s" % top)
-	_check("it does not hop aside", troll.dash_chance == 0.0)
-	_check("its club in its hands", troll._club != null and troll._club.is_visible_in_tree() and troll._grip_learnt)
+	_check("the troll comes on two feet, not fast", troll.run_clip == &"CR_TR_MutantRun" and top < 3.8, "%.1f m/s" % top)
+	_check("it does not hop aside, its hands are fists", troll.dash_chance == 0.0 and troll._hand_fists.size() == 2
+			and not troll.armed)
+	# the grab
+	troll._grab_wait = 0.0
+	var caught := [false]
+	var slammed := await _until(600, hero, start, func() -> bool:
+		if troll._grabbed != null:
+			caught[0] = true
+		return caught[0] and hero.state == Player.State.DOWNED, troll)
+	_check("its grab catches him and slams him down", slammed and troll.grabs_caught >= 1,
+			"caught %s, %d grabs" % [caught[0], troll.grabs_made])
+	troll._grab_wait = 999.0
+	for i in 120:
+		await physics_frame
+	# half its health: the tree
+	troll.health = troll.max_health * 0.5
+	var armed := false
+	for i in 600:
+		await physics_frame
+		_hold(hero, start)
+		if troll.armed:
+			armed = true
+			break
+	_check("at half its health it tears a tree out of the ground", armed and troll._tree != null
+			and troll.idle_clip == &"CR_HeavyIdle", "uproots %d" % troll.uproots)
 	troll.sight_range = 0.0
 	troll._go_home()
 	for i in 10:
 		await physics_frame
 	hero.global_position = troll.global_position + troll._forward() * 9.0
-	troll._begin(TrollFighter.T_SWING)
+	troll._begin(TrollFighter.W_GREAT)
 	var reeled := false
 	for i in 400:
 		await physics_frame
@@ -552,11 +580,23 @@ func _troll_heavy() -> void:
 			reeled = true
 			break
 	_check("a great swing that finds nothing leaves it reeling", reeled and troll.reels >= 1)
+	for i in 60:
+		await physics_frame
+	var broke_open := false
+	for k in 20:
+		troll._wear_tree(0.08)
+		await physics_frame
+		if not troll.armed:
+			break
+	for i in 30:
+		await physics_frame
+	broke_open = troll.trees_broken == 1 and not troll.armed and troll.crit_open()
+	_check("his blows break the tree, and it leaves the troll on its knee", broke_open,
+			"broken %d, armed %s, open %s" % [troll.trees_broken, troll.armed, troll.crit_open()])
 	var pace := troll.chase_speed
 	var balance := troll.stance
-	troll.health = troll.max_health * 0.79
 	troll._wound(troll.global_position + Vector3.UP * 2.0, Vector3.FORWARD)
-	_check("a wound slows it and weakens its balance", troll.wounds == 1 and troll.chase_speed < pace and troll.stance < balance,
+	_check("a wound slows it and weakens its balance", troll.chase_speed < pace and troll.stance < balance,
 			"%.2f -> %.2f, %.0f -> %.0f" % [pace, troll.chase_speed, balance, troll.stance])
 	await _done(world)
 

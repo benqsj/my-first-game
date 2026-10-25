@@ -307,6 +307,23 @@ const MIXAMO := [
 	["CR_TR_MutantWalk", "res://assets/creatures/anim/mixamo/TR_Mutant_Walk.fbx", true, 0.0, -1.0],
 	["CR_TR_MutantIdle", "res://assets/creatures/anim/mixamo/TR_Mutant_Idle.fbx", true, 0.0, -1.0],
 	["CR_TR_Roar", "res://assets/creatures/anim/mixamo/TR_Mutant_Roar.fbx", false, 0.0, -1.0],
+	# its second look (later the same day: no weapon but its body and the ground,
+	# a tree torn up at half its health): fists, knees, a grab and slam, a
+	# stomp, a tackle, lifting and throwing rock, flexing.
+	["CR_TR_Flex", "res://assets/creatures/anim/mixamo/TR_Flex.fbx", false, 0.0, -1.0],
+	["CR_TR_Stomp", "res://assets/creatures/anim/mixamo/TR_Floor_Stomp.fbx", false, 0.0, -1.0],
+	["CR_TR_GoalieThrow", "res://assets/creatures/anim/mixamo/TR_Goalie_Throw.fbx", false, 0.0, -1.0],
+	["CR_TR_Headbutt", "res://assets/creatures/anim/mixamo/TR_Headbutt_Grab.fbx", false, 0.0, -1.0],
+	["CR_TR_Slammer", "res://assets/creatures/anim/mixamo/TR_Hell_Slammer.fbx", false, 0.0, -1.0],
+	["CR_TR_KneesUppercut", "res://assets/creatures/anim/mixamo/TR_Knees_Uppercut.fbx", false, 0.0, -1.0],
+	["CR_TR_Lift", "res://assets/creatures/anim/mixamo/TR_Lift_Heavy.fbx", false, 0.0, -1.0],
+	["CR_TR_Hook", "res://assets/creatures/anim/mixamo/TR_Long_Hook.fbx", false, 0.0, -1.0],
+	["CR_TR_Jab", "res://assets/creatures/anim/mixamo/TR_Mutant_Punch.fbx", false, 0.0, -1.0],
+	["CR_TR_ChaseUppercut", "res://assets/creatures/anim/mixamo/TR_Surprise_Uppercut.fbx", false, 0.0, -1.0],
+	["CR_TR_Tackle", "res://assets/creatures/anim/mixamo/TR_Tackle.fbx", false, 0.0, -1.0],
+	["CR_TR_ThrowIn", "res://assets/creatures/anim/mixamo/TR_Throw_In.fbx", false, 0.0, -1.0],
+	["CR_TR_ThrowObject", "res://assets/creatures/anim/mixamo/TR_Throw_Object.fbx", false, 0.0, -1.0],
+	["CR_TR_MutantRun", "res://assets/creatures/anim/mixamo/TR_Mutant_Run.fbx", true, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

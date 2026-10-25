@@ -2100,7 +2100,7 @@ along their head, emitting while an attack has the head moving faster than
 `arc_speed` (10 m/s). The world's creature culling leaves trails alone: their
 bounds are world-space and would be measured from the middle of the map.
 
-### The troll's club (2026-10-25)
+### The troll's club (2026-10-25; replaced by bare hands and a tree, below)
 
 `scripts/troll_fighter.gd`. The user's word: it was so quick it could not be
 fought; heavy blows, Elden Ring's way, the club seen coming back, its balance
@@ -2141,6 +2141,54 @@ gone; it carries a gnarled oak club in both hands.
   stance each. Rage at 30 % (`CR_GS_PowerUp`). Death `CR_MG_Death`.
 * Shared from this round: `PackBrute.act_turn_most` / `glide_most` /
   `glide_gap` (were the butcher's own) and `GroundFx.weapon_dust`.
+
+### The troll: bare hands, then a tree (2026-10-25, round 4)
+
+`scripts/troll_fighter.gd`. The user's word: its club was not in its hand at
+all, its wrists did not move, and the batter's strings looked like the
+ogre's. Their pick: it fights bare-handed, and at half its health tears a tree
+out of the ground; the tree breaks under his blows. (The club of the round
+before is gone; `assets/creatures/troll_club.glb` stays unused.)
+
+* **Fists**: `scripts/hand_fist.gd` (`HandFist`, a `SkeletonModifier3D`):
+  each finger's joints bent about the line across the palm, from rest, over
+  whatever the clip does; `close` eased by the troll (a fist in blows, round
+  the haft with the tree, slack at rest).
+* **Bare** (Mixamo `CR_TR_*`): jab, great hook, three knees and an uppercut,
+  headbutt (guard kind), stomp (the ground split in three lines in front, no
+  ring), an uppercut chased in from a few steps (its own opener, now and
+  then). Strings: `jab_hook`, `head_stomp` (2), `brawl` (3), `knees` (4),
+  `fury` enraged. The fists' measured gaps (0.6-0.9 m) were nearer than the
+  two bodies let him stand: the bare blows open from 1.5 m and step in.
+  Mutant idle / walk / run.
+* **The grab** (`CR_TR_Slammer`, `P_GRAB`): within 3 m and in front, it
+  reaches; caught (`Player.grab_by`, held at `grab_point()`), he is lifted and
+  slammed (`net_slam`: dust, eruption, shake). A roll slips it; another hero's
+  blows (3.5 % of its health) make it let go. Empty-handed it stumbles.
+* **The tackle**: its leap (`CR_TR_Tackle`), 5.5-12 m; missed, it reels.
+* **Rocks**: `scripts/troll_rock.gd` (`TrollRock`), meshes
+  `assets/creatures/troll_rocks.glb` (`vepxis-art/creatures/troll_rocks.py`).
+  Torn out of the ground (`CR_Harvest`, earth bursts) and thrown over its
+  head (`CR_TR_ThrowIn`, leads a moving hero; bursts, area fell), or bowled
+  along the ground (`CR_TR_KettleSwing`; rolls 16 m over whoever is in its
+  way), or three stones one after another (`CR_TR_ThrowObject`). The rock is
+  seen in its hands on every peer; `net_rock` spawns it everywhere, the host
+  hurts. Dust trail, shatter, chunks, shake. 6-22 m, 7-11 s apart.
+* **The tree** (55 % health, once more at 22 % if the first broke):
+  `CR_TR_Lift`, the tree coming up out of the ground beside it (earth, chunks,
+  shake), then on `R_equip_joint` (its length along the hand's +X), the
+  right fist closed round it, the left hand on the haft (`TwoHandGrip`).
+  Heavy locomotion. Strings: the two-handed three (`CR_OG_TwoHand_Combo`),
+  the club string (`CR_OG_Club_Combo2H`, the one kept from before), scoop and
+  chop, the great swing (missed: it reels), four, `tree_storm` enraged. Every
+  blow of his wears it (`tree_wear`); cracks at 2/3 and 1/3 (splinters,
+  darker); at none it bursts into `TreeBit_*` and the troll kneels, open to a
+  critical. Dropped when it dies.
+* **Kept**: slow up / fast down, held swings, its balance rocking and
+  staggering and breaking, wounds where struck (slower, weaker balance),
+  regeneration while nothing burns or freezes it, rage at 30 %.
+* **Colours**: `troll_rocks.py` had made its vertex colours linear and
+  `lp_solid` makes them linear again: near black. Written as the palette now.
 
 ### A boss's anger (Threat)
 
