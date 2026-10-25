@@ -23,8 +23,14 @@ var _water: ShaderMaterial
 var _light: OmniLight3D
 var _man: Villager
 var _cage: Node3D
-## the living man's gate in the cave's cells (it goes up when he is freed)
-var _gate: Node3D
+## the living man's door in the cave's cells: locked till the jailers' key
+## is found (the user's word, 2026-10-25: kill them, take the key, open it)
+var _door: Node3D
+var _i: int = -1
+var _key: Node3D
+var _has_key: bool = false
+var _last_down: Vector3 = Vector3.INF
+var _nag_at: int = 0
 var _name: String = ""
 
 
@@ -41,6 +47,7 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 		cave.name = "Rest"
 		cave.kind = what
 		cave._d = d
+		cave._i = i
 		room.add_child(cave)
 		cave._build_cave(room, w, l)
 		return
@@ -212,28 +219,105 @@ func _build_cave(room: Node3D, w: float, l: float) -> void:
 	rng.seed = 41
 	var cell := CellCave.build(_d, room, w, l, rng)
 	_cage = Node3D.new()
-	_cage.position = cell.get("at", Vector3(CellCave.BARS_X + 1.3, 0.0, 7.5))
+	_cage.position = cell.get("at", Vector3(CellCave.FRONT_X + 1.2, 0.0, 6.75))
 	room.add_child(_cage)
-	_gate = cell.get("gate") as Node3D
+	_door = cell.get("door") as Node3D
+	# he stands at his door and watches (the user's word, 2026-10-25: not
+	# crouched; standing or sitting)
 	_man = Villager.new()
 	_man.variant = 3 + _freed_count()
 	_man.look = Villager.freed_look(_freed_count())
-	_man.crouched = true
+	_man.crouched = false
 	_man.rotation.y = -PI * 0.5
 	_cage.add_child(_man)
-	_man.set_process(false)
 	_name = NAMES[_freed_count() % NAMES.size()]
 	var shout := Label3D.new()
-	shout.text = "მიშველე!"
-	shout.font_size = 52
+	shout.text = "მიშველე!\nგასაღები ციხისმცველს აქვს"
+	shout.font_size = 44
 	shout.pixel_size = 0.01
 	shout.outline_size = 10
 	shout.modulate = Color(1.0, 0.92, 0.8)
 	shout.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	shout.position = Vector3(-1.4, 3.6, 0.0)
+	shout.position = Vector3(-2.6, 3.0, 0.0)
+	# (seen over the cell's frame, not cut by it)
+	shout.no_depth_test = true
 	shout.name = "Shout"
 	_cage.add_child(shout)
 	position = Vector3.ZERO
+	# the jailers are made after the place is built ([method Dungeon._spawn_room]):
+	# watched for where the last of them falls, the key dropped there
+	_d.room_cleared.connect(_on_cleared)
+	get_tree().create_timer(0.5).timeout.connect(_watch_jailers)
+
+
+func _watch_jailers() -> void:
+	if _d == null or _i < 0 or _i >= _d._room_foes.size():
+		return
+	for body: Variant in _d._room_foes[_i]:
+		if is_instance_valid(body) and (body as Node).has_signal(&"died"):
+			(body as Node).connect(&"died", _on_jailer_down.bind(body))
+
+
+func _on_jailer_down(body: Variant) -> void:
+	if is_instance_valid(body):
+		_last_down = (body as Node3D).global_position
+
+
+## The place cleared: the jailers' key falls where the last of them fell
+## (in the middle if none was here: F1's look round).
+func _on_cleared(i: int) -> void:
+	if i != _i or _key != null or _used:
+		return
+	var at := to_local(_last_down) if _last_down != Vector3.INF else Vector3(0.0, 0.0, 4.0)
+	at = Vector3(clampf(at.x, -13.5, 13.5), 0.0, clampf(at.z, -21.0, 21.0))
+	_key = Node3D.new()
+	_key.name = "Key"
+	_key.position = at
+	add_child(_key)
+	var ring := CellCave._piece(_key, "PKey", Vector3(0.0, 0.7, 0.0))
+	ring.name = "Ring"
+	ring.scale = Vector3.ONE * 1.6
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.8, 0.42)
+	glow.light_energy = 1.4
+	glow.omni_range = 3.5
+	glow.position = Vector3(0.0, 0.8, 0.0)
+	glow.set_meta(&"designed_shadow", false)
+	_key.add_child(glow)
+	var note := Label3D.new()
+	note.text = "გასაღები"
+	note.font_size = 40
+	note.pixel_size = 0.01
+	note.outline_size = 10
+	note.modulate = Color(1.0, 0.86, 0.5)
+	note.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	note.position = Vector3(0.0, 1.6, 0.0)
+	_key.add_child(note)
+	# it falls from the jailer's belt and spins there
+	ring.position.y = 2.4
+	var fall := ring.create_tween()
+	fall.tween_property(ring, "position:y", 0.7, 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	var spin := ring.create_tween().set_loops()
+	spin.tween_property(ring, "rotation:y", TAU, 2.4).from(0.0)
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, _key.global_position + Vector3.UP * 0.7, Color(1.0, 0.82, 0.45), 30, Vector2(1.0, 3.0),
+				Vector3.UP, 180.0, Vector2(0.04, 0.1), Vector3(0, -1.5, 0), 0.8)
+	_d._say("ციხისმცველებმა გასაღები დააგდეს", 3.0)
+	var shout := _cage.get_node_or_null(^"Shout") as Label3D
+	if shout != null:
+		shout.text = "გასაღები! გამიღე კარი!"
+
+
+func _take_key(_hero: Player) -> void:
+	_has_key = true
+	var world := Blood.world_of(self)
+	if world != null:
+		SkillFx.burst(world, _key.global_position + Vector3.UP * 0.7, Color(1.0, 0.85, 0.5), 24, Vector2(1.0, 2.5),
+				Vector3.UP, 180.0, Vector2(0.04, 0.1), Vector3(0, 0.5, 0), 0.7)
+	_key.queue_free()
+	_key = null
+	_d._say("გასაღები შენთანაა — გააღე საკანი", 3.0)
 
 
 func _freed_count() -> int:
@@ -253,10 +337,12 @@ func _set_free(hero: Player) -> void:
 		SkillFx.burst(world, _cage.global_position + Vector3.UP * 1.2, Color(1.0, 0.85, 0.5), 50, Vector2(1.5, 4.0),
 				Vector3.UP, 180.0, Vector2(0.05, 0.12), Vector3(0, -2.0, 0), 1.0)
 	ImpactFx.strike(self, _cage.global_position + Vector3.UP, &"guard")
-	# the cave cell's gate goes up into the rock
-	if _gate != null and is_instance_valid(_gate):
-		var lift := _gate.create_tween()
-		lift.tween_property(_gate, "position:y", 3.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	# the cave cell's door: unlocked, it swings out into the room
+	if _door != null and is_instance_valid(_door):
+		var swing := _door.create_tween()
+		swing.tween_property(_door, "rotation:y", deg_to_rad(105.0) * signf(_door.position.x), 1.4) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		Sfx.play(_d, Dungeon.SND + "creak.wav", null, _door.global_position + Vector3.UP, 1.0, -2.0)
 	var bars := _cage.get_children()
 	for node in bars:
 		var m := node as MeshInstance3D
@@ -277,7 +363,7 @@ func _set_free(hero: Player) -> void:
 	# what he kept hidden from the orcs: something for the bag
 	var loot := LootDrop.of(self)
 	if loot != null:
-		var out := 2.8 if _gate != null else 1.8
+		var out := 2.8 if _door != null else 1.8
 		loot.net_loot(_cage.global_position + Vector3(-out, 0.0, 0.0), hero.get_path(), randi())
 	_d._say("%s გათავისუფლდა — სოფელში იცხოვრებს" % _name, 3.5)
 	# he walks out, and away down the room, and is gone
@@ -320,7 +406,21 @@ func _process(_delta: float) -> void:
 				if gap.length() < 6.8:
 					_drink(hero)
 					return
-			"prison", "cell_cave":
+			"prison":
 				if _cage != null and hero.global_position.distance_to(_cage.global_position) < 3.0:
 					_set_free(hero)
 					return
+			"cell_cave":
+				if _key != null and Vector2(hero.global_position.x - _key.global_position.x,
+						hero.global_position.z - _key.global_position.z).length() < 1.6:
+					_take_key(hero)
+				if _cage == null or hero.global_position.distance_to(_cage.global_position) > 3.2:
+					continue
+				if _has_key:
+					_set_free(hero)
+					return
+				# locked: the jailers have its key
+				if Time.get_ticks_msec() > _nag_at:
+					_nag_at = Time.get_ticks_msec() + 6000
+					_d._say("კარი დაკეტილია — გასაღები ციხისმცველს აქვს" if _key == null and not _d.cleared[_i] \
+							else "კარი დაკეტილია — აიღე გასაღები", 2.5)

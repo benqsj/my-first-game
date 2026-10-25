@@ -128,7 +128,8 @@ const PLACES := {
 	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
 	"spring": {"name": "წმინდა წყარო", "kind": "spring", "w": 36.0, "l": 44.0, "h": 12.0, "rest": "სიცოცხლე ბოლომდე"},
-	"prison": {"name": "ტყვეების ოთახი", "kind": "cell_cave", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "გაათავისუფლე ტყვე"},
+	"prison": {"name": "ტყვეების ოთახი", "kind": "cell_cave", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "მცველები · გაათავისუფლე ტყვე",
+			"guards": true},
 	# and the two quiet places of the portal's own (the user's word,
 	# 2026-10-22: a merchant, an altar) ([PortalEvent])
 	"merchant": {"name": "ვაჭარი", "kind": "merchant", "w": 32.0, "l": 42.0, "h": 11.0, "rest": "იყიდე ოქროთი"},
@@ -185,6 +186,11 @@ const RUN := {
 				"foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
 }
+## The prisoners' jailers (the user's word, 2026-10-25: kill them, and the key
+## they leave opens the cell): goblins and puglins with an elite among them
+## early on, an orc and the skulls with them later.
+const JAILERS_EARLY := [[GOBLIN, 3], [PUGLIN, 2], [GOBLIN, 1, ELITE]]
+const JAILERS_LATE := [[GOBLIN, 2], [SKULL, 2], [ORC_SKIRM, 1], [PUGLIN, 1, ELITE]]
 ## The steps a place to rest (the spring, the prisoners) may be offered
 ## before, beside the step's own place (1-based, the rests not counted); and
 ## before every boss, the spring always.
@@ -1148,7 +1154,10 @@ func light_of(i: int) -> float:
 ## Every peer does it as it goes through ([method _go_through]).
 func _rest_between(at: int, place: String) -> void:
 	var before: Dictionary = steps[at]
-	steps.insert(at, {"places": [place], "lv": before.get("lv", 1), "foes": {}, "rest": true})
+	var foes := {}
+	if (PLACES[place] as Dictionary).has("guards"):
+		foes = {"*": JAILERS_EARLY if int(before.get("lv", 1)) < 5 else JAILERS_LATE}
+	steps.insert(at, {"places": [place], "lv": before.get("lv", 1), "foes": foes, "rest": true})
 	cleared.insert(at, false)
 	# what was made ahead for the steps after it moves on with them
 	var moved := {}
@@ -1206,7 +1215,8 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 	# holding out, they keep coming: twice as many wait
 	if goal == "survive":
 		foes = foes + foes
-	if p.has("rest"):
+	# (the prisoners' place keeps its jailers)
+	if p.has("rest") and not p.has("guards"):
 		foes = []
 	var r := {"place": place, "kind": p["kind"], "w": p["w"], "l": p["l"], "h": p["h"],
 			"name": p["name"], "foes": foes, "lv": step.get("lv", 1), "xp": step.get("xp", 0.0),

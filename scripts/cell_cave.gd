@@ -13,13 +13,17 @@ extends RefCounted
 ## bones and buckets in them. Timber frames hold the roof up across the room,
 ## a torch on each post, chains and the orcs' rags hanging from the beams. The
 ## living man is in the second cell on the right ([RestSpot] frees him: his
-## gate goes up).
+## door is locked: the jailers' key opens it (2026-10-25)).
 
 const DIR := "res://assets/dungeon/cell_cave/"
 const KIT := DIR + "cell_cave_lowpoly.glb"
 ## The same numbers as the Blender script's.
 const WALL_X := 16.6
-const BARS_X := 16.7
+## Where each cell's front stands (its bars; the timber frame goes back into
+## the rock from there), and the door's hinge along it (z, from the cell's middle).
+const FRONT_X := 16.55
+const HINGE := -0.15
+const DOOR_W := 1.2
 const CELLS := [16.0, 7.5, -1.0, -9.5]
 const CELL_D := 3.4
 const HOLES := [Vector3(-3.0, 12.0, 2.0), Vector3(4.0, 1.0, 2.3), Vector3(-2.0, -10.0, 1.9)]
@@ -34,10 +38,10 @@ static var _kit: Node3D
 
 
 ## Builds it in `room`; gives back the living man's cell: {"at": where he
-## sits, "gate": the bars that go up}.
+## stands, "door": his cell's door (it swings open on its hinge)}.
 static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator) -> Dictionary:
 	_ready_kit()
-	# the floor walked on: a box at 0, the drawn rock over it (+0.01..+0.05)
+	# the floor walked on: a box at 0, the drawn rock over it (+0.015..+0.03)
 	var slab := d._solid(room, TerracePlaces._solid(0.0), Vector3(w + 2.0, 1.0, l + 2.0), Vector3(0.0, -0.5, 0.0))
 	for mi in slab.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).visible = false
@@ -50,20 +54,31 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	for k in CELLS.size():
 		for side: float in [-1.0, 1.0]:
 			var z: float = CELLS[k]
-			var inside := Vector3(side * (BARS_X + CELL_D * 0.5), 0.0, z)
+			var yaw := 0.0 if side > 0.0 else PI
+			# a bed along the cell's back: planks on legs, or hay on the ground
+			# a little light in the cell, so its bed and its man are seen
+			# through the bars (no shadow: [Graphics])
+			var fill := OmniLight3D.new()
+			fill.light_color = Color(0.86, 0.88, 0.95)
+			fill.light_energy = 0.7
+			fill.omni_range = 3.6
+			fill.position = Vector3(side * (FRONT_X + 1.6), 2.4, z)
+			fill.set_meta(&"designed_shadow", false)
+			room.add_child(fill)
+			var bed := "PBedWood" if (k + (1 if side > 0.0 else 0)) % 2 == 0 else "PBedHay"
+			_piece(room, bed, Vector3(side * (FRONT_X + 2.85), 0.0, z + rng.randf_range(0.1, 0.5)), yaw)
 			if side > 0.0 and k == LIVING:
-				var gate := _piece(room, "PGate", Vector3(side * BARS_X, 0.0, z))
-				living = {"at": Vector3(side * (BARS_X + 1.3), 0.0, z), "gate": gate}
-				_piece(room, "PStraw", inside + Vector3(side * 0.4, 0.0, 0.6), rng.randf_range(0.0, TAU))
-				_piece(room, "PBucket", inside + Vector3(side * 0.9, 0.0, -1.0))
+				_piece(room, "PFrontOpen", Vector3(side * FRONT_X, 0.0, z), yaw)
+				var door := _piece(room, "PDoor", Vector3(side * FRONT_X, 0.0, z + HINGE), yaw)
+				living = {"at": Vector3(side * (FRONT_X + 1.2), 0.0, z + HINGE - DOOR_W * 0.5), "door": door}
+				_piece(room, "PBucket", Vector3(side * (FRONT_X + 2.4), 0.0, z - 1.05))
 				continue
-			_piece(room, "PBars", Vector3(side * BARS_X, 0.0, z))
-			_piece(room, "PStraw", inside + Vector3(side * 0.3, 0.0, rng.randf_range(-0.5, 0.5)), rng.randf_range(0.0, TAU))
-			# the dead in most of them
-			if rng.randf() < 0.75:
-				OrcSpoils._bone_heap(d, room, inside + Vector3(side * 0.2, 0.0, rng.randf_range(-0.4, 0.4)), rng)
+			_piece(room, "PFront", Vector3(side * FRONT_X, 0.0, z), yaw)
+			# the dead in most of them, by the bed
+			if rng.randf() < 0.7:
+				OrcSpoils._bone_heap(d, room, Vector3(side * (FRONT_X + 1.5), 0.0, z - 0.7), rng)
 			if rng.randf() < 0.5:
-				_piece(room, "PBucket", inside + Vector3(side * 0.9, 0.0, rng.randf_range(-1.0, 1.0)))
+				_piece(room, "PBucket", Vector3(side * (FRONT_X + 2.4), 0.0, z - 1.05))
 	_frames(d, room, rng)
 	OrcSpoils._materials()
 	OrcSpoils._blood(d, room, w, l, 8, rng)
