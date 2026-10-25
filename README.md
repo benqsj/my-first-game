@@ -12100,8 +12100,10 @@ great_sword_charge_test.
 - The blade in his fist points where the pack's points (`tc_godot.gd`: the
   right hand turned onto the pack's sword, its RH_MidFin_Prop bone's +Y,
   against the figure's blade in the mannequin's hand_r); over his head in
-  D's wind-up it is kept rising (`LIFT_Y`), back and up over the shoulders,
-  not hanging down his back. While a TC blow plays the left fist is put on
+  D's wind-up it is put back, not hanging down his back: the higher his fist
+  is against his head, the more the blade is kept from pointing below
+  `LIFT_Y` (0.12: back, a little up), eased in by the fist's height so it
+  never jumps (a first try by the clock made the blade leap up). While a TC blow plays the left fist is put on
   the hilt (`SkinnedRig._hilt`, as the great sword's).
 - **The knight**: his first way of fighting (`GreatSword.MODES[0]`) is his
   one-handed string on the attack button, as it was, and the TC combo A-D on
