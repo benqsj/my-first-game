@@ -130,6 +130,9 @@ const PLACES := {
 	# [CryptTomb]: the user's pick, 2026-10-24)
 	"crypt": {"name": "აკლდამა", "kind": "flood_crypt", "w": 44.0, "l": 100.0, "h": 15.0},
 	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
+	# the pale marsh in the mist (the user's pick B of the swamp concepts,
+	# 2026-10-25; the old swamp kept as well) [PaleMarsh]
+	"marsh": {"name": "ნისლიანი ჭაობი", "kind": "pale_marsh", "w": 58.0, "l": 62.0, "h": 0.0},
 	"mountain": {"name": "ჩანჩქერის ნანგრევები", "kind": "falls", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
 	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
@@ -156,15 +159,16 @@ const RUN := {
 		# user's word, 2026-10-21: roles in the fight)
 		# (the court, the cave and the broken hall gone from the run: the user's
 		# word, 2026-10-23, not liked)
-		{"places": ["forest", "crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
+		{"places": ["forest", "crypt", "swamp", "marsh"], "lv": 2, "xp": 2.0, "reach": 3,
 				"foes": {"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
-						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
+						"swamp": [[PUGLIN, 6], [GOBLIN, 4]], "marsh": [[PUGLIN, 6], [GOBLIN, 4]]}},
 		# 3 — and an elite in the second wave
-		{"places": ["sky", "forest", "crypt", "swamp", "mountain"], "lv": 3, "xp": 2.5, "reach": 3,
+		{"places": ["sky", "forest", "crypt", "swamp", "mountain", "marsh"], "lv": 3, "xp": 2.5, "reach": 3,
 				"foes": {"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
 						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 4], [GOBLIN, 1, ELITE]],
 						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
 						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
+						"marsh": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
 						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
 		# 4 — one orc, with two swords (the user's word, 2026-10-21: the
 		# shield orc not liked; one, the two-sword one)
@@ -214,6 +218,7 @@ const VIEW := {
 	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
 	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
 	"camp": [7, "Orc camp"],
+	"marsh": [2, "Pale marsh"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.
@@ -3277,7 +3282,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3449,6 +3454,9 @@ func _place_look(night: float = 0.0) -> void:
 		"war_camp":
 			_ashen_look()
 			_court_look("a")
+		"pale_marsh":
+			_ashen_look()
+			_marsh_look()
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3631,6 +3639,34 @@ func _court_look(which: String = "c") -> void:
 		_sun.shadow_opacity = 0.78
 
 
+## The pale marsh ([PaleMarsh]) over Ashen's light: white mist closing in
+## past the clearing, the trees beyond lost in it, the sky white; the sun
+## soft behind the cloud.
+func _marsh_look() -> void:
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("top_col", Color(0.74, 0.76, 0.78))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.88, 0.88, 0.87))
+		_sky_mat.set_shader_parameter("cloud", 0.95)
+	_env.fog_light_color = Color(0.82, 0.83, 0.83)
+	_env.fog_density = 0.9
+	_env.fog_depth_begin = 12.0
+	_env.fog_depth_end = 120.0
+	_env.fog_depth_curve = 1.1
+	_env.fog_sky_affect = 0.8
+	_env.fog_height_density = 0.0
+	_env.volumetric_fog_density = 0.002
+	_env.volumetric_fog_ambient_inject = 0.08
+	_env.ambient_light_color = Color(0.72, 0.74, 0.76)
+	_env.ambient_light_energy = 1.0
+	_env.tonemap_exposure = 1.08
+	if _sun != null:
+		_sun.light_energy = 1.0
+		_sun.light_color = Color(1.0, 0.95, 0.88)
+		_sun.rotation.x = -deg_to_rad(42.0)
+		_sun.light_angular_distance = 4.0
+		_sun.shadow_opacity = 0.6
+
+
 func _camp_look() -> void:
 	if _sky_mat != null:
 		_sky_mat.set_shader_parameter("top_col", Color(0.30, 0.32, 0.37))
@@ -3811,6 +3847,9 @@ func _build_room_body(i: int) -> void:
 			return
 		"swamp":
 			_build_swamp(room, i)
+			return
+		"pale_marsh":
+			PaleMarsh.build(self, room, w, l, _rng)
 			return
 		"mountain":
 			_build_mountain(room, i)
@@ -5123,6 +5162,8 @@ func _ambience(i: int) -> void:
 			parts = [["cave_loop.wav", -14.0]]
 		"cell_cave":
 			parts = [["cave_loop.wav", -12.0], ["drums_far_loop.wav", -30.0]]
+		"pale_marsh":
+			parts = [["frogs_loop.wav", -14.0], ["wind_loop.wav", -18.0]]
 		"swamp":
 			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
 			if SwampMere.raining:
