@@ -903,6 +903,17 @@ func _make_hands() -> void:
 	_spear_arm.name = "SpearArm"
 	_skeleton.add_child(_spear_arm)
 	_skeleton.add_child(_left_grip)
+	# its hands put on the trunk it tears up
+	for side in ["R", "L"]:
+		var arm := SpearArm.new()
+		arm.name = "PullArm" + side
+		arm.upper_bone = side + "_shoulder_joint"
+		arm.fore_bone = side + "_elbow_joint"
+		arm.wrist_bone = side + "_wrist_joint"
+		arm.grip_bone = side + "_equip_joint"
+		arm.aim = true
+		_skeleton.add_child(arm)
+		_pull_arms.append(arm)
 
 
 #region Host: what it chooses
@@ -1697,6 +1708,8 @@ var _up_off: Transform3D               # the tree in its hand's frame, gripped
 var _up_spot: Transform3D              # the tree standing in the ground
 var _up_torn := false
 var _up_lost := -1                     # when its uprooting was cut short (ms)
+var _pull_arms: Array[SpearArm] = []   # its hands onto the trunk [right, left]
+var _up_held := false                  # torn out, in its hand
 var _up_age := 0.0                     # how long since the trunk burst up (s, game time)
 const UP_BURST := 0.4                  # how long it takes to come up (s)
 
@@ -1710,6 +1723,7 @@ var _up_down := false
 
 
 func _show_uproot() -> void:
+	_put_pull_arms()
 	var uprooting := act == W_UPROOT or act == W_UPSTOMP
 	if not uprooting or _skeleton == null:
 		# (cut short, it lets go and the trunk sinks back; a moment given
@@ -1762,6 +1776,7 @@ func _show_uproot() -> void:
 		_rising.global_transform = _up_spot.translated(Vector3.DOWN * 2.4)
 		_up_torn = false
 		_up_age = 0.0
+		_up_held = false
 		_up_raised = false
 		_up_down = false
 		# the ground split from its foot to where the trunk bursts up
@@ -1805,6 +1820,34 @@ func _show_uproot() -> void:
 				up.tween_callback(piece.queue_free)
 
 
+## Every peer, each frame: its hands brought onto the trunk as they reach
+## down for it, held there through the tugs, let go back to the clip as it
+## comes up (in the hand then).
+func _put_pull_arms() -> void:
+	if _pull_arms.size() < 2:
+		return
+	var w := 0.0
+	var way: Dictionary = UPROOTS[uproot_way]
+	if act == W_UPROOT and _rising != null and is_instance_valid(_rising) and not armed:
+		var share := _uproot_share()
+		var grip := float(way["grip"])
+		var heave := float(way["heave"])
+		w = smoothstep(grip - 0.12, grip, share) * (1.0 - smoothstep(heave, heave + 0.12, share))
+	var left_only := String(way["hand"]).begins_with("L")
+	(_pull_arms[0] as SpearArm).weight = 0.0 if left_only else w
+	(_pull_arms[1] as SpearArm).weight = w
+	if w <= 0.0:
+		return
+	# the right on its haft just above the ground, the left a little higher
+	var at := _rising.global_position
+	var up := -_rising.global_basis.y.normalized()
+	var s := visual_scale / 1.6
+	(_pull_arms[0] as SpearArm).aim_at = at
+	(_pull_arms[1] as SpearArm).aim_at = at + up * (0.0 if left_only else 0.24 * s)
+	for arm: SpearArm in _pull_arms:
+		arm.pole_hint = Vector3.DOWN + _forward() * -0.3
+
+
 func _uproot_share() -> float:
 	var m: Array = _moves_table[W_UPROOT]
 	var length := _anim.clip_length(m[0]) / float(m[1]) * (float(m[3]) - float(m[2])) if _anim != null else 3.0
@@ -1822,22 +1865,23 @@ func _hold_rising() -> void:
 		return
 	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(gb)
 	var share := _uproot_share() if act == W_UPROOT else 0.0
-	if act == W_UPSTOMP or share < float(way["grip"]):
-		# bursting up out of the ground (a touch past, then settling), and
-		# rocking after
+	if not _up_held and (act == W_UPSTOMP or share < float(way["heave"])):
+		# still rooted, where it burst up (a touch past, then settling, then
+		# rocking), and trembling as its hands (put on it) tug
 		var e := _up_age
 		var k := clampf(e / UP_BURST, 0.0, 1.0)
 		var rise := 1.0 + 2.7 * pow(k - 1.0, 3.0) + 1.7 * pow(k - 1.0, 2.0)
 		var rock := Basis(Vector3.FORWARD, 0.07 * sin(e * 22.0) * exp(-e * 2.5))
+		var strain := smoothstep(float(way["grip"]) + 0.05, float(way["heave"]), share) if act == W_UPROOT else 0.0
+		rock = Basis(Vector3.RIGHT, 0.035 * strain * sin(share * 90.0)) * rock
 		_rising.global_transform = Transform3D(rock * _up_spot.basis, _up_spot.origin + Vector3.DOWN * 2.4 * (1.0 - rise))
-		_up_off = hand.affine_inverse() * _rising.global_transform
 		return
-	# in its grip: where its hand took it (still rooted before the heave, it
-	# tugs, the trunk trembling), then turned into how it is held
+	if not _up_held:
+		# torn out: in its hand from here, just where its hand had it
+		_up_held = true
+		_up_off = hand.affine_inverse() * _rising.global_transform
+	# then turned into how it is held
 	var off := _up_off
-	if share < float(way["heave"]):
-		var strain := smoothstep(float(way["grip"]) + 0.08, float(way["heave"]), share)
-		off = off.rotated_local(Vector3.RIGHT, 0.03 * strain * sin(share * 90.0))
 	var held := Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
 	var tv: Vector2 = way["turn"]
 	var w := smoothstep(tv.x, tv.y, share)

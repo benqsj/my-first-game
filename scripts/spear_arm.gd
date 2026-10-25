@@ -18,6 +18,11 @@ var reach: Vector3 = Vector3.FORWARD * 0.8
 ## In the world: the way the elbow is turned.
 var pole_hint: Vector3 = Vector3.DOWN
 var weight: float = 0.0
+## Or, `aim` on, the hand put on a point in the world (`aim_at`): its grip
+## brought to just there (the troll's hands onto the trunk it tears up,
+## 2026-10-26, the user: its hands missed the tree).
+var aim: bool = false
+var aim_at: Vector3 = Vector3.ZERO
 
 var _b := PackedInt32Array()
 
@@ -44,10 +49,14 @@ func _process_modification() -> void:
 	var e := grip.origin
 	var l1 := a.distance_to(b)
 	var l2 := b.distance_to(e)
-	var want := inv * reach
-	if want.length_squared() < 0.000001:
-		return
-	var target := a + want.normalized() * reach.length() * (l1 + l2)
+	var target: Vector3
+	if aim:
+		target = skel.global_transform.affine_inverse() * aim_at
+	else:
+		var want := inv * reach
+		if want.length_squared() < 0.000001:
+			return
+		target = a + want.normalized() * reach.length() * (l1 + l2)
 	target = e.lerp(target, clampf(weight, 0.0, 1.0))
 	var to := target - a
 	if to.length_squared() < 0.000001:
