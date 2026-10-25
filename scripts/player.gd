@@ -3954,6 +3954,10 @@ const STAGGERS_ONLY := [&"smash", &"cleave", &"whirl", &"catch"]
 ## The shove under way (flat, m/s), and what of it was laid on his velocity
 ## last tick (taken back off before the controller works on his own pace).
 var _flinch_push := Vector3.ZERO
+## How far the blow being taken asks him thrown back over the ground on his
+## feet (its striker's `blow_shove_m`: the troll's heavy strides, 2026-10-26,
+## the user's word: its step carried on after the blow, he not in its way).
+var _blow_shove_m: float = 0.0
 var _push_applied := Vector3.ZERO
 ## A flinch's spray this long or longer is the big reel ([method _flinch]).
 const BIG_STAGGER_SPRAY := 3.5
@@ -4142,6 +4146,7 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		magic: bool = false, how: StringName = &"") -> void:
 	if from == null:
 		return
+	_blow_shove_m = float(from.call(&"blow_shove_m")) if from.has_method(&"blow_shove_m") else 0.0
 	# Off the ground, a low blow passes under his legs (a jump over a sweep).
 	if how.is_empty() and not is_on_floor() and state != State.DOWNED and _low_blow(from):
 		return
@@ -4549,7 +4554,14 @@ func _shove(away: Vector3, base: float, share: float) -> void:
 	var way := Vector3(away.x, 0.0, away.z)
 	if way.length_squared() < 0.0001:
 		return
-	_flinch_push = way.normalized() * minf(base + shove_force_gain * _blow_force, shove_most) * share
+	var push := way.normalized() * minf(base + shove_force_gain * _blow_force, shove_most) * share
+	# a striker that strides on after the blow throws him that far (dying
+	# away by `shove_friction`: v² = 2·f·d)
+	if _blow_shove_m > 0.0:
+		var need := sqrt(2.0 * shove_friction * _blow_shove_m)
+		if push.length() < need:
+			push = way.normalized() * need
+	_flinch_push = push
 
 
 ## The one who struck (the first part of a combo's key) held still a beat as

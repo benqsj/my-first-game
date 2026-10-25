@@ -142,6 +142,7 @@ const W_RB1 := 286
 const W_RB2 := 287
 const W_RA1X := 288
 const DL_REST := {W_HA1: W_RA1, W_HA2: W_RA2, W_HB1: W_RB1, W_HB2: W_RB2, W_HA1X: W_RA1X}
+const OLD_TREE := [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP, W_GOLF, W_BUTT]
 const DL_MOVES := [W_HA1, W_HA2, W_HA3, W_HB1, W_HB2, W_HB3, W_LUNGE, W_HA1F, W_HA1X, W_HB1F]
 ## Its body and his kept this far apart (at its size 1.6) at the nearest a
 ## DoubleL clip carries it: those clips stride on past the blow.
@@ -150,6 +151,8 @@ const DL_ROOM := 1.5
 ## more than this either way, cover it whole (it strides its own length,
 ## never slid nor short-stepped); and run on only while they still do.
 const DL_FIT := Vector2(0.88, 1.12)
+## An old string opened only within this of the gap its first blow lands from.
+const OLD_FIT := 0.5
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
@@ -364,7 +367,9 @@ func _ready() -> void:
 	stand_turn_max = 1.6
 	turn_speed = minf(turn_speed, 3.2)
 	act_turn_most = 85.0
-	glide_most = 0.9
+	# (no gliding in under a blow: the user, 2026-10-26, it slid at him held
+	# in its wind-up; it opens its blows from where they land instead)
+	glide_most = 0.0
 	glide_gap = 0.8
 	chain_snap = 0.0
 	max_health = maxf(max_health, 760.0)
@@ -635,6 +640,17 @@ func _dl_rest() -> void:
 		var share := _clip_time(what, ms[0]) / maxf(_anim.clip_length(m[0]), 0.01) if not ms.is_empty() else 0.4
 		var land := _gap_that_lands(what, m, share)
 		_dl_lands[what] = land if land > 0.0 else 2.4 * visual_scale / 1.6
+	# the old ones too (no gliding in now: they open from where they land)
+	for what: int in OLD_TREE:
+		var m: Array = _moves_table[what]
+		var ms := _blow_moments(what)
+		if ms.is_empty():
+			continue
+		var share := _clip_time(what, ms[0]) / maxf(_anim.clip_length(m[0]), 0.01)
+		var land := _gap_that_lands(what, m, share)
+		if land > 0.0:
+			_dl_lands[what] = land
+			_strike_from[what] = land + maxf(_dl_ahead(what, ms[0], false), 0.0)
 	for what: int in DL_REST:
 		var m: Array = _moves_table[what]
 		var share := _clip_time(what, _dl_cut(what)) / maxf(_anim.clip_length(m[0]), 0.01)
@@ -650,6 +666,27 @@ func _dl_gaps() -> void:
 		if bool(c.get("dl", false)):
 			var first := int((c["moves"] as Array)[0])
 			_strike_from[first] = float(_dl_lands.get(first, 2.4)) + _dl_stride(first)
+
+
+## How far a blow of its, landing now, throws him back on his feet: a
+## DoubleL blow's stride carries on after it, so he is thrown out of its way
+## (into the next one's reach, in a string), not walked into nor slid short.
+func blow_shove_m() -> float:
+	if not (act in DL_MOVES) or _anim == null:
+		return 0.0
+	var ms := _blow_moments(act)
+	if ms.is_empty():
+		return 0.0
+	var at_blow := _dl_ahead(act, ms[0], false) * _stretch
+	var land := float(_dl_lands.get(act, 2.0))
+	if _hand_combo >= 0 and _hand_step < _hand_moves.size() - 1:
+		var nxt := int(_hand_moves[_hand_step + 1])
+		if nxt in DL_MOVES:
+			var cut := _dl_ahead(act, _dl_cut(act), false) * _stretch
+			var want := float(_dl_lands.get(nxt, 2.0)) + _dl_stride(nxt)
+			return maxf(want - (land - (cut - at_blow)), 0.0)
+	var rest := _dl_ahead(act, _dl_whole(act), true) * _stretch - at_blow
+	return maxf(rest - (land - _dl_room()), 0.0) + 0.3
 
 
 ## Host: now and then, as it comes on with its tree and he stands just where
@@ -902,10 +939,29 @@ func _begin_attack() -> void:
 			var c: Dictionary = _hand_combos[i]
 			if bool(c.get("rage_only", false)) and not raging:
 				continue
-			# DoubleL's only from the gap their strides cover (else they slid)
-			if bool(c.get("dl", false)) and not _dl_fits(int((c["moves"] as Array)[0]), gap):
+			# DoubleL's only from the gap their strides cover (else they slid);
+			# the old ones from about where their first blow lands
+			var first := int((c["moves"] as Array)[0])
+			if bool(c.get("dl", false)):
+				if not _dl_fits(first, gap):
+					continue
+			elif absf(gap - float(_strike_from.get(first, gap))) > OLD_FIT:
 				continue
 			picks.append(i)
+		if picks.is_empty():
+			# none lands from here: the old one landing nearest
+			var best := -1
+			var off := 99.0
+			for i in _hand_combos.size():
+				var c: Dictionary = _hand_combos[i]
+				if bool(c.get("dl", false)) or (bool(c.get("rage_only", false)) and not raging):
+					continue
+				var d := absf(gap - float(_strike_from.get(int((c["moves"] as Array)[0]), gap)))
+				if d < off:
+					off = d
+					best = i
+			if best >= 0:
+				picks.append(best)
 		if not picks.is_empty():
 			start_hand_combo(picks[_rng.randi() % picks.size()])
 			return
@@ -1053,7 +1109,9 @@ func _extra_velocity(delta: float) -> Vector3:
 		_carried_serial = act_serial
 		_carry_on = _forward() * float((LEANS[act] as Array)[2])
 	_carry_on = _carry_on.move_toward(Vector3.ZERO, 3.0 * delta)
-	return v + _carry_on
+	# (the carry on after the blow taken out, 2026-10-26: its body slid on
+	# with its feet still; the lean alone shows the weight)
+	return v
 
 
 func _run_act(delta: float) -> void:
