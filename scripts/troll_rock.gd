@@ -440,6 +440,12 @@ func _shatter(at: Vector3, normal: Vector3) -> void:
 
 ## Every peer: its pieces flung out, a bounce, then sunk into the ground.
 func _pieces(into: Node, at: Vector3, count: int) -> void:
+	var ground_y := at.y - 1.5
+	if is_inside_tree():
+		var down := get_world_3d().direct_space_state.intersect_ray(
+				PhysicsRayQueryParameters3D.create(at + Vector3.UP * 0.5, at + Vector3.DOWN * 8.0, 1))
+		if not down.is_empty():
+			ground_y = (down["position"] as Vector3).y
 	for i in count:
 		var p := MeshInstance3D.new()
 		p.mesh = mesh("Chunk_%d" % (i % 6))
@@ -452,7 +458,10 @@ func _pieces(into: Node, at: Vector3, count: int) -> void:
 		var out := Vector3(cos(a), 0.0, sin(a))
 		var v := out * _rng.randf_range(2.5, 5.5) + Vector3.UP * _rng.randf_range(3.0, 6.5)
 		var spin := Vector3(_rng.randf_range(-9, 9), _rng.randf_range(-9, 9), _rng.randf_range(-9, 9))
-		var floor_y := at.y
+		# (the ground under where it burst, not the burst's own height: it burst
+		# on him at his chest, or at a ball's middle, and the pieces lay there
+		# in the air; the user's word, 2026-10-25)
+		var floor_y := ground_y
 		var state := {"v": v, "t": 0.0, "bounced": false}
 		var fly := func(dt: float) -> void:
 			if not is_instance_valid(p):
@@ -475,6 +484,13 @@ func _pieces(into: Node, at: Vector3, count: int) -> void:
 			var last: float = state["t"]
 			state["t"] = k
 			fly.call(k - last), 0.0, 1.6, 1.6)
-		tw.tween_interval(2.5)
-		tw.tween_property(p, "position:y", p.position.y - 0.4, 1.2)
-		tw.tween_callback(p.queue_free)
+		tw.tween_interval(2.0)
+		# then down into the ground from where it lies (not from where it was
+		# thrown: that lifted it back up into the air) and gone
+		tw.tween_callback(func() -> void:
+			if not is_instance_valid(p):
+				return
+			var sink := p.create_tween().set_parallel(true)
+			sink.tween_property(p, "global_position:y", p.global_position.y - 0.45 * s, 1.0).set_ease(Tween.EASE_IN)
+			sink.tween_property(p, "scale", p.scale * 0.4, 1.0).set_ease(Tween.EASE_IN)
+			sink.chain().tween_callback(p.queue_free))
