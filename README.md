@@ -2116,12 +2116,19 @@ gone; it carries a gnarled oak club in both hands.
   hangs off a `BoneAttachment3D` on the troll's root with an external
   skeleton, so the body-wide overlays (rage red, healing green) skip it.
   Dropped to the ground when it dies.
-* **Moves**: only two-handed clips (both wrists within 0.42 m all through,
-  `_shots_tmp/troll_clips.gd`): `CR_Heavy1` chop (into the ground: the crack,
-  a line), `CR_Heavy2` overhead, `CR_Heavy3` side, `CR_OG_Heavy_Swing`,
-  `CR_OG_Club_Combo2H`, `CR_OG_TwoHand_Combo`, `CR_OG_Power_Slash`,
-  `CR_GS_HighSpin`, the leap `CR_Heavy4`. Each played to its end (the club
-  back on its shoulder), `hand_tail` 0.62, `attack_cooldown` 1.5-2.5 s.
+* **Moves, its own** (second pass the same day, the user's word: it fought as
+  the ogre did): Mixamo clips no other creature uses, baked as `CR_TR_*`
+  (`vepxis-art/mixamo_troll/`, `tools/creature_clips.gd`): a batter's swings
+  (`TR_Bat_Single`, `TR_Bat_Double`, `TR_Homerun` = the great swing), a
+  kettlebell swing up from between its legs (the scoop), a staff's butt jab, a
+  club swing and three knees (`TR_Knee_Jab`, four blows), the mutant's brutal
+  walk (club on its shoulder), breathing idle and roar. Kept: the chop
+  `CR_Heavy1` (into the ground: the crack, a line) and the leap `CR_Heavy4`.
+  Strings of two (`swing_chop`, `scoop_chop`), three (`batter`,
+  `butt_scoop_chop`), four (`knees`; `storm` enraged), each move's end into
+  the next's start (the scoop ends with the club over its head: the chop).
+  Parts cut to the swing and its follow-through (the batter's set-up and his
+  run after the hit left out). `hand_tail` 0.62, `attack_cooldown` 1.5-2.5 s.
 * **Weight**: `_slow_to` wind-ups (no glow, it is wood) and `_snap` down,
   delayed swings (`_holds`), `act_turn_most` 75 deg/s, glide 0.9 m/s,
   chase 3.3 m/s on two feet (`CR_HeavyRun`), no dodge. A missed great swing

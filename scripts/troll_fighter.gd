@@ -28,8 +28,13 @@ extends PackBrute
 ## * **Its body breaking**: at every `WOUND_AT` of its health a wound opens
 ##   where it was struck (seen by all), it gets slower, and its balance breaks
 ##   sooner; the last blow fells it, the club dropping out of its hands.
+## * **Its own swings** (2026-10-25, the user's word: not the ogre's): a
+##   batter's swings, a scoop up from between its legs, a butt-end jab, a
+##   swing and three knees; strung two, three and four together, each move's
+##   end running into the next's start ([method _set_moves]). It walks the
+##   brute's walk, the club on its shoulder, and roars as a brute does.
 ## * **The leap**: from off it springs at him and brings the club down; the
-##   ground splits along a line (no rings) where it lands, as for its overhead.
+##   ground splits along a line (no rings) where it lands, as for its chop.
 ## * **Its wounds close** a little while nothing burns or freezes it.
 
 @export_group("Boulder")
@@ -82,27 +87,35 @@ const STAGGER_AT := 0.72
 
 const PICK := 116
 const HURL := 117
-## Its club's moves (2026-10-25).
+## Its club's moves (2026-10-25; its own, not the ogre's: the user's word,
+## the same day — swings of a man with a heavy bat, a scoop up from between
+## its legs, a butt-end jab, a swing and three knees; Mixamo's, baked as
+## CR_TR_*). The chop (UAL's Heavy1) and the leap stay.
 const T_CHOP := 200
-const T_OVER := 201
-const T_SIDE := 202
+## the great swing round at him, the batter's homerun (fells; missed, it reels)
 const T_SWING := 203
-const T_STRING := 204
-const T_TWO := 205
-const T_POWER := 206
-const T_SPIN := 207
+## a quicker swing across (the batter's single)
+const T_BAT := 220
+## the batter's double: the second swing of a string
+const T_BAT2 := 221
+## the club swung up from between its legs (it throws him up)
+const T_SCOOP := 222
+## the butt of the club jabbed at him, close
+const T_BUTT := 223
+## a swing across and three knees into him: four blows
+const T_KNEES := 224
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
 ## Its swings that carry it round off its balance when they find nothing.
-const MISS_REELS := [T_SWING, T_SIDE, T_SPIN, T_POWER]
+const MISS_REELS := [T_SWING]
 ## Its blows that split the ground where the club comes down (its chop: the
 ## one whose club goes into the ground, measured).
 const CRACKS := [T_CHOP]
 ## Its club, from its right hand out along the grip (laid right once it has
 ## felt both hands on it, [method _lay_club]).
 const CLUB := "R_wrist_joint>R_wrist_joint@0,0.86,0:0.24"
-const CLUB_MOVES := [T_CHOP, T_OVER, T_SIDE, T_SWING, T_STRING, T_TWO, T_POWER, T_SPIN]
+const KNEES := "L_thigh_joint>L_knee_joint:0.24|R_thigh_joint>R_knee_joint:0.24"
 const SOUNDS := "res://sounds/ogre/"
 
 var _hurl_wait: float = 3.0
@@ -161,10 +174,12 @@ var ground_dusts: int = 0
 func _ready() -> void:
 	# a heavy thing on two feet with a club in both hands: never on all fours,
 	# no hop aside, slow to come round
-	idle_clip = &"CR_HeavyIdle"
+	# at rest it breathes, the club in one hand, and walks the brute's walk
+	# with it on its shoulder (Mixamo's mutant's); in the fight, both hands on it
+	idle_clip = &"CR_TR_MutantIdle"
 	guard_idle_clip = &"CR_HeavyIdle"
-	fidget_clip = &"CR_HeavyIdle"
-	walk_clip = &"CR_HeavyWalk"
+	fidget_clip = &"CR_TR_MutantIdle"
+	walk_clip = &"CR_TR_MutantWalk"
 	back_clip = &"CR_HeavyBack"
 	strafe_l_clip = &"CR_HeavyL"
 	strafe_r_clip = &"CR_HeavyR"
@@ -174,7 +189,8 @@ func _ready() -> void:
 	break_clip = &"CR_GS_Impact"
 	death_clip = &"CR_MG_Death"
 	var loops := Array(loop_clips)
-	for c in ["CR_HeavyIdle", "CR_HeavyWalk", "CR_HeavyBack", "CR_HeavyL", "CR_HeavyR", "CR_HeavyRun"]:
+	for c in ["CR_HeavyIdle", "CR_HeavyWalk", "CR_HeavyBack", "CR_HeavyL", "CR_HeavyR", "CR_HeavyRun",
+			"CR_TR_MutantIdle", "CR_TR_MutantWalk"]:
 		if not loops.has(c):
 			loops.append(c)
 	loop_clips = PackedStringArray(loops)
@@ -196,12 +212,13 @@ func _ready() -> void:
 	attack_cooldown = Vector2(1.5, 2.5)
 	attack_cost = 18.0
 	stamina_regen = minf(stamina_regen, 18.0)
-	# its plain blows are the club too: a chop and a swing from the side
-	attacks = [&"CR_Heavy1", &"CR_Heavy3"] as Array[StringName]
-	attack_parts = [Vector3(0.9, 0.0, 0.97), Vector3(0.9, 0.0, 0.97)] as Array[Vector3]
+	# its plain blows are the club too: a swing across, and the butt jabbed
+	# when he is close
+	attacks = [&"CR_TR_BatSingle", &"CR_TR_ButtSmash"] as Array[StringName]
+	attack_parts = [Vector3(1.0, 0.15, 0.68), Vector3(1.0, 0.2, 0.62)] as Array[Vector3]
 	attack_limbs = PackedStringArray([CLUB, CLUB])
 	attack_blows = PackedInt32Array([1, 1])
-	attack_clip = &"CR_Heavy1"
+	attack_clip = &"CR_TR_BatSingle"
 	# the leap: the club brought down out of a spring at him
 	leap_clip = &"CR_Heavy4"
 	leap_part = Vector3(0.9, 0.0, 0.94)
@@ -221,10 +238,10 @@ func _ready() -> void:
 	bite_hold = 0.0
 	shove_share = 0.15
 	flinch_share = 0.55
-	# enraged late, not at once: a roar with the club, harder, a little quicker
+	# enraged late, not at once: the brute's roar, harder, a little quicker
 	rage_at = 0.3
-	rage_clip = &"CR_GS_PowerUp"
-	rage_part = Vector3(1.2, 0.05, 0.62)
+	rage_clip = &"CR_TR_Roar"
+	rage_part = Vector3(1.15, 0.1, 0.62)
 	rage_pace = 1.12
 	rage_harder = 1.3
 	hand_pace = 1.0
@@ -271,50 +288,54 @@ func _ready() -> void:
 ## on the haft through all of it, measured: `_shots_tmp/troll_clips.gd`),
 ## each played to its end so the club is seen to come back.
 func _set_moves() -> void:
+	# (parts cut to the swing and its follow-through: the batter's set-up and
+	# his bat dropped and the run after it, the knee string's settling, left
+	# out; blow moments measured, `_shots_tmp/troll_clips2.gd`)
 	_hand_move(T_CHOP, &"CR_Heavy1", Vector3(0.9, 0.0, 0.97), 1.35, _club_spec)
-	_hand_move(T_OVER, &"CR_Heavy2", Vector3(0.85, 0.0, 0.97), 1.1, _club_spec)
-	_hand_move(T_SIDE, &"CR_Heavy3", Vector3(0.9, 0.0, 0.97), 1.05, _club_spec)
-	_hand_move(T_SWING, &"CR_OG_Heavy_Swing", Vector3(1.15, 0.28, 0.82), 1.35, _club_spec)
-	_hand_move(T_STRING, &"CR_OG_Club_Combo2H", Vector3(1.1, 0.14, 0.86), 0.75, _club_spec, [0.25, 0.517, 0.728])
-	_hand_move(T_TWO, &"CR_OG_TwoHand_Combo", Vector3(1.0, 0.05, 0.94), 0.8, _club_spec, [0.18, 0.39, 0.68])
-	_hand_move(T_POWER, &"CR_OG_Power_Slash", Vector3(0.95, 0.12, 0.96), 0.9, _club_spec, [0.39, 0.78])
-	_hand_move(T_SPIN, &"CR_GS_HighSpin", Vector3(0.95, 0.04, 0.94), 1.0, _club_spec, [0.28, 0.59])
+	_hand_move(T_SWING, &"CR_TR_Homerun", Vector3(1.0, 0.12, 0.5), 1.4, _club_spec)
+	_hand_move(T_BAT, &"CR_TR_BatSingle", Vector3(1.0, 0.15, 0.68), 0.9, _club_spec)
+	_hand_move(T_BAT2, &"CR_TR_BatDouble", Vector3(1.0, 0.2, 0.72), 1.0, _club_spec)
+	_hand_move(T_SCOOP, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.45), 1.1, _club_spec)
+	_hand_move(T_BUTT, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.7, _club_spec)
+	_hand_move(T_KNEES, &"CR_TR_KneeJab", Vector3(1.05, 0.12, 0.76), 0.6, _club_spec + "|" + KNEES,
+			[0.22, 0.41, 0.54, 0.67])
 	_special(T_REEL, &"CR_Stun", Vector3(1.25, 0.02, 0.48))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))
 	# heavy up, then all of it at once (no glow: it is wood)
 	_slow_to[T_CHOP] = 1.05
 	_snap[T_CHOP] = 1.6
-	_slow_to[T_OVER] = 0.9
-	_snap[T_OVER] = 1.4
-	_slow_to[T_SIDE] = 0.85
-	_snap[T_SIDE] = 1.3
-	_slow_to[T_TWO] = 0.7
-	_slow_to[T_POWER] = 0.8
-	_slow_to[T_SPIN] = 0.8
+	_slow_to[T_SWING] = 1.15
+	_snap[T_SWING] = 1.4
+	_slow_to[T_BAT] = 0.7
+	_slow_to[T_BAT2] = 0.75
+	_slow_to[T_SCOOP] = 0.8
+	_slow_to[T_BUTT] = 0.55
+	_slow_to[T_KNEES] = 0.7
 	_slow_to[LEAP] = 0.75
 	# held at the top now and then (Elden Ring's delayed swings)
 	_holds[T_CHOP] = [0.45, 0.4, 0.95, 0.25]
-	_holds[T_OVER] = [0.3, 0.3, 0.7, 0.25]
-	_holds[T_SIDE] = [0.25, 0.3, 0.6, 0.25]
+	_holds[T_SWING] = [0.4, 0.35, 0.8, 0.25]
+	_holds[T_BAT2] = [0.25, 0.3, 0.6, 0.25]
 	_kinds[T_CHOP] = &"crush"
 	_kinds[T_SWING] = &"crush"
 	_kinds[LEAP] = &"crush"
+	# its strings, each move's end running into the next's start: a swing's
+	# follow-through into the next swing's back-swing, the scoop's club high
+	# over its head into the chop down
 	_hand_combos = [
-		# overhead, then the club chopped down into the ground
-		{"name": &"crush", "moves": [T_OVER, T_CHOP], "fells": [1], "weight": 1.0},
-		# from the side, and down into the ground
-		{"name": &"sweep_and_slam", "moves": [T_SIDE, T_CHOP], "fells": [1], "weight": 1.0},
-		# Mixamo's two-handed string: three, the last fells
-		{"name": &"two_hand", "moves": [T_TWO], "fells": [0], "weight": 0.9},
-		# the club string, slow and long
-		{"name": &"club_string", "moves": [T_STRING], "fells": [0], "weight": 0.8},
-		# one great swing, a long wind-up; missed, it is carried round
-		{"name": &"great_swing", "moves": [T_SWING], "fells": [0], "weight": 0.7},
-		# the club round it twice
-		{"name": &"spin", "moves": [T_SPIN], "fells": [0], "weight": 0.6},
-		# enraged only: the string, then down on him
-		{"name": &"fury", "moves": [T_POWER, T_OVER, T_CHOP], "fells": [2], "weight": 1.2, "rage_only": true},
+		# two: a swing across, then the chop into the ground
+		{"name": &"swing_chop", "moves": [T_BAT, T_CHOP], "fells": [1], "weight": 1.0},
+		# two: up from between its legs, then straight down
+		{"name": &"scoop_chop", "moves": [T_SCOOP, T_CHOP], "fells": [1], "weight": 1.0},
+		# three: the batter's swings, the last the great one
+		{"name": &"batter", "moves": [T_BAT, T_BAT2, T_SWING], "fells": [2], "weight": 1.0},
+		# three: the butt jabbed, the scoop, the chop
+		{"name": &"butt_scoop_chop", "moves": [T_BUTT, T_SCOOP, T_CHOP], "fells": [2], "weight": 0.9},
+		# four: a swing and three knees
+		{"name": &"knees", "moves": [T_KNEES], "fells": [0], "weight": 0.8},
+		# four, enraged only: two swings, the scoop, the chop
+		{"name": &"storm", "moves": [T_BAT, T_BAT2, T_SCOOP, T_CHOP], "fells": [3], "weight": 1.2, "rage_only": true},
 	]
 
 
@@ -515,7 +536,7 @@ func _drop_club_later() -> void:
 func _on_move_shown() -> void:
 	if is_dead:
 		return
-	if act == T_CHOP or act == T_SWING or act == LEAP:
+	if act == T_CHOP or act == T_SWING or act == LEAP or act == T_SCOOP:
 		Sfx.play_any(self, [SOUNDS + "strain_rise.wav", SOUNDS + "grunt_2.wav"], self, randf_range(0.85, 0.95), -6.0)
 	elif act == T_REEL or act == T_STAGGER:
 		Sfx.play_any(self, [SOUNDS + "grunt_1.wav", SOUNDS + "grunt_3.wav"], self, randf_range(0.8, 0.9), -4.0)
@@ -532,7 +553,7 @@ func _whoosh() -> void:
 			continue
 		if _seen_clock >= ms[i] - 0.14:
 			_whooshed = key
-			var heavy := act == T_CHOP or act == T_SWING or act == LEAP or act == T_SIDE
+			var heavy := act == T_CHOP or act == T_SWING or act == LEAP or act == T_SCOOP or act == T_BAT2
 			Sfx.play(self, SOUNDS + ("whoosh_heavy.wav" if heavy else "whoosh_light.wav"), self,
 					Vector3.UP * 1.6 * visual_scale, randf_range(0.82, 0.92) if heavy else randf_range(0.9, 1.0), -3.0)
 		break

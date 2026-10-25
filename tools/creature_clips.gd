@@ -291,6 +291,22 @@ const MIXAMO := [
 	["CR_BU_Torch_Combo_03", "res://assets/creatures/anim/mixamo/BU_Torch_Combo_03.fbx", false, 0.0, -1.0],
 	["CR_BU_Torch_Combo_04", "res://assets/creatures/anim/mixamo/BU_Torch_Combo_04.fbx", false, 0.0, -1.0],
 	["CR_BU_Torch_Combo_05", "res://assets/creatures/anim/mixamo/BU_Torch_Combo_05.fbx", false, 0.0, -1.0],
+	# The troll's own (2026-10-25, the user's word: not the ogre's; a club of
+	# its own and swings of its own that run on into each other): the great
+	# swings of a man with a heavy bat, a drive up from low, a swing and its
+	# knee, a butt-end jab, a swing up between its legs; its brutal walk, its
+	# breathing, its roar (vepxis-art/mixamo_troll/).
+	["CR_TR_Homerun", "res://assets/creatures/anim/mixamo/TR_Homerun.fbx", false, 0.0, -1.0],
+	["CR_TR_BatSingle", "res://assets/creatures/anim/mixamo/TR_Bat_Single.fbx", false, 0.0, -1.0],
+	["CR_TR_BatDouble", "res://assets/creatures/anim/mixamo/TR_Bat_Double.fbx", false, 0.0, -1.0],
+	["CR_TR_BatStrike", "res://assets/creatures/anim/mixamo/TR_Bat_Strike.fbx", false, 0.0, -1.0],
+	["CR_TR_GolfDrive", "res://assets/creatures/anim/mixamo/TR_Golf_Drive.fbx", false, 0.0, -1.0],
+	["CR_TR_KneeJab", "res://assets/creatures/anim/mixamo/TR_Knee_Jab.fbx", false, 0.0, -1.0],
+	["CR_TR_ButtSmash", "res://assets/creatures/anim/mixamo/TR_Butt_Smash.fbx", false, 0.0, -1.0],
+	["CR_TR_KettleSwing", "res://assets/creatures/anim/mixamo/TR_Kettle_Swing.fbx", false, 0.0, -1.0],
+	["CR_TR_MutantWalk", "res://assets/creatures/anim/mixamo/TR_Mutant_Walk.fbx", true, 0.0, -1.0],
+	["CR_TR_MutantIdle", "res://assets/creatures/anim/mixamo/TR_Mutant_Idle.fbx", true, 0.0, -1.0],
+	["CR_TR_Roar", "res://assets/creatures/anim/mixamo/TR_Mutant_Roar.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
