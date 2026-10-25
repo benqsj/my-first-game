@@ -213,6 +213,18 @@ var _tree_stage: int = 0
 var _tree_hold: BoneAttachment3D
 var _tree: Node3D
 var _tree_mat: ShaderMaterial
+var _tree_mesh: MeshInstance3D
+## Every peer: the tree's size in the world as last held (the thrown one
+## made the same).
+var _tree_size: float = 0.0
+## The tree held as a spear: up from the level, and the hand this far
+## (model metres) from its grip toward its middle.
+const SPEAR_PITCH := 0.14
+const SPEAR_GRIP := 0.35
+## Every peer: the pitch it will be cast at (the host's, `net_spear`).
+var _spear_pitch: float = SPEAR_PITCH
+var _spear_sent: int = -1
+var _spear_arm: SpearArm
 var _rising: Node3D
 var _hand_fists: Array[HandFist] = []
 var _left_grip: TwoHandGrip
@@ -554,6 +566,9 @@ func _make_hands() -> void:
 	_left_grip.axis = Vector3.RIGHT
 	_left_grip.along = Vector2(-0.55, -0.18)
 	_left_grip.active = false
+	_spear_arm = SpearArm.new()
+	_spear_arm.name = "SpearArm"
+	_skeleton.add_child(_spear_arm)
 	_skeleton.add_child(_left_grip)
 
 
@@ -1129,7 +1144,87 @@ func _make_tree() -> void:
 	# its length (the model's +Y) along the hand's grip (the equip joint's +X)
 	mi.transform = Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
 	_tree.add_child(mi)
+	_tree_mesh = mi
 	_tree_dropped = false
+	if not _skeleton.skeleton_updated.is_connected(_pose_tree):
+		_skeleton.skeleton_updated.connect(_pose_tree)
+
+
+## Every peer, each time its pose is made: while it throws, the tree is
+## held as a spear is (the user, 2026-10-25: held one way and then flown
+## another it looked broken): turned from the way the hand holds it to lying
+## along the throw, snapped end ahead and a little up, gripped near its
+## middle, held so through the drawing back, the hold and the cast, and let
+## go lying just as it then flies ([TrollRock] takes it on from there).
+func _pose_tree() -> void:
+	if _tree == null or not is_instance_valid(_tree) or _tree_dropped or _tree_mesh == null:
+		return
+	var throwing := act == W_THROW and not is_dead
+	if _left_grip != null:
+		_left_grip.active = armed and not throwing
+	if not throwing:
+		if _tree.top_level:
+			_tree.top_level = false
+			_tree.transform = Transform3D.IDENTITY
+		return
+	var b := _skeleton.find_bone("R_equip_joint")
+	if b < 0:
+		return
+	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(b)
+	var natural := hand * _tree_mesh.transform
+	var size := natural.basis.get_scale().x
+	var top := _held_time(W_THROW, 0)
+	var w := smoothstep(0.05, maxf(top * 0.55, 0.2), _seen_clock)
+	var lead := spear_way()
+	var spear := TrollRock.spear_basis(lead)
+	var q := natural.basis.get_rotation_quaternion().slerp(spear.get_rotation_quaternion(), w)
+	# the hand from the grip (model 0) to its middle, toward the root end
+	var at := hand.origin + lead * SPEAR_GRIP * size * w
+	_tree.top_level = true
+	_tree.global_transform = Transform3D(Basis(q).scaled(Vector3.ONE * size), at) * _tree_mesh.transform.affine_inverse()
+	_tree_size = size
+
+
+## The way the tree lies as it is thrown: along its facing, a little up.
+func spear_way() -> Vector3:
+	var f := _forward()
+	f.y = 0.0
+	f = f.normalized() if f.length_squared() > 0.0001 else Vector3.FORWARD
+	return (f * cos(_spear_pitch) + Vector3.UP * sin(_spear_pitch)).normalized()
+
+
+## Every peer, each frame: its throwing arm put as a spear-thrower's is (no
+## clip has it): raised and drawn back beside its head, the elbow out and
+## down, drawn further back through the hold, then driven out ahead along
+## the throw as it lets go, and back to the clip after.
+func _drive_spear_arm() -> void:
+	if _spear_arm == null:
+		return
+	if act != W_THROW or is_dead:
+		_spear_arm.weight = 0.0
+		return
+	var c := _seen_clock
+	var top := _held_time(W_THROW, 0)
+	var held := _held_time(W_THROW, 1)
+	var rel := _held_time(W_THROW, 2)
+	var w := smoothstep(0.05, maxf(top * 0.7, 0.2), c) * (1.0 - smoothstep(rel + 0.08, rel + 0.5, c))
+	_spear_arm.weight = w
+	if w <= 0.001:
+		return
+	var f := _forward()
+	f.y = 0.0
+	f = f.normalized() if f.length_squared() > 0.0001 else Vector3.FORWARD
+	var out := _bone_at("R_shoulder_joint") - global_position
+	out.y = 0.0
+	out -= f * out.dot(f)
+	out = out.normalized() if out.length_squared() > 0.0001 else f.cross(Vector3.UP)
+	var pull := smoothstep(top, held, c)
+	var carry := (-f * (0.42 + 0.18 * pull) + Vector3.UP * 0.55 + out * 0.5).normalized() * 0.86
+	var cast := (spear_way() + Vector3.UP * 0.12 + out * 0.18).normalized() * 0.97
+	var push := smoothstep(rel - 0.22, rel, c)
+	push *= push
+	_spear_arm.reach = carry.normalized().slerp(cast.normalized(), push) * lerpf(0.86, 0.97, push)
+	_spear_arm.pole_hint = (Vector3.DOWN + out * 0.7 - f * 0.3).lerp(Vector3.DOWN + out * 0.3, push)
 
 
 ## Where the tree's root end is.
@@ -1276,6 +1371,7 @@ func _process(delta: float) -> void:
 	_spray_earth()
 	_show_sun(delta)
 	_show_held_move(delta)
+	_drive_spear_arm()
 	_show_stone(delta)
 	_whoosh()
 	_show_rock()
@@ -1790,6 +1886,12 @@ func _round7_act(delta: float) -> void:
 		elif _javelin_serial != act_serial and armed:
 			_javelin_serial = act_serial
 			_throw_tree()
+		# the way it will be cast told to all, so it is held lying that way:
+		# at the start and again as the hold ends (he may have moved)
+		var aim_step := 0 if _act_time < _held_time(W_THROW, 1) - 0.25 else 1
+		if _quarry != null and _spear_sent != act_serial * 2 + aim_step:
+			_spear_sent = act_serial * 2 + aim_step
+			_send(&"net_spear", [_aim_pitch()])
 	elif act == R_RAIN and _rained != act_serial and _act_time >= 0.8:
 		_rained = act_serial
 		_call_rain()
@@ -2058,48 +2160,105 @@ func _show_held_move(delta: float) -> void:
 	# dust drawn in round its feet
 	var a := randf() * TAU
 	var ring := global_position + Vector3(cos(a), 0.05, sin(a)) * randf_range(1.6, 2.6) * s
-	SkillFx.burst(world, ring, Color(0.46, 0.4, 0.32, 0.45), 3, Vector2(1.0, 2.2) * gather,
+	_motes(world, ring, Color(0.46, 0.4, 0.32, 0.45), 3, Vector2(1.0, 2.2) * gather,
 			(global_position - ring).normalized() + Vector3.UP * 0.2, 20.0, Vector2(0.12, 0.25), Vector3.ZERO, 0.6)
 	if act == W_THROW and _tree != null and is_instance_valid(_tree):
 		# earth shaken off its roots as it is swung up
 		var roots := _tree_head()
-		SkillFx.burst(world, roots, Color(0.35, 0.27, 0.18, 1.0), 3, Vector2(0.3, 1.2), Vector3.DOWN, 60.0,
+		_motes(world, roots, Color(0.35, 0.27, 0.18, 1.0), 3, Vector2(0.3, 1.2), Vector3.DOWN, 60.0,
 				Vector2(0.05, 0.1), Vector3(0, -10.0, 0), 0.9)
 		if randf() < 0.35:
-			SkillFx.burst(world, roots, Color(0.42, 0.5, 0.25, 1.0), 2, Vector2(0.3, 1.0), Vector3.DOWN, 80.0,
+			_motes(world, roots, Color(0.42, 0.5, 0.25, 1.0), 2, Vector2(0.3, 1.0), Vector3.DOWN, 80.0,
 					Vector2(0.06, 0.1), Vector3(0, -2.0, 0), 1.4)
 	elif act == P_CLAP:
 		# the air drawn to its palms
 		var hands := _held_at(TrollRock.Kind.BIG)
 		var b := randf() * TAU
 		var from := hands + Vector3(cos(b), randf_range(-0.4, 0.6), sin(b)) * 1.8 * s
-		SkillFx.burst(world, from, Color(0.95, 0.93, 0.88, 0.35), 2, Vector2(2.0, 3.5) * gather,
+		_motes(world, from, Color(0.85, 0.83, 0.78, 0.3), 2, Vector2(2.0, 3.5) * gather,
 				(hands - from).normalized(), 8.0, Vector2(0.15, 0.3), Vector3.ZERO, 0.45)
 #endregion
 
 
 #region The tree thrown
+## Every peer: a few motes of earth (not `SkillFx.burst`, whose motes are
+## born white: these drew white squares round it as it wound up).
+static func _motes(into: Node, at: Vector3, color: Color, count: int, speed: Vector2, dir: Vector3,
+		spread: float, size: Vector2, gravity: Vector3, life: float) -> void:
+	SkillFx.particles(into, at, {
+		"amount": count, "life": life, "one_shot": true, "explosiveness": 0.95, "add": false,
+		"speed": speed, "dir": dir, "spread": spread, "gravity": gravity, "damping": 2.0,
+		"size": Vector2(size.x * 0.5, size.y * 0.5),
+		"colors": [color, color, Color(color.r, color.g, color.b, 0.0)],
+	})
+
+
 func _throw_tree() -> void:
 	if _quarry == null:
 		return
 	trees_thrown += 1
 	_thrown_tree = true
-	var from := _tree_head().lerp(_bone_at("R_equip_joint"), 0.5)
+	# from just where it is held (its model's grip point), not elsewhere
+	var from := _tree.global_position if _tree != null and is_instance_valid(_tree) \
+			else _tree_head().lerp(_bone_at("R_equip_joint"), 0.5)
 	var target := _quarry.global_position + Vector3.UP * 0.6
+	var v := _cast(from, target, _spear_pitch)
+	var size := _tree_size if _tree_size > 0.0 else tree_scale * visual_scale
+	_send(&"net_javelin", [from, v, hit_damage * 1.6, act_serial * 10 + 6, size])
+	_send_arm(false)
+
+
+## A fast flat cast at `target`; the up of it as it leaves.
+func _straight_cast(from: Vector3, target: Vector3) -> Vector3:
 	var gap := Vector3(target.x - from.x, 0.0, target.z - from.z).length()
 	var flight := clampf(gap / 22.0, 0.35, 0.9)
-	var v := (target - from) / flight + Vector3.UP * 0.5 * TrollRock.GRAVITY * flight
-	_send(&"net_javelin", [from, v, hit_damage * 1.6, act_serial * 10 + 6, tree_scale * visual_scale])
-	_send_arm(false)
+	return (target - from) / flight + Vector3.UP * 0.5 * TrollRock.GRAVITY * flight
+
+
+## Host: the pitch it will be cast at, from where it is held now.
+func _aim_pitch() -> float:
+	var from := _tree.global_position if _tree != null and is_instance_valid(_tree) else _bone_at("R_equip_joint")
+	var v := _straight_cast(from, _quarry.global_position + Vector3.UP * 0.6)
+	var flat := Vector2(v.x, v.z).length()
+	return clampf(atan2(v.y, flat), -0.45, 0.45)
+
+
+## Host: cast at `target` leaving at `pitch` (just as it was held lying),
+## the speed found for it; when no fit speed carries it there at that, the
+## fast flat cast (the thrown tree then turns its way at once).
+func _cast(from: Vector3, target: Vector3, pitch: float) -> Vector3:
+	var flat := Vector3(target.x - from.x, 0.0, target.z - from.z)
+	var gap := flat.length()
+	var rise := target.y - from.y
+	var c := cos(pitch)
+	var room := gap * tan(pitch) - rise
+	if gap > 0.5 and room > 0.2:
+		var speed := sqrt(0.5 * TrollRock.GRAVITY * gap * gap / (c * c * room))
+		if speed >= 14.0 and speed <= 42.0:
+			return (flat / gap * c + Vector3.UP * sin(pitch)) * speed
+	return _straight_cast(from, target)
+
+
+## Every peer: the way the tree will go, so it is held lying so.
+@rpc("authority", "call_local", "reliable")
+func net_spear(pitch: float) -> void:
+	_spear_pitch = pitch
 
 
 @rpc("authority", "call_local", "reliable")
 func net_javelin(from: Vector3, v: Vector3, worth: float, id: int, size: float) -> void:
+	# taken on from just as it is seen held here, lying as it lies
+	var held := Basis()
+	var have := false
 	if _tree != null and is_instance_valid(_tree):
+		if _tree_mesh != null and is_instance_valid(_tree_mesh):
+			held = _tree_mesh.global_basis
+			have = true
 		_tree.queue_free()
 		_tree = null
+		_tree_mesh = null
 	Sfx.play_any(self, [SOUNDS + "roar_short.wav", SOUNDS + "grunt_2.wav"], self, 0.8, 0.0)
-	TrollRock.javelin(Blood.world_of(self), from, v, worth, self, _decides(), id, size)
+	TrollRock.javelin(Blood.world_of(self), from, v, worth, self, _decides(), id, size, held if have else Basis(), have)
 #endregion
 
 

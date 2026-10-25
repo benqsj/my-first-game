@@ -78,6 +78,11 @@ func _build() -> void:
 	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	qm.vertex_color_use_as_albedo = true
 	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	# (gone near the view too: one that drifted by the camera drew a great
+	# white square)
+	qm.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+	qm.distance_fade_min_distance = 3.0
+	qm.distance_fade_max_distance = 8.0
 	quad.material = qm
 	_motes.draw_pass_1 = quad
 	add_child(_motes)

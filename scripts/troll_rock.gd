@@ -55,6 +55,11 @@ var hurts: bool = false
 var serial: int = 0
 var _vel: Vector3 = Vector3.ZERO
 var _spin: Vector3 = Vector3.ZERO
+## A thrown tree: how it lay in the hand, turned from onto its flight over
+## its first moment.
+var _held: Basis = Basis()
+var _held_on: bool = false
+const HELD_TURN := 0.14
 var _model: MeshInstance3D
 var _age: float = 0.0
 var _rolling: bool = false
@@ -137,11 +142,13 @@ static func roll_ball(into: Node, from: Vector3, way: Vector3, worth: float, by:
 
 ## Every peer: its tree thrown from `from` at `velocity`.
 static func javelin(into: Node, from: Vector3, velocity: Vector3, worth: float, by: Node3D, host: bool, id: int,
-		size: float) -> TrollRock:
+		size: float, held: Basis = Basis(), held_on: bool = false) -> TrollRock:
 	if into == null:
 		return null
 	var r := TrollRock.new()
 	r.kind = Kind.TREE
+	r._held = held.orthonormalized()
+	r._held_on = held_on
 	r.damage = worth
 	r.thrower = by
 	r.hurts = host
@@ -507,15 +514,26 @@ func _draw_wake(delta: float) -> void:
 func _aim_tree() -> void:
 	if _vel.length_squared() < 0.0001:
 		return
-	var y := -_vel.normalized()
+	# a heavy shaft's shudder as it goes, growing in as it leaves the hand
+	var wob := sin(_age * 22.0) * 0.06 * clampf(_age / 0.2, 0.0, 1.0)
+	var aim := spear_basis(_vel.normalized()) * Basis(Vector3.RIGHT, wob)
+	if _held_on and _age < HELD_TURN:
+		# from just as it lay in its hand, turned onto its flight
+		var k := smoothstep(0.0, HELD_TURN, _age)
+		aim = Basis(_held.get_rotation_quaternion().slerp(aim.get_rotation_quaternion(), k))
+	_model.global_basis = aim.scaled(Vector3.ONE * _size)
+
+
+## The tree lying along `lead` (its snapped end that way, the root end, +Y
+## in the model, behind), unscaled; the troll holds it so as it throws.
+static func spear_basis(lead: Vector3) -> Basis:
+	var y := -lead
 	var x := y.cross(Vector3.UP)
 	if x.length_squared() < 0.0001:
 		x = Vector3.RIGHT
 	x = x.normalized()
 	var z := x.cross(y).normalized()
-	# a heavy shaft's shudder as it goes
-	var wob := sin(_age * 22.0) * 0.06
-	_model.global_basis = (Basis(x, y, z) * Basis(Vector3.RIGHT, wob)).scaled(Vector3.ONE * _size)
+	return Basis(x, y, z)
 
 
 ## Every peer: the tree down, driven into the ground where it came, standing
