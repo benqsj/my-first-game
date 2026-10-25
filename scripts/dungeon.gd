@@ -123,6 +123,9 @@ const PLACES := {
 	# user's pick C of the concepts, 2026-10-25 [ThroneCourt]; 64 by 64 so
 	# its round floor fits)
 	"throne": {"name": "ტახტის ეზო", "kind": "lord_court", "w": 64.0, "l": 64.0, "h": 0.0, "lift": 160.0},
+	# the orcs' war camp on a mountain fortress (the user's word, 2026-10-25:
+	# look A of the lord's court, liked, a place of its own [ThroneCourt])
+	"camp": {"name": "ორკების ბანაკი", "kind": "war_camp", "w": 64.0, "l": 64.0, "h": 0.0, "lift": 160.0},
 	# (the flooded crypt and the stone king's tomb behind it, low poly
 	# [CryptTomb]: the user's pick, 2026-10-24)
 	"crypt": {"name": "აკლდამა", "kind": "flood_crypt", "w": 44.0, "l": 100.0, "h": 15.0},
@@ -165,7 +168,7 @@ const RUN := {
 						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
 		# 4 — one orc, with two swords (the user's word, 2026-10-21: the
 		# shield orc not liked; one, the two-sword one)
-		{"places": ["terrace", "forest", "sky", "rampart", "mountain"], "lv": 4, "xp": 3.0, "reach": 4,
+		{"places": ["terrace", "forest", "sky", "rampart", "mountain", "camp"], "lv": 4, "xp": 3.0, "reach": 4,
 				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS]]}},
 		# 5 — the first boss, alone in the palace's hall (the user's word,
 		# 2026-10-22: ten steps, every fifth a boss; the court gone 2026-10-23)
@@ -173,16 +176,16 @@ const RUN := {
 				"foes": {"*": [[BUTCHER, 1]]}},
 		# 6 — the second half: an orc among them, the elite still last; the
 		# skulls come in (the user's word, 2026-10-22: flyers, several at once)
-		{"places": ["hall", "forest", "crypt", "swamp"], "lv": 6, "xp": 3.0, "reach": 5,
+		{"places": ["hall", "forest", "crypt", "swamp", "camp"], "lv": 6, "xp": 3.0, "reach": 5,
 				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKULL, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
 		# 7 — the dragonets' fire; the minotaur last, in the elite's place
 		{"places": ["sky", "mountain", "swamp", "crypt"], "lv": 7, "xp": 3.5, "reach": 6,
 				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 3], [DRAGONET, 2], [MINOTAUR, 1]]}},
 		# 8 — a troll, and what follows it about, the two kinds of flyer over it
-		{"places": ["terrace", "rampart", "forest", "swamp"], "lv": 7, "xp": 3.5, "reach": 7,
+		{"places": ["terrace", "rampart", "forest", "swamp", "camp"], "lv": 7, "xp": 3.5, "reach": 7,
 				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [SKULL, 2], [DRAGONET, 1]]}},
 		# 9 — the two orcs, taking turns, and dragonets throwing
-		{"places": ["terrace", "sky", "mountain", "rampart"], "lv": 8, "xp": 4.0, "reach": 7,
+		{"places": ["terrace", "sky", "mountain", "rampart", "camp"], "lv": 8, "xp": 4.0, "reach": 7,
 				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [DRAGONET, 2]]}},
 		# 10 — the lord of the orcs
 		{"places": ["throne"], "lv": 8, "boss": true, "boss_name": "ორკების მბრძანებელი",
@@ -210,6 +213,7 @@ const VIEW := {
 	"mountain": [5, "Waterfall ruins"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
 	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
 	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
+	"camp": [7, "Orc camp"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.
@@ -3273,7 +3277,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3442,6 +3446,9 @@ func _place_look(night: float = 0.0) -> void:
 			if which != "b":
 				_ashen_look()
 			_court_look(which)
+		"war_camp":
+			_ashen_look()
+			_court_look("a")
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3816,6 +3823,9 @@ func _build_room_body(i: int) -> void:
 			return
 		"lord_court":
 			ThroneCourt.build(self, room, w, l, _rng)
+			return
+		"war_camp":
+			ThroneCourt.build(self, room, w, l, _rng, "a")
 			return
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			TerracePlaces.build(self, room, kind, w, l, _rng)
@@ -5131,6 +5141,8 @@ func _ambience(i: int) -> void:
 			parts = [["wind_strong_loop.wav", -11.0]]
 		"lord_court":
 			parts = [["wind_loop.wav", -11.0], ["drums_far_loop.wav", -26.0]]
+		"war_camp":
+			parts = [["wind_loop.wav", -13.0], ["drums_far_loop.wav", -22.0]]
 	for part: Array in parts:
 		var stream := _loop(String(part[0]))
 		if stream == null:
@@ -5181,12 +5193,12 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_eagle_in -= delta
 	if _eagle_in <= 0.0:
 		_eagle_in = _rng.randf_range(12.0, 26.0)
-		if kind in ["sky", "lake", "fort", "falls", "clouds", "lord_court"] and (kind == "sky" or _phase < 2.5):
+		if kind in ["sky", "lake", "fort", "falls", "clouds", "lord_court", "war_camp"] and (kind == "sky" or _phase < 2.5):
 			Sfx.play_flat(self, SND + "eagle.wav", _rng.randf_range(0.92, 1.08), -9.0)
 	_flap_in -= delta
 	if _flap_in <= 0.0:
 		_flap_in = _rng.randf_range(6.0, 13.0)
-		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds", "lord_court"]:
+		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds", "lord_court", "war_camp"]:
 			var at := near + Vector3(_rng.randf_range(-14.0, 14.0), 4.0, _rng.randf_range(-14.0, 14.0))
 			Sfx.play(self, SND + "flap.wav", null, at, 1.0, -2.0, 0.15)
 	_stones_in -= delta

@@ -55,10 +55,11 @@ func _ready() -> void:
 	_column.add_child(moods)
 	_column.add_child(_toggle("Rain (in the storm)", TerracePlaces.hall_rain,
 			func(on: bool) -> void: TerracePlaces.set_hall_rain(on)))
-	# the lord's court: its three looks (2026-10-25), pressed, he is put in it
+	# the lord's court: its looks (2026-10-25; the camp, A, now a place of
+	# its own), pressed, he is put in it
 	_column.add_child(MenuStyle.label("Lord's court", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
 	var courts := HBoxContainer.new()
-	for c: Array in [["c", "C  Mist"], ["a", "A  Camp"], ["b", "B  Royal"]]:
+	for c: Array in [["c", "C  Mist"], ["b", "B  Royal"]]:
 		var b := _small(String(c[1]), _set_court.bind(String(c[0])))
 		b.toggle_mode = true
 		b.button_pressed = ThroneCourt.current() == c[0]

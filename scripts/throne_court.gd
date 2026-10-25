@@ -16,7 +16,8 @@ extends RefCounted
 ## * **a**: the warlord's camp on a mountain fortress: dark flagstones, a
 ##   palisade of sharpened logs round it, stone towers at its corners, his
 ##   throne of black iron with a great orc skull over it, iron braziers,
-##   racks of spears and shields, war banners; a grey dusk.
+##   racks of spears and shields, war banners; a grey dusk. (Liked as a
+##   place of its own, 2026-10-25: the "camp" place is built as this.)
 ## * **b**: the old royal court the orcs took: pale arcades down both sides,
 ##   a domed pavilion over the golden throne, two heroes in stone by it,
 ##   cypresses, gold braziers, long banners, the snowy mountains round about;
@@ -46,9 +47,11 @@ static func current() -> String:
 	return look if look in ["a", "b", "c"] else "c"
 
 
-static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator) -> void:
+## `which`: a look to build whatever F2's board says ("a" for the orcs' war
+## camp, a place of its own: "camp" in [constant Dungeon.PLACES]).
+static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator, which := "") -> void:
 	_ready_kit()
-	match current():
+	match which if which != "" else current():
 		"a":
 			_camp(d, room, w, l, rng)
 		"b":
