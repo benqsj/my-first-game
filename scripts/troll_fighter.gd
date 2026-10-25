@@ -1092,6 +1092,8 @@ func _after(what: int) -> void:
 		_begin(W_UPROOT)
 		return
 	if what == W_UPROOT:
+		if stoned == 1:
+			_send(&"net_skin", [0])
 		uproots += 1
 		if not armed:
 			_send_arm(true)
@@ -1714,6 +1716,30 @@ var _up_age := 0.0                     # how long since the trunk burst up (s, g
 const UP_BURST := 0.4                  # how long it takes to come up (s)
 
 
+## Its stamp before it uproots (2026-10-26, the user: something must guard it
+## as it tears its tree up): a shock along the ground throws anyone near off
+## his feet and away (a jump clears it, no shield holds it), and its skin
+## goes to stone till the tree is up, a blow taking only this share.
+const UPROOT_WAVE := 4.5
+const UPROOT_TAKEN := 0.25
+
+
+## Host: the shock of its stamp (out from its body, all round).
+func _uproot_wave() -> void:
+	var reach_m := UPROOT_WAVE * visual_scale / 1.6
+	for who: Node3D in WeaponSweep.targets(get_tree()):
+		var d := Vector2(who.global_position.x - global_position.x, who.global_position.z - global_position.z).length()
+		if d <= reach_m:
+			# (thrown the harder the nearer: its force rides on the "sweep"
+			# a blow leaves on him, [method WeaponSweep.motion_on])
+			var away := who.global_position - global_position
+			away.y = 0.0
+			away = away.normalized() if away.length_squared() > 0.0001 else -_forward()
+			var push := lerpf(42.0, 28.0, d / reach_m)
+			who.set_meta(&"blow_sweep", [away * push + Vector3.UP * 2.5, Engine.get_physics_frames()])
+			who.call(&"receive_blow", hit_damage * 0.35, self, 0, 1, 7100000 + act_serial, false, &"ground")
+
+
 ## Its stamping foot (the right ankle) raised above, and down again below,
 ## so high (m on a body of 1).
 const UPSTOMP_RAISED := 0.45
@@ -1793,6 +1819,13 @@ func _show_uproot() -> void:
 		WindBlast.shake(self, 0.16, 0.6, 20.0)
 		Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 0.9, 0.0)
 		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.6, 0.0)
+		# its stamp's shock: the ground split out round its foot
+		for k in 5:
+			var dir := fw.rotated(Vector3.UP, TAU * float(k) / 5.0 + 0.4)
+			GroundCrack.show(self, foot, dir, UPROOT_WAVE * visual_scale / 1.6, crack_speed * 1.4)
+		if _decides() and act == W_UPSTOMP:
+			_uproot_wave()
+			_send(&"net_skin", [1])
 		if not _skeleton.skeleton_updated.is_connected(_hold_rising):
 			_skeleton.skeleton_updated.connect(_hold_rising)
 	if _rising == null or not is_instance_valid(_rising):
@@ -2179,6 +2212,13 @@ func _add_stance(amount: float) -> void:
 
 
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	# tearing its tree up (2026-10-26, the user: it must not be killed in
+	# it): its skin gone to stone, a blow takes a quarter, and none takes
+	# its last
+	if (act == W_UPSTOMP or act == W_UPROOT) and _decides():
+		if stoned == 1 or act == W_UPROOT:
+			damage *= UPROOT_TAKEN
+		damage = minf(damage, maxf(health - max_health * 0.02, 0.0))
 	# its stone skin: most of it turned, but every blow cracks it, a heavy one
 	# the more
 	if act == S_SKIN and _decides() and stoned == 1:
