@@ -36,6 +36,11 @@ const TREE_Z := -31.5
 const RIM_H := 6.0
 ## The tree as big as the concept's: over the whole far end.
 const TREE_S := 1.7
+## Where the long stairs start, out at the cliff's lip past the gap.
+const STAIRS_AT := 34.2
+## The orcs baked in stone (`_shots_tmp/bake_orc_statues.gd`; the user,
+## 2026-10-25: no statues of men in the orcs' places).
+const ORC_STATUES := "res://assets/dungeon/statues/%s.res"
 ## Which look (F2's board; "" is "c").
 static var look := ""
 
@@ -65,15 +70,15 @@ static func _misty(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 	_floor_and_rim(room)
 	d._bounds(room, w, l)
 	_shadows(_piece(room, "KFloor", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	for name: String in ["KWall", "KMenhirs", "KCliff", "KStairs"]:
+	for name: String in ["KWall", "KMenhirs", "KCliff"]:
 		_piece(room, name, Vector3.ZERO)
+	# the stairs out of the gap at the way in, down and down into the cloud
+	_piece(room, "KStairsLong", Vector3(0.0, 0.0, STAIRS_AT))
 	_dais(d, room)
 	_poles(room, rng)
-	# two of the heroes in stone either side of the way in, facing him as he comes
-	var heroes: Array = TerracePlaces.PLACE_HEROES.get("clouds", ["dark_mage", "dark_archer"])
+	# two orcs in stone either side of the way in, looking up the court
 	for sx: float in [-1.0, 1.0]:
-		TerracePlaces._knight(room, Vector3(sx * 5.2, 0.0, WALK_R - 2.4), PI, false,
-				String(heroes[0 if sx < 0.0 else 1]))
+		_orc_statue(room, Vector3(sx * 5.2, 0.0, WALK_R - 2.4), 0.0, "orc", Color(0.56, 0.56, 0.56))
 	_far(room, rng)
 	d._cloud_layers(room, -34.0)
 	d._circling_birds(room)
@@ -229,7 +234,11 @@ static func _camp(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 		for z: float in [-8.0, 7.0, 21.0]:
 			var rack := _piece(room, "ARack", Vector3(sx * (hw - 1.0), 0.0, z), -sx * PI * 0.5)
 			TerracePlaces._box(rack, Vector3(3.2, 2.6, 1.0), Vector3(0.0, 1.3, 0.0))
-	_statues(room, hl)
+	# two orcs in stone by the gap in the palisade, and the stairs out of it
+	# down into the cloud
+	for sx: float in [-1.0, 1.0]:
+		_orc_statue(room, Vector3(sx * 9.0, 0.0, hl - 3.0), 0.0, "orc_lord" if sx < 0.0 else "orc", Color(0.30, 0.29, 0.29))
+	_piece(room, "KStairsLong", Vector3(0.0, 0.0, hw + 1.0))
 	TerracePlaces._ready_kit()
 	TerracePlaces._ring(room, ["Mount2", "Mount0"], 320.0, 520.0, [-2.6, -1.9, -1.2, -0.6, 0.0, 0.6, 1.2, 1.9, 2.6], -150.0, rng, 1.6, 2.4)
 	d._cloud_layers(room, -60.0)
@@ -298,7 +307,7 @@ static func _royal(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 	var heroes: Array = TerracePlaces.PLACE_HEROES.get("clouds", ["dark_mage", "dark_archer"])
 	for sx: float in [-1.0, 1.0]:
 		TerracePlaces._brazier(d, room, Vector3(sx * 7.6, 0.0, DAIS_Z + 0.5), 3.6)
-		TerracePlaces._knight(room, Vector3(sx * 11.5, 0.0, DAIS_Z - 0.5), PI, false, String(heroes[0 if sx < 0.0 else 1]))
+		TerracePlaces._knight(room, Vector3(sx * 11.5, 0.0, DAIS_Z - 0.5), 0.0, false, String(heroes[0 if sx < 0.0 else 1]))
 		# cypresses in their pots down the sides
 		var cz := -14.0
 		while cz < hl - 6.0:
@@ -315,11 +324,28 @@ static func _royal(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumb
 #endregion
 
 
-## Two heroes in stone either side of the way in, facing him as he comes.
-static func _statues(room: Node3D, hl: float) -> void:
-	var heroes: Array = TerracePlaces.PLACE_HEROES.get("clouds", ["dark_mage", "dark_archer"])
-	for sx: float in [-1.0, 1.0]:
-		TerracePlaces._knight(room, Vector3(sx * 9.0, 0.0, hl - 3.0), PI, false, String(heroes[0 if sx < 0.0 else 1]))
+## An orc in stone (`which`: "orc" or "orc_lord") on a plinth, `tint` its stone.
+static var _orc_meshes: Dictionary = {}
+static func _orc_statue(room: Node3D, at: Vector3, yaw: float, which: String, tint: Color) -> void:
+	var p := TerracePlaces._piece(room, "PostPlinth", at, yaw)
+	if p != null:
+		TerracePlaces._box(p, Vector3(1.4, 3.0, 1.4), Vector3(0.0, 1.5, 0.0))
+	var path := ORC_STATUES % which
+	if not _orc_meshes.has(which):
+		_orc_meshes[which] = load(path) as Mesh if ResourceLoader.exists(path) else null
+	var m := _orc_meshes[which] as Mesh
+	if m == null:
+		return
+	var mi := MeshInstance3D.new()
+	mi.mesh = m
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.roughness = 0.9
+	mi.material_override = mat
+	var aabb := m.get_aabb()
+	var k := 3.0 / maxf(aabb.size.y, 0.01)
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * k), at + Vector3(0.0, 2.15 - aabb.position.y * k, 0.0))
+	room.add_child(mi)
 
 
 ## A square place's floor walked on: a box at 0 (its drawn floor is a piece).
