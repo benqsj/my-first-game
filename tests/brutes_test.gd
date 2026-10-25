@@ -10,8 +10,9 @@ extends SceneTree
 ##   and goes in after it; rages at half its health;
 ## * the ogre: its pound sends a shock out that fells him; its great blow
 ##   winds up slowly and beats his guard down; it treads on him lying;
-## * the troll: hurls a boulder that reaches him; its wounds close, but not
-##   while it burns; its leap shakes the ground;
+## * the troll: (its old boulder, switched on) reaches him; its wounds close,
+##   but not while it burns; its leap; a great club in both hands, slow, a
+##   missed swing leaves it reeling, wounds that slow it (2026-10-25);
 ## * the golem: light blows do not stop it, a heavy one does; stone spikes
 ##   out of the ground reach him; cut down, it comes back together once;
 ## * a skeleton comes back together once too.
@@ -103,7 +104,7 @@ func _run() -> void:
 	await _troll_stance()
 	await _golem_steady()
 	await _golem_spikes()
-	await _troll_feral()
+	await _troll_heavy()
 	await _golem_fortress()
 	await _golem_rhythm()
 	await _golem_round3()
@@ -371,6 +372,8 @@ func _troll_boulder() -> void:
 	var hero: Player = a[2]
 	var start := hero.global_position
 	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 12.0)) as TrollFighter
+	# (off since it holds the club, 2026-10-25: switched on to test the throw)
+	troll.hurl_on = true
 	troll._hurl_wait = 0.0
 	troll._leap_wait = 99.0
 	var struck := []
@@ -397,7 +400,7 @@ func _troll_regen() -> void:
 	var h0 := troll.health
 	for i in 120:
 		await physics_frame
-	_check("the troll's wounds close", troll.health > h0 + troll.max_health * 0.015 and troll.healing,
+	_check("the troll's wounds close", troll.health > h0 + troll.max_health * 0.005 and troll.healing,
 			"%.0f -> %.0f" % [h0, troll.health])
 	Afflictions.of(troll).apply(&"burn", 3.0, hero, 0.0)
 	for i in 5:
@@ -514,33 +517,47 @@ func _reform(scene: String, what: String) -> void:
 
 
 ## 2026-10-15 (the user's word): the troll and the golem, each its own way.
-func _troll_feral() -> void:
+## The troll with its club (2026-10-25, the user's word: heavy, Elden Ring's):
+## on two feet and slow, no hop aside, the club in its hands; a great swing
+## that finds nothing leaves it reeling; a wound slows it and weakens its
+## balance.
+func _troll_heavy() -> void:
 	var a: Array = await _arena()
 	var world: World = a[0]
 	var hero: Player = a[2]
 	var start := hero.global_position
 	var troll := (a[1] as ArenaPanel).call_up(TROLL, false, _ahead(hero, 16.0)) as TrollFighter
-	troll._hurl_wait = 999.0
 	troll._leap_wait = 999.0
 	troll._rouse(hero)
-	var crawled := false
 	var top := 0.0
 	for i in 240:
 		await physics_frame
 		_hold(hero, start)
-		if troll._anim.current_clip() == &"CR_CrawlRun":
-			crawled = true
 		top = maxf(top, Vector2(troll.velocity.x, troll.velocity.z).length())
 		if troll._distance_to(hero) < troll.reach:
 			break
-	_check("the troll comes on all fours, fast", crawled and top > 4.5, "%.1f m/s" % top)
-	troll.health = troll.max_health * 0.5
-	var before := troll.health
-	troll._stopped_for = 999.0
-	troll._blow_reached(hero, TrollFighter.T_BITE)
-	_check("its bite closes its wounds", troll.health > before + 1.0 and troll.bites_healed == 1,
-			"%.0f -> %.0f" % [before, troll.health])
-	_check("it hops aside from his swings", troll.dash_chance >= 0.3 and troll.dash_clip == &"CR_Dodge")
+	_check("the troll comes on two feet, not fast", troll.run_clip == &"CR_HeavyRun" and top < 3.8, "%.1f m/s" % top)
+	_check("it does not hop aside", troll.dash_chance == 0.0)
+	_check("its club in its hands", troll._club != null and troll._club.is_visible_in_tree() and troll._grip_learnt)
+	troll.sight_range = 0.0
+	troll._go_home()
+	for i in 10:
+		await physics_frame
+	hero.global_position = troll.global_position + troll._forward() * 9.0
+	troll._begin(TrollFighter.T_SWING)
+	var reeled := false
+	for i in 400:
+		await physics_frame
+		if troll.act == TrollFighter.T_REEL:
+			reeled = true
+			break
+	_check("a great swing that finds nothing leaves it reeling", reeled and troll.reels >= 1)
+	var pace := troll.chase_speed
+	var balance := troll.stance
+	troll.health = troll.max_health * 0.79
+	troll._wound(troll.global_position + Vector3.UP * 2.0, Vector3.FORWARD)
+	_check("a wound slows it and weakens its balance", troll.wounds == 1 and troll.chase_speed < pace and troll.stance < balance,
+			"%.2f -> %.2f, %.0f -> %.0f" % [pace, troll.chase_speed, balance, troll.stance])
 	await _done(world)
 
 

@@ -2100,6 +2100,41 @@ along their head, emitting while an attack has the head moving faster than
 `arc_speed` (10 m/s). The world's creature culling leaves trails alone: their
 bounds are world-space and would be measured from the middle of the map.
 
+### The troll's club (2026-10-25)
+
+`scripts/troll_fighter.gd`. The user's word: it was so quick it could not be
+fought; heavy blows, Elden Ring's way, the club seen coming back, its balance
+lost, its body breaking little by little. The feral pouncer (2026-10-15) is
+gone; it carries a gnarled oak club in both hands.
+
+* **The club**: `vepxis-art/creatures/troll_club.py` (Blender CLI) ->
+  `assets/creatures/troll_club.glb`, faceted, vertex colours, `lp_solid`.
+  Laid along the line between its wrists (as the golem's maul), its grip
+  read off `CR_HeavyIdle` in `_ready` *before* the moves are measured, so
+  every `_strike_from` is the club's reach (measured first with the default
+  tip, every blow landed from ~1 m and it stood at 2.4 m doing nothing). It
+  hangs off a `BoneAttachment3D` on the troll's root with an external
+  skeleton, so the body-wide overlays (rage red, healing green) skip it.
+  Dropped to the ground when it dies.
+* **Moves**: only two-handed clips (both wrists within 0.42 m all through,
+  `_shots_tmp/troll_clips.gd`): `CR_Heavy1` chop (into the ground: the crack,
+  a line), `CR_Heavy2` overhead, `CR_Heavy3` side, `CR_OG_Heavy_Swing`,
+  `CR_OG_Club_Combo2H`, `CR_OG_TwoHand_Combo`, `CR_OG_Power_Slash`,
+  `CR_GS_HighSpin`, the leap `CR_Heavy4`. Each played to its end (the club
+  back on its shoulder), `hand_tail` 0.62, `attack_cooldown` 1.5-2.5 s.
+* **Weight**: `_slow_to` wind-ups (no glow, it is wood) and `_snap` down,
+  delayed swings (`_holds`), `act_turn_most` 75 deg/s, glide 0.9 m/s,
+  chase 3.3 m/s on two feet (`CR_HeavyRun`), no dodge. A missed great swing
+  (`MISS_REELS`) -> `CR_Stun` reel. Whoosh before each blow, the club's head
+  into the ground -> `GroundFx.weapon_dust`, thud, small shake (no stop).
+* **Balance**: stance 520; at 40 % it rocks back (`CR_Parry2HHit`), at 72 %
+  it is staggered (`CR_GS_Impact`), full it kneels, open to a critical.
+* **Body**: at 80/60/40/20 % health a wound decal opens where it was struck
+  (`net_wound`, every peer; it bleeds from there), 6 % slower and 10 % less
+  stance each. Rage at 30 % (`CR_GS_PowerUp`). Death `CR_MG_Death`.
+* Shared from this round: `PackBrute.act_turn_most` / `glide_most` /
+  `glide_gap` (were the butcher's own) and `GroundFx.weapon_dust`.
+
 ### A boss's anger (Threat)
 
 `scripts/threat.gd`. Every boss and elite (F1's bosses, a dungeon step's
