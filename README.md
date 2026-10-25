@@ -2189,6 +2189,36 @@ before is gone; `assets/creatures/troll_club.glb` stays unused.)
   regeneration while nothing burns or freezes it, rage at 30 %.
 * **Colours**: `troll_rocks.py` had made its vertex colours linear and
   `lp_solid` makes them linear again: near black. Written as the palette now.
+* **Weight and openings** (2026-10-25, round 5): after a move's last blow
+  (and `hand_tail`) its clip runs 1.7x slower (`DRAG`), the body leans with
+  the swing (`LEANS`: forward, or over to the side across) and is carried on
+  a step; after a string of three or more blows or a heavy move
+  (`HEAVY_ENDS`) it stands heaving (`T_WINDED`, `CR_IdleWounded`, 1.3-2.4 s),
+  his blows rocking its balance 1.5x. Cooldown 2-3 s, blows dearer on its
+  breath.
+* **Round 6** (the user's word: its blows must cut his swing short; a ball of
+  stone rolled after him three times; more strings and another way of
+  striking):
+  * `blow_breaks_swing()`: with the tree in its hands, and its heaviest bare
+    blows (hook, chased uppercut, headbutt, the great clasped swing), a blow
+    marks the hero's combo key `^b`; [Player] then reels him with the big side
+    hit, which plays over his swing (a flinch does not), his attack buffer
+    cleared.
+  * **The stone balls** (`R_GOLF`, Mixamo's golf drive, the long set-up cut
+    away): swung along the ground, a great ball of stone (`Ball` in
+    `troll_rocks.glb`, radius 1.05) bursts up out of it in front and rolls
+    after him (`TrollRock.Kind.BALL`: faster and faster up to 10 m/s, turning
+    after him at 60 deg/s for 4.5 s or till it has gone by him, rumbling);
+    three in a row, then it stands heaving. It bursts on him (a fall, and
+    the blast round it), on a wall, or 36 m on. A roll through it clears it.
+    Either look, 5-22 m off, 16-22 s apart.
+  * **Bare, its other way**: both fists clasped and swung (`P_HAMMER`,
+    Mixamo's batter's single; `P_HOME`, the great one round, missed: it
+    reels), a two-handed ram (`P_RAM`, guard kind). Strings `hammers`,
+    `ram_brawl`, `hammer_knees` (five blows), `home_run`.
+  * **With the tree**: swept along the ground and up, earth flying (`W_GOLF`),
+    its root end rammed (`W_BUTT`). Strings `tree_golf_chop`,
+    `tree_butt_great`, `tree_butt_string`.
 
 ### A boss's anger (Threat)
 

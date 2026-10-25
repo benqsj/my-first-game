@@ -13,8 +13,13 @@ extends Node3D
 ##   him, bouncing, dust off it, for `ROLL_FAR` or till it meets a wall, and
 ##   bursts there. A jump or a roll aside clears it.
 ## * **SMALL**: a stone thrown one-handed, quick (three in a row): it staggers.
+## * **BALL** (the user's word, 2026-10-25): a great ball of stone it tears out
+##   of the ground with a swing along it and sends rolling after him, three
+##   one after another. It comes on faster and faster and turns after him (so
+##   far a breath, `BALL_TURN`) till it has gone by him; it bursts on him, on a
+##   wall, or far off. A roll through it at the last moment clears it.
 
-enum Kind { BIG, ROLL, SMALL }
+enum Kind { BIG, ROLL, SMALL, BALL }
 
 const FILE := "res://assets/creatures/troll_rocks.glb"
 const GRAVITY := 18.0
@@ -24,6 +29,13 @@ const BIG_BLAST := 2.6
 const ROLL_FAR := 16.0
 const ROLL_SPEED := 9.0
 const EARTH := Color(0.5, 0.44, 0.36)
+const BALL_R := 1.05
+const BALL_SPEED := Vector2(4.0, 10.0)
+const BALL_SPEED_UP := 5.0
+## How quickly it turns after him (rad/s), and for how long it may.
+const BALL_TURN := 1.05
+const BALL_HUNT := 4.5
+const BALL_FAR := 36.0
 
 static var _meshes: Dictionary = {}
 static var _mat: ShaderMaterial
@@ -43,6 +55,10 @@ var _trail_in: float = 0.0
 var _done: bool = false
 var _rng := RandomNumberGenerator.new()
 var _hit: Dictionary = {}
+## The ball: whom it rolls after, whether it has given up on him.
+var target: Node3D
+var _hunting: bool = true
+var _rumble_in: float = 0.0
 
 
 ## Every peer: a rock of `what` thrown from `from` at `velocity`.
@@ -64,6 +80,29 @@ static func throw(into: Node, from: Vector3, velocity: Vector3, what: int, worth
 	return r
 
 
+## Every peer: a great ball of stone come up out of the ground at `from`,
+## rolling away along `way` after `after`.
+static func roll_ball(into: Node, from: Vector3, way: Vector3, worth: float, by: Node3D, host: bool, id: int,
+		after: Node3D) -> TrollRock:
+	if into == null:
+		return null
+	var r := TrollRock.new()
+	r.kind = Kind.BALL
+	r.damage = worth
+	r.thrower = by
+	r.hurts = host
+	r.serial = id
+	r.target = after
+	r._rng.seed = id
+	var flat := Vector3(way.x, 0.0, way.z)
+	r._vel = (flat.normalized() if flat.length_squared() > 0.0001 else Vector3.FORWARD) * BALL_SPEED.x
+	r._rolling = true
+	into.add_child(r)
+	r.global_position = from + Vector3.UP * BALL_R
+	r._build()
+	return r
+
+
 static func mesh(name: String) -> Mesh:
 	if _meshes.is_empty():
 		var scene := load(FILE) as PackedScene
@@ -80,14 +119,17 @@ static func material() -> ShaderMaterial:
 		_mat = ShaderMaterial.new()
 		_mat.shader = load("res://assets/dungeon/forest_glade/lp_solid.gdshader")
 		_mat.set_shader_parameter("foot_dark", 0.0)
-		_mat.set_shader_parameter("bright", 2.1)
+		_mat.set_shader_parameter("bright", 1.1)
 	return _mat
 
 
 ## A rock to hold or throw: the big ones `Boulder_n`, the small `Chunk_n`.
 static func model(what: int, pick: int) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	if what == Kind.SMALL:
+	if what == Kind.BALL:
+		mi.mesh = mesh("Ball")
+		mi.scale = Vector3.ONE * BALL_R
+	elif what == Kind.SMALL:
 		mi.mesh = mesh("Chunk_%d" % (pick % 6))
 		mi.scale = Vector3.ONE * 2.2
 	else:
@@ -108,14 +150,14 @@ func _build() -> void:
 
 
 func _radius() -> float:
-	return SMALL_R if kind == Kind.SMALL else BIG_R
+	return SMALL_R if kind == Kind.SMALL else (BALL_R if kind == Kind.BALL else BIG_R)
 
 
 func _physics_process(delta: float) -> void:
 	if _done:
 		return
 	_age += delta
-	if _age > 9.0:
+	if _age > (12.0 if kind == Kind.BALL else 9.0):
 		queue_free()
 		return
 	_trail(delta)
@@ -148,17 +190,19 @@ func _physics_process(delta: float) -> void:
 
 ## The rolling one: along the ground, bouncing a little, at him.
 func _roll(delta: float) -> void:
+	if kind == Kind.BALL:
+		_steer(delta)
 	var from := global_position
 	var to := from + _vel * delta
 	_rolled += _vel.length() * delta
 	var axis := Vector3.UP.cross(_vel.normalized())
 	if axis.length_squared() > 0.0001:
-		_model.rotate(axis.normalized(), _vel.length() / BIG_R * delta)
+		_model.rotate(axis.normalized(), _vel.length() / _radius() * delta)
 	if _hit_heroes(from, to):
 		return
 	var space := get_world_3d().direct_space_state
 	# a wall, a pillar: it bursts on it
-	var ahead := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + _vel.normalized() * (BIG_R + _vel.length() * delta), 1))
+	var ahead := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + _vel.normalized() * (_radius() + _vel.length() * delta), 1))
 	if not ahead.is_empty() and (ahead["normal"] as Vector3).y < 0.5:
 		_shatter(ahead["position"], ahead["normal"])
 		return
@@ -166,10 +210,31 @@ func _roll(delta: float) -> void:
 	var down := space.intersect_ray(PhysicsRayQueryParameters3D.create(to + Vector3.UP * 1.5, to + Vector3.DOWN * 3.0, 1))
 	if not down.is_empty():
 		var g: Vector3 = down["position"]
-		to.y = g.y + BIG_R * 0.9 + absf(sin(_rolled * 1.7)) * 0.12
+		to.y = g.y + _radius() * 0.9 + absf(sin(_rolled * 1.7)) * (0.05 if kind == Kind.BALL else 0.12)
 	global_position = to
-	if _rolled >= ROLL_FAR:
-		_shatter(global_position - Vector3.UP * BIG_R * 0.8, Vector3.UP)
+	if _rolled >= (BALL_FAR if kind == Kind.BALL else ROLL_FAR):
+		_shatter(global_position - Vector3.UP * _radius() * 0.8, Vector3.UP)
+
+
+## The ball: faster and faster, turned after him as far as it may, till it
+## has gone by him or rolled so long; heard rumbling over the ground.
+func _steer(delta: float) -> void:
+	var speed := minf(_vel.length() + BALL_SPEED_UP * delta, BALL_SPEED.y)
+	var way := _vel.normalized() if _vel.length_squared() > 0.0001 else Vector3.FORWARD
+	if _hunting and is_instance_valid(target) and _age < BALL_HUNT and not bool(target.get("is_dead")):
+		var to := target.global_position - global_position
+		to.y = 0.0
+		if to.length() < 2.5 or to.normalized().dot(way) < -0.2:
+			_hunting = false  # it has gone by him: on it goes
+		else:
+			var turn := clampf(way.signed_angle_to(to.normalized(), Vector3.UP), -BALL_TURN * delta, BALL_TURN * delta)
+			way = way.rotated(Vector3.UP, turn)
+	_vel = way * speed
+	_rumble_in -= delta
+	if _rumble_in <= 0.0:
+		_rumble_in = clampf(2.6 / maxf(speed, 1.0), 0.25, 0.6)
+		Sfx.play(self, "res://sounds/ogre/step.wav", self, Vector3.DOWN * BALL_R, randf_range(0.45, 0.55), -2.0)
+		WindBlast.shake(self, 0.02, 0.2, 9.0)
 
 
 func _hit_heroes(from: Vector3, to: Vector3) -> bool:
@@ -194,6 +259,9 @@ func _hit_heroes(from: Vector3, to: Vector3) -> bool:
 		if kind == Kind.ROLL:
 			# it rolls on over him
 			return false
+		if kind == Kind.BALL:
+			_shatter(global_position - Vector3.UP * BALL_R * 0.5, -_vel.normalized())
+			return true
 		_shatter(pts[0], -_vel.normalized())
 		return true
 	return false
@@ -208,10 +276,10 @@ func _trail(delta: float) -> void:
 	var into := Blood.world_of(self)
 	if into == null:
 		return
-	var at := global_position + (Vector3.DOWN * BIG_R * 0.8 if _rolling else Vector3.ZERO)
+	var at := global_position + (Vector3.DOWN * _radius() * 0.8 if _rolling else Vector3.ZERO)
 	var big := kind != Kind.SMALL
 	SkillFx.particles(into, at, {
-		"amount": 5 if big else 2, "life": 0.9, "one_shot": true, "explosiveness": 0.9, "add": false,
+		"amount": 9 if kind == Kind.BALL else (5 if big else 2), "life": 0.9, "one_shot": true, "explosiveness": 0.9, "add": false,
 		"speed": Vector2(0.2, 0.9), "dir": Vector3.UP, "spread": 90.0, "gravity": Vector3(0, 0.2, 0),
 		"damping": 1.5, "size": Vector2(0.18, 0.4) * (1.0 if big else 0.5), "grow": 0.8, "sphere": 0.3,
 		"colors": [Color(EARTH, 0.0), Color(EARTH, 0.35), Color(EARTH, 0.0)],
@@ -239,11 +307,11 @@ func _shatter(at: Vector3, normal: Vector3) -> void:
 	_done = true
 	var into := Blood.world_of(self)
 	var big := kind != Kind.SMALL
-	var power := 1.6 if kind == Kind.BIG else (1.2 if kind == Kind.ROLL else 0.6)
+	var power := 1.9 if kind == Kind.BALL else (1.6 if kind == Kind.BIG else (1.2 if kind == Kind.ROLL else 0.6))
 	if into != null:
 		GroundFx.weapon_dust(into, at, power)
 		if big:
-			GroundFx.eruption(into, at, 0.8 if kind == Kind.BIG else 0.6, false)
+			GroundFx.eruption(into, at, 1.0 if kind == Kind.BALL else (0.8 if kind == Kind.BIG else 0.6), false)
 			SkillFx.particles(into, at + Vector3.UP * 0.4, {
 				"amount": 18, "life": 1.8, "one_shot": true, "explosiveness": 0.95, "add": false,
 				"speed": Vector2(1.0, 3.0), "dir": Vector3.UP, "spread": 80.0, "gravity": Vector3(0, -0.4, 0),
@@ -251,12 +319,12 @@ func _shatter(at: Vector3, normal: Vector3) -> void:
 				"colors": [Color(EARTH, 0.0), Color(EARTH, 0.5), Color(EARTH, 0.0)],
 			})
 		HitFx.spawn(into, &"stone", at, normal, power)
-		_pieces(into, at, 7 if kind == Kind.BIG else (5 if kind == Kind.ROLL else 3))
+		_pieces(into, at, 10 if kind == Kind.BALL else (7 if kind == Kind.BIG else (5 if kind == Kind.ROLL else 3)))
 	ImpactFx.thud(self, at, big)
 	Sfx.play_any(self, ["res://sounds/ogre/club_ground_2.wav", "res://sounds/ogre/club_ground_4.wav"], self,
 			randf_range(0.65, 0.75) if big else 1.0, 2.0 if big else -4.0)
-	WindBlast.shake(self, 0.16 if kind == Kind.BIG else 0.08, 0.4, 22.0)
-	if hurts and kind == Kind.BIG:
+	WindBlast.shake(self, 0.2 if kind == Kind.BALL else (0.16 if kind == Kind.BIG else 0.08), 0.4, 22.0)
+	if hurts and (kind == Kind.BIG or kind == Kind.BALL):
 		for node in get_tree().get_nodes_in_group(&"player"):
 			var hero := node as Node3D
 			if hero == null or _hit.has(hero) or bool(hero.get("is_dead")) or not hero.has_method(&"receive_blow"):

@@ -95,6 +95,14 @@ const R_PICK := 240
 const R_THROW := 241
 const R_BOWL := 242
 const R_STONE := 243
+## The great stone ball: swung up out of the ground along it, sent rolling
+## after him, three times.
+const R_GOLF := 244
+## Bare, its other way: both fists clasped and swung (a hammer, a great one
+## round), a two-handed ram.
+const P_HAMMER := 226
+const P_HOME := 227
+const P_RAM := 228
 ## With the tree.
 const W_UPROOT := 250
 const W_GREAT := 251
@@ -102,6 +110,9 @@ const W_TWO := 252
 const W_STRING := 253
 const W_SCOOP := 254
 const W_CHOP := 255
+## The tree swept along the ground and up (earth flying), its root end rammed.
+const W_GOLF := 256
+const W_BUTT := 257
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
@@ -111,9 +122,9 @@ const T_WINDED := 213
 const T_SWING := W_GREAT
 
 ## Its swings that carry it off its balance when they find nothing.
-const MISS_REELS := [W_GREAT, LEAP]
+const MISS_REELS := [W_GREAT, LEAP, P_HOME]
 ## Its moves after which it is out of breath whatever else.
-const HEAVY_ENDS := [W_GREAT, W_CHOP, R_THROW, R_BOWL, P_GRAB, P_STOMP, LEAP]
+const HEAVY_ENDS := [W_GREAT, W_CHOP, R_THROW, R_BOWL, P_GRAB, P_STOMP, LEAP, P_HOME, W_GOLF, R_GOLF]
 ## How far each move's weight carries its body on after the blow: [pitch
 ## forward deg, roll deg (+: over to its left), m/s carried on].
 const LEANS := {
@@ -121,6 +132,8 @@ const LEANS := {
 	P_CHASE: [7.0, 0.0, 1.8], P_HEADBUTT: [8.0, 0.0, 0.9], P_STOMP: [6.0, 0.0, 0.5],
 	W_GREAT: [6.0, 10.0, 2.0], W_TWO: [5.0, 5.0, 1.2], W_STRING: [5.0, 6.0, 1.2],
 	W_SCOOP: [-4.0, 0.0, 0.6], W_CHOP: [11.0, 0.0, 1.6], LEAP: [9.0, 0.0, 0.0],
+	P_HAMMER: [5.0, 8.0, 1.0], P_HOME: [7.0, 12.0, 1.6], P_RAM: [8.0, 0.0, 1.5],
+	W_GOLF: [-3.0, 10.0, 1.0], W_BUTT: [8.0, 0.0, 1.5],
 }
 ## The tail of a blow, after `hand_tail`, played this much slower: the weight
 ## coming back up (the user's word, 2026-10-25).
@@ -148,6 +161,10 @@ var _rock_kind: int = TrollRock.Kind.BIG
 ## For the tests: the kind of rock it must throw next (-1: its choice).
 var rock_pick: int = -1
 var _stones_left: int = 0
+var _balls_left: int = 0
+var _ball_wait: float = 8.0
+var _sprayed_serial: int = -1
+var balls_rolled: int = 0
 var _rock_gone: bool = false
 ## Every peer: the rock seen in its hands.
 var _held: MeshInstance3D
@@ -332,6 +349,24 @@ func _set_moves() -> void:
 	_hand_move(W_STRING, &"CR_OG_Club_Combo2H", Vector3(1.1, 0.14, 0.86), 0.8, TREE, [0.25, 0.517, 0.728])
 	_hand_move(W_SCOOP, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.45), 1.1, TREE)
 	_hand_move(W_CHOP, &"CR_Heavy1", Vector3(0.9, 0.0, 0.97), 1.35, TREE)
+	# (Mixamo's batter's swings, bare-handed: both fists clasped; its golf
+	# drive, the long set-up cut away, the swing low along the ground)
+	var fists := FIST_RR + "|" + FIST_LL
+	_hand_move(P_HAMMER, &"CR_TR_BatSingle", Vector3(1.0, 0.15, 0.68), 0.9, fists)
+	_hand_move(P_HOME, &"CR_TR_Homerun", Vector3(1.0, 0.12, 0.5), 1.35, fists)
+	_hand_move(P_RAM, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.7, fists)
+	_hand_move(W_GOLF, &"CR_TR_GolfDrive", Vector3(1.1, 0.47, 0.62), 1.2, TREE, [0.535])
+	_hand_move(W_BUTT, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.8, TREE)
+	_special(R_GOLF, &"CR_TR_GolfDrive", Vector3(1.1, 0.47, 0.62))
+	_slow_to[P_HAMMER] = 0.7
+	_slow_to[P_HOME] = 1.15
+	_snap[P_HOME] = 1.4
+	_holds[P_HOME] = [0.4, 0.35, 0.8, 0.25]
+	_slow_to[P_RAM] = 0.55
+	_slow_to[W_BUTT] = 0.55
+	_kinds[P_RAM] = &"guard"
+	_kinds[W_BUTT] = &"guard"
+	_kinds[P_HOME] = &"crush"
 	_special(T_REEL, &"CR_Stun", Vector3(1.25, 0.02, 0.48))
 	_special(T_TOTTER, &"CR_Parry2HHit", Vector3(0.85, 0.0, 0.95))
 	_special(T_STAGGER, &"CR_GS_Impact", Vector3(0.8, 0.0, 0.96))
@@ -362,14 +397,14 @@ func _set_moves() -> void:
 ## the two bodies meet and steps the rest in under the blow.
 func _near_floor() -> void:
 	var meet := 1.5
-	for what in [ATTACK_BASE, ATTACK_BASE + 1, P_JAB, P_HOOK, P_KNEES, P_HEADBUTT, P_STOMP]:
+	for what in [ATTACK_BASE, ATTACK_BASE + 1, P_JAB, P_HOOK, P_KNEES, P_HEADBUTT, P_STOMP, P_HAMMER, P_HOME, P_RAM]:
 		if _strike_from.has(what):
 			_strike_from[what] = maxf(float(_strike_from[what]), meet)
 	# the chased uppercut is opened from a few steps off, run in
 	_strike_from[P_CHASE] = 3.1
 	# the tree's strings all opened from about one gap (else the approach
 	# crosses the furthest first and opens that one every time)
-	for what in [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP]:
+	for what in [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP, W_GOLF, W_BUTT]:
 		_strike_from[what] = 1.9
 
 
@@ -388,6 +423,11 @@ func _set_combos() -> void:
 			{"name": &"tree_great", "moves": [W_GREAT], "fells": [0], "weight": 0.7},
 			# four: the string of three, the chop after it
 			{"name": &"tree_four", "moves": [W_TWO, W_CHOP], "fells": [1], "weight": 0.8},
+			# along the ground and up, earth flying, then down into it
+			{"name": &"tree_golf_chop", "moves": [W_GOLF, W_CHOP], "fells": [1], "weight": 0.9},
+			# its root end rammed into him, then round
+			{"name": &"tree_butt_great", "moves": [W_BUTT, W_GREAT], "fells": [1], "weight": 0.8},
+			{"name": &"tree_butt_string", "moves": [W_BUTT, W_STRING], "fells": [1], "weight": 0.8},
 			{"name": &"tree_storm", "moves": [W_SCOOP, W_CHOP, W_GREAT], "fells": [2], "weight": 1.1,
 					"rage_only": true},
 		]
@@ -403,6 +443,14 @@ func _set_combos() -> void:
 			{"name": &"knees", "moves": [P_KNEES], "fells": [0], "weight": 0.9},
 			# from a few steps off: chased down, the uppercut
 			{"name": &"chase", "moves": [P_CHASE], "fells": [0], "weight": 0.6, "far": true},
+			# its other way, both fists clasped: a hammer, then the great one round
+			{"name": &"hammers", "moves": [P_HAMMER, P_HOME], "fells": [1], "weight": 0.9},
+			# three: the ram, the hook, the stomp
+			{"name": &"ram_brawl", "moves": [P_RAM, P_HOOK, P_STOMP], "fells": [2], "weight": 0.9},
+			# five: a hammer, three knees and the uppercut
+			{"name": &"hammer_knees", "moves": [P_HAMMER, P_KNEES], "fells": [1], "weight": 0.7},
+			# three: jab, hammer, the great one round
+			{"name": &"home_run", "moves": [P_JAB, P_HAMMER, P_HOME], "fells": [2], "weight": 0.8},
 			{"name": &"fury", "moves": [P_HOOK, P_HEADBUTT, P_KNEES], "fells": [2], "weight": 1.2, "rage_only": true},
 		]
 	_hand_last = -1
@@ -431,6 +479,7 @@ func _make_hands() -> void:
 #region Host: what it chooses
 func _own_move(delta: float) -> bool:
 	_rock_wait = maxf(_rock_wait - delta, 0.0)
+	_ball_wait = maxf(_ball_wait - delta, 0.0)
 	_grab_wait = maxf(_grab_wait - delta, 0.0)
 	_flex_wait = maxf(_flex_wait - delta, 0.0)
 	_chase_wait = maxf(_chase_wait - delta, 0.0)
@@ -450,6 +499,16 @@ func _own_move(delta: float) -> bool:
 			_begin(P_FLEX)
 			return true
 		return false
+	# the great stone balls, three, either look
+	if _ball_wait <= 0.0 and gap >= 5.0 and gap <= 22.0 and stamina >= attack_cost:
+		_ball_wait = _rng.randf_range(16.0, 22.0)
+		_rock_wait = maxf(_rock_wait, 4.0)
+		mode = Mode.FIGHT
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_balls_left = 3
+		_rock_gone = false
+		_begin(R_GOLF)
+		return true
 	if not armed and _rock_wait <= 0.0 and gap >= rock_from and gap <= rock_to and stamina >= attack_cost:
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
@@ -529,6 +588,14 @@ func _after(what: int) -> void:
 		return
 	if what == R_THROW or what == R_BOWL:
 		_rock_wait = _rng.randf_range(rock_cooldown.x, rock_cooldown.y)
+	if what == R_GOLF:
+		_balls_left -= 1
+		# (all three, him down or not: he must get up and out of their way)
+		if _balls_left > 0 and _quarry != null and not is_dead:
+			_face(_quarry.global_position - global_position, 1.0, 50.0)
+			_rock_gone = false
+			_begin(R_GOLF)
+			return
 	if what == R_STONE:
 		_stones_left -= 1
 		if _stones_left > 0 and _quarry != null and not is_dead and not _quarry_down():
@@ -638,12 +705,15 @@ func _run_act(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
 	# the rock goes
-	if (act == R_THROW or act == R_BOWL or act == R_STONE) and not _rock_gone:
+	if (act == R_THROW or act == R_BOWL or act == R_STONE or act == R_GOLF) and not _rock_gone:
 		if _quarry != null and _act_time < _release_time(act):
 			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
 		if _act_time >= _release_time(act):
 			_rock_gone = true
-			_release_rock()
+			if act == R_GOLF:
+				_release_ball()
+			else:
+				_release_rock()
 	if act == P_GRAB:
 		_run_grab()
 	# the stomp: the ground split in three lines out in front
@@ -667,7 +737,7 @@ func _run_act(delta: float) -> void:
 ## When in a throw its rock leaves its hands (s into the act).
 func _release_time(what: int) -> float:
 	var m: Array = _moves_table[what]
-	var at := 0.57 if what == R_THROW else (0.28 if what == R_BOWL else 0.49)
+	var at := 0.57 if what == R_THROW else (0.28 if what == R_BOWL else (0.535 if what == R_GOLF else 0.49))
 	return (at - float(m[2])) * _anim.clip_length(m[0]) / maxf(float(m[1]), 0.01) if _anim != null else 0.8
 
 
@@ -724,6 +794,52 @@ func _release_rock() -> void:
 func net_rock(kind: int, from: Vector3, v: Vector3, worth: float, id: int) -> void:
 	_show_held(-1)
 	TrollRock.throw(Blood.world_of(self), from, v, kind, worth, self, _decides(), id)
+
+
+## Host: the swing along the ground tears a great ball of stone out of it in
+## front of it and sends it rolling after him.
+func _release_ball() -> void:
+	if _quarry == null:
+		return
+	balls_rolled += 1
+	var from := global_position + _forward() * 2.0 * visual_scale / 1.6
+	var way := _quarry.global_position - from
+	way.y = 0.0
+	if way.length_squared() < 0.01:
+		way = _forward()
+	var worth := hit_damage * 1.5 * _blow_worth(R_GOLF)
+	var id := act_serial * 10 + 5
+	var path := _quarry.get_path() if _quarry.is_inside_tree() else NodePath()
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_ball.rpc(from, way.normalized(), worth, id, path)
+	else:
+		net_ball(from, way.normalized(), worth, id, path)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_ball(from: Vector3, way: Vector3, worth: float, id: int, after: NodePath) -> void:
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var hero := get_node_or_null(after) as Node3D if not after.is_empty() else null
+	GroundFx.eruption(into, from, 1.2, false)
+	GroundFx.weapon_dust(into, from, 1.8)
+	SkillFx.particles(into, from + Vector3.UP * 0.3, {
+		"amount": 22, "life": 1.2, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(3.0, 7.0), "dir": (way + Vector3.UP * 1.4).normalized(), "spread": 35.0,
+		"gravity": Vector3(0, -14, 0), "damping": 0.3, "size": Vector2(0.06, 0.14), "sphere": 0.6,
+		"colors": [Color(0.38, 0.29, 0.19, 1.0), Color(0.33, 0.25, 0.17, 1.0), Color(0.3, 0.23, 0.16, 0.0)],
+	})
+	WindBlast.shake(self, 0.12, 0.45, 20.0)
+	Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 0.6, 3.0)
+	Sfx.play_any(self, [SOUNDS + "roar_short.wav", SOUNDS + "grunt_2.wav"], self, 0.8, -2.0)
+	TrollRock.roll_ball(into, from, way, worth, self, _decides(), id, hero)
+
+
+## Any peer, for the hero: its blows cut his swing short with the tree in its
+## hands, and its heaviest bare blows (the user's word, 2026-10-25).
+func blow_breaks_swing() -> bool:
+	return armed or act == P_HOOK or act == P_CHASE or act == P_HOME or act == P_HEADBUTT
 
 
 ## Where the rock is held: between its hands (or in its right, a stone).
@@ -1019,6 +1135,7 @@ func _drop_tree() -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	_show_lean(delta)
+	_spray_earth()
 	if act_serial != _seen_serial:
 		_seen_serial = act_serial
 		_seen_clock = 0.0
@@ -1156,6 +1273,33 @@ func _show_lean(delta: float) -> void:
 	var rate := 40.0 if want.length() > _lean.length() else 9.0
 	_lean = _lean.move_toward(want, rate * delta)
 	body.transform.basis = Basis(Vector3.RIGHT, deg_to_rad(_lean.x)) * Basis(Vector3.FORWARD, deg_to_rad(_lean.y)) * _body_basis
+
+
+## Every peer: a swing along the ground throws the earth up before it.
+func _spray_earth() -> void:
+	if (act != W_GOLF and act != R_GOLF) or _sprayed_serial == act_serial or is_dead:
+		return
+	var at_t := _release_time(R_GOLF) if act == R_GOLF else -1.0
+	if act == W_GOLF:
+		var ms := _blow_moments(act)
+		at_t = ms[0] if not ms.is_empty() else 1.0
+	if _seen_clock < at_t - 0.05:
+		return
+	_sprayed_serial = act_serial
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var at := global_position + _forward() * 1.4 * visual_scale / 1.6
+	if armed:
+		var head := _tree_head()
+		at = Vector3(head.x, global_position.y, head.z)
+	GroundFx.weapon_dust(into, at, 1.2)
+	SkillFx.particles(into, at + Vector3.UP * 0.2, {
+		"amount": 16, "life": 1.0, "one_shot": true, "explosiveness": 1.0, "add": false,
+		"speed": Vector2(2.5, 6.0), "dir": (_forward() + Vector3.UP).normalized(), "spread": 40.0,
+		"gravity": Vector3(0, -14, 0), "damping": 0.3, "size": Vector2(0.05, 0.12), "sphere": 0.4,
+		"colors": [Color(0.38, 0.29, 0.19, 1.0), Color(0.33, 0.25, 0.17, 1.0), Color(0.3, 0.23, 0.16, 0.0)],
+	})
 
 
 func _act_length_seen() -> float:

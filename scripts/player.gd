@@ -4106,6 +4106,10 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 		away = global_transform.basis.z
 	# What kind of blow it is rides on the combo's key ([method _blow_kind]).
 	var key := "%s#%d" % [from.get_path(), combo]
+	# a blow that cuts his swing short (the troll with its tree, the user's
+	# word 2026-10-25): marked on the key before its kind
+	if from.has_method(&"blow_breaks_swing") and bool(from.call(&"blow_breaks_swing")):
+		key += "^b"
 	# A blow brought down on him from above (the attacker says so): he is
 	# crushed down where he stands if it fells him ([method _fall_kind]).
 	if how.is_empty() and from.has_method(&"blow_from_above") and bool(from.call(&"blow_from_above")):
@@ -4454,6 +4458,17 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 		_knock_down(away, damage, how)
 		# the fall's kind rides on the spray's length (10 + kind)
 		net_react.rpc(Reaction.KNOCKDOWN, at, spray * _fall_spray_length())
+		return
+	if combo.contains("^b"):
+		# too heavy to swing through: his own swing is cut short, he reels
+		# (the big side hit, which plays over a swing as a flinch does not)
+		_shove(away, reel_shove, 0.8)
+		_stop_striker(combo, flinch_stop.y)
+		_free_swing = false
+		_attack_buffer = 0.0
+		_commit(big_stagger_time)
+		_reel_until = _now() + big_stagger_time
+		net_react.rpc(Reaction.FLINCH, at, spray * BIG_STAGGER_SPRAY)
 		return
 	_shove(away, flinch_shove, shove_mid_string if blow < blows - 1 else 1.0)
 	# the weapon stopped on him a breath, where it met him (the user's word,
