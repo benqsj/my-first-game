@@ -268,6 +268,9 @@ var _spear_arm: SpearArm
 var _dl_will: bool = true
 var _dl_roll_in: float = 0.0
 ## Every peer: the gap each DoubleL blow's tree lands on him from (`_dl_rest`).
+## Each old tree move's blows: the gap each lands at (2026-10-26: its
+## strings' later blows fell past him, it having walked on into him).
+var _old_lands: Dictionary = {}
 var _dl_lands: Dictionary = {}
 var _rising: Node3D
 var _hand_fists: Array[HandFist] = []
@@ -470,7 +473,11 @@ func _set_moves() -> void:
 	_special(R_STONE, &"CR_TR_ThrowObject", Vector3(1.6, 0.12, 0.62))
 	_special(W_UPROOT, &"CR_TR_Lift", Vector3(2.4, 0.3, 0.92))
 	_hand_move(W_GREAT, &"CR_OG_Heavy_Swing", Vector3(1.15, 0.28, 0.82), 1.4, TREE)
-	_hand_move(W_TWO, &"CR_OG_TwoHand_Combo", Vector3(1.0, 0.05, 0.94), 0.85, TREE, [0.18, 0.39, 0.68])
+	# (its third swing put aside, 2026-10-26: measured, it passes within
+	# 0.75 m of its own body, over him at any gap he can stand at; the user
+	# saw the string's last blow miss every time. Never a string's last move:
+	# cut after its second blow for the next)
+	_hand_move(W_TWO, &"CR_OG_TwoHand_Combo", Vector3(1.0, 0.05, 0.94), 0.85, TREE, [0.18, 0.39])
 	_hand_move(W_STRING, &"CR_OG_Club_Combo2H", Vector3(1.1, 0.14, 0.86), 0.8, TREE, [0.25, 0.517, 0.728])
 	_hand_move(W_SCOOP, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.45), 1.1, TREE)
 	_hand_move(W_CHOP, &"CR_Heavy1", Vector3(0.9, 0.0, 0.97), 1.35, TREE)
@@ -656,6 +663,11 @@ func _dl_rest() -> void:
 		if land > 0.0:
 			_dl_lands[what] = land
 			_strike_from[what] = land + maxf(_dl_ahead(what, ms[0], false), 0.0)
+		var lands := PackedFloat32Array()
+		for t in ms:
+			var l := _gap_that_lands(what, m, _clip_time(what, t) / maxf(_anim.clip_length(m[0]), 0.01))
+			lands.append(l if l > 0.0 else -1.0)
+		_old_lands[what] = lands
 	for what: int in DL_REST:
 		var m: Array = _moves_table[what]
 		var share := _clip_time(what, _dl_cut(what)) / maxf(_anim.clip_length(m[0]), 0.01)
@@ -677,6 +689,8 @@ func _dl_gaps() -> void:
 ## DoubleL blow's stride carries on after it, so he is thrown out of its way
 ## (into the next one's reach, in a string), not walked into nor slid short.
 func blow_shove_m() -> float:
+	if _anim != null and _old_lands.has(act):
+		return _old_shove()
 	if not (act in DL_MOVES) or _anim == null:
 		return 0.0
 	var ms := _blow_moments(act)
@@ -692,6 +706,40 @@ func blow_shove_m() -> float:
 			return maxf(want - (land - (cut - at_blow)), 0.0)
 	var rest := _dl_ahead(act, _dl_whole(act), true) * _stretch - at_blow
 	return maxf(rest - (land - _dl_room()), 0.0) + 0.3
+
+
+## An old tree move's blow landing now: he is thrown back just so far that
+## its next blow (this move's, or the next move's in its string), with the
+## clip's own stride between, falls where it reaches him; not into its body,
+## the swing passing over him (2026-10-26, the user: the last blow of its
+## string always missed).
+func _old_shove() -> float:
+	if _quarry == null:
+		return 0.0
+	var ms := _blow_moments(act)
+	var lands: PackedFloat32Array = _old_lands[act]
+	if ms.is_empty():
+		return 0.0
+	var k := 0
+	for i in ms.size():
+		if _act_time >= ms[i] - _blow_window_for(act).x:
+			k = i
+	var now := _dl_ahead(act, ms[k], false)
+	var land := -1.0
+	var travel := 0.0
+	if k + 1 < ms.size():
+		land = lands[k + 1]
+		travel = _dl_ahead(act, ms[k + 1], false) - now
+	elif _hand_combo >= 0 and _hand_step < _hand_moves.size() - 1:
+		var nxt := int(_hand_moves[_hand_step + 1])
+		var nms := _blow_moments(nxt)
+		if not _old_lands.has(nxt) or nms.is_empty():
+			return 0.0
+		land = (_old_lands[nxt] as PackedFloat32Array)[0]
+		travel = _dl_ahead(act, _act_length, false) - now + _dl_ahead(nxt, nms[0], false)
+	if land <= 0.0:
+		return 0.0
+	return maxf(land + maxf(travel, 0.0) * _stretch - _distance_to(_quarry), 0.0)
 
 
 ## Host: now and then, as it comes on with its tree and he stands just where
@@ -772,16 +820,16 @@ func _near_floor() -> void:
 func _set_combos() -> void:
 	if armed:
 		_hand_combos = [
-			# the two-handed string, three blows
-			{"name": &"tree_three", "moves": [W_TWO], "fells": [0], "weight": 1.0},
+			# the two-handed pair, then the great swing round
+			{"name": &"tree_three", "moves": [W_TWO, W_GREAT], "fells": [1], "weight": 1.0},
 			# the club string (the one kept from before)
 			{"name": &"tree_string", "moves": [W_STRING], "fells": [0], "weight": 0.9},
 			# up from between its legs, then down into the ground
 			{"name": &"tree_scoop_chop", "moves": [W_SCOOP, W_CHOP], "fells": [1], "weight": 1.0},
 			# the great swing round (missed, it reels)
 			{"name": &"tree_great", "moves": [W_GREAT], "fells": [0], "weight": 0.7},
-			# four: the string of three, the chop after it
-			{"name": &"tree_four", "moves": [W_TWO, W_CHOP], "fells": [1], "weight": 0.8},
+			# four: the two-handed pair, up from between its legs, the chop
+			{"name": &"tree_four", "moves": [W_TWO, W_SCOOP, W_CHOP], "fells": [2], "weight": 0.8},
 			# along the ground and up, earth flying, then down into it
 			{"name": &"tree_golf_chop", "moves": [W_GOLF, W_CHOP], "fells": [1], "weight": 0.9},
 			# its root end rammed into him, then round
