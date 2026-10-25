@@ -129,11 +129,27 @@ const W_HB1 := 273
 const W_HB2 := 274
 const W_HB3 := 275
 const W_LUNGE := 276
+## The same first blows opening another string, or alone (each string's
+## first its own: it is opened from its own gap).
 const W_HA1F := 277
-const DL_MOVES := [W_HA1, W_HA2, W_HA3, W_HB1, W_HB2, W_HB3, W_LUNGE, W_HA1F]
-## Its body and his kept this far apart as a DoubleL blow lands (those clips
-## stride far: carried their whole way it walked into him).
+const W_HA1X := 278
+const W_HB1F := 279
+## The rest of a blow cut short for the next, when the next is not to come:
+## its lean and slow way back after all (no string just stopped dead).
+const W_RA1 := 284
+const W_RA2 := 285
+const W_RB1 := 286
+const W_RB2 := 287
+const W_RA1X := 288
+const DL_REST := {W_HA1: W_RA1, W_HA2: W_RA2, W_HB1: W_RB1, W_HB2: W_RB2, W_HA1X: W_RA1X}
+const DL_MOVES := [W_HA1, W_HA2, W_HA3, W_HB1, W_HB2, W_HB3, W_LUNGE, W_HA1F, W_HA1X, W_HB1F]
+## Its body and his kept this far apart (at its size 1.6) at the nearest a
+## DoubleL blow carries it: those clips stride far.
 const DL_ROOM := 1.9
+## A DoubleL string opened only where its strides, fitted to the gap by no
+## more than this either way, cover it whole (it strides its own length,
+## never slid nor short-stepped); and run on only while they still do.
+const DL_FIT := Vector2(0.88, 1.12)
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
@@ -241,6 +257,10 @@ const SPEAR_GRIP := 0.35
 var _spear_pitch: float = SPEAR_PITCH
 var _spear_sent: int = -1
 var _spear_arm: SpearArm
+## Host: whether it means to open one of DoubleL's strings as it comes on
+## (rolled every `_dl_roll_in`).
+var _dl_will: bool = true
+var _dl_roll_in: float = 0.0
 var _rising: Node3D
 var _hand_fists: Array[HandFist] = []
 var _left_grip: TwoHandGrip
@@ -393,6 +413,7 @@ func _ready() -> void:
 	super()
 	_set_moves()
 	_near_floor()
+	_dl_rest()
 	_set_combos()
 	_make_hands()
 	_rock_wait = _rng.randf_range(2.5, rock_cooldown.x)
@@ -453,16 +474,20 @@ func _set_moves() -> void:
 	_hand_move(W_BUTT, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.8, TREE)
 	# DoubleL's (the hand's speed through each measured, _shots_tmp/cmp/
 	# dl_speed.gd: where the blow falls, in the whole clip)
-	_hand_move(W_HA1, &"CR_DL_HeavyA1", Vector3(1.0, 0.0, 0.42), 1.0, TREE, [0.24])
-	_hand_move(W_HA2, &"CR_DL_HeavyA2", Vector3(1.0, 0.12, 0.55), 1.0, TREE, [0.35])
-	_hand_move(W_HA3, &"CR_DL_HeavyA3", Vector3(1.0, 0.1, 1.0), 1.3, TREE, [0.37])
-	_hand_move(W_HB1, &"CR_DL_HeavyB1", Vector3(1.0, 0.05, 0.55), 1.1, TREE, [0.4])
-	_hand_move(W_HB2, &"CR_DL_HeavyB2", Vector3(1.0, 0.1, 0.52), 1.0, TREE, [0.35])
-	_hand_move(W_HB3, &"CR_DL_HeavyB3", Vector3(1.0, 0.1, 1.0), 1.35, TREE, [0.44])
-	_hand_move(W_LUNGE, &"CR_DL_Lunge", Vector3(1.0, 0.0, 1.0), 1.2, TREE, [0.25])
+	# (each whole: in a string all but its last are cut after their last
+	# blow by `hand_tail`; `_dl_rest` keeps the rest for when the string ends)
+	_hand_move(W_HA1, &"CR_DL_HeavyA1", Vector3(1.0, 0.0, 1.0), 1.0, TREE, [0.24])
+	_hand_move(W_HA1X, &"CR_DL_HeavyA1", Vector3(1.0, 0.0, 1.0), 1.0, TREE, [0.24])
 	_hand_move(W_HA1F, &"CR_DL_HeavyA1", Vector3(1.0, 0.0, 1.0), 1.2, TREE, [0.24])
-	_kinds[W_HA3] = &"crush"
-	_kinds[W_HB3] = &"crush"
+	_hand_move(W_HA2, &"CR_DL_HeavyA2", Vector3(1.0, 0.08, 1.0), 1.0, TREE, [0.35])
+	_hand_move(W_HA3, &"CR_DL_HeavyA3", Vector3(1.0, 0.08, 1.0), 1.3, TREE, [0.37])
+	_hand_move(W_HB1, &"CR_DL_HeavyB1", Vector3(1.0, 0.05, 1.0), 1.1, TREE, [0.4])
+	_hand_move(W_HB1F, &"CR_DL_HeavyB1", Vector3(1.0, 0.05, 1.0), 1.2, TREE, [0.4])
+	_hand_move(W_HB2, &"CR_DL_HeavyB2", Vector3(1.0, 0.08, 1.0), 1.0, TREE, [0.35])
+	_hand_move(W_HB3, &"CR_DL_HeavyB3", Vector3(1.0, 0.08, 1.0), 1.35, TREE, [0.44])
+	_hand_move(W_LUNGE, &"CR_DL_Lunge", Vector3(1.0, 0.0, 1.0), 1.2, TREE, [0.25])
+	for what in [W_HA3, W_HB3, W_HA1F, W_HB1F, W_LUNGE]:
+		_kinds[what] = &"crush"
 	# Mixamo's ground spell: both arms up, down into the ground on a knee, up
 	_special(R_GOLF, &"CR_MG_Ground", Vector3(0.9, 0.15, 0.85))
 	_slow_to[P_HAMMER] = 0.7
@@ -516,24 +541,153 @@ func _set_moves() -> void:
 ## Its bare blows measured landing nearer than its body lets him stand (the
 ## clips' fists were made for a man's short reach): it opens them from where
 ## the two bodies meet and steps the rest in under the blow.
-## A DoubleL blow: its stride sized so it is never carried nearer him than a
-## body's room, not into him (and a little further when he stands off).
+## A DoubleL blow: its stride fitted (a little at most) to the gap left to
+## the end of its string, so the string's last blow comes no nearer him
+## than a body's room.
 func _begin(what: int) -> void:
 	super(what)
-	if not (what in DL_MOVES) or _quarry == null or _anim == null:
+	if not (what in DL_MOVES) or _quarry == null or _anim == null or _hand_combo < 0:
 		return
+	var need := _dl_need(_hand_moves, _hand_step)
+	if need < 0.2:
+		return
+	var k := (_distance_to(_quarry) - _dl_room()) / need
+	_stretch = clampf(k, DL_FIT.x, DL_FIT.y)
+
+
+func _dl_room() -> float:
+	return DL_ROOM * visual_scale / 1.6
+
+
+## A DoubleL move's whole length, cut by nothing.
+func _dl_whole(what: int) -> float:
 	var m: Array = _moves_table[what]
-	var clip: StringName = m[0]
-	# the furthest it is carried over the whole move (on past the blow too)
+	return _anim.clip_length(m[0]) * (float(m[3]) - float(m[2])) / float(m[1])
+
+
+## Where a DoubleL move is cut when the next follows: after its last blow.
+func _dl_cut(what: int) -> float:
+	var ms := _blow_moments(what)
+	return (ms[ms.size() - 1] + hand_tail) if not ms.is_empty() else _dl_whole(what)
+
+
+## How far forward the move's clip carries it by `until` (the furthest, if
+## `furthest`), metres on this body.
+func _dl_ahead(what: int, until: float, furthest: bool) -> float:
+	var clip := _clip_of(what)
 	var from := _hips(clip, _clip_time(what, 0.0)).x
-	var stride := 0.0
-	for k in range(1, 17):
-		var at := _hips(clip, _clip_time(what, _act_length * float(k) / 16.0)).x
-		stride = maxf(stride, at - from)
-	if stride < 0.2:
+	if not furthest:
+		return _hips(clip, _clip_time(what, until)).x - from
+	var most := 0.0
+	for i in range(1, 17):
+		most = maxf(most, _hips(clip, _clip_time(what, until * float(i) / 16.0)).x - from)
+	return most
+
+
+## The ground the string's moves from `step` on carry it across, the last
+## to its nearest.
+func _dl_need(moves: Array, step: int) -> float:
+	var need := 0.0
+	for i in range(step, moves.size()):
+		var w := int(moves[i])
+		if not (w in DL_MOVES):
+			return 0.0
+		if i < moves.size() - 1:
+			need += _dl_ahead(w, _dl_cut(w), false)
+		else:
+			need += _dl_ahead(w, _dl_whole(w), true)
+	return need
+
+
+## Every peer, once: the rest of each blow cut short for the next, from just
+## where it is cut.
+func _dl_rest() -> void:
+	if _anim == null:
 		return
-	var gap := _distance_to(_quarry)
-	_stretch = clampf((gap - DL_ROOM * visual_scale / 1.6) / stride, 0.0, 1.35)
+	for what: int in DL_REST:
+		var m: Array = _moves_table[what]
+		var share := _clip_time(what, _dl_cut(what)) / maxf(_anim.clip_length(m[0]), 0.01)
+		_special(int(DL_REST[what]), m[0], Vector3(float(m[1]), minf(share, 0.98), 1.0))
+
+
+## Each DoubleL string opened from the gap its strides cover whole, a
+## body's room left at the nearest.
+func _dl_gaps() -> void:
+	if _anim == null:
+		return
+	for c: Dictionary in _hand_combos:
+		if bool(c.get("dl", false)):
+			var moves: Array = c["moves"]
+			_strike_from[int(moves[0])] = _dl_room() + _dl_need(moves, 0)
+
+
+## Whether the string opened by `first` covers `gap` with its own strides.
+func _dl_fits(first: int, gap: float) -> bool:
+	var need := float(_strike_from.get(first, 0.0)) - _dl_room()
+	return need >= 0.2 and gap >= _dl_room() + need * DL_FIT.x and gap <= _dl_room() + need * DL_FIT.y
+
+
+## Host: now and then, as it comes on with its tree and he stands just where
+## one of DoubleL's strings would carry it, that string begun.
+func _dl_open(gap: float, delta: float) -> bool:
+	_dl_roll_in -= delta
+	if _dl_roll_in <= 0.0:
+		_dl_roll_in = 2.0
+		_dl_will = _rng.randf() < 0.65
+	# (its breath after the last nearly back: it comes on into this one)
+	if not _dl_will or _hand_combo >= 0 or _cooldown > 0.7 or stamina < attack_cost or _quarry == null \
+			or not _in_front(_quarry, 50.0):
+		return false
+	var picks: Array[int] = []
+	for i in _hand_combos.size():
+		var c: Dictionary = _hand_combos[i]
+		if not bool(c.get("dl", false)) or (bool(c.get("rage_only", false)) and not raging):
+			continue
+		if _dl_fits(int((c["moves"] as Array)[0]), gap):
+			picks.append(i)
+	if picks.is_empty():
+		return false
+	_dl_will = false
+	mode = Mode.FIGHT
+	start_hand_combo(picks[_rng.randi() % picks.size()])
+	return true
+
+
+## Host: a DoubleL string only from the gap its strides cover (near him,
+## the old ones; further, these).
+func _try_hand_combo(gap: float) -> bool:
+	var saved := {}
+	for c: Dictionary in _hand_combos:
+		if not bool(c.get("dl", false)):
+			continue
+		var first := int((c["moves"] as Array)[0])
+		if saved.has(first):
+			continue
+		var want := float(_strike_from.get(first, 0.0))
+		if not _dl_fits(first, gap):
+			saved[first] = want
+			_strike_from[first] = 99.0
+	var made := super(gap)
+	for first: int in saved:
+		_strike_from[first] = saved[first]
+	return made
+
+
+## Host: a DoubleL string runs on only while its strides still fit him;
+## else the blow cut short is played out (its lean, its slow way back).
+func _hand_next(what: int) -> int:
+	var cut := DL_REST.has(what) and _hand_combo >= 0 and _hand_step < _hand_moves.size() - 1 \
+			and _act_length < _dl_whole(what) - 0.05
+	var next := super(what)
+	if not cut:
+		return next
+	if next >= 0 and _quarry != null:
+		var need := _dl_need(_hand_moves, _hand_step)
+		var k := (_distance_to(_quarry) - _dl_room()) / maxf(need, 0.1)
+		if k >= DL_FIT.x and k <= DL_FIT.y:
+			return next
+	_hand_step = _hand_moves.size()
+	return int(DL_REST[what])
 
 
 func _near_floor() -> void:
@@ -547,10 +701,6 @@ func _near_floor() -> void:
 	# crosses the furthest first and opens that one every time)
 	for what in [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP, W_GOLF, W_BUTT]:
 		_strike_from[what] = 1.9
-	# DoubleL's opened from further off, their own stride carrying them in
-	for what in [W_HA1, W_HB1, W_HA1F]:
-		_strike_from[what] = 3.0
-	_strike_from[W_LUNGE] = 3.8
 
 
 ## Its strings, by the look it has: two, three and four blows, each move's
@@ -577,12 +727,19 @@ func _set_combos() -> void:
 					"rage_only": true},
 			# DoubleL's heavy strings: three each, the last with its whole
 			# lean and slow way back (his chance)
-			{"name": &"heavy_a", "moves": [W_HA1, W_HA2, W_HA3], "fells": [2], "weight": 1.3},
-			{"name": &"heavy_b", "moves": [W_HB1, W_HB2, W_HB3], "fells": [2], "weight": 1.3},
-			{"name": &"heavy_cross", "moves": [W_HA1, W_HB3], "fells": [1], "weight": 1.0},
-			{"name": &"heavy_one", "moves": [W_HA1F], "fells": [0], "weight": 0.8},
-			{"name": &"heavy_lunge", "moves": [W_LUNGE], "fells": [0], "weight": 0.9},
+			{"name": &"heavy_a", "moves": [W_HA1, W_HA2, W_HA3], "fells": [2], "weight": 1.2, "dl": true},
+			{"name": &"heavy_b", "moves": [W_HB1, W_HB2, W_HB3], "fells": [2], "weight": 1.2, "dl": true},
+			{"name": &"heavy_cross", "moves": [W_HA1X, W_HB3], "fells": [1], "weight": 1.0, "dl": true},
+			# each blow alone, whole: its lean and slow way back his chance
+			{"name": &"heavy_one", "moves": [W_HA1F], "fells": [0], "weight": 0.6, "dl": true},
+			{"name": &"heavy_a2", "moves": [W_HA2], "fells": [0], "weight": 0.6, "dl": true},
+			{"name": &"heavy_a3", "moves": [W_HA3], "fells": [0], "weight": 0.6, "dl": true},
+			{"name": &"heavy_b1", "moves": [W_HB1F], "fells": [0], "weight": 0.6, "dl": true},
+			{"name": &"heavy_b2", "moves": [W_HB2], "fells": [0], "weight": 0.6, "dl": true},
+			{"name": &"heavy_b3", "moves": [W_HB3], "fells": [0], "weight": 0.6, "dl": true},
+			{"name": &"heavy_lunge", "moves": [W_LUNGE], "fells": [0], "weight": 0.8, "dl": true},
 		]
+		_dl_gaps()
 	else:
 		_hand_combos = [
 			# two: the jab and the great hook
@@ -656,6 +813,10 @@ func _own_move(delta: float) -> bool:
 			_begin(P_FLEX)
 			return true
 		return false
+	# with its tree, coming in: from the gap one of DoubleL's strings covers
+	# with its own strides, that string (nearer, the old ones)
+	if armed and _dl_open(gap, delta):
+		return true
 	# the great stone balls, three, either look
 	if _ball_wait <= 0.0 and gap >= 5.0 and gap <= 22.0 and stamina >= attack_cost:
 		_ball_wait = _rng.randf_range(16.0, 22.0)
@@ -714,11 +875,18 @@ func _in_front(who: Node3D, degrees: float) -> bool:
 func _begin_attack() -> void:
 	if armed and not _hand_combos.is_empty():
 		var picks: Array[int] = []
+		var gap := _distance_to(_quarry) if _quarry != null else 0.0
 		for i in _hand_combos.size():
-			if not bool((_hand_combos[i] as Dictionary).get("rage_only", false)) or raging:
-				picks.append(i)
-		start_hand_combo(picks[_rng.randi() % picks.size()])
-		return
+			var c: Dictionary = _hand_combos[i]
+			if bool(c.get("rage_only", false)) and not raging:
+				continue
+			# DoubleL's only from the gap their strides cover (else they slid)
+			if bool(c.get("dl", false)) and not _dl_fits(int((c["moves"] as Array)[0]), gap):
+				continue
+			picks.append(i)
+		if not picks.is_empty():
+			start_hand_combo(picks[_rng.randi() % picks.size()])
+			return
 	super()
 
 
