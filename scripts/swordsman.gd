@@ -79,7 +79,7 @@ const STRINGS: Array = [
 ## A diagonal down, B across with a lunge, C the turn and cut, D overhead to
 ## the ground. The string ends on D, the blade in the ground (the user's word:
 ## the last blow is the one from above); the clip's rise after it is left
-## out, D played to just past its fall. Seconds; `cuts` where the tip is past
+## out, D played to just past its fall (4.2 s, before the clip's rise begins). Seconds; `cuts` where the tip is past
 ## ~55 % of its top speed, `trails` a little wider. `weight`: what each blow
 ## is worth against a light cut (Tariel's: light, D his finisher).
 ## `rate`: Tariel's pace for it (the user's word, 2026-10-26: a little
@@ -88,11 +88,15 @@ const STRINGS: Array = [
 ## B, C; 0.67 on the whole); at x1.35 these take 0.89, 0.61, 0.84 and 0.84 s
 ## (0.8). `weights`: each heavier than a one-handed cut (D the finisher's).
 ## The knight's own pace and weights are his ([GreatSword] TC_RATE).
+## `slow_back`: after D, the blade in the ground, he comes back to guard
+## slowly, as from a heavy blow (the user's word, 2026-10-26: the weight
+## spent, the balance found again): what is left of it after its cut at this
+## share of its pace, and the stance blended back in over these seconds.
 const TWO_HANDS := {"clip": &"TC_Sword_ATK_Combo_01", "name": "TC TWO HANDS  A-D", "length": 5.4667,
-	"parts": [[0.0, 1.2], [1.2, 2.03], [2.03, 3.17], [3.17, 4.3]],
+	"parts": [[0.0, 1.2], [1.2, 2.03], [2.03, 3.17], [3.17, 4.2]],
 	"cuts": [[0.7, 0.93], [1.47, 1.7], [2.43, 2.67], [3.93, 4.1]],
 	"trails": [[0.63, 1.0], [1.4, 1.77], [2.37, 2.73], [3.83, 4.12]],
-	"rate": 1.35, "weights": [1.2, 1.2, 1.3, 1.6]}
+	"rate": 1.35, "weights": [1.2, 1.2, 1.3, 1.6], "slow_back": [0.5, 0.75]}
 ## The running cut (TARIEL_POLISH.md, 5): the first cut thrown at a run is
 ## UAL 2's Sword_Light_D, a wide sweep out of a lunge, its cut at 0.09-0.17 of
 ## 1.67 s (0.14-0.26 s at x1.1); the string goes on from B after it.
@@ -258,6 +262,7 @@ static func _two_hands(t: Dictionary) -> void:
 	for i in parts.size():
 		t["clip_rate"][parts[i]] = float(TWO_HANDS["rate"])
 		t["clip_weight"][parts[i]] = float(TWO_HANDS["weights"][i])
+	t["slow_back"] = {parts[parts.size() - 1]: TWO_HANDS["slow_back"]}
 	t["shieldless_string"] = (t["string_sets"] as Array).size() - 1
 
 

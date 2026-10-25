@@ -1169,6 +1169,9 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 			var after: StringName = &""
 			if _role == Role.SWING and not released:
 				_ease_back = last_recover_blend if _last_blow() else recover_blend
+				var slow := _slow_back()
+				if not slow.is_empty():
+					_ease_back = float(slow[1])
 			var rise := _role == Role.ROLL and not _evade_cut and roll_rise_rate > 0.0 and not released \
 					and planar_speed <= idle_threshold and not airborne and _progress() < roll_rise_until - 0.02 \
 					and (Moveset.clip_meta(_act_clip).get("hop", []) as Array).is_empty()
@@ -1631,6 +1634,9 @@ func _pace_phase(through: float, delta: float) -> void:
 	if w == Vector2.ZERO or played_out.has(_act_clip):
 		return
 	var back := last_recover_pace if _last_blow() else recover_pace
+	var slow := _slow_back()
+	if not slow.is_empty():
+		back = float(slow[0])
 	if not _weighed:
 		if through >= w.y + cut_margin:
 			_set_blow_phase(2, back)
@@ -1662,6 +1668,15 @@ func _pace_phase(through: float, delta: float) -> void:
 					if settle_time > 0.0 else back
 	if phase != _blow_phase or absf(k - _blow_k) > 0.001:
 		_set_blow_phase(phase, k)
+
+
+## A blow the moves bring back to guard slowly ([Swordsman] TWO_HANDS
+## `slow_back`: the blade into the ground at the TC combo's end): [its pace
+## after the cut, the stance's blend back in, s], or [] for the usual.
+func _slow_back() -> Array:
+	if not _on_mq:
+		return []
+	return (moves.get("slow_back", {}) as Dictionary).get(_act_clip, [])
 
 
 ## The cut of `clip` whole (its first window's start to its last's end).

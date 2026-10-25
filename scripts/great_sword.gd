@@ -72,6 +72,9 @@ const JUMP_ATTACK := {"clip": &"KV_Attack2H04", "from": 0.12, "hold": 0.28, "sla
 ## blow's 1.8-2.1), D, the blade into the ground, the heaviest.
 const TC_RATE := 0.78
 const TC_WEIGHTS: Array[float] = [1.5, 1.5, 1.6, 2.1]
+## After D he comes back to guard slower still than from his other blows
+## ([Swordsman] TWO_HANDS `slow_back`): [pace, blend seconds].
+const TC_SLOW_BACK := [0.45, 0.9]
 
 
 ## Seconds of the clip before its cut each blow is played from (the other
@@ -129,3 +132,4 @@ static func apply(t: Dictionary) -> void:
 	for i in tc.size():
 		t["clip_rate"][tc[i]] = TC_RATE
 		t["clip_weight"][tc[i]] = TC_WEIGHTS[mini(i, TC_WEIGHTS.size() - 1)]
+	t["slow_back"] = {tc[tc.size() - 1]: TC_SLOW_BACK}

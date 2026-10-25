@@ -12109,6 +12109,13 @@ great_sword_charge_test.
   slower and heavier than his string with the shield (the user's word):
   0.89, 0.61, 0.84, 0.84 s a blow mashed, against that string's 0.4, 0.42,
   1.18.
+- Over his head the blade is also turned most of the way to straight
+  behind him (`tc_godot.gd` `BACK_K`), not out over his right shoulder.
+- After D he comes back to guard slowly, the weight spent (`slow_back`:
+  Tariel what is left of D after its cut at x0.5 and the stance blended back
+  in over 0.75 s; the knight x0.45 and 0.9 s). D now ends at 4.2 s of the
+  clip, before its rise begins. `SkinnedRig._slow_back()` reads
+  `moves["slow_back"]`.
 - **The knight**: his first way of fighting (`GreatSword.MODES[0]`) is his
   one-handed string on the attack button, as it was, and the TC combo A-D on
   the block button (the right click): slower (`TC_RATE` 0.78, his wind-up
