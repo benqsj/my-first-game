@@ -3128,6 +3128,8 @@ func _show_figure() -> void:
 		var hides: Array = look.get("hide", [])
 		if custom:
 			PolysplitLook.apply(node, ps_look)
+			if _on_mq:
+				_seat_grips()
 			# and the skeletons' clothes from the bag over the bare body
 			SkeletonGarb.wear(_figure_skel, ps_look, node)
 			shows = []
@@ -3167,6 +3169,81 @@ func _show_figure() -> void:
 	_fit_blades(custom)
 	_fit_sheath(custom)
 	_scale_ground()
+
+
+## The weapons in the figure's fists put through the middle of the curled
+## fingers: as built, each grip ran 4-5 cm off it (the sword along the top of
+## the fist, held as if laid on it, the user 2026-10-26; the great sword and
+## the dagger the same). Each weapon's mesh is moved in its bone's frame (a
+## copy of its skin's bind) so its grip line passes `FIG_FIST_R` / `_L`.
+func _seat_grips() -> void:
+	if _figure == null:
+		return
+	for pair: Array in [["ps_w_" + String(ps_look.get("w", "")), &"weapon_r", FIG_FIST_R],
+			["ps_o_" + String(ps_look.get("o", "")), &"weapon_l", FIG_FIST_L]]:
+		var mesh := _figure.find_child(String(pair[0]), true, false) as MeshInstance3D
+		if mesh == null or mesh.skin == null:
+			continue
+		# always from the skin as built (worn again, it is not moved twice)
+		if not mesh.has_meta(&"skin_built"):
+			mesh.set_meta(&"skin_built", mesh.skin)
+		mesh.skin = mesh.get_meta(&"skin_built") as Skin
+		var tip := _far(mesh, pair[1])
+		if tip == Vector3.ZERO:
+			continue
+		var butt := _far(mesh, pair[1], tip)
+		var fist: Vector3 = pair[2]
+		# only a grip that runs past the fist (a blade, a staff), not a shield
+		if Geometry3D.get_closest_point_to_segment(fist, butt, tip).distance_to(fist) > 0.12:
+			continue
+		# the handle's middle where the fist is (its cross-section there:
+		# the pommel's or the guard's corners lean the tip-to-butt line)
+		var way := (tip - butt).normalized()
+		var off := _grip_middle(mesh, pair[1], fist, butt, way) - fist
+		off -= way * off.dot(way)
+		if off.length() < 0.004:
+			continue
+		var skin := mesh.skin.duplicate() as Skin
+		var at := _figure_skel.find_bone(pair[1])
+		for i in skin.get_bind_count():
+			if skin.get_bind_name(i) == pair[1] or (skin.get_bind_name(i) == &"" and skin.get_bind_bone(i) == at):
+				skin.set_bind_pose(i, Transform3D(Basis(), -off) * skin.get_bind_pose(i))
+		mesh.skin = skin
+
+
+## Where the grip's own line (the middle of the pommel's end to the blade's
+## point) passes `fist`, in `bone`'s frame (`mesh` rigid on it): a low-poly
+## handle has no vertices along it, and the pommel's farthest corner leans a
+## line from `butt` (measured, the sword: 2.4 cm off the fist, not 3.6).
+func _grip_middle(mesh: MeshInstance3D, bone: StringName, fist: Vector3, butt: Vector3, way: Vector3) -> Vector3:
+	var at := _figure_skel.find_bone(bone)
+	var bind := Transform3D()
+	for i in mesh.skin.get_bind_count():
+		if mesh.skin.get_bind_name(i) == bone or (mesh.skin.get_bind_name(i) == &"" and mesh.skin.get_bind_bone(i) == at):
+			bind = mesh.skin.get_bind_pose(i)
+	var pts: Array[Vector3] = []
+	var low := INF
+	var high := -INF
+	var tip := butt
+	for sf in mesh.mesh.get_surface_count():
+		for v: Vector3 in mesh.mesh.surface_get_arrays(sf)[Mesh.ARRAY_VERTEX]:
+			var p := bind * v
+			pts.append(p)
+			var d := (p - butt).dot(way)
+			low = minf(low, d)
+			if d > high:
+				high = d
+				tip = p
+	var sum := Vector3.ZERO
+	var n := 0
+	for p in pts:
+		if (p - butt).dot(way) < low + 0.03:
+			sum += p
+			n += 1
+	if n == 0:
+		return Geometry3D.get_closest_point_to_segment(fist, butt, tip)
+	var pommel := sum / n
+	return Geometry3D.get_closest_point_to_segment(fist, pommel, tip)
 
 
 ## The cut's markers along the blade in hand: the maker's blades are measured

@@ -12118,6 +12118,14 @@ great_sword_charge_test.
   in over 0.75 s; the knight x0.45 and 0.9 s). D now ends at 4.2 s of the
   clip, before its rise begins. `SkinnedRig._slow_back()` reads
   `moves["slow_back"]`.
+- **The weapon in the fist** (all heroes in YOUR OWN, 2026-10-26): the maker's
+  weapons ran 2.4-2.7 cm off the middle of the figure's fist (the sword, the
+  great sword and the dagger alike), so a sword looked laid on the fist, not
+  held in it. `SkinnedRig._seat_grips()` moves each weapon's mesh (a copy of
+  its skin's bind, from the skin as built each time) so the grip's own line
+  (`_grip_middle`: the pommel's end to the point) passes `FIG_FIST_R` / `_L`.
+  The figure has no finger bones: the fist is one shape, so only the weapon
+  can move.
 - **The knight**: his first way of fighting (`GreatSword.MODES[0]`) is his
   one-handed string on the attack button, as it was, and the TC combo A-D on
   the block button (the right click): slower (`TC_RATE` 0.78, his wind-up
