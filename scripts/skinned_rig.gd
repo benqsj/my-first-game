@@ -1895,9 +1895,16 @@ func attack(style: int = -1) -> void:
 	var blend := chain_blend if chained and chain_blend >= 0.0 else -1.0
 	if _play_action(clip, Role.SWING, rate, blend, part.x, part.y):
 		_swing_commit = swing_time()
+		# a blow of its own shape ([Swordsman] TWO_HANDS `last_blow`: the
+		# wind-up slow, the fall fast)
+		var shape: Dictionary = (moves.get("blow_shape", {}) as Dictionary).get(clip, {}) if _on_mq else {}
 		if _attack_style == AttackStyle.SIDE and not played_out.has(clip):
-			_weigh_blow(clip, rate, part.x,
-					chain_windup_pace if chained and chain_windup_pace > 0.0 else windup_pace)
+			if not shape.is_empty():
+				_strike_boost = float(shape.get("strike_boost", 1.0))
+				# the blade into the ground: the dust and the shake there
+				_cut_slam = float(shape.get("slam", -1.0))
+			_weigh_blow(clip, rate, part.x, float(shape["windup"]) if shape.has("windup") \
+					else (chain_windup_pace if chained and chain_windup_pace > 0.0 else windup_pace))
 		_whoosh()
 
 

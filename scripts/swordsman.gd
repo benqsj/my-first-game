@@ -88,15 +88,28 @@ const STRINGS: Array = [
 ## take 0.4, 0.42 and 1.18 s (A, B, C; 0.67 on the whole); at x1.5 these take
 ## about 0.8, 0.55, 0.76 and 0.69 s (0.7). `weights`: each heavier than a one-handed cut (D the finisher's).
 ## The knight's own pace and weights are his ([GreatSword] TC_RATE).
+## `rates`: each blow's own pace (the user's pick of three, 2026-10-26):
+## mashed, the blows take 0.53, 0.55, 0.57 and 0.63 s (D at `last_blow`
+## rate), measured in the arena (vepxis/_shots_tmp/tc/game_reel3.gd); the
+## shield string's take 0.4, 0.42, 1.18. A is played from 0.3 s of the clip
+## (the slow raise out of the guard left out). A blow's time mashed is to
+## its commit (its cut's end and `swing_recovery`), not its part's end: it
+## does not go with the pace alone.
+## `last_blow`: D, the string's end, heavier and a little slower than the rest
+## (the user's word, 2026-10-26): its own pace, the wind-up (the blade raised
+## and drawn back) at `windup` of it, then the fall speeding up to
+## `strike_boost` times it by the cut. No dust or stones out of the ground
+## (the user: that is a skill's).
 ## `slow_back`: after D, the blade in the ground, he comes back to guard
 ## slowly, as from a heavy blow (the user's word, 2026-10-26: the weight
 ## spent, the balance found again): what is left of it after its cut at this
 ## share of its pace, and the stance blended back in over these seconds.
 const TWO_HANDS := {"clip": &"TC_Sword_ATK_Combo_01", "name": "TC TWO HANDS  A-D", "length": 5.4667,
-	"parts": [[0.0, 1.2], [1.2, 2.03], [2.03, 3.17], [3.17, 4.2]],
+	"parts": [[0.3, 1.2], [1.2, 2.03], [2.03, 3.17], [3.17, 4.2]],
 	"cuts": [[0.7, 0.93], [1.47, 1.7], [2.43, 2.67], [3.93, 4.1]],
 	"trails": [[0.63, 1.0], [1.4, 1.77], [2.37, 2.73], [3.83, 4.12]],
-	"rate": 1.5, "weights": [1.2, 1.2, 1.3, 1.6], "slow_back": [0.5, 0.75]}
+	"rate": 1.5, "rates": [1.7, 1.4, 1.72], "weights": [1.2, 1.2, 1.3, 1.9], "slow_back": [0.5, 0.75],
+	"last_blow": {"rate": 1.84, "windup": 0.75, "strike_boost": 1.45}}
 ## The running cut (TARIEL_POLISH.md, 5): the first cut thrown at a run is
 ## UAL 2's Sword_Light_D, a wide sweep out of a lunge, its cut at 0.09-0.17 of
 ## 1.67 s (0.14-0.26 s at x1.1); the string goes on from B after it.
@@ -259,10 +272,15 @@ static func _two_hands(t: Dictionary) -> void:
 		t["clip_rate"] = {}
 	if not t.has("clip_weight"):
 		t["clip_weight"] = {}
+	var rates: Array = TWO_HANDS["rates"]
 	for i in parts.size():
-		t["clip_rate"][parts[i]] = float(TWO_HANDS["rate"])
+		t["clip_rate"][parts[i]] = float(rates[i]) if i < rates.size() else float(TWO_HANDS["rate"])
 		t["clip_weight"][parts[i]] = float(TWO_HANDS["weights"][i])
 	t["slow_back"] = {parts[parts.size() - 1]: TWO_HANDS["slow_back"]}
+	var last: StringName = parts[parts.size() - 1]
+	var lb: Dictionary = TWO_HANDS["last_blow"]
+	t["clip_rate"][last] = float(lb["rate"])
+	t["blow_shape"] = {last: {"windup": float(lb["windup"]), "strike_boost": float(lb["strike_boost"])}}
 	t["shieldless_string"] = (t["string_sets"] as Array).size() - 1
 
 
