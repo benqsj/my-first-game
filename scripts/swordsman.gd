@@ -82,10 +82,17 @@ const STRINGS: Array = [
 ## out, D played to just past its fall. Seconds; `cuts` where the tip is past
 ## ~55 % of its top speed, `trails` a little wider. `weight`: what each blow
 ## is worth against a light cut (Tariel's: light, D his finisher).
+## `rate`: Tariel's pace for it (the user's word, 2026-10-26: a little
+## slower than his string with the shield, the sword in both hands and
+## swung heavier). Mashed, that string's blows take 0.4, 0.42 and 1.18 s (A,
+## B, C; 0.67 on the whole); at x1.35 these take 0.89, 0.61, 0.84 and 0.84 s
+## (0.8). `weights`: each heavier than a one-handed cut (D the finisher's).
+## The knight's own pace and weights are his ([GreatSword] TC_RATE).
 const TWO_HANDS := {"clip": &"TC_Sword_ATK_Combo_01", "name": "TC TWO HANDS  A-D", "length": 5.4667,
 	"parts": [[0.0, 1.2], [1.2, 2.03], [2.03, 3.17], [3.17, 4.3]],
 	"cuts": [[0.7, 0.93], [1.47, 1.7], [2.43, 2.67], [3.93, 4.1]],
-	"trails": [[0.63, 1.0], [1.4, 1.77], [2.37, 2.73], [3.83, 4.12]]}
+	"trails": [[0.63, 1.0], [1.4, 1.77], [2.37, 2.73], [3.83, 4.12]],
+	"rate": 1.35, "weights": [1.2, 1.2, 1.3, 1.6]}
 ## The running cut (TARIEL_POLISH.md, 5): the first cut thrown at a run is
 ## UAL 2's Sword_Light_D, a wide sweep out of a lunge, its cut at 0.09-0.17 of
 ## 1.67 s (0.14-0.26 s at x1.1); the string goes on from B after it.
@@ -242,7 +249,15 @@ static func _measure(t: Dictionary, clip: StringName) -> void:
 ## The string with no shield in his hand (`TWO_HANDS`): the last of
 ## `string_sets`, named by "shieldless_string" ([method SkinnedRig.wear_other_string]).
 static func _two_hands(t: Dictionary) -> void:
-	(t["string_sets"] as Array).append({"name": TWO_HANDS["name"], "clips": two_hands_parts(t), "recover": {}})
+	var parts := two_hands_parts(t)
+	(t["string_sets"] as Array).append({"name": TWO_HANDS["name"], "clips": parts, "recover": {}})
+	if not t.has("clip_rate"):
+		t["clip_rate"] = {}
+	if not t.has("clip_weight"):
+		t["clip_weight"] = {}
+	for i in parts.size():
+		t["clip_rate"][parts[i]] = float(TWO_HANDS["rate"])
+		t["clip_weight"][parts[i]] = float(TWO_HANDS["weights"][i])
 	t["shieldless_string"] = (t["string_sets"] as Array).size() - 1
 
 

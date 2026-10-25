@@ -12105,6 +12105,10 @@ great_sword_charge_test.
   `LIFT_Y` (0.12: back, a little up), eased in by the fist's height so it
   never jumps (a first try by the clock made the blade leap up). While a TC blow plays the left fist is put on
   the hilt (`SkinnedRig._hilt`, as the great sword's).
+- Tariel's pace in it (`TWO_HANDS.rate` 1.35, `weights` 1.2-1.6): a little
+  slower and heavier than his string with the shield (the user's word):
+  0.89, 0.61, 0.84, 0.84 s a blow mashed, against that string's 0.4, 0.42,
+  1.18.
 - **The knight**: his first way of fighting (`GreatSword.MODES[0]`) is his
   one-handed string on the attack button, as it was, and the TC combo A-D on
   the block button (the right click): slower (`TC_RATE` 0.78, his wind-up
