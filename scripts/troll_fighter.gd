@@ -990,7 +990,8 @@ func _run_grab() -> void:
 			_grabbed = who
 			grabs_caught += 1
 			who.grab_by(self, 6.0)
-			_throw_at = _other_hero(who, 14.0)
+			# (the hero thrown at the other taken out: the user's word, 2026-10-25)
+			_throw_at = null
 			Sfx.play_any(self, [SOUNDS + "grunt_2.wav"], self, 0.8, 0.0)
 		else:
 			# nothing in its hand: the rest of the move is a stumble
@@ -1722,8 +1723,8 @@ func _round7_move(delta: float, gap: float) -> bool:
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
 		_begin(P_CLAP)
 		return true
-	# enraged: the sky falls on them
-	if raging and _rain_wait <= 0.0:
+	# enraged: the sky falls on them (taken out: the user did not like it)
+	if false and raging and _rain_wait <= 0.0:
 		_rain_wait = _rng.randf_range(24.0, 30.0)
 		mode = Mode.FIGHT
 		velocity = Vector3.ZERO
