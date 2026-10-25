@@ -2209,7 +2209,11 @@ before is gone; `assets/creatures/troll_club.glb` stays unused.)
     both fists down into the ground on a knee, the ground shattered round them
     (eruption, stones, six short cracks, no ring), timed off its fists' lowest
     point on every peer; heaving them back up, the ball rises out of the
-    ground before it and rolls), a great ball of stone (`Ball` in
+    ground before it and rolls; since, three at one slam, the elf's ice
+    chain's way: they rise together, grind round where they stand, then go
+    one after another 0.5 s apart, each after the one before it, tearing the
+    ground where they roll as the orc's blade does: `DarkFx.CRACK` every
+    1.5 m, dust and grit, `ground_scars`), a great ball of stone (`Ball` in
     `troll_rocks.glb`, radius 1.05) bursts up out of it in front and rolls
     after him (`TrollRock.Kind.BALL`: faster and faster up to 10 m/s, turning
     after him at 60 deg/s for 4.5 s or till it has gone by him, rumbling);

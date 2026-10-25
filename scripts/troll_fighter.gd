@@ -516,7 +516,8 @@ func _own_move(delta: float) -> bool:
 		_rock_wait = maxf(_rock_wait, 4.0)
 		mode = Mode.FIGHT
 		_face(_quarry.global_position - global_position, 1.0, 50.0)
-		_balls_left = 3
+		# one slam: three balls up out of the ground at once
+		_balls_left = 1
 		_rock_gone = false
 		_begin(R_GOLF)
 		return true
@@ -817,8 +818,8 @@ func _release_ball() -> void:
 	if _quarry == null:
 		return
 	balls_rolled += 1
-	# where its fists went in, a little on
-	var from := global_position + _forward() * 2.6 * visual_scale / 1.6
+	# where its fists went in, a little on (the middle one of the three)
+	var from := global_position + _forward() * 2.8 * visual_scale / 1.6
 	var way := _quarry.global_position - from
 	way.y = 0.0
 	if way.length_squared() < 0.01:
@@ -830,6 +831,7 @@ func _release_ball() -> void:
 		net_ball.rpc(from, way.normalized(), worth, id, path)
 	else:
 		net_ball(from, way.normalized(), worth, id, path)
+	balls_rolled += 2
 
 
 @rpc("authority", "call_local", "reliable")
@@ -849,7 +851,22 @@ func net_ball(from: Vector3, way: Vector3, worth: float, id: int, after: NodePat
 	WindBlast.shake(self, 0.12, 0.45, 20.0)
 	Sfx.play_any(self, [SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_4.wav"], self, 0.6, 3.0)
 	Sfx.play_any(self, [SOUNDS + "roar_short.wav", SOUNDS + "grunt_2.wav"], self, 0.8, -2.0)
-	TrollRock.roll_ball(into, from, way, worth, self, _decides(), id, hero)
+	# three, the middle one a little on, the others either side of it: they
+	# grind round where they rose, then go one after another, each after the
+	# one before (the user's word: as the elf's ice chain goes)
+	var side := way.cross(Vector3.UP).normalized() * 2.3 * visual_scale / 1.6
+	var back := -way * 0.6 * visual_scale / 1.6
+	var spots := [from, from + side + back, from - side + back]
+	var lead: TrollRock = null
+	for i in 3:
+		var at: Vector3 = spots[i]
+		if i > 0:
+			GroundFx.eruption(into, at, 0.9, false)
+			GroundFx.weapon_dust(into, at, 1.4)
+		var aim := (from + way * 4.0 - at)
+		aim.y = 0.0
+		lead = TrollRock.roll_ball(into, at, aim.normalized(), worth, self, _decides(), id + i * 100, hero,
+				0.75 + 0.5 * float(i), lead)
 
 
 ## Any peer, for the hero: its blows cut his swing short with the tree in its

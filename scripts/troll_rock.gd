@@ -13,7 +13,11 @@ extends Node3D
 ##   him, bouncing, dust off it, for `ROLL_FAR` or till it meets a wall, and
 ##   bursts there. A jump or a roll aside clears it.
 ## * **SMALL**: a stone thrown one-handed, quick (three in a row): it staggers.
-## * **BALL** (the user's word, 2026-10-25): a great ball of stone it tears out
+## * **BALL** (the user's word, 2026-10-25; three at once since, the elf's
+##   ice chain's way: they come up out of the ground together, grind round
+##   where they stand, then go one after another, each after the one before,
+##   the ground torn where they roll as the orc's blade tears it): a great
+##   ball of stone it tears out
 ##   of the ground with a swing along it and sends rolling after him, three
 ##   one after another. It comes on faster and faster and turns after him (so
 ##   far a breath, `BALL_TURN`) till it has gone by him; it bursts on him, on a
@@ -62,6 +66,15 @@ var _rumble_in: float = 0.0
 ## The ball coming up out of the ground before it rolls (s left).
 var _rising: float = 0.0
 const BALL_RISE := 0.45
+## Rolled this far between the scars it tears in the ground (m).
+const BALL_SCAR := 1.5
+## The ball it goes after (the one gone before it), and how long it grinds
+## round where it rose before it goes (s).
+var follow: TrollRock
+var _wait: float = 0.0
+var _roll_time: float = 0.0
+var _scar_in: float = 0.6
+var _grind_in: float = 0.0
 
 
 ## Every peer: a rock of `what` thrown from `from` at `velocity`.
@@ -86,7 +99,7 @@ static func throw(into: Node, from: Vector3, velocity: Vector3, what: int, worth
 ## Every peer: a great ball of stone come up out of the ground at `from`,
 ## rolling away along `way` after `after`.
 static func roll_ball(into: Node, from: Vector3, way: Vector3, worth: float, by: Node3D, host: bool, id: int,
-		after: Node3D) -> TrollRock:
+		after: Node3D, wait: float = 0.0, lead: TrollRock = null) -> TrollRock:
 	if into == null:
 		return null
 	var r := TrollRock.new()
@@ -101,6 +114,8 @@ static func roll_ball(into: Node, from: Vector3, way: Vector3, worth: float, by:
 	r._vel = (flat.normalized() if flat.length_squared() > 0.0001 else Vector3.FORWARD) * BALL_SPEED.x
 	r._rolling = true
 	r._rising = BALL_RISE
+	r._wait = wait
+	r.follow = lead
 	into.add_child(r)
 	r.global_position = from + Vector3.DOWN * BALL_R * 0.9
 	r._build()
@@ -168,6 +183,9 @@ func _physics_process(delta: float) -> void:
 	if _rising > 0.0:
 		_rise_up(delta)
 		return
+	if _wait > 0.0:
+		_grind(delta)
+		return
 	if _rolling:
 		_roll(delta)
 		return
@@ -202,6 +220,12 @@ func _roll(delta: float) -> void:
 	var from := global_position
 	var to := from + _vel * delta
 	_rolled += _vel.length() * delta
+	if kind == Kind.BALL:
+		_roll_time += delta
+		_scar_in -= _vel.length() * delta
+		if _scar_in <= 0.0:
+			_scar_in = BALL_SCAR
+			_scar(global_position + Vector3.DOWN * BALL_R * 0.9, 0.9)
 	var axis := Vector3.UP.cross(_vel.normalized())
 	if axis.length_squared() > 0.0001:
 		_model.rotate(axis.normalized(), _vel.length() / _radius() * delta)
@@ -235,12 +259,69 @@ func _rise_up(delta: float) -> void:
 		_thud(global_position + Vector3.DOWN * BALL_R * 0.9, 1.0)
 
 
+## The ball grinding round where it rose, waiting its turn: spun hard on the
+## spot, the ground ground up under it; then away.
+func _grind(delta: float) -> void:
+	_wait -= delta
+	if _hit_heroes(global_position, global_position + Vector3.UP * 0.01):
+		return
+	var axis := Vector3.UP.cross(_vel.normalized())
+	if axis.length_squared() > 0.0001:
+		_model.rotate(axis.normalized(), 9.0 * delta)
+	_grind_in -= delta
+	if _grind_in <= 0.0:
+		_grind_in = 0.12
+		var into := Blood.world_of(self)
+		var at := global_position + Vector3.DOWN * BALL_R * 0.85
+		SkillFx.burst(into, at - _vel.normalized() * 0.5, Color(0.46, 0.4, 0.32, 0.6), 6, Vector2(1.0, 3.0),
+				(Vector3.UP - _vel.normalized()).normalized(), 40.0, Vector2(0.08, 0.16), Vector3(0, -3.0, 0), 0.7)
+		SkillFx.burst(into, at, Color(0.26, 0.22, 0.17, 1.0), 4, Vector2(2.0, 4.0),
+				(Vector3.UP - _vel.normalized()).normalized(), 35.0, Vector2(0.03, 0.06), Vector3(0, -12.0, 0), 0.6)
+		Sfx.play(self, "res://sounds/ogre/step.wav", self, Vector3.DOWN * BALL_R, randf_range(0.4, 0.5), -6.0)
+	if _wait <= 0.0:
+		_vel = _vel.normalized() * BALL_SPEED.x * 1.5
+		_scar(global_position + Vector3.DOWN * BALL_R * 0.9, 1.2)
+		Sfx.play_any(self, ["res://sounds/ogre/club_ground_1.wav", "res://sounds/ogre/club_ground_3.wav"], self,
+				randf_range(0.6, 0.7), 0.0)
+		WindBlast.shake(self, 0.08, 0.3, 16.0)
+
+
+## Every peer: the ground torn where it rolls (the orc's blade's crack: a
+## dark split, dust and grit thrown up; a floor that keeps scars keeps it).
+func _scar(at: Vector3, weight: float) -> void:
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var crack := DarkFx.decal(into, at, DarkFx.CRACK, 1.9 * weight + _rng.randf_range(0.0, 0.5),
+			Color(0.1, 0.08, 0.06, 1.0), 0.0, 0.9)
+	crack.rotation.y = _rng.randf() * TAU
+	var tw := crack.create_tween()
+	tw.tween_interval(2.5)
+	tw.tween_property(crack, "modulate:a", 0.0, 2.5).set_ease(Tween.EASE_IN)
+	tw.tween_callback(crack.queue_free)
+	SkillFx.burst(into, at + Vector3.UP * 0.1, Color(0.46, 0.4, 0.32, 0.6), int(10 + 8 * weight),
+			Vector2(1.2, 3.5), Vector3.UP, 75.0, Vector2(0.08, 0.16), Vector3(0, -2.0, 0), 0.9)
+	SkillFx.burst(into, at + Vector3.UP * 0.1, Color(0.24, 0.2, 0.15, 1.0), int(5 + 5 * weight),
+			Vector2(2.5, 5.5), Vector3.UP, 55.0, Vector2(0.03, 0.06), Vector3(0, -12.0, 0), 0.7)
+	get_tree().call_group(&"ground_scars", &"scar", at, weight * 0.8)
+
+
 ## The ball: faster and faster, turned after him as far as it may, till it
 ## has gone by him or rolled so long; heard rumbling over the ground.
 func _steer(delta: float) -> void:
 	var speed := minf(_vel.length() + BALL_SPEED_UP * delta, BALL_SPEED.y)
 	var way := _vel.normalized() if _vel.length_squared() > 0.0001 else Vector3.FORWARD
-	if _hunting and is_instance_valid(target) and _age < BALL_HUNT and not bool(target.get("is_dead")):
+	if follow != null and (not is_instance_valid(follow) or follow._done):
+		follow = null
+	if follow != null:
+		# after the one before it, along its line (quicker to turn, to keep on it)
+		var lead := follow.global_position - global_position
+		lead.y = 0.0
+		if lead.length_squared() > 0.01:
+			var t2 := clampf(way.signed_angle_to(lead.normalized(), Vector3.UP), -BALL_TURN * 2.2 * delta,
+					BALL_TURN * 2.2 * delta)
+			way = way.rotated(Vector3.UP, t2)
+	elif _hunting and is_instance_valid(target) and _roll_time < BALL_HUNT and not bool(target.get("is_dead")):
 		var to := target.global_position - global_position
 		to.y = 0.0
 		if to.length() < 2.5 or to.normalized().dot(way) < -0.2:
