@@ -395,6 +395,9 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 ## `hole` (a finer ground there), `lift` over the smooth one.
 const LP_MOSS := [Color(0.24, 0.35, 0.12), Color(0.29, 0.40, 0.14), Color(0.33, 0.44, 0.16), Color(0.27, 0.37, 0.13)]
 const LP_MUD := [Color(0.33, 0.25, 0.17), Color(0.29, 0.22, 0.15), Color(0.37, 0.28, 0.19)]
+## inside the clearing between the waters no bright moss (the user's word,
+## 2026-10-25: the green between the waters spoils it): mud and a dull bog olive
+const LP_BOG := [Color(0.27, 0.26, 0.15), Color(0.24, 0.24, 0.13), Color(0.30, 0.28, 0.17)]
 const LP_LEAF := [Color(0.44, 0.32, 0.15), Color(0.50, 0.37, 0.17), Color(0.38, 0.28, 0.13)]
 static func _lp_ground(room: Node3D, area: Rect2, step: float, hole: Rect2, w: float, l: float,
 		pools: Array[Dictionary], noise: FastNoiseLite, rng: RandomNumberGenerator, lift: float) -> void:
@@ -433,12 +436,14 @@ static func _lp_ground(room: Node3D, area: Rect2, step: float, hole: Rect2, w: f
 				var wet := 9.0
 				for pl in pools:
 					wet = minf(wet, _into(pl, c.x, c.z, noise))
-				var trodden := absf(c.x) < w * 0.28 and absf(c.z) < l * 0.36
+				var inside := absf(c.x) < w * 0.5 - 1.5 and absf(c.z) < l * 0.5 - 1.5
 				var col: Color = LP_MOSS[int(n * 3.99)]
-				if wet < 1.12 or (trodden and n > 0.62):
+				if wet < 1.12 or (inside and n > 0.45):
 					col = LP_MUD[int(fposmod(n * 7.0, 3.0))]
 					if wet < 1.0:
 						col = col.darkened(0.3)
+				elif inside:
+					col = LP_BOG[int(fposmod(n * 7.0, 3.0))]
 				elif patch.get_noise_2d(c.x * 2.3 + 40.0, c.z * 2.3) > 0.35:
 					col = LP_LEAF[int(fposmod(n * 5.0, 3.0))]
 				col = col * rng.randf_range(0.94, 1.06)
@@ -470,7 +475,7 @@ uniform vec4 shallow : source_color = vec4(0.46, 0.45, 0.29, 1.0);
 uniform vec4 deep : source_color = vec4(0.14, 0.18, 0.10, 1.0);
 uniform vec4 foam : source_color = vec4(0.80, 0.80, 0.68, 1.0);
 uniform vec4 sky : source_color = vec4(0.66, 0.70, 0.66, 1.0);
-uniform float wave = 0.055;
+uniform float wave = 0.014;
 uniform float depth_reach = 0.09;
 uniform vec4 drops[32];
 uniform int drop_count = 0;
@@ -484,8 +489,9 @@ float vnoise(vec2 p) {
 }
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	float h = sin(w.x * 0.8 + TIME * 0.7) * 0.45 + sin(w.z * 1.05 - TIME * 0.55) * 0.35
-			+ (vnoise(w.xz * 0.45 + vec2(TIME * 0.12, TIME * 0.07)) - 0.5) * 0.8;
+	// barely stirring (the user's word, 2026-10-25: the water moved too much)
+	float h = sin(w.x * 0.8 + TIME * 0.25) * 0.45 + sin(w.z * 1.05 - TIME * 0.2) * 0.35
+			+ (vnoise(w.xz * 0.45 + vec2(TIME * 0.04, TIME * 0.03)) - 0.5) * 0.8;
 	float lift = 0.0;
 	for (int i = 0; i < drop_count; i++) {
 		vec4 dr = drops[i];
@@ -495,7 +501,7 @@ void vertex() {
 		float amp = dr.w * exp(-dr.z * 1.1 / max(1.0, dr.w * 0.6)) / (1.0 + dist * 0.8);
 		lift += amp * sin(7.0 * x) * exp(-x * x / 0.18) * step(x, 0.25);
 	}
-	VERTEX.y += h * wave + clamp(lift, -1.0, 1.0) * 0.05;
+	VERTEX.y += h * wave + clamp(lift, -1.0, 1.0) * 0.03;
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 void fragment() {
@@ -510,19 +516,35 @@ void fragment() {
 	k = floor(k * 4.0 + 0.5) / 4.0;
 	vec3 c = mix(shallow.rgb, deep.rgb, k);
 	// patches a little lighter and darker, drifting
-	float drift = vnoise(wp.xz * 0.08 + vec2(TIME * 0.02, -TIME * 0.015));
+	float drift = vnoise(wp.xz * 0.08 + vec2(TIME * 0.008, -TIME * 0.006));
 	c *= 0.9 + 0.2 * floor(drift * 4.0) / 4.0;
 	// each facet its own shade by how it leans (the low poly look)
 	vec3 nw = normalize(cross(dFdx(wp), dFdy(wp)));
 	if (nw.y < 0.0) { nw = -nw; }
 	c *= 1.0 + clamp(dot(nw.xz, vec2(0.7, 0.5)) * 7.0, -0.22, 0.22);
+	// the feet's rings and the wake (the user's word, 2026-10-25: running
+	// through it left no trace): the facets are too coarse to bend for them,
+	// so they are drawn here, crests and troughs in hard bands as the facets
+	float ring = 0.0;
+	for (int i = 0; i < drop_count; i++) {
+		vec4 dr = drops[i];
+		float dist = length(wp.xz - dr.xy);
+		float x = dist - dr.z * drop_speed;
+		if (abs(x) > 1.2) { continue; }
+		float amp = dr.w * exp(-dr.z * 1.1 / max(1.0, dr.w * 0.6)) / (1.0 + dist * 0.8);
+		ring += amp * sin(7.0 * x) * exp(-x * x / 0.18) * step(x, 0.25);
+	}
+	ring = clamp(ring * 2.4, -1.0, 1.0);
+	float band = floor(ring * 3.0 + 0.5) / 3.0;
+	c *= 1.0 + band * 0.32;
+	c = mix(c, foam.rgb, step(0.5, ring) * 0.5);
 	float fres = pow(1.0 - clamp(dot(n, VIEW), 0.0, 1.0), 4.0);
 	c = mix(c, sky.rgb * 0.6, fres * 0.3);
 	// a thin pale line where it laps the mud
-	float lap = 1.0 - smoothstep(0.004, 0.02, depth + 0.004 * sin(TIME * 1.3 + wp.x * 1.1 + wp.z * 0.7));
+	float lap = 1.0 - smoothstep(0.004, 0.02, depth + 0.003 * sin(TIME * 0.6 + wp.x * 1.1 + wp.z * 0.7));
 	c = mix(c, foam.rgb, lap * 0.55);
 	vec2 cell = floor(wp.xz * 1.6);
-	float glint = step(0.994, hash(cell + floor(TIME * 1.2 + hash(cell) * 7.0)));
+	float glint = step(0.994, hash(cell + floor(TIME * 0.5 + hash(cell) * 7.0)));
 	ALBEDO = c;
 	EMISSION = vec3(1.0, 0.97, 0.88) * glint * 0.8;
 	ROUGHNESS = 0.25;
