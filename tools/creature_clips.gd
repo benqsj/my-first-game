@@ -23,6 +23,10 @@ extends SceneTree
 
 const MQ := "res://assets/anim/lab/ual2_mannequin.glb"
 const KV := "res://assets/anim/lab/kevin_lib.res"
+## DoubleL's RPG Animations Pack (the free one, 2026-10-25): its heavy
+## blows (the user: a lean after each, a slow way back, as Elden Ring's), on
+## the mannequin by vepxis-art tools/dl_godot.gd.
+const DL := "res://assets/anim/lab/doublel_lib.res"
 ## The mage hero's own clips on the mannequin (casts, the staff held).
 const MAGE := "res://assets/anim/heroes/mage_mannequin.res"
 ## Tariel's own sword-and-shield clips on the mannequin (the orc's hilt blow,
@@ -196,6 +200,19 @@ const CLIPS := [
 	["CR_EnterPole", "KV_CombatEnterPolearm01", false],
 	["CR_Polearm1", "KV_AttackPolearm01", false],
 	["CR_Polearm3", "KV_AttackPolearm03", false],
+	# DoubleL's (2026-10-25, the troll's tree, the user's word: heavy blows
+	# with a lean after and a slow way back): one-handed, a heavy weapon up
+	["CR_DL_HeavyA1", "DL_1Hand_Up_Attack_A_1", false],
+	["CR_DL_HeavyA2", "DL_1Hand_Up_Attack_A_2", false],
+	["CR_DL_HeavyA3", "DL_1Hand_Up_Attack_A_3", false],
+	["CR_DL_HeavyB1", "DL_1Hand_Up_Attack_B_1", false],
+	["CR_DL_HeavyB2", "DL_1Hand_Up_Attack_B_2", false],
+	["CR_DL_HeavyB3", "DL_1Hand_Up_Attack_B_3", false],
+	["CR_DL_Lunge", "DL_Enemy_Attack_1", false],
+	["CR_DL_RunLunge", "DL_Enemy_Attack_1_Run", false],
+	["CR_DL_HitHeavy", "DL_Hit_B_4", false],
+	["CR_DL_HitHeavy2", "DL_Hit_B_5", false],
+	["CR_DL_HeavyIdle", "DL_1Hand_Up_Stand_Idle_A_2", true],
 ]
 
 ## Clips straight out of Mixamo (without skin, on X Bot), carried onto the
@@ -409,7 +426,7 @@ func _run() -> void:
 	var player := mq.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
 	var lib := AnimationLibrary.new()
 	for src_lib: AnimationLibrary in [player.get_animation_library(&""), load(KV) as AnimationLibrary,
-			load(MAGE) as AnimationLibrary]:
+			load(MAGE) as AnimationLibrary, load(DL) as AnimationLibrary]:
 		for clip: StringName in src_lib.get_animation_list():
 			lib.add_animation(clip, src_lib.get_animation(clip))
 	# Tariel's only where the rest have none of that name

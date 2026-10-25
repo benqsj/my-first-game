@@ -118,6 +118,22 @@ const W_CHOP := 255
 ## The tree swept along the ground and up (earth flying), its root end rammed.
 const W_GOLF := 256
 const W_BUTT := 257
+## DoubleL's heavy one-handed blows (2026-10-25, the user's word: a lean
+## after each and a slow way back, as Elden Ring's): two strings of three,
+## the first two cut short of their way back so the next follows, the last
+## kept whole; one of them whole alone; a lunge in from off.
+const W_HA1 := 270
+const W_HA2 := 271
+const W_HA3 := 272
+const W_HB1 := 273
+const W_HB2 := 274
+const W_HB3 := 275
+const W_LUNGE := 276
+const W_HA1F := 277
+const DL_MOVES := [W_HA1, W_HA2, W_HA3, W_HB1, W_HB2, W_HB3, W_LUNGE, W_HA1F]
+## Its body and his kept this far apart as a DoubleL blow lands (those clips
+## stride far: carried their whole way it walked into him).
+const DL_ROOM := 1.9
 const T_REEL := 210
 const T_TOTTER := 211
 const T_STAGGER := 212
@@ -435,6 +451,18 @@ func _set_moves() -> void:
 	_hand_move(P_RAM, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.7, fists)
 	_hand_move(W_GOLF, &"CR_TR_GolfDrive", Vector3(1.1, 0.47, 0.62), 1.2, TREE, [0.535])
 	_hand_move(W_BUTT, &"CR_TR_ButtSmash", Vector3(1.0, 0.2, 0.62), 0.8, TREE)
+	# DoubleL's (the hand's speed through each measured, _shots_tmp/cmp/
+	# dl_speed.gd: where the blow falls, in the whole clip)
+	_hand_move(W_HA1, &"CR_DL_HeavyA1", Vector3(1.0, 0.0, 0.42), 1.0, TREE, [0.24])
+	_hand_move(W_HA2, &"CR_DL_HeavyA2", Vector3(1.0, 0.12, 0.55), 1.0, TREE, [0.35])
+	_hand_move(W_HA3, &"CR_DL_HeavyA3", Vector3(1.0, 0.1, 1.0), 1.3, TREE, [0.37])
+	_hand_move(W_HB1, &"CR_DL_HeavyB1", Vector3(1.0, 0.05, 0.55), 1.1, TREE, [0.4])
+	_hand_move(W_HB2, &"CR_DL_HeavyB2", Vector3(1.0, 0.1, 0.52), 1.0, TREE, [0.35])
+	_hand_move(W_HB3, &"CR_DL_HeavyB3", Vector3(1.0, 0.1, 1.0), 1.35, TREE, [0.44])
+	_hand_move(W_LUNGE, &"CR_DL_Lunge", Vector3(1.0, 0.0, 1.0), 1.2, TREE, [0.25])
+	_hand_move(W_HA1F, &"CR_DL_HeavyA1", Vector3(1.0, 0.0, 1.0), 1.2, TREE, [0.24])
+	_kinds[W_HA3] = &"crush"
+	_kinds[W_HB3] = &"crush"
 	# Mixamo's ground spell: both arms up, down into the ground on a knee, up
 	_special(R_GOLF, &"CR_MG_Ground", Vector3(0.9, 0.15, 0.85))
 	_slow_to[P_HAMMER] = 0.7
@@ -488,6 +516,26 @@ func _set_moves() -> void:
 ## Its bare blows measured landing nearer than its body lets him stand (the
 ## clips' fists were made for a man's short reach): it opens them from where
 ## the two bodies meet and steps the rest in under the blow.
+## A DoubleL blow: its stride sized so it is never carried nearer him than a
+## body's room, not into him (and a little further when he stands off).
+func _begin(what: int) -> void:
+	super(what)
+	if not (what in DL_MOVES) or _quarry == null or _anim == null:
+		return
+	var m: Array = _moves_table[what]
+	var clip: StringName = m[0]
+	# the furthest it is carried over the whole move (on past the blow too)
+	var from := _hips(clip, _clip_time(what, 0.0)).x
+	var stride := 0.0
+	for k in range(1, 17):
+		var at := _hips(clip, _clip_time(what, _act_length * float(k) / 16.0)).x
+		stride = maxf(stride, at - from)
+	if stride < 0.2:
+		return
+	var gap := _distance_to(_quarry)
+	_stretch = clampf((gap - DL_ROOM * visual_scale / 1.6) / stride, 0.0, 1.35)
+
+
 func _near_floor() -> void:
 	var meet := 1.5
 	for what in [ATTACK_BASE, ATTACK_BASE + 1, P_JAB, P_HOOK, P_KNEES, P_HEADBUTT, P_STOMP, P_HAMMER, P_HOME, P_RAM]:
@@ -499,6 +547,10 @@ func _near_floor() -> void:
 	# crosses the furthest first and opens that one every time)
 	for what in [W_GREAT, W_TWO, W_STRING, W_SCOOP, W_CHOP, W_GOLF, W_BUTT]:
 		_strike_from[what] = 1.9
+	# DoubleL's opened from further off, their own stride carrying them in
+	for what in [W_HA1, W_HB1, W_HA1F]:
+		_strike_from[what] = 3.0
+	_strike_from[W_LUNGE] = 3.8
 
 
 ## Its strings, by the look it has: two, three and four blows, each move's
@@ -523,6 +575,13 @@ func _set_combos() -> void:
 			{"name": &"tree_butt_string", "moves": [W_BUTT, W_STRING], "fells": [1], "weight": 0.8},
 			{"name": &"tree_storm", "moves": [W_SCOOP, W_CHOP, W_GREAT], "fells": [2], "weight": 1.1,
 					"rage_only": true},
+			# DoubleL's heavy strings: three each, the last with its whole
+			# lean and slow way back (his chance)
+			{"name": &"heavy_a", "moves": [W_HA1, W_HA2, W_HA3], "fells": [2], "weight": 1.3},
+			{"name": &"heavy_b", "moves": [W_HB1, W_HB2, W_HB3], "fells": [2], "weight": 1.3},
+			{"name": &"heavy_cross", "moves": [W_HA1, W_HB3], "fells": [1], "weight": 1.0},
+			{"name": &"heavy_one", "moves": [W_HA1F], "fells": [0], "weight": 0.8},
+			{"name": &"heavy_lunge", "moves": [W_LUNGE], "fells": [0], "weight": 0.9},
 		]
 	else:
 		_hand_combos = [

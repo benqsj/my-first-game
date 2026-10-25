@@ -62,3 +62,10 @@ It came in alongside the MegaKit; the user has not said what it is for yet.
 ## Poly Haven scans (CC0): tried in the forest, then taken out (2026-10-23)
 - **What happened:** the realistic forest used Poly Haven textures and scans. The user did not like the realistic look, so the forest went to low poly and the scans left the game.
 - **Where they still are:** `vepxis-art/downloads/polyhaven` (CC0), fetched by `vepxis-art/world/forest_ph_get.py`. Lighter versions of the models are in `.../polyhaven/light`, made by `vepxis-art/world/ph_light.py`.
+
+## DoubleL — RPG Animations Pack FREE (Unity Asset Store, 2026-10-25)
+- **Licence:** Standard Unity Asset Store EULA (Extension Asset). Unity's support page says Asset Store assets may be used in other engines under that EULA; the clips must not be redistributed in a form others can extract.
+- **Where:** the package is in `~/Library/Unity/Asset Store-5.x/DoubleL/Animation/`; it is unpacked in `vepxis-art/doublel_rpg_free` (FBX for Unity and for Unreal, 43 clips each).
+- **On the mannequin:** `vepxis-art/tools/dl_godot.gd` (its travel moved to the mannequin's root) writes `assets/anim/lab/doublel_lib.res` (`DL_*`).
+- **In the game:** `tools/creature_clips.gd` bakes them as `CR_DL_*`. The troll's tree strings `heavy_a`, `heavy_b` and `heavy_cross`, and its single moves `heavy_one` and `heavy_lunge`, are built from them.
+- **Not bought:** the paid pack ($130, about 8000 clips). The user chose the free one only.
