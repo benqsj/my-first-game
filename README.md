@@ -12105,10 +12105,10 @@ great_sword_charge_test.
   `LIFT_Y` (0.12: back, a little up), eased in by the fist's height so it
   never jumps (a first try by the clock made the blade leap up). While a TC blow plays the left fist is put on
   the hilt (`SkinnedRig._hilt`, as the great sword's).
-- Tariel's pace in it (`TWO_HANDS.rate` 1.35, `weights` 1.2-1.6): a little
-  slower and heavier than his string with the shield (the user's word):
-  0.89, 0.61, 0.84, 0.84 s a blow mashed, against that string's 0.4, 0.42,
-  1.18.
+- Tariel's pace in it (`TWO_HANDS.rate` 1.5, `weights` 1.2-1.6): a little
+  slower and heavier than his string with the shield (the user's word; 1.35
+  was too slow): about 0.8, 0.55, 0.76, 0.69 s a blow mashed, against that
+  string's 0.4, 0.42, 1.18.
 - Over his head the blade is also turned most of the way to straight
   behind him (`tc_godot.gd` `BACK_K`), not out over his right shoulder.
 - After D he comes back to guard slowly, the weight spent (`slow_back`:
