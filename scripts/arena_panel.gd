@@ -511,6 +511,9 @@ func call_up(path: String, boss: bool = false, where: Variant = null, props: Dic
 	body.rotation.y = atan2(-ahead.x, -ahead.z) + PI
 	for key: String in props:
 		body.set(StringName(key), props[key])
+	if boss:
+		# its anger kept: it turns on whoever hurts it most ([Threat])
+		body.set_meta(&"boss", true)
 	if body is Monster:
 		body.set_meta(&"own_tempo", (body as Monster).tempo)
 		(body as Monster).tempo *= _tempo

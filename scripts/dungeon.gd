@@ -1351,6 +1351,9 @@ func _spawn_room(i: int) -> void:
 			if String(entry[0]) == BOSS.get(id, ""):
 				body.set_meta(&"gift", LORD_GIFT)
 				body.set_meta(&"gift_name", LORD_GIFT_NAME)
+			if is_boss(i):
+				# its anger kept: it turns on whoever hurts it most ([Threat])
+				body.set_meta(&"boss", true)
 			if body.has_signal(&"hurt"):
 				body.connect(&"hurt", _on_foe_hurt.bind(body))
 			if k >= AT_ONCE:
@@ -1493,6 +1496,8 @@ func _premake() -> void:
 				if String(entry[0]) == BOSS.get(id, ""):
 					body.set_meta(&"gift", LORD_GIFT)
 					body.set_meta(&"gift_name", LORD_GIFT_NAME)
+				if is_boss(i):
+					body.set_meta(&"boss", true)
 				body.visible = false
 				body.process_mode = Node.PROCESS_MODE_DISABLED
 				holder.add_child(body)

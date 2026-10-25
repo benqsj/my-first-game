@@ -494,6 +494,16 @@ func _pick_quarry() -> Node3D:
 	if dared != null and dared.global_position.distance_squared_to(camp_centre) < reach2:
 		_quarry = dared
 		return dared
+	# a boss turns on whoever hurts it most ([Threat])
+	var anger := Threat.of(self)
+	if anger != null and mode != Mode.RETURN:
+		var ok := func(w: Node3D) -> bool:
+			return w.global_position.distance_squared_to(camp_centre) < reach2 and not Brute.unseen(w)
+		var angriest := anger.choose(self, _quarry, ok, act == Act.NONE)
+		if angriest != null:
+			_quarry = angriest
+			Threat.after_pick(self, angriest)
+			return angriest
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
 			and _quarry.global_position.distance_squared_to(camp_centre) < reach2 \
 			and not Brute.unseen(_quarry):
@@ -518,7 +528,9 @@ func _pick_quarry() -> Node3D:
 func _rouse(who: Node3D) -> void:
 	if who == null or is_dead:
 		return
-	_quarry = who
+	# a boss already fighting someone turns only by its anger ([Threat])
+	if not Threat.holds(self, _quarry, who):
+		_quarry = who
 	if mode == Mode.GUARD or mode == Mode.RETURN:
 		mode = Mode.CHASE
 	if band.is_empty():
@@ -779,6 +791,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
+		Threat.on_skill(self, from, damage)
 	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from) * ward, 0.0)
 	hurt.emit(health)
 	if health <= 0.0:
@@ -799,6 +812,7 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
+		Threat.on_skill(self, from)
 	if push.length_squared() > 0.0001:
 		velocity += Vector3(push.x, 0.0, push.z)
 	var now := Time.get_ticks_msec() / 1000.0
@@ -1003,3 +1017,9 @@ func _topple() -> void:
 func net_clear() -> void:
 	queue_free()
 #endregion
+
+
+## Every peer: it has turned on `who` ([Threat]): its eyes flare.
+@rpc("authority", "call_local", "reliable")
+func net_aggro(who: NodePath) -> void:
+	Threat.show_turn(self, get_node_or_null(who) as Node3D, (bar_height - 0.3) * maxf(visual_scale, 0.01))

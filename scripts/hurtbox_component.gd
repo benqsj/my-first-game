@@ -172,6 +172,8 @@ func take(hit: HitInfo) -> bool:
 	if hit.critical:
 		CombatText.mark_critical(body)
 	var drew := bool(body.call(&"receive_hit", hit))
+	# a boss's anger: who hurt it, how much, from where ([Threat])
+	Threat.on_hit(body, hit, drew)
 	if drew:
 		struck.emit(hit)
 	return drew

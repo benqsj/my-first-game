@@ -339,6 +339,16 @@ func _pick_quarry() -> Node3D:
 	if dared != null and _holds(dared.global_position):
 		_quarry = dared
 		return dared
+	# a boss turns on whoever hurts it most ([Threat])
+	var anger := Threat.of(self)
+	if anger != null and mode != Mode.RETURN:
+		var ok := func(w: Node3D) -> bool:
+			return _holds(w.global_position) and not unseen(w)
+		var angriest := anger.choose(self, _quarry, ok, act == ACT_NONE)
+		if angriest != null:
+			_quarry = angriest
+			Threat.after_pick(self, angriest)
+			return angriest
 	if _quarry != null and is_instance_valid(_quarry) and _quarry.is_inside_tree() \
 			and _holds(_quarry.global_position) and not unseen(_quarry):
 		return _quarry
@@ -372,7 +382,9 @@ static func unseen(who: Node3D) -> bool:
 func _rouse(who: Node3D) -> void:
 	if who == null or is_dead:
 		return
-	_quarry = who
+	# a boss already fighting someone turns only by its anger ([Threat])
+	if not Threat.holds(self, _quarry, who):
+		_quarry = who
 	if mode == Mode.GUARD or mode == Mode.RETURN:
 		mode = Mode.CHASE
 		if not roar_sound.is_empty() and Time.get_ticks_msec() / 1000.0 >= _roar_again_at:
@@ -756,6 +768,7 @@ func take_dot(damage: float, from: Node3D = null) -> void:
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
+		Threat.on_skill(self, from, damage)
 	_calm = 0.0
 	health = maxf(health - Defence.taken(damage, m_def) * Afflictions.factor(self, from), 0.0)
 	hurt.emit(health)
@@ -772,6 +785,7 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 		return
 	if from != null and is_instance_valid(from):
 		_rouse(from)
+		Threat.on_skill(self, from)
 	if push.length_squared() > 0.0001:
 		_shove += Vector3(push.x, 0.0, push.z) * shove_taken
 	var now := Time.get_ticks_msec() / 1000.0
@@ -862,3 +876,9 @@ func net_roar() -> void:
 func net_clear() -> void:
 	queue_free()
 #endregion
+
+
+## Every peer: it has turned on `who` ([Threat]): its eyes flare.
+@rpc("authority", "call_local", "reliable")
+func net_aggro(who: NodePath) -> void:
+	Threat.show_turn(self, get_node_or_null(who) as Node3D, bar_height * 0.85)

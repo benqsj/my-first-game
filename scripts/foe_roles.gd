@@ -64,6 +64,8 @@ var _combo: int = 9000
 static func before(body: Node3D, what: String) -> void:
 	match what:
 		"elite":
+			# its anger kept, as a boss's ([Threat])
+			body.set_meta(&"elite", true)
 			body.set(&"visual_scale", float(body.get(&"visual_scale")) * 1.35)
 			_scale_stat(body, &"max_health", 3.2)
 			_scale_stat(body, &"hit_damage", 1.45)

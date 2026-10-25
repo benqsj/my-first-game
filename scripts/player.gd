@@ -7964,6 +7964,10 @@ func net_healed(amount: float) -> void:
 	if sender != 0 and sender != get_multiplayer_authority():
 		return
 	HealNumber.pop(self, amount)
+	# the host: a boss near hears of it and is angered ([Threat])
+	var net := get_node_or_null("/root/Net")
+	if net == null or bool(net.call("is_host")):
+		Threat.on_heal(self, amount)
 
 
 ## Her Dark Hands, on every peer: the circle opening at `at` ([ShadowGrasp]).

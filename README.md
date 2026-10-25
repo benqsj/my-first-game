@@ -2100,6 +2100,27 @@ along their head, emitting while an attack has the head moving faster than
 `arc_speed` (10 m/s). The world's creature culling leaves trails alone: their
 bounds are world-space and would be measured from the middle of the map.
 
+### A boss's anger (Threat)
+
+`scripts/threat.gd`. Every boss and elite (F1's bosses, a dungeon step's
+boss, `FoeRoles` elites, anything with `boss_name` or `gift`) keeps, on the
+host, how angry it is at each hero. Before, any struck creature turned at once
+on whoever struck it last, mid-swing too, so two heroes taking turns had a boss
+spinning between them; ordinary creatures still do.
+
+* **Anger**: a blow's worth (from behind its shoulders x1.5, guarded or slipped
+  x0.5, through `HurtboxComponent.take`), a skill laid on it (+30) or a burn's
+  tick, health got back within 25 m (x0.6, `Player.net_healed` on the host),
+  and standing within 3.5 m (+6/s). Half of it fades in 8 s.
+* **Turning**: only between its acts, not within 4 s of its last turn (or of
+  the fight's start), and only when another's anger is over 1.15 x its
+  quarry's + 30. Its quarry fallen, hidden or off its ground, it goes to the
+  angriest at once. Tariel's Challenge still overrides it.
+* **Seen**: on a turn, its eyes flare red on every peer (`net_aggro`, on
+  `Fighter` and `Brute`), and it waits 0.7 s before it swings at the new one.
+* With equal blows, a hero cutting it from behind takes it from the one in
+  front in about 5 s (`_shots_tmp/threat_probe.gd`, 2026-10-25).
+
 ### Arkdeva's poison
 
 `scripts/venom.gd` draws it, from modelled shapes (`assets/fx/venom.glb`, from
