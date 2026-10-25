@@ -66,11 +66,14 @@ const JUMP_ATTACK := {"clip": &"KV_Attack2H04", "from": 0.12, "hold": 0.28, "sla
 
 
 ## The TC combo on his block button ([Swordsman] TWO_HANDS, the user's word
-## 2026-10-26: slower and heavier than Tariel's, strong blows): each part's
-## pace (against Tariel's x1.1; the knight's wind-up is slowed again by his
-## `windup_pace`) and its weight (the bite, the shake, the sound: a heavy
-## blow's 1.8-2.1), D, the blade into the ground, the heaviest.
-const TC_RATE := 0.78
+## 2026-10-26: heavier than Tariel's, strong blows; then: far too slow, the
+## wind-up dragged as if slowed down). Each part's pace, and its own wind-up
+## pace in place of his `windup_pace` (0.8, which slowed every gather of
+## these long clips again): A-C gathered at their own pace, D, the blade
+## into the ground, gathered slowly and falling fast. Mashed, the blows take
+## about 0.67, 0.66, 0.68 and 0.8 s (Tariel's 0.53, 0.55, 0.57, 0.63).
+const TC_RATES: Array[float] = [1.42, 1.12, 1.42, 1.4]
+const TC_SHAPES: Array = [{"windup": 1.0}, {"windup": 1.0}, {"windup": 1.0}, {"windup": 0.75, "strike_boost": 1.5}]
 const TC_WEIGHTS: Array[float] = [1.5, 1.5, 1.6, 2.1]
 ## After D he comes back to guard slower still than from his other blows
 ## ([Swordsman] TWO_HANDS `slow_back`): [pace, blend seconds].
@@ -130,6 +133,9 @@ static func apply(t: Dictionary) -> void:
 	t["clip_rate"] = {}
 	t["clip_weight"] = {}
 	for i in tc.size():
-		t["clip_rate"][tc[i]] = TC_RATE
+		t["clip_rate"][tc[i]] = TC_RATES[mini(i, TC_RATES.size() - 1)]
 		t["clip_weight"][tc[i]] = TC_WEIGHTS[mini(i, TC_WEIGHTS.size() - 1)]
 	t["slow_back"] = {tc[tc.size() - 1]: TC_SLOW_BACK}
+	t["blow_shape"] = {}
+	for i in tc.size():
+		t["blow_shape"][tc[i]] = TC_SHAPES[mini(i, TC_SHAPES.size() - 1)]

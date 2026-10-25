@@ -12130,7 +12130,11 @@ great_sword_charge_test.
   one-handed string on the attack button, as it was, and the TC combo A-D on
   the block button (the right click): slower (`TC_RATE` 0.78, his wind-up
   slowed again by `windup_pace`) and heavy (`TC_WEIGHTS` 1.5-2.1: the bite,
-  the shake and the sound of a heavy blow; D the heaviest). Kevin's
+  the shake and the sound of a heavy blow; D the heaviest). Then quicker (the
+  user: far too slow, dragged): `TC_RATES` per blow and `TC_SHAPES` (A-C
+  gathered at their own pace, not his `windup_pace` 0.8; D gathered slowly
+  and falling fast): 0.68, 0.67, 0.68, 0.84 s a blow mashed (was 1.08, 0.92,
+  1.15, 1.55). Kevin's
   two-handed string is the second way (F6).
 - Moves may give a blow its own pace and weight (`moves["clip_rate"]`,
   `moves["clip_weight"]`).

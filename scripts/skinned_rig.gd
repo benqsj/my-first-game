@@ -1876,7 +1876,7 @@ func attack(style: int = -1) -> void:
 		clip = flurry[_flurry_slot]
 	var part: Vector2 = flurry_part.get(clip, Vector2(0.0, 1.0))
 	# a blow's own pace and weight where the moves give them (the knight's
-	# TC combo, [GreatSword] TC_RATE / TC_WEIGHTS)
+	# TC combo, [GreatSword] TC_RATES / TC_WEIGHTS)
 	var own_rate: Dictionary = moves.get("clip_rate", {}) if _on_mq else {}
 	var rate := float(clip_rate.get(clip, own_rate.get(clip, swing_rate))) * arms_pace()
 	if _attack_style == AttackStyle.SIDE:

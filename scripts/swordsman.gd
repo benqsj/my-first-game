@@ -87,7 +87,7 @@ const STRINGS: Array = [
 ## swung heavier; then a little quicker again). Mashed, that string's blows
 ## take 0.4, 0.42 and 1.18 s (A, B, C; 0.67 on the whole); at x1.5 these take
 ## about 0.8, 0.55, 0.76 and 0.69 s (0.7). `weights`: each heavier than a one-handed cut (D the finisher's).
-## The knight's own pace and weights are his ([GreatSword] TC_RATE).
+## The knight's own pace and weights are his ([GreatSword] TC_RATES).
 ## `rates`: each blow's own pace (the user's pick of three, 2026-10-26):
 ## mashed, the blows take 0.53, 0.55, 0.57 and 0.63 s (D at `last_blow`
 ## rate), measured in the arena (vepxis/_shots_tmp/tc/game_reel3.gd); the
