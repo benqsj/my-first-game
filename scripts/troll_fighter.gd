@@ -110,6 +110,9 @@ const P_HOME := 227
 const P_RAM := 228
 ## With the tree.
 const W_UPROOT := 250
+## Its foot stamped down before it uproots: the trunk bursts up out of the
+## ground before it (2026-10-26, the user).
+const W_UPSTOMP := 289
 const W_GREAT := 251
 const W_TWO := 252
 const W_STRING := 253
@@ -471,7 +474,9 @@ func _set_moves() -> void:
 	_special(R_THROW, &"CR_TR_ThrowIn", Vector3(1.0, 0.25, 0.85))
 	_special(R_BOWL, &"CR_TR_KettleSwing", Vector3(0.9, 0.0, 0.5))
 	_special(R_STONE, &"CR_TR_ThrowObject", Vector3(1.6, 0.12, 0.62))
-	_special(W_UPROOT, &"CR_TR_Lift", Vector3(2.4, 0.3, 0.92))
+	var way: Dictionary = UPROOTS[uproot_way]
+	_special(W_UPROOT, way["clip"] as StringName, way["play"] as Vector3)
+	_special(W_UPSTOMP, &"CR_TR_Stomp", Vector3(0.95, 0.0, 0.9))
 	_hand_move(W_GREAT, &"CR_OG_Heavy_Swing", Vector3(1.15, 0.28, 0.82), 1.4, TREE)
 	# (its third swing put aside, 2026-10-26: measured, it passes within
 	# 0.75 m of its own body, over him at any gap he can stand at; the user
@@ -913,7 +918,7 @@ func _own_move(delta: float) -> bool:
 			or uproots == 1 and health <= max_health * uproot_again_at):
 		mode = Mode.FIGHT
 		velocity = Vector3.ZERO
-		_begin(W_UPROOT)
+		_begin(W_UPSTOMP)
 		return true
 	if _round7_move(delta, gap):
 		return true
@@ -1072,6 +1077,9 @@ func _after(what: int) -> void:
 			reels += 1
 			_begin(T_REEL)
 			return
+	if what == W_UPSTOMP and not is_dead and not armed:
+		_begin(W_UPROOT)
+		return
 	if what == W_UPROOT:
 		uproots += 1
 		if not armed:
@@ -1175,7 +1183,7 @@ func _run_act(delta: float) -> void:
 		_run_cracks(delta)
 		return
 	_round7_act(delta)
-	if act == T_REEL or act == T_TOTTER or act == T_STAGGER or act == W_UPROOT or act == P_FLEX:
+	if act == T_REEL or act == T_TOTTER or act == T_STAGGER or act == W_UPROOT or act == W_UPSTOMP or act == P_FLEX:
 		velocity.x = move_toward(velocity.x, 0.0, acceleration * delta)
 		velocity.z = move_toward(velocity.z, 0.0, acceleration * delta)
 	# the rock goes
@@ -1660,22 +1668,50 @@ func net_tree(stage: int) -> void:
 
 
 ## Every peer: as it uproots (2026-10-26, the user: it must take hold of the
-## tree and pull it out, not have it in its hand all at once): a broken
-## trunk pushes up out of the ground just where its hands reach down, its
-## roots still deep; it takes hold, rocks it, and as it heaves the tree
-## comes up out of the earth in its grip, turned as it goes into just the
-## way it is then held (`net_arm` makes that tree where this one is).
-const UP_RISE := Vector2(0.03, 0.17)   # the trunk out of the ground (shares)
-const UP_GRIP := 0.17                  # its hands close on it
-const UP_HEAVE := Vector2(0.6, 0.93)   # torn out and turned into its grip
+## tree and pull it out itself, not have it in its hand all at once): a
+## broken trunk pushes up out of the ground just where its hand will reach
+## down, its roots still deep; it takes hold, tugs, and as it heaves the tree
+## comes up out of the earth in its grip, turned as it goes into just the way
+## it is then held (`net_arm` makes that tree where this one is).
+##
+## The ways it may tear it up (two tried side by side): its clip and the part
+## played [rate, from, to]; the shares of the move its hand closes on the
+## trunk at (burst up already, at its stamp), the heave tears it out at, and
+## it is turned into its right hand's grip over; the hand that takes it; and
+## where that hand reaches down to [forward, right, up] in metres.
+const UPROOTS := {
+	&"lift": {"clip": &"CR_TR_Lift", "play": Vector3(2.4, 0.3, 0.92), "grip": 0.17,
+			"heave": 0.6, "turn": Vector2(0.6, 0.93), "hand": "R_equip_joint", "spot": Vector3(0.62, 0.3, 0.7)},
+	# (Mixamo's "Pull Plant", standing: both hands down to it, a few tugs,
+	# torn up and swung aside)
+	&"pull": {"clip": &"CR_TR_PullPlant", "play": Vector3(1.0, 0.0, 1.0), "grip": 0.27,
+			"heave": 0.57, "turn": Vector2(0.6, 0.95), "hand": "R_equip_joint", "spot": Vector3(0.67, 0.1, 0.08)},
+	# (Mixamo's "Pick Up Torch From The Ground": the left hand down for it and
+	# up high with it, then into the right)
+	&"pick": {"clip": &"CR_TR_PickFloor", "play": Vector3(1.0, 0.0, 1.0), "grip": 0.36,
+			"heave": 0.47, "turn": Vector2(0.8, 1.0), "hand": "L_equip_joint", "spot": Vector3(0.78, -0.5, 0.02)},
+}
+## Which (the films set it before it is made).
+static var uproot_way: StringName = &"pull"
 var _up_off: Transform3D               # the tree in its hand's frame, gripped
 var _up_spot: Transform3D              # the tree standing in the ground
 var _up_torn := false
 var _up_lost := -1                     # when its uprooting was cut short (ms)
+var _up_age := 0.0                     # how long since the trunk burst up (s, game time)
+const UP_BURST := 0.4                  # how long it takes to come up (s)
+
+
+## Its stamping foot (the right ankle) raised above, and down again below,
+## so high (m on a body of 1).
+const UPSTOMP_RAISED := 0.45
+const UPSTOMP_DOWN := 0.18
+var _up_raised := false
+var _up_down := false
 
 
 func _show_uproot() -> void:
-	if act != W_UPROOT or _skeleton == null:
+	var uprooting := act == W_UPROOT or act == W_UPSTOMP
+	if not uprooting or _skeleton == null:
 		# (cut short, it lets go and the trunk sinks back; a moment given
 		# first, for its arming to reach this peer)
 		if _rising != null and is_instance_valid(_rising) and not armed:
@@ -1689,12 +1725,21 @@ func _show_uproot() -> void:
 				tw.tween_callback(gone.queue_free)
 		return
 	_up_lost = -1
-	if _rising == null and not armed:
+	var way: Dictionary = UPROOTS[uproot_way]
+	# (born as its stamping foot comes down: watched, raised and down again)
+	if act == W_UPSTOMP and _rising == null:
+		var ab := _skeleton.find_bone("R_ankle_joint")
+		if ab >= 0:
+			var h := (_skeleton.global_transform * _skeleton.get_bone_global_pose(ab).origin).y - global_position.y
+			if h > UPSTOMP_RAISED * visual_scale:
+				_up_raised = true
+			_up_down = _up_raised and h < UPSTOMP_DOWN * visual_scale
+		else:
+			_up_down = _seen_clock >= 1.4
+	if _rising == null and not armed and (act == W_UPROOT or _up_down):
 		var into := Blood.world_of(self)
-		var b := _skeleton.find_bone("R_equip_joint")
-		if into == null or b < 0:
+		if into == null:
 			return
-		var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(b)
 		_rising = Node3D.new()
 		_rising.name = "TrollTreeRising"
 		into.add_child(_rising)
@@ -1704,23 +1749,42 @@ func _show_uproot() -> void:
 		mat.set_shader_parameter("bright", 1.15)
 		mi.material_override = mat
 		_rising.add_child(mi)
-		# upright, roots down, its grip just at its hand, leaning a little
-		# toward it
+		# upright, roots down, its grip just where its hand will close,
+		# leaning a little toward it
+		var fw := _forward()
+		fw.y = 0.0
+		fw = fw.normalized()
+		var right := fw.cross(Vector3.UP).normalized()
+		var at: Vector3 = way["spot"]
+		var grip := global_position + fw * at.x + right * at.y + Vector3.UP * at.z
 		var size := tree_scale * visual_scale
-		var lean := Basis(_forward().cross(Vector3.UP).normalized(), -0.12)
-		_up_spot = Transform3D(lean * Basis(Vector3.RIGHT, PI).scaled(Vector3.ONE * size), hand.origin)
-		_rising.global_transform = _up_spot.translated(Vector3.DOWN * 2.2)
+		_up_spot = Transform3D(Basis(right, -0.12) * Basis(Vector3.RIGHT, PI).scaled(Vector3.ONE * size), grip)
+		_rising.global_transform = _up_spot.translated(Vector3.DOWN * 2.4)
 		_up_torn = false
-		var ground := Vector3(hand.origin.x, global_position.y, hand.origin.z)
-		GroundFx.weapon_dust(into, ground, 1.2)
-		WindBlast.shake(self, 0.08, 0.5, 20.0)
+		_up_age = 0.0
+		_up_raised = false
+		_up_down = false
+		# the ground split from its foot to where the trunk bursts up
+		var foot := _foot_at()
+		foot.y = global_position.y
+		var ground := Vector3(grip.x, global_position.y, grip.z)
+		var way_to := ground - foot
+		way_to.y = 0.0
+		if way_to.length() > 0.2:
+			GroundCrack.show(self, foot, way_to.normalized(), way_to.length() + 0.4, crack_speed)
+		GroundFx.weapon_dust(into, foot, 1.4)
+		GroundFx.eruption(into, ground, 0.8, false)
+		GroundFx.weapon_dust(into, ground, 1.6)
+		WindBlast.shake(self, 0.16, 0.6, 20.0)
+		Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 0.9, 0.0)
 		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.6, 0.0)
 		if not _skeleton.skeleton_updated.is_connected(_hold_rising):
 			_skeleton.skeleton_updated.connect(_hold_rising)
 	if _rising == null or not is_instance_valid(_rising):
 		return
-	var share := _uproot_share()
-	if share >= UP_HEAVE.x and not _up_torn:
+	_up_age += get_process_delta_time()
+	var share := _uproot_share() if act == W_UPROOT else 0.0
+	if act == W_UPROOT and share >= float(way["heave"]) and not _up_torn:
 		_up_torn = true
 		var into := Blood.world_of(self)
 		if into != null:
@@ -1749,30 +1813,40 @@ func _uproot_share() -> float:
 
 ## Every peer, each time its pose is made while it uproots: the tree put.
 func _hold_rising() -> void:
-	if _rising == null or not is_instance_valid(_rising) or act != W_UPROOT or armed:
+	if _rising == null or not is_instance_valid(_rising) or armed or not (act == W_UPROOT or act == W_UPSTOMP):
 		return
-	var b := _skeleton.find_bone("R_equip_joint")
-	if b < 0:
+	var way: Dictionary = UPROOTS[uproot_way]
+	var gb := _skeleton.find_bone(String(way["hand"]))
+	var rb := _skeleton.find_bone("R_equip_joint")
+	if gb < 0 or rb < 0:
 		return
-	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(b)
-	var share := _uproot_share()
-	if share < UP_GRIP:
-		# pushing up out of the ground, rocking as it comes
-		var rise := smoothstep(UP_RISE.x, UP_RISE.y, share)
-		var rock := Basis(Vector3.FORWARD, 0.05 * sin(share * 60.0) * (1.0 - rise))
-		_rising.global_transform = Transform3D(rock * _up_spot.basis, _up_spot.origin + Vector3.DOWN * 2.2 * (1.0 - rise))
+	var hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(gb)
+	var share := _uproot_share() if act == W_UPROOT else 0.0
+	if act == W_UPSTOMP or share < float(way["grip"]):
+		# bursting up out of the ground (a touch past, then settling), and
+		# rocking after
+		var e := _up_age
+		var k := clampf(e / UP_BURST, 0.0, 1.0)
+		var rise := 1.0 + 2.7 * pow(k - 1.0, 3.0) + 1.7 * pow(k - 1.0, 2.0)
+		var rock := Basis(Vector3.FORWARD, 0.07 * sin(e * 22.0) * exp(-e * 2.5))
+		_rising.global_transform = Transform3D(rock * _up_spot.basis, _up_spot.origin + Vector3.DOWN * 2.4 * (1.0 - rise))
 		_up_off = hand.affine_inverse() * _rising.global_transform
 		return
-	# in its grip: where its hands took it, then turned into how it is held
-	var held := Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
-	var w := smoothstep(UP_HEAVE.x, UP_HEAVE.y, share)
-	var off := _up_off.interpolate_with(held, w)
-	# (still rooted before the heave: it strains, the trunk trembling)
-	if share < UP_HEAVE.x:
-		var strain := smoothstep(UP_GRIP + 0.2, UP_HEAVE.x, share)
+	# in its grip: where its hand took it (still rooted before the heave, it
+	# tugs, the trunk trembling), then turned into how it is held
+	var off := _up_off
+	if share < float(way["heave"]):
+		var strain := smoothstep(float(way["grip"]) + 0.08, float(way["heave"]), share)
 		off = off.rotated_local(Vector3.RIGHT, 0.03 * strain * sin(share * 90.0))
-	_rising.global_transform = hand * off
-
+	var held := Transform3D(Basis(Vector3.BACK, -PI * 0.5).scaled(Vector3.ONE * tree_scale), Vector3.ZERO)
+	var tv: Vector2 = way["turn"]
+	var w := smoothstep(tv.x, tv.y, share)
+	if gb == rb:
+		_rising.global_transform = hand * off.interpolate_with(held, w)
+	else:
+		# (taken in the other hand: passed into the right as it is turned)
+		var right_hand := _skeleton.global_transform * _skeleton.get_bone_global_pose(rb)
+		_rising.global_transform = (hand * off).interpolate_with(right_hand * held, w)
 
 ## Every peer: the tree let go as it falls.
 func _drop_tree() -> void:
@@ -2042,7 +2116,7 @@ func _add_stance(amount: float) -> void:
 			amount *= 1.25
 	super(amount)
 	if is_dead or stance <= 0.0 or act == STANCE or act == PIECES or act == RAGE or act == LEAP \
-			or act == W_UPROOT or act == P_GRAB or act == S_SPLASH or act == S_DOWN or act == S_SKIN \
+			or act == W_UPROOT or act == W_UPSTOMP or act == P_GRAB or act == S_SPLASH or act == S_DOWN or act == S_SKIN \
 			or act == R_RAIN or act == W_THROW:
 		return
 	var share := stance_taken / stance
