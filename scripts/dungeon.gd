@@ -119,7 +119,10 @@ const PLACES := {
 	# (56 by 56: inside the shrine's ring of arches, [ForestGlade].RING_R)
 	"forest": {"name": "ტყე", "kind": "forest", "w": 56.0, "l": 56.0, "h": 0.0},
 	"sky": {"name": "ცის კუნძული", "kind": "sky", "w": 56.0, "l": 56.0, "h": 0.0, "lift": 160.0},
-	"throne": {"name": "ტახტის ეზო", "kind": "clouds", "w": 66.0, "l": 78.0, "h": 0.0, "lift": 160.0},
+	# (the lord's court remade: a round arena on a cliff top in the mist, the
+	# user's pick C of the concepts, 2026-10-25 [ThroneCourt]; 64 by 64 so
+	# its round floor fits)
+	"throne": {"name": "ტახტის ეზო", "kind": "lord_court", "w": 64.0, "l": 64.0, "h": 0.0, "lift": 160.0},
 	# (the flooded crypt and the stone king's tomb behind it, low poly
 	# [CryptTomb]: the user's pick, 2026-10-24)
 	"crypt": {"name": "აკლდამა", "kind": "flood_crypt", "w": 44.0, "l": 100.0, "h": 15.0},
@@ -3270,7 +3273,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3433,6 +3436,12 @@ func _place_look(night: float = 0.0) -> void:
 			_terrace_look(kind)
 		"prison", "cell_cave":
 			_ashen_look(kind == "cell_cave")
+		"lord_court":
+			# its look (F2's board): the misty court, the camp, the royal court
+			var which := ThroneCourt.current()
+			if which != "b":
+				_ashen_look()
+			_court_look(which)
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3573,6 +3582,104 @@ func _ashen_look(cave: bool = false) -> void:
 		_sun.light_volumetric_fog_energy = 4.0
 
 
+## The lord's court on its cliff in the mist ([ThroneCourt]), over Ashen's
+## light ([method _ashen_look]): open, the air pale and white far off so the
+## far pillars of rock fade into it, the cliff's foot lost in the cloud, the
+## sun low and soft from the side behind the cloud.
+## `which`: "c" that; "a" the warlord's camp at a grey dusk, the sun low and
+## orange under the cloud; "b" the royal court's golden afternoon, clear.
+func _court_look(which: String = "c") -> void:
+	if which == "a":
+		_camp_look()
+		return
+	if which == "b":
+		_royal_look()
+		return
+	var air := Color(0.80, 0.82, 0.84)
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("top_col", Color(0.70, 0.73, 0.77))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.88, 0.88, 0.87))
+		_sky_mat.set_shader_parameter("gnd_col", Color(0.80, 0.81, 0.82))
+		_sky_mat.set_shader_parameter("cloud", 0.9)
+	_env.fog_light_color = air
+	_env.fog_density = 0.72
+	_env.fog_depth_begin = 28.0
+	_env.fog_depth_end = 420.0
+	_env.fog_depth_curve = 0.8
+	_env.fog_sky_affect = 0.75
+	_env.fog_height_density = 0.0
+	_env.volumetric_fog_density = 0.0012
+	_env.volumetric_fog_ambient_inject = 0.05
+	_env.ambient_light_color = Color(0.70, 0.73, 0.79)
+	_env.ambient_light_energy = 1.05
+	_env.tonemap_exposure = 1.08
+	for m in _cloud_layer_mats:
+		m.set_shader_parameter("top", Color(0.92, 0.92, 0.92))
+		m.set_shader_parameter("low", Color(0.70, 0.72, 0.75))
+	if _sun != null:
+		_sun.light_energy = 1.4
+		_sun.light_color = Color(1.0, 0.93, 0.84)
+		_sun.rotation.x = -deg_to_rad(38.0)
+		_sun.light_angular_distance = 3.0
+		_sun.shadow_opacity = 0.78
+
+
+func _camp_look() -> void:
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("top_col", Color(0.30, 0.32, 0.37))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.72, 0.60, 0.50))
+		_sky_mat.set_shader_parameter("gnd_col", Color(0.50, 0.48, 0.47))
+		_sky_mat.set_shader_parameter("sun_col", Color(1.0, 0.70, 0.45))
+		_sky_mat.set_shader_parameter("cloud", 0.85)
+	_env.fog_light_color = Color(0.58, 0.56, 0.55)
+	_env.fog_density = 0.62
+	_env.fog_depth_begin = 35.0
+	_env.fog_depth_end = 520.0
+	_env.fog_depth_curve = 0.9
+	_env.fog_sky_affect = 0.5
+	_env.fog_height_density = 0.0
+	_env.volumetric_fog_density = 0.0015
+	_env.volumetric_fog_ambient_inject = 0.04
+	_env.ambient_light_color = Color(0.56, 0.57, 0.63)
+	_env.ambient_light_energy = 0.85
+	_env.tonemap_exposure = 1.0
+	_env.adjustment_saturation = 0.86
+	for m in _cloud_layer_mats:
+		m.set_shader_parameter("top", Color(0.78, 0.70, 0.64))
+		m.set_shader_parameter("low", Color(0.46, 0.46, 0.50))
+	if _sun != null:
+		_sun.light_energy = 1.15
+		_sun.light_color = Color(1.0, 0.72, 0.48)
+		_sun.rotation.x = -deg_to_rad(16.0)
+		_sun.light_angular_distance = 2.5
+		_sun.shadow_opacity = 0.75
+
+
+func _royal_look() -> void:
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("night", 0.0)
+		_sky_mat.set_shader_parameter("cloud", 0.35)
+		_sky_mat.set_shader_parameter("top_col", Color(0.36, 0.54, 0.82))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.92, 0.84, 0.70))
+		_sky_mat.set_shader_parameter("sun_col", Color(1.0, 0.88, 0.70))
+	_env.fog_light_color = Color(0.92, 0.85, 0.74)
+	_env.fog_density = 0.0008
+	_env.fog_sky_affect = 0.3
+	_env.volumetric_fog_enabled = false
+	_env.ambient_light_color = Color(0.80, 0.74, 0.66)
+	_env.ambient_light_energy = 1.0
+	_env.adjustment_saturation = 1.08
+	_env.adjustment_contrast = 1.06
+	for m in _cloud_layer_mats:
+		m.set_shader_parameter("top", Color(1.0, 0.93, 0.84))
+		m.set_shader_parameter("low", Color(0.80, 0.72, 0.68))
+	if _sun != null:
+		_sun.visible = true
+		_sun.light_energy = 1.15
+		_sun.light_color = Color(1.0, 0.86, 0.66)
+		_sun.rotation.x = -deg_to_rad(28.0)
+
+
 ## The four terraces' light ([TerracePlaces]): clear skies, real sun on the
 ## floor, each its own hour — the lake's late morning, the fortress's low
 ## gold afternoon, the falls' bright haze, the clouds' golden day.
@@ -3706,6 +3813,9 @@ func _build_room_body(i: int) -> void:
 			return
 		"spring", "prison", "cell_cave":
 			RestSpot.build(self, room, i, kind)
+			return
+		"lord_court":
+			ThroneCourt.build(self, room, w, l, _rng)
 			return
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			TerracePlaces.build(self, room, kind, w, l, _rng)
@@ -5019,6 +5129,8 @@ func _ambience(i: int) -> void:
 			parts = [["wind_loop.wav", -14.0], ["drums_far_loop.wav", -30.0]]
 		"clouds":
 			parts = [["wind_strong_loop.wav", -11.0]]
+		"lord_court":
+			parts = [["wind_loop.wav", -11.0], ["drums_far_loop.wav", -26.0]]
 	for part: Array in parts:
 		var stream := _loop(String(part[0]))
 		if stream == null:
@@ -5069,12 +5181,12 @@ func _now_and_then(delta: float, heroes: Array[Player]) -> void:
 	_eagle_in -= delta
 	if _eagle_in <= 0.0:
 		_eagle_in = _rng.randf_range(12.0, 26.0)
-		if kind in ["sky", "lake", "fort", "falls", "clouds"] and (kind == "sky" or _phase < 2.5):
+		if kind in ["sky", "lake", "fort", "falls", "clouds", "lord_court"] and (kind == "sky" or _phase < 2.5):
 			Sfx.play_flat(self, SND + "eagle.wav", _rng.randf_range(0.92, 1.08), -9.0)
 	_flap_in -= delta
 	if _flap_in <= 0.0:
 		_flap_in = _rng.randf_range(6.0, 13.0)
-		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds"]:
+		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds", "lord_court"]:
 			var at := near + Vector3(_rng.randf_range(-14.0, 14.0), 4.0, _rng.randf_range(-14.0, 14.0))
 			Sfx.play(self, SND + "flap.wav", null, at, 1.0, -2.0, 0.15)
 	_stones_in -= delta

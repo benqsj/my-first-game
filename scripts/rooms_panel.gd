@@ -16,6 +16,7 @@ var _column: VBoxContainer
 ## Whether a room is shown with its creatures.
 var _with_foes: bool = false
 var _mood_buttons: Dictionary = {}
+var _court_buttons: Dictionary = {}
 
 
 func _ready() -> void:
@@ -54,6 +55,16 @@ func _ready() -> void:
 	_column.add_child(moods)
 	_column.add_child(_toggle("Rain (in the storm)", TerracePlaces.hall_rain,
 			func(on: bool) -> void: TerracePlaces.set_hall_rain(on)))
+	# the lord's court: its three looks (2026-10-25), pressed, he is put in it
+	_column.add_child(MenuStyle.label("Lord's court", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
+	var courts := HBoxContainer.new()
+	for c: Array in [["c", "C  Mist"], ["a", "A  Camp"], ["b", "B  Royal"]]:
+		var b := _small(String(c[1]), _set_court.bind(String(c[0])))
+		b.toggle_mode = true
+		b.button_pressed = ThroneCourt.current() == c[0]
+		_court_buttons[c[0]] = b
+		courts.add_child(b)
+	_column.add_child(courts)
 	_root.visible = false
 
 
@@ -106,6 +117,14 @@ func _set_mood(mood: String) -> void:
 	var rooms := _dungeon()
 	if rooms != null:
 		rooms._apply_phase(rooms._phase)
+
+
+## The lord's court in look `which`, and he is put in it (it is built anew).
+func _set_court(which: String) -> void:
+	ThroneCourt.look = which
+	for key: String in _court_buttons:
+		(_court_buttons[key] as Button).set_pressed_no_signal(key == which)
+	_view_room("throne")
 
 
 func _dungeon() -> Dungeon:
