@@ -1,10 +1,10 @@
 extends SceneTree
-## The portal's merchant and altar ([PortalEvent], 2026-10-22):
-## - the merchant: three wares on his table, each bought for its price in
-##   gold, and on the hero then; not bought without the gold;
+## The portal's altar ([PortalEvent], 2026-10-22; the merchant taken out,
+## 2026-10-26):
 ## - the altar: blood takes a fifth of his life and lays a blessing's lights;
 ##   then the other is closed; gold takes half his gold for a heavier blade;
-## - both are places to rest, offered behind a portal now and then.
+## - it is a place to rest, offered behind a portal now and then; the
+##   merchant no more.
 ##   Godot --headless --path . --script res://tests/portal_event_test.gd
 
 var _failures := 0
@@ -39,63 +39,17 @@ func _run() -> void:
 	hero.immortal = true
 	var purse := Purse.of(hero)
 
-	_check("both are places to rest", Dungeon.PLACES["merchant"].has("rest") and Dungeon.PLACES["altar"].has("rest"))
+	_check("the altar is a place to rest", Dungeon.PLACES["altar"].has("rest"))
+	_check("no merchant any more", not Dungeon.PLACES.has("merchant"))
+	purse.give(500)
 	var seen := {}
 	for n in 400:
 		seen[d._rest_pick(false, false)] = true
-	_check("the merchant is not offered to one with no gold", not seen.has("merchant"), str(seen.keys()))
-	purse.give(500)
-	seen = {}
-	for n in 400:
-		seen[d._rest_pick(false, false)] = true
-	_check("with gold: the merchant and the altar both offered", seen.has("merchant") and seen.has("altar"), str(seen.keys()))
+	_check("the altar offered, never the merchant", seen.has("altar") and not seen.has("merchant"), str(seen.keys()))
 	_check("hurt: the spring", d._rest_pick(true, true) == "spring")
-
-	# the merchant
-	d.view_place("merchant")
-	await _wait(20)
-	var ev := d._event_here()
-	_check("the merchant's place built", ev != null and ev.kind == "merchant")
-	if ev == null:
-		_end()
-		return
-	_check("three wares on his table", ev._deals.size() == 3)
-	var gold0 := purse.gold
-	var first: Dictionary = ev._deals[0]
-	var id := String(first["id"])
-	var price := int(PortalEvent.WARES[id]["price"])
-	var hp0 := hero.max_health
-	var book := hero.get_node_or_null("Leveling") as Leveling
-	hero.health = hero.max_health * 0.5
-	hero.flasks_left = 0
-	hero.global_position = ev.to_global(first["at"] as Vector3) + Vector3.UP * 0.3
-	await _wait(5)
-	_check("the price shown as he comes up", ev._prompt.visible and ev._prompt.text.contains(str(price)), ev._prompt.text)
-	ev.interact()
-	await _wait(5)
-	_check("bought: its price out of his purse", purse.gold == gold0 - price, "%d -> %d (%s %d)" % [gold0, purse.gold, id, price])
-	var on := false
-	match id:
-		"flask":
-			on = hero.flasks_left == hero.flask_count
-		"heal":
-			on = hero.health >= hero.max_health - 0.5
-		"life":
-			on = hero.max_health > hp0 * 1.14
-		"blade", "boon":
-			on = true
-	_check("and on him (%s)" % id, on)
-	_check("gone off the table", bool(first["sold"]) and not (first["node"] as Node3D).visible)
-	purse.take(purse.gold)
-	var second: Dictionary = ev._deals[1]
-	hero.global_position = ev.to_global(second["at"] as Vector3) + Vector3.UP * 0.3
-	await _wait(5)
-	ev.interact()
-	await _wait(5)
-	_check("no gold: not sold", not bool(second["sold"]) and ev._prompt.text.contains("არ გყოფნის"), ev._prompt.text)
+	var ev: PortalEvent
 
 	# the altar
-	purse.give(200)
 	d.view_place("altar")
 	await _wait(20)
 	ev = d._event_here()

@@ -144,9 +144,8 @@ const PLACES := {
 	"spring": {"name": "წმინდა წყარო", "kind": "holy_spring", "w": 52.0, "l": 52.0, "h": 0.0, "rest": "სიცოცხლე ბოლომდე"},
 	"prison": {"name": "ტყვეების ოთახი", "kind": "cell_cave", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "მცველები · გაათავისუფლე ტყვე",
 			"guards": true},
-	# and the two quiet places of the portal's own (the user's word,
-	# 2026-10-22: a merchant, an altar) ([PortalEvent])
-	"merchant": {"name": "ვაჭარი", "kind": "merchant", "w": 32.0, "l": 42.0, "h": 11.0, "rest": "იყიდე ოქროთი"},
+	# and the quiet place of the portal's own (the user's word, 2026-10-22;
+	# the merchant taken out, 2026-10-26) ([PortalEvent])
 	"altar": {"name": "სამსხვერპლო", "kind": "altar", "w": 32.0, "l": 42.0, "h": 13.0, "rest": "შესწირე და მიიღე"},
 }
 
@@ -219,7 +218,7 @@ const VIEW := {
 	"hall": [0, "Hall"], "forest": [2, "Forest"],
 	"crypt": [2, "Crypt"], "swamp": [2, "Swamp"], "sky": [5, "Sky island"],
 	"mountain": [5, "Waterfall ruins"], "spring": [5, "Holy spring"], "prison": [5, "Prisoners' room"],
-	"merchant": [5, "Merchant"], "altar": [5, "Altar"],
+	"altar": [5, "Altar"],
 	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
 	"camp": [7, "Orc camp"], "cave": [3, "Cave (two halls)"],
 }
@@ -286,8 +285,7 @@ var is_closed: bool = false
 var choices: Array[PortalLook] = []
 ## Rewards given so far, by name.
 var rewards_given: Array[String] = []
-## What was bought at the merchant's or given at the altar this run, by any
-## hero ([PortalEvent]).
+## What was given at the altar this run, by any hero ([PortalEvent]).
 var deals_made: Array[String] = []
 ## The run's blessings ([Boons]).
 var boons: Boons
@@ -1995,17 +1993,11 @@ func _choice_specs(next: int) -> Array:
 
 ## Which place to rest behind the second portal: the spring when he is hurt;
 ## else the prisoners (oftener while the village wants its tradesmen), the
-## merchant (only with gold to spend), the altar, now and then the spring.
+## altar, now and then the spring.
 func _rest_pick(low: bool, wanted: bool) -> String:
 	if low:
 		return "spring"
-	var gold := 0
-	for hero in _heroes():
-		var purse := Purse.of(hero)
-		if purse != null:
-			gold = maxi(gold, purse.gold)
-	var weights := {"prison": 2.0 if wanted else 0.8, "altar": 1.0, "spring": 0.5,
-			"merchant": 1.5 if gold >= 35 else 0.0}
+	var weights := {"prison": 2.0 if wanted else 0.8, "altar": 1.0, "spring": 0.5}
 	var total := 0.0
 	for k: String in weights:
 		total += float(weights[k])
@@ -2022,8 +2014,8 @@ func _rest_pick(low: bool, wanted: bool) -> String:
 ## he killed him easily; and two together killed him very quickly)
 ##
 ## * **How strong the run has made them** ([method run_power]): what it has
-##   given that makes blows heavier — each "blade" reward, the merchant's
-##   blade and the altar of gold (shared out over the heroes), each blessing,
+##   given that makes blows heavier — each "blade" reward, the altar of
+##   gold (shared out over the heroes), each blessing,
 ##   half the village smith's edge. Against what a run is expected to have
 ##   given by then (`EXPECT_POWER` by the last step, from nothing at the
 ##   first), only part of the excess is made up for (the user's word,
@@ -2056,9 +2048,7 @@ func run_power() -> float:
 			p *= 1.15
 	var n := maxi(_heroes().size(), 1)
 	for d in deals_made:
-		if d == "blade":
-			p *= pow(1.1, 1.0 / float(n))
-		elif d == "gold":
+		if d == "gold":
 			p *= pow(PortalEvent.GOLD_BLADE, 1.0 / float(n))
 	p *= 1.0 + 0.06 * float(boons.taken.size()) if boons != null else 1.0
 	var game := get_node_or_null("/root/Game")
@@ -2144,7 +2134,7 @@ func _lay_traps(i: int) -> void:
 	SpikeTrap.lay(self, i, rng)
 
 
-## The merchant's or the altar's keeper in the place he is in ([PortalEvent]).
+## The altar's keeper in the place he is in ([PortalEvent]).
 func _event_here() -> PortalEvent:
 	if current < 0 or current >= _room_nodes.size() or not is_instance_valid(_room_nodes[current]):
 		return null
@@ -2195,7 +2185,7 @@ func _gates_from(specs: Array, _next: int) -> Array[PortalLook]:
 		if reward != "":
 			gate.tint = REWARDS[reward]["tint"]
 		elif rest:
-			gate.tint = {"merchant": Color(1.0, 0.72, 0.3), "altar": Color(0.75, 0.12, 0.16)}.get(place, Color(0.45, 0.8, 1.0))
+			gate.tint = {"altar": Color(0.75, 0.12, 0.16)}.get(place, Color(0.45, 0.8, 1.0))
 		# what is behind it, seen in it
 		var view := PREVIEWS % place
 		if ResourceLoader.exists(view):
@@ -3023,7 +3013,7 @@ func _floor_mat(i: int) -> ShaderMaterial:
 		m.set_shader_parameter("snow", 1.0)
 		m.set_shader_parameter("border", 0.0)
 		return m
-	if kind in ["court", "terrace", "sky", "rampart", "spring", "merchant", "altar"]:
+	if kind in ["court", "terrace", "sky", "rampart", "spring", "altar"]:
 		m.set_shader_parameter("all_cob", 1.0)
 	if kind == "prison":
 		# big dark flags, cold, worn (the user's word, 2026-10-23: another floor)
@@ -3989,7 +3979,7 @@ func _build_room_body(i: int) -> void:
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			TerracePlaces.build(self, room, kind, w, l, _rng)
 			return
-		"merchant", "altar":
+		"altar":
 			PortalEvent.build(self, room, i, kind)
 			return
 	var last := kind == "throne"

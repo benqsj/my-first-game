@@ -1,15 +1,11 @@
 class_name PortalEvent
 extends Node3D
 
-## The portal's two other kinds of quiet place (the user's word, 2026-10-22:
-## a merchant, an altar), put in between the steps as the spring and the
-## prisoners are ([RestSpot]): no creatures, the way on open at once, and not
-## a step of the run.
+## The portal's other quiet place (the user's word, 2026-10-22; the
+## merchant taken out, 2026-10-26), put in between the steps as the spring
+## and the prisoners are ([RestSpot]): no creatures, the way on open at once,
+## and not a step of the run.
 ##
-## * **merchant** ("ვაჭარი") — a man at a stall with three of his wares on
-##   it, each with its price in gold (the [Purse]): walk up to one and [F]
-##   buys it — flasks filled, life whole, more life, a heavier blade, or a
-##   blessing (its three lights laid before the stall).
 ## * **altar** ("სამსხვერპლო") — two altars, one or the other: blood (a
 ##   fifth of his life, for good this run, for a blessing) or gold (half of
 ##   it, for a blade heavier by a fifth).
@@ -19,14 +15,6 @@ extends Node3D
 ## what is bought is put on him by his own game ([method deal_done]).
 
 const NEAR := 1.9
-## Everything the merchant may have, three of them on his table.
-const WARES := {
-	"flask": {"name": "ფლაკონები სავსე", "price": 35, "tint": Color(0.95, 0.3, 0.3)},
-	"heal": {"name": "სიცოცხლე ბოლომდე", "price": 45, "tint": Color(0.45, 1.0, 0.55)},
-	"life": {"name": "სიცოცხლე +15%", "price": 70, "tint": Color(1.0, 0.35, 0.45)},
-	"blade": {"name": "ხმლის ძალა +10%", "price": 80, "tint": Color(0.45, 0.75, 1.0)},
-	"boon": {"name": "კურთხევა", "price": 100, "tint": Color(1.0, 0.86, 0.45)},
-}
 const BLOOD := Color(0.85, 0.08, 0.1)
 const GOLD := Color(1.0, 0.76, 0.25)
 ## The altar of blood takes this share of his life; the altar of gold this
@@ -38,8 +26,8 @@ const GOLD_BLADE := 1.2
 
 var kind: String = ""
 var _d: Dungeon
-## What is on offer: [{"id", "at", "node", "sold"}] (the merchant's wares, or
-## the two altars as "blood" and "gold").
+## What is on offer: [{"id", "at", "node", "sold"}], the two altars as
+## "blood" and "gold".
 var _deals: Array = []
 var _used: bool = false
 var _near: int = -1
@@ -50,7 +38,7 @@ var done: Array[String] = []
 
 
 ## The place `what` in `room` (its index `i`): walls and floor as a rest's,
-## then the stall or the altars.
+## then the altars.
 static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	var r := d._room(i)
 	var w: float = r["w"]
@@ -74,133 +62,27 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	ev.kind = what
 	ev._d = d
 	room.add_child(ev)
-	match what:
-		"merchant":
-			ev._build_merchant(i)
-		"altar":
-			ev._build_altar()
+	ev._build_altar()
 	ev._dress(room, i, w, l, h)
 	ev._ui()
 
 
-## Round about: the merchant's camp (his tents, his barrels and crates, a
-## fire); the altar's shrine at the far end, a wheel of candles over it,
-## skulls and old blood by the altar of blood.
+## Round about: the altar's shrine at the far end, a wheel of candles over
+## it, skulls and old blood by the altar of blood.
 func _dress(room: Node3D, i: int, w: float, l: float, h: float) -> void:
 	OrcSpoils._materials()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 6151 * (i + 1) + 17
-	if kind == "merchant":
-		# (out to the sides, clear of the portals at (±9, −l/2+10): places_test,
-		# 2026-10-24, found the right tent where the right portal comes up)
-		OrcSpoils._tent(_d, room, Vector3(-w * 0.36, 0.0, -l * 0.04), 0.5, rng)
-		OrcSpoils._tent(_d, room, Vector3(w * 0.36, 0.0, -l * 0.02), -0.4, rng)
-		OrcSpoils._loot(_d, room, Vector3(-w * 0.22, 0.0, l * 0.05), rng)
-		OrcSpoils._loot(_d, room, Vector3(w * 0.24, 0.0, l * 0.12), rng)
-		OrcSpoils._campfire(_d, room, Vector3(w * 0.12, 0.0, l * 0.2), rng)
-		OrcSpoils._wall_banners(_d, room, w, l, h)
-	else:
-		var stone := _d._trim_mat
-		var pale := StandardMaterial3D.new()
-		pale.albedo_color = Color(0.52, 0.49, 0.44)
-		pale.roughness = 0.85
-		PlaceBuild._shrine(_d, room, Vector3(0.0, 0.0, -l * 0.5 + 2.2), pale, stone, w, h)
-		PlaceBuild._candle_wheel(_d, room, Vector3(0.0, h * 0.75, -2.0), h)
-		for k in 3:
-			OrcSpoils._skull(_d, room, Vector3(-4.0 - 0.7 + 0.7 * float(k), 0.0, -0.4 + rng.randf_range(-0.2, 0.3)), 0.8)
-		OrcSpoils._blood(_d, room, w * 0.3, l * 0.3, 5, rng)
-		OrcSpoils._wall_banners(_d, room, w, l, h)
-
-
-#region The merchant
-func _build_merchant(i: int) -> void:
-	# his three wares, the same on every peer (the step's own dice)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7919 * (i + 1) + _d.id * 131
-	var ids: Array = WARES.keys()
-	for k in range(ids.size() - 1, 0, -1):
-		var j := rng.randi_range(0, k)
-		var t: Variant = ids[k]
-		ids[k] = ids[j]
-		ids[j] = t
-	ids = ids.slice(0, 3)
-	# the stall: a long table under an awning, the man behind it
-	var wood := _d._wood_mat
-	var cloth := StandardMaterial3D.new()
-	cloth.albedo_color = Color(0.55, 0.16, 0.12)
-	cloth.roughness = 0.9
-	_d._blocker(self, Vector3(5.2, 1.0, 1.2), Vector3(0.0, 0.5, -1.0))
-	_box(wood, Vector3(5.2, 0.12, 1.3), Vector3(0.0, 0.95, -1.0))
-	for x: float in [-2.4, 2.4]:
-		for z: float in [-1.5, -0.5]:
-			_box(wood, Vector3(0.14, 0.95, 0.14), Vector3(x, 0.47, z))
-		_box(wood, Vector3(0.14, 3.0, 0.14), Vector3(x, 1.5, -2.4))
-	var awning := _box(cloth, Vector3(5.6, 0.08, 2.4), Vector3(0.0, 3.0, -1.4))
-	awning.rotation.x = 0.18
-	# crates and sacks about it
-	for k in 4:
-		var side := -1.0 if k % 2 == 0 else 1.0
-		_box(wood, Vector3(0.9, 0.8, 0.9), Vector3(side * (3.9 + 0.3 * float(k)), 0.4, -2.0 - 0.9 * floorf(float(k) / 2.0)))
-	var man := Villager.new()
-	man.name = "Merchant"
-	man.variant = 4
-	man.look = Villager.freed_look(1)
-	man.position = Vector3(-3.6, 0.0, 0.2)
-	man.rotation.y = 0.0
-	var stand: Array[Vector3] = []
-	stand.append(to_global(Vector3(-3.6, 0.0, 0.2)))
-	man.spots = stand
-	add_child(man)
-	var sign := _label("ვაჭარი", GOLD.lerp(Color.WHITE, 0.4), 52)
-	sign.position = Vector3(0.0, 4.0, -1.4)
-	for k in ids.size():
-		var id := String(ids[k])
-		var at := Vector3(-1.75 + 1.75 * float(k), 1.01, -0.8)
-		var ware := _ware(id, at)
-		var tag := _label("%s\n%d ოქრო" % [String(WARES[id]["name"]), int(WARES[id]["price"])],
-				(WARES[id]["tint"] as Color).lerp(Color.WHITE, 0.5), 22)
-		tag.position = at + Vector3(0.0, 0.7 + 0.35 * float(k % 2), 0.0)
-		_deals.append({"id": id, "at": at + Vector3(0.0, -1.0, 0.7), "node": ware, "tag": tag, "sold": false})
-
-
-## One ware on the table: a little glowing thing of its kind's colour.
-func _ware(id: String, at: Vector3) -> Node3D:
-	var holder := Node3D.new()
-	holder.position = at
-	add_child(holder)
-	var tint: Color = WARES[id]["tint"]
-	var mesh: Mesh
-	match id:
-		"flask":
-			var c := CylinderMesh.new()
-			c.top_radius = 0.06
-			c.bottom_radius = 0.14
-			c.height = 0.34
-			mesh = c
-		"blade":
-			var b := BoxMesh.new()
-			b.size = Vector3(0.06, 0.02, 0.7)
-			mesh = b
-		_:
-			var s := SphereMesh.new()
-			s.radius = 0.13
-			s.height = 0.26
-			mesh = s
-	var m := MeshInstance3D.new()
-	m.mesh = mesh
-	m.material_override = SkillFx.glow(tint, 2.0, false)
-	m.position = Vector3(0.0, 0.18, 0.0)
-	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	holder.add_child(m)
-	var light := OmniLight3D.new()
-	light.light_color = tint
-	light.light_energy = 0.6
-	light.omni_range = 1.4
-	light.position = Vector3(0.0, 0.4, 0.0)
-	light.set_meta(&"designed_shadow", false)
-	holder.add_child(light)
-	return holder
-#endregion
+	var stone := _d._trim_mat
+	var pale := StandardMaterial3D.new()
+	pale.albedo_color = Color(0.52, 0.49, 0.44)
+	pale.roughness = 0.85
+	PlaceBuild._shrine(_d, room, Vector3(0.0, 0.0, -l * 0.5 + 2.2), pale, stone, w, h)
+	PlaceBuild._candle_wheel(_d, room, Vector3(0.0, h * 0.75, -2.0), h)
+	for k in 3:
+		OrcSpoils._skull(_d, room, Vector3(-4.0 - 0.7 + 0.7 * float(k), 0.0, -0.4 + rng.randf_range(-0.2, 0.3)), 0.8)
+	OrcSpoils._blood(_d, room, w * 0.3, l * 0.3, 5, rng)
+	OrcSpoils._wall_banners(_d, room, w, l, h)
 
 
 #region The altar
@@ -279,10 +161,7 @@ func _words(k: int, hero: Player) -> String:
 			if have < GOLD_LEAST:
 				return "ოქრო არ გყოფნის (საჭიროა %d, გაქვს %d)" % [GOLD_LEAST, have]
 			return "[F]  შესწირე %d ოქრო — ხმალი +20%%" % _gold_price(have)
-	var price := int(WARES[id]["price"])
-	if have < price:
-		return "%s — %d ოქრო  (გაქვს %d, არ გყოფნის)" % [String(WARES[id]["name"]), price, have]
-	return "[F]  იყიდე: %s — %d ოქრო  (გაქვს %d)" % [String(WARES[id]["name"]), price, have]
+	return ""
 
 
 static func _gold_price(have: int) -> int:
@@ -321,12 +200,9 @@ func host_deal(k: int, hero: Player) -> void:
 				return
 			purse.take(_gold_price(purse.gold))
 		_:
-			var price := int(WARES[id]["price"])
-			if purse == null or purse.gold < price:
-				return
-			purse.take(price)
-	if id == "boon" or id == "blood":
-		# its three lights, before the stall or the altar
+			return
+	if id == "blood":
+		# its three lights, before the altar
 		_d.lay_lights(to_global(Vector3(0.0, 0.0, 3.5)))
 	if _d.online():
 		_d.net_deal_done.rpc(k, hero.get_path())
@@ -343,17 +219,13 @@ func deal_done(k: int, hero: Player) -> void:
 	deal["sold"] = true
 	done.append(id)
 	_d.deals_made.append(id)
-	if kind == "altar":
-		_used = true
-		for other: Dictionary in _deals:
-			var light := other.get("light") as OmniLight3D
-			if light != null:
-				create_tween().tween_property(light, "light_energy", 0.25 if other != deal else 3.0, 0.6)
-			(other["tag"] as Node3D).visible = false
-	else:
-		(deal["node"] as Node3D).visible = false
-		(deal["tag"] as Node3D).visible = false
-	var tint: Color = WARES[id]["tint"] if WARES.has(id) else (BLOOD if id == "blood" else GOLD)
+	_used = true
+	for other: Dictionary in _deals:
+		var light := other.get("light") as OmniLight3D
+		if light != null:
+			create_tween().tween_property(light, "light_energy", 0.25 if other != deal else 3.0, 0.6)
+		(other["tag"] as Node3D).visible = false
+	var tint: Color = BLOOD if id == "blood" else GOLD
 	if hero != null and _d.mine(hero):
 		_put_on(hero, id)
 	if hero != null:
@@ -362,27 +234,14 @@ func deal_done(k: int, hero: Player) -> void:
 			SkillFx.burst(world, hero.global_position + Vector3.UP * 1.2, tint, 50,
 					Vector2(1.0, 3.5), Vector3.UP, 180.0, Vector2(0.06, 0.16), Vector3(0, 1.0, 0), 1.3)
 		Sfx.play(_d, Dungeon.SND + "portal_open.wav", null, hero.global_position + Vector3.UP, 1.5, -6.0)
-	var said := "შეწირულია" if kind == "altar" else "ნაყიდია: %s" % String(WARES[id]["name"])
-	if id == "boon" or id == "blood":
+	var said := "შეწირულია"
+	if id == "blood":
 		said += " — აირჩიე კურთხევა"
 	_d._say(said, 3.0)
 
 
 func _put_on(hero: Player, id: String) -> void:
 	match id:
-		"flask":
-			hero.flasks_left = hero.flask_count
-		"heal":
-			hero.heal(hero.max_health)
-		"life":
-			hero.max_health *= 1.15
-			if hero.profile != null:
-				hero.profile.max_health = hero.max_health
-			hero.heal(hero.max_health * 0.15)
-		"blade":
-			var book := hero.get_node_or_null("Leveling") as Leveling
-			if book != null:
-				book.boost_blows(1.1)
 		"blood":
 			hero.max_health *= 1.0 - BLOOD_SHARE
 			if hero.profile != null:
