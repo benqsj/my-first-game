@@ -513,7 +513,9 @@ static func build(d: Dungeon, room: Node3D, kind: String, w: float, l: float, rn
 		"lake":
 			_lake(d, room, w, l, rng)
 		"fort":
-			_fort(d, room, w, l, rng)
+			# the yard remade after the concept (2026-10-26) [FortYard]; the
+			# first pass, `_fort`, kept
+			FortYard.build(d, room, w, l, rng)
 		"falls":
 			_falls(d, room, w, l, rng)
 		"clouds":
