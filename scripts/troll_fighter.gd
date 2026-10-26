@@ -1724,6 +1724,97 @@ const UPROOT_WAVE := 4.5
 const UPROOT_TAKEN := 0.25
 
 
+## Every peer: its tree's roots out of the ground round it (each its node,
+## when it breaks out (s after the stamp), where it lies, its way out).
+var _up_roots: Array[Dictionary] = []
+const ROOT_SPEED := 9.0                # how fast the heave runs out (m/s)
+
+
+## Every peer: at its stamp, the roots laid out along five ways from its
+## body, under the ground, each to break out as the heave reaches it.
+func _roots_up(into: Node3D, fw: Vector3) -> void:
+	_roots_sink()
+	var s := visual_scale / 1.6
+	var far := UPROOT_WAVE * s
+	for k in 5:
+		var dir := fw.rotated(Vector3.UP, TAU * float(k) / 5.0 + 0.4)
+		var at := 0.7 * s
+		var n := 0
+		while at < far - 0.4 * s and n < 4:
+			var length := randf_range(0.95, 1.35) * s
+			var way := dir.rotated(Vector3.UP, randf_range(-0.28, 0.28))
+			var side := way.cross(Vector3.UP).normalized()
+			var lay := Basis(way * length, Vector3.UP * randf_range(0.8, 1.15) * s, side * s)
+			var origin := global_position + dir * at
+			origin.y = global_position.y
+			var mi := MeshInstance3D.new()
+			mi.mesh = TrollRock.mesh("GroundRoot_%d" % randi_range(0, 2))
+			mi.material_override = TrollRock.material()
+			into.add_child(mi)
+			var base := Transform3D(lay, origin)
+			mi.global_transform = base.translated(Vector3.DOWN * 0.6 * s)
+			_up_roots.append({"n": mi, "d": at / ROOT_SPEED, "b": base, "out": false, "way": way})
+			at += length * randf_range(0.75, 0.95)
+			n += 1
+
+
+## Every peer, each frame: each root breaking out as the heave reaches it (a
+## touch past, then settling), and straining as it is tugged at.
+func _show_roots(share: float, way: Dictionary) -> void:
+	var s := visual_scale / 1.6
+	var strain := smoothstep(float(way["grip"]), float(way["heave"]), share) if act == W_UPROOT else 0.0
+	var into := Blood.world_of(self)
+	for r: Dictionary in _up_roots:
+		var mi := r["n"] as MeshInstance3D
+		if mi == null or not is_instance_valid(mi):
+			continue
+		var k := clampf((_up_age - float(r["d"])) / 0.22, 0.0, 1.0)
+		if k > 0.0 and not bool(r["out"]):
+			r["out"] = true
+			if into != null:
+				GroundFx.weapon_dust(into, (r["b"] as Transform3D).origin, 0.7)
+		var rise := 1.0 + 2.7 * pow(k - 1.0, 3.0) + 1.7 * pow(k - 1.0, 2.0)
+		var base: Transform3D = r["b"]
+		var shake := Basis((r["way"] as Vector3), 0.05 * strain * sin(_up_age * 40.0 + float(r["d"]) * 13.0))
+		mi.global_transform = Transform3D(shake * base.basis, base.origin + Vector3.DOWN * 0.6 * s * (1.0 - rise)
+				+ Vector3.UP * 0.05 * s * strain * absf(sin(_up_age * 23.0 + float(r["d"]) * 7.0)))
+
+
+## Every peer: as the tree is torn out, its roots torn up out of the ground
+## after it, earth flying, and gone.
+func _roots_torn() -> void:
+	var into := Blood.world_of(self)
+	var s := visual_scale / 1.6
+	var to := _rising.global_position if _rising != null and is_instance_valid(_rising) else global_position
+	for r: Dictionary in _up_roots:
+		var mi := r["n"] as MeshInstance3D
+		if mi == null or not is_instance_valid(mi):
+			continue
+		var at := mi.global_position
+		var pull := to - at
+		pull.y = 0.0
+		var tw := mi.create_tween().set_parallel(true)
+		var wait := 0.04 * at.distance_to(to)
+		tw.tween_property(mi, "global_position", at + pull * 0.35 + Vector3.UP * 0.7 * s, 0.35).set_delay(wait).set_ease(Tween.EASE_OUT)
+		tw.tween_property(mi, "scale", mi.scale * 0.05, 0.35).set_delay(wait + 0.05).set_ease(Tween.EASE_IN)
+		tw.chain().tween_callback(mi.queue_free)
+		if into != null and randf() < 0.5:
+			GroundFx.weapon_dust(into, Vector3(at.x, global_position.y, at.z), 0.8)
+	_up_roots.clear()
+
+
+## Every peer: its roots let sink back into the ground (cut short).
+func _roots_sink() -> void:
+	for r: Dictionary in _up_roots:
+		var mi := r["n"] as MeshInstance3D
+		if mi == null or not is_instance_valid(mi):
+			continue
+		var tw := mi.create_tween()
+		tw.tween_property(mi, "global_position", mi.global_position + Vector3.DOWN * 0.8, 0.6).set_ease(Tween.EASE_IN)
+		tw.tween_callback(mi.queue_free)
+	_up_roots.clear()
+
+
 ## Host: the shock of its stamp (out from its body, all round).
 func _uproot_wave() -> void:
 	var reach_m := UPROOT_WAVE * visual_scale / 1.6
@@ -1758,6 +1849,7 @@ func _show_uproot() -> void:
 			if _up_lost < 0:
 				_up_lost = Time.get_ticks_msec()
 			elif Time.get_ticks_msec() - _up_lost > 600:
+				_roots_sink()
 				var gone := _rising
 				_rising = null
 				var tw := gone.create_tween()
@@ -1819,10 +1911,9 @@ func _show_uproot() -> void:
 		WindBlast.shake(self, 0.16, 0.6, 20.0)
 		Sfx.play_any(self, [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_3.wav"], self, 0.9, 0.0)
 		Sfx.play_any(self, [SOUNDS + "strain_rise.wav"], self, 0.6, 0.0)
-		# its stamp's shock: the ground split out round its foot
-		for k in 5:
-			var dir := fw.rotated(Vector3.UP, TAU * float(k) / 5.0 + 0.4)
-			GroundCrack.show(self, foot, dir, UPROOT_WAVE * visual_scale / 1.6, crack_speed * 1.4)
+		# its stamp's shock: its tree's roots heave up out of the earth
+		# all round, out along five ways (2026-10-26, the user)
+		_roots_up(into, fw)
 		if _decides() and act == W_UPSTOMP:
 			_uproot_wave()
 			_send(&"net_skin", [1])
@@ -1832,8 +1923,10 @@ func _show_uproot() -> void:
 		return
 	_up_age += get_process_delta_time()
 	var share := _uproot_share() if act == W_UPROOT else 0.0
+	_show_roots(share, way)
 	if act == W_UPROOT and share >= float(way["heave"]) and not _up_torn:
 		_up_torn = true
+		_roots_torn()
 		var into := Blood.world_of(self)
 		if into != null:
 			var at := _rising.global_position
