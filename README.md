@@ -6108,7 +6108,7 @@ deaths):
 | Goblin | x0.65 | club | quick cuts and a kick, darts aside |
 | Ogre | x2.4 | great club | four two-handed strikes, a ground slam |
 | Troll | x1.6 | fists | punches, hook, uppercut, a two-fisted slam, a kick |
-| Ghoul | x0.95 | claws | rake, hook, punches, a fist combo, the bite; darts aside |
+| Ghoul | x0.95 | claws | strings of two claws (jab+claw, swipe+left), the bite, the pounce with a tell; darts aside on all fours |
 | Golem | x1.8 | stone fists | punch, hook, uppercut, slam; hard to hurt |
 | Zombie man / woman | x0.95 | — | rake, bite, fist combo, hook; shambles |
 | Skeleton, skeleton warrior | x0.95 | — / sword and shield | as above |
@@ -6352,6 +6352,66 @@ counts the ghoul among the slower attackers (it darts off between).
   eats, 6 % of its health a second, up to 8 s a corpse (then picked clean);
   the corpse is kept from sinking while it does (`net_hold_corpse`). Struck
   while it feeds, it comes up off it at him.
+
+### The ghoul, round 2: its own moves, on him, lying as dead, venom (2026-10-27, the user's picks from films)
+
+Shown first in films (`_shots_tmp/gh/ghoul_show.gd`, project doc
+`claude/ghoul_goblin_plan.md`), then built in. Clips `CR_GH_*` (Mixamo, from
+vepxis-art/mixamo_lib, baked by `tools/creature_clips.gd`):
+
+- **Strings of two**: up off all fours for a jab and the long claw
+  (`CR_GH_Jab` → `CR_GH_Claw`), or a wide swipe and the left claw
+  (`CR_GH_Swipe` → `CR_GH_LeftClaw`); the second only if he is still there.
+  Its old bite now and then (`bite_chance`). Back off him on all fours: the
+  crawl run played backwards (any peer, read off how it moves).
+- **The pounce with a tell**: down low 0.42 s first (`CR_GH_Crouch`), a
+  shiver, a hiss of spittle, the eyes flash yellow-green (`TELL`), then
+  `CR_GH_Pounce` (Mixamo's mutant jump attack, its 1.6 m jump pressed down
+  to a long low one by moving the body down, `leap_press`, every peer); the
+  clip's own forward travel counted in the leap's speed.
+- **On him** (`PIN`): felled by the pounce, it is on him on the ground
+  (`CR_GH_Pin`, its head kept over his chest), a bite each 0.75 s (35 % of
+  its blow, venom, blood at his throat) up to 6 s. He works free pressing E
+  (lock-on), F or attack fast ([member Player.pin_struggle], shown under a
+  beating E by [PlayerHud]); full, he kicks it off with both feet and springs
+  up (`HX_KickUp`, Mixamo's Inverted Double Kick To Kip Up, baked onto the
+  mannequin by `tools/hero_mixamo_clips.gd` into
+  `assets/anim/heroes/escape_clips.res`, every hero's: `SkinnedRig.ESCAPE_LIB`),
+  untouchable through it, and straight into a cut at it (0.8 s more
+  untouchable). Kicked off it goes onto its back (`CR_GH_Thrown`, 1.5 of its
+  blow) and gets up (`CR_GH_UpBack`). A friend's blow on it knocks it off
+  him. Rpcs: `Player.net_pinned / net_unpinned / net_pin_bite / net_kick_up`,
+  `GhoulFighter.net_kicked / net_bite`.
+- **Lying as dead** (`feign_chance` 0.3, decided at its first thought while
+  unroused): it lies on its belly (`CR_GH_Feign`'s first frame; its body set
+  back over its root, the clip lying 1.2 m ahead), no bars, not lockable
+  (`playing_dead`, [method Player._targetable]); a hero within 4.6 m or a
+  blow: its eyes open, it pushes up off its hands (the clip x3.4) and pounces
+  from there, no tell.
+- **Venom, a bar** ([HeroPoison] rewritten, the user's word): a claw that
+  lands throws in 30 at once and 15 more creep in (6 a second), a bite 8 + 4;
+  the venom eats his health (8 a second when full, less as it is lower) and
+  wears off (7 a second) once nothing has come in for 2.5 s. Seen: drips and
+  a green light on its claws, drops and a haze off him, green veins on him
+  (`assets/fx/poison_veins.gdshader`, laid over his meshes where nothing
+  else is), the venom bar under his health, and on his own screen the edges
+  green with veins creeping in (`assets/fx/poison_vignette.gdshader`).
+- **The frenzy**: its own scream (`CR_GH_Scream`); the air breaks from its
+  mouth three times (`assets/fx/scream_air.gdshader`, bent air with no
+  outline, no ring), its eyes go red (`creature_rgb.gdshader`'s new
+  per-instance `eye_emit` / `eye_tint`, and two glowing points at its eyes
+  found from the mask's eye strips on the mesh), steam off its back.
+- **Feeding**: bent over the corpse biting (`CR_GH_Pin`), blood at its
+  mouth. Two at one corpse quarrel: the newcomer hisses (`CR_GH_Hiss`), the
+  eater rears up (`CR_GH_Alert`), a claw each (`QUARREL_A/B`, the other
+  reeling, `CR_GH_Stumble`), the weaker gives way for 10 s. At its meal it
+  does not see behind it (`feed_unseen` 0.5 m); struck from behind while it
+  eats or quarrels the blow is a critical (x2.5, `net_crit`).
+- **Its death**: `CR_GH_Thrown` (onto its back), then it twitches 2.4 s
+  (bones kicked about over the pose it lies in) and a venom pool spreads
+  under it.
+- Probe: `_shots_tmp/gh/gh_game.gd -- <dir> [strings pounce feign frenzy feast]`
+  (test arena, frames drawn by hand with `RenderingServer.force_draw`).
 
 ### The goblin: round to his back, a thief, a coward, stones and bombs (2026-10-07, the user's picks)
 

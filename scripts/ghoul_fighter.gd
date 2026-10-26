@@ -2,71 +2,152 @@ class_name GhoulFighter
 extends Brawler
 
 ## The ghoul (Polysplit's Biped Creatures, CREATURES_PACK.md): quick and
-## low, it does not stand and trade blows (the user's pick, 2026-10-06).
+## low, it does not stand and trade blows (the user's pick, 2026-10-06). Its
+## own moves since 2026-10-27 (the user's picks from the films, project doc
+## claude/ghoul_goblin_plan.md; the clips CR_GH_*, Mixamo's, in
+## tools/creature_clips.gd):
 ##
-## * **The leap.** From `leap_from` to `leap_to` off, now and then
-##   (`leap_cooldown`), it crouches and springs at him (`CR_Leap`, UAL 2's
-##   NinjaJump start and landing) and comes down on him, body and claws: a
-##   blow that knocks him off his feet. The spring is sized to the gap.
-## * **Hit and run.** After a swing it mostly (`dart_chance`) scuttles off a
-##   few steps sideways and back, facing him (`dart_time`), and comes again,
-##   at a run or with a leap.
-## * Its swings are quick claws and a bite ([Brawler] attacks).
-## * **Poisoned claws** (the user's pick, 2026-10-07): a blow of its that
-##   reaches him, not on his guard, leaves a stack of poison in him
-##   ([HeroPoison], `poison_time` s of `poison_dps`, up to three).
+## * **On all fours, up for the claws.** It comes at a run on all fours
+##   (`run_clip`), rears up close and throws a string of two: a jab and the
+##   long claw, or a wide swipe and the left claw (`_combos`). Off him after
+##   it mostly (`dart_chance`) it scuttles back and aside on all fours, the
+##   crawl run backwards, facing him, and comes again.
+## * **The pounce, with a tell.** From `leap_from` to `leap_to` off, now and
+##   then (`leap_cooldown`), it first drops low a beat (`tell_time`: a
+##   shiver, a hiss, its eyes flash) and then springs (`CR_GH_Pounce`, the
+##   clip's high jump pressed down to a long low one, `leap_press`): it
+##   comes down on him and knocks him off his feet.
+## * **On him.** Felled by the pounce, it is on him on the ground biting
+##   (`PIN`, his neck, `pin_bite_every`), venom with each bite, until he
+##   kicks it off (pressing the key fast: [method Player.net_pinned]), a
+##   friend strikes it off him, or `pin_most` runs out. Kicked or struck off
+##   it goes over onto its back and gets up again.
+## * **Lying as dead.** Some lie among the dead as if dead (`feign_chance`),
+##   nothing to lock on to, no bar over them, until a hero comes within
+##   `feign_range` (or strikes one): its eyes open, it pushes up off its
+##   hands and springs at him from there, no tell, no standing up between.
+## * **Venomed claws.** Green drips off its claws; a blow of its that reaches
+##   him, not on his guard, throws venom into him ([HeroPoison], a bar).
 ## * **The scream and the frenzy.** Cut under `frenzy_at` of its health it
-##   stops, throws its head back and screams (`scream_clip`), and from then
-##   on is in a frenzy: faster on its feet and in its swings
-##   (`frenzy_pace`), hardly a breath between them, no more running off
-##   between them, and a blow no longer stops it (no knock-down, no flinch
-##   clip); a red glow on it.
+##   screams (its own scream): the air breaks from its mouth (no ring), its
+##   eyes go red, steam comes off it; from then on it is faster on its feet
+##   and in its swings (`frenzy_pace`), hardly a breath between them, no more
+##   running off, and a blow no longer stops it; a red glow on it.
 ## * **Feeding.** A corpse within `feed_range` while it is hurt and he is not
-##   close (or it is not roused): it goes to it, crouches over it and eats
-##   (`feed_clip`), `feed_heal` of its health a second, the corpse kept from
-##   sinking while it does. A blow while it feeds and it comes up off it
-##   enraged.
+##   close (or it is not roused): it bends over it and eats, health back
+##   (`feed_heal`), blood at its mouth. Two at one corpse quarrel over it: a
+##   hiss, a claw each, the weaker gives way. Struck from behind while it eats
+##   or quarrels, the blow is a critical (`crit_mult`).
+## * **Its death.** It goes over onto its back, twitches a while, and lies
+##   still; a pool of venom spreads under it.
 
 @export_group("Ghoul")
-@export var leap_clip: StringName = &"CR_Leap"
-## [rate, from, to] of the leap clip, and the share of the clip it lands at.
-@export var leap_part: Vector3 = Vector3(1.25, 0.1, 0.62)
-@export var leap_land: float = 0.44
+@export var leap_clip: StringName = &"CR_GH_Pounce"
+## [rate, from, to] of the pounce, and the share of its clip it lands at.
+@export var leap_part: Vector3 = Vector3(1.35, 0.035, 1.0)
+@export var leap_land: float = 0.655
 @export var leap_from: float = 3.2
 @export var leap_to: float = 8.0
 @export var leap_cooldown: float = 3.5
+## The clip's jump is high (1.6 m): the body drawn down by this share of its
+## rise above standing, so it reads as a long low pounce.
+@export var leap_press: float = 0.55
 ## What lands: its whole body thrown onto him, and its claws.
 @export var leap_limbs: String = "pelvis_joint>head_joint:0.32|L_elbow_joint>L_midFinger_joint3:0.14|R_elbow_joint>R_midFinger_joint3:0.14"
-## How far short of him it means to come down (it comes down on him: the
-## two bodies stop it there).
-@export var leap_short: float = 0.5
+## How far short of him it means to come down.
+@export var leap_short: float = 0.75
+## The tell before it springs: down low this long.
+@export var tell_clip: StringName = &"CR_GH_Crouch"
+@export var tell_time: float = 0.42
 @export_range(0.0, 1.0) var dart_chance: float = 0.7
 @export var dart_time: Vector2 = Vector2(0.6, 1.1)
 @export var dart_speed: float = 4.2
 
-@export_group("Poison")
-@export var poison_time: float = 6.0
-@export var poison_dps: float = 2.5
+@export_group("Claw strings")
+## Each string: [clip, rate, from, to] twice, the two blows of it.
+@export var string_limbs: PackedStringArray = PackedStringArray([
+	"R_elbow_joint>R_midFinger_joint3:0.12",
+	"L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12",
+	"L_elbow_joint>L_midFinger_joint3:0.12|R_elbow_joint>R_midFinger_joint3:0.12",
+	"L_elbow_joint>L_midFinger_joint3:0.13"])
+## How often it bites instead (its old bite, `attacks`).
+@export_range(0.0, 1.0) var bite_chance: float = 0.2
+
+@export_group("On him")
+@export var pin_clip: StringName = &"CR_GH_Pin"
+@export var pin_most: float = 6.0
+@export var pin_bite_every: float = 0.75
+## A bite's share of `hit_damage`.
+@export var pin_bite_share: float = 0.35
+@export var thrown_clip: StringName = &"CR_GH_Thrown"
+@export var up_clip: StringName = &"CR_GH_UpBack"
+## Kicked off him: its share of `hit_damage` taken, as a blow.
+@export var kicked_share: float = 1.5
+
+@export_group("Lying as dead")
+@export_range(0.0, 1.0) var feign_chance: float = 0.3
+@export var feign_range: float = 4.6
+@export var feign_clip: StringName = &"CR_GH_Feign"
+## Up off its belly: [rate, from, to] of the clip.
+@export var spring_part: Vector3 = Vector3(3.4, 0.46, 1.0)
+
+@export_group("Venom")
+## Venom thrown into him by a claw that lands, and how much more creeps in.
+@export var venom_hit: float = 30.0
+@export var venom_creep: float = 15.0
+@export var venom_bite: float = 8.0
+@export var venom_bite_creep: float = 4.0
 
 @export_group("Frenzy")
 @export_range(0.0, 1.0) var frenzy_at: float = 0.45
-@export var scream_clip: StringName = &"CR_Transform"
-@export var scream_part: Vector3 = Vector3(1.15, 0.0, 0.9)
+@export var scream_clip: StringName = &"CR_GH_Scream"
+@export var scream_part: Vector3 = Vector3(1.0, 0.0, 1.0)
 @export var frenzy_pace: float = 1.3
 @export var frenzy_glow: Color = Color(1.0, 0.12, 0.05)
+## When the scream's breath leaves its mouth (s into the scream).
+@export var scream_bursts: PackedFloat32Array = PackedFloat32Array([0.62, 0.9, 1.18])
 
 @export_group("Feeding")
 @export var feed_range: float = 14.0
-@export var feed_clip: StringName = &"CR_Harvest"
-@export var feed_part: Vector3 = Vector3(0.9, 0.22, 0.72)
+@export var feed_clip: StringName = &"CR_GH_Pin"
+@export var feed_part: Vector3 = Vector3(1.0, 0.0, 1.0)
 @export var feed_heal: float = 0.06
 @export var feed_most: float = 8.0
 ## Feeds while roused only with him further off than this.
 @export var feed_while_far: float = 9.0
+## A blow from behind while it eats or quarrels, this many times as deep.
+@export var crit_mult: float = 2.5
+## Bent over its meal, how close he can come at its back before it knows.
+@export var feed_unseen: float = 0.5
+
+@export_group("Death")
+@export var twitch_after: float = 2.4
+@export var twitch_time: float = 2.4
+@export var death_pool: float = 0.85
 
 const LEAP := 96
 const SCREAM := 103
 const FEED := 104
+const TELL := 130
+const JAB := 131
+const CLAW := 132
+const SWIPE := 133
+const LEFT := 134
+const PIN := 135
+const THROWN := 136
+const UP := 137
+const LIE := 138
+const SPRING := 139
+const HISS := 140
+const QUARREL_A := 141
+const QUARREL_B := 142
+const STUMBLE := 143
+const ALERT := 144
+## The two strings: first blow, second.
+const STRINGS := [[JAB, CLAW], [SWIPE, LEFT]]
+## Where it is open to a critical from behind.
+const DISTRACTED := [FEED, HISS, QUARREL_A, QUARREL_B, STUMBLE, ALERT]
+const EYE_TELL := Color(0.85, 1.0, 0.35)
 
 var frenzied: bool = false
 var _corpse: Node3D = null
@@ -78,6 +159,32 @@ var _leap_wait: float = 1.0
 var _leap_speed: float = 0.0
 var _dart_left: float = 0.0
 var _dart_side: float = 1.0
+var _string_next: int = -1
+
+var _pinned: Node3D = null
+var _pin_left: float = 0.0
+var _bite_in: float = 0.0
+var _pin_want: Node3D = null
+
+var _feign_asked: bool = false
+var _feigning: bool = false
+var _feign_shift: Vector3 = Vector3.ZERO
+var _feign_shifted: bool = false
+var _pressed: bool = false
+## Every peer: lying as dead now (nothing for a hero to lock on to:
+## [method Player._targetable]).
+var playing_dead: bool = false
+
+var _rival: GhoulFighter = null
+var _shunned: Node3D = null
+var _shun_left: float = 0.0
+var _quarrel_hit: bool = false
+
+var _sparks: Array[MeshInstance3D] = []
+var _eye_left: float = 0.0
+var _twitch_at: float = -1.0
+var _twitch_base: Dictionary = {}
+var _twitch_kick: Dictionary = {}
 
 
 func _ready() -> void:
@@ -89,6 +196,36 @@ func _ready() -> void:
 	_strikes_table[LEAP] = [s[0], s[1], 1.3, 1, 0.6, PackedFloat32Array([leap_land])]
 	_moves_table[SCREAM] = [scream_clip, scream_part.x, scream_part.y, scream_part.z]
 	_moves_table[FEED] = [feed_clip, feed_part.x, feed_part.y, feed_part.z]
+	# its claw strings (shares of each clip: past the wind-up of the first,
+	# short of the long settle of the last)
+	var clip_len := func(clip: StringName, fallback: float) -> float:
+		return _anim.clip_length(clip) if _anim != null and _anim.has_clip(clip) else fallback
+	_moves_table[JAB] = [&"CR_GH_Jab", 1.25, 0.05, 0.82]
+	_moves_table[CLAW] = [&"CR_GH_Claw", 1.3, 0.14, 0.46]
+	_moves_table[SWIPE] = [&"CR_GH_Swipe", 1.3, 0.095, 0.51]
+	_moves_table[LEFT] = [&"CR_GH_LeftClaw", 1.35, 0.26, 0.71]
+	for i in 4:
+		_own_limb(JAB + i, string_limbs[i] if i < string_limbs.size() else "")
+		_moment_at_reach(JAB + i)
+		# its claws do not fell him (the acts are numbered past BIG_BASE, which
+		# would count each as a felling blow): `blows_to_fell` as its bite
+		var st: Array = _strikes_table[JAB + i]
+		st[3] = maxi(blows_to_fell, 1)
+	_moves_table[TELL] = [tell_clip, 1.0, 0.0, tell_time / maxf(clip_len.call(tell_clip, 2.5), 0.1)]
+	_moves_table[PIN] = [pin_clip, 1.25, 0.0, 1.0]
+	_moves_table[THROWN] = [thrown_clip, 1.4, 0.18, 0.75]
+	_moves_table[UP] = [up_clip, 1.4, 0.1, 1.0]
+	# lying as dead: the clip's first frame held (played a hair at a time)
+	_moves_table[LIE] = [feign_clip, 0.001, 0.0, 0.001]
+	_moves_table[SPRING] = [feign_clip, spring_part.x, spring_part.y, spring_part.z]
+	_moves_table[HISS] = [&"CR_GH_Hiss", 1.3, 0.0, 1.0]
+	_moves_table[QUARREL_A] = [&"CR_GH_Swipe", 1.35, 0.095, 0.51]
+	_moves_table[QUARREL_B] = [&"CR_GH_LeftClaw", 1.4, 0.26, 0.71]
+	_moves_table[STUMBLE] = [&"CR_GH_Stumble", 1.3, 0.0, 0.8]
+	_moves_table[ALERT] = [&"CR_GH_Alert", 1.3, 0.0, 1.0]
+	add_to_group(&"ghouls")
+	_claw_drips()
+	_make_sparks()
 
 
 func _leaps() -> Array:
@@ -97,11 +234,34 @@ func _leaps() -> Array:
 
 func _think(delta: float) -> void:
 	_leap_wait = maxf(_leap_wait - delta, 0.0)
+	_shun_left = maxf(_shun_left - delta, 0.0)
 	if is_dead:
 		super(delta)
 		return
+	if not _feign_asked:
+		_feign_asked = true
+		if mode == Mode.GUARD and _rng.randf() < feign_chance:
+			_feigning = true
+			_begin(LIE)
+			return
+	if act == LIE:
+		_lying(delta)
+		return
+	if act == PIN:
+		_pinning(delta)
+		return
+	if act == LEAP and _pin_want != null and _act_time > _blow_moments(LEAP)[0] + 0.15:
+		if _try_pin(_pin_want):
+			return
 	if act == FEED:
 		_feeding(delta)
+		return
+	if act in [TELL, SPRING, THROWN, UP, HISS, QUARREL_A, QUARREL_B, STUMBLE, ALERT]:
+		velocity.x = move_toward(velocity.x, 0.0, acceleration * 4.0 * delta) if act == TELL else velocity.x
+		velocity.z = move_toward(velocity.z, 0.0, acceleration * 4.0 * delta) if act == TELL else velocity.z
+		if (act == QUARREL_A or act == QUARREL_B) and not _quarrel_hit and _act_time >= _quarrel_moment():
+			_quarrel_hit = true
+			_claw_rival()
 		return
 	if act != Act.NONE or mode == Mode.RETURN:
 		super(delta)
@@ -139,15 +299,37 @@ func _think(delta: float) -> void:
 			and stamina >= attack_cost:
 		mode = Mode.FIGHT
 		_face(to, 1.0, 50.0)
-		_leap(gap)
+		velocity.x = 0.0
+		velocity.z = 0.0
+		_begin(TELL)
 		return
 	super(delta)
+
+
+## A string of two claws, or now and then its bite.
+func _begin_attack() -> void:
+	if _quarry_down() or _quarry == null:
+		_cooldown = maxf(_cooldown, 0.15)
+		return
+	var gap := _distance_to(_quarry)
+	if gap > strike_off + 0.5:
+		_move_towards(_quarry.global_position, chase_speed, get_physics_process_delta_time())
+		return
+	if not attacks.is_empty() and _rng.randf() < bite_chance:
+		super()
+		return
+	var string: Array = STRINGS[_rng.randi() % STRINGS.size()]
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	_string_next = string[1]
+	_begin(string[0])
 
 
 func _leap(gap: float) -> void:
 	_begin(LEAP)
 	var until := _blow_moments(LEAP)[0]
-	_leap_speed = maxf(gap - leap_short, 0.0) / maxf(until, 0.2)
+	# the clip carries it forward too: only the rest of the way is added
+	var travel := _hips(leap_clip, _clip_time(LEAP, until)).x - _hips(leap_clip, _clip_time(LEAP, 0.0)).x
+	_leap_speed = maxf(gap - leap_short - travel, 0.0) / maxf(until, 0.2)
 
 
 func _extra_velocity(delta: float) -> Vector3:
@@ -155,30 +337,474 @@ func _extra_velocity(delta: float) -> Vector3:
 		if _act_time <= _blow_moments(LEAP)[0]:
 			return _forward() * _leap_speed
 		return Vector3.ZERO
+	if act in [PIN, LIE, SPRING, THROWN, UP, TELL, HISS, QUARREL_A, QUARREL_B, STUMBLE, ALERT]:
+		return Vector3.ZERO
 	return super(delta)
 
 
 func _after(what: int) -> void:
+	match what:
+		TELL:
+			var q := _pick_quarry()
+			if q != null and not _quarry_down():
+				_quarry = q
+				var to := q.global_position - global_position
+				to.y = 0.0
+				_face(to, 1.0, 50.0)
+				_leap(to.length())
+				return
+			_start(Act.NONE)
+			return
+		LIE:
+			_begin(LIE)
+			return
+		SPRING:
+			_feigning = false
+			var q := _pick_quarry()
+			if q != null:
+				_quarry = q
+				var to := q.global_position - global_position
+				to.y = 0.0
+				_face(to, 1.0, 50.0)
+				_leap(to.length())
+				return
+			_start(Act.NONE)
+			return
+		PIN:
+			if _pinned != null:
+				_begin(PIN)
+				return
+		THROWN:
+			_begin(UP)
+			return
+		HISS:
+			if _rival != null and is_instance_valid(_rival) and not _rival.is_dead:
+				_face(_rival.global_position - global_position, 1.0, 50.0)
+				_quarrel_hit = false
+				_begin(QUARREL_A)
+				return
+		QUARREL_A, QUARREL_B, STUMBLE, ALERT:
+			_end_quarrel(what)
+			return
 	if what == LEAP:
 		_leap_wait = leap_cooldown * (0.5 if frenzied else 1.0)
+		_pin_want = null
 	if what == SCREAM and not frenzied:
 		_send_frenzy()
-	if _strikes_table.has(what) and not frenzied and _rng.randf() < dart_chance:
+	# the second blow of the string, if he is still there for it
+	if (what == JAB or what == SWIPE) and _string_next >= 0 and _quarry != null and not _quarry_down() \
+			and _distance_to(_quarry) <= strike_off + 0.9:
+		var next := _string_next
+		_string_next = -1
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+		_begin(next)
+		return
+	_string_next = -1
+	if _strikes_table.has(what) and what != JAB and what != SWIPE and not frenzied and _rng.randf() < dart_chance:
 		_dart_left = _rng.randf_range(dart_time.x, dart_time.y)
 		_dart_side = 1.0 if _rng.randf() < 0.5 else -1.0
 	super(what)
 
 
+## Off him backwards on all fours: the crawl run played back to front (every
+## peer: read off how it moves, the way it faces).
+func _play_locomotion(delta: float) -> void:
+	var planar := Vector3(velocity.x, 0.0, velocity.z)
+	if planar.dot(_forward()) < -1.5 and _anim != null and _anim.has_clip(run_clip):
+		var rate := gait_rate(run_clip, planar.length())
+		_anim.play(run_clip, 0.2, rate)
+		_anim.rewind(rate)
+		return
+	super(delta)
 
-#region Poison
-func _blow_reached(who: Node3D, _what: int) -> void:
+
+#region Venom
+func _blow_reached(who: Node3D, what: int) -> void:
 	if is_dead or who == null:
 		return
+	if what == LEAP:
+		_pin_want = who
 	if bool(who.get("net_blocking")) or bool(who.get("is_blocking")):
 		return
 	var poison := HeroPoison.of(who)
 	if poison != null:
-		poison.apply(poison_time, poison_dps)
+		poison.apply_venom(venom_hit, venom_creep)
+
+
+## Every peer: green drips off both hands' claws, and a faint green light.
+func _claw_drips() -> void:
+	if _skeleton == null:
+		return
+	for bone: String in ["L_midFinger_joint3", "R_midFinger_joint3"]:
+		if _skeleton.find_bone(bone) < 0:
+			continue
+		var at := BoneAttachment3D.new()
+		at.bone_name = bone
+		_skeleton.add_child(at)
+		var p := _particles(Color(0.45, 1.0, 0.2, 0.95), 14, 0.7, 0.045, Vector3(0, -9.8, 0))
+		var pm := p.process_material as ParticleProcessMaterial
+		pm.direction = Vector3.DOWN
+		pm.spread = 25.0
+		pm.initial_velocity_min = 0.2
+		pm.initial_velocity_max = 0.6
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		pm.emission_sphere_radius = 0.05
+		p.emitting = true
+		at.add_child(p)
+		var l := OmniLight3D.new()
+		l.light_color = Color(0.4, 1.0, 0.2)
+		l.light_energy = 0.4
+		l.omni_range = 0.7
+		l.shadow_enabled = false
+		at.add_child(l)
+#endregion
+
+
+#region On him
+## Host: on him where he lies, if he lies there and no other ghoul has him.
+func _try_pin(who: Node3D) -> bool:
+	_pin_want = null
+	if not (who is Player) or not is_instance_valid(who) or bool(who.get("is_dead")):
+		return false
+	if (who as Player).state != Player.State.DOWNED:
+		return false
+	for node in get_tree().get_nodes_in_group(&"ghouls"):
+		var other := node as GhoulFighter
+		if other != null and other != self and other._pinned == who:
+			return false
+	_pinned = who
+	_pin_left = pin_most
+	_bite_in = pin_bite_every * 0.6
+	add_collision_exception_with(who as PhysicsBody3D)
+	_begin(PIN)
+	_send_pin(who, true)
+	return true
+
+
+func _send_pin(who: Node3D, on: bool) -> void:
+	if who == null or not is_instance_valid(who):
+		return
+	var method := &"net_pinned" if on else &"net_unpinned"
+	if not who.has_method(method):
+		return
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		if on:
+			who.rpc_id(who.get_multiplayer_authority(), method, get_path())
+		else:
+			who.rpc_id(who.get_multiplayer_authority(), method)
+	else:
+		if on:
+			who.call(method, get_path())
+		else:
+			who.call(method)
+
+
+## Host, each tick on him: its head kept over his chest, a bite now and then.
+func _pinning(delta: float) -> void:
+	var who := _pinned
+	if who == null or not is_instance_valid(who) or bool(who.get("is_dead")):
+		_let_go(false)
+		return
+	_pin_left -= delta
+	if _pin_left <= 0.0:
+		_let_go(true)
+		return
+	var chest := _bone_of(who, &"spine_03", who.global_position + Vector3.UP * 0.3)
+	var head := _head_point()
+	var d := chest - head
+	d.y = 0.0
+	var v := d / maxf(delta, 0.001) * 0.35
+	v = v.limit_length(4.0)
+	velocity.x = v.x
+	velocity.z = v.z
+	_bite_in -= delta
+	if _bite_in > 0.0:
+		return
+	_bite_in = pin_bite_every
+	var dmg := hit_damage * pin_bite_share * (frenzy_pace if frenzied else 1.0)
+	if who.has_method(&"net_pin_bite"):
+		if multiplayer.has_multiplayer_peer():
+			who.rpc_id(who.get_multiplayer_authority(), &"net_pin_bite", dmg)
+		else:
+			who.call(&"net_pin_bite", dmg)
+	var poison := HeroPoison.of(who)
+	if poison != null:
+		poison.apply_venom(venom_bite, venom_bite_creep)
+	var neck := _bone_of(who, &"neck_01", chest + Vector3.UP * 0.2)
+	if multiplayer.has_multiplayer_peer():
+		net_bite.rpc(neck)
+	else:
+		net_bite(neck)
+
+
+## Every peer: a bite on him, blood at his throat.
+@rpc("authority", "call_local", "unreliable")
+func net_bite(at: Vector3) -> void:
+	Blood.spill(Blood.world_of(self), at, Vector3(0.0, 0.4, 0.0) - _forward() * 0.5, null, 0.5)
+
+
+## Host: off him. `away`: of itself (it scuttles off).
+func _let_go(away: bool) -> void:
+	var who := _pinned
+	_pinned = null
+	if who != null and is_instance_valid(who):
+		remove_collision_exception_with(who as PhysicsBody3D)
+		_send_pin(who, false)
+	_start(Act.NONE)
+	if away and not is_dead:
+		_dart_left = dart_time.y
+		_dart_side = 1.0 if _rng.randf() < 0.5 else -1.0
+
+
+## Host: kicked off him (he pressed it off, [method Player.net_pinned]):
+## thrown onto its back away from him, and up again.
+@rpc("any_peer", "call_local", "reliable")
+func net_kicked(hero: NodePath) -> void:
+	if not _decides() or is_dead:
+		return
+	var who := get_node_or_null(hero) as Node3D
+	if who == null or who != _pinned:
+		return
+	_pinned = null
+	remove_collision_exception_with(who as PhysicsBody3D)
+	_thrown_off(who, hit_damage * kicked_share)
+
+
+## Host: struck or kicked off whoever it was on, over onto its back.
+func _thrown_off(from: Node3D, damage: float) -> void:
+	var to := from.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() > 0.0001:
+		_face(to, 1.0, 50.0)
+	if damage > 0.0:
+		health = maxf(health - damage, 1.0)
+		net_bleed.rpc(_head_point(), -to.normalized() + Vector3.UP * 0.5)
+	_begin(THROWN)
+
+
+func _head_point() -> Vector3:
+	if _skeleton != null:
+		var i := _skeleton.find_bone("head_joint")
+		if i >= 0:
+			return _skeleton.global_transform * _skeleton.get_bone_global_pose(i).origin
+	return global_position + Vector3.UP * 1.0
+
+
+static func _bone_of(who: Node3D, bone: StringName, fallback: Vector3) -> Vector3:
+	var rig := who.get(&"rig") as Node
+	if rig != null and rig.has_method(&"bone_position"):
+		return rig.call(&"bone_position", bone)
+	return fallback
+#endregion
+
+
+#region Lying as dead
+## Host, lying there: up and at a hero who comes close.
+func _lying(_delta: float) -> void:
+	velocity.x = 0.0
+	velocity.z = 0.0
+	var q := _pick_quarry()
+	if q == null or _distance_to(q) > feign_range:
+		return
+	_quarry = q
+	_rouse(q)
+	_face(q.global_position - global_position, 1.0, 50.0)
+	_begin(SPRING)
+
+
+## Every peer, while it lies or springs up: its body put back over where it
+## is (the clip lies 1.2 m ahead of its root, as Mixamo gave it); its bars
+## kept away and nothing to lock on to.
+func _feign_look() -> void:
+	var lying := act == LIE or act == SPRING
+	if _health_bar != null:
+		_health_bar.visible = act != LIE and not is_dead
+	if _stamina_bar != null:
+		_stamina_bar.visible = act != LIE and not is_dead
+	playing_dead = act == LIE
+	if body == null:
+		return
+	if lying and not _feign_shifted and _skeleton != null:
+		var i := _skeleton.find_bone("pelvis_joint")
+		if i < 0:
+			return
+		var pel := _skeleton.global_transform * _skeleton.get_bone_global_pose(i).origin
+		var off := pel - global_position
+		off.y = 0.0
+		if off.length() < 0.4:
+			return  # the lying pose not on it yet
+		_feign_shift = global_basis.inverse() * off
+		_feign_shift.y = 0.0
+		body.position -= _feign_shift
+		_feign_shifted = true
+	elif not lying and _feign_shifted:
+		body.position += _feign_shift
+		_feign_shifted = false
+#endregion
+
+
+#region The pounce, seen
+## Every peer: the tell (a hiss, the eyes flash); the scream's breath and its
+## eyes going red.
+func _play_act() -> void:
+	super()
+	match act:
+		TELL:
+			_hiss()
+			_set_eyes(EYE_TELL, 2.5)
+			_eye_left = tell_time + 0.05
+		SPRING:
+			_set_eyes(EYE_TELL, 3.0)
+			_eye_left = 0.35
+		SCREAM:
+			_scream_fx()
+
+
+## Every peer: the pounce pressed down, the tell's shiver.
+func _pounce_look(delta: float) -> void:
+	if body == null or _skeleton == null:
+		return
+	var s := maxf(visual_scale, 0.01)
+	if act == LEAP:
+		var i := _skeleton.find_bone("pelvis_joint")
+		if i >= 0:
+			var pel := (_skeleton.global_transform * _skeleton.get_bone_global_pose(i).origin).y \
+					- body.global_position.y
+			body.position.y = _body_rest_y - leap_press * maxf(pel - 0.93 * s, 0.0)
+			_pressed = true
+	elif _pressed and not is_dead:
+		body.position.y = _body_rest_y
+		_pressed = false
+	if act == TELL and not is_dead:
+		var j := Vector3(_rng.randf_range(-1, 1), 0.0, _rng.randf_range(-1, 1)) * 0.022 * s
+		body.position.x = j.x - (_feign_shift.x if _feign_shifted else 0.0)
+		body.position.z = j.z - (_feign_shift.z if _feign_shifted else 0.0)
+	if _eye_left > 0.0:
+		_eye_left -= delta
+		if _eye_left <= 0.0 and not frenzied:
+			_set_eyes(Color.BLACK, 0.0)
+			if not _feign_shifted:
+				body.position.x = 0.0
+				body.position.z = 0.0
+
+
+## A hiss: a breath of grey spittle out of its mouth.
+func _hiss() -> void:
+	var p := _particles(Color(0.85, 0.9, 0.8, 0.55), 14, 0.5, 0.09, Vector3(0, -0.5, 0))
+	var pm := p.process_material as ParticleProcessMaterial
+	pm.direction = Vector3(0, 0, -1)
+	pm.spread = 22.0
+	pm.initial_velocity_min = 1.0
+	pm.initial_velocity_max = 2.0
+	p.one_shot = true
+	p.explosiveness = 0.3
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	into.add_child(p)
+	p.global_position = _head_point() + _forward() * 0.2
+	p.global_rotation.y = global_rotation.y
+	p.emitting = true
+	p.finished.connect(p.queue_free)
+#endregion
+
+
+#region Eyes
+## Its eyes lit (`energy` 0: as they are): the eye strips of its own shader
+## ([code]eye_emit[/code], [code]eye_tint[/code]) and two glowing points where
+## they are, so the glow reads from afar.
+func _set_eyes(colour: Color, energy: float) -> void:
+	if body != null:
+		for node in body.find_children("*", "MeshInstance3D", true, false):
+			var mi := node as MeshInstance3D
+			var mat := mi.get_active_material(0) as ShaderMaterial
+			if mat == null or mat.shader != PackCreature.SHADER:
+				continue
+			mi.set_instance_shader_parameter(&"eye_emit", Vector3(colour.r, colour.g, colour.b) * energy)
+			mi.set_instance_shader_parameter(&"eye_tint",
+					Vector3(colour.r, colour.g, colour.b) if energy > 0.0 else Vector3(-1, -1, -1))
+	for m in _sparks:
+		if not is_instance_valid(m):
+			continue
+		var spark := m.material_override as StandardMaterial3D
+		spark.albedo_color = Color(colour.r, colour.g, colour.b, clampf(energy / 3.0, 0.0, 1.0))
+		m.visible = energy > 0.01
+
+
+## The eyes' middles, in the head bone's frame: the body mesh's vertices the
+## mask's eye strips cover (creature_rgb.gdshader), from the skin's bind of
+## the head, split left and right. Measured once per mesh.
+static var _eye_cache: Dictionary = {}
+
+
+func _make_sparks() -> void:
+	if body == null or _skeleton == null:
+		return
+	var head := _skeleton.find_bone("head_joint")
+	if head < 0:
+		return
+	var points: Array = []
+	for node in body.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.mesh == null or mi.skin == null:
+			continue
+		var key := mi.mesh.get_rid().get_id()
+		if not _eye_cache.has(key):
+			_eye_cache[key] = _eye_points(mi)
+		points.append_array(_eye_cache[key])
+	for p: Vector3 in points:
+		var at := BoneAttachment3D.new()
+		at.bone_name = "head_joint"
+		_skeleton.add_child(at)
+		var m := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(0.11, 0.11)
+		m.mesh = q
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mat.albedo_texture = SkillFx.dot()
+		m.material_override = mat
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		m.visible = false
+		at.add_child(m)
+		m.position = p
+		_sparks.append(m)
+
+
+static func _eye_points(mi: MeshInstance3D) -> Array:
+	var bind := -1
+	for b in mi.skin.get_bind_count():
+		if String(mi.skin.get_bind_name(b)) == "head_joint":
+			bind = b
+			break
+	if bind < 0:
+		return []
+	var to_head := mi.skin.get_bind_pose(bind)
+	var sums := [Vector3.ZERO, Vector3.ZERO]
+	var counts := [0, 0]
+	for si in mi.mesh.get_surface_count():
+		var arr := mi.mesh.surface_get_arrays(si)
+		var uvs: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV]
+		var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var norms: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		if uvs.size() != verts.size():
+			continue
+		for i in verts.size():
+			var u := Vector2(uvs[i].x, 1.0 - uvs[i].y)
+			if absf(u.x - 0.75) >= 0.245 or (absf(u.y - 0.4325) >= 0.0125 and absf(u.y - 0.325) >= 0.0125):
+				continue
+			var out := norms[i] * 0.03 if norms.size() == verts.size() else Vector3.ZERO
+			var side := 0 if verts[i].x > 0.0 else 1
+			sums[side] += verts[i] + out
+			counts[side] += 1
+	var points: Array = []
+	for k in 2:
+		if int(counts[k]) > 0:
+			points.append(to_head * ((sums[k] as Vector3) / float(counts[k])))
+	return points
 #endregion
 
 
@@ -203,11 +829,90 @@ func net_frenzy() -> void:
 	attack_cooldown *= 0.35
 	stamina_regen *= 2.0
 	for what: int in _moves_table:
-		if what != SCREAM and what != FEED and what != ROAR:
+		if not what in [SCREAM, FEED, ROAR, LIE, PIN, HISS]:
 			var m: Array = (_moves_table[what] as Array).duplicate()
 			m[1] = float(m[1]) * frenzy_pace
 			_moves_table[what] = m
+	_set_eyes(Color(1.0, 0.06, 0.02), 3.0)
 	_glow_on()
+
+
+## Every peer, as it screams: its eyes go red, the air breaks from its mouth
+## in waves, steam comes off it.
+func _scream_fx() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.create_timer(0.55).timeout.connect(_scream_eyes)
+	for t in scream_bursts:
+		tree.create_timer(t).timeout.connect(_air_burst)
+
+
+func _scream_eyes() -> void:
+	if is_dead:
+		return
+	_set_eyes(Color(1.0, 0.06, 0.02), 3.0)
+	_steam()
+
+
+## A ball of bent air out of its mouth, swelling and gone (no ring).
+func _air_burst() -> void:
+	if is_dead:
+		return
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.5
+	s.height = 1.0
+	s.radial_segments = 32
+	s.rings = 16
+	mi.mesh = s
+	var m := ShaderMaterial.new()
+	m.shader = load(SCREAM_AIR)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	into.add_child(mi)
+	var fw := _forward()
+	var at := _head_point() + fw * 0.3 + Vector3.UP * 0.05
+	mi.global_position = at
+	var tw := mi.create_tween()
+	tw.tween_method(func(u: float) -> void:
+		mi.scale = Vector3.ONE * lerpf(0.3, 4.2, 1.0 - pow(1.0 - u, 2.5))
+		mi.global_position = at + fw * u * 1.2
+		m.set_shader_parameter(&"life", u), 0.0, 1.0, 0.53)
+	tw.tween_callback(mi.queue_free)
+
+const SCREAM_AIR := "res://assets/fx/scream_air.gdshader"
+
+
+## Steam rising off its back and head from now on.
+func _steam() -> void:
+	if _skeleton == null:
+		return
+	for bone: String in ["chest_joint", "L_shoulder_joint", "R_shoulder_joint", "head_joint"]:
+		if _skeleton.find_bone(bone) < 0:
+			continue
+		var at := BoneAttachment3D.new()
+		at.bone_name = bone
+		_skeleton.add_child(at)
+		var p := _particles(Color(0.75, 0.72, 0.72, 0.2), 14, 1.3, 0.28, Vector3(0, 1.2, 0))
+		var pm := p.process_material as ParticleProcessMaterial
+		pm.direction = Vector3.UP
+		pm.spread = 20.0
+		pm.initial_velocity_min = 0.2
+		pm.initial_velocity_max = 0.5
+		pm.scale_min = 0.5
+		pm.scale_max = 1.6
+		var grow := Curve.new()
+		grow.add_point(Vector2(0, 0.4))
+		grow.add_point(Vector2(1, 1.6))
+		var ct := CurveTexture.new()
+		ct.curve = grow
+		pm.scale_curve = ct
+		p.emitting = true
+		at.add_child(p)
 
 
 func _glow_on() -> void:
@@ -227,9 +932,6 @@ func _glow_on() -> void:
 	_glow_light.shadow_enabled = false
 	add_child(_glow_light)
 	_glow_light.position = Vector3.UP * 1.4 * visual_scale
-	var into := Blood.world_of(self)
-	SkillFx.ring(into, global_position + Vector3.UP * 1.3 * visual_scale, Vector3.UP, frenzy_glow, 0.3, 3.4,
-			0.45, 0.03, 2.5)
 
 
 ## In its frenzy a blow no longer throws it about, nor do fire and poison
@@ -239,11 +941,16 @@ func react(kind: StringName, from: Node3D = null, push: Vector3 = Vector3.ZERO) 
 		if from != null and is_instance_valid(from) and _decides():
 			_rouse(from)
 		return
+	if act in [PIN, LIE, SPRING, THROWN, UP]:
+		return
 	super(kind, from, push)
 
 
 func _process(delta: float) -> void:
 	super(delta)
+	_feign_look()
+	_pounce_look(delta)
+	_twitching(delta)
 	if _glow != null:
 		var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)
 		_glow.albedo_color.a = 0.14 + 0.14 * beat
@@ -252,11 +959,67 @@ func _process(delta: float) -> void:
 		if is_dead:
 			_glow.albedo_color.a = 0.0
 			_glow_light.light_energy = 0.0
+	if act == FEED and not is_dead:
+		_feed_blood -= delta
+		if _feed_blood <= 0.0:
+			_feed_blood = 0.7
+			Blood.spill(Blood.world_of(self), _head_point(), Vector3.UP * 0.6 + _forward() * 0.3, null, 0.35)
+
+var _feed_blood: float = 0.5
+#endregion
+
+
+#region Death
+## Every peer: down on its back; then it twitches a while and lies still, a
+## pool of venom spreading under it.
+func _lie_down() -> void:
+	super()
+	_set_eyes(Color.BLACK, 0.0)
+	var held: Array[Node] = _skeleton.get_children() if _skeleton != null else []
+	for at in held:
+		for p in at.get_children():
+			if p is GPUParticles3D:
+				(p as GPUParticles3D).emitting = false
+			elif p is OmniLight3D:
+				(p as OmniLight3D).visible = false
+	_twitch_at = 0.0
+
+
+func _twitching(delta: float) -> void:
+	if _twitch_at < 0.0 or _skeleton == null:
+		return
+	var was := _twitch_at
+	_twitch_at += delta
+	if was < twitch_after and _twitch_at >= twitch_after:
+		var at := global_position
+		var i := _skeleton.find_bone("pelvis_joint")
+		if i >= 0:
+			at = _skeleton.global_transform * _skeleton.get_bone_global_pose(i).origin
+		at.y = global_position.y + 0.02
+		Venom.pool(Blood.world_of(self), at, death_pool, corpse_linger)
+	if _twitch_at < twitch_after or _twitch_at > twitch_after + twitch_time:
+		return
+	var fade := pow(1.0 - (_twitch_at - twitch_after) / twitch_time, 1.6)
+	for b: String in ["L_elbow_joint", "R_elbow_joint", "L_wrist_joint", "R_wrist_joint", "L_knee_joint",
+			"R_knee_joint", "head_joint", "L_ankle_joint", "R_ankle_joint", "chest_joint"]:
+		var idx := _skeleton.find_bone(b)
+		if idx < 0:
+			continue
+		if _rng.randf() < 0.18 * fade + 0.01:
+			_twitch_kick[idx] = Vector3(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1),
+					_rng.randf_range(-1, 1)) * 0.5 * fade
+		if not _twitch_base.has(idx):
+			_twitch_base[idx] = _skeleton.get_bone_pose_rotation(idx)
+		var v: Vector3 = _twitch_kick.get(idx, Vector3.ZERO)
+		_twitch_kick[idx] = v * 0.7
+		var base: Quaternion = _twitch_base[idx]
+		_skeleton.set_bone_pose_rotation(idx, base * Quaternion.from_euler(v))
 #endregion
 
 
 #region Feeding
 ## Off to a corpse when it is hurt and nothing presses it; true while it goes.
+## A corpse another ghoul is eating: it quarrels with it for it.
 func _go_feed(delta: float) -> bool:
 	# Left alone it feeds whenever it finds one; roused, only when it is hurt.
 	if mode != Mode.GUARD and (health >= max_health * 0.98 or frenzied):
@@ -272,6 +1035,16 @@ func _go_feed(delta: float) -> bool:
 	var to := _corpse.global_position - global_position
 	to.y = 0.0
 	if to.length() > 0.95 * maxf(visual_scale, 0.5):
+		var eater := _eater_of(_corpse)
+		if eater != null and to.length() < 2.4:
+			# another is at it: a hiss at it, and a quarrel
+			_rival = eater
+			_face(eater.global_position - global_position, 1.0, 50.0)
+			velocity.x = 0.0
+			velocity.z = 0.0
+			_begin(HISS)
+			eater._quarrel_with(self)
+			return true
 		_move_towards(_corpse.global_position, chase_speed * 0.8 if mode != Mode.GUARD else speed * 1.6, delta)
 		_hold_corpse(4.0)
 		return true
@@ -283,21 +1056,76 @@ func _go_feed(delta: float) -> bool:
 	return true
 
 
-## Bent over it, eating: whole again bit by bit, until it is full, the meal
-## is done or he comes close.
-func _feeding(delta: float) -> void:
-	velocity.x = move_toward(velocity.x, 0.0, acceleration * 6.0 * delta)
-	velocity.z = move_toward(velocity.z, 0.0, acceleration * 6.0 * delta)
-	_fed_for += delta
-	health = minf(health + max_health * feed_heal * delta, max_health)
-	var done := _corpse == null or not is_instance_valid(_corpse) or _fed_for >= feed_most \
-			or (mode != Mode.GUARD and health >= max_health)
-	if done and _corpse != null and is_instance_valid(_corpse) and _fed_for >= feed_most:
-		# Picked clean.
-		_corpse.set_meta(&"eaten", true)
-	if done or _disturbed():
+## The ghoul eating `corpse` now, if one is.
+func _eater_of(corpse: Node3D) -> GhoulFighter:
+	for node in get_tree().get_nodes_in_group(&"ghouls"):
+		var g := node as GhoulFighter
+		if g != null and g != self and not g.is_dead and g.act == FEED and g._corpse == corpse:
+			return g
+	return null
+
+
+## Host: up off its meal at the one that came hissing for it: it rears up
+## and waits for the claw.
+func _quarrel_with(other: GhoulFighter) -> void:
+	_rival = other
+	_answer_due = false
+	_face(other.global_position - global_position, 1.0, 50.0)
+	_begin(ALERT)
+
+
+## The moment the quarrel's claw lands (act seconds).
+func _quarrel_moment() -> float:
+	return 0.63 if act == QUARREL_A else 0.43
+
+
+## Host: its claw on its rival: the rival reels, bleeds, and answers.
+func _claw_rival() -> void:
+	var r := _rival
+	if r == null or not is_instance_valid(r) or r.is_dead:
+		return
+	r.health = maxf(r.health - hit_damage * 0.4, 1.0)
+	r.net_bleed.rpc(r._head_point(), (r.global_position - global_position).normalized() + Vector3.UP * 0.4)
+	r._rival = self
+	r._quarrel_hit = false
+	r._answer_due = act == QUARREL_A
+	r._begin(STUMBLE)
+
+var _answer_due: bool = false
+
+
+## Host, a quarrel's move done: the claw answered, or the weaker gives way.
+func _end_quarrel(what: int) -> void:
+	var r := _rival
+	if r == null or not is_instance_valid(r) or r.is_dead:
+		_rival = null
 		_start(Act.NONE)
-		_corpse = null
+		return
+	if what == STUMBLE and _answer_due:
+		# reeled from its claw: the claw back
+		_answer_due = false
+		_face(r.global_position - global_position, 1.0, 50.0)
+		_quarrel_hit = false
+		_begin(QUARREL_B)
+		return
+	if what == STUMBLE or what == ALERT:
+		# up off the corpse, waiting for the claw that is coming
+		_start(Act.NONE)
+		return
+	if what == QUARREL_B or what == QUARREL_A:
+		if what == QUARREL_B:
+			# both have clawed: the weaker gives way, the other eats
+			var loser: GhoulFighter = self if health < r.health else r
+			var winner: GhoulFighter = r if loser == self else self
+			loser._shunned = loser._corpse if loser._corpse != null else winner._corpse
+			loser._shun_left = 10.0
+			loser._corpse = null
+			loser._rival = null
+			winner._rival = null
+			if loser == self:
+				_dart_left = dart_time.y * 1.5
+				_dart_side = 1.0 if _rng.randf() < 0.5 else -1.0
+		_start(Act.NONE)
 
 
 ## He has come too close to keep at it (and roused it, if it was not).
@@ -305,13 +1133,29 @@ func _disturbed() -> bool:
 	var q := _pick_quarry()
 	if q == null:
 		return false
-	var near := feed_while_far if act != FEED else feed_while_far * 0.55
+	var meal := _at_meal()
+	var near := feed_while_far if not meal else feed_while_far * 0.55
 	if mode == Mode.GUARD:
 		near = minf(sight_range * 0.6, near)
+	# bent over its meal it does not see behind it: he can come up at its
+	# back for the critical
+	if meal:
+		var to := q.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001 and _forward().dot(to.normalized()) < -0.2:
+			near = feed_unseen
 	if _distance_to(q) >= near:
 		return false
 	_rouse(q)
 	return true
+
+
+## At its meal: eating, or over the corpse between mouthfuls.
+func _at_meal() -> bool:
+	if act == FEED:
+		return true
+	return act == Act.NONE and _corpse != null and is_instance_valid(_corpse) \
+			and _corpse.global_position.distance_to(global_position) < 1.4
 
 
 func _nearest_corpse() -> Node3D:
@@ -320,6 +1164,8 @@ func _nearest_corpse() -> Node3D:
 	for node in get_tree().get_nodes_in_group(&"enemy"):
 		var f := node as Node3D
 		if f == null or f == self or not _edible(f):
+			continue
+		if f == _shunned and _shun_left > 0.0:
 			continue
 		var d := f.global_position.distance_to(global_position)
 		if d < near:
@@ -360,16 +1206,102 @@ func net_hold_corpse(path: NodePath, seconds: float) -> void:
 		c.set("corpse_linger", float(c.get("_corpse_age")) + seconds)
 
 
-func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
-	var feeding := act == FEED
-	var bled := super(damage, at, blow, from, magic)
-	if feeding and not is_dead and _decides():
-		# Disturbed at its meal: up off it, at him.
-		_corpse = null
+## Bent over it, eating: whole again bit by bit, until it is full, the meal
+## is done or he comes close.
+func _feeding(delta: float) -> void:
+	velocity.x = move_toward(velocity.x, 0.0, acceleration * 6.0 * delta)
+	velocity.z = move_toward(velocity.z, 0.0, acceleration * 6.0 * delta)
+	_fed_for += delta
+	health = minf(health + max_health * feed_heal * delta, max_health)
+	var done := _corpse == null or not is_instance_valid(_corpse) or _fed_for >= feed_most \
+			or (mode != Mode.GUARD and health >= max_health)
+	if done and _corpse != null and is_instance_valid(_corpse) and _fed_for >= feed_most:
+		# Picked clean.
+		_corpse.set_meta(&"eaten", true)
+	if done or _disturbed():
 		_start(Act.NONE)
-		_leap_wait = 0.0
-		if from != null:
-			_rouse(from)
-			_face(from.global_position - global_position, 1.0, 50.0)
+		_corpse = null
+#endregion
+
+
+## Struck: off him if it was on another; up if it lay as dead; a critical
+## from behind while it eats or quarrels; up off its meal at him.
+func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	var was := act
+	if was == LIE:
+		_feigning = false
+	if from != null and (was in DISTRACTED or _at_meal()):
+		var to := from.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001 and _forward().dot(to.normalized()) < -0.2:
+			damage *= crit_mult
+			if _decides():
+				net_crit.rpc(at, blow)
+	var bled := super(damage, at, blow, from, magic)
+	if is_dead or not _decides():
+		return bled
+	match was:
+		FEED:
+			# Disturbed at its meal: up off it, at him.
+			_corpse = null
+			_start(Act.NONE)
+			_leap_wait = 0.0
+			if from != null:
+				_rouse(from)
+				_face(from.global_position - global_position, 1.0, 50.0)
+		LIE:
+			if from != null:
+				_quarry = from
+				_face(from.global_position - global_position, 1.0, 50.0)
+			_begin(SPRING)
+		PIN:
+			# a friend's blow knocks it off the one it is on
+			if from != null and from != _pinned:
+				var who := _pinned
+				_pinned = null
+				if who != null and is_instance_valid(who):
+					remove_collision_exception_with(who as PhysicsBody3D)
+					_send_pin(who, false)
+				_thrown_off(from, 0.0)
 	return bled
+
+
+## Every peer: a critical on it from behind: a deep spray of blood.
+@rpc("authority", "call_local", "unreliable")
+func net_crit(at: Vector3, blow: Vector3) -> void:
+	var into := Blood.world_of(self)
+	Blood.spill(into, at, blow if blow.length_squared() > 0.0001 else Vector3.UP, null, 2.0)
+	ImpactFx.strike(self, at, &"flesh")
+
+
+#region Bits
+func _particles(colour: Color, amount: int, life: float, size: float, gravity: Vector3) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = life
+	p.local_coords = false
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var pm := ParticleProcessMaterial.new()
+	pm.gravity = gravity
+	pm.scale_min = 0.6
+	pm.scale_max = 1.2
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 1))
+	fade.set_color(1, Color(1, 1, 1, 0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = fade
+	pm.color_ramp = gt
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = SkillFx.dot()
+	m.albedo_color = colour
+	q.material = m
+	p.draw_pass_1 = q
+	return p
 #endregion

@@ -2913,6 +2913,9 @@ func _targetable(who: Node3D) -> bool:
 		return false
 	if who.get("is_dead") == true:
 		return false
+	# a ghoul lying as dead among the dead ([GhoulFighter]) looks like one
+	if who.get(&"playing_dead") == true:
+		return false
 	# a hero gone in his Vanish is not there to lock
 	if who != self and who is Player and (who as Player).is_hidden():
 		return false
@@ -4306,6 +4309,128 @@ func net_held(seconds: float) -> void:
 		rig.call(&"held", seconds)
 
 
+#region Pinned on the ground (a ghoul on him, 2026-10-27)
+## A ghoul on him where he lies, biting ([GhoulFighter], the user's word from
+## its films): he stays down; each press of E (lock-on), F or the attack works
+## him free, a little lost each second (`pin_struggle`, shown by [PlayerHud]);
+## full, he kicks it off with both feet and springs up (HX_KickUp, every
+## hero's: [constant SkinnedRig.ESCAPE_LIB]), nothing striking him while he
+## does, and goes straight into a cut at it, still untouchable through its
+## start (`KICK_CUT_SAFE`).
+const PIN_PRESS := 0.085
+const PIN_EASE := 0.12
+const KICK_RATE := 1.25
+const KICK_TIME := 0.98
+const KICK_CUT_SAFE := 0.8
+## Who is on him (his own peer's), and how far he has worked free (0 to 1).
+var pinned_by: Node3D = null
+var pin_struggle: float = 0.0
+var _kicked_from: Node3D = null
+var _kick_cut_due: bool = false
+
+
+## Host to his peer: a ghoul is on him.
+@rpc("any_peer", "call_local", "reliable")
+func net_pinned(path: NodePath) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_dead or state != State.DOWNED:
+		return
+	var by := get_node_or_null(path) as Node3D
+	if by == null:
+		return
+	pinned_by = by
+	pin_struggle = 0.0
+	_getting_up = false
+	_down_timer = maxf(_down_timer, 1.0)
+
+
+## Host to his peer: it is off him (struck off by a friend, or it let go).
+@rpc("any_peer", "call_local", "reliable")
+func net_unpinned() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority():
+		return
+	pinned_by = null
+	pin_struggle = 0.0
+	if state == State.DOWNED and not is_dead and not _getting_up:
+		_down_timer = minf(_down_timer, 0.3)
+
+
+## Host to his peer: its teeth in him where he lies (no guard, no roll).
+@rpc("any_peer", "call_local", "reliable")
+func net_pin_bite(damage: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_dead:
+		return
+	_take_damage(damage)
+	if camera != null and camera.current:
+		ImpactFx.knock(camera, Vector3.DOWN, view_ground.x * 0.5, view_ground.y, view_ground.z)
+
+
+## Each tick on the ground with it on him: true while it holds him.
+func _process_pinned(delta: float) -> bool:
+	var by := pinned_by
+	if by == null:
+		return false
+	if not is_instance_valid(by) or bool(by.get("is_dead")) or is_dead:
+		pinned_by = null
+		return false
+	_down_timer = maxf(_down_timer, 0.5)
+	if Input.is_action_just_pressed("lock_on") or Input.is_action_just_pressed("interact") \
+			or Input.is_action_just_pressed("attack"):
+		pin_struggle += PIN_PRESS
+	pin_struggle = maxf(pin_struggle - PIN_EASE * delta, 0.0)
+	if pin_struggle >= 1.0:
+		_kick_free(by)
+	return true
+
+
+## Worked free: the kick and the spring up (every peer sees it), the ghoul
+## told on the host, and the cut after it due when he is up.
+func _kick_free(by: Node3D) -> void:
+	pinned_by = null
+	pin_struggle = 0.0
+	_kicked_from = by
+	_kick_cut_due = true
+	_getting_up = true
+	_down_timer = KICK_TIME
+	net_kick_up.rpc()
+	if by.has_method(&"net_kicked"):
+		if multiplayer.has_multiplayer_peer():
+			by.rpc_id(1, &"net_kicked", get_path())
+		else:
+			by.call(&"net_kicked", get_path())
+
+
+## Every peer: the kick off his back and the spring up.
+@rpc("authority", "call_local", "reliable")
+func net_kick_up() -> void:
+	if rig != null and rig.has_method(&"play_part"):
+		rig.call(&"play_part", &"HX_KickUp", KICK_RATE, 0.0, 1.0, 0.2)
+
+
+## Up from the kick: turned on it and into a cut, untouchable through its
+## start.
+func _kick_cut() -> void:
+	_kick_cut_due = false
+	_safe_until = _now() + KICK_CUT_SAFE
+	var by := _kicked_from
+	_kicked_from = null
+	if by != null and is_instance_valid(by):
+		var to := by.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			rotation.y = atan2(-to.x, -to.z)
+	_attack()
+#endregion
+
+
 ## In the grip: drawn in to its hand over a moment, then hung from it by the
 ## neck, facing it; let go of if it is gone, dead, or holds on too long.
 func _process_held(delta: float) -> void:
@@ -5226,6 +5351,9 @@ func _process_downed(delta: float) -> void:
 	if _down_flying and is_on_floor() and _down_for > 0.12:
 		_down_flying = false
 		_down_timer = 0.6 + fall_lie
+	# a ghoul on him: down till he works free ([method _process_pinned])
+	if pinned_by != null and _process_pinned(delta):
+		return
 
 	# Fallen for good: no rolling out and no getting up — only the wait.
 	if is_dead:
@@ -5253,6 +5381,8 @@ func _process_downed(delta: float) -> void:
 func _stand_up_from_down() -> void:
 	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
 	is_invulnerable = false
+	if _kick_cut_due:
+		_kick_cut()
 
 
 ## Up and away in one move: the roll, thrown the way the stick points (or back

@@ -87,6 +87,8 @@ var _felled: Label
 var _felled_time: float = 9.0
 var boss_shown: bool = false
 const POISONED := Color(0.36, 0.7, 0.12)
+const VENOM := Color(0.45, 0.95, 0.18)
+const VENOM_HEIGHT := 6.0
 
 const GOLD := Color(0.95, 0.78, 0.36)
 const GOLD_DEEP := Color(0.55, 0.38, 0.12)
@@ -223,6 +225,11 @@ func _draw_bars() -> void:
 			player.health / maxf(player.max_health, 1.0), POISONED if poisoned else HEALTH,
 			_lost / maxf(player.max_health, 1.0), HEALTH_LOST)
 	at.y += HEALTH_HEIGHT + GAP
+	# the venom in him, under his health while there is any ([HeroPoison])
+	if poisoned:
+		_bar(at, minf(player.max_health * HEALTH_SCALE, MAX_BAR), VENOM_HEIGHT, _poison.share(), VENOM,
+				0.0, Color.TRANSPARENT)
+		at.y += VENOM_HEIGHT + GAP
 	var winded := player.is_winded()
 	_bar(at, minf(player.max_stamina * STAMINA_SCALE, MAX_BAR), STAMINA_HEIGHT,
 			maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0),
@@ -233,6 +240,7 @@ func _draw_bars() -> void:
 	_draw_level()
 	_draw_gold()
 	_draw_found()
+	_draw_pinned()
 
 
 ## His flasks under the bars (R): each a small vial, lit while it is full.
@@ -265,6 +273,28 @@ func found(what: String, pic: Texture2D = null) -> void:
 	_found = what
 	_found_pic = pic
 	_found_time = 0.0
+
+
+## A ghoul on him ([member Player.pinned_by]): the key to press, beating,
+## and how far he has worked free, low in the middle.
+func _draw_pinned() -> void:
+	if player.pinned_by == null:
+		return
+	var view := _bars.get_viewport_rect().size
+	var centre := Vector2(view.x * 0.5, view.y * 0.72)
+	var beat := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 14.0)
+	var box := 40.0 + 6.0 * beat
+	var key := Rect2(centre - Vector2(box, box) * 0.5 - Vector2(0, 30), Vector2(box, box))
+	_bars.draw_rect(key, Color(0.05, 0.04, 0.03, 0.85))
+	_bars.draw_rect(key, Color(1.0, 0.9, 0.55, 0.6 + 0.4 * beat), false, 2.0)
+	var font := UiArt.font("bold")
+	var size := int(24 + 4 * beat)
+	_bars.draw_string(font, key.position + Vector2(box * 0.5 - size * 0.32, box * 0.5 + size * 0.36), "E",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1.0, 0.95, 0.75))
+	var width := 240.0
+	var at := centre + Vector2(-width * 0.5, 8.0)
+	_bar(at, width, 10.0, clampf(float(player.pin_struggle), 0.0, 1.0), Color(0.95, 0.93, 0.85), 0.0,
+			Color.TRANSPARENT)
 
 
 func _draw_found() -> void:

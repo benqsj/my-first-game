@@ -18,6 +18,11 @@ uniform vec3 cornea : source_color = vec3(0.2, 0.87, 0.95);
 uniform vec3 lip : source_color = vec3(0.81, 0.02, 0.16);
 uniform vec3 metal_rgb = vec3(0.0);
 uniform vec3 smooth_rgb = vec3(0.0);
+// Eyes that glow, per creature (the ghoul's tell and frenzy, 2026-10-27):
+// light given off by the eyes, and a colour they take instead of their own
+// (x < 0: their own).
+instance uniform vec3 eye_emit = vec3(0.0);
+instance uniform vec3 eye_tint = vec3(-1.0);
 
 bool _rect(vec2 uv, vec2 centre, vec2 size) {
 	vec2 d = abs(uv - centre);
@@ -39,7 +44,10 @@ void fragment() {
 		bool eye = _rect(u, vec2(0.75, 0.4325), vec2(0.49, 0.025))
 				|| _rect(u, vec2(0.75, 0.325), vec2(0.49, 0.025));
 		if (eye) {
-			col = 2.0 * f.r * eye_white + vec3(f.g) + f.b * cornea;
+			vec3 c = eye_tint.x < 0.0 ? cornea : eye_tint;
+			vec3 w = eye_tint.x < 0.0 ? eye_white : mix(eye_white, eye_tint, 0.6);
+			col = 2.0 * f.r * w + vec3(f.g) + f.b * c;
+			EMISSION = eye_emit * (f.b + f.r * 0.6);
 		} else {
 			col = f.r * lip + f.g * color2;
 		}
