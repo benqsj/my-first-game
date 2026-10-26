@@ -171,6 +171,8 @@ static func _ready_kit() -> void:
 					mi.set_surface_override_material(s, TerracePlaces._solid(0.12, 1.0, 0.55))
 				"Root":
 					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.0, 0.9))
+				"Glass":
+					mi.set_surface_override_material(s, _lantern_glass())
 				_:
 					mi.set_surface_override_material(s, TerracePlaces._solid(0.25))
 
@@ -324,29 +326,10 @@ static func _hall(d: Dungeon, room: Node3D, hw: float, hl: float, rng: RandomNum
 	# the vaults' end arches closed above the spring, and a lid over the ends
 	for ez: float in [zs[0], zs[zs.size() - 1]]:
 		_cap(room, Vector3(0.0, 11.9, ez), Vector3(hw * 2.0 + 2.0, 5.6, 0.8))
-	# the water over the whole hall, the old path under it down the nave
-	var water := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(hw * 2.0, z1 - z0)
-	water.mesh = plane
-	# (its own copy: the rings and pools are this place's)
-	var m := TerracePlaces._code("crypt_water", SHALLOW).duplicate() as ShaderMaterial
-	water.material_override = m
-	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	water.position = Vector3(0.0, WATER_Y, (z0 + z1) * 0.5)
-	room.add_child(water)
-	m.set_shader_parameter("half_size", Vector2(hw, (z1 - z0) * 0.5))
-	var ripples := CryptWater.new()
-	ripples.name = "Ripples"
-	# the light's pools under the holes broken in the vaults (room space)
-	var pools: Array[Vector3] = []
-	for key: String in holes:
-		var k := int(key.substr(1))
-		if k + 1 < zs.size():
-			pools.append(Vector3(-16.0 if key.begins_with("a") else 0.0, (zs[k] + zs[k + 1]) * 0.5, 3.4))
-	ripples.setup(d, water, m, Vector2(hw, (z1 - z0) * 0.5), pools)
-	room.add_child(ripples)
+	# (dry now: the user's word, 2026-10-26, picture C: no water, the old
+	# tree's roots in through the broken vaults)
 	_piece(room, "KWalk", Vector3(0.0, 0.0, (z0 + z1) * 0.5 + 0.5))
+	_roots(room, zs, holes, rng)
 	# the sun's shafts down through the holes: a denser air there for the
 	# light to show in
 	for key: String in holes:
@@ -380,20 +363,28 @@ static func _hall(d: Dungeon, room: Node3D, hw: float, hl: float, rng: RandomNum
 		o.omni_range = 13.0
 		o.position = top + Vector3(0.0, -0.6, 0.0)
 		room.add_child(o)
-	# candles floating on the water, drifting a little
-	for k in 16:
-		var at := Vector3(rng.randf_range(-20.0, 20.0), WATER_Y - 0.01, rng.randf_range(z0 + 3.0, z1 - 3.0))
-		if absf(absf(at.x) - 10.0) < 2.0:
-			at.x += 3.0 * signf(at.x)
-		var fc := _piece(room, "KFloatCandle", at, rng.randf_range(0.0, TAU))
-		if fc == null:
+	# blue lanterns hung in the aisles, candles in clusters on the floor
+	for k in zs.size() - 1:
+		if k % 2 == 1:
 			continue
-		_flames(fc, Vector3(0.0, 0.3, 0.0), [Vector3(-0.07, 0.0, 0.0), Vector3(0.08, -0.04, 0.0)], Color(1.0, 0.74, 0.4), false, 0.7)
-		var tw := fc.create_tween().set_loops()
-		var drift := Vector3(rng.randf_range(-0.5, 0.5), 0.0, rng.randf_range(-0.5, 0.5))
-		var t := rng.randf_range(5.0, 9.0)
-		tw.tween_property(fc, "position", at + drift + Vector3(0.0, 0.015, 0.0), t).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(fc, "position", at, t).set_trans(Tween.TRANS_SINE)
+		var cz := (zs[k] + zs[k + 1]) * 0.5
+		for sx: float in [-1.0, 1.0]:
+			var top := Vector3(sx * 13.0, 13.2, cz + rng.randf_range(-1.5, 1.5))
+			_piece(room, "KLantern", top, rng.randf_range(0.0, TAU))
+			var glow := OmniLight3D.new()
+			glow.light_color = Color(0.45, 0.75, 1.0)
+			glow.light_energy = 1.4
+			glow.omni_range = 7.0
+			glow.position = top + Vector3(0.0, -3.35, 0.0)
+			glow.set_meta(&"designed_shadow", false)
+			room.add_child(glow)
+	for k in 14:
+		var cz := rng.randf_range(z0 + 3.0, z1 - 3.0)
+		var sx := -1.0 if k % 2 == 0 else 1.0
+		var at := Vector3(sx * rng.randf_range(13.0, 19.5), 0.0, cz)
+		var c := _piece(room, "KCandles", at, rng.randf_range(0.0, TAU), rng.randf_range(1.2, 1.8))
+		if c != null:
+			_flames(room, at + Vector3(0.0, 0.45, 0.0), [Vector3.ZERO], Color(1.0, 0.72, 0.4), k % 3 == 0, 0.8)
 	# sarcophagi in the aisles, candles by the pillars
 	var kinds := ["KSarc0", "KSarcAskew", "KSarc1", "KSarc0", "KSarc1", "KSarcAskew", "KSarc0"]
 	for k in mini(kinds.size(), zs.size() - 1):
@@ -403,6 +394,8 @@ static func _hall(d: Dungeon, room: Node3D, hw: float, hl: float, rng: RandomNum
 			var sarc := _piece(room, String(kinds[(k + (1 if sx > 0.0 else 0)) % kinds.size()]), at, rng.randf_range(-0.12, 0.12))
 			if sarc != null:
 				TerracePlaces._box(sarc, Vector3(1.6, 1.4, 2.8), Vector3(0.0, 0.7, 0.0))
+				if (k + (1 if sx > 0.0 else 0)) % 3 == 0:
+					_piece(room, "KRootSarc", at, PI * 0.5 + rng.randf_range(-0.2, 0.2))
 	var lit := 0
 	for k in zs.size():
 		if k % 2 == 1:
@@ -415,6 +408,52 @@ static func _hall(d: Dungeon, room: Node3D, hw: float, hl: float, rng: RandomNum
 			_flames(room, at + Vector3(0.0, 1.95, 0.0), [Vector3(-0.32, 0.0, 0.0), Vector3(0.0, 0.1, 0.0), Vector3(0.32, 0.0, 0.0)],
 					Color(1.0, 0.72, 0.38), lit < 6)
 			lit += 1
+
+
+## The old tree's roots in the hall (picture C): falling in through the
+## broken vaults and down to the floor by the pillars, the nave's middle
+## left free; wound round some pillars, over some sarcophagi, hanging from
+## the vaults. Solid where they reach the floor.
+static func _roots(room: Node3D, zs: Array[float], holes: Dictionary, rng: RandomNumberGenerator) -> void:
+	for key: String in holes:
+		var k := int(key.substr(1))
+		if k + 1 >= zs.size():
+			continue
+		var cz := (zs[k] + zs[k + 1]) * 0.5
+		var aisle := key.begins_with("a")
+		var r := _piece(room, "KRootFallSmall" if aisle else "KRootFall", Vector3(-16.0 if aisle else 0.0, 0.0, cz),
+				PI * 0.5 if aisle else rng.randf_range(-0.12, 0.12))
+		if r != null:
+			_solid_mesh(r)
+	for at: Vector2 in [Vector2(10.0, zs[1]), Vector2(-10.0, zs[2]), Vector2(10.0, zs[4]), Vector2(-10.0, zs[5])]:
+		var rp := _piece(room, "KRootPillar", Vector3(at.x, 0.0, at.y), rng.randf_range(0.0, TAU))
+		if rp != null:
+			_solid_mesh(rp)
+	for k in [0, 3, 6]:
+		if k + 1 < zs.size():
+			_piece(room, "KRootHang", Vector3(rng.randf_range(-3.0, 3.0), 13.4, (zs[k] + zs[k + 1]) * 0.5), rng.randf_range(0.0, TAU))
+
+
+## A mesh's own faces to stop him (the roots where they come down).
+static func _solid_mesh(n: Node3D) -> void:
+	for mi in n.find_children("*", "MeshInstance3D", true, false) + [n]:
+		if mi is MeshInstance3D and (mi as MeshInstance3D).mesh != null:
+			var body := StaticBody3D.new()
+			var shape := CollisionShape3D.new()
+			shape.shape = (mi as MeshInstance3D).mesh.create_trimesh_shape()
+			body.add_child(shape)
+			(mi as Node3D).add_child(body)
+
+
+static var _glass: StandardMaterial3D
+static func _lantern_glass() -> StandardMaterial3D:
+	if _glass == null:
+		_glass = StandardMaterial3D.new()
+		_glass.albedo_color = Color(0.55, 0.85, 1.0)
+		_glass.emission_enabled = true
+		_glass.emission = Color(0.4, 0.75, 1.0)
+		_glass.emission_energy_multiplier = 2.0
+	return _glass
 
 
 # ---------------------------------------------------------------- the tomb

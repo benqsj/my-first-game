@@ -32,6 +32,8 @@ var _has_key: bool = false
 var _last_down: Vector3 = Vector3.INF
 var _nag_at: int = 0
 var _name: String = ""
+## how near the spring's middle he has to come to drink from it
+var _reach: float = 6.8
 
 
 ## The place `kind` in `room` (its index `i`).
@@ -40,6 +42,25 @@ static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	var w: float = r["w"]
 	var l: float = r["l"]
 	var h: float = r["h"]
+	if what == "holy_spring":
+		# the spring in a glade of an autumn maple wood, low poly (the
+		# user's concept "tye3", 2026-10-26) [HolySpring]
+		var glade := RestSpot.new()
+		glade.name = "Rest"
+		glade.kind = "spring"
+		glade._d = d
+		glade._reach = HolySpring.BASIN_R + 1.3
+		room.add_child(glade)
+		var got := HolySpring.build(d, room, w, l, d._rng, glade)
+		glade._water = got["water"]
+		glade._light = got["light"]
+		glade._spring_sound_and_note()
+		var note := glade.get_node_or_null(^"Note") as Label3D
+		if note != null:
+			note.text = "მიდი წყაროსთან — განიკურნები"
+			note.position.y = 8.4
+		d._crag_under(room, w + 110.0, l + 110.0, PalaceVista.DROP + 60.0, -1.0)
+		return
 	if what == "cell_cave":
 		# the prisoners in cells cut into a cave, under its roof (the
 		# user's word, 2026-10-25): [CellCave] builds it all
@@ -126,6 +147,11 @@ func _build_spring(room: Node3D, w: float, l: float) -> void:
 	for k in 6:
 		var side := -1.0 if k % 2 == 0 else 1.0
 		_d._candles(room, Vector3(side * (w * 0.5 - 1.2), 0.0, -l * 0.3 + floorf(float(k) / 2.0) * l * 0.3), k % 2 == 0)
+	_spring_sound_and_note()
+
+
+## The water heard running, and the word over it that it heals.
+func _spring_sound_and_note() -> void:
 	var sound := _d._loop("stream_loop.wav")
 	if sound != null:
 		var player := AudioStreamPlayer3D.new()
@@ -403,7 +429,7 @@ func _process(_delta: float) -> void:
 		match kind:
 			"spring":
 				var gap := Vector2(hero.global_position.x - global_position.x, hero.global_position.z - global_position.z)
-				if gap.length() < 6.8:
+				if gap.length() < _reach:
 					_drink(hero)
 					return
 			"prison":

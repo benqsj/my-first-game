@@ -40,7 +40,10 @@ func _ready() -> void:
 	var rooms := GridContainer.new()
 	rooms.columns = 5
 	for place: String in Dungeon.VIEW:
-		rooms.add_child(_small(String(Dungeon.VIEW[place][1]), _view_room.bind(place)))
+		# by the room's Georgian name, as the game calls it (the user looked
+		# for "აკლდამა", 2026-10-26)
+		var label := String(Dungeon.PLACES[place]["name"]) if Dungeon.PLACES.has(place) else String(Dungeon.VIEW[place][1])
+		rooms.add_child(_small(label, _view_room.bind(place)))
 	_column.add_child(rooms)
 	_column.add_child(_toggle("With creatures", false, func(on: bool) -> void: _with_foes = on))
 

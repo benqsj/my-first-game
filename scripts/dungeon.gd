@@ -138,7 +138,10 @@ const PLACES := {
 	"mountain": {"name": "ჩანჩქერის ნანგრევები", "kind": "falls", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
 	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
-	"spring": {"name": "წმინდა წყარო", "kind": "spring", "w": 36.0, "l": 44.0, "h": 12.0, "rest": "სიცოცხლე ბოლომდე"},
+	# (the spring in a glade of an autumn maple wood, low poly: the user's
+	# concept "tye3", 2026-10-26 [HolySpring]; the old cloister's builder,
+	# kind "spring", kept)
+	"spring": {"name": "წმინდა წყარო", "kind": "holy_spring", "w": 52.0, "l": 52.0, "h": 0.0, "rest": "სიცოცხლე ბოლომდე"},
 	"prison": {"name": "ტყვეების ოთახი", "kind": "cell_cave", "w": 34.0, "l": 50.0, "h": 11.0, "rest": "მცველები · გაათავისუფლე ტყვე",
 			"guards": true},
 	# and the two quiet places of the portal's own (the user's word,
@@ -3287,7 +3290,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh", "twin_cave"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh", "twin_cave", "holy_spring"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3457,6 +3460,8 @@ func _place_look(night: float = 0.0) -> void:
 				# between the crowns rather than in under them from the side
 				if _sun.rotation.x > -deg_to_rad(60.0):
 					_sun.rotation.x = -deg_to_rad(60.0)
+		"holy_spring":
+			_holy_spring_look()
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			_terrace_look(kind)
 		"prison", "cell_cave":
@@ -3504,6 +3509,38 @@ func _place_look(night: float = 0.0) -> void:
 		if _env.volumetric_fog_enabled:
 			_env.volumetric_fog_enabled = false
 			_env.fog_density *= 1.6
+
+
+## The holy spring's glade ([HolySpring]): a warm autumn afternoon, the sun
+## high and golden through the maples, a light haze over the glade lit by it,
+## the wood round it in a warm, dim brown shade.
+func _holy_spring_look() -> void:
+	_env.ambient_light_color = Color(0.70, 0.60, 0.48)
+	_env.ambient_light_energy *= 1.05
+	_env.fog_light_color = Color(0.30, 0.28, 0.20)
+	_env.fog_density = 0.008
+	_env.fog_height = centre(current).y + 1.2
+	_env.fog_height_density = 0.005
+	_env.fog_sky_affect = 0.6
+	_env.adjustment_contrast = 1.07
+	_env.adjustment_saturation = 1.08
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("top_col", Color(0.20, 0.21, 0.16))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.27, 0.25, 0.18))
+	_env.volumetric_fog_enabled = Graphics.current != Graphics.Level.LOW
+	_env.volumetric_fog_density = 0.0005
+	_env.volumetric_fog_albedo = Color(0.96, 0.92, 0.84)
+	_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+	_env.volumetric_fog_anisotropy = 0.65
+	_env.volumetric_fog_length = 70.0
+	_env.volumetric_fog_ambient_inject = 0.0
+	if _sun != null:
+		_sun.light_energy *= 1.15
+		_sun.light_color = _sun.light_color.lerp(Color(1.0, 0.86, 0.64), 0.45)
+		_sun.light_volumetric_fog_energy = 2.5
+		if _sun.rotation.x > -deg_to_rad(58.0):
+			_sun.rotation.x = -deg_to_rad(58.0)
+
 
 
 ## The prisoners' room in Ashen's light (the user's word, 2026-10-25, a
@@ -3940,7 +3977,7 @@ func _build_room_body(i: int) -> void:
 		"rampart":
 			_build_rampart(room, i)
 			return
-		"spring", "prison", "cell_cave":
+		"spring", "holy_spring", "prison", "cell_cave":
 			RestSpot.build(self, room, i, kind)
 			return
 		"lord_court":
@@ -5247,6 +5284,9 @@ func _ambience(i: int) -> void:
 			parts = [["cave_loop.wav", -12.0], ["drums_far_loop.wav", -30.0]]
 		"pale_marsh":
 			parts = [["frogs_loop.wav", -14.0], ["wind_loop.wav", -18.0]]
+		"holy_spring":
+			# a still autumn wood: the wind in the leaves, faint
+			parts = [["wind_loop.wav", -17.0]]
 		"swamp":
 			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
 			if SwampMere.raining:
