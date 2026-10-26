@@ -346,6 +346,26 @@ const MIXAMO := [
 	["CR_TR_ThrowObject", "res://assets/creatures/anim/mixamo/TR_Throw_Object.fbx", false, 0.0, -1.0],
 	["CR_TR_GKFarThrow", "res://assets/creatures/anim/mixamo/TR_GK_Far_Throw.fbx", false, 0.0, -1.0],
 	["CR_TR_MutantRun", "res://assets/creatures/anim/mixamo/TR_Mutant_Run.fbx", true, 0.0, -1.0],
+	# The golem's own (2026-10-26, the user's word: not the troll's way; its
+	# design shown in films first): fists and feet up close (a jab and cross,
+	# a roundhouse, a hook, an uppercut, a drive kick, low, front and side
+	# kicks, a cross), thorns all round, stamped-up stones drawn in and hurled,
+	# four punches hurling air at him; its heavy walk and stand.
+	["CR_GM_JabCross", "res://assets/creatures/anim/mixamo/GM_Jab_Cross.fbx", false, 0.0, -1.0],
+	["CR_GM_Roundhouse", "res://assets/creatures/anim/mixamo/GM_Roundhouse.fbx", false, 0.0, -1.0],
+	["CR_GM_Hook", "res://assets/creatures/anim/mixamo/GM_Hook.fbx", false, 0.0, -1.0],
+	["CR_GM_Uppercut", "res://assets/creatures/anim/mixamo/GM_Uppercut.fbx", false, 0.0, -1.0],
+	["CR_GM_DriveKick", "res://assets/creatures/anim/mixamo/GM_Drive_Kick.fbx", false, 0.0, -1.0],
+	["CR_GM_LowKick", "res://assets/creatures/anim/mixamo/GM_Low_Kick.fbx", false, 0.0, -1.0],
+	["CR_GM_FrontKick", "res://assets/creatures/anim/mixamo/GM_Front_Kick.fbx", false, 0.0, -1.0],
+	["CR_GM_Cross", "res://assets/creatures/anim/mixamo/GM_Cross.fbx", false, 0.0, -1.0],
+	["CR_GM_SideKick", "res://assets/creatures/anim/mixamo/GM_Side_Kick.fbx", false, 0.0, -1.0],
+	["CR_GM_Thorns", "res://assets/creatures/anim/mixamo/GM_Thorns.fbx", false, 0.0, -1.0],
+	["CR_GM_Stomp", "res://assets/creatures/anim/mixamo/GM_Stomp.fbx", false, 0.0, -1.0],
+	["CR_GM_Hurl", "res://assets/creatures/anim/mixamo/GM_Hurl.fbx", false, 0.0, -1.0],
+	["CR_GM_QuadPunch", "res://assets/creatures/anim/mixamo/GM_Quad_Punch.fbx", false, 0.0, -1.0],
+	["CR_GM_Walk", "res://assets/creatures/anim/mixamo/GM_Walk.fbx", true, 0.0, -1.0],
+	["CR_GM_Idle", "res://assets/creatures/anim/mixamo/GM_Idle.fbx", true, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
