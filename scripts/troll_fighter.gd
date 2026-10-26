@@ -326,6 +326,7 @@ var _rain_wait: float = 5.0
 var _rained: int = -1
 var _drops: Array = []
 var _throw_at: Node3D
+const SUN_ON := false
 var _suns_made: bool = false
 var _sun_t: float = 0.0
 var _sun_level: int = 0
@@ -2510,7 +2511,9 @@ func _round7_move(delta: float, gap: float) -> bool:
 	_skin_wait = maxf(_skin_wait - delta, 0.0)
 	_clap_wait = maxf(_clap_wait - delta, 0.0)
 	_splash_wait = maxf(_splash_wait - delta, 0.0)
-	if not _suns_made:
+	# (the sun's shafts put away, 2026-10-26, the user: it wants none of
+	# them, slowing and stiffening it; none are made with it)
+	if SUN_ON and not _suns_made:
 		_make_suns()
 	# them close about its legs (two, or one a while): both palms out
 	var near := 0
