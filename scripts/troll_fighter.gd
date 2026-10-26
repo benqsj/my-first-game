@@ -1720,14 +1720,17 @@ const UP_BURST := 0.4                  # how long it takes to come up (s)
 ## as it tears its tree up): a shock along the ground throws anyone near off
 ## his feet and away (a jump clears it, no shield holds it), and its skin
 ## goes to stone till the tree is up, a blow taking only this share.
-const UPROOT_WAVE := 4.5
+const UPROOT_WAVE := 5.5
 const UPROOT_TAKEN := 0.25
 
 
 ## Every peer: its tree's roots out of the ground round it (each its node,
 ## when it breaks out (s after the stamp), where it lies, its way out).
 var _up_roots: Array[Dictionary] = []
-const ROOT_SPEED := 9.0                # how fast the heave runs out (m/s)
+const ROOT_SPEED := 12.0               # how fast the heave runs out (m/s)
+const ROOT_WAYS := 8                   # the ways its roots run out
+const ROOT_FAR := 8.0                  # how far (m on a body of 1.6)
+const ROOT_DEEP := 1.4                 # how deep they lie before (m)
 
 
 ## Every peer: at its stamp, the roots laid out along five ways from its
@@ -1735,27 +1738,39 @@ const ROOT_SPEED := 9.0                # how fast the heave runs out (m/s)
 func _roots_up(into: Node3D, fw: Vector3) -> void:
 	_roots_sink()
 	var s := visual_scale / 1.6
-	var far := UPROOT_WAVE * s
-	for k in 5:
-		var dir := fw.rotated(Vector3.UP, TAU * float(k) / 5.0 + 0.4)
-		var at := 0.7 * s
-		var n := 0
-		while at < far - 0.4 * s and n < 4:
-			var length := randf_range(0.95, 1.35) * s
-			var way := dir.rotated(Vector3.UP, randf_range(-0.28, 0.28))
-			var side := way.cross(Vector3.UP).normalized()
-			var lay := Basis(way * length, Vector3.UP * randf_range(0.8, 1.15) * s, side * s)
-			var origin := global_position + dir * at
-			origin.y = global_position.y
-			var mi := MeshInstance3D.new()
-			mi.mesh = TrollRock.mesh("GroundRoot_%d" % randi_range(0, 2))
-			mi.material_override = TrollRock.material()
-			into.add_child(mi)
-			var base := Transform3D(lay, origin)
-			mi.global_transform = base.translated(Vector3.DOWN * 0.6 * s)
-			_up_roots.append({"n": mi, "d": at / ROOT_SPEED, "b": base, "out": false, "way": way})
-			at += length * randf_range(0.75, 0.95)
-			n += 1
+	# (2026-10-26, the user: grander, bigger, further and more of them):
+	# eight ways out, each forking once on its way
+	for k in ROOT_WAYS:
+		var dir := fw.rotated(Vector3.UP, TAU * float(k) / float(ROOT_WAYS) + randf_range(-0.15, 0.15))
+		_root_line(into, global_position, dir, 0.6 * s, ROOT_FAR * s * randf_range(0.8, 1.0), 1.0)
+		var fork := dir.rotated(Vector3.UP, randf_range(0.45, 0.7) * (1.0 if randf() < 0.5 else -1.0))
+		var from := global_position + dir * ROOT_FAR * s * randf_range(0.3, 0.45)
+		_root_line(into, from, fork, 0.0, ROOT_FAR * s * 0.45, 0.7)
+
+
+## Every peer: one line of roots out from `from` along `dir`, `start` to
+## `far` metres, `big` their size (its own share).
+func _root_line(into: Node3D, from: Vector3, dir: Vector3, start: float, far: float, big: float) -> void:
+	var s := visual_scale / 1.6
+	var at := start
+	var head := Vector2(from.x - global_position.x, from.z - global_position.z).length()
+	while at < far:
+		# thickest near its body, thinner out to the end
+		var grow := big * lerpf(1.25, 0.75, at / maxf(far, 0.1))
+		var length := randf_range(1.5, 2.2) * s * grow
+		var way := dir.rotated(Vector3.UP, randf_range(-0.3, 0.3))
+		var side := way.cross(Vector3.UP).normalized()
+		var lay := Basis(way * length, Vector3.UP * randf_range(1.5, 2.1) * s * grow, side * 1.7 * s * grow)
+		var origin := from + dir * at
+		origin.y = global_position.y
+		var mi := MeshInstance3D.new()
+		mi.mesh = TrollRock.mesh("GroundRoot_%d" % randi_range(0, 2))
+		mi.material_override = TrollRock.material()
+		into.add_child(mi)
+		var base := Transform3D(lay, origin)
+		mi.global_transform = base.translated(Vector3.DOWN * ROOT_DEEP * s)
+		_up_roots.append({"n": mi, "d": (head + at) / ROOT_SPEED, "b": base, "out": false, "way": way})
+		at += length * randf_range(0.7, 0.9)
 
 
 ## Every peer, each frame: each root breaking out as the heave reaches it (a
@@ -1768,15 +1783,15 @@ func _show_roots(share: float, way: Dictionary) -> void:
 		var mi := r["n"] as MeshInstance3D
 		if mi == null or not is_instance_valid(mi):
 			continue
-		var k := clampf((_up_age - float(r["d"])) / 0.22, 0.0, 1.0)
+		var k := clampf((_up_age - float(r["d"])) / 0.3, 0.0, 1.0)
 		if k > 0.0 and not bool(r["out"]):
 			r["out"] = true
 			if into != null:
-				GroundFx.weapon_dust(into, (r["b"] as Transform3D).origin, 0.7)
+				GroundFx.weapon_dust(into, (r["b"] as Transform3D).origin, 1.1)
 		var rise := 1.0 + 2.7 * pow(k - 1.0, 3.0) + 1.7 * pow(k - 1.0, 2.0)
 		var base: Transform3D = r["b"]
 		var shake := Basis((r["way"] as Vector3), 0.05 * strain * sin(_up_age * 40.0 + float(r["d"]) * 13.0))
-		mi.global_transform = Transform3D(shake * base.basis, base.origin + Vector3.DOWN * 0.6 * s * (1.0 - rise)
+		mi.global_transform = Transform3D(shake * base.basis, base.origin + Vector3.DOWN * ROOT_DEEP * s * (1.0 - rise)
 				+ Vector3.UP * 0.05 * s * strain * absf(sin(_up_age * 23.0 + float(r["d"]) * 7.0)))
 
 
@@ -1794,9 +1809,9 @@ func _roots_torn() -> void:
 		var pull := to - at
 		pull.y = 0.0
 		var tw := mi.create_tween().set_parallel(true)
-		var wait := 0.04 * at.distance_to(to)
-		tw.tween_property(mi, "global_position", at + pull * 0.35 + Vector3.UP * 0.7 * s, 0.35).set_delay(wait).set_ease(Tween.EASE_OUT)
-		tw.tween_property(mi, "scale", mi.scale * 0.05, 0.35).set_delay(wait + 0.05).set_ease(Tween.EASE_IN)
+		var wait := 0.035 * at.distance_to(to)
+		tw.tween_property(mi, "global_position", at + pull * 0.3 + Vector3.UP * 1.2 * s, 0.4).set_delay(wait).set_ease(Tween.EASE_OUT)
+		tw.tween_property(mi, "scale", mi.scale * 0.05, 0.4).set_delay(wait + 0.05).set_ease(Tween.EASE_IN)
 		tw.chain().tween_callback(mi.queue_free)
 		if into != null and randf() < 0.5:
 			GroundFx.weapon_dust(into, Vector3(at.x, global_position.y, at.z), 0.8)
