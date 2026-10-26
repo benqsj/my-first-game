@@ -37,89 +37,42 @@ var _prompt: Label
 var done: Array[String] = []
 
 
-## The place `what` in `room` (its index `i`): walls and floor as a rest's,
-## then the altars.
+## The place `what` in `room` (its index `i`): the ring of standing stones
+## in the pine wood ([AltarCircle], 2026-10-26), the two altars on its dais.
 static func build(d: Dungeon, room: Node3D, i: int, what: String) -> void:
 	var r := d._room(i)
-	var w: float = r["w"]
-	var l: float = r["l"]
-	var h: float = r["h"]
-	d._crag_under(room, w + Dungeon.WALL_T * 2.0, l + Dungeon.WALL_T * 2.0, PalaceVista.DROP + 40.0, -24.0)
-	d._solid(room, d._floor_mat(i), Vector3(w + Dungeon.WALL_T * 2.0, 1.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -0.5, 0.0))
-	d._solid(room, d._wall_mat, Vector3(w + Dungeon.WALL_T * 2.0, 24.0, l + Dungeon.WALL_T * 2.0), Vector3(0.0, -13.0, 0.0), false)
-	for side: float in [-1.0, 1.0]:
-		d._solid(room, d._wall_mat, Vector3(Dungeon.WALL_T, h, l + Dungeon.WALL_T * 2.0),
-				Vector3(side * (w + Dungeon.WALL_T) * 0.5, h * 0.5, 0.0))
-		d._solid(room, d._wall_mat, Vector3(w + Dungeon.WALL_T * 2.0, h, Dungeon.WALL_T),
-				Vector3(0.0, h * 0.5, side * (l + Dungeon.WALL_T) * 0.5))
-	d._wall_columns(room, i, w, l, h)
-	d._motes(room, w, l, h)
-	for k in 6:
-		var side := -1.0 if k % 2 == 0 else 1.0
-		d._candles(room, Vector3(side * (w * 0.5 - 1.2), 0.0, -l * 0.3 + floorf(float(k) / 2.0) * l * 0.3), k % 2 == 0)
 	var ev := PortalEvent.new()
 	ev.name = "Event"
 	ev.kind = what
 	ev._d = d
 	room.add_child(ev)
-	ev._build_altar()
-	ev._dress(room, i, w, l, h)
+	var got := AltarCircle.build(d, room, float(r["w"]), float(r["l"]), d._rng, ev)
+	ev._build_altar(got)
 	ev._ui()
 
 
-## Round about: the altar's shrine at the far end, a wheel of candles over
-## it, skulls and old blood by the altar of blood.
-func _dress(room: Node3D, i: int, w: float, l: float, h: float) -> void:
-	OrcSpoils._materials()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 6151 * (i + 1) + 17
-	var stone := _d._trim_mat
-	var pale := StandardMaterial3D.new()
-	pale.albedo_color = Color(0.52, 0.49, 0.44)
-	pale.roughness = 0.85
-	PlaceBuild._shrine(_d, room, Vector3(0.0, 0.0, -l * 0.5 + 2.2), pale, stone, w, h)
-	PlaceBuild._candle_wheel(_d, room, Vector3(0.0, h * 0.75, -2.0), h)
-	for k in 3:
-		OrcSpoils._skull(_d, room, Vector3(-4.0 - 0.7 + 0.7 * float(k), 0.0, -0.4 + rng.randf_range(-0.2, 0.3)), 0.8)
-	OrcSpoils._blood(_d, room, w * 0.3, l * 0.3, 5, rng)
-	OrcSpoils._wall_banners(_d, room, w, l, h)
-
-
 #region The altar
-func _build_altar() -> void:
-	var stone := _d._trim_mat
+## The two altars' deals: the crimson crystal (blood) and the bowl of molten
+## gold, each with its light and its words over it.
+func _build_altar(got: Dictionary) -> void:
 	for k in 2:
-		var side := -1.0 if k == 0 else 1.0
 		var id := "blood" if k == 0 else "gold"
 		var tint := BLOOD if k == 0 else GOLD
-		var at := Vector3(side * 4.0, 0.0, -2.0)
-		_d._blocker(self, Vector3(1.8, 1.1, 1.2), at + Vector3(0.0, 0.55, 0.0))
-		_box(stone, Vector3(1.8, 1.0, 1.2), at + Vector3(0.0, 0.5, 0.0))
-		_box(stone, Vector3(2.1, 0.15, 1.45), at + Vector3(0.0, 1.07, 0.0))
-		var bowl := MeshInstance3D.new()
-		var c := CylinderMesh.new()
-		c.top_radius = 0.42
-		c.bottom_radius = 0.3
-		c.height = 0.18
-		bowl.mesh = c
-		bowl.material_override = SkillFx.glow(tint, 1.6, false)
-		bowl.position = at + Vector3(0.0, 1.24, 0.0)
-		bowl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(bowl)
+		var at := AltarCircle.BLOOD_AT if k == 0 else AltarCircle.GOLD_AT
 		var light := OmniLight3D.new()
-		light.light_color = tint
-		light.light_energy = 1.6
-		light.omni_range = 6.0
+		light.light_color = tint.lerp(Color.WHITE, 0.15)
+		light.light_energy = 1.8
+		light.omni_range = 6.5
 		light.position = at + Vector3(0.0, 2.0, 0.0)
 		light.set_meta(&"designed_shadow", false)
 		add_child(light)
 		var words := "სისხლის სამსხვერპლო\nსიცოცხლის 20% → კურთხევა" if k == 0 \
 				else "ოქროს სამსხვერპლო\nოქროს ნახევარი → ხმალი +20%"
 		var tag := _label(words, tint.lerp(Color.WHITE, 0.45), 32)
-		tag.position = at + Vector3(0.0, 2.6, 0.0)
-		_deals.append({"id": id, "at": at + Vector3(0.0, 0.0, 1.3), "node": bowl, "tag": tag, "light": light, "sold": false})
-	var note := _label("მხოლოდ ერთი", Color(0.9, 0.85, 0.8), 34)
-	note.position = Vector3(0.0, 3.4, -2.0)
+		tag.position = at + Vector3(0.0, 3.3, 0.0)
+		_deals.append({"id": id, "at": at + Vector3(0.0, 0.0, 1.6), "node": got.get(id), "tag": tag, "light": light, "sold": false})
+	var note := _label("მხოლოდ ერთი", Color(0.9, 0.85, 0.8), 26)
+	note.position = Vector3(0.0, 2.1, 0.4)
 #endregion
 
 
@@ -271,12 +224,6 @@ func _ui() -> void:
 	_prompt.add_theme_constant_override("outline_size", 7)
 	_prompt.hide()
 	_layer.add_child(_prompt)
-
-
-func _box(mat: Material, size: Vector3, at: Vector3) -> MeshInstance3D:
-	var b := BoxMesh.new()
-	b.size = size
-	return _d._deco(self, mat, b, at)
 
 
 func _label(text: String, tint: Color, size: int) -> Label3D:

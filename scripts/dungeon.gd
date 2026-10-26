@@ -146,7 +146,9 @@ const PLACES := {
 			"guards": true},
 	# and the quiet place of the portal's own (the user's word, 2026-10-22;
 	# the merchant taken out, 2026-10-26) ([PortalEvent])
-	"altar": {"name": "სამსხვერპლო", "kind": "altar", "w": 32.0, "l": 42.0, "h": 13.0, "rest": "შესწირე და მიიღე"},
+	# (the ring of standing stones in a pine wood at dusk, low poly: the
+	# user's pick "B" of the concepts, 2026-10-26 [AltarCircle])
+	"altar": {"name": "სამსხვერპლო", "kind": "altar", "w": 52.0, "l": 60.0, "h": 0.0, "rest": "შესწირე და მიიღე"},
 }
 
 ## Per dungeon, its run: each step the places its portals may lead to, the
@@ -3280,7 +3282,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh", "twin_cave", "holy_spring"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh", "twin_cave", "holy_spring", "altar"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3452,6 +3454,8 @@ func _place_look(night: float = 0.0) -> void:
 					_sun.rotation.x = -deg_to_rad(60.0)
 		"holy_spring":
 			_holy_spring_look()
+		"altar":
+			_altar_look()
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			_terrace_look(kind)
 		"prison", "cell_cave":
@@ -3499,6 +3503,37 @@ func _place_look(night: float = 0.0) -> void:
 		if _env.volumetric_fog_enabled:
 			_env.volumetric_fog_enabled = false
 			_env.fog_density *= 1.6
+
+
+## The altar's pine wood at dusk ([AltarCircle]): the sun gone, a cool blue
+## light from the whole sky, a pale moon low, the blue mist on the ground;
+## the warm light only the lanterns', the candles' and the altars' own.
+func _altar_look() -> void:
+	_env.ambient_light_color = Color(0.50, 0.60, 0.82)
+	_env.ambient_light_energy *= 1.1
+	_env.fog_light_color = Color(0.20, 0.27, 0.40)
+	_env.fog_density = 0.011
+	_env.fog_height = centre(current).y + 1.0
+	_env.fog_height_density = 0.004
+	_env.fog_sky_affect = 0.7
+	_env.adjustment_contrast = 1.06
+	_env.adjustment_saturation = 1.04
+	if _sky_mat != null:
+		_sky_mat.set_shader_parameter("top_col", Color(0.08, 0.11, 0.21))
+		_sky_mat.set_shader_parameter("hor_col", Color(0.20, 0.27, 0.40))
+	_env.volumetric_fog_enabled = Graphics.current != Graphics.Level.LOW
+	_env.volumetric_fog_density = 0.0008
+	_env.volumetric_fog_albedo = Color(0.62, 0.70, 0.86)
+	_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
+	_env.volumetric_fog_anisotropy = 0.3
+	_env.volumetric_fog_length = 60.0
+	_env.volumetric_fog_ambient_inject = 0.15
+	if _sun != null:
+		_sun.light_energy *= 0.35
+		_sun.light_color = Color(0.62, 0.72, 1.0)
+		_sun.light_volumetric_fog_energy = 0.6
+		if _sun.rotation.x > -deg_to_rad(40.0):
+			_sun.rotation.x = -deg_to_rad(40.0)
 
 
 ## The holy spring's glade ([HolySpring]): a warm autumn afternoon, the sun
@@ -5277,6 +5312,9 @@ func _ambience(i: int) -> void:
 		"holy_spring":
 			# a still autumn wood: the wind in the leaves, faint
 			parts = [["wind_loop.wav", -17.0]]
+		"altar":
+			# the pine wood at dusk: the wind, crickets
+			parts = [["wind_loop.wav", -16.0], ["crickets_loop.wav", -20.0]]
 		"swamp":
 			parts = [["frogs_loop.wav", -11.0], ["wind_loop.wav", -26.0]]
 			if SwampMere.raining:
