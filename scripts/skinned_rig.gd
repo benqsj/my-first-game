@@ -502,6 +502,9 @@ const KEVIN_LIB := "res://assets/anim/lab/kevin_lib.res"
 ## Mocap Online's TC sword combo on the mannequin (vepxis-art tools/tc_godot.gd):
 ## Tariel's string with no shield in his hand ([Swordsman] `TWO_HANDS`).
 const TC_LIB := "res://assets/anim/lab/tc_lib.res"
+## Moves Mixamo gave every hero (tools/hero_mixamo_clips.gd): the kick off
+## his back and the spring up that breaks a ghoul's pin (HX_KickUp).
+const ESCAPE_LIB := "res://assets/anim/heroes/escape_clips.res"
 const HERO_LIB := "res://assets/anim/heroes/%s_mannequin.res"
 ## A hero whose own clips came onto the mannequin with the feet bent up at the
 ## ankle (degrees): Tariel's (the user saw the boots fold, 2026-10-13, rolling
@@ -3467,6 +3470,8 @@ func _build_mannequin() -> bool:
 		sources.append(load(KEVIN_LIB) as AnimationLibrary)
 	if ResourceLoader.exists(TC_LIB):
 		sources.append(load(TC_LIB) as AnimationLibrary)
+	if ResourceLoader.exists(ESCAPE_LIB):
+		sources.append(load(ESCAPE_LIB) as AnimationLibrary)
 	for extra: String in mq_libs:
 		if ResourceLoader.exists(extra):
 			sources.append(load(extra) as AnimationLibrary)

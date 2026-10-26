@@ -383,6 +383,27 @@ const MIXAMO := [
 	["CR_SK_HighAttack", "res://assets/creatures/anim/mixamo/SK_High_Attack.fbx", false, 0.0, -1.0],
 	["CR_SK_JumpAttack", "res://assets/creatures/anim/mixamo/SK_Jump_Attack.fbx", false, 0.0, -1.0],
 	["CR_SK_SlashCombo", "res://assets/creatures/anim/mixamo/SK_Slash_Combo.fbx", false, 0.0, -1.0],
+	# The ghoul's own (2026-10-27, the user's picks from the films, project doc
+	# claude/ghoul_goblin_plan.md): two claw strings, the crouch before its
+	# pounce, the pounce, on him on the ground biting, thrown off and up again,
+	# lying as dead and up off its belly, its scream, the hiss at another at a
+	# corpse, the hits it takes.
+	["CR_GH_Jab", "res://assets/creatures/anim/mixamo/GH_Jab.fbx", false, 0.0, -1.0],
+	["CR_GH_Claw", "res://assets/creatures/anim/mixamo/GH_Claw.fbx", false, 0.0, -1.0],
+	["CR_GH_Swipe", "res://assets/creatures/anim/mixamo/GH_Swipe.fbx", false, 0.0, -1.0],
+	["CR_GH_LeftClaw", "res://assets/creatures/anim/mixamo/GH_LeftClaw.fbx", false, 0.0, -1.0],
+	["CR_GH_Crouch", "res://assets/creatures/anim/mixamo/GH_Crouch.fbx", true, 0.0, -1.0],
+	["CR_GH_Pounce", "res://assets/creatures/anim/mixamo/GH_Pounce.fbx", false, 0.35, 2.35],
+	["CR_GH_Pin", "res://assets/creatures/anim/mixamo/GH_Pin.fbx", true, 0.0, -1.0],
+	["CR_GH_Thrown", "res://assets/creatures/anim/mixamo/GH_Thrown.fbx", false, 0.0, -1.0],
+	["CR_GH_UpBack", "res://assets/creatures/anim/mixamo/GH_UpBack.fbx", false, 0.0, -1.0],
+	["CR_GH_Feign", "res://assets/creatures/anim/mixamo/GH_Feign.fbx", false, 0.0, 1.95],
+	["CR_GH_Scream", "res://assets/creatures/anim/mixamo/GH_Scream.fbx", false, 0.0, -1.0],
+	["CR_GH_Hiss", "res://assets/creatures/anim/mixamo/GH_Hiss.fbx", false, 0.3, 1.7],
+	["CR_GH_Alert", "res://assets/creatures/anim/mixamo/GH_Alert.fbx", false, 0.0, -1.0],
+	["CR_GH_Stumble", "res://assets/creatures/anim/mixamo/GH_Stumble.fbx", false, 0.0, -1.0],
+	["CR_GH_Flinch", "res://assets/creatures/anim/mixamo/GH_Flinch.fbx", false, 0.0, -1.0],
+	["CR_GH_FeedDown", "res://assets/creatures/anim/mixamo/GH_Feed.fbx", false, 0.0, 1.4],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").
