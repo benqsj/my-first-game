@@ -29,6 +29,16 @@ extends Object
 
 const DIR := "res://assets/dungeon/terraces/"
 const KIT := DIR + "terraces_lowpoly.glb"
+## The hall's round window's stained glass (2026-10-26): its panes' own
+## colours, lit through from behind, both faces.
+const ROSE_GLASS := """
+shader_type spatial;
+render_mode cull_disabled, unshaded;
+void fragment() {
+	vec3 c = pow(COLOR.rgb, vec3(2.2));
+	ALBEDO = c * 1.35;
+}
+"""
 const LP := "res://assets/dungeon/forest_glade/"
 const STATUE := "res://assets/dungeon/sky_temple/statue.res"
 ## The heroes' statues, each baked as he stands (`_shots_tmp/bake_statues.gd`);
@@ -208,6 +218,8 @@ static func _ready_kit() -> void:
 					mi.set_surface_override_material(s, _foliage(0.12))
 				"Foam":
 					mi.set_surface_override_material(s, _code("falls", FALLS))
+				"RoseGlass":
+					mi.set_surface_override_material(s, _code("rose_glass", ROSE_GLASS))
 				"Marble", "Inlay":
 					mi.set_surface_override_material(s, _solid(0.12, 1.0, 0.55))
 				"Bronze", "Gold":
