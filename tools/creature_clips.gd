@@ -366,6 +366,23 @@ const MIXAMO := [
 	["CR_GM_QuadPunch", "res://assets/creatures/anim/mixamo/GM_Quad_Punch.fbx", false, 0.0, -1.0],
 	["CR_GM_Walk", "res://assets/creatures/anim/mixamo/GM_Walk.fbx", true, 0.0, -1.0],
 	["CR_GM_Idle", "res://assets/creatures/anim/mixamo/GM_Idle.fbx", true, 0.0, -1.0],
+	# The skeleton mage's and warrior's own (2026-10-26, the user's picks from
+	# the films): the mage's great sword spell (a sword of light over its
+	# head swung with the staff, or a blade grown out of the staff), its
+	# two-handed pull that calls the dead up, its hand raised and thrown
+	# forward for the bones it hurls; the warrior drawing its sword when it
+	# sees him, its one-handed string, the stab, the high cut, the leap and
+	# the slash string (vepxis-art/mixamo_lib).
+	["CR_SK_GreatSwordSpell", "res://assets/creatures/anim/mixamo/SK_Great_Sword_Spell.fbx", false, 0.0, -1.0],
+	["CR_SK_UpwardPull", "res://assets/creatures/anim/mixamo/SK_Upward_Pull.fbx", false, 0.0, -1.0],
+	["CR_SK_HandUp", "res://assets/creatures/anim/mixamo/SK_Hand_Up.fbx", false, 0.0, -1.0],
+	["CR_SK_HandForward", "res://assets/creatures/anim/mixamo/SK_Hand_Forward.fbx", false, 0.0, -1.0],
+	["CR_SK_DrawSword", "res://assets/creatures/anim/mixamo/SK_Draw_Sword.fbx", false, 0.0, -1.0],
+	["CR_SK_OneHandCombo", "res://assets/creatures/anim/mixamo/SK_OneHand_Combo.fbx", false, 0.0, -1.0],
+	["CR_SK_ForwardStab", "res://assets/creatures/anim/mixamo/SK_Forward_Stab.fbx", false, 0.0, -1.0],
+	["CR_SK_HighAttack", "res://assets/creatures/anim/mixamo/SK_High_Attack.fbx", false, 0.0, -1.0],
+	["CR_SK_JumpAttack", "res://assets/creatures/anim/mixamo/SK_Jump_Attack.fbx", false, 0.0, -1.0],
+	["CR_SK_SlashCombo", "res://assets/creatures/anim/mixamo/SK_Slash_Combo.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

@@ -93,10 +93,10 @@ weapon_tip = Vector3(1.15, 0, 0)
 weapon_radius = 0.12
 strike_bones = PackedStringArray("R_wrist_joint")
 hit_clip = &"CR_Hit"
-attacks = Array[StringName]([&"CR_Slash1", &"CR_Slash2", &"CR_Slash3", &"CR_Slash4", &"CR_ShieldBash"])
-attack_parts = Array[Vector3]([Vector3(1.25, 0, 0.88), Vector3(1.25, 0, 0.85), Vector3(1.25, 0, 0.85), Vector3(1.25, 0, 0.88), Vector3(1.25, 0, 0.9)])
-attack_limbs = PackedStringArray("", "", "", "", "L_wrist_joint>L_equip_joint@0,0.1,0:0.32")
-attack_blows = PackedInt32Array(1, 1, 1, 1, 1)
+attacks = Array[StringName]([&"CR_SK_OneHandCombo", &"CR_SK_ForwardStab", &"CR_SK_HighAttack", &"CR_SK_JumpAttack", &"CR_SK_SlashCombo"])
+attack_parts = Array[Vector3]([Vector3(1.1, 0.03, 0.85), Vector3(1.2, 0, 0.8), Vector3(1.2, 0, 0.85), Vector3(1.15, 0, 0.85), Vector3(1.15, 0, 0.88)])
+attack_limbs = PackedStringArray("", "", "", "", "")
+attack_blows = PackedInt32Array(3, 1, 1, 1, 3)
 strike_at_reach = true
 blows_to_fell = 3
 too_close = 0.35
@@ -112,6 +112,7 @@ back_clip = &"CR_WalkBack"
 counter_after = 0.35
 block_cost = 22.0
 reform_chance = 0.5
+draw_clip = &"CR_SK_DrawSword"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)

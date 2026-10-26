@@ -12141,3 +12141,38 @@ great_sword_charge_test.
 - A string left alone is counted from the end of its last blow
   (`_end_action`), not its start: the knight's slow blows outlast
   `flurry_reset_after` and his string always started over.
+
+## The skeleton mage's and warrior's own moves (2026-10-27)
+
+Picked by the user from films first (`claude/monster_anim_picks.md`), then
+built in. The clips are Mixamo's, carried onto the Biped Creatures' skeleton
+by `tools/creature_clips.gd` (`CR_SK_*`, fbx in `assets/creatures/anim/mixamo/SK_*`).
+
+**The mage** ([MageFighter]):
+- **Ground spell** (`CR_MG_Ground`, [BoneThorns]): a rune circle flashes under
+  the hero (`hex_delay`, 0.55 s), then fifteen curved bone spears burst up round
+  a tall one, with bone chips, dust and a violet pulse; whoever is still inside
+  is struck (host). They hold and sink.
+- **Bones thrown from afar** ([BoneCrown], [BoneShard]): its hand raised
+  (`CR_SK_HandUp`), ten pieces of its own skeleton (thigh, shin, arm bones, the
+  skull, cut from its own body meshes by `BoneShard.cut`) grow round its head,
+  each turned on him; its hand thrown forward (`CR_SK_HandForward`), they go
+  straight, point first, in the elf's beat (`BEAT`), as [SpellBolt]s at the
+  heroes (dodged in time only). The crown is on every peer (`net_crown`), each
+  throw too (`net_bone`); the host keeps the beat (`_run_volley`).
+- **Great sword of light** ([SpiritSword], `CR_SK_GreatSwordSpell`): formed over
+  its head, it moves with the staff (the staff head's lean through the clip,
+  `SpiritSword.LEAN`, measured once), back and then over and down onto the
+  ground in front, a sweep of light behind it. Its blow (host, `_swing_lands`)
+  is the stretch of ground under the blade (`SpiritSword.strike_span`, ~3.3 to
+  7.4 m ahead), and fells.
+- **Staff blade** ([StaffBlade]): the same swing with a blade grown out of the
+  staff, when he has come in nearer than it keeps him (1.2–4.6 m), fells.
+- **Staff only up close**: it does not walk in to strike; the blast and the
+  staff come when he has come to it.
+- **The dead rise** on `CR_SK_UpwardPull`. The bolt stays, between the others.
+
+**The warrior** ([ShieldFighter]): draws its sword the first time it sees him
+(`draw_clip` = `CR_SK_DrawSword`, again only after it has gone home), and its
+attacks are the one-handed string (3 blows), the stab, the high cut, the leap
+and the slash string (3 blows); the bash and sword from behind the shield stay.

@@ -25,6 +25,8 @@ extends Brawler
 ##   and now and then one of its attacks: the shield thrown into him
 ##   (`bash_clip`), and straight out of it the sword (`follow_clip`), one
 ##   combo to the hero. Its other attacks are the [Brawler]'s.
+## * **Its sword drawn** (`draw_clip`, the user's pick 2026-10-26) the first
+##   time it sees him, before it comes on; again only once it has gone home.
 ## * **Broken into bones** as every skeleton is ([member Brawler.shatter_on_death]).
 
 @export_group("Shield")
@@ -66,8 +68,17 @@ extends Brawler
 ## sword in it).
 @export var bash_follows: bool = true
 
+@export_group("Draw")
+## Played once when it first sees him (empty: none), [rate, from, to].
+@export var draw_clip: StringName = &""
+@export var draw_part: Vector3 = Vector3(1.15, 0.0, 1.0)
+
 const BASH := 74
 const FOLLOW := 75
+const DRAW := 76
+
+## Its sword drawn since it last went home (host).
+var _drawn: bool = false
 
 ## The shield raised (every peer; the host decides it, [method net_guard]).
 var guarding: bool = false
@@ -83,6 +94,8 @@ func _ready() -> void:
 	_moves_table[BASH] = [bash_clip, bash_part.x, bash_part.y, bash_part.z]
 	_moves_table[FOLLOW] = [follow_clip, follow_part.x, follow_part.y, follow_part.z]
 	_own_limb(BASH, bash_limb)
+	if not draw_clip.is_empty():
+		_moves_table[DRAW] = [draw_clip, draw_part.x, draw_part.y, draw_part.z]
 	var count := maxi(blows_to_fell, 1)
 	_strikes_table[FOLLOW] = [PackedStringArray([String(weapon_bone)]), ["weapon"], 1.0, count]
 	if _anim != null:
@@ -251,6 +264,16 @@ func _think(delta: float) -> void:
 	if mode == Mode.GUARD or mode == Mode.RETURN or is_dead:
 		super(delta)
 		return
+	# Seen him: the sword drawn first, facing him.
+	if not _drawn and _moves_table.has(DRAW) and act == Act.NONE:
+		_quarry = _pick_quarry()
+		if _quarry != null:
+			_drawn = true
+			velocity.x = 0.0
+			velocity.z = 0.0
+			_face(_quarry.global_position - global_position, 1.0, 50.0)
+			_begin(DRAW)
+			return
 	# Behind the shield, his blows over (or caught one after another): the
 	# bash and the sword, mostly.
 	var through := answer_after_caught > 0 and _caught_run >= answer_after_caught \
@@ -324,6 +347,12 @@ func _begin(what: int) -> void:
 		stamina = keep
 		return
 	super(what)
+
+
+## Home again: the sword is drawn anew the next time it sees him.
+func _made_whole() -> void:
+	_drawn = false
+	super()
 
 
 func _fade_in(what: int) -> float:
