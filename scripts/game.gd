@@ -65,9 +65,6 @@ var freed: Array[String] = []
 ## freed men's trades (trade -> level, [Trades]).
 var gold: int = 0
 var trade_levels: Dictionary = {}
-## The gold he left where he fell in a portal ({"portal", "step", "gold"};
-## empty: none), to be found there on his next way through ([CombatDirector]).
-var stain: Dictionary = {}
 ## Runs through the portals, the ones won, and the fastest win (s, 0: none).
 var runs: int = 0
 var wins: int = 0
@@ -84,12 +81,6 @@ func close_portal(index: int) -> void:
 	closed_portals[index] = true
 	var top := int(Portals.DEFS[clampi(index, 0, Portals.DEFS.size() - 1)]["to"])
 	best_level[_chosen] = maxi(int(best_level.get(_chosen, 1)), top)
-	_save_settings()
-
-
-## What he left where he fell (empty: nothing, or it was taken back).
-func set_stain(what: Dictionary) -> void:
-	stain = what.duplicate()
 	_save_settings()
 
 
@@ -665,8 +656,6 @@ func _load_settings() -> void:
 		for who: Variant in out:
 			freed.append(String(who))
 	gold = int(file.get_value("progress", "gold", 0))
-	var left: Variant = file.get_value("progress", "stain", {})
-	stain = left if left is Dictionary else {}
 	runs = int(file.get_value("progress", "runs", 0))
 	wins = int(file.get_value("progress", "wins", 0))
 	best_time = float(file.get_value("progress", "best_time", 0.0))
@@ -709,7 +698,6 @@ func _save_settings() -> void:
 		file.set_value("progress", "best_level", best)
 		file.set_value("progress", "freed", freed)
 		file.set_value("progress", "gold", gold)
-		file.set_value("progress", "stain", stain)
 		file.set_value("progress", "runs", runs)
 		file.set_value("progress", "wins", wins)
 		file.set_value("progress", "best_time", best_time)

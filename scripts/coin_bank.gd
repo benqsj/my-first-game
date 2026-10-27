@@ -14,7 +14,8 @@ extends Node
 const PICK_UP := 1.7
 const SETTLE := 0.6
 ## What a boss drops (any other creature: one coin).
-const BOSS_GOLD := 2
+## (4 to 8: the user's word, 2026-10-28)
+const BOSS_GOLD := Vector2i(4, 8)
 
 var _next: int = 0
 var _piles: Dictionary = {}
@@ -32,7 +33,7 @@ static func of(node: Node) -> CoinBank:
 ## (Gold is dear and hard to come by, the user's word, 2026-10-28: a
 ## creature leaves one coin and no more, a boss two.)
 static func worth_of(creature: Node, _rng: RandomNumberGenerator = null) -> int:
-	var own := BOSS_GOLD if creature.has_meta(&"boss") else 1
+	var own := randi_range(BOSS_GOLD.x, BOSS_GOLD.y) if creature.has_meta(&"boss") else 1
 	if "carried_gold" in creature:
 		own += int(creature.get("carried_gold"))
 	return own
