@@ -121,6 +121,8 @@ func _dress() -> void:
 			_body.set_meta(&"title", "Elite " + kind)
 			_set_rim(Color(1.0, 0.42, 0.1), 0.35)
 			_aura()
+			# one thing of its own (two later): swift, warded, bursting, mending
+			EliteAffixes.give(_body, _dungeon)
 			_next = _now() + _rng.randf_range(3.0, 5.0)
 		&"captain":
 			_body.set_meta(&"title", kind + " Captain")

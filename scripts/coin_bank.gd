@@ -17,6 +17,8 @@ const SETTLE := 0.6
 ## and a little either way.
 const PER_WOLF := 6.0
 const SPREAD := 0.35
+const BOSS_GOLD := 150
+const ELITE_GOLD := 25
 
 var _next: int = 0
 var _piles: Dictionary = {}
@@ -37,6 +39,12 @@ static func worth_of(creature: Node, rng: RandomNumberGenerator = null) -> int:
 	var own := maxi(int(round(base * (1.0 + r))), 1)
 	if "carried_gold" in creature:
 		own += int(creature.get("carried_gold"))
+	# a boss a heap, an elite a handful (the gold the trades are bought with,
+	# 2026-10-27: tusks no more; tests/gold_probe.gd measures a run)
+	if creature.has_meta(&"boss"):
+		own += BOSS_GOLD
+	elif creature.has_meta(&"elite"):
+		own += ELITE_GOLD
 	return own
 
 

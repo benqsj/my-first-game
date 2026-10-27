@@ -279,12 +279,8 @@ const THROW_GAP := 3.2
 const HOLD_RINGS := [8.5, 11.5]
 ## The ones shooting from off stand round him on these, each its own bearing.
 const SHOOT_RINGS := [13.0, 16.0]
-## Nearer than this to a hero, a held one has its turn at once.
-const CLOSE_IN := 3.2
-## Now and then one more than [constant CROWD] for a while: for how long,
-## and how long between.
-const EXTRA_FOR := Vector2(3.5, 6.0)
-const EXTRA_EVERY := Vector2(9.0, 16.0)
+## (who has a turn at him, the one he walks up to, now and then one more:
+## [CombatDirector])
 
 const SND := "res://assets/sounds/dungeon/"
 ## The land's own photographed ground and rock, brought in through the portal
@@ -384,8 +380,8 @@ var _columns: Array[Dictionary] = []
 var _crowd_clock: float = 0.0
 ## The small ones let at the heroes just now ([method _hold_back_crowd]).
 var _holders: Array[Node3D] = []
-var _extra_until := 0.0
-var _extra_next := 0.0
+## How hard the fight presses him, who has a turn at him ([CombatDirector]).
+var director: CombatDirector
 ## Each place's creatures, made with it: asleep where they stand till it wakes.
 var _room_foes: Array = []
 ## The pair of orcs taking turns at a lone hero: whose turn, since when, and
@@ -915,6 +911,10 @@ func _ready() -> void:
 	add_to_group(&"ground_scars")
 	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
 	Fighter.throw_gap = THROW_GAP
+	director = CombatDirector.new()
+	director.name = "CombatDirector"
+	add_child(director)
+	director.setup(self)
 	# The run's orcs and its lord made now, behind the loading screen, and
 	# everything the run will show drawn once there ([method _warm_up]).
 	_premake.call_deferred()
@@ -1288,7 +1288,11 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 ## word, 2026-10-21: never a wave of goblins only, then of imps only — mixed,
 ## an imp, a goblin…); the elite, which comes with the second wave, last.
 static func mixed(foes: Array) -> Array:
-	var lists: Array = []
+	# Each kind's lot, sorted into its part in the fight (the user's word,
+	# 2026-10-27, [CombatDirector]'s plan: a wave as a band, not a heap):
+	# those that close in, those that come round the side, those that shoot,
+	# those that help the rest.
+	var parts := {"front": [], "flank": [], "ranged": [], "support": []}
 	var last: Array = []
 	for entry: Array in foes:
 		var one := entry.duplicate()
@@ -1301,17 +1305,54 @@ static func mixed(foes: Array) -> Array:
 		if role == "elite" or late:
 			last.append_array(many)
 		else:
-			lists.append(many)
+			(parts[_part_of(String(entry[0]), role)] as Array).append(many)
+	# within a part the kinds taken in turn
+	var queues := {}
+	for part: String in parts:
+		var q: Array = []
+		var left := true
+		while left:
+			left = false
+			for many: Array in parts[part]:
+				if not many.is_empty():
+					q.append(many.pop_front())
+					left = true
+		queues[part] = q
+	# a band in every few: two that close in, one round the side, one that
+	# shoots, and so on; a part run out, the next there is
 	var out: Array = []
-	var left := true
-	while left:
-		left = false
-		for many: Array in lists:
-			if not many.is_empty():
-				out.append(many.pop_front())
-				left = true
+	var k := 0
+	while true:
+		var want: String = BAND[k % BAND.size()]
+		k += 1
+		var q: Array = queues[want]
+		if q.is_empty():
+			for other: String in ["front", "flank", "ranged", "support"]:
+				if not (queues[other] as Array).is_empty():
+					q = queues[other]
+					break
+		if q.is_empty():
+			break
+		out.append(q.pop_front())
 	out.append_array(last)
 	return out
+
+
+## The order a wave is laid in, by part ([method mixed]).
+const BAND := ["front", "front", "flank", "ranged", "front", "flank", "ranged", "support"]
+const RANGED_KINDS := ["skeleton_archer", "skeleton_mage", "ghost_skull", "dragonet"]
+const FLANK_KINDS := ["wolf", "puglin", "imp"]
+
+
+static func _part_of(scene: String, role: String) -> String:
+	if role == "shaman":
+		return "support"
+	var file := scene.get_file().get_basename()
+	if RANGED_KINDS.has(file):
+		return "ranged"
+	if FLANK_KINDS.has(file):
+		return "flank"
+	return "front"
 
 
 ## Place `i`'s creatures, standing in its far half, asleep (they see no one:
@@ -4668,37 +4709,11 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 			continue
 		if "held_back" in body:
 			small.append([gap, body])
-	# with several shooting at him from off, only one at him up close (the
-	# user's word, 2026-10-27)
-	var crowd := CROWD_UNDER_FIRE if shooters >= SHOOTERS_MANY else CROWD
-	# now and then one more comes in for a while (the user's word,
-	# 2026-10-27: sometimes a third hits too)
-	var now := Time.get_ticks_msec() / 1000.0
-	if now >= _extra_next:
-		_extra_until = now + randf_range(EXTRA_FOR.x, EXTRA_FOR.y)
-		_extra_next = _extra_until + randf_range(EXTRA_EVERY.x, EXTRA_EVERY.y)
-	if now < _extra_until:
-		crowd += 1
-	var allowed := maxi(crowd * standing.size() - brutes, 0)
+	# Who has a turn at him now: by weight and the fight's pressure
+	# ([CombatDirector]; the user's word, 2026-10-27: two at once, the one he
+	# walks up to at once, now and then a third, one at most under fire).
 	small.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
-	# One he has walked up to has its turn at once (the user's word,
-	# 2026-10-27); then those that have it keep it while near; the nearest
-	# fill the rest.
-	var keep: Array[Node3D] = []
-	for pair: Array in small:
-		if float(pair[0]) < CLOSE_IN and keep.size() < allowed:
-			keep.append(pair[1])
-	for h in _holders:
-		for pair: Array in small:
-			if pair[1] == h and float(pair[0]) < 11.0 and not keep.has(h) and keep.size() < allowed:
-				keep.append(h)
-	for pair: Array in small:
-		if keep.size() >= allowed:
-			break
-		if not keep.has(pair[1]):
-			keep.append(pair[1])
-	while keep.size() > allowed:
-		keep.pop_back()
+	var keep: Array[Node3D] = director.choose(small, _holders, standing.size(), shooters, brutes)
 	_holders = keep
 	var waiting: Array[Fighter] = []
 	for pair: Array in small:
