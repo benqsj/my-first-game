@@ -181,8 +181,8 @@ var _named_in: bool = false
 ## shoulders, massive; here they are not"), and spread, not raised (the
 ## same day: shrugged at first; widened level since, the user picked
 ## 1.65 across, the collarbones 0.2 out, not let down).
-@export var chest_width: float = 1.65
-@export var shoulder_out: float = 0.2
+@export var chest_width: float = 1.0
+@export var shoulder_out: float = 0.0
 @export var shoulder_drop: float = 0.0
 ## Its skin, paint and blood picked from its name; -1 each to pick (a scene
 ## or a test can set them).
@@ -759,7 +759,7 @@ func _combo_named(name: StringName) -> int:
 func _sudden() -> bool:
 	if act == O_CHARGE or act == O_FETCH or act == O_FSPIN or act == O_SKY or act == O_SKYDIVE or act == O_HOP:
 		return true
-	if (act == O_LEAPA or act == O_LEAPB) and _slam_speed > 0.0:
+	if act == O_LEAPA or act == O_LEAPB:
 		return true
 	if act == O_LUNGE and _lunge_speed > 0.0:
 		return true
@@ -804,12 +804,20 @@ func _extra_velocity(delta: float) -> Vector3:
 
 
 func _own_velocity(delta: float) -> Vector3:
-	if (act == O_LEAPA or act == O_LEAPB) and _slam_speed > 0.0 and _quarry != null:
+	if act == O_LEAPA or act == O_LEAPB:
+		# down on him blade first, not body first (the user's word,
+		# 2026-10-27): it comes down so far off him that its blade's end
+		# falls where he stands; carried the rest of the way over the ground
+		# by its own leap (the clip's travel left to the blow taken off)
 		var ms := _blow_moments(act)
-		if not ms.is_empty() and _act_time < float(ms[0]) and _distance_to(_quarry) > float(_strike_from.get(act, strike_off)):
-			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
-			return _forward() * _slam_speed
-		return Vector3.ZERO
+		if _quarry == null or ms.is_empty() or _act_time >= float(ms[0]):
+			return Vector3.ZERO
+		_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
+		var clip := _clip_of(act)
+		var left := (_hips(clip, _clip_time(act, float(ms[0]))) - _hips(clip, _clip_time(act, _act_time))).x * _stretch
+		var land := float(LAND_GAP.get(act, 3.7)) * visual_scale / 1.85
+		var need := _distance_to(_quarry) - land - maxf(left, 0.0)
+		return _forward() * clampf(need / maxf(float(ms[0]) - _act_time, 0.08), 0.0, 18.0)
 	if act == O_CHARGE:
 		if not _charge_met and _act_time <= charge_time and (_quarry == null or _distance_to(_quarry) > 1.5):
 			if _quarry != null:
@@ -865,7 +873,7 @@ func _own_velocity(delta: float) -> Vector3:
 ## (T2). The long sword's: its thrust from off, the point gleaming as it is
 ## drawn back (L2); a hop back out of his swing now and then, and the answer
 ## (L4). The lord's: his war cry roused (B2), his rising power at his second
-## breath, the cape torn off and his blade alight; the furrow, his blade
+## breath and his blade alight; the furrow, his blade
 ## dragged through the ground sending a crack at him and swung up (B3); his
 ## leaps down on him, the ground split all round (B4); his blade driven into
 ## the ground where he lies (B7).
@@ -884,6 +892,9 @@ const O_HEAVY := 311
 const O_LEAPA := 312
 const O_LEAPB := 313
 const WHIRL := [O_WRUN, O_W360, O_WAXE]
+## How far off him it comes down from each leap, its blade's end on him
+## (measured at the lord's size, `_shots_tmp/leap_probe.gd`).
+const LAND_GAP := {O_LEAPA: 3.8, O_LEAPB: 3.7}
 const THRUST_COMBO := &"thrust"
 const LEAP_COMBOS := [&"leap_a", &"leap_b"]
 const RIPOSTES := [&"riposte_out", &"riposte_in"]
@@ -898,10 +909,10 @@ const RIPOSTES := [&"riposte_out", &"riposte_in"]
 @export var riposte_cooldown: Vector2 = Vector2(6.0, 10.0)
 @export var hop_iframes: float = 0.45
 ## The lord's leap down on him: from this far off (m), and how often (s).
-@export var slam_gap: Vector2 = Vector2(6.0, 13.0)
+@export var slam_gap: Vector2 = Vector2(8.5, 14.0)
 @export var slam_cooldown: Vector2 = Vector2(12.0, 18.0)
 ## Under this share of its health its second breath (the lord's; 0 never):
-## its rising power, the cape torn off, the blade alight, harder blows.
+## its rising power, the blade alight, harder blows.
 @export var phase_two_at: float = 0.0
 ## Off for a kind with its own ways (the butcher).
 @export var round_two: bool = true
@@ -917,6 +928,7 @@ var _fx_last: float = 0.0
 var _scrape_wait: float = 0.0
 var _blade_fire: Array[GPUParticles3D] = []
 var _blade_glow: OmniLight3D
+var _blade_skin: ShaderMaterial
 ## For the tests and probes.
 var ripostes_made: int = 0
 var thrusts_made: int = 0
@@ -1063,50 +1075,59 @@ func _try_phase_two() -> bool:
 	return true
 
 
-## Every peer: his second breath: the cape torn off him in shreds, his blade
-## catching a dark fire, embers off it, a low red light on him.
+## Every peer: his second breath: his blade catching fire all along it,
+## embers off it, a low red light on him (his cape kept: the user's word).
 @rpc("authority", "call_local", "reliable")
 func net_phase_two() -> void:
 	phase_two = true
 	var world := Blood.world_of(self)
 	var chest := global_position + Vector3.UP * 1.5 * visual_scale / 1.6
-	for mi in find_children("Wear_ps_x_*cape*", "MeshInstance3D", true, false):
-		(mi as MeshInstance3D).visible = false
 	if world != null:
-		SkillFx.particles(world, chest - _forward() * 0.4, {
-			"amount": 40, "life": 1.6, "one_shot": true, "explosiveness": 0.9, "speed": Vector2(2.0, 6.0),
-			"dir": Vector3.UP - _forward(), "spread": 70.0, "gravity": Vector3(0, -7.0, 0), "damping": 1.0,
-			"size": Vector2(0.18, 0.4), "sphere": 0.4, "add": false, "spin": true, "grow": 0.02,
-			"tex": SkillFx.flame(), "colors": [Color(0.06, 0.05, 0.06, 1.0), Color(0.05, 0.04, 0.05, 1.0),
-					Color(0.04, 0.03, 0.04, 0.0)]})
 		SkillFx.light(world, chest, Color(1.0, 0.3, 0.1), 5.0, 8.0, 0.6)
 	Sfx.play_any(self, [ROAR_SOUND], self, 0.62, 6.0)
-	for i in _arcs.size():
-		var fire := SkillFx.particles(self, global_position, {
-			"amount": 100, "life": 0.55, "speed": Vector2(0.2, 0.7), "spread": 30.0,
-			"gravity": Vector3(0, 2.4, 0), "size": Vector2(0.18, 0.34), "box": Vector3(0.05, 0.6, 0.05),
-			"grow": 0.2, "tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": true,
-			"colors": [Color(1.0, 0.5, 0.12, 0.0), Color(1.0, 0.32, 0.05, 0.9), Color(0.6, 0.06, 0.02, 0.6),
-					Color(0.1, 0.01, 0.01, 0.0)]})
-		fire.fixed_fps = 0
-		fire.interpolate = false
-		_blade_fire.append(fire)
-		var embers := SkillFx.particles(self, global_position, {
-			"amount": 24, "life": 0.9, "speed": Vector2(0.4, 1.2), "spread": 50.0,
-			"gravity": Vector3(0, 1.2, 0), "size": Vector2(0.025, 0.045), "box": Vector3(0.05, 0.6, 0.05),
-			"add": true, "colors": [Color(1.0, 0.6, 0.2, 1.0), Color(1.0, 0.25, 0.05, 0.0)]})
-		embers.fixed_fps = 0
-		embers.interpolate = false
-		_blade_fire.append(embers)
+	if _arcs.is_empty() or _skeleton == null:
+		return
+	# the blade itself burning, all along it (the user's word: one fire on
+	# the blade, on it, not beside it): a fire laid over its own surface
+	if _blade_skin == null:
+		var sh := Shader.new()
+		sh.code = HeroBurn.FIRE_SHADER
+		_blade_skin = ShaderMaterial.new()
+		_blade_skin.shader = sh
+		_blade_skin.set_shader_parameter(&"strength", 2.2)
+	for mi in body.find_children("Arm_*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if not String(m.name).ends_with("_left") and m.material_overlay == null:
+			m.material_overlay = _blade_skin
+	# and tongues of flame off its edge, from the guard to the point
+	var ends := _blade_ends(0)
+	var long := ((ends[1] as Vector3) - (ends[0] as Vector3)).length()
+	var fire := SkillFx.particles(self, global_position, {
+		"amount": 90, "life": 0.4, "speed": Vector2(0.1, 0.4), "spread": 25.0,
+		"gravity": Vector3(0, 2.6, 0), "size": Vector2(0.12, 0.22), "box": Vector3(0.03, long * 0.4, 0.03),
+		"grow": 0.25, "tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": true,
+		"colors": [Color(1.0, 0.6, 0.2, 0.0), Color(1.0, 0.42, 0.08, 0.9), Color(0.85, 0.15, 0.02, 0.6),
+				Color(0.2, 0.02, 0.0, 0.0)]})
+	fire.fixed_fps = 0
+	fire.interpolate = false
+	_blade_fire.append(fire)
+	var embers := SkillFx.particles(self, global_position, {
+		"amount": 20, "life": 0.9, "speed": Vector2(0.3, 1.0), "spread": 50.0,
+		"gravity": Vector3(0, 1.2, 0), "size": Vector2(0.02, 0.04), "box": Vector3(0.03, long * 0.4, 0.03),
+		"add": true, "colors": [Color(1.0, 0.65, 0.25, 1.0), Color(1.0, 0.25, 0.05, 0.0)]})
+	embers.fixed_fps = 0
+	embers.interpolate = false
+	_blade_fire.append(embers)
 	_blade_glow = OmniLight3D.new()
-	_blade_glow.light_color = Color(1.0, 0.25, 0.08)
+	_blade_glow.light_color = Color(1.0, 0.35, 0.1)
 	_blade_glow.omni_range = 4.0
 	_blade_glow.light_energy = 1.2
 	_blade_glow.shadow_enabled = false
 	add_child(_blade_glow)
 
 
-## Every peer: its blade's fire laid along the blade as it is now.
+## Every peer: its blade's fire laid along the blade as it is now, guard to
+## point.
 func _keep_fire() -> void:
 	if _blade_fire.is_empty() or _arcs.is_empty():
 		return
@@ -1119,7 +1140,7 @@ func _keep_fire() -> void:
 		return
 	var y := along / long
 	var x := y.cross(Vector3.UP if absf(y.y) < 0.95 else Vector3.RIGHT).normalized()
-	var t := Transform3D(Basis(x, y, x.cross(y)).scaled(Vector3(1.0, long / 1.2 / 0.6 * 0.5, 1.0)), hand.lerp(tip, 0.6))
+	var t := Transform3D(Basis(x, y, x.cross(y)), hand.lerp(tip, 0.58))
 	for f in _blade_fire:
 		f.global_transform = t
 		f.emitting = not is_dead
@@ -2956,6 +2977,12 @@ func _wear_outfit() -> void:
 			sway.name = "CapeSway"
 			sway.chain = chain
 			sway.owner_body = self
+			sway.body_low = _skeleton.find_bone("pelvis_joint")
+			sway.body_high = _skeleton.find_bone("neck_joint")
+			var ls := _skeleton.find_bone("L_shoulder_joint")
+			var rs := _skeleton.find_bone("R_shoulder_joint")
+			if ls >= 0 and rs >= 0:
+				sway.shoulders = PackedInt32Array([ls, rs])
 			_skeleton.add_child(sway)
 	if hair != "":
 		_wear_piece(hair, hair_size, hair_tint, body.find_child("Orc_Head", true, false) as MeshInstance3D, true)

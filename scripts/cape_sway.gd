@@ -17,6 +17,13 @@ var hang: float = 0.7
 ## run throws it back (seconds of his speed).
 var follow: float = 7.0
 var trail: float = 0.07
+## The body it hangs over, kept out of (the user's word, 2026-10-27: the cape
+## went in through him): a capsule from `body_low` to `body_high` (bones),
+## `body_radius` round (skeleton units; 0 from his shoulders' width).
+var body_low: int = -1
+var body_high: int = -1
+var body_radius: float = 0.0
+var shoulders: PackedInt32Array = PackedInt32Array()
 
 var _from: int = -1
 var _dirs: Array[Vector3] = []
@@ -60,7 +67,7 @@ func _process_modification() -> void:
 		d = d.normalized()
 		# where it would hang, in the world: down, thrown back by his run,
 		# and never in at his front
-		var want := Vector3.DOWN - vel * trail - fwd * 0.18
+		var want := Vector3.DOWN - vel * trail - fwd * 0.35
 		var flat_fwd := Vector3(fwd.x, 0.0, fwd.z).normalized()
 		if want.dot(flat_fwd) > -0.05:
 			want -= flat_fwd * (want.dot(flat_fwd) + 0.05)
@@ -72,6 +79,7 @@ func _process_modification() -> void:
 		var t := (to_skel * _dirs[j]).normalized()
 		var aim := d.slerp(t, clampf(hang + k * 0.1, 0.0, 1.0)).normalized()
 		k += 1.0
+		aim = _out_of_body(sk, g.origin, aim, off.length())
 		if d.dot(aim) > 0.99999:
 			continue
 		var q := Quaternion(d, aim)
@@ -98,3 +106,29 @@ func _find_hang(sk: Skeleton3D) -> void:
 			_from = i
 			return
 	_from = maxi(chain.size() - 3, 0)
+
+
+## `aim` from `at` (skeleton space) turned so its end `long` along it stays
+## outside his body (behind him, if it would go in).
+func _out_of_body(sk: Skeleton3D, at: Vector3, aim: Vector3, long: float) -> Vector3:
+	if body_low < 0 or body_high < 0:
+		return aim
+	var a := sk.get_bone_global_pose(body_low).origin
+	var b := sk.get_bone_global_pose(body_high).origin
+	var r := body_radius
+	if r <= 0.0 and shoulders.size() == 2:
+		r = sk.get_bone_global_pose(shoulders[0]).origin.distance_to(sk.get_bone_global_pose(shoulders[1]).origin) * 0.42
+	if r <= 0.0:
+		return aim
+	var tip := at + aim * long
+	var ab := b - a
+	var u := clampf((tip - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+	var c := a + ab * u
+	var out := tip - c
+	if out.length() >= r:
+		return aim
+	if out.length_squared() < 0.000001:
+		out = at - c
+	tip = c + out.normalized() * r
+	var d := tip - at
+	return d.normalized() if d.length_squared() > 0.000001 else aim
