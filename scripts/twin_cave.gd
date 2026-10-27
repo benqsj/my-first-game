@@ -15,9 +15,9 @@ extends RefCounted
 ## first wave is met there. Behind it the short tunnel with the timber gate:
 ## it creaks open with the second wave ([method open_way], on every peer).
 ## Then the temple hall: pale greige rock, a forgotten temple carved into
-## its far wall (a hooded figure in a niche between columns, a stair up to
-## it), pale crystals at the walls, a stream along each side; the portals
-## stand before the temple.
+## its far wall (a great shut door in a niche between columns, a stair up
+## to it), pale crystals at the walls, a stream along each side; the portals
+## stand before the temple, its great door shut.
 ##
 ## (The cave before, a beast's den and a crystal hall with a turquoise pool,
 ## 2026-10-26: `twin_cave_lowpoly.py`, in git before this.)
@@ -26,26 +26,27 @@ const DIR := "res://assets/dungeon/ghoul_cave/"
 const KIT := DIR + "ghoul_cave_lowpoly.glb"
 ## The same numbers as the Blender script's: centre z, half-width,
 ## half-length, height.
-const HALL_A := Vector4(32.0, 25.0, 22.4, 15.0)
-const HALL_D := Vector4(-26.0, 24.0, 21.5, 17.0)
+const HALL_A := Vector4(34.0, 25.0, 24.5, 21.0)
+const HALL_D := Vector4(-26.0, 24.0, 21.5, 18.0)
 const TUN_W := 4.6
 const TUN_H := 6.6
-const HOLE_D := 7.0
+const HOLE_D := 8.5
 const LEDGE_K := 0.80
 ## The ghouls' tunnel mouths under the den's ledge: angle round it (degrees,
 ## x = cos, z = sin), half-width (degrees), height. The first two are the
 ## tunnel on and the way in.
 const MOUTHS := [[90.0, 19.0, 7.1], [270.0, 17.0, 6.4],
-		[14.0, 7.0, 4.4], [46.0, 6.5, 4.8], [134.0, 6.5, 4.6], [166.0, 7.0, 4.3],
-		[203.0, 6.5, 4.7], [236.0, 6.0, 4.4], [304.0, 6.0, 4.5], [337.0, 7.0, 4.6]]
+		[14.0, 7.0, 3.3], [46.0, 6.5, 3.6], [134.0, 6.5, 3.5], [166.0, 7.0, 3.2],
+		[203.0, 6.5, 3.6], [236.0, 6.0, 3.3], [304.0, 6.0, 3.4], [337.0, 7.0, 3.5]]
 ## The temple's plinth (front z, back z, half-width, top), the stair's
-## half-width and foot.
-const PLINTH := Vector4(47.6, 54.0, 13.5, 1.5)
-const STAIR := Vector2(3.0, 44.8)
+## half-width and foot, as built (the Blender script's sizes grown 1.3 and
+## set back to z 50).
+const PLINTH := Vector4(50.0, 58.32, 17.55, 1.95)
+const STAIR := Vector2(3.9, 46.36)
 ## The streams: the line each follows (x, z) and its half-width.
 const STREAMS := [
 	[[Vector2(15.6, 13.0), Vector2(13.6, 19.0), Vector2(14.2, 26.0), Vector2(17.4, 33.0), Vector2(21.4, 40.5), Vector2(23.6, 45.0)], 1.4],
-	[[Vector2(-21.4, 26.0), Vector2(-19.8, 32.5), Vector2(-18.6, 38.5), Vector2(-16.9, 44.0), Vector2(-15.0, 49.5)], 1.2],
+	[[Vector2(-22.4, 26.0), Vector2(-20.8, 32.5), Vector2(-19.6, 38.5), Vector2(-19.5, 44.0), Vector2(-23.0, 48.0)], 1.2],
 ]
 ## Where the gate stands across the tunnel (z), its leaves' hinges (x) and
 ## how far they swing open (degrees).
@@ -107,16 +108,16 @@ static func _backstop(room: Node3D) -> void:
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var dz := HALL_D.x
 	var dh := HOLE_D + 2.5
-	var y := 26.0
+	var y := 31.0
 	var parts := [
-		[Vector3(1.0, 44.0, 124.0), Vector3(-34.0, 8.0, -2.0)],
-		[Vector3(1.0, 44.0, 124.0), Vector3(34.0, 8.0, -2.0)],
-		[Vector3(70.0, 44.0, 1.0), Vector3(0.0, 8.0, 59.0)],
-		[Vector3(70.0, 44.0, 1.0), Vector3(0.0, 8.0, -63.0)],
+		[Vector3(1.0, 50.0, 132.0), Vector3(-34.0, 12.0, 0.0)],
+		[Vector3(1.0, 50.0, 132.0), Vector3(34.0, 12.0, 0.0)],
+		[Vector3(70.0, 50.0, 1.0), Vector3(0.0, 12.0, 66.0)],
+		[Vector3(70.0, 50.0, 1.0), Vector3(0.0, 12.0, -63.0)],
 		[Vector3(70.0, 1.0, (dz - dh) + 63.0), Vector3(0.0, y, (dz - dh - 63.0) * 0.5)],
 		[Vector3(35.0 - dh, 1.0, 2.0 * dh), Vector3(-(35.0 + dh) * 0.5, y, dz)],
 		[Vector3(35.0 - dh, 1.0, 2.0 * dh), Vector3((35.0 + dh) * 0.5, y, dz)],
-		[Vector3(70.0, 1.0, 59.0 - (dz + dh)), Vector3(0.0, y, (59.0 + dz + dh) * 0.5)],
+		[Vector3(70.0, 1.0, 66.0 - (dz + dh)), Vector3(0.0, y, (66.0 + dz + dh) * 0.5)],
 	]
 	for part: Array in parts:
 		var box := BoxMesh.new()
@@ -165,6 +166,17 @@ static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 		f.scale = Vector3.ONE * rng.randf_range(0.8, 1.25)
 		_solid_hull(f)
 		placed += 1
+	# heaps of bones at the pillars' feet, as in the picture
+	var heaps := 0
+	for k in 40:
+		if heaps >= 6:
+			break
+		var deg := rng.randf_range(0.0, 360.0)
+		if _arch_h(deg) > 0.0 or _arch_h(deg + 6.0) > 0.0 or _arch_h(deg - 6.0) > 0.0:
+			continue
+		var at := _round(HALL_D, deg, LEDGE_K * 0.95)
+		_piece(room, "GBones%d" % (heaps % 3), at, rng.randf_range(0.0, TAU))
+		heaps += 1
 	for k in 5:
 		var deg := 25.0 + float(k) * 72.0 + rng.randf_range(-8.0, 8.0)
 		if _arch_h(deg) > 0.0:
@@ -175,11 +187,11 @@ static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	# the moon's shaft seen in the air (only the light down the hole lights it)
 	var air := FogVolume.new()
 	air.shape = RenderingServer.FOG_VOLUME_SHAPE_ELLIPSOID
-	air.size = Vector3(22.0, 36.0, 22.0)
-	air.position = Vector3(0.0, 9.0, cz)
+	air.size = Vector3(16.0, 50.0, 16.0)
+	air.position = Vector3(0.0, 12.0, cz)
 	var am := FogMaterial.new()
-	am.density = 0.012
-	am.albedo = Color(0.92, 0.95, 1.0)
+	am.density = 0.006
+	am.albedo = Color(0.95, 0.97, 0.92)
 	am.edge_fade = 1.0
 	air.material = am
 	if Graphics.current != Graphics.Level.LOW:
@@ -189,19 +201,40 @@ static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	var motes := Node3D.new()
 	motes.position = Vector3(0.0, 0.0, cz)
 	room.add_child(motes)
-	TerracePlaces._motes(motes, HOLE_D * 1.6, HOLE_D * 1.6, Color(0.85, 0.9, 1.0), 50)
+	TerracePlaces._motes(motes, HOLE_D * 1.6, HOLE_D * 1.6, Color(0.92, 0.94, 0.88), 50)
 	# the moonlight given back off the floor, softly, up the walls and the ledge
 	var bounce := OmniLight3D.new()
-	bounce.light_color = Color(0.80, 0.85, 0.92)
-	bounce.light_energy = 0.9
-	bounce.omni_range = 30.0
+	bounce.light_color = Color(0.88, 0.90, 0.84)
+	bounce.light_energy = 1.5
+	bounce.omni_range = 34.0
 	bounce.omni_attenuation = 0.7
 	bounce.position = Vector3(0.0, 2.5, cz)
 	bounce.set_meta(&"designed_shadow", false)
 	room.add_child(bounce)
+	# the grey of the walls and the ledge seen round the dark (gamoq2)
+	for k in 4:
+		var fa := TAU * (float(k) + 0.5) / 4.0
+		var fill := OmniLight3D.new()
+		fill.light_color = Color(0.92, 0.93, 0.88)
+		fill.light_energy = 1.8
+		fill.omni_range = 24.0
+		fill.omni_attenuation = 0.9
+		fill.position = Vector3(cos(fa) * HALL_D.y * 0.45, 6.5, cz + sin(fa) * HALL_D.z * 0.45)
+		fill.set_meta(&"designed_shadow", false)
+		room.add_child(fill)
+	# the moonlight caught round the hole's rim and on the roof's teeth
+	for k in 3:
+		var ra := TAU * float(k) / 3.0 + 0.4
+		var rim := OmniLight3D.new()
+		rim.light_color = Color(0.92, 0.94, 0.90)
+		rim.light_energy = 1.6
+		rim.omni_range = 15.0
+		rim.position = Vector3(cos(ra) * (HOLE_D + 2.5), HALL_D.w - 3.0, cz + sin(ra) * (HOLE_D + 2.5))
+		rim.set_meta(&"designed_shadow", false)
+		room.add_child(rim)
 	# a little of it reaching back into the way in, where he comes out
 	var way := OmniLight3D.new()
-	way.light_color = Color(0.74, 0.80, 0.90)
+	way.light_color = Color(0.84, 0.86, 0.80)
 	way.light_energy = 0.7
 	way.omni_range = 11.0
 	way.position = Vector3(0.0, 4.0, cz - HALL_D.z - 2.5)
@@ -209,7 +242,7 @@ static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	room.add_child(way)
 
 
-## The temple hall: the temple and its figure, the columns, the crystals,
+## The temple hall: the temple and its door, the columns, the crystals,
 ## the streams and what keeps him out of them; its light.
 static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	var cz := HALL_A.x
@@ -227,10 +260,10 @@ static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 	slope.position = Vector3(0.0, PLINTH.w * 0.5 - 0.05, STAIR.y + run * 0.5)
 	slope.rotation.x = -atan2(PLINTH.w, run)
 	room.add_child(slope)
-	var fig := _piece(room, "GStatue", Vector3(0.0, PLINTH.w + 0.18, PLINTH.y - 0.4))
-	fig.scale = Vector3.ONE * 1.3
-	_shadows(fig, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
-	_solid_shell(fig)
+	# the great shut door in the niche (the user's word, 2026-10-27: no figure)
+	var door := _piece(room, "GDoor", Vector3.ZERO)
+	_shadows(door, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	_solid_shell(door)
 	for c: Array in [["GColumn", Vector3(-14.0, 0.0, 36.0), 0.3], ["GColumnBroken", Vector3(13.6, 0.0, 40.5), 1.1]]:
 		var col := _piece(room, String(c[0]), c[1], float(c[2]))
 		_solid_hull(col)
@@ -273,18 +306,32 @@ static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 		if _near_portal(at) or _in_stream(at, 1.8):
 			continue
 		var c := _piece(room, "GCrystal%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
-		c.scale = Vector3.ONE * rng.randf_range(1.4, 2.3)
+		c.scale = Vector3.ONE * rng.randf_range(1.7, 2.7)
 		_shadows(c, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 		_solid_hull(c)
 		made += 1
 		if made % 3 == 0:
 			var glow := OmniLight3D.new()
-			glow.light_color = Color(0.62, 0.88, 1.0)
-			glow.light_energy = 1.0
+			glow.light_color = Color(0.62, 0.95, 0.95)
+			glow.light_energy = 1.6
 			glow.omni_range = 7.0
 			glow.position = at + Vector3(0.0, 1.4, 0.0) + (Vector3(0.0, 0.0, cz) - at).normalized() * 1.2
 			glow.set_meta(&"designed_shadow", false)
 			room.add_child(glow)
+	# big clusters at the plinth's front corners, as in the picture
+	for side: float in [-1.0, 1.0]:
+		var at := Vector3(side * 14.5, 0.0, PLINTH.x - 1.2)
+		var c := _piece(room, "GCrystal%d" % (2 if side < 0.0 else 3), at, rng.randf_range(0.0, TAU))
+		c.scale = Vector3.ONE * 2.4
+		_shadows(c, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+		_solid_hull(c)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(0.62, 0.95, 0.95)
+		glow.light_energy = 1.6
+		glow.omni_range = 8.0
+		glow.position = at + Vector3(-side * 1.5, 1.8, -1.5)
+		glow.set_meta(&"designed_shadow", false)
+		room.add_child(glow)
 	# small ones by the banks
 	for k in 12:
 		var st: Array = STREAMS[k % 2]
@@ -304,28 +351,28 @@ static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 		lamp.light_color = Color(0.6, 0.86, 1.0)
 		lamp.light_energy = 1.4
 		lamp.omni_range = 6.0
-		lamp.position = Vector3(side * (STAIR.x + 0.38), 2.0, STAIR.y - 0.3)
+		lamp.position = Vector3(side * (STAIR.x + 0.5), 2.6, STAIR.y - 0.4)
 		lamp.set_meta(&"designed_shadow", false)
 		room.add_child(lamp)
 	# the hall's soft daylight: the rock and the temple pale, as in the picture
-	for at: Vector3 in [Vector3(0.0, 9.0, cz - 6.0), Vector3(-11.0, 7.0, cz + 8.0), Vector3(11.0, 7.0, cz + 8.0)]:
+	for at: Vector3 in [Vector3(0.0, 12.0, cz - 6.0), Vector3(-11.0, 9.0, cz + 8.0), Vector3(11.0, 9.0, cz + 8.0)]:
 		var fill := OmniLight3D.new()
-		fill.light_color = Color(1.0, 0.95, 0.88)
+		fill.light_color = Color(1.0, 1.0, 0.98)
 		fill.light_energy = 1.7
 		fill.omni_range = 24.0
 		fill.omni_attenuation = 0.8
 		fill.position = at
 		fill.set_meta(&"designed_shadow", false)
 		room.add_child(fill)
-	# the figure lit from above and before, its hood's dark the deeper
+	# the door lit from above and before
 	var spot := SpotLight3D.new()
 	spot.light_color = Color(1.0, 0.95, 0.86)
 	spot.light_energy = 2.5
 	spot.spot_range = 22.0
 	spot.spot_angle = 22.0
-	spot.position = Vector3(0.0, 12.5, PLINTH.x - 8.0)
+	spot.position = Vector3(0.0, 14.0, PLINTH.x - 8.0)
 	room.add_child(spot)
-	spot.look_at(room.to_global(Vector3(0.0, 5.5, PLINTH.y - 0.6)), Vector3.UP)
+	spot.look_at(room.to_global(Vector3(0.0, 7.0, 56.5)), Vector3.UP)
 	spot.set_meta(&"designed_shadow", false)
 	TerracePlaces._haze(room, Vector3(0.0, 0.4, cz), Vector3(HALL_A.y * 2.0, 1.4, HALL_A.z * 2.0), 0.006)
 
@@ -517,8 +564,8 @@ static func _ready_kit() -> void:
 	_crystal_mat.albedo_color = Color(0.85, 0.97, 1.0)
 	_crystal_mat.roughness = 0.1
 	_crystal_mat.emission_enabled = true
-	_crystal_mat.emission = Color(0.45, 0.75, 0.95)
-	_crystal_mat.emission_energy_multiplier = 0.55
+	_crystal_mat.emission = Color(0.55, 0.92, 0.95)
+	_crystal_mat.emission_energy_multiplier = 1.1
 	_void_mat = StandardMaterial3D.new()
 	_void_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_void_mat.albedo_color = Color(0.012, 0.012, 0.014)
@@ -526,7 +573,7 @@ static func _ready_kit() -> void:
 	# the sky seen up the shafts: pale, as the picture's white light above
 	_sky_mat = StandardMaterial3D.new()
 	_sky_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_sky_mat.albedo_color = Color(0.66, 0.71, 0.80)
+	_sky_mat.albedo_color = Color(0.74, 0.78, 0.72)
 	_sky_mat.disable_fog = true
 	_sky_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_vine_mat = StandardMaterial3D.new()

@@ -3592,16 +3592,16 @@ func _twin_cave_look() -> void:
 		_sky_mat.set_shader_parameter("hor_col", Color(0.56, 0.60, 0.68))
 		_sky_mat.set_shader_parameter("gnd_col", Color(0.22, 0.23, 0.26))
 		_sky_mat.set_shader_parameter("sun_col", Color(1.0, 0.92, 0.80))
-	_env.ambient_light_color = Color(0.60, 0.62, 0.66)
-	_env.ambient_light_energy = 0.9
+	_env.ambient_light_color = Color(0.62, 0.63, 0.64)
+	_env.ambient_light_energy = 2.0
 	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	_env.fog_light_color = Color(0.10, 0.11, 0.14)
+	_env.fog_light_color = Color(0.12, 0.12, 0.11)
 	_env.fog_density = 0.012
 	_env.fog_sky_affect = 0.0
 	_env.fog_height_density = 0.0
 	_env.volumetric_fog_enabled = true
 	_env.volumetric_fog_density = 0.0003
-	_env.volumetric_fog_albedo = Color(0.90, 0.94, 1.0)
+	_env.volumetric_fog_albedo = Color(0.95, 0.96, 0.90)
 	_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 	_env.volumetric_fog_anisotropy = 0.6
 	_env.volumetric_fog_length = 64.0
@@ -3619,7 +3619,7 @@ func _twin_cave_look() -> void:
 	_env.ssao_power = 1.4
 	if _sun != null:
 		_sun.visible = true
-		_sun.light_color = Color(0.92, 0.94, 0.98)
+		_sun.light_color = Color(1.0, 1.0, 0.97)
 		_sun.light_energy = 3.6
 		_sun.rotation.x = -deg_to_rad(84.0)
 		_sun.light_angular_distance = 1.0
