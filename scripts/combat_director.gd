@@ -340,8 +340,11 @@ func _take(hero: Node3D, body: Node3D) -> void:
 ## A glint at each creature as it begins a blow: white light, red heavy.
 func _tells() -> void:
 	for body in _d._alive:
+		# validity first: a cast of a freed creature is an error every frame
+		if not is_instance_valid(body):
+			continue
 		var f := body as Fighter
-		if f == null or not is_instance_valid(f) or f.is_dead or not f.visible:
+		if f == null or f.is_dead or not f.visible:
 			continue
 		var serial := int(f.act_serial)
 		if int(_serials.get(f, -1)) == serial:
@@ -438,8 +441,11 @@ func _draw_marks() -> void:
 	right = right.normalized()
 	var shown: Array = []
 	for body in _d._alive:
+		# validity first: a cast of a freed creature is an error every frame
+		if not is_instance_valid(body):
+			continue
 		var f := body as Fighter
-		if f == null or not is_instance_valid(f) or f.is_dead or not f.visible or not striking(f):
+		if f == null or f.is_dead or not f.visible or not striking(f):
 			continue
 		if f.global_position.distance_to(hero.global_position) > MARK_STRIKER:
 			continue
@@ -544,8 +550,11 @@ func _striker_near(hero: Node3D, reach: float) -> Fighter:
 	var best: Fighter = null
 	var gap := reach
 	for body in _d._alive:
+		# validity first: a cast of a freed creature is an error every frame
+		if not is_instance_valid(body):
+			continue
 		var f := body as Fighter
-		if f == null or not is_instance_valid(f) or f.is_dead or not striking(f):
+		if f == null or f.is_dead or not striking(f):
 			continue
 		var d := f.global_position.distance_to(hero.global_position)
 		if d < gap:
