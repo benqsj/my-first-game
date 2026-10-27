@@ -225,11 +225,15 @@ func _draw_bars() -> void:
 			player.health / maxf(player.max_health, 1.0), POISONED if poisoned else HEALTH,
 			_lost / maxf(player.max_health, 1.0), HEALTH_LOST)
 	at.y += HEALTH_HEIGHT + GAP
-	# the venom in him, under his health while there is any ([HeroPoison])
+	# the venom in him: a bar a little above his skills while there is any,
+	# gone when it has worn off (the user's word, 2026-10-27; [HeroPoison])
 	if poisoned:
-		_bar(at, minf(player.max_health * HEALTH_SCALE, MAX_BAR), VENOM_HEIGHT, _poison.share(), VENOM,
-				0.0, Color.TRANSPARENT)
-		at.y += VENOM_HEIGHT + GAP
+		var view := get_viewport().get_visible_rect().size
+		var n := Player.SKILL_SLOTS
+		var width := SLOT * n + SLOT_GAP * (n - 1)
+		var top := view.y - SLOT_BOTTOM - SLOT - 12.0
+		_bar(Vector2((view.x - width) * 0.5, top - 10.0 - VENOM_HEIGHT * 1.5), width, VENOM_HEIGHT * 1.5,
+				_poison.share(), VENOM, 0.0, Color.TRANSPARENT)
 	var winded := player.is_winded()
 	_bar(at, minf(player.max_stamina * STAMINA_SCALE, MAX_BAR), STAMINA_HEIGHT,
 			maxf(player.stamina, 0.0) / maxf(player.max_stamina, 1.0),

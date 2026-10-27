@@ -961,6 +961,11 @@ var _scrape_wait: float = 0.0
 var _blade_fire: Array[GPUParticles3D] = []
 var _blade_glow: OmniLight3D
 var _blade_skin: ShaderMaterial
+var _struck: bool = true
+var _fire_age: float = 1.0
+## How far into his rising power (s) the lightning comes down on his blade.
+const STRIKE_AT := 0.85
+const THUNDER_SOUND := "res://assets/sounds/dungeon/thunder.wav"
 ## For the tests and probes.
 var ripostes_made: int = 0
 var thrusts_made: int = 0
@@ -1112,54 +1117,121 @@ func _try_phase_two() -> bool:
 @rpc("authority", "call_local", "reliable")
 func net_phase_two() -> void:
 	phase_two = true
-	var world := Blood.world_of(self)
-	var chest := global_position + Vector3.UP * 1.5 * visual_scale / 1.6
-	if world != null:
-		SkillFx.light(world, chest, Color(1.0, 0.3, 0.1), 5.0, 8.0, 0.6)
+	_struck = false
 	Sfx.play_any(self, [ROAR_SOUND], self, 0.62, 6.0)
-	if _arcs.is_empty() or _skeleton == null:
+
+
+## Every peer: up there, his blade raised to the sky, the lightning comes down
+## on it and the blade catches (the user's word, 2026-10-27: the sword made a
+## sword of fire, so).
+func _phase_two_fx() -> void:
+	if not phase_two or _struck or is_dead:
 		return
-	# the blade itself burning, all along it (the user's word: one fire on
-	# the blade, on it, not beside it): a fire laid over its own surface
+	if act == O_RISEUP and act_serial == _voiced_serial and _voiced_clock < STRIKE_AT:
+		return
+	_struck = true
+	if act == O_RISEUP:
+		_lightning()
+	_ignite()
+
+
+## Every peer: a bolt out of the sky onto his blade's point.
+func _lightning() -> void:
+	var world := Blood.world_of(self)
+	if world == null or _arcs.is_empty():
+		return
+	var tip: Vector3 = _blade_ends(0)[1]
+	var sky := tip + Vector3(randf_range(-3.0, 3.0), 26.0, randf_range(-3.0, 3.0))
+	var bolt: Array[Node3D] = []
+	var pts := _bolt_points(sky, tip, 18, 2.6)
+	for i in pts.size() - 1:
+		bolt.append(SkillFx.rod(world, pts[i], pts[i + 1], Color(0.78, 0.86, 1.0), 0.09, 7.0))
+	for k in 2:
+		var from: Vector3 = pts[3 + k * 3]
+		var to := from + Vector3(randf_range(-4.0, 4.0), randf_range(-6.0, -3.0), randf_range(-4.0, 4.0))
+		var br := _bolt_points(from, to, 5, 0.9)
+		for i in br.size() - 1:
+			bolt.append(SkillFx.rod(world, br[i], br[i + 1], Color(0.7, 0.8, 1.0), 0.045, 5.0))
+	# it flickers: on, off a breath, on, and gone
+	var tw := world.create_tween()
+	tw.tween_interval(0.07)
+	tw.tween_callback(func() -> void:
+		for r in bolt:
+			if is_instance_valid(r):
+				r.visible = false)
+	tw.tween_interval(0.05)
+	tw.tween_callback(func() -> void:
+		for r in bolt:
+			if is_instance_valid(r):
+				r.visible = true)
+	tw.tween_interval(0.16)
+	tw.tween_callback(func() -> void:
+		for r in bolt:
+			if is_instance_valid(r):
+				r.queue_free())
+	SkillFx.light(world, tip, Color(0.8, 0.88, 1.0), 14.0, 30.0, 0.5)
+	SkillFx.light(world, sky.lerp(tip, 0.5), Color(0.75, 0.85, 1.0), 8.0, 40.0, 0.3)
+	SkillFx.burst(world, tip, Color(0.85, 0.9, 1.0), 40, Vector2(3.0, 9.0), Vector3.UP, 180.0,
+			Vector2(0.03, 0.06), Vector3(0, -9.0, 0), 0.7)
+	SkillFx.burst(world, tip, Color(1.0, 0.55, 0.15), 30, Vector2(2.0, 6.0), Vector3.UP, 180.0,
+			Vector2(0.03, 0.06), Vector3(0, -9.0, 0), 0.9)
+	Sfx.play_flat(self, THUNDER_SOUND, randf_range(0.95, 1.08), 2.0)
+	WindBlast.shake(self, 0.25, 0.5, 30.0)
+
+
+func _bolt_points(from: Vector3, to: Vector3, n: int, wander: float) -> Array[Vector3]:
+	var out: Array[Vector3] = [from]
+	var along := to - from
+	var side := along.cross(Vector3.RIGHT if absf(along.normalized().x) < 0.9 else Vector3.FORWARD).normalized()
+	var side2 := along.cross(side).normalized()
+	for i in range(1, n):
+		var u := float(i) / float(n)
+		var off := (side * randf_range(-1.0, 1.0) + side2 * randf_range(-1.0, 1.0)) * wander * sin(u * PI)
+		out.append(from + along * u + off)
+	out.append(to)
+	return out
+
+
+## Every peer: his blade alight from now on, the fire coming up it.
+func _ignite() -> void:
+	if _arcs.is_empty() or _skeleton == null or not _blade_fire.is_empty():
+		return
+	_fire_age = 0.0
 	if _blade_skin == null:
 		var sh := Shader.new()
 		sh.code = BLADE_FIRE_SHADER
 		_blade_skin = ShaderMaterial.new()
 		_blade_skin.shader = sh
-		_blade_skin.set_shader_parameter(&"strength", 1.0)
+	_blade_skin.set_shader_parameter(&"strength", 0.0)
 	for mi in body.find_children("Arm_*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		if not String(m.name).ends_with("_left") and m.material_overlay == null:
 			m.material_overlay = _blade_skin
-	# and tongues of flame off its edge, from the guard to the point
 	var ends := _blade_ends(0)
 	var long := ((ends[1] as Vector3) - (ends[0] as Vector3)).length()
-	# a body of flame wrapped round the whole blade, slow and broad
+	# flames that ride the blade (laid in its own frame: no lagging behind it)
 	var sheath := SkillFx.particles(self, global_position, {
-		"amount": 120, "life": 0.5, "speed": Vector2(0.05, 0.25), "spread": 30.0,
-		"gravity": Vector3(0, 1.6, 0), "size": Vector2(0.22, 0.38), "box": Vector3(0.05, long * 0.44, 0.05),
+		"amount": 110, "life": 0.35, "speed": Vector2(0.05, 0.2), "spread": 30.0, "local": true,
+		"gravity": Vector3(0, 0.6, 0), "size": Vector2(0.2, 0.34), "box": Vector3(0.05, long * 0.44, 0.05),
 		"grow": 0.15, "tex": SkillFx.dot(), "add": true, "spin": true,
 		"colors": [Color(1.0, 0.55, 0.15, 0.0), Color(1.0, 0.38, 0.06, 0.55), Color(0.8, 0.12, 0.02, 0.35),
 				Color(0.2, 0.02, 0.0, 0.0)]})
-	sheath.fixed_fps = 0
-	sheath.interpolate = false
 	_blade_fire.append(sheath)
 	var fire := SkillFx.particles(self, global_position, {
-		"amount": 170, "life": 0.45, "speed": Vector2(0.1, 0.45), "spread": 25.0,
-		"gravity": Vector3(0, 2.8, 0), "size": Vector2(0.14, 0.28), "box": Vector3(0.04, long * 0.44, 0.04),
-		"grow": 0.25, "tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": true,
-		"colors": [Color(1.0, 0.6, 0.2, 0.0), Color(1.0, 0.42, 0.08, 0.9), Color(0.85, 0.15, 0.02, 0.6),
+		"amount": 150, "life": 0.3, "speed": Vector2(0.2, 0.6), "spread": 20.0, "local": true,
+		"dir": Vector3(1, 0, 0), "gravity": Vector3(0, 0.0, 0), "size": Vector2(0.14, 0.26),
+		"box": Vector3(0.04, long * 0.44, 0.04), "grow": 0.25, "tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0),
+		"add": true, "colors": [Color(1.0, 0.6, 0.2, 0.0), Color(1.0, 0.42, 0.08, 0.9), Color(0.85, 0.15, 0.02, 0.6),
 				Color(0.2, 0.02, 0.0, 0.0)]})
-	fire.fixed_fps = 0
-	fire.interpolate = false
 	_blade_fire.append(fire)
 	var embers := SkillFx.particles(self, global_position, {
 		"amount": 20, "life": 0.9, "speed": Vector2(0.3, 1.0), "spread": 50.0,
 		"gravity": Vector3(0, 1.2, 0), "size": Vector2(0.02, 0.04), "box": Vector3(0.03, long * 0.4, 0.03),
 		"add": true, "colors": [Color(1.0, 0.65, 0.25, 1.0), Color(1.0, 0.25, 0.05, 0.0)]})
-	embers.fixed_fps = 0
-	embers.interpolate = false
 	_blade_fire.append(embers)
+	for f in _blade_fire:
+		f.fixed_fps = 0
+		f.interpolate = false
 	_blade_glow = OmniLight3D.new()
 	_blade_glow.light_color = Color(1.0, 0.35, 0.1)
 	_blade_glow.omni_range = 4.0
@@ -1186,6 +1258,9 @@ func _keep_fire() -> void:
 	for f in _blade_fire:
 		f.global_transform = t
 		f.emitting = not is_dead
+	if _blade_skin != null and _fire_age < 1.0:
+		_fire_age += get_process_delta_time()
+		_blade_skin.set_shader_parameter(&"strength", clampf(_fire_age / 0.6, 0.0, 1.0))
 	if _blade_glow != null:
 		_blade_glow.global_position = hand.lerp(tip, 0.6)
 		_blade_glow.light_energy = 0.0 if is_dead else 1.1 + 0.3 * sin(Time.get_ticks_msec() * 0.023)
@@ -1195,6 +1270,7 @@ func _keep_fire() -> void:
 ## through its whole low cut; the furrow's crack at him; the leap's ground
 ## split all round; the blade into the ground where he lies.
 func _round_two_fx(delta: float) -> void:
+	_phase_two_fx()
 	_keep_fire()
 	if act_serial != _fx_serial:
 		_fx_serial = act_serial

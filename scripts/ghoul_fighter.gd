@@ -105,6 +105,14 @@ var _pin_rest_left: float = 0.0
 @export var venom_creep: float = 15.0
 @export var venom_bite: float = 8.0
 @export var venom_bite_creep: float = 4.0
+## Not every ghoul is venomous (the user's word, 2026-10-27): this share of
+## them are, picked from its name so every peer agrees (-1 / 0 / 1 in
+## `force_venom` to pick, or force it); and a venomous one's claw throws
+## venom in only on this share of its blows (its bite always).
+@export var venomous_share: float = 0.5
+@export var force_venom: int = -1
+@export var venom_chance: float = 0.45
+var venomous: bool = true
 
 @export_group("Frenzy")
 @export_range(0.0, 1.0) var frenzy_at: float = 0.45
@@ -232,7 +240,10 @@ func _ready() -> void:
 	_moves_table[STUMBLE] = [&"CR_GH_Stumble", 1.3, 0.0, 0.8]
 	_moves_table[ALERT] = [&"CR_GH_Alert", 1.3, 0.0, 1.0]
 	add_to_group(&"ghouls")
-	_claw_drips()
+	venomous = force_venom == 1 if force_venom >= 0 \
+			else float(posmod(hash(String(name) + "/venom"), 1000)) / 1000.0 < venomous_share
+	if venomous:
+		_claw_drips()
 	_make_sparks()
 
 
@@ -445,6 +456,8 @@ func _blow_reached(who: Node3D, what: int) -> void:
 		_pin_want = who
 	if bool(who.get("net_blocking")) or bool(who.get("is_blocking")):
 		return
+	if not venomous or _rng.randf() >= venom_chance:
+		return
 	var poison := HeroPoison.of(who)
 	if poison != null:
 		poison.apply_venom(venom_hit, venom_creep)
@@ -573,7 +586,7 @@ func _pinning(delta: float) -> void:
 			who.rpc_id(who.get_multiplayer_authority(), &"net_pin_bite", dmg)
 		else:
 			who.call(&"net_pin_bite", dmg)
-	var poison := HeroPoison.of(who)
+	var poison := HeroPoison.of(who) if venomous else null
 	if poison != null:
 		poison.apply_venom(venom_bite, venom_bite_creep)
 	var neck := _bone_of(who, &"neck_01", chest + Vector3.UP * 0.2)
@@ -1061,7 +1074,8 @@ func _twitching(delta: float) -> void:
 		if i >= 0:
 			at = _skeleton.global_transform * _skeleton.get_bone_global_pose(i).origin
 		at.y = global_position.y + 0.02
-		Venom.pool(Blood.world_of(self), at, death_pool, corpse_linger)
+		if venomous:
+			Venom.pool(Blood.world_of(self), at, death_pool, corpse_linger)
 	if _twitch_at < twitch_after or _twitch_at > twitch_after + twitch_time:
 		return
 	var fade := pow(1.0 - (_twitch_at - twitch_after) / twitch_time, 1.6)

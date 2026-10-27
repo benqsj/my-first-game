@@ -462,6 +462,9 @@ const MIXAMO := [
 	["CR_OR_JumpAttack", "res://assets/creatures/anim/mixamo/OR_JumpAttack.fbx", false, 0.0, -1.0],
 	["CR_OR_ShieldJump", "res://assets/creatures/anim/mixamo/OR_ShieldJump.fbx", false, 0.0, -1.0],
 	["CR_OR_Ground", "res://assets/creatures/anim/mixamo/OR_Ground.fbx", false, 0.0, -1.0],
+	# the lord's blade raised to the sky for the lightning (2026-10-27)
+	["CR_OR_RaiseSky", "res://assets/creatures/anim/mixamo/OR_RaiseSky.fbx", false, 0.0, -1.0],
+	["CR_OR_SwordPowerUp", "res://assets/creatures/anim/mixamo/OR_SwordPowerUp.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

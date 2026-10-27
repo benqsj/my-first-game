@@ -26,8 +26,9 @@ const FULL := 100.0
 ## Health a second taken with the bar full (less as it is lower).
 const FULL_DPS := 8.0
 const CREEP_RATE := 6.0
-const HOLD := 2.5
-const WEAR_RATE := 7.0
+const HOLD := 1.2
+## (quicker since 2026-10-27, the user's word: it did not wear off)
+const WEAR_RATE := 16.0
 const VIGNETTE := "res://assets/fx/poison_vignette.gdshader"
 const VEINS := "res://assets/fx/poison_veins.gdshader"
 
