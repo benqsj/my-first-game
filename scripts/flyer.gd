@@ -25,6 +25,10 @@ extends Fighter
 @export var throw_tell: float = 0.5
 @export var bolt_speed: float = 13.0
 @export var bolt_colour: Color = Color(0.45, 0.75, 1.0)
+## The bolt in that colour all through, tails and sparks too (not the gold
+## tail of the mage's), and this big.
+@export var bolt_whole_hue: bool = false
+@export var bolt_size: float = 1.0
 @export var throw_clip: StringName = &"Headbutt"
 @export var bolt_scene: PackedScene = preload("res://scenes/fx/spell_bolt.tscn")
 ## Within this far it throws.
@@ -139,6 +143,9 @@ func net_throw(from: Vector3, flight: Vector3, quarry: NodePath) -> void:
 	var bolt := bolt_scene.instantiate() as Node3D
 	bolt.set(&"against_heroes", true)
 	bolt.set(&"glow_colour", bolt_colour)
+	if bolt_whole_hue:
+		bolt.set(&"hue", bolt_colour)
+	bolt.set(&"look_size", bolt_size)
 	into.add_child(bolt)
 	bolt.global_position = from
 	bolt.call(&"launch", flight, hit_damage, false, 0.0, self)

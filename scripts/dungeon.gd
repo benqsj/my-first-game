@@ -51,7 +51,7 @@ const WAKE_AFTER := 1.2
 ## At most this many of a place's creatures are up at once (the user's word,
 ## 2026-10-20: so many together was too much); the rest come in waves through
 ## a rift that opens in the place once those are down.
-const AT_ONCE := 5
+const AT_ONCE := 6
 ## Seconds the rift stands open before the next wave comes out of it: a
 ## breath after the last of the first is down, it opens slowly (the user's
 ## word: not at once, and fine to see), then they come out one by one. Never
@@ -180,43 +180,44 @@ const LATE := {"late": true}
 ## fifth, the lord at the tenth. No place twice in a run ([method _choice_specs]).
 const RUN := {
 	0: [
-		# 1 — the lake terrace, quiet and bright: a few goblins and imps
-		{"places": ["terrace"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[GOBLIN, 3], [IMP, 4]]}},
-		# 2 — the crypt's dead (the small flying skulls throwing, the user's
-		# word, 2026-10-27), or the swamp's
-		{"places": ["crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
-				"foes": {"crypt": [[SKEL_WARRIOR, 3], [SKEL_ARCHER, 2], [SKULL, 2]],
-						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 3]]}},
-		# 3 — the ghouls' cave, or what is left of the two; an elite last
-		{"places": ["cave", "swamp", "crypt"], "lv": 3, "xp": 2.5, "reach": 3,
-				"foes": {"cave": [[GHOUL, 6], [GHOUL, 1, ELITE]],
-						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 3], [PUGLIN, 1, ELITE]],
-						"crypt": [[SKEL_WARRIOR, 3], [SKEL_ARCHER, 2], [SKEL_MAGE, 1], [SKULL, 2], [SKEL_WARRIOR, 1, ELITE]]}},
+		# (2026-10-27, the user's word: more of them, a bigger second wave, the
+		# kinds mixed in little by little; slower levels; the ogre a boss
+		# near the end)
+		# 1 — the lake terrace, quiet and bright: imps and puglins, a few goblins
+		{"places": ["terrace"], "lv": 1, "xp": 0.8, "reach": 1, "foes": {"*": [[IMP, 5], [PUGLIN, 4], [GOBLIN, 2]]}},
+		# 2 — the crypt's skeletons with the imps, or the swamp's dead with the puglins
+		{"places": ["crypt", "swamp"], "lv": 2, "xp": 1.0, "reach": 2,
+				"foes": {"crypt": [[SKEL_WARRIOR, 4], [IMP, 4], [SKEL_ARCHER, 2], [SKULL, 2]],
+						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 4], [IMP, 3]]}},
+		# 3 — the ghouls' cave, or the two again, each with something of the other
+		{"places": ["cave", "swamp", "crypt"], "lv": 3, "xp": 1.2, "reach": 2,
+				"foes": {"cave": [[GHOUL, 9], [ZOMBIE_M, 2], [GHOUL, 1, ELITE]],
+						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 4], [SKEL_WARRIOR, 2], [IMP, 2], [PUGLIN, 1, ELITE]],
+						"crypt": [[SKEL_WARRIOR, 4], [SKEL_ARCHER, 2], [SKEL_MAGE, 1], [SKULL, 3], [ZOMBIE_F, 2], [SKEL_WARRIOR, 1, ELITE]]}},
 		# 4 — the wood's goblins and wolves, or the ruins' golem
-		{"places": ["forest", "mountain"], "lv": 4, "xp": 3.0, "reach": 4,
-				"foes": {"forest": [[GOBLIN, 3], [GOBLIN, 1, SHAMAN], [WOLF, 3]],
-						"mountain": [[IMP, 4], [GOBLIN, 2], [GOLEM, 1, LATE]]}},
+		{"places": ["forest", "mountain"], "lv": 4, "xp": 1.5, "reach": 3,
+				"foes": {"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [WOLF, 4], [IMP, 3]],
+						"mountain": [[IMP, 4], [GOBLIN, 3], [SKEL_ARCHER, 2], [SKULL, 2], [GOLEM, 1, LATE]]}},
 		# 5 — the first boss, alone in the palace's hall
-		{"places": ["hall"], "lv": 5, "xp": 4.0, "reach": 5, "boss": true, "boss_name": "ყასაბი",
+		{"places": ["hall"], "lv": 5, "xp": 2.0, "reach": 4, "boss": true, "boss_name": "ყასაბი",
 				"foes": {"*": [[BUTCHER, 1]]}},
 		# 6 — the second half
-		{"places": ["forest", "rampart", "cave"], "lv": 6, "xp": 3.0, "reach": 5,
-				"foes": {"forest": [[WOLF, 4], [GOBLIN, 2], [GOBLIN, 1, SHAMAN], [GOBLIN, 1, ELITE]],
-						"rampart": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKEL_ARCHER, 2], [OGRE, 1, LATE]],
-						"cave": [[GHOUL, 5], [ZOMBIE_M, 2], [GHOUL, 1, ELITE]]}},
+		{"places": ["forest", "rampart", "cave"], "lv": 6, "xp": 1.5, "reach": 5,
+				"foes": {"forest": [[WOLF, 5], [GOBLIN, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 3], [GOBLIN, 1, ELITE]],
+						"rampart": [[ORC_SKIRM, 1], [GOBLIN, 3], [SKEL_ARCHER, 3], [SKEL_WARRIOR, 3], [IMP, 2], [GOBLIN, 1, ELITE]],
+						"cave": [[GHOUL, 9], [ZOMBIE_M, 2], [ZOMBIE_F, 2], [GHOUL, 1, ELITE]]}},
 		# 7 — the ruins' golem and the minotaur, or the fortress
-		{"places": ["mountain", "rampart"], "lv": 7, "xp": 3.5, "reach": 6,
-				"foes": {"mountain": [[GOLEM, 1], [IMP, 3], [DRAGONET, 1], [MINOTAUR, 1, LATE]],
-						"rampart": [[ORC, 1, ORC_LONG_SWORD], [SKEL_ARCHER, 2], [GOBLIN, 2], [OGRE, 1, LATE]]}},
-		# 8 — over the clouds: the camp's troll, the sky's flyers
-		{"places": ["camp", "sky", "rampart"], "lv": 7, "xp": 3.5, "reach": 7,
-				"foes": {"camp": [[ORC, 1, ORC_TWO_SWORDS], [GOBLIN, 2], [GOBLIN, 1, SHAMAN], [TROLL, 1, LATE]],
-						"sky": [[DRAGONET, 2], [SKULL, 2], [IMP, 3]],
-						"rampart": [[ORC, 1, ORC_TWO_SWORDS], [ORC_SKIRM, 1], [SKEL_ARCHER, 2], [OGRE, 1, LATE]]}},
-		# 9 — the two orcs taking turns in their camp, or the sky's flyers
-		{"places": ["sky", "camp"], "lv": 8, "xp": 4.0, "reach": 7,
-				"foes": {"sky": [[DRAGONET, 3], [SKULL, 3], [IMP, 2], [IMP, 1, ELITE]],
-						"camp": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [DRAGONET, 2]]}},
+		{"places": ["mountain", "rampart"], "lv": 7, "xp": 1.8, "reach": 5,
+				"foes": {"mountain": [[GOLEM, 1], [IMP, 4], [DRAGONET, 2], [SKEL_WARRIOR, 3], [MINOTAUR, 1, LATE]],
+						"rampart": [[ORC, 1, ORC_LONG_SWORD], [SKEL_ARCHER, 3], [GOBLIN, 3], [SKULL, 2], [WOLF, 2]]}},
+		# 8 — the sky's flyers, or the fortress with the troll last
+		{"places": ["sky", "rampart"], "lv": 7, "xp": 1.8, "reach": 6,
+				"foes": {"sky": [[DRAGONET, 3], [SKULL, 3], [IMP, 4], [GOBLIN, 2]],
+						"rampart": [[ORC, 1, ORC_TWO_SWORDS], [ORC_SKIRM, 1], [SKEL_ARCHER, 3], [GOBLIN, 3], [TROLL, 1, LATE]]}},
+		# 9 — the ogre, a boss of its own, alone on the camp's ground (the
+		# user's word, 2026-10-27: one of the last bosses of this portal)
+		{"places": ["camp"], "lv": 8, "xp": 2.0, "reach": 7, "boss": true, "boss_name": "ოგრე",
+				"foes": {"*": [[OGRE, 1]]}},
 		# 10 — the lord of the orcs
 		{"places": ["throne"], "lv": 8, "boss": true, "boss_name": "ორკების მბრძანებელი",
 				"foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
@@ -224,7 +225,7 @@ const RUN := {
 }
 ## Places a step may borrow when all of its own were already seen in this
 ## run: the fighting places by their height (the dark, the middle, high).
-const ZONES := [["crypt", "swamp", "cave"], ["forest", "mountain", "rampart", "terrace"], ["sky", "camp"]]
+const ZONES := [["crypt", "swamp", "cave"], ["forest", "mountain", "rampart", "terrace"], ["sky"]]
 ## The prisoners' jailers (the user's word, 2026-10-25: kill them, and the key
 ## they leave opens the cell): goblins and puglins with an elite among them
 ## early on, an orc and the skulls with them later.
@@ -238,6 +239,8 @@ const REST_BEFORE := [3, 6, 8]
 ## the places.
 const TRAPS_FROM := 3
 const TRAP_CHANCE := 0.6
+## Places where "survive" is never the goal.
+const NO_SURVIVE := ["crypt", "cave"]
 ## Each place, to look round it from F1 ([method view_place]): the step whose
 ## light (day into night) it is seen in, and what it is called on the board.
 const VIEW := {
@@ -262,10 +265,16 @@ const REWARDS := {
 ## How many may set on each hero at once, an orc near him counting as one
 ## (the user's word: at most two; the rest throw from off).
 const CROWD := 2
+## With this many shooting from off (flyers, skeleton archers and mages),
+## only `CROWD_UNDER_FIRE` at each hero up close.
+const SHOOTERS_MANY := 2
+const CROWD_UNDER_FIRE := 1
+const SHOOTERS := ["res://scenes/enemies/pack/skeleton_archer.tscn", "res://scenes/enemies/pack/skeleton_mage.tscn"]
 ## Seconds between any two things thrown at one hero (the user's word: so
 ## many waiting made a hail of it; then, 2 s still too few to get out of the
-## way of all of them: a rest from all throwing after each).
-const THROW_GAP := 5.0
+## way of all of them: a rest from all throwing after each; 2026-10-27, more
+## of them throwing, the archers in the turn too: 3.2).
+const THROW_GAP := 3.2
 ## Held back, they wait round him on these rings, spread out evenly.
 const HOLD_RINGS := [8.5, 11.5]
 
@@ -903,8 +912,8 @@ func _ready() -> void:
 	if not join.is_empty():
 		game.set(&"join_at", {})
 		_join_party.call_deferred(join)
-	elif game != null and Trades.level(game, "priest") >= 1 and String(game.get(&"view_place")) == "":
-		_priest_gift.call_deferred()
+	# (the priest's blessing before the first place no more: the user's word,
+	# 2026-10-27, not wanted at the start)
 	if game != null and String(game.get(&"view_place")) != "":
 		var asked := String(game.get(&"view_place"))
 		game.set(&"view_place", "")
@@ -1253,7 +1262,7 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 	var foes: Array = foes_by.get(place, foes_by.get("*", []))
 	# holding out, they keep coming: twice as many wait
 	if goal == "survive":
-		foes = foes + foes
+		foes = foes + foes + foes
 	# (the prisoners' place keeps its jailers)
 	if p.has("rest") and not p.has("guards"):
 		foes = []
@@ -1626,6 +1635,8 @@ func _make_rift(c: Vector3, l: float) -> PortalLook:
 	var rift := PortalLook.new()
 	rift.name = "Rift"
 	rift.tint = Color(0.85, 0.12, 0.2)
+	# only the whirl, no stones round it (the user's word, 2026-10-27)
+	rift.bare = true
 	rift.position = c + Vector3(_rng.randf_range(-6.0, 6.0), 0.0, -l * 0.22)
 	rift.scale = Vector3(0.02, 0.02, 0.02)
 	add_child(rift)
@@ -2018,6 +2029,10 @@ func _choice_specs(next: int) -> Array:
 		# with others, no totems: who broke one is not told to the rest yet
 		if goal == "totems" and online():
 			goal = ""
+		# not where a place has its own lord or its own ways (the crypt's king
+		# came as a bar with no one under it; the user's word, 2026-10-27)
+		if goal == "survive" and NO_SURVIVE.has(place):
+			goal = "captain"
 		out.append({"place": place, "reward": reward, "goal": goal, "cursed": k == cursed_one and reward != ""})
 	return out
 
@@ -2176,13 +2191,18 @@ var last_hardness: Dictionary = {}
 ## quiet one; the same on every peer (its own dice, from the dungeon and the
 ## step). Laid as it wakes, when its floor has long been there to find.
 func _lay_traps(i: int) -> void:
-	if _viewing or is_rest(i) or is_boss(i) or stage_of(i) < TRAPS_FROM:
+	if _viewing or is_rest(i) or is_boss(i):
+		return
+	# holding out is running: spikes there always (the user's word, 2026-10-27)
+	var holding := i < rooms.size() and rooms[i] is Dictionary \
+			and String((rooms[i] as Dictionary).get("goal", "")) == "survive"
+	if stage_of(i) < TRAPS_FROM and not holding:
 		return
 	if i < _room_nodes.size() and is_instance_valid(_room_nodes[i]) and _room_nodes[i].has_node(^"Spikes0"):
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 104729 * (i + 1) + 7 * id + 3
-	if rng.randf() > TRAP_CHANCE:
+	if rng.randf() > TRAP_CHANCE and not holding:
 		return
 	SpikeTrap.lay(self, i, rng)
 
@@ -4621,9 +4641,15 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 			standing.append(hero)
 	var small: Array = []
 	var brutes := 0
+	var shooters := 0
 	for body in _alive:
 		if not is_instance_valid(body) or bool(body.get("is_dead")):
 			continue
+		if body is Flyer or SHOOTERS.has(String(body.scene_file_path)):
+			shooters += 1
+			# (they keep off by themselves: no place among those at him)
+			if not (body is Flyer):
+				continue
 		var gap := INF
 		for hero in standing:
 			gap = minf(gap, body.global_position.distance_to(hero.global_position))
@@ -4636,7 +4662,10 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 			continue
 		if "held_back" in body:
 			small.append([gap, body])
-	var allowed := maxi(CROWD * standing.size() - brutes, 0)
+	# with several shooting at him from off, only one at him up close (the
+	# user's word, 2026-10-27)
+	var crowd := CROWD_UNDER_FIRE if shooters >= SHOOTERS_MANY else CROWD
+	var allowed := maxi(crowd * standing.size() - brutes, 0)
 	# Those that have their turn keep it while near; the nearest fill the rest.
 	var keep: Array[Node3D] = []
 	for h in _holders:

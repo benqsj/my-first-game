@@ -40,6 +40,8 @@ const ALL := {
 	&"ember_dance": {"name": "ცეცხლის ცეკვა", "text": "დაძვრენის ნაპერწკლები ფართოდ\nიფანტება და დიდხანს წვავს",
 			"tint": Color(1.0, 0.4, 0.15)},
 }
+## No longer offered (the user's word, 2026-10-27: no running faster).
+const RETIRED := [&"swift"]
 ## The doubles and the two blessings each is made of.
 const DUOS := {
 	&"storm_fire": [&"burn", &"chain"],
@@ -107,7 +109,7 @@ func offer(n: int = OFFERED) -> Array[StringName]:
 	var left: Array[StringName] = []
 	var ready: Array[StringName] = []
 	for id: StringName in ALL:
-		if taken.has(id):
+		if taken.has(id) or RETIRED.has(id):
 			continue
 		if DUOS.has(id):
 			if duo_ready(id):

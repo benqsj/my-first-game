@@ -73,6 +73,11 @@ const MODEL_SCALE := 0.14
 @export var reach: float = 70.0
 ## How long the fading out takes.
 @export var fade_out: float = 0.22
+## Another colour for the whole bolt, its tails and sparks too (a creature's
+## own: the ghost skull's green); clear for the mage's gold.
+@export var hue: Color = Color(0, 0, 0, 0)
+## Bigger or smaller than the plain bolt, all of it.
+@export var look_size: float = 1.0
 
 var _model: Node3D
 var _light: OmniLight3D
@@ -119,6 +124,11 @@ func _ready() -> void:
 	# tumbling, not a thing thrown.
 	spin = 0.0
 	bite = 0.0
+	_size = look_size
+	if hue.a > 0.0:
+		glow_colour = hue
+		streak_tint = _tint(streak_tint)
+		wake_tint = _tint(wake_tint)
 	if ResourceLoader.exists(MODEL):
 		_model = (load(MODEL) as PackedScene).instantiate() as Node3D
 		# The orb leads: its tail runs off down the model's +Z, the flight is
@@ -171,6 +181,12 @@ func is_charged() -> bool:
 
 ## A gold of the ordinary bolt, turned to the charged one's blue-violet.
 func _tint(c: Color) -> Color:
+	if hue.a > 0.0 and not _charged:
+		# the gold's brightness in the hue; its white core kept white
+		var lum := maxf(c.r, maxf(c.g, c.b))
+		var white := minf(c.r, minf(c.g, c.b)) * 0.55
+		return Color(hue.r * lum * (1.0 - white) + white, hue.g * lum * (1.0 - white) + white,
+				hue.b * lum * (1.0 - white) + white, c.a)
 	if not _charged:
 		return c
 	return Color(c.b * 0.7 + 0.25, c.g * 0.8, 1.0, c.a)

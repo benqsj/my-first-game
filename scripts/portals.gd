@@ -18,7 +18,7 @@ const WORLD := "res://scenes/world/greybox_world.tscn"
 ## violet, where it stands (x, z in the open world) and which way it faces (the
 ## yaw its opening looks towards), and whether its dungeon is built yet.
 const DEFS: Array[Dictionary] = [
-	{"name": "ორკების სასახლე", "from": 1, "to": 10, "tint": Color(0.58, 0.24, 0.98), "x": 44.0, "z": -16.0, "ready": true},
+	{"name": "დავიწყებული სამეფო", "from": 1, "to": 10, "tint": Color(0.58, 0.24, 0.98), "x": 44.0, "z": -16.0, "ready": true},
 	{"name": "ჩონჩხების აკლდამა", "from": 10, "to": 20, "tint": Color(0.42, 0.25, 0.9), "x": 58.0, "z": -22.0, "ready": false},
 	{"name": "ტროლების მღვიმე", "from": 20, "to": 30, "tint": Color(0.66, 0.2, 0.78), "x": 72.0, "z": -24.0, "ready": false},
 	{"name": "დემონების ტაძარი", "from": 30, "to": 40, "tint": Color(0.75, 0.16, 0.55), "x": 86.0, "z": -22.0, "ready": false},

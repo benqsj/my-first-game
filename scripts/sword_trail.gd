@@ -121,6 +121,12 @@ func _process(delta: float) -> void:
 		return
 
 	if emitting:
+		# a jump (the next room, a pooled arrow sent again): start afresh
+		# there, not a ribbon across the sky
+		if not _base_points.is_empty() and \
+				(_base_points[_base_points.size() - 1] as Vector3).distance_to(_base.global_position) > 12.0:
+			while not _base_points.is_empty():
+				_drop_oldest()
 		_base_points.push_back(_base.global_position)
 		_tip_points.push_back(_tip.global_position)
 		_ages.push_back(0.0)

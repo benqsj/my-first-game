@@ -406,6 +406,10 @@ func _think(delta: float) -> void:
 			return
 	if mode == Mode.GUARD and not legless and _go_eat(delta):
 		return
+	if (mode == Mode.CHASE or mode == Mode.FIGHT):
+		_quarry = _pick_quarry()
+		if _hold_off(delta):
+			return
 	if (mode == Mode.CHASE or mode == Mode.FIGHT) and not legless and _try_tell():
 		return
 	super(delta)
@@ -484,9 +488,22 @@ func _try_tell() -> bool:
 		return false
 	if _held_by_other(_quarry):
 		return false
+	# one grab at him at a time among all the dead, and a breath between
+	# (the user's word, 2026-10-27: not one after another, all the time)
+	var now := Time.get_ticks_msec() / 1000.0
+	var key := _quarry.get_instance_id()
+	if now < float(_grab_gate.get(key, 0.0)):
+		return false
+	_grab_gate[key] = now + _rng.randf_range(GRAB_GAP.x, GRAB_GAP.y)
 	_face(_quarry.global_position - global_position, 1.0, 50.0)
 	_begin(TELL)
 	return true
+
+
+## Seconds between two grabs at one hero, whichever of the dead tries
+## (host; per hero, by its instance id).
+const GRAB_GAP := Vector2(8.0, 12.0)
+static var _grab_gate: Dictionary = {}
 
 
 func _held_by_other(who: Node3D) -> bool:

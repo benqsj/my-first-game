@@ -448,6 +448,12 @@ func _quarry_down() -> bool:
 func _think(delta: float) -> void:
 	if act == PIECES or act == REFORM:
 		return
+	# (the brutes and the goblins keep their own ways of waiting their turn)
+	if (mode == Mode.CHASE or mode == Mode.FIGHT) and act == Act.NONE \
+			and not (self is PackBrute) and not (self is GoblinFighter):
+		_quarry = _pick_quarry()
+		if _hold_off(delta):
+			return
 	if (mode == Mode.CHASE or mode == Mode.FIGHT) and act == Act.NONE and _quarry != null and not is_dead:
 		_roar_in -= delta
 		var gap := _distance_to(_quarry)

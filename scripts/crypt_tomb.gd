@@ -574,7 +574,9 @@ static func _guard(room: Node3D, at: Vector3, yaw: float, hero: String) -> void:
 	mi.material_override = mat
 	var aabb := m.get_aabb()
 	var k := 3.1 / maxf(aabb.size.y, 0.01)
-	mi.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * k), at + Vector3(0.0, 1.0 - aabb.position.y * k, 0.0))
+	# (the figures' fronts are their -z: turned round to face the aisle,
+	# the user's word, 2026-10-27: they stood backwards)
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw + PI).scaled(Vector3.ONE * k), at + Vector3(0.0, 1.0 - aabb.position.y * k, 0.0))
 	room.add_child(mi)
 
 

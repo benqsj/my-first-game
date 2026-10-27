@@ -40,6 +40,8 @@ signal struck(what: Node3D, where: Vector3, critical: bool)
 ## never actually on screen where you are looking. The line is what makes a shot
 ## something an opponent can see coming — and duck.
 @export var trail_width: float = 0.05
+## How long the line down the flight stays (s).
+@export var trail_fade: float = 0.30
 @export var wake_spread: float = 4.5
 ## How fast the shaft rolls in flight, in turns a second. Fletching spins an
 ## arrow, and a spinning arrow reads as a thing in flight rather than a sliding
@@ -423,7 +425,7 @@ func _lay_trail() -> void:
 	# Long enough to be a line across the field rather than a smear behind the
 	# head: at forty metres a second, twenty samples is most of a second of
 	# flight held on screen at once.
-	_trail = _ribbon(into, "ArrowTrail", trail_width, line, 20, 0.30, 0.85)
+	_trail = _ribbon(into, "ArrowTrail", trail_width, line, 20, trail_fade, 0.85)
 	if wake_spread > 1.0:
 		# Even across the band: the wake is air, and air has no bright edge.
 		_wake = _ribbon(into, "ArrowWake", trail_width * wake_spread,

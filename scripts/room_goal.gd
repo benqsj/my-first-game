@@ -28,8 +28,8 @@ const SURVIVE_TIME := 40.0
 const WARD := 0.35
 ## In "survive", one out of the rift this often while fewer than
 ## [constant SURVIVE_UP] are up.
-const SURVIVE_EVERY := 2.6
-const SURVIVE_UP := 5
+const SURVIVE_EVERY := 1.3
+const SURVIVE_UP := 9
 const WARD_SHADER_TINT := Color(0.55, 0.0, 0.05)
 
 var kind: String = ""

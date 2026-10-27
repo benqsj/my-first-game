@@ -229,6 +229,10 @@ func _blade_skeleton() -> Skeleton3D:
 
 ## Its owner's own beat ([member manual]): one frame of it, the blade where
 ## it is now.
+## Farther than this between two samples is a jump, not a swing.
+const JUMP := 3.0
+
+
 func tick(delta: float) -> void:
 	_step(delta)
 
@@ -249,6 +253,13 @@ func _step(delta: float) -> void:
 		# blade where it was adds nothing: kept, it would put two samples at one
 		# place and different times, and the curve would kink there.
 		var last := _t_tip.size() - 1
+		# Moved far in one step (sent to the next room, out of a rift): the
+		# arc starts again there, never a ribbon stretched across the sky.
+		if last >= 0 and _t_base[last].distance_squared_to(b) > JUMP * JUMP:
+			_t_base.clear()
+			_t_tip.clear()
+			_t_at.clear()
+			last = -1
 		var moved := last < 0 or _t_tip[last].distance_squared_to(t) > 0.000001 \
 				or _t_base[last].distance_squared_to(b) > 0.000001
 		if moved and (last < 0 or _clock - _t_at[last] > 0.0005):

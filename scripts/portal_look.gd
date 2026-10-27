@@ -20,6 +20,9 @@ extends Node3D
 ## The opening: its width and the height its arch springs from.
 @export var span: float = 3.0
 @export var spring: float = 3.4
+## Only the whirl, no stones, letters, steps nor braziers (the rift the second
+## wave comes out of: the user's word, 2026-10-27, no frame).
+@export var bare: bool = false
 
 var _lights: Array[OmniLight3D] = []
 var _shards: Array[MeshInstance3D] = []
@@ -237,7 +240,7 @@ func _build() -> void:
 		spire.rotation.y = PI * 0.25
 		add_child(spire)
 		_stones.append([cone, spire])
-		for k in 4:
+		for k in (0 if bare else 4):
 			for face: float in [-1.0, 1.0]:
 				var rune := Label3D.new()
 				rune.text = RUNES[(k * 3 + (0 if side < 0.0 else 7) + (0 if face > 0.0 else 2)) % RUNES.size()]
@@ -286,7 +289,7 @@ func _build() -> void:
 	add_child(_motes(Vector3(0.0, base + tall * 0.5, 0.0), 64, 2.8, -1.7))
 	_lights.append(_light(Vector3(0.0, base + tall * 0.45, 1.1), 9.0))
 	# A brazier of violet fire either side.
-	for side: float in [-1.0, 1.0]:
+	for side: float in ([] if bare else [-1.0, 1.0]):
 		var x := side * (half + 2.3)
 		_box(stone, Vector3(0.55, 1.1, 0.55), Vector3(x, 0.55, 0.6))
 		var bowl := Node3D.new()
@@ -329,6 +332,9 @@ func _build() -> void:
 ## position, so nothing shows the join.
 func _merge_stones(stone: Material) -> void:
 	if _stones.is_empty():
+		return
+	if bare:
+		_stones.clear()
 		return
 	if not merge_stones:
 		for part: Array in _stones:
@@ -441,6 +447,8 @@ func _box(_mat: Material, size: Vector3, at: Vector3) -> Node3D:
 	mesh.position = at
 	add_child(mesh)
 	_stones.append([box, mesh])
+	if bare:
+		return mesh
 	# Solid, so the hero walks round the posts rather than through them.
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()

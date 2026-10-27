@@ -44,7 +44,7 @@ extends Brawler
 @export_group("Ghoul")
 @export var leap_clip: StringName = &"CR_GH_Pounce"
 ## [rate, from, to] of the pounce, and the share of its clip it lands at.
-@export var leap_part: Vector3 = Vector3(1.35, 0.035, 1.0)
+@export var leap_part: Vector3 = Vector3(1.6, 0.035, 1.0)
 @export var leap_land: float = 0.655
 @export var leap_from: float = 3.2
 @export var leap_to: float = 8.0
@@ -58,7 +58,7 @@ extends Brawler
 @export var leap_short: float = 0.75
 ## The tell before it springs: down low this long.
 @export var tell_clip: StringName = &"CR_GH_Crouch"
-@export var tell_time: float = 0.42
+@export var tell_time: float = 0.34
 @export_range(0.0, 1.0) var dart_chance: float = 0.7
 @export var dart_time: Vector2 = Vector2(0.6, 1.1)
 @export var dart_speed: float = 4.2
@@ -172,6 +172,15 @@ var _glow: StandardMaterial3D
 var _glow_light: OmniLight3D
 
 var _leap_wait: float = 1.0
+## Held back, it spits venom at him from where it waits (the user's word,
+## 2026-10-27: at most two on him, the rest throwing from afar).
+@export var spit_every: Vector2 = Vector2(3.2, 5.5)
+@export var spit_range: Vector2 = Vector2(4.0, 15.0)
+@export var spit_speed: float = 11.0
+@export var spit_damage: float = 8.0
+const SPIT_COLOUR := Color(0.55, 1.0, 0.2)
+const SPIT_SCENE := preload("res://scenes/fx/spell_bolt.tscn")
+var _spit_in: float = 2.0
 var _leap_speed: float = 0.0
 var _dart_left: float = 0.0
 var _dart_side: float = 1.0
@@ -293,6 +302,12 @@ func _think(delta: float) -> void:
 	if act != Act.NONE or mode == Mode.RETURN:
 		super(delta)
 		return
+	# held back: round him, watching, no pounce (the user's word, 2026-10-27)
+	if (mode == Mode.CHASE or mode == Mode.FIGHT):
+		_quarry = _pick_quarry()
+		if _hold_off(delta):
+			_spitting(delta)
+			return
 	# Cut deep enough: the scream, and the frenzy after it.
 	if not frenzied and (mode == Mode.CHASE or mode == Mode.FIGHT) and health <= max_health * frenzy_at:
 		_corpse = null
@@ -1384,3 +1399,33 @@ func _particles(colour: Color, amount: int, life: float, size: float, gravity: V
 	p.draw_pass_1 = q
 	return p
 #endregion
+
+
+## Held back: now and then a gob of venom at him, one at a time across the
+## pack ([method Fighter.claim_throw]).
+func _spitting(delta: float) -> void:
+	_spit_in -= delta
+	if _spit_in > 0.0 or _quarry == null or not is_instance_valid(_quarry):
+		return
+	var gap := _distance_to(_quarry)
+	if gap < spit_range.x or gap > spit_range.y or not Fighter.claim_throw(_quarry):
+		_spit_in = 0.6
+		return
+	_spit_in = _rng.randf_range(spit_every.x, spit_every.y)
+	var from := global_position + Vector3.UP * 1.2 + (-global_transform.basis.z) * 0.5
+	var aim := (_quarry.global_position + Vector3.UP * 1.0 - from).normalized()
+	net_spit.rpc(from, aim * spit_speed)
+
+
+@rpc("authority", "call_local", "reliable")
+func net_spit(from: Vector3, flight: Vector3) -> void:
+	var into := Blood.world_of(self)
+	if into == null:
+		return
+	var gob := SPIT_SCENE.instantiate() as Node3D
+	gob.set(&"against_heroes", true)
+	gob.set(&"hue", SPIT_COLOUR)
+	gob.set(&"look_size", 0.8)
+	into.add_child(gob)
+	gob.global_position = from
+	gob.call(&"launch", flight, spit_damage, false, 0.0, self)

@@ -445,6 +445,24 @@ func _hold_to(spot: Vector3, pace: float, delta: float) -> void:
 	velocity.z = move_toward(velocity.z, want.z, acceleration * delta)
 
 
+## Held back by whoever runs the fight ([member held_back]; the user's word,
+## 2026-10-27: not all of them at him): to its spot round him, facing him,
+## no blow, no rush, till it is let in. True while it is held.
+func _hold_off(delta: float) -> bool:
+	if not held_back or _quarry == null or act != Act.NONE or is_dead:
+		return false
+	if mode != Mode.CHASE and mode != Mode.FIGHT:
+		return false
+	mode = Mode.FIGHT
+	_hold_to(_held_spot(HOLD_OFF), chase_speed * 0.7, delta)
+	if Vector2(velocity.x, velocity.z).length() < 0.5:
+		_face(_quarry.global_position - global_position, delta, turn_speed)
+	return true
+
+## How far off him one held back waits when not given a place.
+const HOLD_OFF := 9.0
+
+
 func _think(delta: float) -> void:
 	_quarry = _pick_quarry()
 	match mode:
@@ -456,6 +474,8 @@ func _think(delta: float) -> void:
 		Mode.CHASE, Mode.FIGHT:
 			if _quarry == null:
 				_go_home()
+			elif act == Act.NONE and _hold_off(delta):
+				pass
 			elif act == Act.NONE:
 				var gap := _distance_to(_quarry)
 				if gap > reach:

@@ -177,7 +177,9 @@ func _think(delta: float) -> void:
 	_face(-away, delta, turn_speed * 2.0)
 	_slow(delta, 4.0)
 	var ahead := _forward()
-	if _cooldown <= 0.0 and ahead.dot(-away.normalized()) > 0.9:
+	# (its turn among all that throw at him: one at a time, the user's word,
+	# 2026-10-27, so each can be seen coming and stepped out of)
+	if _cooldown <= 0.0 and ahead.dot(-away.normalized()) > 0.9 and Fighter.claim_throw(_quarry):
 		_draw_bow()
 
 
@@ -328,6 +330,12 @@ func net_loose(from: Vector3, shot: Vector3, burning: bool = false) -> void:
 		return
 	var arrow := arrow_scene.instantiate() as Node3D
 	arrow.set(&"against_heroes", true)
+	# At him: a line he can read and step out of (the user's word, 2026-10-27:
+	# the arrows' trail was not to be seen), wide, warm and long.
+	arrow.set(&"trail_width", 0.17)
+	arrow.set(&"trail_fade", 0.75)
+	arrow.set(&"streak_tint", Color(1.0, 0.55, 0.25, 0.9))
+	arrow.set(&"wake_tint", Color(1.0, 0.75, 0.5, 0.22))
 	into.add_child(arrow)
 	arrow.global_position = from
 	arrow.call(&"launch", shot, hit_damage, false, arrow_gravity, self)
