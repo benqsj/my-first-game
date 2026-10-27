@@ -59,10 +59,11 @@ var best_level: Dictionary = {}
 ## The prisoners freed in the dungeons (their keys, [Dungeon]): each one
 ## comes to live in the village. Kept between runs.
 var freed: Array[String] = []
-## The orcs' tusks he has brought out of the portals, and what he has bought
-## with them of the freed men's trades (trade -> level, [Trades]). Kept
-## between runs, even when he falls.
-var tusks: int = 0
+## His gold, kept for good (the user's word, 2026-10-27: all with gold now,
+## no more orcs' tusks): what his [Purse] gains and loses is added here, and
+## a new world's purse starts from it. What he has bought with it of the
+## freed men's trades (trade -> level, [Trades]).
+var gold: int = 0
 var trade_levels: Dictionary = {}
 ## Runs through the portals, the ones won, and the fastest win (s, 0: none).
 var runs: int = 0
@@ -83,11 +84,11 @@ func close_portal(index: int) -> void:
 	_save_settings()
 
 
-## `n` more tusks (an orc of the portal down, [Dungeon]).
-func add_tusks(n: int) -> void:
-	if n <= 0:
+## His own hero's purse changed by `by` ([World] hooks it up).
+func gold_changed(by: int) -> void:
+	if by == 0:
 		return
-	tusks += n
+	gold = maxi(gold + by, 0)
 	_save_settings()
 
 
@@ -119,14 +120,19 @@ func end_run(won: bool, seconds: float) -> Dictionary:
 	return {"runs": runs, "wins": wins, "best": best_time, "new_best": new_best}
 
 
-## The next level of `trade` bought, if it is open and he has the tusks.
-func buy_trade(trade: String) -> bool:
+## The next level of `trade` bought, if it is open and he has the gold; his
+## purse (`purse`, shown on the screen) paid out of too.
+func buy_trade(trade: String, purse: Purse = null) -> bool:
 	if not Trades.open(self, trade):
 		return false
 	var price := Trades.cost(self, trade)
-	if price < 0 or tusks < price:
+	if price < 0 or gold < price:
 		return false
-	tusks -= price
+	gold -= price
+	if purse != null:
+		# (set, not taken: the bank is paid above, once)
+		purse.gold = maxi(purse.gold - price, 0)
+		purse.changed.emit(purse.gold, 0)
 	trade_levels[trade] = int(trade_levels.get(trade, 0)) + 1
 	_save_settings()
 	return true
@@ -649,7 +655,7 @@ func _load_settings() -> void:
 	if out is Array:
 		for who: Variant in out:
 			freed.append(String(who))
-	tusks = int(file.get_value("progress", "tusks", 0))
+	gold = int(file.get_value("progress", "gold", 0))
 	runs = int(file.get_value("progress", "runs", 0))
 	wins = int(file.get_value("progress", "wins", 0))
 	best_time = float(file.get_value("progress", "best_time", 0.0))
@@ -691,7 +697,7 @@ func _save_settings() -> void:
 			best[String(id)] = int(best_level[id])
 		file.set_value("progress", "best_level", best)
 		file.set_value("progress", "freed", freed)
-		file.set_value("progress", "tusks", tusks)
+		file.set_value("progress", "gold", gold)
 		file.set_value("progress", "runs", runs)
 		file.set_value("progress", "wins", wins)
 		file.set_value("progress", "best_time", best_time)

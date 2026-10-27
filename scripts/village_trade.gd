@@ -204,15 +204,15 @@ func _words() -> String:
 	var info: Dictionary = Trades.ALL[trade]
 	var lv := Trades.level(game, trade)
 	var top := Trades.max_level(trade)
-	var have := int(game.get(&"tusks")) if game != null else 0
-	var lines := "%s %s   ·   %d / %d\nორკის ეშვი: %d\n\n" % [String(info["name"]), man_name, lv, top, have]
+	var have := int(game.get(&"gold")) if game != null else 0
+	var lines := "%s %s   ·   %d / %d\nოქრო: %d\n\n" % [String(info["name"]), man_name, lv, top, have]
 	var price := Trades.cost(game, trade)
 	if price < 0:
 		return lines + "ჩემი ყველაფერი უკვე შენია, გმირო.\n(გაშორდი)"
-	lines += "%s — %d ეშვი\n\n" % [Trades.next_words(game, trade), price]
+	lines += "%s — %d ოქრო\n\n" % [Trades.next_words(game, trade), price]
 	if have >= price:
 		return lines + "[F]  იყიდე        (გაშორდი — არა)"
-	return lines + "ეშვი არ გყოფნის — მოკალი მეტი ორკი პორტალში."
+	return lines + "ოქრო არ გყოფნის — პორტალში მეტი მოიპოვე."
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -231,7 +231,8 @@ func interact() -> void:
 	if game == null:
 		return
 	var before := Trades.level(game, trade)
-	if not bool(game.call(&"buy_trade", trade)):
+	var hero0 := _hero()
+	if not bool(game.call(&"buy_trade", trade, Purse.of(hero0) if hero0 != null else null)):
 		return
 	var hero := _hero()
 	var world := Blood.world_of(self)

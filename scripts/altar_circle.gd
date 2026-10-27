@@ -27,7 +27,7 @@ const GREAT_Z := -12.0
 ## Where the two altars stand on the dais (the event's own frame).
 const BLOOD_AT := Vector3(-3.6, DAIS_TOP, -1.2)
 const GOLD_AT := Vector3(3.6, DAIS_TOP, -1.2)
-## The lantern on a "MonoLamp" stone, in its own frame.
+## The lantern on a lantern stone (Mono1, 3, 5, 7), in its own frame.
 const LAMP_AT := Vector3(1.6, 2.93, 0.0)
 
 static var _kit: Node3D
@@ -176,7 +176,9 @@ static func _stones(room: Node3D, rng: RandomNumberGenerator) -> void:
 			var to_mid := -at.normalized()
 			var yaw := atan2(to_mid.x, to_mid.z)
 			var lamp := b == 78.0 or b == 134.0
-			var piece: String = "MonoLamp" if lamp else ["Mono0", "Mono1", "Mono2"][k % 3]
+			# each stone its own: the alphabet runs round the ring in order
+			# (asomtavruli, the user's word, 2026-10-27); lanterns on 1, 3, 5, 7
+			var piece := "Mono%d" % k
 			var s := rng.randf_range(1.0, 1.15)
 			var stone := _piece(room, piece, at, yaw + rng.randf_range(-0.08, 0.08), s)
 			k += 1

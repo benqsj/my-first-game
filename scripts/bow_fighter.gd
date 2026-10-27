@@ -156,7 +156,9 @@ func _think(delta: float) -> void:
 		_face(-away, 1.0, 50.0)
 		_begin(KICK)
 		return
-	if behind_line and _keep_behind(gap, delta):
+	if _to_shoot_slot(delta):
+		return
+	if behind_line and not shoot_slot and _keep_behind(gap, delta):
 		return
 	if _flee_left > 0.0:
 		_flee_left -= delta

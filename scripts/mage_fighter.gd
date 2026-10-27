@@ -173,6 +173,8 @@ func _think(delta: float) -> void:
 		mode = Mode.CHASE
 		_move_towards(_quarry.global_position, speed, delta)
 		return
+	if _to_shoot_slot(delta):
+		return
 	mode = Mode.FIGHT
 	_face(to, delta, turn_speed * 2.0)
 	if gap < keep_from:

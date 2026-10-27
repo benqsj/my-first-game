@@ -33,8 +33,9 @@ static func make(d: Dungeon, did_win: bool) -> RunSummary:
 			names.append(String(Boons.ALL[id]["name"]))
 	s.lines = {
 		"time": seconds, "best": float(record.get("best", 0.0)), "new_best": bool(record.get("new_best", false)),
-		"places": cleared, "of": d.stage_count(), "kills": d.run_kills, "tusks": d.run_tusks,
-		"tusks_all": int(game.get(&"tusks")) if game != null else 0, "boons": names,
+		"places": cleared, "of": d.stage_count(), "kills": d.run_kills,
+		"gold": (int(game.get(&"gold")) - d.run_gold_start) if game != null else 0,
+		"gold_all": int(game.get(&"gold")) if game != null else 0, "boons": names,
 		"runs": int(record.get("runs", 0)), "wins": int(record.get("wins", 0)),
 	}
 	d.add_child(s)
@@ -79,12 +80,12 @@ func _ready() -> void:
 	_line(col, time_text, 24, Color(0.95, 0.9, 0.8))
 	_line(col, "გავლილი ადგილები: %d / %d" % [int(lines["places"]), int(lines["of"])], 24, Color(0.95, 0.9, 0.8))
 	_line(col, "მოკლული მტრები: %d" % int(lines["kills"]), 24, Color(0.95, 0.9, 0.8))
-	_line(col, "ორკის ეშვი: +%d   (სულ %d)" % [int(lines["tusks"]), int(lines["tusks_all"])], 24, Color(1.0, 0.86, 0.55))
+	_line(col, "ოქრო: %+d   (სულ %d)" % [int(lines["gold"]), int(lines["gold_all"])], 24, Color(1.0, 0.86, 0.55))
 	var names: Array = lines["boons"]
 	if not names.is_empty():
 		_line(col, "კურთხევები: " + ", ".join(PackedStringArray(names)), 19, Color(0.8, 0.82, 0.95))
 	col.add_child(HSeparator.new())
-	_line(col, "ეშვები სოფელში დახარჯე — მჭედელთან, მკურნალთან, მღვდელთან.", 17, Color(0.7, 0.7, 0.66))
+	_line(col, "ოქრო სოფელში დახარჯე — მჭედელთან, მკურნალთან, მღვდელთან.", 17, Color(0.7, 0.7, 0.66))
 	if not won:
 		# fallen: he rises in the village when he says so
 		_rise = Button.new()

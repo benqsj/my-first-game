@@ -147,6 +147,9 @@ const HOLD_SHUFFLE := 2.0
 @export var corpse_linger: float = 4.0
 @export var corpse_sink_time: float = 1.2
 @export var corpse_sink_depth: float = 1.6
+## A beat after the killing blow it bursts ([DeathShatter], sudden).
+const SHATTER_AFTER := 0.06
+
 ## Past [member corpse_linger] the corpse breaks into gold shards out of its
 ## body as it lies or kneels ([DeathShatter]) instead of sinking into the
 ## ground.
@@ -186,6 +189,9 @@ var ward: float = 1.0
 var _rung: int = 0
 ## Where it waits while held back: round him at this bearing and distance
 ## (set with `held_back`; radius 0: its own choice).
+## Given a bearing round him to shoot from ([Dungeon], with several
+## shooting): it goes there first ([method _to_shoot_slot]).
+var shoot_slot: bool = false
 var held_angle: float = 0.0
 var held_radius: float = 0.0
 ## Seconds between any two things thrown at one hero, whoever throws them (a
@@ -311,6 +317,12 @@ func _process(delta: float) -> void:
 		# Every peer counts its own corpse time, so the body sinks in every
 		# window and not just the host's.
 		_corpse_age += delta
+		# at the killing blow, before it falls: a blaze and its shards (the
+		# user's word, 2026-10-27); left whole only for ghouls about to eat
+		if death_shards and body != null and not _shards_begun and get("shatter_on_death") != true \
+				and _corpse_age > SHATTER_AFTER and not DeathShatter.feeders_near(self):
+			_shards_begun = true
+			DeathShatter.start(self, body, 0.0, true)
 		if not dies_by_clip:
 			_topple()
 		if _corpse_age > corpse_linger and body != null:
@@ -458,6 +470,40 @@ func _hold_off(delta: float) -> bool:
 	if Vector2(velocity.x, velocity.z).length() < 0.5:
 		_face(_quarry.global_position - global_position, delta, turn_speed)
 	return true
+
+## A shooter with a place round him ([member shoot_slot]): walks to it while
+## it is far from it. True while it walks.
+func _to_shoot_slot(delta: float) -> bool:
+	if not shoot_slot or _quarry == null or held_radius <= 0.0:
+		return false
+	# (he keeps moving and its place with him: after a while of walking it
+	# stops and shoots from where it is, then goes on)
+	if _slot_rest > 0.0:
+		_slot_rest -= delta
+		return false
+	var spot := _held_spot(held_radius)
+	var off := spot - global_position
+	off.y = 0.0
+	if off.length() < SLOT_NEAR:
+		_slot_walk = 0.0
+		return false
+	_slot_walk += delta
+	if _slot_walk > SLOT_WALK_MOST:
+		_slot_walk = 0.0
+		_slot_rest = SLOT_REST
+		return false
+	mode = Mode.CHASE
+	_hold_to(spot, chase_speed, delta)
+	return true
+
+## Within this of its place, a shooter shoots; walking to it no longer than
+## this before a stop to shoot, that long.
+const SLOT_NEAR := 2.5
+const SLOT_WALK_MOST := 3.0
+const SLOT_REST := 2.5
+var _slot_walk := 0.0
+var _slot_rest := 0.0
+
 
 ## How far off him one held back waits when not given a place.
 const HOLD_OFF := 9.0

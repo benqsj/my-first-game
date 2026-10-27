@@ -75,6 +75,9 @@ const ACT_REEL := 98
 @export var corpse_linger: float = 5.0
 @export var corpse_sink_time: float = 1.6
 @export var corpse_sink_depth: float = 2.6
+## A beat after the killing blow it bursts ([DeathShatter], sudden).
+const SHATTER_AFTER := 0.06
+
 ## Past [member corpse_linger] the corpse glows over and breaks into gold
 ## shards ([DeathShatter]) instead of sinking into the ground.
 @export var death_shards: bool = true
@@ -259,6 +262,12 @@ func _process(delta: float) -> void:
 		_health_bar.set_fraction(health / maxf(max_health, 0.001))
 	else:
 		_corpse_age += delta
+		# at the killing blow, before it falls: a blaze and its shards (the
+		# user's word, 2026-10-27); left whole only for ghouls about to eat
+		if death_shards and body != null and not _shards_begun and get("shatter_on_death") != true \
+				and _corpse_age > SHATTER_AFTER and not DeathShatter.feeders_near(self):
+			_shards_begun = true
+			DeathShatter.start(self, body, 0.0, true)
 		if _corpse_age > corpse_linger and body != null:
 			if death_shards:
 				if not _shards_begun:

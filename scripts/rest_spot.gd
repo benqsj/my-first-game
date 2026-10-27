@@ -380,7 +380,7 @@ func _set_free(hero: Player) -> void:
 		var trade := Trades.trade_of(_freed_count() - 1)
 		if trade != "":
 			# the first three take up a trade in the village ([Trades])
-			shout.text = "მადლობა, გმირო! მე %s ვარ.\nსოფელში %s ვიქნები —\nორკის ეშვებით მომაკითხე." \
+			shout.text = "მადლობა, გმირო! მე %s ვარ.\nსოფელში %s ვიქნები —\nოქროთი მომაკითხე." \
 					% [_name, String(Trades.ALL[trade]["name"])]
 		else:
 			shout.text = "მადლობა, გმირო! მე %s ვარ.\nეს შენთვის შემოვინახე —\nსოფელში დაგელოდები." % _name

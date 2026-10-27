@@ -330,6 +330,17 @@ func _build_player(data: Variant) -> Node:
 	var purse := Purse.new()
 	purse.name = "Purse"
 	body.add_child(purse)
+	# his own hero's gold kept for good ([Game]): starts from what he has, and
+	# what it gains or loses goes back there
+	var bank := get_node_or_null("/root/Game")
+	if bank != null and "gold" in bank:
+		purse.changed.connect(func(_total: int, by: int) -> void:
+			if is_instance_valid(body) and body.is_multiplayer_authority():
+				bank.call(&"gold_changed", by))
+		body.ready.connect(func() -> void:
+			if body.is_multiplayer_authority():
+				purse.gold = int(bank.get(&"gold"))
+				purse.changed.emit(purse.gold, 0), CONNECT_ONE_SHOT)
 	var poison := HeroPoison.new()
 	poison.name = "HeroPoison"
 	body.add_child(poison)

@@ -214,13 +214,13 @@ const RUN := {
 		{"places": ["sky", "rampart"], "lv": 7, "xp": 1.8, "reach": 6,
 				"foes": {"sky": [[DRAGONET, 3], [SKULL, 3], [IMP, 4], [GOBLIN, 2]],
 						"rampart": [[ORC, 1, ORC_TWO_SWORDS], [ORC_SKIRM, 1], [SKEL_ARCHER, 3], [GOBLIN, 3], [TROLL, 1, LATE]]}},
-		# 9 — the ogre, a boss of its own, alone on the camp's ground (the
-		# user's word, 2026-10-27: one of the last bosses of this portal)
-		{"places": ["camp"], "lv": 8, "xp": 2.0, "reach": 7, "boss": true, "boss_name": "ოგრე",
-				"foes": {"*": [[OGRE, 1]]}},
-		# 10 — the lord of the orcs
-		{"places": ["throne"], "lv": 8, "boss": true, "boss_name": "ორკების მბრძანებელი",
+		# 9 — the lord of the orcs on his court
+		{"places": ["throne"], "lv": 8, "xp": 2.0, "reach": 7, "boss": true, "boss_name": "ორკების მბრძანებელი",
 				"foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
+		# 10 — the ogre, the last of all, alone on the camp's ground (the
+		# user's word, 2026-10-27: the last boss is the ogre)
+		{"places": ["camp"], "lv": 9, "boss": true, "boss_name": "ოგრე",
+				"foes": {"*": [[OGRE, 1]]}},
 	],
 }
 ## Places a step may borrow when all of its own were already seen in this
@@ -277,6 +277,14 @@ const SHOOTERS := ["res://scenes/enemies/pack/skeleton_archer.tscn", "res://scen
 const THROW_GAP := 3.2
 ## Held back, they wait round him on these rings, spread out evenly.
 const HOLD_RINGS := [8.5, 11.5]
+## The ones shooting from off stand round him on these, each its own bearing.
+const SHOOT_RINGS := [13.0, 16.0]
+## Nearer than this to a hero, a held one has its turn at once.
+const CLOSE_IN := 3.2
+## Now and then one more than [constant CROWD] for a while: for how long,
+## and how long between.
+const EXTRA_FOR := Vector2(3.5, 6.0)
+const EXTRA_EVERY := Vector2(9.0, 16.0)
 
 const SND := "res://assets/sounds/dungeon/"
 ## The land's own photographed ground and rock, brought in through the portal
@@ -376,6 +384,8 @@ var _columns: Array[Dictionary] = []
 var _crowd_clock: float = 0.0
 ## The small ones let at the heroes just now ([method _hold_back_crowd]).
 var _holders: Array[Node3D] = []
+var _extra_until := 0.0
+var _extra_next := 0.0
 ## Each place's creatures, made with it: asleep where they stand till it wakes.
 var _room_foes: Array = []
 ## The pair of orcs taking turns at a lone hero: whose turn, since when, and
@@ -389,12 +399,12 @@ var _phase: float = 0.0
 var _phase_tween: Tween
 var _sky_mat: ShaderMaterial
 var _lord_fight: LordFight
-var _tusk_label: Label
 ## This run: when its first place woke, what fell, the tusks won, whether it
 ## is over ([RunSummary]).
 var _run_start: float = -1.0
 var run_kills: int = 0
-var run_tusks: int = 0
+## His gold as the run began ([Game]), for what the run brought.
+var run_gold_start: int = 0
 var _run_over: bool = false
 ## A room looked round from F1, not a run.
 var _viewing: bool = false
@@ -892,8 +902,10 @@ func _ready() -> void:
 	boons = Boons.new(self)
 	add_child(boons)
 	boons.show_list(_layer)
-	_tusk_counter()
-	if game != null and Trades.level(game, "priest") >= 2:
+	# (no tusks any more, the user's word, 2026-10-27: all with gold)
+	if game != null and "gold" in game:
+		run_gold_start = int(game.get(&"gold"))
+	if game != null and Trades.level(game, "priest") >= 1:
 		boons.lights = 4
 	# The first place: the first step's own.
 	_arrive_at(0, String(steps[0]["places"][0]), "", true)
@@ -1065,9 +1077,9 @@ func _priest_gift() -> void:
 	_say("მღვდლის კურთხევა — აირჩიე", 3.5)
 
 
-#region The orcs' tusks
-## A creature of the portal watched: the blessings' doings on it, and the
-## tusks it leaves when it dies ([Trades]).
+#region The fallen
+## A creature of the portal watched: the blessings' doings on it, and its
+## death counted.
 func _watch_foe(body: Node3D) -> void:
 	boons.watch(body)
 	if body.has_signal(&"died") and not body.has_meta(&"tusks_watched"):
@@ -1078,47 +1090,8 @@ func _watch_foe(body: Node3D) -> void:
 func _on_tusks(body: Node3D) -> void:
 	if not is_instance_valid(body):
 		return
-	var n := Trades.tusks_for(body) * (2 if bool(_room(current).get("cursed", false)) else 1)
 	run_kills += 1
-	run_tusks += n
-	var game := get_node_or_null("/root/Game")
-	if game != null and game.has_method(&"add_tusks"):
-		game.call(&"add_tusks", n)
-	_show_tusks(n)
 
-
-## The count at the screen's right, under the map.
-func _tusk_counter() -> void:
-	_tusk_label = Label.new()
-	_tusk_label.anchor_left = 1.0
-	_tusk_label.anchor_right = 1.0
-	_tusk_label.offset_left = -260
-	_tusk_label.offset_right = -24
-	_tusk_label.offset_top = 228
-	_tusk_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_tusk_label.add_theme_font_size_override("font_size", 21)
-	_tusk_label.add_theme_color_override("font_color", Color(0.95, 0.88, 0.7))
-	_tusk_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_tusk_label.add_theme_constant_override("outline_size", 6)
-	_tusk_label.pivot_offset = Vector2(236, 14)
-	_tusk_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_layer.add_child(_tusk_label)
-	_show_tusks(0)
-
-
-func _show_tusks(gained: int) -> void:
-	if _tusk_label == null:
-		return
-	var game := get_node_or_null("/root/Game")
-	var have := int(game.get(&"tusks")) if game != null and game.get(&"tusks") != null else 0
-	_tusk_label.text = "ორკის ეშვი: %d" % have
-	if gained > 0:
-		_tusk_label.text += "   +%d" % gained
-		var tw := _tusk_label.create_tween()
-		tw.tween_property(_tusk_label, "scale", Vector2(1.25, 1.25), 0.08)
-		tw.tween_property(_tusk_label, "scale", Vector2.ONE, 0.25)
-		tw.tween_interval(1.8)
-		tw.tween_callback(_show_tusks.bind(0))
 #endregion
 
 
@@ -1458,7 +1431,9 @@ func _spawn_room(i: int) -> void:
 	if is_instance_valid(_lord_fight):
 		_lord_fight.queue_free()
 	_lord_fight = null
-	if i == steps.size() - 1:
+	# (on his court, wherever in the run it stands: the ogre is the last
+	# since 2026-10-27)
+	if _place_of(i) == "throne":
 		_lord_fight = LordFight.new()
 		_lord_fight.name = "LordFight"
 		add_child(_lord_fight)
@@ -1786,8 +1761,7 @@ func _wake(i: int) -> void:
 		if hero != null and body.has_method("_rouse"):
 			body.call_deferred("_rouse", hero)
 	_spawned = _alive.size()
-	var last := i == steps.size() - 1
-	if last and is_instance_valid(_lord_fight):
+	if is_instance_valid(_lord_fight):
 		_lord_fight.wake()
 	elif is_boss(i):
 		Sfx.play_flat(self, SND + "horn.wav", 1.0, -3.0)
@@ -2190,6 +2164,13 @@ var last_hardness: Dictionary = {}
 ## word, 2026-10-22): from the third step on, not in a boss's place nor a
 ## quiet one; the same on every peer (its own dice, from the dungeon and the
 ## step). Laid as it wakes, when its floor has long been there to find.
+## The place step `i` was made at ("" before it is).
+func _place_of(i: int) -> String:
+	if i < 0 or i >= rooms.size() or not (rooms[i] is Dictionary):
+		return ""
+	return String((rooms[i] as Dictionary).get("place", ""))
+
+
 func _lay_traps(i: int) -> void:
 	if _viewing or is_rest(i) or is_boss(i):
 		return
@@ -2746,7 +2727,7 @@ func _on_hero_died(fallen: Player) -> void:
 			return
 	_say("დამარცხდი", BACK_OUT_AFTER)
 	# beaten by the lord: he remembers it ([LordFight])
-	if is_instance_valid(_lord_fight) and _woken and current == steps.size() - 1 and not _lord_fight.won:
+	if is_instance_valid(_lord_fight) and _woken and not _lord_fight.won:
 		var game := get_node_or_null("/root/Game")
 		if game != null and game.has_method(&"beaten_by_lord"):
 			game.call(&"beaten_by_lord")
@@ -4642,13 +4623,17 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 	var small: Array = []
 	var brutes := 0
 	var shooters := 0
+	var gunners: Array[Fighter] = []
 	for body in _alive:
 		if not is_instance_valid(body) or bool(body.get("is_dead")):
 			continue
 		if body is Flyer or SHOOTERS.has(String(body.scene_file_path)):
 			shooters += 1
-			# (they keep off by themselves: no place among those at him)
+			# (they keep off by themselves: no place among those at him; but
+			# each its own bearing round him, not all in a line)
 			if not (body is Flyer):
+				if body is Fighter:
+					gunners.append(body)
 				continue
 		var gap := INF
 		for hero in standing:
@@ -4665,14 +4650,27 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 	# with several shooting at him from off, only one at him up close (the
 	# user's word, 2026-10-27)
 	var crowd := CROWD_UNDER_FIRE if shooters >= SHOOTERS_MANY else CROWD
+	# now and then one more comes in for a while (the user's word,
+	# 2026-10-27: sometimes a third hits too)
+	var now := Time.get_ticks_msec() / 1000.0
+	if now >= _extra_next:
+		_extra_until = now + randf_range(EXTRA_FOR.x, EXTRA_FOR.y)
+		_extra_next = _extra_until + randf_range(EXTRA_EVERY.x, EXTRA_EVERY.y)
+	if now < _extra_until:
+		crowd += 1
 	var allowed := maxi(crowd * standing.size() - brutes, 0)
-	# Those that have their turn keep it while near; the nearest fill the rest.
+	small.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	# One he has walked up to has its turn at once (the user's word,
+	# 2026-10-27); then those that have it keep it while near; the nearest
+	# fill the rest.
 	var keep: Array[Node3D] = []
+	for pair: Array in small:
+		if float(pair[0]) < CLOSE_IN and keep.size() < allowed:
+			keep.append(pair[1])
 	for h in _holders:
 		for pair: Array in small:
-			if pair[1] == h and float(pair[0]) < 11.0:
+			if pair[1] == h and float(pair[0]) < 11.0 and not keep.has(h) and keep.size() < allowed:
 				keep.append(h)
-	small.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
 	for pair: Array in small:
 		if keep.size() >= allowed:
 			break
@@ -4688,12 +4686,16 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 		if held:
 			waiting.append(pair[1])
 	_spread(waiting, standing)
+	# the archers and mages: each its own side of him, some behind him
+	for g in gunners:
+		g.shoot_slot = true
+	_spread(gunners, standing, SHOOT_RINGS)
 
 
 ## The ones held back, round each hero on `HOLD_RINGS` at even bearings (the
 ## user's word: no more than three in a place), each kept to the side of him
 ## it is on so none crosses another.
-func _spread(waiting: Array[Fighter], standing: Array[Player]) -> void:
+func _spread(waiting: Array[Fighter], standing: Array[Player], rings: Array = HOLD_RINGS) -> void:
 	if standing.is_empty():
 		return
 	var by_hero := {}
@@ -4715,7 +4717,7 @@ func _spread(waiting: Array[Fighter], standing: Array[Player]) -> void:
 		for k in n:
 			var body: Fighter = list[k][1]
 			body.held_angle = start + TAU * float(k) / float(n)
-			body.held_radius = float(HOLD_RINGS[k % HOLD_RINGS.size()])
+			body.held_radius = float(rings[k % rings.size()])
 
 
 ## Two orcs (or more) at one lone hero take turns (the user's word): one at

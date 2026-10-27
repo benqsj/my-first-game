@@ -9,9 +9,9 @@ extends SceneTree
 ## - the places of rest ([RestSpot]): the spring heals, the prisoner is freed;
 ## - the lord's fight ([LordFight]): his name, his bar, his second stage with
 ##   his guard, the guard falling with him;
-## - the village grows ([Trades]): the orcs' tusks counted, the freed men's
+## - the village grows ([Trades]): bought with gold, the freed men's
 ##   trades bought at their stalls ([VillageTrade]) and put on him;
-## - a cursed portal's place: its creatures stronger, their tusks twice;
+## - a cursed portal's place: its creatures stronger;
 ## - the treasure goblin: out as the place wakes, running, caught or gone;
 ## - the story: a stone's tale read, the lord's words remembering him;
 ## - what is won is his for good: the lord's blade for his class.
@@ -242,8 +242,8 @@ func _rest() -> void:
 
 func _lord() -> void:
 	print("the lord")
-	# (the tenth step, 2026-10-22: ten of them now)
-	await _go(9, "throne")
+	# (the ninth step since 2026-10-27: the ogre is the tenth, the last)
+	await _go(8, "throne")
 	var fight := d._lord_fight
 	_check("his fight made with his court", fight != null and fight.lord != null)
 	if fight == null or fight.lord == null:
@@ -252,8 +252,7 @@ func _lord() -> void:
 	_check("his name on his bar", String(lord.get_meta(&"boss_name", "")).begins_with(LordFight.NAME))
 	_check("his guard made, out of sight", fight.guards.size() == LordFight.GUARDS and not fight.guards[0].visible)
 	var game := root.get_node("Game")
-	var tusks_before := int(game.get(&"tusks"))
-	d._wake(9)
+	d._wake(8)
 	await _wait(30)
 	lord.health = lord.max_health * 0.45
 	for f in 200:
@@ -274,21 +273,8 @@ func _lord() -> void:
 		if is_instance_valid(g) and bool(g.get("is_dead")):
 			down += 1
 	_check("down: his guard fall with him", fight.won and down == LordFight.GUARDS, str(down))
-	await _wait(10)
-	var got := int(game.get(&"tusks")) - tusks_before
-	_check("his tusks and his guards'", got == Trades.LORD_TUSKS + LordFight.GUARDS, str(got))
-	# the run's end: its summary up at the dawn
-	d._viewing = false
-	d._run_over = false
-	if d._run_start < 0.0:
-		d._run_start = 0.0
-	for f in 600:
-		await physics_frame
-		if d.get_node_or_null(^"RunSummary") != null:
-			break
-	var summary := d.get_node_or_null(^"RunSummary") as RunSummary
-	_check("won: the run's summary", summary != null and summary.won and int(summary.lines["tusks"]) >= Trades.LORD_TUSKS,
-			str(summary.lines if summary != null else {}))
+	# (no tusks: all with gold since 2026-10-27; not the run's end either,
+	# the ogre comes after him)
 
 
 func _trades() -> void:
@@ -297,7 +283,7 @@ func _trades() -> void:
 	var freed: Array = game.get(&"freed")
 	_check("the first freed is the smith", Trades.trade_of(0) == "smith" and Trades.open(game, "smith"),
 			str(freed.size()))
-	game.set(&"tusks", 100)
+	game.set(&"gold", 1000)
 	var stall := VillageTrade.new()
 	stall.trade = "smith"
 	stall.man_name = "გიორგი"
@@ -308,12 +294,12 @@ func _trades() -> void:
 	stall.interact()
 	stall.interact()
 	_check("bought at his stall: his blade sharper", Trades.level(game, "smith") == 1
-			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"tusks")) == 92,
-			"%d %.3f %d" % [Trades.level(game, "smith"), hero.dealt_scale / scale_before, int(game.get(&"tusks"))])
+			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"gold")) == 850,
+			"%d %.3f %d" % [Trades.level(game, "smith"), hero.dealt_scale / scale_before, int(game.get(&"gold"))])
 	_check("a trade whose man is not freed: shut", not bool(game.call(&"buy_trade", "priest")))
-	game.set(&"tusks", 3)
+	game.set(&"gold", 3)
 	stall.interact()
-	_check("too few tusks: nothing", Trades.level(game, "smith") == 1)
+	_check("too little gold: nothing", Trades.level(game, "smith") == 1)
 	stall.queue_free()
 
 
@@ -335,11 +321,6 @@ func _cursed() -> void:
 		if FoeRoles.role_of(f) == &"" and f.visible:
 			plain = f
 			break
-	var before := int(game.get(&"tusks"))
-	if plain != null:
-		plain._die()
-	await _wait(5)
-	_check("a cursed one's tusks twice", int(game.get(&"tusks")) - before == 2, str(int(game.get(&"tusks")) - before))
 	await _go(1, "forest")
 	_check("the next place not cursed", not bool(d._room(1).get("cursed", false)))
 
@@ -362,11 +343,9 @@ func _treasure() -> void:
 	await _wait(60)
 	_check("it runs from him", t.body.global_position.distance_to(hero.global_position) > 3.5,
 			"%.1f" % t.body.global_position.distance_to(hero.global_position))
-	var before := int(game.get(&"tusks"))
 	t.body._die()
 	await _wait(10)
-	_check("caught: tusks and gold", t.caught and int(game.get(&"tusks")) - before == TreasureGoblin.TUSKS,
-			str(int(game.get(&"tusks")) - before))
+	_check("caught", t.caught)
 	# one let be: gone when its time is up
 	var t2 := TreasureGoblin.make(d, 2)
 	t2.release()

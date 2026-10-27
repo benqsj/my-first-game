@@ -19,12 +19,13 @@ extends RefCounted
 
 const ORDER := ["smith", "healer", "priest"]
 const ALL := {
-	"smith": {"name": "მჭედელი", "costs": [8, 16, 28, 44, 64], "tint": Color(1.0, 0.55, 0.2),
+	"smith": {"name": "მჭედელი", "costs": [150, 300, 550, 900, 1400], "tint": Color(1.0, 0.55, 0.2),
 			"what": "მახვილი ლესავს: +8% დარტყმა", "per": 0.08},
-	"healer": {"name": "მკურნალი", "costs": [12, 30, 55], "tint": Color(0.45, 1.0, 0.55),
+	"healer": {"name": "მკურნალი", "costs": [250, 600, 1100], "tint": Color(0.45, 1.0, 0.55),
 			"what": "კიდევ ერთი ფლაკონი"},
-	"priest": {"name": "მღვდელი", "costs": [25, 50], "tint": Color(0.75, 0.8, 1.0),
-			"what": ["კურთხევა პორტალის დასაწყისში", "ოთხი კურთხევა სამის ნაცვლად"]},
+	# (no blessing at the portal's start any more, the user's word 2026-10-27)
+	"priest": {"name": "მღვდელი", "costs": [600], "tint": Color(0.75, 0.8, 1.0),
+			"what": ["ოთხი კურთხევა სამის ნაცვლად"]},
 }
 ## What a creature of the portal leaves: the lord a heap, the named ones more.
 const LORD_TUSKS := 20
