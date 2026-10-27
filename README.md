@@ -12335,3 +12335,21 @@ and the slash string (3 blows); the bash and sword from behind the shield stay.
 - **The imp's fireball, redrawn (2026-10-27).** No more egg-shaped coal breaking into glowing crumbs (the user). `MudBall` with `ember`: a small hot core in an orange halo, a tail of two camera-facing streaks laid back along its flight (`streak_tex`) with flame tongues, sparks and smoke shed behind; where it breaks, a burst of flame rolling up into smoke, sparks and a flash of light (no ball flash, no ground ring). The tail is handed to the world to burn out when the ball is gone.
 - **Fire on a hero, redrawn; the fireball breaks on the body (2026-10-27).** `HeroBurn` no longer hangs a ball of flame on his chest: small additive tongues of flame burn on his bones (spine, arms, forearms, thighs, calves, head, found by name so any rig fits; set a little towards the camera so they lick on him, not inside him), thin smoke above him, a few sparks, a low flickering light; it flares as it catches and dies down at the end. The imp's fireball now counts a hit at 0.3 m from the hero's axis (was 0.55), so it breaks on his body, not in front of it.
 - **Fire on a hero, one fire (2026-10-27, later).** The small flames per bone hung in the air beside him (the user): now his skinned meshes carry a fire overlay (`HeroBurn.FIRE_SHADER`: additive, flames crawling up in noise, stronger at the rim) and one sheet of flame rises off his trunk, hips to neck, following his bones; smoke, sparks and light as before. The overlay is taken off when the fire ends (only if it is still ours).
+
+## The ghouls' cave (2026-10-27, the user's pick: concepts gamoq2 and gamoq4)
+The cave (place key "cave", kind `twin_cave`, `scripts/twin_cave.gd`) rebuilt as the ghouls' home, two halls as
+before (wave one in the first, the timber gate in the tunnel, wave two and the portals in the second):
+- **The den** (first, where he comes in out of a dark tunnel): a high round hall under a great sinkhole, the
+  moon's shaft down it (the sun at -84°, cool white; a soft ellipsoid FogVolume lit only where the light goes),
+  wide flagstones (`GFlags`, Voronoi cells with dark joints), a ledge all round at 8 m (`GLedge`, one band whose
+  section follows the arch under it) with the ghouls' tunnel mouths under it (`MOUTHS`, black arches `GMouths`
+  in them), bones and rag nests up on it, creepers from its lip, big stalactites round the hole.
+- **The temple hall** (second): pale greige rock, a temple carved into the far wall (`GTemple`: plinth, stair with a
+  walkable slope, dressed-stone wall, four columns, a deep niche with the hooded figure `GStatue` x1.3, little
+  niches with crossed bones, cornice), crystal lamp-posts at the stair's foot, pale crystals round the walls, a
+  stream along each side (`STREAMS`, own shader `STREAM_WATER`, invisible walls along them), columns standing,
+  broken and fallen; soft warm fills and a spot on the figure. The portals stand before the temple.
+- Kit: `assets/dungeon/ghoul_cave/ghoul_cave_lowpoly.glb` from `vepxis-art/world/ghoul_cave_lowpoly.py` (kit
+  frame: temple +z, den -z; the game turns it round). The constants in TwinCave match the script's.
+- Light in `Dungeon._twin_cave_look`. The old cave's kit (`assets/dungeon/twin_cave/`, `twin_cave_lowpoly.py`)
+  is no longer used.

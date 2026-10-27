@@ -3578,12 +3578,12 @@ func _holy_spring_look() -> void:
 ## `cave`: the cells' cave under its roof (2026-10-25): the sky only through
 ## the holes in it, the sun down through them in shafts, the rest lit by a
 ## cool soft fill and the torches; the air closer and greyer.
-## The two-hall cave's own light ([TwinCave]): dark round the edges, the
-## stone pale; the sun's shaft down through the crystal hall's hole, the
-## crystals' glow, the den's torches.
+## The two-hall cave's own light ([TwinCave]): dark round the edges; the
+## moon's shaft down through the den's sinkhole, the temple hall's own
+## soft lights and its crystals' glow.
 func _twin_cave_look() -> void:
-	# (the earlier light, a little lighter, over the pictures' pale colours:
-	# the user's word, 2026-10-26)
+	# the ghouls' cave (2026-10-27): the moon's cold shaft down the den's
+	# sinkhole, the den dark round it; the temple hall's own soft lights
 	if _sky_mat != null:
 		_sky_mat.set_shader_parameter("cloud", 0.6)
 		_sky_mat.set_shader_parameter("night", 0.0)
@@ -3591,8 +3591,8 @@ func _twin_cave_look() -> void:
 		_sky_mat.set_shader_parameter("hor_col", Color(0.56, 0.60, 0.68))
 		_sky_mat.set_shader_parameter("gnd_col", Color(0.22, 0.23, 0.26))
 		_sky_mat.set_shader_parameter("sun_col", Color(1.0, 0.92, 0.80))
-	_env.ambient_light_color = Color(0.60, 0.66, 0.78)
-	_env.ambient_light_energy = 1.2
+	_env.ambient_light_color = Color(0.60, 0.62, 0.66)
+	_env.ambient_light_energy = 0.9
 	_env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	_env.fog_light_color = Color(0.10, 0.11, 0.14)
 	_env.fog_density = 0.012
@@ -3600,7 +3600,7 @@ func _twin_cave_look() -> void:
 	_env.fog_height_density = 0.0
 	_env.volumetric_fog_enabled = true
 	_env.volumetric_fog_density = 0.0003
-	_env.volumetric_fog_albedo = Color(0.95, 0.92, 0.86)
+	_env.volumetric_fog_albedo = Color(0.90, 0.94, 1.0)
 	_env.volumetric_fog_emission = Color(0.0, 0.0, 0.0)
 	_env.volumetric_fog_anisotropy = 0.6
 	_env.volumetric_fog_length = 64.0
@@ -3618,13 +3618,13 @@ func _twin_cave_look() -> void:
 	_env.ssao_power = 1.4
 	if _sun != null:
 		_sun.visible = true
-		_sun.light_color = Color(1.0, 0.95, 0.88)
-		_sun.light_energy = 3.2
-		_sun.rotation.x = -deg_to_rad(72.0)
+		_sun.light_color = Color(0.92, 0.94, 0.98)
+		_sun.light_energy = 3.6
+		_sun.rotation.x = -deg_to_rad(84.0)
 		_sun.light_angular_distance = 1.0
 		_sun.shadow_opacity = 1.0
 		_sun.shadow_blur = 1.2
-		_sun.light_volumetric_fog_energy = 3.5
+		_sun.light_volumetric_fog_energy = 4.0
 
 
 ## The rock in the two-hall cave's tunnel rolled away ([TwinCave]): as the

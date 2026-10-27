@@ -1,35 +1,52 @@
 class_name TwinCave
 extends RefCounted
 
-## The cave as two halls one after the other (the user's pick, 2026-10-25:
-## concepts A and D joined, a wave in each). High-end low poly as the forest
-## and the prisoners' cave: the pieces in `twin_cave_lowpoly.glb` (Blender,
-## `vepxis-art/world/twin_cave_lowpoly.py`), built in room space.
+## The ghouls' cave, two halls one after the other (the user's pick,
+## 2026-10-27: concepts gamoq2 and gamoq4, "one to one"; the ghouls its own).
+## High-end low poly as the forest: the pieces in `ghoul_cave_lowpoly.glb`
+## (Blender, `vepxis-art/world/ghoul_cave_lowpoly.py`), built in the kit's
+## frame (the temple hall at +z, the den at -z) under one node turned round:
+## in the room the den is at +z, where he comes in.
 ##
-## He comes in at the beast's den (the user's word, 2026-10-26: the den
-## first, the crystal hall second), out of a misty valley at dusk through
-## its great mouth: low and jagged, torches, bones, a rusted shield. The
-## first wave is met there. Behind it a short tunnel shut by a timber gate:
-## when the second wave comes (or the first is the only one and falls) it
-## creaks open ([method open_way], on every peer). Then the high crystal
-## hall: the sky through a hole in its dome, a shaft of light down on the
-## floor, a pool glowing still and blue, crystals at its walls; the second
-## wave comes out of the rift there, and the portals stand at its far end.
+## He comes in out of a dark tunnel into the ghouls' den: a high round hall
+## under a great sinkhole, the moon's shaft down through it onto a wide
+## flagged floor; a ledge all round at half its height, the dark mouths of
+## the ghouls' tunnels under it, bones and their nests of rags up on it. The
+## first wave is met there. Behind it the short tunnel with the timber gate:
+## it creaks open with the second wave ([method open_way], on every peer).
+## Then the temple hall: pale greige rock, a forgotten temple carved into
+## its far wall (a hooded figure in a niche between columns, a stair up to
+## it), pale crystals at the walls, a stream along each side; the portals
+## stand before the temple.
 ##
-## Everything is built in the Blender kit's frame (the hall at +z, the den
-## at -z) under one node turned round: in the room the den is at +z, where
-## he comes in.
+## (The cave before, a beast's den and a crystal hall with a turquoise pool,
+## 2026-10-26: `twin_cave_lowpoly.py`, in git before this.)
 
-const DIR := "res://assets/dungeon/twin_cave/"
-const KIT := DIR + "twin_cave_lowpoly.glb"
+const DIR := "res://assets/dungeon/ghoul_cave/"
+const KIT := DIR + "ghoul_cave_lowpoly.glb"
 ## The same numbers as the Blender script's: centre z, half-width,
 ## half-length, height.
-const HALL_A := Vector4(30.0, 24.0, 20.5, 17.0)
-const HALL_D := Vector4(-27.0, 25.0, 23.0, 11.5)
+const HALL_A := Vector4(32.0, 25.0, 22.4, 15.0)
+const HALL_D := Vector4(-26.0, 24.0, 21.5, 17.0)
 const TUN_W := 4.6
 const TUN_H := 6.6
-const POOL := Vector4(-11.5, 33.0, 5.2, 8.0)
-const MOUTH_W := 13.0
+const HOLE_D := 7.0
+const LEDGE_K := 0.80
+## The ghouls' tunnel mouths under the den's ledge: angle round it (degrees,
+## x = cos, z = sin), half-width (degrees), height. The first two are the
+## tunnel on and the way in.
+const MOUTHS := [[90.0, 19.0, 7.1], [270.0, 17.0, 6.4],
+		[14.0, 7.0, 4.4], [46.0, 6.5, 4.8], [134.0, 6.5, 4.6], [166.0, 7.0, 4.3],
+		[203.0, 6.5, 4.7], [236.0, 6.0, 4.4], [304.0, 6.0, 4.5], [337.0, 7.0, 4.6]]
+## The temple's plinth (front z, back z, half-width, top), the stair's
+## half-width and foot.
+const PLINTH := Vector4(47.6, 54.0, 13.5, 1.5)
+const STAIR := Vector2(3.0, 44.8)
+## The streams: the line each follows (x, z) and its half-width.
+const STREAMS := [
+	[[Vector2(15.6, 13.0), Vector2(13.6, 19.0), Vector2(14.2, 26.0), Vector2(17.4, 33.0), Vector2(21.4, 40.5), Vector2(23.6, 45.0)], 1.4],
+	[[Vector2(-21.4, 26.0), Vector2(-19.8, 32.5), Vector2(-18.6, 38.5), Vector2(-16.9, 44.0), Vector2(-15.0, 49.5)], 1.2],
+]
 ## Where the gate stands across the tunnel (z), its leaves' hinges (x) and
 ## how far they swing open (degrees).
 const GATE_Z := 2.5
@@ -40,7 +57,9 @@ const WAVE_ONE_Z := 22.0
 
 static var _kit: Node3D
 static var _crystal_mat: StandardMaterial3D
-static var _water_mat: StandardMaterial3D
+static var _void_mat: StandardMaterial3D
+static var _sky_mat: StandardMaterial3D
+static var _vine_mat: StandardMaterial3D
 
 
 static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumberGenerator) -> void:
@@ -55,53 +74,49 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	room.name = "Cave"
 	room.rotation.y = PI
 	top.add_child(room)
-	_shadows(_piece(room, "TGround", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	_shadows(_piece(room, "TValley", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	for name: String in ["THallA", "THallD", "TTunnel", "TWayIn"]:
+	_shadows(_piece(room, "GGround", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	_shadows(_piece(room, "GFlags", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	for name: String in ["GHallA", "GHallD", "GTunnel", "GWayIn", "GLedge"]:
 		var shell := _piece(room, name, Vector3.ZERO)
 		_shadows(shell, GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED)
 		_solid_shell(shell)
-	var pool := _piece(room, "TPool", Vector3.ZERO)
-	_shadows(pool, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	var water := _pool_water()
-	var mid := room.to_global(Vector3(POOL.x, 0.0, POOL.y))
-	water.set_shader_parameter("centre", Vector2(mid.x, mid.z))
-	for mi in pool.find_children("*", "MeshInstance3D", true, false) + [pool]:
-		if mi is MeshInstance3D:
-			(mi as MeshInstance3D).material_override = water
-	# the pool is not waded: its rim of rocks stops him
-	d._blocker(room, Vector3(POOL.z * 1.9, 3.0, POOL.w * 1.9), Vector3(POOL.x, 1.5, POOL.y))
+	for name: String in ["GShaftD"]:
+		_shadows(_piece(room, name, Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED)
+	for name: String in ["GSkyD"]:
+		var lid := _piece(room, name, Vector3.ZERO)
+		_shadows(lid, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+		for mi in lid.find_children("*", "MeshInstance3D", true, false) + [lid]:
+			if mi is MeshInstance3D:
+				(mi as MeshInstance3D).material_override = _sky_mat
+	_shadows(_piece(room, "GMouths", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	_shadows(_piece(room, "GLedgeLife", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	_backstop(room)
-	# he stays in the den: the mouth's lip stops him (the valley is to look
-	# at; out on it he saw the rock's back, 2026-10-25)
-	# (behind where he comes in now: at the lip of the mouth)
-	d._blocker(room, Vector3(MOUTH_W * 2.4, 8.0, 1.0), Vector3(0.0, 4.0, HALL_D.x - HALL_D.z - 3.5))
-	_hall(d, room, rng)
-	_gate(d, room)
 	_den(d, room, rng)
-	TerracePlaces._motes(room, 30.0, 40.0, Color(0.80, 0.86, 0.95), 70)
+	_gate(d, room)
+	_temple(d, room, rng)
+	TerracePlaces._motes(room, 30.0, 40.0, Color(0.80, 0.86, 0.95), 60)
 
 
-## Dark rock behind all of it, round the sides, the way in's end and over
-## the roof (but for the hall's hole): where a seam in the shell lets the eye
-## through it finds rock, not sky (the user's word, 2026-10-25: chinks of
-## sky); it also keeps the sun out but through the hole.
+## Dark rock behind all of it, round the sides, the ends and over the roof
+## but for the den's sinkhole: where a seam in the shell lets the eye through it
+## finds rock, not sky; it also keeps the light out but down the shafts.
 static func _backstop(room: Node3D) -> void:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.albedo_color = Color(0.025, 0.022, 0.02)
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var hole := HALL_A.x
+	var dz := HALL_D.x
+	var dh := HOLE_D + 2.5
+	var y := 26.0
 	var parts := [
-		# (the sides stop short of the den's mouth: seen out of it they stood
-		# black against the valley)
-		[Vector3(1.0, 34.0, 108.0), Vector3(-33.0, 12.0, 12.0)],
-		[Vector3(1.0, 34.0, 108.0), Vector3(33.0, 12.0, 12.0)],
-		[Vector3(68.0, 34.0, 1.0), Vector3(0.0, 12.0, 66.0)],
-		[Vector3(68.0, 1.0, hole - 6.0 + 56.0), Vector3(0.0, 22.0, (hole - 6.0 - 56.0) * 0.5)],
-		[Vector3(68.0, 1.0, 66.0 - hole - 6.0), Vector3(0.0, 22.0, (66.0 + hole + 6.0) * 0.5)],
-		[Vector3(27.0, 1.0, 12.0), Vector3(-19.5, 22.0, hole)],
-		[Vector3(27.0, 1.0, 12.0), Vector3(19.5, 22.0, hole)],
+		[Vector3(1.0, 44.0, 124.0), Vector3(-34.0, 8.0, -2.0)],
+		[Vector3(1.0, 44.0, 124.0), Vector3(34.0, 8.0, -2.0)],
+		[Vector3(70.0, 44.0, 1.0), Vector3(0.0, 8.0, 59.0)],
+		[Vector3(70.0, 44.0, 1.0), Vector3(0.0, 8.0, -63.0)],
+		[Vector3(70.0, 1.0, (dz - dh) + 63.0), Vector3(0.0, y, (dz - dh - 63.0) * 0.5)],
+		[Vector3(35.0 - dh, 1.0, 2.0 * dh), Vector3(-(35.0 + dh) * 0.5, y, dz)],
+		[Vector3(35.0 - dh, 1.0, 2.0 * dh), Vector3((35.0 + dh) * 0.5, y, dz)],
+		[Vector3(70.0, 1.0, 59.0 - (dz + dh)), Vector3(0.0, y, (59.0 + dz + dh) * 0.5)],
 	]
 	for part: Array in parts:
 		var box := BoxMesh.new()
@@ -114,113 +129,225 @@ static func _backstop(room: Node3D) -> void:
 		room.add_child(mi)
 
 
-## The crystal hall: the crystals at its walls glowing, the shaft under the hole.
-static func _hall(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
-	var cz := HALL_A.x
-	var n := 16
-	for k in n:
-		var a := TAU * (float(k) + rng.randf_range(-0.3, 0.3)) / float(n)
-		var dir := Vector2(cos(a), sin(a))
-		var at := Vector3(dir.x * HALL_A.y * 0.86, 0.0, cz + dir.y * HALL_A.z * 0.86)
-		# not in the tunnel's way, nor the way in, nor the pool
-		if absf(at.x) < 7.0 or Vector2((at.x - POOL.x) / POOL.z, (at.z - POOL.y) / POOL.w).length() < 1.25:
-			continue
-		if _near_portal(at):
-			continue
-		var c := _piece(room, "TCrystal%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
-		c.scale = Vector3.ONE * rng.randf_range(1.3, 2.2)
-		_shadows(c, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-		_solid_hull(c)
-		if k % 3 == 0:
-			var glow := OmniLight3D.new()
-			glow.light_color = Color(0.35, 0.92, 0.85)
-			glow.light_energy = 1.3
-			glow.omni_range = 8.0
-			glow.position = at + Vector3(-dir.x * 1.2, 1.4, -dir.y * 1.2)
-			glow.set_meta(&"designed_shadow", false)
-			room.add_child(glow)
-	# crystals over the pool, their light in it
-	for k in 3:
-		var at := Vector3(POOL.x - POOL.z * 0.9 + rng.randf_range(-0.5, 0.5), 0.0, POOL.y + (float(k) - 1.0) * POOL.w * 0.7)
-		var c := _piece(room, "TCrystal%d" % (k % 4), at, rng.randf_range(0.0, TAU))
-		c.scale = Vector3.ONE * rng.randf_range(1.2, 1.8)
-		_solid_hull(c)
-	for k in 3:
-		var at := Vector3(POOL.x + rng.randf_range(-1.5, 1.5), -0.2, POOL.y + (float(k) - 1.0) * POOL.w * 0.45)
-		var c := _piece(room, "TCrystal%d" % (k % 4), at, rng.randf_range(0.0, TAU))
-		c.scale = Vector3.ONE * rng.randf_range(0.6, 0.9)
-	for k in 14:
-		var a := rng.randf() * TAU
-		var r := rng.randf_range(0.55, 0.8)
-		var at := Vector3(cos(a) * HALL_A.y * r, 0.0, cz + sin(a) * HALL_A.z * r)
-		if absf(at.x) < 5.0 or _near_portal(at) or Vector2((at.x - POOL.x) / POOL.z, (at.z - POOL.y) / POOL.w).length() < 1.3:
-			continue
-		var c := _piece(room, "TCrystal%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
-		c.scale = Vector3.ONE * rng.randf_range(0.35, 0.6)
-		_shadows(c, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	var motes := Node3D.new()
-	motes.position = Vector3(0.0, 0.0, cz)
-	room.add_child(motes)
-	TerracePlaces._motes(motes, HALL_A.y * 1.4, HALL_A.z * 1.4, Color(0.55, 0.85, 1.0), 60)
-	TerracePlaces._haze(room, Vector3(POOL.x, 0.3, POOL.y), Vector3(POOL.z * 2.2, 0.8, POOL.w * 2.2), 0.015)
-	_shadows(_piece(room, "TPoolRim", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	_shadows(_piece(room, "THoleRim", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED)
-	var slab := _piece(room, "TSlab", Vector3(POOL.x + 1.0, -0.15, POOL.y - 2.0), 0.4)
-	_shadows(slab, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	# the sky seen up through the hole: a bright disc over it (the sky
-	# itself showed dull grey through the haze up there)
-	var sky := MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = 7.0
-	disc.bottom_radius = 7.0
-	disc.height = 0.1
-	sky.mesh = disc
-	var sm := StandardMaterial3D.new()
-	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	sm.albedo_color = Color(0.86, 0.92, 0.98)
-	sm.disable_fog = true
-	sky.material_override = sm
-	sky.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	sky.position = Vector3(0.0, HALL_A.w + 3.5, cz)
-	room.add_child(sky)
+## The arch's height over the floor at an angle round the den (-0.3: the
+## rock stands there).
+static func _arch_h(deg: float) -> float:
+	var best := -0.3
+	for m: Array in MOUTHS:
+		var dd := fposmod(deg - float(m[0]) + 180.0, 360.0) - 180.0
+		var s := absf(dd) / float(m[1])
+		if s < 1.0:
+			best = maxf(best, 1.0)
+	return best
 
-	var pool_glow := OmniLight3D.new()
-	pool_glow.light_color = Color(0.35, 0.92, 0.85)
-	pool_glow.light_energy = 1.1
-	pool_glow.omni_range = 10.0
-	pool_glow.position = Vector3(POOL.x - 2.0, 1.2, POOL.y)
-	pool_glow.set_meta(&"designed_shadow", false)
-	room.add_child(pool_glow)
-	# boulders on the floor's edges
-	for k in 6:
-		var a := rng.randf() * TAU
-		var at := Vector3(cos(a) * HALL_A.y * 0.75, 0.0, cz + sin(a) * HALL_A.z * 0.75)
-		if absf(at.x) < 7.0 or Vector2((at.x - POOL.x) / POOL.z, (at.z - POOL.y) / POOL.w).length() < 1.4:
+
+## A spot on the ellipse of a hall (kit frame) at an angle and a share of
+## its radii.
+static func _round(h: Vector4, deg: float, k: float) -> Vector3:
+	var a := deg_to_rad(deg)
+	return Vector3(cos(a) * h.y * k, 0.0, h.x + sin(a) * h.z * k)
+
+
+## The den: the moon's shaft down the hole, stalagmites at the pillars'
+## feet, boulders, a cold mist low.
+static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
+	var cz := HALL_D.x
+	# stalagmites before the ledge's pillars, never in a mouth
+	var placed := 0
+	for k in 60:
+		if placed >= 12:
+			break
+		var deg := rng.randf_range(0.0, 360.0)
+		if _arch_h(deg) > 0.0 or _arch_h(deg + 5.0) > 0.0 or _arch_h(deg - 5.0) > 0.0:
 			continue
-		if _near_portal(at):
-			continue
-		var b := _piece(room, "TBoulder%d" % rng.randi_range(0, 2), at, rng.randf_range(0.0, TAU))
+		var at := _round(HALL_D, deg, LEDGE_K * rng.randf_range(0.9, 0.97))
+		var f := _piece(room, "GFang%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
+		f.scale = Vector3.ONE * rng.randf_range(0.8, 1.25)
+		_solid_hull(f)
+		placed += 1
+	for k in 5:
+		var deg := 25.0 + float(k) * 72.0 + rng.randf_range(-8.0, 8.0)
+		if _arch_h(deg) > 0.0:
+			deg += 12.0
+		var at := _round(HALL_D, deg, LEDGE_K * 0.9)
+		var b := _piece(room, "GBoulder%d" % rng.randi_range(0, 2), at, rng.randf_range(0.0, TAU))
 		_solid_hull(b)
-	# the shaft of light down from the hole, seen in the air
-	# (a thin air filling the hall's middle: only the sun's slant through the
-	# hole lights it, so the shaft is drawn where the light really goes)
+	# the moon's shaft seen in the air (only the light down the hole lights it)
 	var air := FogVolume.new()
 	air.shape = RenderingServer.FOG_VOLUME_SHAPE_ELLIPSOID
-	air.size = Vector3(26.0, 30.0, 30.0)
-	air.position = Vector3(0.0, 6.0, cz)
+	air.size = Vector3(22.0, 36.0, 22.0)
+	air.position = Vector3(0.0, 9.0, cz)
 	var am := FogMaterial.new()
-	am.density = 0.005
-	am.albedo = Color(0.95, 0.92, 0.86)
-	# its edge soft, or the air's box shows against the dark (2026-10-25)
+	am.density = 0.012
+	am.albedo = Color(0.92, 0.95, 1.0)
 	am.edge_fade = 1.0
 	air.material = am
 	if Graphics.current != Graphics.Level.LOW:
 		room.add_child(air)
+	# a cold mist lying low round the walls, in the mouths
+	TerracePlaces._haze(room, Vector3(0.0, 0.6, cz), Vector3(HALL_D.y * 2.1, 2.0, HALL_D.z * 2.1), 0.01)
+	var motes := Node3D.new()
+	motes.position = Vector3(0.0, 0.0, cz)
+	room.add_child(motes)
+	TerracePlaces._motes(motes, HOLE_D * 1.6, HOLE_D * 1.6, Color(0.85, 0.9, 1.0), 50)
+	# the moonlight given back off the floor, softly, up the walls and the ledge
+	var bounce := OmniLight3D.new()
+	bounce.light_color = Color(0.80, 0.85, 0.92)
+	bounce.light_energy = 0.9
+	bounce.omni_range = 30.0
+	bounce.omni_attenuation = 0.7
+	bounce.position = Vector3(0.0, 2.5, cz)
+	bounce.set_meta(&"designed_shadow", false)
+	room.add_child(bounce)
+	# a little of it reaching back into the way in, where he comes out
+	var way := OmniLight3D.new()
+	way.light_color = Color(0.74, 0.80, 0.90)
+	way.light_energy = 0.7
+	way.omni_range = 11.0
+	way.position = Vector3(0.0, 4.0, cz - HALL_D.z - 2.5)
+	way.set_meta(&"designed_shadow", false)
+	room.add_child(way)
+
+
+## The temple hall: the temple and its figure, the columns, the crystals,
+## the streams and what keeps him out of them; its light.
+static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
+	var cz := HALL_A.x
+	var temple := _piece(room, "GTemple", Vector3.ZERO)
+	_shadows(temple, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	_solid_shell(temple)
+	# the stair as a slope to walk up
+	var run := PLINTH.x - STAIR.y
+	var slope := StaticBody3D.new()
+	var ss := CollisionShape3D.new()
+	var sb := BoxShape3D.new()
+	sb.size = Vector3(STAIR.x * 2.0, 0.2, sqrt(run * run + PLINTH.w * PLINTH.w))
+	ss.shape = sb
+	slope.add_child(ss)
+	slope.position = Vector3(0.0, PLINTH.w * 0.5 - 0.05, STAIR.y + run * 0.5)
+	slope.rotation.x = -atan2(PLINTH.w, run)
+	room.add_child(slope)
+	var fig := _piece(room, "GStatue", Vector3(0.0, PLINTH.w + 0.18, PLINTH.y - 0.4))
+	fig.scale = Vector3.ONE * 1.3
+	_shadows(fig, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	_solid_shell(fig)
+	for c: Array in [["GColumn", Vector3(-14.0, 0.0, 36.0), 0.3], ["GColumnBroken", Vector3(13.6, 0.0, 40.5), 1.1]]:
+		var col := _piece(room, String(c[0]), c[1], float(c[2]))
+		_solid_hull(col)
+	var fallen := _piece(room, "GColumnFallen", Vector3(-15.5, 0.0, 26.0), 0.5)
+	_solid_hull(fallen)
+	# the streams: their faces, and low walls along them he cannot pass
+	var water := _stream_water()
+	var s := _piece(room, "GStream", Vector3.ZERO)
+	_shadows(s, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	for mi in s.find_children("*", "MeshInstance3D", true, false) + [s]:
+		if mi is MeshInstance3D:
+			(mi as MeshInstance3D).material_override = water
+	_shadows(_piece(room, "GBanks", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	for st: Array in STREAMS:
+		var pts: Array = st[0]
+		var hw := float(st[1])
+		for k in pts.size() - 1:
+			var a: Vector2 = pts[k]
+			var b: Vector2 = pts[k + 1]
+			var body := StaticBody3D.new()
+			var shape := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(hw * 2.3, 3.0, a.distance_to(b) + 0.8)
+			shape.shape = box
+			body.add_child(shape)
+			var mid := (a + b) * 0.5
+			body.position = Vector3(mid.x, 1.5, mid.y)
+			body.rotation.y = atan2(b.x - a.x, b.y - a.y)
+			room.add_child(body)
+	# pale crystals at the walls, out of the streams' way and the portals'
+	var n := 26
+	var made := 0
+	for k in n:
+		var deg := 360.0 * (float(k) + rng.randf_range(-0.3, 0.3)) / float(n)
+		var at := _round(HALL_A, deg, rng.randf_range(0.82, 0.9))
+		if absf(at.x) < 8.0 and at.z < cz:
+			continue
+		if at.z > PLINTH.x - 3.0 and absf(at.x) < PLINTH.z + 1.0:
+			continue
+		if _near_portal(at) or _in_stream(at, 1.8):
+			continue
+		var c := _piece(room, "GCrystal%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
+		c.scale = Vector3.ONE * rng.randf_range(1.4, 2.3)
+		_shadows(c, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+		_solid_hull(c)
+		made += 1
+		if made % 3 == 0:
+			var glow := OmniLight3D.new()
+			glow.light_color = Color(0.62, 0.88, 1.0)
+			glow.light_energy = 1.0
+			glow.omni_range = 7.0
+			glow.position = at + Vector3(0.0, 1.4, 0.0) + (Vector3(0.0, 0.0, cz) - at).normalized() * 1.2
+			glow.set_meta(&"designed_shadow", false)
+			room.add_child(glow)
+	# small ones by the banks
+	for k in 12:
+		var st: Array = STREAMS[k % 2]
+		var pts: Array = st[0]
+		var i := rng.randi_range(0, pts.size() - 2)
+		var p: Vector2 = (pts[i] as Vector2).lerp(pts[i + 1], rng.randf())
+		var off := (Vector2(0.0, cz) - p).normalized() * float(st[1]) * rng.randf_range(1.5, 1.9)
+		var at := Vector3(p.x + off.x, 0.0, p.y + off.y)
+		if _near_portal(at):
+			continue
+		var c := _piece(room, "GCrystal%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
+		c.scale = Vector3.ONE * rng.randf_range(0.4, 0.65)
+		_shadows(c, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	# the lamp-posts' crystals at the stair's foot
+	for side: float in [-1.0, 1.0]:
+		var lamp := OmniLight3D.new()
+		lamp.light_color = Color(0.6, 0.86, 1.0)
+		lamp.light_energy = 1.4
+		lamp.omni_range = 6.0
+		lamp.position = Vector3(side * (STAIR.x + 0.38), 2.0, STAIR.y - 0.3)
+		lamp.set_meta(&"designed_shadow", false)
+		room.add_child(lamp)
+	# the hall's soft daylight: the rock and the temple pale, as in the picture
+	for at: Vector3 in [Vector3(0.0, 9.0, cz - 6.0), Vector3(-11.0, 7.0, cz + 8.0), Vector3(11.0, 7.0, cz + 8.0)]:
+		var fill := OmniLight3D.new()
+		fill.light_color = Color(1.0, 0.95, 0.88)
+		fill.light_energy = 1.7
+		fill.omni_range = 24.0
+		fill.omni_attenuation = 0.8
+		fill.position = at
+		fill.set_meta(&"designed_shadow", false)
+		room.add_child(fill)
+	# the figure lit from above and before, its hood's dark the deeper
+	var spot := SpotLight3D.new()
+	spot.light_color = Color(1.0, 0.95, 0.86)
+	spot.light_energy = 2.5
+	spot.spot_range = 22.0
+	spot.spot_angle = 22.0
+	spot.position = Vector3(0.0, 12.5, PLINTH.x - 8.0)
+	room.add_child(spot)
+	spot.look_at(room.to_global(Vector3(0.0, 5.5, PLINTH.y - 0.6)), Vector3.UP)
+	spot.set_meta(&"designed_shadow", false)
+	TerracePlaces._haze(room, Vector3(0.0, 0.4, cz), Vector3(HALL_A.y * 2.0, 1.4, HALL_A.z * 2.0), 0.006)
+
+
+## Whether a spot (kit frame) is within `pad` of a stream's line (beyond its
+## half-width).
+static func _in_stream(at: Vector3, pad: float) -> bool:
+	var p := Vector2(at.x, at.z)
+	for st: Array in STREAMS:
+		var pts: Array = st[0]
+		for k in pts.size() - 1:
+			var a: Vector2 = pts[k]
+			var b: Vector2 = pts[k + 1]
+			var t := clampf((p - a).dot(b - a) / (b - a).length_squared(), 0.0, 1.0)
+			if p.distance_to(a.lerp(b, t)) < float(st[1]) + pad:
+				return true
+	return false
 
 
 ## Whether a spot (kit frame) is near where the portals or the way out
-## stand: in the room at (±9, -l/2+10) and (0, -l/2+15), at the hall's far
-## end; in the kit's frame, turned, at +z.
+## stand: in the room at (±9, -l/2+10) and (0, -l/2+15), at the temple
+## hall's far end; in the kit's frame, turned, at +z.
 static func _near_portal(at: Vector3) -> bool:
 	for spot: Vector3 in [Vector3(9.0, 0.0, 45.0), Vector3(-9.0, 0.0, 45.0), Vector3(0.0, 0.0, 40.0)]:
 		if Vector2(at.x - spot.x, at.z - spot.z).length() < 5.0:
@@ -228,16 +355,14 @@ static func _near_portal(at: Vector3) -> bool:
 	return false
 
 
-## The pool's water as in the picture the user chose (A1, 2026-10-26):
-## bright turquoise and clear, its pale bed seen through it, slow rings of
-## ripples spreading over it, light playing on the bed.
-const POOL_WATER := """
+## The streams' water: dark clear teal, the bed seen a little through it,
+## ripples running down along it, a soft sheen of the crystals' light.
+const STREAM_WATER := """
 shader_type spatial;
 render_mode blend_mix, depth_draw_always, cull_disabled, specular_schlick_ggx;
-uniform vec4 shallow : source_color = vec4(0.36, 0.92, 0.88, 1.0);
-uniform vec4 deep : source_color = vec4(0.03, 0.50, 0.60, 1.0);
-uniform vec2 centre = vec2(0.0);
-uniform float depth_reach = 0.6;
+uniform vec4 shallow : source_color = vec4(0.20, 0.42, 0.46, 1.0);
+uniform vec4 deep : source_color = vec4(0.04, 0.12, 0.15, 1.0);
+uniform float depth_reach = 0.35;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
 varying vec3 wp;
@@ -246,50 +371,42 @@ float vnoise(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
 	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
 }
-float rings(vec2 p) {
-	float r = 0.0;
-	for (int i = 0; i < 3; i++) {
-		vec2 c = centre + vec2(sin(float(i) * 2.1) * 1.4, cos(float(i) * 1.7) * 2.6);
-		float d = length(p - c);
-		r += sin(d * 3.0 - TIME * 0.9 + float(i) * 2.0) * exp(-d * 0.3);
-	}
-	return r / 3.0;
+float waves(vec2 p) {
+	return vnoise(p * 1.6 + vec2(TIME * 0.35, TIME * 0.6)) * 0.6 + vnoise(p * 3.1 - vec2(TIME * 0.5, TIME * 0.2)) * 0.4;
 }
 void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	VERTEX.y += rings(wp.xz) * 0.006;
 }
 void fragment() {
 	float e = 0.08;
-	float h = rings(wp.xz);
-	vec2 slope = vec2(rings(wp.xz + vec2(e, 0.0)) - h, rings(wp.xz + vec2(0.0, e)) - h) / e;
-	vec3 nw = normalize(vec3(-slope.x * 0.05, 1.0, -slope.y * 0.05));
+	float h = waves(wp.xz);
+	vec2 slope = vec2(waves(wp.xz + vec2(e, 0.0)) - h, waves(wp.xz + vec2(0.0, e)) - h) / e;
+	vec3 nw = normalize(vec3(-slope.x * 0.12, 1.0, -slope.y * 0.12));
 	NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 	float d = texture(depth_tex, SCREEN_UV).r;
 	vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, d, 1.0);
 	behind.xyz /= behind.w;
 	float depth = clamp(VERTEX.z - behind.z, 0.0, 20.0);
 	float k = 1.0 - exp(-depth / depth_reach);
-	vec3 bed = textureLod(screen_tex, SCREEN_UV + slope * 0.01 * k, 0.0).rgb;
-	vec3 c = mix(bed * shallow.rgb * 1.1 + shallow.rgb * 0.22, deep.rgb, k * 0.8);
-	c += vec3(0.75, 1.0, 1.0) * smoothstep(0.35, 0.9, h) * 0.12;
-	float play = pow(vnoise(wp.xz * 1.8 + vec2(TIME * 0.15, TIME * 0.1)) * vnoise(wp.xz * 2.6 - vec2(TIME * 0.12, 0.0)), 1.4);
+	vec3 bed = textureLod(screen_tex, SCREEN_UV + slope * 0.006 * k, 0.0).rgb;
+	vec3 c = mix(bed * shallow.rgb * 1.4 + shallow.rgb * 0.12, deep.rgb, k * 0.85);
+	c += vec3(0.7, 0.9, 1.0) * smoothstep(0.7, 0.95, h) * 0.05;
 	ALBEDO = c;
-	EMISSION = vec3(0.30, 0.90, 0.90) * (0.06 + 0.35 * play * (1.0 - k * 0.6));
-	ROUGHNESS = 0.05;
+	EMISSION = vec3(0.10, 0.22, 0.26) * 0.08;
+	ROUGHNESS = 0.06;
 	SPECULAR = 0.5;
 	ALPHA = smoothstep(0.0, 0.03, depth);
 }
 """
-static var _pool_shader: Shader
+static var _stream_shader: Shader
 
 
-static func _pool_water() -> ShaderMaterial:
-	if _pool_shader == null:
-		_pool_shader = Shader.new()
-		_pool_shader.code = POOL_WATER
+static func _stream_water() -> ShaderMaterial:
+	if _stream_shader == null:
+		_stream_shader = Shader.new()
+		_stream_shader.code = STREAM_WATER
 	var m := ShaderMaterial.new()
-	m.shader = _pool_shader
+	m.shader = _stream_shader
 	m.render_priority = -100
 	return m
 
@@ -302,9 +419,9 @@ static func _gate(d: Dungeon, room: Node3D) -> void:
 	gate.name = "Gate"
 	gate.position = Vector3(0.0, 0.0, GATE_Z)
 	room.add_child(gate)
-	_shadows(_piece(gate, "TGateFrame", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	_shadows(_piece(gate, "GGateFrame", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	for side: float in [-1.0, 1.0]:
-		var leaf := _piece(gate, "TGateLeaf", Vector3(side * LEAF_HINGE, 0.0, 0.0), 0.0 if side < 0.0 else PI)
+		var leaf := _piece(gate, "GGateLeaf", Vector3(side * LEAF_HINGE, 0.0, 0.0), 0.0 if side < 0.0 else PI)
 		leaf.name = "LeafL" if side < 0.0 else "LeafR"
 	var wall := StaticBody3D.new()
 	wall.name = "GateWall"
@@ -333,7 +450,7 @@ static func _gate(d: Dungeon, room: Node3D) -> void:
 
 ## A torch on its stake, its fire and warm light.
 static func _torch(room: Node3D, at: Vector3, yaw: float) -> void:
-	var t := _piece(room, "TTorch", at, yaw)
+	var t := _piece(room, "GTorch", at, yaw)
 	TerracePlaces._post_col(t, 0.25, 2.0)
 	var tip := at + Vector3(0.0, 2.1, 0.0)
 	CryptTomb._flames(room, tip, [Vector3.ZERO], Color(1.0, 0.6, 0.28), false, 1.6)
@@ -344,72 +461,6 @@ static func _torch(room: Node3D, at: Vector3, yaw: float) -> void:
 	lamp.position = tip + Vector3(0.0, 0.4, 0.0)
 	lamp.set_meta(&"designed_shadow", false)
 	room.add_child(lamp)
-
-
-## An iron fire-bowl on its legs, its fire and warm light (D1).
-static func _brazier(room: Node3D, at: Vector3, rng: RandomNumberGenerator) -> void:
-	var b := _piece(room, "TBrazier", at, rng.randf_range(0.0, TAU) if rng != null else 0.0)
-	TerracePlaces._post_col(b, 0.45, 1.1)
-	var tip := at + Vector3(0.0, 1.05, 0.0)
-	CryptTomb._flames(room, tip, [Vector3.ZERO], Color(1.0, 0.62, 0.3), false, 2.0)
-	var lamp := OmniLight3D.new()
-	lamp.light_color = Color(1.0, 0.66, 0.38)
-	lamp.light_energy = 3.5
-	lamp.omni_range = 11.0
-	lamp.position = tip + Vector3(0.0, 0.6, 0.0)
-	lamp.set_meta(&"designed_shadow", false)
-	room.add_child(lamp)
-
-
-## The den: stalagmites like teeth round it, torches, the dead, the mouth's
-## cold light.
-static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
-	var cz := HALL_D.x
-	var n := 22
-	for k in n:
-		var a := TAU * (float(k) + rng.randf_range(-0.3, 0.3)) / float(n)
-		var dir := Vector2(cos(a), sin(a))
-		var at := Vector3(dir.x * HALL_D.y * rng.randf_range(0.72, 0.88), 0.0, cz + dir.y * HALL_D.z * rng.randf_range(0.72, 0.88))
-		# the tunnel's end and the mouth kept clear (the portals stand there)
-		if absf(at.x) < 7.0 and (at.z > cz + 8.0 or at.z < cz - 10.0):
-			continue
-		var f := _piece(room, "TFang%d" % rng.randi_range(0, 3), at, rng.randf_range(0.0, TAU))
-		f.scale = Vector3.ONE * rng.randf_range(0.8, 1.3)
-		_solid_hull(f)
-	# hanging teeth from the roof are the shell's; a few fallen at the sides
-	for k in 5:
-		var side := -1.0 if k % 2 == 0 else 1.0
-		var at := Vector3(side * rng.randf_range(13.0, 18.0), 0.0, cz + rng.randf_range(-12.0, 10.0))
-		var b := _piece(room, "TBoulder%d" % rng.randi_range(1, 3), at, rng.randf_range(0.0, TAU))
-		_solid_hull(b)
-	# torches on stakes round the floor, not in the middle
-	var torches := [Vector3(-11.0, 0.0, cz + 12.0), Vector3(11.5, 0.0, cz + 11.0), Vector3(-14.0, 0.0, cz - 2.0),
-			Vector3(14.0, 0.0, cz - 3.0), Vector3(-10.5, 0.0, cz - 14.0), Vector3(10.5, 0.0, cz - 14.5)]
-	for at: Vector3 in torches:
-		_torch(room, at * Vector3(1.25, 1.0, 1.0), rng.randf_range(0.0, TAU))
-	# the dead: bones by the walls, a rusted shield or two
-	OrcSpoils._materials()
-	for k in 7:
-		var a := rng.randf() * TAU
-		var at := Vector3(cos(a) * HALL_D.y * 0.68, 0.0, cz + sin(a) * HALL_D.z * 0.6)
-		if absf(at.x) < 6.0:
-			at.x = 6.0 * signf(at.x + 0.01)
-		OrcSpoils._bone_heap(d, room, at, rng)
-	for k in 2:
-		var at := Vector3((-1.0 if k == 0 else 1.0) * rng.randf_range(8.0, 12.0), 0.02, cz + rng.randf_range(-6.0, 8.0))
-		_piece(room, "TShield", at, rng.randf_range(0.0, TAU))
-	# the cold blue of the dusk in at the mouth
-	var dusk := SpotLight3D.new()
-	dusk.light_color = Color(1.0, 0.82, 0.62)
-	dusk.light_energy = 3.0
-	dusk.spot_range = 45.0
-	dusk.spot_angle = 55.0
-	dusk.position = Vector3(0.0, 7.0, cz - HALL_D.z - 6.0)
-	dusk.rotation = Vector3(-deg_to_rad(12.0), 0.0, 0.0)
-	dusk.set_meta(&"designed_shadow", false)
-	room.add_child(dusk)
-	# a thin mist lying in the mouth (thick, standing in it whites all out)
-	TerracePlaces._haze(room, Vector3(0.0, 1.5, cz - HALL_D.z + 4.0), Vector3(24.0, 3.0, 8.0), 0.008)
 
 
 ## The gate thrown open (the second wave's coming, or the place cleared
@@ -462,20 +513,27 @@ static func _ready_kit() -> void:
 	_crystal_mat = StandardMaterial3D.new()
 	_crystal_mat.vertex_color_use_as_albedo = true
 	_crystal_mat.vertex_color_is_srgb = true
-	# a soft glow from within, not a lamp (the user's word, 2026-10-25: the
-	# crystals far too bright)
-	_crystal_mat.albedo_color = Color(0.70, 1.0, 0.95)
-	_crystal_mat.roughness = 0.12
+	# pale ice with a soft light inside (gamoq4), not a lamp
+	_crystal_mat.albedo_color = Color(0.85, 0.97, 1.0)
+	_crystal_mat.roughness = 0.1
 	_crystal_mat.emission_enabled = true
-	_crystal_mat.emission = Color(0.10, 0.55, 0.52)
-	_crystal_mat.emission_energy_multiplier = 0.5
-	_water_mat = StandardMaterial3D.new()
-	# dark and still: it gives back the crystals' glow, not the white sky
-	_water_mat.albedo_color = Color(0.02, 0.06, 0.08)
-	_water_mat.roughness = 0.45
-	_water_mat.metallic_specular = 0.12
-	_water_mat.emission_enabled = true
-	_water_mat.emission = Color(0.02, 0.08, 0.14)
+	_crystal_mat.emission = Color(0.45, 0.75, 0.95)
+	_crystal_mat.emission_energy_multiplier = 0.55
+	_void_mat = StandardMaterial3D.new()
+	_void_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_void_mat.albedo_color = Color(0.012, 0.012, 0.014)
+	_void_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# the sky seen up the shafts: pale, as the picture's white light above
+	_sky_mat = StandardMaterial3D.new()
+	_sky_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_sky_mat.albedo_color = Color(0.66, 0.71, 0.80)
+	_sky_mat.disable_fog = true
+	_sky_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_vine_mat = StandardMaterial3D.new()
+	_vine_mat.vertex_color_use_as_albedo = true
+	_vine_mat.vertex_color_is_srgb = true
+	_vine_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_vine_mat.roughness = 0.9
 	_kit = (load(KIT) as PackedScene).instantiate() as Node3D
 	for mi: MeshInstance3D in _kit.find_children("*", "MeshInstance3D", true, false):
 		var mesh := mi.mesh
@@ -484,16 +542,18 @@ static func _ready_kit() -> void:
 			match String(mat.resource_name) if mat != null else "":
 				"Crystal":
 					mi.set_surface_override_material(s, _crystal_mat)
-				"Water":
-					mi.set_surface_override_material(s, _water_mat)
+				"Void":
+					mi.set_surface_override_material(s, _void_mat)
+				"Vine", "Cloth":
+					mi.set_surface_override_material(s, _vine_mat)
 				"Iron", "Rust":
 					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.0, 0.5))
 				"Wood":
 					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.0, 0.95))
-				"Far":
-					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.0, 1.0))
+				"Carved", "Statue", "Bone":
+					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.05, 0.88))
 				_:
-					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.2, 0.92))
+					mi.set_surface_override_material(s, TerracePlaces._solid(0.0, 1.15, 0.92))
 
 
 static func _piece(parent: Node3D, piece: String, at: Vector3, yaw: float = 0.0) -> Node3D:
