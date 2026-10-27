@@ -6473,6 +6473,8 @@ as CR_GB_* by `tools/creature_clips.gd`. `scenes/enemies/pack/goblin.tscn`, `scr
 * BOLT (104, CR_GB_Bolt, out of a crouch into a sprint, 0.5 s): before it runs off with gold or in its fear
   (`_bolt_due`), turned away from him, pushed on at 0.4 of `flee_speed`.
 * `death_clip` CR_GB_Fall (doubled over, onto its face).
+* No strings: one blow at a time, a breath between (`attack_cooldown` 1.0-1.8 s; it was 0.1-0.35 and its blows ran
+  together like a combo you could not read on so small a creature: the user's word, 2026-10-27).
 * The idea list in `claude/ghoul_goblin_plan.md` (roles by look, theft worth chasing, bombs, piling on, torch, traps,
   scattering, sounds) is not picked yet.
 
