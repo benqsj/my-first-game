@@ -421,6 +421,17 @@ const MIXAMO := [
 	["CR_ZB_FallFwd", "res://assets/creatures/anim/mixamo/ZB_FallFwd.fbx", false, 0.0, -1.0],
 	["CR_ZB_UpSide", "res://assets/creatures/anim/mixamo/ZB_UpSide.fbx", false, 0.0, -1.0],
 	["CR_ZB_UpStomach", "res://assets/creatures/anim/mixamo/ZB_UpStomach.fbx", false, 0.0, -1.0],
+	# The goblin's own (2026-10-27, the user's picks from its films): its club
+	# from above, across and up from below, a jab, the running leap, the roll
+	# and kick, the bolt off from a crouch, its fall.
+	["CR_GB_Downward", "res://assets/creatures/anim/mixamo/GB_Downward.fbx", false, 0.0, -1.0],
+	["CR_GB_Horizontal", "res://assets/creatures/anim/mixamo/GB_Horizontal.fbx", false, 0.0, -1.0],
+	["CR_GB_Backhand", "res://assets/creatures/anim/mixamo/GB_Backhand.fbx", false, 0.0, -1.0],
+	["CR_GB_Stab", "res://assets/creatures/anim/mixamo/GB_Stab.fbx", false, 0.0, -1.0],
+	["CR_GB_JumpAttack", "res://assets/creatures/anim/mixamo/GB_JumpAttack.fbx", false, 0.0, -1.0],
+	["CR_GB_RollKick", "res://assets/creatures/anim/mixamo/GB_RollKick.fbx", false, 0.0, -1.0],
+	["CR_GB_Bolt", "res://assets/creatures/anim/mixamo/GB_Bolt.fbx", false, 0.0, -1.0],
+	["CR_GB_Fall", "res://assets/creatures/anim/mixamo/GB_Fall.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

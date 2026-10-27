@@ -18,6 +18,12 @@ extends Brawler
 ##   it fight. Wounded under `fear_at` of its health it runs (`fear_flee`)
 ##   and shrieks for the others (`call_clip`, every goblin within
 ##   `call_range` comes), and comes back once they are with it.
+## * **Its own moves** (2026-10-27, the user's picks from its films; Mixamo's,
+##   CR_GB_*): its club brought down, swung across, swung up from below, and a
+##   jab (`attacks`); from off, now and then, a running leap with the club, or
+##   a roll and a kick (`big_attacks`, neither fells him); off on the run (a
+##   theft, its fear) it first bolts out of a crouch (`BOLT`); it dies doubled
+##   over and falling on its face.
 ## * **Stones and bombs.** From `throw_from` to `throw_to` off, now and then
 ##   (`throw_every`), it throws ([GoblinShot]): mostly a stone, a blow on him;
 ##   now and then (`bomb_chance`) a black pot with a fuse that bursts where it
@@ -63,6 +69,7 @@ extends Brawler
 
 const THROW := 101
 const CALL := 102
+const BOLT := 104
 
 ## What it has taken off the heroes (host), dropped when it dies.
 var carried_gold: int = 0
@@ -80,12 +87,20 @@ var _called_out: bool = false
 var _call_at: float = 0.5
 var _shots: int = 0
 var _bag: Node3D
+var _bolt_due: bool = false
 
 
 func _ready() -> void:
 	super()
 	_moves_table[THROW] = [throw_clip, throw_part.x, throw_part.y, throw_part.z]
 	_moves_table[CALL] = [call_clip, call_part.x, call_part.y, call_part.z]
+	_moves_table[BOLT] = [&"CR_GB_Bolt", 1.0, 0.0, 1.0]
+	# its leap and its roll do not fell him (numbered past BIG_BASE, they
+	# would count as felling blows)
+	for i in big_attacks.size():
+		if _strikes_table.has(BIG_BASE + i):
+			var st: Array = _strikes_table[BIG_BASE + i]
+			st[3] = maxi(blows_to_fell, 1)
 	if _anim != null:
 		_throw_at = _moment_of(THROW, PackedStringArray(["R_wrist_joint", "L_wrist_joint"]), 0.5)
 		_call_at = _moment_of(CALL, PackedStringArray(["R_wrist_joint", "L_wrist_joint"]), 0.5)
@@ -135,7 +150,14 @@ func _think(delta: float) -> void:
 		_feared = true
 		_flee_left = fear_flee
 		_called = false
+		_bolt_due = true
 	if _flee_left > 0.0:
+		if _bolt_due:
+			# off out of a crouch first, the way it means to run
+			_bolt_due = false
+			_face(-to, 1.0, 50.0)
+			_begin(BOLT)
+			return
 		if _feared and not _called and gap > 6.0:
 			_called = true
 			_face(to, 1.0, 50.0)
@@ -271,6 +293,12 @@ func _run_act(delta: float) -> void:
 		_call_them()
 
 
+func _extra_velocity(delta: float) -> Vector3:
+	if act == BOLT:
+		return _forward() * flee_speed * 0.4
+	return super(delta)
+
+
 func _begin(what: int) -> void:
 	if what == CALL:
 		_called_out = false
@@ -350,6 +378,7 @@ func _blow_reached(who: Node3D, _what: int) -> void:
 		return
 	carried_gold += got
 	_flee_left = thief_flee
+	_bolt_due = true
 	if is_inside_tree() and multiplayer.has_multiplayer_peer():
 		net_stole.rpc(who.global_position)
 	else:

@@ -6461,6 +6461,21 @@ scream, the flinch, the stumble back, the fall onto its back and its get-up, the
 * Tests: `tests/dead_test.gd` accepts any of the three falls/get-ups. Not run (the user's rule). For the co-op check,
   the seize/shove should be added to `coop_seen_test` when tests are asked for.
 
+### The goblin, round 2: its own club (2026-10-27, the user's picks from films)
+
+Picked from `_shots_tmp/gb/goblin_clips_half.mp4` (38 clips) and `goblin_club_half.mp4` (20, the club): Mixamo's, baked
+as CR_GB_* by `tools/creature_clips.gd`. `scenes/enemies/pack/goblin.tscn`, `scripts/goblin_fighter.gd`.
+* `attacks`: CR_GB_Downward (1.35, 0.05-0.75), CR_GB_Horizontal (1.35, 0.05-0.72), CR_GB_Backhand (1.35, 0.08-0.72),
+  CR_GB_Stab (1.4, 0.05-0.7), all on its club (`weapon_bone` R_equip_joint), moments at reach.
+* `big_attacks` (from off, `big_reach` 4.6, Brawler's 2% a tick): CR_GB_JumpAttack (the running leap with the club,
+  1.3, 0.1-0.8; its 3.8 m of travel carried) and CR_GB_RollKick (1.25, 0-0.9, both feet). Their count is set back to
+  `blows_to_fell` in `_ready` (acts past BIG_BASE would fell him).
+* BOLT (104, CR_GB_Bolt, out of a crouch into a sprint, 0.5 s): before it runs off with gold or in its fear
+  (`_bolt_due`), turned away from him, pushed on at 0.4 of `flee_speed`.
+* `death_clip` CR_GB_Fall (doubled over, onto its face).
+* The idea list in `claude/ghoul_goblin_plan.md` (roles by look, theft worth chasing, bombs, piling on, torch, traps,
+  scattering, sounds) is not picked yet.
+
 ### The goblin: round to his back, a thief, a coward, stones and bombs (2026-10-07, the user's picks)
 
 `GoblinFighter` (`scripts/goblin_fighter.gd`, a [Brawler]) in `goblin.tscn`:
