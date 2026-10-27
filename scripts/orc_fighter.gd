@@ -578,6 +578,8 @@ func _ready() -> void:
 	]
 	if grip != &"blades":
 		_grip_moves()
+	if round_two:
+		_round_two_moves()
 	if not combo_set.is_empty():
 		_hand_combos = _hand_combos.filter(func(c: Dictionary) -> bool: return combo_set.has(String(c["name"])))
 	_lunge_wait = _rng.randf_range(2.0, lunge_cooldown.x)
@@ -617,6 +619,8 @@ func _ready() -> void:
 func _own_move(delta: float) -> bool:
 	_kick_wait = maxf(_kick_wait - delta, 0.0)
 	_lunge_wait = maxf(_lunge_wait - delta, 0.0)
+	if round_two and _round_two(delta):
+		return true
 	if drill_combo < 0:
 		if _punish_left > 0.0 and _punish():
 			return true
@@ -698,6 +702,12 @@ func _after(what: int) -> void:
 		_kick_wait = kick_cooldown * (0.6 if raging else 1.0)
 		_shield_for = 0.0
 		_follow_up = 1.6
+	if what == O_HOP and not is_dead and _decides():
+		super(what)
+		_riposte()
+		return
+	if (what == O_LEAPA or what == O_LEAPB):
+		_slam_speed = 0.0
 	var in_combo := _hand_combo >= 0
 	super(what)
 	if what == KICK:
@@ -747,7 +757,9 @@ func _combo_named(name: StringName) -> int:
 ## of the sky, a far combo's opening (the slide in and the low cut), and a
 ## great cut held back a beat and then brought in at him.
 func _sudden() -> bool:
-	if act == O_CHARGE or act == O_FETCH or act == O_FSPIN or act == O_SKY or act == O_SKYDIVE:
+	if act == O_CHARGE or act == O_FETCH or act == O_FSPIN or act == O_SKY or act == O_SKYDIVE or act == O_HOP:
+		return true
+	if (act == O_LEAPA or act == O_LEAPB) and _slam_speed > 0.0:
 		return true
 	if act == O_LUNGE and _lunge_speed > 0.0:
 		return true
@@ -762,6 +774,14 @@ func _sudden() -> bool:
 func _cap_glide(v: Vector3) -> Vector3:
 	if _sudden():
 		return v
+	if act in WHIRL:
+		# its whirl comes on at him (the user's pick): quicker than a cut's step
+		var flat := Vector2(v.x, v.z)
+		if _quarry != null and _distance_to(_quarry) > float(_strike_from.get(act, strike_off)) + 3.0:
+			flat = Vector2.ZERO
+		elif flat.length() > 3.2:
+			flat = flat.normalized() * 3.2
+		return Vector3(flat.x, v.y, flat.y)
 	return super(v)
 
 
@@ -784,6 +804,12 @@ func _extra_velocity(delta: float) -> Vector3:
 
 
 func _own_velocity(delta: float) -> Vector3:
+	if (act == O_LEAPA or act == O_LEAPB) and _slam_speed > 0.0 and _quarry != null:
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _act_time < float(ms[0]) and _distance_to(_quarry) > float(_strike_from.get(act, strike_off)):
+			_face(_quarry.global_position - global_position, delta, turn_speed * 1.5)
+			return _forward() * _slam_speed
+		return Vector3.ZERO
 	if act == O_CHARGE:
 		if not _charge_met and _act_time <= charge_time and (_quarry == null or _distance_to(_quarry) > 1.5):
 			if _quarry != null:
@@ -831,6 +857,354 @@ func _own_velocity(delta: float) -> Vector3:
 		_lunge_speed = 0.0
 		return Vector3.ZERO
 	return super._extra_velocity(delta)
+
+
+#region Its second round of ways (2026-10-27, the user's picks from the films)
+## The two-blade's: down low with both blades dragged along the ground,
+## sparks off them, then up from under (T1); its whirl, spinning in at him
+## (T2). The long sword's: its thrust from off, the point gleaming as it is
+## drawn back (L2); a hop back out of his swing now and then, and the answer
+## (L4). The lord's: his war cry roused (B2), his rising power at his second
+## breath, the cape torn off and his blade alight; the furrow, his blade
+## dragged through the ground sending a crack at him and swung up (B3); his
+## leaps down on him, the ground split all round (B4); his blade driven into
+## the ground where he lies (B7).
+const O_DRAG := 300
+const O_RISE := 301
+const O_WRUN := 302
+const O_W360 := 303
+const O_WAXE := 304
+const O_THRUST := 305
+const O_HOP := 306
+const O_OUT := 307
+const O_IN := 308
+const O_RISEUP := 309
+const O_FURROW := 310
+const O_HEAVY := 311
+const O_LEAPA := 312
+const O_LEAPB := 313
+const WHIRL := [O_WRUN, O_W360, O_WAXE]
+const THRUST_COMBO := &"thrust"
+const LEAP_COMBOS := [&"leap_a", &"leap_b"]
+const RIPOSTES := [&"riposte_out", &"riposte_in"]
+
+## The long sword's thrust: from this far off (m), and how often (s).
+@export var thrust_gap: Vector2 = Vector2(4.5, 7.5)
+@export var thrust_cooldown: Vector2 = Vector2(7.0, 11.0)
+## The long sword's hop back out of his swing: how often it takes it (the
+## user's word: not every time), how long before it may again (s), and how
+## long it is out of reach in it (s).
+@export var riposte_chance: float = 0.3
+@export var riposte_cooldown: Vector2 = Vector2(6.0, 10.0)
+@export var hop_iframes: float = 0.45
+## The lord's leap down on him: from this far off (m), and how often (s).
+@export var slam_gap: Vector2 = Vector2(6.0, 13.0)
+@export var slam_cooldown: Vector2 = Vector2(12.0, 18.0)
+## Under this share of its health its second breath (the lord's; 0 never):
+## its rising power, the cape torn off, the blade alight, harder blows.
+@export var phase_two_at: float = 0.0
+## Off for a kind with its own ways (the butcher).
+@export var round_two: bool = true
+
+var _thrust_wait: float = 4.0
+var _riposte_wait: float = 2.0
+var _slam_wait: float = 6.0
+var _slam_speed: float = 0.0
+var phase_two: bool = false
+var _orc_cracks: Array[GroundCrack] = []
+var _fx_serial: int = -1
+var _fx_last: float = 0.0
+var _scrape_wait: float = 0.0
+var _blade_fire: Array[GPUParticles3D] = []
+var _blade_glow: OmniLight3D
+## For the tests and probes.
+var ripostes_made: int = 0
+var thrusts_made: int = 0
+var slams_made: int = 0
+
+
+## Its new moves and their strings, by what it holds.
+func _round_two_moves() -> void:
+	var r := ""
+	var mine: Array = []
+	if grip == &"blades":
+		if arm_left != "none":
+			var l := "%s>%s@%s,%s,%s:%s" % [second_bone, second_bone, second_tip.x, second_tip.y, second_tip.z, weapon_radius]
+			var both := "%s>%s@%s,%s,%s:%s|%s" % [weapon_bone, weapon_bone, weapon_tip.x, weapon_tip.y, weapon_tip.z,
+					weapon_radius, l]
+			_hand_move(O_DRAG, &"CR_OR_SlideCut", Vector3(1.0, 0.0, 0.9), 0.8, both)
+			_hand_move(O_RISE, &"CR_OR_Backhand", Vector3(1.0, 0.1, 0.85), 0.8, r)
+			_hand_move(O_WRUN, &"CR_OR_SpinRun", Vector3(1.0, 0.0, 0.95), 0.5, both)
+			_hand_move(O_W360, &"CR_OR_Spin360", Vector3(1.05, 0.1, 0.85), 0.5, both)
+			_hand_move(O_WAXE, &"CR_OR_SpinAxe", Vector3(1.0, 0.05, 0.88), 0.6, both)
+			mine = [O_DRAG, O_RISE, O_WRUN, O_W360, O_WAXE]
+			_hand_combos.append({"name": &"drag_rise", "moves": [O_DRAG, O_RISE], "fells": [1], "weight": 1.1})
+			_hand_combos.append({"name": &"whirl", "moves": [O_WRUN, O_W360, O_WAXE], "fells": [2], "weight": 0.9})
+		else:
+			_hand_move(O_THRUST, &"CR_OR_HighAttack", Vector3(1.0, 0.0, 0.85), 1.0, r)
+			# always drawn back and held a beat: the point gleams (its tell)
+			_holds[O_THRUST] = [1.0, 0.35, 0.5, 0.22]
+			_special(O_HOP, &"CR_OR_HopBack", Vector3(1.25, 0.0, 0.8))
+			_hand_move(O_OUT, &"CR_OR_Outward", Vector3(1.2, 0.1, 0.8), 0.75, r)
+			_hand_move(O_IN, &"CR_OR_Inward", Vector3(1.2, 0.1, 0.8), 0.75, r)
+			mine = [O_THRUST, O_OUT, O_IN]
+			_hand_combos.append({"name": THRUST_COMBO, "moves": [O_THRUST], "fells": [0], "weight": 0.0, "far": true})
+			_hand_combos.append({"name": RIPOSTES[0], "moves": [O_OUT], "fells": [0], "weight": 0.0, "far": true})
+			_hand_combos.append({"name": RIPOSTES[1], "moves": [O_IN], "fells": [0], "weight": 0.0, "far": true})
+	elif grip == &"heavy":
+		_special(O_RISEUP, &"CR_OR_Casting", Vector3(1.0, 0.0, 0.95))
+		# roused, his war cry (the rage's roar)
+		rage_clip = &"CR_OR_Battlecry"
+		if _moves_table.has(RAGE):
+			_moves_table[RAGE] = [rage_clip, 1.0, 0.0, 1.0]
+		_hand_move(O_FURROW, &"CR_OR_LowSlash", Vector3(1.0, 0.05, 0.85), 0.9, r)
+		_hand_move(O_HEAVY, &"CR_OR_HeavySwing", Vector3(1.05, 0.1, 0.85), 1.1, r)
+		_hand_move(O_LEAPA, &"CR_OR_JumpAttack", Vector3(1.0, 0.0, 0.92), 1.2, r)
+		_hand_move(O_LEAPB, &"CR_OR_ShieldJump", Vector3(1.0, 0.0, 0.92), 1.2, r)
+		_kinds[O_LEAPA] = &"crush"
+		_kinds[O_LEAPB] = &"crush"
+		# down into him where he lies: his blade driven into the ground
+		_hand_move(O_STAB, &"CR_OR_Ground", Vector3(1.0, 0.0, 0.9), stab_share, r)
+		_kinds[O_STAB] = &"stomp"
+		_slow_to[O_STAB] = windup_least
+		_snap[O_STAB] = swing_snap
+		mine = [O_FURROW, O_HEAVY, O_LEAPA, O_LEAPB]
+		_hand_combos.append({"name": &"furrow", "moves": [O_FURROW, O_HEAVY], "fells": [1], "weight": 1.1})
+		_hand_combos.append({"name": LEAP_COMBOS[0], "moves": [O_LEAPA], "fells": [0], "weight": 0.0, "far": true})
+		_hand_combos.append({"name": LEAP_COMBOS[1], "moves": [O_LEAPB], "fells": [0], "weight": 0.0, "far": true})
+	for what: int in mine:
+		_slow_to[what] = windup_least
+		_snap[what] = swing_snap
+	# its answers come quick: no long wind-up after a hop
+	for what: int in [O_OUT, O_IN]:
+		if _moves_table.has(what):
+			_slow_to[what] = windup_least * 0.55
+
+
+## Host, in its own turn: its second breath, its thrust from off, its leap.
+func _round_two(delta: float) -> bool:
+	_thrust_wait = maxf(_thrust_wait - delta, 0.0)
+	_riposte_wait = maxf(_riposte_wait - delta, 0.0)
+	_slam_wait = maxf(_slam_wait - delta, 0.0)
+	if _try_phase_two():
+		return true
+	if _quarry == null or _quarry_down() or _cooldown > 0.0 or stamina < attack_cost or drill_combo >= 0:
+		return false
+	var gap := _distance_to(_quarry)
+	var to := _quarry.global_position - global_position
+	to.y = 0.0
+	var facing := to.length_squared() < 0.0001 or rad_to_deg(_forward().angle_to(to.normalized())) <= 50.0
+	if not facing:
+		return false
+	var which := _combo_named(THRUST_COMBO)
+	if which >= 0 and _thrust_wait <= 0.0 and gap >= thrust_gap.x and gap <= thrust_gap.y:
+		_thrust_wait = _rng.randf_range(thrust_cooldown.x, thrust_cooldown.y)
+		thrusts_made += 1
+		start_hand_combo(which)
+		return true
+	var leap := _combo_named(LEAP_COMBOS[_rng.randi() % 2])
+	if leap >= 0 and _slam_wait <= 0.0 and gap >= slam_gap.x and gap <= slam_gap.y:
+		_slam_wait = _rng.randf_range(slam_cooldown.x, slam_cooldown.y) * (0.7 if phase_two else 1.0)
+		slams_made += 1
+		start_hand_combo(leap)
+		var what := int((_hand_combos[leap] as Dictionary)["moves"][0])
+		var ms := _blow_moments(what)
+		var until := float(ms[0]) if not ms.is_empty() else 0.8
+		_slam_speed = maxf(gap - float(_strike_from.get(what, strike_off)) - 0.3, 0.0) / maxf(until * 0.85, 0.3)
+		return true
+	return false
+
+
+## Host: him swinging at it close by: the long sword now and then hops back
+## out of it and answers (the user's word: not every time).
+func _try_riposte(knight: Node3D) -> bool:
+	if knight == null or is_dead or not _decides() or _riposte_wait > 0.0 or not _moves_table.has(O_HOP):
+		return false
+	if act != Act.NONE and act != Act.BLOCK:
+		return false
+	if _distance_to(knight) > react_range + 0.5 or stamina < attack_cost:
+		return false
+	_riposte_wait = _rng.randf_range(riposte_cooldown.x, riposte_cooldown.y)
+	if _rng.randf() >= riposte_chance:
+		return false
+	_quarry = knight
+	_face(knight.global_position - global_position, 1.0, 50.0)
+	_begin(O_HOP)
+	return true
+
+
+## Host: out of its hop, the answer at once, one way or the other.
+func _riposte() -> void:
+	var which := _combo_named(RIPOSTES[_rng.randi() % 2])
+	if which < 0 or _quarry == null or _quarry_down():
+		return
+	ripostes_made += 1
+	_face(_quarry.global_position - global_position, 1.0, 50.0)
+	start_hand_combo(which)
+
+
+## Host: its health low enough, its second breath, once.
+func _try_phase_two() -> bool:
+	if phase_two_at <= 0.0 or phase_two or is_dead or act != Act.NONE or not _decides():
+		return false
+	if health > max_health * phase_two_at:
+		return false
+	phase_two = true
+	velocity = Vector3.ZERO
+	if _quarry != null:
+		_face(_quarry.global_position - global_position, 1.0, 50.0)
+	hit_damage *= 1.2
+	combo_rest *= 0.75
+	_begin(O_RISEUP)
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_phase_two.rpc()
+	else:
+		net_phase_two()
+	return true
+
+
+## Every peer: his second breath: the cape torn off him in shreds, his blade
+## catching a dark fire, embers off it, a low red light on him.
+@rpc("authority", "call_local", "reliable")
+func net_phase_two() -> void:
+	phase_two = true
+	var world := Blood.world_of(self)
+	var chest := global_position + Vector3.UP * 1.5 * visual_scale / 1.6
+	for mi in find_children("Wear_ps_x_*cape*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).visible = false
+	if world != null:
+		SkillFx.particles(world, chest - _forward() * 0.4, {
+			"amount": 40, "life": 1.6, "one_shot": true, "explosiveness": 0.9, "speed": Vector2(2.0, 6.0),
+			"dir": Vector3.UP - _forward(), "spread": 70.0, "gravity": Vector3(0, -7.0, 0), "damping": 1.0,
+			"size": Vector2(0.18, 0.4), "sphere": 0.4, "add": false, "spin": true, "grow": 0.02,
+			"tex": SkillFx.flame(), "colors": [Color(0.06, 0.05, 0.06, 1.0), Color(0.05, 0.04, 0.05, 1.0),
+					Color(0.04, 0.03, 0.04, 0.0)]})
+		SkillFx.light(world, chest, Color(1.0, 0.3, 0.1), 5.0, 8.0, 0.6)
+	Sfx.play_any(self, [ROAR_SOUND], self, 0.62, 6.0)
+	for i in _arcs.size():
+		var fire := SkillFx.particles(self, global_position, {
+			"amount": 100, "life": 0.55, "speed": Vector2(0.2, 0.7), "spread": 30.0,
+			"gravity": Vector3(0, 2.4, 0), "size": Vector2(0.18, 0.34), "box": Vector3(0.05, 0.6, 0.05),
+			"grow": 0.2, "tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": true,
+			"colors": [Color(1.0, 0.5, 0.12, 0.0), Color(1.0, 0.32, 0.05, 0.9), Color(0.6, 0.06, 0.02, 0.6),
+					Color(0.1, 0.01, 0.01, 0.0)]})
+		fire.fixed_fps = 0
+		fire.interpolate = false
+		_blade_fire.append(fire)
+		var embers := SkillFx.particles(self, global_position, {
+			"amount": 24, "life": 0.9, "speed": Vector2(0.4, 1.2), "spread": 50.0,
+			"gravity": Vector3(0, 1.2, 0), "size": Vector2(0.025, 0.045), "box": Vector3(0.05, 0.6, 0.05),
+			"add": true, "colors": [Color(1.0, 0.6, 0.2, 1.0), Color(1.0, 0.25, 0.05, 0.0)]})
+		embers.fixed_fps = 0
+		embers.interpolate = false
+		_blade_fire.append(embers)
+	_blade_glow = OmniLight3D.new()
+	_blade_glow.light_color = Color(1.0, 0.25, 0.08)
+	_blade_glow.omni_range = 4.0
+	_blade_glow.light_energy = 1.2
+	_blade_glow.shadow_enabled = false
+	add_child(_blade_glow)
+
+
+## Every peer: its blade's fire laid along the blade as it is now.
+func _keep_fire() -> void:
+	if _blade_fire.is_empty() or _arcs.is_empty():
+		return
+	var ends := _blade_ends(0)
+	var hand: Vector3 = ends[0]
+	var tip: Vector3 = ends[1]
+	var along := tip - hand
+	var long := along.length()
+	if long < 0.05:
+		return
+	var y := along / long
+	var x := y.cross(Vector3.UP if absf(y.y) < 0.95 else Vector3.RIGHT).normalized()
+	var t := Transform3D(Basis(x, y, x.cross(y)).scaled(Vector3(1.0, long / 1.2 / 0.6 * 0.5, 1.0)), hand.lerp(tip, 0.6))
+	for f in _blade_fire:
+		f.global_transform = t
+		f.emitting = not is_dead
+	if _blade_glow != null:
+		_blade_glow.global_position = hand.lerp(tip, 0.6)
+		_blade_glow.light_energy = 0.0 if is_dead else 1.1 + 0.3 * sin(Time.get_ticks_msec() * 0.023)
+
+
+## Every peer: at its blows, what they do to the ground: the drag's sparks
+## through its whole low cut; the furrow's crack at him; the leap's ground
+## split all round; the blade into the ground where he lies.
+func _round_two_fx(delta: float) -> void:
+	_keep_fire()
+	if act_serial != _fx_serial:
+		_fx_serial = act_serial
+		_fx_last = 0.0
+	if is_dead or act == Act.NONE or act_serial != _voiced_serial:
+		return
+	var t := _voiced_clock
+	if act == O_DRAG:
+		_scrape(delta)
+	if act == O_FURROW or act == O_LEAPA or act == O_LEAPB or (act == O_STAB and grip == &"heavy"):
+		var ms := _blow_moments(act)
+		if not ms.is_empty() and _fx_last < float(ms[0]) and t >= float(ms[0]):
+			_ground_split(act)
+	_fx_last = t
+
+
+## Every peer: sparks off both blade ends where they drag along the ground.
+func _scrape(delta: float) -> void:
+	_scrape_wait -= delta
+	if _scrape_wait > 0.0 or _arcs.is_empty():
+		return
+	_scrape_wait = 0.035
+	var world := Blood.world_of(self)
+	for i in _arcs.size():
+		var tip: Vector3 = _blade_ends(i)[1]
+		if tip.y > global_position.y + 0.45 * visual_scale / 1.6:
+			continue
+		var at := Vector3(tip.x, global_position.y + 0.05, tip.z)
+		SkillFx.burst(world, at, Color(1.0, 0.6, 0.2), 6, Vector2(1.5, 4.0), Vector3.UP - _forward() * 0.5, 55.0,
+				Vector2(0.02, 0.04), Vector3(0, -9.0, 0), 0.45)
+		if randf() < 0.3:
+			GroundFx.weapon_dust(world, at, 0.5)
+
+
+## Every peer: the ground split by a blow of its, as it lands; the host lets
+## the cracks go that hurt.
+func _ground_split(what: int) -> void:
+	var from := global_position + _forward() * 1.2 * visual_scale / 1.6
+	var ways: Array[Vector3] = []
+	var reach_m := 0.0
+	if what == O_FURROW:
+		var way := _forward()
+		if _quarry != null:
+			var to := _quarry.global_position - from
+			to.y = 0.0
+			if to.length_squared() > 0.25 and to.normalized().dot(_forward()) > 0.3:
+				way = to.normalized()
+		ways.append(way)
+		reach_m = 10.0
+	else:
+		var n := 5 if what != O_STAB else 4
+		var turn := randf() * TAU
+		for k in n:
+			ways.append(_forward().rotated(Vector3.UP, turn + TAU * float(k) / float(n)))
+		reach_m = 5.5 if what != O_STAB else 3.5
+		if what != O_STAB:
+			from = global_position + _forward() * 1.6 * visual_scale / 1.6
+	for way in ways:
+		GroundCrack.show(self, from, way, reach_m, 16.0)
+		if _decides():
+			_orc_cracks.append(GroundCrack.new(from, way, reach_m, 16.0, 0.9, 7000000 + act_serial * 8 + ways.find(way)))
+	WindBlast.shake(self, 0.12, 0.4, shake_reach)
+
+
+## Host: the cracks run on and hurt whom they reach.
+func _run_orc_cracks(delta: float) -> void:
+	for i in range(_orc_cracks.size() - 1, -1, -1):
+		var c: GroundCrack = _orc_cracks[i]
+		for who: Node3D in c.reached(delta, get_tree()):
+			who.call(&"receive_blow", hit_damage * 0.5, self, 0, 1, c.id, false, &"ground")
+		if c.done():
+			_orc_cracks.remove_at(i)
+#endregion
 
 
 #region Its coming in (a boss's)
@@ -1655,6 +2029,8 @@ func _crossed(what: int, at: float, t0: float) -> bool:
 
 func _physics_process(delta: float) -> void:
 	super(delta)
+	if _decides() and not _orc_cracks.is_empty():
+		_run_orc_cracks(delta)
 	if _decides():
 		# waiting its turn, now and then it comes in for a while all the same
 		_join_left = maxf(_join_left - delta, 0.0)
@@ -1687,6 +2063,7 @@ func _process(delta: float) -> void:
 	super(delta)
 	_heft_into(delta)
 	_show_trails()
+	_round_two_fx(delta)
 	_fly_blade(delta)
 	if (act == O_SKY or act == O_SKYDIVE) and act_serial == _voiced_serial:
 		_sky_sounds(_voiced_clock, _voiced_clock + delta)
@@ -1782,6 +2159,9 @@ func _peaks_move(what: int, clip: StringName, part: Vector3, share: float, limbs
 ## Host: a blow caught on its crossed blades is turned aside — he reels a
 ## breath — and it answers at once; a heavy one breaks its guard open.
 func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bool = false) -> bool:
+	# out of reach through the first of its hop back
+	if act == O_HOP and _act_time < hop_iframes and not magic:
+		return false
 	var guarding := act == Act.BLOCK and not is_dead and _decides()
 	if guarding and not magic and from != null and _heavy_from(from) and _faces(from):
 		# his heavy blow through its blades: the guard broken, and it bleeds
@@ -1859,6 +2239,8 @@ func _stoop_skip(what: int) -> bool:
 ## not held on and on while he swings at the air (`guard_most` s, then it
 ## goes for him).
 func _answer_swing(knight: Node3D) -> void:
+	if _try_riposte(knight):
+		return
 	if act == Act.BLOCK and _guard_for >= guard_most:
 		return
 	# struck at in its taunt or its drawing: it was waiting for that — out of
@@ -2926,7 +3308,7 @@ func _step_arcs(delta: float) -> void:
 		var fast := last != Vector3.INF and tip.distance_to(last) / delta > blade_arc_speed * visual_scale / 1.6
 		_arc_lasts[i] = tip
 		var used := (act in LEFT_CUTS) if i == 1 else not act in LEFT_CUTS
-		if act in BOTH_CUTS or _arcs.size() == 1:
+		if act in BOTH_CUTS or act in WHIRL or act == O_DRAG or _arcs.size() == 1:
 			used = true
 		var arc: BladeArc = _arcs[i]
 		arc.emitting = swinging and fast and used

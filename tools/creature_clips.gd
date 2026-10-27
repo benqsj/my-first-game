@@ -442,6 +442,26 @@ const MIXAMO := [
 	["CR_AR_DodgeLeft", "res://assets/creatures/anim/mixamo/AR_DodgeLeft.fbx", false, 0.0, -1.0],
 	["CR_AR_DodgeRight", "res://assets/creatures/anim/mixamo/AR_DodgeRight.fbx", false, 0.0, -1.0],
 	["CR_AR_Flinch", "res://assets/creatures/anim/mixamo/AR_Flinch.fbx", false, 0.0, -1.0],
+	# The orcs' own (2026-10-27, the user's picks from their films): the
+	# two-blade's drag and rising cut and its whirl; the long sword's thrust,
+	# its hop back and answers; the lord's rising power, his war cry, his
+	# furrow, his leaps and his blade into the ground.
+	["CR_OR_SlideCut", "res://assets/creatures/anim/mixamo/OR_SlideCut.fbx", false, 0.0, -1.0],
+	["CR_OR_Backhand", "res://assets/creatures/anim/mixamo/OR_Backhand.fbx", false, 0.0, -1.0],
+	["CR_OR_Spin360", "res://assets/creatures/anim/mixamo/OR_Spin360.fbx", false, 0.0, -1.0],
+	["CR_OR_SpinRun", "res://assets/creatures/anim/mixamo/OR_SpinRun.fbx", false, 0.0, -1.0],
+	["CR_OR_SpinAxe", "res://assets/creatures/anim/mixamo/OR_SpinAxe.fbx", false, 0.0, -1.0],
+	["CR_OR_HighAttack", "res://assets/creatures/anim/mixamo/OR_HighAttack.fbx", false, 0.0, -1.0],
+	["CR_OR_HopBack", "res://assets/creatures/anim/mixamo/OR_HopBack.fbx", false, 0.0, -1.0],
+	["CR_OR_Outward", "res://assets/creatures/anim/mixamo/OR_Outward.fbx", false, 0.0, -1.0],
+	["CR_OR_Inward", "res://assets/creatures/anim/mixamo/OR_Inward.fbx", false, 0.0, -1.0],
+	["CR_OR_Casting", "res://assets/creatures/anim/mixamo/OR_Casting.fbx", false, 0.0, -1.0],
+	["CR_OR_Battlecry", "res://assets/creatures/anim/mixamo/OR_Battlecry.fbx", false, 0.0, -1.0],
+	["CR_OR_HeavySwing", "res://assets/creatures/anim/mixamo/OR_HeavySwing.fbx", false, 0.0, -1.0],
+	["CR_OR_LowSlash", "res://assets/creatures/anim/mixamo/OR_LowSlash.fbx", false, 0.0, -1.0],
+	["CR_OR_JumpAttack", "res://assets/creatures/anim/mixamo/OR_JumpAttack.fbx", false, 0.0, -1.0],
+	["CR_OR_ShieldJump", "res://assets/creatures/anim/mixamo/OR_ShieldJump.fbx", false, 0.0, -1.0],
+	["CR_OR_Ground", "res://assets/creatures/anim/mixamo/OR_Ground.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

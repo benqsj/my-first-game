@@ -210,6 +210,7 @@ var cracks_hurt: int = 0
 func _ready() -> void:
 	# his own cut on his cleaver, not the orc's on its blades
 	trail_on = false
+	round_two = false
 	act_turn_most = 200.0
 	glide_most = 1.2
 	glide_gap = 1.0

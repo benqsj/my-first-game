@@ -39,6 +39,8 @@ extends Brawler
 @export var rage_pace: float = 1.22
 @export var rage_harder: float = 1.25
 @export var rage_glow: Color = Color(1.0, 0.16, 0.05)
+## Its whole body reddened in its rage (off: only the embers and the light).
+@export var rage_redden: bool = true
 ## Its own kind within this far are roused by the roar.
 @export var rage_call: float = 0.0
 
@@ -916,8 +918,9 @@ func _glow_on() -> void:
 	_glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_glow.albedo_color = Color(rage_glow, 0.2)
-	for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
-		mi.material_overlay = _glow
+	if rage_redden:
+		for mi: MeshInstance3D in body.find_children("*", "MeshInstance3D", true, false):
+			mi.material_overlay = _glow
 	_glow_light = OmniLight3D.new()
 	_glow_light.light_color = rage_glow
 	_glow_light.light_energy = 0.9
