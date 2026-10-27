@@ -152,56 +152,79 @@ const PLACES := {
 	"altar": {"name": "სამსხვერპლო", "kind": "altar", "w": 52.0, "l": 60.0, "h": 0.0, "rest": "შესწირე და მიიღე"},
 }
 
+## The creatures that live in the places (the user's word, 2026-10-27: each
+## place its own folk): the dead in the crypt, the risen dead in the swamp,
+## the ghouls in the cave, wolves with the goblins in the wood, a golem in the
+## waterfall's ruins, orcs and an ogre on the fortress, flyers in the sky,
+## orcs and a troll in their camp.
+const SKEL_WARRIOR := "res://scenes/enemies/pack/skeleton_warrior.tscn"
+const SKEL_ARCHER := "res://scenes/enemies/pack/skeleton_archer.tscn"
+const SKEL_MAGE := "res://scenes/enemies/pack/skeleton_mage.tscn"
+const ZOMBIE_M := "res://scenes/enemies/pack/zombie_m.tscn"
+const ZOMBIE_F := "res://scenes/enemies/pack/zombie_f.tscn"
+const GHOUL := "res://scenes/enemies/pack/ghoul.tscn"
+const GOLEM := "res://scenes/enemies/pack/golem.tscn"
+const WOLF := "res://scenes/enemies/wolf.tscn"
+## A great one that comes with the second wave, last, at its own strength
+## (not an elite's three times) ([method mixed]).
+const LATE := {"late": true}
+
 ## Per dungeon, its run: each step the places its portals may lead to, the
 ## creatures in each ("*" any of them) as [scene, count, props], the level
 ## they show ("lv"), what clearing it gives on top of them ("xp", wolves'
-## worth) and the level it tops him up to ("reach"). The first dungeon: imps in
-## the hall; imps and puglins, puglins and goblins, or goblins and imps; more
-## of them; the two orcs, taking turns; the lord of the orcs alone.
+## worth) and the level it tops him up to ("reach").
+## The first dungeon (the user's word, 2026-10-25, claude/portal_sequence_plan.md):
+## up from under the earth to over the clouds; the lake terrace to begin, the
+## dark places (crypt, swamp, cave), the sunny middle (wood, waterfall ruins,
+## fortress), over the clouds (sky island, orcs' camp); the butcher at the
+## fifth, the lord at the tenth. No place twice in a run ([method _choice_specs]).
 const RUN := {
 	0: [
-		# 1
-		{"places": ["hall"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[IMP, 5], [GOBLIN, 3]]}},
-		# 2 — a goblin shaman with most of them, kept back, from here on (the
-		# user's word, 2026-10-21: roles in the fight)
-		# (the court, the cave and the broken hall gone from the run: the user's
-		# word, 2026-10-23, not liked)
-		{"places": ["forest", "crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
-				"foes": {"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [IMP, 4]], "crypt": [[IMP, 5], [GOBLIN, 4]],
-						"swamp": [[PUGLIN, 6], [GOBLIN, 4]]}},
-		# 3 — and an elite in the second wave
-		{"places": ["sky", "forest", "crypt", "swamp", "mountain"], "lv": 3, "xp": 2.5, "reach": 3,
-				"foes": {"sky": [[IMP, 5], [GOBLIN, 4], [GOBLIN, 1, ELITE]],
-						"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [PUGLIN, 4], [GOBLIN, 1, ELITE]],
-						"crypt": [[IMP, 5], [GOBLIN, 4], [IMP, 1, ELITE]],
-						"swamp": [[PUGLIN, 4], [GOBLIN, 1, SHAMAN], [GOBLIN, 4], [PUGLIN, 1, ELITE]],
-						"mountain": [[GOBLIN, 5], [IMP, 4], [GOBLIN, 1, ELITE]]}},
-		# 4 — one orc, with two swords (the user's word, 2026-10-21: the
-		# shield orc not liked; one, the two-sword one)
-		{"places": ["terrace", "forest", "sky", "rampart", "mountain", "camp"], "lv": 4, "xp": 3.0, "reach": 4,
-				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS]]}},
-		# 5 — the first boss, alone in the palace's hall (the user's word,
-		# 2026-10-22: ten steps, every fifth a boss; the court gone 2026-10-23)
+		# 1 — the lake terrace, quiet and bright: a few goblins and imps
+		{"places": ["terrace"], "lv": 1, "xp": 1.5, "reach": 2, "foes": {"*": [[GOBLIN, 3], [IMP, 4]]}},
+		# 2 — the crypt's dead (the small flying skulls throwing, the user's
+		# word, 2026-10-27), or the swamp's
+		{"places": ["crypt", "swamp"], "lv": 2, "xp": 2.0, "reach": 3,
+				"foes": {"crypt": [[SKEL_WARRIOR, 3], [SKEL_ARCHER, 2], [SKULL, 2]],
+						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 3]]}},
+		# 3 — the ghouls' cave, or what is left of the two; an elite last
+		{"places": ["cave", "swamp", "crypt"], "lv": 3, "xp": 2.5, "reach": 3,
+				"foes": {"cave": [[GHOUL, 6], [GHOUL, 1, ELITE]],
+						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 3], [PUGLIN, 1, ELITE]],
+						"crypt": [[SKEL_WARRIOR, 3], [SKEL_ARCHER, 2], [SKEL_MAGE, 1], [SKULL, 2], [SKEL_WARRIOR, 1, ELITE]]}},
+		# 4 — the wood's goblins and wolves, or the ruins' golem
+		{"places": ["forest", "mountain"], "lv": 4, "xp": 3.0, "reach": 4,
+				"foes": {"forest": [[GOBLIN, 3], [GOBLIN, 1, SHAMAN], [WOLF, 3]],
+						"mountain": [[IMP, 4], [GOBLIN, 2], [GOLEM, 1, LATE]]}},
+		# 5 — the first boss, alone in the palace's hall
 		{"places": ["hall"], "lv": 5, "xp": 4.0, "reach": 5, "boss": true, "boss_name": "ყასაბი",
 				"foes": {"*": [[BUTCHER, 1]]}},
-		# 6 — the second half: an orc among them, the elite still last; the
-		# skulls come in (the user's word, 2026-10-22: flyers, several at once)
-		{"places": ["hall", "forest", "crypt", "swamp", "camp"], "lv": 6, "xp": 3.0, "reach": 5,
-				"foes": {"*": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKULL, 3], [GOBLIN, 1, SHAMAN], [PUGLIN, 1, ELITE]]}},
-		# 7 — the dragonets' fire; the minotaur last, in the elite's place
-		{"places": ["sky", "mountain", "swamp", "crypt"], "lv": 7, "xp": 3.5, "reach": 6,
-				"foes": {"*": [[ORC, 1, ORC_LONG_SWORD], [IMP, 3], [DRAGONET, 2], [MINOTAUR, 1]]}},
-		# 8 — a troll, and what follows it about, the two kinds of flyer over it
-		{"places": ["terrace", "rampart", "forest", "swamp", "camp"], "lv": 7, "xp": 3.5, "reach": 7,
-				"foes": {"*": [[TROLL, 1], [GOBLIN, 1, SHAMAN], [PUGLIN, 2], [SKULL, 2], [DRAGONET, 1]]}},
-		# 9 — the two orcs, taking turns, and dragonets throwing
-		{"places": ["terrace", "sky", "mountain", "rampart", "camp"], "lv": 8, "xp": 4.0, "reach": 7,
-				"foes": {"*": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [DRAGONET, 2]]}},
+		# 6 — the second half
+		{"places": ["forest", "rampart", "cave"], "lv": 6, "xp": 3.0, "reach": 5,
+				"foes": {"forest": [[WOLF, 4], [GOBLIN, 2], [GOBLIN, 1, SHAMAN], [GOBLIN, 1, ELITE]],
+						"rampart": [[ORC_SKIRM, 1], [GOBLIN, 2], [SKEL_ARCHER, 2], [OGRE, 1, LATE]],
+						"cave": [[GHOUL, 5], [ZOMBIE_M, 2], [GHOUL, 1, ELITE]]}},
+		# 7 — the ruins' golem and the minotaur, or the fortress
+		{"places": ["mountain", "rampart"], "lv": 7, "xp": 3.5, "reach": 6,
+				"foes": {"mountain": [[GOLEM, 1], [IMP, 3], [DRAGONET, 1], [MINOTAUR, 1, LATE]],
+						"rampart": [[ORC, 1, ORC_LONG_SWORD], [SKEL_ARCHER, 2], [GOBLIN, 2], [OGRE, 1, LATE]]}},
+		# 8 — over the clouds: the camp's troll, the sky's flyers
+		{"places": ["camp", "sky", "rampart"], "lv": 7, "xp": 3.5, "reach": 7,
+				"foes": {"camp": [[ORC, 1, ORC_TWO_SWORDS], [GOBLIN, 2], [GOBLIN, 1, SHAMAN], [TROLL, 1, LATE]],
+						"sky": [[DRAGONET, 2], [SKULL, 2], [IMP, 3]],
+						"rampart": [[ORC, 1, ORC_TWO_SWORDS], [ORC_SKIRM, 1], [SKEL_ARCHER, 2], [OGRE, 1, LATE]]}},
+		# 9 — the two orcs taking turns in their camp, or the sky's flyers
+		{"places": ["sky", "camp"], "lv": 8, "xp": 4.0, "reach": 7,
+				"foes": {"sky": [[DRAGONET, 3], [SKULL, 3], [IMP, 2], [IMP, 1, ELITE]],
+						"camp": [[ORC, 1, ORC_TWO_SWORDS], [ORC, 1, ORC_LONG_SWORD], [DRAGONET, 2]]}},
 		# 10 — the lord of the orcs
 		{"places": ["throne"], "lv": 8, "boss": true, "boss_name": "ორკების მბრძანებელი",
 				"foes": {"*": [[ORC_CHIEF, 1, ORC_LORD]]}},
 	],
 }
+## Places a step may borrow when all of its own were already seen in this
+## run: the fighting places by their height (the dark, the middle, high).
+const ZONES := [["crypt", "swamp", "cave"], ["forest", "mountain", "rampart", "terrace"], ["sky", "camp"]]
 ## The prisoners' jailers (the user's word, 2026-10-25: kill them, and the key
 ## they leave opens the cell): goblins and puglins with an elite among them
 ## early on, an orc and the skulls with them later.
@@ -1292,7 +1315,8 @@ static func mixed(foes: Array) -> Array:
 		var many: Array = []
 		for n in int(entry[1]):
 			many.append(one)
-		if role == "elite":
+		var late := entry.size() > 2 and bool((entry[2] as Dictionary).get("late", false))
+		if role == "elite" or late:
 			last.append_array(many)
 		else:
 			lists.append(many)
@@ -1950,6 +1974,10 @@ func _choice_specs(next: int) -> Array:
 	var here := String(_room(current)["place"])
 	if pool.size() > 2:
 		pool.erase(here)
+	# no place twice in a run (the user's word, 2026-10-25): those already
+	# seen left out; short of two, a place of the same height not yet seen
+	if pool.size() > 1:
+		pool = _unseen(pool)
 	_shuffle(pool)
 	# before the orcs, now and then, a place to get one's breath back behind
 	# one of the two (the user's word, 2026-10-21): the spring when he is hurt
@@ -1992,6 +2020,28 @@ func _choice_specs(next: int) -> Array:
 			goal = ""
 		out.append({"place": place, "reward": reward, "goal": goal, "cursed": k == cursed_one and reward != ""})
 	return out
+
+
+## Of `pool`, the places not yet seen in this run; when that leaves fewer
+## than two, places of the same height ([constant ZONES]) not yet seen; when
+## even that is short, the pool as it was.
+func _unseen(pool: Array) -> Array:
+	var seen := {}
+	for r in rooms:
+		if r is Dictionary and (r as Dictionary).has("place"):
+			seen[String(r["place"])] = true
+	var out: Array = []
+	for p in pool:
+		if not seen.has(String(p)):
+			out.append(p)
+	if out.size() < 2:
+		for zone: Array in ZONES:
+			if not zone.has(pool[0]):
+				continue
+			for p in zone:
+				if out.size() < 2 and not seen.has(String(p)) and not out.has(p):
+					out.append(p)
+	return out if out.size() >= 2 else pool
 
 
 ## Which place to rest behind the second portal: the spring when he is hurt;

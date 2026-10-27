@@ -90,8 +90,9 @@ enum State { PROWL, CHASE, FIGHT, FLEE, DOWN }
 ## Magical defence, m.def ([Defence]): a beast, little against spells and fire.
 @export var m_def: float = 10.0
 ## Whole until its health is down to this share: before that the blade only
-## wounds it, after it limbs come off.
-@export_range(0.0, 1.0) var sever_below: float = 0.5
+## wounds it, after it limbs come off. 0: no limb ever comes off, it falls
+## when its health is gone (the user's word, 2026-10-27: no cutting off).
+@export_range(0.0, 1.0) var sever_below: float = 0.0
 ## Below that, how often a cut takes a limb; the rest only wound it. Limbs are
 ## not a way to finish a wolf in four quick cuts.
 @export_range(0.0, 1.0) var sever_chance: float = 0.35
