@@ -81,7 +81,10 @@ func _process(delta: float) -> void:
 			_number(creature, was - health, _critical(creature))
 		# Lying in pieces ([Brawler] coming back together): no name over it.
 		# a great one's name is on its bar at the foot of the screen ([LordFight])
+		# under the earth ([ZombieFighter]) or lying as dead ([GhoulFighter]):
+		# nothing over it to give it away
 		_tag(creature, far < TAG_RANGE and not dead and creature.get("out_of_fight") != true
+				and creature.get("under") != true and creature.get("playing_dead") != true
 				and not creature.has_meta(&"boss_name"), mine)
 	# Forget what has gone.
 	for key: int in _tags.keys():

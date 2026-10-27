@@ -275,10 +275,11 @@ func found(what: String, pic: Texture2D = null) -> void:
 	_found_time = 0.0
 
 
-## A ghoul on him ([member Player.pinned_by]): the key to press, beating,
+## A ghoul on him ([member Player.pinned_by]) or a zombie holding him
+## ([member Player.seized_by]): the key to press, beating,
 ## and how far he has worked free, low in the middle.
 func _draw_pinned() -> void:
-	if player.pinned_by == null:
+	if player.pinned_by == null and player.get(&"seized_by") == null:
 		return
 	var view := _bars.get_viewport_rect().size
 	var centre := Vector2(view.x * 0.5, view.y * 0.72)

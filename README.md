@@ -6413,6 +6413,54 @@ vepxis-art/mixamo_lib, baked by `tools/creature_clips.gd`):
 - Probe: `_shots_tmp/gh/gh_game.gd -- <dir> [strings pounce feign frenzy feast]`
   (test arena, frames drawn by hand with `RenderingServer.force_draw`).
 
+### The zombie, round 2: six gaits, the grab with blue hands, legs cut, up three ways, the scream (2026-10-27, the user's picks from films)
+
+`scripts/zombie_fighter.gd` (Brawler), `scenes/enemies/pack/zombie_m.tscn` / `zombie_f.tscn`. Plan and the user's
+picks: project doc `claude/zombie_plan.md`. The clips are Mixamo's, baked onto the pack skeleton by
+`tools/creature_clips.gd` (CR_ZB_*, and the ghoul's CR_GH_* where the same Mixamo clip: the right hand CR_GH_Claw, the
+scream, the flinch, the stumble back, the fall onto its back and its get-up, the bite on the ground).
+
+* **Gaits.** Six: CR_ZB_Walk1, Walk2, Creep, Limp (walks), Run1, Run2 (runs). The host picks one at random per zombie
+  (`run_share` 0.33 a run) and changes it every `gait_change` s; replicated `gait` (scene property 11), every peer
+  sets `walk_clip`/`run_clip` from it (`_apply_gait`). A walk's pace is its clip's measured ground speed times
+  `walk_pace` (slow: 0.4-1.1 m/s), a run's `run_pace` (2.7-3.2).
+* **Blows.** `attacks` = CR_ZB_Overhead (both hands from above, part 1.1, 0.065-0.626) and CR_GH_Claw (the right hand,
+  1.15, 0.104-0.574); count set back to `blows_to_fell`. A cut: REACT_KNOCK plays CR_GH_Flinch.
+* **The grab** (acts TELL 156, LUNGE 157, HOLD 158, SHOVED 159, MISS 160). Roused, within `grab_from` 4.4 m (and past
+  `grab_near` 1.9) of a standing hero nobody else holds, every `grab_cooldown`: TELL (0.55 s walking on, its hands go
+  cold blue: light, an additive glow, wisps; `_glow_hands` on every peer from the act) then LUNGE (CR_ZB_Run1 at 1.6,
+  timed to end `hold_gap` 0.62 m off him). At the end: dodged (`untouchable_now`, or net_state DASHING/DODGING),
+  guarded facing it, or too far: MISS (the flinch). Else HOLD: CR_ZB_NeckBite looped 1.7-2.85 s, the host keeps it
+  `hold_gap` before him, bites every `bite_every` (`bite_share` of hit_damage) through `Player.net_seize_bite`, blood
+  at his neck (`net_bite`). Lets go when he is downed/dead/gone >1 m off or `hold_most` runs out.
+* **Hero side** (`player.gd` region "Seized standing"): `net_seized` (host to his peer) sets `seized_by`; each tick
+  `_process_seized` holds him where he stands, faces it, plays his own KV_Stun01 (every peer: `net_seize_look`, a
+  jolt KV_CombatDamage01/02 at each bite; no retargeted Mixamo clip on him: one deformed him in the film); E/F/attack
+  presses fill `pin_struggle` (0.09 a press, eases 0.12/s; the HUD's E and bar, `_draw_pinned`). Full: `_shove_free`
+  (SS_Hilt_Melee, every peer `net_shove`; `_safe_until` +1.2 s), the zombie told (`net_shoved`: hurt
+  `shoved_share`, SHOVED back), and after `SHOVE_TIME` he cuts at it (`_attack`). A friend's blow on it while it
+  holds someone: `_let_go(from)`, `net_unseized` to the held hero.
+* **Legs cut** (LEGS 161, CRAWL_BITE 162). A blow that leaves it under `legs_below` (once, `legs_chance` 0.35): it falls
+  on its face (CR_ZB_FallFwd) and from then crawls (replicated `legless`, scene property 12; CR_ZB_Crawl at
+  `crawl_speed`), biting at his feet (CR_GH_Pin, head limb); blows on it ×`crawl_wound` 2.5; dead, it lies as it was.
+* **Up three ways.** `_die` (once, `getup_chance`): one of FALLS at random, each [fall, held last frame, get-up]:
+  CR_ZB_FallFwd → CR_ZB_UpStomach, CR_GH_Thrown → CR_GH_UpBack, CR_ZB_StumbleFall → CR_ZB_UpSide (acts 92-94,
+  150-155). Its last death clip is one of the three falls, by its name's hash (the same on every peer).
+* **Out of the ground** (EMERGE 167). `_climb_out`: CR_ZB_UpStomach from 2.2 s; every peer lowers the body (a hand
+  first at -1.7..-1.1 m, the earth thrown at 0.6 s: GroundFx.eruption without its ring, dust; then up out of the
+  floor over 1 s: `_emerge_look`). Roused, it calls the dead within `call_range`; those under the earth come up in
+  waves (`_wake_after`, `wave_delay` 0.11 s a metre off the caller).
+* **The woman's scream** (`screamer`, set in zombie_f.tscn; SCREAM 163, CR_GH_Scream). Roused with him more than
+  `scream_off` off, once: the air bursts from her mouth (scream_air shader, no ring) at `scream_bursts`; after it
+  `_call_the_dead(scream_range 24, haste)`: the buried come up in waves, those up round her run for `haste_time`.
+* **At a corpse** (KNEEL 164, EAT 165, RISE_EAT 166). Not roused: to the nearest dead creature (not a zombie) within
+  `feed_range`, kept from sinking (`net_hold_corpse`), kneels (CR_ZB_KneelBite 0-1.9 s), eats (CR_GH_Pin looped); he
+  within `feast_notice` 5.5 m, or a blow: up off it (KneelBite 4.7 s-end) and at him.
+* The name over a creature (CombatText) is not shown while it is under the earth (`under`) or lies as dead
+  (`playing_dead`).
+* Tests: `tests/dead_test.gd` accepts any of the three falls/get-ups. Not run (the user's rule). For the co-op check,
+  the seize/shove should be added to `coop_seen_test` when tests are asked for.
+
 ### The goblin: round to his back, a thief, a coward, stones and bombs (2026-10-07, the user's picks)
 
 `GoblinFighter` (`scripts/goblin_fighter.gd`, a [Brawler]) in `goblin.tscn`:

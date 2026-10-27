@@ -404,6 +404,23 @@ const MIXAMO := [
 	["CR_GH_Stumble", "res://assets/creatures/anim/mixamo/GH_Stumble.fbx", false, 0.0, -1.0],
 	["CR_GH_Flinch", "res://assets/creatures/anim/mixamo/GH_Flinch.fbx", false, 0.0, -1.0],
 	["CR_GH_FeedDown", "res://assets/creatures/anim/mixamo/GH_Feed.fbx", false, 0.0, 1.4],
+	# The zombie's own (2026-10-27, the user's picks from its films, project doc
+	# claude/zombie_plan.md): six gaits, the blow with both hands, the neck bite,
+	# kneeling to eat, the crawl with its legs cut, three falls and the get-ups.
+	["CR_ZB_Walk1", "res://assets/creatures/anim/mixamo/ZB_Walk1.fbx", true, 0.0, -1.0],
+	["CR_ZB_Walk2", "res://assets/creatures/anim/mixamo/ZB_Walk2.fbx", true, 0.0, -1.0],
+	["CR_ZB_Creep", "res://assets/creatures/anim/mixamo/ZB_Creep.fbx", true, 0.0, -1.0],
+	["CR_ZB_Limp", "res://assets/creatures/anim/mixamo/ZB_Limp.fbx", true, 0.0, -1.0],
+	["CR_ZB_Run1", "res://assets/creatures/anim/mixamo/ZB_Run1.fbx", true, 0.0, -1.0],
+	["CR_ZB_Run2", "res://assets/creatures/anim/mixamo/ZB_Run2.fbx", true, 0.0, -1.0],
+	["CR_ZB_Overhead", "res://assets/creatures/anim/mixamo/ZB_Overhead.fbx", false, 0.0, -1.0],
+	["CR_ZB_NeckBite", "res://assets/creatures/anim/mixamo/ZB_NeckBite.fbx", false, 0.0, -1.0],
+	["CR_ZB_KneelBite", "res://assets/creatures/anim/mixamo/ZB_KneelBite.fbx", false, 0.0, -1.0],
+	["CR_ZB_Crawl", "res://assets/creatures/anim/mixamo/ZB_Crawl.fbx", true, 0.0, -1.0],
+	["CR_ZB_StumbleFall", "res://assets/creatures/anim/mixamo/ZB_StumbleFall.fbx", false, 0.0, -1.0],
+	["CR_ZB_FallFwd", "res://assets/creatures/anim/mixamo/ZB_FallFwd.fbx", false, 0.0, -1.0],
+	["CR_ZB_UpSide", "res://assets/creatures/anim/mixamo/ZB_UpSide.fbx", false, 0.0, -1.0],
+	["CR_ZB_UpStomach", "res://assets/creatures/anim/mixamo/ZB_UpStomach.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

@@ -132,13 +132,14 @@ func _getup() -> void:
 	await physics_frame
 	z._receive(9999.0, z.global_position + Vector3.UP, Vector3.FORWARD, hero)
 	await physics_frame
-	_check("cut down, it only falls the first time", not z.is_dead and z.act == ZombieFighter.DOWN, "act %d" % z.act)
+	_check("cut down, it only falls the first time", not z.is_dead and z.act in [ZombieFighter.DOWN, ZombieFighter.DOWN_B, ZombieFighter.DOWN_C], "act %d" % z.act)
 	var up := false
 	for f in 60 * 7:
 		await physics_frame
-		if z.act == ZombieFighter.GETUP:
+		var rising := z.act in [ZombieFighter.GETUP, ZombieFighter.GETUP_B, ZombieFighter.GETUP_C]
+		if rising:
 			up = true
-		if up and z.act != ZombieFighter.GETUP:
+		if up and not rising:
 			break
 	_check("and gets up again", up and not z.is_dead and z.health >= z.max_health * 0.3, "health %.0f" % z.health)
 	z._receive(9999.0, z.global_position + Vector3.UP, Vector3.FORWARD, hero)

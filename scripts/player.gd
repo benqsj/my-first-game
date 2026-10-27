@@ -1155,6 +1155,14 @@ func _physics_process(delta: float) -> void:
 		_process_held(delta)
 		return
 
+	# A zombie's hands on him: held where he stands till he works free
+	# ([method _process_seized]), then the hilt into it and the cut.
+	if seized_by != null and _process_seized(delta):
+		return
+	if _shove_left > 0.0:
+		_process_shove(delta)
+		return
+
 	# The critical is played out by hand too: put before it, the leap, the
 	# blade in.
 	if _crit_left > 0.0:
@@ -4422,6 +4430,177 @@ func _kick_cut() -> void:
 	_safe_until = _now() + KICK_CUT_SAFE
 	var by := _kicked_from
 	_kicked_from = null
+	if by != null and is_instance_valid(by):
+		var to := by.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.0001:
+			rotation.y = atan2(-to.x, -to.z)
+	_attack()
+#endregion
+
+
+#region Seized standing (a zombie's hands on him, 2026-10-27)
+## A zombie has him by the shoulders, its teeth at his neck ([ZombieFighter],
+## the user's word from its films): he stands where he is, dazed, jolting at
+## each bite (his own clips: KV_Stun01, KV_CombatDamage01/02); E (lock-on), F
+## or the attack pressed fast works him free (`pin_struggle`, the same bar as
+## under the ghoul, shown by [PlayerHud]); full, he drives the hilt into it,
+## nothing striking him meanwhile (`SHOVE_SAFE`), and cuts at it.
+const SEIZE_PRESS := 0.09
+const SEIZE_EASE := 0.12
+const SHOVE_TIME := 0.6
+const SHOVE_SAFE := 1.2
+const SEIZE_LOOK := [&"KV_Stun01", &"SS_Head_Impact", &"Hit_Knockback"]
+const SEIZE_JOLT := [[&"KV_CombatDamage01", &"KV_CombatDamage02"], [&"SS_Head_Impact"], [&"Hit_Knockback"]]
+const SHOVE_CLIPS := [&"SS_Hilt_Melee", &"Melee_Knee", &"KV_AttackShield01", &"KV_AttackPunch01_R"]
+## Who has him (his own peer's).
+var seized_by: Node3D = null
+var _seize_look_in: float = 0.0
+var _shove_left: float = 0.0
+var _shoved: Node3D = null
+
+
+## Host to his peer: a zombie has him where he stands.
+@rpc("any_peer", "call_local", "reliable")
+func net_seized(path: NodePath) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_dead or state == State.DOWNED:
+		return
+	var by := get_node_or_null(path) as Node3D
+	if by == null:
+		return
+	seized_by = by
+	pin_struggle = 0.0
+	if by is PhysicsBody3D:
+		add_collision_exception_with(by)
+	velocity = Vector3.ZERO
+	is_blocking = false
+	_attack_buffer = 0.0
+	_heavy_buffer = 0.0
+	_seize_look_in = 0.0
+
+
+## Host to his peer: it let go of him (a friend struck it off, or it gave up).
+@rpc("any_peer", "call_local", "reliable")
+func net_unseized() -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority():
+		return
+	_end_seize()
+
+
+func _end_seize() -> void:
+	var was := seized_by
+	seized_by = null
+	pin_struggle = 0.0
+	if was != null and is_instance_valid(was) and was is PhysicsBody3D:
+		remove_collision_exception_with(was)
+
+
+## Host to his peer: its teeth in his neck (no guard, no roll).
+@rpc("any_peer", "call_local", "reliable")
+func net_seize_bite(damage: float) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and sender != 1:
+		return
+	if not is_multiplayer_authority() or is_dead or seized_by == null:
+		return
+	_take_damage(damage)
+	if camera != null and camera.current:
+		ImpactFx.knock(camera, Vector3.DOWN, view_ground.x * 0.4, view_ground.y, view_ground.z)
+	net_seize_look.rpc(1 + randi() % 2)
+
+
+## Every peer: held dazed (0), or a jolt at a bite (1, 2: which of his).
+@rpc("authority", "call_local", "reliable")
+func net_seize_look(jolt: int) -> void:
+	if rig == null or not rig.has_method(&"play_part"):
+		return
+	if jolt <= 0:
+		for clip: StringName in SEIZE_LOOK:
+			if float(rig.call(&"play_part", clip, 1.0, 0.0, 1.0, 0.25)) > 0.0:
+				return
+		return
+	for takes: Array in SEIZE_JOLT:
+		var clip: StringName = takes[(jolt - 1) % takes.size()]
+		if float(rig.call(&"play_part", clip, 1.2, 0.0, 0.6, 0.08)) > 0.0:
+			return
+
+
+## Each tick in its hands: true while it holds him.
+func _process_seized(delta: float) -> bool:
+	var by := seized_by
+	if by == null:
+		return false
+	if not is_instance_valid(by) or bool(by.get("is_dead")) or is_dead or state == State.DOWNED:
+		_end_seize()
+		return false
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if is_on_floor():
+		velocity.y = 0.0
+	else:
+		velocity.y -= _gravity * delta
+	move_and_slide()
+	var to := by.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() > 0.0001:
+		rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-10.0 * delta))
+	# dazed in its hands, over and over (a bite's jolt breaks in on it)
+	_seize_look_in -= delta
+	if _seize_look_in <= 0.0:
+		_seize_look_in = 2.4
+		net_seize_look.rpc(0)
+	if Input.is_action_just_pressed("lock_on") or Input.is_action_just_pressed("interact") \
+			or Input.is_action_just_pressed("attack"):
+		pin_struggle += SEIZE_PRESS
+	pin_struggle = maxf(pin_struggle - SEIZE_EASE * delta, 0.0)
+	if pin_struggle >= 1.0:
+		_shove_free(by)
+	return true
+
+
+## Worked free: the hilt into it (every peer sees it), the zombie told on the
+## host; untouchable through it, and a cut at it after.
+func _shove_free(by: Node3D) -> void:
+	_end_seize()
+	_shoved = by
+	_shove_left = SHOVE_TIME
+	_safe_until = maxf(_safe_until, _now() + SHOVE_SAFE)
+	net_shove.rpc()
+	if by.has_method(&"net_shoved"):
+		if multiplayer.has_multiplayer_peer():
+			by.rpc_id(1, &"net_shoved", get_path())
+		else:
+			by.call(&"net_shoved", get_path())
+
+
+## Every peer: the hilt driven into it.
+@rpc("authority", "call_local", "reliable")
+func net_shove() -> void:
+	if rig == null or not rig.has_method(&"play_part"):
+		return
+	for clip: StringName in SHOVE_CLIPS:
+		if float(rig.call(&"play_part", clip, 1.2, 0.0, 1.0, 0.1)) > 0.0:
+			return
+
+
+## The shove played out where he stands, then the cut at it.
+func _process_shove(delta: float) -> void:
+	_shove_left -= delta
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+	move_and_slide()
+	if _shove_left > 0.0:
+		return
+	var by := _shoved
+	_shoved = null
 	if by != null and is_instance_valid(by):
 		var to := by.global_position - global_position
 		to.y = 0.0
