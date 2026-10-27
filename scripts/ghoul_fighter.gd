@@ -76,6 +76,14 @@ extends Brawler
 @export_group("On him")
 @export var pin_clip: StringName = &"CR_GH_Pin"
 @export var pin_most: float = 6.0
+## Him down: it goes to him, and only if it is at him (`pin_reach` m) while he
+## is still down does it get on him; a beat after its pounce lands first
+## (`pin_delay` s); and after he has pushed it off, not again for `pin_rest` s.
+@export var pin_reach: float = 1.3
+@export var pin_delay: float = 0.2
+@export var pin_rest: float = 4.0
+var _pin_wait: float = 0.0
+var _pin_rest_left: float = 0.0
 @export var pin_bite_every: float = 0.75
 ## A bite's share of `hit_damage`.
 @export var pin_bite_share: float = 0.35
@@ -250,9 +258,17 @@ func _think(delta: float) -> void:
 	if act == PIN:
 		_pinning(delta)
 		return
-	if act == LEAP and _pin_want != null and _act_time > _blow_moments(LEAP)[0] + 0.15:
-		if _try_pin(_pin_want):
-			return
+	# (no longer on him the moment its pounce fells him, the user's word
+	# 2026-10-27: it has to get to him while he is still down, [method _go_pin])
+	_pin_wait = maxf(_pin_wait - delta, 0.0)
+	_pin_rest_left = maxf(_pin_rest_left - delta, 0.0)
+	# its pounce has felled him: off the rest of its landing, to him
+	if act == LEAP and _quarry is Player and (_quarry as Player).state == Player.State.DOWNED \
+			and _act_time > _blow_moments(LEAP)[0] + 0.1:
+		_leap_wait = leap_cooldown * (0.5 if frenzied else 1.0)
+		_pin_want = null
+		_pin_wait = pin_delay
+		_start(Act.NONE)
 	if act == FEED:
 		_feeding(delta)
 		return
@@ -281,6 +297,8 @@ func _think(delta: float) -> void:
 	_quarry = _pick_quarry()
 	if _quarry == null:
 		super(delta)
+		return
+	if _go_pin(delta):
 		return
 	var to := _quarry.global_position - global_position
 	to.y = 0.0
@@ -389,6 +407,7 @@ func _after(what: int) -> void:
 	if what == LEAP:
 		_leap_wait = leap_cooldown * (0.5 if frenzied else 1.0)
 		_pin_want = null
+		_pin_wait = pin_delay
 	if what == SCREAM and not frenzied:
 		_send_frenzy()
 	# the second blow of the string, if he is still there for it
@@ -461,6 +480,33 @@ func _claw_drips() -> void:
 
 
 #region On him
+## Host: him down (not yet getting up): to him, and on him if it gets there
+## before he starts up.
+func _go_pin(delta: float) -> bool:
+	var hero := _quarry as Player
+	if hero == null or hero.state != Player.State.DOWNED or hero.is_dead or _pin_rest_left > 0.0:
+		return false
+	# up on his feet first: he got away
+	if bool(hero.get(&"_getting_up")):
+		return false
+	for node in get_tree().get_nodes_in_group(&"ghouls"):
+		var other := node as GhoulFighter
+		if other != null and other != self and other._pinned == hero:
+			return false
+	mode = Mode.FIGHT
+	var to := hero.global_position - global_position
+	to.y = 0.0
+	if to.length() > pin_reach:
+		_move_towards(hero.global_position, chase_speed, delta)
+		return true
+	_face(to, delta, turn_speed * 2.0)
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if _pin_wait > 0.0:
+		return true
+	return _try_pin(hero)
+
+
 ## Host: on him where he lies, if he lies there and no other ghoul has him.
 func _try_pin(who: Node3D) -> bool:
 	_pin_want = null
@@ -540,7 +586,15 @@ func _pinning(delta: float) -> void:
 ## Every peer: a bite on him, blood at his throat.
 @rpc("authority", "call_local", "unreliable")
 func net_bite(at: Vector3) -> void:
-	Blood.spill(Blood.world_of(self), at, Vector3(0.0, 0.4, 0.0) - _forward() * 0.5, null, 0.5)
+	# his blood thrown up as it tears at him (the user's word, 2026-10-27)
+	var world := Blood.world_of(self)
+	Blood.spill(world, at, Vector3(0.0, 0.6, 0.0) - _forward() * 0.6, null, 1.3)
+	Blood.splatter(world, at, Vector3(0.0, 1.0, 0.0) - _forward() * 0.4)
+	SkillFx.particles(world, at, {
+		"amount": 22, "life": 0.8, "one_shot": true, "explosiveness": 0.9, "speed": Vector2(1.2, 3.4),
+		"dir": Vector3.UP - _forward() * 0.6, "spread": 45.0, "gravity": Vector3(0, -9.0, 0), "damping": 0.5,
+		"size": Vector2(0.035, 0.075), "add": false,
+		"colors": [Color(0.5, 0.0, 0.0, 1.0), Color(0.36, 0.0, 0.0, 1.0), Color(0.25, 0.0, 0.0, 0.0)]})
 
 
 ## Host: off him. `away`: of itself (it scuttles off).
@@ -567,7 +621,18 @@ func net_kicked(hero: NodePath) -> void:
 		return
 	_pinned = null
 	remove_collision_exception_with(who as PhysicsBody3D)
-	_thrown_off(who, hit_damage * kicked_share)
+	# pushed off him: back off him, not thrown over (the user's word,
+	# 2026-10-27); hurt, and not on him again for a while
+	var to := who.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() > 0.0001:
+		_face(to, 1.0, 50.0)
+	health = maxf(health - hit_damage * kicked_share, 1.0)
+	net_bleed.rpc(_head_point(), -to.normalized() + Vector3.UP * 0.5)
+	_pin_rest_left = pin_rest
+	_start(Act.NONE)
+	_dart_left = dart_time.y
+	_dart_side = 1.0 if _rng.randf() < 0.5 else -1.0
 
 
 ## Host: struck or kicked off whoever it was on, over onto its back.

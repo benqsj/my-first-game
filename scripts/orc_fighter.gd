@@ -895,6 +895,38 @@ const WHIRL := [O_WRUN, O_W360, O_WAXE]
 ## How far off him it comes down from each leap, its blade's end on him
 ## (measured at the lord's size, `_shots_tmp/leap_probe.gd`).
 const LAND_GAP := {O_LEAPA: 3.8, O_LEAPB: 3.7}
+## The lord's blade alight: a steady fire over all of it, brighter where the
+## flames lick up it (the user's word: the whole blade, not here and there).
+const BLADE_FIRE_SHADER := """
+shader_type spatial;
+render_mode blend_add, unshaded, cull_back, depth_draw_never, shadows_disabled;
+uniform float strength = 1.0;
+varying vec3 wpos;
+float hash(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float noise(vec3 x) {
+	vec3 i = floor(x);
+	vec3 f = fract(x);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x),
+			mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x),
+			mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float n = noise(wpos * vec3(6.0, 3.0, 6.0) - vec3(0.0, TIME * 4.0, 0.0)) * 0.6
+			+ noise(wpos * vec3(13.0, 7.0, 13.0) - vec3(0.0, TIME * 7.0, 0.0)) * 0.4;
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.2);
+	vec3 hot = mix(vec3(0.85, 0.18, 0.02), vec3(1.0, 0.62, 0.2), smoothstep(0.35, 0.8, n));
+	ALBEDO = hot * (0.45 + n * 0.6 + rim * 0.6) * strength;
+}
+"""
 const THRUST_COMBO := &"thrust"
 const LEAP_COMBOS := [&"leap_a", &"leap_b"]
 const RIPOSTES := [&"riposte_out", &"riposte_in"]
@@ -1091,10 +1123,10 @@ func net_phase_two() -> void:
 	# the blade, on it, not beside it): a fire laid over its own surface
 	if _blade_skin == null:
 		var sh := Shader.new()
-		sh.code = HeroBurn.FIRE_SHADER
+		sh.code = BLADE_FIRE_SHADER
 		_blade_skin = ShaderMaterial.new()
 		_blade_skin.shader = sh
-		_blade_skin.set_shader_parameter(&"strength", 2.2)
+		_blade_skin.set_shader_parameter(&"strength", 1.0)
 	for mi in body.find_children("Arm_*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		if not String(m.name).ends_with("_left") and m.material_overlay == null:
@@ -1102,9 +1134,19 @@ func net_phase_two() -> void:
 	# and tongues of flame off its edge, from the guard to the point
 	var ends := _blade_ends(0)
 	var long := ((ends[1] as Vector3) - (ends[0] as Vector3)).length()
+	# a body of flame wrapped round the whole blade, slow and broad
+	var sheath := SkillFx.particles(self, global_position, {
+		"amount": 120, "life": 0.5, "speed": Vector2(0.05, 0.25), "spread": 30.0,
+		"gravity": Vector3(0, 1.6, 0), "size": Vector2(0.22, 0.38), "box": Vector3(0.05, long * 0.44, 0.05),
+		"grow": 0.15, "tex": SkillFx.dot(), "add": true, "spin": true,
+		"colors": [Color(1.0, 0.55, 0.15, 0.0), Color(1.0, 0.38, 0.06, 0.55), Color(0.8, 0.12, 0.02, 0.35),
+				Color(0.2, 0.02, 0.0, 0.0)]})
+	sheath.fixed_fps = 0
+	sheath.interpolate = false
+	_blade_fire.append(sheath)
 	var fire := SkillFx.particles(self, global_position, {
-		"amount": 90, "life": 0.4, "speed": Vector2(0.1, 0.4), "spread": 25.0,
-		"gravity": Vector3(0, 2.6, 0), "size": Vector2(0.12, 0.22), "box": Vector3(0.03, long * 0.4, 0.03),
+		"amount": 170, "life": 0.45, "speed": Vector2(0.1, 0.45), "spread": 25.0,
+		"gravity": Vector3(0, 2.8, 0), "size": Vector2(0.14, 0.28), "box": Vector3(0.04, long * 0.44, 0.04),
 		"grow": 0.25, "tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": true,
 		"colors": [Color(1.0, 0.6, 0.2, 0.0), Color(1.0, 0.42, 0.08, 0.9), Color(0.85, 0.15, 0.02, 0.6),
 				Color(0.2, 0.02, 0.0, 0.0)]})
@@ -3327,6 +3369,19 @@ func _step_arcs(delta: float) -> void:
 		return
 	_place_arcs()
 	var swinging := not is_dead and act != Act.NONE and _strikes().has(act) and not act in BLADELESS
+	# only through the cut itself (the user's word, 2026-10-27): from a little
+	# before each blow to just after it, not as it lifts or carries its blade
+	if swinging:
+		var cutting := false
+		if act_serial == _voiced_serial:
+			var w := _weight_of(act) if _tempo_moves.has(act) else 0.5
+			var lead := 0.16 + 0.08 * w
+			var after := 0.06 + 0.04 * w
+			for m in _blow_moments(act):
+				if _voiced_clock >= m - lead and _voiced_clock <= m + after:
+					cutting = true
+					break
+		swinging = cutting
 	# red as its blades find him, fading (a two-blade's; the user's word)
 	_blood_heat = maxf(_blood_heat - delta * BLOOD_FADE, 0.0)
 	for i in _arcs.size():

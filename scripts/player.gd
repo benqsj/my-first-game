@@ -4404,13 +4404,15 @@ func _process_pinned(delta: float) -> bool:
 ## Worked free: the kick and the spring up (every peer sees it), the ghoul
 ## told on the host, and the cut after it due when he is up.
 func _kick_free(by: Node3D) -> void:
+	# pushed off: it backs off him and he gets up as he would (the user's
+	# word, 2026-10-27: no spring-up kick, no cut after), nothing striking him
+	# while he rises
 	pinned_by = null
 	pin_struggle = 0.0
-	_kicked_from = by
-	_kick_cut_due = true
-	_getting_up = true
-	_down_timer = KICK_TIME
-	net_kick_up.rpc()
+	_kicked_from = null
+	_kick_cut_due = false
+	_down_timer = minf(_down_timer, 0.15)
+	_safe_until = _now() + 1.6
 	if by.has_method(&"net_kicked"):
 		if multiplayer.has_multiplayer_peer():
 			by.rpc_id(1, &"net_kicked", get_path())
