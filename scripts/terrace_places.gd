@@ -750,7 +750,10 @@ static func _boats(_d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 			# a burnt one leans over, blackened
 			if bool(b[2]) and piece != "Wreck":
 				boat.rotation.z = rng.randf_range(0.15, 0.35)
-		if bool(b[2]):
+		# (no smoke off the burnt ones since 2026-10-28: their columns, rising
+		# behind the terrace's far edge, ran together into a white dome standing
+		# up out of its floor; the user's word)
+		if bool(b[2]) and SMOKE:
 			_smoke(holder)
 		# the swell under it
 		var tw := holder.create_tween().set_loops()
@@ -763,6 +766,8 @@ static func _boats(_d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 
 
 ## Smoke going up off a burnt boat: soft round dark puffs, rising, spreading.
+## Off ([constant SMOKE]): seen from the terrace it stood up as a white dome.
+const SMOKE := false
 static func _smoke(holder: Node3D) -> void:
 	var p := GPUParticles3D.new()
 	p.amount = 26
