@@ -42,6 +42,10 @@ extends PackBrute
 ## Him this much further off than the next blow of a string lands (m), the
 ## rest of it is not swung at the air: it goes after him on foot.
 @export var string_leave: float = 2.5
+## A boss's coming in (the user's word, 2026-10-27: the lord's): first woken,
+## it roars where it stands and this name comes up across the screen ("" none).
+@export var intro_title: String = ""
+var _named_in: bool = false
 ## What it is called over its bar ("" plain "Orc"): "Warrior Orc", "Orc Lord".
 @export var title: String = ""
 ## The skirmisher's distance from him (0: it comes in like any).
@@ -230,6 +234,21 @@ extends PackBrute
 ## Its blade's streak, only through the cut: from this share of the blade out
 ## to its end (a light one narrow, a heavy one broad), these colours.
 @export var trail_on: bool = true
+## Its blade's speed (m/s at the orc's own size) above which a cut is drawn.
+@export var blade_arc_speed: float = 7.0
+## The cut's look, a blade's and a great one's ([BladeArc]).
+const ARC_LIGHT := {"life": 0.22, "intensity": 1.0, "sheet": 0.42, "taper": 0.4, "smear": 1.0, "tip_overshoot": 0.04}
+const ARC_HEAVY := {"life": 0.3, "intensity": 1.1, "sheet": 0.6, "taper": 0.3, "smear": 1.0, "tip_overshoot": 0.05}
+## Where along a blade its cut begins (share, hand to point).
+const ARC_FROM := 0.33
+## A two-blade's cuts: this much redder for each that finds him, and so much
+## paler again a second.
+const BLOOD_GAIN := 0.4
+const BLOOD_ARC := {"life": 0.28, "intensity": 0.8, "sheet": 0.32, "taper": 0.45, "smear": 0.5,
+		"tip_overshoot": 0.03, "core_color": Color(1.0, 0.38, 0.32), "glow_color": Color(0.62, 0.02, 0.01),
+		"smoke_color": Color(0.35, 0.02, 0.02)}
+const BLOOD_FADE := 0.22
+const GLINT_SOUND := "res://unverified/sounds/all/block_1.wav"
 @export var trail_from: Vector2 = Vector2(0.55, 0.12)
 @export var trail_light: Color = Color(0.2, 0.2, 0.22, 0.5)
 @export var trail_heavy: Color = Color(1.0, 0.48, 0.18, 0.3)
@@ -427,6 +446,19 @@ var _tempo_raw: bool = false
 ## which blows of the act have cracked the ground.
 var _trails: Array[SwordTrail] = []
 var _trail_ends: Array[Node3D] = []
+var _arcs: Array[BladeArc] = []
+var _blood_arcs: Array[BladeArc] = []
+var _arc_lasts: Array[Vector3] = []
+var _arc_frame: int = -1
+## A two-blade's (T4): how red its cuts run now, 0..1.
+var _blood_heat: float = 0.0
+var _bloodthirst: bool = false
+var _drip_wait: float = 0.0
+var _glint: MeshInstance3D
+var _glint_flared: int = -1
+static var _star: Texture2D
+var _dust_last: Vector3 = Vector3.INF
+var _slide_dust_wait: float = 0.0
 var _cracked: int = 0
 const STRAIN := SOUNDS + "strain_rise.wav"
 const GROUND := [SOUNDS + "club_ground_1.wav", SOUNDS + "club_ground_2.wav", SOUNDS + "club_ground_3.wav",
@@ -799,6 +831,55 @@ func _own_velocity(delta: float) -> Vector3:
 		_lunge_speed = 0.0
 		return Vector3.ZERO
 	return super._extra_velocity(delta)
+
+
+#region Its coming in (a boss's)
+func _rouse(who: Node3D) -> void:
+	super(who)
+	if intro_title.is_empty() or _named_in or who == null or is_dead or not _decides():
+		return
+	_named_in = true
+	velocity = Vector3.ZERO
+	_face(who.global_position - global_position, 1.0, 50.0)
+	if _moves_table.has(O_CRY):
+		_cry_wait = cry_cooldown.x
+		_begin(O_CRY)
+	if is_inside_tree() and multiplayer.has_multiplayer_peer():
+		net_name_in.rpc()
+	else:
+		net_name_in()
+
+
+## Every peer: its roar, and its name across the lower screen, Elden Ring's
+## way: it comes up, holds, and goes.
+@rpc("authority", "call_local", "reliable")
+func net_name_in() -> void:
+	Sfx.play_any(self, [ROAR_SOUND], self, 0.72, 5.0)
+	var layer := CanvasLayer.new()
+	layer.layer = 40
+	var label := Label.new()
+	label.text = intro_title
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.anchor_left = 0.0
+	label.anchor_right = 1.0
+	label.anchor_top = 0.68
+	label.anchor_bottom = 0.68
+	label.offset_top = -40
+	label.offset_bottom = 40
+	label.add_theme_font_size_override(&"font_size", 56)
+	label.add_theme_color_override(&"font_color", Color(0.9, 0.8, 0.62))
+	label.add_theme_color_override(&"font_outline_color", Color(0.05, 0.02, 0.02))
+	label.add_theme_constant_override(&"outline_size", 10)
+	label.modulate.a = 0.0
+	layer.add_child(label)
+	var world := Blood.world_of(self)
+	(world if world != null else get_tree().root).add_child(layer)
+	var tw := label.create_tween()
+	tw.tween_property(label, "modulate:a", 1.0, 0.6)
+	tw.tween_interval(2.6)
+	tw.tween_property(label, "modulate:a", 0.0, 1.0)
+	tw.tween_callback(layer.queue_free)
+#endregion
 
 
 #region Skills (2026-10-13)
@@ -2025,9 +2106,8 @@ func _paint_and_blood() -> void:
 				fwd * 0.3 * s + Vector3.DOWN * 0.1 * s, 1.0)
 		_face_decal("head_joint", Blood.wound_texture(), Color(0.26, 0.0, 0.0), Vector3(0.45, 0.8, 0.7) * s,
 				fwd * 0.28 * s + Vector3.DOWN * 0.14 * s, 1.0)
-		_blade_blood(String(weapon_bone), weapon_tip.x)
-		if _second != null:
-			_blade_blood(second_bone, second_tip.x)
+		# (no blood laid on its blades: the user's word, 2026-10-27, the marks
+		# on them not liked; a two-blade's cuts run red as they find him)
 
 
 ## A decal laid on its front at `bone`, from in front, its runs downward.
@@ -2485,7 +2565,16 @@ func _wear_outfit() -> void:
 		return
 	var c: Array = CAPES.get(cape, [])
 	if not c.is_empty():
+		# its own bones for the cape to hang from, so it is not carried stiff
+		# off its back (the user's word, 2026-10-27)
+		var chain := _add_cape_bones(float(c[1]))
 		_wear_piece(String(c[0]), float(c[1]), c[2], body.find_child("Orc_Head", true, false) as MeshInstance3D, true)
+		if chain.size() >= 2:
+			var sway := CapeSway.new()
+			sway.name = "CapeSway"
+			sway.chain = chain
+			sway.owner_body = self
+			_skeleton.add_child(sway)
 	if hair != "":
 		_wear_piece(hair, hair_size, hair_tint, body.find_child("Orc_Head", true, false) as MeshInstance3D, true)
 	var o: Dictionary = OUTFITS.get(outfit, {})
@@ -2502,6 +2591,46 @@ func _wear_outfit() -> void:
 	var beside := body.find_child("Orc_Head", true, false) as MeshInstance3D
 	for piece: Array in o["pieces"]:
 		_wear_piece(String(piece[0]), float(piece[1]), piece[2], beside)
+
+
+## The mannequin's cape bones given to its skeleton (as the figure has them
+## off its chest, `size` bigger), unless it has them; their indices, top down.
+func _add_cape_bones(size: float) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if _skeleton == null:
+		return out
+	if _figure == null:
+		var scene := load(ARMS_FIGURE) as PackedScene
+		if scene == null:
+			return out
+		_figure = scene.instantiate() as Node3D
+	var fig: Skeleton3D = null
+	for n in _figure.find_children("*", "Skeleton3D", true, false):
+		fig = n as Skeleton3D
+		break
+	if fig == null:
+		return out
+	for k in range(1, 7):
+		var name := "cape_joint%d" % k
+		var have := _skeleton.find_bone(name)
+		if have >= 0:
+			out.append(have)
+			continue
+		var src := fig.find_bone(name)
+		if src < 0:
+			break
+		var parent_name := fig.get_bone_name(fig.get_bone_parent(src))
+		var parent := _skeleton.find_bone(parent_name)
+		if parent < 0:
+			break
+		var rest := fig.get_bone_rest(src)
+		_skeleton.add_bone(name)
+		var b := _skeleton.find_bone(name)
+		_skeleton.set_bone_parent(b, parent)
+		_skeleton.set_bone_rest(b, Transform3D(rest.basis, rest.origin * size))
+		_skeleton.reset_bone_pose(b)
+		out.append(b)
+	return out
 
 
 ## One of the mannequin's pieces on it, made `size` bigger about each bone it
@@ -2710,66 +2839,264 @@ func _track_lock(what: int) -> float:
 	return lerpf(track_lock.x, track_lock.y, _weight_of(what))
 
 
-## Every peer: a streak behind each blade it holds, drawn only through a cut.
+## Every peer: the heroes' cut in the air behind each blade it holds (the
+## user's word, 2026-10-27: as the heroes' and the butcher's, not the old dark
+## streak), drawn while a blade moves fast in a cut; on a blade's edge, from a
+## third of the way out to its end; placed when its skeleton is posed.
 func _make_trails() -> void:
 	if not trail_on or _skeleton == null or _weapon < 0:
 		return
 	var heavy := grip != &"blades"
 	var sides := 2 if not heavy and arm_left != "none" and _skeleton.find_bone(second_bone) >= 0 else 1
+	_bloodthirst = sides == 2
 	for i in sides:
-		var base := Node3D.new()
-		var tip := Node3D.new()
+		var base := Marker3D.new()
+		var tip := Marker3D.new()
 		base.top_level = true
 		tip.top_level = true
 		add_child(base)
 		add_child(tip)
-		var trail := SwordTrail.new()
-		trail.name = "OrcTrail%d" % i
-		trail.sample_count = 14
-		trail.fade_time = 0.22 if heavy else 0.15
-		trail.tint = trail_heavy if heavy else trail_light
-		trail.inner_edge_alpha = 0.15 if heavy else 0.3
-		add_child(trail)
-		trail.setup(base, tip)
-		if not heavy:
-			# a dark streak, not a bright one: laid over what is behind it
-			(trail.material_override as StandardMaterial3D).blend_mode = BaseMaterial3D.BLEND_MODE_MIX
-		_trails.append(trail)
 		_trail_ends.append_array([base, tip])
+		var arc := BladeArc.new()
+		arc.name = "OrcArc%d" % i
+		arc.air = true
+		arc.manual = true
+		add_child(arc)
+		arc.setup(base, tip)
+		var style: Dictionary = ARC_HEAVY if heavy else ARC_LIGHT
+		for key: String in style:
+			arc.set(key, style[key])
+		arc.restyle()
+		_arcs.append(arc)
+		_arc_lasts.append(Vector3.INF)
+		if _bloodthirst:
+			# its cuts running red once they have found him: a red crescent
+			# laid with the bent air (the air's own look has no colour)
+			var red := BladeArc.new()
+			red.name = "OrcBloodArc%d" % i
+			red.manual = true
+			add_child(red)
+			red.setup(base, tip)
+			for key: String in BLOOD_ARC:
+				red.set(key, BLOOD_ARC[key])
+			red.restyle()
+			_blood_arcs.append(red)
+	_place_arcs()
+	if not _skeleton.skeleton_updated.is_connected(_arcs_posed):
+		_skeleton.skeleton_updated.connect(_arcs_posed)
 
 
-## Every peer: the blades' ends followed, and streaking only from a little
-## before each blow to just after it.
-func _show_trails() -> void:
-	if _trails.is_empty():
+## Every peer, its skeleton just posed: the cuts' ends where the blades are now.
+func _arcs_posed() -> void:
+	var frame := Engine.get_process_frames()
+	if frame == _arc_frame or not is_inside_tree():
 		return
-	var cutting := false
-	var weight := 0.0
-	if not is_dead and _tempo_moves.has(act) and not act in BLADELESS and act_serial == _voiced_serial:
-		weight = _weight_of(act)
-		var lead := 0.11 + 0.06 * weight
-		for m in _blow_moments(act):
-			if _voiced_clock >= m - lead and _voiced_clock <= m + 0.05 + 0.03 * weight:
-				cutting = true
-				break
-	var from := lerpf(trail_from.x, trail_from.y, weight)
-	for i in _trails.size():
-		var tip: Vector3
-		var hand: Vector3
-		if i == 0:
-			tip = _weapon_tip_at()
-			hand = _skeleton.global_transform * _skeleton.get_bone_global_pose(_weapon).origin
-		else:
-			var bone := _skeleton.find_bone(second_bone)
-			var pose := _skeleton.get_bone_global_pose(bone)
-			tip = _skeleton.global_transform * (pose * second_tip)
-			hand = _skeleton.global_transform * pose.origin
-		_trail_ends[i * 2].global_position = hand.lerp(tip, from)
+	_arc_frame = frame
+	_step_arcs(get_process_delta_time())
+
+
+## The blade's end and its hand, blade `i` (0 right, 1 left), as posed now.
+func _blade_ends(i: int) -> Array:
+	if i == 0:
+		return [_skeleton.global_transform * _skeleton.get_bone_global_pose(_weapon).origin, _weapon_tip_at()]
+	var bone := _skeleton.find_bone(second_bone)
+	var pose := _skeleton.get_bone_global_pose(bone)
+	return [_skeleton.global_transform * pose.origin, _skeleton.global_transform * (pose * second_tip)]
+
+
+func _place_arcs() -> void:
+	for i in _arcs.size():
+		var ends := _blade_ends(i)
+		var hand: Vector3 = ends[0]
+		var tip: Vector3 = ends[1]
+		_trail_ends[i * 2].global_position = hand.lerp(tip, ARC_FROM)
 		_trail_ends[i * 2 + 1].global_position = tip
+
+
+func _step_arcs(delta: float) -> void:
+	if _arcs.is_empty() or delta <= 0.0:
+		return
+	_place_arcs()
+	var swinging := not is_dead and act != Act.NONE and _strikes().has(act) and not act in BLADELESS
+	# red as its blades find him, fading (a two-blade's; the user's word)
+	_blood_heat = maxf(_blood_heat - delta * BLOOD_FADE, 0.0)
+	for i in _arcs.size():
+		var tip := (_trail_ends[i * 2 + 1] as Node3D).global_position
+		var last: Vector3 = _arc_lasts[i]
+		var fast := last != Vector3.INF and tip.distance_to(last) / delta > blade_arc_speed * visual_scale / 1.6
+		_arc_lasts[i] = tip
 		var used := (act in LEFT_CUTS) if i == 1 else not act in LEFT_CUTS
-		if act in BOTH_CUTS:
+		if act in BOTH_CUTS or _arcs.size() == 1:
 			used = true
-		_trails[i].emitting = cutting and used
+		var arc: BladeArc = _arcs[i]
+		arc.emitting = swinging and fast and used
+		arc.tick(delta)
+		if i < _blood_arcs.size():
+			var red: BladeArc = _blood_arcs[i]
+			var want := lerpf(0.5, 1.4, _blood_heat)
+			if absf(red.intensity - want) > 0.05:
+				red.intensity = want
+				red.restyle()
+			red.emitting = arc.emitting and _blood_heat > 0.12
+			red.tick(delta)
+	if _bloodthirst and _blood_heat > 0.25:
+		_drip_wait -= delta
+		if _drip_wait <= 0.0:
+			_drip_wait = lerpf(0.25, 0.08, _blood_heat)
+			var i := randi() % _arcs.size()
+			var tip := (_trail_ends[i * 2 + 1] as Node3D).global_position
+			var hand := (_trail_ends[i * 2] as Node3D).global_position
+			SkillFx.particles(Blood.world_of(self), hand.lerp(tip, randf_range(0.3, 1.0)), {
+				"amount": 2, "life": 0.6, "one_shot": true, "explosiveness": 1.0, "speed": Vector2(0.1, 0.4),
+				"dir": Vector3.DOWN, "spread": 25.0, "gravity": Vector3(0, -9.0, 0), "size": Vector2(0.035, 0.055),
+				"add": false, "colors": [Color(0.45, 0.0, 0.0, 1.0), Color(0.3, 0.0, 0.0, 0.9)]})
+
+
+## Every peer: the arcs stepped from here when its skeleton did not say it was
+## posed this frame; the feint's gleam; dust off a sudden slide.
+func _show_trails() -> void:
+	var delta := get_process_delta_time()
+	if not _arcs.is_empty() and Engine.get_process_frames() != _arc_frame:
+		_arc_frame = Engine.get_process_frames()
+		_step_arcs(delta)
+	_gleam(delta)
+	_slide_dust(delta)
+
+
+## Every peer, a two-blade's cut that found him: its blades run redder.
+@rpc("authority", "call_local", "unreliable")
+func net_blooded() -> void:
+	_blood_heat = minf(_blood_heat + BLOOD_GAIN, 1.0)
+
+
+## Host: a blow of its reached him: a two-blade's blades redden; one caught on
+## his guard rings steel on steel.
+func _blow_reached(who: Node3D, what: int) -> void:
+	super(who, what)
+	if who == null or not _decides():
+		return
+	var guarded := who.has_method(&"guarding") and bool(who.call(&"guarding"))
+	if guarded:
+		var to := global_position - who.global_position
+		to.y = 0.0
+		var at := who.global_position + Vector3.UP * 1.25 + (to.normalized() * 0.45 if to.length_squared() > 0.01 else Vector3.ZERO)
+		net_steel.rpc(at, minf(_weight_of(what) + 0.6, 1.6) if _tempo_moves.has(what) else 1.0)
+	elif _bloodthirst and not what in BLADELESS:
+		net_blooded.rpc()
+
+
+## Every peer: steel on steel where its blade met his guard: sparks thrown,
+## the ring of it, a short hot light.
+@rpc("authority", "call_local", "unreliable")
+func net_steel(at: Vector3, heft: float) -> void:
+	ImpactFx.strike(self, at, &"guard", heft)
+	SkillFx.light(Blood.world_of(self), at, Color(1.0, 0.75, 0.4), 2.2 * heft, 4.0, 0.18)
+
+
+## Every peer: a blade held back at the top of its wind-up (the feint) shows
+## it: a gleam runs up its edge to the point while it is held, and flares as
+## it comes down (no glow on the blade itself, no ring).
+func _gleam(delta: float) -> void:
+	var held := 0.0
+	var start := 0.0
+	if not is_dead and act != Act.NONE and act_serial == _voiced_serial:
+		held = _hold_of(act)
+	if held > 0.0:
+		var sh := _shape(act)
+		if sh.size() >= 3:
+			start = float(sh[0]) * float(sh[1])
+	var t := _voiced_clock - start
+	var on := held > 0.0 and t > -0.12 and t < held + 0.12 and not _arcs.is_empty()
+	if not on:
+		if _glint != null:
+			_glint.visible = false
+		_glint_flared = -1
+		return
+	if _glint == null:
+		_make_glint()
+	var u := clampf((t + 0.12) / (held + 0.12), 0.0, 1.0)
+	var i := 1 if act in LEFT_CUTS else 0
+	i = mini(i, _arcs.size() - 1)
+	var ends := _blade_ends(i)
+	var hand: Vector3 = ends[0]
+	var tip: Vector3 = ends[1]
+	_glint.visible = true
+	_glint.global_position = hand.lerp(tip, lerpf(0.3, 1.0, ease(u, 0.6)))
+	var pulse := 0.75 + 0.25 * sin(_voiced_clock * 40.0)
+	var size := lerpf(0.35, 0.6, u) * pulse * visual_scale / 1.6
+	if t >= held - 0.06:
+		size = 1.15 * visual_scale / 1.6
+		if _glint_flared != act_serial:
+			_glint_flared = act_serial
+			Sfx.play(self, GLINT_SOUND, self, Vector3.UP * 2.0 * visual_scale, 2.2, -14.0)
+	_glint.scale = Vector3.ONE * size
+	_glint.rotation.z = _voiced_clock * 2.5
+
+
+func _make_glint() -> void:
+	_glint = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	_glint.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.billboard_keep_scale = true
+	m.no_depth_test = true
+	m.albedo_texture = _star_texture()
+	m.albedo_color = Color(1.0, 0.93, 0.78, 1.0)
+	_glint.material_override = m
+	_glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_glint.top_level = true
+	add_child(_glint)
+
+
+## A four-pointed star with a soft round heart.
+static func _star_texture() -> Texture2D:
+	if _star != null:
+		return _star
+	var n := 96
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var u := (float(x) / float(n - 1)) * 2.0 - 1.0
+			var v := (float(y) / float(n - 1)) * 2.0 - 1.0
+			var r := sqrt(u * u + v * v)
+			var heart := clampf(1.0 - r / 0.28, 0.0, 1.0)
+			var ray_h := clampf(1.0 - absf(v) / 0.05, 0.0, 1.0) * clampf(1.0 - absf(u), 0.0, 1.0)
+			var ray_v := clampf(1.0 - absf(u) / 0.05, 0.0, 1.0) * clampf(1.0 - absf(v), 0.0, 1.0)
+			var d := 0.7071
+			var a1 := absf(u * d - v * d)
+			var a2 := absf(u * d + v * d)
+			var ray_d := (clampf(1.0 - a1 / 0.03, 0.0, 1.0) + clampf(1.0 - a2 / 0.03, 0.0, 1.0)) * clampf(1.0 - r / 0.55, 0.0, 1.0) * 0.5
+			var a := clampf(heart * heart + pow(ray_h, 1.5) + pow(ray_v, 1.5) + ray_d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_star = ImageTexture.create_from_image(img)
+	return _star
+
+
+## Every peer: thrown about on the ground under a sudden slide of its (fast
+## along the ground in a move): dirt off both feet.
+func _slide_dust(delta: float) -> void:
+	var p := global_position
+	var moved := Vector3(p.x - _dust_last.x, 0.0, p.z - _dust_last.z)
+	_dust_last = p
+	if delta <= 0.0 or is_dead or act == Act.NONE or act == O_SKY or act == O_SKYDIVE:
+		return
+	var speed := moved.length() / delta
+	if speed < 4.5 or speed > 60.0:
+		return
+	_slide_dust_wait -= delta
+	if _slide_dust_wait > 0.0:
+		return
+	_slide_dust_wait = 0.05
+	var way := moved.normalized()
+	var side := way.cross(Vector3.UP) * 0.35 * visual_scale / 1.6
+	var world := Blood.world_of(self)
+	for foot in [p + side, p - side]:
+		SkidDust.kick(world, foot + Vector3.UP * 0.05, -way, clampf(speed / 14.0, 0.4, 1.0))
 
 
 ## Every peer: the rush of its blade, deeper and louder the heavier it is.

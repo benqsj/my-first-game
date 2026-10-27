@@ -95,6 +95,7 @@ const ELITE := {"role": "elite"}
 const ORC_LONG_SWORD := {"arm_right": "longsword", "arm_left": "none", "hand_combo_chance": Vector2(0.15, 0.4),
 		"max_health": 720.0, "hit_damage": 76.0}
 const ORC_LORD := {"arm_right": "greatsword", "arm_style": "black", "outfit": "Lord", "cape": "Black cape",
+		"intro_title": "ორკების მბრძანებელი",
 		"combo_rest": Vector2(2.0, 3.0), "max_health": 1650.0, "hit_damage": 92.0}
 ## What the lord leaves him (the user's word, 2026-10-21: his sword, for good):
 ## his black blade, in the kind the hero's class holds — the great sword for
