@@ -39,6 +39,9 @@ extends PackBrute
 ## guard), "skirmisher" (keeps `keep_off` m off him and throws, in only when
 ## he turns away or comes on), "chief" (bigger, roars its kin on more often).
 @export var role: StringName = &"duelist"
+## Him this much further off than the next blow of a string lands (m), the
+## rest of it is not swung at the air: it goes after him on foot.
+@export var string_leave: float = 2.5
 ## What it is called over its bar ("" plain "Orc"): "Warrior Orc", "Orc Lord".
 @export var title: String = ""
 ## The skirmisher's distance from him (0: it comes in like any).
@@ -439,6 +442,14 @@ const BLADELESS := [KICK, O_KICKL, O_HILT]
 func _ready() -> void:
 	# its arms first: their reach is what its blows are measured with
 	_equip_arms()
+	# its weight in its strings (the user's word, 2026-10-27: no sliding at
+	# him through its blows; its sudden slides in, kept): a kind that set
+	# none of these takes the orc's
+	if glide_most < 0.0:
+		glide_most = 1.5
+	if act_turn_most <= 0.0:
+		act_turn_most = 220.0
+	chain_snap = 0.0
 	super()
 	_special(KICK, kick_clip, kick_part)
 	# Not a blow that fells him by itself.
@@ -699,7 +710,48 @@ func _combo_named(name: StringName) -> int:
 	return -1
 
 
+## Its sudden slides, meant (the user's word, 2026-10-27: keep them): the
+## charge, the slide to its thrown blade and the spin after it, the fall out
+## of the sky, a far combo's opening (the slide in and the low cut), and a
+## great cut held back a beat and then brought in at him.
+func _sudden() -> bool:
+	if act == O_CHARGE or act == O_FETCH or act == O_FSPIN or act == O_SKY or act == O_SKYDIVE:
+		return true
+	if act == O_LUNGE and _lunge_speed > 0.0:
+		return true
+	if _hand_combo >= 0 and _hand_combo < _hand_combos.size() and _hand_step == 0 \
+			and bool((_hand_combos[_hand_combo] as Dictionary).get("far", false)):
+		return true
+	return _hold_of(act) > 0.0
+
+
+## Host: a step in under a blow held to `glide_most` ([PackBrute]), but for
+## its sudden slides.
+func _cap_glide(v: Vector3) -> Vector3:
+	if _sudden():
+		return v
+	return super(v)
+
+
+func _turn_free() -> bool:
+	return _sudden()
+
+
+## Host: him run off well out of reach in a string, the rest of it is not
+## swung at the air: it goes after him.
+func _hand_next(what: int) -> int:
+	if _quarry != null and _hand_combo >= 0 and _hand_step + 1 < _hand_moves.size() and string_leave > 0.0:
+		var next := int(_hand_moves[_hand_step + 1])
+		if _distance_to(_quarry) > float(_strike_from.get(next, strike_off)) + string_leave:
+			return -1
+	return super(what)
+
+
 func _extra_velocity(delta: float) -> Vector3:
+	return _cap_glide(_own_velocity(delta))
+
+
+func _own_velocity(delta: float) -> Vector3:
 	if act == O_CHARGE:
 		if not _charge_met and _act_time <= charge_time and (_quarry == null or _distance_to(_quarry) > 1.5):
 			if _quarry != null:
@@ -740,13 +792,13 @@ func _extra_velocity(delta: float) -> Vector3:
 			var off := _distance_to(_quarry) - float(_strike_from.get(act, strike_off))
 			var pace := clampf(off / maxf(ms[0] - _act_time, 0.12), -2.5, 6.0)
 			if absf(off) > 0.15:
-				return super(delta) + _forward() * pace
+				return super._extra_velocity(delta) + _forward() * pace
 	if act == O_LUNGE and _lunge_speed > 0.0:
 		if _act_time <= _blow_moments(O_LUNGE)[0] and (_quarry == null or _distance_to(_quarry) > lunge_stop):
 			return _forward() * _lunge_speed
 		_lunge_speed = 0.0
 		return Vector3.ZERO
-	return super(delta)
+	return super._extra_velocity(delta)
 
 
 #region Skills (2026-10-13)

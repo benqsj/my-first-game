@@ -139,8 +139,6 @@ var _dozing: Dictionary = {}
 var _think_tick: int = 0
 var _music_tick: int = 0
 var _music_on: StringName = &""
-## Until when the orcs' fight music keeps going after the last orc lets go.
-var _fight_music_until: float = 0.0
 
 
 func _ready() -> void:
@@ -898,9 +896,8 @@ static func _grow_building(thing: Node3D, by: Vector3) -> void:
 			part.transform = Transform3D(Basis.from_scale(by), Vector3.ZERO) * part.transform
 
 
-## The music: the orcs' fight track while this peer's player is fighting an
-## orc (and for a few seconds after), the village's while he is inside the
-## fence, and nothing out in the wild.
+## The music: the village's while this peer's player is inside the fence,
+## and nothing out in the wild, fighting orcs or not.
 func _play_music_in_village() -> void:
 	var music := get_node_or_null("/root/Music")
 	if music == null:
@@ -915,12 +912,9 @@ func _play_music_in_village() -> void:
 	if rooms != null and rooms.has_method(&"music_wanted"):
 		want = StringName(rooms.call(&"music_wanted"))
 	elif me != null:
-		var now := Time.get_ticks_msec() / 1000.0
-		if _orcs_on(me):
-			_fight_music_until = now + 5.0
-		if now < _fight_music_until:
-			want = &"orc_fight"
-		elif VILLAGE.grow(6.0).has_point(Vector2(me.global_position.x, me.global_position.z)):
+		# no music for a fight with the orcs (the user, 2026-10-27): the
+		# village's inside the fence, nothing out in the wild
+		if VILLAGE.grow(6.0).has_point(Vector2(me.global_position.x, me.global_position.z)):
 			want = &"world"
 	# Against what is actually on, not what this last asked for: the menu's
 	# track is still playing when the level loads, and out in the wild "want
@@ -934,17 +928,4 @@ func _play_music_in_village() -> void:
 		music.call("play", want)
 
 
-## True while an orc is after `me`: chasing or fighting, alive and near.
-func _orcs_on(me: Node3D) -> bool:
-	for node in get_tree().get_nodes_in_group("enemy"):
-		var orc := node as OrcWarrior
-		if orc != null and not orc.is_dead and orc.global_position.distance_to(me.global_position) <= 35.0 \
-				and (orc.mode == Brute.Mode.CHASE or orc.mode == Brute.Mode.FIGHT):
-			return true
-		# the raiders of the mist village (2026-10-13)
-		var raider := node as OrcFighter
-		if raider != null and not raider.is_dead and raider.global_position.distance_to(me.global_position) <= 35.0 \
-				and (raider.mode == Fighter.Mode.CHASE or raider.mode == Fighter.Mode.FIGHT):
-			return true
-	return false
 #endregion

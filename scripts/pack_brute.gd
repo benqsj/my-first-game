@@ -504,7 +504,7 @@ func _cap_glide(v: Vector3) -> Vector3:
 func _face(direction: Vector3, delta: float, rate: float) -> void:
 	var was := rotation.y
 	super(direction, delta, rate)
-	if act_turn_most <= 0.0 or act == Act.NONE or delta <= 0.0 or delta >= 0.5:
+	if act_turn_most <= 0.0 or act == Act.NONE or delta <= 0.0 or delta >= 0.5 or _turn_free():
 		return
 	var frame := Engine.get_physics_frames()
 	if frame != _act_turn_frame:
@@ -513,6 +513,11 @@ func _face(direction: Vector3, delta: float, rate: float) -> void:
 	var turn := clampf(wrapf(rotation.y - was, -PI, PI), -_act_turn_left, _act_turn_left)
 	_act_turn_left -= absf(turn)
 	rotation.y = was + turn
+
+
+## A move it may turn in as fast as it likes (a kind's own sudden ones).
+func _turn_free() -> bool:
+	return false
 
 
 func _after(what: int) -> void:

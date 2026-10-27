@@ -313,6 +313,7 @@ func _arm(what: int) -> void:
 						who.call("receive_blow", worth * _blow_worth(what), self, blow, count, serial)
 					else:
 						who.call("receive_blow", worth * _blow_worth(what), self, blow, count, serial, false, how)
+					reached_tally[what] = int(reached_tally.get(what, 0)) + 1
 					_blow_reached(who, what)))
 
 
@@ -326,6 +327,10 @@ func _blow_kind(_what: int) -> StringName:
 ## A share on top of the move's own worth, as it lands (a creature enraged).
 func _blow_worth(_what: int) -> float:
 	return 1.0
+
+
+## Host: blows of its that reached someone, by act (probes and tests read it).
+var reached_tally: Dictionary = {}
 
 
 ## Host: one of its blows (of act `what`) has reached `who` (he may yet have

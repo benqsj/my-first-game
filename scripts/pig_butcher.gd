@@ -113,10 +113,9 @@ const CUT_AT := {
 ## out to z 0.365 (measured, `_shots_tmp/cleaver_aabb.gd`).
 const ARC_EDGE_Z := 0.3
 @export var arc_speed: float = 6.0
-## Him this much further off than the next blow lands (m), the string is
-## left off. (His glide and his turn in a move are held by [PackBrute]'s
-## `glide_most` and `act_turn_most`, set in `_ready`.)
-@export var string_leave: float = 2.5
+## (His string left off with him far: [OrcFighter]'s `string_leave`. His
+## glide and his turn in a move are held by [PackBrute]'s `glide_most` and
+## `act_turn_most`, set in `_ready`.)
 ## Him gone round to his side close by (further than `side_angle` off his
 ## front, or going round him faster than `side_orbit` degrees a second),
 ## he spins on him, the cleaver round the whole of him (the user's word,
@@ -939,10 +938,6 @@ func _hand_next(what: int) -> int:
 			_hand_moves = _hand_moves.slice(0, _hand_step + 1)
 			_hand_moves.append(B_SPIN if _rng.randf() < 0.55 else B_LOWSPIN)
 			side_spins += 1
-	if _quarry != null and _hand_combo >= 0 and _hand_step + 1 < _hand_moves.size():
-		var next := int(_hand_moves[_hand_step + 1])
-		if _distance_to(_quarry) > float(_strike_from.get(next, strike_off)) + string_leave:
-			return -1
 	return super(what)
 
 
