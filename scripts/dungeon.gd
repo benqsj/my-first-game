@@ -133,9 +133,6 @@ const PLACES := {
 	# [CryptTomb]: the user's pick, 2026-10-24)
 	"crypt": {"name": "აკლდამა", "kind": "flood_crypt", "w": 44.0, "l": 100.0, "h": 15.0},
 	"swamp": {"name": "ჭაობი", "kind": "swamp", "w": 58.0, "l": 62.0, "h": 0.0},
-	# the pale marsh in the mist (the user's pick B of the swamp concepts,
-	# 2026-10-25; the old swamp kept as well) [PaleMarsh]
-	"marsh": {"name": "ნისლიანი ჭაობი", "kind": "pale_marsh", "w": 58.0, "l": 62.0, "h": 0.0},
 	"mountain": {"name": "ჩანჩქერის ნანგრევები", "kind": "falls", "w": 46.0, "l": 64.0, "h": 0.0, "lift": 60.0},
 	"rampart": {"name": "ციხის ტერასა", "kind": "fort", "w": 50.0, "l": 60.0, "h": 0.0},
 	# the places to get one's breath back ([RestSpot]): no creatures, "rest" on the portal
@@ -2408,8 +2405,10 @@ func _go_through(k: int, plan: Dictionary) -> void:
 			hero.velocity = Vector3.ZERO
 		slot += 1
 	_to_phase(light_of(next), 0.05)
-	# behind the dark till the new place draws smoothly: whatever it shows
-	# for the first time made now, not in front of him
+	# behind the dark: the new place seen once from its door and from over
+	# it, so what it shows for the first time is made now and not when he
+	# turns round in it; then till it draws smoothly
+	await _look_round(next)
 	await _settle()
 	var back := create_tween()
 	back.tween_property(_fade, "color:a", 0.0, FADE)
@@ -2435,8 +2434,8 @@ func _settle() -> void:
 
 ## Everything the run will show, shown to the renderer once behind the
 ## loading screen ([SceneLoader] waits while a node called PipelineWarmup is
-## there, as for the open world's [PipelineWarmup]): every other place put up
-## out of the way and looked at from three sides, one of each creature, the
+## there, as for the open world's [PipelineWarmup]): the first place looked
+## round (the others are, behind the dark, as he comes to them), one of each creature, the
 ## lord and his orcs, the portals, the shards of the dead, the sparks, the
 ## heroes' own skills. Godot makes what it draws the first time it draws it,
 ## and made in front of him each of those was a stall (the user's word,
@@ -2460,52 +2459,12 @@ func _warm_up() -> void:
 	eye.fov = 95.0
 	eye.far = 520.0
 	add_child(eye)
-	var keep := {"current": current, "creaks": _creaks.duplicate(), "birds": _birds.duplicate(),
-			"sea": _cloud_sea, "layers": _cloud_layer_mats.duplicate()}
-	var here := String(_room(current).get("place", ""))
-	var n := 0
-	var reachable := _run_places()
-	for place: String in PLACES:
-		if place == here or not reachable.has(place):
-			continue
-		var p: Dictionary = PLACES[place]
-		var i := rooms.size()
-		var r := {"place": place, "kind": p["kind"], "w": p["w"], "l": p["l"], "h": p["h"], "name": p["name"],
-				"foes": [], "lv": 1, "xp": 0.0, "reach": 0, "reward": ""}
-		if p.has("hole"):
-			r["hole"] = true
-		rooms.append(r)
-		centres.append(WARM_AT + Vector3(0.0, float(p.get("lift", 0.0)), float(n) * 300.0))
-		_build_room(i)
-		current = i
-		_place_look(0.0)
-		var c := centre(i)
-		var l: float = r["l"]
-		var h := maxf(float(r["h"]), 8.0)
-		for pose: Array in [[Vector3(0.0, 2.5, l * 0.5 - 3.0), Vector3(0.0, 2.0, 0.0)],
-				[Vector3(0.0, h + 14.0, -l * 0.35), Vector3(0.0, 0.0, l * 0.1)]]:
-			eye.make_current()
-			eye.global_position = c + (pose[0] as Vector3)
-			eye.look_at(c + (pose[1] as Vector3))
-			await get_tree().process_frame
-			await get_tree().process_frame
-		if i < _room_nodes.size() and is_instance_valid(_room_nodes[i]):
-			_room_nodes[i].free()
-		_room_nodes.resize(i)
-		var cols: Array[Dictionary] = []
-		for col in _columns:
-			if int(col["room"]) != i:
-				cols.append(col)
-		_columns = cols
-		rooms.resize(i)
-		centres.resize(i)
-		n += 1
-	current = int(keep["current"])
-	_creaks.assign(keep["creaks"])
-	_birds.assign(keep["birds"])
-	_cloud_sea = keep["sea"]
-	_cloud_layer_mats.assign(keep["layers"])
-	_apply_phase(_phase)
+	# Only the place he stands in, from its door and from over it. The
+	# others are no longer put up here (they cost ~3.5 s of the loading
+	# screen at High on the M1): each is looked round behind the dark as he
+	# goes through its portal ([method _look_round], the user's idea,
+	# 2026-10-28: made at the right time, not all beforehand).
+	await _look_round(current, eye)
 
 	# The creatures, the portals, the fights' own: in a row before the eye.
 	var stage := Node3D.new()
@@ -2647,24 +2606,39 @@ func _warm_up() -> void:
 	print("Dungeon: warm-up %d ms" % (Time.get_ticks_msec() - started))
 
 
-## The places this run can come to: its steps' own, those [constant ZONES]
-## lends when a step's are used up, and the rests put in between. Only these
-## are put up in [method _warm_up]: the others (the court, the broken hall, the
-## misty marsh) are in no run now and cost ~1.7 s of the loading screen at High
-## on the M1 (2026-10-27 probe). One reached anyway (F2's rooms) is still built
-## as usual, only not drawn beforehand.
-func _run_places() -> Dictionary:
-	var out := {}
-	for step: Dictionary in steps:
-		for place: Variant in step.get("places", []):
-			out[String(place)] = true
-	for zone: Array in ZONES:
-		for place: Variant in zone:
-			out[String(place)] = true
-	for place: String in PLACES:
-		if (PLACES[place] as Dictionary).has("rest"):
-			out[place] = true
-	return out
+## Place `i` shown to the renderer once from its door and from high over
+## it (two frames each), through `eye` or a camera of its own, the view then
+## given back to his own eye. Done behind the dark (the loading screen, a
+## portal's black): Godot makes what it draws the first time it draws it,
+## and this way that is not in front of him. ~60–400 ms a place at High on
+## the M1 (2026-10-27 probe), where it used to be all at the start.
+func _look_round(i: int, eye: Camera3D = null) -> void:
+	if DisplayServer.get_name() == "headless" or i < 0 or i >= rooms.size():
+		return
+	var own := eye == null
+	if own:
+		eye = Camera3D.new()
+		eye.fov = 95.0
+		eye.far = 520.0
+		add_child(eye)
+	var r: Dictionary = rooms[i]
+	var c := centre(i)
+	var l := float(r.get("l", 40.0))
+	var h := maxf(float(r.get("h", 0.0)), 8.0)
+	for pose: Array in [[Vector3(0.0, 2.5, l * 0.5 - 3.0), Vector3(0.0, 2.0, 0.0)],
+			[Vector3(0.0, h + 14.0, -l * 0.35), Vector3(0.0, 0.0, l * 0.1)]]:
+		if not is_instance_valid(eye):
+			return
+		eye.make_current()
+		eye.global_position = c + (pose[0] as Vector3)
+		eye.look_at(c + (pose[1] as Vector3))
+		await get_tree().process_frame
+		await get_tree().process_frame
+	if own:
+		eye.queue_free()
+		var hers := _hero_eye()
+		if hers != null:
+			hers.make_current()
 
 
 func _keep_materials(under: Node) -> void:
@@ -3396,7 +3370,7 @@ func _place_look(night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "pale_marsh", "twin_cave", "holy_spring", "altar"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "twin_cave", "holy_spring", "altar"]
 	_env.glow_enabled = true
 	_env.glow_intensity = 0.9
 	_env.glow_bloom = 0.08
@@ -3500,17 +3474,16 @@ func _place_look(night: float = 0.0) -> void:
 			if _sun != null:
 				_sun.light_energy *= 0.6
 				_sun.light_color = _sun.light_color.lerp(Color(0.80, 0.86, 0.90), 0.4)
-			if SwampMere.low_poly:
-				# the low poly swamp less bright and gay (the user's word,
-				# 2026-10-25): a heavier, damper air, the greens dulled
-				_env.adjustment_saturation = 0.82
-				_env.adjustment_contrast = 1.08
-				_env.tonemap_exposure = 0.88
-				_env.fog_light_color = _env.fog_light_color.lerp(Color(0.38, 0.43, 0.38), 0.5)
-				_env.fog_density = 0.0055
-				_env.ambient_light_energy *= 0.85
-				if _sun != null:
-					_sun.light_energy *= 0.85
+			# the low poly swamp less bright and gay (the user's word,
+			# 2026-10-25): a heavier, damper air, the greens dulled
+			_env.adjustment_saturation = 0.82
+			_env.adjustment_contrast = 1.08
+			_env.tonemap_exposure = 0.88
+			_env.fog_light_color = _env.fog_light_color.lerp(Color(0.38, 0.43, 0.38), 0.5)
+			_env.fog_density = 0.0055
+			_env.ambient_light_energy *= 0.85
+			if _sun != null:
+				_sun.light_energy *= 0.85
 		"mountain":
 			# the storm: dark, cold, the clouds down on the peaks
 			_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.48, 0.52, 0.58), 0.4)
@@ -3585,9 +3558,6 @@ func _place_look(night: float = 0.0) -> void:
 		"war_camp":
 			_ashen_look()
 			_court_look("a")
-		"pale_marsh":
-			_ashen_look()
-			_marsh_look()
 		"cave":
 			# (2026-10-23: the land's grey under the earth, a cold cast only)
 			_env.ambient_light_color = Color(0.54, 0.56, 0.59)
@@ -3892,36 +3862,6 @@ func _court_look(which: String = "c") -> void:
 		_sun.shadow_opacity = 0.78
 
 
-## The pale marsh ([PaleMarsh]) over Ashen's light: white mist closing in
-## past the clearing, the trees beyond lost in it, the sky white; the sun
-## soft behind the cloud.
-func _marsh_look() -> void:
-	if _sky_mat != null:
-		_sky_mat.set_shader_parameter("top_col", Color(0.74, 0.76, 0.78))
-		_sky_mat.set_shader_parameter("hor_col", Color(0.88, 0.88, 0.87))
-		_sky_mat.set_shader_parameter("cloud", 0.95)
-	_env.fog_light_color = Color(0.82, 0.83, 0.83)
-	_env.fog_density = 0.9
-	_env.fog_depth_begin = 12.0
-	_env.fog_depth_end = 120.0
-	_env.fog_depth_curve = 1.1
-	_env.fog_sky_affect = 0.8
-	_env.fog_height_density = 0.0
-	_env.volumetric_fog_density = 0.002
-	_env.volumetric_fog_ambient_inject = 0.08
-	_env.ambient_light_color = Color(0.72, 0.74, 0.76)
-	_env.ambient_light_energy = 1.0
-	_env.tonemap_exposure = 1.08
-	# the picture's colours kept: its browns, olive moss and rust not greyed
-	_env.adjustment_saturation = 0.92
-	_env.adjustment_contrast = 1.0
-	if _sun != null:
-		_sun.light_energy = 1.0
-		_sun.light_color = Color(1.0, 0.95, 0.88)
-		_sun.rotation.x = -deg_to_rad(42.0)
-		_sun.light_angular_distance = 4.0
-		_sun.shadow_opacity = 0.6
-
 
 func _camp_look() -> void:
 	if _sky_mat != null:
@@ -4106,9 +4046,6 @@ func _build_room_body(i: int) -> void:
 			return
 		"swamp":
 			_build_swamp(room, i)
-			return
-		"pale_marsh":
-			PaleMarsh.build(self, room, w, l, _rng)
 			return
 		"mountain":
 			_build_mountain(room, i)
@@ -5425,8 +5362,6 @@ func _ambience(i: int) -> void:
 			parts = [["cave_loop.wav", -14.0]]
 		"cell_cave":
 			parts = [["cave_loop.wav", -12.0], ["drums_far_loop.wav", -30.0]]
-		"pale_marsh":
-			parts = [["frogs_loop.wav", -14.0], ["wind_loop.wav", -18.0]]
 		"holy_spring":
 			# a still autumn wood: the wind in the leaves, faint
 			parts = [["wind_loop.wav", -17.0]]
