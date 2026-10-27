@@ -47,6 +47,9 @@ const STAGGER := 34
 ## spits a little fireball at him now and then (`spit_every`, the user's pick,
 ## 2026-10-27), which sets him alight a moment ([HeroBurn]).
 const THROW := 35
+## Share of the throw (IP_Headbutt, frames 0-62%) the fireball leaves his
+## mouth at: as the head snaps forward.
+const SPIT_AT := 0.5
 
 ## act -> [clip, rate, from, to]: which clip, how fast, and the share of it
 ## played (past a slow wind-up, short of a long settle).
@@ -68,7 +71,7 @@ const MOVES := {
 	HIT_L: [&"IP_Hit_L", 1.3, 0.0, 0.8],
 	HIT_R: [&"IP_Hit_R", 1.3, 0.0, 0.8],
 	STAGGER: [&"IP_Stagger", 1.2, 0.0, 0.85],
-	THROW: [&"IP_Swipe_R", 1.2, 0.15, 0.8],
+	THROW: [&"IP_Headbutt", 1.25, 0.0, 0.62],
 }
 ## Attack -> [bones whose speed marks a blow, which limb lands it ("claw" /
 ## "weapon"), share of hit_damage, blows the player counts it as].
@@ -314,7 +317,7 @@ func _hang_back(gap: float, delta: float) -> void:
 	_hold_to(_held_spot((held_ring.x + held_ring.y) * 0.5), strafe_speed * 1.4, delta)
 
 func _run_act(delta: float) -> void:
-	if act == THROW and not _flung and _act_time >= _act_length * 0.45:
+	if act == THROW and not _flung and _act_time >= _act_length * SPIT_AT:
 		_flung = true
 		_let_fly()
 	super(delta)
@@ -324,6 +327,10 @@ func _let_fly() -> void:
 	if _quarry == null:
 		return
 	var from := global_position + Vector3.UP * 1.6 * maxf(visual_scale, 0.01) + _forward() * 0.4
+	# Out of his mouth: just ahead of the head as it snaps forward.
+	var head := _skeleton.find_bone("Head") if _skeleton != null else -1
+	if head >= 0:
+		from = (_skeleton.global_transform * _skeleton.get_bone_global_pose(head)).origin + _forward() * 0.3 * maxf(visual_scale, 0.01)
 	var target := _quarry.global_position + Vector3.UP * 1.2
 	var v: Variant = _quarry.get(&"velocity")
 	var flight := clampf(from.distance_to(target) / 14.0, 0.4, 1.0)
