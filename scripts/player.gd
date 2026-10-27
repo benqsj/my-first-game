@@ -1520,10 +1520,12 @@ func _process_locomotion(delta: float) -> void:
 	if on_floor:
 		# Climbing costs speed, dropping gives a little back.
 		speed *= _slope_factor(direction)
+		# on a puglin's mud he slides: little grip to start or stop
+		var grip := MudBall.grip_at(get_tree(), global_position)
 		if direction.is_zero_approx():
-			horizontal = horizontal.move_toward(Vector3.ZERO, ground_deceleration * delta)
+			horizontal = horizontal.move_toward(Vector3.ZERO, ground_deceleration * grip * delta)
 		else:
-			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * delta)
+			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * grip * delta)
 		_aim_body(direction, delta)
 		if _bitten() and _glide_left <= 0.0:
 			# The swing held in its bite holds the body too: no gliding on

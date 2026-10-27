@@ -6461,6 +6461,35 @@ scream, the flinch, the stumble back, the fall onto its back and its get-up, the
 * Tests: `tests/dead_test.gd` accepts any of the three falls/get-ups. Not run (the user's rule). For the co-op check,
   the seize/shove should be added to `coop_seen_test` when tests are asked for.
 
+### The skeleton archer, the imp's fireball, the puglins' single cuts and mud (2026-10-27, the user's picks)
+
+Plan: project doc `claude/archer_imp_puglin_plan.md`. Candidate film `_shots_tmp/ar/archer_clips_half.mp4` (30); in
+game `_shots_tmp/ar/archer_ingame_half.mp4`, `imp_puglin_ingame_half.mp4` (probes `ar_game.gd`, `ip_game.gd`).
+* **Plain skeleton** (`pack/skeleton.tscn`): weak and plain: health 60, damage 10, chase 2.6, p_def 6, single blows
+  1.0-1.8 s apart (no string, no bite), comes back together 1 in 5.
+* **Skeleton archer** (`scripts/bow_fighter.gd`, `pack/skeleton_archer.tscn`; clips CR_AR_* from Mixamo's bow set):
+  - the shot is NOCK (71: CR_BowShot up to `nock_until` 0.58) then AIM (72: CR_AR_AimFire, loosed at `aim_loose`
+    0.33 s);
+  - `fire_chance` 0.25: POWER (73: CR_AR_Overdraw at 1.6, the drawn arrow's head alight on every peer,
+    `_show_head_fire`) and a burning arrow (`net_loose(..., burning)`, flames and a light on it); on the host its
+    `struck` signal, finding a hero not guarding nor untouchable, sends `net_burn`: [HeroBurn] (new,
+    `scripts/hero_burn.gd`) flames on him for `fire_burn` 3 s, `fire_dps` 6 taken on his own peer;
+  - within `kick_range` 2.2 (every `kick_cooldown` 4 s): KICK (74, CR_AR_Kick, feet limbs, count 1: he goes down),
+    then DODGE_B (75, the hop back) and a shot; else it runs as before;
+  - `dodge_chance` 0.3 of his swings: DODGE_B/L/R (75-77; side hops pushed at `dodge_speed`);
+  - `behind_line`: with fighters of any kind (not archers) within 7 m of him and 18 m of it, it keeps
+    `behind_gap` 5 m further off him than they are (`_keep_behind`);
+  - flinch CR_AR_Flinch; its death still breaks it into bones, the bow its own piece (the equip joint).
+* **Imp** (`scripts/imp.gd`): circling, every `spit_every` 5-9 s within `throw_range`, the THROW act flings its
+  coal as a little fireball (MudBall `ember`: flames and a light now), and one that finds him (not guarding,
+  not untouchable) sets him alight `spit_burn` 1.5 s ([HeroBurn], `net_alight`).
+* **Puglin** (`scripts/puglin.gd`): one of its three slashes at a time (COMBO, COMBO_2 or COMBO_3 alone, then
+  `attack_cooldown`), none floors him.
+* **Mud** (`scripts/mud_ball.gd`): the lump drawn `SEEN` 1.45 its size with a trail of clods; no ring where it
+  lands; its patch (`MudPatch`, radius 0.85, wet `WET` 9 s, darker) also falls at his feet when it hits him; a hero
+  on a wet patch keeps `SLIP` 0.12 of his grip (`MudBall.grip_at`, read in `Player` ground movement): he slides.
+* `arrow.gd`: an arrow whose shooter is gone no longer errors (`is_instance_valid`).
+
 ### The goblin, round 2: its own club (2026-10-27, the user's picks from films)
 
 Picked from `_shots_tmp/gb/goblin_clips_half.mp4` (38 clips) and `goblin_club_half.mp4` (20, the club): Mixamo's, baked

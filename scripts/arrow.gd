@@ -244,7 +244,8 @@ func _steer(delta: float) -> void:
 func _sweep(from: Vector3, to: Vector3) -> Dictionary:
 	var space := get_world_3d().direct_space_state
 	var exclude: Array[RID] = []
-	if _shooter is CollisionObject3D:
+	# (the shooter may be gone while its arrow is still in the air)
+	if is_instance_valid(_shooter) and _shooter is CollisionObject3D:
 		exclude.append((_shooter as CollisionObject3D).get_rid())
 	# World and enemies: the same things the player's own capsule collides with.
 	var query := PhysicsRayQueryParameters3D.create(from, to, 3 if against_heroes else 5, exclude)

@@ -43,7 +43,9 @@ const HIT_F := 31
 const HIT_L := 32
 const HIT_R := 33
 const STAGGER := 34
-## Held back, it flings a burning coal at him from out of reach.
+## Held back, it flings a burning coal at him from out of reach; circling, it
+## spits a little fireball at him now and then (`spit_every`, the user's pick,
+## 2026-10-27), which sets him alight a moment ([HeroBurn]).
 const THROW := 35
 
 ## act -> [clip, rate, from, to]: which clip, how fast, and the share of it
@@ -112,6 +114,11 @@ enum Tactic { CLOSE, CIRCLE, ENGAGE }
 @export var throw_range: Vector2 = Vector2(5.0, 14.0)
 @export var throw_every: Vector2 = Vector2(3.5, 6.0)
 @export var coal_damage: float = 6.0
+## Circling him: seconds between its spat fireballs (0: never), how long one
+## that finds him keeps him burning, and how hot.
+@export var spit_every: Vector2 = Vector2(5.0, 9.0)
+@export var spit_burn: float = 1.5
+@export var spit_dps: float = 5.0
 ## Share of a hit clip's travel it is thrown by (lighter creatures more).
 @export var knock_scale: float = 1.0
 ## Fraction of its health one blow must take to stagger it rather than flinch it.
@@ -263,6 +270,14 @@ func _think(delta: float) -> void:
 				_set_tactic(Tactic.CLOSE)
 				return
 			_circle(gap, delta)
+			# now and then a little fireball at him from the ring
+			if spit_every.y > 0.0 and _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y \
+					and Fighter.claim_throw(_quarry):
+				_throw_wait = _rng.randf_range(spit_every.x, spit_every.y)
+				_face(_quarry.global_position - global_position, 1.0, 1000.0)
+				_flung = false
+				_begin(THROW)
+				return
 			if _tactic_left <= 0.0 and _cooldown <= 0.0 and stamina >= attack_cost:
 				if _take_turn():
 					if gap <= leap_range and gap >= ring.x - 0.4 and _rng.randf() < 0.55:
@@ -328,6 +343,17 @@ func mud_landed(who: Node3D) -> void:
 	if who == null or not who.has_method(&"receive_blow"):
 		return
 	who.call(&"receive_blow", coal_damage, self, 0, 2, act_serial * 7 + 3)
+	var hero := who as Player
+	if hero != null and spit_burn > 0.0 and not hero.untouchable_now(self) and not hero.guarding():
+		net_alight.rpc(hero.get_path())
+
+
+## Every peer: the hero its fireball found burns a moment.
+@rpc("authority", "call_local", "reliable")
+func net_alight(hero: NodePath) -> void:
+	var who := get_node_or_null(hero) as Node3D
+	if who != null:
+		HeroBurn.ignite(who, spit_burn, spit_dps)
 
 
 func _set_tactic(what: int) -> void:

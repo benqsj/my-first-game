@@ -22,8 +22,9 @@ extends ClipFighter
 ##   cut on its hide — only magic gets in — and once it uncurls it is dizzy a
 ##   moment: that is the opening. When the whole band rolls at once and every one
 ##   of them finds him, he goes down.
-## * **One combo, three cuts** with the sword (three slashes run together);
-##   the three together floor him.
+## * **One cut at a time** with the sword (the user's word, 2026-10-27: a small
+##   creature's string cannot be read, so cannot be dodged): one of its three
+##   slashes, then a breath (`attack_cooldown`); none floors him.
 ## * **Mud.** Thrown in an arc; what it hits is muddied — on the screen of the
 ##   one it hit ([ScreenMud]) — unless it was rolled away from or met on a shield.
 ## * **Hard to cut** (p.def high), easy to burn (m.def low), and not put off its
@@ -376,7 +377,7 @@ func _think(delta: float) -> void:
 		_volley_serial += 1
 		_chain_serial = _volley_serial * 10
 		_chain_blow = 0
-		_begin(COMBO)
+		_begin(CUTS[_rng.randi() % CUTS.size()])
 		return
 	# Near him it walks in to cut — bunched or not — rather than throw.
 	if gap < close_in and _cooldown <= 0.0:
@@ -462,19 +463,14 @@ func _after(what: int) -> void:
 				_volley_serial += 1
 				_chain_serial = _volley_serial * 10
 				_chain_blow = 0
-				_begin(COMBO)
+				_begin(CUTS[_rng.randi() % CUTS.size()])
 				stamina = maxf(stamina + attack_cost, 0.0)
 			else:
 				_start(Act.NONE)
 		LEAP:
 			_start(Act.NONE)
 			_cooldown = _rng.randf_range(attack_cooldown.x, attack_cooldown.y)
-		COMBO, COMBO_2:
-			# On into the next slash of the three, still the one combo.
-			_chain_blow += 1
-			_begin(COMBO_2 if what == COMBO else COMBO_3)
-			stamina = maxf(stamina + attack_cost, 0.0)
-		COMBO_3, THROW:
+		COMBO, COMBO_2, COMBO_3, THROW:
 			_chain_serial = -1
 			_chain_blow = 0
 			_start(Act.NONE)

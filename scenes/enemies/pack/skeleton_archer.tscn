@@ -92,7 +92,7 @@ weapon_bone = &"R_wrist_joint"
 weapon_tip = Vector3(0.12, 0, 0)
 weapon_radius = 0.12
 strike_bones = PackedStringArray("R_wrist_joint")
-hit_clip = &"CR_Hit"
+hit_clip = &"CR_AR_Flinch"
 attacks = Array[StringName]([])
 attack_parts = Array[Vector3]([])
 attack_limbs = PackedStringArray()
@@ -116,6 +116,12 @@ keep_away = 11.0
 flee_time = 1.7
 arrow_speed = 34.0
 reform_chance = 0.5
+aim_clip = &"CR_AR_AimFire"
+fire_clip = &"CR_AR_Overdraw"
+kick_clip = &"CR_AR_Kick"
+dodge_clips = PackedStringArray("CR_AR_DodgeBack", "CR_AR_DodgeLeft", "CR_AR_DodgeRight")
+dodge_chance = 0.3
+behind_line = true
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.855, 0)

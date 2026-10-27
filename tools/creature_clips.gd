@@ -432,6 +432,16 @@ const MIXAMO := [
 	["CR_GB_RollKick", "res://assets/creatures/anim/mixamo/GB_RollKick.fbx", false, 0.0, -1.0],
 	["CR_GB_Bolt", "res://assets/creatures/anim/mixamo/GB_Bolt.fbx", false, 0.0, -1.0],
 	["CR_GB_Fall", "res://assets/creatures/anim/mixamo/GB_Fall.fbx", false, 0.0, -1.0],
+	# The skeleton archer's own (2026-10-27, the user's picks from its films):
+	# the long draw (its fire arrow), the aim and loose, the kick, three hops
+	# aside, a flinch.
+	["CR_AR_Overdraw", "res://assets/creatures/anim/mixamo/AR_Overdraw.fbx", false, 0.0, -1.0],
+	["CR_AR_AimFire", "res://assets/creatures/anim/mixamo/AR_AimFire.fbx", false, 0.0, -1.0],
+	["CR_AR_Kick", "res://assets/creatures/anim/mixamo/AR_Kick.fbx", false, 0.0, -1.0],
+	["CR_AR_DodgeBack", "res://assets/creatures/anim/mixamo/AR_DodgeBack.fbx", false, 0.0, -1.0],
+	["CR_AR_DodgeLeft", "res://assets/creatures/anim/mixamo/AR_DodgeLeft.fbx", false, 0.0, -1.0],
+	["CR_AR_DodgeRight", "res://assets/creatures/anim/mixamo/AR_DodgeRight.fbx", false, 0.0, -1.0],
+	["CR_AR_Flinch", "res://assets/creatures/anim/mixamo/AR_Flinch.fbx", false, 0.0, -1.0],
 ]
 
 ## Mannequin bone -> Mixamo's (after "mixamorig").

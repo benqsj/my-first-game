@@ -12,6 +12,10 @@ extends Node3D
 
 const GRAVITY := 12.0
 const RADIUS := 0.2
+## How much bigger the lump is drawn than it hits (it must read in the air).
+const SEEN := 1.45
+## What a hero keeps of his grip on the ground standing in a patch.
+const SLIP := 0.12
 const LIFE := 4.0
 const SPLAT_SOUND := "res://unverified/sounds/all/land.wav"
 const THROW_SOUND := "res://unverified/sounds/all/jump.wav"
@@ -141,6 +145,30 @@ func _ready() -> void:
 	_lump.mesh = lump_mesh()
 	_lump.material_override = coal() if ember else mud()
 	add_child(_lump)
+	if ember:
+		# a little fireball: flames off it and a warm light
+		SkillFx.particles(self, global_position, {
+			"amount": 30, "life": 0.3, "speed": Vector2(0.2, 0.5), "spread": 40.0,
+			"gravity": Vector3(0, 2.0, 0), "size": Vector2(0.3, 0.5), "sphere": 0.12,
+			"tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": false, "grow": 0.2,
+			"colors": [Color(1.0, 0.62, 0.18, 0.0), Color(1.0, 0.5, 0.08, 0.95), Color(0.92, 0.2, 0.02, 0.85),
+					Color(0.25, 0.03, 0.0, 0.0)],
+		})
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(1.0, 0.45, 0.1)
+		glow.light_energy = 1.6
+		glow.omni_range = 3.0
+		glow.shadow_enabled = false
+		add_child(glow)
+	else:
+		# bigger than it hits, so it reads against the sky and the ground, and
+		# a trail of wet clods behind it (the user's word, 2026-10-27)
+		_lump.scale = Vector3.ONE * SEEN
+		SkillFx.particles(self, global_position, {
+			"amount": 26, "life": 0.45, "speed": Vector2(0.1, 0.4), "spread": 60.0,
+			"gravity": Vector3(0, -4.0, 0), "size": Vector2(0.06, 0.12), "sphere": 0.08, "add": false,
+			"colors": [Color(0.32, 0.2, 0.09, 0.95), Color(0.24, 0.15, 0.07, 0.0)],
+		})
 	if _shadow_mat == null:
 		_shadow_mat = StandardMaterial3D.new()
 		_shadow_mat.albedo_color = Color(0.05, 0.03, 0.02, 0.55)
@@ -168,7 +196,7 @@ func _physics_process(delta: float) -> void:
 	var to := from + _vel * delta
 	_lump.rotate_object_local(Vector3(1, 0.3, 0).normalized(), 9.0 * delta)
 	# Squashed along the way it flies, a little.
-	_lump.scale = Vector3(0.9, 0.9, 1.15)
+	_lump.scale = Vector3(0.9, 0.9, 1.15) * (1.25 if ember else SEEN)
 	if _host and _thrower != null and is_instance_valid(_thrower):
 		for node in get_tree().get_nodes_in_group("player"):
 			var who := node as Node3D
@@ -211,7 +239,6 @@ func _physics_process(delta: float) -> void:
 func _splash(at: Vector3, ground: bool, normal: Vector3 = Vector3.UP) -> void:
 	_done = true
 	var world := get_parent()
-	DustRing.burst(world, at, 0.45)
 	for i in 14:
 		var out := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized() * randf_range(1.5, 4.0)
 		MudDrop.spawn(world, at + Vector3.UP * 0.1, out + normal * randf_range(1.5, 4.0), randf_range(0.03, 0.08), ember)
@@ -220,6 +247,14 @@ func _splash(at: Vector3, ground: bool, normal: Vector3 = Vector3.UP) -> void:
 		var patch := MudPatch.new()
 		world.add_child(patch)
 		patch.global_position = at + normal * 0.02
+	elif not ember and is_inside_tree():
+		# it found him: the mud falls off him at his feet
+		var down := get_world_3d().direct_space_state.intersect_ray(
+				PhysicsRayQueryParameters3D.create(at, at + Vector3.DOWN * 3.0, 1))
+		if not down.is_empty() and (down["normal"] as Vector3).y > 0.6:
+			var patch := MudPatch.new()
+			world.add_child(patch)
+			patch.global_position = (down["position"] as Vector3) + Vector3.UP * 0.02
 	queue_free()
 
 
@@ -246,20 +281,49 @@ class MudDrop extends MeshInstance3D:
 			queue_free()
 
 
-## The brown patch a lump leaves on the ground, drying away.
+## What a hero standing at `at` keeps of his grip on the ground: `SLIP` in a
+## patch of mud (he slides on it), else 1.
+static func grip_at(tree: SceneTree, at: Vector3) -> float:
+	if tree == null:
+		return 1.0
+	for node in tree.get_nodes_in_group(&"mud_patch"):
+		var p := node as MudPatch
+		if p == null or not p.slippery():
+			continue
+		var d := p.global_position - at
+		if absf(d.y) > 0.5:
+			continue
+		d.y = 0.0
+		if d.length() < MudPatch.RADIUS * maxf(p.scale.x, p.scale.z):
+			return SLIP
+	return 1.0
+
+
+## The brown patch a lump leaves on the ground, drying away; while it is wet
+## a hero on it slides ([method MudBall.grip_at]).
 class MudPatch extends MeshInstance3D:
+	const RADIUS := 0.85
+	const WET := 9.0
 	var _age := 0.0
 	var _mat: StandardMaterial3D
 
+	func slippery() -> bool:
+		return _age < WET
+
 	func _ready() -> void:
+		add_to_group(&"mud_patch")
 		var disc := CylinderMesh.new()
-		disc.top_radius = 0.45
-		disc.bottom_radius = 0.45
+		disc.top_radius = RADIUS
+		disc.bottom_radius = RADIUS
 		disc.height = 0.01
 		disc.radial_segments = 14
 		mesh = disc
 		_mat = MudBall.mud().duplicate() as StandardMaterial3D
 		_mat.rim_enabled = false
+		# wet but dark: the sky's sheen on it read as a pale disc
+		_mat.albedo_color = Color(0.2, 0.13, 0.06)
+		_mat.clearcoat = 0.3
+		_mat.metallic_specular = 0.25
 		_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		material_override = _mat
 		cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -268,7 +332,7 @@ class MudPatch extends MeshInstance3D:
 
 	func _process(delta: float) -> void:
 		_age += delta
-		if _age > 6.0:
-			_mat.albedo_color.a = clampf(1.0 - (_age - 6.0) / 3.0, 0.0, 1.0)
-			if _age > 9.0:
+		if _age > WET:
+			_mat.albedo_color.a = clampf(1.0 - (_age - WET) / 3.0, 0.0, 1.0)
+			if _age > WET + 3.0:
 				queue_free()
