@@ -70,7 +70,8 @@ func _throw() -> void:
 		var hit := space.intersect_ray(q)
 		if not hit.is_empty():
 			_floor = (hit["position"] as Vector3).y
-	var count := clampi(int(ceil(float(amount) / 2.0)), 3, 16)
+	# a coin for each (gold is dear: one, or a boss's two)
+	var count := clampi(amount, 1, 16)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = id * 7919 + amount
 	for i in count:

@@ -38,8 +38,8 @@ extends Brawler
 @export_group("Theft")
 @export_range(0.0, 1.0) var steal_chance: float = 0.55
 @export_range(0.0, 1.0) var steal_share: float = 0.3
-@export var steal_least: int = 3
-@export var steal_most: int = 60
+@export var steal_least: int = 1
+@export var steal_most: int = 5
 @export var thief_flee: float = 5.0
 
 @export_group("Cowardice")

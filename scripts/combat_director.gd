@@ -21,6 +21,13 @@ extends Node
 ## * **From behind**: a creature striking at his back, or a shot coming at it,
 ##   shows as a mark at the screen's edge on its side.
 ## * **F7**: what it is doing, on the screen (for tuning).
+## * (2026-10-28, the user's word: the rest of the plan) **Balance** on
+##   elites and bosses ([Poise]); **the last-moment roll** gives back a
+##   third of his stamina and shakes the one he rolled through; **the
+##   flask**: drinking in the fight, those near rush him for a moment;
+##   **a heavy blow** rings a tell as it begins; **his gold where he fell**:
+##   dying in a portal he leaves what he carried there, and finds it again at
+##   that step on his next way through, or loses it dying first.
 
 ## The budget at one hero: at the first steps, and how much it grows a step.
 const BUDGET := 2.0
@@ -79,6 +86,19 @@ var _serials: Dictionary = {}
 var _marks: Control
 var _debug: Label
 var _show_debug := false
+var _flasks: Dictionary = {}
+var _punish_until: Dictionary = {}
+var _stain_step := -2
+var _stain: Node3D
+
+## Drinking in the fight: for this long those near rush him, this much more
+## at him at once.
+const PUNISH_FOR := 2.2
+const PUNISH_BUDGET := 2.0
+## The last-moment roll: this share of his stamina back.
+const DODGE_STAMINA := 0.3
+## The heavy blow's tell.
+const TELL_SOUND := "res://sounds/parry/clang.wav"
 
 
 func setup(d: Dungeon) -> void:
@@ -104,6 +124,11 @@ func _process(delta: float) -> void:
 	if _clock <= 0.0:
 		_clock = 0.25
 		_feel(0.25)
+		_hook_heroes()
+		_balance_on()
+		_watch_flasks()
+		_lay_stain()
+	_reach_stain()
 	var me := _my_hero()
 	pressure = pressure_of(me) if me != null else 0.0
 	_tells()
@@ -262,6 +287,8 @@ func choose(small: Array, holders: Array[Node3D], standing: Array[Player], shoot
 		if holding:
 			base += BUDGET_HOLDING
 		var budget := base + PRESS_BUDGET * pressure_of(hero) + (1.0 if extra and not low else 0.0)
+		if now < float(_punish_until.get(hero, 0.0)):
+			budget += PUNISH_BUDGET
 		budget = maxf(budget - float(big), 0.0)
 		_budget_of[hero] = budget
 		_keep = []
@@ -366,6 +393,8 @@ func _glint(f: Fighter, red: bool) -> void:
 	star.add_child(core)
 	star.scale = Vector3.ONE * 0.05
 	var big := (1.25 if red else 0.9) * clampf(s, 0.8, 1.6)
+	if red:
+		Sfx.play(f, TELL_SOUND, null, at, 1.75, -9.0)
 	var tw := star.create_tween()
 	tw.tween_property(star, "scale", Vector3.ONE * big, 0.09).set_ease(Tween.EASE_OUT)
 	tw.tween_property(star, "scale", Vector3.ONE * 0.05, 0.3).set_ease(Tween.EASE_IN)
@@ -488,4 +517,186 @@ func _write_debug() -> void:
 	_debug.text = "დაძაბულობა: %.2f\nბიუჯეტი: %.2f (დახარჯული %.2f)%s\nახლოს: %d   ელოდება: %d   მსროლელი: %d\nსროლის რიგი: %.1f წმ (შემდეგი %.1f)\nსაფეხური: %d" % [
 			pressure, budget_now, spent_now, "  +1" if extra_on else "", on, held, slots,
 			Fighter.throw_gap, next_throw, _d.stage_of(_d.current)]
+#endregion
+
+
+
+#region The rest of the plan (2026-10-28)
+func _hook_heroes() -> void:
+	for hero in _d._heroes():
+		if hero.has_meta(&"director_hooked"):
+			continue
+		hero.set_meta(&"director_hooked", true)
+		if hero.has_signal(&"perfect_dodged"):
+			hero.perfect_dodged.connect(_on_perfect.bind(hero))
+		if hero.has_signal(&"struck"):
+			hero.struck.connect(_on_struck.bind(hero))
+		if hero.has_signal(&"died"):
+			hero.died.connect(_on_hero_died.bind(hero))
+
+
+## The one of them nearest `hero`, in the middle of a blow, within `reach`.
+func _striker_near(hero: Node3D, reach: float) -> Fighter:
+	var best: Fighter = null
+	var gap := reach
+	for body in _d._alive:
+		var f := body as Fighter
+		if f == null or not is_instance_valid(f) or f.is_dead or not striking(f):
+			continue
+		var d := f.global_position.distance_to(hero.global_position)
+		if d < gap:
+			gap = d
+			best = f
+	return best
+
+
+func _on_perfect(hero: Player) -> void:
+	if not is_instance_valid(hero):
+		return
+	hero.stamina = minf(hero.stamina + hero.max_stamina * DODGE_STAMINA, hero.max_stamina)
+	var f := _striker_near(hero, 5.0)
+	if f != null and _d.decides():
+		var p := f.get_node_or_null(^"Poise") as Poise
+		if p != null:
+			p.shake(Poise.DODGED, hero)
+
+
+func _on_struck(_damage: float, blocked: bool, hero: Player) -> void:
+	if not blocked or not _d.decides() or not is_instance_valid(hero):
+		return
+	var f := _striker_near(hero, 5.0)
+	if f != null:
+		var p := f.get_node_or_null(^"Poise") as Poise
+		if p != null:
+			p.shake(Poise.BLOCKED, hero)
+
+
+## Balance on each elite and boss as they come.
+func _balance_on() -> void:
+	for body in _d._alive:
+		var f := body as Fighter
+		if f == null or not is_instance_valid(f) or f.is_dead:
+			continue
+		if (f.has_meta(&"elite") or f.has_meta(&"boss")) and not f.has_node(^"Poise"):
+			Poise.give(f)
+
+
+## A flask drunk in the fight: those near rush him for a moment, and a throw
+## may come at once.
+func _watch_flasks() -> void:
+	var now := _now()
+	for hero in _d._heroes():
+		var left := int(hero.flasks_left)
+		var was := int(_flasks.get(hero, left))
+		_flasks[hero] = left
+		if left < was and not hero.is_dead:
+			var near := false
+			for body in _d._alive:
+				if is_instance_valid(body) and not bool(body.get("is_dead")) and body.visible \
+						and body.global_position.distance_to(hero.global_position) < 14.0:
+					near = true
+					break
+			if near:
+				_punish_until[hero] = now + PUNISH_FOR
+				Fighter._throw_times.erase(hero.get_instance_id())
+
+
+## Dying in the portal: what he carried is left where he fell.
+func _on_hero_died(hero: Player) -> void:
+	if not is_instance_valid(hero) or not hero.is_multiplayer_authority():
+		return
+	var game := get_node_or_null(^"/root/Game")
+	var purse := Purse.of(hero)
+	if game == null or purse == null or not game.has_method(&"set_stain"):
+		return
+	var carried := purse.gold
+	# (one left before and not taken back is lost now)
+	game.call(&"set_stain", {"portal": _d.id, "step": _d.current, "gold": carried} if carried > 0 else {})
+	if carried <= 0:
+		return
+	if _d.decides():
+		purse.take(carried)
+	else:
+		purse.gold = 0
+		purse.changed.emit(0, -carried)
+
+
+func _lay_stain() -> void:
+	if _d.current == _stain_step:
+		return
+	_stain_step = _d.current
+	if is_instance_valid(_stain):
+		_stain.queue_free()
+	_stain = null
+	var game := get_node_or_null(^"/root/Game")
+	if game == null or not ("stain" in game):
+		return
+	var st: Dictionary = game.get(&"stain")
+	if st.is_empty() or int(st.get("portal", -1)) != _d.id or int(st.get("step", -1)) != _d.current:
+		return
+	var world := Blood.world_of(_d)
+	if world == null:
+		return
+	_stain = Node3D.new()
+	_stain.name = "GoldStain"
+	world.add_child(_stain)
+	_stain.global_position = _d.entry_point(0, _d.current) + Vector3(0.0, 0.05, -7.0)
+	var glow := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.15
+	cyl.bottom_radius = 0.55
+	cyl.height = 2.4
+	glow.mesh = cyl
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(1.0, 0.75, 0.25, 0.35)
+	glow.material_override = m
+	glow.position.y = 1.2
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_stain.add_child(glow)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.75, 0.3)
+	light.light_energy = 1.6
+	light.omni_range = 4.0
+	light.position.y = 0.8
+	_stain.add_child(light)
+	var l := Label3D.new()
+	l.text = "შენი ოქრო: %d" % int(st.get("gold", 0))
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.font_size = 34
+	l.outline_size = 8
+	l.pixel_size = 0.006
+	l.modulate = Color(1.0, 0.85, 0.45)
+	l.position.y = 2.7
+	_stain.add_child(l)
+
+
+func _reach_stain() -> void:
+	if not is_instance_valid(_stain):
+		return
+	var hero := _my_hero()
+	if hero == null:
+		return
+	var gap := hero.global_position - _stain.global_position
+	gap.y = 0.0
+	if gap.length() > 1.8:
+		return
+	var game := get_node_or_null(^"/root/Game")
+	var purse := Purse.of(hero)
+	if game == null or purse == null:
+		return
+	var st: Dictionary = game.get(&"stain")
+	var g := int(st.get("gold", 0))
+	game.call(&"set_stain", {})
+	if g > 0:
+		if _d.decides():
+			purse.give(g)
+		else:
+			purse.gold += g
+			purse.changed.emit(purse.gold, g)
+		_d._say("ოქრო დაბრუნდა: +%d" % g, 2.5)
+	_stain.queue_free()
+	_stain = null
 #endregion

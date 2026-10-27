@@ -44,11 +44,7 @@ func _run() -> void:
 			for f in root.find_children("*", "CharacterBody3D", true, false):
 				if before.has(f) or f is Player or not f.is_in_group(&"enemy"):
 					continue
-				gold += Leveling.worth(f) * CoinBank.PER_WOLF
-				if f.has_meta(&"boss"):
-					gold += CoinBank.BOSS_GOLD
-				elif f.has_meta(&"elite"):
-					gold += CoinBank.ELITE_GOLD
+				gold += CoinBank.worth_of(f)
 				n += 1
 			golds.append(gold)
 			print("GOLD step %d %s: %d creatures, %.0f gold" % [i + 1, place, n, gold])
@@ -61,7 +57,7 @@ func _run() -> void:
 		mean += sum / float(golds.size())
 	# a gold reward taken now and then (the room's gift, [Dungeon]): about one
 	# in four steps
-	var gifts := 60.0 * float(run.size()) / 4.0
+	var gifts := float(Dungeon.GOLD_GIFT) * float(run.size()) / 4.0
 	print("GOLD run: least %.0f, average %.0f, most %.0f (+ ~%.0f from the rooms' gifts)" % [least, mean, most, gifts])
 	for trade: String in Trades.ORDER:
 		var costs: Array = Trades.ALL[trade]["costs"]

@@ -21,7 +21,7 @@ const GOLD := Color(1.0, 0.76, 0.25)
 ## share of his gold (at least `GOLD_LEAST`), for a blade heavier by `GOLD_BLADE`.
 const BLOOD_SHARE := 0.2
 const GOLD_SHARE := 0.5
-const GOLD_LEAST := 30
+const GOLD_LEAST := 3
 const GOLD_BLADE := 1.2
 
 var kind: String = ""

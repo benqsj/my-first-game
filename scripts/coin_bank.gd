@@ -13,12 +13,8 @@ extends Node
 ## How near he has to come to take them, and how soon after they are thrown.
 const PICK_UP := 1.7
 const SETTLE := 0.6
-## What a creature drops, for each wolf it is worth ([method Leveling.worth]),
-## and a little either way.
-const PER_WOLF := 14.0
-const SPREAD := 0.35
-const BOSS_GOLD := 150
-const ELITE_GOLD := 25
+## What a boss drops (any other creature: one coin).
+const BOSS_GOLD := 2
 
 var _next: int = 0
 var _piles: Dictionary = {}
@@ -33,18 +29,12 @@ static func of(node: Node) -> CoinBank:
 
 ## What `creature` drops when it dies, its own worth and whatever it carried
 ## (a goblin's takings: `carried_gold`).
-static func worth_of(creature: Node, rng: RandomNumberGenerator = null) -> int:
-	var base := Leveling.worth(creature) * PER_WOLF
-	var r := rng.randf_range(-SPREAD, SPREAD) if rng != null else randf_range(-SPREAD, SPREAD)
-	var own := maxi(int(round(base * (1.0 + r))), 1)
+## (Gold is dear and hard to come by, the user's word, 2026-10-28: a
+## creature leaves one coin and no more, a boss two.)
+static func worth_of(creature: Node, _rng: RandomNumberGenerator = null) -> int:
+	var own := BOSS_GOLD if creature.has_meta(&"boss") else 1
 	if "carried_gold" in creature:
 		own += int(creature.get("carried_gold"))
-	# a boss a heap, an elite a handful (the gold the trades are bought with,
-	# 2026-10-27: tusks no more; tests/gold_probe.gd measures a run)
-	if creature.has_meta(&"boss"):
-		own += BOSS_GOLD
-	elif creature.has_meta(&"elite"):
-		own += ELITE_GOLD
 	return own
 
 

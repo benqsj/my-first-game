@@ -16,7 +16,7 @@ const SCENE := "res://scenes/enemies/pack/goblin.tscn"
 const CHANCE := 0.3
 const STAYS := 20.0
 const TUSKS := 10
-const GOLD := 120
+const GOLD := 6
 const NAME := "ოქროიანი გობლინი"
 
 var body: GoblinFighter

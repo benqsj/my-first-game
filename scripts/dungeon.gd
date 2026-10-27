@@ -238,6 +238,8 @@ const TRAPS_FROM := 3
 const TRAP_CHANCE := 0.6
 ## Places where "survive" is never the goal.
 const NO_SURVIVE := ["crypt", "cave"]
+## The room's gift of gold (gold is dear: a creature leaves one coin).
+const GOLD_GIFT := 4
 ## Each place, to look round it from F1 ([method view_place]): the step whose
 ## light (day into night) it is seen in, and what it is called on the board.
 const VIEW := {
@@ -1926,7 +1928,7 @@ func _give(what: String) -> void:
 			"gold":
 				var purse := Purse.of(hero)
 				if purse != null:
-					purse.give(60)
+					purse.give(GOLD_GIFT)
 			"blade":
 				var book := hero.get_node_or_null("Leveling") as Leveling
 				if book != null:
@@ -6359,9 +6361,11 @@ func _circling_birds(room: Node3D) -> void:
 
 func _fly_birds(delta: float) -> void:
 	for b in _birds:
-		var node := b["node"] as Node3D
-		if not is_instance_valid(node):
+		# checked before the cast: a cast of a freed bird is an error each
+		# frame (a place's birds outlive it till the next arrival clears them)
+		if not is_instance_valid(b["node"]):
 			continue
+		var node := b["node"] as Node3D
 		b["at"] = float(b["at"]) + float(b["speed"]) * delta
 		var a: float = b["at"]
 		var r: float = b["radius"]

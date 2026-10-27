@@ -283,7 +283,7 @@ func _trades() -> void:
 	var freed: Array = game.get(&"freed")
 	_check("the first freed is the smith", Trades.trade_of(0) == "smith" and Trades.open(game, "smith"),
 			str(freed.size()))
-	game.set(&"gold", 1000)
+	game.set(&"gold", 100)
 	var stall := VillageTrade.new()
 	stall.trade = "smith"
 	stall.man_name = "გიორგი"
@@ -294,7 +294,7 @@ func _trades() -> void:
 	stall.interact()
 	stall.interact()
 	_check("bought at his stall: his blade sharper", Trades.level(game, "smith") == 1
-			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"gold")) == 700,
+			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"gold")) == 60,
 			"%d %.3f %d" % [Trades.level(game, "smith"), hero.dealt_scale / scale_before, int(game.get(&"gold"))])
 	_check("a trade whose man is not freed: shut", not bool(game.call(&"buy_trade", "priest")))
 	game.set(&"gold", 3)
