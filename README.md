@@ -12332,3 +12332,4 @@ attacks are the one-handed string (3 blows), the stab, the high cut, the leap
 and the slash string (3 blows); the bash and sword from behind the shield stay.
 
 - **The imp spits with its head (2026-10-27).** Its fireball no longer goes with a swing of the arm: it throws its head forward (`IP_Headbutt`, Mixamo's headbutt retargeted by `vepxis-art/tools/imp_build.py`) and the fireball leaves from just ahead of its `Head` bone at `SPIT_AT` (0.5) of the clip.
+- **The imp's fireball, redrawn (2026-10-27).** No more egg-shaped coal breaking into glowing crumbs (the user). `MudBall` with `ember`: a small hot core in an orange halo, a tail of two camera-facing streaks laid back along its flight (`streak_tex`) with flame tongues, sparks and smoke shed behind; where it breaks, a burst of flame rolling up into smoke, sparks and a flash of light (no ball flash, no ground ring). The tail is handed to the world to burn out when the ball is gone.

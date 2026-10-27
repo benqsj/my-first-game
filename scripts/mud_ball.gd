@@ -30,6 +30,14 @@ var _shadow: MeshInstance3D
 var _drip_in: float = 0.0
 ## A burning coal (an imp's) rather than mud: glows, sheds sparks, leaves no patch.
 var ember: bool = false
+## The fireball's pieces (an imp's): a white-hot core, a halo round it, the
+## tail of fire and smoke it streams, its light.
+var _core: MeshInstance3D
+var _halo: MeshInstance3D
+var _glow: OmniLight3D
+var _trail: Array[GPUParticles3D] = []
+var _streaks: Array[MeshInstance3D] = []
+static var _streak_tex: Texture2D
 
 static var _material: StandardMaterial3D
 static var _lump_mesh: ArrayMesh
@@ -143,23 +151,11 @@ func _ready() -> void:
 	top_level = true
 	_lump = MeshInstance3D.new()
 	_lump.mesh = lump_mesh()
-	_lump.material_override = coal() if ember else mud()
+	_lump.material_override = mud()
+	_lump.visible = not ember
 	add_child(_lump)
 	if ember:
-		# a little fireball: flames off it and a warm light
-		SkillFx.particles(self, global_position, {
-			"amount": 30, "life": 0.3, "speed": Vector2(0.2, 0.5), "spread": 40.0,
-			"gravity": Vector3(0, 2.0, 0), "size": Vector2(0.3, 0.5), "sphere": 0.12,
-			"tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": false, "grow": 0.2,
-			"colors": [Color(1.0, 0.62, 0.18, 0.0), Color(1.0, 0.5, 0.08, 0.95), Color(0.92, 0.2, 0.02, 0.85),
-					Color(0.25, 0.03, 0.0, 0.0)],
-		})
-		var glow := OmniLight3D.new()
-		glow.light_color = Color(1.0, 0.45, 0.1)
-		glow.light_energy = 1.6
-		glow.omni_range = 3.0
-		glow.shadow_enabled = false
-		add_child(glow)
+		_make_fireball()
 	else:
 		# bigger than it hits, so it reads against the sky and the ground, and
 		# a trail of wet clods behind it (the user's word, 2026-10-27)
@@ -196,7 +192,9 @@ func _physics_process(delta: float) -> void:
 	var to := from + _vel * delta
 	_lump.rotate_object_local(Vector3(1, 0.3, 0).normalized(), 9.0 * delta)
 	# Squashed along the way it flies, a little.
-	_lump.scale = Vector3(0.9, 0.9, 1.15) * (1.25 if ember else SEEN)
+	_lump.scale = Vector3(0.9, 0.9, 1.15) * SEEN
+	if ember:
+		_burn(delta)
 	if _host and _thrower != null and is_instance_valid(_thrower):
 		for node in get_tree().get_nodes_in_group("player"):
 			var who := node as Node3D
@@ -228,7 +226,7 @@ func _physics_process(delta: float) -> void:
 		_shadow.transparency = clampf(high / 8.0, 0.0, 0.85)
 	# Drops flung off it.
 	_drip_in -= delta
-	if _drip_in <= 0.0:
+	if _drip_in <= 0.0 and not ember:
 		_drip_in = 0.035
 		MudDrop.spawn(get_parent(), to, _vel * 0.2 + Vector3(randf_range(-1, 1), randf_range(0, 1), randf_range(-1, 1)),
 				randf_range(0.03, 0.06), ember)
@@ -239,6 +237,10 @@ func _physics_process(delta: float) -> void:
 func _splash(at: Vector3, ground: bool, normal: Vector3 = Vector3.UP) -> void:
 	_done = true
 	var world := get_parent()
+	if ember:
+		_fire_burst(world, at, normal)
+		queue_free()
+		return
 	for i in 14:
 		var out := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized() * randf_range(1.5, 4.0)
 		MudDrop.spawn(world, at + Vector3.UP * 0.1, out + normal * randf_range(1.5, 4.0), randf_range(0.03, 0.08), ember)
@@ -256,6 +258,175 @@ func _splash(at: Vector3, ground: bool, normal: Vector3 = Vector3.UP) -> void:
 			world.add_child(patch)
 			patch.global_position = (down["position"] as Vector3) + Vector3.UP * 0.02
 	queue_free()
+
+
+## The imp's fireball (the user, 2026-10-27: the old one was an egg-shaped
+## coal that broke into glowing crumbs): a small white-hot core in an orange
+## halo, a comet's tail of fire that curls up into smoke behind it, sparks
+## off it, a flickering light.
+func _make_fireball() -> void:
+	_core = MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.09
+	s.height = 0.18
+	s.radial_segments = 16
+	s.rings = 8
+	_core.mesh = s
+	_core.material_override = SkillFx.glow(Color(1.0, 0.78, 0.4), 2.5, false)
+	_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_core)
+	_halo = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.6, 0.6)
+	_halo.mesh = q
+	var hm := SkillFx.sprite_material(SkillFx.dot(), true)
+	hm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	hm.vertex_color_use_as_albedo = false
+	hm.albedo_color = Color(1.0, 0.38, 0.05, 0.55)
+	_halo.material_override = hm
+	_halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_halo)
+	# the tail: hot tongues left behind in the world as it flies on
+	_trail.append(SkillFx.particles(self, global_position, {
+		"amount": 45, "life": 0.25, "speed": Vector2(0.2, 0.6), "spread": 180.0,
+		"gravity": Vector3(0, 1.5, 0), "size": Vector2(0.08, 0.16), "sphere": 0.09, "grow": 0.05,
+		"tex": SkillFx.dot(), "add": true, "spin": true,
+		"colors": [Color(1.0, 0.7, 0.3, 0.7), Color(1.0, 0.42, 0.08, 0.6), Color(0.8, 0.15, 0.02, 0.35),
+				Color(0.3, 0.04, 0.0, 0.0)],
+	}))
+	_trail.append(SkillFx.particles(self, global_position, {
+		"amount": 36, "life": 0.4, "speed": Vector2(0.2, 0.6), "spread": 180.0,
+		"gravity": Vector3(0, 2.5, 0), "size": Vector2(0.18, 0.3), "sphere": 0.08, "grow": 0.2,
+		"tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": false,
+		"colors": [Color(1.0, 0.75, 0.3, 0.0), Color(1.0, 0.5, 0.1, 0.9), Color(0.8, 0.16, 0.02, 0.7),
+				Color(0.2, 0.03, 0.0, 0.0)],
+	}))
+	# smoke curling off the end of the tail
+	_trail.append(SkillFx.particles(self, global_position, {
+		"amount": 18, "life": 0.9, "speed": Vector2(0.1, 0.3), "spread": 180.0,
+		"gravity": Vector3(0, 0.8, 0), "size": Vector2(0.2, 0.35), "sphere": 0.1, "grow": 0.5,
+		"add": false,
+		"colors": [Color(0.2, 0.17, 0.15, 0.0), Color(0.22, 0.19, 0.17, 0.35), Color(0.3, 0.28, 0.27, 0.0)],
+	}))
+	# sparks flung off
+	_trail.append(SkillFx.particles(self, global_position, {
+		"amount": 16, "life": 0.5, "speed": Vector2(0.6, 1.6), "spread": 180.0,
+		"gravity": Vector3(0, -3.0, 0), "size": Vector2(0.025, 0.045), "sphere": 0.08, "add": true,
+		"colors": [Color(1.0, 0.95, 0.7, 1.0), Color(1.0, 0.5, 0.1, 0.9), Color(1.0, 0.3, 0.05, 0.0)],
+	}))
+	for p in _trail:
+		p.fixed_fps = 0
+		p.interpolate = false
+	# the tail itself: two streaks stretched back along its flight, turned to
+	# the camera, white-gold inside an orange sheath
+	for spec: Array in [[Color(1.0, 0.36, 0.05, 0.75), 0.42], [Color(1.0, 0.75, 0.35, 0.8), 0.15]]:
+		var st := MeshInstance3D.new()
+		var sq := QuadMesh.new()
+		sq.size = Vector2.ONE
+		st.mesh = sq
+		var sm := StandardMaterial3D.new()
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		sm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		sm.albedo_texture = streak_tex()
+		sm.albedo_color = spec[0]
+		st.material_override = sm
+		st.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		st.top_level = true
+		st.set_meta(&"width", spec[1])
+		add_child(st)
+		_streaks.append(st)
+	_glow = OmniLight3D.new()
+	_glow.light_color = Color(1.0, 0.5, 0.15)
+	_glow.light_energy = 2.0
+	_glow.omni_range = 3.5
+	_glow.shadow_enabled = false
+	add_child(_glow)
+
+
+## The tail's streak: bright at its head (u 0), thinning and fading back.
+static func streak_tex() -> Texture2D:
+	if _streak_tex == null:
+		var w := 128
+		var h := 32
+		var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+		for x in w:
+			var u := float(x) / float(w - 1)
+			var half := 0.5 * (1.0 - u * 0.75) * minf(1.0, (u + 0.04) * 9.0)
+			for y in h:
+				var v := absf(float(y) / float(h - 1) - 0.5)
+				var edge := clampf(1.0 - v / maxf(half, 0.001), 0.0, 1.0)
+				var a := edge * edge * pow(1.0 - u, 1.6)
+				img.set_pixel(x, y, Color(1, 1, 1, a))
+		_streak_tex = ImageTexture.create_from_image(img)
+	return _streak_tex
+
+
+## The fireball in flight: its core throbbing, its light flickering, its tail
+## laid back along the way it came.
+func _burn(_delta: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam != null and _vel.length_squared() > 0.01:
+		var dir := _vel.normalized()
+		var length := clampf(_vel.length() * 0.08, 0.4, 1.3)
+		var head := global_position + dir * 0.08
+		var mid := head - dir * length * 0.5
+		var side := dir.cross(cam.global_position - mid)
+		if side.length_squared() > 0.0001:
+			side = side.normalized()
+			for st in _streaks:
+				var wd := float(st.get_meta(&"width"))
+				var x := -dir * length
+				var y := side * wd
+				st.global_transform = Transform3D(Basis(x, y, x.cross(y).normalized()), mid)
+	var t := _age * 31.0
+	var throb := 1.0 + 0.12 * sin(t) * sin(t * 0.37 + 1.0)
+	_core.scale = Vector3.ONE * throb
+	_halo.scale = Vector3.ONE * (0.92 + 0.16 * absf(sin(_age * 17.0)))
+	_glow.light_energy = 1.8 + 0.5 * sin(t * 0.7) * sin(t * 0.23)
+
+
+## Where the fireball breaks: a burst of flame that billows and rolls up into
+## smoke, sparks, a flash of light. Its tail is left to burn out where it was.
+func _fire_burst(world: Node, at: Vector3, normal: Vector3) -> void:
+	for p in _trail:
+		if is_instance_valid(p):
+			var xf := p.global_transform
+			remove_child(p)
+			world.add_child(p)
+			p.global_transform = xf
+			p.emitting = false
+			p.get_tree().create_timer(p.lifetime + 0.2, false).timeout.connect(p.queue_free)
+	_trail.clear()
+	var up := (normal + Vector3.UP).normalized()
+	SkillFx.particles(world, at, {
+		"amount": 30, "life": 0.5, "one_shot": true, "explosiveness": 0.9,
+		"speed": Vector2(1.2, 3.0), "dir": up, "spread": 75.0, "damping": 5.0,
+		"gravity": Vector3(0, 2.5, 0), "size": Vector2(0.18, 0.36), "sphere": 0.1, "grow": 0.1,
+		"tex": SkillFx.dot(), "add": true, "spin": true,
+		"colors": [Color(1.0, 0.72, 0.35, 0.8), Color(1.0, 0.42, 0.08, 0.7), Color(0.75, 0.15, 0.02, 0.3),
+				Color(0.2, 0.03, 0.0, 0.0)],
+	})
+	SkillFx.particles(world, at, {
+		"amount": 16, "life": 0.55, "one_shot": true, "explosiveness": 0.85,
+		"speed": Vector2(0.6, 1.6), "dir": up, "spread": 60.0, "damping": 3.0,
+		"gravity": Vector3(0, 3.5, 0), "size": Vector2(0.3, 0.5), "sphere": 0.1, "grow": 0.2,
+		"tex": SkillFx.flame(), "quad": Vector2(0.5, 1.0), "add": false,
+		"colors": [Color(1.0, 0.75, 0.3, 0.0), Color(1.0, 0.5, 0.1, 0.95), Color(0.8, 0.16, 0.02, 0.7),
+				Color(0.2, 0.03, 0.0, 0.0)],
+	})
+	SkillFx.particles(world, at + Vector3.UP * 0.2, {
+		"amount": 12, "life": 1.2, "one_shot": true, "explosiveness": 0.7,
+		"speed": Vector2(0.3, 0.8), "dir": Vector3.UP, "spread": 50.0, "damping": 1.0,
+		"gravity": Vector3(0, 0.9, 0), "size": Vector2(0.4, 0.7), "sphere": 0.15, "grow": 0.5,
+		"add": false,
+		"colors": [Color(0.2, 0.17, 0.15, 0.0), Color(0.22, 0.19, 0.17, 0.4), Color(0.32, 0.3, 0.29, 0.0)],
+	})
+	SkillFx.burst(world, at, Color(1.0, 0.5, 0.1), 22, Vector2(2.0, 5.0), up, 80.0,
+			Vector2(0.025, 0.05), Vector3(0, -7, 0), 0.6)
+	SkillFx.light(world, at, Color(1.0, 0.5, 0.15), 4.0, 5.0, 0.4)
+	Sfx.play(world, SPLAT_SOUND, null, at, randf_range(0.75, 0.85), -8.0)
 
 
 ## A drop of mud off a lump or out of its splash, falling, gone when it lands.
