@@ -2,6 +2,10 @@
 
 The user brought these in from the Godot Asset Library. They were unpacked into the project's **root**, not under `assets/`, and are **not in git yet**. Moving them later must be done in the Godot editor (FileSystem dock → Move), so the paths inside their scenes follow.
 
+> **2026-10-28 cleanup:** the packs' unused parts left the repo (they are in git history before commit "Repo cleanup"):
+> the MegaKit's `FBX/`, `FBX (Unity)/`, `OBJ/`, `Textures/` and previews (only `glTF/` is used, with its own textures; `License_Standard.txt` kept),
+> and all of Slavic World (`Prefabs/`, `Objects/`, `Materials/`, `Terrain/`, `Skybox/`, `SourceFiles/`, `Demo/`, `Documentation/`, `EA_Shared.material`, `LICENSE.txt`, `shaders/EA_*`): nothing in the game used it.
+
 ## 1. Stylized Nature MegaKit (Quaternius) — for the environment
 **What it is for:** the user's word — we build the world's nature with it: trees, bushes, grass, flowers, rocks, paths.
 
