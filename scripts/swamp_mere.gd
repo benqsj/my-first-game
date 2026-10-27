@@ -434,26 +434,49 @@ static func _oak(room: Node3D, piece: String, at: Vector3, yaw: float, s: float,
 		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
-## Oaks far out: one MultiMesh, no shadows, no collision.
+## Oaks far out: MultiMeshes, no shadows, no collision. One MultiMesh is
+## drawn whole or not at all, so they are cut into slices round the clearing
+## ([constant OAK_SLICES]) and a near and a far band: the slices behind him are
+## not drawn, and a far band's slice can take the oak's lighter LOD. Whole
+## rings of 150 oaks were 1.3 M triangles a frame, ~7 ms of the swamp's 20 at
+## High on the M1 (2026-10-28 probe).
+const OAK_SLICES := 8
+const OAK_FAR := 60.0
+
+
 static func _many_oaks(room: Node3D, piece: String, where: Array) -> void:
 	var src := ForestGlade._kit.get_node_or_null(piece) as MeshInstance3D
 	if src == null or where.is_empty():
 		return
 	var mesh := src.mesh.duplicate() as ArrayMesh
+	# the far band's oaks a quarter of the triangles, still faceted
+	var far := LowPolyLod.far_mesh(src.mesh, 0.25).duplicate() as ArrayMesh
 	for s in mesh.get_surface_count():
 		var m := src.get_surface_override_material(s)
 		if m != null:
 			mesh.surface_set_material(s, m)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
-	mm.instance_count = where.size()
-	for i in where.size():
-		mm.set_instance_transform(i, where[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	room.add_child(mmi)
+			if s < far.get_surface_count():
+				far.surface_set_material(s, m)
+	var groups := {}
+	for t: Transform3D in where:
+		var flat := Vector2(t.origin.x, t.origin.z)
+		var slice := int(floor(fposmod(flat.angle(), TAU) / TAU * float(OAK_SLICES))) % OAK_SLICES
+		var key := slice + (OAK_SLICES if flat.length() > OAK_FAR else 0)
+		if not groups.has(key):
+			groups[key] = []
+		(groups[key] as Array).append(t)
+	for key: int in groups:
+		var list: Array = groups[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = far if key >= OAK_SLICES else mesh
+		mm.instance_count = list.size()
+		for i in list.size():
+			mm.set_instance_transform(i, list[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		room.add_child(mmi)
 
 
 ## A pool's shore in the forest's stones: faceted rocks half in the mud, a
