@@ -312,7 +312,7 @@ static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 		if made % 3 == 0:
 			var glow := OmniLight3D.new()
 			glow.light_color = Color(0.62, 0.95, 0.95)
-			glow.light_energy = 1.6
+			glow.light_energy = 0.7
 			glow.omni_range = 7.0
 			glow.position = at + Vector3(0.0, 1.4, 0.0) + (Vector3(0.0, 0.0, cz) - at).normalized() * 1.2
 			glow.set_meta(&"designed_shadow", false)
@@ -326,7 +326,7 @@ static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 		_solid_hull(c)
 		var glow := OmniLight3D.new()
 		glow.light_color = Color(0.62, 0.95, 0.95)
-		glow.light_energy = 1.6
+		glow.light_energy = 0.7
 		glow.omni_range = 8.0
 		glow.position = at + Vector3(-side * 1.5, 1.8, -1.5)
 		glow.set_meta(&"designed_shadow", false)
@@ -348,7 +348,7 @@ static func _temple(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> voi
 	for side: float in [-1.0, 1.0]:
 		var lamp := OmniLight3D.new()
 		lamp.light_color = Color(0.6, 0.86, 1.0)
-		lamp.light_energy = 1.4
+		lamp.light_energy = 0.8
 		lamp.omni_range = 6.0
 		lamp.position = Vector3(side * (STAIR.x + 0.5), 2.6, STAIR.y - 0.4)
 		lamp.set_meta(&"designed_shadow", false)
@@ -560,11 +560,11 @@ static func _ready_kit() -> void:
 	_crystal_mat.vertex_color_use_as_albedo = true
 	_crystal_mat.vertex_color_is_srgb = true
 	# pale ice with a soft light inside (gamoq4), not a lamp
-	_crystal_mat.albedo_color = Color(0.85, 0.97, 1.0)
+	_crystal_mat.albedo_color = Color(0.70, 0.82, 0.86)
 	_crystal_mat.roughness = 0.1
 	_crystal_mat.emission_enabled = true
-	_crystal_mat.emission = Color(0.55, 0.92, 0.95)
-	_crystal_mat.emission_energy_multiplier = 1.1
+	_crystal_mat.emission = Color(0.40, 0.70, 0.74)
+	_crystal_mat.emission_energy_multiplier = 0.3
 	_void_mat = StandardMaterial3D.new()
 	_void_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_void_mat.albedo_color = Color(0.012, 0.012, 0.014)
