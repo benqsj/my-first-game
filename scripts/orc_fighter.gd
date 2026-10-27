@@ -221,8 +221,10 @@ var _named_in: bool = false
 ## pace — slow up, quick through him, heavy after. Two blades' cuts, a great
 ## weapon's (harder); a blade's heavy cuts and a polearm's between them.
 @export var tempo_on: bool = true
-@export var tempo_light: Vector3 = Vector3(0.78, 1.45, 0.82)
-@export var tempo_heavy: Vector3 = Vector3(0.62, 1.85, 0.7)
+## (the user's word, 2026-10-27: after the draw-back the cut came too fast
+## to see; its quick share eased, so the swing reads as it did)
+@export var tempo_light: Vector3 = Vector3(0.82, 1.12, 0.85)
+@export var tempo_heavy: Vector3 = Vector3(0.7, 1.3, 0.75)
 ## How long before and after each blow the cut runs quick (s of its clip at
 ## its own pace), a light cut's and a great weapon's.
 @export var cut_span_light: Vector2 = Vector2(0.18, 0.07)
@@ -594,7 +596,9 @@ func _ready() -> void:
 	_charge_wait = _rng.randf_range(3.0, charge_cooldown.x)
 	_throw_wait = _rng.randf_range(2.0, throw_cooldown.x)
 	# its blade thrown and fetched: what it cuts with when it has it back
-	_special(O_FETCH, run_clip if run_clip != &"" else walk_clip, Vector3(2.0, 0.0, 1.0))
+	# a slide, not a run: one pose held, low and leaning in (the user's word,
+	# 2026-10-27: its legs must not move as it slides)
+	_special(O_FETCH, &"CR_GS_Slide", Vector3(0.001, 0.3, 0.3005))
 	_hand_move(O_FSPIN, &"CR_GS_HighSpin", Vector3(1.05, 0.05, 0.85), 1.1, "")
 	_slow_to[O_FSPIN] = windup_least
 	_hand_combos.append({"name": FETCH_COMBO, "moves": [O_FSPIN], "fells": [0], "weight": 0.0, "far": true})
@@ -963,8 +967,11 @@ var _blade_glow: OmniLight3D
 var _blade_skin: ShaderMaterial
 var _struck: bool = true
 var _fire_age: float = 1.0
-## How far into his rising power (s) the lightning comes down on his blade.
-const STRIKE_AT := 0.85
+## At the latest so far into his rising power (s) the lightning comes down.
+const STRIKE_LATEST := 2.6
+var _tip_top: float = -99.0
+var _tip_low: float = 99.0
+var _tip_still: float = 0.0
 const THUNDER_SOUND := "res://assets/sounds/dungeon/thunder.wav"
 ## For the tests and probes.
 var ripostes_made: int = 0
@@ -987,8 +994,8 @@ func _round_two_moves() -> void:
 			_hand_move(O_W360, &"CR_OR_Spin360", Vector3(1.05, 0.1, 0.85), 0.5, both)
 			_hand_move(O_WAXE, &"CR_OR_SpinAxe", Vector3(1.0, 0.05, 0.88), 0.6, both)
 			mine = [O_DRAG, O_RISE, O_WRUN, O_W360, O_WAXE]
-			_hand_combos.append({"name": &"drag_rise", "moves": [O_DRAG, O_RISE], "fells": [1], "weight": 1.1})
-			_hand_combos.append({"name": &"whirl", "moves": [O_WRUN, O_W360, O_WAXE], "fells": [2], "weight": 0.9})
+			# (its drag and whirl taken out again, the user's word 2026-10-27:
+			# its old strings were much better; the moves kept, in no string)
 		else:
 			_hand_move(O_THRUST, &"CR_OR_HighAttack", Vector3(1.0, 0.0, 0.85), 1.0, r)
 			# always drawn back and held a beat: the point gleams (its tell)
@@ -1118,6 +1125,9 @@ func _try_phase_two() -> bool:
 func net_phase_two() -> void:
 	phase_two = true
 	_struck = false
+	_tip_top = -99.0
+	_tip_low = 99.0
+	_tip_still = 0.0
 	Sfx.play_any(self, [ROAR_SOUND], self, 0.62, 6.0)
 
 
@@ -1127,8 +1137,23 @@ func net_phase_two() -> void:
 func _phase_two_fx() -> void:
 	if not phase_two or _struck or is_dead:
 		return
-	if act == O_RISEUP and act_serial == _voiced_serial and _voiced_clock < STRIKE_AT:
-		return
+	if act == O_RISEUP and act_serial != _voiced_serial:
+		return  # (its clock not yet started: the frame it begins)
+	if act == O_RISEUP and not _arcs.is_empty():
+		# only once the blade is up and held there (the user's word: raised
+		# first, then the bolt): its point high over him and no longer rising
+		var h := ((_blade_ends(0)[1] as Vector3) - global_position).y
+		_tip_low = minf(_tip_low, h)
+		if h > _tip_top + 0.01:
+			_tip_top = h
+			_tip_still = 0.0
+		else:
+			_tip_still += get_process_delta_time()
+		# up over his head (well risen from where it began) and held a beat
+		var high := _voiced_clock > 0.3 and h > _tip_low + 0.6 * maxf(_tip_top - _tip_low, 0.0) \
+				and _tip_top - _tip_low > 1.2 * visual_scale / 1.85
+		if not ((high and _tip_still >= 0.12) or _voiced_clock > STRIKE_LATEST):
+			return
 	_struck = true
 	if act == O_RISEUP:
 		_lightning()
