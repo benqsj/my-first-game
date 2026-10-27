@@ -202,7 +202,8 @@ func _physics_process(delta: float) -> void:
 				continue
 			var low := who.global_position + Vector3.UP * 0.3
 			var high := who.global_position + Vector3.UP * 1.7
-			if WeaponSweep.touches(from, to, RADIUS + 0.35, low, high):
+			# a fireball breaks on his body, not a hand's width in front of it
+			if WeaponSweep.touches(from, to, 0.3 if ember else RADIUS + 0.35, low, high):
 				_thrower.call(&"mud_landed", who)
 				_splash(to, false)
 				return
