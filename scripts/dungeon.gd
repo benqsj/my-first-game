@@ -3620,12 +3620,12 @@ func _twin_cave_look() -> void:
 	if _sun != null:
 		_sun.visible = true
 		_sun.light_color = Color(1.0, 1.0, 0.97)
-		_sun.light_energy = 3.6
+		_sun.light_energy = 1.8
 		_sun.rotation.x = -deg_to_rad(84.0)
 		_sun.light_angular_distance = 1.0
 		_sun.shadow_opacity = 1.0
 		_sun.shadow_blur = 1.2
-		_sun.light_volumetric_fog_energy = 4.0
+		_sun.light_volumetric_fog_energy = 2.2
 
 
 ## The rock in the two-hall cave's tunnel rolled away ([TwinCave]): as the

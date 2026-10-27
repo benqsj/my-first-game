@@ -189,7 +189,7 @@ static func _den(d: Dungeon, room: Node3D, rng: RandomNumberGenerator) -> void:
 	air.size = Vector3(16.0, 50.0, 16.0)
 	air.position = Vector3(0.0, 12.0, cz)
 	var am := FogMaterial.new()
-	am.density = 0.006
+	am.density = 0.0028
 	am.albedo = Color(0.95, 0.97, 0.92)
 	am.edge_fade = 1.0
 	air.material = am
