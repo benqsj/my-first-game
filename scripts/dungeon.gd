@@ -2423,8 +2423,9 @@ func _warm_up() -> void:
 			"sea": _cloud_sea, "layers": _cloud_layer_mats.duplicate()}
 	var here := String(_room(current).get("place", ""))
 	var n := 0
+	var reachable := _run_places()
 	for place: String in PLACES:
-		if place == here:
+		if place == here or not reachable.has(place):
 			continue
 		var p: Dictionary = PLACES[place]
 		var i := rooms.size()
@@ -2603,6 +2604,26 @@ func _warm_up() -> void:
 	# the dungeon's name, now that it can be seen
 	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
 	print("Dungeon: warm-up %d ms" % (Time.get_ticks_msec() - started))
+
+
+## The places this run can come to: its steps' own, those [constant ZONES]
+## lends when a step's are used up, and the rests put in between. Only these
+## are put up in [method _warm_up]: the others (the court, the broken hall, the
+## misty marsh) are in no run now and cost ~1.7 s of the loading screen at High
+## on the M1 (2026-10-27 probe). One reached anyway (F2's rooms) is still built
+## as usual, only not drawn beforehand.
+func _run_places() -> Dictionary:
+	var out := {}
+	for step: Dictionary in steps:
+		for place: Variant in step.get("places", []):
+			out[String(place)] = true
+	for zone: Array in ZONES:
+		for place: Variant in zone:
+			out[String(place)] = true
+	for place: String in PLACES:
+		if (PLACES[place] as Dictionary).has("rest"):
+			out[place] = true
+	return out
 
 
 func _keep_materials(under: Node) -> void:

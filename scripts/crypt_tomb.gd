@@ -434,13 +434,20 @@ static func _roots(room: Node3D, zs: Array[float], holes: Dictionary, rng: Rando
 			_piece(room, "KRootHang", Vector3(rng.randf_range(-3.0, 3.0), 13.4, (zs[k] + zs[k + 1]) * 0.5), rng.randf_range(0.0, TAU))
 
 
+## Each mesh's faces worked out once and shared by every copy (2026-10-27).
+static var _faces: Dictionary = {}
+
+
 ## A mesh's own faces to stop him (the roots where they come down).
 static func _solid_mesh(n: Node3D) -> void:
 	for mi in n.find_children("*", "MeshInstance3D", true, false) + [n]:
 		if mi is MeshInstance3D and (mi as MeshInstance3D).mesh != null:
+			var mesh := (mi as MeshInstance3D).mesh
+			if not _faces.has(mesh):
+				_faces[mesh] = mesh.create_trimesh_shape()
 			var body := StaticBody3D.new()
 			var shape := CollisionShape3D.new()
-			shape.shape = (mi as MeshInstance3D).mesh.create_trimesh_shape()
+			shape.shape = _faces[mesh]
 			body.add_child(shape)
 			(mi as Node3D).add_child(body)
 

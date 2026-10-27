@@ -2,8 +2,10 @@ class_name Sfx
 extends RefCounted
 
 ## One-shot sounds in the world: a player made for the sound, placed where it
-## happens, freed when it has played. Nothing to set up and nothing to pool —
-## a swing or a bowstring is a handful of these a second at most.
+## happens, freed when it has played. A swing or a bowstring is a handful of
+## these a second, but a crowd's fight can start dozens at once, so the number
+## sounding is capped: [constant MAX_VOICES] in all and [constant MAX_SAME] of
+## one sound (a fifth identical hit adds only loudness and costs a mix voice).
 ##
 ## Streams are loaded once and kept, so the first swing does not stall on a
 ## disk read.
@@ -12,6 +14,13 @@ static var _cache: Dictionary = {}
 ## The bus the world's sounds go to (a [Dungeon] sends them through its own
 ## echo while it stands).
 static var bus: StringName = &"Master"
+
+## The most world sounds playing at once; past it a new one is not started.
+const MAX_VOICES := 32
+## The most copies of one sound playing at once.
+const MAX_SAME := 4
+static var _voices := 0
+static var _same: Dictionary = {}
 
 
 ## Plays `path` at `where` (a node it follows, or a point if `where` is null
@@ -24,7 +33,10 @@ static func play(owner: Node, path: String, where: Node3D = null, at: Vector3 = 
 	var stream := _stream(path)
 	if stream == null:
 		return null
+	if _voices >= MAX_VOICES or int(_same.get(path, 0)) >= MAX_SAME:
+		return null
 	var player := AudioStreamPlayer3D.new()
+	_count(player, path)
 	player.stream = stream
 	player.volume_db = volume_db
 	player.pitch_scale = maxf(pitch * randf_range(1.0 - spread, 1.0 + spread), 0.05)
@@ -50,7 +62,10 @@ static func play_flat(owner: Node, path: String, pitch: float = 1.0, volume_db: 
 	var stream := _stream(path)
 	if stream == null:
 		return
+	if _voices >= MAX_VOICES or int(_same.get(path, 0)) >= MAX_SAME:
+		return
 	var player := AudioStreamPlayer.new()
+	_count(player, path)
 	player.stream = stream
 	player.volume_db = volume_db
 	player.pitch_scale = maxf(pitch * randf_range(0.97, 1.03), 0.05)
@@ -83,6 +98,20 @@ static func play_any(owner: Node, paths: Array, where: Node3D = null, pitch: flo
 static func warm(paths: Array) -> void:
 	for path in paths:
 		_stream(String(path))
+
+
+## Counts `player` as sounding until it leaves the tree (played out, cut
+## short by [method stop], or its owner gone).
+static func _count(player: Node, path: String) -> void:
+	_voices += 1
+	_same[path] = int(_same.get(path, 0)) + 1
+	player.tree_exiting.connect(func() -> void:
+		_voices = maxi(_voices - 1, 0)
+		var left := int(_same.get(path, 1)) - 1
+		if left <= 0:
+			_same.erase(path)
+		else:
+			_same[path] = left, CONNECT_ONE_SHOT)
 
 
 static func _stream(path: String) -> AudioStream:

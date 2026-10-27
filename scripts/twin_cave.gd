@@ -613,14 +613,24 @@ static func _piece(parent: Node3D, piece: String, at: Vector3, yaw: float = 0.0)
 	return n
 
 
+## Each kit mesh's hull and shell, worked out once and shared by every copy
+## of that piece (a hull with simplify cost the cave most of its ~1 s build,
+## made again for every crystal and rock; 2026-10-27).
+static var _hulls: Dictionary = {}
+static var _shells: Dictionary = {}
+
+
 ## A prop's own hull to stop him (the user's word, 2026-10-25: he walked
 ## into the rocks and the crystals).
 static func _solid_hull(n: Node3D) -> void:
 	for mi in n.find_children("*", "MeshInstance3D", true, false) + [n]:
 		if mi is MeshInstance3D and (mi as MeshInstance3D).mesh != null:
+			var mesh := (mi as MeshInstance3D).mesh
+			if not _hulls.has(mesh):
+				_hulls[mesh] = mesh.create_convex_shape(true, true)
 			var body := StaticBody3D.new()
 			var shape := CollisionShape3D.new()
-			shape.shape = (mi as MeshInstance3D).mesh.create_convex_shape(true, true)
+			shape.shape = _hulls[mesh]
 			body.add_child(shape)
 			(mi as Node3D).add_child(body)
 
@@ -629,11 +639,14 @@ static func _solid_hull(n: Node3D) -> void:
 static func _solid_shell(n: Node3D) -> void:
 	for mi in n.find_children("*", "MeshInstance3D", true, false) + [n]:
 		if mi is MeshInstance3D and (mi as MeshInstance3D).mesh != null:
+			var mesh := (mi as MeshInstance3D).mesh
+			if not _shells.has(mesh):
+				var tri := mesh.create_trimesh_shape()
+				tri.backface_collision = true
+				_shells[mesh] = tri
 			var body := StaticBody3D.new()
 			var shape := CollisionShape3D.new()
-			var tri := (mi as MeshInstance3D).mesh.create_trimesh_shape()
-			tri.backface_collision = true
-			shape.shape = tri
+			shape.shape = _shells[mesh]
 			body.add_child(shape)
 			(mi as Node3D).add_child(body)
 
