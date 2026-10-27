@@ -33,6 +33,10 @@ const POOL_VENOM := 0.22
 ## And this many hidden in the water, seen only by their bubbles.
 const HIDDEN := 2
 
+## On or off from F2 ([RoomsPanel]): the swamp's poison, the falling stones.
+static var poison_on := true
+static var falls_on := true
+
 var kind := ""
 var _d: Dungeon
 var _i := -1
@@ -51,7 +55,7 @@ static func make(d: Dungeon, i: int) -> RoomHazards:
 			k = "stones"
 		"swamp":
 			k = "pools"
-	if k == "":
+	if k == "" or (k == "pools" and not poison_on) or (k != "pools" and not falls_on):
 		return null
 	var h := RoomHazards.new()
 	h.name = "RoomHazards"
@@ -60,6 +64,13 @@ static func make(d: Dungeon, i: int) -> RoomHazards:
 	h._i = i
 	h._next = _now() + 3.0
 	return h
+
+
+## Puts the place's dangers up again as they now are (after F2 turned one on
+## or off).
+static func refresh(d: Dungeon) -> void:
+	if d != null and d.director != null:
+		d.director._hazard_step = -2
 
 
 static func _now() -> float:
