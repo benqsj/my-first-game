@@ -7,8 +7,9 @@ extends Node
 ## * **cave** — stalactites break from the roof: a ring on the floor where one
 ##   will land, a moment to step out, then it falls and shatters.
 ## * **crypt** — the old vault sheds its stones the same way.
-## * **swamp** — pools of green poison lie about the floor; standing in one
-##   fills his venom ([HeroPoison]).
+## * **swamp** — pools of poisoned water lie about the floor (the swamp's own
+##   water, gone green, a green steam rising off it); standing in one fills
+##   his venom ([HeroPoison]).
 ##
 ## Made by [CombatDirector] for the place he has come to; the host chooses
 ## when and where a stone falls and every peer sees it ([method net_fall]);
@@ -28,6 +29,7 @@ const FALL_NEAR := 3.5
 const POOLS := 5
 const POOL_R := Vector2(1.8, 3.0)
 const POOL_VENOM := 0.22
+const POOL_LOOK := {"shallow": Color(0.20, 0.30, 0.09), "deep": Color(0.06, 0.13, 0.04)}
 
 var kind := ""
 var _d: Dungeon
@@ -191,23 +193,29 @@ func _lay_pools() -> void:
 	var room: Dictionary = _d._room(_i)
 	var w := float(room.get("w", 40.0)) * 0.35
 	var l := float(room.get("l", 60.0)) * 0.3
+	# (the room's own ground height: its water lies under it, in the hollows)
+	var base := c.y
 	for k in POOLS:
-		var at := c + Vector3(rng.randf_range(-w, w), 0.0, rng.randf_range(-l, l))
+		# on dry ground, not in the swamp's own hollows of water (a pool under
+		# its water showed through in green blotches)
+		var at := c
+		for tries in 30:
+			at = c + Vector3(rng.randf_range(-w, w), 0.0, rng.randf_range(-l, l))
+			if _floor(at).y > base - 0.03:
+				break
 		var r := rng.randf_range(POOL_R.x, POOL_R.y)
 		var pool := Node3D.new()
 		pool.name = "PoisonPool"
 		world.add_child(pool)
-		pool.global_position = _floor(at) + Vector3.UP * 0.03
-		pool.add_child(_disc(r, Color(0.35, 0.95, 0.2, 0.32)))
-		var inner := _disc(r * 0.65, Color(0.55, 1.0, 0.3, 0.25))
-		inner.position.y = 0.01
-		pool.add_child(inner)
-		var glow := OmniLight3D.new()
-		glow.light_color = Color(0.45, 1.0, 0.3)
-		glow.light_energy = 0.8
-		glow.omni_range = r * 1.6
-		glow.position.y = 0.5
-		pool.add_child(glow)
+		pool.global_position = _floor(at) + Vector3.UP * 0.08
+		# the swamp's own faceted water ([SwampMere]), gone a sick green (the
+		# user's word, 2026-10-28: as the water, with a green steam rising)
+		var water := MeshInstance3D.new()
+		water.mesh = _pool_mesh(r, rng)
+		water.material_override = SwampMere._lp_water(POOL_LOOK)
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pool.add_child(water)
+		pool.add_child(_steam(r))
 		_pools.append([pool, r])
 	tree_exiting.connect(func() -> void:
 		for p: Array in _pools:
@@ -215,9 +223,18 @@ func _lay_pools() -> void:
 				(p[0] as Node).queue_free())
 
 
+var _pool_clock := 0.0
+
+
 func _in_pools(delta: float) -> void:
 	if not _d.decides():
 		return
+	# a few times a second, not every frame (the venom goes out to every peer)
+	_pool_clock += delta
+	if _pool_clock < 0.25:
+		return
+	delta = _pool_clock
+	_pool_clock = 0.0
 	for hero in _d._heroes():
 		if hero.is_dead:
 			continue
@@ -251,3 +268,85 @@ static func _disc(r: float, tint: Color) -> MeshInstance3D:
 	d.material_override = m
 	d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return d
+
+
+## A pool's water: a disc of small triangles in rings (the swamp water's
+## facets and swell need the points inside), its edge uneven as a puddle's.
+static func _pool_mesh(r: float, rng: RandomNumberGenerator) -> ArrayMesh:
+	const RINGS := 5
+	const SEGS := 22
+	var edge: Array[float] = []
+	for k in SEGS:
+		edge.append(r * rng.randf_range(0.8, 1.12))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var at := func(ring: int, k: int) -> Vector3:
+		if ring == 0:
+			return Vector3.ZERO
+		var a := TAU * float(k % SEGS) / float(SEGS)
+		var rr := edge[k % SEGS] * float(ring) / float(RINGS)
+		return Vector3(cos(a) * rr, 0.0, sin(a) * rr)
+	for ring in RINGS:
+		for k in SEGS:
+			var a0: Vector3 = at.call(ring, k)
+			var a1: Vector3 = at.call(ring, k + 1)
+			var b0: Vector3 = at.call(ring + 1, k)
+			var b1: Vector3 = at.call(ring + 1, k + 1)
+			st.set_normal(Vector3.UP)
+			st.add_vertex(a0)
+			st.add_vertex(b1)
+			st.add_vertex(b0)
+			if ring > 0:
+				st.add_vertex(a0)
+				st.add_vertex(a1)
+				st.add_vertex(b1)
+	return st.commit()
+
+
+## A green steam rising slowly off a pool.
+static func _steam(r: float) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = int(clampf(r * 6.0, 10.0, 22.0))
+	p.lifetime = 3.2
+	p.preprocess = 3.0
+	p.visibility_aabb = AABB(Vector3(-r - 1.0, -0.5, -r - 1.0), Vector3(r * 2.0 + 2.0, 5.0, r * 2.0 + 2.0))
+	var m := ParticleProcessMaterial.new()
+	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	m.emission_sphere_radius = r * 0.75
+	m.direction = Vector3.UP
+	m.spread = 12.0
+	m.initial_velocity_min = 0.25
+	m.initial_velocity_max = 0.6
+	m.gravity = Vector3(0.0, 0.08, 0.0)
+	m.damping_min = 0.1
+	m.damping_max = 0.3
+	m.scale_min = 0.9
+	m.scale_max = 1.8
+	var grow := Curve.new()
+	grow.add_point(Vector2(0.0, 0.4))
+	grow.add_point(Vector2(1.0, 1.4))
+	var gt := CurveTexture.new()
+	gt.curve = grow
+	m.scale_curve = gt
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.55, 1.0, 0.35, 0.0))
+	ramp.add_point(0.2, Color(0.5, 0.95, 0.3, 0.22))
+	ramp.set_color(ramp.get_point_count() - 1, Color(0.45, 0.8, 0.3, 0.0))
+	var rt := GradientTexture1D.new()
+	rt.gradient = ramp
+	m.color_ramp = rt
+	p.process_material = m
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1.0, 1.0)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_texture = SkillFx.dot()
+	mat.disable_receive_shadows = true
+	quad.material = mat
+	p.draw_pass_1 = quad
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.position.y = 0.15
+	return p
