@@ -76,7 +76,6 @@ static func build(d: Dungeon, room: Node3D, w: float, l: float, rng: RandomNumbe
 	room.rotation.y = PI
 	top.add_child(room)
 	_shadows(_piece(room, "GGround", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
-	_shadows(_piece(room, "GFlags", Vector3.ZERO), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	for name: String in ["GHallA", "GHallD", "GTunnel", "GWayIn", "GLedge"]:
 		var shell := _piece(room, name, Vector3.ZERO)
 		_shadows(shell, GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED)
