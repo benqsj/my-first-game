@@ -18,6 +18,8 @@ const SEEN := 1.45
 const SLIP := 0.12
 const LIFE := 4.0
 const SPLAT_SOUND := "res://unverified/sounds/all/land.wav"
+## Whether a lump leaves a brown patch where it lands (off since 2026-10-28).
+const LEAVES_PATCH := false
 const THROW_SOUND := "res://unverified/sounds/all/jump.wav"
 
 var _vel: Vector3 = Vector3.ZERO
@@ -246,11 +248,12 @@ func _splash(at: Vector3, ground: bool, normal: Vector3 = Vector3.UP) -> void:
 		var out := Vector3(randf_range(-1, 1), 0.0, randf_range(-1, 1)).normalized() * randf_range(1.5, 4.0)
 		MudDrop.spawn(world, at + Vector3.UP * 0.1, out + normal * randf_range(1.5, 4.0), randf_range(0.03, 0.08), ember)
 	Sfx.play(world, SPLAT_SOUND, null, at, randf_range(0.5, 0.6), -4.0)
-	if ground and normal.y > 0.6 and not ember:
+	# (no patch left on the ground any more, the user's word, 2026-10-28)
+	if LEAVES_PATCH and ground and normal.y > 0.6 and not ember:
 		var patch := MudPatch.new()
 		world.add_child(patch)
 		patch.global_position = at + normal * 0.02
-	elif not ember and is_inside_tree():
+	elif LEAVES_PATCH and not ember and is_inside_tree():
 		# it found him: the mud falls off him at his feet
 		var down := get_world_3d().direct_space_state.intersect_ray(
 				PhysicsRayQueryParameters3D.create(at, at + Vector3.DOWN * 3.0, 1))

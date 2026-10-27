@@ -45,11 +45,7 @@ func _ready() -> void:
 		rooms.add_child(_small(label, _view_room.bind(place)))
 	_column.add_child(rooms)
 	_column.add_child(_toggle("With creatures", false, func(on: bool) -> void: _with_foes = on))
-	# the places' dangers (the user's word, 2026-10-28: the swamp's poison on
-	# and off from here)
-	_column.add_child(_toggle("Swamp poison", RoomHazards.poison_on, func(on: bool) -> void:
-		RoomHazards.poison_on = on
-		RoomHazards.refresh(_dungeon())))
+	# the places' dangers on and off (2026-10-28; the swamp's poison is gone)
 	_column.add_child(_toggle("Falling stones (cave, crypt)", RoomHazards.falls_on, func(on: bool) -> void:
 		RoomHazards.falls_on = on
 		RoomHazards.refresh(_dungeon())))

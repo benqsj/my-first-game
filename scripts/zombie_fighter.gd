@@ -68,7 +68,8 @@ extends Brawler
 @export var grab_from: float = 4.4
 @export var grab_near: float = 1.9
 @export var grab_cooldown: Vector2 = Vector2(6.0, 11.0)
-@export var tell_time: float = 0.55
+## (0.55 till 2026-10-28: now it stops, rears back and holds, then rushes)
+@export var tell_time: float = 0.85
 @export var lunge_time: float = 0.5
 ## Where it stands to him while it holds him (its root off his).
 @export var hold_gap: float = 0.62
@@ -177,7 +178,8 @@ func _ready() -> void:
 		_moves_table[f[2]] = [c[1], 1.25, 0.0, 1.0]
 	var walk_len: float = clip_len.call(&"CR_ZB_Walk1", 4.0)
 	var run_len: float = clip_len.call(&"CR_ZB_Run1", 0.8)
-	_moves_table[TELL] = [&"CR_ZB_Walk1", 1.3, 0.0, minf(tell_time * 1.3 / walk_len, 1.0)]
+	# all but stopped in its walk, poised (its rearing back is [method _lean])
+	_moves_table[TELL] = [&"CR_ZB_Walk1", 0.18, 0.0, minf(tell_time * 0.18 / walk_len, 1.0)]
 	_moves_table[LUNGE] = [&"CR_ZB_Run1", 1.6, 0.0, minf(lunge_time * 1.6 / run_len, 1.0)]
 	var bite_len: float = clip_len.call(HOLD_CLIP, 4.2)
 	_moves_table[HOLD] = [HOLD_CLIP, 0.9, 1.7 / bite_len, 2.85 / bite_len]
@@ -357,6 +359,7 @@ func _process(delta: float) -> void:
 		_apply_gait()
 	_emerge_look()
 	_glow_hands(delta)
+	_lean(delta)
 
 
 func _think(delta: float) -> void:
@@ -433,7 +436,8 @@ func _begin_attack() -> void:
 func _extra_velocity(delta: float) -> Vector3:
 	match act:
 		TELL:
-			return _forward() * 0.45
+			# a step back as it rears, then still
+			return _forward() * (-0.55 if _act_time < tell_time * 0.5 else 0.0)
 		LUNGE:
 			return _forward() * _lunge_speed
 		HOLD, KNEEL, EAT, SCREAM, EMERGE, MISS:
@@ -689,6 +693,45 @@ func _hands() -> void:
 		w.emitting = false
 		at.add_child(w)
 		_hand_parts.append([l, q, m, w])
+
+
+## Every peer: its body reared back through the tell (the user's word,
+## 2026-10-28: not its hands going blue alone; it stops as if held, leans
+## back a little, and then all at once comes at him), thrown forward in the
+## rush, upright again after.
+func _lean(delta: float) -> void:
+	if body == null:
+		return
+	var want := 0.0
+	if not is_dead and not under:
+		match act:
+			TELL:
+				var t := clampf(_act_time / maxf(tell_time * 0.55, 0.05), 0.0, 1.0)
+				want = LEAN_BACK * (1.0 - (1.0 - t) * (1.0 - t))
+			LUNGE:
+				want = -LEAN_RUSH
+	_lean_now = move_toward(_lean_now, want, delta * (6.0 if act == LUNGE else 1.6))
+	if absf(_lean_now) < 0.001:
+		if _leaning:
+			_leaning = false
+			body.basis = _lean_rest
+		return
+	if not _leaning:
+		_leaning = true
+		_lean_rest = body.basis
+	var axis := _forward().cross(Vector3.UP)
+	var local := (global_basis.inverse() * axis).normalized()
+	if local.length_squared() < 0.5:
+		return
+	body.basis = Basis(local, _lean_now) * _lean_rest
+
+
+## How far it rears back in the tell, and pitches forward in the rush (rad).
+const LEAN_BACK := 0.26
+const LEAN_RUSH := 0.18
+var _lean_now := 0.0
+var _leaning := false
+var _lean_rest := Basis.IDENTITY
 
 
 func _glow_hands(delta: float) -> void:

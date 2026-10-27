@@ -238,6 +238,8 @@ const TRAPS_FROM := 3
 const TRAP_CHANCE := 0.6
 ## Places where "survive" is never the goal.
 const NO_SURVIVE := ["crypt", "cave"]
+## Places where the totems never stand (in the cave they stood in its walls).
+const NO_TOTEMS := ["cave"]
 ## The room's gift of gold (gold is dear: a creature leaves one coin).
 const GOLD_GIFT := 4
 ## Each place, to look round it from F1 ([method view_place]): the step whose
@@ -2041,15 +2043,34 @@ func _choice_specs(next: int) -> Array:
 		var rest: bool = (PLACES[place] as Dictionary).has("rest")
 		var reward := "" if last or rest else String(gifts[k])
 		var goal := "" if rest or is_boss(next) else RoomGoal.pick(_rng, next, steps.size() - 1)
-		# with others, no totems: who broke one is not told to the rest yet
-		if goal == "totems" and online():
-			goal = ""
-		# not where a place has its own lord or its own ways (the crypt's king
-		# came as a bar with no one under it; the user's word, 2026-10-27)
-		if goal == "survive" and NO_SURVIVE.has(place):
-			goal = "" if online() else "totems"
+		goal = _fit_goal(goal, place)
 		out.append({"place": place, "reward": reward, "goal": goal, "cursed": k == cursed_one and reward != ""})
 	return out
+
+
+## A goal as it may be at `place` in this run:
+## * holding out not where a place has its own lord or ways (the crypt's
+##   king came as a bar with no one under it, 2026-10-27), and once a run at
+##   most (2026-10-28: the forest and the swamp were always "survive");
+## * no totems with others (who broke one is not told to the rest yet), nor
+##   in the cave (they stood in its walls, out of reach, and its door would
+##   not open, 2026-10-28);
+## * never the same goal two places running.
+func _fit_goal(goal: String, place: String) -> String:
+	var held_out := false
+	for r: Variant in rooms:
+		if r is Dictionary and String((r as Dictionary).get("goal", "")) == "survive":
+			held_out = true
+	var last := ""
+	if current >= 0 and current < rooms.size() and rooms[current] is Dictionary:
+		last = String((rooms[current] as Dictionary).get("goal", ""))
+	if goal == "survive" and (held_out or NO_SURVIVE.has(place)):
+		goal = "totems"
+	if goal == "totems" and (online() or NO_TOTEMS.has(place)):
+		goal = ""
+	if goal != "" and goal == last:
+		goal = ""
+	return goal
 
 
 ## Of `pool`, the places not yet seen in this run; when that leaves fewer

@@ -7,14 +7,11 @@ extends Node
 ## * **cave** — stalactites break from the roof: a ring on the floor where one
 ##   will land, a moment to step out, then it falls and shatters.
 ## * **crypt** — the old vault sheds its stones the same way.
-## * **swamp** — pools of venom lie about the floor (as Arkdeva's lies,
-##   [Venom]), bubbling, a thin green steam over them; two more hidden in
-##   the water, seen only by their bubbles; standing in one fills his venom
-##   ([HeroPoison]).
+## (The swamp's poison pools were tried and taken out, the user's word,
+## 2026-10-28.)
 ##
 ## Made by [CombatDirector] for the place he has come to; the host chooses
-## when and where a stone falls and every peer sees it ([method net_fall]);
-## the pools are laid the same on every peer (from the place's own seed).
+## when and where a stone falls and every peer sees it ([method net_fall]).
 
 ## A stone: how often, how long its ring shows before it falls, how far it
 ## falls, its reach and its blow (a share of his whole life).
@@ -26,22 +23,14 @@ const FALL_R := 1.7
 const FALL_HURT := 0.18
 ## Near him: within this of where he stands (now and then right on him).
 const FALL_NEAR := 3.5
-## The pools: how many, how wide, the venom a second in one.
-const POOLS := 4
-const POOL_R := Vector2(1.8, 3.0)
-const POOL_VENOM := 0.22
-## And this many hidden in the water, seen only by their bubbles.
-const HIDDEN := 2
 
-## On or off from F2 ([RoomsPanel]): the swamp's poison, the falling stones.
-static var poison_on := true
+## On or off from F2 ([RoomsPanel]).
 static var falls_on := true
 
 var kind := ""
 var _d: Dungeon
 var _i := -1
 var _next := 0.0
-var _pools: Array = []
 var _combo := 88000
 
 
@@ -53,9 +42,7 @@ static func make(d: Dungeon, i: int) -> RoomHazards:
 			k = "stalactites"
 		"crypt":
 			k = "stones"
-		"swamp":
-			k = "pools"
-	if k == "" or (k == "pools" and not poison_on) or (k != "pools" and not falls_on):
+	if k == "" or not falls_on:
 		return null
 	var h := RoomHazards.new()
 	h.name = "RoomHazards"
@@ -77,11 +64,6 @@ static func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
 
-func _ready() -> void:
-	if kind == "pools":
-		_lay_pools()
-
-
 func _fighting() -> bool:
 	for body in _d._alive:
 		if is_instance_valid(body) and not bool(body.get("is_dead")) and body.visible:
@@ -91,9 +73,6 @@ func _fighting() -> bool:
 
 func _process(delta: float) -> void:
 	if _d == null or _d.current != _i:
-		return
-	if kind == "pools":
-		_in_pools(delta)
 		return
 	if not _d.decides() or _now() < _next or not _fighting():
 		return
@@ -195,79 +174,6 @@ func _landed(spot: Node3D, stone: MeshInstance3D, ring: Node3D, fill: Node3D) ->
 #endregion
 
 
-#region Pools
-func _lay_pools() -> void:
-	var world := Blood.world_of(_d)
-	if world == null:
-		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 6151 * (_i + 1) + 31 * _d.id
-	var c := _d.centre(_i)
-	var room: Dictionary = _d._room(_i)
-	var w := float(room.get("w", 40.0)) * 0.35
-	var l := float(room.get("l", 60.0)) * 0.3
-	# (the room's own ground height: its water lies under it, in the hollows)
-	var base := c.y
-	# (the user's word, 2026-10-28: the swamp itself as it was; the poison as
-	# Arkdeva's venom lies on the ground, bubbling, a thin green steam; and one
-	# or two hidden in the water, seen only by their bubbles)
-	for k in POOLS + HIDDEN:
-		var hidden := k >= POOLS
-		var at := c
-		for tries in 40:
-			at = c + Vector3(rng.randf_range(-w, w), 0.0, rng.randf_range(-l, l))
-			var y := _floor(at).y
-			if (not hidden and y > base - 0.03) or (hidden and y < base + SwampMere.SURFACE - 0.12):
-				break
-		var r := rng.randf_range(POOL_R.x, POOL_R.y)
-		var pool := Node3D.new()
-		pool.name = "PoisonPool"
-		world.add_child(pool)
-		pool.global_position = _floor(at)
-		if hidden:
-			# under the water: bubbles breaking at its surface, nothing else
-			var fizz := _bubbles(r * 0.6, false)
-			pool.add_child(fizz)
-			fizz.global_position = Vector3(at.x, base + SwampMere.SURFACE - 0.02, at.z)
-		else:
-			var venom := Venom.pool(pool, pool.global_position + Vector3.UP * 0.3, r, 1.0e7)
-			if venom != null:
-				venom.name = "Venom"
-			pool.add_child(_bubbles(r * 0.7, true))
-		_pools.append([pool, r])
-	tree_exiting.connect(func() -> void:
-		for p: Array in _pools:
-			if is_instance_valid(p[0]):
-				(p[0] as Node).queue_free())
-
-
-var _pool_clock := 0.0
-
-
-func _in_pools(delta: float) -> void:
-	if not _d.decides():
-		return
-	# a few times a second, not every frame (the venom goes out to every peer)
-	_pool_clock += delta
-	if _pool_clock < 0.25:
-		return
-	delta = _pool_clock
-	_pool_clock = 0.0
-	for hero in _d._heroes():
-		if hero.is_dead:
-			continue
-		for p: Array in _pools:
-			var pool := p[0] as Node3D
-			if not is_instance_valid(pool):
-				continue
-			var gap := Vector2(hero.global_position.x - pool.global_position.x,
-					hero.global_position.z - pool.global_position.z).length()
-			if gap <= float(p[1]) and absf(hero.global_position.y - pool.global_position.y) < 1.5:
-				var venom := HeroPoison.of(hero)
-				if venom != null:
-					venom.apply_venom(HeroPoison.FULL * POOL_VENOM * delta)
-				break
-#endregion
 
 
 static func _disc(r: float, tint: Color) -> MeshInstance3D:
@@ -286,99 +192,3 @@ static func _disc(r: float, tint: Color) -> MeshInstance3D:
 	d.material_override = m
 	d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return d
-
-
-## Bubbles rising and breaking off a pool, within `r` of its middle, small and
-## quick; with `wisp`, a thin green steam over it as well, low and faint.
-static func _bubbles(r: float, wisp: bool) -> Node3D:
-	var root := Node3D.new()
-	root.name = "Bubbles"
-	var b := GPUParticles3D.new()
-	b.amount = int(clampf(r * 10.0, 8.0, 24.0))
-	b.lifetime = 0.9
-	b.preprocess = 1.0
-	b.randomness = 0.6
-	b.visibility_aabb = AABB(Vector3(-r - 0.5, -0.3, -r - 0.5), Vector3(r * 2.0 + 1.0, 1.5, r * 2.0 + 1.0))
-	var m := ParticleProcessMaterial.new()
-	m.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	m.emission_sphere_radius = r
-	m.emission_shape_scale = Vector3(1.0, 0.02, 1.0)
-	m.direction = Vector3.UP
-	m.spread = 6.0
-	m.initial_velocity_min = 0.05
-	m.initial_velocity_max = 0.18
-	m.gravity = Vector3.ZERO
-	m.scale_min = 0.05
-	m.scale_max = 0.13
-	# swell, then burst
-	var swell := Curve.new()
-	swell.add_point(Vector2(0.0, 0.2))
-	swell.add_point(Vector2(0.85, 1.0))
-	swell.add_point(Vector2(1.0, 0.0))
-	var st := CurveTexture.new()
-	st.curve = swell
-	m.scale_curve = st
-	b.process_material = m
-	var ball := SphereMesh.new()
-	ball.radius = 0.5
-	ball.height = 1.0
-	ball.radial_segments = 8
-	ball.rings = 4
-	var bm := StandardMaterial3D.new()
-	bm.albedo_color = Color(0.45, 0.85, 0.2, 0.75)
-	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	bm.roughness = 0.15
-	bm.metallic_specular = 0.9
-	bm.emission_enabled = true
-	bm.emission = Color(0.25, 0.6, 0.1)
-	bm.emission_energy_multiplier = 0.4
-	ball.material = bm
-	b.draw_pass_1 = ball
-	b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(b)
-	if wisp:
-		var w := GPUParticles3D.new()
-		w.amount = int(clampf(r * 4.0, 5.0, 10.0))
-		w.lifetime = 2.6
-		w.preprocess = 2.6
-		w.visibility_aabb = AABB(Vector3(-r - 1.0, -0.3, -r - 1.0), Vector3(r * 2.0 + 2.0, 3.5, r * 2.0 + 2.0))
-		var wm := ParticleProcessMaterial.new()
-		wm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-		wm.emission_sphere_radius = r * 0.8
-		wm.emission_shape_scale = Vector3(1.0, 0.02, 1.0)
-		wm.direction = Vector3.UP
-		wm.spread = 8.0
-		wm.initial_velocity_min = 0.2
-		wm.initial_velocity_max = 0.4
-		wm.gravity = Vector3.ZERO
-		wm.scale_min = 0.18
-		wm.scale_max = 0.32
-		var thin := Curve.new()
-		thin.add_point(Vector2(0.0, 0.5))
-		thin.add_point(Vector2(1.0, 1.0))
-		var tt := CurveTexture.new()
-		tt.curve = thin
-		wm.scale_curve = tt
-		var ramp := Gradient.new()
-		ramp.set_color(0, Color(0.55, 1.0, 0.35, 0.0))
-		ramp.add_point(0.25, Color(0.5, 0.95, 0.3, 0.12))
-		ramp.set_color(ramp.get_point_count() - 1, Color(0.45, 0.8, 0.3, 0.0))
-		var rt := GradientTexture1D.new()
-		rt.gradient = ramp
-		wm.color_ramp = rt
-		w.process_material = wm
-		var quad := QuadMesh.new()
-		# tall and narrow: a thread of steam, not a ball of it
-		quad.size = Vector2(0.6, 1.6)
-		var qm := StandardMaterial3D.new()
-		qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		qm.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
-		qm.vertex_color_use_as_albedo = true
-		qm.albedo_texture = SkillFx.dot()
-		quad.material = qm
-		w.draw_pass_1 = quad
-		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		w.position.y = 0.5
-		root.add_child(w)
-	return root

@@ -364,6 +364,11 @@ func _process(delta: float) -> void:
 
 ## The clip for the action that has just started, on every peer.
 func _play_act() -> void:
+	if act == HIT_ACT:
+		var clip := _stun_clip()
+		if clip != &"":
+			_anim.play(clip, 0.05, 1.35, 1.0, true)
+		return
 	match act:
 		Act.ATTACK:
 			_anim.play(attack_clip, 0.12, attack_speed, 1.0, true)
@@ -710,6 +715,8 @@ func _start(what: Act) -> void:
 				length = guard_break_time
 	if what == Act.REEL:
 		length = Recoil.STAGGER
+	if what == HIT_ACT:
+		length = HIT_STUN_ELITE if has_meta(&"elite") else HIT_STUN
 	if reacts.has(what):
 		length = _react_length(what)
 	_act_length = length
@@ -998,7 +1005,54 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 		velocity += shove.normalized() * 2.5
 	if health <= 0.0:
 		_die()
+	else:
+		_hit_stun()
 	return true
+
+
+## Struck, it is stopped (the user's word, 2026-10-28: the small ones take a
+## blow as he takes one from the big ones: an act of its own, its clip of
+## being hit, what it was about to swing broken off). Not a boss, nor one
+## with a stance of its own ([PackBrute]: the orcs, the ogre, the troll), nor
+## once its blow is under way past its rise; an elite for less long.
+const HIT_ACT := 900
+const HIT_STUN := 0.42
+const HIT_STUN_ELITE := 0.24
+const HIT_CLIPS := [&"HitReact", &"CR_Hit", &"CR_GH_Flinch", &"Hit_A", &"Hit", &"Hit_Chest",
+		&"GetHit", &"Hurt", &"Hit_Knockback"]
+var _stun_clip_found: StringName = &"-"
+
+
+func _hit_stun() -> void:
+	if is_dead or has_meta(&"boss") or self is PackBrute:
+		return
+	if act != Act.NONE and act != HIT_ACT:
+		var swinging := act == Act.ATTACK
+		if has_method(&"_strikes"):
+			var all: Variant = call(&"_strikes")
+			swinging = swinging or ((all is Dictionary or all is Array) and all.has(act))
+		# only a swing still rising is broken off; anything else it is about
+		# (a grab, a bite, getting up) goes on
+		if not swinging or _act_time > _act_length * 0.45:
+			return
+	_start(HIT_ACT as Act)
+
+
+func _stun_clip() -> StringName:
+	if _stun_clip_found != &"-":
+		return _stun_clip_found
+	_stun_clip_found = &""
+	if _anim == null:
+		return _stun_clip_found
+	var own: Variant = get(&"hit_clip")
+	if own is StringName and _anim.has_clip(own):
+		_stun_clip_found = own
+		return _stun_clip_found
+	for c: StringName in HIT_CLIPS:
+		if _anim.has_clip(c):
+			_stun_clip_found = c
+			break
+	return _stun_clip_found
 
 
 @rpc("authority", "call_local", "unreliable")

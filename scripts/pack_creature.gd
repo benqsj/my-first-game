@@ -50,7 +50,9 @@ const KINDS := {
 ## cornea, lip (sRGB, as the .mat holds them), metallic and smoothness of the
 ## mask's R, G, B.
 const MATERIALS := {
-	"Body_Ghoul": [Color(0.6118, 0.6157, 0.6392), Color(0.3674, 0.1207, 0.0672), Color(0.8616, 0.7554, 0.7072), Color(0.7955, 0.6820, 0.6172), Color(0.6281, 0.9635, 0.9937), Color(0.8078, 0.0235, 0.1608),
+	# (its skin dimmed to a dead ashen grey-green: the pack's pale grey read as
+	# pearl white in the cave's light, the user's word, 2026-10-28)
+	"Body_Ghoul": [Color(0.20, 0.22, 0.17), Color(0.3674, 0.1207, 0.0672), Color(0.8616, 0.7554, 0.7072), Color(0.7955, 0.6820, 0.6172), Color(0.6281, 0.9635, 0.9937), Color(0.8078, 0.0235, 0.1608),
 			Vector3(0, 0, 0), Vector3(0, 0.5, 0)],
 	"Body_Goblin": [Color(0.5216, 0.6078, 0.3294), Color(0.3674, 0.1207, 0.0672), Color(1.0000, 0.8128, 0.6194), Color(0.7955, 0.6820, 0.6172), Color(1.0000, 0.9477, 0.2314), Color(0.8078, 0.0235, 0.1608),
 			Vector3(0, 0, 0), Vector3(0, 0.5, 0)],
