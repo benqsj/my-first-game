@@ -1,0 +1,40 @@
+# Every push and pull request: every GDScript file must parse.
+# A parse error in one script stops the whole game from loading (2026-10:
+# game.gd failed through its dependency chain), so it is caught here, not
+# when someone starts the game. Only the scripts are fetched (the repo's art
+# is many GB), and gdparse checks syntax only: types and missing names are
+# still caught by Godot's own --check-only on the Mac.
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gdscript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            tests
+            tools
+            addons
+          sparse-checkout-cone-mode: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "gdtoolkit==4.5.0"
+      - name: Parse every .gd
+        run: |
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! gdparse "$f" > /dev/null 2> err.txt; then
+              echo "::error file=$f::$(head -c 600 err.txt | tr '\n' ' ')"
+              fail=1
+            fi
+          done < <(find scripts tests tools addons -name '*.gd' -print0)
+          exit $fail
