@@ -387,7 +387,7 @@ func _think(delta: float) -> void:
 		return
 	# Mud, from the bunch or from anywhere, one throw of the band at a time.
 	if gap > throw_range.x and gap < throw_range.y and _clock >= _next_throw and state != Band.REGROUP \
-			and (b.is_empty() or _clock >= float(b["next_throw"])) and Fighter.claim_throw(_quarry):
+			and (b.is_empty() or _clock >= float(b["next_throw"])) and Fighter.claim_throw(_quarry, self):
 		_next_throw = _clock + _rng.randf_range(throw_every.x, throw_every.y)
 		if not b.is_empty():
 			b["next_throw"] = _clock + 1.6
@@ -415,7 +415,7 @@ func _think(delta: float) -> void:
 
 ## Held back: out of reach at its place round him, throwing mud now and then.
 func _hang_back(gap: float, _b: Dictionary, delta: float) -> void:
-	if gap > throw_range.x and gap < throw_range.y and _clock >= _next_throw and Fighter.claim_throw(_quarry):
+	if gap > throw_range.x and gap < throw_range.y and _clock >= _next_throw and Fighter.claim_throw(_quarry, self):
 		_next_throw = _clock + _rng.randf_range(throw_every.x, throw_every.y)
 		_face(_quarry.global_position - global_position, 1.0, 1000.0)
 		_begin(THROW)

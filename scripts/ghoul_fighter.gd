@@ -1408,7 +1408,7 @@ func _spitting(delta: float) -> void:
 	if _spit_in > 0.0 or _quarry == null or not is_instance_valid(_quarry):
 		return
 	var gap := _distance_to(_quarry)
-	if gap < spit_range.x or gap > spit_range.y or not Fighter.claim_throw(_quarry):
+	if gap < spit_range.x or gap > spit_range.y or not Fighter.claim_throw(_quarry, self):
 		_spit_in = 0.6
 		return
 	_spit_in = _rng.randf_range(spit_every.x, spit_every.y)

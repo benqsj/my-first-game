@@ -275,7 +275,7 @@ func _think(delta: float) -> void:
 			_circle(gap, delta)
 			# now and then a little fireball at him from the ring
 			if spit_every.y > 0.0 and _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y \
-					and Fighter.claim_throw(_quarry):
+					and Fighter.claim_throw(_quarry, self):
 				_throw_wait = _rng.randf_range(spit_every.x, spit_every.y)
 				_face(_quarry.global_position - global_position, 1.0, 1000.0)
 				_flung = false
@@ -308,7 +308,7 @@ func _hang_back(gap: float, delta: float) -> void:
 	if gap > held_ring.y + 6.0:
 		_move_towards(_quarry.global_position, chase_speed, delta)
 		return
-	if _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y and Fighter.claim_throw(_quarry):
+	if _throw_wait <= 0.0 and gap > throw_range.x and gap < throw_range.y and Fighter.claim_throw(_quarry, self):
 		_throw_wait = _rng.randf_range(throw_every.x, throw_every.y)
 		_face(_quarry.global_position - global_position, 1.0, 1000.0)
 		_flung = false

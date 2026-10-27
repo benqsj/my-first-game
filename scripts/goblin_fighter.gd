@@ -175,7 +175,7 @@ func _think(delta: float) -> void:
 		mode = Mode.FIGHT
 		_face(to, delta, turn_speed * 2.0)
 		if _forward().dot(to.normalized()) > 0.85:
-			Fighter.claim_throw(_quarry)
+			Fighter.claim_throw(_quarry, self)
 			_thrown = false
 			_slow(delta, 6.0)
 			_begin(THROW)

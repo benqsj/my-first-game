@@ -1232,6 +1232,7 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 	var foes: Array = foes_by.get(place, foes_by.get("*", []))
 	# holding out, they keep coming: twice as many wait
 	if goal == "survive":
+		# (three times: more made at once would stall his coming in)
 		foes = foes + foes + foes
 	# (the prisoners' place keeps its jailers)
 	if p.has("rest") and not p.has("guards"):
@@ -2044,7 +2045,7 @@ func _choice_specs(next: int) -> Array:
 		# not where a place has its own lord or its own ways (the crypt's king
 		# came as a bar with no one under it; the user's word, 2026-10-27)
 		if goal == "survive" and NO_SURVIVE.has(place):
-			goal = "captain"
+			goal = "" if online() else "totems"
 		out.append({"place": place, "reward": reward, "goal": goal, "cursed": k == cursed_one and reward != ""})
 	return out
 
@@ -4620,14 +4621,14 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 		if not hero.is_dead:
 			standing.append(hero)
 	var small: Array = []
-	var brutes := 0
-	var shooters := 0
+	var brutes: Array = []
+	var shooters: Array = []
 	var gunners: Array[Fighter] = []
 	for body in _alive:
 		if not is_instance_valid(body) or bool(body.get("is_dead")):
 			continue
 		if body is Flyer or SHOOTERS.has(String(body.scene_file_path)):
-			shooters += 1
+			shooters.append(body)
 			# (they keep off by themselves: no place among those at him; but
 			# each its own bearing round him, not all in a line)
 			if not (body is Flyer):
@@ -4639,7 +4640,7 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 			gap = minf(gap, body.global_position.distance_to(hero.global_position))
 		if body is PackBrute:
 			if gap < 9.0 and not (body as PackBrute).held_back:
-				brutes += 1
+				brutes.append(body)
 			continue
 		# the shaman keeps back by itself ([FoeRoles]), and the flyers do
 		if FoeRoles.role_of(body) == &"shaman" or body is Flyer:
@@ -4650,7 +4651,7 @@ func _hold_back_crowd(heroes: Array[Player]) -> void:
 	# ([CombatDirector]; the user's word, 2026-10-27: two at once, the one he
 	# walks up to at once, now and then a third, one at most under fire).
 	small.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
-	var keep: Array[Node3D] = director.choose(small, _holders, standing.size(), shooters, brutes)
+	var keep: Array[Node3D] = director.choose(small, _holders, standing, shooters, brutes)
 	_holders = keep
 	var waiting: Array[Fighter] = []
 	for pair: Array in small:
@@ -4673,11 +4674,9 @@ func _spread(waiting: Array[Fighter], standing: Array[Player], rings: Array = HO
 		return
 	var by_hero := {}
 	for body in waiting:
-		var best: Player = standing[0]
-		for hero in standing:
-			if hero.global_position.distance_squared_to(body.global_position) \
-					< best.global_position.distance_squared_to(body.global_position):
-				best = hero
+		# round the hero it is after (with others it may turn to the other);
+		# none, the nearest
+		var best: Player = director._whose(body, standing) if director != null else standing[0]
 		if not by_hero.has(best):
 			by_hero[best] = []
 		var off := body.global_position - best.global_position

@@ -410,16 +410,29 @@ static func throw_free(at: Node3D) -> bool:
 
 
 ## Whether a throw at `at` may go now (see `throw_gap`); taking it if so.
-static func claim_throw(at: Node3D) -> bool:
+static func claim_throw(at: Node3D, from: Node3D = null) -> bool:
 	if throw_gap <= 0.0 or at == null:
 		return true
+	# the fight's director may say no: a shot at his back while he has his
+	# hands full in front is rare (the user's word, 2026-10-28)
+	if from != null and throw_judge != null and is_instance_valid(throw_judge) \
+			and not bool(throw_judge.call(&"allows_throw", at, from)):
+		return false
 	var key := at.get_instance_id()
 	var now := Time.get_ticks_msec() / 1000.0
 	if now < float(_throw_times.get(key, -100.0)):
 		return false
-	# the next one no sooner than this, a little more or less each time
-	_throw_times[key] = now + throw_gap * randf_range(0.85, 1.3)
+	# the next one no sooner than this (the director's own for each hero:
+	# shorter as the fight presses him), a little more or less each time
+	var gap := throw_gap
+	if throw_judge != null and is_instance_valid(throw_judge):
+		gap = float(throw_judge.call(&"throw_gap_for", at))
+	_throw_times[key] = now + gap * randf_range(0.85, 1.3)
 	return true
+
+
+## Who rules on the throws when there is one ([CombatDirector]).
+static var throw_judge: Object = null
 
 
 ## Held back: the spot round him it waits at ([member held_angle]), or, with no

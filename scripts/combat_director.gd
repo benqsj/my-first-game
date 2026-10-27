@@ -12,7 +12,10 @@ extends Node
 ##   budget, the small ones (imps, puglins, goblins, wolves) costing less than
 ##   the rest, one behind his back costing more; the budget grows with the
 ##   steps and with the pressure, and now and then one more comes in.
-## * **The throws' turn** ([member Fighter.throw_gap]) shorter as it presses.
+## * **The throws' turn** ([member Fighter.throw_gap]) shorter as it presses;
+##   a shot at his back, while his hands are full, only rarely.
+## * **With others**: each hero his own pressure and his own measure for
+##   those after him; one that turns to another hero counts for that one.
 ## * **Tells**: as a creature begins a blow a glint at it, white for a light
 ##   one, red for a heavy one.
 ## * **From behind**: a creature striking at his back, or a shot coming at it,
@@ -23,6 +26,9 @@ extends Node
 const BUDGET := 2.0
 const BUDGET_PER_STEP := 0.12
 const BUDGET_UNDER_FIRE := 1.0
+## Holding out ([RoomGoal] "survive"): this much more at each hero, under fire
+## or not (the user's word, 2026-10-28: there it has to be hard to live).
+const BUDGET_HOLDING := 1.5
 ## What pressure adds to the budget at its most, and takes off the throws' gap.
 const PRESS_BUDGET := 1.0
 const PRESS_THROWS := 0.3
@@ -44,18 +50,28 @@ const EXTRA_FOR := Vector2(3.5, 6.0)
 const EXTRA_EVERY := Vector2(9.0, 16.0)
 ## Nearer than this to a hero, a held one has its turn at once (he walked up).
 const CLOSE_IN := 3.2
+## His hands full: this many within [constant BUSY_NEAR] m of him; then a shot
+## at his back only this rarely (the user's word, 2026-10-28).
+const BUSY := 3
+const BUSY_NEAR := 9.0
+const BACK_SHOT := 0.12
 ## The edge marks: how near a striker or a shot is to be shown.
 const MARK_STRIKER := 10.0
 const MARK_SHOT := 16.0
 
+## (for F7: the hero on this screen)
 var pressure: float = 0.0
 var budget_now: float = 0.0
 var spent_now: float = 0.0
 var extra_on: bool = false
 
 var _d: Dungeon
-var _hurts: Array = []
+## Each hero his own (with others, the user's word, 2026-10-28: the same for
+## each of them; who they go at is theirs to choose, and it can change).
+var _press: Dictionary = {}
+var _hurts: Dictionary = {}
 var _last_health: Dictionary = {}
+var _budget_of: Dictionary = {}
 var _extra_until := 0.0
 var _extra_next := 0.0
 var _clock := 0.0
@@ -68,6 +84,12 @@ var _show_debug := false
 func setup(d: Dungeon) -> void:
 	_d = d
 	_extra_next = _now() + randf_range(EXTRA_EVERY.x, EXTRA_EVERY.y)
+	Fighter.throw_judge = self
+
+
+func _exit_tree() -> void:
+	if Fighter.throw_judge == self:
+		Fighter.throw_judge = null
 
 
 func _now() -> float:
@@ -82,46 +104,58 @@ func _process(delta: float) -> void:
 	if _clock <= 0.0:
 		_clock = 0.25
 		_feel(0.25)
-		if _d.decides() and Fighter.throw_gap > 0.0:
-			Fighter.throw_gap = Dungeon.THROW_GAP * (1.0 - PRESS_THROWS * pressure)
+	var me := _my_hero()
+	pressure = pressure_of(me) if me != null else 0.0
 	_tells()
 	_edge_marks()
 	if _show_debug:
 		_write_debug()
 
 
-## What he has taken lately and how whole he is, and the pressure after it.
+func pressure_of(hero: Node) -> float:
+	return float(_press.get(hero, 0.0)) if hero != null else 0.0
+
+
+## What each has taken lately and how whole he is, and his pressure after it.
 func _feel(dt: float) -> void:
 	var now := _now()
-	var worst := 1.0
 	var fighting := false
-	for hero in _d._heroes():
-		if hero.is_dead:
-			worst = 0.0
-			continue
-		var was := float(_last_health.get(hero, hero.health))
-		if hero.health < was - 0.01:
-			_hurts.append([now, (was - hero.health) / maxf(hero.max_health, 1.0)])
-		_last_health[hero] = hero.health
-		worst = minf(worst, hero.health / maxf(hero.max_health, 1.0))
-	while not _hurts.is_empty() and now - float(_hurts[0][0]) > WINDOW:
-		_hurts.pop_front()
-	var taken := 0.0
-	for h: Array in _hurts:
-		taken += float(h[1])
 	for body in _d._alive:
 		if is_instance_valid(body) and not bool(body.get("is_dead")) and body.visible:
 			fighting = true
 			break
-	if not fighting:
-		return
-	if worst < LOW or taken >= HURT_ENOUGH:
-		pressure = maxf(pressure - PRESS_DOWN * dt, 0.0)
-	elif taken < HURT_ENOUGH * 0.4:
-		pressure = minf(pressure + PRESS_UP * dt, 1.0)
-	# low: nothing on top of the room's own measure, at once
-	if worst < LOW:
-		pressure = 0.0
+	for hero in _d._heroes():
+		var p := pressure_of(hero)
+		if hero.is_dead:
+			_press[hero] = 0.0
+			continue
+		var was := float(_last_health.get(hero, hero.health))
+		var list: Array = _hurts.get(hero, [])
+		if hero.health < was - 0.01:
+			list.append([now, (was - hero.health) / maxf(hero.max_health, 1.0)])
+		_last_health[hero] = hero.health
+		while not list.is_empty() and now - float(list[0][0]) > WINDOW:
+			list.pop_front()
+		_hurts[hero] = list
+		if not fighting:
+			continue
+		var taken := 0.0
+		for h: Array in list:
+			taken += float(h[1])
+		var share := hero.health / maxf(hero.max_health, 1.0)
+		if share < LOW:
+			# low: nothing on top of the room's own measure, at once
+			p = 0.0
+		elif taken >= HURT_ENOUGH:
+			p = maxf(p - PRESS_DOWN * dt, 0.0)
+		elif taken < HURT_ENOUGH * 0.4:
+			p = minf(p + PRESS_UP * dt, 1.0)
+		_press[hero] = p
+
+
+## The throws' gap at `hero`: shorter as the fight presses him.
+func throw_gap_for(hero: Node) -> float:
+	return Fighter.throw_gap * (1.0 - PRESS_THROWS * pressure_of(hero))
 #endregion
 
 
@@ -134,61 +168,138 @@ static func cost_of(body: Node3D) -> float:
 	return 1.0
 
 
-## Whether `at` is behind the eye looking at `hero` (his back, as he sees it).
-func _behind(at: Vector3) -> bool:
-	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
-	if cam == null:
+## Those near `hero` fighting him (not `but`): their middle's bearing from him,
+## and how many (in the frame of the fight, not of any one screen: the same
+## for each hero, here or with others).
+func _front_of(hero: Node3D, but: Node3D = null) -> Array:
+	var sum := Vector3.ZERO
+	var n := 0
+	for body in _d._alive:
+		if body == but or not is_instance_valid(body) or bool(body.get("is_dead")) or not body.visible:
+			continue
+		var off := body.global_position - hero.global_position
+		off.y = 0.0
+		if off.length() > BUSY_NEAR or off.length() < 0.05:
+			continue
+		sum += off.normalized()
+		n += 1
+	return [sum.normalized() if sum.length() > 0.05 else Vector3.ZERO, n]
+
+
+## Whether `at` is at `hero`'s back: across from where the rest of the fight
+## is on him.
+func _at_back(hero: Node3D, at: Node3D) -> bool:
+	var front: Array = _front_of(hero, at)
+	var dir: Vector3 = front[0]
+	if int(front[1]) < 2 or dir == Vector3.ZERO:
 		return false
-	var to := at - cam.global_position
-	to.y = 0.0
-	var fwd := -cam.global_transform.basis.z
-	fwd.y = 0.0
-	return to.length() > 0.1 and fwd.normalized().dot(to.normalized()) < -0.2
+	var off := at.global_position - hero.global_position
+	off.y = 0.0
+	return off.length() > 0.05 and dir.dot(off.normalized()) < -0.3
+
+
+## A throw at `hero` from `from`: with his hands full in front and at his
+## sides, one at his back only rarely.
+func allows_throw(hero: Node3D, from: Node3D) -> bool:
+	if hero == null or from == null:
+		return true
+	var front: Array = _front_of(hero, from)
+	if int(front[1]) < BUSY:
+		return true
+	if not _at_back(hero, from):
+		return true
+	return randf() < BACK_SHOT
+
+
+## Who it is after: the hero it has chosen, if one of `standing`; else the
+## nearest.
+func _whose(body: Node3D, standing: Array[Player]) -> Player:
+	var q: Variant = body.get("_quarry")
+	if q is Player and standing.has(q):
+		return q
+	var best: Player = null
+	for hero in standing:
+		if best == null or hero.global_position.distance_squared_to(body.global_position) \
+				< best.global_position.distance_squared_to(body.global_position):
+			best = hero
+	return best
+
+
+func _holding_out() -> bool:
+	return String(_d._room(_d.current).get("goal", "")) == "survive"
 
 
 ## Of `small` ([gap, body] near the heroes, nearest first), those that have
-## their turn at him now; `holders` those that had it.
-func choose(small: Array, holders: Array[Node3D], heroes: int, shooters: int, brutes: int) -> Array[Node3D]:
+## their turn now, each hero's own measure for those after him; `holders` those
+## that had it; `brutes` and `shooters` the big ones and those shooting.
+func choose(small: Array, holders: Array[Node3D], standing: Array[Player], shooters: Array,
+		brutes: Array) -> Array[Node3D]:
 	var now := _now()
 	if now >= _extra_next:
 		_extra_until = now + randf_range(EXTRA_FOR.x, EXTRA_FOR.y)
 		var every := randf_range(EXTRA_EVERY.x, EXTRA_EVERY.y) / (1.0 + pressure)
 		_extra_next = _extra_until + every
-	# (low, the room as it was made: no one more on top)
-	extra_on = now < _extra_until and not _low()
-	var under_fire := shooters >= Dungeon.SHOOTERS_MANY
-	var base := BUDGET_UNDER_FIRE if under_fire else BUDGET + BUDGET_PER_STEP * float(maxi(_d.stage_of(_d.current) - 1, 0))
-	var per := base + PRESS_BUDGET * pressure + (1.0 if extra_on else 0.0)
-	budget_now = maxf(per * float(heroes) - float(brutes), 0.0)
-	var keep: Array[Node3D] = []
-	# (in an array: a lambda keeps its own copy of a plain number)
-	var spent := [0.0]
-	var take := func(body: Node3D) -> void:
-		var c := cost_of(body) + (BEHIND if _behind(body.global_position) else 0.0)
-		# the first always fits; then while there is budget
-		if keep.has(body) or budget_now <= 0.0 or (not keep.is_empty() and float(spent[0]) + c > budget_now + 0.01):
-			return
-		keep.append(body)
-		spent[0] = float(spent[0]) + c
-	# he walked up to it: its turn at once
-	for pair: Array in small:
-		if float(pair[0]) < CLOSE_IN:
-			take.call(pair[1])
-	for h in holders:
+	var extra := now < _extra_until
+	var holding := _holding_out()
+	var step_add := BUDGET_PER_STEP * float(maxi(_d.stage_of(_d.current) - 1, 0))
+	var out: Array[Node3D] = []
+	for hero in standing:
+		var mine: Array = []
 		for pair: Array in small:
-			if pair[1] == h and float(pair[0]) < 11.0:
-				take.call(h)
-	for pair: Array in small:
-		take.call(pair[1])
-	spent_now = float(spent[0])
-	return keep
+			if _whose(pair[1], standing) == hero:
+				mine.append([(pair[1] as Node3D).global_position.distance_to(hero.global_position), pair[1]])
+		mine.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+		var fire := 0
+		for b: Node3D in shooters:
+			if is_instance_valid(b) and _whose(b, standing) == hero:
+				fire += 1
+		var big := 0
+		for b: Node3D in brutes:
+			if is_instance_valid(b) and _whose(b, standing) == hero:
+				big += 1
+		var low := hero.health < hero.max_health * LOW
+		var base := BUDGET_UNDER_FIRE if fire >= Dungeon.SHOOTERS_MANY and not holding else BUDGET + step_add
+		if holding:
+			base += BUDGET_HOLDING
+		var budget := base + PRESS_BUDGET * pressure_of(hero) + (1.0 if extra and not low else 0.0)
+		budget = maxf(budget - float(big), 0.0)
+		_budget_of[hero] = budget
+		_keep = []
+		_spent = 0.0
+		_budget = budget
+		# he walked up to it: its turn at once
+		for pair: Array in mine:
+			if float(pair[0]) < CLOSE_IN:
+				_take(hero, pair[1])
+		for h in holders:
+			for pair: Array in mine:
+				if pair[1] == h and float(pair[0]) < 11.0:
+					_take(hero, h)
+		for pair: Array in mine:
+			_take(hero, pair[1])
+		out.append_array(_keep)
+		if hero == _my_hero():
+			budget_now = budget
+			spent_now = _spent
+			extra_on = extra and not low
+	return out
 
 
-func _low() -> bool:
-	for hero in _d._heroes():
-		if not hero.is_dead and hero.health < hero.max_health * LOW:
-			return true
-	return false
+var _keep: Array[Node3D] = []
+var _spent := 0.0
+var _budget := 0.0
+
+
+## One more given its turn at `hero`, if its weight fits what is left (the
+## first always).
+func _take(hero: Node3D, body: Node3D) -> void:
+	if _keep.has(body) or _budget <= 0.0:
+		return
+	var c := cost_of(body) + (BEHIND if _at_back(hero, body) else 0.0)
+	if not _keep.is_empty() and _spent + c > _budget + 0.01:
+		return
+	_keep.append(body)
+	_spent += c
 #endregion
 
 
@@ -296,14 +407,14 @@ func _draw_marks() -> void:
 			continue
 		if f.global_position.distance_to(hero.global_position) > MARK_STRIKER:
 			continue
-		if not _behind(f.global_position):
+		if not _behind_cam(f.global_position):
 			continue
 		shown.append([f.global_position, Color(1.0, 0.2, 0.12, 0.95) if heavy(f) else Color(1.0, 0.92, 0.75, 0.9)])
 	for node in get_tree().get_nodes_in_group(&"missile"):
 		var m := node as Node3D
 		if m == null or not bool(m.get(&"against_heroes")):
 			continue
-		if m.global_position.distance_to(hero.global_position) > MARK_SHOT or not _behind(m.global_position):
+		if m.global_position.distance_to(hero.global_position) > MARK_SHOT or not _behind_cam(m.global_position):
 			continue
 		shown.append([m.global_position, Color(1.0, 0.75, 0.3, 0.9)])
 	for one: Array in shown:
@@ -316,6 +427,18 @@ func _draw_marks() -> void:
 		var side := Vector2(-dir.y, dir.x) * 22.0
 		_marks.draw_colored_polygon(PackedVector2Array([tip, edge + side, edge - side]), c)
 		_marks.draw_polyline(PackedVector2Array([edge + side, tip, edge - side]), Color(0, 0, 0, 0.7), 2.0)
+
+
+## Behind the eye of this screen (for the marks at its edge).
+func _behind_cam(at: Vector3) -> bool:
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return false
+	var to := at - cam.global_position
+	to.y = 0.0
+	var fwd := -cam.global_transform.basis.z
+	fwd.y = 0.0
+	return to.length() > 0.1 and fwd.normalized().dot(to.normalized()) < -0.2
 
 
 func _my_hero() -> Player:

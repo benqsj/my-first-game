@@ -29,13 +29,17 @@ static func of(node: Node) -> LootDrop:
 	return node.get_tree().get_first_node_in_group(&"loot_drop") as LootDrop
 
 
-## How likely `creature` is to drop something for a hero: an imp about one in
-## five, a wolf one in four, an orc nearly one in two, a boss always.
+## How likely `creature` is to drop something for a hero (the user's word,
+## 2026-10-28: fewer arms and clothes on the ground): an imp about one in
+## eighteen, a wolf one in fourteen, an orc one in eight, an elite one in
+## four, a boss always.
 static func chance_of(creature: Node) -> float:
 	var worth := Leveling.worth(creature)
-	if worth >= BOSS_WORTH:
+	if worth >= BOSS_WORTH or creature.has_meta(&"boss"):
 		return 1.0
-	return clampf(0.15 + 0.1 * worth, 0.0, 1.0)
+	if creature.has_meta(&"elite"):
+		return 0.25
+	return clampf(0.04 + 0.03 * worth, 0.0, 1.0)
 
 
 func _ready() -> void:

@@ -181,7 +181,7 @@ func _think(delta: float) -> void:
 	var ahead := _forward()
 	# (its turn among all that throw at him: one at a time, the user's word,
 	# 2026-10-27, so each can be seen coming and stepped out of)
-	if _cooldown <= 0.0 and ahead.dot(-away.normalized()) > 0.9 and Fighter.claim_throw(_quarry):
+	if _cooldown <= 0.0 and ahead.dot(-away.normalized()) > 0.9 and Fighter.claim_throw(_quarry, self):
 		_draw_bow()
 
 

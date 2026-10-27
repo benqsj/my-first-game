@@ -15,7 +15,7 @@ const PICK_UP := 1.7
 const SETTLE := 0.6
 ## What a creature drops, for each wolf it is worth ([method Leveling.worth]),
 ## and a little either way.
-const PER_WOLF := 6.0
+const PER_WOLF := 14.0
 const SPREAD := 0.35
 const BOSS_GOLD := 150
 const ELITE_GOLD := 25
@@ -56,6 +56,14 @@ func _ready() -> void:
 func drop(at: Vector3, amount: int) -> void:
 	if amount <= 0 or not _host():
 		return
+	# on the ground under it: one that fell out of the air left its gold up
+	# there, out of his reach (the user's word, 2026-10-28: none at times)
+	var space := get_viewport().world_3d.direct_space_state if is_inside_tree() else null
+	if space != null:
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3.UP * 0.5,
+				at + Vector3.DOWN * 40.0, 1))
+		if not hit.is_empty():
+			at = hit["position"]
 	_next += 1
 	_send(&"net_drop", [at, amount, _next])
 

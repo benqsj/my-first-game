@@ -294,7 +294,7 @@ func _trades() -> void:
 	stall.interact()
 	stall.interact()
 	_check("bought at his stall: his blade sharper", Trades.level(game, "smith") == 1
-			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"gold")) == 850,
+			and is_equal_approx(hero.dealt_scale, scale_before * 1.08) and int(game.get(&"gold")) == 700,
 			"%d %.3f %d" % [Trades.level(game, "smith"), hero.dealt_scale / scale_before, int(game.get(&"gold"))])
 	_check("a trade whose man is not freed: shut", not bool(game.call(&"buy_trade", "priest")))
 	game.set(&"gold", 3)

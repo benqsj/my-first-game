@@ -122,7 +122,7 @@ func _throwing(delta: float, gap: float) -> void:
 				net_throw.rpc(from, aim * bolt_speed, _quarry.get_path())
 		return
 	_throw_in -= delta
-	if _throw_in > 0.0 or gap > throw_range or not Fighter.claim_throw(_quarry):
+	if _throw_in > 0.0 or gap > throw_range or not Fighter.claim_throw(_quarry, self):
 		return
 	_throw_in = randf_range(throw_every.x, throw_every.y)
 	_telling = 0.0

@@ -21,15 +21,19 @@ extends Node
 const KINDS := {
 	"captain": {"name": "მოკალი მეთაური", "line": "მიზანი: მოკალი მეთაური — დანარჩენები გაიქცევიან"},
 	"totems": {"name": "დაანგრიე ტოტემები", "line": "მიზანი: დაანგრიე 3 ტოტემი — სანამ დგანან, მტრები დაცულები არიან"},
-	"survive": {"name": "გაუძელი 40 წამს", "line": "მიზანი: გაუძელი 40 წამს"},
+	"survive": {"name": "გაუძელი 30 წამს", "line": "მიზანი: გაუძელი 30 წამს — ისინი არ დამთავრდებიან"},
 }
-const SURVIVE_TIME := 40.0
+## Holding out (the user's word, 2026-10-28: really many of them, and really
+## hard to live through; the time itself is not the point): 30 s, one out
+## every 0.75 s while fewer than 14 are up, more at him at once
+## ([CombatDirector]), spikes in the floor.
+const SURVIVE_TIME := 30.0
 ## What a warded creature takes of a blow.
 const WARD := 0.35
 ## In "survive", one out of the rift this often while fewer than
 ## [constant SURVIVE_UP] are up.
-const SURVIVE_EVERY := 1.3
-const SURVIVE_UP := 9
+const SURVIVE_EVERY := 0.75
+const SURVIVE_UP := 14
 const WARD_SHADER_TINT := Color(0.55, 0.0, 0.05)
 
 var kind: String = ""
@@ -50,12 +54,12 @@ var _ward_mat: ShaderMaterial
 static func pick(rng: RandomNumberGenerator, step: int, last_step: int) -> String:
 	if step < 1 or step >= last_step - 1:
 		return ""
+	# (no "captain" any more, the user's word, 2026-10-28: killing one and the
+	# rest running was not wanted)
 	var roll := rng.randf()
-	if roll < 0.4:
+	if roll < 0.45:
 		return ""
-	if roll < 0.6:
-		return "captain"
-	if roll < 0.8:
+	if roll < 0.75:
 		return "totems"
 	return "survive"
 
