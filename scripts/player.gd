@@ -942,50 +942,7 @@ func _process(delta: float) -> void:
 ## up. Laid on the model's own transform (the capsule stays upright), worked
 ## out from the turning and the replicated velocity, so every peer sees it.
 func _lean(delta: float, planar: float, off_ground: bool) -> void:
-	if rig == null:
-		return
-	if not _lean_ready:
-		_lean_rest = rig.transform.basis
-		_lean_yaw = rotation.y
-		_lean_vel = velocity
-		_lean_ready = true
-	var dt := maxf(delta, 0.0001)
-	var yaw_rate := wrapf(rotation.y - _lean_yaw, -PI, PI) / dt
-	var flat := Vector3(velocity.x, 0.0, velocity.z)
-	var accel := (flat - Vector3(_lean_vel.x, 0.0, _lean_vel.z)) / dt
-	_lean_yaw = rotation.y
-	_lean_vel = velocity
-	var roll := 0.0
-	var pitch := 0.0
-	if not off_ground and not is_committed() and not _bitten() and planar > 0.5:
-		roll = clampf(yaw_rate * planar * turn_lean_rate, -turn_lean_max, turn_lean_max)
-	if not off_ground and not is_committed():
-		var ahead := -global_basis.z
-		# Forward lean is a negative turn about the body's x.
-		pitch = -clampf(accel.dot(ahead) * pace_lean_rate, -pace_lean_back, pace_lean_max)
-	# Pulled up hard out of a run, or thrown back the other way: the feet dig
-	# in and kick up a little dust.
-	var was_pace := Vector3(_lean_prev_flat.x, 0.0, _lean_prev_flat.z).length()
-	_lean_prev_flat = flat
-	if not off_ground and was_pace > skid_pace and accel.dot(_lean_prev_dir) < -skid_brake \
-			and Time.get_ticks_msec() - _skid_at > 450:
-		_skid_at = Time.get_ticks_msec()
-		var world := Blood.world_of(self)
-		if world != null:
-			DustRing.burst(world, global_position + _lean_prev_dir * 0.35, skid_dust)
-	if planar > 0.5:
-		_lean_prev_dir = flat / planar
-	var k := 1.0 - exp(-lean_follow * delta)
-	_lean_roll = lerpf(_lean_roll, roll, k)
-	# Forward and back on a spring, a little under-damped: pulled up out of a
-	# run he rocks back, a touch forward past upright on the way, and is still
-	# (`pace_sway_stiffness`, `pace_sway_damping`).
-	var pull := (pitch - _lean_pitch) * pace_sway_stiffness - _lean_pitch_speed * pace_sway_damping
-	_lean_pitch_speed += pull * minf(delta, 0.05)
-	_lean_pitch += _lean_pitch_speed * minf(delta, 0.05)
-	_lean_pitch = clampf(_lean_pitch, -pace_lean_back * 1.3, pace_lean_max * 1.3)
-	rig.transform.basis = Basis.from_euler(Vector3(_lean_pitch, 0.0, _lean_roll)) * _lean_rest
-	_tumble_show(delta)
+	PlayerMove._lean(self, delta, planar, off_ground)
 
 
 ## Launched head over heels ([method net_tumble], the troll's tree, the
@@ -1004,32 +961,6 @@ const TUMBLE_PIVOT := Vector3(0.0, 0.95, 0.0)
 func net_tumble(on: bool) -> void:
 	_tumble_on = on
 	_tumble_angle = 0.0
-
-
-func _tumble_show(delta: float) -> void:
-	if rig == null:
-		return
-	if not _tumble_rest_got:
-		_tumble_rest_got = true
-		_tumble_rest_pos = rig.position
-	if not _tumble_on and _tumble_angle == 0.0:
-		return
-	var in_air := not is_on_floor() if is_multiplayer_authority() else net_airborne
-	if _tumble_on:
-		_tumble_angle += TUMBLE_SPEED * delta
-		# down: the turn it is in finished quickly, then he lies as he fell
-		if (not in_air and _tumble_angle > 0.6) or _tumble_angle > TAU * 2.0:
-			_tumble_on = false
-	else:
-		var to := ceilf(_tumble_angle / TAU - 0.15) * TAU
-		_tumble_angle = move_toward(_tumble_angle, to, TUMBLE_SPEED * 2.0 * delta)
-		if absf(_tumble_angle - to) < 0.001:
-			_tumble_angle = 0.0
-	var turn := Basis(Vector3.RIGHT, _tumble_angle)
-	rig.transform.basis = turn * rig.transform.basis
-	rig.position = _tumble_rest_pos + (TUMBLE_PIVOT - turn * TUMBLE_PIVOT)
-	if _tumble_angle == 0.0:
-		rig.position = _tumble_rest_pos
 
 
 @export_group("Lean")
@@ -1072,18 +1003,7 @@ var _skid_at := -100000
 ## the replicated state, and the drive on the wall (sideways, up) is read off
 ## his replicated velocity in his own frame (he faces the wall).
 func _show_net_climb() -> void:
-	if net_state != _net_state_shown:
-		if net_state == State.WALLCLIMB:
-			rig.wall_climb(true)
-		elif _net_state_shown == State.WALLCLIMB:
-			rig.wall_climb(false)
-		# (the pull-up comes by its own call, [method net_mantle], with the
-		# take he played)
-		_net_state_shown = net_state
-	if net_state == State.WALLCLIMB:
-		var local := global_basis.inverse() * velocity
-		var drive := Vector2(local.x, local.y) / maxf(wall_climb_speed, 0.01)
-		rig.climb_drive(drive.limit_length(1.0), velocity.length(), _wall_hold_distance())
+	PlayerClimb._show_net_climb(self)
 
 
 ## Copies the parts of the internal state that other peers have to see into the
@@ -1287,10 +1207,7 @@ func is_levitating() -> bool:
 
 ## How much of the world's gravity the shot falls with.
 func _shot_drop() -> float:
-	if profile != null and profile.projectile_drop >= 0.0:
-		return profile.projectile_drop
-	return arrow_drop
-#endregion
+	return PlayerBow._shot_drop(self)
 
 
 #region Locomotion
@@ -1442,265 +1359,17 @@ func _read_unarmed() -> void:
 
 
 func _process_locomotion(delta: float) -> void:
-	var direction := get_movement_direction()
-	var walking := Input.is_action_pressed("walk")
-	sprinting = _wants_sprint(direction, walking)
-	jog_speed = run_speed * jog_share
-	var speed := walk_speed if walking else (run_speed * sprint_share if sprinting else jog_speed)
-	if _crouching:
-		speed = crouch_speed
-	# Water to the knee holds the legs back (the user's word, 2026-10-23:
-	# running through the swamp's water felt like dry ground).
-	if wade > 0.0:
-		speed *= lerpf(1.0, wade_speed_scale, clampf(wade, 0.0, 1.0))
-	# Nobody aims at a sprint. Holding the string costs most of the run, which is
-	# what makes choosing when to draw a decision rather than a formality.
-	if _drawing:
-		speed *= draw_speed_scale
-	# Behind a raised shield he does not run: the guard is paid for with pace,
-	# the same way the draw is. Going on at it he may jog (`guard_run_speed`,
-	# the user's word 2026-10-04: a little faster, never his whole pace);
-	# walking, backing off or stepping aside he walks.
-	if is_blocking:
-		var cap := walk_speed
-		if not Input.is_action_pressed("walk") and _guard_ahead(direction):
-			cap = guard_run_speed
-		speed = minf(speed, cap)
-	# And nobody runs out of the *second* swing. The first one keeps whatever it
-	# was thrown at — a charge that turns into a shuffle the instant the button
-	# goes down reads as slow motion, not as weight — and so does anything thrown
-	# in the air, where the arc is the jump's and not the sword's. What follows is
-	# damped, which is where the weight belongs: standing there hitting something
-	# is not a way to cross ground.
-	if _now() < _coat_until or _now() < cast_walk_until or _now() < _drink_until:
-		# Coating the blade (or a spell's gesture, or a flask) he walks on — slowed to a
-		# walk, legs walking — rather than sliding along in a standing pose.
-		speed = minf(speed, walk_speed)
-	elif is_committed() and not _free_swing:
-		speed *= commit_speed_scale
-	elif is_committed() and is_on_floor():
-		# The first cut out of a run keeps its run only for a step: eased down
-		# to the swing's pace over `free_swing_ease`, so the charge lands in a
-		# lunge instead of the whole cut gliding on at a run with legs running
-		# under a body that is swinging.
-		# (a running cut keeps the whole of it till its blade cuts, and all
-		# the while it is held wound up)
-		if not _cut_charging:
-			var eased := clampf((_game_t - _swing_t0 - _ease_delay) / maxf(_free_ease, 0.01), 0.0, 1.0)
-			speed *= lerpf(1.0, commit_speed_scale, eased)
-	# A skill shot is taken standing: from the draw to the release he does not
-	# walk (turning to the shot is still the controller's).
-	if _root_timer > 0.0:
-		speed = 0.0
-	# On his knee from a broken guard: no walking it along (it slid him across
-	# the ground the way the stick pushed).
-	var knelt := _now() < _crumpled_until
-	if knelt:
-		speed = 0.0
-		direction = Vector3.ZERO
-	var on_floor := is_on_floor()
-	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
-	# The sprint costs only while it is a sprint: on the ground, faster than
-	# the jog (not slowed by a swing, the draw, the shield).
-	if sprinting and on_floor and speed > jog_speed + 0.05:
-		_spend(sprint_stamina * delta)
-	elif sprinting and speed <= jog_speed:
-		sprinting = false
-
-	# A ledge met in mid-air is taken without asking, so running at a wall and
-	# jumping is enough to get over it. A face too tall to be mantled is caught
-	# hold of instead — which is what makes a house something to go up rather
-	# than something to bounce off.
-	if not on_floor:
-		if _try_climb():
-			return
-		if _try_catch_wall(direction):
-			return
-
-	if on_floor:
-		# Climbing costs speed, dropping gives a little back.
-		speed *= _slope_factor(direction)
-		# on a puglin's mud he slides: little grip to start or stop
-		var grip := MudBall.grip_at(get_tree(), global_position)
-		if direction.is_zero_approx():
-			horizontal = horizontal.move_toward(Vector3.ZERO, ground_deceleration * grip * delta)
-		else:
-			horizontal = horizontal.move_toward(direction * speed, ground_acceleration * grip * delta)
-		_aim_body(direction, delta)
-		if _bitten() and _glide_left <= 0.0:
-			# The swing held in its bite holds the body too: no gliding on
-			# under a blade that has stopped, and the step waits for it.
-			horizontal *= BITE_GLIDE
-		elif _shade_phase == 1:
-			# The slide: straight in at its own pace, facing where it goes.
-			horizontal = _shade_dir * _shade_pace_now
-			rotation.y = atan2(-_shade_dir.x, -_shade_dir.z)
-		elif _glide_left > 0.0:
-			horizontal = _glide(delta)
-		elif _step_left > 0.0:
-			_step_left -= delta
-			horizontal = _step_velocity
-			if _step_left <= 0.0:
-				horizontal = _step_velocity * 0.15
-		elif _cut_charging:
-			# Wound up, running in: at what he picked, else the way he is pushed.
-			var aim := _charge_aim(direction)
-			if not aim.is_zero_approx():
-				var pace := run_speed * float(_charge_spec.get("pace", 1.0))
-				# (from the pace he had, not what the stick left of it: the
-				# skill runs in without it)
-				# (never faster than the charge's own pace: out of the sprint,
-				# faster since 2026-10-23, he settles to it at once)
-				horizontal = Vector3(velocity.x, 0.0, velocity.z).limit_length(pace).move_toward(aim * pace, ground_acceleration * delta)
-				_air_speed_cap = minf(_air_speed_cap, pace)
-				rotation.y = lerp_angle(rotation.y, atan2(-aim.x, -aim.z), 1.0 - exp(-lock_turn_speed * delta))
-	else:
-		# In the air the stick steers the arc rather than driving it: the jump
-		# keeps the speed it launched with and control only redirects it.
-		if direction.is_zero_approx():
-			horizontal = horizontal.move_toward(Vector3.ZERO, air_drag * delta)
-		else:
-			horizontal = horizontal.move_toward(direction * speed,
-					ground_acceleration * air_control * delta)
-		_aim_body(direction, delta)
-		var cap := maxf(_air_speed_cap, speed)
-		if horizontal.length() > cap:
-			horizontal = horizontal.limit_length(cap)
-
-	# A flip or a lunge carries him as far as its own clip goes.
-	# (not while a heavy blow is still being gathered, nor in the slide after:
-	# he edges and slides in by his own way, `_creep_in`, `_glide`)
-	if rig != null and rig.has_method(&"carrying") and bool(rig.call(&"carrying")) and _glide_left <= 0.0 \
-			and not (rig.has_method(&"wind_left") and float(rig.call(&"wind_left")) > 0.0):
-		horizontal = rig.get(&"carry_velocity")
-		if _bitten():
-			horizontal *= BITE_GLIDE
-
-	# The slide: nothing but the slide moves him.
-	if _shade_phase == 1:
-		horizontal = _shade_dir * _shade_pace_now
-	# The elf's Frost Step: she glides, and nothing else moves her
-	# ([method MageSkills.glide_velocity]).
-	if _mage != null and _mage.gliding():
-		horizontal = _mage.glide_velocity(delta)
-
-	velocity.x = horizontal.x
-	velocity.z = horizontal.z
-
-	# Vertical movement.
-	if not on_floor:
-		velocity.y -= _current_gravity() * delta
-		_levitate(delta)
-	else:
-		_levitating = false
-		_levitate_left = profile.levitation if profile != null else 0.0
-
-	if _jump_buffer_timer > 0.0 and (on_floor or _coyote_timer > 0.0):
-		_do_jump()
-
-
-## A character who can levitate (the mage) hangs in the air while the jump is
-## held on the way down: the fall is held to `levitate_fall` until the
-## profile's seconds of it run out, and they come back on landing.
-func _levitate(delta: float) -> void:
-	_levitating = false
-	if profile == null or profile.levitation <= 0.0 or _levitate_left <= 0.0:
-		return
-	if velocity.y >= 0.0 or not Input.is_action_pressed("jump"):
-		return
-	_levitating = true
-	_levitate_left = maxf(_levitate_left - delta, 0.0)
-	velocity.y = maxf(velocity.y, -profile.levitate_fall)
-
-
-## Speed multiplier for running along `direction` on the current floor: below 1
-## uphill, above 1 downhill, 1 on the flat or in the air.
-func _slope_factor(direction: Vector3) -> float:
-	if not is_on_floor() or direction.is_zero_approx():
-		return 1.0
-	var normal := get_floor_normal()
-	if normal.y <= 0.001:
-		return 1.0
-	# Metres of height per metre travelled: the floor normal leans downhill, so
-	# heading against it is a climb.
-	var grade := -direction.dot(Vector3(normal.x, 0.0, normal.z)) / normal.y
-	var steepest := tan(floor_max_angle)
-	var t := clampf(grade / maxf(steepest, 0.01), -1.0, 1.0)
-	return 1.0 - t * (slope_climb_penalty if t > 0.0 else slope_descend_bonus)
+	PlayerMove._process_locomotion(self, delta)
 
 
 ## Surfaces past `floor_max_angle` are not standable, so gravity is redirected
 ## along them: the player slithers down instead of hanging on the side.
 func _slide_off_steep_ground(delta: float) -> void:
-	if is_on_floor() or _steep_normal == Vector3.ZERO:
-		return
-
-	var downhill := Vector3.DOWN.slide(_steep_normal)
-	if downhill.is_zero_approx():
-		return
-	velocity += downhill.normalized() * slide_acceleration * delta
-	# Nothing is gained by driving into the surface, and keeping that component
-	# is what makes a body judder against a slope.
-	var into := velocity.dot(_steep_normal)
-	if into < 0.0:
-		velocity -= _steep_normal * into
-	velocity -= velocity.slide(_steep_normal) * clampf(slide_friction * delta, 0.0, 1.0)
+	PlayerMove._slide_off_steep_ground(self, delta)
 
 
 func get_movement_direction() -> Vector3:
-	if menu_open:
-		return Vector3.ZERO
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	if input.is_zero_approx():
-		return Vector3.ZERO
-
-	# WASD is interpreted in the camera's yaw frame, not the world frame.
-	var cam_basis := camera_rig.global_transform.basis
-	var direction := cam_basis.x * input.x + cam_basis.z * input.y
-	direction.y = 0.0
-	return direction.normalized()
-
-
-## Which way the body is pointed this frame, and the one rule everything else
-## about fighting hangs off: **the character shoots and cuts where he is facing**,
-## so where he is facing has to be somewhere the player chose.
-##
-## Four cases, in order:
-##
-## * **Mid-attack** — held on whatever it was thrown at. A swing does not steer.
-## * **Drawing** — the body turns to the shot. Without this the bow points one
-##   way and the arrow leaves another, which is the only thing worse than an
-##   arrow you cannot see.
-## * **Locked and running** — the body turns the way it is *going*. Strafing in
-##   a circle is for holding ground; once the player is running they are going
-##   somewhere, and a character sprinting sideways with his head over his
-##   shoulder is not going there. Backing straight off is the exception: walking
-##   away from something while watching it is a thing people do.
-## * **Otherwise** — the way it is going, as ever.
-func _aim_body(direction: Vector3, delta: float) -> void:
-	if is_committed() and _now() >= _coat_until:
-		return
-	if _drawing:
-		_face_aim(delta)
-		return
-	if target != null:
-		if not lock_run_turns or direction.is_zero_approx() \
-				or (_backing_off(direction) and _watches_backing_off()) or _strafes_on_lock():
-			_face_target(delta)
-			return
-	if not direction.is_zero_approx():
-		_face_direction(direction, delta)
-
-
-## Backing off a target keeps him facing it only behind the shield, or
-## walking (careful steps), or with the string drawn (that is [method _face_aim]'s
-## before this is asked). Otherwise he turns and runs from it like any other
-## way, the camera still on the target: a backpedal at a run is no way for a
-## man to go (the user's word, 2026-10-02; for the bow too, 2026-10-04).
-func _watches_backing_off() -> bool:
-	# (the assassin too now runs from it, turned to the camera, the user's word
-	# 2026-10-05; only his evade back is still a step facing it)
-	return is_blocking or Input.is_action_pressed("walk")
+	return PlayerMove.get_movement_direction(self)
 
 
 ## His pace behind the raised shield going on (m/s): more than a walk, well
@@ -1708,86 +1377,13 @@ func _watches_backing_off() -> bool:
 @export var guard_run_speed: float = 3.6
 
 
-## Whether `direction` is on ahead of him (the way he faces): behind the
-## shield only that way does he jog.
-func _guard_ahead(direction: Vector3) -> bool:
-	if direction.is_zero_approx():
-		return false
-	var ahead := -global_basis.z
-	ahead.y = 0.0
-	return direction.normalized().dot(ahead.normalized()) > 0.7
-
-
-## Locked on and stepping carefully — behind the raised shield, or walking
-## (TARIEL_POLISH.md 10): every way he goes, forward, back or to either side,
-## he keeps facing what he fights, his legs stepping the way he goes (the
-## rig's strafe walks); only a run turns him the way he runs. The bow too,
-## walking (AVTANDIL_POLISH 3; drawn he faces the shot anyway, [method _face_aim]).
-func _strafes_on_lock() -> bool:
-	return is_blocking or Input.is_action_pressed("walk")
-
-
-## True when the stick is pointed away from what is being fought — backing off
-## rather than breaking off.
-func _backing_off(direction: Vector3) -> bool:
-	if target == null:
-		return true
-	var to_them := target.global_position - global_position
-	to_them.y = 0.0
-	if to_them.length_squared() < 0.0001:
-		return true
-	return direction.dot(to_them.normalized()) < -0.35
-
-
-## Turns the body onto the shot: at the target when there is one, down the
-## camera otherwise. The arrow leaves along this, so this is the aim.
-func _face_aim(delta: float) -> void:
-	if target != null and _targetable(target):
-		_face_target(delta)
-		return
-	var looking := -camera.global_transform.basis.z
-	looking.y = 0.0
-	if looking.length_squared() < 0.0001:
-		return
-	rotation.y = lerp_angle(rotation.y, atan2(-looking.x, -looking.z),
-			1.0 - exp(-lock_turn_speed * delta))
-
-
-func _face_direction(direction: Vector3, delta: float) -> void:
-	# Pivoting on the spot is instant-ish; at a sprint the turn has to carve.
-	var pace := clampf(Vector3(velocity.x, 0.0, velocity.z).length() / maxf(run_speed, 0.01), 0.0, 1.0)
-	var rate := lerpf(turn_speed_still, turn_speed, pace)
-	var target_yaw := atan2(-direction.x, -direction.z)
-	rotation.y = lerp_angle(rotation.y, target_yaw, 1.0 - exp(-rate * delta))
-
-
 ## Places the body on top of a low ledge. The move itself lives in [StepUp],
 ## because the creatures need it too — a wolf that cannot follow you up a
 ## staircase is a wolf you beat by standing on a step.
 func _step_up(delta: float) -> void:
-	StepUp.climb(self, delta, max_step_height, step_forward_probe)
+	PlayerMove._step_up(self, delta)
 
 
-func _current_gravity() -> float:
-	if velocity.y > 0.0:
-		# Cutting the jump short pulls the player back down faster.
-		return _gravity * (low_jump_multiplier if not Input.is_action_pressed("jump") else 1.0)
-	return _gravity * fall_gravity_multiplier
-
-
-func _do_jump() -> void:
-	velocity.y = _jump_velocity
-	_jump_buffer_timer = 0.0
-	_coyote_timer = 0.0
-	# Whatever ground speed the jump was taken at is the budget for the arc.
-	_air_speed_cap = maxf(Vector3(velocity.x, 0.0, velocity.z).length(), run_speed)
-	state = State.AIRBORNE
-	jumped.emit()
-	_move_sound(MoveSound.JUMP)
-#endregion
-
-
-#region Dash
 ## The dash button. One tap is the hero's own evade — the knight's and the
 ## mage's roll, the hunter's step, the assassin's step. Evades chain: a press
 ## while one is going is kept and the next starts the moment it ends, and a
@@ -1802,185 +1398,16 @@ func _do_jump() -> void:
 ## a twisting flip if another press follows, then a step again, and so on.
 ## With an enemy locked his steps keep facing it — backward too.
 func _press_dash() -> void:
-	var now := _now()
-	var alternating := profile != null and profile.step_then_flip
-	var doubled := now - _last_dash_press <= double_tap_time
-	_last_dash_press = now
-	var landed := false
-	if state == State.DASHING or state == State.DODGING:
-		# The hunter has no double tap: his dodge comes of itself, sideways
-		# on a lock ([method _start_evade]).
-		# (a rig with no longer evade to turn it into takes the press as the
-		# next evade instead)
-		if not alternating and doubled and state == State.DASHING and not _is_bow() and _upgrade_to_dodge():
-			return
-		if not _evade_landed():
-			_evade_queued = true
-			return
-		# Feet already down: what is left of this one is only standing up out
-		# of it, so the next starts now, with no pause between.
-		_evade_queued = false
-		_end_dash()
-		landed = true
-	_evade_queued = false
-	var follows := landed or now <= _chain_open_until
-	_evade_chain = _evade_chain + 1 if follows else 0
-	if not _start_evade(follows):
-		_evade_chain = 0
+	PlayerMove._press_dash(self)
 
 
 ## Starts the evade that is next in the run: `chained` skips the cooldown.
 func _start_evade(chained: bool) -> bool:
-	var kind := MoveSound.ROLL
-	var started := false
-	if profile != null and profile.step_then_flip:
-		if _evade_chain % 2 == 1:
-			kind = MoveSound.FLIP
-			started = _start_flip(chained)
-		else:
-			kind = MoveSound.STEP
-			var locked := target != null and _targetable(target)
-			started = _try_dash(locked, true, chained)
-	elif _is_bow() and _sideways_on_lock():
-		# The hunter, locked on and going left or right: straight into the
-		# long dodge, as a double tap used to give; any other way, a roll.
-		started = _try_dash(false, false, chained)
-		if started:
-			_upgrade_to_dodge()
-	elif get_movement_direction().is_zero_approx() and state == State.GROUNDED:
-		# no way pushed: a step back, still facing it
-		started = _try_backstep(chained)
-		if not started:
-			started = _try_dash(false, false, chained)
-	else:
-		started = _try_dash(false, false, chained)
-	if started:
-		_move_sound(kind)
-	return started
-
-
-## The step back: short and quick, untouchable only at its start, cheaper
-## than a roll; he keeps facing the way he faced (the rig's `backstep`).
-func _try_backstep(chained: bool) -> bool:
-	if rig == null or not rig.has_method(&"backstep"):
-		return false
-	if _dash_cooldown_timer > 0.0 and not chained:
-		return false
-	if not _spend(backstep_stamina):
-		return false
-	if not bool(rig.call(&"backstep", backstep_time)):
-		stamina += backstep_stamina
-		return false
-	net_evade.rpc(Evade.BACKSTEP, Vector2.ZERO, backstep_time, _dash_direction, -1)
-	_dash_direction = global_transform.basis.z
-	_dash_direction.y = 0.0
-	_dash_direction = _dash_direction.normalized()
-	state = State.DASHING
-	_backstepping = true
-	_roll_cut_asked = false
-	_evade_started_at = _now()
-	_evade_was_perfect = false
-	_dash_timer = backstep_time
-	_dash_cooldown_timer = dash_cooldown + backstep_time
-	is_invulnerable = backstep_iframes > 0.0
-	_safe_until = maxf(_safe_until, _now() + backstep_iframes)
-	dash_started.emit(_dash_direction)
-	return true
-
-
-## Locked on something and pushing mostly left or right.
-func _sideways_on_lock() -> bool:
-	if target == null or not _targetable(target) or menu_open:
-		return false
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	return absf(input.x) > 0.3 and absf(input.x) > absf(input.y)
-
-
-## The assassin's flip on its own, as the second of a pair: the twisting flip
-## the way he is pushing (or on the way he was going), turning to it.
-func _start_flip(chained: bool) -> bool:
-	var before := _dash_direction
-	if not _try_dash(false, false, chained):
-		return false
-	if get_movement_direction().is_zero_approx() and not before.is_zero_approx():
-		_dash_direction = before
-	_upgrade_to_dodge()
-	return true
+	return PlayerMove._start_evade(self, chained)
 
 
 func _try_dash(keep_facing: bool = false, step: bool = false, chained: bool = false) -> bool:
-	if state != State.GROUNDED and state != State.AIRBORNE:
-		return false
-	if _dash_cooldown_timer > 0.0 and not chained:
-		return false
-	if not is_on_floor() and not allow_air_dash:
-		return false
-	if not _spend(profile.roll_stamina if profile != null else 20.0):
-		return false
-
-	# Dash towards the stick/WASD input, or straight ahead when standing still.
-	_dash_direction = get_movement_direction()
-	if _dash_direction.is_zero_approx():
-		_dash_direction = -global_transform.basis.z
-	_dash_direction.y = 0.0
-	_dash_direction = _dash_direction.normalized()
-
-	state = State.DASHING
-	_evade_started_at = _now()
-	_evade_was_perfect = false
-	_dash_timer = dash_duration
-	_dash_cooldown_timer = dash_cooldown + dash_duration
-	is_invulnerable = dash_iframes > 0.0
-	_safe_until = maxf(_safe_until, _now() + dash_iframes)
-	_backstepping = false
-	_roll_cut_asked = false
-
-	if not keep_facing:
-		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
-	if rig != null:
-		if step and rig.has_method(&"step_dodge"):
-			# Which way the step goes, seen from the body: +x its right, -z ahead.
-			var local := global_transform.basis.inverse() * _dash_direction
-			rig.call(&"step_dodge", Vector2(local.x, local.z), dash_duration)
-			net_evade.rpc(Evade.STEP, Vector2(local.x, local.z), dash_duration, _dash_direction, -1)
-		else:
-			# An evade that cuts on the way (Tariel's dash) cannot be made
-			# with the sword away: it comes to the hand as the dash goes.
-			var moves: Variant = rig.get(&"moves")
-			if moves is Dictionary and (moves as Dictionary).has("evade"):
-				_set_weapons_stowed(false)
-			var take := randi() & 0x7fffffff
-			_take(take)
-			rig.dodge(dash_duration)
-			_take(-1)
-			net_evade.rpc(Evade.ROLL, Vector2.ZERO, dash_duration, _dash_direction, take)
-	dash_started.emit(_dash_direction)
-	return true
-
-
-## Turns the roll already under way into the longer, animated dodge, keeping the
-## direction it was thrown in.
-func _upgrade_to_dodge() -> bool:
-	if stamina <= 0.0:
-		return false  # Nothing left to stretch the roll into a dodge with.
-	if profile != null and profile.step_then_flip:
-		# A flip goes the way he is going, whichever way he was facing.
-		rotation.y = atan2(-_dash_direction.x, -_dash_direction.z)
-	var take := randi() & 0x7fffffff
-	_take(take)
-	var clipped := rig == null or rig.dodge_clip(dodge_duration)
-	_take(-1)
-	if not clipped:
-		return false  # No clip to upgrade to; the roll carries on as it is.
-	net_evade.rpc(Evade.DODGE, Vector2.ZERO, dodge_duration, _dash_direction, take)
-	_spend(profile.dodge_stamina if profile != null else 8.0)
-	state = State.DODGING
-	_dodge_timer = dodge_duration
-	_dash_cooldown_timer = dash_cooldown + dodge_duration
-	is_invulnerable = dodge_iframes > 0.0
-	_safe_until = maxf(_safe_until, _now() + dodge_iframes)
-	dodge_started.emit(_dash_direction)
-	return true
+	return PlayerMove._try_dash(self, keep_facing, step, chained)
 
 
 enum Evade { ROLL, STEP, BACKSTEP, DODGE }
@@ -2014,120 +1441,17 @@ func net_evade(kind: int, way: Vector2, seconds: float, dir: Vector3, take: int)
 ## Drives both evades. They differ in how long they last, how fast they travel
 ## and what the rig is doing, not in how the body is moved.
 func _process_dash(delta: float) -> void:
-	var dodging := state == State.DODGING
-	var length := dodge_duration if dodging else (backstep_time if _backstepping else dash_duration)
-	var left := _dodge_timer if dodging else _dash_timer
-	var iframes := dodge_iframes if dodging else (backstep_iframes if _backstepping else dash_iframes)
-
-	# Ease the evade out so it does not end with a hard velocity cut.
-	var t := clampf(left / maxf(length, 0.001), 0.0, 1.0)
-	var speed := (dodge_speed if dodging else (backstep_speed if _backstepping else dash_speed)) * lerpf(0.55, 1.0, t)
-	# Where the clip puts the feet down, the travel stops: no skating on after
-	# the landing.
-	var land := _land_at(dodging)
-	if land < 1.0:
-		speed *= 1.0 - smoothstep(land - 0.1, land + 0.04, 1.0 - t)
-	velocity.x = _dash_direction.x * speed
-	velocity.z = _dash_direction.z * speed
-	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
-
-	if iframes > 0.0 and length - left >= iframes:
-		is_invulnerable = false
-
-	# A press kept from earlier goes the moment the feet are down, rather than
-	# waiting out the clip's recovery.
-	if _evade_queued and _evade_landed():
-		_end_dash()
-		return
-	# So does an attack pressed in it: the roll's thrust comes straight out of
-	# the landing, one move with it (the user's word 2026-10-13: it waited out
-	# the getting up and read as a second press).
-	if _roll_cut_asked and _evade_landed():
-		_end_dash()
-		return
-
-	# Going face-first into a wall should stop the evade, not scrape along it.
-	if dash_cancels_on_wall and is_on_wall() and get_wall_normal().dot(_dash_direction) < -0.6:
-		_end_dash()
-		return
-
-	if left <= 0.0:
-		_end_dash()
-
-
-## Whether the evade under way has put the feet back down already (past its
-## [method _land_at] point): from there on the next evade may cut in.
-func _evade_landed() -> bool:
-	var dodging := state == State.DODGING
-	if state != State.DODGING and state != State.DASHING:
-		return false
-	var land := _land_at(dodging)
-	if land >= 1.0:
-		return false
-	var length := dodge_duration if dodging else (backstep_time if _backstepping else dash_duration)
-	var left := _dodge_timer if dodging else _dash_timer
-	return 1.0 - left / maxf(length, 0.001) >= land + 0.02
-
-
-## Where in this evade the feet land ([member CharacterProfile.dodge_land_at]).
-func _land_at(dodging: bool) -> float:
-	if profile == null or (_backstepping and not dodging):
-		return 1.0
-	return profile.dodge_land_at if dodging else profile.dash_land_at
+	PlayerMove._process_dash(self, delta)
 
 
 func _end_dash() -> void:
-	var dodging := state == State.DODGING
-	_evade_ended_at = _now()
-	is_invulnerable = false
-	_backstepping = false
-	if _roll_cut_asked:
-		# an attack pressed during it: the roll's own, as soon as he is up
-		_roll_cut_asked = false
-		_attack_buffer = attack_buffer_time
-		_buffer_other = false
-	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
-	# Bleed off the evade so the player keeps a bit of momentum — unless the
-	# clip has already landed him, when there is none left to keep.
-	var keep := 0.0 if _land_at(dodging) < 1.0 else 0.4
-	velocity.x *= keep
-	velocity.z *= keep
-	if dodging:
-		dodge_ended.emit()
-	else:
-		dash_ended.emit()
-	_chain_open_until = _now() + chain_grace
-	if _evade_queued:
-		# Pressed while this one was going: the next follows straight on.
-		_evade_queued = false
-		_evade_chain += 1
-		if not _start_evade(true):
-			_evade_chain = 0
-#endregion
+	PlayerMove._end_dash(self)
 
 
-#region Crouch
 ## Holds the body down, or lets it back up. Standing waits until there is room:
 ## under a low gap the crouch simply carries on.
 func _set_crouching(down: bool) -> void:
-	if state == State.SLIDING or state == State.CLIMBING:
-		return
-	# Taking hold of a wall drops the crouch on the way in, which is the one time
-	# it is set from this state; nothing else may touch it while hanging.
-	if state == State.WALLCLIMB and down:
-		return
-	# Wanting to stand and being able to are different things, so the body is
-	# only up once the full capsule fits. `or` short-circuits, which is what
-	# keeps the stand-up probe out of the way while the button is still held.
-	var held := down or not _stand_up()
-	if held == _crouching:
-		return
-
-	_crouching = held
-	if held:
-		_set_capsule(crouch_height)
-	if rig != null:
-		rig.crouch(held)
+	PlayerMove._set_crouching(self, down)
 
 
 func is_crouching() -> bool:
@@ -2233,89 +1557,20 @@ func stand_height() -> float:
 ## that was already there, adds a little, and shrinks the capsule so the player
 ## goes under whatever a standing body would not.
 func _try_slide() -> bool:
-	if state != State.GROUNDED or _slide_cooldown_timer > 0.0:
-		return false
-	var horizontal := Vector3(velocity.x, 0.0, velocity.z)
-	if horizontal.length() < slide_min_speed:
-		return false
-
-	_slide_direction = horizontal.normalized()
-	_slide_speed = horizontal.length() * slide_boost
-	_slide_timer = slide_duration
-	state = State.SLIDING
-	_set_capsule(slide_height)
-	if rig != null:
-		rig.crouch(false)
-		rig.slide(true)
-	slide_started.emit()
-	return true
+	return PlayerMove._try_slide(self)
 
 
 func _process_slide(delta: float) -> void:
-	_slide_speed = maxf(_slide_speed - slide_drag * delta, 0.0)
-	velocity.x = _slide_direction.x * _slide_speed
-	velocity.z = _slide_direction.z * _slide_speed
-	velocity.y = 0.0 if is_on_floor() else velocity.y - _gravity * delta
-
-	# Held down, the slide keeps going as long as it is still going somewhere;
-	# released, it ends there and then.
-	var holding := Input.is_action_pressed("crouch")
-	var spent := _slide_timer <= 0.0 or _slide_speed < slide_min_speed * 0.45
-	if is_on_wall() or not is_on_floor() or spent or not holding:
-		_end_slide()
+	PlayerMove._process_slide(self, delta)
 
 
-## Comes out of the slide. Still holding the button leaves the player crouched
-## rather than standing straight back up, which is also what happens under a low
-## gap whether they asked for it or not.
-func _end_slide() -> void:
-	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
-	_slide_cooldown_timer = slide_cooldown
-	if rig != null:
-		rig.slide(false)
-	slide_ended.emit()
-
-	_crouching = false
-	_set_crouching(Input.is_action_pressed("crouch"))
-
-
-## Resizes the capsule about the feet, so shrinking it never lifts the body off
-## the ground or drops it through it.
-func _set_capsule(height: float) -> void:
-	var capsule := _collider.shape as CapsuleShape3D
-	if capsule == null:
-		return
-	capsule.height = height
-	_collider.position.y = _stand_centre - (_stand_height - height) * 0.5
-
-
-## True once the capsule is back to its standing size. False means something is
-## in the way and the player has to stay down.
-func _stand_up() -> bool:
-	var capsule := _collider.shape as CapsuleShape3D
-	if capsule == null or is_equal_approx(capsule.height, _stand_height):
-		return true
-
-	var crouched := capsule.height
-	var crouched_centre := _collider.position.y
-	_set_capsule(_stand_height)
-	if not test_move(global_transform, Vector3.ZERO):
-		return true
-
-	capsule.height = crouched
-	_collider.position.y = crouched_centre
-	return false
-#endregion
-
-
-#region Climb
 ## Pulls the body up over a ledge in front of it, if there is one within reach
 ## and something to stand on when it gets there.
 ## What the hands and feet may take hold of or stand on in a climb: the world,
 ## not a creature (no pulling up onto an orc's shoulders, nor a wall made of a
 ## troll; the user's word, 2026-10-06).
 func _climb_mask() -> int:
-	return collision_mask & ~ENEMY_LAYER & ~HERO_LAYER
+	return PlayerClimb._climb_mask(self)
 
 
 ## The heroes' own layer (2): they stand in each other's way (the user's
@@ -2331,60 +1586,14 @@ const ENEMY_LAYER := 4
 ## Standing on a creature (come down on its head): slid off it, out the way
 ## it is from its middle (the user's word, 2026-10-06: no standing on them).
 func _slip_off_creatures() -> void:
-	if not is_on_floor():
-		return
-	for i in get_slide_collision_count():
-		var hit := get_slide_collision(i)
-		var who := hit.get_collider() as Node3D
-		if who == null or not (who.is_in_group("enemy") or who.is_in_group("player")) \
-				or hit.get_normal().dot(up_direction) < 0.3:
-			continue
-		var away := global_position - who.global_position
-		away.y = 0.0
-		if away.length_squared() < 0.0025:
-			away = global_basis.z
-		away = away.normalized()
-		velocity.x = away.x * CREATURE_SLIP_SPEED
-		velocity.z = away.z * CREATURE_SLIP_SPEED
-		global_position += away * 0.05
-		return
+	PlayerClimb._slip_off_creatures(self)
 
 
 const CREATURE_SLIP_SPEED := 4.5
 
 
 func _try_climb() -> bool:
-	if state != State.GROUNDED and state != State.AIRBORNE:
-		return false
-	var landing := _find_ledge()
-	if landing == Vector3.ZERO:
-		return false
-	_begin_mantle(landing)
-	return true
-
-
-## Hands the body over to the pull-up, wherever it was called from: off the
-## ground, out of a jump, or off the top of a face that has just been climbed.
-func _begin_mantle(landing: Vector3) -> void:
-	if state == State.WALLCLIMB and rig != null:
-		rig.wall_climb(false)
-	_climb_from = global_position
-	_climb_to = landing
-	_climb_timer = climb_duration
-	state = State.CLIMBING
-	velocity = Vector3.ZERO
-	# A plunge only ends in `_land()`, and a mantle finishes standing without
-	# ever passing through it — so a jump-attack that catches a ledge would hold
-	# the commitment open forever. The pull-up takes the fall's place.
-	_plunging = false
-	_jump_buffer_timer = 0.0
-	if rig != null:
-		var take := randi() & 0x7fffffff
-		_take(take)
-		rig.climb(climb_duration)
-		_take(-1)
-		net_mantle.rpc(take)
-	climb_started.emit(landing)
+	return PlayerClimb._try_climb(self)
 
 
 ## The pull-up on the others' copies of him, the same take of it as his own.
@@ -2403,156 +1612,21 @@ func _take(take: int) -> void:
 		rig.set(&"pick_seed", take)
 
 
-## Where the body would end up after mantling whatever is in front of it, or
-## ZERO if there is nothing to mantle.
-##
-## Three questions, in the order that rules the most out soonest: is there a
-## face to grab, does it have a top edge within reach, and is there room to
-## stand on it.
-func _find_ledge() -> Vector3:
-	var facing := -global_transform.basis.z
-	facing.y = 0.0
-	if facing.is_zero_approx():
-		return Vector3.ZERO
-	facing = facing.normalized()
-
-	var space := get_world_3d().direct_space_state
-	var exclude: Array[RID] = [get_rid()]
-
-	var chest := global_position + up_direction * climb_min_height
-	var face := PhysicsRayQueryParameters3D.create(
-			chest, chest + facing * climb_reach, _climb_mask(), exclude)
-	if space.intersect_ray(face).is_empty():
-		return Vector3.ZERO
-
-	# Feel down for the top from above the tallest ledge that can be taken — at
-	# the face itself first and then further in, so the top of something thin (a
-	# fence rail) is found too, not only the ground beyond it.
-	var hit := {}
-	var rise := 0.0
-	for reach: float in [0.4, 0.55, climb_reach]:
-		var above := global_position + up_direction * (climb_max_height + 0.4) + facing * reach
-		var top := PhysicsRayQueryParameters3D.create(
-				above, above - up_direction * (climb_max_height + 0.4), _climb_mask(), exclude)
-		hit = space.intersect_ray(top)
-		if hit.is_empty():
-			continue
-		rise = ((hit.position as Vector3) - global_position).dot(up_direction)
-		if rise >= climb_min_height and rise <= climb_max_height:
-			break
-		hit = {}
-	if hit.is_empty():
-		return Vector3.ZERO
-
-	var lip: Vector3 = hit.position
-	if (hit.normal as Vector3).dot(up_direction) < cos(floor_max_angle):
-		return Vector3.ZERO  # The top is too steep to be a landing.
-
-	# Far enough in from the edge that the capsule is not left overhanging it.
-	var landing: Vector3 = lip + facing * 0.25
-	_vault_peak = -INF
-	var headroom := PhysicsRayQueryParameters3D.create(
-			landing + up_direction * 0.05, landing + up_direction * climb_headroom,
-			_climb_mask(), exclude)
-	if not space.intersect_ray(headroom).is_empty():
-		return Vector3.ZERO
-	# A thin top — a fence rail, the coping of a wall — is nowhere to stand: the
-	# landing past its edge has nothing under it. Over it instead, to the
-	# ground on the far side (a vault), rather than up into the air beyond it.
-	var under := PhysicsRayQueryParameters3D.create(landing + up_direction * 0.3,
-			landing - up_direction * 0.4, _climb_mask(), exclude)
-	if space.intersect_ray(under).is_empty():
-		var beyond := lip + facing * 1.1
-		var down := PhysicsRayQueryParameters3D.create(beyond + up_direction * 0.3,
-				beyond - up_direction * (rise + 2.0), _climb_mask(), exclude)
-		var ground := space.intersect_ray(down)
-		if ground.is_empty() or (ground.normal as Vector3).dot(up_direction) < cos(floor_max_angle):
-			return Vector3.ZERO
-		_vault_peak = lip.y + 0.35
-		return ground.position
-	return landing
-
-
 ## Carries the body up and then in, rather than straight at the corner: a lerp
 ## between the two ends would drag it through the wall on the way.
 func _process_climb(delta: float) -> void:
-	_climb_timer = maxf(_climb_timer - delta, 0.0)
-	var through := 1.0 - _climb_timer / maxf(climb_duration, 0.001)
-	var lift := smoothstep(0.0, 0.7, through)
-	var reach := smoothstep(0.35, 1.0, through)
-
-	var here := _climb_from.lerp(_climb_to, reach)
-	here.y = lerpf(_climb_from.y, _climb_to.y, lift)
-	if _vault_peak > -INF:
-		# Over the top in an arc, clear of the rail, and down the far side.
-		here = _climb_from.lerp(_climb_to, smoothstep(0.0, 1.0, through))
-		var base := lerpf(_climb_from.y, _climb_to.y, through)
-		here.y = base + maxf(_vault_peak - base, 0.0) * sin(PI * through)
-	global_position = here
-	velocity = Vector3.ZERO
-
-	if _climb_timer <= 0.0:
-		_vault_peak = -INF
-		state = State.GROUNDED
-		_was_on_floor = true
-		_coyote_timer = coyote_time
-		_air_speed_cap = run_speed
-#endregion
-
-
-#region Wall climb
-## Free climbing. Where the mantle is one move that ends on top of something,
-## this is a state the player lives in: the body hangs off a face, gravity is
-## off, and the stick drives it up, down and along the surface until it reaches
-## the top, climbs back down, or lets go.
-##
-## Everything is resolved against the face's own normal rather than the camera,
-## so rounding a corner or following a wall that leans does not need the view to
-## be re-aimed — which is what makes a building climbable as one surface instead
-## of as four flat walls.
-
-## Height up the body the grip is felt from. Roughly chest height, which is
-## where a climber's hands are when their feet are on the same face.
-func _grip_height() -> float:
-	return _stand_height * 0.6
+	PlayerClimb._process_climb(self, delta)
 
 
 ## How far the body's centre line sits off the face it is on.
 func _wall_hold_distance() -> float:
-	return _stand_radius + wall_gap
+	return PlayerClimb._wall_hold_distance(self)
 
 
 ## Takes hold of whatever steep face is in front of the body. `direction` is the
 ## way to feel in, defaulting to whichever way the body is facing.
 func _try_wall_climb(direction: Vector3 = Vector3.ZERO) -> bool:
-	if not wall_climb_enabled or _wall_cooldown_timer > 0.0 or _in_dungeon():
-		return false
-	if profile != null and not profile.can_climb:
-		return false
-	if state != State.GROUNDED and state != State.AIRBORNE:
-		return false
-
-	var facing := direction
-	if facing.is_zero_approx():
-		facing = -global_transform.basis.z
-	facing.y = 0.0
-	if facing.is_zero_approx():
-		return false
-	facing = facing.normalized()
-
-	var grip := _feel_wall(facing)
-	if grip.is_empty():
-		return false
-
-	# Something with its top already in reach is a mantle, and a mantle is the
-	# better move: it puts the player on top rather than leaving them hanging.
-	var normal: Vector3 = grip["normal"]
-	var above := global_position + up_direction * (_grip_height() + wall_min_face)
-	if _scan_wall(above, -normal).is_empty():
-		return false
-
-	_grab_wall(grip["position"], normal)
-	return true
+	return PlayerClimb._try_wall_climb(self, direction)
 
 
 ## No wall is climbed in a portal's rooms (the user's word, 2026-10-22: he
@@ -2573,208 +1647,11 @@ func _in_dungeon() -> bool:
 ## What is asked instead is intent: the stick pointing at the face, or the body
 ## already touching one.
 func _try_catch_wall(steer: Vector3) -> bool:
-	if not wall_climb_enabled or _wall_cooldown_timer > 0.0 or _in_dungeon():
-		return false
-
-	# Touching one is intent enough; otherwise the stick has to be pointing at it.
-	if is_on_wall() and _try_wall_climb(-get_wall_normal()):
-		return true
-	if steer.is_zero_approx():
-		return false
-	return _try_wall_climb(steer)
-
-
-## The face in front of the body, felt for the way a climber would: straight
-## ahead first, then higher and lower, then round to either side.
-##
-## Scenery is not made of flat slabs. A window at chest height, a beam, the
-## corner of a building — any of them would lose a single probe a wall that is
-## plainly still there, and every one of them is a thing a player will try to
-## climb.
-func _feel_wall(facing: Vector3) -> Dictionary:
-	for height: float in [_grip_height(), _stand_height * 0.3, _stand_height * 0.85]:
-		var grip := _scan_wall(global_position + up_direction * height, facing)
-		if not grip.is_empty():
-			return grip
-
-	var chest := global_position + up_direction * _grip_height()
-	for sweep: float in [0.5, -0.5, 1.0, -1.0, 1.6, -1.6]:
-		var grip := _scan_wall(chest, facing.rotated(up_direction, sweep))
-		if not grip.is_empty():
-			return grip
-	return {}
-
-
-## The face in front of `origin`, or an empty dictionary if there is nothing
-## there worth holding onto.
-func _scan_wall(origin: Vector3, facing: Vector3) -> Dictionary:
-	var space := get_world_3d().direct_space_state
-	var exclude: Array[RID] = [get_rid()]
-	var query := PhysicsRayQueryParameters3D.create(
-			origin, origin + facing * wall_grip_reach, _climb_mask(), exclude)
-	var hit := space.intersect_ray(query)
-	if hit.is_empty():
-		return {}
-
-	var normal: Vector3 = hit["normal"]
-	# Only faces too steep to walk up are worth gripping, and never a ceiling or
-	# an overhang: there is nothing for the feet to push against on either.
-	if absf(normal.dot(up_direction)) > cos(deg_to_rad(wall_min_angle)):
-		return {}
-	# The face has to be turned towards the body rather than brushed edge-on,
-	# which is also what keeps the back side of a wall from being caught.
-	if normal.dot(facing) > -0.35:
-		return {}
-	return {"position": hit["position"] as Vector3, "normal": normal}
-
-
-func _grab_wall(point: Vector3, normal: Vector3) -> void:
-	state = State.WALLCLIMB
-	# Same as a mantle: catching a face mid-plunge never lands, so it must not
-	# leave the plunge (and its endless commitment) behind.
-	_plunging = false
-	_wall_point = point
-	_wall_normal = normal
-	_wall_drive = Vector2.ZERO
-	velocity = Vector3.ZERO
-
-	# Stand off the face properly *now* rather than easing out to it. A grab
-	# usually happens with the capsule already pressed against the wall, and the
-	# body is narrower than the arms are long: a few frames spent too close is a
-	# few frames with the hands inside the masonry. Moved rather than teleported,
-	# so backing off a wall in a narrow gap stops at whatever is behind.
-	var chest := global_position + up_direction * _grip_height()
-	var gap := (_wall_point + _wall_normal * _wall_hold_distance()) - chest
-	move_and_collide(_wall_normal * gap.dot(_wall_normal))
-	_jump_buffer_timer = 0.0
-	_coyote_timer = 0.0
-	if is_blocking:
-		is_blocking = false
-		block_changed.emit(false)
-	# Nothing else the body was doing survives taking hold of a wall.
-	_set_crouching(false)
-	if rig != null:
-		rig.wall_climb(true)
-	wall_grabbed.emit(normal)
+	return PlayerClimb._try_catch_wall(self, steer)
 
 
 func _process_wall_climb(delta: float) -> void:
-	# Three ways off: let go and drop, push off backwards, or reach the top.
-	if Input.is_action_just_pressed("crouch"):
-		_release_wall(Vector3.ZERO)
-		return
-	if Input.is_action_just_pressed("jump"):
-		_release_wall(_wall_normal * wall_jump_back + up_direction * wall_jump_up)
-		return
-
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	# Read in the face's frame, not the camera's: forward on the stick is up the
-	# wall however the view happens to be pointing.
-	var drive := Vector2(input.x, -input.y)
-	_wall_drive = _wall_drive.lerp(drive, 1.0 - exp(-14.0 * delta))
-
-	# Checked before the move, because the face runs out at exactly the moment
-	# there is somewhere to stand: losing it here is arriving, not falling.
-	if drive.y > 0.1:
-		var landing := _find_wall_top()
-		if landing != Vector3.ZERO:
-			_begin_mantle(landing)
-			return
-
-	var held := global_position
-	var right := up_direction.cross(_wall_normal).normalized()
-	var up_face := _wall_normal.cross(right).normalized()
-	velocity = right * drive.x * wall_shimmy_speed + up_face * drive.y * wall_climb_speed
-	move_and_slide()
-
-	if not _hold_wall(delta):
-		# Climbed off the end of the face with nowhere to go. Coming back to
-		# where the hands still had something beats letting go of a wall that is
-		# still there — a climber who runs out of holds stops, they do not drop.
-		global_position = held
-		velocity = Vector3.ZERO
-		if not _hold_wall(delta):
-			_release_wall(Vector3.ZERO)
-			return
-
-	# Climbing back down onto the ground steps off by itself.
-	if drive.y < 0.0 and is_on_floor():
-		_release_wall(Vector3.ZERO)
-
-
-## Re-fits the body against the face and turns it to look at it. False means the
-## face is gone and there is nothing left to hang off.
-func _hold_wall(delta: float) -> bool:
-	var chest := global_position + up_direction * _grip_height()
-	var grip := _feel_wall(-_wall_normal)
-	if grip.is_empty():
-		return false
-
-	_wall_point = grip["position"]
-	var weight := 1.0 - exp(-wall_settle_speed * delta)
-	_wall_normal = _wall_normal.slerp(grip["normal"] as Vector3, weight).normalized()
-
-	# Only the distance to the face is corrected. Sliding along it is what the
-	# stick is for, and pulling the body sideways would fight it.
-	var wanted := (_wall_point + _wall_normal * _wall_hold_distance()) - chest
-	var depth := _wall_normal * wanted.dot(_wall_normal)
-	global_position += depth.limit_length(wall_shimmy_speed * delta + 0.02)
-
-	rotation.y = lerp_angle(rotation.y, atan2(_wall_normal.x, _wall_normal.z), weight)
-	return true
-
-
-## Where the body would end up after pulling over the top of the face it is on,
-## or ZERO while there is still wall above it.
-func _find_wall_top() -> Vector3:
-	var space := get_world_3d().direct_space_state
-	var exclude: Array[RID] = [get_rid()]
-	var facing := -_wall_normal
-	var head := global_position + up_direction * (_stand_height + 0.55)
-
-	# Still wall in front of the face? Then this is not the top of it, and any
-	# floor found above would be one *inside* the building — mantling onto which
-	# would post the player through the wall of the house they were climbing.
-	if not _scan_wall(global_position + up_direction * (_stand_height * 0.95), facing).is_empty():
-		return Vector3.ZERO
-
-	# Feel down for a top face from above the head, a step in past the lip. How
-	# far in has to clear the body's own standoff from the wall — probe any
-	# closer and the ray comes down in front of the face it is looking for. The
-	# nearest depth that works wins, so a ledge a plank wide still counts.
-	for depth: float in [0.15, 0.45, 0.9]:
-		var over := head + facing * (_wall_hold_distance() + depth)
-		var top := PhysicsRayQueryParameters3D.create(
-				over, over - up_direction * 1.3, _climb_mask(), exclude)
-		var hit := space.intersect_ray(top)
-		if hit.is_empty():
-			continue
-		if (hit["normal"] as Vector3).dot(up_direction) < cos(floor_max_angle):
-			continue
-
-		var landing: Vector3 = hit["position"]
-		var headroom := PhysicsRayQueryParameters3D.create(
-				landing + up_direction * 0.05, landing + up_direction * climb_headroom,
-				_climb_mask(), exclude)
-		if space.intersect_ray(headroom).is_empty():
-			return landing
-	return Vector3.ZERO
-
-
-## Lets go of the face. `impulse` is whatever the body leaves with — nothing at
-## all when it simply drops, or a push off the wall when it jumps.
-func _release_wall(impulse: Vector3) -> void:
-	state = State.AIRBORNE
-	velocity = impulse
-	_wall_normal = Vector3.ZERO
-	_wall_drive = Vector2.ZERO
-	_wall_cooldown_timer = wall_regrab_delay
-	_air_speed_cap = maxf(Vector3(impulse.x, 0.0, impulse.z).length(), run_speed)
-	if rig != null:
-		rig.wall_climb(false)
-	wall_released.emit()
-	if impulse.y > 0.0:
-		_move_sound(MoveSound.JUMP)  # Pushed off the face, not let go.
+	PlayerClimb._process_wall_climb(self, delta)
 
 
 ## True while the body is hanging off a face.
@@ -2795,53 +1672,20 @@ func is_wall_climbing() -> bool:
 
 ## Takes the best target in front of the camera, or lets go of the one held.
 func _toggle_lock() -> void:
-	if target != null:
-		_drop_target()
-		return
-	var found := _best_target()
-	if found == null:
-		return
-	_hold_target(found)
+	PlayerTarget._toggle_lock(self)
 
 
 func _hold_target(who: Node3D) -> void:
-	target = who
-	_last_target_at = who.global_position
-	target_part = TargetPoints.default_index(who)
-	_flick_up = 0.0
-	_show_marker()
-	target_locked.emit(target)
+	PlayerTarget._hold_target(self, who)
 
 
 func _drop_target() -> void:
-	if target == null:
-		return
-	target = null
-	_flick = 0.0
-	_show_marker()
-	target_lost.emit()
-
-
-## Puts the dot on the target, building it the first time it is needed. Built
-## here rather than in the scene because it belongs to the lock, not to the body
-## — and because a marker with nothing to mark is a node doing nothing.
-func _show_marker() -> void:
-	if _marker == null:
-		if target == null:
-			return
-		_marker = TargetMarker.new()
-		_marker.name = "TargetMarker"
-		add_child(_marker)
-		_marker.aim_at = func() -> Vector3: return _aim_point(target) if target != null else global_position
-	_marker.mark(target, camera)
+	PlayerTarget._drop_target(self)
 
 
 ## Moves the lock one part up (+1) or down (-1) the creature it is on.
 func _switch_part(step: int) -> void:
-	if target == null:
-		return
-	var parts := TargetPoints.of(target).size()
-	target_part = clampi(target_part + step, 0, parts - 1)
+	PlayerTarget._switch_part(self, step)
 
 
 ## Swaps to the next target to one side of the one held. Which side is the sign
@@ -2851,234 +1695,55 @@ func _switch_part(step: int) -> void:
 ## right takes the next one along the line of the horizon — which is what the
 ## player means by it and what they can see before they do it.
 func _switch_target(towards: float) -> void:
-	if target == null or absf(towards) < 0.01:
-		return
-	var eye := camera.global_position
-	var right := camera.global_transform.basis.x
-	var held := _bearing(target, eye, right)
-
-	var best: Node3D = null
-	var best_gap := INF
-	for node in _foes():
-		var who := node as Node3D
-		if who == null or who == target or not _targetable(who):
-			continue
-		# How far from him, not from the camera behind him (which sits a
-		# spring's length back and took 4-5 m off the reach).
-		if global_position.distance_to(who.global_position) > lock_range:
-			continue
-		# Only what lies the way the stick was pushed, and the nearest of those.
-		var gap := (_bearing(who, eye, right) - held) * signf(towards)
-		if gap <= 0.01 or gap >= best_gap:
-			continue
-		best_gap = gap
-		best = who
-	if best != null:
-		_hold_target(best)
-
-
-## How far round to the right of the camera something sits, in radians.
-static func _bearing(who: Node3D, eye: Vector3, right: Vector3) -> float:
-	var to_them := who.global_position - eye
-	return atan2(to_them.dot(right), to_them.dot(-right.cross(Vector3.UP)))
+	PlayerTarget._switch_target(self, towards)
 
 
 ## The enemy nearest the middle of the view, of those close enough and roughly
 ## in front. Angle first and distance second: what the player is looking at
 ## matters more than what happens to be nearest.
 func _best_target() -> Node3D:
-	var eye := camera.global_position
-	var looking := -camera.global_transform.basis.z
-	var widest := cos(deg_to_rad(lock_cone))
-	var best: Node3D = null
-	var best_score := -INF
-
-	for node in _foes():
-		var who := node as Node3D
-		if who == null or not _targetable(who):
-			continue
-		var to_them: Vector3 = _aim_point(who) - eye
-		var seen := to_them.length()
-		# Within reach of him, not of the camera a spring's length behind him:
-		# measured from the camera, a creature 22 m off could not be locked.
-		var range_to := global_position.distance_to(who.global_position)
-		if range_to > lock_range or seen < 0.01:
-			continue
-		var facing := looking.dot(to_them / seen)
-		if facing < widest:
-			continue
-		# Straight ahead beats close by, but not by so much that something on
-		# the far side of the field wins for being centred.
-		var score := facing - range_to / lock_range * 0.25
-		if score > best_score:
-			best_score = score
-			best = who
-	return best
+	return PlayerTarget._best_target(self)
 
 
 ## Whether something is worth holding on to. Anything that has died stops being
 ## a target the moment it does, which is what keeps the camera off a corpse.
 func _targetable(who: Node3D) -> bool:
-	if not is_instance_valid(who) or not who.is_inside_tree():
-		return false
-	if who.get("is_dead") == true:
-		return false
-	# a ghoul lying as dead among the dead ([GhoulFighter]) looks like one
-	if who.get(&"playing_dead") == true:
-		return false
-	# a hero gone in his Vanish is not there to lock
-	if who != self and who is Player and (who as Player).is_hidden():
-		return false
-	return true
+	return PlayerTarget._targetable(self, who)
 
 
 ## Where on a body the camera looks and an arrow goes: the middle of it rather
 ## than the floor it stands on.
 func _aim_point(who: Node3D) -> Vector3:
-	var points := TargetPoints.of(who)
-	if who == target:
-		return points[clampi(target_part, 0, points.size() - 1)]
-	return points[TargetPoints.default_index(who)]
+	return PlayerTarget._aim_point(self, who)
 
 
 ## Where the held target last stood alive.
 var _last_target_at := Vector3.ZERO
 
 
-## Of the enemies that can be locked, the nearest to `spot`, within lock range
-## of him; null if there are none.
-func _nearest_to(spot: Vector3, hunting_only: bool = false) -> Node3D:
-	var best: Node3D = null
-	var closest := INF
-	for node in _foes():
-		var who := node as Node3D
-		if who == null or who == target or not _targetable(who):
-			continue
-		if hunting_only and not _hunting_me(who):
-			continue
-		if global_position.distance_to(who.global_position) > lock_range:
-			continue
-		var gap := spot.distance_squared_to(who.global_position)
-		if gap < closest:
-			closest = gap
-			best = who
-	return best
-
-
 ## Whether `who` is after him: roused and chasing or fighting him (a camp's
 ## band, a brute: its quarry him and its mode CHASE or FIGHT; a wolf: chasing
 ## or fighting, its quarry him). Something that keeps no such state counts.
 func _hunting_me(who: Node3D) -> bool:
-	if who is Wolf:
-		var wolf := who as Wolf
-		return (wolf.state == Wolf.State.CHASE or wolf.state == Wolf.State.FIGHT) and wolf._quarry() == self
-	var quarry: Variant = who.get(&"_quarry")
-	var mode: Variant = who.get(&"mode")
-	if mode != null and (who is Fighter or who is Brute):
-		return quarry == self and (int(mode) == Fighter.Mode.CHASE or int(mode) == Fighter.Mode.FIGHT)
-	return true
+	return PlayerTarget._hunting_me(self, who)
 
 
 ## The arm's length: out to `camera_reach` (and `camera_reach_big` further
 ## while a great foe is fought), in at once to whatever is behind him, and
 ## back out from it at `camera_out_speed`, never a jump.
 func _tend_arm(delta: float) -> void:
-	_big_view = move_toward(_big_view, _big_fight(), delta * 0.8)
-	var want := camera_reach + camera_reach_big * _big_view
-	var hit := spring_arm.get_hit_length()
-	if hit < spring_arm.spring_length - 0.05:
-		# something in the way: where it stops it, from there on out slowly
-		_arm_len = minf(_arm_len, hit)
-	_arm_len = minf(_arm_len + camera_out_speed * delta, want)
-	if _arm_len > want:
-		_arm_len = move_toward(_arm_len, want, camera_out_speed * delta)
-	spring_arm.spring_length = _arm_len
-
-
-## 0..1: how great a foe he is fighting — the one locked on by its size, or
-## a boss (or one as big) roused within reach of him.
-func _big_fight() -> float:
-	if target != null and is_instance_valid(target):
-		return _greatness(target)
-	if _now() - _big_seen_at > 0.5:
-		_big_seen_at = _now()
-		_big_near = false
-		for node in get_tree().get_nodes_in_group(&"enemy"):
-			var foe := node as Node3D
-			if foe == null or not foe.visible or foe.get(&"is_dead") == true:
-				continue
-			if foe.global_position.distance_squared_to(global_position) > 18.0 * 18.0:
-				continue
-			var mode: Variant = foe.get(&"mode")
-			if mode != null and int(mode) != Fighter.Mode.CHASE and int(mode) != Fighter.Mode.FIGHT:
-				continue
-			if _greatness(foe) >= 0.99:
-				_big_near = true
-				break
-	return 1.0 if _big_near else 0.0
-
-
-static func _greatness(foe: Node3D) -> float:
-	if foe.has_meta(&"boss_name"):
-		return 1.0
-	return clampf((_body_radius(foe) - 0.55) / 0.5, 0.0, 1.0)
+	PlayerTarget._tend_arm(self, delta)
 
 
 ## Keeps the camera on the target and lets go when there is nothing left to hold.
 func _track_target(delta: float) -> void:
-	if target == null:
-		return
-	if not _targetable(target):
-		# Killed (or gone): straight on to whichever of the rest stood nearest
-		# it, so a fight with a pack does not need the lock taken again after
-		# every kill. Only if there is one in reach, and only one that is
-		# after him (not something far off minding its own ground, the user's
-		# word 2026-10-06); otherwise let go.
-		var next := _nearest_to(_last_target_at, true)
-		if next != null:
-			_hold_target(next)
-			return
-		_drop_target()
-		return
-	if global_position.distance_to(target.global_position) > lock_break_range:
-		_drop_target()
-		return
-	_last_target_at = target.global_position
-	_show_marker()
-
-	# The camera is swung round rather than snapped: a lock that jumps the view
-	# is a lock that loses the player.
-	var to_them := _aim_point(target) - camera_rig.global_position
-	if to_them.length_squared() < 0.01:
-		return
-	var weight := 1.0 - exp(-lock_camera_speed * delta)
-	camera_rig.rotation.y = lerp_angle(camera_rig.rotation.y,
-			atan2(-to_them.x, -to_them.z), weight)
-	# Pitch: negative puts the camera up and looks down, which is the way to
-	# watch a fight. Aiming straight at the target is not enough on its own —
-	# the rig already sits above it, so a pure aim is nearly level and the
-	# ground between the two disappears. `lock_camera_tilt` is what lifts it.
-	var flat := Vector2(to_them.x, to_them.z).length()
-	var aimed := atan2(to_them.y, flat) - deg_to_rad(lock_camera_tilt)
-	# Locked on a high point (a great foe's head) from close by, the aim
-	# looks steeply up and swung the camera down under him, into the ground
-	# (the user's word, 2026-10-12): never lower than `lock_camera_floor`
-	# over his feet.
-	var floor_up := asin(clampf((camera_height - lock_camera_floor) / maxf(spring_arm.spring_length, 0.5), -1.0, 1.0))
-	spring_arm.rotation.x = lerp_angle(spring_arm.rotation.x,
-			clampf(aimed, deg_to_rad(min_pitch_deg), minf(deg_to_rad(max_pitch_deg), floor_up)),
-			weight * 0.7)
+	PlayerTarget._track_target(self, delta)
 
 
 ## Turns the body to face the target instead of the way it is travelling, which
 ## is the whole difference between strafing round something and running past it.
 func _face_target(delta: float) -> void:
-	var to_them := _aim_point(target) - global_position
-	to_them.y = 0.0
-	if to_them.length_squared() < 0.0001:
-		return
-	rotation.y = lerp_angle(rotation.y, atan2(-to_them.x, -to_them.z),
-			1.0 - exp(-lock_turn_speed * delta))
+	PlayerTarget._face_target(self, delta)
 
 
 ## True while something is being fought.
@@ -3087,155 +1752,23 @@ func has_target() -> bool:
 #endregion
 
 
-#region Bow
 ## Hold to draw, let go to loose. How long it was held is the whole of it: a
 ## tapped shot leaves at once and lands for a fraction, a held one takes a beat
 ## and lands for all of it. Nothing else about the shot changes, so the player
 ## is choosing between rate and weight rather than between two buttons.
 func _tick_bow(delta: float) -> void:
-	_shot_timer = maxf(_shot_timer - delta, 0.0)
-	if _draw_sound != null and not _drawing:
-		Sfx.stop(_draw_sound)
-		_draw_sound = null
-	# The block button draws too, for the fan of three ([method _fan_ready]).
-	var fanning := _fan_ready() and Input.is_action_pressed("block")
-	var holding := (Input.is_action_pressed("attack") or fanning) and not menu_open and not unarmed
-	# Committed as well as rolling: the beat after the string goes belongs to the
-	# shot that was just taken, and an archer who can start the next draw before
-	# his arm has come down is an archer with no rate of fire to manage.
-	var busy := (state != State.GROUNDED and state != State.AIRBORNE) or is_committed()
-	# The bow is not drawn in the air (no shooting from a jump; the user's word,
-	# 2026-10-05): a jump lets the string go unshot, as a roll does.
-	# A step off a kerb (still within coyote time) keeps the draw.
-	if state == State.AIRBORNE and _is_bow() and _coyote_timer <= 0.0:
-		busy = true
-
-	if busy:
-		# Rolling or climbing with a drawn bow is not a thing. The draw is lost,
-		# not banked: it has to be earned again.
-		_drawing = false
-		_draw_timer = 0.0
-	elif holding and not _drawing:
-		if _shot_timer <= 0.0 and stamina > 0.0:
-			_drawing = true
-			_draw_timer = 0.0
-			_fan_draw = fanning and not Input.is_action_pressed("attack")
-			_set_weapons_stowed(false)
-			if _is_bow():
-				_draw_sound = Sfx.play(self, DRAW_SOUND, self, Vector3.ZERO, 1.0, -12.0)
-				net_creak.rpc()
-	elif holding and _drawing:
-		_draw_timer += delta
-		# Held, a draw or a charge costs breath as it goes; run out and it goes.
-		var drain := profile.draw_stamina if profile != null else 0.0
-		if drain > 0.0:
-			_spend(drain * delta)
-			if stamina <= 0.0:
-				_loose_arrow()
-	elif _drawing:
-		if profile != null and _draw_timer < profile.min_draw:
-			# let go too soon: it goes on gathering to its least, then goes
-			_draw_timer += delta
-		else:
-			_loose_arrow()
-
-	if rig != null and rig.has_method(&"aim_bow"):
-		rig.call(&"aim_bow", draw_power() if _drawing else 0.0, _aim_pitch())
+	PlayerBow._tick_bow(self, delta)
 
 
 ## How far the string has come back, 0 to 1. Everything a shot is worth is this
 ## number, so it is the one the HUD would draw.
 func draw_power() -> float:
-	if profile == null or profile.draw_time <= 0.0:
-		return 1.0
-	# the bow in his hands draws quicker or slower than his own ([BowKinds])
-	var full := profile.draw_time * BowKinds.draw(self)
-	# The least gathering a spell must have ([member CharacterProfile.min_draw])
-	# earns nothing: a click is still worth a click, only slower to come.
-	var least := minf(profile.min_draw, full * 0.5)
-	return clampf((_draw_timer - least) / (full - least), 0.0, 1.0)
+	return PlayerBow.draw_power(self)
 
 
 ## True while the string is being held.
 func is_drawing() -> bool:
-	return _drawing
-
-
-## Lets the arrow go.
-func _loose_arrow() -> void:
-	var power := draw_power()
-	_drawing = false
-	_draw_timer = 0.0
-	_shot_timer = profile.shot_cooldown if profile != null else 0.2
-	_spend(profile.attack_stamina if profile != null else 12.0)
-
-	# Where the shot is pointed is decided *before* the body is turned onto the
-	# target, so a shot loosed while running sideways goes at what is being
-	# fought rather than past it.
-	_turn_to_target()
-	var speed := lerpf(profile.arrow_speed_snap, profile.arrow_speed, power)
-	# A tap is worth `snap_share` of a full draw and no less; the rest of the
-	# scale is earned by holding.
-	var carry := lerpf(profile.snap_share, 1.0, power)
-	var critical := _shot_rng.randf() < profile.crit_chance
-	var damage := profile.shot_power() * BowKinds.atk(self) * carry * (profile.crit_damage if critical else 1.0)
-	# The moment to let go: read off the rig before the loose resets it.
-	var grade := int(rig.call(&"release_grade")) if rig != null and rig.has_method(&"release_grade") else 0
-	var shaking := float(rig.call(&"shake")) if rig != null and rig.has_method(&"shake") else 0.0
-	if grade == 1:
-		damage *= perfect_release_bonus
-	# Held all the way: the mage's full charge is a bigger bolt, and hits harder
-	# than the draw's scale alone would make it.
-	if power >= 0.97:
-		damage *= profile.full_charge_bonus
-	# The shot is thrown; now it has to be lived with. The string going is the
-	# same kind of commitment a swing is — the difference is that the archer
-	# chooses when, because the draw itself can be held or let go of.
-	_commit(loose_recovery)
-	arrow_loosed.emit(power, damage, critical)
-
-	# A spell is thrown with the staff, and leaves it from the crystal when the
-	# staff comes through — a beat after the button, which the rig says.
-	var lead := 0.0
-	if rig != null and rig.has_method(&"cast_lead"):
-		lead = float(rig.call(&"cast_lead"))
-	if lead > 0.0:
-		net_cast.rpc()
-		await get_tree().create_timer(lead, false).timeout
-		if not is_inside_tree() or state == State.DOWNED:
-			return
-	var from := global_position + up_direction * arrow_height
-	# Off the bow, where the arrow on the string was, when there is one: shot
-	# from the fixed height it left from below the bow.
-	if rig != null and rig.has_method(&"loose_point"):
-		var nocked: Vector3 = rig.call(&"loose_point")
-		if nocked.is_finite():
-			from = nocked
-	if rig != null and rig.has_method(&"spell_origin"):
-		from = rig.call(&"spell_origin")
-	var heading := _shot_heading(from, speed)
-	if shaking > 0.0:
-		var wander := deg_to_rad(release_spread) * shaking
-		var across := heading.cross(up_direction)
-		if across.length() > 0.01:
-			heading = heading.rotated(across.normalized(), wander * _shot_rng.randf_range(-1.0, 1.0))
-		heading = heading.rotated(up_direction, wander * _shot_rng.randf_range(-1.0, 1.0)).normalized()
-	# Everywhere, not just here. A locked shot is told what it was loosed at,
-	# which a bolt hunts.
-	var quarry := NodePath()
-	if target != null and _targetable(target):
-		quarry = target.get_path()
-	if _fan_draw:
-		# Three, side by side across the shot (none of them hunting), each worth
-		# `fan_share` of what the one would have been.
-		_fan_draw = false
-		_fan_ready_at = _now() + fan_cooldown
-		_spend(fan_stamina)
-		for k in [0, -1, 1]:
-			var way := heading.rotated(up_direction, deg_to_rad(fan_spread) * float(k)).normalized()
-			net_loose.rpc(from, way * speed, damage * fan_share, critical, NodePath(), power, grade == 1, 0.0, k != 0)
-		return
-	net_loose.rpc(from, heading * speed, damage, critical, quarry, power, grade == 1)
+	return PlayerBow.is_drawing(self)
 
 
 #region The fan of three (on the block button; AVTANDIL_POLISH 8)
@@ -3250,11 +1783,6 @@ func _loose_arrow() -> void:
 @export var fan_stamina: float = 8.0
 var _fan_draw: bool = false
 var _fan_ready_at: float = -INF
-
-
-func _fan_ready() -> bool:
-	return _is_bow() and profile != null and not profile.can_block and _now() >= _fan_ready_at
-#endregion
 
 
 ## The cast, on every peer: the staff drawn back and brought through. The bolt
@@ -3340,123 +1868,28 @@ func net_loose(from: Vector3, flight: Vector3, damage: float, critical: bool,
 		rig.call(&"loose_bow")
 
 
-## Where the shot goes.
-##
-## Down the line the **body** is facing, at the pitch the aim asks for. Not down
-## the camera: the camera can be looking anywhere, and an arrow that leaves at
-## forty degrees to the bow held on screen is an arrow the player cannot aim,
-## however correct the maths behind it. `_face_aim()` is the other half — while
-## the string is held the body turns onto the shot, so by the time it is loosed
-## the two are the same line.
-func _shot_heading(from: Vector3, speed: float = 40.0) -> Vector3:
-	var wanted := _aim_direction(from, speed)
-	var forward := -global_transform.basis.z
-	forward.y = 0.0
-	if forward.length_squared() < 0.0001:
-		return wanted
-	forward = forward.normalized()
-	# The pitch is the aim's; the bearing is the body's. Keeping the pitch is
-	# what lets a shot be lofted or put into something below without the body
-	# having to lean.
-	var rise := clampf(wanted.y, -1.0, 1.0)
-	return (forward * sqrt(maxf(1.0 - rise * rise, 0.0)) + Vector3.UP * rise).normalized()
-
-
-## Where the shot is *asked* to go: at whatever is being fought, or at whatever
-## the camera is pointing at when nothing is. What actually leaves the bow is
-## `_shot_heading()`, which keeps this pitch and takes its bearing off the body.
-##
-## A locked shot leads its target. An arrow takes a beat to arrive and a wolf
-## does not wait where it was standing, so aiming at where it *is* means a slow
-## shot at a moving target is a miss the player did nothing wrong to earn. What
-## the lock is for is not having to solve that by hand.
-func _aim_direction(from: Vector3, speed: float = 40.0) -> Vector3:
-	if target != null and _targetable(target):
-		var at := _aim_point(target)
-		var moving: Variant = target.get("velocity")
-		if moving is Vector3:
-			var flight := from.distance_to(at) / maxf(speed, 1.0)
-			# Led along the ground only, and only for a body that is moving at
-			# all: one held still (the arena's Hold still) keeps the velocity it
-			# had, and a creature's fall or a step's bob sent the shot into the
-			# ground short of it.
-			var ground := Vector3((moving as Vector3).x, 0.0, (moving as Vector3).z)
-			if target.is_physics_processing():
-				at += ground * flight
-			# And the drop over that flight, so the arc is aimed through rather
-			# than along.
-			at.y += 0.5 * _gravity * _shot_drop() * flight * flight
-		var to_them := at - from
-		if to_them.length_squared() > 0.0001:
-			return to_them.normalized()
-
-	# Down the middle of the view, at whatever it lands on — so the arrow goes
-	# where the crosshair is rather than parallel to it.
-	var eye := camera.global_position
-	var looking := -camera.global_transform.basis.z
-	var space := get_world_3d().direct_space_state
-	var query := PhysicsRayQueryParameters3D.create(
-			eye, eye + looking * lock_range * 2.0, collision_mask, [get_rid()])
-	var hit := space.intersect_ray(query)
-	var at := eye + looking * lock_range * 2.0
-	if not hit.is_empty():
-		var landed: Vector3 = hit["position"]
-		# Anything this close under the crosshair is the ground at your feet.
-		# Shooting at it is how an arrow ends up buried three paces away.
-		if eye.distance_to(landed) > aim_min_range:
-			at = landed
-			# Through the drop, as a locked shot is: the arrow comes down on
-			# what is under the crosshair rather than a hand below it.
-			var flight := from.distance_to(at) / maxf(speed, 1.0)
-			at.y += 0.5 * _gravity * _shot_drop() * flight * flight
-	var heading := at - from
-	return heading.normalized() if heading.length_squared() > 0.0001 else looking
-
-
 ## Brings the view towards level while the string is held.
 ##
 ## Only while there is nothing locked: a lock already points the camera at what
 ## is being shot at, and two things steering the same camera fight each other.
 func _level_camera(delta: float) -> void:
-	if not _drawing or target != null:
-		return
-	spring_arm.rotation.x = lerp_angle(spring_arm.rotation.x,
-			clampf(deg_to_rad(aim_camera_pitch), deg_to_rad(min_pitch_deg),
-					deg_to_rad(max_pitch_deg)),
-			1.0 - exp(-aim_camera_speed * delta))
+	PlayerBow._level_camera(self, delta)
 
 
 ## Closes the view in on the shot as the string comes back, and opens it
 ## again after (`draw_zoom_degrees`). Set outright from the resting field of
 ## view while it is in, so it never drifts; left alone at rest.
 func _draw_zoom(delta: float) -> void:
-	if camera == null or not camera.current or not _is_bow():
-		return
-	if _fov_rest < 0.0:
-		_fov_rest = camera.fov
-	var want := draw_zoom_degrees * draw_power() if _drawing else 0.0
-	var was := _draw_zoom_now
-	_draw_zoom_now = lerpf(_draw_zoom_now, want, 1.0 - exp(-draw_zoom_speed * delta))
-	if _draw_zoom_now < 0.02 and want <= 0.0:
-		_draw_zoom_now = 0.0
-		if was > 0.0:
-			camera.fov = _fov_rest
-		else:
-			_fov_rest = camera.fov
-		return
-	camera.fov = _fov_rest - _draw_zoom_now
+	PlayerBow._draw_zoom(self, delta)
 
 
 ## How far off the level the shot is aimed, in radians, for the rig to lean on.
 ## The same heading the arrow will leave on, so what the body does and what the
 ## arrow does are one number rather than two that happen to agree.
 func _aim_pitch() -> float:
-	var from := global_position + up_direction * arrow_height
-	return asin(clampf(_shot_heading(from).y, -1.0, 1.0))
-#endregion
+	return PlayerBow._aim_pitch(self)
 
 
-#region Combat
 ## Throws a cut, and **commits to it**.
 ##
 ## The commitment is the point. An attack you can call off the instant it starts
@@ -3470,154 +1903,7 @@ func _aim_pitch() -> float:
 ## A press during a swing is remembered rather than eaten, so a flurry is one
 ## press per cut at the player's own rhythm instead of a timing test.
 func _attack(heavy: bool = false) -> void:
-	if not is_committed() and state == State.GROUNDED and _try_riposte():
-		return
-	if is_committed():
-		if heavy:
-			_heavy_buffer = attack_buffer_time
-		else:
-			_attack_buffer = attack_buffer_time
-		return
-	if state == State.DASHING or state == State.DODGING:
-		# pressed in the roll: its own attack the moment he is up out of it
-		if not heavy:
-			_roll_cut_asked = true
-		return
-	if state != State.GROUNDED and state != State.AIRBORNE:
-		return
-	# The sword away: one press draws it, and the cut goes as it comes out
-	# (the press is kept till the draw is done). Off the ground, or with no
-	# clip for it, the sword is simply in the hand (below).
-	if _rig_drawing() or (state == State.GROUNDED and weapons_stowed() and rig.has_method(&"draw_time") \
-			and float(rig.call(&"draw_time")) > 0.0):
-		if not _rig_drawing():
-			_set_weapons_stowed(false)
-		if heavy:
-			_heavy_buffer = attack_buffer_time
-		else:
-			_attack_buffer = attack_buffer_time
-		return
-	var cost := profile.attack_stamina if profile != null else 16.0
-	if heavy:
-		cost *= heavy_stamina
-		# a heavy blow that is a skill of its own costs a share of the whole
-		# (the assassin's rush in: a third, the user's word 2026-10-05)
-		var pick := _heavy_blow()
-		if pick >= 0:
-			var share := float((rig.get(&"heavy")[pick] as Dictionary).get("stamina_share", 0.0))
-			if share > 0.0:
-				cost = max_stamina * share
-	# The first cut thrown at a run is the running cut ([method _run_cut_ready]).
-	var run_cut := not heavy and _run_cut_ready()
-	if run_cut:
-		cost *= run_cut_stamina
-	# straight out of a roll: the roll's attack, a quick thrust
-	var roll_cut := not heavy and not run_cut and _roll_cut_ready()
-	# what he holds sets what a blow costs (the assassin: two blades dearer,
-	# one cheaper, [method SkinnedRogueRig.blow_stamina])
-	if not heavy and rig != null and rig.has_method(&"blow_stamina"):
-		cost = float(rig.call(&"blow_stamina", cost))
-	if not _spend(cost):
-		_attack_buffer = 0.0
-		_heavy_buffer = 0.0
-		return
-	# Which heavy blow, before the rig's string is ended by it.
-	var blow := _heavy_blow() if heavy else -1
-	# A heavy blow out of the guard lowers the shield for as long as it lasts.
-	if heavy and is_blocking:
-		is_blocking = false
-		block_changed.emit(false)
-	# Swinging a sword that is on your back takes it off your back first. There
-	# is no draw clip in the library, so the blade crosses back to the hand over
-	# the same beat as the wind-up rather than being drawn during it.
-	_set_weapons_stowed(false)
-	# Facing is part of the commitment: a cut thrown while running sideways round
-	# something goes where the fighter is *pointed*, and the fighter points at
-	# what he is fighting. It snaps here rather than easing, because the swing
-	# starts now and an attack that turns into the target halfway through it is a
-	# cut that misses.
-	# (not the knight's charge: he runs on the way he is going, `follow_push`,
-	# the user's word 2026-10-06)
-	var free_charge := run_cut and bool((rig.call(&"run_cut_spec") as Dictionary).get("follow_push", false))
-	if not free_charge:
-		_turn_to_target()
-	# A rig that aims its cuts ([StrikeAim]) is turned to what it is thrown at
-	# and every peer is told what that is: the host's copy of the swing is the
-	# one that cuts.
-	if _aims_strikes():
-		var foe := _strike_candidate()
-		if foe != null and foe != target and not free_charge:
-			var to_them := foe.global_position - global_position
-			to_them.y = 0.0
-			if to_them.length_squared() > 0.0001:
-				rotation.y = atan2(-to_them.x, -to_them.z)
-		net_strike_at.rpc(foe.get_path() if foe != null else NodePath())
-		# (a running cut steps in on the run itself, not by a step of its own)
-		var reach := 0.0 if run_cut else strike_step_max
-		rig.set(&"carry_scale", 1.0)
-		if blow >= 0:
-			var spec: Dictionary = rig.get(&"heavy")[blow]
-			reach = float(spec.get("step", strike_step_max))
-			# A blow that carries him (a flip) is made to land where the thing
-			# stands, not a fixed distance on past it or short of it.
-			if spec.has("travel") and foe != null:
-				var gap := Vector2(foe.global_position.x - global_position.x,
-						foe.global_position.z - global_position.z).length() - _body_radius(foe) - strike_close
-				rig.set(&"carry_scale", clampf(gap / float(spec["travel"]), 0.35, 1.25))
-				reach = 0.0
-		_step_in(foe, reach)
-	# A swing out of a run, or out of a jump, keeps the speed it was thrown at.
-	# Only the cuts after it are slowed: the first one is the one the player
-	# committed their momentum to, and damping it turns a charge into a shuffle.
-	var airborne := not is_on_floor()
-	_free_swing = _swing_chain == 0 or airborne
-	_free_ease = run_cut_ease if run_cut else free_swing_ease
-	_whiff_counts = _foe_within(whiff_near)
-	_swing_t0 = _game_t
-	_swing_chain += 1
-	# A cut thrown in the air is a **plunge**, and a plunge is owed its landing:
-	# whatever it passes through on the way down, it finishes in the ground.
-	_plunging = airborne
-	attack_started.emit()
-	if rig != null:
-		# In the air the blade comes down from over the head. Nothing else reads
-		# as a jumping attack: a horizontal cut thrown off a jump is a man
-		# swinging at the air he is passing through.
-		var style := CharacterRig.AttackStyle.OVERHEAD if airborne else -1
-		if blow >= 0 and not airborne:
-			style = SkinnedRig.HEAVY + blow
-		elif run_cut:
-			style = SkinnedRig.RUN_CUT
-		elif roll_cut:
-			style = SkinnedRig.ROLL_CUT
-		net_attack.rpc(style)
-		if blow >= 0 and not airborne:
-			_heavy_begun(blow)
-		if run_cut:
-			_mark_sure(_sure_pick())
-		elif _sure_foe != null:
-			net_sure_at.rpc(NodePath())
-		_commit(rig.swing_time())
-		_ease_delay = 0.0
-		if blow >= 0 and not airborne:
-			_creep_in(rig.get(&"heavy")[blow])
-		if run_cut and rig.has_method(&"holding_cut"):
-			if bool(rig.call(&"holding_cut")):
-				_cut_charging = true
-				_charge_skill = false
-				_charge_spec = rig.call(&"run_cut_spec")
-				_charge_t0 = _game_t
-				_charge_dir = Vector3(velocity.x, 0.0, velocity.z).normalized()
-				_charge_foe = _charge_target()
-				if bool(_charge_spec.get("locked_only", false)):
-					# (the knight's charge runs at what he is locked on, or
-					# where he is pushed)
-					_charge_foe = target if target != null and _targetable(target) else null
-				_commit(float(_charge_spec.get("hold_max", run_cut_hold_max)) + 2.0)
-			else:
-				_ease_delay = float(rig.call(&"time_to_cut"))
-	_attack_buffer = 0.0
-	_heavy_buffer = 0.0
+	PlayerMelee._attack(self, heavy)
 
 
 ## A second attack button for a hero with no shield to raise (the assassin):
@@ -3626,37 +1912,20 @@ func _attack(heavy: bool = false) -> void:
 ## off hand (his look's; [method SkinnedRig.holds_shield]). Without one the
 ## block button raises nothing (no empty arm held up).
 func _shield_in_hand() -> bool:
-	if profile != null and not profile.can_block:
-		return false
-	return rig == null or not rig.has_method(&"holds_shield") or bool(rig.call(&"holds_shield"))
+	return PlayerMelee._shield_in_hand(self)
 
 
 ## A hero who would block but has no shield in hand, with more than one
 ## string (Tariel): the block button throws the other string, the one F6
 ## would pick (the user's word, 2026-10-04).
 func _other_string_ready() -> bool:
-	# the knight, who never raises a guard: both buttons cut ([GreatSword])
-	if _block_throws_string():
-		return true
-	return profile != null and profile.can_block and not has_bow() and not _shield_in_hand() \
-			and rig != null and rig.has_method(&"string_count") and int(rig.call(&"string_count")) > 1
-
-
-## A hero with no guard whose block button is a second string of cuts, not
-## a heavy blow (the knight's great sword, the user's word 2026-10-06).
-func _block_throws_string() -> bool:
-	return rig != null and not has_bow() and rig.has_method(&"block_throws_string") \
-			and bool(rig.call(&"block_throws_string"))
+	return PlayerMelee._other_string_ready(self)
 
 
 ## A cut from the string F6 picked (`other` false) or the other one, the
 ## string put on first on every peer.
 func _string_attack(other: bool) -> void:
-	# kept for the press held over (a draw first): it is still this string's
-	_buffer_other = other
-	if not is_committed() and rig != null and rig.has_method(&"wear_other_string"):
-		net_wear_string.rpc(other)
-	_attack()
+	PlayerMelee._string_attack(self, other)
 
 
 @rpc("authority", "call_local", "reliable")
@@ -3666,19 +1935,13 @@ func net_wear_string(other: bool) -> void:
 
 
 func _has_heavy() -> bool:
-	if profile == null or profile.can_block or has_bow() or rig == null or _block_throws_string():
-		return false
-	var blows: Variant = rig.get(&"heavy")
-	return blows is Array and not (blows as Array).is_empty()
+	return PlayerMelee._has_heavy(self)
 
 
 ## A hero with a shield throws his heavy blow out of his guard: the attack
 ## button with the shield up (the knight's leaping slam).
 func _guard_heavy() -> bool:
-	if profile == null or not profile.can_block or has_bow() or rig == null:
-		return false
-	var blows: Variant = rig.get(&"heavy")
-	return blows is Array and not (blows as Array).is_empty()
+	return PlayerMelee._guard_heavy(self)
 
 
 ## A heavy blow's blade has gone into the ground (see [signal SkinnedRig.slammed]):
@@ -3686,17 +1949,7 @@ func _guard_heavy() -> bool:
 ## the thump of it and the ground shaking under whoever is near. Every peer
 ## plays its own copy of the blow, so every peer sees and hears this.
 func _on_slammed(at: Vector3, heft: float) -> void:
-	var world := Blood.world_of(self)
-	if world == null:
-		return
-	var ahead := -global_basis.z
-	ahead.y = 0.0
-	DustRing.burst(world, at, 1.1 + 0.2 * heft)
-	if rig == null or rig.get(&"slam_spikes") != false:
-		GroundFx.eruption(world, at, 0.8)
-		GroundFx.wave(world, at, ahead.normalized(), 4.5, false, 0.9)
-	ImpactFx.thud(self, at, true)
-	WindBlast.shake(self, 0.18 * clampf(heft / 2.0, 1.0, 1.4), 0.4, 14.0)
+	PlayerMelee._on_slammed(self, at, heft)
 
 
 ## Heavy blows cost this many light cuts' stamina.
@@ -3726,61 +1979,8 @@ var charges_let_go: int = 0
 var last_charge: float = 0.0
 
 
-## The button his heavy blow is on: the block button for a hero with no
-## shield, the attack button for one who throws it out of his guard.
-func _heavy_button_down() -> bool:
-	if _has_heavy():
-		return Input.is_action_pressed("block")
-	if _guard_heavy():
-		return Input.is_action_pressed("attack")
-	return false
-
-
-## A heavy blow just thrown: a counter if it comes out of a guard that has just
-## held, and gathered while its button stays down.
-func _heavy_begun(blow: int) -> void:
-	if rig == null or not rig.has_method(&"charge_heavy"):
-		return
-	if _guard_heavy() and _now() - _blocked_at <= guard_counter_window:
-		_blocked_at = -100.0
-		counters_thrown += 1
-		net_guard_counter.rpc(guard_counter_weight)
-	if _forced_heavy >= 0 or blow < 0 or not _heavy_button_down():
-		return
-	var at := float(rig.call(&"heavy_charge_point"))
-	if at <= 0.0:
-		return
-	_hcharging = true
-	_hcharge_from = -1.0
-	_hcharge_serial = int(rig.get(&"attack_serial"))
-	net_charge_heavy.rpc(at)
-
-
 func _tick_heavy_charge(delta: float) -> void:
-	if not _hcharging:
-		return
-	if rig == null or int(rig.get(&"attack_serial")) != _hcharge_serial or is_dead:
-		# struck out of it, or something else begun: nothing to let go
-		_hcharging = false
-		net_heavy_gather.rpc(false, 0.0)
-		return
-	var held := bool(rig.call(&"heavy_charge_held"))
-	if held:
-		if _hcharge_from < 0.0:
-			_hcharge_from = _game_t
-			net_heavy_gather.rpc(true, 0.0)
-		# the swing waits for him: so does his commitment to it
-		_commit_timer += delta
-	var full := held and _game_t - _hcharge_from >= heavy_charge_max
-	if _heavy_button_down() and not full and state == State.GROUNDED:
-		return
-	_hcharging = false
-	var share := 0.0
-	if _hcharge_from >= 0.0:
-		share = clampf((_game_t - _hcharge_from) / heavy_charge_max, 0.0, 1.0)
-		charges_let_go += 1
-		last_charge = share
-	net_let_heavy_go.rpc(1.0 + heavy_charge_bonus * share, share)
+	PlayerMelee._tick_heavy_charge(self, delta)
 
 
 @rpc("authority", "call_local", "reliable")
@@ -3826,38 +2026,19 @@ var _forced_heavy: int = -1
 ## A slide to throw off a sprint: this look has one ([method
 ## SkinnedRig.run_slide_index]) and its clip, and he has the ground under him.
 func _run_slide_ready() -> bool:
-	return not has_bow() and state == State.GROUNDED and _run_slide_slot() >= 0
+	return PlayerMelee._run_slide_ready(self)
 
 
 ## Where the sprint's slide is in the rig's heavy blows, or -1.
 func _run_slide_slot() -> int:
-	if rig == null or not rig.has_method(&"run_slide_index"):
-		return -1
-	return int(rig.call(&"run_slide_index"))
+	return PlayerMelee._run_slide_slot(self)
 
 
 ## Which heavy blow the string has come to: out of nothing a lunge (or, at a
 ## run, the flying flip); early in the string the spinning leap; later the
 ## three great cuts; at its end the whirling combo.
 func _heavy_blow() -> int:
-	if _forced_heavy >= 0:
-		return _forced_heavy
-	var count := (rig.get(&"heavy") as Array).size()
-	# the sprint's slide, kept last, is never one the string comes to
-	if _run_slide_slot() >= 0:
-		count -= 1
-	var at: int = int(rig.call(&"flurry_position")) if rig.has_method(&"flurry_position") else -1
-	var pace := Vector2(velocity.x, velocity.z).length()
-	var pick := 0
-	if at < 0:
-		pick = 4 if pace > run_speed * 0.7 else 0
-	elif at <= 1:
-		pick = 1
-	elif at <= 3:
-		pick = 2
-	else:
-		pick = 3
-	return mini(pick, count - 1)
+	return PlayerMelee._heavy_blow(self)
 
 
 ## The swing, everywhere.
@@ -3977,7 +2158,7 @@ const BIG_STAGGER_SPRAY := 3.5
 
 
 func _staggers_only(blows: int) -> bool:
-	return blows <= 1 and STAGGERS_ONLY.has(_blow_name) and not _blow_held
+	return PlayerMelee._staggers_only(self, blows)
 
 
 ## The blow that came last, by its name ([method receive_blow]).
@@ -4060,42 +2241,6 @@ var _down_for: float = 0.0
 ## attacker and combo. A combo only knocks him down if every blow of it did.
 var _combo_landed: Dictionary = {}
 
-## The big one down on its knee in reach and in front of it, if any.
-func _riposte_target() -> Node3D:
-	if has_bow() or weapons_stowed():
-		return null
-	for node in get_tree().get_nodes_in_group(&"enemy"):
-		var b := node as PackBrute
-		if b == null or not b.crit_open():
-			continue
-		var to := global_position - b.global_position
-		to.y = 0.0
-		if to.length() > crit_reach * b.visual_scale / 1.6:
-			continue
-		if to.length_squared() > 0.01 and b._forward().angle_to(to.normalized()) > deg_to_rad(80.0):
-			continue
-		return b
-	return null
-
-
-## The attack, on a big one down on its knee before him: the critical.
-func _try_riposte() -> bool:
-	var b := _riposte_target()
-	if b == null or rig == null or not rig.has_method(&"riposte"):
-		return false
-	_crit_on = b
-	_crit_left = crit_time
-	_crit_struck = false
-	_crit_from = global_position
-	is_invulnerable = true
-	_attack_buffer = 0.0
-	_heavy_buffer = 0.0
-	_commit(crit_time)
-	velocity = Vector3.ZERO
-	net_riposte.rpc(crit_time)
-	return true
-
-
 @rpc("authority", "call_local", "reliable")
 func net_riposte(seconds: float) -> void:
 	if rig != null and rig.has_method(&"riposte"):
@@ -4105,31 +2250,7 @@ func net_riposte(seconds: float) -> void:
 ## Through the critical: carried before it and turned to it over the first
 ## fifth, held there; the blade in at `crit_hit_at`.
 func _process_riposte(delta: float) -> void:
-	_crit_left -= delta
-	var b := _crit_on as PackBrute
-	velocity = Vector3.ZERO
-	if b != null and is_instance_valid(b):
-		var spot: Vector3 = b.crit_spot()
-		var u := clampf((crit_time - _crit_left) / (crit_time * 0.2), 0.0, 1.0)
-		var at := _crit_from.lerp(spot, u * u * (3.0 - 2.0 * u))
-		global_position = Vector3(at.x, global_position.y, at.z)
-		var to := b.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-18.0 * delta))
-		if not _crit_struck and crit_time - _crit_left >= crit_time * crit_hit_at:
-			_crit_struck = true
-			crits_dealt += 1
-			if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
-				net_riposte_hit.rpc_id(1, b.get_path())
-			else:
-				net_riposte_hit(b.get_path())
-			if camera != null and camera.current:
-				ImpactFx.knock(camera, (b.global_position - global_position).normalized(), 0.12, 0.14, 0.45)
-	if _crit_left <= 0.0:
-		_crit_left = 0.0
-		_crit_on = null
-		is_invulnerable = false
+	PlayerMelee._process_riposte(self, delta)
 
 
 ## Host: the critical's blade in — a cut's worth times `crit_power`, a critical
@@ -4157,38 +2278,7 @@ func net_riposte_hit(path: NodePath) -> void:
 ## puts him on the ground. Anything short of that is a flinch.
 func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, combo: int = 0,
 		magic: bool = false, how: StringName = &"") -> void:
-	if from == null:
-		return
-	_blow_shove_m = float(from.call(&"blow_shove_m")) if from.has_method(&"blow_shove_m") else 0.0
-	# Off the ground, a low blow passes under his legs (a jump over a sweep).
-	if how.is_empty() and not is_on_floor() and state != State.DOWNED and _low_blow(from):
-		return
-	var away := global_position - from.global_position
-	away.y = 0.0
-	if away.length_squared() < 0.0001:
-		away = global_transform.basis.z
-	# What kind of blow it is rides on the combo's key ([method _blow_kind]).
-	var key := "%s#%d" % [from.get_path(), combo]
-	# a blow that cuts his swing short (the troll with its tree, the user's
-	# word 2026-10-25): marked on the key before its kind
-	if from.has_method(&"blow_breaks_swing") and bool(from.call(&"blow_breaks_swing")):
-		key += "^b"
-	# A blow brought down on him from above (the attacker says so): he is
-	# crushed down where he stands if it fells him ([method _fall_kind]).
-	if how.is_empty() and from.has_method(&"blow_from_above") and bool(from.call(&"blow_from_above")):
-		how = &"above"
-	if not how.is_empty():
-		key += "!" + String(how)
-	# which blow it is, by name: a fall picked for it ([constant BLOW_FALLS])
-	var named: StringName = StringName(from.call(&"blow_name")) if from.has_method(&"blow_name") else &""
-	# the weapon itself met him (not only the blow's shock): "@w"
-	if not named.is_empty() and WeaponSweep.motion_on(self).length() >= 0.5:
-		named = StringName(String(named) + "@w")
-	# held at the top of its wind-up, then brought down: "@h"
-	if not named.is_empty() and from.has_method(&"blow_held") and bool(from.call(&"blow_held")):
-		named = StringName(String(named) + "@h")
-	net_blow.rpc_id(get_multiplayer_authority(), damage, _swept(away.normalized()), from.global_position,
-			key, blow, blows, magic, named)
+	PlayerHurt.receive_blow(self, damage, from, blow, blows, combo, magic, how)
 
 
 ## The way a blow throws him, from how the weapon was moving where it met him
@@ -4200,21 +2290,7 @@ func receive_blow(damage: float, from: Node3D, blow: int = 0, blows: int = 1, co
 ## the vector [method net_blow] gets: its flat part is the way, of length
 ## 1 + force, its y the pitch (-1 straight down .. 1 straight up).
 func _swept(away: Vector3) -> Vector3:
-	var sweep := WeaponSweep.motion_on(self)
-	var speed := sweep.length()
-	last_sweep = {}
-	if speed < 0.5:
-		return away
-	var flat := Vector3(sweep.x, 0.0, sweep.z)
-	var lean := clampf((flat.length() - sweep_lean_from) / sweep_lean_span, 0.0, sweep_lean_most)
-	var way := away
-	if flat.length_squared() > 0.0001:
-		way = away.lerp(flat.normalized(), lean)
-		if way.length_squared() < 0.0001:
-			way = away
-	var force := clampf((speed - sweep_force_from) / sweep_force_span, 0.0, 1.5)
-	last_sweep = {"speed": speed, "force": force, "pitch": sweep.y / speed, "lean": lean}
-	return way.normalized() * (1.0 + force) + Vector3.UP * clampf(sweep.y / speed, -1.0, 1.0)
+	return PlayerHurt._swept(self, away)
 
 
 ## The kinds of blow the big creatures have ([PackBrute]), after the "!" of a
@@ -4229,7 +2305,7 @@ func _swept(away: Vector3) -> Vector3:
 ## * "smash": the ogre's free hand swung down on him, into the ground — no
 ##   shield takes it (only a roll beats it).
 func _blow_kind(combo: String) -> String:
-	return combo.get_slice("!", 1) if combo.contains("!") else ""
+	return PlayerHurt._blow_kind(self, combo)
 
 
 ## Any peer: whether he holds his shield up, draws his bow (or gathers a
@@ -4246,18 +2322,12 @@ func drawing() -> bool:
 ## Host: a creature has him in its grip for `seconds` (it carries him by its
 ## [method grab_point] till it lets go: [method release_grab]).
 func grab_by(by: Node3D, seconds: float) -> void:
-	if multiplayer.has_multiplayer_peer():
-		net_grabbed.rpc_id(get_multiplayer_authority(), by.get_path(), seconds)
-	else:
-		net_grabbed(by.get_path(), seconds)
+	PlayerHurt.grab_by(self, by, seconds)
 
 
 ## Host: let go (its blow, if any, comes after).
 func release_grab() -> void:
-	if multiplayer.has_multiplayer_peer():
-		net_released.rpc_id(get_multiplayer_authority())
-	else:
-		net_released()
+	PlayerHurt.release_grab(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -4383,64 +2453,11 @@ func net_pin_bite(damage: float) -> void:
 		ImpactFx.knock(camera, Vector3.DOWN, view_ground.x * 0.5, view_ground.y, view_ground.z)
 
 
-## Each tick on the ground with it on him: true while it holds him.
-func _process_pinned(delta: float) -> bool:
-	var by := pinned_by
-	if by == null:
-		return false
-	if not is_instance_valid(by) or bool(by.get("is_dead")) or is_dead:
-		pinned_by = null
-		return false
-	_down_timer = maxf(_down_timer, 0.5)
-	if Input.is_action_just_pressed("lock_on") or Input.is_action_just_pressed("interact") \
-			or Input.is_action_just_pressed("attack"):
-		pin_struggle += PIN_PRESS
-	pin_struggle = maxf(pin_struggle - PIN_EASE * delta, 0.0)
-	if pin_struggle >= 1.0:
-		_kick_free(by)
-	return true
-
-
-## Worked free: the kick and the spring up (every peer sees it), the ghoul
-## told on the host, and the cut after it due when he is up.
-func _kick_free(by: Node3D) -> void:
-	# pushed off: it backs off him and he gets up as he would (the user's
-	# word, 2026-10-27: no spring-up kick, no cut after), nothing striking him
-	# while he rises
-	pinned_by = null
-	pin_struggle = 0.0
-	_kicked_from = null
-	_kick_cut_due = false
-	_down_timer = minf(_down_timer, 0.15)
-	_safe_until = _now() + 1.6
-	if by.has_method(&"net_kicked"):
-		if multiplayer.has_multiplayer_peer():
-			by.rpc_id(1, &"net_kicked", get_path())
-		else:
-			by.call(&"net_kicked", get_path())
-
-
 ## Every peer: the kick off his back and the spring up.
 @rpc("authority", "call_local", "reliable")
 func net_kick_up() -> void:
 	if rig != null and rig.has_method(&"play_part"):
 		rig.call(&"play_part", &"HX_KickUp", KICK_RATE, 0.0, 1.0, 0.2)
-
-
-## Up from the kick: turned on it and into a cut, untouchable through its
-## start.
-func _kick_cut() -> void:
-	_kick_cut_due = false
-	_safe_until = _now() + KICK_CUT_SAFE
-	var by := _kicked_from
-	_kicked_from = null
-	if by != null and is_instance_valid(by):
-		var to := by.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			rotation.y = atan2(-to.x, -to.z)
-	_attack()
-#endregion
 
 
 #region Seized standing (a zombie's hands on him, 2026-10-27)
@@ -4498,11 +2515,7 @@ func net_unseized() -> void:
 
 
 func _end_seize() -> void:
-	var was := seized_by
-	seized_by = null
-	pin_struggle = 0.0
-	if was != null and is_instance_valid(was) and was is PhysicsBody3D:
-		remove_collision_exception_with(was)
+	PlayerHurt._end_seize(self)
 
 
 ## Host to his peer: its teeth in his neck (no guard, no roll).
@@ -4537,50 +2550,13 @@ func net_seize_look(jolt: int) -> void:
 
 ## Each tick in its hands: true while it holds him.
 func _process_seized(delta: float) -> bool:
-	var by := seized_by
-	if by == null:
-		return false
-	if not is_instance_valid(by) or bool(by.get("is_dead")) or is_dead or state == State.DOWNED:
-		_end_seize()
-		return false
-	velocity.x = 0.0
-	velocity.z = 0.0
-	if is_on_floor():
-		velocity.y = 0.0
-	else:
-		velocity.y -= _gravity * delta
-	move_and_slide()
-	var to := by.global_position - global_position
-	to.y = 0.0
-	if to.length_squared() > 0.0001:
-		rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-10.0 * delta))
-	# dazed in its hands, over and over (a bite's jolt breaks in on it)
-	_seize_look_in -= delta
-	if _seize_look_in <= 0.0:
-		_seize_look_in = 2.4
-		net_seize_look.rpc(0)
-	if Input.is_action_just_pressed("lock_on") or Input.is_action_just_pressed("interact") \
-			or Input.is_action_just_pressed("attack"):
-		pin_struggle += SEIZE_PRESS
-	pin_struggle = maxf(pin_struggle - SEIZE_EASE * delta, 0.0)
-	if pin_struggle >= 1.0:
-		_shove_free(by)
-	return true
+	return PlayerHurt._process_seized(self, delta)
 
 
 ## Worked free: the hilt into it (every peer sees it), the zombie told on the
 ## host; untouchable through it, and a cut at it after.
 func _shove_free(by: Node3D) -> void:
-	_end_seize()
-	_shoved = by
-	_shove_left = SHOVE_TIME
-	_safe_until = maxf(_safe_until, _now() + SHOVE_SAFE)
-	net_shove.rpc()
-	if by.has_method(&"net_shoved"):
-		if multiplayer.has_multiplayer_peer():
-			by.rpc_id(1, &"net_shoved", get_path())
-		else:
-			by.call(&"net_shoved", get_path())
+	PlayerHurt._shove_free(self, by)
 
 
 ## Every peer: the hilt driven into it.
@@ -4595,64 +2571,19 @@ func net_shove() -> void:
 
 ## The shove played out where he stands, then the cut at it.
 func _process_shove(delta: float) -> void:
-	_shove_left -= delta
-	velocity.x = 0.0
-	velocity.z = 0.0
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
-	move_and_slide()
-	if _shove_left > 0.0:
-		return
-	var by := _shoved
-	_shoved = null
-	if by != null and is_instance_valid(by):
-		var to := by.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			rotation.y = atan2(-to.x, -to.z)
-	_attack()
-#endregion
+	PlayerHurt._process_shove(self, delta)
 
 
 ## In the grip: drawn in to its hand over a moment, then hung from it by the
 ## neck, facing it; let go of if it is gone, dead, or holds on too long.
 func _process_held(delta: float) -> void:
-	_held_left -= delta
-	_held_time += delta
-	velocity = Vector3.ZERO
-	var by := _held_by
-	if by == null or not is_instance_valid(by) or bool(by.get("is_dead")) or _held_left <= 0.0 \
-			or not by.has_method(&"grab_point"):
-		_held_by = null
-		return
-	_hang()
-	var to := by.global_position - global_position
-	to.y = 0.0
-	if to.length_squared() > 0.0001:
-		rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-14.0 * delta))
+	PlayerHurt._process_held(self, delta)
 
 
 ## Held: his neck put in its palm (from where his neck is on him now); run
 ## each physics tick and each drawn frame, so the grip does not lag its hand.
 func _hang() -> void:
-	var by := _held_by
-	if by == null or not is_instance_valid(by) or not by.has_method(&"grab_point"):
-		return
-	var hand: Vector3 = by.call(&"grab_point")
-	var neck := Vector3.UP * HELD_NECK
-	var skel: Skeleton3D = rig.get(&"_skel") as Skeleton3D if rig != null else null
-	if skel != null:
-		var b := skel.find_bone("neck_01")
-		if b >= 0:
-			neck = skel.global_transform * skel.get_bone_global_pose(b).origin - global_position
-	var want := hand - neck
-	# out past its palm (its hand round his throat, not through him: the
-	# user's word, 2026-10-12)
-	if by.has_method(&"grab_out"):
-		want += (by.call(&"grab_out") as Vector3) * HELD_OUT
-	# snatched up at once (drawn over a long moment it read as a slide)
-	var u := clampf(_held_time / 0.06, 0.0, 1.0)
-	global_position = _held_from.lerp(want, u)
+	PlayerHurt._hang(self)
 
 
 ## Where he hangs from a hand that holds him: this far below it (m).
@@ -4846,12 +2777,12 @@ const BITE_GLIDE := 0.12
 
 ## Whether his swing is held in a bite now ([SkinnedRig.in_hitstop]).
 func _bitten() -> bool:
-	return rig != null and is_committed() and rig.has_method(&"in_hitstop") and bool(rig.call(&"in_hitstop"))
+	return PlayerHurt._bitten(self)
 
 
 ## How hard a blow of `damage` shoves: the damage, up to `blow_heft_cap`.
 func _heft(damage: float) -> float:
-	return minf(damage, blow_heft_cap)
+	return PlayerHurt._heft(self, damage)
 
 
 ## A blow that got through shoves him back over the ground on his feet
@@ -4859,87 +2790,43 @@ func _heft(damage: float) -> float:
 ## of it; it dies away in [method _carry_push]. A new blow's shove takes the
 ## place of what is left of the last.
 func _shove(away: Vector3, base: float, share: float) -> void:
-	var way := Vector3(away.x, 0.0, away.z)
-	if way.length_squared() < 0.0001:
-		return
-	var push := way.normalized() * minf(base + shove_force_gain * _blow_force, shove_most) * share
-	# a striker that strides on after the blow throws him that far (dying
-	# away by `shove_friction`: v² = 2·f·d)
-	if _blow_shove_m > 0.0:
-		var need := sqrt(2.0 * shove_friction * _blow_shove_m)
-		if push.length() < need:
-			push = way.normalized() * need
-	_flinch_push = push
+	PlayerHurt._shove(self, away, base, share)
 
 
 ## The one who struck (the first part of a combo's key) held still a beat as
 ## the blow lands on him ([HitFeel]); on the peer that drives this body, as
 ## the shield's hold is.
 func _stop_striker(combo: String, seconds: float) -> void:
-	if not combo.begins_with("/"):
-		return
-	var striker := get_node_or_null(NodePath(combo.get_slice("#", 0))) as Node3D
-	if striker != null and striker != self:
-		HitFeel.hold(striker, seconds)
+	PlayerHurt._stop_striker(self, combo, seconds)
 
 
 ## His own view knocked along a blow that got through him and shaken
 ## ([ImpactFx.knock]): `how` = [knock, shake, seconds]. Only in his window.
 func _view_struck(along: Vector3, how: Vector3) -> void:
-	if how.x <= 0.0 or not is_multiplayer_authority() or camera == null or not camera.current:
-		return
-	ImpactFx.knock(camera, Vector3(along.x, 0.0, along.z), how.x, how.y, how.z)
+	PlayerHurt._view_struck(self, along, how)
 
 
 ## Down on the ground at the end of a fall's drop ([signal SkinnedRig.struck_ground]):
 ## the view thuds, dust off the ground.
 func _on_struck_ground(at: Vector3) -> void:
-	DustRing.burst(Blood.world_of(self), at + Vector3.UP * 0.05, 0.7)
-	if is_multiplayer_authority() and camera != null and camera.current:
-		ImpactFx.knock(camera, Vector3.DOWN, view_ground.x, view_ground.y, view_ground.z)
-
-
-## Whether he is held still in a blow's bite now (his own rig's hit stop).
-func _held_in_bite() -> bool:
-	return rig != null and rig.has_method(&"in_hitstop") and bool(rig.call(&"in_hitstop"))
+	PlayerHurt._on_struck_ground(self, at)
 
 
 ## The blow's shove carried on (every tick, on his feet): laid on his
 ## velocity after the controller has had its say, so the stick does not eat
 ## it, and dying away by `shove_friction`; held still with him in a bite.
 func _carry_push(delta: float) -> void:
-	if _flinch_push == Vector3.ZERO:
-		return
-	if state != State.GROUNDED and state != State.AIRBORNE:
-		_flinch_push = Vector3.ZERO
-		return
-	if _held_in_bite():
-		return
-	velocity.x += _flinch_push.x
-	velocity.z += _flinch_push.z
-	_push_applied = _flinch_push
-	_flinch_push = _flinch_push.move_toward(Vector3.ZERO,
-			shove_friction * delta * (1.0 if is_on_floor() else 0.3))
+	PlayerHurt._carry_push(self, delta)
 
 
 ## Last tick's shove taken back off his velocity — as much of it as is still
 ## in it (a wall may have taken some) — so the controller works on his own.
 func _take_back_push() -> void:
-	if _push_applied == Vector3.ZERO:
-		return
-	if state == State.GROUNDED or state == State.AIRBORNE:
-		var dir := _push_applied.normalized()
-		var flat := Vector3(velocity.x, 0.0, velocity.z)
-		var along := clampf(flat.dot(dir), 0.0, _push_applied.length())
-		velocity -= dir * along
-	_push_applied = Vector3.ZERO
+	PlayerHurt._take_back_push(self)
 
 
 func _forget_combos_from(combo: String) -> void:
-	var attacker := combo.get_slice("#", 0)
-	for key: String in _combo_landed.keys():
-		if key.get_slice("#", 0) == attacker:
-			_combo_landed.erase(key)
+	PlayerHurt._forget_combos_from(self, combo)
 
 
 enum Reaction { FLINCH, KNOCKDOWN, GET_UP, ROLL_OUT, PARRY, DEATH, RESPAWN, PERFECT_DODGE, BLOCK, GUARD_BREAK, STOMPED }
@@ -5032,14 +2919,7 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 ## Struck where he lies ("stomp", [method _blow_kind]): it lands whole, and
 ## keeps him down a moment longer — unless he rolls out first.
 func _stomped(damage: float, away: Vector3) -> void:
-	struck.emit(damage, false)
-	var at := global_position + Vector3.UP * 0.3
-	if _take_damage(damage):
-		return
-	velocity += away * 1.5
-	if not _getting_up:
-		_down_timer = maxf(_down_timer, 0.45)
-	net_react.rpc(Reaction.STOMPED, at, (away + Vector3.UP * 0.6).normalized())
+	PlayerHurt._stomped(self, damage, away)
 
 
 ## The damage (after his armour) at which a blow that gets through is the
@@ -5049,39 +2929,14 @@ func _stomped(damage: float, away: Vector3) -> void:
 
 ## How hard a blow of `damage` that got through is: 0..1.
 func hit_heft(damage: float) -> float:
-	return clampf(damage / maxf(hit_heaviest, 0.01), 0.0, 1.0)
-
-
-## Which side of him a blow going `away` (from whoever struck to him) came
-## from: [enum SkinnedRig.From].
-func blow_side(away: Vector3) -> int:
-	var from := -Vector3(away.x, 0.0, away.z)
-	var ahead := -global_basis.z
-	var right := global_basis.x
-	var f := from.dot(ahead)
-	var r := from.dot(right)
-	if absf(f) >= absf(r):
-		return SkinnedRig.From.FRONT if f >= 0.0 else SkinnedRig.From.BACK
-	return SkinnedRig.From.RIGHT if r > 0.0 else SkinnedRig.From.LEFT
+	return PlayerHurt.hit_heft(self, damage)
 
 
 ## A blow that got through, shown (TARIEL_POLISH.md 9): which way it came
 ## from and how hard pick the flinch. `blow` is the blood's spray (the blow's
 ## way, a little up), its length 1 + how hard.
 func _flinch(blow: Vector3) -> void:
-	if rig == null:
-		return
-	if not rig.has_method(&"flinch_from"):
-		rig.flinch()
-		return
-	var away := Vector3(blow.x, 0.0, blow.z)
-	if blow.length() >= BIG_STAGGER_SPRAY - 0.1 and rig.has_method(&"big_hit"):
-		rig.call(&"big_hit", away.normalized() if away.length_squared() > 0.000001 else global_basis.z,
-				blow_side(away))
-		return
-	var heft := clampf(blow.length() - 1.0, 0.0, 1.0)
-	rig.call(&"flinch_from", away.normalized() if away.length_squared() > 0.000001 else global_basis.z,
-			blow_side(away), heft)
+	PlayerHurt._flinch(self, blow)
 
 
 ## A blow on the shield at least this hard ([method block_strength])...
@@ -5113,11 +2968,7 @@ var _evade_ended_at: float = -INF
 ## to his knee as a broken guard does ([method _crumple]). A dodge with breath
 ## left, or a light blow, is only a blow that lands.
 func _dodge_spent_out(damage: float) -> bool:
-	if not _winded or block_strength(damage) < guard_crumple_from:
-		return false
-	if state == State.DASHING or state == State.DODGING:
-		return false
-	return _now() - _evade_ended_at <= dodge_mistime_window
+	return PlayerHurt._dodge_spent_out(self, damage)
 
 
 ## Until when he is down on his knee from a broken guard: he does not walk or
@@ -5128,57 +2979,12 @@ var _crumpled_until: float = -INF
 ## The guard broken (or, `shield` false, a dodge spent out): see
 ## [method _feel_guard_break].
 func _crumple(damage: float, away: Vector3, shield: bool = true) -> void:
-	is_blocking = false
-	block_changed.emit(false)
-	_free_swing = false
-	stamina = 0.0
-	_winded = true
-	_stamina_wait = stamina_empty_delay
-	velocity += away * block_shove.y
-	_commit(guard_crumple_time)
-	_crumpled_until = _now() + guard_crumple_time
-	struck.emit(damage, false)
-	var at := global_position + Vector3.UP * 1.2
-	if _take_damage(damage):
-		velocity = away * (2.5 + _heft(damage) * blow_shove * 0.5)
-		return
-	guard_broken.emit()
-	# no shield in it (a dodge spent out) rides on the length: 2, not 1
-	net_react.rpc(Reaction.GUARD_BREAK, at, away.normalized() * (1.0 if shield else 2.0))
+	PlayerHurt._crumple(self, damage, away, shield)
 
 
 ## The guard beaten aside, seen and heard on every peer ([method _crumple]).
 func _feel_guard_break(at: Vector3, away: Vector3) -> void:
-	_interrupt_skill()
-	var flat := Vector3(away.x, 0.0, away.z)
-	flat = flat.normalized() if flat.length_squared() > 0.0001 else global_basis.z
-	if rig != null:
-		if rig.has_method(&"guard_crumple"):
-			rig.call(&"guard_crumple", guard_crumple_time, flat)
-		else:
-			rig.flinch()
-	# the shield giving way: the block struck deep and loud, wood splitting,
-	# a crunch under it and a deep rush of air; then his knee on the ground.
-	# (A dodge spent out has no shield in it: the blow in flesh, the rush.)
-	var shield := away.length() < 1.5
-	var shield_at := at + (-flat) * 0.5
-	if shield:
-		Sfx.play(self, BLOCK_SOUND, self, shield_at - global_position, randf_range(0.66, 0.72), -3.0)
-		ImpactFx.strike(self, shield_at, &"wood", 2.0)
-		ImpactFx.strike(self, shield_at, &"stone", 1.8)
-	ImpactFx.thud(self, at, true)
-	ImpactFx.rush(self, self, true, -6.0)
-	get_tree().create_timer(guard_knee_after).timeout.connect(_knee_down_heard)
-	_rig_says(&"hurt")
-	if shield:
-		ParryFlash.burst(Blood.world_of(self), shield_at, -flat, 1.0)
-	Blood.splatter(Blood.world_of(self), at, (flat + Vector3.UP * 0.3).normalized())
-	for foot: Vector3 in (rig.call(&"foot_points") if rig != null and rig.has_method(&"foot_points") else [global_position]):
-		SkidDust.kick(Blood.world_of(self), foot, flat, 1.0)
-	if is_multiplayer_authority() and camera != null and camera.current:
-		# hard: the whole view thrown and shaken
-		ImpactFx.knock(camera, flat, guard_break_view.x, guard_break_view.y, guard_break_view.z)
-	last_guard_break = {"at": at, "shield": shield}
+	PlayerHurt._feel_guard_break(self, at, away)
 
 
 ## The view's jolt when the guard breaks: how far (m), how much shake (m),
@@ -5188,13 +2994,6 @@ func _feel_guard_break(at: Vector3, away: Vector3) -> void:
 @export var guard_knee_after: float = 0.95
 ## The last broken guard ([method _feel_guard_break]), for a test.
 var last_guard_break: Dictionary = {}
-
-
-func _knee_down_heard() -> void:
-	if is_dead or rig == null or not rig.has_method(&"crumpled") or not bool(rig.call(&"crumpled")):
-		return
-	Sfx.play(self, FALL_SOUND, self, Vector3.ZERO, randf_range(0.9, 1.0), -8.0)
-	DustRing.burst(Blood.world_of(self), global_position, 0.35)
 
 
 ## How the push back off the shield goes with a blow's strength (m/s added,
@@ -5209,13 +3008,13 @@ const BLOCK_LEAST := 0.12
 
 ## How hard a blow of `damage` is, caught on the shield: 0..1.
 func block_strength(damage: float) -> float:
-	return clampf(damage / maxf(block_heaviest, 0.01), BLOCK_LEAST, 1.0)
+	return PlayerHurt.block_strength(self, damage)
 
 
 ## How long a blow of `strength` on the shield holds both of them (seconds):
 ## a light one a breath, a heavy one about as long as a heavy cut's bite.
 func block_hold(strength: float) -> float:
-	return lerpf(0.035, 0.11, clampf(strength, 0.0, 1.0))
+	return PlayerHurt.block_hold(self, strength)
 
 
 ## A blow caught on his shield, felt (TARIEL_POLISH.md 8): on every peer the
@@ -5224,27 +3023,7 @@ func block_hold(strength: float) -> float:
 ## window the view knocked back and shaken. `blow` points back at the striker,
 ## its length the strength.
 func _feel_block(at: Vector3, blow: Vector3) -> void:
-	var strength := clampf(blow.length(), 0.0, 1.0)
-	var back := blow.normalized() if blow.length_squared() > 0.000001 else -global_basis.z
-	Sfx.play(self, BLOCK_SOUND, self, at - global_position, randf_range(0.95, 1.05) * lerpf(1.06, 0.88, strength),
-			lerpf(-15.0, -9.0, strength))
-	ParryFlash.burst(Blood.world_of(self), at, back, lerpf(0.3, 0.75, strength))
-	if rig != null:
-		if rig.has_method(&"block_jolt"):
-			rig.call(&"block_jolt", strength, -back)
-		if rig.has_method(&"hitstop"):
-			rig.call(&"hitstop", block_hold(strength))
-	# his feet driven back along the ground: dirt off each heel, thrown the way
-	# he slides
-	var feet: Array = rig.call(&"foot_points") if rig != null and rig.has_method(&"foot_points") \
-			else [global_position]
-	for foot: Vector3 in feet:
-		SkidDust.kick(Blood.world_of(self), foot, -back, strength)
-	if is_multiplayer_authority() and camera != null and camera.current:
-		# the view jolted back, away from the striker, and shaken: a blow felt
-		ImpactFx.knock(camera, -back, lerpf(0.06, 0.16, strength), lerpf(0.05, 0.15, strength),
-				lerpf(0.24, 0.42, strength))
-	last_block_feel = {"strength": strength, "at": at}
+	PlayerHurt._feel_block(self, at, blow)
 
 
 ## The last blow felt on his shield ([method _feel_block]), for a test.
@@ -5253,18 +3032,12 @@ var last_block_feel: Dictionary = {}
 
 ## A sound of the rig's own (`hurt`), if it has it.
 func _rig_says(what: StringName) -> void:
-	if rig != null and rig.has_method(what):
-		rig.call(what)
+	PlayerHurt._rig_says(self, what)
 
 
 ## The body hitting the ground, a moment after it starts to go over.
 func _thud() -> void:
-	get_tree().create_timer(0.45).timeout.connect(_play_thud)
-
-
-func _play_thud() -> void:
-	if is_inside_tree():
-		Sfx.play(self, FALL_SOUND, self, Vector3.ZERO, randf_range(0.95, 1.05), -15.0)
+	PlayerHurt._thud(self)
 
 
 ## His blade has gone into a creature — told by the host, which is where the
@@ -5298,8 +3071,7 @@ func net_blade_landed(matter: StringName = &"flesh") -> void:
 ## weapon's force (0..1.5) — how every peer learns both (the quarter's start
 ## keeps a whole number from rounding down under the float).
 func _fall_spray_length() -> float:
-	# the picked fall's number in the hundreds ([constant BLOW_FALLS])
-	return 100.0 * _down_number + 10.25 + float(_down_kind) + clampf(_blow_force, 0.0, 1.5) * 0.25
+	return PlayerHurt._fall_spray_length(self)
 
 
 ## Which way a blow that fells him throws him ([enum SkinnedRig.Fall], the
@@ -5307,33 +3079,7 @@ func _fall_spray_length() -> float:
 ## side by one from that side, onto his face by one from behind; one in front
 ## throws him back, or, heavy enough, launches him through the air.
 func _fall_kind(away: Vector3, _damage: float, how: String) -> int:
-	# a blow that launches him (the troll's tree, thrown): back through the air
-	if how == "launch":
-		return SkinnedRig.Fall.FLY
-	var heavy := _blow_force >= SkinnedRig.FALL_TIERS.y
-	# a skill's blast or a shock through the ground (no weapon in it): thrown
-	# straight back from where it came, through the air if heavy, else flat
-	# onto his back — never a fold (the user's word, 2026-10-09)
-	if _blow_area:
-		return SkinnedRig.Fall.FLY if heavy else SkinnedRig.Fall.BACK
-	# a heavy blow on his head from above: straight down onto his stomach;
-	# a lighter one falls by the side it came from
-	if heavy and (how == "crush" or how == "above" or _blow_pitch <= sweep_crush_pitch):
-		return SkinnedRig.Fall.CRUSH
-	if _blow_pitch >= sweep_rise_pitch and _blow_force >= 0.3:
-		return SkinnedRig.Fall.FLY
-	match blow_side(away):
-		SkinnedRig.From.BACK:
-			return SkinnedRig.Fall.FORWARD
-		SkinnedRig.From.LEFT, SkinnedRig.From.RIGHT:
-			if heavy:
-				return SkinnedRig.Fall.LEFT if blow_side(away) == SkinnedRig.From.LEFT else SkinnedRig.Fall.RIGHT
-			# a lighter one from a side: over backwards, or forwards if it
-			# carried him on the way he faces (no fold to the side)
-			var facing := -global_basis.z
-			facing.y = 0.0
-			return SkinnedRig.Fall.FORWARD if away.dot(facing.normalized()) > 0.15 else SkinnedRig.Fall.BACK
-	return SkinnedRig.Fall.FLY if _blow_force >= fall_fly_force else SkinnedRig.Fall.BACK
+	return PlayerHurt._fall_kind(self, away, _damage, how)
 
 
 ## Turned on the blow's frame so the fall's clip throws him exactly the way
@@ -5341,69 +3087,13 @@ func _fall_kind(away: Vector3, _damage: float, how: String) -> int:
 ## a side): the turn is at most what lies between two sides (45°), and on
 ## the frame of the blow it reads as the blow wrenching him round.
 func _face_the_throw(away: Vector3) -> void:
-	var way := Vector3(away.x, 0.0, away.z)
-	if way.length_squared() < 0.0001 or _down_face == "keep":
-		return
-	way = way.normalized()
-	var f := Vector3.ZERO
-	if _down_face == "foe":
-		rotation.y = atan2(way.x, way.z)  # his face to the one who struck
-		return
-	# a clip that throws him slanting: turned the more so it goes the blow's way
-	var slant := 0.0
-	if _down_number > 0 and rig != null and rig.has_method(&"numbered_slant"):
-		slant = deg_to_rad(float(rig.call(&"numbered_slant", _down_number)))
-	match _down_kind:
-		SkinnedRig.Fall.BACK, SkinnedRig.Fall.FLY:
-			f = -way
-		SkinnedRig.Fall.FORWARD:
-			f = way
-		SkinnedRig.Fall.LEFT:
-			f = Vector3.UP.cross(way)  # thrown to his right
-		SkinnedRig.Fall.RIGHT:
-			f = way.cross(Vector3.UP)  # thrown to his left
-	if f.length_squared() > 0.0001:
-		f = f.rotated(Vector3.UP, slant)
-		rotation.y = atan2(-f.x, -f.z)
-
-
-## The way the fall under way throws him, from how he faces (flat, unit).
-func _throw_way() -> Vector3:
-	var f := -global_basis.z
-	f.y = 0.0
-	f = f.normalized()
-	match _down_kind:
-		SkinnedRig.Fall.FORWARD, SkinnedRig.Fall.CRUSH:
-			return f
-		SkinnedRig.Fall.LEFT:
-			return f.cross(Vector3.UP)
-		SkinnedRig.Fall.RIGHT:
-			return Vector3.UP.cross(f)
-	return -f
+	PlayerHurt._face_the_throw(self, away)
 
 
 ## The fall the user picked for the blow that came ([constant BLOW_FALLS]):
 ## [number, how he is turned], or [] for none.
 func _blow_fall(away: Vector3) -> Array:
-	if (_blow_area and _blow_name != &"pound") or not BLOW_FALLS.has(_blow_name):
-		return []
-	var sides: Dictionary = BLOW_FALLS[_blow_name]
-	var side := "front"
-	var from_it := global_position - _blow_source
-	from_it.y = 0.0
-	if from_it.length_squared() < 0.0001:
-		from_it = away
-	match blow_side(from_it):
-		SkinnedRig.From.BACK:
-			side = "back"
-		SkinnedRig.From.LEFT, SkinnedRig.From.RIGHT:
-			side = "side"
-	var picks: Array = sides.get(side, sides.get("any", []))
-	if _blow_weapon and sides.has("weapon"):
-		picks = sides["weapon"]
-	if picks.is_empty():
-		return []
-	return picks[randi() % picks.size()]
+	return PlayerHurt._blow_fall(self, away)
 
 
 ## Getting up off the ground, on every peer, the get-up `up` his own
@@ -5414,170 +3104,15 @@ func net_rise(up: StringName) -> void:
 
 
 func _show_rise(up: StringName) -> void:
-	if rig != null and "rise_want" in rig:
-		rig.set(&"rise_want", up)
-	if rig != null:
-		if rig.has_method(&"rise"):
-			# the body turned and set over to where he lies, so the
-			# getting up starts from the way he fell
-			var fix: Dictionary = rig.call(&"rise", get_up_time)
-			if is_multiplayer_authority():
-				if fix.has("yaw") and float(fix.get("blend", 0.0)) > 0.0:
-					# over the get-up's blend in, so the pose he lies in
-					# turns into its first one without a snap
-					_rise_turn = float(fix["yaw"])
-					_rise_shift = fix["shift"] as Vector3
-					_rise_left = float(fix["blend"])
-				elif fix.has("yaw"):
-					rotation.y += float(fix["yaw"])
-					global_position += fix["shift"] as Vector3
-				if fix.has("time") and _getting_up:
-					_down_timer = float(fix["time"])
-		else:
-			rig.get_up(get_up_time)
-	if rig != null and "rise_want" in rig:
-		rig.set(&"rise_want", &"")
+	PlayerHurt._show_rise(self, up)
 
 
 func _knock_down(away: Vector3, damage: float, how: String = "") -> void:
-	# how hard it was: the weapon's force, or the blow's weight, whichever is
-	# the more — it picks a light fall (dropped) or a heavy one (thrown) and
-	# how far ([method SkinnedRig.fall], the user's word 2026-10-09)
-	_blow_force = maxf(_blow_force, hit_heft(damage) * fall_heft_force)
-	_down_kind = _fall_kind(away, damage, how)
-	# the fall picked for this blow, or by hand (the falls' review page)
-	_down_number = 0
-	_down_face = ""
-	var picked := _blow_fall(away) if how != "launch" else []
-	if review_fall > 0:
-		picked = [review_fall, review_face]
-	if not picked.is_empty() and rig != null and rig.has_method(&"numbered_kind"):
-		var kind := int(rig.call(&"numbered_kind", int(picked[0]), blow_side(away) == SkinnedRig.From.RIGHT))
-		if kind >= 0:
-			_down_kind = kind
-			_down_number = int(picked[0])
-			_down_face = String(picked[1])
-	_face_the_throw(away)
-	_down_flying = _down_kind == SkinnedRig.Fall.FLY and rig != null and rig.has_method(&"fall") \
-			and bool(rig.call(&"falls_directional"))
-	state = State.DOWNED
-	_flinch_push = Vector3.ZERO
-	_push_applied = Vector3.ZERO
-	_down_timer = down_time + 0.8
-	_getting_up = false
-	_down_for = 0.0
-	is_invulnerable = true
-	if is_blocking:
-		is_blocking = false
-		block_changed.emit(false)
-	_commit_timer = 0.0
-	_root_timer = 0.0
-	_attack_buffer = 0.0
-	# the harder the weapon came, the further it throws him ([method _swept])
-	var shove := (2.5 + _heft(damage) * blow_shove * 0.5) * (1.0 + 0.6 * _blow_force)
-	var directional := rig != null and rig.has_method(&"falls_directional") and bool(rig.call(&"falls_directional"))
-	if directional and _down_kind != SkinnedRig.Fall.BACK and _down_kind != SkinnedRig.Fall.FLY:
-		shove = fall_carried_shove + fall_force_shove * _blow_force
-	var thrown := away
-	if _down_face == "keep":
-		thrown = _throw_way()  # the way the fall throws him as he stands
-		shove = minf(shove, fall_carried_shove + fall_force_shove * 0.3)
-	elif _down_face == "foe":
-		shove = 0.0  # he folds forward at its feet, of himself
-	# a light hero is thrown further ([member SkinnedRig.fall_carry])
-	var carry := float(rig.get(&"fall_carry")) if rig != null and "fall_carry" in rig else 1.0
-	velocity = thrown * shove * carry
-	_down_carry = carry
-	if _down_flying:
-		var k := 1.0 + 0.25 * minf(_blow_force, 1.5)
-		velocity = away * fall_fly_push.x * k * carry + Vector3.UP * fall_fly_push.y * k
-		if how == "launch":
-			# thrown hard and high, and head over heels through the air
-			velocity = away * fall_fly_push.x * 1.7 * carry + Vector3.UP * fall_fly_push.y * 1.35
-			net_tumble.rpc(true)
-		_down_timer = 9.0  # till he comes down
-	_down_push = Vector3(velocity.x, 0.0, velocity.z)
+	PlayerHurt._knock_down(self, away, damage, how)
 
 
 func _process_downed(delta: float) -> void:
-	# held still a beat as the felling blow lands ([member fell_stop]): the
-	# throw waits for it, nothing dies away
-	if _held_in_bite():
-		return
-	_down_for += delta
-	if _rise_left > 0.0:
-		# set over to where the get-up begins, a share each frame ([method rise])
-		var k := minf(delta / _rise_left, 1.0)
-		rotation.y += _rise_turn * k
-		global_position += _rise_shift * k
-		_rise_turn *= 1.0 - k
-		_rise_shift *= 1.0 - k
-		_rise_left = maxf(_rise_left - delta, 0.0)
-	# the blow's shove dying away (slowly through the air), and whatever the
-	# fall itself carries him by ([member SkinnedRig.fall_velocity])
-	var airborne := not is_on_floor()
-	# (a light hero's shove dies the quicker too: thrown `carry` times as far,
-	# not its square)
-	_down_push = _down_push.move_toward(Vector3.ZERO, (1.5 if airborne else 9.0) * delta * _down_carry)
-	var carried := Vector3.ZERO
-	if rig != null and "fall_velocity" in rig:
-		carried = rig.get(&"fall_velocity") as Vector3
-	velocity.x = _down_push.x + carried.x
-	velocity.z = _down_push.z + carried.z
-	if not airborne and velocity.y <= 0.0:
-		velocity.y = 0.0
-	else:
-		velocity.y -= _gravity * delta
-	move_and_slide()
-	_update_floor_state()
-	# launched: lies once he has come down and been struck onto the ground
-	if _down_flying and is_on_floor() and _down_for > 0.12:
-		_down_flying = false
-		_down_timer = 0.6 + fall_lie
-	# a ghoul on him: down till he works free ([method _process_pinned])
-	if pinned_by != null and _process_pinned(delta):
-		return
-
-	# Fallen for good: no rolling out and no getting up — only the wait.
-	if is_dead:
-		_respawn_left -= delta
-		if _respawn_left <= 0.0:
-			_respawn()
-		return
-
-	# The way up that is always open: a roll, the moment he has hit the ground.
-	if _down_for >= roll_out_after and Input.is_action_just_pressed("dash"):
-		_roll_out()
-		return
-	_down_timer -= delta
-	if _down_timer > 0.0:
-		return
-	if not _getting_up:
-		_getting_up = true
-		_down_timer = get_up_time
-		var up: StringName = rig.call(&"rise_pick") if rig != null and rig.has_method(&"rise_pick") else &""
-		net_rise.rpc(up)
-	else:
-		_stand_up_from_down()
-
-
-func _stand_up_from_down() -> void:
-	state = State.GROUNDED if is_on_floor() else State.AIRBORNE
-	is_invulnerable = false
-	if _kick_cut_due:
-		_kick_cut()
-
-
-## Up and away in one move: the roll, thrown the way the stick points (or back
-## out of the fight if it points nowhere), with the whole of it untouchable.
-func _roll_out() -> void:
-	_stand_up_from_down()
-	net_react.rpc(Reaction.ROLL_OUT, Vector3.ZERO, Vector3.ZERO)
-	_dash_cooldown_timer = 0.0
-	if get_movement_direction().is_zero_approx():
-		rotation.y += PI
-	_try_dash()
-#endregion
+	PlayerHurt._process_downed(self, delta)
 
 
 #region Aimed cuts
@@ -5600,30 +3135,13 @@ var _step_left: float = 0.0
 ## A cut thrown at something out of the knife's reach steps in to it (no
 ## further than `reach`).
 func _step_in(foe: Node3D, reach: float) -> void:
-	_step_left = 0.0
-	if foe == null or reach <= 0.0 or not is_on_floor():
-		return
-	var to := foe.global_position - global_position
-	to.y = 0.0
-	var gap := to.length() - _body_radius(foe) - strike_close
-	if gap <= 0.05 or to.length() < 0.01:
-		return
-	var go := minf(gap, reach)
-	_step_velocity = to.normalized() * go / strike_step_time
-	_step_left = strike_step_time
+	PlayerHurt._step_in(self, foe, reach)
 
 
 ## A heavy blow wound up slowly (the assassin's, [member SkinnedRogueRig.WIND_HEAVY])
 ## edges him in over the gathering (its spec's `creep`, metres) ...
 func _creep_in(spec: Dictionary) -> void:
-	var creep := float(spec.get("creep", 0.0))
-	var t := float(rig.call(&"wind_left")) if rig.has_method(&"wind_left") else 0.0
-	if creep <= 0.0 or t <= 0.0 or not is_on_floor():
-		return
-	var ahead := -global_basis.z
-	ahead.y = 0.0
-	_step_velocity = ahead.normalized() * creep / t
-	_step_left = t
+	PlayerHurt._creep_in(self, spec)
 
 
 ## ... and when it is let go he slides in at what it is thrown at, wherever
@@ -5640,68 +3158,7 @@ var _glide_dir := Vector3.ZERO
 
 
 func _on_wound_up(lunge: float) -> void:
-	if lunge <= 0.0 or not is_on_floor():
-		return
-	var foe: Node3D = _strike_foe if is_instance_valid(_strike_foe) else (target if target != null and _targetable(target) else null)
-	var ahead := -global_basis.z
-	ahead.y = 0.0
-	var go := lunge / 3.0
-	if foe != null:
-		var to := foe.global_position - global_position
-		to.y = 0.0
-		if to.length() > 0.01:
-			ahead = to
-			go = clampf(to.length() - _body_radius(foe) - strike_close, 0.0, lunge)
-	if go < 0.3:
-		return
-	ahead = ahead.normalized()
-	var t := clampf(go / glide_speed, 0.06, glide_longest)
-	# every peer: held coiled while he slides, and the dirt (no shadow trail:
-	# the user's word, 2026-10-05)
-	if rig != null and rig.has_method(&"hitstop"):
-		rig.call(&"hitstop", t)
-	var world := Blood.world_of(self)
-	if world != null:
-		SkidDust.kick(world, global_position, -ahead, 0.7)
-	if not is_multiplayer_authority():
-		return
-	rotation.y = atan2(-ahead.x, -ahead.z)
-	_glide_foe = foe
-	_glide_dir = ahead
-	_glide_left = t
-	_step_left = 0.0
-	# (his commitment waits on the hold by itself: see `_bitten`)
-
-
-## One tick of the slide: on at what it goes at, turned to it, till he is
-## there. Returns the pace to go at.
-func _glide(delta: float) -> Vector3:
-	_glide_left -= delta
-	var dir := _glide_dir
-	if is_instance_valid(_glide_foe):
-		var to := _glide_foe.global_position - global_position
-		to.y = 0.0
-		var gap := to.length() - _body_radius(_glide_foe) - strike_close
-		if gap <= 0.05:
-			_end_glide()
-			return Vector3.ZERO
-		dir = to.normalized()
-		rotation.y = atan2(-dir.x, -dir.z)
-		_glide_dir = dir
-		if gap < glide_speed * delta:
-			_end_glide()
-			return dir * gap / delta
-	if _glide_left <= 0.0:
-		_end_glide()
-	return dir * glide_speed
-
-
-func _end_glide() -> void:
-	_glide_left = 0.0
-	_glide_foe = null
-	# there: the blows now, not when the hold would have run out
-	if rig != null and rig.has_method(&"end_hitstop"):
-		rig.call(&"end_hitstop")
+	PlayerHurt._on_wound_up(self, lunge)
 
 
 static func _body_radius(who: Node3D) -> float:
@@ -5712,64 +3169,13 @@ static func _body_radius(who: Node3D) -> float:
 	return float(r) * (float(s) if s != null else 1.0)
 
 
-func _aims_strikes() -> bool:
-	return rig != null and rig.get(&"strike_aim") == true
-
-
-## The locked target if it is near enough to cut, or else the nearest enemy
-## within `strike_assist_range` in front — in front of the way he is pushed, if
-## he is, or of the way he faces.
-func _strike_candidate() -> Node3D:
-	if target != null and _targetable(target) \
-			and global_position.distance_to(target.global_position) < strike_assist_range + 1.5:
-		return target
-	var ahead := get_movement_direction()
-	if ahead.is_zero_approx():
-		ahead = -global_transform.basis.z
-	ahead.y = 0.0
-	ahead = ahead.normalized()
-	var widest := cos(deg_to_rad(strike_assist_cone))
-	var best: Node3D = null
-	var best_d := INF
-	for node in _foes():
-		var who := node as Node3D
-		if who == null or not _targetable(who):
-			continue
-		var to := who.global_position - global_position
-		to.y = 0.0
-		var d := to.length()
-		if d > strike_assist_range or d < 0.01 or ahead.dot(to / d) < widest:
-			continue
-		if d < best_d:
-			best_d = d
-			best = who
-	return best
-
-
-## Where on it a cut is aimed: its own answer if it has one, the middle of its
-## body if it says how tall it is, else where a lock would sit.
-static func strike_point(who: Node3D) -> Vector3:
-	if who.has_method(&"strike_point"):
-		return who.call(&"strike_point")
-	var tall: Variant = who.get(&"body_height")
-	if tall != null:
-		var s: Variant = who.get(&"visual_scale")
-		return who.global_position + Vector3.UP * float(tall) * (float(s) if s != null else 1.0) * 0.5
-	var points := TargetPoints.of(who)
-	return points[TargetPoints.default_index(who)]
-
-
 @rpc("any_peer", "call_local", "reliable")
 func net_strike_at(foe: NodePath) -> void:
 	_strike_foe = get_node_or_null(foe) as Node3D if not foe.is_empty() else null
 
 
 func _aim_strike() -> void:
-	if not _aims_strikes():
-		return
-	var on := _strike_foe != null and _targetable(_strike_foe)
-	rig.call(&"aim_strike", strike_point(_strike_foe) if on else Vector3.ZERO, on)
-#endregion
+	PlayerMelee._aim_strike(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -5786,14 +3192,12 @@ func net_attack(style: int) -> void:
 ## Holds everything else off for `seconds`. Zero or a shorter time than is
 ## already left never shortens a commitment already running.
 func _commit(seconds: float) -> void:
-	if not attacks_commit:
-		return
-	_commit_timer = maxf(_commit_timer, seconds)
+	PlayerMelee._commit(self, seconds)
 
 
 ## True while an attack is playing out and nothing else may be started.
 func is_committed() -> bool:
-	return _commit_timer > 0.0
+	return PlayerMelee.is_committed(self)
 
 
 ## The end of a plunge: the blade goes into the ground and the man behind it
@@ -5809,29 +3213,13 @@ func is_committed() -> bool:
 ## Everything stops: the run, the input, and any way out of it, for
 ## `plunge_recovery`. The rig does the standing back up.
 func _plant_blade() -> void:
-	_plunging = false
-	velocity.x = 0.0
-	velocity.z = 0.0
-	_commit(plunge_recovery)
-	if rig != null:
-		rig.plunge(plunge_recovery)
-	# Where the blade went in: in front of the feet, which is where the arm put
-	# it. Dust rather than a flash — a sword going into dirt throws dirt.
-	var at := global_position - global_transform.basis.z * plunge_reach
-	DustRing.burst(Blood.world_of(self), at, plunge_dust)
-	blade_planted.emit(at)
+	PlayerMelee._plant_blade(self)
 
 
 ## Puts the body on the target at once, without easing. Nothing to do when there
 ## is nothing being fought: a free swing goes where the fighter already faces.
 func _turn_to_target() -> void:
-	if target == null or not _targetable(target):
-		return
-	var to_them := _aim_point(target) - global_position
-	to_them.y = 0.0
-	if to_them.length_squared() > 0.0001:
-		rotation.y = atan2(-to_them.x, -to_them.z)
-#endregion
+	PlayerMelee._turn_to_target(self)
 
 
 #region Cuts that do not miss
@@ -5860,18 +3248,10 @@ var _sure_foe: Node3D = null
 var _sure_serial: int = -1
 
 
-## What a cut that does not miss is thrown at: the locked target, else the
-## nearest thing to fight ahead of the way he goes.
-func _sure_pick() -> Node3D:
-	if target != null and _targetable(target):
-		return target
-	return _charge_target()
-
-
 ## The swing just thrown does not miss `foe` (every peer is told); `margin`,
 ## if given, its reach past the blade's own instead of `sure_reach_margin`.
 func _mark_sure(foe: Node3D, margin: float = -1.0) -> void:
-	net_sure_at.rpc(foe.get_path() if foe != null else NodePath(), margin)
+	PlayerMelee._mark_sure(self, foe, margin)
 
 
 ## The reach past the blade's own for the swing in hand (-1: `sure_reach_margin`).
@@ -5893,92 +3273,25 @@ func net_sure_at(foe: NodePath, margin: float = -1.0) -> void:
 ## it was thrown at, while it cuts — that edge moved onto it, through where a
 ## cut is aimed at it ([method strike_point]).
 func cutting_edge_for(who: Node3D) -> PackedVector3Array:
-	var edge: PackedVector3Array = rig.get_cutting_edge() if rig != null else PackedVector3Array()
-	if edge.is_empty() or who == null or who != _sure_foe or not sure_holds(who, edge):
-		return edge
-	# Onto the line up its middle, at the blade's own height as near as it may
-	# be: between a quarter of the way up to where a cut is aimed at it and
-	# there (over a wolf, down to its back; under a tall orc's chest, up to it).
-	var foot := who.global_position
-	var top := maxf(strike_point(who).y, foot.y + 0.3)
-	var axis := Geometry3D.get_closest_points_between_segments(edge[0], edge[1],
-			foot, Vector3(foot.x, top, foot.z))
-	var near: Vector3 = axis[0]
-	var onto := Vector3(foot.x, clampf(near.y, lerpf(foot.y, top, 0.25), top), foot.z)
-	var shift := onto - near
-	return PackedVector3Array([edge[0] + shift, edge[1] + shift])
+	return PlayerMelee.cutting_edge_for(self, who)
 
 
 ## Whether the cut in hand, its edge at `edge`, cannot miss `who` now (see
 ## `sure_cone`).
 func sure_holds(who: Node3D, edge: PackedVector3Array) -> bool:
-	if who != _sure_foe or rig == null or int(rig.get(&"attack_serial")) != _sure_serial:
-		return false
-	if not _targetable(who) or (who.has_method(&"is_evading") and bool(who.call(&"is_evading"))):
-		return false
-	if absf(who.global_position.y - global_position.y) > sure_rise:
-		return false
-	var to := who.global_position - global_position
-	to.y = 0.0
-	var d := to.length()
-	var r := _blade_radius(who)
-	# (how far ahead of him the blade is: a blade drawn back behind him
-	# reaches nothing in front)
-	var ahead := -global_basis.z
-	ahead.y = 0.0
-	ahead = ahead.normalized()
-	var reach := 0.0
-	for p in edge:
-		reach = maxf(reach, (p - global_position).dot(ahead))
-	if d - r > reach + (_sure_margin if _sure_margin >= 0.0 else sure_reach_margin):
-		return false
-	if d < maxf(r, 0.01):
-		return true
-	var facing := -global_basis.z
-	facing.y = 0.0
-	facing = facing.normalized()
-	if facing.dot(to) < 0.0:
-		return false
-	var off := rad_to_deg(acos(clampf(facing.dot(to / d), -1.0, 1.0)))
-	var side := absf(facing.cross(to).y)
-	return off <= sure_cone or side <= r * sure_side
+	return PlayerMelee.sure_holds(self, who, edge)
 
 
 ## Until a cut that does not miss starts cutting, he turns after what it is
 ## thrown at (the owner's; the turn goes out with the body).
 func _track_sure(delta: float) -> void:
-	if _sure_foe == null or not is_instance_valid(_sure_foe) or rig == null or not _targetable(_sure_foe):
-		return
-	if int(rig.get(&"attack_serial")) != _sure_serial or not is_committed() or _shade_phase == 1:
-		return
-	if not rig.has_method(&"time_to_cut"):
-		return
-	if not (bool(rig.call(&"holding_cut")) or float(rig.call(&"time_to_cut")) > 0.0):
-		return
-	if _sure_foe.has_method(&"is_evading") and bool(_sure_foe.call(&"is_evading")):
-		return
-	var to := _sure_foe.global_position - global_position
-	to.y = 0.0
-	if to.length_squared() < 0.0001:
-		return
-	var facing := -global_basis.z
-	facing.y = 0.0
-	if facing.normalized().dot(to.normalized()) < cos(deg_to_rad(sure_follow_cone)):
-		return
-	rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), 1.0 - exp(-sure_turn_speed * delta))
+	PlayerMelee._track_sure(self, delta)
 
 
 ## How wide `who` is to a blade: what the creature's own blade test reads
 ## (a [Fighter]'s radius is drawn at its size, the others' as it is).
 static func _blade_radius(who: Node3D) -> float:
-	var r: Variant = who.get(&"body_radius")
-	if r == null:
-		return 0.45
-	if who is Fighter:
-		var s: Variant = who.get(&"visual_scale")
-		return float(r) * maxf(float(s) if s != null else 1.0, 0.01)
-	return float(r)
-#endregion
+	return PlayerMelee._blade_radius(who)
 
 
 #region The running cut, the shield charge, the cut that misses
@@ -6092,80 +3405,17 @@ var _ease_delay: float = 0.0
 
 ## Anything to fight within `reach` metres.
 func _foe_within(reach: float) -> bool:
-	for node in get_tree().get_nodes_in_group("enemy"):
-		var who := node as Node3D
-		if who != null and _targetable(who) and who.global_position.distance_to(global_position) <= reach:
-			return true
-	return false
+	return PlayerMelee._foe_within(self, reach)
 
 
 ## What a wound-up running cut runs at: the locked target, else the nearest
 ## thing to fight ahead of the way he is going within `run_cut_seek`.
 func _charge_target(seek: float = -1.0) -> Node3D:
-	if seek < 0.0:
-		seek = run_cut_seek
-	if target != null and _targetable(target):
-		return target
-	var ahead := get_movement_direction()
-	if ahead.is_zero_approx():
-		ahead = -global_basis.z
-	ahead.y = 0.0
-	ahead = ahead.normalized()
-	var widest := cos(deg_to_rad(run_cut_seek_cone))
-	var best: Node3D = null
-	var best_d := INF
-	for node in get_tree().get_nodes_in_group("enemy"):
-		var who := node as Node3D
-		if who == null or not _targetable(who):
-			continue
-		var to := who.global_position - global_position
-		to.y = 0.0
-		var d := to.length()
-		if d > seek or d < 0.01 or ahead.dot(to / d) < widest:
-			continue
-		if d < best_d:
-			best_d = d
-			best = who
-	return best
+	return PlayerMelee._charge_target(self, seek)
 
 
 func _charge_aim(direction: Vector3) -> Vector3:
-	if bool(_charge_spec.get("follow_push", false)):
-		# the knight's charge: on the way he was running, turned after the
-		# push no faster than `CHARGE_TURN` (locked on, the push is towards
-		# what he is locked on: he comes round to it in an arc, not drawn
-		# straight at it, the user's word 2026-10-06)
-		if _charge_dir.is_zero_approx():
-			_charge_dir = -global_basis.z
-			_charge_dir.y = 0.0
-			_charge_dir = _charge_dir.normalized()
-		var want := direction
-		var rate := CHARGE_TURN
-		# Running at about what he is locked on (not off the other way): drawn
-		# on to it, so he does not go by it a step aside (the user's word).
-		if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
-			var to := _charge_foe.global_position - global_position
-			to.y = 0.0
-			if to.length() > 0.5 and absf(_charge_dir.angle_to(to.normalized())) < deg_to_rad(CHARGE_ASSIST_CONE):
-				want = to.normalized()
-				rate = CHARGE_ASSIST_TURN
-		if not want.is_zero_approx():
-			var turn := _charge_dir.signed_angle_to(want, Vector3.UP)
-			var most := rate * get_physics_process_delta_time()
-			_charge_dir = _charge_dir.rotated(Vector3.UP, clampf(turn, -most, most)).normalized()
-		return _charge_dir
-	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
-		var to := _charge_foe.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			return to.normalized()
-	if not direction.is_zero_approx():
-		return direction
-	if _charge_skill:
-		var ahead := -global_basis.z
-		ahead.y = 0.0
-		return ahead.normalized()
-	return Vector3.ZERO
+	return PlayerMelee._charge_aim(self, direction)
 
 
 ## The wound-up running cut, let go when he is near enough what he runs at,
@@ -6173,72 +3423,7 @@ func _charge_aim(direction: Vector3) -> Vector3:
 ## it has been held `run_cut_hold_max`. Broken off by anything that takes the
 ## clip off him (a blow).
 func _tick_charge() -> void:
-	if not _cut_charging:
-		return
-	if rig == null or not bool(rig.call(&"holding_cut")):
-		_cut_charging = false
-		return
-	var held := _game_t - _charge_t0
-	var spec := _charge_spec
-	var go := held >= float(spec.get("hold_max", run_cut_hold_max))
-	var leap := false
-	var lp: Dictionary = spec.get("leap", {})
-	if _charge_foe != null and is_instance_valid(_charge_foe) and _targetable(_charge_foe):
-		var to := _charge_foe.global_position - global_position
-		to.y = 0.0
-		# (its body as a blade finds it: its own radius, not the drawn size)
-		var r: Variant = _charge_foe.get(&"body_radius")
-		var radius := float(r) if r != null else 0.45
-		# near enough, the blow goes by itself (the knight's: a leap only
-		# on the jump button, `leap_on_jump`)
-		var on_jump := bool(spec.get("leap_on_jump", false))
-		var gap := float(spec.get("strike_gap", 0.9)) if on_jump else float(lp.get("gap", spec.get("strike_gap", 0.9)))
-		var ahead := -global_basis.z
-		ahead.y = 0.0
-		var facing := to.length() < 0.01 \
-				or ahead.normalized().dot(to.normalized()) > cos(deg_to_rad(CHARGE_STRIKE_CONE))
-		if to.length() - radius - 0.4 <= gap and (facing or not bool(spec.get("follow_push", false))):
-			go = true
-			leap = not lp.is_empty() and not on_jump
-	elif _charge_skill:
-		# Nothing to run at: a few strides the way he faces, and the cut.
-		go = go or held >= float(spec.get("blind_hold", 0.45))
-	elif held >= 0.25 and get_movement_direction().is_zero_approx() and not bool(spec.get("hold_button", false)):
-		go = true
-	if bool(spec.get("hold_button", false)) and held >= 0.1 and not go:
-		# The knight's charge: held as long as the attack button and the
-		# push are; letting go of either lets the blow go where he is.
-		go = not Input.is_action_pressed("attack") or get_movement_direction().is_zero_approx()
-	if _attack_buffer > 0.0 and held >= 0.12:
-		_attack_buffer = 0.0
-		go = true
-	if bool(spec.get("leap_on_jump", false)) and not lp.is_empty() and Input.is_action_just_pressed("jump"):
-		# The knight's charge, the jump pressed: he leaps and brings the
-		# blade down from the air (the user's word, 2026-10-06)
-		go = true
-		leap = true
-	if go:
-		_cut_charging = false
-		net_release_cut.rpc(leap)
-		if leap and is_on_floor():
-			# off the ground for as long as the leap takes to come down on it
-			var air := clampf(float(rig.call(&"time_to_slam")), 0.2, 1.0)
-			velocity.y = _gravity * air * 0.5
-			# on, not up: a lunge over the ground more than a hop
-			var on := Vector3(velocity.x, 0.0, velocity.z)
-			if on.length() > 0.5:
-				var lunge := on.normalized() * float(spec.get("leap", {}).get("lunge", 0.0))
-				velocity.x += lunge.x
-				velocity.z += lunge.z
-				_air_speed_cap = maxf(_air_speed_cap, Vector3(velocity.x, 0.0, velocity.z).length())
-			_quiet_landing_until = _now() + air + 0.3
-		_commit_timer = 0.0
-		_commit(float(rig.get(&"_swing_commit")))
-		_swing_t0 = _game_t
-		# (let go where he is: the run given up at once, a step at most;
-		# a leap carries the run into it)
-		_ease_delay = 0.0 if bool(spec.get("stop_on_release", false)) and not leap \
-				else float(rig.call(&"time_to_cut"))
+	PlayerMelee._tick_charge(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -6250,41 +3435,11 @@ func net_release_cut(leap: bool = false) -> void:
 		rig.call(&"release_cut", leap)
 
 
-## A cut out of a run: on his feet, the first of a string, at a run, with the
-## shield down, and a rig with a running cut.
-## Straight out of an evade (within `roll_attack_window` of its end), on his
-## feet, with the roll's attack to throw.
-func _roll_cut_ready() -> bool:
-	if state != State.GROUNDED or not is_on_floor() or is_blocking or _swing_chain != 0:
-		return false
-	if _now() - _evade_ended_at > roll_attack_window:
-		return false
-	return rig != null and rig.has_method(&"has_cut") and bool(rig.call(&"has_cut", "roll_attack"))
-
-
 ## Whether `from`'s blow now is low enough to pass under a jump: its weapon
 ## (where the creature can say, [method weapon_low]) under `jump_clear_low`
 ## over his feet.
 func _low_blow(from: Node3D) -> bool:
-	if not from.has_method(&"weapon_tip_now"):
-		return false
-	var tip: Vector3 = from.call(&"weapon_tip_now")
-	return tip.y - global_position.y < jump_clear_low and tip.y < global_position.y + 0.2
-
-
-func _run_cut_ready() -> bool:
-	if state != State.GROUNDED or not is_on_floor() or _swing_chain != 0 or is_blocking:
-		return false
-	if rig == null or not rig.has_method(&"has_run_cut") or not bool(rig.call(&"has_run_cut")):
-		return false
-	# (the knight's charge: only at a sprint, Shift held)
-	var spec: Variant = rig.call(&"run_cut_spec") if rig.has_method(&"run_cut_spec") else {}
-	if spec is Dictionary and bool((spec as Dictionary).get("sprint_only", false)) and not sprinting:
-		return false
-	# (and only off the attack button: the block button's string is its own)
-	if spec is Dictionary and bool((spec as Dictionary).get("hold_button", false)) and _buffer_other:
-		return false
-	return Vector2(velocity.x, velocity.z).length() > run_speed * run_cut_pace
+	return PlayerMelee._low_blow(self, from)
 
 
 #region The kick (AVTANDIL_POLISH 7)
@@ -6297,36 +3452,13 @@ var _kick_cool: float = 0.0
 
 ## A hero with no shield and a bow, on his feet, a rig that kicks.
 func _can_kick() -> bool:
-	if profile == null or profile.can_block or not has_bow() or unarmed:
-		return false
-	if state != State.GROUNDED or not is_on_floor() or _kick_cool > 0.0 or is_committed():
-		return false
-	return rig != null and rig.has_method(&"kick")
+	return PlayerMelee._can_kick(self)
 
 
 ## He turns to what he is locked on (or what is in front) and kicks it away:
 ## a draw in hand is let go of, unshot.
 func _kick() -> void:
-	if not _spend(kick_stamina):
-		return
-	_drawing = false
-	_draw_timer = 0.0
-	_set_weapons_stowed(false)
-	var foe := target if target != null and _targetable(target) else _strike_candidate()
-	var aim := get_movement_direction()
-	if foe != null:
-		aim = foe.global_position - global_position
-	aim.y = 0.0
-	if aim.length_squared() > 0.0001:
-		rotation.y = atan2(-aim.x, -aim.z)
-	var dir := -global_basis.z
-	dir.y = 0.0
-	dir = dir.normalized()
-	_kick_cool = kick_cooldown
-	var secs := float(rig.call(&"kick_length", kick_rate, kick_from, kick_to))
-	_commit(secs)
-	attack_started.emit()
-	net_kick.rpc(dir)
+	PlayerMelee._kick(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -6344,36 +3476,7 @@ func net_kick(dir: Vector3) -> void:
 
 ## The foot out: the host takes what is in front of it.
 func _tick_kick(delta: float) -> void:
-	_kick_cool = maxf(_kick_cool - delta, 0.0)
-	if _kick_wait < 0.0:
-		return
-	_kick_wait -= delta
-	if _kick_wait >= 0.0:
-		return
-	if not _decides_here() or is_dead:
-		return
-	var widest := cos(deg_to_rad(kick_cone))
-	for node in get_tree().get_nodes_in_group("enemy"):
-		var who := node as Node3D
-		if who == null or not _targetable(who):
-			continue
-		var to := who.global_position - global_position
-		to.y = 0.0
-		var d := to.length()
-		if d < 0.01 or d - _body_radius(who) > kick_reach or _kick_dir.dot(to / d) < widest:
-			continue
-		var at := strike_point(who) - to / d * _body_radius(who)
-		at.y = minf(at.y, global_position.y + 1.2)
-		var worth := cut_worth()
-		if who.has_method(&"take_hit"):
-			who.call(&"take_hit", float(worth[0]) * kick_damage, at, _kick_dir, false, false, self)
-		if who.has_method(&"react"):
-			var taken: Variant = who.get(&"shove_taken")
-			var push := kick_push
-			if taken is float and float(taken) > 0.01:
-				push = kick_throw * 4.0 / float(taken)
-			who.call(&"react", &"knock", self, _kick_dir * push)
-		net_kick_landed.rpc(who.get_path(), at)
+	PlayerMelee._tick_kick(self, delta)
 
 
 ## The foot went in: the thud and the jolt, on every peer.
@@ -6393,39 +3496,13 @@ func net_kick_landed(path: NodePath, at: Vector3) -> void:
 
 ## The shield up, on his feet, and a rig that charges with it.
 func _can_bash() -> bool:
-	if not is_blocking or state != State.GROUNDED or not is_on_floor():
-		return false
-	return rig != null and rig.has_method(&"can_shield_bash") and bool(rig.call(&"can_shield_bash"))
+	return PlayerMelee._can_bash(self)
 
 
 ## The charge behind the shield: he turns to what is in front (or what he is
 ## locked on) and drives in, the guard coming down for it.
 func _shield_bash() -> void:
-	if _dash_cooldown_timer > 0.0:
-		return
-	if not _spend((profile.roll_stamina if profile != null else 20.0) * bash_stamina):
-		return
-	is_blocking = false
-	block_changed.emit(false)
-	_set_weapons_stowed(false)
-	var foe := target if target != null and _targetable(target) else _strike_candidate()
-	var aim := get_movement_direction()
-	if foe != null:
-		aim = foe.global_position - global_position
-	aim.y = 0.0
-	if aim.length_squared() > 0.0001:
-		rotation.y = atan2(-aim.x, -aim.z)
-	var dir := -global_basis.z
-	dir.y = 0.0
-	dir = dir.normalized()
-	_step_velocity = dir * bash_speed
-	_step_left = bash_travel
-	_free_swing = true
-	_swing_chain = 0
-	_dash_cooldown_timer = dash_cooldown + bash_time
-	_commit(bash_time)
-	attack_started.emit()
-	net_shield_bash.rpc(dir)
+	PlayerMelee._shield_bash(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -6443,30 +3520,7 @@ func net_shield_bash(dir: Vector3) -> void:
 
 ## The charge going: the host looks for what is in front of the shield.
 func _tick_bash(delta: float) -> void:
-	if _bash_left <= 0.0:
-		return
-	_bash_left -= delta
-	if not _decides_here() or is_dead:
-		return
-	var widest := cos(deg_to_rad(bash_cone))
-	for node in get_tree().get_nodes_in_group("enemy"):
-		var who := node as Node3D
-		if who == null or _bash_struck.has(who) or not _targetable(who):
-			continue
-		var to := who.global_position - global_position
-		to.y = 0.0
-		var d := to.length()
-		if d < 0.01 or d - _body_radius(who) - 0.4 > bash_reach or _bash_dir.dot(to / d) < widest:
-			continue
-		_bash_struck.append(who)
-		var at := strike_point(who) - to / d * _body_radius(who)
-		var worth := cut_worth()
-		if who.has_method(&"take_hit"):
-			who.call(&"take_hit", float(worth[0]) * bash_damage, at, _bash_dir, false, false, self)
-		if who.has_method(&"react"):
-			who.call(&"react", &"knock", self, _bash_dir * bash_push)
-		net_bash_landed.rpc(who.get_path(), at)
-		bashed.emit(who)
+	PlayerMelee._tick_bash(self, delta)
 
 
 ## The shield went into something: the clang and the jolt, on every peer;
@@ -6492,79 +3546,45 @@ func net_bash_landed(path: NodePath, at: Vector3) -> void:
 ## A cut of the string past its cut with nothing landed: it drags on
 ## (`whiff_recovery`), and the evade may not take him out of it till then.
 func _judge_whiff() -> void:
-	if rig == null or _swing_serial0 < 0 or _whiff_judged == _swing_serial0 or _plunging:
-		return
-	if not rig.has_method(&"in_recovery") or not rig.has_method(&"current_swing"):
-		return
-	if StringName(rig.call(&"current_swing")) == &"" or bool(rig.call(&"is_heavy")) \
-			or not bool(rig.call(&"in_recovery")):
-		return
-	_whiff_judged = _swing_serial0
-	if _landed_serial >= _swing_serial0 or not _whiff_counts:
-		return
-	_whiff_until = _now() + whiff_recovery
-	if attacks_commit:
-		_commit_timer += whiff_recovery
-	if rig.has_method(&"overreach"):
-		rig.call(&"overreach", whiff_recovery, whiff_slow)
-	whiffed.emit()
-#endregion
+	PlayerMelee._judge_whiff(self)
 
 
-#region Vitals
 ## Puts on a shield ([enum Inventory.Shields]); every peer sees it through
 ## `net_shield`.
 func set_shield(kind: int) -> void:
-	shield_kind = kind
-	if rig != null and rig.has_method(&"set_shield"):
-		rig.call(&"set_shield", kind)
+	PlayerLooks.set_shield(self, kind)
 
 
 ## Wears one of the rig's `faces`; every peer sees it through `net_face`.
 func set_face(index: int) -> void:
-	face = index
-	if rig != null and rig.has_method(&"set_face"):
-		rig.call(&"set_face", index)
+	PlayerLooks.set_face(self, index)
 
 
 ## Wears the look made on the hero select ([PolysplitLook]); every peer sees
 ## it through `net_look`.
 func set_look(made: Dictionary) -> void:
-	if rig != null and rig.has_method(&"set_look"):
-		rig.call(&"set_look", made)
-		look = rig.call(&"get_look")
-	else:
-		look = made.duplicate(true)
+	PlayerLooks.set_look(self, made)
 
 
 ## Dyes the rig's clothes (its `TINTS`); every peer sees it through `net_tint`.
 func set_tint(index: int) -> void:
-	tint = index
-	if rig != null and rig.has_method(&"set_tint"):
-		rig.call(&"set_tint", index)
+	PlayerLooks.set_tint(self, index)
 
 
 ## Wears one of the rig's `hairs`; every peer sees it through `net_hair`.
 func set_hair(index: int) -> void:
-	hair = index
-	if rig != null and rig.has_method(&"set_hair"):
-		rig.call(&"set_hair", index)
+	PlayerLooks.set_hair(self, index)
 
 
 ## Puts on one of his outfits (an index into the rig's `garbs`); every peer
 ## sees it through `net_garb`.
 func set_garb(index: int) -> void:
-	garb = index
-	if rig != null and rig.has_method(&"set_garb"):
-		rig.call(&"set_garb", index)
+	PlayerLooks.set_garb(self, index)
 
 
 ## What he has on now kept for the next level ([method Game.worn]).
 func remember_worn() -> void:
-	var game := get_node_or_null(^"/root/Game")
-	if game == null or not game.has_method(&"set_worn") or not is_multiplayer_authority():
-		return
-	game.call(&"set_worn", game.call(&"character"), look, garb)
+	PlayerLooks.remember_worn(self)
 
 
 ## What he has found and carries ([GEAR_SETS.md] §5.7, the user's word
@@ -6575,46 +3595,14 @@ var _owned: Dictionary = {}
 var _owned_read: bool = false
 
 
-## The hero's id ("tariel"), his profile's file name.
-func hero_id() -> StringName:
-	return StringName(profile.resource_path.get_file().get_basename()) if profile != null else &""
-
-
-func _read_owned() -> void:
-	if _owned_read:
-		return
-	_owned_read = true
-	var game := get_node_or_null(^"/root/Game") if not Inventory.under_test() else null
-	if game != null and game.has_method(&"owned"):
-		for key: Variant in game.call(&"owned", hero_id()):
-			_owned[String(key)] = true
-
-
 ## Whether he carries the thing of `key`.
 func owns(key: String) -> bool:
-	_read_owned()
-	return _owned.has(key)
+	return PlayerLooks.owns(self, key)
 
 
 ## He has the thing of `key` now; false if he had it already.
 func gain(key: String) -> bool:
-	_read_owned()
-	if key == "" or _owned.has(key):
-		return false
-	_owned[key] = true
-	var game := get_node_or_null(^"/root/Game") if not Inventory.under_test() else null
-	if game != null and game.has_method(&"set_owned") and hero_id() != &"":
-		game.call(&"set_owned", hero_id(), _owned.keys())
-	return true
-
-
-## Everything he carries forgotten (a new start; the tests).
-func forget_owned() -> void:
-	_owned_read = true
-	_owned.clear()
-	var game := get_node_or_null(^"/root/Game") if not Inventory.under_test() else null
-	if game != null and game.has_method(&"set_owned") and hero_id() != &"":
-		game.call(&"set_owned", hero_id(), [])
+	return PlayerLooks.gain(self, key)
 
 
 const PARRY_SOUND := "res://sounds/parry/clang.wav"
@@ -6848,41 +3836,7 @@ func _resolve_contacts() -> void:
 
 
 func _update_floor_state() -> void:
-	var on_floor := is_on_floor()
-	# States that run their own course own the state field until they are done.
-	var held := state != State.GROUNDED and state != State.AIRBORNE
-
-	if on_floor:
-		_coyote_timer = coyote_time
-		if not _was_on_floor:
-			_land()
-		if not held:
-			state = State.GROUNDED
-	elif not held:
-		if _was_on_floor:
-			# Walked off an edge: the arc keeps the speed it left with.
-			_air_speed_cap = maxf(Vector3(velocity.x, 0.0, velocity.z).length(), run_speed)
-		state = State.AIRBORNE
-
-	_was_on_floor = on_floor
-
-
-func _land() -> void:
-	# Coming down hard costs some of the run — a drop should be felt.
-	if _impact_speed > hard_landing_speed and state != State.DASHING:
-		velocity.x *= hard_landing_grip
-		velocity.z *= hard_landing_grip
-	# The fall is over; anything left on the vertical axis only fights the floor
-	# snap on the next tick.
-	velocity.y = 0.0
-	_air_speed_cap = run_speed
-	if _impact_speed >= land_sound_speed and _now() > _quiet_landing_until:
-		_move_sound(MoveSound.LAND, clampf(
-				inverse_lerp(land_sound_speed, hard_landing_speed, _impact_speed), 0.0, 1.0))
-	landed.emit(_impact_speed)
-	_impact_speed = 0.0
-	if _plunging:
-		_plant_blade()
+	PlayerMove._update_floor_state(self)
 
 
 func _toggle_fullscreen() -> void:
@@ -6945,149 +3899,43 @@ const PICKS_FILE := "user://skill_picks.cfg"
 
 ## Every skill he has, picked or not.
 func skill_choices() -> PackedStringArray:
-	var out := PackedStringArray()
-	if profile != null:
-		for id in profile.skills:
-			if SKILLS.has(StringName(id)):
-				out.append(id)
-	return out
-
-
-## What is in the sockets: his picks if he has made them, else the first four.
-func _socketed() -> PackedStringArray:
-	if skill_picks.size() == SKILL_SLOTS:
-		return skill_picks
-	var all := skill_choices()
-	var out := PackedStringArray()
-	for i in SKILL_SLOTS:
-		out.append(all[i] if i < all.size() else "")
-	return out
+	return PlayerSkills.skill_choices(self)
 
 
 ## Puts skill `id` in `slot`; if it was in another socket, what was in `slot`
 ## goes there instead. Kept for this hero.
 func set_skill_slot(slot: int, id: StringName) -> void:
-	if slot < 0 or slot >= SKILL_SLOTS or (id != &"" and not skill_choices().has(String(id))):
-		return
-	var picks := _socketed()
-	var was := picks.find(String(id))
-	if was >= 0 and id != &"":
-		picks[was] = picks[slot]
-	picks[slot] = String(id)
-	skill_picks = picks
-	_keep_picks()
-
-
-func _picks_key() -> String:
-	return profile.resource_path.get_file().get_basename() if profile != null else ""
+	PlayerSkills.set_skill_slot(self, slot, id)
 
 
 func _keep_picks() -> void:
-	var key := _picks_key()
-	if key == "":
-		return
-	var cfg := ConfigFile.new()
-	cfg.load(PICKS_FILE)
-	cfg.set_value("picks", key, skill_picks)
-	cfg.save(PICKS_FILE)
+	PlayerSkills._keep_picks(self)
 
 
 ## His picks as he left them last time, if they still fit what he has.
 func _load_picks() -> void:
-	skill_picks = PackedStringArray()
-	var key := _picks_key()
-	var cfg := ConfigFile.new()
-	if key == "" or cfg.load(PICKS_FILE) != OK:
-		return
-	var kept: Variant = cfg.get_value("picks", key, PackedStringArray())
-	if not (kept is PackedStringArray) or (kept as PackedStringArray).size() != SKILL_SLOTS:
-		return
-	var all := skill_choices()
-	for id in (kept as PackedStringArray):
-		if id != "" and not all.has(id):
-			return
-	skill_picks = kept
+	PlayerSkills._load_picks(self)
 
 
 ## The skill in `slot`, or `&""` for an empty one.
 func skill_in(slot: int) -> StringName:
-	if profile == null or slot < 0 or slot >= SKILL_SLOTS:
-		return &""
-	var picks := _socketed()
-	var id := StringName(picks[slot]) if slot < picks.size() else &""
-	return id if SKILLS.has(id) else &""
+	return PlayerSkills.skill_in(self, slot)
 
 
 ## Seconds before the skill in `slot` can be used again (0 when it can).
 func skill_cooldown_left(slot: int) -> float:
-	var id := skill_in(slot)
-	if id == &"":
-		return 0.0
-	return maxf(float(_skill_ready_at.get(id, 0.0)) - _now(), 0.0)
+	return PlayerSkills.skill_cooldown_left(self, slot)
 
 
 ## Its whole cooldown, for the bar to draw the rest against.
 func skill_cooldown(slot: int) -> float:
-	var id := skill_in(slot)
-	return float(SKILLS[id]["cooldown"]) * skill_haste if id != &"" else 0.0
+	return PlayerSkills.skill_cooldown(self, slot)
 
 
 ## Uses the skill in `slot`, if there is one, it is ready and the body is free
 ## to. True if it went off.
 func use_skill(slot: int) -> bool:
-	var id := skill_in(slot)
-	if id == &"" or is_dead or skill_cooldown_left(slot) > 0.0:
-		return false
-	if state != State.GROUNDED or is_committed():
-		return false
-	var went := false
-	match id:
-		&"arrow_rain":
-			went = _arrow_rain()
-		&"hunters_mark":
-			went = _hunters_mark()
-		&"piercing_arrow":
-			went = _piercing_arrow()
-		&"fire_arrow":
-			went = _fire_arrow()
-		&"stun_arrow":
-			went = _stun_arrow()
-		&"poison_blade":
-			went = _poison_blade()
-		&"rising_cut":
-			went = _rising_cut()
-		&"shadow_slide":
-			went = _shadow_slide()
-		&"shadow_lance":
-			went = _shadow_slide(&"shadow_lance")
-		&"shadow_step":
-			went = rogue().shadow_step(float(SKILLS[id]["stamina"]))
-		&"vanish":
-			went = rogue().vanish(float(SKILLS[id]["stamina"]))
-		&"challenge":
-			went = TarielChallenge.cast(self)
-		&"frost_spears":
-			went = mage().frost_spears(float(SKILLS[id]["stamina"]))
-		&"frost_step":
-			went = mage().frost_step(float(SKILLS[id]["stamina"]))
-		&"dark_grasp":
-			went = dark().grasp(float(SKILLS[id]["stamina"]))
-		&"black_comets":
-			went = dark().comets(float(SKILLS[id]["stamina"]))
-		&"black_sun":
-			went = dark().sun(float(SKILLS[id]["stamina"]))
-		&"frost_nova":
-			went = elf().nova(float(SKILLS[id]["stamina"]))
-		&"moonwell":
-			went = elf().moonwell(float(SKILLS[id]["stamina"]))
-		&"moonfall":
-			went = elf().moonfall(float(SKILLS[id]["stamina"]))
-	if not went:
-		return false
-	_skill_ready_at[id] = _now() + float(SKILLS[id]["cooldown"]) * skill_haste
-	net_casts += 1
-	skill_used.emit(slot, id)
-	return true
+	return PlayerSkills.use_skill(self, slot)
 
 
 ## The Rising Cut (Tariel): the sword drawn back low, he runs at what is
@@ -7097,41 +3945,6 @@ func use_skill(slot: int) -> bool:
 @export_group("Rising Cut")
 ## How far ahead (metres) it picks what to run at.
 @export var rising_seek: float = 14.0
-
-
-func _rising_cut() -> bool:
-	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", "rising_cut")):
-		return false
-	if not is_on_floor():
-		return false
-	if not _spend(float(SKILLS[&"rising_cut"]["stamina"])):
-		return false
-	if is_blocking:
-		is_blocking = false
-		block_changed.emit(false)
-	_set_weapons_stowed(false)
-	var foe := _charge_target(rising_seek)
-	if foe != null:
-		var to := foe.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			rotation.y = atan2(-to.x, -to.z)
-	_free_swing = true
-	_swing_t0 = _game_t
-	_swing_chain = 1
-	_free_ease = run_cut_ease
-	_whiff_counts = _foe_within(whiff_near)
-	attack_started.emit()
-	net_attack.rpc(SkinnedRig.RISING_CUT)
-	_cut_charging = true
-	_charge_skill = true
-	_charge_spec = rig.call(&"cut_spec", "rising_cut")
-	_charge_t0 = _game_t
-	_charge_foe = foe
-	_mark_sure(foe)
-	_commit(float(_charge_spec.get("hold_max", run_cut_hold_max)) + 2.0)
-	_attack_buffer = 0.0
-	return true
 
 
 ## The Shadow Slide (Tariel's second skill, [Swordsman] `SHADOW_SLIDE`): the
@@ -7161,185 +3974,13 @@ var _shade_went: float = 0.0
 var _shade_pace_now: float = 0.0
 
 
-## `key` "shadow_lance": the Shadow Lance (Tariel's third skill, [Swordsman]
-## `SHADOW_LANCE`): the same slide, the sword thrust out in front as it
-## starts and held there, so the point is what runs into the thing; struck,
-## the slide stops on it and the thrust is drawn back out.
-func _shadow_slide(key: StringName = &"shadow_slide") -> bool:
-	if rig == null or not rig.has_method(&"has_cut") or not bool(rig.call(&"has_cut", String(key))):
-		return false
-	if not is_on_floor():
-		return false
-	if not _spend(float(SKILLS[key]["stamina"])):
-		return false
-	if is_blocking:
-		is_blocking = false
-		block_changed.emit(false)
-	_set_weapons_stowed(false)
-	var foe := _charge_target(shade_seek)
-	_charge_spec = rig.call(&"cut_spec", String(key))
-	var spec := _charge_spec
-	_shade_lance = bool(spec.get("lance", false))
-	_shade_dir = -global_basis.z
-	_shade_dir.y = 0.0
-	_shade_left = float(spec.get("slide_blind", 8.0))
-	if foe != null:
-		var to := foe.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			_shade_dir = to
-		_shade_left = clampf(to.length() - _blade_radius(foe) - float(spec.get("strike_gap", 1.0)),
-				0.0, float(spec.get("slide_max", 7.0)))
-	_shade_dir = _shade_dir.normalized()
-	rotation.y = atan2(-_shade_dir.x, -_shade_dir.z)
-	_free_swing = false
-	_swing_t0 = _game_t
-	_swing_chain = 1
-	_whiff_counts = _foe_within(whiff_near)
-	attack_started.emit()
-	net_attack.rpc(SkinnedRig.SHADOW_LANCE if _shade_lance else SkinnedRig.SHADOW_SLIDE)
-	_charge_foe = foe
-	_mark_sure(foe, float(spec.get("sure_margin", -1.0)))
-	_shade_phase = 1
-	_shade_t0 = _game_t
-	_shade_gone = false
-	_shade_went = 0.0
-	_shade_pace_now = _shade_pace_at(0.0)
-	# (as long as the slide takes, eased in, and the shadows' own fading)
-	net_slide.rpc(_shade_left / maxf(shade_speed, 0.1) + shade_ease * 0.5)
-	_commit(3.0)
-	_attack_buffer = 0.0
-	return true
-
-
-## The slide's pace now: eased in from standing over `shade_ease`.
-func _shade_pace() -> float:
-	return _shade_pace_at(_game_t - _shade_t0)
-
-
-func _shade_pace_at(since: float) -> float:
-	var t := clampf(since / maxf(shade_ease, 0.01), 0.0, 1.0)
-	return shade_speed * lerpf(0.25, 1.0, t * t * (3.0 - 2.0 * t))
-
-
 ## The slide and its cut let go (the owner's, on the physics clock).
 func _tick_shade(delta: float) -> void:
-	if _shade_phase < 0:
-		return
-	if rig == null or (not _shade_gone and not bool(rig.call(&"holding_cut"))):
-		# broken off (a blow took the clip off him)
-		_shade_phase = -1
-		return
-	var foe := _charge_foe if _charge_foe != null and is_instance_valid(_charge_foe) \
-			and _targetable(_charge_foe) else null
-	# On at what it was thrown at (followed, not led), unless it dodges.
-	if foe != null and not (foe.has_method(&"is_evading") and bool(foe.call(&"is_evading"))):
-		var to := foe.global_position - global_position
-		to.y = 0.0
-		if to.length_squared() > 0.0001:
-			_shade_dir = _shade_dir.slerp(to.normalized(), 1.0 - exp(-10.0 * delta)).normalized()
-	var pace := _shade_pace()
-	_shade_pace_now = pace
-	if _charge_spec.has("peak"):
-		_tick_shade_peak(foe, pace, delta)
-		return
-	# Let go as the blade will cut when he arrives: the ground he covers from
-	# now to the cut.
-	if not _shade_gone and _shade_left <= pace * float(rig.call(&"time_to_cut")) + 0.05:
-		_shade_let_go()
-	_shade_left -= pace * delta
-	if _shade_left <= 0.0:
-		_shade_phase = -1
-		velocity.x = _shade_dir.x * 4.0
-		velocity.z = _shade_dir.z * 4.0
-		if not _shade_gone:
-			_shade_let_go()
-
-
-## A slide whose swing has a `peak` (the Shadow Slide, the Shadow Lance): the
-## swing's peak — the blade come round or thrust out level ahead — falls on
-## the slide's end, however long the slide (the user's word: never the blade
-## off to the side, the swing unfinished, as the slide ends). The slide's end
-## follows what it is thrown at; the swing is let go when what is left of the
-## slide is what the swing takes at its own pace, and from then on is paced
-## (`SkinnedRig.pace_to`) to reach its peak as the slide runs out: faster for
-## a short slide, slower if the thing came on to meet him. Struck before the
-## peak (a sweep coming round into it), the slide is cut to a last step and
-## the swing hurried to its peak there; struck at it, the slide stops.
-func _tick_shade_peak(foe: Node3D, pace: float, delta: float) -> void:
-	var peak := float(_charge_spec.get("peak", 0.2))
-	var at := float(rig.call(&"_progress"))
-	var serial := int(rig.get(&"attack_serial"))
-	if foe != null:
-		# the end of the slide where it is now (no further than it may go)
-		var to := foe.global_position - global_position
-		to.y = 0.0
-		var want := to.length() - _blade_radius(foe) - float(_charge_spec.get("strike_gap", 1.5))
-		_shade_left = clampf(want, 0.0, _shade_reach_left())
-	if _landed_serial == serial:
-		if _shade_gone and at >= peak - 0.03:
-			# at its peak, in it: the slide stops on it
-			_shade_end(1.2)
-			return
-		_shade_left = minf(_shade_left, 0.3)
-	# The swing's time to its peak: at its own pace, and at the quickest it
-	# may be hurried to. A slide too short for it is slowed to it (a thing
-	# close by, or one that came on to meet him): the slide ends with the
-	# swing, never before it.
-	var own := _shade_to_peak()
-	var quickest := own / SHADE_HURRY
-	if _shade_left / maxf(pace, 0.1) < quickest:
-		pace = _shade_left / maxf(quickest, 0.01)
-	_shade_pace_now = pace
-	var left_t := _shade_left / maxf(pace, 0.1) if pace > 0.01 else quickest
-	if not _shade_gone and left_t <= own + 0.01:
-		_shade_let_go()
-	if _shade_gone:
-		rig.call(&"pace_to", peak, maxf(left_t, quickest))
-	_shade_left -= pace * delta
-	_shade_went += pace * delta
-	if _shade_left <= 0.001 and (not _shade_gone or at < peak - 0.01):
-		# no ground left and the swing not there yet: it finishes where he is
-		_shade_left = 0.0
-		return
-	if _shade_left <= 0.0:
-		_shade_end(1.5 if _shade_lance else 4.0)
+	PlayerSkills._tick_shade(self, delta)
 
 
 ## How much a swing timed to a slide's end may be hurried past its own pace.
 const SHADE_HURRY := 1.8
-
-
-## How much further this slide may go (`slide_max` in all).
-func _shade_reach_left() -> float:
-	return maxf(float(_charge_spec.get("slide_max", 7.0)) - _shade_went, 0.0)
-
-
-## The slide over: what is left of it carried on (m/s), the swing let go if it
-## was not, and at its own pace again.
-func _shade_end(carry: float) -> void:
-	_shade_phase = -1
-	velocity.x = _shade_dir.x * carry
-	velocity.z = _shade_dir.z * carry
-	if not _shade_gone:
-		_shade_let_go()
-	rig.call(&"pace_own")
-
-
-## Seconds from where the lance's clip is to its peak, let go now (at its rate).
-func _shade_to_peak() -> float:
-	var length := float(rig.get(&"_action_len"))
-	var at := float(rig.call(&"_progress"))
-	return maxf(length * (float(_charge_spec.get("peak", 0.26)) - at), 0.0) \
-			/ maxf(float(rig.get(&"_action_rate")), 0.01)
-
-
-func _shade_let_go() -> void:
-	_shade_gone = true
-	net_release_cut.rpc()
-	_commit_timer = 0.0
-	_commit(float(rig.get(&"_swing_commit")))
-	_swing_t0 = _game_t
 
 
 ## Sliding in now: what slides with him on every peer — the shadows shed
@@ -7356,46 +3997,7 @@ func net_slide(seconds: float) -> void:
 ## Rain of Arrows: one arrow up into the sky, and a moment later a volley down
 ## over a ring — on what is locked, if it is in reach, or ahead of him.
 func _arrow_rain() -> bool:
-	if not _is_bow() or arrow_scene == null:
-		return false
-	if not _spend(float(SKILLS[&"arrow_rain"]["stamina"])):
-		return false
-	_drawing = false
-	_draw_timer = 0.0
-	var centre := _rain_centre()
-	var lead := float(rig.call(&"sky_lead")) if rig != null and rig.has_method(&"sky_lead") else 0.0
-	var toward := centre - global_position
-	toward.y = 0.0
-	if toward.length_squared() > 0.01:
-		rotation.y = atan2(-toward.x, -toward.z)
-	# Stood still through the shot, until just after the string goes.
-	_commit(lead + 0.35 if lead > 0.0 else 0.55)
-	var from := global_position + up_direction * arrow_height
-	var up := (toward.normalized() * 0.3 + Vector3.UP).normalized() * 38.0
-	var quarry := NodePath()
-	if target != null and _targetable(target) and centre.distance_to(target.global_position) < 3.0:
-		quarry = target.get_path()
-	net_arrow_rain.rpc(from, up, centre, randi(), quarry)
-	return true
-
-
-## Where the rain falls: on the locked target in reach, else ahead; on the
-## ground under that point.
-func _rain_centre() -> Vector3:
-	var forward := -global_transform.basis.z
-	forward.y = 0.0
-	forward = forward.normalized() if forward.length_squared() > 0.0001 else Vector3.FORWARD
-	var at := global_position + forward * rain_ahead
-	if target != null and _targetable(target):
-		var off := target.global_position - global_position
-		off.y = 0.0
-		at = global_position + off.limit_length(rain_range)
-	var space := get_world_3d().direct_space_state
-	var ray := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 12.0, at + Vector3.DOWN * 20.0, 1)
-	var hit := space.intersect_ray(ray)
-	if not hit.is_empty():
-		at = hit["position"]
-	return at
+	return PlayerBow._arrow_rain(self)
 
 
 ## The rain, on every peer, from the same seed: the shot into the sky, the
@@ -7495,40 +4097,14 @@ var _venom_until: float = 0.0
 ## Something to aim a skill at: what is locked, if it is in `reach`, else the
 ## best thing in front.
 func _skill_quarry(reach: float) -> Node3D:
-	if target != null and _targetable(target) and global_position.distance_to(target.global_position) <= reach:
-		return target
-	var best := _best_target()
-	if best != null and global_position.distance_to(best.global_position) <= reach:
-		return best
-	return null
+	return PlayerBow._skill_quarry(self, reach)
 
 
-func _face_point(at: Vector3) -> void:
-	var toward := at - global_position
-	toward.y = 0.0
-	if toward.length_squared() > 0.01:
-		rotation.y = atan2(-toward.x, -toward.z)
-
-
-#region Hunter's Mark
 ## Hunter's Mark: he points at the prey and a glint flies from his fingers
 ## onto it. For `mark_time` it is marked — the sigil over it, an outline, a
 ## ring on the ground — and every blow on it, anyone's, bites deeper.
 func _hunters_mark() -> bool:
-	if not _is_bow():
-		return false
-	var quarry := _skill_quarry(mark_range)
-	if quarry == null:
-		return false
-	if not _spend(float(SKILLS[&"hunters_mark"]["stamina"])):
-		return false
-	# On the run: he does not stop or turn; the string hand flicks out at the
-	# prey and the glint goes ([method SkinnedArcherRig.point_mark]). A draw
-	# under way is let down — that hand is busy.
-	_drawing = false
-	_draw_timer = 0.0
-	net_hunters_mark.rpc(quarry.get_path())
-	return true
+	return PlayerBow._hunters_mark(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -7573,34 +4149,10 @@ func net_hunters_mark(quarry_path: NodePath) -> void:
 #endregion
 
 
-#region Piercing Arrow
 ## Piercing Arrow: the string held past full while the wind gathers on the
 ## head, then one arrow, flat and fast, through everything on its line.
 func _piercing_arrow() -> bool:
-	if not _is_bow():
-		return false
-	if not _spend(float(SKILLS[&"piercing_arrow"]["stamina"])):
-		return false
-	_drawing = false
-	_draw_timer = 0.0
-	var quarry := _skill_quarry(pierce_reach)
-	# Followed through the draw: body (and so the camera's lock) turn with it.
-	_pierce_quarry = quarry
-	if quarry != null:
-		_face_point(quarry.global_position)
-	var nock := float(rig.call(&"nock_lead", 1.0)) if rig != null and rig.has_method(&"nock_lead") else 0.3
-	_commit(nock + pierce_hold + 0.45)
-	_root(nock + pierce_hold + 0.45)
-	var from := global_position + up_direction * arrow_height
-	var dir := -global_transform.basis.z
-	if quarry != null:
-		dir = HuntingLight._aim_of(quarry) - from
-	dir = dir.normalized()
-	var critical := _shot_rng.randf() < (profile.crit_chance if profile != null else 0.1)
-	var damage := (profile.damage if profile != null else 30.0) * BowKinds.atk(self) * pierce_share \
-			* ((profile.crit_damage if profile != null else 2.0) if critical else 1.0)
-	net_piercing.rpc(dir, damage, critical)
-	return true
+	return PlayerBow._piercing_arrow(self)
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -7685,49 +4237,20 @@ func net_pierce_loose(dir: Vector3, damage: float, critical: bool) -> void:
 ## [method net_react]): whatever skill is under way stops here — no shot, no
 ## glint, no rain — and the string and the stance let go.
 func _interrupt_skill() -> void:
-	_skill_serial += 1
-	_pierce_quarry = null
-	_root_timer = 0.0
-	if rig != null and rig.has_method(&"cancel_skill_shot"):
-		rig.call(&"cancel_skill_shot")
-	if _air_swirl != null and is_instance_valid(_air_swirl):
-		_air_swirl.queue_free()
-	_air_swirl = null
+	PlayerSkills._interrupt_skill(self)
 
 
 ## Through the Piercing Arrow's draw, keeps him turned on what it was drawn at
 ## — quickly, but not in a snap — so a quarry that leaps past him or behind
 ## him is still what the shot goes at. The lock camera follows it as ever.
 func _track_pierce(delta: float) -> void:
-	if _pierce_quarry == null:
-		return
-	if not is_instance_valid(_pierce_quarry) or not is_committed() or is_dead:
-		_pierce_quarry = null
-		return
-	var toward := _pierce_quarry.global_position - global_position
-	toward.y = 0.0
-	if toward.length_squared() < 0.01:
-		return
-	var want := atan2(-toward.x, -toward.z)
-	rotation.y = lerp_angle(rotation.y, want, 1.0 - exp(-14.0 * delta))
-
-
-## Stands him where he is for `seconds`: the way he was going stops now,
-## rather than sliding out.
-func _root(seconds: float) -> void:
-	_root_timer = maxf(_root_timer, seconds)
-	velocity.x = 0.0
-	velocity.z = 0.0
+	PlayerBow._track_pierce(self, delta)
 
 
 ## Where a skill shot leaves from: the head of the arrow on the string, or the
 ## bow hand, or his chest, whichever the rig can say.
 func _arrow_tip() -> Vector3:
-	if rig != null and rig.has_method(&"arrow_tip"):
-		return rig.call(&"arrow_tip")
-	if rig != null and rig.has_method(&"bow_hand"):
-		return rig.call(&"bow_hand")
-	return global_position + up_direction * arrow_height
+	return PlayerBow._arrow_tip(self)
 
 
 #region Stunning Arrow (in Fire Arrow's slot, the user's word 2026-10-05)
@@ -7748,44 +4271,7 @@ const STUN_BRACE := 1.0
 
 
 func _stun_arrow() -> bool:
-	if not _is_bow():
-		return false
-	if not _spend(float(SKILLS[&"stun_arrow"]["stamina"])):
-		return false
-	_drawing = false
-	_draw_timer = 0.0
-	_turn_to_target()
-	# turned on with it through the draw and the hold, as the Piercing Arrow
-	# is and as a drawn string is ([method _track_pierce])
-	if target != null and _targetable(target):
-		_pierce_quarry = target
-	var nock := float(rig.call(&"nock_lead", STUN_BRACE, STUN_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
-	_commit(nock + STUN_HOLD + 0.45)
-	_root(nock + STUN_HOLD + 0.45)
-	net_stun_draw.rpc(_aim_pitch())
-	_stun_loose(nock + STUN_HOLD, _skill_serial)
-	return true
-
-
-## The stunning arrow let go when the draw and the hold are through (cut
-## short if he is hit first, [method _interrupt_skill]).
-func _stun_loose(after: float, serial: int) -> void:
-	await get_tree().create_timer(after, false).timeout
-	if serial != _skill_serial or not is_inside_tree() or is_dead:
-		return
-	_pierce_quarry = null
-	var from := _arrow_tip()
-	var speed := profile.arrow_speed if profile != null else 60.0
-	# at the target, wherever it has stepped to while the shot was held, not
-	# down the body's line as it was braced (the arrow follows it from there)
-	var heading := _shot_heading(from, speed)
-	if target != null and _targetable(target):
-		heading = _aim_direction(from, speed)
-	var damage := (profile.shot_power() if profile != null else 30.0) * BowKinds.atk(self) * stun_share
-	var quarry := NodePath()
-	if target != null and _targetable(target):
-		quarry = target.get_path()
-	net_loose.rpc(from, heading * speed, damage, false, quarry, 1.0, false, stun_chance)
+	return PlayerBow._stun_arrow(self)
 
 
 ## The stunning arrow drawn, on every peer: a skill shot's draw and hold.
@@ -7830,46 +4316,16 @@ func net_stunned(path: NodePath, seconds: float) -> void:
 #endregion
 
 
-#region Fire Arrow
 ## Fire Arrow: the head catches as he draws, the arrow is lobbed to come down
 ## where he aims, and the ground there burns for `fire_time`.
 func _fire_arrow() -> bool:
-	if not _is_bow():
-		return false
-	if not _spend(float(SKILLS[&"fire_arrow"]["stamina"])):
-		return false
-	_drawing = false
-	_draw_timer = 0.0
-	var at := _fire_point()
-	_face_point(at)
-	var nock := float(rig.call(&"nock_lead", 0.0, FIRE_QUICK)) if rig != null and rig.has_method(&"nock_lead") else 0.3
-	_commit(nock + FIRE_HOLD + 0.45)
-	_root(nock + FIRE_HOLD + 0.45)
-	var damage := (profile.damage if profile != null else 30.0) * BowKinds.atk(self) * fire_share
-	net_fire_arrow.rpc(at, damage)
-	return true
+	return PlayerBow._fire_arrow(self)
 
 
 ## How long the burning arrow is held before it goes, and how many times
 ## faster than an ordinary shot it is drawn: a quick shot.
 const FIRE_HOLD := 0.25
 const FIRE_QUICK := 2.0
-
-
-## Where the fire goes: on what is locked in range, else ahead; on the ground.
-func _fire_point() -> Vector3:
-	var forward := -global_transform.basis.z
-	forward.y = 0.0
-	forward = forward.normalized() if forward.length_squared() > 0.0001 else Vector3.FORWARD
-	var at := global_position + forward * fire_ahead
-	var quarry := _skill_quarry(fire_range)
-	if quarry != null:
-		at = quarry.global_position + (global_position - quarry.global_position).normalized() * 0.4
-	var space := get_world_3d().direct_space_state
-	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3.UP * 12.0, at + Vector3.DOWN * 20.0, 1))
-	if not hit.is_empty():
-		at = hit["position"]
-	return at
 
 
 @rpc("any_peer", "call_local", "reliable")
@@ -8097,30 +4553,7 @@ func _decides_here() -> bool:
 ## behind it, the assassin's backstab: a critical worth his `backstab`
 ## ([RogueSkills]); the first cut out of his Vanish a sure critical.
 func cut_worth(target: Node3D = null) -> Array:
-	var worth: Array = [26.0, false] if profile == null else profile.cut(_shot_rng)
-	# Tariel without his shield cuts harder ([member CharacterProfile.bare_damage]),
-	# hardest on his other string (the block button's)
-	if shield_def_off() > 0.0:
-		var other := rig.get(&"_worn_string") != null and int(rig.get(&"_worn_string")) != int(rig.get(&"_main_string"))
-		worth[0] = float(worth[0]) * (profile.bare_other_damage if other else profile.bare_damage)
-	# A heavy blow, or the last cut of a string, is worth more.
-	if rig != null and rig.get(&"cut_weight") != null:
-		worth[0] = float(worth[0]) * float(rig.get(&"cut_weight"))
-	worth[0] = float(worth[0]) * dealt_scale
-	if profile == null:
-		return worth
-	var crit_was := profile.crit_damage if bool(worth[1]) else 1.0
-	var stab := RogueSkills.backstab_of(profile, target)
-	if stab > 1.0 and RogueSkills.behind(self, target):
-		# the backstab is the critical: a roll that came up critical too is not
-		# counted twice
-		worth[0] = float(worth[0]) / crit_was * stab
-		worth[1] = true
-		_backstab_on = target
-	elif _rogue != null and (_rogue.hiding or _rogue.take_ambush()) and not bool(worth[1]):
-		worth[0] = float(worth[0]) * profile.crit_damage
-		worth[1] = true
-	return worth
+	return PlayerMelee.cut_worth(self, target)
 
 
 #region The assassin's Shadow Step, Vanish and backstab ([RogueSkills])
@@ -8273,30 +4706,12 @@ func net_elf_moonfall(at: Vector3, damage: float, critical: bool) -> void:
 ## his feet, nothing. Every peer sees it ([method net_drink]); a creature that
 ## punishes a spell punishes this too (`net_casts`).
 func _drink() -> bool:
-	if flasks_left <= 0 or is_dead or state != State.GROUNDED or is_committed() or _drawing \
-			or _now() < _crumpled_until or not is_on_floor():
-		return false
-	var length := 1.2
-	if rig != null and rig.has_method(&"play_part"):
-		var got := float(rig.call(&"play_part", FLASK_CLIP, flask_rate, 0.0, 1.0, 0.12))
-		if got > 0.0:
-			length = got
-			rig.set(&"walk_under", true)
-	if is_blocking:
-		is_blocking = false
-		block_changed.emit(false)
-	flasks_left -= 1
-	_commit(length)
-	_drink_until = _now() + length
-	_drink_heal_at = _now() + length * flask_heal_at
-	net_casts += 1
-	net_drink.rpc()
-	return true
+	return PlayerSkills._drink(self)
 
 
 ## Whether he is at a flask now.
 func drinking() -> bool:
-	return _now() < _drink_until
+	return PlayerSkills.drinking(self)
 
 
 ## Every peer: the flask's glow about him as he drinks.
@@ -8320,9 +4735,7 @@ func net_drink() -> void:
 ## Healed `amount` (the elf's Moonwell): the host asks, his own peer, where his
 ## health is kept, mends it and shows it.
 func heal(amount: float) -> void:
-	if amount <= 0.0 or is_dead:
-		return
-	net_heal.rpc_id(get_multiplayer_authority(), amount)
+	PlayerSkills.heal(self, amount)
 
 
 @rpc("any_peer", "call_local", "reliable")
