@@ -2160,9 +2160,19 @@ const FOE_SHARE := 0.25
 const POWER_MOST := 1.6
 const POWER_HIT_MOST := 1.2
 const FOE_MOST := 1.4
-const COOP_BOSS := 0.85
+const COOP_BOSS := 1.7
 const COOP_FOE := 0.5
 const COOP_STANCE := 0.5
+## A boss's (or a big one's) stance and poise, each hero past the first: two
+## heroes' blades must not break it twice as often (the user's word,
+## 2026-10-28: with two the golem hardly struck back).
+const COOP_BOSS_STANCE := 0.9
+## Its rests between blows run this much faster, each hero past the first
+## (two: ×0.77 the rest, three ×0.63, four ×0.53); its blows hit no harder.
+const COOP_PACE := 0.3
+## A big one with heroes at it is pushed and bent by a blow no more than this.
+const BIG_SHOVE_MOST := 0.1
+const BIG_FLINCH_MOST := 0.3
 
 
 ## How much heavier the run has made their blows (1: nothing yet).
@@ -2194,7 +2204,17 @@ func hard_factors(i: int, heroes: int, power: float) -> Dictionary:
 		"foe": (minf(1.0 + FOE_SHARE * excess, FOE_MOST) if stage_of(i) >= 6 else 1.0) * (1.0 + COOP_FOE * more),
 		"hit": minf(1.0 + HIT_SHARE * excess, POWER_HIT_MOST),
 		"stance": 1.0 + COOP_STANCE * more,
+		"boss_stance": 1.0 + COOP_BOSS_STANCE * more,
+		"pace": 1.0 + COOP_PACE * more,
 	}
+
+
+## What `heroes` heroes alone ask of a boss (no run's power: tests, F1).
+static func coop_factors(heroes: int) -> Dictionary:
+	var more := float(maxi(heroes, 1) - 1)
+	return {"boss": 1.0 + COOP_BOSS * more, "guard": 1.0 + COOP_BOSS * more, "foe": 1.0 + COOP_FOE * more,
+			"hit": 1.0, "stance": 1.0 + COOP_STANCE * more, "boss_stance": 1.0 + COOP_BOSS_STANCE * more,
+			"pace": 1.0 + COOP_PACE * more}
 
 
 ## Host: place `i` as it wakes, made as hard as the heroes now are.
@@ -2230,18 +2250,35 @@ func net_harden(i: int, f: Dictionary) -> void:
 		# (a big one in a common place is hardened as a boss is: the golem and
 		# the butcher fell to two too soon, 2026-10-28)
 		var big := not guard and (is_boss(i) or HitFeel.is_big(body))
-		var hp := float(f["guard"]) if guard else (float(f["boss"]) if big else float(f["foe"]))
-		FoeRoles._scale_stat(body, &"max_health", hp)
-		if big:
-			FoeRoles._scale_stat(body, &"hit_damage", float(f["hit"]))
-		if "stance" in body:
-			FoeRoles._scale_stat(body, &"stance", float(f["stance"]))
-		# its poise too, or two heroes stagger it twice as often ([GolemFighter])
-		for stat: StringName in [&"poise", &"poise_heavy"]:
-			if stat in body:
-				FoeRoles._scale_stat(body, stat, float(f["stance"]))
-		if "health" in body and "max_health" in body:
-			body.set(&"health", body.get(&"max_health"))
+		Dungeon.harden_body(body, f, big, guard)
+
+
+## One body made as hard as `f` asks ([method hard_factors]): `big` a boss or a
+## big one, `guard` the lord's guard. Every peer, once.
+static func harden_body(body: Node3D, f: Dictionary, big: bool, guard: bool) -> void:
+	var hp := float(f["guard"]) if guard else (float(f["boss"]) if big else float(f["foe"]))
+	FoeRoles._scale_stat(body, &"max_health", hp)
+	# a boss's stance and poise rise faster with heroes than a common one's
+	var hold := float(f.get("boss_stance", f["stance"])) if big else float(f["stance"])
+	if big:
+		FoeRoles._scale_stat(body, &"hit_damage", float(f["hit"]))
+		var pace := float(f.get("pace", 1.0))
+		if "coop_pace" in body:
+			body.set(&"coop_pace", pace)
+		# with others at it, a blow neither pushes it about nor bends it much
+		if pace > 1.0:
+			for pair: Array in [[&"shove_share", BIG_SHOVE_MOST], [&"flinch_share", BIG_FLINCH_MOST]]:
+				var v: Variant = body.get(pair[0])
+				if v is float:
+					body.set(pair[0], minf(float(v), float(pair[1])))
+	if "stance" in body:
+		FoeRoles._scale_stat(body, &"stance", hold)
+	# its poise too, or two heroes stagger it twice as often ([GolemFighter])
+	for stat: StringName in [&"poise", &"poise_heavy"]:
+		if stat in body:
+			FoeRoles._scale_stat(body, stat, hold)
+	if "health" in body and "max_health" in body:
+		body.set(&"health", body.get(&"max_health"))
 
 
 ## The last place's hardness, as it woke (tests).

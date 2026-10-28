@@ -115,6 +115,28 @@ static func on_heal(hero: Node3D, amount: float) -> void:
 			t.add(hero, amount * HEAL)
 
 
+## Host: `hero` strikes a fallen friend up ([Player.net_revive]): every kept
+## creature near that is fighting hears of it, and the last blow most (the
+## user's word, 2026-10-28: raising a friend mid-fight is a risk, not a gift).
+static func on_revive(hero: Node3D, last: bool) -> void:
+	if hero == null or not hero.is_inside_tree():
+		return
+	for node in hero.get_tree().get_nodes_in_group(GROUP):
+		var body := node as Node3D
+		if body == null or not body.has_meta(&"threat") or body.get(&"is_dead") == true:
+			continue
+		if body.global_position.distance_to(hero.global_position) > HEAL_REACH:
+			continue
+		var t := body.get_meta(&"threat") as Threat
+		if not t._anger.is_empty():
+			t.add(hero, REVIVE_LAST if last else REVIVE_BLOW)
+
+
+## What each blow of a raising angers it, and the one that raises him.
+const REVIVE_BLOW := 45.0
+const REVIVE_LAST := 140.0
+
+
 func add(who: Node3D, worth: float) -> void:
 	var id := who.get_instance_id()
 	_anger[id] = float(_anger.get(id, 0.0)) + worth

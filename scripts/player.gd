@@ -5000,9 +5000,11 @@ var _revive_blows := 0
 
 
 ## Host: a friend's blade on him while he is down. The fourth raises him.
-func _revive_blow() -> void:
+func _revive_blow(by: Player) -> void:
 	_revive_blows += 1
 	net_revive_mark.rpc(_revive_blows)
+	# the bosses near turn on the one raising him ([Threat])
+	Threat.on_revive(by, _revive_blows >= REVIVE_BLOWS)
 	if _revive_blows >= REVIVE_BLOWS:
 		_revive_blows = 0
 		net_revive.rpc_id(get_multiplayer_authority())
@@ -5047,7 +5049,7 @@ func untouchable_now(by: Node = null) -> bool:
 func receive_hit(hit: HitInfo) -> bool:
 	var source := hit.attacker()
 	if source is Player and fallen_friend() and not (source as Player).is_hostile_to(self):
-		_revive_blow()
+		_revive_blow(source as Player)
 		return false
 	if is_dead or source == null:
 		return false

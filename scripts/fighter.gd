@@ -56,6 +56,9 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var band: StringName = &""
 ## Middle of the ground the band holds. Zero means "where it was put".
 @export var camp_centre: Vector3 = Vector3.ZERO
+## How much faster its rests between blows run out (a boss with more heroes at
+## it: [method Dungeon.harden_body]); its blows themselves keep their weight.
+var coop_pace: float = 1.0
 ## The dungeon it fights in, looked up once ([method _keep_in_room]).
 var _dun_seen: Dungeon = null
 var _dun_looked := false
@@ -293,7 +296,8 @@ func _physics_process(delta: float) -> void:
 	# held in a bite ([HitFeel]): the move's clock stops with its clip, or the
 	# blow lands on the clock while the clip still stands
 	_act_time += delta * HitFeel.pace(self)
-	_cooldown = maxf(_cooldown - delta, 0.0)
+	# (its rests between blows run faster with more heroes at it: [member coop_pace])
+	_cooldown = maxf(_cooldown - delta * coop_pace, 0.0)
 	_regen_wait = maxf(_regen_wait - delta, 0.0)
 	if act != Act.BLOCK and act != Act.BREAK and _regen_wait <= 0.0:
 		stamina = minf(stamina + stamina_regen * delta, max_stamina)
