@@ -256,7 +256,7 @@ func _process(_delta: float) -> void:
 			if hero.is_dead:
 				continue
 			for l: Dictionary in _lights:
-				var node := l["node"] as Node3D
+				var node: Node3D = l["node"] as Node3D if is_instance_valid(l["node"]) else null
 				if not is_instance_valid(node):
 					continue
 				var gap := Vector2(hero.global_position.x - node.global_position.x,

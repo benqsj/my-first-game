@@ -860,7 +860,7 @@ static func _lift_quiver(figure: Node3D, on: Dictionary) -> void:
 static func wear_style(figure: Node3D, style: String) -> void:
 	var models := String(STYLE_MODELS.get(style, style))
 	for s: Array in figure.get_meta(&"aw_surfs", []):
-		var mesh := s[0] as MeshInstance3D
+		var mesh: MeshInstance3D = s[0] as MeshInstance3D if is_instance_valid(s[0]) else null
 		if not is_instance_valid(mesh):
 			continue
 		var own := String(s[2])

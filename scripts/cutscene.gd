@@ -148,7 +148,7 @@ func _frame(delta: float) -> void:
 	k = k * k * (3.0 - 2.0 * k)
 	var at: Vector3 = (_move["from"] as Vector3).lerp(_move["to"], k)
 	var look: Vector3 = (_move["look"] as Vector3).lerp(_move["look_to"], k)
-	var track := _move["track"] as Node3D
+	var track: Node3D = _move["track"] as Node3D if is_instance_valid(_move["track"]) else null
 	if track != null and is_instance_valid(track):
 		look = track.global_position + Vector3.UP * float(_move["lift"])
 	if _shake > 0.001:

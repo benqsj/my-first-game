@@ -952,7 +952,7 @@ func fade(amount: float) -> void:
 		for node in find_children("*", "GeometryInstance3D", true, false):
 			_fading.append(node)
 	for node in _fading:
-		var g := node as GeometryInstance3D
+		var g: GeometryInstance3D = node as GeometryInstance3D if is_instance_valid(node) else null
 		if not is_instance_valid(g):
 			continue
 		g.transparency = amount
@@ -1439,7 +1439,7 @@ func _open_stump(top: int, at: Vector3, radius: float) -> void:
 func _bleed(delta: float) -> void:
 	for i in range(_stumps.size() - 1, -1, -1):
 		var s: Dictionary = _stumps[i]
-		var cap := s["cap"] as Node3D
+		var cap: Node3D = s["cap"] as Node3D if is_instance_valid(s["cap"]) else null
 		if not is_instance_valid(cap) or int(s["pulses"]) <= 0:
 			_stumps.remove_at(i)
 			continue

@@ -1781,7 +1781,7 @@ func _show_roots(share: float, way: Dictionary) -> void:
 	var strain := smoothstep(float(way["grip"]), float(way["heave"]), share) if act == W_UPROOT else 0.0
 	var into := Blood.world_of(self)
 	for r: Dictionary in _up_roots:
-		var mi := r["n"] as MeshInstance3D
+		var mi: MeshInstance3D = r["n"] as MeshInstance3D if is_instance_valid(r["n"]) else null
 		if mi == null or not is_instance_valid(mi):
 			continue
 		var k := clampf((_up_age - float(r["d"])) / 0.3, 0.0, 1.0)
@@ -1803,7 +1803,7 @@ func _roots_torn() -> void:
 	var s := visual_scale / 1.6
 	var to := _rising.global_position if _rising != null and is_instance_valid(_rising) else global_position
 	for r: Dictionary in _up_roots:
-		var mi := r["n"] as MeshInstance3D
+		var mi: MeshInstance3D = r["n"] as MeshInstance3D if is_instance_valid(r["n"]) else null
 		if mi == null or not is_instance_valid(mi):
 			continue
 		var at := mi.global_position
@@ -1822,7 +1822,7 @@ func _roots_torn() -> void:
 ## Every peer: its roots let sink back into the ground (cut short).
 func _roots_sink() -> void:
 	for r: Dictionary in _up_roots:
-		var mi := r["n"] as MeshInstance3D
+		var mi: MeshInstance3D = r["n"] as MeshInstance3D if is_instance_valid(r["n"]) else null
 		if mi == null or not is_instance_valid(mi):
 			continue
 		var tw := mi.create_tween()

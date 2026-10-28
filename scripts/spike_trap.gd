@@ -326,7 +326,7 @@ func show_active() -> void:
 func _process(delta: float) -> void:
 	if _shown:
 		for dart in _darts:
-			var node := dart["node"] as Node3D
+			var node: Node3D = dart["node"] as Node3D if is_instance_valid(dart["node"]) else null
 			if is_instance_valid(node) and float(dart["gone"]) < 2.2:
 				node.global_position += (dart["dir"] as Vector3) * DART_SPEED * delta
 				dart["gone"] = float(dart["gone"]) + DART_SPEED * delta

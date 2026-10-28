@@ -74,7 +74,7 @@ func net_drop(at: Vector3, amount: int, id: int) -> void:
 func net_taken(id: int, hero: NodePath) -> void:
 	if not _from_host():
 		return
-	var pile := _piles.get(id) as Coins
+	var pile: Coins = _piles.get(id) as Coins if is_instance_valid(_piles.get(id)) else null
 	_piles.erase(id)
 	if pile != null and is_instance_valid(pile):
 		pile.fly_into(get_node_or_null(hero) as Node3D)
@@ -84,7 +84,7 @@ func _physics_process(_delta: float) -> void:
 	if not _host() or _piles.is_empty():
 		return
 	for id: int in _piles.keys():
-		var pile := _piles[id] as Coins
+		var pile: Coins = _piles[id] as Coins if is_instance_valid(_piles[id]) else null
 		if pile == null or not is_instance_valid(pile):
 			_piles.erase(id)
 			continue

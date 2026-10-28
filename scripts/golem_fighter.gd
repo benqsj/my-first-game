@@ -1251,7 +1251,7 @@ func _run_stones(delta: float) -> void:
 		var centre := global_position + Vector3.UP * 2.2 * s
 		var k := clampf((t - 0.35) / 1.35, 0.0, 1.0)
 		for st in _stones:
-			var c := st.n as Node3D
+			var c: Node3D = st.n as Node3D if is_instance_valid(st.n) else null
 			if not is_instance_valid(c):
 				continue
 			if act != G_HURL or t < 0.35:
@@ -1277,7 +1277,7 @@ func _run_stones(delta: float) -> void:
 	var frame := Engine.get_process_frames()
 	for i in range(_stones.size() - 1, -1, -1):
 		var st := _stones[i]
-		var c := st.n as Node3D
+		var c: Node3D = st.n as Node3D if is_instance_valid(st.n) else null
 		if not is_instance_valid(c):
 			_stones.remove_at(i)
 			continue
@@ -1487,7 +1487,7 @@ func _end_shot(i: int) -> void:
 		GroundFx.weapon_dust(world, Vector3(p.x, global_position.y, p.z), 1.0)
 	if is_instance_valid(sh.lens):
 		(sh.lens as Node).queue_free()
-	var tail := sh.tail as MeshInstance3D
+	var tail: MeshInstance3D = sh.tail as MeshInstance3D if is_instance_valid(sh.tail) else null
 	if is_instance_valid(tail):
 		var tm := sh.tm as ShaderMaterial
 		var tw := tail.create_tween()
@@ -1509,7 +1509,7 @@ func _run_shots(delta: float) -> void:
 		sh.step = int(sh.step) + 1
 		var p: Vector3 = sh.p
 		var dir: Vector3 = sh.dir
-		var who := sh.who as Node3D
+		var who: Node3D = sh.who as Node3D if is_instance_valid(sh.who) else null
 		if who != null and is_instance_valid(who):
 			var want := (who.global_position + Vector3.UP * 1.1 - p).normalized()
 			var ang := dir.angle_to(want)
@@ -1520,12 +1520,12 @@ func _run_shots(delta: float) -> void:
 		sh.p = p
 		sh.dir = dir
 		var beat := 1.0 + 0.06 * sin(float(sh.t) * 26.0)
-		var lens := sh.lens as Node3D
+		var lens: Node3D = sh.lens as Node3D if is_instance_valid(sh.lens) else null
 		if is_instance_valid(lens):
 			lens.global_transform = Transform3D(_along(dir, 0.55 * beat * s, 0.75 * beat * s), p)
 		var grow := minf(float(sh.grow) + 4.2 * delta, 2.6) * s
 		sh.grow = grow / s
-		var tail := sh.tail as Node3D
+		var tail: Node3D = sh.tail as Node3D if is_instance_valid(sh.tail) else null
 		if is_instance_valid(tail):
 			tail.visible = true
 			tail.global_transform = Transform3D(_along(dir, s, grow), p - dir * (grow * 0.5 + 0.2 * s))

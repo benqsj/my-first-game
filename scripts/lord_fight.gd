@@ -357,7 +357,7 @@ func _flare(times: float, seconds: float) -> void:
 		var r := _d._room(_i)
 		var reach := maxf(float(r["w"]), float(r["l"])) * 0.6
 		for f: Dictionary in _d._fire_lights:
-			var light := f["light"] as OmniLight3D
+			var light: OmniLight3D = f["light"] as OmniLight3D if is_instance_valid(f["light"]) else null
 			if is_instance_valid(light) and light.global_position.distance_to(c) < reach:
 				_flare_lights.append({"f": f, "base": float(f["base"])})
 	for entry in _flare_lights:
