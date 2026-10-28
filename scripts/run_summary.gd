@@ -106,6 +106,22 @@ func _ready() -> void:
 		tw.tween_callback(queue_free)
 
 
+## Back in the village by itself in `seconds` (with friends: [Dungeon]); the
+## button counts them down.
+func back_in(seconds: float) -> void:
+	_back_at = Time.get_ticks_msec() / 1000.0 + seconds
+
+
+var _back_at := -1.0
+
+
+func _process(_delta: float) -> void:
+	if _back_at < 0.0 or _rise == null or _risen:
+		return
+	var left := ceili(maxf(_back_at - Time.get_ticks_msec() / 1000.0, 0.0))
+	_rise.text = "გაცოცხლდი სოფელში   [F]   %d" % left
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if _rise == null or _risen or event.is_echo():
 		return

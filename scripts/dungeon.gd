@@ -448,6 +448,8 @@ var _told_down: Dictionary = {}
 var _wipe_since := -1.0
 ## How long all must be down before the run is lost.
 const WIPE_AFTER := 2.5
+## With friends, the lost run's summary stays this long, then all go back.
+const WIPE_BACK_AFTER := 20.0
 var _watched: Dictionary = {}
 var _layer: CanvasLayer
 var _banner: Label
@@ -1771,9 +1773,11 @@ func _next_wave() -> void:
 
 
 ## One of the next wave out of the rift at `spot`.
-func _step_out(body: Node3D, spot: Vector3, l: float) -> void:
-	if not is_instance_valid(body) or bool(body.get("is_dead")):
+func _step_out(who: Variant, spot: Vector3, l: float) -> void:
+	# (untyped: freed before the timer ran, a typed one errors)
+	if not is_instance_valid(who) or bool((who as Node3D).get("is_dead")):
 		return
+	var body := who as Node3D
 	body.global_position = spot
 	body.visible = true
 	body.process_mode = Node.PROCESS_MODE_INHERIT
@@ -2644,8 +2648,16 @@ func _check_wipe() -> void:
 	# the run's summary up, and he goes back when he says so (the user's
 	# word, 2026-10-21: a button to rise in the village, the numbers to look
 	# at till then); no run (a room looked round): out after a moment
-	if end_run(false) == null:
+	var summary := end_run(false)
+	if summary == null:
 		_back_out_at = Time.get_ticks_msec() / 1000.0 + BACK_OUT_AFTER
+	elif online():
+		# with friends: everyone back in the village by itself after a while
+		# if nobody presses (the user's word, 2026-10-28: both fell, and
+		# nothing more happened); each sees his own numbers till then
+		summary.back_in(WIPE_BACK_AFTER)
+		if decides():
+			_back_out_at = Time.get_ticks_msec() / 1000.0 + WIPE_BACK_AFTER
 
 
 ## Straight into `place` to look round it (the user's word, 2026-10-21: to

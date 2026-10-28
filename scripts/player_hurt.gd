@@ -46,6 +46,10 @@ static func receive_blow(me: Player, damage: float, from: Node3D, blow: int = 0,
 	# held at the top of its wind-up, then brought down: "@h"
 	if not named.is_empty() and from.has_method(&"blow_held") and bool(from.call(&"blow_held")):
 		named = StringName(String(named) + "@h")
+	# a common creature's blow never takes all of him at once (the user's
+	# word, 2026-10-28: a wolf's leap from above felled the mage)
+	if not HitFeel.is_big(from):
+		damage = minf(damage, me.max_health * Player.MOST_OF_ONE_BLOW)
 	me.net_blow.rpc_id(me.get_multiplayer_authority(), damage, PlayerHurt._swept(me, away.normalized()), from.global_position,
 			key, blow, blows, magic, named)
 

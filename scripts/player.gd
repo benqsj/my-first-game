@@ -1581,8 +1581,10 @@ func _climb_mask() -> int:
 ## word, 2026-10-22: the players must not pass through each other), but no
 ## one climbs onto another or stands on his head.
 const HERO_LAYER := 2
-## The most of his health one blow can take: hard, never one blow from full.
-const MOST_OF_ONE_BLOW := 0.6
+## The most of his health one common creature's blow can take, before his
+## armour ([PlayerHurt]): never felled from full by a wolf (bosses and big
+## ones keep their heavy blows: [method HitFeel.is_big]).
+const MOST_OF_ONE_BLOW := 0.7
 
 
 ## The physics layer every creature's body is on (4: the third).
@@ -2632,9 +2634,6 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# What his armour takes off it — or, a spell's, his m.def. (Tariel's
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic) * taken_scale
-	# no one blow takes more than this share of him (the user's word,
-	# 2026-10-28: a wolf's leap from above felled the mage at once)
-	damage = minf(damage, max_health * MOST_OF_ONE_BLOW)
 	var how := _blow_kind(combo)
 	_blow_held = String(named).ends_with("@h")
 	var bare := String(named).trim_suffix("@h")
