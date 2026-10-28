@@ -302,6 +302,9 @@ var _sweeps: Array[WeaponSweep] = []
 var _attack_clock: float = 0.0
 const SWIPE_LIVE := Vector2(0.44, 0.74)
 const POUNCE_LIVE := Vector2(0.5, 0.86)
+## A leap's blow against a lone swipe's (the user's word, 2026-10-28: a leap
+## from above took the mage's whole health).
+const POUNCE_SHARE := 0.7
 
 ## Its hand-to-hand, beyond the swipe (the grab and headbutt taken out at the
 ## user's word: it did not read): each move a clip ([WolfRig]), when in
@@ -1578,7 +1581,7 @@ func _arm_claws(live: Vector2, pounce: bool) -> void:
 	_chain_blow += 1
 	var blows := maxi(_chain_len, 2)
 	var chain := _chain if _chain_len > 1 else serial
-	var hurt_by := swipe_damage * (0.72 if _chain_len > 1 else 1.0)
+	var hurt_by := swipe_damage * (0.72 if _chain_len > 1 else (POUNCE_SHARE if pounce else 1.0))
 	_sweeps.append(WeaponSweep.blow(_claw_parts.bind(pounce), 2.5, live.x, live.y, serial,
 			func(who: Node3D) -> void:
 				if not is_dead and rig != null:

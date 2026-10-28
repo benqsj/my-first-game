@@ -48,7 +48,8 @@ static func _tick_bow(me: Player, delta: float) -> void:
 		me._draw_timer += delta
 		# Held, a draw or a charge costs breath as it goes; run out and it goes.
 		var drain := me.profile.draw_stamina if me.profile != null else 0.0
-		if drain > 0.0:
+		# (full, the hold costs no more: only the gathering does)
+		if drain > 0.0 and PlayerBow.draw_power(me) < 1.0:
 			me._spend(drain * delta)
 			if me.stamina <= 0.0:
 				PlayerBow._loose_arrow(me)

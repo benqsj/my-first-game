@@ -493,11 +493,19 @@ static func _turn(from: Vector3, to: Vector3, most: float) -> Vector3:
 	return from.rotated(axis.normalized(), most).normalized()
 
 
+func _sweep(from: Vector3, to: Vector3) -> Dictionary:
+	var none: Array[RID] = []
+	return _sweep_past(from, to, none)
+
+
 func _sweep_past(from: Vector3, to: Vector3, past: Array[RID]) -> Dictionary:
 	var exclude: Array[RID] = past.duplicate()
-	if _shooter is CollisionObject3D:
+	if is_instance_valid(_shooter) and _shooter is CollisionObject3D:
 		exclude.append((_shooter as CollisionObject3D).get_rid())
 	var query := PhysicsRayQueryParameters3D.create(from, to, 3 if against_heroes else 5, exclude)
+	# a bolt that ended up inside a body (flown through a dash, or walked
+	# into while slow) strikes it, not circling inside it for its lifetime
+	query.hit_from_inside = true
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
 

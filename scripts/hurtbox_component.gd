@@ -84,7 +84,10 @@ func _body() -> Node3D:
 
 func _decides() -> bool:
 	var body := _body()
-	if body == null or body.get(&"is_dead") == true:
+	if body == null:
+		return false
+	# a fallen hero still takes a friend's blade: it raises him ([Player.fallen_friend])
+	if body.get(&"is_dead") == true and not (body is Player and (body as Player).fallen_friend()):
 		return false
 	if body.has_method(&"_decides"):
 		return bool(body.call(&"_decides"))

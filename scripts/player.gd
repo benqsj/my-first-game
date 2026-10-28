@@ -636,6 +636,7 @@ var net_blocking: bool = false
 var net_casts: int = 0
 var net_crouching: bool = false
 var net_airborne: bool = false
+var net_levitating: bool = false
 var net_stowed: bool = false
 ## How far the string is back and where it is pointed. Without these a remote
 ## archer stands with his bow down and an arrow simply appears — the draw is
@@ -1014,6 +1015,7 @@ func _publish_net_state() -> void:
 	net_blocking = is_blocking
 	net_crouching = _crouching
 	net_airborne = not is_on_floor()
+	net_levitating = _levitating
 	net_stowed = weapons_stowed()
 	net_draw = draw_power() if _drawing else 0.0
 	net_aim = _aim_pitch() if has_bow() else 0.0
@@ -1108,6 +1110,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_resolve_contacts()
 	_slip_off_creatures()
+	_keep_off_heroes()
 	_update_floor_state()
 
 
@@ -1202,7 +1205,8 @@ func _is_bow() -> bool:
 
 ## True while a held jump is holding the body up on the way down.
 func is_levitating() -> bool:
-	return _levitating
+	# (others see her float by the synced state: physics runs only on hers)
+	return _levitating if is_multiplayer_authority() else net_levitating
 
 
 ## How much of the world's gravity the shot falls with.
@@ -1577,6 +1581,8 @@ func _climb_mask() -> int:
 ## word, 2026-10-22: the players must not pass through each other), but no
 ## one climbs onto another or stands on his head.
 const HERO_LAYER := 2
+## The most of his health one blow can take: hard, never one blow from full.
+const MOST_OF_ONE_BLOW := 0.6
 
 
 ## The physics layer every creature's body is on (4: the third).
@@ -1590,6 +1596,28 @@ func _slip_off_creatures() -> void:
 
 
 const CREATURE_SLIP_SPEED := 4.5
+
+
+## The heroes a body's width apart, whatever the wire's lag (the user's word,
+## 2026-10-28: in co-op they went through each other like ghosts). Each owner
+## eases his own hero out of the others as he sees them.
+func _keep_off_heroes() -> void:
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var other := node as Player
+		if other == null or other == self or other.is_dead or other.net_dead:
+			continue
+		var gap := global_position - other.global_position
+		if absf(gap.y) > 1.6:
+			continue
+		gap.y = 0.0
+		var d := gap.length()
+		if d < HERO_GAP:
+			var out := gap / d if d > 0.001 else global_basis.z
+			move_and_collide(out * minf(HERO_GAP - d, 0.15))
+
+
+## Two heroes' middles no nearer than this (two capsules' width).
+const HERO_GAP := 0.8
 
 
 func _try_climb() -> bool:
@@ -2604,6 +2632,9 @@ func net_blow(damage: float, away: Vector3, source: Vector3, combo: String,
 	# What his armour takes off it — or, a spell's, his m.def. (Tariel's
 	# Challenge stands his p.def higher while it holds, [TarielChallenge].)
 	damage = Defence.against(damage, p_def * TarielChallenge.guard(self) - shield_def_off(), m_def, magic) * taken_scale
+	# no one blow takes more than this share of him (the user's word,
+	# 2026-10-28: a wolf's leap from above felled the mage at once)
+	damage = minf(damage, max_health * MOST_OF_ONE_BLOW)
 	var how := _blow_kind(combo)
 	_blow_held = String(named).ends_with("@h")
 	var bare := String(named).trim_suffix("@h")
@@ -3749,6 +3780,7 @@ func _die() -> void:
 
 func _respawn() -> void:
 	is_dead = false
+	_revive_blows = 0
 	health = max_health
 	flasks_left = flask_count
 	_drink_heal_at = -1.0
@@ -4934,15 +4966,69 @@ func hurtbox() -> HurtboxComponent:
 		box.set_capsule(0.4, 1.85, 0.15)
 		box.blade_feedback = false
 		box.may_strike = func(attacker: Node3D) -> bool:
-			return attacker is Player and (attacker as Player).is_hostile_to(self)
+			var knight := attacker as Player
+			if knight == null:
+				return false
+			if fallen_friend():
+				return not knight.is_hostile_to(self) and not (knight.is_dead or knight.net_dead)
+			return knight.is_hostile_to(self)
 	return box
 
 
 ## In PvP, once a tick on the host: every hostile hero's blade against him.
+## Fallen beside a friend: the friend's blade, to raise him ([method _revive_blow]).
 func _watch_pvp_blades() -> void:
-	if not pvp_mode or is_dead or not _decides_here():
+	if not _decides_here():
+		return
+	if fallen_friend():
+		hurtbox().scan()
+		return
+	if not pvp_mode or is_dead:
 		return
 	hurtbox().scan()
+
+
+## Down with others in the game, not in a duel: a friend can raise him.
+func fallen_friend() -> bool:
+	return (is_dead or net_dead) and not pvp_mode and multiplayer.has_multiplayer_peer() \
+			and not multiplayer.get_peers().is_empty()
+
+
+## Blows of a friend's blade that raise a fallen hero (the user's word,
+## 2026-10-28: "struck four times with the sword, he gets up").
+const REVIVE_BLOWS := 4
+var _revive_blows := 0
+
+
+## Host: a friend's blade on him while he is down. The fourth raises him.
+func _revive_blow() -> void:
+	_revive_blows += 1
+	net_revive_mark.rpc(_revive_blows)
+	if _revive_blows >= REVIVE_BLOWS:
+		_revive_blows = 0
+		net_revive.rpc_id(get_multiplayer_authority())
+
+
+## Every peer: a blow of the raising seen on him (a light gathering, more each time).
+@rpc("any_peer", "call_local", "reliable")
+func net_revive_mark(count: int) -> void:
+	var world := Blood.world_of(self)
+	if world == null:
+		return
+	var at := global_position + Vector3.UP * 0.4
+	SkillFx.burst(world, at, Color(1.0, 0.85, 0.45), 16 + count * 10, Vector2(1.0, 3.5), Vector3.UP, 120.0,
+			Vector2(0.04, 0.1), Vector3(0, -0.5, 0), 0.8)
+
+
+## His own peer: up again where he lies, with half his health.
+@rpc("any_peer", "call_local", "reliable")
+func net_revive() -> void:
+	if not is_multiplayer_authority() or not is_dead:
+		return
+	var at := global_position
+	_respawn()
+	global_position = at
+	health = max_health * 0.5
 
 
 ## A hero's blow on him ([HurtboxComponent.take], host): scaled by the
@@ -4961,6 +5047,9 @@ func untouchable_now(by: Node = null) -> bool:
 
 func receive_hit(hit: HitInfo) -> bool:
 	var source := hit.attacker()
+	if source is Player and fallen_friend() and not (source as Player).is_hostile_to(self):
+		_revive_blow()
+		return false
 	if is_dead or source == null:
 		return false
 	var damage := hit.damage
