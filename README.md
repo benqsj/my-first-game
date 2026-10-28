@@ -2300,6 +2300,32 @@ spinning between them; ordinary creatures still do.
   `Fighter` and `Brute`), and it waits 0.7 s before it swings at the new one.
 * With equal blows, a hero cutting it from behind takes it from the one in
   front in about 5 s (`_shots_tmp/threat_probe.gd`, 2026-10-25).
+* **Turns of its own** (`Threat.turn_to(body, who, worth)`): a boss's own
+  move onto another (a blow from behind answered, one far off gone for, a
+  string's next blow swung onto another) angers it at him, holds it on him as
+  a turn does and flares its eyes on every peer.
+
+#### The ogre against several (2026-10-28, project doc claude/boss_coop_plan.md)
+
+Only with two or more heroes up near it; one alone fights it as before
+(`OgreFighter`, region Co-op; ranges in m at size 1.6, grown with it).
+* **Round itself**: two or more within `ring_reach` (3.4) and one at its side
+  or back: its whirl, or its foot stamp into the whirl (`stamp`); then not
+  for `ring_cooldown` 7–11 s (quicker by `ring_quicker` per hero over two).
+* **At its back**: one not its quarry who cuts it from behind 2 times in 4 s,
+  or stands there 2.5 s (within `rear_reach` 4.2): turned on, it wheels round
+  at him through its wind-up (tracking `wheel_rate` x2.6, committing
+  `wheel_commit` 0.14 s before the blow) into `turn_back` (backhand, the club
+  down; enraged a whirl after). Then not for 5–8 s.
+* **Mid-string**: its quarry down, out of reach or round its back, the next
+  blow goes onto another in reach within 120° (a wheel as above); now and then
+  (0.3) onto one clearly nearer before it. At most 2 a string.
+* **From afar**: one past `far_from` 7 who hurts it from there 3 times in 6 s,
+  or casts there, is gone for: its leap if within 1.35 x its leap's reach,
+  else its run and spring. Then not for 9–14 s.
+* Its stamp (get off me) now goes for whoever is under it, not only its quarry.
+* Film probe (not a test): `_shots_tmp/ogre_coop/film.gd -- <dir> old|new [frames]`
+  (front, back and a far caster, hardened for three).
 
 ### Arkdeva's poison
 

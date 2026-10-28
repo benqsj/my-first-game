@@ -431,6 +431,49 @@ const ARMS := [["", 1.0, 0.92, 0.4], ["MorningStar", 1.2, 0.87, 0.2], ["GreatHam
 ## it found him ([Player.receive_blow]). Shorter strings end on a stagger.
 @export var finisher_from: Vector2i = Vector2i(3, 4)
 
+@export_group("Co-op")
+## (the user's word, 2026-10-28: two, three or four must not kill it easily —
+## it must strike them all, project doc claude/boss_coop_plan.md) only with
+## more than one hero at it; one alone fights it as before. Ranges in m at
+## `visual_scale` 1.6, grown with it.
+## Round itself: two or more within `ring_reach`, one of them at its side or
+## back — its whirl, or its stamp into the whirl; then not for
+## `ring_cooldown` s (that wait runs `ring_quicker` faster for each hero over
+## two).
+@export var ring_reach: float = 3.4
+@export var ring_cooldown: Vector2 = Vector2(7.0, 11.0)
+@export var ring_quicker: float = 0.25
+## At its back: one who is not its quarry and cuts it from behind
+## `rear_hits` times in `rear_window` s, or stands there `rear_stand` s
+## (within `rear_reach`), is turned on — it wheels round at him into its
+## backhand and the club down on him (`turn_back`); then not for
+## `rear_cooldown` s.
+@export var rear_hits: int = 2
+@export var rear_window: float = 4.0
+@export var rear_stand: float = 2.5
+@export var rear_reach: float = 4.2
+@export var rear_cooldown: Vector2 = Vector2(5.0, 8.0)
+## Turned round onto another mid-act, it tracks this many times quicker than
+## its own (and commits no sooner than `wheel_commit` s before the blow).
+@export var wheel_rate: float = 2.6
+@export var wheel_commit: float = 0.14
+## Through a string: its quarry down, out of its reach or round its back, the
+## next blow goes onto another in its reach (within `switch_turn` degrees of
+## where it faces); and now and then (`switch_chance`) when another stands
+## clearly nearer before it. At most `switch_most` times a string.
+@export var switch_chance: float = 0.3
+@export var switch_turn: float = 120.0
+@export var switch_most: int = 2
+## From afar: one off past `far_from` who hurts it from there `far_hits`
+## times in `far_window` s, or casts there, is gone for — its leap onto him,
+## or its run and spring from further; then not for `far_cooldown` s.
+@export var far_from: float = 7.0
+@export var far_hits: int = 3
+@export var far_window: float = 6.0
+@export var far_cooldown: Vector2 = Vector2(9.0, 14.0)
+## The anger a turn of its own puts on the one it turns on ([method Threat.turn_to]).
+@export var coop_anger: float = 40.0
+
 const SOUNDS := "res://sounds/ogre/"
 const WHOOSH_HEAVY := SOUNDS + "whoosh_heavy.wav"
 const WHOOSH_LIGHT := SOUNDS + "whoosh_light.wav"
@@ -571,6 +614,10 @@ const COMBOS := [
 			"rage_only": true},
 	{"name": &"storm", "moves": [OG_HORIZ, OG_BACK, OG_HORIZ, OG_BACK, OG_DOWN_HELD], "fells": [4],
 			"weight": 0.8, "rage_only": true},
+	# One at its back (co-op, [member rear_hits]): wheeled round at him into
+	# the backhand, the club down on him (never weighed: opened only so).
+	{"name": &"turn_back", "moves": [OG_BACK, OG_DOWN], "fells": [1], "weight": 0.0,
+			"rage": [OG_SPIN]},
 	# The pound three times, its rock further each time (opened when its pound
 	# is due, never weighed among the others).
 	{"name": &"triple_pound", "moves": [POUND, POUND_2, POUND_3], "fells": [], "weight": 0.0,
@@ -795,6 +842,27 @@ var _body_rest_xz := Vector2.ZERO
 var _trembling: bool = false
 var _strain_serial: int = -1
 
+## Host, co-op ([member ring_reach] and on): its own clock, the waits, the
+## cuts from behind and from afar by hero id (clock times), how long each has
+## stood at its back, the casts seen, the far one it goes for next, its turns
+## onto another in this string, and the act it wheels round in.
+var _coop_clock: float = 0.0
+var _ring_wait: float = 3.0
+var _rear_wait: float = 2.0
+var _far_wait: float = 4.0
+var _rear_cuts: Dictionary = {}
+var _far_cuts: Dictionary = {}
+var _behind_for: Dictionary = {}
+var _far_casts: Dictionary = {}
+var _far_due: Node3D = null
+var _switches: int = 0
+var _wheel_next: bool = false
+var _wheel_serial: int = -1
+var rings_made: int = 0
+var rears_made: int = 0
+var switches_made: int = 0
+var fars_made: int = 0
+
 
 ## Its ranges in metres, written for an ogre at `visual_scale` 1.6 and grown
 ## with it (the rest scale where they are used, by `visual_scale / 1.6`).
@@ -948,6 +1016,8 @@ func _own_move(delta: float) -> bool:
 	_lunge_wait = maxf(_lunge_wait - delta, 0.0)
 	_kick_wait = maxf(_kick_wait - delta, 0.0)
 	if _getoff(_distance_to(_quarry)):
+		return true
+	if _coop_answer(delta):
 		return true
 	_leap_slam_wait = maxf(_leap_slam_wait - delta, 0.0)
 	_run_slam_wait = maxf(_run_slam_wait - delta, 0.0)
@@ -1860,6 +1930,7 @@ func start_combo(which: int) -> void:
 ## A string begun with `what`.
 func _open(what: int) -> void:
 	_string_count = 0
+	_switches = 0
 	if _quarry != null:
 		_prowl_home = Vector3(global_position.x - _quarry.global_position.x, 0.0,
 				global_position.z - _quarry.global_position.z).normalized()
@@ -2132,6 +2203,7 @@ func _follow(what: int) -> Dictionary:
 ## What the string runs on into after `what`, or -1: weighed, never the same
 ## swing twice running, only one that lands from where he is now.
 func _next_in_string(what: int) -> int:
+	_switch_in_string()
 	if _combo >= 0:
 		# a combo: its next move, whatever (only him down, or out of breath,
 		# break it off)
@@ -2271,10 +2343,14 @@ func _commit_at(what: int) -> float:
 		# after him till the last 15 % of its dash
 		return ms[0] - maxf(0.15 * (ms[0] - _spin_from), 0.06)
 	var heavy := _is_heavy(what)
+	if act_serial == _wheel_serial:
+		return ms[0] - wheel_commit
 	return ms[0] - (commit_lead.y if heavy else commit_lead.x)
 
 
 func _track_rate(what: int) -> float:
+	if act_serial == _wheel_serial:
+		return turn_speed * wheel_rate
 	if FLIGHTS.has(what) or what == LUNGE:
 		return turn_speed * 1.3
 	if what == CATCH:
@@ -2735,6 +2811,7 @@ func _physics_process(delta: float) -> void:
 	if _decides() and not is_dead:
 		_watch_under(delta)
 		_watch_party()
+		_coop_watch(delta)
 	if _shocks.is_empty() or is_dead or not _decides():
 		return
 	for i in range(_shocks.size() - 1, -1, -1):
@@ -2844,7 +2921,11 @@ func _after(what: int) -> void:
 			var to := _quarry.global_position - global_position
 			rotation.y = rotate_toward(rotation.y, atan2(-to.x, -to.z), deg_to_rad(string_turn))
 		_begin_move(next, what)
+		if _wheel_next:
+			_wheel_next = false
+			_wheel_serial = act_serial
 		return
+	_wheel_next = false
 	if stringed:
 		var r := recover_raging if raging else recover
 		_cooldown = _rng.randf_range(r.x, r.y)
@@ -2855,6 +2936,253 @@ func _after(what: int) -> void:
 	_chain_blow = 0
 	_closing = false
 	_combo = -1
+#endregion
+
+
+#region Co-op
+## Host, every tick: how they stand round it — who cuts it from behind or
+## stands there, who casts from afar — and its waits run.
+func _coop_watch(delta: float) -> void:
+	_coop_clock += delta
+	var near := _heroes_near(sight_range * 1.5)
+	var quicker := 1.0 + ring_quicker * maxf(float(near.size()) - 2.0, 0.0)
+	_ring_wait = maxf(_ring_wait - delta * quicker, 0.0)
+	_rear_wait = maxf(_rear_wait - delta, 0.0)
+	_far_wait = maxf(_far_wait - delta, 0.0)
+	var s := visual_scale / 1.6
+	for who: Node3D in near:
+		var id := who.get_instance_id()
+		var behind := who != _quarry and _distance_to(who) <= rear_reach * s and _angle_of(who) > 110.0
+		_behind_for[id] = float(_behind_for.get(id, 0.0)) + delta if behind else 0.0
+		var hero := who as Player
+		if hero == null:
+			continue
+		var casts := hero.net_casts
+		if who != _quarry and casts != int(_far_casts.get(id, casts)) and _distance_to(who) >= far_from * s:
+			_far_due = who
+		_far_casts[id] = casts
+
+
+## Host: a cut on it from `from`, kept if it came from behind its shoulders
+## or from afar (and not from its quarry).
+func _coop_cut(from: Node3D) -> void:
+	if from == _quarry:
+		return
+	var id := from.get_instance_id()
+	var s := visual_scale / 1.6
+	var gap := _distance_to(from)
+	if gap <= rear_reach * s and _angle_of(from) > 110.0:
+		var rc := _recent(_rear_cuts.get(id, []), rear_window)
+		rc.append(_coop_clock)
+		_rear_cuts[id] = rc
+	if gap >= far_from * s:
+		var fc := _recent(_far_cuts.get(id, []), far_window)
+		fc.append(_coop_clock)
+		_far_cuts[id] = fc
+		if fc.size() >= far_hits:
+			_far_due = from
+
+
+func _recent(times: Array, window: float) -> Array:
+	var out: Array = []
+	for at: float in times:
+		if _coop_clock - at <= window:
+			out.append(at)
+	return out
+
+
+## The heroes up for a fight with it within `most` m: alive, not fallen nor
+## hidden, on its ground.
+func _heroes_near(most: float) -> Array[Node3D]:
+	var out: Array[Node3D] = []
+	for node in get_tree().get_nodes_in_group(&"player"):
+		var who := node as Node3D
+		if who == null or Brute.unseen(who) or bool(who.get("is_dead")) or not _on_ground(who):
+			continue
+		if _distance_to(who) <= most:
+			out.append(who)
+	return out
+
+
+## Whether `who` is on the ground it holds (its leash round its camp).
+func _on_ground(who: Node3D) -> bool:
+	return who.global_position.distance_squared_to(camp_centre) < leash_radius * leash_radius
+
+
+func _is_down(who: Node3D) -> bool:
+	return who is Player and (who as Player).state == Player.State.DOWNED
+
+
+## Degrees between where it faces and its way to `who`.
+func _angle_of(who: Node3D) -> float:
+	var to := who.global_position - global_position
+	to.y = 0.0
+	if to.length_squared() < 0.0001:
+		return 0.0
+	return rad_to_deg(_forward().angle_to(to.normalized()))
+
+
+## The nearest of them on his feet (m), INF if none.
+func _nearest_up_gap() -> float:
+	var best := INF
+	for who in _heroes_near(INF):
+		if not _is_down(who):
+			best = minf(best, _distance_to(who))
+	return best
+
+
+## Host: on `who` now, by a move of its own (its eyes flare on every peer).
+func _turn_on(who: Node3D) -> void:
+	_quarry = who
+	Threat.turn_to(self, who, coop_anger)
+
+
+## Host, free between moves with more than one at it: its answer to a ring
+## round it, to the one at its back, to the one hurting it from afar (true if
+## it went). Its rest between strings does not hold these back, their own
+## waits do.
+func _coop_answer(delta: float) -> bool:
+	if drill_combo >= 0 or stamina < attack_cost * 0.5:
+		return false
+	var near := _heroes_near(sight_range * 1.5)
+	if near.size() < 2:
+		_far_due = null
+		return false
+	return _ring_answer(near) or _rear_answer() or _far_answer(delta)
+
+
+func _ring_answer(near: Array[Node3D]) -> bool:
+	if _ring_wait > 0.0:
+		return false
+	var r := ring_reach * visual_scale / 1.6
+	var close := 0
+	var round_it := false
+	for who in near:
+		if _is_down(who) or _distance_to(who) > r:
+			continue
+		close += 1
+		if _angle_of(who) > 75.0:
+			round_it = true
+	if close < 2 or not round_it:
+		return false
+	_ring_wait = _rng.randf_range(ring_cooldown.x, ring_cooldown.y)
+	rings_made += 1
+	_charging = false
+	_spacing = &""
+	mode = Mode.FIGHT
+	velocity.x = 0.0
+	velocity.z = 0.0
+	if _rng.randf() < 0.5:
+		# its foot down (the ground bursts round it), and the whirl
+		_combo_pending = _combo_named(&"stamp")
+		_open(OG_STOMP_FOOT)
+	else:
+		_open(WHIRL)
+	return true
+
+
+func _rear_answer() -> bool:
+	if _rear_wait > 0.0:
+		return false
+	var best: Node3D = null
+	var most := 0.0
+	for who in _heroes_near(rear_reach * visual_scale / 1.6):
+		if who == _quarry or _is_down(who) or _angle_of(who) <= 110.0:
+			continue
+		var id := who.get_instance_id()
+		var cuts := _recent(_rear_cuts.get(id, []), rear_window).size()
+		var stood := float(_behind_for.get(id, 0.0))
+		if cuts < rear_hits and stood < rear_stand:
+			continue
+		if float(cuts) + stood > most:
+			most = float(cuts) + stood
+			best = who
+	if best == null:
+		return false
+	_rear_wait = _rng.randf_range(rear_cooldown.x, rear_cooldown.y)
+	_rear_cuts.erase(best.get_instance_id())
+	_behind_for.erase(best.get_instance_id())
+	rears_made += 1
+	_turn_on(best)
+	_charging = false
+	_spacing = &""
+	mode = Mode.FIGHT
+	velocity.x = 0.0
+	velocity.z = 0.0
+	# wheeled round at him through its wind-up, no snap
+	_combo_pending = _combo_named(&"turn_back")
+	_open(OG_BACK)
+	_wheel_serial = act_serial
+	return true
+
+
+func _far_answer(delta: float) -> bool:
+	var who := _far_due
+	if who == null or _far_wait > 0.0:
+		return false
+	_far_due = null
+	if not is_instance_valid(who) or who == _quarry or Brute.unseen(who) or _is_down(who) \
+			or not _on_ground(who):
+		return false
+	var gap := _distance_to(who)
+	if gap < far_from * visual_scale / 1.6:
+		return false
+	_far_wait = _rng.randf_range(far_cooldown.x, far_cooldown.y)
+	_far_cuts.erase(who.get_instance_id())
+	fars_made += 1
+	_turn_on(who)
+	_spacing = &""
+	mode = Mode.FIGHT
+	if gap <= leap_slam_to * 1.35:
+		_charging = false
+		_open(LEAP_SLAM)
+		_wheel_serial = act_serial
+		return true
+	# further: off at a run at him, springing at `run_slam_takeoff`
+	_charging = true
+	_charge_time = 0.0
+	_run_slam_wait = _rng.randf_range(run_slam_cooldown.x, run_slam_cooldown.y)
+	mode = Mode.CHASE
+	_move_towards(who.global_position, _pace(run_speed), delta)
+	return true
+
+
+## Host, as a string runs on: its next blow onto another of them — its
+## quarry down, out of its reach or round its back — or now and then onto one
+## clearly nearer before it ([member switch_chance]).
+func _switch_in_string() -> void:
+	if drill_combo >= 0 or _switches >= switch_most:
+		return
+	var near := _heroes_near(sight_range)
+	if near.size() < 2:
+		return
+	var reach_now := strike_off + 2.5 * visual_scale / 1.6
+	var ok: bool = _quarry != null and is_instance_valid(_quarry) and not Brute.unseen(_quarry) and not _quarry_down()
+	var q_gap := _distance_to(_quarry) if ok else INF
+	var lost: bool = not ok or q_gap > reach_now or _angle_of(_quarry) > switch_turn
+	var best: Node3D = null
+	var best_score := INF
+	for who in near:
+		if who == _quarry or _is_down(who):
+			continue
+		var gap := _distance_to(who)
+		var angle := _angle_of(who)
+		if gap > reach_now or angle > switch_turn:
+			continue
+		var score := gap + angle / 45.0
+		if score < best_score:
+			best_score = score
+			best = who
+	if best == null:
+		return
+	if not lost:
+		var q_score := q_gap + _angle_of(_quarry) / 45.0
+		if best_score > q_score - 1.0 or _rng.randf() >= switch_chance:
+			return
+	_switches += 1
+	switches_made += 1
+	_turn_on(best)
+	_wheel_next = true
 #endregion
 
 
@@ -3073,6 +3401,7 @@ func _receive(damage: float, at: Vector3, blow: Vector3, from: Node3D, magic: bo
 			_cut_times.pop_front()
 		if _cut_times.size() >= getoff_hits:
 			_getoff_due = true
+		_coop_cut(from)
 	return bled
 
 
@@ -3154,7 +3483,8 @@ func _watch_under(delta: float) -> void:
 	if _quarry == null or not is_instance_valid(_quarry):
 		_under_for = 0.0
 		return
-	if _distance_to(_quarry) <= getoff_under_gap * visual_scale / 1.6:
+	# (co-op: whoever stands in under it, not only its quarry)
+	if _nearest_up_gap() <= getoff_under_gap * visual_scale / 1.6:
 		_under_for += delta
 		if _under_for >= getoff_under:
 			_getoff_due = true
@@ -3166,7 +3496,9 @@ func _watch_under(delta: float) -> void:
 func _getoff(gap: float) -> bool:
 	if not _getoff_due:
 		return false
-	if _getoff_wait > 0.0 or _quarry_down() or gap > getoff_radius * visual_scale / 1.6:
+	# (co-op: whoever is up and near, not only its quarry)
+	if _getoff_wait > 0.0 or minf(gap if not _quarry_down() else INF, _nearest_up_gap()) \
+			> getoff_radius * visual_scale / 1.6:
 		_getoff_due = false
 		_cut_times.clear()
 		return false

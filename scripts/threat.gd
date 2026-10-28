@@ -205,6 +205,27 @@ func _turn(who: Node3D, now: int) -> Node3D:
 	return who
 
 
+## Host: `body` turned on `who` by a move of its own (a blow from behind
+## answered, one far off gone for, a string's next blow swung onto another;
+## the user's word, 2026-10-28: a boss must strike them all): angered at him
+## by `worth` and held on him as after any turn (`HOLD`), its eyes flaring on
+## every peer. Also for a body whose anger is not kept (its eyes only).
+static func turn_to(body: Node3D, who: Node3D, worth: float) -> void:
+	if body == null or who == null or not is_instance_valid(who):
+		return
+	var t := of(body)
+	if t != null:
+		t.add(who, worth)
+		t._engaged = true
+		t._turn(who, Engine.get_physics_frames())
+	if not body.has_method(&"net_aggro") or not body.is_inside_tree():
+		return
+	if body.multiplayer.has_multiplayer_peer():
+		body.rpc(&"net_aggro", body.get_path_to(who))
+	else:
+		body.call(&"net_aggro", body.get_path_to(who))
+
+
 ## Whether it turned on [member last_turn] in this physics frame.
 func turned() -> bool:
 	return _turned_frame == Engine.get_physics_frames()
