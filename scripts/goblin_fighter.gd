@@ -261,6 +261,10 @@ func _keep_away(to: Vector3, gap: float, delta: float) -> void:
 	if gap < keep_off * 0.6:
 		_run_from(to, delta)
 		return
+	# a wall at its back: it runs along it instead of pressing in
+	if is_on_wall():
+		_run_from(to, delta)
+		return
 	# Backing off, facing him.
 	_face(to, delta, turn_speed)
 	var back := -to.normalized() * speed * 1.2
@@ -271,12 +275,28 @@ func _keep_away(to: Vector3, gap: float, delta: float) -> void:
 func _run_from(to: Vector3, delta: float) -> void:
 	mode = Mode.CHASE
 	var away := -to.normalized()
-	# Not straight out of the camp's ground: back round towards it.
-	var home := _home - global_position
+	# Not straight out of the camp's ground: back round towards it (in a
+	# portal place its middle: the leash there is nothing).
+	var base := camp_centre if _dun_seen != null or leash_radius < 1.0 else _home
+	var home := base - global_position
 	home.y = 0.0
-	if home.length() > leash_radius * 0.6:
+	if home.length() > maxf(leash_radius, 3.0) * 0.6:
 		away = (away + home.normalized() * 0.8).normalized()
-	_move_towards(global_position + away * 4.0, flee_speed, delta)
+	# a wall met: along it, never into it (the user's word, 2026-10-28)
+	if is_on_wall():
+		var n := get_wall_normal()
+		n.y = 0.0
+		if n.length_squared() > 0.01 and away.dot(n) < 0.0:
+			var along := away.slide(n.normalized())
+			away = along.normalized() if along.length_squared() > 0.05 else n.normalized()
+	var target := _keep_in_room(global_position + away * 4.0)
+	if Vector2(target.x - global_position.x, target.z - global_position.z).length() < 1.0:
+		# cornered: nowhere left to run, it turns on him
+		_flee_left = 0.0
+		_face(to, delta, turn_speed)
+		_slow(delta, 4.0)
+		return
+	_move_towards(target, flee_speed, delta)
 #endregion
 
 

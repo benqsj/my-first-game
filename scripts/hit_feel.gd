@@ -67,7 +67,7 @@ static func bite(victim: Node3D, weight: float, along: Vector3 = Vector3.ZERO) -
 ## process) and let go after. All on the real clock, so the hold neither drifts
 ## with the time scale nor fights code that sets the clips' rate.
 static func hold(victim: Node3D, seconds: float) -> void:
-	if victim == null or seconds <= 0.0:
+	if victim == null or seconds <= 0.0 or hold_share(victim) <= 0.0:
 		return
 	var rig: Variant = victim.get(&"rig")
 	if rig is Object and (rig as Object).has_method(&"hitstop") and not (rig is CharacterRig):
@@ -111,8 +111,25 @@ static func pace(creature: Node) -> float:
 
 ## The share of a bite `creature` is held for (its `bite_hold`, else all).
 static func hold_share(creature: Node) -> float:
-	var share: Variant = creature.get(&"bite_hold") if creature != null else null
+	if creature == null:
+		return 1.0
+	# the user's rule: a boss or a big one is never held by a blow (2026-10-28:
+	# two heroes cutting at the golem and the butcher held them still)
+	if is_big(creature):
+		return 0.0
+	var share: Variant = creature.get(&"bite_hold")
 	return clampf(float(share), 0.0, 1.0) if share is float else 1.0
+
+
+## A boss, or a big one: tagged so, drawn large, or of a big one's health.
+static func is_big(creature: Node) -> bool:
+	if creature.has_meta(&"boss"):
+		return true
+	var size: Variant = creature.get(&"visual_scale")
+	if size is float and float(size) >= 1.4:
+		return true
+	var most: Variant = creature.get(&"max_health")
+	return (most is float or most is int) and float(most) >= 700.0
 
 
 ## Whether `creature` is held in a bite now.

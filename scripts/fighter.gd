@@ -56,6 +56,9 @@ enum Mode { GUARD, CHASE, FIGHT, RETURN }
 @export var band: StringName = &""
 ## Middle of the ground the band holds. Zero means "where it was put".
 @export var camp_centre: Vector3 = Vector3.ZERO
+## The dungeon it fights in, looked up once ([method _keep_in_room]).
+var _dun_seen: Dungeon = null
+var _dun_looked := false
 ## How near a player has to come before it notices.
 @export var sight_range: float = 13.0
 ## How far from the camp it will follow before giving up and going home.
@@ -449,12 +452,35 @@ func _held_spot(fallback: float) -> Vector3:
 		var away := global_position - _quarry.global_position
 		ang = atan2(away.x, away.z)
 		r = fallback
-	return _quarry.global_position + Vector3(sin(ang), 0.0, cos(ang)) * r
+	return _keep_in_room(_quarry.global_position + Vector3(sin(ang), 0.0, cos(ang)) * r)
+
+
+## A point kept inside the portal place it stands in, `margin` m off its sides
+## (the user's word, 2026-10-28: they fled into the walls and rocks at the
+## place's edge and hid there). Outside a dungeon: the point as it is.
+func _keep_in_room(p: Vector3, margin: float = 2.5) -> Vector3:
+	if not is_instance_valid(_dun_seen):
+		if _dun_looked:
+			return p
+		_dun_looked = true
+		_dun_seen = get_tree().get_first_node_in_group(&"dungeon") as Dungeon
+		if _dun_seen == null:
+			return p
+	var i := _dun_seen.room_at(global_position)
+	if i < 0:
+		return p
+	var c := _dun_seen.centre(i)
+	var r: Dictionary = _dun_seen._room(i)
+	var hw := maxf(float(r["w"]) * 0.5 - margin, 0.5)
+	var hl := maxf(float(r["l"]) * 0.5 - margin, 0.5)
+	p.x = clampf(p.x, c.x - hw, c.x + hw)
+	p.z = clampf(p.z, c.z - hl, c.z + hl)
+	return p
 
 
 ## Goes to `spot` face on to him, sideways or backwards as it must.
 func _hold_to(spot: Vector3, pace: float, delta: float) -> void:
-	var to_spot := spot - global_position
+	var to_spot := _keep_in_room(spot) - global_position
 	to_spot.y = 0.0
 	var want := Vector3.ZERO
 	if to_spot.length() > HOLD_RUN_FROM:
@@ -658,7 +684,7 @@ var _steer := WallSteer.new()
 
 
 func _move_towards(point: Vector3, pace: float, delta: float) -> void:
-	var direction := point - global_position
+	var direction := _keep_in_room(point) - global_position
 	direction.y = 0.0
 	if direction.length_squared() < 0.0001:
 		return
