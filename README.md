@@ -3169,10 +3169,31 @@ radius.
 
 ## Layout
 
+The helpers (Player*, Dungeon*) are static functions that take the hero as `me` or the dungeon
+as `dun` (2026-10-28 split). Player and Dungeon keep a one-line function of the same name for
+each one called from outside its own file, so `hero._show_net_climb()`, `d._fireflies(...)` etc.
+still work. New code for a part goes in its file; rpcs and engine callbacks stay on the node.
+
 ```
 project.godot            input map, physics layers, gravity
 icon.svg
-scripts/player.gd        the controller, and the target lock and bow it drives
+scripts/player.gd        the hero: engine callbacks, input, the rpcs, state; the rest in its parts:
+scripts/player_move.gd   (PlayerMove) walk, run, jumps, evades, slides, glides, crouch, landing
+scripts/player_melee.gd  (PlayerMelee) strings, heavy blows, ripostes, charges, kicks, bashes
+scripts/player_hurt.gd   (PlayerHurt) blows taken, guard, falls and get-ups, grabs, pins, bites
+scripts/player_climb.gd  (PlayerClimb) ledges and walls
+scripts/player_target.gd (PlayerTarget) the lock-on
+scripts/player_bow.gd    (PlayerBow) the bow and the archer's arrow skills
+scripts/player_skills.gd (PlayerSkills) skill slots, use, rising cut, shade, flask
+scripts/player_looks.gd  (PlayerLooks) what he wears and owns
+scripts/dungeon.gd       the portal run's flow, its steps, creatures, rewards, net; its parts:
+scripts/dungeon_build.gd (DungeonBuild) putting a place up
+scripts/dungeon_look.gd  (DungeonLook) a place's light, air and sky, day to night
+scripts/dungeon_sound.gd (DungeonSound) ambience and the echo bus
+scripts/dungeon_hud.gd   (DungeonHud) the steps bar, the map, words on screen
+scripts/dungeon_crowd.gd (DungeonCrowd) who of a crowd has a turn at him
+scripts/dungeon_fx.gd    (DungeonFx) scars, fires, birds, bats, lightning, roof stones
+scripts/dungeon_warm_up.gd (DungeonWarmUp) drawing things once behind the dark
 scripts/game.gd          autoload: which character is being played, and settings
 scripts/main_menu.gd     the front end, built in code
 scripts/net.gd           autoload: the connection and who is in it
