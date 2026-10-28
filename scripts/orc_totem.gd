@@ -1,5 +1,5 @@
 class_name OrcTotem
-extends Node3D
+extends StaticBody3D
 
 ## An orcs' totem (the user's word, 2026-10-21: break three orc totems): a
 ## post of black wood, skulls lashed up it, horns at its top round a red light
@@ -29,6 +29,18 @@ func _ready() -> void:
 	set_meta(&"matter", &"wood")
 	var box := HurtboxComponent.of(self)
 	box.set_capsule(0.45, 3.2, 0.25)
+	# a body on the creatures' layer, so arrows and bolts strike it too (the
+	# user's word, 2026-10-28: the archer could not break one): they find what
+	# they hit by rays on bodies, and take_hit counts as one of its three
+	collision_layer = 4
+	collision_mask = 0
+	var solid := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.45
+	cap.height = 3.2
+	solid.shape = cap
+	solid.position.y = 1.6
+	add_child(solid)
 	_build()
 
 
@@ -92,6 +104,7 @@ func _process(delta: float) -> void:
 
 func _break() -> void:
 	is_dead = true
+	collision_layer = 0
 	remove_from_group(&"enemy")
 	var world := Blood.world_of(self)
 	if world != null:

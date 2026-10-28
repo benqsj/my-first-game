@@ -59,6 +59,11 @@ const OFFERED := 3
 var lights: int = OFFERED
 ## How near he walks to a light to take it.
 const TAKE_AT := 1.6
+## Lights laid are not taken before this many seconds.
+const ARM_AFTER := 1.2
+var _armed_at := 0.0
+## Heroes stood near the lights as they came: not theirs till they step off.
+var _must_leave: Dictionary = {}
 
 ## What each does, how much.
 const BURN_SECONDS := 3.0
@@ -146,6 +151,16 @@ func lay(at: Vector3, into: Node3D, chosen: Array[StringName] = []) -> void:
 		var spot := clear_spot(into, at + Vector3(across, 0.0, back), placed)
 		placed.append(spot)
 		_lights.append({"node": _light(ids[k], spot, into), "id": ids[k]})
+	# not taken the moment they come (the user's word, 2026-10-28: one came up
+	# beside them and was theirs before they wanted it): a moment first, and a
+	# hero standing near when they come must step away before he can take one
+	_armed_at = Time.get_ticks_msec() / 1000.0 + ARM_AFTER
+	_must_leave.clear()
+	if _dungeon != null:
+		for hero in _dungeon._heroes():
+			for p in placed:
+				if Vector2(hero.global_position.x - p.x, hero.global_position.z - p.z).length() < TAKE_AT + 2.5:
+					_must_leave[hero.get_instance_id()] = true
 
 
 ## Where a light can stand near `want`: on open floor, nothing solid there
@@ -251,9 +266,20 @@ func _light(id: StringName, at: Vector3, into: Node3D) -> Node3D:
 ## He walks into a light: that blessing is his, the others go out.
 func _process(_delta: float) -> void:
 	# (the host's to decide which he walked into, with others: [method Dungeon.net_boon])
-	if _dungeon != null and not _lights.is_empty() and _dungeon.decides():
+	if _dungeon != null and not _lights.is_empty() and _dungeon.decides() \
+			and Time.get_ticks_msec() / 1000.0 >= _armed_at:
 		for hero in _dungeon._heroes():
-			if hero.is_dead:
+			if hero.is_dead or hero.net_dead:
+				continue
+			var key := hero.get_instance_id()
+			if _must_leave.has(key):
+				var nearest := INF
+				for l: Dictionary in _lights:
+					if is_instance_valid(l["node"]):
+						var at := (l["node"] as Node3D).global_position
+						nearest = minf(nearest, Vector2(hero.global_position.x - at.x, hero.global_position.z - at.z).length())
+				if nearest > TAKE_AT + 1.5:
+					_must_leave.erase(key)
 				continue
 			for l: Dictionary in _lights:
 				var node: Node3D = l["node"] as Node3D if is_instance_valid(l["node"]) else null

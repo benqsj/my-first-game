@@ -143,8 +143,10 @@ func tick(delta: float) -> void:
 			if _timer != null:
 				_timer.text = "გაუძელი: %d" % ceili(maxf(_left, 0.0))
 			var now := Time.get_ticks_msec() / 1000.0
-			if now >= _next_out and _up() < SURVIVE_UP and not _d._reserve.is_empty():
-				_next_out = now + SURVIVE_EVERY
+			# with friends: more up at once and out faster
+			var more := maxi(_d._heroes().size(), 1) - 1
+			if now >= _next_out and _up() < SURVIVE_UP + 6 * more and not _d._reserve.is_empty():
+				_next_out = now + SURVIVE_EVERY / (1.0 + 0.6 * float(more))
 				_one_out()
 			if _left <= 0.0:
 				_done = true
@@ -152,6 +154,8 @@ func tick(delta: float) -> void:
 					_timer.queue_free()
 					_timer = null
 				_d._say("გაუძელი!", 3.0)
+				if _d.online():
+					_d.net_survived.rpc()
 				_rout()
 
 
@@ -189,7 +193,7 @@ func _rout() -> void:
 	var c := _d.centre(_room)
 	for item: Variant in _d._reserve.duplicate():
 		if is_instance_valid(item):
-			(item as Node).queue_free()
+			_gone(item as Node)
 	_d._reserve.clear()
 	if is_instance_valid(_d._rift):
 		var gone := _d._rift
@@ -228,7 +232,42 @@ func _vanish(body: Node3D) -> void:
 		SkillFx.burst(world, body.global_position + Vector3.UP * 1.0, Color(0.85, 0.2, 0.25), 30, Vector2(1.0, 3.5),
 				Vector3.UP, 180.0, Vector2(0.06, 0.16), Vector3(0, -1.0, 0), 0.8)
 	Sfx.play(_d, Dungeon.SND + "portal_whoosh.wav", null, body.global_position + Vector3.UP, 1.2, -6.0)
-	body.queue_free()
+	_gone(body)
+
+
+## Gone on every peer (the user's word, 2026-10-28: the survived ones vanished
+## on the host and stayed on his friend's screen: `queue_free` is not sent).
+func _gone(n: Node) -> void:
+	if _d.online() and n.has_method(&"net_clear"):
+		n.rpc(&"net_clear")
+	else:
+		n.queue_free()
+
+
+## A joiner's: only the clock seen running (the host brings them out).
+func tick_seen(delta: float) -> void:
+	if not _started or _done or kind != "survive":
+		return
+	_left -= delta
+	if _timer != null:
+		_timer.text = "გაუძელი: %d" % ceili(maxf(_left, 0.0))
+
+
+## A joiner's: the host says the time is out.
+func ended_seen() -> void:
+	if _done:
+		return
+	_done = true
+	if _timer != null:
+		_timer.queue_free()
+		_timer = null
+	_d._say("გაუძელი!", 3.0)
+	if is_instance_valid(_d._rift):
+		var gone := _d._rift
+		_d._rift = null
+		var tw := _d.create_tween()
+		tw.tween_property(gone, "scale", Vector3(0.02, 0.02, 0.02), 1.0)
+		tw.tween_callback(gone.queue_free)
 #endregion
 
 

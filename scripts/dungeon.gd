@@ -23,6 +23,9 @@ extends Node3D
 ## here puts him back by the gate he came in by; in a band, the fallen get up
 ## when the place is cleared.
 
+## How often a portal pair holds a blessing (was 0.75: too many — the user's
+## word, 2026-10-28).
+const BOON_CHANCE := 0.4
 const WALL_T := 1.6
 const DOOR_W := 6.0
 const DOOR_H := 7.5
@@ -438,6 +441,13 @@ var _fire_lights: Array[Dictionary] = []
 ## The kit's trees with their leaves taken off, by the mesh they came from.
 var _bare_meshes: Dictionary = {}
 var _back_out_at: float = -1.0
+## The run lost (all the heroes down), said once ([method _check_wipe]).
+var _wiped := false
+## The fallen friends already told of ([method _tell_revive]).
+var _told_down: Dictionary = {}
+var _wipe_since := -1.0
+## How long all must be down before the run is lost.
+const WIPE_AFTER := 2.5
 var _watched: Dictionary = {}
 var _layer: CanvasLayer
 var _banner: Label
@@ -949,7 +959,7 @@ func _curse(body: Node3D) -> void:
 		sh.code = FoeRoles.RIM_SHADER
 		_curse_mat = ShaderMaterial.new()
 		_curse_mat.shader = sh
-		_curse_mat.set_shader_parameter(&"tint", Color(0.75, 0.02, 0.06))
+		_curse_mat.set_shader_parameter(&"tint", Color(0.45, 0.05, 0.6))  # violet: not the totems' red ward
 		_curse_mat.set_shader_parameter(&"amount", 0.7)
 	FoeRoles._overlay(body, _curse_mat)
 
@@ -1011,6 +1021,13 @@ func _as_client(heroes: Array[Player]) -> void:
 				_asked_at = now
 				leave()
 				return
+
+
+## Joiners: the place's "survive" time is out ([RoomGoal]).
+@rpc("authority", "call_remote", "reliable")
+func net_survived() -> void:
+	if is_instance_valid(_goal):
+		_goal.ended_seen()
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -1238,8 +1255,14 @@ func _arrive_at(i: int, place: String, reward: String, later: bool = false, goal
 	var foes: Array = foes_by.get(place, foes_by.get("*", []))
 	# holding out, they keep coming: twice as many wait
 	if goal == "survive":
-		# (three times: more made at once would stall his coming in)
-		foes = foes + foes + foes
+		# (three times: more made at once would stall his coming in; one
+		# more lot for each friend with him — the user's word, 2026-10-28:
+		# two of them held out with ease. The peers counted, not the heroes
+		# seen, so every peer builds the same)
+		var one := foes
+		var lots := 3 + mini(multiplayer.get_peers().size() if online() else 0, 2)
+		for k in lots - 1:
+			foes = foes + one
 	# (the prisoners' place keeps its jailers)
 	if p.has("rest") and not p.has("guards"):
 		foes = []
@@ -1455,8 +1478,8 @@ func _spawn_room(i: int) -> void:
 	waves = 2 if not _reserve.is_empty() else 1
 	_king = null
 	_king_up = false
-	if String(r["kind"]) == "flood_crypt":
-		_make_king(i, creatures, c)
+	# (the crypt's stone king no more: two lots, and it is done — the user's
+	# word, 2026-10-28; [method _make_king] kept for a place that wants him)
 	if bool(r.get("cursed", false)):
 		for body in mine:
 			_curse(body)
@@ -1802,6 +1825,11 @@ func _wake(i: int) -> void:
 		_say("%d/%d  ·  %s" % [stage_of(i), stage_count(), String(_room(i)["name"])], 3.0)
 	if is_instance_valid(_goal):
 		_goal.start()
+	# a cursed place said as it wakes, not only on the portal's words (the
+	# user's word, 2026-10-28: in the crypt they came out stronger unasked)
+	if bool(_room(i).get("cursed", false)):
+		get_tree().create_timer(4.6 if is_instance_valid(_goal) else 3.2).timeout.connect(
+				_say.bind("წყეული ადგილი — მტრები ძლიერები არიან", 3.5))
 	if is_instance_valid(_treasure):
 		get_tree().create_timer(2.5).timeout.connect(_treasure.release)
 	if decides() and online():
@@ -1814,7 +1842,7 @@ func _nearest_hero(to: Vector3) -> Player:
 	var best: Player = null
 	var gap := INF
 	for hero in _heroes():
-		if hero.is_dead:
+		if _down(hero):
 			continue
 		var d := hero.global_position.distance_to(to)
 		if d < gap:
@@ -2021,7 +2049,7 @@ func _choice_specs(next: int) -> Array:
 	var gifts: Array = REWARDS.keys()
 	gifts.erase("boon")
 	_shuffle(gifts)
-	if _rng.randf() < 0.75 and not boons.offer(1).is_empty():
+	if _rng.randf() < BOON_CHANCE and not boons.offer(1).is_empty():
 		gifts.insert(_rng.randi_range(0, 1), "boon")
 	var last := next == steps.size() - 1
 	var cursed_one := -1
@@ -2169,7 +2197,7 @@ func hard_factors(i: int, heroes: int, power: float) -> Dictionary:
 func _hold_hard(i: int) -> void:
 	var standing := 0
 	for hero in _heroes():
-		if not hero.is_dead:
+		if not _down(hero):
 			standing += 1
 	var f := hard_factors(i, standing, run_power())
 	if online():
@@ -2195,13 +2223,19 @@ func net_harden(i: int, f: Dictionary) -> void:
 		var body := item as Node3D
 		body.set_meta(&"hardened", true)
 		var guard := guards.has(body)
-		var big := is_boss(i) and not guard
+		# (a big one in a common place is hardened as a boss is: the golem and
+		# the butcher fell to two too soon, 2026-10-28)
+		var big := not guard and (is_boss(i) or HitFeel.is_big(body))
 		var hp := float(f["guard"]) if guard else (float(f["boss"]) if big else float(f["foe"]))
 		FoeRoles._scale_stat(body, &"max_health", hp)
 		if big:
 			FoeRoles._scale_stat(body, &"hit_damage", float(f["hit"]))
 		if "stance" in body:
 			FoeRoles._scale_stat(body, &"stance", float(f["stance"]))
+		# its poise too, or two heroes stagger it twice as often ([GolemFighter])
+		for stat: StringName in [&"poise", &"poise_heavy"]:
+			if stat in body:
+				FoeRoles._scale_stat(body, stat, float(f["stance"]))
 		if "health" in body and "max_health" in body:
 			body.set(&"health", body.get(&"max_health"))
 
@@ -2554,10 +2588,52 @@ func _on_hero_died(fallen: Player) -> void:
 	if boons != null and boons.save_from_death(fallen):
 		get_tree().create_timer(1.4).timeout.connect(_second_breath.bind(fallen))
 		return
-	# Alone (or all of them down): back out by the gate.
-	for hero in _heroes():
-		if not hero.is_dead:
+	_check_wipe()
+
+
+## A friend down and this one's own hero standing: how to raise him, once a fall.
+func _tell_revive(heroes: Array[Player]) -> void:
+	var standing := false
+	for hero in heroes:
+		if mine(hero) and not _down(hero):
+			standing = true
+	for hero in heroes:
+		var key := hero.get_instance_id()
+		if not _down(hero):
+			_told_down.erase(key)
+		elif standing and not mine(hero) and not _told_down.has(key):
+			_told_down[key] = true
+			_say("მეგობარი დაეცა — ხმალი 4-ჯერ დაარტყი, რომ წამოაყენო", 4.0)
+
+
+## Down: dead here, or (another's hero) dead as his own game says.
+func _down(hero: Player) -> bool:
+	return hero.is_dead or hero.net_dead
+
+
+## Alone, or all of them down: the run is lost and they go back by the gate.
+## Every peer asks it each frame too (the user's word, 2026-10-28: the two
+## of them fell and stayed in the place for ever — a death is only seen as
+## lost on its own peer, the other's came by the wire too late to count).
+func _check_wipe() -> void:
+	if _wiped or _going or _viewing:
+		return
+	var heroes := _heroes()
+	if heroes.is_empty():
+		return
+	_tell_revive(heroes)
+	for hero in heroes:
+		if not _down(hero):
+			_wipe_since = -1.0
 			return
+	# a moment all down first: the second breath's blessing raises one after
+	# 1.4 s, and another's rise comes by the wire
+	var now := Time.get_ticks_msec() / 1000.0
+	if _wipe_since < 0.0:
+		_wipe_since = now
+	if now - _wipe_since < WIPE_AFTER:
+		return
+	_wiped = true
 	_say("დამარცხდი", BACK_OUT_AFTER)
 	# beaten by the lord: he remembers it ([LordFight])
 	if is_instance_valid(_lord_fight) and _woken and not _lord_fight.won:
@@ -2680,7 +2756,10 @@ func _process(delta: float) -> void:
 		return
 	if _going:
 		return
+	_check_wipe()
 	if not decides():
+		if is_instance_valid(_goal):
+			_goal.tick_seen(delta)
 		_as_client(heroes)
 		_now_and_then(delta, heroes)
 		_fly_birds(delta)
@@ -2690,7 +2769,7 @@ func _process(delta: float) -> void:
 	if not _woken and current >= 0 and bool(_net().call("everyone_in") if _net() != null else true):
 		if _wake_at < 0.0:
 			for hero in heroes:
-				if not hero.is_dead and room_at(hero.global_position) == current:
+				if not _down(hero) and room_at(hero.global_position) == current:
 					_wake_at = now + WAKE_AFTER
 		elif now >= _wake_at:
 			_wake_at = -1.0
@@ -2736,7 +2815,7 @@ func _process(delta: float) -> void:
 		_crowd_clock = 0.2
 		var standing: Array[Player] = []
 		for hero in heroes:
-			if not hero.is_dead:
+			if not _down(hero):
 				standing.append(hero)
 		_lead_orcs(standing)
 		_hold_back_crowd(heroes)
@@ -2745,14 +2824,14 @@ func _process(delta: float) -> void:
 	for k in choices.size():
 		for hero in heroes:
 			var gap := hero.global_position - choices[k].global_position
-			if not hero.is_dead and Vector2(gap.x, gap.z).length() < 1.8 and absf(gap.y) < 3.0:
+			if not _down(hero) and Vector2(gap.x, gap.z).length() < 1.8 and absf(gap.y) < 3.0:
 				take(k)
 				return
 	if _exit != null:
 		for hero in heroes:
 			var gap := hero.global_position - _exit.global_position
 			gap.y = 0.0
-			if not hero.is_dead and gap.length() < 2.2:
+			if not _down(hero) and gap.length() < 2.2:
 				leave()
 				return
 
