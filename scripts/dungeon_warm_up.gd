@@ -118,6 +118,7 @@ static func _warm_up(dun: Dungeon) -> void:
 	RogueSkills.warm(props)
 	MageSkills.warm(props)
 	DarkSkills.warm(props)
+	DungeonWarmUp._warm_first_uses(props)
 	ScreenMud.prepare(dun.get_tree())
 	ScreenMud.splat(dun.get_tree(), 1.0)
 	var world := Blood.world_of(dun)
@@ -138,6 +139,13 @@ static func _warm_up(dun: Dungeon) -> void:
 	var breaking: DeathShatter = null
 	if not shown.is_empty():
 		breaking = DeathShatter.start(dun, shown[0])
+	# the flash of a blow and the ice shell, on the skinned bodies themselves
+	# (the skinned versions of those materials are made apart)
+	for b: Node3D in shown.slice(1) + lent:
+		if is_instance_valid(b):
+			HitFeel.flash(b, 0.3)
+	if shown.size() > 1 and is_instance_valid(shown[1]):
+		FrostShell.encase(shown[1], 0.3)
 	for f in 40:
 		eye.make_current()
 		await dun.get_tree().process_frame
@@ -245,3 +253,45 @@ static func _keep(dun: Dungeon, m: Material) -> void:
 	if m == null or not (m is BaseMaterial3D or m is ParticleProcessMaterial):
 		return
 	dun._kept[m.get_instance_id()] = m
+
+
+## Those loaded, held so the cache keeps them while the game is up.
+static var _held: Array = []
+
+
+## What stalled the game the first time it came, seen on the TestFlight build
+## (the user's word, 2026-10-28: a stop on some skills — another hero's too —
+## and some creatures' moves): shown here once, behind the loading.
+static func _warm_first_uses(props: Node3D) -> void:
+	_held.clear()
+	ImpactFx.warm()
+	var here := props.global_position
+	# the elf mage's: the frost nova, the moon's runes, their lights
+	FrostNova.burst(props, here, 0.6, 0.1)
+	for e: float in [1.4, 2.2]:
+		var rd := Decal.new()
+		rd.size = Vector3.ONE
+		rd.texture_albedo = MoonWell.runes()
+		rd.texture_emission = MoonWell.runes()
+		rd.emission_energy = e
+		props.add_child(rd)
+	SkillFx.light(props, here, Color(0.8, 0.85, 1.0), 1.0, 2.0, 0.3)
+	# shaders made on first use: the heroes' cut air, the poison's veins, the
+	# zombie's scream, the troll's stone
+	for path: String in ["res://assets/fx/cut_air.gdshader", HeroPoison.VEINS,
+			ZombieFighter.SCREAM_AIR, "res://scripts/troll_stone.gdshader"]:
+		if not ResourceLoader.exists(path):
+			continue
+		var q := MeshInstance3D.new()
+		q.mesh = QuadMesh.new()
+		var sm := ShaderMaterial.new()
+		sm.shader = load(path) as Shader
+		_held.append(sm.shader)
+		q.material_override = sm
+		props.add_child(q)
+	# the butcher's hook, loaded mid-fight before
+	if ResourceLoader.exists(PigButcher.HOOK_MESH):
+		var hook := load(PigButcher.HOOK_MESH) as PackedScene
+		if hook != null:
+			_held.append(hook)
+			props.add_child(hook.instantiate())

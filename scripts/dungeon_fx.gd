@@ -109,19 +109,21 @@ static func _lightning(dun: Dungeon) -> void:
 	tw.tween_method(func(v: float) -> void: dun._sky_mat.set_shader_parameter("flash", v), 1.0, 0.2, 0.12)
 	tw.tween_method(func(v: float) -> void: dun._sky_mat.set_shader_parameter("flash", v), 0.2, 0.9, 0.06)
 	tw.tween_method(func(v: float) -> void: dun._sky_mat.set_shader_parameter("flash", v), 0.9, 0.0, 0.4)
-	var bolt := OmniLight3D.new()
-	bolt.light_color = Color(0.8, 0.85, 1.0)
-	bolt.light_energy = 0.0
-	bolt.omni_range = 220.0
-	bolt.shadow_enabled = false
-	dun.add_child(bolt)
-	bolt.global_position = dun.centre(dun.current) + Vector3(dun._rng.randf_range(-40.0, 40.0), 70.0, dun._rng.randf_range(-40.0, 40.0))
-	var lt := dun.create_tween()
-	lt.tween_property(bolt, "light_energy", 6.0, 0.05)
-	lt.tween_property(bolt, "light_energy", 1.0, 0.12)
-	lt.tween_property(bolt, "light_energy", 5.0, 0.06)
-	lt.tween_property(bolt, "light_energy", 0.0, 0.4)
-	lt.tween_callback(bolt.queue_free)
+	# Its light: the sun's own, flared — shadowed as the sun is — and none
+	# under a roof (the user's word, 2026-10-28: sudden glows on the places,
+	# as if from other textures: a shadowless 220 m light lit every wall and
+	# floor through roofs and rocks at once).
+	var roofed := float(dun._room(dun.current).get("h", 0.0)) > 0.0
+	if not roofed and is_instance_valid(dun._sun) and not dun._sun.has_meta(&"flaring"):
+		var sun := dun._sun
+		var was := sun.light_energy
+		sun.set_meta(&"flaring", true)
+		var lt := dun.create_tween()
+		lt.tween_property(sun, "light_energy", was + 2.2, 0.05)
+		lt.tween_property(sun, "light_energy", was + 0.4, 0.12)
+		lt.tween_property(sun, "light_energy", was + 1.8, 0.06)
+		lt.tween_property(sun, "light_energy", was, 0.4)
+		lt.tween_callback(sun.remove_meta.bind(&"flaring"))
 	dun.get_tree().create_timer(dun._rng.randf_range(0.4, 1.4)).timeout.connect(func() -> void:
 		Sfx.play_flat(dun, Dungeon.SND + "thunder.wav", dun._rng.randf_range(0.9, 1.15), -2.0))
 #endregion
