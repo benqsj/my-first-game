@@ -3042,7 +3042,8 @@ func _turn_on(who: Node3D) -> void:
 ## it went). Its rest between strings does not hold these back, their own
 ## waits do.
 func _coop_answer(delta: float) -> bool:
-	if drill_combo >= 0 or stamina < attack_cost * 0.5:
+	# (its run at one far off is not broken off by the others at its back)
+	if drill_combo >= 0 or _charging or stamina < attack_cost * 0.5:
 		return false
 	var near := _heroes_near(sight_range * 1.5)
 	if near.size() < 2:
@@ -3130,6 +3131,11 @@ func _far_answer(delta: float) -> bool:
 	_far_wait = _rng.randf_range(far_cooldown.x, far_cooldown.y)
 	_far_cuts.erase(who.get_instance_id())
 	fars_made += 1
+	# the ones it leaves behind: their cuts at its back as it goes count for
+	# nothing, and it does not whip round on them the moment it is down
+	_rear_cuts.clear()
+	_behind_for.clear()
+	_rear_wait = maxf(_rear_wait, 2.5)
 	_turn_on(who)
 	_spacing = &""
 	mode = Mode.FIGHT
