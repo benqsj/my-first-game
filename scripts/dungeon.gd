@@ -183,14 +183,16 @@ const RUN := {
 		# 1 — the lake terrace, quiet and bright: imps and puglins, a few goblins
 		{"places": ["terrace"], "lv": 1, "xp": 0.8, "reach": 1, "foes": {"*": [[IMP, 5], [PUGLIN, 4], [GOBLIN, 2]]}},
 		# 2 — the crypt's skeletons with the imps, or the swamp's dead with the puglins
+		# (the crypt's fewer that shoot, 2026-10-28, the user's word: nearly all
+		# of them shooting at once was too much)
 		{"places": ["crypt", "swamp"], "lv": 2, "xp": 1.0, "reach": 2,
-				"foes": {"crypt": [[SKEL_WARRIOR, 4], [IMP, 4], [SKEL_ARCHER, 2], [SKULL, 2]],
+				"foes": {"crypt": [[SKEL_WARRIOR, 5], [IMP, 3], [SKEL_ARCHER, 2], [SKULL, 1]],
 						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 4], [IMP, 3]]}},
 		# 3 — the ghouls' cave, or the two again, each with something of the other
 		{"places": ["cave", "swamp", "crypt"], "lv": 3, "xp": 1.2, "reach": 2,
 				"foes": {"cave": [[GHOUL, 9], [ZOMBIE_M, 2], [GHOUL, 1, ELITE]],
 						"swamp": [[ZOMBIE_M, 2], [ZOMBIE_F, 2], [PUGLIN, 4], [SKEL_WARRIOR, 2], [IMP, 2], [PUGLIN, 1, ELITE]],
-						"crypt": [[SKEL_WARRIOR, 4], [SKEL_ARCHER, 2], [SKEL_MAGE, 1], [SKULL, 3], [ZOMBIE_F, 2], [SKEL_WARRIOR, 1, ELITE]]}},
+						"crypt": [[SKEL_WARRIOR, 5], [SKEL_ARCHER, 2], [SKEL_MAGE, 1], [SKULL, 2], [ZOMBIE_F, 2], [SKEL_WARRIOR, 1, ELITE]]}},
 		# 4 — the wood's goblins and wolves, or the ruins' golem
 		{"places": ["forest", "mountain"], "lv": 4, "xp": 1.5, "reach": 3,
 				"foes": {"forest": [[GOBLIN, 4], [GOBLIN, 1, SHAMAN], [WOLF, 4], [IMP, 3]],

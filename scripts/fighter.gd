@@ -654,12 +654,18 @@ func _wander(delta: float) -> void:
 		_move_towards(_target, speed, delta)
 
 
+var _steer := WallSteer.new()
+
+
 func _move_towards(point: Vector3, pace: float, delta: float) -> void:
 	var direction := point - global_position
 	direction.y = 0.0
 	if direction.length_squared() < 0.0001:
 		return
+	var far := direction.length()
 	direction = direction.normalized()
+	# round a wall in the way, not into it ([WallSteer])
+	direction = _steer.way(self, direction, far, pace, delta)
 	_face(direction, delta, turn_speed)
 	# Walk where it is looking, not where it is aiming, or a turn reads as a skid.
 	var facing := -global_transform.basis.z

@@ -147,6 +147,13 @@ var _gait_left: float = 0.0
 var _haste_left: float = 0.0
 var _grab_wait: float = 0.0
 var _lunge_speed: float = 0.0
+var _through := false
+## The rush: the share of it that keeps after him, its fastest, and how far
+## off him at its end still takes him.
+const LUNGE_FOLLOWS := 0.65
+const LUNGE_MOST := 11.0
+const LUNGE_SLACK := 1.25
+const ENEMY_LAYER := 4
 var _seized: Node3D = null
 var _hold_left: float = 0.0
 var _bite_in: float = 0.0
@@ -378,6 +385,8 @@ func _think(delta: float) -> void:
 			# it climbs out and stands there until he strikes it.
 			_climb_out(near if sight_range > 0.0 else null)
 		return
+	if _through and act != LUNGE:
+		_lunge_through(false)
 	if is_dead:
 		super(delta)
 		return
@@ -439,6 +448,18 @@ func _extra_velocity(delta: float) -> Vector3:
 			# a step back as it rears, then still
 			return _forward() * (-0.55 if _act_time < tell_time * 0.5 else 0.0)
 		LUNGE:
+			# (the user's word, 2026-10-28: the woman too often rushed past a
+			# man standing still) through the first of the rush it keeps
+			# after him, as the man's did when he was near; past that, no
+			# more: a roll at the end still takes him out of its hands
+			if _quarry != null and is_instance_valid(_quarry) and _act_time < _act_length * LUNGE_FOLLOWS:
+				var to := _quarry.global_position - global_position
+				to.y = 0.0
+				var left := maxf(_act_length - _act_time, 0.08)
+				_lunge_speed = minf(maxf(to.length() - hold_gap, 0.0) / left, LUNGE_MOST)
+				_face(to, delta, 14.0)
+				if to.length_squared() > 0.0001:
+					return to.normalized() * _lunge_speed
 			return _forward() * _lunge_speed
 		HOLD, KNEEL, EAT, SCREAM, EMERGE, MISS:
 			return Vector3.ZERO
@@ -531,11 +552,24 @@ func _lunge() -> void:
 	_face(to, 1.0, 50.0)
 	_begin(LUNGE)
 	_lunge_speed = maxf(to.length() - hold_gap, 0.0) / maxf(_act_length, 0.2)
+	# through the others of its kind in the way (an imp between them was
+	# enough to stop it a step short)
+	_lunge_through(true)
+
+
+## Through the other creatures while it rushes (their layer out of its mask).
+func _lunge_through(on: bool) -> void:
+	if on:
+		collision_mask &= ~ENEMY_LAYER
+	else:
+		collision_mask |= ENEMY_LAYER
+	_through = on
 
 
 ## Host: at the end of the rush: his shoulders in its hands, or it stumbles
 ## on past (he blocked it facing it, or rolled out of it).
 func _land_lunge() -> void:
+	_lunge_through(false)
 	_grab_wait = _rng.randf_range(grab_cooldown.x, grab_cooldown.y)
 	var q := _quarry
 	if q == null or not is_instance_valid(q) or not (q is Player) or bool(q.get("is_dead")):
@@ -546,7 +580,7 @@ func _land_lunge() -> void:
 	to.y = 0.0
 	var dodged := hero.untouchable_now(self) or int(hero.get(&"net_state")) in [Player.State.DASHING, Player.State.DODGING]
 	var guarded := hero.guarding() and (-to.normalized()).dot(-hero.global_basis.z) > 0.3
-	if to.length() > hold_gap + 0.9 or dodged or guarded or _held_by_other(q) or _quarry_down():
+	if to.length() > hold_gap + LUNGE_SLACK or dodged or guarded or _held_by_other(q) or _quarry_down():
 		_begin(MISS)
 		return
 	_seized = q

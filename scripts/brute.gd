@@ -433,12 +433,18 @@ func _pick_target() -> void:
 				else (_home - _beat + drift)
 
 
+var _steer := WallSteer.new()
+
+
 func _move_towards(point: Vector3, pace: float, delta: float) -> void:
 	var direction := point - global_position
 	direction.y = 0.0
 	if direction.length_squared() < 0.0001:
 		return
+	var far := direction.length()
 	direction = direction.normalized()
+	# round a wall in the way, not into it ([WallSteer])
+	direction = _steer.way(self, direction, far, pace, delta)
 	_face(direction, delta, turn_speed)
 	var alignment := clampf(_forward().dot(direction), 0.0, 1.0)
 	velocity.x = move_toward(velocity.x, direction.x * pace * alignment, acceleration * 2.0 * delta)

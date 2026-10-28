@@ -187,7 +187,13 @@ func _think(delta: float) -> void:
 	if _cooldown > 0.0 or _forward().dot(to.normalized()) < 0.85:
 		return
 	var span := SpiritSword.strike_span()
-	if _raise_wait <= 0.0 and _standing_raised() < raise_max:
+	var raise := _raise_wait <= 0.0 and _standing_raised() < raise_max
+	# (its spells in the turn of all that shoot at him, as the archers' and
+	# the imps' are: one at a time, each seen coming; the user's word,
+	# 2026-10-28: in the crypt they all shot at once)
+	if not raise and not Fighter.claim_throw(_quarry, self):
+		return
+	if raise:
 		_cast(RAISE)
 	elif _blade_wait <= 0.0 and gap < keep_from - 1.5 and gap > 1.6:
 		_cast(BLADE)
