@@ -2452,169 +2452,7 @@ func _settle() -> void:
 ## and made in front of him each of those was a stall (the user's word,
 ## 2026-10-20: it sticks going through a portal).
 func _warm_up() -> void:
-	if DisplayServer.get_name() == "headless" or not is_inside_tree():
-		return
-	var started := Time.get_ticks_msec()
-	var level_root: Node = owner if owner != null else get_parent()
-	var mark := Node.new()
-	mark.name = "PipelineWarmup"
-	level_root.add_child(mark)
-	var was_going := _going
-	_going = true
-	if _bus >= 0 and _bus < AudioServer.bus_count:
-		AudioServer.set_bus_mute(_bus, true)
-	var dark := _fade.color.a if _fade != null else 0.0
-	if _fade != null:
-		_fade.color.a = 1.0
-	var eye := Camera3D.new()
-	eye.fov = 95.0
-	eye.far = 520.0
-	add_child(eye)
-	# Only the place he stands in, from its door and from over it. The
-	# others are no longer put up here (they cost ~3.5 s of the loading
-	# screen at High on the M1): each is looked round behind the dark as he
-	# goes through its portal ([method _look_round], the user's idea,
-	# 2026-10-28: made at the right time, not all beforehand).
-	await _look_round(current, eye)
-
-	# The creatures, the portals, the fights' own: in a row before the eye.
-	var stage := Node3D.new()
-	stage.name = "WarmStage"
-	add_child(stage)
-	stage.global_position = WARM_AT + Vector3(0.0, 0.0, -400.0)
-	eye.make_current()
-	eye.global_position = stage.global_position + Vector3(0.0, 3.0, 9.0)
-	eye.look_at(stage.global_position + Vector3(0.0, 1.5, 0.0))
-	var shown: Array[Node3D] = []
-	var x := -6.0
-	var made_paths := {}
-	for list: Array in _premade.values():
-		for body: Variant in list:
-			if is_instance_valid(body):
-				made_paths[String((body as Node).get_meta(&"scene", ""))] = true
-	for path: String in _scenes:
-		var scene: PackedScene = _scenes[path]
-		if scene == null or made_paths.has(path):
-			continue
-		var body := scene.instantiate() as Node3D
-		if "leash_radius" in body:
-			body.set("leash_radius", 0.01)
-		body.process_mode = Node.PROCESS_MODE_DISABLED
-		body.position = Vector3(x, 0.0, 0.0)
-		stage.add_child(body)
-		shown.append(body)
-		x += 3.0
-	var lent: Array[Node3D] = []
-	for list: Array in _premade.values():
-		for body: Variant in list:
-			if is_instance_valid(body):
-				var b := body as Node3D
-				b.global_position = stage.global_position + Vector3(x, 0.0, -2.0)
-				b.visible = true
-				lent.append(b)
-				x += 3.5
-	for k in 2:
-		var gate := PortalLook.new()
-		gate.tint = REWARDS["blade"]["tint"] if k == 0 else Color(0.85, 0.12, 0.2)
-		var view := PREVIEWS % "cave"
-		if k == 0 and ResourceLoader.exists(view):
-			gate.view = load(view) as Texture2D
-		gate.position = Vector3(-4.0 + float(k) * 8.0, 0.0, -6.0)
-		stage.add_child(gate)
-	# a blessing's light and its lightning (their materials made now)
-	boons._light(&"chain", stage.global_position + Vector3(6.0, 0.0, -3.0), stage)
-	boons._bolt(stage.global_position + Vector3(-3.0, 1.5, 0.0), stage.global_position + Vector3(3.0, 1.5, 0.0))
-	# the letters the portals and the banner write with, at their sizes: each
-	# new letter was drawn into the font's cache as the portals opened
-	var letters := "0123456789/:. "
-	for code in range(0x10D0, 0x10F1):
-		letters += String.chr(code)
-	for sizes: Vector2i in [Vector2i(72, 14), Vector2i(56, 12)]:
-		var words := Label3D.new()
-		words.text = letters
-		words.font_size = sizes.x
-		words.outline_size = sizes.y
-		words.pixel_size = 0.004
-		words.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		words.no_depth_test = true
-		words.position = Vector3(0.0, 4.0 + float(sizes.x) * 0.01, 2.0)
-		stage.add_child(words)
-	if _banner != null:
-		_banner.text = letters
-		_banner.show()
-		_banner_until = 0.0
-	var props := MudBall.warm_props()
-	stage.add_child(props)
-	props.position = Vector3(0.0, 1.5, 5.0)
-	var ember := MeshInstance3D.new()
-	ember.mesh = MudBall.lump_mesh()
-	ember.material_override = MudBall.coal()
-	ember.position = Vector3(0.6, 0.0, 0.0)
-	props.add_child(ember)
-	RogueSkills.warm(props)
-	MageSkills.warm(props)
-	DarkSkills.warm(props)
-	ScreenMud.prepare(get_tree())
-	ScreenMud.splat(get_tree(), 1.0)
-	var world := Blood.world_of(self)
-	if world != null:
-		SkillFx.burst(world, stage.global_position + Vector3(0.0, 2.0, 3.0), Color(1.0, 0.8, 0.4), 14,
-				Vector2(2.0, 5.0), Vector3.UP, 180.0, Vector2(0.03, 0.07), Vector3(0, -6.0, 0), 0.35)
-	# the light he goes up in at a new level (its sound kept quiet)
-	var lifted := Node3D.new()
-	stage.add_child(lifted)
-	lifted.position = Vector3(3.0, 0.0, 2.0)
-	var beam := LevelBeam.on(lifted)
-	if beam != null:
-		for node in beam.find_children("*", "AudioStreamPlayer3D", true, false):
-			(node as AudioStreamPlayer3D).stop()
-	# the cave's bats, gone round as a flock
-	_bat_flock(stage.global_position + Vector3(0.0, 3.0, 0.0))
-	# one of them broken as the dead are: lit, then in shards
-	var breaking: DeathShatter = null
-	if not shown.is_empty():
-		breaking = DeathShatter.start(self, shown[0])
-	for f in 40:
-		eye.make_current()
-		await get_tree().process_frame
-		if f % 3 == 1:
-			_keep_materials(level_root)
-		if f >= 6 and (breaking == null or not is_instance_valid(breaking)):
-			break
-	# What each of those was drawn with, held for as long as the dungeon is
-	# up. Godot makes a material's shader for each kind of material and lets
-	# it go when the last one of that kind is gone: the shards of the dead, the
-	# bats, the sparks were each made afresh every time they came round again
-	# (a death cost 40–100 ms; the bats near a second).
-	_keep_materials(level_root)
-	ScreenMud.clear(get_tree())
-	for b in lent:
-		if is_instance_valid(b):
-			b.visible = false
-			b.global_position = Vector3(b.global_position.x, -300.0, 0.0)
-	# out of sight, and gone once what the skills and the sparks left timed
-	# on it has run out
-	# (the one in shards goes with the stage: its shards still hold it)
-	for body in shown.slice(1):
-		if is_instance_valid(body):
-			body.queue_free()
-	stage.visible = false
-	get_tree().create_timer(6.0).timeout.connect(stage.queue_free)
-
-	# the view back to the hero's own eye
-	var hers := _hero_eye()
-	eye.queue_free()
-	if hers != null:
-		hers.make_current()
-	if _fade != null:
-		_fade.color.a = dark
-	if _bus >= 0 and _bus < AudioServer.bus_count:
-		AudioServer.set_bus_mute(_bus, false)
-	_going = was_going
-	mark.queue_free()
-	# the dungeon's name, now that it can be seen
-	_say("%s" % String(Portals.DEFS[id]["name"]), 3.5)
-	print("Dungeon: warm-up %d ms" % (Time.get_ticks_msec() - started))
+	await DungeonWarmUp._warm_up(self)
 
 
 ## Place `i` shown to the renderer once from its door and from high over
@@ -2624,63 +2462,11 @@ func _warm_up() -> void:
 ## and this way that is not in front of him. ~60–400 ms a place at High on
 ## the M1 (2026-10-27 probe), where it used to be all at the start.
 func _look_round(i: int, eye: Camera3D = null) -> void:
-	if DisplayServer.get_name() == "headless" or i < 0 or i >= rooms.size():
-		return
-	var own := eye == null
-	if own:
-		eye = Camera3D.new()
-		eye.fov = 95.0
-		eye.far = 520.0
-		add_child(eye)
-	var r: Dictionary = rooms[i]
-	var c := centre(i)
-	var l := float(r.get("l", 40.0))
-	var h := maxf(float(r.get("h", 0.0)), 8.0)
-	for pose: Array in [[Vector3(0.0, 2.5, l * 0.5 - 3.0), Vector3(0.0, 2.0, 0.0)],
-			[Vector3(0.0, h + 14.0, -l * 0.35), Vector3(0.0, 0.0, l * 0.1)]]:
-		if not is_instance_valid(eye):
-			return
-		eye.make_current()
-		eye.global_position = c + (pose[0] as Vector3)
-		eye.look_at(c + (pose[1] as Vector3))
-		await get_tree().process_frame
-		await get_tree().process_frame
-	if own:
-		eye.queue_free()
-		var hers := _hero_eye()
-		if hers != null:
-			hers.make_current()
+	await DungeonWarmUp._look_round(self, i, eye)
 
 
 func _keep_materials(under: Node) -> void:
-	for node in under.find_children("*", "GeometryInstance3D", true, false):
-		var g := node as GeometryInstance3D
-		_keep(g.material_override)
-		_keep(g.material_overlay)
-		var meshes: Array[Mesh] = []
-		if g is MeshInstance3D:
-			var mi := g as MeshInstance3D
-			meshes.append(mi.mesh)
-			for k in mi.get_surface_override_material_count():
-				_keep(mi.get_surface_override_material(k))
-		elif g is GPUParticles3D:
-			var gp := g as GPUParticles3D
-			_keep(gp.process_material)
-			for k in gp.draw_passes:
-				meshes.append(gp.get_draw_pass_mesh(k))
-		for mesh in meshes:
-			if mesh == null:
-				continue
-			for k in mesh.get_surface_count():
-				_keep(mesh.surface_get_material(k))
-			if mesh is PrimitiveMesh:
-				_keep((mesh as PrimitiveMesh).material)
-
-
-func _keep(m: Material) -> void:
-	if m == null or not (m is BaseMaterial3D or m is ParticleProcessMaterial):
-		return
-	_kept[m.get_instance_id()] = m
+	DungeonWarmUp._keep_materials(self, under)
 
 
 ## The camera the hero is seen through.
@@ -3168,80 +2954,7 @@ func _vista() -> void:
 ## counting as one. The ones let at him keep their turn while they are near;
 ## the rest are held back ([member Fighter.held_back]): out of reach, throwing.
 func _hold_back_crowd(heroes: Array[Player]) -> void:
-	var standing: Array[Player] = []
-	for hero in heroes:
-		if not hero.is_dead:
-			standing.append(hero)
-	var small: Array = []
-	var brutes: Array = []
-	var shooters: Array = []
-	var gunners: Array[Fighter] = []
-	for body in _alive:
-		if not is_instance_valid(body) or bool(body.get("is_dead")):
-			continue
-		if body is Flyer or SHOOTERS.has(String(body.scene_file_path)):
-			shooters.append(body)
-			# (they keep off by themselves: no place among those at him; but
-			# each its own bearing round him, not all in a line)
-			if not (body is Flyer):
-				if body is Fighter:
-					gunners.append(body)
-				continue
-		var gap := INF
-		for hero in standing:
-			gap = minf(gap, body.global_position.distance_to(hero.global_position))
-		if body is PackBrute:
-			if gap < 9.0 and not (body as PackBrute).held_back:
-				brutes.append(body)
-			continue
-		# the shaman keeps back by itself ([FoeRoles]), and the flyers do
-		if FoeRoles.role_of(body) == &"shaman" or body is Flyer:
-			continue
-		if "held_back" in body:
-			small.append([gap, body])
-	# Who has a turn at him now: by weight and the fight's pressure
-	# ([CombatDirector]; the user's word, 2026-10-27: two at once, the one he
-	# walks up to at once, now and then a third, one at most under fire).
-	small.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
-	var keep: Array[Node3D] = director.choose(small, _holders, standing, shooters, brutes)
-	_holders = keep
-	var waiting: Array[Fighter] = []
-	for pair: Array in small:
-		var held: bool = not keep.has(pair[1])
-		(pair[1] as Node).set("held_back", held)
-		if held:
-			waiting.append(pair[1])
-	_spread(waiting, standing)
-	# the archers and mages: each its own side of him, some behind him
-	for g in gunners:
-		g.shoot_slot = true
-	_spread(gunners, standing, SHOOT_RINGS)
-
-
-## The ones held back, round each hero on `HOLD_RINGS` at even bearings (the
-## user's word: no more than three in a place), each kept to the side of him
-## it is on so none crosses another.
-func _spread(waiting: Array[Fighter], standing: Array[Player], rings: Array = HOLD_RINGS) -> void:
-	if standing.is_empty():
-		return
-	var by_hero := {}
-	for body in waiting:
-		# round the hero it is after (with others it may turn to the other);
-		# none, the nearest
-		var best: Player = director._whose(body, standing) if director != null else standing[0]
-		if not by_hero.has(best):
-			by_hero[best] = []
-		var off := body.global_position - best.global_position
-		(by_hero[best] as Array).append([atan2(off.x, off.z), body])
-	for hero: Player in by_hero:
-		var list: Array = by_hero[hero]
-		list.sort_custom(func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
-		var n := list.size()
-		var start := float(list[0][0])
-		for k in n:
-			var body: Fighter = list[k][1]
-			body.held_angle = start + TAU * float(k) / float(n)
-			body.held_radius = float(rings[k % rings.size()])
+	DungeonCrowd._hold_back_crowd(self, heroes)
 
 
 ## Two orcs (or more) at one lone hero take turns (the user's word): one at
@@ -3249,102 +2962,14 @@ func _spread(waiting: Array[Fighter], standing: Array[Player], rings: Array = HO
 ## sends the other off, and every so often they change over by themselves.
 ## With more heroes they fight as they would.
 func _lead_orcs(standing: Array[Player]) -> void:
-	var orcs: Array[PackBrute] = []
-	for body in _alive:
-		if not is_instance_valid(body):
-			continue
-		var o := body as PackBrute
-		if o != null and not o.is_dead:
-			orcs.append(o)
-	if orcs.size() < 2 or standing.size() != 1:
-		for o in orcs:
-			o.turn_led = false
-			o.held_back = false
-		_orc_on = null
-		return
-	var now := Time.get_ticks_msec() / 1000.0
-	var on := _orc_on as PackBrute
-	if on == null or not orcs.has(on):
-		on = orcs[0]
-		_orc_since = now
-		_orc_hand_over = randf_range(14.0, 22.0)
-	# A blow on one that waits: its turn now.
-	for o in orcs:
-		var was := float(_orc_health.get(o, o.health))
-		if o != on and o.health < was - 0.01:
-			on = o
-			_orc_since = now
-			_orc_hand_over = randf_range(14.0, 22.0)
-		_orc_health[o] = o.health
-	if now - _orc_since > _orc_hand_over and on.act == Fighter.Act.NONE:
-		on = orcs[(orcs.find(on) + 1) % orcs.size()]
-		_orc_since = now
-		_orc_hand_over = randf_range(14.0, 22.0)
-	_orc_on = on
-	for o in orcs:
-		o.turn_led = true
-		o.held_back = o != on
+	DungeonCrowd._lead_orcs(self, standing)
 
 
 ## Every peer: an orc's heavy blow has cracked the floor at `at` (called by
 ## [OrcFighter] through the "ground_scars" group). The crack stays, stone is
 ## thrown up round it, and a column near enough comes down.
 func scar(at: Vector3, weight: float) -> void:
-	if room_at(at) < 0:
-		return
-	_scars += 1
-	Sfx.play(self, SND + "crumble.wav", null, at, randf_range(0.9, 1.1), -3.0 + 4.0 * weight)
-	var crack := DarkFx.decal(self, at, DarkFx.CRACK, 2.2 + 1.8 * weight, Color(0.07, 0.06, 0.05, 1.0), 0.0, 0.95)
-	crack.rotation.y = randf() * TAU
-	_rubble(self, at - global_position, 0.6 + 0.8 * weight, int(3 + 5 * weight), _scars * 31)
-	if weight < 0.6:
-		return
-	for col in _columns:
-		if bool(col["broken"]):
-			continue
-		var c: Vector3 = col["at"]
-		if Vector2(c.x - at.x, c.z - at.z).length() < float(col["thick"]) + 2.2 * weight:
-			_topple(col, at)
-			break
-
-
-## A column brought down: a stump stands, its drums lie where it fell.
-func _topple(col: Dictionary, from: Vector3) -> void:
-	col["broken"] = true
-	Sfx.play(self, SND + "thud.wav", null, col["at"], randf_range(0.9, 1.05), 4.0)
-	for part: MeshInstance3D in col["parts"]:
-		part.visible = false
-	var blocker: StaticBody3D = col["blocker"]
-	if is_instance_valid(blocker):
-		blocker.queue_free()
-	var room: Node3D = col["node"]
-	var at: Vector3 = col["local"]
-	var thick: float = col["thick"]
-	var stump := CylinderMesh.new()
-	stump.top_radius = thick * 0.66
-	stump.bottom_radius = thick * 0.7
-	stump.height = 2.2
-	stump.radial_segments = 14
-	_deco(room, _wall_mat, stump, at + Vector3(0.0, 1.1, 0.0))
-	_blocker(room, Vector3(thick * 1.3, 2.2, thick * 1.3), at + Vector3(0.0, 1.1, 0.0))
-	var away := (col["at"] as Vector3) - from
-	away.y = 0.0
-	away = away.normalized() if away.length() > 0.01 else Vector3.FORWARD
-	var h: float = col["h"]
-	var drums := 3
-	for k in drums:
-		var drum := CylinderMesh.new()
-		drum.top_radius = thick * 0.64
-		drum.bottom_radius = thick * 0.64
-		drum.height = (h - 3.0) / float(drums)
-		drum.radial_segments = 14
-		var where := at + away * (2.4 + float(k) * (drum.height + 0.3)) + Vector3(0.0, thick * 0.64, 0.0)
-		var d := _deco(room, _wall_mat, drum, where)
-		d.rotation = Vector3(PI * 0.5, atan2(away.x, away.z), randf_range(-0.2, 0.2))
-	var world := Blood.world_of(self)
-	if world != null:
-		SkillFx.burst(world, (col["at"] as Vector3) + Vector3.UP * 2.0, Color(0.5, 0.45, 0.4, 0.6), 40,
-				Vector2(1.5, 5.0), Vector3.UP, 80.0, Vector2(0.12, 0.3), Vector3(0, -2.0, 0), 1.6)
+	DungeonFx.scar(self, at, weight)
 
 
 ## Broken stone in a heap at `at` (in `parent`'s frame): `size` across, `count` pieces.
@@ -3381,19 +3006,7 @@ func _fire_light(light: OmniLight3D) -> OmniLight3D:
 
 
 func _flicker_fires(now: float) -> void:
-	var k := 0
-	while k < _fire_lights.size():
-		var f: Dictionary = _fire_lights[k]
-		var obj: Variant = f["light"]
-		if not is_instance_valid(obj):
-			_fire_lights.remove_at(k)
-			continue
-		var light := obj as OmniLight3D
-		if light.is_visible_in_tree():
-			var t := now + float(f["at"])
-			light.light_energy = float(f["base"]) * (0.86 + 0.07 * sin(t * 7.3) + 0.05 * sin(t * 13.7 + 1.3)
-					+ 0.03 * sin(t * 23.1 + 2.1))
-		k += 1
+	DungeonFx._flicker_fires(self, now)
 
 
 func _torch(room: Node3D, at: Vector3) -> void:
@@ -3788,35 +3401,7 @@ void fragment() {
 
 ## A flock of bats out of the dark of the roof, gone again.
 func _bat_flock(at: Vector3) -> void:
-	var p := GPUParticles3D.new()
-	p.amount = 18
-	p.lifetime = 2.6
-	p.one_shot = true
-	p.explosiveness = 0.85
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	pm.emission_sphere_radius = 1.5
-	pm.direction = Vector3(_rng.randf_range(-1.0, 1.0), -0.2, _rng.randf_range(-1.0, 1.0)).normalized()
-	pm.spread = 50.0
-	pm.initial_velocity_min = 6.0
-	pm.initial_velocity_max = 10.0
-	pm.gravity = Vector3.ZERO
-	pm.turbulence_enabled = true
-	pm.turbulence_noise_strength = 2.5
-	p.process_material = pm
-	var q := QuadMesh.new()
-	q.size = Vector2(0.45, 0.2)
-	var qm := StandardMaterial3D.new()
-	qm.albedo_color = Color(0.03, 0.025, 0.03)
-	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	q.material = qm
-	p.draw_pass_1 = q
-	p.visibility_aabb = AABB(Vector3(-30, -10, -30), Vector3(60, 20, 60))
-	add_child(p)
-	p.global_position = at
-	p.emitting = true
-	get_tree().create_timer(3.5).timeout.connect(p.queue_free)
+	DungeonFx._bat_flock(self, at)
 
 
 ## A stream across the forest's clearing, stepping stones over it, its sound.
@@ -3840,20 +3425,7 @@ func _circling_birds(room: Node3D) -> void:
 
 
 func _fly_birds(delta: float) -> void:
-	for b in _birds:
-		# checked before the cast: a cast of a freed bird is an error each
-		# frame (a place's birds outlive it till the next arrival clears them)
-		if not is_instance_valid(b["node"]):
-			continue
-		var node := b["node"] as Node3D
-		b["at"] = float(b["at"]) + float(b["speed"]) * delta
-		var a: float = b["at"]
-		var r: float = b["radius"]
-		node.position = Vector3(sin(a) * r, float(b["height"]) + sin(a * 3.0) * 2.0, cos(a) * r)
-		node.rotation.y = a + (PI * 0.5 if float(b["speed"]) > 0.0 else -PI * 0.5)
-		var flap := sin(Time.get_ticks_msec() / 1000.0 * 7.0 + r) * 0.5
-		(node.get_node("L") as Node3D).rotation.z = flap
-		(node.get_node("R") as Node3D).rotation.z = -flap
+	DungeonFx._fly_birds(self, delta)
 
 
 ## The graveyard kit's props (assets/necropoly: candles, chains, lanterns, the
@@ -3879,84 +3451,15 @@ func _bones(room: Node3D, at: Vector3) -> void:
 
 ## A flash of lightning over a stormy place, its thunder after it.
 func _lightning() -> void:
-	if _sky_mat == null:
-		return
-	var tw := create_tween()
-	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 0.0, 1.0, 0.05)
-	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 1.0, 0.2, 0.12)
-	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 0.2, 0.9, 0.06)
-	tw.tween_method(func(v: float) -> void: _sky_mat.set_shader_parameter("flash", v), 0.9, 0.0, 0.4)
-	var bolt := OmniLight3D.new()
-	bolt.light_color = Color(0.8, 0.85, 1.0)
-	bolt.light_energy = 0.0
-	bolt.omni_range = 220.0
-	bolt.shadow_enabled = false
-	add_child(bolt)
-	bolt.global_position = centre(current) + Vector3(_rng.randf_range(-40.0, 40.0), 70.0, _rng.randf_range(-40.0, 40.0))
-	var lt := create_tween()
-	lt.tween_property(bolt, "light_energy", 6.0, 0.05)
-	lt.tween_property(bolt, "light_energy", 1.0, 0.12)
-	lt.tween_property(bolt, "light_energy", 5.0, 0.06)
-	lt.tween_property(bolt, "light_energy", 0.0, 0.4)
-	lt.tween_callback(bolt.queue_free)
-	get_tree().create_timer(_rng.randf_range(0.4, 1.4)).timeout.connect(func() -> void:
-		Sfx.play_flat(self, SND + "thunder.wav", _rng.randf_range(0.9, 1.15), -2.0))
-#endregion
+	DungeonFx._lightning(self)
 
 
 ## Now and then a few stones and dust come down from a hall's roof near him.
 func _falling_stones(near: Vector3, h: float) -> void:
-	var world := Blood.world_of(self)
-	if world == null:
-		return
-	var at := near + Vector3(_rng.randf_range(-9.0, 9.0), 0.0, _rng.randf_range(-9.0, 9.0))
-	at.y = centre(current).y
-	for k in _rng.randi_range(2, 5):
-		var stone := MeshInstance3D.new()
-		stone.mesh = RockWave._crag_mesh(_rng.randi_range(0, RockWave.SHAPES - 1))
-		var box := stone.mesh.get_aabb()
-		var size := _rng.randf_range(0.12, 0.3)
-		stone.scale = Vector3.ONE * size / maxf(box.size.x, 0.01)
-		stone.material_override = _rock_mat
-		world.add_child(stone)
-		var from := at + Vector3(_rng.randf_range(-0.8, 0.8), h - 0.5, _rng.randf_range(-0.8, 0.8))
-		stone.global_position = from
-		var fall := sqrt(2.0 * (h - 0.5) / 9.8) * _rng.randf_range(0.95, 1.1)
-		var tw := create_tween()
-		tw.tween_property(stone, "global_position:y", at.y + 0.1, fall).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-		tw.parallel().tween_property(stone, "rotation", Vector3(_rng.randf_range(-6.0, 6.0), 0.0, _rng.randf_range(-6.0, 6.0)), fall)
-		tw.tween_interval(6.0)
-		tw.tween_callback(stone.queue_free)
-	SkillFx.burst(world, at + Vector3.UP * (h - 0.5), Color(0.7, 0.62, 0.5, 0.6), 30, Vector2(0.2, 1.0), Vector3.DOWN,
-			40.0, Vector2(0.08, 0.2), Vector3(0, -3.0, 0), 2.5)
-	var land := sqrt(2.0 * (h - 0.5) / 9.8)
-	get_tree().create_timer(land).timeout.connect(func() -> void:
-		DustRing.burst(world, at + Vector3.UP * 0.05, 0.5)
-		Sfx.play(self, SND + "crumble.wav", null, at, _rng.randf_range(1.2, 1.5), -12.0))
+	DungeonFx._falling_stones(self, near, h)
 
 
 ## A blow on one of them seen: a warm flash where it struck and a few sparks.
 func _on_foe_hurt(_remaining: float, body: Node3D) -> void:
-	if not is_instance_valid(body):
-		return
-	var now := Time.get_ticks_msec() / 1000.0
-	if now - float(body.get_meta(&"flashed", -1.0)) < 0.1:
-		return
-	body.set_meta(&"flashed", now)
-	var world := Blood.world_of(self)
-	if world == null:
-		return
-	var at := body.global_position + Vector3.UP * 1.1 * maxf(float(body.get("visual_scale")) if "visual_scale" in body else 1.0, 0.5)
-	var flash := OmniLight3D.new()
-	flash.light_color = Color(1.0, 0.78, 0.45)
-	flash.light_energy = 3.5
-	flash.omni_range = 4.5
-	world.add_child(flash)
-	flash.global_position = at
-	var tw := flash.create_tween()
-	tw.tween_property(flash, "light_energy", 0.0, 0.16)
-	tw.tween_callback(flash.queue_free)
-	SkillFx.burst(world, at, Color(1.0, 0.8, 0.4), 14, Vector2(2.0, 5.0), Vector3.UP, 180.0, Vector2(0.03, 0.07),
-			Vector3(0, -6.0, 0), 0.35)
-#endregion
+	DungeonFx._on_foe_hurt(self, _remaining, body)
 
