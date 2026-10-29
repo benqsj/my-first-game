@@ -241,6 +241,8 @@ var _last_attack_at: float = -100.0
 ## blow left alone comes back slowly (the knight, the user's word 2026-10-06).
 var recover_pace: float = 1.0
 var last_recover_pace: float = 1.0
+## A light cut's pace in the quicker fight ([member Player.action_souls]).
+@export var action_light_pace: float = 1.15
 ## Seconds the stance is blended back in over after a blow played out (the
 ## last of a string: `last_recover_blend`); under 0, the stance's own.
 var recover_blend: float = -1.0
@@ -1621,6 +1623,18 @@ func in_recovery() -> bool:
 	return w != Vector2.ZERO and _progress() > w.y + cut_margin
 
 
+## In the quicker fight ([member Player.action_souls]), where an evade may
+## take him out of a light cut: once its blade has cut half its way. A heavy
+## blow as ever ([method in_recovery]).
+func past_cut() -> bool:
+	if _role != Role.SWING or _air_cut:
+		return false
+	if _heavy_now:
+		return in_recovery()
+	var w: Vector2 = cut_window.get(_act_clip, Vector2.ZERO)
+	return w != Vector2.ZERO and _progress() > lerpf(w.x, w.y, 0.5)
+
+
 ## The blow in hand is a string's last, or a heavy blow.
 func _last_blow() -> bool:
 	return _heavy_now or (_attack_style == AttackStyle.SIDE and not flurry.is_empty()
@@ -1894,6 +1908,9 @@ func attack(style: int = -1) -> void:
 		if least > 0.0 and _anim.has_animation(clip):
 			var span := _anim.get_animation(clip).length * (part.y - part.x)
 			rate = minf(rate, span / least)
+	# the quicker fight's light cuts ([member Player.action_souls])
+	if Player.action_souls:
+		rate *= action_light_pace
 	var chained := _attack_style == AttackStyle.SIDE and _flurry_slot > 0
 	var blend := chain_blend if chained and chain_blend >= 0.0 else -1.0
 	if _play_action(clip, Role.SWING, rate, blend, part.x, part.y):

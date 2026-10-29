@@ -297,7 +297,8 @@ func _physics_process(delta: float) -> void:
 	# blow lands on the clock while the clip still stands
 	_act_time += delta * HitFeel.pace(self)
 	# (its rests between blows run faster with more heroes at it: [member coop_pace])
-	_cooldown = maxf(_cooldown - delta * coop_pace, 0.0)
+	_cooldown = maxf(_cooldown - delta * coop_pace
+			* (Dungeon.AS_BOSS_REST if Player.action_souls and HitFeel.is_big(self) else 1.0), 0.0)
 	_regen_wait = maxf(_regen_wait - delta, 0.0)
 	if act != Act.BLOCK and act != Act.BREAK and _regen_wait <= 0.0:
 		stamina = minf(stamina + stamina_regen * delta, max_stamina)

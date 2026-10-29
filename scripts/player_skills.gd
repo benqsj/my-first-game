@@ -93,7 +93,7 @@ static func skill_cooldown_left(me: Player, slot: int) -> float:
 ## Its whole cooldown, for the bar to draw the rest against.
 static func skill_cooldown(me: Player, slot: int) -> float:
 	var id := PlayerSkills.skill_in(me, slot)
-	return float(Player.SKILLS[id]["cooldown"]) * me.skill_haste if id != &"" else 0.0
+	return float(Player.SKILLS[id]["cooldown"]) * me.skill_pace() if id != &"" else 0.0
 
 
 ## Uses the skill in `slot`, if there is one, it is ready and the body is free
@@ -148,7 +148,7 @@ static func use_skill(me: Player, slot: int) -> bool:
 			went = me.elf().moonfall(float(Player.SKILLS[id]["stamina"]))
 	if not went:
 		return false
-	me._skill_ready_at[id] = me._now() + float(Player.SKILLS[id]["cooldown"]) * me.skill_haste
+	me._skill_ready_at[id] = me._now() + float(Player.SKILLS[id]["cooldown"]) * me.skill_pace()
 	me.net_casts += 1
 	me.skill_used.emit(slot, id)
 	return true

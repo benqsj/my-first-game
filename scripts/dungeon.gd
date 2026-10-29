@@ -1328,9 +1328,14 @@ static func mixed(foes: Array) -> Array:
 		one[1] = 1
 		var role := String((entry[2] as Dictionary).get("role", "")) if entry.size() > 2 else ""
 		var many: Array = []
-		for n in int(entry[1]):
-			many.append(one)
 		var late := entry.size() > 2 and bool((entry[2] as Dictionary).get("late", false))
+		var count := int(entry[1])
+		# the quicker fight: more of those that close in ([const AS_FRONT_MORE])
+		if Player.action_souls and count >= 2 and role != "elite" and not late \
+				and _part_of(String(entry[0]), role) == "front":
+			count = mini(roundi(float(count) * AS_FRONT_MORE), count + AS_FRONT_MOST)
+		for n in count:
+			many.append(one)
 		if role == "elite" or late:
 			last.append_array(many)
 		else:
@@ -2206,7 +2211,27 @@ func hard_factors(i: int, heroes: int, power: float) -> Dictionary:
 		"stance": 1.0 + COOP_STANCE * more,
 		"boss_stance": 1.0 + COOP_BOSS_STANCE * more,
 		"pace": 1.0 + COOP_PACE * more,
+		"foe_poise": AS_FOE_POISE if Player.action_souls else 1.0,
+		"foe_life": AS_FOE_HEALTH if Player.action_souls else 1.0,
 	}
+
+
+## The quicker fight ([member Player.action_souls], the user's pick
+## 2026-10-29): the common ones come more of them, each falling sooner and
+## staggered more easily; the bosses and the big ones as ever. Those that
+## close in come `AS_FRONT_MORE` times as many (no more than `AS_FRONT_MOST`
+## more of a kind), with `AS_FOE_HEALTH` of their health and `AS_FOE_POISE`
+## of their poise.
+const AS_FRONT_MORE := 1.3
+const AS_FRONT_MOST := 3
+const AS_FOE_HEALTH := 0.75
+const AS_FOE_POISE := 0.8
+## Its bosses and big ones (the user's word, 2026-10-29: the bosses brought on
+## as the rest were): every move `AS_BOSS_TEMPO` times as quick, its rests
+## between blows `AS_BOSS_REST` times as short; their health, stance and blows
+## as ever. A counter on one is worth `Player.as_counter_big` (not the whole).
+const AS_BOSS_TEMPO := 1.1
+const AS_BOSS_REST := 1.25
 
 
 ## What `heroes` heroes alone ask of a boss (no run's power: tests, F1).
@@ -2256,10 +2281,12 @@ func net_harden(i: int, f: Dictionary) -> void:
 ## One body made as hard as `f` asks ([method hard_factors]): `big` a boss or a
 ## big one, `guard` the lord's guard. Every peer, once.
 static func harden_body(body: Node3D, f: Dictionary, big: bool, guard: bool) -> void:
-	var hp := float(f["guard"]) if guard else (float(f["boss"]) if big else float(f["foe"]))
+	var hp := float(f["guard"]) if guard else (float(f["boss"]) if big else float(f["foe"]) * float(f.get("foe_life", 1.0)))
 	FoeRoles._scale_stat(body, &"max_health", hp)
 	# a boss's stance and poise rise faster with heroes than a common one's
 	var hold := float(f.get("boss_stance", f["stance"])) if big else float(f["stance"])
+	if not big and not guard:
+		hold *= float(f.get("foe_poise", 1.0))
 	if big:
 		FoeRoles._scale_stat(body, &"hit_damage", float(f["hit"]))
 		var pace := float(f.get("pace", 1.0))

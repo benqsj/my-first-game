@@ -603,6 +603,33 @@ the size it was.
 
     godot --path . --headless --script res://tests/target_parts_test.gd
 
+## Two fights: classic souls and action souls
+
+The user's pick (2026-10-29): the fight can be the old, slow souls one or a
+quicker "action souls" one (Nightreign / Black Myth: Wukong). It is chosen
+before the game, on the ride page of the menu (FIGHT: CLASSIC SOULS / ACTION
+SOULS, kept in `settings.cfg` [game] `action_souls`), or with **F3** in play.
+Online the host's choice is the one in force (`Game.set_fight_quick`,
+`Game.net_fight`). It is one static switch, `Player.action_souls`; classic is
+the default.
+
+What action souls changes:
+
+| | classic | action souls |
+| --- | --- | --- |
+| an evade out of a light cut | once in its recovery, not after a whiff (`whiff_recovery`) | from the middle of its cut window, whiffed or not (`SkinnedRig.past_cut`) |
+| the run kept under a flurry | `commit_speed_scale` 0.18 | `as_commit_speed_scale` 0.35 |
+| light cuts' pace | as made | ×`SkinnedRig.action_light_pace` 1.15 |
+| a perfect dodge | the roll's stamina back | that, and for `as_counter_time` 1.2 s the next landed cut is a counter: ×`as_counter_power` 1.6, ×`as_counter_big` 1.25 on a boss or a big one; a ring and the shadow trail on every hero |
+| the bow's and the staff's recovery | `loose_recovery` | ×`as_loose_share` 0.7 |
+| skills' cooldowns | as set | ×`as_skill_haste` 0.7 (`Player.skill_pace`) |
+| common creatures in the portals | as the run lists them | those that close in ×`Dungeon.AS_FRONT_MORE` 1.3 (at most +3 a kind), health ×`AS_FOE_HEALTH` 0.75, poise ×`AS_FOE_POISE` 0.8 |
+| bosses and big ones | as ever | every move ×`AS_BOSS_TEMPO` 1.1 (`HitFeel.pace`), rests between blows ×`AS_BOSS_REST` 1.25 shorter; health, stance and blows unchanged |
+
+Films comparing the two: `_shots_tmp/as1/film.gd` (Tariel and a skeleton:
+cuts broken off by an evade, perfect dodges and counters) and
+`_shots_tmp/as2/film.gd` (a portal place, a bot Tariel).
+
 ## Commitment
 
 **Once an attack is thrown it plays out.** No dodging out of it, no jumping out

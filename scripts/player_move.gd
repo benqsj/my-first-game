@@ -43,7 +43,7 @@ static func _process_locomotion(me: Player, delta: float) -> void:
 		# walk, legs walking — rather than sliding along in a standing pose.
 		speed = minf(speed, me.walk_speed)
 	elif me.is_committed() and not me._free_swing:
-		speed *= me.commit_speed_scale
+		speed *= me.commit_scale()
 	elif me.is_committed() and me.is_on_floor():
 		# The first cut out of a run keeps its run only for a step: eased down
 		# to the swing's pace over `free_swing_ease`, so the charge lands in a
@@ -53,7 +53,7 @@ static func _process_locomotion(me: Player, delta: float) -> void:
 		# the while it is held wound up)
 		if not me._cut_charging:
 			var eased := clampf((me._game_t - me._swing_t0 - me._ease_delay) / maxf(me._free_ease, 0.01), 0.0, 1.0)
-			speed *= lerpf(1.0, me.commit_speed_scale, eased)
+			speed *= lerpf(1.0, me.commit_scale(), eased)
 	# A skill shot is taken standing: from the draw to the release he does not
 	# walk (turning to the shot is still the controller's).
 	if me._root_timer > 0.0:

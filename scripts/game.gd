@@ -207,6 +207,10 @@ func _start_probe() -> void:
 
 func _ready() -> void:
 	Controls.apply()
+	# a companion who joins fights the host's fight ([method set_fight_quick])
+	multiplayer.peer_connected.connect(func(id: int) -> void:
+		if multiplayer.is_server():
+			net_fight.rpc_id(id, Player.action_souls))
 	# Closing is ours to decide: see `_notification`.
 	get_tree().set_auto_accept_quit(false)
 	_load_settings()
@@ -470,6 +474,37 @@ func roster() -> Array[StringName]:
 
 
 #region Settings
+## The fight he picked ([member Player.action_souls]): the old souls one or
+## the quicker one (the user's word, 2026-10-29: chosen before the game, or
+## F3 in it). Online the host's is the one in force.
+var _fight_quick_own: bool = false
+
+
+func fight_quick() -> bool:
+	return Player.action_souls
+
+
+## False when a companion (not the host) asks: the host's fight is the one.
+func set_fight_quick(on: bool) -> bool:
+	var online := multiplayer.has_multiplayer_peer() \
+			and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+	if online and not multiplayer.is_server():
+		return false
+	_fight_quick_own = on
+	Player.action_souls = on
+	_save_settings()
+	if online:
+		net_fight.rpc(on)
+	return true
+
+
+## The host's fight, on a companion's game (not kept: his own comes back
+## with the next start).
+@rpc("authority", "call_remote", "reliable")
+func net_fight(on: bool) -> void:
+	Player.action_souls = on
+
+
 ## Which graphics setting is in force.
 func graphics() -> Graphics.Level:
 	return _graphics
@@ -609,6 +644,8 @@ func _load_settings() -> void:
 		return
 	var level := int(file.get_value("video", "graphics", -1))
 	_graphics = Graphics.from_int(level) if level >= 0 else suggested_graphics()
+	_fight_quick_own = bool(file.get_value("game", "action_souls", false))
+	Player.action_souls = _fight_quick_own
 	_vsync = bool(file.get_value("video", "vsync", true))
 	_fps_cap = int(file.get_value("video", "fps_cap", 0))
 	_volume = clampf(float(file.get_value("audio", "volume", 1.0)), 0.0, 1.0)
@@ -673,6 +710,7 @@ func _save_settings() -> void:
 	# over what is there: a test run leaves what he wears and has won alone
 	file.load(SETTINGS)
 	file.set_value("video", "graphics", int(_graphics))
+	file.set_value("game", "action_souls", _fight_quick_own)
 	file.set_value("video", "display", _display)
 	file.set_value("video", "vsync", _vsync)
 	file.set_value("video", "fps_cap", _fps_cap)

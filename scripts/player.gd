@@ -310,6 +310,59 @@ static var pvp_mode: bool = false
 ## first one again and keeps its run.
 @export var chain_window: float = 0.5
 
+@export_group("Action souls")
+## The quicker fight (the user's pick, 2026-10-29: Nightreign / Wukong, the
+## bosses kept full souls): a light cut broken off by an evade from the moment
+## its blade has landed (whiffed or not), a little more of the run kept under
+## a flurry, the light cuts a little quicker, and a perfect dodge answered by a
+## counter worth more; in the portals more of the common ones, each weaker
+## ([const Dungeon.AS_FRONT_MORE]); the skills sooner. One switch for the
+## whole game, picked before it starts or F3 in play ([method Game.set_fight_quick];
+## the host's online). OFF unless picked.
+static var action_souls: bool = false
+## What is left of the run under the cuts after the first, in that fight
+## (`commit_speed_scale` otherwise).
+@export_range(0.0, 1.0) var as_commit_speed_scale: float = 0.35
+## How long after a perfect dodge the next cut is a counter, in seconds, and
+## what it is worth against a cut.
+@export var as_counter_time: float = 1.2
+@export var as_counter_power: float = 1.6
+## ... on a boss or a big one.
+@export var as_counter_big: float = 1.25
+## What is left of the bow's or the staff's recovery after the string goes.
+@export var as_loose_share: float = 0.7
+## Until when (physics frame) the next landed cut is a counter.
+var _counter_until_frame: int = -1
+## Skills come round this much sooner in that fight (Nightreign's: the skill
+## is a part of every fight, not a spare).
+@export var as_skill_haste: float = 0.7
+
+
+## The skills' cooldowns' share in the fight that is on.
+func skill_pace() -> float:
+	return skill_haste * (as_skill_haste if action_souls else 1.0)
+
+
+## What is left of the run under a committed cut, in the fight that is on.
+func commit_scale() -> float:
+	return as_commit_speed_scale if action_souls else commit_speed_scale
+
+
+## A light cut may be broken off by an evade now: in the old fight once it is
+## in its recovery and did not go through nothing; in the quicker one from the
+## moment its blade has landed.
+func _may_break_off() -> bool:
+	if rig == null:
+		return false
+	if action_souls and rig.has_method(&"past_cut"):
+		return bool(rig.call(&"past_cut"))
+	return rig.has_method(&"in_recovery") and bool(rig.call(&"in_recovery")) and _now() >= _whiff_until
+
+
+## The next cut is a counter (a perfect dodge a moment ago, the quicker fight).
+func counter_ready() -> bool:
+	return action_souls and Engine.get_physics_frames() <= _counter_until_frame
+
 @export_group("Bow")
 ## How much of the run survives while the string is being held. An archer at a
 ## full sprint cannot aim, and being able to would make every other approach
@@ -835,6 +888,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_fullscreen()
 	# The string (Tariel's): F6 goes to the other.
 	var key := event as InputEventKey
+	# F3: the old fight or the quicker one (the user's word, 2026-10-29).
+	if key != null and key.pressed and not key.echo and key.keycode == KEY_F3:
+		var game := get_node_or_null(^"/root/Game")
+		if game == null:
+			action_souls = not action_souls
+		elif not bool(game.call(&"set_fight_quick", not action_souls)):
+			_toast("ბრძოლას ჰოსტი ირჩევს")
+			return
+		_toast("ბრძოლა:  %s   (F3 შეცვლა)" % ("ახალი (სწრაფი)" if action_souls else "ძველი"))
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F6 \
 			and rig != null and rig.has_method(&"cycle_string"):
 		var named: String = rig.call(&"cycle_string")
@@ -1249,8 +1311,7 @@ func _read_actions() -> void:
 		# A light cut that has done its work may be broken off by an evade: the
 		# follow-through is his to give up. A heavy blow plays out.
 		# Not a cut that went through nothing, while its follow-through drags.
-		if Input.is_action_just_pressed("dash") and rig != null and rig.has_method(&"in_recovery") \
-				and bool(rig.call(&"in_recovery")) and _now() >= _whiff_until:
+		if Input.is_action_just_pressed("dash") and _may_break_off():
 			_commit_timer = 0.0
 			_attack_buffer = 0.0
 			_heavy_buffer = 0.0
@@ -2931,6 +2992,14 @@ func net_react(reaction: int, at: Vector3, blow: Vector3) -> void:
 			if rig != null:
 				rig.leave_ground()
 		Reaction.PERFECT_DODGE:
+			# (every peer: the host weighs the counter, [method PlayerMelee.cut_worth])
+			if action_souls:
+				_counter_until_frame = Engine.get_physics_frames() \
+						+ int(as_counter_time * Engine.physics_ticks_per_second)
+				# the counter's cue, every hero's: the ring of a blade and his shadow
+				Sfx.play(self, COUNTER_SOUND, self, Vector3.ZERO, 1.25, -4.0)
+				if profile == null or not profile.shadow_dodge:
+					ShadowTrail.start(self, as_counter_time)
 			if profile != null and profile.shadow_dodge:
 				ShadowTrail.start(self)
 				Sfx.play(self, SHADOW_SOUND, self, Vector3.ZERO, 1.0, -1.0)
@@ -3639,6 +3708,8 @@ const PARRY_SOUND := "res://sounds/parry/clang.wav"
 const BLOCK_SOUND := "res://unverified/sounds/all/block_1.wav"
 const FALL_SOUND := "res://unverified/sounds/all/fall_1.wav"
 const SHADOW_SOUND := "res://unverified/sounds/dodge/shadow.wav"
+## The counter ready after a perfect dodge (the quicker fight).
+const COUNTER_SOUND := "res://unverified/sounds/bow/full_draw_ting.wav"
 const ROLL_SOUND := "res://unverified/sounds/dodge/roll.wav"
 
 ## The body's own moves that are heard: the push off the ground, coming down

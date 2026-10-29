@@ -112,7 +112,7 @@ static func _loose_arrow(me: Player) -> void:
 	# The shot is thrown; now it has to be lived with. The string going is the
 	# same kind of commitment a swing is — the difference is that the archer
 	# chooses when, because the draw itself can be held or let go of.
-	me._commit(me.loose_recovery)
+	me._commit(me.loose_recovery * (me.as_loose_share if Player.action_souls else 1.0))
 	me.arrow_loosed.emit(power, damage, critical)
 
 	# A spell is thrown with the staff, and leaves it from the crystal when the

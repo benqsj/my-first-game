@@ -96,6 +96,10 @@ static func hold(victim: Node3D, seconds: float) -> void:
 ## while a bite holds it, else its own tempo ([member Monster.tempo]).
 static func pace(creature: Node) -> float:
 	var tempo := (creature as Monster).tempo if creature is Monster else 1.0
+	# the quicker fight's bosses and big ones: quicker in every move
+	# ([const Dungeon.AS_BOSS_TEMPO])
+	if Player.action_souls and creature != null and is_big(creature):
+		tempo *= Dungeon.AS_BOSS_TEMPO
 	if creature == null or not creature.has_meta(&"bite_until"):
 		return tempo
 	var until := int(creature.get_meta(&"bite_until"))

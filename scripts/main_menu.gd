@@ -299,6 +299,29 @@ func _build_mode() -> Control:
 			_show(Page.CHARACTERS)))
 	buttons.add_child(MenuStyle.button("BACK", func() -> void: _show(Page.ROOT), true))
 	column.add_child(buttons)
+	# the fight (the user's word, 2026-10-29): the old souls one or the
+	# quicker one ([member Player.action_souls]); F3 in the game too
+	var fight := HBoxContainer.new()
+	fight.alignment = BoxContainer.ALIGNMENT_CENTER
+	fight.add_theme_constant_override("separation", 12)
+	fight.add_child(MenuStyle.label("FIGHT", MenuStyle.BUTTON_SIZE - 2, MenuStyle.CREAM))
+	var picks: Array[Button] = []
+	for quick: bool in [false, true]:
+		var b := MenuStyle.button("ACTION SOULS" if quick else "CLASSIC SOULS", func() -> void:
+				if _game != null:
+					_game.set_fight_quick(quick)
+				else:
+					Player.action_souls = quick
+				for k in picks.size():
+					MenuStyle.style_button(picks[k], (k == 1) == Player.action_souls))
+		b.custom_minimum_size = Vector2(220.0, MenuStyle.BUTTON_HEIGHT - 8.0)
+		b.add_theme_font_size_override("font_size", MenuStyle.BODY_SIZE)
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		picks.append(b)
+		fight.add_child(b)
+	for k in picks.size():
+		MenuStyle.style_button(picks[k], (k == 1) == Player.action_souls)
+	column.add_child(fight)
 	column.add_child(MenuStyle.label("Up to four of you, on the same network, against the same monsters.",
 			MenuStyle.BODY_SIZE - 1, MenuStyle.GOLD_DIM))
 	return made[0]
