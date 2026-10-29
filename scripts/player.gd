@@ -321,8 +321,14 @@ static var pvp_mode: bool = false
 ## the host's online). OFF unless picked.
 static var action_souls: bool = false
 ## What is left of the run under the cuts after the first, in that fight
-## (`commit_speed_scale` otherwise).
-@export_range(0.0, 1.0) var as_commit_speed_scale: float = 0.35
+## (`commit_speed_scale` otherwise), and never over `as_commit_most` m/s:
+## under the pace at which a run is laid under a swing
+## ([member SkinnedRig.swing_stride_from] 1.6). At 0.35 with no top it was
+## over it, and the run's legs went under every follow-up — the feet mixed
+## up, the waist wrung thin, a spin turning on legs that stayed (the user,
+## 2026-10-29).
+@export_range(0.0, 1.0) var as_commit_speed_scale: float = 0.3
+@export var as_commit_most: float = 1.45
 ## How long after a perfect dodge the next cut is a counter, in seconds, and
 ## what it is worth against a cut.
 @export var as_counter_time: float = 1.2
@@ -346,6 +352,13 @@ func skill_pace() -> float:
 ## What is left of the run under a committed cut, in the fight that is on.
 func commit_scale() -> float:
 	return as_commit_speed_scale if action_souls else commit_speed_scale
+
+
+## `speed` as a committed cut leaves it, in the fight that is on.
+func committed_speed(speed: float) -> float:
+	if action_souls:
+		return minf(speed * as_commit_speed_scale, as_commit_most)
+	return speed * commit_speed_scale
 
 
 ## A light cut may be broken off by an evade now: in the old fight once it is
