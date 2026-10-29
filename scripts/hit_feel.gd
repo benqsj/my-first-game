@@ -129,6 +129,10 @@ static func hold_share(creature: Node) -> float:
 static func is_big(creature: Node) -> bool:
 	if creature.has_meta(&"boss"):
 		return true
+	# a common one made harder ([method Dungeon.harden_body]) is no big one
+	# for its health grown past the line
+	if creature.has_meta(&"common"):
+		return false
 	var size: Variant = creature.get(&"visual_scale")
 	if size is float and float(size) >= 1.4:
 		return true

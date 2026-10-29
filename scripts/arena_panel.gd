@@ -518,11 +518,11 @@ func call_up(path: String, boss: bool = false, where: Variant = null, props: Dic
 		body.set_meta(&"own_tempo", (body as Monster).tempo)
 		(body as Monster).tempo *= _tempo
 	creatures.add_child(body)
-	# the quicker fight's common ones as the portals have them: weaker
-	# ([const Dungeon.AS_FOE_HEALTH]); a boss or a big one as it is
-	if Player.action_souls and not boss and not HitFeel.is_big(body):
+	# the common ones as the portals have them ([const Dungeon.COMMON_LIFE]);
+	# a boss or a big one as it is
+	if not boss and not HitFeel.is_big(body):
 		Dungeon.harden_body(body, {"guard": 1.0, "boss": 1.0, "foe": 1.0, "hit": 1.0, "stance": 1.0,
-				"foe_life": Dungeon.AS_FOE_HEALTH, "foe_poise": Dungeon.AS_FOE_POISE}, false, false)
+				"foe_life": Dungeon.COMMON_LIFE, "foe_poise": Dungeon.COMMON_POISE}, false, false)
 	if _frozen:
 		_hold(body, true)
 	if _wait_for_blow:

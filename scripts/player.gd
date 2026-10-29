@@ -315,8 +315,8 @@ static var pvp_mode: bool = false
 ## bosses kept full souls): a light cut broken off by an evade from the moment
 ## its blade has landed (whiffed or not), a little more of the run kept under
 ## a flurry, the light cuts a little quicker, and a perfect dodge answered by a
-## counter worth more; in the portals more of the common ones, each weaker
-## ([const Dungeon.AS_FRONT_MORE]); the skills sooner. One switch for the
+## counter worth more; bosses and big ones quicker
+## ([const Dungeon.AS_BOSS_TEMPO]); the skills sooner. One switch for the
 ## whole game, picked before it starts or F3 in play ([method Game.set_fight_quick];
 ## the host's online). OFF unless picked.
 static var action_souls: bool = false

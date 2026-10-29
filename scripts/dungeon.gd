@@ -344,6 +344,8 @@ var _woken: bool = false
 ## The creatures still to come (each place's, made with it, hidden till their
 ## wave), which wave this is of how many, and the rift they come out of.
 var _reserve: Array[Node3D] = []
+## This place's waves' sizes ([method _wave_plan]).
+var _wave_sizes: Array[int] = []
 var wave: int = 0
 var waves: int = 1
 var _rift: PortalLook = null
@@ -1330,10 +1332,6 @@ static func mixed(foes: Array) -> Array:
 		var many: Array = []
 		var late := entry.size() > 2 and bool((entry[2] as Dictionary).get("late", false))
 		var count := int(entry[1])
-		# the quicker fight: more of those that close in ([const AS_FRONT_MORE])
-		if Player.action_souls and count >= 2 and role != "elite" and not late \
-				and _part_of(String(entry[0]), role) == "front":
-			count = mini(roundi(float(count) * AS_FRONT_MORE), count + AS_FRONT_MOST)
 		for n in count:
 			many.append(one)
 		if role == "elite" or late:
@@ -1389,6 +1387,72 @@ static func _part_of(scene: String, role: String) -> String:
 	return "front"
 
 
+## How many of the common ones place `i` holds in all (its waves together):
+## six at the first step, one more every other step, ten at most.
+func room_total(i: int) -> int:
+	return clampi(6 + int(float(stage_of(i) - 1) / 2.0), 6, 10)
+
+
+## Place `i`'s lot ([method mixed]) cut to [method room_total]: the first of
+## the bands kept and its elite or late big one, last, always. A boss's place
+## and a goal's (the totems: their own waves) as they are.
+func _room_lot(i: int, lot: Array) -> Array:
+	if is_boss(i) or lot.size() <= room_total(i):
+		return lot
+	var last: Array = []
+	var rest: Array = []
+	for entry: Array in lot:
+		var props: Dictionary = entry[2] if entry.size() > 2 else {}
+		if String(props.get("role", "")) == "elite" or bool(props.get("late", false)):
+			last.append(entry)
+		else:
+			rest.append(entry)
+	var keep := maxi(room_total(i) - last.size(), 1)
+	return rest.slice(0, keep) + last
+
+
+## The waves `n` creatures come in (the user's word, 2026-10-29: one, then
+## two, then two and two...): the first of one early on (two later), each
+## after one more, up to [const WAVE_GROW_MOST]; what is left over goes into
+## the last, up to [const WAVE_MOST]. The twin cave keeps its two halls.
+func _wave_plan(i: int, n: int) -> Array[int]:
+	var out: Array[int] = []
+	if n <= 0:
+		return out
+	if is_boss(i):
+		out.append(mini(n, AT_ONCE))
+		if n > AT_ONCE:
+			out.append(n - AT_ONCE)
+		return out
+	if String(_room(i).get("kind", "")) == "twin_cave":
+		var half := int(ceilf(float(n) / 2.0))
+		out.append(half)
+		if n > half:
+			out.append(n - half)
+		return out
+	var size := 1 if stage_of(i) <= 2 else 2
+	var left := n
+	while left > 0:
+		var take := mini(size, left)
+		# a tail of one or two goes into the last wave, if it has room
+		if left - take > 0 and left - take <= WAVE_MOST - mini(size + 1, WAVE_GROW_MOST) \
+				and left - take < 2:
+			take = left
+		out.append(take)
+		left -= take
+		size = mini(size + 1, WAVE_GROW_MOST)
+	return out
+
+
+## Those of the next waves still to come out.
+func _coming() -> int:
+	var n := 0
+	for body in _reserve:
+		if is_instance_valid(body) and not bool(body.get("is_dead")):
+			n += 1
+	return n
+
+
 ## Place `i`'s creatures, standing in its far half, asleep (they see no one:
 ## their leash is nothing).
 func _spawn_room(i: int) -> void:
@@ -1411,7 +1475,10 @@ func _spawn_room(i: int) -> void:
 	# the ones made at the start for this step, if any ([method _premake])
 	var made: Array = _premade.get(i, [])
 	_premade.erase(i)
-	for entry: Array in mixed(r["foes"]):
+	var lot := _room_lot(i, mixed(r["foes"]))
+	_wave_sizes = _wave_plan(i, lot.size())
+	var first := _wave_sizes[0] if not _wave_sizes.is_empty() else AT_ONCE
+	for entry: Array in lot:
 		var scene := _foe_scene(String(entry[0]))
 		if scene == null:
 			continue
@@ -1428,7 +1495,7 @@ func _spawn_room(i: int) -> void:
 					and String((made[0] as Node).get_meta(&"scene", "")) == String(entry[0]):
 				var ready_made := made.pop_front() as Node3D
 				_take_up(ready_made, at, c, int(r["lv"]))
-				if k >= AT_ONCE:
+				if k >= first:
 					# a later wave's, as below
 					ready_made.position = c + Vector3(float(k) * 1.5, -40.0, 0.0)
 					ready_made.visible = false
@@ -1466,7 +1533,7 @@ func _spawn_room(i: int) -> void:
 				body.set_meta(&"boss", true)
 			if body.has_signal(&"hurt"):
 				body.connect(&"hurt", _on_foe_hurt.bind(body))
-			if k >= AT_ONCE:
+			if k >= first:
 				# a later wave's: out of sight under the floor, not thinking
 				body.position = c + Vector3(float(k) * 1.5, -40.0, 0.0)
 				body.visible = false
@@ -1482,7 +1549,7 @@ func _spawn_room(i: int) -> void:
 	for spare: Variant in made:
 		if is_instance_valid(spare):
 			(spare as Node).queue_free()
-	waves = 2 if not _reserve.is_empty() else 1
+	waves = _wave_sizes.size() if not _reserve.is_empty() else 1
 	_king = null
 	_king_up = false
 	# (the crypt's stone king no more: two lots, and it is done — the user's
@@ -1757,8 +1824,13 @@ func _next_wave() -> void:
 	var l: float = _room(current)["l"]
 	var at: Vector3 = _rift.global_position if is_instance_valid(_rift) else centre(current)
 	var out := 0
-	var list: Array[Node3D] = _reserve.duplicate()
-	_reserve.clear()
+	# this wave's share of those still to come ([method _wave_plan])
+	var size := _wave_sizes[wave - 1] if wave - 1 < _wave_sizes.size() else _reserve.size()
+	var list: Array[Node3D] = []
+	while not _reserve.is_empty() and list.size() < size:
+		list.append(_reserve.pop_front())
+	# (more to come: the rift may open again for them)
+	_rift_at = -1.0
 	for body in list:
 		if not is_instance_valid(body) or bool(body.get("is_dead")):
 			continue
@@ -2211,21 +2283,24 @@ func hard_factors(i: int, heroes: int, power: float) -> Dictionary:
 		"stance": 1.0 + COOP_STANCE * more,
 		"boss_stance": 1.0 + COOP_BOSS_STANCE * more,
 		"pace": 1.0 + COOP_PACE * more,
-		"foe_poise": AS_FOE_POISE if Player.action_souls else 1.0,
-		"foe_life": AS_FOE_HEALTH if Player.action_souls else 1.0,
+		"foe_poise": COMMON_POISE,
+		"foe_life": COMMON_LIFE,
 	}
 
 
-## The quicker fight ([member Player.action_souls], the user's pick
-## 2026-10-29): the common ones come more of them, each falling sooner and
-## staggered more easily; the bosses and the big ones as ever. Those that
-## close in come `AS_FRONT_MORE` times as many (no more than `AS_FRONT_MOST`
-## more of a kind), with `AS_FOE_HEALTH` of their health and `AS_FOE_POISE`
-## of their poise.
-const AS_FRONT_MORE := 1.3
-const AS_FRONT_MOST := 3
-const AS_FOE_HEALTH := 0.75
-const AS_FOE_POISE := 0.8
+## The common ones, both fights (the user's word, 2026-10-29, after playing
+## the quicker one: "total chaos, too many at once — fewer, and hard to
+## kill"): `COMMON_LIFE` times their health and `COMMON_POISE` their poise;
+## a place holds no more than [method room_total] of them, in small waves
+## that grow ([method _wave_plan]).
+const COMMON_LIFE := 1.5
+const COMMON_POISE := 1.5
+## The next wave comes once no more than this many of the last are standing,
+## and a wave holds at most `WAVE_MOST` (the last, with its elite or its big
+## one), the others no more than `WAVE_GROW_MOST`: three or four up at once.
+const WAVE_NEXT_LEFT := 1
+const WAVE_GROW_MOST := 3
+const WAVE_MOST := 4
 ## Its bosses and big ones (the user's word, 2026-10-29: the bosses brought on
 ## as the rest were): every move `AS_BOSS_TEMPO` times as quick, its rests
 ## between blows `AS_BOSS_REST` times as short; their health, stance and blows
@@ -2287,6 +2362,7 @@ static func harden_body(body: Node3D, f: Dictionary, big: bool, guard: bool) -> 
 	var hold := float(f.get("boss_stance", f["stance"])) if big else float(f["stance"])
 	if not big and not guard:
 		hold *= float(f.get("foe_poise", 1.0))
+		body.set_meta(&"common", true)
 	if big:
 		FoeRoles._scale_stat(body, &"hit_damage", float(f["hit"]))
 		var pace := float(f.get("pace", 1.0))
@@ -2861,11 +2937,9 @@ func _process(delta: float) -> void:
 		if goal != null and goal.takes_waves():
 			if left == 0 and goal.may_clear():
 				_clear(current)
-		elif left == 0 and _spawned > 0:
-			var coming := 0
-			for body in _reserve:
-				if is_instance_valid(body) and not bool(body.get("is_dead")):
-					coming += 1
+		elif _spawned > 0 and (left == 0 or (left <= WAVE_NEXT_LEFT and _coming() > 0)):
+			# the next wave as the last of this one is nearly down ([const WAVE_NEXT_LEFT])
+			var coming := _coming()
 			if coming == 0 and is_instance_valid(_king) and not _king_up:
 				# the crypt's last: the stone king rises from his throne
 				if decides():

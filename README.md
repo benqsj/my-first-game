@@ -625,8 +625,17 @@ What action souls changes:
 | a perfect dodge | the roll's stamina back | that, and for `as_counter_time` 1.2 s the next landed cut is a counter: ×`as_counter_power` 1.6, ×`as_counter_big` 1.25 on a boss, a big one or another hero; a ring and the shadow trail on every hero |
 | the bow's and the staff's recovery | `loose_recovery` | ×`as_loose_share` 0.7 |
 | skills' cooldowns | as set | ×`as_skill_haste` 0.7 (`Player.skill_pace`) |
-| common creatures (portals; F1's weaker too) | as the run lists them | those that close in ×`Dungeon.AS_FRONT_MORE` 1.3 (at most +3 a kind), health ×`AS_FOE_HEALTH` 0.75, poise ×`AS_FOE_POISE` 0.8 |
 | bosses and big ones | as ever | every move ×`AS_BOSS_TEMPO` 1.1 (`HitFeel.pace`), rests between blows ×`AS_BOSS_REST` 1.25 shorter; health, stance and blows unchanged |
+
+Both fights (2026-10-29, after he played the quicker one: chaos, too many
+at once): a portal place holds `Dungeon.room_total` common ones (6 at the
+first step, one more every other step, 10 at most; `_room_lot` keeps the
+bands' first and the elite or late big one), in waves that grow
+(`_wave_plan`: 1, 2, 3 early, 2, 3, 3… later; at most `WAVE_GROW_MOST` 3, the
+last up to `WAVE_MOST` 4), the next out of the rift once no more than
+`WAVE_NEXT_LEFT` 1 of the last stand. Each common one has ×`COMMON_LIFE` 1.5
+health and ×`COMMON_POISE` 1.5 poise (F1's too; meta `common`, so it is never
+taken for a big one by its health). Bosses' places as they were.
 
 Films comparing the two: `_shots_tmp/as1/film.gd` (Tariel and a skeleton:
 cuts broken off by an evade, perfect dodges and counters) and
