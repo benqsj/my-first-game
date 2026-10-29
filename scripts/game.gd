@@ -214,6 +214,11 @@ func _ready() -> void:
 	# Closing is ours to decide: see `_notification`.
 	get_tree().set_auto_accept_quit(false)
 	_load_settings()
+	# tests: VEPXIS_FIGHT=classic|action sets the fight whatever was saved
+	var forced := OS.get_environment("VEPXIS_FIGHT")
+	# (his own pick, the one saved, is left as it is)
+	if forced != "":
+		Player.action_souls = forced == "action"
 	_apply_display()
 	_apply_frames()
 	_apply_volumes.call_deferred()
