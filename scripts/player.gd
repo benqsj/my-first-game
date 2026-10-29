@@ -344,6 +344,17 @@ var _counter_until_frame: int = -1
 @export var as_skill_haste: float = 0.7
 
 
+## What a roll, a cut, a held draw or anything else that takes breath costs in
+## that fight, as a share; and how much quicker a draw or a charge gathers.
+@export var as_stamina_share: float = 0.8
+@export var as_draw_pace: float = 1.15
+
+
+## How quickly a draw or a charge gathers in the fight that is on.
+func draw_pace() -> float:
+	return as_draw_pace if action_souls else 1.0
+
+
 ## The skills' cooldowns' share in the fight that is on.
 func skill_pace() -> float:
 	return skill_haste * (as_skill_haste if action_souls else 1.0)
@@ -3790,6 +3801,8 @@ func _now() -> float:
 func _spend(cost: float) -> bool:
 	if stamina <= 0.0 and cost > 0.0:
 		return false
+	if action_souls and cost > 0.0:
+		cost *= as_stamina_share
 	stamina = maxf(stamina - cost, 0.0)
 	_stamina_wait = stamina_delay
 	if stamina <= 0.0:

@@ -982,7 +982,8 @@ static func cut_worth(me: Player, target: Node3D = null) -> Array:
 	# A perfect dodge answered (the quicker fight): the first cut to land after
 	# it is the counter.
 	if me.counter_ready():
-		var big := target != null and HitFeel.is_big(target)
+		# (on a boss, a big one or another hero — a duel — not the whole of it)
+		var big := target != null and (target is Player or HitFeel.is_big(target))
 		worth[0] = float(worth[0]) * (me.as_counter_big if big else me.as_counter_power)
 		me._counter_until_frame = -1
 	if me.profile == null:

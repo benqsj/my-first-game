@@ -45,7 +45,7 @@ static func _tick_bow(me: Player, delta: float) -> void:
 				me._draw_sound = Sfx.play(me, Player.DRAW_SOUND, me, Vector3.ZERO, 1.0, -12.0)
 				me.net_creak.rpc()
 	elif holding and me._drawing:
-		me._draw_timer += delta
+		me._draw_timer += delta * me.draw_pace()
 		# Held, a draw or a charge costs breath as it goes; run out and it goes.
 		var drain := me.profile.draw_stamina if me.profile != null else 0.0
 		# (full, the hold costs no more: only the gathering does)
@@ -56,7 +56,7 @@ static func _tick_bow(me: Player, delta: float) -> void:
 	elif me._drawing:
 		if me.profile != null and me._draw_timer < me.profile.min_draw:
 			# let go too soon: it goes on gathering to its least, then goes
-			me._draw_timer += delta
+			me._draw_timer += delta * me.draw_pace()
 		else:
 			PlayerBow._loose_arrow(me)
 

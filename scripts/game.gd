@@ -498,8 +498,13 @@ func set_fight_quick(on: bool) -> bool:
 	return true
 
 
+## Out of a game online: his own fight again.
+func restore_fight() -> void:
+	Player.action_souls = _fight_quick_own
+
+
 ## The host's fight, on a companion's game (not kept: his own comes back
-## with the next start).
+## when he leaves, [method restore_fight]).
 @rpc("authority", "call_remote", "reliable")
 func net_fight(on: bool) -> void:
 	Player.action_souls = on

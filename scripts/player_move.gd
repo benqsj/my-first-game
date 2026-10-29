@@ -430,7 +430,7 @@ static func _try_backstep(me: Player, chained: bool) -> bool:
 	if not me._spend(me.backstep_stamina):
 		return false
 	if not bool(me.rig.call(&"backstep", me.backstep_time)):
-		me.stamina += me.backstep_stamina
+		me.stamina += me.backstep_stamina * (me.as_stamina_share if Player.action_souls else 1.0)
 		return false
 	me.net_evade.rpc(Player.Evade.BACKSTEP, Vector2.ZERO, me.backstep_time, me._dash_direction, -1)
 	me._dash_direction = me.global_transform.basis.z

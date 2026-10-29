@@ -174,6 +174,10 @@ func join(address: String, character: StringName) -> bool:
 ## it. Offline is a peer whose only member is you, which is exactly what a solo
 ## game is.
 func leave() -> void:
+	# his own fight back, not the host's he played in ([method Game.restore_fight])
+	var game := get_node_or_null(^"/root/Game")
+	if game != null and game.has_method(&"restore_fight"):
+		game.call(&"restore_fight")
 	_joining_as = &""
 	room_code = ""
 	_pending = null
