@@ -317,7 +317,7 @@ static func _place_look(dun: Dungeon, night: float = 0.0) -> void:
 	# all cloud below (the user's word, 2026-10-23)
 	var lands := dun.get_node_or_null(^"Vista") as Node3D
 	if lands != null:
-		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "twin_cave", "holy_spring", "altar"]
+		lands.visible = not kind in ["sky", "forest", "lake", "fort", "falls", "clouds", "gold_hall", "flood_crypt", "cell_cave", "lord_court", "war_camp", "twin_cave", "holy_spring", "altar", "fog_sea"]
 	dun._env.glow_enabled = true
 	dun._env.glow_intensity = 0.9
 	dun._env.glow_bloom = 0.08
@@ -490,7 +490,7 @@ static func _place_look(dun: Dungeon, night: float = 0.0) -> void:
 			DungeonLook._holy_spring_look(dun)
 		"altar":
 			DungeonLook._altar_look(dun)
-		"lake", "fort", "falls", "clouds", "gold_hall":
+		"lake", "fort", "falls", "clouds", "gold_hall", "fog_sea":
 			DungeonLook._terrace_look(dun, kind)
 		"prison", "cell_cave":
 			DungeonLook._ashen_look(dun, kind == "cell_cave")
@@ -867,6 +867,10 @@ static func _terrace_look(dun: Dungeon, kind: String) -> void:
 				"thick": 0.0011, "top": Color(0.32, 0.54, 0.80), "hor": Color(0.80, 0.86, 0.88), "sat": 1.1},
 		"clouds": {"sun": Color(1.0, 0.86, 0.64), "power": 1.15, "up": 40.0, "fog": Color(1.0, 0.88, 0.70),
 				"thick": 0.0006, "top": Color(0.30, 0.54, 0.86), "hor": Color(0.86, 0.86, 0.84), "sat": 1.16},
+		# the fog arena ([FogArena]): a warm, muted afternoon from the side,
+		# a pale gold haze over the fog sea (as its concept)
+		"fog_sea": {"sun": Color(1.0, 0.89, 0.72), "power": 1.12, "up": 30.0, "fog": Color(0.94, 0.89, 0.80),
+				"thick": 0.0009, "top": Color(0.42, 0.57, 0.74), "hor": Color(0.93, 0.87, 0.75), "sat": 1.04},
 		# the golden hall, open on one side, under a storm (the user's word,
 		# 2026-10-24: the dark one is better; thunder, lightning in the clouds)
 		"gold_hall": {"sun": Color(0.70, 0.76, 0.88), "power": 0.16, "up": 42.0, "fog": Color(0.34, 0.38, 0.44),

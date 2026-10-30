@@ -65,6 +65,9 @@ static func _build_room_body(dun: Dungeon, i: int) -> void:
 		"war_camp":
 			ThroneCourt.build(dun, room, w, l, dun._rng, "a")
 			return
+		"fog_sea":
+			FogArena.build(dun, room, w, l, dun._rng)
+			return
 		"lake", "fort", "falls", "clouds", "gold_hall":
 			TerracePlaces.build(dun, room, kind, w, l, dun._rng)
 			return

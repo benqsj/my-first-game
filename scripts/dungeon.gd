@@ -132,6 +132,10 @@ const PLACES := {
 	# the orcs' war camp on a mountain fortress (the user's word, 2026-10-25:
 	# look A of the lord's court, liked, a place of its own [ThroneCourt])
 	"camp": {"name": "ორკების ბანაკი", "kind": "war_camp", "w": 64.0, "l": 64.0, "h": 0.0, "lift": 160.0},
+	# the fog arena: a ring of columns on a high island in a sea of fog, the
+	# stairs up to it over the fog (the user's pick A of the concepts,
+	# 2026-10-30 [FogArena]); on F2's board only for now, a boss to come
+	"isle": {"name": "ნისლის არენა", "kind": "fog_sea", "w": 64.0, "l": 64.0, "h": 0.0, "lift": 160.0},
 	# (the flooded crypt and the stone king's tomb behind it, low poly
 	# [CryptTomb]: the user's pick, 2026-10-24)
 	"crypt": {"name": "აკლდამა", "kind": "flood_crypt", "w": 44.0, "l": 100.0, "h": 15.0},
@@ -256,6 +260,7 @@ const VIEW := {
 	"altar": [5, "Altar"],
 	"terrace": [7, "Lake terrace"], "rampart": [7, "Fortress terrace"], "throne": [9, "Lord's court"],
 	"camp": [7, "Orc camp"], "cave": [3, "Cave (two halls)"],
+	"isle": [9, "Fog arena"],
 }
 
 ## The boss of each dungeon: the scene in its last place that has to fall.

@@ -139,6 +139,8 @@ static func _ambience(dun: Dungeon, i: int) -> void:
 			parts = [["wind_loop.wav", -14.0], ["drums_far_loop.wav", -30.0]]
 		"clouds":
 			parts = [["wind_strong_loop.wav", -11.0]]
+		"fog_sea":
+			parts = [["wind_loop.wav", -12.0]]
 		"lord_court":
 			parts = [["wind_loop.wav", -11.0], ["drums_far_loop.wav", -26.0]]
 		"war_camp":
@@ -193,12 +195,12 @@ static func _now_and_then(dun: Dungeon, delta: float, heroes: Array[Player]) -> 
 	dun._eagle_in -= delta
 	if dun._eagle_in <= 0.0:
 		dun._eagle_in = dun._rng.randf_range(12.0, 26.0)
-		if kind in ["sky", "lake", "fort", "falls", "clouds", "lord_court", "war_camp"] and (kind == "sky" or dun._phase < 2.5):
+		if kind in ["sky", "lake", "fort", "falls", "clouds", "lord_court", "war_camp", "fog_sea"] and (kind == "sky" or dun._phase < 2.5):
 			Sfx.play_flat(dun, Dungeon.SND + "eagle.wav", dun._rng.randf_range(0.92, 1.08), -9.0)
 	dun._flap_in -= delta
 	if dun._flap_in <= 0.0:
 		dun._flap_in = dun._rng.randf_range(6.0, 13.0)
-		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds", "lord_court", "war_camp"]:
+		if kind in ["court", "terrace", "throne", "sky", "rampart", "mountain", "lake", "fort", "falls", "clouds", "lord_court", "war_camp", "fog_sea"]:
 			var at := near + Vector3(dun._rng.randf_range(-14.0, 14.0), 4.0, dun._rng.randf_range(-14.0, 14.0))
 			Sfx.play(dun, Dungeon.SND + "flap.wav", null, at, 1.0, -2.0, 0.15)
 	dun._stones_in -= delta
