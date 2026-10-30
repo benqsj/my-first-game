@@ -151,6 +151,10 @@ static func splatter(world: Node, point: Vector3, direction: Vector3, on: Node3D
 	if world == null or not world.is_inside_tree():
 		return
 	var along := direction.normalized() if direction.length_squared() > 0.0001 else Vector3.UP
+	# The marble world: a creature struck cracks like stone, no blood
+	# ([StoneCrack], 2026-10-30).
+	if on != null and StoneCrack.hit(world, on, point, along, strength):
+		return
 	# A skeleton or a golem has none to let (the user, 2026-10-06): what it
 	# is made of is knocked off it instead, bone chips or stone grit.
 	if on != null and not bleeds(on):

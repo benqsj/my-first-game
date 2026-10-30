@@ -1080,6 +1080,7 @@ func animate(delta: float, planar_speed: float, _speed_ratio: float, airborne: b
 	_airborne_now = airborne
 	_blocking_now = blocking
 	_hold_stop(delta)
+	_blade_world()
 	_tick_blend()
 	_tick_drag(delta)
 	_sheath_tick(delta)
@@ -2423,6 +2424,40 @@ func blade_landed(matter: StringName = &"flesh") -> void:
 
 ## How long the swing is held as it bites (seconds): the blade felt going in.
 var bite_stop: float = 0.075
+
+
+## The cut that last struck the world (a wall, a tree, a pillar): once a cut.
+var _world_cut := -1
+
+
+## The blade in a cut meeting the world, not a body: it cracks there as the
+## floor does ([method FloorCrack.surface]; the user, 2026-10-30), chips fly
+## and the stone ticks. Every peer, from its own copy of the swing (a look
+## only). A low cut along the floor does not crack it (slams do).
+func _blade_world() -> void:
+	if _world_cut == attack_serial or not FloorCrack.live() or not is_inside_tree():
+		return
+	var edge := get_cutting_edge()
+	if edge.size() < 2:
+		return
+	var q := PhysicsRayQueryParameters3D.create(edge[0], edge[1], 1)
+	if _body is CollisionObject3D:
+		q.exclude = [(_body as CollisionObject3D).get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return
+	var struck: Object = hit["collider"]
+	if struck is CharacterBody3D or struck is RigidBody3D:
+		return
+	var normal: Vector3 = hit["normal"]
+	if normal.y > 0.8:
+		return
+	_world_cut = attack_serial
+	var at: Vector3 = hit["position"]
+	var world := Blood.world_of(self)
+	FloorCrack.surface(world, at, normal, clampf(cut_weight, 0.6, 1.6))
+	HitFx.spawn(world, ImpactFx.matter_of(struck as Node) if struck is Node else &"stone", at, normal, cut_weight)
+	Sfx.play(self, StoneCrack.SND % randi_range(1, 4), null, at, randf_range(0.95, 1.1), -3.0)
 var _stop_left: float = 0.0
 var _stop_rate: float = 1.0
 ## The rate the clip is held at while stopped: all but still.

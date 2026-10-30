@@ -79,6 +79,14 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	if _time >= _delay:
+		# the marble world's break: a crack over it, then its own tiles
+		# ([MarbleShatter]; 2026-10-30): the new fight's (F3), the old one
+		# keeps its gold blaze
+		if StoneCrack.live():
+			_burst = true
+			MarbleShatter.begin(get_parent(), body, not _sudden)
+			queue_free()
+			return
 		# lit up first, then broken
 		var t := (_time - _delay) / (FLASH_TIME if _sudden else GLOW_TIME)
 		if t < 1.0:

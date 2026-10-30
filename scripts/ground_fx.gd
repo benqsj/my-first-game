@@ -348,12 +348,14 @@ void fragment() {
 static func eruption(into: Node, at: Vector3, size: float = 1.0, dust_ring: bool = true) -> GroundFx:
 	if into == null:
 		return null
+	FloorCrack.at(into, at, size * 1.2)
 	var fx := GroundFx.new()
 	fx._kind = Kind.DEBRIS
 	fx._base_y = at.y
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	for i in roundi(22 * size):
+	# the marble world throws no grit up: its floor only cracks (the user, 2026-10-30)
+	for i in (0 if FloorCrack.live() else roundi(22 * size)):
 		var a := rng.randf() * TAU
 		var out := rng.randf_range(1.2, 4.0) * size
 		var velocity := Vector3(cos(a) * out, rng.randf_range(2.5, 5.5) * size, sin(a) * out)
@@ -362,7 +364,8 @@ static func eruption(into: Node, at: Vector3, size: float = 1.0, dust_ring: bool
 	fx._end = 1.4
 	fx._mm = MultiMesh.new()
 	fx._mm.transform_format = MultiMesh.TRANSFORM_3D
-	fx._mm.mesh = _rock()
+	# the marble world's grit is broken tile, not boxes
+	fx._mm.mesh = FloorCrack.chunk() if FloorCrack.live() else _rock()
 	fx._mm.instance_count = fx._items.size()
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = fx._mm
@@ -469,6 +472,8 @@ func _place() -> void:
 static func weapon_dust(world: Node, at: Vector3, power: float) -> void:
 	if world == null:
 		return
+	# the marble world's floor breaks under it ([FloorCrack], 2026-10-30)
+	FloorCrack.at(world, at, power)
 	SkillFx.particles(world, at, {
 		"amount": int(14 * power), "life": 1.1, "one_shot": true, "explosiveness": 0.95, "add": false,
 		"speed": Vector2(0.6, 1.8) * power, "dir": Vector3.UP, "spread": 75.0, "gravity": Vector3(0, -0.3, 0),

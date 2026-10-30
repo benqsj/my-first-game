@@ -1,0 +1,7 @@
+The shatter's sounds (2026-10-30), mixed by vepxis-art/tools/shatter_sounds.py from:
+- Kenney, "Impact Sounds" (CC0 1.0, public domain; no attribution needed): impact_mining, impact_glass_*,
+  impact_plate_*, impact_punch_heavy, footstep_concrete (raw files in vepxis-art/downloads/kenney_impact_sounds,
+  got from the Godot-ready mirror github.com/Boyquotes/kenney-impact-sounds-for-godot).
+- the game's own assets/sounds/dungeon/crumble.wav.
+crack_<s>.wav: the crack running over the body; break_<s>_1..3.wav: a low thump, the break, its pieces landing.
+s = a (stone), b (crystal), c (marble).
