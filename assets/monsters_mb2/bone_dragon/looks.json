@@ -1,0 +1,241 @@
+{
+ "clip_frames": {
+  "Attack1": [
+   1900.0,
+   1945.0001
+  ],
+  "Attack2": [
+   0.0,
+   75.0
+  ],
+  "Breathe Fire": [
+   80.0,
+   160.0
+  ],
+  "Collapse": [
+   2300.0,
+   2440.0
+  ],
+  "Death": [
+   390.0,
+   470.0
+  ],
+  "Fire Head 1": [
+   1100.0,
+   1190.0
+  ],
+  "Fire Head 2": [
+   1200.0,
+   1310.0
+  ],
+  "Fly": [
+   600.0,
+   645.0
+  ],
+  "Fly Attack": [
+   700.0,
+   768.0
+  ],
+  "Fly Backward": [
+   1450.0,
+   1485.0
+  ],
+  "Fly Breathe Fire": [
+   770.0,
+   860.0
+  ],
+  "Fly Death 1": [
+   1000.0,
+   1015.0
+  ],
+  "Fly Death 2": [
+   1018.0,
+   1048.0
+  ],
+  "Fly Death 3": [
+   1055.0,
+   1095.0
+  ],
+  "Fly Dive": [
+   1500.0,
+   1530.0
+  ],
+  "Fly Fast": [
+   870.0,
+   905.0
+  ],
+  "Fly Glide": [
+   1550.0,
+   1580.0
+  ],
+  "Fly Got HIt": [
+   930.0,
+   965.0
+  ],
+  "Fly Idle": [
+   1400.0,
+   1435.0
+  ],
+  "Fly Static Saddle": [
+   650.0,
+   695.0
+  ],
+  "Got Hit 1": [
+   320.0,
+   345.0
+  ],
+  "Got Hit 2": [
+   350.0,
+   375.0
+  ],
+  "Idle": [
+   1600.0,
+   1680.0
+  ],
+  "Idle Break": [
+   1700.0,
+   1870.0
+  ],
+  "Look Back Left 1": [
+   2050.0,
+   2080.0
+  ],
+  "Look Back Left 2": [
+   2080.0,
+   2110.0
+  ],
+  "Look Back Left 3": [
+   2110.0,
+   2140.0
+  ],
+  "Look Back Right 1": [
+   1950.0,
+   1980.0
+  ],
+  "Look Back Right 2": [
+   1980.0,
+   2010.0
+  ],
+  "Look Back Right 3": [
+   2010.0,
+   2040.0
+  ],
+  "Reassemble": [
+   2600.0,
+   2780.0
+  ],
+  "Run": [
+   560.0,
+   575.0
+  ],
+  "Tail Whip Left": [
+   180.0,
+   245.0
+  ],
+  "Tail Whip Right": [
+   250.0,
+   315.0
+  ],
+  "Walk": [
+   500.0,
+   540.0
+  ],
+  "Walk Backward": [
+   1330.0,
+   1370.0
+  ]
+ },
+ "clips": [
+  "Attack1",
+  "Attack2",
+  "Idle",
+  "Idle Break",
+  "Tail Whip Left",
+  "Tail Whip Right",
+  "Got Hit 1",
+  "Got Hit 2",
+  "Death",
+  "Walk",
+  "Run",
+  "Walk Backward",
+  "Look Back Right 1",
+  "Look Back Right 2",
+  "Look Back Right 3",
+  "Look Back Left 1",
+  "Look Back Left 2",
+  "Look Back Left 3",
+  "Collapse",
+  "Reassemble",
+  "Fly",
+  "Fly Static Saddle",
+  "Fly Fast",
+  "Fly Idle",
+  "Fly Backward",
+  "Fly Dive",
+  "Fly Glide",
+  "Fly Attack",
+  "Fly Breathe Fire",
+  "Fly Got HIt",
+  "Fly Death 1",
+  "Fly Death 2",
+  "Fly Death 3",
+  "Fire Head 1",
+  "Fire Head 2",
+  "Breathe Fire"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Blue",
+   "Bone",
+   "Brown",
+   "Green",
+   "Red",
+   "White",
+   "Black"
+  ]
+ },
+ "height": 5.5,
+ "key": "bone_dragon",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Skeleton_Dragon_LP",
+   "shapes": [
+    "SFB_BS_WingSpikesLengthMinus",
+    "SFB_BS_WingSpikesLengthPlus",
+    "SFB_BS_WingTipLengthMinus",
+    "SFB_BS_WingTipLengthPlus",
+    "SFB_BS_TailEndSpikeSizeMinus",
+    "SFB_BS_TailEndSpikeSizePlus",
+    "SFB_BS_TailEndBoneSpikeSize",
+    "SFB_BS_BackBonesSizeMinus",
+    "SFB_BS_BackBonesSizePlus",
+    "SFB_BS_NeckSideBonesSize",
+    "SFB_BS_TailSideBonesSize",
+    "SFB_BS_TailUnderBonesSize",
+    "SFB_BS_BackFeetSizeMinus",
+    "SFB_BS_BackFeetSizePlus",
+    "SFB_BS_FrontFeetSizePlus",
+    "SFB_BS_FrontFeetSizeMinus",
+    "SFB_BS_BackLegSize",
+    "SFB_BS_FrontLegSize",
+    "SFB_BS_ClawsLength",
+    "SFB_BS_ShoulderSize",
+    "SFB_BS_ChestSize",
+    "SFB_BS_ChestShape",
+    "SFB_BS_HornCurl",
+    "SFB_BS_HornLengthPlus",
+    "SFB_BS_HornLengthMinus",
+    "SFB_BS_FaceShape",
+    "SFB_BS_HeadSize",
+    "SFB_BS_JawSize",
+    "SFB_BS_JawSize2",
+    "SFB_BS_TeethSize",
+    "SFB_BS_WingBonesSize"
+   ]
+  }
+ ],
+ "scale": 1.58892671292475
+}

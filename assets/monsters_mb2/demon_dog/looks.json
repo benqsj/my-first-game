@@ -1,0 +1,288 @@
+{
+ "key": "demon_dog",
+ "height": 1.4,
+ "source_height": 1.1059974618256092,
+ "scale": 1.265825689770659,
+ "groups": {
+  "body": [
+   "Brown",
+   "Brown2",
+   "Grey",
+   "Skeleton",
+   "Tan",
+   "White",
+   "Black",
+   "Dark_Bone"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_WoundSize",
+    "SFB_BS_SpikeSizePlus",
+    "SFB_BS_SpikeSizeMinus",
+    "SFB_BS_NeckSize",
+    "SFB_BS_ShoulderSize",
+    "SFB_BS_BackLegSize",
+    "SFB_BS_RibsSize",
+    "SFB_BS_TailLength",
+    "SFB_BS_ClawSize",
+    "SFB_BS_BigBoySize",
+    "SFB_BS_EarWidthPlus",
+    "SFB_BS_EarWidthMinus",
+    "SFB_BS_EarLengthPlus",
+    "SFB_BS_EarLengthMinus",
+    "SFB_BS_CheekBone",
+    "SFB_BS_CheekSize",
+    "SFB_BS_BrowSizePlus",
+    "SFB_BS_BrowSizeMinus",
+    "SFB_BS_NoseLength",
+    "SFB_BS_NoseSize"
+   ],
+   "tris": 5004
+  },
+  {
+   "name": "Teeth_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_Canine_Teth",
+    "SFB_BS_TeethPlus",
+    "SFB_BS_TeethMinus"
+   ],
+   "tris": 1008
+  },
+  {
+   "name": "Tongu_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 160
+  }
+ ],
+ "clips": [
+  "Attack1",
+  "Attack2",
+  "AttackIdle1",
+  "AttackIdle2",
+  "Bark1",
+  "Bark2",
+  "BodyShake",
+  "Canter",
+  "DiesLeft",
+  "DiesRight",
+  "GotHitBack",
+  "GotHitFront",
+  "GotHitLeft",
+  "GotHitRight",
+  "GrowlingHead",
+  "Howls",
+  "Idle",
+  "IdleSniff",
+  "LookLeft",
+  "LookRight",
+  "PeeLeft",
+  "PeeLeftLoop",
+  "PeeRight",
+  "PeeRightLoop",
+  "ScratchLeft",
+  "ScratchRight",
+  "SniffsGround",
+  "SniffsGroundLoop",
+  "Sprint",
+  "Stalk",
+  "StrafeLeft",
+  "StrafeRight",
+  "Stroll",
+  "StrollBreak1",
+  "StrollBreak2",
+  "TransitionCanterToAttackIdle",
+  "TransitionSprintToAttackIdle",
+  "TransitionTrotToAttackIdle",
+  "Trot",
+  "WalkBack",
+  "WalkFast",
+  "WalkHeadDown",
+  "WalkHeadUp",
+  "WalkInPlace"
+ ],
+ "clip_frames": {
+  "Attack1": [
+   1765,
+   1811
+  ],
+  "Attack2": [
+   1877,
+   1941
+  ],
+  "AttackIdle1": [
+   1251,
+   1401
+  ],
+  "AttackIdle2": [
+   1441,
+   1556
+  ],
+  "Bark1": [
+   1561,
+   1596
+  ],
+  "Bark2": [
+   1601,
+   1641
+  ],
+  "BodyShake": [
+   4381,
+   4481
+  ],
+  "Canter": [
+   1001,
+   1014
+  ],
+  "DiesLeft": [
+   2401,
+   2451
+  ],
+  "DiesRight": [
+   2501,
+   2551
+  ],
+  "GotHitBack": [
+   2151,
+   2191
+  ],
+  "GotHitFront": [
+   2106,
+   2136
+  ],
+  "GotHitLeft": [
+   1971,
+   2009
+  ],
+  "GotHitRight": [
+   2031,
+   2069
+  ],
+  "GrowlingHead": [
+   1651,
+   1721
+  ],
+  "Howls": [
+   2581,
+   2831
+  ],
+  "Idle": [
+   2951,
+   3036
+  ],
+  "IdleSniff": [
+   3036,
+   3161
+  ],
+  "LookLeft": [
+   3551,
+   3651
+  ],
+  "LookRight": [
+   3661,
+   3761
+  ],
+  "PeeLeft": [
+   3401,
+   3531
+  ],
+  "PeeLeftLoop": [
+   3416,
+   3451
+  ],
+  "PeeRight": [
+   3201,
+   3331
+  ],
+  "PeeRightLoop": [
+   3216,
+   3251
+  ],
+  "ScratchLeft": [
+   4201,
+   4366
+  ],
+  "ScratchRight": [
+   4026,
+   4191
+  ],
+  "SniffsGround": [
+   3771,
+   4001
+  ],
+  "SniffsGroundLoop": [
+   3871,
+   3961
+  ],
+  "Sprint": [
+   1031,
+   1043
+  ],
+  "Stalk": [
+   801,
+   886
+  ],
+  "StrafeLeft": [
+   1061,
+   1111
+  ],
+  "StrafeRight": [
+   1141,
+   1191
+  ],
+  "Stroll": [
+   731,
+   777
+  ],
+  "StrollBreak1": [
+   321,
+   501
+  ],
+  "StrollBreak2": [
+   521,
+   721
+  ],
+  "TransitionCanterToAttackIdle": [
+   2271,
+   2314
+  ],
+  "TransitionSprintToAttackIdle": [
+   2341,
+   2389
+  ],
+  "TransitionTrotToAttackIdle": [
+   2201,
+   2251
+  ],
+  "Trot": [
+   951,
+   967
+  ],
+  "WalkBack": [
+   2861,
+   2911
+  ],
+  "WalkFast": [
+   261,
+   291
+  ],
+  "WalkHeadDown": [
+   181,
+   241
+  ],
+  "WalkHeadUp": [
+   101,
+   151
+  ],
+  "WalkInPlace": [
+   101,
+   151
+  ]
+ },
+ "fps": 30
+}

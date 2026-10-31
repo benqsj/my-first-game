@@ -1,0 +1,178 @@
+{
+ "clip_frames": {},
+ "clips": [
+  "GotHitBack",
+  "GotHitLeft",
+  "GotHitRight",
+  "Idle2",
+  "Idle2Break1",
+  "Idle2Break2",
+  "Jog",
+  "JumpForward_idle",
+  "JumpForward_jog",
+  "JumpForward_jog_NO-Y",
+  "JumpForward_run-NO-Y",
+  "JumpForward_run",
+  "JumpForward_walk",
+  "JumpForward_walk_NO-Y",
+  "JumpInPlace",
+  "Run",
+  "Attack1",
+  "Attack2",
+  "Attack3",
+  "Block",
+  "Death",
+  "GotHit",
+  "Idle",
+  "Idle_break_end",
+  "Idle_break_loop",
+  "Idle_break_start",
+  "Taunt",
+  "Walk",
+  "WalkB",
+  "cast1",
+  "cast2"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Blue",
+   "Bronze",
+   "Gold",
+   "Green",
+   "Red",
+   "Silver",
+   "Dark"
+  ],
+  "shield": [
+   "Shield_1",
+   "Shield_2",
+   "Shield_3",
+   "Shield_4"
+  ],
+  "sword": [
+   "Sword_1",
+   "Sword_2",
+   "Sword_3",
+   "Sword_4"
+  ]
+ },
+ "height": 2.1,
+ "key": "metal_knight",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Head_LP",
+   "shapes": [
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus",
+    "SFB_BS_HeadShape",
+    "SFB_BS_HeadShape2",
+    "SFB_BS_EyeSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Pauldron_R_LP",
+   "shapes": [
+    "SFB_BSM_c1_PaudronShape",
+    "SFB_BSM_c1_ArmSize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Pauldron_L_LP",
+   "shapes": [
+    "SFB_BSM_c1_PaudronShape",
+    "SFB_BSM_c1_ArmSize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Elbow_plate_L_LP",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Elbow_plate_R_LP",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Armpit_Plate_L_LP",
+   "shapes": [
+    "SFB_BSM_c1_ArmSize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Armpit_Plate_R_LP",
+   "shapes": [
+    "SFB_BSM_c1_ArmSize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Skirt_LP",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ]
+  },
+  {
+   "group": "sword",
+   "name": "Sword_LP",
+   "shapes": [
+    "SFB_BS_SwordSideSize",
+    "SFB_BS_SwordLength",
+    "SFB_BS_SwordHandleSize"
+   ]
+  },
+  {
+   "group": "shield",
+   "name": "Shield_LP",
+   "shapes": [
+    "SFB_BS_ShieldMiddleSizePlus",
+    "SFB_BS_ShieldSizePlus",
+    "SFB_BS_ShieldSizeMinus",
+    "SFB_BS_ShieldMiddleSizeMinus",
+    "SFB_BS_ShieldMiddleShape"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Belt_LP",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Body_LP",
+   "shapes": [
+    "SFB_BS_KneeArmourShape",
+    "SFB_BS_LegSize",
+    "SFB_BS_PaudronShape",
+    "SFB_BS_ArmSize",
+    "SFB_BS_BellySize",
+    "SFB_BS_ChestSizeMinus",
+    "SFB_BS_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Paud_LP3",
+   "shapes": [
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ]
+  }
+ ],
+ "scale": 1.02931494410837
+}

@@ -1,0 +1,221 @@
+{
+ "clip_frames": {
+  "Bash01": [
+   1900.0,
+   1954.9999
+  ],
+  "Bash02": [
+   1999.9999,
+   2075.0
+  ],
+  "Bash03": [
+   2100.0,
+   2155.0
+  ],
+  "Bash04": [
+   2180.0,
+   2235.0
+  ],
+  "Block01": [
+   900.0,
+   912.0
+  ],
+  "Block02": [
+   912.0,
+   1000.0
+  ],
+  "Block03": [
+   1000.0,
+   1020.0
+  ],
+  "Death": [
+   2600.0,
+   2685.0
+  ],
+  "Gaze01": [
+   2270.0,
+   2335.0
+  ],
+  "Gaze02": [
+   2380.0,
+   2480.0
+  ],
+  "Gaze03_end": [
+   2545.0,
+   2570.0
+  ],
+  "Gaze03_loop": [
+   2525.0,
+   2545.0
+  ],
+  "Gaze03_start": [
+   2500.0,
+   2525.0
+  ],
+  "GotHit1": [
+   680.0,
+   757.0
+  ],
+  "GotHit2": [
+   800.0,
+   840.0
+  ],
+  "Idle": [
+   1050.0,
+   1190.0
+  ],
+  "IdleAttack": [
+   80.0,
+   260.0
+  ],
+  "IdleBreak": [
+   300.0,
+   460.0
+  ],
+  "MoveBackward": [
+   1800.0,
+   1880.0
+  ],
+  "MoveForward": [
+   1580.0,
+   1740.0
+  ],
+  "StrafeLeft": [
+   1300.0,
+   1335.0
+  ],
+  "StrafeRight": [
+   1235.0,
+   1270.0
+  ],
+  "Taunt": [
+   500.0,
+   630.0
+  ],
+  "Turn180": [
+   1500.0,
+   1525.0
+  ],
+  "TurnLeft": [
+   1450.0,
+   1470.0
+  ],
+  "TurnRight": [
+   1390.0,
+   1410.0
+  ]
+ },
+ "clips": [
+  "IdleAttack",
+  "IdleBreak",
+  "Taunt",
+  "GotHit1",
+  "GotHit2",
+  "Block01",
+  "Block02",
+  "Block03",
+  "Idle",
+  "StrafeRight",
+  "StrafeLeft",
+  "TurnRight",
+  "TurnLeft",
+  "Turn180",
+  "MoveForward",
+  "MoveBackward",
+  "Bash01",
+  "Bash02",
+  "Bash03",
+  "Bash04",
+  "Gaze01",
+  "Gaze02",
+  "Gaze03_start",
+  "Gaze03_loop",
+  "Gaze03_end",
+  "Death"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Blue",
+   "Green",
+   "Grey",
+   "Purple",
+   "Red",
+   "White",
+   "Yellow",
+   "Black"
+  ]
+ },
+ "height": 2.2,
+ "key": "gazer",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Teeth_LP",
+   "shapes": [
+    "SFB_BS_TeethSizePlus",
+    "SFB_BS_TeethSizeMinus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Gums_LP",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Eye_LP",
+   "shapes": [
+    "SFB_BS_EyeIrisSize",
+    "SFB_BS_EyePupilSizePlus",
+    "SFB_BS_EyePupilSizeMinus",
+    "SFB_BS_EyePupilMiddle"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Tongue_LP",
+   "shapes": [
+    "SFB_BS_TongueSize",
+    "SFB_BS_TongueLength"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Head_LP",
+   "shapes": [
+    "SFB_BS_CheekSize",
+    "SFB_BS_CheekShape",
+    "SFB_BS_CheekBoneShape",
+    "SFB_BS_LipsSize",
+    "Blink2",
+    "Angry",
+    "MouthShut2",
+    "Snarl2",
+    "WideEye2",
+    "EyeWild",
+    "BigEye02"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Spikes_LP",
+   "shapes": [
+    "SFB_BS_SpikesLength"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Tentacles_LP",
+   "shapes": [
+    "SFB_BS_TentaclesBodySize",
+    "SFB_BS_TentaclesPupilSize",
+    "SFB_BS_TentaclesIrisSizeMinus",
+    "SFB_BS_TentaclesIrisSizePlus",
+    "SFB_BS_TentaclesEyeSize"
+   ]
+  }
+ ],
+ "scale": 1.31295528772742
+}

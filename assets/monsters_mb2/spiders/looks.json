@@ -1,0 +1,194 @@
+{
+ "clip_frames": {
+  "Attack 1": [
+   140.0,
+   180.0
+  ],
+  "Attack 2": [
+   190.0,
+   254.0
+  ],
+  "Cast": [
+   260.0,
+   350.0
+  ],
+  "Death 1": [
+   360.0,
+   380.0
+  ],
+  "Death 2": [
+   381.0,
+   410.0
+  ],
+  "Dodge": [
+   420.0,
+   473.0
+  ],
+  "Got Hit": [
+   1330.0,
+   1346.0
+  ],
+  "Idle": [
+   500.0,
+   650.0
+  ],
+  "Idle Break": [
+   670.0,
+   873.0
+  ],
+  "Jump Back": [
+   880.0,
+   911.0
+  ],
+  "Jump Left": [
+   1050.0,
+   1091.0
+  ],
+  "Jump Right": [
+   980.0,
+   1015.0
+  ],
+  "Taunt": [
+   1130.0,
+   1270.0
+  ],
+  "Turn Left": [
+   50.0,
+   81.0
+  ],
+  "Turn Left Alt": [
+   1700.0,
+   1731.0
+  ],
+  "Turn Right": [
+   1.0,
+   27.0
+  ],
+  "Walk": [
+   90.0,
+   130.0
+  ],
+  "Walk Back": [
+   1398.0,
+   1459.0
+  ],
+  "Walk Back Alt": [
+   1544.0,
+   1604.0
+  ]
+ },
+ "clips": [
+  "Turn Right",
+  "Turn Left",
+  "Walk",
+  "Attack 1",
+  "Attack 2",
+  "Cast",
+  "Death 1",
+  "Death 2",
+  "Dodge",
+  "Idle",
+  "Idle Break",
+  "Jump Back",
+  "Jump Right",
+  "Jump Left",
+  "Taunt",
+  "Walk Back Alt",
+  "Got Hit",
+  "Walk Back",
+  "Turn Left Alt"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Spider_1",
+   "Spider_2",
+   "Spider_3",
+   "Spider_4",
+   "Spider_5",
+   "Spider_6"
+  ]
+ },
+ "height": 1.3,
+ "key": "spiders",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Eyes_LP",
+   "shapes": [
+    "SFB_BSM_eye_eyeShape0",
+    "SFB_BSM_eye_eyeShape1",
+    "SFB_BSM_eye_eyeShape3",
+    "SFB_BSM_eye_eyeShapeMain"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Legs_LP",
+   "shapes": [
+    "SFB_BS_LegSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Chelicera_LP",
+   "shapes": [
+    "SFB_BS_Chelicera2SizePlus",
+    "SFB_BS_Chelicera2SizeMinus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Body_LP",
+   "shapes": [
+    "SFB_BS_eyeShape0",
+    "SFB_BS_MouthSizePlus",
+    "SFB_BS_MouthSizeMinus",
+    "SFB_BS_BodySizePlus",
+    "SFB_BS_BodySizeMinus",
+    "SFB_BS_eyeShape1",
+    "SFB_BS_eyeShape3",
+    "SFB_BS_eyeShapeMain"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Pedipalp_LP",
+   "shapes": [
+    "SFB_BS_PedipalpSize",
+    "SFB_BS_PedipalpShape",
+    "SFB_BS_PedipalpLength"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Abdomen_LP",
+   "shapes": [
+    "SFB_BS_BackLinePlus",
+    "SFB_BS_BackLineMinus",
+    "SFB_BS_TailLength",
+    "SFB_BS_TailSize",
+    "SFB_BS_TailShape",
+    "SFB_BS_StingerSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Spikes_LP",
+   "shapes": [
+    "SFB_BSM_spikes_TailLength",
+    "SFB_BSM_spikes_TailSize",
+    "SFB_BSM_spikes_LegSpikesPlus",
+    "SFB_BSM_spikes_LegSpikesMinus",
+    "SFB_BSM_spikes_LegSpikesShape",
+    "SFB_BSM_spikes_TailSpikesSizePlus",
+    "SFB_BSM_spikes_TailSpikesSizeMinus",
+    "SFB_BSM_spikes_BodySpikesSize",
+    "SFB_BSM_spikes_BodySizeMinus",
+    "SFB_BSM_spikes_BodySizePlus"
+   ]
+  }
+ ],
+ "scale": 0.369151185098482
+}

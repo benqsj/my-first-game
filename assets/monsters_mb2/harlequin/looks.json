@@ -1,0 +1,214 @@
+{
+ "key": "harlequin",
+ "height": 1.85,
+ "source_height": 1.873031216673553,
+ "scale": 0.9877037731840607,
+ "groups": {
+  "body": [
+   "Color_1",
+   "Color_2",
+   "Color_3",
+   "Color_4",
+   "Color_5",
+   "Color_6",
+   "Color_7"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Belt_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_BustSize",
+    "SFB_BSM_c_ChestSize",
+    "SFB_BSM_c_ArmSize"
+   ],
+   "tris": 226
+  },
+  {
+   "name": "Belt_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_BustSize",
+    "SFB_BSM_c_ChestSize",
+    "SFB_BSM_c_ArmSize"
+   ],
+   "tris": 226
+  },
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_EyeSizePlus",
+    "SFB_BS_EyeSizeMinus",
+    "SFB_BS_noseSize",
+    "SFB_BS_ShoePointsPlus",
+    "SFB_BS_ShoePointsMinus",
+    "SFB_BS_LegSize",
+    "SFB_BS_BustSize",
+    "SFB_BS_ChestSize",
+    "SFB_BS_ButtSize",
+    "SFB_BS_BellySize",
+    "SFB_BS_ArmSize"
+   ],
+   "tris": 3980
+  },
+  {
+   "name": "Boot_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_LegSize"
+   ],
+   "tris": 210
+  },
+  {
+   "name": "Boot_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_LegSize"
+   ],
+   "tris": 210
+  },
+  {
+   "name": "Bow_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 276
+  },
+  {
+   "name": "Chestcloth_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_BustSize",
+    "SFB_BSM_c_ChestSize",
+    "SFB_BSM_c_ArmSize"
+   ],
+   "tris": 372
+  },
+  {
+   "name": "Collar_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 88
+  },
+  {
+   "name": "Hat_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_HatEarSize"
+   ],
+   "tris": 390
+  },
+  {
+   "name": "Mask_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_MaskShape",
+    "SFB_BSM_c_EyeSizePlus",
+    "SFB_BSM_c_EyeSizeMinus"
+   ],
+   "tris": 206
+  },
+  {
+   "name": "Shoulderpad_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_ArmSize"
+   ],
+   "tris": 152
+  },
+  {
+   "name": "Shoulderpad_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_ArmSize"
+   ],
+   "tris": 152
+  }
+ ],
+ "clips": [
+  "Idle",
+  "Idle Break",
+  "Jump Forward",
+  "Crouch Idle",
+  "Get Hit",
+  "Dodge",
+  "Death",
+  "Attack 1",
+  "Attack 2",
+  "Attack 3",
+  "Attack 4",
+  "Walk",
+  "Walk B",
+  "Attack 3B",
+  "Attack 4B",
+  "Crouch Transition"
+ ],
+ "clip_frames": {
+  "Idle": [
+   3,
+   131
+  ],
+  "Idle Break": [
+   140,
+   261
+  ],
+  "Jump Forward": [
+   270,
+   330
+  ],
+  "Crouch Idle": [
+   340,
+   383
+  ],
+  "Get Hit": [
+   440,
+   493
+  ],
+  "Dodge": [
+   510,
+   560
+  ],
+  "Death": [
+   575,
+   641
+  ],
+  "Attack 1": [
+   656,
+   737
+  ],
+  "Attack 2": [
+   750,
+   813
+  ],
+  "Attack 3": [
+   826,
+   878
+  ],
+  "Attack 4": [
+   890,
+   941
+  ],
+  "Walk": [
+   956,
+   983
+  ],
+  "Walk B": [
+   991,
+   1032
+  ],
+  "Attack 3B": [
+   844,
+   878
+  ],
+  "Attack 4B": [
+   903,
+   941
+  ],
+  "Crouch Transition": [
+   395,
+   425
+  ]
+ },
+ "fps": 30
+}

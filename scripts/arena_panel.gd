@@ -81,6 +81,16 @@ const DRILL_KINDS: Array[Array] = [
 var _root: Control
 ## The orc's corner and what is picked in it: version, right, left, make.
 var _orc_room: Control
+## Monster Bundle 2's corner (2026-10-31, the user's word: every version of
+## each, from F1): which monster, and its look as picked ([Mb2Creature]).
+const MB2 := "res://scenes/enemies/mb2/mb2_creature.tscn"
+const MB2_PAIR: Array[String] = ["0", "+0.5", "+1", "-0.5", "-1"]
+const MB2_PAIR_V: Array[float] = [0.0, 0.5, 1.0, -0.5, -1.0]
+const MB2_ONE: Array[String] = ["0", "0.5", "1"]
+const MB2_ONE_V: Array[float] = [0.0, 0.5, 1.0]
+var _mb2_room: VBoxContainer
+var _mb2_kind: int = 0
+var _mb2_look := {}
 var _orc_pick: Array[int] = [0, 0, 0, 2, 0, 0]
 ## The second panel, on the right: what is picked, before it is called up
 ## (the user's word, 2026-10-14), and what its button calls up.
@@ -195,6 +205,16 @@ func _ready() -> void:
 	go.add_child(_small("All versions", _call_up_orcs))
 	orcs.add_child(go)
 	lists.add_child(orcs)
+	_mb2_room = VBoxContainer.new()
+	_mb2_room.add_theme_constant_override("separation", 4)
+	_mb2_room.visible = false
+	lists.add_child(_mb2_room)
+	if not Mb2Creature.kinds().is_empty() and lists.get_child_count() > 0:
+		(lists.get_child(0) as VBoxContainer).add_child(_small("Monster Bundle 2  >", func() -> void:
+			_mb2_room.visible = not _mb2_room.visible
+			if _mb2_room.visible:
+				_mb2_build()
+				_mb2_preview()))
 
 	column.add_child(MenuStyle.label("The floor", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
 	var tools := HBoxContainer.new()
@@ -249,14 +269,15 @@ func _ready() -> void:
 
 
 ## "< value >" under a small heading, calling `picked` with the index.
-func _stepper(title: String, values: Array, picked: Callable) -> Control:
+func _stepper(title: String, values: Array, picked: Callable, start: int = 0) -> Control:
 	var box := VBoxContainer.new()
 	box.add_child(MenuStyle.label(title, MenuStyle.BODY_SIZE - 4, MenuStyle.GOLD_DIM))
 	var row := HBoxContainer.new()
-	var shown := MenuStyle.label(String(values[0]), MenuStyle.BODY_SIZE - 3, MenuStyle.CREAM)
+	start = clampi(start, 0, values.size() - 1)
+	var shown := MenuStyle.label(String(values[start]), MenuStyle.BODY_SIZE - 3, MenuStyle.CREAM)
 	shown.custom_minimum_size = Vector2(150.0, 0.0)
 	shown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var at := [0]
+	var at := [start]
 	var step := func(by: int) -> void:
 		at[0] = wrapi(at[0] + by, 0, values.size())
 		shown.text = String(values[at[0]])
@@ -274,6 +295,166 @@ static func _arm_name(id: String) -> String:
 	if id == "none":
 		return "empty"
 	return String(PolysplitLook.AW.get(id, {}).get("name", id)).replace(" (NEW)", "").capitalize()
+
+
+## Monster Bundle 2's corner, made anew for the monster picked: its colour
+## sets, the paint (the pack's or ours), its clips, each part, each shape.
+func _mb2_build() -> void:
+	for child in _mb2_room.get_children():
+		child.queue_free()
+	var kinds := Mb2Creature.kinds()
+	if kinds.is_empty():
+		return
+	_mb2_kind = wrapi(_mb2_kind, 0, kinds.size())
+	var kind := StringName(kinds[_mb2_kind])
+	if _mb2_look.is_empty():
+		_mb2_look = {"colors": {}, "mine": false, "hidden_parts": PackedStringArray(), "shapes": {}, "clip": &"Idle"}
+	var look := Mb2Creature.looks(kind)
+	_mb2_room.add_child(MenuStyle.label("Monster Bundle 2", MenuStyle.BODY_SIZE - 3, MenuStyle.GOLD_DIM))
+	_mb2_room.add_child(_stepper("Monster", Array(kinds).map(func(k: String) -> String:
+			return Mb2Creature.label(StringName(k))), func(i: int) -> void:
+				_mb2_kind = i
+				_mb2_look = {}
+				_mb2_build.call_deferred()
+				_mb2_preview.call_deferred(), _mb2_kind))
+	var groups: Dictionary = look.get("groups", {})
+	var worn := {}
+	for part: Dictionary in look.get("parts", []):
+		worn[String(part["group"])] = true
+	for group: String in groups:
+		var sets: Array = groups[group]
+		if not worn.has(group) or sets.size() < 2:
+			continue
+		_mb2_room.add_child(_stepper("Colour: " + group, sets.map(func(n: String) -> String: return n.replace("_", " ")),
+				func(i: int) -> void:
+					(_mb2_look["colors"] as Dictionary)[group] = i
+					_mb2_preview(), int((_mb2_look["colors"] as Dictionary).get(group, 0))))
+	_mb2_room.add_child(_stepper("Paint", ["default", "my-color"], func(i: int) -> void:
+			_mb2_look["mine"] = i == 1
+			_mb2_preview(), 1 if bool(_mb2_look["mine"]) else 0))
+	var clips: Array = look.get("clips", [])
+	if not clips.is_empty() and not clips.has(String(_mb2_look["clip"])):
+		# (its own idle when it has no "Idle": the treant's AngryIdle...)
+		var stand := String(clips[0])
+		for c: Variant in clips:
+			var low := String(c).to_lower()
+			if low.contains("idle") and not low.contains("break") and not low.contains("to"):
+				stand = String(c)
+				break
+		_mb2_look["clip"] = StringName(stand)
+	if not clips.is_empty():
+		_mb2_room.add_child(_stepper("Clip", clips, func(i: int) -> void:
+				_mb2_look["clip"] = StringName(String(clips[i]))
+				_mb2_preview(), maxi(clips.find(String(_mb2_look["clip"])), 0)))
+	_mb2_room.add_child(MenuStyle.label("Parts", MenuStyle.BODY_SIZE - 4, MenuStyle.GOLD_DIM))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	for part: Dictionary in look.get("parts", []):
+		var name := String(part["name"])
+		grid.add_child(_toggle(name.trim_suffix("_LP").trim_suffix("_LP2").replace("_", " "),
+				not (_mb2_look["hidden_parts"] as PackedStringArray).has(name), func(on: bool) -> void:
+					var hidden := _mb2_look["hidden_parts"] as PackedStringArray
+					var at := hidden.find(name)
+					if on and at >= 0:
+						hidden.remove_at(at)
+					elif not on and at < 0:
+						hidden.append(name)
+					_mb2_look["hidden_parts"] = hidden
+					_mb2_preview()))
+	_mb2_room.add_child(grid)
+	var sliders := Mb2Creature.sliders(kind)
+	if not sliders.is_empty():
+		_mb2_room.add_child(MenuStyle.label("Shapes", MenuStyle.BODY_SIZE - 4, MenuStyle.GOLD_DIM))
+		var shape_grid := GridContainer.new()
+		shape_grid.columns = 2
+		for s: Array in sliders:
+			var shape := String(s[0])
+			var pair := String(s[2]) != ""
+			var names: Array = Array(MB2_PAIR) if pair else Array(MB2_ONE)
+			var values: Array = Array(MB2_PAIR_V) if pair else Array(MB2_ONE_V)
+			var now := float((_mb2_look["shapes"] as Dictionary).get(shape, 0.0))
+			shape_grid.add_child(_stepper(shape, names, func(i: int) -> void:
+					(_mb2_look["shapes"] as Dictionary)[shape] = values[i]
+					_mb2_preview(), maxi(values.find(now), 0)))
+		_mb2_room.add_child(shape_grid)
+	var go := HBoxContainer.new()
+	go.add_child(_small("Random look", _mb2_random))
+	go.add_child(_small("Call up", _mb2_call_up))
+	go.add_child(_small("Every monster", _mb2_every))
+	_mb2_room.add_child(go)
+
+
+func _mb2_props() -> Dictionary:
+	var kinds := Mb2Creature.kinds()
+	var props := {"kind": StringName(kinds[wrapi(_mb2_kind, 0, kinds.size())])}
+	for key: String in ["colors", "mine", "hidden_parts", "shapes", "clip"]:
+		var v: Variant = _mb2_look.get(key)
+		props[key] = v.duplicate() if v is Dictionary or v is PackedStringArray else v
+	return props
+
+
+func _mb2_preview() -> void:
+	if Mb2Creature.kinds().is_empty():
+		return
+	var props := _mb2_props()
+	_show_pick(MB2, props, "Monster Bundle 2 — " + Mb2Creature.label(props["kind"]),
+			"paint: " + ("my-color" if bool(props["mine"]) else "default") + " · " + String(props["clip"]),
+			_mb2_call_up)
+
+
+func _mb2_call_up() -> void:
+	call_up(MB2, false, null, _mb2_props())
+
+
+## A look picked at random: a colour of each group, some parts left off
+## (never the body), each shape somewhere on its range.
+func _mb2_random() -> void:
+	var kinds := Mb2Creature.kinds()
+	var kind := StringName(kinds[wrapi(_mb2_kind, 0, kinds.size())])
+	var look := Mb2Creature.looks(kind)
+	var colors := {}
+	var groups: Dictionary = look.get("groups", {})
+	for group: String in groups:
+		colors[group] = randi() % maxi((groups[group] as Array).size(), 1)
+	var hidden := PackedStringArray()
+	for part: Dictionary in look.get("parts", []):
+		var name := String(part["name"])
+		var low := name.to_lower()
+		if not (low.contains("body") or low.contains("eye") or low.contains("mouth")) and randf() < 0.3:
+			hidden.append(name)
+	var shapes := {}
+	for s: Array in Mb2Creature.sliders(kind):
+		var pair := String(s[2]) != ""
+		shapes[String(s[0])] = snappedf(randf_range(-1.0 if pair else 0.0, 1.0), 0.5)
+	_mb2_look = {"colors": colors, "mine": _mb2_look.get("mine", false), "hidden_parts": hidden,
+			"shapes": shapes, "clip": _mb2_look.get("clip", &"Idle")}
+	_mb2_build.call_deferred()
+	_mb2_preview.call_deferred()
+
+
+## Every monster of the bundle in a row before him, each as the pack made it.
+func _mb2_every() -> void:
+	var hero := _hero()
+	if hero == null:
+		return
+	var kinds := Mb2Creature.kinds()
+	var ahead := -hero.global_transform.basis.z
+	ahead.y = 0.0
+	ahead = ahead.normalized() if ahead.length() > 0.01 else Vector3.FORWARD
+	var side := ahead.cross(Vector3.UP)
+	# each as wide apart as it is big (the bone dragon is 5.5 m tall)
+	var widths: Array[float] = []
+	var total := 0.0
+	for k in kinds:
+		var w := maxf(2.5, float(Mb2Creature.looks(StringName(k)).get("height", 2.0)) * 1.1)
+		widths.append(w)
+		total += w
+	var along := -total * 0.5
+	for i in kinds.size():
+		along += widths[i] * 0.5
+		var at := hero.global_position + ahead * 10.0 + side * along
+		along += widths[i] * 0.5
+		call_up(MB2, false, at, {"kind": StringName(kinds[i]), "mine": bool(_mb2_look.get("mine", false))})
 
 
 ## What is picked in the orc's corner, as it would be set on the orc.

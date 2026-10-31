@@ -1,0 +1,172 @@
+{
+ "clip_frames": {
+  "Cast01": [
+   1570.0,
+   1760.0
+  ],
+  "Cast02end": [
+   1895.0,
+   1950.0
+  ],
+  "Cast02loop": [
+   1830.0,
+   1895.0
+  ],
+  "Cast02start": [
+   1830.0,
+   1895.0
+  ],
+  "Cast03": [
+   1969.9999,
+   2190.0
+  ],
+  "Cast04end": [
+   2370.0,
+   2490.0
+  ],
+  "Cast04loop": [
+   2280.0,
+   2370.0
+  ],
+  "Cast04start": [
+   2200.0,
+   2280.0
+  ],
+  "Death": [
+   2500.0,
+   2640.0
+  ],
+  "Dodge": [
+   1380.0,
+   1440.0
+  ],
+  "GotHit": [
+   1480.0,
+   1550.0
+  ],
+  "Idle": [
+   640.0,
+   830.0
+  ],
+  "IdleBreak": [
+   830.0,
+   1020.0
+  ],
+  "Statue01": [
+   205.0,
+   215.0
+  ],
+  "Statue02": [
+   245.0,
+   255.0
+  ],
+  "Statue03": [
+   285.0,
+   295.0
+  ],
+  "Taunt": [
+   1110.0,
+   1250.0
+  ],
+  "TurnLeft": [
+   1270.0,
+   1310.0
+  ],
+  "TurnRight": [
+   1320.0,
+   1360.0
+  ],
+  "Walk": [
+   20.0,
+   159.0
+  ],
+  "WalkBack": [
+   340.0,
+   450.0
+  ],
+  "WalkBackNoLegs": [
+   500.0,
+   610.0
+  ]
+ },
+ "clips": [
+  "Walk",
+  "Statue01",
+  "Statue02",
+  "Statue03",
+  "WalkBackNoLegs",
+  "WalkBack",
+  "Idle",
+  "Taunt",
+  "TurnLeft",
+  "TurnRight",
+  "Dodge",
+  "GotHit",
+  "Cast01",
+  "Cast02start",
+  "Cast02loop",
+  "Cast02end",
+  "Cast03",
+  "Cast04start",
+  "Cast04loop",
+  "Cast04end",
+  "Death",
+  "IdleBreak"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Color_Set_1",
+   "Color_Set_2",
+   "Color_Set_3",
+   "Color_Set_4"
+  ]
+ },
+ "height": 2.3,
+ "key": "weeper",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Robe03_LP",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Cawl_LP",
+   "shapes": [
+    "SFB_BSM_Cawl_HeadSize",
+    "SFB_BS_CowlDownMinus",
+    "SFB_BS_CowlDownPlus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "WeeperHead_LP",
+   "shapes": [
+    "SFB_BS_MouthBandSize",
+    "SFB_BS_MouthBandSize2",
+    "SFB_BS_EyeSize",
+    "SFB_BS_HeadSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Hands_LP",
+   "shapes": [
+    "SFB_BS_FingerSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Weeper_LP_RESERVE_H1",
+   "shapes": [
+    "SFB_BS_SleeveSizePlus",
+    "SFB_BS_SleeveSizeMinus",
+    "SFB_BS_ArmSizePlus",
+    "SFB_BS_ArmSizeMinus"
+   ]
+  }
+ ],
+ "scale": 1.19246417069412
+}

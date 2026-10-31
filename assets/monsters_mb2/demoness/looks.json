@@ -1,0 +1,221 @@
+{
+ "key": "demoness",
+ "height": 2.0,
+ "source_height": 1.8869757547508925,
+ "scale": 1.0598970309843903,
+ "groups": {
+  "body": [
+   "Blue",
+   "Green",
+   "Light",
+   "Purple",
+   "Red",
+   "Tan",
+   "Dark",
+   "Tan_Dark"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_ThighSizePlus",
+    "SFB_BS_ThighSizeMinus",
+    "SFB_BS_ShinSizePlus",
+    "SFB_BS_ShinSizeMinus",
+    "SFB_BS_KneeSize",
+    "SFB_BS_ButtSize",
+    "SFB_BS_HipsSize",
+    "SFB_BS_BellySize",
+    "SFB_BS_BreastSizePlus",
+    "SFB_BS_BreastSizeMinus",
+    "SFB_BS_ChestSize",
+    "SFB_BS_ShoulderSize",
+    "SFB_BS_UpperArmSize",
+    "SFB_BS_LowerArmSize",
+    "SFB_BS_FeetSize",
+    "SFB_BS_HandNailSize",
+    "SFB_BS_ChinSize",
+    "SFB_BS_JawSizePlus",
+    "SFB_BS_JawSizeMinus",
+    "SFB_BS_ChinLength",
+    "SFB_BS_CheekSize",
+    "SFB_BS_CheekLengthPlus",
+    "SFB_BS_CheekLengthMinus",
+    "SFB_BS_LipsSize",
+    "SFB_BS_EarsSize",
+    "SFB_BS_NoseSize",
+    "SFB_BS_NoseLength",
+    "SFB_BS_EyeAreaSize",
+    "SFB_BS_BrowSize",
+    "SFB_BS_ForeHeadSize",
+    "SFB_BS_BodyPeakSize",
+    "SFB_BS_HeadPeakSize"
+   ],
+   "tris": 4730
+  },
+  {
+   "name": "Collar_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 160
+  },
+  {
+   "name": "CollarringA_lp",
+   "group": "body",
+   "shapes": [],
+   "tris": 88
+  },
+  {
+   "name": "CollarringB_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 120
+  },
+  {
+   "name": "CollarstrapC_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 116
+  },
+  {
+   "name": "eyes_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 198
+  },
+  {
+   "name": "Highermouth_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 104
+  },
+  {
+   "name": "hornC_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 252
+  },
+  {
+   "name": "hornsA_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_HornSize",
+    "SFB_BS_HornLength",
+    "SFB_BS_HornShape"
+   ],
+   "tris": 496
+  },
+  {
+   "name": "hornsB_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 460
+  },
+  {
+   "name": "Lowermouth_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 104
+  },
+  {
+   "name": "Tail_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_TailSize",
+    "SFB_BS_TailTipSize",
+    "SFB_BS_TailTipLength",
+    "SFB_BS_TailPeakSize"
+   ],
+   "tris": 432
+  },
+  {
+   "name": "Tongue_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 96
+  },
+  {
+   "name": "Wings_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_WingBotClawLength",
+    "SFB_BS_WingOuterClawSize",
+    "SFB_BS_WingMiddleClawSize",
+    "SFB_BS_WingTopClawLength"
+   ],
+   "tris": 1776
+  }
+ ],
+ "clips": [
+  "Attack1A",
+  "Attack1B",
+  "Attack2",
+  "Attack3",
+  "Attack4",
+  "Dodge",
+  "GotHit",
+  "Idle",
+  "IdleBreak",
+  "Taunt",
+  "Walk",
+  "WalkBackward",
+  "Death"
+ ],
+ "clip_frames": {
+  "Attack1A": [
+   0,
+   59
+  ],
+  "Attack1B": [
+   60,
+   108
+  ],
+  "Attack2": [
+   109,
+   197
+  ],
+  "Attack3": [
+   198,
+   255
+  ],
+  "Attack4": [
+   256,
+   324
+  ],
+  "Dodge": [
+   327,
+   380
+  ],
+  "GotHit": [
+   382,
+   408
+  ],
+  "Idle": [
+   1021,
+   1118
+  ],
+  "IdleBreak": [
+   508,
+   713
+  ],
+  "Taunt": [
+   715,
+   853
+  ],
+  "Walk": [
+   1130,
+   1158
+  ],
+  "WalkBackward": [
+   1165,
+   1201
+  ],
+  "Death": [
+   921,
+   1011
+  ]
+ },
+ "fps": 30
+}

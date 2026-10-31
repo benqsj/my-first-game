@@ -1,0 +1,229 @@
+{
+ "key": "scorpion",
+ "height": 1.5,
+ "source_height": 1.5838161048013717,
+ "scale": 0.9470796486111731,
+ "groups": {
+  "body": [
+   "Blue",
+   "Brown",
+   "Green",
+   "Purple",
+   "Red",
+   "White",
+   "Yellow",
+   "Black"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Arm_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ClawSize",
+    "SFB_BSM_c1_ClawThiknessPlus",
+    "SFB_BSM_c1_ClawThiknessMinus"
+   ],
+   "tris": 405
+  },
+  {
+   "name": "Arm_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ClawSize",
+    "SFB_BSM_c1_ClawThiknessPlus",
+    "SFB_BSM_c1_ClawThiknessMinus"
+   ],
+   "tris": 405
+  },
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_LegThicknessPlus",
+    "SFB_BS_LegThicknessMinus",
+    "SFB_BS_ClawThiknessPlus",
+    "SFB_BS_ClawThiknessMinus",
+    "SFB_BS_ClawSize",
+    "SFB_BS_headShape",
+    "SFB_BS_JawShape",
+    "SFB_BS_MoustageSize",
+    "SFB_BS_ForeHeadShape",
+    "SFB_BS_BodySpikesSize",
+    "SFB_BS_TailSpikesSize",
+    "SFB_BS_StingerLength",
+    "SFB_BS_StingerSize",
+    "SFB_BS_TailTipSizeMinus",
+    "SFB_BS_TailTipSizePlus",
+    "SFB_BS_TailSizeMinus",
+    "SFB_BS_TailSizePlus",
+    "SFB_BS_BodySize"
+   ],
+   "tris": 2147
+  },
+  {
+   "name": "Eyes_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 240
+  },
+  {
+   "name": "Leg1_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_5LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 270
+  },
+  {
+   "name": "Leg1_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_1LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 270
+  },
+  {
+   "name": "Leg2_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_6LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 260
+  },
+  {
+   "name": "Leg2_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_2LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 260
+  },
+  {
+   "name": "Leg3_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_7LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 370
+  },
+  {
+   "name": "Leg3_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_3LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 370
+  },
+  {
+   "name": "Leg4_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_8LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 368
+  },
+  {
+   "name": "Leg4_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_4LegSpikeSize",
+    "SFB_BSM_l1_LegThicknessPlus",
+    "SFB_BSM_l1_LegThicknessMinus"
+   ],
+   "tris": 368
+  },
+  {
+   "name": "Teeth_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_teethSize"
+   ],
+   "tris": 248
+  }
+ ],
+ "clips": [
+  "Idle",
+  "Idle Break",
+  "Taunt",
+  "Walk",
+  "Walk Backward",
+  "Attack Idle",
+  "Got Hit",
+  "Dodge",
+  "Death",
+  "Attack 1",
+  "Attack 1B",
+  "Attack 2",
+  "Attack 3"
+ ],
+ "clip_frames": {
+  "Idle": [
+   0,
+   249
+  ],
+  "Idle Break": [
+   254,
+   438
+  ],
+  "Taunt": [
+   444,
+   579
+  ],
+  "Walk": [
+   584,
+   624
+  ],
+  "Walk Backward": [
+   629,
+   668
+  ],
+  "Attack Idle": [
+   675,
+   874
+  ],
+  "Got Hit": [
+   885,
+   957
+  ],
+  "Dodge": [
+   965,
+   1036
+  ],
+  "Death": [
+   1045,
+   1127
+  ],
+  "Attack 1": [
+   1155,
+   1211
+  ],
+  "Attack 1B": [
+   1220,
+   1276
+  ],
+  "Attack 2": [
+   1420,
+   1472
+  ],
+  "Attack 3": [
+   1285,
+   1414
+  ]
+ },
+ "fps": 30
+}

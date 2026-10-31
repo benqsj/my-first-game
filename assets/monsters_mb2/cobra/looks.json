@@ -1,0 +1,177 @@
+{
+ "key": "cobra",
+ "height": 3.0,
+ "source_height": 0.1218053437769413,
+ "scale": 24.6294612943568,
+ "groups": {
+  "body": [
+   "Blue",
+   "Blue_2",
+   "Blue_3",
+   "Brown",
+   "Green",
+   "Green_2",
+   "Green_3",
+   "Purple",
+   "Red",
+   "Red_2",
+   "Red_3",
+   "White",
+   "Black",
+   "Black_2",
+   "Black_3"
+  ]
+ },
+ "parts": [
+  {
+   "name": "R_cobraEye_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 92
+  },
+  {
+   "name": "SnakeBody_lp",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_BodyRidge",
+    "SFB_BS_EyebrowDepth",
+    "SFB_BS_HeadRidgePlus",
+    "SFB_BS_HeadRidgeMinus",
+    "SFB_BS_HeadHeightPlus",
+    "SFB_BS_HeadHeightMinus",
+    "SFB_BS_NeckWidthPlus",
+    "SFB_BS_NeckWidthMinus",
+    "SFB_BS_NoseLengthShape",
+    "SFB_BS_NoseLengthShape.001",
+    "AdamApple",
+    "Attack",
+    "Idle",
+    "SFB_BS_ChinSize",
+    "SFB_BS_BodyThicknessMinus",
+    "SFB_BS_BodyThicknessPlus"
+   ],
+   "tris": 1296
+  },
+  {
+   "name": "Teeth_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_teethSize"
+   ],
+   "tris": 56
+  },
+  {
+   "name": "tongue_lp",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_TongueSize"
+   ],
+   "tris": 352
+  }
+ ],
+ "clips": [
+  "Attack1",
+  "Attack2",
+  "Attack3",
+  "Spit1",
+  "Spit2",
+  "Walk",
+  "AlertWalk",
+  "WalkBackward",
+  "Idle",
+  "IdleBreak",
+  "AlertIdle",
+  "AlertIdleBreak",
+  "Taunt",
+  "GotHit",
+  "Dodge",
+  "Death",
+  "Turn180",
+  "CalmToAlert",
+  "AlertToCalm",
+  "TongueLoop"
+ ],
+ "clip_frames": {
+  "Attack1": [
+   860,
+   896
+  ],
+  "Attack2": [
+   808,
+   854
+  ],
+  "Attack3": [
+   756,
+   799
+  ],
+  "Spit1": [
+   377,
+   423
+  ],
+  "Spit2": [
+   434,
+   567
+  ],
+  "Walk": [
+   1459,
+   1516
+  ],
+  "AlertWalk": [
+   1034,
+   1152
+  ],
+  "WalkBackward": [
+   904,
+   1022
+  ],
+  "Idle": [
+   1544,
+   1618
+  ],
+  "IdleBreak": [
+   1628,
+   1751
+  ],
+  "AlertIdle": [
+   1388,
+   1440
+  ],
+  "AlertIdleBreak": [
+   1278,
+   1378
+  ],
+  "Taunt": [
+   262,
+   367
+  ],
+  "GotHit": [
+   590,
+   638
+  ],
+  "Dodge": [
+   650,
+   680
+  ],
+  "Death": [
+   690,
+   730
+  ],
+  "Turn180": [
+   209,
+   249
+  ],
+  "CalmToAlert": [
+   1163,
+   1208
+  ],
+  "AlertToCalm": [
+   1223,
+   1268
+  ],
+  "TongueLoop": [
+   0,
+   160
+  ]
+ },
+ "fps": 30
+}

@@ -1,0 +1,99 @@
+{
+ "key": "gelly_cube",
+ "height": 0.9,
+ "source_height": 0.5098256880437475,
+ "scale": 1.7653092441328146,
+ "groups": {
+  "body": [
+   "Blue",
+   "Green",
+   "Purple",
+   "Red"
+  ]
+ },
+ "parts": [
+  {
+   "name": "GellyCube",
+   "group": "body",
+   "shapes": [
+    "MELT",
+    "STRETCH",
+    "SQUASH",
+    "SUCK",
+    "BULGE",
+    "SFB_BS_CircumferenceMinus",
+    "SFB_BS_CircumferencePlus",
+    "SFB_BS_CornersMinus",
+    "SFB_BS_CornersPlus",
+    "SFB_BS_InflatedMinus",
+    "SFB_BS_InflatedPlus"
+   ],
+   "tris": 456
+  }
+ ],
+ "clips": [
+  "idle",
+  "idle break",
+  "walk",
+  "walk backward",
+  "slide",
+  "slide backward",
+  "dodge",
+  "hit reaction",
+  "attack1",
+  "attack2",
+  "cast",
+  "death"
+ ],
+ "clip_frames": {
+  "idle": [
+   10,
+   40
+  ],
+  "idle break": [
+   45,
+   115
+  ],
+  "walk": [
+   120,
+   135
+  ],
+  "walk backward": [
+   140,
+   155
+  ],
+  "slide": [
+   160,
+   176
+  ],
+  "slide backward": [
+   180,
+   196
+  ],
+  "dodge": [
+   200,
+   230
+  ],
+  "hit reaction": [
+   235,
+   265
+  ],
+  "attack1": [
+   270,
+   315
+  ],
+  "attack2": [
+   320,
+   375
+  ],
+  "cast": [
+   380,
+   410
+  ],
+  "death": [
+   415,
+   500
+  ]
+ },
+ "fps": 24
+}

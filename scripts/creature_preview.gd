@@ -155,7 +155,12 @@ func _frame() -> void:
 			_stage.rotation.y -= atan2(f.x, f.z)
 	var box := AABB()
 	var first := true
-	for n in _shown.find_children("*", "VisualInstance3D", true, false):
+	# (one that knows its own size: Monster Bundle 2's skinned meshes keep
+	# their boxes in the pack's units, [Mb2Creature])
+	if _shown.has_method(&"view_box"):
+		box = _shown.call(&"view_box")
+		first = false
+	for n in ([] if not first else _shown.find_children("*", "VisualInstance3D", true, false)):
 		var v := n as VisualInstance3D
 		if not v.is_visible_in_tree() or v is Decal or v is Light3D:
 			continue

@@ -1,0 +1,389 @@
+{
+ "key": "devils",
+ "height": 2.1,
+ "source_height": 1.7333418775815517,
+ "scale": 1.2115324894417419,
+ "groups": {
+  "armor": [
+   "Armor_1",
+   "Armor_2",
+   "Armor_3",
+   "Armor_4"
+  ],
+  "body": [
+   "Blue",
+   "Green",
+   "Purple",
+   "Red",
+   "White",
+   "Black"
+  ],
+  "sword": [
+   "Sword_1",
+   "Sword_2",
+   "Sword_3"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Body",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_FaceJawSize",
+    "SFB_BS_FaceChinSizeY",
+    "SFB_BS_FaceChinSizeXPlus",
+    "SFB_BS_FaceChinSizeXMinus",
+    "SFB_BS_FaceNoseSize",
+    "SFB_BS_FaceNoseWidthPlus",
+    "SFB_BS_FaceNoseWidthMinus",
+    "SFB_BS_FaceBrawsWidth",
+    "SFB_BS_FaceBrawsShape",
+    "SFB_BS_FaceEarsShape",
+    "SFB_BS_FaceSpikes",
+    "SFB_BS_FaceEarsSpikes",
+    "SFB_BS_ClaviceSpikes",
+    "SFB_BS_HandSize",
+    "SFB_BS_HandNails",
+    "SFB_BS_ShoulderSize",
+    "SFB_BS_ArmSize",
+    "SFB_BS_ChestSize",
+    "SFB_BS_HoovesSoze",
+    "SFB_BS_LegSize",
+    "SFB_BS_HeadSize",
+    "SFB_BS_HornTupe1",
+    "SFB_BS_HornTupe2",
+    "SFB_BS_HornTupe3",
+    "SFB_BS_HornTupe4",
+    "SFB_BS_HornTupe5"
+   ],
+   "tris": 3528
+  },
+  {
+   "name": "Devil_Armor_Combined_Besagew_Horn_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_Horn_ShoulderSize"
+   ],
+   "tris": 90
+  },
+  {
+   "name": "Devil_Armor_Combined_Besagew_Horn_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_Besagew_ShoulderSize"
+   ],
+   "tris": 90
+  },
+  {
+   "name": "Devil_Armor_Combined_Besagew_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_Besagow4_ShoulderSize"
+   ],
+   "tris": 102
+  },
+  {
+   "name": "Devil_Armor_Combined_Besagew_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_Besagow2_ShoulderSize"
+   ],
+   "tris": 102
+  },
+  {
+   "name": "Devil_Armor_Combined_Body_Armor_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C2_ChestSize"
+   ],
+   "tris": 1390
+  },
+  {
+   "name": "Devil_Armor_Combined_Body_Chains",
+   "group": "body",
+   "shapes": [],
+   "tris": 492
+  },
+  {
+   "name": "Devil_Armor_Combined_Couter_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSize"
+   ],
+   "tris": 324
+  },
+  {
+   "name": "Devil_Armor_Combined_Cuisse_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C3_LegSize"
+   ],
+   "tris": 151
+  },
+  {
+   "name": "Devil_Armor_Combined_Cuisse_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C2_LegSize"
+   ],
+   "tris": 151
+  },
+  {
+   "name": "Devil_Armor_Combined_Greave1_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C4_LegSize"
+   ],
+   "tris": 138
+  },
+  {
+   "name": "Devil_Armor_Combined_Greave_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_LegSize"
+   ],
+   "tris": 216
+  },
+  {
+   "name": "Devil_Armor_Combined_Greave_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_LegSize"
+   ],
+   "tris": 216
+  },
+  {
+   "name": "Devil_Armor_Combined_Leather_Armor",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ChestSize"
+   ],
+   "tris": 268
+  },
+  {
+   "name": "Devil_Armor_Combined_Pauldron_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_Pauldron1_ShoulderSize"
+   ],
+   "tris": 240
+  },
+  {
+   "name": "Devil_Armor_Combined_Pauldron_Leather_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C4_ArmSize",
+    "SFB_BSM_Pauldron3_ShoulderSize"
+   ],
+   "tris": 278
+  },
+  {
+   "name": "Devil_Armor_Combined_Pauldron_Leather_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C2_ArmSize",
+    "SFB_BSM_Pauldron2_ShoulderSize"
+   ],
+   "tris": 278
+  },
+  {
+   "name": "Devil_Armor_Combined_Pauldron_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_Pauldron_ShoulderSize"
+   ],
+   "tris": 240
+  },
+  {
+   "name": "Devil_Armor_Combined_Poleyn_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C5_LegSize"
+   ],
+   "tris": 280
+  },
+  {
+   "name": "Devil_Armor_Combined_Poleyn_R",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_LegSize"
+   ],
+   "tris": 280
+  },
+  {
+   "name": "Devil_Armor_Combined_Tasset_Leather",
+   "group": "armor",
+   "shapes": [],
+   "tris": 150
+  },
+  {
+   "name": "Devil_Armor_Combined_Waist_Armor",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C4_ChestSize"
+   ],
+   "tris": 434
+  },
+  {
+   "name": "Devil_Armor_Couter_L",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C3_ArmSize"
+   ],
+   "tris": 324
+  },
+  {
+   "name": "Devil_Body_Combined_eyes",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C3_HeadSize"
+   ],
+   "tris": 176
+  },
+  {
+   "name": "Devil_Body_Combined_Horns_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C2_HeadSize",
+    "SFB_BSM_h2_HornTupe1",
+    "SFB_BSM_h2_HornTupe2",
+    "SFB_BSM_h2_HornTupe3",
+    "SFB_BSM_h2_HornTupe4",
+    "SFB_BSM_h2_HornTupe5"
+   ],
+   "tris": 140
+  },
+  {
+   "name": "Devil_Body_Combined_Horns_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C1_HeadSize",
+    "SFB_BSM_h1_HornTupe1",
+    "SFB_BSM_h1_HornTupe2",
+    "SFB_BSM_h1_HornTupe3",
+    "SFB_BSM_h1_HornTupe4",
+    "SFB_BSM_h1_HornTupe5"
+   ],
+   "tris": 140
+  },
+  {
+   "name": "Devil_Body_Combined_Loincloth",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C5_ChestSize"
+   ],
+   "tris": 494
+  },
+  {
+   "name": "Devil_Body_Combined_Tail",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_TailSize"
+   ],
+   "tris": 208
+  },
+  {
+   "name": "Devil_Body_Combined_Teeth",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C4_HeadSize"
+   ],
+   "tris": 380
+  }
+ ],
+ "clips": [
+  "idle",
+  "idle break",
+  "scream",
+  "taunt",
+  "hit reaction",
+  "dodge",
+  "death",
+  "walk forward",
+  "walk backward",
+  "hop left",
+  "hop right",
+  "attack1",
+  "attack2",
+  "attack3",
+  "attack4",
+  "cast start",
+  "start loop",
+  "cast end"
+ ],
+ "clip_frames": {
+  "idle": [
+   10,
+   50
+  ],
+  "idle break": [
+   55,
+   105
+  ],
+  "scream": [
+   110,
+   175
+  ],
+  "taunt": [
+   180,
+   245
+  ],
+  "hit reaction": [
+   250,
+   290
+  ],
+  "dodge": [
+   295,
+   330
+  ],
+  "death": [
+   355,
+   380
+  ],
+  "walk forward": [
+   385,
+   403
+  ],
+  "walk backward": [
+   405,
+   423
+  ],
+  "hop left": [
+   425,
+   450
+  ],
+  "hop right": [
+   455,
+   480
+  ],
+  "attack1": [
+   485,
+   520
+  ],
+  "attack2": [
+   525,
+   560
+  ],
+  "attack3": [
+   565,
+   605
+  ],
+  "attack4": [
+   610,
+   650
+  ],
+  "cast start": [
+   665,
+   680
+  ],
+  "start loop": [
+   680,
+   710
+  ],
+  "cast end": [
+   710,
+   730
+  ]
+ },
+ "fps": 24
+}

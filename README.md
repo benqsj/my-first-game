@@ -12445,3 +12445,35 @@ before (wave one in the first, the timber gate in the tunnel, wave two and the p
 - **Orcs' cut and the lord's fire; the ghoul on a felled hero (2026-10-27, later).** An orc's cut in the air is drawn only through the cut itself: from a little before each blow to just after it (`_step_arcs`), not as it lifts or carries its blade nor after. The lord's blade burns all over: its own steady fire shader (`BLADE_FIRE_SHADER`: a glow over the whole blade, brighter where flames lick up it) and a sheath of flame plus tongues from guard to point. The ghoul's pounce no longer puts it on him at once: its landing is cut short once he is down, it goes to him, and only if it is at him (`pin_reach`) before he starts to get up does it get on him (`_go_pin`, `pin_delay`); his blood thrown up at each bite (`net_bite`: spill, splatter, a spray). Pushed off (E filled), it backs off and darts aside (no fall onto its back) and keeps off him `pin_rest` s; he gets up as he would, no spring-up kick, untouchable 1.6 s while he rises (`Player._kick_free`).
 - **Orcs, the user's corrections (2026-10-27, night).** The lord's lightning only once his blade is up: on his second breath the bolt waits until the blade's point has risen well over him and stopped rising for a beat (`_tip_top`, `_tip_low`, `_tip_still`; at the latest `STRIKE_LATEST` 2.6 s); it used to fall on the frame his rise began, his clock not yet started. An orc's cut after the draw-back is seen again: the quick share of its three paces eased (`tempo_light` 0.82/1.12/0.85, `tempo_heavy` 0.7/1.3/0.75, were 1.45 and 1.85 through the cut). Its slide to its thrown blade is a slide, legs still: one low pose of `CR_GS_Slide` held (was the run). The two-blade's `drag_rise` and `whirl` strings taken out: its old strings back, its looks kept (the air cut, the red as it finds him, steel on steel, the gleam, the dust). Film: `_shots_tmp/orc_fix_film.gd -- <dir> swing|fetch|bolt old|new`.
 - **The lord's lightning; ghouls' venom (2026-10-27, night).** His second breath now makes the sword of fire: the blade raised to the sky (CR_OR_Casting), at `STRIKE_AT` a forked bolt comes down onto its point (`_lightning`: glowing rods along a jagged line and two branches, flickering, a white flash, sparks, the dungeon's thunder, the view shaken), and the blade catches (`_ignite`: its fire shader fading in, flames that ride the blade in its own frame, `local`, so they no longer hang behind it in a swing). Ghouls: only some are venomous (`venomous_share` 0.5 by name, `force_venom`; no green drips or pool on the others), and a venomous one's claw throws venom in on `venom_chance` (0.45) of its blows, its bite always; venom wears off sooner ([HeroPoison] HOLD 1.2 s, 16 a second); its bar is drawn a little above the skills, as wide as them, only while there is venom.
+
+## Monster Bundle 2: twenty monsters in every look, in F1 (2026-10-31)
+
+Magic Pig's *Low Poly Monster Bundle 2* (bought on the Asset Store; plan:
+project doc `claude/monster_bundle2_plan.md`) is in, beside the game's own
+monsters, none replaced: birdy, bone dragon, cobra, demon dog, demoness,
+devils, gazer, gelly cube and sphere, golem, harlequin, imp, metal knight,
+minotaur, plant monster, scorpion, spiders, treant, troll, weeper. They stand
+and play their clips; none fights yet (each gets its own fight in its own
+session).
+
+- **Made by** `vepxis-art/tools/mb2_convert.py` (Blender: glb) or, for those
+  Blender's FBX reader cannot open or whose clips are bone-only FBX files,
+  `tools/mb2_from_fbx.gd` (Godot's FBX reader: scn). Both cut the pack's one
+  long take into the clips Unity names (`packs/monster_bundle2/clips.json`,
+  from the .meta files), size the body standing in its idle to a height of
+  its own, and write `assets/monsters_mb2/<kind>/looks.json` (parts, shapes,
+  colour groups, clips) beside the pack's palettes in `tex/`.
+- **Units:** some of the pack's skeletons are in centimetres under a mesh in
+  metres (Unity scales them, Blender and Godot do not): the body flies 100
+  times too big once it moves. Measure the body as the skin puts it in a
+  standing frame, never the mesh's own box (`_skinned_box`).
+- **A look** ([Mb2Creature]): each part (mesh) shown or hidden, each shape
+  (`SFB_BS_*`; the armour's `SFB_BSM_*` follow the body's of the same name; a
+  Plus/Minus pair is one -1..1 slider), a colour set per group (body, armour,
+  sword, shield, axe: one 7x7 palette png each, faces pick their colour by
+  UV), and the paint: the pack's ("default") or ours ("my-color":
+  `mb2_creature.gdshader`, each face flat, the palette muted and warm).
+- **F1:** "Monster Bundle 2  >" opens its corner: monster, colours, paint,
+  clip, every part, every shape, a random look, call up, every monster in a
+  row. The preview frames it by `view_box()` (its skinned meshes' boxes are
+  in the pack's units).

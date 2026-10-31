@@ -1,0 +1,375 @@
+{
+ "key": "birdy",
+ "height": 2.2,
+ "source_height": 1.9237506184726954,
+ "scale": 1.1435993724314562,
+ "groups": {
+  "body": [
+   "Blue",
+   "Brown",
+   "Green",
+   "Orange",
+   "Pink",
+   "Rainbow",
+   "Rainbow2",
+   "Red",
+   "White",
+   "Black"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Back_fur",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_Muscular"
+   ],
+   "tris": 204
+  },
+  {
+   "name": "Body",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_Muscular",
+    "SFB_BS_CheekSize",
+    "SFB_BS_BrowSizeMinus",
+    "SFB_BS_BrowSizePlus",
+    "SFB_BS_ChinBumpSize",
+    "SFB_BS_ChinSize",
+    "SFB_BS_NoseSize",
+    "SFB_BS_BeakShape",
+    "SFB_BS_BeakLengthPlus",
+    "SFB_BS_BeakLengthMinus",
+    "SFB_BS_BackClawSizePlus",
+    "SFB_BS_BackClawSizeMinus",
+    "SFB_BS_FrontClawSizeMinus",
+    "SFB_BS_FrontClawSizePlus"
+   ],
+   "tris": 6498
+  },
+  {
+   "name": "Eyes",
+   "group": "body",
+   "shapes": [],
+   "tris": 172
+  },
+  {
+   "name": "Feathers",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_WingFeatherSize"
+   ],
+   "tris": 480
+  },
+  {
+   "name": "Head_Fur",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_HeadGeathersPlus",
+    "SFB_BS_HeadGeathersMinus"
+   ],
+   "tris": 346
+  },
+  {
+   "name": "Head_Hair",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_HairSize"
+   ],
+   "tris": 444
+  },
+  {
+   "name": "Leg_fur",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_Muscular"
+   ],
+   "tris": 216
+  },
+  {
+   "name": "Neck_fur",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_Muscular"
+   ],
+   "tris": 234
+  },
+  {
+   "name": "Tail_fur",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_Muscular"
+   ],
+   "tris": 154
+  },
+  {
+   "name": "Tongue",
+   "group": "body",
+   "shapes": [],
+   "tris": 106
+  },
+  {
+   "name": "Wings_fur",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c_Muscular"
+   ],
+   "tris": 256
+  }
+ ],
+ "clips": [
+  "Air Idle to Ground",
+  "Fly Forward to Walk",
+  "Idle Ground to Air",
+  "Run Ground to Air",
+  "Speed Flying to Run",
+  "Walk Ground to Air",
+  "Attack 1",
+  "Attack 2",
+  "Attack 3",
+  "ComboAttack1",
+  "ComboAttack2",
+  "ComboAttack3",
+  "Death",
+  "Dodge",
+  "Hit from Back",
+  "Hit from Front",
+  "Hit from Left",
+  "Hit from Right",
+  "Idle 2",
+  "Idle Break",
+  "Idle",
+  "Jump Forward",
+  "Jump Up",
+  "Run Forward",
+  "Strafe Left",
+  "Strafe Right",
+  "Taunt",
+  "Walk Backward",
+  "Walk Forward",
+  "Air Attack 1",
+  "Air Attack 2",
+  "Air Attack 3",
+  "Air Dodge",
+  "Air Idle 2",
+  "Air Idle Break",
+  "Air Idle",
+  "Air Strafe Left",
+  "Air Strafe Right",
+  "Air Taunt",
+  "AirComboAttack1",
+  "AirComboAttack2",
+  "AirComboAttack3",
+  "Death In Air",
+  "Fly Backward",
+  "Fly Forward",
+  "Fly Speed Forward",
+  "Hit from Back While Flying",
+  "Hit from Front While Flying",
+  "Hit from Left While Flying",
+  "Hit from Right While Flying"
+ ],
+ "clip_frames": {
+  "Air Idle to Ground": [
+   1,
+   42
+  ],
+  "Fly Forward to Walk": [
+   1,
+   44
+  ],
+  "Idle Ground to Air": [
+   1,
+   37
+  ],
+  "Run Ground to Air": [
+   1,
+   23
+  ],
+  "Speed Flying to Run": [
+   1,
+   23
+  ],
+  "Walk Ground to Air": [
+   1,
+   44
+  ],
+  "Attack 1": [
+   1,
+   31
+  ],
+  "Attack 2": [
+   1,
+   60
+  ],
+  "Attack 3": [
+   1,
+   64
+  ],
+  "ComboAttack1": [
+   1,
+   31
+  ],
+  "ComboAttack2": [
+   1,
+   60
+  ],
+  "ComboAttack3": [
+   1,
+   60
+  ],
+  "Death": [
+   1,
+   120
+  ],
+  "Dodge": [
+   1,
+   50
+  ],
+  "Hit from Back": [
+   1,
+   40
+  ],
+  "Hit from Front": [
+   1,
+   71
+  ],
+  "Hit from Left": [
+   1,
+   26
+  ],
+  "Hit from Right": [
+   1,
+   26
+  ],
+  "Idle 2": [
+   1,
+   162
+  ],
+  "Idle Break": [
+   1,
+   239
+  ],
+  "Idle": [
+   1,
+   159
+  ],
+  "Jump Forward": [
+   1,
+   41
+  ],
+  "Jump Up": [
+   1,
+   52
+  ],
+  "Run Forward": [
+   1,
+   16
+  ],
+  "Strafe Left": [
+   1,
+   53
+  ],
+  "Strafe Right": [
+   1,
+   53
+  ],
+  "Taunt": [
+   1,
+   62
+  ],
+  "Walk Backward": [
+   1,
+   59
+  ],
+  "Walk Forward": [
+   1,
+   69
+  ],
+  "Air Attack 1": [
+   1,
+   25
+  ],
+  "Air Attack 2": [
+   1,
+   38
+  ],
+  "Air Attack 3": [
+   1,
+   38
+  ],
+  "Air Dodge": [
+   1,
+   38
+  ],
+  "Air Idle 2": [
+   1,
+   37
+  ],
+  "Air Idle Break": [
+   1,
+   77
+  ],
+  "Air Idle": [
+   1,
+   20
+  ],
+  "Air Strafe Left": [
+   1,
+   18
+  ],
+  "Air Strafe Right": [
+   1,
+   18
+  ],
+  "Air Taunt": [
+   1,
+   41
+  ],
+  "AirComboAttack1": [
+   1,
+   25
+  ],
+  "AirComboAttack2": [
+   1,
+   35
+  ],
+  "AirComboAttack3": [
+   1,
+   34
+  ],
+  "Death In Air": [
+   1,
+   71
+  ],
+  "Fly Backward": [
+   1,
+   18
+  ],
+  "Fly Forward": [
+   1,
+   18
+  ],
+  "Fly Speed Forward": [
+   1,
+   17
+  ],
+  "Hit from Back While Flying": [
+   1,
+   29
+  ],
+  "Hit from Front While Flying": [
+   1,
+   35
+  ],
+  "Hit from Left While Flying": [
+   1,
+   22
+  ],
+  "Hit from Right While Flying": [
+   1,
+   22
+  ]
+ },
+ "fps": 30
+}

@@ -1,0 +1,155 @@
+{
+ "key": "imp",
+ "height": 1.5,
+ "source_height": 1.85950281098485,
+ "scale": 0.8066672398336165,
+ "groups": {
+  "body": [
+   "Blue",
+   "Brown",
+   "Green",
+   "Red",
+   "White",
+   "Black"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_BellySize",
+    "SFB_BS_BellyChestSize",
+    "SFB_BS_ShoulderSize",
+    "SFB_BS_ArmSize",
+    "SFB_BS_LegSize",
+    "SFB_BS_ButtSize",
+    "SFB_BS_ChinSize",
+    "SFB_BS_ChinLength",
+    "SFB_BS_EirSizePlus",
+    "SFB_BS_EirSizeMinus",
+    "SFB_BS_CheekSizePlus",
+    "SFB_BS_CheekSizeMinus",
+    "SFB_BS_NoseWidth",
+    "SFB_BS_NoseSize",
+    "SFB_BS_NailSize"
+   ],
+   "tris": 5220
+  },
+  {
+   "name": "eyes_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 144
+  },
+  {
+   "name": "horns_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_HornSizePlus",
+    "SFB_BS_HornSizeMinus",
+    "SFB_BS_HornLength",
+    "SFB_BS_HornShape"
+   ],
+   "tris": 364
+  },
+  {
+   "name": "Tail_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_TailSize",
+    "SFB_BS_TailTipSize",
+    "SFB_BS_TailTipShape"
+   ],
+   "tris": 258
+  },
+  {
+   "name": "Teeth_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_TeethSize"
+   ],
+   "tris": 482
+  },
+  {
+   "name": "Wings_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_WingsClowPlus",
+    "SFB_BS_WingsClowMinus",
+    "SFB_BS_WingBoneSize"
+   ],
+   "tris": 928
+  }
+ ],
+ "clips": [
+  "Idle",
+  "IdleBreak",
+  "Walk",
+  "WalkBack",
+  "TurnLeft",
+  "TurnRight",
+  "GotHit",
+  "Taunt",
+  "Dodge",
+  "Death",
+  "Attack01",
+  "Attack02",
+  "Attack03"
+ ],
+ "clip_frames": {
+  "Idle": [
+   50,
+   120
+  ],
+  "IdleBreak": [
+   175,
+   285
+  ],
+  "Walk": [
+   345,
+   379
+  ],
+  "WalkBack": [
+   450,
+   490
+  ],
+  "TurnLeft": [
+   550,
+   570
+  ],
+  "TurnRight": [
+   595,
+   615
+  ],
+  "GotHit": [
+   650,
+   700
+  ],
+  "Taunt": [
+   750,
+   845
+  ],
+  "Dodge": [
+   895,
+   955
+  ],
+  "Death": [
+   1000,
+   1050
+  ],
+  "Attack01": [
+   1100,
+   1155
+  ],
+  "Attack02": [
+   1180,
+   1230
+  ],
+  "Attack03": [
+   1250,
+   1310
+  ]
+ },
+ "fps": 30
+}

@@ -1,0 +1,328 @@
+{
+ "key": "golem",
+ "height": 2.6,
+ "source_height": 1.8719839844852686,
+ "scale": 1.388900771346562,
+ "groups": {
+  "body": [
+   "Blue",
+   "Green",
+   "Grey",
+   "Red",
+   "White",
+   "Black"
+  ]
+ },
+ "parts": [
+  {
+   "name": "ArmourArm_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ArmSize"
+   ],
+   "tris": 39
+  },
+  {
+   "name": "ArmourArm_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ArmSize"
+   ],
+   "tris": 39
+  },
+  {
+   "name": "ArmourBelt",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C1_BellySize"
+   ],
+   "tris": 120
+  },
+  {
+   "name": "ArmourLeg1_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 27
+  },
+  {
+   "name": "ArmourLeg1_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 27
+  },
+  {
+   "name": "ArmourLeg_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 32
+  },
+  {
+   "name": "ArmourLeg_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 32
+  },
+  {
+   "name": "ArmourShoulder1_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ShoulderSize",
+    "SFB_BSM_c1_ChestSize",
+    "SFB_BSM_c1_ArmSize"
+   ],
+   "tris": 25
+  },
+  {
+   "name": "ArmourShoulder1_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ShoulderSize",
+    "SFB_BSM_c1_ChestSize",
+    "SFB_BSM_c1_ArmSize"
+   ],
+   "tris": 25
+  },
+  {
+   "name": "ArmourShoulder_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ShoulderSize",
+    "SFB_BSM_c1_ChestSize",
+    "SFB_BSM_c1_ArmSize"
+   ],
+   "tris": 40
+  },
+  {
+   "name": "ArmourShoulder_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ShoulderSize",
+    "SFB_BSM_c1_ChestSize",
+    "SFB_BSM_c1_ArmSize"
+   ],
+   "tris": 40
+  },
+  {
+   "name": "ArmourThig1_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 32
+  },
+  {
+   "name": "ArmourThig1_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 32
+  },
+  {
+   "name": "ArmourThig_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 46
+  },
+  {
+   "name": "ArmourThig_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_LegSize"
+   ],
+   "tris": 46
+  },
+  {
+   "name": "ArmourWaist_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C1_BellySize",
+    "SFB_BSM_c1_ChestSize"
+   ],
+   "tris": 59
+  },
+  {
+   "name": "ArmourWaist_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_C1_BellySize",
+    "SFB_BSM_c1_ChestSize"
+   ],
+   "tris": 59
+  },
+  {
+   "name": "ArmourWing1_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_WingsSizePlus",
+    "SFB_BSM_c1_WingsSizeMinus"
+   ],
+   "tris": 32
+  },
+  {
+   "name": "ArmourWing1_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_WingsSizePlus",
+    "SFB_BSM_c1_WingsSizeMinus"
+   ],
+   "tris": 32
+  },
+  {
+   "name": "ArmourWing_L",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ChestSize"
+   ],
+   "tris": 30
+  },
+  {
+   "name": "ArmourWing_R",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_c1_ChestSize"
+   ],
+   "tris": 30
+  },
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "Neutral",
+    "Blink",
+    "Sniff",
+    "MouthLow",
+    "BrowsAngry",
+    "BrowsSad",
+    "SFB_BS_HeadSize",
+    "SFB_BS_HornSize",
+    "SFB_BS_HornShape",
+    "SFB_BS_NoseSizePlus",
+    "SFB_BS_NoseSizeMinus",
+    "SFB_BS_LipSize",
+    "SFB_BS_CheekSize",
+    "SFB_BS_ChinSize",
+    "SFB_BS_JawSize",
+    "SFB_BS_EarSize",
+    "SFB_BS_ArmSize",
+    "SFB_BS_LegSize",
+    "SFB_BS_ChestSize",
+    "SFB_BS_ShoulderSize",
+    "SFB_BS_BellySize",
+    "SFB_BS_NailHandsLength",
+    "SFB_BS_NailLegLength",
+    "SFB_BS_WingsSizePlus",
+    "SFB_BS_WingsSizeMinus"
+   ],
+   "tris": 4340
+  },
+  {
+   "name": "eyes_LP2",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_eye_HeadSize"
+   ],
+   "tris": 220
+  }
+ ],
+ "clips": [
+  "Idle",
+  "Walk",
+  "WalkBack",
+  "Taunt",
+  "IdleBreak",
+  "Death01",
+  "Death02",
+  "GotHit",
+  "Attack01",
+  "Attack02",
+  "Attack03",
+  "Attack04",
+  "TurnLeft",
+  "TurnRight",
+  "Block01",
+  "Block02",
+  "Block03"
+ ],
+ "clip_frames": {
+  "Idle": [
+   40,
+   110
+  ],
+  "Walk": [
+   160,
+   190
+  ],
+  "WalkBack": [
+   280,
+   340
+  ],
+  "Taunt": [
+   385,
+   535
+  ],
+  "IdleBreak": [
+   600,
+   740
+  ],
+  "Death01": [
+   780,
+   810
+  ],
+  "Death02": [
+   830,
+   870
+  ],
+  "GotHit": [
+   885,
+   920
+  ],
+  "Attack01": [
+   930,
+   1000
+  ],
+  "Attack02": [
+   1025,
+   1095
+  ],
+  "Attack03": [
+   1150,
+   1215
+  ],
+  "Attack04": [
+   1250,
+   1345
+  ],
+  "TurnLeft": [
+   1400,
+   1429
+  ],
+  "TurnRight": [
+   1450,
+   1479
+  ],
+  "Block01": [
+   1500,
+   1510
+  ],
+  "Block02": [
+   1510,
+   1548
+  ],
+  "Block03": [
+   1548,
+   1560
+  ]
+ },
+ "fps": 30
+}

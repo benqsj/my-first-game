@@ -1,0 +1,292 @@
+{
+ "clip_frames": {
+  "Attack1": [
+   634.0,
+   725.0
+  ],
+  "Attack2": [
+   546.0,
+   633.0
+  ],
+  "Attack3": [
+   495.0,
+   545.0
+  ],
+  "Death": [
+   360.0,
+   422.0
+  ],
+  "Dodge": [
+   301.0,
+   354.0
+  ],
+  "GotHit": [
+   245.0,
+   300.0
+  ],
+  "Idle": [
+   2.0,
+   52.0
+  ],
+  "IdleBreak": [
+   53.0,
+   148.0
+  ],
+  "RamAttack": [
+   809.0,
+   889.0
+  ],
+  "RamRun": [
+   921.0,
+   945.0
+  ],
+  "RamStart": [
+   726.0,
+   781.0
+  ],
+  "RamWall": [
+   890.0,
+   916.0
+  ],
+  "Taunt": [
+   150.0,
+   240.0
+  ],
+  "Walk": [
+   465.0,
+   493.0
+  ],
+  "WalkBackward": [
+   425.0,
+   463.0
+  ]
+ },
+ "clips": [
+  "Idle",
+  "IdleBreak",
+  "Taunt",
+  "GotHit",
+  "Dodge",
+  "Death",
+  "WalkBackward",
+  "Walk",
+  "Attack1",
+  "Attack2",
+  "Attack3",
+  "RamStart",
+  "RamRun",
+  "RamAttack",
+  "RamWall"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "armor": [
+   "Armor_1",
+   "Armor_2",
+   "Armor_3",
+   "Armor_4"
+  ],
+  "axe": [
+   "Axe_1",
+   "Axe_2",
+   "Axe_3",
+   "Axe_4"
+  ],
+  "body": [
+   "Blue",
+   "Brown",
+   "Green",
+   "Purple",
+   "Red",
+   "White",
+   "Black",
+   "Dark_Red"
+  ]
+ },
+ "height": 2.9,
+ "key": "minotaur",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "axe",
+   "name": "Axe_LP",
+   "shapes": [
+    "SFB_BS_AxeLengthPlus",
+    "SFB_BS_AxeLengthMinus",
+    "SFB_BS_AxeBladeSize",
+    "SFB_BS_AxePeakSize",
+    "SFB_BS_AxeHeadShape"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Body_LP",
+   "shapes": [
+    "SFB_BS_ArmMusclesPlus",
+    "SFB_BS_ArmMusclesMinus",
+    "SFB_BS_ForearmSizePlus",
+    "SFB_BS_ForearmSizeMinus",
+    "SFB_BS_ChestSizeMinus",
+    "SFB_BS_ChestSizePlus",
+    "SFB_BS_NeckSizePlus",
+    "SFB_BS_NeckSizeMinus",
+    "SFB_BS_ThighSizePlus",
+    "SFB_BS_ThigSizeMinus",
+    "SFB_BS_CalfSizePlus",
+    "SFB_BS_CalfSizeMinus",
+    "SFB_BS_HoofSizePlus",
+    "SFB_BS_HoofSizeMinus",
+    "SFB_BS_EarsShape",
+    "SFB_BS_ChinSize",
+    "SFB_BS_CheekSizePlus",
+    "SFB_BS_CheekSizeMinus",
+    "SFB_BS_CheeksSideHair",
+    "SFB_BS_ForeHeadHeight",
+    "SFB_BS_ForeHeadDepth",
+    "SFB_BS_NoseSizeMinus",
+    "SFB_BS_NoseSizePlus",
+    "SFB_BS_NoseEyeSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Normal_Horns_LP",
+   "shapes": [
+    "SFB_BS_HornSizePlus",
+    "SFB_BS_HornSizeMinus",
+    "SFB_BS_HornShape"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Wild_Horns_LP",
+   "shapes": [
+    "SFB_BS_WildHornsSizePlus",
+    "SFB_BS_WildHornsSizeMinus",
+    "SFB_BS_WildHornsShape"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Devil_Body_Teeth_LP",
+   "shapes": []
+  },
+  {
+   "group": "armor",
+   "name": "Pauldron_1_Right_LP",
+   "shapes": [
+    "SFB_BSM_c5_ArmMusclesPlus",
+    "SFB_BSM_c5_ArmMusclesMinus",
+    "SFB_BSM_c5_ChestSizeMinus",
+    "SFB_BSM_c5_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "bracer_left_LP",
+   "shapes": [
+    "SFB_BSM_c7_ForearmSizePlus",
+    "SFB_BSM_c7_ForearmSizeMinus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Pauldron_2_Left_LP",
+   "shapes": [
+    "SFB_BSM_c2_ArmMusclesPlus",
+    "SFB_BSM_c2_ArmMusclesMinus",
+    "SFB_BSM_c2_ChestSizeMinus",
+    "SFB_BSM_c2_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Chest_Ring_Center_LP",
+   "shapes": [
+    "SFB_BSM_c9_ChestSizePlus",
+    "SFB_BSM_c9_ChestSizeMinus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Chest_Belt_Left_LP",
+   "shapes": [
+    "SFB_BSM_c3_ArmMusclesPlus",
+    "SFB_BSM_c3_ArmMusclesMinus",
+    "SFB_BSM_c3_ChestSizeMinus",
+    "SFB_BSM_c3_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Cloth_Front_LP",
+   "shapes": []
+  },
+  {
+   "group": "armor",
+   "name": "Waist_Wrap_LP",
+   "shapes": []
+  },
+  {
+   "group": "armor",
+   "name": "Cloth_Back_LP",
+   "shapes": []
+  },
+  {
+   "group": "armor",
+   "name": "Pauldron_2_Right_LP",
+   "shapes": [
+    "SFB_BSM_c6_ArmMusclesPlus",
+    "SFB_BSM_c6_ArmMusclesMinus",
+    "SFB_BSM_c6_ChestSizeMinus",
+    "SFB_BSM_c6_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Belt_Buckle_LP",
+   "shapes": []
+  },
+  {
+   "group": "armor",
+   "name": "Chest_Belt_Right_LP",
+   "shapes": [
+    "SFB_BSM_c4_ArmMusclesPlus",
+    "SFB_BSM_c4_ArmMusclesMinus",
+    "SFB_BSM_c4_ChestSizeMinus",
+    "SFB_BSM_c4_ChestSizePlus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Cloth_Hangers_LP",
+   "shapes": []
+  },
+  {
+   "group": "armor",
+   "name": "Pauldron_1_Left_LP",
+   "shapes": [
+    "SFB_BSM_c1_ArmMusclesPlus",
+    "SFB_BSM_c1_ArmMusclesMinus",
+    "SFB_BSM_c1_ChestSizePlus",
+    "SFB_BSM_c1_ChestSizeMinus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "bracer_Right_LP",
+   "shapes": [
+    "SFB_BSM_c8_ForearmSizePlus",
+    "SFB_BSM_c8_ForearmSizeMinus"
+   ]
+  },
+  {
+   "group": "armor",
+   "name": "Nose_Ring_LP",
+   "shapes": [
+    "SFB_BS_noseRingWhole"
+   ]
+  }
+ ],
+ "scale": 1.60543728450435
+}

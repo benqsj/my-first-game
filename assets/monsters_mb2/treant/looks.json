@@ -1,0 +1,142 @@
+{
+ "clip_frames": {},
+ "clips": [
+  "360SpinKick",
+  "720SpinKick",
+  "AngryIdle",
+  "AngryIdleBreak",
+  "AngryIdleBreak2",
+  "AngryIdleTired",
+  "Block",
+  "BlockEnd",
+  "BlockHit01",
+  "BlockHit02",
+  "BlockingIdle",
+  "Charge",
+  "ChargeTackle01",
+  "ChargeTackle02",
+  "ChargeTackle03",
+  "ClapAttack",
+  "Death01",
+  "Death02",
+  "Death03",
+  "FastWalk",
+  "GorillaSmashAttack",
+  "GotHit01-Right",
+  "GotHit02-Left",
+  "GotHit03-Back",
+  "GotHit04-Front1",
+  "GotHit05-Front2",
+  "GrabAndThrowAttack",
+  "GrabBiteShakeSpit",
+  "Jog",
+  "MagicAttack1",
+  "MagicAttack2",
+  "MagicAttack3",
+  "PeacefulIdle",
+  "PeacefulIdleBreak1",
+  "PeacefulIdleBreak2",
+  "PeacefulIdleToWalk",
+  "PunchBig",
+  "PunchSmall",
+  "PunchSmash",
+  "PunchSwing",
+  "SlowWalk",
+  "SlowWalkToStandingIdle",
+  "SlowerWalk",
+  "StartledToAngryIdle",
+  "StartledToFastWalk",
+  "Taunt",
+  "TiredLoop01",
+  "TiredLoop02",
+  "TiredLoop03",
+  "TiredStompingFeet",
+  "TreePose1",
+  "TreePose2",
+  "TreePose3",
+  "VerticalAttack",
+  "WalkBack"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Body_1",
+   "Body_2",
+   "Body_3",
+   "Body_4",
+   "Body_5",
+   "Body_6"
+  ]
+ },
+ "height": 3.6,
+ "key": "treant",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Body",
+   "shapes": [
+    "SFB_BS_SpikesPlus",
+    "SFB_BS_ArmSizeMinus",
+    "SFB_BS_BellySize",
+    "SFB_BS_LegSizeMinus",
+    "SFB_BS_TorsoSizeMinus",
+    "SFB_BS_TorsoSizePlus",
+    "SFB_BS_ArmSizePlus",
+    "SFB_BS_LegSizePlus",
+    "SFB_BS_SpikesMinus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Jaw_inner",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Jaw",
+   "shapes": [
+    "SFB_BS_JawShapeWide",
+    "SFB_BS_JawShapeZ",
+    "SFB_BS_JawShapeSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Top_head",
+   "shapes": [
+    "SFB_BS_HeadShapeSides",
+    "SFB_BS_HeadShapeZ",
+    "SFB_BS_HeadShapeTop"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Bot_teeth",
+   "shapes": [
+    "blendShape3",
+    "blendShape3 2",
+    "blendShape3 3"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Top_teeth",
+   "shapes": [
+    "blendShape2",
+    "blendShape2 2",
+    "blendShape2 3"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "eyes",
+   "shapes": [
+    "blendShape2",
+    "blendShape2 2",
+    "blendShape2 3"
+   ]
+  }
+ ],
+ "scale": 1.27007121637111
+}

@@ -1,0 +1,183 @@
+{
+ "clip_frames": {
+  "Attack01": [
+   1400.0,
+   1435.0
+  ],
+  "Attack02": [
+   1450.0,
+   1550.0
+  ],
+  "AttackIdle": [
+   700.0,
+   770.0
+  ],
+  "AttackIdleBreak": [
+   800.0,
+   970.0
+  ],
+  "BigJump": [
+   1000.0,
+   1060.0
+  ],
+  "ComesAlive": [
+   600.0,
+   650.0
+  ],
+  "Death": [
+   1300.0,
+   1370.0
+  ],
+  "GoToSleep": [
+   1100.0,
+   1200.0
+  ],
+  "GotHit": [
+   1220.0,
+   1270.0
+  ],
+  "IdlePlant": [
+   350.0,
+   510.0
+  ],
+  "Magic01charge": [
+   1612.0,
+   1630.0
+  ],
+  "Magic01end": [
+   1630.0,
+   1675.0
+  ],
+  "Magic01start": [
+   1600.0,
+   1611.0
+  ],
+  "Walk": [
+   50.0,
+   80.0
+  ],
+  "WalkBackward": [
+   250.0,
+   290.0
+  ],
+  "WalkSkip": [
+   150.0,
+   180.0
+  ]
+ },
+ "clips": [
+  "Walk",
+  "WalkSkip",
+  "WalkBackward",
+  "IdlePlant",
+  "ComesAlive",
+  "AttackIdle",
+  "AttackIdleBreak",
+  "BigJump",
+  "GoToSleep",
+  "GotHit",
+  "Death",
+  "Attack01",
+  "Attack02",
+  "Magic01start",
+  "Magic01charge",
+  "Magic01end"
+ ],
+ "fps": 30.0,
+ "groups": {
+  "body": [
+   "Blue",
+   "Brown",
+   "Green",
+   "Pink",
+   "Purple",
+   "White",
+   "Yellow",
+   "Black"
+  ]
+ },
+ "height": 2.4,
+ "key": "plant_monster",
+ "made_by": "mb2_from_fbx.gd",
+ "parts": [
+  {
+   "group": "body",
+   "name": "Plant_LP1",
+   "shapes": [
+    "SFB_BSM_1_HeadSize",
+    "SFB_BS_TeethSizePlus",
+    "SFB_BS_TeethSizeMinus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Pollens_LP",
+   "shapes": [
+    "SFB_BS_HeadFlowerSizePlus",
+    "SFB_BS_HeadFlowerSizeMinus"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Vines_LP",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "pCylinder1",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "Leaves_LP",
+   "shapes": [
+    "SFB_BSM_1_HeadSize",
+    "SFB_BS_LeafSize",
+    "SFB_BS_LeafSize2"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Plant_LP",
+   "shapes": [
+    "SFB_BS_RootsSize",
+    "SFB_BS_HeadSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "polySurface19",
+   "shapes": []
+  },
+  {
+   "group": "body",
+   "name": "asda2",
+   "shapes": [
+    "SFB_BS_HandSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Spikes_LP",
+   "shapes": [
+    "SFB_BSM_roots_RootsSize",
+    "SFB_BS_SpikeMinus",
+    "SFB_BS_SpikeLengthPlus",
+    "SFB_BS_SpikeShape",
+    "SFB_BS_SpikeSize"
+   ]
+  },
+  {
+   "group": "body",
+   "name": "Flowers_LP",
+   "shapes": [
+    "SFB_BS_FlowersSizePlus",
+    "SFB_BS_FlowersSizeMinus",
+    "SFB_BS_FlowersShape2",
+    "SFB_BS_FlowersShape3",
+    "SFB_BS_FlowersShape1"
+   ]
+  }
+ ],
+ "scale": 1.34352008353949
+}

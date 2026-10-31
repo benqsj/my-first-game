@@ -1,0 +1,398 @@
+{
+ "key": "troll",
+ "height": 2.8,
+ "source_height": 2.6057194429595256,
+ "scale": 1.0745592767346488,
+ "groups": {
+  "armor": [
+   "Armor_1",
+   "Armor_2",
+   "Armor_3",
+   "Armor_4"
+  ],
+  "body": [
+   "Body_1",
+   "Body_2",
+   "Body_3",
+   "Body_4",
+   "Body_5",
+   "Body_6"
+  ]
+ },
+ "parts": [
+  {
+   "name": "Armwrap_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus"
+   ],
+   "tris": 125
+  },
+  {
+   "name": "Armwrap_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus"
+   ],
+   "tris": 125
+  },
+  {
+   "name": "Back_Harness_LP2",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 524
+  },
+  {
+   "name": "Belt_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus",
+    "SFB_BSM_c1_bellySize"
+   ],
+   "tris": 528
+  },
+  {
+   "name": "Body_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BS_ButtSize",
+    "SFB_BS_FeetSize",
+    "SFB_BS_LegSizePlus",
+    "SFB_BS_LegSizeMinus",
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BS_ArmSizeMinus",
+    "SFB_BS_ArmSizePlus",
+    "SFB_BS_bellySize",
+    "SFB_BS_ChestSizeMinus",
+    "SFB_BS_ChestSizePlus",
+    "SFB_BS_HeadSizeTop",
+    "SFB_BS_EarShape",
+    "SFB_BS_EarSize",
+    "SFB_BS_EyeSize",
+    "SFB_BS_CheekSize",
+    "SFB_BS_ChinSize",
+    "SFB_BS_JawSize",
+    "SFB_BS_NoseSize",
+    "SFB_BS_NoseLength",
+    "SFB_BS_HeadWidthTop",
+    "SFB_BS_LipsShape"
+   ],
+   "tris": 3980
+  },
+  {
+   "name": "Chestbelt_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus",
+    "SFB_BSM_c1_bellySize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 293
+  },
+  {
+   "name": "Chestbelt_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus",
+    "SFB_BSM_c1_bellySize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 237
+  },
+  {
+   "name": "Couter_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus"
+   ],
+   "tris": 174
+  },
+  {
+   "name": "Couter_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus"
+   ],
+   "tris": 174
+  },
+  {
+   "name": "eye_L_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_e1_EyeSize"
+   ],
+   "tris": 72
+  },
+  {
+   "name": "eye_R_LP",
+   "group": "body",
+   "shapes": [
+    "SFB_BSM_e2_EyeSize"
+   ],
+   "tris": 72
+  },
+  {
+   "name": "Gauntlet_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus"
+   ],
+   "tris": 118
+  },
+  {
+   "name": "Gauntlet_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus"
+   ],
+   "tris": 118
+  },
+  {
+   "name": "Mouth_LP",
+   "group": "body",
+   "shapes": [],
+   "tris": 820
+  },
+  {
+   "name": "Necklace_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BS_NeckLaceSize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 1240
+  },
+  {
+   "name": "Pauldron_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 276
+  },
+  {
+   "name": "Pauldron_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 276
+  },
+  {
+   "name": "Poleyn_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 115
+  },
+  {
+   "name": "Poleyn_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 115
+  },
+  {
+   "name": "Ropes_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 168
+  },
+  {
+   "name": "Ropes_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 168
+  },
+  {
+   "name": "Sash_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus",
+    "SFB_BSM_c1_bellySize",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 168
+  },
+  {
+   "name": "Shoe_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_FeetSize",
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 266
+  },
+  {
+   "name": "Shoe_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_FeetSize",
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 266
+  },
+  {
+   "name": "Shoulderpad_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 388
+  },
+  {
+   "name": "Shoulderpad_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ArmSizeMinus",
+    "SFB_BSM_C1_ArmSizePlus",
+    "SFB_BSM_c1_ChestSizeMinus",
+    "SFB_BSM_c1_ChestSizePlus"
+   ],
+   "tris": 388
+  },
+  {
+   "name": "Sword_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BS_SwordShape",
+    "SFB_BS_SwordSize",
+    "SFB_BS_SwordHandleSize"
+   ],
+   "tris": 286
+  },
+  {
+   "name": "Thighplates_L_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ButtSize",
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 149
+  },
+  {
+   "name": "Thighplates_R_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_C1_ButtSize",
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus"
+   ],
+   "tris": 149
+  },
+  {
+   "name": "Waistwrap_LP",
+   "group": "armor",
+   "shapes": [
+    "SFB_BSM_c1_LegSizePlus",
+    "SFB_BSM_c1_LegSizeMinus",
+    "SFB_BSM_c1_bellySize"
+   ],
+   "tris": 140
+  }
+ ],
+ "clips": [
+  "Idle",
+  "Idle Break",
+  "Taunt",
+  "Got Hit",
+  "Death",
+  "Jump",
+  "Attack 3",
+  "Attack 2",
+  "Attack 1",
+  "Dodge",
+  "Walk",
+  "Walk Backward"
+ ],
+ "clip_frames": {
+  "Idle": [
+   13,
+   152
+  ],
+  "Idle Break": [
+   153,
+   353
+  ],
+  "Taunt": [
+   354,
+   534
+  ],
+  "Got Hit": [
+   535,
+   585
+  ],
+  "Death": [
+   586,
+   653
+  ],
+  "Jump": [
+   1114,
+   1169
+  ],
+  "Attack 3": [
+   708,
+   797
+  ],
+  "Attack 2": [
+   798,
+   881
+  ],
+  "Attack 1": [
+   882,
+   965
+  ],
+  "Dodge": [
+   966,
+   1016
+  ],
+  "Walk": [
+   1017,
+   1062
+  ],
+  "Walk Backward": [
+   1065,
+   1112
+  ]
+ },
+ "fps": 30
+}
